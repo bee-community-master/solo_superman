@@ -20,6 +20,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | 세션 종료 감각 | 사용자는 완벽한 확신이 아니라 “남은 리스크를 알고 시작한다”는 감각을 얻어야 함 |
 | 질문 AI 톤 | 날카로운 제품 코치, 이유 설명, 가설 언어, 피로도 감지 |
 | 질문 엔진 수렴 | Ambiguity/Question Lifecycle, repeat limit, severity별 수렴 정책 |
+| 근거 품질 Gate | Pro/Con Evidence Gate, missing_con_evidence, skeptical search |
 | 세션 깊이 | Adaptive mode, 모든 축 75점 이상이면 Spec-ready 후보 |
 | 기본 export | Founder Brief |
 | 기본 화면 | Decision Queue 중심 |
@@ -45,6 +46,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 13. `12-validation-and-dry-run.md` - 핸드오프 검토와 샘플 dry-run.
 14. `13-ux-doctrine-and-session-dynamics.md` - UX Doctrine, confidence map, adaptive session, Founder Brief.
 15. `14-ambiguity-question-lifecycle.md` - Ambiguity/Question Lifecycle과 무한 질문 루프 방지 계약.
+16. `15-pro-con-evidence-gate.md` - Pro/Con Evidence Gate와 confirmation bias 방지 계약.
 
 ## 문서 책임 경계
 
@@ -65,6 +67,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | Validation | 문서 품질 검증 방식 | 제품 요구사항 자체는 바꾸지 않는다 |
 | UX Doctrine | 세션 감각, 날카로운 제품 코치, 피로도 개입, Founder Brief | 화면 배치는 UX 문서로, 산식은 Scoring 문서로 넘긴다 |
 | Ambiguity/Question Lifecycle | AmbiguityIssue, QuestionBatch, answer routing, repeat limit, completion 수렴 | Research 상세 품질 산식과 DB/API 스키마는 후속 문서로 넘긴다 |
+| Pro/Con Evidence Gate | pro_evidence, con_evidence, missing_con_evidence, skeptical search | 외부 리서치 런타임 구현과 고객 인터뷰 방법론 깊은 설계는 후속 문서로 넘긴다 |
 
 ## 공식 자료 기반 설계 메모
 
