@@ -4,6 +4,8 @@
 
 Spec Engine은 아이디어, 답변, 리서치 결과, 결정 승인, 문서 버전을 연결하는 상태머신이다. 제품의 핵심은 LLM 호출 자체가 아니라 이 상태 전이와 guardrail이다.
 
+AmbiguityIssue와 QuestionBatch의 상세 수렴 계약은 `14-ambiguity-question-lifecycle.md`를 따른다. Spec Engine은 이 계약을 전체 프로젝트 상태머신에 연결한다.
+
 ## Spec Kit 차용 방식
 
 GitHub Spec Kit은 spec을 구현 전 중심 산출물로 다루는 Spec-Driven Development 흐름을 제안한다. Solo Superman은 그 철학을 창업 기획으로 확장한다.
@@ -29,10 +31,12 @@ ProjectCreated
   → AmbiguityAnalyzed
   → QuestionBatchReady
   → AnsweringInProgress
-  → ResearchInProgress
+  → AnswerRouted
+      ├─ RepeatLimitReached
+      ├─ ResearchInProgress
+      ├─ SpecUpdateSuggested
+      └─ DecisionApprovalWaiting
   → EvidenceMatrixReady
-  → SpecUpdateSuggested
-  → DecisionApprovalWaiting
   → SpecVersionCreated
   → CompletenessScored
   → CompletionCandidate
@@ -99,6 +103,9 @@ ProjectCreated
 출력:
 
 - next 3~5 Question Cards.
+- topicKey별 repeat count.
+- confidence axis impact preview.
+- possible route outcomes.
 
 ### AnsweringInProgress
 
@@ -111,6 +118,37 @@ ProjectCreated
 - Answer records.
 - possible Decision candidates.
 - research task candidates.
+
+### AnswerRouted
+
+입력:
+
+- Answer records.
+- linked AmbiguityIssue.
+- linked topicKey.
+- current Spec state.
+
+출력:
+
+- route outcome: `resolved`, `research_needed`, `decision_candidate`, `spec_update_candidate`, `conflict_detected`, `deferred`, `repeat_limit_reached`.
+- affected Spec sections.
+- affected confidence axes.
+- next queue item candidates.
+
+### RepeatLimitReached
+
+조건:
+
+- 같은 AmbiguityIssue 또는 같은 `topicKey` 질문이 기본 3회 반복됨.
+- 4번째 질문을 만들기 직전임.
+- 새 evidence, 사용자 명시 재개, 강한 반대근거가 없음.
+
+출력:
+
+- high severity: Risk Accepted Approval Card.
+- medium severity: `research_needed` 또는 `research_insufficient`.
+- low severity: `deferred`.
+- Completion Scorer에 전달할 Known Risk marker.
 
 ### ResearchInProgress
 
@@ -222,6 +260,14 @@ Spec section별 빈칸, 충돌, 근거 부족, 불명확한 표현을 찾는다.
 
 AmbiguityIssue를 3~5개 질문 배치로 변환한다.
 
+계약:
+
+- 같은 `topicKey`는 한 batch에 1개만 포함한다.
+- high severity open issue가 남아 있으면 low severity issue를 기본 batch에 넣지 않는다.
+- batch마다 confidence axis impact와 expected score impact를 표시한다.
+- `repeat_limit_reached` topic은 새 evidence가 없으면 batch 후보에서 제외한다.
+- 질문은 하나의 decision만 겨냥해야 한다.
+
 ### Research Planner
 
 답변과 모호함을 바탕으로 필요한 리서치 task를 만든다.
@@ -238,6 +284,23 @@ AmbiguityIssue를 3~5개 질문 배치로 변환한다.
 
 복합 완성도를 계산하고 완료 후보를 판단한다.
 
+## Ambiguity/Question 전이표
+
+| 현재 상태 | Event | Guard | 다음 상태 |
+| --- | --- | --- | --- |
+| `open` | issue classified | question으로 줄일 수 있음 | `question_queued` |
+| `question_queued` | batch selected | repeat count < 3 | `active` Question |
+| `active` Question | answer received | 답변만으로 해소 | `resolved` |
+| `active` Question | answer received | 근거 부족 | `research_needed` |
+| `active` Question | answer received | 핵심 결정 후보 발생 | `decision_candidate` |
+| `active` Question | answer received | Spec 문장 변경 필요 | `spec_update_candidate` |
+| `active` Question | answer received | 기존 Spec과 충돌 | `conflict_detected` |
+| `question_queued` | next question would be 4th | same topicKey, no new evidence | `repeat_limit_reached` |
+| `repeat_limit_reached` | severity high | user accepts risk | `risk_accepted` |
+| `repeat_limit_reached` | severity high | user rejects risk | `deferred` 또는 `research_needed` |
+| `repeat_limit_reached` | severity medium | default | `research_needed` |
+| `repeat_limit_reached` | severity low | default | `deferred` |
+
 ## Guardrails
 
 - LLM이 만든 초기 Spec은 항상 draft다.
@@ -245,4 +308,6 @@ AmbiguityIssue를 3~5개 질문 배치로 변환한다.
 - 반대근거 없는 핵심 결정은 completion gate를 통과할 수 없다.
 - high-risk 질문이 계속 생성되면 큐가 아니라 root ambiguity를 재분석한다.
 - 점수가 올라도 conflict가 남아 있으면 완료 후보가 될 수 없다.
-
+- 같은 topicKey에서 4번째 질문을 만들 수 없다.
+- `repeat_limit_reached`는 해결 상태가 아니라 수렴 event다.
+- high severity issue는 `risk_accepted` 승인 없이 completion gate를 통과할 수 없다.

@@ -19,6 +19,7 @@
 - Confidence Map과 5축 레이더가 사용자의 남은 리스크 이해에 연결되는가?
 - 날카로운 제품 코치 톤이 이유 설명, 가설 언어, 반복 제한, 피로도 감지를 지키는가?
 - Founder Brief가 완료/중단 시 기본 산출물로 정의되어 있는가?
+- Ambiguity/Question Lifecycle이 무한 질문 루프를 막는 수렴 정책을 정의하는가?
 - Research Loop의 입력/출력이 명확한가?
 - approval boundary가 명확한가?
 - runtime adapter와 core의 경계가 명확한가?
@@ -36,6 +37,7 @@
 | UI | Decision Queue 중심 레이아웃 정의 |
 | Scoring | 복합 완성도 산식과 gate 정의 |
 | UX Doctrine | 남은 리스크를 알고 시작한다는 완료 감각, 5축 레이더, 행동 신호 기반 피로도 개입 정의 |
+| Ambiguity/Question | repeat_limit_reached, severity별 수렴 정책, completion 연결 정의 |
 | Founder Brief | Problem-Customer-Value, Top Decisions, Known Risks, Next Validation Actions 정의 |
 | Domain | 핵심 객체와 상태 정의 |
 | Architecture | core와 runtime adapter 경계 정의 |
@@ -195,6 +197,30 @@ Follow-up questions:
 
 이 상태에서는 Top 3 Risk Cards를 먼저 밀어붙이지 않고, 사용자가 계속 진행할지 판단할 수 있게 한다.
 
+### Ambiguity/Question Lifecycle dry-run
+
+샘플 세션에서 `primary_customer_narrowing` topic의 질문이 반복된다고 가정한다.
+
+1. 첫 질문: “가장 먼저 만족시킬 창업자 단계는 무엇인가?”
+2. 두 번째 질문: “구매자와 사용자가 같은 사람인가?”
+3. 세 번째 질문: “이번 MVP에서 제외할 고객은 누구인가?”
+4. 네 번째 질문 후보 생성 시점: `repeat_limit_reached` event가 발생해야 한다.
+
+기대 결과:
+
+- high severity이면 Risk Accepted Approval Card를 생성한다.
+- 사용자가 승인하면 `risk_accepted`로 수렴하고 Founder Brief Known Risks에 남긴다.
+- 사용자가 승인하지 않으면 `deferred` 또는 `research_needed`로 전환하고 Completion Candidate를 막는다.
+- medium severity이면 `research_needed` 또는 `research_insufficient`로 전환하고 새 evidence 전까지 같은 topicKey 질문을 만들지 않는다.
+- low severity이면 `deferred`로 접고 Open Questions에 남긴다.
+
+실패 결과:
+
+- 같은 topicKey에서 네 번째 Question Card가 바로 생성됨.
+- 반복 제한에 도달했지만 status가 open으로 남음.
+- high severity issue가 risk accepted 없이 completion gate를 통과함.
+- medium severity research_needed가 Known Risks나 Next Validation Actions에 연결되지 않음.
+
 ## 정적 일관성 검토 체크리스트
 
 - [ ] 모든 문서가 Phase 1을 Research 포함 폐루프로 정의한다.
@@ -209,6 +235,11 @@ Follow-up questions:
 - [ ] UX Doctrine이 2~5시간 세션의 핵심 감각과 질문 톤을 정의한다.
 - [ ] Confidence Map은 5축 레이더, Top 3 Risk Cards, Next Question Batch, Score History로 정의된다.
 - [ ] Spec-ready 후보는 모든 축 75점 이상과 completion gate를 함께 요구한다.
+- [ ] Ambiguity/Question Lifecycle은 같은 topicKey의 4번째 질문 전에 repeat_limit_reached를 발생시킨다.
+- [ ] high severity 반복 제한은 risk_accepted 승인 전까지 completion gate를 막는다.
+- [ ] medium severity 반복 제한은 research_needed 또는 research_insufficient로 수렴하고 새 evidence 전까지 재질문하지 않는다.
+- [ ] low severity 반복 제한은 deferred로 접히며 Open Questions와 Known Risks에 남는다.
+- [ ] 무한 질문 루프 방지 정책이 Decision Queue, Spec Engine, Scoring 문서에서 충돌하지 않는다.
 - [ ] 날카로운 제품 코치 톤은 이유 설명, 3회 반복 제한, 가설 언어, 피로도 감지를 지킨다.
 - [ ] 행동 신호 기반 피로도 개입은 확정된 결정, confidence delta, if-stop-now 산출물, 낮은 confidence 축을 요약한다.
 - [ ] Founder Brief는 Problem-Customer-Value, Top Decisions, Known Risks, Next Validation Actions를 포함한다.

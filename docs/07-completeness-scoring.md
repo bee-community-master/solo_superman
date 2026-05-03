@@ -80,6 +80,10 @@ question_debt_score = 100 - min(100,
 
 - high-risk 질문이 1개라도 있으면 완료 후보가 될 수 없다. 단, 사용자가 명시적으로 risk accepted 처리하면 가능하다.
 - low 질문은 완료를 막지 않지만 “더 깊게 하기” 후보로 남긴다.
+- 같은 `topicKey`가 `repeat_limit_reached`에 도달하면 더 이상 open question으로 계속 누적하지 않고 severity별 수렴 상태로 계산한다.
+- high severity `repeat_limit_reached`는 `risk_accepted` 전까지 high open과 동일하게 completion gate를 막는다.
+- medium severity `research_needed`는 high open은 아니지만 evidence quality와 관련 confidence axis에 감점으로 반영한다.
+- low severity `deferred`는 question debt에 낮은 감점만 남기고 completion candidate 생성을 막지 않는다.
 
 ## 3. Evidence quality (20%)
 
@@ -158,6 +162,8 @@ Spec 내부 충돌과 애매한 경계를 본다.
 - 핵심 claim에 pro/con evidence 존재.
 - MVP non-goals와 Phase boundary 충돌 없음.
 - Confidence Map의 모든 축 75점 이상.
+- high severity `repeat_limit_reached` issue가 있으면 `risk_accepted` 승인 기록 존재.
+- medium severity `research_needed` issue가 남아 있으면 Known Risks와 Next Validation Actions에 연결.
 
 ## UX 표시 방식
 
@@ -184,6 +190,7 @@ Completeness 78% · Decision-ready · High-risk questions 2 · Evidence gaps 3
 - 모든 축 75점 이상이고 completion gate를 통과하면 시스템은 질문을 더 늘리지 않고 completion candidate를 제안한다.
 - 사용자가 완료 선언을 거부하고 더 깊게 하기를 선택할 때만 low 질문을 계속 확장한다.
 - 같은 주제 질문이 3회 이상 반복되면 시스템은 질문을 더 만들지 말고 “결정 보류”, “리서치 부족”, “risk accepted” 중 하나로 상태를 바꾼다.
+- `repeat_limit_reached` 자체는 실패가 아니다. 실패는 반복 제한에 도달했는데도 수렴 상태 없이 질문을 계속 만드는 것이다.
 
 ## 점수 해석 주의
 

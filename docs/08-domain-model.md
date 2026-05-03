@@ -103,15 +103,42 @@ type AmbiguityIssue = {
   id: string;
   projectId: string;
   specSectionKey: SpecSection['key'];
+  topicKey: string;
   type: 'missing' | 'conflict' | 'unsupported' | 'vague' | 'decision_required';
   severity: 'high' | 'medium' | 'low';
   description: string;
   whyItMatters: string;
-  status: 'open' | 'question_queued' | 'research_needed' | 'resolved' | 'deferred' | 'risk_accepted';
+  repeatCount: number;
+  repeatLimit: number;
+  status:
+    | 'open'
+    | 'question_queued'
+    | 'research_needed'
+    | 'research_insufficient'
+    | 'repeat_limit_reached'
+    | 'resolved'
+    | 'deferred'
+    | 'risk_accepted';
+  closureReason?:
+    | 'answered'
+    | 'auto_resolved'
+    | 'decision_approved'
+    | 'research_needed'
+    | 'repeat_limit_reached'
+    | 'user_deferred'
+    | 'risk_accepted';
   createdAt: string;
   resolvedAt?: string;
 };
 ```
+
+필드 규칙:
+
+- `topicKey`는 같은 주제 반복 질문을 묶는 논리 키다.
+- `repeatLimit` 기본값은 3이다.
+- `repeatCount`는 같은 `topicKey`에서 사용자에게 제시된 질문 수를 센다.
+- `repeat_limit_reached`는 영구 해결이 아니라 severity별 수렴 정책을 적용하기 위한 중간 상태다.
+- `closureReason`은 why this issue stopped를 설명하며, 완료 후 Founder Brief Known Risks에 연결된다.
 
 ## Question
 
@@ -120,6 +147,7 @@ type Question = {
   id: string;
   projectId: string;
   ambiguityIssueId: string;
+  topicKey: string;
   batchId?: string;
   title: string;
   currentUnderstanding: string;
@@ -127,8 +155,19 @@ type Question = {
   howToAnswer: string;
   type: 'single_answerable' | 'multi_answerable' | 'free_text';
   options: QuestionOption[];
+  confidenceAxisImpacts: ConfidenceAxisImpact[];
+  possibleRouteOutcomes: AnswerRouteOutcome[];
   priorityScore: number;
-  status: 'queued' | 'active' | 'answered' | 'research_waiting' | 'resolved' | 'deferred' | 'dismissed';
+  status:
+    | 'queued'
+    | 'active'
+    | 'answered'
+    | 'research_waiting'
+    | 'approval_waiting'
+    | 'repeat_limit_reached'
+    | 'resolved'
+    | 'deferred'
+    | 'dismissed';
 };
 ```
 
@@ -141,8 +180,35 @@ type Answer = {
   projectId: string;
   value: string | string[];
   freeText?: string;
+  routeOutcome: AnswerRouteOutcome;
   createdAt: string;
   interpretedDecisionCandidateIds: string[];
+};
+```
+
+## AnswerRouteOutcome and ConfidenceAxisImpact
+
+```ts
+type AnswerRouteOutcome =
+  | 'resolved'
+  | 'research_needed'
+  | 'decision_candidate'
+  | 'spec_update_candidate'
+  | 'conflict_detected'
+  | 'deferred'
+  | 'repeat_limit_reached';
+
+type ConfidenceAxis =
+  | 'problem_confidence'
+  | 'customer_confidence'
+  | 'value_prop_confidence'
+  | 'validation_confidence'
+  | 'implementation_confidence';
+
+type ConfidenceAxisImpact = {
+  axis: ConfidenceAxis;
+  direction: 'increase' | 'decrease' | 'unknown';
+  rationale: string;
 };
 ```
 
@@ -273,4 +339,3 @@ type SourceRef = {
 - `SpecVersion`은 immutable하게 다룬다.
 - `LivingProductSpec`은 최신 version pointer와 working draft를 관리한다.
 - `Decision`과 `EvidenceMatrix`는 분리한다. 근거가 있어도 사용자가 승인하지 않으면 결정이 아니다.
-

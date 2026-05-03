@@ -4,6 +4,8 @@
 
 Research Engine은 창업자의 아이디어와 답변을 바탕으로 제품 판단에 필요한 근거를 생성한다. 단순 웹 요약기가 아니라 **결정별 찬반 근거 매트릭스 생성기**다.
 
+Question Loop에서 `research_needed` 또는 `research_insufficient`로 수렴된 항목은 `14-ambiguity-question-lifecycle.md`의 반복 제한 정책을 따른다. Research Engine은 이 상태를 새 질문으로 되돌리는 것이 아니라, 새 evidence를 만들어 질문 재개 여부를 판단하게 한다.
+
 ## Research Loop
 
 ```text
@@ -17,6 +19,25 @@ AmbiguityIssue
 → SuggestedQuestion
 → SuggestedSpecUpdate
 ```
+
+## Question Loop에서 오는 ResearchNeed
+
+Ambiguity/Question Lifecycle은 다음 상황에서 ResearchNeed를 생성한다.
+
+- 사용자의 답변이 가설은 만들었지만 근거가 부족하다.
+- `unsupported` issue가 answer만으로 해결되지 않는다.
+- medium severity issue가 `repeat_limit_reached`에 도달했다.
+- 사용자가 같은 질문에 반복 답변했지만 confidence delta가 충분히 오르지 않는다.
+- 반대근거가 없는 상태에서 핵심 decision candidate가 생겼다.
+
+ResearchNeed 생성 시 Research Engine은 다음을 기록해야 한다.
+
+- 어떤 `topicKey`의 반복을 멈추기 위해 생성되었는가.
+- 어떤 claim의 pro/con evidence가 부족한가.
+- 새 evidence가 도착하면 질문을 재개할 수 있는 조건은 무엇인가.
+- 사용자가 지금 멈추면 Founder Brief의 Known Risks에 어떻게 남는가.
+
+Medium severity의 `research_needed`는 완료를 무조건 막지 않는다. 다만 Known Risks와 Next Validation Actions에 연결되어야 하며, evidence quality와 confidence 축에는 감점으로 반영된다.
 
 ## ResearchTask 유형
 
@@ -133,6 +154,8 @@ confidence: low|medium|high
 - high-impact 결과만 Decision Queue에 카드로 올라온다.
 - 낮은 신뢰도의 리서치는 “추가 확인 필요”로 표시한다.
 - 리서치 결과만으로 핵심 결정을 자동 확정하지 않는다.
+- `repeat_limit_reached` 때문에 생성된 research task는 새 evidence가 나오기 전까지 같은 topicKey 질문을 다시 만들지 않는다.
+- 새 evidence가 도착해도 자동 재질문하지 않고, 기존 질문 전제가 바뀌었는지 먼저 판단한다.
 
 ## 런타임 adapter 위치
 
@@ -165,4 +188,3 @@ Research Result는 직접 Spec을 바꾸지 않는다. 다음 단계를 거친�
 - 최신성 문제.
 - 지역/시장 차이.
 - 실제 고객 인터뷰 부재.
-
