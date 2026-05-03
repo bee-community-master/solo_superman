@@ -151,7 +151,7 @@ priority_score =
 - 사용자가 왜 답해야 하는지 이해할 수 있다.
 - 답변 결과가 어떤 Spec section에 영향을 주는지 명확하다.
 - 답변 결과가 어떤 confidence axis를 올리거나 낮출 수 있는지 명확하다.
-- 답변 후 가능한 route outcome이 `resolved`, `research_needed`, `decision_candidate`, `spec_update_candidate`, `conflict_detected`, `deferred` 중 어디인지 예상 가능하다.
+- 답변 후 가능한 route outcome이 `resolved`, `research_needed`, `missing_con_evidence`, `decision_candidate`, `spec_update_candidate`, `conflict_detected`, `deferred` 중 어디인지 예상 가능하다.
 - “더 구체적으로 말해 주세요” 같은 추상 질문을 피한다.
 
 ## 질문 생성 금지 조건
@@ -172,6 +172,7 @@ Question Card가 답변되면 큐는 즉시 Spec 본문을 확정 변경하지 �
 | --- | --- | --- |
 | `resolved` | low-risk SpecUpdate 또는 issue resolved | 자동 정리 또는 간단한 변경 요약 |
 | `research_needed` | Research Review Card 후보 생성 | “근거 보강 중” 상태 |
+| `missing_con_evidence` | Pro/Con Evidence Gate 보강 후보 생성 | “반대근거 탐색 필요” 상태 |
 | `decision_candidate` | Decision Approval Card 생성 | 승인/수정/거절/보류 선택 |
 | `spec_update_candidate` | Suggested Spec Update 생성 | Spec diff preview |
 | `conflict_detected` | Conflict Resolution Card 생성 | 충돌 설명과 선택지 |

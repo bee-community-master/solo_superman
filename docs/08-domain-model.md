@@ -104,7 +104,7 @@ type AmbiguityIssue = {
   projectId: string;
   specSectionKey: SpecSection['key'];
   topicKey: string;
-  type: 'missing' | 'conflict' | 'unsupported' | 'vague' | 'decision_required';
+  type: 'missing' | 'conflict' | 'unsupported' | 'vague' | 'decision_required' | 'missing_con_evidence';
   severity: 'high' | 'medium' | 'low';
   description: string;
   whyItMatters: string;
@@ -192,6 +192,7 @@ type Answer = {
 type AnswerRouteOutcome =
   | 'resolved'
   | 'research_needed'
+  | 'missing_con_evidence'
   | 'decision_candidate'
   | 'spec_update_candidate'
   | 'conflict_detected'
@@ -241,7 +242,7 @@ type ResearchResult = {
   claims: string[];
   confidence: 'low' | 'medium' | 'high';
   limitations: string[];
-  status: 'needs_review' | 'accepted' | 'rejected' | 'stale';
+  status: 'needs_review' | 'accepted' | 'rejected' | 'stale' | 'evidence_gate_blocked';
 };
 ```
 
@@ -252,15 +253,61 @@ type EvidenceMatrix = {
   id: string;
   projectId: string;
   claim: string;
+  impact: 'high' | 'medium' | 'low';
   decisionContext: string;
+  balanceStatus:
+    | 'no_evidence'
+    | 'pro_only'
+    | 'con_only'
+    | 'pro_con_present'
+    | 'missing_con_evidence'
+    | 'balanced'
+    | 'blocked_by_con_evidence'
+    | 'source_quality_insufficient';
   proEvidence: EvidenceItem[];
   conEvidence: EvidenceItem[];
+  missingConEvidenceReason?: string;
+  skepticalSearch: SkepticalSearchRecord;
   uncertainties: string[];
   followUpQuestions: string[];
+  knownRiskIds: string[];
+  nextValidationActionIds: string[];
   recommendedDecision?: string;
   confidence: 'low' | 'medium' | 'high';
 };
 ```
+
+## EvidenceItem and SkepticalSearchRecord
+
+```ts
+type EvidenceItem = {
+  id: string;
+  sourceId: string;
+  kind: 'qualitative' | 'quantitative' | 'market_signal' | 'competitor_signal' | 'expert_signal' | 'other';
+  stance: 'pro' | 'con' | 'neutral';
+  summary: string;
+  implication: string;
+  strength: 'low' | 'medium' | 'high';
+  relevance: 'low' | 'medium' | 'high';
+  sourceReliability: 'low' | 'medium' | 'high';
+  limitations: string[];
+};
+
+type SkepticalSearchRecord = {
+  attempted: boolean;
+  checkedSourceTypes: SourceRef['sourceType'][];
+  foundConEvidence: boolean;
+  missingConEvidenceReason?: string;
+};
+```
+
+필드 규칙:
+
+- `balanceStatus`는 Pro/Con Evidence Gate의 현재 상태다.
+- `missingConEvidenceReason`은 `balanceStatus`가 `missing_con_evidence`일 때 필요하다.
+- `summary`는 source가 말한 내용이고 `implication`은 claim에 미치는 해석이다.
+- `stance: neutral`은 decision-ready 핵심 근거로 쓰지 않는다.
+- DB/API 스키마 상세 제외 원칙에 따라 이 타입은 문서 계약이며 테이블 DDL이 아니다.
 
 ## Decision
 

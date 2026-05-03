@@ -105,6 +105,14 @@ question_debt_score = 100 - min(100,
 - 90점: 불확실성과 후속 질문까지 있음.
 - 100점: 검증 실험까지 연결됨.
 
+Pro/Con Evidence Gate 반영:
+
+- high impact claim이 `pro_only`이면 evidence quality는 최대 40점이다.
+- high impact claim이 `missing_con_evidence`이고 skeptical search 기록이 없으면 최대 50점이다.
+- `missing_con_evidence`가 Known Risks와 Next Validation Actions에 연결되면 medium impact claim은 최대 80점까지 가능하다.
+- `balanced` claim은 찬반 근거, uncertainties, limitations, next validation action이 모두 있을 때만 90점 이상 가능하다.
+- `blocked_by_con_evidence`가 있으면 관련 confidence axis를 낮추고 conflict gate를 확인한다.
+
 ## 4. Decision approval (20%)
 
 핵심 결정의 사용자 승인 여부를 본다.
@@ -160,6 +168,8 @@ Spec 내부 충돌과 애매한 경계를 본다.
 - high severity conflict 없음.
 - required decisions 승인 완료.
 - 핵심 claim에 pro/con evidence 존재.
+- high impact claim이 `pro_only` 상태가 아님.
+- high impact `missing_con_evidence`가 있으면 skeptical search 기록과 `risk_accepted` 또는 validation action 존재.
 - MVP non-goals와 Phase boundary 충돌 없음.
 - Confidence Map의 모든 축 75점 이상.
 - high severity `repeat_limit_reached` issue가 있으면 `risk_accepted` 승인 기록 존재.
@@ -181,6 +191,7 @@ Completeness 78% · Decision-ready · High-risk questions 2 · Evidence gaps 3
 - Competition evidence has no counter-evidence
 - MVP success criteria not approved
 - 2 high-risk questions remain
+- Problem claim is pro_only and needs con evidence
 ```
 
 ## 무한 질문 루프 방지와의 관계

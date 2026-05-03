@@ -57,9 +57,12 @@ Living Product Spec은 Solo Superman의 중심 산출물이다. 이것은 정적
 - 핵심 주장.
 - 찬성 근거.
 - 반대 근거.
+- `missing_con_evidence` 여부.
+- skeptical search 기록.
 - 불확실성.
 - 추가 질문.
 - 출처.
+- Known Risks 연결.
 
 ### 7. Validation Plan
 
@@ -151,11 +154,13 @@ Living Product Spec은 다음 조건을 모두 만족할 때 완료 후보가 �
 
 1. 필수 섹션이 모두 존재한다.
 2. 핵심 주장에 찬성/반대 근거가 연결되어 있다.
-3. high-risk AmbiguityIssue가 0개 또는 사용자 승인으로 보류 처리되어 있다.
-4. primary customer, problem, value proposition, MVP scope, validation plan, success criteria가 승인되어 있다.
-5. 충돌 상태인 section이 없다.
-6. 복합 완성도 점수가 threshold 이상이다.
-7. 남은 불확실성이 “실행 중 검증할 리스크”로 명시되어 있다.
+3. high impact claim이 `pro_only` 상태로 남아 있지 않다.
+4. high impact `missing_con_evidence`가 있으면 skeptical search 기록과 `risk_accepted` 또는 validation action이 있다.
+5. high-risk AmbiguityIssue가 0개 또는 사용자 승인으로 보류 처리되어 있다.
+6. primary customer, problem, value proposition, MVP scope, validation plan, success criteria가 승인되어 있다.
+7. 충돌 상태인 section이 없다.
+8. 복합 완성도 점수가 threshold 이상이다.
+9. 남은 불확실성이 “실행 중 검증할 리스크”로 명시되어 있다.
 
 ## 완료 선언 결과물
 
@@ -164,6 +169,7 @@ Living Product Spec은 다음 조건을 모두 만족할 때 완료 후보가 �
 - Living Product Spec v1.
 - Decision Log summary.
 - Evidence Matrix summary.
+- Pro/Con Evidence Gate summary.
 - Validation Plan.
 - Remaining Risks.
 - Phase 1 Implementation Handoff note.
@@ -173,6 +179,7 @@ Living Product Spec은 다음 조건을 모두 만족할 때 완료 후보가 �
 - 확정 문장과 가설 문장을 구분한다.
 - 출처가 약한 주장은 “가능성”으로 표현한다.
 - 반대근거가 없는 핵심 결정은 완료할 수 없다.
+- 반대근거가 아직 없으면 “없음”이 아니라 `missing_con_evidence`로 표시한다.
+- `pro_evidence`만 있는 claim은 확정 문장이 아니라 hypothesis로 남긴다.
 - 사용자가 승인하지 않은 AI 추천은 Spec 본문에 확정 반영하지 않는다.
 - “나중에 검증”은 구체적 실험과 성공/실패 기준이 있을 때만 허용한다.
-

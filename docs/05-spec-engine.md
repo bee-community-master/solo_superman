@@ -130,7 +130,7 @@ ProjectCreated
 
 출력:
 
-- route outcome: `resolved`, `research_needed`, `decision_candidate`, `spec_update_candidate`, `conflict_detected`, `deferred`, `repeat_limit_reached`.
+- route outcome: `resolved`, `research_needed`, `missing_con_evidence`, `decision_candidate`, `spec_update_candidate`, `conflict_detected`, `deferred`, `repeat_limit_reached`.
 - affected Spec sections.
 - affected confidence axes.
 - next queue item candidates.
@@ -292,6 +292,7 @@ AmbiguityIssue를 3~5개 질문 배치로 변환한다.
 | `question_queued` | batch selected | repeat count < 3 | `active` Question |
 | `active` Question | answer received | 답변만으로 해소 | `resolved` |
 | `active` Question | answer received | 근거 부족 | `research_needed` |
+| `active` Question | answer received | 반대근거 탐색 부족 | `missing_con_evidence` |
 | `active` Question | answer received | 핵심 결정 후보 발생 | `decision_candidate` |
 | `active` Question | answer received | Spec 문장 변경 필요 | `spec_update_candidate` |
 | `active` Question | answer received | 기존 Spec과 충돌 | `conflict_detected` |

@@ -20,6 +20,7 @@
 - 날카로운 제품 코치 톤이 이유 설명, 가설 언어, 반복 제한, 피로도 감지를 지키는가?
 - Founder Brief가 완료/중단 시 기본 산출물로 정의되어 있는가?
 - Ambiguity/Question Lifecycle이 무한 질문 루프를 막는 수렴 정책을 정의하는가?
+- Pro/Con Evidence Gate가 confirmation bias를 막는 evidence 품질 기준을 정의하는가?
 - Research Loop의 입력/출력이 명확한가?
 - approval boundary가 명확한가?
 - runtime adapter와 core의 경계가 명확한가?
@@ -38,6 +39,7 @@
 | Scoring | 복합 완성도 산식과 gate 정의 |
 | UX Doctrine | 남은 리스크를 알고 시작한다는 완료 감각, 5축 레이더, 행동 신호 기반 피로도 개입 정의 |
 | Ambiguity/Question | repeat_limit_reached, severity별 수렴 정책, completion 연결 정의 |
+| Pro/Con Evidence | pro_evidence, con_evidence, missing_con_evidence, skeptical search, completion 연결 정의 |
 | Founder Brief | Problem-Customer-Value, Top Decisions, Known Risks, Next Validation Actions 정의 |
 | Domain | 핵심 객체와 상태 정의 |
 | Architecture | core와 runtime adapter 경계 정의 |
@@ -221,6 +223,36 @@ Follow-up questions:
 - high severity issue가 risk accepted 없이 completion gate를 통과함.
 - medium severity research_needed가 Known Risks나 Next Validation Actions에 연결되지 않음.
 
+### Pro/Con Evidence Gate dry-run
+
+샘플 claim:
+
+> 초기 창업자는 고객 인터뷰 질문을 제품 결정과 연결하는 데 어려움을 겪는다.
+
+통과 시나리오:
+
+- `pro_evidence`: 창업 교육 자료와 멘토링 자료가 customer discovery와 좋은 질문 설계의 중요성을 반복적으로 강조한다.
+- `con_evidence`: 무료 템플릿과 ChatGPT 프롬프트로 질문 초안을 충분히 만들 수 있다는 대체재 근거가 있다.
+- uncertainties: 실제 지불 의사와 pain intensity는 아직 고객 인터뷰로 확인되지 않았다.
+- balanceStatus: `balanced`.
+- Known Risks: 단순 질문 생성만으로는 차별화가 약할 수 있음.
+- Next Validation Actions: 대체재 사용 경험이 있는 창업자 5명에게 전환 이유를 인터뷰한다.
+
+실패 시나리오:
+
+- `pro_evidence`만 있고 `con_evidence`가 없다.
+- `missing_con_evidence`로 표시하지 않았다.
+- skeptical search 기록이 없다.
+- “고객 인터뷰가 중요하다”는 근거를 “사용자가 유료 구매한다”로 과장했다.
+- high impact claim인데 completion candidate가 생성되었다.
+
+기대 결과:
+
+- 실패 시나리오는 decision-ready가 아니다.
+- high impact `pro_only` claim은 Evidence quality를 최대 40점으로 제한한다.
+- `missing_con_evidence`가 있으면 Known Risks와 Next Validation Actions에 연결한다.
+- 반대근거가 발견되면 Founder Brief의 Known Risks에 숨기지 않고 표시한다.
+
 ## 정적 일관성 검토 체크리스트
 
 - [ ] 모든 문서가 Phase 1을 Research 포함 폐루프로 정의한다.
@@ -235,6 +267,9 @@ Follow-up questions:
 - [ ] UX Doctrine이 2~5시간 세션의 핵심 감각과 질문 톤을 정의한다.
 - [ ] Confidence Map은 5축 레이더, Top 3 Risk Cards, Next Question Batch, Score History로 정의된다.
 - [ ] Spec-ready 후보는 모든 축 75점 이상과 completion gate를 함께 요구한다.
+- [ ] Pro/Con Evidence Gate는 high impact claim이 pro_only 상태일 때 decision-ready를 막는다.
+- [ ] missing_con_evidence는 skeptical search 기록과 Known Risks 연결을 요구한다.
+- [ ] confirmation bias 방지를 위해 반대근거 없는 핵심 claim은 확정 문장으로 들어가지 않는다.
 - [ ] Ambiguity/Question Lifecycle은 같은 topicKey의 4번째 질문 전에 repeat_limit_reached를 발생시킨다.
 - [ ] high severity 반복 제한은 risk_accepted 승인 전까지 completion gate를 막는다.
 - [ ] medium severity 반복 제한은 research_needed 또는 research_insufficient로 수렴하고 새 evidence 전까지 재질문하지 않는다.

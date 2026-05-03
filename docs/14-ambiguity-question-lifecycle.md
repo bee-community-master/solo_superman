@@ -46,6 +46,7 @@ AmbiguityIssue는 Spec이 실행 가능한 창업 기획으로 가는 데 방해
 
 - 필수 Spec section이 비어 있다.
 - 핵심 claim에 pro/con evidence가 없다.
+- high impact claim이 `pro_only` 또는 `missing_con_evidence` 상태다.
 - 사용자 답변이 기존 Spec과 충돌한다.
 - primary customer, problem, value proposition, MVP scope, validation plan, success criteria 중 하나가 확정되지 않았다.
 - confidence 축 중 하나가 낮고, 그 이유가 질문 또는 리서치로 줄일 수 있는 경우.
@@ -64,6 +65,7 @@ AmbiguityIssue는 Spec이 실행 가능한 창업 기획으로 가는 데 방해
 | `missing` | 필요한 정보가 없다 | primary customer 없음 | Question |
 | `vague` | 표현이 넓거나 해석이 여러 개다 | “초기 창업자 전체” | Question |
 | `unsupported` | 주장에 근거가 없다 | “사용자는 반드시 지불한다” | Research |
+| `missing_con_evidence` | 찬성 근거만 있고 반대근거 탐색이 부족하다 | “대체재로 충분하지 않다는 반대근거 없음” | Research |
 | `conflict` | Spec section 간 충돌이 있다 | 고객은 B2C인데 buyer는 HR | Decision |
 | `decision_required` | 사용자의 선택이 필요하다 | MVP 포함/제외 범위 | Approval |
 
@@ -202,6 +204,7 @@ Answer가 도착하면 즉시 Spec 본문을 확정 변경하지 않는다. 먼�
 | --- | --- | --- |
 | `resolved` | 답변만으로 모호함이 충분히 해소되고 low-risk 반영만 필요 | SpecUpdate suggested 또는 auto-applied |
 | `research_needed` | 답변이 가설을 만들었지만 근거가 부족함 | ResearchNeed 생성 |
+| `missing_con_evidence` | 찬성 근거만 있고 skeptical search가 부족함 | Pro/Con Evidence Gate 보강 |
 | `decision_candidate` | 핵심 결정 후보가 생김 | Decision Approval Card 생성 |
 | `spec_update_candidate` | 기존 Spec 문장 변경이 필요함 | Suggested Spec Update 생성 |
 | `conflict_detected` | 답변이 기존 결정 또는 evidence와 충돌 | Conflict Resolution Card 생성 |
@@ -217,6 +220,8 @@ Answer가 도착하면 즉시 Spec 본문을 확정 변경하지 않는다. 먼�
 - validation plan 변경.
 - success criteria 변경.
 - evidence 없는 high-impact claim 확정.
+- `pro_only` high impact claim 확정.
+- `missing_con_evidence`가 Known Risks에 연결되지 않은 상태로 완료 선언.
 
 ## repeat_limit_reached 정책
 
@@ -268,6 +273,7 @@ Completion Candidate 생성 금지:
 - high severity issue가 open 또는 question_queued 상태다.
 - `repeat_limit_reached` high issue에 대한 사용자 승인 기록이 없다.
 - pro evidence만 있고 con evidence가 없는 핵심 claim이 확정 결정으로 들어갔다.
+- high impact `missing_con_evidence`가 skeptical search 없이 남아 있다.
 - 같은 주제 질문을 3회 넘게 만들었지만 수렴 상태가 없다.
 
 ## 무한 질문 루프 방지 acceptance
@@ -286,6 +292,7 @@ Completion Candidate 생성 금지:
 - `04-decision-queue.md`는 이 lifecycle을 사용자가 보는 카드와 큐 상태로 표현한다.
 - `05-spec-engine.md`는 이 lifecycle을 전체 상태머신에 연결한다.
 - `06-research-engine.md`는 `research_needed`로 수렴된 medium issue의 근거 보강을 책임진다.
+- `15-pro-con-evidence-gate.md`는 `missing_con_evidence`와 confirmation bias 방지의 evidence 품질 기준을 책임진다.
 - `07-completeness-scoring.md`는 반복 제한과 수렴 상태를 점수와 completion gate에 반영한다.
 - `08-domain-model.md`는 이 계약을 구현하기 위한 최소 타입 필드를 정의한다.
 - `13-ux-doctrine-and-session-dynamics.md`는 이 계약의 사용자 경험 원칙을 정의한다.
