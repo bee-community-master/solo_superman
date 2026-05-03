@@ -4,6 +4,8 @@
 
 복합 완성도 점수는 사용자가 긴 질문 세션에서 길을 잃지 않도록 하는 진행률 UX다. 단순 문서 분량이 아니라 **실행 가능한 창업 기획으로 얼마나 가까워졌는가**를 보여준다.
 
+복합 완성도는 `13-ux-doctrine-and-session-dynamics.md`의 Confidence Map과 함께 해석한다. 복합 완성도는 “문서와 결정이 실행 가능한 형태인가”를 보고, Confidence Map은 “문제, 고객, 가치제안, 검증, 구현 준비도 중 어디에 리스크가 남았는가”를 보여준다.
+
 ## 점수 구성
 
 ```text
@@ -16,6 +18,27 @@ completeness_score =
 ```
 
 총점은 0~100으로 표시한다.
+
+## Confidence Map과의 관계
+
+Phase 1은 Header에 복합 완성도 점수와 5축 레이더를 함께 표시한다.
+
+| 항목 | 역할 | 사용자가 얻는 답 |
+| --- | --- | --- |
+| 복합 완성도 | Spec 산출물이 실행 가능한 구조로 정리되었는지 측정 | “문서가 어느 정도 완성되었는가?” |
+| Confidence Map | 핵심 창업 가정의 축별 리스크를 측정 | “무엇이 아직 위험한가?” |
+
+Confidence Map의 5축은 다음과 같다.
+
+- 문제 확신도.
+- 고객 세그먼트 확신도.
+- 가치제안 확신도.
+- 검증 가능성 확신도.
+- 구현 준비도 확신도.
+
+Spec-ready 후보가 되려면 복합 완성도 gate와 함께 **모든 축 75점 이상**을 만족해야 한다. 복합 완성도가 높아도 특정 confidence 축이 75점 미만이면 완료 대신 해당 축을 올리는 질문 배치나 리서치 보강을 제안한다.
+
+반대로 모든 축이 75점 이상이어도 required decisions, evidence gate, high severity conflict gate를 통과하지 못하면 완료 선언은 막힌다. 이 경우 화면은 “confidence는 충분하지만 문서 계약이 아직 닫히지 않았다”고 설명해야 한다.
 
 ## 1. Section completeness (25%)
 
@@ -123,7 +146,7 @@ Spec 내부 충돌과 애매한 경계를 본다.
 | Clarifying | 40~59 | 질문으로 핵심 모호함 해소 중 |
 | Researching | 60~74 | 근거와 반대근거 보강 중 |
 | Decision-ready | 75~84 | 핵심 승인만 남은 상태 |
-| Spec-ready | 85+ and gates passed | 완료 선언 가능 |
+| Spec-ready | 85+ and gates passed and 모든 축 75점 이상 | 완료 선언 가능 |
 
 ## 완료 후보 gate
 
@@ -134,6 +157,7 @@ Spec 내부 충돌과 애매한 경계를 본다.
 - required decisions 승인 완료.
 - 핵심 claim에 pro/con evidence 존재.
 - MVP non-goals와 Phase boundary 충돌 없음.
+- Confidence Map의 모든 축 75점 이상.
 
 ## UX 표시 방식
 
@@ -157,10 +181,10 @@ Completeness 78% · Decision-ready · High-risk questions 2 · Evidence gaps 3
 
 - 질문이 새로 생겨도 high/medium/low에 따라 완료 가능성을 분리한다.
 - 점수가 85+이고 high-risk 질문이 없으면 시스템은 반드시 completion candidate를 제안한다.
+- 모든 축 75점 이상이고 completion gate를 통과하면 시스템은 질문을 더 늘리지 않고 completion candidate를 제안한다.
 - 사용자가 완료 선언을 거부하고 더 깊게 하기를 선택할 때만 low 질문을 계속 확장한다.
-- 같은 주제 질문이 3회 이상 반복되면 시스템은 질문을 더 만들지 말고 “결정 보류” 또는 “리서치 부족”으로 상태를 바꾼다.
+- 같은 주제 질문이 3회 이상 반복되면 시스템은 질문을 더 만들지 말고 “결정 보류”, “리서치 부족”, “risk accepted” 중 하나로 상태를 바꾼다.
 
 ## 점수 해석 주의
 
 복합 완성도는 진실 점수가 아니다. 이것은 “기획서가 실행 가능한 형태로 정리되었는가”를 보는 작업 점수다. 시장 성공 가능성을 보장하지 않는다.
-

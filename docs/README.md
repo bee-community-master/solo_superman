@@ -16,6 +16,11 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | 리서치 품질 | 핵심 결정별 찬성 근거, 반대 근거, 불확실성, 추가 질문 매트릭스 |
 | 완료 기준 | 근거 + 반대근거 + 결정 기록 + 주요 tradeoff 승인 |
 | 진행률 UX | 복합 완성도 점수 |
+| 리스크 UX | Confidence Map, 5축 레이더, Top 3 Risk Cards |
+| 세션 종료 감각 | 사용자는 완벽한 확신이 아니라 “남은 리스크를 알고 시작한다”는 감각을 얻어야 함 |
+| 질문 AI 톤 | 날카로운 제품 코치, 이유 설명, 가설 언어, 피로도 감지 |
+| 세션 깊이 | Adaptive mode, 모든 축 75점 이상이면 Spec-ready 후보 |
+| 기본 export | Founder Brief |
 | 기본 화면 | Decision Queue 중심 |
 | 데이터 정책 | local-first + 사용자 선택 Supabase sync |
 | 기술 고정 | Tauri/React/SQLite/Spec Engine은 core, 외부 런타임은 adapter |
@@ -37,6 +42,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 11. `10-security-privacy-and-approval.md` - 프라이버시, 승인, 권한 경계.
 12. `11-roadmap-and-phase-boundaries.md` - Phase별 범위.
 13. `12-validation-and-dry-run.md` - 핸드오프 검토와 샘플 dry-run.
+14. `13-ux-doctrine-and-session-dynamics.md` - UX Doctrine, confidence map, adaptive session, Founder Brief.
 
 ## 문서 책임 경계
 
@@ -55,6 +61,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | Security | local-first, sync, 승인 경계 | 제품 기능 범위는 PRD/로드맵으로 넘긴다 |
 | Roadmap | Phase별 포함/제외 | 각 기능의 상세 계약은 해당 문서로 링크한다 |
 | Validation | 문서 품질 검증 방식 | 제품 요구사항 자체는 바꾸지 않는다 |
+| UX Doctrine | 세션 감각, 날카로운 제품 코치, 피로도 개입, Founder Brief | 화면 배치는 UX 문서로, 산식은 Scoring 문서로 넘긴다 |
 
 ## 공식 자료 기반 설계 메모
 
@@ -72,4 +79,3 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 - OpenClaw/Goose/CrewAI/Browser-use 실제 연동 금지.
 - 모바일 앱 생성 금지.
 - 결제/과금 구현 금지.
-

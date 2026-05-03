@@ -16,6 +16,9 @@
 - 핵심 객체와 상태가 정의되어 있는가?
 - UI 중심 구조가 명확한가?
 - completion score가 구현 가능한 수준으로 정의되어 있는가?
+- Confidence Map과 5축 레이더가 사용자의 남은 리스크 이해에 연결되는가?
+- 날카로운 제품 코치 톤이 이유 설명, 가설 언어, 반복 제한, 피로도 감지를 지키는가?
+- Founder Brief가 완료/중단 시 기본 산출물로 정의되어 있는가?
 - Research Loop의 입력/출력이 명확한가?
 - approval boundary가 명확한가?
 - runtime adapter와 core의 경계가 명확한가?
@@ -32,6 +35,8 @@
 | Non-goals | 팀/모바일/결제/자동실행 제외 명확 |
 | UI | Decision Queue 중심 레이아웃 정의 |
 | Scoring | 복합 완성도 산식과 gate 정의 |
+| UX Doctrine | 남은 리스크를 알고 시작한다는 완료 감각, 5축 레이더, 행동 신호 기반 피로도 개입 정의 |
+| Founder Brief | Problem-Customer-Value, Top Decisions, Known Risks, Next Validation Actions 정의 |
 | Domain | 핵심 객체와 상태 정의 |
 | Architecture | core와 runtime adapter 경계 정의 |
 | Security | local-first와 승인 경계 정의 |
@@ -140,6 +145,56 @@ Follow-up questions:
 | 핵심 결정 승인 후 | 74% |
 | validation plan 승인 후 | 86%, Spec-ready 후보 |
 
+### Confidence Map 변화 예시
+
+| 단계 | 문제 | 고객 | 가치제안 | 검증 | 구현 |
+| --- | --- | --- | --- | --- | --- |
+| Intake 직후 | 35 | 28 | 32 | 20 | 25 |
+| 첫 질문 배치 답변 후 | 56 | 42 | 48 | 34 | 38 |
+| 리서치 결과 연결 후 | 68 | 55 | 61 | 58 | 52 |
+| 핵심 결정 승인 후 | 76 | 66 | 72 | 70 | 68 |
+| validation plan 승인 후 | 80 | 76 | 78 | 82 | 77 |
+
+마지막 단계는 모든 축 75점 이상이므로 completion candidate를 제안할 수 있다. 단, 복합 완성도 gate와 required decisions gate도 함께 통과해야 한다.
+
+### Founder Brief dry-run
+
+샘플 세션이 중단되거나 완료되면 기본 export는 Founder Brief다.
+
+필수 section:
+
+- Problem-Customer-Value Summary: 고객 인터뷰를 앞둔 초기 창업자의 질문/가설 연결 문제.
+- Top Decisions: 첫 고객, MVP 범위, validation plan, success criteria.
+- Known Risks: 지불 의사, 대체재 대비 전환 이유, 인터뷰 대상 모집 문제가 더 큰 pain일 가능성.
+- Next Validation Actions: 컨시어지 실험, 대체재 사용자 인터뷰, 유료 의향 테스트.
+
+완료 메시지는 “성공 가능성이 높다”가 아니라 “남은 리스크를 알고 시작한다”를 중심으로 작성한다.
+
+### Adaptive session dry-run
+
+샘플 세션에서 다음 trigger가 발생하면 추가 질문 또는 리서치가 생성되어야 한다.
+
+- High confidence, low evidence: 사용자가 “창업자는 반드시 돈을 낼 것”이라고 답했지만 근거가 없을 때.
+- Problem-Customer-Value misalignment: 고객은 예비 창업자인데 가치제안은 MVP 이후 분석에 맞춰져 있을 때.
+- MVP scope too broad: 질문 생성, 인터뷰 기록, 분석, CRM 연동을 모두 Phase 1에 넣으려 할 때.
+- Missing con evidence: ChatGPT 프롬프트나 무료 템플릿으로 충분하다는 반대근거가 없을 때.
+
+다음 trigger가 발생하면 질문을 더 늘리지 않아야 한다.
+
+- 모든 축 75점 이상이며 completion gate를 통과했을 때.
+- 같은 주제 질문이 3회 반복되어 더 이상 새 정보를 만들지 못할 때.
+
+### Fatigue intervention dry-run
+
+사용자의 답변이 짧아지고 보류 답변이 늘어나는 행동 신호 기반 피로도 신호가 감지되면 다음 요약을 보여준다.
+
+- 지금까지 확정된 결정.
+- confidence delta.
+- 지금 멈추면 받을 수 있는 산출물.
+- 낮은 confidence 축.
+
+이 상태에서는 Top 3 Risk Cards를 먼저 밀어붙이지 않고, 사용자가 계속 진행할지 판단할 수 있게 한다.
+
 ## 정적 일관성 검토 체크리스트
 
 - [ ] 모든 문서가 Phase 1을 Research 포함 폐루프로 정의한다.
@@ -151,6 +206,12 @@ Follow-up questions:
 - [ ] Decision Queue 중심 UX가 UX/PRD/Scoring 문서에서 충돌하지 않는다.
 - [ ] Living Product Spec 완료 기준이 evidence + decision gate와 일치한다.
 - [ ] 복합 완성도 점수와 무한 질문 루프 방지 정책이 연결된다.
+- [ ] UX Doctrine이 2~5시간 세션의 핵심 감각과 질문 톤을 정의한다.
+- [ ] Confidence Map은 5축 레이더, Top 3 Risk Cards, Next Question Batch, Score History로 정의된다.
+- [ ] Spec-ready 후보는 모든 축 75점 이상과 completion gate를 함께 요구한다.
+- [ ] 날카로운 제품 코치 톤은 이유 설명, 3회 반복 제한, 가설 언어, 피로도 감지를 지킨다.
+- [ ] 행동 신호 기반 피로도 개입은 확정된 결정, confidence delta, if-stop-now 산출물, 낮은 confidence 축을 요약한다.
+- [ ] Founder Brief는 Problem-Customer-Value, Top Decisions, Known Risks, Next Validation Actions를 포함한다.
 - [ ] RuntimeAdapter는 core가 아니라 확장 경계로 정의된다.
 
 ## 현재 문서 검증 결과
@@ -161,6 +222,7 @@ Follow-up questions:
 - Runtime: adapter 후보로 일관됨.
 - UX 중심: Decision Queue 중심으로 일관됨.
 - Completion: 복합 완성도 + gate로 일관됨.
+- UX Doctrine: confidence map, adaptive session, Founder Brief 기준으로 일관됨.
 
 남은 구현 직전 ADR:
 
@@ -168,4 +230,3 @@ Follow-up questions:
 - SQLite binding 선택.
 - 첫 LLM provider abstraction.
 - 리서치 source cache 암호화 방식.
-

@@ -4,6 +4,12 @@
 
 Solo Superman의 화면은 문서 편집기가 아니라 **창업자의 결정 관제실**이어야 한다. 중심은 긴 문서가 아니라 지금 답해야 할 질문과 승인해야 할 결정이다.
 
+UX 세션의 세부 원칙은 `13-ux-doctrine-and-session-dynamics.md`를 source of truth로 둔다. 이 UX 문서는 화면과 사용자 여정을 설명하고, UX Doctrine 문서는 사용자가 세션 끝에 느껴야 할 감각, confidence map, 날카로운 제품 코치 톤, 행동 신호 기반 피로도 개입, Founder Brief 기준을 고정한다.
+
+핵심 감각은 다음과 같다.
+
+> 사용자는 “모든 것이 확실해졌다”가 아니라 **남은 리스크를 알고 시작한다**는 상태로 세션을 끝내야 한다.
+
 ## 기본 레이아웃
 
 Phase 1 기본 레이아웃은 `Decision Queue 중심`이다.
@@ -21,6 +27,8 @@ Phase 1 기본 레이아웃은 `Decision Queue 중심`이다.
 │ Research / Activity Feed: tasks, findings, update suggestions      │
 └──────────────────────────────────────────────────────────────────┘
 ```
+
+Header와 Context Panel은 복합 완성도 점수만 보여주지 않는다. 사용자가 어떤 리스크를 안고 다음 행동으로 넘어가는지 이해할 수 있도록 5축 레이더 기반 Confidence Map도 함께 제공한다.
 
 ## 2~5시간 세션 흐름
 
@@ -71,8 +79,10 @@ Phase 1 기본 레이아웃은 `Decision Queue 중심`이다.
 - 현재 high-risk 질문 수.
 - 이번 배치가 해소할 모호함.
 - 답변 후 올라갈 예상 완성도.
+- 답변 후 영향을 받는 confidence 축.
 - 리서치가 아직 기다리는 항목.
 - 지금 멈추면 어떤 품질의 Spec이 되는지.
+- 지금 멈추면 Founder Brief에 어떤 Known Risks가 들어가는지.
 
 ### 5. Suggested Spec Update
 
@@ -99,10 +109,25 @@ Phase 1 기본 레이아웃은 `Decision Queue 중심`이다.
 
 - 프로젝트 이름.
 - 복합 완성도 점수.
+- Confidence Map 5축 레이더 요약.
 - readiness label: Draft, Researching, Decision-ready, Spec-ready.
 - 세션 경과 시간.
 - sync 상태.
 - 남은 high-risk 질문 수.
+- 가장 낮은 confidence 축.
+
+### Confidence Map Panel
+
+Confidence Map은 사용자가 “어디까지 확실한가”보다 “어디가 아직 위험한가”를 파악하게 하는 패널이다.
+
+Phase 1 표시 방식:
+
+- **5축 레이더**: 문제 확신도, 고객 세그먼트 확신도, 가치제안 확신도, 검증 가능성 확신도, 구현 준비도 확신도.
+- **Top 3 Risk Cards**: 지금 가장 크게 남은 리스크 3개.
+- **Next Question Batch**: 다음 3~5개 질문이 어떤 confidence 축을 올리는지.
+- **Score History**: 답변, 리서치, 승인 이후 축별 점수 변화.
+
+이 패널은 축하용 진행률 그래프가 아니다. 창업자가 낮은 confidence 축을 보고 “다음에는 무엇을 검증해야 하는지” 판단하게 하는 리스크 지도다.
 
 ### Spec Outline Panel
 
@@ -132,6 +157,7 @@ Phase 1 기본 레이아웃은 `Decision Queue 중심`이다.
 - 중요도.
 - 관련 Spec section.
 - 왜 지금 중요한가.
+- 어떤 confidence 축을 개선하는가.
 - 선택지 또는 입력란.
 - 답변 후 기대 효과.
 
@@ -182,6 +208,38 @@ Phase 1 기본 레이아웃은 `Decision Queue 중심`이다.
 - 직접 입력 허용.
 ```
 
+## 질문 AI 톤
+
+AI는 기본적으로 **날카로운 제품 코치**처럼 행동한다. 사용자의 아이디어를 칭찬하는 것보다 모호함, 근거 없는 확신, 문제-고객-가치제안 불일치, 너무 넓은 MVP 범위를 명확히 짚는 것이 우선이다.
+
+단, 날카로움은 안전 경계를 지켜야 한다.
+
+- 항상 왜 이 질문이 필요한지 설명한다.
+- 같은 주제 질문이 3회 반복되면 더 묻지 않고 보류, 리서치 부족, risk accepted 중 하나로 전환한다.
+- 근거가 약한 판단은 “가설”, “현재 추정”, “검증 필요”로 표현한다.
+- 피로도가 감지되면 질문 강도를 낮추고 요약 후 계속 여부를 확인한다.
+
+## 행동 신호 기반 피로도 UX
+
+피로도는 별도 설문만으로 판단하지 않는다. Phase 1은 **행동 신호 기반**으로 집중력 저하를 감지한다.
+
+주요 신호:
+
+- 답변이 급격히 짧아짐.
+- 보류 답변이나 건너뛰기가 늘어남.
+- 같은 선택지를 반복하지만 이유 설명이 줄어듦.
+- 질문 회피가 늘어남.
+- 낮은 confidence 축이 개선되지 않는데 질문만 반복됨.
+
+피로 신호가 감지되면 시스템은 즉시 다음 질문을 밀어붙이지 않고 다음 요약을 보여준다.
+
+- 지금까지 확정된 결정.
+- confidence delta.
+- 지금 멈추면 받을 수 있는 산출물.
+- 낮은 confidence 축.
+
+이 요약에서는 명시적 Top 3 Risk Cards를 기본으로 보여주지 않는다. 피로 상태에서는 압박감을 줄이기 위해 낮은 confidence 축을 먼저 보여주고, 사용자가 원할 때 세부 리스크 카드로 들어가게 한다.
+
 ## 무한 질문 루프 방지 UX
 
 - 질문 큐는 무한 목록처럼 보이면 안 된다.
@@ -190,6 +248,8 @@ Phase 1 기본 레이아웃은 `Decision Queue 중심`이다.
 - low 질문은 완료 후보 상태에서 접을 수 있다.
 - 사용자는 언제든 “현재 수준으로 Spec 고정”을 선택할 수 있다.
 - 시스템은 완료 선언 전 남은 리스크를 명시한다.
+- 모든 confidence 축이 75점 이상이고 gate를 통과하면 시스템은 반드시 완료 후보를 제안한다.
+- “남은 리스크를 알고 시작한다”는 완료 감각을 Founder Brief로 연결한다.
 
 ## 세션 중단/재개
 
@@ -208,3 +268,13 @@ Phase 1 기본 레이아웃은 `Decision Queue 중심`이다.
 - “지금 답하면 가장 큰 효과가 있는 질문”.
 - “완료까지 남은 핵심 리스크”.
 
+## Founder Brief 진입점
+
+사용자가 완료하거나 중단할 때 기본 export는 Founder Brief다. 화면은 다음 네 가지를 먼저 묶어 보여준다.
+
+- Problem-Customer-Value Summary.
+- Top Decisions.
+- Known Risks.
+- Next Validation Actions.
+
+Founder Brief는 pitch deck이 아니라 다음 검증 행동을 시작하기 위한 실행 브리프다. 따라서 completion 화면은 축하 메시지보다 남은 리스크와 다음 행동을 더 크게 보여준다.
