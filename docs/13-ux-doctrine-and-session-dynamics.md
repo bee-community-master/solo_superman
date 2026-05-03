@@ -158,6 +158,8 @@ Phase 1의 기본 세션은 고정 시간 모드나 고정 목표 모드가 아�
 
 Spec-ready 후보는 **모든 축 75점 이상**과 복합 완성도 gate를 함께 만족해야 한다. 5축 중 하나라도 75점 미만이면 완료 대신 낮은 축을 올리는 다음 질문 배치를 제안한다.
 
+3회 반복 제한의 상세 수렴 정책은 `14-ambiguity-question-lifecycle.md`를 따른다. high severity는 Risk Accepted 요청, medium severity는 `research_needed` 또는 `research_insufficient`, low severity는 `deferred`로 수렴하는 것이 기본이다.
+
 ## Founder Brief
 
 Founder Brief는 사용자가 세션을 중단하거나 완료했을 때 받는 기본 export package다. 이것은 투자자용 pitch deck이 아니라 창업자가 다음 주에 무엇을 검증해야 하는지 아는 실행 브리프다.
@@ -206,4 +208,5 @@ Founder Brief는 사용자가 세션을 중단하거나 완료했을 때 받는 
 - `02-user-journey-and-ux.md`는 화면 구조와 사용 흐름을 책임진다.
 - `07-completeness-scoring.md`는 복합 완성도 산식과 gate를 책임진다.
 - `12-validation-and-dry-run.md`는 이 UX Doctrine이 실제 dry-run에서 작동하는지 검증한다.
+- `14-ambiguity-question-lifecycle.md`는 질문 반복 제한과 무한 질문 루프 방지의 엔진 계약을 책임진다.
 - 이 문서는 confidence map, sharp coach tone, adaptive session, fatigue intervention, Founder Brief의 기준 source of truth다.

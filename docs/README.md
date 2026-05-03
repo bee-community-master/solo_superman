@@ -19,6 +19,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | 리스크 UX | Confidence Map, 5축 레이더, Top 3 Risk Cards |
 | 세션 종료 감각 | 사용자는 완벽한 확신이 아니라 “남은 리스크를 알고 시작한다”는 감각을 얻어야 함 |
 | 질문 AI 톤 | 날카로운 제품 코치, 이유 설명, 가설 언어, 피로도 감지 |
+| 질문 엔진 수렴 | Ambiguity/Question Lifecycle, repeat limit, severity별 수렴 정책 |
 | 세션 깊이 | Adaptive mode, 모든 축 75점 이상이면 Spec-ready 후보 |
 | 기본 export | Founder Brief |
 | 기본 화면 | Decision Queue 중심 |
@@ -43,6 +44,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 12. `11-roadmap-and-phase-boundaries.md` - Phase별 범위.
 13. `12-validation-and-dry-run.md` - 핸드오프 검토와 샘플 dry-run.
 14. `13-ux-doctrine-and-session-dynamics.md` - UX Doctrine, confidence map, adaptive session, Founder Brief.
+15. `14-ambiguity-question-lifecycle.md` - Ambiguity/Question Lifecycle과 무한 질문 루프 방지 계약.
 
 ## 문서 책임 경계
 
@@ -62,6 +64,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | Roadmap | Phase별 포함/제외 | 각 기능의 상세 계약은 해당 문서로 링크한다 |
 | Validation | 문서 품질 검증 방식 | 제품 요구사항 자체는 바꾸지 않는다 |
 | UX Doctrine | 세션 감각, 날카로운 제품 코치, 피로도 개입, Founder Brief | 화면 배치는 UX 문서로, 산식은 Scoring 문서로 넘긴다 |
+| Ambiguity/Question Lifecycle | AmbiguityIssue, QuestionBatch, answer routing, repeat limit, completion 수렴 | Research 상세 품질 산식과 DB/API 스키마는 후속 문서로 넘긴다 |
 
 ## 공식 자료 기반 설계 메모
 
