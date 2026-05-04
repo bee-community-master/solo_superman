@@ -1,30 +1,42 @@
-import type { CommandId, EventId, ProjectId, SchemaVersion, SessionId, StateVersion } from "../ids";
-import type { CommandType } from "./commands";
+import type { CausationId, CommandId, CorrelationId, EventId, ProjectId, SchemaVersion, SessionId } from "../ids";
 
-export type ProductEngineEventType =
-  | "project.started"
-  | "intake.captured"
-  | "spec.drafted"
-  | "queue.updated"
-  | "research.updated"
-  | "runtime.updated"
-  | "decision.resolved"
-  | "completion.scored"
-  | "founder_brief.prepared"
-  | "system.scaffold_placeholder";
+export const PRODUCT_ENGINE_EVENT_TYPES = [
+  "ProjectStarted",
+  "IntakeCaptured",
+  "SessionPhaseChanged",
+  "InitialSpecDrafted",
+  "SpecUpdatePreviewCreated",
+  "SpecVersionCreated",
+  "AmbiguityAnalyzed",
+  "QuestionBatchActivated",
+  "QueueItemDeferred",
+  "QueueItemDismissed",
+  "AnswerSubmitted",
+  "DecisionResolved",
+  "ResearchPlanned",
+  "ResearchResultImported",
+  "EvidenceSynthesized",
+  "RuntimePreviewRequested",
+  "RuntimeArtifactConverted",
+  "CompletenessScored",
+  "FounderBriefPrepared"
+] as const;
+
+export type ProductEngineEventType = (typeof PRODUCT_ENGINE_EVENT_TYPES)[number];
 
 export interface ProductEngineEventDraft {
   readonly eventType: ProductEngineEventType;
-  readonly commandId: CommandId;
-  readonly commandType: CommandType;
-  readonly payload: Readonly<Record<string, unknown>>;
+  readonly projectId: ProjectId;
+  readonly sessionId: SessionId;
+  readonly sourceCommandId: CommandId;
+  readonly correlationId: CorrelationId;
+  readonly causationId: CausationId | null;
   readonly schemaVersion: SchemaVersion;
+  readonly payload: Readonly<Record<string, unknown>>;
 }
 
 export interface ProductEngineEvent extends ProductEngineEventDraft {
   readonly eventId: EventId;
-  readonly projectId: ProjectId;
-  readonly sessionId: SessionId;
-  readonly stateVersionAfter: StateVersion;
+  readonly sequence: number;
   readonly occurredAt: string;
 }
