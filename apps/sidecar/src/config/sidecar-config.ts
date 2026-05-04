@@ -54,7 +54,7 @@ function parseHost(rawValue: string | undefined) {
     throw new Error(`Sidecar host must be loopback-only in PR-01: ${host}`);
   }
 
-  return host;
+  return host === "[::1]" ? "::1" : host;
 }
 
 export function resolveSidecarConfig(): SidecarConfig {
@@ -62,4 +62,10 @@ export function resolveSidecarConfig(): SidecarConfig {
     host: parseHost(readArgValue("--host") ?? process.env.SOLO_SIDECAR_HOST),
     port: parsePort(readArgValue("--port") ?? process.env.SOLO_SIDECAR_PORT)
   };
+}
+
+export function formatSidecarBaseUrl(config: SidecarConfig) {
+  const urlHost = config.host.includes(":") ? `[${config.host}]` : config.host;
+
+  return `http://${urlHost}:${config.port}`;
 }

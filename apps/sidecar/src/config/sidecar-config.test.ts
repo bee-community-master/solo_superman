@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveSidecarConfig } from "./sidecar-config";
+import { formatSidecarBaseUrl, resolveSidecarConfig } from "./sidecar-config";
 
 const originalArgv = process.argv;
 const originalHost = process.env.SOLO_SIDECAR_HOST;
@@ -68,5 +68,15 @@ describe("sidecar scaffold config", () => {
     process.env.SOLO_SIDECAR_HOST = "0.0.0.0";
 
     expect(() => resolveSidecarConfig()).toThrow("Sidecar host must be loopback-only");
+  });
+
+  it("normalizes IPv6 loopback hosts for binding and URL reporting", () => {
+    useDefaultProcessInputs();
+    process.argv = ["node", "sidecar", "--host", "[::1]", "--port", "43110"];
+
+    const config = resolveSidecarConfig();
+
+    expect(config).toEqual({ host: "::1", port: 43110 });
+    expect(formatSidecarBaseUrl(config)).toBe("http://[::1]:43110");
   });
 });
