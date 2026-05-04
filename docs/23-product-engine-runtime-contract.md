@@ -247,7 +247,7 @@ Policy details:
 
 ## Hono API response rule
 
-Mutating command responses use one of these result categories.
+Mutating command responses use one of these result categories. Endpoint-specific request mapping, response/statusUrl behavior, SSE/refetch recovery, and error/precondition cases are canonical in `26-api-route-behavior-catalog.md`.
 
 | Category | When used | Response includes |
 | --- | --- | --- |
@@ -259,6 +259,7 @@ Mutating command responses use one of these result categories.
 Rules:
 
 - API must not pretend async effect output is already complete.
+- API routes must use only `CommandType` values defined in `25-contracts-dto-catalog.md`; route labels cannot introduce extra commands.
 - Frontend treats returned projection as read model, not source of truth.
 - SSE/refetch is the source of truth for effect completion.
 - Commands that request file/shell/browser execution return `blocked` or preview-only artifact path, never apply side effects.
@@ -281,8 +282,8 @@ The sidecar emits stable SSE event names for effect lifecycle.
 Rules:
 
 - SSE payloads are notifications, not full canonical state.
-- UI refetches affected projection after `effect.succeeded` or `projection.updated`.
-- Missed SSE messages are recovered by polling/refetching session projection.
+- UI refetches affected projection after `effect.succeeded` or `projection.updated`; route-specific refetch URLs are defined in `26-api-route-behavior-catalog.md`.
+- Missed SSE messages are recovered by polling/refetching session projection or command `statusUrl` as defined in `25-contracts-dto-catalog.md` and `26-api-route-behavior-catalog.md`.
 
 ## ProductEngine state snapshot contract
 
@@ -380,3 +381,4 @@ Then:
 - `reducer_deterministic_output` appears in 18, 20, 22, 23.
 - `conservative_ai_retry_matrix` appears in 20, 21, 23.
 - docs do not introduce `scoring_effect` or `spec_export_effect` as Phase 1 first-class async effect.
+- `26-api-route-behavior-catalog.md` appears as the endpoint behavior source for API/SSE/refetch guardrails.

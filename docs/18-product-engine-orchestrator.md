@@ -169,6 +169,8 @@ command received
   -> emit user-visible queue/activity outputs
 ```
 
+Command naming rule: backticked command names in this table must match the closed `CommandType` enum in `25-contracts-dto-catalog.md`. Non-backticked rows are internal routing/application outputs and must not become API `commandType` values; endpoint mapping is canonical in `26-api-route-behavior-catalog.md`.
+
 | Command | Preconditions | ProductEngine event | Module calls | State/output | Queue effect | Forbidden shortcut |
 | --- | --- | --- | --- | --- | --- | --- |
 | `StartProject` | raw idea, privacy mode | `ProjectCreated` | none | Project, Session | Intake prompt 준비 | sync/cloud부터 시작 |
@@ -177,18 +179,18 @@ command received
 | `AnalyzeAmbiguity` | draft 또는 SpecVersion | `AmbiguityAnalyzed` | Ambiguity Analyzer | AmbiguityIssue list | question candidates | 질문 불가능한 표현 문제를 high-risk로 승격 |
 | `ActivateQuestionBatch` | open issue와 repeat guard 통과 | `QuestionBatchActivated` | Question Batch Generator, Queue Scheduler | 3~5 active questions | active batch 고정 | 같은 topicKey 다중 질문 삽입 |
 | `SubmitAnswer` | active Question | `AnswerSubmitted` | Answer Interpreter | Answer record | active card answered | 답변만으로 high-impact 결정 확정 |
-| `RouteAnswer` | Answer record | `AnswerRouted` | Research Planner, Decision Graph, Spec Engine | route outcome | Research/Decision/Update/Conflict/Deferred 후보 | route outcome 없이 다음 단계 진행 |
+| Answer routing step after `SubmitAnswer` | Answer record | `AnswerRouted` | Research Planner, Decision Graph, Spec Engine | route outcome | Research/Decision/Update/Conflict/Deferred 후보 | route outcome 없이 다음 단계 진행 |
 | `PlanResearch` | `research_needed` 또는 `missing_con_evidence` | `ResearchPlanned` | Research Engine | ResearchTask | Research Review 또는 Handoff 후보 | disclosure 없이 외부 호출 진행 |
 | `CreateRuntimePreview` | Codex/manual handoff 필요 | `RuntimePreviewCreated` | Runtime Adapter | RuntimePreviewArtifact | Runtime Handoff/Preview Card | preview를 실제 실행으로 적용 |
 | `ImportResearchResult` | ResearchTask or RuntimePreviewArtifact | `ResearchResultImported` | Research Engine | ResearchResult | queue 재계산 | 출처 없는 claim을 evidence로 사용 |
 | `SynthesizeEvidence` | ResearchResult | `EvidenceMatrixCreated` | Evidence Synthesizer | EvidenceMatrix | Review/Decision/Conflict 후보 | pro-only high-impact claim을 decision-ready 처리 |
-| `SuggestSpecUpdate` | Answer 또는 EvidenceMatrix | `SpecUpdateSuggested` | Spec Engine | SpecUpdate candidate | low-risk summary 또는 approval card | high-impact update 자동 반영 |
-| `RequestDecisionApproval` | high-impact update, risk acceptance, conflict | `DecisionApprovalRequested` | Decision Graph, Approval Manager | Decision Approval Card | approval_waiting | 미승인 decision을 SpecVersion 원인으로 사용 |
+| `CreateSpecUpdatePreview` | Answer 또는 EvidenceMatrix | `SpecUpdatePreviewCreated` | Spec Engine | SpecUpdate candidate | low-risk summary 또는 approval card | high-impact update 자동 반영 |
+| Decision card materialization | high-impact update, risk acceptance, conflict | `DecisionCardCreated` | Decision Graph, Approval Manager | Decision Approval Card | approval_waiting | 미승인 decision을 SpecVersion 원인으로 사용 |
 | `ResolveDecision` | approval card answered | `DecisionResolved` | Approval Manager | approved/rejected/revised/deferred/risk_accepted | queue 재계산 | rejected/deferred로 version 생성 |
 | `CreateSpecVersion` | approved decision and applicable update | `SpecVersionCreated` | Spec Version Manager | immutable SpecVersion | scoring activity | working draft만으로 완료 선언 |
 | `ScoreCompleteness` | spec/evidence/decision/open issues changed | `CompletenessScored` | Completeness Scorer | CompletenessSnapshot | next batch 또는 Completion Candidate | 점수만으로 completion 생성 |
-| `EmitCompletionCandidate` | all completion gates pass | `CompletionCandidateCreated` | Completeness Scorer, Queue Scheduler | CompletionCandidate | Completion Candidate Card | Known Risks 숨김 |
-| `ExportFounderBrief` | completion candidate or stop-now export | `FounderBriefExported` | Exporter later | Founder Brief package | terminal or follow-up actions | unresolved risks 제거 |
+| `ScoreCompleteness` completion output | all completion gates pass | `CompletionCandidateCreated` | Completeness Scorer, Queue Scheduler | CompletionCandidate | Completion Candidate Card | Known Risks 숨김 |
+| `PrepareFounderBrief` | completion candidate or stop-now export metadata | `FounderBriefPrepared` | Founder Brief Builder | Founder Brief draft/export metadata | terminal or follow-up actions | unresolved risks 제거 |
 
 ## 모듈 소유권 맵
 
@@ -485,7 +487,7 @@ Given:
 
 When:
 
-- ProductEngine이 `SubmitAnswer`와 `RouteAnswer`를 처리한다.
+- ProductEngine이 `SubmitAnswer`를 처리하고 내부 answer routing을 수행한다.
 - route outcome이 `research_needed` 또는 `missing_con_evidence`다.
 - ResearchResult가 import되고 EvidenceMatrix가 만들어진다.
 
@@ -632,7 +634,7 @@ Given:
 
 When:
 
-- ProductEngine이 `ScoreCompleteness`와 `EmitCompletionCandidate`를 처리한다.
+- ProductEngine이 `ScoreCompleteness`를 처리하고 deterministic completion candidate를 산출한다.
 
 Then:
 

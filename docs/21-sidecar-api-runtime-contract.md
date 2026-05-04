@@ -13,6 +13,7 @@
 | Sidecar framework | Hono |
 | Validation | Zod + Hono validator/OpenAPI route definitions |
 | DTO canonical source | `25-contracts-dto-catalog.md` |
+| Endpoint behavior canonical source | `26-api-route-behavior-catalog.md` |
 | API version prefix | `/api/v1` |
 | Health endpoints | `/healthz`, `/readyz` |
 | Event stream | Server-Sent Events at `/api/v1/events/stream` |
@@ -65,6 +66,7 @@ Rules:
 - APIs must not pretend async effect output is already complete.
 - Every mutating API should return the updated projection only when `active batch projection exception` applies.
 - `CommandResponse`, `statusUrl`, `StatusEndpointDto`, SSE DTO, and UI Projection DTO shapes are canonical in `25-contracts-dto-catalog.md`.
+- Endpoint-specific request, command/query mapping, response category, statusUrl, SSE/refetch, and error/precondition behavior is canonical in `26-api-route-behavior-catalog.md`.
 
 ## ProductEngine runtime policy block
 
@@ -95,7 +97,7 @@ ProductEngine runtime policy:
 Rules:
 
 - Hono route handlers do not create domain objects directly.
-- Hono route handlers map request to command, call application service, and serialize the command response category.
+- Hono route handlers map request to the ProductEngine command or explicit query/application action defined in `26-api-route-behavior-catalog.md`, call the application service, and serialize the defined response category.
 - Frontend treats any returned projection as read model, not source of truth.
 - SSE/refetch is the source of truth for effect completion.
 - File/shell/browser execution requests return `blocked` or preview-only artifact, never actual execution.
@@ -145,9 +147,9 @@ Rules:
 | --- | --- | --- | --- |
 | GET | `/api/v1/sessions/:sessionId/queue` | get queue projection | active, next, blocked, deferred |
 | POST | `/api/v1/sessions/:sessionId/queue/activate` | `ActivateQuestionBatch` | queue projection |
-| POST | `/api/v1/questions/:questionId/answers` | `SubmitAnswer` and `RouteAnswer` | updated queue and activity |
-| POST | `/api/v1/queue-items/:queueItemId/defer` | defer item | queue projection |
-| POST | `/api/v1/queue-items/:queueItemId/dismiss` | dismiss invalid item | queue projection |
+| POST | `/api/v1/questions/:questionId/answers` | `SubmitAnswer`; answer routing is reducer behavior | updated queue and activity |
+| POST | `/api/v1/queue-items/:queueItemId/defer` | `DeferQueueItem` | queue projection |
+| POST | `/api/v1/queue-items/:queueItemId/dismiss` | `DismissQueueItem` | queue projection |
 
 ### Research and evidence
 
@@ -162,8 +164,8 @@ Rules:
 
 | Method | Path | Command/query | Returns |
 | --- | --- | --- | --- |
-| POST | `/api/v1/spec-updates` | `SuggestSpecUpdate` | spec update candidate |
-| POST | `/api/v1/decisions` | `RequestDecisionApproval` | decision card |
+| POST | `/api/v1/spec-updates` | `CreateSpecUpdatePreview` | spec update candidate |
+| POST | `/api/v1/decisions` | create decision card from existing preview; no new `CommandType` | decision card |
 | POST | `/api/v1/decisions/:decisionId/resolve` | `ResolveDecision` | decision outcome and queue projection |
 | POST | `/api/v1/sessions/:sessionId/spec/versions` | `CreateSpecVersion` | spec version and score trigger |
 
@@ -173,18 +175,24 @@ Rules:
 | --- | --- | --- | --- |
 | GET | `/api/v1/runtime/status` | runtime availability | adapter status |
 | POST | `/api/v1/runtime/codex/preview` | `CreateRuntimePreview` | RuntimePreviewArtifact |
-| POST | `/api/v1/runtime/manual-handoff` | create handoff prompt | RuntimePreviewArtifact |
-| POST | `/api/v1/runtime/artifacts/:artifactId/convert` | convert preview to research/update/risk | queue projection |
-| POST | `/api/v1/runtime/artifacts/:artifactId/block` | mark unsupported execution request blocked | blocked outcome |
+| POST | `/api/v1/runtime/manual-handoff` | `CreateRuntimePreview` in manual handoff mode | RuntimePreviewArtifact |
+| POST | `/api/v1/runtime/artifacts/:artifactId/convert` | `ConvertRuntimeArtifact` | queue projection |
+| POST | `/api/v1/runtime/artifacts/:artifactId/block` | `ConvertRuntimeArtifact` with blocked target | blocked outcome |
 
 ### Completeness and export
 
 | Method | Path | Command/query | Returns |
 | --- | --- | --- | --- |
 | POST | `/api/v1/sessions/:sessionId/completeness/score` | `ScoreCompleteness` | completeness projection |
-| POST | `/api/v1/sessions/:sessionId/completion-candidate` | `EmitCompletionCandidate` | completion candidate card |
+| POST | `/api/v1/sessions/:sessionId/completion-candidate` | `ScoreCompleteness`; completion candidate is deterministic output | completion candidate card |
 | GET | `/api/v1/sessions/:sessionId/founder-brief` | get current brief draft | founder brief projection |
-| POST | `/api/v1/sessions/:sessionId/founder-brief/export` | `ExportFounderBrief` | export artifact metadata |
+| POST | `/api/v1/sessions/:sessionId/founder-brief/export` | `PrepareFounderBrief`; export metadata only | export artifact metadata |
+
+### Command status
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/v1/commands/:commandId/status` | status endpoint for command `statusUrl` |
 
 ### Events
 
@@ -197,6 +205,7 @@ Rules:
 
 - Each route has a Zod schema for params, query, body, and response.
 - Shared schemas live in `packages/contracts/src/api/` and follow `25-contracts-dto-catalog.md`.
+- Route-specific behavior and representative error/precondition cases follow `26-api-route-behavior-catalog.md`.
 - Sidecar route files import schemas from `packages/contracts`.
 - Hono handlers use validated data only.
 - Request body tests must send `Content-Type: application/json`.
@@ -222,7 +231,7 @@ Handlers must not directly update multiple repositories without going through Pr
 
 ## SSE event contract
 
-SSE events use stable event names. Event DTO shape, projection refetch hints, and statusUrl lifecycle are canonical in `25-contracts-dto-catalog.md`.
+SSE events use stable event names. Event DTO shape and projection refetch hints are canonical in `25-contracts-dto-catalog.md`; endpoint-specific SSE/refetch recovery is canonical in `26-api-route-behavior-catalog.md`.
 
 | Event name | Payload |
 | --- | --- |
@@ -245,7 +254,7 @@ SSE events use stable event names. Event DTO shape, projection refetch hints, an
 | `effect.blocked` | effectTaskId, effectType, blockReason, userAction |
 | `projection.updated` | projectionKind, version, affectedQueueItemIds |
 
-SSE is a UI update channel, not the source of truth. The frontend must refetch projections when it reconnects. Missed SSE messages are recovered by polling/refetching session projection or the command `statusUrl` defined in `25-contracts-dto-catalog.md`.
+SSE is a UI update channel, not the source of truth. The frontend must refetch projections when it reconnects. Missed SSE messages are recovered by polling/refetching session projection or the command `statusUrl` defined in `25-contracts-dto-catalog.md`; endpoint-specific recovery paths are listed in `26-api-route-behavior-catalog.md`.
 
 ## Codex app-server integration
 

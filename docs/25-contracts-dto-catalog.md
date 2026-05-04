@@ -170,7 +170,7 @@ Example JSON:
 
 ### CommandType enum
 
-Phase 1 command type values are closed.
+Phase 1 command type values are closed. `26-api-route-behavior-catalog.md` must normalize route actions to these values and must not introduce extra `CommandType` names.
 
 | CommandType | Purpose |
 | --- | --- |
@@ -736,6 +736,7 @@ These are not required acceptance scenarios, but they remain implementation chec
 | Validation note | Expected rule |
 | --- | --- |
 | Contract export map | root/family index files export only public contract types |
+| API route command mapping | 26번 route catalog uses only this closed `CommandType` enum |
 | UI Projection fixture | each of 7 projections has at least one fixture in implementation PR |
 | Codex re-export compatibility | 24번 and 25번 enum values match |
 | Forbidden dependency imports | contracts package imports no Hono, Drizzle, React, Tauri, Codex runtime client |
@@ -792,6 +793,7 @@ Then:
 - Keep DB row shapes in `packages/db`, not in `packages/contracts`.
 - Implement command fixtures for the required acceptance scenario.
 - Implement CommandResponse/statusUrl fixtures for all four response categories.
+- Verify `26-api-route-behavior-catalog.md` route command mappings do not invent CommandType values.
 - Implement SSE fixtures for command/effect/projection/runtime event families.
 - Add UI Projection fixtures during frontend implementation, even though they are not required acceptance scenarios for this document.
 - Add forbidden import checks during implementation verification.

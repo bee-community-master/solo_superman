@@ -58,7 +58,7 @@ Implementation-level 계약은 다음 문서를 따른다.
 
 - `19-phase1-implementation-architecture.md`: package layout, dev scripts, sidecar lifecycle, native command boundary.
 - `20-data-storage-contract.md`: libSQL/Drizzle, migration, repository/projection, remote config placeholder.
-- `21-sidecar-api-runtime-contract.md`: Hono routes, validation envelope, local auth, SSE, Codex app-server integration.
+- `21-sidecar-api-runtime-contract.md`: Hono routes, validation envelope, local auth, SSE, Codex app-server integration. `26-api-route-behavior-catalog.md`: endpoint별 request/command/response/SSE/error behavior.
 - `22-phase1-implementation-sequence.md`: 구현 PR 순서와 acceptance criteria.
 
 ## ProductEngine Orchestrator boundary
@@ -80,7 +80,7 @@ ProductEngine이 직접 소유하지 않는 것은 다음이다.
 - Research source 탐색과 EvidenceMatrix 산식.
 - Runtime adapter 내부 실행 방식.
 - 화면 layout과 component 구현.
-- DB/API schema 상세. 해당 구현 계약은 `20-data-storage-contract.md`와 `21-sidecar-api-runtime-contract.md`가 소유한다.
+- DB/API schema 상세. 해당 구현 계약은 `20-data-storage-contract.md`, `21-sidecar-api-runtime-contract.md`, `26-api-route-behavior-catalog.md`가 소유한다.
 
 따라서 Architecture 관점에서 Spec Engine, Research Planner, Completeness Scorer, Runtime Adapter는 ProductEngine 아래의 module/service boundary이며, 세션 상태를 단독으로 확정하지 않는다.
 
@@ -247,7 +247,7 @@ Supabase Realtime은 Broadcast, Presence, Postgres Changes를 제공하므로 �
 | --- | --- | --- |
 | local backend topology | Tauri + Node/Hono sidecar | `19-phase1-implementation-architecture.md` |
 | Rust/Tauri 역할 | native boundary only: sidecar lifecycle, app data dir, secret refs, picker/export | `19-phase1-implementation-architecture.md` |
-| Node/Hono 역할 | ProductEngine, repositories, Codex adapter, Hono API, SSE | `19-phase1-implementation-architecture.md`, `21-sidecar-api-runtime-contract.md` |
+| Node/Hono 역할 | ProductEngine, repositories, Codex adapter, Hono API, SSE | `19-phase1-implementation-architecture.md`, `21-sidecar-api-runtime-contract.md`, `26-api-route-behavior-catalog.md` |
 | SQLite binding | local embedded libSQL via `@libsql/client` | `20-data-storage-contract.md` |
 | schema/migration | Drizzle schema + generated SQL migrations | `20-data-storage-contract.md` |
 | Codex app-server | stdio transport, generated schema pinning, sandbox preview | `21-sidecar-api-runtime-contract.md` |

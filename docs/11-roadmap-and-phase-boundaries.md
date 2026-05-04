@@ -21,7 +21,7 @@
 - 문서 간 상충 없음.
 - Phase 1 구현자가 추가 제품 결정을 하지 않아도 됨.
 - dry-run에서 질문 큐, 리서치 매트릭스, Spec 업데이트, 완성도 점수가 설명 가능.
-- Phase 1 구현자가 topology, package layout, DB binding, API route shape, Codex boundary, PR sequence를 다시 결정하지 않아도 됨.
+- Phase 1 구현자가 topology, package layout, DB binding, API route shape/endpoint behavior, Codex boundary, PR sequence를 다시 결정하지 않아도 됨.
 
 ## Phase 1: Research 포함 Spec 폐루프 MVP
 

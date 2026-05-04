@@ -58,6 +58,7 @@ Owns:
 
 - root package/workspace config.
 - `packages/contracts` family-folder scaffold matching `25-contracts-dto-catalog.md`, with placeholder exports for ProductEngineCommand, ProductEngineReduction, EffectTask, API DTO, SSE DTO, and UI Projection types without behavior.
+- route placeholder names and client stubs follow `26-api-route-behavior-catalog.md` endpoint behavior without implementing real handlers beyond skeletons.
 - `apps/desktop` skeleton.
 - `apps/sidecar` skeleton.
 - `packages/contracts`, `packages/core`, `packages/db` skeleton.
@@ -94,6 +95,7 @@ Owns:
 
 - `/healthz`.
 - `/readyz`.
+- `GET /api/v1/commands/:commandId/status` placeholder shape from `26-api-route-behavior-catalog.md`.
 - loopback host/port config.
 - local capability token middleware.
 - Tauri sidecar launch/readiness discovery contract.
@@ -182,7 +184,7 @@ Owns:
 
 Acceptance criteria:
 
-- `StartProject`, `CaptureIntake`, `DraftInitialSpec`, `AnalyzeAmbiguity`, `ActivateQuestionBatch` work end-to-end through sidecar API.
+- `StartProject`, `CaptureIntake`, `DraftInitialSpec`, `AnalyzeAmbiguity`, `ActivateQuestionBatch` work end-to-end through sidecar API using route behavior from `26-api-route-behavior-catalog.md`.
 - Every command writes an event before projection changes.
 - Reducer unit tests prove no Hono/Tauri/DB/Codex imports are required.
 - Reducer output includes events, nextState, effectPlan, deterministicOutputs, and optional immediateProjection.
@@ -223,7 +225,7 @@ Owns:
 
 Acceptance criteria:
 
-- User can create a project, see first spec draft, see first question batch, submit an answer.
+- User can create a project, see first spec draft, see first question batch, submit an answer through endpoints defined in `26-api-route-behavior-catalog.md`.
 - UI does not mutate local state as source of truth; it refetches sidecar projections.
 - UI can render pending effect summary and manual retry/blocked cards.
 - Active batch remains stable when sidecar reports queued_next items.
@@ -262,7 +264,7 @@ Owns:
 
 Acceptance criteria:
 
-- Answer can create a ResearchTask.
+- Answer can create a ResearchTask through the answer/research endpoints defined in `26-api-route-behavior-catalog.md`.
 - Manual result import creates ResearchResult and EvidenceMatrix.
 - High-impact pro-only claim routes to missing_con_evidence or decision block.
 - Queue is recalculated but active batch remains stable.
@@ -305,7 +307,7 @@ Owns:
 
 Acceptance criteria:
 
-- App can show Codex runtime status.
+- App can show Codex runtime status through runtime endpoints defined in `26-api-route-behavior-catalog.md`.
 - If Codex app-server is unavailable, manual handoff fallback works.
 - If available, all 6 canonical turnPurpose happy-path fixtures can generate valid RuntimePreviewArtifact/artifact output.
 - `codex_runtime_preview_effect` uses idempotency by `turnPurpose + contextHash + runtimeAdapterVersion`, max 1 automatic retry, with per-attempt parser repair once and self-repair once.
@@ -349,7 +351,7 @@ Owns:
 
 Acceptance criteria:
 
-- Score updates after answer, evidence, decision, and spec version changes through deterministic reducer output.
+- Score updates after answer, evidence, decision, and spec version changes through deterministic reducer output and completeness endpoints defined in `26-api-route-behavior-catalog.md`.
 - Completion candidate requires all gates from `07-completeness-scoring.md` and `16-state-event-contract.md`.
 - Founder Brief includes Problem-Customer-Value, top decisions, known risks, next validation actions.
 - Completion does not hide missing con evidence or high severity risk.
@@ -387,7 +389,7 @@ Acceptance criteria:
 - Manual evidence import creates EvidenceMatrix.
 - Decision approval can create SpecVersion.
 - Completeness score and Founder Brief draft are visible.
-- Runtime preview blocked action stays preview-only.
+- Runtime preview blocked action stays preview-only through runtime artifact endpoints defined in `26-api-route-behavior-catalog.md`.
 - Effect queue dry-run covers queue_projection_effect, research_evidence_effect, codex_runtime_preview_effect, conservative_ai_retry_matrix, active batch projection exception, and deterministic scoring/export output.
 
 Verification:
@@ -434,6 +436,7 @@ If implementation discovers a real contract problem:
 - 19번 문서가 package/runtime/process 경계를 고정한다.
 - 20번 문서가 DB/repository/event/projection 경계를 고정한다.
 - 21번 문서가 Hono API/Codex runtime boundary를 고정한다.
+- 26번 문서가 전체 Phase 1 endpoint별 request, command/query mapping, response/statusUrl, SSE/refetch, error/precondition behavior를 고정한다.
 - 24번 문서가 Codex Prompt/Output, turnPurpose schema, artifact taxonomy, repair/failure routing을 고정한다.
 - 25번 문서가 `packages/contracts` public DTO, ProductEngineCommand envelope, CommandResponse/statusUrl, SSE DTO, UI Projection contract를 고정한다.
 - 22번 문서가 PR 순서와 acceptance criteria를 고정한다.
