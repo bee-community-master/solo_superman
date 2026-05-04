@@ -77,7 +77,7 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       status: "ok",
-      sidecarPhase: "pr_02_health_shell",
+      sidecarPhase: "pr_05_decision_queue_shell",
       checks: {
         process: "alive"
       }
@@ -441,11 +441,31 @@ describe("PR-02 sidecar health shell", () => {
         })
       });
       const draftBody = await jsonBody(draft);
+      const draftData = draftBody.data as Readonly<Record<string, unknown>>;
+      const draftProjection = draftData.immediateProjection as Readonly<Record<string, unknown>>;
 
       expect(draft.status).toBe(200);
       expect(draftBody.data).toMatchObject({
         category: "accepted_with_projection",
         stateVersionAfter: 3
+      });
+      expect(draftProjection).toMatchObject({
+        kind: "LivingSpecProjection",
+        title: "초기 제품 스펙 초안: A focused founder brief generator",
+        sections: ["Problem", "Target customer", "Value proposition", "Validation risks"],
+        sectionCount: 4
+      });
+
+      const spec = await storageApp.request(`/api/v1/sessions/${sessionId}/spec`, {
+        headers: authHeaders()
+      });
+      const specBody = await jsonBody(spec);
+
+      expect(spec.status).toBe(200);
+      expect(specBody.data).toMatchObject({
+        title: "초기 제품 스펙 초안: A focused founder brief generator",
+        sections: ["Problem", "Target customer", "Value proposition", "Validation risks"],
+        sectionCount: 4
       });
 
       const specSession = await storageApp.request(`/api/v1/projects/${projectId}/sessions/${sessionId}`, {
@@ -574,6 +594,167 @@ describe("PR-02 sidecar health shell", () => {
       });
       expect(effects[0]).toMatchObject({
         idempotencyKey: `${activateEventIds[0]}:decision_queue`
+      });
+
+      const firstQuestionId = (activeItems[0] as Readonly<Record<string, unknown>>).queueItemId as string;
+      const missingQueueItemId = await storageApp.request(`/api/v1/questions/${firstQuestionId}/answers`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 5,
+          answer: "This answer is missing the shared contract queueItemId."
+        })
+      });
+      const missingQueueItemIdBody = await jsonBody(missingQueueItemId);
+
+      expect(missingQueueItemId.status).toBe(400);
+      expect(missingQueueItemIdBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "queueItemId must be a non-empty string."
+      });
+
+      const mismatchedQueueItemId = await storageApp.request(`/api/v1/questions/${firstQuestionId}/answers`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          queueItemId: "queue_wrong",
+          expectedStateVersion: 5,
+          answer: "This answer must not bind to a different route question."
+        })
+      });
+      const mismatchedQueueItemIdBody = await jsonBody(mismatchedQueueItemId);
+
+      expect(mismatchedQueueItemId.status).toBe(400);
+      expect(mismatchedQueueItemIdBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "queueItemId must match the question route param."
+      });
+
+      const invalidAnswer = await storageApp.request(`/api/v1/questions/${firstQuestionId}/answers`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          queueItemId: firstQuestionId,
+          expectedStateVersion: 5,
+          answer: {
+            kind: "single_choice"
+          }
+        })
+      });
+      const invalidAnswerBody = await jsonBody(invalidAnswer);
+
+      expect(invalidAnswer.status).toBe(400);
+      expect(invalidAnswerBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "answer must be a non-empty string."
+      });
+
+      const answer = await storageApp.request(`/api/v1/questions/${firstQuestionId}/answers`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          queueItemId: firstQuestionId,
+          expectedStateVersion: 5,
+          answer: "Paid solo founders need sharper evidence before building the MVP."
+        })
+      });
+      const answerBody = await jsonBody(answer);
+      const answerData = answerBody.data as Readonly<Record<string, unknown>>;
+      const answeredQueue = answerData.queueProjection as Readonly<Record<string, unknown>>;
+
+      expect(answer.status).toBe(200);
+      expect(answerData).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionAfter: 6
+      });
+      expect(answerData.statusUrl).toBeUndefined();
+      expect(answeredQueue).toMatchObject({
+        kind: "DecisionQueueProjection",
+        active: expect.arrayContaining([
+          expect.objectContaining({
+            queueItemId: firstQuestionId,
+            state: "answered"
+          })
+        ])
+      });
+
+      const refetchedQueue = await storageApp.request(`/api/v1/sessions/${sessionId}/queue`, {
+        headers: authHeaders()
+      });
+      const refetchedQueueBody = await jsonBody(refetchedQueue);
+
+      expect(refetchedQueue.status).toBe(200);
+      expect(refetchedQueueBody.data).toMatchObject({
+        active: expect.arrayContaining([
+          expect.objectContaining({
+            queueItemId: firstQuestionId,
+            state: "answered"
+          })
+        ])
+      });
+
+      const secondQuestionId = (activeItems[1] as Readonly<Record<string, unknown>>).queueItemId as string;
+      const staleAnswer = await storageApp.request(`/api/v1/questions/${secondQuestionId}/answers`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          queueItemId: secondQuestionId,
+          expectedStateVersion: 5,
+          answer: "This command carries the pre-answer state version."
+        })
+      });
+      const staleAnswerBody = await jsonBody(staleAnswer);
+
+      expect(staleAnswer.status).toBe(200);
+      expect(staleAnswerBody.data).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "STATE_VERSION_CONFLICT"
+        }
+      });
+
+      const duplicateAnswer = await storageApp.request(`/api/v1/questions/${firstQuestionId}/answers`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          queueItemId: firstQuestionId,
+          expectedStateVersion: 6,
+          answer: "The answered card cannot be submitted a second time."
+        })
+      });
+      const duplicateAnswerBody = await jsonBody(duplicateAnswer);
+
+      expect(duplicateAnswer.status).toBe(200);
+      expect(duplicateAnswerBody.data).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "COMMAND_PRECONDITION_FAILED",
+          message: "SubmitAnswer requires an active question card."
+        }
       });
     } finally {
       await storage.close();

@@ -9,8 +9,9 @@ import {
   type ApiSuccessEnvelope,
   type CommandId,
   type CommandResponse,
-  PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
   type ProjectId,
+  type QueueItemId,
   type SessionId,
   type StateVersion,
   type StatusEndpointDto
@@ -161,7 +162,7 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
           codex: "not_checked_until_pr_07"
         },
         migrations,
-        implementedApiRouteIds: PR04_MOUNTED_PRODUCT_API_ROUTE_IDS
+        implementedApiRouteIds: PR05_MOUNTED_PRODUCT_API_ROUTE_IDS
       }
     } as const;
   }
@@ -179,7 +180,7 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
           codex: "not_checked_until_pr_07"
         },
         migrations,
-        implementedApiRouteIds: PR04_MOUNTED_PRODUCT_API_ROUTE_IDS
+        implementedApiRouteIds: PR05_MOUNTED_PRODUCT_API_ROUTE_IDS
       }
     } as const;
   }
@@ -195,7 +196,7 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
         codex: "not_checked_until_pr_07"
       },
       migrations,
-      implementedApiRouteIds: PR04_MOUNTED_PRODUCT_API_ROUTE_IDS
+      implementedApiRouteIds: PR05_MOUNTED_PRODUCT_API_ROUTE_IDS
     }
   } as const;
 }
@@ -305,11 +306,11 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       status: "ok",
       service: "solo-superman-sidecar",
       schemaVersion: CONTRACT_SCHEMA_VERSION,
-      sidecarPhase: "pr_02_health_shell",
+      sidecarPhase: "pr_05_decision_queue_shell",
       checks: {
         process: "alive"
       },
-      implementedApiRouteIds: PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      implementedApiRouteIds: PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
       productApiRoutePlaceholderCount: productApiRoutePlaceholders.length
     })
   );
@@ -428,6 +429,28 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
     })
   );
 
+  app.post("/api/v1/questions/:questionId/answers", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const questionId = context.req.param("questionId") as QueueItemId;
+      const bodyQueueItemId = stringFromBody(body.queueItemId, "queueItemId") as QueueItemId;
+
+      if (bodyQueueItemId !== questionId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "queueItemId must match the question route param.");
+      }
+
+      return service.runSessionCommand({
+        sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
+        commandType: "SubmitAnswer",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          queueItemId: questionId,
+          answer: stringFromBody(body.answer, "answer")
+        }
+      });
+    })
+  );
+
   app.get("/api/v1/projects/:projectId/sessions/:sessionId", async (context) =>
     withProductEngine(context, (service) =>
       service.getSession(context.req.param("projectId") as ProjectId, context.req.param("sessionId") as SessionId)
@@ -478,7 +501,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       return context.json(
         jsonError(context, "RESOURCE_NOT_FOUND", "This Phase 1 API route is not mounted yet.", {
           path: context.req.path,
-          mountedRouteIds: PR04_MOUNTED_PRODUCT_API_ROUTE_IDS
+          mountedRouteIds: PR05_MOUNTED_PRODUCT_API_ROUTE_IDS
         }),
         404
       );

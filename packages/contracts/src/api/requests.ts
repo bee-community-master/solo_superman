@@ -47,8 +47,10 @@ export interface ActivateQuestionBatchRequest extends ScaffoldRequestPlaceholder
 }
 
 export interface SubmitAnswerRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
   readonly queueItemId: QueueItemId;
-  readonly answer: unknown;
+  readonly expectedStateVersion: StateVersion;
+  readonly answer: string;
 }
 
 export interface DeferQueueItemRequest extends ScaffoldRequestPlaceholder {

@@ -97,7 +97,7 @@ function nextVersion(state: ProductEngineStateSnapshot) {
 }
 
 function projectionVersionFor(state: ProductEngineStateSnapshot) {
-  return nextVersion(state) as unknown as ProjectionVersion;
+  return Number(nextVersion(state)) as ProjectionVersion;
 }
 
 function eventDraft(
@@ -178,12 +178,19 @@ function createSessionShellProjection(command: ProductEngineCommand, version: Pr
   } as const;
 }
 
-function createLivingSpecProjection(command: ProductEngineCommand, version: ProjectionVersion, sectionCount: number) {
+function createLivingSpecProjection(
+  command: ProductEngineCommand,
+  version: ProjectionVersion,
+  title: string,
+  sections: readonly string[]
+) {
   return {
     kind: "LivingSpecProjection",
     sessionId: command.sessionId,
     version,
-    sectionCount,
+    title,
+    sections,
+    sectionCount: sections.length,
     approvalStatus: "draft"
   } as const;
 }
@@ -237,6 +244,31 @@ function queueProjectionFromIssues(
     next: [],
     blocked: [],
     deferred: []
+  };
+}
+
+function queueProjectionWithAnsweredItem(
+  projection: DecisionQueueProjection,
+  queueItemId: QueueItemId,
+  version: ProjectionVersion
+): DecisionQueueProjection {
+  const markAnswered = (items: DecisionQueueProjection["active"]) =>
+    items.map((item) =>
+      item.queueItemId === queueItemId
+        ? {
+            ...item,
+            state: "answered" as const
+          }
+        : item
+    );
+
+  return {
+    ...projection,
+    version,
+    active: markAnswered(projection.active),
+    next: markAnswered(projection.next),
+    blocked: markAnswered(projection.blocked),
+    deferred: markAnswered(projection.deferred)
   };
 }
 
@@ -414,10 +446,11 @@ function reduceDraftInitialSpec(command: ProductEngineCommand, state: ProductEng
     "Value proposition",
     "Validation risks"
   ];
-  const projection = createLivingSpecProjection(command, projectionVersionFor(state), sections.length);
+  const title = `초기 제품 스펙 초안: ${state.project.rawIdeaText ?? "Untitled idea"}`;
+  const projection = createLivingSpecProjection(command, projectionVersionFor(state), title, sections);
   const event = eventDraft(command, "InitialSpecDrafted", {
     draftRef,
-    title: `초기 제품 스펙 초안: ${state.project.rawIdeaText ?? "Untitled idea"}`,
+    title,
     sections,
     projection
   });
@@ -429,7 +462,7 @@ function reduceDraftInitialSpec(command: ProductEngineCommand, state: ProductEng
     {
       currentSpec: {
         draftRef,
-        title: `초기 제품 스펙 초안: ${state.project.rawIdeaText ?? "Untitled idea"}`,
+        title,
         sections
       },
       livingSpecProjection: projection
@@ -559,6 +592,63 @@ function reduceActivateQuestionBatch(command: ProductEngineCommand, state: Produ
   );
 }
 
+function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineStateSnapshot): ProductEngineReduction {
+  const queueItemId = requiredString(command.payload.queueItemId);
+  const answer = requiredString(command.payload.answer);
+
+  if (!queueItemId || !answer) {
+    return reject("SubmitAnswer requires queueItemId and a non-empty answer.", "VALIDATION_FAILED");
+  }
+
+  const activeItem = state.queueProjection.active.find((item) => item.queueItemId === queueItemId);
+
+  if (!activeItem || activeItem.state !== "active") {
+    return reject("SubmitAnswer requires an active question card.");
+  }
+
+  const projection = queueProjectionWithAnsweredItem(
+    state.queueProjection,
+    queueItemId as QueueItemId,
+    projectionVersionFor(state)
+  );
+  const answerRef = `answer_${stableToken(`${command.sessionId}:${queueItemId}:${answer}`)}`;
+  const event = eventDraft(command, "AnswerSubmitted", {
+    answerRef,
+    queueItemId,
+    answer,
+    projection
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      openIssues: state.openIssues.map((issue) =>
+        issue.queueItemId === queueItemId
+          ? {
+              ...issue,
+              status: "answered" as const
+            }
+          : issue
+      ),
+      queueProjection: projection
+    },
+    [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: answerRef,
+        payload: {
+          queueItemId,
+          answer
+        }
+      }
+    ],
+    [],
+    projection
+  );
+}
+
 export function reduceProductEngineCommand(
   command: ProductEngineCommand,
   state: ProductEngineStateSnapshot
@@ -582,6 +672,8 @@ export function reduceProductEngineCommand(
       return reduceAnalyzeAmbiguity(command, state);
     case "ActivateQuestionBatch":
       return reduceActivateQuestionBatch(command, state);
+    case "SubmitAnswer":
+      return reduceSubmitAnswer(command, state);
     default:
       return reject(`${command.commandType} is outside the PR-04 reducer slice.`);
   }
@@ -665,6 +757,26 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
           ...state.session,
           phase
         },
+        queueProjection: projection
+      };
+    }
+    case "AnswerSubmitted": {
+      const projection = projectionPayload(event.payload, state.queueProjection);
+      const queueItemId = typeof event.payload.queueItemId === "string" ? event.payload.queueItemId : null;
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        openIssues: queueItemId
+          ? state.openIssues.map((issue) =>
+              issue.queueItemId === queueItemId
+                ? {
+                    ...issue,
+                    status: "answered" as const
+                  }
+                : issue
+            )
+          : state.openIssues,
         queueProjection: projection
       };
     }

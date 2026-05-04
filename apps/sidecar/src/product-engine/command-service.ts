@@ -59,7 +59,10 @@ export class ProductEngineServiceError extends Error {
 
 export interface RunSessionCommandInput {
   readonly sessionId: SessionId;
-  readonly commandType: Extract<CommandType, "CaptureIntake" | "DraftInitialSpec" | "AnalyzeAmbiguity" | "ActivateQuestionBatch">;
+  readonly commandType: Extract<
+    CommandType,
+    "CaptureIntake" | "DraftInitialSpec" | "AnalyzeAmbiguity" | "ActivateQuestionBatch" | "SubmitAnswer"
+  >;
   readonly expectedStateVersion: StateVersion;
   readonly payload: Readonly<Record<string, unknown>>;
 }
@@ -498,7 +501,7 @@ export function createProductEngineCommandService(storage: SoloStorage) {
           version:
             projection.phase === phase
               ? projection.version
-              : (state.stateVersion as unknown as SessionShellProjection["version"])
+              : (Number(state.stateVersion) as SessionShellProjection["version"])
         };
       }
 
@@ -506,7 +509,7 @@ export function createProductEngineCommandService(storage: SoloStorage) {
         kind: "SessionShellProjection",
         projectId: session.projectId,
         sessionId: session.sessionId,
-        version: state.stateVersion as unknown as SessionShellProjection["version"],
+        version: Number(state.stateVersion) as SessionShellProjection["version"],
         phase
       };
     },
@@ -534,7 +537,9 @@ export function createProductEngineCommandService(storage: SoloStorage) {
       return {
         kind: "LivingSpecProjection",
         sessionId: sessionIdValue,
-        version: state.stateVersion as unknown as LivingSpecProjection["version"],
+        version: Number(state.stateVersion) as LivingSpecProjection["version"],
+        ...(state.currentSpec.title ? { title: state.currentSpec.title } : {}),
+        ...(state.currentSpec.sections ? { sections: state.currentSpec.sections } : {}),
         sectionCount: state.currentSpec.sections?.length ?? 0,
         approvalStatus: "draft"
       };

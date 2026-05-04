@@ -17,9 +17,14 @@ export function resolveLocalCapabilityToken(env = process.env) {
 }
 
 export function createDevEnvironment(env = process.env) {
+  const localCapabilityToken = resolveLocalCapabilityToken(env);
+  const sidecarBaseUrl = env.SOLO_SIDECAR_BASE_URL ?? "http://127.0.0.1:43110";
+
   return {
     ...env,
-    SOLO_LOCAL_CAPABILITY_TOKEN: resolveLocalCapabilityToken(env)
+    SOLO_LOCAL_CAPABILITY_TOKEN: localCapabilityToken,
+    VITE_SOLO_LOCAL_CAPABILITY_TOKEN: localCapabilityToken,
+    VITE_SOLO_SIDECAR_BASE_URL: sidecarBaseUrl
   };
 }
 

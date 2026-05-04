@@ -1,5 +1,5 @@
-import { ScaffoldSummary } from "../features/scaffold/ScaffoldSummary";
+import { DecisionQueueShell } from "../features/decision-queue/DecisionQueueShell";
 
 export function App() {
-  return <ScaffoldSummary />;
+  return <DecisionQueueShell />;
 }

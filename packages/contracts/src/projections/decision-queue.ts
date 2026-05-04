@@ -3,7 +3,7 @@ import type { ProjectionVersion, QueueItemId } from "../ids";
 export interface QueueItemProjection {
   readonly queueItemId: QueueItemId;
   readonly title: string;
-  readonly state: "active" | "next" | "blocked" | "deferred" | "resolved";
+  readonly state: "active" | "next" | "blocked" | "deferred" | "answered" | "resolved";
 }
 
 export interface DecisionQueueProjection {

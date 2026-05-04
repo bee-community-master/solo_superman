@@ -1,17 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { findDesktopRouteClientPlaceholder } from "./route-client";
 
-describe("PR-02 desktop route client placeholders", () => {
-  it("marks only the command status endpoint as mounted in the sidecar placeholder shell", () => {
+describe("PR-05 desktop route client catalog", () => {
+  it("marks Decision Queue shell routes as mounted in the sidecar", () => {
     expect(findDesktopRouteClientPlaceholder("getCommandStatus")).toMatchObject({
       method: "GET",
       path: "/api/v1/commands/:commandId/status",
-      implementation: "mounted_placeholder_pr_02"
+      implementation: "mounted_pr_05"
     });
 
-    expect(findDesktopRouteClientPlaceholder("listProjects")).toMatchObject({
+    expect(findDesktopRouteClientPlaceholder("submitAnswer")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/questions/:questionId/answers",
+      implementation: "mounted_pr_05"
+    });
+
+    expect(findDesktopRouteClientPlaceholder("getRuntimeStatus")).toMatchObject({
       method: "GET",
-      path: "/api/v1/projects",
+      path: "/api/v1/runtime/status",
       implementation: "not_mounted_yet"
     });
   });

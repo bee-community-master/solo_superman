@@ -92,6 +92,11 @@ describe("PR-04 ProductEngine reducer", () => {
       );
     }
 
+    expect(state.livingSpecProjection).toMatchObject({
+      title: "초기 제품 스펙 초안: A focused founder brief generator",
+      sections: ["Problem", "Target customer", "Value proposition", "Validation risks"],
+      sectionCount: 4
+    });
     expect(state.queueProjection.active).toHaveLength(4);
     expect(state.queueProjection.active.every((item) => item.state === "active")).toBe(true);
     expect(state.queueProjection.next).toEqual([]);
@@ -295,5 +300,113 @@ describe("PR-04 ProductEngine reducer", () => {
         code: "COMMAND_PRECONDITION_FAILED"
       }
     });
+  });
+
+  it("accepts active question answers without replacing the active batch", () => {
+    const commands = [
+      command("StartProject", 0, {
+        rawIdea: "A focused founder brief generator",
+        localPrivacyMode: "local_only"
+      }, 1),
+      command("CaptureIntake", 1, {
+        answer: "A session flow for founders."
+      }, 2),
+      command("DraftInitialSpec", 2, {}, 3),
+      command("AnalyzeAmbiguity", 3, {
+        targetRef: "current_spec"
+      }, 4),
+      command("ActivateQuestionBatch", 4, {}, 5)
+    ] as const;
+    let state = createInitialProductEngineState(projectId, sessionId);
+    const persistedEvents = [];
+
+    for (const nextCommand of commands) {
+      const reduction = reduceProductEngineCommand(nextCommand, state);
+
+      expect(reduction.accepted).toBe(true);
+      persistedEvents.push(reduction.events[0]);
+      state = replayProductEngineEvents(
+        projectId,
+        sessionId,
+        persistedEvents.map((eventDraft, index) => ({
+          ...eventDraft,
+          eventId: `evt_submit_answer_setup_${index + 1}`,
+          sequence: index + 1,
+          occurredAt: `2026-05-05T00:00:${index + 1}0.000Z`
+        }))
+      );
+    }
+
+    const activeItemIds = state.queueProjection.active.map((item) => item.queueItemId);
+    const answeredQueueItemId = activeItemIds[0];
+    const blankAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: activeItemIds[1],
+        answer: "   "
+      }, 6),
+      state
+    );
+    const unknownQuestionAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: "queue_missing" as QueueItemId,
+        answer: "This answer must reference an active card."
+      }, 6),
+      state
+    );
+    const answer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: answeredQueueItemId,
+        answer: "The first validation decision should focus on paid founder urgency."
+      }, 7),
+      state
+    );
+
+    expect(blankAnswer).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "VALIDATION_FAILED"
+      }
+    });
+    expect(unknownQuestionAnswer).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "COMMAND_PRECONDITION_FAILED"
+      }
+    });
+    expect(answer.accepted).toBe(true);
+    expect(answer.effectPlan).toEqual([]);
+    expect(answer.immediateProjection).toMatchObject({
+      kind: "DecisionQueueProjection",
+      active: [
+        expect.objectContaining({
+          queueItemId: answeredQueueItemId,
+          state: "answered"
+        }),
+        ...activeItemIds.slice(1).map((queueItemId) =>
+          expect.objectContaining({
+            queueItemId,
+            state: "active"
+          })
+        )
+      ]
+    });
+
+    const replayed = replayProductEngineEvents(projectId, sessionId, [
+      ...persistedEvents.map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_submit_answer_replay_${index + 1}` as const,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:00:${index + 1}0.000Z`
+      })),
+      {
+        ...answer.events[0],
+        eventId: "evt_submit_answer_replay_6" as const,
+        sequence: 6,
+        occurredAt: "2026-05-05T00:01:00.000Z"
+      }
+    ]);
+
+    expect(replayed.queueProjection.active.map((item) => item.queueItemId)).toEqual(activeItemIds);
+    expect(replayed.queueProjection.active[0]?.state).toBe("answered");
   });
 });
