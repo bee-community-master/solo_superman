@@ -34,10 +34,37 @@ export interface CommandRejectedSseEvent extends SseEventBase<"command.rejected"
   readonly reason: string;
 }
 
-export interface EffectLifecycleSseEvent extends SseEventBase<"effect.queued" | "effect.started" | "effect.succeeded" | "effect.failed" | "effect.blocked"> {
+export interface EffectQueuedSseEvent extends SseEventBase<"effect.queued"> {
   readonly effectTaskId: EffectTaskId;
   readonly effectType: EffectType;
-  readonly detail?: Readonly<Record<string, unknown>>;
+  readonly sourceEventIds: readonly EventId[];
+}
+
+export interface EffectStartedSseEvent extends SseEventBase<"effect.started"> {
+  readonly effectTaskId: EffectTaskId;
+  readonly effectType: EffectType;
+  readonly attemptCount: number;
+}
+
+export interface EffectSucceededSseEvent extends SseEventBase<"effect.succeeded"> {
+  readonly effectTaskId: EffectTaskId;
+  readonly effectType: EffectType;
+  readonly outputRef: string;
+  readonly projectionHint?: ProjectionRefetchHint;
+}
+
+export interface EffectFailedSseEvent extends SseEventBase<"effect.failed"> {
+  readonly effectTaskId: EffectTaskId;
+  readonly effectType: EffectType;
+  readonly errorCode: string;
+  readonly retryAvailable: boolean;
+}
+
+export interface EffectBlockedSseEvent extends SseEventBase<"effect.blocked"> {
+  readonly effectTaskId: EffectTaskId;
+  readonly effectType: EffectType;
+  readonly blockReason: string;
+  readonly userAction?: string;
 }
 
 export interface ProjectionRefetchHint {
@@ -61,6 +88,10 @@ export interface RuntimeStatusChangedSseEvent extends SseEventBase<"runtime.stat
 export type SseEvent =
   | CommandAcceptedSseEvent
   | CommandRejectedSseEvent
-  | EffectLifecycleSseEvent
+  | EffectQueuedSseEvent
+  | EffectStartedSseEvent
+  | EffectSucceededSseEvent
+  | EffectFailedSseEvent
+  | EffectBlockedSseEvent
   | ProjectionUpdatedSseEvent
   | RuntimeStatusChangedSseEvent;
