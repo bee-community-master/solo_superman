@@ -1,6 +1,6 @@
 import type { CommandId, EffectTaskId, EventId, ProjectionVersion } from "../ids";
 import type { CommandType } from "../product-engine";
-import type { EffectType } from "../effects";
+import type { EffectOutputRef, EffectType } from "../effects";
 import type { ProjectionKind } from "../projections";
 
 export type SseEventName =
@@ -49,8 +49,8 @@ export interface EffectStartedSseEvent extends SseEventBase<"effect.started"> {
 export interface EffectSucceededSseEvent extends SseEventBase<"effect.succeeded"> {
   readonly effectTaskId: EffectTaskId;
   readonly effectType: EffectType;
-  readonly outputRef: string;
-  readonly projectionHint?: ProjectionRefetchHint;
+  readonly outputRef: EffectOutputRef;
+  readonly projectionHint: ProjectionRefetchHint;
 }
 
 export interface EffectFailedSseEvent extends SseEventBase<"effect.failed"> {
@@ -64,7 +64,7 @@ export interface EffectBlockedSseEvent extends SseEventBase<"effect.blocked"> {
   readonly effectTaskId: EffectTaskId;
   readonly effectType: EffectType;
   readonly blockReason: string;
-  readonly userAction?: string;
+  readonly userAction: string;
 }
 
 export interface ProjectionRefetchHint {
