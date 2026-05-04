@@ -17,7 +17,8 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run --passWithNoTests",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test"
+    "verify:docs": "node scripts/verify-doc-contracts.mjs",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
