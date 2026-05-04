@@ -121,9 +121,14 @@ Phase 1 implementation must use this layout unless a later ADR explicitly replac
 └─ packages/
    ├─ contracts/
    │  └─ src/
+   │     ├─ index.ts
+   │     ├─ ids/
+   │     ├─ product-engine/
+   │     ├─ effects/
    │     ├─ api/
-   │     ├─ domain/
-   │     ├─ events/
+   │     ├─ sse/
+   │     ├─ projections/
+   │     ├─ codex/
    │     └─ codex-generated/
    ├─ core/
    │  └─ src/
@@ -145,12 +150,15 @@ Phase 1 implementation must use this layout unless a later ADR explicitly replac
 ### Layout rules
 
 - `packages/core` must not import React, Tauri, Hono, or Node HTTP types.
-- `packages/core` may import `packages/contracts` domain/event types.
-- `packages/db` may import `packages/contracts` ids and enums but must not import UI code.
+- `packages/core` may import `packages/contracts` ProductEngine command/event/effect DTOs defined in `25-contracts-dto-catalog.md`.
+- `packages/db` may import `packages/contracts` ids and enums but must not treat UI Projection DTOs as DB row shapes.
 - `apps/sidecar` may import `packages/core`, `packages/db`, and `packages/contracts`.
-- `apps/desktop` may import `packages/contracts` client/view-model types only.
+- `apps/desktop` may import `packages/contracts` API client DTO and UI Projection/ViewModel types only.
 - `apps/desktop` must not import `packages/db` or call libSQL directly.
 - Rust/Tauri must not implement ProductEngine logic.
+
+- `packages/contracts` module layout, export path, Zod naming, and public DTO ownership are canonical in `25-contracts-dto-catalog.md`.
+- `packages/contracts` must not import Hono, Drizzle, React, Tauri, or Codex runtime client modules.
 
 ## Dev script contract
 

@@ -12,6 +12,7 @@
 | --- | --- |
 | Sidecar framework | Hono |
 | Validation | Zod + Hono validator/OpenAPI route definitions |
+| DTO canonical source | `25-contracts-dto-catalog.md` |
 | API version prefix | `/api/v1` |
 | Health endpoints | `/healthz`, `/readyz` |
 | Event stream | Server-Sent Events at `/api/v1/events/stream` |
@@ -63,6 +64,7 @@ Rules:
 - Mutating APIs include `eventIds` and `effectTaskIds` when ProductEngine events/effects were persisted.
 - APIs must not pretend async effect output is already complete.
 - Every mutating API should return the updated projection only when `active batch projection exception` applies.
+- `CommandResponse`, `statusUrl`, `StatusEndpointDto`, SSE DTO, and UI Projection DTO shapes are canonical in `25-contracts-dto-catalog.md`.
 
 ## ProductEngine runtime policy block
 
@@ -85,10 +87,10 @@ ProductEngine runtime policy:
 
 | Category | When used | Response data |
 | --- | --- | --- |
-| `accepted` | command accepted, async effects queued, no immediate active-batch projection | `eventIds`, `effectTaskIds`, `statusUrl`, `queuedActivity` |
-| `accepted_with_projection` | `active batch projection exception` applies | `eventIds`, `effectTaskIds`, `queueProjection`, `activity`, `pendingEffectSummary` |
-| `rejected` | validation/precondition failure | stable error code and no event/effect ids |
-| `blocked` | command is valid but policy/runtime blocks execution | blocking card projection, no external execution |
+| `accepted` | command accepted, async effects queued, no immediate active-batch projection | `eventIds`, `effectTaskIds`, `statusUrl`, `queuedActivity`; exact DTO in `25-contracts-dto-catalog.md` |
+| `accepted_with_projection` | `active batch projection exception` applies | `eventIds`, `effectTaskIds`, `queueProjection`, `activity`, `pendingEffectSummary`; exact DTO in `25-contracts-dto-catalog.md` |
+| `rejected` | validation/precondition failure | stable error code and no event/effect ids; exact error envelope in `25-contracts-dto-catalog.md` |
+| `blocked` | command is valid but policy/runtime blocks execution | blocking card projection, blocked artifact ref, no external execution; exact DTO in `25-contracts-dto-catalog.md` |
 
 Rules:
 
@@ -194,7 +196,7 @@ Rules:
 ## Hono validation contract
 
 - Each route has a Zod schema for params, query, body, and response.
-- Shared schemas live in `packages/contracts/src/api/`.
+- Shared schemas live in `packages/contracts/src/api/` and follow `25-contracts-dto-catalog.md`.
 - Sidecar route files import schemas from `packages/contracts`.
 - Hono handlers use validated data only.
 - Request body tests must send `Content-Type: application/json`.
@@ -220,7 +222,7 @@ Handlers must not directly update multiple repositories without going through Pr
 
 ## SSE event contract
 
-SSE events use stable event names.
+SSE events use stable event names. Event DTO shape, projection refetch hints, and statusUrl lifecycle are canonical in `25-contracts-dto-catalog.md`.
 
 | Event name | Payload |
 | --- | --- |
@@ -243,7 +245,7 @@ SSE events use stable event names.
 | `effect.blocked` | effectTaskId, effectType, blockReason, userAction |
 | `projection.updated` | projectionKind, version, affectedQueueItemIds |
 
-SSE is a UI update channel, not the source of truth. The frontend must refetch projections when it reconnects. Missed SSE messages are recovered by polling/refetching session projection.
+SSE is a UI update channel, not the source of truth. The frontend must refetch projections when it reconnects. Missed SSE messages are recovered by polling/refetching session projection or the command `statusUrl` defined in `25-contracts-dto-catalog.md`.
 
 ## Codex app-server integration
 
@@ -278,6 +280,7 @@ Implementation rules:
 - Sidecar adapter imports generated types through a narrow wrapper.
 - If generated schema changes, update `17-ai-runtime-access-strategy.md` or add a short compatibility note in this document.
 - Internal turnPurpose, artifact kind, applyPolicy, repair, and severity routing changes must update `24-codex-prompt-output-contract.md` first.
+- Public `packages/contracts/src/codex/` re-export names and forbidden runtime-client import rules follow `25-contracts-dto-catalog.md`.
 - Do not hand-write broad `any` wrappers around app-server messages.
 
 ### Thread/session mapping

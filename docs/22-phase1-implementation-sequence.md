@@ -57,7 +57,7 @@ Goal:
 Owns:
 
 - root package/workspace config.
-- `packages/contracts` placeholder types for ProductEngineCommand, ProductEngineReduction, and EffectTask without behavior.
+- `packages/contracts` family-folder scaffold matching `25-contracts-dto-catalog.md`, with placeholder exports for ProductEngineCommand, ProductEngineReduction, EffectTask, API DTO, SSE DTO, and UI Projection types without behavior.
 - `apps/desktop` skeleton.
 - `apps/sidecar` skeleton.
 - `packages/contracts`, `packages/core`, `packages/db` skeleton.
@@ -172,7 +172,7 @@ Goal:
 Owns:
 
 - `packages/core/product-engine`.
-- ProductEngineCommand, ProductEngineStateSnapshot, ProductEngineReduction contracts.
+- ProductEngineCommand event-sourcing envelope, ProductEngineStateSnapshot, ProductEngineReduction contracts from `25-contracts-dto-catalog.md`.
 - pure reducer + effect plan pattern.
 - event reduce pattern.
 - initial spec stub generator.
@@ -188,6 +188,7 @@ Acceptance criteria:
 - Reducer output includes events, nextState, effectPlan, deterministicOutputs, and optional immediateProjection.
 - First active batch has 3 to 5 question cards.
 - Active batch projection exception returns immediate active-batch-safe projection while deeper queue recalculation remains effect-backed.
+- Command fixtures include `expectedStateVersion`, `causationId`, and `correlationId`.
 - Core logic can be unit tested without Hono/Tauri imports.
 
 Verification:
@@ -218,6 +219,7 @@ Owns:
 - activity feed display.
 - spec outline/canvas read model.
 - progress/risk placeholders from current projections.
+- `SessionShellProjection`, `DecisionQueueProjection`, `LivingSpecProjection`, `ConfidenceCompletionProjection`, and `RuntimeActivityProjection` rendering contract from `25-contracts-dto-catalog.md`.
 
 Acceptance criteria:
 
@@ -226,6 +228,7 @@ Acceptance criteria:
 - UI can render pending effect summary and manual retry/blocked cards.
 - Active batch remains stable when sidecar reports queued_next items.
 - Empty/error/loading states exist for sidecar unavailable.
+- UI consumes sidecar projection DTOs without reconstructing ProductEngine state from raw events or DB-shaped records.
 
 Verification:
 
@@ -254,6 +257,7 @@ Owns:
 - ResearchResult import endpoint.
 - EvidenceMatrix synthesis stub and deterministic rules.
 - Pro/con/uncertainty UI projection.
+- `ResearchEvidenceProjection` and related `StatusEndpointDto`/SSE refetch hints from `25-contracts-dto-catalog.md`.
 - Queue reprioritization after evidence import.
 
 Acceptance criteria:
@@ -290,6 +294,7 @@ Owns:
 - CodexRuntimeAdapter.
 - `codex_runtime_preview_effect` executor and conservative retry.
 - generated schema import wrapper.
+- `packages/contracts/src/codex/` re-export compatibility with `25-contracts-dto-catalog.md`.
 - runtime status endpoint.
 - runtime preview endpoint.
 - RuntimePreviewArtifact persistence.
@@ -307,6 +312,7 @@ Acceptance criteria:
 - Low-risk artifacts auto-apply only through ProductEngine commands; evidence uses conditional gate.
 - File diff/shell/browser/network/credential/destructive suggestions are blocked and converted to `BlockedActionArtifact`/block cards.
 - No file/shell/browser action is applied by the app.
+- Codex artifact/applyPolicy/blocked taxonomy enum values match both `24-codex-prompt-output-contract.md` and `25-contracts-dto-catalog.md`.
 
 Verification:
 
@@ -339,6 +345,7 @@ Owns:
 - risk card projection.
 - Completion Candidate Card.
 - Founder Brief projection and export request as `reducer_deterministic_output`, not `spec_export_effect`.
+- `FounderBriefProjection` and `ConfidenceCompletionProjection` field contracts from `25-contracts-dto-catalog.md`.
 
 Acceptance criteria:
 
@@ -428,6 +435,7 @@ If implementation discovers a real contract problem:
 - 20번 문서가 DB/repository/event/projection 경계를 고정한다.
 - 21번 문서가 Hono API/Codex runtime boundary를 고정한다.
 - 24번 문서가 Codex Prompt/Output, turnPurpose schema, artifact taxonomy, repair/failure routing을 고정한다.
+- 25번 문서가 `packages/contracts` public DTO, ProductEngineCommand envelope, CommandResponse/statusUrl, SSE DTO, UI Projection contract를 고정한다.
 - 22번 문서가 PR 순서와 acceptance criteria를 고정한다.
 - 23번 문서가 ProductEngine runtime contract, effect queue, retry/idempotency, API/SSE 구현 기준을 고정한다.
 - 12번 dry-run은 PR-09의 integration target으로 남는다.

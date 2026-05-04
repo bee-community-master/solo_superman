@@ -62,11 +62,11 @@ ProductEngine runtime policy:
 | `packages/db` | load state snapshot, persist events, persist deterministic outputs, persist effect tasks, update effect status | decide product state transitions |
 | `apps/sidecar` | Hono route, local auth, application service, effect executor, SSE stream | place ProductEngine branching logic in route handlers |
 | `apps/desktop` | call sidecar API, render projection, subscribe to SSE, show pending/manual retry cards | mutate queue/spec/scoring as source of truth |
-| `packages/contracts` | shared command/event/effect/projection DTOs | define behavior not backed by ProductEngine contract |
+| `packages/contracts` | shared command/event/effect/API/SSE/projection DTOs defined in `25-contracts-dto-catalog.md` | define behavior not backed by ProductEngine contract or import runtime/db/ui frameworks |
 
 ## ProductEngine reducer contract
 
-Reducer signature shape:
+Reducer signature shape. Canonical command/state/reduction DTO fields are defined in `25-contracts-dto-catalog.md`:
 
 ```ts
 type ProductEngineReducer = (
@@ -79,7 +79,7 @@ Required input:
 
 | Input | Description |
 | --- | --- |
-| `command` | Validated domain command from Hono application service |
+| `command` | Validated event-sourcing style ProductEngineCommand from Hono application service |
 | `state.project` | Project and privacy mode |
 | `state.session` | Current session status and active batch refs |
 | `state.currentSpec` | Working draft plus latest SpecVersion ref |
@@ -251,8 +251,8 @@ Mutating command responses use one of these result categories.
 
 | Category | When used | Response includes |
 | --- | --- | --- |
-| `accepted` | command accepted, no immediate active-batch projection | `eventIds`, `effectTaskIds`, `statusUrl`, `queuedActivity` |
-| `accepted_with_projection` | active batch projection exception applies | `eventIds`, `effectTaskIds`, `queueProjection`, `activity`, `pendingEffectSummary` |
+| `accepted` | command accepted, no immediate active-batch projection | `eventIds`, `effectTaskIds`, `statusUrl`, `queuedActivity`; exact DTO in `25-contracts-dto-catalog.md` |
+| `accepted_with_projection` | active batch projection exception applies | `eventIds`, `effectTaskIds`, `queueProjection`, `activity`, `pendingEffectSummary`; exact DTO in `25-contracts-dto-catalog.md` |
 | `rejected` | precondition or validation fails | stable error code and no event/effect ids |
 | `blocked` | command is valid but policy/runtime blocks effect execution | blocking card projection and no external execution |
 

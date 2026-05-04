@@ -15,6 +15,7 @@ Canonical path: `docs/24-codex-prompt-output-contract.md`.
 | 항목 | 결정 |
 | --- | --- |
 | Canonical source | Codex prompt/input/output/schema/repair/artifact 계약은 이 문서가 소유 |
+| Contracts bridge | 25번 문서가 turnPurpose, artifact kind, applyPolicy, blocked action taxonomy re-export를 소유 |
 | Phase 1 권한 | preview/spec/research 중심. 파일, shell, browser, network, credential, destructive action 실행 금지 |
 | Phase 1.5 자동 실행 | 별도 phase. Phase 1에는 승격 필드와 blocked action taxonomy만 남김 |
 | TurnPurpose | 6개 전부 1급 schema |
@@ -726,6 +727,18 @@ Output requirements:
 | applyPolicy | `note_only` or `blocked` |
 | task commitment | forbidden in Phase 1 |
 | phase15UpgradeHints | required on implementation plan preview |
+
+
+## Contracts DTO bridge
+
+`25-contracts-dto-catalog.md` defines how this document's Codex turnPurpose, artifact kind, applyPolicy, and blocked action taxonomy are exposed through `packages/contracts/src/codex/`.
+
+Rules:
+
+- This document remains canonical for Codex Prompt/Output semantics.
+- 25번 문서는 TypeScript public export path와 API/UI DTO 연결만 소유한다.
+- Enum values must match exactly across 24번 and 25번.
+- `packages/contracts` must not import Codex app-server runtime client modules to expose these values.
 
 ## Acceptance scenarios
 
