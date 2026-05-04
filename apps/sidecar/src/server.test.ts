@@ -3,8 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach } from "vitest";
 import { describe, expect, it } from "vitest";
-import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
+import type { CommandId } from "@solo-superman/contracts";
+import { applyMigrations, createEventRepository, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
 import { createProductEngineCommandService } from "./product-engine/command-service";
+import { CodexRuntimeUnavailableError, createCodexRuntimeAdapter, fixtureCodexPreviewOutput } from "./runtime";
 import { createSidecarApp } from "./server";
 
 const localCapabilityToken = "test-local-capability-token";
@@ -18,6 +20,11 @@ const migratedStatus = {
   checkedAt: "2026-05-05T00:00:00.000Z"
 } as const;
 const app = createSidecarApp({ localCapabilityToken, migrationStatus: migratedStatus });
+const fixtureCodexRuntimeAdapter = createCodexRuntimeAdapter({
+  fixtureMode: true,
+  now: () => "2026-05-05T00:00:00.000Z",
+  env: {}
+});
 
 async function makeTempAppDataDir() {
   const tempDir = await mkdtemp(join(tmpdir(), "solo-superman-sidecar-test-"));
@@ -27,7 +34,7 @@ async function makeTempAppDataDir() {
   return tempDir;
 }
 
-async function createMigratedStorageApp() {
+async function createMigratedStorageApp(codexRuntimeAdapter = fixtureCodexRuntimeAdapter) {
   const appDataDir = await makeTempAppDataDir();
   const storage = await createSoloStorage({ url: localDatabaseUrlFromAppDataDir(appDataDir) });
   const migrationStatus = await applyMigrations(storage);
@@ -42,7 +49,8 @@ async function createMigratedStorageApp() {
     app: createSidecarApp({
       localCapabilityToken,
       migrationStatus,
-      storage
+      storage,
+      codexRuntimeAdapter
     })
   };
 }
@@ -78,7 +86,7 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       status: "ok",
-      sidecarPhase: "pr_06_research_evidence_loop",
+      sidecarPhase: "pr_07_codex_runtime_preview",
       checks: {
         process: "alive"
       }
@@ -97,7 +105,7 @@ describe("PR-02 sidecar health shell", () => {
       checks: {
         db: "migrated",
         productEngine: "not_initialized_until_storage_available",
-        codex: "not_checked_until_pr_07"
+        codex: "runtime_status_endpoint_mounted_pr_07"
       },
       migrations: {
         state: "migrated",
@@ -120,7 +128,7 @@ describe("PR-02 sidecar health shell", () => {
         checks: {
           db: "migrated",
           productEngine: "initialized_pr_04",
-          codex: "not_checked_until_pr_07"
+          codex: "runtime_status_endpoint_mounted_pr_07"
         },
         migrations: {
           state: "migrated"
@@ -352,8 +360,8 @@ describe("PR-02 sidecar health shell", () => {
     expect(body.error?.code).toBe("SIDECAR_NOT_READY");
   });
 
-  it("keeps non-PR-04 product API routes unimplemented behind the token guard", async () => {
-    const response = await app.request("/api/v1/runtime/status", {
+  it("keeps later product API routes unimplemented behind the token guard", async () => {
+    const response = await app.request("/api/v1/sessions/sess_demo/founder-brief", {
       headers: authHeaders()
     });
     const body = await jsonBody(response);
@@ -1031,6 +1039,1009 @@ describe("PR-02 sidecar health shell", () => {
         error: {
           code: "IDEMPOTENCY_CONFLICT"
         }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("exposes runtime status and creates manual handoff RuntimePreviewArtifact without Codex execution", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A runtime handoff test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startBody = await jsonBody(start);
+      const startData = startBody.data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const sessionId = sessionProjection.sessionId as string;
+      const status = await storageApp.request("/api/v1/runtime/status", {
+        headers: authHeaders()
+      });
+      const statusBody = await jsonBody(status);
+
+      expect(status.status).toBe(200);
+      expect(statusBody.data).toMatchObject({
+        status: "available",
+        adapterVersion: "codex-app-server-preview-v1",
+        generatedSchemaVersion: "codex-cli-0.128.0",
+        transport: "stdio",
+        manualHandoffAvailable: true
+      });
+
+      const handoff = await storageApp.request("/api/v1/runtime/manual-handoff", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 1,
+          turnPurpose: "research_prompt",
+          contextHash: "ctx_manual_research_prompt",
+          prompt: "Draft a skeptical research prompt for the founder.",
+          sourceRefs: ["research_task_manual"],
+          targetObject: "ResearchTask"
+        })
+      });
+      const handoffBody = await jsonBody(handoff);
+      const handoffData = handoffBody.data as Readonly<Record<string, unknown>>;
+      const runtimeProjection = handoffData.immediateProjection as Readonly<Record<string, unknown>>;
+
+      expect(handoff.status).toBe(200);
+      expect(handoffData).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionAfter: 2
+      });
+      expect(runtimeProjection).toMatchObject({
+        kind: "RuntimeActivityProjection",
+        runtimeStatus: "unavailable",
+        runtimeArtifacts: [
+          expect.objectContaining({
+            turnPurpose: "research_prompt",
+            kind: "ResearchPromptArtifact",
+            applyPolicy: "manual_handoff_required",
+            status: "manual_handoff",
+            source: "manual_prompt_handoff"
+          })
+        ]
+      });
+
+      const activity = await storageApp.request(`/api/v1/sessions/${sessionId}/activity`, {
+        headers: authHeaders()
+      });
+      const activityBody = await jsonBody(activity);
+
+      expect(activity.status).toBe(200);
+      expect(activityBody.data).toMatchObject({
+        kind: "RuntimeActivityProjection",
+        runtimeStatus: "unavailable",
+        runtimeArtifacts: [
+          expect.objectContaining({
+            contextHash: "ctx_manual_research_prompt"
+          })
+        ]
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("blocks an existing runtime artifact through the block route without executing it", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A runtime artifact block route test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startBody = await jsonBody(start);
+      const startData = startBody.data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const sessionId = sessionProjection.sessionId as string;
+      const handoff = await storageApp.request("/api/v1/runtime/manual-handoff", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 1,
+          turnPurpose: "implementation_plan_preview",
+          contextHash: "ctx_block_existing_artifact",
+          prompt: "Prepare a planning handoff but do not execute it.",
+          sourceRefs: ["spec_current"],
+          targetObject: "PlanningNote"
+        })
+      });
+      const handoffBody = await jsonBody(handoff);
+      const handoffData = handoffBody.data as Readonly<Record<string, unknown>>;
+      const runtimeProjection = handoffData.immediateProjection as Readonly<Record<string, unknown>>;
+      const artifacts = runtimeProjection.runtimeArtifacts as readonly Readonly<Record<string, unknown>>[];
+      const artifactId = artifacts[0]?.artifactId as string;
+
+      const block = await storageApp.request(`/api/v1/runtime/artifacts/${artifactId}/block`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          artifactId,
+          expectedStateVersion: 2,
+          blockedActionType: "destructive_operation",
+          reason: "Manual safety review blocked this preview before any execution."
+        })
+      });
+      const blockBody = await jsonBody(block);
+      const blockData = blockBody.data as Readonly<Record<string, unknown>>;
+      const blockProjection = blockData.immediateProjection as Readonly<Record<string, unknown>>;
+
+      expect(block.status).toBe(200);
+      expect(blockData).toMatchObject({
+        category: "blocked",
+        stateVersionAfter: 3
+      });
+      expect(blockProjection).toMatchObject({
+        kind: "RuntimeActivityProjection",
+        runtimeStatus: "blocked",
+        runtimeArtifacts: [
+          expect.objectContaining({
+            artifactId,
+            kind: "BlockedActionArtifact",
+            applyPolicy: "blocked",
+            status: "blocked",
+            targetObject: "blocked_action",
+            blockedAction: {
+              actionType: "destructive_operation",
+              reason: "Manual safety review blocked this preview before any execution."
+            }
+          })
+        ]
+      });
+      expect(blockData.queueProjection).toMatchObject({
+        blocked: [
+          expect.objectContaining({
+            state: "blocked",
+            queueItemId: `runtime_preview_${artifactId}`
+          })
+        ]
+      });
+
+      const queue = await storageApp.request(`/api/v1/sessions/${sessionId}/queue`, {
+        headers: authHeaders()
+      });
+      const queueBody = await jsonBody(queue);
+
+      expect(queueBody.data).toMatchObject({
+        blocked: [
+          expect.objectContaining({
+            state: "blocked",
+            queueItemId: `runtime_preview_${artifactId}`
+          })
+        ]
+      });
+
+      const convertAgain = await storageApp.request(`/api/v1/runtime/artifacts/${artifactId}/convert`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          artifactId,
+          expectedStateVersion: 3,
+          target: "ExecutionPlan"
+        })
+      });
+      const convertAgainBody = await jsonBody(convertAgain);
+      const convertAgainData = convertAgainBody.data as Readonly<Record<string, unknown>>;
+
+      expect(convertAgain.status).toBe(200);
+      expect(convertAgainData).toMatchObject({
+        category: "blocked",
+        stateVersionAfter: 4
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rejects runtime preview requests without traceable sourceRefs", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const missingSourceRefs = await storageApp.request("/api/v1/runtime/codex/preview", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId: "sess_missing_source_refs",
+          expectedStateVersion: 1,
+          turnPurpose: "spec_update_preview",
+          contextHash: "ctx_missing_source_refs",
+          prompt: "Preview a spec update."
+        })
+      });
+      const missingBody = await jsonBody(missingSourceRefs);
+      const emptySourceRefs = await storageApp.request("/api/v1/runtime/manual-handoff", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId: "sess_empty_source_refs",
+          expectedStateVersion: 1,
+          turnPurpose: "research_prompt",
+          contextHash: "ctx_empty_source_refs",
+          prompt: "Draft a handoff prompt.",
+          sourceRefs: []
+        })
+      });
+      const emptyBody = await jsonBody(emptySourceRefs);
+
+      expect(missingSourceRefs.status).toBe(400);
+      expect(missingBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "sourceRefs must include at least one trace reference."
+      });
+      expect(emptySourceRefs.status).toBe(400);
+      expect(emptyBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "sourceRefs must include at least one trace reference."
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("queues codex runtime preview effects and persists fixture artifacts with durable idempotency", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A runtime fixture test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startBody = await jsonBody(start);
+      const startData = startBody.data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const sessionId = sessionProjection.sessionId as string;
+      const preview = await storageApp.request("/api/v1/runtime/codex/preview", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 1,
+          turnPurpose: "implementation_plan_preview",
+          contextHash: "ctx_fixture_plan",
+          prompt: "Preview an implementation plan without executing it.",
+          sourceRefs: ["spec_current"],
+          targetObject: "PlanningNote"
+        })
+      });
+      const previewBody = await jsonBody(preview);
+      const previewData = previewBody.data as Readonly<Record<string, unknown>>;
+
+      expect(preview.status).toBe(200);
+      expect(previewData).toMatchObject({
+        category: "accepted",
+        stateVersionAfter: 2,
+        pendingEffectSummary: {
+          byType: {
+            codex_runtime_preview_effect: 1
+          }
+        }
+      });
+      expect(previewData.statusUrl).toEqual(expect.any(String));
+
+      const queuedStatus = await storageApp.request(previewData.statusUrl as string, {
+        headers: authHeaders()
+      });
+      const queuedStatusBody = await jsonBody(queuedStatus);
+
+      expect(queuedStatusBody.data).toMatchObject({
+        commandStatus: "pending",
+        projectionHints: [
+          {
+            projectionKind: "RuntimeActivityProjection",
+            refetchUrl: `/api/v1/sessions/${sessionId}/activity`
+          }
+        ],
+        effects: [
+          expect.objectContaining({
+            effectType: "codex_runtime_preview_effect",
+            maxAttempts: 1,
+            idempotencyKey: `codex:${sessionId}:implementation_plan_preview:ctx_fixture_plan:codex-app-server-preview-v1`
+          })
+        ]
+      });
+
+      const executorResults = await createProductEngineCommandService(
+        storage,
+        fixtureCodexRuntimeAdapter
+      ).runPendingCodexRuntimePreviewEffects();
+
+      expect(executorResults).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            status: "succeeded",
+            kind: "ImplementationPlanPreviewArtifact"
+          })
+        ])
+      );
+
+      const completedStatus = await storageApp.request(previewData.statusUrl as string, {
+        headers: authHeaders()
+      });
+      const completedStatusBody = await jsonBody(completedStatus);
+
+      expect(completedStatusBody.data).toMatchObject({
+        commandStatus: "complete",
+        effects: [
+          expect.objectContaining({
+            effectType: "codex_runtime_preview_effect",
+            status: "succeeded",
+            outputRef: expect.objectContaining({
+              refType: "effect_output_json"
+            })
+          })
+        ]
+      });
+
+      const activity = await storageApp.request(`/api/v1/sessions/${sessionId}/activity`, {
+        headers: authHeaders()
+      });
+      const activityBody = await jsonBody(activity);
+
+      expect(activityBody.data).toMatchObject({
+        runtimeStatus: "available",
+        runtimeArtifacts: [
+          expect.objectContaining({
+            turnPurpose: "implementation_plan_preview",
+            kind: "ImplementationPlanPreviewArtifact",
+            source: "protocol_fixture",
+            status: "preview_ready"
+          })
+        ]
+      });
+
+      const activityData = activityBody.data as Readonly<Record<string, unknown>>;
+      const artifacts = activityData.runtimeArtifacts as readonly Readonly<Record<string, unknown>>[];
+      const artifactId = artifacts[0]?.artifactId as string;
+      const convert = await storageApp.request(`/api/v1/runtime/artifacts/${artifactId}/convert`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          artifactId,
+          expectedStateVersion: 3,
+          target: "planning_note"
+        })
+      });
+      const convertBody = await jsonBody(convert);
+      const convertData = convertBody.data as Readonly<Record<string, unknown>>;
+      const convertEvents = await createEventRepository(storage.db).listForCommand(convertData.commandId as CommandId);
+
+      expect(convert.status).toBe(200);
+      expect(convertData).toMatchObject({
+        category: "accepted",
+        stateVersionAfter: 4
+      });
+      expect(convertEvents.at(-1)?.payload).toMatchObject({
+        conversionStatus: "preview_only",
+        target: "planning_note"
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("allows manual handoff and later Codex preview for the same runtime context without DB conflicts", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A cross-source runtime context test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startBody = await jsonBody(start);
+      const startData = startBody.data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const sessionId = sessionProjection.sessionId as string;
+      const commonPayload = {
+        sessionId,
+        turnPurpose: "implementation_plan_preview",
+        contextHash: "ctx_cross_source_runtime",
+        prompt: "Prepare a planning preview for the same context.",
+        sourceRefs: ["spec_current"],
+        targetObject: "PlanningNote"
+      };
+      const handoff = await storageApp.request("/api/v1/runtime/manual-handoff", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          ...commonPayload,
+          expectedStateVersion: 1
+        })
+      });
+      const handoffBody = await jsonBody(handoff);
+      const handoffData = handoffBody.data as Readonly<Record<string, unknown>>;
+      const handoffProjection = handoffData.immediateProjection as Readonly<Record<string, unknown>>;
+      const handoffArtifacts = handoffProjection.runtimeArtifacts as readonly Readonly<Record<string, unknown>>[];
+      const preview = await storageApp.request("/api/v1/runtime/codex/preview", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          ...commonPayload,
+          expectedStateVersion: 2
+        })
+      });
+      const previewBody = await jsonBody(preview);
+      const previewData = previewBody.data as Readonly<Record<string, unknown>>;
+      const executorResults = await createProductEngineCommandService(
+        storage,
+        fixtureCodexRuntimeAdapter
+      ).runPendingCodexRuntimePreviewEffects();
+      const activity = await storageApp.request(`/api/v1/sessions/${sessionId}/activity`, {
+        headers: authHeaders()
+      });
+      const activityBody = await jsonBody(activity);
+      const activityData = activityBody.data as Readonly<Record<string, unknown>>;
+      const artifacts = activityData.runtimeArtifacts as readonly Readonly<Record<string, unknown>>[];
+
+      expect(preview.status).toBe(200);
+      expect(previewData).toMatchObject({
+        category: "accepted",
+        pendingEffectSummary: {
+          byType: {
+            codex_runtime_preview_effect: 1
+          }
+        }
+      });
+      expect(executorResults).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            status: "succeeded"
+          })
+        ])
+      );
+      expect(artifacts).toHaveLength(1);
+      expect(artifacts[0]).toMatchObject({
+        artifactId: handoffArtifacts[0]?.artifactId,
+        source: "protocol_fixture",
+        status: "preview_ready"
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("fails Codex runtime preview effects when adapter output does not match the request trace", async () => {
+    const mismatchedAdapter = {
+      ...fixtureCodexRuntimeAdapter,
+      async createPreview(input: Parameters<typeof fixtureCodexRuntimeAdapter.createPreview>[0]) {
+        return fixtureCodexPreviewOutput({
+          ...input,
+          turnPurpose: "research_prompt"
+        });
+      }
+    };
+    const { app: storageApp, storage } = await createMigratedStorageApp(mismatchedAdapter);
+
+    try {
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A mismatched runtime adapter output test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startBody = await jsonBody(start);
+      const startData = startBody.data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const sessionId = sessionProjection.sessionId as string;
+      const preview = await storageApp.request("/api/v1/runtime/codex/preview", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 1,
+          turnPurpose: "spec_update_preview",
+          contextHash: "ctx_mismatched_adapter_output",
+          prompt: "Preview a spec update with mismatched adapter output.",
+          sourceRefs: ["spec_current"],
+          targetObject: "SpecUpdate"
+        })
+      });
+      const previewBody = await jsonBody(preview);
+      const previewData = previewBody.data as Readonly<Record<string, unknown>>;
+      const executorResults = await createProductEngineCommandService(
+        storage,
+        mismatchedAdapter
+      ).runPendingCodexRuntimePreviewEffects();
+      const failedStatus = await storageApp.request(previewData.statusUrl as string, {
+        headers: authHeaders()
+      });
+      const failedStatusBody = await jsonBody(failedStatus);
+      const activity = await storageApp.request(`/api/v1/sessions/${sessionId}/activity`, {
+        headers: authHeaders()
+      });
+      const activityBody = await jsonBody(activity);
+
+      expect(preview.status).toBe(200);
+      expect(executorResults).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            status: "failed",
+            error: "Codex preview output turnPurpose must match the requested turnPurpose."
+          })
+        ])
+      );
+      expect(failedStatusBody.data).toMatchObject({
+        commandStatus: "failed",
+        effects: [
+          expect.objectContaining({
+            status: "failed",
+            error: expect.objectContaining({
+              code: "CODEX_RUNTIME_PREVIEW_FAILED"
+            })
+          })
+        ]
+      });
+      expect(activityBody.data).toMatchObject({
+        runtimeStatus: "scaffold_placeholder",
+        runtimeArtifacts: []
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("scopes Codex runtime preview idempotency to each session", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const sessionIds: string[] = [];
+
+      for (const rawIdea of ["First same-context session", "Second same-context session"]) {
+        const start = await storageApp.request("/api/v1/projects", {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            rawIdea,
+            localPrivacyMode: "local_only"
+          })
+        });
+        const startBody = await jsonBody(start);
+        const startData = startBody.data as Readonly<Record<string, unknown>>;
+        const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+
+        sessionIds.push(sessionProjection.sessionId as string);
+      }
+
+      for (const sessionId of sessionIds) {
+        const preview = await storageApp.request("/api/v1/runtime/codex/preview", {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            sessionId,
+            expectedStateVersion: 1,
+            turnPurpose: "implementation_plan_preview",
+            contextHash: "ctx_shared_across_sessions",
+            prompt: "Preview the same context hash in separate sessions.",
+            sourceRefs: ["spec_current"],
+            targetObject: "PlanningNote"
+          })
+        });
+        const previewBody = await jsonBody(preview);
+
+        expect(preview.status).toBe(200);
+        expect(previewBody.data).toMatchObject({
+          category: "accepted",
+          pendingEffectSummary: {
+            byType: {
+              codex_runtime_preview_effect: 1
+            }
+          }
+        });
+      }
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("falls back to manual handoff when Codex runtime preview execution is unavailable", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+    const unavailableAdapter = {
+      ...fixtureCodexRuntimeAdapter,
+      async createPreview() {
+        throw new CodexRuntimeUnavailableError("Synthetic Codex app-server unavailable.");
+      }
+    };
+
+    try {
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A runtime unavailable fallback test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startBody = await jsonBody(start);
+      const startData = startBody.data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const sessionId = sessionProjection.sessionId as string;
+      const preview = await storageApp.request("/api/v1/runtime/codex/preview", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 1,
+          turnPurpose: "spec_update_preview",
+          contextHash: "ctx_unavailable_fallback",
+          prompt: "Preview a spec update with unavailable runtime.",
+          sourceRefs: ["spec_current"],
+          targetObject: "SpecUpdate"
+        })
+      });
+      const previewBody = await jsonBody(preview);
+      const previewData = previewBody.data as Readonly<Record<string, unknown>>;
+      const executorResults = await createProductEngineCommandService(
+        storage,
+        unavailableAdapter
+      ).runPendingCodexRuntimePreviewEffects();
+      const completedStatus = await storageApp.request(previewData.statusUrl as string, {
+        headers: authHeaders()
+      });
+      const completedStatusBody = await jsonBody(completedStatus);
+      const activity = await storageApp.request(`/api/v1/sessions/${sessionId}/activity`, {
+        headers: authHeaders()
+      });
+      const activityBody = await jsonBody(activity);
+
+      expect(preview.status).toBe(200);
+      expect(executorResults).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            status: "succeeded",
+            fallback: "manual_prompt_handoff"
+          })
+        ])
+      );
+      expect(completedStatusBody.data).toMatchObject({
+        commandStatus: "complete",
+        effects: [
+          expect.objectContaining({
+            status: "succeeded",
+            attemptCount: 1,
+            outputRef: expect.objectContaining({
+              refType: "effect_output_json"
+            })
+          })
+        ]
+      });
+      expect(activityBody.data).toMatchObject({
+        runtimeStatus: "unavailable",
+        runtimeArtifacts: [
+          expect.objectContaining({
+            source: "manual_prompt_handoff",
+            status: "manual_handoff"
+          })
+        ]
+      });
+
+      const retryPreview = await storageApp.request("/api/v1/runtime/codex/preview", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 3,
+          turnPurpose: "spec_update_preview",
+          contextHash: "ctx_unavailable_fallback",
+          prompt: "Preview a spec update with unavailable runtime.",
+          sourceRefs: ["spec_current"],
+          targetObject: "SpecUpdate"
+        })
+      });
+      const retryBody = await jsonBody(retryPreview);
+      const retryData = retryBody.data as Readonly<Record<string, unknown>>;
+      const retryResults = await createProductEngineCommandService(
+        storage,
+        fixtureCodexRuntimeAdapter
+      ).runPendingCodexRuntimePreviewEffects();
+      const retryActivity = await storageApp.request(`/api/v1/sessions/${sessionId}/activity`, {
+        headers: authHeaders()
+      });
+      const retryActivityBody = await jsonBody(retryActivity);
+
+      expect(retryPreview.status).toBe(200);
+      expect(retryData).toMatchObject({
+        category: "accepted",
+        stateVersionAfter: 4,
+        pendingEffectSummary: {
+          byType: {
+            codex_runtime_preview_effect: 1
+          }
+        }
+      });
+      expect(retryResults).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            status: "succeeded",
+            kind: "SpecUpdatePreviewArtifact"
+          })
+        ])
+      );
+      expect(retryActivityBody.data).toMatchObject({
+        runtimeStatus: "available",
+        runtimeArtifacts: [
+          expect.objectContaining({
+            source: "protocol_fixture",
+            status: "preview_ready"
+          })
+        ]
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("marks Codex runtime preview effects failed after a non-recoverable adapter error", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+    const failingAdapter = {
+      ...fixtureCodexRuntimeAdapter,
+      async createPreview() {
+        throw new Error("Synthetic non-recoverable Codex preview failure.");
+      }
+    };
+
+    try {
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A runtime failure test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startBody = await jsonBody(start);
+      const startData = startBody.data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const sessionId = sessionProjection.sessionId as string;
+      const preview = await storageApp.request("/api/v1/runtime/codex/preview", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 1,
+          turnPurpose: "spec_update_preview",
+          contextHash: "ctx_nonrecoverable_failure",
+          prompt: "Preview a spec update with generic runtime failure.",
+          sourceRefs: ["spec_current"],
+          targetObject: "SpecUpdate"
+        })
+      });
+      const previewBody = await jsonBody(preview);
+      const previewData = previewBody.data as Readonly<Record<string, unknown>>;
+      const executorResults = await createProductEngineCommandService(
+        storage,
+        failingAdapter
+      ).runPendingCodexRuntimePreviewEffects();
+      const failedStatus = await storageApp.request(previewData.statusUrl as string, {
+        headers: authHeaders()
+      });
+      const failedStatusBody = await jsonBody(failedStatus);
+
+      expect(preview.status).toBe(200);
+      expect(executorResults).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            status: "failed",
+            error: "Synthetic non-recoverable Codex preview failure."
+          })
+        ])
+      );
+      expect(failedStatusBody.data).toMatchObject({
+        commandStatus: "failed",
+        effects: [
+          expect.objectContaining({
+            status: "failed",
+            attemptCount: 1,
+            error: expect.objectContaining({
+              code: "CODEX_RUNTIME_PREVIEW_FAILED",
+              retryAvailable: false
+            })
+          })
+        ]
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("converts forbidden runtime action requests into blocked artifacts and blocked command status", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A runtime blocked action test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startBody = await jsonBody(start);
+      const startData = startBody.data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const sessionId = sessionProjection.sessionId as string;
+      const blockedPreview = await storageApp.request("/api/v1/runtime/codex/preview", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 1,
+          turnPurpose: "implementation_plan_preview",
+          contextHash: "ctx_block_shell",
+          prompt: "Suggest a shell command but do not execute it.",
+          sourceRefs: ["spec_current"],
+          targetObject: "blocked_action",
+          requestedActionType: "shell_command",
+          requestedActionReason: "The preview suggested running pnpm verify."
+        })
+      });
+      const blockedPreviewBody = await jsonBody(blockedPreview);
+      const blockedPreviewData = blockedPreviewBody.data as Readonly<Record<string, unknown>>;
+      const executorResults = await createProductEngineCommandService(
+        storage,
+        fixtureCodexRuntimeAdapter
+      ).runPendingCodexRuntimePreviewEffects();
+
+      expect(blockedPreview.status).toBe(200);
+      expect(executorResults).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            status: "blocked",
+            blockedActionType: "shell_command"
+          })
+        ])
+      );
+
+      const blockedStatus = await storageApp.request(blockedPreviewData.statusUrl as string, {
+        headers: authHeaders()
+      });
+      const blockedStatusBody = await jsonBody(blockedStatus);
+
+      expect(blockedStatusBody.data).toMatchObject({
+        commandStatus: "blocked",
+        effects: [
+          expect.objectContaining({
+            effectType: "codex_runtime_preview_effect",
+            status: "blocked",
+            outputRef: expect.objectContaining({
+              refType: "effect_output_json"
+            }),
+            error: expect.objectContaining({
+              code: "RUNTIME_ACTION_BLOCKED"
+            })
+          })
+        ]
+      });
+
+      const activity = await storageApp.request(`/api/v1/sessions/${sessionId}/activity`, {
+        headers: authHeaders()
+      });
+      const activityBody = await jsonBody(activity);
+
+      expect(activityBody.data).toMatchObject({
+        runtimeStatus: "blocked",
+        runtimeArtifacts: [
+          expect.objectContaining({
+            kind: "BlockedActionArtifact",
+            applyPolicy: "blocked",
+            blockedAction: expect.objectContaining({
+              actionType: "shell_command"
+            })
+          })
+        ]
+      });
+
+      const queue = await storageApp.request(`/api/v1/sessions/${sessionId}/queue`, {
+        headers: authHeaders()
+      });
+      const queueBody = await jsonBody(queue);
+
+      expect(queueBody.data).toMatchObject({
+        blocked: [
+          expect.objectContaining({
+            state: "blocked"
+          })
+        ]
       });
     } finally {
       await storage.close();

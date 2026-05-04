@@ -15,6 +15,7 @@ import {
   type ProjectId,
   type ResearchResultId,
   type ResearchTaskId,
+  type RuntimeArtifactId,
   type SessionId
 } from "@solo-superman/contracts";
 import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "../client";
@@ -23,7 +24,8 @@ import { createEffectTaskRepository } from "./effect-task-repository";
 import { createEventRepository, persistDerivedStateAfterEvent } from "./event-repository";
 import { createProjectRepository } from "./project-repository";
 import { createResearchRepository } from "./research-repository";
-import { appConfig, effectTasks } from "../schema";
+import { createRuntimeRepository } from "./runtime-repository";
+import { appConfig, effectTasks, runtimeTaskRefs } from "../schema";
 
 const tempDirs: string[] = [];
 
@@ -60,7 +62,7 @@ describe("PR-03 local libSQL storage foundation", () => {
       expect(existsSync(join(appDataDir, "solo-superman.db"))).toBe(true);
       expect(migrationStatus).toMatchObject({
         state: "migrated",
-        appliedMigrationCount: 3
+        appliedMigrationCount: 4
       });
       expect(migrationStatus.latestMigrationMillis).toEqual(expect.any(Number));
     } finally {
@@ -87,6 +89,8 @@ describe("PR-03 local libSQL storage foundation", () => {
           "research_tasks",
           "research_results",
           "evidence_matrices",
+          "runtime_preview_artifacts",
+          "runtime_task_refs",
           "app_config",
           "secret_refs",
           "events_session_sequence_idx",
@@ -94,7 +98,9 @@ describe("PR-03 local libSQL storage foundation", () => {
           "effect_tasks_session_status_idx",
           "projections_session_kind_idx",
           "research_tasks_session_status_idx",
-          "evidence_matrices_result_version_idx"
+          "evidence_matrices_result_version_idx",
+          "runtime_artifacts_context_idx",
+          "runtime_task_refs_effect_artifact_idx"
         ])
       );
     } finally {
@@ -692,6 +698,104 @@ describe("PR-03 local libSQL storage foundation", () => {
           })
         ],
         knownRisks: ["High-impact claim lacks con evidence."]
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("persists RuntimePreviewArtifact rows and rebuilds the runtime activity projection", async () => {
+    const { storage } = await createMigratedStorage();
+
+    try {
+      const repository = createRuntimeRepository(storage.db);
+      const projectId = "proj_runtime_storage" as ProjectId;
+      const sessionId = "sess_runtime_storage" as SessionId;
+      const artifactId = "runtime_artifact_storage" as RuntimeArtifactId;
+      const sourceEffectTaskId = "eft_runtime_storage" as EffectTaskId;
+      const artifact = {
+        artifactId,
+        turnPurpose: "implementation_plan_preview",
+        kind: "BlockedActionArtifact",
+        applyPolicy: "blocked",
+        status: "blocked",
+        source: "protocol_fixture",
+        targetObject: "blocked_action",
+        summary: "Forbidden runtime action blocked",
+        payload: {
+          title: "Forbidden runtime action blocked",
+          body: "Command execution is represented as a blocked artifact.",
+          targetObject: "blocked_action",
+          sourceRefs: ["spec_current"]
+        },
+        sourceRefs: ["spec_current"],
+        contextHash: "ctx_runtime_storage",
+        runtimeAdapterVersion: "codex-app-server-preview-v1",
+        sourceEffectTaskId,
+        blockedAction: {
+          actionType: "shell_command",
+          reason: "Phase 1 must not execute shell commands."
+        },
+        createdAt: "2026-05-05T00:00:00.000Z",
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      } as const;
+
+      await repository.saveArtifact({
+        projectId,
+        sessionId,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        artifact
+      });
+      const { blockedAction: _blockedAction, ...unblockedArtifact } = artifact;
+      void _blockedAction;
+
+      await repository.saveArtifact({
+        projectId,
+        sessionId,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        artifact: {
+          ...unblockedArtifact,
+          kind: "ImplementationPlanPreviewArtifact",
+          applyPolicy: "note_only",
+          status: "preview_ready",
+          targetObject: "PlanningNote",
+          summary: "Implementation plan preview ready",
+          payload: {
+            title: "Implementation plan preview ready",
+            body: "Preview only.",
+            targetObject: "PlanningNote",
+            sourceRefs: ["spec_current"]
+          }
+        }
+      });
+
+      const savedArtifact = await repository.getArtifact(artifactId);
+      const projection = await repository.getProjection(sessionId);
+      const refs = await storage.db
+        .select()
+        .from(runtimeTaskRefs)
+        .where(eq(runtimeTaskRefs.effectTaskId, sourceEffectTaskId));
+
+      expect(savedArtifact).toMatchObject({
+        artifactId,
+        kind: "ImplementationPlanPreviewArtifact",
+        status: "preview_ready"
+      });
+      expect(projection).toMatchObject({
+        kind: "RuntimeActivityProjection",
+        version: 1 as ProjectionVersion,
+        runtimeStatus: "available",
+        runtimeArtifacts: [
+          expect.objectContaining({
+            artifactId
+          })
+        ]
+      });
+      expect(refs).toHaveLength(1);
+      expect(refs[0]).toMatchObject({
+        effectTaskId: sourceEffectTaskId,
+        artifactId,
+        status: "preview_ready"
       });
     } finally {
       await storage.close();

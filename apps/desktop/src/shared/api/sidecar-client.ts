@@ -3,11 +3,17 @@ import type {
   ApiErrorEnvelope,
   ApiSuccessEnvelope,
   CommandResponse,
+  CodexRuntimeStatusDto,
+  BlockRuntimeArtifactRequest,
+  ConvertRuntimeArtifactRequest,
+  CreateManualHandoffRequest,
+  CreateRuntimePreviewRequest,
   DecisionQueueProjection,
   ImportResearchResultRequest,
   LivingSpecProjection,
   PlanResearchRequest,
   ResearchEvidenceProjection,
+  RuntimeActivityProjection,
   SessionId,
   SessionShellProjection,
   StartProjectRequest,
@@ -134,6 +140,7 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
   async function getProjection<TProjection>(path: string) {
     return request<TProjection>(path, {
+      method: "GET",
       headers: authHeaders(connection.localCapabilityToken)
     });
   }
@@ -197,6 +204,32 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
       );
     },
 
+    createRuntimePreview(input: CreateRuntimePreviewRequest) {
+      return postCommand<RuntimeActivityProjection>("/api/v1/runtime/codex/preview", input);
+    },
+
+    createManualHandoff(input: CreateManualHandoffRequest) {
+      return postCommand<RuntimeActivityProjection>("/api/v1/runtime/manual-handoff", input);
+    },
+
+    convertRuntimeArtifact(input: ConvertRuntimeArtifactRequest) {
+      return postCommand<RuntimeActivityProjection>(
+        `/api/v1/runtime/artifacts/${encodeURIComponent(input.artifactId)}/convert`,
+        input
+      );
+    },
+
+    blockRuntimeArtifact(input: BlockRuntimeArtifactRequest) {
+      return postCommand<RuntimeActivityProjection>(
+        `/api/v1/runtime/artifacts/${encodeURIComponent(input.artifactId)}/block`,
+        input
+      );
+    },
+
+    getRuntimeStatus() {
+      return getProjection<CodexRuntimeStatusDto>("/api/v1/runtime/status");
+    },
+
     getSession(projectId: string, sessionId: SessionId) {
       return getProjection<SessionShellProjection>(
         `/api/v1/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}`
@@ -213,6 +246,10 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     getResearch(sessionId: SessionId) {
       return getProjection<ResearchEvidenceProjection>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/research`);
+    },
+
+    getActivity(sessionId: SessionId) {
+      return getProjection<RuntimeActivityProjection>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/activity`);
     },
 
     getCommandStatus(statusUrl: string) {

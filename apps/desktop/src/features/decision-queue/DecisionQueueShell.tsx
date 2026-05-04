@@ -1,12 +1,14 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   CONTRACT_SCHEMA_VERSION,
+  type CodexRuntimeStatusDto,
   type CommandResponse,
   type DecisionQueueProjection,
   type LivingSpecProjection,
   type QueueItemId,
   type ResearchEvidenceProjection,
   type ResearchTaskId,
+  type RuntimeActivityProjection,
   type SessionShellProjection,
   type StateVersion,
   type StatusEndpointDto
@@ -44,6 +46,7 @@ interface ProjectionState {
   readonly spec: LivingSpecProjection | null;
   readonly queue: DecisionQueueProjection | null;
   readonly research: ResearchEvidenceProjection | null;
+  readonly activity: RuntimeActivityProjection | null;
 }
 
 const DEFAULT_IDEA = "A focused founder brief generator";
@@ -83,7 +86,8 @@ function latestProjectionVersion(projections: ProjectionState) {
     Number(projections.session?.version ?? 0),
     Number(projections.spec?.version ?? 0),
     Number(projections.queue?.version ?? 0),
-    Number(projections.research?.version ?? 0)
+    Number(projections.research?.version ?? 0),
+    Number(projections.activity?.version ?? 0)
   ) as StateVersion;
 }
 
@@ -98,8 +102,10 @@ export function DecisionQueueShell() {
     session: null,
     spec: null,
     queue: null,
-    research: null
+    research: null,
+    activity: null
   });
+  const [runtimeStatus, setRuntimeStatus] = useState<CodexRuntimeStatusDto | null>(null);
   const [commandLog, setCommandLog] = useState<readonly CommandLogEntry[]>([]);
   const [statuses, setStatuses] = useState<readonly StatusEndpointDto[]>([]);
   const [isBusy, setIsBusy] = useState(false);
@@ -120,8 +126,11 @@ export function DecisionQueueShell() {
       return;
     }
 
-    setClient(createSidecarClient({ connection }));
+    const nextClient = createSidecarClient({ connection });
+
+    setClient(nextClient);
     setConnectionState({ status: "connected", connection });
+    nextClient.getRuntimeStatus().then(setRuntimeStatus).catch(() => setRuntimeStatus(null));
   }, []);
 
   useEffect(() => {
@@ -134,18 +143,20 @@ export function DecisionQueueShell() {
         return;
       }
 
-      const [session, spec, queue, research] = await Promise.all([
+      const [session, spec, queue, research, activity] = await Promise.all([
         client.getSession(projectId, sessionId),
         client.getSpec(sessionId),
         client.getQueue(sessionId),
-        client.getResearch(sessionId)
+        client.getResearch(sessionId),
+        client.getActivity(sessionId)
       ]);
 
       setProjections({
         session,
         spec,
         queue,
-        research
+        research,
+        activity
       });
     },
     [client]
@@ -237,7 +248,8 @@ export function DecisionQueueShell() {
         session: null,
         spec: null,
         queue: null,
-        research: null
+        research: null,
+        activity: null
       });
 
       try {
@@ -253,7 +265,8 @@ export function DecisionQueueShell() {
           session,
           spec: null,
           queue: null,
-          research: null
+          research: null,
+          activity: null
         });
 
         const intakeResponse = await appendCommand(
@@ -385,7 +398,10 @@ export function DecisionQueueShell() {
 
   const sections = useMemo(() => queueSections(projections.queue), [projections.queue]);
   const pendingSummary = useMemo(() => pendingEffectSummary(statuses), [statuses]);
-  const runtimeActivity = useMemo(() => runtimeActivityProjectionFromStatuses(statuses), [statuses]);
+  const runtimeActivity = useMemo(
+    () => projections.activity ?? runtimeActivityProjectionFromStatuses(statuses),
+    [projections.activity, statuses]
+  );
   const confidence = useMemo(
     () => confidencePlaceholder(projections.session?.sessionId ?? null, projections.research?.knownRisks ?? []),
     [projections.research, projections.session]
@@ -602,7 +618,7 @@ export function DecisionQueueShell() {
               <h2>Activity</h2>
               <span>{runtimeActivity.runtimeStatus}</span>
             </div>
-            <p>{pendingSummary.visibleLabel}</p>
+            <p>{runtimeStatus ? `Adapter ${runtimeStatus.status}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
             <div className="activity-list">
               {commandLog.length ? (
                 commandLog.map((entry) => (

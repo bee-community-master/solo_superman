@@ -1,13 +1,16 @@
 import { randomUUID } from "node:crypto";
 import {
   CONTRACT_SCHEMA_VERSION,
+  CODEX_RUNTIME_ADAPTER_VERSION,
   type ApiErrorCode,
+  type BlockedActionType,
   type CommandId,
   type CommandResponse,
   type CommandResponseCategory,
   type CommandType,
   type CorrelationId,
   type CausationId,
+  type CodexTurnPurpose,
   type DecisionQueueProjection,
   type EffectTaskDto,
   type EffectTaskId,
@@ -22,6 +25,8 @@ import {
   type ProjectId,
   type ResearchEvidenceProjection,
   type ResearchResultId,
+  type RuntimeActivityProjection,
+  type RuntimePreviewArtifact,
   type SchemaVersion,
   type SessionId,
   type SessionShellProjection,
@@ -35,6 +40,7 @@ import {
   createProjectRepository,
   createProjectionRepository,
   createResearchRepository,
+  createRuntimeRepository,
   type EffectTaskRecord,
   type PersistedProjection,
   type SoloStorage
@@ -46,6 +52,14 @@ import {
   sessionPhaseForProductEngineEvent,
   sessionShellPhaseForProductEnginePhase
 } from "@solo-superman/core";
+import {
+  CodexRuntimeUnavailableError,
+  assertCodexPreviewOutputMatchesInput,
+  createCodexRuntimeAdapter,
+  fixtureCodexPreviewOutput,
+  type CodexRuntimeAdapter,
+  type CodexRuntimePreviewInput
+} from "../runtime";
 
 export class ProductEngineServiceError extends Error {
   readonly code: ApiErrorCode;
@@ -73,6 +87,8 @@ export interface RunSessionCommandInput {
     | "PlanResearch"
     | "ImportResearchResult"
     | "SynthesizeEvidence"
+    | "CreateRuntimePreview"
+    | "ConvertRuntimeArtifact"
   >;
   readonly expectedStateVersion: StateVersion;
   readonly payload: Readonly<Record<string, unknown>>;
@@ -118,6 +134,7 @@ function isPersistedProjection(value: unknown): value is PersistedProjection {
     kind === "DecisionQueueProjection" ||
     kind === "LivingSpecProjection" ||
     kind === "ResearchEvidenceProjection" ||
+    kind === "RuntimeActivityProjection" ||
     kind === "SessionShellProjection"
   );
 }
@@ -153,7 +170,17 @@ function isPendingEffect(effect: EffectTaskDto) {
   return effect.status === "queued" || effect.status === "leased" || effect.status === "running";
 }
 
+function hasBlockedRuntimeConversion(events: readonly ProductEngineEvent[]) {
+  return events.some(
+    (event) => event.eventType === "RuntimeArtifactConverted" && event.payload.conversionStatus === "blocked"
+  );
+}
+
 function commandCategoryFromEvents(events: readonly ProductEngineEvent[]): CommandResponseCategory {
+  if (hasBlockedRuntimeConversion(events)) {
+    return "blocked";
+  }
+
   return events.some((event) => isPersistedProjection(event.payload.projection)) ? "accepted_with_projection" : "accepted";
 }
 
@@ -184,6 +211,11 @@ function projectionHintsForEffects(sessionIdValue: SessionId, effects: readonly 
       hints.set("ResearchEvidenceProjection", {
         projectionKind: "ResearchEvidenceProjection",
         refetchUrl: `/api/v1/sessions/${sessionIdValue}/research`
+      });
+    } else if (effect.effectType === "codex_runtime_preview_effect") {
+      hints.set("RuntimeActivityProjection", {
+        projectionKind: "RuntimeActivityProjection",
+        refetchUrl: `/api/v1/sessions/${sessionIdValue}/activity`
       });
     }
   }
@@ -238,9 +270,15 @@ function responseForAccepted(
   const hasImmediateProjection = Boolean(immediateProjection);
   const hasDecisionQueueProjection =
     isPersistedProjection(immediateProjection) && immediateProjection.kind === "DecisionQueueProjection";
+  const queueProjection = hasDecisionQueueProjection ? immediateProjection : decisionQueueProjectionFromEvents(events);
+  const category = hasBlockedRuntimeConversion(events)
+    ? "blocked"
+    : hasImmediateProjection
+      ? "accepted_with_projection"
+      : "accepted";
 
   return {
-    category: hasImmediateProjection ? "accepted_with_projection" : "accepted",
+    category,
     commandId: command.commandId,
     correlationId: command.correlationId,
     stateVersionBefore,
@@ -258,7 +296,7 @@ function responseForAccepted(
         }
       : {}),
     ...(immediateProjection ? { immediateProjection } : {}),
-    ...(hasDecisionQueueProjection ? { queueProjection: immediateProjection } : {})
+    ...(queueProjection ? { queueProjection } : {})
   };
 }
 
@@ -284,7 +322,38 @@ function researchProjectionFromEvent(event: ProductEngineEvent): ResearchEvidenc
     : null;
 }
 
-export function createProductEngineCommandService(storage: SoloStorage) {
+function runtimeProjectionFromEvent(event: ProductEngineEvent): RuntimeActivityProjection | null {
+  const projection = event.payload.projection;
+
+  return isPersistedProjection(projection) && projection.kind === "RuntimeActivityProjection"
+    ? projection
+    : null;
+}
+
+function runtimeArtifactFromEvent(event: ProductEngineEvent): RuntimePreviewArtifact | null {
+  const runtimeArtifact = event.payload.runtimeArtifact;
+
+  return runtimeArtifact && typeof runtimeArtifact === "object" && !Array.isArray(runtimeArtifact)
+    ? (runtimeArtifact as RuntimePreviewArtifact)
+    : null;
+}
+
+function decisionQueueProjectionFromEvents(events: readonly ProductEngineEvent[]): DecisionQueueProjection | null {
+  for (const event of [...events].reverse()) {
+    const projection = event.payload.queueProjection;
+
+    if (isPersistedProjection(projection) && projection.kind === "DecisionQueueProjection") {
+      return projection;
+    }
+  }
+
+  return null;
+}
+
+export function createProductEngineCommandService(
+  storage: SoloStorage,
+  codexRuntimeAdapter: CodexRuntimeAdapter = createCodexRuntimeAdapter()
+) {
   const sessionCommandQueues = new Map<SessionId, Promise<void>>();
 
   function assertSupportedReductionPersistence(reduction: ProductEngineReduction) {
@@ -339,6 +408,56 @@ export function createProductEngineCommandService(storage: SoloStorage) {
       : null;
   }
 
+  function runtimePreviewRequestFromEvent(event: ProductEngineEvent) {
+    const turnPurpose = typeof event.payload.turnPurpose === "string" ? event.payload.turnPurpose : null;
+    const contextHash = typeof event.payload.contextHash === "string" ? event.payload.contextHash : null;
+    const prompt = typeof event.payload.prompt === "string" ? event.payload.prompt : null;
+    const sourceRefs = Array.isArray(event.payload.sourceRefs)
+      ? event.payload.sourceRefs.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      : [];
+
+    if (!turnPurpose || !contextHash || !prompt) {
+      return null;
+    }
+
+    const requestedActionType =
+      typeof event.payload.requestedActionType === "string" ? event.payload.requestedActionType : null;
+    const requestedActionReason =
+      typeof event.payload.requestedActionReason === "string" ? event.payload.requestedActionReason : null;
+
+    return {
+      turnPurpose,
+      contextHash,
+      prompt,
+      sourceRefs,
+      targetObject: typeof event.payload.targetObject === "string" ? event.payload.targetObject : turnPurpose,
+      ...(requestedActionType ? { requestedActionType } : {}),
+      ...(requestedActionReason ? { requestedActionReason } : {})
+    };
+  }
+
+  function runtimePreviewRequestForEffect(effect: EffectTaskRecord, events: readonly ProductEngineEvent[]) {
+    const sourceEvent = events.find(
+      (event) => effect.sourceEventIds.includes(event.eventId) && event.eventType === "RuntimePreviewRequested"
+    );
+
+    return sourceEvent ? runtimePreviewRequestFromEvent(sourceEvent) : null;
+  }
+
+  function codexPreviewInputFromRequest(
+    request: NonNullable<ReturnType<typeof runtimePreviewRequestFromEvent>>
+  ): CodexRuntimePreviewInput {
+    return {
+      turnPurpose: request.turnPurpose as CodexTurnPurpose,
+      contextHash: request.contextHash,
+      prompt: request.prompt,
+      sourceRefs: request.sourceRefs,
+      targetObject: request.targetObject,
+      ...(request.requestedActionType ? { requestedActionType: request.requestedActionType as BlockedActionType } : {}),
+      ...(request.requestedActionReason ? { requestedActionReason: request.requestedActionReason } : {})
+    };
+  }
+
   function terminalLeaseExpiresAt() {
     return new Date(Date.now() + 5 * 60 * 1000).toISOString();
   }
@@ -390,6 +509,7 @@ export function createProductEngineCommandService(storage: SoloStorage) {
       const projectionRepository = createProjectionRepository(transaction);
       const projectRepository = createProjectRepository(transaction);
       const researchRepository = createResearchRepository(transaction);
+      const runtimeRepository = createRuntimeRepository(transaction);
       const persistedEvents: ProductEngineEvent[] = [];
 
       for (const event of reduction.events) {
@@ -440,6 +560,8 @@ export function createProductEngineCommandService(storage: SoloStorage) {
         }
 
         const researchProjection = researchProjectionFromEvent(event);
+        const runtimeProjection = runtimeProjectionFromEvent(event);
+        const runtimeArtifact = runtimeArtifactFromEvent(event);
 
         if (researchProjection) {
           for (const task of researchProjection.tasks) {
@@ -470,6 +592,26 @@ export function createProductEngineCommandService(storage: SoloStorage) {
             });
           }
         }
+
+        if (runtimeProjection) {
+          for (const artifact of runtimeProjection.runtimeArtifacts) {
+            await runtimeRepository.saveArtifact({
+              projectId: command.projectId,
+              sessionId: command.sessionId,
+              artifact,
+              schemaVersion: command.schemaVersion
+            });
+          }
+        }
+
+        if (runtimeArtifact) {
+          await runtimeRepository.saveArtifact({
+            projectId: command.projectId,
+            sessionId: command.sessionId,
+            artifact: runtimeArtifact,
+            schemaVersion: command.schemaVersion
+          });
+        }
       }
 
       if (isPersistedProjection(reduction.immediateProjection)) {
@@ -493,25 +635,33 @@ export function createProductEngineCommandService(storage: SoloStorage) {
           throw new Error(`Effect ${plannedEffect.effectType} has no source ProductEngine event.`);
         }
 
+        const baseIdempotencyKey = effectTaskIdempotencyKey(plannedEffect, primarySourceEvent);
+        const existingEffect =
+          plannedEffect.effectType === "codex_runtime_preview_effect"
+            ? await effectRepository.findByIdempotencyKey(baseIdempotencyKey)
+            : null;
         const createdEffect = await effectRepository.create({
-            effectTaskId: effectTaskId(),
-            effectType: plannedEffect.effectType,
-            projectId: command.projectId,
-            sessionId: command.sessionId,
-            sourceEventId: primarySourceEvent.eventId,
-            sourceEventIds: sourceEvents.length ? sourceEvents.map((event) => event.eventId) : [primarySourceEvent.eventId],
-            sourceCommandId: command.commandId,
-            correlationId: command.correlationId,
-            idempotencyKey: effectTaskIdempotencyKey(plannedEffect, primarySourceEvent),
-            maxAttempts: maxAttemptsFor(plannedEffect),
-            input: {
-              inputRef: plannedEffect.inputRef,
-              previewPolicy: plannedEffect.previewPolicy,
-              sourceEventTypes: plannedEffect.sourceEventTypes,
-              ...(plannedEffect.runAfter ? { runAfter: plannedEffect.runAfter } : {})
-            },
-            schemaVersion: command.schemaVersion
-          });
+          effectTaskId: effectTaskId(),
+          effectType: plannedEffect.effectType,
+          projectId: command.projectId,
+          sessionId: command.sessionId,
+          sourceEventId: primarySourceEvent.eventId,
+          sourceEventIds: sourceEvents.length ? sourceEvents.map((event) => event.eventId) : [primarySourceEvent.eventId],
+          sourceCommandId: command.commandId,
+          correlationId: command.correlationId,
+          idempotencyKey:
+            existingEffect && !isPendingEffect(existingEffect)
+              ? `${baseIdempotencyKey}:retry:${primarySourceEvent.eventId}`
+              : baseIdempotencyKey,
+          maxAttempts: maxAttemptsFor(plannedEffect),
+          input: {
+            inputRef: plannedEffect.inputRef,
+            previewPolicy: plannedEffect.previewPolicy,
+            sourceEventTypes: plannedEffect.sourceEventTypes,
+            ...(plannedEffect.runAfter ? { runAfter: plannedEffect.runAfter } : {})
+          },
+          schemaVersion: command.schemaVersion
+        });
         effects.push(createdEffect);
       }
 
@@ -534,16 +684,20 @@ export function createProductEngineCommandService(storage: SoloStorage) {
     const effectRepository = createEffectTaskRepository(storage.db);
 
     for (const plannedEffect of reduction.effectPlan) {
-      if (plannedEffect.effectType !== "research_evidence_effect") {
+      if (plannedEffect.effectType !== "research_evidence_effect" && plannedEffect.effectType !== "codex_runtime_preview_effect") {
         continue;
       }
 
       const idempotencyKey =
-        plannedEffect.inputRef.refType === "ResearchTask" || plannedEffect.inputRef.refType === "ResearchResult"
+        plannedEffect.effectType === "codex_runtime_preview_effect"
+          ? plannedEffect.idempotencyKey
+          : plannedEffect.inputRef.refType === "ResearchTask" || plannedEffect.inputRef.refType === "ResearchResult"
           ? plannedEffect.idempotencyKey
           : `research:${plannedEffect.inputRef.refId}`;
 
-      if (await effectRepository.findByIdempotencyKey(idempotencyKey)) {
+      const existingEffect = await effectRepository.findByIdempotencyKey(idempotencyKey);
+
+      if (existingEffect && (plannedEffect.effectType !== "codex_runtime_preview_effect" || isPendingEffect(existingEffect))) {
         return responseForIdempotencyConflict(command, state.stateVersion, idempotencyKey);
       }
     }
@@ -733,6 +887,222 @@ export function createProductEngineCommandService(storage: SoloStorage) {
     }
   }
 
+  async function runCodexRuntimePreviewEffect(effect: EffectTaskRecord) {
+    const effectRepository = createEffectTaskRepository(storage.db);
+    const attemptCount = effect.attemptCount + 1;
+
+    await effectRepository.updateStatus({
+      effectTaskId: effect.effectTaskId,
+      status: "running",
+      attemptCount,
+      leaseOwner: "codex-runtime-preview-effect-executor",
+      leaseExpiresAt: terminalLeaseExpiresAt()
+    });
+
+    try {
+      const existingEvents = await createEventRepository(storage.db).listForSession(effect.sessionId);
+      const currentState = replayProductEngineEvents(effect.projectId, effect.sessionId, existingEvents);
+      const request = runtimePreviewRequestForEffect(effect, existingEvents);
+
+      if (!request) {
+        throw new Error("codex_runtime_preview_effect requires a RuntimePreviewRequested source event.");
+      }
+
+      const previewInput = codexPreviewInputFromRequest(request);
+      const previewOutput = previewInput.requestedActionType
+        ? fixtureCodexPreviewOutput(previewInput)
+        : await codexRuntimeAdapter.createPreview(previewInput);
+      assertCodexPreviewOutputMatchesInput(previewInput, previewOutput);
+      const command: ProductEngineCommand = {
+        commandId: commandId(),
+        commandType: "CreateRuntimePreview",
+        projectId: effect.projectId,
+        sessionId: effect.sessionId,
+        actor: "effect_executor",
+        issuedAt: new Date().toISOString(),
+        idempotencyKey: `EffectExecutor:${effect.idempotencyKey}`,
+        expectedStateVersion: currentState.stateVersion,
+        causationId: (effect.sourceEventIds[0] ?? null) as CausationId | null,
+        correlationId: effect.correlationId,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        payload: {
+          source: "protocol_fixture",
+          sourceEffectTaskId: effect.effectTaskId,
+          runtimeAdapterVersion: CODEX_RUNTIME_ADAPTER_VERSION,
+          turnPurpose: previewOutput.turnPurpose,
+          contextHash: request.contextHash,
+          prompt: request.prompt,
+          summary: previewOutput.summary,
+          body: previewOutput.payload.body,
+          sourceRefs: previewOutput.payload.sourceRefs,
+          targetObject: previewOutput.payload.targetObject,
+          artifactKind: previewOutput.artifactKind,
+          applyPolicy: previewOutput.applyPolicy,
+          ...(previewOutput.payload.blockedAction
+            ? {
+                blockedActionType: previewOutput.payload.blockedAction.actionType,
+                blockedActionReason: previewOutput.payload.blockedAction.reason,
+                suggestedSafeAlternative: previewOutput.payload.blockedAction.suggestedSafeAlternative
+              }
+            : {}),
+          ...(previewOutput.payload.phase15bUpgradeHints
+            ? { phase15bUpgradeHints: previewOutput.payload.phase15bUpgradeHints }
+            : {})
+        }
+      };
+      const response = await runCommand(command, existingEvents);
+
+      if (response.category === "rejected") {
+        throw new Error(response.error?.message ?? "Codex runtime effect executor command was rejected.");
+      }
+
+      const stateAfter = await stateForSession(effect.projectId, effect.sessionId);
+      const artifact = stateAfter.runtimeState.runtimeArtifacts.find(
+        (candidate) => candidate.sourceEffectTaskId === effect.effectTaskId
+      );
+
+      if (!artifact) {
+        throw new Error("Codex runtime effect did not persist a RuntimePreviewArtifact.");
+      }
+
+      if (artifact.blockedAction) {
+        await effectRepository.updateStatus({
+          effectTaskId: effect.effectTaskId,
+          status: "blocked",
+          attemptCount,
+          output: {
+            artifactId: artifact.artifactId,
+            blockedActionType: artifact.blockedAction.actionType
+          },
+          error: {
+            code: "RUNTIME_ACTION_BLOCKED",
+            message: artifact.blockedAction.reason,
+            retryAvailable: false
+          }
+        });
+
+        return {
+          effectTaskId: effect.effectTaskId,
+          status: "blocked" as const,
+          artifactId: artifact.artifactId,
+          blockedActionType: artifact.blockedAction.actionType
+        };
+      }
+
+      await effectRepository.updateStatus({
+        effectTaskId: effect.effectTaskId,
+        status: "succeeded",
+        attemptCount,
+        output: {
+          artifactId: artifact.artifactId,
+          kind: artifact.kind,
+          applyPolicy: artifact.applyPolicy
+        }
+      });
+
+      return {
+        effectTaskId: effect.effectTaskId,
+        status: "succeeded" as const,
+        artifactId: artifact.artifactId,
+        kind: artifact.kind
+      };
+    } catch (error) {
+      const isUnavailable = error instanceof CodexRuntimeUnavailableError;
+      const message = error instanceof Error ? error.message : "Codex runtime preview effect failed.";
+
+      if (isUnavailable) {
+        const existingEvents = await createEventRepository(storage.db).listForSession(effect.sessionId);
+        const currentState = replayProductEngineEvents(effect.projectId, effect.sessionId, existingEvents);
+        const request = runtimePreviewRequestForEffect(effect, existingEvents);
+
+        if (!request) {
+          throw error;
+        }
+
+        const command: ProductEngineCommand = {
+          commandId: commandId(),
+          commandType: "CreateRuntimePreview",
+          projectId: effect.projectId,
+          sessionId: effect.sessionId,
+          actor: "effect_executor",
+          issuedAt: new Date().toISOString(),
+          idempotencyKey: `ManualHandoff:${effect.idempotencyKey}`,
+          expectedStateVersion: currentState.stateVersion,
+          causationId: (effect.sourceEventIds[0] ?? null) as CausationId | null,
+          correlationId: effect.correlationId,
+          schemaVersion: CONTRACT_SCHEMA_VERSION,
+          payload: {
+            source: "manual_prompt_handoff",
+            sourceEffectTaskId: effect.effectTaskId,
+            runtimeAdapterVersion: CODEX_RUNTIME_ADAPTER_VERSION,
+            turnPurpose: request.turnPurpose,
+            contextHash: request.contextHash,
+            prompt: request.prompt,
+            summary: "Manual handoff prompt ready",
+            body: request.prompt,
+            sourceRefs: request.sourceRefs,
+            targetObject: request.targetObject,
+            artifactKind: request.turnPurpose === "implementation_plan_preview" ? "ImplementationPlanPreviewArtifact" : undefined,
+            applyPolicy: "manual_handoff_required"
+          }
+        };
+        const response = await runCommand(command, existingEvents);
+
+        if (response.category === "rejected") {
+          throw new Error(response.error?.message ?? "Manual handoff fallback command was rejected.", {
+            cause: error
+          });
+        }
+
+        const stateAfter = await stateForSession(effect.projectId, effect.sessionId);
+        const artifact = stateAfter.runtimeState.runtimeArtifacts.find(
+          (candidate) => candidate.sourceEffectTaskId === effect.effectTaskId
+        );
+
+        if (!artifact) {
+          throw new Error("Manual handoff fallback did not persist a RuntimePreviewArtifact.", {
+            cause: error
+          });
+        }
+
+        await effectRepository.updateStatus({
+          effectTaskId: effect.effectTaskId,
+          status: "succeeded",
+          attemptCount,
+          output: {
+            artifactId: artifact.artifactId,
+            fallback: "manual_prompt_handoff",
+            reason: message
+          }
+        });
+
+        return {
+          effectTaskId: effect.effectTaskId,
+          status: "succeeded" as const,
+          artifactId: artifact.artifactId,
+          fallback: "manual_prompt_handoff"
+        };
+      }
+
+      await effectRepository.updateStatus({
+        effectTaskId: effect.effectTaskId,
+        status: "failed",
+        attemptCount: effect.maxAttempts,
+        error: {
+          code: "CODEX_RUNTIME_PREVIEW_FAILED",
+          message,
+          retryAvailable: false
+        }
+      });
+
+      return {
+        effectTaskId: effect.effectTaskId,
+        status: "failed" as const,
+        error: message
+      };
+    }
+  }
+
   async function commandForExistingSession(input: RunSessionCommandInput) {
     const projectRepository = createProjectRepository(storage.db);
     const session = await projectRepository.getSession(input.sessionId);
@@ -813,6 +1183,22 @@ export function createProductEngineCommandService(storage: SoloStorage) {
       }
 
       return results;
+    },
+
+    async runPendingCodexRuntimePreviewEffects(limit = 10) {
+      const effectRepository = createEffectTaskRepository(storage.db);
+      const queuedEffects = await effectRepository.listQueuedByType("codex_runtime_preview_effect");
+      const results = [];
+
+      for (const effect of queuedEffects.slice(0, limit)) {
+        results.push(await runCodexRuntimePreviewEffect(effect));
+      }
+
+      return results;
+    },
+
+    getRuntimeStatus() {
+      return codexRuntimeAdapter.getStatus();
     },
 
     async getSession(projectIdValue: ProjectId, sessionIdValue: SessionId): Promise<SessionShellProjection> {
@@ -924,6 +1310,27 @@ export function createProductEngineCommandService(storage: SoloStorage) {
       }
 
       return (await stateForSession(session.projectId, sessionIdValue)).researchState;
+    },
+
+    async getActivity(sessionIdValue: SessionId): Promise<RuntimeActivityProjection> {
+      const session = await createProjectRepository(storage.db).getSession(sessionIdValue);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: sessionIdValue
+        });
+      }
+
+      const projection = await createProjectionRepository(storage.db).get<RuntimeActivityProjection>(
+        sessionIdValue,
+        "RuntimeActivityProjection"
+      );
+
+      if (projection) {
+        return projection;
+      }
+
+      return createRuntimeRepository(storage.db).getProjection(sessionIdValue);
     },
 
     async getCommandStatus(commandIdValue: CommandId): Promise<StatusEndpointDto | null> {

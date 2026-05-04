@@ -57,7 +57,7 @@ function mapEffectTask(row: typeof effectTasks.$inferSelect): EffectTaskDto {
           retryAvailable: row.attemptCount < row.maxAttempts
         }
       : undefined;
-  const outputRef = row.status === "succeeded" && row.outputJson
+  const outputRef = (row.status === "succeeded" || row.status === "blocked") && row.outputJson
     ? {
         refType: "effect_output_json",
         refId: row.id
@@ -101,6 +101,10 @@ function validateStatusPayload(input: UpdateEffectTaskStatusInput) {
 
   if (input.status === "succeeded" && !input.output) {
     throw new Error("Succeeded effect tasks require output metadata.");
+  }
+
+  if (input.status === "blocked" && !input.output) {
+    throw new Error("Blocked effect tasks require output metadata.");
   }
 
   if ((input.status === "failed" || input.status === "blocked") && !input.error) {
@@ -252,7 +256,7 @@ export function createEffectTaskRepository(db: SoloDatabaseExecutor) {
           ...(input.attemptCount !== undefined ? { attemptCount: input.attemptCount } : {}),
           ...(leaseOwner !== undefined ? { leaseOwner } : {}),
           ...(leaseExpiresAt !== undefined ? { leaseExpiresAt } : {}),
-          outputJson: input.status === "succeeded" ? stringifyJson(input.output) : null,
+          outputJson: input.status === "succeeded" || input.status === "blocked" ? stringifyJson(input.output) : null,
           lastErrorCode: terminalError?.code ?? null,
           lastErrorMessage: terminalError?.message ?? null,
           updatedAt

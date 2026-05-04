@@ -3,6 +3,7 @@ import type {
   DecisionQueueProjection,
   LivingSpecProjection,
   ResearchEvidenceProjection,
+  RuntimeActivityProjection,
   SessionShellProjection
 } from "../projections";
 import type { ProductEngineEventDraft } from "./events";
@@ -41,6 +42,7 @@ export type ActiveBatchSafeProjection =
   | DecisionQueueProjection
   | LivingSpecProjection
   | ResearchEvidenceProjection
+  | RuntimeActivityProjection
   | SessionShellProjection;
 
 export interface ProductEngineReduction<TImmediateProjection = ActiveBatchSafeProjection> {

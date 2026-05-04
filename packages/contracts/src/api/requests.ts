@@ -9,6 +9,7 @@ import type {
   StateVersion
 } from "../ids";
 import type { ResearchImpact, ResearchRouteOutcome } from "../projections";
+import type { BlockedActionType, CodexTurnPurpose } from "../codex";
 
 export interface ScaffoldRequestPlaceholder {
   readonly scaffoldOnly?: true;
@@ -114,21 +115,39 @@ export interface CreateSpecVersionRequest extends ScaffoldRequestPlaceholder {
 }
 
 export interface CreateRuntimePreviewRequest extends ScaffoldRequestPlaceholder {
-  readonly turnPurpose: string;
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
+  readonly turnPurpose: CodexTurnPurpose;
   readonly contextHash: string;
+  readonly prompt: string;
+  readonly sourceRefs: readonly string[];
+  readonly targetObject?: string;
+  readonly requestedActionType?: BlockedActionType;
+  readonly requestedActionReason?: string;
 }
 
 export interface CreateManualHandoffRequest extends ScaffoldRequestPlaceholder {
-  readonly promptContextRef: string;
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
+  readonly turnPurpose: CodexTurnPurpose;
+  readonly contextHash: string;
+  readonly prompt: string;
+  readonly sourceRefs: readonly string[];
+  readonly targetObject?: string;
 }
 
 export interface ConvertRuntimeArtifactRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
   readonly artifactId: RuntimeArtifactId;
+  readonly expectedStateVersion: StateVersion;
   readonly target: string;
 }
 
 export interface BlockRuntimeArtifactRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
   readonly artifactId: RuntimeArtifactId;
+  readonly expectedStateVersion: StateVersion;
+  readonly blockedActionType: BlockedActionType;
   readonly reason: string;
 }
 

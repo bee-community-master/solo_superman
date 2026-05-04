@@ -161,6 +161,61 @@ export const evidenceMatrices = sqliteTable(
   ]
 );
 
+export const runtimePreviewArtifacts = sqliteTable(
+  "runtime_preview_artifacts",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    sourceEffectTaskId: text("source_effect_task_id"),
+    turnPurpose: text("turn_purpose").notNull(),
+    artifactKind: text("artifact_kind").notNull(),
+    applyPolicy: text("apply_policy").notNull(),
+    status: text("status").notNull(),
+    source: text("source").notNull(),
+    targetObject: text("target_object").notNull(),
+    contextHash: text("context_hash").notNull(),
+    runtimeAdapterVersion: text("runtime_adapter_version").notNull(),
+    summary: text("summary").notNull(),
+    payloadJson: text("payload_json").notNull(),
+    sourceRefsJson: text("source_refs_json").notNull(),
+    blockedActionType: text("blocked_action_type"),
+    blockReason: text("block_reason"),
+    suggestedSafeAlternative: text("suggested_safe_alternative"),
+    createdAt: text("created_at").notNull(),
+    schemaVersion: text("schema_version").notNull()
+  },
+  (table) => [
+    uniqueIndex("runtime_artifacts_context_idx").on(
+      table.sessionId,
+      table.turnPurpose,
+      table.contextHash,
+      table.runtimeAdapterVersion
+    ),
+    index("runtime_artifacts_session_idx").on(table.sessionId),
+    index("runtime_artifacts_source_effect_idx").on(table.sourceEffectTaskId)
+  ]
+);
+
+export const runtimeTaskRefs = sqliteTable(
+  "runtime_task_refs",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    effectTaskId: text("effect_task_id").notNull(),
+    artifactId: text("artifact_id").notNull(),
+    runtimeAdapterVersion: text("runtime_adapter_version").notNull(),
+    status: text("status").notNull(),
+    createdAt: text("created_at").notNull(),
+    schemaVersion: text("schema_version").notNull()
+  },
+  (table) => [
+    uniqueIndex("runtime_task_refs_effect_artifact_idx").on(table.effectTaskId, table.artifactId),
+    index("runtime_task_refs_session_idx").on(table.sessionId)
+  ]
+);
+
 export const appConfig = sqliteTable("app_config", {
   key: text("key").primaryKey(),
   valueJson: text("value_json").notNull(),

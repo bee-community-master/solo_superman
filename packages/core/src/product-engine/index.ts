@@ -1,7 +1,19 @@
 import {
   CONTRACT_SCHEMA_VERSION,
+  BLOCKED_ACTION_TYPES,
+  CODEX_APPLY_POLICY_BY_TURN_PURPOSE,
+  CODEX_APPLY_POLICIES,
+  CODEX_ARTIFACT_KIND_BY_TURN_PURPOSE,
+  CODEX_ARTIFACT_KINDS,
+  CODEX_RUNTIME_ADAPTER_VERSION,
+  CODEX_TURN_PURPOSES,
   type ActiveBatchSafeProjection,
   type AmbiguityIssueSnapshot,
+  type BlockedActionType,
+  type CodexApplyPolicy,
+  type CodexArtifactKind,
+  type CodexRuntimeSource,
+  type CodexTurnPurpose,
   type DecisionQueueProjection,
   type EvidenceMatrixProjection,
   type ProductEngineCommand,
@@ -14,6 +26,7 @@ import {
   type ProjectId,
   type ProjectionVersion,
   type QueueItemId,
+  type EffectTaskId,
   type ResearchImpact,
   type ResearchEvidenceProjection,
   type ResearchResultId,
@@ -21,6 +34,8 @@ import {
   type ResearchTaskId,
   type ResearchTaskProjection,
   type RuntimeActivityProjection,
+  type RuntimeArtifactId,
+  type RuntimePreviewArtifact,
   type SessionShellProjection,
   type SessionId,
   type StateVersion
@@ -35,7 +50,7 @@ import {
   synthesizeEvidenceMatrix
 } from "../research-engine";
 
-export const PACKAGE_SLICE_STATUS = "product-engine-reducer-pr-06" as const;
+export const PACKAGE_SLICE_STATUS = "product-engine-runtime-preview-pr-07" as const;
 
 type PrivacyMode = "local_only" | "local_with_manual_export";
 
@@ -318,6 +333,158 @@ function researchEvidenceEffect(
     inputRef,
     previewPolicy: "manual_handoff_required",
     ...(runAfter ? { runAfter } : {})
+  };
+}
+
+function codexRuntimePreviewEffect(
+  command: ProductEngineCommand,
+  turnPurpose: CodexTurnPurpose,
+  contextHash: string
+): ProductEngineEffectPlanItem {
+  return {
+    effectType: "codex_runtime_preview_effect",
+    idempotencyKey: `codex:${command.sessionId}:${turnPurpose}:${contextHash}:${CODEX_RUNTIME_ADAPTER_VERSION}`,
+    sourceCommandId: command.commandId,
+    sourceEventTypes: ["RuntimePreviewRequested"],
+    correlationId: command.correlationId,
+    priority: "normal",
+    inputRef: {
+      refType: "RuntimePreviewRequest",
+      refId: `${turnPurpose}:${contextHash}`
+    },
+    previewPolicy: "manual_handoff_required"
+  };
+}
+
+function isCodexTurnPurpose(value: unknown): value is CodexTurnPurpose {
+  return typeof value === "string" && CODEX_TURN_PURPOSES.includes(value as CodexTurnPurpose);
+}
+
+function isCodexArtifactKind(value: unknown): value is CodexArtifactKind {
+  return typeof value === "string" && CODEX_ARTIFACT_KINDS.includes(value as CodexArtifactKind);
+}
+
+function isCodexApplyPolicy(value: unknown): value is CodexApplyPolicy {
+  return typeof value === "string" && CODEX_APPLY_POLICIES.includes(value as CodexApplyPolicy);
+}
+
+function isBlockedActionType(value: unknown): value is BlockedActionType {
+  return typeof value === "string" && BLOCKED_ACTION_TYPES.includes(value as BlockedActionType);
+}
+
+function optionalStringArray(value: unknown): readonly string[] | "invalid" {
+  if (!Array.isArray(value) || value.length === 0) {
+    return "invalid";
+  }
+
+  const strings = value.map((item) => (typeof item === "string" ? item.trim() : ""));
+
+  return strings.every(Boolean) ? strings : "invalid";
+}
+
+function runtimeArtifactIdFor(
+  sessionIdValue: SessionId,
+  turnPurpose: CodexTurnPurpose,
+  contextHash: string,
+  runtimeAdapterVersion: string
+): RuntimeArtifactId {
+  return `runtime_artifact_${stableToken(
+    `${sessionIdValue}:${turnPurpose}:${contextHash}:${runtimeAdapterVersion}`
+  )}` as RuntimeArtifactId;
+}
+
+function isRuntimeArtifactBlocked(artifact: RuntimePreviewArtifact) {
+  return Boolean(artifact.blockedAction) || artifact.status === "blocked" || artifact.applyPolicy === "blocked";
+}
+
+function runtimePreviewQueueItem(artifact: RuntimePreviewArtifact) {
+  const isBlocked = isRuntimeArtifactBlocked(artifact);
+
+  return {
+    queueItemId: `runtime_preview_${artifact.artifactId}` as QueueItemId,
+    title: isBlocked ? `Runtime blocked: ${artifact.summary}` : `Runtime preview: ${artifact.summary}`,
+    state: isBlocked ? ("blocked" as const) : ("next" as const)
+  };
+}
+
+function queueProjectionWithRuntimePreviewItem(
+  projection: DecisionQueueProjection,
+  artifact: RuntimePreviewArtifact,
+  version: ProjectionVersion
+): DecisionQueueProjection {
+  const item = runtimePreviewQueueItem(artifact);
+  const withoutExisting = (items: DecisionQueueProjection["next"]) =>
+    items.filter((candidate) => candidate.queueItemId !== item.queueItemId);
+
+  return {
+    ...projection,
+    version,
+    next: item.state === "next" ? [...withoutExisting(projection.next), item] : withoutExisting(projection.next),
+    blocked:
+      item.state === "blocked" ? [...withoutExisting(projection.blocked), item] : withoutExisting(projection.blocked)
+  };
+}
+
+function runtimeProjectionWithArtifact(
+  projection: RuntimeActivityProjection,
+  artifact: RuntimePreviewArtifact,
+  version: ProjectionVersion
+): RuntimeActivityProjection {
+  const artifacts = [
+    ...projection.runtimeArtifacts.filter((candidate) => candidate.artifactId !== artifact.artifactId),
+    artifact
+  ];
+  const hasBlocked = artifacts.some((candidate) => candidate.status === "blocked");
+  const hasManualHandoff = artifacts.some((candidate) => candidate.status === "manual_handoff");
+
+  return {
+    ...projection,
+    version,
+    runtimeArtifacts: artifacts,
+    runtimeStatus: hasBlocked ? "blocked" : hasManualHandoff ? "unavailable" : "available"
+  };
+}
+
+function blockedArtifactFromConversion(
+  command: ProductEngineCommand,
+  artifact: RuntimePreviewArtifact
+): RuntimePreviewArtifact {
+  const blockReason =
+    requiredString(command.payload.blockReason) ??
+    artifact.blockedAction?.reason ??
+    "Runtime artifact conversion was blocked by Phase 1 preview-only policy.";
+  const blockedActionType = isBlockedActionType(command.payload.blockedActionType)
+    ? command.payload.blockedActionType
+    : artifact.blockedAction?.actionType;
+  const payload = {
+    ...artifact.payload,
+    title: `Runtime artifact blocked: ${artifact.summary}`,
+    body: blockReason,
+    targetObject: "blocked_action",
+    sourceRefs: artifact.sourceRefs,
+    blockReason,
+    originalArtifactId: artifact.artifactId
+  };
+
+  return {
+    ...artifact,
+    kind: "BlockedActionArtifact",
+    applyPolicy: "blocked",
+    status: "blocked",
+    targetObject: "blocked_action",
+    summary: `Runtime artifact blocked: ${artifact.summary}`,
+    payload,
+    ...(blockedActionType
+      ? {
+          blockedAction: {
+            actionType: blockedActionType,
+            reason: blockReason,
+            ...(artifact.blockedAction?.suggestedSafeAlternative
+              ? { suggestedSafeAlternative: artifact.blockedAction.suggestedSafeAlternative }
+              : {})
+          }
+        }
+      : {})
   };
 }
 
@@ -1125,6 +1292,289 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
   );
 }
 
+function runtimeArtifactFromPayload(
+  command: ProductEngineCommand,
+  source: CodexRuntimeSource
+): RuntimePreviewArtifact | ProductEngineReduction {
+  const turnPurpose = command.payload.turnPurpose;
+  const contextHash = requiredString(command.payload.contextHash);
+  const summary = requiredString(command.payload.summary) ?? requiredString(command.payload.prompt);
+  const body = requiredString(command.payload.body) ?? requiredString(command.payload.prompt);
+  const sourceRefs = optionalStringArray(command.payload.sourceRefs);
+
+  if (!isCodexTurnPurpose(turnPurpose) || !contextHash || !summary || !body || sourceRefs === "invalid") {
+    return reject("CreateRuntimePreview requires turnPurpose, contextHash, prompt/body, and valid sourceRefs.", "VALIDATION_FAILED");
+  }
+
+  const blockedActionType = command.payload.blockedActionType ?? command.payload.requestedActionType;
+  const blockedActionReason =
+    requiredString(command.payload.blockedActionReason) ??
+    requiredString(command.payload.requestedActionReason) ??
+    "Phase 1 converts forbidden runtime actions into blocked preview artifacts.";
+  const hasBlockedAction = isBlockedActionType(blockedActionType);
+  const requestedKind = command.payload.artifactKind;
+  const requestedPolicy = command.payload.applyPolicy;
+  const kind = hasBlockedAction
+    ? "BlockedActionArtifact"
+    : isCodexArtifactKind(requestedKind)
+      ? requestedKind
+      : CODEX_ARTIFACT_KIND_BY_TURN_PURPOSE[turnPurpose];
+  const applyPolicy = hasBlockedAction
+    ? "blocked"
+    : isCodexApplyPolicy(requestedPolicy)
+      ? requestedPolicy
+      : source === "manual_prompt_handoff"
+        ? "manual_handoff_required"
+        : CODEX_APPLY_POLICY_BY_TURN_PURPOSE[turnPurpose];
+  const status = hasBlockedAction ? "blocked" : source === "manual_prompt_handoff" ? "manual_handoff" : "preview_ready";
+  const runtimeAdapterVersion =
+    requiredString(command.payload.runtimeAdapterVersion) ?? CODEX_RUNTIME_ADAPTER_VERSION;
+  const artifactId = runtimeArtifactIdFor(command.sessionId, turnPurpose, contextHash, runtimeAdapterVersion);
+  const targetObject =
+    requiredString(command.payload.targetObject) ?? (kind === "BlockedActionArtifact" ? "blocked_action" : turnPurpose);
+
+  return {
+    artifactId,
+    turnPurpose,
+    kind,
+    applyPolicy,
+    status,
+    source,
+    targetObject,
+    summary,
+    payload: {
+      title: summary,
+      body,
+      targetObject,
+      sourceRefs,
+      ...(typeof command.payload.phase15bUpgradeHints === "object" && command.payload.phase15bUpgradeHints !== null
+        ? { phase15bUpgradeHints: command.payload.phase15bUpgradeHints }
+        : {})
+    },
+    sourceRefs,
+    contextHash,
+    runtimeAdapterVersion,
+    ...(typeof command.payload.sourceEffectTaskId === "string"
+      ? { sourceEffectTaskId: command.payload.sourceEffectTaskId as EffectTaskId }
+      : {}),
+    ...(hasBlockedAction
+      ? {
+          blockedAction: {
+            actionType: blockedActionType,
+            reason: blockedActionReason,
+            ...(typeof command.payload.suggestedSafeAlternative === "string"
+              ? { suggestedSafeAlternative: command.payload.suggestedSafeAlternative }
+              : {})
+          }
+        }
+      : {}),
+    createdAt: command.issuedAt,
+    schemaVersion: command.schemaVersion
+  };
+}
+
+function reduceCreateRuntimePreview(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  const turnPurpose = command.payload.turnPurpose;
+  const contextHash = requiredString(command.payload.contextHash);
+  const prompt = requiredString(command.payload.prompt);
+  const sourceRefs = optionalStringArray(command.payload.sourceRefs);
+
+  if (!isCodexTurnPurpose(turnPurpose) || !contextHash || !prompt || sourceRefs === "invalid") {
+    return reject("CreateRuntimePreview requires turnPurpose, contextHash, prompt, and valid sourceRefs.", "VALIDATION_FAILED");
+  }
+
+  const source =
+    command.actor === "effect_executor"
+      ? command.payload.source === "protocol_fixture"
+        ? "protocol_fixture"
+        : command.payload.source === "codex_app_server"
+          ? "codex_app_server"
+          : "manual_prompt_handoff"
+      : command.payload.mode === "manual_handoff"
+        ? "manual_prompt_handoff"
+        : null;
+
+  if (!source) {
+    const requestedActionType = isBlockedActionType(command.payload.requestedActionType)
+      ? command.payload.requestedActionType
+      : null;
+    const requestedActionReason = requiredString(command.payload.requestedActionReason);
+    const event = eventDraft(command, "RuntimePreviewRequested", {
+      turnPurpose,
+      contextHash,
+      prompt,
+      sourceRefs,
+      targetObject: requiredString(command.payload.targetObject) ?? turnPurpose,
+      runtimeAdapterVersion: CODEX_RUNTIME_ADAPTER_VERSION,
+      ...(requestedActionType ? { requestedActionType } : {}),
+      ...(requestedActionReason ? { requestedActionReason } : {})
+    });
+
+    return acceptedReduction(
+      command,
+      state,
+      event,
+      {},
+      [
+        {
+          outputType: "reducer_deterministic_output",
+          outputRef: `runtime_preview_request:${turnPurpose}:${contextHash}`,
+          payload: {
+            turnPurpose,
+            contextHash,
+            runtimeAdapterVersion: CODEX_RUNTIME_ADAPTER_VERSION
+          }
+        }
+      ],
+      [codexRuntimePreviewEffect(command, turnPurpose, contextHash)]
+    );
+  }
+
+  const artifactOrRejection = runtimeArtifactFromPayload(command, source);
+
+  if (!("artifactId" in artifactOrRejection)) {
+    return artifactOrRejection;
+  }
+
+  const runtimeProjection = runtimeProjectionWithArtifact(
+    state.runtimeState,
+    artifactOrRejection,
+    projectionVersionFor(state)
+  );
+  const queueProjection = queueProjectionWithRuntimePreviewItem(
+    state.queueProjection,
+    artifactOrRejection,
+    runtimeProjection.version
+  );
+  const event = eventDraft(command, "RuntimePreviewRequested", {
+    turnPurpose,
+    contextHash,
+    runtimeArtifact: artifactOrRejection,
+    projection: runtimeProjection,
+    queueProjection
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      runtimeState: runtimeProjection,
+      queueProjection
+    },
+    [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: artifactOrRejection.artifactId,
+        payload: {
+          turnPurpose,
+          kind: artifactOrRejection.kind,
+          applyPolicy: artifactOrRejection.applyPolicy,
+          status: artifactOrRejection.status
+        }
+      }
+    ],
+    [],
+    runtimeProjection
+  );
+}
+
+function reduceConvertRuntimeArtifact(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  const artifactId = requiredString(command.payload.artifactId) as RuntimeArtifactId | null;
+  const artifact = artifactId
+    ? state.runtimeState.runtimeArtifacts.find((candidate) => candidate.artifactId === artifactId)
+    : null;
+
+  if (!artifact) {
+    return reject("ConvertRuntimeArtifact requires an existing RuntimePreviewArtifact.", "RESOURCE_NOT_FOUND");
+  }
+
+  const artifactRef = artifact.artifactId;
+  const target = requiredString(command.payload.target);
+  const requestsBlockedTarget = target === "blocked_action" || Boolean(requiredString(command.payload.blockReason));
+  const hasBlockedActionTaxonomy =
+    isBlockedActionType(command.payload.blockedActionType) || Boolean(artifact.blockedAction?.actionType);
+
+  if (requestsBlockedTarget && !hasBlockedActionTaxonomy) {
+    return reject("Blocked runtime artifact conversion requires blockedActionType taxonomy.", "VALIDATION_FAILED");
+  }
+
+  if (isRuntimeArtifactBlocked(artifact) || requestsBlockedTarget) {
+    const blockedArtifact = requestsBlockedTarget ? blockedArtifactFromConversion(command, artifact) : artifact;
+    const runtimeProjection = runtimeProjectionWithArtifact(
+      state.runtimeState,
+      blockedArtifact,
+      projectionVersionFor(state)
+    );
+    const queueProjection = queueProjectionWithRuntimePreviewItem(
+      state.queueProjection,
+      blockedArtifact,
+      runtimeProjection.version
+    );
+    const event = eventDraft(command, "RuntimeArtifactConverted", {
+      artifactId: artifactRef,
+      conversionStatus: "blocked",
+      blockReason:
+        blockedArtifact.blockedAction?.reason ??
+        requiredString(command.payload.blockReason) ??
+        "Blocked runtime artifact cannot be converted into execution.",
+      runtimeArtifact: blockedArtifact,
+      projection: runtimeProjection,
+      queueProjection
+    });
+
+    return acceptedReduction(
+      command,
+      state,
+      event,
+      {
+        runtimeState: runtimeProjection,
+        queueProjection
+      },
+      [
+        {
+          outputType: "reducer_deterministic_output",
+          outputRef: artifactRef,
+          payload: {
+            conversionStatus: "blocked"
+          }
+        }
+      ],
+      [],
+      runtimeProjection
+    );
+  }
+
+  const event = eventDraft(command, "RuntimeArtifactConverted", {
+    artifactId: artifactRef,
+    conversionStatus: "preview_only",
+    target: requiredString(command.payload.target) ?? artifact.targetObject
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {},
+    [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: artifactRef,
+        payload: {
+          conversionStatus: "preview_only",
+          target: target ?? artifact.targetObject
+        }
+      }
+    ]
+  );
+}
+
 export function reduceProductEngineCommand(
   command: ProductEngineCommand,
   state: ProductEngineStateSnapshot
@@ -1156,8 +1606,12 @@ export function reduceProductEngineCommand(
       return reduceImportResearchResult(command, state);
     case "SynthesizeEvidence":
       return reduceSynthesizeEvidence(command, state);
+    case "CreateRuntimePreview":
+      return reduceCreateRuntimePreview(command, state);
+    case "ConvertRuntimeArtifact":
+      return reduceConvertRuntimeArtifact(command, state);
     default:
-      return reject(`${command.commandType} is outside the mounted PR-06 reducer slice.`);
+      return reject(`${command.commandType} is outside the mounted PR-07 reducer slice.`);
   }
 }
 
@@ -1308,6 +1762,34 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
           version: researchProjection.version,
           topRisks: researchProjection.knownRisks
         }
+      };
+    }
+    case "RuntimePreviewRequested": {
+      const runtimeProjection = projectionPayload(event.payload, state.runtimeState);
+      const queueProjection =
+        typeof event.payload.queueProjection === "object" && event.payload.queueProjection !== null
+          ? (event.payload.queueProjection as DecisionQueueProjection)
+          : state.queueProjection;
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        runtimeState: runtimeProjection,
+        queueProjection
+      };
+    }
+    case "RuntimeArtifactConverted": {
+      const runtimeProjection = projectionPayload(event.payload, state.runtimeState);
+      const queueProjection =
+        typeof event.payload.queueProjection === "object" && event.payload.queueProjection !== null
+          ? (event.payload.queueProjection as DecisionQueueProjection)
+          : state.queueProjection;
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        runtimeState: runtimeProjection,
+        queueProjection
       };
     }
     default:

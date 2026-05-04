@@ -3,17 +3,20 @@ import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import {
   CONTRACT_SCHEMA_VERSION,
+  BLOCKED_ACTION_TYPES,
+  CODEX_TURN_PURPOSES,
   type ApiErrorCode,
   type ApiErrorEnvelope,
   type ApiResponseMeta,
   type ApiSuccessEnvelope,
   type CommandId,
   type CommandResponse,
-  PR06_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  PR07_MOUNTED_PRODUCT_API_ROUTE_IDS,
   type ProjectId,
   type QueueItemId,
   type ResearchResultId,
   type ResearchTaskId,
+  type RuntimeArtifactId,
   type SessionId,
   type StateVersion,
   type StatusEndpointDto
@@ -21,11 +24,13 @@ import {
 import type { MigrationStatus, SoloStorage } from "@solo-superman/db";
 import { createProductEngineCommandService, ProductEngineServiceError } from "./product-engine/command-service";
 import { productApiRoutePlaceholders } from "./routes/catalog";
+import { createCodexRuntimeAdapter, type CodexRuntimeAdapter } from "./runtime";
 
 export interface CreateSidecarAppOptions {
   readonly localCapabilityToken: string;
   readonly migrationStatus?: MigrationStatus;
   readonly storage?: SoloStorage | null;
+  readonly codexRuntimeAdapter?: CodexRuntimeAdapter;
 }
 
 const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "localhost"]);
@@ -161,10 +166,10 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
         checks: {
           db: "migration_failed",
           productEngine: "not_initialized_until_pr_04",
-          codex: "not_checked_until_pr_07"
+          codex: "runtime_status_endpoint_mounted_pr_07"
         },
         migrations,
-        implementedApiRouteIds: PR06_MOUNTED_PRODUCT_API_ROUTE_IDS
+        implementedApiRouteIds: PR07_MOUNTED_PRODUCT_API_ROUTE_IDS
       }
     } as const;
   }
@@ -179,10 +184,10 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
         checks: {
           db: "migrated",
           productEngine: "not_initialized_until_storage_available",
-          codex: "not_checked_until_pr_07"
+          codex: "runtime_status_endpoint_mounted_pr_07"
         },
         migrations,
-        implementedApiRouteIds: PR06_MOUNTED_PRODUCT_API_ROUTE_IDS
+        implementedApiRouteIds: PR07_MOUNTED_PRODUCT_API_ROUTE_IDS
       }
     } as const;
   }
@@ -195,10 +200,10 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
       checks: {
         db: "migrated",
         productEngine: "initialized_pr_04",
-        codex: "not_checked_until_pr_07"
+        codex: "runtime_status_endpoint_mounted_pr_07"
       },
       migrations,
-      implementedApiRouteIds: PR06_MOUNTED_PRODUCT_API_ROUTE_IDS
+      implementedApiRouteIds: PR07_MOUNTED_PRODUCT_API_ROUTE_IDS
     }
   } as const;
 }
@@ -231,6 +236,16 @@ function optionalStringArrayFromBody(value: unknown, fieldName: string) {
   return value.map((item) => stringFromBody(item, fieldName));
 }
 
+function requiredStringArrayFromBody(value: unknown, fieldName: string) {
+  const strings = optionalStringArrayFromBody(value, fieldName);
+
+  if (!strings?.length) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must include at least one trace reference.`);
+  }
+
+  return strings;
+}
+
 function optionalStringFromBody(value: unknown, fieldName: string) {
   if (value === undefined || value === null) {
     return undefined;
@@ -251,6 +266,26 @@ function optionalPositiveIntegerFromBody(value: unknown, fieldName: string) {
   return value;
 }
 
+function turnPurposeFromBody(value: unknown) {
+  if (typeof value !== "string" || !CODEX_TURN_PURPOSES.includes(value as (typeof CODEX_TURN_PURPOSES)[number])) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "turnPurpose must be one of the canonical Codex values.");
+  }
+
+  return value;
+}
+
+function optionalBlockedActionTypeFromBody(value: unknown, fieldName: string) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value !== "string" || !BLOCKED_ACTION_TYPES.includes(value as (typeof BLOCKED_ACTION_TYPES)[number])) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be a canonical blocked action type.`);
+  }
+
+  return value;
+}
+
 function payloadObject(value: unknown) {
   return value && typeof value === "object" ? (value as Readonly<Record<string, unknown>>) : {};
 }
@@ -265,7 +300,8 @@ async function jsonBody(context: Context) {
 
 export function createSidecarApp(options: CreateSidecarAppOptions) {
   const { localCapabilityToken, migrationStatus = defaultMigrationStatus(), storage = null } = options;
-  const commandService = storage ? createProductEngineCommandService(storage) : null;
+  const codexRuntimeAdapter = options.codexRuntimeAdapter ?? createCodexRuntimeAdapter();
+  const commandService = storage ? createProductEngineCommandService(storage, codexRuntimeAdapter) : null;
 
   if (localCapabilityToken.trim().length === 0) {
     throw new Error("localCapabilityToken must not be empty");
@@ -328,11 +364,11 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       status: "ok",
       service: "solo-superman-sidecar",
       schemaVersion: CONTRACT_SCHEMA_VERSION,
-      sidecarPhase: "pr_06_research_evidence_loop",
+      sidecarPhase: "pr_07_codex_runtime_preview",
       checks: {
         process: "alive"
       },
-      implementedApiRouteIds: PR06_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      implementedApiRouteIds: PR07_MOUNTED_PRODUCT_API_ROUTE_IDS,
       productApiRoutePlaceholderCount: productApiRoutePlaceholders.length
     })
   );
@@ -571,6 +607,109 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
     })
   );
 
+  app.get("/api/v1/runtime/status", async (context) =>
+    context.json(jsonSuccess(context, await codexRuntimeAdapter.getStatus()))
+  );
+
+  app.post("/api/v1/runtime/codex/preview", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const requestedActionType = optionalBlockedActionTypeFromBody(body.requestedActionType, "requestedActionType");
+
+      return service.runSessionCommand({
+        sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
+        commandType: "CreateRuntimePreview",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          turnPurpose: turnPurposeFromBody(body.turnPurpose),
+          contextHash: stringFromBody(body.contextHash, "contextHash"),
+          prompt: stringFromBody(body.prompt, "prompt"),
+          sourceRefs: requiredStringArrayFromBody(body.sourceRefs, "sourceRefs"),
+          ...(typeof body.targetObject === "string" ? { targetObject: body.targetObject } : {}),
+          ...(requestedActionType ? { requestedActionType } : {}),
+          ...(typeof body.requestedActionReason === "string"
+            ? { requestedActionReason: body.requestedActionReason }
+            : {})
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/runtime/manual-handoff", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+
+      return service.runSessionCommand({
+        sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
+        commandType: "CreateRuntimePreview",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          mode: "manual_handoff",
+          turnPurpose: turnPurposeFromBody(body.turnPurpose),
+          contextHash: stringFromBody(body.contextHash, "contextHash"),
+          prompt: stringFromBody(body.prompt, "prompt"),
+          sourceRefs: requiredStringArrayFromBody(body.sourceRefs, "sourceRefs"),
+          ...(typeof body.targetObject === "string" ? { targetObject: body.targetObject } : {})
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/runtime/artifacts/:artifactId/convert", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const artifactId = context.req.param("artifactId") as RuntimeArtifactId;
+      const bodyArtifactId = stringFromBody(body.artifactId, "artifactId") as RuntimeArtifactId;
+
+      if (bodyArtifactId !== artifactId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "artifactId must match the route param.");
+      }
+
+      return service.runSessionCommand({
+        sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
+        commandType: "ConvertRuntimeArtifact",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          artifactId,
+          target: stringFromBody(body.target, "target")
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/runtime/artifacts/:artifactId/block", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const artifactId = context.req.param("artifactId") as RuntimeArtifactId;
+      const bodyArtifactId = stringFromBody(body.artifactId, "artifactId") as RuntimeArtifactId;
+      const blockedActionType = optionalBlockedActionTypeFromBody(body.blockedActionType, "blockedActionType");
+
+      if (bodyArtifactId !== artifactId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "artifactId must match the route param.");
+      }
+
+      if (!blockedActionType) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "blockedActionType is required for blocked artifacts.");
+      }
+
+      return service.runSessionCommand({
+        sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
+        commandType: "ConvertRuntimeArtifact",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          artifactId,
+          target: "blocked_action",
+          blockedActionType,
+          blockReason: stringFromBody(body.reason, "reason")
+        }
+      });
+    })
+  );
+
+  app.get("/api/v1/sessions/:sessionId/activity", async (context) =>
+    withProductEngine(context, (service) => service.getActivity(context.req.param("sessionId") as SessionId))
+  );
+
   app.get("/api/v1/commands/:commandId/status", (context) => {
     const commandId = context.req.param("commandId") as CommandId;
 
@@ -607,7 +746,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       return context.json(
         jsonError(context, "RESOURCE_NOT_FOUND", "This Phase 1 API route is not mounted yet.", {
           path: context.req.path,
-          mountedRouteIds: PR06_MOUNTED_PRODUCT_API_ROUTE_IDS
+          mountedRouteIds: PR07_MOUNTED_PRODUCT_API_ROUTE_IDS
         }),
         404
       );

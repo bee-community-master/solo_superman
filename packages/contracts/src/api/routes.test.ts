@@ -4,7 +4,8 @@ import {
   PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
-  PR06_MOUNTED_PRODUCT_API_ROUTE_IDS
+  PR06_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  PR07_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
 const PRODUCT_API_PREFIX = "/api/v1";
@@ -84,6 +85,27 @@ describe("API route catalog", () => {
     );
 
     for (const routeId of PR06_MOUNTED_PRODUCT_API_ROUTE_IDS) {
+      expect(routeById.get(routeId)).toMatchObject({
+        path: expect.stringMatching(/^\/api\/v1/)
+      });
+    }
+  });
+
+  it("keeps PR-07 runtime preview route ids aligned with the catalog", () => {
+    const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
+
+    expect(PR07_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(
+      expect.arrayContaining([
+        "getRuntimeStatus",
+        "createRuntimePreview",
+        "createManualHandoff",
+        "convertRuntimeArtifact",
+        "blockRuntimeArtifact",
+        "getActivity"
+      ])
+    );
+
+    for (const routeId of PR07_MOUNTED_PRODUCT_API_ROUTE_IDS) {
       expect(routeById.get(routeId)).toMatchObject({
         path: expect.stringMatching(/^\/api\/v1/)
       });

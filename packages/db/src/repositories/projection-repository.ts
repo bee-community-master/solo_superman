@@ -6,6 +6,7 @@ import type {
   ProjectId,
   ProjectionVersion,
   ResearchEvidenceProjection,
+  RuntimeActivityProjection,
   SchemaVersion,
   SessionId,
   SessionShellProjection
@@ -19,6 +20,7 @@ export type PersistedProjection =
   | DecisionQueueProjection
   | LivingSpecProjection
   | ResearchEvidenceProjection
+  | RuntimeActivityProjection
   | SessionShellProjection;
 export type PersistedProjectionKind = PersistedProjection["kind"];
 
