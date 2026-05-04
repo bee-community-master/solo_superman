@@ -93,6 +93,74 @@ export const projections = sqliteTable(
   ]
 );
 
+export const researchTasks = sqliteTable(
+  "research_tasks",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    sourceQueueItemId: text("source_queue_item_id"),
+    sourceAnswerRef: text("source_answer_ref"),
+    objective: text("objective").notNull(),
+    routeOutcome: text("route_outcome").notNull(),
+    impact: text("impact").notNull(),
+    status: text("status").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    schemaVersion: text("schema_version").notNull()
+  },
+  (table) => [
+    index("research_tasks_session_status_idx").on(table.sessionId, table.status),
+    index("research_tasks_source_queue_item_idx").on(table.sourceQueueItemId)
+  ]
+);
+
+export const researchResults = sqliteTable(
+  "research_results",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    researchTaskId: text("research_task_id").notNull(),
+    sourceTitle: text("source_title"),
+    sourceUrl: text("source_url"),
+    resultSummary: text("result_summary").notNull(),
+    limitationNotes: text("limitation_notes"),
+    importedAt: text("imported_at").notNull(),
+    schemaVersion: text("schema_version").notNull()
+  },
+  (table) => [
+    index("research_results_task_idx").on(table.researchTaskId),
+    index("research_results_session_idx").on(table.sessionId)
+  ]
+);
+
+export const evidenceMatrices = sqliteTable(
+  "evidence_matrices",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    researchTaskId: text("research_task_id").notNull(),
+    researchResultId: text("research_result_id").notNull(),
+    synthesisVersion: integer("synthesis_version").notNull(),
+    balanceStatus: text("balance_status").notNull(),
+    proEvidenceJson: text("pro_evidence_json").notNull(),
+    conEvidenceJson: text("con_evidence_json").notNull(),
+    uncertaintiesJson: text("uncertainties_json").notNull(),
+    additionalQuestionsJson: text("additional_questions_json").notNull(),
+    decisionBlocked: integer("decision_blocked", { mode: "boolean" }).notNull(),
+    missingConEvidenceReason: text("missing_con_evidence_reason"),
+    knownRisk: text("known_risk"),
+    createdAt: text("created_at").notNull(),
+    schemaVersion: text("schema_version").notNull()
+  },
+  (table) => [
+    uniqueIndex("evidence_matrices_result_version_idx").on(table.researchResultId, table.synthesisVersion),
+    index("evidence_matrices_task_idx").on(table.researchTaskId)
+  ]
+);
+
 export const appConfig = sqliteTable("app_config", {
   key: text("key").primaryKey(),
   valueJson: text("value_json").notNull(),

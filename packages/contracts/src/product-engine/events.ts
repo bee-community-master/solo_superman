@@ -15,6 +15,7 @@ export const PRODUCT_ENGINE_EVENT_TYPES = [
   "DecisionResolved",
   "ResearchPlanned",
   "ResearchResultImported",
+  "EvidenceSynthesisRequested",
   "EvidenceSynthesized",
   "RuntimePreviewRequested",
   "RuntimeArtifactConverted",

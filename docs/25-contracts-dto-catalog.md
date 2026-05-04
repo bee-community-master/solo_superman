@@ -326,7 +326,7 @@ Closed Phase 1 event type groups:
 | spec | `InitialSpecDrafted`, `SpecUpdatePreviewCreated`, `SpecVersionCreated` | Living Spec state |
 | ambiguity/queue | `AmbiguityAnalyzed`, `QuestionBatchActivated`, `QueueItemDeferred`, `QueueItemDismissed` | queue and question loop |
 | answer/decision | `AnswerSubmitted`, `DecisionResolved` | user decisions and answer cards |
-| research/evidence | `ResearchPlanned`, `ResearchResultImported`, `EvidenceSynthesized` | research/evidence closed loop |
+| research/evidence | `ResearchPlanned`, `ResearchResultImported`, `EvidenceSynthesisRequested`, `EvidenceSynthesized` | research/evidence closed loop; request events queue async work, synthesized events are emitted by the effect executor |
 | runtime | `RuntimePreviewRequested`, `RuntimeArtifactConverted` | sandbox preview only |
 | completeness/export | `CompletenessScored`, `FounderBriefPrepared` | deterministic output refs |
 

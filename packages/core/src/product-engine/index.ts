@@ -3,6 +3,7 @@ import {
   type ActiveBatchSafeProjection,
   type AmbiguityIssueSnapshot,
   type DecisionQueueProjection,
+  type EvidenceMatrixProjection,
   type ProductEngineCommand,
   type ProductEngineEffectPlanItem,
   type ProductEngineEvent,
@@ -13,23 +14,32 @@ import {
   type ProjectId,
   type ProjectionVersion,
   type QueueItemId,
+  type ResearchImpact,
   type ResearchEvidenceProjection,
+  type ResearchResultId,
+  type ResearchRouteOutcome,
+  type ResearchTaskId,
+  type ResearchTaskProjection,
   type RuntimeActivityProjection,
   type SessionShellProjection,
   type SessionId,
   type StateVersion
 } from "@solo-superman/contracts";
+import {
+  addImportedResearchResultToProjection,
+  addResearchResultToProjection,
+  addResearchTaskToProjection,
+  emptyResearchEvidenceProjection,
+  importResearchResult,
+  planResearchTask,
+  synthesizeEvidenceMatrix
+} from "../research-engine";
 
-export const PACKAGE_SLICE_STATUS = "product-engine-reducer-pr-04" as const;
+export const PACKAGE_SLICE_STATUS = "product-engine-reducer-pr-06" as const;
 
 type PrivacyMode = "local_only" | "local_with_manual_export";
 
-const EMPTY_RESEARCH_PROJECTION: ResearchEvidenceProjection = {
-  kind: "ResearchEvidenceProjection",
-  version: 0 as ProjectionVersion,
-  taskIds: [],
-  proConBalanceStatus: "unknown"
-};
+const EMPTY_RESEARCH_PROJECTION: ResearchEvidenceProjection = emptyResearchEvidenceProjection();
 
 const EMPTY_RUNTIME_PROJECTION: RuntimeActivityProjection = {
   kind: "RuntimeActivityProjection",
@@ -290,6 +300,99 @@ function queueProjectionEffect(
   };
 }
 
+function researchEvidenceEffect(
+  command: ProductEngineCommand,
+  sourceEventTypes: readonly ProductEngineEventDraft["eventType"][],
+  inputRef: ProductEngineEffectPlanItem["inputRef"],
+  priority: ProductEngineEffectPlanItem["priority"],
+  idempotencyKey: string,
+  runAfter?: string
+): ProductEngineEffectPlanItem {
+  return {
+    effectType: "research_evidence_effect",
+    idempotencyKey,
+    sourceCommandId: command.commandId,
+    sourceEventTypes,
+    correlationId: command.correlationId,
+    priority,
+    inputRef,
+    previewPolicy: "manual_handoff_required",
+    ...(runAfter ? { runAfter } : {})
+  };
+}
+
+function validResearchImpact(value: unknown): ResearchImpact {
+  return value === "low" || value === "medium" || value === "high" ? value : "high";
+}
+
+function optionalPositiveInteger(value: unknown): number | null | "invalid" {
+  if (value === undefined) {
+    return null;
+  }
+
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : "invalid";
+}
+
+function routeOutcomeForAnswer(command: ProductEngineCommand): ResearchRouteOutcome {
+  if (command.payload.researchRouteHint === "research_needed" || command.payload.researchRouteHint === "missing_con_evidence") {
+    return command.payload.researchRouteHint;
+  }
+
+  if (command.payload.evidenceBalanceHint === "pro_only") {
+    return "missing_con_evidence";
+  }
+
+  const answer = typeof command.payload.answer === "string" ? command.payload.answer.toLowerCase() : "";
+
+  return answer.includes("pro-only") || answer.includes("찬성만") || answer.includes("반대근거")
+    ? "missing_con_evidence"
+    : "research_needed";
+}
+
+function researchReviewQueueItem(
+  researchTaskId: ResearchTaskId,
+  title: string,
+  state: "next" | "blocked"
+) {
+  return {
+    queueItemId: `research_review_${researchTaskId}` as QueueItemId,
+    title,
+    state
+  };
+}
+
+function queueProjectionWithResearchReviewItem(
+  projection: DecisionQueueProjection,
+  researchTaskId: ResearchTaskId,
+  title: string,
+  state: "next" | "blocked",
+  version: ProjectionVersion
+): DecisionQueueProjection {
+  const item = researchReviewQueueItem(researchTaskId, title, state);
+  const withoutExisting = (items: DecisionQueueProjection["next"]) =>
+    items.filter((candidate) => candidate.queueItemId !== item.queueItemId);
+
+  return {
+    ...projection,
+    version,
+    next: state === "next" ? [...withoutExisting(projection.next), item] : withoutExisting(projection.next),
+    blocked:
+      state === "blocked" ? [...withoutExisting(projection.blocked), item] : withoutExisting(projection.blocked)
+  };
+}
+
+function evidenceReviewQueueTitle(task: ResearchTaskProjection, matrix: EvidenceMatrixProjection) {
+  if (matrix.balanceStatus === "balanced") {
+    return `Evidence ready: ${task.objective}`;
+  }
+
+  return matrix.decisionBlocked ? `Decision blocked: ${task.objective}` : `Known risk: ${task.objective}`;
+}
+
+function evidenceReviewQueueState(matrix: EvidenceMatrixProjection): "next" | "blocked" {
+  return matrix.decisionBlocked ? "blocked" : "next";
+}
+
 function acceptedReduction(
   command: ProductEngineCommand,
   state: ProductEngineStateSnapshot,
@@ -304,6 +407,28 @@ function acceptedReduction(
     events: [event],
     nextState: {
       stateVersion: nextVersion(state),
+      ...patch
+    },
+    effectPlan,
+    deterministicOutputs,
+    ...(immediateProjection ? { immediateProjection } : {})
+  };
+}
+
+function acceptedMultiEventReduction(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot,
+  events: readonly ProductEngineEventDraft[],
+  patch: ProductEngineReduction["nextState"],
+  deterministicOutputs: ProductEngineReduction["deterministicOutputs"],
+  effectPlan: readonly ProductEngineEffectPlanItem[] = [],
+  immediateProjection?: ActiveBatchSafeProjection
+): ProductEngineReduction {
+  return {
+    accepted: true,
+    events,
+    nextState: {
+      stateVersion: (numericVersion(state.stateVersion) + events.length) as StateVersion,
       ...patch
     },
     effectPlan,
@@ -328,6 +453,11 @@ export function sessionPhaseForProductEngineEvent(
       return "spec";
     case "QuestionBatchActivated":
       return "question_loop";
+    case "ResearchPlanned":
+    case "ResearchResultImported":
+    case "EvidenceSynthesisRequested":
+    case "EvidenceSynthesized":
+      return "research";
     default:
       return null;
   }
@@ -609,20 +739,58 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
   const projection = queueProjectionWithAnsweredItem(
     state.queueProjection,
     queueItemId as QueueItemId,
-    projectionVersionFor(state)
+    (numericVersion(state.stateVersion) + 2) as ProjectionVersion
   );
   const answerRef = `answer_${stableToken(`${command.sessionId}:${queueItemId}:${answer}`)}`;
+  const routeOutcome = routeOutcomeForAnswer(command);
+  const impact = validResearchImpact(command.payload.claimImpact);
+  const sourceQuestion = state.openIssues.find((issue) => issue.queueItemId === queueItemId);
+  const objective =
+    requiredString(command.payload.researchObjective) ??
+    `Validate evidence for: ${sourceQuestion?.summary ?? activeItem.title}`;
+  const researchTaskId = `research_task_${stableToken(`${command.sessionId}:${queueItemId}:${answer}:${routeOutcome}`)}` as ResearchTaskId;
+  const researchTask = planResearchTask({
+    researchTaskId,
+    sessionId: command.sessionId,
+    sourceQueueItemId: queueItemId as QueueItemId,
+    sourceAnswerRef: answerRef,
+    objective,
+    routeOutcome,
+    impact,
+    createdAt: command.issuedAt
+  });
+  const queueProjection = queueProjectionWithResearchReviewItem(
+    projection,
+    researchTaskId,
+    routeOutcome === "missing_con_evidence"
+      ? `반대근거 탐색 필요: ${activeItem.title}`
+      : `Research review: ${activeItem.title}`,
+    routeOutcome === "missing_con_evidence" ? "blocked" : "next",
+    projection.version
+  );
+  const researchProjection = addResearchTaskToProjection(
+    state.researchState,
+    researchTask,
+    queueProjection.version
+  );
   const event = eventDraft(command, "AnswerSubmitted", {
     answerRef,
     queueItemId,
     answer,
-    projection
+    answerRouteOutcome: routeOutcome,
+    researchTaskId,
+    projection: queueProjection
+  });
+  const researchEvent = eventDraft(command, "ResearchPlanned", {
+    researchTask,
+    sourceAnswerRef: answerRef,
+    projection: researchProjection
   });
 
-  return acceptedReduction(
+  return acceptedMultiEventReduction(
     command,
     state,
-    event,
+    [event, researchEvent],
     {
       openIssues: state.openIssues.map((issue) =>
         issue.queueItemId === queueItemId
@@ -632,7 +800,12 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
             }
           : issue
       ),
-      queueProjection: projection
+      queueProjection,
+      researchState: researchProjection,
+      session: {
+        ...state.session,
+        phase: "research"
+      }
     },
     [
       {
@@ -640,12 +813,315 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
         outputRef: answerRef,
         payload: {
           queueItemId,
-          answer
+          answer,
+          answerRouteOutcome: routeOutcome,
+          researchTaskId
         }
       }
     ],
-    [],
-    projection
+    [
+      researchEvidenceEffect(
+        command,
+        ["ResearchPlanned"],
+        {
+          refType: "ResearchTask",
+          refId: researchTaskId
+        },
+        "normal",
+        `research:${researchTaskId}`
+      )
+    ],
+    queueProjection
+  );
+}
+
+function reducePlanResearch(command: ProductEngineCommand, state: ProductEngineStateSnapshot): ProductEngineReduction {
+  const objective = requiredString(command.payload.objective);
+
+  if (!objective) {
+    return reject("PlanResearch requires a non-empty objective.", "VALIDATION_FAILED");
+  }
+
+  const sourceQueueItemId = requiredString(command.payload.sourceQueueItemId) as QueueItemId | null;
+  const routeOutcome =
+    command.payload.routeOutcome === "missing_con_evidence" ? "missing_con_evidence" : "research_needed";
+  const impact = validResearchImpact(command.payload.impact);
+  const researchTaskId = `research_task_${stableToken(`${command.sessionId}:${objective}:${sourceQueueItemId ?? "manual"}`)}` as ResearchTaskId;
+  const researchTask = planResearchTask({
+    researchTaskId,
+    sessionId: command.sessionId,
+    ...(sourceQueueItemId ? { sourceQueueItemId } : {}),
+    objective,
+    routeOutcome,
+    impact,
+    createdAt: command.issuedAt
+  });
+  const researchProjection = addResearchTaskToProjection(
+    state.researchState,
+    researchTask,
+    projectionVersionFor(state)
+  );
+  const event = eventDraft(command, "ResearchPlanned", {
+    researchTask,
+    projection: researchProjection
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      researchState: researchProjection,
+      session: {
+        ...state.session,
+        phase: "research"
+      }
+    },
+    [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: researchTaskId,
+        payload: {
+          objective,
+          routeOutcome,
+          impact
+        }
+      }
+    ],
+    [
+      researchEvidenceEffect(
+        command,
+        ["ResearchPlanned"],
+        {
+          refType: "ResearchTask",
+          refId: researchTaskId
+        },
+        "normal",
+        `research:${researchTaskId}`
+      )
+    ],
+    researchProjection
+  );
+}
+
+function reduceImportResearchResult(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  const researchTaskId = requiredString(command.payload.researchTaskId) as ResearchTaskId | null;
+  const result = requiredString(command.payload.result);
+
+  if (!researchTaskId || !result) {
+    return reject("ImportResearchResult requires researchTaskId and non-empty result.", "VALIDATION_FAILED");
+  }
+
+  const researchTask = state.researchState.tasks.find((task) => task.researchTaskId === researchTaskId);
+
+  if (!researchTask) {
+    return reject("ImportResearchResult requires an existing ResearchTask.", "RESOURCE_NOT_FOUND");
+  }
+
+  const requestedSynthesisVersion = optionalPositiveInteger(command.payload.synthesisVersion);
+
+  if (requestedSynthesisVersion === "invalid") {
+    return reject("ImportResearchResult requires synthesisVersion to be a positive integer.", "VALIDATION_FAILED");
+  }
+
+  const synthesisVersion = requestedSynthesisVersion ?? 1;
+  const researchResultId = `research_result_${stableToken(`${researchTaskId}:${result}`)}` as ResearchResultId;
+  const researchResult = importResearchResult({
+    researchResultId,
+    researchTaskId,
+    result,
+    importedAt: command.issuedAt,
+    ...(typeof command.payload.sourceTitle === "string" ? { sourceTitle: command.payload.sourceTitle } : {}),
+    ...(typeof command.payload.sourceUrl === "string" ? { sourceUrl: command.payload.sourceUrl } : {}),
+    ...(typeof command.payload.limitationNotes === "string" ? { limitationNotes: command.payload.limitationNotes } : {})
+  });
+  const researchProjection = addImportedResearchResultToProjection(
+    state.researchState,
+    researchTask,
+    researchResult,
+    projectionVersionFor(state)
+  );
+  const importedEvent = eventDraft(command, "ResearchResultImported", {
+    researchTaskId,
+    researchResult,
+    synthesisVersion,
+    projection: researchProjection
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    importedEvent,
+    {
+      researchState: researchProjection
+    },
+    [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: researchResultId,
+        payload: {
+          researchTaskId,
+          synthesisVersion
+        }
+      }
+    ],
+    [
+      researchEvidenceEffect(
+        command,
+        ["ResearchResultImported"],
+        {
+          refType: "ResearchResult",
+          refId: researchResultId
+        },
+        "high",
+        `research-result:${researchResultId}:v${synthesisVersion}`,
+        `synthesisVersion:${synthesisVersion}`
+      )
+    ]
+  );
+}
+
+function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductEngineStateSnapshot): ProductEngineReduction {
+  const researchResultId = requiredString(command.payload.researchResultId) as ResearchResultId | null;
+
+  if (!researchResultId) {
+    return reject("SynthesizeEvidence requires researchResultId.", "VALIDATION_FAILED");
+  }
+
+  const researchResult = state.researchState.results.find((result) => result.researchResultId === researchResultId);
+
+  if (!researchResult) {
+    return reject("SynthesizeEvidence requires an imported ResearchResult.", "RESOURCE_NOT_FOUND");
+  }
+
+  const researchTask = state.researchState.tasks.find((task) => task.researchTaskId === researchResult.researchTaskId);
+
+  if (!researchTask) {
+    return reject("SynthesizeEvidence requires the source ResearchTask.", "RESOURCE_NOT_FOUND");
+  }
+
+  const requestedSynthesisVersion = optionalPositiveInteger(command.payload.synthesisVersion);
+
+  if (requestedSynthesisVersion === "invalid") {
+    return reject("SynthesizeEvidence requires synthesisVersion to be a positive integer.", "VALIDATION_FAILED");
+  }
+
+  const synthesisVersion =
+    requestedSynthesisVersion ??
+    Math.max(
+      1,
+      ...state.researchState.evidenceMatrices
+        .filter((matrix) => matrix.researchResultId === researchResultId)
+        .map((matrix) => matrix.synthesisVersion + 1)
+    );
+
+  if (command.actor !== "effect_executor") {
+    const requestedEvent = eventDraft(command, "EvidenceSynthesisRequested", {
+      researchTaskId: researchTask.researchTaskId,
+      researchResultId,
+      synthesisVersion
+    });
+
+    return acceptedReduction(
+      command,
+      state,
+      requestedEvent,
+      {},
+      [
+        {
+          outputType: "reducer_deterministic_output",
+          outputRef: `synthesis_request:${researchResultId}:v${synthesisVersion}`,
+          payload: {
+            researchResultId,
+            synthesisVersion
+          }
+        }
+      ],
+      [
+        researchEvidenceEffect(
+          command,
+          ["EvidenceSynthesisRequested"],
+          {
+            refType: "ResearchResult",
+            refId: researchResultId
+          },
+          "high",
+          `research-result:${researchResultId}:v${synthesisVersion}`,
+          `synthesisVersion:${synthesisVersion}`
+        )
+      ]
+    );
+  }
+
+  const evidenceMatrix = synthesizeEvidenceMatrix({
+    researchTask,
+    researchResult,
+    synthesisVersion
+  });
+  const researchProjection = addResearchResultToProjection(
+    state.researchState,
+    researchTask,
+    researchResult,
+    evidenceMatrix,
+    projectionVersionFor(state)
+  );
+  const queueProjection = queueProjectionWithResearchReviewItem(
+    state.queueProjection,
+    researchTask.researchTaskId,
+    evidenceReviewQueueTitle(researchTask, evidenceMatrix),
+    evidenceReviewQueueState(evidenceMatrix),
+    researchProjection.version
+  );
+  const event = eventDraft(command, "EvidenceSynthesized", {
+    researchTaskId: researchTask.researchTaskId,
+    researchResultId,
+    evidenceMatrix,
+    projection: researchProjection,
+    queueProjection,
+    confidenceProjection: {
+      ...state.completeness,
+      version: researchProjection.version,
+      topRisks: researchProjection.knownRisks
+    }
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      researchState: researchProjection,
+      queueProjection,
+      completeness: {
+        ...state.completeness,
+        version: researchProjection.version,
+        topRisks: researchProjection.knownRisks
+      }
+    },
+    [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: evidenceMatrix.evidenceMatrixId,
+        payload: {
+          balanceStatus: evidenceMatrix.balanceStatus,
+          decisionBlocked: evidenceMatrix.decisionBlocked
+        }
+      }
+    ],
+    [
+      queueProjectionEffect(
+        command,
+        "EvidenceSynthesized",
+        {
+          refType: "EvidenceMatrix",
+          refId: evidenceMatrix.evidenceMatrixId
+        },
+        "normal"
+      )
+    ]
   );
 }
 
@@ -674,8 +1150,14 @@ export function reduceProductEngineCommand(
       return reduceActivateQuestionBatch(command, state);
     case "SubmitAnswer":
       return reduceSubmitAnswer(command, state);
+    case "PlanResearch":
+      return reducePlanResearch(command, state);
+    case "ImportResearchResult":
+      return reduceImportResearchResult(command, state);
+    case "SynthesizeEvidence":
+      return reduceSynthesizeEvidence(command, state);
     default:
-      return reject(`${command.commandType} is outside the PR-04 reducer slice.`);
+      return reject(`${command.commandType} is outside the mounted PR-06 reducer slice.`);
   }
 }
 
@@ -778,6 +1260,54 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
             )
           : state.openIssues,
         queueProjection: projection
+      };
+    }
+    case "ResearchPlanned": {
+      const projection = projectionPayload(event.payload, state.researchState);
+      const phase = sessionPhaseForProductEngineEvent(event) ?? state.session.phase;
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        session: {
+          ...state.session,
+          phase
+        },
+        researchState: projection
+      };
+    }
+    case "ResearchResultImported":
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        researchState: projectionPayload(event.payload, state.researchState)
+      };
+    case "EvidenceSynthesisRequested":
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        session: {
+          ...state.session,
+          phase: sessionPhaseForProductEngineEvent(event) ?? state.session.phase
+        }
+      };
+    case "EvidenceSynthesized": {
+      const researchProjection = projectionPayload(event.payload, state.researchState);
+      const queueProjection =
+        typeof event.payload.queueProjection === "object" && event.payload.queueProjection !== null
+          ? (event.payload.queueProjection as DecisionQueueProjection)
+          : state.queueProjection;
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        researchState: researchProjection,
+        queueProjection,
+        completeness: {
+          ...state.completeness,
+          version: researchProjection.version,
+          topRisks: researchProjection.knownRisks
+        }
       };
     }
     default:

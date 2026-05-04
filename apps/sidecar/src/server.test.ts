@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach } from "vitest";
 import { describe, expect, it } from "vitest";
 import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
+import { createProductEngineCommandService } from "./product-engine/command-service";
 import { createSidecarApp } from "./server";
 
 const localCapabilityToken = "test-local-capability-token";
@@ -77,7 +78,7 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       status: "ok",
-      sidecarPhase: "pr_05_decision_queue_shell",
+      sidecarPhase: "pr_06_research_evidence_loop",
       checks: {
         process: "alive"
       }
@@ -681,9 +682,15 @@ describe("PR-02 sidecar health shell", () => {
       expect(answer.status).toBe(200);
       expect(answerData).toMatchObject({
         category: "accepted_with_projection",
-        stateVersionAfter: 6
+        stateVersionAfter: 7,
+        pendingEffectSummary: {
+          totalPending: 1,
+          byType: {
+            research_evidence_effect: 1
+          }
+        }
       });
-      expect(answerData.statusUrl).toBeUndefined();
+      expect(answerData.statusUrl).toEqual(expect.any(String));
       expect(answeredQueue).toMatchObject({
         kind: "DecisionQueueProjection",
         active: expect.arrayContaining([
@@ -691,7 +698,60 @@ describe("PR-02 sidecar health shell", () => {
             queueItemId: firstQuestionId,
             state: "answered"
           })
+        ]),
+        next: expect.arrayContaining([
+          expect.objectContaining({
+            state: "next"
+          })
         ])
+      });
+
+      const research = await storageApp.request(`/api/v1/sessions/${sessionId}/research`, {
+        headers: authHeaders()
+      });
+      const researchBody = await jsonBody(research);
+      const researchData = researchBody.data as Readonly<Record<string, unknown>>;
+      const researchTasks = researchData.tasks as readonly Readonly<Record<string, unknown>>[];
+      const researchTaskId = researchTasks[0]?.researchTaskId as string;
+
+      expect(research.status).toBe(200);
+      expect(researchData).toMatchObject({
+        kind: "ResearchEvidenceProjection",
+        proConBalanceStatus: "unknown",
+        tasks: [
+          expect.objectContaining({
+            sourceQueueItemId: firstQuestionId,
+            status: "planned"
+          })
+        ],
+        reviewCards: [
+          expect.objectContaining({
+            state: "pending_manual_result"
+          })
+        ]
+      });
+
+      const answerStatus = await storageApp.request(answerData.statusUrl as string, {
+        headers: authHeaders()
+      });
+      const answerStatusBody = await jsonBody(answerStatus);
+
+      expect(answerStatus.status).toBe(200);
+      expect(answerStatusBody.data).toMatchObject({
+        commandStatus: "pending",
+        projectionHints: [
+          {
+            projectionKind: "ResearchEvidenceProjection",
+            refetchUrl: `/api/v1/sessions/${sessionId}/research`
+          }
+        ],
+        effects: [
+          expect.objectContaining({
+            effectType: "research_evidence_effect",
+            maxAttempts: 2,
+            idempotencyKey: `research:${researchTaskId}`
+          })
+        ]
       });
 
       const refetchedQueue = await storageApp.request(`/api/v1/sessions/${sessionId}/queue`, {
@@ -719,7 +779,7 @@ describe("PR-02 sidecar health shell", () => {
         body: JSON.stringify({
           sessionId,
           queueItemId: secondQuestionId,
-          expectedStateVersion: 5,
+          expectedStateVersion: 6,
           answer: "This command carries the pre-answer state version."
         })
       });
@@ -742,7 +802,7 @@ describe("PR-02 sidecar health shell", () => {
         body: JSON.stringify({
           sessionId,
           queueItemId: firstQuestionId,
-          expectedStateVersion: 6,
+          expectedStateVersion: 7,
           answer: "The answered card cannot be submitted a second time."
         })
       });
@@ -755,6 +815,250 @@ describe("PR-02 sidecar health shell", () => {
           code: "COMMAND_PRECONDITION_FAILED",
           message: "SubmitAnswer requires an active question card."
         }
+      });
+
+      const importResult = await storageApp.request(`/api/v1/research-tasks/${researchTaskId}/results`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          researchTaskId,
+          expectedStateVersion: 7,
+          result: "Pro: founders report urgency and willingness to pay. Risk: replacement workflows may be good enough.",
+          limitationNotes: "Manual import includes both support and risk, but source breadth is still limited."
+        })
+      });
+      const importResultBody = await jsonBody(importResult);
+      const importResultData = importResultBody.data as Readonly<Record<string, unknown>>;
+
+      expect(importResult.status).toBe(200);
+      expect(importResultData).toMatchObject({
+        category: "accepted",
+        stateVersionAfter: 8,
+        pendingEffectSummary: {
+          byType: {
+            research_evidence_effect: 1
+          }
+        }
+      });
+      expect(importResultData.immediateProjection).toBeUndefined();
+
+      const importedStatus = await storageApp.request(importResultData.statusUrl as string, {
+        headers: authHeaders()
+      });
+      const importedStatusBody = await jsonBody(importedStatus);
+      const importedStatusData = importedStatusBody.data as Readonly<Record<string, unknown>>;
+      const importedEffects = importedStatusData.effects as readonly Readonly<Record<string, unknown>>[];
+
+      expect(importedStatus.status).toBe(200);
+      expect(importedStatusData).toMatchObject({
+        commandStatus: "pending"
+      });
+      expect(importedEffects).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            effectType: "research_evidence_effect",
+            status: "queued",
+            maxAttempts: 2
+          })
+        ])
+      );
+
+      const executorResults = await createProductEngineCommandService(storage).runPendingResearchEvidenceEffects();
+
+      expect(executorResults).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            status: "succeeded",
+            balanceStatus: "balanced"
+          })
+        ])
+      );
+
+      const completedResearch = await storageApp.request(`/api/v1/sessions/${sessionId}/research`, {
+        headers: authHeaders()
+      });
+      const completedResearchBody = await jsonBody(completedResearch);
+
+      expect(completedResearch.status).toBe(200);
+      expect(completedResearchBody.data).toMatchObject({
+        kind: "ResearchEvidenceProjection",
+        proConBalanceStatus: "balanced",
+        evidenceMatrices: [
+          expect.objectContaining({
+            balanceStatus: "balanced",
+            decisionBlocked: false
+          })
+        ]
+      });
+
+      const completedQueue = await storageApp.request(`/api/v1/sessions/${sessionId}/queue`, {
+        headers: authHeaders()
+      });
+      const completedQueueBody = await jsonBody(completedQueue);
+
+      expect(completedQueue.status).toBe(200);
+      expect(completedQueueBody.data).toMatchObject({
+        next: expect.arrayContaining([
+          expect.objectContaining({
+            state: "next"
+          })
+        ])
+      });
+
+      const completedStatus = await storageApp.request(importResultData.statusUrl as string, {
+        headers: authHeaders()
+      });
+      const completedStatusBody = await jsonBody(completedStatus);
+      const completedStatusData = completedStatusBody.data as Readonly<Record<string, unknown>>;
+      const completedProjectionHints = completedStatusData.projectionHints as readonly Readonly<Record<string, unknown>>[];
+      const completedEffects = completedStatusData.effects as readonly Readonly<Record<string, unknown>>[];
+
+      expect(completedStatus.status).toBe(200);
+      expect(completedStatusData).toMatchObject({
+        commandStatus: "complete"
+      });
+      expect(completedProjectionHints).toEqual(
+        expect.arrayContaining([
+          {
+            projectionKind: "ResearchEvidenceProjection",
+            refetchUrl: `/api/v1/sessions/${sessionId}/research`
+          }
+        ])
+      );
+      expect(importedEffects).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            effectType: "research_evidence_effect",
+            status: "queued"
+          })
+        ])
+      );
+      expect(completedEffects).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            effectType: "research_evidence_effect",
+            status: "succeeded",
+            maxAttempts: 2,
+            outputRef: expect.objectContaining({
+              refType: "effect_output_json"
+            })
+          })
+        ])
+      );
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rejects untraceable or duplicate PlanResearch commands without leaking DB idempotency errors", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A duplicate research task test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startBody = await jsonBody(start);
+      const startData = startBody.data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const sessionId = sessionProjection.sessionId as string;
+      const untraceable = await storageApp.request(`/api/v1/sessions/${sessionId}/research-tasks`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 1,
+          objective: "This research task is missing a source ref"
+        })
+      });
+      const untraceableBody = await jsonBody(untraceable);
+
+      expect(untraceable.status).toBe(400);
+      expect(untraceableBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "sourceQueueItemId is required for PlanResearch traceability."
+      });
+
+      const planRequest = {
+        expectedStateVersion: 1,
+        objective: "Validate paid founder urgency",
+        sourceQueueItemId: "queue_traceable_research",
+        impact: "high"
+      };
+      const firstPlan = await storageApp.request(`/api/v1/sessions/${sessionId}/research-tasks`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(planRequest)
+      });
+      const firstPlanBody = await jsonBody(firstPlan);
+      const duplicatePlan = await storageApp.request(`/api/v1/sessions/${sessionId}/research-tasks`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          ...planRequest,
+          expectedStateVersion: 2
+        })
+      });
+      const duplicatePlanBody = await jsonBody(duplicatePlan);
+
+      expect(firstPlan.status).toBe(200);
+      expect(firstPlanBody.data).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionAfter: 2
+      });
+      expect(duplicatePlan.status).toBe(200);
+      expect(duplicatePlanBody.data).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "IDEMPOTENCY_CONFLICT"
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rejects synthesize requests when the body researchResultId does not match the route param", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const response = await storageApp.request("/api/v1/research-results/research_result_path/synthesize", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId: "sess_synthesize_mismatch",
+          researchResultId: "research_result_body",
+          expectedStateVersion: 1
+        })
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(400);
+      expect(body.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "researchResultId must match the route param."
       });
     } finally {
       await storage.close();

@@ -334,4 +334,12 @@ export const PR05_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   "submitAnswer"
 ] as const satisfies readonly ApiRouteId[];
 
+export const PR06_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  "planResearch",
+  "getResearchEvidence",
+  "importResearchResult",
+  "synthesizeEvidence"
+] as const satisfies readonly ApiRouteId[];
+
 export const PR02_MOUNTED_PRODUCT_API_ROUTE_IDS = ["getCommandStatus"] as const satisfies readonly ApiRouteId[];

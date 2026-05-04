@@ -8,6 +8,7 @@ import type {
   SessionId,
   StateVersion
 } from "../ids";
+import type { ResearchImpact, ResearchRouteOutcome } from "../projections";
 
 export interface ScaffoldRequestPlaceholder {
   readonly scaffoldOnly?: true;
@@ -51,6 +52,10 @@ export interface SubmitAnswerRequest extends ScaffoldRequestPlaceholder {
   readonly queueItemId: QueueItemId;
   readonly expectedStateVersion: StateVersion;
   readonly answer: string;
+  readonly researchRouteHint?: ResearchRouteOutcome;
+  readonly claimImpact?: ResearchImpact;
+  readonly evidenceBalanceHint?: "unknown" | "pro_only" | "con_only" | "pro_con_present";
+  readonly researchObjective?: string;
 }
 
 export interface DeferQueueItemRequest extends ScaffoldRequestPlaceholder {
@@ -65,16 +70,30 @@ export interface DismissQueueItemRequest extends ScaffoldRequestPlaceholder {
 
 export interface PlanResearchRequest extends ScaffoldRequestPlaceholder {
   readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
   readonly objective: string;
+  readonly sourceQueueItemId: QueueItemId;
+  readonly routeOutcome?: ResearchRouteOutcome;
+  readonly impact?: ResearchImpact;
 }
 
 export interface ImportResearchResultRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
   readonly researchTaskId: ResearchTaskId;
+  readonly expectedStateVersion: StateVersion;
   readonly result: string;
+  readonly sourceTitle?: string;
+  readonly sourceUrl?: string;
+  readonly limitationNotes?: string;
+  readonly synthesisVersion?: number;
 }
 
 export interface SynthesizeEvidenceRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
   readonly researchResultId: ResearchResultId;
+  readonly expectedStateVersion: StateVersion;
+  readonly synthesisVersion?: number;
+  readonly forceRetry?: boolean;
 }
 
 export interface CreateSpecUpdatePreviewRequest extends ScaffoldRequestPlaceholder {

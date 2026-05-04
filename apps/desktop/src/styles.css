@@ -193,6 +193,7 @@ h4 {
 .queue-sections,
 .queue-list,
 .side-panels,
+.research-list,
 .activity-list {
   display: grid;
   gap: 12px;
@@ -234,6 +235,35 @@ h4 {
 .answer-box {
   display: grid;
   gap: 8px;
+}
+
+.research-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #edf1f4;
+  border-left: 4px solid #2563eb;
+  border-radius: 7px;
+  background: #f9fbfc;
+  padding: 12px;
+}
+
+.research-card span {
+  color: #607080;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.research-card p {
+  color: #506170;
+  font-size: 0.84rem;
+  margin-bottom: 0;
+}
+
+.research-card .research-recovery {
+  color: #7c4a03;
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin-top: 6px;
 }
 
 .metrics {

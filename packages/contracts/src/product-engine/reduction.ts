@@ -1,11 +1,17 @@
 import type { ProductEngineEffectPlanItem } from "../effects";
-import type { DecisionQueueProjection, LivingSpecProjection, SessionShellProjection } from "../projections";
+import type {
+  DecisionQueueProjection,
+  LivingSpecProjection,
+  ResearchEvidenceProjection,
+  SessionShellProjection
+} from "../projections";
 import type { ProductEngineEventDraft } from "./events";
 
 export type ProductEngineRejectionCode =
   | "VALIDATION_FAILED"
   | "COMMAND_PRECONDITION_FAILED"
   | "STATE_VERSION_CONFLICT"
+  | "RESOURCE_NOT_FOUND"
   | "RUNTIME_ACTION_BLOCKED";
 
 export interface ProductEngineRejection {
@@ -34,6 +40,7 @@ export interface ProductEngineDeterministicOutput {
 export type ActiveBatchSafeProjection =
   | DecisionQueueProjection
   | LivingSpecProjection
+  | ResearchEvidenceProjection
   | SessionShellProjection;
 
 export interface ProductEngineReduction<TImmediateProjection = ActiveBatchSafeProjection> {

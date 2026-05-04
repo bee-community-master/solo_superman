@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { QueueItemId, SessionId, StateVersion } from "@solo-superman/contracts";
+import type { QueueItemId, ResearchTaskId, SessionId, StateVersion } from "@solo-superman/contracts";
 import { createSidecarClient, sidecarConnectionFromEnv, type SidecarConnection } from "./sidecar-client";
 
 const connection: SidecarConnection = {
@@ -135,6 +135,61 @@ describe("sidecar client", () => {
       queueItemId: "queue_item_1",
       expectedStateVersion: 5,
       answer: "The first answer"
+    });
+  });
+
+  it("imports manual research results through the mounted research endpoint", async () => {
+    const seenRequests: [string, RequestInit | undefined][] = [];
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async (input, init) => {
+        seenRequests.push([input, init]);
+
+        return jsonResponse({
+          ok: true,
+          data: {
+            category: "accepted_with_projection",
+            commandId: "cmd_research",
+            correlationId: "corr_research",
+            stateVersionBefore: 7,
+            stateVersionAfter: 9,
+            immediateProjection: {
+              kind: "ResearchEvidenceProjection",
+              version: 9,
+              taskIds: ["research_task_1"],
+              tasks: [],
+              results: [],
+              evidenceMatrices: [],
+              reviewCards: [],
+              knownRisks: [],
+              nextValidationActions: [],
+              proConBalanceStatus: "balanced"
+            }
+          },
+          meta: {
+            requestId: "req_research",
+            schemaVersion: "solo-superman.contracts.v1"
+          }
+        });
+      }
+    });
+
+    await client.importResearchResult({
+      sessionId: "sess_test" as SessionId,
+      researchTaskId: "research_task_1" as ResearchTaskId,
+      expectedStateVersion: 7 as StateVersion,
+      result: "Pro: support. Con: risk."
+    });
+
+    const [url, init] = seenRequests[0]!;
+
+    expect(url).toBe("http://127.0.0.1:43110/api/v1/research-tasks/research_task_1/results");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      sessionId: "sess_test",
+      researchTaskId: "research_task_1",
+      expectedStateVersion: 7,
+      result: "Pro: support. Con: risk."
     });
   });
 

@@ -4,11 +4,15 @@ import type {
   ApiSuccessEnvelope,
   CommandResponse,
   DecisionQueueProjection,
+  ImportResearchResultRequest,
   LivingSpecProjection,
-  QueueItemId,
+  PlanResearchRequest,
+  ResearchEvidenceProjection,
   SessionId,
   SessionShellProjection,
   StartProjectRequest,
+  SubmitAnswerRequest,
+  SynthesizeEvidenceRequest,
   StateVersion,
   StatusEndpointDto
 } from "@solo-superman/contracts";
@@ -29,12 +33,7 @@ export interface SidecarClientOptions {
   readonly fetchImpl?: FetchImplementation;
 }
 
-export interface SubmitAnswerInput {
-  readonly sessionId: SessionId;
-  readonly queueItemId: QueueItemId;
-  readonly expectedStateVersion: StateVersion;
-  readonly answer: string;
-}
+export type SubmitAnswerInput = SubmitAnswerRequest;
 
 export class SidecarClientError extends Error {
   readonly apiError: ApiError;
@@ -177,6 +176,27 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
       );
     },
 
+    planResearch(input: PlanResearchRequest) {
+      return postCommand<ResearchEvidenceProjection>(
+        `/api/v1/sessions/${encodeURIComponent(input.sessionId)}/research-tasks`,
+        input
+      );
+    },
+
+    importResearchResult(input: ImportResearchResultRequest) {
+      return postCommand<ResearchEvidenceProjection>(
+        `/api/v1/research-tasks/${encodeURIComponent(input.researchTaskId)}/results`,
+        input
+      );
+    },
+
+    synthesizeEvidence(input: SynthesizeEvidenceRequest) {
+      return postCommand<ResearchEvidenceProjection>(
+        `/api/v1/research-results/${encodeURIComponent(input.researchResultId)}/synthesize`,
+        input
+      );
+    },
+
     getSession(projectId: string, sessionId: SessionId) {
       return getProjection<SessionShellProjection>(
         `/api/v1/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}`
@@ -189,6 +209,10 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     getQueue(sessionId: SessionId) {
       return getProjection<DecisionQueueProjection>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/queue`);
+    },
+
+    getResearch(sessionId: SessionId) {
+      return getProjection<ResearchEvidenceProjection>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/research`);
     },
 
     getCommandStatus(statusUrl: string) {

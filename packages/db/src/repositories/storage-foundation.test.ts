@@ -8,9 +8,13 @@ import {
   CONTRACT_SCHEMA_VERSION,
   type CommandId,
   type CorrelationId,
+  type EvidenceItemId,
   type EffectTaskId,
   type EventId,
+  type ProjectionVersion,
   type ProjectId,
+  type ResearchResultId,
+  type ResearchTaskId,
   type SessionId
 } from "@solo-superman/contracts";
 import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "../client";
@@ -18,6 +22,7 @@ import { createConfigRepository } from "./config-repository";
 import { createEffectTaskRepository } from "./effect-task-repository";
 import { createEventRepository, persistDerivedStateAfterEvent } from "./event-repository";
 import { createProjectRepository } from "./project-repository";
+import { createResearchRepository } from "./research-repository";
 import { appConfig, effectTasks } from "../schema";
 
 const tempDirs: string[] = [];
@@ -55,7 +60,7 @@ describe("PR-03 local libSQL storage foundation", () => {
       expect(existsSync(join(appDataDir, "solo-superman.db"))).toBe(true);
       expect(migrationStatus).toMatchObject({
         state: "migrated",
-        appliedMigrationCount: 2
+        appliedMigrationCount: 3
       });
       expect(migrationStatus.latestMigrationMillis).toEqual(expect.any(Number));
     } finally {
@@ -79,12 +84,17 @@ describe("PR-03 local libSQL storage foundation", () => {
           "events",
           "effect_tasks",
           "projections",
+          "research_tasks",
+          "research_results",
+          "evidence_matrices",
           "app_config",
           "secret_refs",
           "events_session_sequence_idx",
           "effect_tasks_idempotency_key_idx",
           "effect_tasks_session_status_idx",
-          "projections_session_kind_idx"
+          "projections_session_kind_idx",
+          "research_tasks_session_status_idx",
+          "evidence_matrices_result_version_idx"
         ])
       );
     } finally {
@@ -597,6 +607,91 @@ describe("PR-03 local libSQL storage foundation", () => {
         lastRemoteSyncAt: null,
         remoteSyncStatus: "not_configured",
         updatedAt: "2026-05-05T00:02:00.000Z"
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("persists ResearchTask, ResearchResult, and EvidenceMatrix rows for the PR-06 loop", async () => {
+    const { storage } = await createMigratedStorage();
+
+    try {
+      const repository = createResearchRepository(storage.db);
+      const projectId = "proj_research_storage" as ProjectId;
+      const sessionId = "sess_research_storage" as SessionId;
+      const researchTaskId = "research_task_storage" as ResearchTaskId;
+      const researchResultId = "research_result_storage" as ResearchResultId;
+
+      await repository.saveTask({
+        projectId,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        task: {
+          researchTaskId,
+          sessionId,
+          objective: "Validate high-impact claim",
+          routeOutcome: "missing_con_evidence",
+          impact: "high",
+          status: "planned",
+          createdAt: "2026-05-05T00:00:00.000Z"
+        }
+      });
+      await repository.saveResult({
+        projectId,
+        sessionId,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        result: {
+          researchResultId,
+          researchTaskId,
+          resultSummary: "Pro: source supports the claim.",
+          limitationNotes: "No con evidence imported yet.",
+          importedAt: "2026-05-05T00:01:00.000Z"
+        }
+      });
+      await repository.saveEvidenceMatrix({
+        projectId,
+        sessionId,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        matrix: {
+          evidenceMatrixId: "evidence_matrix_storage",
+          researchTaskId,
+          researchResultId,
+          synthesisVersion: 1,
+          proEvidence: [
+            {
+              evidenceItemId: "evidence_pro_storage" as EvidenceItemId,
+              kind: "pro",
+              summary: "Imported source supports the claim."
+            }
+          ],
+          conEvidence: [],
+          uncertainties: [],
+          additionalQuestions: ["Find credible counter-evidence."],
+          balanceStatus: "missing_con_evidence",
+          decisionBlocked: true,
+          missingConEvidenceReason: "Skeptical search not completed.",
+          knownRisk: "High-impact claim lacks con evidence."
+        }
+      });
+
+      const task = await repository.getTask(researchTaskId);
+      const projection = await repository.getProjection(sessionId);
+
+      expect(task).toMatchObject({
+        researchTaskId,
+        status: "planned"
+      });
+      expect(projection).toMatchObject({
+        kind: "ResearchEvidenceProjection",
+        version: 3 as ProjectionVersion,
+        taskIds: [researchTaskId],
+        evidenceMatrices: [
+          expect.objectContaining({
+            balanceStatus: "missing_con_evidence",
+            decisionBlocked: true
+          })
+        ],
+        knownRisks: ["High-impact claim lacks con evidence."]
       });
     } finally {
       await storage.close();

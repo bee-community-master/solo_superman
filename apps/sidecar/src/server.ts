@@ -9,9 +9,11 @@ import {
   type ApiSuccessEnvelope,
   type CommandId,
   type CommandResponse,
-  PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  PR06_MOUNTED_PRODUCT_API_ROUTE_IDS,
   type ProjectId,
   type QueueItemId,
+  type ResearchResultId,
+  type ResearchTaskId,
   type SessionId,
   type StateVersion,
   type StatusEndpointDto
@@ -162,7 +164,7 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
           codex: "not_checked_until_pr_07"
         },
         migrations,
-        implementedApiRouteIds: PR05_MOUNTED_PRODUCT_API_ROUTE_IDS
+        implementedApiRouteIds: PR06_MOUNTED_PRODUCT_API_ROUTE_IDS
       }
     } as const;
   }
@@ -180,7 +182,7 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
           codex: "not_checked_until_pr_07"
         },
         migrations,
-        implementedApiRouteIds: PR05_MOUNTED_PRODUCT_API_ROUTE_IDS
+        implementedApiRouteIds: PR06_MOUNTED_PRODUCT_API_ROUTE_IDS
       }
     } as const;
   }
@@ -196,7 +198,7 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
         codex: "not_checked_until_pr_07"
       },
       migrations,
-      implementedApiRouteIds: PR05_MOUNTED_PRODUCT_API_ROUTE_IDS
+      implementedApiRouteIds: PR06_MOUNTED_PRODUCT_API_ROUTE_IDS
     }
   } as const;
 }
@@ -227,6 +229,26 @@ function optionalStringArrayFromBody(value: unknown, fieldName: string) {
   }
 
   return value.map((item) => stringFromBody(item, fieldName));
+}
+
+function optionalStringFromBody(value: unknown, fieldName: string) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  return stringFromBody(value, fieldName);
+}
+
+function optionalPositiveIntegerFromBody(value: unknown, fieldName: string) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be a positive integer.`);
+  }
+
+  return value;
 }
 
 function payloadObject(value: unknown) {
@@ -306,11 +328,11 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       status: "ok",
       service: "solo-superman-sidecar",
       schemaVersion: CONTRACT_SCHEMA_VERSION,
-      sidecarPhase: "pr_05_decision_queue_shell",
+      sidecarPhase: "pr_06_research_evidence_loop",
       checks: {
         process: "alive"
       },
-      implementedApiRouteIds: PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      implementedApiRouteIds: PR06_MOUNTED_PRODUCT_API_ROUTE_IDS,
       productApiRoutePlaceholderCount: productApiRoutePlaceholders.length
     })
   );
@@ -445,7 +467,11 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
         payload: {
           queueItemId: questionId,
-          answer: stringFromBody(body.answer, "answer")
+          answer: stringFromBody(body.answer, "answer"),
+          ...(typeof body.researchRouteHint === "string" ? { researchRouteHint: body.researchRouteHint } : {}),
+          ...(typeof body.claimImpact === "string" ? { claimImpact: body.claimImpact } : {}),
+          ...(typeof body.evidenceBalanceHint === "string" ? { evidenceBalanceHint: body.evidenceBalanceHint } : {}),
+          ...(typeof body.researchObjective === "string" ? { researchObjective: body.researchObjective } : {})
         }
       });
     })
@@ -463,6 +489,86 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
 
   app.get("/api/v1/sessions/:sessionId/queue", async (context) =>
     withProductEngine(context, (service) => service.getQueue(context.req.param("sessionId") as SessionId))
+  );
+
+  app.post("/api/v1/sessions/:sessionId/research-tasks", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const sourceQueueItemId = optionalStringFromBody(body.sourceQueueItemId, "sourceQueueItemId");
+
+      if (!sourceQueueItemId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "sourceQueueItemId is required for PlanResearch traceability.");
+      }
+
+      return service.runSessionCommand({
+        sessionId: context.req.param("sessionId") as SessionId,
+        commandType: "PlanResearch",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          objective: stringFromBody(body.objective, "objective"),
+          sourceQueueItemId,
+          ...(typeof body.routeOutcome === "string" ? { routeOutcome: body.routeOutcome } : {}),
+          ...(typeof body.impact === "string" ? { impact: body.impact } : {})
+        }
+      });
+    })
+  );
+
+  app.get("/api/v1/sessions/:sessionId/research", async (context) =>
+    withProductEngine(context, (service) => service.getResearch(context.req.param("sessionId") as SessionId))
+  );
+
+  app.post("/api/v1/research-tasks/:researchTaskId/results", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const researchTaskId = context.req.param("researchTaskId") as ResearchTaskId;
+      const bodyResearchTaskId = stringFromBody(body.researchTaskId, "researchTaskId") as ResearchTaskId;
+      const sourceTitle = optionalStringFromBody(body.sourceTitle, "sourceTitle");
+      const sourceUrl = optionalStringFromBody(body.sourceUrl, "sourceUrl");
+      const limitationNotes = optionalStringFromBody(body.limitationNotes, "limitationNotes");
+      const synthesisVersion = optionalPositiveIntegerFromBody(body.synthesisVersion, "synthesisVersion");
+
+      if (bodyResearchTaskId !== researchTaskId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "researchTaskId must match the route param.");
+      }
+
+      return service.runSessionCommand({
+        sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
+        commandType: "ImportResearchResult",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          researchTaskId,
+          result: stringFromBody(body.result, "result"),
+          ...(sourceTitle ? { sourceTitle } : {}),
+          ...(sourceUrl ? { sourceUrl } : {}),
+          ...(limitationNotes ? { limitationNotes } : {}),
+          ...(synthesisVersion ? { synthesisVersion } : {})
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/research-results/:researchResultId/synthesize", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const researchResultId = context.req.param("researchResultId") as ResearchResultId;
+      const bodyResearchResultId = stringFromBody(body.researchResultId, "researchResultId") as ResearchResultId;
+      const synthesisVersion = optionalPositiveIntegerFromBody(body.synthesisVersion, "synthesisVersion");
+
+      if (bodyResearchResultId !== researchResultId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "researchResultId must match the route param.");
+      }
+
+      return service.runSessionCommand({
+        sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
+        commandType: "SynthesizeEvidence",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          researchResultId,
+          ...(synthesisVersion ? { synthesisVersion } : {})
+        }
+      });
+    })
   );
 
   app.get("/api/v1/commands/:commandId/status", (context) => {
@@ -501,7 +607,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       return context.json(
         jsonError(context, "RESOURCE_NOT_FOUND", "This Phase 1 API route is not mounted yet.", {
           path: context.req.path,
-          mountedRouteIds: PR05_MOUNTED_PRODUCT_API_ROUTE_IDS
+          mountedRouteIds: PR06_MOUNTED_PRODUCT_API_ROUTE_IDS
         }),
         404
       );

@@ -1,9 +1,11 @@
 import { and, eq } from "drizzle-orm";
 import type {
   DecisionQueueProjection,
+  ConfidenceCompletionProjection,
   LivingSpecProjection,
   ProjectId,
   ProjectionVersion,
+  ResearchEvidenceProjection,
   SchemaVersion,
   SessionId,
   SessionShellProjection
@@ -12,7 +14,12 @@ import type { SoloDatabaseExecutor } from "../client";
 import { parseJsonRecord, stringifyJson } from "../json";
 import { projections } from "../schema";
 
-export type PersistedProjection = DecisionQueueProjection | LivingSpecProjection | SessionShellProjection;
+export type PersistedProjection =
+  | ConfidenceCompletionProjection
+  | DecisionQueueProjection
+  | LivingSpecProjection
+  | ResearchEvidenceProjection
+  | SessionShellProjection;
 export type PersistedProjectionKind = PersistedProjection["kind"];
 
 export interface SaveProjectionInput<TProjection extends PersistedProjection = PersistedProjection> {

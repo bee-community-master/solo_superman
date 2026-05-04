@@ -215,7 +215,7 @@ Crash recovery:
 | Effect type | Purpose | Typical source command/event | Output |
 | --- | --- | --- | --- |
 | `queue_projection_effect` | Recalculate active/next/blocked/deferred queue and activity feed after state-changing events | answer, decision, evidence, runtime preview, repeat limit | QueueProjection, ActivityEvent |
-| `research_evidence_effect` | Plan research, synthesize imported ResearchResult, create EvidenceMatrix, mark missing_con_evidence/blockers | AnswerRouted, ResearchResultImported | ResearchTask, EvidenceMatrix, Risk/Review Card |
+| `research_evidence_effect` | Plan research, synthesize imported ResearchResult, create EvidenceMatrix, mark missing_con_evidence/blockers | AnswerRouted, ResearchResultImported, EvidenceSynthesisRequested | ResearchTask, EvidenceMatrix, Risk/Review Card |
 | `codex_runtime_preview_effect` | Run Codex app-server/manual handoff preview and convert output using `24-codex-prompt-output-contract.md` | RuntimePreviewRequested, ResearchPlanned | RuntimePreviewArtifact, allowed Codex Artifact, ManualRetryCard, BlockedRuntimeCard |
 
 Non-effect deterministic outputs:

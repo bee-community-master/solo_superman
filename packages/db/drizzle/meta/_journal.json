@@ -15,6 +15,13 @@
       "when": 1777916495359,
       "tag": "0001_fantastic_energizer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777926496683,
+      "tag": "0002_research_evidence_tables",
+      "breakpoints": true
     }
   ]
 }

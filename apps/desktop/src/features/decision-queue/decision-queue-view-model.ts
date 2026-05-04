@@ -81,7 +81,10 @@ export function runtimeActivityProjectionFromStatuses(
   };
 }
 
-export function confidencePlaceholder(sessionId: SessionId | null): ConfidenceCompletionProjection | null {
+export function confidencePlaceholder(
+  sessionId: SessionId | null,
+  knownRisks: readonly string[] = []
+): ConfidenceCompletionProjection | null {
   if (!sessionId) {
     return null;
   }
@@ -89,8 +92,8 @@ export function confidencePlaceholder(sessionId: SessionId | null): ConfidenceCo
   return {
     kind: "ConfidenceCompletionProjection",
     sessionId,
-    version: 0 as ProjectionVersion,
-    compositeScore: 0,
-    topRisks: []
+    version: knownRisks.length as ProjectionVersion,
+    compositeScore: knownRisks.length ? 45 : 0,
+    topRisks: knownRisks
   };
 }

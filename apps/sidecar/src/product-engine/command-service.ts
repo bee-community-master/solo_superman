@@ -20,6 +20,8 @@ import {
   type ProductEngineReduction,
   type ProjectionRefetchHint,
   type ProjectId,
+  type ResearchEvidenceProjection,
+  type ResearchResultId,
   type SchemaVersion,
   type SessionId,
   type SessionShellProjection,
@@ -32,6 +34,8 @@ import {
   createEventRepository,
   createProjectRepository,
   createProjectionRepository,
+  createResearchRepository,
+  type EffectTaskRecord,
   type PersistedProjection,
   type SoloStorage
 } from "@solo-superman/db";
@@ -61,7 +65,14 @@ export interface RunSessionCommandInput {
   readonly sessionId: SessionId;
   readonly commandType: Extract<
     CommandType,
-    "CaptureIntake" | "DraftInitialSpec" | "AnalyzeAmbiguity" | "ActivateQuestionBatch" | "SubmitAnswer"
+    | "CaptureIntake"
+    | "DraftInitialSpec"
+    | "AnalyzeAmbiguity"
+    | "ActivateQuestionBatch"
+    | "SubmitAnswer"
+    | "PlanResearch"
+    | "ImportResearchResult"
+    | "SynthesizeEvidence"
   >;
   readonly expectedStateVersion: StateVersion;
   readonly payload: Readonly<Record<string, unknown>>;
@@ -102,7 +113,13 @@ function isPersistedProjection(value: unknown): value is PersistedProjection {
 
   const kind = (value as { readonly kind?: unknown }).kind;
 
-  return kind === "DecisionQueueProjection" || kind === "LivingSpecProjection" || kind === "SessionShellProjection";
+  return (
+    kind === "ConfidenceCompletionProjection" ||
+    kind === "DecisionQueueProjection" ||
+    kind === "LivingSpecProjection" ||
+    kind === "ResearchEvidenceProjection" ||
+    kind === "SessionShellProjection"
+  );
 }
 
 function maxAttemptsFor(effect: ProductEngineEffectPlanItem) {
@@ -145,6 +162,12 @@ function effectTaskIdempotencyKey(plannedEffect: ProductEngineEffectPlanItem, pr
     return `${primarySourceEvent.eventId}:decision_queue`;
   }
 
+  if (plannedEffect.effectType === "research_evidence_effect") {
+    return plannedEffect.inputRef.refType === "ResearchTask" || plannedEffect.inputRef.refType === "ResearchResult"
+      ? plannedEffect.idempotencyKey
+      : `research:${plannedEffect.inputRef.refId}`;
+  }
+
   return plannedEffect.idempotencyKey;
 }
 
@@ -156,6 +179,11 @@ function projectionHintsForEffects(sessionIdValue: SessionId, effects: readonly 
       hints.set("DecisionQueueProjection", {
         projectionKind: "DecisionQueueProjection",
         refetchUrl: `/api/v1/sessions/${sessionIdValue}/queue`
+      });
+    } else if (effect.effectType === "research_evidence_effect") {
+      hints.set("ResearchEvidenceProjection", {
+        projectionKind: "ResearchEvidenceProjection",
+        refetchUrl: `/api/v1/sessions/${sessionIdValue}/research`
       });
     }
   }
@@ -172,6 +200,26 @@ function responseForRejected(command: ProductEngineCommand, stateVersionBefore: 
     error: {
       code: reduction.rejectionReason?.code ?? "COMMAND_PRECONDITION_FAILED",
       message: reduction.rejectionReason?.message ?? "ProductEngine command was rejected."
+    }
+  } satisfies CommandResponse;
+}
+
+function responseForIdempotencyConflict(
+  command: ProductEngineCommand,
+  stateVersionBefore: StateVersion,
+  idempotencyKey: string
+) {
+  return {
+    category: "rejected",
+    commandId: command.commandId,
+    correlationId: command.correlationId,
+    stateVersionBefore,
+    error: {
+      code: "IDEMPOTENCY_CONFLICT",
+      message: "ProductEngine command would create a duplicate persisted effect task.",
+      details: {
+        idempotencyKey
+      }
     }
   } satisfies CommandResponse;
 }
@@ -218,6 +266,24 @@ function latestEvent(events: readonly ProductEngineEvent[]) {
   return events.at(-1) ?? null;
 }
 
+function persistedProjectionsFromEvent(event: ProductEngineEvent): readonly PersistedProjection[] {
+  const candidates = [
+    event.payload.projection,
+    event.payload.queueProjection,
+    event.payload.confidenceProjection
+  ];
+
+  return candidates.filter(isPersistedProjection);
+}
+
+function researchProjectionFromEvent(event: ProductEngineEvent): ResearchEvidenceProjection | null {
+  const projection = event.payload.projection;
+
+  return isPersistedProjection(projection) && projection.kind === "ResearchEvidenceProjection"
+    ? projection
+    : null;
+}
+
 export function createProductEngineCommandService(storage: SoloStorage) {
   const sessionCommandQueues = new Map<SessionId, Promise<void>>();
 
@@ -249,6 +315,32 @@ export function createProductEngineCommandService(storage: SoloStorage) {
       (phase, event) => sessionPhaseForProductEngineEvent(event) ?? phase,
       null
     );
+  }
+
+  function synthesisVersionFromEffectInput(input: Readonly<Record<string, unknown>> | null) {
+    const runAfter = typeof input?.runAfter === "string" ? input.runAfter : "";
+    const match = /^synthesisVersion:(\d+)$/.exec(runAfter);
+    const version = match ? Number(match[1]) : 1;
+
+    return Number.isInteger(version) && version > 0 ? version : 1;
+  }
+
+  function researchResultIdFromEffectInput(input: Readonly<Record<string, unknown>> | null) {
+    const inputRef = input?.inputRef;
+
+    if (!inputRef || typeof inputRef !== "object") {
+      return null;
+    }
+
+    const ref = inputRef as Readonly<Record<string, unknown>>;
+
+    return ref.refType === "ResearchResult" && typeof ref.refId === "string"
+      ? (ref.refId as ResearchResultId)
+      : null;
+  }
+
+  function terminalLeaseExpiresAt() {
+    return new Date(Date.now() + 5 * 60 * 1000).toISOString();
   }
 
   async function runSessionCommandSerialized<TOutput>(
@@ -297,6 +389,7 @@ export function createProductEngineCommandService(storage: SoloStorage) {
       const effectRepository = createEffectTaskRepository(transaction);
       const projectionRepository = createProjectionRepository(transaction);
       const projectRepository = createProjectRepository(transaction);
+      const researchRepository = createResearchRepository(transaction);
       const persistedEvents: ProductEngineEvent[] = [];
 
       for (const event of reduction.events) {
@@ -335,6 +428,50 @@ export function createProductEngineCommandService(storage: SoloStorage) {
         });
       }
 
+      for (const event of persistedEvents) {
+        for (const projection of persistedProjectionsFromEvent(event)) {
+          await projectionRepository.save({
+            projectId: command.projectId,
+            sessionId: command.sessionId,
+            projection,
+            schemaVersion: command.schemaVersion,
+            updatedAt: event.occurredAt
+          });
+        }
+
+        const researchProjection = researchProjectionFromEvent(event);
+
+        if (researchProjection) {
+          for (const task of researchProjection.tasks) {
+            await researchRepository.saveTask({
+              projectId: command.projectId,
+              task,
+              schemaVersion: command.schemaVersion,
+              updatedAt: event.occurredAt
+            });
+          }
+
+          for (const result of researchProjection.results) {
+            await researchRepository.saveResult({
+              projectId: command.projectId,
+              sessionId: command.sessionId,
+              result,
+              schemaVersion: command.schemaVersion
+            });
+          }
+
+          for (const matrix of researchProjection.evidenceMatrices) {
+            await researchRepository.saveEvidenceMatrix({
+              projectId: command.projectId,
+              sessionId: command.sessionId,
+              matrix,
+              schemaVersion: command.schemaVersion,
+              createdAt: event.occurredAt
+            });
+          }
+        }
+      }
+
       if (isPersistedProjection(reduction.immediateProjection)) {
         await projectionRepository.save({
           projectId: command.projectId,
@@ -356,8 +493,7 @@ export function createProductEngineCommandService(storage: SoloStorage) {
           throw new Error(`Effect ${plannedEffect.effectType} has no source ProductEngine event.`);
         }
 
-        effects.push(
-          await effectRepository.create({
+        const createdEffect = await effectRepository.create({
             effectTaskId: effectTaskId(),
             effectType: plannedEffect.effectType,
             projectId: command.projectId,
@@ -371,11 +507,12 @@ export function createProductEngineCommandService(storage: SoloStorage) {
             input: {
               inputRef: plannedEffect.inputRef,
               previewPolicy: plannedEffect.previewPolicy,
-              sourceEventTypes: plannedEffect.sourceEventTypes
+              sourceEventTypes: plannedEffect.sourceEventTypes,
+              ...(plannedEffect.runAfter ? { runAfter: plannedEffect.runAfter } : {})
             },
             schemaVersion: command.schemaVersion
-          })
-        );
+          });
+        effects.push(createdEffect);
       }
 
       return {
@@ -394,6 +531,23 @@ export function createProductEngineCommandService(storage: SoloStorage) {
       return responseForRejected(command, state.stateVersion, reduction);
     }
 
+    const effectRepository = createEffectTaskRepository(storage.db);
+
+    for (const plannedEffect of reduction.effectPlan) {
+      if (plannedEffect.effectType !== "research_evidence_effect") {
+        continue;
+      }
+
+      const idempotencyKey =
+        plannedEffect.inputRef.refType === "ResearchTask" || plannedEffect.inputRef.refType === "ResearchResult"
+          ? plannedEffect.idempotencyKey
+          : `research:${plannedEffect.inputRef.refId}`;
+
+      if (await effectRepository.findByIdempotencyKey(idempotencyKey)) {
+        return responseForIdempotencyConflict(command, state.stateVersion, idempotencyKey);
+      }
+    }
+
     const result = await persistReduction(command, reduction);
 
     return responseForAccepted(
@@ -404,6 +558,179 @@ export function createProductEngineCommandService(storage: SoloStorage) {
       result.effects,
       reduction
     );
+  }
+
+  async function runResearchEvidenceEffect(effect: EffectTaskRecord) {
+    const effectRepository = createEffectTaskRepository(storage.db);
+    const input = await effectRepository.getInput(effect.effectTaskId);
+    const researchResultId = researchResultIdFromEffectInput(input);
+
+    if (!researchResultId) {
+      return {
+        effectTaskId: effect.effectTaskId,
+        status: "skipped" as const,
+        reason: "research_evidence_effect is waiting for a ResearchResult input."
+      };
+    }
+
+    const attemptCount = effect.attemptCount + 1;
+
+    await effectRepository.updateStatus({
+      effectTaskId: effect.effectTaskId,
+      status: "running",
+      attemptCount,
+      leaseOwner: "research-evidence-effect-executor",
+      leaseExpiresAt: terminalLeaseExpiresAt()
+    });
+
+    try {
+      const existingEvents = await createEventRepository(storage.db).listForSession(effect.sessionId);
+      const currentState = replayProductEngineEvents(effect.projectId, effect.sessionId, existingEvents);
+      const synthesisVersion = synthesisVersionFromEffectInput(input);
+      const alreadySynthesized = currentState.researchState.evidenceMatrices.find(
+        (candidate) =>
+          candidate.researchResultId === researchResultId && candidate.synthesisVersion === synthesisVersion
+      );
+
+      if (alreadySynthesized) {
+        if (alreadySynthesized.balanceStatus === "source_quality_insufficient") {
+          await effectRepository.updateStatus({
+            effectTaskId: effect.effectTaskId,
+            status: "failed",
+            attemptCount: effect.maxAttempts,
+            error: {
+              code: "RESEARCH_SOURCE_QUALITY_INSUFFICIENT",
+              message: "Research synthesis could not produce usable pro/con evidence from the retained result.",
+              retryAvailable: false
+            }
+          });
+
+          return {
+            effectTaskId: effect.effectTaskId,
+            status: "failed" as const,
+            balanceStatus: alreadySynthesized.balanceStatus
+          };
+        }
+
+        await effectRepository.updateStatus({
+          effectTaskId: effect.effectTaskId,
+          status: "succeeded",
+          attemptCount,
+          output: {
+            evidenceMatrixId: alreadySynthesized.evidenceMatrixId,
+            balanceStatus: alreadySynthesized.balanceStatus
+          }
+        });
+
+        return {
+          effectTaskId: effect.effectTaskId,
+          status: "succeeded" as const,
+          balanceStatus: alreadySynthesized.balanceStatus
+        };
+      }
+
+      const command: ProductEngineCommand = {
+        commandId: commandId(),
+        commandType: "SynthesizeEvidence",
+        projectId: effect.projectId,
+        sessionId: effect.sessionId,
+        actor: "effect_executor",
+        issuedAt: new Date().toISOString(),
+        idempotencyKey: `EffectExecutor:${effect.idempotencyKey}`,
+        expectedStateVersion: currentState.stateVersion,
+        causationId: (effect.sourceEventIds[0] ?? null) as CausationId | null,
+        correlationId: effect.correlationId,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        payload: {
+          researchResultId,
+          synthesisVersion,
+          sourceEffectTaskId: effect.effectTaskId
+        }
+      };
+      const response = await runCommand(command, existingEvents);
+
+      if (response.category === "rejected") {
+        throw new Error(response.error?.message ?? "Effect executor command was rejected.");
+      }
+
+      const stateAfter = await stateForSession(effect.projectId, effect.sessionId);
+      const matrix = stateAfter.researchState.evidenceMatrices.find(
+        (candidate) =>
+          candidate.researchResultId === researchResultId && candidate.synthesisVersion === synthesisVersion
+      );
+
+      if (!matrix) {
+        throw new Error("Effect executor did not persist an EvidenceMatrix.");
+      }
+
+      if (matrix.balanceStatus === "source_quality_insufficient") {
+        await effectRepository.updateStatus({
+          effectTaskId: effect.effectTaskId,
+          status: "failed",
+          attemptCount: effect.maxAttempts,
+          error: {
+            code: "RESEARCH_SOURCE_QUALITY_INSUFFICIENT",
+            message: "Research synthesis could not produce usable pro/con evidence from the retained result.",
+            retryAvailable: false
+          }
+        });
+
+        return {
+          effectTaskId: effect.effectTaskId,
+          status: "failed" as const,
+          balanceStatus: matrix.balanceStatus
+        };
+      }
+
+      await effectRepository.updateStatus({
+        effectTaskId: effect.effectTaskId,
+        status: "succeeded",
+        attemptCount,
+        output: {
+          evidenceMatrixId: matrix.evidenceMatrixId,
+          balanceStatus: matrix.balanceStatus
+        }
+      });
+
+      return {
+        effectTaskId: effect.effectTaskId,
+        status: "succeeded" as const,
+        balanceStatus: matrix.balanceStatus
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Research evidence effect failed.";
+
+      if (attemptCount < effect.maxAttempts) {
+        await effectRepository.updateStatus({
+          effectTaskId: effect.effectTaskId,
+          status: "queued",
+          attemptCount
+        });
+
+        return {
+          effectTaskId: effect.effectTaskId,
+          status: "queued" as const,
+          error: message
+        };
+      }
+
+      await effectRepository.updateStatus({
+        effectTaskId: effect.effectTaskId,
+        status: "failed",
+        attemptCount,
+        error: {
+          code: "RESEARCH_EFFECT_EXECUTION_FAILED",
+          message,
+          retryAvailable: false
+        }
+      });
+
+      return {
+        effectTaskId: effect.effectTaskId,
+        status: "failed" as const,
+        error: message
+      };
+    }
   }
 
   async function commandForExistingSession(input: RunSessionCommandInput) {
@@ -474,6 +801,18 @@ export function createProductEngineCommandService(storage: SoloStorage) {
 
         return runCommand(command, events);
       });
+    },
+
+    async runPendingResearchEvidenceEffects(limit = 10) {
+      const effectRepository = createEffectTaskRepository(storage.db);
+      const queuedEffects = await effectRepository.listQueuedByType("research_evidence_effect");
+      const results = [];
+
+      for (const effect of queuedEffects.slice(0, limit)) {
+        results.push(await runResearchEvidenceEffect(effect));
+      }
+
+      return results;
     },
 
     async getSession(projectIdValue: ProjectId, sessionIdValue: SessionId): Promise<SessionShellProjection> {
@@ -564,6 +903,27 @@ export function createProductEngineCommandService(storage: SoloStorage) {
       }
 
       return (await stateForSession(session.projectId, sessionIdValue)).queueProjection;
+    },
+
+    async getResearch(sessionIdValue: SessionId): Promise<ResearchEvidenceProjection> {
+      const session = await createProjectRepository(storage.db).getSession(sessionIdValue);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: sessionIdValue
+        });
+      }
+
+      const projection = await createProjectionRepository(storage.db).get<ResearchEvidenceProjection>(
+        sessionIdValue,
+        "ResearchEvidenceProjection"
+      );
+
+      if (projection) {
+        return projection;
+      }
+
+      return (await stateForSession(session.projectId, sessionIdValue)).researchState;
     },
 
     async getCommandStatus(commandIdValue: CommandId): Promise<StatusEndpointDto | null> {

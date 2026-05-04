@@ -9,6 +9,7 @@ import type {
   CommandId,
   EventId,
   ProductEngineEvent,
+  ProjectId,
   SchemaVersion
 } from "@solo-superman/contracts";
 import type { SoloDatabaseExecutor } from "../client";
@@ -42,6 +43,11 @@ export interface UpdateEffectTaskStatusInput {
   readonly updatedAt?: string;
 }
 
+export interface EffectTaskRecord extends EffectTaskDto {
+  readonly projectId: ProjectId;
+  readonly sessionId: ProductEngineEvent["sessionId"];
+}
+
 function mapEffectTask(row: typeof effectTasks.$inferSelect): EffectTaskDto {
   const error =
     (row.status === "failed" || row.status === "blocked") && row.lastErrorCode && row.lastErrorMessage
@@ -73,6 +79,14 @@ function mapEffectTask(row: typeof effectTasks.$inferSelect): EffectTaskDto {
     queuedAt: row.createdAt,
     updatedAt: row.updatedAt,
     schemaVersion: row.schemaVersion as SchemaVersion
+  };
+}
+
+function mapEffectTaskRecord(row: typeof effectTasks.$inferSelect): EffectTaskRecord {
+  return {
+    ...mapEffectTask(row),
+    projectId: row.projectId as ProjectId,
+    sessionId: row.sessionId as ProductEngineEvent["sessionId"]
   };
 }
 
@@ -209,6 +223,15 @@ export function createEffectTaskRepository(db: SoloDatabaseExecutor) {
       const rows = await db.select().from(effectTasks).where(eq(effectTasks.sourceCommandId, commandId));
 
       return rows.map(mapEffectTask);
+    },
+
+    async listQueuedByType(effectType: EffectType): Promise<readonly EffectTaskRecord[]> {
+      const rows = await db
+        .select()
+        .from(effectTasks)
+        .where(and(eq(effectTasks.effectType, effectType), eq(effectTasks.status, "queued")));
+
+      return rows.map(mapEffectTaskRecord);
     },
 
     async updateStatus(input: UpdateEffectTaskStatusInput): Promise<EffectTaskDto> {

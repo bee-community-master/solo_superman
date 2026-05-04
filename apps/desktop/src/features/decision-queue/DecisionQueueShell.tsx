@@ -5,6 +5,8 @@ import {
   type DecisionQueueProjection,
   type LivingSpecProjection,
   type QueueItemId,
+  type ResearchEvidenceProjection,
+  type ResearchTaskId,
   type SessionShellProjection,
   type StateVersion,
   type StatusEndpointDto
@@ -41,6 +43,7 @@ interface ProjectionState {
   readonly session: SessionShellProjection | null;
   readonly spec: LivingSpecProjection | null;
   readonly queue: DecisionQueueProjection | null;
+  readonly research: ResearchEvidenceProjection | null;
 }
 
 const DEFAULT_IDEA = "A focused founder brief generator";
@@ -79,7 +82,8 @@ function latestProjectionVersion(projections: ProjectionState) {
   return Math.max(
     Number(projections.session?.version ?? 0),
     Number(projections.spec?.version ?? 0),
-    Number(projections.queue?.version ?? 0)
+    Number(projections.queue?.version ?? 0),
+    Number(projections.research?.version ?? 0)
   ) as StateVersion;
 }
 
@@ -89,10 +93,12 @@ export function DecisionQueueShell() {
   const [idea, setIdea] = useState(DEFAULT_IDEA);
   const [intake, setIntake] = useState(DEFAULT_INTAKE);
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
+  const [researchDrafts, setResearchDrafts] = useState<Record<string, string>>({});
   const [projections, setProjections] = useState<ProjectionState>({
     session: null,
     spec: null,
-    queue: null
+    queue: null,
+    research: null
   });
   const [commandLog, setCommandLog] = useState<readonly CommandLogEntry[]>([]);
   const [statuses, setStatuses] = useState<readonly StatusEndpointDto[]>([]);
@@ -128,16 +134,18 @@ export function DecisionQueueShell() {
         return;
       }
 
-      const [session, spec, queue] = await Promise.all([
+      const [session, spec, queue, research] = await Promise.all([
         client.getSession(projectId, sessionId),
         client.getSpec(sessionId),
-        client.getQueue(sessionId)
+        client.getQueue(sessionId),
+        client.getResearch(sessionId)
       ]);
 
       setProjections({
         session,
         spec,
-        queue
+        queue,
+        research
       });
     },
     [client]
@@ -228,7 +236,8 @@ export function DecisionQueueShell() {
       setProjections({
         session: null,
         spec: null,
-        queue: null
+        queue: null,
+        research: null
       });
 
       try {
@@ -243,7 +252,8 @@ export function DecisionQueueShell() {
         setProjections({
           session,
           spec: null,
-          queue: null
+          queue: null,
+          research: null
         });
 
         const intakeResponse = await appendCommand(
@@ -324,10 +334,62 @@ export function DecisionQueueShell() {
     [answerDrafts, appendCommand, client, projections, refreshProjections]
   );
 
+  const importResearchResult = useCallback(
+    async (researchTaskId: ResearchTaskId) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active session is required before importing research.");
+        return;
+      }
+
+      const result = researchDrafts[researchTaskId]?.trim();
+
+      if (!result) {
+        setWorkflowError("Research result text is required.");
+        return;
+      }
+
+      setIsBusy(true);
+      setWorkflowError(null);
+
+      try {
+        const response = await appendCommand(
+          "Import research result",
+          await client.importResearchResult({
+            sessionId: projections.session.sessionId,
+            researchTaskId,
+            expectedStateVersion: latestProjectionVersion(projections),
+            result,
+            sourceTitle: "Manual desk research",
+            limitationNotes: "Manual import from founder-provided source."
+          })
+        );
+        const research = responseProjection<ResearchEvidenceProjection>(response, "ResearchEvidenceProjection");
+
+        setResearchDrafts((current) => ({
+          ...current,
+          [researchTaskId]: ""
+        }));
+        setProjections((current) => ({
+          ...current,
+          research
+        }));
+        await refreshProjections(projections.session.projectId, projections.session.sessionId);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [appendCommand, client, projections, refreshProjections, researchDrafts]
+  );
+
   const sections = useMemo(() => queueSections(projections.queue), [projections.queue]);
   const pendingSummary = useMemo(() => pendingEffectSummary(statuses), [statuses]);
   const runtimeActivity = useMemo(() => runtimeActivityProjectionFromStatuses(statuses), [statuses]);
-  const confidence = useMemo(() => confidencePlaceholder(projections.session?.sessionId ?? null), [projections.session]);
+  const confidence = useMemo(
+    () => confidencePlaceholder(projections.session?.sessionId ?? null, projections.research?.knownRisks ?? []),
+    [projections.research, projections.session]
+  );
   const canStart = connectionState.status === "connected" && Boolean(client) && !isBusy;
 
   return (
@@ -461,6 +523,61 @@ export function DecisionQueueShell() {
                 <dd>{projections.spec?.approvalStatus ?? "draft"}</dd>
               </div>
             </dl>
+          </section>
+
+          <section className="panel">
+            <div className="panel-heading">
+              <h2>Research</h2>
+              <span>{projections.research?.proConBalanceStatus ?? "unknown"}</span>
+            </div>
+            {projections.research?.tasks.length ? (
+              <div className="research-list">
+                {projections.research.tasks.map((task) => {
+                  const card = projections.research?.reviewCards.find(
+                    (item) => item.researchTaskId === task.researchTaskId
+                  );
+                  const canImportResearch =
+                    task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true;
+
+                  return (
+                    <article className="research-card" key={task.researchTaskId}>
+                      <div>
+                        <span>{card?.state ?? task.status}</span>
+                        <h3>{task.objective}</h3>
+                        <p>{card?.title ?? task.routeOutcome}</p>
+                        {card?.recoveryActions.length ? (
+                          <p className="research-recovery">{card.recoveryActions.join(" / ")}</p>
+                        ) : null}
+                      </div>
+                      {canImportResearch ? (
+                        <div className="answer-box">
+                          <textarea
+                            aria-label={`Import research for ${task.objective}`}
+                            value={researchDrafts[task.researchTaskId] ?? ""}
+                            onChange={(event) =>
+                              setResearchDrafts((current) => ({
+                                ...current,
+                                [task.researchTaskId]: event.target.value
+                              }))
+                            }
+                            rows={3}
+                          />
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => void importResearchResult(task.researchTaskId)}
+                          >
+                            Import result
+                          </button>
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="empty-state">No research tasks yet.</p>
+            )}
           </section>
 
           <section className="panel">
