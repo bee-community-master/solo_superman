@@ -6,6 +6,7 @@ import type {
   EffectTaskId,
   EffectTaskStatus,
   EffectType,
+  CommandId,
   EventId,
   ProductEngineEvent,
   SchemaVersion
@@ -202,6 +203,12 @@ export function createEffectTaskRepository(db: SoloDatabaseExecutor) {
       const row = rows[0];
 
       return row ? mapEffectTask(row) : null;
+    },
+
+    async listForCommand(commandId: CommandId): Promise<readonly EffectTaskDto[]> {
+      const rows = await db.select().from(effectTasks).where(eq(effectTasks.sourceCommandId, commandId));
+
+      return rows.map(mapEffectTask);
     },
 
     async updateStatus(input: UpdateEffectTaskStatusInput): Promise<EffectTaskDto> {

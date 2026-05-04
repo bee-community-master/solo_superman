@@ -72,6 +72,9 @@ importers:
       '@solo-superman/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@solo-superman/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@solo-superman/db':
         specifier: workspace:*
         version: link:../../packages/db

@@ -6,16 +6,23 @@ import {
   type ApiErrorCode,
   type ApiErrorEnvelope,
   type ApiResponseMeta,
+  type ApiSuccessEnvelope,
   type CommandId,
-  PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  type CommandResponse,
+  PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  type ProjectId,
+  type SessionId,
+  type StateVersion,
   type StatusEndpointDto
 } from "@solo-superman/contracts";
-import type { MigrationStatus } from "@solo-superman/db";
+import type { MigrationStatus, SoloStorage } from "@solo-superman/db";
+import { createProductEngineCommandService, ProductEngineServiceError } from "./product-engine/command-service";
 import { productApiRoutePlaceholders } from "./routes/catalog";
 
 export interface CreateSidecarAppOptions {
   readonly localCapabilityToken: string;
   readonly migrationStatus?: MigrationStatus;
+  readonly storage?: SoloStorage | null;
 }
 
 const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "localhost"]);
@@ -52,6 +59,14 @@ function jsonError(
       message,
       ...(details ? { details } : {})
     },
+    meta: requestMeta(context)
+  };
+}
+
+function jsonSuccess<TData>(context: Context, data: TData): ApiSuccessEnvelope<TData> {
+  return {
+    ok: true,
+    data,
     meta: requestMeta(context)
   };
 }
@@ -130,7 +145,7 @@ function publicMigrationStatus(migrationStatus: MigrationStatus) {
   };
 }
 
-function readyzStatus(migrationStatus: MigrationStatus) {
+function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
   const migrations = publicMigrationStatus(migrationStatus);
 
   if (migrationStatus.state === "failed") {
@@ -146,7 +161,25 @@ function readyzStatus(migrationStatus: MigrationStatus) {
           codex: "not_checked_until_pr_07"
         },
         migrations,
-        implementedApiRouteIds: PR02_MOUNTED_PRODUCT_API_ROUTE_IDS
+        implementedApiRouteIds: PR04_MOUNTED_PRODUCT_API_ROUTE_IDS
+      }
+    } as const;
+  }
+
+  if (!hasStorage) {
+    return {
+      httpStatus: 200,
+      body: {
+        status: "not_ready",
+        ready: false,
+        code: "SIDECAR_NOT_READY",
+        checks: {
+          db: "migrated",
+          productEngine: "not_initialized_until_storage_available",
+          codex: "not_checked_until_pr_07"
+        },
+        migrations,
+        implementedApiRouteIds: PR04_MOUNTED_PRODUCT_API_ROUTE_IDS
       }
     } as const;
   }
@@ -154,22 +187,62 @@ function readyzStatus(migrationStatus: MigrationStatus) {
   return {
     httpStatus: 200,
     body: {
-      status: "not_ready",
-      ready: false,
-      code: "SIDECAR_NOT_READY",
+      status: "ready",
+      ready: true,
       checks: {
         db: "migrated",
-        productEngine: "not_initialized_until_pr_04",
+        productEngine: "initialized_pr_04",
         codex: "not_checked_until_pr_07"
       },
       migrations,
-      implementedApiRouteIds: PR02_MOUNTED_PRODUCT_API_ROUTE_IDS
+      implementedApiRouteIds: PR04_MOUNTED_PRODUCT_API_ROUTE_IDS
     }
   } as const;
 }
 
+function stateVersionFromBody(value: unknown) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "expectedStateVersion must be a non-negative integer.");
+  }
+
+  return value as StateVersion;
+}
+
+function stringFromBody(value: unknown, fieldName: string) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be a non-empty string.`);
+  }
+
+  return value.trim();
+}
+
+function optionalStringArrayFromBody(value: unknown, fieldName: string) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be an array of non-empty strings.`);
+  }
+
+  return value.map((item) => stringFromBody(item, fieldName));
+}
+
+function payloadObject(value: unknown) {
+  return value && typeof value === "object" ? (value as Readonly<Record<string, unknown>>) : {};
+}
+
+async function jsonBody(context: Context) {
+  try {
+    return payloadObject(await context.req.json());
+  } catch {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "Request body must be valid JSON.");
+  }
+}
+
 export function createSidecarApp(options: CreateSidecarAppOptions) {
-  const { localCapabilityToken, migrationStatus = defaultMigrationStatus() } = options;
+  const { localCapabilityToken, migrationStatus = defaultMigrationStatus(), storage = null } = options;
+  const commandService = storage ? createProductEngineCommandService(storage) : null;
 
   if (localCapabilityToken.trim().length === 0) {
     throw new Error("localCapabilityToken must not be empty");
@@ -236,19 +309,155 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       checks: {
         process: "alive"
       },
-      implementedApiRouteIds: PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      implementedApiRouteIds: PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
       productApiRoutePlaceholderCount: productApiRoutePlaceholders.length
     })
   );
 
   app.get("/readyz", (context) => {
-    const readiness = readyzStatus(migrationStatus);
+    const readiness = readyzStatus(migrationStatus, Boolean(storage));
 
     return context.json(readiness.body, readiness.httpStatus);
   });
 
+  async function withProductEngine<TData>(
+    context: Context,
+    handler: (service: NonNullable<typeof commandService>) => Promise<TData>
+  ) {
+    if (!commandService) {
+      return context.json(
+        jsonError(context, "SIDECAR_NOT_READY", "ProductEngine command handling requires migrated local storage.", {
+          migrationState: migrationStatus.state
+        }),
+        503
+      );
+    }
+
+    try {
+      return context.json(jsonSuccess(context, await handler(commandService)));
+    } catch (error) {
+      if (error instanceof ProductEngineServiceError) {
+        return context.json(jsonError(context, error.code, error.message, error.details), error.code === "RESOURCE_NOT_FOUND" ? 404 : 400);
+      }
+
+      throw error;
+    }
+  }
+
+  async function withCommandResponse(
+    context: Context,
+    handler: (service: NonNullable<typeof commandService>) => Promise<CommandResponse>
+  ) {
+    return withProductEngine(context, handler);
+  }
+
+  app.post("/api/v1/projects", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const rawIdea = stringFromBody(body.rawIdea, "rawIdea");
+      const localPrivacyMode = body.localPrivacyMode;
+
+      if (localPrivacyMode !== "local_only" && localPrivacyMode !== "local_with_manual_export") {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "localPrivacyMode must be a supported local privacy mode.");
+      }
+
+      return service.startProject({
+        rawIdea,
+        localPrivacyMode,
+        ...(typeof body.sourceNote === "string" ? { sourceNote: body.sourceNote } : {})
+      });
+    })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/intake", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+
+      return service.runSessionCommand({
+        sessionId: context.req.param("sessionId") as SessionId,
+        commandType: "CaptureIntake",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          answer: stringFromBody(body.answer, "answer")
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/spec/initial", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+
+      return service.runSessionCommand({
+        sessionId: context.req.param("sessionId") as SessionId,
+        commandType: "DraftInitialSpec",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {}
+      });
+    })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/spec/analyze", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+
+      return service.runSessionCommand({
+        sessionId: context.req.param("sessionId") as SessionId,
+        commandType: "AnalyzeAmbiguity",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          targetRef: stringFromBody(body.targetRef, "targetRef")
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/queue/activate", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const queueItemIds = optionalStringArrayFromBody(body.queueItemIds, "queueItemIds");
+
+      return service.runSessionCommand({
+        sessionId: context.req.param("sessionId") as SessionId,
+        commandType: "ActivateQuestionBatch",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          ...(queueItemIds ? { queueItemIds } : {})
+        }
+      });
+    })
+  );
+
+  app.get("/api/v1/projects/:projectId/sessions/:sessionId", async (context) =>
+    withProductEngine(context, (service) =>
+      service.getSession(context.req.param("projectId") as ProjectId, context.req.param("sessionId") as SessionId)
+    )
+  );
+
+  app.get("/api/v1/sessions/:sessionId/spec", async (context) =>
+    withProductEngine(context, (service) => service.getSpec(context.req.param("sessionId") as SessionId))
+  );
+
+  app.get("/api/v1/sessions/:sessionId/queue", async (context) =>
+    withProductEngine(context, (service) => service.getQueue(context.req.param("sessionId") as SessionId))
+  );
+
   app.get("/api/v1/commands/:commandId/status", (context) => {
     const commandId = context.req.param("commandId") as CommandId;
+
+    if (commandService) {
+      return withProductEngine(context, async (service) => {
+        const status = await service.getCommandStatus(commandId);
+
+        if (!status) {
+          throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Command status was not found.", {
+            commandId
+          });
+        }
+
+        return status;
+      });
+    }
 
     return context.json(
       jsonError(
@@ -269,7 +478,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       return context.json(
         jsonError(context, "RESOURCE_NOT_FOUND", "This Phase 1 API route is not mounted yet.", {
           path: context.req.path,
-          mountedRouteIds: PR02_MOUNTED_PRODUCT_API_ROUTE_IDS
+          mountedRouteIds: PR04_MOUNTED_PRODUCT_API_ROUTE_IDS
         }),
         404
       );

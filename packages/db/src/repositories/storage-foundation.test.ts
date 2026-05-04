@@ -55,7 +55,7 @@ describe("PR-03 local libSQL storage foundation", () => {
       expect(existsSync(join(appDataDir, "solo-superman.db"))).toBe(true);
       expect(migrationStatus).toMatchObject({
         state: "migrated",
-        appliedMigrationCount: 1
+        appliedMigrationCount: 2
       });
       expect(migrationStatus.latestMigrationMillis).toEqual(expect.any(Number));
     } finally {
@@ -78,11 +78,13 @@ describe("PR-03 local libSQL storage foundation", () => {
           "sessions",
           "events",
           "effect_tasks",
+          "projections",
           "app_config",
           "secret_refs",
           "events_session_sequence_idx",
           "effect_tasks_idempotency_key_idx",
-          "effect_tasks_session_status_idx"
+          "effect_tasks_session_status_idx",
+          "projections_session_kind_idx"
         ])
       );
     } finally {

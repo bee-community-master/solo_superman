@@ -1,9 +1,17 @@
-import type { ConfidenceCompletionProjection, DecisionQueueProjection, ResearchEvidenceProjection, RuntimeActivityProjection } from "../projections";
+import type {
+  ConfidenceCompletionProjection,
+  DecisionQueueProjection,
+  LivingSpecProjection,
+  ResearchEvidenceProjection,
+  RuntimeActivityProjection,
+  SessionShellProjection
+} from "../projections";
 import type { DecisionId, ProjectId, QueueItemId, SessionId, StateVersion } from "../ids";
 
 export interface ProjectSnapshot {
   readonly projectId: ProjectId;
   readonly privacyMode: "local_only" | "local_with_manual_export";
+  readonly rawIdeaText?: string;
 }
 
 export interface SessionSnapshot {
@@ -14,12 +22,16 @@ export interface SessionSnapshot {
 export interface CurrentSpecSnapshot {
   readonly draftRef: string;
   readonly versionRef?: string;
+  readonly title?: string;
+  readonly sections?: readonly string[];
 }
 
 export interface AmbiguityIssueSnapshot {
   readonly queueItemId: QueueItemId;
   readonly summary: string;
   readonly status: "open" | "answered" | "deferred" | "resolved";
+  readonly questionText?: string;
+  readonly sourceRef?: string;
 }
 
 export interface DecisionSnapshot {
@@ -31,9 +43,15 @@ export interface ProductEngineStateSnapshot {
   readonly stateVersion: StateVersion;
   readonly project: ProjectSnapshot;
   readonly session: SessionSnapshot;
+  readonly intake?: {
+    readonly intakeRef: string;
+    readonly answer: string;
+  };
   readonly currentSpec: CurrentSpecSnapshot;
   readonly openIssues: readonly AmbiguityIssueSnapshot[];
   readonly queueProjection: DecisionQueueProjection;
+  readonly sessionShellProjection?: SessionShellProjection;
+  readonly livingSpecProjection?: LivingSpecProjection;
   readonly researchState: ResearchEvidenceProjection;
   readonly decisions: readonly DecisionSnapshot[];
   readonly runtimeState: RuntimeActivityProjection;

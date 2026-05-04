@@ -75,6 +75,24 @@ export const effectTasks = sqliteTable(
   ]
 );
 
+export const projections = sqliteTable(
+  "projections",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    projectionKind: text("projection_kind").notNull(),
+    version: integer("version").notNull(),
+    payloadJson: text("payload_json").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    schemaVersion: text("schema_version").notNull()
+  },
+  (table) => [
+    uniqueIndex("projections_session_kind_idx").on(table.sessionId, table.projectionKind),
+    index("projections_project_id_idx").on(table.projectId)
+  ]
+);
+
 export const appConfig = sqliteTable("app_config", {
   key: text("key").primaryKey(),
   valueJson: text("value_json").notNull(),

@@ -35,6 +35,13 @@ export interface CreateSessionInput {
   readonly now?: string;
 }
 
+export interface UpdateSessionPhaseInput {
+  readonly sessionId: SessionId;
+  readonly status: string;
+  readonly currentPhase: string;
+  readonly updatedAt?: string;
+}
+
 function mapProject(row: typeof projects.$inferSelect): ProjectRecord {
   return {
     projectId: row.id as ProjectId,
@@ -115,6 +122,27 @@ export function createProjectRepository(db: SoloDatabaseExecutor) {
       return session;
     },
 
-    getSession
+    getSession,
+
+    async updateSessionPhase(input: UpdateSessionPhaseInput): Promise<SessionRecord> {
+      const updatedAt = input.updatedAt ?? new Date().toISOString();
+
+      await db
+        .update(sessions)
+        .set({
+          status: input.status,
+          currentPhase: input.currentPhase,
+          updatedAt
+        })
+        .where(eq(sessions.id, input.sessionId));
+
+      const session = await getSession(input.sessionId);
+
+      if (!session) {
+        throw new Error(`Session was not found after update: ${input.sessionId}`);
+      }
+
+      return session;
+    }
   };
 }

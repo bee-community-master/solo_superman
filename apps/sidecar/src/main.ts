@@ -7,7 +7,8 @@ const config = resolveSidecarConfig();
 const storageReadiness = await initializeStorageReadiness(config);
 const app = createSidecarApp({
   localCapabilityToken: config.localCapabilityToken,
-  migrationStatus: storageReadiness.migrationStatus
+  migrationStatus: storageReadiness.migrationStatus,
+  storage: storageReadiness.storage
 });
 
 serve(

@@ -317,4 +317,16 @@ export type ApiRoute = (typeof API_ROUTE_CATALOG)[number];
 export type ApiRouteId = ApiRoute["routeId"];
 export type ApiRouteClientName = ApiRoute["clientName"];
 
+export const PR04_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  "createProject",
+  "getSession",
+  "captureIntake",
+  "draftInitialSpec",
+  "getLivingSpec",
+  "analyzeAmbiguity",
+  "getDecisionQueue",
+  "activateQuestionBatch",
+  "getCommandStatus"
+] as const satisfies readonly ApiRouteId[];
+
 export const PR02_MOUNTED_PRODUCT_API_ROUTE_IDS = ["getCommandStatus"] as const satisfies readonly ApiRouteId[];

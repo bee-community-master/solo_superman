@@ -1,5 +1,5 @@
 import { desc, eq } from "drizzle-orm";
-import type { EventId, ProductEngineEvent, ProductEngineEventDraft, SessionId } from "@solo-superman/contracts";
+import type { CommandId, EventId, ProductEngineEvent, ProductEngineEventDraft, SessionId } from "@solo-superman/contracts";
 import type { SoloDatabase, SoloDatabaseExecutor, SoloDatabaseTransaction } from "../client";
 import { parseJsonRecord, stringifyJson } from "../json";
 import { events } from "../schema";
@@ -66,6 +66,16 @@ export function createEventRepository(db: SoloDatabaseExecutor) {
 
     async listForSession(sessionId: SessionId): Promise<readonly ProductEngineEvent[]> {
       const rows = await db.select().from(events).where(eq(events.sessionId, sessionId)).orderBy(events.sequence);
+
+      return rows.map(mapEvent);
+    },
+
+    async listForCommand(commandId: CommandId): Promise<readonly ProductEngineEvent[]> {
+      const rows = await db
+        .select()
+        .from(events)
+        .where(eq(events.sourceCommandId, commandId))
+        .orderBy(events.sequence);
 
       return rows.map(mapEvent);
     }

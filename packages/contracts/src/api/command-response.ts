@@ -15,6 +15,7 @@ export interface CommandResponse<TProjection = unknown> {
   readonly effectTaskIds?: readonly EffectTaskId[];
   readonly statusUrl?: string;
   readonly queuedActivity?: unknown;
+  readonly immediateProjection?: TProjection;
   readonly queueProjection?: TProjection;
   readonly pendingEffectSummary?: PendingEffectSummaryDto;
   readonly blockingCard?: unknown;

@@ -1,4 +1,13 @@
-import type { DecisionId, ProjectId, QueueItemId, ResearchResultId, ResearchTaskId, RuntimeArtifactId, SessionId } from "../ids";
+import type {
+  DecisionId,
+  ProjectId,
+  QueueItemId,
+  ResearchResultId,
+  ResearchTaskId,
+  RuntimeArtifactId,
+  SessionId,
+  StateVersion
+} from "../ids";
 
 export interface ScaffoldRequestPlaceholder {
   readonly scaffoldOnly?: true;
@@ -16,20 +25,25 @@ export interface StartOrResumeSessionRequest extends ScaffoldRequestPlaceholder 
 
 export interface CaptureIntakeRequest extends ScaffoldRequestPlaceholder {
   readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
   readonly answer: string;
 }
 
 export interface DraftInitialSpecRequest extends ScaffoldRequestPlaceholder {
   readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
 }
 
 export interface AnalyzeAmbiguityRequest extends ScaffoldRequestPlaceholder {
   readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
   readonly targetRef: string;
 }
 
 export interface ActivateQuestionBatchRequest extends ScaffoldRequestPlaceholder {
   readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
+  readonly queueItemIds?: readonly QueueItemId[];
 }
 
 export interface SubmitAnswerRequest extends ScaffoldRequestPlaceholder {
