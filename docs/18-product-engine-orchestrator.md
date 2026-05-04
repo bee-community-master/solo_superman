@@ -4,7 +4,7 @@
 
 Product Engine Orchestrator는 Solo Superman Phase 1 세션의 최상위 제품 엔진 계약이다.
 
-이 문서는 사용자의 막연한 아이디어가 `Living Product Spec` 완료 후보와 Founder Brief까지 도달하는 동안, 어떤 command가 어떤 event/state 전이를 만들고 어떤 Queue item을 방출하는지 정의한다.
+이 문서는 사용자의 막연한 아이디어가 `Living Product Spec` 완료 후보와 Founder Brief까지 도달하는 동안, 어떤 command가 어떤 event/state 전이를 만들고 어떤 Queue item을 방출하는지 정의한다. 구현 위치는 Phase 1에서 Node/Hono sidecar의 ProductEngine service로 고정하며, 세부 package/API/storage 계약은 `19-phase1-implementation-architecture.md`, `20-data-storage-contract.md`, `21-sidecar-api-runtime-contract.md`를 따른다.
 
 핵심 결정은 다음과 같다.
 
@@ -27,12 +27,24 @@ Product Engine Orchestrator는 Solo Superman Phase 1 세션의 최상위 제품 
 제외한다.
 
 - 런타임 코드, 앱 scaffold, 실제 orchestrator class 구현.
-- DB table, migration, API endpoint, request/response wire shape 상세.
+- DB table, migration, API endpoint, request/response wire shape 상세. 단, 구현 단계에서는 각각 `20-data-storage-contract.md`와 `21-sidecar-api-runtime-contract.md`를 따른다.
 - 화면별 layout, component, micro-interaction 상세.
 - ChatGPT 웹 자동화, Browser-use/Playwright 실행, 로그인 자동화 구현.
 - Supabase sync, mobile approval, push notification, cloud 운영 설계.
 
-이 문서는 문서 계약이다. 타입명과 상태명은 구현 후보를 안내하지만, DB/API 스키마 상세가 아니다.
+이 문서는 제품 엔진 계약이다. 타입명과 상태명은 구현 후보를 안내하지만, DB/API 스키마 상세는 아니다. Phase 1 구현자는 ProductEngine reducer와 service를 `packages/core`에 두고, Hono route handler는 ProductEngine command를 호출하는 얇은 adapter로 유지한다.
+
+## 구현 연결
+
+| 계약 | 구현 위치 | 세부 문서 |
+| --- | --- | --- |
+| ProductEngine command/reducer/service | `packages/core/src/product-engine/` | 이 문서, `19-phase1-implementation-architecture.md` |
+| Repository transaction | `packages/db/src/repositories/` | `20-data-storage-contract.md` |
+| Hono route handler | `apps/sidecar/src/routes/` | `21-sidecar-api-runtime-contract.md` |
+| SSE/Activity event projection | `apps/sidecar` + `packages/db/src/projections/` | `20-data-storage-contract.md`, `21-sidecar-api-runtime-contract.md` |
+| Phase 1 implementation order | PR-04 ProductEngine reducer 이후 UI/API loop | `22-phase1-implementation-sequence.md` |
+
+ProductEngine은 Hono handler나 React component 안에 흩어져 구현되면 안 된다. UI와 API는 command를 보낼 뿐이며, session state 전이와 queue recalculation은 ProductEngine service의 단일 경로를 통과해야 한다.
 
 ## 최상위 invariant
 

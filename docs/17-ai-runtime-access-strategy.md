@@ -12,6 +12,8 @@ AI Runtime Access Strategy는 Solo Superman이 AI를 어떻게 사용자의 제�
 | --- | --- |
 | 사용자 기본 AI onboarding | API key 입력을 기본 요구하지 않는다 |
 | Phase 1 primary integration | Codex app-server |
+| Phase 1 구현 contract | `21-sidecar-api-runtime-contract.md`의 Hono/CodexRuntimeAdapter 계약 |
+| Phase 1 Codex transport | app-server stdio 기본값 + generated schema pinning |
 | Phase 1 Codex 권한 | sandbox preview allowed |
 | Phase 1 browser automation | 제외 |
 | Phase 1 deep research fallback | 수동 프롬프트 핸드오프 → 공식 Codex 경로 |
@@ -70,7 +72,18 @@ Later / ADR only
 
 ## Phase 1: Codex app-server primary
 
-Phase 1의 1차 AI RuntimeAdapter는 `CodexRuntimeAdapter`다. 구현 후보는 Codex app-server이며, SDK/CLI는 fallback 또는 보조 경로다.
+Phase 1의 1차 AI RuntimeAdapter는 `CodexRuntimeAdapter`다. 구현 경계는 `21-sidecar-api-runtime-contract.md`가 소유한다. SDK/CLI는 fallback 또는 보조 경로다.
+
+### 구현 계약 연결
+
+Phase 1 구현자는 다음 결정을 다시 하지 않는다.
+
+- `CodexRuntimeAdapter`는 Node/Hono sidecar 안에 둔다.
+- Codex app-server transport는 stdio를 기본값으로 둔다.
+- 구현 시점의 Codex app-server TypeScript/JSON schema를 생성해 `packages/contracts/src/generated/codex/`에 pin한다.
+- generated schema와 앱 내부 contract mismatch는 startup 또는 `pnpm verify`에서 실패해야 한다.
+- Codex turn은 `question_generation`, `ambiguity_analysis`, `research_prompt`, `evidence_synthesis`, `spec_update_preview`, `implementation_plan_preview` 목적으로만 생성한다.
+- Codex가 파일, shell, browser 권한을 요청하면 Phase 1에서는 `RuntimePreviewArtifact` 또는 blocked outcome으로 변환한다.
 
 ### CodexRuntimeAdapter 책임
 
@@ -218,6 +231,10 @@ Fallback은 조용히 일어나면 안 된다. Decision Queue 또는 Activity Fe
 - 어떤 데이터가 전송되지 않았는가.
 - 어떤 evidence가 부족한가.
 - 사용자가 지금 멈추면 Founder Brief에 어떻게 남는가.
+
+## API/runtime 상태 연결
+
+Hono sidecar는 Codex 상태를 직접 UI state로 노출하지 않고 `RuntimeTask`, `RuntimePreviewArtifact`, `ActivityEvent`, `QueueItem`으로 변환한다. 상태 전환의 route와 error envelope는 `21-sidecar-api-runtime-contract.md`를 따른다.
 
 ## Adapter 상태
 

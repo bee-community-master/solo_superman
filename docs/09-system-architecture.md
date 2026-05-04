@@ -13,10 +13,10 @@
 | --- | --- | --- |
 | Desktop shell | Tauri v2 | core 확정 |
 | UI | React + TypeScript + Vite | core 확정 |
-| Local data | SQLite/libSQL 계열 | core 확정 |
-| State/data fetching | Zustand/Jotai + TanStack Query 후보 | 구현 전 확정 필요 |
+| Local data | local embedded libSQL + Drizzle | Phase 1 구현 확정 |
+| State/data fetching | Zustand + TanStack Query | Phase 1 기본값 |
 | ProductEngine Orchestrator | 중앙 command/event/state reducer | Phase 1 최상위 계약 |
-| Spec Engine | 자체 TypeScript/Rust boundary | core 확정 |
+| Spec Engine | TypeScript core service under Node/Hono sidecar | Phase 1 구현 확정 |
 | Runtime | Adapter interface | core 확정 |
 | Primary AI runtime | Codex app-server via CodexRuntimeAdapter | Phase 1 우선 |
 | Cloud sync | Supabase optional sync | 후속/선택 기능 |
@@ -26,38 +26,44 @@ Tauri는 frontend framework 선택이 자유롭고 macOS/Windows/Linux 및 mobil
 
 ## High-level architecture
 
+Phase 1 구현 topology는 `Tauri + Node/Hono sidecar`다. Rust/Tauri는 native boundary를 소유하고, Node/Hono sidecar는 ProductEngine, DB repository, Codex app-server adapter, local API를 소유한다.
+
 ```text
 Tauri Desktop App
+├─ Rust native boundary
+│  ├─ sidecar lifecycle
+│  ├─ app data dir discovery
+│  ├─ OS secret store references
+│  ├─ file picker/export write
+│  └─ get_sidecar_base_url command
 ├─ React/TypeScript UI
-│  ├─ Decision Queue
-│  ├─ Spec Outline
-│  ├─ Context Panel
+│  ├─ Decision Queue Center
+│  ├─ Living Spec Canvas
+│  ├─ Confidence/Risk panels
 │  └─ Research/Activity Feed
-├─ Local Core
-│  ├─ ProductEngine Orchestrator
-│  ├─ Spec Engine
-│  ├─ Decision Queue Scheduler
-│  ├─ Research Planner
-│  ├─ Completeness Scorer
-│  ├─ Approval Manager
-│  └─ Sync Manager
-├─ Local Storage
-│  ├─ SQLite
-│  ├─ encrypted secrets
-│  └─ source cache
-└─ Runtime Adapter Layer
+└─ Node/Hono Sidecar
+   ├─ Hono /api/v1 local API
+   ├─ ProductEngine Orchestrator
+   ├─ Spec Engine services
+   ├─ Decision Queue Scheduler
+   ├─ Research/Evidence services
+   ├─ Completeness Scorer
    ├─ CodexRuntimeAdapter
-   ├─ LocalResearchRuntime
-   ├─ OpenClawRuntime later
-   ├─ PlaywrightRuntime later
-   ├─ BrowserUseRuntime later
-   ├─ GooseRuntime later
-   └─ CrewAIRuntime later
+   ├─ libSQL + Drizzle repositories
+   ├─ SSE event stream
+   └─ source cache / export helpers
 ```
+
+Implementation-level 계약은 다음 문서를 따른다.
+
+- `19-phase1-implementation-architecture.md`: package layout, dev scripts, sidecar lifecycle, native command boundary.
+- `20-data-storage-contract.md`: libSQL/Drizzle, migration, repository/projection, remote config placeholder.
+- `21-sidecar-api-runtime-contract.md`: Hono routes, validation envelope, local auth, SSE, Codex app-server integration.
+- `22-phase1-implementation-sequence.md`: 구현 PR 순서와 acceptance criteria.
 
 ## ProductEngine Orchestrator boundary
 
-Phase 1 Application Core의 최상위 상태 전이 주체는 `ProductEngine Orchestrator`다. 자세한 제품 계약은 `18-product-engine-orchestrator.md`를 따른다.
+Phase 1 Application Core의 최상위 상태 전이 주체는 `ProductEngine Orchestrator`다. 자세한 제품 계약은 `18-product-engine-orchestrator.md`를 따른다. 구현 위치는 Node/Hono sidecar의 `packages/core`이며, 외부 노출은 `apps/sidecar`의 Hono API로만 한다.
 
 ProductEngine은 다음을 소유한다.
 
@@ -74,7 +80,7 @@ ProductEngine이 직접 소유하지 않는 것은 다음이다.
 - Research source 탐색과 EvidenceMatrix 산식.
 - Runtime adapter 내부 실행 방식.
 - 화면 layout과 component 구현.
-- DB/API schema 상세.
+- DB/API schema 상세. 해당 구현 계약은 `20-data-storage-contract.md`와 `21-sidecar-api-runtime-contract.md`가 소유한다.
 
 따라서 Architecture 관점에서 Spec Engine, Research Planner, Completeness Scorer, Runtime Adapter는 ProductEngine 아래의 module/service boundary이며, 세션 상태를 단독으로 확정하지 않는다.
 
@@ -142,7 +148,7 @@ Phase 1 보조 runtime이다.
 
 - 수동 프롬프트 핸드오프 결과를 ResearchResult로 import한다.
 - 가벼운 public source 정리와 source cache 연결을 담당한다.
-- ResearchTask 상태를 SQLite에 기록한다.
+- ResearchTask 상태를 local embedded libSQL에 기록한다.
 - 복잡한 background orchestration은 하지 않는다.
 
 ### OpenClawRuntime
@@ -197,29 +203,32 @@ CrewAI Crews/Flows는 다중 agent와 event-driven workflow에 강하지만, Pha
 
 ## Local storage
 
-Phase 1 저장소:
+Phase 1 저장소는 local embedded libSQL file이다. 구현 계약은 `20-data-storage-contract.md`를 따른다.
 
-- SQLite database.
-- source cache folder.
-- encrypted secret store.
-- exportable Markdown/JSON snapshot.
+- database file: `<appDataDir>/solo-superman.db`.
+- schema/migration: Drizzle ORM + Drizzle Kit generated SQL migrations.
+- repository owner: Node/Hono sidecar.
+- source cache folder: `<appDataDir>/source-cache/`.
+- exports folder: `<appDataDir>/exports/`.
+- secret value itself: OS secret store reference via Rust/Tauri native boundary.
 
 기본 정책:
 
-- 원본은 local.
-- sync는 mirror.
-- sync 충돌 시 local을 우선하되, 충돌 resolution UI를 제공한다.
+- 원본은 local이다.
+- Phase 1 remote sync는 구현하지 않는다.
+- Phase 1에는 remote URL/token reference/status를 담는 config slot만 둔다.
+- 후속 sync가 들어와도 local event log와 SpecVersion이 canonical source다.
 
 ## Optional sync architecture
 
 ```text
-Local SQLite
-  → Sync Manager
-  → Supabase Auth/Postgres/Realtime/Storage
-  → Mobile/Remote monitor later
+Local libSQL
+  -> Remote config placeholder in app_settings
+  -> Supabase/Auth/Postgres/Realtime/Storage later
+  -> Mobile/Remote monitor later
 ```
 
-Supabase Realtime은 Broadcast, Presence, Postgres Changes를 제공하므로 후속 mobile approval, live dashboard, sync status 표시 후보로 적합하다. Phase 1에서는 optional sync 계약만 설계하고 구현은 핵심 폐루프 안정화 후 진행한다.
+Supabase Realtime은 Broadcast, Presence, Postgres Changes를 제공하므로 후속 mobile approval, live dashboard, sync status 표시 후보로 적합하다. Phase 1에서는 optional sync runtime을 만들지 않고, `remoteDbUrl`, `remoteDbTokenRef`, `remoteSyncEnabled=false`, `remoteSyncStatus` 같은 설정 슬롯만 둔다.
 
 ## Security boundary
 
@@ -230,16 +239,21 @@ Supabase Realtime은 Broadcast, Presence, Postgres Changes를 제공하므로 �
 - code/file/browser execution adapter는 Phase 1에서 실제 적용 비활성이다.
 - ChatGPT Pro 웹 자동화는 Phase 2+ 비전이며 Phase 1 구현 범위가 아니다.
 
-## Packaging note
+## Phase 1 implementation decisions
 
-Phase 1 구현 전 결정할 항목:
+이전 packaging note의 열린 항목은 Phase 1 구현팩에서 다음처럼 고정한다.
 
-- Tauri command와 local backend를 Rust 중심으로 둘지, Node/Hono sidecar를 둘지.
-- SQLite binding 선택.
-- Codex app-server 버전 고정과 app-server schema 생성/호환성 정책.
-- ChatGPT/Codex 로그인 flow와 local secret storage 범위.
-- LLM provider abstraction 위치.
-- source cache 암호화 방식.
+| 항목 | Phase 1 결정 | 상세 문서 |
+| --- | --- | --- |
+| local backend topology | Tauri + Node/Hono sidecar | `19-phase1-implementation-architecture.md` |
+| Rust/Tauri 역할 | native boundary only: sidecar lifecycle, app data dir, secret refs, picker/export | `19-phase1-implementation-architecture.md` |
+| Node/Hono 역할 | ProductEngine, repositories, Codex adapter, Hono API, SSE | `19-phase1-implementation-architecture.md`, `21-sidecar-api-runtime-contract.md` |
+| SQLite binding | local embedded libSQL via `@libsql/client` | `20-data-storage-contract.md` |
+| schema/migration | Drizzle schema + generated SQL migrations | `20-data-storage-contract.md` |
+| Codex app-server | stdio transport, generated schema pinning, sandbox preview | `21-sidecar-api-runtime-contract.md` |
+| secret storage | value는 OS secret store, DB/config에는 reference만 저장 | `19-phase1-implementation-architecture.md`, `20-data-storage-contract.md` |
+| source cache encryption | Phase 1은 app data dir 격리와 sensitive export prohibition; 파일 암호화는 후속 hardening 후보 | `20-data-storage-contract.md` |
+| implementation order | PR-01~PR-09 sequence | `22-phase1-implementation-sequence.md` |
 
-이번 docs에서는 이 항목을 “구현 직전 ADR 필요”로 남긴다.
+구현자가 이 표의 항목을 다시 선택하지 않는다. 변경이 필요하면 후속 ADR이 아니라 새 문서 개정 PR로 기존 결정의 근거와 migration impact를 함께 바꾼다.
 

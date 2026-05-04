@@ -12,7 +12,7 @@
 
 산출물:
 
-- 17개 이상 상세 기획 문서.
+- 23개 번호 문서와 README로 구성된 상세 기획/구현 계약 문서.
 - 구현자 핸드오프 검토.
 - 샘플 아이디어 dry-run.
 
@@ -21,6 +21,7 @@
 - 문서 간 상충 없음.
 - Phase 1 구현자가 추가 제품 결정을 하지 않아도 됨.
 - dry-run에서 질문 큐, 리서치 매트릭스, Spec 업데이트, 완성도 점수가 설명 가능.
+- Phase 1 구현자가 topology, package layout, DB binding, API route shape, Codex boundary, PR sequence를 다시 결정하지 않아도 됨.
 
 ## Phase 1: Research 포함 Spec 폐루프 MVP
 
@@ -31,7 +32,9 @@
 포함:
 
 - macOS desktop app.
-- local SQLite.
+- Tauri + React/Vite desktop shell.
+- Node/Hono sidecar.
+- local embedded libSQL + Drizzle.
 - Project 생성.
 - Initial Spec Draft.
 - AmbiguityIssue 분석.
@@ -46,6 +49,9 @@
 - Decision Approval.
 - SpecVersion.
 - Composite Completeness Score.
+- Hono `/api/v1` local API and SSE event stream.
+- Codex app-server sandbox preview adapter.
+- Founder Brief export.
 
 제외:
 
@@ -55,13 +61,15 @@
 - 자동 코드 실행.
 - 브라우저 조작 실행.
 - ChatGPT Pro 웹 자동화.
+- actual remote sync beyond config placeholder.
 - runtime marketplace.
 
 완료 조건:
 
 - 샘플 아이디어 하나가 end-to-end로 처리된다.
 - 완료 후보 card가 생성된다.
-- 사용자가 Spec v1을 export할 수 있다.
+- 사용자가 Spec v1과 Founder Brief를 export할 수 있다.
+- PR-01~PR-09 implementation sequence의 E2E dry-run acceptance를 통과한다.
 
 ## Phase 1.5: Background Research Runtime
 
@@ -220,4 +228,6 @@
 - Phase 1 완료 전 결제/과금을 만들지 않는다.
 - Phase 1 완료 전 팀 협업을 만들지 않는다.
 - cloud sync는 local-first 원칙을 깨지 않는 opt-in이어야 한다.
+- Phase 1에서 remote sync는 remote config placeholder only로 남긴다.
+- Phase 1 implementation sequence는 `22-phase1-implementation-sequence.md`를 따른다.
 

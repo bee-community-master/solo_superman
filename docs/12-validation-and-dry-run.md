@@ -27,6 +27,13 @@
 - Research Loop의 입력/출력이 명확한가?
 - approval boundary가 명확한가?
 - runtime adapter와 core의 경계가 명확한가?
+- Tauri + Node/Hono sidecar topology가 구현자가 다시 선택하지 않아도 될 만큼 고정되어 있는가?
+- node_core_rust_native_boundary가 Rust/Tauri command와 Node sidecar 책임을 분리하는가?
+- local embedded libSQL + Drizzle 저장소, migration, repository convention이 정의되어 있는가?
+- remote sync가 Phase 1에서 구현되지 않고 remote config placeholder only로 제한되는가?
+- Hono `/api/v1` route group, local auth, SSE event stream, error envelope가 정의되어 있는가?
+- Codex app-server stdio, generated schema pinning, RuntimePreviewArtifact 변환 규칙이 정의되어 있는가?
+- Phase 1 구현 PR sequence가 scaffold부터 E2E dry-run까지 순서와 acceptance를 제공하는가?
 
 ### Pass 기준
 
@@ -51,6 +58,10 @@
 | Architecture | core와 runtime adapter 경계 정의 |
 | Security | local-first와 승인 경계 정의 |
 | Roadmap | Phase별 진입 조건과 제외 범위 정의 |
+| Implementation Architecture | Tauri + Node/Hono sidecar, package layout, dev scripts, native boundary 정의 |
+| Data Storage | local embedded libSQL, Drizzle migration, repository/projection, remote config placeholder 정의 |
+| Sidecar API Runtime | Hono route shape, validation, SSE, Codex app-server preview boundary 정의 |
+| Implementation Sequence | PR-01~PR-09 acceptance와 cross-PR dependency 정의 |
 
 ### Fail 시 조치
 
@@ -328,23 +339,36 @@ Follow-up questions:
 - [ ] State/Event Contract dry-run은 샘플 아이디어가 end-to-end event trace로 이어지는지 검증한다.
 - [ ] README, Spec Engine, Domain Model, Validation 문서는 같은 State/Event Contract 범위를 공유한다.
 - [ ] README, Architecture, Decision Queue, Spec Engine, State/Event Contract는 같은 ProductEngine Orchestrator 경계를 공유한다.
+- [ ] Tauri + Node/Hono sidecar 결정이 README, Architecture, Implementation Architecture에서 일치한다.
+- [ ] Rust/Tauri native boundary는 secret reference, app data dir, file picker/export, sidecar lifecycle에 한정된다.
+- [ ] ProductEngine, DB repository, Codex adapter, Hono API는 Node sidecar 소유로 일관된다.
+- [ ] local embedded libSQL + Drizzle 선택이 Architecture, Domain Model, Data Storage에서 일치한다.
+- [ ] remote config placeholder only 정책이 README, Architecture, Data Storage, Security/Phase boundary와 충돌하지 않는다.
+- [ ] Hono route group은 ProductEngine command/event/state를 우회하지 않는다.
+- [ ] Codex app-server는 stdio/schema pinning/preview-only runtime으로 정의된다.
+- [ ] Phase 1 implementation sequence는 문서 계약을 새로 선택하지 않고 구현 순서로만 전환한다.
 
 ## 현재 문서 검증 결과
 
 - Phase 1 범위: 일관됨.
 - Non-goals: 일관됨.
-- Core stack: Tauri/React/SQLite/Spec Engine으로 일관됨.
+- Core stack: Tauri/React/local embedded libSQL/Spec Engine으로 일관됨.
 - Runtime: Codex app-server primary와 adapter 후보로 일관됨.
 - UX 중심: Decision Queue 중심으로 일관됨.
 - Completion: 복합 완성도 + gate로 일관됨.
 - UX Doctrine: confidence map, adaptive session, Founder Brief 기준으로 일관됨.
 - State/Event Contract: Question, Research, Approval, SpecVersion, Completion trace 기준으로 일관됨.
+- Implementation Architecture: Tauri + Node/Hono sidecar, package layout, dev scripts, native boundary 기준으로 일관됨.
+- Data Storage: local embedded libSQL + Drizzle, repository/projection, remote config placeholder 기준으로 일관됨.
+- Sidecar API Runtime: Hono `/api/v1`, local auth, SSE, Codex app-server preview boundary 기준으로 일관됨.
+- Implementation Sequence: PR-01~PR-09 순서와 acceptance 기준으로 일관됨.
 
-남은 구현 직전 ADR:
+이번 문서에서 고정된 구현 결정:
 
-- Tauri 내부에서 Node/Hono sidecar를 둘지, Rust command 중심으로 갈지.
-- SQLite binding 선택.
-- Codex app-server 버전/schema 호환성 정책.
-- ChatGPT/Codex 로그인 flow와 local secret storage 범위.
-- 첫 LLM provider abstraction.
-- 리서치 source cache 암호화 방식.
+- Tauri 내부 core 구현 방식은 Rust command 중심이 아니라 Node/Hono sidecar 중심이다.
+- SQLite binding은 local embedded libSQL via `@libsql/client`다.
+- schema/migration은 Drizzle schema와 generated SQL migration이다.
+- Codex app-server는 stdio 기본값과 generated schema pinning을 사용한다.
+- ChatGPT/Codex secret value는 DB에 저장하지 않고 Rust/Tauri native boundary가 secret reference만 다룬다.
+- 첫 LLM provider abstraction은 `CodexRuntimeAdapter`이며, API key provider abstraction은 후속 후보로 둔다.
+- Phase 1 source cache는 app data dir 격리와 export prohibition을 우선하고, 파일 암호화는 후속 hardening 후보로 둔다.

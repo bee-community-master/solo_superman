@@ -29,7 +29,7 @@ AmbiguityIssue
  → CompletionCandidate
 ```
 
-이 관계는 DB/API 스키마 상세 제외 원칙에 따른 문서 계약이다. 실제 저장소 index, foreign key, API shape는 구현 설계 단계에서 확정한다.
+이 관계는 제품 도메인 계약이다. 실제 저장소 index, foreign key, repository, projection, migration convention은 `20-data-storage-contract.md`가 소유하고, request/response wire shape는 `21-sidecar-api-runtime-contract.md`가 소유한다.
 
 ## State/Event traceability 규칙
 
@@ -40,6 +40,21 @@ AmbiguityIssue
 - `EvidenceMatrix`의 Known Risks와 Next Validation Actions는 Founder Brief와 CompletionCandidate에 연결된다.
 - `CompletionCandidate`는 마지막 `CompletenessSnapshot`, 핵심 `Decision`, 남은 high severity `AmbiguityIssue`, Evidence gate 상태를 추적할 수 있어야 한다.
 
+
+## 구현 저장소 연결
+
+Phase 1 구현자는 이 문서의 타입을 그대로 table DDL로 옮기지 않는다. 구현 연결은 다음처럼 분리한다.
+
+| 도메인 관심사 | 이 문서의 책임 | 구현 저장 책임 |
+| --- | --- | --- |
+| 객체 의미와 상태명 | 타입, 상태, trace 규칙 정의 | `20-data-storage-contract.md`의 table group과 repository |
+| append-only history | 어떤 객체가 어떤 trace를 가져야 하는지 정의 | `events` table과 projection rebuild 규칙 |
+| Queue 표시 상태 | Question/Decision/Research/RuntimePreview의 제품 상태 정의 | `queue_items` projection과 ProductEngine reducer |
+| Evidence 판단 | EvidenceMatrix 의미와 balanceStatus 정의 | evidence repository와 skeptical search fields |
+| SpecVersion 원인 | Decision/Evidence/SpecUpdate 연결 규칙 | immutable spec version transaction |
+| API shape | 객체가 UI에 필요한 의미 | `21-sidecar-api-runtime-contract.md`의 route group과 response envelope |
+
+도메인 모델 변경이 저장소 변경을 요구하면 `20-data-storage-contract.md`의 migration convention과 `22-phase1-implementation-sequence.md`의 문서 업데이트 규칙을 함께 갱신한다.
 
 ## Project
 
@@ -480,9 +495,11 @@ type SourceRef = {
 
 ## 설계 메모
 
-- Phase 1 DB는 SQLite에 위 모델을 직접 저장한다.
-- AI Runtime 관련 추가 상태와 권한 경계는 `17-ai-runtime-access-strategy.md`를 따른다.
-- sync가 켜지면 Project 단위로 cloud mirror를 만든다.
+- Phase 1 DB는 local embedded libSQL을 사용하지만, 위 타입을 그대로 저장하는 것이 아니라 repository/projection 계약으로 저장한다.
+- DB schema, migration, file location, remote config placeholder는 `20-data-storage-contract.md`를 따른다.
+- Hono API route group과 response envelope는 `21-sidecar-api-runtime-contract.md`를 따른다.
+- AI Runtime 관련 추가 상태와 권한 경계는 `17-ai-runtime-access-strategy.md`와 `21-sidecar-api-runtime-contract.md`를 따른다.
+- sync가 켜지는 Phase는 후속이며, Phase 1에는 Project 단위 remote config placeholder만 둔다.
 - `SpecVersion`은 immutable하게 다룬다.
 - `LivingProductSpec`은 최신 version pointer와 working draft를 관리한다.
 - `Decision`과 `EvidenceMatrix`는 분리한다. 근거가 있어도 사용자가 승인하지 않으면 결정이 아니다.

@@ -1,0 +1,326 @@
+# 21. Sidecar API and Runtime Contract
+
+## 목적
+
+이 문서는 Node/Hono sidecar의 API route, validation, local auth, event stream, Codex app-server integration, RuntimePreviewArtifact 변환 계약을 고정한다.
+
+`19-phase1-implementation-architecture.md`가 process topology를 정의하고, `20-data-storage-contract.md`가 persistence를 정의한다면, 이 문서는 frontend와 sidecar, sidecar와 Codex app-server 사이의 구현 계약을 정의한다.
+
+## 확정 결정
+
+| 항목 | 결정 |
+| --- | --- |
+| Sidecar framework | Hono |
+| Validation | Zod + Hono validator/OpenAPI route definitions |
+| API version prefix | `/api/v1` |
+| Health endpoints | `/healthz`, `/readyz` |
+| Event stream | Server-Sent Events at `/api/v1/events/stream` |
+| Local auth | Tauri-issued capability token |
+| Codex app-server transport | stdio by default |
+| Codex schema | generated per installed Codex version |
+| Runtime output | RuntimePreviewArtifact only |
+| Browser/file/shell apply | forbidden in Phase 1 |
+
+## API envelope
+
+All JSON API responses use one of two envelopes.
+
+Success:
+
+```json
+{
+  "ok": true,
+  "data": {},
+  "meta": {
+    "requestId": "req_...",
+    "eventId": "evt_..."
+  }
+}
+```
+
+Failure:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "Human readable message",
+    "details": {}
+  },
+  "meta": {
+    "requestId": "req_..."
+  }
+}
+```
+
+Rules:
+
+- Frontend must not depend on raw Hono error shapes.
+- Domain errors use stable `error.code` strings.
+- Every mutating API should return the updated projection needed by the UI.
+- Mutating APIs should include `eventId` when a ProductEngine event was appended.
+
+## Local auth and loopback policy
+
+- Sidecar listens on loopback only.
+- Tauri issues a high-entropy local capability token at app startup.
+- Frontend sends `Authorization: Bearer <local-token>` to sidecar.
+- Sidecar accepts unauthenticated requests only for `/healthz` and `/readyz`.
+- Sidecar rejects requests from non-loopback addresses.
+- CORS is restricted to the Tauri/WebView origin in packaged mode and localhost dev origins in development.
+- The local token is not the user's Codex credential and must not be persisted to disk.
+
+## Route groups
+
+### Health
+
+| Method | Path | Purpose | Auth |
+| --- | --- | --- | --- |
+| GET | `/healthz` | process alive | no |
+| GET | `/readyz` | DB migrated, ProductEngine initialized, runtime status known | no |
+
+### Project and session
+
+| Method | Path | Command/query | Returns |
+| --- | --- | --- | --- |
+| POST | `/api/v1/projects` | `StartProject` | project overview and first session |
+| GET | `/api/v1/projects` | list projects | project summaries |
+| GET | `/api/v1/projects/:projectId` | project detail | project overview projection |
+| POST | `/api/v1/projects/:projectId/sessions` | start or resume session | session projection |
+| GET | `/api/v1/projects/:projectId/sessions/:sessionId` | get session | full session shell projection |
+
+### Intake and spec
+
+| Method | Path | Command/query | Returns |
+| --- | --- | --- | --- |
+| POST | `/api/v1/sessions/:sessionId/intake` | `CaptureIntake` | normalized intake and next action |
+| POST | `/api/v1/sessions/:sessionId/spec/initial` | `DraftInitialSpec` | living spec projection |
+| GET | `/api/v1/sessions/:sessionId/spec` | get current spec | living spec projection |
+| POST | `/api/v1/sessions/:sessionId/spec/analyze` | `AnalyzeAmbiguity` | ambiguity and queue projection |
+| GET | `/api/v1/sessions/:sessionId/spec/versions` | list versions | version list |
+
+### Queue and answer
+
+| Method | Path | Command/query | Returns |
+| --- | --- | --- | --- |
+| GET | `/api/v1/sessions/:sessionId/queue` | get queue projection | active, next, blocked, deferred |
+| POST | `/api/v1/sessions/:sessionId/queue/activate` | `ActivateQuestionBatch` | queue projection |
+| POST | `/api/v1/questions/:questionId/answers` | `SubmitAnswer` and `RouteAnswer` | updated queue and activity |
+| POST | `/api/v1/queue-items/:queueItemId/defer` | defer item | queue projection |
+| POST | `/api/v1/queue-items/:queueItemId/dismiss` | dismiss invalid item | queue projection |
+
+### Research and evidence
+
+| Method | Path | Command/query | Returns |
+| --- | --- | --- | --- |
+| POST | `/api/v1/sessions/:sessionId/research-tasks` | `PlanResearch` | research task projection |
+| GET | `/api/v1/sessions/:sessionId/research` | list research state | research/evidence projection |
+| POST | `/api/v1/research-tasks/:researchTaskId/results` | `ImportResearchResult` | EvidenceMatrix and queue projection |
+| POST | `/api/v1/research-results/:researchResultId/synthesize` | `SynthesizeEvidence` | EvidenceMatrix |
+
+### Decision and spec version
+
+| Method | Path | Command/query | Returns |
+| --- | --- | --- | --- |
+| POST | `/api/v1/spec-updates` | `SuggestSpecUpdate` | spec update candidate |
+| POST | `/api/v1/decisions` | `RequestDecisionApproval` | decision card |
+| POST | `/api/v1/decisions/:decisionId/resolve` | `ResolveDecision` | decision outcome and queue projection |
+| POST | `/api/v1/sessions/:sessionId/spec/versions` | `CreateSpecVersion` | spec version and score trigger |
+
+### Runtime preview
+
+| Method | Path | Command/query | Returns |
+| --- | --- | --- | --- |
+| GET | `/api/v1/runtime/status` | runtime availability | adapter status |
+| POST | `/api/v1/runtime/codex/preview` | `CreateRuntimePreview` | RuntimePreviewArtifact |
+| POST | `/api/v1/runtime/manual-handoff` | create handoff prompt | RuntimePreviewArtifact |
+| POST | `/api/v1/runtime/artifacts/:artifactId/convert` | convert preview to research/update/risk | queue projection |
+| POST | `/api/v1/runtime/artifacts/:artifactId/block` | mark unsupported execution request blocked | blocked outcome |
+
+### Completeness and export
+
+| Method | Path | Command/query | Returns |
+| --- | --- | --- | --- |
+| POST | `/api/v1/sessions/:sessionId/completeness/score` | `ScoreCompleteness` | completeness projection |
+| POST | `/api/v1/sessions/:sessionId/completion-candidate` | `EmitCompletionCandidate` | completion candidate card |
+| GET | `/api/v1/sessions/:sessionId/founder-brief` | get current brief draft | founder brief projection |
+| POST | `/api/v1/sessions/:sessionId/founder-brief/export` | `ExportFounderBrief` | export artifact metadata |
+
+### Events
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/v1/events/stream?sessionId=...` | SSE stream for activity, queue, runtime, score updates |
+| GET | `/api/v1/sessions/:sessionId/activity` | paginated activity feed |
+
+## Hono validation contract
+
+- Each route has a Zod schema for params, query, body, and response.
+- Shared schemas live in `packages/contracts/src/api/`.
+- Sidecar route files import schemas from `packages/contracts`.
+- Hono handlers use validated data only.
+- Request body tests must send `Content-Type: application/json`.
+- Generated OpenAPI artifact is emitted at build time and served in development at `/api/v1/openapi.json`.
+- Packaged app may disable interactive docs but must keep the generated artifact in source control or build artifacts.
+
+## ProductEngine API command flow
+
+Mutating routes follow this shape:
+
+```text
+validate request
+  -> map request to ProductEngine command
+  -> ProductEngine validates preconditions
+  -> append event and persist transaction
+  -> rebuild affected projections
+  -> return updated projection envelope
+  -> publish SSE event
+```
+
+Handlers must not directly update multiple repositories without going through ProductEngine for product state changes.
+
+## SSE event contract
+
+SSE events use stable event names.
+
+| Event name | Payload |
+| --- | --- |
+| `activity.updated` | latest activity item |
+| `queue.updated` | active/next/blocked/deferred summary |
+| `spec.updated` | changed section/version summary |
+| `research.updated` | task/result/evidence status |
+| `decision.updated` | decision card status |
+| `runtime.updated` | adapter/artifact status |
+| `completeness.updated` | score and weak axes |
+| `completion.ready` | completion candidate summary |
+| `sidecar.warning` | recoverable warning |
+| `sidecar.error` | user-visible error state |
+
+SSE is a UI update channel, not the source of truth. The frontend must refetch projections when it reconnects.
+
+## Codex app-server integration
+
+### Why app-server
+
+Codex app-server is used because Phase 1 needs deep product integration: conversation history, approvals, and streamed agent events. For generic CI automation, Codex SDK would be a better fit, but this product needs user-facing session integration.
+
+### Transport
+
+- Phase 1 default: `codex app-server` over stdio JSONL.
+- WebSocket app-server transport is not the Phase 1 default because the official docs mark it experimental/unsupported.
+- Sidecar spawns the Codex app-server child process when a runtime preview is requested or when runtime status check needs it.
+- Sidecar keeps Codex child lifecycle separate from Hono lifecycle. Hono remains ready even when Codex is unavailable.
+
+### Schema pinning
+
+Before implementing Codex integration, generate version-specific schemas:
+
+```text
+codex app-server generate-ts --out packages/contracts/src/codex-generated/<codex-version>
+codex app-server generate-json-schema --out packages/contracts/src/codex-generated/<codex-version>/json-schema
+```
+
+Implementation rules:
+
+- Generated schema directory includes the Codex version used to generate it.
+- Sidecar adapter imports generated types through a narrow wrapper.
+- If generated schema changes, update `17-ai-runtime-access-strategy.md` or add a short compatibility note in this document.
+- Do not hand-write broad `any` wrappers around app-server messages.
+
+### Thread/session mapping
+
+| Solo Superman object | Codex app-server object |
+| --- | --- |
+| Project | metadata on local mapping table |
+| Session | Codex thread candidate |
+| RuntimePreviewArtifact | Codex turn result summary |
+| Activity Feed item | Codex stream notification normalized to local event |
+| Approval Card | app-server approval/user-input request mapped to Queue item |
+
+Mapping table minimum fields:
+
+- `id`.
+- `projectId`.
+- `sessionId`.
+- `codexThreadId`.
+- `codexModel`.
+- `schemaVersion`.
+- `createdAt`.
+- `lastTurnId`.
+- `status`.
+
+### Turn policy
+
+Allowed Phase 1 turn purposes:
+
+- spec analysis.
+- question generation draft.
+- research prompt generation.
+- evidence summary.
+- spec update suggestion.
+- implementation plan preview.
+
+Forbidden Phase 1 turn outcomes:
+
+- apply file patch.
+- run shell command.
+- control browser.
+- submit ChatGPT web automation.
+- modify external service.
+
+If Codex proposes a forbidden action, sidecar must convert it into `RuntimePreviewArtifact.kind = blocked_execution_request` and Queue must show the blocked reason.
+
+## RuntimePreviewArtifact conversion
+
+Runtime artifacts can convert only through ProductEngine commands.
+
+| Artifact kind | Allowed conversion |
+| --- | --- |
+| `research_prompt` | Manual Handoff Card |
+| `research_summary` | ResearchResult candidate |
+| `evidence_summary` | EvidenceMatrix candidate |
+| `spec_update_preview` | SpecUpdate candidate |
+| `implementation_plan_preview` | Planning note or Risk Card |
+| `diff_preview` | blocked in Phase 1 or handoff note |
+| `command_plan_preview` | blocked in Phase 1 |
+| `browser_action_preview` | blocked in Phase 1 |
+
+No runtime artifact can directly create SpecVersion.
+
+## Manual handoff fallback
+
+When Codex app-server is unavailable or the user chooses not to connect it:
+
+- Sidecar generates a copyable prompt.
+- User may paste result back manually.
+- Imported result is stored as `ResearchResult` or `RuntimePreviewArtifact` with source `manual_prompt_handoff`.
+- Manual import must pass the same Evidence Gate and Approval Gate as Codex output.
+
+## Error contract
+
+| Error code | Meaning | UI behavior |
+| --- | --- | --- |
+| `SIDECAR_NOT_READY` | DB/runtime not ready | show local engine unavailable state |
+| `UNAUTHORIZED_LOCAL_REQUEST` | missing/invalid local token | ask app to refresh session |
+| `PROJECT_NOT_FOUND` | invalid project id | show recoverable not found |
+| `COMMAND_PRECONDITION_FAILED` | ProductEngine state mismatch | refetch projections |
+| `CODEX_UNAVAILABLE` | Codex app-server not available | offer manual handoff |
+| `RUNTIME_EXECUTION_FORBIDDEN` | file/shell/browser apply requested | create blocked preview card |
+| `VALIDATION_FAILED` | request schema invalid | show field-level guidance |
+| `MIGRATION_FAILED` | DB migration failed | keep sidecar not ready |
+
+## Official reference notes
+
+- Codex app-server is documented as the interface for rich clients and supports authentication, conversation history, approvals, and streamed agent events. Reference: <https://developers.openai.com/codex/app-server>
+- Codex app-server protocol uses JSON-RPC style messages over stdio by default and can generate TypeScript/JSON schemas for the installed version. Reference: <https://developers.openai.com/codex/app-server>
+- Hono route validation can use Zod and validator middleware, and Hono's Zod OpenAPI example supports Zod schemas plus OpenAPI generation. Reference: <https://hono.dev/docs/guides/validation>, <https://hono.dev/examples/zod-openapi>
+
+## Implementation checklist
+
+- Implement Hono health endpoints before domain routes.
+- Add local capability token middleware before any non-health route.
+- Add Zod schemas before route handlers.
+- Implement SSE reconnect behavior before long-running runtime preview UI.
+- Implement Codex app-server status detection before creating runtime preview turns.
+- Treat generated Codex schema as versioned implementation input.
