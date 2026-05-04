@@ -21,6 +21,7 @@
 - Founder Brief가 완료/중단 시 기본 산출물로 정의되어 있는가?
 - Ambiguity/Question Lifecycle이 무한 질문 루프를 막는 수렴 정책을 정의하는가?
 - Pro/Con Evidence Gate가 confirmation bias를 막는 evidence 품질 기준을 정의하는가?
+- State/Event Contract가 Question, Research, Approval, SpecVersion, Completion의 trace를 끊기지 않게 정의하는가?
 - Research Loop의 입력/출력이 명확한가?
 - approval boundary가 명확한가?
 - runtime adapter와 core의 경계가 명확한가?
@@ -40,6 +41,7 @@
 | UX Doctrine | 남은 리스크를 알고 시작한다는 완료 감각, 5축 레이더, 행동 신호 기반 피로도 개입 정의 |
 | Ambiguity/Question | repeat_limit_reached, severity별 수렴 정책, completion 연결 정의 |
 | Pro/Con Evidence | pro_evidence, con_evidence, missing_con_evidence, skeptical search, completion 연결 정의 |
+| State/Event Contract | AmbiguityIssue에서 CompletionCandidate까지 trace link, terminal outcome, guardrail 정의 |
 | Founder Brief | Problem-Customer-Value, Top Decisions, Known Risks, Next Validation Actions 정의 |
 | Domain | 핵심 객체와 상태 정의 |
 | Architecture | core와 runtime adapter 경계 정의 |
@@ -253,6 +255,38 @@ Follow-up questions:
 - `missing_con_evidence`가 있으면 Known Risks와 Next Validation Actions에 연결한다.
 - 반대근거가 발견되면 Founder Brief의 Known Risks에 숨기지 않고 표시한다.
 
+### State/Event Contract dry-run
+
+샘플 세션의 end-to-end trace는 다음처럼 끊기지 않아야 한다.
+
+| 순서 | 객체/상태 | Event 또는 판단 | 다음 연결 |
+| --- | --- | --- | --- |
+| 1 | `AmbiguityIssue` | “초기 창업자”가 너무 넓어 `primary_customer_narrowing` high severity issue 생성 | `Question` |
+| 2 | `Question` | 첫 고객 단계를 좁히는 선택 질문이 batch에 포함됨 | `Answer` |
+| 3 | `Answer` | 사용자가 “고객 인터뷰를 앞둔 초기 창업자”를 선택 | `decision_candidate`, `research_needed` |
+| 4 | `ResearchTask` | 대체재와 지불 의사 근거를 조사 | `ResearchResult` |
+| 5 | `EvidenceMatrix` | pro evidence, con evidence, uncertainties, skeptical search 기록 | `SpecUpdate` |
+| 6 | `SpecUpdate` | Target Customer와 MVP Scope 변경 제안 생성 | `Decision Approval Card` |
+| 7 | `Decision` | 사용자가 primary customer와 MVP scope 변경을 승인 | `SpecVersion` |
+| 8 | `SpecVersion` | 승인된 변경만 immutable snapshot으로 고정 | `CompletenessSnapshot` |
+| 9 | `CompletenessSnapshot` | 복합 완성도와 Confidence Map이 갱신됨 | `CompletionCandidate` 또는 next action |
+| 10 | `CompletionCandidate` | 모든 gate 통과 시 Founder Brief와 남은 risk를 함께 제시 | 완료 선언 / 더 깊게 질문 / 리서치 보강 |
+
+통과 조건:
+
+- 각 행은 이전 객체의 id 또는 문서상 명시된 trace link를 가진다.
+- `AnswerRouteOutcome`이 없는 Answer는 다음 단계로 넘어가지 않는다.
+- high-impact `SpecUpdate`는 approval 없이 `SpecVersion`을 만들지 않는다.
+- high impact claim이 `pro_only`이면 CompletionCandidate가 생성되지 않는다.
+- `CompletionCandidate`는 남은 Known Risks와 Next Validation Actions를 Founder Brief에 연결한다.
+
+실패 조건:
+
+- `ResearchTask` 또는 `EvidenceMatrix`가 어떤 Question/Answer에서 왔는지 모른다.
+- Decision이 승인됐지만 alternatives, evidence, rationale이 없다.
+- Completeness score만 높고 high severity issue 상태가 열려 있는데 완료 후보가 생성된다.
+- State/Event Contract가 README, Spec Engine, Domain Model과 다른 용어를 사용한다.
+
 ## 정적 일관성 검토 체크리스트
 
 - [ ] 모든 문서가 Phase 1을 Research 포함 폐루프로 정의한다.
@@ -279,6 +313,10 @@ Follow-up questions:
 - [ ] 행동 신호 기반 피로도 개입은 확정된 결정, confidence delta, if-stop-now 산출물, 낮은 confidence 축을 요약한다.
 - [ ] Founder Brief는 Problem-Customer-Value, Top Decisions, Known Risks, Next Validation Actions를 포함한다.
 - [ ] RuntimeAdapter는 core가 아니라 확장 경계로 정의된다.
+- [ ] State/Event Contract는 AmbiguityIssue, Question, Answer, ResearchTask, EvidenceMatrix, SpecUpdate, Decision, SpecVersion, CompletenessSnapshot, CompletionCandidate trace를 정의한다.
+- [ ] State/Event Contract는 런타임/코드 구현 제외와 DB/API 스키마 상세 제외를 명시한다.
+- [ ] State/Event Contract dry-run은 샘플 아이디어가 end-to-end event trace로 이어지는지 검증한다.
+- [ ] README, Spec Engine, Domain Model, Validation 문서는 같은 State/Event Contract 범위를 공유한다.
 
 ## 현재 문서 검증 결과
 
@@ -289,6 +327,7 @@ Follow-up questions:
 - UX 중심: Decision Queue 중심으로 일관됨.
 - Completion: 복합 완성도 + gate로 일관됨.
 - UX Doctrine: confidence map, adaptive session, Founder Brief 기준으로 일관됨.
+- State/Event Contract: Question, Research, Approval, SpecVersion, Completion trace 기준으로 일관됨.
 
 남은 구현 직전 ADR:
 

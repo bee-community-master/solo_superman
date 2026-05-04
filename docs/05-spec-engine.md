@@ -6,6 +6,8 @@ Spec Engine은 아이디어, 답변, 리서치 결과, 결정 승인, 문서 버
 
 AmbiguityIssue와 QuestionBatch의 상세 수렴 계약은 `14-ambiguity-question-lifecycle.md`를 따른다. Spec Engine은 이 계약을 전체 프로젝트 상태머신에 연결한다.
 
+Question, ResearchTask, EvidenceMatrix, Decision, SpecUpdate, SpecVersion, CompletionCandidate가 끊기지 않는 end-to-end trace는 `16-state-event-contract.md`의 State/Event Contract를 따른다. 이 계약은 구현 전 문서 계약이며 런타임/코드 구현 제외, DB/API 스키마 상세 제외 원칙을 유지한다.
+
 ## Spec Kit 차용 방식
 
 GitHub Spec Kit은 spec을 구현 전 중심 산출물로 다루는 Spec-Driven Development 흐름을 제안한다. Solo Superman은 그 철학을 창업 기획으로 확장한다.
@@ -42,6 +44,21 @@ ProjectCreated
   → CompletionCandidate
   → SpecCompleted
 ```
+
+State/Event Contract 관점에서는 이 상태머신을 다음 trace로도 검토한다.
+
+```text
+AmbiguityIssue
+  → Question
+  → Answer
+  → AnswerRouteOutcome
+  → ResearchTask / EvidenceMatrix / SpecUpdate / Decision
+  → SpecVersion
+  → CompletenessSnapshot
+  → CompletionCandidate
+```
+
+이 trace는 상태머신의 대체물이 아니라 문서 간 연결 검증 기준이다. 어떤 상태도 원인 객체와 후속 outcome 없이 독립적으로 완료될 수 없다.
 
 ### ProjectCreated
 
@@ -235,6 +252,27 @@ ProjectCreated
 
 - completion card.
 - remaining risks.
+
+## State/Event Contract 연결 규칙
+
+| 상태머신 단계 | State/Event Contract에서 확인할 것 |
+| --- | --- |
+| `AmbiguityAnalyzed` | 각 `AmbiguityIssue`가 관련 Spec section, severity, `topicKey`, 가능한 route를 가진다 |
+| `QuestionBatchReady` | 각 `Question`이 하나의 핵심 decision 또는 evidence gap을 겨냥하고 confidence axis impact를 가진다 |
+| `AnswerRouted` | 모든 `Answer`가 `resolved`, `research_needed`, `missing_con_evidence`, `decision_candidate`, `spec_update_candidate`, `conflict_detected`, `deferred`, `repeat_limit_reached` 중 하나로 수렴한다 |
+| `ResearchInProgress` / `EvidenceMatrixReady` | `ResearchTask`와 `EvidenceMatrix`가 pro/con/uncertainty, skeptical search, Known Risks 연결을 만든다 |
+| `SpecUpdateSuggested` | low-risk update와 high-impact approval request가 분리된다 |
+| `DecisionApprovalWaiting` | `Decision`이 승인, 거절, 수정, 보류, risk accepted 중 하나의 terminal outcome을 가진다 |
+| `SpecVersionCreated` | 승인된 `Decision`과 적용된 `SpecUpdate`만 immutable snapshot의 원인이 된다 |
+| `CompletenessScored` / `CompletionCandidate` | 점수, Confidence Map, evidence gate, approval gate, high severity issue 상태가 함께 검토된다 |
+
+State/Event Contract 위반은 다음과 같다.
+
+- route outcome 없는 답변을 Decision 후보로 사용한다.
+- high-impact `SpecUpdate`를 approval 없이 SpecVersion에 반영한다.
+- high impact `pro_only` claim을 decision-ready로 표시한다.
+- 같은 `topicKey`의 4번째 질문 전에 `repeat_limit_reached`를 발생시키지 않는다.
+- `CompletionCandidate`가 어떤 `CompletenessSnapshot`, `Decision`, `EvidenceMatrix`에서 왔는지 추적할 수 없다.
 
 ## Engine modules
 

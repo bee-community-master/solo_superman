@@ -17,6 +17,30 @@ Project
  └─ CompletenessSnapshot[]
 ```
 
+State/Event Contract 관점의 trace는 다음과 같이 읽는다.
+
+```text
+AmbiguityIssue
+ → Question
+ → Answer
+ → ResearchTask / EvidenceMatrix / SpecUpdate / Decision
+ → SpecVersion
+ → CompletenessSnapshot
+ → CompletionCandidate
+```
+
+이 관계는 DB/API 스키마 상세 제외 원칙에 따른 문서 계약이다. 실제 저장소 index, foreign key, API shape는 구현 설계 단계에서 확정한다.
+
+## State/Event traceability 규칙
+
+- 모든 `Question`은 하나의 primary `AmbiguityIssue`와 `topicKey`를 가진다.
+- 모든 `Answer`는 하나의 `AnswerRouteOutcome`을 가진다.
+- `research_needed` 또는 `missing_con_evidence`는 `ResearchTask` 또는 명시적 deferred/risk outcome으로 이어진다.
+- high-impact `SpecUpdate`는 `Decision` approval 없이 `SpecVersion` 원인이 될 수 없다.
+- `EvidenceMatrix`의 Known Risks와 Next Validation Actions는 Founder Brief와 CompletionCandidate에 연결된다.
+- `CompletionCandidate`는 마지막 `CompletenessSnapshot`, 핵심 `Decision`, 남은 high severity `AmbiguityIssue`, Evidence gate 상태를 추적할 수 있어야 한다.
+
+
 ## Project
 
 프로젝트는 하나의 창업 아이디어 구체화 작업 단위다.
@@ -365,6 +389,30 @@ type CompletenessSnapshot = {
   createdAt: string;
 };
 ```
+
+## CompletionCandidate
+
+State/Event Contract에서 완료 후보를 표현하는 문서 객체다.
+
+```ts
+type CompletionCandidate = {
+  id: string;
+  projectId: string;
+  completenessSnapshotId: string;
+  linkedDecisionIds: string[];
+  linkedEvidenceMatrixIds: string[];
+  remainingHighRiskIssueIds: string[];
+  founderBriefSections: ('problem_customer_value' | 'top_decisions' | 'known_risks' | 'next_validation_actions')[];
+  availableActions: ('declare_complete' | 'ask_deeper_questions' | 'reinforce_research' | 'export_founder_brief')[];
+  status: 'candidate' | 'accepted' | 'continued' | 'research_reinforcement_requested';
+};
+```
+
+필드 규칙:
+
+- `remainingHighRiskIssueIds`는 비어 있거나, `risk_accepted` 또는 blocker 설명과 연결되어야 한다.
+- `availableActions`는 완료 선언만 강요하지 않고 더 깊게 질문하거나 리서치를 보강하는 선택지를 유지한다.
+- 이 타입은 State/Event Contract 검증을 위한 문서 계약이며 DB/API 스키마 상세가 아니다.
 
 ## SourceRef
 
