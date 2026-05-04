@@ -8,6 +8,10 @@ function readText(path) {
   return readFileSync(new URL(path, ROOT), "utf8");
 }
 
+const DOCS_24 = readText("docs/24-codex-prompt-output-contract.md");
+const DOCS_25 = readText("docs/25-contracts-dto-catalog.md");
+const DOCS_26 = readText("docs/26-api-route-behavior-catalog.md");
+
 function fail(message, details = []) {
   console.error(`doc contract check failed: ${message}`);
 
@@ -79,9 +83,8 @@ function parseBacktickedValuesFromTableColumn(section, columnIndex) {
 }
 
 function parseDocs25CommandTypes() {
-  const docs = readText("docs/25-contracts-dto-catalog.md");
   const section = sectionBetween(
-    docs,
+    DOCS_25,
     "### CommandType enum",
     "### ProductEngineCommand envelope",
     "docs/25 CommandType section"
@@ -91,9 +94,8 @@ function parseDocs25CommandTypes() {
 }
 
 function parseDocs25CommandActors() {
-  const docs = readText("docs/25-contracts-dto-catalog.md");
   const section = sectionBetween(
-    docs,
+    DOCS_25,
     "`CommandActor` enum:",
     "Example command envelope:",
     "docs/25 CommandActor section"
@@ -103,9 +105,8 @@ function parseDocs25CommandActors() {
 }
 
 function parseDocs25EventTypes() {
-  const docs = readText("docs/25-contracts-dto-catalog.md");
   const section = sectionBetween(
-    docs,
+    DOCS_25,
     "Closed Phase 1 event type groups:",
     "### ProductEngineEffectPlanItem",
     "docs/25 ProductEngineEventType section"
@@ -115,9 +116,8 @@ function parseDocs25EventTypes() {
 }
 
 function parseDocs25EffectTypes() {
-  const docs = readText("docs/25-contracts-dto-catalog.md");
   const section = sectionBetween(
-    docs,
+    DOCS_25,
     "### EffectType enum",
     "### EffectStatus enum",
     "docs/25 EffectType section"
@@ -127,9 +127,8 @@ function parseDocs25EffectTypes() {
 }
 
 function parseDocs25EffectStatuses() {
-  const docs = readText("docs/25-contracts-dto-catalog.md");
   const section = sectionBetween(
-    docs,
+    DOCS_25,
     "### EffectStatus enum",
     "### EffectTaskDto",
     "docs/25 EffectStatus section"
@@ -139,9 +138,8 @@ function parseDocs25EffectStatuses() {
 }
 
 function parseDocs25SseEvents() {
-  const docs = readText("docs/25-contracts-dto-catalog.md");
   const section = sectionBetween(
-    docs,
+    DOCS_25,
     "### SseEvent union",
     "### ProjectionRefetchHint",
     "docs/25 SseEvent section"
@@ -151,9 +149,8 @@ function parseDocs25SseEvents() {
 }
 
 function parseDocs25ProjectionKinds() {
-  const docs = readText("docs/25-contracts-dto-catalog.md");
   const section = sectionBetween(
-    docs,
+    DOCS_25,
     "| Projection | File | Primary UI |",
     "### Projection minimum fields",
     "docs/25 ProjectionKind section"
@@ -163,9 +160,8 @@ function parseDocs25ProjectionKinds() {
 }
 
 function parseDocs24TurnPurposes() {
-  const docs = readText("docs/24-codex-prompt-output-contract.md");
   const section = sectionBetween(
-    docs,
+    DOCS_24,
     "Phase 1에서 허용되는 Codex turnPurpose는 다음 6개뿐이다.",
     "## Input contract overview",
     "docs/24 turnPurpose section"
@@ -175,9 +171,8 @@ function parseDocs24TurnPurposes() {
 }
 
 function parseDocs24ArtifactKinds() {
-  const docs = readText("docs/24-codex-prompt-output-contract.md");
   const section = sectionBetween(
-    docs,
+    DOCS_24,
     "## Artifact field contracts",
     "## Blocked action taxonomy",
     "docs/24 artifact kind section"
@@ -187,9 +182,8 @@ function parseDocs24ArtifactKinds() {
 }
 
 function parseDocs24ApplyPolicies() {
-  const docs = readText("docs/24-codex-prompt-output-contract.md");
   const section = sectionBetween(
-    docs,
+    DOCS_24,
     "## applyPolicy enum",
     "Unknown applyPolicy",
     "docs/24 applyPolicy section"
@@ -199,9 +193,8 @@ function parseDocs24ApplyPolicies() {
 }
 
 function parseDocs24BlockedActionTypes() {
-  const docs = readText("docs/24-codex-prompt-output-contract.md");
   const section = sectionBetween(
-    docs,
+    DOCS_24,
     "## Blocked action taxonomy",
     "## Auto-apply and gate matrix",
     "docs/24 blocked action section"
@@ -230,10 +223,9 @@ function parseRouteCatalog() {
 }
 
 function parseDocs26Routes() {
-  const docs = readText("docs/26-api-route-behavior-catalog.md");
   const routes = new Map();
 
-  for (const match of docs.matchAll(/\| `((?:GET|POST) [^`]+)` \|/g)) {
+  for (const match of DOCS_26.matchAll(/\| `((?:GET|POST) [^`]+)` \|/g)) {
     const [method, endpoint] = match[1].split(" ", 2);
     const [path, query = ""] = endpoint.split("?");
     const queryParams = query
@@ -260,14 +252,7 @@ function compareSets(label, docsValues, codeValues) {
   }
 }
 
-function compareCommandTypes() {
-  const docsTypes = parseDocs25CommandTypes();
-  const codeTypes = parseConstArray(readText("packages/contracts/src/product-engine/commands.ts"), "COMMAND_TYPES");
-
-  compareSets("docs/25 CommandType", docsTypes, codeTypes);
-}
-
-function compareContractTaxonomies() {
+function createContractTaxonomyChecks() {
   const commandSource = readText("packages/contracts/src/product-engine/commands.ts");
   const eventSource = readText("packages/contracts/src/product-engine/events.ts");
   const effectSource = readText("packages/contracts/src/effects/tasks.ts");
@@ -275,16 +260,69 @@ function compareContractTaxonomies() {
   const projectionSource = readText("packages/contracts/src/projections/index.ts");
   const codexSource = readText("packages/contracts/src/codex/reexports.ts");
 
-  compareSets("docs/25 CommandActor", parseDocs25CommandActors(), parseConstArray(commandSource, "COMMAND_ACTORS"));
-  compareSets("docs/25 ProductEngineEventType", parseDocs25EventTypes(), parseConstArray(eventSource, "PRODUCT_ENGINE_EVENT_TYPES"));
-  compareSets("docs/25 EffectType", parseDocs25EffectTypes(), parseConstArray(effectSource, "EFFECT_TYPES"));
-  compareSets("docs/25 EffectStatus", parseDocs25EffectStatuses(), parseConstArray(effectSource, "EFFECT_STATUSES"));
-  compareSets("docs/25 SseEventName", parseDocs25SseEvents(), parseStringUnion(sseSource, "SseEventName"));
-  compareSets("docs/25 ProjectionKind", parseDocs25ProjectionKinds(), parseStringUnion(projectionSource, "ProjectionKind"));
-  compareSets("docs/24 CodexTurnPurpose", parseDocs24TurnPurposes(), parseConstArray(codexSource, "CODEX_TURN_PURPOSES"));
-  compareSets("docs/24 CodexArtifactKind", parseDocs24ArtifactKinds(), parseConstArray(codexSource, "CODEX_ARTIFACT_KINDS"));
-  compareSets("docs/24 CodexApplyPolicy", parseDocs24ApplyPolicies(), parseConstArray(codexSource, "CODEX_APPLY_POLICIES"));
-  compareSets("docs/24 BlockedActionType", parseDocs24BlockedActionTypes(), parseConstArray(codexSource, "BLOCKED_ACTION_TYPES"));
+  return [
+    {
+      label: "docs/25 CommandType",
+      docsValues: parseDocs25CommandTypes(),
+      codeValues: parseConstArray(commandSource, "COMMAND_TYPES")
+    },
+    {
+      label: "docs/25 CommandActor",
+      docsValues: parseDocs25CommandActors(),
+      codeValues: parseConstArray(commandSource, "COMMAND_ACTORS")
+    },
+    {
+      label: "docs/25 ProductEngineEventType",
+      docsValues: parseDocs25EventTypes(),
+      codeValues: parseConstArray(eventSource, "PRODUCT_ENGINE_EVENT_TYPES")
+    },
+    {
+      label: "docs/25 EffectType",
+      docsValues: parseDocs25EffectTypes(),
+      codeValues: parseConstArray(effectSource, "EFFECT_TYPES")
+    },
+    {
+      label: "docs/25 EffectStatus",
+      docsValues: parseDocs25EffectStatuses(),
+      codeValues: parseConstArray(effectSource, "EFFECT_STATUSES")
+    },
+    {
+      label: "docs/25 SseEventName",
+      docsValues: parseDocs25SseEvents(),
+      codeValues: parseStringUnion(sseSource, "SseEventName")
+    },
+    {
+      label: "docs/25 ProjectionKind",
+      docsValues: parseDocs25ProjectionKinds(),
+      codeValues: parseStringUnion(projectionSource, "ProjectionKind")
+    },
+    {
+      label: "docs/24 CodexTurnPurpose",
+      docsValues: parseDocs24TurnPurposes(),
+      codeValues: parseConstArray(codexSource, "CODEX_TURN_PURPOSES")
+    },
+    {
+      label: "docs/24 CodexArtifactKind",
+      docsValues: parseDocs24ArtifactKinds(),
+      codeValues: parseConstArray(codexSource, "CODEX_ARTIFACT_KINDS")
+    },
+    {
+      label: "docs/24 CodexApplyPolicy",
+      docsValues: parseDocs24ApplyPolicies(),
+      codeValues: parseConstArray(codexSource, "CODEX_APPLY_POLICIES")
+    },
+    {
+      label: "docs/24 BlockedActionType",
+      docsValues: parseDocs24BlockedActionTypes(),
+      codeValues: parseConstArray(codexSource, "BLOCKED_ACTION_TYPES")
+    }
+  ];
+}
+
+function compareContractTaxonomies() {
+  for (const { label, docsValues, codeValues } of createContractTaxonomyChecks()) {
+    compareSets(label, docsValues, codeValues);
+  }
 }
 
 function compareRoutes() {
@@ -360,7 +398,6 @@ function scanPackageBoundaries() {
   }
 }
 
-compareCommandTypes();
 compareContractTaxonomies();
 compareRoutes();
 scanPackageBoundaries();
