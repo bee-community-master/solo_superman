@@ -1,4 +1,6 @@
-export type Brand<TValue, TBrand extends string> = TValue & { readonly __brand?: TBrand };
+declare const brand: unique symbol;
+
+export type Brand<TValue, TBrand extends string> = TValue & { readonly [brand]: TBrand };
 
 export type ProjectId = Brand<string, "ProjectId">;
 export type SessionId = Brand<string, "SessionId">;

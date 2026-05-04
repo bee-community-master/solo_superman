@@ -8,6 +8,7 @@ export interface ApiRouteDefinition {
   readonly clientName: string;
   readonly method: ApiRouteMethod;
   readonly path: string;
+  readonly requiredQueryParams?: readonly string[];
   readonly commandType: ApiRouteCommandMapping;
   readonly implementedInPr01: boolean;
 }
@@ -48,6 +49,18 @@ export const API_ROUTE_CATALOG = [
   { routeId: "getFounderBrief", clientName: "getFounderBrief", method: "GET", path: "/api/v1/sessions/:sessionId/founder-brief", commandType: "none", implementedInPr01: false },
   { routeId: "prepareFounderBriefExport", clientName: "prepareFounderBriefExport", method: "POST", path: "/api/v1/sessions/:sessionId/founder-brief/export", commandType: "PrepareFounderBrief", implementedInPr01: false },
   { routeId: "getCommandStatus", clientName: "getCommandStatus", method: "GET", path: "/api/v1/commands/:commandId/status", commandType: "none", implementedInPr01: false },
-  { routeId: "subscribeEventStream", clientName: "subscribeEventStream", method: "GET", path: "/api/v1/events/stream", commandType: "none", implementedInPr01: false },
+  {
+    routeId: "subscribeEventStream",
+    clientName: "subscribeEventStream",
+    method: "GET",
+    path: "/api/v1/events/stream",
+    requiredQueryParams: ["sessionId"],
+    commandType: "none",
+    implementedInPr01: false
+  },
   { routeId: "getActivity", clientName: "getActivity", method: "GET", path: "/api/v1/sessions/:sessionId/activity", commandType: "none", implementedInPr01: false }
 ] as const satisfies readonly ApiRouteDefinition[];
+
+export type ApiRoute = (typeof API_ROUTE_CATALOG)[number];
+export type ApiRouteId = ApiRoute["routeId"];
+export type ApiRouteClientName = ApiRoute["clientName"];

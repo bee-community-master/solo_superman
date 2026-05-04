@@ -18,10 +18,7 @@ export const COMMAND_TYPES = [
   "ResolveDecision",
   "CreateSpecVersion",
   "ScoreCompleteness",
-  "PrepareFounderBrief",
-  "effect_executor",
-  "codex_runtime",
-  "system"
+  "PrepareFounderBrief"
 ] as const;
 
 export const COMMAND_ACTORS = ["user", "product_engine", "effect_executor", "codex_runtime", "system"] as const;

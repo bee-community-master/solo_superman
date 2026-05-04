@@ -16,18 +16,32 @@ function readArgValue(name: string) {
   }
 
   const index = process.argv.indexOf(name);
-  return index >= 0 ? process.argv[index + 1] : undefined;
+  if (index < 0) {
+    return undefined;
+  }
+
+  const value = process.argv[index + 1];
+
+  if (!value || value.startsWith("--")) {
+    throw new Error(`Missing ${name} value`);
+  }
+
+  return value;
 }
 
 function parsePort(rawValue: string | undefined) {
-  if (!rawValue) {
+  if (rawValue === undefined) {
     return DEFAULT_PORT;
+  }
+
+  if (!/^\d+$/.test(rawValue)) {
+    throw new Error(`Invalid sidecar port value: ${rawValue}`);
   }
 
   const parsed = Number.parseInt(rawValue, 10);
 
   if (Number.isNaN(parsed) || parsed < 0 || parsed > 65535) {
-    throw new Error(`Invalid SOLO_SIDECAR_PORT value: ${rawValue}`);
+    throw new Error(`Invalid sidecar port value: ${rawValue}`);
   }
 
   return parsed;

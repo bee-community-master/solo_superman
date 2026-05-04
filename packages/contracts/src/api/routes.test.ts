@@ -10,4 +10,21 @@ describe("PR-01 API route catalog", () => {
     expect(productRoutes.length).toBeGreaterThan(0);
     expect(productRoutes.every((route) => route.implementedInPr01 === false)).toBe(true);
   });
+
+  it("keeps route and client names unique", () => {
+    expect(new Set(API_ROUTE_CATALOG.map((route) => route.routeId)).size).toBe(API_ROUTE_CATALOG.length);
+    expect(new Set(API_ROUTE_CATALOG.map((route) => route.clientName)).size).toBe(API_ROUTE_CATALOG.length);
+  });
+
+  it("preserves docs/26 required query scope for the SSE stream placeholder", () => {
+    const streamRoute = API_ROUTE_CATALOG.find((route) => route.routeId === "subscribeEventStream");
+
+    expect(streamRoute).toMatchObject({
+      method: "GET",
+      path: "/api/v1/events/stream",
+      requiredQueryParams: ["sessionId"],
+      commandType: "none",
+      implementedInPr01: false
+    });
+  });
 });
