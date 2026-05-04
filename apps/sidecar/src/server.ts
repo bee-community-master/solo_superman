@@ -10,10 +10,12 @@ import {
   PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
   type StatusEndpointDto
 } from "@solo-superman/contracts";
+import type { MigrationStatus } from "@solo-superman/db";
 import { productApiRoutePlaceholders } from "./routes/catalog";
 
 export interface CreateSidecarAppOptions {
   readonly localCapabilityToken: string;
+  readonly migrationStatus?: MigrationStatus;
 }
 
 const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "localhost"]);
@@ -99,15 +101,75 @@ function commandStatusUnavailableShape(commandId: CommandId): StatusEndpointDto 
     pendingEffectSummary: {
       totalPending: 0,
       byType: {},
-      visibleLabel: "No persisted command status exists before PR-03 storage."
+      visibleLabel: "No persisted command status is mounted before ProductEngine command handling."
     },
     projectionHints: [],
     lastUpdatedAt: new Date(0).toISOString()
   };
 }
 
+function defaultMigrationStatus(): MigrationStatus {
+  return {
+    state: "failed",
+    databaseUrl: "not_configured",
+    migrationsFolder: "not_configured",
+    appliedMigrationCount: 0,
+    latestMigrationMillis: null,
+    checkedAt: new Date(0).toISOString(),
+    errorMessage: "Storage readiness has not been initialized."
+  };
+}
+
+function publicMigrationStatus(migrationStatus: MigrationStatus) {
+  return {
+    state: migrationStatus.state,
+    appliedMigrationCount: migrationStatus.appliedMigrationCount,
+    latestMigrationMillis: migrationStatus.latestMigrationMillis,
+    checkedAt: migrationStatus.checkedAt,
+    ...(migrationStatus.state === "failed" ? { errorCode: "MIGRATION_FAILED" } : {})
+  };
+}
+
+function readyzStatus(migrationStatus: MigrationStatus) {
+  const migrations = publicMigrationStatus(migrationStatus);
+
+  if (migrationStatus.state === "failed") {
+    return {
+      httpStatus: 503,
+      body: {
+        status: "not_ready",
+        ready: false,
+        code: "MIGRATION_FAILED",
+        checks: {
+          db: "migration_failed",
+          productEngine: "not_initialized_until_pr_04",
+          codex: "not_checked_until_pr_07"
+        },
+        migrations,
+        implementedApiRouteIds: PR02_MOUNTED_PRODUCT_API_ROUTE_IDS
+      }
+    } as const;
+  }
+
+  return {
+    httpStatus: 200,
+    body: {
+      status: "not_ready",
+      ready: false,
+      code: "SIDECAR_NOT_READY",
+      checks: {
+        db: "migrated",
+        productEngine: "not_initialized_until_pr_04",
+        codex: "not_checked_until_pr_07"
+      },
+      migrations,
+      implementedApiRouteIds: PR02_MOUNTED_PRODUCT_API_ROUTE_IDS
+    }
+  } as const;
+}
+
 export function createSidecarApp(options: CreateSidecarAppOptions) {
-  const { localCapabilityToken } = options;
+  const { localCapabilityToken, migrationStatus = defaultMigrationStatus() } = options;
 
   if (localCapabilityToken.trim().length === 0) {
     throw new Error("localCapabilityToken must not be empty");
@@ -179,19 +241,11 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
     })
   );
 
-  app.get("/readyz", (context) =>
-    context.json({
-      status: "not_ready",
-      ready: false,
-      code: "SIDECAR_NOT_READY",
-      checks: {
-        db: "not_initialized_until_pr_03",
-        productEngine: "not_initialized_until_pr_04",
-        codex: "not_checked_until_pr_07"
-      },
-      implementedApiRouteIds: PR02_MOUNTED_PRODUCT_API_ROUTE_IDS
-    })
-  );
+  app.get("/readyz", (context) => {
+    const readiness = readyzStatus(migrationStatus);
+
+    return context.json(readiness.body, readiness.httpStatus);
+  });
 
   app.get("/api/v1/commands/:commandId/status", (context) => {
     const commandId = context.req.param("commandId") as CommandId;
@@ -200,7 +254,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       jsonError(
         context,
         "EFFECT_STATUS_UNAVAILABLE",
-        "Command status persistence is not available until storage is implemented.",
+        "Command status persistence is not mounted until ProductEngine command handling is implemented.",
         {
           commandId,
           statusEndpointShape: commandStatusUnavailableShape(commandId)
@@ -213,7 +267,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
   app.notFound((context) => {
     if (context.req.path.startsWith("/api/v1")) {
       return context.json(
-        jsonError(context, "RESOURCE_NOT_FOUND", "This Phase 1 API route is not mounted in PR-02.", {
+        jsonError(context, "RESOURCE_NOT_FOUND", "This Phase 1 API route is not mounted yet.", {
           path: context.req.path,
           mountedRouteIds: PR02_MOUNTED_PRODUCT_API_ROUTE_IDS
         }),

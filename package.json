@@ -14,6 +14,8 @@
     "dev:desktop": "pnpm --filter @solo-superman/desktop dev",
     "dev:sidecar": "pnpm --filter @solo-superman/sidecar dev",
     "build": "pnpm -r --if-present build",
+    "db:generate": "pnpm --filter @solo-superman/db db:generate",
+    "db:migrate": "pnpm --filter @solo-superman/db db:migrate",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run --passWithNoTests",

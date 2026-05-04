@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 import { createSidecarApp } from "./server";
 
 const localCapabilityToken = "test-local-capability-token";
-const app = createSidecarApp({ localCapabilityToken });
+const migratedStatus = {
+  state: "migrated",
+  databaseUrl: ":memory:",
+  migrationsFolder: "packages/db/drizzle",
+  appliedMigrationCount: 1,
+  latestMigrationMillis: 1_700_000_000_000,
+  checkedAt: "2026-05-05T00:00:00.000Z"
+} as const;
+const app = createSidecarApp({ localCapabilityToken, migrationStatus: migratedStatus });
 
 function authHeaders(token = localCapabilityToken) {
   return {
@@ -13,6 +21,7 @@ function authHeaders(token = localCapabilityToken) {
 interface JsonResponseBody {
   readonly error?: {
     readonly code: string;
+    readonly message?: string;
     readonly details?: Readonly<Record<string, unknown>>;
   };
   readonly [key: string]: unknown;
@@ -37,7 +46,7 @@ describe("PR-02 sidecar health shell", () => {
     });
   });
 
-  it("serves readiness as not-ready until later storage and ProductEngine PRs", async () => {
+  it("serves readiness with migrated storage status until later ProductEngine PRs", async () => {
     const response = await app.request("/readyz");
     const body = await jsonBody(response);
 
@@ -47,11 +56,70 @@ describe("PR-02 sidecar health shell", () => {
       ready: false,
       code: "SIDECAR_NOT_READY",
       checks: {
-        db: "not_initialized_until_pr_03",
+        db: "migrated",
         productEngine: "not_initialized_until_pr_04",
         codex: "not_checked_until_pr_07"
+      },
+      migrations: {
+        state: "migrated",
+        appliedMigrationCount: 1
       }
     });
+  });
+
+  it("redacts migration diagnostics from the unauthenticated readiness response", async () => {
+    const fileApp = createSidecarApp({
+      localCapabilityToken,
+      migrationStatus: {
+        ...migratedStatus,
+        databaseUrl: "file:/Users/founder/Library/Application Support/Solo Superman/dev/solo-superman.db"
+      }
+    });
+    const response = await fileApp.request("/readyz");
+    const body = await jsonBody(response);
+    const migrations = body.migrations as Readonly<Record<string, unknown>>;
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      migrations: {
+        state: "migrated",
+        appliedMigrationCount: 1
+      }
+    });
+    expect(migrations.databaseUrl).toBeUndefined();
+    expect(migrations.migrationsFolder).toBeUndefined();
+  });
+
+  it("keeps readiness unavailable when migration execution fails", async () => {
+    const failedApp = createSidecarApp({
+      localCapabilityToken,
+      migrationStatus: {
+        state: "failed",
+        databaseUrl: "libsql://future-remote.example",
+        migrationsFolder: "packages/db/drizzle",
+        appliedMigrationCount: 0,
+        latestMigrationMillis: null,
+        checkedAt: "2026-05-05T00:00:00.000Z",
+        errorMessage: "synthetic migration failure"
+      }
+    });
+    const response = await failedApp.request("/readyz");
+    const body = await jsonBody(response);
+
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      status: "not_ready",
+      ready: false,
+      code: "MIGRATION_FAILED",
+      checks: {
+        db: "migration_failed"
+      },
+      migrations: {
+        state: "failed",
+        errorCode: "MIGRATION_FAILED"
+      }
+    });
+    expect((body.migrations as Readonly<Record<string, unknown>>).errorMessage).toBeUndefined();
   });
 
   it("rejects non-health API routes without the local capability token", async () => {
@@ -212,5 +280,6 @@ describe("PR-02 sidecar health shell", () => {
 
     expect(response.status).toBe(404);
     expect(body.error?.code).toBe("RESOURCE_NOT_FOUND");
+    expect(body.error?.message).toBe("This Phase 1 API route is not mounted yet.");
   });
 });

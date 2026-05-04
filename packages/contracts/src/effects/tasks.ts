@@ -59,5 +59,6 @@ export interface EffectTaskDto {
   readonly outputRef?: EffectOutputRef;
   readonly error?: EffectErrorDto;
   readonly queuedAt: string;
+  readonly updatedAt: string;
   readonly schemaVersion: SchemaVersion;
 }

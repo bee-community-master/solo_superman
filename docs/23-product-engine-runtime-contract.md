@@ -174,11 +174,12 @@ All first-class effects use the same lifecycle states.
 
 | Status | Meaning | Next statuses |
 | --- | --- | --- |
-| `pending` | persisted but not leased | `running`, `cancelled`, `blocked` |
-| `running` | executor leased the task | `succeeded`, `failed`, `blocked` |
+| `queued` | persisted and waiting for executor | `leased`, `cancelled`, `blocked` |
+| `leased` | executor claimed work | `running`, `failed`, `blocked` |
+| `running` | executor is actively processing the task | `succeeded`, `failed`, `blocked` |
 | `succeeded` | output persisted and follow-up event emitted | terminal |
-| `failed` | attempts exhausted or non-retryable failure | `pending` only through manual retry command; user-visible recovery is required by `27-operations-observability-contract.md` |
-| `blocked` | policy, approval, missing dependency, or runtime unavailable blocks execution | `pending`, `cancelled` |
+| `failed` | attempts exhausted or non-retryable failure | `queued` only through manual retry command; user-visible recovery is required by `27-operations-observability-contract.md` |
+| `blocked` | policy, approval, missing dependency, or runtime unavailable blocks execution | `queued`, `cancelled` |
 | `cancelled` | user/system cancelled before terminal output | terminal |
 
 Required fields:
@@ -194,8 +195,8 @@ Required fields:
 | `idempotencyKey` | effect-specific duplicate guard |
 | `attemptCount` | attempts already started |
 | `maxAttempts` | policy-defined upper bound |
-| `leaseOwner` | executor instance id while running |
-| `leaseExpiresAt` | stale-running recovery deadline |
+| `leaseOwner` | executor instance id while leased/running; cleared for queued or terminal statuses |
+| `leaseExpiresAt` | stale-running recovery deadline; cleared for queued or terminal statuses |
 | `inputRef` | JSON ref or payload pointer needed by executor |
 | `outputRef` | result pointer when succeeded |
 | `lastErrorCode` | stable error code when failed/blocked |
@@ -205,7 +206,7 @@ Required fields:
 
 Crash recovery:
 
-- On sidecar startup, `running` tasks with expired lease become `pending` when `attemptCount < maxAttempts`.
+- On sidecar startup, `running` tasks with expired lease become `queued` when `attemptCount < maxAttempts`.
 - Expired tasks with exhausted attempts become `failed` and emit `effect.failed` SSE on next activity sync.
 - `blocked` tasks do not auto-retry until the blocking condition changes or a user command requests retry.
 
@@ -273,7 +274,7 @@ The sidecar emits stable SSE event names for effect lifecycle.
 | --- | --- |
 | `command.accepted` | projectId, sessionId, commandType, eventIds, effectTaskIds |
 | `command.rejected` | commandType, errorCode, reason |
-| `effect.queued` | effectTaskId, effectType, sourceEventId |
+| `effect.queued` | effectTaskId, effectType, sourceEventIds |
 | `effect.started` | effectTaskId, effectType, attemptCount |
 | `effect.succeeded` | effectTaskId, effectType, outputRef, projectionHint |
 | `effect.failed` | effectTaskId, effectType, errorCode, retryAvailable |

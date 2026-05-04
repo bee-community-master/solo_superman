@@ -9,9 +9,17 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "tsx src/cli/migrate.ts",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@solo-superman/contracts": "workspace:*"
+    "@libsql/client": "^0.17.3",
+    "@solo-superman/contracts": "workspace:*",
+    "drizzle-orm": "^0.45.2"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.10"
   }
 }

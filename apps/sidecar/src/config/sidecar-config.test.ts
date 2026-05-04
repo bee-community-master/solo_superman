@@ -5,12 +5,16 @@ const originalArgv = process.argv;
 const originalHost = process.env.SOLO_SIDECAR_HOST;
 const originalPort = process.env.SOLO_SIDECAR_PORT;
 const originalToken = process.env.SOLO_LOCAL_CAPABILITY_TOKEN;
+const originalDatabaseUrl = process.env.SOLO_DATABASE_URL;
+const originalAppDataDir = process.env.SOLO_APP_DATA_DIR;
 
 function useDefaultProcessInputs() {
   process.argv = ["node", "sidecar"];
 
   delete process.env.SOLO_SIDECAR_HOST;
   delete process.env.SOLO_SIDECAR_PORT;
+  delete process.env.SOLO_DATABASE_URL;
+  delete process.env.SOLO_APP_DATA_DIR;
   process.env.SOLO_LOCAL_CAPABILITY_TOKEN = "test-local-token";
 }
 
@@ -34,6 +38,18 @@ function restoreProcessInputs() {
   } else {
     process.env.SOLO_LOCAL_CAPABILITY_TOKEN = originalToken;
   }
+
+  if (originalDatabaseUrl === undefined) {
+    delete process.env.SOLO_DATABASE_URL;
+  } else {
+    process.env.SOLO_DATABASE_URL = originalDatabaseUrl;
+  }
+
+  if (originalAppDataDir === undefined) {
+    delete process.env.SOLO_APP_DATA_DIR;
+  } else {
+    process.env.SOLO_APP_DATA_DIR = originalAppDataDir;
+  }
 }
 
 describe("sidecar scaffold config", () => {
@@ -49,7 +65,33 @@ describe("sidecar scaffold config", () => {
     expect(resolveSidecarConfig()).toEqual({
       host: "127.0.0.1",
       port: 43110,
-      localCapabilityToken: "test-local-token"
+      localCapabilityToken: "test-local-token",
+      databaseUrl: undefined,
+      appDataDir: expect.stringContaining("Solo Superman")
+    });
+  });
+
+  it("accepts explicit PR-03 storage paths from env or packaged sidecar args", () => {
+    process.env.SOLO_APP_DATA_DIR = "/tmp/solo-superman-test-app-data";
+    process.env.SOLO_DATABASE_URL = "file:/tmp/solo-superman-test-app-data/custom.db";
+
+    expect(resolveSidecarConfig()).toMatchObject({
+      appDataDir: "/tmp/solo-superman-test-app-data",
+      databaseUrl: "file:/tmp/solo-superman-test-app-data/custom.db"
+    });
+
+    process.argv = [
+      "node",
+      "sidecar",
+      "--app-data-dir",
+      "/tmp/solo-superman-packaged-app-data",
+      "--database-url",
+      "file:/tmp/solo-superman-packaged-app-data/solo-superman.db"
+    ];
+
+    expect(resolveSidecarConfig()).toMatchObject({
+      appDataDir: "/tmp/solo-superman-packaged-app-data",
+      databaseUrl: "file:/tmp/solo-superman-packaged-app-data/solo-superman.db"
     });
   });
 
@@ -106,7 +148,7 @@ describe("sidecar scaffold config", () => {
 
     const config = resolveSidecarConfig();
 
-    expect(config).toEqual({ host: "::1", port: 43110, localCapabilityToken: "test-local-token" });
+    expect(config).toMatchObject({ host: "::1", port: 43110, localCapabilityToken: "test-local-token" });
     expect(formatSidecarBaseUrl(config)).toBe("http://[::1]:43110");
   });
 });

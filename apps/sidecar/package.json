@@ -12,6 +12,7 @@
   "dependencies": {
     "@hono/node-server": "^2.0.1",
     "@solo-superman/contracts": "workspace:*",
+    "@solo-superman/db": "workspace:*",
     "hono": "^4.12.16"
   }
 }

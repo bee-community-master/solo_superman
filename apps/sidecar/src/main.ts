@@ -1,9 +1,14 @@
 import { serve } from "@hono/node-server";
 import { createSidecarApp } from "./server";
 import { formatSidecarBaseUrl, resolveSidecarConfig } from "./config/sidecar-config";
+import { initializeStorageReadiness } from "./storage/storage-readiness";
 
 const config = resolveSidecarConfig();
-const app = createSidecarApp({ localCapabilityToken: config.localCapabilityToken });
+const storageReadiness = await initializeStorageReadiness(config);
+const app = createSidecarApp({
+  localCapabilityToken: config.localCapabilityToken,
+  migrationStatus: storageReadiness.migrationStatus
+});
 
 serve(
   {

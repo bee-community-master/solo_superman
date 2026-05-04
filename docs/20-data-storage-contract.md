@@ -192,12 +192,12 @@ Minimum `effect_tasks` fields:
 | `sessionId` | session scope |
 | `sourceEventId` | ProductEngine event that created the effect |
 | `effectType` | `queue_projection_effect`, `research_evidence_effect`, or `codex_runtime_preview_effect` |
-| `status` | `pending`, `running`, `succeeded`, `failed`, `blocked`, `cancelled` |
+| `status` | `queued`, `leased`, `running`, `succeeded`, `failed`, `blocked`, `cancelled` |
 | `idempotencyKey` | duplicate guard for retries and crash recovery |
 | `attemptCount` | started attempts count |
 | `maxAttempts` | conservative_ai_retry_matrix limit |
-| `leaseOwner` | executor id while running |
-| `leaseExpiresAt` | stale-running recovery deadline |
+| `leaseOwner` | executor id while leased/running; cleared for queued or terminal statuses |
+| `leaseExpiresAt` | stale-running recovery deadline; cleared for queued or terminal statuses |
 | `inputJson` | effect input payload or local ref |
 | `outputJson` | effect output ref after success |
 | `lastErrorCode` | stable error code after failure/block |
@@ -208,12 +208,12 @@ Minimum `effect_tasks` fields:
 Lifecycle:
 
 ```text
-pending -> running -> succeeded
-pending -> running -> failed
-pending -> running -> blocked
-pending -> cancelled
-blocked -> pending
-failed -> pending only through manual retry command
+queued -> leased -> running -> succeeded
+queued -> leased -> running -> failed
+queued -> leased -> running -> blocked
+queued -> cancelled
+blocked -> queued
+failed -> queued only through manual retry command
 ```
 
 Storage rules:
@@ -221,7 +221,7 @@ Storage rules:
 - in-memory-only effect queue is forbidden.
 - effect task creation happens in the same repository transaction that persists source ProductEngine events.
 - effect executor updates only effect status/output and emits follow-up ProductEngine event or projection update through the application service path.
-- stale `running` tasks with expired lease may return to `pending` if `attemptCount < maxAttempts`.
+- stale `running` tasks with expired lease may return to `queued` if `attemptCount < maxAttempts`.
 - stale `running` tasks with exhausted attempts become `failed`.
 
 ## Conservative AI retry matrix

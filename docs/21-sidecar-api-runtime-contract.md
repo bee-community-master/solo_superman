@@ -248,7 +248,7 @@ SSE events use stable event names. Event DTO shape and projection refetch hints 
 | `sidecar.error` | user-visible error state |
 | `command.accepted` | projectId, sessionId, commandType, eventIds, effectTaskIds |
 | `command.rejected` | commandType, errorCode, reason |
-| `effect.queued` | effectTaskId, effectType, sourceEventId |
+| `effect.queued` | effectTaskId, effectType, sourceEventIds |
 | `effect.started` | effectTaskId, effectType, attemptCount |
 | `effect.succeeded` | effectTaskId, effectType, outputRef, projectionHint |
 | `effect.failed` | effectTaskId, effectType, errorCode, retryAvailable |

@@ -1,7 +1,11 @@
+import { defaultDevAppDataDir } from "@solo-superman/db";
+
 export interface SidecarConfig {
   readonly host: string;
   readonly port: number;
   readonly localCapabilityToken: string;
+  readonly databaseUrl: string | undefined;
+  readonly appDataDir: string;
 }
 
 const DEFAULT_HOST = "127.0.0.1";
@@ -77,7 +81,9 @@ export function resolveSidecarConfig(): SidecarConfig {
   return {
     host: parseHost(readArgValue("--host") ?? process.env.SOLO_SIDECAR_HOST),
     port: parsePort(readArgValue("--port") ?? process.env.SOLO_SIDECAR_PORT),
-    localCapabilityToken: parseLocalCapabilityToken(readArgValue("--local-token") ?? process.env[LOCAL_TOKEN_ENV])
+    localCapabilityToken: parseLocalCapabilityToken(readArgValue("--local-token") ?? process.env[LOCAL_TOKEN_ENV]),
+    databaseUrl: readArgValue("--database-url") ?? process.env.SOLO_DATABASE_URL,
+    appDataDir: readArgValue("--app-data-dir") ?? process.env.SOLO_APP_DATA_DIR ?? defaultDevAppDataDir()
   };
 }
 
