@@ -82,6 +82,20 @@ function parseBacktickedValuesFromTableColumn(section, columnIndex) {
   return values;
 }
 
+function moduleSpecifiers(sourceText) {
+  const importOrExportPattern = /(?:import|export)\s+(?:[^'"]*?\s+from\s+)?["']([^"']+)["']/g;
+
+  return [...sourceText.matchAll(importOrExportPattern)].map((match) => match[1]);
+}
+
+function moduleMatches(specifier, pattern) {
+  if (pattern.endsWith("/") || pattern.endsWith(":")) {
+    return specifier.startsWith(pattern);
+  }
+
+  return specifier === pattern || specifier.startsWith(`${pattern}/`);
+}
+
 function parseDocs25CommandTypes() {
   const section = sectionBetween(
     DOCS_25,
@@ -350,15 +364,15 @@ function scanPackageBoundaries() {
   const checks = [
     {
       root: "packages/core/src",
-      forbidden: ["hono", "@tauri", "react", "node:", "http"]
+      forbiddenModules: ["hono", "@hono/", "@tauri-apps/", "react", "react-dom", "node:", "http", "https"]
     },
     {
       root: "apps/desktop/src",
-      forbidden: ["@solo-superman/db", "libsql", "sqlite"]
+      forbiddenModules: ["@solo-superman/db", "@libsql/", "libsql", "sqlite", "sqlite3", "better-sqlite3"]
     },
     {
       root: "packages/contracts/src",
-      forbidden: ["hono", "@tauri", "react", "drizzle"]
+      forbiddenModules: ["hono", "@hono/", "@tauri-apps/", "react", "react-dom", "drizzle-orm", "drizzle-kit"]
     }
   ];
   const violations = [];
@@ -382,11 +396,13 @@ function scanPackageBoundaries() {
           continue;
         }
 
-        const text = readFileSync(url, "utf8");
+        const imports = moduleSpecifiers(readFileSync(url, "utf8"));
 
-        for (const forbidden of check.forbidden) {
-          if (text.includes(forbidden)) {
-            violations.push(`${relative(ROOT.pathname, url.pathname)} contains ${forbidden}`);
+        for (const specifier of imports) {
+          for (const forbidden of check.forbiddenModules) {
+            if (moduleMatches(specifier, forbidden)) {
+              violations.push(`${relative(ROOT.pathname, url.pathname)} imports ${specifier}`);
+            }
           }
         }
       }
