@@ -1,0 +1,53 @@
+import type { CommandType } from "../product-engine";
+
+export type ApiRouteMethod = "GET" | "POST";
+export type ApiRouteCommandMapping = CommandType | "none";
+
+export interface ApiRouteDefinition {
+  readonly routeId: string;
+  readonly clientName: string;
+  readonly method: ApiRouteMethod;
+  readonly path: string;
+  readonly commandType: ApiRouteCommandMapping;
+  readonly implementedInPr01: boolean;
+}
+
+export const API_ROUTE_CATALOG = [
+  { routeId: "healthz", clientName: "getHealth", method: "GET", path: "/healthz", commandType: "none", implementedInPr01: true },
+  { routeId: "readyz", clientName: "getReadiness", method: "GET", path: "/readyz", commandType: "none", implementedInPr01: true },
+  { routeId: "createProject", clientName: "createProject", method: "POST", path: "/api/v1/projects", commandType: "StartProject", implementedInPr01: false },
+  { routeId: "listProjects", clientName: "listProjects", method: "GET", path: "/api/v1/projects", commandType: "none", implementedInPr01: false },
+  { routeId: "getProject", clientName: "getProject", method: "GET", path: "/api/v1/projects/:projectId", commandType: "none", implementedInPr01: false },
+  { routeId: "startOrResumeSession", clientName: "startOrResumeSession", method: "POST", path: "/api/v1/projects/:projectId/sessions", commandType: "none", implementedInPr01: false },
+  { routeId: "getSession", clientName: "getSession", method: "GET", path: "/api/v1/projects/:projectId/sessions/:sessionId", commandType: "none", implementedInPr01: false },
+  { routeId: "captureIntake", clientName: "captureIntake", method: "POST", path: "/api/v1/sessions/:sessionId/intake", commandType: "CaptureIntake", implementedInPr01: false },
+  { routeId: "draftInitialSpec", clientName: "draftInitialSpec", method: "POST", path: "/api/v1/sessions/:sessionId/spec/initial", commandType: "DraftInitialSpec", implementedInPr01: false },
+  { routeId: "getLivingSpec", clientName: "getLivingSpec", method: "GET", path: "/api/v1/sessions/:sessionId/spec", commandType: "none", implementedInPr01: false },
+  { routeId: "analyzeAmbiguity", clientName: "analyzeAmbiguity", method: "POST", path: "/api/v1/sessions/:sessionId/spec/analyze", commandType: "AnalyzeAmbiguity", implementedInPr01: false },
+  { routeId: "listSpecVersions", clientName: "listSpecVersions", method: "GET", path: "/api/v1/sessions/:sessionId/spec/versions", commandType: "none", implementedInPr01: false },
+  { routeId: "getDecisionQueue", clientName: "getDecisionQueue", method: "GET", path: "/api/v1/sessions/:sessionId/queue", commandType: "none", implementedInPr01: false },
+  { routeId: "activateQuestionBatch", clientName: "activateQuestionBatch", method: "POST", path: "/api/v1/sessions/:sessionId/queue/activate", commandType: "ActivateQuestionBatch", implementedInPr01: false },
+  { routeId: "submitAnswer", clientName: "submitAnswer", method: "POST", path: "/api/v1/questions/:questionId/answers", commandType: "SubmitAnswer", implementedInPr01: false },
+  { routeId: "deferQueueItem", clientName: "deferQueueItem", method: "POST", path: "/api/v1/queue-items/:queueItemId/defer", commandType: "DeferQueueItem", implementedInPr01: false },
+  { routeId: "dismissQueueItem", clientName: "dismissQueueItem", method: "POST", path: "/api/v1/queue-items/:queueItemId/dismiss", commandType: "DismissQueueItem", implementedInPr01: false },
+  { routeId: "planResearch", clientName: "planResearch", method: "POST", path: "/api/v1/sessions/:sessionId/research-tasks", commandType: "PlanResearch", implementedInPr01: false },
+  { routeId: "getResearchEvidence", clientName: "getResearchEvidence", method: "GET", path: "/api/v1/sessions/:sessionId/research", commandType: "none", implementedInPr01: false },
+  { routeId: "importResearchResult", clientName: "importResearchResult", method: "POST", path: "/api/v1/research-tasks/:researchTaskId/results", commandType: "ImportResearchResult", implementedInPr01: false },
+  { routeId: "synthesizeEvidence", clientName: "synthesizeEvidence", method: "POST", path: "/api/v1/research-results/:researchResultId/synthesize", commandType: "SynthesizeEvidence", implementedInPr01: false },
+  { routeId: "createSpecUpdatePreview", clientName: "createSpecUpdatePreview", method: "POST", path: "/api/v1/spec-updates", commandType: "CreateSpecUpdatePreview", implementedInPr01: false },
+  { routeId: "createDecisionCard", clientName: "createDecisionCard", method: "POST", path: "/api/v1/decisions", commandType: "none", implementedInPr01: false },
+  { routeId: "resolveDecision", clientName: "resolveDecision", method: "POST", path: "/api/v1/decisions/:decisionId/resolve", commandType: "ResolveDecision", implementedInPr01: false },
+  { routeId: "createSpecVersion", clientName: "createSpecVersion", method: "POST", path: "/api/v1/sessions/:sessionId/spec/versions", commandType: "CreateSpecVersion", implementedInPr01: false },
+  { routeId: "getRuntimeStatus", clientName: "getRuntimeStatus", method: "GET", path: "/api/v1/runtime/status", commandType: "none", implementedInPr01: false },
+  { routeId: "createRuntimePreview", clientName: "createRuntimePreview", method: "POST", path: "/api/v1/runtime/codex/preview", commandType: "CreateRuntimePreview", implementedInPr01: false },
+  { routeId: "createManualHandoff", clientName: "createManualHandoff", method: "POST", path: "/api/v1/runtime/manual-handoff", commandType: "CreateRuntimePreview", implementedInPr01: false },
+  { routeId: "convertRuntimeArtifact", clientName: "convertRuntimeArtifact", method: "POST", path: "/api/v1/runtime/artifacts/:artifactId/convert", commandType: "ConvertRuntimeArtifact", implementedInPr01: false },
+  { routeId: "blockRuntimeArtifact", clientName: "blockRuntimeArtifact", method: "POST", path: "/api/v1/runtime/artifacts/:artifactId/block", commandType: "ConvertRuntimeArtifact", implementedInPr01: false },
+  { routeId: "scoreCompleteness", clientName: "scoreCompleteness", method: "POST", path: "/api/v1/sessions/:sessionId/completeness/score", commandType: "ScoreCompleteness", implementedInPr01: false },
+  { routeId: "createCompletionCandidate", clientName: "createCompletionCandidate", method: "POST", path: "/api/v1/sessions/:sessionId/completion-candidate", commandType: "ScoreCompleteness", implementedInPr01: false },
+  { routeId: "getFounderBrief", clientName: "getFounderBrief", method: "GET", path: "/api/v1/sessions/:sessionId/founder-brief", commandType: "none", implementedInPr01: false },
+  { routeId: "prepareFounderBriefExport", clientName: "prepareFounderBriefExport", method: "POST", path: "/api/v1/sessions/:sessionId/founder-brief/export", commandType: "PrepareFounderBrief", implementedInPr01: false },
+  { routeId: "getCommandStatus", clientName: "getCommandStatus", method: "GET", path: "/api/v1/commands/:commandId/status", commandType: "none", implementedInPr01: false },
+  { routeId: "subscribeEventStream", clientName: "subscribeEventStream", method: "GET", path: "/api/v1/events/stream", commandType: "none", implementedInPr01: false },
+  { routeId: "getActivity", clientName: "getActivity", method: "GET", path: "/api/v1/sessions/:sessionId/activity", commandType: "none", implementedInPr01: false }
+] as const satisfies readonly ApiRouteDefinition[];

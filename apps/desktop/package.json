@@ -1,0 +1,26 @@
+{
+  "name": "@solo-superman/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 1420",
+    "dev:vite": "vite --host 127.0.0.1 --port 1420",
+    "dev:tauri": "tauri dev",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "build:vite": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@solo-superman/contracts": "workspace:*",
+    "@tauri-apps/api": "^2.11.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1"
+  }
+}

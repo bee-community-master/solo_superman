@@ -1,0 +1,32 @@
+{
+  "name": "solo-superman-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Phase 1 PR-01 workspace scaffold for Solo Superman.",
+  "type": "module",
+  "packageManager": "pnpm@11.0.4",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @solo-superman/sidecar --filter @solo-superman/desktop dev",
+    "dev:desktop": "pnpm --filter @solo-superman/desktop dev",
+    "dev:sidecar": "pnpm --filter @solo-superman/sidecar dev",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "eslint . --max-warnings=0",
+    "test": "vitest run --passWithNoTests",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.6.0",
+    "eslint": "^10.3.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.1",
+    "vite": "^8.0.10",
+    "vitest": "^4.1.5"
+  }
+}
