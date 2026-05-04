@@ -4,7 +4,7 @@
 
 State/Event Contract는 Solo Superman Phase 1의 핵심 객체가 어떤 순서와 조건으로 이어져 `Living Product Spec` 완료 후보까지 도달하는지 정의하는 구현 전 계약이다.
 
-이 문서는 `Question → Research → Approval → SpecVersion → Completion`이 끊기지 않는 얇고 넓은 end-to-end trace를 책임진다. 각 루프의 세부 UX, 리서치 품질 산식, 저장소 구현은 기존 전문 문서가 책임진다.
+이 문서는 `Question → Research → Approval → SpecVersion → Completion`이 끊기지 않는 얇고 넓은 end-to-end trace를 책임진다. ProductEngine이 command를 받아 event/state를 reduce하고 Queue를 재계산하는 상위 운영 계약은 `18-product-engine-orchestrator.md`가 책임진다. 각 루프의 세부 UX, 리서치 품질 산식, 저장소 구현은 기존 전문 문서가 책임진다.
 
 ## 범위와 non-goals
 
@@ -182,7 +182,8 @@ CompletionCandidate의 출력은 완료 선언만이 아니다. 사용자는 다
 
 ## 다른 문서와의 관계
 
-- `05-spec-engine.md`는 이 계약을 상태머신과 Engine module 책임으로 실행한다.
+- `18-product-engine-orchestrator.md`는 이 계약을 ProductEngine command/event/state와 Queue 재계산 운영 계약으로 묶는다.
+- `05-spec-engine.md`는 이 계약을 Spec 중심 상태머신과 Engine module 책임으로 실행한다.
 - `08-domain-model.md`는 이 계약의 trace link를 표현하는 객체와 필드 후보를 정의한다.
 - `14-ambiguity-question-lifecycle.md`는 질문 반복 제한과 answer routing 수렴을 더 자세히 책임진다.
 - `15-pro-con-evidence-gate.md`는 EvidenceMatrix의 pro/con gate와 skeptical search를 더 자세히 책임진다.

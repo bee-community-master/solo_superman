@@ -22,6 +22,7 @@
 - Ambiguity/Question Lifecycle이 무한 질문 루프를 막는 수렴 정책을 정의하는가?
 - Pro/Con Evidence Gate가 confirmation bias를 막는 evidence 품질 기준을 정의하는가?
 - State/Event Contract가 Question, Research, Approval, SpecVersion, Completion의 trace를 끊기지 않게 정의하는가?
+- ProductEngine Orchestrator가 Phase 1 전체 세션 라이프사이클, 중앙 상태 전이, Queue 재계산, active batch 안정성을 정의하는가?
 - AI Runtime Access Strategy가 Codex app-server, sandbox preview, manual handoff, Phase 2+ ChatGPT 웹 자동화 경계를 정의하는가?
 - Research Loop의 입력/출력이 명확한가?
 - approval boundary가 명확한가?
@@ -43,6 +44,7 @@
 | Ambiguity/Question | repeat_limit_reached, severity별 수렴 정책, completion 연결 정의 |
 | Pro/Con Evidence | pro_evidence, con_evidence, missing_con_evidence, skeptical search, completion 연결 정의 |
 | State/Event Contract | AmbiguityIssue에서 CompletionCandidate까지 trace link, terminal outcome, guardrail 정의 |
+| ProductEngine | 전체 세션 라이프사이클, command/event/state, Queue 재계산, 모듈 소유권 정의 |
 | AI Runtime | Codex app-server 우선, Phase 1 sandbox preview, ChatGPT 웹 자동화 Phase 2+ 정의 |
 | Founder Brief | Problem-Customer-Value, Top Decisions, Known Risks, Next Validation Actions 정의 |
 | Domain | 핵심 객체와 상태 정의 |
@@ -325,6 +327,7 @@ Follow-up questions:
 - [ ] State/Event Contract는 런타임/코드 구현 제외와 DB/API 스키마 상세 제외를 명시한다.
 - [ ] State/Event Contract dry-run은 샘플 아이디어가 end-to-end event trace로 이어지는지 검증한다.
 - [ ] README, Spec Engine, Domain Model, Validation 문서는 같은 State/Event Contract 범위를 공유한다.
+- [ ] README, Architecture, Decision Queue, Spec Engine, State/Event Contract는 같은 ProductEngine Orchestrator 경계를 공유한다.
 
 ## 현재 문서 검증 결과
 

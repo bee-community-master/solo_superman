@@ -2,11 +2,31 @@
 
 ## 역할
 
-Spec Engine은 아이디어, 답변, 리서치 결과, 결정 승인, 문서 버전을 연결하는 상태머신이다. 제품의 핵심은 LLM 호출 자체가 아니라 이 상태 전이와 guardrail이다.
+Spec Engine은 아이디어, 답변, 리서치 결과, 결정 승인, 문서 버전을 Spec 관점에서 연결하는 상태/산출 모듈이다. 제품의 핵심은 LLM 호출 자체가 아니라 ProductEngine이 소유하는 상태 전이와 guardrail이다.
 
-AmbiguityIssue와 QuestionBatch의 상세 수렴 계약은 `14-ambiguity-question-lifecycle.md`를 따른다. Spec Engine은 이 계약을 전체 프로젝트 상태머신에 연결한다.
+AmbiguityIssue와 QuestionBatch의 상세 수렴 계약은 `14-ambiguity-question-lifecycle.md`를 따른다. Spec Engine은 이 계약을 Spec 산출물 후보로 변환하고, ProductEngine은 이를 전체 세션 라이프사이클에 연결한다.
 
-Question, ResearchTask, EvidenceMatrix, Decision, SpecUpdate, SpecVersion, CompletionCandidate가 끊기지 않는 end-to-end trace는 `16-state-event-contract.md`의 State/Event Contract를 따른다. 이 계약은 구현 전 문서 계약이며 런타임/코드 구현 제외, DB/API 스키마 상세 제외 원칙을 유지한다.
+Question, ResearchTask, EvidenceMatrix, Decision, SpecUpdate, SpecVersion, CompletionCandidate가 끊기지 않는 end-to-end trace는 `16-state-event-contract.md`의 State/Event Contract를 따른다. Phase 1 전체 세션 라이프사이클과 command/event/state reduce의 최상위 계약은 `18-product-engine-orchestrator.md`를 따른다. 이 계약들은 구현 전 문서 계약이며 런타임/코드 구현 제외, DB/API 스키마 상세 제외 원칙을 유지한다.
+
+## ProductEngine과의 경계
+
+Spec Engine은 ProductEngine 아래의 spec-focused module이다.
+
+Spec Engine이 할 수 있는 일:
+
+- 초기 Spec draft 생성.
+- AmbiguityIssue 분류.
+- AnswerRouteOutcome에 따른 SpecUpdate 후보 생성.
+- approved Decision을 SpecVersion 재료로 변환.
+
+Spec Engine이 할 수 없는 일:
+
+- 세션의 다음 상태를 단독으로 확정한다.
+- active batch를 교체한다.
+- high-impact SpecUpdate를 approval 없이 확정한다.
+- CompletionCandidate를 직접 생성한다.
+
+ProductEngine은 Spec Engine의 산출물을 받아 event를 남기고 Queue를 재계산한 뒤 다음 사용자 행동을 확정한다.
 
 ## Spec Kit 차용 방식
 

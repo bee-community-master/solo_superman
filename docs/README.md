@@ -22,6 +22,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | 질문 엔진 수렴 | Ambiguity/Question Lifecycle, repeat limit, severity별 수렴 정책 |
 | 근거 품질 Gate | Pro/Con Evidence Gate, missing_con_evidence, skeptical search |
 | 엔진 실행 계약 | State/Event Contract, end-to-end traceability, terminal outcome |
+| ProductEngine 권한 | 중앙 ProductEngine Orchestrator가 Phase 1 세션 상태 전이와 Queue 재계산을 소유 |
 | AI Runtime 접근 | Codex app-server 우선, Phase 1 sandbox preview, ChatGPT Pro 웹 자동화는 Phase 2+ |
 | 세션 깊이 | Adaptive mode, 모든 축 75점 이상이면 Spec-ready 후보 |
 | 기본 export | Founder Brief |
@@ -38,7 +39,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 3. `02-user-journey-and-ux.md` - 2~5시간 세션과 대시보드 UX.
 4. `03-living-product-spec.md` - 최종 산출물 계약.
 5. `04-decision-queue.md` - 질문/결정 큐 정책.
-6. `05-spec-engine.md` - Spec Engine 상태머신.
+6. `05-spec-engine.md` - Spec 중심 상태/산출 모듈.
 7. `06-research-engine.md` - 리서치 엔진과 evidence matrix.
 8. `07-completeness-scoring.md` - 복합 완성도 점수.
 9. `08-domain-model.md` - 도메인 객체와 관계.
@@ -51,6 +52,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 16. `15-pro-con-evidence-gate.md` - Pro/Con Evidence Gate와 confirmation bias 방지 계약.
 17. `16-state-event-contract.md` - Question→Research→Approval→SpecVersion→Completion 상태·이벤트 계약.
 18. `17-ai-runtime-access-strategy.md` - Codex app-server, ChatGPT Pro 웹 자동화 비전, runtime 권한 경계.
+19. `18-product-engine-orchestrator.md` - Phase 1 ProductEngine Orchestrator의 전체 세션 라이프사이클, command/event/state, queue 재계산 계약.
 
 ## 문서 책임 경계
 
@@ -59,9 +61,9 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | Product Brief | 누구의 어떤 문제를 푸는가 | 기능 상세는 PRD로 넘긴다 |
 | PRD | Phase 1에 무엇이 들어가는가 | UI 상세는 UX 문서로 넘긴다 |
 | UX | 사용자가 어떻게 사고하고 답하는가 | 점수 산식은 scoring 문서로 넘긴다 |
-| Living Spec | 최종 산출물의 구조 | 내부 상태 전이는 Spec Engine으로 넘긴다 |
-| Decision Queue | 질문/결정 카드 운영 | 리서치 생성 정책은 Research Engine으로 넘긴다 |
-| Spec Engine | 상태머신과 업데이트 정책 | 데이터 구조는 Domain Model로 넘긴다 |
+| Living Spec | 최종 산출물의 구조 | 세션 상태 전이는 ProductEngine으로, Spec update 후보는 Spec Engine으로 넘긴다 |
+| Decision Queue | 질문/결정 카드 운영과 priority UX | 최종 Queue 방출/상태 전이는 ProductEngine으로, 리서치 생성 정책은 Research Engine으로 넘긴다 |
+| Spec Engine | Spec 중심 ambiguity, update 후보, versioning 재료 | 전체 세션 전이는 ProductEngine으로, 데이터 구조는 Domain Model로 넘긴다 |
 | Research Engine | 근거 생성/품질 기준 | 승인 권한은 Security/Approval 문서로 넘긴다 |
 | Scoring | 완성도 계산과 stop condition | UX 배치는 UX 문서로 넘긴다 |
 | Domain Model | 핵심 객체와 관계 | DB 상세 구현은 Phase 1 설계 때 확정한다 |
@@ -74,6 +76,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | Pro/Con Evidence Gate | pro_evidence, con_evidence, missing_con_evidence, skeptical search | 외부 리서치 런타임 구현과 고객 인터뷰 방법론 깊은 설계는 후속 문서로 넘긴다 |
 | State/Event Contract | Question, ResearchTask, EvidenceMatrix, Decision, SpecUpdate, SpecVersion, CompletionCandidate의 end-to-end trace | DB/API 스키마 상세와 런타임/코드 구현은 Phase 1 설계 또는 구현 단계로 넘긴다 |
 | AI Runtime Access Strategy | Codex app-server 우선 통합, sandbox preview 권한, ChatGPT Pro 웹 자동화의 Phase 2+ 비전 | 리서치 품질은 Research Engine으로, 승인/프라이버시 세부는 Security 문서로 넘긴다 |
+| Product Engine Orchestrator | Phase 1 전체 세션 라이프사이클, 중앙 상태 전이, Queue 재계산, 모듈 소유권 | 세부 카드 UX는 Decision Queue로, trace link는 State/Event Contract로, runtime 권한은 AI Runtime Access Strategy로 넘긴다 |
 
 ## 공식 자료 기반 설계 메모
 

@@ -6,6 +6,8 @@ Decision Queue는 Solo Superman의 중심 작업면이다. 사용자는 긴 문�
 
 Question/Ambiguity의 반복 제한과 수렴 정책은 `14-ambiguity-question-lifecycle.md`를 따른다. 이 문서는 사용자가 보는 카드와 큐 동작을 설명하고, 14번 문서는 엔진 계약의 source of truth다.
 
+Phase 1에서 Queue의 최종 방출과 재계산은 `18-product-engine-orchestrator.md`의 ProductEngine Orchestrator가 소유한다. Decision Queue는 카드 UX와 priority 정책을 책임지지만, 세션 상태 전이를 단독으로 확정하지 않는다.
+
 ## Queue가 해결하는 문제
 
 - 질문이 많아도 사용자가 어디서 시작할지 안다.
@@ -106,6 +108,20 @@ Spec 내부 충돌을 해소하는 카드.
 - 승인되지 않은 결정.
 - 완료 시 생성될 산출물.
 
+## ProductEngine 재계산 정책
+
+ProductEngine은 답변, 리서치 결과, RuntimePreviewArtifact, Decision outcome, CompletenessSnapshot이 생길 때마다 Queue priority를 다시 계산한다.
+
+기본 UX 원칙은 다음이다.
+
+- 현재 active batch는 사용자가 사고 중인 3~5개 질문 묶음이므로 기본적으로 유지한다.
+- 새 high-priority item이 생기면 현재 batch를 끼어들어 바꾸지 않고 `queued_next`로 둔다.
+- `queued_next` item은 다음 batch 최상단에 배치한다.
+- Activity Feed는 새 item이 왜 다음 batch 상단으로 올라갔는지 설명한다.
+- 사용자가 stop-now 또는 현재 batch 종료를 선택하면 ProductEngine이 최신 priority로 다음 batch를 활성화한다.
+
+이 정책은 리서치와 질문이 병렬로 진행되더라도 사용자가 현재 질문 흐름을 잃지 않게 하기 위한 Phase 1 기본값이다.
+
 ## 우선순위 산정
 
 Question/Decision priority는 다음 점수로 계산한다.
@@ -142,6 +158,8 @@ priority_score =
 - 같은 section 질문만 몰아넣지 않는다.
 - 단, 하나의 핵심 tradeoff가 아직 흐릿하면 같은 주제를 2회 이상 연속으로 파고들 수 있다.
 - 배치마다 예상 완성도 상승을 표시한다.
+- ProductEngine은 모든 핵심 event 이후 priority를 재계산한다.
+- 재계산 결과 새 high-priority item이 생겨도 현재 active batch는 기본 유지하고 다음 batch 최상단에 둔다.
 - 답변 후 즉시 Spec에 반영하지 말고, 필요 시 Decision 또는 Research로 라우팅한다.
 
 ## 카드 상태
@@ -149,6 +167,7 @@ priority_score =
 | 상태 | 의미 |
 | --- | --- |
 | `queued` | 생성되었지만 아직 사용자에게 제시되지 않음 |
+| `queued_next` | Queue 재계산 후 다음 batch 최상단 후보가 됨 |
 | `active` | 현재 배치에 포함됨 |
 | `answered` | 사용자가 답변함 |
 | `research_waiting` | 답변은 있으나 리서치가 필요함 |

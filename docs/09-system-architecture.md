@@ -15,6 +15,7 @@
 | UI | React + TypeScript + Vite | core 확정 |
 | Local data | SQLite/libSQL 계열 | core 확정 |
 | State/data fetching | Zustand/Jotai + TanStack Query 후보 | 구현 전 확정 필요 |
+| ProductEngine Orchestrator | 중앙 command/event/state reducer | Phase 1 최상위 계약 |
 | Spec Engine | 자체 TypeScript/Rust boundary | core 확정 |
 | Runtime | Adapter interface | core 확정 |
 | Primary AI runtime | Codex app-server via CodexRuntimeAdapter | Phase 1 우선 |
@@ -33,7 +34,9 @@ Tauri Desktop App
 │  ├─ Context Panel
 │  └─ Research/Activity Feed
 ├─ Local Core
+│  ├─ ProductEngine Orchestrator
 │  ├─ Spec Engine
+│  ├─ Decision Queue Scheduler
 │  ├─ Research Planner
 │  ├─ Completeness Scorer
 │  ├─ Approval Manager
@@ -51,6 +54,29 @@ Tauri Desktop App
    ├─ GooseRuntime later
    └─ CrewAIRuntime later
 ```
+
+## ProductEngine Orchestrator boundary
+
+Phase 1 Application Core의 최상위 상태 전이 주체는 `ProductEngine Orchestrator`다. 자세한 제품 계약은 `18-product-engine-orchestrator.md`를 따른다.
+
+ProductEngine은 다음을 소유한다.
+
+- user command 수신과 precondition 검증.
+- append-only event summary 생성.
+- Spec/Research/Queue/Scoring/Runtime module 호출 순서.
+- session state reduce.
+- 모든 핵심 event 이후 Queue priority 재계산.
+- active batch 안정성과 next batch 재정렬 정책.
+
+ProductEngine이 직접 소유하지 않는 것은 다음이다.
+
+- Spec 문장 후보 생성의 세부 로직.
+- Research source 탐색과 EvidenceMatrix 산식.
+- Runtime adapter 내부 실행 방식.
+- 화면 layout과 component 구현.
+- DB/API schema 상세.
+
+따라서 Architecture 관점에서 Spec Engine, Research Planner, Completeness Scorer, Runtime Adapter는 ProductEngine 아래의 module/service boundary이며, 세션 상태를 단독으로 확정하지 않는다.
 
 ## RuntimeAdapter contract
 
