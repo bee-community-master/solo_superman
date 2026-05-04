@@ -17,7 +17,7 @@ Canonical path: `docs/24-codex-prompt-output-contract.md`.
 | Canonical source | Codex prompt/input/output/schema/repair/artifact 계약은 이 문서가 소유 |
 | Contracts bridge | 25번 문서가 turnPurpose, artifact kind, applyPolicy, blocked action taxonomy re-export를 소유 |
 | Phase 1 권한 | preview/spec/research 중심. 파일, shell, browser, network, credential, destructive action 실행 금지 |
-| Phase 1.5 자동 실행 | 별도 phase. Phase 1에는 승격 필드와 blocked action taxonomy만 남김 |
+| Phase 1.5B execution-readiness hints | 별도 phase. Phase 1에는 `phase15bUpgradeHints`와 blocked action taxonomy만 남김 |
 | TurnPurpose | 6개 전부 1급 schema |
 | Input context | `CoreContextPack` + turnPurpose별 `DeltaContextPack` |
 | Output envelope | Hybrid trace + artifact envelope |
@@ -37,7 +37,7 @@ Phase 1에서 Codex는 다음을 할 수 있다.
 - 제품 세션 상태를 읽고 질문, 리서치 프롬프트, evidence synthesis, spec update preview, implementation plan preview를 생성한다.
 - `RuntimePreviewArtifact`, queue projection, planning note, manual handoff prompt, blocked action card를 만든다.
 - 저위험 artifact를 ProductEngine command/effect completion을 통해 자동 반영한다.
-- Phase 1.5에서 execution으로 승격할 수 있는 hints를 preview artifact에 보존한다.
+- Phase 1.5B에서 실행 준비 정보로 재사용할 수 있는 `phase15bUpgradeHints`를 preview artifact에 보존한다.
 
 Phase 1에서 Codex는 다음을 할 수 없다.
 
@@ -61,7 +61,7 @@ Phase 1에서 허용되는 Codex turnPurpose는 다음 6개뿐이다.
 | `research_prompt` | `ResearchPromptArtifact` | `auto_apply` | ResearchTask or ManualHandoffPrompt | Phase 1은 외부 browser automation 없이 task/prompt만 생성 |
 | `evidence_synthesis` | `EvidenceSynthesisArtifact` | `conditional_auto_apply` | EvidenceMatrix or Review/Risk card | quality/pro-con/source/impact gate를 통과해야 자동 반영 |
 | `spec_update_preview` | `SpecUpdatePreviewArtifact` | `approval_required` | SpecUpdate candidate | Living Spec 직접 변경 금지 |
-| `implementation_plan_preview` | `ImplementationPlanPreviewArtifact` or `BlockedActionArtifact` | `note_only` | PlanningNote or BlockedAction card | Phase 1.5 승격 hints는 저장하지만 실행하지 않음 |
+| `implementation_plan_preview` | `ImplementationPlanPreviewArtifact` or `BlockedActionArtifact` | `note_only` | PlanningNote or BlockedAction card | Phase 1.5B readiness hints는 저장하지만 실행하지 않음 |
 
 ## Input contract overview
 
@@ -181,8 +181,8 @@ Phase 1에서 허용되는 Codex turnPurpose는 다음 6개뿐이다.
 | `riskLevel` | yes | enum | `low`, `medium`, `high`, `blocked` | approval/severity routing |
 | `targetObject` | yes | enum | `queue`, `confidence_projection`, `research_task`, `evidence_matrix`, `spec_update`, `planning_note`, `blocked_action`, `activity_only` | ProductEngine 변환 대상 |
 | `sourceRefs` | yes | array | confirmed decision, ambiguity issue, research source, event id 참조 | traceability |
-| `requiredApprovals` | yes | array | none이면 empty array | Phase 1.5 승격 필드와 공유 가능 |
-| `phase15UpgradeHints` | no | object | preview-only. 실행 금지 | Phase 1.5 migration 대비 |
+| `requiredApprovals` | yes | array | none이면 empty array | Phase 1.5B readiness field와 공유 가능 |
+| `phase15bUpgradeHints` | no | object | preview-only. 실행 금지 | Phase 1.5B/Phase 2+ migration 대비 |
 
 ## applyPolicy enum
 
@@ -392,7 +392,7 @@ Example JSON skeleton:
 | `prSequence` | yes | array | suggested only |
 | `dryRunHandoff` | yes | object | handoff text and expected outputs |
 | `risks` | yes | array | implementation risk notes |
-| `phase15UpgradeHints` | yes | object | executionIntent, requiredApprovals, riskLevel, sandboxRequirements |
+| `phase15bUpgradeHints` | yes | object | executionIntent, requiredApprovals, riskLevel, sandboxRequirements |
 
 Example JSON skeleton:
 
@@ -411,7 +411,7 @@ Example JSON skeleton:
   "prSequence": [{ "prId": "PR-07", "summary": "Codex preview adapter 구현" }],
   "dryRunHandoff": { "handoffText": "이 계획은 preview이며 실행하지 않습니다.", "expectedOutputs": ["schema tests", "fixture tests"] },
   "risks": [{ "riskId": "risk_schema_drift", "summary": "Codex generated schema와 내부 schema 불일치 가능성" }],
-  "phase15UpgradeHints": {
+  "phase15bUpgradeHints": {
     "executionIntent": "candidate_only",
     "requiredApprovals": ["project_level_delegation", "workspace_sandbox_ready"],
     "riskLevel": "medium",
@@ -428,8 +428,8 @@ Example JSON skeleton:
 | `blockedActionType` | yes | enum | taxonomy below |
 | `requestedActionSummary` | yes | string | requested action 요약 |
 | `blockReason` | yes | string | Phase 1 boundary 위반 이유 |
-| `userVisibleAction` | yes | enum | `manual_handoff`, `ignore`, `phase1_5_candidate`, `revise_prompt` |
-| `phase15UpgradeHints` | yes | object | required approvals/sandbox requirements |
+| `userVisibleAction` | yes | enum | `manual_handoff`, `ignore`, `phase1_5b_candidate`, `revise_prompt` |
+| `phase15bUpgradeHints` | yes | object | required approvals/sandbox requirements |
 
 Example JSON skeleton:
 
@@ -443,12 +443,12 @@ Example JSON skeleton:
   "riskLevel": "blocked",
   "targetObject": "blocked_action",
   "sourceRefs": [{ "type": "codexTurn", "id": "turn_demo_001" }],
-  "requiredApprovals": [{ "approvalType": "phase1_5_delegation", "reason": "자동 실행은 Phase 1.5 범위입니다." }],
+  "requiredApprovals": [{ "approvalType": "phase1_5b_delegation", "reason": "실행 준비 metadata는 Phase 1.5B 범위이며 실제 실행은 Phase 3 Safe Execution Adapter (Controlled Execution) 단계입니다." }],
   "blockedActionType": "shell_command",
   "requestedActionSummary": "pnpm test -- --run runtime 실행 제안",
   "blockReason": "Phase 1은 RuntimePreviewArtifact만 생성하고 shell command를 실행하지 않습니다.",
-  "userVisibleAction": "phase1_5_candidate",
-  "phase15UpgradeHints": {
+  "userVisibleAction": "phase1_5b_candidate",
+  "phase15bUpgradeHints": {
     "executionIntent": "shell_command_preview",
     "requiredApprovals": ["project_level_delegation", "command_allowlist"],
     "riskLevel": "medium",
@@ -459,7 +459,7 @@ Example JSON skeleton:
 
 ## Blocked action taxonomy
 
-| blockedActionType | Examples | Phase 1 output | Phase 1.5 hint |
+| blockedActionType | Examples | Phase 1 output | Phase 1.5B hint |
 | --- | --- | --- | --- |
 | `file_patch` | edit repo files, create migration, write config | `BlockedActionArtifact` | isolated worktree, diff preview, rollback reference |
 | `shell_command` | run tests, install packages, execute script | `BlockedActionArtifact` | command allowlist, timeout, audit log |
@@ -478,7 +478,7 @@ Example JSON skeleton:
 | `ResearchPromptArtifact` | automatically creates ResearchTask or handoff-ready prompt | external browser automation remains blocked |
 | `EvidenceSynthesisArtifact` | conditionally writes EvidenceMatrix when quality gate passes | conclusion-changing, weak source, missing con evidence routes to review/risk/follow-up |
 | `SpecUpdatePreviewArtifact` | stores preview/candidate | Living Spec change requires approval |
-| `ImplementationPlanPreviewArtifact` | stores PlanningNote | task commitment/execution is Phase 1.5 |
+| `ImplementationPlanPreviewArtifact` | stores PlanningNote | implementation commitment is Phase 2; execution is Phase 3+; Phase 1.5B stores readiness hints only |
 | `BlockedActionArtifact` | stores blocked card | never executes in Phase 1 |
 
 ## Parse, repair, and validation pipeline
@@ -716,7 +716,7 @@ Input delta fields:
 | Field | Required | Type | Validation rule |
 | --- | --- | --- | --- |
 | `implementationTarget` | yes | object | spec section or phase implementation goal |
-| `phaseBoundary` | yes | object | Phase 1 no execution, Phase 1.5 future execution hints |
+| `phaseBoundary` | yes | object | Phase 1 no execution, Phase 1.5B execution-readiness hints |
 | `dryRunExpectations` | yes | array | expected validation evidence |
 
 Output requirements:
@@ -726,7 +726,7 @@ Output requirements:
 | artifact kind | `ImplementationPlanPreviewArtifact` or `BlockedActionArtifact` |
 | applyPolicy | `note_only` or `blocked` |
 | task commitment | forbidden in Phase 1 |
-| phase15UpgradeHints | required on implementation plan preview |
+| phase15bUpgradeHints | required on implementation plan preview |
 
 
 ## Contracts DTO bridge
@@ -821,12 +821,12 @@ Then:
 - `BlockedActionArtifact` is created.
 - `applyPolicy = blocked`.
 - no requested action is executed.
-- Phase 1.5 upgrade hints may be stored.
+- Phase 1.5B upgrade hints may be stored.
 - UI shows RuntimeBlockedCard or equivalent blocked queue card.
 
-### Scenario F. Phase 1.5 upgrade fields preserved
+### Scenario F. Phase 1.5B upgrade fields preserved
 
-Given `ImplementationPlanPreviewArtifact` includes `phase15UpgradeHints`.
+Given `ImplementationPlanPreviewArtifact` includes `phase15bUpgradeHints`.
 
 When Phase 1 stores it.
 
@@ -834,7 +834,7 @@ Then:
 
 - executionIntent, requiredApprovals, riskLevel, sandboxRequirements are preserved.
 - Phase 1 does not execute the plan.
-- future Phase 1.5 implementation can read the hints without migrating the artifact shape.
+- future Phase 1.5B/Phase 2+ implementation can read the hints without migrating the artifact shape.
 
 ### Scenario G. Severity routing
 
@@ -858,4 +858,4 @@ Then:
 - Build evidence gate fixtures for pass, conclusion-changing, weak source, and missing con evidence.
 - Build blocked action fixtures for file, shell, browser, network, credential, destructive, and ChatGPT web automation requests.
 - Assert Phase 1 never executes file/shell/browser actions from Codex output.
-- Assert Phase 1.5 upgrade hints are stored but not executed.
+- Assert Phase 1.5B upgrade hints are stored but not executed.

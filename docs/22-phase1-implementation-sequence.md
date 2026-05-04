@@ -332,7 +332,7 @@ Forbidden:
 - ChatGPT web automation.
 - API key requirement as default path.
 - running arbitrary Codex-generated commands.
-- implementing Phase 1.5 automatic execution in PR-07.
+- executing or acting on `phase15bUpgradeHints` beyond storing/validating preview metadata.
 
 ## PR-08. Completeness and Founder Brief
 

@@ -346,6 +346,8 @@ Closed Phase 1 event type groups:
 | `inputRef` | yes | object | lightweight reference to persisted state/artifact |
 | `previewPolicy` | yes | enum | `auto_low_risk`, `approval_required`, `manual_handoff_required`, `blocked` |
 
+`previewPolicy`는 ProductEngine effect planning policy다. `24-codex-prompt-output-contract.md`의 6개 `CodexApplyPolicy`와 이름·값을 맞춰야 하는 enum이 아니며, runtime artifact를 만들 때만 adapter가 `CodexApplyPolicy`로 매핑한다.
+
 ### ProductEngineDeterministicOutput
 
 Deterministic outputs are reducer-created artifacts that can be persisted or projected without asynchronous execution.
@@ -720,7 +722,7 @@ Example DecisionQueueProjection:
 | `CodexTurnPurpose` | 24번 TurnPurpose taxonomy | 6 values only |
 | `CodexArtifactKind` | 24번 artifact taxonomy | 7 values only |
 | `CodexApplyPolicy` | 24번 applyPolicy enum | 6 values only |
-| `BlockedActionType` | 24번 blocked action taxonomy | Phase 1 blocked, Phase 1.5 hint only |
+| `BlockedActionType` | 24번 blocked action taxonomy | Phase 1 blocked, Phase 1.5B hint only |
 | `CodexOutputEnvelopeRef` | 24번 output envelope | reference type for runtime artifacts, not raw Codex client type |
 
 Rules:

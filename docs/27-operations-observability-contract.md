@@ -20,7 +20,7 @@
 제외:
 
 - 런타임 코드 구현.
-- DB/API schema 상세 확장.
+- 이 문서 자체의 DB/API/DTO field 상세 확장. 세부 DTO와 endpoint behavior는 `25-contracts-dto-catalog.md`, `26-api-route-behavior-catalog.md`가 소유한다.
 - 외부 APM, log drain, 배포 관측 플랫폼 선택.
 - detailed scheduler algorithm.
 - Phase 1의 preview-only runtime boundary를 넘어서는 file patch, shell command, browser action 실행.

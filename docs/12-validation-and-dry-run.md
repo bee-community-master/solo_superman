@@ -394,10 +394,11 @@ Follow-up questions:
 - [ ] Codex app-server는 Phase 1에서 sandbox preview 권한만 가진다.
 - [ ] Phase 1에서 실제 파일 patch, shell command, browser action은 실행되지 않는다.
 - [ ] Phase 1에서 ChatGPT 웹 자동화는 구현 범위 밖이다.
-- [ ] 깊은 리서치 fallback은 수동 프롬프트 핸드오프 후 공식 Codex 경로로 정의된다.
+- [ ] 깊은 리서치 fallback은 수동 프롬프트 핸드오프 후 `17-ai-runtime-access-strategy.md`의 공식 Codex 경로로 정의된다.
 - [ ] ChatGPT Pro 웹 자동화는 Phase 2+에서 project-level blanket delegation, revoke, audit, fallback chain이 있을 때만 가능하다.
+- [ ] Phase 1.5A는 background research runtime, Phase 1.5B는 execution-readiness hint 저장으로 분리되며 둘 다 실제 file/shell/browser 실행 권한을 주지 않는다.
 - [ ] State/Event Contract는 AmbiguityIssue, Question, Answer, ResearchTask, EvidenceMatrix, SpecUpdate, Decision, SpecVersion, CompletenessSnapshot, CompletionCandidate trace를 정의한다.
-- [ ] State/Event Contract는 런타임/코드 구현 제외와 DB/API 스키마 상세 제외를 명시한다.
+- [ ] State/Event Contract는 런타임/코드 구현 제외와 저장소/API/DTO/route 세부 계약 소유 문서(20/21/25/26)를 명시한다.
 - [ ] State/Event Contract dry-run은 샘플 아이디어가 end-to-end event trace로 이어지는지 검증한다.
 - [ ] README, Spec Engine, Domain Model, Validation 문서는 같은 State/Event Contract 범위를 공유한다.
 - [ ] README, Architecture, Decision Queue, Spec Engine, State/Event Contract는 같은 ProductEngine Orchestrator 경계를 공유한다.

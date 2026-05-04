@@ -389,7 +389,7 @@ type SkepticalSearchRecord = {
 - `missingConEvidenceReason`은 `balanceStatus`가 `missing_con_evidence`일 때 필요하다.
 - `summary`는 source가 말한 내용이고 `implication`은 claim에 미치는 해석이다.
 - `stance: neutral`은 decision-ready 핵심 근거로 쓰지 않는다.
-- DB/API 스키마 상세 제외 원칙에 따라 이 타입은 문서 계약이며 테이블 DDL이 아니다.
+- 이 타입은 도메인 문서 계약이며 테이블 DDL 또는 wire DTO가 아니다. 저장 방식과 wire/API shape는 `20-data-storage-contract.md`, `21-sidecar-api-runtime-contract.md`, `25-contracts-dto-catalog.md`, `26-api-route-behavior-catalog.md`를 따른다.
 
 ## Decision
 

@@ -12,7 +12,7 @@
 
 산출물:
 
-- 23개 번호 문서와 README로 구성된 상세 기획/구현 계약 문서.
+- 28개 번호 문서와 README로 구성된 상세 기획/구현 계약 문서.
 - 구현자 핸드오프 검토.
 - 샘플 아이디어 dry-run.
 
@@ -43,7 +43,7 @@
 - 답변 저장.
 - 실제 리서치 결과 저장.
 - Codex app-server 기반 Spec/Research sandbox preview.
-- 수동 프롬프트 핸드오프와 공식 Codex 경로 fallback.
+- 수동 프롬프트 핸드오프와 `17-ai-runtime-access-strategy.md`가 정의한 공식 Codex 경로 fallback.
 - 찬반 근거 매트릭스.
 - Suggested Spec Update.
 - Decision Approval.
@@ -71,7 +71,7 @@
 - 사용자가 Spec v1과 Founder Brief를 export할 수 있다.
 - PR-01~PR-09 implementation sequence의 E2E dry-run acceptance를 통과한다.
 
-## Phase 1.5: Background Research Runtime
+## Phase 1.5A: Background Research Runtime
 
 목표:
 
@@ -94,6 +94,38 @@
 - 자동 코드 실행.
 - 팀 협업.
 - 결제.
+
+## Phase 1.5B: Execution-readiness Hints
+
+목표:
+
+- Phase 1 preview artifact가 나중의 실행 계획/위임 단계에서 재사용할 수 있는 승인, sandbox, rollback, command allowlist 요구사항을 보존한다.
+
+포함:
+
+- `phase15bUpgradeHints` field family.
+- blocked action의 execution-readiness metadata.
+- implementation plan preview의 dry-run handoff와 expected evidence.
+- later Phase에서 필요한 delegation approval, workspace sandbox, rollback reference 요구사항.
+
+제외:
+
+- file patch 실행.
+- shell command 실행.
+- browser action 실행.
+- project-level delegation 활성화.
+- implementation task commitment 확정.
+
+진입 조건:
+
+- Phase 1 RuntimePreviewArtifact와 BlockedActionArtifact 저장이 안정됨.
+- Phase 1.5A 또는 수동 리서치 경로에서 execution-readiness metadata가 반복적으로 필요함.
+
+완료 조건:
+
+- Phase 1.5B hint metadata는 저장·조회·export 가능하지만 실행되지 않는다.
+- Phase 2/3 구현자가 artifact shape migration 없이 hint를 읽을 수 있다.
+- Phase 1/1.5B 어디에서도 실제 파일·shell·browser action이 실행되지 않는다는 검증이 통과한다.
 
 ## Phase 2: Execution Planning Handoff
 
@@ -144,7 +176,7 @@
 - 로그인/결제/민감 작업 자동 실행.
 - ChatGPT 계정 공유 또는 인증정보 대리 보관.
 
-## Phase 3: Safe Execution Adapter
+## Phase 3: Safe Execution Adapter (Controlled Execution)
 
 목표:
 
@@ -222,6 +254,7 @@
 ## Phase guardrails
 
 - Phase 1 완료 전 자동 실행 기능을 만들지 않는다.
+- Phase 1.5B는 execution-readiness hint만 저장하며 실제 file/shell/browser 실행 권한을 주지 않는다.
 - Phase 1에서 Codex app-server는 sandbox preview 권한을 넘지 않는다.
 - Phase 1에서 ChatGPT Pro 웹 자동화를 만들지 않는다.
 - Phase 1 완료 전 모바일 앱을 만들지 않는다.
@@ -230,4 +263,3 @@
 - cloud sync는 local-first 원칙을 깨지 않는 opt-in이어야 한다.
 - Phase 1에서 remote sync는 remote config placeholder only로 남긴다.
 - Phase 1 implementation sequence는 `22-phase1-implementation-sequence.md`를 따른다.
-

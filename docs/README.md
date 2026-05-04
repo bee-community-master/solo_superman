@@ -44,6 +44,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | API Route 행동 계약 | 전체 Phase 1 endpoint별 request, command/query mapping, response/statusUrl, effects/SSE/refetch, errors/preconditions |
 | 운영·관측성 계약 | 전구간 Operations/Observability Contract, 대표 장애 dry-run, user-visible recovery |
 | Phase 1 구현 순서 | PR-01 workspace scaffold부터 PR-09 E2E dry-run hardening까지 고정 |
+| Post-Phase 1 split | Phase 1.5A는 background research runtime, Phase 1.5B는 execution-readiness hint 저장만 담당 |
 | Phase 1 MVP | Research 포함 폐루프 |
 | 1순위 실패 방지 | 무한 질문 루프 |
 
@@ -96,9 +97,9 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | Roadmap | Phase별 포함/제외 | 각 기능의 상세 계약은 해당 문서로 링크한다 |
 | Validation | 문서 품질 검증 방식 | 제품 요구사항 자체는 바꾸지 않는다 |
 | UX Doctrine | 세션 감각, 날카로운 제품 코치, 피로도 개입, Founder Brief | 화면 배치는 UX 문서로, 산식은 Scoring 문서로 넘긴다 |
-| Ambiguity/Question Lifecycle | AmbiguityIssue, QuestionBatch, answer routing, repeat limit, completion 수렴 | Research 상세 품질 산식과 DB/API 스키마는 후속 문서로 넘긴다 |
+| Ambiguity/Question Lifecycle | AmbiguityIssue, QuestionBatch, answer routing, repeat limit, completion 수렴 | Research 상세 품질 산식은 Research/Evidence 문서로, 저장소/API/DTO/route 세부 계약은 20/21/25/26번으로 넘긴다 |
 | Pro/Con Evidence Gate | pro_evidence, con_evidence, missing_con_evidence, skeptical search | 외부 리서치 런타임 구현과 고객 인터뷰 방법론 깊은 설계는 후속 문서로 넘긴다 |
-| State/Event Contract | Question, ResearchTask, EvidenceMatrix, Decision, SpecUpdate, SpecVersion, CompletionCandidate의 end-to-end trace | DB/API 스키마 상세와 런타임/코드 구현은 Phase 1 설계 또는 구현 단계로 넘긴다 |
+| State/Event Contract | Question, ResearchTask, EvidenceMatrix, Decision, SpecUpdate, SpecVersion, CompletionCandidate의 end-to-end trace | 저장소/API/DTO/route 세부 계약은 20/21/25/26번으로, 런타임/코드 구현은 후속 구현 PR로 넘긴다 |
 | AI Runtime Access Strategy | Codex app-server 우선 통합, sandbox preview 권한, ChatGPT Pro 웹 자동화의 Phase 2+ 비전 | 리서치 품질은 Research Engine으로, 승인/프라이버시 세부는 Security 문서로 넘긴다 |
 | Product Engine Orchestrator | Phase 1 전체 세션 라이프사이클, 중앙 상태 전이, Queue 재계산, 모듈 소유권 | 세부 카드 UX는 Decision Queue로, trace link는 State/Event Contract로, runtime 권한은 AI Runtime Access Strategy로 넘긴다 |
 | Phase 1 Implementation Architecture | Tauri + Node/Hono sidecar, monorepo layout, dev scripts, native boundary | DB 저장 상세는 Data Storage Contract로, API route shape는 Sidecar API Runtime Contract로 넘긴다 |
@@ -137,7 +138,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 - 실제 remote sync 구현 금지. Phase 1 문서상 허용되는 것은 remote config placeholder뿐이다.
 - OpenClaw/Goose/CrewAI/Browser-use 실제 연동 금지.
 - Phase 1에서 ChatGPT 웹 자동화 구현 금지.
-- Phase 1에서 Codex를 통한 실제 파일 patch, shell 실행, 브라우저 action 실행 금지. `diff_preview`, `command_plan_preview`, `browser_action_preview`는 preview artifact 또는 `BlockedActionArtifact`로만 남긴다. 프로젝트 위임 후 자동 실행은 Phase 1.5로 분리한다.
+- Phase 1에서 Codex를 통한 실제 파일 patch, shell 실행, 브라우저 action 실행 금지. `diff_preview`, `command_plan_preview`, `browser_action_preview`는 preview artifact 또는 `BlockedActionArtifact`로만 남긴다. Phase 1.5A는 background research runtime, Phase 1.5B는 execution-readiness hint 저장만 다루며 실제 실행은 Phase 3 Safe Execution Adapter (Controlled Execution) 전에는 하지 않는다.
 - ProductEngine effect는 in-memory-only queue로 처리 금지. Phase 1 1급 effect는 persisted async effect queue에 저장한다.
 - `scoring_effect`와 `spec_export_effect`를 Phase 1 1급 async effect로 승격 금지. scoring/export는 reducer deterministic output으로 유지한다.
 - 모바일 앱 생성 금지.

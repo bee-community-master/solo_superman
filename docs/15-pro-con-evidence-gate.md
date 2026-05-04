@@ -4,7 +4,7 @@
 
 이 문서는 Solo Superman의 Research/Evidence 품질 체계, 특히 **Pro/Con Evidence Gate**의 source of truth다. 목표는 사용자가 찬성 근거만 보고 확신하는 **confirmation bias**에 빠지지 않도록, 핵심 claim마다 `pro_evidence`, `con_evidence`, uncertainty, `missing_con_evidence` 상태를 명확히 남기는 것이다.
 
-이 문서는 실행 구현이 아니라 제품/문서 계약이다. **외부 리서치 런타임 구현 제외**, **고객 인터뷰 방법론 깊은 설계 제외**, **DB/API 스키마 상세 제외**를 전제로 한다. Playwright, Browser-use, OpenClaw, 웹 검색 호출, 크롤링 방식, 고객 인터뷰 모집/분석 방법론, DB DDL, API endpoint는 다루지 않는다.
+이 문서는 실행 구현이 아니라 제품/문서 계약이다. **외부 리서치 런타임 구현 제외**, **고객 인터뷰 방법론 깊은 설계 제외**를 전제로 한다. Playwright, Browser-use, OpenClaw, 웹 검색 호출, 크롤링 방식, 고객 인터뷰 모집/분석 방법론은 다루지 않는다. Evidence storage/API/DTO/endpoint 세부 계약은 이 문서가 소유하지 않고 `20-data-storage-contract.md`, `21-sidecar-api-runtime-contract.md`, `25-contracts-dto-catalog.md`, `26-api-route-behavior-catalog.md`가 소유한다.
 
 ## 핵심 원칙
 

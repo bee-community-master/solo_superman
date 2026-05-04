@@ -16,7 +16,8 @@ AI Runtime Access Strategy는 Solo Superman이 AI를 어떻게 사용자의 제�
 | Phase 1 Codex transport | app-server stdio 기본값 + generated schema pinning |
 | Phase 1 Codex 권한 | sandbox preview allowed |
 | Phase 1 Codex output | 6개 turnPurpose, JSON-first, Core+Delta input, Hybrid trace+artifact envelope |
-| Phase 1.5 자동 실행 | Phase 1 구현 밖. Phase 1은 승격 필드와 blocked action taxonomy만 보존 |
+| Phase 1.5A research runtime | Phase 1 구현 밖. background research adapter와 long-running status를 다루는 후속 단계 |
+| Phase 1.5B execution-readiness hints | Phase 1 구현 밖. Phase 1은 `phase15bUpgradeHints`와 blocked action taxonomy만 보존 |
 | Phase 1 browser automation | 제외 |
 | Phase 1 deep research fallback | 수동 프롬프트 핸드오프 → 공식 Codex 경로 |
 | ChatGPT Pro 웹 자동화 | Phase 2+ 비전 |
@@ -58,6 +59,14 @@ Phase 1
   Codex app-server sandbox preview
   + manual prompt handoff
   + official Codex path research/analysis fallback
+
+Phase 1.5A
+  Background research runtime
+  + long-running research status
+
+Phase 1.5B
+  Execution-readiness hints
+  + no file/shell/browser execution
 
 Phase 2+
   ChatGPT Pro web deep research automation
@@ -154,7 +163,7 @@ Phase 1 Codex output은 `24-codex-prompt-output-contract.md`를 따른다. 핵�
 - Output은 `Hybrid trace + artifacts[] envelope`다.
 - JSON parse 실패는 deterministic parser repair 1회, Codex self-repair 1회까지만 허용한다.
 - 1급 artifact kind는 QuestionBatch, AmbiguityAnalysis, ResearchPrompt, EvidenceSynthesis, SpecUpdatePreview, ImplementationPlanPreview, BlockedAction이다.
-- Phase 1.5 자동 실행은 구현하지 않지만 preview-to-execution 승격 필드와 blocked action taxonomy는 보존한다.
+- Phase 1.5B execution-readiness hint 구현은 Phase 1에서 하지 않지만, preview-to-execution 준비 정보인 `phase15bUpgradeHints`와 blocked action taxonomy는 보존한다.
 
 ## Manual prompt handoff
 

@@ -220,7 +220,7 @@ Phase 1의 Research Engine은 `17-ai-runtime-access-strategy.md`를 따른다. �
 
 - Phase 1 primary: CodexRuntimeAdapter.
 - Phase 1 support: LocalResearchRuntime for manual prompt handoff/import.
-- Phase 1.5 후보: OpenClaw Background Task adapter.
+- Phase 1.5A 후보: OpenClaw Background Task adapter.
 - Phase 2+ 후보: ChatGPT Pro 웹 자동화, Browser-use/Playwright 고급 브라우저 자동화 adapter.
 - v2+ 후보: CrewAI research flow adapter.
 
@@ -234,7 +234,7 @@ OpenClaw의 background task 개념은 detached work의 ledger로 적합하고, T
 ResearchNeed
 → Codex app-server sandbox preview
 → if deep external research needed: manual prompt handoff
-→ if user still wants full automation: official Codex path only
+→ if user still wants full automation: official Codex path only, as defined in `17-ai-runtime-access-strategy.md`
 → if still insufficient: Risk Card + Known Risk + Next Validation Action
 ```
 

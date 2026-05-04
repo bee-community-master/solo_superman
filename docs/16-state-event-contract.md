@@ -18,10 +18,12 @@ State/Event Contract는 Solo Superman Phase 1의 핵심 객체가 어떤 순서�
 제외한다.
 
 - 런타임/코드 구현 제외.
-- DB/API 스키마 상세 제외.
-- SQLite table DDL, Tauri command, HTTP endpoint, queue worker 설계.
+- 이 문서 안에서 DB/API/DTO/route 세부 shape 재정의.
+- SQLite table DDL, Tauri command, HTTP endpoint, queue worker 구현 설계.
 - 외부 리서치 runtime adapter의 내부 실행 방식.
 - 모바일, 팀 협업, 결제, 자동 코드 실행.
+
+저장소/API/DTO/route 세부 계약은 각각 `20-data-storage-contract.md`, `21-sidecar-api-runtime-contract.md`, `25-contracts-dto-catalog.md`, `26-api-route-behavior-catalog.md`가 소유한다.
 
 ## 계약 원칙
 
@@ -71,7 +73,7 @@ flowchart TD
 | `Question` | `AmbiguityIssue`, `topicKey`, priority reason | `Answer`, route outcome, affected confidence axis |
 | `Answer` | `Question`, user input, interpreted meaning | `ResearchTask`, `Decision`, `SpecUpdate`, `deferred` outcome |
 | `ResearchTask` | triggering `Answer` or `AmbiguityIssue` | `ResearchResult`, `RuntimePreviewArtifact`, `EvidenceMatrix`, research terminal outcome |
-| `RuntimePreviewArtifact` | Codex app-server sandbox preview, manual handoff, official Codex path | `ResearchResult`, `SpecUpdate`, Risk Card, or blocked outcome |
+| `RuntimePreviewArtifact` | Codex app-server sandbox preview, manual handoff, `17-ai-runtime-access-strategy.md`의 official Codex path | `ResearchResult`, `SpecUpdate`, Risk Card, or blocked outcome |
 | `EvidenceMatrix` | `ResearchResult`, claim, decision context | `SpecUpdate`, `Decision`, Known Risks, Next Validation Actions |
 | `SpecUpdate` | `Answer`, `EvidenceMatrix`, current `SpecSection` | auto-applied update or `Decision` approval request |
 | `Decision` | approval card, alternatives, evidence | `SpecVersion` or rejected/revised/deferred terminal outcome |
@@ -89,7 +91,7 @@ Trace link가 끊긴 상태에서는 completion candidate를 만들 수 없다.
 | Question generation | open issue가 있고 `repeatCount < repeatLimit` | 3~5개 `Question`, confidence axis impact | `question_queued`, `repeat_limit_reached` | 같은 `topicKey`는 한 batch에 1개만 들어간다 |
 | Answer routing | `Question`에 `Answer`가 연결됨 | `AnswerRouteOutcome`, affected section, next candidates | `resolved`, `research_needed`, `missing_con_evidence`, `decision_candidate`, `spec_update_candidate`, `conflict_detected`, `deferred`, `repeat_limit_reached` | route outcome 없는 답변은 Decision 후보가 될 수 없다 |
 | Research planning | answer 또는 issue가 evidence gap을 만듦 | `ResearchTask` with source intent | `planned`, `handoff_ready`, `cancelled`, `failed` | 사용자가 외부 호출 disclosure를 승인하지 않으면 외부 research를 실행하지 않는다 |
-| Runtime preview | Codex app-server 또는 공식 Codex 경로가 실행 전 산출물을 만듦 | `RuntimePreviewArtifact`, preview-only marker | `preview_ready`, `converted`, `blocked` | Phase 1 preview는 실제 파일, shell, browser action으로 적용할 수 없다 |
+| Runtime preview | Codex app-server 또는 `17-ai-runtime-access-strategy.md`가 정의한 공식 Codex 경로가 실행 전 산출물을 만듦 | `RuntimePreviewArtifact`, preview-only marker | `preview_ready`, `converted`, `blocked` | Phase 1 preview는 실제 파일, shell, browser action으로 적용할 수 없다 |
 | Evidence synthesis | `ResearchResult`가 도착함 | `EvidenceMatrix`, pro/con/uncertainty, skeptical search | `balanced`, `missing_con_evidence`, `source_quality_insufficient`, `blocked_by_con_evidence` | high impact `pro_only` claim은 decision-ready가 아니다 |
 | Spec update suggestion | answer/evidence가 section 변경을 요구함 | `SpecUpdate`, before/after summary, risk level | `auto_applied`, `approval_waiting`, `rejected` | high impact update는 자동 반영하지 않는다 |
 | Decision approval | approval card가 사용자에게 제시됨 | `Decision` status, rationale, alternatives | `approved`, `rejected`, `revised`, `deferred`, `risk_accepted` | 사용자 승인 없는 핵심 decision은 SpecVersion으로 고정하지 않는다 |

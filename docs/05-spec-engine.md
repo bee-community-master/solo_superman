@@ -6,7 +6,7 @@ Spec Engine은 아이디어, 답변, 리서치 결과, 결정 승인, 문서 버
 
 AmbiguityIssue와 QuestionBatch의 상세 수렴 계약은 `14-ambiguity-question-lifecycle.md`를 따른다. Spec Engine은 이 계약을 Spec 산출물 후보로 변환하고, ProductEngine은 이를 전체 세션 라이프사이클에 연결한다.
 
-Question, ResearchTask, EvidenceMatrix, Decision, SpecUpdate, SpecVersion, CompletionCandidate가 끊기지 않는 end-to-end trace는 `16-state-event-contract.md`의 State/Event Contract를 따른다. Phase 1 전체 세션 라이프사이클과 command/event/state reduce의 최상위 계약은 `18-product-engine-orchestrator.md`를 따른다. 이 계약들은 구현 전 문서 계약이며 런타임/코드 구현 제외, DB/API 스키마 상세 제외 원칙을 유지한다.
+Question, ResearchTask, EvidenceMatrix, Decision, SpecUpdate, SpecVersion, CompletionCandidate가 끊기지 않는 end-to-end trace는 `16-state-event-contract.md`의 State/Event Contract를 따른다. Phase 1 전체 세션 라이프사이클과 command/event/state reduce의 최상위 계약은 `18-product-engine-orchestrator.md`를 따른다. 이 계약들은 구현 전 문서 계약이며 런타임/코드 구현 제외 원칙을 유지한다. 저장소/API/DTO/route 세부 계약은 이 문서가 재정의하지 않고 `20-data-storage-contract.md`, `21-sidecar-api-runtime-contract.md`, `25-contracts-dto-catalog.md`, `26-api-route-behavior-catalog.md`가 소유한다.
 
 ## ProductEngine과의 경계
 
@@ -206,7 +206,7 @@ AmbiguityIssue
 
 - Codex app-server sandbox preview result.
 - manual prompt handoff draft.
-- official Codex path fallback result.
+- `17-ai-runtime-access-strategy.md`가 정의한 official Codex path fallback result.
 
 출력:
 

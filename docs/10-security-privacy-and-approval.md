@@ -132,7 +132,7 @@ ChatGPT Pro 웹 자동화의 프로젝트 단위 포괄 위임은 Phase 2+ 기�
 - ChatGPT 웹이 어떤 deep research 목적에 쓰이는가.
 - 어떤 project context가 전송될 수 있는가.
 - 어떤 private data는 전송하지 않는가.
-- 자동화 실패 시 수동 프롬프트 핸드오프와 공식 Codex 경로 fallback이 적용된다는 점.
+- 자동화 실패 시 수동 프롬프트 핸드오프와 `17-ai-runtime-access-strategy.md`가 정의한 공식 Codex 경로 fallback이 적용된다는 점.
 - 언제든 revoke할 수 있는 위치.
 - audit log에 남는 항목.
 
@@ -166,4 +166,3 @@ ChatGPT Pro 웹 자동화의 프로젝트 단위 포괄 위임은 Phase 2+ 기�
 - Phase 1에서 자동 코드 실행을 제공하지 않는다.
 - Phase 1에서 ChatGPT 웹 자동화를 제공하지 않는다.
 - Codex app-server를 붙이더라도 Phase 1에서는 sandbox preview 권한을 넘지 않는다.
-

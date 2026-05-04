@@ -253,7 +253,7 @@ Configuration keys are split by owner.
 | `SOLO_CODEX_TRANSPORT` | sidecar | `stdio` default |
 | `SOLO_CODEX_SCHEMA_VERSION` | sidecar/contracts | generated schema directory name |
 
-No API key input is required for the default AI path. Codex authentication follows the Codex app-server/Codex installation path defined in `17-ai-runtime-access-strategy.md` and `21-sidecar-api-runtime-contract.md`.
+The default AI path skips API key input. Codex authentication follows the Codex app-server/Codex installation path defined in `17-ai-runtime-access-strategy.md` and `21-sidecar-api-runtime-contract.md`.
 
 ## Security boundary
 

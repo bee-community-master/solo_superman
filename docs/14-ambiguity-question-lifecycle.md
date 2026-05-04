@@ -4,7 +4,7 @@
 
 이 문서는 Solo Superman의 `AmbiguityIssue → QuestionBatch → Answer → Routing → Repeat Limit → Completion Candidate` 계약의 source of truth다. `04-decision-queue.md`는 화면 큐를 설명하고, `05-spec-engine.md`는 전체 상태머신을 설명하며, 이 문서는 질문 엔진이 **무한 질문 루프**에 빠지지 않고 수렴하는 규칙을 고정한다.
 
-이번 계약은 문서 전용 설계다. **런타임/코드 구현 제외**와 **DB/API 스키마 상세 제외**를 전제로 하며, 실제 Tauri/React/SQLite 구현, migration, endpoint, LLM 호출 코드는 다루지 않는다.
+이번 계약은 문서 전용 설계다. **런타임/코드 구현 제외**를 전제로 하며, 실제 Tauri/React/SQLite 구현, migration, endpoint, LLM 호출 코드는 다루지 않는다. DB/API/DTO/route 세부 계약은 이 문서가 소유하지 않고 `20-data-storage-contract.md`, `21-sidecar-api-runtime-contract.md`, `25-contracts-dto-catalog.md`, `26-api-route-behavior-catalog.md`가 소유한다.
 
 ## 핵심 원칙
 

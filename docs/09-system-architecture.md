@@ -80,7 +80,7 @@ ProductEngine이 직접 소유하지 않는 것은 다음이다.
 - Research source 탐색과 EvidenceMatrix 산식.
 - Runtime adapter 내부 실행 방식.
 - 화면 layout과 component 구현.
-- DB/API schema 상세. 해당 구현 계약은 `20-data-storage-contract.md`, `21-sidecar-api-runtime-contract.md`, `26-api-route-behavior-catalog.md`가 소유한다.
+- DB/API/DTO/route 상세. 해당 구현 계약은 `20-data-storage-contract.md`, `21-sidecar-api-runtime-contract.md`, `25-contracts-dto-catalog.md`, `26-api-route-behavior-catalog.md`가 소유한다.
 
 따라서 Architecture 관점에서 Spec Engine, Research Planner, Completeness Scorer, Runtime Adapter는 ProductEngine 아래의 module/service boundary이며, 세션 상태를 단독으로 확정하지 않는다.
 
@@ -140,7 +140,7 @@ Phase 1 primary AI runtime이다. 구현 후보는 Codex app-server이며, 자�
 - Codex stream event를 Activity Feed와 Execution Log로 변환한다.
 - Phase 1 권한은 `sandbox_preview_allowed`다.
 - 실제 파일 patch, shell 실행, browser action은 적용하지 않고 preview artifact로만 라우팅한다.
-- SDK/CLI는 app-server가 부적합하거나 수동 handoff 이후 공식 Codex 경로가 필요할 때 fallback 후보로 둔다.
+- SDK/CLI는 app-server가 부적합하거나 수동 handoff 이후 `17-ai-runtime-access-strategy.md`가 정의한 공식 Codex 경로가 필요할 때 fallback 후보로 둔다.
 
 ### LocalResearchRuntime
 
@@ -256,4 +256,3 @@ Supabase Realtime은 Broadcast, Presence, Postgres Changes를 제공하므로 �
 | implementation order | PR-01~PR-09 sequence | `22-phase1-implementation-sequence.md` |
 
 구현자가 이 표의 항목을 다시 선택하지 않는다. 변경이 필요하면 후속 ADR이 아니라 새 문서 개정 PR로 기존 결정의 근거와 migration impact를 함께 바꾼다.
-
