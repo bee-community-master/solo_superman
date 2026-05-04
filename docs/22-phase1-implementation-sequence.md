@@ -374,6 +374,7 @@ Forbidden:
 Goal:
 
 - Make the dry-run scenario from `12-validation-and-dry-run.md` pass through the implemented app without manual state surgery.
+- Make at least two representative incidents from `27-operations-observability-contract.md` pass through the implemented app; all three are preferred before declaring Phase 1 operationally ready.
 
 Owns:
 
@@ -391,6 +392,7 @@ Acceptance criteria:
 - Completeness score and Founder Brief draft are visible.
 - Runtime preview blocked action stays preview-only through runtime artifact endpoints defined in `26-api-route-behavior-catalog.md`.
 - Effect queue dry-run covers queue_projection_effect, research_evidence_effect, codex_runtime_preview_effect, conservative_ai_retry_matrix, active batch projection exception, and deterministic scoring/export output.
+- Operations dry-run covers research effect retry exhaustion, Codex runtime unavailable/blocked/schema-mismatched, and SSE missed/refetch recovery when feasible for PR-09.
 
 Verification:
 
@@ -442,3 +444,4 @@ If implementation discovers a real contract problem:
 - 22번 문서가 PR 순서와 acceptance criteria를 고정한다.
 - 23번 문서가 ProductEngine runtime contract, effect queue, retry/idempotency, API/SSE 구현 기준을 고정한다.
 - 12번 dry-run은 PR-09의 integration target으로 남는다.
+- 27번 문서가 전구간 운영·관측성 recovery와 대표 장애 dry-run을 고정한다.

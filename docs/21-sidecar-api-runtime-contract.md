@@ -67,6 +67,7 @@ Rules:
 - Every mutating API should return the updated projection only when `active batch projection exception` applies.
 - `CommandResponse`, `statusUrl`, `StatusEndpointDto`, SSE DTO, and UI Projection DTO shapes are canonical in `25-contracts-dto-catalog.md`.
 - Endpoint-specific request, command/query mapping, response category, statusUrl, SSE/refetch, and error/precondition behavior is canonical in `26-api-route-behavior-catalog.md`.
+- End-to-end failure/status/recovery expectations and representative incident dry-runs are canonical in `27-operations-observability-contract.md`.
 
 ## ProductEngine runtime policy block
 
@@ -254,7 +255,7 @@ SSE events use stable event names. Event DTO shape and projection refetch hints 
 | `effect.blocked` | effectTaskId, effectType, blockReason, userAction |
 | `projection.updated` | projectionKind, version, affectedQueueItemIds |
 
-SSE is a UI update channel, not the source of truth. The frontend must refetch projections when it reconnects. Missed SSE messages are recovered by polling/refetching session projection or the command `statusUrl` defined in `25-contracts-dto-catalog.md`; endpoint-specific recovery paths are listed in `26-api-route-behavior-catalog.md`.
+SSE is a UI update channel, not the source of truth. The frontend must refetch projections when it reconnects. Missed SSE messages are recovered by polling/refetching session projection or the command `statusUrl` defined in `25-contracts-dto-catalog.md`; endpoint-specific recovery paths are listed in `26-api-route-behavior-catalog.md`, and incident-level recovery expectations are tested through `27-operations-observability-contract.md`.
 
 ## Codex app-server integration
 
@@ -395,5 +396,6 @@ When Codex app-server is unavailable or the user chooses not to connect it:
 - Add local capability token middleware before any non-health route.
 - Add Zod schemas before route handlers.
 - Implement SSE reconnect behavior before long-running runtime preview UI.
+- Validate the `27-operations-observability-contract.md` incidents before claiming long-running effect UI is production-ready.
 - Implement Codex app-server status detection before creating runtime preview turns.
 - Treat generated Codex schema as versioned implementation input.

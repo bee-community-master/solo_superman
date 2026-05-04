@@ -34,6 +34,7 @@
 - Hono `/api/v1` route group, local auth, SSE event stream, error envelope가 정의되어 있는가?
 - Codex app-server stdio, generated schema pinning, RuntimePreviewArtifact 변환 규칙이 정의되어 있는가?
 - Phase 1 구현 PR sequence가 scaffold부터 E2E dry-run까지 순서와 acceptance를 제공하는가?
+- Operations/Observability Contract가 전구간 failure/status/recovery와 대표 장애 dry-run을 정의하는가?
 
 ### Pass 기준
 
@@ -62,6 +63,7 @@
 | Data Storage | local embedded libSQL, Drizzle migration, repository/projection, remote config placeholder 정의 |
 | Sidecar API Runtime | Hono route shape, validation, SSE, Codex app-server preview boundary 정의 |
 | Implementation Sequence | PR-01~PR-09 acceptance와 cross-PR dependency 정의 |
+| Operations/Observability | 전구간 failure/status/recovery, 대표 장애 dry-run, user-visible recovery 정의 |
 
 ### Fail 시 조치
 
@@ -302,6 +304,66 @@ Follow-up questions:
 - Completeness score만 높고 high severity issue 상태가 열려 있는데 완료 후보가 생성된다.
 - State/Event Contract가 README, Spec Engine, Domain Model과 다른 용어를 사용한다.
 
+### Operations/Observability incident dry-run
+
+전구간 운영·관측성 검증은 `27-operations-observability-contract.md`의 대표 장애 dry-run을 따른다. 이 dry-run은 얕은 체크리스트가 아니라 실제 장애에서 event/status/UI recovery가 이어지는지 검증한다.
+
+#### Incident A. Research effect retry exhausted
+
+상황:
+
+- 사용자가 active question에 답했고 `AnswerRouted: research_needed`가 high-impact claim에 연결된다.
+- `research_evidence_effect`가 자동 재시도를 모두 사용했지만 balanced evidence를 만들지 못한다.
+
+통과 조건:
+
+- `AnswerSubmitted -> AnswerRouted -> ResearchPlanned -> effect.started -> effect.failed -> effect.failed(terminal) -> QueueRecalculated` trace가 남는다.
+- `ResearchEffectFailed` card가 source/result를 보존하고 manual retry, defer, research_insufficient, risk acceptance 중 하나의 다음 행동을 제공한다.
+- high-impact claim은 decision-ready가 되지 않으며 CompletionCandidate는 blocked 또는 Known Risks/Next Validation Actions 연결을 요구한다.
+
+실패 조건:
+
+- 실패한 synthesis 결과를 EvidenceMatrix로 승격한다.
+- source/result를 버려 support/debug가 불가능하다.
+- retry가 소진됐는데 pending card만 남고 사용자-visible recovery가 없다.
+
+#### Incident B. Codex runtime unavailable or schema-mismatched
+
+상황:
+
+- `CreateRuntimePreview`가 `codex_runtime_preview_effect`를 queue한다.
+- Codex app-server가 unavailable이거나 output schema mismatch, timeout, forbidden action을 반환한다.
+
+통과 조건:
+
+- max 1 automatic retry, parser repair once, self-repair once 정책이 `24`/`27`번 문서와 충돌하지 않는다.
+- 실패 또는 block은 ManualRetryCard, RuntimeBlockedCard, manual handoff artifact 중 하나로 수렴한다.
+- file patch, shell command, browser action, credential/destructive action은 실행되지 않고 blocked artifact로 남는다.
+
+실패 조건:
+
+- invalid Codex output을 `SpecUpdate`로 변환한다.
+- forbidden action을 preview 없이 실행한다.
+- runtime unavailable을 raw exception만으로 표시한다.
+
+#### Incident C. SSE missed, statusUrl refetch recovers UI
+
+상황:
+
+- mutating command가 `accepted`와 `statusUrl`을 반환한 뒤 UI가 disconnect되어 `effect.succeeded`, `effect.failed`, `projection.updated` SSE를 놓친다.
+
+통과 조건:
+
+- effect terminal status와 projection version이 persisted state에 남는다.
+- reconnect 후 `/api/v1/commands/:commandId/status`와 projection refetch로 queue/research/runtime/confidence UI가 회복된다.
+- missed SSE 때문에 duplicate effect를 enqueue하지 않는다.
+
+실패 조건:
+
+- SSE payload를 canonical state로 취급한다.
+- reconnect 후 terminal effect가 pending card로 계속 남는다.
+- completion candidate가 pre-disconnect optimistic UI state를 근거로 생성된다.
+
 ## 정적 일관성 검토 체크리스트
 
 - [ ] 모든 문서가 Phase 1을 Research 포함 폐루프로 정의한다.
@@ -347,6 +409,9 @@ Follow-up questions:
 - [ ] Hono route group은 ProductEngine command/event/state를 우회하지 않는다.
 - [ ] Codex app-server는 stdio/schema pinning/preview-only runtime으로 정의된다.
 - [ ] Phase 1 implementation sequence는 문서 계약을 새로 선택하지 않고 구현 순서로만 전환한다.
+- [ ] Operations/Observability Contract는 전구간 failure/status/recovery를 `intake -> question -> research -> runtime -> decision -> completion`으로 연결한다.
+- [ ] 대표 장애 dry-run은 research effect 실패, Codex runtime 장애, SSE 누락 후 refetch 복구를 검증한다.
+- [ ] terminal failure는 raw exception이 아니라 recovery card/activity/statusUrl/projection refetch 경로로 수렴한다.
 - [ ] ProductEngine runtime contract는 `pure reducer + effect plan`을 구현 패턴으로 고정한다.
 - [ ] ProductEngine reducer는 DB, Hono, Codex, filesystem, shell, browser, network를 직접 호출하지 않는다.
 - [ ] ProductEngine effect 실행은 `persisted async effect queue`를 사용하고 in-memory-only queue를 금지한다.
@@ -371,6 +436,7 @@ Follow-up questions:
 - Sidecar API Runtime: Hono `/api/v1`, local auth, SSE, Codex app-server preview boundary 기준으로 일관됨.
 - Implementation Sequence: PR-01~PR-09 순서와 acceptance 기준으로 일관됨.
 - ProductEngine Runtime Contract: pure reducer + effect plan, persisted async effect queue, active batch projection exception, effect type taxonomy, conservative AI retry matrix 기준으로 일관됨.
+- Operations/Observability Contract: 전구간 failure/status/recovery, 대표 장애 dry-run, user-visible recovery, statusUrl/projection refetch 기준으로 일관됨.
 
 이번 문서에서 고정된 구현 결정:
 

@@ -2,7 +2,7 @@
 
 Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질문·리서치 세션으로 구체화해, 근거와 결정이 추적되는 `Living Product Spec`까지 도달하게 하는 macOS-first 데스크톱 서비스다.
 
-이 레포의 현재 단계는 **기획 문서 작성 단계**다. 이 문서 세트는 구현 전 기준 계약이며, 런타임 코드·앱 scaffold·모바일 앱·팀 협업·결제·자동 코드 실행 구현은 아직 하지 않는다. 현재 문서 세트는 `00`~`26`의 번호 문서 27개와 이 인덱스를 합쳐 총 28개의 Markdown 문서로 구성한다.
+이 레포의 현재 단계는 **기획 문서 작성 단계**다. 이 문서 세트는 구현 전 기준 계약이며, 런타임 코드·앱 scaffold·모바일 앱·팀 협업·결제·자동 코드 실행 구현은 아직 하지 않는다. 현재 문서 세트는 `00`~`27`의 번호 문서 28개와 이 인덱스를 합쳐 총 29개의 Markdown 문서로 구성한다.
 
 ## 확정된 1차 제품 결정
 
@@ -42,6 +42,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | Codex Prompt/Output 계약 | 6개 turnPurpose, Core+Delta input, Hybrid trace+artifact output, JSON repair, severity routing |
 | Contracts/DTO 계약 | `packages/contracts` public DTO, Core/API/UI Projection, CommandResponse/statusUrl, SSE refetch hint |
 | API Route 행동 계약 | 전체 Phase 1 endpoint별 request, command/query mapping, response/statusUrl, effects/SSE/refetch, errors/preconditions |
+| 운영·관측성 계약 | 전구간 Operations/Observability Contract, 대표 장애 dry-run, user-visible recovery |
 | Phase 1 구현 순서 | PR-01 workspace scaffold부터 PR-09 E2E dry-run hardening까지 고정 |
 | Phase 1 MVP | Research 포함 폐루프 |
 | 1순위 실패 방지 | 무한 질문 루프 |
@@ -75,6 +76,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 25. `24-codex-prompt-output-contract.md` - Codex Prompt/Output의 6개 turnPurpose schema, Core+Delta input, Hybrid trace+artifact output, repair/failure/blocked taxonomy 계약.
 26. `25-contracts-dto-catalog.md` - `packages/contracts` public DTO, ProductEngine command envelope, API response/statusUrl, SSE, UI Projection 계약.
 27. `26-api-route-behavior-catalog.md` - 전체 Phase 1 endpoint별 request, command/query mapping, response/statusUrl, SSE/refetch, error/precondition 계약.
+28. `27-operations-observability-contract.md` - intake부터 completion까지 실패/status/recovery를 잇는 운영·관측성 계약과 대표 장애 dry-run.
 
 ## 문서 책임 경계
 
@@ -107,6 +109,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | Codex Prompt/Output Contract | Codex turnPurpose, prompt input context, JSON output envelope, artifact/applyPolicy taxonomy, repair/failure routing | AI runtime 전략은 17번, Hono route/runtime 경계는 21번, effect queue 실행은 23번으로 넘긴다 |
 | Contracts DTO Catalog | `packages/contracts` public DTO, Core/API/UI Projection, ProductEngineCommand envelope, CommandResponse/statusUrl, SSE DTO | DB row/Drizzle schema는 20번으로, runtime behavior는 21/23번으로 넘긴다 |
 | API Route Behavior Catalog | 전체 Phase 1 endpoint별 API behavior, command/query mapping, statusUrl, SSE/refetch, error/precondition | DTO field는 25번으로, DB row/DDL은 20번으로, runtime/code 구현은 21/23번과 후속 구현 PR로 넘긴다 |
+| Operations/Observability Contract | 전구간 failure/status/recovery, 대표 장애 dry-run, user-visible recovery, statusUrl/projection refetch 복구 | 세부 DTO field는 25번으로, endpoint mapping은 26번으로, effect lifecycle은 23번으로 넘긴다 |
 
 ## 공식 자료 기반 설계 메모
 
@@ -121,6 +124,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 - Codex Prompt/Output의 앱 내부 canonical schema는 `24-codex-prompt-output-contract.md`가 소유한다. Codex generated schema와 앱 내부 schema는 둘 다 versioned input으로 검증한다.
 - `packages/contracts` public DTO와 Core/API/UI Projection contract는 `25-contracts-dto-catalog.md`가 소유한다.
 - 전체 Phase 1 endpoint별 API behavior contract는 `26-api-route-behavior-catalog.md`가 소유한다.
+- 전구간 운영·관측성 recovery와 대표 장애 dry-run은 `27-operations-observability-contract.md`가 소유한다.
 - Hono는 local sidecar API의 route/validation surface로 고정하고, validation은 Hono validator/Zod 계열로 문서화한다. 참고: <https://hono.dev/docs/api>, <https://hono.dev/docs/guides/validation>
 - Phase 1 저장소는 local embedded libSQL + Drizzle schema/migration 계약으로 고정한다. 참고: <https://docs.turso.tech/sdk/ts/reference>, <https://docs.turso.tech/local-development>, <https://orm.drizzle.team/docs/get-started/sqlite-new>, <https://orm.drizzle.team/docs/migrations>
 - ChatGPT Pro에는 Codex와 Deep Research가 포함되지만 자동 추출, 계정 공유, 제3자 서비스 구동/재판매 제한이 있을 수 있으므로 ChatGPT Pro 웹 자동화는 Phase 2+ 비전으로 둔다. 참고: <https://help.openai.com/en/articles/9793128-what-is-c>
@@ -138,4 +142,5 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 - `scoring_effect`와 `spec_export_effect`를 Phase 1 1급 async effect로 승격 금지. scoring/export는 reducer deterministic output으로 유지한다.
 - 모바일 앱 생성 금지.
 - 결제/과금 구현 금지.
+- 외부 APM, log drain, 배포 관측 플랫폼 선택 금지. Phase 1 운영성은 문서상 event/effect/status/projection/activity recovery 계약으로만 고정한다.
 - `packages/contracts`가 Hono, Drizzle, React, Tauri, Codex runtime client를 직접 import하는 구조 금지.

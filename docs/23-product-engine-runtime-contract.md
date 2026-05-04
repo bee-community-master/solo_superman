@@ -2,7 +2,7 @@
 
 ## 목적
 
-이 문서는 Phase 1 ProductEngine을 실제 코드로 옮길 때 구현자가 다시 결정하지 않아야 할 reducer, effect plan, effect queue, retry/idempotency, API response, SSE, test contract를 고정한다.
+이 문서는 Phase 1 ProductEngine을 실제 코드로 옮길 때 구현자가 다시 결정하지 않아야 할 reducer, effect plan, effect queue, retry/idempotency, API response, SSE, test contract를 고정한다. 전구간 failure/status/recovery와 대표 장애 dry-run은 `27-operations-observability-contract.md`가 소유한다.
 
 `18-product-engine-orchestrator.md`가 제품 엔진의 command/event/state 의미를 정의한다면, 이 문서는 그 의미를 `packages/core`, `packages/db`, `apps/sidecar`, `apps/desktop`이 어떻게 나눠 구현해야 하는지 정의한다.
 
@@ -34,6 +34,7 @@
 - `pure reducer + effect plan`, `persisted async effect queue`, `active batch projection exception`, `conservative_ai_retry_matrix` 문구는 바꾸지 않는다.
 - 중복된 정책이 충돌하면 구현자는 임의로 선택하지 않고 문서 수정 PR에서 충돌을 먼저 제거한다.
 - `12-validation-and-dry-run.md`의 cross-doc consistency checklist가 중복 문구 일치 여부를 검증한다.
+- `27-operations-observability-contract.md`는 이 effect lifecycle이 사용자-visible recovery와 incident dry-run으로 검증되는지 확인한다.
 
 ## Runtime policy block
 
@@ -176,7 +177,7 @@ All first-class effects use the same lifecycle states.
 | `pending` | persisted but not leased | `running`, `cancelled`, `blocked` |
 | `running` | executor leased the task | `succeeded`, `failed`, `blocked` |
 | `succeeded` | output persisted and follow-up event emitted | terminal |
-| `failed` | attempts exhausted or non-retryable failure | `pending` only through manual retry command |
+| `failed` | attempts exhausted or non-retryable failure | `pending` only through manual retry command; user-visible recovery is required by `27-operations-observability-contract.md` |
 | `blocked` | policy, approval, missing dependency, or runtime unavailable blocks execution | `pending`, `cancelled` |
 | `cancelled` | user/system cancelled before terminal output | terminal |
 
@@ -283,7 +284,7 @@ Rules:
 
 - SSE payloads are notifications, not full canonical state.
 - UI refetches affected projection after `effect.succeeded` or `projection.updated`; route-specific refetch URLs are defined in `26-api-route-behavior-catalog.md`.
-- Missed SSE messages are recovered by polling/refetching session projection or command `statusUrl` as defined in `25-contracts-dto-catalog.md` and `26-api-route-behavior-catalog.md`.
+- Missed SSE messages are recovered by polling/refetching session projection or command `statusUrl` as defined in `25-contracts-dto-catalog.md` and `26-api-route-behavior-catalog.md`; the missed-SSE incident dry-run is defined in `27-operations-observability-contract.md`.
 
 ## ProductEngine state snapshot contract
 
@@ -370,7 +371,7 @@ Then:
 | PR-06 | `research_evidence_effect` executor and retry/failure cards |
 | PR-07 | `codex_runtime_preview_effect` executor, `24-codex-prompt-output-contract.md` schema, conservative AI retry, parser/self repair, manual retry/handoff/block cards |
 | PR-08 | deterministic completeness/founder brief outputs, no async scoring/export effect |
-| PR-09 | dry-run proves effect queue, failure handling, preview-only runtime, deterministic completion |
+| PR-09 | dry-run proves effect queue, failure handling, preview-only runtime, deterministic completion, and representative operations incidents from `27-operations-observability-contract.md` |
 
 ## Validation checklist
 
@@ -382,3 +383,4 @@ Then:
 - `conservative_ai_retry_matrix` appears in 20, 21, 23.
 - docs do not introduce `scoring_effect` or `spec_export_effect` as Phase 1 first-class async effect.
 - `26-api-route-behavior-catalog.md` appears as the endpoint behavior source for API/SSE/refetch guardrails.
+- `27-operations-observability-contract.md` appears as the end-to-end incident recovery source for research effect failure, Codex runtime failure, and missed SSE recovery.

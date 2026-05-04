@@ -22,7 +22,7 @@ Canonical path: `docs/26-api-route-behavior-catalog.md`.
 | DB row/DDL | 제외. `20-data-storage-contract.md`가 소유 |
 | React state/layout | 제외. 02/13/25번 문서가 소유 |
 | Runtime/code implementation | 제외. 구현 PR에서 수행 |
-| Required acceptance | endpoint coverage matrix, SSE/refetch recovery, error/precondition guardrails, docs cross-reference consistency |
+| Required acceptance | endpoint coverage matrix, SSE/refetch recovery, error/precondition guardrails, representative operations incident dry-runs, docs cross-reference consistency |
 
 ## Ownership boundaries
 
@@ -180,7 +180,7 @@ Common error codes:
 
 ## Command response lifecycle checklist
 
-This checklist is not a separate required acceptance scenario, but every mutating endpoint row must satisfy it.
+This checklist is not a separate required acceptance scenario, but every mutating endpoint row must satisfy it. Incident-level user-visible recovery is canonical in `27-operations-observability-contract.md`.
 
 - `accepted` rows define whether `statusUrl` is required.
 - `accepted_with_projection` rows define why the immediate projection is allowed.
@@ -244,6 +244,19 @@ Then:
 - Codex prompt/output schema is referenced from 24번.
 - React screen state is excluded and referenced to UX/projection documents.
 
+### Scenario E. Representative operations incident dry-runs
+
+Given `27-operations-observability-contract.md` defines research effect failure, Codex runtime failure, and missed-SSE recovery incidents.
+
+When endpoint behavior is implemented from this catalog.
+
+Then:
+
+- research endpoints expose enough `statusUrl`, effect events, and projection refetch hints to recover a terminal `research_evidence_effect` failure.
+- runtime endpoints map unavailable, blocked, schema-mismatched, and forbidden-action failures to `blocked`, ManualRetryCard, RuntimeBlockedCard, or manual handoff behavior without external execution.
+- event stream and command status endpoints allow missed SSE recovery without duplicate effect execution.
+- every relevant endpoint row names enough error/precondition behavior to avoid raw exception-only recovery.
+
 ## Implementation checklist
 
 - Add this route catalog before implementing Hono route handlers.
@@ -251,4 +264,5 @@ Then:
 - Implement endpoint tests for at least one happy path and one guardrail per implementation PR.
 - Add status endpoint support before relying on `statusUrl` in clients.
 - Add SSE reconnection/refetch tests before claiming async effect UI completion.
+- Add representative operations incident tests from `27-operations-observability-contract.md` before claiming end-to-end dry-run hardening.
 - Do not generate Hono/Zod/OpenAPI files in this docs-only PR.
