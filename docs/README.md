@@ -2,7 +2,7 @@
 
 Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질문·리서치 세션으로 구체화해, 근거와 결정이 추적되는 `Living Product Spec`까지 도달하게 하는 macOS-first 데스크톱 서비스다.
 
-이 레포의 현재 단계는 **기획 문서 작성 단계**다. 이 문서 세트는 구현 전 기준 계약이며, 런타임 코드·앱 scaffold·모바일 앱·팀 협업·결제·자동 코드 실행 구현은 아직 하지 않는다. 현재 문서 세트는 `00`~`22`의 번호 문서 23개와 이 인덱스를 합쳐 총 24개의 Markdown 문서로 구성한다.
+이 레포의 현재 단계는 **기획 문서 작성 단계**다. 이 문서 세트는 구현 전 기준 계약이며, 런타임 코드·앱 scaffold·모바일 앱·팀 협업·결제·자동 코드 실행 구현은 아직 하지 않는다. 현재 문서 세트는 `00`~`23`의 번호 문서 24개와 이 인덱스를 합쳐 총 25개의 Markdown 문서로 구성한다.
 
 ## 확정된 1차 제품 결정
 
@@ -23,6 +23,11 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | 근거 품질 Gate | Pro/Con Evidence Gate, missing_con_evidence, skeptical search |
 | 엔진 실행 계약 | State/Event Contract, end-to-end traceability, terminal outcome |
 | ProductEngine 권한 | 중앙 ProductEngine Orchestrator가 Phase 1 세션 상태 전이와 Queue 재계산을 소유 |
+| ProductEngine 구현 패턴 | `pure reducer + effect plan`; reducer는 DB/Hono/Codex/filesystem/network를 직접 호출하지 않음 |
+| Effect 실행 모델 | 기본 `persisted async effect queue`; `active batch projection exception`만 즉시 projection 반환 허용 |
+| 1급 Effect Type | `queue_projection_effect`, `research_evidence_effect`, `codex_runtime_preview_effect` |
+| Effect retry 정책 | `conservative_ai_retry_matrix`: queue max 3, research/evidence max 2, Codex preview max 1 자동 재시도 |
+| Deterministic output | Completeness/Scoring, SpecVersion, Founder Brief draft는 `reducer_deterministic_output` |
 | AI Runtime 접근 | Codex app-server 우선, Phase 1 sandbox preview, ChatGPT Pro 웹 자동화는 Phase 2+ |
 | 세션 깊이 | Adaptive mode, 모든 축 75점 이상이면 Spec-ready 후보 |
 | 기본 export | Founder Brief |
@@ -63,6 +68,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 21. `20-data-storage-contract.md` - local embedded libSQL, Drizzle migration, repository/projection, remote config placeholder 계약.
 22. `21-sidecar-api-runtime-contract.md` - Hono API route shape, local auth, SSE, Codex app-server runtime preview 계약.
 23. `22-phase1-implementation-sequence.md` - Phase 1을 결정 없이 구현하기 위한 PR-01~PR-09 순서와 검증 기준.
+24. `23-product-engine-runtime-contract.md` - ProductEngine reducer, persisted async effect queue, effect type, retry/idempotency, API/SSE 구현 계약.
 
 ## 문서 책임 경계
 
@@ -91,6 +97,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | Data Storage Contract | local embedded libSQL, Drizzle schema/migration, repository/projection, event persistence | 도메인 의미는 Domain Model로, API request/response는 Sidecar API Runtime Contract로 넘긴다 |
 | Sidecar API Runtime Contract | Hono route group, validation envelope, local auth, SSE, Codex app-server preview boundary | UI 화면 상세는 UX 문서로, 저장소 내부 구현은 Data Storage Contract로 넘긴다 |
 | Phase 1 Implementation Sequence | Codex가 구현 중 다시 결정하지 않도록 PR-01~PR-09 순서와 acceptance를 고정 | 실제 코드 변경은 후속 구현 PR에서 수행한다 |
+| ProductEngine Runtime Contract | `pure reducer + effect plan`, persisted async effect queue, active batch projection exception, effect retry matrix | 동일 정책 원문은 18/20/21/22에도 중복 허용하며, 충돌 시 문서 수정 PR에서 먼저 정리한다 |
 
 ## 공식 자료 기반 설계 메모
 
@@ -115,5 +122,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 - OpenClaw/Goose/CrewAI/Browser-use 실제 연동 금지.
 - Phase 1에서 ChatGPT 웹 자동화 구현 금지.
 - Phase 1에서 Codex를 통한 실제 파일 patch, shell 실행, 브라우저 action 실행 금지. `diff_preview`, `command_plan_preview`, `browser_action_preview`는 preview artifact로만 남긴다.
+- ProductEngine effect는 in-memory-only queue로 처리 금지. Phase 1 1급 effect는 persisted async effect queue에 저장한다.
+- `scoring_effect`와 `spec_export_effect`를 Phase 1 1급 async effect로 승격 금지. scoring/export는 reducer deterministic output으로 유지한다.
 - 모바일 앱 생성 금지.
 - 결제/과금 구현 금지.

@@ -21,6 +21,7 @@
 | Projection layer | `packages/db/src/projections/` |
 | Remote DB | config slot only, no sync behavior |
 | Event log | append-first for ProductEngine commands |
+| Effect queue | persisted async effect queue for ProductEngine effect plans |
 
 ## Storage mode
 
@@ -101,6 +102,7 @@ This document defines table groups and minimum responsibilities, not final SQL D
 | Research/evidence | `research_tasks`, `research_results`, `evidence_matrices`, `evidence_items` | closed-loop research and pro/con evidence |
 | Decision | `decisions`, `decision_options` | approval outcomes and rationale |
 | Runtime | `runtime_preview_artifacts`, `runtime_task_refs` | Codex/manual handoff preview outputs |
+| Effect queue | `effect_tasks` | durable execution state for `queue_projection_effect`, `research_evidence_effect`, `codex_runtime_preview_effect` |
 | Scoring/export | `completeness_snapshots`, `founder_briefs` | progress, completion, export artifacts |
 | Config | `app_config`, `secret_refs` | local settings and opaque OS secret references |
 
@@ -121,6 +123,7 @@ This document defines table groups and minimum responsibilities, not final SQL D
   - `evidence_`
   - `decision_`
   - `runtime_`
+  - `eft_`
   - `score_`
   - `brief_`
 - Database row ids must be globally unique within the local database.
@@ -133,10 +136,13 @@ ProductEngine commands must write an event before mutating derived state.
 ```text
 command
   -> validate precondition
-  -> append event
-  -> repository transaction updates domain tables
-  -> projection rebuild or patch
-  -> return new view model
+  -> load ProductEngineStateSnapshot
+  -> call pure reducer + effect plan
+  -> repository transaction appends events
+  -> repository transaction persists state patch
+  -> repository transaction persists reducer_deterministic_output
+  -> repository transaction persists effect_tasks
+  -> return accepted or accepted_with_projection envelope
 ```
 
 Minimum event fields:
@@ -156,6 +162,78 @@ Minimum event fields:
 
 No completion candidate can be created from objects that cannot be traced to events.
 
+## ProductEngine runtime policy block
+
+```text
+ProductEngine runtime policy:
+- ProductEngine core uses pure reducer + effect plan.
+- Reducer never calls DB, Hono, Codex, filesystem, shell, browser, or network.
+- Reducer input is ProductEngineCommand plus ProductEngineStateSnapshot.
+- Reducer output is ProductEngineReduction containing events, nextState, effectPlan, deterministicOutputs, and optional immediateProjection.
+- Effect execution uses persisted async effect queue by default.
+- In-memory-only effect queue is forbidden.
+- active batch projection exception allows immediate active-batch-safe queue projection in the command response.
+- First-class effect types are queue_projection_effect, research_evidence_effect, and codex_runtime_preview_effect.
+- scoring_effect and spec_export_effect are not Phase 1 first-class async effects.
+- Completeness/Scoring, SpecVersion, and Founder Brief draft are reducer_deterministic_output values persisted in the repository transaction.
+- Retry policy is conservative_ai_retry_matrix.
+```
+
+## Effect task persistence contract
+
+`effect_tasks` is mandatory in Phase 1 because ProductEngine effect execution uses `persisted async effect queue`.
+
+Minimum `effect_tasks` fields:
+
+| Field | Purpose |
+| --- | --- |
+| `id` | `eft_` prefixed effect task id |
+| `projectId` | project scope |
+| `sessionId` | session scope |
+| `sourceEventId` | ProductEngine event that created the effect |
+| `effectType` | `queue_projection_effect`, `research_evidence_effect`, or `codex_runtime_preview_effect` |
+| `status` | `pending`, `running`, `succeeded`, `failed`, `blocked`, `cancelled` |
+| `idempotencyKey` | duplicate guard for retries and crash recovery |
+| `attemptCount` | started attempts count |
+| `maxAttempts` | conservative_ai_retry_matrix limit |
+| `leaseOwner` | executor id while running |
+| `leaseExpiresAt` | stale-running recovery deadline |
+| `inputJson` | effect input payload or local ref |
+| `outputJson` | effect output ref after success |
+| `lastErrorCode` | stable error code after failure/block |
+| `lastErrorMessage` | human-readable failure/block explanation |
+| `createdAt` | creation timestamp |
+| `updatedAt` | last state transition timestamp |
+
+Lifecycle:
+
+```text
+pending -> running -> succeeded
+pending -> running -> failed
+pending -> running -> blocked
+pending -> cancelled
+blocked -> pending
+failed -> pending only through manual retry command
+```
+
+Storage rules:
+
+- in-memory-only effect queue is forbidden.
+- effect task creation happens in the same repository transaction that persists source ProductEngine events.
+- effect executor updates only effect status/output and emits follow-up ProductEngine event or projection update through the application service path.
+- stale `running` tasks with expired lease may return to `pending` if `attemptCount < maxAttempts`.
+- stale `running` tasks with exhausted attempts become `failed`.
+
+## Conservative AI retry matrix
+
+| Effect type | Idempotency key | Auto retry | Manual retry | Failure output |
+| --- | --- | --- | --- | --- |
+| `queue_projection_effect` | `sourceEventId + projectionKind` | max 3 | not normally needed | `QueueProjectionFailed` activity and sidecar refetch recommendation |
+| `research_evidence_effect` | `researchTaskId` or `researchResultId + synthesisVersion` | max 2 | allowed through Research Review Card | `ResearchEffectFailed` card with retained source/result |
+| `codex_runtime_preview_effect` | `turnPurpose + contextHash + runtimeAdapterVersion` | max 1 | required after auto retry exhausted | `ManualRetryCard` or `RuntimeBlockedCard` |
+
+`scoring_effect` and `spec_export_effect` must not be added as Phase 1 first-class async effects. Completeness/Scoring, SpecVersion, and Founder Brief draft are `reducer_deterministic_output` values persisted in the repository transaction.
+
 ## Repository contract
 
 Repositories live under `packages/db/src/repositories/`.
@@ -172,6 +250,7 @@ Repositories live under `packages/db/src/repositories/`.
 | `evidenceRepository` | evidence matrices and evidence items |
 | `decisionRepository` | decision cards and outcomes |
 | `runtimeRepository` | runtime preview artifacts |
+| `effectTaskRepository` | effect task create/lease/status/output/idempotency |
 | `scoringRepository` | completeness snapshots |
 | `exportRepository` | founder brief snapshots |
 | `configRepository` | local config and secret refs |
@@ -183,6 +262,7 @@ Rules:
 - Repositories return domain objects from `packages/contracts`.
 - Repositories never call Codex app-server.
 - Repositories never call Tauri commands.
+- Repositories persist `effect_tasks` but do not decide whether a command should create a specific effect type. That decision belongs to ProductEngine reducer output.
 
 ## Projection contract
 
@@ -206,9 +286,10 @@ One ProductEngine command should be persisted in one transaction when possible.
 
 Examples:
 
-- `SubmitAnswer` writes Answer, route outcome, event, and queue projection changes in one transaction.
-- `ImportResearchResult` writes ResearchResult, EvidenceMatrix, event, and next queue projection in one transaction.
-- `ResolveDecision` writes Decision outcome, SpecUpdate application, SpecVersion, event, and score trigger in one transaction.
+- `SubmitAnswer` writes Answer, route outcome, event, reducer deterministic outputs, active-batch-safe immediate projection when allowed, and effect_tasks in one transaction.
+- `ImportResearchResult` writes ResearchResult, import event, and `research_evidence_effect` task in one transaction; EvidenceMatrix is persisted when the effect succeeds.
+- `ResolveDecision` writes Decision outcome, SpecUpdate application, SpecVersion, event, and `reducer_deterministic_output` scoring/founder brief material in one transaction.
+- ProductEngine command transactions persist event drafts, state patch, deterministic outputs, and `effect_tasks` together before any effect executor runs.
 
 If a command needs Codex or external input, split it into two transactions:
 

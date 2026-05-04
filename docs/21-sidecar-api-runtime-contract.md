@@ -58,8 +58,44 @@ Rules:
 
 - Frontend must not depend on raw Hono error shapes.
 - Domain errors use stable `error.code` strings.
-- Every mutating API should return the updated projection needed by the UI.
-- Mutating APIs should include `eventId` when a ProductEngine event was appended.
+- Mutating APIs return one of `accepted`, `accepted_with_projection`, `rejected`, or `blocked`.
+- Mutating APIs include `eventIds` and `effectTaskIds` when ProductEngine events/effects were persisted.
+- APIs must not pretend async effect output is already complete.
+- Every mutating API should return the updated projection only when `active batch projection exception` applies.
+
+## ProductEngine runtime policy block
+
+```text
+ProductEngine runtime policy:
+- ProductEngine core uses pure reducer + effect plan.
+- Reducer never calls DB, Hono, Codex, filesystem, shell, browser, or network.
+- Reducer input is ProductEngineCommand plus ProductEngineStateSnapshot.
+- Reducer output is ProductEngineReduction containing events, nextState, effectPlan, deterministicOutputs, and optional immediateProjection.
+- Effect execution uses persisted async effect queue by default.
+- In-memory-only effect queue is forbidden.
+- active batch projection exception allows immediate active-batch-safe queue projection in the command response.
+- First-class effect types are queue_projection_effect, research_evidence_effect, and codex_runtime_preview_effect.
+- scoring_effect and spec_export_effect are not Phase 1 first-class async effects.
+- Completeness/Scoring, SpecVersion, and Founder Brief draft are reducer_deterministic_output values persisted in the repository transaction.
+- Retry policy is conservative_ai_retry_matrix.
+```
+
+## Command response categories
+
+| Category | When used | Response data |
+| --- | --- | --- |
+| `accepted` | command accepted, async effects queued, no immediate active-batch projection | `eventIds`, `effectTaskIds`, `statusUrl`, `queuedActivity` |
+| `accepted_with_projection` | `active batch projection exception` applies | `eventIds`, `effectTaskIds`, `queueProjection`, `activity`, `pendingEffectSummary` |
+| `rejected` | validation/precondition failure | stable error code and no event/effect ids |
+| `blocked` | command is valid but policy/runtime blocks execution | blocking card projection, no external execution |
+
+Rules:
+
+- Hono route handlers do not create domain objects directly.
+- Hono route handlers map request to command, call application service, and serialize the command response category.
+- Frontend treats any returned projection as read model, not source of truth.
+- SSE/refetch is the source of truth for effect completion.
+- File/shell/browser execution requests return `blocked` or preview-only artifact, never actual execution.
 
 ## Local auth and loopback policy
 
@@ -171,14 +207,15 @@ Mutating routes follow this shape:
 ```text
 validate request
   -> map request to ProductEngine command
-  -> ProductEngine validates preconditions
-  -> append event and persist transaction
-  -> rebuild affected projections
-  -> return updated projection envelope
-  -> publish SSE event
+  -> load ProductEngineStateSnapshot
+  -> call pure reducer + effect plan
+  -> transaction: append events, persist state patch, persist reducer_deterministic_output, persist effect_tasks
+  -> if active batch projection exception applies: return accepted_with_projection
+  -> otherwise: return accepted with eventIds/effectTaskIds
+  -> publish command/effect SSE events
 ```
 
-Handlers must not directly update multiple repositories without going through ProductEngine for product state changes.
+Handlers must not directly update multiple repositories without going through ProductEngine for product state changes. Handlers must not wait for `research_evidence_effect` or `codex_runtime_preview_effect` to complete before returning a command response.
 
 ## SSE event contract
 
@@ -196,8 +233,16 @@ SSE events use stable event names.
 | `completion.ready` | completion candidate summary |
 | `sidecar.warning` | recoverable warning |
 | `sidecar.error` | user-visible error state |
+| `command.accepted` | projectId, sessionId, commandType, eventIds, effectTaskIds |
+| `command.rejected` | commandType, errorCode, reason |
+| `effect.queued` | effectTaskId, effectType, sourceEventId |
+| `effect.started` | effectTaskId, effectType, attemptCount |
+| `effect.succeeded` | effectTaskId, effectType, outputRef, projectionHint |
+| `effect.failed` | effectTaskId, effectType, errorCode, retryAvailable |
+| `effect.blocked` | effectTaskId, effectType, blockReason, userAction |
+| `projection.updated` | projectionKind, version, affectedQueueItemIds |
 
-SSE is a UI update channel, not the source of truth. The frontend must refetch projections when it reconnects.
+SSE is a UI update channel, not the source of truth. The frontend must refetch projections when it reconnects. Missed SSE messages are recovered by polling/refetching session projection.
 
 ## Codex app-server integration
 
@@ -270,6 +315,16 @@ Forbidden Phase 1 turn outcomes:
 - modify external service.
 
 If Codex proposes a forbidden action, sidecar must convert it into `RuntimePreviewArtifact.kind = blocked_execution_request` and Queue must show the blocked reason.
+
+## Conservative AI retry matrix
+
+| Effect type | Idempotency key | Auto retry | Manual retry | Failure output |
+| --- | --- | --- | --- | --- |
+| `queue_projection_effect` | `sourceEventId + projectionKind` | max 3 | not normally needed | `QueueProjectionFailed` activity and sidecar refetch recommendation |
+| `research_evidence_effect` | `researchTaskId` or `researchResultId + synthesisVersion` | max 2 | allowed through Research Review Card | `ResearchEffectFailed` card with retained source/result |
+| `codex_runtime_preview_effect` | `turnPurpose + contextHash + runtimeAdapterVersion` | max 1 | required after auto retry exhausted | `ManualRetryCard` or `RuntimeBlockedCard` |
+
+The sidecar must not aggressively retry Codex runtime preview beyond the single automatic retry. When exhausted, it emits a manual retry or manual handoff card.
 
 ## RuntimePreviewArtifact conversion
 

@@ -6,6 +6,23 @@
 
 목표는 “구현 중 의사결정”을 줄이고, PR마다 작은 폐루프를 닫는 것이다.
 
+## ProductEngine runtime policy block
+
+```text
+ProductEngine runtime policy:
+- ProductEngine core uses pure reducer + effect plan.
+- Reducer never calls DB, Hono, Codex, filesystem, shell, browser, or network.
+- Reducer input is ProductEngineCommand plus ProductEngineStateSnapshot.
+- Reducer output is ProductEngineReduction containing events, nextState, effectPlan, deterministicOutputs, and optional immediateProjection.
+- Effect execution uses persisted async effect queue by default.
+- In-memory-only effect queue is forbidden.
+- active batch projection exception allows immediate active-batch-safe queue projection in the command response.
+- First-class effect types are queue_projection_effect, research_evidence_effect, and codex_runtime_preview_effect.
+- scoring_effect and spec_export_effect are not Phase 1 first-class async effects.
+- Completeness/Scoring, SpecVersion, and Founder Brief draft are reducer_deterministic_output values persisted in the repository transaction.
+- Retry policy is conservative_ai_retry_matrix.
+```
+
 ## 구현 원칙
 
 - 한 PR은 하나의 architectural slice만 소유한다.
@@ -40,6 +57,7 @@ Goal:
 Owns:
 
 - root package/workspace config.
+- `packages/contracts` placeholder types for ProductEngineCommand, ProductEngineReduction, and EffectTask without behavior.
 - `apps/desktop` skeleton.
 - `apps/sidecar` skeleton.
 - `packages/contracts`, `packages/core`, `packages/db` skeleton.
@@ -113,6 +131,7 @@ Goal:
 Owns:
 
 - `packages/db` schema and migrations.
+- `effect_tasks` table/repository skeleton with idempotency, status, attempt, lease fields.
 - local DB config.
 - migration runner.
 - event repository.
@@ -124,6 +143,7 @@ Acceptance criteria:
 - Local DB file can be created in a temp/app data path.
 - Generated migrations apply cleanly.
 - Event append/read works.
+- Effect task create/read/status update works.
 - Project/session create/read works.
 - Remote config can be saved as disabled config but no sync is attempted.
 - `/readyz` includes migration status.
@@ -147,22 +167,27 @@ Forbidden:
 
 Goal:
 
-- Implement ProductEngine command/event/state skeleton enough to run intake -> initial spec -> ambiguity -> first queue batch with deterministic local stubs.
+- Implement ProductEngine `pure reducer + effect plan` skeleton enough to run intake -> initial spec -> ambiguity -> first queue batch with deterministic local stubs.
 
 Owns:
 
 - `packages/core/product-engine`.
-- command handler contracts.
+- ProductEngineCommand, ProductEngineStateSnapshot, ProductEngineReduction contracts.
+- pure reducer + effect plan pattern.
 - event reduce pattern.
 - initial spec stub generator.
 - ambiguity issue stub generator.
 - queue projection repository integration.
+- `queue_projection_effect` creation and active batch projection exception.
 
 Acceptance criteria:
 
 - `StartProject`, `CaptureIntake`, `DraftInitialSpec`, `AnalyzeAmbiguity`, `ActivateQuestionBatch` work end-to-end through sidecar API.
 - Every command writes an event before projection changes.
+- Reducer unit tests prove no Hono/Tauri/DB/Codex imports are required.
+- Reducer output includes events, nextState, effectPlan, deterministicOutputs, and optional immediateProjection.
 - First active batch has 3 to 5 question cards.
+- Active batch projection exception returns immediate active-batch-safe projection while deeper queue recalculation remains effect-backed.
 - Core logic can be unit tested without Hono/Tauri imports.
 
 Verification:
@@ -198,6 +223,7 @@ Acceptance criteria:
 
 - User can create a project, see first spec draft, see first question batch, submit an answer.
 - UI does not mutate local state as source of truth; it refetches sidecar projections.
+- UI can render pending effect summary and manual retry/blocked cards.
 - Active batch remains stable when sidecar reports queued_next items.
 - Empty/error/loading states exist for sidecar unavailable.
 
@@ -224,6 +250,7 @@ Goal:
 Owns:
 
 - ResearchTask repository.
+- `research_evidence_effect` executor and retry policy.
 - ResearchResult import endpoint.
 - EvidenceMatrix synthesis stub and deterministic rules.
 - Pro/con/uncertainty UI projection.
@@ -235,6 +262,7 @@ Acceptance criteria:
 - Manual result import creates ResearchResult and EvidenceMatrix.
 - High-impact pro-only claim routes to missing_con_evidence or decision block.
 - Queue is recalculated but active batch remains stable.
+- `research_evidence_effect` uses idempotency by `researchTaskId` or `researchResultId + synthesisVersion` and max 2 automatic retries.
 - Known Risks update when evidence is insufficient.
 
 Verification:
@@ -260,6 +288,7 @@ Goal:
 Owns:
 
 - CodexRuntimeAdapter.
+- `codex_runtime_preview_effect` executor and conservative retry.
 - generated schema import wrapper.
 - runtime status endpoint.
 - runtime preview endpoint.
@@ -271,6 +300,7 @@ Acceptance criteria:
 - App can show Codex runtime status.
 - If Codex app-server is unavailable, manual handoff fallback works.
 - If available, a spec analysis or research prompt preview can be generated as RuntimePreviewArtifact.
+- `codex_runtime_preview_effect` uses idempotency by `turnPurpose + contextHash + runtimeAdapterVersion`, max 1 automatic retry, then ManualRetryCard or RuntimeBlockedCard.
 - File diff/shell/browser suggestions are blocked and converted to preview/block cards.
 - No file/shell/browser action is applied by the app.
 
@@ -299,14 +329,14 @@ Goal:
 Owns:
 
 - CompletenessSnapshot repository.
-- scoring service.
+- scoring service as `reducer_deterministic_output`, not `scoring_effect`.
 - risk card projection.
 - Completion Candidate Card.
-- Founder Brief projection and export request.
+- Founder Brief projection and export request as `reducer_deterministic_output`, not `spec_export_effect`.
 
 Acceptance criteria:
 
-- Score updates after answer, evidence, decision, and spec version changes.
+- Score updates after answer, evidence, decision, and spec version changes through deterministic reducer output.
 - Completion candidate requires all gates from `07-completeness-scoring.md` and `16-state-event-contract.md`.
 - Founder Brief includes Problem-Customer-Value, top decisions, known risks, next validation actions.
 - Completion does not hide missing con evidence or high severity risk.
@@ -345,6 +375,7 @@ Acceptance criteria:
 - Decision approval can create SpecVersion.
 - Completeness score and Founder Brief draft are visible.
 - Runtime preview blocked action stays preview-only.
+- Effect queue dry-run covers queue_projection_effect, research_evidence_effect, codex_runtime_preview_effect, conservative_ai_retry_matrix, active batch projection exception, and deterministic scoring/export output.
 
 Verification:
 
@@ -360,9 +391,9 @@ Forbidden:
 ## Cross-PR dependency rules
 
 - PR-03 cannot start before PR-02 sidecar health contract exists.
-- PR-04 cannot persist real state before PR-03 event repository exists.
+- PR-04 cannot persist real state before PR-03 event and effect task repositories exist.
 - PR-05 may begin after PR-02 with mocked projections, but merge should wait for PR-04 projection contracts.
-- PR-07 should not create runtime artifacts before PR-03 persistence and PR-04 ProductEngine command flow exist.
+- PR-07 should not create runtime artifacts before PR-03 effect persistence and PR-04 ProductEngine command/effect flow exist.
 - PR-08 should not claim completion before PR-06 evidence gates exist.
 - PR-09 is the integration gate and should not introduce new product scope.
 
@@ -391,4 +422,5 @@ If implementation discovers a real contract problem:
 - 20번 문서가 DB/repository/event/projection 경계를 고정한다.
 - 21번 문서가 Hono API/Codex runtime boundary를 고정한다.
 - 22번 문서가 PR 순서와 acceptance criteria를 고정한다.
+- 23번 문서가 ProductEngine runtime contract, effect queue, retry/idempotency, API/SSE 구현 기준을 고정한다.
 - 12번 dry-run은 PR-09의 integration target으로 남는다.

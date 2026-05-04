@@ -4,7 +4,7 @@
 
 Product Engine Orchestrator는 Solo Superman Phase 1 세션의 최상위 제품 엔진 계약이다.
 
-이 문서는 사용자의 막연한 아이디어가 `Living Product Spec` 완료 후보와 Founder Brief까지 도달하는 동안, 어떤 command가 어떤 event/state 전이를 만들고 어떤 Queue item을 방출하는지 정의한다. 구현 위치는 Phase 1에서 Node/Hono sidecar의 ProductEngine service로 고정하며, 세부 package/API/storage 계약은 `19-phase1-implementation-architecture.md`, `20-data-storage-contract.md`, `21-sidecar-api-runtime-contract.md`를 따른다.
+이 문서는 사용자의 막연한 아이디어가 `Living Product Spec` 완료 후보와 Founder Brief까지 도달하는 동안, 어떤 command가 어떤 event/state 전이를 만들고 어떤 Queue item을 방출하는지 정의한다. 구현 위치는 Phase 1에서 Node/Hono sidecar의 ProductEngine service로 고정하며, 세부 package/API/storage 계약은 `19-phase1-implementation-architecture.md`, `20-data-storage-contract.md`, `21-sidecar-api-runtime-contract.md`, `23-product-engine-runtime-contract.md`를 따른다.
 
 핵심 결정은 다음과 같다.
 
@@ -13,6 +13,8 @@ Product Engine Orchestrator는 Solo Superman Phase 1 세션의 최상위 제품 
 - 각 모듈은 산출물을 만들 수 있지만, 전체 세션 상태와 다음 사용자 행동을 단독으로 확정하지 않는다.
 - 모든 event 이후 ProductEngine은 Queue 우선순위를 재계산한다.
 - 기본 UX는 현재 active batch를 유지하고, 새 high-priority item은 다음 batch 최상단에 반영한다.
+- Phase 1 구현 패턴은 `pure reducer + effect plan`이다.
+- Effect 실행은 기본 `persisted async effect queue`이며, `active batch projection exception`만 즉시 projection 예외로 둔다.
 
 ## 범위와 non-goals
 
@@ -38,13 +40,71 @@ Product Engine Orchestrator는 Solo Superman Phase 1 세션의 최상위 제품 
 
 | 계약 | 구현 위치 | 세부 문서 |
 | --- | --- | --- |
-| ProductEngine command/reducer/service | `packages/core/src/product-engine/` | 이 문서, `19-phase1-implementation-architecture.md` |
+| ProductEngine command/reducer/service | `packages/core/src/product-engine/` | 이 문서, `19-phase1-implementation-architecture.md`, `23-product-engine-runtime-contract.md` |
 | Repository transaction | `packages/db/src/repositories/` | `20-data-storage-contract.md` |
 | Hono route handler | `apps/sidecar/src/routes/` | `21-sidecar-api-runtime-contract.md` |
 | SSE/Activity event projection | `apps/sidecar` + `packages/db/src/projections/` | `20-data-storage-contract.md`, `21-sidecar-api-runtime-contract.md` |
 | Phase 1 implementation order | PR-04 ProductEngine reducer 이후 UI/API loop | `22-phase1-implementation-sequence.md` |
 
 ProductEngine은 Hono handler나 React component 안에 흩어져 구현되면 안 된다. UI와 API는 command를 보낼 뿐이며, session state 전이와 queue recalculation은 ProductEngine service의 단일 경로를 통과해야 한다.
+
+## ProductEngine runtime policy block
+
+```text
+ProductEngine runtime policy:
+- ProductEngine core uses pure reducer + effect plan.
+- Reducer never calls DB, Hono, Codex, filesystem, shell, browser, or network.
+- Reducer input is ProductEngineCommand plus ProductEngineStateSnapshot.
+- Reducer output is ProductEngineReduction containing events, nextState, effectPlan, deterministicOutputs, and optional immediateProjection.
+- Effect execution uses persisted async effect queue by default.
+- In-memory-only effect queue is forbidden.
+- active batch projection exception allows immediate active-batch-safe queue projection in the command response.
+- First-class effect types are queue_projection_effect, research_evidence_effect, and codex_runtime_preview_effect.
+- scoring_effect and spec_export_effect are not Phase 1 first-class async effects.
+- Completeness/Scoring, SpecVersion, and Founder Brief draft are reducer_deterministic_output values persisted in the repository transaction.
+- Retry policy is conservative_ai_retry_matrix.
+```
+
+## Runtime 구현 invariant
+
+1. `pure reducer + effect plan`이 Phase 1 ProductEngine 구현 패턴이다.
+2. Reducer는 ProductEngineCommand와 ProductEngineStateSnapshot만 입력으로 받는다.
+3. Reducer는 DB, Hono, Codex, filesystem, shell, browser, network를 호출하지 않는다.
+4. Reducer output은 events, nextState, effectPlan, deterministicOutputs, optional immediateProjection으로 구성한다.
+5. Application service만 repository load/save, transaction, effect task persistence, API response category를 소유한다.
+6. Effect 실행은 기본 `persisted async effect queue`다.
+7. `active batch projection exception`만 command response에서 즉시 projection을 반환할 수 있다.
+8. 1급 effect type은 `queue_projection_effect`, `research_evidence_effect`, `codex_runtime_preview_effect`뿐이다.
+9. Completeness/Scoring, SpecVersion, Founder Brief draft는 `reducer_deterministic_output`이며 async effect가 아니다.
+10. Retry policy는 `conservative_ai_retry_matrix`다.
+
+## Reducer output contract
+
+| Output | 의미 | 금지되는 사용 |
+| --- | --- | --- |
+| `events` | append-only ProductEngine event draft | durable id를 reducer가 직접 생성하지 않음 |
+| `nextState` | repository가 저장할 state patch intent | DB write를 reducer가 직접 수행하지 않음 |
+| `effectPlan` | persisted async effect queue에 넣을 effect task draft | in-memory executor로만 실행하지 않음 |
+| `deterministicOutputs` | completeness, spec version material, founder brief draft 등 순수 계산 결과 | Codex/research output처럼 외부 결과를 가정하지 않음 |
+| `immediateProjection` | active batch UX를 위한 안전한 즉시 projection | EvidenceMatrix, RuntimePreviewArtifact, high-impact SpecUpdate, CompletionCandidate를 완료된 것처럼 표시하지 않음 |
+
+## First-class effect taxonomy
+
+| Effect type | ProductEngine 의미 | 사용자 표시 |
+| --- | --- | --- |
+| `queue_projection_effect` | queue/activity projection 재계산 | queue pending, projection updated |
+| `research_evidence_effect` | ResearchTask/EvidenceMatrix/missing_con_evidence 합성 | research review, risk/block card |
+| `codex_runtime_preview_effect` | Codex app-server/manual handoff preview 생성 | runtime preview, manual retry, blocked card |
+
+`scoring_effect`와 `spec_export_effect`는 Phase 1 1급 async effect가 아니다. 이 둘은 reducer가 `reducer_deterministic_output`으로 계산하고 repository transaction이 저장한다.
+
+## Conservative retry matrix
+
+| Effect type | Auto retry | Idempotency | Failure outcome |
+| --- | --- | --- | --- |
+| `queue_projection_effect` | max 3 | `sourceEventId + projectionKind` | QueueProjectionFailed activity와 refetch 안내 |
+| `research_evidence_effect` | max 2 | `researchTaskId` 또는 `researchResultId + synthesisVersion` | ResearchEffectFailed card, source/result 보존 |
+| `codex_runtime_preview_effect` | max 1 | `turnPurpose + contextHash + runtimeAdapterVersion` | ManualRetryCard 또는 RuntimeBlockedCard |
 
 ## 최상위 invariant
 
@@ -55,6 +115,9 @@ ProductEngine은 Hono handler나 React component 안에 흩어져 구현되면 �
 5. **Approval gates high impact**: high-impact SpecUpdate와 핵심 Decision은 사용자 승인 전 SpecVersion 원인이 될 수 없다.
 6. **Runtime preview is not execution**: Phase 1 RuntimePreviewArtifact는 실제 파일, shell, browser action으로 적용되지 않는다.
 7. **Completion is explainable**: CompletionCandidate는 점수뿐 아니라 남은 risk, evidence gate, decision outcome을 설명해야 한다.
+8. **Reducer is pure**: ProductEngine reducer는 외부 side effect 없이 `pure reducer + effect plan`만 수행한다.
+9. **Effect queue is durable**: 1급 effect는 `persisted async effect queue`에 저장되고 in-memory-only queue로 처리하지 않는다.
+10. **Scoring/export are deterministic**: scoring/export는 `reducer_deterministic_output`으로 저장하며 Phase 1 async effect가 아니다.
 
 ## 전체 세션 라이프사이클
 

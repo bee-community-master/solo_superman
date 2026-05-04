@@ -347,6 +347,14 @@ Follow-up questions:
 - [ ] Hono route group은 ProductEngine command/event/state를 우회하지 않는다.
 - [ ] Codex app-server는 stdio/schema pinning/preview-only runtime으로 정의된다.
 - [ ] Phase 1 implementation sequence는 문서 계약을 새로 선택하지 않고 구현 순서로만 전환한다.
+- [ ] ProductEngine runtime contract는 `pure reducer + effect plan`을 구현 패턴으로 고정한다.
+- [ ] ProductEngine reducer는 DB, Hono, Codex, filesystem, shell, browser, network를 직접 호출하지 않는다.
+- [ ] ProductEngine effect 실행은 `persisted async effect queue`를 사용하고 in-memory-only queue를 금지한다.
+- [ ] `active batch projection exception`은 즉시 projection의 유일한 예외로 정의된다.
+- [ ] `queue_projection_effect`, `research_evidence_effect`, `codex_runtime_preview_effect`가 Phase 1 1급 Effect Type으로 반복 정의된다.
+- [ ] `scoring_effect`와 `spec_export_effect`는 Phase 1 1급 async effect가 아니며, scoring/export는 `reducer_deterministic_output`으로 유지된다.
+- [ ] `conservative_ai_retry_matrix`가 README, 20, 21, 23에서 같은 의미로 반복된다.
+- [ ] 중복 원문 허용 정책에 따라 18/20/21/22/23 문서의 stable keyword가 서로 충돌하지 않는다.
 
 ## 현재 문서 검증 결과
 
@@ -362,6 +370,7 @@ Follow-up questions:
 - Data Storage: local embedded libSQL + Drizzle, repository/projection, remote config placeholder 기준으로 일관됨.
 - Sidecar API Runtime: Hono `/api/v1`, local auth, SSE, Codex app-server preview boundary 기준으로 일관됨.
 - Implementation Sequence: PR-01~PR-09 순서와 acceptance 기준으로 일관됨.
+- ProductEngine Runtime Contract: pure reducer + effect plan, persisted async effect queue, active batch projection exception, effect type taxonomy, conservative AI retry matrix 기준으로 일관됨.
 
 이번 문서에서 고정된 구현 결정:
 
@@ -372,3 +381,8 @@ Follow-up questions:
 - ChatGPT/Codex secret value는 DB에 저장하지 않고 Rust/Tauri native boundary가 secret reference만 다룬다.
 - 첫 LLM provider abstraction은 `CodexRuntimeAdapter`이며, API key provider abstraction은 후속 후보로 둔다.
 - Phase 1 source cache는 app data dir 격리와 export prohibition을 우선하고, 파일 암호화는 후속 hardening 후보로 둔다.
+- ProductEngine core는 pure reducer + effect plan이다.
+- Effect queue는 persisted async effect queue이며, active batch projection exception만 즉시 projection 예외다.
+- First-class effect types는 queue_projection_effect, research_evidence_effect, codex_runtime_preview_effect다.
+- Completeness/Scoring, SpecVersion, Founder Brief draft는 reducer_deterministic_output이다.
+- Retry policy는 conservative_ai_retry_matrix다.
