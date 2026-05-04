@@ -247,8 +247,17 @@ type ResearchTask = {
   prompt: string;
   relatedQuestionIds: string[];
   relatedAmbiguityIssueIds: string[];
-  runtimeAdapter: 'local' | 'openclaw' | 'playwright' | 'browser_use' | 'crewai';
-  status: 'planned' | 'running' | 'completed' | 'failed' | 'cancelled';
+  runtimeAdapter:
+    | 'codex_app_server'
+    | 'manual_prompt_handoff'
+    | 'official_codex_path'
+    | 'local'
+    | 'openclaw'
+    | 'playwright'
+    | 'browser_use'
+    | 'crewai';
+  runtimeMode: 'sandbox_preview' | 'manual_handoff' | 'official_runtime' | 'browser_automation_later';
+  status: 'planned' | 'handoff_ready' | 'running' | 'preview_ready' | 'completed' | 'failed' | 'cancelled';
   createdAt: string;
   completedAt?: string;
 };
@@ -269,6 +278,40 @@ type ResearchResult = {
   status: 'needs_review' | 'accepted' | 'rejected' | 'stale' | 'evidence_gate_blocked';
 };
 ```
+
+## RuntimePreviewArtifact
+
+Codex app-server가 Phase 1에서 만들 수 있는 실행 전 산출물이다. 실제 파일, shell, browser에는 적용하지 않는다.
+
+```ts
+type RuntimePreviewArtifact = {
+  id: string;
+  projectId: string;
+  runtimeAdapter: 'codex_app_server' | 'official_codex_path' | 'manual_prompt_handoff';
+  kind:
+    | 'research_prompt_preview'
+    | 'research_result_import_template'
+    | 'spec_update_preview'
+    | 'implementation_plan_preview'
+    | 'diff_preview'
+    | 'command_plan_preview'
+    | 'browser_action_preview';
+  sourceTaskId?: string;
+  linkedQuestionIds: string[];
+  linkedAmbiguityIssueIds: string[];
+  summary: string;
+  riskLevel: 'low' | 'high_impact';
+  applicationStatus: 'preview_only' | 'converted_to_spec_update' | 'converted_to_research_result' | 'blocked';
+  createdAt: string;
+};
+```
+
+필드 규칙:
+
+- `preview_only`는 실행이 아니라 검토 가능한 제안이다.
+- `diff_preview`, `command_plan_preview`, `browser_action_preview`는 Phase 1에서 적용할 수 없다.
+- high-impact preview는 Decision Approval Card 또는 Risk Card로 연결한다.
+- preview artifact는 직접 `SpecVersion`의 원인이 될 수 없고, `SpecUpdate` 또는 `ResearchResult`로 변환되어야 한다.
 
 ## EvidenceMatrix
 
@@ -422,7 +465,15 @@ type SourceRef = {
   url: string;
   title: string;
   retrievedAt: string;
-  sourceType: 'official_doc' | 'research_report' | 'competitor_site' | 'community' | 'news' | 'other';
+  sourceType:
+    | 'official_doc'
+    | 'research_report'
+    | 'competitor_site'
+    | 'community'
+    | 'news'
+    | 'codex_result'
+    | 'manual_handoff'
+    | 'other';
   reliability: 'low' | 'medium' | 'high';
 };
 ```
@@ -430,6 +481,7 @@ type SourceRef = {
 ## 설계 메모
 
 - Phase 1 DB는 SQLite에 위 모델을 직접 저장한다.
+- AI Runtime 관련 추가 상태와 권한 경계는 `17-ai-runtime-access-strategy.md`를 따른다.
 - sync가 켜지면 Project 단위로 cloud mirror를 만든다.
 - `SpecVersion`은 immutable하게 다룬다.
 - `LivingProductSpec`은 최신 version pointer와 working draft를 관리한다.

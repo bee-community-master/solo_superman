@@ -216,14 +216,39 @@ skeptical search 없이 “반대근거 없음”이라고 쓰면 안 된다. �
 
 ## 런타임 adapter 위치
 
-Phase 1에서는 Research Engine의 core contract만 확정한다. 실제 실행 adapter는 단계별로 붙인다.
+Phase 1의 Research Engine은 `17-ai-runtime-access-strategy.md`를 따른다. 핵심은 ChatGPT 웹 자동화가 아니라 **Codex app-server sandbox preview + manual prompt handoff + official Codex path fallback**이다.
 
-- MVP 기본: local research runner + web search/browser fetch adapter.
-- v1.5: OpenClaw Background Task adapter.
-- v2: Browser-use/Playwright 고급 브라우저 자동화 adapter.
-- v2+: CrewAI research flow adapter.
+- Phase 1 primary: CodexRuntimeAdapter.
+- Phase 1 support: LocalResearchRuntime for manual prompt handoff/import.
+- Phase 1.5 후보: OpenClaw Background Task adapter.
+- Phase 2+ 후보: ChatGPT Pro 웹 자동화, Browser-use/Playwright 고급 브라우저 자동화 adapter.
+- v2+ 후보: CrewAI research flow adapter.
 
 OpenClaw의 background task 개념은 detached work의 ledger로 적합하고, Task Flow는 여러 단계 리서치 pipeline을 durable하게 관리하는 후보로 둔다. Browser-use는 open-source agent와 cloud browser 성격을 분리해 고급 웹 조작 단계에 붙인다.
+
+## Deep research routing
+
+깊은 리서치가 필요하면 Research Engine은 다음 순서로 라우팅한다.
+
+```text
+ResearchNeed
+→ Codex app-server sandbox preview
+→ if deep external research needed: manual prompt handoff
+→ if user still wants full automation: official Codex path only
+→ if still insufficient: Risk Card + Known Risk + Next Validation Action
+```
+
+Phase 1에서 Research Engine은 ChatGPT 웹 UI를 직접 자동 조작하지 않는다. ChatGPT Pro 웹 자동화는 Phase 2+의 project-level blanket delegation 기능이다.
+
+Manual prompt handoff는 다음을 포함해야 한다.
+
+- 리서치 목적.
+- 포함할 project context 요약.
+- 제외할 민감 정보.
+- ChatGPT/Codex에 붙여넣을 prompt.
+- 결과 import template.
+- 기대 evidence type: pro, con, uncertainty, implication, source.
+- 결과가 부족할 때 Known Risks와 Next Validation Actions에 남기는 방식.
 
 ## Suggested Spec Update 생성 규칙
 

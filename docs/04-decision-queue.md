@@ -68,6 +68,23 @@ Question/Ambiguity의 반복 제한과 수렴 정책은 `14-ambiguity-question-l
 - `suggested_questions`.
 - `suggested_spec_updates`.
 
+### Runtime Handoff / Preview Card
+
+Codex app-server 또는 리서치 런타임이 실행 전 산출물을 만들었을 때 표시하는 카드.
+
+필드:
+
+- `runtime_preview_artifact_id`.
+- `runtime_adapter`: `codex_app_server`, `manual_prompt_handoff`, `official_codex_path`.
+- `kind`: research prompt, import template, spec update preview, implementation plan preview, diff preview, command plan preview, browser action preview.
+- `why_generated`.
+- `linked_question_ids`.
+- `linked_ambiguity_issue_ids`.
+- `risk_level`.
+- `allowed_actions`: copy prompt, import result, convert to SpecUpdate, create Risk Card, defer.
+
+Phase 1에서 이 카드는 실제 파일, shell, browser action을 실행하지 않는다. ChatGPT 웹 자동화 preview는 Phase 2+ 후보로만 표시한다.
+
 ### Conflict Resolution Card
 
 Spec 내부 충돌을 해소하는 카드.
@@ -171,7 +188,7 @@ Question Card가 답변되면 큐는 즉시 Spec 본문을 확정 변경하지 �
 | route outcome | Queue 처리 | 사용자에게 보이는 결과 |
 | --- | --- | --- |
 | `resolved` | low-risk SpecUpdate 또는 issue resolved | 자동 정리 또는 간단한 변경 요약 |
-| `research_needed` | Research Review Card 후보 생성 | “근거 보강 중” 상태 |
+| `research_needed` | Research Review Card 또는 Runtime Handoff Card 후보 생성 | “근거 보강 중” 또는 “수동 리서치 핸드오프 준비” 상태 |
 | `missing_con_evidence` | Pro/Con Evidence Gate 보강 후보 생성 | “반대근거 탐색 필요” 상태 |
 | `decision_candidate` | Decision Approval Card 생성 | 승인/수정/거절/보류 선택 |
 | `spec_update_candidate` | Suggested Spec Update 생성 | Spec diff preview |
@@ -200,6 +217,7 @@ Question Card가 답변되면 큐는 즉시 Spec 본문을 확정 변경하지 �
 
 ## Decision 권한 정책
 
+- Codex app-server가 만든 preview artifact는 실행이 아니라 Queue item이다.
 - low-risk 문서 정리는 자동 반영 가능하다.
 - 핵심 결정은 반드시 Approval Card를 거친다.
 - 승인되지 않은 결정은 Spec 본문에서 `추천안` 또는 `가설` 상태로 남는다.

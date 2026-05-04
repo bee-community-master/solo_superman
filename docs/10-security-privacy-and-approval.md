@@ -25,13 +25,16 @@
 
 ## 외부 LLM/리서치 호출 전 disclosure
 
-사용자에게 다음을 보여준다.
+Phase 1은 프로젝트 단위 포괄 위임이 아니라 **task-level disclosure + sandbox preview**를 기본으로 한다. 사용자에게 다음을 보여준다.
 
 - 전송될 정보 요약.
 - 목적.
 - 사용될 provider/runtime.
 - 저장 여부.
 - 민감한 section 제외 여부.
+- 결과가 실제 파일/쉘/브라우저에 적용되지 않고 preview artifact로만 남는다는 점.
+
+Phase 2+에서 ChatGPT Pro 웹 자동화를 도입하면 프로젝트 단위 1회 포괄 위임을 사용할 수 있다. 이때는 최초 위임 화면, revoke control, audit log, fallback chain이 필수다.
 
 ## Approval boundary
 
@@ -55,6 +58,7 @@
 - phase boundary 변경.
 - cloud sync 활성화.
 - private document 외부 분석.
+- Codex가 file/shell/browser approval request를 생성하는 경우.
 - code/file/browser execution.
 
 ## Decision approval 상태
@@ -90,6 +94,16 @@ Phase 1 기본 허용.
 
 사용자에게 데이터 전송 범위를 설명한다.
 
+### Tier 1A: Codex app-server sandbox preview
+
+- Codex app-server thread 생성.
+- Spec/Research 분석.
+- 질문 생성.
+- 리서치 프롬프트와 import template 생성.
+- diff/command/browser action plan preview.
+
+Phase 1 primary AI runtime 권한이다. 실제 파일 patch, shell command, browser action 적용은 금지한다. Codex approval request가 발생하면 Approval Manager는 `preview_only`, `decline`, 또는 Phase 2+ handoff로 라우팅한다.
+
 ### Tier 2: Cloud sync
 
 - Supabase Auth/Postgres/Realtime/Storage.
@@ -101,7 +115,7 @@ Phase 1 기본 허용.
 - Playwright/Browser-use browsing.
 - form fill/action preview.
 
-Phase 1 구현 제외. v2에서 explicit approval 필요.
+Phase 1 구현 제외. Phase 2+에서 ChatGPT Pro 웹 자동화를 포함해 검토할 수 있으며, project-level blanket delegation, revoke, audit log, session failure fallback이 필요하다.
 
 ### Tier 4: File/code/shell execution
 
@@ -109,7 +123,20 @@ Phase 1 구현 제외. v2에서 explicit approval 필요.
 - shell command.
 - code generation applied to repo.
 
-Phase 1 구현 제외. 장기적으로도 preview + approval + rollback이 필수다.
+Phase 1 실제 적용 제외. Codex sandbox preview artifact는 허용할 수 있지만, 장기적으로 실제 적용은 preview + approval + rollback이 필수다.
+
+## Project-level blanket delegation
+
+ChatGPT Pro 웹 자동화의 프로젝트 단위 포괄 위임은 Phase 2+ 기능이다. 최초 위임 시 사용자는 다음을 봐야 한다.
+
+- ChatGPT 웹이 어떤 deep research 목적에 쓰이는가.
+- 어떤 project context가 전송될 수 있는가.
+- 어떤 private data는 전송하지 않는가.
+- 자동화 실패 시 수동 프롬프트 핸드오프와 공식 Codex 경로 fallback이 적용된다는 점.
+- 언제든 revoke할 수 있는 위치.
+- audit log에 남는 항목.
+
+포괄 위임은 계정 공유나 인증정보 대리 보관을 의미하지 않는다. Solo Superman은 사용자의 ChatGPT 계정 비밀번호, 2FA, API key를 사용자 몰래 저장하거나 전송하지 않는다.
 
 ## Audit log
 
@@ -137,4 +164,6 @@ Phase 1 구현 제외. 장기적으로도 preview + approval + rollback이 필�
 - 핵심 결정을 AI 추천만으로 확정하지 않는다.
 - 외부 출처가 없는 시장 주장을 확정 문장으로 쓰지 않는다.
 - Phase 1에서 자동 코드 실행을 제공하지 않는다.
+- Phase 1에서 ChatGPT 웹 자동화를 제공하지 않는다.
+- Codex app-server를 붙이더라도 Phase 1에서는 sandbox preview 권한을 넘지 않는다.
 

@@ -22,6 +22,7 @@
 - Ambiguity/Question Lifecycle이 무한 질문 루프를 막는 수렴 정책을 정의하는가?
 - Pro/Con Evidence Gate가 confirmation bias를 막는 evidence 품질 기준을 정의하는가?
 - State/Event Contract가 Question, Research, Approval, SpecVersion, Completion의 trace를 끊기지 않게 정의하는가?
+- AI Runtime Access Strategy가 Codex app-server, sandbox preview, manual handoff, Phase 2+ ChatGPT 웹 자동화 경계를 정의하는가?
 - Research Loop의 입력/출력이 명확한가?
 - approval boundary가 명확한가?
 - runtime adapter와 core의 경계가 명확한가?
@@ -42,6 +43,7 @@
 | Ambiguity/Question | repeat_limit_reached, severity별 수렴 정책, completion 연결 정의 |
 | Pro/Con Evidence | pro_evidence, con_evidence, missing_con_evidence, skeptical search, completion 연결 정의 |
 | State/Event Contract | AmbiguityIssue에서 CompletionCandidate까지 trace link, terminal outcome, guardrail 정의 |
+| AI Runtime | Codex app-server 우선, Phase 1 sandbox preview, ChatGPT 웹 자동화 Phase 2+ 정의 |
 | Founder Brief | Problem-Customer-Value, Top Decisions, Known Risks, Next Validation Actions 정의 |
 | Domain | 핵심 객체와 상태 정의 |
 | Architecture | core와 runtime adapter 경계 정의 |
@@ -313,6 +315,12 @@ Follow-up questions:
 - [ ] 행동 신호 기반 피로도 개입은 확정된 결정, confidence delta, if-stop-now 산출물, 낮은 confidence 축을 요약한다.
 - [ ] Founder Brief는 Problem-Customer-Value, Top Decisions, Known Risks, Next Validation Actions를 포함한다.
 - [ ] RuntimeAdapter는 core가 아니라 확장 경계로 정의된다.
+- [ ] Codex app-server는 Phase 1 primary AI runtime으로 정의된다.
+- [ ] Codex app-server는 Phase 1에서 sandbox preview 권한만 가진다.
+- [ ] Phase 1에서 실제 파일 patch, shell command, browser action은 실행되지 않는다.
+- [ ] Phase 1에서 ChatGPT 웹 자동화는 구현 범위 밖이다.
+- [ ] 깊은 리서치 fallback은 수동 프롬프트 핸드오프 후 공식 Codex 경로로 정의된다.
+- [ ] ChatGPT Pro 웹 자동화는 Phase 2+에서 project-level blanket delegation, revoke, audit, fallback chain이 있을 때만 가능하다.
 - [ ] State/Event Contract는 AmbiguityIssue, Question, Answer, ResearchTask, EvidenceMatrix, SpecUpdate, Decision, SpecVersion, CompletenessSnapshot, CompletionCandidate trace를 정의한다.
 - [ ] State/Event Contract는 런타임/코드 구현 제외와 DB/API 스키마 상세 제외를 명시한다.
 - [ ] State/Event Contract dry-run은 샘플 아이디어가 end-to-end event trace로 이어지는지 검증한다.
@@ -323,7 +331,7 @@ Follow-up questions:
 - Phase 1 범위: 일관됨.
 - Non-goals: 일관됨.
 - Core stack: Tauri/React/SQLite/Spec Engine으로 일관됨.
-- Runtime: adapter 후보로 일관됨.
+- Runtime: Codex app-server primary와 adapter 후보로 일관됨.
 - UX 중심: Decision Queue 중심으로 일관됨.
 - Completion: 복합 완성도 + gate로 일관됨.
 - UX Doctrine: confidence map, adaptive session, Founder Brief 기준으로 일관됨.
@@ -333,5 +341,7 @@ Follow-up questions:
 
 - Tauri 내부에서 Node/Hono sidecar를 둘지, Rust command 중심으로 갈지.
 - SQLite binding 선택.
+- Codex app-server 버전/schema 호환성 정책.
+- ChatGPT/Codex 로그인 flow와 local secret storage 범위.
 - 첫 LLM provider abstraction.
 - 리서치 source cache 암호화 방식.

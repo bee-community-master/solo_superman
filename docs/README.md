@@ -22,6 +22,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | 질문 엔진 수렴 | Ambiguity/Question Lifecycle, repeat limit, severity별 수렴 정책 |
 | 근거 품질 Gate | Pro/Con Evidence Gate, missing_con_evidence, skeptical search |
 | 엔진 실행 계약 | State/Event Contract, end-to-end traceability, terminal outcome |
+| AI Runtime 접근 | Codex app-server 우선, Phase 1 sandbox preview, ChatGPT Pro 웹 자동화는 Phase 2+ |
 | 세션 깊이 | Adaptive mode, 모든 축 75점 이상이면 Spec-ready 후보 |
 | 기본 export | Founder Brief |
 | 기본 화면 | Decision Queue 중심 |
@@ -49,6 +50,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 15. `14-ambiguity-question-lifecycle.md` - Ambiguity/Question Lifecycle과 무한 질문 루프 방지 계약.
 16. `15-pro-con-evidence-gate.md` - Pro/Con Evidence Gate와 confirmation bias 방지 계약.
 17. `16-state-event-contract.md` - Question→Research→Approval→SpecVersion→Completion 상태·이벤트 계약.
+18. `17-ai-runtime-access-strategy.md` - Codex app-server, ChatGPT Pro 웹 자동화 비전, runtime 권한 경계.
 
 ## 문서 책임 경계
 
@@ -71,6 +73,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | Ambiguity/Question Lifecycle | AmbiguityIssue, QuestionBatch, answer routing, repeat limit, completion 수렴 | Research 상세 품질 산식과 DB/API 스키마는 후속 문서로 넘긴다 |
 | Pro/Con Evidence Gate | pro_evidence, con_evidence, missing_con_evidence, skeptical search | 외부 리서치 런타임 구현과 고객 인터뷰 방법론 깊은 설계는 후속 문서로 넘긴다 |
 | State/Event Contract | Question, ResearchTask, EvidenceMatrix, Decision, SpecUpdate, SpecVersion, CompletionCandidate의 end-to-end trace | DB/API 스키마 상세와 런타임/코드 구현은 Phase 1 설계 또는 구현 단계로 넘긴다 |
+| AI Runtime Access Strategy | Codex app-server 우선 통합, sandbox preview 권한, ChatGPT Pro 웹 자동화의 Phase 2+ 비전 | 리서치 품질은 Research Engine으로, 승인/프라이버시 세부는 Security 문서로 넘긴다 |
 
 ## 공식 자료 기반 설계 메모
 
@@ -78,7 +81,10 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 - 데스크톱 shell은 Tauri v2를 기준으로 하되, MVP 문서 단계에서는 scaffolding하지 않는다. 참고: <https://v2.tauri.app/>
 - 백그라운드 작업과 장기 flow는 OpenClaw Background Tasks/Task Flow를 adapter 후보로 둔다. 참고: <https://docs.openclaw.ai/automation/tasks>, <https://docs.openclaw.ai/automation/taskflow>
 - 선택적 sync와 후속 모바일/대시보드 실시간성은 Supabase Realtime 확장 후보로 둔다. 참고: <https://supabase.com/docs/guides/realtime>
-- 브라우저 자동화는 기본 Playwright, 고급 단계 Browser-use adapter로 분리한다. 참고: <https://github.com/browser-use/browser-use>
+- 브라우저 자동화는 기본 Playwright, 고급 단계 Browser-use adapter로 분리한다. Phase 1에서는 제외하고 Phase 2+에서 ChatGPT Pro 웹 자동화 비전과 함께 검토한다. 참고: <https://github.com/browser-use/browser-use>
+- Codex CLI는 ChatGPT 계정 또는 API key 인증을 지원하며, Phase 1의 AI 통합 근거로 둔다. 참고: <https://developers.openai.com/codex/cli>
+- Codex app-server는 인증, 대화 기록, 승인, 스트리밍 이벤트를 제품에 연결하는 깊은 통합 경로로 두며 Phase 1 우선 통합 후보로 고정한다. 참고: <https://developers.openai.com/codex/app-server>
+- ChatGPT Pro에는 Codex와 Deep Research가 포함되지만 자동 추출, 계정 공유, 제3자 서비스 구동/재판매 제한이 있을 수 있으므로 ChatGPT Pro 웹 자동화는 Phase 2+ 비전으로 둔다. 참고: <https://help.openai.com/en/articles/9793128-what-is-c>
 
 ## 현재 금지 사항
 
@@ -86,5 +92,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 - Tauri/React 앱 scaffold 생성 금지.
 - Supabase 프로젝트 생성 또는 DB migration 실행 금지.
 - OpenClaw/Goose/CrewAI/Browser-use 실제 연동 금지.
+- Phase 1에서 ChatGPT 웹 자동화 구현 금지.
+- Phase 1에서 Codex를 통한 실제 파일 patch, shell 실행, 브라우저 action 실행 금지.
 - 모바일 앱 생성 금지.
 - 결제/과금 구현 금지.

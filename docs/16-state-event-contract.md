@@ -70,7 +70,8 @@ flowchart TD
 | `AmbiguityIssue` | `SpecSection`, claim, conflict, missing evidence | `Question`, `ResearchTask`, `Decision`, terminal outcome |
 | `Question` | `AmbiguityIssue`, `topicKey`, priority reason | `Answer`, route outcome, affected confidence axis |
 | `Answer` | `Question`, user input, interpreted meaning | `ResearchTask`, `Decision`, `SpecUpdate`, `deferred` outcome |
-| `ResearchTask` | triggering `Answer` or `AmbiguityIssue` | `ResearchResult`, `EvidenceMatrix`, research terminal outcome |
+| `ResearchTask` | triggering `Answer` or `AmbiguityIssue` | `ResearchResult`, `RuntimePreviewArtifact`, `EvidenceMatrix`, research terminal outcome |
+| `RuntimePreviewArtifact` | Codex app-server sandbox preview, manual handoff, official Codex path | `ResearchResult`, `SpecUpdate`, Risk Card, or blocked outcome |
 | `EvidenceMatrix` | `ResearchResult`, claim, decision context | `SpecUpdate`, `Decision`, Known Risks, Next Validation Actions |
 | `SpecUpdate` | `Answer`, `EvidenceMatrix`, current `SpecSection` | auto-applied update or `Decision` approval request |
 | `Decision` | approval card, alternatives, evidence | `SpecVersion` or rejected/revised/deferred terminal outcome |
@@ -87,7 +88,8 @@ Trace link가 끊긴 상태에서는 completion candidate를 만들 수 없다.
 | Ambiguity analysis | Initial Spec 또는 SpecVersion이 존재함 | `AmbiguityIssue` list, severity, `topicKey` | `open`, `resolved`, `deferred` | 질문이나 리서치로 줄일 수 없는 표현 문제는 high-risk issue가 아니다 |
 | Question generation | open issue가 있고 `repeatCount < repeatLimit` | 3~5개 `Question`, confidence axis impact | `question_queued`, `repeat_limit_reached` | 같은 `topicKey`는 한 batch에 1개만 들어간다 |
 | Answer routing | `Question`에 `Answer`가 연결됨 | `AnswerRouteOutcome`, affected section, next candidates | `resolved`, `research_needed`, `missing_con_evidence`, `decision_candidate`, `spec_update_candidate`, `conflict_detected`, `deferred`, `repeat_limit_reached` | route outcome 없는 답변은 Decision 후보가 될 수 없다 |
-| Research planning | answer 또는 issue가 evidence gap을 만듦 | `ResearchTask` with source intent | `planned`, `cancelled`, `failed` | 사용자가 외부 호출 disclosure를 승인하지 않으면 외부 research를 실행하지 않는다 |
+| Research planning | answer 또는 issue가 evidence gap을 만듦 | `ResearchTask` with source intent | `planned`, `handoff_ready`, `cancelled`, `failed` | 사용자가 외부 호출 disclosure를 승인하지 않으면 외부 research를 실행하지 않는다 |
+| Runtime preview | Codex app-server 또는 공식 Codex 경로가 실행 전 산출물을 만듦 | `RuntimePreviewArtifact`, preview-only marker | `preview_ready`, `converted`, `blocked` | Phase 1 preview는 실제 파일, shell, browser action으로 적용할 수 없다 |
 | Evidence synthesis | `ResearchResult`가 도착함 | `EvidenceMatrix`, pro/con/uncertainty, skeptical search | `balanced`, `missing_con_evidence`, `source_quality_insufficient`, `blocked_by_con_evidence` | high impact `pro_only` claim은 decision-ready가 아니다 |
 | Spec update suggestion | answer/evidence가 section 변경을 요구함 | `SpecUpdate`, before/after summary, risk level | `auto_applied`, `approval_waiting`, `rejected` | high impact update는 자동 반영하지 않는다 |
 | Decision approval | approval card가 사용자에게 제시됨 | `Decision` status, rationale, alternatives | `approved`, `rejected`, `revised`, `deferred`, `risk_accepted` | 사용자 승인 없는 핵심 decision은 SpecVersion으로 고정하지 않는다 |
@@ -172,6 +174,7 @@ CompletionCandidate의 출력은 완료 선언만이 아니다. 사용자는 다
 | 무한 질문 루프 | 같은 `topicKey`에서 4번째 질문 후보 생성 | `repeat_limit_reached` |
 | Confirmation bias | high impact claim이 `pro_only` | `missing_con_evidence` 또는 decision block |
 | 승인 누락 | high-impact update가 자동 반영됨 | approval boundary violation |
+| 권한 경계 위반 | Phase 1 preview artifact가 실제 파일/쉘/브라우저 실행으로 적용됨 | runtime permission violation |
 | Trace 단절 | Decision이 어떤 Answer/Evidence에서 왔는지 모름 | completion block |
 | Stale research | SpecVersion 이후 근거가 오래되거나 반대근거가 갱신됨 | research reinforcement |
 | 피로도 무시 | 답변이 짧아지고 보류가 늘지만 새 batch를 계속 제시 | fatigue intervention |

@@ -173,6 +173,7 @@ Living Product Spec은 다음 조건을 모두 만족할 때 완료 후보가 �
 - Validation Plan.
 - Remaining Risks.
 - Phase 1 Implementation Handoff note.
+- AI Runtime Handoff note: Codex app-server preview, manual research handoff, remaining runtime risks.
 
 ## 품질 원칙
 
@@ -182,4 +183,5 @@ Living Product Spec은 다음 조건을 모두 만족할 때 완료 후보가 �
 - 반대근거가 아직 없으면 “없음”이 아니라 `missing_con_evidence`로 표시한다.
 - `pro_evidence`만 있는 claim은 확정 문장이 아니라 hypothesis로 남긴다.
 - 사용자가 승인하지 않은 AI 추천은 Spec 본문에 확정 반영하지 않는다.
+- Codex app-server가 만든 preview artifact는 Living Product Spec에 직접 고정하지 않고 SpecUpdate, ResearchResult, Decision을 거친다.
 - “나중에 검증”은 구체적 실험과 성공/실패 기준이 있을 때만 허용한다.

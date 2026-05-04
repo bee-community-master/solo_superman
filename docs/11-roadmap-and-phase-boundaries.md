@@ -12,7 +12,7 @@
 
 산출물:
 
-- 10~14개 상세 기획 문서.
+- 17개 이상 상세 기획 문서.
 - 구현자 핸드오프 검토.
 - 샘플 아이디어 dry-run.
 
@@ -39,6 +39,8 @@
 - 3~5개 질문 배치.
 - 답변 저장.
 - 실제 리서치 결과 저장.
+- Codex app-server 기반 Spec/Research sandbox preview.
+- 수동 프롬프트 핸드오프와 공식 Codex 경로 fallback.
 - 찬반 근거 매트릭스.
 - Suggested Spec Update.
 - Decision Approval.
@@ -52,6 +54,7 @@
 - 결제/과금.
 - 자동 코드 실행.
 - 브라우저 조작 실행.
+- ChatGPT Pro 웹 자동화.
 - runtime marketplace.
 
 완료 조건:
@@ -108,18 +111,30 @@
 목표:
 
 - 시장/경쟁/검증 리서치에서 브라우저 자동화가 필요한 경우 preview와 통제권을 제공한다.
+- ChatGPT Pro 웹 자동화를 Phase 2+ 비전으로 검증한다.
 
 후보:
 
 - PlaywrightRuntime.
 - BrowserUseRuntime.
+- ChatGPT Pro web research automation.
+- project-level blanket delegation.
+- revoke control.
 - action preview.
 - source capture.
+
+진입 조건:
+
+- Phase 1 수동 프롬프트 핸드오프가 실제 리서치 병목으로 확인됨.
+- ChatGPT 웹 자동화의 정책/약관/세션/사용량 제한 리스크 검토가 끝남.
+- fallback chain이 구현되어 있음.
+- audit log와 revoke control이 설계되어 있음.
 
 제외:
 
 - 사용자 승인 없는 form submission.
 - 로그인/결제/민감 작업 자동 실행.
+- ChatGPT 계정 공유 또는 인증정보 대리 보관.
 
 ## Phase 3: Safe Execution Adapter
 
@@ -199,6 +214,8 @@
 ## Phase guardrails
 
 - Phase 1 완료 전 자동 실행 기능을 만들지 않는다.
+- Phase 1에서 Codex app-server는 sandbox preview 권한을 넘지 않는다.
+- Phase 1에서 ChatGPT Pro 웹 자동화를 만들지 않는다.
 - Phase 1 완료 전 모바일 앱을 만들지 않는다.
 - Phase 1 완료 전 결제/과금을 만들지 않는다.
 - Phase 1 완료 전 팀 협업을 만들지 않는다.

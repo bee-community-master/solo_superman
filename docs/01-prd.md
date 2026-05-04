@@ -106,6 +106,16 @@ MVP는 다음 사용 시나리오가 한 프로젝트 안에서 끊기지 않고
 - 중단 시 현재 상태 요약, 남은 high-risk 질문, 다음 추천 행동을 저장한다.
 - 완료 후보 상태가 되면 시스템은 “완료 선언”, “더 깊게 질문”, “리서치 보강” 중 선택지를 제공한다.
 
+### F12. AI Runtime Access
+
+- Phase 1의 1차 AI 통합은 Codex app-server 기반 `CodexRuntimeAdapter`다.
+- 일반 사용자 onboarding에서 API key 입력을 기본 요구하지 않는다.
+- Codex 권한은 `sandbox_preview_allowed`로 제한한다.
+- Codex는 질문, 리서치 프롬프트, evidence 요약, Spec update preview를 만들 수 있다.
+- Codex가 만든 file diff, shell command, browser action은 Phase 1에서 실행되지 않고 preview artifact로만 남는다.
+- 깊은 리서치가 필요하면 수동 프롬프트 핸드오프를 먼저 제공하고, 사용자가 풀 자동화를 원하면 공식 Codex 경로로만 리서치/분석을 진행한다.
+- ChatGPT Pro 웹 자동화는 Phase 2+ 비전이며 Phase 1 MVP 범위가 아니다.
+
 ## UX 요구사항
 
 - 기본 레이아웃은 Decision Queue 중심이다.
@@ -125,6 +135,7 @@ MVP는 다음 사용 시나리오가 한 프로젝트 안에서 끊기지 않고
 
 - 사용자의 아이디어와 Spec은 기본적으로 로컬에 저장된다.
 - 외부 리서치 또는 LLM 호출 전에 어떤 내용이 외부로 나가는지 설명한다.
+- Codex app-server 통합은 실제 파일/쉘/브라우저 적용 없이 sandbox preview 권한으로 제한한다.
 - cloud sync는 명시적 opt-in이다.
 - 핵심 결정 자동 반영은 금지한다.
 
@@ -132,6 +143,7 @@ MVP는 다음 사용 시나리오가 한 프로젝트 안에서 끊기지 않고
 
 - 코드 자동 구현 또는 shell 실행.
 - 브라우저 조작 자동 실행.
+- ChatGPT Pro 웹 자동화.
 - 모바일 원격 승인 앱.
 - 팀 협업, 조직 권한, 공유 링크.
 - 결제/과금.
@@ -145,5 +157,6 @@ MVP는 다음 사용 시나리오가 한 프로젝트 안에서 끊기지 않고
 - 첫 질문 배치는 3~5개 질문으로 구성된다.
 - 최소 1개 핵심 결정에 대해 찬성 근거, 반대 근거, 불확실성, 추가 질문이 생성된다.
 - 승인된 결정이 SpecVersion으로 반영된다.
+- Codex app-server preview artifact가 실제 파일/쉘/브라우저 실행 없이 Queue/Spec/Research artifact로만 남는다.
 - 복합 완성도 점수와 다음 행동이 표시된다.
 

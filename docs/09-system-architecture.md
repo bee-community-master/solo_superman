@@ -17,6 +17,7 @@
 | State/data fetching | Zustand/Jotai + TanStack Query 후보 | 구현 전 확정 필요 |
 | Spec Engine | 자체 TypeScript/Rust boundary | core 확정 |
 | Runtime | Adapter interface | core 확정 |
+| Primary AI runtime | Codex app-server via CodexRuntimeAdapter | Phase 1 우선 |
 | Cloud sync | Supabase optional sync | 후속/선택 기능 |
 | Mobile | Expo | 후속 Phase |
 
@@ -42,6 +43,7 @@ Tauri Desktop App
 │  ├─ encrypted secrets
 │  └─ source cache
 └─ Runtime Adapter Layer
+   ├─ CodexRuntimeAdapter
    ├─ LocalResearchRuntime
    ├─ OpenClawRuntime later
    ├─ PlaywrightRuntime later
@@ -67,6 +69,9 @@ interface AgentRuntime {
   supportsBrowser?: boolean;
   supportsFilePatch?: boolean;
   supportsSubagents?: boolean;
+  supportsSandboxPreview?: boolean;
+  supportsManualHandoff?: boolean;
+  supportsDelegatedBrowserAutomation?: boolean;
 }
 ```
 
@@ -75,7 +80,15 @@ interface AgentRuntime {
 ```ts
 type RuntimeTaskInput = {
   projectId: string;
-  taskType: 'research' | 'browser_research' | 'document_generation' | 'code_planning' | 'execution_preview';
+  taskType:
+    | 'spec_analysis'
+    | 'question_generation'
+    | 'research'
+    | 'research_handoff'
+    | 'browser_research'
+    | 'document_generation'
+    | 'code_planning'
+    | 'execution_preview';
   prompt: string;
   allowedDataRefs: string[];
   privacyMode: 'local_only' | 'sync_enabled';
@@ -85,11 +98,24 @@ type RuntimeTaskInput = {
 
 ## Adapter 역할
 
+### CodexRuntimeAdapter
+
+Phase 1 primary AI runtime이다. 구현 후보는 Codex app-server이며, 자세한 접근 전략은 `17-ai-runtime-access-strategy.md`를 따른다.
+
+- ChatGPT/Codex 로그인 흐름을 local desktop onboarding에 연결한다.
+- Codex thread와 Project/Session을 연결한다.
+- Spec 분석, 질문 생성, 리서치 프롬프트 생성, evidence 요약, Spec update suggestion을 수행한다.
+- Codex stream event를 Activity Feed와 Execution Log로 변환한다.
+- Phase 1 권한은 `sandbox_preview_allowed`다.
+- 실제 파일 patch, shell 실행, browser action은 적용하지 않고 preview artifact로만 라우팅한다.
+- SDK/CLI는 app-server가 부적합하거나 수동 handoff 이후 공식 Codex 경로가 필요할 때 fallback 후보로 둔다.
+
 ### LocalResearchRuntime
 
-Phase 1 기본 runtime이다.
+Phase 1 보조 runtime이다.
 
-- LLM/web research 호출을 얇게 감싼다.
+- 수동 프롬프트 핸드오프 결과를 ResearchResult로 import한다.
+- 가벼운 public source 정리와 source cache 연결을 담당한다.
 - ResearchTask 상태를 SQLite에 기록한다.
 - 복잡한 background orchestration은 하지 않는다.
 
@@ -114,13 +140,13 @@ v1.5~v2 후보.
 
 ### BrowserUseRuntime
 
-v2 후보.
+Phase 2+ 후보.
 
 - 복잡한 웹 조작.
 - cloud browser/proxy/CAPTCHA가 필요한 경우.
 - custom browser tools.
 
-Browser-use는 open-source agent와 cloud agent를 구분하므로, Phase 1에 무겁게 번들링하지 않고 adapter로 둔다.
+Browser-use는 open-source agent와 cloud agent를 구분하므로, Phase 1에 번들링하지 않는다. ChatGPT Pro 웹 자동화는 Phase 2+에서 project-level blanket delegation, revoke, audit log, fallback chain을 갖춘 뒤 검토한다.
 
 ### GooseRuntime
 
@@ -173,8 +199,10 @@ Supabase Realtime은 Broadcast, Presence, Postgres Changes를 제공하므로 �
 
 - RuntimeAdapter는 Project data 전체를 기본으로 받지 않는다.
 - task별 `allowedDataRefs`만 전달한다.
-- 외부 전송 전 사용자에게 데이터 범위를 설명한다.
-- code/file/browser execution adapter는 Phase 1에서 비활성이다.
+- Phase 1에서 외부 전송 또는 Codex 분석 전 사용자에게 데이터 범위를 설명한다.
+- Codex app-server는 sandbox preview 권한만 가진다.
+- code/file/browser execution adapter는 Phase 1에서 실제 적용 비활성이다.
+- ChatGPT Pro 웹 자동화는 Phase 2+ 비전이며 Phase 1 구현 범위가 아니다.
 
 ## Packaging note
 
@@ -182,6 +210,8 @@ Phase 1 구현 전 결정할 항목:
 
 - Tauri command와 local backend를 Rust 중심으로 둘지, Node/Hono sidecar를 둘지.
 - SQLite binding 선택.
+- Codex app-server 버전 고정과 app-server schema 생성/호환성 정책.
+- ChatGPT/Codex 로그인 flow와 local secret storage 범위.
 - LLM provider abstraction 위치.
 - source cache 암호화 방식.
 

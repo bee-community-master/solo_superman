@@ -36,6 +36,7 @@ ProjectCreated
   → AnswerRouted
       ├─ RepeatLimitReached
       ├─ ResearchInProgress
+      ├─ RuntimePreviewReady
       ├─ SpecUpdateSuggested
       └─ DecisionApprovalWaiting
   → EvidenceMatrixReady
@@ -179,6 +180,26 @@ AmbiguityIssue
 - source references.
 - evidence candidates.
 
+### RuntimePreviewReady
+
+입력:
+
+- Codex app-server sandbox preview result.
+- manual prompt handoff draft.
+- official Codex path fallback result.
+
+출력:
+
+- RuntimePreviewArtifact.
+- Research Handoff Card 또는 Runtime Preview Card.
+- 적용 금지된 file/shell/browser action의 preview-only marker.
+
+규칙:
+
+- Phase 1에서 RuntimePreviewArtifact는 직접 SpecVersion을 만들 수 없다.
+- high-impact preview는 Decision Approval Card를 거쳐야 한다.
+- file patch, shell command, browser action 요청은 실제 실행하지 않고 preview 또는 blocked outcome으로 라우팅한다.
+
 ### EvidenceMatrixReady
 
 입력:
@@ -260,7 +281,7 @@ AmbiguityIssue
 | `AmbiguityAnalyzed` | 각 `AmbiguityIssue`가 관련 Spec section, severity, `topicKey`, 가능한 route를 가진다 |
 | `QuestionBatchReady` | 각 `Question`이 하나의 핵심 decision 또는 evidence gap을 겨냥하고 confidence axis impact를 가진다 |
 | `AnswerRouted` | 모든 `Answer`가 `resolved`, `research_needed`, `missing_con_evidence`, `decision_candidate`, `spec_update_candidate`, `conflict_detected`, `deferred`, `repeat_limit_reached` 중 하나로 수렴한다 |
-| `ResearchInProgress` / `EvidenceMatrixReady` | `ResearchTask`와 `EvidenceMatrix`가 pro/con/uncertainty, skeptical search, Known Risks 연결을 만든다 |
+| `ResearchInProgress` / `RuntimePreviewReady` / `EvidenceMatrixReady` | `ResearchTask`, `RuntimePreviewArtifact`, `EvidenceMatrix`가 pro/con/uncertainty, skeptical search, Known Risks 연결을 만든다 |
 | `SpecUpdateSuggested` | low-risk update와 high-impact approval request가 분리된다 |
 | `DecisionApprovalWaiting` | `Decision`이 승인, 거절, 수정, 보류, risk accepted 중 하나의 terminal outcome을 가진다 |
 | `SpecVersionCreated` | 승인된 `Decision`과 적용된 `SpecUpdate`만 immutable snapshot의 원인이 된다 |
@@ -270,6 +291,7 @@ State/Event Contract 위반은 다음과 같다.
 
 - route outcome 없는 답변을 Decision 후보로 사용한다.
 - high-impact `SpecUpdate`를 approval 없이 SpecVersion에 반영한다.
+- RuntimePreviewArtifact를 실제 파일/쉘/브라우저 실행으로 적용한다.
 - high impact `pro_only` claim을 decision-ready로 표시한다.
 - 같은 `topicKey`의 4번째 질문 전에 `repeat_limit_reached`를 발생시키지 않는다.
 - `CompletionCandidate`가 어떤 `CompletenessSnapshot`, `Decision`, `EvidenceMatrix`에서 왔는지 추적할 수 없다.
@@ -284,6 +306,7 @@ State/Event Contract 위반은 다음과 같다.
 
 - AI는 핵심 결정을 대신하지 않는다.
 - 근거 없는 확신은 금지한다.
+- Phase 1 Codex 권한은 sandbox preview에 한정한다.
 - MVP 범위는 검증 목적에 종속된다.
 
 ### Spec Generator
