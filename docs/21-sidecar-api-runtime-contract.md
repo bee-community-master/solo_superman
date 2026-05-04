@@ -17,8 +17,9 @@
 | Event stream | Server-Sent Events at `/api/v1/events/stream` |
 | Local auth | Tauri-issued capability token |
 | Codex app-server transport | stdio by default |
-| Codex schema | generated per installed Codex version |
-| Runtime output | RuntimePreviewArtifact only |
+| Codex generated schema | generated per installed Codex version |
+| Codex app schema | `24-codex-prompt-output-contract.md`의 internal Prompt/Output schema |
+| Runtime output | RuntimePreviewArtifact, allowed Codex artifacts, ManualRetryCard, RuntimeBlockedCard only |
 | Browser/file/shell apply | forbidden in Phase 1 |
 
 ## API envelope
@@ -259,6 +260,11 @@ Codex app-server is used because Phase 1 needs deep product integration: convers
 
 ### Schema pinning
 
+Codex integration has two schema layers.
+
+1. Codex app-server generated schema: installed Codex version에 맞춰 생성한다.
+2. Solo Superman internal Codex Prompt/Output schema: `24-codex-prompt-output-contract.md`를 canonical source로 구현한다.
+
 Before implementing Codex integration, generate version-specific schemas:
 
 ```text
@@ -271,6 +277,7 @@ Implementation rules:
 - Generated schema directory includes the Codex version used to generate it.
 - Sidecar adapter imports generated types through a narrow wrapper.
 - If generated schema changes, update `17-ai-runtime-access-strategy.md` or add a short compatibility note in this document.
+- Internal turnPurpose, artifact kind, applyPolicy, repair, and severity routing changes must update `24-codex-prompt-output-contract.md` first.
 - Do not hand-write broad `any` wrappers around app-server messages.
 
 ### Thread/session mapping
@@ -297,14 +304,14 @@ Mapping table minimum fields:
 
 ### Turn policy
 
-Allowed Phase 1 turn purposes:
+Allowed Phase 1 turn purposes are exactly the 6 canonical values in `24-codex-prompt-output-contract.md`:
 
-- spec analysis.
-- question generation draft.
-- research prompt generation.
-- evidence summary.
-- spec update suggestion.
-- implementation plan preview.
+- `question_generation`.
+- `ambiguity_analysis`.
+- `research_prompt`.
+- `evidence_synthesis`.
+- `spec_update_preview`.
+- `implementation_plan_preview`.
 
 Forbidden Phase 1 turn outcomes:
 
@@ -314,7 +321,7 @@ Forbidden Phase 1 turn outcomes:
 - submit ChatGPT web automation.
 - modify external service.
 
-If Codex proposes a forbidden action, sidecar must convert it into `RuntimePreviewArtifact.kind = blocked_execution_request` and Queue must show the blocked reason.
+If Codex proposes a forbidden action, sidecar must convert it into `BlockedActionArtifact` inside a `RuntimePreviewArtifact` and Queue must show the blocked reason. Blocked action taxonomy is defined in `24-codex-prompt-output-contract.md`.
 
 ## Conservative AI retry matrix
 
@@ -324,24 +331,23 @@ If Codex proposes a forbidden action, sidecar must convert it into `RuntimePrevi
 | `research_evidence_effect` | `researchTaskId` or `researchResultId + synthesisVersion` | max 2 | allowed through Research Review Card | `ResearchEffectFailed` card with retained source/result |
 | `codex_runtime_preview_effect` | `turnPurpose + contextHash + runtimeAdapterVersion` | max 1 | required after auto retry exhausted | `ManualRetryCard` or `RuntimeBlockedCard` |
 
-The sidecar must not aggressively retry Codex runtime preview beyond the single automatic retry. When exhausted, it emits a manual retry or manual handoff card.
+The sidecar must not aggressively retry Codex runtime preview beyond the single automatic retry. Inside each attempt, JSON output follows `24-codex-prompt-output-contract.md`: deterministic parser repair once, Codex self-repair once, then severity routing. When exhausted, it emits a manual retry, manual handoff, validation failure, or runtime blocked card.
 
 ## RuntimePreviewArtifact conversion
 
-Runtime artifacts can convert only through ProductEngine commands.
+Runtime artifacts can convert only through ProductEngine commands. The canonical artifact taxonomy, applyPolicy enum, low-risk auto-apply matrix, evidence conditional gate, and blocked action taxonomy live in `24-codex-prompt-output-contract.md`.
 
 | Artifact kind | Allowed conversion |
 | --- | --- |
-| `research_prompt` | Manual Handoff Card |
-| `research_summary` | ResearchResult candidate |
-| `evidence_summary` | EvidenceMatrix candidate |
-| `spec_update_preview` | SpecUpdate candidate |
-| `implementation_plan_preview` | Planning note or Risk Card |
-| `diff_preview` | blocked in Phase 1 or handoff note |
-| `command_plan_preview` | blocked in Phase 1 |
-| `browser_action_preview` | blocked in Phase 1 |
+| `QuestionBatchArtifact` | Queue question candidates through `auto_apply` |
+| `AmbiguityAnalysisArtifact` | Confidence/completeness projection through `auto_apply` |
+| `ResearchPromptArtifact` | ResearchTask or Manual Handoff Card |
+| `EvidenceSynthesisArtifact` | EvidenceMatrix only when conditional gate passes; otherwise review/risk/follow-up card |
+| `SpecUpdatePreviewArtifact` | SpecUpdate candidate requiring approval |
+| `ImplementationPlanPreviewArtifact` | PlanningNote only in Phase 1 |
+| `BlockedActionArtifact` | RuntimeBlockedCard or blocked queue card |
 
-No runtime artifact can directly create SpecVersion.
+No runtime artifact can directly create SpecVersion. No Phase 1 runtime artifact can execute file, shell, browser, network, credential, or destructive actions.
 
 ## Manual handoff fallback
 

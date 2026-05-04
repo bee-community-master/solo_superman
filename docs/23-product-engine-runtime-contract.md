@@ -22,7 +22,7 @@
 | Scoring/export 처리 | `reducer_deterministic_output`으로 계산하고 repository transaction이 저장한다 |
 | Retry matrix | `conservative_ai_retry_matrix` |
 | In-memory queue | 금지. effect task는 DB에 persisted되어야 한다 |
-| Codex effect 권한 | RuntimePreviewArtifact만 생성. 파일/shell/browser 적용 금지 |
+| Codex effect 권한 | `24-codex-prompt-output-contract.md`의 RuntimePreviewArtifact/artifact만 생성. 파일/shell/browser 적용 금지 |
 
 ## Canonical duplication policy
 
@@ -214,7 +214,7 @@ Crash recovery:
 | --- | --- | --- | --- |
 | `queue_projection_effect` | Recalculate active/next/blocked/deferred queue and activity feed after state-changing events | answer, decision, evidence, runtime preview, repeat limit | QueueProjection, ActivityEvent |
 | `research_evidence_effect` | Plan research, synthesize imported ResearchResult, create EvidenceMatrix, mark missing_con_evidence/blockers | AnswerRouted, ResearchResultImported | ResearchTask, EvidenceMatrix, Risk/Review Card |
-| `codex_runtime_preview_effect` | Run Codex app-server/manual handoff preview and convert output to RuntimePreviewArtifact or blocked card | RuntimePreviewRequested, ResearchPlanned | RuntimePreviewArtifact, ManualRetryCard, BlockedRuntimeCard |
+| `codex_runtime_preview_effect` | Run Codex app-server/manual handoff preview and convert output using `24-codex-prompt-output-contract.md` | RuntimePreviewRequested, ResearchPlanned | RuntimePreviewArtifact, allowed Codex Artifact, ManualRetryCard, BlockedRuntimeCard |
 
 Non-effect deterministic outputs:
 
@@ -240,7 +240,8 @@ Policy details:
 - Retry uses bounded backoff. Exact timing is implementation detail, but tests must not depend on wall-clock waits.
 - Automatic retry never changes user-approved decisions.
 - Codex runtime effect cannot silently create multiple visible preview artifacts for the same idempotency key.
-- Failed Codex runtime effect must offer manual handoff or manual retry, not aggressive hidden retry.
+- Within one effect attempt, Codex JSON repair follows `24-codex-prompt-output-contract.md`: parser repair once, self-repair once, then severity routing.
+- Failed Codex runtime effect must offer manual handoff, manual retry, validation failure card, or runtime blocked card, not aggressive hidden retry.
 - Queue projection effect must be idempotent and safe to rerun after crash.
 - Research evidence effect must preserve original source/result even when synthesis fails.
 
@@ -333,7 +334,7 @@ Then:
 
 ### Scenario C. Codex preview fails safely
 
-Given Codex app-server is unavailable or a turn fails twice including one auto retry.
+Given Codex app-server is unavailable or a turn fails after parser repair, self-repair, and one effect auto retry.
 
 When `codex_runtime_preview_effect` exhausts policy.
 
@@ -341,8 +342,9 @@ Then:
 
 - no file/shell/browser action is applied.
 - effect status becomes `failed` or `blocked`.
-- UI receives `ManualRetryCard` or `RuntimeBlockedCard`.
-- user can choose manual prompt handoff.
+- UI receives severity-routed `ManualRetryCard`, `ManualHandoffCard`, `ValidationFailedCard`, or `RuntimeBlockedCard`.
+- user can choose manual prompt handoff when applicable.
+- blocked file/shell/browser/network/credential/destructive requests become `BlockedActionArtifact`.
 
 ### Scenario D. Completion remains deterministic
 
@@ -365,7 +367,7 @@ Then:
 | PR-04 | pure reducer + effect plan unit tests, command pipeline, active batch exception stub |
 | PR-05 | UI pending effect states, SSE/refetch behavior, no frontend source-of-truth mutation |
 | PR-06 | `research_evidence_effect` executor and retry/failure cards |
-| PR-07 | `codex_runtime_preview_effect` executor, conservative AI retry, manual retry/handoff cards |
+| PR-07 | `codex_runtime_preview_effect` executor, `24-codex-prompt-output-contract.md` schema, conservative AI retry, parser/self repair, manual retry/handoff/block cards |
 | PR-08 | deterministic completeness/founder brief outputs, no async scoring/export effect |
 | PR-09 | dry-run proves effect queue, failure handling, preview-only runtime, deterministic completion |
 

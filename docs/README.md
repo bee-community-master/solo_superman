@@ -2,7 +2,7 @@
 
 Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질문·리서치 세션으로 구체화해, 근거와 결정이 추적되는 `Living Product Spec`까지 도달하게 하는 macOS-first 데스크톱 서비스다.
 
-이 레포의 현재 단계는 **기획 문서 작성 단계**다. 이 문서 세트는 구현 전 기준 계약이며, 런타임 코드·앱 scaffold·모바일 앱·팀 협업·결제·자동 코드 실행 구현은 아직 하지 않는다. 현재 문서 세트는 `00`~`23`의 번호 문서 24개와 이 인덱스를 합쳐 총 25개의 Markdown 문서로 구성한다.
+이 레포의 현재 단계는 **기획 문서 작성 단계**다. 이 문서 세트는 구현 전 기준 계약이며, 런타임 코드·앱 scaffold·모바일 앱·팀 협업·결제·자동 코드 실행 구현은 아직 하지 않는다. 현재 문서 세트는 `00`~`24`의 번호 문서 25개와 이 인덱스를 합쳐 총 26개의 Markdown 문서로 구성한다.
 
 ## 확정된 1차 제품 결정
 
@@ -39,6 +39,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | Phase 1 저장소 | local embedded libSQL + Drizzle, remote config placeholder only |
 | Phase 1 API | Hono `/api/v1` + Zod contract + SSE event stream |
 | Codex 구현 경계 | Codex app-server stdio + schema pinning, sandbox preview만 허용 |
+| Codex Prompt/Output 계약 | 6개 turnPurpose, Core+Delta input, Hybrid trace+artifact output, JSON repair, severity routing |
 | Phase 1 구현 순서 | PR-01 workspace scaffold부터 PR-09 E2E dry-run hardening까지 고정 |
 | Phase 1 MVP | Research 포함 폐루프 |
 | 1순위 실패 방지 | 무한 질문 루프 |
@@ -69,6 +70,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 22. `21-sidecar-api-runtime-contract.md` - Hono API route shape, local auth, SSE, Codex app-server runtime preview 계약.
 23. `22-phase1-implementation-sequence.md` - Phase 1을 결정 없이 구현하기 위한 PR-01~PR-09 순서와 검증 기준.
 24. `23-product-engine-runtime-contract.md` - ProductEngine reducer, persisted async effect queue, effect type, retry/idempotency, API/SSE 구현 계약.
+25. `24-codex-prompt-output-contract.md` - Codex Prompt/Output의 6개 turnPurpose schema, Core+Delta input, Hybrid trace+artifact output, repair/failure/blocked taxonomy 계약.
 
 ## 문서 책임 경계
 
@@ -98,6 +100,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | Sidecar API Runtime Contract | Hono route group, validation envelope, local auth, SSE, Codex app-server preview boundary | UI 화면 상세는 UX 문서로, 저장소 내부 구현은 Data Storage Contract로 넘긴다 |
 | Phase 1 Implementation Sequence | Codex가 구현 중 다시 결정하지 않도록 PR-01~PR-09 순서와 acceptance를 고정 | 실제 코드 변경은 후속 구현 PR에서 수행한다 |
 | ProductEngine Runtime Contract | `pure reducer + effect plan`, persisted async effect queue, active batch projection exception, effect retry matrix | 동일 정책 원문은 18/20/21/22에도 중복 허용하며, 충돌 시 문서 수정 PR에서 먼저 정리한다 |
+| Codex Prompt/Output Contract | Codex turnPurpose, prompt input context, JSON output envelope, artifact/applyPolicy taxonomy, repair/failure routing | AI runtime 전략은 17번, Hono route/runtime 경계는 21번, effect queue 실행은 23번으로 넘긴다 |
 
 ## 공식 자료 기반 설계 메모
 
@@ -109,6 +112,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 - 브라우저 자동화는 기본 Playwright, 고급 단계 Browser-use adapter로 분리한다. Phase 1에서는 제외하고 Phase 2+에서 ChatGPT Pro 웹 자동화 비전과 함께 검토한다. 참고: <https://github.com/browser-use/browser-use>
 - Codex CLI는 ChatGPT 계정 또는 API key 인증을 지원하며, Phase 1의 AI 통합 근거로 둔다. 참고: <https://developers.openai.com/codex/cli>
 - Codex app-server는 인증, 대화 기록, 승인, 스트리밍 이벤트를 제품에 연결하는 깊은 통합 경로로 두며 Phase 1 우선 통합 후보로 고정한다. 참고: <https://developers.openai.com/codex/app-server>
+- Codex Prompt/Output의 앱 내부 canonical schema는 `24-codex-prompt-output-contract.md`가 소유한다. Codex generated schema와 앱 내부 schema는 둘 다 versioned input으로 검증한다.
 - Hono는 local sidecar API의 route/validation surface로 고정하고, validation은 Hono validator/Zod 계열로 문서화한다. 참고: <https://hono.dev/docs/api>, <https://hono.dev/docs/guides/validation>
 - Phase 1 저장소는 local embedded libSQL + Drizzle schema/migration 계약으로 고정한다. 참고: <https://docs.turso.tech/sdk/ts/reference>, <https://docs.turso.tech/local-development>, <https://orm.drizzle.team/docs/get-started/sqlite-new>, <https://orm.drizzle.team/docs/migrations>
 - ChatGPT Pro에는 Codex와 Deep Research가 포함되지만 자동 추출, 계정 공유, 제3자 서비스 구동/재판매 제한이 있을 수 있으므로 ChatGPT Pro 웹 자동화는 Phase 2+ 비전으로 둔다. 참고: <https://help.openai.com/en/articles/9793128-what-is-c>
@@ -121,7 +125,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 - 실제 remote sync 구현 금지. Phase 1 문서상 허용되는 것은 remote config placeholder뿐이다.
 - OpenClaw/Goose/CrewAI/Browser-use 실제 연동 금지.
 - Phase 1에서 ChatGPT 웹 자동화 구현 금지.
-- Phase 1에서 Codex를 통한 실제 파일 patch, shell 실행, 브라우저 action 실행 금지. `diff_preview`, `command_plan_preview`, `browser_action_preview`는 preview artifact로만 남긴다.
+- Phase 1에서 Codex를 통한 실제 파일 patch, shell 실행, 브라우저 action 실행 금지. `diff_preview`, `command_plan_preview`, `browser_action_preview`는 preview artifact 또는 `BlockedActionArtifact`로만 남긴다. 프로젝트 위임 후 자동 실행은 Phase 1.5로 분리한다.
 - ProductEngine effect는 in-memory-only queue로 처리 금지. Phase 1 1급 effect는 persisted async effect queue에 저장한다.
 - `scoring_effect`와 `spec_export_effect`를 Phase 1 1급 async effect로 승격 금지. scoring/export는 reducer deterministic output으로 유지한다.
 - 모바일 앱 생성 금지.

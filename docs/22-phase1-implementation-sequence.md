@@ -283,7 +283,7 @@ Forbidden:
 
 Goal:
 
-- Implement Codex app-server availability, schema generation integration, stdio turn wrapper, RuntimePreviewArtifact creation, and manual handoff fallback.
+- Implement Codex app-server availability, schema generation integration, stdio turn wrapper, `24-codex-prompt-output-contract.md` internal schema, RuntimePreviewArtifact creation, and manual handoff fallback.
 
 Owns:
 
@@ -293,21 +293,26 @@ Owns:
 - runtime status endpoint.
 - runtime preview endpoint.
 - RuntimePreviewArtifact persistence.
+- 6 turnPurpose fixtures, 7 artifact kind schemas, 6 applyPolicy schemas.
+- JSON parser repair and Codex self-repair pipeline.
+- severity-based failure routing.
 - blocked execution request conversion.
 
 Acceptance criteria:
 
 - App can show Codex runtime status.
 - If Codex app-server is unavailable, manual handoff fallback works.
-- If available, a spec analysis or research prompt preview can be generated as RuntimePreviewArtifact.
-- `codex_runtime_preview_effect` uses idempotency by `turnPurpose + contextHash + runtimeAdapterVersion`, max 1 automatic retry, then ManualRetryCard or RuntimeBlockedCard.
-- File diff/shell/browser suggestions are blocked and converted to preview/block cards.
+- If available, all 6 canonical turnPurpose happy-path fixtures can generate valid RuntimePreviewArtifact/artifact output.
+- `codex_runtime_preview_effect` uses idempotency by `turnPurpose + contextHash + runtimeAdapterVersion`, max 1 automatic retry, with per-attempt parser repair once and self-repair once.
+- Low-risk artifacts auto-apply only through ProductEngine commands; evidence uses conditional gate.
+- File diff/shell/browser/network/credential/destructive suggestions are blocked and converted to `BlockedActionArtifact`/block cards.
 - No file/shell/browser action is applied by the app.
 
 Verification:
 
 ```text
 codex app-server generate-ts --out packages/contracts/src/codex-generated/<codex-version>
+pnpm test -- --run codex-contract
 pnpm test -- --run runtime
 pnpm typecheck
 ```
@@ -319,6 +324,7 @@ Forbidden:
 - ChatGPT web automation.
 - API key requirement as default path.
 - running arbitrary Codex-generated commands.
+- implementing Phase 1.5 automatic execution in PR-07.
 
 ## PR-08. Completeness and Founder Brief
 
@@ -421,6 +427,7 @@ If implementation discovers a real contract problem:
 - 19번 문서가 package/runtime/process 경계를 고정한다.
 - 20번 문서가 DB/repository/event/projection 경계를 고정한다.
 - 21번 문서가 Hono API/Codex runtime boundary를 고정한다.
+- 24번 문서가 Codex Prompt/Output, turnPurpose schema, artifact taxonomy, repair/failure routing을 고정한다.
 - 22번 문서가 PR 순서와 acceptance criteria를 고정한다.
 - 23번 문서가 ProductEngine runtime contract, effect queue, retry/idempotency, API/SSE 구현 기준을 고정한다.
 - 12번 dry-run은 PR-09의 integration target으로 남는다.

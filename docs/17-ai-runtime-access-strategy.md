@@ -4,7 +4,7 @@
 
 AI Runtime Access Strategy는 Solo Superman이 AI를 어떻게 사용자의 제품 경험으로 제공할지 정의한다. 핵심은 “AI provider를 얼마나 많이 붙일 것인가”가 아니라, **초기 창업자가 API key 발급 없이 Codex 중심 자동화와 깊은 리서치 보조를 사용할 수 있게 하되, Phase별 권한 경계를 명확히 지키는 것**이다.
 
-이 문서는 `09-system-architecture.md`의 RuntimeAdapter 선택, `10-security-privacy-and-approval.md`의 권한 경계, `06-research-engine.md`의 리서치 실행 경로, `11-roadmap-and-phase-boundaries.md`의 Phase 진입 조건을 연결한다.
+이 문서는 `09-system-architecture.md`의 RuntimeAdapter 선택, `10-security-privacy-and-approval.md`의 권한 경계, `06-research-engine.md`의 리서치 실행 경로, `11-roadmap-and-phase-boundaries.md`의 Phase 진입 조건을 연결한다. Codex Prompt/Output의 canonical schema와 repair/failure routing은 `24-codex-prompt-output-contract.md`가 소유한다.
 
 ## 확정 결정
 
@@ -12,9 +12,11 @@ AI Runtime Access Strategy는 Solo Superman이 AI를 어떻게 사용자의 제�
 | --- | --- |
 | 사용자 기본 AI onboarding | API key 입력을 기본 요구하지 않는다 |
 | Phase 1 primary integration | Codex app-server |
-| Phase 1 구현 contract | `21-sidecar-api-runtime-contract.md`의 Hono/CodexRuntimeAdapter 계약 |
+| Phase 1 구현 contract | `21-sidecar-api-runtime-contract.md`의 Hono/CodexRuntimeAdapter 계약 + `24-codex-prompt-output-contract.md`의 Prompt/Output 계약 |
 | Phase 1 Codex transport | app-server stdio 기본값 + generated schema pinning |
 | Phase 1 Codex 권한 | sandbox preview allowed |
+| Phase 1 Codex output | 6개 turnPurpose, JSON-first, Core+Delta input, Hybrid trace+artifact envelope |
+| Phase 1.5 자동 실행 | Phase 1 구현 밖. Phase 1은 승격 필드와 blocked action taxonomy만 보존 |
 | Phase 1 browser automation | 제외 |
 | Phase 1 deep research fallback | 수동 프롬프트 핸드오프 → 공식 Codex 경로 |
 | ChatGPT Pro 웹 자동화 | Phase 2+ 비전 |
@@ -82,8 +84,9 @@ Phase 1 구현자는 다음 결정을 다시 하지 않는다.
 - Codex app-server transport는 stdio를 기본값으로 둔다.
 - 구현 시점의 Codex app-server TypeScript/JSON schema를 생성해 `packages/contracts/src/generated/codex/`에 pin한다.
 - generated schema와 앱 내부 contract mismatch는 startup 또는 `pnpm verify`에서 실패해야 한다.
+- 앱 내부 Codex Prompt/Output schema, 6개 turnPurpose, 7개 artifact kind, 6개 applyPolicy, JSON repair pipeline은 `24-codex-prompt-output-contract.md`를 따른다.
 - Codex turn은 `question_generation`, `ambiguity_analysis`, `research_prompt`, `evidence_synthesis`, `spec_update_preview`, `implementation_plan_preview` 목적으로만 생성한다.
-- Codex가 파일, shell, browser 권한을 요청하면 Phase 1에서는 `RuntimePreviewArtifact` 또는 blocked outcome으로 변환한다.
+- Codex가 파일, shell, browser 권한을 요청하면 Phase 1에서는 `RuntimePreviewArtifact` 또는 `BlockedActionArtifact`로 변환한다.
 
 ### CodexRuntimeAdapter 책임
 
@@ -104,8 +107,8 @@ Phase 1 구현자는 다음 결정을 다시 하지 않는다.
 | Research prompt 생성 | 허용 | 사용자가 ChatGPT/Codex에 넘길 프롬프트와 회수 템플릿 생성 |
 | Evidence 요약/분류 | 허용 | 사용자가 붙여넣은 리서치 결과 또는 공식 Codex 경로 결과를 EvidenceMatrix로 정리 |
 | Suggested Spec Update | 허용 | before/after summary와 risk level 생성 |
-| Diff/command plan preview | 허용 | 실제 적용 없이 구현 계획 artifact로만 표시 |
-| 앱 내부 low-risk 정리 | 조건부 허용 | 사용자 승인된 정책 안에서 문장 정리/중복 제거 수준만 가능 |
+| Diff/command plan preview | 허용 | 실제 적용 없이 구현 계획 artifact 또는 blocked action artifact로만 표시 |
+| 앱 내부 low-risk 정리 | 조건부 허용 | `24-codex-prompt-output-contract.md`의 applyPolicy와 gate matrix 안에서만 가능 |
 
 ### 금지되는 Phase 1 작업
 
@@ -140,6 +143,18 @@ Preview artifact 유형:
 - `browser_action_preview`: Phase 2+에서만 실행 가능한 브라우저 조작 계획.
 
 Preview artifact는 “실행 결과”가 아니라 “검토 가능한 제안”이다. high-impact artifact는 Decision Approval Card 또는 Risk Card로 연결한다.
+
+
+
+### Prompt/Output canonical contract
+
+Phase 1 Codex output은 `24-codex-prompt-output-contract.md`를 따른다. 핵심 원칙은 다음이다.
+
+- Input은 `CoreContextPack + DeltaContextPack`이다.
+- Output은 `Hybrid trace + artifacts[] envelope`다.
+- JSON parse 실패는 deterministic parser repair 1회, Codex self-repair 1회까지만 허용한다.
+- 1급 artifact kind는 QuestionBatch, AmbiguityAnalysis, ResearchPrompt, EvidenceSynthesis, SpecUpdatePreview, ImplementationPlanPreview, BlockedAction이다.
+- Phase 1.5 자동 실행은 구현하지 않지만 preview-to-execution 승격 필드와 blocked action taxonomy는 보존한다.
 
 ## Manual prompt handoff
 
