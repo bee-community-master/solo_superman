@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { API_ROUTE_CATALOG } from "./routes";
+import { API_ROUTE_CATALOG, PR02_MOUNTED_PRODUCT_API_ROUTE_IDS } from "./routes";
 
 const PRODUCT_API_PREFIX = "/api/v1";
 
-describe("PR-01 API route catalog", () => {
+describe("API route catalog", () => {
   it("keeps product API routes as compile-time placeholders", () => {
     const productRoutes = API_ROUTE_CATALOG.filter((route) => route.path.startsWith(PRODUCT_API_PREFIX));
 
@@ -26,5 +26,15 @@ describe("PR-01 API route catalog", () => {
       commandType: "none",
       implementedInPr01: false
     });
+  });
+
+  it("keeps PR-02 mounted product route ids aligned with the catalog", () => {
+    const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
+
+    for (const routeId of PR02_MOUNTED_PRODUCT_API_ROUTE_IDS) {
+      expect(routeById.get(routeId)).toMatchObject({
+        path: expect.stringMatching(/^\/api\/v1/)
+      });
+    }
   });
 });

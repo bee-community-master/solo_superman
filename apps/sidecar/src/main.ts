@@ -3,7 +3,7 @@ import { createSidecarApp } from "./server";
 import { formatSidecarBaseUrl, resolveSidecarConfig } from "./config/sidecar-config";
 
 const config = resolveSidecarConfig();
-const app = createSidecarApp();
+const app = createSidecarApp({ localCapabilityToken: config.localCapabilityToken });
 
 serve(
   {

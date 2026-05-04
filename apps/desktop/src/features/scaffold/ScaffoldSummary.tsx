@@ -6,17 +6,21 @@ const forbiddenScope = [
   "DB schema or migrations",
   "Codex runtime integration",
   "Full Decision Queue UI behavior",
-  "Mounted /api/v1 product handlers"
+  "Mounted /api/v1 product handlers beyond command status placeholder"
 ] as const;
+
+const mountedPlaceholders = desktopRouteClientPlaceholders.filter(
+  (route) => route.implementation === "mounted_placeholder_pr_02"
+);
 
 export function ScaffoldSummary() {
   return (
     <main className="shell">
       <section className="card hero-card">
-        <p className="eyebrow">Phase 1 · PR-01 Workspace Scaffold</p>
+        <p className="eyebrow">Phase 1 · PR-02 Sidecar Boundary</p>
         <h1>Solo Superman</h1>
         <p>
-          Thin runnable desktop shell for validating package boundaries before product behavior is added.
+          Thin runnable desktop shell for validating sidecar health and native boundary contracts before product state is added.
         </p>
       </section>
 
@@ -30,11 +34,11 @@ export function ScaffoldSummary() {
         <article className="card">
           <h2>Desktop client stubs</h2>
           <p>{desktopRouteClientPlaceholders.length} client placeholders mirror docs/26 route names.</p>
-          <p>No HTTP product client is constructed in this scaffold.</p>
+          <p>{mountedPlaceholders.length} authenticated API placeholder is mounted for command status polling.</p>
         </article>
 
         <article className="card">
-          <h2>Forbidden in PR-01</h2>
+          <h2>Forbidden in PR-02</h2>
           <ul>
             {forbiddenScope.map((item) => (
               <li key={item}>{item}</li>

@@ -10,7 +10,7 @@
     "pnpm": ">=11.0.0"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @solo-superman/sidecar --filter @solo-superman/desktop dev",
+    "dev": "node scripts/dev-with-local-token.mjs",
     "dev:desktop": "pnpm --filter @solo-superman/desktop dev",
     "dev:sidecar": "pnpm --filter @solo-superman/sidecar dev",
     "build": "pnpm -r --if-present build",

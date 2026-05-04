@@ -1,5 +1,5 @@
 import type { EffectTaskDto } from "../effects";
-import type { CommandId, EffectTaskId, StateVersion } from "../ids";
+import type { CommandId, CorrelationId, EffectTaskId, EventId, StateVersion } from "../ids";
 import type { ProjectionRefetchHint } from "../sse";
 import type { ApiError } from "./errors";
 
@@ -8,7 +8,10 @@ export type CommandResponseCategory = "accepted" | "accepted_with_projection" | 
 export interface CommandResponse<TProjection = unknown> {
   readonly category: CommandResponseCategory;
   readonly commandId: CommandId;
+  readonly correlationId: CorrelationId;
+  readonly stateVersionBefore: StateVersion;
   readonly stateVersionAfter?: StateVersion;
+  readonly eventIds?: readonly EventId[];
   readonly effectTaskIds?: readonly EffectTaskId[];
   readonly statusUrl?: string;
   readonly queuedActivity?: unknown;
@@ -19,16 +22,20 @@ export interface CommandResponse<TProjection = unknown> {
 }
 
 export interface PendingEffectSummaryDto {
-  readonly effectTaskIds: readonly EffectTaskId[];
-  readonly summary: string;
+  readonly totalPending: number;
+  readonly byType: Readonly<Record<string, number>>;
+  readonly visibleLabel: string;
 }
 
 export type CommandStatus = "pending" | "partially_complete" | "complete" | "failed" | "blocked";
 
 export interface StatusEndpointDto {
   readonly commandId: CommandId;
+  readonly category: CommandResponseCategory;
   readonly commandStatus: CommandStatus;
+  readonly eventIds: readonly EventId[];
   readonly effects: readonly EffectTaskDto[];
-  readonly pendingSummary?: PendingEffectSummaryDto;
+  readonly pendingEffectSummary: PendingEffectSummaryDto;
   readonly projectionHints: readonly ProjectionRefetchHint[];
+  readonly lastUpdatedAt: string;
 }

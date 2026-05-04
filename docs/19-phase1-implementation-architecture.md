@@ -247,6 +247,7 @@ Configuration keys are split by owner.
 | `SOLO_APP_DATA_DIR` | Tauri/Rust in packaged, env in dev | directory for DB/cache/logs |
 | `SOLO_SIDECAR_HOST` | sidecar | default `127.0.0.1` |
 | `SOLO_SIDECAR_PORT` | sidecar | `43110` in dev, `0` in packaged |
+| `SOLO_LOCAL_CAPABILITY_TOKEN` | Tauri/Rust in packaged, env/CLI in dev | per-startup local auth token passed to sidecar; sidecar must not invent a WebView-unreachable token |
 | `SOLO_LOCAL_DB_URL` | sidecar | `file:<appDataDir>/solo-superman.db` |
 | `SOLO_REMOTE_DB_URL` | sidecar config only | stored but not used for sync in Phase 1 |
 | `SOLO_REMOTE_DB_TOKEN_REF` | Tauri secret store | secret ref only, no remote sync call |

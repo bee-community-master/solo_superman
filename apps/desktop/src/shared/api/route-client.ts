@@ -1,17 +1,23 @@
-import { API_ROUTE_CATALOG, type ApiRoute } from "@solo-superman/contracts";
+import { API_ROUTE_CATALOG, PR02_MOUNTED_PRODUCT_API_ROUTE_IDS, type ApiRoute } from "@solo-superman/contracts";
 
 type ProductApiRoute = Extract<ApiRoute, { readonly path: `/api/v1${string}` }>;
+type DesktopRouteClientImplementation = "not_mounted_yet" | "mounted_placeholder_pr_02";
+const PR02_MOUNTED_PRODUCT_API_ROUTE_ID_SET = new Set<string>(PR02_MOUNTED_PRODUCT_API_ROUTE_IDS);
 
 export interface DesktopRouteClientPlaceholder {
   readonly clientName: ProductApiRoute["clientName"];
   readonly method: ProductApiRoute["method"];
   readonly path: ProductApiRoute["path"];
   readonly requiredQueryParams: readonly string[];
-  readonly implementation: "not_mounted_in_pr_01";
+  readonly implementation: DesktopRouteClientImplementation;
 }
 
 function isProductApiRoute(route: ApiRoute): route is ProductApiRoute {
   return route.path.startsWith("/api/v1");
+}
+
+function implementationStatus(route: ProductApiRoute): DesktopRouteClientImplementation {
+  return PR02_MOUNTED_PRODUCT_API_ROUTE_ID_SET.has(route.routeId) ? "mounted_placeholder_pr_02" : "not_mounted_yet";
 }
 
 export const desktopRouteClientPlaceholders: readonly DesktopRouteClientPlaceholder[] = API_ROUTE_CATALOG.filter(isProductApiRoute).map((route) => ({
@@ -19,7 +25,7 @@ export const desktopRouteClientPlaceholders: readonly DesktopRouteClientPlacehol
   method: route.method,
   path: route.path,
   requiredQueryParams: "requiredQueryParams" in route ? route.requiredQueryParams : [],
-  implementation: "not_mounted_in_pr_01"
+  implementation: implementationStatus(route)
 }));
 
 export function findDesktopRouteClientPlaceholder(clientName: ProductApiRoute["clientName"]) {
