@@ -3,7 +3,9 @@ import {
   CONTRACT_SCHEMA_VERSION,
   type CodexRuntimeStatusDto,
   type CommandResponse,
+  type ConfidenceCompletionProjection,
   type DecisionQueueProjection,
+  type FounderBriefProjection,
   type LivingSpecProjection,
   type QueueItemId,
   type ResearchEvidenceProjection,
@@ -47,6 +49,8 @@ interface ProjectionState {
   readonly queue: DecisionQueueProjection | null;
   readonly research: ResearchEvidenceProjection | null;
   readonly activity: RuntimeActivityProjection | null;
+  readonly confidence: ConfidenceCompletionProjection | null;
+  readonly founderBrief: FounderBriefProjection | null;
 }
 
 const DEFAULT_IDEA = "A focused founder brief generator";
@@ -87,7 +91,9 @@ function latestProjectionVersion(projections: ProjectionState) {
     Number(projections.spec?.version ?? 0),
     Number(projections.queue?.version ?? 0),
     Number(projections.research?.version ?? 0),
-    Number(projections.activity?.version ?? 0)
+    Number(projections.activity?.version ?? 0),
+    Number(projections.confidence?.version ?? 0),
+    Number(projections.founderBrief?.version ?? 0)
   ) as StateVersion;
 }
 
@@ -103,7 +109,9 @@ export function DecisionQueueShell() {
     spec: null,
     queue: null,
     research: null,
-    activity: null
+    activity: null,
+    confidence: null,
+    founderBrief: null
   });
   const [runtimeStatus, setRuntimeStatus] = useState<CodexRuntimeStatusDto | null>(null);
   const [commandLog, setCommandLog] = useState<readonly CommandLogEntry[]>([]);
@@ -143,12 +151,14 @@ export function DecisionQueueShell() {
         return;
       }
 
-      const [session, spec, queue, research, activity] = await Promise.all([
+      const [session, spec, queue, research, activity, confidence, founderBrief] = await Promise.all([
         client.getSession(projectId, sessionId),
         client.getSpec(sessionId),
         client.getQueue(sessionId),
         client.getResearch(sessionId),
-        client.getActivity(sessionId)
+        client.getActivity(sessionId),
+        client.getCompleteness(sessionId),
+        client.getFounderBrief(sessionId).catch(() => null)
       ]);
 
       setProjections({
@@ -156,7 +166,9 @@ export function DecisionQueueShell() {
         spec,
         queue,
         research,
-        activity
+        activity,
+        confidence,
+        founderBrief
       });
     },
     [client]
@@ -249,7 +261,9 @@ export function DecisionQueueShell() {
         spec: null,
         queue: null,
         research: null,
-        activity: null
+        activity: null,
+        confidence: null,
+        founderBrief: null
       });
 
       try {
@@ -266,7 +280,9 @@ export function DecisionQueueShell() {
           spec: null,
           queue: null,
           research: null,
-          activity: null
+          activity: null,
+          confidence: null,
+          founderBrief: null
         });
 
         const intakeResponse = await appendCommand(
@@ -396,6 +412,78 @@ export function DecisionQueueShell() {
     [appendCommand, client, projections, refreshProjections, researchDrafts]
   );
 
+  const scoreCompleteness = useCallback(async () => {
+    if (!client || !projections.session) {
+      setWorkflowError("An active session is required before scoring completeness.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const response = await appendCommand(
+        "Score completeness",
+        await client.scoreCompleteness({
+          sessionId: projections.session.sessionId,
+          expectedStateVersion: latestProjectionVersion(projections)
+        })
+      );
+      const confidence = responseProjection<ConfidenceCompletionProjection>(
+        response,
+        "ConfidenceCompletionProjection"
+      );
+      const maybeQueueProjection = (response as CommandResponse<unknown>).queueProjection;
+
+      setProjections((current) => ({
+        ...current,
+        confidence,
+        queue:
+          maybeQueueProjection &&
+          typeof maybeQueueProjection === "object" &&
+          "kind" in maybeQueueProjection &&
+          maybeQueueProjection.kind === "DecisionQueueProjection"
+            ? (maybeQueueProjection as DecisionQueueProjection)
+            : current.queue
+      }));
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [appendCommand, client, projections]);
+
+  const prepareFounderBrief = useCallback(async () => {
+    if (!client || !projections.session) {
+      setWorkflowError("An active session is required before preparing a Founder Brief.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const response = await appendCommand(
+        "Prepare Founder Brief",
+        await client.prepareFounderBriefExport({
+          sessionId: projections.session.sessionId,
+          expectedStateVersion: latestProjectionVersion(projections),
+          requestedFormat: "markdown"
+        })
+      );
+      const founderBrief = responseProjection<FounderBriefProjection>(response, "FounderBriefProjection");
+
+      setProjections((current) => ({
+        ...current,
+        founderBrief
+      }));
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [appendCommand, client, projections]);
+
   const sections = useMemo(() => queueSections(projections.queue), [projections.queue]);
   const pendingSummary = useMemo(() => pendingEffectSummary(statuses), [statuses]);
   const runtimeActivity = useMemo(
@@ -403,8 +491,10 @@ export function DecisionQueueShell() {
     [projections.activity, statuses]
   );
   const confidence = useMemo(
-    () => confidencePlaceholder(projections.session?.sessionId ?? null, projections.research?.knownRisks ?? []),
-    [projections.research, projections.session]
+    () =>
+      projections.confidence ??
+      confidencePlaceholder(projections.session?.sessionId ?? null, projections.research?.knownRisks ?? []),
+    [projections.confidence, projections.research, projections.session]
   );
   const canStart = connectionState.status === "connected" && Boolean(client) && !isBusy;
 
@@ -599,9 +689,12 @@ export function DecisionQueueShell() {
           <section className="panel">
             <div className="panel-heading">
               <h2>Progress</h2>
-              <span>{confidence?.kind ?? "pending"}</span>
+              <span>{confidence?.readinessLabel ?? "pending"}</span>
             </div>
             <div className="score">{confidence?.compositeScore ?? 0}</div>
+            <button type="button" disabled={isBusy || !projections.session} onClick={() => void scoreCompleteness()}>
+              Score completeness
+            </button>
             {confidence?.topRisks.length ? (
               <ul>
                 {confidence.topRisks.map((risk) => (
@@ -610,6 +703,28 @@ export function DecisionQueueShell() {
               </ul>
             ) : (
               <p className="empty-state">No risk projection yet.</p>
+            )}
+          </section>
+
+          <section className="panel">
+            <div className="panel-heading">
+              <h2>Founder Brief</h2>
+              <span>{projections.founderBrief?.exportReady ? "ready" : "draft"}</span>
+            </div>
+            <button type="button" disabled={isBusy || !projections.session} onClick={() => void prepareFounderBrief()}>
+              Prepare export metadata
+            </button>
+            {projections.founderBrief ? (
+              <div className="spec-outline">
+                {projections.founderBrief.briefSections.map((section) => (
+                  <section key={section.sectionId}>
+                    <h3>{section.title}</h3>
+                    <p>{section.body}</p>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <p className="empty-state">No Founder Brief prepared yet.</p>
             )}
           </section>
 

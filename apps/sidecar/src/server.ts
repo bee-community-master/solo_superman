@@ -11,7 +11,7 @@ import {
   type ApiSuccessEnvelope,
   type CommandId,
   type CommandResponse,
-  PR07_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  PR08_MOUNTED_PRODUCT_API_ROUTE_IDS,
   type ProjectId,
   type QueueItemId,
   type ResearchResultId,
@@ -166,10 +166,11 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
         checks: {
           db: "migration_failed",
           productEngine: "not_initialized_until_pr_04",
-          codex: "runtime_status_endpoint_mounted_pr_07"
+          codex: "runtime_status_endpoint_mounted_pr_07",
+          completion: "completeness_endpoints_mounted_pr_08"
         },
         migrations,
-        implementedApiRouteIds: PR07_MOUNTED_PRODUCT_API_ROUTE_IDS
+        implementedApiRouteIds: PR08_MOUNTED_PRODUCT_API_ROUTE_IDS
       }
     } as const;
   }
@@ -184,10 +185,11 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
         checks: {
           db: "migrated",
           productEngine: "not_initialized_until_storage_available",
-          codex: "runtime_status_endpoint_mounted_pr_07"
+          codex: "runtime_status_endpoint_mounted_pr_07",
+          completion: "completeness_endpoints_mounted_pr_08"
         },
         migrations,
-        implementedApiRouteIds: PR07_MOUNTED_PRODUCT_API_ROUTE_IDS
+        implementedApiRouteIds: PR08_MOUNTED_PRODUCT_API_ROUTE_IDS
       }
     } as const;
   }
@@ -200,10 +202,11 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
       checks: {
         db: "migrated",
         productEngine: "initialized_pr_04",
-        codex: "runtime_status_endpoint_mounted_pr_07"
+        codex: "runtime_status_endpoint_mounted_pr_07",
+        completion: "completeness_endpoints_mounted_pr_08"
       },
       migrations,
-      implementedApiRouteIds: PR07_MOUNTED_PRODUCT_API_ROUTE_IDS
+      implementedApiRouteIds: PR08_MOUNTED_PRODUCT_API_ROUTE_IDS
     }
   } as const;
 }
@@ -364,11 +367,11 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       status: "ok",
       service: "solo-superman-sidecar",
       schemaVersion: CONTRACT_SCHEMA_VERSION,
-      sidecarPhase: "pr_07_codex_runtime_preview",
+      sidecarPhase: "pr_08_completeness_founder_brief",
       checks: {
         process: "alive"
       },
-      implementedApiRouteIds: PR07_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      implementedApiRouteIds: PR08_MOUNTED_PRODUCT_API_ROUTE_IDS,
       productApiRoutePlaceholderCount: productApiRoutePlaceholders.length
     })
   );
@@ -710,6 +713,64 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
     withProductEngine(context, (service) => service.getActivity(context.req.param("sessionId") as SessionId))
   );
 
+  app.get("/api/v1/sessions/:sessionId/completeness", async (context) =>
+    withProductEngine(context, (service) => service.getCompleteness(context.req.param("sessionId") as SessionId))
+  );
+
+  app.post("/api/v1/sessions/:sessionId/completeness/score", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+
+      return service.runSessionCommand({
+        sessionId: context.req.param("sessionId") as SessionId,
+        commandType: "ScoreCompleteness",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          mode: "score"
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/completion-candidate", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+
+      return service.runSessionCommand({
+        sessionId: context.req.param("sessionId") as SessionId,
+        commandType: "ScoreCompleteness",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          mode: "completion_candidate",
+          candidateRequested: true
+        }
+      });
+    })
+  );
+
+  app.get("/api/v1/sessions/:sessionId/founder-brief", async (context) =>
+    withProductEngine(context, (service) => service.getFounderBrief(context.req.param("sessionId") as SessionId))
+  );
+
+  app.post("/api/v1/sessions/:sessionId/founder-brief/export", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+
+      return service.runSessionCommand({
+        sessionId: context.req.param("sessionId") as SessionId,
+        commandType: "PrepareFounderBrief",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          ...(body.requestedFormat !== undefined ? { requestedFormat: body.requestedFormat } : {}),
+          fileWriteRequested: body.fileWriteRequested === true || body.writeFile === true,
+          ...(body.externalExportRequested === true ? { externalExportRequested: true } : {}),
+          ...(typeof body.destinationPath === "string" ? { destinationPath: body.destinationPath } : {}),
+          ...(typeof body.exportUrl === "string" ? { exportUrl: body.exportUrl } : {})
+        }
+      });
+    })
+  );
+
   app.get("/api/v1/commands/:commandId/status", (context) => {
     const commandId = context.req.param("commandId") as CommandId;
 
@@ -746,7 +807,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       return context.json(
         jsonError(context, "RESOURCE_NOT_FOUND", "This Phase 1 API route is not mounted yet.", {
           path: context.req.path,
-          mountedRouteIds: PR07_MOUNTED_PRODUCT_API_ROUTE_IDS
+          mountedRouteIds: PR08_MOUNTED_PRODUCT_API_ROUTE_IDS
         }),
         404
       );

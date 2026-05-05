@@ -1,6 +1,7 @@
 import type {
   ConfidenceCompletionProjection,
   DecisionQueueProjection,
+  FounderBriefProjection,
   LivingSpecProjection,
   ResearchEvidenceProjection,
   RuntimeActivityProjection,
@@ -34,9 +35,18 @@ export interface AmbiguityIssueSnapshot {
   readonly sourceRef?: string;
 }
 
+export type RequiredDecisionRef =
+  | "primary_customer"
+  | "problem"
+  | "value"
+  | "mvp_scope"
+  | "validation_plan"
+  | "success_criteria";
+
 export interface DecisionSnapshot {
   readonly decisionId: DecisionId;
-  readonly status: "active" | "approved" | "rejected" | "deferred";
+  readonly requiredDecisionRef: RequiredDecisionRef;
+  readonly status: "active" | "approved" | "rejected" | "deferred" | "risk_accepted";
 }
 
 export interface ProductEngineStateSnapshot {
@@ -56,4 +66,5 @@ export interface ProductEngineStateSnapshot {
   readonly decisions: readonly DecisionSnapshot[];
   readonly runtimeState: RuntimeActivityProjection;
   readonly completeness: ConfidenceCompletionProjection;
+  readonly founderBrief?: FounderBriefProjection;
 }

@@ -5,15 +5,20 @@ import type {
   CommandResponse,
   CodexRuntimeStatusDto,
   BlockRuntimeArtifactRequest,
+  CompletionCandidateRequest,
+  ConfidenceCompletionProjection,
   ConvertRuntimeArtifactRequest,
   CreateManualHandoffRequest,
   CreateRuntimePreviewRequest,
   DecisionQueueProjection,
+  FounderBriefProjection,
   ImportResearchResultRequest,
   LivingSpecProjection,
   PlanResearchRequest,
+  PrepareFounderBriefRequest,
   ResearchEvidenceProjection,
   RuntimeActivityProjection,
+  ScoreCompletenessRequest,
   SessionId,
   SessionShellProjection,
   StartProjectRequest,
@@ -40,6 +45,9 @@ export interface SidecarClientOptions {
 }
 
 export type SubmitAnswerInput = SubmitAnswerRequest;
+export type ScoreCompletenessInput = ScoreCompletenessRequest;
+export type CompletionCandidateInput = CompletionCandidateRequest;
+export type PrepareFounderBriefInput = PrepareFounderBriefRequest;
 
 export class SidecarClientError extends Error {
   readonly apiError: ApiError;
@@ -226,6 +234,27 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
       );
     },
 
+    scoreCompleteness(input: ScoreCompletenessInput) {
+      return postCommand<ConfidenceCompletionProjection>(
+        `/api/v1/sessions/${encodeURIComponent(input.sessionId)}/completeness/score`,
+        input
+      );
+    },
+
+    createCompletionCandidate(input: CompletionCandidateInput) {
+      return postCommand<ConfidenceCompletionProjection>(
+        `/api/v1/sessions/${encodeURIComponent(input.sessionId)}/completion-candidate`,
+        input
+      );
+    },
+
+    prepareFounderBriefExport(input: PrepareFounderBriefInput) {
+      return postCommand<FounderBriefProjection>(
+        `/api/v1/sessions/${encodeURIComponent(input.sessionId)}/founder-brief/export`,
+        input
+      );
+    },
+
     getRuntimeStatus() {
       return getProjection<CodexRuntimeStatusDto>("/api/v1/runtime/status");
     },
@@ -250,6 +279,16 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     getActivity(sessionId: SessionId) {
       return getProjection<RuntimeActivityProjection>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/activity`);
+    },
+
+    getCompleteness(sessionId: SessionId) {
+      return getProjection<ConfidenceCompletionProjection>(
+        `/api/v1/sessions/${encodeURIComponent(sessionId)}/completeness`
+      );
+    },
+
+    getFounderBrief(sessionId: SessionId) {
+      return getProjection<FounderBriefProjection>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/founder-brief`);
     },
 
     getCommandStatus(statusUrl: string) {

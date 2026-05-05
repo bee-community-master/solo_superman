@@ -86,7 +86,7 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       status: "ok",
-      sidecarPhase: "pr_07_codex_runtime_preview",
+      sidecarPhase: "pr_08_completeness_founder_brief",
       checks: {
         process: "alive"
       }
@@ -361,7 +361,7 @@ describe("PR-02 sidecar health shell", () => {
   });
 
   it("keeps later product API routes unimplemented behind the token guard", async () => {
-    const response = await app.request("/api/v1/sessions/sess_demo/founder-brief", {
+    const response = await app.request("/api/v1/sessions/sess_demo/spec/versions", {
       headers: authHeaders()
     });
     const body = await jsonBody(response);
@@ -760,6 +760,26 @@ describe("PR-02 sidecar health shell", () => {
             idempotencyKey: `research:${researchTaskId}`
           })
         ]
+      });
+
+      const answerCompleteness = await storageApp.request(`/api/v1/sessions/${sessionId}/completeness`, {
+        headers: authHeaders()
+      });
+      const answerCompletenessBody = await jsonBody(answerCompleteness);
+
+      expect(answerCompleteness.status).toBe(200);
+      expect(answerCompletenessBody.data).toMatchObject({
+        kind: "ConfidenceCompletionProjection",
+        version: 7,
+        completionCandidate: {
+          status: "not_ready"
+        },
+        gates: expect.arrayContaining([
+          expect.objectContaining({
+            gateId: "question_debt",
+            passed: false
+          })
+        ])
       });
 
       const refetchedQueue = await storageApp.request(`/api/v1/sessions/${sessionId}/queue`, {
@@ -1241,6 +1261,31 @@ describe("PR-02 sidecar health shell", () => {
         ]
       });
 
+      const completeness = await storageApp.request(`/api/v1/sessions/${sessionId}/completeness`, {
+        headers: authHeaders()
+      });
+      const completenessBody = await jsonBody(completeness);
+
+      expect(completeness.status).toBe(200);
+      expect(completenessBody.data).toMatchObject({
+        kind: "ConfidenceCompletionProjection",
+        completionCandidate: {
+          status: "not_ready"
+        },
+        gates: expect.arrayContaining([
+          expect.objectContaining({
+            gateId: "blocking_incidents",
+            passed: false
+          })
+        ]),
+        topRiskCards: expect.arrayContaining([
+          expect.objectContaining({
+            severity: "high",
+            sourceRefs: expect.arrayContaining([artifactId])
+          })
+        ])
+      });
+
       const convertAgain = await storageApp.request(`/api/v1/runtime/artifacts/${artifactId}/convert`, {
         method: "POST",
         headers: {
@@ -1312,6 +1357,223 @@ describe("PR-02 sidecar health shell", () => {
       expect(emptyBody.error).toMatchObject({
         code: "VALIDATION_FAILED",
         message: "sourceRefs must include at least one trace reference."
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("mounts PR-08 completeness scoring and Founder Brief metadata routes without async scoring effects", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A completion route test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startData = (await jsonBody(start)).data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const sessionId = sessionProjection.sessionId as string;
+
+      const intake = await storageApp.request(`/api/v1/sessions/${sessionId}/intake`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 1,
+          answer: "Help founders produce a stop-now brief with explicit risks."
+        })
+      });
+      const draft = await storageApp.request(`/api/v1/sessions/${sessionId}/spec/initial`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 2
+        })
+      });
+      const score = await storageApp.request(`/api/v1/sessions/${sessionId}/completeness/score`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 3
+        })
+      });
+      const scoreBody = await jsonBody(score);
+      const scoreData = scoreBody.data as Readonly<Record<string, unknown>>;
+      const confidence = scoreData.immediateProjection as Readonly<Record<string, unknown>>;
+      const fetchedCompleteness = await storageApp.request(`/api/v1/sessions/${sessionId}/completeness`, {
+        headers: authHeaders()
+      });
+      const fetchedCompletenessBody = await jsonBody(fetchedCompleteness);
+      const candidate = await storageApp.request(`/api/v1/sessions/${sessionId}/completion-candidate`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 4
+        })
+      });
+      const candidateBody = await jsonBody(candidate);
+      const candidateData = candidateBody.data as Readonly<Record<string, unknown>>;
+      const founderBrief = await storageApp.request(`/api/v1/sessions/${sessionId}/founder-brief/export`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 4,
+          requestedFormat: "markdown"
+        })
+      });
+      const founderBriefBody = await jsonBody(founderBrief);
+      const founderBriefData = founderBriefBody.data as Readonly<Record<string, unknown>>;
+      const founderBriefProjection = founderBriefData.immediateProjection as Readonly<Record<string, unknown>>;
+      const fetchedFounderBrief = await storageApp.request(`/api/v1/sessions/${sessionId}/founder-brief`, {
+        headers: authHeaders()
+      });
+      const fileWrite = await storageApp.request(`/api/v1/sessions/${sessionId}/founder-brief/export`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 5,
+          fileWriteRequested: true
+        })
+      });
+      const fileWriteBody = await jsonBody(fileWrite);
+      const fileWriteData = fileWriteBody.data as Readonly<Record<string, unknown>>;
+      const legacyWriteFile = await storageApp.request(`/api/v1/sessions/${sessionId}/founder-brief/export`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 5,
+          writeFile: true
+        })
+      });
+      const legacyWriteFileBody = await jsonBody(legacyWriteFile);
+      const legacyWriteFileData = legacyWriteFileBody.data as Readonly<Record<string, unknown>>;
+      const externalExport = await storageApp.request(`/api/v1/sessions/${sessionId}/founder-brief/export`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 5,
+          externalExportRequested: true,
+          exportUrl: "https://example.invalid/founder-brief"
+        })
+      });
+      const externalExportBody = await jsonBody(externalExport);
+      const externalExportData = externalExportBody.data as Readonly<Record<string, unknown>>;
+      const unsupportedFormat = await storageApp.request(`/api/v1/sessions/${sessionId}/founder-brief/export`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 5,
+          requestedFormat: "pdf"
+        })
+      });
+      const unsupportedFormatBody = await jsonBody(unsupportedFormat);
+      const unsupportedFormatData = unsupportedFormatBody.data as Readonly<Record<string, unknown>>;
+
+      expect(intake.status).toBe(200);
+      expect(draft.status).toBe(200);
+      expect(score.status).toBe(200);
+      expect(scoreData).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionAfter: 4
+      });
+      expect(scoreData.statusUrl).toBeUndefined();
+      expect(confidence).toMatchObject({
+        kind: "ConfidenceCompletionProjection",
+        completionCandidate: {
+          status: "not_ready"
+        }
+      });
+      expect(fetchedCompleteness.status).toBe(200);
+      expect(fetchedCompletenessBody.data).toMatchObject({
+        kind: "ConfidenceCompletionProjection",
+        completionCandidate: {
+          status: "not_ready"
+        }
+      });
+      expect(candidate.status).toBe(200);
+      expect(candidateData).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "COMMAND_PRECONDITION_FAILED",
+          details: {
+            completionCandidate: {
+              status: "not_ready"
+            },
+            gates: expect.any(Array),
+            topRisks: expect.any(Array)
+          }
+        }
+      });
+      expect(founderBrief.status).toBe(200);
+      expect(founderBriefProjection).toMatchObject({
+        kind: "FounderBriefProjection",
+        exportReady: false,
+        exportMetadata: {
+          writePolicy: "metadata_only_no_file_write"
+        }
+      });
+      expect(fetchedFounderBrief.status).toBe(200);
+      expect(fileWrite.status).toBe(200);
+      expect(fileWriteData).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "RUNTIME_ACTION_BLOCKED"
+        }
+      });
+      expect(legacyWriteFile.status).toBe(200);
+      expect(legacyWriteFileData).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "RUNTIME_ACTION_BLOCKED"
+        }
+      });
+      expect(externalExport.status).toBe(200);
+      expect(externalExportData).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "RUNTIME_ACTION_BLOCKED"
+        }
+      });
+      expect(unsupportedFormat.status).toBe(200);
+      expect(unsupportedFormatData).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "VALIDATION_FAILED"
+        }
       });
     } finally {
       await storage.close();

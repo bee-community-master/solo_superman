@@ -271,9 +271,11 @@ Example command envelope:
 | `openIssues` | yes | `AmbiguityIssueSnapshot[]` | active ambiguity issues only |
 | `queueProjection` | yes | `DecisionQueueProjection` | current active/next/blocked/deferred read model |
 | `researchState` | yes | `ResearchEvidenceProjection` | summary projection sufficient for routing |
-| `decisions` | yes | `DecisionSnapshot[]` | active/resolved approvals |
+| `decisions` | yes | `DecisionSnapshot[]` | active/resolved approvals with one `requiredDecisionRef` per required completion decision |
 | `runtimeState` | yes | `RuntimeActivityProjection` | runtime preview/retry/block summary |
 | `completeness` | yes | `ConfidenceCompletionProjection` | latest deterministic scoring projection |
+
+`DecisionSnapshot.requiredDecisionRef` is a closed completion-gate key: `primary_customer`, `problem`, `value`, `mvp_scope`, `validation_plan`, or `success_criteria`. PR-08 completeness must count unique closed required refs, not any six unrelated decisions.
 
 ### ProductEngineReduction
 

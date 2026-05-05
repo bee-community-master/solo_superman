@@ -14,8 +14,13 @@ import {
   type CodexArtifactKind,
   type CodexRuntimeSource,
   type CodexTurnPurpose,
+  type ConfidenceCompletionProjection,
+  type DecisionId,
+  type QueueItemProjection,
   type DecisionQueueProjection,
   type EvidenceMatrixProjection,
+  type FounderBriefProjection,
+  type LivingSpecProjection,
   type ProductEngineCommand,
   type ProductEngineEffectPlanItem,
   type ProductEngineEvent,
@@ -27,6 +32,7 @@ import {
   type ProjectionVersion,
   type QueueItemId,
   type EffectTaskId,
+  type RequiredDecisionRef,
   type ResearchImpact,
   type ResearchEvidenceProjection,
   type ResearchResultId,
@@ -38,8 +44,13 @@ import {
   type RuntimePreviewArtifact,
   type SessionShellProjection,
   type SessionId,
+  type SpecVersionId,
   type StateVersion
 } from "@solo-superman/contracts";
+import {
+  buildConfidenceCompletionProjection,
+  buildFounderBriefProjection
+} from "../completeness";
 import {
   addImportedResearchResultToProjection,
   addResearchResultToProjection,
@@ -50,7 +61,7 @@ import {
   synthesizeEvidenceMatrix
 } from "../research-engine";
 
-export const PACKAGE_SLICE_STATUS = "product-engine-runtime-preview-pr-07" as const;
+export const PACKAGE_SLICE_STATUS = "product-engine-completeness-founder-brief-pr-08" as const;
 
 type PrivacyMode = "local_only" | "local_with_manual_export";
 
@@ -64,10 +75,65 @@ const EMPTY_RUNTIME_PROJECTION: RuntimeActivityProjection = {
   runtimeStatus: "scaffold_placeholder"
 };
 
-function reject(message: string, code: ProductEngineRejectionCode = "COMMAND_PRECONDITION_FAILED"): ProductEngineReduction {
+function emptyConfidenceCompletionProjection(
+  sessionIdValue: SessionId,
+  version: ProjectionVersion = 0 as ProjectionVersion
+): ConfidenceCompletionProjection {
+  return {
+    kind: "ConfidenceCompletionProjection",
+    sessionId: sessionIdValue,
+    version,
+    compositeScore: 0,
+    readinessLabel: "draft",
+    axes: [],
+    scoreBreakdown: {
+      sectionCompleteness: 0,
+      questionDebtResolution: 0,
+      evidenceQuality: 0,
+      decisionApproval: 0,
+      consistencyAndConflict: 0
+    },
+    gates: [],
+    topRisks: [],
+    topRiskCards: [],
+    nextBestActions: ["Capture intake and draft the initial spec."],
+    completionCandidate: {
+      status: "not_ready",
+      summary: "Completeness has not been scored yet.",
+      gateFailures: ["Completeness has not been scored yet."],
+      ifStopNowArtifact: {
+        title: "If stop now",
+        summary: "No founder brief can be prepared before intake and scoring.",
+        knownRisks: [],
+        nextValidationActions: ["Capture intake and draft the initial spec."]
+      }
+    }
+  };
+}
+
+function isRequiredDecisionRef(value: unknown): value is RequiredDecisionRef {
+  return (
+    value === "primary_customer" ||
+    value === "problem" ||
+    value === "value" ||
+    value === "mvp_scope" ||
+    value === "validation_plan" ||
+    value === "success_criteria"
+  );
+}
+
+function reject(
+  message: string,
+  code: ProductEngineRejectionCode = "COMMAND_PRECONDITION_FAILED",
+  details?: Readonly<Record<string, unknown>>
+): ProductEngineReduction {
   return {
     accepted: false,
-    rejectionReason: { code, message },
+    rejectionReason: {
+      code,
+      message,
+      ...(details ? { details } : {})
+    },
     events: [],
     nextState: {},
     effectPlan: [],
@@ -79,8 +145,29 @@ function isPrivacyMode(value: unknown): value is PrivacyMode {
   return value === "local_only" || value === "local_with_manual_export";
 }
 
+function isDecisionResolutionStatus(value: unknown): value is Exclude<
+  ProductEngineStateSnapshot["decisions"][number]["status"],
+  "active"
+> {
+  return value === "approved" || value === "rejected" || value === "deferred" || value === "risk_accepted";
+}
+
 function requiredString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function optionalPayloadSections(value: unknown) {
+  if (value === undefined) {
+    return null;
+  }
+
+  if (!Array.isArray(value)) {
+    return "invalid";
+  }
+
+  const sections = value.map((section) => (typeof section === "string" ? section.trim() : ""));
+
+  return sections.every(Boolean) ? (sections as readonly string[]) : "invalid";
 }
 
 function queueItemIdSelection(value: unknown): readonly QueueItemId[] | null | "invalid" {
@@ -183,13 +270,7 @@ export function createInitialProductEngineState(projectId: ProjectId, sessionId:
     researchState: EMPTY_RESEARCH_PROJECTION,
     decisions: [],
     runtimeState: EMPTY_RUNTIME_PROJECTION,
-    completeness: {
-      kind: "ConfidenceCompletionProjection",
-      sessionId,
-      version: 0 as ProjectionVersion,
-      compositeScore: 0,
-      topRisks: []
-    }
+    completeness: emptyConfidenceCompletionProjection(sessionId)
   };
 }
 
@@ -294,6 +375,23 @@ function queueProjectionWithAnsweredItem(
     next: markAnswered(projection.next),
     blocked: markAnswered(projection.blocked),
     deferred: markAnswered(projection.deferred)
+  };
+}
+
+function queueProjectionWithNextOrBlockedItem(
+  projection: DecisionQueueProjection,
+  item: QueueItemProjection & { readonly state: "next" | "blocked" },
+  version: ProjectionVersion
+): DecisionQueueProjection {
+  const withoutExisting = (items: DecisionQueueProjection["next"]) =>
+    items.filter((candidate) => candidate.queueItemId !== item.queueItemId);
+
+  return {
+    ...projection,
+    version,
+    next: item.state === "next" ? [...withoutExisting(projection.next), item] : withoutExisting(projection.next),
+    blocked:
+      item.state === "blocked" ? [...withoutExisting(projection.blocked), item] : withoutExisting(projection.blocked)
   };
 }
 
@@ -412,17 +510,51 @@ function queueProjectionWithRuntimePreviewItem(
   artifact: RuntimePreviewArtifact,
   version: ProjectionVersion
 ): DecisionQueueProjection {
-  const item = runtimePreviewQueueItem(artifact);
-  const withoutExisting = (items: DecisionQueueProjection["next"]) =>
-    items.filter((candidate) => candidate.queueItemId !== item.queueItemId);
+  return queueProjectionWithNextOrBlockedItem(projection, runtimePreviewQueueItem(artifact), version);
+}
+
+function completionCandidateQueueItem(projection: ConfidenceCompletionProjection) {
+  const isCandidate = projection.completionCandidate.status === "candidate";
 
   return {
-    ...projection,
-    version,
-    next: item.state === "next" ? [...withoutExisting(projection.next), item] : withoutExisting(projection.next),
-    blocked:
-      item.state === "blocked" ? [...withoutExisting(projection.blocked), item] : withoutExisting(projection.blocked)
+    queueItemId: `completion_candidate_${projection.sessionId}` as QueueItemId,
+    title: isCandidate
+      ? `Completion candidate: Founder Brief ready (${projection.compositeScore})`
+      : `Completion blocked: ${projection.completionCandidate.gateFailures[0] ?? "Gate failure"}`,
+    state: isCandidate ? ("next" as const) : ("blocked" as const)
   };
+}
+
+function queueProjectionWithCompletionCandidate(
+  projection: DecisionQueueProjection,
+  confidenceProjection: ConfidenceCompletionProjection,
+  version: ProjectionVersion
+): DecisionQueueProjection {
+  return queueProjectionWithNextOrBlockedItem(projection, completionCandidateQueueItem(confidenceProjection), version);
+}
+
+function completenessDeterministicOutputs(
+  command: ProductEngineCommand,
+  projection: ConfidenceCompletionProjection
+): ProductEngineReduction["deterministicOutputs"] {
+  return [
+    {
+      outputType: "completeness_snapshot",
+      outputRef: `completeness:${command.sessionId}:${projection.version}`,
+      payload: {
+        compositeScore: projection.compositeScore,
+        readinessLabel: projection.readinessLabel,
+        gateFailures: projection.completionCandidate.gateFailures
+      }
+    },
+    {
+      outputType: "confidence_map",
+      outputRef: `confidence:${command.sessionId}:${projection.version}`,
+      payload: {
+        axes: projection.axes
+      }
+    }
+  ];
 }
 
 function runtimeProjectionWithArtifact(
@@ -535,17 +667,7 @@ function queueProjectionWithResearchReviewItem(
   state: "next" | "blocked",
   version: ProjectionVersion
 ): DecisionQueueProjection {
-  const item = researchReviewQueueItem(researchTaskId, title, state);
-  const withoutExisting = (items: DecisionQueueProjection["next"]) =>
-    items.filter((candidate) => candidate.queueItemId !== item.queueItemId);
-
-  return {
-    ...projection,
-    version,
-    next: state === "next" ? [...withoutExisting(projection.next), item] : withoutExisting(projection.next),
-    blocked:
-      state === "blocked" ? [...withoutExisting(projection.blocked), item] : withoutExisting(projection.blocked)
-  };
+  return queueProjectionWithNextOrBlockedItem(projection, researchReviewQueueItem(researchTaskId, title, state), version);
 }
 
 function evidenceReviewQueueTitle(task: ResearchTaskProjection, matrix: EvidenceMatrixProjection) {
@@ -610,6 +732,20 @@ function projectionPayload<TProjection>(payload: ProductEngineEvent["payload"], 
     : fallback;
 }
 
+function objectPayload<TValue>(payload: ProductEngineEvent["payload"], key: string): TValue | null {
+  const value = payload[key];
+
+  return typeof value === "object" && value !== null ? (value as TValue) : null;
+}
+
+function confidenceProjectionPayload(payload: ProductEngineEvent["payload"]) {
+  return objectPayload<ConfidenceCompletionProjection>(payload, "confidenceProjection");
+}
+
+function queueProjectionPayload(payload: ProductEngineEvent["payload"]) {
+  return objectPayload<DecisionQueueProjection>(payload, "queueProjection");
+}
+
 export function sessionPhaseForProductEngineEvent(
   event: ProductEngineEvent
 ): ProductEngineStateSnapshot["session"]["phase"] | null {
@@ -625,6 +761,10 @@ export function sessionPhaseForProductEngineEvent(
     case "EvidenceSynthesisRequested":
     case "EvidenceSynthesized":
       return "research";
+    case "CompletenessScored":
+      return event.payload.candidateStatus === "candidate" ? "completion" : null;
+    case "FounderBriefPrepared":
+      return event.payload.exportReady === true ? "completion" : null;
     default:
       return null;
   }
@@ -953,26 +1093,46 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
     sourceAnswerRef: answerRef,
     projection: researchProjection
   });
+  const nextOpenIssues = state.openIssues.map((issue) =>
+    issue.queueItemId === queueItemId
+      ? {
+          ...issue,
+          status: "answered" as const
+        }
+      : issue
+  );
+  const nextSession = {
+    ...state.session,
+    phase: "research" as const
+  };
+  const confidenceProjection = buildConfidenceCompletionProjection(
+    {
+      ...state,
+      openIssues: nextOpenIssues,
+      queueProjection,
+      researchState: researchProjection,
+      session: nextSession
+    },
+    queueProjection.version
+  );
+  const researchEventWithConfidence = {
+    ...researchEvent,
+    payload: {
+      ...researchEvent.payload,
+      confidenceProjection
+    }
+  };
 
   return acceptedMultiEventReduction(
     command,
     state,
-    [event, researchEvent],
+    [event, researchEventWithConfidence],
     {
-      openIssues: state.openIssues.map((issue) =>
-        issue.queueItemId === queueItemId
-          ? {
-              ...issue,
-              status: "answered" as const
-            }
-          : issue
-      ),
+      openIssues: nextOpenIssues,
       queueProjection,
       researchState: researchProjection,
-      session: {
-        ...state.session,
-        phase: "research"
-      }
+      completeness: confidenceProjection,
+      session: nextSession
     },
     [
       {
@@ -984,7 +1144,8 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
           answerRouteOutcome: routeOutcome,
           researchTaskId
         }
-      }
+      },
+      ...completenessDeterministicOutputs(command, confidenceProjection)
     ],
     [
       researchEvidenceEffect(
@@ -1242,17 +1403,21 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
     evidenceReviewQueueState(evidenceMatrix),
     researchProjection.version
   );
+  const confidenceProjection = buildConfidenceCompletionProjection(
+    {
+      ...state,
+      researchState: researchProjection,
+      queueProjection
+    },
+    researchProjection.version
+  );
   const event = eventDraft(command, "EvidenceSynthesized", {
     researchTaskId: researchTask.researchTaskId,
     researchResultId,
     evidenceMatrix,
     projection: researchProjection,
     queueProjection,
-    confidenceProjection: {
-      ...state.completeness,
-      version: researchProjection.version,
-      topRisks: researchProjection.knownRisks
-    }
+    confidenceProjection
   });
 
   return acceptedReduction(
@@ -1262,11 +1427,7 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
     {
       researchState: researchProjection,
       queueProjection,
-      completeness: {
-        ...state.completeness,
-        version: researchProjection.version,
-        topRisks: researchProjection.knownRisks
-      }
+      completeness: confidenceProjection
     },
     [
       {
@@ -1276,7 +1437,8 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
           balanceStatus: evidenceMatrix.balanceStatus,
           decisionBlocked: evidenceMatrix.decisionBlocked
         }
-      }
+      },
+      ...completenessDeterministicOutputs(command, confidenceProjection)
     ],
     [
       queueProjectionEffect(
@@ -1449,12 +1611,21 @@ function reduceCreateRuntimePreview(
     artifactOrRejection,
     runtimeProjection.version
   );
+  const confidenceProjection = buildConfidenceCompletionProjection(
+    {
+      ...state,
+      runtimeState: runtimeProjection,
+      queueProjection
+    },
+    runtimeProjection.version
+  );
   const event = eventDraft(command, "RuntimePreviewRequested", {
     turnPurpose,
     contextHash,
     runtimeArtifact: artifactOrRejection,
     projection: runtimeProjection,
-    queueProjection
+    queueProjection,
+    confidenceProjection
   });
 
   return acceptedReduction(
@@ -1463,7 +1634,8 @@ function reduceCreateRuntimePreview(
     event,
     {
       runtimeState: runtimeProjection,
-      queueProjection
+      queueProjection,
+      completeness: confidenceProjection
     },
     [
       {
@@ -1475,7 +1647,8 @@ function reduceCreateRuntimePreview(
           applyPolicy: artifactOrRejection.applyPolicy,
           status: artifactOrRejection.status
         }
-      }
+      },
+      ...completenessDeterministicOutputs(command, confidenceProjection)
     ],
     [],
     runtimeProjection
@@ -1517,6 +1690,14 @@ function reduceConvertRuntimeArtifact(
       blockedArtifact,
       runtimeProjection.version
     );
+    const confidenceProjection = buildConfidenceCompletionProjection(
+      {
+        ...state,
+        runtimeState: runtimeProjection,
+        queueProjection
+      },
+      runtimeProjection.version
+    );
     const event = eventDraft(command, "RuntimeArtifactConverted", {
       artifactId: artifactRef,
       conversionStatus: "blocked",
@@ -1526,7 +1707,8 @@ function reduceConvertRuntimeArtifact(
         "Blocked runtime artifact cannot be converted into execution.",
       runtimeArtifact: blockedArtifact,
       projection: runtimeProjection,
-      queueProjection
+      queueProjection,
+      confidenceProjection
     });
 
     return acceptedReduction(
@@ -1535,7 +1717,8 @@ function reduceConvertRuntimeArtifact(
       event,
       {
         runtimeState: runtimeProjection,
-        queueProjection
+        queueProjection,
+        completeness: confidenceProjection
       },
       [
         {
@@ -1544,7 +1727,8 @@ function reduceConvertRuntimeArtifact(
           payload: {
             conversionStatus: "blocked"
           }
-        }
+        },
+        ...completenessDeterministicOutputs(command, confidenceProjection)
       ],
       [],
       runtimeProjection
@@ -1572,6 +1756,268 @@ function reduceConvertRuntimeArtifact(
         }
       }
     ]
+  );
+}
+
+function reduceResolveDecision(command: ProductEngineCommand, state: ProductEngineStateSnapshot): ProductEngineReduction {
+  const decisionId = requiredString(command.payload.decisionId) as DecisionId | null;
+  const outcome = isDecisionResolutionStatus(command.payload.outcome) ? command.payload.outcome : null;
+
+  if (!decisionId || !outcome) {
+    return reject("ResolveDecision requires decisionId and a supported resolution outcome.", "VALIDATION_FAILED");
+  }
+
+  const existingDecision = state.decisions.find((decision) => decision.decisionId === decisionId);
+
+  if (!existingDecision) {
+    return reject("ResolveDecision requires an existing decision.", "RESOURCE_NOT_FOUND");
+  }
+
+  if (existingDecision.status !== "active" && existingDecision.status !== "deferred") {
+    return reject("ResolveDecision requires an active or deferred decision.", "COMMAND_PRECONDITION_FAILED");
+  }
+
+  const version = projectionVersionFor(state);
+  const decisions = state.decisions.map((decision) =>
+    decision.decisionId === decisionId
+      ? {
+          ...decision,
+          status: outcome
+        }
+      : decision
+  );
+  const confidenceProjection = buildConfidenceCompletionProjection(
+    {
+      ...state,
+      decisions
+    },
+    version
+  );
+  const event = eventDraft(command, "DecisionResolved", {
+    decisionId,
+    outcome,
+    requiredDecisionRef: existingDecision.requiredDecisionRef,
+    confidenceProjection
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      decisions,
+      completeness: confidenceProjection
+    },
+    [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: decisionId,
+        payload: {
+          outcome
+        }
+      },
+      ...completenessDeterministicOutputs(command, confidenceProjection)
+    ],
+    [],
+    confidenceProjection
+  );
+}
+
+function reduceCreateSpecVersion(command: ProductEngineCommand, state: ProductEngineStateSnapshot): ProductEngineReduction {
+  const approvedPreviewRef = requiredString(command.payload.approvedPreviewRef);
+
+  if (!state.currentSpec.draftRef) {
+    return reject("CreateSpecVersion requires an initial spec draft.");
+  }
+
+  if (!approvedPreviewRef) {
+    return reject("CreateSpecVersion requires approvedPreviewRef.", "VALIDATION_FAILED");
+  }
+
+  const payloadSections = optionalPayloadSections(command.payload.sections);
+
+  if (payloadSections === "invalid") {
+    return reject("CreateSpecVersion sections must be non-empty strings.", "VALIDATION_FAILED");
+  }
+
+  const version = projectionVersionFor(state);
+  const versionRef = `spec_version_${stableToken(`${command.sessionId}:${approvedPreviewRef}:${version}`)}` as SpecVersionId;
+  const title =
+    requiredString(command.payload.title) ??
+    state.currentSpec.title ??
+    state.project.rawIdeaText ??
+    "Untitled product idea";
+  const sections = payloadSections ?? state.currentSpec.sections ?? [];
+  const livingSpecProjection = createLivingSpecProjection(command, version, title, sections);
+  const currentSpec = {
+    ...state.currentSpec,
+    versionRef,
+    title,
+    sections
+  };
+  const confidenceProjection = buildConfidenceCompletionProjection(
+    {
+      ...state,
+      currentSpec,
+      livingSpecProjection
+    },
+    version
+  );
+  const event = eventDraft(command, "SpecVersionCreated", {
+    versionRef,
+    approvedPreviewRef,
+    title,
+    sections,
+    projection: livingSpecProjection,
+    confidenceProjection
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      currentSpec,
+      livingSpecProjection,
+      completeness: confidenceProjection
+    },
+    [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: versionRef,
+        payload: {
+          approvedPreviewRef,
+          sectionCount: sections.length
+        }
+      },
+      ...completenessDeterministicOutputs(command, confidenceProjection)
+    ],
+    [],
+    livingSpecProjection
+  );
+}
+
+function reduceScoreCompleteness(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  if (!state.currentSpec.draftRef) {
+    return reject("ScoreCompleteness requires an initial spec draft.");
+  }
+
+  const version = projectionVersionFor(state);
+  const confidenceProjection = buildConfidenceCompletionProjection(state, version);
+  const candidateRequested = command.payload.candidateRequested === true;
+
+  if (candidateRequested && confidenceProjection.completionCandidate.status !== "candidate") {
+    return reject(
+      `Completion candidate gates failed: ${confidenceProjection.completionCandidate.gateFailures.join("; ")}`,
+      "COMMAND_PRECONDITION_FAILED",
+      {
+        axes: confidenceProjection.axes,
+        gates: confidenceProjection.gates,
+        topRisks: confidenceProjection.topRisks,
+        topRiskCards: confidenceProjection.topRiskCards,
+        completionCandidate: confidenceProjection.completionCandidate
+      }
+    );
+  }
+
+  const queueProjection = queueProjectionWithCompletionCandidate(
+    state.queueProjection,
+    confidenceProjection,
+    version
+  );
+  const event = eventDraft(command, "CompletenessScored", {
+    projection: confidenceProjection,
+    queueProjection,
+    compositeScore: confidenceProjection.compositeScore,
+    readinessLabel: confidenceProjection.readinessLabel,
+    candidateStatus: confidenceProjection.completionCandidate.status
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      completeness: confidenceProjection,
+      queueProjection,
+      session:
+        confidenceProjection.completionCandidate.status === "candidate"
+          ? {
+              ...state.session,
+              phase: "completion" as const
+            }
+          : state.session
+    },
+    completenessDeterministicOutputs(command, confidenceProjection),
+    [],
+    confidenceProjection
+  );
+}
+
+function reducePrepareFounderBrief(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  if (!state.currentSpec.draftRef) {
+    return reject("PrepareFounderBrief requires an initial spec draft.");
+  }
+
+  if (command.payload.requestedFormat !== undefined && command.payload.requestedFormat !== "markdown") {
+    return reject("PrepareFounderBrief requestedFormat must be markdown.", "VALIDATION_FAILED");
+  }
+
+  if (
+    command.payload.fileWriteRequested === true ||
+    command.payload.writeFile === true ||
+    command.payload.externalExportRequested === true ||
+    typeof command.payload.destinationPath === "string" ||
+    typeof command.payload.exportUrl === "string"
+  ) {
+    return reject(
+      "PrepareFounderBrief can prepare export metadata only; file and external export side effects are blocked in Phase 1.",
+      "RUNTIME_ACTION_BLOCKED"
+    );
+  }
+
+  const version = projectionVersionFor(state);
+  const confidenceProjection = buildConfidenceCompletionProjection(state, version);
+  const founderBrief = buildFounderBriefProjection(state, confidenceProjection, version, command.issuedAt);
+  const event = eventDraft(command, "FounderBriefPrepared", {
+    projection: founderBrief,
+    confidenceProjection,
+    exportReady: founderBrief.exportReady,
+    exportMetadata: founderBrief.exportMetadata
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      completeness: confidenceProjection,
+      founderBrief,
+      session: founderBrief.exportReady
+        ? {
+            ...state.session,
+            phase: "completion" as const
+          }
+        : state.session
+    },
+    [
+      {
+        outputType: "founder_brief_draft",
+        outputRef: `founder_brief:${command.sessionId}:${version}`,
+        payload: {
+          exportReady: founderBrief.exportReady,
+          exportMetadata: founderBrief.exportMetadata
+        }
+      }
+    ],
+    [],
+    founderBrief
   );
 }
 
@@ -1610,8 +2056,16 @@ export function reduceProductEngineCommand(
       return reduceCreateRuntimePreview(command, state);
     case "ConvertRuntimeArtifact":
       return reduceConvertRuntimeArtifact(command, state);
+    case "ResolveDecision":
+      return reduceResolveDecision(command, state);
+    case "CreateSpecVersion":
+      return reduceCreateSpecVersion(command, state);
+    case "ScoreCompleteness":
+      return reduceScoreCompleteness(command, state);
+    case "PrepareFounderBrief":
+      return reducePrepareFounderBrief(command, state);
     default:
-      return reject(`${command.commandType} is outside the mounted PR-07 reducer slice.`);
+      return reject(`${command.commandType} is outside the mounted PR-08 reducer slice.`);
   }
 }
 
@@ -1716,8 +2170,91 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
         queueProjection: projection
       };
     }
+    case "DecisionResolved": {
+      const decisionId = typeof event.payload.decisionId === "string" ? (event.payload.decisionId as DecisionId) : null;
+      const outcome = isDecisionResolutionStatus(event.payload.outcome) ? event.payload.outcome : null;
+      const requiredDecisionRef = isRequiredDecisionRef(event.payload.requiredDecisionRef)
+        ? event.payload.requiredDecisionRef
+        : null;
+      const decisions =
+        decisionId && outcome && requiredDecisionRef
+          ? state.decisions.some((decision) => decision.decisionId === decisionId)
+            ? state.decisions.map((decision) =>
+                decision.decisionId === decisionId
+                  ? {
+                      ...decision,
+                      status: outcome
+                    }
+                  : decision
+              )
+            : [
+                ...state.decisions,
+                {
+                  decisionId,
+                  requiredDecisionRef,
+                  status: outcome
+                }
+              ]
+          : state.decisions;
+      const confidenceProjection =
+        confidenceProjectionPayload(event.payload) ??
+        buildConfidenceCompletionProjection(
+          {
+            ...state,
+            decisions
+          },
+          Number(nextStateVersion) as ProjectionVersion
+        );
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        decisions,
+        completeness: confidenceProjection
+      };
+    }
+    case "SpecVersionCreated": {
+      const projection = projectionPayload<LivingSpecProjection | undefined>(
+        event.payload,
+        state.livingSpecProjection
+      );
+      const title =
+        typeof event.payload.title === "string"
+          ? event.payload.title
+          : projection?.title ?? state.currentSpec.title;
+      const sections = Array.isArray(event.payload.sections)
+        ? event.payload.sections.map(String)
+        : projection?.sections ?? state.currentSpec.sections;
+      const versionRef =
+        typeof event.payload.versionRef === "string" ? event.payload.versionRef : state.currentSpec.versionRef;
+      const currentSpec = {
+        ...state.currentSpec,
+        ...(versionRef ? { versionRef } : {}),
+        ...(title ? { title } : {}),
+        ...(sections ? { sections } : {})
+      };
+      const confidenceProjection =
+        confidenceProjectionPayload(event.payload) ??
+        buildConfidenceCompletionProjection(
+          {
+            ...state,
+            currentSpec,
+            ...(projection ? { livingSpecProjection: projection } : {})
+          },
+          Number(nextStateVersion) as ProjectionVersion
+        );
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        currentSpec,
+        ...(projection ? { livingSpecProjection: projection } : {}),
+        completeness: confidenceProjection
+      };
+    }
     case "ResearchPlanned": {
       const projection = projectionPayload(event.payload, state.researchState);
+      const confidenceProjection = confidenceProjectionPayload(event.payload) ?? state.completeness;
       const phase = sessionPhaseForProductEngineEvent(event) ?? state.session.phase;
 
       return {
@@ -1727,7 +2264,8 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
           ...state.session,
           phase
         },
-        researchState: projection
+        researchState: projection,
+        completeness: confidenceProjection
       };
     }
     case "ResearchResultImported":
@@ -1747,49 +2285,73 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
       };
     case "EvidenceSynthesized": {
       const researchProjection = projectionPayload(event.payload, state.researchState);
-      const queueProjection =
-        typeof event.payload.queueProjection === "object" && event.payload.queueProjection !== null
-          ? (event.payload.queueProjection as DecisionQueueProjection)
-          : state.queueProjection;
+      const queueProjection = queueProjectionPayload(event.payload) ?? state.queueProjection;
+      const confidenceProjection = confidenceProjectionPayload(event.payload) ?? state.completeness;
 
       return {
         ...state,
         stateVersion: nextStateVersion,
         researchState: researchProjection,
         queueProjection,
-        completeness: {
-          ...state.completeness,
-          version: researchProjection.version,
-          topRisks: researchProjection.knownRisks
-        }
+        completeness: confidenceProjection
       };
     }
     case "RuntimePreviewRequested": {
       const runtimeProjection = projectionPayload(event.payload, state.runtimeState);
-      const queueProjection =
-        typeof event.payload.queueProjection === "object" && event.payload.queueProjection !== null
-          ? (event.payload.queueProjection as DecisionQueueProjection)
-          : state.queueProjection;
+      const queueProjection = queueProjectionPayload(event.payload) ?? state.queueProjection;
+      const confidenceProjection = confidenceProjectionPayload(event.payload) ?? state.completeness;
 
       return {
         ...state,
         stateVersion: nextStateVersion,
         runtimeState: runtimeProjection,
-        queueProjection
+        queueProjection,
+        completeness: confidenceProjection
       };
     }
     case "RuntimeArtifactConverted": {
       const runtimeProjection = projectionPayload(event.payload, state.runtimeState);
-      const queueProjection =
-        typeof event.payload.queueProjection === "object" && event.payload.queueProjection !== null
-          ? (event.payload.queueProjection as DecisionQueueProjection)
-          : state.queueProjection;
+      const queueProjection = queueProjectionPayload(event.payload) ?? state.queueProjection;
+      const confidenceProjection = confidenceProjectionPayload(event.payload) ?? state.completeness;
 
       return {
         ...state,
         stateVersion: nextStateVersion,
         runtimeState: runtimeProjection,
+        queueProjection,
+        completeness: confidenceProjection
+      };
+    }
+    case "CompletenessScored": {
+      const completeness = projectionPayload(event.payload, state.completeness);
+      const queueProjection = queueProjectionPayload(event.payload) ?? state.queueProjection;
+      const phase = sessionPhaseForProductEngineEvent(event) ?? state.session.phase;
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        session: {
+          ...state.session,
+          phase
+        },
+        completeness,
         queueProjection
+      };
+    }
+    case "FounderBriefPrepared": {
+      const founderBrief = projectionPayload(event.payload, state.founderBrief);
+      const confidenceProjection = confidenceProjectionPayload(event.payload) ?? state.completeness;
+      const phase = sessionPhaseForProductEngineEvent(event) ?? state.session.phase;
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        session: {
+          ...state.session,
+          phase
+        },
+        completeness: confidenceProjection,
+        ...(founderBrief ? { founderBrief: founderBrief as FounderBriefProjection } : {})
       };
     }
     default:

@@ -399,17 +399,24 @@ type Decision = {
   projectId: string;
   type:
     | 'primary_customer'
-    | 'problem_statement'
-    | 'value_proposition'
+    | 'problem'
+    | 'value'
     | 'mvp_scope'
     | 'validation_plan'
     | 'success_criteria'
     | 'phase_boundary';
+  requiredDecisionRef?:
+    | 'primary_customer'
+    | 'problem'
+    | 'value'
+    | 'mvp_scope'
+    | 'validation_plan'
+    | 'success_criteria';
   statement: string;
   rationale: string;
   alternatives: string[];
   evidenceMatrixIds: string[];
-  status: 'proposed' | 'approved' | 'rejected' | 'revised' | 'deferred';
+  status: 'proposed' | 'approved' | 'rejected' | 'revised' | 'deferred' | 'risk_accepted';
   approvedAt?: string;
 };
 ```

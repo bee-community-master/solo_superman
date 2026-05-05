@@ -107,7 +107,7 @@ export interface CreateDecisionCardRequest extends ScaffoldRequestPlaceholder {
 
 export interface ResolveDecisionRequest extends ScaffoldRequestPlaceholder {
   readonly decisionId: DecisionId;
-  readonly outcome: "approved" | "rejected" | "deferred";
+  readonly outcome: "approved" | "rejected" | "deferred" | "risk_accepted";
 }
 
 export interface CreateSpecVersionRequest extends ScaffoldRequestPlaceholder {
@@ -153,12 +153,20 @@ export interface BlockRuntimeArtifactRequest extends ScaffoldRequestPlaceholder 
 
 export interface ScoreCompletenessRequest extends ScaffoldRequestPlaceholder {
   readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
 }
 
 export interface CompletionCandidateRequest extends ScaffoldRequestPlaceholder {
   readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
 }
 
 export interface PrepareFounderBriefRequest extends ScaffoldRequestPlaceholder {
   readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
+  readonly requestedFormat?: "markdown";
+  readonly fileWriteRequested?: boolean;
+  readonly externalExportRequested?: boolean;
+  readonly destinationPath?: string;
+  readonly exportUrl?: string;
 }

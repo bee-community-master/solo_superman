@@ -94,6 +94,35 @@ export function confidencePlaceholder(
     sessionId,
     version: knownRisks.length as ProjectionVersion,
     compositeScore: knownRisks.length ? 45 : 0,
-    topRisks: knownRisks
+    readinessLabel: knownRisks.length ? "clarifying" : "draft",
+    axes: [],
+    scoreBreakdown: {
+      sectionCompleteness: 0,
+      questionDebtResolution: 0,
+      evidenceQuality: 0,
+      decisionApproval: 0,
+      consistencyAndConflict: 0
+    },
+    gates: [],
+    topRisks: knownRisks,
+    topRiskCards: knownRisks.map((risk, index) => ({
+      riskId: `placeholder_risk_${index + 1}`,
+      title: risk,
+      severity: "medium",
+      sourceRefs: [],
+      nextValidationAction: `Validate or explicitly accept: ${risk}`
+    })),
+    nextBestActions: knownRisks.map((risk) => `Validate or explicitly accept: ${risk}`),
+    completionCandidate: {
+      status: "not_ready",
+      summary: "Completeness has not been scored yet.",
+      gateFailures: ["Completeness has not been scored yet."],
+      ifStopNowArtifact: {
+        title: "If stop now",
+        summary: "No scored completion candidate exists yet.",
+        knownRisks,
+        nextValidationActions: knownRisks.map((risk) => `Validate or explicitly accept: ${risk}`)
+      }
+    }
   };
 }

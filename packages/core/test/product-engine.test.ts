@@ -432,6 +432,9 @@ describe("PR-04 ProductEngine reducer", () => {
       }
     ]);
     expect(answer.events.map((event) => event.eventType)).toEqual(["AnswerSubmitted", "ResearchPlanned"]);
+    expect(answer.deterministicOutputs.map((output) => output.outputType)).toEqual(
+      expect.arrayContaining(["reducer_deterministic_output", "completeness_snapshot", "confidence_map"])
+    );
     expect(answer.immediateProjection).toMatchObject({
       kind: "DecisionQueueProjection",
       active: [
@@ -456,6 +459,13 @@ describe("PR-04 ProductEngine reducer", () => {
       stateVersion: 7,
       session: {
         phase: "research"
+      },
+      completeness: {
+        kind: "ConfidenceCompletionProjection",
+        version: 7,
+        completionCandidate: {
+          status: "not_ready"
+        }
       }
     });
 
@@ -484,6 +494,13 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(replayed.queueProjection.active[0]?.state).toBe("answered");
     expect(replayed.queueProjection.next).toHaveLength(1);
     expect(replayed.researchState.tasks).toHaveLength(1);
+    expect(replayed.completeness).toMatchObject({
+      kind: "ConfidenceCompletionProjection",
+      version: 7,
+      completionCandidate: {
+        status: "not_ready"
+      }
+    });
     expect(replayed.researchState.reviewCards[0]).toMatchObject({
       state: "pending_manual_result",
       recoveryActions: expect.arrayContaining(["import_manual_result"])
@@ -562,6 +579,9 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(synthesized.accepted).toBe(true);
     expect(synthesized.immediateProjection).toBeUndefined();
+    expect(synthesized.deterministicOutputs.map((output) => output.outputType)).toEqual(
+      expect.arrayContaining(["reducer_deterministic_output", "completeness_snapshot", "confidence_map"])
+    );
     expect(synthesized.nextState).toMatchObject({
       researchState: {
         proConBalanceStatus: "missing_con_evidence",
@@ -576,6 +596,10 @@ describe("PR-04 ProductEngine reducer", () => {
         ]
       },
       completeness: {
+        kind: "ConfidenceCompletionProjection",
+        completionCandidate: {
+          status: "not_ready"
+        },
         topRisks: [
           expect.stringContaining("missing_con_evidence")
         ]

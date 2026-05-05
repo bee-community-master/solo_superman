@@ -255,6 +255,14 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "getCompleteness",
+    clientName: "getCompleteness",
+    method: "GET",
+    path: "/api/v1/sessions/:sessionId/completeness",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
     routeId: "scoreCompleteness",
     clientName: "scoreCompleteness",
     method: "POST",
@@ -350,6 +358,15 @@ export const PR07_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   "convertRuntimeArtifact",
   "blockRuntimeArtifact",
   "getActivity"
+] as const satisfies readonly ApiRouteId[];
+
+export const PR08_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...PR07_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  "getCompleteness",
+  "scoreCompleteness",
+  "createCompletionCandidate",
+  "getFounderBrief",
+  "prepareFounderBriefExport"
 ] as const satisfies readonly ApiRouteId[];
 
 export const PR02_MOUNTED_PRODUCT_API_ROUTE_IDS = ["getCommandStatus"] as const satisfies readonly ApiRouteId[];

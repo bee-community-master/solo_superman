@@ -1,8 +1,8 @@
-import { API_ROUTE_CATALOG, PR07_MOUNTED_PRODUCT_API_ROUTE_IDS, type ApiRoute } from "@solo-superman/contracts";
+import { API_ROUTE_CATALOG, PR08_MOUNTED_PRODUCT_API_ROUTE_IDS, type ApiRoute } from "@solo-superman/contracts";
 
 type ProductApiRoute = Extract<ApiRoute, { readonly path: `/api/v1${string}` }>;
-type DesktopRouteClientImplementation = "not_mounted_yet" | "mounted_pr_07";
-const PR07_MOUNTED_PRODUCT_API_ROUTE_ID_SET = new Set<string>(PR07_MOUNTED_PRODUCT_API_ROUTE_IDS);
+type DesktopRouteClientImplementation = "not_mounted_yet" | "mounted_pr_08";
+const PR08_MOUNTED_PRODUCT_API_ROUTE_ID_SET = new Set<string>(PR08_MOUNTED_PRODUCT_API_ROUTE_IDS);
 
 export interface DesktopRouteClientPlaceholder {
   readonly clientName: ProductApiRoute["clientName"];
@@ -17,7 +17,7 @@ function isProductApiRoute(route: ApiRoute): route is ProductApiRoute {
 }
 
 function implementationStatus(route: ProductApiRoute): DesktopRouteClientImplementation {
-  return PR07_MOUNTED_PRODUCT_API_ROUTE_ID_SET.has(route.routeId) ? "mounted_pr_07" : "not_mounted_yet";
+  return PR08_MOUNTED_PRODUCT_API_ROUTE_ID_SET.has(route.routeId) ? "mounted_pr_08" : "not_mounted_yet";
 }
 
 export const desktopRouteClientPlaceholders: readonly DesktopRouteClientPlaceholder[] = API_ROUTE_CATALOG.filter(isProductApiRoute).map((route) => ({

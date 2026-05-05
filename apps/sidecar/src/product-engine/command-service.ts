@@ -11,10 +11,12 @@ import {
   type CorrelationId,
   type CausationId,
   type CodexTurnPurpose,
+  type ConfidenceCompletionProjection,
   type DecisionQueueProjection,
   type EffectTaskDto,
   type EffectTaskId,
   type EventId,
+  type FounderBriefProjection,
   type LivingSpecProjection,
   type PendingEffectSummaryDto,
   type ProductEngineCommand,
@@ -89,6 +91,8 @@ export interface RunSessionCommandInput {
     | "SynthesizeEvidence"
     | "CreateRuntimePreview"
     | "ConvertRuntimeArtifact"
+    | "ScoreCompleteness"
+    | "PrepareFounderBrief"
   >;
   readonly expectedStateVersion: StateVersion;
   readonly payload: Readonly<Record<string, unknown>>;
@@ -132,6 +136,7 @@ function isPersistedProjection(value: unknown): value is PersistedProjection {
   return (
     kind === "ConfidenceCompletionProjection" ||
     kind === "DecisionQueueProjection" ||
+    kind === "FounderBriefProjection" ||
     kind === "LivingSpecProjection" ||
     kind === "ResearchEvidenceProjection" ||
     kind === "RuntimeActivityProjection" ||
@@ -231,7 +236,8 @@ function responseForRejected(command: ProductEngineCommand, stateVersionBefore: 
     stateVersionBefore,
     error: {
       code: reduction.rejectionReason?.code ?? "COMMAND_PRECONDITION_FAILED",
-      message: reduction.rejectionReason?.message ?? "ProductEngine command was rejected."
+      message: reduction.rejectionReason?.message ?? "ProductEngine command was rejected.",
+      ...(reduction.rejectionReason?.details ? { details: reduction.rejectionReason.details } : {})
     }
   } satisfies CommandResponse;
 }
@@ -369,11 +375,11 @@ export function createProductEngineCommandService(
         case "initial_spec_draft":
         case "ambiguity_analysis":
         case "active_question_batch":
-          break;
         case "completeness_snapshot":
         case "confidence_map":
-        case "spec_version_material":
         case "founder_brief_draft":
+          break;
+        case "spec_version_material":
           throw new Error(`${output.outputType} requires a persistence interpreter before it can be emitted.`);
       }
     }
@@ -1331,6 +1337,50 @@ export function createProductEngineCommandService(
       }
 
       return createRuntimeRepository(storage.db).getProjection(sessionIdValue);
+    },
+
+    async getCompleteness(sessionIdValue: SessionId): Promise<ConfidenceCompletionProjection> {
+      const session = await createProjectRepository(storage.db).getSession(sessionIdValue);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: sessionIdValue
+        });
+      }
+
+      const projection = await createProjectionRepository(storage.db).get<ConfidenceCompletionProjection>(
+        sessionIdValue,
+        "ConfidenceCompletionProjection"
+      );
+
+      if (projection) {
+        return projection;
+      }
+
+      return (await stateForSession(session.projectId, sessionIdValue)).completeness;
+    },
+
+    async getFounderBrief(sessionIdValue: SessionId): Promise<FounderBriefProjection> {
+      const session = await createProjectRepository(storage.db).getSession(sessionIdValue);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: sessionIdValue
+        });
+      }
+
+      const projection = await createProjectionRepository(storage.db).get<FounderBriefProjection>(
+        sessionIdValue,
+        "FounderBriefProjection"
+      );
+
+      if (!projection) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Founder Brief has not been prepared yet.", {
+          sessionId: sessionIdValue
+        });
+      }
+
+      return projection;
     },
 
     async getCommandStatus(commandIdValue: CommandId): Promise<StatusEndpointDto | null> {

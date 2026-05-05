@@ -1,6 +1,8 @@
 import type { ProductEngineEffectPlanItem } from "../effects";
 import type {
   DecisionQueueProjection,
+  ConfidenceCompletionProjection,
+  FounderBriefProjection,
   LivingSpecProjection,
   ResearchEvidenceProjection,
   RuntimeActivityProjection,
@@ -18,6 +20,7 @@ export type ProductEngineRejectionCode =
 export interface ProductEngineRejection {
   readonly code: ProductEngineRejectionCode;
   readonly message: string;
+  readonly details?: Readonly<Record<string, unknown>>;
 }
 
 export type ProductEngineStatePatch = Readonly<Record<string, unknown>>;
@@ -39,7 +42,9 @@ export interface ProductEngineDeterministicOutput {
 }
 
 export type ActiveBatchSafeProjection =
+  | ConfidenceCompletionProjection
   | DecisionQueueProjection
+  | FounderBriefProjection
   | LivingSpecProjection
   | ResearchEvidenceProjection
   | RuntimeActivityProjection
