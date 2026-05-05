@@ -200,6 +200,7 @@ Phase 1.5A 공통 완료 조건:
 - implementation readiness checklist.
 - unresolved risk와 prerequisite 표시.
 - final `PlanningHandoffArtifact`와 gate 실패용 blocker report의 schema는 `31-phase2-planning-handoff-contract.md`를 따른다.
+- DTO/API/storage/gate/idempotency 구현 기본값은 `32-phase2-implementation-preflight-contract.md`를 따른다.
 - file diff/command/browser action은 preview까지만 설계 가능.
 
 진입 조건:
@@ -331,6 +332,7 @@ Phase 1.5A 공통 완료 조건:
 - Phase 1.5B는 execution-readiness hint만 저장하며 실제 file/shell/browser 실행 권한을 주지 않는다.
 - unresolved fatal blocker 또는 terminal outcome 없는 Research-updated Queue의 high-impact card가 있으면 Planning Handoff를 확정하지 않는다.
 - Phase 2 final artifact와 blocker report는 `31-phase2-planning-handoff-contract.md`의 split contract를 따른다.
+- Phase 2 DTO/API/storage/gate exact defaults는 `32-phase2-implementation-preflight-contract.md`를 따른다.
 - Phase 1에서 Codex app-server는 sandbox preview 권한을 넘지 않는다.
 - Phase 1에서 ChatGPT Pro 웹 자동화를 만들지 않는다.
 - 다음 research/planning capability 보강에서 모바일 앱을 만들지 않는다.

@@ -331,7 +331,7 @@ Phase 1.5 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`�
 
 ## Phase 2 planning handoff storage checklist
 
-Phase 2 Planning Handoff 저장소 구현자는 `31-phase2-planning-handoff-contract.md`를 canonical source로 사용한다. 이 섹션은 후속 구현 PR에서 추가할 storage 이름과 책임을 고정하지만, 현재 PR에서 SQL DDL이나 product code를 추가하지 않는다.
+Phase 2 Planning Handoff 저장소 구현자는 `31-phase2-planning-handoff-contract.md`를 artifact/report canonical source로 사용하고, `32-phase2-implementation-preflight-contract.md`를 exact column/index/current-state default로 사용한다. 이 섹션은 후속 구현 PR에서 추가할 storage 이름과 책임을 고정하지만, 현재 PR에서 SQL DDL이나 product code를 추가하지 않는다.
 
 - `CreatePlanningHandoff`는 gate 통과 시 final `PlanningHandoffArtifact`, gate 실패 시 `PlanningHandoffBlockerArtifact`를 같은 handoff storage family에 영속화한다.
 - `planning_handoffs`는 `artifactId`, `sessionId`, artifact kind, schemaVersion, status, gate verdict, summary, createdAt, createdBy, source session/version refs를 저장한다.
@@ -341,6 +341,7 @@ Phase 2 Planning Handoff 저장소 구현자는 `31-phase2-planning-handoff-cont
 - `planning_handoff_risks`는 residual risk, assumption, prerequisite, validation dependency, blocker next action, required user action을 final/blocker artifact 양쪽에서 조회 가능하게 저장한다.
 - `planningHandoffRepository`는 final/blocker artifact와 source/task/PR-risk rows를 한 transaction에서 저장하고, ProductEngine gate 판단 자체를 재구현하지 않는다.
 - `planningHandoffProjection`은 한 session의 최신 final handoff 또는 blocker artifact를 반환한다. 두 artifact가 동시에 current final state로 보이면 안 된다.
+- exact table columns, indexes, append-only current-state rule, and projection persistence defaults are owned by `32-phase2-implementation-preflight-contract.md`.
 - 이 storage family는 실행 권한을 만들지 않는다. file patch, shell command, browser action, deploy, external mutation, active delegation 상태는 저장하지 않는다.
 
 ## Data privacy rules

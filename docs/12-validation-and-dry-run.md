@@ -399,6 +399,7 @@ Follow-up questions:
 
 - `CreatePlanningHandoff` gate 통과는 final `PlanningHandoffArtifact`를 `planning_handoffs` family에 저장하고 `PlanningHandoffProjection`을 반환한다.
 - `CreatePlanningHandoff` gate 실패는 command rejection만 반환하지 않고 `PlanningHandoffBlockerArtifact`를 저장해 blocker class, required next action, safe preview refs를 조회 가능하게 한다.
+- `32-phase2-implementation-preflight-contract.md`는 DTO field names/types, gate precedence, storage columns/indexes, idempotency key, routeId/clientName, Phase 1.5 dependency fallback을 후속 code PR의 exact default로 고정한다.
 - planned DTO names (`CreatePlanningHandoffRequest`, `PlanningHandoffProjection`, `PlanningHandoffArtifactDto`, `PlanningHandoffBlockerArtifactDto`)는 후속 code PR 전까지 `25`번의 current closed enum/projection tables 밖에 남는다.
 - planned endpoint names (`POST /api/v1/sessions/:sessionId/planning-handoff`, `GET /api/v1/sessions/:sessionId/planning-handoff`)는 후속 code PR 전까지 `26`번의 current route catalog rows 밖에 남는다.
 - `21`번 runtime boundary는 `ConvertRuntimeArtifact`가 final handoff를 만들지 않고, `ImplementationPlanPreviewArtifact`를 PlanningNote/safe preview로만 유지한다고 설명한다.
@@ -457,6 +458,7 @@ Follow-up questions:
 - [ ] Phase 2 Planning Handoff는 unresolved fatal blocker 또는 terminal outcome 없는 high-impact Research-updated Queue card가 없을 때만 확정된다.
 - [ ] Phase 2 gate는 `고객/문제/JTBD`, `성공기준/검증계획`, `승인/보안/실행안전` fatal blocker를 막고, `가치제안/차별화`와 `MVP 범위/비범위`의 부족분은 visible residual risk와 validation dependency로 노출한다.
 - [ ] `31-phase2-planning-handoff-contract.md`는 final `PlanningHandoffArtifact`와 gate 실패용 blocker report를 분리한다.
+- [ ] `32-phase2-implementation-preflight-contract.md`는 Phase 2 DTO/API/storage/gate implementation defaults를 exact하게 고정하되 product code, verify script, issue draft, live GitHub issue, Phase 3 execution design을 포함하지 않는다.
 - [ ] Phase 2 planned DTO/API/storage names는 후속 code PR 전까지 `25`번 current enum/projection tables와 `26`번 current route catalog rows 밖에 유지된다.
 - [ ] `CreatePlanningHandoff`는 final 또는 blocker artifact를 durable storage에 남기고 `PlanningHandoffProjection`으로 복구 가능하게 만든다.
 - [ ] `ConvertRuntimeArtifact`는 `ImplementationPlanPreviewArtifact`를 final `PlanningHandoffArtifact`로 승격하지 않는다.

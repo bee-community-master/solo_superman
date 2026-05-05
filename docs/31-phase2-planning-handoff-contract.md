@@ -160,11 +160,13 @@ Mapping rule:
 | Runtime/API command boundary | `21-sidecar-api-runtime-contract.md` | `CreatePlanningHandoff`가 final/blocker artifact를 만들며 `ConvertRuntimeArtifact`는 preview-only planning note boundary를 넘지 않는다. |
 | DTO/contracts | `25-contracts-dto-catalog.md` | `CreatePlanningHandoffRequest`, `PlanningHandoffProjection`, `PlanningHandoffArtifactDto`, `PlanningHandoffBlockerArtifactDto`, supporting DTO family, planned events `PlanningHandoffCreated`/`PlanningHandoffBlocked` |
 | Route behavior | `26-api-route-behavior-catalog.md` | planned `POST`/`GET` planning-handoff endpoint behavior, `accepted_with_projection`, persisted blocker artifact semantics |
+| Implementation preflight | `32-phase2-implementation-preflight-contract.md` | exact DTO wire shape, gate precedence, storage columns/indexes, idempotency, routeId/clientName, implementation sequencing, Phase 1.5 dependency fallback |
 | Dry-run acceptance | `12-validation-and-dry-run.md` | gate, DTO/API/storage, no-execution, parser-safe planned/current boundary checks |
 
 Binding rules:
 
 - planned DTO/API/storage names remain outside current code-synchronized enum/projection/route tables until a product code PR updates the corresponding packages and doc-contract verifier together.
+- exact implementation defaults for those planned names are owned by `32-phase2-implementation-preflight-contract.md`.
 - gate failure output is a durable blocker artifact whenever safe to persist, not just a transient error response.
 - final and blocker artifacts share source trace/readiness/risk semantics but only final `PlanningHandoffArtifact` may carry the user-facing `Planning-ready` label.
 
@@ -187,4 +189,5 @@ Binding rules:
 - [ ] fatal blocker class와 visible residual risk 규칙은 `28-founder-os-product-doctrine.md`와 충돌하지 않는다.
 - [ ] Phase 2 handoff는 실제 file/shell/browser/deploy/external mutation을 실행하지 않는다.
 - [ ] planned DTO/API/storage/route names는 후속 code PR 전까지 current enum/projection/route tables 밖에 있다.
+- [ ] exact DTO/gate/storage/API/idempotency/sequence defaults are delegated to `32-phase2-implementation-preflight-contract.md`.
 - [ ] 후속 DTO/API/storage 구현은 이 문서의 field family와 20/21/25/26번 planned binding을 기준으로 별도 PR에서 결정한다.

@@ -747,7 +747,7 @@ Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.
 
 ## Phase 2 planned Planning Handoff DTO checklist
 
-Phase 2 Planning Handoff 구현자는 `31-phase2-planning-handoff-contract.md`를 canonical artifact contract로 사용한다. 아래 이름은 **planned contract names**이며, 후속 product code PR이 `packages/contracts`와 `API_ROUTE_CATALOG`을 함께 갱신하기 전까지 위의 parsed Phase 1 `CommandType`, event, projection table에 추가하지 않는다.
+Phase 2 Planning Handoff 구현자는 `31-phase2-planning-handoff-contract.md`를 canonical artifact contract로 사용하고, `32-phase2-implementation-preflight-contract.md`를 exact DTO/wire shape, enum, route id, idempotency, and implementation sequencing default로 사용한다. 아래 이름은 **planned contract names**이며, 후속 product code PR이 `packages/contracts`와 `API_ROUTE_CATALOG`을 함께 갱신하기 전까지 위의 parsed Phase 1 `CommandType`, event, projection table에 추가하지 않는다.
 
 | Planned surface | Exact planned name | Implementation note |
 | --- | --- | --- |
@@ -763,6 +763,7 @@ Phase 2 Planning Handoff 구현자는 `31-phase2-planning-handoff-contract.md`�
 | Residual risk DTO | `PlanningHandoffResidualRiskDto` | visible residual risk, assumption, prerequisite, validation dependency, owner/follow-up trigger를 담는다. |
 | ProductEngine event | `PlanningHandoffCreated` | gate 통과 후 final artifact가 persisted 되었음을 기록한다. |
 | ProductEngine event | `PlanningHandoffBlocked` | gate 실패 후 blocker artifact가 persisted 되었음을 기록한다. |
+| Deterministic output type | `planning_handoff_artifact` | 후속 code PR에서 final/blocker artifact materialization ref를 reducer output으로 추적한다. |
 | Projection family file | `projections/planning-handoff.ts` | 후속 구현 PR에서 `PlanningHandoffProjection` export 위치로 사용한다. |
 
 Behavior rules:
@@ -770,6 +771,7 @@ Behavior rules:
 - `PlanningHandoffProjection`은 final handoff와 blocker artifact를 동시에 current final state로 표시하지 않는다.
 - gate failure는 DTO/API 차원에서 단순 command rejection이 아니라 persisted `PlanningHandoffBlockerArtifactDto`와 projection으로 표현한다.
 - 어떤 DTO field도 file patch, shell command, browser action, deploy, external mutation, active delegation을 실행했거나 실행할 권한을 부여한 것처럼 보이면 안 된다.
+- exact field names/types/required flags for the Phase 2 DTO family are owned by `32-phase2-implementation-preflight-contract.md`.
 - 후속 구현 PR에서 이 planned 이름을 closed enum/current projection list에 추가할 때는 20/21/26번 문서와 `scripts/verify-doc-contracts.mjs` 검증을 함께 갱신한다.
 
 ## Validation notes

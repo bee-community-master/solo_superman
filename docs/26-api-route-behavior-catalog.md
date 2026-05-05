@@ -202,7 +202,7 @@ Phase 1.5 route behavior is introduced by later implementation PRs and must use 
 
 ## Phase 2 planned Planning Handoff endpoint behavior
 
-이 섹션은 `31-phase2-planning-handoff-contract.md`의 artifact contract를 API behavior로 연결하는 planned endpoint contract다. 아래 endpoint names는 현재 Phase 1 `API_ROUTE_CATALOG`의 route table row가 아니며, product code PR이 route catalog와 DTO/command enum을 함께 갱신할 때 실제 catalog에 추가한다.
+이 섹션은 `31-phase2-planning-handoff-contract.md`의 artifact contract를 API behavior로 연결하는 planned endpoint contract다. `32-phase2-implementation-preflight-contract.md`는 이 planned endpoint를 code PR로 승격할 때의 exact routeId/clientName, response category, idempotency, GET no-handoff default를 소유한다. 아래 endpoint names는 현재 Phase 1 `API_ROUTE_CATALOG`의 route table row가 아니며, product code PR이 route catalog와 DTO/command enum을 함께 갱신할 때 실제 catalog에 추가한다.
 
 Planned endpoint names:
 
@@ -216,9 +216,9 @@ Planned endpoint names:
   - Errors/preconditions: `RESOURCE_NOT_FOUND` for missing session/source refs, `STATE_VERSION_CONFLICT` for stale expected state, `VALIDATION_FAILED` for malformed body or unsupported requested scope. Use `COMMAND_PRECONDITION_FAILED` only when no durable blocker artifact can safely be persisted.
 - `GET /api/v1/sessions/:sessionId/planning-handoff`
   - Query mapping: no ProductEngine command; read `planningHandoffProjection`.
-  - Response: `ApiSuccessEnvelope<PlanningHandoffProjection>`; no `statusUrl`.
+  - Response: `ApiSuccessEnvelope<PlanningHandoffProjection | null>`; no `statusUrl`. Existing session with no handoff returns `data: null`.
   - Projection content: latest final handoff or latest blocker artifact for the session, sourceRefs, gate verdict, readiness/residual risk summary, and recovery/next-action hints.
-  - Errors/preconditions: `RESOURCE_NOT_FOUND` for missing session or handoff scope; auth/project ownership checks match the session route family.
+  - Errors/preconditions: `RESOURCE_NOT_FOUND` for missing session; auth/project ownership checks match the session route family.
 
 ## Required acceptance scenarios
 
