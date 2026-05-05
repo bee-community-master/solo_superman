@@ -69,7 +69,7 @@ function mapEffectTask(row: typeof effectTasks.$inferSelect): EffectTaskDto {
     effectType: row.effectType as EffectType,
     status: row.status as EffectTaskStatus,
     sourceCommandId: row.sourceCommandId as EffectTaskDto["sourceCommandId"],
-    sourceEventIds: parseJsonArray(row.sourceEventIdsJson) as readonly EventId[],
+    sourceEventIds: parseJsonArray(row.sourceEventIdsJson, "sourceEventIdsJson") as readonly EventId[],
     correlationId: row.correlationId as CorrelationId,
     idempotencyKey: row.idempotencyKey,
     attemptCount: row.attemptCount,

@@ -62,7 +62,7 @@ describe("PR-03 local libSQL storage foundation", () => {
       expect(existsSync(join(appDataDir, "solo-superman.db"))).toBe(true);
       expect(migrationStatus).toMatchObject({
         state: "migrated",
-        appliedMigrationCount: 4
+        appliedMigrationCount: 5
       });
       expect(migrationStatus.latestMigrationMillis).toEqual(expect.any(Number));
     } finally {
@@ -89,6 +89,7 @@ describe("PR-03 local libSQL storage foundation", () => {
           "research_tasks",
           "research_results",
           "evidence_matrices",
+          "research_allowlists",
           "runtime_preview_artifacts",
           "runtime_task_refs",
           "app_config",
@@ -99,6 +100,8 @@ describe("PR-03 local libSQL storage foundation", () => {
           "projections_session_kind_idx",
           "research_tasks_session_status_idx",
           "evidence_matrices_result_version_idx",
+          "research_allowlists_project_status_idx",
+          "research_allowlists_updated_at_idx",
           "runtime_artifacts_context_idx",
           "runtime_task_refs_effect_artifact_idx"
         ])

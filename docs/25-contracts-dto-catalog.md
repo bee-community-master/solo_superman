@@ -22,7 +22,7 @@ Canonical path: `docs/25-contracts-dto-catalog.md`.
 | Command model | event-sourcing style command envelope |
 | Command required meta | concurrency + causation meta까지 required |
 | CommandResponse/statusUrl | field table + lifecycle + example DTO까지 고정 |
-| UI Projection | 7개 1급 read model 고정 |
+| UI Projection | 8개 1급 read model 고정 |
 | Codex re-export | 24번 문서의 enum/taxonomy를 contracts에서 re-export하는 방식만 고정 |
 | Required acceptance | command envelope fixture, CommandResponse/statusUrl lifecycle, SSE DTO + refetch hint |
 | Non-required validation | export map, UI projection fixture, Codex re-export compatibility, forbidden imports는 checklist/validation note |
@@ -85,6 +85,7 @@ packages/contracts/src/
 │  ├─ session-shell.ts
 │  ├─ decision-queue.ts
 │  ├─ living-spec.ts
+│  ├─ research-allowlist.ts
 │  ├─ research-evidence.ts
 │  ├─ confidence-completion.ts
 │  ├─ runtime-activity.ts
@@ -140,6 +141,8 @@ All public DTOs use string identifiers with branded type aliases in TypeScript. 
 | `QueueItemId` | string | queue/projection/SSE | question, decision, blocked, retry card id |
 | `QuestionId` | string | question batch/answer | generated before persistence allowed |
 | `DecisionId` | string | approval/spec/evidence | stable decision card id |
+| `ResearchAllowlistId` | string | research allowlist | project-local allowlist id |
+| `ResearchConnectorId` | string | research allowlist | stable non-secret connector slug from the approved read-only registry |
 | `ResearchTaskId` | string | research/evidence | manual handoff or Codex research task |
 | `ResearchResultId` | string | evidence synthesis | imported result id |
 | `EvidenceItemId` | string | EvidenceMatrix | claim/evidence entry id |
@@ -614,7 +617,7 @@ Example accepted_with_projection response:
 
 | Field | Required | Type | Rule |
 | --- | --- | --- | --- |
-| `projectionKind` | yes | enum | one of 7 UI projection kinds |
+| `projectionKind` | yes | enum | one of 8 UI projection kinds |
 | `version` | no | `ProjectionVersion` | latest known version if available |
 | `refetchUrl` | yes | string | relative `/api/v1/...` URL |
 | `affectedIds` | yes | string[] | can be empty |
@@ -661,6 +664,11 @@ All projections are read models. React must not reconstruct them from raw tables
 | `refetchUrl` | yes | string | sidecar endpoint |
 | `pendingEffectSummary` | yes | `PendingEffectSummaryDto` | empty summary allowed |
 
+Phase 1.5A PR-01 implementation note:
+
+- `ResearchAllowlistProjection` is introduced first as the project-level allowlist read model because allowlist approval is project-scoped, not session-scoped.
+- Before #28 exposes allowlist governance/refetch routes to React, the sidecar route DTO must wrap or enrich this project-level read model with the common route/view envelope fields above instead of special-casing a half-projection response.
+
 ### 1급 projection list
 
 | Projection | File | Primary UI |
@@ -668,6 +676,7 @@ All projections are read models. React must not reconstruct them from raw tables
 | `SessionShellProjection` | `projections/session-shell.ts` | app shell/session header |
 | `DecisionQueueProjection` | `projections/decision-queue.ts` | Decision Queue Center |
 | `LivingSpecProjection` | `projections/living-spec.ts` | Living Spec Canvas |
+| `ResearchAllowlistProjection` | `projections/research-allowlist.ts` | research allowlist governance/readiness |
 | `ResearchEvidenceProjection` | `projections/research-evidence.ts` | Research Results/Evidence Matrix |
 | `ConfidenceCompletionProjection` | `projections/confidence-completion.ts` | progress/radar/risk cards |
 | `RuntimeActivityProjection` | `projections/runtime-activity.ts` | background task board/activity feed |
@@ -680,6 +689,7 @@ All projections are read models. React must not reconstruct them from raw tables
 | `SessionShellProjection` | project summary, session phase, readiness, active lanes, global pending effects |
 | `DecisionQueueProjection` | active, next, blocked, deferred queue item arrays, active batch id, priority reasons |
 | `LivingSpecProjection` | spec sections, current draft/version ref, pending spec update previews, approval status |
+| `ResearchAllowlistProjection` | status, connector ids, source categories, context mode, rate/budget policy including per-session run cap, staleness/disclosure policies, pause/revoke timestamps |
 | `ResearchEvidenceProjection` | research tasks, manual handoff prompts, evidence matrix summary, pro/con balance, review cards |
 | `ConfidenceCompletionProjection` | five-axis scores, radar data, composite completeness, top risk cards, score history |
 | `RuntimeActivityProjection` | effect tasks, Codex runtime status, runtime artifacts, retry/blocked cards, activity feed |
@@ -740,7 +750,7 @@ Rules:
 
 Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`를 canonical source로 사용한다.
 
-- Add public contract types for ResearchAllowlistProjection, ResearchRunProjection, ResearchDisclosureLogProjection, and structured Phase15bUpgradeHints.
+- `ResearchAllowlistProjection` is implemented first for Phase 1.5A PR-01; add ResearchRunProjection, ResearchDisclosureLogProjection, and structured Phase15bUpgradeHints in their later implementation PRs.
 - Phase15bUpgradeHints must expose approval requirements, sandbox/workspace requirements, rollback/reference plan, expected evidence, risk normalization, and sourceRefs.
 - DTOs must preserve no-execution semantics; no field should imply active delegation or executed side effects in Phase 1.5B.
 - `packages/contracts` still must not import runtime clients, Hono, Drizzle, React, or Tauri modules.
@@ -782,7 +792,7 @@ These are not required acceptance scenarios, but they remain implementation chec
 | --- | --- |
 | Contract export map | root/family index files export only public contract types |
 | API route command mapping | 26번 route catalog uses only this closed `CommandType` enum |
-| UI Projection fixture | each of 7 projections has at least one fixture in implementation PR |
+| UI Projection fixture | each of 8 projections has at least one fixture in implementation PR |
 | Codex re-export compatibility | 24번 and 25번 enum values match |
 | Forbidden dependency imports | contracts package imports no Hono, Drizzle, React, Tauri, Codex runtime client |
 

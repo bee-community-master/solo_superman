@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const projects = sqliteTable("projects", {
   id: text("id").primaryKey(),
@@ -158,6 +158,34 @@ export const evidenceMatrices = sqliteTable(
   (table) => [
     uniqueIndex("evidence_matrices_result_version_idx").on(table.researchResultId, table.synthesisVersion),
     index("evidence_matrices_task_idx").on(table.researchTaskId)
+  ]
+);
+
+export const researchAllowlists = sqliteTable(
+  "research_allowlists",
+  {
+    id: text("id").notNull(),
+    version: integer("version").notNull(),
+    projectId: text("project_id").notNull(),
+    status: text("status").notNull(),
+    connectorIdsJson: text("connector_ids_json").notNull(),
+    sourceCategoriesJson: text("source_categories_json").notNull(),
+    contextMode: text("context_mode").notNull(),
+    rateBudgetPolicyJson: text("rate_budget_policy_json").notNull(),
+    stalenessPolicyJson: text("staleness_policy_json").notNull(),
+    disclosureLogPolicyJson: text("disclosure_log_policy_json").notNull(),
+    approvedBy: text("approved_by").notNull(),
+    approvedAt: text("approved_at").notNull(),
+    pausedAt: text("paused_at"),
+    revokedAt: text("revoked_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    schemaVersion: text("schema_version").notNull()
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.id] }),
+    index("research_allowlists_project_status_idx").on(table.projectId, table.status),
+    index("research_allowlists_updated_at_idx").on(table.updatedAt)
   ]
 );
 

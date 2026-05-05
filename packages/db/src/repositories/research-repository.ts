@@ -83,7 +83,7 @@ function mapEvidenceMatrix(row: typeof evidenceMatrices.$inferSelect): EvidenceM
     proEvidence: evidenceItemsFromJson(row.proEvidenceJson),
     conEvidence: evidenceItemsFromJson(row.conEvidenceJson),
     uncertainties: evidenceItemsFromJson(row.uncertaintiesJson),
-    additionalQuestions: parseJsonArray(row.additionalQuestionsJson).map(String),
+    additionalQuestions: parseJsonArray(row.additionalQuestionsJson, "additionalQuestionsJson").map(String),
     balanceStatus: row.balanceStatus as EvidenceMatrixProjection["balanceStatus"],
     decisionBlocked: row.decisionBlocked,
     ...(row.missingConEvidenceReason ? { missingConEvidenceReason: row.missingConEvidenceReason } : {}),

@@ -41,7 +41,7 @@ function mapArtifact(row: typeof runtimePreviewArtifacts.$inferSelect): RuntimeP
     targetObject: row.targetObject,
     summary: row.summary,
     payload: parseJsonRecord(row.payloadJson),
-    sourceRefs: parseJsonArray(row.sourceRefsJson).map(String),
+    sourceRefs: parseJsonArray(row.sourceRefsJson, "sourceRefsJson").map(String),
     contextHash: row.contextHash,
     runtimeAdapterVersion: row.runtimeAdapterVersion,
     ...(row.sourceEffectTaskId ? { sourceEffectTaskId: row.sourceEffectTaskId as EffectTaskId } : {}),
