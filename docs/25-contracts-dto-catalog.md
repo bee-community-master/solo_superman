@@ -745,6 +745,33 @@ Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.
 - DTOs must preserve no-execution semantics; no field should imply active delegation or executed side effects in Phase 1.5B.
 - `packages/contracts` still must not import runtime clients, Hono, Drizzle, React, or Tauri modules.
 
+## Phase 2 planned Planning Handoff DTO checklist
+
+Phase 2 Planning Handoff 구현자는 `31-phase2-planning-handoff-contract.md`를 canonical artifact contract로 사용한다. 아래 이름은 **planned contract names**이며, 후속 product code PR이 `packages/contracts`와 `API_ROUTE_CATALOG`을 함께 갱신하기 전까지 위의 parsed Phase 1 `CommandType`, event, projection table에 추가하지 않는다.
+
+| Planned surface | Exact planned name | Implementation note |
+| --- | --- | --- |
+| ProductEngine command | `CreatePlanningHandoff` | gate verdict를 계산한 뒤 final 또는 blocker artifact persistence를 요청한다. |
+| API request DTO | `CreatePlanningHandoffRequest` | source snapshot refs와 optional requested scope만 담고 실행 payload를 담지 않는다. |
+| UI/API projection | `PlanningHandoffProjection` | 한 session의 최신 final `PlanningHandoffArtifactDto` 또는 `PlanningHandoffBlockerArtifactDto`를 mutually exclusive current state로 반환한다. |
+| Final artifact DTO | `PlanningHandoffArtifactDto` | `31`번의 `PlanningHandoffArtifact` field families를 DTO로 노출한다. |
+| Blocker artifact DTO | `PlanningHandoffBlockerArtifactDto` | gate 실패, fatal blocker, queue/source incomplete 상태와 required user action을 durable artifact로 노출한다. |
+| Gate verdict DTO | `PlanningHandoffGateVerdictDto` | verdict, fatal blocker classes checked, terminal outcome summary, residual risk visibility check를 담는다. |
+| Task item DTO | `PlanningHandoffTaskDto` | task id/title/intent/sourceRefs/dependency/ownerRole/acceptanceEvidence/nonGoals/riskRefs를 담는다. |
+| PR/issue item DTO | `PlanningHandoffPrIssuePlanItemDto` | sequence, included task ids, entry prerequisites, exit evidence, blocked-by, phase boundary를 담는다. |
+| Readiness DTO | `PlanningHandoffReadinessChecklistDto` | approvals, sandbox/worktree boundary, rollback reference, expected evidence를 담는다. |
+| Residual risk DTO | `PlanningHandoffResidualRiskDto` | visible residual risk, assumption, prerequisite, validation dependency, owner/follow-up trigger를 담는다. |
+| ProductEngine event | `PlanningHandoffCreated` | gate 통과 후 final artifact가 persisted 되었음을 기록한다. |
+| ProductEngine event | `PlanningHandoffBlocked` | gate 실패 후 blocker artifact가 persisted 되었음을 기록한다. |
+| Projection family file | `projections/planning-handoff.ts` | 후속 구현 PR에서 `PlanningHandoffProjection` export 위치로 사용한다. |
+
+Behavior rules:
+
+- `PlanningHandoffProjection`은 final handoff와 blocker artifact를 동시에 current final state로 표시하지 않는다.
+- gate failure는 DTO/API 차원에서 단순 command rejection이 아니라 persisted `PlanningHandoffBlockerArtifactDto`와 projection으로 표현한다.
+- 어떤 DTO field도 file patch, shell command, browser action, deploy, external mutation, active delegation을 실행했거나 실행할 권한을 부여한 것처럼 보이면 안 된다.
+- 후속 구현 PR에서 이 planned 이름을 closed enum/current projection list에 추가할 때는 20/21/26번 문서와 `scripts/verify-doc-contracts.mjs` 검증을 함께 갱신한다.
+
 ## Validation notes
 
 These are not required acceptance scenarios, but they remain implementation checklist items.

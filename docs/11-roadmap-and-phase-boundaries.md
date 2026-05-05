@@ -199,19 +199,25 @@ Phase 1.5A 공통 완료 조건:
 - PR/issue 단위 실행 계획.
 - implementation readiness checklist.
 - unresolved risk와 prerequisite 표시.
+- final `PlanningHandoffArtifact`와 gate 실패용 blocker report의 schema는 `31-phase2-planning-handoff-contract.md`를 따른다.
 - file diff/command/browser action은 preview까지만 설계 가능.
 
 진입 조건:
 
 - Phase 1.5A-2 Research-updated Queue의 high-impact card가 terminal outcome을 가진다.
 - terminal outcome 없이 남은 high-impact risk는 Planning Handoff blocker다.
+- Phase 2 gate는 impact-sensitive로 판정한다. `고객/문제/JTBD`, `성공기준/검증계획`, `승인/보안/실행안전` class가 unresolved, `research_insufficient`, 또는 사용자 승인 없는 `deferred` 상태이면 final Planning-ready handoff를 막는다.
+- `가치제안/차별화`와 `MVP 범위/비범위`의 `research_insufficient`/`deferred`는 planning artifact가 residual risk, prerequisite, assumption, validation dependency를 숨기지 않을 때 Phase 2 planning context에 포함할 수 있다.
 - low/medium risk는 Known Risks, Open Questions, prerequisite로 명시할 수 있다.
+- final Planning-ready handoff는 `31-phase2-planning-handoff-contract.md`의 `PlanningHandoffArtifact`로만 확정한다.
 
 제외:
 
 - 자동 적용.
 - shell 실행.
+- gate 실패 또는 부분충족 blocker report를 final `PlanningHandoffArtifact`처럼 표시하는 것.
 - 파일 patch 실행.
+- browser action, deploy, external mutation 실행.
 
 ## Phase 2.5: Browser Automation Preview
 
@@ -323,7 +329,8 @@ Phase 1.5A 공통 완료 조건:
 - 사용자 UI, onboarding, CTA, export에 내부 Phase 용어를 노출하지 않는다.
 - Controlled Execution capability 전 자동 실행 기능을 만들지 않는다.
 - Phase 1.5B는 execution-readiness hint만 저장하며 실제 file/shell/browser 실행 권한을 주지 않는다.
-- unresolved Research-updated Queue의 high-impact card가 있으면 Planning Handoff를 확정하지 않는다.
+- unresolved fatal blocker 또는 terminal outcome 없는 Research-updated Queue의 high-impact card가 있으면 Planning Handoff를 확정하지 않는다.
+- Phase 2 final artifact와 blocker report는 `31-phase2-planning-handoff-contract.md`의 split contract를 따른다.
 - Phase 1에서 Codex app-server는 sandbox preview 권한을 넘지 않는다.
 - Phase 1에서 ChatGPT Pro 웹 자동화를 만들지 않는다.
 - 다음 research/planning capability 보강에서 모바일 앱을 만들지 않는다.

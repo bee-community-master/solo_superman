@@ -200,6 +200,26 @@ Phase 1.5 route behavior is introduced by later implementation PRs and must use 
 - hint routes must expose query/export for `phase15bUpgradeHints` without enabling execution.
 - no Phase 1.5 route may execute file/shell/browser/network write/credential/destructive/ChatGPT web automation actions.
 
+## Phase 2 planned Planning Handoff endpoint behavior
+
+이 섹션은 `31-phase2-planning-handoff-contract.md`의 artifact contract를 API behavior로 연결하는 planned endpoint contract다. 아래 endpoint names는 현재 Phase 1 `API_ROUTE_CATALOG`의 route table row가 아니며, product code PR이 route catalog와 DTO/command enum을 함께 갱신할 때 실제 catalog에 추가한다.
+
+Planned endpoint names:
+
+- `POST /api/v1/sessions/:sessionId/planning-handoff`
+  - Request DTO: `CreatePlanningHandoffRequest`.
+  - Command mapping: deterministic ProductEngine command `CreatePlanningHandoff`.
+  - Response: `accepted_with_projection` with `PlanningHandoffProjection`; no async `statusUrl` unless a future implementation explicitly introduces a non-execution projection effect.
+  - Gate pass: persist `PlanningHandoffArtifact` and emit planned event `PlanningHandoffCreated`.
+  - Gate fail: persist `PlanningHandoffBlockerArtifact` and emit planned event `PlanningHandoffBlocked`; semantic gate failure should not be represented only as command rejection when a blocker artifact can be persisted.
+  - Effects/SSE/refetch: no Codex/runtime effect and no file/shell/browser/deploy/external mutation; future implementation may emit `projection.updated` for `PlanningHandoffProjection`.
+  - Errors/preconditions: `RESOURCE_NOT_FOUND` for missing session/source refs, `STATE_VERSION_CONFLICT` for stale expected state, `VALIDATION_FAILED` for malformed body or unsupported requested scope. Use `COMMAND_PRECONDITION_FAILED` only when no durable blocker artifact can safely be persisted.
+- `GET /api/v1/sessions/:sessionId/planning-handoff`
+  - Query mapping: no ProductEngine command; read `planningHandoffProjection`.
+  - Response: `ApiSuccessEnvelope<PlanningHandoffProjection>`; no `statusUrl`.
+  - Projection content: latest final handoff or latest blocker artifact for the session, sourceRefs, gate verdict, readiness/residual risk summary, and recovery/next-action hints.
+  - Errors/preconditions: `RESOURCE_NOT_FOUND` for missing session or handoff scope; auth/project ownership checks match the session route family.
+
 ## Required acceptance scenarios
 
 ### Scenario A. Endpoint coverage matrix

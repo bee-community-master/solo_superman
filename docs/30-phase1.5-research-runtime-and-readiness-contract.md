@@ -353,7 +353,8 @@ Then:
 
 - no artifact shape migration is required.
 - source refs connect back to ResearchRun/EvidenceMatrix/allowlist/audit logs.
-- Phase 2/3 implementer can derive required approvals and evidence without reinterpreting the blocked action.
+- Phase 2 implementer can map the hints into `31-phase2-planning-handoff-contract.md` readiness checklist, residual risk register, and blocker report without reinterpreting the blocked action.
+- Phase 3 implementer can derive required approvals and evidence from the Phase 2 handoff without treating hints as execution permission.
 
 ### Scenario G. Docs contract consistency
 
@@ -365,5 +366,6 @@ Then:
 
 - README reading order and responsibility table include doc 30.
 - roadmap/security/research/runtime/data/API/DTO/operations docs link to this document.
+- Phase 2 handoff docs may reference these hints, but this document remains the source for Phase 1.5B readiness metadata semantics.
 - no document claims Phase 1.5B may execute file/shell/browser actions.
 - `phase15bUpgradeHints` remains readiness metadata, not an execution permission.

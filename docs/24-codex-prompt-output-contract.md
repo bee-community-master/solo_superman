@@ -18,6 +18,7 @@ Canonical path: `docs/24-codex-prompt-output-contract.md`.
 | Contracts bridge | 25번 문서가 turnPurpose, artifact kind, applyPolicy, blocked action taxonomy re-export를 소유 |
 | Phase 1 권한 | preview/spec/research 중심. 파일, shell, browser, network, credential, destructive action 실행 금지 |
 | Phase 1.5B execution-readiness hints | 별도 phase. Phase 1에는 `phase15bUpgradeHints`와 blocked action taxonomy만 남김 |
+| Phase 2 final handoff | `PlanningHandoffArtifact`는 이 문서의 artifact taxonomy가 아니라 `31-phase2-planning-handoff-contract.md`의 docs-level Phase 2 계약 |
 | TurnPurpose | 6개 전부 1급 schema |
 | Input context | `CoreContextPack` + turnPurpose별 `DeltaContextPack` |
 | Output envelope | Hybrid trace + artifact envelope |
@@ -49,6 +50,7 @@ Phase 1에서 Codex는 다음을 할 수 없다.
 - external service에 write action을 수행한다.
 - `SpecVersion`을 직접 생성한다.
 - implementation task commitment를 직접 확정한다.
+- final `PlanningHandoffArtifact`를 생성하거나 `Planning-ready` handoff를 확정한다.
 
 ## TurnPurpose taxonomy
 
@@ -384,6 +386,8 @@ Example JSON skeleton:
 ```
 
 ### ImplementationPlanPreviewArtifact
+
+`ImplementationPlanPreviewArtifact`는 preview-only planning note다. Phase 2 final handoff artifact인 `PlanningHandoffArtifact`와 gate 실패용 blocker report는 `31-phase2-planning-handoff-contract.md`가 소유하며, 이 문서의 Phase 1 Codex artifact kind enum에 추가하지 않는다.
 
 | Field | Required | Type | Validation rule |
 | --- | --- | --- | --- |
@@ -843,6 +847,7 @@ Then:
 - executionIntent, requiredApprovals, riskLevel, sandboxRequirements are preserved.
 - Phase 1 does not execute the plan.
 - future Phase 1.5B/Phase 2+ implementation can read the hints without migrating the artifact shape.
+- Phase 2 final handoff still requires `31-phase2-planning-handoff-contract.md` gate verdict and `PlanningHandoffArtifact`; preview storage alone is not final handoff.
 
 ### Scenario G. Severity routing
 

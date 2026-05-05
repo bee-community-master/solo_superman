@@ -102,6 +102,7 @@ This document defines table groups and minimum responsibilities, not final SQL D
 | Research/evidence | `research_tasks`, `research_results`, `evidence_matrices`, `evidence_items` | closed-loop research and pro/con evidence |
 | Decision | `decisions`, `decision_options` | approval outcomes and rationale |
 | Runtime | `runtime_preview_artifacts`, `runtime_task_refs` | Codex/manual handoff preview outputs |
+| Planning handoff | `planning_handoffs`, `planning_handoff_sources`, `planning_handoff_tasks`, `planning_handoff_pr_issue_items`, `planning_handoff_risks` | Phase 2 final/blocker handoff artifacts, source trace, task/PR/issue plan, residual risk/readiness mapping |
 | Effect queue | `effect_tasks` | durable execution state for `queue_projection_effect`, `research_evidence_effect`, `codex_runtime_preview_effect` |
 | Scoring/export | `completeness_snapshots`, `founder_briefs` | progress, completion, export artifacts |
 | Config | `app_config`, `secret_refs` | local settings and opaque OS secret references |
@@ -123,6 +124,7 @@ This document defines table groups and minimum responsibilities, not final SQL D
   - `evidence_`
   - `decision_`
   - `runtime_`
+  - `handoff_`
   - `eft_`
   - `score_`
   - `brief_`
@@ -250,6 +252,7 @@ Repositories live under `packages/db/src/repositories/`.
 | `evidenceRepository` | evidence matrices and evidence items |
 | `decisionRepository` | decision cards and outcomes |
 | `runtimeRepository` | runtime preview artifacts |
+| `planningHandoffRepository` | final/blocker planning handoff artifacts, source refs, task/PR/issue plan, risk/readiness rows |
 | `effectTaskRepository` | effect task create/lease/status/output/idempotency |
 | `scoringRepository` | completeness snapshots |
 | `exportRepository` | founder brief snapshots |
@@ -277,6 +280,7 @@ Projection modules live under `packages/db/src/projections/` and build read mode
 | `researchEvidenceProjection` | research tasks, results, evidence matrix cards |
 | `completenessProjection` | score, confidence map, risk cards |
 | `founderBriefProjection` | if-stop-now and final export view |
+| `planningHandoffProjection` | latest Phase 2 final/blocker handoff state for a session |
 
 React frontend must consume projections through Hono APIs, not by reconstructing state from raw tables.
 
@@ -324,6 +328,20 @@ Phase 1.5 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`�
 - ResearchDisclosureLog는 connector/source category, query/objective summary, public-safe summary sent, source refs를 저장한다.
 - `phase15bUpgradeHints`는 structured readiness metadata로 저장·조회·export되지만 실행 권한으로 해석하지 않는다.
 - secret value는 libSQL에 저장하지 않고 OS secret ref만 저장한다.
+
+## Phase 2 planning handoff storage checklist
+
+Phase 2 Planning Handoff 저장소 구현자는 `31-phase2-planning-handoff-contract.md`를 canonical source로 사용한다. 이 섹션은 후속 구현 PR에서 추가할 storage 이름과 책임을 고정하지만, 현재 PR에서 SQL DDL이나 product code를 추가하지 않는다.
+
+- `CreatePlanningHandoff`는 gate 통과 시 final `PlanningHandoffArtifact`, gate 실패 시 `PlanningHandoffBlockerArtifact`를 같은 handoff storage family에 영속화한다.
+- `planning_handoffs`는 `artifactId`, `sessionId`, artifact kind, schemaVersion, status, gate verdict, summary, createdAt, createdBy, source session/version refs를 저장한다.
+- `planning_handoff_sources`는 SpecVersion, Founder Brief/Completion Candidate, Decision-linked Evidence Pack, Research-updated Queue item, Decision/RiskAcceptance, Known Risk/Open Question, Phase 1.5B hint sourceRef를 저장한다.
+- `planning_handoff_tasks`는 final artifact의 `taskBreakdown[]` item, dependency, owner role, acceptance evidence, non-goal, linked risk/validation dependency refs를 저장한다.
+- `planning_handoff_pr_issue_items`는 final artifact의 PR/issue sequence, included task ids, entry prerequisites, exit evidence, blocked-by relationship, phase boundary를 저장한다.
+- `planning_handoff_risks`는 residual risk, assumption, prerequisite, validation dependency, blocker next action, required user action을 final/blocker artifact 양쪽에서 조회 가능하게 저장한다.
+- `planningHandoffRepository`는 final/blocker artifact와 source/task/PR-risk rows를 한 transaction에서 저장하고, ProductEngine gate 판단 자체를 재구현하지 않는다.
+- `planningHandoffProjection`은 한 session의 최신 final handoff 또는 blocker artifact를 반환한다. 두 artifact가 동시에 current final state로 보이면 안 된다.
+- 이 storage family는 실행 권한을 만들지 않는다. file patch, shell command, browser action, deploy, external mutation, active delegation 상태는 저장하지 않는다.
 
 ## Data privacy rules
 

@@ -364,6 +364,54 @@ Follow-up questions:
 - reconnect 후 terminal effect가 pending card로 계속 남는다.
 - completion candidate가 pre-disconnect optimistic UI state를 근거로 생성된다.
 
+### Phase 2 gate semantics dry-run
+
+상황:
+
+- Phase 1.5A-2 Research-updated Queue에서 high-impact card가 terminal outcome을 가진다.
+- 일부 card는 `approved` 또는 `revised`로 해결됐지만, 일부는 `research_insufficient` 또는 `deferred`로 남는다.
+
+통과 조건:
+
+- `고객/문제/JTBD`, `성공기준/검증계획`, `승인/보안/실행안전` class의 `research_insufficient`, unresolved, 또는 사용자 승인 없는 `deferred` card는 final Planning-ready handoff를 막는다.
+- fatal blocker가 resolved 또는 명시적 `risk_accepted`로 수렴하면 planning artifact는 남은 위험과 이유를 prerequisite, assumption, validation dependency로 노출한다.
+- `가치제안/차별화`와 `MVP 범위/비범위`의 `research_insufficient`/`deferred`는 visible residual risk와 validation dependency로 표시될 때 Phase 2 planning context에 포함할 수 있다.
+- user-facing label `Planning-ready`는 fatal blocker가 없고 residual risk가 숨겨지지 않을 때만 사용한다.
+- final handoff는 `31-phase2-planning-handoff-contract.md`의 `PlanningHandoffArtifact`로만 표시하고, gate 실패/부분충족은 blocker report로 분리한다.
+
+실패 조건:
+
+- fatal blocker class가 `research_insufficient`인데도 final Planning-ready handoff로 표시한다.
+- `가치제안/차별화` 또는 `MVP 범위/비범위`의 residual risk를 숨기고 확정된 실행계획처럼 표시한다.
+- provisional plan을 final implementation plan처럼 보여준다.
+- `PlanningHandoffBlockerArtifact` 또는 blocker report를 `Planning-ready` handoff처럼 표시한다.
+- Phase 2 gate 설명이 file patch, shell command, browser action, deploy 같은 Controlled Execution 기능을 허용하는 것으로 읽힌다.
+
+### Phase 2 DTO/API/storage handoff dry-run
+
+상황:
+
+- `31-phase2-planning-handoff-contract.md`가 final `PlanningHandoffArtifact`와 gate 실패용 `PlanningHandoffBlockerArtifact` field families를 정의한다.
+- Phase 2 구현자는 `20/21/25/26`번 문서의 planned storage, runtime command boundary, DTO names, endpoint behavior를 읽고 product code PR을 준비한다.
+- sourceRefs에는 SpecVersion, Founder Brief/Completion Candidate, Decision-linked Evidence Pack, Research-updated Queue, Decision/RiskAcceptance, Known Risk/Open Question, Phase 1.5B hint가 포함될 수 있다.
+
+통과 조건:
+
+- `CreatePlanningHandoff` gate 통과는 final `PlanningHandoffArtifact`를 `planning_handoffs` family에 저장하고 `PlanningHandoffProjection`을 반환한다.
+- `CreatePlanningHandoff` gate 실패는 command rejection만 반환하지 않고 `PlanningHandoffBlockerArtifact`를 저장해 blocker class, required next action, safe preview refs를 조회 가능하게 한다.
+- planned DTO names (`CreatePlanningHandoffRequest`, `PlanningHandoffProjection`, `PlanningHandoffArtifactDto`, `PlanningHandoffBlockerArtifactDto`)는 후속 code PR 전까지 `25`번의 current closed enum/projection tables 밖에 남는다.
+- planned endpoint names (`POST /api/v1/sessions/:sessionId/planning-handoff`, `GET /api/v1/sessions/:sessionId/planning-handoff`)는 후속 code PR 전까지 `26`번의 current route catalog rows 밖에 남는다.
+- `21`번 runtime boundary는 `ConvertRuntimeArtifact`가 final handoff를 만들지 않고, `ImplementationPlanPreviewArtifact`를 PlanningNote/safe preview로만 유지한다고 설명한다.
+- DTO/API/storage 어디에도 file patch, shell command, browser action, deploy, external mutation, active delegation 실행권한이 생기지 않는다.
+
+실패 조건:
+
+- `ImplementationPlanPreviewArtifact`를 `ConvertRuntimeArtifact`로 final `PlanningHandoffArtifact`로 승격한다.
+- fatal blocker나 source trace gap이 있는데도 blocker artifact를 저장하지 않고 transient error만 반환한다.
+- product code 변경 없이 `25`번 parsed current enum/projection table 또는 `26`번 current route catalog row에 planned Phase 2 값을 추가한다.
+- final/blocker artifact projection이 동시에 current final state처럼 표시된다.
+- DTO/API/storage field가 Phase 2 handoff를 Controlled Execution 또는 Phase 3 실행 설계로 해석하게 만든다.
+
 ## 정적 일관성 검토 체크리스트
 
 - [ ] 모든 문서가 Phase 1을 Research 포함 폐루프로 정의한다.
@@ -406,7 +454,12 @@ Follow-up questions:
 - [ ] README, Spec Engine, Domain Model, Validation 문서는 같은 State/Event Contract 범위를 공유한다.
 - [ ] Founder OS Product Doctrine은 Phase를 내부 capability 용어로만 정의하고 사용자-facing journey stage와 분리한다.
 - [ ] Phase 1.5A-1 Decision-linked Evidence Pack과 Phase 1.5A-2 Research-updated Queue가 분리되어 있다.
-- [ ] Phase 2 Planning Handoff는 unresolved high-impact Research-updated Queue card가 없을 때만 확정된다.
+- [ ] Phase 2 Planning Handoff는 unresolved fatal blocker 또는 terminal outcome 없는 high-impact Research-updated Queue card가 없을 때만 확정된다.
+- [ ] Phase 2 gate는 `고객/문제/JTBD`, `성공기준/검증계획`, `승인/보안/실행안전` fatal blocker를 막고, `가치제안/차별화`와 `MVP 범위/비범위`의 부족분은 visible residual risk와 validation dependency로 노출한다.
+- [ ] `31-phase2-planning-handoff-contract.md`는 final `PlanningHandoffArtifact`와 gate 실패용 blocker report를 분리한다.
+- [ ] Phase 2 planned DTO/API/storage names는 후속 code PR 전까지 `25`번 current enum/projection tables와 `26`번 current route catalog rows 밖에 유지된다.
+- [ ] `CreatePlanningHandoff`는 final 또는 blocker artifact를 durable storage에 남기고 `PlanningHandoffProjection`으로 복구 가능하게 만든다.
+- [ ] `ConvertRuntimeArtifact`는 `ImplementationPlanPreviewArtifact`를 final `PlanningHandoffArtifact`로 승격하지 않는다.
 - [ ] 사용자 UI/onboarding/CTA/export에는 내부 Phase 용어가 노출되지 않는다.
 - [ ] README, Architecture, Decision Queue, Spec Engine, State/Event Contract는 같은 ProductEngine Orchestrator 경계를 공유한다.
 - [ ] Tauri + Node/Hono sidecar 결정이 README, Architecture, Implementation Architecture에서 일치한다.

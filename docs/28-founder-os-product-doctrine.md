@@ -38,7 +38,7 @@ Phase 1.5A/B의 runtime, allowlist, disclosure, DTO/API/DB, no-execution hint �
 | Phase 1.5A-1: Decision-linked Evidence Pack | `리서치 근거팩 준비 중` | 맡긴 핵심 claim/decision에 대해 더 깊은 근거 원장이 쌓이는 중 | decision-linked pro/con/uncertainty/source quality/product implication 저장 |
 | Phase 1.5A-2: Research-updated Queue | `리서치 결과 검토 중` | 새 evidence가 만든 질문, 승인, risk card를 검토하는 중 | high-impact card가 terminal outcome으로 수렴 |
 | Phase 1.5B: Execution-readiness Hints | `실행 준비 정보 보존` | 나중에 실행계획/위임에 필요한 승인, sandbox, rollback 요구사항을 보존 | hint metadata 저장과 조회, 실제 실행 없음 |
-| Phase 2: Execution Planning Handoff | `Planning-ready` | Spec과 해결된 리서치 큐를 PR/issue/task 단위 계획으로 바꿀 준비가 됨 | unresolved high-impact research-updated queue card 없음 |
+| Phase 2: Execution Planning Handoff | `Planning-ready` | Spec과 해결된 리서치 큐를 PR/issue/task 단위 계획으로 바꿀 준비가 됨 | final `PlanningHandoffArtifact`를 만들 수 있고 unresolved fatal blocker가 없음 |
 | Phase 3: Safe Execution Adapter | `안전 실행 대기` | 실행계획을 승인, sandbox, rollback 경계 안에서 적용할 준비가 됨 | controlled execution approval model 검증 |
 
 이 매핑은 UI copy의 source of truth가 아니다. UI 세부 문구는 `02-user-journey-and-ux.md`와 `13-ux-doctrine-and-session-dynamics.md`가 책임지되, 내부 phase 번호를 사용자에게 노출하지 않는 정책은 이 문서를 따른다. Phase별 capability, entry gate, exit evidence, non-goal의 구현 매트릭스는 `29-phase-capability-implementation-matrix.md`가 책임진다.
@@ -107,12 +107,22 @@ Phase 2 Execution Planning Handoff는 Research-updated Queue의 high-impact card
 - low/medium risk 항목은 Known Risks 또는 Open Questions로 남긴 뒤 planning context에 포함할 수 있다.
 - `deferred` 또는 `risk_accepted`는 사용자가 이유를 승인한 경우 terminal outcome으로 인정한다.
 - planning artifact는 unresolved risk를 숨기지 않고 prerequisite, assumption, validation dependency로 표시한다.
+- high-impact card가 `research_insufficient` 또는 `deferred`로 끝난 경우에도 fatal blocker class가 아니면 visible residual risk와 validation dependency로 Planning-ready context에 포함할 수 있다.
+- final Planning-ready context는 `31-phase2-planning-handoff-contract.md`의 `PlanningHandoffArtifact`로만 확정한다.
+
+Gate 판정 규칙:
+
+- Phase 2 gate는 impact-sensitive로 판정한다. `research_insufficient`와 `deferred`는 자동 통과도 자동 차단도 아니다.
+- Fatal blocker class는 `고객/문제/JTBD`, `성공기준/검증계획`, `승인/보안/실행안전`이다. 이 class가 unresolved, `research_insufficient`, 또는 사용자 승인 없는 `deferred` 상태이면 final Planning-ready handoff를 막는다.
+- `가치제안/차별화`와 `MVP 범위/비범위`는 fatal blocker가 아니다. 충분하지 않더라도 planning artifact가 residual risk, prerequisite, assumption, validation dependency를 명시하면 Phase 2 planning context에 포함할 수 있다.
+- Fatal blocker를 통과시키려면 해당 decision이 resolved 상태가 되거나, 사용자가 남은 위험과 이유를 명시적으로 `risk_accepted` 해야 한다.
 
 금지:
 
-- unresolved high-impact card가 있는데 Planning handoff를 확정하는 것.
+- unresolved fatal blocker가 있는데 Planning handoff를 확정하는 것.
 - Evidence Pack 완료만으로 Queue 검토 없이 PR/issue/task 계획을 확정하는 것.
 - provisional plan을 final implementation plan처럼 보여주는 것.
+- `PlanningHandoffBlockerArtifact` 또는 blocker report를 사용자-facing `Planning-ready` handoff처럼 보여주는 것.
 
 ## Non-goals for next capability planning
 
@@ -131,13 +141,15 @@ Phase 2 Execution Planning Handoff는 Research-updated Queue의 high-impact card
 - 문서가 phase와 journey를 함께 설명해야 할 때는 반드시 매핑표를 먼저 제시한다.
 - 새 구현 issue는 `내부 capability`, `사용자-facing label`, `entry gate`, `non-goals`, `acceptance evidence`를 모두 포함해야 한다.
 - Phase 0~6을 한눈에 보는 capability/gate/evidence 기준은 `29-phase-capability-implementation-matrix.md`를 따른다.
+- Phase 2 handoff artifact/report schema는 `31-phase2-planning-handoff-contract.md`를 따른다.
 
 ## Acceptance checklist
 
 - [ ] 내부 phase 이름이 사용자-facing UI 문구처럼 쓰이지 않는다.
 - [ ] Phase 1.5A-1 Evidence Pack과 Phase 1.5A-2 Research-updated Queue가 분리되어 있다.
 - [ ] Evidence Pack은 decision-linked source of truth이고 Queue는 action projection이다.
-- [ ] Phase 2 진입은 high-impact Research-updated Queue terminal outcome을 요구한다.
+- [ ] Phase 2 진입은 high-impact Research-updated Queue terminal outcome과 fatal blocker 해소를 요구한다.
+- [ ] Phase 2 final handoff와 blocker report split은 `31-phase2-planning-handoff-contract.md`와 일치한다.
 - [ ] Controlled execution 전 실제 file/shell/browser/deploy action은 금지된다.
 - [ ] 팀, cloud, mobile, billing, operations 확장은 다음 research/planning capability 범위에 포함되지 않는다.
 - [ ] Phase capability matrix가 내부 phase를 사용자-facing copy source of truth로 바꾸지 않는다.

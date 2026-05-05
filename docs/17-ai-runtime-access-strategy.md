@@ -146,7 +146,7 @@ Preview artifact 유형:
 - `research_prompt_preview`: ChatGPT/Codex에 넘길 깊은 리서치 프롬프트.
 - `research_result_import_template`: 사용자가 결과를 붙여넣을 때 필요한 구조.
 - `spec_update_preview`: Living Product Spec 변경 제안과 before/after 요약.
-- `implementation_plan_preview`: Phase 2 handoff용 task breakdown.
+- `implementation_plan_preview`: Phase 1/1.5B preview-only planning note와 Phase 2 handoff 후보 정보. final `PlanningHandoffArtifact`는 `31-phase2-planning-handoff-contract.md`가 소유한다.
 - `diff_preview`: 실제 파일 적용 전의 예상 diff 설명.
 - `command_plan_preview`: 실행하지 않는 명령 계획과 위험 설명.
 - `browser_action_preview`: Phase 2+에서만 실행 가능한 브라우저 조작 계획.
