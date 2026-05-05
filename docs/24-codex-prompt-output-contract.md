@@ -6,7 +6,7 @@
 
 `17-ai-runtime-access-strategy.md`가 AI 접근 전략과 권한 경계를 정의하고, `21-sidecar-api-runtime-contract.md`가 Hono/runtime route 경계를 정의하며, `23-product-engine-runtime-contract.md`가 `codex_runtime_preview_effect` 실행 모델을 정의한다면, 이 문서는 **Codex에게 무엇을 입력하고 어떤 구조의 출력을 받아 ProductEngine에 넘길지**의 canonical source다.
 
-이 문서는 문서 전용 구현 계약이다. 런타임 코드, Zod schema 파일, Hono handler, Codex adapter, DB migration은 이 PR에서 만들지 않는다.
+이 문서는 Codex Prompt/Output의 기준 계약이다. 런타임 코드, Zod schema 파일, Hono handler, Codex adapter, DB migration은 각 구현 PR과 현재 코드베이스가 소유하며, 이 문서는 turnPurpose/input/output/repair/failure taxonomy 경계를 정의한다.
 
 Canonical path: `docs/24-codex-prompt-output-contract.md`.
 

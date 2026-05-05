@@ -70,8 +70,24 @@ function apiUrl(baseUrl: string, path: string) {
   return `${ensureNoTrailingSlash(baseUrl)}${normalizedPath}`;
 }
 
+function invalidApiResponse(response: Response, message: string) {
+  return new SidecarClientError(
+    {
+      code: "SIDECAR_NOT_READY",
+      message
+    },
+    response.status
+  );
+}
+
 async function unwrapEnvelope<TData>(response: Response): Promise<TData> {
-  const envelope = (await response.json()) as ApiEnvelope<TData>;
+  let envelope: ApiEnvelope<TData>;
+
+  try {
+    envelope = (await response.json()) as ApiEnvelope<TData>;
+  } catch {
+    throw invalidApiResponse(response, "Sidecar returned a non-JSON response.");
+  }
 
   if (envelope.ok) {
     return envelope.data;
@@ -99,6 +115,24 @@ function envValue(env: Readonly<Record<string, string | boolean | undefined>>, k
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
+function loopbackHttpBaseUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const isLoopbackHost = url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "[::1]";
+    const hasOnlyOriginParts =
+      value === url.origin &&
+      url.username.length === 0 &&
+      url.password.length === 0 &&
+      url.pathname === "/" &&
+      url.search.length === 0 &&
+      url.hash.length === 0;
+
+    return url.protocol === "http:" && isLoopbackHost && url.port.length > 0 && hasOnlyOriginParts ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
+
 export function sidecarConnectionFromEnv(
   env: Readonly<Record<string, string | boolean | undefined>> = import.meta.env
 ): SidecarConnection | null {
@@ -108,8 +142,15 @@ export function sidecarConnectionFromEnv(
     return null;
   }
 
+  const envBaseUrl = envValue(env, "VITE_SOLO_SIDECAR_BASE_URL");
+  const baseUrl = envBaseUrl ? loopbackHttpBaseUrl(envBaseUrl) : "http://127.0.0.1:43110";
+
+  if (!baseUrl) {
+    return null;
+  }
+
   return {
-    baseUrl: envValue(env, "VITE_SOLO_SIDECAR_BASE_URL") ?? "http://127.0.0.1:43110",
+    baseUrl,
     localCapabilityToken,
     mode: "vite_env",
     status: "discovered",

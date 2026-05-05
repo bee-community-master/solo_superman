@@ -116,6 +116,20 @@ function shouldClearLease(status: EffectTaskStatus) {
   return status !== "leased" && status !== "running";
 }
 
+function leasePatchForStatus(input: UpdateEffectTaskStatusInput) {
+  if (shouldClearLease(input.status)) {
+    return {
+      leaseOwner: null,
+      leaseExpiresAt: null
+    };
+  }
+
+  return {
+    leaseOwner: input.leaseOwner,
+    leaseExpiresAt: input.leaseExpiresAt
+  };
+}
+
 function hasLeaseMetadata(input: UpdateEffectTaskStatusInput) {
   return Boolean(input.leaseOwner?.trim() && input.leaseExpiresAt?.trim());
 }
@@ -241,10 +255,7 @@ export function createEffectTaskRepository(db: SoloDatabaseExecutor) {
     async updateStatus(input: UpdateEffectTaskStatusInput): Promise<EffectTaskDto> {
       const updatedAt = input.updatedAt ?? new Date().toISOString();
       const isFailedOrBlocked = input.status === "failed" || input.status === "blocked";
-      const clearsLease = shouldClearLease(input.status);
-      const leaseOwner = input.leaseOwner !== undefined ? input.leaseOwner : clearsLease ? null : undefined;
-      const leaseExpiresAt =
-        input.leaseExpiresAt !== undefined ? input.leaseExpiresAt : clearsLease ? null : undefined;
+      const leasePatch = leasePatchForStatus(input);
 
       validateStatusPayload(input);
       const terminalError = isFailedOrBlocked ? input.error : null;
@@ -254,8 +265,7 @@ export function createEffectTaskRepository(db: SoloDatabaseExecutor) {
         .set({
           status: input.status,
           ...(input.attemptCount !== undefined ? { attemptCount: input.attemptCount } : {}),
-          ...(leaseOwner !== undefined ? { leaseOwner } : {}),
-          ...(leaseExpiresAt !== undefined ? { leaseExpiresAt } : {}),
+          ...leasePatch,
           outputJson: input.status === "succeeded" || input.status === "blocked" ? stringifyJson(input.output) : null,
           lastErrorCode: terminalError?.code ?? null,
           lastErrorMessage: terminalError?.message ?? null,

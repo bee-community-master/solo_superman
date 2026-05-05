@@ -444,6 +444,35 @@ function queueProjectionWithDeferredItem(
   };
 }
 
+function queueItemFromProjection(
+  projection: DecisionQueueProjection,
+  queueItemId: QueueItemId
+): QueueItemProjection | null {
+  return (
+    [
+      ...projection.active,
+      ...projection.next,
+      ...projection.blocked,
+      ...projection.deferred
+    ].find((item) => item.queueItemId === queueItemId) ?? null
+  );
+}
+
+function issuesWithQueueItemStatus(
+  issues: readonly AmbiguityIssueSnapshot[],
+  queueItemId: QueueItemId,
+  status: AmbiguityIssueSnapshot["status"]
+): readonly AmbiguityIssueSnapshot[] {
+  return issues.map((issue) =>
+    issue.queueItemId === queueItemId
+      ? {
+          ...issue,
+          status
+        }
+      : issue
+  );
+}
+
 function queueProjectionEffect(
   command: ProductEngineCommand,
   sourceEventType: ProductEngineEventDraft["eventType"],
@@ -1103,6 +1132,125 @@ function reduceActivateQuestionBatch(command: ProductEngineCommand, state: Produ
     ],
     projection
   );
+}
+
+interface QueueItemResolutionConfig {
+  readonly commandType: "DeferQueueItem" | "DismissQueueItem";
+  readonly eventType: "QueueItemDeferred" | "QueueItemDismissed";
+  readonly issueStatus: Extract<AmbiguityIssueSnapshot["status"], "deferred" | "resolved">;
+  readonly nextQueueProjection: (
+    projection: DecisionQueueProjection,
+    item: QueueItemProjection,
+    version: ProjectionVersion
+  ) => DecisionQueueProjection;
+  readonly unavailableMessage: string;
+}
+
+function reduceQueueItemResolution(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot,
+  config: QueueItemResolutionConfig
+): ProductEngineReduction {
+  const queueItemId = requiredString(command.payload.queueItemId);
+  const reason = requiredString(command.payload.reason);
+
+  if (!queueItemId || !reason) {
+    return reject(`${config.commandType} requires queueItemId and a non-empty reason.`, "VALIDATION_FAILED");
+  }
+
+  const typedQueueItemId = queueItemId as QueueItemId;
+  const existingItem = queueItemFromProjection(state.queueProjection, typedQueueItemId);
+
+  if (!existingItem) {
+    return reject(`${config.commandType} requires an existing queue item.`, "RESOURCE_NOT_FOUND");
+  }
+
+  if (existingItem.state === config.issueStatus) {
+    return reject(config.unavailableMessage, "COMMAND_PRECONDITION_FAILED");
+  }
+
+  const queueProjection = config.nextQueueProjection(
+    state.queueProjection,
+    existingItem,
+    projectionVersionFor(state)
+  );
+  const nextOpenIssues = issuesWithQueueItemStatus(state.openIssues, typedQueueItemId, config.issueStatus);
+  const confidenceProjection = buildConfidenceCompletionProjection(
+    {
+      ...state,
+      openIssues: nextOpenIssues,
+      queueProjection
+    },
+    queueProjection.version
+  );
+  const event = eventDraft(command, config.eventType, {
+    queueItemId,
+    reason,
+    projection: queueProjection,
+    confidenceProjection
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      openIssues: nextOpenIssues,
+      queueProjection,
+      completeness: confidenceProjection
+    },
+    [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: queueItemId,
+        payload: {
+          queueItemId,
+          reason
+        }
+      },
+      ...completenessDeterministicOutputs(command, confidenceProjection)
+    ],
+    [
+      queueProjectionEffect(
+        command,
+        config.eventType,
+        {
+          refType: "queue_item",
+          refId: queueItemId
+        },
+        "normal"
+      )
+    ],
+    queueProjection
+  );
+}
+
+function reduceDeferQueueItem(command: ProductEngineCommand, state: ProductEngineStateSnapshot): ProductEngineReduction {
+  return reduceQueueItemResolution(command, state, {
+    commandType: "DeferQueueItem",
+    eventType: "QueueItemDeferred",
+    issueStatus: "deferred",
+    nextQueueProjection: (projection, item, version) =>
+      queueProjectionWithDeferredItem(
+        projection,
+        {
+          ...item,
+          state: "deferred"
+        },
+        version
+      ),
+    unavailableMessage: "DeferQueueItem requires a queue item that is not already deferred."
+  });
+}
+
+function reduceDismissQueueItem(command: ProductEngineCommand, state: ProductEngineStateSnapshot): ProductEngineReduction {
+  return reduceQueueItemResolution(command, state, {
+    commandType: "DismissQueueItem",
+    eventType: "QueueItemDismissed",
+    issueStatus: "resolved",
+    nextQueueProjection: (projection, item, version) => queueProjectionWithoutItem(projection, item.queueItemId, version),
+    unavailableMessage: "DismissQueueItem requires a queue item that is not already resolved."
+  });
 }
 
 function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineStateSnapshot): ProductEngineReduction {
@@ -2298,6 +2446,10 @@ export function reduceProductEngineCommand(
       return reduceAnalyzeAmbiguity(command, state);
     case "ActivateQuestionBatch":
       return reduceActivateQuestionBatch(command, state);
+    case "DeferQueueItem":
+      return reduceDeferQueueItem(command, state);
+    case "DismissQueueItem":
+      return reduceDismissQueueItem(command, state);
     case "SubmitAnswer":
       return reduceSubmitAnswer(command, state);
     case "PlanResearch":
@@ -2424,6 +2576,36 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
             )
           : state.openIssues,
         queueProjection: projection
+      };
+    }
+    case "QueueItemDeferred": {
+      const queueItemId = typeof event.payload.queueItemId === "string" ? (event.payload.queueItemId as QueueItemId) : null;
+      const projection = projectionPayload(event.payload, state.queueProjection);
+      const confidenceProjection = confidenceProjectionPayload(event.payload) ?? state.completeness;
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        openIssues: queueItemId
+          ? issuesWithQueueItemStatus(state.openIssues, queueItemId, "deferred")
+          : state.openIssues,
+        queueProjection: projection,
+        completeness: confidenceProjection
+      };
+    }
+    case "QueueItemDismissed": {
+      const queueItemId = typeof event.payload.queueItemId === "string" ? (event.payload.queueItemId as QueueItemId) : null;
+      const projection = projectionPayload(event.payload, state.queueProjection);
+      const confidenceProjection = confidenceProjectionPayload(event.payload) ?? state.completeness;
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        openIssues: queueItemId
+          ? issuesWithQueueItemStatus(state.openIssues, queueItemId, "resolved")
+          : state.openIssues,
+        queueProjection: projection,
+        completeness: confidenceProjection
       };
     }
     case "SpecUpdatePreviewCreated": {

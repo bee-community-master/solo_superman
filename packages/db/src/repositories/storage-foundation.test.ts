@@ -467,6 +467,8 @@ describe("PR-03 local libSQL storage foundation", () => {
         effectTaskId: "eft_projection_1" as EffectTaskId,
         status: "failed",
         attemptCount: 3,
+        leaseOwner: "stale-terminal-worker",
+        leaseExpiresAt: "2026-05-05T00:10:00.000Z",
         error: {
           code: "PROJECTION_BUILD_FAILED",
           message: "Projection could not be built.",
@@ -474,6 +476,13 @@ describe("PR-03 local libSQL storage foundation", () => {
         },
         updatedAt: "2026-05-05T00:00:30.000Z"
       });
+      const failedLeaseRows = await storage.db
+        .select({
+          leaseOwner: effectTasks.leaseOwner,
+          leaseExpiresAt: effectTasks.leaseExpiresAt
+        })
+        .from(effectTasks)
+        .where(eq(effectTasks.id, "eft_projection_1"));
 
       expect(failed).toMatchObject({
         status: "failed",
@@ -486,6 +495,12 @@ describe("PR-03 local libSQL storage foundation", () => {
         }
       });
       expect(failed.outputRef).toBeUndefined();
+      expect(failedLeaseRows).toEqual([
+        {
+          leaseOwner: null,
+          leaseExpiresAt: null
+        }
+      ]);
 
       const updated = await updateStatus({
         effectTaskId: "eft_projection_1" as EffectTaskId,
@@ -579,29 +594,25 @@ describe("PR-03 local libSQL storage foundation", () => {
         updatedAt: "2026-05-05T00:01:00.000Z"
       });
 
+      const legacyEnabledRemoteConfigJson = JSON.stringify({
+        remoteDbUrl: "libsql://legacy.example",
+        remoteDbTokenRef: "secret_ref_legacy",
+        remoteSyncEnabled: true,
+        lastRemoteSyncAt: "2026-05-04T00:00:00.000Z",
+        remoteSyncStatus: "enabled"
+      });
+
       await storage.db
         .insert(appConfig)
         .values({
           key: "remote_db_config",
-          valueJson: JSON.stringify({
-            remoteDbUrl: "libsql://legacy.example",
-            remoteDbTokenRef: "secret_ref_legacy",
-            remoteSyncEnabled: true,
-            lastRemoteSyncAt: "2026-05-04T00:00:00.000Z",
-            remoteSyncStatus: "enabled"
-          }),
+          valueJson: legacyEnabledRemoteConfigJson,
           updatedAt: "2026-05-05T00:02:00.000Z"
         })
         .onConflictDoUpdate({
           target: appConfig.key,
           set: {
-            valueJson: JSON.stringify({
-              remoteDbUrl: "libsql://legacy.example",
-              remoteDbTokenRef: "secret_ref_legacy",
-              remoteSyncEnabled: true,
-              lastRemoteSyncAt: "2026-05-04T00:00:00.000Z",
-              remoteSyncStatus: "enabled"
-            }),
+            valueJson: legacyEnabledRemoteConfigJson,
             updatedAt: "2026-05-05T00:02:00.000Z"
           }
         });
@@ -611,8 +622,40 @@ describe("PR-03 local libSQL storage foundation", () => {
         remoteDbTokenRef: "secret_ref_legacy",
         remoteSyncEnabled: false,
         lastRemoteSyncAt: null,
-        remoteSyncStatus: "not_configured",
+        remoteSyncStatus: "configured_disabled",
         updatedAt: "2026-05-05T00:02:00.000Z"
+      });
+
+      const legacySecretLeakConfigJson = JSON.stringify({
+        remoteDbUrl: "libsql://legacy-token-leak.example",
+        remoteDbTokenRef: "plain_remote_token_value",
+        remoteSyncEnabled: true,
+        lastRemoteSyncAt: "2026-05-04T00:00:00.000Z",
+        remoteSyncStatus: "enabled"
+      });
+
+      await storage.db
+        .insert(appConfig)
+        .values({
+          key: "remote_db_config",
+          valueJson: legacySecretLeakConfigJson,
+          updatedAt: "2026-05-05T00:03:00.000Z"
+        })
+        .onConflictDoUpdate({
+          target: appConfig.key,
+          set: {
+            valueJson: legacySecretLeakConfigJson,
+            updatedAt: "2026-05-05T00:03:00.000Z"
+          }
+        });
+
+      expect(await configRepository.getRemoteConfig()).toEqual({
+        remoteDbUrl: "libsql://legacy-token-leak.example",
+        remoteDbTokenRef: null,
+        remoteSyncEnabled: false,
+        lastRemoteSyncAt: null,
+        remoteSyncStatus: "configured_disabled",
+        updatedAt: "2026-05-05T00:03:00.000Z"
       });
     } finally {
       await storage.close();

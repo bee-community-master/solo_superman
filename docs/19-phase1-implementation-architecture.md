@@ -4,7 +4,7 @@
 
 이 문서는 Solo Superman Phase 1을 Codex가 구현할 때 첫 scaffold에서 다시 결정하지 않도록 runtime topology, package layout, dev scripts, process boundary, native boundary, storage/runtime 연결의 기준을 고정한다.
 
-이 문서는 구현 전 계약이다. 실제 Tauri scaffold, package.json, migration file, API handler, runtime adapter 코드는 이 PR에서 만들지 않는다.
+이 문서는 Phase 1 구현의 기준 계약이다. 실제 Tauri scaffold, package.json, migration file, API handler, runtime adapter 코드는 각 구현 PR과 현재 코드베이스가 소유하며, 이 문서는 그 구현이 따라야 할 경계와 금지선을 정의한다.
 
 ## 확정 결정
 

@@ -198,6 +198,104 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(sessionShellPhaseForProductEnginePhase("completion")).toBe("complete");
   });
 
+  it("defers active queue items through reducer and replay", () => {
+    const { state, eventDrafts } = stateWithActiveQuestionBatch();
+    const queueItemId = state.queueProjection.active[0]?.queueItemId;
+
+    expect(queueItemId).toBeDefined();
+
+    const reduction = reduceProductEngineCommand(
+      command("DeferQueueItem", Number(state.stateVersion), {
+        queueItemId,
+        reason: "Need external evidence before answering."
+      }, 6),
+      state
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.events[0]).toMatchObject({
+      eventType: "QueueItemDeferred",
+      payload: {
+        queueItemId,
+        reason: "Need external evidence before answering."
+      }
+    });
+    expect(reduction.immediateProjection).toMatchObject({
+      deferred: [
+        {
+          queueItemId,
+          state: "deferred"
+        }
+      ]
+    });
+
+    const replayed = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      [...eventDrafts, reduction.events[0]].map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_defer_queue_${index + 1}`,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:00:${index + 1}0.000Z`
+      }))
+    );
+
+    expect(replayed.openIssues.find((issue) => issue.queueItemId === queueItemId)?.status).toBe("deferred");
+    expect(replayed.queueProjection.active.some((item) => item.queueItemId === queueItemId)).toBe(false);
+    expect(replayed.queueProjection.deferred).toContainEqual(
+      expect.objectContaining({
+        queueItemId,
+        state: "deferred"
+      })
+    );
+  });
+
+  it("dismisses active queue items through reducer and replay", () => {
+    const { state, eventDrafts } = stateWithActiveQuestionBatch();
+    const queueItemId = state.queueProjection.active[0]?.queueItemId;
+
+    expect(queueItemId).toBeDefined();
+
+    const reduction = reduceProductEngineCommand(
+      command("DismissQueueItem", Number(state.stateVersion), {
+        queueItemId,
+        reason: "Covered by an existing founder decision."
+      }, 6),
+      state
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.events[0]).toMatchObject({
+      eventType: "QueueItemDismissed",
+      payload: {
+        queueItemId,
+        reason: "Covered by an existing founder decision."
+      }
+    });
+    expect(reduction.immediateProjection).toMatchObject({
+      active: expect.not.arrayContaining([
+        expect.objectContaining({
+          queueItemId
+        })
+      ])
+    });
+
+    const replayed = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      [...eventDrafts, reduction.events[0]].map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_dismiss_queue_${index + 1}`,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:00:${index + 1}0.000Z`
+      }))
+    );
+
+    expect(replayed.openIssues.find((issue) => issue.queueItemId === queueItemId)?.status).toBe("resolved");
+    expect(replayed.queueProjection.active.some((item) => item.queueItemId === queueItemId)).toBe(false);
+    expect(replayed.queueProjection.deferred.some((item) => item.queueItemId === queueItemId)).toBe(false);
+  });
+
   it("rejects stale state and invalid preconditions without events or effects", () => {
     const state = createInitialProductEngineState(projectId, sessionId);
     const stale = reduceProductEngineCommand(

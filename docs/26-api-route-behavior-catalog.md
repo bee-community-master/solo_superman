@@ -8,7 +8,7 @@ Canonical path: `docs/26-api-route-behavior-catalog.md`.
 
 `21-sidecar-api-runtime-contract.md`가 sidecar runtime boundary와 route group을 정의하고, `25-contracts-dto-catalog.md`가 public DTO/type shape를 정의한다면, 이 문서는 **endpoint별 API behavior**를 소유한다.
 
-이 문서는 문서 전용 구현 계약이다. Hono handler, Zod schema file, generated OpenAPI, runtime code, React 화면 상태, DB migration은 이 PR에서 만들지 않는다.
+이 문서는 API route behavior의 기준 계약이다. Hono handler, Zod schema file, generated OpenAPI, runtime code, React 화면 상태, DB migration은 각 구현 PR과 현재 코드베이스가 소유하며, 이 문서는 endpoint별 command/query/status/SSE/error behavior를 정의한다.
 
 ## 확정 결정
 

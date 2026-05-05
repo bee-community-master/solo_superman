@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach } from "vitest";
 import { describe, expect, it } from "vitest";
-import type { CommandId } from "@solo-superman/contracts";
+import { API_ROUTE_CATALOG, PR09_MOUNTED_PRODUCT_API_ROUTE_IDS, type CommandId } from "@solo-superman/contracts";
 import { applyMigrations, createEventRepository, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
 import { createProductEngineCommandService } from "./product-engine/command-service";
 import { CodexRuntimeUnavailableError, createCodexRuntimeAdapter, fixtureCodexPreviewOutput } from "./runtime";
@@ -11,6 +11,8 @@ import { createSidecarApp } from "./server";
 
 const localCapabilityToken = "test-local-capability-token";
 const tempDirs: string[] = [];
+const productApiRouteCount = API_ROUTE_CATALOG.filter((route) => route.path.startsWith("/api/v1")).length;
+const unmountedProductApiRouteCount = productApiRouteCount - PR09_MOUNTED_PRODUCT_API_ROUTE_IDS.length;
 const migratedStatus = {
   state: "migrated",
   databaseUrl: ":memory:",
@@ -89,7 +91,8 @@ describe("PR-02 sidecar health shell", () => {
       sidecarPhase: "pr_09_e2e_dry_run_hardening",
       checks: {
         process: "alive"
-      }
+      },
+      productApiRoutePlaceholderCount: unmountedProductApiRouteCount
     });
   });
 
@@ -368,6 +371,30 @@ describe("PR-02 sidecar health shell", () => {
 
     expect(response.status).toBe(503);
     expect(body.error?.code).toBe("SIDECAR_NOT_READY");
+  });
+
+  it("rejects non-object JSON bodies before route field validation", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const response = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify([])
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(400);
+      expect(body.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Request body must be a JSON object."
+      });
+    } finally {
+      await storage.close();
+    }
   });
 
   it("runs the PR-04 ProductEngine command path through first active question batch", async () => {

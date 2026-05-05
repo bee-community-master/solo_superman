@@ -5,6 +5,10 @@ import { appConfig } from "../schema";
 
 const REMOTE_CONFIG_KEY = "remote_db_config";
 const SECRET_REF_ID_PATTERN = /^secret_ref_[a-z0-9_:-]{1,120}$/i;
+const CONFIGURED_DISABLED_STATUSES = new Set<DisabledRemoteConfig["remoteSyncStatus"]>([
+  "configured_disabled",
+  "unsupported_in_phase1"
+]);
 
 export interface DisabledRemoteConfigInput {
   readonly remoteDbUrl?: string;
@@ -39,18 +43,33 @@ function normalizeRemoteConfig(input: DisabledRemoteConfigInput): DisabledRemote
   };
 }
 
+function remoteSyncStatusForConfigSlot(
+  hasRemoteSlot: boolean,
+  persistedStatus: unknown
+): DisabledRemoteConfig["remoteSyncStatus"] {
+  if (CONFIGURED_DISABLED_STATUSES.has(persistedStatus as DisabledRemoteConfig["remoteSyncStatus"])) {
+    return persistedStatus as DisabledRemoteConfig["remoteSyncStatus"];
+  }
+
+  return hasRemoteSlot ? "configured_disabled" : "not_configured";
+}
+
+function readRemoteDbTokenRef(value: unknown) {
+  return typeof value === "string" && SECRET_REF_ID_PATTERN.test(value) ? value : null;
+}
+
 function mapRemoteConfig(valueJson: string, updatedAt: string): DisabledRemoteConfig {
   const value = parseJsonRecord(valueJson);
+  const remoteDbUrl = typeof value.remoteDbUrl === "string" ? value.remoteDbUrl : null;
+  const remoteDbTokenRef = readRemoteDbTokenRef(value.remoteDbTokenRef);
+  const hasRemoteSlot = Boolean(remoteDbUrl || remoteDbTokenRef);
 
   return {
-    remoteDbUrl: typeof value.remoteDbUrl === "string" ? value.remoteDbUrl : null,
-    remoteDbTokenRef: typeof value.remoteDbTokenRef === "string" ? value.remoteDbTokenRef : null,
+    remoteDbUrl,
+    remoteDbTokenRef,
     remoteSyncEnabled: false,
     lastRemoteSyncAt: null,
-    remoteSyncStatus:
-      value.remoteSyncStatus === "configured_disabled" || value.remoteSyncStatus === "unsupported_in_phase1"
-        ? value.remoteSyncStatus
-        : "not_configured",
+    remoteSyncStatus: remoteSyncStatusForConfigSlot(hasRemoteSlot, value.remoteSyncStatus),
     updatedAt
   };
 }

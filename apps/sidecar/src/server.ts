@@ -23,7 +23,7 @@ import {
 } from "@solo-superman/contracts";
 import type { MigrationStatus, SoloStorage } from "@solo-superman/db";
 import { createProductEngineCommandService, ProductEngineServiceError } from "./product-engine/command-service";
-import { productApiRoutePlaceholders } from "./routes/catalog";
+import { unmountedProductApiRoutePlaceholders } from "./routes/catalog";
 import { createCodexRuntimeAdapter, type CodexRuntimeAdapter } from "./runtime";
 
 export interface CreateSidecarAppOptions {
@@ -319,16 +319,24 @@ function optionalRequiredDecisionRefFromBody(value: unknown, fieldName: string) 
   return value;
 }
 
-function payloadObject(value: unknown) {
-  return value && typeof value === "object" ? (value as Readonly<Record<string, unknown>>) : {};
+function jsonObjectFromBody(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "Request body must be a JSON object.");
+  }
+
+  return value as Readonly<Record<string, unknown>>;
 }
 
 async function jsonBody(context: Context) {
+  let body: unknown;
+
   try {
-    return payloadObject(await context.req.json());
+    body = await context.req.json();
   } catch {
     throw new ProductEngineServiceError("VALIDATION_FAILED", "Request body must be valid JSON.");
   }
+
+  return jsonObjectFromBody(body);
 }
 
 export function createSidecarApp(options: CreateSidecarAppOptions) {
@@ -402,7 +410,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         process: "alive"
       },
       implementedApiRouteIds: PR09_MOUNTED_PRODUCT_API_ROUTE_IDS,
-      productApiRoutePlaceholderCount: productApiRoutePlaceholders.length
+      productApiRoutePlaceholderCount: unmountedProductApiRoutePlaceholders.length
     })
   );
 

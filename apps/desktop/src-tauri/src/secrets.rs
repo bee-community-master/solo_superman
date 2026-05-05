@@ -5,25 +5,36 @@ pub fn get_secret_status() -> String {
 }
 
 #[tauri::command]
-pub fn read_secret_ref(secret_ref: String) -> SecretRefReadResult {
-    SecretRefReadResult {
+pub fn read_secret_ref(secret_ref: String) -> Result<SecretRefReadResult, String> {
+    let secret_ref = non_empty_secret_ref(secret_ref)?;
+
+    Ok(SecretRefReadResult {
         secret_ref,
         status: "missing".to_string(),
         value: None,
         reason: "secret store is not implemented in PR-02".to_string(),
-    }
+    })
 }
 
 #[tauri::command]
-pub fn write_secret_ref(secret_ref: String, secret_value: String) -> SecretRefWriteResult {
+pub fn write_secret_ref(secret_ref: String, secret_value: String) -> Result<SecretRefWriteResult, String> {
+    let secret_ref = non_empty_secret_ref(secret_ref)?;
     drop(secret_value);
 
-    SecretRefWriteResult {
+    Ok(SecretRefWriteResult {
         secret_ref,
         stored: false,
         status: "not_implemented".to_string(),
         reason: "PR-02 declares the native boundary but does not persist secrets".to_string(),
+    })
+}
+
+fn non_empty_secret_ref(secret_ref: String) -> Result<String, String> {
+    if secret_ref.trim().is_empty() {
+        return Err("secret_ref must not be empty".to_string());
     }
+
+    Ok(secret_ref)
 }
 
 #[derive(Debug, PartialEq, serde::Serialize)]
@@ -58,7 +69,8 @@ mod tests {
 
     #[test]
     fn read_secret_ref_returns_missing_without_plaintext_persistence() {
-        let result = read_secret_ref("remote-db-token".to_string());
+        let result = read_secret_ref("remote-db-token".to_string())
+            .expect("non-empty secret refs should reach the stub boundary");
 
         assert_eq!(result.secret_ref, "remote-db-token");
         assert_eq!(result.status, "missing");
@@ -67,10 +79,24 @@ mod tests {
 
     #[test]
     fn write_secret_ref_accepts_the_boundary_call_without_storing() {
-        let result = write_secret_ref("remote-db-token".to_string(), "secret".to_string());
+        let result = write_secret_ref("remote-db-token".to_string(), "secret".to_string())
+            .expect("non-empty secret refs should reach the stub boundary");
 
         assert_eq!(result.secret_ref, "remote-db-token");
         assert!(!result.stored);
         assert_eq!(result.status, "not_implemented");
+    }
+
+    #[test]
+    fn rejects_blank_secret_refs_before_secret_store_integration() {
+        assert_eq!(
+            read_secret_ref("   ".to_string()).expect_err("blank read refs must be rejected"),
+            "secret_ref must not be empty"
+        );
+        assert_eq!(
+            write_secret_ref("".to_string(), "secret".to_string())
+                .expect_err("blank write refs must be rejected"),
+            "secret_ref must not be empty"
+        );
     }
 }

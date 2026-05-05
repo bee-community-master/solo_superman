@@ -8,7 +8,7 @@ Canonical path: `docs/25-contracts-dto-catalog.md`.
 
 `19-phase1-implementation-architecture.md`가 monorepo/process topology를 정의하고, `21-sidecar-api-runtime-contract.md`가 Hono route/runtime boundary를 정의하며, `23-product-engine-runtime-contract.md`가 reducer/effect 실행 계약을 정의한다면, 이 문서는 **앱 경계를 지나는 TypeScript contract의 public surface**를 소유한다.
 
-이 문서는 문서 전용 구현 계약이다. 런타임 코드, Zod schema 파일, package scaffold, DB migration, Hono handler는 이 PR에서 만들지 않는다.
+이 문서는 contracts/DTO의 기준 계약이다. 런타임 코드, Zod schema 파일, package scaffold, DB migration, Hono handler는 각 구현 PR과 현재 코드베이스가 소유하며, 이 문서는 public DTO와 package dependency boundary를 정의한다.
 
 ## 확정 결정
 

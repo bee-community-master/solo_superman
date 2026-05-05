@@ -2,7 +2,7 @@
 
 Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질문·리서치 세션으로 구체화해, 근거와 결정이 추적되는 `Living Product Spec`까지 도달하게 하는 macOS-first 데스크톱 서비스다.
 
-이 레포의 현재 단계는 **기획 문서 작성 단계**다. 이 문서 세트는 구현 전 기준 계약이며, 런타임 코드·앱 scaffold·모바일 앱·팀 협업·결제·자동 코드 실행 구현은 아직 하지 않는다. 현재 문서 세트는 `00`~`27`의 번호 문서 28개와 이 인덱스를 합쳐 총 29개의 Markdown 문서로 구성한다.
+이 레포의 현재 기준선은 **Phase 1 구현 진행 단계**다. `00`~`27` 문서 세트는 여전히 구현 판단의 기준 계약이며, 현재 코드베이스는 PR-01 workspace scaffold부터 Phase 1 dry-run readiness까지의 런타임 골격과 검증 코드를 포함한다. 다만 모바일 앱, 팀 협업, 결제, 외부 sync, 사용자를 대신한 실제 파일 patch·shell 실행·브라우저 action 실행은 여전히 제품 범위 밖이다. 현재 문서 세트는 `00`~`27`의 번호 문서 28개와 이 인덱스를 합쳐 총 29개의 Markdown 문서로 구성한다.
 
 ## 확정된 1차 제품 결정
 
@@ -115,7 +115,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 ## 공식 자료 기반 설계 메모
 
 - Spec-first 흐름은 GitHub Spec Kit의 “spec이 실행의 중심 산출물”이라는 관점을 차용한다. 참고: <https://github.com/github/spec-kit>
-- 데스크톱 shell은 Tauri v2를 기준으로 하되, MVP 문서 단계에서는 scaffolding하지 않는다. 참고: <https://v2.tauri.app/>
+- 데스크톱 shell은 Tauri v2를 기준으로 하며, 현재 repo에는 Phase 1 구현 순서에 따른 초기 Tauri/React/Vite scaffold가 존재한다. 참고: <https://v2.tauri.app/>
 - Phase 1 packaged desktop은 Tauri sidecar 패턴으로 Node/Hono sidecar를 실행하는 방향을 고정한다. 참고: <https://v2.tauri.app/learn/sidecar-nodejs/>, <https://v2.tauri.app/ko/develop/sidecar/>
 - 백그라운드 작업과 장기 flow는 OpenClaw Background Tasks/Task Flow를 adapter 후보로 둔다. 참고: <https://docs.openclaw.ai/automation/tasks>, <https://docs.openclaw.ai/automation/taskflow>
 - 선택적 sync와 후속 모바일/대시보드 실시간성은 Supabase Realtime 확장 후보로 둔다. 참고: <https://supabase.com/docs/guides/realtime>
@@ -132,8 +132,10 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 
 ## 현재 금지 사항
 
-- 런타임 코드 구현 금지.
-- Tauri/React 앱 scaffold 생성 금지.
+아래 금지 사항은 **제품 기능과 Phase 1 범위의 금지선**이다. 현재 repo에는 Phase 1 구현 순서에 따라 runtime scaffold와 검증 코드가 존재하지만, 앱이 사용자 대신 위험한 실행을 수행하거나 후속 phase 기능을 앞당기는 것은 금지한다.
+
+- ProductEngine effect/reducer가 DB/Hono/Codex/filesystem/network를 직접 호출하는 구조 금지.
+- Tauri/React scaffold를 Phase 1 계약 밖의 모바일/결제/협업/remote-sync 앱으로 확장 금지.
 - Supabase 프로젝트 생성 또는 DB migration 실행 금지.
 - 실제 remote sync 구현 금지. Phase 1 문서상 허용되는 것은 remote config placeholder뿐이다.
 - OpenClaw/Goose/CrewAI/Browser-use 실제 연동 금지.

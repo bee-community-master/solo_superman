@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { QueueItemId, ResearchTaskId, RuntimeArtifactId, SessionId, StateVersion } from "@solo-superman/contracts";
-import { createSidecarClient, sidecarConnectionFromEnv, type SidecarConnection } from "./sidecar-client";
+import { createSidecarClient, SidecarClientError, sidecarConnectionFromEnv, type SidecarConnection } from "./sidecar-client";
 
 const connection: SidecarConnection = {
   baseUrl: "http://127.0.0.1:43110",
@@ -33,6 +33,23 @@ describe("sidecar client", () => {
     });
 
     expect(sidecarConnectionFromEnv({})).toBeNull();
+  });
+
+  it("rejects non-loopback or non-origin Vite dev base URLs before sending the local token", () => {
+    for (const baseUrl of [
+      "https://127.0.0.1:61234",
+      "http://192.0.2.10:61234",
+      "http://127.0.0.1:61234/api",
+      "http://127.0.0.1:61234/",
+      "http://127.0.0.1:61234@evil.example"
+    ]) {
+      expect(
+        sidecarConnectionFromEnv({
+          VITE_SOLO_LOCAL_CAPABILITY_TOKEN: "shared-token",
+          VITE_SOLO_SIDECAR_BASE_URL: baseUrl
+        })
+      ).toBeNull();
+    }
   });
 
   it("posts commands with the local capability token and unwraps the success envelope", async () => {
@@ -409,6 +426,38 @@ describe("sidecar client", () => {
       httpStatus: 503,
       apiError: {
         code: "SIDECAR_NOT_READY"
+      }
+    });
+  });
+
+  it("normalizes non-JSON sidecar failures into a typed UI error", async () => {
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async () =>
+        new Response("Service unavailable", {
+          status: 503,
+          headers: {
+            "Content-Type": "text/plain"
+          }
+        })
+    });
+
+    await expect(
+      client.createProject({
+        rawIdea: "Unavailable sidecar",
+        localPrivacyMode: "local_only"
+      })
+    ).rejects.toBeInstanceOf(SidecarClientError);
+    await expect(
+      client.createProject({
+        rawIdea: "Unavailable sidecar",
+        localPrivacyMode: "local_only"
+      })
+    ).rejects.toMatchObject({
+      httpStatus: 503,
+      apiError: {
+        code: "SIDECAR_NOT_READY",
+        message: "Sidecar returned a non-JSON response."
       }
     });
   });

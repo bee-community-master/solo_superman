@@ -16,6 +16,11 @@ import {
   type StatusEndpointDto
 } from "@solo-superman/contracts";
 import {
+  commandResponseVersion,
+  optionalCommandProjection,
+  requiredCommandProjection
+} from "../../shared/api/command-response-helpers";
+import {
   createSidecarClient,
   discoverSidecarConnection,
   SidecarClientError,
@@ -57,26 +62,6 @@ const DEFAULT_IDEA = "A focused founder brief generator";
 const DEFAULT_INTAKE =
   "Help solo founders turn a rough idea into a traceable product spec before they start building.";
 
-function responseVersion(response: CommandResponse) {
-  if (typeof response.stateVersionAfter !== "number") {
-    const message = response.error?.message ?? "Command did not return a next state version.";
-
-    throw new Error(message);
-  }
-
-  return response.stateVersionAfter as StateVersion;
-}
-
-function responseProjection<TProjection>(response: CommandResponse<TProjection>, kind: string) {
-  const projection = response.immediateProjection ?? response.queueProjection;
-
-  if (!projection || typeof projection !== "object" || !("kind" in projection) || projection.kind !== kind) {
-    throw new Error(`${kind} was not returned by the sidecar command.`);
-  }
-
-  return projection as TProjection;
-}
-
 function displayError(error: unknown) {
   if (error instanceof SidecarClientError) {
     return `${error.apiError.code}: ${error.apiError.message}`;
@@ -97,14 +82,8 @@ function latestProjectionVersion(projections: ProjectionState) {
   ) as StateVersion;
 }
 
-export function DecisionQueueShell() {
-  const [connectionState, setConnectionState] = useState<ConnectionState>({ status: "connecting" });
-  const [client, setClient] = useState<SidecarClient | null>(null);
-  const [idea, setIdea] = useState(DEFAULT_IDEA);
-  const [intake, setIntake] = useState(DEFAULT_INTAKE);
-  const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
-  const [researchDrafts, setResearchDrafts] = useState<Record<string, string>>({});
-  const [projections, setProjections] = useState<ProjectionState>({
+function emptyProjectionState(): ProjectionState {
+  return {
     session: null,
     spec: null,
     queue: null,
@@ -112,7 +91,17 @@ export function DecisionQueueShell() {
     activity: null,
     confidence: null,
     founderBrief: null
-  });
+  };
+}
+
+export function DecisionQueueShell() {
+  const [connectionState, setConnectionState] = useState<ConnectionState>({ status: "connecting" });
+  const [client, setClient] = useState<SidecarClient | null>(null);
+  const [idea, setIdea] = useState(DEFAULT_IDEA);
+  const [intake, setIntake] = useState(DEFAULT_INTAKE);
+  const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
+  const [researchDrafts, setResearchDrafts] = useState<Record<string, string>>({});
+  const [projections, setProjections] = useState<ProjectionState>(emptyProjectionState);
   const [runtimeStatus, setRuntimeStatus] = useState<CodexRuntimeStatusDto | null>(null);
   const [commandLog, setCommandLog] = useState<readonly CommandLogEntry[]>([]);
   const [statuses, setStatuses] = useState<readonly StatusEndpointDto[]>([]);
@@ -256,15 +245,7 @@ export function DecisionQueueShell() {
       setAnswerDrafts({});
       setCommandLog([]);
       setStatuses([]);
-      setProjections({
-        session: null,
-        spec: null,
-        queue: null,
-        research: null,
-        activity: null,
-        confidence: null,
-        founderBrief: null
-      });
+      setProjections(emptyProjectionState());
 
       try {
         const start = await appendCommand(
@@ -274,37 +255,32 @@ export function DecisionQueueShell() {
             localPrivacyMode: "local_only"
           })
         );
-        const session = responseProjection<SessionShellProjection>(start, "SessionShellProjection");
+        const session = requiredCommandProjection<SessionShellProjection>(start, "SessionShellProjection");
         setProjections({
+          ...emptyProjectionState(),
           session,
-          spec: null,
-          queue: null,
-          research: null,
-          activity: null,
-          confidence: null,
-          founderBrief: null
         });
 
         const intakeResponse = await appendCommand(
           "Capture intake",
-          await client.captureIntake(session.sessionId, responseVersion(start), intake)
+          await client.captureIntake(session.sessionId, commandResponseVersion(start), intake)
         );
         const draftResponse = await appendCommand(
           "Draft initial spec",
-          await client.draftInitialSpec(session.sessionId, responseVersion(intakeResponse))
+          await client.draftInitialSpec(session.sessionId, commandResponseVersion(intakeResponse))
         );
         const analyzeResponse = await appendCommand(
           "Analyze ambiguity",
-          await client.analyzeAmbiguity(session.sessionId, responseVersion(draftResponse), "current_spec")
+          await client.analyzeAmbiguity(session.sessionId, commandResponseVersion(draftResponse), "current_spec")
         );
         const activateResponse = await appendCommand(
           "Activate question batch",
-          await client.activateQuestionBatch(session.sessionId, responseVersion(analyzeResponse))
+          await client.activateQuestionBatch(session.sessionId, commandResponseVersion(analyzeResponse))
         );
 
         setProjections((current) => ({
           ...current,
-          queue: responseProjection<DecisionQueueProjection>(activateResponse, "DecisionQueueProjection")
+          queue: requiredCommandProjection<DecisionQueueProjection>(activateResponse, "DecisionQueueProjection")
         }));
         await refreshProjections(session.projectId, session.sessionId);
       } catch (error) {
@@ -343,7 +319,7 @@ export function DecisionQueueShell() {
             answer
           })
         );
-        const queue = responseProjection<DecisionQueueProjection>(response, "DecisionQueueProjection");
+        const queue = requiredCommandProjection<DecisionQueueProjection>(response, "DecisionQueueProjection");
 
         setAnswerDrafts((current) => ({
           ...current,
@@ -392,16 +368,18 @@ export function DecisionQueueShell() {
             limitationNotes: "Manual import from founder-provided source."
           })
         );
-        const research = responseProjection<ResearchEvidenceProjection>(response, "ResearchEvidenceProjection");
+        const research = optionalCommandProjection<ResearchEvidenceProjection>(response, "ResearchEvidenceProjection");
 
         setResearchDrafts((current) => ({
           ...current,
           [researchTaskId]: ""
         }));
-        setProjections((current) => ({
-          ...current,
-          research
-        }));
+        if (research) {
+          setProjections((current) => ({
+            ...current,
+            research
+          }));
+        }
         await refreshProjections(projections.session.projectId, projections.session.sessionId);
       } catch (error) {
         setWorkflowError(displayError(error));
@@ -429,7 +407,7 @@ export function DecisionQueueShell() {
           expectedStateVersion: latestProjectionVersion(projections)
         })
       );
-      const confidence = responseProjection<ConfidenceCompletionProjection>(
+      const confidence = requiredCommandProjection<ConfidenceCompletionProjection>(
         response,
         "ConfidenceCompletionProjection"
       );
@@ -471,7 +449,7 @@ export function DecisionQueueShell() {
           requestedFormat: "markdown"
         })
       );
-      const founderBrief = responseProjection<FounderBriefProjection>(response, "FounderBriefProjection");
+      const founderBrief = requiredCommandProjection<FounderBriefProjection>(response, "FounderBriefProjection");
 
       setProjections((current) => ({
         ...current,

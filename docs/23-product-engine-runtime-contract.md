@@ -6,7 +6,7 @@
 
 `18-product-engine-orchestrator.md`가 제품 엔진의 command/event/state 의미를 정의한다면, 이 문서는 그 의미를 `packages/core`, `packages/db`, `apps/sidecar`, `apps/desktop`이 어떻게 나눠 구현해야 하는지 정의한다.
 
-이 문서는 문서 전용 구현 계약이다. 런타임 코드, 앱 scaffold, DB migration file, Hono handler, Codex adapter 코드는 이 PR에서 만들지 않는다.
+이 문서는 ProductEngine runtime의 기준 계약이다. 런타임 코드, 앱 scaffold, DB migration file, Hono handler, Codex adapter 코드는 각 구현 PR과 현재 코드베이스가 소유하며, 이 문서는 reducer/effect/status 경계와 금지선을 정의한다.
 
 ## 확정 결정
 

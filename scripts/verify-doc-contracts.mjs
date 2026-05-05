@@ -1,16 +1,12 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { relative } from "node:path";
-import { URL } from "node:url";
+import { pathToFileURL, URL } from "node:url";
 
 const ROOT = new URL("../", import.meta.url);
 
 function readText(path) {
   return readFileSync(new URL(path, ROOT), "utf8");
 }
-
-const DOCS_24 = readText("docs/24-codex-prompt-output-contract.md");
-const DOCS_25 = readText("docs/25-contracts-dto-catalog.md");
-const DOCS_26 = readText("docs/26-api-route-behavior-catalog.md");
 
 function fail(message, details = []) {
   console.error(`doc contract check failed: ${message}`);
@@ -22,11 +18,11 @@ function fail(message, details = []) {
   process.exitCode = 1;
 }
 
-function quotedValues(text) {
+export function quotedValues(text) {
   return [...text.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
 }
 
-function parseConstArray(sourceText, name) {
+export function parseConstArray(sourceText, name) {
   const match = sourceText.match(new RegExp(`${name} = \\[([\\s\\S]*?)\\] as const`));
 
   if (!match) {
@@ -36,7 +32,7 @@ function parseConstArray(sourceText, name) {
   return quotedValues(match[1]);
 }
 
-function parseStringUnion(sourceText, name) {
+export function parseStringUnion(sourceText, name) {
   const match = sourceText.match(new RegExp(`export type ${name} =([\\s\\S]*?);`));
 
   if (!match) {
@@ -46,7 +42,7 @@ function parseStringUnion(sourceText, name) {
   return quotedValues(match[1]);
 }
 
-function sectionBetween(text, start, end, label) {
+export function sectionBetween(text, start, end, label) {
   const startIndex = text.indexOf(start);
 
   if (startIndex < 0) {
@@ -63,11 +59,11 @@ function sectionBetween(text, start, end, label) {
   return text.slice(contentStart, endIndex);
 }
 
-function markdownFirstColumnValues(section) {
+export function markdownFirstColumnValues(section) {
   return [...section.matchAll(/^\| `([^`]+)` \|/gm)].map((match) => match[1]);
 }
 
-function parseBacktickedValuesFromTableColumn(section, columnIndex) {
+export function parseBacktickedValuesFromTableColumn(section, columnIndex) {
   const values = [];
 
   for (const row of section.matchAll(/^\|(.+)\|$/gm)) {
@@ -82,13 +78,13 @@ function parseBacktickedValuesFromTableColumn(section, columnIndex) {
   return values;
 }
 
-function moduleSpecifiers(sourceText) {
+export function moduleSpecifiers(sourceText) {
   const importOrExportPattern = /(?:import|export)\s+(?:[^'"]*?\s+from\s+)?["']([^"']+)["']/g;
 
   return [...sourceText.matchAll(importOrExportPattern)].map((match) => match[1]);
 }
 
-function moduleMatches(specifier, pattern) {
+export function moduleMatches(specifier, pattern) {
   if (pattern.endsWith("/") || pattern.endsWith(":")) {
     return specifier.startsWith(pattern);
   }
@@ -96,9 +92,9 @@ function moduleMatches(specifier, pattern) {
   return specifier === pattern || specifier.startsWith(`${pattern}/`);
 }
 
-function parseDocs25CommandTypes() {
+function parseDocs25CommandTypes(docs25) {
   const section = sectionBetween(
-    DOCS_25,
+    docs25,
     "### CommandType enum",
     "### ProductEngineCommand envelope",
     "docs/25 CommandType section"
@@ -107,9 +103,9 @@ function parseDocs25CommandTypes() {
   return markdownFirstColumnValues(section);
 }
 
-function parseDocs25CommandActors() {
+function parseDocs25CommandActors(docs25) {
   const section = sectionBetween(
-    DOCS_25,
+    docs25,
     "`CommandActor` enum:",
     "Example command envelope:",
     "docs/25 CommandActor section"
@@ -118,9 +114,9 @@ function parseDocs25CommandActors() {
   return markdownFirstColumnValues(section);
 }
 
-function parseDocs25EventTypes() {
+function parseDocs25EventTypes(docs25) {
   const section = sectionBetween(
-    DOCS_25,
+    docs25,
     "Closed Phase 1 event type groups:",
     "### ProductEngineEffectPlanItem",
     "docs/25 ProductEngineEventType section"
@@ -129,9 +125,9 @@ function parseDocs25EventTypes() {
   return parseBacktickedValuesFromTableColumn(section, 1);
 }
 
-function parseDocs25EffectTypes() {
+function parseDocs25EffectTypes(docs25) {
   const section = sectionBetween(
-    DOCS_25,
+    docs25,
     "### EffectType enum",
     "### EffectStatus enum",
     "docs/25 EffectType section"
@@ -140,9 +136,9 @@ function parseDocs25EffectTypes() {
   return markdownFirstColumnValues(section);
 }
 
-function parseDocs25EffectStatuses() {
+function parseDocs25EffectStatuses(docs25) {
   const section = sectionBetween(
-    DOCS_25,
+    docs25,
     "### EffectStatus enum",
     "### EffectTaskDto",
     "docs/25 EffectStatus section"
@@ -151,9 +147,9 @@ function parseDocs25EffectStatuses() {
   return markdownFirstColumnValues(section);
 }
 
-function parseDocs25SseEvents() {
+function parseDocs25SseEvents(docs25) {
   const section = sectionBetween(
-    DOCS_25,
+    docs25,
     "### SseEvent union",
     "### ProjectionRefetchHint",
     "docs/25 SseEvent section"
@@ -162,9 +158,9 @@ function parseDocs25SseEvents() {
   return markdownFirstColumnValues(section);
 }
 
-function parseDocs25ProjectionKinds() {
+function parseDocs25ProjectionKinds(docs25) {
   const section = sectionBetween(
-    DOCS_25,
+    docs25,
     "| Projection | File | Primary UI |",
     "### Projection minimum fields",
     "docs/25 ProjectionKind section"
@@ -173,9 +169,9 @@ function parseDocs25ProjectionKinds() {
   return markdownFirstColumnValues(section);
 }
 
-function parseDocs24TurnPurposes() {
+function parseDocs24TurnPurposes(docs24) {
   const section = sectionBetween(
-    DOCS_24,
+    docs24,
     "Phase 1에서 허용되는 Codex turnPurpose는 다음 6개뿐이다.",
     "## Input contract overview",
     "docs/24 turnPurpose section"
@@ -184,9 +180,9 @@ function parseDocs24TurnPurposes() {
   return markdownFirstColumnValues(section);
 }
 
-function parseDocs24ArtifactKinds() {
+function parseDocs24ArtifactKinds(docs24) {
   const section = sectionBetween(
-    DOCS_24,
+    docs24,
     "## Artifact field contracts",
     "## Blocked action taxonomy",
     "docs/24 artifact kind section"
@@ -195,9 +191,9 @@ function parseDocs24ArtifactKinds() {
   return [...section.matchAll(/^### ([A-Za-z]+Artifact)$/gm)].map((match) => match[1]);
 }
 
-function parseDocs24ApplyPolicies() {
+function parseDocs24ApplyPolicies(docs24) {
   const section = sectionBetween(
-    DOCS_24,
+    docs24,
     "## applyPolicy enum",
     "Unknown applyPolicy",
     "docs/24 applyPolicy section"
@@ -206,9 +202,9 @@ function parseDocs24ApplyPolicies() {
   return markdownFirstColumnValues(section);
 }
 
-function parseDocs24BlockedActionTypes() {
+function parseDocs24BlockedActionTypes(docs24) {
   const section = sectionBetween(
-    DOCS_24,
+    docs24,
     "## Blocked action taxonomy",
     "## Auto-apply and gate matrix",
     "docs/24 blocked action section"
@@ -217,29 +213,35 @@ function parseDocs24BlockedActionTypes() {
   return markdownFirstColumnValues(section);
 }
 
-function parseRouteCatalog() {
-  const source = readText("packages/contracts/src/api/routes.ts");
-  const routeBlocks = [...source.matchAll(/\{([^{}]*routeId:[^{}]*)\}/gs)].map((match) => match[1]);
+export function parseRouteCatalogFromSource(source) {
+  const routeBlocks = [...source.matchAll(/\{([^{}]*routeId:\s*"[^"]+"[^{}]*)\}/gs)].map((match) => match[1]);
   const routes = new Map();
 
   for (const block of routeBlocks) {
-    const method = block.match(/method: "(GET|POST)"/)?.[1];
+    const routeId = block.match(/routeId: "([^"]+)"/)?.[1] ?? "(unknown routeId)";
+    const rawMethod = block.match(/method: "([^"]+)"/)?.[1];
     const path = block.match(/path: "([^"]+)"/)?.[1];
     const queryBlock = block.match(/requiredQueryParams: \[([^\]]*)\]/)?.[1];
     const queryParams = queryBlock ? quotedValues(queryBlock) : [];
 
-    if (method && path) {
-      routes.set(`${method} ${path}`, queryParams);
+    if (rawMethod !== "GET" && rawMethod !== "POST") {
+      throw new Error(`Unsupported or missing API route method for ${routeId}: ${rawMethod ?? "(missing)"}`);
     }
+
+    if (!path) {
+      throw new Error(`Missing API route path for ${routeId}`);
+    }
+
+    routes.set(`${rawMethod} ${path}`, queryParams);
   }
 
   return routes;
 }
 
-function parseDocs26Routes() {
+export function parseDocs26RoutesFromText(docs26) {
   const routes = new Map();
 
-  for (const match of DOCS_26.matchAll(/\| `((?:GET|POST) [^`]+)` \|/g)) {
+  for (const match of docs26.matchAll(/\| `((?:GET|POST) [^`]+)` \|/g)) {
     const [method, endpoint] = match[1].split(" ", 2);
     const [path, query = ""] = endpoint.split("?");
     const queryParams = query
@@ -252,7 +254,7 @@ function parseDocs26Routes() {
   return routes;
 }
 
-function compareSets(label, docsValues, codeValues) {
+export function compareSets(label, docsValues, codeValues) {
   const docsSet = new Set(docsValues);
   const codeSet = new Set(codeValues);
   const missing = [...docsSet].filter((value) => !codeSet.has(value)).sort();
@@ -266,7 +268,7 @@ function compareSets(label, docsValues, codeValues) {
   }
 }
 
-function createContractTaxonomyChecks() {
+function createContractTaxonomyChecks({ docs24, docs25 }) {
   const commandSource = readText("packages/contracts/src/product-engine/commands.ts");
   const eventSource = readText("packages/contracts/src/product-engine/events.ts");
   const effectSource = readText("packages/contracts/src/effects/tasks.ts");
@@ -277,113 +279,132 @@ function createContractTaxonomyChecks() {
   return [
     {
       label: "docs/25 CommandType",
-      docsValues: parseDocs25CommandTypes(),
+      docsValues: parseDocs25CommandTypes(docs25),
       codeValues: parseConstArray(commandSource, "COMMAND_TYPES")
     },
     {
       label: "docs/25 CommandActor",
-      docsValues: parseDocs25CommandActors(),
+      docsValues: parseDocs25CommandActors(docs25),
       codeValues: parseConstArray(commandSource, "COMMAND_ACTORS")
     },
     {
       label: "docs/25 ProductEngineEventType",
-      docsValues: parseDocs25EventTypes(),
+      docsValues: parseDocs25EventTypes(docs25),
       codeValues: parseConstArray(eventSource, "PRODUCT_ENGINE_EVENT_TYPES")
     },
     {
       label: "docs/25 EffectType",
-      docsValues: parseDocs25EffectTypes(),
+      docsValues: parseDocs25EffectTypes(docs25),
       codeValues: parseConstArray(effectSource, "EFFECT_TYPES")
     },
     {
       label: "docs/25 EffectStatus",
-      docsValues: parseDocs25EffectStatuses(),
+      docsValues: parseDocs25EffectStatuses(docs25),
       codeValues: parseConstArray(effectSource, "EFFECT_STATUSES")
     },
     {
       label: "docs/25 SseEventName",
-      docsValues: parseDocs25SseEvents(),
+      docsValues: parseDocs25SseEvents(docs25),
       codeValues: parseStringUnion(sseSource, "SseEventName")
     },
     {
       label: "docs/25 ProjectionKind",
-      docsValues: parseDocs25ProjectionKinds(),
+      docsValues: parseDocs25ProjectionKinds(docs25),
       codeValues: parseStringUnion(projectionSource, "ProjectionKind")
     },
     {
       label: "docs/24 CodexTurnPurpose",
-      docsValues: parseDocs24TurnPurposes(),
+      docsValues: parseDocs24TurnPurposes(docs24),
       codeValues: parseConstArray(codexSource, "CODEX_TURN_PURPOSES")
     },
     {
       label: "docs/24 CodexArtifactKind",
-      docsValues: parseDocs24ArtifactKinds(),
+      docsValues: parseDocs24ArtifactKinds(docs24),
       codeValues: parseConstArray(codexSource, "CODEX_ARTIFACT_KINDS")
     },
     {
       label: "docs/24 CodexApplyPolicy",
-      docsValues: parseDocs24ApplyPolicies(),
+      docsValues: parseDocs24ApplyPolicies(docs24),
       codeValues: parseConstArray(codexSource, "CODEX_APPLY_POLICIES")
     },
     {
       label: "docs/24 BlockedActionType",
-      docsValues: parseDocs24BlockedActionTypes(),
+      docsValues: parseDocs24BlockedActionTypes(docs24),
       codeValues: parseConstArray(codexSource, "BLOCKED_ACTION_TYPES")
     }
   ];
 }
 
-function compareContractTaxonomies() {
-  for (const { label, docsValues, codeValues } of createContractTaxonomyChecks()) {
+function compareContractTaxonomies(docs) {
+  for (const { label, docsValues, codeValues } of createContractTaxonomyChecks(docs)) {
     compareSets(label, docsValues, codeValues);
   }
 }
 
-function compareRoutes() {
-  const docsRoutes = parseDocs26Routes();
-  const codeRoutes = parseRouteCatalog();
-
-  compareSets("docs/26 route catalog", [...docsRoutes.keys()], [...codeRoutes.keys()]);
-
+export function findRouteQueryMismatches(docsRoutes, codeRoutes) {
   const queryMismatches = [];
 
   for (const [route, docsQuery] of docsRoutes.entries()) {
     const codeQuery = codeRoutes.get(route);
 
-    if (codeQuery && docsQuery.join(",") !== codeQuery.join(",")) {
-      queryMismatches.push(`${route}: docs=[${docsQuery.join(",")}] code=[${codeQuery.join(",")}]`);
+    if (!codeQuery) {
+      continue;
+    }
+
+    const docsSet = new Set(docsQuery);
+    const codeSet = new Set(codeQuery);
+    const missingInCode = [...docsSet].filter((value) => !codeSet.has(value)).sort();
+    const extraInCode = [...codeSet].filter((value) => !docsSet.has(value)).sort();
+
+    if (missingInCode.length || extraInCode.length) {
+      queryMismatches.push(
+        `${route}: missing in code=[${missingInCode.join(",") || "(none)"}] extra in code=[${extraInCode.join(",") || "(none)"}]`
+      );
     }
   }
+
+  return queryMismatches;
+}
+
+function compareRoutes(docs26) {
+  const docsRoutes = parseDocs26RoutesFromText(docs26);
+  const codeRoutes = parseRouteCatalogFromSource(readText("packages/contracts/src/api/routes.ts"));
+
+  compareSets("docs/26 route catalog", [...docsRoutes.keys()], [...codeRoutes.keys()]);
+
+  const queryMismatches = findRouteQueryMismatches(docsRoutes, codeRoutes);
 
   if (queryMismatches.length) {
     fail("docs/26 route query mismatch", queryMismatches);
   }
 }
 
-function scanPackageBoundaries() {
-  const checks = [
-    {
-      root: "packages/core/src",
-      forbiddenModules: ["hono", "@hono/", "@tauri-apps/", "react", "react-dom", "node:", "http", "https"]
-    },
-    {
-      root: "apps/desktop/src",
-      forbiddenModules: ["@solo-superman/db", "@libsql/", "libsql", "sqlite", "sqlite3", "better-sqlite3"]
-    },
-    {
-      root: "packages/contracts/src",
-      forbiddenModules: ["hono", "@hono/", "@tauri-apps/", "react", "react-dom", "drizzle-orm", "drizzle-kit"]
-    }
-  ];
+export const DEFAULT_PACKAGE_BOUNDARY_CHECKS = [
+  {
+    root: "packages/core/src",
+    forbiddenModules: ["hono", "@hono/", "@tauri-apps/", "react", "react-dom", "node:", "http", "https"]
+  },
+  {
+    root: "apps/desktop/src",
+    forbiddenModules: ["@solo-superman/db", "@libsql/", "libsql", "sqlite", "sqlite3", "better-sqlite3"]
+  },
+  {
+    root: "packages/contracts/src",
+    forbiddenModules: ["hono", "@hono/", "@tauri-apps/", "react", "react-dom", "drizzle-orm", "drizzle-kit"]
+  }
+];
+
+export function collectPackageBoundaryViolations({ root = ROOT, checks = DEFAULT_PACKAGE_BOUNDARY_CHECKS } = {}) {
   const violations = [];
 
   for (const check of checks) {
-    const pending = [new URL(`${check.root}/`, ROOT)];
+    const pending = [new URL(`${check.root}/`, root)];
 
     while (pending.length) {
       const dir = pending.pop();
+      const entries = readdirSync(dir).sort();
 
-      for (const entry of readdirSync(dir)) {
+      for (const entry of entries) {
         const url = new URL(entry, `${dir.href.replace(/\/?$/, "/")}`);
         const stat = statSync(url);
 
@@ -401,7 +422,7 @@ function scanPackageBoundaries() {
         for (const specifier of imports) {
           for (const forbidden of check.forbiddenModules) {
             if (moduleMatches(specifier, forbidden)) {
-              violations.push(`${relative(ROOT.pathname, url.pathname)} imports ${specifier}`);
+              violations.push(`${relative(root.pathname, url.pathname)} imports ${specifier}`);
             }
           }
         }
@@ -409,15 +430,33 @@ function scanPackageBoundaries() {
     }
   }
 
+  return violations.sort();
+}
+
+function scanPackageBoundaries() {
+  const violations = collectPackageBoundaryViolations();
+
   if (violations.length) {
     fail("package boundary import scan", violations);
   }
 }
 
-compareContractTaxonomies();
-compareRoutes();
-scanPackageBoundaries();
+export function runDocContractChecks() {
+  const docs = {
+    docs24: readText("docs/24-codex-prompt-output-contract.md"),
+    docs25: readText("docs/25-contracts-dto-catalog.md"),
+    docs26: readText("docs/26-api-route-behavior-catalog.md")
+  };
 
-if (!process.exitCode) {
-  console.log("doc contract checks passed");
+  compareContractTaxonomies(docs);
+  compareRoutes(docs.docs26);
+  scanPackageBoundaries();
+
+  if (!process.exitCode) {
+    console.log("doc contract checks passed");
+  }
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  runDocContractChecks();
 }
