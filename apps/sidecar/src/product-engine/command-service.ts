@@ -6,7 +6,9 @@ import {
   DEFAULT_RESEARCH_DISCLOSURE_LOG_POLICY,
   DEFAULT_RESEARCH_RATE_BUDGET_POLICY,
   DEFAULT_RESEARCH_STALENESS_POLICY,
+  MANUAL_RESEARCH_SOURCE_CATEGORIES,
   ResearchAllowlistValidationError,
+  assertSafeResearchConnectorId,
   type ApiErrorCode,
   type BlockedActionType,
   type CommandId,
@@ -24,6 +26,7 @@ import {
   type FounderBriefProjection,
   type LivingSpecProjection,
   type PendingEffectSummaryDto,
+  type PrepareResearchDisclosureRequest,
   type ProjectApplicationCommandType,
   type ProductEngineCommand,
   type ProductEngineCommandType,
@@ -36,8 +39,14 @@ import {
   type ResearchAllowlistGovernanceProjection,
   type ResearchAllowlistId,
   type ResearchAllowlistProjection,
+  type ResearchDisclosureBlockReason,
+  type ResearchDisclosureLogEntry,
+  type ResearchDisclosureLogId,
+  type ResearchDisclosureLogProjection,
+  type ResearchDisclosurePreparationResult,
   type ResearchEvidenceProjection,
   type ResearchResultId,
+  type ResearchSourceCategory,
   type ResearchTaskId,
   type RuntimeActivityProjection,
   type RuntimePreviewArtifact,
@@ -55,6 +64,7 @@ import {
   createProjectRepository,
   createProjectionRepository,
   createResearchAllowlistRepository,
+  createResearchDisclosureLogRepository,
   createResearchRepository,
   createRuntimeRepository,
   type EffectTaskRecord,
@@ -66,7 +76,10 @@ import {
   reduceProductEngineCommand,
   replayProductEngineEvents,
   sessionPhaseForProductEngineEvent,
-  sessionShellPhaseForProductEnginePhase
+  sessionShellPhaseForProductEnginePhase,
+  buildPublicSafeResearchSummary,
+  containsPrivateResearchContext,
+  redactPublicSafeResearchText
 } from "@solo-superman/core";
 import {
   CodexRuntimeUnavailableError,
@@ -126,6 +139,11 @@ export interface RunResearchAllowlistLifecycleInput {
   readonly reason?: string;
 }
 
+export interface RunResearchDisclosureInput {
+  readonly projectId: ProjectId;
+  readonly request: PrepareResearchDisclosureRequest;
+}
+
 function prefixedId<TId extends string>(prefix: string) {
   return `${prefix}_${randomUUID().replaceAll("-", "")}` as TId;
 }
@@ -156,6 +174,10 @@ function sessionId() {
 
 function researchAllowlistId() {
   return prefixedId<ResearchAllowlistId>("research_allowlist");
+}
+
+function researchDisclosureLogId() {
+  return prefixedId<ResearchDisclosureLogId>("research_disclosure");
 }
 
 function zeroPendingEffectSummary(): PendingEffectSummaryDto {
@@ -236,6 +258,88 @@ function allowlistCommandResponse(
           projectionKind: hint.projectionKind,
           productEngineReducerSideEffects: false,
           ...(governanceReason ? { governanceReason } : {})
+        }
+      }
+    ]
+  };
+}
+
+function disclosureRefetchUrl(projectIdValue: ProjectId) {
+  return `/api/v1/projects/${projectIdValue}/research-disclosures`;
+}
+
+function disclosureProjectionHint(projectIdValue: ProjectId): ProjectionRefetchHint {
+  return {
+    projectionKind: "ResearchDisclosureLogProjection",
+    refetchUrl: disclosureRefetchUrl(projectIdValue)
+  };
+}
+
+function disclosureCollectionVersion(logs: readonly ResearchDisclosureLogEntry[]): ProjectionVersion {
+  return logs.length as ProjectionVersion;
+}
+
+function disclosureProjection(
+  projectIdValue: ProjectId,
+  logs: readonly ResearchDisclosureLogEntry[],
+  generatedAt: string,
+  latestDisclosureLog?: ResearchDisclosureLogEntry
+): ResearchDisclosureLogProjection {
+  return {
+    kind: "ResearchDisclosureLogProjection",
+    version: disclosureCollectionVersion(logs),
+    projectId: projectIdValue,
+    generatedAt,
+    stale: false,
+    refetchUrl: disclosureRefetchUrl(projectIdValue),
+    disclosureLogs: logs,
+    ...(latestDisclosureLog ? { latestDisclosureLog } : {})
+  };
+}
+
+function disclosureCommandResponse(
+  stateVersionBefore: StateVersion,
+  result: ResearchDisclosurePreparationResult
+): CommandResponse<ResearchDisclosurePreparationResult> {
+  const hint = disclosureProjectionHint(result.disclosureLog.projectId);
+  const blocked = result.status === "blocked_manual_handoff";
+
+  return {
+    category: blocked ? "blocked" : "accepted_with_projection",
+    commandId: commandId(),
+    correlationId: correlationId(),
+    stateVersionBefore,
+    stateVersionAfter: result.projection.version as unknown as StateVersion,
+    eventIds: [],
+    effectTaskIds: [],
+    immediateProjection: result,
+    pendingEffectSummary: zeroPendingEffectSummary(),
+    projectionHints: [hint],
+    ...(blocked
+      ? {
+          blockingCard: {
+            title: "Automatic research disclosure blocked",
+            reason: result.manualHandoff?.reason,
+            userAction: "task_level_approval_or_manual_handoff"
+          }
+        }
+      : {}),
+    deterministicOutputs: [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: `PrepareResearchDisclosure:${result.disclosureLog.projectId}:${result.disclosureLog.logId}`,
+        payload: {
+          commandType: "PrepareResearchDisclosure",
+          projectId: result.disclosureLog.projectId,
+          refetchUrl: hint.refetchUrl,
+          projectionKind: hint.projectionKind,
+          publicSafePayload: result.publicSafePayload,
+          disclosureLogId: result.disclosureLog.logId,
+          disclosureStatus: result.status,
+          productEngineReducerSideEffects: false,
+          providerExecution: false,
+          externalTransferPerformed: false,
+          ...(result.manualHandoff ? { manualHandoff: result.manualHandoff } : {})
         }
       }
     ]
@@ -1354,8 +1458,105 @@ export function createProductEngineCommandService(
     return allowlistGovernanceProjection(projectIdValue, allowlists, new Date().toISOString(), selectedAllowlist);
   }
 
+  async function listProjectDisclosureLogs(projectIdValue: ProjectId) {
+    return createResearchDisclosureLogRepository(storage.db).listForProject(projectIdValue);
+  }
+
+  async function listDisclosureProjection(projectIdValue: ProjectId, latestDisclosureLog?: ResearchDisclosureLogEntry) {
+    const logs = await listProjectDisclosureLogs(projectIdValue);
+
+    return disclosureProjection(projectIdValue, logs, new Date().toISOString(), latestDisclosureLog ?? logs.at(-1));
+  }
+
   function allowlistVersionAfter(allowlist: ResearchAllowlistProjection | null) {
     return ((allowlist ? Number(allowlist.version) : 0) + 1) as ProjectionVersion;
+  }
+
+  function isManualResearchSourceCategory(sourceCategory: ResearchSourceCategory) {
+    return MANUAL_RESEARCH_SOURCE_CATEGORIES.includes(sourceCategory as (typeof MANUAL_RESEARCH_SOURCE_CATEGORIES)[number]);
+  }
+
+  function sourceRefsFromDisclosureRequest(request: PrepareResearchDisclosureRequest) {
+    return [
+      ...new Set(
+        (request.sourceRefs ?? [])
+          .map((sourceRef) => redactPublicSafeResearchText(sourceRef, request))
+          .filter(Boolean)
+      )
+    ];
+  }
+
+  function manualHandoffReason(blockReason: ResearchDisclosureBlockReason, sourceCategory: ResearchSourceCategory) {
+    switch (blockReason) {
+      case "manual_source_category":
+        return `${sourceCategory} requires task-level approval or manual handoff.`;
+      case "private_context_material":
+        return "Raw idea, detailed answers, private documents, contacts, private customer names, or unreleased partner names require task-level approval or manual handoff.";
+      case "allowlist_missing":
+        return "No active allowlist matches this disclosure request; create or reactivate an allowlist before automatic research.";
+      case "allowlist_paused":
+        return "The selected research allowlist is paused; resume with fresh approval before automatic research.";
+      case "allowlist_revoked":
+        return "The selected research allowlist is revoked and cannot authorize automatic research.";
+      case "connector_not_allowed":
+        return "The selected connector is not approved by the active allowlist.";
+      case "source_category_not_allowed":
+        return "The selected source category is not approved by the active allowlist.";
+    }
+  }
+
+  function blockReasonForDisclosure(
+    request: PrepareResearchDisclosureRequest,
+    allowlist: ResearchAllowlistProjection | null
+  ): ResearchDisclosureBlockReason | null {
+    if (isManualResearchSourceCategory(request.sourceCategory)) {
+      return "manual_source_category";
+    }
+
+    if (containsPrivateResearchContext(request)) {
+      return "private_context_material";
+    }
+
+    if (!allowlist) {
+      return "allowlist_missing";
+    }
+
+    if (allowlist.status === "paused") {
+      return "allowlist_paused";
+    }
+
+    if (allowlist.status === "revoked") {
+      return "allowlist_revoked";
+    }
+
+    if (!allowlist.connectorIds.includes(request.connectorId)) {
+      return "connector_not_allowed";
+    }
+
+    return allowlist.sourceCategories.includes(request.sourceCategory as never) ? null : "source_category_not_allowed";
+  }
+
+  async function matchingAllowlistForDisclosure(
+    projectIdValue: ProjectId,
+    request: PrepareResearchDisclosureRequest
+  ): Promise<ResearchAllowlistProjection | null> {
+    if (request.allowlistId) {
+      return findProjectAllowlist(projectIdValue, request.allowlistId);
+    }
+
+    const allowlists = await listProjectAllowlists(projectIdValue);
+
+    return (
+      allowlists.find(
+        (allowlist) =>
+          allowlist.status === "active" &&
+          allowlist.connectorIds.includes(request.connectorId) &&
+          allowlist.sourceCategories.includes(request.sourceCategory as never)
+      ) ??
+      allowlists.find((allowlist) => allowlist.status === "active") ??
+      allowlists[0] ??
+      null
+    );
   }
 
   function createAllowlistFromRequest(
@@ -1694,6 +1895,71 @@ export function createProductEngineCommandService(
           projection,
           input.reason
         );
+      } catch (error) {
+        throw validationError(error);
+      }
+    },
+
+    async listResearchDisclosures(projectIdValue: ProjectId): Promise<ResearchDisclosureLogProjection> {
+      await requireProject(projectIdValue);
+
+      return listDisclosureProjection(projectIdValue);
+    },
+
+    async prepareResearchDisclosure(
+      input: RunResearchDisclosureInput
+    ): Promise<CommandResponse<ResearchDisclosurePreparationResult>> {
+      try {
+        await requireProject(input.projectId);
+        assertRequestProjectMatchesRoute(input.projectId, input.request.projectId);
+        assertSafeResearchConnectorId(input.request.connectorId);
+
+        const publicSafePayload = buildPublicSafeResearchSummary(input.request);
+        const allowlist = await matchingAllowlistForDisclosure(input.projectId, input.request);
+        const blockReason = blockReasonForDisclosure(input.request, allowlist);
+        const stateVersionBefore = disclosureCollectionVersion(await listProjectDisclosureLogs(input.projectId)) as unknown as StateVersion;
+        const now = new Date().toISOString();
+        const sourceRefs = sourceRefsFromDisclosureRequest(input.request);
+        const manualReason = blockReason ? manualHandoffReason(blockReason, input.request.sourceCategory) : null;
+        const disclosureLog = {
+          logId: researchDisclosureLogId(),
+          projectId: input.projectId,
+          ...(allowlist ? { allowlistId: allowlist.allowlistId } : {}),
+          connectorId: input.request.connectorId,
+          sourceCategory: input.request.sourceCategory,
+          researchObjective: publicSafePayload.researchObjective,
+          objectiveSummary: publicSafePayload.researchObjective,
+          publicSafeSummarySent: publicSafePayload.publicSafeSummary,
+          sourceRefs,
+          automaticExternalTransferAllowed: blockReason === null,
+          status: blockReason === null ? "automatic_payload_ready" : "blocked_manual_handoff",
+          ...(blockReason ? { blockReason, manualHandoffReason: manualReason ?? "Manual handoff required." } : {}),
+          createdAt: now
+        } satisfies ResearchDisclosureLogEntry;
+        const saved = await createResearchDisclosureLogRepository(storage.db).create({
+          log: disclosureLog,
+          schemaVersion: CONTRACT_SCHEMA_VERSION
+        });
+        const projection = await listDisclosureProjection(input.projectId, saved);
+        const result = {
+          kind: "ResearchDisclosurePreparationResult",
+          status: saved.status,
+          automaticExternalTransferAllowed: saved.automaticExternalTransferAllowed,
+          publicSafePayload,
+          disclosureLog: saved,
+          projection,
+          ...(manualReason
+            ? {
+                manualHandoff: {
+                  required: true,
+                  reason: manualReason,
+                  route: "task_level_approval_or_manual_handoff"
+                }
+              }
+            : {})
+        } satisfies ResearchDisclosurePreparationResult;
+
+        return disclosureCommandResponse(stateVersionBefore, result);
       } catch (error) {
         throw validationError(error);
       }

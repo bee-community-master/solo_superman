@@ -113,4 +113,18 @@ describe("PR-09 desktop route client catalog", () => {
       implementation: "mounted_phase_1_5a_pr_02"
     });
   });
+
+  it("marks Phase 1.5A disclosure routes as mounted in the sidecar", () => {
+    expect(findDesktopRouteClientPlaceholder("prepareResearchDisclosure")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/projects/:projectId/research-disclosures",
+      implementation: "mounted_phase_1_5a_pr_03"
+    });
+
+    expect(findDesktopRouteClientPlaceholder("listResearchDisclosures")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/projects/:projectId/research-disclosures",
+      implementation: "mounted_phase_1_5a_pr_03"
+    });
+  });
 });

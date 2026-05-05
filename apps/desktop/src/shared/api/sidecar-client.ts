@@ -16,10 +16,13 @@ import type {
   ImportResearchResultRequest,
   LivingSpecProjection,
   PlanResearchRequest,
+  PrepareResearchDisclosureRequest,
   PrepareFounderBriefRequest,
   ProjectId,
   ResearchAllowlistGovernanceProjection,
   ResearchAllowlistId,
+  ResearchDisclosureLogProjection,
+  ResearchDisclosurePreparationResult,
   ResearchEvidenceProjection,
   RuntimeActivityProjection,
   ScoreCompletenessRequest,
@@ -53,6 +56,7 @@ export type SubmitAnswerInput = SubmitAnswerRequest;
 export type ScoreCompletenessInput = ScoreCompletenessRequest;
 export type CompletionCandidateInput = CompletionCandidateRequest;
 export type PrepareFounderBriefInput = PrepareFounderBriefRequest;
+export type PrepareResearchDisclosureInput = PrepareResearchDisclosureRequest;
 
 export class SidecarClientError extends Error {
   readonly apiError: ApiError;
@@ -120,6 +124,10 @@ function researchAllowlistCollectionPath(projectId: ProjectId) {
 
 function researchAllowlistMemberPath(projectId: ProjectId, allowlistId: ResearchAllowlistId) {
   return `${researchAllowlistCollectionPath(projectId)}/${encodeURIComponent(allowlistId)}`;
+}
+
+function researchDisclosureCollectionPath(projectId: ProjectId) {
+  return `/api/v1/projects/${encodeURIComponent(projectId)}/research-disclosures`;
 }
 
 function envValue(env: Readonly<Record<string, string | boolean | undefined>>, key: string) {
@@ -346,12 +354,20 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
       );
     },
 
+    prepareResearchDisclosure(projectId: ProjectId, input: PrepareResearchDisclosureInput) {
+      return postCommand<ResearchDisclosurePreparationResult>(researchDisclosureCollectionPath(projectId), input);
+    },
+
     getRuntimeStatus() {
       return getProjection<CodexRuntimeStatusDto>("/api/v1/runtime/status");
     },
 
     listResearchAllowlists(projectId: ProjectId) {
       return getProjection<ResearchAllowlistGovernanceProjection>(researchAllowlistCollectionPath(projectId));
+    },
+
+    listResearchDisclosures(projectId: ProjectId) {
+      return getProjection<ResearchDisclosureLogProjection>(researchDisclosureCollectionPath(projectId));
     },
 
     getSession(projectId: string, sessionId: SessionId) {

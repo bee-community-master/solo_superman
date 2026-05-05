@@ -173,7 +173,7 @@ Example JSON:
 
 ### CommandType enum
 
-Phase 1 command type values are closed, and Phase 1.5A allowlist governance adds a small project-level application-command family. `26-api-route-behavior-catalog.md` must normalize route actions to these values and must not introduce extra `CommandType` names. Project-level application commands remain in the route/catalog taxonomy, but they are not `ProductEngineCommand` reducer envelopes and must not fake a session id.
+Phase 1 command type values are closed, and Phase 1.5A allowlist/disclosure governance adds a small project-level application-command family. `26-api-route-behavior-catalog.md` must normalize route actions to these values and must not introduce extra `CommandType` names. Project-level application commands remain in the route/catalog taxonomy, but they are not `ProductEngineCommand` reducer envelopes and must not fake a session id.
 
 | CommandType | Purpose |
 | --- | --- |
@@ -199,10 +199,11 @@ Phase 1 command type values are closed, and Phase 1.5A allowlist governance adds
 | `UpdateResearchAllowlist` | update active/paused allowlist policy fields or reactivate paused allowlist; no ProductEngine reducer side effects |
 | `PauseResearchAllowlist` | pause future automatic research run starts for an allowlist; no ProductEngine reducer side effects |
 | `RevokeResearchAllowlist` | terminally revoke future automatic research run starts for an allowlist; no ProductEngine reducer side effects |
+| `PrepareResearchDisclosure` | prepare and audit public-safe research disclosure payload or blocked manual handoff; no provider execution and no ProductEngine reducer side effects |
 
 ### ProductEngineCommand envelope
 
-`ProductEngineCommand` is a session-scoped event-sourcing command envelope with concurrency and causation required. Project-level application commands such as allowlist governance use their own application-service boundary and return command-shaped responses without ProductEngine reducer events/effects.
+`ProductEngineCommand` is a session-scoped event-sourcing command envelope with concurrency and causation required. Project-level application commands such as allowlist/disclosure governance use their own application-service boundary and return command-shaped responses without ProductEngine reducer events/effects.
 
 | Field | Required | Type | Rule |
 | --- | --- | --- | --- |
@@ -267,6 +268,7 @@ Example command envelope:
 | decision/spec version | `CreateSpecUpdatePreviewPayload`, `ResolveDecisionPayload`, `CreateSpecVersionPayload` | decision/spec update refs and approval outcome |
 | completion/export | `ScoreCompletenessPayload`, `PrepareFounderBriefPayload` | scoring target or founder brief draft target |
 | allowlist governance | `CreateResearchAllowlistRequest`, `UpdateResearchAllowlistRequest`, `PauseResearchAllowlistRequest`, `RevokeResearchAllowlistRequest` | project id, allowlist id, read-only connector/source policy, pause/revoke transition target |
+| disclosure governance | `PrepareResearchDisclosureRequest` | project id, optional allowlist id, connector/source category, research objective, public-safe summary inputs, source refs |
 
 ### ProductEngineStateSnapshot
 
@@ -682,6 +684,7 @@ Phase 1.5A PR-01 implementation note:
 | `DecisionQueueProjection` | `projections/decision-queue.ts` | Decision Queue Center |
 | `LivingSpecProjection` | `projections/living-spec.ts` | Living Spec Canvas |
 | `ResearchAllowlistProjection` | `projections/research-allowlist.ts` | research allowlist governance/readiness |
+| `ResearchDisclosureLogProjection` | `projections/research-disclosure-log.ts` | Activity Feed / disclosure audit |
 | `ResearchEvidenceProjection` | `projections/research-evidence.ts` | Research Results/Evidence Matrix |
 | `ConfidenceCompletionProjection` | `projections/confidence-completion.ts` | progress/radar/risk cards |
 | `RuntimeActivityProjection` | `projections/runtime-activity.ts` | background task board/activity feed |
@@ -695,6 +698,7 @@ Phase 1.5A PR-01 implementation note:
 | `DecisionQueueProjection` | active, next, blocked, deferred queue item arrays, active batch id, priority reasons |
 | `LivingSpecProjection` | spec sections, current draft/version ref, pending spec update previews, approval status |
 | `ResearchAllowlistProjection` | status, connector ids, source categories, context mode, rate/budget policy including per-session run cap, staleness/disclosure policies, pause/revoke timestamps |
+| `ResearchDisclosureLogProjection` | connector/source category, objective summary, exact public-safe summary sent/prepared, source refs, automatic-vs-manual handoff status |
 | `ResearchEvidenceProjection` | research tasks, manual handoff prompts, evidence matrix summary, pro/con balance, review cards |
 | `ConfidenceCompletionProjection` | five-axis scores, radar data, composite completeness, top risk cards, score history |
 | `RuntimeActivityProjection` | effect tasks, Codex runtime status, runtime artifacts, retry/blocked cards, activity feed |
@@ -755,7 +759,7 @@ Rules:
 
 Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`를 canonical source로 사용한다.
 
-- `ResearchAllowlistProjection` is implemented first for Phase 1.5A PR-01; add ResearchRunProjection, ResearchDisclosureLogProjection, and structured Phase15bUpgradeHints in their later implementation PRs.
+- `ResearchAllowlistProjection` is implemented first for Phase 1.5A PR-01; `ResearchDisclosureLogProjection` is implemented in Phase 1.5A PR-03 before provider execution; add ResearchRunProjection and structured Phase15bUpgradeHints in their later implementation PRs.
 - Phase15bUpgradeHints must expose approval requirements, sandbox/workspace requirements, rollback/reference plan, expected evidence, risk normalization, and sourceRefs.
 - DTOs must preserve no-execution semantics; no field should imply active delegation or executed side effects in Phase 1.5B.
 - `packages/contracts` still must not import runtime clients, Hono, Drizzle, React, or Tauri modules.

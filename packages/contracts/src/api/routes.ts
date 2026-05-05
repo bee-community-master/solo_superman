@@ -95,6 +95,22 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "prepareResearchDisclosure",
+    clientName: "prepareResearchDisclosure",
+    method: "POST",
+    path: "/api/v1/projects/:projectId/research-disclosures",
+    commandType: "PrepareResearchDisclosure",
+    implementedInPr01: false
+  },
+  {
+    routeId: "listResearchDisclosures",
+    clientName: "listResearchDisclosures",
+    method: "GET",
+    path: "/api/v1/projects/:projectId/research-disclosures",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
     routeId: "startOrResumeSession",
     clientName: "startOrResumeSession",
     method: "POST",
@@ -432,4 +448,14 @@ export const PHASE15A_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...PHASE15A_PR02_ALLOWLIST_ROUTE_IDS
 ] as const satisfies readonly ApiRouteId[];
 
-export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE15A_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS;
+export const PHASE15A_PR03_DISCLOSURE_ROUTE_IDS = [
+  "prepareResearchDisclosure",
+  "listResearchDisclosures"
+] as const satisfies readonly ApiRouteId[];
+
+export const PHASE15A_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...PHASE15A_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  ...PHASE15A_PR03_DISCLOSURE_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE15A_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS;

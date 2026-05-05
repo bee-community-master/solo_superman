@@ -189,6 +189,32 @@ export const researchAllowlists = sqliteTable(
   ]
 );
 
+export const researchDisclosureLogs = sqliteTable(
+  "research_disclosure_logs",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    allowlistId: text("allowlist_id"),
+    connectorId: text("connector_id").notNull(),
+    sourceCategory: text("source_category").notNull(),
+    researchObjective: text("research_objective").notNull(),
+    objectiveSummary: text("objective_summary").notNull(),
+    publicSafeSummarySent: text("public_safe_summary_sent").notNull(),
+    sourceRefsJson: text("source_refs_json").notNull(),
+    automaticExternalTransferAllowed: integer("automatic_external_transfer_allowed", { mode: "boolean" }).notNull(),
+    status: text("status").notNull(),
+    blockReason: text("block_reason"),
+    manualHandoffReason: text("manual_handoff_reason"),
+    createdAt: text("created_at").notNull(),
+    schemaVersion: text("schema_version").notNull()
+  },
+  (table) => [
+    index("research_disclosure_logs_project_created_idx").on(table.projectId, table.createdAt),
+    index("research_disclosure_logs_allowlist_idx").on(table.projectId, table.allowlistId),
+    index("research_disclosure_logs_status_idx").on(table.projectId, table.status)
+  ]
+);
+
 export const runtimePreviewArtifacts = sqliteTable(
   "runtime_preview_artifacts",
   {

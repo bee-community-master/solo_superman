@@ -3,6 +3,7 @@ import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import {
   CONTRACT_SCHEMA_VERSION,
+  AUTOMATIC_RESEARCH_SOURCE_CATEGORIES,
   BLOCKED_ACTION_TYPES,
   CODEX_TURN_PURPOSES,
   type ApiErrorCode,
@@ -13,12 +14,15 @@ import {
   type CommandId,
   type CommandResponse,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  MANUAL_RESEARCH_SOURCE_CATEGORIES,
   type CreateResearchAllowlistRequest,
+  type PrepareResearchDisclosureRequest,
   type ProjectId,
   type QueueItemId,
   type ResearchAllowlistId,
   type ResearchAllowlistPolicyInput,
   type ResearchConnectorId,
+  type ResearchSourceCategory,
   type ResearchResultId,
   type ResearchTaskId,
   type RuntimeArtifactId,
@@ -485,6 +489,51 @@ function allowlistLifecycleRouteInput(
   };
 }
 
+function researchSourceCategoryFromBody(value: unknown) {
+  const sourceCategory = stringFromBody(value, "sourceCategory");
+  const supported = [
+    ...AUTOMATIC_RESEARCH_SOURCE_CATEGORIES,
+    ...MANUAL_RESEARCH_SOURCE_CATEGORIES
+  ] as readonly string[];
+
+  if (!supported.includes(sourceCategory)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sourceCategory must be a canonical research source category.");
+  }
+
+  return sourceCategory as ResearchSourceCategory;
+}
+
+function prepareResearchDisclosureRequestFromBody(
+  body: Readonly<Record<string, unknown>>
+): PrepareResearchDisclosureRequest {
+  const projectId = projectIdFromBody(body.projectId);
+  const allowlistId = allowlistIdFromBody(body.allowlistId);
+  const optionalStringFields = {
+    productCategory: optionalStringFromBody(body.productCategory, "productCategory"),
+    customerProblemHypothesis: optionalStringFromBody(body.customerProblemHypothesis, "customerProblemHypothesis"),
+    highLevelContext: optionalStringFromBody(body.highLevelContext, "highLevelContext"),
+    rawIdea: optionalStringFromBody(body.rawIdea, "rawIdea")
+  };
+  const optionalArrayFields = {
+    detailedAnswers: optionalStringArrayFromBody(body.detailedAnswers, "detailedAnswers"),
+    privateCustomerNames: optionalStringArrayFromBody(body.privateCustomerNames, "privateCustomerNames"),
+    unreleasedPartnerNames: optionalStringArrayFromBody(body.unreleasedPartnerNames, "unreleasedPartnerNames"),
+    contactDetails: optionalStringArrayFromBody(body.contactDetails, "contactDetails"),
+    privateDocumentRefs: optionalStringArrayFromBody(body.privateDocumentRefs, "privateDocumentRefs"),
+    sourceRefs: optionalStringArrayFromBody(body.sourceRefs, "sourceRefs")
+  };
+
+  return {
+    ...(projectId ? { projectId } : {}),
+    ...(allowlistId ? { allowlistId } : {}),
+    connectorId: stringFromBody(body.connectorId, "connectorId") as ResearchConnectorId,
+    sourceCategory: researchSourceCategoryFromBody(body.sourceCategory),
+    researchObjective: stringFromBody(body.researchObjective, "researchObjective"),
+    ...Object.fromEntries(Object.entries(optionalStringFields).filter(([, value]) => value !== undefined)),
+    ...Object.fromEntries(Object.entries(optionalArrayFields).filter(([, value]) => value !== undefined))
+  } as PrepareResearchDisclosureRequest;
+}
+
 export function createSidecarApp(options: CreateSidecarAppOptions) {
   const { localCapabilityToken, migrationStatus = defaultMigrationStatus(), storage = null } = options;
   const codexRuntimeAdapter = options.codexRuntimeAdapter ?? createCodexRuntimeAdapter();
@@ -551,7 +600,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       status: "ok",
       service: "solo-superman-sidecar",
       schemaVersion: CONTRACT_SCHEMA_VERSION,
-      sidecarPhase: "phase_1_5a_pr_02_allowlist_governance",
+      sidecarPhase: "phase_1_5a_pr_03_public_safe_disclosure",
       checks: {
         process: "alive"
       },
@@ -661,6 +710,23 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       const routeAllowlistId = context.req.param("allowlistId") as ResearchAllowlistId;
 
       return service.revokeResearchAllowlist(allowlistLifecycleRouteInput(routeProjectId, routeAllowlistId, body));
+    })
+  );
+
+  app.get("/api/v1/projects/:projectId/research-disclosures", async (context) =>
+    withProductEngine(context, (service) =>
+      service.listResearchDisclosures(context.req.param("projectId") as ProjectId)
+    )
+  );
+
+  app.post("/api/v1/projects/:projectId/research-disclosures", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+
+      return service.prepareResearchDisclosure({
+        projectId: context.req.param("projectId") as ProjectId,
+        request: prepareResearchDisclosureRequestFromBody(body)
+      });
     })
   );
 

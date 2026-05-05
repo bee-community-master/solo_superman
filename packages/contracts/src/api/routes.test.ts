@@ -9,7 +9,8 @@ import {
   PR08_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PR09_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PHASE15A_PR02_ALLOWLIST_ROUTE_IDS,
-  PHASE15A_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  PHASE15A_PR03_DISCLOSURE_ROUTE_IDS,
+  PHASE15A_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
@@ -168,13 +169,33 @@ describe("API route catalog", () => {
         "revokeResearchAllowlist"
       ])
     );
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE15A_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS);
-
     for (const routeId of PHASE15A_PR02_ALLOWLIST_ROUTE_IDS) {
       expect(routeById.get(routeId)).toMatchObject({
         path: expect.stringMatching(/^\/api\/v1\/projects\/:projectId\/research-allowlists/),
         implementedInPr01: false
       });
     }
+  });
+
+  it("keeps Phase 1.5A PR-03 disclosure route ids aligned with the catalog", () => {
+    const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
+
+    expect(PHASE15A_PR03_DISCLOSURE_ROUTE_IDS).toEqual(
+      expect.arrayContaining(["prepareResearchDisclosure", "listResearchDisclosures"])
+    );
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE15A_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS);
+
+    expect(routeById.get("prepareResearchDisclosure")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/projects/:projectId/research-disclosures",
+      commandType: "PrepareResearchDisclosure",
+      implementedInPr01: false
+    });
+    expect(routeById.get("listResearchDisclosures")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/projects/:projectId/research-disclosures",
+      commandType: "none",
+      implementedInPr01: false
+    });
   });
 });

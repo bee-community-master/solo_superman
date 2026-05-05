@@ -88,7 +88,7 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       status: "ok",
-      sidecarPhase: "phase_1_5a_pr_02_allowlist_governance",
+      sidecarPhase: "phase_1_5a_pr_03_public_safe_disclosure",
       checks: {
         process: "alive"
       },
@@ -719,6 +719,255 @@ describe("PR-02 sidecar health shell", () => {
           status: "paused"
         }
       });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("prepares public-safe disclosure payloads and persists queryable disclosure logs", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A disclosure-safe research route test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startBody = await jsonBody(start);
+      const startData = startBody.data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const projectId = sessionProjection.projectId as string;
+      const allowlistId = "research_allowlist_disclosure_route";
+
+      await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          allowlistId,
+          connectorIds: ["public_search"],
+          sourceCategories: ["public_web"],
+          approvedBy: "owner_disclosure_route"
+        })
+      });
+
+      const disclosure = await storageApp.request(`/api/v1/projects/${projectId}/research-disclosures`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          allowlistId,
+          connectorId: "public_search",
+          sourceCategory: "public_web",
+          researchObjective: "Find public onboarding examples for founder@example.com.",
+          productCategory: "Founder workflow assistant",
+          customerProblemHypothesis: "Early founders need safer validation research.",
+          sourceRefs: ["queue_item_disclosure", "https://docs.example.com/report?token=secret-value"]
+        })
+      });
+      const disclosureBody = await jsonBody(disclosure);
+      const disclosureData = disclosureBody.data as Readonly<Record<string, unknown>>;
+      const preparation = disclosureData.immediateProjection as Readonly<Record<string, unknown>>;
+      const publicSafePayload = preparation.publicSafePayload as Readonly<Record<string, unknown>>;
+
+      expect(disclosure.status).toBe(200);
+      expect(disclosureData).toMatchObject({
+        category: "accepted_with_projection",
+        projectionHints: [
+          {
+            projectionKind: "ResearchDisclosureLogProjection",
+            refetchUrl: `/api/v1/projects/${projectId}/research-disclosures`
+          }
+        ],
+        deterministicOutputs: [
+          expect.objectContaining({
+            payload: expect.objectContaining({
+              commandType: "PrepareResearchDisclosure",
+              providerExecution: false,
+              externalTransferPerformed: false
+            })
+          })
+        ]
+      });
+      expect(preparation).toMatchObject({
+        kind: "ResearchDisclosurePreparationResult",
+        status: "automatic_payload_ready",
+        automaticExternalTransferAllowed: true,
+        disclosureLog: {
+          allowlistId,
+          connectorId: "public_search",
+          sourceCategory: "public_web",
+          publicSafeSummarySent: expect.stringContaining("Product category")
+        },
+        projection: {
+          kind: "ResearchDisclosureLogProjection",
+          projectId,
+          refetchUrl: `/api/v1/projects/${projectId}/research-disclosures`
+        }
+      });
+      expect(publicSafePayload.researchObjective).toBe("Find public onboarding examples for [redacted contact].");
+      expect(JSON.stringify(disclosureBody)).not.toContain("founder@example.com");
+      expect(JSON.stringify(disclosureBody)).not.toContain("secret-value");
+
+      const list = await storageApp.request(`/api/v1/projects/${projectId}/research-disclosures`, {
+        headers: authHeaders()
+      });
+      const listBody = await jsonBody(list);
+
+      expect(list.status).toBe(200);
+      expect(listBody.data).toMatchObject({
+        kind: "ResearchDisclosureLogProjection",
+        disclosureLogs: [
+          expect.objectContaining({
+            status: "automatic_payload_ready",
+            sourceRefs: ["queue_item_disclosure", "https://docs.example.com/report?[redacted secret]"]
+          })
+        ],
+        latestDisclosureLog: expect.objectContaining({
+          status: "automatic_payload_ready"
+        })
+      });
+
+      const rows = await storage.client.execute("SELECT source_refs_json FROM research_disclosure_logs");
+
+      expect(JSON.stringify(rows.rows)).not.toContain("secret-value");
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("blocks private or credentialed disclosure requests before automatic transfer and logs the blocker", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A disclosure blocked route test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startBody = await jsonBody(start);
+      const startData = startBody.data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const projectId = sessionProjection.projectId as string;
+      const blocked = await storageApp.request(`/api/v1/projects/${projectId}/research-disclosures`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          connectorId: "public_search",
+          sourceCategory: "credentialed_source",
+          researchObjective: "Compare private account session evidence for Jane Founder.",
+          productCategory: "Founder workflow assistant",
+          customerProblemHypothesis: "Jane Founder needs sensitive validation help.",
+          rawIdea: "Raw idea with stealth pricing details must not leave the app.",
+          detailedAnswers: ["Detailed willingness-to-pay answer must not leave the app."],
+          privateCustomerNames: ["Jane Founder"],
+          sourceRefs: ["queue_item_private"]
+        })
+      });
+      const blockedBody = await jsonBody(blocked);
+      const blockedData = blockedBody.data as Readonly<Record<string, unknown>>;
+      const preparation = blockedData.immediateProjection as Readonly<Record<string, unknown>>;
+      const disclosureLog = preparation.disclosureLog as Readonly<Record<string, unknown>>;
+
+      expect(blocked.status).toBe(200);
+      expect(blockedData).toMatchObject({
+        category: "blocked",
+        blockingCard: {
+          userAction: "task_level_approval_or_manual_handoff"
+        }
+      });
+      expect(preparation).toMatchObject({
+        status: "blocked_manual_handoff",
+        automaticExternalTransferAllowed: false,
+        manualHandoff: {
+          required: true,
+          route: "task_level_approval_or_manual_handoff"
+        }
+      });
+      expect(disclosureLog).toMatchObject({
+        status: "blocked_manual_handoff",
+        sourceCategory: "credentialed_source",
+        automaticExternalTransferAllowed: false,
+        blockReason: "manual_source_category"
+      });
+
+      const serialized = JSON.stringify(blockedBody);
+
+      expect(serialized).not.toContain("Raw idea with stealth pricing");
+      expect(serialized).not.toContain("willingness-to-pay");
+      expect(serialized).not.toContain("Jane Founder");
+      expect(serialized).toContain("[redacted private context]");
+
+      const rows = await storage.client.execute("SELECT public_safe_summary_sent FROM research_disclosure_logs");
+
+      expect(JSON.stringify(rows.rows)).not.toContain("Raw idea with stealth pricing");
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rejects secret-like disclosure connector ids before they can be stored in the disclosure log", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A disclosure connector secret guard test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startBody = await jsonBody(start);
+      const startData = startBody.data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const projectId = sessionProjection.projectId as string;
+      const rejected = await storageApp.request(`/api/v1/projects/${projectId}/research-disclosures`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          connectorId: "sk-secret-token-value",
+          sourceCategory: "public_web",
+          researchObjective: "Find public onboarding evidence."
+        })
+      });
+      const rejectedBody = await jsonBody(rejected);
+
+      expect(rejected.status).toBe(400);
+      expect(rejectedBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "connectorIds must not contain secret-like values."
+      });
+
+      const rows = await storage.client.execute("SELECT connector_id FROM research_disclosure_logs");
+
+      expect(rows.rows).toHaveLength(0);
+      expect(JSON.stringify(rows.rows)).not.toContain("sk-secret-token-value");
     } finally {
       await storage.close();
     }

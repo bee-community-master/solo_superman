@@ -321,6 +321,99 @@ describe("sidecar client", () => {
     ]);
   });
 
+  it("calls Phase 1.5A disclosure routes without placing raw/private context in the URL", async () => {
+    const seenRequests: [string, RequestInit | undefined][] = [];
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async (input, init) => {
+        seenRequests.push([input, init]);
+
+        return jsonResponse({
+          ok: true,
+          data:
+            init?.method === "POST"
+              ? {
+                  category: "accepted_with_projection",
+                  commandId: "cmd_disclosure",
+                  correlationId: "corr_disclosure",
+                  stateVersionBefore: 0,
+                  stateVersionAfter: 1,
+                  immediateProjection: {
+                    kind: "ResearchDisclosurePreparationResult",
+                    status: "automatic_payload_ready",
+                    automaticExternalTransferAllowed: true,
+                    publicSafePayload: {
+                      researchObjective: "Find public onboarding evidence.",
+                      publicSafeSummary: "Research objective: Find public onboarding evidence."
+                    },
+                    disclosureLog: {
+                      logId: "research_disclosure_client",
+                      projectId: "proj_disclosure",
+                      allowlistId: "research_allowlist_client",
+                      connectorId: "public_search",
+                      sourceCategory: "public_web",
+                      researchObjective: "Find public onboarding evidence.",
+                      objectiveSummary: "Find public onboarding evidence.",
+                      publicSafeSummarySent: "Research objective: Find public onboarding evidence.",
+                      sourceRefs: ["queue_item_1"],
+                      automaticExternalTransferAllowed: true,
+                      status: "automatic_payload_ready",
+                      createdAt: "2026-05-05T00:00:00.000Z"
+                    },
+                    projection: {
+                      kind: "ResearchDisclosureLogProjection",
+                      version: 1,
+                      projectId: "proj_disclosure",
+                      generatedAt: "2026-05-05T00:00:00.000Z",
+                      stale: false,
+                      refetchUrl: "/api/v1/projects/proj_disclosure/research-disclosures",
+                      disclosureLogs: []
+                    }
+                  }
+                }
+              : {
+                  kind: "ResearchDisclosureLogProjection",
+                  version: 1,
+                  projectId: "proj_disclosure",
+                  generatedAt: "2026-05-05T00:00:00.000Z",
+                  stale: false,
+                  refetchUrl: "/api/v1/projects/proj_disclosure/research-disclosures",
+                  disclosureLogs: []
+                },
+          meta: {
+            requestId: "req_disclosure",
+            schemaVersion: "solo-superman.contracts.v1"
+          }
+        });
+      }
+    });
+    const projectId = "proj_disclosure" as ProjectId;
+
+    await client.prepareResearchDisclosure(projectId, {
+      allowlistId: "research_allowlist_client" as ResearchAllowlistId,
+      connectorId: "public_search" as ResearchConnectorId,
+      sourceCategory: "public_web",
+      researchObjective: "Find public onboarding evidence.",
+      rawIdea: "Private raw idea must stay inside the JSON body.",
+      sourceRefs: ["queue_item_1"]
+    });
+    await client.listResearchDisclosures(projectId);
+
+    expect(seenRequests[0]?.[0]).toBe("http://127.0.0.1:43110/api/v1/projects/proj_disclosure/research-disclosures");
+    expect(JSON.parse(String(seenRequests[0]?.[1]?.body))).toMatchObject({
+      connectorId: "public_search",
+      sourceCategory: "public_web",
+      researchObjective: "Find public onboarding evidence.",
+      rawIdea: "Private raw idea must stay inside the JSON body."
+    });
+    expect(seenRequests[1]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/projects/proj_disclosure/research-disclosures",
+      expect.objectContaining({
+        method: "GET"
+      })
+    ]);
+  });
+
   it("posts runtime artifact convert and block commands with session version context", async () => {
     const seenRequests: [string, RequestInit | undefined][] = [];
     const client = createSidecarClient({

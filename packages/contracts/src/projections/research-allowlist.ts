@@ -242,7 +242,7 @@ function assertObjectKeys(value: unknown, fieldName: string, allowedKeys: readon
   }
 }
 
-function assertSafeConnectorIds(connectorIds: readonly ResearchConnectorId[]) {
+export function assertSafeResearchConnectorIds(connectorIds: readonly ResearchConnectorId[]) {
   assertUniqueStrings(connectorIds, "connectorIds");
 
   for (const connectorId of connectorIds) {
@@ -260,6 +260,12 @@ function assertSafeConnectorIds(connectorIds: readonly ResearchConnectorId[]) {
       throw new ResearchAllowlistValidationError("connectorIds must reference approved read-only connector slugs.");
     }
   }
+}
+
+export function assertSafeResearchConnectorId(connectorId: ResearchConnectorId) {
+  assertSafeResearchConnectorIds([connectorId]);
+
+  return connectorId;
 }
 
 export function assertSupportedResearchAllowlistCombination(
@@ -402,7 +408,7 @@ export function validateResearchAllowlistProjection(
   assertIsoTimestamp(allowlist.approvedAt, "approvedAt");
   assertIsoTimestamp(allowlist.createdAt, "createdAt");
   assertIsoTimestamp(allowlist.updatedAt, "updatedAt");
-  assertSafeConnectorIds(allowlist.connectorIds);
+  assertSafeResearchConnectorIds(allowlist.connectorIds);
   assertSupportedResearchAllowlistCombination(allowlist.sourceCategories, allowlist.contextMode);
   assertRateBudgetPolicy(allowlist.rateBudgetPolicy);
   assertStalenessPolicy(allowlist.stalenessPolicy);

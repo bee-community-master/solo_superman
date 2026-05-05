@@ -5,18 +5,19 @@ import {
   type CommandType
 } from "@solo-superman/contracts";
 
-const ALLOWLIST_APPLICATION_COMMAND_TYPES = [
+const PROJECT_LEVEL_RESEARCH_APPLICATION_COMMAND_TYPES = [
   "CreateResearchAllowlist",
   "UpdateResearchAllowlist",
   "PauseResearchAllowlist",
-  "RevokeResearchAllowlist"
+  "RevokeResearchAllowlist",
+  "PrepareResearchDisclosure"
 ] as const satisfies readonly CommandType[];
 
 describe("Research allowlist governance command boundary", () => {
   it("keeps project-level allowlist application commands out of the ProductEngine reducer taxonomy", () => {
-    expect(PROJECT_APPLICATION_COMMAND_TYPES).toEqual(ALLOWLIST_APPLICATION_COMMAND_TYPES);
+    expect(PROJECT_APPLICATION_COMMAND_TYPES).toEqual(PROJECT_LEVEL_RESEARCH_APPLICATION_COMMAND_TYPES);
     expect(PRODUCT_ENGINE_COMMAND_TYPES).not.toEqual(
-      expect.arrayContaining([...ALLOWLIST_APPLICATION_COMMAND_TYPES])
+      expect.arrayContaining([...PROJECT_LEVEL_RESEARCH_APPLICATION_COMMAND_TYPES])
     );
   });
 });
