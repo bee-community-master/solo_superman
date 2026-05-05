@@ -5,5 +5,6 @@ export * from "./project-repository";
 export * from "./projection-repository";
 export * from "./research-allowlist-repository";
 export * from "./research-disclosure-log-repository";
+export * from "./research-run-repository";
 export * from "./research-repository";
 export * from "./runtime-repository";

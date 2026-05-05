@@ -189,6 +189,43 @@ export const researchAllowlists = sqliteTable(
   ]
 );
 
+export const researchRuns = sqliteTable(
+  "research_runs",
+  {
+    id: text("id").primaryKey(),
+    version: integer("version").notNull(),
+    projectId: text("project_id").notNull(),
+    researchTaskId: text("research_task_id").notNull(),
+    allowlistId: text("allowlist_id").notNull(),
+    disclosureLogId: text("disclosure_log_id").notNull(),
+    connectorId: text("connector_id").notNull(),
+    sourceCategory: text("source_category").notNull(),
+    status: text("status").notNull(),
+    adapterKind: text("adapter_kind").notNull(),
+    adapterVersion: text("adapter_version").notNull(),
+    providerRunId: text("provider_run_id"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    attempt: integer("attempt").notNull(),
+    qualityGateStatus: text("quality_gate_status").notNull(),
+    terminalReason: text("terminal_reason"),
+    retryOfRunId: text("retry_of_run_id"),
+    retryReason: text("retry_reason"),
+    sourceRefsJson: text("source_refs_json").notNull(),
+    startedAt: text("started_at"),
+    completedAt: text("completed_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    schemaVersion: text("schema_version").notNull()
+  },
+  (table) => [
+    uniqueIndex("research_runs_project_idempotency_key_idx").on(table.projectId, table.idempotencyKey),
+    index("research_runs_project_status_idx").on(table.projectId, table.status),
+    index("research_runs_task_idx").on(table.researchTaskId),
+    index("research_runs_allowlist_idx").on(table.projectId, table.allowlistId),
+    index("research_runs_disclosure_idx").on(table.disclosureLogId)
+  ]
+);
+
 export const researchDisclosureLogs = sqliteTable(
   "research_disclosure_logs",
   {

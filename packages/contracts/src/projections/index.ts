@@ -4,6 +4,7 @@ export * from "./founder-brief";
 export * from "./living-spec";
 export * from "./research-allowlist";
 export * from "./research-disclosure-log";
+export * from "./research-run";
 export * from "./research-evidence";
 export * from "./runtime-activity";
 export * from "./session-shell";
@@ -14,6 +15,7 @@ export type ProjectionKind =
   | "LivingSpecProjection"
   | "ResearchAllowlistProjection"
   | "ResearchDisclosureLogProjection"
+  | "ResearchRunProjection"
   | "ResearchEvidenceProjection"
   | "ConfidenceCompletionProjection"
   | "RuntimeActivityProjection"

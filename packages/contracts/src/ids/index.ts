@@ -10,6 +10,7 @@ export type DecisionId = Brand<string, "DecisionId">;
 export type ResearchTaskId = Brand<string, "ResearchTaskId">;
 export type ResearchResultId = Brand<string, "ResearchResultId">;
 export type ResearchAllowlistId = Brand<string, "ResearchAllowlistId">;
+export type ResearchRunId = Brand<string, "ResearchRunId">;
 export type ResearchDisclosureLogId = Brand<string, "ResearchDisclosureLogId">;
 export type ResearchConnectorId = Brand<string, "ResearchConnectorId">;
 export type EvidenceItemId = Brand<string, "EvidenceItemId">;

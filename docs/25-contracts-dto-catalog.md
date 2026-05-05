@@ -685,6 +685,7 @@ Phase 1.5A PR-01 implementation note:
 | `LivingSpecProjection` | `projections/living-spec.ts` | Living Spec Canvas |
 | `ResearchAllowlistProjection` | `projections/research-allowlist.ts` | research allowlist governance/readiness |
 | `ResearchDisclosureLogProjection` | `projections/research-disclosure-log.ts` | Activity Feed / disclosure audit |
+| `ResearchRunProjection` | `projections/research-run.ts` | BackgroundResearchRun lifecycle/provider reference |
 | `ResearchEvidenceProjection` | `projections/research-evidence.ts` | Research Results/Evidence Matrix |
 | `ConfidenceCompletionProjection` | `projections/confidence-completion.ts` | progress/radar/risk cards |
 | `RuntimeActivityProjection` | `projections/runtime-activity.ts` | background task board/activity feed |
@@ -699,6 +700,7 @@ Phase 1.5A PR-01 implementation note:
 | `LivingSpecProjection` | spec sections, current draft/version ref, pending spec update previews, approval status |
 | `ResearchAllowlistProjection` | status, connector ids, source categories, context mode, rate/budget policy including per-session run cap, staleness/disclosure policies, pause/revoke timestamps |
 | `ResearchDisclosureLogProjection` | connector/source category, objective summary, exact public-safe summary sent/prepared, source refs, automatic-vs-manual handoff status |
+| `ResearchRunProjection` | status state machine, provider-neutral reference, attempt/idempotency key, source category, disclosure log ref, quality gate status, terminal reason |
 | `ResearchEvidenceProjection` | research tasks, manual handoff prompts, evidence matrix summary, pro/con balance, review cards |
 | `ConfidenceCompletionProjection` | five-axis scores, radar data, composite completeness, top risk cards, score history |
 | `RuntimeActivityProjection` | effect tasks, Codex runtime status, runtime artifacts, retry/blocked cards, activity feed |
@@ -759,7 +761,7 @@ Rules:
 
 Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`를 canonical source로 사용한다.
 
-- `ResearchAllowlistProjection` is implemented first for Phase 1.5A PR-01; `ResearchDisclosureLogProjection` is implemented in Phase 1.5A PR-03 before provider execution; add ResearchRunProjection and structured Phase15bUpgradeHints in their later implementation PRs.
+- `ResearchAllowlistProjection` is implemented first for Phase 1.5A PR-01; `ResearchDisclosureLogProjection` is implemented in Phase 1.5A PR-03 before provider execution; `ResearchRunProjection` is implemented in Phase 1.5A PR-04 for lifecycle/provider-reference storage; add structured Phase15bUpgradeHints in its later implementation PR.
 - Phase15bUpgradeHints must expose approval requirements, sandbox/workspace requirements, rollback/reference plan, expected evidence, risk normalization, and sourceRefs.
 - DTOs must preserve no-execution semantics; no field should imply active delegation or executed side effects in Phase 1.5B.
 - `packages/contracts` still must not import runtime clients, Hono, Drizzle, React, or Tauri modules.

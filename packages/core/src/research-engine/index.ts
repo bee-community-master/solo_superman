@@ -15,6 +15,7 @@ import type {
 } from "@solo-superman/contracts";
 
 export * from "./public-safe-summary";
+export * from "./background-research-runtime";
 
 export const RESEARCH_ENGINE_SLICE_STATUS = "research-evidence-loop-pr-06" as const;
 
