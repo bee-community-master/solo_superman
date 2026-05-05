@@ -55,6 +55,46 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "listResearchAllowlists",
+    clientName: "listResearchAllowlists",
+    method: "GET",
+    path: "/api/v1/projects/:projectId/research-allowlists",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
+    routeId: "createResearchAllowlist",
+    clientName: "createResearchAllowlist",
+    method: "POST",
+    path: "/api/v1/projects/:projectId/research-allowlists",
+    commandType: "CreateResearchAllowlist",
+    implementedInPr01: false
+  },
+  {
+    routeId: "updateResearchAllowlist",
+    clientName: "updateResearchAllowlist",
+    method: "POST",
+    path: "/api/v1/projects/:projectId/research-allowlists/:allowlistId",
+    commandType: "UpdateResearchAllowlist",
+    implementedInPr01: false
+  },
+  {
+    routeId: "pauseResearchAllowlist",
+    clientName: "pauseResearchAllowlist",
+    method: "POST",
+    path: "/api/v1/projects/:projectId/research-allowlists/:allowlistId/pause",
+    commandType: "PauseResearchAllowlist",
+    implementedInPr01: false
+  },
+  {
+    routeId: "revokeResearchAllowlist",
+    clientName: "revokeResearchAllowlist",
+    method: "POST",
+    path: "/api/v1/projects/:projectId/research-allowlists/:allowlistId/revoke",
+    commandType: "RevokeResearchAllowlist",
+    implementedInPr01: false
+  },
+  {
     routeId: "startOrResumeSession",
     clientName: "startOrResumeSession",
     method: "POST",
@@ -378,3 +418,18 @@ export const PR09_MOUNTED_PRODUCT_API_ROUTE_IDS = [
 ] as const satisfies readonly ApiRouteId[];
 
 export const PR02_MOUNTED_PRODUCT_API_ROUTE_IDS = ["getCommandStatus"] as const satisfies readonly ApiRouteId[];
+
+export const PHASE15A_PR02_ALLOWLIST_ROUTE_IDS = [
+  "listResearchAllowlists",
+  "createResearchAllowlist",
+  "updateResearchAllowlist",
+  "pauseResearchAllowlist",
+  "revokeResearchAllowlist"
+] as const satisfies readonly ApiRouteId[];
+
+export const PHASE15A_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...PR09_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  ...PHASE15A_PR02_ALLOWLIST_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE15A_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS;

@@ -7,6 +7,7 @@ import {
   collectPackageBoundaryViolations,
   findRouteQueryMismatches,
   moduleSpecifiers,
+  parseConstArray,
   parseDocs26RoutesFromText,
   parseRouteCatalogFromSource,
   sectionBetween
@@ -26,6 +27,21 @@ describe("doc contract verification helpers", () => {
     const routes = parseDocs26RoutesFromText("| `GET /api/v1/events/stream?sessionId=:sessionId&cursor=:cursor` | notes |\n");
 
     expect(routes.get("GET /api/v1/events/stream")).toEqual(["sessionId", "cursor"]);
+  });
+
+  it("parses exact const array names when one name is a suffix of another", () => {
+    const values = parseConstArray(
+      `
+      export const PRODUCT_ENGINE_COMMAND_TYPES = ["StartProject"] as const;
+      export const COMMAND_TYPES = [
+        ...PRODUCT_ENGINE_COMMAND_TYPES,
+        "CreateResearchAllowlist"
+      ] as const;
+      `,
+      "COMMAND_TYPES"
+    );
+
+    expect(values).toEqual(["StartProject", "CreateResearchAllowlist"]);
   });
 
   it("parses route catalog entries and rejects incomplete route definitions", () => {

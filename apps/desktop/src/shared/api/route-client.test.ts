@@ -81,4 +81,36 @@ describe("PR-09 desktop route client catalog", () => {
       implementation: "mounted_pr_09"
     });
   });
+
+  it("marks Phase 1.5A allowlist governance routes as mounted in the sidecar", () => {
+    expect(findDesktopRouteClientPlaceholder("listResearchAllowlists")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/projects/:projectId/research-allowlists",
+      implementation: "mounted_phase_1_5a_pr_02"
+    });
+
+    expect(findDesktopRouteClientPlaceholder("createResearchAllowlist")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/projects/:projectId/research-allowlists",
+      implementation: "mounted_phase_1_5a_pr_02"
+    });
+
+    expect(findDesktopRouteClientPlaceholder("updateResearchAllowlist")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/projects/:projectId/research-allowlists/:allowlistId",
+      implementation: "mounted_phase_1_5a_pr_02"
+    });
+
+    expect(findDesktopRouteClientPlaceholder("pauseResearchAllowlist")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/projects/:projectId/research-allowlists/:allowlistId/pause",
+      implementation: "mounted_phase_1_5a_pr_02"
+    });
+
+    expect(findDesktopRouteClientPlaceholder("revokeResearchAllowlist")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/projects/:projectId/research-allowlists/:allowlistId/revoke",
+      implementation: "mounted_phase_1_5a_pr_02"
+    });
+  });
 });

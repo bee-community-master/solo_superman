@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { QueueItemId, ResearchTaskId, RuntimeArtifactId, SessionId, StateVersion } from "@solo-superman/contracts";
+import type {
+  ProjectId,
+  QueueItemId,
+  ResearchAllowlistId,
+  ResearchConnectorId,
+  ResearchTaskId,
+  RuntimeArtifactId,
+  SessionId,
+  StateVersion
+} from "@solo-superman/contracts";
 import { createSidecarClient, SidecarClientError, sidecarConnectionFromEnv, type SidecarConnection } from "./sidecar-client";
 
 const connection: SidecarConnection = {
@@ -208,6 +217,108 @@ describe("sidecar client", () => {
       expectedStateVersion: 7,
       result: "Pro: support. Con: risk."
     });
+  });
+
+  it("calls Phase 1.5A allowlist governance routes with project ownership context", async () => {
+    const seenRequests: [string, RequestInit | undefined][] = [];
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async (input, init) => {
+        seenRequests.push([input, init]);
+
+        return jsonResponse({
+          ok: true,
+          data: {
+            category: "accepted_with_projection",
+            commandId: "cmd_allowlist",
+            correlationId: "corr_allowlist",
+            stateVersionBefore: 0,
+            stateVersionAfter: 1,
+            immediateProjection: {
+              kind: "ResearchAllowlistGovernanceProjection",
+              projectionKind: "ResearchAllowlistProjection",
+              projectId: "proj_allowlist",
+              version: 1,
+              generatedAt: "2026-05-05T00:00:00.000Z",
+              stale: false,
+              refetchUrl: "/api/v1/projects/proj_allowlist/research-allowlists",
+              pendingEffectSummary: {
+                totalPending: 0,
+                byType: {},
+                visibleLabel: "No async ProductEngine effects are pending for this allowlist governance action."
+              },
+              allowlists: [],
+              automaticRunStartPolicies: []
+            },
+            projectionHints: [
+              {
+                projectionKind: "ResearchAllowlistProjection",
+                refetchUrl: "/api/v1/projects/proj_allowlist/research-allowlists"
+              }
+            ]
+          },
+          meta: {
+            requestId: "req_allowlist",
+            schemaVersion: "solo-superman.contracts.v1"
+          }
+        });
+      }
+    });
+    const projectId = "proj_allowlist" as ProjectId;
+    const allowlistId = "research_allowlist_client" as ResearchAllowlistId;
+
+    await client.createResearchAllowlist(projectId, {
+      allowlistId,
+      connectorIds: ["public_search" as ResearchConnectorId],
+      sourceCategories: ["public_web"],
+      approvedBy: "owner_client"
+    });
+    await client.updateResearchAllowlist(projectId, allowlistId, {
+      sourceCategories: ["public_web", "official_docs"],
+      status: "active",
+      approvedBy: "owner_client_update"
+    });
+    await client.pauseResearchAllowlist(projectId, allowlistId, "User paused automatic research.");
+    await client.revokeResearchAllowlist(projectId, allowlistId, "User revoked automatic research.");
+    await client.listResearchAllowlists(projectId);
+
+    expect(seenRequests[0]?.[0]).toBe("http://127.0.0.1:43110/api/v1/projects/proj_allowlist/research-allowlists");
+    expect(JSON.parse(String(seenRequests[0]?.[1]?.body))).toMatchObject({
+      allowlistId,
+      connectorIds: ["public_search"],
+      sourceCategories: ["public_web"],
+      approvedBy: "owner_client"
+    });
+    expect(seenRequests[1]?.[0]).toBe(
+      "http://127.0.0.1:43110/api/v1/projects/proj_allowlist/research-allowlists/research_allowlist_client"
+    );
+    expect(JSON.parse(String(seenRequests[1]?.[1]?.body))).toMatchObject({
+      sourceCategories: ["public_web", "official_docs"],
+      status: "active",
+      approvedBy: "owner_client_update"
+    });
+    expect(seenRequests[2]?.[0]).toBe(
+      "http://127.0.0.1:43110/api/v1/projects/proj_allowlist/research-allowlists/research_allowlist_client/pause"
+    );
+    expect(JSON.parse(String(seenRequests[2]?.[1]?.body))).toMatchObject({
+      projectId,
+      allowlistId,
+      reason: "User paused automatic research."
+    });
+    expect(seenRequests[3]?.[0]).toBe(
+      "http://127.0.0.1:43110/api/v1/projects/proj_allowlist/research-allowlists/research_allowlist_client/revoke"
+    );
+    expect(JSON.parse(String(seenRequests[3]?.[1]?.body))).toMatchObject({
+      projectId,
+      allowlistId,
+      reason: "User revoked automatic research."
+    });
+    expect(seenRequests[4]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/projects/proj_allowlist/research-allowlists",
+      expect.objectContaining({
+        method: "GET"
+      })
+    ]);
   });
 
   it("posts runtime artifact convert and block commands with session version context", async () => {

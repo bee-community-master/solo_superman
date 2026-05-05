@@ -59,6 +59,21 @@ export interface ResearchAllowlistProjection {
   readonly updatedAt: string;
 }
 
+export type ResearchAllowlistAutomaticRunStartPolicy =
+  | {
+      readonly allowed: true;
+      readonly allowlistId: ResearchAllowlistId;
+      readonly allowlistVersion: ProjectionVersion;
+      readonly reason: "active_public_safe_allowlist";
+    }
+  | {
+      readonly allowed: false;
+      readonly allowlistId: ResearchAllowlistId;
+      readonly allowlistVersion: ProjectionVersion;
+      readonly blockedByStatus: Exclude<ResearchAllowlistStatus, "active">;
+      readonly reason: "allowlist_paused" | "allowlist_revoked";
+    };
+
 export const AUTOMATIC_RESEARCH_SOURCE_CATEGORIES = [
   "public_web",
   "official_docs",
@@ -395,4 +410,27 @@ export function validateResearchAllowlistProjection(
   assertLifecycleTimestamps(allowlist);
 
   return allowlist;
+}
+
+export function automaticRunStartPolicyForResearchAllowlist(
+  allowlist: ResearchAllowlistProjection
+): ResearchAllowlistAutomaticRunStartPolicy {
+  const validated = validateResearchAllowlistProjection(allowlist);
+
+  if (validated.status === "active") {
+    return {
+      allowed: true,
+      allowlistId: validated.allowlistId,
+      allowlistVersion: validated.version,
+      reason: "active_public_safe_allowlist"
+    };
+  }
+
+  return {
+    allowed: false,
+    allowlistId: validated.allowlistId,
+    allowlistVersion: validated.version,
+    blockedByStatus: validated.status,
+    reason: validated.status === "paused" ? "allowlist_paused" : "allowlist_revoked"
+  };
 }

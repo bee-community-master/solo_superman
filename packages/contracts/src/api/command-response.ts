@@ -20,6 +20,7 @@ export interface CommandResponse<TProjection = unknown> {
   readonly queueProjection?: TProjection;
   readonly deterministicOutputs?: readonly ProductEngineDeterministicOutput[];
   readonly pendingEffectSummary?: PendingEffectSummaryDto;
+  readonly projectionHints?: readonly ProjectionRefetchHint[];
   readonly blockingCard?: unknown;
   readonly error?: ApiError;
 }

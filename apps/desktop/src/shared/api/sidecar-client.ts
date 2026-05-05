@@ -9,6 +9,7 @@ import type {
   ConfidenceCompletionProjection,
   ConvertRuntimeArtifactRequest,
   CreateManualHandoffRequest,
+  CreateResearchAllowlistRequest,
   CreateRuntimePreviewRequest,
   DecisionQueueProjection,
   FounderBriefProjection,
@@ -16,6 +17,9 @@ import type {
   LivingSpecProjection,
   PlanResearchRequest,
   PrepareFounderBriefRequest,
+  ProjectId,
+  ResearchAllowlistGovernanceProjection,
+  ResearchAllowlistId,
   ResearchEvidenceProjection,
   RuntimeActivityProjection,
   ScoreCompletenessRequest,
@@ -25,7 +29,8 @@ import type {
   SubmitAnswerRequest,
   SynthesizeEvidenceRequest,
   StateVersion,
-  StatusEndpointDto
+  StatusEndpointDto,
+  UpdateResearchAllowlistRequest
 } from "@solo-superman/contracts";
 
 type ApiEnvelope<TData> = ApiSuccessEnvelope<TData> | ApiErrorEnvelope;
@@ -107,6 +112,14 @@ function authHeaders(token: string) {
   return {
     Authorization: `Bearer ${token}`
   };
+}
+
+function researchAllowlistCollectionPath(projectId: ProjectId) {
+  return `/api/v1/projects/${encodeURIComponent(projectId)}/research-allowlists`;
+}
+
+function researchAllowlistMemberPath(projectId: ProjectId, allowlistId: ResearchAllowlistId) {
+  return `${researchAllowlistCollectionPath(projectId)}/${encodeURIComponent(allowlistId)}`;
 }
 
 function envValue(env: Readonly<Record<string, string | boolean | undefined>>, key: string) {
@@ -296,8 +309,49 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
       );
     },
 
+    createResearchAllowlist(projectId: ProjectId, input: CreateResearchAllowlistRequest) {
+      return postCommand<ResearchAllowlistGovernanceProjection>(researchAllowlistCollectionPath(projectId), input);
+    },
+
+    updateResearchAllowlist(
+      projectId: ProjectId,
+      allowlistId: ResearchAllowlistId,
+      input: UpdateResearchAllowlistRequest
+    ) {
+      return postCommand<ResearchAllowlistGovernanceProjection>(
+        researchAllowlistMemberPath(projectId, allowlistId),
+        input
+      );
+    },
+
+    pauseResearchAllowlist(projectId: ProjectId, allowlistId: ResearchAllowlistId, reason?: string) {
+      return postCommand<ResearchAllowlistGovernanceProjection>(
+        `${researchAllowlistMemberPath(projectId, allowlistId)}/pause`,
+        {
+          projectId,
+          allowlistId,
+          ...(reason ? { reason } : {})
+        }
+      );
+    },
+
+    revokeResearchAllowlist(projectId: ProjectId, allowlistId: ResearchAllowlistId, reason?: string) {
+      return postCommand<ResearchAllowlistGovernanceProjection>(
+        `${researchAllowlistMemberPath(projectId, allowlistId)}/revoke`,
+        {
+          projectId,
+          allowlistId,
+          ...(reason ? { reason } : {})
+        }
+      );
+    },
+
     getRuntimeStatus() {
       return getProjection<CodexRuntimeStatusDto>("/api/v1/runtime/status");
+    },
+
+    listResearchAllowlists(projectId: ProjectId) {
+      return getProjection<ResearchAllowlistGovernanceProjection>(researchAllowlistCollectionPath(projectId));
     },
 
     getSession(projectId: string, sessionId: SessionId) {

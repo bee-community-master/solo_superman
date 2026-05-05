@@ -1,13 +1,18 @@
 import { randomUUID } from "node:crypto";
 import {
+  automaticRunStartPolicyForResearchAllowlist,
   CONTRACT_SCHEMA_VERSION,
   CODEX_RUNTIME_ADAPTER_VERSION,
+  DEFAULT_RESEARCH_DISCLOSURE_LOG_POLICY,
+  DEFAULT_RESEARCH_RATE_BUDGET_POLICY,
+  DEFAULT_RESEARCH_STALENESS_POLICY,
+  ResearchAllowlistValidationError,
   type ApiErrorCode,
   type BlockedActionType,
   type CommandId,
   type CommandResponse,
   type CommandResponseCategory,
-  type CommandType,
+  type CreateResearchAllowlistRequest,
   type CorrelationId,
   type CausationId,
   type CodexTurnPurpose,
@@ -19,12 +24,18 @@ import {
   type FounderBriefProjection,
   type LivingSpecProjection,
   type PendingEffectSummaryDto,
+  type ProjectApplicationCommandType,
   type ProductEngineCommand,
+  type ProductEngineCommandType,
   type ProductEngineEffectPlanItem,
   type ProductEngineEvent,
   type ProductEngineReduction,
   type ProjectionRefetchHint,
   type ProjectId,
+  type ProjectionVersion,
+  type ResearchAllowlistGovernanceProjection,
+  type ResearchAllowlistId,
+  type ResearchAllowlistProjection,
   type ResearchEvidenceProjection,
   type ResearchResultId,
   type ResearchTaskId,
@@ -35,13 +46,15 @@ import {
   type SessionShellProjection,
   type StartProjectRequest,
   type StateVersion,
-  type StatusEndpointDto
+  type StatusEndpointDto,
+  type UpdateResearchAllowlistRequest
 } from "@solo-superman/contracts";
 import {
   createEffectTaskRepository,
   createEventRepository,
   createProjectRepository,
   createProjectionRepository,
+  createResearchAllowlistRepository,
   createResearchRepository,
   createRuntimeRepository,
   type EffectTaskRecord,
@@ -81,7 +94,7 @@ export class ProductEngineServiceError extends Error {
 export interface RunSessionCommandInput {
   readonly sessionId: SessionId;
   readonly commandType: Extract<
-    CommandType,
+    ProductEngineCommandType,
     | "CaptureIntake"
     | "DraftInitialSpec"
     | "AnalyzeAmbiguity"
@@ -100,6 +113,17 @@ export interface RunSessionCommandInput {
   >;
   readonly expectedStateVersion: StateVersion;
   readonly payload: Readonly<Record<string, unknown>>;
+}
+
+export interface RunResearchAllowlistGovernanceInput<TRequest> {
+  readonly projectId: ProjectId;
+  readonly request: TRequest;
+}
+
+export interface RunResearchAllowlistLifecycleInput {
+  readonly projectId: ProjectId;
+  readonly allowlistId: ResearchAllowlistId;
+  readonly reason?: string;
 }
 
 function prefixedId<TId extends string>(prefix: string) {
@@ -128,6 +152,94 @@ function projectId() {
 
 function sessionId() {
   return prefixedId<SessionId>("sess");
+}
+
+function researchAllowlistId() {
+  return prefixedId<ResearchAllowlistId>("research_allowlist");
+}
+
+function zeroPendingEffectSummary(): PendingEffectSummaryDto {
+  return {
+    totalPending: 0,
+    byType: {},
+    visibleLabel: "No async ProductEngine effects are pending for this allowlist governance action."
+  };
+}
+
+function allowlistRefetchUrl(projectIdValue: ProjectId) {
+  return `/api/v1/projects/${projectIdValue}/research-allowlists`;
+}
+
+function allowlistProjectionHint(projectIdValue: ProjectId): ProjectionRefetchHint {
+  return {
+    projectionKind: "ResearchAllowlistProjection",
+    refetchUrl: allowlistRefetchUrl(projectIdValue)
+  };
+}
+
+function allowlistCollectionVersion(allowlists: readonly ResearchAllowlistProjection[]): ProjectionVersion {
+  return allowlists.reduce(
+    (collectionVersion, allowlist) => collectionVersion + Number(allowlist.version),
+    0
+  ) as ProjectionVersion;
+}
+
+function allowlistGovernanceProjection(
+  projectIdValue: ProjectId,
+  allowlists: readonly ResearchAllowlistProjection[],
+  generatedAt: string,
+  selectedAllowlist?: ResearchAllowlistProjection
+): ResearchAllowlistGovernanceProjection {
+  return {
+    kind: "ResearchAllowlistGovernanceProjection",
+    projectionKind: "ResearchAllowlistProjection",
+    projectId: projectIdValue,
+    version: allowlistCollectionVersion(allowlists),
+    generatedAt,
+    stale: false,
+    refetchUrl: allowlistRefetchUrl(projectIdValue),
+    pendingEffectSummary: zeroPendingEffectSummary(),
+    allowlists,
+    ...(selectedAllowlist ? { selectedAllowlist } : {}),
+    automaticRunStartPolicies: allowlists.map(automaticRunStartPolicyForResearchAllowlist)
+  };
+}
+
+function allowlistCommandResponse(
+  commandType: ProjectApplicationCommandType,
+  projectIdValue: ProjectId,
+  stateVersionBefore: StateVersion,
+  projection: ResearchAllowlistGovernanceProjection,
+  governanceReason?: string
+): CommandResponse<ResearchAllowlistGovernanceProjection> {
+  const hint = allowlistProjectionHint(projectIdValue);
+
+  return {
+    category: "accepted_with_projection",
+    commandId: commandId(),
+    correlationId: correlationId(),
+    stateVersionBefore,
+    stateVersionAfter: projection.version as unknown as StateVersion,
+    eventIds: [],
+    effectTaskIds: [],
+    immediateProjection: projection,
+    pendingEffectSummary: zeroPendingEffectSummary(),
+    projectionHints: [hint],
+    deterministicOutputs: [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: `${commandType}:${projectIdValue}:${projection.version}`,
+        payload: {
+          commandType,
+          projectId: projectIdValue,
+          refetchUrl: hint.refetchUrl,
+          projectionKind: hint.projectionKind,
+          productEngineReducerSideEffects: false,
+          ...(governanceReason ? { governanceReason } : {})
+        }
+      }
+    ]
+  };
 }
 
 function isPersistedProjection(value: unknown): value is PersistedProjection {
@@ -1187,6 +1299,213 @@ export function createProductEngineCommandService(
     };
   }
 
+  async function requireProject(projectIdValue: ProjectId) {
+    const project = await createProjectRepository(storage.db).getProject(projectIdValue);
+
+    if (!project) {
+      throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Project was not found.", {
+        projectId: projectIdValue
+      });
+    }
+
+    return project;
+  }
+
+  function assertRequestProjectMatchesRoute(projectIdValue: ProjectId, requestProjectId: ProjectId | undefined) {
+    if (requestProjectId && requestProjectId !== projectIdValue) {
+      throw new ProductEngineServiceError("VALIDATION_FAILED", "projectId must match the route param.", {
+        routeProjectId: projectIdValue,
+        bodyProjectId: requestProjectId
+      });
+    }
+  }
+
+  function requireNonEmptyList<TValue>(values: readonly TValue[] | undefined, fieldName: string): readonly TValue[] {
+    if (!values?.length) {
+      throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must include at least one value.`);
+    }
+
+    return values;
+  }
+
+  function validationError(error: unknown) {
+    if (error instanceof ProductEngineServiceError) {
+      return error;
+    }
+
+    if (error instanceof ResearchAllowlistValidationError) {
+      return new ProductEngineServiceError("VALIDATION_FAILED", error.message);
+    }
+
+    throw error;
+  }
+
+  async function listProjectAllowlists(projectIdValue: ProjectId) {
+    return createResearchAllowlistRepository(storage.db).listForProject(projectIdValue);
+  }
+
+  async function allowlistCollectionStateVersion(projectIdValue: ProjectId) {
+    return allowlistCollectionVersion(await listProjectAllowlists(projectIdValue)) as unknown as StateVersion;
+  }
+
+  async function listAllowlistProjection(projectIdValue: ProjectId, selectedAllowlist?: ResearchAllowlistProjection) {
+    const allowlists = await listProjectAllowlists(projectIdValue);
+
+    return allowlistGovernanceProjection(projectIdValue, allowlists, new Date().toISOString(), selectedAllowlist);
+  }
+
+  function allowlistVersionAfter(allowlist: ResearchAllowlistProjection | null) {
+    return ((allowlist ? Number(allowlist.version) : 0) + 1) as ProjectionVersion;
+  }
+
+  function createAllowlistFromRequest(
+    projectIdValue: ProjectId,
+    request: CreateResearchAllowlistRequest,
+    now: string
+  ): ResearchAllowlistProjection {
+    return {
+      kind: "ResearchAllowlistProjection",
+      version: 1 as ProjectionVersion,
+      allowlistId: request.allowlistId ?? researchAllowlistId(),
+      projectId: projectIdValue,
+      status: "active",
+      connectorIds: requireNonEmptyList(request.connectorIds, "connectorIds"),
+      sourceCategories: requireNonEmptyList(request.sourceCategories, "sourceCategories"),
+      contextMode: request.contextMode ?? "public_safe_summary",
+      rateBudgetPolicy: request.rateBudgetPolicy ?? DEFAULT_RESEARCH_RATE_BUDGET_POLICY,
+      stalenessPolicy: request.stalenessPolicy ?? DEFAULT_RESEARCH_STALENESS_POLICY,
+      disclosureLogPolicy: request.disclosureLogPolicy ?? DEFAULT_RESEARCH_DISCLOSURE_LOG_POLICY,
+      approvedBy: request.approvedBy,
+      approvedAt: now,
+      createdAt: now,
+      updatedAt: now
+    };
+  }
+
+  function updateAllowlistFromRequest(
+    current: ResearchAllowlistProjection,
+    request: UpdateResearchAllowlistRequest,
+    now: string
+  ): ResearchAllowlistProjection {
+    if (current.status === "revoked") {
+      throw new ProductEngineServiceError("COMMAND_PRECONDITION_FAILED", "Revoked research allowlists are immutable.", {
+        allowlistId: current.allowlistId,
+        status: current.status
+      });
+    }
+
+    if (request.status !== undefined && request.status !== "active") {
+      throw new ProductEngineServiceError(
+        "COMMAND_PRECONDITION_FAILED",
+        "Use the dedicated pause/revoke endpoints for paused or revoked transitions.",
+        {
+          allowlistId: current.allowlistId,
+          requestedStatus: request.status
+        }
+      );
+    }
+
+    const touchesPolicy =
+      request.connectorIds !== undefined ||
+      request.sourceCategories !== undefined ||
+      request.contextMode !== undefined ||
+      request.rateBudgetPolicy !== undefined ||
+      request.stalenessPolicy !== undefined ||
+      request.disclosureLogPolicy !== undefined;
+    const reactivatesPausedAllowlist = current.status === "paused" && request.status === "active";
+    const hasUpdateIntent = touchesPolicy || reactivatesPausedAllowlist;
+
+    if (!hasUpdateIntent) {
+      throw new ProductEngineServiceError(
+        "VALIDATION_FAILED",
+        "UpdateResearchAllowlistRequest must include at least one allowlist update field.",
+        {
+          allowlistId: current.allowlistId
+        }
+      );
+    }
+
+    if ((touchesPolicy || reactivatesPausedAllowlist) && !request.approvedBy?.trim()) {
+      throw new ProductEngineServiceError(
+        "VALIDATION_FAILED",
+        "approvedBy is required when updating allowlist policy or activating automatic research.",
+        {
+          allowlistId: current.allowlistId,
+          requiresFreshApproval: true
+        }
+      );
+    }
+
+    const nextStatus = reactivatesPausedAllowlist ? "active" : current.status;
+
+    const nextAllowlist = {
+      kind: current.kind,
+      version: allowlistVersionAfter(current),
+      allowlistId: current.allowlistId,
+      projectId: current.projectId,
+      connectorIds: request.connectorIds ?? current.connectorIds,
+      sourceCategories: request.sourceCategories ?? current.sourceCategories,
+      contextMode: request.contextMode ?? current.contextMode,
+      rateBudgetPolicy: request.rateBudgetPolicy ?? current.rateBudgetPolicy,
+      stalenessPolicy: request.stalenessPolicy ?? current.stalenessPolicy,
+      disclosureLogPolicy: request.disclosureLogPolicy ?? current.disclosureLogPolicy,
+      approvedBy: request.approvedBy ?? current.approvedBy,
+      approvedAt: request.approvedBy ? now : current.approvedAt,
+      createdAt: current.createdAt,
+      updatedAt: now
+    };
+
+    if (nextStatus === "active") {
+      return {
+        ...nextAllowlist,
+        status: "active"
+      };
+    }
+
+    return {
+      ...nextAllowlist,
+      status: "paused",
+      pausedAt: current.pausedAt ?? now
+    };
+  }
+
+  async function findProjectAllowlist(projectIdValue: ProjectId, allowlistIdValue: ResearchAllowlistId) {
+    const repository = createResearchAllowlistRepository(storage.db);
+    const allowlist = await repository.getById(projectIdValue, allowlistIdValue);
+
+    if (!allowlist) {
+      throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Research allowlist was not found.", {
+        projectId: projectIdValue,
+        allowlistId: allowlistIdValue
+      });
+    }
+
+    return allowlist;
+  }
+
+  async function updatePersistedAllowlist(allowlist: ResearchAllowlistProjection) {
+    const expectedVersion = (Number(allowlist.version) - 1) as ProjectionVersion;
+    const saved = await createResearchAllowlistRepository(storage.db).update({
+      allowlist,
+      expectedVersion,
+      schemaVersion: CONTRACT_SCHEMA_VERSION
+    });
+
+    if (!saved) {
+      throw new ProductEngineServiceError(
+        "COMMAND_PRECONDITION_FAILED",
+        "Research allowlist changed before the governance update could be saved; refetch and retry.",
+        {
+          projectId: allowlist.projectId,
+          allowlistId: allowlist.allowlistId,
+          expectedVersion
+        }
+      );
+    }
+
+    return saved;
+  }
+
   return {
     async startProject(input: StartProjectRequest): Promise<CommandResponse> {
       const nextProjectId = projectId();
@@ -1215,6 +1534,169 @@ export function createProductEngineCommandService(
       const result = await persistReduction(command, reduction);
 
       return responseForAccepted(command, state.stateVersion, result.stateVersionAfter, result.events, result.effects, reduction);
+    },
+
+    async listResearchAllowlists(projectIdValue: ProjectId): Promise<ResearchAllowlistGovernanceProjection> {
+      await requireProject(projectIdValue);
+
+      return listAllowlistProjection(projectIdValue);
+    },
+
+    async createResearchAllowlist(
+      input: RunResearchAllowlistGovernanceInput<CreateResearchAllowlistRequest>
+    ): Promise<CommandResponse<ResearchAllowlistGovernanceProjection>> {
+      try {
+        await requireProject(input.projectId);
+        assertRequestProjectMatchesRoute(input.projectId, input.request.projectId);
+
+        const now = new Date().toISOString();
+        const allowlist = createAllowlistFromRequest(input.projectId, input.request, now);
+        const allowlistsBefore = await listProjectAllowlists(input.projectId);
+        const created = await createResearchAllowlistRepository(storage.db).create({
+          allowlist,
+          schemaVersion: CONTRACT_SCHEMA_VERSION
+        });
+
+        if (!created) {
+          throw new ProductEngineServiceError(
+            "COMMAND_PRECONDITION_FAILED",
+            "Research allowlist already exists for this project.",
+            {
+              projectId: input.projectId,
+              allowlistId: allowlist.allowlistId
+            }
+          );
+        }
+        const projection = await listAllowlistProjection(input.projectId, created);
+
+        return allowlistCommandResponse(
+          "CreateResearchAllowlist",
+          input.projectId,
+          allowlistCollectionVersion(allowlistsBefore) as unknown as StateVersion,
+          projection
+        );
+      } catch (error) {
+        throw validationError(error);
+      }
+    },
+
+    async updateResearchAllowlist(
+      input: RunResearchAllowlistGovernanceInput<UpdateResearchAllowlistRequest> & {
+        readonly allowlistId: ResearchAllowlistId;
+      }
+    ): Promise<CommandResponse<ResearchAllowlistGovernanceProjection>> {
+      try {
+        await requireProject(input.projectId);
+        assertRequestProjectMatchesRoute(input.projectId, input.request.projectId);
+
+        if (input.request.allowlistId && input.request.allowlistId !== input.allowlistId) {
+          throw new ProductEngineServiceError("VALIDATION_FAILED", "allowlistId must match the route param.", {
+            routeAllowlistId: input.allowlistId,
+            bodyAllowlistId: input.request.allowlistId
+          });
+        }
+
+        const current = await findProjectAllowlist(input.projectId, input.allowlistId);
+        const stateVersionBefore = await allowlistCollectionStateVersion(input.projectId);
+        const updated = await updatePersistedAllowlist(
+          updateAllowlistFromRequest(current, input.request, new Date().toISOString())
+        );
+        const projection = await listAllowlistProjection(input.projectId, updated);
+
+        return allowlistCommandResponse(
+          "UpdateResearchAllowlist",
+          input.projectId,
+          stateVersionBefore,
+          projection
+        );
+      } catch (error) {
+        throw validationError(error);
+      }
+    },
+
+    async pauseResearchAllowlist(
+      input: RunResearchAllowlistLifecycleInput
+    ): Promise<CommandResponse<ResearchAllowlistGovernanceProjection>> {
+      try {
+        await requireProject(input.projectId);
+
+        const current = await findProjectAllowlist(input.projectId, input.allowlistId);
+        const stateVersionBefore = await allowlistCollectionStateVersion(input.projectId);
+
+        if (current.status === "revoked") {
+          throw new ProductEngineServiceError("COMMAND_PRECONDITION_FAILED", "Revoked research allowlists cannot be paused.", {
+            allowlistId: input.allowlistId,
+            status: current.status
+          });
+        }
+
+        const now = new Date().toISOString();
+        const paused =
+          current.status === "paused"
+            ? current
+            : await updatePersistedAllowlist({
+                ...current,
+                version: allowlistVersionAfter(current),
+                status: "paused",
+                pausedAt: now,
+                updatedAt: now
+              });
+        const projection = await listAllowlistProjection(input.projectId, paused);
+
+        return allowlistCommandResponse(
+          "PauseResearchAllowlist",
+          input.projectId,
+          stateVersionBefore,
+          projection,
+          input.reason
+        );
+      } catch (error) {
+        throw validationError(error);
+      }
+    },
+
+    async revokeResearchAllowlist(
+      input: RunResearchAllowlistLifecycleInput
+    ): Promise<CommandResponse<ResearchAllowlistGovernanceProjection>> {
+      try {
+        await requireProject(input.projectId);
+
+        const current = await findProjectAllowlist(input.projectId, input.allowlistId);
+        const stateVersionBefore = await allowlistCollectionStateVersion(input.projectId);
+        const now = new Date().toISOString();
+        const revoked =
+          current.status === "revoked"
+            ? current
+            : await updatePersistedAllowlist({
+                kind: current.kind,
+                version: allowlistVersionAfter(current),
+                allowlistId: current.allowlistId,
+                projectId: current.projectId,
+                status: "revoked",
+                connectorIds: current.connectorIds,
+                sourceCategories: current.sourceCategories,
+                contextMode: current.contextMode,
+                rateBudgetPolicy: current.rateBudgetPolicy,
+                stalenessPolicy: current.stalenessPolicy,
+                disclosureLogPolicy: current.disclosureLogPolicy,
+                approvedBy: current.approvedBy,
+                approvedAt: current.approvedAt,
+                revokedAt: now,
+                createdAt: current.createdAt,
+                updatedAt: now
+              });
+        const projection = await listAllowlistProjection(input.projectId, revoked);
+
+        return allowlistCommandResponse(
+          "RevokeResearchAllowlist",
+          input.projectId,
+          stateVersionBefore,
+          projection,
+          input.reason
+        );
+      } catch (error) {
+        throw validationError(error);
+      }
     },
 
     async runSessionCommand(input: RunSessionCommandInput): Promise<CommandResponse> {

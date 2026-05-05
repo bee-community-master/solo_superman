@@ -7,7 +7,10 @@ import {
   PR06_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PR07_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PR08_MOUNTED_PRODUCT_API_ROUTE_IDS,
-  PR09_MOUNTED_PRODUCT_API_ROUTE_IDS
+  PR09_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  PHASE15A_PR02_ALLOWLIST_ROUTE_IDS,
+  PHASE15A_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
 const PRODUCT_API_PREFIX = "/api/v1";
@@ -149,6 +152,28 @@ describe("API route catalog", () => {
     for (const routeId of PR09_MOUNTED_PRODUCT_API_ROUTE_IDS) {
       expect(routeById.get(routeId)).toMatchObject({
         path: expect.stringMatching(/^\/api\/v1/)
+      });
+    }
+  });
+
+  it("keeps Phase 1.5A PR-02 allowlist governance route ids aligned with the catalog", () => {
+    const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
+
+    expect(PHASE15A_PR02_ALLOWLIST_ROUTE_IDS).toEqual(
+      expect.arrayContaining([
+        "listResearchAllowlists",
+        "createResearchAllowlist",
+        "updateResearchAllowlist",
+        "pauseResearchAllowlist",
+        "revokeResearchAllowlist"
+      ])
+    );
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE15A_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS);
+
+    for (const routeId of PHASE15A_PR02_ALLOWLIST_ROUTE_IDS) {
+      expect(routeById.get(routeId)).toMatchObject({
+        path: expect.stringMatching(/^\/api\/v1\/projects\/:projectId\/research-allowlists/),
+        implementedInPr01: false
       });
     }
   });

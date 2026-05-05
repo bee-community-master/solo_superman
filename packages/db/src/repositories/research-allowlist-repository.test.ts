@@ -74,7 +74,7 @@ describe("Research allowlist repository", () => {
       const repository = createResearchAllowlistRepository(storage.db);
       const projectId = "proj_allowlist_status" as ProjectId;
 
-      await repository.save({
+      await repository.create({
         allowlist: allowlistFixture({
           allowlistId: "research_allowlist_active" as ResearchAllowlistId,
           projectId,
@@ -82,7 +82,7 @@ describe("Research allowlist repository", () => {
         }),
         schemaVersion: CONTRACT_SCHEMA_VERSION
       });
-      await repository.save({
+      await repository.create({
         allowlist: allowlistFixture({
           allowlistId: "research_allowlist_paused" as ResearchAllowlistId,
           projectId,
@@ -93,7 +93,7 @@ describe("Research allowlist repository", () => {
         }),
         schemaVersion: CONTRACT_SCHEMA_VERSION
       });
-      await repository.save({
+      await repository.create({
         allowlist: allowlistFixture({
           allowlistId: "research_allowlist_revoked" as ResearchAllowlistId,
           projectId,
@@ -132,7 +132,7 @@ describe("Research allowlist repository", () => {
       const allowlistId = "research_allowlist_rate_budget" as ResearchAllowlistId;
       const projectId = "proj_allowlist_rate_budget" as ProjectId;
 
-      await repository.save({
+      await repository.create({
         allowlist: allowlistFixture({
           allowlistId,
           projectId,
@@ -156,6 +156,64 @@ describe("Research allowlist repository", () => {
     }
   });
 
+  it("updates allowlists only when the expected version still matches", async () => {
+    const storage = await createMigratedStorage();
+
+    try {
+      const repository = createResearchAllowlistRepository(storage.db);
+      const allowlistId = "research_allowlist_version_guard" as ResearchAllowlistId;
+      const projectId = "proj_allowlist_version_guard" as ProjectId;
+
+      await repository.create({
+        allowlist: allowlistFixture({
+          allowlistId,
+          projectId
+        }),
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      await expect(
+        repository.update({
+          allowlist: allowlistFixture({
+            allowlistId,
+            projectId,
+            version: 2 as ProjectionVersion,
+            status: "paused",
+            pausedAt: "2026-05-05T00:06:00.000Z",
+            updatedAt: "2026-05-05T00:06:00.000Z"
+          }),
+          expectedVersion: 1 as ProjectionVersion,
+          schemaVersion: CONTRACT_SCHEMA_VERSION
+        })
+      ).resolves.toMatchObject({
+        version: 2,
+        status: "paused"
+      });
+
+      await expect(
+        repository.update({
+          allowlist: allowlistFixture({
+            allowlistId,
+            projectId,
+            version: 3 as ProjectionVersion,
+            status: "revoked",
+            revokedAt: "2026-05-05T00:07:00.000Z",
+            updatedAt: "2026-05-05T00:07:00.000Z"
+          }),
+          expectedVersion: 1 as ProjectionVersion,
+          schemaVersion: CONTRACT_SCHEMA_VERSION
+        })
+      ).resolves.toBeNull();
+
+      await expect(repository.getById(projectId, allowlistId)).resolves.toMatchObject({
+        version: 2,
+        status: "paused"
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("round-trips every automatic source category", async () => {
     const storage = await createMigratedStorage();
 
@@ -164,7 +222,7 @@ describe("Research allowlist repository", () => {
       const allowlistId = "research_allowlist_all_sources" as ResearchAllowlistId;
       const projectId = "proj_allowlist_all_sources" as ProjectId;
 
-      await repository.save({
+      await repository.create({
         allowlist: allowlistFixture({
           allowlistId,
           projectId,
@@ -196,14 +254,14 @@ describe("Research allowlist repository", () => {
       const ownerProjectId = "proj_allowlist_owner" as ProjectId;
       const otherProjectId = "proj_allowlist_other" as ProjectId;
 
-      await repository.save({
+      await repository.create({
         allowlist: allowlistFixture({
           allowlistId,
           projectId: ownerProjectId
         }),
         schemaVersion: CONTRACT_SCHEMA_VERSION
       });
-      await repository.save({
+      await repository.create({
         allowlist: allowlistFixture({
           allowlistId,
           projectId: otherProjectId,
@@ -237,7 +295,7 @@ describe("Research allowlist repository", () => {
 
       for (const blockedCategory of MANUAL_RESEARCH_SOURCE_CATEGORIES) {
         await expect(
-          repository.save({
+          repository.create({
             allowlist: allowlistFixture({
               sourceCategories: [blockedCategory] as unknown as ResearchAllowlistProjection["sourceCategories"]
             }),
@@ -247,7 +305,7 @@ describe("Research allowlist repository", () => {
       }
 
       await expect(
-        repository.save({
+        repository.create({
           allowlist: allowlistFixture({
             contextMode: "raw_context" as ResearchAllowlistProjection["contextMode"]
           }),
@@ -256,7 +314,7 @@ describe("Research allowlist repository", () => {
       ).rejects.toThrow("public_safe_summary");
 
       await expect(
-        repository.save({
+        repository.create({
           allowlist: allowlistFixture({
             status: "archived" as ResearchAllowlistProjection["status"]
           }),
@@ -275,7 +333,7 @@ describe("Research allowlist repository", () => {
       const repository = createResearchAllowlistRepository(storage.db);
 
       await expect(
-        repository.save({
+        repository.create({
           allowlist: allowlistFixture({
             allowlistId: "research_allowlist_secret" as ResearchAllowlistId,
             connectorIds: ["sk-secret-api-key" as ResearchConnectorId]
@@ -292,7 +350,7 @@ describe("Research allowlist repository", () => {
     }
   });
 
-  it("rejects unsafe upserts without replacing the existing allowlist row", async () => {
+  it("returns null for duplicate creates and rejects unsafe updates without replacing the existing row", async () => {
     const storage = await createMigratedStorage();
 
     try {
@@ -300,7 +358,7 @@ describe("Research allowlist repository", () => {
       const allowlistId = "research_allowlist_safe_upsert" as ResearchAllowlistId;
       const projectId = "proj_allowlist_safe_upsert" as ProjectId;
 
-      await repository.save({
+      await repository.create({
         allowlist: allowlistFixture({
           allowlistId,
           projectId,
@@ -311,26 +369,43 @@ describe("Research allowlist repository", () => {
       });
 
       await expect(
-        repository.save({
+        repository.create({
           allowlist: allowlistFixture({
             allowlistId,
             projectId,
+            connectorIds: ["official_docs" as ResearchConnectorId],
+            sourceCategories: ["official_docs"],
+            updatedAt: "2026-05-05T00:09:00.000Z"
+          }),
+          schemaVersion: CONTRACT_SCHEMA_VERSION
+        })
+      ).resolves.toBeNull();
+
+      await expect(
+        repository.update({
+          allowlist: allowlistFixture({
+            allowlistId,
+            projectId,
+            version: 2 as ProjectionVersion,
             connectorIds: ["sk-secret-api-key" as ResearchConnectorId],
             sourceCategories: ["public_dataset"],
             updatedAt: "2026-05-05T00:10:00.000Z"
           }),
+          expectedVersion: 1 as ProjectionVersion,
           schemaVersion: CONTRACT_SCHEMA_VERSION
         })
       ).rejects.toThrow("secret");
 
       await expect(
-        repository.save({
+        repository.update({
           allowlist: allowlistFixture({
             allowlistId,
             projectId,
+            version: 2 as ProjectionVersion,
             sourceCategories: ["account_session_source"] as unknown as ResearchAllowlistProjection["sourceCategories"],
             updatedAt: "2026-05-05T00:11:00.000Z"
           }),
+          expectedVersion: 1 as ProjectionVersion,
           schemaVersion: CONTRACT_SCHEMA_VERSION
         })
       ).rejects.toThrow("Unsupported source categories");

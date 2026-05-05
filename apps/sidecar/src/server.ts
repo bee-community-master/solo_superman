@@ -9,17 +9,23 @@ import {
   type ApiErrorEnvelope,
   type ApiResponseMeta,
   type ApiSuccessEnvelope,
+  type AutomaticResearchSourceCategory,
   type CommandId,
   type CommandResponse,
-  PR09_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  type CreateResearchAllowlistRequest,
   type ProjectId,
   type QueueItemId,
+  type ResearchAllowlistId,
+  type ResearchAllowlistPolicyInput,
+  type ResearchConnectorId,
   type ResearchResultId,
   type ResearchTaskId,
   type RuntimeArtifactId,
   type SessionId,
   type StateVersion,
-  type StatusEndpointDto
+  type StatusEndpointDto,
+  type UpdateResearchAllowlistRequest
 } from "@solo-superman/contracts";
 import type { MigrationStatus, SoloStorage } from "@solo-superman/db";
 import { createProductEngineCommandService, ProductEngineServiceError } from "./product-engine/command-service";
@@ -178,7 +184,7 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
           completion: "e2e_dry_run_endpoints_mounted_pr_09"
         },
         migrations,
-        implementedApiRouteIds: PR09_MOUNTED_PRODUCT_API_ROUTE_IDS
+        implementedApiRouteIds: CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
       }
     } as const;
   }
@@ -197,7 +203,7 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
           completion: "e2e_dry_run_endpoints_mounted_pr_09"
         },
         migrations,
-        implementedApiRouteIds: PR09_MOUNTED_PRODUCT_API_ROUTE_IDS
+        implementedApiRouteIds: CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
       }
     } as const;
   }
@@ -214,7 +220,7 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
         completion: "e2e_dry_run_endpoints_mounted_pr_09"
       },
       migrations,
-      implementedApiRouteIds: PR09_MOUNTED_PRODUCT_API_ROUTE_IDS
+      implementedApiRouteIds: CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
     }
   } as const;
 }
@@ -262,6 +268,16 @@ function requiredStringArrayFromBody(value: unknown, fieldName: string) {
 
   if (!strings?.length) {
     throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must include at least one trace reference.`);
+  }
+
+  return strings;
+}
+
+function requiredValueArrayFromBody(value: unknown, fieldName: string) {
+  const strings = optionalStringArrayFromBody(value, fieldName);
+
+  if (!strings?.length) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must include at least one value.`);
   }
 
   return strings;
@@ -319,6 +335,18 @@ function optionalRequiredDecisionRefFromBody(value: unknown, fieldName: string) 
   return value;
 }
 
+function optionalJsonObjectFromBody(value: unknown, fieldName: string) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be a JSON object.`);
+  }
+
+  return value as Readonly<Record<string, unknown>>;
+}
+
 function jsonObjectFromBody(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new ProductEngineServiceError("VALIDATION_FAILED", "Request body must be a JSON object.");
@@ -337,6 +365,124 @@ async function jsonBody(context: Context) {
   }
 
   return jsonObjectFromBody(body);
+}
+
+function projectIdFromBody(value: unknown) {
+  return optionalStringFromBody(value, "projectId") as ProjectId | undefined;
+}
+
+function allowlistIdFromBody(value: unknown) {
+  return optionalStringFromBody(value, "allowlistId") as ResearchAllowlistId | undefined;
+}
+
+function optionalAllowlistPolicyFromBody(body: Readonly<Record<string, unknown>>) {
+  const policy: Record<string, unknown> = {};
+  const connectorIds = optionalStringArrayFromBody(body.connectorIds, "connectorIds");
+  const sourceCategories = optionalStringArrayFromBody(body.sourceCategories, "sourceCategories");
+  const contextMode = optionalStringFromBody(body.contextMode, "contextMode");
+
+  if (connectorIds) {
+    policy.connectorIds = connectorIds as unknown as readonly ResearchConnectorId[];
+  }
+
+  if (sourceCategories) {
+    policy.sourceCategories = sourceCategories as readonly AutomaticResearchSourceCategory[];
+  }
+
+  if (contextMode) {
+    policy.contextMode = contextMode as "public_safe_summary";
+  }
+
+  if (body.rateBudgetPolicy !== undefined) {
+    policy.rateBudgetPolicy = optionalJsonObjectFromBody(
+      body.rateBudgetPolicy,
+      "rateBudgetPolicy"
+    ) as ResearchAllowlistPolicyInput["rateBudgetPolicy"];
+  }
+
+  if (body.stalenessPolicy !== undefined) {
+    policy.stalenessPolicy = optionalJsonObjectFromBody(
+      body.stalenessPolicy,
+      "stalenessPolicy"
+    ) as ResearchAllowlistPolicyInput["stalenessPolicy"];
+  }
+
+  if (body.disclosureLogPolicy !== undefined) {
+    policy.disclosureLogPolicy = optionalJsonObjectFromBody(
+      body.disclosureLogPolicy,
+      "disclosureLogPolicy"
+    ) as ResearchAllowlistPolicyInput["disclosureLogPolicy"];
+  }
+
+  return policy as ResearchAllowlistPolicyInput;
+}
+
+function createResearchAllowlistRequestFromBody(body: Readonly<Record<string, unknown>>): CreateResearchAllowlistRequest {
+  const projectId = projectIdFromBody(body.projectId);
+  const allowlistId = allowlistIdFromBody(body.allowlistId);
+
+  return {
+    ...(projectId ? { projectId } : {}),
+    ...(allowlistId ? { allowlistId } : {}),
+    connectorIds: requiredValueArrayFromBody(body.connectorIds, "connectorIds") as unknown as readonly ResearchConnectorId[],
+    sourceCategories: requiredValueArrayFromBody(body.sourceCategories, "sourceCategories") as readonly AutomaticResearchSourceCategory[],
+    approvedBy: stringFromBody(body.approvedBy, "approvedBy"),
+    ...optionalAllowlistPolicyFromBody({
+      ...body,
+      connectorIds: undefined,
+      sourceCategories: undefined
+    })
+  };
+}
+
+function updateResearchAllowlistRequestFromBody(body: Readonly<Record<string, unknown>>): UpdateResearchAllowlistRequest {
+  const projectId = projectIdFromBody(body.projectId);
+  const allowlistId = allowlistIdFromBody(body.allowlistId);
+  const approvedBy = optionalStringFromBody(body.approvedBy, "approvedBy");
+  const status = optionalStringFromBody(body.status, "status");
+
+  if (status !== undefined && status !== "active" && status !== "paused" && status !== "revoked") {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "status must be active, paused, or revoked.");
+  }
+
+  return {
+    ...(projectId ? { projectId } : {}),
+    ...(allowlistId ? { allowlistId } : {}),
+    ...(approvedBy ? { approvedBy } : {}),
+    ...(status ? { status } : {}),
+    ...optionalAllowlistPolicyFromBody(body)
+  };
+}
+
+function assertOptionalProjectIdMatchesRoute(routeProjectId: ProjectId, bodyProjectId: ProjectId | undefined) {
+  if (bodyProjectId && bodyProjectId !== routeProjectId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "projectId must match the route param.");
+  }
+}
+
+function assertOptionalAllowlistIdMatchesRoute(
+  routeAllowlistId: ResearchAllowlistId,
+  bodyAllowlistId: ResearchAllowlistId | undefined
+) {
+  if (bodyAllowlistId && bodyAllowlistId !== routeAllowlistId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "allowlistId must match the route param.");
+  }
+}
+
+function allowlistLifecycleRouteInput(
+  routeProjectId: ProjectId,
+  routeAllowlistId: ResearchAllowlistId,
+  body: Readonly<Record<string, unknown>>
+) {
+  assertOptionalProjectIdMatchesRoute(routeProjectId, projectIdFromBody(body.projectId));
+  assertOptionalAllowlistIdMatchesRoute(routeAllowlistId, allowlistIdFromBody(body.allowlistId));
+  const reason = optionalStringFromBody(body.reason, "reason");
+
+  return {
+    projectId: routeProjectId,
+    allowlistId: routeAllowlistId,
+    ...(reason ? { reason } : {})
+  };
 }
 
 export function createSidecarApp(options: CreateSidecarAppOptions) {
@@ -405,11 +551,11 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       status: "ok",
       service: "solo-superman-sidecar",
       schemaVersion: CONTRACT_SCHEMA_VERSION,
-      sidecarPhase: "pr_09_e2e_dry_run_hardening",
+      sidecarPhase: "phase_1_5a_pr_02_allowlist_governance",
       checks: {
         process: "alive"
       },
-      implementedApiRouteIds: PR09_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      implementedApiRouteIds: CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
       productApiRoutePlaceholderCount: unmountedProductApiRoutePlaceholders.length
     })
   );
@@ -466,6 +612,55 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         localPrivacyMode,
         ...(typeof body.sourceNote === "string" ? { sourceNote: body.sourceNote } : {})
       });
+    })
+  );
+
+  app.get("/api/v1/projects/:projectId/research-allowlists", async (context) =>
+    withProductEngine(context, (service) =>
+      service.listResearchAllowlists(context.req.param("projectId") as ProjectId)
+    )
+  );
+
+  app.post("/api/v1/projects/:projectId/research-allowlists", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+
+      return service.createResearchAllowlist({
+        projectId: context.req.param("projectId") as ProjectId,
+        request: createResearchAllowlistRequestFromBody(body)
+      });
+    })
+  );
+
+  app.post("/api/v1/projects/:projectId/research-allowlists/:allowlistId", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+
+      return service.updateResearchAllowlist({
+        projectId: context.req.param("projectId") as ProjectId,
+        allowlistId: context.req.param("allowlistId") as ResearchAllowlistId,
+        request: updateResearchAllowlistRequestFromBody(body)
+      });
+    })
+  );
+
+  app.post("/api/v1/projects/:projectId/research-allowlists/:allowlistId/pause", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const routeProjectId = context.req.param("projectId") as ProjectId;
+      const routeAllowlistId = context.req.param("allowlistId") as ResearchAllowlistId;
+
+      return service.pauseResearchAllowlist(allowlistLifecycleRouteInput(routeProjectId, routeAllowlistId, body));
+    })
+  );
+
+  app.post("/api/v1/projects/:projectId/research-allowlists/:allowlistId/revoke", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const routeProjectId = context.req.param("projectId") as ProjectId;
+      const routeAllowlistId = context.req.param("allowlistId") as ResearchAllowlistId;
+
+      return service.revokeResearchAllowlist(allowlistLifecycleRouteInput(routeProjectId, routeAllowlistId, body));
     })
   );
 
@@ -910,7 +1105,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       return context.json(
         jsonError(context, "RESOURCE_NOT_FOUND", "This Phase 1 API route is not mounted yet.", {
           path: context.req.path,
-          mountedRouteIds: PR09_MOUNTED_PRODUCT_API_ROUTE_IDS
+          mountedRouteIds: CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
         }),
         404
       );

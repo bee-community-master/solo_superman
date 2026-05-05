@@ -22,14 +22,36 @@ export function quotedValues(text) {
   return [...text.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
 }
 
-export function parseConstArray(sourceText, name) {
-  const match = sourceText.match(new RegExp(`${name} = \\[([\\s\\S]*?)\\] as const`));
+export function parseConstArray(sourceText, name, seen = new Set()) {
+  if (seen.has(name)) {
+    throw new Error(`Circular const array spread for ${name}`);
+  }
+
+  seen.add(name);
+  const match = sourceText.match(
+    new RegExp(`(?:^|\\n)\\s*(?:export\\s+)?const\\s+${name}\\s*=\\s*\\[([\\s\\S]*?)\\]\\s+as const`)
+  );
 
   if (!match) {
     throw new Error(`Could not find ${name}`);
   }
 
-  return quotedValues(match[1]);
+  const values = [];
+
+  for (const token of match[1].matchAll(/\.\.\.([A-Z0-9_]+)|"([^"]+)"/g)) {
+    const [, spreadName, quotedValue] = token;
+
+    if (spreadName) {
+      values.push(...parseConstArray(sourceText, spreadName, seen));
+      continue;
+    }
+
+    values.push(quotedValue);
+  }
+
+  seen.delete(name);
+
+  return values;
 }
 
 export function parseStringUnion(sourceText, name) {

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach } from "vitest";
 import { describe, expect, it } from "vitest";
-import { API_ROUTE_CATALOG, PR09_MOUNTED_PRODUCT_API_ROUTE_IDS, type CommandId } from "@solo-superman/contracts";
+import { API_ROUTE_CATALOG, CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS, type CommandId } from "@solo-superman/contracts";
 import { applyMigrations, createEventRepository, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
 import { createProductEngineCommandService } from "./product-engine/command-service";
 import { CodexRuntimeUnavailableError, createCodexRuntimeAdapter, fixtureCodexPreviewOutput } from "./runtime";
@@ -12,7 +12,7 @@ import { createSidecarApp } from "./server";
 const localCapabilityToken = "test-local-capability-token";
 const tempDirs: string[] = [];
 const productApiRouteCount = API_ROUTE_CATALOG.filter((route) => route.path.startsWith("/api/v1")).length;
-const unmountedProductApiRouteCount = productApiRouteCount - PR09_MOUNTED_PRODUCT_API_ROUTE_IDS.length;
+const unmountedProductApiRouteCount = productApiRouteCount - CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS.length;
 const migratedStatus = {
   state: "migrated",
   databaseUrl: ":memory:",
@@ -88,7 +88,7 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       status: "ok",
-      sidecarPhase: "pr_09_e2e_dry_run_hardening",
+      sidecarPhase: "phase_1_5a_pr_02_allowlist_governance",
       checks: {
         process: "alive"
       },
@@ -391,6 +391,609 @@ describe("PR-02 sidecar health shell", () => {
       expect(body.error).toMatchObject({
         code: "VALIDATION_FAILED",
         message: "Request body must be a JSON object."
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("mounts Phase 1.5A allowlist governance create/update/pause/revoke without reducer effects", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A research allowlist governance route test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startBody = await jsonBody(start);
+      const startData = startBody.data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const projectId = sessionProjection.projectId as string;
+      const allowlistId = "research_allowlist_route";
+      const create = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          projectId,
+          allowlistId,
+          connectorIds: ["public_search"],
+          sourceCategories: ["public_web"],
+          approvedBy: "owner_route_test"
+        })
+      });
+      const createBody = await jsonBody(create);
+      const createData = createBody.data as Readonly<Record<string, unknown>>;
+      const createProjection = createData.immediateProjection as Readonly<Record<string, unknown>>;
+      const policies = createProjection.automaticRunStartPolicies as readonly Readonly<Record<string, unknown>>[];
+
+      expect(create.status).toBe(200);
+      expect(createData).toMatchObject({
+        category: "accepted_with_projection",
+        projectionHints: [
+          {
+            projectionKind: "ResearchAllowlistProjection",
+            refetchUrl: `/api/v1/projects/${projectId}/research-allowlists`
+          }
+        ],
+        deterministicOutputs: [
+          expect.objectContaining({
+            payload: expect.objectContaining({
+              productEngineReducerSideEffects: false
+            })
+          })
+        ]
+      });
+      expect(createData.statusUrl).toBeUndefined();
+      expect(createProjection).toMatchObject({
+        kind: "ResearchAllowlistGovernanceProjection",
+        projectionKind: "ResearchAllowlistProjection",
+        projectId,
+        refetchUrl: `/api/v1/projects/${projectId}/research-allowlists`,
+        pendingEffectSummary: {
+          totalPending: 0
+        },
+        selectedAllowlist: {
+          allowlistId,
+          status: "active",
+          connectorIds: ["public_search"],
+          sourceCategories: ["public_web"]
+        }
+      });
+      expect(policies[0]).toMatchObject({
+        allowed: true,
+        reason: "active_public_safe_allowlist"
+      });
+
+      const list = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists`, {
+        headers: authHeaders()
+      });
+      const listBody = await jsonBody(list);
+
+      expect(list.status).toBe(200);
+      expect(listBody.data).toMatchObject({
+        allowlists: [
+          expect.objectContaining({
+            allowlistId,
+            status: "active"
+          })
+        ]
+      });
+
+      const pauseReason = "Route test pauses automatic research.";
+      const pause = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists/${allowlistId}/pause`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          projectId,
+          allowlistId,
+          reason: pauseReason
+        })
+      });
+      const pauseBody = await jsonBody(pause);
+      const pauseData = pauseBody.data as Readonly<Record<string, unknown>>;
+      const pauseProjection = pauseData.immediateProjection as Readonly<Record<string, unknown>>;
+      const pauseDeterministicOutputs = pauseData.deterministicOutputs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(pause.status).toBe(200);
+      expect(pauseDeterministicOutputs[0]?.payload).toMatchObject({
+        commandType: "PauseResearchAllowlist",
+        governanceReason: pauseReason,
+        productEngineReducerSideEffects: false
+      });
+      expect(pauseProjection).toMatchObject({
+        selectedAllowlist: {
+          status: "paused",
+          pausedAt: expect.any(String)
+        },
+        automaticRunStartPolicies: [
+          expect.objectContaining({
+            allowed: false,
+            blockedByStatus: "paused",
+            reason: "allowlist_paused"
+          })
+        ]
+      });
+
+      const missingReactivationApproval = await storageApp.request(
+        `/api/v1/projects/${projectId}/research-allowlists/${allowlistId}`,
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            status: "active"
+          })
+        }
+      );
+      const missingReactivationApprovalBody = await jsonBody(missingReactivationApproval);
+
+      expect(missingReactivationApproval.status).toBe(400);
+      expect(missingReactivationApprovalBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "approvedBy is required when updating allowlist policy or activating automatic research."
+      });
+
+      const reactivate = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists/${allowlistId}`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          status: "active",
+          sourceCategories: ["public_web", "official_docs"],
+          approvedBy: "owner_route_reactivation"
+        })
+      });
+      const reactivateBody = await jsonBody(reactivate);
+      const reactivateData = reactivateBody.data as Readonly<Record<string, unknown>>;
+      const reactivateProjection = reactivateData.immediateProjection as Readonly<Record<string, unknown>>;
+
+      expect(reactivate.status).toBe(200);
+      expect(reactivateProjection).toMatchObject({
+        selectedAllowlist: {
+          status: "active",
+          sourceCategories: ["public_web", "official_docs"]
+        },
+        automaticRunStartPolicies: [
+          expect.objectContaining({
+            allowed: true
+          })
+        ]
+      });
+
+      const revoke = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists/${allowlistId}/revoke`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({})
+      });
+      const revokeBody = await jsonBody(revoke);
+      const revokeData = revokeBody.data as Readonly<Record<string, unknown>>;
+      const revokeProjection = revokeData.immediateProjection as Readonly<Record<string, unknown>>;
+
+      expect(revoke.status).toBe(200);
+      expect(revokeProjection).toMatchObject({
+        selectedAllowlist: {
+          status: "revoked",
+          revokedAt: expect.any(String)
+        },
+        automaticRunStartPolicies: [
+          expect.objectContaining({
+            allowed: false,
+            blockedByStatus: "revoked",
+            reason: "allowlist_revoked"
+          })
+        ]
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("increments the allowlist governance collection version across multiple allowlists", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A multi-allowlist governance projection test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startBody = await jsonBody(start);
+      const startData = startBody.data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const projectId = sessionProjection.projectId as string;
+      const firstAllowlistId = "research_allowlist_collection_first";
+      const secondAllowlistId = "research_allowlist_collection_second";
+
+      const firstCreate = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          allowlistId: firstAllowlistId,
+          connectorIds: ["public_search"],
+          sourceCategories: ["public_web"],
+          approvedBy: "owner_collection_test"
+        })
+      });
+      const firstCreateBody = await jsonBody(firstCreate);
+      const firstCreateData = firstCreateBody.data as Readonly<Record<string, unknown>>;
+
+      expect(firstCreate.status).toBe(200);
+      expect(firstCreateData).toMatchObject({
+        stateVersionBefore: 0,
+        stateVersionAfter: 1,
+        immediateProjection: {
+          version: 1
+        }
+      });
+
+      const secondCreate = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          allowlistId: secondAllowlistId,
+          connectorIds: ["official_docs"],
+          sourceCategories: ["official_docs"],
+          approvedBy: "owner_collection_test"
+        })
+      });
+      const secondCreateBody = await jsonBody(secondCreate);
+      const secondCreateData = secondCreateBody.data as Readonly<Record<string, unknown>>;
+      const secondCreateProjection = secondCreateData.immediateProjection as Readonly<Record<string, unknown>>;
+
+      expect(secondCreate.status).toBe(200);
+      expect(secondCreateData).toMatchObject({
+        stateVersionBefore: 1,
+        stateVersionAfter: 2
+      });
+      expect(secondCreateProjection).toMatchObject({
+        version: 2,
+        allowlists: [
+          expect.objectContaining({
+            allowlistId: firstAllowlistId,
+            version: 1
+          }),
+          expect.objectContaining({
+            allowlistId: secondAllowlistId,
+            version: 1
+          })
+        ]
+      });
+
+      const pause = await storageApp.request(
+        `/api/v1/projects/${projectId}/research-allowlists/${firstAllowlistId}/pause`,
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({})
+        }
+      );
+      const pauseBody = await jsonBody(pause);
+      const pauseData = pauseBody.data as Readonly<Record<string, unknown>>;
+      const pauseProjection = pauseData.immediateProjection as Readonly<Record<string, unknown>>;
+
+      expect(pause.status).toBe(200);
+      expect(pauseData).toMatchObject({
+        stateVersionBefore: 2,
+        stateVersionAfter: 3
+      });
+      expect(pauseProjection).toMatchObject({
+        version: 3,
+        selectedAllowlist: {
+          allowlistId: firstAllowlistId,
+          version: 2,
+          status: "paused"
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("normalizes allowlist governance ownership and source-category failures", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const missingProject = await storageApp.request("/api/v1/projects/proj_missing/research-allowlists", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          connectorIds: ["public_search"],
+          sourceCategories: ["public_web"],
+          approvedBy: "owner_route_test"
+        })
+      });
+      const missingProjectBody = await jsonBody(missingProject);
+
+      expect(missingProject.status).toBe(404);
+      expect(missingProjectBody.error?.code).toBe("RESOURCE_NOT_FOUND");
+
+      const start = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A route failure normalization test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const startBody = await jsonBody(start);
+      const startData = startBody.data as Readonly<Record<string, unknown>>;
+      const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+      const projectId = sessionProjection.projectId as string;
+      const mismatchedProject = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          projectId: "proj_wrong",
+          connectorIds: ["public_search"],
+          sourceCategories: ["public_web"],
+          approvedBy: "owner_route_test"
+        })
+      });
+      const mismatchedProjectBody = await jsonBody(mismatchedProject);
+
+      expect(mismatchedProject.status).toBe(400);
+      expect(mismatchedProjectBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "projectId must match the route param."
+      });
+
+      const unsupportedSource = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          connectorIds: ["public_search"],
+          sourceCategories: ["credentialed_source"],
+          approvedBy: "owner_route_test"
+        })
+      });
+      const unsupportedSourceBody = await jsonBody(unsupportedSource);
+
+      expect(unsupportedSource.status).toBe(400);
+      expect(unsupportedSourceBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: expect.stringContaining("Unsupported source categories")
+      });
+
+      const create = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          allowlistId: "research_allowlist_policy_approval",
+          connectorIds: ["public_search"],
+          sourceCategories: ["public_web"],
+          approvedBy: "owner_route_test"
+        })
+      });
+
+      expect(create.status).toBe(200);
+
+      const duplicateCreate = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          allowlistId: "research_allowlist_policy_approval",
+          connectorIds: ["public_search"],
+          sourceCategories: ["public_web"],
+          approvedBy: "owner_route_test"
+        })
+      });
+      const duplicateCreateBody = await jsonBody(duplicateCreate);
+
+      expect(duplicateCreate.status).toBe(400);
+      expect(duplicateCreateBody.error).toMatchObject({
+        code: "COMMAND_PRECONDITION_FAILED",
+        message: "Research allowlist already exists for this project."
+      });
+
+      const invalidLifecycleReason = await storageApp.request(
+        `/api/v1/projects/${projectId}/research-allowlists/research_allowlist_policy_approval/pause`,
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            reason: 123
+          })
+        }
+      );
+      const invalidLifecycleReasonBody = await jsonBody(invalidLifecycleReason);
+
+      expect(invalidLifecycleReason.status).toBe(400);
+      expect(invalidLifecycleReasonBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "reason must be a non-empty string."
+      });
+
+      const mismatchedLifecycleBody = await storageApp.request(
+        `/api/v1/projects/${projectId}/research-allowlists/research_allowlist_policy_approval/pause`,
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            allowlistId: "research_allowlist_wrong"
+          })
+        }
+      );
+      const mismatchedLifecycleBodyError = await jsonBody(mismatchedLifecycleBody);
+
+      expect(mismatchedLifecycleBody.status).toBe(400);
+      expect(mismatchedLifecycleBodyError.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "allowlistId must match the route param."
+      });
+
+      const emptyUpdate = await storageApp.request(
+        `/api/v1/projects/${projectId}/research-allowlists/research_allowlist_policy_approval`,
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({})
+        }
+      );
+      const emptyUpdateBody = await jsonBody(emptyUpdate);
+
+      expect(emptyUpdate.status).toBe(400);
+      expect(emptyUpdateBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "UpdateResearchAllowlistRequest must include at least one allowlist update field."
+      });
+
+      const approvalOnlyUpdate = await storageApp.request(
+        `/api/v1/projects/${projectId}/research-allowlists/research_allowlist_policy_approval`,
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            approvedBy: "owner_without_policy_change"
+          })
+        }
+      );
+      const approvalOnlyUpdateBody = await jsonBody(approvalOnlyUpdate);
+
+      expect(approvalOnlyUpdate.status).toBe(400);
+      expect(approvalOnlyUpdateBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "UpdateResearchAllowlistRequest must include at least one allowlist update field."
+      });
+
+      const missingUpdateApproval = await storageApp.request(
+        `/api/v1/projects/${projectId}/research-allowlists/research_allowlist_policy_approval`,
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            sourceCategories: ["official_docs"]
+          })
+        }
+      );
+      const missingUpdateApprovalBody = await jsonBody(missingUpdateApproval);
+
+      expect(missingUpdateApproval.status).toBe(400);
+      expect(missingUpdateApprovalBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "approvedBy is required when updating allowlist policy or activating automatic research."
+      });
+
+      const revoke = await storageApp.request(
+        `/api/v1/projects/${projectId}/research-allowlists/research_allowlist_policy_approval/revoke`,
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({})
+        }
+      );
+
+      expect(revoke.status).toBe(200);
+
+      const updateAfterRevoke = await storageApp.request(
+        `/api/v1/projects/${projectId}/research-allowlists/research_allowlist_policy_approval`,
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            sourceCategories: ["official_docs"],
+            approvedBy: "owner_after_revoke"
+          })
+        }
+      );
+      const updateAfterRevokeBody = await jsonBody(updateAfterRevoke);
+
+      expect(updateAfterRevoke.status).toBe(400);
+      expect(updateAfterRevokeBody.error).toMatchObject({
+        code: "COMMAND_PRECONDITION_FAILED",
+        message: "Revoked research allowlists are immutable."
+      });
+
+      const pauseAfterRevoke = await storageApp.request(
+        `/api/v1/projects/${projectId}/research-allowlists/research_allowlist_policy_approval/pause`,
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({})
+        }
+      );
+      const pauseAfterRevokeBody = await jsonBody(pauseAfterRevoke);
+
+      expect(pauseAfterRevoke.status).toBe(400);
+      expect(pauseAfterRevokeBody.error).toMatchObject({
+        code: "COMMAND_PRECONDITION_FAILED",
+        message: "Revoked research allowlists cannot be paused."
       });
     } finally {
       await storage.close();

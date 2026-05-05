@@ -173,7 +173,7 @@ Example JSON:
 
 ### CommandType enum
 
-Phase 1 command type values are closed. `26-api-route-behavior-catalog.md` must normalize route actions to these values and must not introduce extra `CommandType` names.
+Phase 1 command type values are closed, and Phase 1.5A allowlist governance adds a small project-level application-command family. `26-api-route-behavior-catalog.md` must normalize route actions to these values and must not introduce extra `CommandType` names. Project-level application commands remain in the route/catalog taxonomy, but they are not `ProductEngineCommand` reducer envelopes and must not fake a session id.
 
 | CommandType | Purpose |
 | --- | --- |
@@ -195,15 +195,19 @@ Phase 1 command type values are closed. `26-api-route-behavior-catalog.md` must 
 | `CreateSpecVersion` | persist approved spec version material |
 | `ScoreCompleteness` | calculate deterministic completeness snapshot |
 | `PrepareFounderBrief` | prepare deterministic founder brief draft |
+| `CreateResearchAllowlist` | create project-level read-only research allowlist governance projection; no ProductEngine reducer side effects |
+| `UpdateResearchAllowlist` | update active/paused allowlist policy fields or reactivate paused allowlist; no ProductEngine reducer side effects |
+| `PauseResearchAllowlist` | pause future automatic research run starts for an allowlist; no ProductEngine reducer side effects |
+| `RevokeResearchAllowlist` | terminally revoke future automatic research run starts for an allowlist; no ProductEngine reducer side effects |
 
 ### ProductEngineCommand envelope
 
-`ProductEngineCommand` is an event-sourcing style command envelope with concurrency and causation required.
+`ProductEngineCommand` is a session-scoped event-sourcing command envelope with concurrency and causation required. Project-level application commands such as allowlist governance use their own application-service boundary and return command-shaped responses without ProductEngine reducer events/effects.
 
 | Field | Required | Type | Rule |
 | --- | --- | --- | --- |
 | `commandId` | yes | `CommandId` | unique per submitted command |
-| `commandType` | yes | `CommandType` | closed enum |
+| `commandType` | yes | `ProductEngineCommandType` | closed session-scoped reducer enum |
 | `projectId` | yes | `ProjectId` | project scope |
 | `sessionId` | yes | `SessionId` | session scope |
 | `actor` | yes | `CommandActor` | who/what issued command |
@@ -262,6 +266,7 @@ Example command envelope:
 | runtime/codex | `CreateRuntimePreviewPayload`, `ConvertRuntimeArtifactPayload` | turnPurpose/artifact id/target conversion request |
 | decision/spec version | `CreateSpecUpdatePreviewPayload`, `ResolveDecisionPayload`, `CreateSpecVersionPayload` | decision/spec update refs and approval outcome |
 | completion/export | `ScoreCompletenessPayload`, `PrepareFounderBriefPayload` | scoring target or founder brief draft target |
+| allowlist governance | `CreateResearchAllowlistRequest`, `UpdateResearchAllowlistRequest`, `PauseResearchAllowlistRequest`, `RevokeResearchAllowlistRequest` | project id, allowlist id, read-only connector/source policy, pause/revoke transition target |
 
 ### ProductEngineStateSnapshot
 

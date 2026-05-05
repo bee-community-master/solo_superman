@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ProjectionVersion, ProjectId, ResearchAllowlistId, ResearchConnectorId } from "../ids";
 import {
   AUTOMATIC_RESEARCH_SOURCE_CATEGORIES,
+  automaticRunStartPolicyForResearchAllowlist,
   DEFAULT_RESEARCH_DISCLOSURE_LOG_POLICY,
   DEFAULT_RESEARCH_RATE_BUDGET_POLICY,
   DEFAULT_RESEARCH_STALENESS_POLICY,
@@ -242,6 +243,39 @@ describe("ResearchAllowlist projection contract", () => {
         })
       ).status
     ).toBe("paused");
+  });
+
+  it("makes paused and revoked allowlists explicit automatic-run blockers", () => {
+    expect(automaticRunStartPolicyForResearchAllowlist(allowlistFixture())).toMatchObject({
+      allowed: true,
+      reason: "active_public_safe_allowlist"
+    });
+
+    expect(
+      automaticRunStartPolicyForResearchAllowlist(
+        allowlistFixture({
+          status: "paused",
+          pausedAt: "2026-05-05T00:01:00.000Z"
+        })
+      )
+    ).toMatchObject({
+      allowed: false,
+      blockedByStatus: "paused",
+      reason: "allowlist_paused"
+    });
+
+    expect(
+      automaticRunStartPolicyForResearchAllowlist(
+        allowlistFixture({
+          status: "revoked",
+          revokedAt: "2026-05-05T00:02:00.000Z"
+        })
+      )
+    ).toMatchObject({
+      allowed: false,
+      blockedByStatus: "revoked",
+      reason: "allowlist_revoked"
+    });
   });
 
   it("rejects stale lifecycle timestamps that conflict with the current status", () => {
