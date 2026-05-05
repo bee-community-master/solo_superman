@@ -101,6 +101,22 @@ describe("PR-07 runtime artifact conversion reducer", () => {
     });
   });
 
+  it("rejects conversion requests without an explicit target", () => {
+    const projectId = "proj_runtime_conversion" as ProjectId;
+    const sessionId = "sess_runtime_conversion" as SessionId;
+    const artifactId = "runtime_artifact_conversion" as RuntimeArtifactId;
+    const state = runtimeConversionState(projectId, sessionId, artifactId);
+    const command = runtimeConversionCommand(projectId, sessionId, artifactId, {});
+
+    const reduction = reduceProductEngineCommand(command, state);
+
+    expect(reduction.accepted).toBe(false);
+    expect(reduction.rejectionReason).toMatchObject({
+      code: "VALIDATION_FAILED",
+      message: "ConvertRuntimeArtifact requires target."
+    });
+  });
+
   it("rejects manual blocked conversions without blocked action taxonomy", () => {
     const projectId = "proj_runtime_conversion" as ProjectId;
     const sessionId = "sess_runtime_conversion" as SessionId;

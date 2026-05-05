@@ -86,7 +86,7 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       status: "ok",
-      sidecarPhase: "pr_08_completeness_founder_brief",
+      sidecarPhase: "pr_09_e2e_dry_run_hardening",
       checks: {
         process: "alive"
       }
@@ -360,15 +360,14 @@ describe("PR-02 sidecar health shell", () => {
     expect(body.error?.code).toBe("SIDECAR_NOT_READY");
   });
 
-  it("keeps later product API routes unimplemented behind the token guard", async () => {
+  it("keeps mounted product query routes unavailable until migrated storage is mounted", async () => {
     const response = await app.request("/api/v1/sessions/sess_demo/spec/versions", {
       headers: authHeaders()
     });
     const body = await jsonBody(response);
 
-    expect(response.status).toBe(404);
-    expect(body.error?.code).toBe("RESOURCE_NOT_FOUND");
-    expect(body.error?.message).toBe("This Phase 1 API route is not mounted yet.");
+    expect(response.status).toBe(503);
+    expect(body.error?.code).toBe("SIDECAR_NOT_READY");
   });
 
   it("runs the PR-04 ProductEngine command path through first active question batch", async () => {

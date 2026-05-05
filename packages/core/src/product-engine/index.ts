@@ -45,6 +45,7 @@ import {
   type SessionShellProjection,
   type SessionId,
   type SpecVersionId,
+  type SpecUpdatePreviewSnapshot,
   type StateVersion
 } from "@solo-superman/contracts";
 import {
@@ -61,7 +62,7 @@ import {
   synthesizeEvidenceMatrix
 } from "../research-engine";
 
-export const PACKAGE_SLICE_STATUS = "product-engine-completeness-founder-brief-pr-08" as const;
+export const PACKAGE_SLICE_STATUS = "product-engine-e2e-dry-run-pr-09" as const;
 
 type PrivacyMode = "local_only" | "local_with_manual_export";
 
@@ -152,6 +153,20 @@ function isDecisionResolutionStatus(value: unknown): value is Exclude<
   return value === "approved" || value === "rejected" || value === "deferred" || value === "risk_accepted";
 }
 
+function mergeDecision(
+  decisions: ProductEngineStateSnapshot["decisions"],
+  decision: ProductEngineStateSnapshot["decisions"][number]
+) {
+  return [...decisions.filter((candidate) => candidate.decisionId !== decision.decisionId), decision];
+}
+
+function mergeSpecUpdatePreview(
+  previews: readonly SpecUpdatePreviewSnapshot[],
+  preview: SpecUpdatePreviewSnapshot
+) {
+  return [...previews.filter((candidate) => candidate.previewRef !== preview.previewRef), preview];
+}
+
 function requiredString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
@@ -168,6 +183,10 @@ function optionalPayloadSections(value: unknown) {
   const sections = value.map((section) => (typeof section === "string" ? section.trim() : ""));
 
   return sections.every(Boolean) ? (sections as readonly string[]) : "invalid";
+}
+
+function stringArraysEqual(left: readonly string[], right: readonly string[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function queueItemIdSelection(value: unknown): readonly QueueItemId[] | null | "invalid" {
@@ -269,6 +288,7 @@ export function createInitialProductEngineState(projectId: ProjectId, sessionId:
     queueProjection: emptyQueueProjection(),
     researchState: EMPTY_RESEARCH_PROJECTION,
     decisions: [],
+    specUpdatePreviews: [],
     runtimeState: EMPTY_RUNTIME_PROJECTION,
     completeness: emptyConfidenceCompletionProjection(sessionId)
   };
@@ -288,7 +308,8 @@ function createLivingSpecProjection(
   command: ProductEngineCommand,
   version: ProjectionVersion,
   title: string,
-  sections: readonly string[]
+  sections: readonly string[],
+  approvalStatus: LivingSpecProjection["approvalStatus"] = "draft"
 ) {
   return {
     kind: "LivingSpecProjection",
@@ -297,7 +318,7 @@ function createLivingSpecProjection(
     title,
     sections,
     sectionCount: sections.length,
-    approvalStatus: "draft"
+    approvalStatus
   } as const;
 }
 
@@ -378,20 +399,48 @@ function queueProjectionWithAnsweredItem(
   };
 }
 
+function queueProjectionWithoutItem(
+  projection: DecisionQueueProjection,
+  queueItemId: QueueItemId,
+  version: ProjectionVersion
+): DecisionQueueProjection {
+  const withoutItem = (items: readonly QueueItemProjection[]) =>
+    items.filter((candidate) => candidate.queueItemId !== queueItemId);
+
+  return {
+    ...projection,
+    version,
+    active: withoutItem(projection.active),
+    next: withoutItem(projection.next),
+    blocked: withoutItem(projection.blocked),
+    deferred: withoutItem(projection.deferred)
+  };
+}
+
 function queueProjectionWithNextOrBlockedItem(
   projection: DecisionQueueProjection,
   item: QueueItemProjection & { readonly state: "next" | "blocked" },
   version: ProjectionVersion
 ): DecisionQueueProjection {
-  const withoutExisting = (items: DecisionQueueProjection["next"]) =>
-    items.filter((candidate) => candidate.queueItemId !== item.queueItemId);
+  const withoutItem = queueProjectionWithoutItem(projection, item.queueItemId, version);
 
   return {
-    ...projection,
-    version,
-    next: item.state === "next" ? [...withoutExisting(projection.next), item] : withoutExisting(projection.next),
-    blocked:
-      item.state === "blocked" ? [...withoutExisting(projection.blocked), item] : withoutExisting(projection.blocked)
+    ...withoutItem,
+    next: item.state === "next" ? [...withoutItem.next, item] : withoutItem.next,
+    blocked: item.state === "blocked" ? [...withoutItem.blocked, item] : withoutItem.blocked
+  };
+}
+
+function queueProjectionWithDeferredItem(
+  projection: DecisionQueueProjection,
+  item: QueueItemProjection & { readonly state: "deferred" },
+  version: ProjectionVersion
+): DecisionQueueProjection {
+  const withoutItem = queueProjectionWithoutItem(projection, item.queueItemId, version);
+
+  return {
+    ...withoutItem,
+    deferred: [...withoutItem.deferred, item]
   };
 }
 
@@ -531,6 +580,33 @@ function queueProjectionWithCompletionCandidate(
   version: ProjectionVersion
 ): DecisionQueueProjection {
   return queueProjectionWithNextOrBlockedItem(projection, completionCandidateQueueItem(confidenceProjection), version);
+}
+
+function decisionIdForSpecUpdatePreview(previewRef: string): DecisionId {
+  const stablePreviewToken = previewRef.replace(/^spec_update_/, "");
+
+  return `decision_${stablePreviewToken}` as DecisionId;
+}
+
+function decisionQueueItemId(decisionId: DecisionId): QueueItemId {
+  return `decision_card_${decisionId}` as QueueItemId;
+}
+
+function specUpdateDecisionQueueItem(decisionId: DecisionId, title: string) {
+  return {
+    queueItemId: decisionQueueItemId(decisionId),
+    title,
+    state: "next" as const
+  };
+}
+
+function queueProjectionWithSpecUpdateDecision(
+  projection: DecisionQueueProjection,
+  decisionId: DecisionId,
+  title: string,
+  version: ProjectionVersion
+): DecisionQueueProjection {
+  return queueProjectionWithNextOrBlockedItem(projection, specUpdateDecisionQueueItem(decisionId, title), version);
 }
 
 function completenessDeterministicOutputs(
@@ -1670,7 +1746,13 @@ function reduceConvertRuntimeArtifact(
 
   const artifactRef = artifact.artifactId;
   const target = requiredString(command.payload.target);
-  const requestsBlockedTarget = target === "blocked_action" || Boolean(requiredString(command.payload.blockReason));
+  const blockReason = requiredString(command.payload.blockReason);
+
+  if (!target) {
+    return reject("ConvertRuntimeArtifact requires target.", "VALIDATION_FAILED");
+  }
+
+  const requestsBlockedTarget = target === "blocked_action" || Boolean(blockReason);
   const hasBlockedActionTaxonomy =
     isBlockedActionType(command.payload.blockedActionType) || Boolean(artifact.blockedAction?.actionType);
 
@@ -1703,7 +1785,7 @@ function reduceConvertRuntimeArtifact(
       conversionStatus: "blocked",
       blockReason:
         blockedArtifact.blockedAction?.reason ??
-        requiredString(command.payload.blockReason) ??
+        blockReason ??
         "Blocked runtime artifact cannot be converted into execution.",
       runtimeArtifact: blockedArtifact,
       projection: runtimeProjection,
@@ -1738,7 +1820,7 @@ function reduceConvertRuntimeArtifact(
   const event = eventDraft(command, "RuntimeArtifactConverted", {
     artifactId: artifactRef,
     conversionStatus: "preview_only",
-    target: requiredString(command.payload.target) ?? artifact.targetObject
+    target
   });
 
   return acceptedReduction(
@@ -1752,10 +1834,137 @@ function reduceConvertRuntimeArtifact(
         outputRef: artifactRef,
         payload: {
           conversionStatus: "preview_only",
-          target: target ?? artifact.targetObject
+          target
         }
       }
     ]
+  );
+}
+
+function reduceCreateSpecUpdatePreview(command: ProductEngineCommand, state: ProductEngineStateSnapshot): ProductEngineReduction {
+  if (!state.currentSpec.draftRef) {
+    return reject("CreateSpecUpdatePreview requires an initial spec draft.");
+  }
+
+  const sourceRef =
+    requiredString(command.payload.sourceRef) ??
+    requiredString(command.payload.sourcePreviewRef) ??
+    requiredString(command.payload.evidenceMatrixId) ??
+    requiredString(command.payload.runtimeArtifactId);
+
+  if (!sourceRef) {
+    return reject("CreateSpecUpdatePreview requires a sourceRef trace link.", "VALIDATION_FAILED");
+  }
+
+  const requiredDecisionRef = isRequiredDecisionRef(command.payload.requiredDecisionRef)
+    ? command.payload.requiredDecisionRef
+    : "primary_customer";
+  const payloadSections = optionalPayloadSections(command.payload.sections);
+
+  if (payloadSections === "invalid") {
+    return reject("CreateSpecUpdatePreview sections must be non-empty strings.", "VALIDATION_FAILED");
+  }
+
+  const previewRef = `spec_update_${stableToken(`${command.sessionId}:${sourceRef}:${requiredDecisionRef}`)}`;
+  const decisionId = decisionIdForSpecUpdatePreview(previewRef);
+  const existingDecision = state.decisions.find((decision) => decision.decisionId === decisionId);
+
+  if (
+    existingDecision &&
+    existingDecision.status !== "active" &&
+    existingDecision.status !== "deferred"
+  ) {
+    return reject("CreateSpecUpdatePreview cannot recreate a terminal decision card.", "COMMAND_PRECONDITION_FAILED", {
+      decisionId,
+      status: existingDecision.status
+    });
+  }
+
+  const version = projectionVersionFor(state);
+  const decision = {
+    decisionId,
+    requiredDecisionRef,
+    status: "active" as const
+  };
+  const decisions = mergeDecision(state.decisions, decision);
+  const title =
+    requiredString(command.payload.title) ??
+    state.currentSpec.title ??
+    state.project.rawIdeaText ??
+    "Spec update preview";
+  const sections = payloadSections ?? state.currentSpec.sections ?? [];
+  const specUpdatePreview = {
+    previewRef,
+    sourceRef,
+    decisionId,
+    requiredDecisionRef,
+    title,
+    sections
+  } as const satisfies SpecUpdatePreviewSnapshot;
+  const specUpdatePreviews = mergeSpecUpdatePreview(state.specUpdatePreviews ?? [], specUpdatePreview);
+  const queueProjection = queueProjectionWithSpecUpdateDecision(
+    state.queueProjection,
+    decisionId,
+    `Decision approval required: ${requiredDecisionRef}`,
+    version
+  );
+  const confidenceProjection = buildConfidenceCompletionProjection(
+    {
+      ...state,
+      decisions,
+      queueProjection
+    },
+    version
+  );
+  const event = eventDraft(command, "SpecUpdatePreviewCreated", {
+    previewRef,
+    sourceRef,
+    requiredDecisionRef,
+    title,
+    sections,
+    decision,
+    specUpdatePreview,
+    queueProjection,
+    confidenceProjection
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      decisions,
+      specUpdatePreviews,
+      queueProjection,
+      completeness: confidenceProjection
+    },
+    [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: previewRef,
+        payload: {
+          previewRef,
+          sourceRef,
+          decisionId,
+          requiredDecisionRef,
+          title,
+          sections
+        }
+      },
+      ...completenessDeterministicOutputs(command, confidenceProjection)
+    ],
+    [
+      queueProjectionEffect(
+        command,
+        "SpecUpdatePreviewCreated",
+        {
+          refType: "SpecUpdatePreview",
+          refId: previewRef
+        },
+        "normal"
+      )
+    ],
+    queueProjection
   );
 }
 
@@ -1786,10 +1995,24 @@ function reduceResolveDecision(command: ProductEngineCommand, state: ProductEngi
         }
       : decision
   );
-  const confidenceProjection = buildConfidenceCompletionProjection(
+  const queueItemId = decisionQueueItemId(decisionId);
+  const queueProjection =
+    outcome === "deferred"
+      ? queueProjectionWithDeferredItem(
+          state.queueProjection,
+          {
+            queueItemId,
+            title: `Decision deferred: ${existingDecision.requiredDecisionRef}`,
+            state: "deferred"
+          },
+          version
+        )
+      : queueProjectionWithoutItem(state.queueProjection, queueItemId, version);
+  const updatedConfidenceProjection = buildConfidenceCompletionProjection(
     {
       ...state,
-      decisions
+      decisions,
+      queueProjection
     },
     version
   );
@@ -1797,7 +2020,8 @@ function reduceResolveDecision(command: ProductEngineCommand, state: ProductEngi
     decisionId,
     outcome,
     requiredDecisionRef: existingDecision.requiredDecisionRef,
-    confidenceProjection
+    queueProjection,
+    confidenceProjection: updatedConfidenceProjection
   });
 
   return acceptedReduction(
@@ -1806,7 +2030,8 @@ function reduceResolveDecision(command: ProductEngineCommand, state: ProductEngi
     event,
     {
       decisions,
-      completeness: confidenceProjection
+      queueProjection,
+      completeness: updatedConfidenceProjection
     },
     [
       {
@@ -1816,10 +2041,10 @@ function reduceResolveDecision(command: ProductEngineCommand, state: ProductEngi
           outcome
         }
       },
-      ...completenessDeterministicOutputs(command, confidenceProjection)
+      ...completenessDeterministicOutputs(command, updatedConfidenceProjection)
     ],
     [],
-    confidenceProjection
+    updatedConfidenceProjection
   );
 }
 
@@ -1834,21 +2059,50 @@ function reduceCreateSpecVersion(command: ProductEngineCommand, state: ProductEn
     return reject("CreateSpecVersion requires approvedPreviewRef.", "VALIDATION_FAILED");
   }
 
+  const approvedDecisionId = decisionIdForSpecUpdatePreview(approvedPreviewRef);
+  const approvedDecision = state.decisions.find(
+    (decision) => decision.decisionId === approvedDecisionId && decision.status === "approved"
+  );
+  const approvedPreview = state.specUpdatePreviews?.find((preview) => preview.previewRef === approvedPreviewRef);
+
+  if (!approvedDecision) {
+    return reject("CreateSpecVersion requires an approved decision for the preview ref.", "COMMAND_PRECONDITION_FAILED", {
+      approvedPreviewRef,
+      expectedDecisionId: approvedDecisionId
+    });
+  }
+
+  if (!approvedPreview) {
+    return reject("CreateSpecVersion requires approved spec update preview material.", "COMMAND_PRECONDITION_FAILED", {
+      approvedPreviewRef
+    });
+  }
+
   const payloadSections = optionalPayloadSections(command.payload.sections);
 
   if (payloadSections === "invalid") {
     return reject("CreateSpecVersion sections must be non-empty strings.", "VALIDATION_FAILED");
   }
 
+  const payloadTitle = requiredString(command.payload.title);
+
+  if (payloadTitle && payloadTitle !== approvedPreview.title) {
+    return reject("CreateSpecVersion title must match the approved preview material.", "COMMAND_PRECONDITION_FAILED", {
+      approvedPreviewRef
+    });
+  }
+
+  if (payloadSections && !stringArraysEqual(payloadSections, approvedPreview.sections)) {
+    return reject("CreateSpecVersion sections must match the approved preview material.", "COMMAND_PRECONDITION_FAILED", {
+      approvedPreviewRef
+    });
+  }
+
   const version = projectionVersionFor(state);
   const versionRef = `spec_version_${stableToken(`${command.sessionId}:${approvedPreviewRef}:${version}`)}` as SpecVersionId;
-  const title =
-    requiredString(command.payload.title) ??
-    state.currentSpec.title ??
-    state.project.rawIdeaText ??
-    "Untitled product idea";
-  const sections = payloadSections ?? state.currentSpec.sections ?? [];
-  const livingSpecProjection = createLivingSpecProjection(command, version, title, sections);
+  const title = approvedPreview.title;
+  const sections = approvedPreview.sections;
+  const livingSpecProjection = createLivingSpecProjection(command, version, title, sections, "approved");
   const currentSpec = {
     ...state.currentSpec,
     versionRef,
@@ -2056,6 +2310,8 @@ export function reduceProductEngineCommand(
       return reduceCreateRuntimePreview(command, state);
     case "ConvertRuntimeArtifact":
       return reduceConvertRuntimeArtifact(command, state);
+    case "CreateSpecUpdatePreview":
+      return reduceCreateSpecUpdatePreview(command, state);
     case "ResolveDecision":
       return reduceResolveDecision(command, state);
     case "CreateSpecVersion":
@@ -2065,7 +2321,7 @@ export function reduceProductEngineCommand(
     case "PrepareFounderBrief":
       return reducePrepareFounderBrief(command, state);
     default:
-      return reject(`${command.commandType} is outside the mounted PR-08 reducer slice.`);
+      return reject(`${command.commandType} is outside the mounted PR-09 reducer slice.`);
   }
 }
 
@@ -2170,12 +2426,44 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
         queueProjection: projection
       };
     }
+    case "SpecUpdatePreviewCreated": {
+      const projection = queueProjectionPayload(event.payload) ?? state.queueProjection;
+      const decision = objectPayload<ProductEngineStateSnapshot["decisions"][number]>(event.payload, "decision");
+      const specUpdatePreview = objectPayload<SpecUpdatePreviewSnapshot>(event.payload, "specUpdatePreview");
+      const decisions =
+        decision && isRequiredDecisionRef(decision.requiredDecisionRef)
+          ? mergeDecision(state.decisions, decision)
+          : state.decisions;
+      const specUpdatePreviews = specUpdatePreview
+        ? mergeSpecUpdatePreview(state.specUpdatePreviews ?? [], specUpdatePreview)
+        : state.specUpdatePreviews;
+      const confidenceProjection =
+        confidenceProjectionPayload(event.payload) ??
+        buildConfidenceCompletionProjection(
+          {
+            ...state,
+            decisions,
+            queueProjection: projection
+          },
+          Number(nextStateVersion) as ProjectionVersion
+        );
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        decisions,
+        ...(specUpdatePreviews ? { specUpdatePreviews } : {}),
+        queueProjection: projection,
+        completeness: confidenceProjection
+      };
+    }
     case "DecisionResolved": {
       const decisionId = typeof event.payload.decisionId === "string" ? (event.payload.decisionId as DecisionId) : null;
       const outcome = isDecisionResolutionStatus(event.payload.outcome) ? event.payload.outcome : null;
       const requiredDecisionRef = isRequiredDecisionRef(event.payload.requiredDecisionRef)
         ? event.payload.requiredDecisionRef
         : null;
+      const queueProjection = queueProjectionPayload(event.payload) ?? state.queueProjection;
       const decisions =
         decisionId && outcome && requiredDecisionRef
           ? state.decisions.some((decision) => decision.decisionId === decisionId)
@@ -2201,7 +2489,8 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
         buildConfidenceCompletionProjection(
           {
             ...state,
-            decisions
+            decisions,
+            queueProjection
           },
           Number(nextStateVersion) as ProjectionVersion
         );
@@ -2210,6 +2499,7 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
         ...state,
         stateVersion: nextStateVersion,
         decisions,
+        queueProjection,
         completeness: confidenceProjection
       };
     }

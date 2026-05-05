@@ -1,5 +1,6 @@
 import type { EffectTaskDto } from "../effects";
 import type { CommandId, CorrelationId, EffectTaskId, EventId, StateVersion } from "../ids";
+import type { ProductEngineDeterministicOutput } from "../product-engine/reduction";
 import type { ProjectionRefetchHint } from "../sse";
 import type { ApiError } from "./errors";
 
@@ -17,6 +18,7 @@ export interface CommandResponse<TProjection = unknown> {
   readonly queuedActivity?: unknown;
   readonly immediateProjection?: TProjection;
   readonly queueProjection?: TProjection;
+  readonly deterministicOutputs?: readonly ProductEngineDeterministicOutput[];
   readonly pendingEffectSummary?: PendingEffectSummaryDto;
   readonly blockingCard?: unknown;
   readonly error?: ApiError;

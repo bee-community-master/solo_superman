@@ -27,6 +27,7 @@ import {
   type ProjectId,
   type ResearchEvidenceProjection,
   type ResearchResultId,
+  type ResearchTaskId,
   type RuntimeActivityProjection,
   type RuntimePreviewArtifact,
   type SchemaVersion,
@@ -91,6 +92,9 @@ export interface RunSessionCommandInput {
     | "SynthesizeEvidence"
     | "CreateRuntimePreview"
     | "ConvertRuntimeArtifact"
+    | "CreateSpecUpdatePreview"
+    | "ResolveDecision"
+    | "CreateSpecVersion"
     | "ScoreCompleteness"
     | "PrepareFounderBrief"
   >;
@@ -302,7 +306,8 @@ function responseForAccepted(
         }
       : {}),
     ...(immediateProjection ? { immediateProjection } : {}),
-    ...(queueProjection ? { queueProjection } : {})
+    ...(queueProjection ? { queueProjection } : {}),
+    ...(reduction.deterministicOutputs.length ? { deterministicOutputs: reduction.deterministicOutputs } : {})
   };
 }
 
@@ -342,6 +347,22 @@ function runtimeArtifactFromEvent(event: ProductEngineEvent): RuntimePreviewArti
   return runtimeArtifact && typeof runtimeArtifact === "object" && !Array.isArray(runtimeArtifact)
     ? (runtimeArtifact as RuntimePreviewArtifact)
     : null;
+}
+
+function runtimeArtifactsFromEvent(event: ProductEngineEvent): readonly RuntimePreviewArtifact[] {
+  const artifacts = new Map<string, RuntimePreviewArtifact>();
+  const runtimeProjection = runtimeProjectionFromEvent(event);
+  const runtimeArtifact = runtimeArtifactFromEvent(event);
+
+  for (const artifact of runtimeProjection?.runtimeArtifacts ?? []) {
+    artifacts.set(artifact.artifactId, artifact);
+  }
+
+  if (runtimeArtifact) {
+    artifacts.set(runtimeArtifact.artifactId, runtimeArtifact);
+  }
+
+  return [...artifacts.values()];
 }
 
 function decisionQueueProjectionFromEvents(events: readonly ProductEngineEvent[]): DecisionQueueProjection | null {
@@ -412,6 +433,24 @@ export function createProductEngineCommandService(
     return ref.refType === "ResearchResult" && typeof ref.refId === "string"
       ? (ref.refId as ResearchResultId)
       : null;
+  }
+
+  async function cancelQueuedResearchTaskWait(
+    effectRepository: ReturnType<typeof createEffectTaskRepository>,
+    researchTaskId: ResearchTaskId,
+    updatedAt: string
+  ) {
+    const waitingEffect = await effectRepository.findByIdempotencyKey(`research:${researchTaskId}`);
+
+    if (!waitingEffect || waitingEffect.status !== "queued") {
+      return null;
+    }
+
+    return effectRepository.updateStatus({
+      effectTaskId: waitingEffect.effectTaskId,
+      status: "cancelled",
+      updatedAt
+    });
   }
 
   function runtimePreviewRequestFromEvent(event: ProductEngineEvent) {
@@ -566,8 +605,6 @@ export function createProductEngineCommandService(
         }
 
         const researchProjection = researchProjectionFromEvent(event);
-        const runtimeProjection = runtimeProjectionFromEvent(event);
-        const runtimeArtifact = runtimeArtifactFromEvent(event);
 
         if (researchProjection) {
           for (const task of researchProjection.tasks) {
@@ -599,22 +636,11 @@ export function createProductEngineCommandService(
           }
         }
 
-        if (runtimeProjection) {
-          for (const artifact of runtimeProjection.runtimeArtifacts) {
-            await runtimeRepository.saveArtifact({
-              projectId: command.projectId,
-              sessionId: command.sessionId,
-              artifact,
-              schemaVersion: command.schemaVersion
-            });
-          }
-        }
-
-        if (runtimeArtifact) {
+        for (const artifact of runtimeArtifactsFromEvent(event)) {
           await runtimeRepository.saveArtifact({
             projectId: command.projectId,
             sessionId: command.sessionId,
-            artifact: runtimeArtifact,
+            artifact,
             schemaVersion: command.schemaVersion
           });
         }
@@ -754,6 +780,11 @@ export function createProductEngineCommandService(
 
       if (alreadySynthesized) {
         if (alreadySynthesized.balanceStatus === "source_quality_insufficient") {
+          await cancelQueuedResearchTaskWait(
+            effectRepository,
+            alreadySynthesized.researchTaskId,
+            new Date().toISOString()
+          );
           await effectRepository.updateStatus({
             effectTaskId: effect.effectTaskId,
             status: "failed",
@@ -772,6 +803,11 @@ export function createProductEngineCommandService(
           };
         }
 
+        await cancelQueuedResearchTaskWait(
+          effectRepository,
+          alreadySynthesized.researchTaskId,
+          new Date().toISOString()
+        );
         await effectRepository.updateStatus({
           effectTaskId: effect.effectTaskId,
           status: "succeeded",
@@ -824,6 +860,11 @@ export function createProductEngineCommandService(
       }
 
       if (matrix.balanceStatus === "source_quality_insufficient") {
+        await cancelQueuedResearchTaskWait(
+          effectRepository,
+          matrix.researchTaskId,
+          new Date().toISOString()
+        );
         await effectRepository.updateStatus({
           effectTaskId: effect.effectTaskId,
           status: "failed",
@@ -842,6 +883,11 @@ export function createProductEngineCommandService(
         };
       }
 
+      await cancelQueuedResearchTaskWait(
+        effectRepository,
+        matrix.researchTaskId,
+        new Date().toISOString()
+      );
       await effectRepository.updateStatus({
         effectTaskId: effect.effectTaskId,
         status: "succeeded",
@@ -1274,6 +1320,32 @@ export function createProductEngineCommandService(
         sectionCount: state.currentSpec.sections?.length ?? 0,
         approvalStatus: "draft"
       };
+    },
+
+    async listSpecVersions(sessionIdValue: SessionId) {
+      const session = await createProjectRepository(storage.db).getSession(sessionIdValue);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: sessionIdValue
+        });
+      }
+
+      const state = await stateForSession(session.projectId, sessionIdValue);
+
+      if (!state.currentSpec.versionRef) {
+        return [];
+      }
+
+      return [
+        {
+          specVersionId: state.currentSpec.versionRef,
+          sessionId: sessionIdValue,
+          title: state.currentSpec.title ?? "Untitled product idea",
+          sectionCount: state.currentSpec.sections?.length ?? 0,
+          approved: state.decisions.some((decision) => decision.status === "approved")
+        }
+      ];
     },
 
     async getQueue(sessionIdValue: SessionId): Promise<DecisionQueueProjection> {

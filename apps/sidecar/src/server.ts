@@ -11,7 +11,7 @@ import {
   type ApiSuccessEnvelope,
   type CommandId,
   type CommandResponse,
-  PR08_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  PR09_MOUNTED_PRODUCT_API_ROUTE_IDS,
   type ProjectId,
   type QueueItemId,
   type ResearchResultId,
@@ -41,6 +41,14 @@ const LOCAL_CORS_ORIGINS = new Set([
   "tauri://localhost",
   "http://tauri.localhost",
   "https://tauri.localhost"
+]);
+const REQUIRED_DECISION_REFS = new Set([
+  "primary_customer",
+  "problem",
+  "value",
+  "mvp_scope",
+  "validation_plan",
+  "success_criteria"
 ]);
 function requestMeta(context: Context): ApiResponseMeta {
   const inboundRequestId = context.req.header("x-request-id")?.trim();
@@ -167,10 +175,10 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
           db: "migration_failed",
           productEngine: "not_initialized_until_pr_04",
           codex: "runtime_status_endpoint_mounted_pr_07",
-          completion: "completeness_endpoints_mounted_pr_08"
+          completion: "e2e_dry_run_endpoints_mounted_pr_09"
         },
         migrations,
-        implementedApiRouteIds: PR08_MOUNTED_PRODUCT_API_ROUTE_IDS
+        implementedApiRouteIds: PR09_MOUNTED_PRODUCT_API_ROUTE_IDS
       }
     } as const;
   }
@@ -186,10 +194,10 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
           db: "migrated",
           productEngine: "not_initialized_until_storage_available",
           codex: "runtime_status_endpoint_mounted_pr_07",
-          completion: "completeness_endpoints_mounted_pr_08"
+          completion: "e2e_dry_run_endpoints_mounted_pr_09"
         },
         migrations,
-        implementedApiRouteIds: PR08_MOUNTED_PRODUCT_API_ROUTE_IDS
+        implementedApiRouteIds: PR09_MOUNTED_PRODUCT_API_ROUTE_IDS
       }
     } as const;
   }
@@ -203,10 +211,10 @@ function readyzStatus(migrationStatus: MigrationStatus, hasStorage: boolean) {
         db: "migrated",
         productEngine: "initialized_pr_04",
         codex: "runtime_status_endpoint_mounted_pr_07",
-        completion: "completeness_endpoints_mounted_pr_08"
+        completion: "e2e_dry_run_endpoints_mounted_pr_09"
       },
       migrations,
-      implementedApiRouteIds: PR08_MOUNTED_PRODUCT_API_ROUTE_IDS
+      implementedApiRouteIds: PR09_MOUNTED_PRODUCT_API_ROUTE_IDS
     }
   } as const;
 }
@@ -237,6 +245,16 @@ function optionalStringArrayFromBody(value: unknown, fieldName: string) {
   }
 
   return value.map((item) => stringFromBody(item, fieldName));
+}
+
+function optionalSectionsFromBody(value: unknown, fieldName: string) {
+  const sections = optionalStringArrayFromBody(value, fieldName);
+
+  if (sections && !sections.length) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must include at least one section.`);
+  }
+
+  return sections;
 }
 
 function requiredStringArrayFromBody(value: unknown, fieldName: string) {
@@ -284,6 +302,18 @@ function optionalBlockedActionTypeFromBody(value: unknown, fieldName: string) {
 
   if (typeof value !== "string" || !BLOCKED_ACTION_TYPES.includes(value as (typeof BLOCKED_ACTION_TYPES)[number])) {
     throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be a canonical blocked action type.`);
+  }
+
+  return value;
+}
+
+function optionalRequiredDecisionRefFromBody(value: unknown, fieldName: string) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value !== "string" || !REQUIRED_DECISION_REFS.has(value)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be a canonical required decision ref.`);
   }
 
   return value;
@@ -367,11 +397,11 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       status: "ok",
       service: "solo-superman-sidecar",
       schemaVersion: CONTRACT_SCHEMA_VERSION,
-      sidecarPhase: "pr_08_completeness_founder_brief",
+      sidecarPhase: "pr_09_e2e_dry_run_hardening",
       checks: {
         process: "alive"
       },
-      implementedApiRouteIds: PR08_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      implementedApiRouteIds: PR09_MOUNTED_PRODUCT_API_ROUTE_IDS,
       productApiRoutePlaceholderCount: productApiRoutePlaceholders.length
     })
   );
@@ -526,6 +556,10 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
     withProductEngine(context, (service) => service.getSpec(context.req.param("sessionId") as SessionId))
   );
 
+  app.get("/api/v1/sessions/:sessionId/spec/versions", async (context) =>
+    withProductEngine(context, (service) => service.listSpecVersions(context.req.param("sessionId") as SessionId))
+  );
+
   app.get("/api/v1/sessions/:sessionId/queue", async (context) =>
     withProductEngine(context, (service) => service.getQueue(context.req.param("sessionId") as SessionId))
   );
@@ -605,6 +639,67 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         payload: {
           researchResultId,
           ...(synthesisVersion ? { synthesisVersion } : {})
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/spec-updates", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const sections = optionalSectionsFromBody(body.sections, "sections");
+      const requiredDecisionRef = optionalRequiredDecisionRefFromBody(body.requiredDecisionRef, "requiredDecisionRef");
+
+      return service.runSessionCommand({
+        sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
+        commandType: "CreateSpecUpdatePreview",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          sourceRef: stringFromBody(body.sourceRef, "sourceRef"),
+          ...(requiredDecisionRef ? { requiredDecisionRef } : {}),
+          ...(typeof body.title === "string" ? { title: body.title } : {}),
+          ...(sections ? { sections } : {})
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/decisions/:decisionId/resolve", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const decisionId = context.req.param("decisionId");
+      const bodyDecisionId = stringFromBody(body.decisionId, "decisionId");
+
+      if (bodyDecisionId !== decisionId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "decisionId must match the route param.");
+      }
+
+      return service.runSessionCommand({
+        sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
+        commandType: "ResolveDecision",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          decisionId,
+          outcome: stringFromBody(body.outcome, "outcome"),
+          ...(typeof body.rationale === "string" ? { rationale: body.rationale } : {})
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/spec/versions", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const sections = optionalSectionsFromBody(body.sections, "sections");
+
+      return service.runSessionCommand({
+        sessionId: context.req.param("sessionId") as SessionId,
+        commandType: "CreateSpecVersion",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          approvedPreviewRef: stringFromBody(body.approvedPreviewRef, "approvedPreviewRef"),
+          ...(typeof body.title === "string" ? { title: body.title } : {}),
+          ...(sections ? { sections } : {})
         }
       });
     })
@@ -807,7 +902,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       return context.json(
         jsonError(context, "RESOURCE_NOT_FOUND", "This Phase 1 API route is not mounted yet.", {
           path: context.req.path,
-          mountedRouteIds: PR08_MOUNTED_PRODUCT_API_ROUTE_IDS
+          mountedRouteIds: PR09_MOUNTED_PRODUCT_API_ROUTE_IDS
         }),
         404
       );

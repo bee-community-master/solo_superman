@@ -19,6 +19,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run --passWithNoTests",
+    "smoke:e2e": "vitest run e2e --passWithNoTests",
     "verify:docs": "node scripts/verify-doc-contracts.mjs",
     "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs"
   },

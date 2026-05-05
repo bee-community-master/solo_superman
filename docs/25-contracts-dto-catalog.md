@@ -272,10 +272,12 @@ Example command envelope:
 | `queueProjection` | yes | `DecisionQueueProjection` | current active/next/blocked/deferred read model |
 | `researchState` | yes | `ResearchEvidenceProjection` | summary projection sufficient for routing |
 | `decisions` | yes | `DecisionSnapshot[]` | active/resolved approvals with one `requiredDecisionRef` per required completion decision |
+| `specUpdatePreviews` | no | `SpecUpdatePreviewSnapshot[]` | preview material keyed by `previewRef` so approved decisions cannot version different title/sections |
 | `runtimeState` | yes | `RuntimeActivityProjection` | runtime preview/retry/block summary |
 | `completeness` | yes | `ConfidenceCompletionProjection` | latest deterministic scoring projection |
 
 `DecisionSnapshot.requiredDecisionRef` is a closed completion-gate key: `primary_customer`, `problem`, `value`, `mvp_scope`, `validation_plan`, or `success_criteria`. PR-08 completeness must count unique closed required refs, not any six unrelated decisions.
+High-impact `CreateSpecVersion` must consume the approved `SpecUpdatePreviewSnapshot` material for its `approvedPreviewRef`; request body title/sections are optional echoes and must not mutate the approved preview material.
 
 ### ProductEngineReduction
 
@@ -448,6 +450,7 @@ All JSON API responses use `ApiSuccessEnvelope<T>` or `ApiErrorEnvelope`.
 | `effectTaskIds` | no | `EffectTaskId[]` | required when effects queued |
 | `statusUrl` | no | string | required when async effects are pending |
 | `queuedActivity` | no | `ActivityItemDto` | allowed for accepted |
+| `deterministicOutputs` | no | `ProductEngineDeterministicOutput[]` | public reducer outputs for accepted commands, including spec update preview refs |
 | `queueProjection` | no | `DecisionQueueProjection` | only accepted_with_projection |
 | `pendingEffectSummary` | no | `PendingEffectSummaryDto` | only accepted_with_projection or status payload |
 | `blockingCard` | no | `QueueItemProjection` | required for blocked when user-visible |

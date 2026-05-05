@@ -131,7 +131,17 @@ function completeState(): ProductEngineStateSnapshot {
       decisionId: `decision_${index + 1}` as DecisionId,
       requiredDecisionRef,
       status: "approved" as const
-    }))
+    })),
+    specUpdatePreviews: [
+      {
+        previewRef: "spec_update_6",
+        sourceRef: "evidence_success",
+        decisionId: "decision_6" as DecisionId,
+        requiredDecisionRef: successCriteriaDecisionRef,
+        title: "Founder Brief Generator v1",
+        sections: completeSections
+      }
+    ]
   };
 }
 
@@ -485,7 +495,17 @@ describe("PR-08 completeness scoring", () => {
           requiredDecisionRef: successCriteriaDecisionRef,
           status: "active" as const
         }
-      ]
+      ],
+      queueProjection: {
+        ...completeState().queueProjection,
+        next: [
+          {
+            queueItemId: "decision_card_decision_6" as QueueItemId,
+            title: "Decision approval required: success_criteria",
+            state: "next" as const
+          }
+        ]
+      }
     };
     const reduction = reduceProductEngineCommand(
       command("ResolveDecision", state.stateVersion, {
@@ -509,6 +529,9 @@ describe("PR-08 completeness scoring", () => {
         completionCandidate: {
           status: "candidate"
         }
+      },
+      queueProjection: {
+        next: []
       }
     });
     expect(replayed.decisions).toEqual([
@@ -518,6 +541,7 @@ describe("PR-08 completeness scoring", () => {
         status: "approved"
       }
     ]);
+    expect(replayed.queueProjection.next).toEqual([]);
     expect(replayed.completeness.version).toBe(13);
   });
 
@@ -525,7 +549,7 @@ describe("PR-08 completeness scoring", () => {
     const state = completeState();
     const reduction = reduceProductEngineCommand(
       command("CreateSpecVersion", state.stateVersion, {
-        approvedPreviewRef: "spec_update_preview_complete",
+        approvedPreviewRef: "spec_update_6",
         title: "Founder Brief Generator v1",
         sections: completeSections
       }),
@@ -554,5 +578,23 @@ describe("PR-08 completeness scoring", () => {
       versionRef: expect.stringMatching(/^spec_version_/)
     });
     expect(replayed.completeness.version).toBe(13);
+  });
+
+  it("rejects spec versions whose material differs from the approved preview", () => {
+    const state = completeState();
+    const reduction = reduceProductEngineCommand(
+      command("CreateSpecVersion", state.stateVersion, {
+        approvedPreviewRef: "spec_update_6",
+        title: "Founder Brief Generator v1",
+        sections: ["Different approved material"]
+      }),
+      state
+    );
+
+    expect(reduction.accepted).toBe(false);
+    expect(reduction.rejectionReason).toMatchObject({
+      code: "COMMAND_PRECONDITION_FAILED",
+      message: "CreateSpecVersion sections must match the approved preview material."
+    });
   });
 });

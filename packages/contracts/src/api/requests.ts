@@ -10,6 +10,7 @@ import type {
 } from "../ids";
 import type { ResearchImpact, ResearchRouteOutcome } from "../projections";
 import type { BlockedActionType, CodexTurnPurpose } from "../codex";
+import type { RequiredDecisionRef } from "../product-engine";
 
 export interface ScaffoldRequestPlaceholder {
   readonly scaffoldOnly?: true;
@@ -98,7 +99,12 @@ export interface SynthesizeEvidenceRequest extends ScaffoldRequestPlaceholder {
 }
 
 export interface CreateSpecUpdatePreviewRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
   readonly sourceRef: string;
+  readonly requiredDecisionRef?: RequiredDecisionRef;
+  readonly title?: string;
+  readonly sections?: readonly string[];
 }
 
 export interface CreateDecisionCardRequest extends ScaffoldRequestPlaceholder {
@@ -106,12 +112,18 @@ export interface CreateDecisionCardRequest extends ScaffoldRequestPlaceholder {
 }
 
 export interface ResolveDecisionRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
   readonly decisionId: DecisionId;
+  readonly expectedStateVersion: StateVersion;
   readonly outcome: "approved" | "rejected" | "deferred" | "risk_accepted";
+  readonly rationale?: string;
 }
 
 export interface CreateSpecVersionRequest extends ScaffoldRequestPlaceholder {
+  readonly expectedStateVersion: StateVersion;
   readonly approvedPreviewRef: string;
+  readonly title?: string;
+  readonly sections?: readonly string[];
 }
 
 export interface CreateRuntimePreviewRequest extends ScaffoldRequestPlaceholder {

@@ -49,6 +49,15 @@ export interface DecisionSnapshot {
   readonly status: "active" | "approved" | "rejected" | "deferred" | "risk_accepted";
 }
 
+export interface SpecUpdatePreviewSnapshot {
+  readonly previewRef: string;
+  readonly sourceRef: string;
+  readonly decisionId: DecisionId;
+  readonly requiredDecisionRef: RequiredDecisionRef;
+  readonly title: string;
+  readonly sections: readonly string[];
+}
+
 export interface ProductEngineStateSnapshot {
   readonly stateVersion: StateVersion;
   readonly project: ProjectSnapshot;
@@ -64,6 +73,7 @@ export interface ProductEngineStateSnapshot {
   readonly livingSpecProjection?: LivingSpecProjection;
   readonly researchState: ResearchEvidenceProjection;
   readonly decisions: readonly DecisionSnapshot[];
+  readonly specUpdatePreviews?: readonly SpecUpdatePreviewSnapshot[];
   readonly runtimeState: RuntimeActivityProjection;
   readonly completeness: ConfidenceCompletionProjection;
   readonly founderBrief?: FounderBriefProjection;

@@ -369,4 +369,12 @@ export const PR08_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   "prepareFounderBriefExport"
 ] as const satisfies readonly ApiRouteId[];
 
+export const PR09_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...PR08_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  "listSpecVersions",
+  "createSpecUpdatePreview",
+  "resolveDecision",
+  "createSpecVersion"
+] as const satisfies readonly ApiRouteId[];
+
 export const PR02_MOUNTED_PRODUCT_API_ROUTE_IDS = ["getCommandStatus"] as const satisfies readonly ApiRouteId[];
