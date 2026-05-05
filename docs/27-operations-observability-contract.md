@@ -193,6 +193,16 @@ Completion impact:
 | endpoint behavior and refetch mapping | `26-api-route-behavior-catalog.md` | requires endpoint rows to support the incident dry-runs |
 | validation and dry-run evidence | `12-validation-and-dry-run.md` | records the pass/fail checks for these incidents |
 
+## Phase 1.5 operations checklist
+
+Phase 1.5 운영성은 `30-phase1.5-research-runtime-and-readiness-contract.md`의 acceptance scenario를 따른다.
+
+- Allowlist happy path must be recoverable through statusUrl, SSE/refetch, and disclosure log.
+- Revoke/pause/cancel/retry must produce user-visible terminal or recoverable states.
+- Timeout/failure/stale transitions must preserve provider run refs and retry reasons.
+- Evidence quality gate failure must route to Review/Risk card without silently updating EvidenceMatrix.
+- Phase 1.5B hint storage/query/export must prove no-execution preservation.
+
 ## Implementation acceptance
 
 Later Phase 1 implementation PRs are not complete until these checks are true:

@@ -12,6 +12,8 @@
 
 ## UX Doctrine
 
+Phase 번호는 사용자-facing 여정명이 아니다. UI, onboarding, CTA, export, Founder Brief에서는 `Phase 1.5A`, `Phase 2` 같은 내부 capability 용어를 쓰지 않고, 사용자가 이해할 수 있는 여정명을 사용한다. 내부 phase와 사용자 여정의 canonical mapping은 `28-founder-os-product-doctrine.md`가 소유한다.
+
 Phase 1의 UX Doctrine은 다음 다섯 가지다.
 
 1. **결정이 중심이다.** 긴 문서 작성량보다 창업자가 어떤 결정을 했고 왜 했는지가 더 중요하다.
@@ -19,6 +21,22 @@ Phase 1의 UX Doctrine은 다음 다섯 가지다.
 3. **질문은 사용자의 사고 비용을 줄여야 한다.** 선택지를 제공하되 왜 이 질문이 중요한지 항상 설명한다.
 4. **리서치와 질문은 병렬로 진행된다.** 사용자가 답하는 동안 AI는 근거, 반대근거, 대체재, 검증 사례를 계속 쌓는다.
 5. **완료는 질문 고갈이 아니라 실행 가능한 리스크 인식이다.** Spec-ready는 모든 질문이 사라진 상태가 아니라 핵심 리스크가 알려진 상태다.
+
+
+## 사용자 여정 단계명
+
+사용자에게는 내부 phase 대신 다음 여정명을 사용한다.
+
+| User-facing stage | 의미 | 금지되는 표현 |
+| --- | --- | --- |
+| `아이디어 정리 중` | intake, initial spec, 첫 질문 배치가 진행 중 | Phase 1 진행 중 |
+| `Spec-ready` | Living Product Spec, Known Risks, Founder Brief가 준비됨 | Phase 1 완료 |
+| `리서치 보강 중` | 맡긴 claim/decision에 대한 깊은 근거팩을 준비 중 | Phase 1.5A-1 |
+| `리서치 결과 검토 중` | 새 evidence가 만든 질문, 승인, risk card를 검토 중 | Phase 1.5A-2 |
+| `Planning-ready` | high-impact research queue가 해결되어 실행계획 handoff가 가능함 | Phase 2 진입 |
+| `안전 실행 대기` | controlled execution 승인과 sandbox가 필요한 상태 | Phase 3 |
+
+이 단계명은 진행률 badge가 아니라 현재 사용자가 할 수 있는 다음 행동을 설명하는 문구다. 내부 phase 번호가 사용자 화면에 직접 표시되면 실패다.
 
 ## Confidence Map
 
@@ -182,7 +200,7 @@ Founder Brief는 사용자가 세션을 중단하거나 완료했을 때 받는 
 - 장기 제품 로드맵.
 - 구현 task list 전체.
 
-위 항목들은 사용자가 명시적으로 원하거나 Phase 2 이후 export template이 확장될 때 추가한다.
+위 항목들은 사용자가 명시적으로 원하거나 후속 export template이 확장될 때 추가한다.
 
 ## Completion UX
 
@@ -209,4 +227,5 @@ Founder Brief는 사용자가 세션을 중단하거나 완료했을 때 받는 
 - `07-completeness-scoring.md`는 복합 완성도 산식과 gate를 책임진다.
 - `12-validation-and-dry-run.md`는 이 UX Doctrine이 실제 dry-run에서 작동하는지 검증한다.
 - `14-ambiguity-question-lifecycle.md`는 질문 반복 제한과 무한 질문 루프 방지의 엔진 계약을 책임진다.
+- `28-founder-os-product-doctrine.md`는 내부 phase와 사용자-facing journey stage의 용어 경계 및 post-Phase 1 Founder OS 확장 철학을 책임진다.
 - 이 문서는 confidence map, sharp coach tone, adaptive session, fatigue intervention, Founder Brief의 기준 source of truth다.

@@ -396,11 +396,18 @@ Follow-up questions:
 - [ ] Phase 1에서 ChatGPT 웹 자동화는 구현 범위 밖이다.
 - [ ] 깊은 리서치 fallback은 수동 프롬프트 핸드오프 후 `17-ai-runtime-access-strategy.md`의 공식 Codex 경로로 정의된다.
 - [ ] ChatGPT Pro 웹 자동화는 Phase 2+에서 project-level blanket delegation, revoke, audit, fallback chain이 있을 때만 가능하다.
-- [ ] Phase 1.5A는 background research runtime, Phase 1.5B는 execution-readiness hint 저장으로 분리되며 둘 다 실제 file/shell/browser 실행 권한을 주지 않는다.
+- [ ] Phase 1.5A는 `30-phase1.5-research-runtime-and-readiness-contract.md`의 project allowlisted read-only research runtime으로 정의되며 public-safe summary 자동 전송, private-source approval gate, run lifecycle, disclosure log를 요구한다.
+- [ ] Phase 1.5A는 A-1 Decision-linked Evidence Pack과 A-2 Research-updated Queue로 분리된다.
+- [ ] Phase 1.5B는 `30-phase1.5-research-runtime-and-readiness-contract.md`의 execution-readiness hint 저장·조회·export 단계이며 실제 file/shell/browser/network write/credential/destructive/ChatGPT web automation 실행 권한을 주지 않는다.
+- [ ] Phase 1.5 acceptance에는 allowlist happy path, private-source approval gate, revoke/cancel/retry recovery, evidence quality gate, no-execution preservation, hint export/readiness reuse, docs contract consistency가 포함된다.
 - [ ] State/Event Contract는 AmbiguityIssue, Question, Answer, ResearchTask, EvidenceMatrix, SpecUpdate, Decision, SpecVersion, CompletenessSnapshot, CompletionCandidate trace를 정의한다.
 - [ ] State/Event Contract는 런타임/코드 구현 제외와 저장소/API/DTO/route 세부 계약 소유 문서(20/21/25/26)를 명시한다.
 - [ ] State/Event Contract dry-run은 샘플 아이디어가 end-to-end event trace로 이어지는지 검증한다.
 - [ ] README, Spec Engine, Domain Model, Validation 문서는 같은 State/Event Contract 범위를 공유한다.
+- [ ] Founder OS Product Doctrine은 Phase를 내부 capability 용어로만 정의하고 사용자-facing journey stage와 분리한다.
+- [ ] Phase 1.5A-1 Decision-linked Evidence Pack과 Phase 1.5A-2 Research-updated Queue가 분리되어 있다.
+- [ ] Phase 2 Planning Handoff는 unresolved high-impact Research-updated Queue card가 없을 때만 확정된다.
+- [ ] 사용자 UI/onboarding/CTA/export에는 내부 Phase 용어가 노출되지 않는다.
 - [ ] README, Architecture, Decision Queue, Spec Engine, State/Event Contract는 같은 ProductEngine Orchestrator 경계를 공유한다.
 - [ ] Tauri + Node/Hono sidecar 결정이 README, Architecture, Implementation Architecture에서 일치한다.
 - [ ] Rust/Tauri native boundary는 secret reference, app data dir, file picker/export, sidecar lifecycle에 한정된다.
@@ -438,6 +445,7 @@ Follow-up questions:
 - Implementation Sequence: PR-01~PR-09 순서와 acceptance 기준으로 일관됨.
 - ProductEngine Runtime Contract: pure reducer + effect plan, persisted async effect queue, active batch projection exception, effect type taxonomy, conservative AI retry matrix 기준으로 일관됨.
 - Operations/Observability Contract: 전구간 failure/status/recovery, 대표 장애 dry-run, user-visible recovery, statusUrl/projection refetch 기준으로 일관됨.
+- Founder OS Product Doctrine: 내부 capability phase와 사용자-facing journey stage 분리, Phase 1.5A subphase, Phase 2 strict gate 기준으로 일관됨.
 
 이번 문서에서 고정된 구현 결정:
 

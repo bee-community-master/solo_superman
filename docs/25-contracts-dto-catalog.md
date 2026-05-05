@@ -736,6 +736,15 @@ Rules:
 - `codex/reexports.ts` must not import generated Codex app-server runtime client modules directly.
 - Runtime adapter may map generated Codex schema into these app-internal DTOs.
 
+## Phase 1.5 DTO checklist
+
+Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`를 canonical source로 사용한다.
+
+- Add public contract types for ResearchAllowlistProjection, ResearchRunProjection, ResearchDisclosureLogProjection, and structured Phase15bUpgradeHints.
+- Phase15bUpgradeHints must expose approval requirements, sandbox/workspace requirements, rollback/reference plan, expected evidence, risk normalization, and sourceRefs.
+- DTOs must preserve no-execution semantics; no field should imply active delegation or executed side effects in Phase 1.5B.
+- `packages/contracts` still must not import runtime clients, Hono, Drizzle, React, or Tauri modules.
+
 ## Validation notes
 
 These are not required acceptance scenarios, but they remain implementation checklist items.

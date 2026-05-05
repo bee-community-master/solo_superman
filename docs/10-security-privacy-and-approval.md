@@ -36,6 +36,8 @@ Phase 1은 프로젝트 단위 포괄 위임이 아니라 **task-level disclosur
 
 Phase 2+에서 ChatGPT Pro 웹 자동화를 도입하면 프로젝트 단위 1회 포괄 위임을 사용할 수 있다. 이때는 최초 위임 화면, revoke control, audit log, fallback chain이 필수다.
 
+Phase 1.5A의 예외는 `30-phase1.5-research-runtime-and-readiness-contract.md`가 정의한 **project-level read-only research allowlist**뿐이다. 이 allowlist는 외부 write/action/browser/file/shell 실행을 허용하지 않으며, automatic external transfer는 public-safe summary + research objective까지만 허용한다. private document, full raw idea, detailed answers, credentialed source는 항상 task-level approval 또는 manual handoff가 필요하다.
+
 ## Approval boundary
 
 ### 자동 허용 가능
@@ -103,6 +105,16 @@ Phase 1 기본 허용.
 - diff/command/browser action plan preview.
 
 Phase 1 primary AI runtime 권한이다. 실제 파일 patch, shell command, browser action 적용은 금지한다. Codex approval request가 발생하면 Approval Manager는 `preview_only`, `decline`, 또는 Phase 2+ handoff로 라우팅한다.
+
+### Tier 1B: Phase 1.5A read-only research allowlist
+
+- project-level connector/source category allowlist.
+- public-safe summary + research objective automatic disclosure.
+- revoke/pause control.
+- audit/disclosure log.
+- rate/budget/staleness limits.
+
+Phase 1.5A에서만 허용되는 read-only research 권한이다. 세부 계약은 `30-phase1.5-research-runtime-and-readiness-contract.md`를 따른다.
 
 ### Tier 2: Cloud sync
 

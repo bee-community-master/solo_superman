@@ -315,6 +315,16 @@ ImportResearchResult transaction
 - Seed data must represent the dry-run idea from `12-validation-and-dry-run.md`.
 - Seed data must not be inserted into real user databases automatically.
 
+## Phase 1.5 storage checklist
+
+Phase 1.5 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`를 기준으로 다음 저장소 계약을 추가한다.
+
+- ResearchAllowlist는 connector/source category, status, contextMode, rate/budget/staleness policy, approved/paused/revoked timestamps를 local DB에 저장한다.
+- ResearchRun은 status state machine, provider run reference, idempotency key, attempt, timestamps, terminal reason을 저장한다.
+- ResearchDisclosureLog는 connector/source category, query/objective summary, public-safe summary sent, source refs를 저장한다.
+- `phase15bUpgradeHints`는 structured readiness metadata로 저장·조회·export되지만 실행 권한으로 해석하지 않는다.
+- secret value는 libSQL에 저장하지 않고 OS secret ref만 저장한다.
+
 ## Data privacy rules
 
 - Raw idea text and imported research content remain local by default.

@@ -190,6 +190,16 @@ This checklist is not a separate required acceptance scenario, but every mutatin
 - Rows that can queue effects name effect types and expected projection hints.
 - Rows that are application actions with `commandType: none` explain why no ProductEngine command is issued.
 
+## Phase 1.5 route checklist
+
+Phase 1.5 route behavior is introduced by later implementation PRs and must use `30-phase1.5-research-runtime-and-readiness-contract.md` as the canonical behavior source.
+
+- allowlist routes must expose create/update/pause/revoke and reject unsupported source categories.
+- research run routes must expose start/status/cancel/retry and return statusUrl/SSE/refetch hints.
+- automatic run start must block private/full/credentialed source material and route to approval/manual handoff.
+- hint routes must expose query/export for `phase15bUpgradeHints` without enabling execution.
+- no Phase 1.5 route may execute file/shell/browser/network write/credential/destructive/ChatGPT web automation actions.
+
 ## Required acceptance scenarios
 
 ### Scenario A. Endpoint coverage matrix

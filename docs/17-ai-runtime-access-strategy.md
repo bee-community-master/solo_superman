@@ -16,8 +16,8 @@ AI Runtime Access Strategy는 Solo Superman이 AI를 어떻게 사용자의 제�
 | Phase 1 Codex transport | app-server stdio 기본값 + generated schema pinning |
 | Phase 1 Codex 권한 | sandbox preview allowed |
 | Phase 1 Codex output | 6개 turnPurpose, JSON-first, Core+Delta input, Hybrid trace+artifact envelope |
-| Phase 1.5A research runtime | Phase 1 구현 밖. background research adapter와 long-running status를 다루는 후속 단계 |
-| Phase 1.5B execution-readiness hints | Phase 1 구현 밖. Phase 1은 `phase15bUpgradeHints`와 blocked action taxonomy만 보존 |
+| Phase 1.5A research runtime | Phase 1 구현 밖. `30-phase1.5-research-runtime-and-readiness-contract.md`의 allowlisted read-only external research runtime |
+| Phase 1.5B execution-readiness hints | Phase 1 구현 밖. `30-phase1.5-research-runtime-and-readiness-contract.md`의 no-execution readiness metadata 저장·조회·export |
 | Phase 1 browser automation | 제외 |
 | Phase 1 deep research fallback | 수동 프롬프트 핸드오프 → 공식 Codex 경로 |
 | ChatGPT Pro 웹 자동화 | Phase 2+ 비전 |
@@ -154,6 +154,15 @@ Preview artifact 유형:
 Preview artifact는 “실행 결과”가 아니라 “검토 가능한 제안”이다. high-impact artifact는 Decision Approval Card 또는 Risk Card로 연결한다.
 
 
+
+### Phase 1.5 implementation checklist
+
+- Phase 1.5A read-only external connector는 project allowlist, public-safe summary, disclosure log, revoke/pause, rate/budget/staleness limits를 요구한다.
+- Phase 1.5A는 external write/action, file/shell/browser execution, credential value storage를 허용하지 않는다.
+- Phase 1.5B `phase15bUpgradeHints`는 approval/sandbox/rollback/evidence/risk/research linkage metadata이며 실행 권한이 아니다.
+- Phase 1.5B no-execution preservation은 필수 acceptance다.
+
+Canonical details: `30-phase1.5-research-runtime-and-readiness-contract.md`.
 
 ### Prompt/Output canonical contract
 

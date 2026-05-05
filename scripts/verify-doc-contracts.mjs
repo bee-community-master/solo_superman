@@ -441,6 +441,64 @@ function scanPackageBoundaries() {
   }
 }
 
+const PHASE15_DOC_PATH = "docs/30-phase1.5-research-runtime-and-readiness-contract.md";
+
+const PHASE15_REQUIRED_REFERENCES = [
+  "docs/README.md",
+  "docs/06-research-engine.md",
+  "docs/10-security-privacy-and-approval.md",
+  "docs/11-roadmap-and-phase-boundaries.md",
+  "docs/12-validation-and-dry-run.md",
+  "docs/17-ai-runtime-access-strategy.md",
+  "docs/20-data-storage-contract.md",
+  "docs/21-sidecar-api-runtime-contract.md",
+  "docs/23-product-engine-runtime-contract.md",
+  "docs/24-codex-prompt-output-contract.md",
+  "docs/25-contracts-dto-catalog.md",
+  "docs/26-api-route-behavior-catalog.md",
+  "docs/27-operations-observability-contract.md",
+  "docs/28-founder-os-product-doctrine.md",
+  "docs/29-phase-capability-implementation-matrix.md"
+];
+
+const PHASE15_REQUIRED_CONTRACT_SNIPPETS = [
+  "doc 30",
+  "ResearchAllowlist",
+  "BackgroundResearchRun state machine",
+  "Phase15bUpgradeHints",
+  "No-execution preservation",
+  "Allowlist happy path",
+  "Private source approval gate",
+  "Hint export/readiness reuse"
+];
+
+function checkPhase15DocConsistency() {
+  const docs30 = readText(PHASE15_DOC_PATH);
+  const missingSnippets = PHASE15_REQUIRED_CONTRACT_SNIPPETS.filter((snippet) => !docs30.includes(snippet));
+
+  if (missingSnippets.length) {
+    fail("docs/30 Phase 1.5 canonical contract missing required sections", missingSnippets);
+  }
+
+  if (docs30.includes("28-phase1.5-research-runtime-and-readiness-contract.md") || docs30.includes("doc 28")) {
+    fail("docs/30 Phase 1.5 canonical contract contains stale doc 28 reference");
+  }
+
+  const missingReferences = [];
+
+  for (const docPath of PHASE15_REQUIRED_REFERENCES) {
+    const text = readText(docPath);
+
+    if (!text.includes("30-phase1.5-research-runtime-and-readiness-contract.md")) {
+      missingReferences.push(docPath);
+    }
+  }
+
+  if (missingReferences.length) {
+    fail("Phase 1.5 canonical doc reference missing", missingReferences);
+  }
+}
+
 export function runDocContractChecks() {
   const docs = {
     docs24: readText("docs/24-codex-prompt-output-contract.md"),
@@ -451,6 +509,7 @@ export function runDocContractChecks() {
   compareContractTaxonomies(docs);
   compareRoutes(docs.docs26);
   scanPackageBoundaries();
+  checkPhase15DocConsistency();
 
   if (!process.exitCode) {
     console.log("doc contract checks passed");

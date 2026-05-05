@@ -2,17 +2,20 @@
 
 ## Phase 원칙
 
+- Phase는 사용자 UI에 노출되는 여정명이 아니라 내부 capability, roadmap, GitHub issue, implementation planning 용어다.
+- 사용자-facing 여정명은 `28-founder-os-product-doctrine.md`의 매핑표를 따른다.
+- Phase별 capability, 사용자 가치, entry gate, exit evidence, non-goal 매트릭스는 `29-phase-capability-implementation-matrix.md`를 따른다.
 - Phase는 기술 레이어가 아니라 검증할 사용자 가치 단위로 나눈다.
 - 각 Phase는 이전 Phase의 성공 조건을 전제로 한다.
 - non-goal로 정한 항목은 해당 Phase 진입 전까지 구현하지 않는다.
 
 ## Phase 0: 기획 문서 완성
 
-현재 레포의 단계다.
+완료된 초기 문서/계약 단계다. 현재 기준선은 Phase 1 PR-01~PR-09 구현 완료 이후의 product doctrine 보강이다.
 
 산출물:
 
-- 28개 번호 문서와 README로 구성된 상세 기획/구현 계약 문서.
+- 31개 번호 문서와 README로 구성된 상세 기획/구현 계약 문서.
 - 구현자 핸드오프 검토.
 - 샘플 아이디어 dry-run.
 
@@ -73,72 +76,136 @@
 
 ## Phase 1.5A: Background Research Runtime
 
+상세 구현 계약은 `30-phase1.5-research-runtime-and-readiness-contract.md`가 소유한다. Founder OS 여정/gate 해석은 `28-founder-os-product-doctrine.md`와 `29-phase-capability-implementation-matrix.md`를 따른다.
+
 목표:
 
-- 리서치 작업을 더 안정적으로 background task로 운영한다.
+- Phase 1의 Spec-ready 결과물 이후, 특정 claim/decision에 묶인 깊고 지속적인 리서치를 durable한 background run으로 운영한다.
+- 리서치 결과를 source dump가 아니라 Evidence Pack과 Research-updated Queue로 연결해 사용자가 답변 흐름을 잃지 않게 한다.
+- 사용자-facing 여정명은 `리서치 보강 중` 또는 `리서치 결과 검토 중`이며, UI에는 Phase 1.5A를 노출하지 않는다.
 
-후보:
+공통 포함:
 
-- OpenClawRuntime adapter.
-- Research task ledger.
-- 실패/재시도/취소.
-- long-running research status.
+- project-level allowlist 승인 안의 read-only external research connector.
+- ResearchAllowlist, ResearchRun, ResearchDisclosureLog.
+- connector/source category, revoke/pause, audit/disclosure log, rate/budget/staleness limits.
+- run state machine, provider run reference, cancel/pause/resume, retry/backoff/idempotency.
+- public-safe summary 자동 전송과 private/full/credentialed source task-level approval gate.
+- Pro/Con Evidence Gate와 연결된 result quality gate.
+
+### Phase 1.5A-1: Decision-linked Evidence Pack
+
+목표:
+
+- background research 결과를 source dump가 아니라 decision-linked evidence ledger로 저장한다.
+
+포함:
+
+- claim/decisionContext별 pro evidence, con evidence, uncertainty.
+- source quality, relevance, retrievedAt, stale risk.
+- product implication과 연결된 Spec section, Decision, Question, ResearchTask.
+- bounded long-running task status, retry, cancel, terminal failure recovery.
+
+완료 조건:
+
+- high-impact claim은 pro/con evidence와 uncertainty를 모두 가진다.
+- evidence가 부족하면 `research_insufficient` 또는 `missing_con_evidence`로 수렴한다.
+- Evidence Pack은 Research-updated Queue의 durable source of truth가 된다.
+
+### Phase 1.5A-2: Research-updated Queue
+
+목표:
+
+- Evidence Pack에서 사용자가 처리해야 할 Research Review, Decision Approval, Risk Acceptance, Conflict Resolution, Follow-up Question card를 생성한다.
+
+완료 조건:
+
+- Evidence Pack에서 파생된 high-impact card가 모두 terminal outcome을 가진다.
+- terminal outcome은 `approved`, `revised`, `rejected`, `deferred`, `risk_accepted`, `research_insufficient` 중 하나다.
+- unresolved high-impact card가 있으면 Phase 2 Planning Handoff를 확정하지 않는다.
 
 진입 조건:
 
 - Phase 1에서 Research Loop가 제품 가치로 검증됨.
-- local research task 상태 관리가 병목이 됨.
+- Phase 1 E2E dry-run과 operational recovery 기준이 통과됨.
+- local research task 상태 관리가 병목이거나, 깊은 리서치가 Founder Brief 이후 반복적으로 필요함.
+- 사용자가 프로젝트 단위 read-only connector/source allowlist와 public-safe summary 정책을 승인함.
 
 제외:
 
-- 자동 코드 실행.
-- 팀 협업.
-- 결제.
+- file patch, shell command, browser action 실행.
+- network write 또는 external mutation.
+- credential value 저장 또는 묵시적 credential 사용.
+- ChatGPT Pro web automation.
+- recurring/open-ended market watch 제품화.
+- 팀 협업, 본격 cloud sync, 모바일/원격 승인, 결제/과금.
+- unresolved high-impact queue card를 무시한 planning handoff.
+
+Phase 1.5A 공통 완료 조건:
+
+- allowlist happy path, private-source approval gate, revoke/cancel/retry recovery, evidence quality gate acceptance가 통과한다.
+- automatic external research는 public-safe summary까지만 전송하고 disclosure log를 남긴다.
+- private document, full raw idea, detailed answers, credentialed source는 자동 실행되지 않는다.
 
 ## Phase 1.5B: Execution-readiness Hints
 
+상세 구현 계약은 `30-phase1.5-research-runtime-and-readiness-contract.md`가 소유한다.
+
 목표:
 
-- Phase 1 preview artifact가 나중의 실행 계획/위임 단계에서 재사용할 수 있는 승인, sandbox, rollback, command allowlist 요구사항을 보존한다.
+- Phase 1 preview artifact와 Phase 1.5A research evidence가 나중의 실행 계획/위임 단계에서 재사용할 수 있는 approval, sandbox, rollback, expected evidence, risk metadata를 보존한다.
 
 포함:
 
-- `phase15bUpgradeHints` field family.
-- blocked action의 execution-readiness metadata.
-- implementation plan preview의 dry-run handoff와 expected evidence.
-- later Phase에서 필요한 delegation approval, workspace sandbox, rollback reference 요구사항.
+- structured `phase15bUpgradeHints` field family.
+- approval requirements, sandbox/workspace requirements, rollback/reference plan.
+- expected evidence contract, risk/blocked reason normalization.
+- ResearchRun/EvidenceMatrix/allowlist/audit log source linkage.
+- hint storage, query, export.
 
 제외:
 
 - file patch 실행.
 - shell command 실행.
 - browser action 실행.
+- network write 또는 external mutation.
+- credential value 접근/저장.
+- destructive operation 실행.
+- ChatGPT Pro web automation.
 - project-level delegation 활성화.
 - implementation task commitment 확정.
 
 진입 조건:
 
 - Phase 1 RuntimePreviewArtifact와 BlockedActionArtifact 저장이 안정됨.
-- Phase 1.5A 또는 수동 리서치 경로에서 execution-readiness metadata가 반복적으로 필요함.
+- Phase 1.5A Evidence Pack 또는 Research-updated Queue에서 execution-readiness metadata가 반복적으로 필요함.
 
 완료 조건:
 
 - Phase 1.5B hint metadata는 저장·조회·export 가능하지만 실행되지 않는다.
 - Phase 2/3 구현자가 artifact shape migration 없이 hint를 읽을 수 있다.
-- Phase 1/1.5B 어디에서도 실제 파일·shell·browser action이 실행되지 않는다는 검증이 통과한다.
+- no-execution preservation, hint export/readiness reuse, docs contract consistency acceptance가 통과한다.
 
 ## Phase 2: Execution Planning Handoff
 
 목표:
 
-- Living Product Spec을 구현 가능한 task plan으로 변환한다.
+- Living Product Spec과 해결된 Research-updated Queue를 구현 가능한 task plan으로 변환한다.
+- 사용자-facing 여정명은 `Planning-ready`이며, UI에는 Phase 2를 노출하지 않는다.
 
 포함:
 
-- Spec → task breakdown.
+- Spec -> task breakdown.
 - PR/issue 단위 실행 계획.
 - implementation readiness checklist.
+- unresolved risk와 prerequisite 표시.
 - file diff/command/browser action은 preview까지만 설계 가능.
+
+진입 조건:
+
+- Phase 1.5A-2 Research-updated Queue의 high-impact card가 terminal outcome을 가진다.
+- terminal outcome 없이 남은 high-impact risk는 Planning Handoff blocker다.
+- low/medium risk는 Known Risks, Open Questions, prerequisite로 명시할 수 있다.
 
 제외:
 
@@ -253,13 +320,16 @@
 
 ## Phase guardrails
 
-- Phase 1 완료 전 자동 실행 기능을 만들지 않는다.
+- 사용자 UI, onboarding, CTA, export에 내부 Phase 용어를 노출하지 않는다.
+- Controlled Execution capability 전 자동 실행 기능을 만들지 않는다.
 - Phase 1.5B는 execution-readiness hint만 저장하며 실제 file/shell/browser 실행 권한을 주지 않는다.
+- unresolved Research-updated Queue의 high-impact card가 있으면 Planning Handoff를 확정하지 않는다.
 - Phase 1에서 Codex app-server는 sandbox preview 권한을 넘지 않는다.
 - Phase 1에서 ChatGPT Pro 웹 자동화를 만들지 않는다.
-- Phase 1 완료 전 모바일 앱을 만들지 않는다.
-- Phase 1 완료 전 결제/과금을 만들지 않는다.
-- Phase 1 완료 전 팀 협업을 만들지 않는다.
+- 다음 research/planning capability 보강에서 모바일 앱을 만들지 않는다.
+- 다음 research/planning capability 보강에서 결제/과금을 만들지 않는다.
+- 다음 research/planning capability 보강에서 팀 협업을 만들지 않는다.
 - cloud sync는 local-first 원칙을 깨지 않는 opt-in이어야 한다.
 - Phase 1에서 remote sync는 remote config placeholder only로 남긴다.
 - Phase 1 implementation sequence는 `22-phase1-implementation-sequence.md`를 따른다.
+- Phase 0~6 capability implementation matrix는 `29-phase-capability-implementation-matrix.md`를 따른다.

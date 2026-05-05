@@ -346,6 +346,17 @@ If Codex proposes a forbidden action, sidecar must convert it into `BlockedActio
 
 The sidecar must not aggressively retry Codex runtime preview beyond the single automatic retry. Inside each attempt, JSON output follows `24-codex-prompt-output-contract.md`: deterministic parser repair once, Codex self-repair once, then severity routing. When exhausted, it emits a manual retry, manual handoff, validation failure, or runtime blocked card.
 
+## Phase 1.5 API checklist
+
+Phase 1.5 endpoint 상세는 구현 시 `30-phase1.5-research-runtime-and-readiness-contract.md`를 따른다. Sidecar API는 최소한 다음 behavior를 표현해야 한다.
+
+- allowlist create/update/pause/revoke는 project ownership과 source category를 검증한다.
+- automatic research run start는 active allowlist, public-safe context, rate/budget/staleness policy를 검증한다.
+- private/full/credentialed source는 automatic run 대신 task-level approval/manual handoff response를 반환한다.
+- cancel/retry는 ResearchRun state machine과 idempotency rule을 따른다.
+- hint query/export는 readiness metadata만 반환하고 execution/delegation을 활성화하지 않는다.
+- SSE/refetch hints는 allowlist, run, disclosure log, evidence gate, hint export 변화를 복구 가능하게 만든다.
+
 ## RuntimePreviewArtifact conversion
 
 Runtime artifacts can convert only through ProductEngine commands. The canonical artifact taxonomy, applyPolicy enum, low-risk auto-apply matrix, evidence conditional gate, and blocked action taxonomy live in `24-codex-prompt-output-contract.md`.

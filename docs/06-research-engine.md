@@ -226,6 +226,14 @@ Phase 1의 Research Engine은 `17-ai-runtime-access-strategy.md`를 따른다. �
 
 OpenClaw의 background task 개념은 detached work의 ledger로 적합하고, Task Flow는 여러 단계 리서치 pipeline을 durable하게 관리하는 후보로 둔다. Browser-use는 open-source agent와 cloud browser 성격을 분리해 고급 웹 조작 단계에 붙인다.
 
+Phase 1.5A 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`를 canonical source로 사용한다. Research Engine 문서의 Phase 1.5 체크리스트는 다음이다.
+
+- read-only connector만 허용하고 external write/action은 금지한다.
+- ResearchAllowlist, ResearchRun, ResearchDisclosureLog를 1급 projection/API/DB 후보로 둔다.
+- automatic run은 public-safe summary + research objective까지만 외부 전송한다.
+- private document, full raw idea, detailed answers, credentialed source는 task-level approval 또는 manual handoff로 라우팅한다.
+- provider result는 Pro/Con Evidence Gate와 staleness/limitation gate를 통과하기 전 EvidenceMatrix에 accepted로 반영하지 않는다.
+
 ## Deep research routing
 
 깊은 리서치가 필요하면 Research Engine은 다음 순서로 라우팅한다.

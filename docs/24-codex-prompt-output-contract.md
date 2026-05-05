@@ -824,6 +824,14 @@ Then:
 - Phase 1.5B upgrade hints may be stored.
 - UI shows RuntimeBlockedCard or equivalent blocked queue card.
 
+## Phase 1.5B checklist
+
+Phase 1.5B 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`의 `Phase15bUpgradeHints` field family를 기준으로 `phase15bUpgradeHints`를 structured readiness metadata로 승격한다.
+
+- required field families: approval requirements, sandbox/workspace requirements, rollback/reference plan, expected evidence, risk/blocked reason normalization, ResearchRun/EvidenceMatrix/allowlist/audit sourceRefs.
+- `phase15bUpgradeHints`는 execution permission이 아니며 `applyPolicy`를 실행형 정책으로 바꾸지 않는다.
+- BlockedActionArtifact는 blocked 상태와 no-execution preservation을 유지한다.
+
 ### Scenario F. Phase 1.5B upgrade fields preserved
 
 Given `ImplementationPlanPreviewArtifact` includes `phase15bUpgradeHints`.

@@ -305,6 +305,16 @@ Minimum snapshot groups:
 
 If snapshot is incomplete, application service returns `COMMAND_PRECONDITION_FAILED` or `SIDECAR_NOT_READY`; reducer must not fill gaps by side effect.
 
+## Phase 1.5 runtime checklist
+
+Phase 1.5 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`를 ProductEngine command/effect/state 전이의 canonical input으로 사용한다.
+
+- ResearchAllowlist command는 active/paused/revoked 상태를 reducer에서 검증 가능하게 만든다.
+- ResearchRun effect는 provider call을 effect executor에만 둔다; reducer는 외부 connector를 직접 호출하지 않는다.
+- retry/backoff/idempotency는 ResearchRun idempotency key와 attempt로 추적한다.
+- Evidence quality gate 실패는 Risk/Review card와 terminal/non-terminal run status로 표현한다.
+- Phase 1.5B hint conversion은 readiness metadata만 만들고 file/shell/browser/network/credential/destructive 실행 effect를 만들지 않는다.
+
 ## Acceptance scenarios
 
 ### Scenario A. Start project to first active batch

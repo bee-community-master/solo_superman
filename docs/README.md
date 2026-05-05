@@ -2,7 +2,7 @@
 
 Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질문·리서치 세션으로 구체화해, 근거와 결정이 추적되는 `Living Product Spec`까지 도달하게 하는 macOS-first 데스크톱 서비스다.
 
-이 레포의 현재 기준선은 **Phase 1 구현 진행 단계**다. `00`~`27` 문서 세트는 여전히 구현 판단의 기준 계약이며, 현재 코드베이스는 PR-01 workspace scaffold부터 Phase 1 dry-run readiness까지의 런타임 골격과 검증 코드를 포함한다. 다만 모바일 앱, 팀 협업, 결제, 외부 sync, 사용자를 대신한 실제 파일 patch·shell 실행·브라우저 action 실행은 여전히 제품 범위 밖이다. 현재 문서 세트는 `00`~`27`의 번호 문서 28개와 이 인덱스를 합쳐 총 29개의 Markdown 문서로 구성한다.
+이 레포의 현재 기준은 **Phase 1 구현 완료 후 Founder OS product doctrine을 보강하는 단계**다. Phase 1 PR-01~PR-09 구현 계약과 E2E dry-run hardening은 완료된 기준선으로 보고, 다음 문서 보강은 Phase 1.5A/Phase 2 구현계획 전에 결정 부채를 줄이는 데 집중한다. 현재 문서 세트는 `00`~`30`의 번호 문서 31개와 이 인덱스를 합쳐 총 32개의 Markdown 문서로 구성한다.
 
 ## 확정된 1차 제품 결정
 
@@ -44,7 +44,11 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | API Route 행동 계약 | 전체 Phase 1 endpoint별 request, command/query mapping, response/statusUrl, effects/SSE/refetch, errors/preconditions |
 | 운영·관측성 계약 | 전구간 Operations/Observability Contract, 대표 장애 dry-run, user-visible recovery |
 | Phase 1 구현 순서 | PR-01 workspace scaffold부터 PR-09 E2E dry-run hardening까지 고정 |
-| Post-Phase 1 split | Phase 1.5A는 background research runtime, Phase 1.5B는 execution-readiness hint 저장만 담당 |
+| Phase 용어 정책 | Phase 1/1.5/2/3은 내부 capability/roadmap/issue 용어이며 사용자 UI에는 노출하지 않음 |
+| Founder OS 여정 | Spec-ready -> 리서치 보강 중 -> Planning-ready -> 안전 실행 대기 |
+| Post-Phase 1 split | Phase 1.5A는 allowlisted read-only background research runtime 안에서 A-1 Decision-linked Evidence Pack과 A-2 Research-updated Queue를 만들고, Phase 1.5B는 no-execution execution-readiness hint 저장·조회·export만 담당 |
+| Phase 2 gate | Research-updated Queue의 high-impact card가 terminal outcome으로 해결된 뒤 Planning handoff 확정 |
+| Phase capability matrix | Phase 0~6은 사용자 가치, 구현 capability, entry gate, exit evidence, non-goal 중심으로 정리 |
 | Phase 1 MVP | Research 포함 폐루프 |
 | 1순위 실패 방지 | 무한 질문 루프 |
 
@@ -78,6 +82,9 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 26. `25-contracts-dto-catalog.md` - `packages/contracts` public DTO, ProductEngine command envelope, API response/statusUrl, SSE, UI Projection 계약.
 27. `26-api-route-behavior-catalog.md` - 전체 Phase 1 endpoint별 request, command/query mapping, response/statusUrl, SSE/refetch, error/precondition 계약.
 28. `27-operations-observability-contract.md` - intake부터 completion까지 실패/status/recovery를 잇는 운영·관측성 계약과 대표 장애 dry-run.
+29. `28-founder-os-product-doctrine.md` - Founder OS 단계 철학, 내부 phase와 사용자 여정 용어 분리, Phase 1.5A/2 gate.
+30. `29-phase-capability-implementation-matrix.md` - Phase 0~6 capability, 사용자 가치, entry/exit gate, non-goal 매트릭스.
+31. `30-phase1.5-research-runtime-and-readiness-contract.md` - Phase 1.5A allowlisted read-only research runtime과 Phase 1.5B execution-readiness hints의 canonical 구현 계약.
 
 ## 문서 책임 경계
 
@@ -111,6 +118,9 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | Contracts DTO Catalog | `packages/contracts` public DTO, Core/API/UI Projection, ProductEngineCommand envelope, CommandResponse/statusUrl, SSE DTO | DB row/Drizzle schema는 20번으로, runtime behavior는 21/23번으로 넘긴다 |
 | API Route Behavior Catalog | 전체 Phase 1 endpoint별 API behavior, command/query mapping, statusUrl, SSE/refetch, error/precondition | DTO field는 25번으로, DB row/DDL은 20번으로, runtime/code 구현은 21/23번과 후속 구현 PR로 넘긴다 |
 | Operations/Observability Contract | 전구간 failure/status/recovery, 대표 장애 dry-run, user-visible recovery, statusUrl/projection refetch 복구 | 세부 DTO field는 25번으로, endpoint mapping은 26번으로, effect lifecycle은 23번으로 넘긴다 |
+| Founder OS Product Doctrine | 내부 capability phase와 user-facing journey stage 분리, Phase 1.5A subphase, Phase 2 gate | roadmap은 내부 phase sequencing을, UX 문서는 사용자-facing copy를, API/DTO 문서는 구현 계약을 책임진다 |
+| Phase Capability Implementation Matrix | Phase 0~6의 사용자 가치, 구현 capability, entry gate, exit evidence, non-goal | PR/issue 실행 순서, 세부 schema, DTO field, API endpoint, package layout은 후속 Phase별 구현계획으로 넘긴다 |
+| Phase 1.5 Research Runtime and Readiness Contract | Phase 1.5A allowlisted read-only research runtime, ResearchRun lifecycle, disclosure/audit, Phase 1.5B readiness hint schema와 no-execution acceptance | Founder OS/product matrix는 사용자 가치와 gate를, 이 문서는 API/DTO/DB/runtime 구현자가 따라야 할 세부 계약을 책임진다 |
 
 ## 공식 자료 기반 설계 메모
 
@@ -126,24 +136,25 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 - `packages/contracts` public DTO와 Core/API/UI Projection contract는 `25-contracts-dto-catalog.md`가 소유한다.
 - 전체 Phase 1 endpoint별 API behavior contract는 `26-api-route-behavior-catalog.md`가 소유한다.
 - 전구간 운영·관측성 recovery와 대표 장애 dry-run은 `27-operations-observability-contract.md`가 소유한다.
+- Phase 0~6 capability implementation matrix는 `29-phase-capability-implementation-matrix.md`가 소유한다.
+- Phase 1.5A/B 상세 구현 계약은 `30-phase1.5-research-runtime-and-readiness-contract.md`가 소유한다.
 - Hono는 local sidecar API의 route/validation surface로 고정하고, validation은 Hono validator/Zod 계열로 문서화한다. 참고: <https://hono.dev/docs/api>, <https://hono.dev/docs/guides/validation>
 - Phase 1 저장소는 local embedded libSQL + Drizzle schema/migration 계약으로 고정한다. 참고: <https://docs.turso.tech/sdk/ts/reference>, <https://docs.turso.tech/local-development>, <https://orm.drizzle.team/docs/get-started/sqlite-new>, <https://orm.drizzle.team/docs/migrations>
 - ChatGPT Pro에는 Codex와 Deep Research가 포함되지만 자동 추출, 계정 공유, 제3자 서비스 구동/재판매 제한이 있을 수 있으므로 ChatGPT Pro 웹 자동화는 Phase 2+ 비전으로 둔다. 참고: <https://help.openai.com/en/articles/9793128-what-is-c>
 
 ## 현재 금지 사항
 
-아래 금지 사항은 **제품 기능과 Phase 1 범위의 금지선**이다. 현재 repo에는 Phase 1 구현 순서에 따라 runtime scaffold와 검증 코드가 존재하지만, 앱이 사용자 대신 위험한 실행을 수행하거나 후속 phase 기능을 앞당기는 것은 금지한다.
-
-- ProductEngine effect/reducer가 DB/Hono/Codex/filesystem/network를 직접 호출하는 구조 금지.
-- Tauri/React scaffold를 Phase 1 계약 밖의 모바일/결제/협업/remote-sync 앱으로 확장 금지.
-- Supabase 프로젝트 생성 또는 DB migration 실행 금지.
-- 실제 remote sync 구현 금지. Phase 1 문서상 허용되는 것은 remote config placeholder뿐이다.
-- OpenClaw/Goose/CrewAI/Browser-use 실제 연동 금지.
+- 사용자 UI, onboarding, CTA, export에 `Phase 1.5`, `Phase 2` 같은 내부 capability phase 용어 노출 금지.
+- Controlled execution capability 전 실제 file patch, shell command, browser action, deploy, external system mutation 금지.
+- Research-updated Queue의 high-impact card가 terminal outcome으로 해결되기 전 Planning handoff 확정 금지.
+- 실제 remote sync 구현은 다음 research/planning capability 범위에서 제외한다. Phase 1 기준 허용된 것은 remote config placeholder뿐이다.
+- Phase 1 제품 범위에서 OpenClaw/Goose/CrewAI/Browser-use 실제 연동 금지. Phase 1.5A read-only research connector 후보는 `30-phase1.5-research-runtime-and-readiness-contract.md`의 allowlist/no-write 계약을 먼저 만족해야 한다.
 - Phase 1에서 ChatGPT 웹 자동화 구현 금지.
-- Phase 1에서 Codex를 통한 실제 파일 patch, shell 실행, 브라우저 action 실행 금지. `diff_preview`, `command_plan_preview`, `browser_action_preview`는 preview artifact 또는 `BlockedActionArtifact`로만 남긴다. Phase 1.5A는 background research runtime, Phase 1.5B는 execution-readiness hint 저장만 다루며 실제 실행은 Phase 3 Safe Execution Adapter (Controlled Execution) 전에는 하지 않는다.
+- Codex를 통한 실제 파일 patch, shell 실행, 브라우저 action 실행 금지. `diff_preview`, `command_plan_preview`, `browser_action_preview`는 preview artifact 또는 `BlockedActionArtifact`로만 남긴다. Phase 1.5A는 `30-phase1.5-research-runtime-and-readiness-contract.md`의 allowlisted read-only research runtime, Phase 1.5B는 execution-readiness hint 저장만 다루며 실제 실행은 Controlled Execution capability 전에는 하지 않는다.
 - ProductEngine effect는 in-memory-only queue로 처리 금지. Phase 1 1급 effect는 persisted async effect queue에 저장한다.
 - `scoring_effect`와 `spec_export_effect`를 Phase 1 1급 async effect로 승격 금지. scoring/export는 reducer deterministic output으로 유지한다.
 - 모바일 앱 생성 금지.
-- 결제/과금 구현 금지.
+- 팀 협업, 본격 cloud sync, 모바일/원격 승인, 결제/과금 확장 금지.
+- Phase 4~6은 entry gate 충족 전까지 gate 중심 contract로만 다루며 PR/module/schema 수준 구현계획 확정 금지.
 - 외부 APM, log drain, 배포 관측 플랫폼 선택 금지. Phase 1 운영성은 문서상 event/effect/status/projection/activity recovery 계약으로만 고정한다.
 - `packages/contracts`가 Hono, Drizzle, React, Tauri, Codex runtime client를 직접 import하는 구조 금지.

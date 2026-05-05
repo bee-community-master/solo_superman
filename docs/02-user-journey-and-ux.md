@@ -4,7 +4,7 @@
 
 Solo Superman의 화면은 문서 편집기가 아니라 **창업자의 결정 관제실**이어야 한다. 중심은 긴 문서가 아니라 지금 답해야 할 질문과 승인해야 할 결정이다.
 
-UX 세션의 세부 원칙은 `13-ux-doctrine-and-session-dynamics.md`를 source of truth로 둔다. 이 UX 문서는 화면과 사용자 여정을 설명하고, UX Doctrine 문서는 사용자가 세션 끝에 느껴야 할 감각, confidence map, 날카로운 제품 코치 톤, 행동 신호 기반 피로도 개입, Founder Brief 기준을 고정한다.
+UX 세션의 세부 원칙은 `13-ux-doctrine-and-session-dynamics.md`를 source of truth로 둔다. 이 UX 문서는 화면과 사용자 여정을 설명하고, UX Doctrine 문서는 사용자가 세션 끝에 느껴야 할 감각, confidence map, 날카로운 제품 코치 톤, 행동 신호 기반 피로도 개입, Founder Brief 기준을 고정한다. 내부 capability phase와 사용자-facing journey stage의 용어 경계는 `28-founder-os-product-doctrine.md`를 따른다.
 
 핵심 감각은 다음과 같다.
 
@@ -12,7 +12,7 @@ UX 세션의 세부 원칙은 `13-ux-doctrine-and-session-dynamics.md`를 source
 
 ## 기본 레이아웃
 
-Phase 1 기본 레이아웃은 `Decision Queue 중심`이다.
+첫 제품 경험의 기본 레이아웃은 `Decision Queue 중심`이다.
 
 ```text
 ┌──────────────────────────────────────────────────────────────────┐
@@ -120,7 +120,7 @@ Header와 Context Panel은 복합 완성도 점수만 보여주지 않는다. �
 
 Confidence Map은 사용자가 “어디까지 확실한가”보다 “어디가 아직 위험한가”를 파악하게 하는 패널이다.
 
-Phase 1 표시 방식:
+첫 제품 경험 표시 방식:
 
 - **5축 레이더**: 문제 확신도, 고객 세그먼트 확신도, 가치제안 확신도, 검증 가능성 확신도, 구현 준비도 확신도.
 - **Top 3 Risk Cards**: 지금 가장 크게 남은 리스크 3개.
@@ -221,7 +221,7 @@ AI는 기본적으로 **날카로운 제품 코치**처럼 행동한다. 사용�
 
 ## 행동 신호 기반 피로도 UX
 
-피로도는 별도 설문만으로 판단하지 않는다. Phase 1은 **행동 신호 기반**으로 집중력 저하를 감지한다.
+피로도는 별도 설문만으로 판단하지 않는다. 첫 제품 경험은 **행동 신호 기반**으로 집중력 저하를 감지한다.
 
 주요 신호:
 
