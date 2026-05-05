@@ -119,6 +119,7 @@ function completeState(): ProductEngineStateSnapshot {
       evidenceMatrices: ["problem", "customer", "value", "validation", "mvp", "success"].map((id) =>
         matrix(id, "balanced")
       ),
+      evidencePacks: [],
       reviewCards: [],
       knownRisks: [],
       nextValidationActions: [

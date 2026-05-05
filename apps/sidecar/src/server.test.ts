@@ -145,7 +145,7 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       status: "ok",
-      sidecarPhase: "phase_1_5a_pr_05_research_run_controls",
+      sidecarPhase: "phase_1_5a_pr_06_evidence_quality_gate",
       checks: {
         process: "alive"
       },
@@ -1194,6 +1194,137 @@ describe("PR-02 sidecar health shell", () => {
           expect.objectContaining({ researchRunId: "research_run_failed_source", status: "failed" }),
           expect.objectContaining({ retryOfRunId: "research_run_failed_source", status: "running" })
         ]
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("keeps quality-gate-unknown research run results in needs_review with Evidence Pack trace", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId, sessionId } = await createProjectForTest(
+        storageApp,
+        "A decision-linked evidence pack route test idea"
+      );
+      const allowlistId = "research_allowlist_evidence_pack";
+      await createAllowlistForTest(storageApp, projectId, allowlistId);
+
+      const planResearch = await storageApp.request(`/api/v1/sessions/${sessionId}/research-tasks`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 1,
+          objective: "Validate implementation readiness source quality",
+          sourceQueueItemId: "queue_quality_gate_route",
+          routeOutcome: "research_needed",
+          impact: "high"
+        })
+      });
+      const planResearchBody = await jsonBody(planResearch);
+      const planResearchData = planResearchBody.data as Readonly<Record<string, unknown>>;
+      const researchProjection = planResearchData.immediateProjection as Readonly<Record<string, unknown>>;
+      const taskIds = researchProjection.taskIds as readonly string[];
+      const researchTaskId = taskIds[0];
+
+      expect(planResearch.status).toBe(200);
+      expect(researchTaskId).toEqual(expect.stringMatching(/^research_task_/));
+
+      const startRun = await storageApp.request(`/api/v1/projects/${projectId}/research-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          researchRunId: "research_run_quality_gate_unknown",
+          researchTaskId,
+          allowlistId,
+          connectorId: "public_search",
+          sourceCategory: "public_web",
+          researchObjective: "Validate implementation readiness source quality",
+          productCategory: "Founder workflow assistant",
+          customerProblemHypothesis: "Founders need reliable handoff evidence.",
+          contextHash: "ctx_research_run_quality_gate_unknown",
+          sourceRefs: ["queue_quality_gate_route"]
+        })
+      });
+
+      expect(startRun.status).toBe(200);
+
+      const importResult = await storageApp.request(`/api/v1/research-tasks/${researchTaskId}/results`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          researchTaskId,
+          researchRunId: "research_run_quality_gate_unknown",
+          expectedStateVersion: 2,
+          result: "Pro: implementation looks feasible. Con: integration risk remains.",
+          sourceReliability: "unknown",
+          limitationNotes: "Source reliability was not captured.",
+          claim: "Implementation is ready for a planning handoff.",
+          decisionContext: "implementation_readiness",
+          specSectionRef: "spec:implementation",
+          questionRef: "queue_quality_gate_route"
+        })
+      });
+
+      expect(importResult.status).toBe(200);
+
+      const executorResults = await createProductEngineCommandService(storage).runPendingResearchEvidenceEffects();
+
+      expect(executorResults).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            status: "succeeded",
+            balanceStatus: "balanced"
+          })
+        ])
+      );
+
+      const research = await storageApp.request(`/api/v1/sessions/${sessionId}/research`, {
+        headers: authHeaders()
+      });
+      const researchBody = await jsonBody(research);
+
+      expect(research.status).toBe(200);
+      expect(researchBody.data).toMatchObject({
+        evidencePacks: [
+          expect.objectContaining({
+            researchRunId: "research_run_quality_gate_unknown",
+            gateStatus: "needs_review",
+            claim: "Implementation is ready for a planning handoff."
+          })
+        ],
+        reviewCards: [
+          expect.objectContaining({
+            state: "quality_gate_review",
+            gateStatus: "needs_review"
+          })
+        ]
+      });
+
+      const runStatus = await storageApp.request(
+        `/api/v1/projects/${projectId}/research-runs/research_run_quality_gate_unknown/status`,
+        { headers: authHeaders() }
+      );
+      const runStatusBody = await jsonBody(runStatus);
+
+      expect(runStatus.status).toBe(200);
+      expect(runStatusBody.data).toMatchObject({
+        selectedRun: {
+          status: "needs_review",
+          qualityGateStatus: "pending_review",
+          qualityGateReviewReason: expect.stringContaining("insufficient")
+        }
       });
     } finally {
       await storage.close();

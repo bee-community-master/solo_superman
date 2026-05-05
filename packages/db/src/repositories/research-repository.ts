@@ -1,12 +1,18 @@
 import { eq } from "drizzle-orm";
 import type {
+  DecisionEvidencePackId,
+  DecisionEvidencePackProjection,
   EvidenceItemProjection,
+  EvidenceItemId,
   EvidenceMatrixProjection,
   ProjectId,
   QueueItemId,
   ResearchEvidenceProjection,
   ResearchResultId,
   ResearchResultProjection,
+  ResearchRunId,
+  ResearchReviewCardProjection,
+  ResearchQualityGateCheckProjection,
   ResearchTaskId,
   ResearchTaskProjection,
   SchemaVersion,
@@ -14,7 +20,7 @@ import type {
 } from "@solo-superman/contracts";
 import type { SoloDatabaseExecutor } from "../client";
 import { parseJsonArray, stringifyJson } from "../json";
-import { evidenceMatrices, researchResults, researchTasks } from "../schema";
+import { decisionEvidencePacks, evidenceMatrices, researchResults, researchTasks } from "../schema";
 
 export interface SaveResearchTaskInput {
   readonly projectId: ProjectId;
@@ -36,6 +42,13 @@ export interface SaveEvidenceMatrixInput {
   readonly matrix: EvidenceMatrixProjection;
   readonly schemaVersion: SchemaVersion;
   readonly createdAt?: string;
+}
+
+export interface SaveDecisionEvidencePackInput {
+  readonly projectId: ProjectId;
+  readonly sessionId: SessionId;
+  readonly pack: DecisionEvidencePackProjection;
+  readonly schemaVersion: SchemaVersion;
 }
 
 function evidenceItemsFromJson(value: string): readonly EvidenceItemProjection[] {
@@ -66,10 +79,23 @@ function mapResult(row: typeof researchResults.$inferSelect): ResearchResultProj
   return {
     researchResultId: row.id as ResearchResultId,
     researchTaskId: row.researchTaskId as ResearchTaskId,
+    ...(row.researchRunId ? { researchRunId: row.researchRunId as ResearchRunId } : {}),
     ...(row.sourceTitle ? { sourceTitle: row.sourceTitle } : {}),
     ...(row.sourceUrl ? { sourceUrl: row.sourceUrl } : {}),
+    ...(row.sourceReliability
+      ? { sourceReliability: row.sourceReliability as NonNullable<ResearchResultProjection["sourceReliability"]> }
+      : {}),
+    ...(row.sourcePublishedAt ? { sourcePublishedAt: row.sourcePublishedAt } : {}),
+    ...(row.sourceRetrievedAt ? { sourceRetrievedAt: row.sourceRetrievedAt } : {}),
     resultSummary: row.resultSummary,
     ...(row.limitationNotes ? { limitationNotes: row.limitationNotes } : {}),
+    ...(row.claim ? { claim: row.claim } : {}),
+    ...(row.decisionContext ? { decisionContext: row.decisionContext } : {}),
+    ...(row.specSectionRef ? { specSectionRef: row.specSectionRef } : {}),
+    ...(row.questionRef ? { questionRef: row.questionRef } : {}),
+    ...(row.implicationScope ? { implicationScope: row.implicationScope } : {}),
+    ...(row.staleSensitive !== null ? { staleSensitive: row.staleSensitive } : {}),
+    ...(row.sourceRequiredAfter ? { sourceRequiredAfter: row.sourceRequiredAfter } : {}),
     importedAt: row.importedAt
   };
 }
@@ -89,6 +115,162 @@ function mapEvidenceMatrix(row: typeof evidenceMatrices.$inferSelect): EvidenceM
     ...(row.missingConEvidenceReason ? { missingConEvidenceReason: row.missingConEvidenceReason } : {}),
     ...(row.knownRisk ? { knownRisk: row.knownRisk } : {})
   };
+}
+
+function evidenceItemIdsFromJson(value: string, fieldName: string): readonly EvidenceItemId[] {
+  return parseJsonArray(value, fieldName).map((item) => String(item) as EvidenceItemId);
+}
+
+function qualityGateChecksFromJson(value: string): readonly ResearchQualityGateCheckProjection[] {
+  const parsed = JSON.parse(value) as unknown;
+
+  if (!Array.isArray(parsed)) {
+    throw new Error("gateChecksJson must be a JSON array.");
+  }
+
+  return parsed as readonly ResearchQualityGateCheckProjection[];
+}
+
+function mapEvidencePack(row: typeof decisionEvidencePacks.$inferSelect): DecisionEvidencePackProjection {
+  return {
+    evidencePackId: row.id as DecisionEvidencePackId,
+    researchTaskId: row.researchTaskId as ResearchTaskId,
+    researchResultId: row.researchResultId as ResearchResultId,
+    ...(row.researchRunId ? { researchRunId: row.researchRunId as ResearchRunId } : {}),
+    claim: row.claim,
+    decisionContext: row.decisionContext,
+    ...(row.specSectionRef ? { specSectionRef: row.specSectionRef } : {}),
+    ...(row.questionRef ? { questionRef: row.questionRef } : {}),
+    ...(row.sourceTitle ? { sourceTitle: row.sourceTitle } : {}),
+    ...(row.sourceUrl ? { sourceUrl: row.sourceUrl } : {}),
+    sourceReliability: row.sourceReliability as DecisionEvidencePackProjection["sourceReliability"],
+    ...(row.sourcePublishedAt ? { sourcePublishedAt: row.sourcePublishedAt } : {}),
+    retrievedAt: row.retrievedAt,
+    gateStatus: row.gateStatus as DecisionEvidencePackProjection["gateStatus"],
+    gateChecks: qualityGateChecksFromJson(row.gateChecksJson),
+    proEvidenceItemIds: evidenceItemIdsFromJson(row.proEvidenceItemIdsJson, "proEvidenceItemIdsJson"),
+    conEvidenceItemIds: evidenceItemIdsFromJson(row.conEvidenceItemIdsJson, "conEvidenceItemIdsJson"),
+    uncertaintyItemIds: evidenceItemIdsFromJson(row.uncertaintyItemIdsJson, "uncertaintyItemIdsJson"),
+    limitationRefs: parseJsonArray(row.limitationRefsJson, "limitationRefsJson").map(String),
+    implicationScope: row.implicationScope,
+    ...(row.knownRisk ? { knownRisk: row.knownRisk } : {}),
+    ...(row.nextValidationAction ? { nextValidationAction: row.nextValidationAction } : {}),
+    createdAt: row.createdAt
+  };
+}
+
+function sourceRetainedRef(
+  result: ResearchResultProjection | undefined,
+  pack: DecisionEvidencePackProjection
+) {
+  return result?.sourceUrl ?? result?.sourceTitle ?? pack.sourceUrl ?? pack.sourceTitle ?? pack.researchResultId;
+}
+
+function uniqueValues(values: readonly string[]) {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function primaryGateReviewReason(pack: DecisionEvidencePackProjection) {
+  return (
+    pack.gateChecks.find((check) => check.status === "failed") ??
+    pack.gateChecks.find((check) => check.status === "unknown")
+  )?.reason;
+}
+
+function pendingReviewCardForTask(task: ResearchTaskProjection): ResearchReviewCardProjection {
+  const retainedSourceRef = task.sourceAnswerRef ?? task.sourceQueueItemId;
+
+  return {
+    cardId: `research_review_${task.researchTaskId}` as QueueItemId,
+    researchTaskId: task.researchTaskId,
+    title:
+      task.routeOutcome === "missing_con_evidence"
+        ? `반대근거 탐색 필요: ${task.objective}`
+        : `Research review: ${task.objective}`,
+    state: "pending_manual_result",
+    ...(retainedSourceRef ? { retainedSourceRef } : {}),
+    recoveryActions: ["import_manual_result", "defer_as_known_risk"]
+  };
+}
+
+function reviewCardForEvidencePack(
+  task: ResearchTaskProjection,
+  result: ResearchResultProjection | undefined,
+  matrix: EvidenceMatrixProjection | undefined,
+  pack: DecisionEvidencePackProjection
+): ResearchReviewCardProjection {
+  const balanceStatus = matrix?.balanceStatus ?? "unknown";
+  const terminalFailure = balanceStatus === "source_quality_insufficient";
+  const insufficient =
+    pack.gateStatus === "research_insufficient" ||
+    balanceStatus === "missing_con_evidence" ||
+    balanceStatus === "needs_con_evidence" ||
+    balanceStatus === "blocked_by_con_evidence";
+  const needsReview = pack.gateStatus === "needs_review";
+  const stale = pack.gateStatus === "stale";
+  const retainedSourceRef = sourceRetainedRef(result, pack);
+  const questionRef = result?.questionRef ?? pack.questionRef;
+  const specSectionRef = result?.specSectionRef ?? pack.specSectionRef;
+
+  return {
+    cardId: `research_review_${task.researchTaskId}` as QueueItemId,
+    researchTaskId: task.researchTaskId,
+    title: stale
+      ? `Research stale: ${task.objective}`
+      : needsReview
+        ? `Quality gate review required: ${task.objective}`
+        : terminalFailure
+          ? `Research failed: ${task.objective}`
+          : insufficient
+            ? `Evidence still insufficient: ${task.objective}`
+            : `Evidence ready: ${task.objective}`,
+    state: stale
+      ? "stale"
+      : needsReview
+        ? "quality_gate_review"
+        : terminalFailure
+          ? "terminal_failure"
+          : insufficient
+            ? "research_insufficient"
+            : "ready_for_review",
+    gateStatus: pack.gateStatus,
+    reviewReason: primaryGateReviewReason(pack) ?? pack.implicationScope,
+    retainedSourceRef,
+    retainedSourceRefs: uniqueValues([
+      retainedSourceRef,
+      ...(pack.researchRunId ? [pack.researchRunId] : []),
+      ...(questionRef ? [questionRef] : []),
+      ...(specSectionRef ? [specSectionRef] : []),
+      ...(pack.knownRisk ? [pack.knownRisk] : [])
+    ]),
+    recoveryActions: stale || terminalFailure
+      ? ["retry_synthesis", "import_manual_result", "defer_as_known_risk"]
+      : insufficient || needsReview
+        ? ["import_manual_result", "defer_as_known_risk"]
+        : []
+  };
+}
+
+function reviewCardsFromProjectionRows(
+  tasks: readonly ResearchTaskProjection[],
+  results: readonly ResearchResultProjection[],
+  evidence: readonly EvidenceMatrixProjection[],
+  packs: readonly DecisionEvidencePackProjection[]
+) {
+  return tasks.map((task) => {
+    const pack = packs.filter((candidate) => candidate.researchTaskId === task.researchTaskId).at(-1);
+
+    if (!pack) {
+      return pendingReviewCardForTask(task);
+    }
+
+    return reviewCardForEvidencePack(
+      task,
+      results.find((result) => result.researchResultId === pack.researchResultId),
+      evidence.find((matrix) => matrix.researchResultId === pack.researchResultId),
+      pack
+    );
+  });
 }
 
 export function createResearchRepository(db: SoloDatabaseExecutor) {
@@ -135,10 +317,21 @@ export function createResearchRepository(db: SoloDatabaseExecutor) {
           projectId: input.projectId,
           sessionId: input.sessionId,
           researchTaskId: input.result.researchTaskId,
+          researchRunId: input.result.researchRunId ?? null,
           sourceTitle: input.result.sourceTitle ?? null,
           sourceUrl: input.result.sourceUrl ?? null,
+          sourceReliability: input.result.sourceReliability ?? null,
+          sourcePublishedAt: input.result.sourcePublishedAt ?? null,
+          sourceRetrievedAt: input.result.sourceRetrievedAt ?? null,
           resultSummary: input.result.resultSummary,
           limitationNotes: input.result.limitationNotes ?? null,
+          claim: input.result.claim ?? null,
+          decisionContext: input.result.decisionContext ?? null,
+          specSectionRef: input.result.specSectionRef ?? null,
+          questionRef: input.result.questionRef ?? null,
+          implicationScope: input.result.implicationScope ?? null,
+          staleSensitive: input.result.staleSensitive ?? null,
+          sourceRequiredAfter: input.result.sourceRequiredAfter ?? null,
           importedAt: input.result.importedAt,
           schemaVersion: input.schemaVersion
         })
@@ -188,6 +381,56 @@ export function createResearchRepository(db: SoloDatabaseExecutor) {
       return input.matrix;
     },
 
+    async saveDecisionEvidencePack(input: SaveDecisionEvidencePackInput): Promise<DecisionEvidencePackProjection> {
+      await db
+        .insert(decisionEvidencePacks)
+        .values({
+          id: input.pack.evidencePackId,
+          projectId: input.projectId,
+          sessionId: input.sessionId,
+          researchTaskId: input.pack.researchTaskId,
+          researchResultId: input.pack.researchResultId,
+          researchRunId: input.pack.researchRunId ?? null,
+          claim: input.pack.claim,
+          decisionContext: input.pack.decisionContext,
+          specSectionRef: input.pack.specSectionRef ?? null,
+          questionRef: input.pack.questionRef ?? null,
+          sourceTitle: input.pack.sourceTitle ?? null,
+          sourceUrl: input.pack.sourceUrl ?? null,
+          sourceReliability: input.pack.sourceReliability,
+          sourcePublishedAt: input.pack.sourcePublishedAt ?? null,
+          retrievedAt: input.pack.retrievedAt,
+          gateStatus: input.pack.gateStatus,
+          gateChecksJson: stringifyJson(input.pack.gateChecks),
+          proEvidenceItemIdsJson: stringifyJson(input.pack.proEvidenceItemIds),
+          conEvidenceItemIdsJson: stringifyJson(input.pack.conEvidenceItemIds),
+          uncertaintyItemIdsJson: stringifyJson(input.pack.uncertaintyItemIds),
+          limitationRefsJson: stringifyJson(input.pack.limitationRefs),
+          implicationScope: input.pack.implicationScope,
+          knownRisk: input.pack.knownRisk ?? null,
+          nextValidationAction: input.pack.nextValidationAction ?? null,
+          createdAt: input.pack.createdAt,
+          schemaVersion: input.schemaVersion
+        })
+        .onConflictDoUpdate({
+          target: decisionEvidencePacks.id,
+          set: {
+            gateStatus: input.pack.gateStatus,
+            gateChecksJson: stringifyJson(input.pack.gateChecks),
+            proEvidenceItemIdsJson: stringifyJson(input.pack.proEvidenceItemIds),
+            conEvidenceItemIdsJson: stringifyJson(input.pack.conEvidenceItemIds),
+            uncertaintyItemIdsJson: stringifyJson(input.pack.uncertaintyItemIds),
+            limitationRefsJson: stringifyJson(input.pack.limitationRefs),
+            implicationScope: input.pack.implicationScope,
+            knownRisk: input.pack.knownRisk ?? null,
+            nextValidationAction: input.pack.nextValidationAction ?? null,
+            schemaVersion: input.schemaVersion
+          }
+        });
+
+      return input.pack;
+    },
+
     async getTask(researchTaskId: ResearchTaskId): Promise<ResearchTaskProjection | null> {
       const rows = await db.select().from(researchTasks).where(eq(researchTasks.id, researchTaskId)).limit(1);
       const row = rows[0];
@@ -196,25 +439,40 @@ export function createResearchRepository(db: SoloDatabaseExecutor) {
     },
 
     async getProjection(sessionId: SessionId): Promise<ResearchEvidenceProjection> {
-      const [taskRows, resultRows, matrixRows] = await Promise.all([
+      const [taskRows, resultRows, matrixRows, packRows] = await Promise.all([
         db.select().from(researchTasks).where(eq(researchTasks.sessionId, sessionId)),
         db.select().from(researchResults).where(eq(researchResults.sessionId, sessionId)),
-        db.select().from(evidenceMatrices).where(eq(evidenceMatrices.sessionId, sessionId))
+        db.select().from(evidenceMatrices).where(eq(evidenceMatrices.sessionId, sessionId)),
+        db.select().from(decisionEvidencePacks).where(eq(decisionEvidencePacks.sessionId, sessionId))
       ]);
       const tasks = taskRows.map(mapTask);
+      const results = resultRows.map(mapResult);
       const evidence = matrixRows.map(mapEvidenceMatrix);
-      const knownRisks = evidence.flatMap((matrix) => (matrix.knownRisk ? [matrix.knownRisk] : []));
+      const packs = packRows.map(mapEvidencePack);
+      const knownRisks = [
+        ...new Set([
+          ...evidence.flatMap((matrix) => (matrix.knownRisk ? [matrix.knownRisk] : [])),
+          ...packs.flatMap((pack) => (pack.knownRisk ? [pack.knownRisk] : []))
+        ])
+      ];
+      const nextValidationActions = [
+        ...new Set([
+          ...packs.flatMap((pack) => (pack.nextValidationAction ? [pack.nextValidationAction] : [])),
+          ...knownRisks.map((risk) => `Validate: ${risk}`)
+        ])
+      ];
 
       return {
         kind: "ResearchEvidenceProjection",
-        version: (tasks.length + resultRows.length + evidence.length) as ResearchEvidenceProjection["version"],
+        version: (tasks.length + resultRows.length + evidence.length + packs.length) as ResearchEvidenceProjection["version"],
         taskIds: tasks.map((task) => task.researchTaskId),
         tasks,
-        results: resultRows.map(mapResult),
+        results,
         evidenceMatrices: evidence,
-        reviewCards: [],
+        evidencePacks: packs,
+        reviewCards: reviewCardsFromProjectionRows(tasks, results, evidence, packs),
         knownRisks,
-        nextValidationActions: knownRisks.map((risk) => `Validate: ${risk}`),
+        nextValidationActions,
         proConBalanceStatus: evidence.at(-1)?.balanceStatus ?? "unknown"
       };
     }

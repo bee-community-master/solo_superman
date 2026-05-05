@@ -14,6 +14,7 @@ export type ResearchRunId = Brand<string, "ResearchRunId">;
 export type ResearchDisclosureLogId = Brand<string, "ResearchDisclosureLogId">;
 export type ResearchConnectorId = Brand<string, "ResearchConnectorId">;
 export type EvidenceItemId = Brand<string, "EvidenceItemId">;
+export type DecisionEvidencePackId = Brand<string, "DecisionEvidencePackId">;
 export type SpecVersionId = Brand<string, "SpecVersionId">;
 export type RuntimeArtifactId = Brand<string, "RuntimeArtifactId">;
 export type EffectTaskId = Brand<string, "EffectTaskId">;

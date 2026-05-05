@@ -705,6 +705,197 @@ describe("PR-04 ProductEngine reducer", () => {
     });
   });
 
+  it("persists a decision-linked Evidence Pack and keeps unknown quality gates in review", () => {
+    const initialState = createInitialProductEngineState(projectId, sessionId);
+    const planned = reduceProductEngineCommand(
+      command("PlanResearch", 0, {
+        objective: "Validate implementation readiness claim",
+        sourceQueueItemId: "queue_quality_gate_unknown",
+        routeOutcome: "research_needed",
+        impact: "high"
+      }, 1),
+      initialState
+    );
+
+    expect(planned.accepted).toBe(true);
+
+    const plannedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_quality_gate_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:00.000Z"
+      }
+    ]);
+    const researchTaskId = plannedState.researchState.taskIds[0];
+    const imported = reduceProductEngineCommand(
+      command("ImportResearchResult", 1, {
+        researchTaskId,
+        researchRunId: "research_run_unknown_gate",
+        result: "Pro: implementation looks feasible. Con: integration risk remains.",
+        sourceReliability: "unknown",
+        limitationNotes: "Source reliability was not captured.",
+        claim: "Implementation is ready for a planning handoff.",
+        decisionContext: "implementation_readiness",
+        specSectionRef: "spec:implementation",
+        questionRef: "queue_quality_gate_unknown"
+      }, 2),
+      plannedState
+    );
+
+    expect(imported.accepted).toBe(true);
+
+    const importedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_quality_gate_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:00.000Z"
+      },
+      {
+        ...imported.events[0],
+        eventId: "evt_quality_gate_import",
+        sequence: 2,
+        occurredAt: "2026-05-05T00:00:01.000Z"
+      }
+    ]);
+    const researchResultId = importedState.researchState.results[0]?.researchResultId;
+    const synthesized = reduceProductEngineCommand(
+      effectExecutorCommand("SynthesizeEvidence", 2, { researchResultId }, 3),
+      importedState
+    );
+
+    expect(synthesized.accepted).toBe(true);
+    expect(synthesized.nextState).toMatchObject({
+      researchState: {
+        tasks: [
+          expect.objectContaining({
+            researchTaskId,
+            status: "needs_review"
+          })
+        ],
+        evidencePacks: [
+          expect.objectContaining({
+            researchRunId: "research_run_unknown_gate",
+            gateStatus: "needs_review",
+            claim: "Implementation is ready for a planning handoff.",
+            specSectionRef: "spec:implementation"
+          })
+        ],
+        reviewCards: [
+          expect.objectContaining({
+            state: "quality_gate_review",
+            reviewReason: expect.stringContaining("insufficient")
+          })
+        ]
+      },
+      queueProjection: {
+        blocked: [
+          expect.objectContaining({
+            queueItemId: `research_review_${researchTaskId}`,
+            title: expect.stringContaining("Quality gate review required")
+          })
+        ]
+      }
+    });
+    expect(synthesized.events[0]?.payload).toMatchObject({
+      evidencePack: {
+        gateStatus: "needs_review"
+      }
+    });
+  });
+
+  it("keeps balanced but low-reliability high-impact evidence blocked by the quality gate", () => {
+    const planned = reduceProductEngineCommand(
+      command("PlanResearch", 0, {
+        objective: "Validate low-reliability market urgency claim",
+        routeOutcome: "research_needed",
+        impact: "high"
+      }, 1),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(planned.accepted).toBe(true);
+
+    const plannedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_low_reliability_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:00.000Z"
+      }
+    ]);
+    const researchTaskId = plannedState.researchState.taskIds[0];
+    const imported = reduceProductEngineCommand(
+      command("ImportResearchResult", 1, {
+        researchTaskId,
+        result: "Pro: founders report urgency. Con: incumbent workflows may already be good enough.",
+        sourceReliability: "low",
+        limitationNotes: "Source was anecdotal and needs a higher-reliability follow-up."
+      }, 2),
+      plannedState
+    );
+
+    expect(imported.accepted).toBe(true);
+
+    const importedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_low_reliability_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:00.000Z"
+      },
+      {
+        ...imported.events[0],
+        eventId: "evt_low_reliability_import",
+        sequence: 2,
+        occurredAt: "2026-05-05T00:00:01.000Z"
+      }
+    ]);
+    const researchResultId = importedState.researchState.results[0]?.researchResultId;
+    const synthesized = reduceProductEngineCommand(
+      effectExecutorCommand("SynthesizeEvidence", 2, { researchResultId }, 3),
+      importedState
+    );
+
+    expect(synthesized.accepted).toBe(true);
+    expect(synthesized.nextState).toMatchObject({
+      researchState: {
+        tasks: [
+          expect.objectContaining({
+            researchTaskId,
+            status: "research_insufficient"
+          })
+        ],
+        evidenceMatrices: [
+          expect.objectContaining({
+            balanceStatus: "balanced",
+            decisionBlocked: false
+          })
+        ],
+        evidencePacks: [
+          expect.objectContaining({
+            gateStatus: "research_insufficient"
+          })
+        ],
+        reviewCards: [
+          expect.objectContaining({
+            state: "research_insufficient",
+            reviewReason: expect.stringContaining("Low-reliability source")
+          })
+        ]
+      },
+      queueProjection: {
+        blocked: [
+          expect.objectContaining({
+            queueItemId: `research_review_${researchTaskId}`,
+            title: expect.stringContaining("Evidence still insufficient")
+          })
+        ]
+      }
+    });
+  });
+
   it("recalculates research review queue state from evidence outcome instead of original route", () => {
     const { state, eventDrafts } = stateWithActiveQuestionBatch();
     const activeItem = state.queueProjection.active[0];

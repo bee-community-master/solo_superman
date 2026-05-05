@@ -1,14 +1,19 @@
 import type {
+  DecisionEvidencePackId,
+  DecisionEvidencePackProjection,
   EvidenceItemId,
   EvidenceMatrixProjection,
   ProjectionVersion,
   QueueItemId,
   ResearchEvidenceProjection,
   ResearchImpact,
+  ResearchQualityGateCheckProjection,
   ResearchResultId,
   ResearchResultProjection,
+  ResearchRunId,
   ResearchReviewCardProjection,
   ResearchRouteOutcome,
+  ResearchSourceReliability,
   ResearchTaskId,
   ResearchTaskProjection,
   SessionId
@@ -35,9 +40,20 @@ export interface ImportResearchResultInput {
   readonly researchTaskId: ResearchTaskId;
   readonly result: string;
   readonly importedAt: string;
+  readonly researchRunId?: ResearchRunId;
   readonly sourceTitle?: string;
   readonly sourceUrl?: string;
+  readonly sourceReliability?: ResearchSourceReliability;
+  readonly sourcePublishedAt?: string;
+  readonly sourceRetrievedAt?: string;
   readonly limitationNotes?: string;
+  readonly claim?: string;
+  readonly decisionContext?: string;
+  readonly specSectionRef?: string;
+  readonly questionRef?: string;
+  readonly implicationScope?: string;
+  readonly staleSensitive?: boolean;
+  readonly sourceRequiredAfter?: string;
 }
 
 export interface SynthesizeEvidenceInput {
@@ -52,6 +68,7 @@ const EMPTY_RESEARCH_PROJECTION: Omit<ResearchEvidenceProjection, "version"> = {
   tasks: [],
   results: [],
   evidenceMatrices: [],
+  evidencePacks: [],
   reviewCards: [],
   knownRisks: [],
   nextValidationActions: [],
@@ -88,6 +105,10 @@ function normalizeResultText(value: string, fallback: string) {
   return trimmed || fallback;
 }
 
+function optionalNormalizedString(value: string | undefined) {
+  return trimOrNull(value) ?? undefined;
+}
+
 function evidenceSnippet(value: string, markers: readonly string[], fallback: string) {
   const normalized = normalizeResultText(value, fallback);
   const lower = normalized.toLowerCase();
@@ -120,6 +141,16 @@ function sourceRetainedRef(result: ResearchResultProjection) {
   return result.sourceUrl ?? result.sourceTitle ?? result.researchResultId;
 }
 
+function retainedSourceRefs(result: ResearchResultProjection, pack?: DecisionEvidencePackProjection) {
+  return uniqueValues([
+    sourceRetainedRef(result),
+    ...(result.researchRunId ? [result.researchRunId] : []),
+    ...(result.questionRef ? [result.questionRef] : []),
+    ...(result.specSectionRef ? [result.specSectionRef] : []),
+    ...(pack?.knownRisk ? [pack.knownRisk] : [])
+  ]);
+}
+
 function mergeById<TItem, TId extends string>(items: readonly TItem[], nextItem: TItem, idOf: (item: TItem) => TId) {
   const nextId = idOf(nextItem);
   const withoutExisting = items.filter((item) => idOf(item) !== nextId);
@@ -146,33 +177,65 @@ function reviewCardForTask(task: ResearchTaskProjection): ResearchReviewCardProj
 function reviewCardForMatrix(
   task: ResearchTaskProjection,
   result: ResearchResultProjection,
-  matrix: EvidenceMatrixProjection
+  matrix: EvidenceMatrixProjection,
+  pack: DecisionEvidencePackProjection
 ): ResearchReviewCardProjection {
   const terminalFailure = matrix.balanceStatus === "source_quality_insufficient";
   const insufficient =
+    pack.gateStatus === "research_insufficient" ||
     matrix.balanceStatus === "missing_con_evidence" ||
     matrix.balanceStatus === "needs_con_evidence" ||
     matrix.balanceStatus === "blocked_by_con_evidence";
+  const needsReview = pack.gateStatus === "needs_review";
+  const stale = pack.gateStatus === "stale";
+  const sourceRefs = retainedSourceRefs(result, pack);
 
   return {
     cardId: `research_review_${task.researchTaskId}` as QueueItemId,
     researchTaskId: task.researchTaskId,
-    title: terminalFailure
+    title: stale
+      ? `Research stale: ${task.objective}`
+      : needsReview
+        ? `Quality gate review required: ${task.objective}`
+        : terminalFailure
       ? `Research failed: ${task.objective}`
       : insufficient
         ? `Evidence still insufficient: ${task.objective}`
         : `Evidence ready: ${task.objective}`,
-    state: terminalFailure ? "terminal_failure" : insufficient ? "research_insufficient" : "ready_for_review",
+    state: stale
+      ? "stale"
+      : needsReview
+        ? "quality_gate_review"
+        : terminalFailure
+          ? "terminal_failure"
+          : insufficient
+            ? "research_insufficient"
+            : "ready_for_review",
+    gateStatus: pack.gateStatus,
+    reviewReason: primaryGateReviewReason(pack) ?? pack.implicationScope,
     retainedSourceRef: sourceRetainedRef(result),
-    recoveryActions: terminalFailure
+    retainedSourceRefs: sourceRefs,
+    recoveryActions: stale || terminalFailure
       ? ["retry_synthesis", "import_manual_result", "defer_as_known_risk"]
-      : insufficient
+      : insufficient || needsReview
         ? ["import_manual_result", "defer_as_known_risk"]
         : []
   };
 }
 
-function taskStatusForMatrix(matrix: EvidenceMatrixProjection): ResearchTaskProjection["status"] {
+function taskStatusForPack(matrix: EvidenceMatrixProjection, pack: DecisionEvidencePackProjection): ResearchTaskProjection["status"] {
+  if (pack.gateStatus === "needs_review") {
+    return "needs_review";
+  }
+
+  if (pack.gateStatus === "stale") {
+    return "stale";
+  }
+
+  if (pack.gateStatus === "research_insufficient") {
+    return "research_insufficient";
+  }
+
   if (matrix.balanceStatus === "balanced") {
     return "evidence_ready";
   }
@@ -209,14 +272,34 @@ export function importResearchResult(input: ImportResearchResultInput): Research
   const sourceTitle = trimOrNull(input.sourceTitle);
   const sourceUrl = trimOrNull(input.sourceUrl);
   const limitationNotes = trimOrNull(input.limitationNotes);
+  const sourceReliability = input.sourceReliability;
+  const sourcePublishedAt = optionalNormalizedString(input.sourcePublishedAt);
+  const sourceRetrievedAt = optionalNormalizedString(input.sourceRetrievedAt);
+  const claim = optionalNormalizedString(input.claim);
+  const decisionContext = optionalNormalizedString(input.decisionContext);
+  const specSectionRef = optionalNormalizedString(input.specSectionRef);
+  const questionRef = optionalNormalizedString(input.questionRef);
+  const implicationScope = optionalNormalizedString(input.implicationScope);
+  const sourceRequiredAfter = optionalNormalizedString(input.sourceRequiredAfter);
 
   return {
     researchResultId: input.researchResultId,
     researchTaskId: input.researchTaskId,
+    ...(input.researchRunId ? { researchRunId: input.researchRunId } : {}),
     ...(sourceTitle ? { sourceTitle } : {}),
     ...(sourceUrl ? { sourceUrl } : {}),
+    ...(sourceReliability ? { sourceReliability } : {}),
+    ...(sourcePublishedAt ? { sourcePublishedAt } : {}),
+    ...(sourceRetrievedAt ? { sourceRetrievedAt } : {}),
     resultSummary: normalizeResultText(input.result, "Manual research result"),
     ...(limitationNotes ? { limitationNotes } : {}),
+    ...(claim ? { claim } : {}),
+    ...(decisionContext ? { decisionContext } : {}),
+    ...(specSectionRef ? { specSectionRef } : {}),
+    ...(questionRef ? { questionRef } : {}),
+    ...(implicationScope ? { implicationScope } : {}),
+    ...(input.staleSensitive !== undefined ? { staleSensitive: input.staleSensitive } : {}),
+    ...(sourceRequiredAfter ? { sourceRequiredAfter } : {}),
     importedAt: input.importedAt
   };
 }
@@ -305,6 +388,198 @@ export function synthesizeEvidenceMatrix(input: SynthesizeEvidenceInput): Eviden
   };
 }
 
+function isoMillis(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Date.parse(value);
+
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function check(
+  code: ResearchQualityGateCheckProjection["code"],
+  status: ResearchQualityGateCheckProjection["status"],
+  reason: string
+): ResearchQualityGateCheckProjection {
+  return { code, status, reason };
+}
+
+function qualityGateStatusFor(
+  task: ResearchTaskProjection,
+  matrix: EvidenceMatrixProjection,
+  checks: readonly ResearchQualityGateCheckProjection[]
+): DecisionEvidencePackProjection["gateStatus"] {
+  if (checks.some((candidate) => candidate.code === "staleness" && candidate.status === "failed")) {
+    return "stale";
+  }
+
+  if (
+    checks.some((candidate) => candidate.status === "failed") ||
+    matrix.balanceStatus === "source_quality_insufficient" ||
+    matrix.balanceStatus === "blocked_by_con_evidence" ||
+    (task.impact === "high" && matrix.balanceStatus !== "balanced")
+  ) {
+    return "research_insufficient";
+  }
+
+  if (checks.some((candidate) => candidate.status === "unknown")) {
+    return "needs_review";
+  }
+
+  return "accepted";
+}
+
+function sourceReliabilityFor(result: ResearchResultProjection): ResearchSourceReliability {
+  return result.sourceReliability ?? "medium";
+}
+
+function limitationRefsFor(result: ResearchResultProjection, matrix: EvidenceMatrixProjection) {
+  return uniqueValues([
+    ...(result.limitationNotes ? [result.limitationNotes] : []),
+    ...(matrix.uncertainties.length ? matrix.uncertainties.map((item) => item.summary) : [])
+  ]);
+}
+
+function implicationScopeFor(task: ResearchTaskProjection, result: ResearchResultProjection, matrix: EvidenceMatrixProjection) {
+  const provided = trimOrNull(result.implicationScope);
+
+  if (provided) {
+    return provided;
+  }
+
+  if (matrix.balanceStatus === "balanced") {
+    return `Evidence is scoped to the research task "${task.objective}" and supports decision review, not automatic SpecVersion updates.`;
+  }
+
+  return `Evidence is insufficient for "${task.objective}"; preserve it as a Risk/Review item before changing product decisions.`;
+}
+
+function primaryGateReviewReason(pack: DecisionEvidencePackProjection) {
+  return (
+    pack.gateChecks.find((check) => check.status === "failed") ??
+    pack.gateChecks.find((check) => check.status === "unknown")
+  )?.reason;
+}
+
+export function buildDecisionEvidencePack(
+  input: SynthesizeEvidenceInput & { readonly matrix: EvidenceMatrixProjection }
+): DecisionEvidencePackProjection {
+  const { researchTask, researchResult, matrix } = input;
+  const reliability = sourceReliabilityFor(researchResult);
+  const limitationRefs = limitationRefsFor(researchResult, matrix);
+  const implicationScope = implicationScopeFor(researchTask, researchResult, matrix);
+  const publishedAt = isoMillis(researchResult.sourcePublishedAt);
+  const requiredAfter = isoMillis(researchResult.sourceRequiredAfter);
+  const staleSensitive = researchResult.staleSensitive === true || Boolean(researchResult.sourceRequiredAfter);
+  const staleFailed =
+    staleSensitive && publishedAt !== null && requiredAfter !== null && publishedAt < requiredAfter;
+  const checks = [
+    check(
+      "source_metadata",
+      reliability === "unknown" && !researchResult.sourceTitle && !researchResult.sourceUrl ? "unknown" : "passed",
+      reliability === "unknown" && !researchResult.sourceTitle && !researchResult.sourceUrl
+        ? "Source metadata is insufficient for automatic quality-gate evaluation."
+        : "Source title/url/date metadata is captured when available or the manual import is explicitly retained."
+    ),
+    check(
+      "source_reliability",
+      researchTask.impact === "high" && reliability === "low"
+        ? "failed"
+        : reliability === "unknown"
+          ? "unknown"
+          : "passed",
+      researchTask.impact === "high" && reliability === "low"
+        ? "Low-reliability source cannot support a high-impact claim by itself."
+        : reliability === "unknown"
+          ? "Source reliability requires manual review before evidence acceptance."
+          : `Source reliability is ${reliability}.`
+    ),
+    check(
+      "pro_con_balance",
+      matrix.proEvidence.length > 0 && matrix.conEvidence.length > 0
+        ? "passed"
+        : matrix.missingConEvidenceReason || matrix.balanceStatus === "needs_con_evidence"
+          ? researchTask.impact === "high"
+            ? "failed"
+            : "passed"
+          : "failed",
+      matrix.proEvidence.length > 0 && matrix.conEvidence.length > 0
+        ? "Pro and con evidence are both present."
+        : matrix.missingConEvidenceReason || matrix.balanceStatus === "needs_con_evidence"
+          ? researchTask.impact === "high"
+            ? "High-impact claim records missing_con_evidence and remains blocked from decision-ready."
+            : "Missing con evidence is explicit and connected to Known Risks/validation actions."
+          : "Evidence lacks an explicit pro/con or missing_con_evidence outcome."
+    ),
+    check(
+      "limitations_linked",
+      limitationRefs.length > 0 || matrix.knownRisk || matrix.balanceStatus === "balanced" ? "passed" : "unknown",
+      limitationRefs.length > 0 || matrix.knownRisk
+        ? "Limitations are connected to Known Risks or next validation actions."
+        : matrix.balanceStatus === "balanced"
+          ? "No separate limitation was declared for the balanced evidence pack."
+        : "Limitations are not explicit enough for automatic acceptance."
+    ),
+    check(
+      "staleness",
+      staleFailed ? "failed" : staleSensitive && (publishedAt === null || requiredAfter === null) ? "unknown" : "passed",
+      staleFailed
+        ? "Source timestamp predates the freshness requirement."
+        : staleSensitive && (publishedAt === null || requiredAfter === null)
+          ? "Stale-sensitive evidence is missing comparable source/freshness timestamps."
+          : "Staleness policy is satisfied or not applicable."
+    ),
+    check(
+      "implication_scope",
+      implicationScope ? "passed" : "unknown",
+      implicationScope
+        ? "Implication is scoped to evidence strength and does not silently update SpecVersion."
+        : "Product implication scope requires manual review."
+    )
+  ] as const satisfies readonly ResearchQualityGateCheckProjection[];
+  const gateStatus = qualityGateStatusFor(researchTask, matrix, checks);
+  const knownRisk =
+    gateStatus === "accepted"
+      ? matrix.knownRisk
+      : matrix.knownRisk ?? `${gateStatus} evidence for ${researchTask.objective}.`;
+  const nextValidationAction =
+    gateStatus === "accepted"
+      ? undefined
+      : gateStatus === "stale"
+        ? `Refresh source evidence for ${researchTask.objective}.`
+        : `Review or supplement evidence for ${researchTask.objective}.`;
+
+  return {
+    evidencePackId: `evidence_pack_${researchResult.researchResultId}_v${input.synthesisVersion}` as DecisionEvidencePackId,
+    researchTaskId: researchTask.researchTaskId,
+    researchResultId: researchResult.researchResultId,
+    ...(researchResult.researchRunId ? { researchRunId: researchResult.researchRunId } : {}),
+    claim: researchResult.claim ?? researchTask.objective,
+    decisionContext: researchResult.decisionContext ?? researchTask.routeOutcome,
+    ...(researchResult.specSectionRef ? { specSectionRef: researchResult.specSectionRef } : {}),
+    ...(researchResult.questionRef ?? researchTask.sourceQueueItemId
+      ? { questionRef: researchResult.questionRef ?? researchTask.sourceQueueItemId }
+      : {}),
+    ...(researchResult.sourceTitle ? { sourceTitle: researchResult.sourceTitle } : {}),
+    ...(researchResult.sourceUrl ? { sourceUrl: researchResult.sourceUrl } : {}),
+    sourceReliability: reliability,
+    ...(researchResult.sourcePublishedAt ? { sourcePublishedAt: researchResult.sourcePublishedAt } : {}),
+    retrievedAt: researchResult.sourceRetrievedAt ?? researchResult.importedAt,
+    gateStatus,
+    gateChecks: checks,
+    proEvidenceItemIds: matrix.proEvidence.map((item) => item.evidenceItemId),
+    conEvidenceItemIds: matrix.conEvidence.map((item) => item.evidenceItemId),
+    uncertaintyItemIds: matrix.uncertainties.map((item) => item.evidenceItemId),
+    limitationRefs,
+    implicationScope,
+    ...(knownRisk ? { knownRisk } : {}),
+    ...(nextValidationAction ? { nextValidationAction } : {}),
+    createdAt: researchResult.importedAt
+  };
+}
+
 export function addResearchTaskToProjection(
   projection: ResearchEvidenceProjection,
   task: ResearchTaskProjection,
@@ -329,21 +604,27 @@ export function addResearchResultToProjection(
   task: ResearchTaskProjection,
   result: ResearchResultProjection,
   matrix: EvidenceMatrixProjection,
+  pack: DecisionEvidencePackProjection,
   version: ProjectionVersion
 ): ResearchEvidenceProjection {
   const updatedTask = {
     ...task,
-    status: taskStatusForMatrix(matrix)
+    status: taskStatusForPack(matrix, pack)
   };
   const tasks = mergeById(projection.tasks, updatedTask, (item) => item.researchTaskId);
   const results = mergeById(projection.results, result, (item) => item.researchResultId);
   const evidenceMatrices = mergeById(projection.evidenceMatrices, matrix, (item) => item.evidenceMatrixId);
+  const evidencePacks = mergeById(projection.evidencePacks, pack, (item) => item.evidencePackId);
   const reviewCards = mergeById(
     projection.reviewCards,
-    reviewCardForMatrix(updatedTask, result, matrix),
+    reviewCardForMatrix(updatedTask, result, matrix, pack),
     (item) => item.cardId
   );
-  const knownRisks = uniqueValues([...projection.knownRisks, ...(matrix.knownRisk ? [matrix.knownRisk] : [])]);
+  const knownRisks = uniqueValues([
+    ...projection.knownRisks,
+    ...(matrix.knownRisk ? [matrix.knownRisk] : []),
+    ...(pack.knownRisk ? [pack.knownRisk] : [])
+  ]);
 
   return {
     ...projection,
@@ -352,10 +633,12 @@ export function addResearchResultToProjection(
     tasks,
     results,
     evidenceMatrices,
+    evidencePacks,
     reviewCards,
     knownRisks,
     nextValidationActions: uniqueValues([
       ...projection.nextValidationActions,
+      ...(pack.nextValidationAction ? [pack.nextValidationAction] : []),
       ...knownRisks.map((risk) => `Validate or explicitly accept: ${risk}`)
     ]),
     proConBalanceStatus: matrix.balanceStatus

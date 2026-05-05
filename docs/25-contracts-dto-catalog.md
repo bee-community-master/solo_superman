@@ -146,6 +146,7 @@ All public DTOs use string identifiers with branded type aliases in TypeScript. 
 | `ResearchTaskId` | string | research/evidence | manual handoff or Codex research task |
 | `ResearchResultId` | string | evidence synthesis | imported result id |
 | `EvidenceItemId` | string | EvidenceMatrix | claim/evidence entry id |
+| `DecisionEvidencePackId` | string | DecisionEvidencePack | quality-gated, decision-linked evidence pack id |
 | `SpecVersionId` | string | Living Spec | persisted version id |
 | `RuntimeArtifactId` | string | Codex/runtime artifact | maps to 24번 artifact output |
 | `EffectTaskId` | string | effect queue | persisted async effect task id |
@@ -266,7 +267,7 @@ Example command envelope:
 | project/session intake | `StartProjectPayload`, `CaptureIntakePayload` | raw idea, local privacy mode, optional source note |
 | spec/ambiguity | `DraftInitialSpecPayload`, `AnalyzeAmbiguityPayload` | target spec draft/version refs, analysis target refs |
 | queue/answer | `ActivateQuestionBatchPayload`, `SubmitAnswerPayload`, `DeferQueueItemPayload`, `DismissQueueItemPayload` | queue item/batch ids and answer/defer/dismiss reason |
-| research/evidence | `PlanResearchPayload`, `ImportResearchResultPayload`, `SynthesizeEvidencePayload` | research task/result refs, source metadata, synthesis target |
+| research/evidence | `PlanResearchPayload`, `ImportResearchResultPayload`, `SynthesizeEvidencePayload` | research task/result refs, source reliability/metadata, claim/decision/spec/question refs, synthesis target |
 | runtime/codex | `CreateRuntimePreviewPayload`, `ConvertRuntimeArtifactPayload` | turnPurpose/artifact id/target conversion request |
 | decision/spec version | `CreateSpecUpdatePreviewPayload`, `ResolveDecisionPayload`, `CreateSpecVersionPayload` | decision/spec update refs and approval outcome |
 | completion/export | `ScoreCompletenessPayload`, `PrepareFounderBriefPayload` | scoring target or founder brief draft target |
@@ -394,7 +395,7 @@ Deterministic outputs are reducer-created artifacts that can be persisted or pro
 | EffectType | Source | Output refs |
 | --- | --- | --- |
 | `queue_projection_effect` | queue/spec/evidence/runtime events | `DecisionQueueProjection`, ActivityEvent |
-| `research_evidence_effect` | research planning/import/synthesis commands | ResearchTask, EvidenceMatrix, Review/Risk card |
+| `research_evidence_effect` | research planning/import/synthesis commands | ResearchTask, EvidenceMatrix, DecisionEvidencePack, Review/Risk card |
 | `codex_runtime_preview_effect` | runtime preview request/research prompt need | RuntimePreviewArtifact, Codex artifact, ManualRetry/Blocked card |
 
 ### EffectStatus enum
@@ -704,7 +705,7 @@ Phase 1.5A PR-01 implementation note:
 | `ResearchAllowlistProjection` | status, connector ids, source categories, context mode, rate/budget policy including per-session run cap, staleness/disclosure policies, pause/revoke timestamps |
 | `ResearchDisclosureLogProjection` | connector/source category, objective summary, exact public-safe summary sent/prepared, source refs, automatic-vs-manual handoff status |
 | `ResearchRunProjection` | status state machine, provider-neutral reference, attempt/idempotency key, source category, disclosure log ref, quality gate status, terminal reason |
-| `ResearchEvidenceProjection` | research tasks, manual handoff prompts, evidence matrix summary, pro/con balance, review cards |
+| `ResearchEvidenceProjection` | research tasks, manual handoff prompts, evidence matrix summary, decision evidence packs, pro/con balance, review cards |
 | `ConfidenceCompletionProjection` | five-axis scores, radar data, composite completeness, top risk cards, score history |
 | `RuntimeActivityProjection` | effect tasks, Codex runtime status, runtime artifacts, retry/blocked cards, activity feed |
 | `FounderBriefProjection` | if-stop-now artifact, brief draft sections, export readiness, known risks, next validation actions |
@@ -764,10 +765,17 @@ Rules:
 
 Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`를 canonical source로 사용한다.
 
-- `ResearchAllowlistProjection` is implemented first for Phase 1.5A PR-01; `ResearchDisclosureLogProjection` is implemented in Phase 1.5A PR-03 before provider execution; `ResearchRunProjection` is implemented in Phase 1.5A PR-04 for lifecycle/provider-reference storage; Phase 1.5A PR-05 adds `StartResearchRunRequest`, `CancelResearchRunRequest`, `RetryResearchRunRequest`, `ResearchRunControlProjection`, `ResearchRunControlResult`, and `ResearchRunStatusDto` for run control/status/refetch recovery; add structured Phase15bUpgradeHints in its later implementation PR.
+- `ResearchAllowlistProjection` is implemented first for Phase 1.5A PR-01; `ResearchDisclosureLogProjection` is implemented in Phase 1.5A PR-03 before provider execution; `ResearchRunProjection` is implemented in Phase 1.5A PR-04 for lifecycle/provider-reference storage; Phase 1.5A PR-05 adds `StartResearchRunRequest`, `CancelResearchRunRequest`, `RetryResearchRunRequest`, `ResearchRunControlProjection`, `ResearchRunControlResult`, and `ResearchRunStatusDto` for run control/status/refetch recovery; Phase 1.5A PR-06 adds quality-gate checks and `DecisionEvidencePackProjection` records without auto-updating SpecVersion; add structured Phase15bUpgradeHints in its later implementation PR.
 - Phase15bUpgradeHints must expose approval requirements, sandbox/workspace requirements, rollback/reference plan, expected evidence, risk normalization, and sourceRefs.
 - DTOs must preserve no-execution semantics; no field should imply active delegation or executed side effects in Phase 1.5B.
 - `packages/contracts` still must not import runtime clients, Hono, Drizzle, React, or Tauri modules.
+
+### Phase 1.5A PR-06 research quality gate
+
+- `ImportResearchResultRequest` may carry `researchRunId`, `sourceReliability`, `sourcePublishedAt`, `sourceRetrievedAt`, `claim`, `decisionContext`, `specSectionRef`, `questionRef`, `implicationScope`, `limitationNotes`, and stale-sensitivity metadata such as `staleSensitive`/`sourceRequiredAfter`.
+- `DecisionEvidencePackProjection` is the durable ledger for the source metadata, pro/con balance, limitation coverage, staleness, and decision implication checks used to classify imported/synthesized research.
+- Gate status values are `accepted`, `research_insufficient`, `stale`, and `needs_review`; `needs_review` must include a review reason and must surface as a queue/review blocker instead of silently accepting EvidenceMatrix content.
+- Accepted/insufficient/stale Evidence Packs may update the linked `ResearchRunProjection` terminal quality state, but they must not mutate `SpecVersion` or create a spec update without an explicit later decision/spec-version command.
 
 ## Phase 2 planned Planning Handoff DTO checklist
 

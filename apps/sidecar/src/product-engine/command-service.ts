@@ -15,6 +15,7 @@ import {
   assertSafeResearchConnectorId,
   isTerminalResearchRunStatus,
   type ApiErrorCode,
+  type AutomaticResearchSourceCategory,
   type BlockedActionType,
   type CommandId,
   type CommandResponse,
@@ -26,6 +27,7 @@ import {
   type CodexTurnPurpose,
   type ConfidenceCompletionProjection,
   type DecisionQueueProjection,
+  type DecisionEvidencePackProjection,
   type EffectTaskDto,
   type EffectTaskId,
   type EventId,
@@ -825,6 +827,140 @@ export function createProductEngineCommandService(
     });
   }
 
+  function terminalResearchRunPatchForEvidencePack(pack: DecisionEvidencePackProjection) {
+    switch (pack.gateStatus) {
+      case "accepted":
+        return {
+          status: "accepted" as const,
+          qualityGateStatus: "passed" as const,
+          terminalReason: "quality_gate_accepted" as const
+        };
+      case "research_insufficient":
+        return {
+          status: "research_insufficient" as const,
+          qualityGateStatus: "insufficient" as const,
+          terminalReason: "quality_gate_insufficient" as const
+        };
+      case "stale":
+        return {
+          status: "stale" as const,
+          qualityGateStatus: "stale" as const,
+          terminalReason: "staleness_policy_failed" as const
+        };
+      case "needs_review":
+        return null;
+    }
+  }
+
+  function qualityGateReviewReasonForEvidencePack(pack: DecisionEvidencePackProjection) {
+    return (
+      pack.gateChecks.find((check) => check.status === "failed")?.reason ??
+      pack.gateChecks.find((check) => check.status === "unknown")?.reason ??
+      "Research result requires quality-gate review before EvidenceMatrix acceptance."
+    );
+  }
+
+  async function ensureResearchRunNeedsReview(
+    repository: ReturnType<typeof createResearchRunRepository>,
+    run: ResearchRunProjection,
+    pack: DecisionEvidencePackProjection,
+    occurredAt: string,
+    schemaVersion: SchemaVersion
+  ) {
+    if (run.status === "needs_review") {
+      return run;
+    }
+
+    if (run.status !== "running") {
+      return null;
+    }
+
+    const updated = await repository.update({
+      run: {
+        ...run,
+        version: (Number(run.version) + 1) as ProjectionVersion,
+        status: "needs_review",
+        provider: {
+          ...run.provider,
+          completedAt: run.provider.completedAt ?? occurredAt
+        },
+        qualityGateStatus: "pending_review",
+        qualityGateReviewReason: qualityGateReviewReasonForEvidencePack(pack),
+        updatedAt: occurredAt
+      },
+      expectedVersion: run.version,
+      schemaVersion
+    });
+
+    if (!updated) {
+      throw new Error("Research run changed before quality-gate review state could be saved.");
+    }
+
+    return updated;
+  }
+
+  function withoutQualityGateReviewReason(run: ResearchRunProjection): ResearchRunProjection {
+    const runWithoutReviewReason = { ...run };
+
+    delete runWithoutReviewReason.qualityGateReviewReason;
+
+    return runWithoutReviewReason;
+  }
+
+  async function applyEvidencePackToResearchRun(input: {
+    readonly projectId: ProjectId;
+    readonly pack: DecisionEvidencePackProjection;
+    readonly occurredAt: string;
+    readonly schemaVersion: SchemaVersion;
+    readonly repository: ReturnType<typeof createResearchRunRepository>;
+  }) {
+    if (!input.pack.researchRunId) {
+      return;
+    }
+
+    const current = await input.repository.getById(input.projectId, input.pack.researchRunId);
+
+    if (!current || isTerminalResearchRunStatus(current.status)) {
+      return;
+    }
+
+    const reviewed = await ensureResearchRunNeedsReview(
+      input.repository,
+      current,
+      input.pack,
+      input.occurredAt,
+      input.schemaVersion
+    );
+
+    if (!reviewed || input.pack.gateStatus === "needs_review") {
+      return;
+    }
+
+    const terminalPatch = terminalResearchRunPatchForEvidencePack(input.pack);
+
+    if (!terminalPatch) {
+      return;
+    }
+    const reviewedWithoutReviewReason = withoutQualityGateReviewReason(reviewed);
+
+    const updated = await input.repository.update({
+      run: {
+        ...reviewedWithoutReviewReason,
+        version: (Number(reviewed.version) + 1) as ProjectionVersion,
+        status: terminalPatch.status,
+        qualityGateStatus: terminalPatch.qualityGateStatus,
+        terminalReason: terminalPatch.terminalReason,
+        updatedAt: input.occurredAt
+      },
+      expectedVersion: reviewed.version,
+      schemaVersion: input.schemaVersion
+    });
+
+    if (!updated) {
+      throw new Error("Research run changed before quality-gate terminal state could be saved.");
+    }
+  }
+
   function runtimePreviewRequestFromEvent(event: ProductEngineEvent) {
     const turnPurpose = typeof event.payload.turnPurpose === "string" ? event.payload.turnPurpose : null;
     const contextHash = typeof event.payload.contextHash === "string" ? event.payload.contextHash : null;
@@ -1004,6 +1140,22 @@ export function createProductEngineCommandService(
               matrix,
               schemaVersion: command.schemaVersion,
               createdAt: event.occurredAt
+            });
+          }
+
+          for (const pack of researchProjection.evidencePacks) {
+            await researchRepository.saveDecisionEvidencePack({
+              projectId: command.projectId,
+              sessionId: command.sessionId,
+              pack,
+              schemaVersion: command.schemaVersion
+            });
+            await applyEvidencePackToResearchRun({
+              projectId: command.projectId,
+              pack,
+              occurredAt: event.occurredAt,
+              schemaVersion: command.schemaVersion,
+              repository: createResearchRunRepository(transaction)
             });
           }
         }
@@ -1668,8 +1820,25 @@ export function createProductEngineCommandService(
     return ((allowlist ? Number(allowlist.version) : 0) + 1) as ProjectionVersion;
   }
 
-  function isManualResearchSourceCategory(sourceCategory: ResearchSourceCategory) {
+  function isManualResearchSourceCategory(
+    sourceCategory: ResearchSourceCategory
+  ): sourceCategory is Exclude<ResearchSourceCategory, AutomaticResearchSourceCategory> {
     return MANUAL_RESEARCH_SOURCE_CATEGORIES.includes(sourceCategory as (typeof MANUAL_RESEARCH_SOURCE_CATEGORIES)[number]);
+  }
+
+  function automaticResearchSourceCategoryOrNull(
+    sourceCategory: ResearchSourceCategory
+  ): AutomaticResearchSourceCategory | null {
+    return isManualResearchSourceCategory(sourceCategory) ? null : sourceCategory;
+  }
+
+  function allowlistIncludesSourceCategory(
+    allowlist: ResearchAllowlistProjection,
+    sourceCategory: ResearchSourceCategory
+  ) {
+    const automaticSourceCategory = automaticResearchSourceCategoryOrNull(sourceCategory);
+
+    return automaticSourceCategory ? allowlist.sourceCategories.includes(automaticSourceCategory) : false;
   }
 
   function sourceRefsFromDisclosureRequest(request: PrepareResearchDisclosureRequest) {
@@ -1729,7 +1898,7 @@ export function createProductEngineCommandService(
       return "connector_not_allowed";
     }
 
-    return allowlist.sourceCategories.includes(request.sourceCategory as never) ? null : "source_category_not_allowed";
+    return allowlistIncludesSourceCategory(allowlist, request.sourceCategory) ? null : "source_category_not_allowed";
   }
 
   function researchDisclosureLogFromRequest(
@@ -1764,7 +1933,7 @@ export function createProductEngineCommandService(
   }
 
   function isKnownResearchAdapterKind(value: string): value is NonNullable<StartResearchRunRequest["adapterKind"]> {
-    return BACKGROUND_RESEARCH_ADAPTER_KINDS.includes(value as never);
+    return (BACKGROUND_RESEARCH_ADAPTER_KINDS as readonly string[]).includes(value);
   }
 
   function contextHashFromPublicSafePayload(
@@ -1936,7 +2105,14 @@ export function createProductEngineCommandService(
     const nextResearchRunId = request.researchRunId ?? researchRunId();
     const adapter = createFakeReadOnlyResearchAdapter();
     const adapterKind = request.adapterKind ?? adapter.adapterKind;
-    const sourceCategory = request.sourceCategory as StartResearchRunRequest["sourceCategory"];
+    const sourceCategory = automaticResearchSourceCategoryOrNull(request.sourceCategory);
+
+    if (!sourceCategory) {
+      throw new ProductEngineServiceError(
+        "COMMAND_PRECONDITION_FAILED",
+        "Automatic research runs require a public-safe source category."
+      );
+    }
 
     if (adapterKind !== "local_fake_readonly") {
       throw new ProductEngineServiceError(
@@ -1957,14 +2133,14 @@ export function createProductEngineCommandService(
       allowlistId: allowlist.allowlistId,
       disclosureLogId: disclosureLog.logId,
       connectorId: request.connectorId,
-      sourceCategory: sourceCategory as never,
+      sourceCategory,
       status: "queued",
       provider: {
         researchRunId: nextResearchRunId,
         researchTaskId: request.researchTaskId,
         adapterKind,
         adapterVersion: adapter.adapterVersion,
-        sourceCategory: sourceCategory as never,
+        sourceCategory,
         idempotencyKey: researchRunStartIdempotencyKey(request, allowlist, publicSafePayload),
         attempt: 1
       },
@@ -2193,7 +2369,7 @@ export function createProductEngineCommandService(
         (allowlist) =>
           allowlist.status === "active" &&
           allowlist.connectorIds.includes(request.connectorId) &&
-          allowlist.sourceCategories.includes(request.sourceCategory as never)
+          allowlistIncludesSourceCategory(allowlist, request.sourceCategory)
       ) ??
       allowlists.find((allowlist) => allowlist.status === "active") ??
       allowlists[0] ??

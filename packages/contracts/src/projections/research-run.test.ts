@@ -164,6 +164,46 @@ describe("ResearchRun projection contract", () => {
     ).toThrow("completedAt must not be earlier");
   });
 
+  it("keeps gate-unknown provider results in needs_review with an explicit review reason", () => {
+    expect(
+      validateResearchRunProjection(
+        runFixture({
+          version: 3 as ProjectionVersion,
+          status: "needs_review",
+          provider: {
+            ...runFixture().provider,
+            providerRunId: "provider_run_needs_review",
+            startedAt: "2026-05-05T00:01:00.000Z",
+            completedAt: "2026-05-05T00:03:00.000Z"
+          },
+          qualityGateStatus: "pending_review",
+          qualityGateReviewReason: "Source reliability requires manual review before evidence acceptance.",
+          updatedAt: "2026-05-05T00:03:00.000Z"
+        })
+      )
+    ).toMatchObject({
+      status: "needs_review",
+      qualityGateStatus: "pending_review",
+      qualityGateReviewReason: expect.stringContaining("manual review")
+    });
+
+    expect(() =>
+      validateResearchRunProjection(
+        runFixture({
+          status: "needs_review",
+          provider: {
+            ...runFixture().provider,
+            providerRunId: "provider_run_missing_reason",
+            startedAt: "2026-05-05T00:01:00.000Z",
+            completedAt: "2026-05-05T00:03:00.000Z"
+          },
+          qualityGateStatus: "pending_review",
+          updatedAt: "2026-05-05T00:03:00.000Z"
+        })
+      )
+    ).toThrow("qualityGateReviewReason");
+  });
+
   it("allows queued cancellation to complete without a provider start timestamp", () => {
     expect(
       validateResearchRunProjection(

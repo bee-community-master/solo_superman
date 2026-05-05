@@ -38,6 +38,7 @@ function stateWithKnownRisk() {
       tasks: [],
       results: [],
       evidenceMatrices: [],
+      evidencePacks: [],
       reviewCards: [],
       knownRisks: ["Counter-evidence for customer urgency is still missing."],
       nextValidationActions: ["Run skeptical search for customer urgency."],

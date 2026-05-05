@@ -36,7 +36,9 @@ import {
   type ResearchImpact,
   type ResearchEvidenceProjection,
   type ResearchResultId,
+  type ResearchRunId,
   type ResearchRouteOutcome,
+  type ResearchSourceReliability,
   type ResearchTaskId,
   type ResearchTaskProjection,
   type RuntimeActivityProjection,
@@ -55,6 +57,7 @@ import {
 import {
   addImportedResearchResultToProjection,
   addResearchResultToProjection,
+  buildDecisionEvidencePack,
   addResearchTaskToProjection,
   emptyResearchEvidenceProjection,
   importResearchResult,
@@ -729,6 +732,14 @@ function validResearchImpact(value: unknown): ResearchImpact {
   return value === "low" || value === "medium" || value === "high" ? value : "high";
 }
 
+function optionalResearchSourceReliability(value: unknown): ResearchSourceReliability | null | "invalid" {
+  if (value === undefined) {
+    return null;
+  }
+
+  return value === "high" || value === "medium" || value === "low" || value === "unknown" ? value : "invalid";
+}
+
 function optionalPositiveInteger(value: unknown): number | null | "invalid" {
   if (value === undefined) {
     return null;
@@ -775,7 +786,23 @@ function queueProjectionWithResearchReviewItem(
   return queueProjectionWithNextOrBlockedItem(projection, researchReviewQueueItem(researchTaskId, title, state), version);
 }
 
-function evidenceReviewQueueTitle(task: ResearchTaskProjection, matrix: EvidenceMatrixProjection) {
+function evidenceReviewQueueTitle(
+  task: ResearchTaskProjection,
+  matrix: EvidenceMatrixProjection,
+  gateStatus?: "accepted" | "needs_review" | "research_insufficient" | "stale"
+) {
+  if (gateStatus === "stale") {
+    return `Research stale: ${task.objective}`;
+  }
+
+  if (gateStatus === "needs_review") {
+    return `Quality gate review required: ${task.objective}`;
+  }
+
+  if (gateStatus === "research_insufficient" && matrix.balanceStatus === "balanced") {
+    return `Evidence still insufficient: ${task.objective}`;
+  }
+
   if (matrix.balanceStatus === "balanced") {
     return `Evidence ready: ${task.objective}`;
   }
@@ -783,8 +810,13 @@ function evidenceReviewQueueTitle(task: ResearchTaskProjection, matrix: Evidence
   return matrix.decisionBlocked ? `Decision blocked: ${task.objective}` : `Known risk: ${task.objective}`;
 }
 
-function evidenceReviewQueueState(matrix: EvidenceMatrixProjection): "next" | "blocked" {
-  return matrix.decisionBlocked ? "blocked" : "next";
+function evidenceReviewQueueState(
+  matrix: EvidenceMatrixProjection,
+  gateStatus?: "accepted" | "needs_review" | "research_insufficient" | "stale"
+): "next" | "blocked" {
+  return matrix.decisionBlocked || gateStatus === "needs_review" || gateStatus === "research_insufficient" || gateStatus === "stale"
+    ? "blocked"
+    : "next";
 }
 
 function acceptedReduction(
@@ -1479,6 +1511,12 @@ function reduceImportResearchResult(
     return reject("ImportResearchResult requires synthesisVersion to be a positive integer.", "VALIDATION_FAILED");
   }
 
+  const sourceReliability = optionalResearchSourceReliability(command.payload.sourceReliability);
+
+  if (sourceReliability === "invalid") {
+    return reject("ImportResearchResult requires sourceReliability to be high, medium, low, or unknown.", "VALIDATION_FAILED");
+  }
+
   const synthesisVersion = requestedSynthesisVersion ?? 1;
   const researchResultId = `research_result_${stableToken(`${researchTaskId}:${result}`)}` as ResearchResultId;
   const researchResult = importResearchResult({
@@ -1486,9 +1524,28 @@ function reduceImportResearchResult(
     researchTaskId,
     result,
     importedAt: command.issuedAt,
+    ...(typeof command.payload.researchRunId === "string"
+      ? { researchRunId: command.payload.researchRunId as ResearchRunId }
+      : {}),
     ...(typeof command.payload.sourceTitle === "string" ? { sourceTitle: command.payload.sourceTitle } : {}),
     ...(typeof command.payload.sourceUrl === "string" ? { sourceUrl: command.payload.sourceUrl } : {}),
-    ...(typeof command.payload.limitationNotes === "string" ? { limitationNotes: command.payload.limitationNotes } : {})
+    ...(sourceReliability ? { sourceReliability } : {}),
+    ...(typeof command.payload.sourcePublishedAt === "string"
+      ? { sourcePublishedAt: command.payload.sourcePublishedAt }
+      : {}),
+    ...(typeof command.payload.sourceRetrievedAt === "string"
+      ? { sourceRetrievedAt: command.payload.sourceRetrievedAt }
+      : {}),
+    ...(typeof command.payload.limitationNotes === "string" ? { limitationNotes: command.payload.limitationNotes } : {}),
+    ...(typeof command.payload.claim === "string" ? { claim: command.payload.claim } : {}),
+    ...(typeof command.payload.decisionContext === "string" ? { decisionContext: command.payload.decisionContext } : {}),
+    ...(typeof command.payload.specSectionRef === "string" ? { specSectionRef: command.payload.specSectionRef } : {}),
+    ...(typeof command.payload.questionRef === "string" ? { questionRef: command.payload.questionRef } : {}),
+    ...(typeof command.payload.implicationScope === "string" ? { implicationScope: command.payload.implicationScope } : {}),
+    ...(typeof command.payload.staleSensitive === "boolean" ? { staleSensitive: command.payload.staleSensitive } : {}),
+    ...(typeof command.payload.sourceRequiredAfter === "string"
+      ? { sourceRequiredAfter: command.payload.sourceRequiredAfter }
+      : {})
   });
   const researchProjection = addImportedResearchResultToProjection(
     state.researchState,
@@ -1613,18 +1670,25 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
     researchResult,
     synthesisVersion
   });
+  const evidencePack = buildDecisionEvidencePack({
+    researchTask,
+    researchResult,
+    synthesisVersion,
+    matrix: evidenceMatrix
+  });
   const researchProjection = addResearchResultToProjection(
     state.researchState,
     researchTask,
     researchResult,
     evidenceMatrix,
+    evidencePack,
     projectionVersionFor(state)
   );
   const queueProjection = queueProjectionWithResearchReviewItem(
     state.queueProjection,
     researchTask.researchTaskId,
-    evidenceReviewQueueTitle(researchTask, evidenceMatrix),
-    evidenceReviewQueueState(evidenceMatrix),
+    evidenceReviewQueueTitle(researchTask, evidenceMatrix, evidencePack.gateStatus),
+    evidenceReviewQueueState(evidenceMatrix, evidencePack.gateStatus),
     researchProjection.version
   );
   const confidenceProjection = buildConfidenceCompletionProjection(
@@ -1639,6 +1703,7 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
     researchTaskId: researchTask.researchTaskId,
     researchResultId,
     evidenceMatrix,
+    evidencePack,
     projection: researchProjection,
     queueProjection,
     confidenceProjection
@@ -1659,7 +1724,9 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
         outputRef: evidenceMatrix.evidenceMatrixId,
         payload: {
           balanceStatus: evidenceMatrix.balanceStatus,
-          decisionBlocked: evidenceMatrix.decisionBlocked
+          decisionBlocked: evidenceMatrix.decisionBlocked,
+          evidencePackId: evidencePack.evidencePackId,
+          qualityGateStatus: evidencePack.gateStatus
         }
       },
       ...completenessDeterministicOutputs(command, confidenceProjection)

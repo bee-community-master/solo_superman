@@ -8,12 +8,14 @@ import {
   CONTRACT_SCHEMA_VERSION,
   type CommandId,
   type CorrelationId,
+  type DecisionEvidencePackId,
   type EvidenceItemId,
   type EffectTaskId,
   type EventId,
   type ProjectionVersion,
   type ProjectId,
   type ResearchResultId,
+  type ResearchRunId,
   type ResearchTaskId,
   type RuntimeArtifactId,
   type SessionId
@@ -62,7 +64,7 @@ describe("PR-03 local libSQL storage foundation", () => {
       expect(existsSync(join(appDataDir, "solo-superman.db"))).toBe(true);
       expect(migrationStatus).toMatchObject({
         state: "migrated",
-        appliedMigrationCount: 7
+        appliedMigrationCount: 8
       });
       expect(migrationStatus.latestMigrationMillis).toEqual(expect.any(Number));
     } finally {
@@ -89,6 +91,7 @@ describe("PR-03 local libSQL storage foundation", () => {
           "research_tasks",
           "research_results",
           "evidence_matrices",
+          "decision_evidence_packs",
           "research_allowlists",
           "research_disclosure_logs",
           "research_runs",
@@ -102,6 +105,10 @@ describe("PR-03 local libSQL storage foundation", () => {
           "projections_session_kind_idx",
           "research_tasks_session_status_idx",
           "evidence_matrices_result_version_idx",
+          "decision_evidence_packs_result_idx",
+          "decision_evidence_packs_task_idx",
+          "decision_evidence_packs_session_idx",
+          "decision_evidence_packs_run_idx",
           "research_allowlists_project_status_idx",
           "research_allowlists_updated_at_idx",
           "research_disclosure_logs_project_created_idx",
@@ -675,7 +682,7 @@ describe("PR-03 local libSQL storage foundation", () => {
     }
   });
 
-  it("persists ResearchTask, ResearchResult, and EvidenceMatrix rows for the PR-06 loop", async () => {
+  it("persists ResearchTask, ResearchResult, EvidenceMatrix, and EvidencePack rows for the PR-06 loop", async () => {
     const { storage } = await createMigratedStorage();
 
     try {
@@ -684,6 +691,8 @@ describe("PR-03 local libSQL storage foundation", () => {
       const sessionId = "sess_research_storage" as SessionId;
       const researchTaskId = "research_task_storage" as ResearchTaskId;
       const researchResultId = "research_result_storage" as ResearchResultId;
+      const researchRunId = "research_run_storage" as ResearchRunId;
+      const evidencePackId = "evidence_pack_storage" as DecisionEvidencePackId;
 
       await repository.saveTask({
         projectId,
@@ -705,8 +714,21 @@ describe("PR-03 local libSQL storage foundation", () => {
         result: {
           researchResultId,
           researchTaskId,
+          researchRunId,
+          sourceTitle: "Storage evidence source",
+          sourceUrl: "https://example.com/evidence",
+          sourceReliability: "medium",
+          sourcePublishedAt: "2026-05-04T00:00:00.000Z",
+          sourceRetrievedAt: "2026-05-05T00:01:00.000Z",
           resultSummary: "Pro: source supports the claim.",
           limitationNotes: "No con evidence imported yet.",
+          claim: "Validate high-impact claim",
+          decisionContext: "missing_con_evidence",
+          specSectionRef: "spec:validation",
+          questionRef: "queue_storage",
+          implicationScope: "Preserve as a review item; do not update SpecVersion.",
+          staleSensitive: true,
+          sourceRequiredAfter: "2026-05-01T00:00:00.000Z",
           importedAt: "2026-05-05T00:01:00.000Z"
         }
       });
@@ -735,6 +757,40 @@ describe("PR-03 local libSQL storage foundation", () => {
           knownRisk: "High-impact claim lacks con evidence."
         }
       });
+      await repository.saveDecisionEvidencePack({
+        projectId,
+        sessionId,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        pack: {
+          evidencePackId,
+          researchTaskId,
+          researchResultId,
+          researchRunId,
+          claim: "Validate high-impact claim",
+          decisionContext: "missing_con_evidence",
+          sourceTitle: "Storage evidence source",
+          sourceUrl: "https://example.com/evidence",
+          sourceReliability: "medium",
+          sourcePublishedAt: "2026-05-04T00:00:00.000Z",
+          retrievedAt: "2026-05-05T00:01:00.000Z",
+          gateStatus: "research_insufficient",
+          gateChecks: [
+            {
+              code: "pro_con_balance",
+              status: "failed",
+              reason: "High-impact claim still lacks con evidence."
+            }
+          ],
+          proEvidenceItemIds: ["evidence_pro_storage" as EvidenceItemId],
+          conEvidenceItemIds: [],
+          uncertaintyItemIds: [],
+          limitationRefs: ["No con evidence imported yet."],
+          implicationScope: "Preserve as a review item; do not update SpecVersion.",
+          knownRisk: "High-impact claim lacks con evidence.",
+          nextValidationAction: "Find credible counter-evidence.",
+          createdAt: "2026-05-05T00:01:00.000Z"
+        }
+      });
 
       const task = await repository.getTask(researchTaskId);
       const projection = await repository.getProjection(sessionId);
@@ -745,12 +801,47 @@ describe("PR-03 local libSQL storage foundation", () => {
       });
       expect(projection).toMatchObject({
         kind: "ResearchEvidenceProjection",
-        version: 3 as ProjectionVersion,
+        version: 4 as ProjectionVersion,
         taskIds: [researchTaskId],
+        results: [
+          expect.objectContaining({
+            researchResultId,
+            researchRunId,
+            sourceReliability: "medium",
+            sourcePublishedAt: "2026-05-04T00:00:00.000Z",
+            sourceRetrievedAt: "2026-05-05T00:01:00.000Z",
+            claim: "Validate high-impact claim",
+            decisionContext: "missing_con_evidence",
+            specSectionRef: "spec:validation",
+            questionRef: "queue_storage",
+            implicationScope: "Preserve as a review item; do not update SpecVersion.",
+            staleSensitive: true,
+            sourceRequiredAfter: "2026-05-01T00:00:00.000Z"
+          })
+        ],
         evidenceMatrices: [
           expect.objectContaining({
             balanceStatus: "missing_con_evidence",
             decisionBlocked: true
+          })
+        ],
+        evidencePacks: [
+          expect.objectContaining({
+            evidencePackId,
+            gateStatus: "research_insufficient"
+          })
+        ],
+        reviewCards: [
+          expect.objectContaining({
+            researchTaskId,
+            state: "research_insufficient",
+            gateStatus: "research_insufficient",
+            retainedSourceRefs: expect.arrayContaining([
+              "https://example.com/evidence",
+              researchRunId,
+              "queue_storage",
+              "High-impact claim lacks con evidence."
+            ])
           })
         ],
         knownRisks: ["High-impact claim lacks con evidence."]

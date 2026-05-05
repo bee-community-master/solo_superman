@@ -50,6 +50,7 @@ function researchRunRowValues(run: ResearchRunProjection, schemaVersion: SchemaV
     idempotencyKey: run.provider.idempotencyKey,
     attempt: run.provider.attempt,
     qualityGateStatus: run.qualityGateStatus,
+    qualityGateReviewReason: run.qualityGateReviewReason ?? null,
     terminalReason: run.terminalReason ?? null,
     retryOfRunId: run.retryOfRunId ?? null,
     retryReason: run.retryReason ?? null,
@@ -90,6 +91,7 @@ function mapResearchRun(row: typeof researchRuns.$inferSelect): ResearchRunProje
       attempt: row.attempt
     },
     qualityGateStatus: row.qualityGateStatus as ResearchRunQualityGateStatus,
+    ...(row.qualityGateReviewReason ? { qualityGateReviewReason: row.qualityGateReviewReason } : {}),
     sourceRefs: parseJsonArray(row.sourceRefsJson, "sourceRefsJson").map(String),
     ...(row.terminalReason ? { terminalReason: row.terminalReason as ResearchRunTerminalReason } : {}),
     ...(row.retryOfRunId ? { retryOfRunId: row.retryOfRunId as ResearchRunId } : {}),
@@ -248,6 +250,7 @@ export function createResearchRunRepository(db: SoloDatabaseExecutor) {
           status: rowValues.status,
           providerRunId: rowValues.providerRunId,
           qualityGateStatus: rowValues.qualityGateStatus,
+          qualityGateReviewReason: rowValues.qualityGateReviewReason,
           terminalReason: rowValues.terminalReason,
           sourceRefsJson: rowValues.sourceRefsJson,
           startedAt: rowValues.startedAt,

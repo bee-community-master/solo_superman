@@ -80,6 +80,7 @@ export interface ResearchRunProjection {
   readonly status: ResearchRunStatus;
   readonly provider: ResearchRunProviderReference;
   readonly qualityGateStatus: ResearchRunQualityGateStatus;
+  readonly qualityGateReviewReason?: string;
   readonly sourceRefs: readonly string[];
   readonly terminalReason?: ResearchRunTerminalReason;
   readonly retryOfRunId?: ResearchRunId;
@@ -170,6 +171,7 @@ const RESEARCH_RUN_PROJECTION_KEYS = [
   "status",
   "provider",
   "qualityGateStatus",
+  "qualityGateReviewReason",
   "sourceRefs",
   "terminalReason",
   "retryOfRunId",
@@ -428,6 +430,12 @@ function assertQualityGateConsistency(run: ResearchRunProjection) {
     if (run.qualityGateStatus !== "not_evaluated" && run.qualityGateStatus !== "pending_review") {
       throw new ResearchRunValidationError("failed/cancelled runs cannot carry an accepted evidence quality gate.");
     }
+  }
+
+  if (run.status === "needs_review") {
+    assertNonEmptyString(run.qualityGateReviewReason, "qualityGateReviewReason");
+  } else if (hasOwnField(run, "qualityGateReviewReason")) {
+    throw new ResearchRunValidationError("qualityGateReviewReason is only allowed for needs_review research runs.");
   }
 }
 

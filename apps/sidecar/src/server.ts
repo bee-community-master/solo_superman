@@ -12,6 +12,7 @@ import {
   type ApiResponseMeta,
   type ApiSuccessEnvelope,
   type AutomaticResearchSourceCategory,
+  type BackgroundResearchAdapterKind,
   type CommandId,
   type CommandResponse,
   type CancelResearchRunRequest,
@@ -27,6 +28,7 @@ import {
   type ResearchSourceCategory,
   type ResearchRunId,
   type ResearchResultId,
+  type ResearchSourceReliability,
   type ResearchTaskId,
   type RuntimeArtifactId,
   type SessionId,
@@ -312,6 +314,21 @@ function optionalPositiveIntegerFromBody(value: unknown, fieldName: string) {
   return value;
 }
 
+function optionalResearchSourceReliabilityFromBody(
+  value: unknown,
+  fieldName: string
+): ResearchSourceReliability | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (value === "high" || value === "medium" || value === "low" || value === "unknown") {
+    return value;
+  }
+
+  throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be high, medium, low, or unknown.`);
+}
+
 function turnPurposeFromBody(value: unknown) {
   if (typeof value !== "string" || !CODEX_TURN_PURPOSES.includes(value as (typeof CODEX_TURN_PURPOSES)[number])) {
     throw new ProductEngineServiceError("VALIDATION_FAILED", "turnPurpose must be one of the canonical Codex values.");
@@ -543,6 +560,10 @@ function researchRunIdFromBody(value: unknown) {
   return optionalStringFromBody(value, "researchRunId") as ResearchRunId | undefined;
 }
 
+function isBackgroundResearchAdapterKind(value: string): value is BackgroundResearchAdapterKind {
+  return (BACKGROUND_RESEARCH_ADAPTER_KINDS as readonly string[]).includes(value);
+}
+
 function adapterKindFromBody(value: unknown) {
   if (value === undefined || value === null) {
     return undefined;
@@ -550,11 +571,11 @@ function adapterKindFromBody(value: unknown) {
 
   const adapterKind = stringFromBody(value, "adapterKind");
 
-  if (!BACKGROUND_RESEARCH_ADAPTER_KINDS.includes(adapterKind as never)) {
+  if (!isBackgroundResearchAdapterKind(adapterKind)) {
     throw new ProductEngineServiceError("VALIDATION_FAILED", "adapterKind must be a provider-neutral adapter kind.");
   }
 
-  return adapterKind as StartResearchRunRequest["adapterKind"];
+  return adapterKind;
 }
 
 function startResearchRunRequestFromBody(body: Readonly<Record<string, unknown>>): StartResearchRunRequest {
@@ -673,7 +694,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       status: "ok",
       service: "solo-superman-sidecar",
       schemaVersion: CONTRACT_SCHEMA_VERSION,
-      sidecarPhase: "phase_1_5a_pr_05_research_run_controls",
+      sidecarPhase: "phase_1_5a_pr_06_evidence_quality_gate",
       checks: {
         process: "alive"
       },
@@ -988,9 +1009,19 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       const body = await jsonBody(context);
       const researchTaskId = context.req.param("researchTaskId") as ResearchTaskId;
       const bodyResearchTaskId = stringFromBody(body.researchTaskId, "researchTaskId") as ResearchTaskId;
+      const researchRunId = optionalStringFromBody(body.researchRunId, "researchRunId") as ResearchRunId | undefined;
       const sourceTitle = optionalStringFromBody(body.sourceTitle, "sourceTitle");
       const sourceUrl = optionalStringFromBody(body.sourceUrl, "sourceUrl");
+      const sourceReliability = optionalResearchSourceReliabilityFromBody(body.sourceReliability, "sourceReliability");
+      const sourcePublishedAt = optionalStringFromBody(body.sourcePublishedAt, "sourcePublishedAt");
+      const sourceRetrievedAt = optionalStringFromBody(body.sourceRetrievedAt, "sourceRetrievedAt");
       const limitationNotes = optionalStringFromBody(body.limitationNotes, "limitationNotes");
+      const claim = optionalStringFromBody(body.claim, "claim");
+      const decisionContext = optionalStringFromBody(body.decisionContext, "decisionContext");
+      const specSectionRef = optionalStringFromBody(body.specSectionRef, "specSectionRef");
+      const questionRef = optionalStringFromBody(body.questionRef, "questionRef");
+      const implicationScope = optionalStringFromBody(body.implicationScope, "implicationScope");
+      const sourceRequiredAfter = optionalStringFromBody(body.sourceRequiredAfter, "sourceRequiredAfter");
       const synthesisVersion = optionalPositiveIntegerFromBody(body.synthesisVersion, "synthesisVersion");
 
       if (bodyResearchTaskId !== researchTaskId) {
@@ -1004,9 +1035,20 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         payload: {
           researchTaskId,
           result: stringFromBody(body.result, "result"),
+          ...(researchRunId ? { researchRunId } : {}),
           ...(sourceTitle ? { sourceTitle } : {}),
           ...(sourceUrl ? { sourceUrl } : {}),
+          ...(sourceReliability ? { sourceReliability } : {}),
+          ...(sourcePublishedAt ? { sourcePublishedAt } : {}),
+          ...(sourceRetrievedAt ? { sourceRetrievedAt } : {}),
           ...(limitationNotes ? { limitationNotes } : {}),
+          ...(claim ? { claim } : {}),
+          ...(decisionContext ? { decisionContext } : {}),
+          ...(specSectionRef ? { specSectionRef } : {}),
+          ...(questionRef ? { questionRef } : {}),
+          ...(implicationScope ? { implicationScope } : {}),
+          ...(typeof body.staleSensitive === "boolean" ? { staleSensitive: body.staleSensitive } : {}),
+          ...(sourceRequiredAfter ? { sourceRequiredAfter } : {}),
           ...(synthesisVersion ? { synthesisVersion } : {})
         }
       });

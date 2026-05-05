@@ -3,12 +3,13 @@ import type {
   ProjectId,
   QueueItemId,
   ResearchResultId,
+  ResearchRunId,
   ResearchTaskId,
   RuntimeArtifactId,
   SessionId,
   StateVersion
 } from "../ids";
-import type { ResearchImpact, ResearchRouteOutcome } from "../projections";
+import type { ResearchImpact, ResearchRouteOutcome, ResearchSourceReliability } from "../projections";
 import type { BlockedActionType, CodexTurnPurpose } from "../codex";
 import type { RequiredDecisionRef } from "../product-engine";
 
@@ -84,9 +85,20 @@ export interface ImportResearchResultRequest extends ScaffoldRequestPlaceholder 
   readonly researchTaskId: ResearchTaskId;
   readonly expectedStateVersion: StateVersion;
   readonly result: string;
+  readonly researchRunId?: ResearchRunId;
   readonly sourceTitle?: string;
   readonly sourceUrl?: string;
+  readonly sourceReliability?: ResearchSourceReliability;
+  readonly sourcePublishedAt?: string;
+  readonly sourceRetrievedAt?: string;
   readonly limitationNotes?: string;
+  readonly claim?: string;
+  readonly decisionContext?: string;
+  readonly specSectionRef?: string;
+  readonly questionRef?: string;
+  readonly implicationScope?: string;
+  readonly staleSensitive?: boolean;
+  readonly sourceRequiredAfter?: string;
   readonly synthesisVersion?: number;
 }
 

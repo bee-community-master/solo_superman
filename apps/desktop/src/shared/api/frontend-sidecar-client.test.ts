@@ -187,6 +187,7 @@ describe("sidecar client", () => {
               tasks: [],
               results: [],
               evidenceMatrices: [],
+              evidencePacks: [],
               reviewCards: [],
               knownRisks: [],
               nextValidationActions: [],
