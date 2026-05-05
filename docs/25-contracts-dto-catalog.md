@@ -173,7 +173,7 @@ Example JSON:
 
 ### CommandType enum
 
-Phase 1 command type values are closed, and Phase 1.5A allowlist/disclosure governance adds a small project-level application-command family. `26-api-route-behavior-catalog.md` must normalize route actions to these values and must not introduce extra `CommandType` names. Project-level application commands remain in the route/catalog taxonomy, but they are not `ProductEngineCommand` reducer envelopes and must not fake a session id.
+Phase 1 command type values are closed, and Phase 1.5A allowlist/disclosure/run-control governance adds a small project-level application-command family. `26-api-route-behavior-catalog.md` must normalize route actions to these values and must not introduce extra `CommandType` names. Project-level application commands remain in the route/catalog taxonomy, but they are not `ProductEngineCommand` reducer envelopes and must not fake a session id.
 
 | CommandType | Purpose |
 | --- | --- |
@@ -200,6 +200,9 @@ Phase 1 command type values are closed, and Phase 1.5A allowlist/disclosure gove
 | `PauseResearchAllowlist` | pause future automatic research run starts for an allowlist; no ProductEngine reducer side effects |
 | `RevokeResearchAllowlist` | terminally revoke future automatic research run starts for an allowlist; no ProductEngine reducer side effects |
 | `PrepareResearchDisclosure` | prepare and audit public-safe research disclosure payload or blocked manual handoff; no provider execution and no ProductEngine reducer side effects |
+| `StartResearchRun` | create and observe a project-level read-only ResearchRun after allowlist/disclosure/precondition checks; no ProductEngine reducer side effects |
+| `CancelResearchRun` | request cancellation for a queued/running/paused ResearchRun and expose recoverable status/refetch hints; no ProductEngine reducer side effects |
+| `RetryResearchRun` | create a new manual retry ResearchRun from failed/stale/insufficient prior runs with incremented attempt/idempotency; no ProductEngine reducer side effects |
 
 ### ProductEngineCommand envelope
 
@@ -761,7 +764,7 @@ Rules:
 
 Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`를 canonical source로 사용한다.
 
-- `ResearchAllowlistProjection` is implemented first for Phase 1.5A PR-01; `ResearchDisclosureLogProjection` is implemented in Phase 1.5A PR-03 before provider execution; `ResearchRunProjection` is implemented in Phase 1.5A PR-04 for lifecycle/provider-reference storage; add structured Phase15bUpgradeHints in its later implementation PR.
+- `ResearchAllowlistProjection` is implemented first for Phase 1.5A PR-01; `ResearchDisclosureLogProjection` is implemented in Phase 1.5A PR-03 before provider execution; `ResearchRunProjection` is implemented in Phase 1.5A PR-04 for lifecycle/provider-reference storage; Phase 1.5A PR-05 adds `StartResearchRunRequest`, `CancelResearchRunRequest`, `RetryResearchRunRequest`, `ResearchRunControlProjection`, `ResearchRunControlResult`, and `ResearchRunStatusDto` for run control/status/refetch recovery; add structured Phase15bUpgradeHints in its later implementation PR.
 - Phase15bUpgradeHints must expose approval requirements, sandbox/workspace requirements, rollback/reference plan, expected evidence, risk normalization, and sourceRefs.
 - DTOs must preserve no-execution semantics; no field should imply active delegation or executed side effects in Phase 1.5B.
 - `packages/contracts` still must not import runtime clients, Hono, Drizzle, React, or Tauri modules.

@@ -127,4 +127,36 @@ describe("PR-09 desktop route client catalog", () => {
       implementation: "mounted_phase_1_5a_pr_03"
     });
   });
+
+  it("marks Phase 1.5A research run control routes as mounted in the sidecar", () => {
+    expect(findDesktopRouteClientPlaceholder("listResearchRuns")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/projects/:projectId/research-runs",
+      implementation: "mounted_phase_1_5a_pr_05"
+    });
+
+    expect(findDesktopRouteClientPlaceholder("startResearchRun")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/projects/:projectId/research-runs",
+      implementation: "mounted_phase_1_5a_pr_05"
+    });
+
+    expect(findDesktopRouteClientPlaceholder("getResearchRunStatus")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/projects/:projectId/research-runs/:researchRunId/status",
+      implementation: "mounted_phase_1_5a_pr_05"
+    });
+
+    expect(findDesktopRouteClientPlaceholder("cancelResearchRun")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/projects/:projectId/research-runs/:researchRunId/cancel",
+      implementation: "mounted_phase_1_5a_pr_05"
+    });
+
+    expect(findDesktopRouteClientPlaceholder("retryResearchRun")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/projects/:projectId/research-runs/:researchRunId/retry",
+      implementation: "mounted_phase_1_5a_pr_05"
+    });
+  });
 });

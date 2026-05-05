@@ -6,6 +6,7 @@ import {
   AUTOMATIC_RESEARCH_SOURCE_CATEGORIES,
   BLOCKED_ACTION_TYPES,
   CODEX_TURN_PURPOSES,
+  BACKGROUND_RESEARCH_ADAPTER_KINDS,
   type ApiErrorCode,
   type ApiErrorEnvelope,
   type ApiResponseMeta,
@@ -13,6 +14,7 @@ import {
   type AutomaticResearchSourceCategory,
   type CommandId,
   type CommandResponse,
+  type CancelResearchRunRequest,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
   MANUAL_RESEARCH_SOURCE_CATEGORIES,
   type CreateResearchAllowlistRequest,
@@ -23,12 +25,15 @@ import {
   type ResearchAllowlistPolicyInput,
   type ResearchConnectorId,
   type ResearchSourceCategory,
+  type ResearchRunId,
   type ResearchResultId,
   type ResearchTaskId,
   type RuntimeArtifactId,
   type SessionId,
+  type StartResearchRunRequest,
   type StateVersion,
   type StatusEndpointDto,
+  type RetryResearchRunRequest,
   type UpdateResearchAllowlistRequest
 } from "@solo-superman/contracts";
 import type { MigrationStatus, SoloStorage } from "@solo-superman/db";
@@ -534,6 +539,74 @@ function prepareResearchDisclosureRequestFromBody(
   } as PrepareResearchDisclosureRequest;
 }
 
+function researchRunIdFromBody(value: unknown) {
+  return optionalStringFromBody(value, "researchRunId") as ResearchRunId | undefined;
+}
+
+function adapterKindFromBody(value: unknown) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const adapterKind = stringFromBody(value, "adapterKind");
+
+  if (!BACKGROUND_RESEARCH_ADAPTER_KINDS.includes(adapterKind as never)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "adapterKind must be a provider-neutral adapter kind.");
+  }
+
+  return adapterKind as StartResearchRunRequest["adapterKind"];
+}
+
+function startResearchRunRequestFromBody(body: Readonly<Record<string, unknown>>): StartResearchRunRequest {
+  const projectId = projectIdFromBody(body.projectId);
+  const researchRunId = researchRunIdFromBody(body.researchRunId);
+  const allowlistId = allowlistIdFromBody(body.allowlistId);
+  const adapterKind = adapterKindFromBody(body.adapterKind);
+  const disclosureRequest = prepareResearchDisclosureRequestFromBody(body);
+  const contextHash = optionalStringFromBody(body.contextHash, "contextHash");
+  const taskFreshnessDeadline = optionalStringFromBody(body.taskFreshnessDeadline, "taskFreshnessDeadline");
+  const sourcePublishedAt = optionalStringFromBody(body.sourcePublishedAt, "sourcePublishedAt");
+  const sourceRequiredAfter = optionalStringFromBody(body.sourceRequiredAfter, "sourceRequiredAfter");
+
+  return {
+    ...disclosureRequest,
+    ...(projectId ? { projectId } : {}),
+    ...(researchRunId ? { researchRunId } : {}),
+    researchTaskId: stringFromBody(body.researchTaskId, "researchTaskId") as ResearchTaskId,
+    ...(allowlistId ? { allowlistId } : {}),
+    ...(adapterKind ? { adapterKind } : {}),
+    ...(contextHash ? { contextHash } : {}),
+    ...(taskFreshnessDeadline ? { taskFreshnessDeadline } : {}),
+    ...(sourcePublishedAt ? { sourcePublishedAt } : {}),
+    ...(sourceRequiredAfter ? { sourceRequiredAfter } : {})
+  };
+}
+
+function cancelResearchRunRequestFromBody(body: Readonly<Record<string, unknown>>): CancelResearchRunRequest {
+  const projectId = projectIdFromBody(body.projectId);
+  const researchRunId = researchRunIdFromBody(body.researchRunId);
+  const reason = optionalStringFromBody(body.reason, "reason");
+
+  return {
+    ...(projectId ? { projectId } : {}),
+    ...(researchRunId ? { researchRunId } : {}),
+    ...(reason ? { reason } : {})
+  };
+}
+
+function retryResearchRunRequestFromBody(body: Readonly<Record<string, unknown>>): RetryResearchRunRequest {
+  const projectId = projectIdFromBody(body.projectId);
+  const researchRunId = researchRunIdFromBody(body.researchRunId);
+  const contextHash = optionalStringFromBody(body.contextHash, "contextHash");
+
+  return {
+    ...(projectId ? { projectId } : {}),
+    ...(researchRunId ? { researchRunId } : {}),
+    retryReason: stringFromBody(body.retryReason, "retryReason"),
+    ...(contextHash ? { contextHash } : {})
+  };
+}
+
 export function createSidecarApp(options: CreateSidecarAppOptions) {
   const { localCapabilityToken, migrationStatus = defaultMigrationStatus(), storage = null } = options;
   const codexRuntimeAdapter = options.codexRuntimeAdapter ?? createCodexRuntimeAdapter();
@@ -600,7 +673,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       status: "ok",
       service: "solo-superman-sidecar",
       schemaVersion: CONTRACT_SCHEMA_VERSION,
-      sidecarPhase: "phase_1_5a_pr_03_public_safe_disclosure",
+      sidecarPhase: "phase_1_5a_pr_05_research_run_controls",
       checks: {
         process: "alive"
       },
@@ -726,6 +799,56 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       return service.prepareResearchDisclosure({
         projectId: context.req.param("projectId") as ProjectId,
         request: prepareResearchDisclosureRequestFromBody(body)
+      });
+    })
+  );
+
+  app.get("/api/v1/projects/:projectId/research-runs", async (context) =>
+    withProductEngine(context, (service) =>
+      service.listResearchRuns(context.req.param("projectId") as ProjectId)
+    )
+  );
+
+  app.post("/api/v1/projects/:projectId/research-runs", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+
+      return service.startResearchRun({
+        projectId: context.req.param("projectId") as ProjectId,
+        request: startResearchRunRequestFromBody(body)
+      });
+    })
+  );
+
+  app.get("/api/v1/projects/:projectId/research-runs/:researchRunId/status", async (context) =>
+    withProductEngine(context, (service) =>
+      service.getResearchRunStatus({
+        projectId: context.req.param("projectId") as ProjectId,
+        researchRunId: context.req.param("researchRunId") as ResearchRunId
+      })
+    )
+  );
+
+  app.post("/api/v1/projects/:projectId/research-runs/:researchRunId/cancel", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+
+      return service.cancelResearchRun({
+        projectId: context.req.param("projectId") as ProjectId,
+        researchRunId: context.req.param("researchRunId") as ResearchRunId,
+        request: cancelResearchRunRequestFromBody(body)
+      });
+    })
+  );
+
+  app.post("/api/v1/projects/:projectId/research-runs/:researchRunId/retry", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+
+      return service.retryResearchRun({
+        projectId: context.req.param("projectId") as ProjectId,
+        researchRunId: context.req.param("researchRunId") as ResearchRunId,
+        request: retryResearchRunRequestFromBody(body)
       });
     })
   );

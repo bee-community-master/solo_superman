@@ -11,6 +11,8 @@ import {
   PHASE15A_PR02_ALLOWLIST_ROUTE_IDS,
   PHASE15A_PR03_DISCLOSURE_ROUTE_IDS,
   PHASE15A_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  PHASE15A_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  PHASE15A_PR05_RESEARCH_RUN_ROUTE_IDS,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
@@ -183,7 +185,9 @@ describe("API route catalog", () => {
     expect(PHASE15A_PR03_DISCLOSURE_ROUTE_IDS).toEqual(
       expect.arrayContaining(["prepareResearchDisclosure", "listResearchDisclosures"])
     );
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE15A_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(
+      expect.arrayContaining([...PHASE15A_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS])
+    );
 
     expect(routeById.get("prepareResearchDisclosure")).toMatchObject({
       method: "POST",
@@ -195,6 +199,52 @@ describe("API route catalog", () => {
       method: "GET",
       path: "/api/v1/projects/:projectId/research-disclosures",
       commandType: "none",
+      implementedInPr01: false
+    });
+  });
+
+  it("keeps Phase 1.5A PR-05 research run control route ids aligned with the catalog", () => {
+    const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
+
+    expect(PHASE15A_PR05_RESEARCH_RUN_ROUTE_IDS).toEqual(
+      expect.arrayContaining([
+        "listResearchRuns",
+        "startResearchRun",
+        "getResearchRunStatus",
+        "cancelResearchRun",
+        "retryResearchRun"
+      ])
+    );
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE15A_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS);
+
+    expect(routeById.get("listResearchRuns")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/projects/:projectId/research-runs",
+      commandType: "none",
+      implementedInPr01: false
+    });
+    expect(routeById.get("startResearchRun")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/projects/:projectId/research-runs",
+      commandType: "StartResearchRun",
+      implementedInPr01: false
+    });
+    expect(routeById.get("getResearchRunStatus")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/projects/:projectId/research-runs/:researchRunId/status",
+      commandType: "none",
+      implementedInPr01: false
+    });
+    expect(routeById.get("cancelResearchRun")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/projects/:projectId/research-runs/:researchRunId/cancel",
+      commandType: "CancelResearchRun",
+      implementedInPr01: false
+    });
+    expect(routeById.get("retryResearchRun")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/projects/:projectId/research-runs/:researchRunId/retry",
+      commandType: "RetryResearchRun",
       implementedInPr01: false
     });
   });

@@ -32,7 +32,10 @@ const DOCS_25_PROJECT_APPLICATION_COMMAND_TYPES = [
   "UpdateResearchAllowlist",
   "PauseResearchAllowlist",
   "RevokeResearchAllowlist",
-  "PrepareResearchDisclosure"
+  "PrepareResearchDisclosure",
+  "StartResearchRun",
+  "CancelResearchRun",
+  "RetryResearchRun"
 ] as const;
 
 const DOCS_25_COMMAND_TYPES = [

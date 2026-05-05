@@ -10,7 +10,10 @@ const PROJECT_LEVEL_RESEARCH_APPLICATION_COMMAND_TYPES = [
   "UpdateResearchAllowlist",
   "PauseResearchAllowlist",
   "RevokeResearchAllowlist",
-  "PrepareResearchDisclosure"
+  "PrepareResearchDisclosure",
+  "StartResearchRun",
+  "CancelResearchRun",
+  "RetryResearchRun"
 ] as const satisfies readonly CommandType[];
 
 describe("Research allowlist governance command boundary", () => {

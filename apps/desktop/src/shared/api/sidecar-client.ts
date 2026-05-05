@@ -19,20 +19,27 @@ import type {
   PrepareResearchDisclosureRequest,
   PrepareFounderBriefRequest,
   ProjectId,
+  CancelResearchRunRequest,
   ResearchAllowlistGovernanceProjection,
   ResearchAllowlistId,
   ResearchDisclosureLogProjection,
   ResearchDisclosurePreparationResult,
   ResearchEvidenceProjection,
+  ResearchRunControlProjection,
+  ResearchRunControlResult,
+  ResearchRunId,
+  ResearchRunStatusDto,
   RuntimeActivityProjection,
   ScoreCompletenessRequest,
   SessionId,
   SessionShellProjection,
+  StartResearchRunRequest,
   StartProjectRequest,
   SubmitAnswerRequest,
   SynthesizeEvidenceRequest,
   StateVersion,
   StatusEndpointDto,
+  RetryResearchRunRequest,
   UpdateResearchAllowlistRequest
 } from "@solo-superman/contracts";
 
@@ -57,6 +64,9 @@ export type ScoreCompletenessInput = ScoreCompletenessRequest;
 export type CompletionCandidateInput = CompletionCandidateRequest;
 export type PrepareFounderBriefInput = PrepareFounderBriefRequest;
 export type PrepareResearchDisclosureInput = PrepareResearchDisclosureRequest;
+export type StartResearchRunInput = StartResearchRunRequest;
+export type CancelResearchRunInput = CancelResearchRunRequest;
+export type RetryResearchRunInput = RetryResearchRunRequest;
 
 export class SidecarClientError extends Error {
   readonly apiError: ApiError;
@@ -128,6 +138,18 @@ function researchAllowlistMemberPath(projectId: ProjectId, allowlistId: Research
 
 function researchDisclosureCollectionPath(projectId: ProjectId) {
   return `/api/v1/projects/${encodeURIComponent(projectId)}/research-disclosures`;
+}
+
+function researchRunCollectionPath(projectId: ProjectId) {
+  return `/api/v1/projects/${encodeURIComponent(projectId)}/research-runs`;
+}
+
+function researchRunStatusPath(projectId: ProjectId, researchRunId: ResearchRunId) {
+  return `${researchRunCollectionPath(projectId)}/${encodeURIComponent(researchRunId)}/status`;
+}
+
+function researchRunControlPath(projectId: ProjectId, researchRunId: ResearchRunId, action: "cancel" | "retry") {
+  return `${researchRunCollectionPath(projectId)}/${encodeURIComponent(researchRunId)}/${action}`;
 }
 
 function envValue(env: Readonly<Record<string, string | boolean | undefined>>, key: string) {
@@ -358,6 +380,26 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
       return postCommand<ResearchDisclosurePreparationResult>(researchDisclosureCollectionPath(projectId), input);
     },
 
+    startResearchRun(projectId: ProjectId, input: StartResearchRunInput) {
+      return postCommand<ResearchRunControlResult>(researchRunCollectionPath(projectId), input);
+    },
+
+    cancelResearchRun(projectId: ProjectId, researchRunId: ResearchRunId, input: CancelResearchRunInput = {}) {
+      return postCommand<ResearchRunControlResult>(researchRunControlPath(projectId, researchRunId, "cancel"), {
+        projectId,
+        researchRunId,
+        ...input
+      });
+    },
+
+    retryResearchRun(projectId: ProjectId, researchRunId: ResearchRunId, input: RetryResearchRunInput) {
+      return postCommand<ResearchRunControlResult>(researchRunControlPath(projectId, researchRunId, "retry"), {
+        projectId,
+        researchRunId,
+        ...input
+      });
+    },
+
     getRuntimeStatus() {
       return getProjection<CodexRuntimeStatusDto>("/api/v1/runtime/status");
     },
@@ -368,6 +410,14 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     listResearchDisclosures(projectId: ProjectId) {
       return getProjection<ResearchDisclosureLogProjection>(researchDisclosureCollectionPath(projectId));
+    },
+
+    listResearchRuns(projectId: ProjectId) {
+      return getProjection<ResearchRunControlProjection>(researchRunCollectionPath(projectId));
+    },
+
+    getResearchRunStatus(projectId: ProjectId, researchRunId: ResearchRunId) {
+      return getProjection<ResearchRunStatusDto>(researchRunStatusPath(projectId, researchRunId));
     },
 
     getSession(projectId: string, sessionId: SessionId) {

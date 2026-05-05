@@ -4,6 +4,7 @@ import type {
   QueueItemId,
   ResearchAllowlistId,
   ResearchConnectorId,
+  ResearchRunId,
   ResearchTaskId,
   RuntimeArtifactId,
   SessionId,
@@ -411,6 +412,136 @@ describe("sidecar client", () => {
       expect.objectContaining({
         method: "GET"
       })
+    ]);
+  });
+
+  it("calls Phase 1.5A research run control routes with status/refetch recovery context", async () => {
+    const seenRequests: [string, RequestInit | undefined][] = [];
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async (input, init) => {
+        seenRequests.push([input, init]);
+
+        return jsonResponse({
+          ok: true,
+          data:
+            init?.method === "GET"
+              ? {
+                  kind: "ResearchRunControlProjection",
+                  projectionKind: "ResearchRunProjection",
+                  projectId: "proj_run",
+                  version: 1,
+                  generatedAt: "2026-05-06T00:00:00.000Z",
+                  stale: false,
+                  refetchUrl: "/api/v1/projects/proj_run/research-runs",
+                  statusUrl: "/api/v1/projects/proj_run/research-runs/research_run_client/status",
+                  pendingEffectSummary: {
+                    totalPending: 0,
+                    byType: {},
+                    visibleLabel: "No async ProductEngine effects are pending."
+                  },
+                  runs: [],
+                  selectedRun: {
+                    kind: "ResearchRunProjection",
+                    researchRunId: "research_run_client",
+                    status: "running"
+                  },
+                  recovery: {
+                    statusUrl: "/api/v1/projects/proj_run/research-runs/research_run_client/status",
+                    refetchUrl: "/api/v1/projects/proj_run/research-runs/research_run_client/status",
+                    sseEventNames: ["projection.updated"],
+                    projectionHints: [
+                      {
+                        projectionKind: "ResearchRunProjection",
+                        refetchUrl: "/api/v1/projects/proj_run/research-runs/research_run_client/status"
+                      }
+                    ]
+                  }
+                }
+              : {
+                  category: "accepted_with_projection",
+                  commandId: "cmd_run",
+                  correlationId: "corr_run",
+                  stateVersionBefore: 0,
+                  stateVersionAfter: 1,
+                  statusUrl: "/api/v1/projects/proj_run/research-runs/research_run_client/status",
+                  immediateProjection: {
+                    kind: "ResearchRunControlResult",
+                    action: "start",
+                    status: "started",
+                    projectId: "proj_run",
+                    researchRunId: "research_run_client",
+                    statusUrl: "/api/v1/projects/proj_run/research-runs/research_run_client/status"
+                  },
+                  projectionHints: [
+                    {
+                      projectionKind: "ResearchRunProjection",
+                      refetchUrl: "/api/v1/projects/proj_run/research-runs/research_run_client/status"
+                    }
+                  ]
+                },
+          meta: {
+            requestId: "req_run",
+            schemaVersion: "solo-superman.contracts.v1"
+          }
+        });
+      }
+    });
+    const projectId = "proj_run" as ProjectId;
+    const researchRunId = "research_run_client" as ResearchRunId;
+
+    await client.startResearchRun(projectId, {
+      researchRunId,
+      researchTaskId: "research_task_client" as ResearchTaskId,
+      allowlistId: "research_allowlist_client" as ResearchAllowlistId,
+      connectorId: "public_search" as ResearchConnectorId,
+      sourceCategory: "public_web",
+      researchObjective: "Find public onboarding evidence.",
+      rawIdea: "Private raw idea stays in the POST body.",
+      contextHash: "ctx_client_public_safe_summary"
+    });
+    await client.getResearchRunStatus(projectId, researchRunId);
+    await client.cancelResearchRun(projectId, researchRunId, {
+      reason: "User cancelled the read-only research run."
+    });
+    await client.retryResearchRun(projectId, researchRunId, {
+      retryReason: "Retry after provider timeout.",
+      contextHash: "ctx_client_public_safe_summary"
+    });
+    await client.listResearchRuns(projectId);
+
+    expect(seenRequests[0]?.[0]).toBe("http://127.0.0.1:43110/api/v1/projects/proj_run/research-runs");
+    expect(JSON.parse(String(seenRequests[0]?.[1]?.body))).toMatchObject({
+      researchRunId,
+      researchTaskId: "research_task_client",
+      connectorId: "public_search",
+      sourceCategory: "public_web",
+      researchObjective: "Find public onboarding evidence.",
+      rawIdea: "Private raw idea stays in the POST body."
+    });
+    expect(seenRequests[1]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/projects/proj_run/research-runs/research_run_client/status",
+      expect.objectContaining({ method: "GET" })
+    ]);
+    expect(seenRequests[2]?.[0]).toBe(
+      "http://127.0.0.1:43110/api/v1/projects/proj_run/research-runs/research_run_client/cancel"
+    );
+    expect(JSON.parse(String(seenRequests[2]?.[1]?.body))).toMatchObject({
+      projectId,
+      researchRunId,
+      reason: "User cancelled the read-only research run."
+    });
+    expect(seenRequests[3]?.[0]).toBe(
+      "http://127.0.0.1:43110/api/v1/projects/proj_run/research-runs/research_run_client/retry"
+    );
+    expect(JSON.parse(String(seenRequests[3]?.[1]?.body))).toMatchObject({
+      projectId,
+      researchRunId,
+      retryReason: "Retry after provider timeout."
+    });
+    expect(seenRequests[4]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/projects/proj_run/research-runs",
+      expect.objectContaining({ method: "GET" })
     ]);
   });
 

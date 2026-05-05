@@ -1,6 +1,9 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   automaticRunStartPolicyForResearchAllowlist,
+  BACKGROUND_RESEARCH_ADAPTER_KINDS,
+  buildResearchRunIdempotencyKey,
+  canCreateManualResearchRunRetry,
   CONTRACT_SCHEMA_VERSION,
   CODEX_RUNTIME_ADAPTER_VERSION,
   DEFAULT_RESEARCH_DISCLOSURE_LOG_POLICY,
@@ -8,12 +11,15 @@ import {
   DEFAULT_RESEARCH_STALENESS_POLICY,
   MANUAL_RESEARCH_SOURCE_CATEGORIES,
   ResearchAllowlistValidationError,
+  ResearchRunValidationError,
   assertSafeResearchConnectorId,
+  isTerminalResearchRunStatus,
   type ApiErrorCode,
   type BlockedActionType,
   type CommandId,
   type CommandResponse,
   type CommandResponseCategory,
+  type CancelResearchRunRequest,
   type CreateResearchAllowlistRequest,
   type CorrelationId,
   type CausationId,
@@ -36,9 +42,16 @@ import {
   type ProjectionRefetchHint,
   type ProjectId,
   type ProjectionVersion,
+  type PublicSafeResearchDisclosurePayload,
   type ResearchAllowlistGovernanceProjection,
   type ResearchAllowlistId,
   type ResearchAllowlistProjection,
+  type ResearchRunControlProjection,
+  type ResearchRunControlResult,
+  type ResearchRunId,
+  type ResearchRunProjection,
+  type ResearchRunStatusDto,
+  type ResearchRunTerminalReason,
   type ResearchDisclosureBlockReason,
   type ResearchDisclosureLogEntry,
   type ResearchDisclosureLogId,
@@ -53,9 +66,11 @@ import {
   type SchemaVersion,
   type SessionId,
   type SessionShellProjection,
+  type StartResearchRunRequest,
   type StartProjectRequest,
   type StateVersion,
   type StatusEndpointDto,
+  type RetryResearchRunRequest,
   type UpdateResearchAllowlistRequest
 } from "@solo-superman/contracts";
 import {
@@ -65,6 +80,7 @@ import {
   createProjectionRepository,
   createResearchAllowlistRepository,
   createResearchDisclosureLogRepository,
+  createResearchRunRepository,
   createResearchRepository,
   createRuntimeRepository,
   type EffectTaskRecord,
@@ -77,6 +93,7 @@ import {
   replayProductEngineEvents,
   sessionPhaseForProductEngineEvent,
   sessionShellPhaseForProductEnginePhase,
+  createFakeReadOnlyResearchAdapter,
   buildPublicSafeResearchSummary,
   containsPrivateResearchContext,
   redactPublicSafeResearchText
@@ -142,6 +159,28 @@ export interface RunResearchAllowlistLifecycleInput {
 export interface RunResearchDisclosureInput {
   readonly projectId: ProjectId;
   readonly request: PrepareResearchDisclosureRequest;
+}
+
+export interface RunResearchRunStartInput {
+  readonly projectId: ProjectId;
+  readonly request: StartResearchRunRequest;
+}
+
+export interface RunResearchRunStatusInput {
+  readonly projectId: ProjectId;
+  readonly researchRunId: ResearchRunId;
+}
+
+export interface RunResearchRunCancelInput {
+  readonly projectId: ProjectId;
+  readonly researchRunId: ResearchRunId;
+  readonly request: CancelResearchRunRequest;
+}
+
+export interface RunResearchRunRetryInput {
+  readonly projectId: ProjectId;
+  readonly researchRunId: ResearchRunId;
+  readonly request: RetryResearchRunRequest;
 }
 
 function prefixedId<TId extends string>(prefix: string) {
@@ -340,6 +379,123 @@ function disclosureCommandResponse(
           providerExecution: false,
           externalTransferPerformed: false,
           ...(result.manualHandoff ? { manualHandoff: result.manualHandoff } : {})
+        }
+      }
+    ]
+  };
+}
+
+function researchRunId() {
+  return prefixedId<ResearchRunId>("research_run");
+}
+
+function researchRunCollectionRefetchUrl(projectIdValue: ProjectId) {
+  return `/api/v1/projects/${projectIdValue}/research-runs`;
+}
+
+function researchRunStatusUrl(projectIdValue: ProjectId, researchRunIdValue: ResearchRunId) {
+  return `${researchRunCollectionRefetchUrl(projectIdValue)}/${researchRunIdValue}/status`;
+}
+
+function researchRunProjectionHint(
+  projectIdValue: ProjectId,
+  researchRunIdValue?: ResearchRunId
+): ProjectionRefetchHint {
+  return {
+    projectionKind: "ResearchRunProjection",
+    refetchUrl: researchRunIdValue
+      ? researchRunStatusUrl(projectIdValue, researchRunIdValue)
+      : researchRunCollectionRefetchUrl(projectIdValue)
+  };
+}
+
+function researchRunRecoveryHint(projectIdValue: ProjectId, researchRunIdValue?: ResearchRunId) {
+  const hint = researchRunProjectionHint(projectIdValue, researchRunIdValue);
+
+  return {
+    ...(researchRunIdValue ? { statusUrl: researchRunStatusUrl(projectIdValue, researchRunIdValue) } : {}),
+    refetchUrl: hint.refetchUrl,
+    sseEventNames: ["projection.updated" as const],
+    projectionHints: [hint]
+  };
+}
+
+function researchRunCollectionVersion(runs: readonly ResearchRunProjection[]): ProjectionVersion {
+  return runs.reduce((collectionVersion, run) => collectionVersion + Number(run.version), 0) as ProjectionVersion;
+}
+
+function researchRunControlProjection(
+  projectIdValue: ProjectId,
+  runs: readonly ResearchRunProjection[],
+  generatedAt: string,
+  selectedRun?: ResearchRunProjection
+): ResearchRunControlProjection {
+  const recovery = researchRunRecoveryHint(projectIdValue, selectedRun?.researchRunId);
+
+  return {
+    kind: "ResearchRunControlProjection",
+    projectionKind: "ResearchRunProjection",
+    projectId: projectIdValue,
+    version: researchRunCollectionVersion(runs),
+    generatedAt,
+    stale: false,
+    refetchUrl: researchRunCollectionRefetchUrl(projectIdValue),
+    ...(selectedRun ? { statusUrl: researchRunStatusUrl(projectIdValue, selectedRun.researchRunId) } : {}),
+    pendingEffectSummary: zeroPendingEffectSummary(),
+    runs,
+    ...(selectedRun ? { selectedRun } : {}),
+    recovery
+  };
+}
+
+function researchRunCommandResponse(
+  commandType: ProjectApplicationCommandType,
+  stateVersionBefore: StateVersion,
+  result: ResearchRunControlResult
+): CommandResponse<ResearchRunControlResult> {
+  const blocked = result.status === "blocked_manual_handoff" || result.status === "blocked_precondition";
+
+  return {
+    category: blocked ? "blocked" : "accepted_with_projection",
+    commandId: commandId(),
+    correlationId: correlationId(),
+    stateVersionBefore,
+    stateVersionAfter: result.projection.version as unknown as StateVersion,
+    eventIds: [],
+    effectTaskIds: [],
+    ...(result.statusUrl ? { statusUrl: result.statusUrl } : {}),
+    immediateProjection: result,
+    pendingEffectSummary: zeroPendingEffectSummary(),
+    projectionHints: result.recovery.projectionHints,
+    ...(blocked
+      ? {
+          blockingCard: {
+            title: "Automatic research run blocked",
+            reason: result.blocker?.reason ?? result.manualHandoff?.reason,
+            userAction: result.manualHandoff?.route ?? "refetch_research_run_status_or_update_allowlist"
+          }
+        }
+      : {}),
+    deterministicOutputs: [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: `${commandType}:${result.projectId}:${result.researchRunId ?? result.disclosureLogId ?? result.status}`,
+        payload: {
+          commandType,
+          projectId: result.projectId,
+          researchRunId: result.researchRunId,
+          action: result.action,
+          status: result.status,
+          refetchUrl: result.recovery.refetchUrl,
+          statusUrl: result.statusUrl,
+          projectionKind: "ResearchRunProjection",
+          sseEventHints: result.recovery.sseEventNames,
+          productEngineReducerSideEffects: false,
+          providerExecution: result.status === "started" || result.status === "retry_started" ? "local_fake_readonly" : false,
+          externalMutationPerformed: false,
+          ...(result.retryAfterSeconds ? { retryAfterSeconds: result.retryAfterSeconds } : {}),
+          ...(result.priorFailure ? { priorFailure: result.priorFailure } : {}),
+          ...(result.blocker ? { blocker: result.blocker } : {})
         }
       }
     ]
@@ -1441,6 +1597,10 @@ export function createProductEngineCommandService(
       return new ProductEngineServiceError("VALIDATION_FAILED", error.message);
     }
 
+    if (error instanceof ResearchRunValidationError) {
+      return new ProductEngineServiceError("VALIDATION_FAILED", error.message);
+    }
+
     throw error;
   }
 
@@ -1466,6 +1626,42 @@ export function createProductEngineCommandService(
     const logs = await listProjectDisclosureLogs(projectIdValue);
 
     return disclosureProjection(projectIdValue, logs, new Date().toISOString(), latestDisclosureLog ?? logs.at(-1));
+  }
+
+  async function listProjectResearchRuns(projectIdValue: ProjectId) {
+    return createResearchRunRepository(storage.db).listForProject(projectIdValue);
+  }
+
+  async function researchRunCollectionStateVersion(projectIdValue: ProjectId) {
+    return researchRunCollectionVersion(await listProjectResearchRuns(projectIdValue)) as unknown as StateVersion;
+  }
+
+  async function listResearchRunProjection(projectIdValue: ProjectId, selectedRun?: ResearchRunProjection) {
+    return researchRunControlProjection(
+      projectIdValue,
+      await listProjectResearchRuns(projectIdValue),
+      new Date().toISOString(),
+      selectedRun
+    );
+  }
+
+  async function findProjectResearchRun(projectIdValue: ProjectId, researchRunIdValue: ResearchRunId) {
+    const run = await createResearchRunRepository(storage.db).getById(projectIdValue, researchRunIdValue);
+
+    if (!run) {
+      throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Research run was not found.", {
+        projectId: projectIdValue,
+        researchRunId: researchRunIdValue
+      });
+    }
+
+    return run;
+  }
+
+  async function findDisclosureLogForRun(run: ResearchRunProjection) {
+    const logs = await listProjectDisclosureLogs(run.projectId);
+
+    return logs.find((log) => log.logId === run.disclosureLogId) ?? null;
   }
 
   function allowlistVersionAfter(allowlist: ResearchAllowlistProjection | null) {
@@ -1534,6 +1730,452 @@ export function createProductEngineCommandService(
     }
 
     return allowlist.sourceCategories.includes(request.sourceCategory as never) ? null : "source_category_not_allowed";
+  }
+
+  function researchDisclosureLogFromRequest(
+    projectIdValue: ProjectId,
+    request: PrepareResearchDisclosureRequest,
+    publicSafePayload: PublicSafeResearchDisclosurePayload,
+    allowlist: ResearchAllowlistProjection | null,
+    blockReason: ResearchDisclosureBlockReason | null,
+    now: string
+  ): ResearchDisclosureLogEntry {
+    const manualReason = blockReason ? manualHandoffReason(blockReason, request.sourceCategory) : null;
+
+    return {
+      logId: researchDisclosureLogId(),
+      projectId: projectIdValue,
+      ...(allowlist ? { allowlistId: allowlist.allowlistId } : {}),
+      connectorId: request.connectorId,
+      sourceCategory: request.sourceCategory,
+      researchObjective: publicSafePayload.researchObjective,
+      objectiveSummary: publicSafePayload.researchObjective,
+      publicSafeSummarySent: publicSafePayload.publicSafeSummary,
+      sourceRefs: sourceRefsFromDisclosureRequest(request),
+      automaticExternalTransferAllowed: blockReason === null,
+      status: blockReason === null ? "automatic_payload_ready" : "blocked_manual_handoff",
+      ...(blockReason ? { blockReason, manualHandoffReason: manualReason ?? "Manual handoff required." } : {}),
+      createdAt: now
+    } satisfies ResearchDisclosureLogEntry;
+  }
+
+  function assertRequestResearchRunProjectMatchesRoute(projectIdValue: ProjectId, requestProjectId: ProjectId | undefined) {
+    assertRequestProjectMatchesRoute(projectIdValue, requestProjectId);
+  }
+
+  function isKnownResearchAdapterKind(value: string): value is NonNullable<StartResearchRunRequest["adapterKind"]> {
+    return BACKGROUND_RESEARCH_ADAPTER_KINDS.includes(value as never);
+  }
+
+  function contextHashFromPublicSafePayload(
+    request: Pick<StartResearchRunRequest, "contextHash" | "sourceRefs">,
+    publicSafePayload: PublicSafeResearchDisclosurePayload
+  ) {
+    if (request.contextHash?.trim()) {
+      return request.contextHash.trim();
+    }
+
+    return `sha256:${createHash("sha256")
+      .update(publicSafePayload.researchObjective)
+      .update("\0")
+      .update(publicSafePayload.publicSafeSummary)
+      .update("\0")
+      .update((request.sourceRefs ?? []).join("\0"))
+      .digest("hex")
+      .slice(0, 32)}`;
+  }
+
+  function decodedIdempotencyKeyPart(idempotencyKey: string, fieldName: string) {
+    const match =
+      fieldName === "context"
+        ? /context=(.*):allowlistVersion=/.exec(idempotencyKey)
+        : new RegExp(`${fieldName}=([^:]+)`).exec(idempotencyKey);
+
+    if (!match?.[1]) {
+      return null;
+    }
+
+    return decodeURIComponent(match[1].replaceAll("+", "%20"));
+  }
+
+  function attemptRetryBackoffSeconds(allowlist: ResearchAllowlistProjection, nextAttempt: number) {
+    const index = Math.max(0, nextAttempt - 2);
+
+    return allowlist.rateBudgetPolicy.retryBackoffSeconds[index] ?? allowlist.rateBudgetPolicy.retryBackoffSeconds.at(-1);
+  }
+
+  function isoTimestampMillis(value: string, fieldName: string) {
+    const parsed = Date.parse(value);
+
+    if (!/^\d{4}-\d{2}-\d{2}T/u.test(value) || Number.isNaN(parsed)) {
+      throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be an ISO timestamp.`);
+    }
+
+    return parsed;
+  }
+
+  function optionalIsoTimestampMillis(value: string | undefined, fieldName: string) {
+    return value ? isoTimestampMillis(value, fieldName) : null;
+  }
+
+  function stalePolicyBlocker(request: StartResearchRunRequest, now: string) {
+    const nowMillis = isoTimestampMillis(now, "now");
+    const taskFreshnessDeadlineMillis = optionalIsoTimestampMillis(
+      request.taskFreshnessDeadline,
+      "taskFreshnessDeadline"
+    );
+    const sourcePublishedAtMillis = optionalIsoTimestampMillis(request.sourcePublishedAt, "sourcePublishedAt");
+    const sourceRequiredAfterMillis = optionalIsoTimestampMillis(request.sourceRequiredAfter, "sourceRequiredAfter");
+
+    if (taskFreshnessDeadlineMillis !== null && nowMillis > taskFreshnessDeadlineMillis) {
+      return "Task freshness window has already expired; automatic research run start is stale.";
+    }
+
+    if (
+      sourcePublishedAtMillis !== null &&
+      sourceRequiredAfterMillis !== null &&
+      sourcePublishedAtMillis < sourceRequiredAfterMillis
+    ) {
+      return "Source timestamp predates the task freshness requirement.";
+    }
+
+    return null;
+  }
+
+  async function rateBudgetBlocker(projectIdValue: ProjectId, allowlist: ResearchAllowlistProjection) {
+    const activeRuns = (await listProjectResearchRuns(projectIdValue)).filter(
+      (run) => !isTerminalResearchRunStatus(run.status)
+    );
+
+    return activeRuns.length >= allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject
+      ? `Project already has ${activeRuns.length} non-terminal research run(s), meeting the allowlist concurrency budget.`
+      : null;
+  }
+
+  async function blockedResearchRunControlResult(
+    projectIdValue: ProjectId,
+    action: ResearchRunControlResult["action"],
+    status: ResearchRunControlResult["status"],
+    reason: string,
+    code: NonNullable<ResearchRunControlResult["blocker"]>["code"],
+    disclosureLog: ResearchDisclosureLogEntry | undefined,
+    publicSafePayload?: ResearchRunControlResult["publicSafePayload"],
+    manualHandoff?: ResearchRunControlResult["manualHandoff"],
+    selectedRun?: ResearchRunProjection
+  ): Promise<ResearchRunControlResult> {
+    const projection = await listResearchRunProjection(projectIdValue, selectedRun);
+    const recovery = researchRunRecoveryHint(projectIdValue, selectedRun?.researchRunId);
+
+    return {
+      kind: "ResearchRunControlResult",
+      action,
+      status,
+      projectId: projectIdValue,
+      ...(selectedRun
+        ? {
+            researchRun: selectedRun,
+            researchRunId: selectedRun.researchRunId,
+            researchTaskId: selectedRun.researchTaskId,
+            allowlistId: selectedRun.allowlistId,
+            disclosureLogId: selectedRun.disclosureLogId,
+            statusUrl: researchRunStatusUrl(projectIdValue, selectedRun.researchRunId)
+          }
+        : {}),
+      ...(disclosureLog ? { disclosureLog, disclosureLogId: disclosureLog.logId } : {}),
+      ...(publicSafePayload ? { publicSafePayload } : {}),
+      projection,
+      recovery,
+      ...(manualHandoff ? { manualHandoff } : {}),
+      blocker: { reason, code }
+    };
+  }
+
+  async function blockedResearchRunStartResult(
+    projectIdValue: ProjectId,
+    status: ResearchRunControlResult["status"],
+    reason: string,
+    code: NonNullable<ResearchRunControlResult["blocker"]>["code"],
+    disclosureLog: ResearchDisclosureLogEntry | undefined,
+    publicSafePayload?: ResearchRunControlResult["publicSafePayload"],
+    manualHandoff?: ResearchRunControlResult["manualHandoff"]
+  ): Promise<ResearchRunControlResult> {
+    return blockedResearchRunControlResult(
+      projectIdValue,
+      "start",
+      status,
+      reason,
+      code,
+      disclosureLog,
+      publicSafePayload,
+      manualHandoff
+    );
+  }
+
+  async function persistResearchRunDisclosureLog(
+    projectIdValue: ProjectId,
+    request: StartResearchRunRequest,
+    publicSafePayload: PublicSafeResearchDisclosurePayload,
+    allowlist: ResearchAllowlistProjection | null,
+    blockReason: ResearchDisclosureBlockReason | null,
+    now: string
+  ) {
+    return createResearchDisclosureLogRepository(storage.db).create({
+      log: researchDisclosureLogFromRequest(projectIdValue, request, publicSafePayload, allowlist, blockReason, now),
+      schemaVersion: CONTRACT_SCHEMA_VERSION
+    });
+  }
+
+  function researchRunFromStartRequest(
+    projectIdValue: ProjectId,
+    request: StartResearchRunRequest,
+    allowlist: ResearchAllowlistProjection,
+    disclosureLog: ResearchDisclosureLogEntry,
+    publicSafePayload: PublicSafeResearchDisclosurePayload,
+    now: string
+  ): ResearchRunProjection {
+    const nextResearchRunId = request.researchRunId ?? researchRunId();
+    const adapter = createFakeReadOnlyResearchAdapter();
+    const adapterKind = request.adapterKind ?? adapter.adapterKind;
+    const sourceCategory = request.sourceCategory as StartResearchRunRequest["sourceCategory"];
+
+    if (adapterKind !== "local_fake_readonly") {
+      throw new ProductEngineServiceError(
+        "COMMAND_PRECONDITION_FAILED",
+        "Only the local fake read-only research adapter is mounted for Phase 1.5A PR-05 run controls.",
+        {
+          requestedAdapterKind: adapterKind
+        }
+      );
+    }
+
+    return {
+      kind: "ResearchRunProjection",
+      version: 1 as ProjectionVersion,
+      researchRunId: nextResearchRunId,
+      projectId: projectIdValue,
+      researchTaskId: request.researchTaskId,
+      allowlistId: allowlist.allowlistId,
+      disclosureLogId: disclosureLog.logId,
+      connectorId: request.connectorId,
+      sourceCategory: sourceCategory as never,
+      status: "queued",
+      provider: {
+        researchRunId: nextResearchRunId,
+        researchTaskId: request.researchTaskId,
+        adapterKind,
+        adapterVersion: adapter.adapterVersion,
+        sourceCategory: sourceCategory as never,
+        idempotencyKey: researchRunStartIdempotencyKey(request, allowlist, publicSafePayload),
+        attempt: 1
+      },
+      qualityGateStatus: "not_evaluated",
+      sourceRefs: disclosureLog.sourceRefs,
+      createdAt: now,
+      updatedAt: now
+    } satisfies ResearchRunProjection;
+  }
+
+  function researchRunStartIdempotencyKey(
+    request: StartResearchRunRequest,
+    allowlist: ResearchAllowlistProjection,
+    publicSafePayload: PublicSafeResearchDisclosurePayload
+  ) {
+    return buildResearchRunIdempotencyKey({
+      taskObjective: publicSafePayload.researchObjective,
+      connectorId: request.connectorId,
+      contextHash: contextHashFromPublicSafePayload(request, publicSafePayload),
+      allowlistVersion: allowlist.version,
+      attempt: 1
+    });
+  }
+
+  async function startLocalFakeRunIfQueued(
+    run: ResearchRunProjection,
+    publicSafePayload: PublicSafeResearchDisclosurePayload
+  ) {
+    if (run.status !== "queued" || run.provider.providerRunId || run.provider.adapterKind !== "local_fake_readonly") {
+      return run;
+    }
+
+    const adapter = createFakeReadOnlyResearchAdapter();
+    const started = await adapter.start({
+      researchRun: run,
+      disclosurePayload: publicSafePayload
+    });
+    const updated = await createResearchRunRepository(storage.db).update({
+      run: {
+        ...run,
+        version: (Number(run.version) + 1) as ProjectionVersion,
+        status: "running",
+        provider: {
+          ...run.provider,
+          providerRunId: started.providerRunId,
+          startedAt: started.startedAt
+        },
+        updatedAt: started.startedAt
+      },
+      expectedVersion: run.version,
+      schemaVersion: CONTRACT_SCHEMA_VERSION
+    });
+
+    if (!updated) {
+      throw new ProductEngineServiceError(
+        "COMMAND_PRECONDITION_FAILED",
+        "Research run changed before provider start could be recorded; refetch and retry.",
+        {
+          projectId: run.projectId,
+          researchRunId: run.researchRunId
+        }
+      );
+    }
+
+    return updated;
+  }
+
+  function isResearchRunStartInProgress(run: ResearchRunProjection) {
+    return run.status === "queued" || run.status === "running";
+  }
+
+  async function cancelResearchRunWithLocalAdapter(run: ResearchRunProjection, reason: string) {
+    if (isTerminalResearchRunStatus(run.status)) {
+      throw new ProductEngineServiceError("COMMAND_PRECONDITION_FAILED", "Terminal research runs cannot be cancelled.", {
+        researchRunId: run.researchRunId,
+        status: run.status
+      });
+    }
+
+    if (run.status === "cancel_requested") {
+      return run;
+    }
+
+    const now = new Date().toISOString();
+    const cancellation =
+      run.provider.adapterKind === "local_fake_readonly"
+        ? await createFakeReadOnlyResearchAdapter({ now: () => now }).cancel({
+            researchRun: run,
+            reason
+          })
+        : {
+            status: run.status === "queued" ? ("cancelled" as const) : ("cancel_requested" as const),
+            ...(run.status === "queued" ? { completedAt: now } : {}),
+            reason
+          };
+    const cancelled = cancellation.status === "cancelled";
+    const updated = await createResearchRunRepository(storage.db).update({
+      run: {
+        ...run,
+        version: (Number(run.version) + 1) as ProjectionVersion,
+        status: cancellation.status,
+        provider: {
+          ...run.provider,
+          ...(cancellation.providerRunId ? { providerRunId: cancellation.providerRunId } : {}),
+          ...(cancellation.completedAt ? { completedAt: cancellation.completedAt } : {})
+        },
+        ...(cancelled ? { terminalReason: "cancelled_by_user" as const } : {}),
+        updatedAt: cancellation.completedAt ?? now
+      },
+      expectedVersion: run.version,
+      schemaVersion: CONTRACT_SCHEMA_VERSION
+    });
+
+    if (!updated) {
+      throw new ProductEngineServiceError(
+        "COMMAND_PRECONDITION_FAILED",
+        "Research run changed before cancellation could be saved; refetch and retry.",
+        {
+          researchRunId: run.researchRunId
+        }
+      );
+    }
+
+    return updated;
+  }
+
+  function priorRunFailureSummary(run: ResearchRunProjection) {
+    return {
+      researchRunId: run.researchRunId,
+      ...(run.terminalReason ? { terminalReason: run.terminalReason as ResearchRunTerminalReason } : {}),
+      status: run.status
+    };
+  }
+
+  function retrySourceContextHash(priorRun: ResearchRunProjection, request: RetryResearchRunRequest) {
+    return (
+      request.contextHash?.trim() ??
+      decodedIdempotencyKeyPart(priorRun.provider.idempotencyKey, "context") ??
+      `retry-of-${priorRun.researchRunId}`
+    );
+  }
+
+  function retrySourceAllowlistVersion(priorRun: ResearchRunProjection, currentAllowlist: ResearchAllowlistProjection) {
+    const decoded = decodedIdempotencyKeyPart(priorRun.provider.idempotencyKey, "allowlistVersion");
+    const parsed = decoded ? Number(decoded) : Number.NaN;
+
+    return Number.isInteger(parsed) && parsed >= 0
+      ? (parsed as ProjectionVersion)
+      : currentAllowlist.version;
+  }
+
+  function baseResearchRunForRetry(
+    priorRun: ResearchRunProjection
+  ): Omit<ResearchRunProjection, "retryOfRunId" | "retryReason" | "terminalReason"> {
+    return {
+      kind: priorRun.kind,
+      version: priorRun.version,
+      researchRunId: priorRun.researchRunId,
+      projectId: priorRun.projectId,
+      researchTaskId: priorRun.researchTaskId,
+      allowlistId: priorRun.allowlistId,
+      disclosureLogId: priorRun.disclosureLogId,
+      connectorId: priorRun.connectorId,
+      sourceCategory: priorRun.sourceCategory,
+      status: priorRun.status,
+      provider: priorRun.provider,
+      qualityGateStatus: priorRun.qualityGateStatus,
+      sourceRefs: priorRun.sourceRefs,
+      createdAt: priorRun.createdAt,
+      updatedAt: priorRun.updatedAt
+    };
+  }
+
+  function researchRunRetryFromPrior(
+    priorRun: ResearchRunProjection,
+    allowlist: ResearchAllowlistProjection,
+    disclosureLog: ResearchDisclosureLogEntry | null,
+    request: RetryResearchRunRequest,
+    now: string
+  ): ResearchRunProjection {
+    const nextAttempt = priorRun.provider.attempt + 1;
+    const nextResearchRunId = researchRunId();
+    const objective = disclosureLog?.researchObjective ?? priorRun.researchTaskId;
+    const baseRun = baseResearchRunForRetry(priorRun);
+
+    return {
+      ...baseRun,
+      version: 1 as ProjectionVersion,
+      researchRunId: nextResearchRunId,
+      status: "queued",
+      provider: {
+        researchRunId: nextResearchRunId,
+        researchTaskId: priorRun.researchTaskId,
+        adapterKind: priorRun.provider.adapterKind,
+        adapterVersion: priorRun.provider.adapterVersion,
+        sourceCategory: priorRun.provider.sourceCategory,
+        idempotencyKey: buildResearchRunIdempotencyKey({
+          taskObjective: objective,
+          connectorId: priorRun.connectorId,
+          contextHash: retrySourceContextHash(priorRun, request),
+          allowlistVersion: retrySourceAllowlistVersion(priorRun, allowlist),
+          attempt: nextAttempt
+        }),
+        attempt: nextAttempt
+      },
+      qualityGateStatus: "not_evaluated",
+      retryOfRunId: priorRun.researchRunId,
+      retryReason: request.retryReason,
+      createdAt: now,
+      updatedAt: now
+    } satisfies ResearchRunProjection;
   }
 
   async function matchingAllowlistForDisclosure(
@@ -1919,25 +2561,8 @@ export function createProductEngineCommandService(
         const blockReason = blockReasonForDisclosure(input.request, allowlist);
         const stateVersionBefore = disclosureCollectionVersion(await listProjectDisclosureLogs(input.projectId)) as unknown as StateVersion;
         const now = new Date().toISOString();
-        const sourceRefs = sourceRefsFromDisclosureRequest(input.request);
-        const manualReason = blockReason ? manualHandoffReason(blockReason, input.request.sourceCategory) : null;
-        const disclosureLog = {
-          logId: researchDisclosureLogId(),
-          projectId: input.projectId,
-          ...(allowlist ? { allowlistId: allowlist.allowlistId } : {}),
-          connectorId: input.request.connectorId,
-          sourceCategory: input.request.sourceCategory,
-          researchObjective: publicSafePayload.researchObjective,
-          objectiveSummary: publicSafePayload.researchObjective,
-          publicSafeSummarySent: publicSafePayload.publicSafeSummary,
-          sourceRefs,
-          automaticExternalTransferAllowed: blockReason === null,
-          status: blockReason === null ? "automatic_payload_ready" : "blocked_manual_handoff",
-          ...(blockReason ? { blockReason, manualHandoffReason: manualReason ?? "Manual handoff required." } : {}),
-          createdAt: now
-        } satisfies ResearchDisclosureLogEntry;
         const saved = await createResearchDisclosureLogRepository(storage.db).create({
-          log: disclosureLog,
+          log: researchDisclosureLogFromRequest(input.projectId, input.request, publicSafePayload, allowlist, blockReason, now),
           schemaVersion: CONTRACT_SCHEMA_VERSION
         });
         const projection = await listDisclosureProjection(input.projectId, saved);
@@ -1948,11 +2573,11 @@ export function createProductEngineCommandService(
           publicSafePayload,
           disclosureLog: saved,
           projection,
-          ...(manualReason
+          ...(saved.manualHandoffReason
             ? {
                 manualHandoff: {
                   required: true,
-                  reason: manualReason,
+                  reason: saved.manualHandoffReason,
                   route: "task_level_approval_or_manual_handoff"
                 }
               }
@@ -1960,6 +2585,421 @@ export function createProductEngineCommandService(
         } satisfies ResearchDisclosurePreparationResult;
 
         return disclosureCommandResponse(stateVersionBefore, result);
+      } catch (error) {
+        throw validationError(error);
+      }
+    },
+
+    async listResearchRuns(projectIdValue: ProjectId): Promise<ResearchRunControlProjection> {
+      await requireProject(projectIdValue);
+
+      return listResearchRunProjection(projectIdValue);
+    },
+
+    async getResearchRunStatus(input: RunResearchRunStatusInput): Promise<ResearchRunStatusDto> {
+      await requireProject(input.projectId);
+
+      const run = await findProjectResearchRun(input.projectId, input.researchRunId);
+      const projection = await listResearchRunProjection(input.projectId, run);
+
+      return {
+        ...projection,
+        selectedRun: run,
+        statusUrl: researchRunStatusUrl(input.projectId, input.researchRunId)
+      };
+    },
+
+    async startResearchRun(
+      input: RunResearchRunStartInput
+    ): Promise<CommandResponse<ResearchRunControlResult>> {
+      try {
+        await requireProject(input.projectId);
+        assertRequestResearchRunProjectMatchesRoute(input.projectId, input.request.projectId);
+        assertSafeResearchConnectorId(input.request.connectorId);
+
+        if (input.request.adapterKind && !isKnownResearchAdapterKind(input.request.adapterKind)) {
+          throw new ProductEngineServiceError("VALIDATION_FAILED", "adapterKind must be a provider-neutral adapter kind.");
+        }
+
+        const stateVersionBefore = await researchRunCollectionStateVersion(input.projectId);
+        const now = new Date().toISOString();
+        const publicSafePayload = buildPublicSafeResearchSummary(input.request);
+        const allowlist = await matchingAllowlistForDisclosure(input.projectId, input.request);
+        const blockReason = blockReasonForDisclosure(input.request, allowlist);
+
+        if (blockReason || !allowlist) {
+          const disclosureLog = await persistResearchRunDisclosureLog(
+            input.projectId,
+            input.request,
+            publicSafePayload,
+            allowlist,
+            blockReason,
+            now
+          );
+          const reason =
+            disclosureLog.manualHandoffReason ?? "No active allowlist matches this research run start request.";
+          const result = await blockedResearchRunStartResult(
+            input.projectId,
+            "blocked_manual_handoff",
+            reason,
+            "allowlist_or_context_blocked",
+            disclosureLog,
+            publicSafePayload,
+            {
+              required: true,
+              reason,
+              route: "task_level_approval_or_manual_handoff"
+            }
+          );
+
+          return researchRunCommandResponse("StartResearchRun", stateVersionBefore, result);
+        }
+
+        const staleBlocker = stalePolicyBlocker(input.request, now);
+        const adapterBlocker =
+          input.request.adapterKind && input.request.adapterKind !== "local_fake_readonly"
+            ? "Requested adapter is not mounted in Phase 1.5A PR-05."
+            : null;
+        const preconditionBlocker = staleBlocker ?? adapterBlocker;
+
+        if (preconditionBlocker) {
+          const disclosureLog = await persistResearchRunDisclosureLog(
+            input.projectId,
+            input.request,
+            publicSafePayload,
+            allowlist,
+            blockReason,
+            now
+          );
+          const result = await blockedResearchRunStartResult(
+            input.projectId,
+            "blocked_precondition",
+            preconditionBlocker,
+            staleBlocker ? "staleness_policy_failed" : "adapter_unavailable",
+            disclosureLog,
+            publicSafePayload
+          );
+
+          return researchRunCommandResponse("StartResearchRun", stateVersionBefore, result);
+        }
+
+        const repository = createResearchRunRepository(storage.db);
+        const existingRun = await repository.getByProjectIdAndIdempotencyKey(
+          input.projectId,
+          researchRunStartIdempotencyKey(input.request, allowlist, publicSafePayload)
+        );
+
+        if (existingRun) {
+          const started = await startLocalFakeRunIfQueued(existingRun, publicSafePayload);
+          const existingDisclosureLog = await findDisclosureLogForRun(started);
+          const projection = await listResearchRunProjection(input.projectId, started);
+          const recovery = researchRunRecoveryHint(input.projectId, started.researchRunId);
+          const result = {
+            kind: "ResearchRunControlResult",
+            action: "start",
+            status: isResearchRunStartInProgress(started) ? "started" : "status",
+            projectId: input.projectId,
+            researchRun: started,
+            researchRunId: started.researchRunId,
+            researchTaskId: started.researchTaskId,
+            allowlistId: started.allowlistId,
+            disclosureLogId: started.disclosureLogId,
+            ...(existingDisclosureLog ? { disclosureLog: existingDisclosureLog } : {}),
+            publicSafePayload,
+            projection,
+            statusUrl: researchRunStatusUrl(input.projectId, started.researchRunId),
+            recovery
+          } satisfies ResearchRunControlResult;
+
+          return researchRunCommandResponse("StartResearchRun", stateVersionBefore, result);
+        }
+
+        const budgetBlocker = await rateBudgetBlocker(input.projectId, allowlist);
+
+        if (budgetBlocker) {
+          const disclosureLog = await persistResearchRunDisclosureLog(
+            input.projectId,
+            input.request,
+            publicSafePayload,
+            allowlist,
+            blockReason,
+            now
+          );
+          const result = await blockedResearchRunStartResult(
+            input.projectId,
+            "blocked_precondition",
+            budgetBlocker,
+            "rate_budget_exhausted",
+            disclosureLog,
+            publicSafePayload
+          );
+
+          return researchRunCommandResponse("StartResearchRun", stateVersionBefore, result);
+        }
+
+        const disclosureLog = await persistResearchRunDisclosureLog(
+          input.projectId,
+          input.request,
+          publicSafePayload,
+          allowlist,
+          blockReason,
+          now
+        );
+        const created = await repository.create({
+          run: researchRunFromStartRequest(input.projectId, input.request, allowlist, disclosureLog, publicSafePayload, now),
+          schemaVersion: CONTRACT_SCHEMA_VERSION
+        });
+
+        if (!created) {
+          throw new ProductEngineServiceError(
+            "IDEMPOTENCY_CONFLICT",
+            "Research run id conflicts with a different idempotency key.",
+            {
+              projectId: input.projectId,
+              researchRunId: input.request.researchRunId
+            }
+          );
+        }
+
+        const started = await startLocalFakeRunIfQueued(created, publicSafePayload);
+        const projection = await listResearchRunProjection(input.projectId, started);
+        const recovery = researchRunRecoveryHint(input.projectId, started.researchRunId);
+        const result = {
+          kind: "ResearchRunControlResult",
+          action: "start",
+          status: "started",
+          projectId: input.projectId,
+          researchRun: started,
+          researchRunId: started.researchRunId,
+          researchTaskId: started.researchTaskId,
+          allowlistId: started.allowlistId,
+          disclosureLogId: disclosureLog.logId,
+          disclosureLog,
+          publicSafePayload,
+          projection,
+          statusUrl: researchRunStatusUrl(input.projectId, started.researchRunId),
+          recovery
+        } satisfies ResearchRunControlResult;
+
+        return researchRunCommandResponse("StartResearchRun", stateVersionBefore, result);
+      } catch (error) {
+        throw validationError(error);
+      }
+    },
+
+    async cancelResearchRun(
+      input: RunResearchRunCancelInput
+    ): Promise<CommandResponse<ResearchRunControlResult>> {
+      try {
+        await requireProject(input.projectId);
+        assertRequestResearchRunProjectMatchesRoute(input.projectId, input.request.projectId);
+
+        if (input.request.researchRunId && input.request.researchRunId !== input.researchRunId) {
+          throw new ProductEngineServiceError("VALIDATION_FAILED", "researchRunId must match the route param.", {
+            routeResearchRunId: input.researchRunId,
+            bodyResearchRunId: input.request.researchRunId
+          });
+        }
+
+        const stateVersionBefore = await researchRunCollectionStateVersion(input.projectId);
+        const current = await findProjectResearchRun(input.projectId, input.researchRunId);
+        const cancelled = await cancelResearchRunWithLocalAdapter(
+          current,
+          input.request.reason ?? "User requested cancellation for the read-only research run."
+        );
+        const projection = await listResearchRunProjection(input.projectId, cancelled);
+        const recovery = researchRunRecoveryHint(input.projectId, cancelled.researchRunId);
+        const result = {
+          kind: "ResearchRunControlResult",
+          action: "cancel",
+          status: cancelled.status === "cancelled" ? "cancelled" : "cancel_requested",
+          projectId: input.projectId,
+          researchRun: cancelled,
+          researchRunId: cancelled.researchRunId,
+          researchTaskId: cancelled.researchTaskId,
+          allowlistId: cancelled.allowlistId,
+          disclosureLogId: cancelled.disclosureLogId,
+          projection,
+          statusUrl: researchRunStatusUrl(input.projectId, cancelled.researchRunId),
+          recovery
+        } satisfies ResearchRunControlResult;
+
+        return researchRunCommandResponse("CancelResearchRun", stateVersionBefore, result);
+      } catch (error) {
+        throw validationError(error);
+      }
+    },
+
+    async retryResearchRun(
+      input: RunResearchRunRetryInput
+    ): Promise<CommandResponse<ResearchRunControlResult>> {
+      try {
+        await requireProject(input.projectId);
+        assertRequestResearchRunProjectMatchesRoute(input.projectId, input.request.projectId);
+
+        if (input.request.researchRunId && input.request.researchRunId !== input.researchRunId) {
+          throw new ProductEngineServiceError("VALIDATION_FAILED", "researchRunId must match the route param.", {
+            routeResearchRunId: input.researchRunId,
+            bodyResearchRunId: input.request.researchRunId
+          });
+        }
+
+        const stateVersionBefore = await researchRunCollectionStateVersion(input.projectId);
+        const priorRun = await findProjectResearchRun(input.projectId, input.researchRunId);
+        const allowlist = await findProjectAllowlist(input.projectId, priorRun.allowlistId);
+        const disclosureLog = await findDisclosureLogForRun(priorRun);
+
+        if (!canCreateManualResearchRunRetry(priorRun.status)) {
+          const projection = await listResearchRunProjection(input.projectId, priorRun);
+          const recovery = researchRunRecoveryHint(input.projectId, priorRun.researchRunId);
+          const result = {
+            kind: "ResearchRunControlResult",
+            action: "retry",
+            status: "blocked_precondition",
+            projectId: input.projectId,
+            researchRun: priorRun,
+            researchRunId: priorRun.researchRunId,
+            researchTaskId: priorRun.researchTaskId,
+            allowlistId: priorRun.allowlistId,
+            disclosureLogId: priorRun.disclosureLogId,
+            projection,
+            statusUrl: researchRunStatusUrl(input.projectId, priorRun.researchRunId),
+            recovery,
+            blocker: {
+              reason: "Only failed, stale, or research_insufficient runs can be manually retried.",
+              code: "retry_not_allowed"
+            }
+          } satisfies ResearchRunControlResult;
+
+          return researchRunCommandResponse("RetryResearchRun", stateVersionBefore, result);
+        }
+
+        const disclosurePayload = disclosureLog
+          ? {
+              researchObjective: disclosureLog.researchObjective,
+              publicSafeSummary: disclosureLog.publicSafeSummarySent
+            }
+          : undefined;
+        const publicSafePayload = disclosurePayload ?? {
+          researchObjective: priorRun.researchTaskId,
+          publicSafeSummary: "Manual retry uses the prior public-safe disclosure summary."
+        };
+        const retryPolicyBlocker =
+          allowlist.status !== "active"
+            ? `The research allowlist is ${allowlist.status}; reactivate with fresh approval before retrying.`
+            : !allowlist.connectorIds.includes(priorRun.connectorId)
+              ? "The research allowlist no longer permits the prior run connector; refresh approval before retrying."
+              : !allowlist.sourceCategories.includes(priorRun.sourceCategory)
+                ? "The research allowlist no longer permits the prior run source category; refresh approval before retrying."
+                : null;
+
+        if (retryPolicyBlocker) {
+          const result = await blockedResearchRunControlResult(
+            input.projectId,
+            "retry",
+            "blocked_precondition",
+            retryPolicyBlocker,
+            "allowlist_or_context_blocked",
+            disclosureLog ?? undefined,
+            disclosurePayload,
+            undefined,
+            priorRun
+          );
+
+          return researchRunCommandResponse("RetryResearchRun", stateVersionBefore, result);
+        }
+
+        const maxAttempt = allowlist.rateBudgetPolicy.maxAutomaticRetriesPerRun + 1;
+
+        if (priorRun.provider.attempt >= maxAttempt) {
+          const result = await blockedResearchRunControlResult(
+            input.projectId,
+            "retry",
+            "blocked_precondition",
+            `Retry budget exhausted at attempt ${priorRun.provider.attempt}; max allowed attempt is ${maxAttempt}.`,
+            "retry_not_allowed",
+            disclosureLog ?? undefined,
+            disclosurePayload,
+            undefined,
+            priorRun
+          );
+
+          return researchRunCommandResponse("RetryResearchRun", stateVersionBefore, result);
+        }
+
+        const retryRun = researchRunRetryFromPrior(
+          priorRun,
+          allowlist,
+          disclosureLog,
+          input.request,
+          new Date().toISOString()
+        );
+        const repository = createResearchRunRepository(storage.db);
+        const existingRetry = await repository.getByProjectIdAndIdempotencyKey(
+          input.projectId,
+          retryRun.provider.idempotencyKey
+        );
+        let retryCandidate = existingRetry;
+
+        if (!retryCandidate) {
+          const budgetBlocker = await rateBudgetBlocker(input.projectId, allowlist);
+
+          if (budgetBlocker) {
+            const result = await blockedResearchRunControlResult(
+              input.projectId,
+              "retry",
+              "blocked_precondition",
+              budgetBlocker,
+              "rate_budget_exhausted",
+              disclosureLog ?? undefined,
+              publicSafePayload,
+              undefined,
+              priorRun
+            );
+
+            return researchRunCommandResponse("RetryResearchRun", stateVersionBefore, result);
+          }
+        }
+
+        retryCandidate ??= await repository.create({
+          run: retryRun,
+          schemaVersion: CONTRACT_SCHEMA_VERSION
+        });
+
+        if (!retryCandidate) {
+          throw new ProductEngineServiceError("IDEMPOTENCY_CONFLICT", "Manual retry conflicts with an existing research run.", {
+            retryOfRunId: priorRun.researchRunId
+          });
+        }
+
+        const started = await startLocalFakeRunIfQueued(retryCandidate, publicSafePayload);
+        const projection = await listResearchRunProjection(input.projectId, started);
+        const recovery = researchRunRecoveryHint(input.projectId, started.researchRunId);
+        const retryStarted = isResearchRunStartInProgress(started);
+        const retryAfterSeconds = retryStarted ? attemptRetryBackoffSeconds(allowlist, started.provider.attempt) : undefined;
+        const result = {
+          kind: "ResearchRunControlResult",
+          action: "retry",
+          status: retryStarted ? "retry_started" : "status",
+          projectId: input.projectId,
+          researchRun: started,
+          researchRunId: started.researchRunId,
+          researchTaskId: started.researchTaskId,
+          allowlistId: started.allowlistId,
+          disclosureLogId: started.disclosureLogId,
+          ...(disclosureLog ? { disclosureLog } : {}),
+          publicSafePayload,
+          projection,
+          statusUrl: researchRunStatusUrl(input.projectId, started.researchRunId),
+          recovery,
+          ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
+          priorFailure: {
+            ...priorRunFailureSummary(priorRun),
+            ...(disclosureLog ? { disclosureSummary: disclosureLog.publicSafeSummarySent } : {})
+          }
+        } satisfies ResearchRunControlResult;
+
+        return researchRunCommandResponse("RetryResearchRun", stateVersionBefore, result);
       } catch (error) {
         throw validationError(error);
       }

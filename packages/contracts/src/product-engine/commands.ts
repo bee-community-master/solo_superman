@@ -26,7 +26,10 @@ export const PROJECT_APPLICATION_COMMAND_TYPES = [
   "UpdateResearchAllowlist",
   "PauseResearchAllowlist",
   "RevokeResearchAllowlist",
-  "PrepareResearchDisclosure"
+  "PrepareResearchDisclosure",
+  "StartResearchRun",
+  "CancelResearchRun",
+  "RetryResearchRun"
 ] as const;
 
 export const COMMAND_TYPES = [

@@ -3,8 +3,21 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach } from "vitest";
 import { describe, expect, it } from "vitest";
-import { API_ROUTE_CATALOG, CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS, type CommandId } from "@solo-superman/contracts";
-import { applyMigrations, createEventRepository, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
+import {
+  API_ROUTE_CATALOG,
+  CONTRACT_SCHEMA_VERSION,
+  CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  type CommandId,
+  type ProjectionVersion,
+  type ResearchRunProjection
+} from "@solo-superman/contracts";
+import {
+  applyMigrations,
+  createEventRepository,
+  createResearchRunRepository,
+  createSoloStorage,
+  localDatabaseUrlFromAppDataDir
+} from "@solo-superman/db";
 import { createProductEngineCommandService } from "./product-engine/command-service";
 import { CodexRuntimeUnavailableError, createCodexRuntimeAdapter, fixtureCodexPreviewOutput } from "./runtime";
 import { createSidecarApp } from "./server";
@@ -80,6 +93,50 @@ async function jsonBody(response: Response) {
   return (await response.json()) as JsonResponseBody;
 }
 
+async function createProjectForTest(storageApp: ReturnType<typeof createSidecarApp>, rawIdea: string) {
+  const start = await storageApp.request("/api/v1/projects", {
+    method: "POST",
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      rawIdea,
+      localPrivacyMode: "local_only"
+    })
+  });
+  const startBody = await jsonBody(start);
+  const startData = startBody.data as Readonly<Record<string, unknown>>;
+  const sessionProjection = startData.immediateProjection as Readonly<Record<string, unknown>>;
+
+  return {
+    projectId: sessionProjection.projectId as string,
+    sessionId: sessionProjection.sessionId as string
+  };
+}
+
+async function createAllowlistForTest(
+  storageApp: ReturnType<typeof createSidecarApp>,
+  projectId: string,
+  allowlistId: string,
+  overrides: Readonly<Record<string, unknown>> = {}
+) {
+  return storageApp.request(`/api/v1/projects/${projectId}/research-allowlists`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      allowlistId,
+      connectorIds: ["public_search"],
+      sourceCategories: ["public_web"],
+      approvedBy: "owner_research_run_route",
+      ...overrides
+    })
+  });
+}
+
 describe("PR-02 sidecar health shell", () => {
   it("serves health without auth before storage or ProductEngine initialization", async () => {
     const response = await app.request("/healthz");
@@ -88,7 +145,7 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       status: "ok",
-      sidecarPhase: "phase_1_5a_pr_03_public_safe_disclosure",
+      sidecarPhase: "phase_1_5a_pr_05_research_run_controls",
       checks: {
         process: "alive"
       },
@@ -920,6 +977,689 @@ describe("PR-02 sidecar health shell", () => {
       const rows = await storage.client.execute("SELECT public_safe_summary_sent FROM research_disclosure_logs");
 
       expect(JSON.stringify(rows.rows)).not.toContain("Raw idea with stealth pricing");
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("starts, observes, cancels, and retries Phase 1.5A research runs with refetch recovery hints", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId } = await createProjectForTest(storageApp, "A research run control route test idea");
+      const allowlistId = "research_allowlist_run_route";
+
+      await createAllowlistForTest(storageApp, projectId, allowlistId);
+
+      const startRun = await storageApp.request(`/api/v1/projects/${projectId}/research-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          researchRunId: "research_run_route",
+          researchTaskId: "research_task_route",
+          allowlistId,
+          connectorId: "public_search",
+          sourceCategory: "public_web",
+          researchObjective: "Find public onboarding proof for founder validation tools.",
+          productCategory: "Founder workflow assistant",
+          customerProblemHypothesis: "Early founders need safer validation research.",
+          contextHash: "ctx_research_run_route",
+          sourceRefs: ["queue_item_run_route"]
+        })
+      });
+      const startRunBody = await jsonBody(startRun);
+      const startRunData = startRunBody.data as Readonly<Record<string, unknown>>;
+      const startResult = startRunData.immediateProjection as Readonly<Record<string, unknown>>;
+      const startedRun = startResult.researchRun as ResearchRunProjection;
+      const statusUrl = startRunData.statusUrl as string;
+
+      expect(startRun.status).toBe(200);
+      expect(startRunData).toMatchObject({
+        category: "accepted_with_projection",
+        statusUrl: `/api/v1/projects/${projectId}/research-runs/research_run_route/status`,
+        projectionHints: [
+          {
+            projectionKind: "ResearchRunProjection",
+            refetchUrl: `/api/v1/projects/${projectId}/research-runs/research_run_route/status`
+          }
+        ],
+        deterministicOutputs: [
+          expect.objectContaining({
+            payload: expect.objectContaining({
+              commandType: "StartResearchRun",
+              sseEventHints: ["projection.updated"],
+              externalMutationPerformed: false
+            })
+          })
+        ]
+      });
+      expect(startResult).toMatchObject({
+        kind: "ResearchRunControlResult",
+        action: "start",
+        status: "started",
+        disclosureLog: expect.objectContaining({
+          status: "automatic_payload_ready",
+          automaticExternalTransferAllowed: true
+        }),
+        recovery: {
+          refetchUrl: `/api/v1/projects/${projectId}/research-runs/research_run_route/status`,
+          sseEventNames: ["projection.updated"]
+        }
+      });
+      expect(startedRun).toMatchObject({
+        researchRunId: "research_run_route",
+        status: "running",
+        provider: {
+          adapterKind: "local_fake_readonly",
+          providerRunId: "fake_readonly_research_run_route",
+          attempt: 1
+        }
+      });
+
+      const status = await storageApp.request(statusUrl, { headers: authHeaders() });
+      const statusBody = await jsonBody(status);
+
+      expect(status.status).toBe(200);
+      expect(statusBody.data).toMatchObject({
+        kind: "ResearchRunControlProjection",
+        selectedRun: {
+          researchRunId: "research_run_route",
+          status: "running"
+        },
+        recovery: {
+          projectionHints: [
+            {
+              projectionKind: "ResearchRunProjection",
+              refetchUrl: statusUrl
+            }
+          ]
+        }
+      });
+
+      const cancel = await storageApp.request(`/api/v1/projects/${projectId}/research-runs/research_run_route/cancel`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          researchRunId: "research_run_route",
+          reason: "User cancelled after provider start."
+        })
+      });
+      const cancelBody = await jsonBody(cancel);
+      const cancelData = cancelBody.data as Readonly<Record<string, unknown>>;
+      const cancelResult = cancelData.immediateProjection as Readonly<Record<string, unknown>>;
+
+      expect(cancel.status).toBe(200);
+      expect(cancelResult).toMatchObject({
+        action: "cancel",
+        status: "cancel_requested",
+        researchRun: {
+          researchRunId: "research_run_route",
+          status: "cancel_requested"
+        }
+      });
+
+      const retrySourceStart = await storageApp.request(`/api/v1/projects/${projectId}/research-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          researchRunId: "research_run_failed_source",
+          researchTaskId: "research_task_retry_route",
+          allowlistId,
+          connectorId: "public_search",
+          sourceCategory: "public_web",
+          researchObjective: "Find public onboarding proof for retry behavior.",
+          productCategory: "Founder workflow assistant",
+          customerProblemHypothesis: "Early founders need safer validation research.",
+          contextHash: "ctx_research_run_retry_route",
+          sourceRefs: ["queue_item_retry_route"]
+        })
+      });
+      const retrySourceBody = await jsonBody(retrySourceStart);
+      const retrySourceData = retrySourceBody.data as Readonly<Record<string, unknown>>;
+      const retrySourceResult = retrySourceData.immediateProjection as Readonly<Record<string, unknown>>;
+      const retrySourceRun = retrySourceResult.researchRun as ResearchRunProjection;
+      const repository = createResearchRunRepository(storage.db);
+      const failedRun = {
+        ...retrySourceRun,
+        version: 3 as ProjectionVersion,
+        status: "failed",
+        provider: {
+          ...retrySourceRun.provider,
+          completedAt: "2026-05-06T00:10:00.000Z"
+        },
+        terminalReason: "timeout",
+        updatedAt: "2026-05-06T00:10:00.000Z"
+      } satisfies ResearchRunProjection;
+
+      await repository.update({
+        run: failedRun,
+        expectedVersion: 2 as ProjectionVersion,
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      const retry = await storageApp.request(`/api/v1/projects/${projectId}/research-runs/research_run_failed_source/retry`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          researchRunId: "research_run_failed_source",
+          retryReason: "Retry after provider timeout.",
+          contextHash: "ctx_research_run_retry_route"
+        })
+      });
+      const retryBody = await jsonBody(retry);
+      const retryData = retryBody.data as Readonly<Record<string, unknown>>;
+      const retryResult = retryData.immediateProjection as Readonly<Record<string, unknown>>;
+
+      expect(retry.status).toBe(200);
+      expect(retryResult).toMatchObject({
+        action: "retry",
+        status: "retry_started",
+        retryAfterSeconds: 30,
+        priorFailure: {
+          researchRunId: "research_run_failed_source",
+          terminalReason: "timeout",
+          status: "failed",
+          disclosureSummary: expect.stringContaining("Product category")
+        },
+        researchRun: {
+          status: "running",
+          retryOfRunId: "research_run_failed_source",
+          retryReason: "Retry after provider timeout.",
+          provider: {
+            attempt: 2,
+            idempotencyKey: expect.stringContaining("attempt=2")
+          }
+        }
+      });
+
+      const list = await storageApp.request(`/api/v1/projects/${projectId}/research-runs`, { headers: authHeaders() });
+      const listBody = await jsonBody(list);
+
+      expect(list.status).toBe(200);
+      expect(listBody.data).toMatchObject({
+        runs: [
+          expect.objectContaining({ researchRunId: "research_run_route", status: "cancel_requested" }),
+          expect.objectContaining({ researchRunId: "research_run_failed_source", status: "failed" }),
+          expect.objectContaining({ retryOfRunId: "research_run_failed_source", status: "running" })
+        ]
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("returns an existing research run for duplicate starts before applying rate budget blockers", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    async function postStart(projectId: string, body: Readonly<Record<string, unknown>>) {
+      return storageApp.request(`/api/v1/projects/${projectId}/research-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+    }
+
+    try {
+      const { projectId } = await createProjectForTest(storageApp, "A duplicate research run start test idea");
+      const allowlistId = "research_allowlist_idempotent_run";
+      const startBody = {
+        researchTaskId: "research_task_idempotent",
+        allowlistId,
+        connectorId: "public_search",
+        sourceCategory: "public_web",
+        researchObjective: "Find public onboarding proof for idempotent start behavior.",
+        productCategory: "Founder workflow assistant",
+        customerProblemHypothesis: "Early founders need safe duplicate retry recovery.",
+        contextHash: "ctx_research_run_idempotent",
+        sourceRefs: ["queue_item_idempotent"]
+      };
+
+      await createAllowlistForTest(storageApp, projectId, allowlistId, {
+        rateBudgetPolicy: {
+          maxConcurrentRunsPerProject: 1,
+          maxRunsPerSession: 12,
+          maxAutomaticRetriesPerRun: 2,
+          runTimeoutSeconds: 600,
+          retryBackoffSeconds: [30, 120]
+        }
+      });
+
+      const first = await postStart(projectId, startBody);
+      const firstBody = await jsonBody(first);
+      const firstData = firstBody.data as Readonly<Record<string, unknown>>;
+      const firstResult = firstData.immediateProjection as Readonly<Record<string, unknown>>;
+      const firstRun = firstResult.researchRun as ResearchRunProjection;
+
+      expect(first.status).toBe(200);
+      expect(firstResult).toMatchObject({
+        action: "start",
+        status: "started",
+        researchRun: {
+          status: "running"
+        }
+      });
+
+      const duplicate = await postStart(projectId, startBody);
+      const duplicateBody = await jsonBody(duplicate);
+      const duplicateData = duplicateBody.data as Readonly<Record<string, unknown>>;
+      const duplicateResult = duplicateData.immediateProjection as Readonly<Record<string, unknown>>;
+
+      expect(duplicate.status).toBe(200);
+      expect(duplicateData).toMatchObject({
+        category: "accepted_with_projection"
+      });
+      expect(duplicateResult).toMatchObject({
+        action: "start",
+        status: "started",
+        researchRun: {
+          researchRunId: firstRun.researchRunId,
+          status: "running"
+        }
+      });
+      expect(duplicateResult).not.toHaveProperty("blocker");
+
+      const conflicting = await postStart(projectId, {
+        ...startBody,
+        researchTaskId: "research_task_rate_budget_conflict",
+        researchObjective: "Find public onboarding proof for a second concurrent run.",
+        contextHash: "ctx_research_run_rate_budget_conflict"
+      });
+      const conflictingBody = await jsonBody(conflicting);
+
+      expect(conflicting.status).toBe(200);
+      expect(conflictingBody.data).toMatchObject({
+        category: "blocked",
+        immediateProjection: {
+          status: "blocked_precondition",
+          blocker: {
+            code: "rate_budget_exhausted"
+          }
+        }
+      });
+
+      const runRows = await storage.client.execute("SELECT id FROM research_runs");
+      const disclosureRows = await storage.client.execute("SELECT id FROM research_disclosure_logs");
+
+      expect(runRows.rows).toHaveLength(1);
+      expect(disclosureRows.rows).toHaveLength(2);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("keeps manual retry idempotent while enforcing rate budget for new retry attempts", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    async function postStart(projectId: string, body: Readonly<Record<string, unknown>>) {
+      return storageApp.request(`/api/v1/projects/${projectId}/research-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+    }
+
+    async function postRetry(projectId: string, researchRunId: string, body: Readonly<Record<string, unknown>>) {
+      return storageApp.request(`/api/v1/projects/${projectId}/research-runs/${researchRunId}/retry`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+    }
+
+    try {
+      const { projectId } = await createProjectForTest(storageApp, "A manual retry idempotency and budget test idea");
+      const allowlistId = "research_allowlist_retry_budget";
+
+      await createAllowlistForTest(storageApp, projectId, allowlistId, {
+        rateBudgetPolicy: {
+          maxConcurrentRunsPerProject: 1,
+          maxRunsPerSession: 12,
+          maxAutomaticRetriesPerRun: 2,
+          runTimeoutSeconds: 600,
+          retryBackoffSeconds: [30, 120]
+        }
+      });
+
+      const sourceStart = await postStart(projectId, {
+        researchRunId: "research_run_retry_source",
+        researchTaskId: "research_task_retry_source",
+        allowlistId,
+        connectorId: "public_search",
+        sourceCategory: "public_web",
+        researchObjective: "Find public onboarding proof for manual retry idempotency.",
+        productCategory: "Founder workflow assistant",
+        customerProblemHypothesis: "Early founders need safe retry recovery.",
+        contextHash: "ctx_research_run_retry_source",
+        sourceRefs: ["queue_item_retry_source"]
+      });
+      const sourceStartBody = await jsonBody(sourceStart);
+      const sourceStartData = sourceStartBody.data as Readonly<Record<string, unknown>>;
+      const sourceStartResult = sourceStartData.immediateProjection as Readonly<Record<string, unknown>>;
+      const sourceRun = sourceStartResult.researchRun as ResearchRunProjection;
+      const repository = createResearchRunRepository(storage.db);
+      const failedSourceRun = {
+        ...sourceRun,
+        version: (Number(sourceRun.version) + 1) as ProjectionVersion,
+        status: "failed",
+        provider: {
+          ...sourceRun.provider,
+          completedAt: "2026-05-06T00:10:00.000Z"
+        },
+        terminalReason: "timeout",
+        updatedAt: "2026-05-06T00:10:00.000Z"
+      } satisfies ResearchRunProjection;
+
+      const savedFailedSourceRun = await repository.update({
+        run: failedSourceRun,
+        expectedVersion: sourceRun.version,
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      expect(savedFailedSourceRun).not.toBeNull();
+
+      const retryBody = {
+        researchRunId: "research_run_retry_source",
+        retryReason: "Retry after provider timeout.",
+        contextHash: "ctx_research_run_retry_source"
+      };
+      const retry = await postRetry(projectId, "research_run_retry_source", retryBody);
+      const retryResponseBody = await jsonBody(retry);
+      const retryData = retryResponseBody.data as Readonly<Record<string, unknown>>;
+      const retryResult = retryData.immediateProjection as Readonly<Record<string, unknown>>;
+      const attemptTwoRun = retryResult.researchRun as ResearchRunProjection;
+
+      expect(retry.status).toBe(200);
+      expect(retryResult).toMatchObject({
+        action: "retry",
+        status: "retry_started",
+        researchRun: {
+          retryOfRunId: "research_run_retry_source",
+          status: "running",
+          provider: {
+            attempt: 2
+          }
+        }
+      });
+
+      const duplicateRetry = await postRetry(projectId, "research_run_retry_source", retryBody);
+      const duplicateRetryBody = await jsonBody(duplicateRetry);
+      const duplicateRetryData = duplicateRetryBody.data as Readonly<Record<string, unknown>>;
+      const duplicateRetryResult = duplicateRetryData.immediateProjection as Readonly<Record<string, unknown>>;
+
+      expect(duplicateRetry.status).toBe(200);
+      expect(duplicateRetryResult).toMatchObject({
+        action: "retry",
+        status: "retry_started",
+        researchRun: {
+          researchRunId: attemptTwoRun.researchRunId,
+          status: "running",
+          provider: {
+            attempt: 2
+          }
+        }
+      });
+      expect(duplicateRetryResult).not.toHaveProperty("blocker");
+
+      const rowsAfterDuplicate = await storage.client.execute("SELECT id FROM research_runs");
+
+      expect(rowsAfterDuplicate.rows).toHaveLength(2);
+
+      const failedAttemptTwoRun = {
+        ...attemptTwoRun,
+        version: (Number(attemptTwoRun.version) + 1) as ProjectionVersion,
+        status: "failed",
+        provider: {
+          ...attemptTwoRun.provider,
+          completedAt: "2026-05-06T00:20:00.000Z"
+        },
+        terminalReason: "timeout",
+        updatedAt: "2026-05-06T00:20:00.000Z"
+      } satisfies ResearchRunProjection;
+
+      const savedFailedAttemptTwoRun = await repository.update({
+        run: failedAttemptTwoRun,
+        expectedVersion: attemptTwoRun.version,
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      expect(savedFailedAttemptTwoRun).not.toBeNull();
+
+      const terminalDuplicateRetry = await postRetry(projectId, "research_run_retry_source", retryBody);
+      const terminalDuplicateRetryBody = await jsonBody(terminalDuplicateRetry);
+      const terminalDuplicateRetryData = terminalDuplicateRetryBody.data as Readonly<Record<string, unknown>>;
+      const terminalDuplicateRetryResult =
+        terminalDuplicateRetryData.immediateProjection as Readonly<Record<string, unknown>>;
+
+      expect(terminalDuplicateRetry.status).toBe(200);
+      expect(terminalDuplicateRetryResult).toMatchObject({
+        action: "retry",
+        status: "status",
+        researchRun: {
+          researchRunId: attemptTwoRun.researchRunId,
+          status: "failed",
+          provider: {
+            attempt: 2
+          }
+        }
+      });
+      expect(terminalDuplicateRetryResult).not.toHaveProperty("retryAfterSeconds");
+      expect(terminalDuplicateRetryData.deterministicOutputs).toEqual([
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            providerExecution: false
+          })
+        })
+      ]);
+
+      const attemptThreeRetry = await postRetry(projectId, attemptTwoRun.researchRunId, {
+        researchRunId: attemptTwoRun.researchRunId,
+        retryReason: "Retry the failed second attempt.",
+        contextHash: "ctx_research_run_retry_attempt_three"
+      });
+      const attemptThreeRetryBody = await jsonBody(attemptThreeRetry);
+      const attemptThreeRetryData = attemptThreeRetryBody.data as Readonly<Record<string, unknown>>;
+      const attemptThreeRetryResult = attemptThreeRetryData.immediateProjection as Readonly<Record<string, unknown>>;
+
+      expect(attemptThreeRetry.status).toBe(200);
+      expect(attemptThreeRetryResult).toMatchObject({
+        action: "retry",
+        status: "retry_started",
+        researchRun: {
+          retryOfRunId: attemptTwoRun.researchRunId,
+          status: "running",
+          provider: {
+            attempt: 3
+          }
+        }
+      });
+
+      const savedBudgetBlockedPriorRun = await repository.create({
+        run: {
+          ...failedSourceRun,
+          version: 1 as ProjectionVersion,
+          researchRunId: "research_run_retry_budget_blocked" as ResearchRunProjection["researchRunId"],
+          researchTaskId: "research_task_retry_budget_blocked" as ResearchRunProjection["researchTaskId"],
+          provider: {
+            ...failedSourceRun.provider,
+            researchRunId: "research_run_retry_budget_blocked" as ResearchRunProjection["researchRunId"],
+            researchTaskId: "research_task_retry_budget_blocked" as ResearchRunProjection["researchTaskId"],
+            providerRunId: "fake_readonly_research_run_retry_budget_blocked",
+            idempotencyKey:
+              "research-run:v1:objective=Budget+blocked:connector=public_search:context=ctx_retry_budget_blocked:allowlistVersion=1:attempt=1",
+            startedAt: "2026-05-06T00:30:00.000Z",
+            completedAt: "2026-05-06T00:31:00.000Z",
+            attempt: 1
+          },
+          createdAt: "2026-05-06T00:30:00.000Z",
+          updatedAt: "2026-05-06T00:31:00.000Z"
+        } satisfies ResearchRunProjection,
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      expect(savedBudgetBlockedPriorRun).not.toBeNull();
+
+      const budgetBlockedRetry = await postRetry(projectId, "research_run_retry_budget_blocked", {
+        researchRunId: "research_run_retry_budget_blocked",
+        retryReason: "Retry should respect the active retry budget.",
+        contextHash: "ctx_retry_budget_blocked"
+      });
+      const budgetBlockedRetryBody = await jsonBody(budgetBlockedRetry);
+
+      expect(budgetBlockedRetry.status).toBe(200);
+      expect(budgetBlockedRetryBody.data).toMatchObject({
+        category: "blocked",
+        immediateProjection: {
+          action: "retry",
+          status: "blocked_precondition",
+          researchRun: {
+            researchRunId: "research_run_retry_budget_blocked",
+            status: "failed"
+          },
+          blocker: {
+            code: "rate_budget_exhausted"
+          }
+        }
+      });
+
+      const rowsAfterBudgetBlock = await storage.client.execute(
+        "SELECT id FROM research_runs WHERE retry_of_run_id = 'research_run_retry_budget_blocked'"
+      );
+
+      expect(rowsAfterBudgetBlock.rows).toHaveLength(0);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("blocks research run start when allowlist state or public-safe preconditions are not satisfied", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    async function postStart(projectId: string, body: Readonly<Record<string, unknown>>) {
+      return storageApp.request(`/api/v1/projects/${projectId}/research-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          researchTaskId: "research_task_blocked",
+          connectorId: "public_search",
+          sourceCategory: "public_web",
+          researchObjective: "Find public evidence.",
+          contextHash: "ctx_blocked_run",
+          ...body
+        })
+      });
+    }
+
+    try {
+      const { projectId } = await createProjectForTest(storageApp, "A research run blocker route test idea");
+      const missing = await postStart(projectId, {});
+      const missingBody = await jsonBody(missing);
+
+      expect(missing.status).toBe(200);
+      expect(missingBody.data).toMatchObject({
+        category: "blocked",
+        immediateProjection: {
+          status: "blocked_manual_handoff",
+          blocker: {
+            code: "allowlist_or_context_blocked"
+          }
+        }
+      });
+
+      await createAllowlistForTest(storageApp, projectId, "research_allowlist_paused_run");
+      await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists/research_allowlist_paused_run/pause`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          reason: "Pause before automatic run start."
+        })
+      });
+
+      const paused = await postStart(projectId, { allowlistId: "research_allowlist_paused_run" });
+      const pausedBody = await jsonBody(paused);
+
+      expect(paused.status).toBe(200);
+      expect(pausedBody.data).toMatchObject({
+        category: "blocked",
+        immediateProjection: {
+          status: "blocked_manual_handoff",
+          manualHandoff: {
+            route: "task_level_approval_or_manual_handoff"
+          }
+        }
+      });
+
+      await createAllowlistForTest(storageApp, projectId, "research_allowlist_stale_run");
+      const malformedFreshness = await postStart(projectId, {
+        allowlistId: "research_allowlist_stale_run",
+        taskFreshnessDeadline: "not-a-date"
+      });
+      const malformedFreshnessBody = await jsonBody(malformedFreshness);
+
+      expect(malformedFreshness.status).toBe(400);
+      expect(malformedFreshnessBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "taskFreshnessDeadline must be an ISO timestamp."
+      });
+
+      const malformedSourceTimestamp = await postStart(projectId, {
+        allowlistId: "research_allowlist_stale_run",
+        sourcePublishedAt: "not-a-date"
+      });
+      const malformedSourceTimestampBody = await jsonBody(malformedSourceTimestamp);
+
+      expect(malformedSourceTimestamp.status).toBe(400);
+      expect(malformedSourceTimestampBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "sourcePublishedAt must be an ISO timestamp."
+      });
+
+      const stale = await postStart(projectId, {
+        allowlistId: "research_allowlist_stale_run",
+        taskFreshnessDeadline: "2026-05-05T00:00:00.000Z"
+      });
+      const staleBody = await jsonBody(stale);
+
+      expect(stale.status).toBe(200);
+      expect(staleBody.data).toMatchObject({
+        category: "blocked",
+        immediateProjection: {
+          status: "blocked_precondition",
+          blocker: {
+            code: "staleness_policy_failed"
+          }
+        }
+      });
+
+      const rows = await storage.client.execute("SELECT * FROM research_runs");
+
+      expect(rows.rows).toHaveLength(0);
     } finally {
       await storage.close();
     }

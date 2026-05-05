@@ -111,6 +111,46 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "listResearchRuns",
+    clientName: "listResearchRuns",
+    method: "GET",
+    path: "/api/v1/projects/:projectId/research-runs",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
+    routeId: "startResearchRun",
+    clientName: "startResearchRun",
+    method: "POST",
+    path: "/api/v1/projects/:projectId/research-runs",
+    commandType: "StartResearchRun",
+    implementedInPr01: false
+  },
+  {
+    routeId: "getResearchRunStatus",
+    clientName: "getResearchRunStatus",
+    method: "GET",
+    path: "/api/v1/projects/:projectId/research-runs/:researchRunId/status",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
+    routeId: "cancelResearchRun",
+    clientName: "cancelResearchRun",
+    method: "POST",
+    path: "/api/v1/projects/:projectId/research-runs/:researchRunId/cancel",
+    commandType: "CancelResearchRun",
+    implementedInPr01: false
+  },
+  {
+    routeId: "retryResearchRun",
+    clientName: "retryResearchRun",
+    method: "POST",
+    path: "/api/v1/projects/:projectId/research-runs/:researchRunId/retry",
+    commandType: "RetryResearchRun",
+    implementedInPr01: false
+  },
+  {
     routeId: "startOrResumeSession",
     clientName: "startOrResumeSession",
     method: "POST",
@@ -458,4 +498,17 @@ export const PHASE15A_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...PHASE15A_PR03_DISCLOSURE_ROUTE_IDS
 ] as const satisfies readonly ApiRouteId[];
 
-export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE15A_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS;
+export const PHASE15A_PR05_RESEARCH_RUN_ROUTE_IDS = [
+  "listResearchRuns",
+  "startResearchRun",
+  "getResearchRunStatus",
+  "cancelResearchRun",
+  "retryResearchRun"
+] as const satisfies readonly ApiRouteId[];
+
+export const PHASE15A_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...PHASE15A_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  ...PHASE15A_PR05_RESEARCH_RUN_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE15A_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS;
