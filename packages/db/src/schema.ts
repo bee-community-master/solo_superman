@@ -339,6 +339,27 @@ export const runtimePreviewArtifacts = sqliteTable(
   ]
 );
 
+export const phase15bUpgradeHints = sqliteTable(
+  "phase15b_upgrade_hints",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    artifactId: text("artifact_id").notNull(),
+    artifactKind: text("artifact_kind").notNull(),
+    blockedActionType: text("blocked_action_type").notNull(),
+    riskLevel: text("risk_level").notNull(),
+    hintsJson: text("hints_json").notNull(),
+    createdAt: text("created_at").notNull(),
+    schemaVersion: text("schema_version").notNull()
+  },
+  (table) => [
+    uniqueIndex("phase15b_upgrade_hints_artifact_idx").on(table.artifactId),
+    index("phase15b_upgrade_hints_session_idx").on(table.sessionId),
+    index("phase15b_upgrade_hints_risk_idx").on(table.projectId, table.riskLevel)
+  ]
+);
+
 export const runtimeTaskRefs = sqliteTable(
   "runtime_task_refs",
   {

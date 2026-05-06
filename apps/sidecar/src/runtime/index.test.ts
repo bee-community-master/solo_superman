@@ -4,7 +4,9 @@ import {
   CODEX_APPLY_POLICIES,
   CODEX_ARTIFACT_KINDS,
   CODEX_TURN_PURPOSES,
-  CONTRACT_SCHEMA_VERSION
+  CONTRACT_SCHEMA_VERSION,
+  PHASE15B_ISO_UTC_TIMESTAMP_PATTERN,
+  PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION
 } from "@solo-superman/contracts";
 import {
   createCodexRuntimeAdapter,
@@ -13,6 +15,62 @@ import {
   repairCodexJsonOutput,
   validateCodexPreviewOutput
 } from "./index";
+
+function phase15bHintsFixture() {
+  return {
+    executionIntent: {
+      candidateActionType: "shell_command",
+      targetSurface: "local workspace verification",
+      nonExecutingSummary: "Readiness metadata only; no command was executed."
+    },
+    approvalRequirements: [
+      {
+        approvalType: "task_level_execution",
+        reason: "A future phase must ask before running the command.",
+        scope: "pnpm verify in an isolated worktree",
+        requiredActor: "user",
+        reconfirmRule: "Reconfirm if cwd, command, or base ref changes."
+      }
+    ],
+    sandboxRequirements: {
+      isolatedWorktreeRequired: true,
+      browserSandboxRequired: false,
+      networkMode: "offline",
+      commandAllowlist: ["pnpm verify"],
+      secretGrantBoundary: "No secret values are required.",
+      environmentPolicy: "Use the project-local workspace and capture logs.",
+      logCaptureRequired: true
+    },
+    rollbackReference: {
+      baseRef: "origin/main",
+      rollbackNote: "Discard preview metadata or revert the later implementation commit.",
+      reversible: true,
+      cleanupExpectation: "Remove temporary logs and worktree after inspection."
+    },
+    expectedEvidence: {
+      tests: ["pnpm verify"],
+      smokeChecks: ["pnpm smoke:e2e"],
+      artifactPaths: ["apps/sidecar/src/e2e-dry-run.fixture.ts"],
+      manualInspection: ["Confirm labels say readiness or preview."],
+      expectedLogs: ["phase15b readiness metadata exported"]
+    },
+    riskNormalization: {
+      riskLevel: "medium",
+      blockedActionType: "shell_command",
+      blockReason: "Phase 1.5B must not execute shell commands.",
+      userVisibleAction: "Request explicit task-level execution approval later.",
+      escalationTarget: "Phase 3 safe-execution policy"
+    },
+    sourceRefs: [
+      {
+        kind: "preview_artifact",
+        refId: "runtime_artifact_storage"
+      }
+    ],
+    createdAt: "2026-05-06T00:00:00.000Z",
+    schemaVersion: PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION
+  };
+}
 
 describe("PR-07 Codex runtime adapter contracts", () => {
   it("generates valid fixture output for every canonical turnPurpose", () => {
@@ -77,6 +135,79 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         }
       })
     ).toThrow("payload.sourceRefs must be an array of non-empty strings");
+  });
+
+  it("rejects malformed Phase 1.5B upgrade hints instead of dropping them", () => {
+    expect(() =>
+      validateCodexPreviewOutput({
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        turnPurpose: "implementation_plan_preview",
+        artifactKind: "ImplementationPlanPreviewArtifact",
+        applyPolicy: "note_only",
+        summary: "Implementation plan preview ready",
+        payload: {
+          title: "Implementation plan preview ready",
+          body: "Preview only.",
+          targetObject: "PlanningNote",
+          sourceRefs: ["spec_current"],
+          phase15bUpgradeHints: null
+        }
+      })
+    ).toThrow("phase15bUpgradeHints must be an object");
+  });
+
+  it("rejects Phase 1.5B upgrade hints on unsupported artifact kinds", () => {
+    expect(() =>
+      validateCodexPreviewOutput({
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        turnPurpose: "question_generation",
+        artifactKind: "QuestionBatchArtifact",
+        applyPolicy: "conditional_auto_apply",
+        summary: "Question batch ready",
+        payload: {
+          title: "Question batch ready",
+          body: "Preview only.",
+          targetObject: "QuestionBatch",
+          sourceRefs: ["spec_current"],
+          phase15bUpgradeHints: phase15bHintsFixture()
+        }
+      })
+    ).toThrow("phase15bUpgradeHints may only be attached");
+  });
+
+  it("rejects Phase 1.5B upgrade hints that do not match a blocked artifact action type", () => {
+    const browserActionHints = {
+      ...phase15bHintsFixture(),
+      executionIntent: {
+        ...phase15bHintsFixture().executionIntent,
+        candidateActionType: "browser_action"
+      },
+      riskNormalization: {
+        ...phase15bHintsFixture().riskNormalization,
+        blockedActionType: "browser_action"
+      }
+    };
+
+    expect(() =>
+      validateCodexPreviewOutput({
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        turnPurpose: "implementation_plan_preview",
+        artifactKind: "BlockedActionArtifact",
+        applyPolicy: "blocked",
+        summary: "Shell command blocked",
+        payload: {
+          title: "Shell command blocked",
+          body: "Preview only.",
+          targetObject: "blocked_action",
+          sourceRefs: ["spec_current"],
+          blockedAction: {
+            actionType: "shell_command",
+            reason: "Phase 1.5B records readiness only."
+          },
+          phase15bUpgradeHints: browserActionHints
+        }
+      })
+    ).toThrow("phase15bUpgradeHints action type must match");
   });
 
   it("converts forbidden action fixtures into BlockedActionArtifact taxonomy", () => {
@@ -199,7 +330,20 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     });
     expect(turnStartRequest.params.outputSchema).toMatchObject({
       type: "object",
-      required: expect.arrayContaining(["schemaVersion", "turnPurpose", "artifactKind", "applyPolicy"])
+      required: expect.arrayContaining(["schemaVersion", "turnPurpose", "artifactKind", "applyPolicy"]),
+      properties: {
+        payload: {
+          properties: {
+            phase15bUpgradeHints: {
+              properties: {
+                createdAt: {
+                  pattern: PHASE15B_ISO_UTC_TIMESTAMP_PATTERN
+                }
+              }
+            }
+          }
+        }
+      }
     });
   });
 });

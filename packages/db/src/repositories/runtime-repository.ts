@@ -1,7 +1,13 @@
 import { eq } from "drizzle-orm";
+import {
+  assertPhase15bHintArtifactKind,
+  assertPhase15bUpgradeHintsMatchBlockedAction,
+  validatePhase15bUpgradeHints
+} from "@solo-superman/contracts";
 import type {
   BlockedActionType,
   EffectTaskId,
+  Phase15bUpgradeHints,
   ProjectionVersion,
   ProjectId,
   RuntimeActivityProjection,
@@ -13,6 +19,7 @@ import type {
 import type { SoloDatabaseExecutor } from "../client";
 import { parseJsonArray, parseJsonRecord, stringifyJson } from "../json";
 import { runtimePreviewArtifacts, runtimeTaskRefs } from "../schema";
+import { createPhase15bUpgradeHintRepository } from "./phase15b-upgrade-hint-repository";
 
 export interface SaveRuntimePreviewArtifactInput {
   readonly projectId: ProjectId;
@@ -64,7 +71,27 @@ function projectionFromArtifacts(artifacts: readonly RuntimePreviewArtifact[]): 
   };
 }
 
+function phase15bHintsFromArtifact(artifact: RuntimePreviewArtifact): Phase15bUpgradeHints | null {
+  const hints = artifact.payload.phase15bUpgradeHints;
+
+  if (hints === undefined) {
+    return null;
+  }
+
+  assertPhase15bHintArtifactKind(artifact.kind);
+
+  const validatedHints = validatePhase15bUpgradeHints(hints);
+
+  if (artifact.kind === "BlockedActionArtifact" && artifact.blockedAction) {
+    assertPhase15bUpgradeHintsMatchBlockedAction(validatedHints, artifact.blockedAction.actionType);
+  }
+
+  return validatedHints;
+}
+
 export function createRuntimeRepository(db: SoloDatabaseExecutor) {
+  const phase15bHintRepository = createPhase15bUpgradeHintRepository(db);
+
   async function getArtifact(artifactId: RuntimeArtifactId): Promise<RuntimePreviewArtifact | null> {
     const rows = await db
       .select()
@@ -88,6 +115,7 @@ export function createRuntimeRepository(db: SoloDatabaseExecutor) {
   return {
     async saveArtifact(input: SaveRuntimePreviewArtifactInput): Promise<RuntimePreviewArtifact> {
       const { artifact } = input;
+      const phase15bUpgradeHints = phase15bHintsFromArtifact(artifact);
 
       await db
         .insert(runtimePreviewArtifacts)
@@ -154,6 +182,19 @@ export function createRuntimeRepository(db: SoloDatabaseExecutor) {
               schemaVersion: input.schemaVersion
             }
           });
+      }
+
+      if (phase15bUpgradeHints) {
+        await phase15bHintRepository.saveForArtifact({
+          projectId: input.projectId,
+          sessionId: input.sessionId,
+          artifactId: artifact.artifactId,
+          artifactKind: artifact.kind,
+          hints: phase15bUpgradeHints,
+          schemaVersion: input.schemaVersion
+        });
+      } else {
+        await phase15bHintRepository.deleteForArtifact(artifact.artifactId);
       }
 
       const saved = await getArtifact(artifact.artifactId);

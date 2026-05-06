@@ -1,6 +1,7 @@
 export * from "./config-repository";
 export * from "./effect-task-repository";
 export * from "./event-repository";
+export * from "./phase15b-upgrade-hint-repository";
 export * from "./project-repository";
 export * from "./projection-repository";
 export * from "./research-allowlist-repository";

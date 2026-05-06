@@ -1,4 +1,5 @@
 import type { EffectTaskId, RuntimeArtifactId, SchemaVersion } from "../ids";
+import type { Phase15bUpgradeHints } from "./phase15b-upgrade-hints";
 
 export const CODEX_TURN_PURPOSES = [
   "question_generation",
@@ -90,7 +91,7 @@ export interface CodexPreviewArtifactPayload {
   readonly targetObject: string;
   readonly sourceRefs: readonly string[];
   readonly blockedAction?: BlockedActionSummary;
-  readonly phase15bUpgradeHints?: Readonly<Record<string, unknown>>;
+  readonly phase15bUpgradeHints?: Phase15bUpgradeHints;
 }
 
 export interface CodexPreviewOutputEnvelope {

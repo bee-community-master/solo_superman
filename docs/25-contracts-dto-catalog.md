@@ -755,6 +755,7 @@ Example DecisionQueueProjection:
 | `CodexApplyPolicy` | 24번 applyPolicy enum | 6 values only |
 | `BlockedActionType` | 24번 blocked action taxonomy | Phase 1 blocked, Phase 1.5B hint only |
 | `CodexOutputEnvelopeRef` | 24번 output envelope | reference type for runtime artifacts, not raw Codex client type |
+| `Phase15bUpgradeHints` | 30번 Phase 1.5B readiness contract | structured approval/sandbox/rollback/evidence/risk/sourceRef metadata; not execution permission |
 
 Rules:
 
@@ -766,7 +767,7 @@ Rules:
 
 Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`를 canonical source로 사용한다.
 
-- `ResearchAllowlistProjection` is implemented first for Phase 1.5A PR-01; `ResearchDisclosureLogProjection` is implemented in Phase 1.5A PR-03 before provider execution; `ResearchRunProjection` is implemented in Phase 1.5A PR-04 for lifecycle/provider-reference storage; Phase 1.5A PR-05 adds `StartResearchRunRequest`, `CancelResearchRunRequest`, `RetryResearchRunRequest`, `ResearchRunControlProjection`, `ResearchRunControlResult`, and `ResearchRunStatusDto` for run control/status/refetch recovery; Phase 1.5A PR-06 adds quality-gate checks and `DecisionEvidencePackProjection` records without auto-updating SpecVersion; Phase 1.5A PR-07 adds Research-updated Queue card types/outcomes and `ResolveResearchQueueCardRequest`; add structured Phase15bUpgradeHints in its later implementation PR.
+- `ResearchAllowlistProjection` is implemented first for Phase 1.5A PR-01; `ResearchDisclosureLogProjection` is implemented in Phase 1.5A PR-03 before provider execution; `ResearchRunProjection` is implemented in Phase 1.5A PR-04 for lifecycle/provider-reference storage; Phase 1.5A PR-05 adds `StartResearchRunRequest`, `CancelResearchRunRequest`, `RetryResearchRunRequest`, `ResearchRunControlProjection`, `ResearchRunControlResult`, and `ResearchRunStatusDto` for run control/status/refetch recovery; Phase 1.5A PR-06 adds quality-gate checks and `DecisionEvidencePackProjection` records without auto-updating SpecVersion; Phase 1.5A PR-07 adds Research-updated Queue card types/outcomes and `ResolveResearchQueueCardRequest`; Phase 1.5B PR-09 adds structured `Phase15bUpgradeHints` contracts and local hint records.
 - Phase15bUpgradeHints must expose approval requirements, sandbox/workspace requirements, rollback/reference plan, expected evidence, risk normalization, and sourceRefs.
 - DTOs must preserve no-execution semantics; no field should imply active delegation or executed side effects in Phase 1.5B.
 - `packages/contracts` still must not import runtime clients, Hono, Drizzle, React, or Tauri modules.

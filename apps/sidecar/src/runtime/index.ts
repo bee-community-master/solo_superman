@@ -9,6 +9,16 @@ import {
   CODEX_RUNTIME_TRANSPORT,
   CODEX_TURN_PURPOSES,
   CONTRACT_SCHEMA_VERSION,
+  PHASE15B_APPROVAL_TYPES,
+  PHASE15B_ISO_UTC_TIMESTAMP_PATTERN,
+  PHASE15B_NETWORK_MODES,
+  PHASE15B_REQUIRED_ACTORS,
+  PHASE15B_RISK_LEVELS,
+  PHASE15B_SOURCE_REF_KINDS,
+  PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION,
+  assertPhase15bUpgradeHintsMatchBlockedAction,
+  isPhase15bHintArtifactKind,
+  validatePhase15bUpgradeHints,
   type BlockedActionType,
   type CodexApplyPolicy,
   type CodexAppServerClientRequest,
@@ -16,7 +26,8 @@ import {
   type CodexArtifactKind,
   type CodexPreviewOutputEnvelope,
   type CodexRuntimeStatusDto,
-  type CodexTurnPurpose
+  type CodexTurnPurpose,
+  type Phase15bUpgradeHints
 } from "@solo-superman/contracts";
 
 export const RUNTIME_ADAPTER_STATUS = "codex-app-server-preview-pr-07" as const;
@@ -135,9 +146,146 @@ function codexPreviewOutputJsonSchema(): CodexAppServerJsonValue {
               suggestedSafeAlternative: { type: "string" }
             }
           },
-          phase15bUpgradeHints: { type: "object", additionalProperties: true }
+          phase15bUpgradeHints: phase15bUpgradeHintsJsonSchema()
         }
       }
+    }
+  };
+}
+
+function hasOwnRecordKey(record: Readonly<Record<string, unknown>>, key: string) {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+
+function optionalPhase15bUpgradeHints(payloadRecord: Readonly<Record<string, unknown>>): Phase15bUpgradeHints | undefined {
+  return hasOwnRecordKey(payloadRecord, "phase15bUpgradeHints")
+    ? validatePhase15bUpgradeHints(payloadRecord.phase15bUpgradeHints)
+    : undefined;
+}
+
+function stringArrayJsonSchema(): CodexAppServerJsonValue {
+  return {
+    type: "array",
+    items: { type: "string", minLength: 1 }
+  };
+}
+
+function phase15bUpgradeHintsJsonSchema(): CodexAppServerJsonValue {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "executionIntent",
+      "approvalRequirements",
+      "sandboxRequirements",
+      "rollbackReference",
+      "expectedEvidence",
+      "riskNormalization",
+      "sourceRefs",
+      "createdAt",
+      "schemaVersion"
+    ],
+    properties: {
+      executionIntent: {
+        type: "object",
+        additionalProperties: false,
+        required: ["candidateActionType", "targetSurface", "nonExecutingSummary"],
+        properties: {
+          candidateActionType: { enum: [...BLOCKED_ACTION_TYPES] },
+          targetSurface: { type: "string", minLength: 1 },
+          nonExecutingSummary: { type: "string", minLength: 1 }
+        }
+      },
+      approvalRequirements: {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["approvalType", "reason", "scope", "requiredActor", "reconfirmRule"],
+          properties: {
+            approvalType: { enum: [...PHASE15B_APPROVAL_TYPES] },
+            reason: { type: "string", minLength: 1 },
+            scope: { type: "string", minLength: 1 },
+            requiredActor: { enum: [...PHASE15B_REQUIRED_ACTORS] },
+            reconfirmRule: { type: "string", minLength: 1 }
+          }
+        }
+      },
+      sandboxRequirements: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "isolatedWorktreeRequired",
+          "browserSandboxRequired",
+          "networkMode",
+          "commandAllowlist",
+          "secretGrantBoundary",
+          "environmentPolicy",
+          "logCaptureRequired"
+        ],
+        properties: {
+          isolatedWorktreeRequired: { type: "boolean" },
+          browserSandboxRequired: { type: "boolean" },
+          networkMode: { enum: [...PHASE15B_NETWORK_MODES] },
+          commandAllowlist: stringArrayJsonSchema(),
+          secretGrantBoundary: { type: "string", minLength: 1 },
+          environmentPolicy: { type: "string", minLength: 1 },
+          logCaptureRequired: { type: "boolean" }
+        }
+      },
+      rollbackReference: {
+        type: "object",
+        additionalProperties: false,
+        required: ["baseRef", "rollbackNote", "reversible", "cleanupExpectation"],
+        properties: {
+          baseRef: { type: "string", minLength: 1 },
+          diffRef: { type: "string", minLength: 1 },
+          rollbackNote: { type: "string", minLength: 1 },
+          reversible: { type: "boolean" },
+          cleanupExpectation: { type: "string", minLength: 1 }
+        }
+      },
+      expectedEvidence: {
+        type: "object",
+        additionalProperties: false,
+        required: ["tests", "smokeChecks", "artifactPaths", "manualInspection", "expectedLogs"],
+        properties: {
+          tests: stringArrayJsonSchema(),
+          smokeChecks: stringArrayJsonSchema(),
+          artifactPaths: stringArrayJsonSchema(),
+          manualInspection: stringArrayJsonSchema(),
+          expectedLogs: stringArrayJsonSchema()
+        }
+      },
+      riskNormalization: {
+        type: "object",
+        additionalProperties: false,
+        required: ["riskLevel", "blockedActionType", "blockReason", "userVisibleAction", "escalationTarget"],
+        properties: {
+          riskLevel: { enum: [...PHASE15B_RISK_LEVELS] },
+          blockedActionType: { enum: [...BLOCKED_ACTION_TYPES] },
+          blockReason: { type: "string", minLength: 1 },
+          userVisibleAction: { type: "string", minLength: 1 },
+          escalationTarget: { type: "string", minLength: 1 }
+        }
+      },
+      sourceRefs: {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["kind", "refId"],
+          properties: {
+            kind: { enum: [...PHASE15B_SOURCE_REF_KINDS] },
+            refId: { type: "string", minLength: 1 },
+            label: { type: "string", minLength: 1 }
+          }
+        }
+      },
+      createdAt: { type: "string", pattern: PHASE15B_ISO_UTC_TIMESTAMP_PATTERN },
+      schemaVersion: { const: PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION }
     }
   };
 }
@@ -313,6 +461,13 @@ export function validateCodexPreviewOutput(value: unknown): CodexPreviewOutputEn
 
   const sourceRefs = stringArray(payloadRecord.sourceRefs, "payload.sourceRefs");
   const blockedAction = payloadRecord.blockedAction;
+  const phase15bUpgradeHints = optionalPhase15bUpgradeHints(payloadRecord);
+
+  if (phase15bUpgradeHints && !isPhase15bHintArtifactKind(record.artifactKind)) {
+    throw new Error(
+      "phase15bUpgradeHints may only be attached to ImplementationPlanPreviewArtifact or BlockedActionArtifact."
+    );
+  }
 
   if (record.artifactKind === "BlockedActionArtifact") {
     if (!blockedAction || typeof blockedAction !== "object" || Array.isArray(blockedAction)) {
@@ -323,6 +478,10 @@ export function validateCodexPreviewOutput(value: unknown): CodexPreviewOutputEn
 
     if (!isBlockedActionType(blocked.actionType)) {
       throw new Error("BlockedActionArtifact actionType is not canonical.");
+    }
+
+    if (phase15bUpgradeHints) {
+      assertPhase15bUpgradeHintsMatchBlockedAction(phase15bUpgradeHints, blocked.actionType);
     }
 
     if (typeof blocked.reason !== "string" || blocked.reason.trim().length === 0) {
@@ -356,9 +515,7 @@ export function validateCodexPreviewOutput(value: unknown): CodexPreviewOutputEn
             }
           }
         : {}),
-      ...(payloadRecord.phase15bUpgradeHints && typeof payloadRecord.phase15bUpgradeHints === "object"
-        ? { phase15bUpgradeHints: payloadRecord.phase15bUpgradeHints as Readonly<Record<string, unknown>> }
-        : {})
+      ...(phase15bUpgradeHints ? { phase15bUpgradeHints } : {})
     }
   };
 }

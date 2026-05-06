@@ -7,6 +7,9 @@ import {
   CODEX_ARTIFACT_KINDS,
   CODEX_RUNTIME_ADAPTER_VERSION,
   CODEX_TURN_PURPOSES,
+  assertPhase15bUpgradeHintsMatchBlockedAction,
+  isPhase15bHintArtifactKind,
+  validatePhase15bUpgradeHints,
   type ActiveBatchSafeProjection,
   type AmbiguityIssueSnapshot,
   type BlockedActionType,
@@ -28,6 +31,7 @@ import {
   type ProductEngineReduction,
   type ProductEngineRejectionCode,
   type ProductEngineStateSnapshot,
+  type Phase15bUpgradeHints,
   type ProjectId,
   type ProjectionVersion,
   type QueueItemId,
@@ -186,6 +190,10 @@ function mergeSpecUpdatePreview(
 
 function requiredString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function hasOwnRecordKey(record: Readonly<Record<string, unknown>>, key: string) {
+  return Object.prototype.hasOwnProperty.call(record, key);
 }
 
 function optionalPayloadSections(value: unknown) {
@@ -1975,12 +1983,13 @@ function runtimeArtifactFromPayload(
     return reject("CreateRuntimePreview requires turnPurpose, contextHash, prompt/body, and valid sourceRefs.", "VALIDATION_FAILED");
   }
 
-  const blockedActionType = command.payload.blockedActionType ?? command.payload.requestedActionType;
+  const requestedBlockedActionType = command.payload.blockedActionType ?? command.payload.requestedActionType;
   const blockedActionReason =
     requiredString(command.payload.blockedActionReason) ??
     requiredString(command.payload.requestedActionReason) ??
     "Phase 1 converts forbidden runtime actions into blocked preview artifacts.";
-  const hasBlockedAction = isBlockedActionType(blockedActionType);
+  const blockedActionType = isBlockedActionType(requestedBlockedActionType) ? requestedBlockedActionType : null;
+  const hasBlockedAction = blockedActionType !== null;
   const requestedKind = command.payload.artifactKind;
   const requestedPolicy = command.payload.applyPolicy;
   const kind = hasBlockedAction
@@ -2001,6 +2010,28 @@ function runtimeArtifactFromPayload(
   const artifactId = runtimeArtifactIdFor(command.sessionId, turnPurpose, contextHash, runtimeAdapterVersion);
   const targetObject =
     requiredString(command.payload.targetObject) ?? (kind === "BlockedActionArtifact" ? "blocked_action" : turnPurpose);
+  const phase15bUpgradeHints = phase15bUpgradeHintsFromPayload(command.payload);
+
+  if (phase15bUpgradeHints.kind === "invalid") {
+    return phase15bUpgradeHints.rejection;
+  }
+
+  if (phase15bUpgradeHints.kind === "valid" && !isPhase15bHintArtifactKind(kind)) {
+    return reject(
+      "CreateRuntimePreview phase15bUpgradeHints may only be attached to ImplementationPlanPreviewArtifact or BlockedActionArtifact.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  if (phase15bUpgradeHints.kind === "valid" && hasBlockedAction) {
+    try {
+      assertPhase15bUpgradeHintsMatchBlockedAction(phase15bUpgradeHints.hints, blockedActionType);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      return reject(`CreateRuntimePreview phase15bUpgradeHints is invalid: ${message}`, "VALIDATION_FAILED");
+    }
+  }
 
   return {
     artifactId,
@@ -2016,9 +2047,7 @@ function runtimeArtifactFromPayload(
       body,
       targetObject,
       sourceRefs,
-      ...(typeof command.payload.phase15bUpgradeHints === "object" && command.payload.phase15bUpgradeHints !== null
-        ? { phase15bUpgradeHints: command.payload.phase15bUpgradeHints }
-        : {})
+      ...(phase15bUpgradeHints.kind === "valid" ? { phase15bUpgradeHints: phase15bUpgradeHints.hints } : {})
     },
     sourceRefs,
     contextHash,
@@ -2040,6 +2069,30 @@ function runtimeArtifactFromPayload(
     createdAt: command.issuedAt,
     schemaVersion: command.schemaVersion
   };
+}
+
+type Phase15bUpgradeHintsValidationResult =
+  | { readonly kind: "absent" }
+  | { readonly kind: "valid"; readonly hints: Phase15bUpgradeHints }
+  | { readonly kind: "invalid"; readonly rejection: ProductEngineReduction };
+
+function phase15bUpgradeHintsFromPayload(
+  payload: ProductEngineCommand["payload"]
+): Phase15bUpgradeHintsValidationResult {
+  if (!hasOwnRecordKey(payload, "phase15bUpgradeHints")) {
+    return { kind: "absent" };
+  }
+
+  try {
+    return { kind: "valid", hints: validatePhase15bUpgradeHints(payload.phase15bUpgradeHints) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    return {
+      kind: "invalid",
+      rejection: reject(`CreateRuntimePreview phase15bUpgradeHints is invalid: ${message}`, "VALIDATION_FAILED")
+    };
+  }
 }
 
 function reduceCreateRuntimePreview(

@@ -57,6 +57,13 @@
       "when": 1778017758537,
       "tag": "0007_flowery_madrox",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1778032303907,
+      "tag": "0008_abnormal_gateway",
+      "breakpoints": true
     }
   ]
 }

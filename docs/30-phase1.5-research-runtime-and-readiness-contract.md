@@ -270,7 +270,7 @@ The new canonical types are implemented later in `packages/contracts`, DB schema
 - `ResearchAllowlistProjection` exposes status, connector ids, source categories, context mode, rate/budget/staleness summary, and revoke/pause state.
 - `ResearchRunProjection` exposes run status, provider reference, attempt, source category, disclosure log ref, quality gate status, and terminal reason.
 - `ResearchDisclosureLogProjection` exposes connector/source category, query/objective summary, public-safe summary sent, timestamp, and source refs.
-- `Phase15bUpgradeHints` is a structured object, not `Record<string, unknown>` after Phase 1.5B implementation.
+- `Phase15bUpgradeHints` is implemented as a structured object, not `Record<string, unknown>`, with a dedicated local `phase15b_upgrade_hints` record when runtime artifacts carry hint payloads.
 
 ### API/checklist
 

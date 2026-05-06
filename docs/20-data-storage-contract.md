@@ -326,7 +326,8 @@ Phase 1.5 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`�
 - ResearchAllowlist는 connector/source category, status, contextMode, rate/budget/staleness policy, approved/paused/revoked timestamps를 local DB에 저장한다.
 - ResearchRun은 status state machine, provider run reference, idempotency key, attempt, timestamps, terminal reason을 저장한다.
 - ResearchDisclosureLog는 connector/source category, query/objective summary, public-safe summary sent, source refs를 저장한다.
-- `phase15bUpgradeHints`는 structured readiness metadata로 저장·조회·export되지만 실행 권한으로 해석하지 않는다.
+- `phase15bUpgradeHints`는 `phase15b_upgrade_hints` local table과 runtime artifact payload에 structured readiness metadata로 저장되며, 조회·export되더라도 실행 권한으로 해석하지 않는다.
+- `phase15b_upgrade_hints` records preserve artifact kind/id, risk/blocked action summary, and sourceRefs back to preview/blocked artifacts, ResearchRun, EvidenceMatrix, allowlist, and disclosure/audit logs when available.
 - secret value는 libSQL에 저장하지 않고 OS secret ref만 저장한다.
 
 ## Phase 2 planning handoff storage checklist

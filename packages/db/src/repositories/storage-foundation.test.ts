@@ -6,12 +6,14 @@ import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   CONTRACT_SCHEMA_VERSION,
+  PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION,
   type CommandId,
   type CorrelationId,
   type DecisionEvidencePackId,
   type EvidenceItemId,
   type EffectTaskId,
   type EventId,
+  type Phase15bUpgradeHints,
   type ProjectionVersion,
   type ProjectId,
   type ResearchResultId,
@@ -24,10 +26,11 @@ import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } fr
 import { createConfigRepository } from "./config-repository";
 import { createEffectTaskRepository } from "./effect-task-repository";
 import { createEventRepository, persistDerivedStateAfterEvent } from "./event-repository";
+import { createPhase15bUpgradeHintRepository } from "./phase15b-upgrade-hint-repository";
 import { createProjectRepository } from "./project-repository";
 import { createResearchRepository } from "./research-repository";
 import { createRuntimeRepository } from "./runtime-repository";
-import { appConfig, effectTasks, runtimeTaskRefs } from "../schema";
+import { appConfig, effectTasks, phase15bUpgradeHints, runtimeTaskRefs } from "../schema";
 
 const tempDirs: string[] = [];
 
@@ -56,6 +59,85 @@ async function createMigratedStorage() {
   return { storage, appDataDir, migrationStatus };
 }
 
+function phase15bHintsFixture(overrides: Partial<Phase15bUpgradeHints> = {}): Phase15bUpgradeHints {
+  return {
+    executionIntent: {
+      candidateActionType: "shell_command",
+      targetSurface: "local workspace verification",
+      nonExecutingSummary: "Readiness metadata for a later approved verification command."
+    },
+    approvalRequirements: [
+      {
+        approvalType: "task_level_execution",
+        reason: "A future phase must ask before running the command.",
+        scope: "pnpm verify in an isolated worktree",
+        requiredActor: "user",
+        reconfirmRule: "Reconfirm if cwd, command, or base ref changes."
+      }
+    ],
+    sandboxRequirements: {
+      isolatedWorktreeRequired: true,
+      browserSandboxRequired: false,
+      networkMode: "offline",
+      commandAllowlist: ["pnpm verify"],
+      secretGrantBoundary: "No secret values are required.",
+      environmentPolicy: "Use the project-local workspace and capture logs.",
+      logCaptureRequired: true
+    },
+    rollbackReference: {
+      baseRef: "origin/main",
+      diffRef: "runtime_artifact_storage.diff",
+      rollbackNote: "Discard preview metadata or revert the later implementation commit.",
+      reversible: true,
+      cleanupExpectation: "Remove temporary logs and worktree after inspection."
+    },
+    expectedEvidence: {
+      tests: ["pnpm verify"],
+      smokeChecks: ["pnpm smoke:e2e"],
+      artifactPaths: ["apps/sidecar/src/e2e-dry-run.fixture.ts"],
+      manualInspection: ["Confirm labels say readiness or preview."],
+      expectedLogs: ["phase15b readiness metadata exported"]
+    },
+    riskNormalization: {
+      riskLevel: "medium",
+      blockedActionType: "shell_command",
+      blockReason: "Phase 1.5B must not execute shell commands.",
+      userVisibleAction: "Request explicit task-level execution approval later.",
+      escalationTarget: "Phase 3 safe-execution policy"
+    },
+    sourceRefs: [
+      {
+        kind: "preview_artifact",
+        refId: "runtime_artifact_storage",
+        label: "ImplementationPlanPreviewArtifact"
+      },
+      {
+        kind: "research_run",
+        refId: "research_run_storage",
+        label: "ResearchRunProjection"
+      },
+      {
+        kind: "evidence_matrix",
+        refId: "evidence_matrix_storage",
+        label: "EvidenceMatrix"
+      },
+      {
+        kind: "research_allowlist",
+        refId: "research_allowlist_storage",
+        label: "ResearchAllowlistProjection"
+      },
+      {
+        kind: "research_disclosure_log",
+        refId: "research_disclosure_storage",
+        label: "ResearchDisclosureLogProjection"
+      }
+    ],
+    createdAt: "2026-05-06T00:00:00.000Z",
+    schemaVersion: PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION,
+    ...overrides
+  };
+}
+
 describe("PR-03 local libSQL storage foundation", () => {
   it("creates a local DB file and applies generated migrations", async () => {
     const { storage, appDataDir, migrationStatus } = await createMigratedStorage();
@@ -64,7 +146,7 @@ describe("PR-03 local libSQL storage foundation", () => {
       expect(existsSync(join(appDataDir, "solo-superman.db"))).toBe(true);
       expect(migrationStatus).toMatchObject({
         state: "migrated",
-        appliedMigrationCount: 8
+        appliedMigrationCount: 9
       });
       expect(migrationStatus.latestMigrationMillis).toEqual(expect.any(Number));
     } finally {
@@ -96,6 +178,7 @@ describe("PR-03 local libSQL storage foundation", () => {
           "research_disclosure_logs",
           "research_runs",
           "runtime_preview_artifacts",
+          "phase15b_upgrade_hints",
           "runtime_task_refs",
           "app_config",
           "secret_refs",
@@ -120,6 +203,9 @@ describe("PR-03 local libSQL storage foundation", () => {
           "research_runs_allowlist_idx",
           "research_runs_disclosure_idx",
           "runtime_artifacts_context_idx",
+          "phase15b_upgrade_hints_artifact_idx",
+          "phase15b_upgrade_hints_session_idx",
+          "phase15b_upgrade_hints_risk_idx",
           "runtime_task_refs_effect_artifact_idx"
         ])
       );
@@ -971,6 +1057,7 @@ describe("PR-03 local libSQL storage foundation", () => {
 
     try {
       const repository = createRuntimeRepository(storage.db);
+      const hintRepository = createPhase15bUpgradeHintRepository(storage.db);
       const projectId = "proj_runtime_storage" as ProjectId;
       const sessionId = "sess_runtime_storage" as SessionId;
       const artifactId = "runtime_artifact_storage" as RuntimeArtifactId;
@@ -1008,6 +1095,7 @@ describe("PR-03 local libSQL storage foundation", () => {
         schemaVersion: CONTRACT_SCHEMA_VERSION,
         artifact
       });
+      await expect(hintRepository.getForArtifact(artifactId)).resolves.toBeNull();
       const { blockedAction: _blockedAction, ...unblockedArtifact } = artifact;
       void _blockedAction;
 
@@ -1026,12 +1114,18 @@ describe("PR-03 local libSQL storage foundation", () => {
             title: "Implementation plan preview ready",
             body: "Preview only.",
             targetObject: "PlanningNote",
-            sourceRefs: ["spec_current"]
+            sourceRefs: ["spec_current"],
+            phase15bUpgradeHints: phase15bHintsFixture()
           }
         }
       });
 
       const savedArtifact = await repository.getArtifact(artifactId);
+      const savedHints = await hintRepository.getForArtifact(artifactId);
+      const hintRows = await storage.db
+        .select()
+        .from(phase15bUpgradeHints)
+        .where(eq(phase15bUpgradeHints.artifactId, artifactId));
       const projection = await repository.getProjection(sessionId);
       const refs = await storage.db
         .select()
@@ -1053,12 +1147,190 @@ describe("PR-03 local libSQL storage foundation", () => {
           })
         ]
       });
+      expect(savedHints).toMatchObject({
+        artifactId,
+        artifactKind: "ImplementationPlanPreviewArtifact",
+        hints: {
+          riskNormalization: {
+            riskLevel: "medium",
+            blockedActionType: "shell_command"
+          },
+          sourceRefs: expect.arrayContaining([
+            expect.objectContaining({ kind: "research_run" }),
+            expect.objectContaining({ kind: "evidence_matrix" }),
+            expect.objectContaining({ kind: "research_allowlist" }),
+            expect.objectContaining({ kind: "research_disclosure_log" })
+          ])
+        }
+      });
+      expect(hintRows).toHaveLength(1);
+      expect(hintRows[0]).toMatchObject({
+        artifactId,
+        blockedActionType: "shell_command",
+        riskLevel: "medium"
+      });
       expect(refs).toHaveLength(1);
       expect(refs[0]).toMatchObject({
         effectTaskId: sourceEffectTaskId,
         artifactId,
         status: "preview_ready"
       });
+
+      await repository.saveArtifact({
+        projectId,
+        sessionId,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        artifact: {
+          ...unblockedArtifact,
+          kind: "ImplementationPlanPreviewArtifact",
+          applyPolicy: "note_only",
+          status: "preview_ready",
+          targetObject: "PlanningNote",
+          summary: "Implementation plan preview ready",
+          payload: {
+            title: "Implementation plan preview ready",
+            body: "Preview only.",
+            targetObject: "PlanningNote",
+            sourceRefs: ["spec_current"]
+          }
+        }
+      });
+
+      await expect(hintRepository.getForArtifact(artifactId)).resolves.toBeNull();
+
+      const unsupportedArtifactId = "runtime_artifact_unsupported_hint" as RuntimeArtifactId;
+
+      await expect(
+        repository.saveArtifact({
+          projectId,
+          sessionId,
+          schemaVersion: CONTRACT_SCHEMA_VERSION,
+          artifact: {
+            ...unblockedArtifact,
+            artifactId: unsupportedArtifactId,
+            turnPurpose: "question_generation",
+            kind: "QuestionBatchArtifact",
+            applyPolicy: "conditional_auto_apply",
+            status: "preview_ready",
+            targetObject: "QuestionBatch",
+            summary: "Question batch ready",
+            contextHash: "ctx_runtime_unsupported_hint",
+            payload: {
+              title: "Question batch ready",
+              body: "Preview only.",
+              targetObject: "QuestionBatch",
+              sourceRefs: ["spec_current"],
+              phase15bUpgradeHints: phase15bHintsFixture()
+            }
+          }
+        })
+      ).rejects.toThrow("phase15bUpgradeHints may only be attached");
+      await expect(repository.getArtifact(unsupportedArtifactId)).resolves.toBeNull();
+
+      const mismatchedBlockedArtifactId = "runtime_artifact_mismatched_blocked_hint" as RuntimeArtifactId;
+
+      await expect(
+        repository.saveArtifact({
+          projectId,
+          sessionId,
+          schemaVersion: CONTRACT_SCHEMA_VERSION,
+          artifact: {
+            ...unblockedArtifact,
+            artifactId: mismatchedBlockedArtifactId,
+            kind: "BlockedActionArtifact",
+            applyPolicy: "blocked",
+            status: "blocked",
+            targetObject: "blocked_action",
+            summary: "Shell command blocked",
+            contextHash: "ctx_runtime_mismatched_blocked_hint",
+            blockedAction: {
+              actionType: "shell_command",
+              reason: "Phase 1.5B records readiness only."
+            },
+            payload: {
+              title: "Shell command blocked",
+              body: "Preview only.",
+              targetObject: "blocked_action",
+              sourceRefs: ["spec_current"],
+              phase15bUpgradeHints: phase15bHintsFixture({
+                executionIntent: {
+                  ...phase15bHintsFixture().executionIntent,
+                  candidateActionType: "browser_action"
+                },
+                riskNormalization: {
+                  ...phase15bHintsFixture().riskNormalization,
+                  blockedActionType: "browser_action"
+                }
+              })
+            }
+          }
+        })
+      ).rejects.toThrow("phase15bUpgradeHints action type must match");
+      await expect(repository.getArtifact(mismatchedBlockedArtifactId)).resolves.toBeNull();
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("stores Phase15bUpgradeHints as dedicated readiness records without broadening artifact kinds", async () => {
+    const { storage } = await createMigratedStorage();
+
+    try {
+      const repository = createPhase15bUpgradeHintRepository(storage.db);
+      const projectId = "proj_phase15b_hint_storage" as ProjectId;
+      const sessionId = "sess_phase15b_hint_storage" as SessionId;
+      const artifactId = "runtime_artifact_blocked_hint" as RuntimeArtifactId;
+
+      await repository.saveForArtifact({
+        projectId,
+        sessionId,
+        artifactId,
+        artifactKind: "BlockedActionArtifact",
+        hints: phase15bHintsFixture({
+          sourceRefs: [
+            {
+              kind: "blocked_action",
+              refId: "runtime_artifact_blocked_hint",
+              label: "BlockedActionArtifact"
+            },
+            ...phase15bHintsFixture().sourceRefs
+          ]
+        }),
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      await repository.saveForArtifact({
+        projectId,
+        sessionId,
+        artifactId: "runtime_artifact_earlier_hint" as RuntimeArtifactId,
+        artifactKind: "ImplementationPlanPreviewArtifact",
+        hints: phase15bHintsFixture({
+          createdAt: "2026-05-05T23:59:00.000Z"
+        }),
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      await expect(repository.listForSession(sessionId)).resolves.toMatchObject([
+        { artifactId: "runtime_artifact_earlier_hint" },
+        { artifactId }
+      ]);
+      await expect(repository.getForArtifact(artifactId)).resolves.toMatchObject({
+        artifactId,
+        artifactKind: "BlockedActionArtifact",
+        hints: {
+          sourceRefs: expect.arrayContaining([expect.objectContaining({ kind: "blocked_action" })])
+        }
+      });
+      await expect(
+        repository.saveForArtifact({
+          projectId,
+          sessionId,
+          artifactId: "runtime_artifact_question_hint" as RuntimeArtifactId,
+          artifactKind: "QuestionBatchArtifact",
+          hints: phase15bHintsFixture(),
+          schemaVersion: CONTRACT_SCHEMA_VERSION
+        })
+      ).rejects.toThrow("phase15bUpgradeHints may only be attached");
     } finally {
       await storage.close();
     }
