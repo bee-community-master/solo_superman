@@ -127,7 +127,7 @@ Phase 1.5A에서만 허용되는 read-only research 권한이다. 세부 계약�
 - Playwright/Browser-use browsing.
 - form fill/action preview.
 
-Phase 1 구현 제외. Phase 2+에서 ChatGPT Pro 웹 자동화를 포함해 검토할 수 있으며, project-level blanket delegation, revoke, audit log, session failure fallback이 필요하다.
+Phase 1 구현 제외. Phase 2.5에서는 `34-phase2.5-browser-automation-preview-contract.md`의 Browser Automation Preview 계약에 따라 ChatGPT Pro/Deep Research delegation을 포함해 검토할 수 있으며, project-level delegation 설명, revoke, audit log, session failure fallback, research quality comparison이 필요하다.
 
 ### Tier 4: File/code/shell execution
 
@@ -139,7 +139,7 @@ Phase 1 실제 적용 제외. Codex sandbox preview artifact는 허용할 수 �
 
 ## Project-level blanket delegation
 
-ChatGPT Pro 웹 자동화의 프로젝트 단위 포괄 위임은 Phase 2+ 기능이다. 최초 위임 시 사용자는 다음을 봐야 한다.
+ChatGPT Pro 웹 자동화의 프로젝트 단위 포괄 위임은 Phase 2+ 기능이다. Phase 2.5에서는 이를 active permission이 아니라 risk-gated preview/delegation explanation으로 검증한다. 최초 위임 검토 시 사용자는 다음을 봐야 한다.
 
 - ChatGPT 웹이 어떤 deep research 목적에 쓰이는가.
 - 어떤 project context가 전송될 수 있는가.
@@ -148,7 +148,7 @@ ChatGPT Pro 웹 자동화의 프로젝트 단위 포괄 위임은 Phase 2+ 기�
 - 언제든 revoke할 수 있는 위치.
 - audit log에 남는 항목.
 
-포괄 위임은 계정 공유나 인증정보 대리 보관을 의미하지 않는다. Solo Superman은 사용자의 ChatGPT 계정 비밀번호, 2FA, API key를 사용자 몰래 저장하거나 전송하지 않는다.
+포괄 위임은 계정 공유나 인증정보 대리 보관을 의미하지 않는다. Solo Superman은 사용자의 ChatGPT 계정 비밀번호, 2FA, API key, session token을 저장하거나 대리 입력하지 않는다. Phase 2.5에서 이 경계가 필요해지는 후보는 `DelegationRiskGate`에서 차단한다.
 
 ## Audit log
 

@@ -208,13 +208,13 @@ Manual handoff는 실패가 아니라 Phase 1의 안전한 깊은 리서치 경�
 
 ## Phase 2+: ChatGPT Pro web automation vision
 
-ChatGPT Pro 웹 자동화는 Phase 2+의 후보이며, 기존 Roadmap의 Browser Automation Preview 단계와 연결된다.
+ChatGPT Pro 웹 자동화는 Phase 2+의 후보이며, Phase 2.5 Browser Automation Preview의 canonical 계약은 `34-phase2.5-browser-automation-preview-contract.md`가 소유한다.
 
 목표:
 
-- 사용자가 프로젝트 단위로 한 번 위임하면 깊은 리서치 작업을 자동 수행한다.
-- ChatGPT Pro의 Deep Research 성격을 활용하되, Solo Superman은 결과를 EvidenceMatrix와 Decision Queue에 맞게 회수/정리한다.
-- 사용자는 자동화 상태, 남은 리스크, 실패 원인, revoke control을 볼 수 있어야 한다.
+- Phase 2.5에서는 ChatGPT Pro/Deep Research delegation 후보가 Phase 1.5A read-only research baseline보다 evidence depth, source trace, decision impact를 높이는지 비교 dry-run으로 검증한다.
+- ChatGPT Pro의 Deep Research 성격을 활용하되, Solo Superman은 결과를 EvidenceMatrix와 Decision Queue에 맞게 회수/정리할 수 있는지 먼저 검증한다.
+- 사용자는 자동화 상태, 남은 리스크, 실패 원인, revoke control, policy/session fallback을 볼 수 있어야 한다.
 
 필수 진입 조건:
 
@@ -222,11 +222,12 @@ ChatGPT Pro 웹 자동화는 Phase 2+의 후보이며, 기존 Roadmap의 Browser
 - 웹 UI 변경, 세션 만료, 사용량 제한, CAPTCHA/anti-bot, 결과 회수 실패에 대한 recovery policy 정의.
 - 프로젝트 단위 포괄 위임 screen, revoke control, audit log 설계 완료.
 - private data 전송 금지 또는 redaction 규칙 정의.
-- fallback chain이 구현되어 있음.
+- `34-phase2.5-browser-automation-preview-contract.md`의 `DelegationRiskGate`와 `ResearchQualityComparisonReport` 기준 정의.
+- fallback chain이 구현되어 있거나 safe failure로 기록됨.
 
 ## Project-level blanket delegation
 
-Phase 2+에서 ChatGPT Pro 웹 자동화를 켜면 기본 승인 모델은 프로젝트 단위 포괄 위임이다.
+Phase 2.5에서 ChatGPT Pro 웹 자동화를 검증할 때 포괄 위임은 active permission이 아니라 사용자가 보는 목적/데이터 범주/revoke/audit/fallback 설명이다. 실제 active delegation 모델은 후속 go/no-go 이후 별도 preflight에서 다룬다.
 
 사용자에게 최초 1회 표시할 내용:
 
@@ -245,6 +246,8 @@ Phase 2+에서 ChatGPT Pro 웹 자동화를 켜면 기본 승인 모델은 프�
 - 고객 실명/연락처/계약서/투자자료 원문 전송.
 - 로그인된 외부 SaaS에서 데이터 추출.
 - 약관 위반 가능성이 큰 반복 자동화.
+
+Phase 2.5는 계정 공유, credential/session custody, 제3자 서비스 구동/재판매, 자동 submit/write를 허용하지 않는다. 이러한 항목은 `34-phase2.5-browser-automation-preview-contract.md`의 gate에서 block verdict로 수렴한다.
 
 ## Fallback chain
 

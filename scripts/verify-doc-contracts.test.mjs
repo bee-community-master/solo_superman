@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   collectPackageBoundaryViolations,
   findPhase15bExecutionPermissionClaims,
+  findPhase25ExecutionPermissionClaims,
   findRouteQueryMismatches,
   moduleSpecifiers,
   parseConstArray,
@@ -121,4 +122,27 @@ describe("doc contract verification helpers", () => {
       "packages/core/src/nested/bad.ts imports node:http"
     ]);
   });
+
+  it("flags non-negated Phase 2.5 execution permission claims", () => {
+    const documents = [
+      {
+        path: "docs/example.md",
+        text: [
+          "Phase 2.5 can execute browser action after a delegation preview.",
+          "Phase 2.5는 browser action을 실행하지 않는 preview/hint-only 단계다.",
+          "Phase 2.5에서 submit/write 확장 금지.",
+          "Phase 2.5는 submit/write를 허용한다.",
+          "Phase 2.5는 DTO/API/storage preflight를 구현한다.",
+          "Phase 2.5는 credential/session custody를 허용하지 않는다."
+        ].join("\n")
+      }
+    ];
+
+    expect(findPhase25ExecutionPermissionClaims(documents)).toEqual([
+      "docs/example.md:1: Phase 2.5 can execute browser action after a delegation preview.",
+      "docs/example.md:4: Phase 2.5는 submit/write를 허용한다.",
+      "docs/example.md:5: Phase 2.5는 DTO/API/storage preflight를 구현한다."
+    ]);
+  });
+
 });

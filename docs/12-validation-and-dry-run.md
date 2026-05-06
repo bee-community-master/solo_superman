@@ -443,6 +443,28 @@ Follow-up questions:
 - Learning Loop가 사용자 승인 없는 analytics ingestion, 자동 pivot decision, external sync로 확장된다.
 - Known Risks와 Next Validation Actions 없이 “MVP 완성”으로 종료한다.
 
+### Phase 2.5 browser/delegation comparative dry-run
+
+상황:
+
+- Phase 1.5A allowlisted read-only research baseline이 high-impact decision에 대해 Evidence Pack 또는 `research_insufficient` 결과를 남긴다.
+- 같은 research question을 Playwright/BrowserUse preview, ChatGPT Pro/Deep Research delegation preview, manual prompt handoff, official Codex fallback 같은 Phase 2.5 candidate lane으로 비교한다.
+- Phase 2.5 canonical 기준은 `34-phase2.5-browser-automation-preview-contract.md`의 `DelegationRiskGate`와 `ResearchQualityComparisonReport`다.
+
+통과 조건:
+
+- `DelegationRiskGate`가 policy/terms risk, data disclosure, session custody, write boundary, revoke/audit, reliability/fallback을 판정한다.
+- candidate가 quality lift를 보이면 source trace, pro/con/uncertainty, freshness/stale risk, decision impact, fallback/revoke/audit evidence가 Phase 1.5A baseline과 비교된다.
+- candidate가 policy/session/data/write boundary에서 막히면 safe failure로 기록하고 quality lift를 주장하지 않는다.
+- no product code, DTO/API/storage route, migration, live browser submit/write, credential custody, account sharing/resale, team/mobile/billing scope가 생성되지 않는다.
+
+실패 조건:
+
+- ChatGPT Pro/browser candidate output을 Phase 1.5A baseline과 비교하지 않고 품질 향상으로 주장한다.
+- source dump만 남기고 Decision, Research-updated Queue, Known Risk, or Follow-up Question impact를 비워둔다.
+- form submit, POST/write, account/session credential custody, 계정 공유/재판매, external mutation을 Phase 2.5 preview처럼 허용한다.
+- DTO/API/storage exact default 또는 PR sequence를 34번 문서에서 확정한다.
+
 ## 정적 일관성 검토 체크리스트
 
 - [ ] 모든 문서가 Phase 1을 Research 포함 폐루프로 정의한다.
@@ -478,6 +500,7 @@ Follow-up questions:
 - [ ] Phase 1에서 ChatGPT 웹 자동화는 구현 범위 밖이다.
 - [ ] 깊은 리서치 fallback은 수동 프롬프트 핸드오프 후 `17-ai-runtime-access-strategy.md`의 공식 Codex 경로로 정의된다.
 - [ ] ChatGPT Pro 웹 자동화는 Phase 2+에서 project-level blanket delegation, revoke, audit, fallback chain이 있을 때만 가능하다.
+- [ ] Phase 2.5 Browser Automation Preview는 `34-phase2.5-browser-automation-preview-contract.md`의 comparative dry-run, DelegationRiskGate, ResearchQualityComparisonReport, no-execution boundary를 따른다.
 - [ ] Phase 1.5A는 `30-phase1.5-research-runtime-and-readiness-contract.md`의 project allowlisted read-only research runtime으로 정의되며 public-safe summary 자동 전송, private-source approval gate, run lifecycle, disclosure log를 요구한다.
 - [ ] Phase 1.5A는 A-1 Decision-linked Evidence Pack과 A-2 Research-updated Queue로 분리된다.
 - [ ] Phase 1.5B는 `30-phase1.5-research-runtime-and-readiness-contract.md`의 execution-readiness hint 저장·조회·export 단계이며 실제 file/shell/browser/network write/credential/destructive/ChatGPT web automation 실행 권한을 주지 않는다.

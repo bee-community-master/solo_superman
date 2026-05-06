@@ -230,33 +230,40 @@ Phase 1.5A 공통 완료 조건:
 
 ## Phase 2.5: Browser Automation Preview
 
+상세 문서 계약은 `34-phase2.5-browser-automation-preview-contract.md`가 소유한다.
+
 목표:
 
-- 시장/경쟁/검증 리서치에서 브라우저 자동화가 필요한 경우 preview와 통제권을 제공한다.
-- ChatGPT Pro 웹 자동화를 Phase 2+ 비전으로 검증한다.
+- 시장/경쟁/검증 리서치에서 browser/ChatGPT Pro delegation 후보가 Phase 1.5A allowlisted read-only research보다 evidence depth, source trace, decision impact를 개선하는지 검증한다.
+- PlaywrightRuntime, BrowserUseRuntime, ChatGPT Pro/Deep Research web delegation, manual prompt handoff, official Codex path fallback을 같은 comparative dry-run 기준으로 평가한다.
+- 사용자-facing 여정명은 `브라우저 자동화 검토 중`이며, UI에는 Phase 2.5를 노출하지 않는다.
 
-후보:
+포함:
 
-- PlaywrightRuntime.
-- BrowserUseRuntime.
-- ChatGPT Pro web research automation.
-- project-level blanket delegation.
-- revoke control.
-- action preview.
-- source capture.
+- `DelegationRiskGate`: policy/terms risk, data disclosure, session custody, browser write boundary, revoke/audit, reliability/fallback 판정.
+- `ResearchQualityComparisonReport`: 동일 high-impact research question에 대한 Phase 1.5A baseline vs Phase 2.5 candidate 비교.
+- source capture/provenance plan, action preview, revoke control, audit log, failure/fallback copy.
+- ChatGPT Pro/Deep Research policy/session/usage-risk 검토와 safe failure recording.
 
 진입 조건:
 
-- Phase 1 수동 프롬프트 핸드오프가 실제 리서치 병목으로 확인됨.
-- ChatGPT 웹 자동화의 정책/약관/세션/사용량 제한 리스크 검토가 끝남.
-- fallback chain이 구현되어 있음.
-- audit log와 revoke control이 설계되어 있음.
+- Phase 1.5A Research Loop와 manual handoff가 실제 리서치 병목 또는 evidence quality gap으로 확인됨.
+- Phase 2 Planning Handoff가 residual risk와 validation dependency를 숨기지 않음.
+- ChatGPT Pro/browser 후보의 정책/약관/세션/사용량 제한 리스크를 검토할 준비가 있음.
+- fallback chain, audit log, revoke control, disclosure boundary를 문서상으로 설명할 수 있음.
+
+완료 조건:
+
+- 대표 high-impact research question에서 Phase 1.5A baseline과 Phase 2.5 candidate를 비교하는 dry-run 계약이 있다.
+- candidate가 quality lift를 보이면 source trace, pro/con/uncertainty, decision impact, stale risk, fallback/revoke/audit evidence가 설명된다.
+- candidate가 policy/session/data/write boundary에서 막히면 safe failure로 기록하고 quality lift를 주장하지 않는다.
 
 제외:
 
-- 사용자 승인 없는 form submission.
-- 로그인/결제/민감 작업 자동 실행.
-- ChatGPT 계정 공유 또는 인증정보 대리 보관.
+- form submission, POST/write action, deploy, external mutation 실행.
+- ChatGPT credential/session custody, account sharing/resale, third-party service operation.
+- DTO/API/storage exact default, route id, migration, product code, GitHub issue/PR slicing.
+- 팀 협업, 모바일 원격 승인, 결제/과금, marketplace, 본격 cloud sync 확장.
 
 ## Phase 3: Safe Execution Adapter (Controlled Execution)
 
@@ -342,6 +349,7 @@ Phase 1.5A 공통 완료 조건:
 - Phase 2 final artifact와 blocker report는 `31-phase2-planning-handoff-contract.md`의 split contract를 따른다.
 - Phase 2 DTO/API/storage/gate exact defaults는 `32-phase2-implementation-preflight-contract.md`를 따른다.
 - Build Slice, Serve Checklist, Learning Loop는 `33-build-slice-serve-learning-loop.md`의 no-execution checklist/handoff contract를 따른다.
+- Phase 2.5 Browser Automation Preview의 canonical 계약은 `34-phase2.5-browser-automation-preview-contract.md`를 따른다.
 - Phase 1에서 Codex app-server는 sandbox preview 권한을 넘지 않는다.
 - Phase 1에서 ChatGPT Pro 웹 자동화를 만들지 않는다.
 - 다음 research/planning capability 보강에서 모바일 앱을 만들지 않는다.

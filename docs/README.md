@@ -2,7 +2,7 @@
 
 Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질문·리서치·결정 세션으로 구체화하고, 최소 Build Slice와 서빙/학습 준비까지 연결하는 macOS-first, local-first Founder OS다.
 
-이 레포의 현재 기준은 **Phase 1 구현 완료 후 Founder OS product doctrine을 보강하는 단계**다. Phase 1 PR-01~PR-09 구현 계약과 E2E dry-run hardening은 완료된 기준선으로 보고, 다음 문서 보강은 Phase 1.5A/Phase 2 구현계획 전에 결정 부채를 줄이는 데 집중한다. 현재 문서 세트는 `00`~`33`의 번호 문서 34개와 이 인덱스를 합쳐 총 35개의 Markdown 문서로 구성한다.
+이 레포의 현재 기준은 **Phase 1 구현 완료 후 Founder OS product doctrine을 보강하는 단계**다. Phase 1 PR-01~PR-09 구현 계약과 E2E dry-run hardening은 완료된 기준선으로 보고, 다음 문서 보강은 Phase 1.5A/Phase 2 구현계획 전에 결정 부채를 줄이는 데 집중한다. 현재 문서 세트는 `00`~`34`의 번호 문서 35개와 이 인덱스를 합쳐 총 36개의 Markdown 문서로 구성한다.
 
 ## 확정된 1차 제품 결정
 
@@ -52,6 +52,8 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 | Phase 2 handoff artifact | `PlanningHandoffArtifact`는 final Planning-ready 전용이고, gate 실패/부분충족은 별도 blocker report로 분리 |
 | Phase 2 implementation preflight | DTO wire shape, gate algorithm, storage columns/indexes, command/idempotency, route ids, 구현 순서, Phase 1.5 dependency fallback은 `32-phase2-implementation-preflight-contract.md`의 exact default를 따른다 |
 | Build/Serve/Learning loop | Build Slice Plan, Serve Checklist, Learning Loop Hook은 `33-build-slice-serve-learning-loop.md`의 checklist/handoff 계약을 따른다 |
+| Phase 2.5 browser automation preview | Phase 2.5는 `34-phase2.5-browser-automation-preview-contract.md`의 docs-level 계약을 따르며, ChatGPT Pro/Deep Research/browser delegation이 Phase 1.5A baseline보다 research quality lift를 만드는지 비교 dry-run으로 검증한다 |
+| Phase 2.5 no-execution | Phase 2.5는 submit/write, credential custody, account sharing/resale, DTO/API/storage preflight, team/mobile/billing 확장을 하지 않는다 |
 | Phase 1 MVP | Research 포함 폐루프 |
 | 1순위 실패 방지 | 무한 질문 루프 |
 
@@ -91,6 +93,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 32. `31-phase2-planning-handoff-contract.md` - Phase 2 Planning Handoff의 final artifact, blocker report, readiness checklist, residual risk, Phase 1.5B hint mapping 계약.
 33. `32-phase2-implementation-preflight-contract.md` - Phase 2 Planning Handoff를 구현 PR로 옮기기 전 DTO, gate, storage, command, API, PR 순서, Phase 1.5 dependency exact default 계약.
 34. `33-build-slice-serve-learning-loop.md` - Build Slice, Serve Checklist, Learning Loop Hook의 no-execution checklist/handoff 계약.
+35. `34-phase2.5-browser-automation-preview-contract.md` - Phase 2.5 Browser Automation Preview의 research quality comparison, DelegationRiskGate, no-execution boundary, ChatGPT Pro/Deep Research policy gate 계약.
 
 ## 문서 책임 경계
 
@@ -130,6 +133,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 | Phase 2 Planning Handoff Contract | `PlanningHandoffArtifact`, `PlanningHandoffBlockerArtifact`, gate verdict, PR/issue/task plan, readiness checklist, residual risk, Phase 1.5B hint mapping | Roadmap/Doctrine/Matrix는 phase gate와 사용자 가치를, 이 문서는 Phase 2 handoff artifact/report schema를 책임진다. 실제 DTO/API/storage 구현은 후속 Phase 2 구현 PR로 넘긴다 |
 | Phase 2 Implementation Preflight Contract | DTO wire shape, gate algorithm, storage schema defaults, command/idempotency, route ids, implementation sequencing, Phase 1.5 dependency fallback | 31번은 artifact/report schema를, 이 문서는 그 schema를 code PR로 옮기는 exact implementation defaults를 책임진다. GitHub issue draft와 product code는 후속 작업으로 넘긴다 |
 | Build Slice, Serve Checklist, and Learning Loop | Build Slice Plan, Serve Checklist, Learning Loop Hook의 checklist/handoff 계약 | 31번은 final handoff artifact field family를, 33번은 그 field family의 제품 의미와 no-execution boundary를 책임진다. Phase 3 execution adapter와 실제 deploy는 후속 작업으로 넘긴다 |
+| Phase 2.5 Browser Automation Preview Contract | Browser/ChatGPT Pro delegation preview, DelegationRiskGate, ResearchQualityComparisonReport, comparative dry-run, no-execution boundary | 11/17/10/29번은 phase/runtimes/security/matrix 요약을, 이 문서는 Phase 2.5의 canonical docs-level 계약을 책임진다. DTO/API/storage exact default와 product code는 후속 preflight 전까지 확정하지 않는다 |
 
 ## 공식 자료 기반 설계 메모
 
@@ -150,9 +154,11 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 - Phase 2 Planning Handoff의 final artifact와 blocker report 계약은 `31-phase2-planning-handoff-contract.md`가 소유한다.
 - Phase 2 Planning Handoff의 DTO/API/storage/gate exact implementation defaults는 `32-phase2-implementation-preflight-contract.md`가 소유한다.
 - Build Slice, Serve Checklist, Learning Loop Hook의 no-execution checklist/handoff 계약은 `33-build-slice-serve-learning-loop.md`가 소유한다.
+- Phase 2.5 Browser Automation Preview의 research quality comparison, DelegationRiskGate, ChatGPT Pro/Deep Research policy risk, no-execution boundary는 `34-phase2.5-browser-automation-preview-contract.md`가 소유한다.
 - Hono는 local sidecar API의 route/validation surface로 고정하고, validation은 Hono validator/Zod 계열로 문서화한다. 참고: <https://hono.dev/docs/api>, <https://hono.dev/docs/guides/validation>
 - Phase 1 저장소는 local embedded libSQL + Drizzle schema/migration 계약으로 고정한다. 참고: <https://docs.turso.tech/sdk/ts/reference>, <https://docs.turso.tech/local-development>, <https://orm.drizzle.team/docs/get-started/sqlite-new>, <https://orm.drizzle.team/docs/migrations>
 - ChatGPT Pro에는 Codex와 Deep Research가 포함되지만 자동 추출, 계정 공유, 제3자 서비스 구동/재판매 제한이 있을 수 있으므로 ChatGPT Pro 웹 자동화는 Phase 2+ 비전으로 둔다. 참고: <https://help.openai.com/en/articles/9793128-what-is-c>
+- Deep Research in ChatGPT는 public web과 사용자가 제공한 source를 활용할 수 있지만 plan/settings/usage limit에 따라 다르므로, Phase 2.5는 source trace, usage/session failure, fallback을 사용자에게 보이는 계약으로 다룬다. 참고: <https://help.openai.com/en/articles/10500283-deep-research-in-chatgpt>
 
 ## 현재 금지 사항
 
@@ -162,6 +168,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 - 실제 remote sync 구현은 다음 research/planning capability 범위에서 제외한다. Phase 1 기준 허용된 것은 remote config placeholder뿐이다.
 - Phase 1 제품 범위에서 OpenClaw/Goose/CrewAI/Browser-use 실제 연동 금지. Phase 1.5A read-only research connector 후보는 `30-phase1.5-research-runtime-and-readiness-contract.md`의 allowlist/no-write 계약을 먼저 만족해야 한다.
 - Phase 1에서 ChatGPT 웹 자동화 구현 금지.
+- Phase 2.5에서 ChatGPT Pro/Deep Research 또는 browser delegation을 검토하더라도 실제 submit/write, credential/session custody, account sharing/resale, DTO/API/storage preflight, team/mobile/billing 확장 금지.
 - Codex를 통한 실제 파일 patch, shell 실행, 브라우저 action 실행 금지. `diff_preview`, `command_plan_preview`, `browser_action_preview`는 preview artifact 또는 `BlockedActionArtifact`로만 남긴다. Phase 1.5A는 `30-phase1.5-research-runtime-and-readiness-contract.md`의 allowlisted read-only research runtime, Phase 1.5B는 execution-readiness hint 저장만 다루며 실제 실행은 Controlled Execution capability 전에는 하지 않는다.
 - ProductEngine effect는 in-memory-only queue로 처리 금지. Phase 1 1급 effect는 persisted async effect queue에 저장한다.
 - `scoring_effect`와 `spec_export_effect`를 Phase 1 1급 async effect로 승격 금지. scoring/export는 reducer deterministic output으로 유지한다.

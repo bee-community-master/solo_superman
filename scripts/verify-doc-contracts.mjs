@@ -537,18 +537,18 @@ const PHASE15B_NEGATED_EXECUTION_PATTERNS = [
   /(?:file patch|shell command|browser action|network write|credential access|destructive operation|ChatGPT web automation)[^.\n]*(?:must not|cannot|never|not allowed|not permitted|not enabled)[^.\n]*Phase 1\.5B/iu
 ];
 
-export function findPhase15bExecutionPermissionClaims(documents) {
+function findExecutionPermissionClaims(documents, { denyPatterns, negatedPatterns }) {
   const claims = [];
 
   for (const document of documents) {
     document.text.split(/\r?\n/u).forEach((line, index) => {
       const trimmed = line.trim();
 
-      if (!trimmed || !PHASE15B_EXECUTION_PERMISSION_DENY_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+      if (!trimmed || !denyPatterns.some((pattern) => pattern.test(trimmed))) {
         return;
       }
 
-      if (PHASE15B_NEGATED_EXECUTION_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+      if (negatedPatterns.some((pattern) => pattern.test(trimmed))) {
         return;
       }
 
@@ -559,31 +559,94 @@ export function findPhase15bExecutionPermissionClaims(documents) {
   return claims;
 }
 
-function checkPhase15DocConsistency() {
-  const docs30 = readText(PHASE15_DOC_PATH);
-  const missingSnippets = PHASE15_REQUIRED_CONTRACT_SNIPPETS.filter((snippet) => !docs30.includes(snippet));
+export function findPhase15bExecutionPermissionClaims(documents) {
+  return findExecutionPermissionClaims(documents, {
+    denyPatterns: PHASE15B_EXECUTION_PERMISSION_DENY_PATTERNS,
+    negatedPatterns: PHASE15B_NEGATED_EXECUTION_PATTERNS
+  });
+}
+
+const PHASE25_DOC_PATH = "docs/34-phase2.5-browser-automation-preview-contract.md";
+
+const PHASE25_REQUIRED_REFERENCES = [
+  "docs/README.md",
+  "docs/10-security-privacy-and-approval.md",
+  "docs/11-roadmap-and-phase-boundaries.md",
+  "docs/12-validation-and-dry-run.md",
+  "docs/17-ai-runtime-access-strategy.md",
+  "docs/29-phase-capability-implementation-matrix.md"
+];
+
+const PHASE25_REQUIRED_CONTRACT_SNIPPETS = [
+  "DelegationRiskGate",
+  "ResearchQualityComparisonReport",
+  "comparative dry-run",
+  "No-execution boundary",
+  "Scenario A. Comparative dry-run shows quality lift",
+  "Scenario B. Policy or account risk blocks ChatGPT Pro delegation"
+];
+
+const PHASE25_NO_EXECUTION_DOC_PATHS = [...new Set([PHASE25_DOC_PATH, ...PHASE25_REQUIRED_REFERENCES])];
+
+const PHASE25_EXECUTION_PERMISSION_DENY_PATTERNS = [
+  /Phase 2\.5[^.\n]*(?:may|can|allows?|enabled|grants?|permitted|permission to)\s+(?:execute|run|apply|perform|submit|write|deploy|mutate|store|share|implement)/iu,
+  /Phase 2\.5[^.\n]*(?:file patch|shell command|browser action|POST|write action|submit|credential custody|session custody|account sharing|team|mobile|billing|DTO\/API\/storage preflight)[^.\n]*(?:enabled|allowed|permitted|executes|runs|applies|performs|stores|shares|implements)/iu,
+  /(?:file patch|shell command|browser action|POST|write action|submit|credential custody|session custody|account sharing|team|mobile|billing|DTO\/API\/storage preflight)[^.\n]*(?:enabled|allowed|permitted|executes|runs|applies|performs|stores|shares|implements)[^.\n]*Phase 2\.5/iu,
+  /Phase 2\.5[^.\n]*(?:file patch|shell command|browser action|POST|write action|submit\/write|submit|write|deploy|external mutation|credential(?:\/session)? custody|credential storage|session custody|account sharing(?:\/resale)?|team\/mobile\/billing|DTO\/API\/storage(?: preflight)?|브라우저 action|브라우저 액션|제출|쓰기|배포|외부 변경|인증정보|세션|계정 공유|팀|모바일|결제|과금)[^.\n]*(?:enabled|allowed|permitted|executes|runs|applies|performs|stores|shares|implements|허용|가능|실행|수행|제출|쓰기|배포|변경|저장|공유|구현|승격|확장|포함)/iu
+];
+
+const PHASE25_NEGATED_EXECUTION_PATTERNS = [
+  /Phase 2\.5[^.\n]*(?:must not|do not|does not|cannot|never|not allowed|not permitted)[^.\n]*(?:execute|run|apply|perform|submit|write|deploy|mutate|store|share|implement)/iu,
+  /Phase 2\.5[^.\n]*(?:no-execution|not execution|not an execution|not active permission|실행 단계가 아니다|실행하지|허용하지|하지 않는다|금지|아니다|차단)/iu,
+  /no document claims[^.\n]*Phase 2\.5[^.\n]*(?:execute|run|apply|perform|submit|write|deploy|mutate|store|share|implement)/iu,
+  /(?:file patch|shell command|browser action|POST|write action|submit|credential custody|session custody|account sharing|team|mobile|billing|DTO\/API\/storage preflight)[^.\n]*(?:must not|cannot|never|not allowed|not permitted|not enabled|금지|하지 않는다|허용하지)[^.\n]*Phase 2\.5/iu
+];
+
+export function findPhase25ExecutionPermissionClaims(documents) {
+  return findExecutionPermissionClaims(documents, {
+    denyPatterns: PHASE25_EXECUTION_PERMISSION_DENY_PATTERNS,
+    negatedPatterns: PHASE25_NEGATED_EXECUTION_PATTERNS
+  });
+}
+
+function requireSnippets(message, text, snippets) {
+  const missingSnippets = snippets.filter((snippet) => !text.includes(snippet));
 
   if (missingSnippets.length) {
-    fail("docs/30 Phase 1.5 canonical contract missing required sections", missingSnippets);
+    fail(message, missingSnippets);
   }
+}
+
+function requireDocReferences(message, docPaths, requiredSnippet) {
+  const missingReferences = docPaths.filter((docPath) => !readText(docPath).includes(requiredSnippet));
+
+  if (missingReferences.length) {
+    fail(message, missingReferences);
+  }
+}
+
+function requireNoExecutionPermissionClaims(message, docPaths, findClaims) {
+  const executionPermissionClaims = findClaims(docPaths.map((path) => ({ path, text: readText(path) })));
+
+  if (executionPermissionClaims.length) {
+    fail(message, executionPermissionClaims);
+  }
+}
+
+function checkPhase15DocConsistency() {
+  const docs30 = readText(PHASE15_DOC_PATH);
+
+  requireSnippets("docs/30 Phase 1.5 canonical contract missing required sections", docs30, PHASE15_REQUIRED_CONTRACT_SNIPPETS);
 
   if (docs30.includes("28-phase1.5-research-runtime-and-readiness-contract.md") || docs30.includes("doc 28")) {
     fail("docs/30 Phase 1.5 canonical contract contains stale doc 28 reference");
   }
 
-  const missingReferences = [];
-
-  for (const docPath of PHASE15_REQUIRED_REFERENCES) {
-    const text = readText(docPath);
-
-    if (!text.includes("30-phase1.5-research-runtime-and-readiness-contract.md")) {
-      missingReferences.push(docPath);
-    }
-  }
-
-  if (missingReferences.length) {
-    fail("Phase 1.5 canonical doc reference missing", missingReferences);
-  }
+  requireDocReferences(
+    "Phase 1.5 canonical doc reference missing",
+    PHASE15_REQUIRED_REFERENCES,
+    "30-phase1.5-research-runtime-and-readiness-contract.md"
+  );
 
   const missingPhase2HintReferences = [];
 
@@ -600,13 +663,29 @@ function checkPhase15DocConsistency() {
     fail("Phase 1.5B hint reuse/no-execution reference missing from Phase 2 docs", missingPhase2HintReferences);
   }
 
-  const executionPermissionClaims = findPhase15bExecutionPermissionClaims(
-    PHASE15_NO_EXECUTION_DOC_PATHS.map((path) => ({ path, text: readText(path) }))
+  requireNoExecutionPermissionClaims(
+    "Phase 1.5B docs claim forbidden execution permission",
+    PHASE15_NO_EXECUTION_DOC_PATHS,
+    findPhase15bExecutionPermissionClaims
+  );
+}
+
+function checkPhase25DocConsistency() {
+  const docs34 = readText(PHASE25_DOC_PATH);
+
+  requireSnippets("docs/34 Phase 2.5 canonical contract missing required sections", docs34, PHASE25_REQUIRED_CONTRACT_SNIPPETS);
+
+  requireDocReferences(
+    "Phase 2.5 canonical doc reference missing",
+    PHASE25_REQUIRED_REFERENCES,
+    "34-phase2.5-browser-automation-preview-contract.md"
   );
 
-  if (executionPermissionClaims.length) {
-    fail("Phase 1.5B docs claim forbidden execution permission", executionPermissionClaims);
-  }
+  requireNoExecutionPermissionClaims(
+    "Phase 2.5 docs claim forbidden execution permission",
+    PHASE25_NO_EXECUTION_DOC_PATHS,
+    findPhase25ExecutionPermissionClaims
+  );
 }
 
 export function runDocContractChecks() {
@@ -620,12 +699,13 @@ export function runDocContractChecks() {
   compareRoutes(docs.docs26);
   scanPackageBoundaries();
   checkPhase15DocConsistency();
+  checkPhase25DocConsistency();
 
   if (!process.exitCode) {
     console.log("doc contract checks passed");
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   runDocContractChecks();
 }
