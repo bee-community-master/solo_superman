@@ -24,6 +24,22 @@ import {
   type EvidenceMatrixProjection,
   type FounderBriefProjection,
   type LivingSpecProjection,
+  type PlanningHandoffArtifactDto,
+  type PlanningHandoffBlockerArtifactDto,
+  type PlanningHandoffBlockerClass,
+  type PlanningHandoffBlockerDto,
+  type PlanningHandoffGateVerdictDto,
+  type PlanningHandoffProjection,
+  type PlanningHandoffQueueOutcome,
+  type PlanningHandoffQueueOutcomeSummaryDto,
+  type PlanningHandoffRequestedScopeDto,
+  type PlanningHandoffRequiredUserAction,
+  type PlanningHandoffResidualRiskClass,
+  type PlanningHandoffResidualRiskDto,
+  type PlanningHandoffSourceRefDto,
+  type PlanningHandoffSourceType,
+  type PlanningHandoffTaskDto,
+  type PlanningHandoffVerdict,
   type ProductEngineCommand,
   type ProductEngineEffectPlanItem,
   type ProductEngineEvent,
@@ -71,6 +87,7 @@ import {
   resolveResearchReviewCardInProjection,
   synthesizeEvidenceMatrix
 } from "../research-engine";
+import { sha256Hex } from "./deterministic-hash";
 
 export const PACKAGE_SLICE_STATUS = "product-engine-e2e-dry-run-pr-09" as const;
 
@@ -194,6 +211,10 @@ function requiredString(value: unknown) {
 
 function hasOwnRecordKey(record: Readonly<Record<string, unknown>>, key: string) {
   return Object.prototype.hasOwnProperty.call(record, key);
+}
+
+function hasOnlyRecordKeys(record: Readonly<Record<string, unknown>>, allowedKeys: readonly string[]) {
+  return Object.keys(record).every((key) => allowedKeys.includes(key));
 }
 
 function optionalPayloadSections(value: unknown) {
@@ -573,7 +594,7 @@ function isBlockedActionType(value: unknown): value is BlockedActionType {
   return typeof value === "string" && BLOCKED_ACTION_TYPES.includes(value as BlockedActionType);
 }
 
-function optionalStringArray(value: unknown): readonly string[] | "invalid" {
+function requiredNonEmptyStringArray(value: unknown): readonly string[] | "invalid" {
   if (!Array.isArray(value) || value.length === 0) {
     return "invalid";
   }
@@ -1977,7 +1998,7 @@ function runtimeArtifactFromPayload(
   const contextHash = requiredString(command.payload.contextHash);
   const summary = requiredString(command.payload.summary) ?? requiredString(command.payload.prompt);
   const body = requiredString(command.payload.body) ?? requiredString(command.payload.prompt);
-  const sourceRefs = optionalStringArray(command.payload.sourceRefs);
+  const sourceRefs = requiredNonEmptyStringArray(command.payload.sourceRefs);
 
   if (!isCodexTurnPurpose(turnPurpose) || !contextHash || !summary || !body || sourceRefs === "invalid") {
     return reject("CreateRuntimePreview requires turnPurpose, contextHash, prompt/body, and valid sourceRefs.", "VALIDATION_FAILED");
@@ -2102,7 +2123,7 @@ function reduceCreateRuntimePreview(
   const turnPurpose = command.payload.turnPurpose;
   const contextHash = requiredString(command.payload.contextHash);
   const prompt = requiredString(command.payload.prompt);
-  const sourceRefs = optionalStringArray(command.payload.sourceRefs);
+  const sourceRefs = requiredNonEmptyStringArray(command.payload.sourceRefs);
 
   if (!isCodexTurnPurpose(turnPurpose) || !contextHash || !prompt || sourceRefs === "invalid") {
     return reject("CreateRuntimePreview requires turnPurpose, contextHash, prompt, and valid sourceRefs.", "VALIDATION_FAILED");
@@ -2236,6 +2257,13 @@ function reduceConvertRuntimeArtifact(
     return reject("ConvertRuntimeArtifact requires target.", "VALIDATION_FAILED");
   }
 
+  if (isFinalPlanningHandoffConversionTarget(target)) {
+    return reject(
+      "ConvertRuntimeArtifact cannot create a final PlanningHandoffArtifact; use CreatePlanningHandoff gate instead.",
+      "RUNTIME_ACTION_BLOCKED"
+    );
+  }
+
   const requestsBlockedTarget = target === "blocked_action" || Boolean(blockReason);
   const hasBlockedActionTaxonomy =
     isBlockedActionType(command.payload.blockedActionType) || Boolean(artifact.blockedAction?.actionType);
@@ -2322,6 +2350,1086 @@ function reduceConvertRuntimeArtifact(
         }
       }
     ]
+  );
+}
+
+type NonReadyPlanningHandoffVerdict = Exclude<PlanningHandoffVerdict, "planning_ready">;
+
+const PLANNING_HANDOFF_SOURCE_TYPES = [
+  "spec_version",
+  "founder_brief",
+  "completion_candidate",
+  "decision_linked_evidence_pack",
+  "research_updated_queue_item",
+  "decision",
+  "risk_acceptance",
+  "known_risk",
+  "open_question",
+  "phase15b_hint",
+  "runtime_preview_artifact",
+  "activity_event"
+] as const satisfies readonly PlanningHandoffSourceType[];
+
+const PLANNING_HANDOFF_FATAL_BLOCKER_CLASSES = [
+  "customer_problem_jtbd",
+  "success_metrics_validation",
+  "approval_security_execution_safety"
+] as const satisfies readonly PlanningHandoffBlockerClass[];
+
+const PLANNING_HANDOFF_REQUIRED_SOURCE_REQUIREMENTS = [
+  {
+    sourceTypes: ["spec_version"],
+    blockerId: "blocker_source_trace_spec_version",
+    whyFatal: "Planning Handoff requires a current SpecVersion or living spec source ref.",
+    requiredNextAction: "revise"
+  },
+  {
+    sourceTypes: ["completion_candidate", "founder_brief"],
+    blockerId: "blocker_source_trace_completion_candidate",
+    whyFatal: "Planning Handoff requires a current completion candidate or Founder Brief source ref.",
+    requiredNextAction: "revise"
+  },
+  {
+    sourceTypes: ["decision_linked_evidence_pack"],
+    blockerId: "blocker_source_trace_evidence_pack",
+    whyFatal: "Planning Handoff requires a current decision-linked Evidence Pack source ref.",
+    requiredNextAction: "research_more"
+  },
+  {
+    sourceTypes: ["research_updated_queue_item"],
+    blockerId: "blocker_source_trace_research_queue",
+    whyFatal: "Planning Handoff requires a current research-updated Queue source ref.",
+    requiredNextAction: "research_more"
+  }
+] as const satisfies readonly {
+  readonly sourceTypes: readonly PlanningHandoffSourceType[];
+  readonly blockerId: string;
+  readonly whyFatal: string;
+  readonly requiredNextAction: PlanningHandoffRequiredUserAction;
+}[];
+
+const PLANNING_HANDOFF_EXCLUDED_INTERNAL_PHASES = [
+  "phase3_controlled_execution",
+  "chatgpt_web_automation",
+  "external_deploy"
+] as const satisfies PlanningHandoffRequestedScopeDto["excludedInternalPhases"];
+
+const PLANNING_HANDOFF_ALLOWED_PAYLOAD_KEYS = ["sourceRefs", "requestedScope"] as const;
+
+const PLANNING_HANDOFF_ALLOWED_SOURCE_REF_KEYS = [
+  "sourceType",
+  "sourceId",
+  "sourceLabel",
+  "required",
+  "stale"
+] as const;
+
+const PLANNING_HANDOFF_ALLOWED_REQUESTED_SCOPE_KEYS = [
+  "productSlice",
+  "userFacingJourneyLabel",
+  "nonGoals",
+  "excludedInternalPhases",
+  "assumptions"
+] as const;
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isPlanningHandoffSourceType(value: unknown): value is PlanningHandoffSourceType {
+  return (
+    typeof value === "string" &&
+    PLANNING_HANDOFF_SOURCE_TYPES.includes(value as PlanningHandoffSourceType)
+  );
+}
+
+function isPlanningHandoffExcludedInternalPhase(
+  value: unknown
+): value is PlanningHandoffRequestedScopeDto["excludedInternalPhases"][number] {
+  return (
+    typeof value === "string" &&
+    PLANNING_HANDOFF_EXCLUDED_INTERNAL_PHASES.includes(
+      value as PlanningHandoffRequestedScopeDto["excludedInternalPhases"][number]
+    )
+  );
+}
+
+function planningHandoffSourceRefFromValue(value: unknown): PlanningHandoffSourceRefDto | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (!hasOnlyRecordKeys(value, PLANNING_HANDOFF_ALLOWED_SOURCE_REF_KEYS)) {
+    return null;
+  }
+
+  const sourceId = requiredString(value.sourceId);
+
+  if (!isPlanningHandoffSourceType(value.sourceType) || !sourceId) {
+    return null;
+  }
+
+  if (typeof value.required !== "boolean" || typeof value.stale !== "boolean") {
+    return null;
+  }
+
+  if (value.sourceLabel !== undefined && typeof value.sourceLabel !== "string") {
+    return null;
+  }
+
+  return {
+    sourceType: value.sourceType,
+    sourceId,
+    ...(typeof value.sourceLabel === "string" ? { sourceLabel: value.sourceLabel } : {}),
+    required: value.required,
+    stale: value.stale
+  };
+}
+
+function planningHandoffSourceRefsFromPayload(
+  command: ProductEngineCommand
+): readonly PlanningHandoffSourceRefDto[] | ProductEngineReduction {
+  if (!Array.isArray(command.payload.sourceRefs) || command.payload.sourceRefs.length === 0) {
+    return reject("CreatePlanningHandoff requires at least one sourceRef.", "VALIDATION_FAILED");
+  }
+
+  const sourceRefs: PlanningHandoffSourceRefDto[] = [];
+
+  for (const sourceRefValue of command.payload.sourceRefs) {
+    const sourceRef = planningHandoffSourceRefFromValue(sourceRefValue);
+
+    if (!sourceRef) {
+      return reject(
+        "CreatePlanningHandoff sourceRefs must be valid PlanningHandoffSourceRefDto objects.",
+        "VALIDATION_FAILED"
+      );
+    }
+
+    sourceRefs.push(sourceRef);
+  }
+
+  const dedupeKeys = sourceRefs.map((sourceRef) => `${sourceRef.sourceType}:${sourceRef.sourceId}`);
+
+  if (new Set(dedupeKeys).size !== dedupeKeys.length) {
+    return reject("CreatePlanningHandoff sourceRefs must be unique by sourceType and sourceId.", "VALIDATION_FAILED");
+  }
+
+  return sourceRefs;
+}
+
+function planningHandoffRequestedScopeFromValue(value: unknown): PlanningHandoffRequestedScopeDto | null {
+  if (value === undefined) {
+    return null;
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (!hasOnlyRecordKeys(value, PLANNING_HANDOFF_ALLOWED_REQUESTED_SCOPE_KEYS)) {
+    return null;
+  }
+
+  const productSlice = requiredString(value.productSlice);
+
+  if (!productSlice || value.userFacingJourneyLabel !== "Planning-ready") {
+    return null;
+  }
+
+  const nonGoals = requiredNonEmptyStringArray(value.nonGoals);
+  const assumptions = requiredNonEmptyStringArray(value.assumptions);
+
+  if (nonGoals === "invalid" || assumptions === "invalid") {
+    return null;
+  }
+
+  if (!Array.isArray(value.excludedInternalPhases)) {
+    return null;
+  }
+
+  const excludedInternalPhases = value.excludedInternalPhases.map((phase) =>
+    isPlanningHandoffExcludedInternalPhase(phase) ? phase : null
+  );
+
+  if (excludedInternalPhases.some((phase) => phase === null)) {
+    return null;
+  }
+
+  return {
+    productSlice,
+    userFacingJourneyLabel: "Planning-ready",
+    nonGoals,
+    excludedInternalPhases: excludedInternalPhases as PlanningHandoffRequestedScopeDto["excludedInternalPhases"],
+    assumptions
+  };
+}
+
+function derivePlanningHandoffScope(state: ProductEngineStateSnapshot): PlanningHandoffRequestedScopeDto {
+  return {
+    productSlice:
+      state.currentSpec.title ??
+      state.founderBrief?.problemCustomerValue ??
+      "Founder planning handoff",
+    userFacingJourneyLabel: "Planning-ready",
+    nonGoals: [
+      "controlled execution",
+      "file patches",
+      "shell commands",
+      "browser automation",
+      "external deployment"
+    ],
+    excludedInternalPhases: PLANNING_HANDOFF_EXCLUDED_INTERNAL_PHASES,
+    assumptions: [
+      "Phase 2 computes a planning handoff from the loaded ProductEngine snapshot only.",
+      "Execution remains out of scope until a separate Phase 3 controlled-execution contract is approved."
+    ]
+  };
+}
+
+function containsUnsupportedPlanningHandoffPayload(command: ProductEngineCommand) {
+  return !hasOnlyRecordKeys(command.payload, PLANNING_HANDOFF_ALLOWED_PAYLOAD_KEYS);
+}
+
+function isFinalPlanningHandoffConversionTarget(target: string) {
+  const normalizedTarget = target.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  return (
+    normalizedTarget.includes("planninghandoff") ||
+    normalizedTarget.includes("planningready") ||
+    normalizedTarget.includes("finalhandoff") ||
+    normalizedTarget.includes("handoffartifact")
+  );
+}
+
+function allQueueItems(projection: DecisionQueueProjection): readonly QueueItemProjection[] {
+  return [
+    ...projection.active,
+    ...projection.next,
+    ...projection.blocked,
+    ...projection.deferred
+  ];
+}
+
+function sourceRefMatches(sourceRef: PlanningHandoffSourceRefDto, sourceType: PlanningHandoffSourceType, sourceId: string) {
+  return sourceRef.sourceType === sourceType && sourceRef.sourceId === sourceId;
+}
+
+function planningHandoffSourceExists(
+  state: ProductEngineStateSnapshot,
+  sourceRef: PlanningHandoffSourceRefDto
+): boolean {
+  switch (sourceRef.sourceType) {
+    case "spec_version":
+      return [
+        state.currentSpec.versionRef,
+        state.livingSpecProjection ? `living_spec:${state.session.sessionId}:${state.livingSpecProjection.version}` : undefined
+      ].includes(sourceRef.sourceId);
+    case "founder_brief":
+      return Boolean(
+        state.founderBrief &&
+          [
+            `founder_brief:${state.session.sessionId}:${state.founderBrief.version}`,
+            `founder_brief:${state.session.sessionId}`
+          ].includes(sourceRef.sourceId)
+      );
+    case "completion_candidate":
+      return (
+        state.completeness.completionCandidate.status === "candidate" &&
+        [
+          `completion_candidate:${state.session.sessionId}:${state.completeness.version}`,
+          `completion_candidate:${state.session.sessionId}`
+        ].includes(sourceRef.sourceId)
+      );
+    case "decision_linked_evidence_pack":
+      return state.researchState.evidencePacks.some(
+        (pack) =>
+          pack.evidencePackId === sourceRef.sourceId &&
+          pack.gateStatus === "accepted" &&
+          state.researchState.evidenceMatrices.some(
+            (matrix) =>
+              matrix.researchTaskId === pack.researchTaskId &&
+              matrix.researchResultId === pack.researchResultId &&
+              matrix.balanceStatus === "balanced" &&
+              !matrix.decisionBlocked
+          )
+      );
+    case "research_updated_queue_item":
+      return (
+        allQueueItems(state.queueProjection).some(
+          (item) => item.queueItemId === sourceRef.sourceId && isResearchUpdatedQueueItem(item)
+        ) || state.researchState.reviewCards.some((card) => card.cardId === sourceRef.sourceId)
+      );
+    case "decision":
+      return state.decisions.some((decision) => decision.decisionId === sourceRef.sourceId);
+    case "risk_acceptance":
+      return state.decisions.some(
+        (decision) => decision.decisionId === sourceRef.sourceId && decision.status === "risk_accepted"
+      );
+    case "known_risk":
+      return (
+        state.completeness.topRiskCards.some((risk) => risk.riskId === sourceRef.sourceId) ||
+        state.researchState.knownRisks.includes(sourceRef.sourceId) ||
+        state.founderBrief?.knownRisks.includes(sourceRef.sourceId) === true
+      );
+    case "open_question":
+      return state.openIssues.some((issue) => issue.queueItemId === sourceRef.sourceId);
+    case "runtime_preview_artifact":
+      return state.runtimeState.runtimeArtifacts.some((artifact) => artifact.artifactId === sourceRef.sourceId);
+    case "phase15b_hint":
+      return state.runtimeState.runtimeArtifacts.some(
+        (artifact) => artifact.artifactId === sourceRef.sourceId && hasOwnRecordKey(artifact.payload, "phase15bUpgradeHints")
+      );
+    case "activity_event":
+      return false;
+  }
+}
+
+function sourceRefForStateSourceId(
+  state: ProductEngineStateSnapshot,
+  sourceId: string,
+  fallbackLabel?: string
+): PlanningHandoffSourceRefDto {
+  const sourceLabel = fallbackLabel && fallbackLabel !== sourceId ? fallbackLabel : undefined;
+  const base = {
+    sourceId,
+    ...(sourceLabel ? { sourceLabel } : {}),
+    required: false,
+    stale: false
+  };
+
+  if (state.decisions.some((decision) => decision.decisionId === sourceId && decision.status === "risk_accepted")) {
+    return {
+      ...base,
+      sourceType: "risk_acceptance"
+    };
+  }
+
+  if (state.decisions.some((decision) => decision.decisionId === sourceId)) {
+    return {
+      ...base,
+      sourceType: "decision"
+    };
+  }
+
+  if (state.researchState.evidencePacks.some((pack) => pack.evidencePackId === sourceId)) {
+    return {
+      ...base,
+      sourceType: "decision_linked_evidence_pack"
+    };
+  }
+
+  if (
+    allQueueItems(state.queueProjection).some((item) => item.queueItemId === sourceId) ||
+    state.researchState.reviewCards.some((card) => card.cardId === sourceId)
+  ) {
+    return {
+      ...base,
+      sourceType: "research_updated_queue_item"
+    };
+  }
+
+  if (state.openIssues.some((issue) => issue.queueItemId === sourceId)) {
+    return {
+      ...base,
+      sourceType: "open_question"
+    };
+  }
+
+  return {
+    ...base,
+    sourceType: "known_risk"
+  };
+}
+
+function isRiskAcceptedDecisionSource(
+  state: ProductEngineStateSnapshot,
+  sourceRef: PlanningHandoffSourceRefDto
+) {
+  if (sourceRef.stale || (sourceRef.sourceType !== "risk_acceptance" && sourceRef.sourceType !== "decision")) {
+    return false;
+  }
+
+  return state.decisions.some(
+    (decision) => decision.decisionId === sourceRef.sourceId && decision.status === "risk_accepted"
+  );
+}
+
+function riskAcceptanceDecisionIds(
+  state: ProductEngineStateSnapshot,
+  sourceRefs: readonly PlanningHandoffSourceRefDto[]
+) {
+  return sourceRefs
+    .filter((sourceRef) => isRiskAcceptedDecisionSource(state, sourceRef))
+    .map((sourceRef) => sourceRef.sourceId);
+}
+
+function hasRiskAcceptanceLinkedTo(
+  state: ProductEngineStateSnapshot,
+  sourceRefs: readonly PlanningHandoffSourceRefDto[],
+  linkableSourceIds: readonly (string | undefined)[]
+) {
+  const linkableSourceIdSet = new Set(linkableSourceIds.filter((sourceId): sourceId is string => Boolean(sourceId)));
+
+  return riskAcceptanceDecisionIds(state, sourceRefs).some((decisionId) => linkableSourceIdSet.has(decisionId));
+}
+
+function sourceRefForQueueItem(
+  sourceRefs: readonly PlanningHandoffSourceRefDto[],
+  queueItemId: string,
+  title: string
+): PlanningHandoffSourceRefDto {
+  return (
+    sourceRefs.find((sourceRef) => sourceRefMatches(sourceRef, "research_updated_queue_item", queueItemId)) ?? {
+      sourceType: "research_updated_queue_item",
+      sourceId: queueItemId,
+      sourceLabel: title,
+      required: true,
+      stale: false
+    }
+  );
+}
+
+function sourceTraceBlockers(
+  state: ProductEngineStateSnapshot,
+  sourceRefs: readonly PlanningHandoffSourceRefDto[]
+): readonly PlanningHandoffBlockerDto[] {
+  const blockers: PlanningHandoffBlockerDto[] = [];
+  const requiredCurrentRefs = sourceRefs.filter((sourceRef) => sourceRef.required && !sourceRef.stale);
+  const requiredSourceTypes = new Set(requiredCurrentRefs.map((sourceRef) => sourceRef.sourceType));
+
+  for (const requirement of PLANNING_HANDOFF_REQUIRED_SOURCE_REQUIREMENTS) {
+    if (requirement.sourceTypes.some((sourceType) => requiredSourceTypes.has(sourceType))) {
+      continue;
+    }
+
+    blockers.push({
+      blockerId: requirement.blockerId,
+      blockerClass: "source_trace",
+      whyFatal: requirement.whyFatal,
+      requiredNextAction: requirement.requiredNextAction,
+      sourceRefs: []
+    });
+  }
+
+  for (const sourceRef of sourceRefs) {
+    if (sourceRef.required && (sourceRef.stale || !planningHandoffSourceExists(state, sourceRef))) {
+      blockers.push({
+        blockerId: `blocker_source_trace_${stableToken(`${sourceRef.sourceType}:${sourceRef.sourceId}`)}`,
+        blockerClass: "source_trace",
+        whyFatal: sourceRef.stale
+          ? "Planning Handoff cannot use stale required source traces."
+          : "Planning Handoff cannot use required source refs that are not present, accepted, and current in the loaded ProductEngine state.",
+        requiredNextAction: sourceRef.sourceType === "research_updated_queue_item" ? "research_more" : "revise",
+        sourceRefs: [sourceRef]
+      });
+    }
+  }
+
+  return blockers;
+}
+
+function isResearchUpdatedQueueItem(item: QueueItemProjection) {
+  return (
+    item.cardType === "research_review" ||
+    item.cardType === "decision_approval" ||
+    item.cardType === "risk_acceptance" ||
+    item.cardType === "conflict_resolution" ||
+    item.cardType === "follow_up_question" ||
+    Boolean(item.researchTaskId) ||
+    Boolean(item.evidencePackId) ||
+    item.blocksPlanning === true
+  );
+}
+
+function blockerClassForQueueItem(item: QueueItemProjection): PlanningHandoffBlockerClass {
+  if (item.cardType === "risk_acceptance") {
+    return "approval_security_execution_safety";
+  }
+
+  if (item.cardType === "decision_approval") {
+    return "success_metrics_validation";
+  }
+
+  return "customer_problem_jtbd";
+}
+
+function highImpactPlanningQueueItems(state: ProductEngineStateSnapshot): readonly QueueItemProjection[] {
+  const queueItems = allQueueItems(state.queueProjection).filter(isResearchUpdatedQueueItem);
+  const cardIds = new Set(queueItems.map((item) => item.queueItemId));
+  const itemsFromCards = state.researchState.reviewCards
+    .filter((card) => !cardIds.has(card.cardId) && (card.impact === "high" || card.blocksPlanning))
+    .map((card) => ({
+      queueItemId: card.cardId,
+      title: card.title,
+      state: card.state === "resolved" ? ("resolved" as const) : ("blocked" as const),
+      cardType: card.cardType,
+      researchTaskId: card.researchTaskId,
+      ...(card.evidencePackId ? { evidencePackId: card.evidencePackId } : {}),
+      blocksPlanning: card.blocksPlanning,
+      availableOutcomes: card.availableOutcomes,
+      ...(card.terminalOutcome ? { terminalOutcome: card.terminalOutcome } : {}),
+      ...(card.terminalRationale ? { terminalRationale: card.terminalRationale } : {})
+    } satisfies QueueItemProjection));
+
+  return [...queueItems, ...itemsFromCards].filter((item) => {
+    const card = state.researchState.reviewCards.find((candidate) => candidate.cardId === item.queueItemId);
+
+    return item.blocksPlanning === true || card?.impact === "high";
+  });
+}
+
+function queueOutcomeSummary(
+  item: QueueItemProjection,
+  state: ProductEngineStateSnapshot,
+  sourceRefs: readonly PlanningHandoffSourceRefDto[]
+): PlanningHandoffQueueOutcomeSummaryDto | null {
+  const card = state.researchState.reviewCards.find((candidate) => candidate.cardId === item.queueItemId);
+  const terminalOutcome = item.terminalOutcome ?? card?.terminalOutcome;
+
+  if (!terminalOutcome) {
+    return null;
+  }
+
+  const blockerClass = blockerClassForQueueItem(item);
+  const riskAccepted =
+    terminalOutcome === "risk_accepted" ||
+    hasRiskAcceptanceLinkedTo(state, sourceRefs, [
+      item.queueItemId,
+      item.researchTaskId,
+      item.evidencePackId,
+      card?.cardId,
+      card?.researchTaskId,
+      card?.evidencePackId,
+      card?.retainedSourceRef,
+      ...(card?.retainedSourceRefs ?? [])
+    ]);
+
+  return {
+    queueItemId: item.queueItemId,
+    outcome: terminalOutcome as PlanningHandoffQueueOutcome,
+    impact: card?.impact ?? (item.blocksPlanning ? "high" : "medium"),
+    ...(terminalOutcome === "research_insufficient" || terminalOutcome === "deferred" ? { blockerClass } : {}),
+    ...(terminalOutcome === "risk_accepted"
+      ? { residualRiskClass: "known_low_medium_risk" as PlanningHandoffResidualRiskClass }
+      : {}),
+    riskAccepted,
+    sourceRefs: [sourceRefForQueueItem(sourceRefs, item.queueItemId, item.title)]
+  };
+}
+
+function queueReviewIncompleteBlockers(
+  queueItems: readonly QueueItemProjection[],
+  state: ProductEngineStateSnapshot,
+  sourceRefs: readonly PlanningHandoffSourceRefDto[]
+): readonly PlanningHandoffBlockerDto[] {
+  return queueItems
+    .filter((item) => !queueOutcomeSummary(item, state, sourceRefs))
+    .map((item) => ({
+      blockerId: `blocker_queue_review_${stableToken(item.queueItemId)}`,
+      blockerClass: "queue_review" as const,
+      queueItemId: item.queueItemId,
+      whyFatal: "High-impact research-updated queue cards need an explicit terminal outcome before final handoff.",
+      requiredNextAction: "research_more" as const,
+      sourceRefs: [sourceRefForQueueItem(sourceRefs, item.queueItemId, item.title)]
+    }));
+}
+
+function fatalQueueBlockersFromSummaries(
+  summaries: readonly PlanningHandoffQueueOutcomeSummaryDto[]
+): readonly PlanningHandoffBlockerDto[] {
+  return summaries
+    .filter(
+      (summary) =>
+        (summary.outcome === "research_insufficient" || summary.outcome === "deferred") && !summary.riskAccepted
+    )
+    .map((summary) => ({
+      blockerId: `blocker_fatal_queue_${stableToken(`${summary.queueItemId}:${summary.outcome}`)}`,
+      blockerClass: summary.blockerClass ?? "customer_problem_jtbd",
+      queueItemId: summary.queueItemId,
+      currentOutcome: summary.outcome,
+      whyFatal:
+        summary.outcome === "deferred"
+          ? "High-impact queue card is deferred without explicit risk acceptance."
+          : "High-impact queue card remains research_insufficient.",
+      requiredNextAction: summary.outcome === "deferred" ? ("risk_accept" as const) : ("research_more" as const),
+      sourceRefs: summary.sourceRefs
+    }));
+}
+
+function riskAcceptanceNeededBlockers(
+  state: ProductEngineStateSnapshot,
+  sourceRefs: readonly PlanningHandoffSourceRefDto[]
+): readonly PlanningHandoffBlockerDto[] {
+  return state.completeness.topRiskCards
+    .filter(
+      (risk) =>
+        risk.severity === "high" &&
+        !hasRiskAcceptanceLinkedTo(state, sourceRefs, [risk.riskId, ...risk.sourceRefs])
+    )
+    .map((risk) => {
+      const riskSourceRef: PlanningHandoffSourceRefDto = {
+        sourceType: "known_risk",
+        sourceId: risk.riskId,
+        sourceLabel: risk.title,
+        required: false,
+        stale: false
+      };
+
+      return {
+        blockerId: `blocker_risk_acceptance_${stableToken(risk.riskId)}`,
+        blockerClass: "approval_security_execution_safety" as const,
+        whyFatal: "A high-severity known risk is visible but has not been explicitly risk-accepted.",
+        requiredNextAction: "risk_accept" as const,
+        sourceRefs: [riskSourceRef]
+      };
+    });
+}
+
+function residualRisksForPlanningHandoff(
+  state: ProductEngineStateSnapshot,
+  sourceRefs: readonly PlanningHandoffSourceRefDto[]
+): readonly PlanningHandoffResidualRiskDto[] {
+  const residualRisks = new Map<string, PlanningHandoffResidualRiskDto>();
+  const addResidualRisk = (risk: PlanningHandoffResidualRiskDto) => {
+    if (!residualRisks.has(risk.riskId)) {
+      residualRisks.set(risk.riskId, risk);
+    }
+  };
+
+  for (const risk of state.completeness.topRiskCards) {
+    addResidualRisk({
+      riskId: risk.riskId,
+      riskClass: "known_low_medium_risk",
+      title: risk.title,
+      severity: risk.severity,
+      sourceRefs: risk.sourceRefs.length
+        ? risk.sourceRefs.map((sourceId) => sourceRefForStateSourceId(state, sourceId, risk.title))
+        : sourceRefs.filter((sourceRef) => sourceRef.sourceType === "known_risk"),
+      assumption: "Risk is visible in the Planning Handoff and remains non-executing metadata.",
+      prerequisite: "Reviewer keeps or resolves this risk before downstream execution scope.",
+      validationDependency: risk.nextValidationAction,
+      ownerRole: "product",
+      followUpTrigger: "When the next build slice is accepted or rejected."
+    });
+  }
+
+  for (const risk of [...state.researchState.knownRisks, ...(state.founderBrief?.knownRisks ?? [])]) {
+    addResidualRisk({
+      riskId: risk,
+      riskClass: "known_low_medium_risk",
+      title: risk,
+      severity: "medium",
+      sourceRefs: [sourceRefForStateSourceId(state, risk)],
+      assumption: "Known risk is preserved from research or Founder Brief context.",
+      prerequisite: "Reviewer keeps the risk visible until a later decision resolves or accepts it.",
+      validationDependency: "Confirm whether this known risk affects the next build slice.",
+      ownerRole: "product",
+      followUpTrigger: "When the next build slice scope is narrowed, accepted, or rejected."
+    });
+  }
+
+  for (const issue of state.openIssues.filter((candidate) => candidate.status === "open")) {
+    addResidualRisk({
+      riskId: `open_question_${issue.queueItemId}`,
+      riskClass: "mvp_scope_non_scope",
+      title: issue.summary,
+      severity: "medium",
+      sourceRefs: [
+        {
+          sourceType: "open_question",
+          sourceId: issue.queueItemId,
+          sourceLabel: issue.questionText ?? issue.summary,
+          required: false,
+          stale: false
+        }
+      ],
+      assumption: "Open question is intentionally visible rather than hidden before downstream build work.",
+      prerequisite: "Reviewer confirms the question can remain non-fatal for the next slice.",
+      validationDependency: issue.questionText ?? "Resolve or explicitly carry this open question.",
+      ownerRole: "product",
+      followUpTrigger: "When the next build slice converts the open question into a decision, scope cut, or risk acceptance."
+    });
+  }
+
+  return [...residualRisks.values()];
+}
+
+function uniqueRequiredUserActions(
+  blockers: readonly PlanningHandoffBlockerDto[]
+): readonly PlanningHandoffRequiredUserAction[] {
+  return [...new Set(blockers.map((blocker) => blocker.requiredNextAction))];
+}
+
+function planningHandoffGateContext(
+  state: ProductEngineStateSnapshot,
+  sourceRefs: readonly PlanningHandoffSourceRefDto[]
+) {
+  const sourceBlockers = sourceTraceBlockers(state, sourceRefs);
+  const queueItems = highImpactPlanningQueueItems(state);
+  const queueSummaries = queueItems
+    .map((item) => queueOutcomeSummary(item, state, sourceRefs))
+    .filter((summary): summary is PlanningHandoffQueueOutcomeSummaryDto => Boolean(summary));
+  const queueBlockers = queueReviewIncompleteBlockers(queueItems, state, sourceRefs);
+  const fatalBlockers = fatalQueueBlockersFromSummaries(queueSummaries);
+  const riskAcceptanceBlockers = riskAcceptanceNeededBlockers(state, sourceRefs);
+  const residualRisks = residualRisksForPlanningHandoff(state, sourceRefs);
+
+  if (sourceBlockers.length > 0) {
+    return {
+      verdict: "source_trace_incomplete" as const,
+      blockers: sourceBlockers,
+      queueSummaries,
+      residualRisks
+    };
+  }
+
+  if (queueBlockers.length > 0) {
+    return {
+      verdict: "queue_review_incomplete" as const,
+      blockers: queueBlockers,
+      queueSummaries,
+      residualRisks
+    };
+  }
+
+  if (fatalBlockers.length > 0) {
+    return {
+      verdict: "blocked_by_fatal" as const,
+      blockers: fatalBlockers,
+      queueSummaries,
+      residualRisks
+    };
+  }
+
+  if (riskAcceptanceBlockers.length > 0) {
+    return {
+      verdict: "needs_risk_acceptance" as const,
+      blockers: riskAcceptanceBlockers,
+      queueSummaries,
+      residualRisks
+    };
+  }
+
+  return {
+    verdict: "planning_ready" as const,
+    blockers: [] as readonly PlanningHandoffBlockerDto[],
+    queueSummaries,
+    residualRisks
+  };
+}
+
+function planningHandoffGateVerdict(
+  verdict: PlanningHandoffVerdict,
+  queueSummaries: readonly PlanningHandoffQueueOutcomeSummaryDto[],
+  rationale: string
+): PlanningHandoffGateVerdictDto {
+  return {
+    verdict,
+    reviewedQueueItemIds: queueSummaries.map((summary) => summary.queueItemId),
+    terminalOutcomeSummary: queueSummaries,
+    fatalBlockerClassesChecked: PLANNING_HANDOFF_FATAL_BLOCKER_CLASSES,
+    residualRiskVisibilityCheck: verdict === "planning_ready" ? "passed" : "failed",
+    rationale
+  };
+}
+
+function planningHandoffCreatedBy(command: ProductEngineCommand): PlanningHandoffArtifactDto["createdBy"] {
+  return command.actor === "user" || command.actor === "product_engine" || command.actor === "system"
+    ? command.actor
+    : "product_engine";
+}
+
+function sortedStrings(values: readonly string[]) {
+  return [...values].sort((left, right) => left.localeCompare(right));
+}
+
+function planningHandoffSourceRefHashMaterial(sourceRefs: readonly PlanningHandoffSourceRefDto[]) {
+  return [...sourceRefs]
+    .sort((left, right) =>
+      `${left.sourceType}:${left.sourceId}:${left.sourceLabel ?? ""}`.localeCompare(
+        `${right.sourceType}:${right.sourceId}:${right.sourceLabel ?? ""}`
+      )
+    )
+    .map((sourceRef) => ({
+      sourceType: sourceRef.sourceType,
+      sourceId: sourceRef.sourceId,
+      sourceLabel: sourceRef.sourceLabel ?? null,
+      required: sourceRef.required,
+      stale: sourceRef.stale
+    }));
+}
+
+function planningHandoffScopeHashMaterial(scope: PlanningHandoffRequestedScopeDto) {
+  return {
+    productSlice: scope.productSlice,
+    userFacingJourneyLabel: scope.userFacingJourneyLabel,
+    nonGoals: sortedStrings(scope.nonGoals),
+    excludedInternalPhases: sortedStrings(scope.excludedInternalPhases),
+    assumptions: sortedStrings(scope.assumptions)
+  };
+}
+
+function planningHandoffArtifactIdentityKey(
+  command: ProductEngineCommand,
+  sourceRefs: readonly PlanningHandoffSourceRefDto[],
+  scope: PlanningHandoffRequestedScopeDto
+) {
+  const sourceRefsHash = sha256Hex(JSON.stringify(planningHandoffSourceRefHashMaterial(sourceRefs)));
+  const scopeHash = sha256Hex(JSON.stringify(planningHandoffScopeHashMaterial(scope)));
+
+  return `CreatePlanningHandoff:${command.sessionId}:${command.expectedStateVersion}:${sourceRefsHash}:${scopeHash}`;
+}
+
+function planningHandoffArtifactId(
+  command: ProductEngineCommand,
+  sourceRefs: readonly PlanningHandoffSourceRefDto[],
+  scope: PlanningHandoffRequestedScopeDto
+) {
+  return `handoff_${sha256Hex(planningHandoffArtifactIdentityKey(command, sourceRefs, scope)).slice(0, 32)}`;
+}
+
+function buildPlanningHandoffFinalArtifact(
+  command: ProductEngineCommand,
+  artifactId: string,
+  sourceRefs: readonly PlanningHandoffSourceRefDto[],
+  scope: PlanningHandoffRequestedScopeDto,
+  queueSummaries: readonly PlanningHandoffQueueOutcomeSummaryDto[],
+  residualRisks: readonly PlanningHandoffResidualRiskDto[]
+): PlanningHandoffArtifactDto {
+  const task: PlanningHandoffTaskDto = {
+    taskId: `task_${stableToken(`${artifactId}:build-slice`)}`,
+    title: `${scope.productSlice} build slice를 검증 가능하게 구현`,
+    intent: "Current source refs and queue outcomes are ready for the next PR-sized implementation slice.",
+    sourceRefs,
+    dependsOn: [],
+    ownerRole: "backend",
+    acceptanceEvidence: ["targeted reducer tests", "pnpm verify:docs", "pnpm verify"],
+    nonGoals: scope.nonGoals,
+    riskRefs: residualRisks.map((risk) => risk.riskId)
+  };
+  const handoffSummary = `Planning-ready handoff가 준비됐습니다: ${scope.productSlice}. 실행 권한 없이 다음 구현 조각과 잔여 리스크만 고정합니다.`;
+
+  return {
+    artifactId,
+    kind: "PlanningHandoffArtifact",
+    schemaVersion: "solo-superman.phase2-planning-handoff.v1",
+    createdAt: command.issuedAt,
+    createdBy: planningHandoffCreatedBy(command),
+    status: "planning_ready",
+    sourceRefs,
+    gateVerdict: planningHandoffGateVerdict(
+      "planning_ready",
+      queueSummaries,
+      "All required source traces are current, high-impact queue cards are terminal, and residual risks are visible."
+    ) as PlanningHandoffArtifactDto["gateVerdict"],
+    scopeSnapshot: scope,
+    taskBreakdown: [task],
+    prIssuePlan: [
+      {
+        sequenceId: `phase2_${stableToken(`${artifactId}:pr`)}`,
+        summary: `${scope.productSlice}의 가장 작은 다음 구현 단위`,
+        includedTaskIds: [task.taskId],
+        entryPrerequisites: ["Planning Handoff gate verdict is planning_ready."],
+        exitEvidence: ["Tests and docs contract checks pass.", "No execution authority was introduced."],
+        blockedBy: [],
+        phaseBoundary: "phase2_planning_handoff"
+      }
+    ],
+    buildSlicePlan: {
+      sliceGoal: scope.productSlice,
+      includedCapabilities: ["deterministic planning handoff", "visible source trace", "visible residual risk"],
+      nonGoals: scope.nonGoals,
+      sourceRefs,
+      acceptanceCriteria: ["Final handoff exists only for planning_ready verdict.", "Blocker paths remain separate."],
+      smokeTests: ["run ProductEngine reducer tests", "run docs verifier"],
+      validationMetric: "Reviewer can identify the next PR-sized build slice without hidden fatal blockers.",
+      residualRisks: residualRisks.map((risk) => risk.riskId)
+    },
+    serveChecklist: {
+      serveTarget: "local preview",
+      envVars: [
+        {
+          envVarName: "SOLO_SUPERMAN_LOCAL_TOKEN",
+          required: false,
+          present: false,
+          valueIncluded: false,
+          note: "Token values are not included in Planning Handoff artifacts."
+        }
+      ],
+      authAndPrivacyCheck: "Planning-ready remains local/read-only metadata and hides credential values.",
+      smokeTestChecklist: ["Confirm final label appears only after planning_ready.", "Confirm no execution controls appear."],
+      rollbackPlan: "Discard the handoff projection and return to queue review.",
+      launchNote: "Planning-ready context is ready for review; execution remains out of scope.",
+      learningMetrics: ["handoff understood", "next slice accepted", "blocker revisions requested"]
+    },
+    learningLoopHook: {
+      signalsToCollect: ["reviewer questions", "accepted next-slice task", "blocker revision reasons"],
+      interpretationFrame: "Signals update planning confidence and visible residual risk only.",
+      decisionOptions: ["persevere", "narrow_scope", "next_slice"],
+      recommendedNextSliceRule: "Recommend the next slice only while fatal blockers stay resolved or risk-accepted.",
+      riskUpdateRule: "Convert repeated blocker feedback into Known Risks or queue items before retrying final handoff."
+    },
+    readinessChecklist: {
+      requiredApprovals: ["Reviewer confirms the Planning-ready handoff."],
+      sandboxBoundary: "No file, shell, browser, deploy, credential, or external mutation authority.",
+      rollbackReference: `recompute CreatePlanningHandoff from stateVersion ${command.expectedStateVersion}`,
+      expectedEvidence: ["pnpm --filter @solo-superman/core test -- product-engine", "pnpm verify:docs"],
+      commandPreviewRequirements: ["Command previews remain non-executing."],
+      filePreviewRequirements: ["File patches are future evidence only."],
+      browserPreviewRequirements: ["Browser actions remain excluded from Phase 2 handoff."]
+    },
+    residualRiskRegister: residualRisks,
+    phase15bHintMapping: sourceRefs.filter((sourceRef) => sourceRef.sourceType === "phase15b_hint"),
+    noExecutionPolicy: "no_file_shell_browser_deploy_or_external_mutation",
+    handoffSummary
+  };
+}
+
+function buildPlanningHandoffBlockerArtifact(
+  command: ProductEngineCommand,
+  artifactId: string,
+  verdict: NonReadyPlanningHandoffVerdict,
+  sourceRefs: readonly PlanningHandoffSourceRefDto[],
+  blockers: readonly PlanningHandoffBlockerDto[],
+  queueSummaries: readonly PlanningHandoffQueueOutcomeSummaryDto[],
+  residualRisks: readonly PlanningHandoffResidualRiskDto[]
+): PlanningHandoffBlockerArtifactDto {
+  return {
+    artifactId,
+    kind: "PlanningHandoffBlockerArtifact",
+    schemaVersion: "solo-superman.phase2-planning-handoff-blocker.v1",
+    createdAt: command.issuedAt,
+    createdBy: planningHandoffCreatedBy(command),
+    status: verdict,
+    sourceRefs,
+    gateVerdict: planningHandoffGateVerdict(
+      verdict,
+      queueSummaries,
+      "Planning Handoff gate failed, so the reducer emitted a durable blocker artifact instead of a transient rejection."
+    ) as PlanningHandoffBlockerArtifactDto["gateVerdict"],
+    blockers,
+    residualRisks,
+    requiredUserActions: uniqueRequiredUserActions(blockers),
+    safePreviewRefs: sourceRefs.filter(
+      (sourceRef) => sourceRef.sourceType === "runtime_preview_artifact" || sourceRef.sourceType === "phase15b_hint"
+    ),
+    noFinalLabelRule: "must_not_use_planning_ready_label"
+  };
+}
+
+function planningHandoffProjection(
+  command: ProductEngineCommand,
+  artifact: PlanningHandoffArtifactDto | PlanningHandoffBlockerArtifactDto
+): PlanningHandoffProjection {
+  const projectionUrl = `/api/v1/sessions/${command.sessionId}/planning-handoff`;
+  const version = (Number(command.expectedStateVersion) + 1) as ProjectionVersion;
+
+  if (artifact.kind === "PlanningHandoffArtifact") {
+    return {
+      kind: "PlanningHandoffProjection",
+      sessionId: command.sessionId,
+      version,
+      currentStatus: "planning_ready",
+      finalArtifact: artifact,
+      sourceRefs: artifact.sourceRefs,
+      summary: artifact.handoffSummary,
+      refetchUrl: projectionUrl
+    } as PlanningHandoffProjection;
+  }
+
+  return {
+    kind: "PlanningHandoffProjection",
+    sessionId: command.sessionId,
+    version,
+    currentStatus: artifact.status,
+    blockerArtifact: artifact,
+    sourceRefs: artifact.sourceRefs,
+    summary: "Planning handoff remains blocked until required source traces, queue outcomes, or risk decisions are resolved.",
+    refetchUrl: projectionUrl
+  } as PlanningHandoffProjection;
+}
+
+function reduceCreatePlanningHandoff(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  if (containsUnsupportedPlanningHandoffPayload(command)) {
+    return reject(
+      "CreatePlanningHandoff payload must only include sourceRefs and optional requestedScope.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  const sourceRefsOrRejection = planningHandoffSourceRefsFromPayload(command);
+
+  if ("accepted" in sourceRefsOrRejection) {
+    return sourceRefsOrRejection;
+  }
+
+  const requestedScope = planningHandoffRequestedScopeFromValue(command.payload.requestedScope);
+
+  if (command.payload.requestedScope !== undefined && !requestedScope) {
+    return reject("CreatePlanningHandoff requestedScope is invalid.", "VALIDATION_FAILED");
+  }
+
+  const scope = requestedScope ?? derivePlanningHandoffScope(state);
+  const gate = planningHandoffGateContext(state, sourceRefsOrRejection);
+  const artifactId = planningHandoffArtifactId(command, sourceRefsOrRejection, scope);
+  const artifact =
+    gate.verdict === "planning_ready"
+      ? buildPlanningHandoffFinalArtifact(
+          command,
+          artifactId,
+          sourceRefsOrRejection,
+          scope,
+          gate.queueSummaries,
+          gate.residualRisks
+        )
+      : buildPlanningHandoffBlockerArtifact(
+          command,
+          artifactId,
+          gate.verdict,
+          sourceRefsOrRejection,
+          gate.blockers,
+          gate.queueSummaries,
+          gate.residualRisks
+        );
+  const projection = planningHandoffProjection(command, artifact);
+  const event = eventDraft(
+    command,
+    artifact.kind === "PlanningHandoffArtifact" ? "PlanningHandoffCreated" : "PlanningHandoffBlocked",
+    {
+      artifactId,
+      verdict: gate.verdict,
+      artifactKind: artifact.kind,
+      sourceRefs: sourceRefsOrRejection,
+      projection,
+      summary: projection.summary
+    }
+  );
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      planningHandoff: projection
+    },
+    [
+      {
+        outputType: "planning_handoff_artifact",
+        outputRef: artifactId,
+        payload: {
+          artifactId,
+          verdict: gate.verdict,
+          artifactKind: artifact.kind,
+          sourceRefs: sourceRefsOrRejection,
+          summary: projection.summary
+        }
+      }
+    ],
+    [],
+    projection
   );
 }
 
@@ -2810,6 +3918,8 @@ export function reduceProductEngineCommand(
       return reduceScoreCompleteness(command, state);
     case "PrepareFounderBrief":
       return reducePrepareFounderBrief(command, state);
+    case "CreatePlanningHandoff":
+      return reduceCreatePlanningHandoff(command, state);
     default:
       return reject(`${command.commandType} is outside the mounted PR-09 reducer slice.`);
   }
@@ -3175,6 +4285,16 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
         },
         completeness: confidenceProjection,
         ...(founderBrief ? { founderBrief: founderBrief as FounderBriefProjection } : {})
+      };
+    }
+    case "PlanningHandoffCreated":
+    case "PlanningHandoffBlocked": {
+      const planningHandoff = projectionPayload(event.payload, state.planningHandoff);
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        ...(planningHandoff ? { planningHandoff } : {})
       };
     }
     default:

@@ -120,7 +120,7 @@ export interface PlanningHandoffRequestedScopeDto {
 
 Request rules:
 
-- `sourceRefs` must include at least one current `spec_version`, one `completion_candidate` or `founder_brief`, and one `research_updated_queue_item` or `decision_linked_evidence_pack` ref.
+- `sourceRefs` must include at least one current `spec_version`, one `completion_candidate` or `founder_brief`, one `decision_linked_evidence_pack`, and one `research_updated_queue_item` ref.
 - `requestedScope` is optional. If omitted, ProductEngine derives it from the current Living Spec, Founder Brief/Completion Candidate, and Known Risks.
 - Request payload must not include file path to patch, shell command, browser instruction, deploy target, credential, or external mutation intent.
 
@@ -493,13 +493,14 @@ CreatePlanningHandoff:{sessionId}:{expectedStateVersion}:{sha256(normalizedSourc
 Artifact id formula:
 
 ```text
-handoff_{first32hex(sha256(idempotencyKey))}
+handoff_{first32hex(sha256(CreatePlanningHandoff:{sessionId}:{expectedStateVersion}:{sha256(normalizedSourceRefs)}:{sha256(normalizedRequestedScopeOrDerivedScope)}))}
 ```
 
 Rules:
 
 - `normalizedSourceRefs` is sorted by `sourceType + ":" + sourceId` before hashing.
 - Missing `requestedScope` hashes the ProductEngine-derived scope snapshot.
+- Reducer artifact identity is derived from the canonical handoff material above, not from a caller-specific raw retry id. Reordering `sourceRefs`, `nonGoals`, `assumptions`, or `excludedInternalPhases` must not change artifact identity when the semantic handoff input is unchanged.
 - Identical retry at the same state version returns or upserts the same handoff artifact/projection.
 - Same session with a later `expectedStateVersion` creates a new append-only handoff row.
 

@@ -3,6 +3,7 @@ import type {
   DecisionQueueProjection,
   FounderBriefProjection,
   LivingSpecProjection,
+  PlanningHandoffProjection,
   ResearchEvidenceProjection,
   RuntimeActivityProjection,
   SessionShellProjection
@@ -77,4 +78,5 @@ export interface ProductEngineStateSnapshot {
   readonly runtimeState: RuntimeActivityProjection;
   readonly completeness: ConfidenceCompletionProjection;
   readonly founderBrief?: FounderBriefProjection;
+  readonly planningHandoff?: PlanningHandoffProjection;
 }

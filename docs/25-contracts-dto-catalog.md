@@ -291,6 +291,7 @@ Example command envelope:
 | `specUpdatePreviews` | no | `SpecUpdatePreviewSnapshot[]` | preview material keyed by `previewRef` so approved decisions cannot version different title/sections |
 | `runtimeState` | yes | `RuntimeActivityProjection` | runtime preview/retry/block summary |
 | `completeness` | yes | `ConfidenceCompletionProjection` | latest deterministic scoring projection |
+| `planningHandoff` | no | `PlanningHandoffProjection` | latest Phase 2 final or blocker Planning Handoff projection emitted by `CreatePlanningHandoff`; storage/API persistence remains downstream work |
 
 `DecisionSnapshot.requiredDecisionRef` is a closed completion-gate key: `primary_customer`, `problem`, `value`, `mvp_scope`, `validation_plan`, or `success_criteria`. PR-08 completeness must count unique closed required refs, not any six unrelated decisions.
 High-impact `CreateSpecVersion` must consume the approved `SpecUpdatePreviewSnapshot` material for its `approvedPreviewRef`; request body title/sections are optional echoes and must not mutate the approved preview material.
@@ -799,7 +800,7 @@ Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.
 
 ## Phase 2 Planning Handoff DTO checklist
 
-Phase 2 Planning Handoff 구현자는 `31-phase2-planning-handoff-contract.md`를 canonical artifact contract로 사용하고, `32-phase2-implementation-preflight-contract.md`를 exact DTO/wire shape, enum, route id, idempotency, and implementation sequencing default로 사용한다. 아래 이름은 #42에서 `packages/contracts` public contract surface와 parsed verifier table로 승격된 현재 DTO/command/event/projection names다. Reducer behavior, Drizzle persistence, Hono route handler, sidecar service implementation, and UI rendering remain 후속 Phase 2 issues #43~#46 범위다.
+Phase 2 Planning Handoff 구현자는 `31-phase2-planning-handoff-contract.md`를 canonical artifact contract로 사용하고, `32-phase2-implementation-preflight-contract.md`를 exact DTO/wire shape, enum, route id, idempotency, and implementation sequencing default로 사용한다. 아래 이름은 #42에서 `packages/contracts` public contract surface와 parsed verifier table로 승격된 현재 DTO/command/event/projection names다. #43에서 ProductEngine reducer gate는 `CreatePlanningHandoff`로 연결되었고, Drizzle persistence, Hono route handler, sidecar service implementation, and UI rendering remain 후속 Phase 2 issues #44~#46 범위다.
 
 | Surface | Exact current name | Implementation note |
 | --- | --- | --- |
@@ -824,6 +825,8 @@ Phase 2 Planning Handoff 구현자는 `31-phase2-planning-handoff-contract.md`�
 Behavior rules:
 
 - `PlanningHandoffProjection`은 final handoff와 blocker artifact를 동시에 current final state로 표시하지 않는다.
+- `CreatePlanningHandoff` reducer는 source trace, queue terminal outcome, fatal blocker, risk acceptance precedence를 계산해 `PlanningHandoffCreated` 또는 `PlanningHandoffBlocked`를 accepted event로 내보내며 `effectPlan`을 비워 둔다.
+- `ConvertRuntimeArtifact`는 preview note를 final `PlanningHandoffArtifact`로 승격하려는 target을 `RUNTIME_ACTION_BLOCKED`로 거부한다.
 - final handoff는 `33-build-slice-serve-learning-loop.md`의 `buildSlicePlan`, `serveChecklist`, `learningLoopHook` field family를 포함하되 실행 권한이 아니라 preview/checklist/learning contract로만 해석한다.
 - gate failure는 DTO/API 차원에서 단순 command rejection이 아니라 persisted `PlanningHandoffBlockerArtifactDto`와 projection으로 표현한다.
 - 어떤 DTO field도 file patch, shell command, browser action, deploy, external mutation, active delegation을 실행했거나 실행할 권한을 부여한 것처럼 보이면 안 된다.

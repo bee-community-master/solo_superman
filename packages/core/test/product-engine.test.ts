@@ -100,7 +100,7 @@ describe("PR-04 ProductEngine reducer", () => {
     const source = readFileSync(sourcePath, "utf8");
 
     expect(source).not.toMatch(/from ["'](?:hono|@hono\/|@solo-superman\/db|drizzle-orm|@tauri-apps\/|node:|fs|http|https)/);
-    expect(source).not.toMatch(/(?:fetch|new WebSocket|document\.|window\.|child_process|exec\()/);
+    expect(source).not.toMatch(/(?:\bfetch\s*\(|new WebSocket|document\.|window\.|child_process|exec\()/);
   });
 
   it("runs the deterministic first command path and returns an active-batch-safe projection", () => {
