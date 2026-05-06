@@ -4,6 +4,7 @@ import type {
   ConfidenceCompletionProjection,
   FounderBriefProjection,
   LivingSpecProjection,
+  PlanningHandoffProjection,
   ResearchEvidenceProjection,
   RuntimeActivityProjection,
   SessionShellProjection
@@ -33,7 +34,8 @@ export type ProductEngineDeterministicOutputType =
   | "completeness_snapshot"
   | "confidence_map"
   | "spec_version_material"
-  | "founder_brief_draft";
+  | "founder_brief_draft"
+  | "planning_handoff_artifact";
 
 export interface ProductEngineDeterministicOutput {
   readonly outputType: ProductEngineDeterministicOutputType;
@@ -46,6 +48,7 @@ export type ActiveBatchSafeProjection =
   | DecisionQueueProjection
   | FounderBriefProjection
   | LivingSpecProjection
+  | PlanningHandoffProjection
   | ResearchEvidenceProjection
   | RuntimeActivityProjection
   | SessionShellProjection;

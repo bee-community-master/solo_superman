@@ -21,7 +21,9 @@ export const PRODUCT_ENGINE_EVENT_TYPES = [
   "RuntimePreviewRequested",
   "RuntimeArtifactConverted",
   "CompletenessScored",
-  "FounderBriefPrepared"
+  "FounderBriefPrepared",
+  "PlanningHandoffCreated",
+  "PlanningHandoffBlocked"
 ] as const;
 
 export type ProductEngineEventType = (typeof PRODUCT_ENGINE_EVENT_TYPES)[number];

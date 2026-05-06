@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { PRODUCT_ENGINE_EVENT_TYPES } from "./events";
 
-describe("ProductEngine event contract placeholders", () => {
-  it("uses the closed docs/25 Phase 1 event examples as placeholders", () => {
+describe("ProductEngine event contract surface", () => {
+  it("uses the closed docs/25 event examples", () => {
     expect(PRODUCT_ENGINE_EVENT_TYPES).toEqual([
       "ProjectStarted",
       "IntakeCaptured",
@@ -24,7 +24,9 @@ describe("ProductEngine event contract placeholders", () => {
       "RuntimePreviewRequested",
       "RuntimeArtifactConverted",
       "CompletenessScored",
-      "FounderBriefPrepared"
+      "FounderBriefPrepared",
+      "PlanningHandoffCreated",
+      "PlanningHandoffBlocked"
     ]);
   });
 });

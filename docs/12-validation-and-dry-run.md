@@ -406,16 +406,16 @@ Follow-up questions:
 상황:
 
 - `31-phase2-planning-handoff-contract.md`가 final `PlanningHandoffArtifact`와 gate 실패용 `PlanningHandoffBlockerArtifact` field families를 정의한다.
-- Phase 2 구현자는 `20/21/25/26`번 문서의 planned storage, runtime command boundary, DTO names, endpoint behavior를 읽고 product code PR을 준비한다.
+- Phase 2 구현자는 `20/21/25/26`번 문서의 storage, runtime command boundary, DTO names, endpoint behavior를 읽고 product code PR을 준비한다.
 - sourceRefs에는 SpecVersion, Founder Brief/Completion Candidate, Decision-linked Evidence Pack, Research-updated Queue, Decision/RiskAcceptance, Known Risk/Open Question, Phase 1.5B hint가 포함될 수 있다.
 
 통과 조건:
 
 - `CreatePlanningHandoff` gate 통과는 final `PlanningHandoffArtifact`를 `planning_handoffs` family에 저장하고 `PlanningHandoffProjection`을 반환한다.
 - `CreatePlanningHandoff` gate 실패는 command rejection만 반환하지 않고 `PlanningHandoffBlockerArtifact`를 저장해 blocker class, required next action, safe preview refs를 조회 가능하게 한다.
-- `32-phase2-implementation-preflight-contract.md`는 DTO field names/types, gate precedence, storage columns/indexes, idempotency key, routeId/clientName, Phase 1.5 dependency fallback을 후속 code PR의 exact default로 고정한다.
-- planned DTO names (`CreatePlanningHandoffRequest`, `PlanningHandoffProjection`, `PlanningHandoffArtifactDto`, `PlanningHandoffBlockerArtifactDto`)는 후속 code PR 전까지 `25`번의 current closed enum/projection tables 밖에 남는다.
-- planned endpoint names (`POST /api/v1/sessions/:sessionId/planning-handoff`, `GET /api/v1/sessions/:sessionId/planning-handoff`)는 후속 code PR 전까지 `26`번의 current route catalog rows 밖에 남는다.
+- `32-phase2-implementation-preflight-contract.md`는 DTO field names/types, gate precedence, storage columns/indexes, idempotency key, routeId/clientName, Phase 1.5 dependency fallback을 Phase 2 implementation exact default로 고정한다.
+- DTO names (`CreatePlanningHandoffRequest`, `PlanningHandoffProjection`, `PlanningHandoffArtifactDto`, `PlanningHandoffBlockerArtifactDto`)는 #42 이후 `25`번의 current closed enum/projection tables와 `packages/contracts` public surface에 있어야 한다.
+- endpoint names (`POST /api/v1/sessions/:sessionId/planning-handoff`, `GET /api/v1/sessions/:sessionId/planning-handoff`)는 #42 이후 `26`번의 current route catalog rows와 `API_ROUTE_CATALOG` placeholder에 있어야 한다.
 - `21`번 runtime boundary는 `ConvertRuntimeArtifact`가 final handoff를 만들지 않고, `ImplementationPlanPreviewArtifact`를 PlanningNote/safe preview로만 유지한다고 설명한다.
 - DTO/API/storage 어디에도 file patch, shell command, browser action, deploy, external mutation, active delegation 실행권한이 생기지 않는다.
 
@@ -423,7 +423,7 @@ Follow-up questions:
 
 - `ImplementationPlanPreviewArtifact`를 `ConvertRuntimeArtifact`로 final `PlanningHandoffArtifact`로 승격한다.
 - fatal blocker나 source trace gap이 있는데도 blocker artifact를 저장하지 않고 transient error만 반환한다.
-- product code 변경 없이 `25`번 parsed current enum/projection table 또는 `26`번 current route catalog row에 planned Phase 2 값을 추가한다.
+- `25`번 parsed current enum/projection table 또는 `26`번 current route catalog row에 Phase 2 값을 추가하면서 `packages/contracts`와 doc-contract verifier를 함께 갱신하지 않는다.
 - final/blocker artifact projection이 동시에 current final state처럼 표시된다.
 - DTO/API/storage field가 Phase 2 handoff를 Controlled Execution 또는 Phase 3 실행 설계로 해석하게 만든다.
 
@@ -515,9 +515,9 @@ Follow-up questions:
 - [ ] Phase 2 Planning Handoff는 unresolved fatal blocker 또는 terminal outcome 없는 high-impact Research-updated Queue card가 없을 때만 확정된다.
 - [ ] Phase 2 gate는 `고객/문제/JTBD`, `성공기준/검증계획`, `승인/보안/실행안전` fatal blocker를 막고, `가치제안/차별화`와 `MVP 범위/비범위`의 부족분은 visible residual risk와 validation dependency로 노출한다.
 - [ ] `31-phase2-planning-handoff-contract.md`는 final `PlanningHandoffArtifact`와 gate 실패용 blocker report를 분리한다.
-- [ ] `32-phase2-implementation-preflight-contract.md`는 Phase 2 DTO/API/storage/gate implementation defaults를 exact하게 고정하되 product code, verify script, issue draft, live GitHub issue, Phase 3 execution design을 포함하지 않는다.
+- [ ] `32-phase2-implementation-preflight-contract.md`는 Phase 2 DTO/API/storage/gate implementation defaults를 exact하게 고정한다. #42 contract promotion은 DTO/route placeholder와 verifier sync까지만 포함하고, reducer/storage/API handler/UI behavior, issue draft, live GitHub issue, Phase 3 execution design은 포함하지 않는다.
 - [ ] Build Slice Plan, Serve Checklist, Learning Loop hook은 `33-build-slice-serve-learning-loop.md`에 연결되고 실제 실행 권한으로 해석되지 않는다.
-- [ ] Phase 2 planned DTO/API/storage names는 후속 code PR 전까지 `25`번 current enum/projection tables와 `26`번 current route catalog rows 밖에 유지된다.
+- [ ] Phase 2 DTO/API contract names는 #42 이후 `25`번 current enum/projection tables, `26`번 current route catalog rows, `packages/contracts`, doc-contract verifier가 함께 일치한다.
 - [ ] `CreatePlanningHandoff`는 final 또는 blocker artifact를 durable storage에 남기고 `PlanningHandoffProjection`으로 복구 가능하게 만든다.
 - [ ] `ConvertRuntimeArtifact`는 `ImplementationPlanPreviewArtifact`를 final `PlanningHandoffArtifact`로 승격하지 않는다.
 - [ ] 사용자 UI/onboarding/CTA/export에는 내부 Phase 용어가 노출되지 않는다.
@@ -536,7 +536,7 @@ Follow-up questions:
 - [ ] ProductEngine runtime contract는 `pure reducer + effect plan`을 구현 패턴으로 고정한다.
 - [ ] ProductEngine reducer는 DB, Hono, Codex, filesystem, shell, browser, network를 직접 호출하지 않는다.
 - [ ] ProductEngine effect 실행은 `persisted async effect queue`를 사용하고 in-memory-only queue를 금지한다.
-- [ ] `active batch projection exception`은 즉시 projection의 유일한 예외로 정의된다.
+- [ ] 즉시 projection은 `active batch projection exception` 또는 endpoint별 deterministic projection exception으로만 허용된다.
 - [ ] `queue_projection_effect`, `research_evidence_effect`, `codex_runtime_preview_effect`가 Phase 1 1급 Effect Type으로 반복 정의된다.
 - [ ] `scoring_effect`와 `spec_export_effect`는 Phase 1 1급 async effect가 아니며, scoring/export는 `reducer_deterministic_output`으로 유지된다.
 - [ ] `conservative_ai_retry_matrix`가 README, 20, 21, 23에서 같은 의미로 반복된다.
@@ -556,7 +556,7 @@ Follow-up questions:
 - Data Storage: local embedded libSQL + Drizzle, repository/projection, remote config placeholder 기준으로 일관됨.
 - Sidecar API Runtime: Hono `/api/v1`, local auth, SSE, Codex app-server preview boundary 기준으로 일관됨.
 - Implementation Sequence: PR-01~PR-09 순서와 acceptance 기준으로 일관됨.
-- ProductEngine Runtime Contract: pure reducer + effect plan, persisted async effect queue, active batch projection exception, effect type taxonomy, conservative AI retry matrix 기준으로 일관됨.
+- ProductEngine Runtime Contract: pure reducer + effect plan, persisted async effect queue, active batch/deterministic projection exception, effect type taxonomy, conservative AI retry matrix 기준으로 일관됨.
 - Operations/Observability Contract: 전구간 failure/status/recovery, 대표 장애 dry-run, user-visible recovery, statusUrl/projection refetch 기준으로 일관됨.
 - Founder OS Product Doctrine: 내부 capability phase와 사용자-facing journey stage 분리, Phase 1.5A subphase, Phase 2 strict gate 기준으로 일관됨.
 
@@ -570,7 +570,7 @@ Follow-up questions:
 - 첫 LLM provider abstraction은 `CodexRuntimeAdapter`이며, API key provider abstraction은 후속 후보로 둔다.
 - Phase 1 source cache는 app data dir 격리와 export prohibition을 우선하고, 파일 암호화는 후속 hardening 후보로 둔다.
 - ProductEngine core는 pure reducer + effect plan이다.
-- Effect queue는 persisted async effect queue이며, active batch projection exception만 즉시 projection 예외다.
+- Effect queue는 persisted async effect queue이며, 즉시 projection은 active batch 또는 endpoint별 deterministic projection exception으로 제한된다.
 - First-class effect types는 queue_projection_effect, research_evidence_effect, codex_runtime_preview_effect다.
 - Completeness/Scoring, SpecVersion, Founder Brief draft는 reducer_deterministic_output이다.
 - Retry policy는 conservative_ai_retry_matrix다.

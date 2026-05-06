@@ -13,20 +13,19 @@ Canonical path: `docs/32-phase2-implementation-preflight-contract.md`.
 | Canonical source | Phase 2 implementation preflight decisions는 이 문서가 소유한다. |
 | Decision depth | DTO field names/types, enum values, routeId/clientName, DB columns/indexes, idempotency key, gate source-of-truth까지 exact default로 고정한다. |
 | Issue boundary | 이 문서는 PR/issue 분해 기준을 제공하지만 GitHub issue draft나 live issue 생성은 포함하지 않는다. |
-| Code boundary | 이 문서는 docs-only contract다. product code, Drizzle schema/migration, route handler, reducer, `scripts/verify-doc-contracts.mjs` 변경은 후속 code PR이 소유한다. |
+| Code boundary | 이 문서는 implementation defaults를 소유한다. #42 Contracts PR은 DTO/command/event/projection/route placeholder와 verifier sync만 code로 승격하고, Drizzle schema/migration, route handler, reducer, UI behavior는 후속 code PR이 소유한다. |
 | Phase boundary | Phase 2는 planning handoff까지다. Phase 3 controlled execution, file/shell/browser/deploy/external mutation capability는 설계하지 않는다. |
 
 Non-goals:
 
-- `packages/*` 또는 `apps/*` product code 변경.
-- `scripts/verify-doc-contracts.mjs` 변경.
+- Drizzle schema/migration, Hono route handler, ProductEngine reducer behavior, `apps/*` UI behavior 변경.
 - PR 단위 GitHub issue draft 문서 작성.
 - live GitHub issue 생성/수정.
 - Phase 3 controlled execution 설계.
 
 ## 1. DTO / wire shape exact defaults
 
-후속 code PR은 `25-contracts-dto-catalog.md`의 planned names를 closed contract surface로 승격할 때 아래 wire shape를 기본값으로 사용한다. 모든 field name은 lower camelCase를 사용하고, time field는 ISO-8601 string을 사용한다.
+#42 Contracts PR은 `25-contracts-dto-catalog.md`의 Planning Handoff names를 closed contract surface로 승격할 때 아래 wire shape를 기본값으로 사용한다. 모든 field name은 lower camelCase를 사용하고, time field는 ISO-8601 string을 사용한다.
 
 ### Core enums
 
@@ -57,7 +56,7 @@ export type PlanningHandoffQueueOutcome =
   | "rejected"
   | "risk_accepted"
   | "research_insufficient"
-  | "deferred_with_reason";
+  | "deferred";
 
 export type PlanningHandoffRequiredUserAction =
   | "approve"
@@ -192,6 +191,46 @@ export interface PlanningHandoffResidualRiskDto {
   readonly followUpTrigger: string;
 }
 
+export interface PlanningHandoffBuildSlicePlanDto {
+  readonly sliceGoal: string;
+  readonly includedCapabilities: readonly string[];
+  readonly nonGoals: readonly string[];
+  readonly sourceRefs: readonly PlanningHandoffSourceRefDto[];
+  readonly acceptanceCriteria: readonly string[];
+  readonly smokeTests: readonly string[];
+  readonly validationMetric: string;
+  readonly residualRisks: readonly string[];
+}
+
+export interface PlanningHandoffServeEnvVarDto {
+  readonly envVarName: string;
+  readonly required: boolean;
+  readonly present: boolean;
+  readonly valueIncluded: false;
+  readonly note?: string;
+}
+
+export interface PlanningHandoffServeChecklistDto {
+  readonly serveTarget: string;
+  readonly envVars: readonly PlanningHandoffServeEnvVarDto[];
+  readonly publicUrl?: string;
+  readonly authAndPrivacyCheck: string;
+  readonly smokeTestChecklist: readonly string[];
+  readonly rollbackPlan: string;
+  readonly launchNote: string;
+  readonly learningMetrics: readonly string[];
+}
+
+export type PlanningHandoffLearningDecisionOption = "pivot" | "persevere" | "narrow_scope" | "next_slice";
+
+export interface PlanningHandoffLearningLoopHookDto {
+  readonly signalsToCollect: readonly string[];
+  readonly interpretationFrame: string;
+  readonly decisionOptions: readonly PlanningHandoffLearningDecisionOption[];
+  readonly recommendedNextSliceRule: string;
+  readonly riskUpdateRule: string;
+}
+
 export interface PlanningHandoffArtifactDto {
   readonly artifactId: string;
   readonly kind: "PlanningHandoffArtifact";
@@ -204,6 +243,9 @@ export interface PlanningHandoffArtifactDto {
   readonly scopeSnapshot: PlanningHandoffRequestedScopeDto;
   readonly taskBreakdown: readonly PlanningHandoffTaskDto[];
   readonly prIssuePlan: readonly PlanningHandoffPrIssuePlanItemDto[];
+  readonly buildSlicePlan: PlanningHandoffBuildSlicePlanDto;
+  readonly serveChecklist: PlanningHandoffServeChecklistDto;
+  readonly learningLoopHook: PlanningHandoffLearningLoopHookDto;
   readonly readinessChecklist: PlanningHandoffReadinessChecklistDto;
   readonly residualRiskRegister: readonly PlanningHandoffResidualRiskDto[];
   readonly phase15bHintMapping: readonly PlanningHandoffSourceRefDto[];
@@ -292,7 +334,7 @@ Projection rules:
 
 1. Return `source_trace_incomplete` when any required source ref is missing, stale, or not found in the loaded state snapshot.
 2. Return `queue_review_incomplete` when any high-impact Research-updated Queue card lacks a terminal `PlanningHandoffQueueOutcome`.
-3. Return `blocked_by_fatal` when a fatal blocker class has unresolved, `research_insufficient`, or `deferred_with_reason` outcome without explicit `risk_accepted` source.
+3. Return `blocked_by_fatal` when a fatal blocker class has unresolved, `research_insufficient`, or `deferred` outcome without explicit `risk_accepted` source. A `deferred` source must preserve its user-visible rationale separately.
 4. Return `needs_risk_acceptance` when a fatal blocker candidate is fully described and safe to present to the user for explicit `risk_accept`, but no such acceptance exists yet.
 5. Return `planning_ready` only when all required source traces are current, all high-impact queue items are terminal, fatal blockers are resolved or risk-accepted, and non-fatal gaps are visible in `residualRiskRegister`.
 
@@ -477,7 +519,7 @@ Rules:
 
 ## 5. API route exact defaults
 
-후속 API PR은 `26-api-route-behavior-catalog.md`의 planned endpoint를 아래 route catalog values로 승격한다.
+#42 Contracts PR은 `26-api-route-behavior-catalog.md`의 endpoint를 아래 route catalog placeholder values로 승격한다. 후속 API PR은 이 route catalog placeholder를 Hono handler와 persistence path에 연결한다.
 
 | routeId | clientName | Method/path | commandType |
 | --- | --- | --- | --- |
@@ -505,17 +547,17 @@ SSE/refetch default:
 
 ## 6. Implementation sequencing default
 
-This is not a GitHub issue draft. It is the required follow-up code PR order once this docs-only preflight PR is merged.
+This is not a GitHub issue draft. It is the required follow-up code PR order for Phase 2 implementation after the preflight contract exists on `main`.
 
-1. **Contracts PR**: add DTOs, command/event/projection taxonomy, request/response exports, fixtures, and docs/25/26 parsed tables plus verifier updates.
+1. **Contracts PR (#42)**: add DTOs, command/event/projection taxonomy, request/response exports, fixtures, and docs/25/26 parsed tables plus verifier updates.
 2. **ProductEngine gate PR**: implement `reduceCreatePlanningHandoff`, verdict precedence, no-execution enforcement, `ConvertRuntimeArtifact` guard, reducer tests.
 3. **Storage/projection PR**: add Drizzle schema/migration, planningHandoffRepository, projection persistence, migration tests.
-4. **Sidecar/API PR**: add route catalog entries, Hono handlers, command service persistence path, GET projection query, API tests.
+4. **Sidecar/API PR**: wire the route catalog placeholders to Hono handlers, command service persistence path, GET projection query, and API tests.
 5. **UI/fixture/docs sync PR**: add read-only Planning-ready/blocker display surface, sample fixture coverage, docs acceptance refresh.
 
 Sequencing rules:
 
-- Do not start storage/API/UI PRs before the Contracts PR lands.
+- Do not start storage/API/UI PRs before the Contracts PR (#42) lands.
 - Do not expose a user-facing `Planning-ready` label before ProductEngine gate tests prove `planning_ready` and blocker paths.
 - Do not create Phase 3 execution capability in any Phase 2 handoff PR.
 
@@ -535,7 +577,7 @@ Exact defaults:
 ## Acceptance checklist
 
 - [ ] `docs/32-phase2-implementation-preflight-contract.md` is referenced from README and owner docs.
-- [ ] The seven decisions are exact enough for a future code PR to implement without choosing DTO names, enum values, route ids, storage columns, idempotency, gate precedence, or Phase 1.5 fallback behavior.
+- [ ] The seven decisions are exact enough for Phase 2 implementation PRs to proceed without choosing DTO names, enum values, route ids, storage columns, idempotency, gate precedence, or Phase 1.5 fallback behavior.
 - [ ] The document does not add GitHub issue draft content.
-- [ ] The document does not imply product code, verify script, or Phase 3 execution changes in this PR.
-- [ ] Planned Phase 2 names remain outside currently parsed docs/25 enum/projection tables and docs/26 current route catalog rows until the future code PR updates code and verifier together.
+- [ ] The document does not imply reducer/storage/API handler/UI behavior or Phase 3 execution changes in the Contracts PR (#42).
+- [ ] Phase 2 contract names are promoted into parsed docs/25 enum/projection tables and docs/26 current route catalog rows only in the Contracts PR (#42), together with code and verifier updates.

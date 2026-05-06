@@ -24,7 +24,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 | 엔진 실행 계약 | State/Event Contract, end-to-end traceability, terminal outcome |
 | ProductEngine 권한 | 중앙 ProductEngine Orchestrator가 Phase 1 세션 상태 전이와 Queue 재계산을 소유 |
 | ProductEngine 구현 패턴 | `pure reducer + effect plan`; reducer는 DB/Hono/Codex/filesystem/network를 직접 호출하지 않음 |
-| Effect 실행 모델 | 기본 `persisted async effect queue`; `active batch projection exception`만 즉시 projection 반환 허용 |
+| Effect 실행 모델 | 기본 `persisted async effect queue`; 즉시 projection 반환은 `active batch projection exception` 또는 endpoint별 deterministic projection exception으로 제한 |
 | 1급 Effect Type | `queue_projection_effect`, `research_evidence_effect`, `codex_runtime_preview_effect` |
 | Effect retry 정책 | `conservative_ai_retry_matrix`: queue max 3, research/evidence max 2, Codex preview max 1 자동 재시도 |
 | Deterministic output | Completeness/Scoring, SpecVersion, Founder Brief draft는 `reducer_deterministic_output` |
@@ -122,7 +122,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 | Data Storage Contract | local embedded libSQL, Drizzle schema/migration, repository/projection, event persistence | 도메인 의미는 Domain Model로, API request/response는 Sidecar API Runtime Contract로 넘긴다 |
 | Sidecar API Runtime Contract | Hono route group, validation envelope, local auth, SSE, Codex app-server preview boundary | UI 화면 상세는 UX 문서로, 저장소 내부 구현은 Data Storage Contract로 넘긴다 |
 | Phase 1 Implementation Sequence | Codex가 구현 중 다시 결정하지 않도록 PR-01~PR-09 순서와 acceptance를 고정 | 실제 코드 변경은 후속 구현 PR에서 수행한다 |
-| ProductEngine Runtime Contract | `pure reducer + effect plan`, persisted async effect queue, active batch projection exception, effect retry matrix | 동일 정책 원문은 18/20/21/22에도 중복 허용하며, 충돌 시 문서 수정 PR에서 먼저 정리한다 |
+| ProductEngine Runtime Contract | `pure reducer + effect plan`, persisted async effect queue, active batch/deterministic projection exception, effect retry matrix | 동일 정책 원문은 18/20/21/22에도 중복 허용하며, 충돌 시 문서 수정 PR에서 먼저 정리한다 |
 | Codex Prompt/Output Contract | Codex turnPurpose, prompt input context, JSON output envelope, artifact/applyPolicy taxonomy, repair/failure routing | AI runtime 전략은 17번, Hono route/runtime 경계는 21번, effect queue 실행은 23번으로 넘긴다 |
 | Contracts DTO Catalog | `packages/contracts` public DTO, Core/API/UI Projection, ProductEngineCommand envelope, CommandResponse/statusUrl, SSE DTO | DB row/Drizzle schema는 20번으로, runtime behavior는 21/23번으로 넘긴다 |
 | API Route Behavior Catalog | 전체 Phase 1 endpoint별 API behavior, command/query mapping, statusUrl, SSE/refetch, error/precondition | DTO field는 25번으로, DB row/DDL은 20번으로, runtime/code 구현은 21/23번과 후속 구현 PR로 넘긴다 |
@@ -130,8 +130,8 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 | Founder OS Product Doctrine | 내부 capability phase와 user-facing journey stage 분리, Phase 1.5A subphase, Phase 2 gate | roadmap은 내부 phase sequencing을, UX 문서는 사용자-facing copy를, API/DTO 문서는 구현 계약을 책임진다 |
 | Phase Capability Implementation Matrix | Phase 0~6의 사용자 가치, 구현 capability, entry gate, exit evidence, non-goal | PR/issue 실행 순서, 세부 schema, DTO field, API endpoint, package layout은 후속 Phase별 구현계획으로 넘긴다 |
 | Phase 1.5 Research Runtime and Readiness Contract | Phase 1.5A allowlisted read-only research runtime, ResearchRun lifecycle, disclosure/audit, Phase 1.5B readiness hint schema와 no-execution acceptance | Founder OS/product matrix는 사용자 가치와 gate를, 이 문서는 API/DTO/DB/runtime 구현자가 따라야 할 세부 계약을 책임진다 |
-| Phase 2 Planning Handoff Contract | `PlanningHandoffArtifact`, `PlanningHandoffBlockerArtifact`, gate verdict, PR/issue/task plan, readiness checklist, residual risk, Phase 1.5B hint mapping | Roadmap/Doctrine/Matrix는 phase gate와 사용자 가치를, 이 문서는 Phase 2 handoff artifact/report schema를 책임진다. 실제 DTO/API/storage 구현은 후속 Phase 2 구현 PR로 넘긴다 |
-| Phase 2 Implementation Preflight Contract | DTO wire shape, gate algorithm, storage schema defaults, command/idempotency, route ids, implementation sequencing, Phase 1.5 dependency fallback | 31번은 artifact/report schema를, 이 문서는 그 schema를 code PR로 옮기는 exact implementation defaults를 책임진다. GitHub issue draft와 product code는 후속 작업으로 넘긴다 |
+| Phase 2 Planning Handoff Contract | `PlanningHandoffArtifact`, `PlanningHandoffBlockerArtifact`, gate verdict, PR/issue/task plan, readiness checklist, residual risk, Phase 1.5B hint mapping | Roadmap/Doctrine/Matrix는 phase gate와 사용자 가치를, 이 문서는 Phase 2 handoff artifact/report schema를 책임진다. DTO/route placeholder contract는 #42에서 승격하고, reducer/storage/API handler/UI 구현은 후속 Phase 2 구현 PR로 넘긴다 |
+| Phase 2 Implementation Preflight Contract | DTO wire shape, gate algorithm, storage schema defaults, command/idempotency, route ids, implementation sequencing, Phase 1.5 dependency fallback | 31번은 artifact/report schema를, 이 문서는 그 schema를 code PR로 옮기는 exact implementation defaults를 책임진다. DTO/route placeholder contract promotion은 #42가 맡고, reducer/storage/API handler/UI behavior와 GitHub issue draft는 후속 작업으로 넘긴다 |
 | Build Slice, Serve Checklist, and Learning Loop | Build Slice Plan, Serve Checklist, Learning Loop Hook의 checklist/handoff 계약 | 31번은 final handoff artifact field family를, 33번은 그 field family의 제품 의미와 no-execution boundary를 책임진다. Phase 3 execution adapter와 실제 deploy는 후속 작업으로 넘긴다 |
 | Phase 2.5 Browser Automation Preview Contract | Browser/ChatGPT Pro delegation preview, DelegationRiskGate, ResearchQualityComparisonReport, comparative dry-run, no-execution boundary | 11/17/10/29번은 phase/runtimes/security/matrix 요약을, 이 문서는 Phase 2.5의 canonical docs-level 계약을 책임진다. DTO/API/storage exact default와 product code는 후속 preflight 전까지 확정하지 않는다 |
 

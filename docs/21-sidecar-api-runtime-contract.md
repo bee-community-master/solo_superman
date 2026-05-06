@@ -64,7 +64,7 @@ Rules:
 - Mutating APIs return one of `accepted`, `accepted_with_projection`, `rejected`, or `blocked`.
 - Mutating APIs include `eventIds` and `effectTaskIds` when ProductEngine events/effects were persisted.
 - APIs must not pretend async effect output is already complete.
-- Every mutating API should return the updated projection only when `active batch projection exception` applies.
+- Every mutating API should return the updated projection only when the `active batch projection exception` or an endpoint-specific deterministic projection exception applies.
 - `CommandResponse`, `statusUrl`, `StatusEndpointDto`, SSE DTO, and UI Projection DTO shapes are canonical in `25-contracts-dto-catalog.md`.
 - Endpoint-specific request, command/query mapping, response category, statusUrl, SSE/refetch, and error/precondition behavior is canonical in `26-api-route-behavior-catalog.md`.
 - End-to-end failure/status/recovery expectations and representative incident dry-runs are canonical in `27-operations-observability-contract.md`.
@@ -79,7 +79,7 @@ ProductEngine runtime policy:
 - Reducer output is ProductEngineReduction containing events, nextState, effectPlan, deterministicOutputs, and optional immediateProjection.
 - Effect execution uses persisted async effect queue by default.
 - In-memory-only effect queue is forbidden.
-- active batch projection exception allows immediate active-batch-safe queue projection in the command response.
+- active batch projection exception allows immediate active-batch-safe queue projection in the command response; endpoint-specific deterministic projections such as Phase 2 Planning Handoff must be named in `26-api-route-behavior-catalog.md`.
 - First-class effect types are queue_projection_effect, research_evidence_effect, and codex_runtime_preview_effect.
 - scoring_effect and spec_export_effect are not Phase 1 first-class async effects.
 - Completeness/Scoring, SpecVersion, and Founder Brief draft are reducer_deterministic_output values persisted in the repository transaction.
@@ -91,7 +91,7 @@ ProductEngine runtime policy:
 | Category | When used | Response data |
 | --- | --- | --- |
 | `accepted` | command accepted, async effects queued, no immediate active-batch projection | `eventIds`, `effectTaskIds`, `statusUrl`, `queuedActivity`; exact DTO in `25-contracts-dto-catalog.md` |
-| `accepted_with_projection` | `active batch projection exception` applies | `eventIds`, `effectTaskIds`, `queueProjection`, `activity`, `pendingEffectSummary`; exact DTO in `25-contracts-dto-catalog.md` |
+| `accepted_with_projection` | active-batch-safe or explicitly deterministic projection exception applies | `eventIds`, optional projection payload, `activity`, `pendingEffectSummary`; exact DTO in `25-contracts-dto-catalog.md` |
 | `rejected` | validation/precondition failure | stable error code and no event/effect ids; exact error envelope in `25-contracts-dto-catalog.md` |
 | `blocked` | command is valid but policy/runtime blocks execution | blocking card projection, blocked artifact ref, no external execution; exact DTO in `25-contracts-dto-catalog.md` |
 
@@ -378,11 +378,11 @@ No runtime artifact can directly create SpecVersion. No Phase 1 runtime artifact
 Phase 2 Planning Handoff는 runtime artifact conversion의 확장이 아니라 deterministic ProductEngine command boundary다. 구현자는 `31-phase2-planning-handoff-contract.md`를 handoff artifact source of truth로 사용한다.
 
 - `ImplementationPlanPreviewArtifact`는 Phase 1/1.5B에서 `PlanningNote` 또는 safe preview로만 변환된다. final `PlanningHandoffArtifact`로 직접 승격하지 않는다.
-- final/blocker handoff 생성은 `ConvertRuntimeArtifact`가 아니라 planned ProductEngine command `CreatePlanningHandoff`가 담당한다.
+- final/blocker handoff 생성은 `ConvertRuntimeArtifact`가 아니라 ProductEngine command `CreatePlanningHandoff`가 담당한다.
 - gate 통과 시 sidecar는 `PlanningHandoffArtifact`를 영속화하고 `PlanningHandoffProjection`을 담은 `accepted_with_projection` response를 반환한다.
 - gate 실패, fatal blocker, queue review incomplete, source trace incomplete 상태도 command rejection만으로 끝내지 않는다. 가능한 경우 `PlanningHandoffBlockerArtifact`를 영속화하고 같은 projection response로 사용자가 다음 조치를 볼 수 있게 한다.
 - 이 command는 Codex runtime effect를 queue하지 않는다. file patch, shell command, browser action, deploy, external mutation, active delegation은 Phase 2 handoff 생성의 side effect가 아니다.
-- DTO 이름과 artifact projection field는 `25-contracts-dto-catalog.md`의 planned Phase 2 checklist가 소유하고, endpoint behavior는 `26-api-route-behavior-catalog.md`의 planned Planning Handoff section이 소유한다.
+- DTO 이름과 artifact projection field는 `25-contracts-dto-catalog.md`의 Phase 2 checklist가 소유하고, endpoint behavior는 `26-api-route-behavior-catalog.md`의 Planning Handoff section이 소유한다.
 - `CreatePlanningHandoff`의 gate precedence, idempotency formula, final/blocker response category, and `ConvertRuntimeArtifact` guard exact defaults are owned by `32-phase2-implementation-preflight-contract.md`.
 
 ## Manual handoff fallback

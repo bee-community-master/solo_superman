@@ -25,7 +25,8 @@ const DOCS_25_PRODUCT_ENGINE_COMMAND_TYPES = [
   "ResolveDecision",
   "CreateSpecVersion",
   "ScoreCompleteness",
-  "PrepareFounderBrief"
+  "PrepareFounderBrief",
+  "CreatePlanningHandoff"
 ] as const;
 
 const DOCS_25_PROJECT_APPLICATION_COMMAND_TYPES = [
@@ -44,7 +45,7 @@ const DOCS_25_COMMAND_TYPES = [
   ...DOCS_25_PROJECT_APPLICATION_COMMAND_TYPES
 ] as const;
 
-describe("ProductEngine command contract placeholders", () => {
+describe("ProductEngine command contract surface", () => {
   it("keeps docs/25 CommandActor values available", () => {
     expect(COMMAND_ACTORS).toEqual(["user", "product_engine", "effect_executor", "codex_runtime", "system"]);
   });

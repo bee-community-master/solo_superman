@@ -197,6 +197,7 @@ Phase 1 command type values are closed, and Phase 1.5A allowlist/disclosure/run-
 | `CreateSpecVersion` | persist approved spec version material |
 | `ScoreCompleteness` | calculate deterministic completeness snapshot |
 | `PrepareFounderBrief` | prepare deterministic founder brief draft |
+| `CreatePlanningHandoff` | create the deterministic Phase 2 final/blocker Planning Handoff artifact and projection without execution side effects |
 | `CreateResearchAllowlist` | create project-level read-only research allowlist governance projection; no ProductEngine reducer side effects |
 | `UpdateResearchAllowlist` | update active/paused allowlist policy fields or reactivate paused allowlist; no ProductEngine reducer side effects |
 | `PauseResearchAllowlist` | pause future automatic research run starts for an allowlist; no ProductEngine reducer side effects |
@@ -303,8 +304,8 @@ High-impact `CreateSpecVersion` must consume the approved `SpecUpdatePreviewSnap
 | `events` | yes | `ProductEngineEventDraft[]` | can be empty only when rejected |
 | `nextState` | yes | `ProductEngineStatePatch` | semantic state patch, not DB row diff |
 | `effectPlan` | yes | `ProductEngineEffectPlanItem[]` | first-class effect types only |
-| `deterministicOutputs` | yes | `ProductEngineDeterministicOutput[]` | completeness/spec/founder brief draft material |
-| `immediateProjection` | no | `ActiveBatchSafeProjection` | only active batch projection exception |
+| `deterministicOutputs` | yes | `ProductEngineDeterministicOutput[]` | completeness/spec/founder brief/planning handoff deterministic material |
+| `immediateProjection` | no | `ActiveBatchSafeProjection` | active-batch-safe or explicitly deterministic projection exception |
 
 Example reduction summary:
 
@@ -337,7 +338,7 @@ Reducer output creates event drafts; the application service persists them and a
 | `schemaVersion` | yes | yes | `SchemaVersion` | contract version |
 | `payload` | yes | yes | discriminated payload | selected by eventType |
 
-Closed Phase 1 event type groups:
+Closed ProductEngine event type groups:
 
 | Group | EventType examples | Notes |
 | --- | --- | --- |
@@ -348,6 +349,7 @@ Closed Phase 1 event type groups:
 | research/evidence | `ResearchPlanned`, `ResearchResultImported`, `EvidenceSynthesisRequested`, `EvidenceSynthesized`, `ResearchQueueCardResolved` | research/evidence closed loop; request events queue async work, synthesized events are emitted by the effect executor, and user terminal outcomes update queue/completeness projections |
 | runtime | `RuntimePreviewRequested`, `RuntimeArtifactConverted` | sandbox preview only |
 | completeness/export | `CompletenessScored`, `FounderBriefPrepared` | deterministic output refs |
+| planning handoff | `PlanningHandoffCreated`, `PlanningHandoffBlocked` | Phase 2 final/blocker handoff artifact persistence; deterministic, no effect queue |
 
 ### ProductEngineEffectPlanItem
 
@@ -388,6 +390,7 @@ Deterministic outputs are reducer-created artifacts that can be persisted or pro
 | `spec_update_preview` | approval queue | never mutates spec version until approved |
 | `completeness_snapshot` | radar/progress/history | no async scoring effect in Phase 1 |
 | `founder_brief_draft` | Founder Brief | if-stop-now artifact, deterministic draft |
+| `planning_handoff_artifact` | Planning Handoff | final or blocker handoff artifact; deterministic and no execution side effects |
 
 ## Effect and runtime types
 
@@ -448,7 +451,7 @@ All JSON API responses use `ApiSuccessEnvelope<T>` or `ApiErrorEnvelope`.
 | Category | Meaning |
 | --- | --- |
 | `accepted` | command accepted, async effects queued, no immediate projection |
-| `accepted_with_projection` | active batch projection exception applies |
+| `accepted_with_projection` | active-batch-safe or explicitly deterministic projection exception applies |
 | `rejected` | validation/precondition/domain rejection, no events/effects persisted |
 | `blocked` | valid command, but policy/runtime blocks execution |
 
@@ -465,7 +468,7 @@ All JSON API responses use `ApiSuccessEnvelope<T>` or `ApiErrorEnvelope`.
 | `effectTaskIds` | no | `EffectTaskId[]` | required when effects queued |
 | `statusUrl` | no | string | required when async effects are pending |
 | `queuedActivity` | no | `ActivityItemDto` | allowed for accepted |
-| `deterministicOutputs` | no | `ProductEngineDeterministicOutput[]` | public reducer outputs for accepted commands, including spec update preview refs |
+| `deterministicOutputs` | no | `ProductEngineDeterministicOutput[]` | public reducer outputs for accepted commands, including spec update preview and Planning Handoff refs |
 | `queueProjection` | no | `DecisionQueueProjection` | only accepted_with_projection |
 | `pendingEffectSummary` | no | `PendingEffectSummaryDto` | only accepted_with_projection or status payload |
 | `blockingCard` | no | `QueueItemProjection` | required for blocked when user-visible |
@@ -696,6 +699,7 @@ Phase 1.5A PR-01 implementation note:
 | `ConfidenceCompletionProjection` | `projections/confidence-completion.ts` | progress/radar/risk cards |
 | `RuntimeActivityProjection` | `projections/runtime-activity.ts` | background task board/activity feed |
 | `FounderBriefProjection` | `projections/founder-brief.ts` | if-stop-now/founder brief export |
+| `PlanningHandoffProjection` | `projections/planning-handoff.ts` | Phase 2 final/blocker Planning Handoff |
 
 ### Projection minimum fields
 
@@ -712,6 +716,7 @@ Phase 1.5A PR-01 implementation note:
 | `ConfidenceCompletionProjection` | five-axis scores, radar data, composite completeness, top risk cards, score history |
 | `RuntimeActivityProjection` | effect tasks, Codex runtime status, runtime artifacts, retry/blocked cards, activity feed |
 | `FounderBriefProjection` | if-stop-now artifact, brief draft sections, export readiness, known risks, next validation actions |
+| `PlanningHandoffProjection` | latest final `PlanningHandoffArtifactDto` or latest `PlanningHandoffBlockerArtifactDto`, source refs, gate verdict, build/serve/learning checklist fields on final handoff, readiness/residual-risk summary, refetch URL |
 
 Example DecisionQueueProjection:
 
@@ -792,11 +797,11 @@ Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.
 - High-impact research cards expose `blocksPlanning: true` until resolved; terminal `deferred` and `research_insufficient` remain visible blockers, while `risk_accepted` carries rationale into Known Risks.
 - `DecisionQueueProjection` items may include `cardType`, `researchTaskId`, `evidencePackId`, `availableOutcomes`, `terminalOutcome`, `terminalRationale`, and `blocksPlanning` so UI and refetch recovery can render the same state.
 
-## Phase 2 planned Planning Handoff DTO checklist
+## Phase 2 Planning Handoff DTO checklist
 
-Phase 2 Planning Handoff 구현자는 `31-phase2-planning-handoff-contract.md`를 canonical artifact contract로 사용하고, `32-phase2-implementation-preflight-contract.md`를 exact DTO/wire shape, enum, route id, idempotency, and implementation sequencing default로 사용한다. 아래 이름은 **planned contract names**이며, 후속 product code PR이 `packages/contracts`와 `API_ROUTE_CATALOG`을 함께 갱신하기 전까지 위의 parsed Phase 1 `CommandType`, event, projection table에 추가하지 않는다.
+Phase 2 Planning Handoff 구현자는 `31-phase2-planning-handoff-contract.md`를 canonical artifact contract로 사용하고, `32-phase2-implementation-preflight-contract.md`를 exact DTO/wire shape, enum, route id, idempotency, and implementation sequencing default로 사용한다. 아래 이름은 #42에서 `packages/contracts` public contract surface와 parsed verifier table로 승격된 현재 DTO/command/event/projection names다. Reducer behavior, Drizzle persistence, Hono route handler, sidecar service implementation, and UI rendering remain 후속 Phase 2 issues #43~#46 범위다.
 
-| Planned surface | Exact planned name | Implementation note |
+| Surface | Exact current name | Implementation note |
 | --- | --- | --- |
 | ProductEngine command | `CreatePlanningHandoff` | gate verdict를 계산한 뒤 final 또는 blocker artifact persistence를 요청한다. |
 | API request DTO | `CreatePlanningHandoffRequest` | source snapshot refs와 optional requested scope만 담고 실행 payload를 담지 않는다. |
@@ -806,20 +811,24 @@ Phase 2 Planning Handoff 구현자는 `31-phase2-planning-handoff-contract.md`�
 | Gate verdict DTO | `PlanningHandoffGateVerdictDto` | verdict, fatal blocker classes checked, terminal outcome summary, residual risk visibility check를 담는다. |
 | Task item DTO | `PlanningHandoffTaskDto` | task id/title/intent/sourceRefs/dependency/ownerRole/acceptanceEvidence/nonGoals/riskRefs를 담는다. |
 | PR/issue item DTO | `PlanningHandoffPrIssuePlanItemDto` | sequence, included task ids, entry prerequisites, exit evidence, blocked-by, phase boundary를 담는다. |
+| Build Slice DTO | `PlanningHandoffBuildSlicePlanDto` | smallest product slice, included capabilities, non-goals, source refs, acceptance criteria, smoke tests, validation metric, residual risk refs를 담는다. |
+| Serve Checklist DTO | `PlanningHandoffServeChecklistDto` | serve target, env var presence metadata without values, privacy check, smoke checklist, rollback plan, launch note, learning metrics를 담는다. |
+| Learning Loop DTO | `PlanningHandoffLearningLoopHookDto` | feedback/usage signals, interpretation frame, pivot/persevere/narrow-scope/next-slice options, next-slice and risk-update rules를 담는다. |
 | Readiness DTO | `PlanningHandoffReadinessChecklistDto` | approvals, sandbox/worktree boundary, rollback reference, expected evidence를 담는다. |
 | Residual risk DTO | `PlanningHandoffResidualRiskDto` | visible residual risk, assumption, prerequisite, validation dependency, owner/follow-up trigger를 담는다. |
 | ProductEngine event | `PlanningHandoffCreated` | gate 통과 후 final artifact가 persisted 되었음을 기록한다. |
 | ProductEngine event | `PlanningHandoffBlocked` | gate 실패 후 blocker artifact가 persisted 되었음을 기록한다. |
-| Deterministic output type | `planning_handoff_artifact` | 후속 code PR에서 final/blocker artifact materialization ref를 reducer output으로 추적한다. |
-| Projection family file | `projections/planning-handoff.ts` | 후속 구현 PR에서 `PlanningHandoffProjection` export 위치로 사용한다. |
+| Deterministic output type | `planning_handoff_artifact` | final/blocker artifact materialization ref를 reducer output으로 추적한다. |
+| Projection family file | `projections/planning-handoff.ts` | `PlanningHandoffProjection` export 위치다. |
 
 Behavior rules:
 
 - `PlanningHandoffProjection`은 final handoff와 blocker artifact를 동시에 current final state로 표시하지 않는다.
+- final handoff는 `33-build-slice-serve-learning-loop.md`의 `buildSlicePlan`, `serveChecklist`, `learningLoopHook` field family를 포함하되 실행 권한이 아니라 preview/checklist/learning contract로만 해석한다.
 - gate failure는 DTO/API 차원에서 단순 command rejection이 아니라 persisted `PlanningHandoffBlockerArtifactDto`와 projection으로 표현한다.
 - 어떤 DTO field도 file patch, shell command, browser action, deploy, external mutation, active delegation을 실행했거나 실행할 권한을 부여한 것처럼 보이면 안 된다.
 - exact field names/types/required flags for the Phase 2 DTO family are owned by `32-phase2-implementation-preflight-contract.md`.
-- 후속 구현 PR에서 이 planned 이름을 closed enum/current projection list에 추가할 때는 20/21/26번 문서와 `scripts/verify-doc-contracts.mjs` 검증을 함께 갱신한다.
+- #42 이후 이 current 이름을 reducer/storage/API/UI 동작으로 연결할 때는 20/21/26번 문서와 `scripts/verify-doc-contracts.mjs` 검증을 함께 유지한다.
 
 ## Validation notes
 
@@ -860,7 +869,7 @@ Then:
 
 - response category is one of the closed values.
 - `accepted` responses with pending effects include `statusUrl`.
-- `accepted_with_projection` responses include only active-batch-safe projection.
+- `accepted_with_projection` responses include only active-batch-safe or explicitly deterministic projections.
 - `rejected` responses include stable error envelope and no event/effect ids.
 - `blocked` responses include user-visible blocking card or blocked artifact reference.
 - polling `statusUrl` returns `StatusEndpointDto` with effects, pending summary, and projection hints.

@@ -10,6 +10,7 @@ import {
   findRouteQueryMismatches,
   moduleSpecifiers,
   parseConstArray,
+  parseDocs25DeterministicOutputTypes,
   parseDocs26RoutesFromText,
   parseRouteCatalogFromSource,
   sectionBetween
@@ -44,6 +45,25 @@ describe("doc contract verification helpers", () => {
     );
 
     expect(values).toEqual(["StartProject", "CreateResearchAllowlist"]);
+  });
+
+  it("parses docs/25 deterministic output types without field-name rows", () => {
+    const values = parseDocs25DeterministicOutputTypes(`
+### ProductEngineDeterministicOutput
+
+| Field | Required | Type | Rule |
+| --- | --- | --- | --- |
+| \`outputType\` | yes | enum | closed output type |
+
+| OutputType | Used by | Rule |
+| --- | --- | --- |
+| \`completeness_snapshot\` | progress | deterministic |
+| \`planning_handoff_artifact\` | Planning Handoff | deterministic |
+
+## Effect and runtime types
+`);
+
+    expect(values).toEqual(["completeness_snapshot", "planning_handoff_artifact"]);
   });
 
   it("parses route catalog entries and rejects incomplete route definitions", () => {

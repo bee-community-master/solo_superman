@@ -185,6 +185,8 @@ Common error codes:
 | `POST /api/v1/sessions/:sessionId/completion-candidate` | Auth required. Body DTO: `CompletionCandidateRequest`. | `commandType: ScoreCompleteness`. Completion candidate is deterministic output of scoring, not a separate command. | `accepted_with_projection` if gates pass; `rejected` with low-confidence axes/known risks if gates fail. No `statusUrl`. | Emits confidence/queue projection updates when candidate state changes. | `COMMAND_PRECONDITION_FAILED` if all axes/gates from 07/16 are not satisfied. |
 | `GET /api/v1/sessions/:sessionId/founder-brief` | Auth required. Param: `sessionId`. No body. | `commandType: none`; founder brief projection query. | `ApiSuccessEnvelope<FounderBriefProjection>`; no `statusUrl`. | No effect. Refetch after `PrepareFounderBrief`. | `RESOURCE_NOT_FOUND` if session missing. |
 | `POST /api/v1/sessions/:sessionId/founder-brief/export` | Auth required. Body DTO: `PrepareFounderBriefRequest`. | `commandType: PrepareFounderBrief`. Payload requests draft/export metadata only. | `accepted_with_projection` with `FounderBriefProjection` and export metadata. File write/download side effect is not Phase 1. | Emits founder brief projection update. Refetch founder brief. | `COMMAND_PRECONDITION_FAILED` if Founder Brief sections/gates missing; `RUNTIME_ACTION_BLOCKED` if request attempts file write or external export side effect. |
+| `POST /api/v1/sessions/:sessionId/planning-handoff` | Auth required. Param: `sessionId`. Body DTO: `CreatePlanningHandoffRequest`; route param must match body `sessionId`. | `commandType: CreatePlanningHandoff`; deterministic ProductEngine command. | `accepted_with_projection` with `PlanningHandoffProjection` for both final and blocker artifacts; no `statusUrl`. | Emits `PlanningHandoffCreated` or `PlanningHandoffBlocked` and may emit `projection.updated` for `PlanningHandoffProjection`. No Codex/runtime effect, file/shell/browser/deploy/external mutation, credential, or active delegation. | `RESOURCE_NOT_FOUND` for missing session/source refs, `STATE_VERSION_CONFLICT` for stale expected state, `VALIDATION_FAILED` for malformed body or unsupported requested scope. Gate failure should persist `PlanningHandoffBlockerArtifactDto` when validation/state checks pass. |
+| `GET /api/v1/sessions/:sessionId/planning-handoff` | Auth required. Param: `sessionId`. No body. | `commandType: none`; Planning Handoff projection query. | `ApiSuccessEnvelope<PlanningHandoffProjection | null>`; existing session with no handoff returns `data: null`; no `statusUrl`. | No effect. Refetch after `PlanningHandoffCreated` or `PlanningHandoffBlocked`. | `RESOURCE_NOT_FOUND` if session missing; auth/project ownership checks match the session route family. |
 
 ## Command status, events, and activity endpoints
 
@@ -216,18 +218,18 @@ Phase 1.5 route behavior is introduced by later implementation PRs and must use 
 - hint routes must expose query/export for `phase15bUpgradeHints` without enabling execution.
 - no Phase 1.5 route may execute file/shell/browser/network write/credential/destructive/ChatGPT web automation actions.
 
-## Phase 2 planned Planning Handoff endpoint behavior
+## Phase 2 Planning Handoff endpoint behavior
 
-이 섹션은 `31-phase2-planning-handoff-contract.md`의 artifact contract를 API behavior로 연결하는 planned endpoint contract다. `32-phase2-implementation-preflight-contract.md`는 이 planned endpoint를 code PR로 승격할 때의 exact routeId/clientName, response category, idempotency, GET no-handoff default를 소유한다. 아래 endpoint names는 현재 Phase 1 `API_ROUTE_CATALOG`의 route table row가 아니며, product code PR이 route catalog와 DTO/command enum을 함께 갱신할 때 실제 catalog에 추가한다.
+이 섹션은 `31-phase2-planning-handoff-contract.md`의 artifact contract를 API behavior로 연결하는 endpoint contract다. `32-phase2-implementation-preflight-contract.md`는 exact routeId/clientName, response category, idempotency, GET no-handoff default를 소유한다. #42는 이 endpoint names를 current parsed docs/26 route surface와 `API_ROUTE_CATALOG` placeholder에 승격하지만, Hono route handlers/sidecar persistence는 후속 #45 범위다.
 
-Planned endpoint names:
+Endpoint names:
 
 - `POST /api/v1/sessions/:sessionId/planning-handoff`
   - Request DTO: `CreatePlanningHandoffRequest`.
   - Command mapping: deterministic ProductEngine command `CreatePlanningHandoff`.
   - Response: `accepted_with_projection` with `PlanningHandoffProjection`; no async `statusUrl` unless a future implementation explicitly introduces a non-execution projection effect.
-  - Gate pass: persist `PlanningHandoffArtifact` and emit planned event `PlanningHandoffCreated`.
-  - Gate fail: persist `PlanningHandoffBlockerArtifact` and emit planned event `PlanningHandoffBlocked`; semantic gate failure should not be represented only as command rejection when a blocker artifact can be persisted.
+  - Gate pass: persist `PlanningHandoffArtifact` and emit `PlanningHandoffCreated`.
+  - Gate fail: persist `PlanningHandoffBlockerArtifact` and emit `PlanningHandoffBlocked`; semantic gate failure should not be represented only as command rejection when a blocker artifact can be persisted.
   - Effects/SSE/refetch: no Codex/runtime effect and no file/shell/browser/deploy/external mutation; future implementation may emit `projection.updated` for `PlanningHandoffProjection`.
   - Errors/preconditions: `RESOURCE_NOT_FOUND` for missing session/source refs, `STATE_VERSION_CONFLICT` for stale expected state, `VALIDATION_FAILED` for malformed body or unsupported requested scope. Use `COMMAND_PRECONDITION_FAILED` only when no durable blocker artifact can safely be persisted.
 - `GET /api/v1/sessions/:sessionId/planning-handoff`

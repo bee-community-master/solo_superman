@@ -19,7 +19,7 @@ Canonical path: `docs/31-phase2-planning-handoff-contract.md`.
 | Field depth | 전체 추적형 계약: sourceRefs, gate verdict, task/PR/issue plan, Build Slice Plan, Serve Checklist, Learning Loop hook, readiness checklist, residual risk, Phase 1.5B hints mapping을 모두 필수 field family로 둠 |
 | Execution boundary | Phase 2는 실행계획 handoff까지이며 file patch, shell command, browser action, deploy, external mutation을 실행하지 않음 |
 | User-facing label | `Planning-ready`는 final `PlanningHandoffArtifact`가 생성될 때만 사용할 수 있음 |
-| Code boundary | 이 문서는 docs-level contract다. `packages/contracts` DTO/enum, API route, storage schema 구현은 후속 Phase 2 구현 PR이 소유 |
+| Code boundary | #42 Contracts PR은 `packages/contracts` DTO/command/event/projection/route placeholder와 verifier sync만 승격한다. reducer behavior, storage schema, API handler, UI 구현은 후속 Phase 2 구현 PR이 소유 |
 
 ## Phase 2 source inputs
 
@@ -159,30 +159,30 @@ Mapping rule:
 
 ## Implementation-layer binding
 
-이 문서는 artifact/report schema의 canonical source다. 후속 Phase 2 구현 PR은 아래 문서의 planned implementation contract와 함께 읽어야 하며, 현재 PR에서는 product code나 verify script를 변경하지 않는다.
+이 문서는 artifact/report schema의 canonical source다. 후속 Phase 2 구현 PR은 아래 문서의 implementation contract와 함께 읽어야 한다. #42는 DTO/command/event/projection/route placeholder와 verifier sync를 담당하며, reducer/storage/API handler/UI behavior는 별도 후속 PR 범위다.
 
-| Layer | Owning document | Planned binding |
+| Layer | Owning document | Binding |
 | --- | --- | --- |
 | Storage | `20-data-storage-contract.md` | `planning_handoffs`, `planning_handoff_sources`, `planning_handoff_tasks`, `planning_handoff_pr_issue_items`, `planning_handoff_risks`, `planningHandoffRepository`, `planningHandoffProjection` |
 | Runtime/API command boundary | `21-sidecar-api-runtime-contract.md` | `CreatePlanningHandoff`가 final/blocker artifact를 만들며 `ConvertRuntimeArtifact`는 preview-only planning note boundary를 넘지 않는다. |
-| DTO/contracts | `25-contracts-dto-catalog.md` | `CreatePlanningHandoffRequest`, `PlanningHandoffProjection`, `PlanningHandoffArtifactDto`, `PlanningHandoffBlockerArtifactDto`, supporting DTO family, planned events `PlanningHandoffCreated`/`PlanningHandoffBlocked` |
-| Route behavior | `26-api-route-behavior-catalog.md` | planned `POST`/`GET` planning-handoff endpoint behavior, `accepted_with_projection`, persisted blocker artifact semantics |
+| DTO/contracts | `25-contracts-dto-catalog.md` | `CreatePlanningHandoffRequest`, `PlanningHandoffProjection`, `PlanningHandoffArtifactDto`, `PlanningHandoffBlockerArtifactDto`, supporting DTO family, events `PlanningHandoffCreated`/`PlanningHandoffBlocked` |
+| Route behavior | `26-api-route-behavior-catalog.md` | `POST`/`GET` planning-handoff endpoint behavior, `accepted_with_projection`, persisted blocker artifact semantics |
 | Implementation preflight | `32-phase2-implementation-preflight-contract.md` | exact DTO wire shape, gate precedence, storage columns/indexes, idempotency, routeId/clientName, implementation sequencing, Phase 1.5 dependency fallback |
-| Dry-run acceptance | `12-validation-and-dry-run.md` | gate, DTO/API/storage, no-execution, parser-safe planned/current boundary checks |
+| Dry-run acceptance | `12-validation-and-dry-run.md` | gate, DTO/API/storage, no-execution, parser-safe contract boundary checks |
 
 Binding rules:
 
-- planned DTO/API/storage names remain outside current code-synchronized enum/projection/route tables until a product code PR updates the corresponding packages and doc-contract verifier together.
-- exact implementation defaults for those planned names are owned by `32-phase2-implementation-preflight-contract.md`.
+- DTO/API contract names are current in docs/25, docs/26, `packages/contracts`, and the doc-contract verifier after #42; reducer/storage/handler/UI behavior remains follow-up work.
+- exact implementation defaults for those contract names are owned by `32-phase2-implementation-preflight-contract.md`.
 - gate failure output is a durable blocker artifact whenever safe to persist, not just a transient error response.
 - final and blocker artifacts share source trace/readiness/risk semantics but only final `PlanningHandoffArtifact` may carry the user-facing `Planning-ready` label.
 - Build Slice, Serve Checklist, Learning Loop hook은 final artifact에 포함되어도 no-execution policy 아래의 planning context다. 이 field를 근거로 file patch, shell command, browser action, deploy, external mutation을 실행하면 안 된다.
 
 ## Non-goals
 
-- `packages/contracts`에 artifact kind enum을 추가하지 않는다.
-- API route, storage schema, repository, ProductEngine reducer, sidecar runtime conversion을 구현하지 않는다.
-- `verify-doc-contracts`에 doc 31 guard를 추가하지 않는다.
+- Product runtime artifact kind enum 또는 Codex artifact taxonomy에 Planning Handoff 값을 추가하지 않는다.
+- API route handler, storage schema, repository, ProductEngine reducer, sidecar runtime conversion을 구현하지 않는다.
+- `verify-doc-contracts`에 doc 31 전용 guard를 추가하지 않는다. #42는 docs/25와 docs/26의 current parsed contract table sync만 유지한다.
 - file patch, shell command, browser action, deploy, external mutation 실행 capability를 만들지 않는다.
 - Build Slice, Serve Checklist, Learning Loop hook을 Phase 3 execution adapter 세부 설계로 확장하지 않는다.
 - provisional plan을 final implementation plan처럼 표시하지 않는다.
@@ -198,6 +198,6 @@ Binding rules:
 - [ ] blocker report는 `Planning-ready` label을 사용하지 않는다.
 - [ ] fatal blocker class와 visible residual risk 규칙은 `28-founder-os-product-doctrine.md`와 충돌하지 않는다.
 - [ ] Phase 2 handoff는 실제 file/shell/browser/deploy/external mutation을 실행하지 않는다.
-- [ ] planned DTO/API/storage/route names는 후속 code PR 전까지 current enum/projection/route tables 밖에 있다.
+- [ ] DTO/API contract names are current in code-synchronized enum/projection/route placeholder tables only after #42 updates packages and verifier together.
 - [ ] exact DTO/gate/storage/API/idempotency/sequence defaults are delegated to `32-phase2-implementation-preflight-contract.md`.
-- [ ] 후속 DTO/API/storage 구현은 이 문서의 field family와 20/21/25/26번 planned binding을 기준으로 별도 PR에서 결정한다.
+- [ ] 후속 reducer/storage/API handler/UI 구현은 이 문서의 field family와 20/21/25/26번 binding을 기준으로 별도 PR에서 진행한다.

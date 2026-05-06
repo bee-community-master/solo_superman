@@ -10,6 +10,7 @@ import type {
   StateVersion
 } from "../ids";
 import type { ResearchImpact, ResearchRouteOutcome, ResearchSourceReliability } from "../projections";
+import type { PlanningHandoffRequestedScopeDto, PlanningHandoffSourceRefDto } from "../projections/planning-handoff";
 import type { ResearchQueueTerminalOutcome } from "../projections/research-evidence";
 import type { BlockedActionType, CodexTurnPurpose } from "../codex";
 import type { RequiredDecisionRef } from "../product-engine";
@@ -202,4 +203,11 @@ export interface PrepareFounderBriefRequest extends ScaffoldRequestPlaceholder {
   readonly externalExportRequested?: boolean;
   readonly destinationPath?: string;
   readonly exportUrl?: string;
+}
+
+export interface CreatePlanningHandoffRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
+  readonly sourceRefs: readonly PlanningHandoffSourceRefDto[];
+  readonly requestedScope?: PlanningHandoffRequestedScopeDto;
 }

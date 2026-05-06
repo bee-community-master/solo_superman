@@ -139,7 +139,7 @@ function parseDocs25CommandActors(docs25) {
 function parseDocs25EventTypes(docs25) {
   const section = sectionBetween(
     docs25,
-    "Closed Phase 1 event type groups:",
+    "Closed ProductEngine event type groups:",
     "### ProductEngineEffectPlanItem",
     "docs/25 ProductEngineEventType section"
   );
@@ -164,6 +164,17 @@ function parseDocs25EffectStatuses(docs25) {
     "### EffectStatus enum",
     "### EffectTaskDto",
     "docs/25 EffectStatus section"
+  );
+
+  return markdownFirstColumnValues(section);
+}
+
+export function parseDocs25DeterministicOutputTypes(docs25) {
+  const section = sectionBetween(
+    docs25,
+    "| OutputType | Used by | Rule |",
+    "## Effect and runtime types",
+    "docs/25 ProductEngineDeterministicOutputType section"
   );
 
   return markdownFirstColumnValues(section);
@@ -360,6 +371,30 @@ function createContractTaxonomyChecks({ docs24, docs25 }) {
 function compareContractTaxonomies(docs) {
   for (const { label, docsValues, codeValues } of createContractTaxonomyChecks(docs)) {
     compareSets(label, docsValues, codeValues);
+  }
+}
+
+function checkPlanningHandoffContractPromotion(docs25) {
+  const deterministicOutputTypes = {
+    docsValues: parseDocs25DeterministicOutputTypes(docs25),
+    codeValues: parseStringUnion(
+      readText("packages/contracts/src/product-engine/reduction.ts"),
+      "ProductEngineDeterministicOutputType"
+    )
+  };
+  const requiredDeterministicOutputType = "planning_handoff_artifact";
+  const missing = [];
+
+  if (!deterministicOutputTypes.docsValues.includes(requiredDeterministicOutputType)) {
+    missing.push(`docs/25 OutputType table missing ${requiredDeterministicOutputType}`);
+  }
+
+  if (!deterministicOutputTypes.codeValues.includes(requiredDeterministicOutputType)) {
+    missing.push(`ProductEngineDeterministicOutputType missing ${requiredDeterministicOutputType}`);
+  }
+
+  if (missing.length) {
+    fail("Planning Handoff deterministic output promotion mismatch", missing);
   }
 }
 
@@ -696,6 +731,7 @@ export function runDocContractChecks() {
   };
 
   compareContractTaxonomies(docs);
+  checkPlanningHandoffContractPromotion(docs.docs25);
   compareRoutes(docs.docs26);
   scanPackageBoundaries();
   checkPhase15DocConsistency();

@@ -415,6 +415,22 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "createPlanningHandoff",
+    clientName: "createPlanningHandoff",
+    method: "POST",
+    path: "/api/v1/sessions/:sessionId/planning-handoff",
+    commandType: "CreatePlanningHandoff",
+    implementedInPr01: false
+  },
+  {
+    routeId: "getPlanningHandoff",
+    clientName: "getPlanningHandoff",
+    method: "GET",
+    path: "/api/v1/sessions/:sessionId/planning-handoff",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
     routeId: "getCommandStatus",
     clientName: "getCommandStatus",
     method: "GET",
@@ -552,6 +568,11 @@ export const PHASE15B_PR10_HINT_ROUTE_IDS = [
 export const PHASE15B_PR10_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...PHASE15A_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS,
   ...PHASE15B_PR10_HINT_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const PHASE2_PR01_PLANNING_HANDOFF_ROUTE_IDS = [
+  "createPlanningHandoff",
+  "getPlanningHandoff"
 ] as const satisfies readonly ApiRouteId[];
 
 export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE15B_PR10_MOUNTED_PRODUCT_API_ROUTE_IDS;
