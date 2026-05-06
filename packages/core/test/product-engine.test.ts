@@ -698,9 +698,10 @@ describe("PR-04 ProductEngine reducer", () => {
         completionCandidate: {
           status: "not_ready"
         },
-        topRisks: [
-          expect.stringContaining("missing_con_evidence")
-        ]
+        topRisks: expect.arrayContaining([
+          expect.stringContaining("missing_con_evidence"),
+          expect.stringContaining("Research-updated risk_acceptance card blocks Planning-ready")
+        ])
       }
     });
   });
@@ -896,6 +897,404 @@ describe("PR-04 ProductEngine reducer", () => {
     });
   });
 
+  it("projects accepted Evidence Packs into decision-approval cards and resolves terminal outcomes", () => {
+    const planned = reduceProductEngineCommand(
+      command("PlanResearch", 0, {
+        objective: "Validate high-impact pricing evidence",
+        routeOutcome: "research_needed",
+        impact: "high"
+      }, 1),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(planned.accepted).toBe(true);
+
+    const plannedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_decision_approval_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:04:00.000Z"
+      }
+    ]);
+    const researchTaskId = plannedState.researchState.taskIds[0];
+    const imported = reduceProductEngineCommand(
+      command("ImportResearchResult", 1, {
+        researchTaskId,
+        result: "Pro: paid founders show urgency. Con: some founders still prefer spreadsheets.",
+        sourceReliability: "high",
+        limitationNotes: "Manual import retained both support and counter-evidence.",
+        claim: "Pricing evidence supports concierge validation.",
+        decisionContext: "value",
+        specSectionRef: "spec:value"
+      }, 2),
+      plannedState
+    );
+
+    expect(imported.accepted).toBe(true);
+
+    const importedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_decision_approval_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:04:00.000Z"
+      },
+      {
+        ...imported.events[0],
+        eventId: "evt_decision_approval_import",
+        sequence: 2,
+        occurredAt: "2026-05-05T00:04:10.000Z"
+      }
+    ]);
+    const researchResultId = importedState.researchState.results[0]?.researchResultId;
+    const synthesized = reduceProductEngineCommand(
+      effectExecutorCommand("SynthesizeEvidence", 2, { researchResultId }, 3),
+      importedState
+    );
+
+    expect(synthesized.accepted).toBe(true);
+    expect(synthesized.nextState).toMatchObject({
+      researchState: {
+        reviewCards: [
+          expect.objectContaining({
+            cardType: "decision_approval",
+            impact: "high",
+            evidencePackId: expect.stringMatching(/^evidence_pack_/),
+            availableOutcomes: expect.arrayContaining(["approved", "revised", "rejected", "deferred"]),
+            blocksPlanning: true
+          })
+        ]
+      },
+      queueProjection: {
+        next: [
+          expect.objectContaining({
+            cardType: "decision_approval",
+            blocksPlanning: true
+          })
+        ]
+      },
+      completeness: {
+        gates: expect.arrayContaining([
+          expect.objectContaining({
+            gateId: "research_queue_cards",
+            passed: false
+          })
+        ])
+      }
+    });
+
+    const synthesizedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_decision_approval_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:04:00.000Z"
+      },
+      {
+        ...imported.events[0],
+        eventId: "evt_decision_approval_import",
+        sequence: 2,
+        occurredAt: "2026-05-05T00:04:10.000Z"
+      },
+      {
+        ...synthesized.events[0],
+        eventId: "evt_decision_approval_synthesized",
+        sequence: 3,
+        occurredAt: "2026-05-05T00:04:20.000Z"
+      }
+    ]);
+    const cardId = synthesizedState.researchState.reviewCards[0]?.cardId;
+    const resolved = reduceProductEngineCommand(
+      command("ResolveResearchQueueCard", 3, {
+        cardId,
+        outcome: "approved"
+      }, 4),
+      synthesizedState
+    );
+
+    expect(resolved.accepted).toBe(true);
+    expect(resolved.events[0]).toMatchObject({
+      eventType: "ResearchQueueCardResolved",
+      payload: {
+        cardId,
+        outcome: "approved"
+      }
+    });
+    expect(resolved.nextState).toMatchObject({
+      researchState: {
+        reviewCards: [
+          expect.objectContaining({
+            terminalOutcome: "approved",
+            blocksPlanning: false
+          })
+        ]
+      },
+      queueProjection: {
+        next: expect.not.arrayContaining([
+          expect.objectContaining({
+            queueItemId: cardId
+          })
+        ])
+      }
+    });
+  });
+
+  it("requires and preserves user-visible rationale for risk-accepted research outcomes", () => {
+    const planned = reduceProductEngineCommand(
+      command("PlanResearch", 0, {
+        objective: "Validate high-impact launch risk",
+        routeOutcome: "missing_con_evidence",
+        impact: "high"
+      }, 1),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+    const plannedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_risk_accept_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:05:00.000Z"
+      }
+    ]);
+    const researchTaskId = plannedState.researchState.taskIds[0];
+    const imported = reduceProductEngineCommand(
+      command("ImportResearchResult", 1, {
+        researchTaskId,
+        result: "Pro: launch urgency looks strong.",
+        limitationNotes: "No counter-evidence source was found."
+      }, 2),
+      plannedState
+    );
+    const importedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_risk_accept_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:05:00.000Z"
+      },
+      {
+        ...imported.events[0],
+        eventId: "evt_risk_accept_import",
+        sequence: 2,
+        occurredAt: "2026-05-05T00:05:10.000Z"
+      }
+    ]);
+    const researchResultId = importedState.researchState.results[0]?.researchResultId;
+    const synthesized = reduceProductEngineCommand(
+      effectExecutorCommand("SynthesizeEvidence", 2, { researchResultId }, 3),
+      importedState
+    );
+    const synthesizedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_risk_accept_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:05:00.000Z"
+      },
+      {
+        ...imported.events[0],
+        eventId: "evt_risk_accept_import",
+        sequence: 2,
+        occurredAt: "2026-05-05T00:05:10.000Z"
+      },
+      {
+        ...synthesized.events[0],
+        eventId: "evt_risk_accept_synthesized",
+        sequence: 3,
+        occurredAt: "2026-05-05T00:05:20.000Z"
+      }
+    ]);
+    const riskCard = synthesizedState.researchState.reviewCards[0];
+
+    expect(riskCard).toMatchObject({
+      cardType: "risk_acceptance",
+      availableOutcomes: expect.arrayContaining(["risk_accepted", "research_insufficient", "deferred", "rejected"]),
+      blocksPlanning: true
+    });
+
+    const missingRationale = reduceProductEngineCommand(
+      command("ResolveResearchQueueCard", 3, {
+        cardId: riskCard?.cardId,
+        outcome: "risk_accepted"
+      }, 4),
+      synthesizedState
+    );
+    const acceptedRisk = reduceProductEngineCommand(
+      command("ResolveResearchQueueCard", 3, {
+        cardId: riskCard?.cardId,
+        outcome: "risk_accepted",
+        rationale: "Founder accepts the missing counter-evidence risk before a later validation sprint."
+      }, 5),
+      synthesizedState
+    );
+
+    expect(missingRationale).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "VALIDATION_FAILED"
+      }
+    });
+    expect(acceptedRisk.accepted).toBe(true);
+    expect(acceptedRisk.nextState).toMatchObject({
+      researchState: {
+        knownRisks: expect.arrayContaining([
+          expect.stringContaining("Founder accepts the missing counter-evidence risk")
+        ]),
+        reviewCards: [
+          expect.objectContaining({
+            terminalOutcome: "risk_accepted",
+            terminalRationale: "Founder accepts the missing counter-evidence risk before a later validation sprint.",
+            blocksPlanning: false
+          })
+        ]
+      },
+      queueProjection: {
+        blocked: expect.not.arrayContaining([
+          expect.objectContaining({
+            queueItemId: riskCard?.cardId
+          })
+        ])
+      },
+      completeness: {
+        gates: expect.arrayContaining([
+          expect.objectContaining({
+            gateId: "evidence_balance",
+            passed: true
+          }),
+          expect.objectContaining({
+            gateId: "research_queue_cards",
+            passed: true
+          })
+        ]),
+        topRisks: expect.arrayContaining([
+          expect.stringContaining("Founder accepts the missing counter-evidence risk")
+        ])
+      }
+    });
+  });
+
+  it("keeps low-impact terminal insufficient research cards visible without blocking Planning-ready", () => {
+    const planned = reduceProductEngineCommand(
+      command("PlanResearch", 0, {
+        objective: "Validate low-impact onboarding copy evidence",
+        sourceQueueItemId: "queue_low_impact_research",
+        routeOutcome: "missing_con_evidence",
+        impact: "low"
+      }, 1),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(planned.accepted).toBe(true);
+
+    const plannedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_low_impact_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:06:00.000Z"
+      }
+    ]);
+    const researchTaskId = plannedState.researchState.taskIds[0];
+    const imported = reduceProductEngineCommand(
+      command("ImportResearchResult", 1, {
+        researchTaskId,
+        result: "Pro: a few users liked the onboarding copy.",
+        limitationNotes: "Counter-evidence is not yet available."
+      }, 2),
+      plannedState
+    );
+
+    expect(imported.accepted).toBe(true);
+
+    const importedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_low_impact_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:06:00.000Z"
+      },
+      {
+        ...imported.events[0],
+        eventId: "evt_low_impact_import",
+        sequence: 2,
+        occurredAt: "2026-05-05T00:06:10.000Z"
+      }
+    ]);
+    const researchResultId = importedState.researchState.results[0]?.researchResultId;
+    const synthesized = reduceProductEngineCommand(
+      effectExecutorCommand("SynthesizeEvidence", 2, { researchResultId }, 3),
+      importedState
+    );
+
+    expect(synthesized.accepted).toBe(true);
+
+    const synthesizedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_low_impact_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:06:00.000Z"
+      },
+      {
+        ...imported.events[0],
+        eventId: "evt_low_impact_import",
+        sequence: 2,
+        occurredAt: "2026-05-05T00:06:10.000Z"
+      },
+      {
+        ...synthesized.events[0],
+        eventId: "evt_low_impact_synthesized",
+        sequence: 3,
+        occurredAt: "2026-05-05T00:06:20.000Z"
+      }
+    ]);
+    const card = synthesizedState.researchState.reviewCards[0];
+
+    expect(card).toMatchObject({
+      impact: "low",
+      blocksPlanning: false,
+      availableOutcomes: expect.arrayContaining(["research_insufficient"])
+    });
+
+    const resolved = reduceProductEngineCommand(
+      command("ResolveResearchQueueCard", 3, {
+        cardId: card?.cardId,
+        outcome: "research_insufficient"
+      }, 4),
+      synthesizedState
+    );
+
+    expect(resolved.accepted).toBe(true);
+    expect(resolved.nextState).toMatchObject({
+      researchState: {
+        reviewCards: [
+          expect.objectContaining({
+            terminalOutcome: "research_insufficient",
+            blocksPlanning: false
+          })
+        ]
+      },
+      queueProjection: {
+        blocked: [
+          expect.objectContaining({
+            queueItemId: card?.cardId,
+            terminalOutcome: "research_insufficient",
+            blocksPlanning: false
+          })
+        ]
+      },
+      completeness: {
+        gates: expect.arrayContaining([
+          expect.objectContaining({
+            gateId: "research_queue_cards",
+            passed: true
+          })
+        ])
+      }
+    });
+  });
+
   it("recalculates research review queue state from evidence outcome instead of original route", () => {
     const { state, eventDrafts } = stateWithActiveQuestionBatch();
     const activeItem = state.queueProjection.active[0];
@@ -965,7 +1364,10 @@ describe("PR-04 ProductEngine reducer", () => {
           expect.objectContaining({
             queueItemId: reviewQueueItemId,
             state: "blocked",
-            title: expect.stringContaining("Decision blocked")
+            title: expect.stringContaining("Evidence still insufficient"),
+            cardType: "risk_acceptance",
+            blocksPlanning: true,
+            availableOutcomes: expect.arrayContaining(["risk_accepted", "research_insufficient"])
           })
         ]
       },

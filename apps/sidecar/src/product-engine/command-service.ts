@@ -135,6 +135,7 @@ export interface RunSessionCommandInput {
     | "PlanResearch"
     | "ImportResearchResult"
     | "SynthesizeEvidence"
+    | "ResolveResearchQueueCard"
     | "CreateRuntimePreview"
     | "ConvertRuntimeArtifact"
     | "CreateSpecUpdatePreview"

@@ -1,3 +1,7 @@
+import {
+  derivePendingResearchReviewCardOutcomeMetadata,
+  deriveResearchReviewCardOutcomeMetadata
+} from "@solo-superman/contracts";
 import type {
   DecisionEvidencePackId,
   DecisionEvidencePackProjection,
@@ -7,6 +11,7 @@ import type {
   QueueItemId,
   ResearchEvidenceProjection,
   ResearchImpact,
+  ResearchQueueTerminalOutcome,
   ResearchQualityGateCheckProjection,
   ResearchResultId,
   ResearchResultProjection,
@@ -160,17 +165,23 @@ function mergeById<TItem, TId extends string>(items: readonly TItem[], nextItem:
 
 function reviewCardForTask(task: ResearchTaskProjection): ResearchReviewCardProjection {
   const retainedSourceRef = task.sourceAnswerRef ?? task.sourceQueueItemId;
+  const outcomeMetadata = derivePendingResearchReviewCardOutcomeMetadata();
 
   return {
     cardId: `research_review_${task.researchTaskId}` as QueueItemId,
     researchTaskId: task.researchTaskId,
+    cardType: outcomeMetadata.cardType,
     title:
       task.routeOutcome === "missing_con_evidence"
         ? `반대근거 탐색 필요: ${task.objective}`
         : `Research review: ${task.objective}`,
     state: "pending_manual_result",
+    impact: task.impact,
     ...(retainedSourceRef ? { retainedSourceRef } : {}),
-    recoveryActions: ["import_manual_result", "defer_as_known_risk"]
+    availableOutcomes: outcomeMetadata.availableOutcomes,
+    suggestedOutcome: outcomeMetadata.suggestedOutcome,
+    blocksPlanning: task.impact === "high",
+    recoveryActions: outcomeMetadata.recoveryActions
   };
 }
 
@@ -189,10 +200,18 @@ function reviewCardForMatrix(
   const needsReview = pack.gateStatus === "needs_review";
   const stale = pack.gateStatus === "stale";
   const sourceRefs = retainedSourceRefs(result, pack);
+  const outcomeMetadata = deriveResearchReviewCardOutcomeMetadata({
+    impact: task.impact,
+    gateStatus: pack.gateStatus,
+    balanceStatus: matrix.balanceStatus,
+    hasAdditionalQuestions: matrix.additionalQuestions.length > 0
+  });
 
   return {
     cardId: `research_review_${task.researchTaskId}` as QueueItemId,
     researchTaskId: task.researchTaskId,
+    evidencePackId: pack.evidencePackId,
+    cardType: outcomeMetadata.cardType,
     title: stale
       ? `Research stale: ${task.objective}`
       : needsReview
@@ -211,15 +230,62 @@ function reviewCardForMatrix(
           : insufficient
             ? "research_insufficient"
             : "ready_for_review",
+    impact: task.impact,
     gateStatus: pack.gateStatus,
+    decisionContext: pack.decisionContext,
     reviewReason: primaryGateReviewReason(pack) ?? pack.implicationScope,
     retainedSourceRef: sourceRetainedRef(result),
     retainedSourceRefs: sourceRefs,
-    recoveryActions: stale || terminalFailure
-      ? ["retry_synthesis", "import_manual_result", "defer_as_known_risk"]
-      : insufficient || needsReview
-        ? ["import_manual_result", "defer_as_known_risk"]
-        : []
+    availableOutcomes: outcomeMetadata.availableOutcomes,
+    suggestedOutcome: outcomeMetadata.suggestedOutcome,
+    blocksPlanning: task.impact === "high",
+    recoveryActions: outcomeMetadata.recoveryActions
+  };
+}
+
+export function resolveResearchReviewCardInProjection(
+  projection: ResearchEvidenceProjection,
+  cardId: QueueItemId,
+  outcome: ResearchQueueTerminalOutcome,
+  rationale: string | undefined,
+  version: ProjectionVersion
+): ResearchEvidenceProjection {
+  const reviewCards = projection.reviewCards.map((card) =>
+    card.cardId === cardId
+      ? {
+          ...card,
+          state: "resolved" as const,
+          terminalOutcome: outcome,
+          ...(rationale ? { terminalRationale: rationale } : {}),
+          blocksPlanning: card.impact === "high" && (outcome === "deferred" || outcome === "research_insufficient")
+        }
+      : card
+  );
+  const resolvedCard = reviewCards.find((card) => card.cardId === cardId);
+  const knownRisks = uniqueValues([
+    ...projection.knownRisks,
+    ...(resolvedCard?.terminalOutcome === "risk_accepted"
+      ? [
+          `Accepted research risk for ${resolvedCard.title}: ${
+            resolvedCard.terminalRationale ?? "No rationale provided."
+          }`
+        ]
+      : []),
+    ...(resolvedCard?.terminalOutcome === "deferred" && resolvedCard.terminalRationale
+      ? [`Deferred research card ${resolvedCard.title}: ${resolvedCard.terminalRationale}`]
+      : [])
+  ]);
+
+  return {
+    ...projection,
+    version,
+    reviewCards,
+    knownRisks,
+    nextValidationActions: uniqueValues([
+      ...projection.nextValidationActions,
+      ...(outcome === "revised" && rationale ? [rationale] : []),
+      ...(outcome === "research_insufficient" ? [`Supplement evidence before relying on ${cardId}.`] : [])
+    ])
   };
 }
 

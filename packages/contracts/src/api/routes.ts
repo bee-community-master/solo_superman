@@ -279,6 +279,14 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "resolveResearchQueueCard",
+    clientName: "resolveResearchQueueCard",
+    method: "POST",
+    path: "/api/v1/research-cards/:cardId/resolve",
+    commandType: "ResolveResearchQueueCard",
+    implementedInPr01: false
+  },
+  {
     routeId: "createSpecUpdatePreview",
     clientName: "createSpecUpdatePreview",
     method: "POST",
@@ -511,4 +519,13 @@ export const PHASE15A_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...PHASE15A_PR05_RESEARCH_RUN_ROUTE_IDS
 ] as const satisfies readonly ApiRouteId[];
 
-export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE15A_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS;
+export const PHASE15A_PR07_RESEARCH_QUEUE_ROUTE_IDS = [
+  "resolveResearchQueueCard"
+] as const satisfies readonly ApiRouteId[];
+
+export const PHASE15A_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...PHASE15A_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  ...PHASE15A_PR07_RESEARCH_QUEUE_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE15A_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS;

@@ -851,6 +851,121 @@ describe("PR-03 local libSQL storage foundation", () => {
     }
   });
 
+  it("rehydrates conflict-resolution research cards with terminal outcome actions", async () => {
+    const { storage } = await createMigratedStorage();
+
+    try {
+      const repository = createResearchRepository(storage.db);
+      const projectId = "proj_research_conflict_storage" as ProjectId;
+      const sessionId = "sess_research_conflict_storage" as SessionId;
+      const researchTaskId = "research_task_conflict_storage" as ResearchTaskId;
+      const researchResultId = "research_result_conflict_storage" as ResearchResultId;
+      const evidencePackId = "evidence_pack_conflict_storage" as DecisionEvidencePackId;
+
+      await repository.saveTask({
+        projectId,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        task: {
+          researchTaskId,
+          sessionId,
+          objective: "Resolve conflicting high-impact evidence",
+          routeOutcome: "missing_con_evidence",
+          impact: "high",
+          status: "planned",
+          createdAt: "2026-05-05T00:00:00.000Z"
+        }
+      });
+      await repository.saveResult({
+        projectId,
+        sessionId,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        result: {
+          researchResultId,
+          researchTaskId,
+          resultSummary: "Pro: supports the claim. Con: credible counter-evidence conflicts with the claim.",
+          claim: "Resolve conflicting high-impact evidence",
+          decisionContext: "conflict_resolution",
+          importedAt: "2026-05-05T00:01:00.000Z"
+        }
+      });
+      await repository.saveEvidenceMatrix({
+        projectId,
+        sessionId,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        matrix: {
+          evidenceMatrixId: "evidence_matrix_conflict_storage",
+          researchTaskId,
+          researchResultId,
+          synthesisVersion: 1,
+          proEvidence: [
+            {
+              evidenceItemId: "evidence_pro_conflict_storage" as EvidenceItemId,
+              kind: "pro",
+              summary: "The source supports the claim."
+            }
+          ],
+          conEvidence: [
+            {
+              evidenceItemId: "evidence_con_conflict_storage" as EvidenceItemId,
+              kind: "con",
+              summary: "A credible source conflicts with the claim."
+            }
+          ],
+          uncertainties: [],
+          additionalQuestions: [],
+          balanceStatus: "blocked_by_con_evidence",
+          decisionBlocked: true,
+          missingConEvidenceReason: "Conflicting evidence needs a user decision.",
+          knownRisk: "High-impact claim has unresolved conflicting evidence."
+        }
+      });
+      await repository.saveDecisionEvidencePack({
+        projectId,
+        sessionId,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        pack: {
+          evidencePackId,
+          researchTaskId,
+          researchResultId,
+          claim: "Resolve conflicting high-impact evidence",
+          decisionContext: "conflict_resolution",
+          sourceReliability: "medium",
+          retrievedAt: "2026-05-05T00:01:00.000Z",
+          gateStatus: "research_insufficient",
+          gateChecks: [
+            {
+              code: "pro_con_balance",
+              status: "failed",
+              reason: "Conflicting evidence still blocks a deterministic recommendation."
+            }
+          ],
+          proEvidenceItemIds: ["evidence_pro_conflict_storage" as EvidenceItemId],
+          conEvidenceItemIds: ["evidence_con_conflict_storage" as EvidenceItemId],
+          uncertaintyItemIds: [],
+          limitationRefs: [],
+          implicationScope: "Ask the user to revise, reject, or accept the risk before Planning-ready.",
+          knownRisk: "High-impact claim has unresolved conflicting evidence.",
+          createdAt: "2026-05-05T00:01:00.000Z"
+        }
+      });
+
+      const projection = await repository.getProjection(sessionId);
+      const [card] = projection.reviewCards;
+
+      expect(card).toMatchObject({
+        researchTaskId,
+        evidencePackId,
+        cardType: "conflict_resolution",
+        availableOutcomes: ["revised", "rejected", "risk_accepted", "research_insufficient", "deferred"],
+        suggestedOutcome: "research_insufficient",
+        recoveryActions: ["revise_decision", "reject_decision", "accept_risk", "import_manual_result"],
+        blocksPlanning: true
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("persists RuntimePreviewArtifact rows and rebuilds the runtime activity projection", async () => {
     const { storage } = await createMigratedStorage();
 

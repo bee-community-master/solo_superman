@@ -12,6 +12,7 @@ export const PRODUCT_ENGINE_COMMAND_TYPES = [
   "PlanResearch",
   "ImportResearchResult",
   "SynthesizeEvidence",
+  "ResolveResearchQueueCard",
   "CreateRuntimePreview",
   "ConvertRuntimeArtifact",
   "CreateSpecUpdatePreview",

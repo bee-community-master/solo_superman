@@ -13,6 +13,8 @@ import {
   PHASE15A_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PHASE15A_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PHASE15A_PR05_RESEARCH_RUN_ROUTE_IDS,
+  PHASE15A_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  PHASE15A_PR07_RESEARCH_QUEUE_ROUTE_IDS,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
@@ -215,7 +217,9 @@ describe("API route catalog", () => {
         "retryResearchRun"
       ])
     );
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE15A_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(
+      expect.arrayContaining([...PHASE15A_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS])
+    );
 
     expect(routeById.get("listResearchRuns")).toMatchObject({
       method: "GET",
@@ -245,6 +249,19 @@ describe("API route catalog", () => {
       method: "POST",
       path: "/api/v1/projects/:projectId/research-runs/:researchRunId/retry",
       commandType: "RetryResearchRun",
+      implementedInPr01: false
+    });
+  });
+
+  it("keeps Phase 1.5A PR-07 research-updated queue route ids aligned with the catalog", () => {
+    const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
+
+    expect(PHASE15A_PR07_RESEARCH_QUEUE_ROUTE_IDS).toEqual(["resolveResearchQueueCard"]);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE15A_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(routeById.get("resolveResearchQueueCard")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/research-cards/:cardId/resolve",
+      commandType: "ResolveResearchQueueCard",
       implementedInPr01: false
     });
   });

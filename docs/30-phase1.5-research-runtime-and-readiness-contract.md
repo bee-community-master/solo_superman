@@ -189,6 +189,26 @@ Minimum gate checks:
 
 If the quality gate cannot be evaluated automatically, the run remains `needs_review` with an explicit review reason. If the gate is evaluated and fails, the run becomes `research_insufficient` or `stale` as appropriate, and the UI may create a Risk Card or manual follow-up; it never silently updates SpecVersion.
 
+### Research-updated Queue terminal outcomes
+
+Evidence Pack outcomes create user-actionable queue cards from synthesized decision evidence, not from raw source dumps.
+
+| Card type | Created when | Allowed terminal outcomes |
+| --- | --- | --- |
+| `research_review` | gate is `needs_review`, `stale`, or source quality failed | `revised`, `research_insufficient`, `deferred` |
+| `decision_approval` | gate is accepted and pro/con evidence is balanced | `approved`, `revised`, `rejected`, `deferred` |
+| `risk_acceptance` | high-impact or known-risk evidence remains insufficient | `risk_accepted`, `research_insufficient`, `deferred`, `rejected` |
+| `conflict_resolution` | counter-evidence blocks the claim | `revised`, `rejected`, `risk_accepted`, `research_insufficient`, `deferred` |
+| `follow_up_question` | non-fatal evidence needs additional validation | `revised`, `research_insufficient`, `deferred` |
+
+Terminal outcome rules:
+
+- `deferred` and `risk_accepted` must preserve a user-visible rationale.
+- High-impact Research-updated Queue cards block `Planning-ready` until resolved.
+- Terminal `deferred` and `research_insufficient` remain visible blockers for high-impact cards.
+- `risk_accepted` unblocks only when the rationale is carried forward into Known Risks.
+- None of these outcomes creates a Phase 2 planning artifact, SpecVersion, file patch, shell/browser action, network write, or safe-execution capability.
+
 ## Phase 1.5B: Execution-readiness Hints
 
 ### `Phase15bUpgradeHints` contract

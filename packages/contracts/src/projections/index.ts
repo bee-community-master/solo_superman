@@ -6,6 +6,7 @@ export * from "./research-allowlist";
 export * from "./research-disclosure-log";
 export * from "./research-run";
 export * from "./research-evidence";
+export * from "./research-review-card-derivation";
 export * from "./runtime-activity";
 export * from "./session-shell";
 

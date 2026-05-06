@@ -1,4 +1,8 @@
 import { eq } from "drizzle-orm";
+import {
+  derivePendingResearchReviewCardOutcomeMetadata,
+  deriveResearchReviewCardOutcomeMetadata
+} from "@solo-superman/contracts";
 import type {
   DecisionEvidencePackId,
   DecisionEvidencePackProjection,
@@ -179,17 +183,23 @@ function primaryGateReviewReason(pack: DecisionEvidencePackProjection) {
 
 function pendingReviewCardForTask(task: ResearchTaskProjection): ResearchReviewCardProjection {
   const retainedSourceRef = task.sourceAnswerRef ?? task.sourceQueueItemId;
+  const outcomeMetadata = derivePendingResearchReviewCardOutcomeMetadata();
 
   return {
     cardId: `research_review_${task.researchTaskId}` as QueueItemId,
     researchTaskId: task.researchTaskId,
+    cardType: outcomeMetadata.cardType,
     title:
       task.routeOutcome === "missing_con_evidence"
         ? `반대근거 탐색 필요: ${task.objective}`
         : `Research review: ${task.objective}`,
     state: "pending_manual_result",
+    impact: task.impact,
     ...(retainedSourceRef ? { retainedSourceRef } : {}),
-    recoveryActions: ["import_manual_result", "defer_as_known_risk"]
+    availableOutcomes: outcomeMetadata.availableOutcomes,
+    suggestedOutcome: outcomeMetadata.suggestedOutcome,
+    blocksPlanning: task.impact === "high",
+    recoveryActions: outcomeMetadata.recoveryActions
   };
 }
 
@@ -211,10 +221,18 @@ function reviewCardForEvidencePack(
   const retainedSourceRef = sourceRetainedRef(result, pack);
   const questionRef = result?.questionRef ?? pack.questionRef;
   const specSectionRef = result?.specSectionRef ?? pack.specSectionRef;
+  const outcomeMetadata = deriveResearchReviewCardOutcomeMetadata({
+    impact: task.impact,
+    gateStatus: pack.gateStatus,
+    balanceStatus,
+    hasAdditionalQuestions: Boolean(matrix?.additionalQuestions.length)
+  });
 
   return {
     cardId: `research_review_${task.researchTaskId}` as QueueItemId,
     researchTaskId: task.researchTaskId,
+    evidencePackId: pack.evidencePackId,
+    cardType: outcomeMetadata.cardType,
     title: stale
       ? `Research stale: ${task.objective}`
       : needsReview
@@ -233,7 +251,9 @@ function reviewCardForEvidencePack(
           : insufficient
             ? "research_insufficient"
             : "ready_for_review",
+    impact: task.impact,
     gateStatus: pack.gateStatus,
+    decisionContext: pack.decisionContext,
     reviewReason: primaryGateReviewReason(pack) ?? pack.implicationScope,
     retainedSourceRef,
     retainedSourceRefs: uniqueValues([
@@ -243,11 +263,10 @@ function reviewCardForEvidencePack(
       ...(specSectionRef ? [specSectionRef] : []),
       ...(pack.knownRisk ? [pack.knownRisk] : [])
     ]),
-    recoveryActions: stale || terminalFailure
-      ? ["retry_synthesis", "import_manual_result", "defer_as_known_risk"]
-      : insufficient || needsReview
-        ? ["import_manual_result", "defer_as_known_risk"]
-        : []
+    availableOutcomes: outcomeMetadata.availableOutcomes,
+    suggestedOutcome: outcomeMetadata.suggestedOutcome,
+    blocksPlanning: task.impact === "high",
+    recoveryActions: outcomeMetadata.recoveryActions
   };
 }
 

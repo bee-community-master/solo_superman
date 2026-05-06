@@ -266,6 +266,20 @@ h4 {
   margin-top: 6px;
 }
 
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.card-actions button {
+  min-height: 30px;
+  border: 1px solid #cfe6e2;
+  background: #eef9f7;
+  color: #0f766e;
+  font-size: 0.74rem;
+}
+
 .metrics {
   display: grid;
   gap: 10px;

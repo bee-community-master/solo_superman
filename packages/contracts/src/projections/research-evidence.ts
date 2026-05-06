@@ -32,7 +32,21 @@ export type ResearchReviewCardState =
   | "ready_for_review"
   | "research_insufficient"
   | "stale"
-  | "terminal_failure";
+  | "terminal_failure"
+  | "resolved";
+export type ResearchUpdatedQueueCardType =
+  | "research_review"
+  | "decision_approval"
+  | "risk_acceptance"
+  | "conflict_resolution"
+  | "follow_up_question";
+export type ResearchQueueTerminalOutcome =
+  | "approved"
+  | "revised"
+  | "rejected"
+  | "deferred"
+  | "risk_accepted"
+  | "research_insufficient";
 export type ResearchSourceReliability = "high" | "medium" | "low" | "unknown";
 export type DecisionEvidencePackGateStatus = "accepted" | "needs_review" | "research_insufficient" | "stale";
 export type ResearchQualityGateCheckCode =
@@ -133,13 +147,31 @@ export interface DecisionEvidencePackProjection {
 export interface ResearchReviewCardProjection {
   readonly cardId: QueueItemId;
   readonly researchTaskId: ResearchTaskId;
+  readonly evidencePackId?: DecisionEvidencePackId;
+  readonly cardType: ResearchUpdatedQueueCardType;
   readonly title: string;
   readonly state: ResearchReviewCardState;
+  readonly impact: ResearchImpact;
   readonly gateStatus?: DecisionEvidencePackGateStatus;
+  readonly decisionContext?: string;
   readonly reviewReason?: string;
   readonly retainedSourceRef?: string;
   readonly retainedSourceRefs?: readonly string[];
-  readonly recoveryActions: readonly ("import_manual_result" | "retry_synthesis" | "defer_as_known_risk")[];
+  readonly availableOutcomes: readonly ResearchQueueTerminalOutcome[];
+  readonly suggestedOutcome?: ResearchQueueTerminalOutcome;
+  readonly terminalOutcome?: ResearchQueueTerminalOutcome;
+  readonly terminalRationale?: string;
+  readonly blocksPlanning: boolean;
+  readonly recoveryActions: readonly (
+    | "import_manual_result"
+    | "retry_synthesis"
+    | "defer_as_known_risk"
+    | "approve_evidence"
+    | "revise_decision"
+    | "reject_decision"
+    | "accept_risk"
+    | "mark_research_insufficient"
+  )[];
 }
 
 export interface ResearchEvidenceProjection {

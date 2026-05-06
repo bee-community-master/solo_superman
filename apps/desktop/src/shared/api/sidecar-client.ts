@@ -29,6 +29,7 @@ import type {
   ResearchRunControlResult,
   ResearchRunId,
   ResearchRunStatusDto,
+  ResolveResearchQueueCardRequest,
   RuntimeActivityProjection,
   ScoreCompletenessRequest,
   SessionId,
@@ -67,6 +68,7 @@ export type PrepareResearchDisclosureInput = PrepareResearchDisclosureRequest;
 export type StartResearchRunInput = StartResearchRunRequest;
 export type CancelResearchRunInput = CancelResearchRunRequest;
 export type RetryResearchRunInput = RetryResearchRunRequest;
+export type ResolveResearchQueueCardInput = ResolveResearchQueueCardRequest;
 
 export class SidecarClientError extends Error {
   readonly apiError: ApiError;
@@ -292,6 +294,13 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
     synthesizeEvidence(input: SynthesizeEvidenceRequest) {
       return postCommand<ResearchEvidenceProjection>(
         `/api/v1/research-results/${encodeURIComponent(input.researchResultId)}/synthesize`,
+        input
+      );
+    },
+
+    resolveResearchQueueCard(input: ResolveResearchQueueCardInput) {
+      return postCommand<DecisionQueueProjection>(
+        `/api/v1/research-cards/${encodeURIComponent(input.cardId)}/resolve`,
         input
       );
     },

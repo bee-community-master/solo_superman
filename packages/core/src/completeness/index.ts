@@ -105,12 +105,62 @@ function evidenceGateBlocksCompletion(matrix: ProductEngineStateSnapshot["resear
   );
 }
 
+function researchCardResolvesMatrixBlocker(
+  card: ProductEngineStateSnapshot["researchState"]["reviewCards"][number]
+) {
+  if (!card.terminalOutcome) {
+    return false;
+  }
+
+  switch (card.terminalOutcome) {
+    case "approved":
+    case "revised":
+    case "rejected":
+      return true;
+    case "risk_accepted":
+      return Boolean(card.terminalRationale);
+    case "deferred":
+    case "research_insufficient":
+      return false;
+  }
+}
+
+function evidenceMatrixBlocksCompletion(
+  state: ProductEngineStateSnapshot,
+  matrix: ProductEngineStateSnapshot["researchState"]["evidenceMatrices"][number]
+) {
+  if (!evidenceGateBlocksCompletion(matrix)) {
+    return false;
+  }
+
+  const linkedCards = state.researchState.reviewCards.filter(
+    (card) => card.researchTaskId === matrix.researchTaskId
+  );
+
+  return !linkedCards.some(researchCardResolvesMatrixBlocker);
+}
+
 function evidenceRiskTitle(matrix: ProductEngineStateSnapshot["researchState"]["evidenceMatrices"][number]) {
   return (
     matrix.knownRisk ??
     matrix.missingConEvidenceReason ??
     `Evidence balance is ${matrix.balanceStatus} for ${matrix.researchTaskId}.`
   );
+}
+
+function researchCardBlocksCompletion(
+  card: ProductEngineStateSnapshot["researchState"]["reviewCards"][number]
+) {
+  return card.blocksPlanning;
+}
+
+function researchCardRiskTitle(
+  card: ProductEngineStateSnapshot["researchState"]["reviewCards"][number]
+) {
+  const terminalReason = card.terminalRationale ? ` — ${card.terminalRationale}` : "";
+  const outcome = card.terminalOutcome ? ` (${card.terminalOutcome})` : "";
+
+  return `Research-updated ${card.cardType} card blocks Planning-ready: ${card.title}${outcome}${terminalReason}`;
 }
 
 function evidenceQualityScore(state: ProductEngineStateSnapshot) {
@@ -128,11 +178,14 @@ function decisionApprovalScore(state: ProductEngineStateSnapshot) {
 }
 
 function consistencyScore(state: ProductEngineStateSnapshot) {
-  const blockingMatrices = state.researchState.evidenceMatrices.filter((matrix) => matrix.decisionBlocked).length;
+  const blockingMatrices = state.researchState.evidenceMatrices.filter((matrix) =>
+    evidenceMatrixBlocksCompletion(state, matrix)
+  ).length;
+  const blockingResearchCards = state.researchState.reviewCards.filter(researchCardBlocksCompletion).length;
   const blockedRuntime = state.runtimeState.runtimeArtifacts.filter((artifact) => artifact.status === "blocked").length;
   const failedEffects = state.runtimeState.effects.filter((effect) => effect.status === "failed" || effect.status === "blocked").length;
 
-  return clampScore(100 - Math.min(100, blockingMatrices * 25 + blockedRuntime * 20 + failedEffects * 20));
+  return clampScore(100 - Math.min(100, blockingMatrices * 25 + blockingResearchCards * 20 + blockedRuntime * 20 + failedEffects * 20));
 }
 
 function readinessLabel(score: number, gatesPassed: boolean): ReadinessLabel {
@@ -171,6 +224,25 @@ function riskCards(state: ProductEngineStateSnapshot, fallbackActions: readonly 
       nextValidationAction:
         matrix.additionalQuestions[0] ?? fallbackActions[0] ?? "Add counter-evidence or explicitly accept the risk."
     }));
+  const researchCardRisks = state.researchState.reviewCards
+    .filter(researchCardBlocksCompletion)
+    .map((card, index) => ({
+      riskId: `risk_research_card_${index + 1}`,
+      title: researchCardRiskTitle(card),
+      severity: "high" as const,
+      sourceRefs: [
+        card.cardId,
+        card.researchTaskId,
+        ...(card.evidencePackId ? [card.evidencePackId] : []),
+        ...(card.retainedSourceRefs ?? [])
+      ],
+      nextValidationAction:
+        card.terminalOutcome === "research_insufficient"
+          ? "Import or synthesize stronger evidence before Planning-ready."
+          : card.terminalOutcome === "deferred"
+            ? "Approve risk acceptance or resolve the deferred research card before Planning-ready."
+            : "Resolve the high-impact research-updated queue card."
+    }));
   const openQuestionRisks = state.openIssues
     .filter((issue) => issue.status === "open")
     .map((issue, index) => ({
@@ -190,7 +262,7 @@ function riskCards(state: ProductEngineStateSnapshot, fallbackActions: readonly 
       nextValidationAction: artifact.blockedAction?.suggestedSafeAlternative ?? "Use a manual handoff or safe preview path."
     }));
 
-  return [...matrixRisks, ...openQuestionRisks, ...runtimeRisks].sort(
+  return [...matrixRisks, ...researchCardRisks, ...openQuestionRisks, ...runtimeRisks].sort(
     (left, right) => RISK_SEVERITY_RANK[left.severity] - RISK_SEVERITY_RANK[right.severity]
   );
 }
@@ -261,7 +333,10 @@ function gateStatuses(
   decisionScore: number
 ): readonly CompletionGateStatus[] {
   const unresolvedOpenQuestions = state.openIssues.filter((issue) => issue.status === "open").length;
-  const blockingEvidence = state.researchState.evidenceMatrices.filter(evidenceGateBlocksCompletion).length;
+  const blockingEvidence = state.researchState.evidenceMatrices.filter((matrix) =>
+    evidenceMatrixBlocksCompletion(state, matrix)
+  ).length;
+  const blockingResearchCards = state.researchState.reviewCards.filter(researchCardBlocksCompletion).length;
   const blockingIncidents =
     state.runtimeState.runtimeArtifacts.filter((artifact) => artifact.status === "blocked").length +
     state.runtimeState.effects.filter((effect) => effect.status === "failed" || effect.status === "blocked").length;
@@ -297,6 +372,14 @@ function gateStatuses(
       label: "No high-impact claim is missing con evidence",
       passed: blockingEvidence === 0,
       ...(blockingEvidence === 0 ? {} : { blockingReason: `${blockingEvidence} evidence matrix/matrices block decisions.` })
+    },
+    {
+      gateId: "research_queue_cards",
+      label: "No high-impact Research-updated Queue cards remain unresolved",
+      passed: blockingResearchCards === 0,
+      ...(blockingResearchCards === 0
+        ? {}
+        : { blockingReason: `${blockingResearchCards} high-impact research-updated queue card(s) block Planning-ready.` })
     },
     {
       gateId: "required_decisions",

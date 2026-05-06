@@ -9,6 +9,7 @@ import {
   type LivingSpecProjection,
   type QueueItemId,
   type ResearchEvidenceProjection,
+  type ResearchQueueTerminalOutcome,
   type ResearchTaskId,
   type RuntimeActivityProjection,
   type SessionShellProjection,
@@ -390,6 +391,50 @@ export function DecisionQueueShell() {
     [appendCommand, client, projections, refreshProjections, researchDrafts]
   );
 
+  const resolveResearchCard = useCallback(
+    async (cardId: QueueItemId, outcome: ResearchQueueTerminalOutcome, title: string) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active session is required before resolving a research card.");
+        return;
+      }
+
+      const needsRationale = outcome === "deferred" || outcome === "risk_accepted";
+      const rationale = needsRationale
+        ? `${outcome} from Research card: ${title}`
+        : outcome === "revised" || outcome === "research_insufficient"
+          ? `Resolved as ${outcome}: ${title}`
+          : undefined;
+
+      setIsBusy(true);
+      setWorkflowError(null);
+
+      try {
+        const response = await appendCommand(
+          `Resolve research card: ${outcome}`,
+          await client.resolveResearchQueueCard({
+            sessionId: projections.session.sessionId,
+            cardId,
+            expectedStateVersion: latestProjectionVersion(projections),
+            outcome,
+            ...(rationale ? { rationale } : {})
+          })
+        );
+        const queue = requiredCommandProjection<DecisionQueueProjection>(response, "DecisionQueueProjection");
+
+        setProjections((current) => ({
+          ...current,
+          queue
+        }));
+        await refreshProjections(projections.session.projectId, projections.session.sessionId);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [appendCommand, client, projections, refreshProjections]
+  );
+
   const scoreCompleteness = useCallback(async () => {
     if (!client || !projections.session) {
       setWorkflowError("An active session is required before scoring completeness.");
@@ -629,6 +674,16 @@ export function DecisionQueueShell() {
                         <span>{card?.state ?? task.status}</span>
                         <h3>{task.objective}</h3>
                         <p>{card?.title ?? task.routeOutcome}</p>
+                        {card?.cardType ? (
+                          <p className="research-recovery">
+                            {card.cardType}
+                            {card.blocksPlanning ? " · blocks Planning-ready" : ""}
+                            {card.terminalOutcome ? ` · ${card.terminalOutcome}` : ""}
+                          </p>
+                        ) : null}
+                        {card?.terminalRationale ? (
+                          <p className="research-recovery">Rationale: {card.terminalRationale}</p>
+                        ) : null}
                         {card?.recoveryActions.length ? (
                           <p className="research-recovery">{card.recoveryActions.join(" / ")}</p>
                         ) : null}
@@ -653,6 +708,20 @@ export function DecisionQueueShell() {
                           >
                             Import result
                           </button>
+                        </div>
+                      ) : null}
+                      {card && !card.terminalOutcome && card.availableOutcomes.length ? (
+                        <div className="card-actions">
+                          {card.availableOutcomes.map((outcome) => (
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              key={outcome}
+                              onClick={() => void resolveResearchCard(card.cardId, outcome, card.title)}
+                            >
+                              {outcome}
+                            </button>
+                          ))}
                         </div>
                       ) : null}
                     </article>

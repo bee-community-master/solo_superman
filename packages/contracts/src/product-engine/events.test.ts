@@ -20,6 +20,7 @@ describe("ProductEngine event contract placeholders", () => {
       "ResearchResultImported",
       "EvidenceSynthesisRequested",
       "EvidenceSynthesized",
+      "ResearchQueueCardResolved",
       "RuntimePreviewRequested",
       "RuntimeArtifactConverted",
       "CompletenessScored",

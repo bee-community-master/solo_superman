@@ -10,6 +10,7 @@ import type {
   StateVersion
 } from "../ids";
 import type { ResearchImpact, ResearchRouteOutcome, ResearchSourceReliability } from "../projections";
+import type { ResearchQueueTerminalOutcome } from "../projections/research-evidence";
 import type { BlockedActionType, CodexTurnPurpose } from "../codex";
 import type { RequiredDecisionRef } from "../product-engine";
 
@@ -108,6 +109,14 @@ export interface SynthesizeEvidenceRequest extends ScaffoldRequestPlaceholder {
   readonly expectedStateVersion: StateVersion;
   readonly synthesisVersion?: number;
   readonly forceRetry?: boolean;
+}
+
+export interface ResolveResearchQueueCardRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly cardId: QueueItemId;
+  readonly expectedStateVersion: StateVersion;
+  readonly outcome: ResearchQueueTerminalOutcome;
+  readonly rationale?: string;
 }
 
 export interface CreateSpecUpdatePreviewRequest extends ScaffoldRequestPlaceholder {

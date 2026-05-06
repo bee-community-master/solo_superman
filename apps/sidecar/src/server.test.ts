@@ -93,6 +93,12 @@ async function jsonBody(response: Response) {
   return (await response.json()) as JsonResponseBody;
 }
 
+function timestampAfterProviderStart(run: ResearchRunProjection) {
+  const startMillis = Date.parse(run.provider.startedAt ?? run.createdAt);
+
+  return new Date(startMillis + 60_000).toISOString();
+}
+
 async function createProjectForTest(storageApp: ReturnType<typeof createSidecarApp>, rawIdea: string) {
   const start = await storageApp.request("/api/v1/projects", {
     method: "POST",
@@ -1128,16 +1134,17 @@ describe("PR-02 sidecar health shell", () => {
       const retrySourceResult = retrySourceData.immediateProjection as Readonly<Record<string, unknown>>;
       const retrySourceRun = retrySourceResult.researchRun as ResearchRunProjection;
       const repository = createResearchRunRepository(storage.db);
+      const failedAt = timestampAfterProviderStart(retrySourceRun);
       const failedRun = {
         ...retrySourceRun,
         version: 3 as ProjectionVersion,
         status: "failed",
         provider: {
           ...retrySourceRun.provider,
-          completedAt: "2026-05-06T00:10:00.000Z"
+          completedAt: failedAt
         },
         terminalReason: "timeout",
-        updatedAt: "2026-05-06T00:10:00.000Z"
+        updatedAt: failedAt
       } satisfies ResearchRunProjection;
 
       await repository.update({
@@ -1331,6 +1338,148 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("resolves Research-updated Queue cards through the route with rationale-preserving terminal outcomes", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "A research-updated queue terminal route test idea"
+      );
+      const planResearch = await storageApp.request(`/api/v1/sessions/${sessionId}/research-tasks`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 1,
+          objective: "Validate high-impact launch risk",
+          sourceQueueItemId: "queue_risk_accept_route",
+          routeOutcome: "missing_con_evidence",
+          impact: "high"
+        })
+      });
+      const planResearchBody = await jsonBody(planResearch);
+      const planResearchData = planResearchBody.data as Readonly<Record<string, unknown>>;
+      const researchProjection = planResearchData.immediateProjection as Readonly<Record<string, unknown>>;
+      const researchTaskId = (researchProjection.taskIds as readonly string[])[0];
+
+      expect(planResearch.status).toBe(200);
+
+      const importResult = await storageApp.request(`/api/v1/research-tasks/${researchTaskId}/results`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          researchTaskId,
+          expectedStateVersion: 2,
+          result: "Pro: launch urgency looks strong.",
+          limitationNotes: "No counter-evidence source was found."
+        })
+      });
+
+      expect(importResult.status).toBe(200);
+      expect(await createProductEngineCommandService(storage).runPendingResearchEvidenceEffects()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            status: "succeeded",
+            balanceStatus: "missing_con_evidence"
+          })
+        ])
+      );
+
+      const beforeResolve = await storageApp.request(`/api/v1/sessions/${sessionId}/research`, {
+        headers: authHeaders()
+      });
+      const beforeResolveBody = await jsonBody(beforeResolve);
+      const riskCard = ((beforeResolveBody.data as Readonly<Record<string, unknown>>).reviewCards as readonly Readonly<Record<string, unknown>>[])[0];
+
+      expect(riskCard).toBeDefined();
+      if (!riskCard) {
+        throw new Error("Expected risk_acceptance research card.");
+      }
+      expect(riskCard).toMatchObject({
+        cardType: "risk_acceptance",
+        blocksPlanning: true,
+        availableOutcomes: expect.arrayContaining(["risk_accepted", "research_insufficient"])
+      });
+      const cardId = riskCard.cardId as string;
+
+      const missingRationale = await storageApp.request(`/api/v1/research-cards/${cardId}/resolve`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          cardId,
+          expectedStateVersion: 4,
+          outcome: "risk_accepted"
+        })
+      });
+      const missingRationaleBody = await jsonBody(missingRationale);
+
+      expect(missingRationale.status).toBe(200);
+      expect(missingRationaleBody.data).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "VALIDATION_FAILED",
+          message: expect.stringContaining("rationale")
+        }
+      });
+
+      const resolved = await storageApp.request(`/api/v1/research-cards/${cardId}/resolve`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          cardId,
+          expectedStateVersion: 4,
+          outcome: "risk_accepted",
+          rationale: "Founder accepts this missing counter-evidence risk for the next validation sprint."
+        })
+      });
+      const resolvedBody = await jsonBody(resolved);
+
+      expect(resolved.status).toBe(200);
+      expect(resolvedBody.data).toMatchObject({
+        category: "accepted_with_projection",
+        queueProjection: {
+          blocked: []
+        }
+      });
+
+      const afterResolve = await storageApp.request(`/api/v1/sessions/${sessionId}/research`, {
+        headers: authHeaders()
+      });
+      const afterResolveBody = await jsonBody(afterResolve);
+
+      expect(afterResolveBody.data).toMatchObject({
+        reviewCards: [
+          expect.objectContaining({
+            cardId,
+            terminalOutcome: "risk_accepted",
+            terminalRationale: "Founder accepts this missing counter-evidence risk for the next validation sprint.",
+            blocksPlanning: false
+          })
+        ],
+        knownRisks: expect.arrayContaining([
+          expect.stringContaining("Founder accepts this missing counter-evidence risk")
+        ])
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("returns an existing research run for duplicate starts before applying rate budget blockers", async () => {
     const { app: storageApp, storage } = await createMigratedStorageApp();
 
@@ -1489,16 +1638,17 @@ describe("PR-02 sidecar health shell", () => {
       const sourceStartResult = sourceStartData.immediateProjection as Readonly<Record<string, unknown>>;
       const sourceRun = sourceStartResult.researchRun as ResearchRunProjection;
       const repository = createResearchRunRepository(storage.db);
+      const failedAt = timestampAfterProviderStart(sourceRun);
       const failedSourceRun = {
         ...sourceRun,
         version: (Number(sourceRun.version) + 1) as ProjectionVersion,
         status: "failed",
         provider: {
           ...sourceRun.provider,
-          completedAt: "2026-05-06T00:10:00.000Z"
+          completedAt: failedAt
         },
         terminalReason: "timeout",
-        updatedAt: "2026-05-06T00:10:00.000Z"
+        updatedAt: failedAt
       } satisfies ResearchRunProjection;
 
       const savedFailedSourceRun = await repository.update({
@@ -1556,16 +1706,17 @@ describe("PR-02 sidecar health shell", () => {
 
       expect(rowsAfterDuplicate.rows).toHaveLength(2);
 
+      const attemptTwoFailedAt = timestampAfterProviderStart(attemptTwoRun);
       const failedAttemptTwoRun = {
         ...attemptTwoRun,
         version: (Number(attemptTwoRun.version) + 1) as ProjectionVersion,
         status: "failed",
         provider: {
           ...attemptTwoRun.provider,
-          completedAt: "2026-05-06T00:20:00.000Z"
+          completedAt: attemptTwoFailedAt
         },
         terminalReason: "timeout",
-        updatedAt: "2026-05-06T00:20:00.000Z"
+        updatedAt: attemptTwoFailedAt
       } satisfies ResearchRunProjection;
 
       const savedFailedAttemptTwoRun = await repository.update({

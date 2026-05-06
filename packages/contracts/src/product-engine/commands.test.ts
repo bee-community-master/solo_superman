@@ -18,6 +18,7 @@ const DOCS_25_PRODUCT_ENGINE_COMMAND_TYPES = [
   "PlanResearch",
   "ImportResearchResult",
   "SynthesizeEvidence",
+  "ResolveResearchQueueCard",
   "CreateRuntimePreview",
   "ConvertRuntimeArtifact",
   "CreateSpecUpdatePreview",

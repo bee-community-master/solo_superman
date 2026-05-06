@@ -28,6 +28,7 @@ import {
   type ResearchSourceCategory,
   type ResearchRunId,
   type ResearchResultId,
+  type ResearchQueueTerminalOutcome,
   type ResearchSourceReliability,
   type ResearchTaskId,
   type RuntimeArtifactId,
@@ -359,6 +360,21 @@ function optionalRequiredDecisionRefFromBody(value: unknown, fieldName: string) 
   }
 
   return value;
+}
+
+function researchQueueTerminalOutcomeFromBody(value: unknown) {
+  if (
+    value === "approved" ||
+    value === "revised" ||
+    value === "rejected" ||
+    value === "deferred" ||
+    value === "risk_accepted" ||
+    value === "research_insufficient"
+  ) {
+    return value as ResearchQueueTerminalOutcome;
+  }
+
+  throw new ProductEngineServiceError("VALIDATION_FAILED", "outcome must be a canonical research queue terminal outcome.");
 }
 
 function optionalJsonObjectFromBody(value: unknown, fieldName: string) {
@@ -1073,6 +1089,30 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         payload: {
           researchResultId,
           ...(synthesisVersion ? { synthesisVersion } : {})
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/research-cards/:cardId/resolve", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const cardId = context.req.param("cardId") as QueueItemId;
+      const bodyCardId = stringFromBody(body.cardId, "cardId") as QueueItemId;
+      const rationale = optionalStringFromBody(body.rationale, "rationale");
+
+      if (bodyCardId !== cardId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "cardId must match the route param.");
+      }
+
+      return service.runSessionCommand({
+        sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
+        commandType: "ResolveResearchQueueCard",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          cardId,
+          outcome: researchQueueTerminalOutcomeFromBody(body.outcome),
+          ...(rationale ? { rationale } : {})
         }
       });
     })

@@ -35,9 +35,11 @@ import {
   type RequiredDecisionRef,
   type ResearchImpact,
   type ResearchEvidenceProjection,
+  type ResearchQueueTerminalOutcome,
   type ResearchResultId,
   type ResearchRunId,
   type ResearchRouteOutcome,
+  type ResearchReviewCardProjection,
   type ResearchSourceReliability,
   type ResearchTaskId,
   type ResearchTaskProjection,
@@ -62,6 +64,7 @@ import {
   emptyResearchEvidenceProjection,
   importResearchResult,
   planResearchTask,
+  resolveResearchReviewCardInProjection,
   synthesizeEvidenceMatrix
 } from "../research-engine";
 
@@ -154,6 +157,17 @@ function isDecisionResolutionStatus(value: unknown): value is Exclude<
   "active"
 > {
   return value === "approved" || value === "rejected" || value === "deferred" || value === "risk_accepted";
+}
+
+function isResearchQueueTerminalOutcome(value: unknown): value is ResearchQueueTerminalOutcome {
+  return (
+    value === "approved" ||
+    value === "revised" ||
+    value === "rejected" ||
+    value === "deferred" ||
+    value === "risk_accepted" ||
+    value === "research_insufficient"
+  );
 }
 
 function mergeDecision(
@@ -764,15 +778,13 @@ function routeOutcomeForAnswer(command: ProductEngineCommand): ResearchRouteOutc
     : "research_needed";
 }
 
-function researchReviewQueueItem(
-  researchTaskId: ResearchTaskId,
-  title: string,
-  state: "next" | "blocked"
-) {
+function researchReviewQueueItem(researchTaskId: ResearchTaskId, title: string, state: "next" | "blocked") {
   return {
     queueItemId: `research_review_${researchTaskId}` as QueueItemId,
     title,
-    state
+    state,
+    cardType: "research_review" as const,
+    researchTaskId
   };
 }
 
@@ -784,6 +796,90 @@ function queueProjectionWithResearchReviewItem(
   version: ProjectionVersion
 ): DecisionQueueProjection {
   return queueProjectionWithNextOrBlockedItem(projection, researchReviewQueueItem(researchTaskId, title, state), version);
+}
+
+function researchCardQueueMetadata(
+  card: ResearchReviewCardProjection,
+  overrides: {
+    readonly blocksPlanning?: boolean;
+    readonly terminalOutcome?: ResearchQueueTerminalOutcome;
+    readonly terminalRationale?: string;
+  } = {}
+): Omit<QueueItemProjection, "queueItemId" | "title" | "state"> {
+  const terminalOutcome = overrides.terminalOutcome ?? card.terminalOutcome;
+  const terminalRationale = overrides.terminalRationale ?? card.terminalRationale;
+
+  return {
+    cardType: card.cardType,
+    researchTaskId: card.researchTaskId,
+    ...(card.evidencePackId ? { evidencePackId: card.evidencePackId } : {}),
+    blocksPlanning: overrides.blocksPlanning ?? card.blocksPlanning,
+    availableOutcomes: card.availableOutcomes,
+    ...(terminalOutcome ? { terminalOutcome } : {}),
+    ...(terminalRationale ? { terminalRationale } : {})
+  };
+}
+
+function queueProjectionWithResearchCard(
+  projection: DecisionQueueProjection,
+  card: ResearchReviewCardProjection,
+  state: "next" | "blocked",
+  version: ProjectionVersion
+): DecisionQueueProjection {
+  return queueProjectionWithNextOrBlockedItem(
+    projection,
+    {
+      queueItemId: card.cardId,
+      title: card.title,
+      state,
+      ...researchCardQueueMetadata(card)
+    },
+    version
+  );
+}
+
+function queueProjectionAfterResearchCardResolution(
+  projection: DecisionQueueProjection,
+  card: ResearchReviewCardProjection,
+  outcome: ResearchQueueTerminalOutcome,
+  rationale: string | undefined,
+  version: ProjectionVersion
+): DecisionQueueProjection {
+  if (outcome === "deferred") {
+    return queueProjectionWithDeferredItem(
+      projection,
+      {
+        queueItemId: card.cardId,
+        title: `Research deferred: ${card.title}`,
+        state: "deferred",
+        ...researchCardQueueMetadata(card, {
+          blocksPlanning: card.impact === "high",
+          terminalOutcome: outcome,
+          ...(rationale ? { terminalRationale: rationale } : {})
+        })
+      },
+      version
+    );
+  }
+
+  if (outcome === "research_insufficient") {
+    return queueProjectionWithNextOrBlockedItem(
+      projection,
+      {
+        queueItemId: card.cardId,
+        title: `Research insufficient: ${card.title}`,
+        state: "blocked",
+        ...researchCardQueueMetadata(card, {
+          blocksPlanning: card.impact === "high",
+          terminalOutcome: outcome,
+          ...(rationale ? { terminalRationale: rationale } : {})
+        })
+      },
+      version
+    );
+  }
+
+  return queueProjectionWithoutItem(projection, card.cardId, version);
 }
 
 function evidenceReviewQueueTitle(
@@ -897,6 +993,7 @@ export function sessionPhaseForProductEngineEvent(
     case "ResearchResultImported":
     case "EvidenceSynthesisRequested":
     case "EvidenceSynthesized":
+    case "ResearchQueueCardResolved":
       return "research";
     case "CompletenessScored":
       return event.payload.candidateStatus === "candidate" ? "completion" : null;
@@ -1684,13 +1781,21 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
     evidencePack,
     projectionVersionFor(state)
   );
-  const queueProjection = queueProjectionWithResearchReviewItem(
-    state.queueProjection,
-    researchTask.researchTaskId,
-    evidenceReviewQueueTitle(researchTask, evidenceMatrix, evidencePack.gateStatus),
-    evidenceReviewQueueState(evidenceMatrix, evidencePack.gateStatus),
-    researchProjection.version
-  );
+  const researchCard = researchProjection.reviewCards.find((card) => card.researchTaskId === researchTask.researchTaskId);
+  const queueProjection = researchCard
+    ? queueProjectionWithResearchCard(
+        state.queueProjection,
+        researchCard,
+        evidenceReviewQueueState(evidenceMatrix, evidencePack.gateStatus),
+        researchProjection.version
+      )
+    : queueProjectionWithResearchReviewItem(
+        state.queueProjection,
+        researchTask.researchTaskId,
+        evidenceReviewQueueTitle(researchTask, evidenceMatrix, evidencePack.gateStatus),
+        evidenceReviewQueueState(evidenceMatrix, evidencePack.gateStatus),
+        researchProjection.version
+      );
   const confidenceProjection = buildConfidenceCompletionProjection(
     {
       ...state,
@@ -1742,6 +1847,117 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
         "normal"
       )
     ]
+  );
+}
+
+function reduceResolveResearchQueueCard(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  const cardId = requiredString(command.payload.cardId) as QueueItemId | null;
+  const outcome = isResearchQueueTerminalOutcome(command.payload.outcome) ? command.payload.outcome : null;
+  const rationale = requiredString(command.payload.rationale) ?? undefined;
+
+  if (!cardId || !outcome) {
+    return reject("ResolveResearchQueueCard requires cardId and a supported terminal outcome.", "VALIDATION_FAILED");
+  }
+
+  const card = state.researchState.reviewCards.find((candidate) => candidate.cardId === cardId);
+
+  if (!card) {
+    return reject("ResolveResearchQueueCard requires an existing research-updated queue card.", "RESOURCE_NOT_FOUND");
+  }
+
+  if (card.terminalOutcome) {
+    return reject("ResolveResearchQueueCard cannot resolve an already terminal research card.", "COMMAND_PRECONDITION_FAILED", {
+      cardId,
+      terminalOutcome: card.terminalOutcome
+    });
+  }
+
+  if (!card.availableOutcomes.includes(outcome)) {
+    return reject("ResolveResearchQueueCard outcome is not available for this card type.", "VALIDATION_FAILED", {
+      cardId,
+      cardType: card.cardType,
+      availableOutcomes: card.availableOutcomes
+    });
+  }
+
+  if ((outcome === "deferred" || outcome === "risk_accepted") && !rationale) {
+    return reject("Deferred and risk_accepted research outcomes require a user-visible rationale.", "VALIDATION_FAILED", {
+      outcome
+    });
+  }
+
+  const version = projectionVersionFor(state);
+  const researchProjection = resolveResearchReviewCardInProjection(
+    state.researchState,
+    cardId,
+    outcome,
+    rationale,
+    version
+  );
+  const resolvedCard = researchProjection.reviewCards.find((candidate) => candidate.cardId === cardId) ?? card;
+  const queueProjection = queueProjectionAfterResearchCardResolution(
+    state.queueProjection,
+    resolvedCard,
+    outcome,
+    rationale,
+    version
+  );
+  const confidenceProjection = buildConfidenceCompletionProjection(
+    {
+      ...state,
+      researchState: researchProjection,
+      queueProjection
+    },
+    version
+  );
+  const event = eventDraft(command, "ResearchQueueCardResolved", {
+    cardId,
+    researchTaskId: card.researchTaskId,
+    evidencePackId: card.evidencePackId,
+    cardType: card.cardType,
+    outcome,
+    ...(rationale ? { rationale } : {}),
+    projection: researchProjection,
+    queueProjection,
+    confidenceProjection
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      researchState: researchProjection,
+      queueProjection,
+      completeness: confidenceProjection
+    },
+    [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: cardId,
+        payload: {
+          outcome,
+          ...(rationale ? { rationale } : {}),
+          blocksPlanning: resolvedCard.blocksPlanning
+        }
+      },
+      ...completenessDeterministicOutputs(command, confidenceProjection)
+    ],
+    [
+      queueProjectionEffect(
+        command,
+        "ResearchQueueCardResolved",
+        {
+          refType: "queue_item",
+          refId: cardId
+        },
+        "high"
+      )
+    ],
+    queueProjection
   );
 }
 
@@ -2525,6 +2741,8 @@ export function reduceProductEngineCommand(
       return reduceImportResearchResult(command, state);
     case "SynthesizeEvidence":
       return reduceSynthesizeEvidence(command, state);
+    case "ResolveResearchQueueCard":
+      return reduceResolveResearchQueueCard(command, state);
     case "CreateRuntimePreview":
       return reduceCreateRuntimePreview(command, state);
     case "ConvertRuntimeArtifact":
@@ -2823,6 +3041,19 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
         }
       };
     case "EvidenceSynthesized": {
+      const researchProjection = projectionPayload(event.payload, state.researchState);
+      const queueProjection = queueProjectionPayload(event.payload) ?? state.queueProjection;
+      const confidenceProjection = confidenceProjectionPayload(event.payload) ?? state.completeness;
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        researchState: researchProjection,
+        queueProjection,
+        completeness: confidenceProjection
+      };
+    }
+    case "ResearchQueueCardResolved": {
       const researchProjection = projectionPayload(event.payload, state.researchState);
       const queueProjection = queueProjectionPayload(event.payload) ?? state.queueProjection;
       const confidenceProjection = confidenceProjectionPayload(event.payload) ?? state.completeness;

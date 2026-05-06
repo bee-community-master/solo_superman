@@ -189,6 +189,7 @@ Phase 1 command type values are closed, and Phase 1.5A allowlist/disclosure/run-
 | `PlanResearch` | create ResearchTask/manual handoff prompt |
 | `ImportResearchResult` | import pasted/manual research result |
 | `SynthesizeEvidence` | run evidence matrix synthesis path |
+| `ResolveResearchQueueCard` | resolve a Research-updated Queue card with approved/revised/rejected/deferred/risk_accepted/research_insufficient terminal outcome |
 | `CreateRuntimePreview` | run Codex/manual runtime preview effect |
 | `ConvertRuntimeArtifact` | convert allowed runtime artifact to local candidate/projection |
 | `CreateSpecUpdatePreview` | create SpecUpdate candidate |
@@ -344,7 +345,7 @@ Closed Phase 1 event type groups:
 | spec | `InitialSpecDrafted`, `SpecUpdatePreviewCreated`, `SpecVersionCreated` | Living Spec state |
 | ambiguity/queue | `AmbiguityAnalyzed`, `QuestionBatchActivated`, `QueueItemDeferred`, `QueueItemDismissed` | queue and question loop |
 | answer/decision | `AnswerSubmitted`, `DecisionResolved` | user decisions and answer cards |
-| research/evidence | `ResearchPlanned`, `ResearchResultImported`, `EvidenceSynthesisRequested`, `EvidenceSynthesized` | research/evidence closed loop; request events queue async work, synthesized events are emitted by the effect executor |
+| research/evidence | `ResearchPlanned`, `ResearchResultImported`, `EvidenceSynthesisRequested`, `EvidenceSynthesized`, `ResearchQueueCardResolved` | research/evidence closed loop; request events queue async work, synthesized events are emitted by the effect executor, and user terminal outcomes update queue/completeness projections |
 | runtime | `RuntimePreviewRequested`, `RuntimeArtifactConverted` | sandbox preview only |
 | completeness/export | `CompletenessScored`, `FounderBriefPrepared` | deterministic output refs |
 
@@ -765,7 +766,7 @@ Rules:
 
 Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`를 canonical source로 사용한다.
 
-- `ResearchAllowlistProjection` is implemented first for Phase 1.5A PR-01; `ResearchDisclosureLogProjection` is implemented in Phase 1.5A PR-03 before provider execution; `ResearchRunProjection` is implemented in Phase 1.5A PR-04 for lifecycle/provider-reference storage; Phase 1.5A PR-05 adds `StartResearchRunRequest`, `CancelResearchRunRequest`, `RetryResearchRunRequest`, `ResearchRunControlProjection`, `ResearchRunControlResult`, and `ResearchRunStatusDto` for run control/status/refetch recovery; Phase 1.5A PR-06 adds quality-gate checks and `DecisionEvidencePackProjection` records without auto-updating SpecVersion; add structured Phase15bUpgradeHints in its later implementation PR.
+- `ResearchAllowlistProjection` is implemented first for Phase 1.5A PR-01; `ResearchDisclosureLogProjection` is implemented in Phase 1.5A PR-03 before provider execution; `ResearchRunProjection` is implemented in Phase 1.5A PR-04 for lifecycle/provider-reference storage; Phase 1.5A PR-05 adds `StartResearchRunRequest`, `CancelResearchRunRequest`, `RetryResearchRunRequest`, `ResearchRunControlProjection`, `ResearchRunControlResult`, and `ResearchRunStatusDto` for run control/status/refetch recovery; Phase 1.5A PR-06 adds quality-gate checks and `DecisionEvidencePackProjection` records without auto-updating SpecVersion; Phase 1.5A PR-07 adds Research-updated Queue card types/outcomes and `ResolveResearchQueueCardRequest`; add structured Phase15bUpgradeHints in its later implementation PR.
 - Phase15bUpgradeHints must expose approval requirements, sandbox/workspace requirements, rollback/reference plan, expected evidence, risk normalization, and sourceRefs.
 - DTOs must preserve no-execution semantics; no field should imply active delegation or executed side effects in Phase 1.5B.
 - `packages/contracts` still must not import runtime clients, Hono, Drizzle, React, or Tauri modules.
@@ -776,6 +777,14 @@ Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.
 - `DecisionEvidencePackProjection` is the durable ledger for the source metadata, pro/con balance, limitation coverage, staleness, and decision implication checks used to classify imported/synthesized research.
 - Gate status values are `accepted`, `research_insufficient`, `stale`, and `needs_review`; `needs_review` must include a review reason and must surface as a queue/review blocker instead of silently accepting EvidenceMatrix content.
 - Accepted/insufficient/stale Evidence Packs may update the linked `ResearchRunProjection` terminal quality state, but they must not mutate `SpecVersion` or create a spec update without an explicit later decision/spec-version command.
+
+### Phase 1.5A PR-07 Research-updated Queue terminal outcomes
+
+- Evidence Pack projection, not raw source dumps, derives Research Review, Decision Approval, Risk Acceptance, Conflict Resolution, and Follow-up Question queue card behavior.
+- Research-updated Queue terminal outcomes are `approved`, `revised`, `rejected`, `deferred`, `risk_accepted`, and `research_insufficient`.
+- `ResolveResearchQueueCardRequest` requires `sessionId`, `cardId`, `expectedStateVersion`, `outcome`, and a user-visible `rationale` for `deferred` or `risk_accepted`.
+- High-impact research cards expose `blocksPlanning: true` until resolved; terminal `deferred` and `research_insufficient` remain visible blockers, while `risk_accepted` carries rationale into Known Risks.
+- `DecisionQueueProjection` items may include `cardType`, `researchTaskId`, `evidencePackId`, `availableOutcomes`, `terminalOutcome`, `terminalRationale`, and `blocksPlanning` so UI and refetch recovery can render the same state.
 
 ## Phase 2 planned Planning Handoff DTO checklist
 

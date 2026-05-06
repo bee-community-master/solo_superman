@@ -44,6 +44,33 @@ describe("Decision Queue view model", () => {
     ]);
   });
 
+  it("preserves Research-updated Queue card metadata for terminal-outcome rendering", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 8 as ProjectionVersion,
+      active: [],
+      next: [
+        {
+          queueItemId: "research_review_task_1" as QueueItemId,
+          title: "Evidence ready: Validate pricing",
+          state: "next",
+          cardType: "decision_approval",
+          blocksPlanning: true,
+          availableOutcomes: ["approved", "revised", "rejected", "deferred"]
+        }
+      ],
+      blocked: [],
+      deferred: []
+    };
+    const card = queueSections(queue).find((section) => section.id === "next")?.items[0];
+
+    expect(card).toMatchObject({
+      cardType: "decision_approval",
+      blocksPlanning: true,
+      availableOutcomes: expect.arrayContaining(["approved", "deferred"])
+    });
+  });
+
   it("summarizes pending effects without inventing product state", () => {
     const statuses: readonly StatusEndpointDto[] = [
       {

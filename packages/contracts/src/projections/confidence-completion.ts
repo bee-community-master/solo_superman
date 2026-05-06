@@ -8,6 +8,7 @@ export type CompletionGateId =
   | "confidence_axes"
   | "question_debt"
   | "evidence_balance"
+  | "research_queue_cards"
   | "required_decisions"
   | "blocking_incidents";
 
