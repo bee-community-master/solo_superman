@@ -31,7 +31,9 @@ Phase 1에서 Queue의 최종 방출과 재계산은 `18-product-engine-orchestr
 - `priority`.
 - `current_understanding`.
 - `why_it_matters`.
+- `decision_it_unlocks`.
 - `how_to_answer`.
+- `expected_answer_type`: `choice`, `text`, `rank`, `evidence`, `experiment`.
 - `options`.
 - `allow_other`.
 - `confidence_axis_impacts`.
@@ -39,6 +41,38 @@ Phase 1에서 Queue의 최종 방출과 재계산은 `18-product-engine-orchestr
 - `repeat_count`.
 - `repeat_limit`.
 - `expected_score_impact`.
+
+### Next Best Action Card
+
+사용자가 가장 먼저 보는 founder-facing 카드는 내부 queue state가 아니라 다음 행동이다. Next Best Action Card는 Question Card, Decision Approval Card, Research Review Card, Completion Candidate Card를 사용자 언어로 감싼 projection이다.
+
+필드:
+
+- `title`: 지금 해야 할 일.
+- `why_now`: 왜 지금 필요한가.
+- `decision_it_unlocks`: 답하거나 승인하면 잠기는 결정.
+- `affected_spec_sections`: 영향을 받는 Spec section.
+- `risk_if_skipped`: 답하지 않거나 미루면 생기는 리스크.
+- `recommended_action`: 답변, 나중에 답하기, 리서치 필요, 위험 감수, 완료 선언 중 하나.
+- `confidence_axis_impacts`: 올라가거나 낮아질 수 있는 confidence 축.
+
+예시:
+
+```text
+제목
+- Primary customer를 선택하세요.
+
+왜 지금 필요한가
+- MVP Scope와 Validation Plan이 customer segment에 의존합니다.
+
+답하면 잠기는 결정
+- Target Customer
+- Validation Experiment
+- MVP Scope
+
+답하지 않으면 생기는 리스크
+- MVP가 너무 넓어지고 검증 실험이 측정 불가능해질 수 있습니다.
+```
 
 ### Decision Approval Card
 
@@ -86,6 +120,26 @@ Codex app-server 또는 리서치 런타임이 실행 전 산출물을 만들었
 - `allowed_actions`: copy prompt, import result, convert to SpecUpdate, create Risk Card, defer.
 
 Phase 1에서 이 카드는 실제 파일, shell, browser action을 실행하지 않는다. ChatGPT 웹 자동화 preview는 Phase 2+ 후보로만 표시한다.
+
+### Founder-facing label rule
+
+Decision Queue는 사용자가 내부 엔진을 조작하는 화면처럼 보이면 실패다. 일반 사용자 화면에는 아래 변환을 적용한다.
+
+| 내부 표현 | 사용자-facing 표현 |
+| --- | --- |
+| `Phase 1.5A` | 근거 보강 |
+| `Phase 1.5B` | 실행 준비 메모 |
+| `Runtime preview` | 만들기 전 실행 계획 미리보기 |
+| `Effect task` | 백그라운드 작업 |
+| `Command failed` | 처리 실패 |
+| `schema version` | debug/admin metadata only |
+| raw planning gate text, `blocks Planning-ready` | 실행 계획 준비 조건 / 아직 실행 계획 준비 전 |
+| `Research queue card` | 근거 검토 카드 |
+| `Blocked action` | 아직 실행할 수 없는 작업 |
+
+`Planning-ready` 자체는 final `PlanningHandoffArtifact`가 존재할 때 허용되는 user-facing stage label이다. Queue가 금지해야 하는 것은 blocker report나 raw gate status를 final `Planning-ready` handoff처럼 보여주는 것이다.
+
+`schema version`, raw command name, adapter status, route id는 debug/admin surface로 격리한다. founder-facing card는 “지금 무엇을 해야 하는가”, “왜 중요한가”, “답하면 무엇이 바뀌는가”, “무엇이 아직 위험한가”를 우선 표시한다.
 
 ### Conflict Resolution Card
 
@@ -186,6 +240,8 @@ priority_score =
 - 답변 선택지가 실제 tradeoff를 만든다.
 - 사용자가 왜 답해야 하는지 이해할 수 있다.
 - 답변 결과가 어떤 Spec section에 영향을 주는지 명확하다.
+- 답변 결과가 어떤 decision을 잠그거나 어떤 다음 행동을 여는지 명확하다.
+- 기대 답변 유형이 선택, 직접 입력, 순위, 근거, 실험 설계 중 무엇인지 명확하다.
 - 답변 결과가 어떤 confidence axis를 올리거나 낮출 수 있는지 명확하다.
 - 답변 후 가능한 route outcome이 `resolved`, `research_needed`, `missing_con_evidence`, `decision_candidate`, `spec_update_candidate`, `conflict_detected`, `deferred` 중 어디인지 예상 가능하다.
 - “더 구체적으로 말해 주세요” 같은 추상 질문을 피한다.

@@ -2,7 +2,24 @@
 
 ## 한 문장 정의
 
-Solo Superman은 초기 창업자가 막연한 아이디어를 AI와 함께 질문, 리서치, 결정, 문서화의 반복 루프로 정교화해 **근거가 추적되는 Living Product Spec**으로 만드는 데스크톱 서비스다.
+Solo Superman은 솔로 창업자가 막연한 아이디어를 AI와 함께 질문, 리서치, 결정, 최소 실행 계획, 서빙 준비, 학습 루프까지 전환하도록 돕는 **local-first Founder OS**다.
+
+## Founder OS 여정
+
+Solo Superman은 PRD 생성기나 코드 자동 생성기가 아니다. 제품의 북극성은 창업자가 다음 경로를 안전하게 통과하게 하는 것이다.
+
+```text
+Idea
+-> Spec
+-> Evidence
+-> Decision
+-> Build Slice
+-> Local Preview
+-> Served MVP
+-> Learning Loop
+```
+
+초기 제품은 이 전체 여정 중 `Idea -> Spec -> Evidence -> Decision`을 가장 깊게 다룬다. Phase 2 Planning Handoff에서는 Build Slice, Serve Checklist, Learning Loop를 `docs/33-build-slice-serve-learning-loop.md`에 정의된 checklist/handoff 계약으로 연결하며, Controlled Execution capability 전에는 실제 file patch, shell command, browser action, deploy를 실행하지 않는다.
 
 ## 문제 정의
 
@@ -15,7 +32,7 @@ AI 시대에는 코드를 잘 쓰는 능력만큼이나, AI가 실행할 수 있
 - 리서치 근거와 개인적 직감이 구분되지 않는다.
 - AI에게 구현을 시켜도, 원래 기획이 모호해 결과물이 계속 어긋난다.
 
-Solo Superman은 이 문제를 “AI가 대신 기획서를 작성한다”가 아니라 **AI가 창업자의 의사결정 품질을 높이고, 그 결정의 흔적을 문서로 남긴다**로 정의한다.
+Solo Superman은 이 문제를 “AI가 대신 기획서를 작성한다”가 아니라 **AI가 창업자의 의사결정 품질을 높이고, 만들 것과 만들지 않을 것을 잠근 뒤, 다음 실행 조각과 학습 기준까지 남긴다**로 정의한다.
 
 ## 첫 핵심 사용자
 
@@ -49,7 +66,7 @@ Solo Superman은 이 문제를 “AI가 대신 기획서를 작성한다”가 �
 | --- | --- | --- |
 | 모호함 감소 | 아이디어의 빈칸과 충돌을 찾아낸다 | AmbiguityIssue, Question Queue |
 | 판단 품질 향상 | 주장별 찬반 근거와 불확실성을 구조화한다 | Evidence Matrix, Research Loop |
-| 실행 가능성 | 구현/검증으로 이어질 만큼 문서를 구조화한다 | Living Product Spec, Phase Plan |
+| 실행 가능성 | 구현/검증으로 이어질 만큼 문서를 구조화한다 | Living Product Spec, Build Slice Plan, Serve Checklist |
 | 통제감 | 사용자가 얼마나 완성했는지 계속 볼 수 있다 | Composite Completeness Score |
 | 안전한 AI 사용 | AI가 핵심 결정을 대신하지 않는다 | Approval Gate, Decision Log |
 
@@ -61,6 +78,8 @@ Solo Superman은 이 문제를 “AI가 대신 기획서를 작성한다”가 �
 4. **User-owned judgment**: AI는 제안하고 정리하지만, 핵심 결정은 사용자가 승인한다.
 5. **Progress-visible**: 질문이 많아도 사용자는 남은 거리와 완료 기준을 알아야 한다.
 6. **Local-first**: 민감한 창업 아이디어는 기본적으로 로컬에 머문다.
+7. **Build-slice before build-all**: 실행 단계로 넘어가더라도 전체 제품이 아니라 가장 작고 검증 가능한 product slice를 먼저 잠근다.
+8. **Learning-loop aware**: Served MVP는 끝이 아니라 사용자 반응을 다시 Evidence, Decision, 다음 Build Slice로 되돌리는 시작점이다.
 
 ## Phase 1 범위
 
@@ -107,4 +126,3 @@ Idea Input
 - 그럴듯한 문서 생성기: 근거 없이 보기 좋은 PRD만 만드는 실패.
 - AI 과잉결정: 타깃/가치제안/MVP 범위를 AI가 대신 결정하는 실패.
 - 리서치 신뢰성 부족: 출처와 반대근거가 약해 잘못된 확신을 주는 실패.
-

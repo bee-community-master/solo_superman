@@ -138,6 +138,35 @@ recommended_decision: "..."
 confidence: low|medium|high
 ```
 
+## Evidence Pack contract
+
+Evidence Pack은 source dump가 아니라 decision quality artifact다. 창업자에게 중요한 질문은 “근거가 있는가”가 아니라 “이 근거로 무엇을 결정해도 되고, 무엇은 아직 결정하면 안 되는가”다.
+
+필수 구조:
+
+```yaml
+claim: "솔로 창업자는 구현 전에 spec과 다음 검증 행동을 정리할 필요가 있다"
+source_type: official|blog|forum|dataset|academic|anecdotal|interview|competitor|unknown
+source_freshness: fresh|acceptable|stale|not_time_sensitive|unknown
+supporting_evidence:
+  - summary: "..."
+    source: "..."
+    reliability: high|medium|low
+counter_evidence:
+  - summary: "..."
+    source: "..."
+    reliability: high|medium|low
+uncertainty:
+  - "실제 지불 의사는 아직 확인되지 않음"
+what_this_does_not_prove:
+  - "완성된 PRD export가 MVP의 핵심 가치라는 점은 증명하지 않음"
+decision_implication: "MVP는 완성된 문서보다 15분 안에 다음 검증 행동을 정하는 데 집중해야 함"
+strongest_disconfirming_signal: "사용자가 질문 품질보다 즉시 prototype 생성을 더 반복적으로 요구함"
+next_validation_action: "5명의 솔로 창업자에게 problem interview와 지불의사 질문을 실행"
+```
+
+Evidence Pack은 반드시 Queue, Decision, Known Risks, Validation Plan 중 하나 이상으로 연결된다. 연결되지 않은 evidence는 Founder OS 제품 판단에 쓰지 않는다.
+
 ## Pro/Con Evidence Gate
 
 핵심 claim은 다음 중 하나가 되기 전까지 decision-ready가 아니다.

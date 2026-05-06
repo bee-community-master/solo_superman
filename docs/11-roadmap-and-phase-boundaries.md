@@ -191,6 +191,8 @@ Phase 1.5A 공통 완료 조건:
 목표:
 
 - Living Product Spec과 해결된 Research-updated Queue를 구현 가능한 task plan으로 변환한다.
+- 전체 제품을 한 번에 만들지 않고 가장 작고 검증 가능한 Build Slice를 정의한다.
+- Served MVP 이후 다시 Evidence/Decision/다음 Build Slice로 돌아오는 Learning Loop hook을 남긴다.
 - 사용자-facing 여정명은 `Planning-ready`이며, UI에는 Phase 2를 노출하지 않는다.
 
 포함:
@@ -198,8 +200,12 @@ Phase 1.5A 공통 완료 조건:
 - Spec -> task breakdown.
 - PR/issue 단위 실행 계획.
 - implementation readiness checklist.
+- Build Slice Plan.
+- Serve Checklist.
+- Learning Loop hook.
 - unresolved risk와 prerequisite 표시.
 - final `PlanningHandoffArtifact`와 gate 실패용 blocker report의 schema는 `31-phase2-planning-handoff-contract.md`를 따른다.
+- Build Slice, Serve Checklist, Learning Loop의 checklist/handoff 수준 계약은 `33-build-slice-serve-learning-loop.md`를 따른다.
 - DTO/API/storage/gate/idempotency 구현 기본값은 `32-phase2-implementation-preflight-contract.md`를 따른다.
 - file diff/command/browser action은 preview까지만 설계 가능.
 
@@ -219,6 +225,8 @@ Phase 1.5A 공통 완료 조건:
 - gate 실패 또는 부분충족 blocker report를 final `PlanningHandoffArtifact`처럼 표시하는 것.
 - 파일 patch 실행.
 - browser action, deploy, external mutation 실행.
+- Serve Checklist를 실제 deploy로 해석하는 것.
+- Learning Loop를 자동 analytics/feedback ingestion 제품으로 확장하는 것.
 
 ## Phase 2.5: Browser Automation Preview
 
@@ -333,6 +341,7 @@ Phase 1.5A 공통 완료 조건:
 - unresolved fatal blocker 또는 terminal outcome 없는 Research-updated Queue의 high-impact card가 있으면 Planning Handoff를 확정하지 않는다.
 - Phase 2 final artifact와 blocker report는 `31-phase2-planning-handoff-contract.md`의 split contract를 따른다.
 - Phase 2 DTO/API/storage/gate exact defaults는 `32-phase2-implementation-preflight-contract.md`를 따른다.
+- Build Slice, Serve Checklist, Learning Loop는 `33-build-slice-serve-learning-loop.md`의 no-execution checklist/handoff contract를 따른다.
 - Phase 1에서 Codex app-server는 sandbox preview 권한을 넘지 않는다.
 - Phase 1에서 ChatGPT Pro 웹 자동화를 만들지 않는다.
 - 다음 research/planning capability 보강에서 모바일 앱을 만들지 않는다.

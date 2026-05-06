@@ -30,8 +30,11 @@ MVP는 다음 사용 시나리오가 한 프로젝트 안에서 끊기지 않고
 ### F2. Initial Spec 생성
 
 - 시스템은 입력 아이디어를 기반으로 Living Product Spec 초안을 만든다.
+- 초안은 최소 10개, 기본 12개 section을 생성해야 한다.
+- 기본 section은 Problem, Target Customer, JTBD/Use Case, Current Alternatives, Value Proposition, Differentiation, MVP Scope, Non-goals, Validation Plan, Success Criteria, Evidence Status, Known Risks/Open Questions를 포함한다.
 - 초안은 추측과 사실을 구분해야 한다.
 - 불확실한 내용은 확정 문장으로 쓰지 않고 `가설`, `미확인`, `질문 필요`로 표시한다.
+- 빈 section을 숨기지 않는다. 비어 있거나 약한 section은 `현재 가설`, `불확실성`, `필요한 결정`, `다음 질문` 형태의 판단 상태판으로 표시한다.
 
 ### F3. AmbiguityIssue 생성
 
@@ -41,7 +44,10 @@ MVP는 다음 사용 시나리오가 한 프로젝트 안에서 끊기지 않고
   - 심각도: high, medium, low.
   - 유형: missing, conflict, unsupported, vague, decision_required.
   - 왜 중요한지.
+  - 답하면 잠기는 결정 또는 열리는 다음 행동.
+  - 기대 답변 유형: choice, text, rank, evidence, experiment.
   - 해소에 필요한 질문 또는 리서치.
+- 첫 ambiguity analysis는 최소 10개 이상의 AmbiguityIssue를 생성해야 한다. 단순 표현 수정은 제외하고, 고객/문제/JTBD, 대체재, MVP 포함/제외, 검증 가능성, 성공 기준, 채널, 구현 난이도, 보안/법률/운영 리스크, founder advantage를 폭넓게 훑는다.
 
 ### F4. Question Priority Queue
 
@@ -49,6 +55,8 @@ MVP는 다음 사용 시나리오가 한 프로젝트 안에서 끊기지 않고
 - 질문은 3~5개 배치로 사용자에게 제시된다.
 - 질문 배치는 high-risk/high-impact 항목을 우선한다.
 - 질문마다 현재 이해, 왜 중요한가, 답변 방법, 선택지 설명이 있어야 한다.
+- 질문마다 `decisionItUnlocks`와 영향받는 Spec section을 보여줘야 한다.
+- 첫 화면의 중심 카드는 “다음에 무엇을 해야 하는가”를 설명하는 Next Best Action 형태여야 한다.
 
 ### F5. Answer capture
 
@@ -116,6 +124,12 @@ MVP는 다음 사용 시나리오가 한 프로젝트 안에서 끊기지 않고
 - 깊은 리서치가 필요하면 수동 프롬프트 핸드오프를 먼저 제공하고, 사용자가 풀 자동화를 원하면 `17-ai-runtime-access-strategy.md`가 정의한 공식 Codex 경로로만 리서치/분석을 진행한다.
 - ChatGPT Pro 웹 자동화는 Phase 2+ 비전이며 Phase 1 MVP 범위가 아니다.
 
+### F13. Founder-facing language guardrail
+
+- 사용자 화면, onboarding, CTA, export, Founder Brief에서는 `Phase 1.5A`, `Phase 1.5B`, `Effect task`, `schema version`, `Command failed` 같은 내부 구현 용어를 기본 노출하지 않는다.
+- 내부 용어가 필요한 경우 debug/admin surface로 격리하고, 일반 사용자에게는 “근거 보강”, “실행 준비 메모”, “처리 실패”, “다음 단계 준비도”처럼 행동 중심 언어를 사용한다.
+- founder-facing copy는 사용자가 지금 무엇을 해야 하고, 왜 중요한지, 답하면 어떤 결정이 열리는지를 먼저 보여준다.
+
 ## UX 요구사항
 
 - 기본 레이아웃은 Decision Queue 중심이다.
@@ -152,10 +166,13 @@ MVP는 다음 사용 시나리오가 한 프로젝트 안에서 끊기지 않고
 ## MVP acceptance criteria
 
 - 샘플 아이디어 1개로 end-to-end dry-run이 가능하다.
-- 최소 6개 필수 Spec section이 생성된다.
+- 최소 10개, 기본 12개 필수 Spec section이 생성된다.
 - 최소 10개 이상의 AmbiguityIssue가 식별된다.
 - 첫 질문 배치는 3~5개 질문으로 구성된다.
+- 모든 Question Card는 `왜 중요한가`, `답하면 잠기는 결정`, `관련 Spec section`, `expectedAnswerType`을 가진다.
 - 최소 1개 핵심 결정에 대해 찬성 근거, 반대 근거, 불확실성, 추가 질문이 생성된다.
 - 승인된 결정이 SpecVersion으로 반영된다.
 - Codex app-server preview artifact가 실제 파일/쉘/브라우저 실행 없이 Queue/Spec/Research artifact로만 남는다.
 - 복합 완성도 점수와 다음 행동이 표시된다.
+- founder-facing UI copy에 내부 phase/command/schema/runtime label이 직접 노출되지 않는다.
+- Completion Candidate 또는 Founder Brief에는 Known Risks와 Next Validation Action이 포함된다.

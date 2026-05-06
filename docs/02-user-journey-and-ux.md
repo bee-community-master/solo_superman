@@ -157,9 +157,13 @@ Confidence Map은 사용자가 “어디까지 확실한가”보다 “어디�
 - 중요도.
 - 관련 Spec section.
 - 왜 지금 중요한가.
+- 답하면 잠기거나 열리는 decision.
+- 답하지 않으면 생기는 risk.
 - 어떤 confidence 축을 개선하는가.
 - 선택지 또는 입력란.
 - 답변 후 기대 효과.
+
+첫 카드 경험은 가능하면 Next Best Action Card 형태로 보여준다. 사용자는 queue item type보다 “지금 무엇을 해야 하는가”를 먼저 이해해야 한다.
 
 ### Context Panel
 
@@ -207,6 +211,22 @@ Confidence Map은 사용자가 “어디까지 확실한가”보다 “어디�
 - 각 선택지의 tradeoff 설명.
 - 직접 입력 허용.
 ```
+
+## 내부 용어 노출 금지
+
+사용자-facing 화면은 내부 phase, command, schema, runtime adapter를 직접 드러내지 않는다. 내부 정보가 필요한 경우 debug/admin surface로 숨긴다.
+
+| 내부 표현 | 사용자-facing 표현 |
+| --- | --- |
+| `Phase 1.5A` | 근거 보강 |
+| `Phase 1.5B` | 실행 준비 메모 |
+| `Runtime preview` | 만들기 전 실행 계획 미리보기 |
+| `Effect task` | 백그라운드 작업 |
+| `Command failed` | 처리 실패 |
+| `schema version` | debug/admin metadata |
+| raw planning gate text, `blocks Planning-ready` | 실행 계획 준비 조건 / 아직 실행 계획 준비 전 |
+
+`Planning-ready` 자체는 `28-founder-os-product-doctrine.md`와 `31-phase2-planning-handoff-contract.md`가 허용한 final user-facing stage label이다. 금지되는 것은 blocker report, raw gate status, 내부 오류 문구를 `Planning-ready` handoff처럼 보여주는 것이다.
 
 ## 질문 AI 톤
 

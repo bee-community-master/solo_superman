@@ -16,7 +16,7 @@ Canonical path: `docs/31-phase2-planning-handoff-contract.md`.
 | Final artifact | `PlanningHandoffArtifact`는 final `Planning-ready` handoff 전용 |
 | Blocker artifact | fatal blocker, gate 실패, 부분충족은 `PlanningHandoffBlockerArtifact` 또는 동등한 blocker report로 분리 |
 | Preview boundary | `ImplementationPlanPreviewArtifact`는 Phase 1/1.5B preview-only planning note이며 final handoff가 아니다 |
-| Field depth | 전체 추적형 계약: sourceRefs, gate verdict, task/PR/issue plan, readiness checklist, residual risk, Phase 1.5B hints mapping을 모두 필수 field family로 둠 |
+| Field depth | 전체 추적형 계약: sourceRefs, gate verdict, task/PR/issue plan, Build Slice Plan, Serve Checklist, Learning Loop hook, readiness checklist, residual risk, Phase 1.5B hints mapping을 모두 필수 field family로 둠 |
 | Execution boundary | Phase 2는 실행계획 handoff까지이며 file patch, shell command, browser action, deploy, external mutation을 실행하지 않음 |
 | User-facing label | `Planning-ready`는 final `PlanningHandoffArtifact`가 생성될 때만 사용할 수 있음 |
 | Code boundary | 이 문서는 docs-level contract다. `packages/contracts` DTO/enum, API route, storage schema 구현은 후속 Phase 2 구현 PR이 소유 |
@@ -32,6 +32,7 @@ Canonical path: `docs/31-phase2-planning-handoff-contract.md`.
 | Decision-linked Evidence Pack | yes | high-impact claim/decision의 pro/con/uncertainty와 source quality 근거 |
 | Research-updated Queue | yes | Phase 2 gate 대상 card와 terminal outcome source of truth |
 | Known Risks / Open Questions | yes | low/medium 또는 non-fatal residual risk를 planning context에 보존 |
+| Build/Serve/Learning Loop contract | yes | 다음 구현 조각, 서빙 준비, 사용자 반응 학습 기준을 `33-build-slice-serve-learning-loop.md` 기준으로 보존 |
 | Phase 1.5B hints | yes if present | approval, sandbox, rollback, expected evidence, risk metadata 재사용 |
 | Audit/activity refs | yes if present | 사용자 승인, risk acceptance, defer reason, manual handoff source trace |
 
@@ -69,11 +70,16 @@ Gate 규칙:
 | `scopeSnapshot` | yes | 구현 대상 product slice, explicit non-goals, excluded phases, user-facing journey label, current assumptions |
 | `taskBreakdown` | yes | task id/title/intent, source refs, dependency, owner role, acceptance evidence, non-goals, linked risk/validation dependency |
 | `prIssuePlan` | yes | proposed issue/PR sequence, dependency order, PR-sized slicing rationale, blocked-by/prerequisite links |
+| `buildSlicePlan` | yes | 이번 한 번의 구현 사이클에서 만들 가장 작고 검증 가능한 product slice, 포함/제외 범위, acceptance evidence |
+| `serveChecklist` | yes | 배포 대상 후보, env/secrets gap, privacy check, smoke test, rollback note, launch note, metric 후보. 실제 deploy 실행 권한은 아님 |
+| `learningLoopHook` | yes | Served MVP 이후 수집할 feedback/usage signal, 해석 기준, pivot/persevere decision 후보, 다음 Build Slice trigger |
 | `readinessChecklist` | yes | required approvals, sandbox/worktree boundary, rollback reference, expected evidence, command/file/browser preview requirements |
 | `residualRiskRegister` | yes | visible residual risk, assumptions, prerequisites, validation dependencies, owner/follow-up trigger |
 | `phase15bHintMapping` | yes | Phase 1.5B hint refs mapped to approval, sandbox, rollback, expected evidence, risk normalization |
 | `noExecutionPolicy` | yes | explicit statement that Phase 2 does not apply file patch, run shell, perform browser action, deploy, or mutate external systems |
 | `handoffSummary` | yes | Korean-first summary that is safe to show as final Planning-ready context without hiding remaining risk |
+
+Build/Serve/Learning field family의 세부 의미는 `33-build-slice-serve-learning-loop.md`를 따른다. 이 문서는 final handoff artifact에 해당 field family가 있어야 한다는 trace requirement를 소유하고, Phase 3 실행 adapter나 배포 구현을 소유하지 않는다.
 
 ### `taskBreakdown` minimum item
 
@@ -169,6 +175,7 @@ Binding rules:
 - exact implementation defaults for those planned names are owned by `32-phase2-implementation-preflight-contract.md`.
 - gate failure output is a durable blocker artifact whenever safe to persist, not just a transient error response.
 - final and blocker artifacts share source trace/readiness/risk semantics but only final `PlanningHandoffArtifact` may carry the user-facing `Planning-ready` label.
+- Build Slice, Serve Checklist, Learning Loop hook은 final artifact에 포함되어도 no-execution policy 아래의 planning context다. 이 field를 근거로 file patch, shell command, browser action, deploy, external mutation을 실행하면 안 된다.
 
 ## Non-goals
 
@@ -176,6 +183,7 @@ Binding rules:
 - API route, storage schema, repository, ProductEngine reducer, sidecar runtime conversion을 구현하지 않는다.
 - `verify-doc-contracts`에 doc 31 guard를 추가하지 않는다.
 - file patch, shell command, browser action, deploy, external mutation 실행 capability를 만들지 않는다.
+- Build Slice, Serve Checklist, Learning Loop hook을 Phase 3 execution adapter 세부 설계로 확장하지 않는다.
 - provisional plan을 final implementation plan처럼 표시하지 않는다.
 - 사용자-facing UI copy source of truth를 이 문서로 옮기지 않는다.
 
@@ -185,6 +193,7 @@ Binding rules:
 - [ ] gate 실패/부분충족은 `PlanningHandoffBlockerArtifact` 또는 blocker report로 분리된다.
 - [ ] `ImplementationPlanPreviewArtifact`는 preview-only planning note로 유지된다.
 - [ ] final artifact는 sourceRefs, gate verdict, task/PR/issue plan, readiness checklist, residual risk, Phase 1.5B hint mapping을 모두 포함한다.
+- [ ] final artifact는 Build Slice Plan, Serve Checklist, Learning Loop hook을 포함하되 no-execution policy를 함께 표시한다.
 - [ ] blocker report는 `Planning-ready` label을 사용하지 않는다.
 - [ ] fatal blocker class와 visible residual risk 규칙은 `28-founder-os-product-doctrine.md`와 충돌하지 않는다.
 - [ ] Phase 2 handoff는 실제 file/shell/browser/deploy/external mutation을 실행하지 않는다.

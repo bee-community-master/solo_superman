@@ -42,18 +42,24 @@ Spec-ready 후보가 되려면 복합 완성도 gate와 함께 **모든 축 75�
 
 ## 1. Section completeness (25%)
 
-필수 section이 존재하고 기본 내용이 채워졌는지 본다.
+필수 section이 존재하고 기본 내용이 채워졌는지 본다. 초기 Living Product Spec의 section set은 `03-living-product-spec.md`의 12개 section 계약을 따른다.
 
 | Section | 가중치 |
 | --- | --- |
-| Problem Statement | 15 |
-| Target Customer | 15 |
-| Value Proposition | 15 |
-| Alternatives/Competition | 10 |
-| Evidence Matrix | 15 |
-| Validation Plan | 10 |
+| Problem | 10 |
+| Target Customer | 10 |
+| JTBD / Use Case | 8 |
+| Current Alternatives | 8 |
+| Value Proposition | 10 |
+| Differentiation | 8 |
 | MVP Scope | 10 |
-| Success Criteria | 10 |
+| Non-goals | 8 |
+| Validation Plan | 10 |
+| Success Criteria | 8 |
+| Evidence Status | 5 |
+| Known Risks / Open Questions | 5 |
+
+Decision Log와 Phase Plan은 SpecVersion metadata, export projection, Planning Handoff sourceRefs에서 추적하지만, 아래 12개 section의 판단 상태를 대체할 수 없다.
 
 점수 기준:
 
@@ -92,10 +98,11 @@ question_debt_score = 100 - min(100,
 핵심 claim:
 
 - problem is real.
-- target customer is reachable.
-- value proposition is differentiated.
-- MVP scope can validate the main hypothesis.
-- success criteria are measurable.
+- target customer is reachable and narrow enough.
+- JTBD/use case is specific enough to test.
+- current alternatives and differentiation are understood.
+- MVP scope and non-goals can validate the main hypothesis without scope creep.
+- validation plan and success criteria are measurable.
 
 점수 기준:
 
@@ -120,10 +127,10 @@ Pro/Con Evidence Gate 반영:
 필수 승인 결정:
 
 - primary customer.
-- problem statement.
+- problem.
 - value proposition.
 - validation target.
-- MVP scope.
+- MVP scope and explicit non-goals.
 - success criteria.
 
 점수 기준:

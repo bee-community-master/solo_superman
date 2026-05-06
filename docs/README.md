@@ -1,8 +1,8 @@
 # Solo Superman 기획 문서 인덱스
 
-Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질문·리서치 세션으로 구체화해, 근거와 결정이 추적되는 `Living Product Spec`까지 도달하게 하는 macOS-first 데스크톱 서비스다.
+Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질문·리서치·결정 세션으로 구체화하고, 최소 Build Slice와 서빙/학습 준비까지 연결하는 macOS-first, local-first Founder OS다.
 
-이 레포의 현재 기준은 **Phase 1 구현 완료 후 Founder OS product doctrine을 보강하는 단계**다. Phase 1 PR-01~PR-09 구현 계약과 E2E dry-run hardening은 완료된 기준선으로 보고, 다음 문서 보강은 Phase 1.5A/Phase 2 구현계획 전에 결정 부채를 줄이는 데 집중한다. 현재 문서 세트는 `00`~`32`의 번호 문서 33개와 이 인덱스를 합쳐 총 34개의 Markdown 문서로 구성한다.
+이 레포의 현재 기준은 **Phase 1 구현 완료 후 Founder OS product doctrine을 보강하는 단계**다. Phase 1 PR-01~PR-09 구현 계약과 E2E dry-run hardening은 완료된 기준선으로 보고, 다음 문서 보강은 Phase 1.5A/Phase 2 구현계획 전에 결정 부채를 줄이는 데 집중한다. 현재 문서 세트는 `00`~`33`의 번호 문서 34개와 이 인덱스를 합쳐 총 35개의 Markdown 문서로 구성한다.
 
 ## 확정된 1차 제품 결정
 
@@ -10,7 +10,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | --- | --- |
 | 첫 사용자 | 초기 창업자 |
 | 핵심 JTBD | 막연한 아이디어를 문제정의, 타깃, 가치제안, 고객 세그먼트, 경쟁/대체재, 검증실험, MVP 범위, 성공기준으로 구체화 |
-| 중심 산출물 | Living Product Spec |
+| 중심 산출물 | Living Product Spec, Founder Brief, Build Slice/Serve/Learning handoff |
 | 기본 세션 | 2~5시간 집중 구체화 세션 |
 | 질문 UX | 3~5개 질문 배치가 우선순위 큐로 계속 공급됨 |
 | 리서치 품질 | 핵심 결정별 찬성 근거, 반대 근거, 불확실성, 추가 질문 매트릭스 |
@@ -51,6 +51,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | Phase capability matrix | Phase 0~6은 사용자 가치, 구현 capability, entry gate, exit evidence, non-goal 중심으로 정리 |
 | Phase 2 handoff artifact | `PlanningHandoffArtifact`는 final Planning-ready 전용이고, gate 실패/부분충족은 별도 blocker report로 분리 |
 | Phase 2 implementation preflight | DTO wire shape, gate algorithm, storage columns/indexes, command/idempotency, route ids, 구현 순서, Phase 1.5 dependency fallback은 `32-phase2-implementation-preflight-contract.md`의 exact default를 따른다 |
+| Build/Serve/Learning loop | Build Slice Plan, Serve Checklist, Learning Loop Hook은 `33-build-slice-serve-learning-loop.md`의 checklist/handoff 계약을 따른다 |
 | Phase 1 MVP | Research 포함 폐루프 |
 | 1순위 실패 방지 | 무한 질문 루프 |
 
@@ -89,6 +90,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 31. `30-phase1.5-research-runtime-and-readiness-contract.md` - Phase 1.5A allowlisted read-only research runtime과 Phase 1.5B execution-readiness hints의 canonical 구현 계약.
 32. `31-phase2-planning-handoff-contract.md` - Phase 2 Planning Handoff의 final artifact, blocker report, readiness checklist, residual risk, Phase 1.5B hint mapping 계약.
 33. `32-phase2-implementation-preflight-contract.md` - Phase 2 Planning Handoff를 구현 PR로 옮기기 전 DTO, gate, storage, command, API, PR 순서, Phase 1.5 dependency exact default 계약.
+34. `33-build-slice-serve-learning-loop.md` - Build Slice, Serve Checklist, Learning Loop Hook의 no-execution checklist/handoff 계약.
 
 ## 문서 책임 경계
 
@@ -127,6 +129,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 | Phase 1.5 Research Runtime and Readiness Contract | Phase 1.5A allowlisted read-only research runtime, ResearchRun lifecycle, disclosure/audit, Phase 1.5B readiness hint schema와 no-execution acceptance | Founder OS/product matrix는 사용자 가치와 gate를, 이 문서는 API/DTO/DB/runtime 구현자가 따라야 할 세부 계약을 책임진다 |
 | Phase 2 Planning Handoff Contract | `PlanningHandoffArtifact`, `PlanningHandoffBlockerArtifact`, gate verdict, PR/issue/task plan, readiness checklist, residual risk, Phase 1.5B hint mapping | Roadmap/Doctrine/Matrix는 phase gate와 사용자 가치를, 이 문서는 Phase 2 handoff artifact/report schema를 책임진다. 실제 DTO/API/storage 구현은 후속 Phase 2 구현 PR로 넘긴다 |
 | Phase 2 Implementation Preflight Contract | DTO wire shape, gate algorithm, storage schema defaults, command/idempotency, route ids, implementation sequencing, Phase 1.5 dependency fallback | 31번은 artifact/report schema를, 이 문서는 그 schema를 code PR로 옮기는 exact implementation defaults를 책임진다. GitHub issue draft와 product code는 후속 작업으로 넘긴다 |
+| Build Slice, Serve Checklist, and Learning Loop | Build Slice Plan, Serve Checklist, Learning Loop Hook의 checklist/handoff 계약 | 31번은 final handoff artifact field family를, 33번은 그 field family의 제품 의미와 no-execution boundary를 책임진다. Phase 3 execution adapter와 실제 deploy는 후속 작업으로 넘긴다 |
 
 ## 공식 자료 기반 설계 메모
 
@@ -146,6 +149,7 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 - Phase 1.5A/B 상세 구현 계약은 `30-phase1.5-research-runtime-and-readiness-contract.md`가 소유한다.
 - Phase 2 Planning Handoff의 final artifact와 blocker report 계약은 `31-phase2-planning-handoff-contract.md`가 소유한다.
 - Phase 2 Planning Handoff의 DTO/API/storage/gate exact implementation defaults는 `32-phase2-implementation-preflight-contract.md`가 소유한다.
+- Build Slice, Serve Checklist, Learning Loop Hook의 no-execution checklist/handoff 계약은 `33-build-slice-serve-learning-loop.md`가 소유한다.
 - Hono는 local sidecar API의 route/validation surface로 고정하고, validation은 Hono validator/Zod 계열로 문서화한다. 참고: <https://hono.dev/docs/api>, <https://hono.dev/docs/guides/validation>
 - Phase 1 저장소는 local embedded libSQL + Drizzle schema/migration 계약으로 고정한다. 참고: <https://docs.turso.tech/sdk/ts/reference>, <https://docs.turso.tech/local-development>, <https://orm.drizzle.team/docs/get-started/sqlite-new>, <https://orm.drizzle.team/docs/migrations>
 - ChatGPT Pro에는 Codex와 Deep Research가 포함되지만 자동 추출, 계정 공유, 제3자 서비스 구동/재판매 제한이 있을 수 있으므로 ChatGPT Pro 웹 자동화는 Phase 2+ 비전으로 둔다. 참고: <https://help.openai.com/en/articles/9793128-what-is-c>
@@ -164,5 +168,6 @@ Solo Superman은 초기 창업자가 막연한 아이디어를 2~5시간의 질�
 - 모바일 앱 생성 금지.
 - 팀 협업, 본격 cloud sync, 모바일/원격 승인, 결제/과금 확장 금지.
 - Phase 4~6은 entry gate 충족 전까지 gate 중심 contract로만 다루며 PR/module/schema 수준 구현계획 확정 금지.
+- Build Slice, Serve Checklist, Learning Loop Hook을 실제 code generation, deploy, analytics ingestion, 외부 mutation 실행 권한으로 해석 금지.
 - 외부 APM, log drain, 배포 관측 플랫폼 선택 금지. Phase 1 운영성은 문서상 event/effect/status/projection/activity recovery 계약으로만 고정한다.
 - `packages/contracts`가 Hono, Drizzle, React, Tauri, Codex runtime client를 직접 import하는 구조 금지.

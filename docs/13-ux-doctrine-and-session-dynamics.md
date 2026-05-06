@@ -38,6 +38,30 @@ Phase 1의 UX Doctrine은 다음 다섯 가지다.
 
 이 단계명은 진행률 badge가 아니라 현재 사용자가 할 수 있는 다음 행동을 설명하는 문구다. 내부 phase 번호가 사용자 화면에 직접 표시되면 실패다.
 
+## Founder-facing copy guardrail
+
+사용자는 엔진 phase를 조작하는 것이 아니라 자신의 아이디어를 전진시킨다고 느껴야 한다. 일반 UI, onboarding, CTA, export, Founder Brief에는 다음 변환을 적용한다.
+
+| 내부 표현 | 사용자-facing 표현 | 표시 원칙 |
+| --- | --- | --- |
+| `Phase 1.5A` | 근거 보강 | claim/decision에 묶인 근거를 더 찾는다는 행동으로 설명 |
+| `Phase 1.5B` | 실행 준비 메모 | 나중에 실행계획에 필요한 승인, sandbox, rollback 정보를 보존한다고 설명 |
+| `Runtime preview` | 만들기 전 실행 계획 미리보기 | 실제 실행이 아니라 안전한 preview임을 표시 |
+| `Effect task` | 백그라운드 작업 | 사용자가 기다리거나 취소할 수 있는 작업으로 표시 |
+| `Command failed` | 처리 실패 | 원인, 복구 버튼, 다음 안전 행동을 함께 표시 |
+| `schema version` | debug/admin metadata | founder-facing surface에는 직접 노출하지 않음 |
+| raw planning gate text, `blocks Planning-ready` | 실행 계획 준비 조건 / 아직 실행 계획 준비 전 | blocker나 gate 상태를 final handoff처럼 보이지 않게 표시 |
+| `Blocked action` | 아직 실행할 수 없는 작업 | 막힌 이유와 필요한 승인/근거를 표시 |
+
+`Planning-ready`는 final handoff artifact가 있을 때만 허용되는 canonical user-facing stage label이다. 위 표의 금지 대상은 `blocks Planning-ready` 같은 내부 gate 문구, blocker report, raw 상태값을 그대로 사용자에게 노출하는 경우다.
+
+카드의 첫 문장은 항상 다음 네 가지 중 하나를 답해야 한다.
+
+- 지금 무엇을 해야 하는가.
+- 왜 이 질문이나 결정이 중요한가.
+- 답하면 무엇이 바뀌는가.
+- 무엇이 아직 위험한가.
+
 ## Confidence Map
 
 ### 역할

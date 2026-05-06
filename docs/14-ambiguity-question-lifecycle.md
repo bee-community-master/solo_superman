@@ -51,6 +51,23 @@ AmbiguityIssue는 Spec이 실행 가능한 창업 기획으로 가는 데 방해
 - primary customer, problem, value proposition, MVP scope, validation plan, success criteria 중 하나가 확정되지 않았다.
 - confidence 축 중 하나가 낮고, 그 이유가 질문 또는 리서치로 줄일 수 있는 경우.
 
+첫 ambiguity analysis는 최소 10개 이상의 issue를 만들어야 한다. 기본 coverage 축은 다음을 포함한다.
+
+1. primary customer가 너무 넓은가.
+2. 고객이 이 문제를 자주 겪는가.
+3. 문제 강도가 충분한가.
+4. 돈을 내는 사람과 쓰는 사람이 같은가.
+5. 현재 대체재는 무엇인가.
+6. 대체재의 불만족 지점은 무엇인가.
+7. MVP에서 반드시 만들 기능은 무엇인가.
+8. 이번 MVP에서 만들지 말아야 할 것은 무엇인가.
+9. 성공 기준은 측정 가능한가.
+10. 첫 검증 실험은 제품 없이 가능한가.
+11. acquisition channel이 현실적인가.
+12. 구현 난이도가 창업자의 리소스와 맞는가.
+13. 보안/법률/운영 리스크가 있는가.
+14. founder advantage가 있는가.
+
 생성 금지 조건:
 
 - 이미 같은 `topicKey`의 open issue가 있다.
@@ -68,6 +85,21 @@ AmbiguityIssue는 Spec이 실행 가능한 창업 기획으로 가는 데 방해
 | `missing_con_evidence` | 찬성 근거만 있고 반대근거 탐색이 부족하다 | “대체재로 충분하지 않다는 반대근거 없음” | Research |
 | `conflict` | Spec section 간 충돌이 있다 | 고객은 B2C인데 buyer는 HR | Decision |
 | `decision_required` | 사용자의 선택이 필요하다 | MVP 포함/제외 범위 | Approval |
+
+## AmbiguityIssue field contract
+
+| Field | Required | Rule |
+| --- | --- | --- |
+| `issueId` | yes | stable id. Queue item과 trace 가능해야 한다 |
+| `sectionRef` | yes | Living Product Spec의 section 이름 또는 section id |
+| `severity` | yes | `high`, `medium`, `low` |
+| `uncertaintyType` | yes | `missing`, `vague`, `unsupported`, `conflict`, `decision_required`, `missing_con_evidence` |
+| `summary` | yes | founder-facing 한 줄 요약 |
+| `whyItMatters` | yes | 답하지 않을 때 생기는 downstream decision/rework risk |
+| `questionText` | yes | 하나의 핵심 질문 |
+| `expectedAnswerType` | yes | `choice`, `text`, `rank`, `evidence`, `experiment` |
+| `decisionItUnlocks` | yes | 답변 후 잠기거나 열리는 decision, Spec section, Build Slice readiness |
+| `suggestedResearchTask` | optional | 답변보다 근거 보강이 먼저 필요할 때만 연결 |
 
 ## Severity 기준
 
@@ -93,7 +125,7 @@ Medium severity 예시:
 Low severity 예시:
 
 - Founder Brief 문장 표현 선호.
-- Phase 2 이후 확장 아이디어.
+- 현재 Planning Handoff 범위 밖의 후속 phase 확장 아이디어.
 - 완료 후 보강해도 되는 예시 부족.
 
 ## topicKey 계약
@@ -112,7 +144,7 @@ Low severity 예시:
 | topicKey | 관련 section | 포함되는 질문 |
 | --- | --- | --- |
 | `primary_customer_narrowing` | Target Customer | 첫 고객 단계, buyer/user 분리, 제외 고객 |
-| `problem_pain_intensity` | Problem Statement | 문제 빈도, 강도, 비용, 기존 행동 |
+| `problem_pain_intensity` | Problem | 문제 빈도, 강도, 비용, 기존 행동 |
 | `value_prop_switching_reason` | Value Proposition | 대체재 대비 전환 이유, 차별점 |
 | `mvp_validation_scope` | MVP Scope / Validation Plan | MVP 포함 기능, 검증할 핵심 가설 |
 | `success_metric_measurability` | Success Criteria | 성공/실패 기준, 측정 가능성 |

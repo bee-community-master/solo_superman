@@ -298,8 +298,8 @@ AmbiguityIssue
 
 | 상태머신 단계 | State/Event Contract에서 확인할 것 |
 | --- | --- |
-| `AmbiguityAnalyzed` | 각 `AmbiguityIssue`가 관련 Spec section, severity, `topicKey`, 가능한 route를 가진다 |
-| `QuestionBatchReady` | 각 `Question`이 하나의 핵심 decision 또는 evidence gap을 겨냥하고 confidence axis impact를 가진다 |
+| `AmbiguityAnalyzed` | 최소 10개 issue가 생성되고 각 `AmbiguityIssue`가 `sectionRef`, severity, uncertainty type, `topicKey`, `whyItMatters`, `decisionItUnlocks`, expected answer type, 가능한 route를 가진다 |
+| `QuestionBatchReady` | 각 `Question`이 하나의 핵심 decision 또는 evidence gap을 겨냥하고 `whyItMatters`, `decisionItUnlocks`, confidence axis impact를 가진다 |
 | `AnswerRouted` | 모든 `Answer`가 `resolved`, `research_needed`, `missing_con_evidence`, `decision_candidate`, `spec_update_candidate`, `conflict_detected`, `deferred`, `repeat_limit_reached` 중 하나로 수렴한다 |
 | `ResearchInProgress` / `RuntimePreviewReady` / `EvidenceMatrixReady` | `ResearchTask`, `RuntimePreviewArtifact`, `EvidenceMatrix`가 pro/con/uncertainty, skeptical search, Known Risks 연결을 만든다 |
 | `SpecUpdateSuggested` | low-risk update와 high-impact approval request가 분리된다 |
@@ -333,9 +333,23 @@ State/Event Contract 위반은 다음과 같다.
 
 초기 문서를 만든다. 단, 불확실한 내용은 확정하지 않는다.
 
+계약:
+
+- 초기 draft는 최소 10개, 기본 12개 Living Product Spec section을 만든다.
+- section이 비어 있어도 숨기지 않고 `현재 가설`, `불확실성`, `필요한 결정`, `다음 질문 / 다음 검증` 상태로 표시한다.
+- `Problem`, `Target Customer`, `JTBD / Use Case`, `Current Alternatives`, `Value Proposition`, `Differentiation`, `MVP Scope`, `Non-goals`, `Validation Plan`, `Success Criteria`, `Evidence Status`, `Known Risks / Open Questions`가 기본 section이다.
+- AI가 추정한 문장은 `가설` 또는 `미확인`으로 표시하고, 사용자 승인 전에는 확정된 product decision으로 올리지 않는다.
+
 ### Ambiguity Analyzer
 
 Spec section별 빈칸, 충돌, 근거 부족, 불명확한 표현을 찾는다.
+
+계약:
+
+- 첫 분석은 최소 10개 이상의 AmbiguityIssue를 생성한다.
+- AmbiguityIssue는 단순 문장 개선이 아니라 core decision, evidence, score, Spec section, Build Slice readiness 중 하나 이상에 영향을 주어야 한다.
+- 각 issue는 `sectionRef`, `severity`, `uncertaintyType`, `summary`, `whyItMatters`, `questionText`, `expectedAnswerType`, `decisionItUnlocks`, optional `suggestedResearchTask`를 가진다.
+- 기본 축은 primary customer narrowing, pain intensity, buyer/user split, current alternatives, alternative dissatisfaction, MVP must-have, MVP non-goal, measurable success criteria, no-product validation experiment, acquisition channel realism, implementation resource fit, security/legal/operations risk, founder advantage를 포함한다.
 
 ### Question Batch Generator
 
@@ -348,6 +362,7 @@ AmbiguityIssue를 3~5개 질문 배치로 변환한다.
 - batch마다 confidence axis impact와 expected score impact를 표시한다.
 - `repeat_limit_reached` topic은 새 evidence가 없으면 batch 후보에서 제외한다.
 - 질문은 하나의 decision만 겨냥해야 한다.
+- 질문마다 `whyItMatters`, `decisionItUnlocks`, `sectionRef`, `expectedAnswerType`을 유지한다.
 
 ### Research Planner
 

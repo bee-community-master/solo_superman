@@ -141,12 +141,22 @@ type SpecVersion = {
 type AmbiguityIssue = {
   id: string;
   projectId: string;
-  specSectionKey: SpecSection['key'];
+  sectionRef: SpecSection['key'] | string;
   topicKey: string;
-  type: 'missing' | 'conflict' | 'unsupported' | 'vague' | 'decision_required' | 'missing_con_evidence';
+  uncertaintyType:
+    | 'missing'
+    | 'vague'
+    | 'unsupported'
+    | 'conflict'
+    | 'decision_required'
+    | 'missing_con_evidence';
   severity: 'high' | 'medium' | 'low';
-  description: string;
+  summary: string;
   whyItMatters: string;
+  questionText: string;
+  expectedAnswerType: 'choice' | 'text' | 'rank' | 'evidence' | 'experiment';
+  decisionItUnlocks: string;
+  suggestedResearchTask?: string;
   repeatCount: number;
   repeatLimit: number;
   status:
@@ -173,6 +183,8 @@ type AmbiguityIssue = {
 
 필드 규칙:
 
+- 정확한 AmbiguityIssue 생성/필드/수렴 계약의 source of truth는 `14-ambiguity-question-lifecycle.md`다. 이 Domain Model은 객체 관계와 trace 필드를 요약한다.
+- `sectionRef`는 Living Product Spec의 12개 section 이름 또는 안정적인 section id를 가리킨다.
 - `topicKey`는 같은 주제 반복 질문을 묶는 논리 키다.
 - `repeatLimit` 기본값은 3이다.
 - `repeatCount`는 같은 `topicKey`에서 사용자에게 제시된 질문 수를 센다.
@@ -189,10 +201,12 @@ type Question = {
   topicKey: string;
   batchId?: string;
   title: string;
+  sectionRef: SpecSection['key'] | string;
   currentUnderstanding: string;
   whyItMatters: string;
+  decisionItUnlocks: string;
   howToAnswer: string;
-  type: 'single_answerable' | 'multi_answerable' | 'free_text';
+  expectedAnswerType: 'choice' | 'text' | 'rank' | 'evidence' | 'experiment';
   options: QuestionOption[];
   confidenceAxisImpacts: ConfidenceAxisImpact[];
   possibleRouteOutcomes: AnswerRouteOutcome[];

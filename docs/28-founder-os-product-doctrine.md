@@ -55,6 +55,21 @@ Solo Superman은 `문서 생성기 -> 실행 자동화 도구`로 점프하지 �
 
 각 단계는 다음 단계를 가능하게 하는 증거를 남겨야 한다. 다음 단계가 이전 단계의 미해결 결정을 숨기거나 건너뛰면 실패다.
 
+제품 북극성은 다음 full loop다.
+
+```text
+Idea
+-> Spec
+-> Evidence
+-> Decision
+-> Build Slice
+-> Local Preview
+-> Served MVP
+-> Learning Loop
+```
+
+Phase 1~2는 이 loop의 앞부분과 실행 준비를 다룬다. Build Slice, Serve Checklist, Learning Loop는 `33-build-slice-serve-learning-loop.md`의 checklist/handoff 계약으로 정의하며, Phase 3 controlled execution 전에는 실제 적용, 배포, 외부 mutation을 실행하지 않는다.
+
 ## Phase 1.5A-1: Decision-linked Evidence Pack
 
 Phase 1.5A의 첫 subphase는 background research를 단순 source dump가 아니라 decision-linked evidence ledger로 만든다.
@@ -109,6 +124,7 @@ Phase 2 Execution Planning Handoff는 Research-updated Queue의 high-impact card
 - planning artifact는 unresolved risk를 숨기지 않고 prerequisite, assumption, validation dependency로 표시한다.
 - high-impact card가 `research_insufficient` 또는 `deferred`로 끝난 경우에도 fatal blocker class가 아니면 visible residual risk와 validation dependency로 Planning-ready context에 포함할 수 있다.
 - final Planning-ready context는 `31-phase2-planning-handoff-contract.md`의 `PlanningHandoffArtifact`로만 확정한다.
+- Build Slice, Serve Checklist, Learning Loop hook은 Planning-ready context에 들어갈 수 있지만, 이는 실행 권한이 아니라 다음 구현/서빙/학습의 범위와 검증 기준을 보존하는 checklist다.
 
 Gate 판정 규칙:
 
@@ -130,6 +146,8 @@ Gate 판정 규칙:
 
 - 사용자 UI, onboarding, CTA, export에 내부 phase 용어 노출.
 - Controlled execution capability 전 실제 file patch, shell command, browser action, deploy, external system mutation.
+- Serve Checklist를 실제 deploy 권한으로 해석하는 것.
+- Learning Loop를 승인 없는 analytics ingestion, external sync, 자동 pivot decision으로 확장하는 것.
 - unresolved Research-updated Queue에서 planning handoff 확정.
 - recurring/open-ended market watch 제품화.
 - 팀 협업, 본격 cloud sync, 모바일/원격 승인, 결제/과금, 운영 dashboard 확장.
@@ -142,6 +160,7 @@ Gate 판정 규칙:
 - 새 구현 issue는 `내부 capability`, `사용자-facing label`, `entry gate`, `non-goals`, `acceptance evidence`를 모두 포함해야 한다.
 - Phase 0~6을 한눈에 보는 capability/gate/evidence 기준은 `29-phase-capability-implementation-matrix.md`를 따른다.
 - Phase 2 handoff artifact/report schema는 `31-phase2-planning-handoff-contract.md`를 따른다.
+- Build Slice/Serve/Learning checklist 계약은 `33-build-slice-serve-learning-loop.md`를 따른다.
 
 ## Acceptance checklist
 
@@ -150,6 +169,7 @@ Gate 판정 규칙:
 - [ ] Evidence Pack은 decision-linked source of truth이고 Queue는 action projection이다.
 - [ ] Phase 2 진입은 high-impact Research-updated Queue terminal outcome과 fatal blocker 해소를 요구한다.
 - [ ] Phase 2 final handoff와 blocker report split은 `31-phase2-planning-handoff-contract.md`와 일치한다.
+- [ ] Build Slice, Serve Checklist, Learning Loop는 checklist/handoff artifact로만 설명되고 실제 실행 권한으로 해석되지 않는다.
 - [ ] Controlled execution 전 실제 file/shell/browser/deploy action은 금지된다.
 - [ ] 팀, cloud, mobile, billing, operations 확장은 다음 research/planning capability 범위에 포함되지 않는다.
 - [ ] Phase capability matrix가 내부 phase를 사용자-facing copy source of truth로 바꾸지 않는다.

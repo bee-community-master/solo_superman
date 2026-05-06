@@ -83,17 +83,31 @@ Initial Spec Draft:
 
 - Problem: 창업자가 고객 인터뷰 전에 어떤 질문을 해야 할지 모른다.
 - Target Customer: 초기 창업자.
+- JTBD / Use Case: 다음 인터뷰에서 무엇을 검증할지 결정하고 싶다.
+- Current Alternatives: ChatGPT 프롬프트, 노션 템플릿, 멘토 피드백, 아무것도 안 함.
 - Value Proposition: 인터뷰 질문과 가설을 더 촘촘하게 준비한다.
-- Open Questions: 어떤 창업자 단계가 제일 아픈가, 기존 대체재는 무엇인가, 인터뷰 준비가 실제 유료 문제인가.
+- Differentiation: 질문을 제품 결정과 근거 원장에 연결한다.
+- MVP Scope: 질문 큐, 근거/반대근거, Founder Brief 초안.
+- Non-goals: 자동 코드 생성, 자동 배포, 팀 협업, 결제.
+- Validation Plan: 5명의 초기 창업자 problem interview와 수동 Founder Brief 작성 실험.
+- Success Criteria: 20분 안에 다음 검증 행동 1개와 high-risk decision 1개를 얻는다.
+- Evidence Status: 인터뷰 준비 pain은 가설이며 지불 의사는 미확인.
+- Known Risks / Open Questions: 어떤 창업자 단계가 제일 아픈가, 기존 대체재는 무엇인가, 인터뷰 준비가 실제 유료 문제인가.
 
 ### AmbiguityIssue 예시
 
-| 이슈 | 유형 | 심각도 | 이유 |
-| --- | --- | --- | --- |
-| “초기 창업자”가 너무 넓음 | vague | high | 질문 품질과 판매 채널이 달라짐 |
-| 고객 인터뷰 준비 문제의 지불 의사 불명확 | unsupported | high | 제품화 가능성 판단에 중요 |
-| 대체재 미정 | missing | medium | 차별화가 어려움 |
-| MVP 성공 기준 없음 | missing | high | 검증 실험 설계 불가 |
+| 이슈 | sectionRef | 유형 | 심각도 | whyItMatters | decisionItUnlocks |
+| --- | --- | --- | --- | --- | --- |
+| “초기 창업자”가 너무 넓음 | Target Customer | vague | high | 질문 품질과 판매 채널이 달라짐 | primary customer |
+| 고객 인터뷰 준비 문제의 지불 의사 불명확 | Problem | unsupported | high | 제품화 가능성 판단에 중요 | validation experiment |
+| 구매자와 사용자가 같은지 불명확 | Target Customer | missing | high | 가격/채널/인터뷰 대상이 달라짐 | buyer/user split |
+| 대체재 미정 | Current Alternatives | missing | medium | 차별화가 어려움 | differentiation |
+| 대체재 불만족 지점 미확인 | Current Alternatives | unsupported | medium | 전환 이유가 약해짐 | value proposition |
+| MVP must-have 미정 | MVP Scope | decision_required | high | Build Slice가 커질 수 있음 | build slice scope |
+| MVP non-goals 없음 | Non-goals | missing | high | scope creep을 막을 수 없음 | non-goals |
+| MVP 성공 기준 없음 | Success Criteria | missing | high | 검증 실험 설계 불가 | success criteria |
+| 제품 없이 가능한 검증 실험 없음 | Validation Plan | missing | medium | 만들기 전에 위험을 줄일 방법이 없음 | no-product validation |
+| acquisition channel이 현실적인지 불명확 | Validation Plan | unsupported | medium | 첫 사용자 모집이 막힐 수 있음 | first channel |
 
 ### Question Batch 예시
 
@@ -413,6 +427,22 @@ Follow-up questions:
 - final/blocker artifact projection이 동시에 current final state처럼 표시된다.
 - DTO/API/storage field가 Phase 2 handoff를 Controlled Execution 또는 Phase 3 실행 설계로 해석하게 만든다.
 
+### Build/Serve/Learning handoff dry-run
+
+성공 조건:
+
+- `BuildSlicePlan`은 이번 한 번의 구현 사이클에서 만들 최소 product slice와 explicit non-goals를 가진다.
+- `ServeChecklist`는 배포 대상 후보, 필요한 env var, 공개 URL 후보, 개인정보 노출 점검, smoke test, rollback note, launch note, 측정 지표를 checklist로만 가진다.
+- `LearningLoopHook`은 Served MVP 이후 수집할 feedback/usage signal, 해석 기준, pivot/persevere 후보, 다음 Build Slice trigger를 가진다.
+- 이 세 artifact family는 `PlanningHandoffArtifact`의 planning context로 연결되지만, 실제 deploy, browser action, shell command, external mutation을 실행하지 않는다.
+
+실패 조건:
+
+- Build Slice가 전체 제품 구현 계획으로 부풀어 오른다.
+- Serve Checklist가 실제 배포 실행 버튼이나 deploy 권한처럼 표시된다.
+- Learning Loop가 사용자 승인 없는 analytics ingestion, 자동 pivot decision, external sync로 확장된다.
+- Known Risks와 Next Validation Actions 없이 “MVP 완성”으로 종료한다.
+
 ## 정적 일관성 검토 체크리스트
 
 - [ ] 모든 문서가 Phase 1을 Research 포함 폐루프로 정의한다.
@@ -422,6 +452,9 @@ Follow-up questions:
 - [ ] 결제/과금은 Phase 1에서 제외된다.
 - [ ] local-first + optional sync 정책이 일관된다.
 - [ ] Decision Queue 중심 UX가 UX/PRD/Scoring 문서에서 충돌하지 않는다.
+- [ ] 초기 Living Product Spec은 최소 10개, 기본 12개 section을 만들고 빈 section을 판단 상태판으로 표시한다.
+- [ ] 첫 ambiguity analysis는 최소 10개 이상의 issue를 만들며 각 issue는 sectionRef, severity, uncertainty type, whyItMatters, expectedAnswerType, decisionItUnlocks를 가진다.
+- [ ] 첫 질문 배치는 3~5개 질문이고 모든 질문은 왜 중요한가, 답하면 잠기는 결정, 관련 Spec section을 표시한다.
 - [ ] Living Product Spec 완료 기준이 evidence + decision gate와 일치한다.
 - [ ] 복합 완성도 점수와 무한 질문 루프 방지 정책이 연결된다.
 - [ ] UX Doctrine이 2~5시간 세션의 핵심 감각과 질문 톤을 정의한다.
@@ -454,11 +487,13 @@ Follow-up questions:
 - [ ] State/Event Contract dry-run은 샘플 아이디어가 end-to-end event trace로 이어지는지 검증한다.
 - [ ] README, Spec Engine, Domain Model, Validation 문서는 같은 State/Event Contract 범위를 공유한다.
 - [ ] Founder OS Product Doctrine은 Phase를 내부 capability 용어로만 정의하고 사용자-facing journey stage와 분리한다.
+- [ ] founder-facing UI/onboarding/CTA/export에는 `Phase 1.5A`, `Phase 1.5B`, raw command/schema/runtime label이 직접 노출되지 않는다.
 - [ ] Phase 1.5A-1 Decision-linked Evidence Pack과 Phase 1.5A-2 Research-updated Queue가 분리되어 있다.
 - [ ] Phase 2 Planning Handoff는 unresolved fatal blocker 또는 terminal outcome 없는 high-impact Research-updated Queue card가 없을 때만 확정된다.
 - [ ] Phase 2 gate는 `고객/문제/JTBD`, `성공기준/검증계획`, `승인/보안/실행안전` fatal blocker를 막고, `가치제안/차별화`와 `MVP 범위/비범위`의 부족분은 visible residual risk와 validation dependency로 노출한다.
 - [ ] `31-phase2-planning-handoff-contract.md`는 final `PlanningHandoffArtifact`와 gate 실패용 blocker report를 분리한다.
 - [ ] `32-phase2-implementation-preflight-contract.md`는 Phase 2 DTO/API/storage/gate implementation defaults를 exact하게 고정하되 product code, verify script, issue draft, live GitHub issue, Phase 3 execution design을 포함하지 않는다.
+- [ ] Build Slice Plan, Serve Checklist, Learning Loop hook은 `33-build-slice-serve-learning-loop.md`에 연결되고 실제 실행 권한으로 해석되지 않는다.
 - [ ] Phase 2 planned DTO/API/storage names는 후속 code PR 전까지 `25`번 current enum/projection tables와 `26`번 current route catalog rows 밖에 유지된다.
 - [ ] `CreatePlanningHandoff`는 final 또는 blocker artifact를 durable storage에 남기고 `PlanningHandoffProjection`으로 복구 가능하게 만든다.
 - [ ] `ConvertRuntimeArtifact`는 `ImplementationPlanPreviewArtifact`를 final `PlanningHandoffArtifact`로 승격하지 않는다.
