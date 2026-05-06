@@ -1490,8 +1490,9 @@ export function createProductEngineCommandService(
       }
 
       const previewInput = codexPreviewInputFromRequest(request);
+      const issuedAt = new Date().toISOString();
       const previewOutput = previewInput.requestedActionType
-        ? fixtureCodexPreviewOutput(previewInput)
+        ? fixtureCodexPreviewOutput(previewInput, { createdAt: issuedAt })
         : await codexRuntimeAdapter.createPreview(previewInput);
       assertCodexPreviewOutputMatchesInput(previewInput, previewOutput);
       const command: ProductEngineCommand = {
@@ -1500,7 +1501,7 @@ export function createProductEngineCommandService(
         projectId: effect.projectId,
         sessionId: effect.sessionId,
         actor: "effect_executor",
-        issuedAt: new Date().toISOString(),
+        issuedAt,
         idempotencyKey: `EffectExecutor:${effect.idempotencyKey}`,
         expectedStateVersion: currentState.stateVersion,
         causationId: (effect.sourceEventIds[0] ?? null) as CausationId | null,

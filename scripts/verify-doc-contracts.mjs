@@ -491,8 +491,73 @@ const PHASE15_REQUIRED_CONTRACT_SNIPPETS = [
   "No-execution preservation",
   "Allowlist happy path",
   "Private source approval gate",
-  "Hint export/readiness reuse"
+  "Phase 1.5B no-execution preservation",
+  "Hint export/readiness reuse",
+  "Docs contract consistency",
+  "phase15bUpgradeHints` remains readiness metadata, not an execution permission"
 ];
+
+const PHASE15_PHASE2_HINT_REFERENCE_REQUIREMENTS = [
+  {
+    path: "docs/31-phase2-planning-handoff-contract.md",
+    snippets: [
+      "30-phase1.5-research-runtime-and-readiness-contract.md",
+      "Phase 1.5B `phase15bUpgradeHints`는 실행 권한이 아니라 Phase 2 handoff의 readiness metadata source다.",
+      "without treating hints as execution permission"
+    ]
+  },
+  {
+    path: "docs/32-phase2-implementation-preflight-contract.md",
+    snippets: [
+      "30-phase1.5-research-runtime-and-readiness-contract.md",
+      "without reinterpreting them as execution permission",
+      "They cannot create final `PlanningHandoffArtifact` without the gate algorithm above."
+    ]
+  }
+];
+
+const PHASE15_NO_EXECUTION_DOC_PATHS = [
+  ...new Set([
+    PHASE15_DOC_PATH,
+    ...PHASE15_REQUIRED_REFERENCES,
+    ...PHASE15_PHASE2_HINT_REFERENCE_REQUIREMENTS.map((requirement) => requirement.path)
+  ])
+];
+
+const PHASE15B_EXECUTION_PERMISSION_DENY_PATTERNS = [
+  /Phase 1\.5B[^.\n]*(?:may|can|allows?|enabled|grants?|permitted|permission to)\s+(?:execute|run|apply|perform)/iu,
+  /Phase 1\.5B[^.\n]*(?:file patch|shell command|browser action|network write|credential access|destructive operation|ChatGPT web automation)[^.\n]*(?:enabled|allowed|permitted|executes|runs|applies|performs)/iu,
+  /(?:file patch|shell command|browser action|network write|credential access|destructive operation|ChatGPT web automation)[^.\n]*(?:enabled|allowed|permitted|executes|runs|applies|performs)[^.\n]*Phase 1\.5B/iu
+];
+
+const PHASE15B_NEGATED_EXECUTION_PATTERNS = [
+  /Phase 1\.5B[^.\n]*(?:must not|do not|does not|cannot|never)[^.\n]*(?:execute|run|apply|perform)/iu,
+  /no document claims[^.\n]*Phase 1\.5B[^.\n]*(?:execute|run|apply|perform)/iu,
+  /Phase 1\.5B[^.\n]*(?:no-execution|not execution permission|실행 권한이 아니라|실행하지|금지)/iu,
+  /(?:file patch|shell command|browser action|network write|credential access|destructive operation|ChatGPT web automation)[^.\n]*(?:must not|cannot|never|not allowed|not permitted|not enabled)[^.\n]*Phase 1\.5B/iu
+];
+
+export function findPhase15bExecutionPermissionClaims(documents) {
+  const claims = [];
+
+  for (const document of documents) {
+    document.text.split(/\r?\n/u).forEach((line, index) => {
+      const trimmed = line.trim();
+
+      if (!trimmed || !PHASE15B_EXECUTION_PERMISSION_DENY_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+        return;
+      }
+
+      if (PHASE15B_NEGATED_EXECUTION_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+        return;
+      }
+
+      claims.push(`${document.path}:${index + 1}: ${trimmed}`);
+    });
+  }
+
+  return claims;
+}
 
 function checkPhase15DocConsistency() {
   const docs30 = readText(PHASE15_DOC_PATH);
@@ -518,6 +583,29 @@ function checkPhase15DocConsistency() {
 
   if (missingReferences.length) {
     fail("Phase 1.5 canonical doc reference missing", missingReferences);
+  }
+
+  const missingPhase2HintReferences = [];
+
+  for (const requirement of PHASE15_PHASE2_HINT_REFERENCE_REQUIREMENTS) {
+    const text = readText(requirement.path);
+    const missing = requirement.snippets.filter((snippet) => !text.includes(snippet));
+
+    for (const snippet of missing) {
+      missingPhase2HintReferences.push(`${requirement.path}: ${snippet}`);
+    }
+  }
+
+  if (missingPhase2HintReferences.length) {
+    fail("Phase 1.5B hint reuse/no-execution reference missing from Phase 2 docs", missingPhase2HintReferences);
+  }
+
+  const executionPermissionClaims = findPhase15bExecutionPermissionClaims(
+    PHASE15_NO_EXECUTION_DOC_PATHS.map((path) => ({ path, text: readText(path) }))
+  );
+
+  if (executionPermissionClaims.length) {
+    fail("Phase 1.5B docs claim forbidden execution permission", executionPermissionClaims);
   }
 }
 

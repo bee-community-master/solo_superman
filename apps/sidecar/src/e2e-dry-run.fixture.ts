@@ -1,3 +1,5 @@
+import { BLOCKED_ACTION_TYPES } from "@solo-superman/contracts";
+
 export const PHASE1_E2E_SAMPLE_IDEA =
   "A local-first product coaching app that turns a rough solo-founder idea into a traceable Founder Brief.";
 
@@ -87,6 +89,53 @@ export const PHASE15A_ACCEPTANCE_EVIDENCE_MAP = [
       "ResearchRunProjection.qualityGateStatus",
       "ResearchReviewCardProjection",
       "needs_review"
+    ]
+  }
+] as const;
+
+export const PHASE15B_NO_EXECUTION_ACTION_TYPES = BLOCKED_ACTION_TYPES;
+
+export const PHASE15B_ACCEPTANCE_EVIDENCE_MAP = [
+  {
+    scenario: "Scenario E. Phase 1.5B no-execution preservation",
+    sourceDocs: ["docs/30-phase1.5-research-runtime-and-readiness-contract.md"],
+    runtimeEvidence: [
+      "BlockedActionArtifact",
+      "Phase15bUpgradeHints",
+      "metadata_only_no_execution",
+      "delegationState:not_active",
+      "productActionPerformed:false"
+    ]
+  },
+  {
+    scenario: "Scenario F. Hint export/readiness reuse",
+    sourceDocs: [
+      "docs/30-phase1.5-research-runtime-and-readiness-contract.md",
+      "docs/31-phase2-planning-handoff-contract.md",
+      "docs/32-phase2-implementation-preflight-contract.md"
+    ],
+    runtimeEvidence: [
+      "Phase15bUpgradeHintExport",
+      "readiness_preview_handoff_metadata",
+      "research_run sourceRef",
+      "evidence_matrix sourceRef",
+      "research_allowlist sourceRef",
+      "audit_log sourceRef"
+    ]
+  },
+  {
+    scenario: "Scenario G. Docs contract consistency",
+    sourceDocs: [
+      "docs/README.md",
+      "docs/30-phase1.5-research-runtime-and-readiness-contract.md",
+      "docs/31-phase2-planning-handoff-contract.md",
+      "docs/32-phase2-implementation-preflight-contract.md"
+    ],
+    runtimeEvidence: [
+      "verify-doc-contracts",
+      "doc 30 reading order",
+      "Phase 1.5B readiness metadata source",
+      "not execution permission"
     ]
   }
 ] as const;

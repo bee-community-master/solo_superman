@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
+import type { BlockedActionType, ProjectId, SessionId, StateVersion } from "@solo-superman/contracts";
 import { createProductEngineCommandService } from "./product-engine/command-service";
 import { createCodexRuntimeAdapter } from "./runtime";
 import { createSidecarApp } from "./server";
@@ -12,7 +13,9 @@ import {
   PHASE1_E2E_RESEARCH_RESULT,
   PHASE1_E2E_SAMPLE_IDEA,
   PHASE1_E2E_SPEC_SECTIONS,
-  PHASE15A_ACCEPTANCE_EVIDENCE_MAP
+  PHASE15A_ACCEPTANCE_EVIDENCE_MAP,
+  PHASE15B_ACCEPTANCE_EVIDENCE_MAP,
+  PHASE15B_NO_EXECUTION_ACTION_TYPES
 } from "./e2e-dry-run.fixture";
 
 const localCapabilityToken = "test-local-capability-token";
@@ -141,6 +144,14 @@ function sessionIdFromStart(data: Readonly<Record<string, unknown>>) {
   return projection.sessionId as string;
 }
 
+function projectIdFromStart(data: Readonly<Record<string, unknown>>) {
+  const projection = record(data.immediateProjection);
+
+  expect(typeof projection.projectId).toBe("string");
+
+  return projection.projectId as string;
+}
+
 describe("PR-09 end-to-end dry-run hardening", () => {
   it("maps the docs-to-runtime acceptance checklist to executable evidence", () => {
     expect(PHASE1_E2E_ACCEPTANCE_CHECKLIST.map((item) => item.criterion)).toEqual([
@@ -174,6 +185,192 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         "ResearchRunProjection.qualityGateStatus"
       ])
     );
+  });
+
+  it("maps docs/30 Phase 1.5B Scenario E-G to no-execution readiness evidence labels", () => {
+    expect(PHASE15B_ACCEPTANCE_EVIDENCE_MAP.map((item) => item.scenario)).toEqual([
+      "Scenario E. Phase 1.5B no-execution preservation",
+      "Scenario F. Hint export/readiness reuse",
+      "Scenario G. Docs contract consistency"
+    ]);
+    expect(PHASE15B_NO_EXECUTION_ACTION_TYPES).toEqual([
+      "file_patch",
+      "shell_command",
+      "browser_action",
+      "network_write",
+      "credential_access",
+      "destructive_operation",
+      "chatgpt_web_automation"
+    ]);
+    expect(
+      PHASE15B_ACCEPTANCE_EVIDENCE_MAP.every((item) =>
+        item.sourceDocs.includes("docs/30-phase1.5-research-runtime-and-readiness-contract.md")
+      )
+    ).toBe(true);
+    expect(PHASE15B_ACCEPTANCE_EVIDENCE_MAP.flatMap((item) => item.runtimeEvidence)).toEqual(
+      expect.arrayContaining([
+        "metadata_only_no_execution",
+        "readiness_preview_handoff_metadata",
+        "not execution permission"
+      ])
+    );
+  });
+
+  it("stores, queries, and exports Phase 1.5B no-execution hints for every forbidden runtime boundary", async () => {
+    const { app, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await postJson(app, "/api/v1/projects", {
+        rawIdea: "A Phase 1.5B no-execution readiness acceptance idea",
+        localPrivacyMode: "local_only"
+      });
+      const startData = responseData(start.body);
+      const projectId = projectIdFromStart(startData) as ProjectId;
+      const sessionId = sessionIdFromStart(startData) as SessionId;
+      const service = createProductEngineCommandService(storage, fixtureCodexRuntimeAdapter);
+      let expectedStateVersion = stateVersionAfter(startData) as StateVersion;
+
+      for (const actionType of PHASE15B_NO_EXECUTION_ACTION_TYPES) {
+        const response = await service.runSessionCommand({
+          sessionId,
+          commandType: "CreateRuntimePreview",
+          expectedStateVersion,
+          payload: {
+            source: "protocol_fixture",
+            runtimeAdapterVersion: "codex-app-server-preview-v1",
+            turnPurpose: "implementation_plan_preview",
+            contextHash: `ctx_phase15b_${actionType}`,
+            prompt: `Preserve ${actionType} readiness metadata without executing the action.`,
+            summary: `${actionType} readiness handoff blocked`,
+            body: `Preview-only handoff for ${actionType}; no file, shell, browser, network, credential, destructive, or ChatGPT action runs.`,
+            sourceRefs: [
+              `research_run_phase15b_${actionType}`,
+              `evidence_matrix_phase15b_${actionType}`,
+              `research_allowlist_phase15b_${actionType}`,
+              `research_disclosure_log_phase15b_${actionType}`,
+              `audit_log_phase15b_${actionType}`
+            ],
+            targetObject: "blocked_action",
+            requestedActionType: actionType,
+            requestedActionReason: `Phase 1.5B stores ${actionType} readiness only.`
+          }
+        });
+        const responseRecord = record(response);
+
+        expect(responseRecord).toMatchObject({
+          category: "accepted"
+        });
+        expect(responseRecord.statusUrl).toBeDefined();
+        expectedStateVersion = responseRecord.stateVersionAfter as StateVersion;
+
+        const executorResults = await service.runPendingCodexRuntimePreviewEffects();
+
+        expect(executorResults).toEqual([
+          expect.objectContaining({
+            status: "blocked",
+            blockedActionType: actionType
+          })
+        ]);
+        expectedStateVersion = (Number(expectedStateVersion) + 1) as StateVersion;
+      }
+
+      const activity = await getJson(app, `/api/v1/sessions/${sessionId}/activity`);
+      const activityData = responseData(activity.body);
+      const runtimeArtifacts = records(activityData.runtimeArtifacts);
+
+      expect(runtimeArtifacts).toHaveLength(PHASE15B_NO_EXECUTION_ACTION_TYPES.length);
+      expect(runtimeArtifacts.map((artifact) => record(artifact.blockedAction).actionType)).toEqual(
+        expect.arrayContaining([...PHASE15B_NO_EXECUTION_ACTION_TYPES])
+      );
+      expect(runtimeArtifacts.every((artifact) => artifact.status === "blocked")).toBe(true);
+
+      const query = await getJson(app, `/api/v1/projects/${projectId}/phase15b-upgrade-hints`);
+      const queryData = responseData(query.body);
+      const queryRecords = records(queryData.records);
+      const queryJson = JSON.stringify(query.body);
+
+      expect(query.response.status).toBe(200);
+      expect(queryData).toMatchObject({
+        kind: "Phase15bUpgradeHintProjection",
+        metadataLabel: "readiness_preview_handoff_metadata",
+        noExecution: {
+          semantic: "metadata_only_no_execution",
+          productActionPerformed: false,
+          delegationState: "not_active",
+          credentialValueState: "omitted"
+        },
+        pendingEffectSummary: {
+          totalPending: 0
+        }
+      });
+      expect(queryRecords).toHaveLength(PHASE15B_NO_EXECUTION_ACTION_TYPES.length);
+      expect(
+        queryRecords.map((hintRecord) =>
+          record(record(hintRecord.hints).riskNormalization).blockedActionType as BlockedActionType
+        )
+      ).toEqual(expect.arrayContaining([...PHASE15B_NO_EXECUTION_ACTION_TYPES]));
+      expect(queryRecords.map((hintRecord) => record(hintRecord.hints).createdAt)).not.toContain(
+        "2026-05-06T00:00:00.000Z"
+      );
+      expect(
+        queryRecords.every((hintRecord) => {
+          const createdAt = record(hintRecord.hints).createdAt;
+
+          return typeof createdAt === "string" && new Date(createdAt).toISOString() === createdAt;
+        })
+      ).toBe(true);
+      expect(
+        queryRecords.every((hintRecord) => {
+          const hintRecordData = record(hintRecord);
+          const hints = record(hintRecordData.hints);
+          const noExecution = record(hintRecordData.noExecution);
+
+          return (
+            hintRecordData.metadataLabel === "readiness_preview_handoff_metadata" &&
+            noExecution.productActionPerformed === false &&
+            noExecution.delegationState === "not_active" &&
+            records(hints.sourceRefs).some((sourceRef) => sourceRef.kind === "research_run") &&
+            records(hints.sourceRefs).some((sourceRef) => sourceRef.kind === "evidence_matrix") &&
+            records(hints.sourceRefs).some((sourceRef) => sourceRef.kind === "research_allowlist") &&
+            records(hints.sourceRefs).some((sourceRef) => sourceRef.kind === "research_disclosure_log") &&
+            records(hints.sourceRefs).some((sourceRef) => sourceRef.kind === "audit_log")
+          );
+        })
+      ).toBe(true);
+      expect(queryJson).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
+      expect(queryJson).not.toContain("executionEnabled");
+      expect(queryJson).not.toContain("delegationActive");
+      expect(queryJson).not.toContain("autoApply");
+      expect(queryJson).not.toContain("canExecute");
+
+      const exported = await getJson(app, `/api/v1/projects/${projectId}/phase15b-upgrade-hints/export`);
+      const exportedData = responseData(exported.body);
+
+      expect(exported.response.status).toBe(200);
+      expect(exportedData).toMatchObject({
+        kind: "Phase15bUpgradeHintExport",
+        format: "json",
+        metadataLabel: "readiness_preview_handoff_metadata",
+        exportPolicy: {
+          privatePayloadsIncluded: false,
+          credentialValuesIncluded: false,
+          sourceRefLabelsIncluded: false
+        },
+        noExecution: {
+          semantic: "metadata_only_no_execution",
+          productActionPerformed: false,
+          delegationState: "not_active"
+        }
+      });
+      expect(records(exportedData.records)).toHaveLength(PHASE15B_NO_EXECUTION_ACTION_TYPES.length);
+
+      const specVersions = await getJson(app, `/api/v1/sessions/${sessionId}/spec/versions`);
+
+      expect(specVersions.response.status).toBe(200);
+      expect(records(specVersions.body.data)).toHaveLength(0);
+    } finally {
+      await storage.close();
+    }
   });
 
   it("runs the sample idea through question, evidence, approval, SpecVersion, scoring, Founder Brief, and blocked runtime preview", async () => {

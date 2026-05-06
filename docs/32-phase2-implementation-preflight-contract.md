@@ -526,6 +526,7 @@ Phase 2 implementation may depend on Phase 1.5A/B artifacts, but it must not sil
 Exact defaults:
 
 - `phase15bUpgradeHints` are optional source refs. If present, map them into `readinessChecklist`, `phase15bHintMapping`, and blocker `requiredUserActions` without reinterpreting them as execution permission.
+- `30-phase1.5-research-runtime-and-readiness-contract.md` remains the source of truth for Phase 1.5B readiness metadata semantics; this document only defines Phase 2 implementation defaults for consuming those hints.
 - Missing `phase15bUpgradeHints` does not block final handoff by itself.
 - Missing current SpecVersion, Completion Candidate/Founder Brief, Evidence Pack, or terminal Research-updated Queue source creates `source_trace_incomplete` or `queue_review_incomplete` blocker artifact.
 - If Phase 1.5A Research-updated Queue is not yet implemented in code, the first Phase 2 code PR must either depend on the Phase 1.5 implementation PR or produce a persisted blocker artifact; it must not fake a final handoff from preview-only data.

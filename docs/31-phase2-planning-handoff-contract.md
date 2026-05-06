@@ -127,6 +127,7 @@ Blocker report는 task/PR/issue plan을 final처럼 보여주지 않는다. 필�
 ## Phase 1.5B hint mapping
 
 Phase 1.5B `phase15bUpgradeHints`는 실행 권한이 아니라 Phase 2 handoff의 readiness metadata source다.
+`30-phase1.5-research-runtime-and-readiness-contract.md` remains the source of truth for Phase 1.5B readiness semantics; this document only maps those hints into Phase 2 handoff fields without treating hints as execution permission.
 
 | Phase 1.5B field family | Phase 2 mapping |
 | --- | --- |

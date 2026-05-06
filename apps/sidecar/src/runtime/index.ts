@@ -48,6 +48,10 @@ export interface CodexRuntimeAdapterOptions {
   readonly env?: Readonly<Record<string, string | undefined>>;
 }
 
+export interface CodexRuntimePreviewFixtureOptions {
+  readonly createdAt?: string;
+}
+
 type CodexClientRequestFor<Method extends CodexAppServerClientRequest["method"]> = Extract<
   CodexAppServerClientRequest,
   { method: Method }
@@ -102,6 +106,167 @@ function stableBodyForTurnPurpose(turnPurpose: CodexTurnPurpose, prompt: string)
     case "implementation_plan_preview":
       return `Implementation plan preview for: ${prompt}`;
   }
+}
+
+function phase15bSafeRefFragment(value: string) {
+  return value.replace(/[^A-Za-z0-9_:-]/gu, "_").replace(/^_+|_+$/gu, "") || "unknown";
+}
+
+function phase15bApprovalTypeForBlockedAction(
+  actionType: BlockedActionType
+): Phase15bUpgradeHints["approvalRequirements"][number]["approvalType"] {
+  switch (actionType) {
+    case "browser_action":
+      return "browser_action";
+    case "network_write":
+      return "network_write";
+    case "credential_access":
+      return "credential_grant";
+    case "destructive_operation":
+      return "destructive_action";
+    case "chatgpt_web_automation":
+      return "phase3_safe_execution";
+    case "file_patch":
+    case "shell_command":
+      return "task_level_execution";
+  }
+}
+
+function phase15bNetworkModeForBlockedAction(
+  actionType: BlockedActionType
+): Phase15bUpgradeHints["sandboxRequirements"]["networkMode"] {
+  return actionType === "network_write" ? "restricted_write_requires_phase3_approval" : "offline";
+}
+
+function phase15bSourceKindForRef(refId: string): Phase15bUpgradeHints["sourceRefs"][number]["kind"] {
+  if (refId.startsWith("research_run_")) {
+    return "research_run";
+  }
+
+  if (refId.startsWith("evidence_matrix_")) {
+    return "evidence_matrix";
+  }
+
+  if (refId.startsWith("decision_evidence_pack_") || refId.startsWith("evidence_pack_")) {
+    return "decision_evidence_pack";
+  }
+
+  if (refId.startsWith("research_allowlist_")) {
+    return "research_allowlist";
+  }
+
+  if (refId.startsWith("research_disclosure_")) {
+    return "research_disclosure_log";
+  }
+
+  if (refId.startsWith("audit_log_")) {
+    return "audit_log";
+  }
+
+  if (refId.startsWith("runtime_artifact_")) {
+    return "preview_artifact";
+  }
+
+  return "spec_section";
+}
+
+function phase15bSourceRefsForBlockedAction(
+  input: CodexRuntimePreviewInput,
+  actionType: BlockedActionType
+): Phase15bUpgradeHints["sourceRefs"] {
+  const contextRef = phase15bSafeRefFragment(input.contextHash);
+  const previewArtifactRef = `runtime_artifact_${contextRef}`;
+  const sourceRefs = [
+    {
+      kind: "preview_artifact" as const,
+      refId: previewArtifactRef,
+      label: "Blocked runtime preview readiness source"
+    },
+    {
+      kind: "blocked_action" as const,
+      refId: `${previewArtifactRef}:${actionType}`,
+      label: "Blocked action readiness source"
+    },
+    ...input.sourceRefs.map((refId) => ({
+      kind: phase15bSourceKindForRef(refId),
+      refId,
+      label: "Input trace source for non-executing readiness handoff"
+    }))
+  ];
+  const seen = new Set<string>();
+
+  return sourceRefs.filter((sourceRef) => {
+    const key = `${sourceRef.kind}:${sourceRef.refId}`;
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function phase15bReadinessHintsForBlockedAction(
+  input: CodexRuntimePreviewInput,
+  actionType: BlockedActionType,
+  createdAt = new Date().toISOString()
+): Phase15bUpgradeHints {
+  const actionLabel = actionType.replaceAll("_", " ");
+  const contextRef = phase15bSafeRefFragment(input.contextHash);
+  const blockedReason =
+    input.requestedActionReason ??
+    "Phase 1.5B records readiness metadata only and must not execute forbidden runtime actions.";
+
+  return {
+    executionIntent: {
+      candidateActionType: actionType,
+      targetSurface: input.targetObject,
+      nonExecutingSummary: `Readiness handoff for a future ${actionLabel}; no product action was performed.`
+    },
+    approvalRequirements: [
+      {
+        approvalType: phase15bApprovalTypeForBlockedAction(actionType),
+        reason: `Future ${actionLabel} requires explicit approval outside Phase 1.5B.`,
+        scope: `${input.turnPurpose}:${input.targetObject}:${contextRef}`,
+        requiredActor: "user",
+        reconfirmRule: "Reconfirm immediately before any later controlled-execution phase uses this hint."
+      }
+    ],
+    sandboxRequirements: {
+      isolatedWorktreeRequired: actionType === "file_patch" || actionType === "shell_command",
+      browserSandboxRequired: actionType === "browser_action" || actionType === "chatgpt_web_automation",
+      networkMode: phase15bNetworkModeForBlockedAction(actionType),
+      commandAllowlist: ["pnpm verify", "git diff --check"],
+      secretGrantBoundary: "No credential values are stored or granted by Phase 1.5B readiness metadata.",
+      environmentPolicy: "Use local-only preview/readiness state until a later approved execution phase.",
+      logCaptureRequired: true
+    },
+    rollbackReference: {
+      baseRef: "origin/main",
+      diffRef: `runtime_artifact_${contextRef}:preview_diff`,
+      rollbackNote: "Discard this readiness hint or revert the later approved implementation change.",
+      reversible: true,
+      cleanupExpectation: "Remove temporary preview logs and sandbox worktrees after later review."
+    },
+    expectedEvidence: {
+      tests: ["pnpm verify", "git diff --check"],
+      smokeChecks: ["GET /api/v1/projects/:projectId/phase15b-upgrade-hints/export"],
+      artifactPaths: ["apps/sidecar/src/runtime/index.ts", "apps/sidecar/src/e2e-dry-run.test.ts"],
+      manualInspection: ["Confirm UI copy says readiness, preview, blocked, or handoff only."],
+      expectedLogs: ["phase15b readiness metadata exported without execution"]
+    },
+    riskNormalization: {
+      riskLevel: actionType === "destructive_operation" || actionType === "credential_access" ? "high" : "medium",
+      blockedActionType: actionType,
+      blockReason: blockedReason,
+      userVisibleAction: `Treat ${actionLabel} as a blocked readiness handoff until a later phase asks for approval.`,
+      escalationTarget: "phase3_safe_execution"
+    },
+    sourceRefs: phase15bSourceRefsForBlockedAction(input, actionType),
+    createdAt,
+    schemaVersion: PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION
+  };
 }
 
 function artifactKindForTurnPurpose(turnPurpose: CodexTurnPurpose): CodexArtifactKind {
@@ -292,10 +457,10 @@ function phase15bUpgradeHintsJsonSchema(): CodexAppServerJsonValue {
 
 function codexPreviewPrompt(input: CodexRuntimePreviewInput) {
   return [
-    "Create a Solo Superman Phase 1 runtime preview artifact.",
+    "Create a Solo Superman Phase 1/1.5B runtime preview artifact.",
     "Return exactly one JSON object matching the provided output schema.",
     "Do not apply patches, run shell commands, browse, call network resources, request credentials, or perform destructive actions.",
-    "If the requested content implies one of those actions, return a BlockedActionArtifact instead.",
+    "If the requested content implies one of those actions, return a BlockedActionArtifact with phase15bUpgradeHints readiness metadata instead.",
     "",
     `schemaVersion: ${CONTRACT_SCHEMA_VERSION}`,
     `turnPurpose: ${input.turnPurpose}`,
@@ -346,9 +511,9 @@ export function buildCodexStdioTurnRequests(
         config: null,
         serviceName: "solo-superman-runtime-preview",
         baseInstructions:
-          "You are producing preview-only artifacts for Solo Superman Phase 1. You never execute actions.",
+          "You are producing preview-only artifacts for Solo Superman Phase 1/1.5B. You never execute actions.",
         developerInstructions:
-          "Return only the requested JSON preview artifact. Forbidden runtime actions must become blocked artifacts.",
+          "Return only the requested JSON preview artifact. Forbidden runtime actions must become blocked artifacts with Phase 1.5B readiness hints.",
         ephemeral: true,
         sessionStartSource: "clear"
       }
@@ -480,9 +645,11 @@ export function validateCodexPreviewOutput(value: unknown): CodexPreviewOutputEn
       throw new Error("BlockedActionArtifact actionType is not canonical.");
     }
 
-    if (phase15bUpgradeHints) {
-      assertPhase15bUpgradeHintsMatchBlockedAction(phase15bUpgradeHints, blocked.actionType);
+    if (!phase15bUpgradeHints) {
+      throw new Error("BlockedActionArtifact requires payload.phase15bUpgradeHints readiness metadata.");
     }
+
+    assertPhase15bUpgradeHintsMatchBlockedAction(phase15bUpgradeHints, blocked.actionType);
 
     if (typeof blocked.reason !== "string" || blocked.reason.trim().length === 0) {
       throw new Error("BlockedActionArtifact reason is required.");
@@ -545,6 +712,10 @@ export function assertCodexPreviewOutputMatchesInput(
     throw new Error("Codex preview output sourceRefs must match the requested trace references.");
   }
 
+  if (input.requestedActionType && !outputIsBlocked) {
+    throw new Error("Requested forbidden Codex preview actions must return a blocked output.");
+  }
+
   if (outputIsBlocked) {
     if (
       output.artifactKind !== "BlockedActionArtifact" ||
@@ -556,6 +727,10 @@ export function assertCodexPreviewOutputMatchesInput(
 
     if (output.payload.targetObject !== "blocked_action") {
       throw new Error("Blocked Codex preview output targetObject must be blocked_action.");
+    }
+
+    if (input.requestedActionType && output.payload.blockedAction.actionType !== input.requestedActionType) {
+      throw new Error("Blocked Codex preview output actionType must match the requested actionType.");
     }
 
     return;
@@ -582,7 +757,10 @@ export function parseCodexPreviewOutput(raw: string): CodexPreviewOutputEnvelope
   }
 }
 
-export function fixtureCodexPreviewOutput(input: CodexRuntimePreviewInput): CodexPreviewOutputEnvelope {
+export function fixtureCodexPreviewOutput(
+  input: CodexRuntimePreviewInput,
+  options: CodexRuntimePreviewFixtureOptions = {}
+): CodexPreviewOutputEnvelope {
   const isBlocked = Boolean(input.requestedActionType);
   const artifactKind = isBlocked ? "BlockedActionArtifact" : artifactKindForTurnPurpose(input.turnPurpose);
   const applyPolicy = isBlocked ? "blocked" : applyPolicyForTurnPurpose(input.turnPurpose);
@@ -606,9 +784,14 @@ export function fixtureCodexPreviewOutput(input: CodexRuntimePreviewInput): Code
               actionType: input.requestedActionType,
               reason:
                 input.requestedActionReason ??
-                "Phase 1 creates RuntimePreviewArtifact only and never executes forbidden runtime actions.",
+                "Phase 1.5B records readiness metadata only and never executes forbidden runtime actions.",
               suggestedSafeAlternative: "Store a preview artifact or request a later controlled-execution phase."
-            }
+            },
+            phase15bUpgradeHints: phase15bReadinessHintsForBlockedAction(
+              input,
+              input.requestedActionType,
+              options.createdAt
+            )
           }
         : {})
     }
@@ -676,7 +859,7 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
 
     async createPreview(input: CodexRuntimePreviewInput): Promise<CodexPreviewOutputEnvelope> {
       if (fixtureMode) {
-        return fixtureCodexPreviewOutput(input);
+        return fixtureCodexPreviewOutput(input, { createdAt: now() });
       }
 
       throw new CodexRuntimeUnavailableError(

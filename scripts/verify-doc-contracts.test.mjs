@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   collectPackageBoundaryViolations,
+  findPhase15bExecutionPermissionClaims,
   findRouteQueryMismatches,
   moduleSpecifiers,
   parseConstArray,
@@ -79,6 +80,28 @@ describe("doc contract verification helpers", () => {
     `);
 
     expect(imports).toEqual(["hono", "hono", "node:fs"]);
+  });
+
+  it("flags Phase 1.5B execution-permission doc claims while allowing negated guardrails", () => {
+    expect(
+      findPhase15bExecutionPermissionClaims([
+        {
+          path: "allowed.md",
+          text: "Phase 1.5B must not execute shell commands; hints are not execution permission."
+        },
+        {
+          path: "blocked.md",
+          text: "Phase 1.5B may execute shell commands from readiness hints."
+        },
+        {
+          path: "blocked-without-approval.md",
+          text: "Phase 1.5B may execute shell commands without approval."
+        }
+      ])
+    ).toEqual([
+      "blocked.md:1: Phase 1.5B may execute shell commands from readiness hints.",
+      "blocked-without-approval.md:1: Phase 1.5B may execute shell commands without approval."
+    ]);
   });
 
   it("scans package boundary fixtures deterministically", () => {

@@ -391,3 +391,11 @@ Then:
 - Phase 2 handoff docs may reference these hints, but this document remains the source for Phase 1.5B readiness metadata semantics.
 - no document claims Phase 1.5B may execute file/shell/browser actions.
 - `phase15bUpgradeHints` remains readiness metadata, not an execution permission.
+
+### Phase 1.5B PR-12 acceptance evidence
+
+The closing Phase 1.5B implementation must keep these scenarios executable as product/code checks:
+
+- Scenario E: every blocked runtime boundary (`file_patch`, `shell_command`, `browser_action`, `network_write`, `credential_access`, `destructive_operation`, `chatgpt_web_automation`) creates blocked preview/readiness metadata only, with `productActionPerformed: false` and delegation inactive.
+- Scenario F: exported hint records preserve approval, sandbox, rollback, expected evidence, risk, and sourceRef traceability for ResearchRun/EvidenceMatrix/allowlist/disclosure/audit refs without sourceRef labels, private payloads, or credential values.
+- Scenario G: docs verification treats this document as the Phase 1.5B readiness source of truth, while Phase 2 docs may consume `phase15bUpgradeHints` only as readiness metadata and not execution permission.

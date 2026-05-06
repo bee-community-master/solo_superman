@@ -9,6 +9,7 @@ import {
   PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION
 } from "@solo-superman/contracts";
 import {
+  assertCodexPreviewOutputMatchesInput,
   createCodexRuntimeAdapter,
   fixtureCodexPreviewOutput,
   parseCodexPreviewOutput,
@@ -210,13 +211,35 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     ).toThrow("phase15bUpgradeHints action type must match");
   });
 
+  it("requires Phase 1.5B upgrade hints on blocked runtime outputs", () => {
+    expect(() =>
+      validateCodexPreviewOutput({
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        turnPurpose: "implementation_plan_preview",
+        artifactKind: "BlockedActionArtifact",
+        applyPolicy: "blocked",
+        summary: "Shell command blocked",
+        payload: {
+          title: "Shell command blocked",
+          body: "Preview only.",
+          targetObject: "blocked_action",
+          sourceRefs: ["spec_current"],
+          blockedAction: {
+            actionType: "shell_command",
+            reason: "Phase 1.5B records readiness only."
+          }
+        }
+      })
+    ).toThrow("BlockedActionArtifact requires payload.phase15bUpgradeHints readiness metadata");
+  });
+
   it("converts forbidden action fixtures into BlockedActionArtifact taxonomy", () => {
     for (const actionType of BLOCKED_ACTION_TYPES) {
       const output = fixtureCodexPreviewOutput({
         turnPurpose: "implementation_plan_preview",
         contextHash: `ctx_block_${actionType}`,
         prompt: "Preview a forbidden action.",
-        sourceRefs: ["spec_current"],
+        sourceRefs: ["research_run_fixture", "evidence_matrix_fixture", "research_allowlist_fixture", "audit_log_fixture"],
         targetObject: "blocked_action",
         requestedActionType: actionType
       });
@@ -226,11 +249,83 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         applyPolicy: "blocked",
         payload: {
           blockedAction: {
-            actionType
+            actionType,
+            reason: expect.stringContaining("Phase 1.5B")
+          },
+          phase15bUpgradeHints: {
+            executionIntent: {
+              candidateActionType: actionType
+            },
+            riskNormalization: {
+              blockedActionType: actionType
+            },
+            sourceRefs: expect.arrayContaining([
+              expect.objectContaining({ kind: "blocked_action", refId: expect.stringContaining(actionType) }),
+              expect.objectContaining({ kind: "research_run", refId: "research_run_fixture" }),
+              expect.objectContaining({ kind: "evidence_matrix", refId: "evidence_matrix_fixture" }),
+              expect.objectContaining({ kind: "research_allowlist", refId: "research_allowlist_fixture" }),
+              expect.objectContaining({ kind: "audit_log", refId: "audit_log_fixture" })
+            ]),
+            schemaVersion: PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION
           }
         }
       });
+      expect(validateCodexPreviewOutput(output).payload.phase15bUpgradeHints).toMatchObject({
+        riskNormalization: {
+          blockReason: expect.stringContaining("Phase 1.5B")
+        }
+      });
     }
+  });
+
+  it("requires blocked output action types to match the requested forbidden action", () => {
+    const input = {
+      turnPurpose: "implementation_plan_preview" as const,
+      contextHash: "ctx_block_requested_shell",
+      prompt: "Preview a shell command without executing it.",
+      sourceRefs: ["research_run_fixture"],
+      targetObject: "blocked_action",
+      requestedActionType: "shell_command" as const
+    };
+    const nonBlockedOutput = fixtureCodexPreviewOutput({
+      turnPurpose: input.turnPurpose,
+      contextHash: input.contextHash,
+      prompt: input.prompt,
+      sourceRefs: input.sourceRefs,
+      targetObject: "PlanningNote"
+    });
+    const mismatchedBlockedOutput = fixtureCodexPreviewOutput({
+      ...input,
+      requestedActionType: "browser_action"
+    });
+
+    expect(() => assertCodexPreviewOutputMatchesInput(input, nonBlockedOutput)).toThrow(
+      "Requested forbidden Codex preview actions must return a blocked output"
+    );
+    expect(() => assertCodexPreviewOutputMatchesInput(input, mismatchedBlockedOutput)).toThrow(
+      "Blocked Codex preview output actionType must match the requested actionType"
+    );
+  });
+
+  it("stamps blocked fixture readiness hints with the adapter clock", async () => {
+    const createdAt = "2026-05-07T12:34:56.000Z";
+    const adapter = createCodexRuntimeAdapter({
+      fixtureMode: true,
+      now: () => createdAt,
+      env: {}
+    });
+
+    const output = await adapter.createPreview({
+      turnPurpose: "implementation_plan_preview",
+      contextHash: "ctx_block_clock",
+      prompt: "Preview a shell command without executing it.",
+      sourceRefs: ["research_run_clock"],
+      targetObject: "blocked_action",
+      requestedActionType: "shell_command"
+    });
+
+    expect(output.payload.phase15bUpgradeHints?.createdAt).toBe(createdAt);
+    expect(validateCodexPreviewOutput(output).payload.phase15bUpgradeHints?.createdAt).toBe(createdAt);
   });
 
   it("reports deterministic fixture status without requiring a live Codex turn", async () => {

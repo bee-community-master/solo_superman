@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { BLOCKED_ACTION_TYPES } from "@solo-superman/contracts";
 import type {
   CommandId,
   CorrelationId,
@@ -693,6 +694,71 @@ describe("Decision Queue view model", () => {
     expect(markup).toContain("product action not performed");
     expect(markup).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
     expect(markup).not.toContain("metadata_visible");
+    expect(markup).not.toContain("metadata_only_no_execution");
+    expect(markup).not.toContain("readiness_preview_handoff_metadata");
+  });
+
+  it("renders Phase 1.5B readiness copy for every blocked runtime boundary", () => {
+    const [baseRecord] = phase15bHintProjection().records;
+
+    if (!baseRecord) {
+      throw new Error("Phase 1.5B readiness fixture is incomplete.");
+    }
+
+    const readiness = phase15bReadinessViewModel({
+      ...phase15bHintProjection(),
+      records: BLOCKED_ACTION_TYPES.map((actionType) => ({
+        ...baseRecord,
+        hintId: `phase15b_hint_${actionType}`,
+        artifactId: `runtime_artifact_phase15b_${actionType}` as RuntimeArtifactId,
+        hints: {
+          ...baseRecord.hints,
+          executionIntent: {
+            ...baseRecord.hints.executionIntent,
+            candidateActionType: actionType,
+            targetSurface: `${actionType} blocked boundary`,
+            nonExecutingSummary: `Readiness metadata for ${actionType}; no product action was performed.`
+          },
+          riskNormalization: {
+            ...baseRecord.hints.riskNormalization,
+            blockedActionType: actionType,
+            blockReason: `Phase 1.5B stores ${actionType} readiness only.`
+          },
+          sourceRefs: [
+            {
+              kind: "preview_artifact",
+              refId: `runtime_artifact_phase15b_${actionType}`
+            },
+            {
+              kind: "blocked_action",
+              refId: `runtime_artifact_phase15b_${actionType}:${actionType}`
+            }
+          ]
+        }
+      }))
+    });
+    const markup = renderToStaticMarkup(
+      createElement(Phase15bReadinessPanel, {
+        hasActiveProject: true,
+        isBusy: false,
+        readiness,
+        onRefreshReadiness: () => undefined
+      })
+    );
+
+    expect(readiness.records).toHaveLength(BLOCKED_ACTION_TYPES.length);
+    expect(markup).toContain(`${BLOCKED_ACTION_TYPES.length} readiness/preview/handoff metadata record`);
+
+    for (const actionType of BLOCKED_ACTION_TYPES) {
+      const readableActionType = actionType.replace(/[_-]+/gu, " ");
+
+      expect(markup).toContain(`${readableActionType} readiness`);
+      expect(markup).toContain(`${readableActionType} risk`);
+      expect(markup).toContain(`runtime_artifact_phase15b_${actionType}:${actionType}`);
+    }
+
+    expect(markup).toContain("product action not performed");
+    expect(markup).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
     expect(markup).not.toContain("metadata_only_no_execution");
     expect(markup).not.toContain("readiness_preview_handoff_metadata");
   });
