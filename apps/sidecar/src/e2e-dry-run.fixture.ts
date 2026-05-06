@@ -45,3 +45,48 @@ export const PHASE1_E2E_ACCEPTANCE_CHECKLIST = [
     runtimeEvidence: ["BlockedActionArtifact", "metadata_only_no_file_write", "RUNTIME_ACTION_BLOCKED"]
   }
 ] as const;
+
+export const PHASE15A_ACCEPTANCE_EVIDENCE_MAP = [
+  {
+    scenario: "Scenario A. Allowlist happy path",
+    sourceDocs: ["docs/30-phase1.5-research-runtime-and-readiness-contract.md"],
+    runtimeEvidence: [
+      "CreateResearchAllowlist",
+      "StartResearchRun",
+      "ResearchDisclosureLogProjection",
+      "statusUrl",
+      "projection.updated"
+    ]
+  },
+  {
+    scenario: "Scenario B. Private source approval gate",
+    sourceDocs: ["docs/30-phase1.5-research-runtime-and-readiness-contract.md"],
+    runtimeEvidence: [
+      "PrepareResearchDisclosure",
+      "blocked_manual_handoff",
+      "private_context_material",
+      "task_level_approval_or_manual_handoff"
+    ]
+  },
+  {
+    scenario: "Scenario C. Revoke, cancel, retry recovery",
+    sourceDocs: ["docs/30-phase1.5-research-runtime-and-readiness-contract.md"],
+    runtimeEvidence: [
+      "PauseResearchAllowlist",
+      "RevokeResearchAllowlist",
+      "CancelResearchRun",
+      "RetryResearchRun",
+      "bounded retry/backoff/idempotency"
+    ]
+  },
+  {
+    scenario: "Scenario D. Evidence quality gate",
+    sourceDocs: ["docs/30-phase1.5-research-runtime-and-readiness-contract.md"],
+    runtimeEvidence: [
+      "DecisionEvidencePackProjection",
+      "ResearchRunProjection.qualityGateStatus",
+      "ResearchReviewCardProjection",
+      "needs_review"
+    ]
+  }
+] as const;

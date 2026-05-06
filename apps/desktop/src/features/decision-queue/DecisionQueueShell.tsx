@@ -7,15 +7,21 @@ import {
   type DecisionQueueProjection,
   type FounderBriefProjection,
   type LivingSpecProjection,
+  type ProjectId,
   type QueueItemId,
+  type ResearchAllowlistGovernanceProjection,
+  type ResearchAllowlistId,
   type ResearchEvidenceProjection,
   type ResearchQueueTerminalOutcome,
+  type ResearchRunControlResult,
+  type ResearchRunId,
   type ResearchTaskId,
   type RuntimeActivityProjection,
   type SessionShellProjection,
   type StateVersion,
   type StatusEndpointDto
 } from "@solo-superman/contracts";
+import { Phase15aOperationsPanel, type ResearchOperationsState } from "./Phase15aOperationsPanel";
 import {
   commandResponseVersion,
   optionalCommandProjection,
@@ -30,10 +36,15 @@ import {
 } from "../../shared/api/sidecar-client";
 import {
   confidencePlaceholder,
+  phase15aOperationsViewModel,
   pendingEffectSummary,
   queueSections,
   runtimeActivityProjectionFromStatuses
 } from "./decision-queue-view-model";
+import {
+  buildDesktopResearchRunRequest,
+  DESKTOP_PUBLIC_SEARCH_CONNECTOR_ID
+} from "./phase15a-research-run-request";
 
 type ConnectionState =
   | { readonly status: "connecting" }
@@ -62,6 +73,7 @@ interface ProjectionState {
 const DEFAULT_IDEA = "A focused founder brief generator";
 const DEFAULT_INTAKE =
   "Help solo founders turn a rough idea into a traceable product spec before they start building.";
+const DESKTOP_PUBLIC_SAFE_ALLOWLIST_ID = "research_allowlist_desktop_public_safe" as ResearchAllowlistId;
 
 function displayError(error: unknown) {
   if (error instanceof SidecarClientError) {
@@ -95,6 +107,18 @@ function emptyProjectionState(): ProjectionState {
   };
 }
 
+function emptyResearchOperationsState(): ResearchOperationsState {
+  return {
+    allowlists: null,
+    disclosures: null,
+    runs: null
+  };
+}
+
+function researchRunProjectionFromResponse(response: CommandResponse<ResearchRunControlResult>) {
+  return requiredCommandProjection<ResearchRunControlResult>(response, "ResearchRunControlResult").projection;
+}
+
 export function DecisionQueueShell() {
   const [connectionState, setConnectionState] = useState<ConnectionState>({ status: "connecting" });
   const [client, setClient] = useState<SidecarClient | null>(null);
@@ -103,6 +127,7 @@ export function DecisionQueueShell() {
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
   const [researchDrafts, setResearchDrafts] = useState<Record<string, string>>({});
   const [projections, setProjections] = useState<ProjectionState>(emptyProjectionState);
+  const [researchOperations, setResearchOperations] = useState<ResearchOperationsState>(emptyResearchOperationsState);
   const [runtimeStatus, setRuntimeStatus] = useState<CodexRuntimeStatusDto | null>(null);
   const [commandLog, setCommandLog] = useState<readonly CommandLogEntry[]>([]);
   const [statuses, setStatuses] = useState<readonly StatusEndpointDto[]>([]);
@@ -135,8 +160,29 @@ export function DecisionQueueShell() {
     void connect();
   }, [connect]);
 
+  const refreshResearchOperations = useCallback(
+    async (projectId: ProjectId) => {
+      if (!client) {
+        return;
+      }
+
+      const [allowlists, disclosures, runs] = await Promise.all([
+        client.listResearchAllowlists(projectId),
+        client.listResearchDisclosures(projectId),
+        client.listResearchRuns(projectId)
+      ]);
+
+      setResearchOperations({
+        allowlists,
+        disclosures,
+        runs
+      });
+    },
+    [client]
+  );
+
   const refreshProjections = useCallback(
-    async (projectId: string, sessionId: SessionShellProjection["sessionId"]) => {
+    async (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"]) => {
       if (!client) {
         return;
       }
@@ -160,8 +206,9 @@ export function DecisionQueueShell() {
         confidence,
         founderBrief
       });
+      await refreshResearchOperations(projectId);
     },
-    [client]
+    [client, refreshResearchOperations]
   );
 
   const recordCommandStatus = useCallback((status: StatusEndpointDto) => {
@@ -247,6 +294,7 @@ export function DecisionQueueShell() {
       setCommandLog([]);
       setStatuses([]);
       setProjections(emptyProjectionState());
+      setResearchOperations(emptyResearchOperationsState());
 
       try {
         const start = await appendCommand(
@@ -435,6 +483,312 @@ export function DecisionQueueShell() {
     [appendCommand, client, projections, refreshProjections]
   );
 
+  const createOrReactivateAllowlist = useCallback(async () => {
+    if (!client || !projections.session) {
+      setWorkflowError("An active project is required before changing research allowlists.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const projectId = projections.session.projectId;
+      const reusableAllowlist = researchOperations.allowlists?.allowlists.find(
+        (allowlist) => allowlist.status !== "revoked"
+      );
+      const defaultAllowlistIdExists =
+        researchOperations.allowlists?.allowlists.some(
+          (allowlist) => allowlist.allowlistId === DESKTOP_PUBLIC_SAFE_ALLOWLIST_ID
+        ) ?? false;
+      const policy = {
+        connectorIds: [DESKTOP_PUBLIC_SEARCH_CONNECTOR_ID],
+        sourceCategories: ["public_web" as const],
+        approvedBy: "desktop_ui_founder"
+      };
+      const response = await appendCommand(
+        reusableAllowlist ? "Reactivate research allowlist" : "Create research allowlist",
+        reusableAllowlist
+          ? await client.updateResearchAllowlist(projectId, reusableAllowlist.allowlistId, {
+              ...policy,
+              status: "active"
+            })
+          : await client.createResearchAllowlist(projectId, {
+              ...policy,
+              ...(defaultAllowlistIdExists ? {} : { allowlistId: DESKTOP_PUBLIC_SAFE_ALLOWLIST_ID })
+            })
+      );
+      const allowlists = requiredCommandProjection<ResearchAllowlistGovernanceProjection>(
+        response,
+        "ResearchAllowlistGovernanceProjection"
+      );
+
+      setResearchOperations((current) => ({
+        ...current,
+        allowlists
+      }));
+      await refreshResearchOperations(projectId);
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [appendCommand, client, projections.session, refreshResearchOperations, researchOperations.allowlists]);
+
+  const pauseAllowlist = useCallback(
+    async (allowlistId: ResearchAllowlistId) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active project is required before pausing a research allowlist.");
+        return;
+      }
+
+      setIsBusy(true);
+      setWorkflowError(null);
+
+      try {
+        const response = await appendCommand(
+          "Pause research allowlist",
+          await client.pauseResearchAllowlist(
+            projections.session.projectId,
+            allowlistId,
+            "Paused from the Phase 1.5A operations screen."
+          )
+        );
+        const allowlists = requiredCommandProjection<ResearchAllowlistGovernanceProjection>(
+          response,
+          "ResearchAllowlistGovernanceProjection"
+        );
+
+        setResearchOperations((current) => ({
+          ...current,
+          allowlists
+        }));
+        await refreshResearchOperations(projections.session.projectId);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [appendCommand, client, projections.session, refreshResearchOperations]
+  );
+
+  const revokeAllowlist = useCallback(
+    async (allowlistId: ResearchAllowlistId) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active project is required before revoking a research allowlist.");
+        return;
+      }
+
+      setIsBusy(true);
+      setWorkflowError(null);
+
+      try {
+        const response = await appendCommand(
+          "Revoke research allowlist",
+          await client.revokeResearchAllowlist(
+            projections.session.projectId,
+            allowlistId,
+            "Revoked from the Phase 1.5A operations screen."
+          )
+        );
+        const allowlists = requiredCommandProjection<ResearchAllowlistGovernanceProjection>(
+          response,
+          "ResearchAllowlistGovernanceProjection"
+        );
+
+        setResearchOperations((current) => ({
+          ...current,
+          allowlists
+        }));
+        await refreshResearchOperations(projections.session.projectId);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [appendCommand, client, projections.session, refreshResearchOperations]
+  );
+
+  const planPhase15aResearchTask = useCallback(async () => {
+    if (!client || !projections.session) {
+      setWorkflowError("An active session is required before planning Phase 1.5A research.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const response = await appendCommand(
+        "Plan Phase 1.5A research task",
+        await client.planResearch({
+          sessionId: projections.session.sessionId,
+          expectedStateVersion: latestProjectionVersion(projections),
+          objective: "Validate public onboarding evidence and quality-gate readiness for Phase 1.5A.",
+          sourceQueueItemId: "phase15a_operations_acceptance" as QueueItemId,
+          routeOutcome: "research_needed",
+          impact: "high"
+        })
+      );
+      const research = requiredCommandProjection<ResearchEvidenceProjection>(response, "ResearchEvidenceProjection");
+
+      setProjections((current) => ({
+        ...current,
+        research
+      }));
+      await refreshProjections(projections.session.projectId, projections.session.sessionId);
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [appendCommand, client, projections, refreshProjections]);
+
+  const startReadOnlyResearchRun = useCallback(async (researchTaskId: ResearchTaskId) => {
+    if (!client || !projections.session) {
+      setWorkflowError("An active project is required before starting a research run.");
+      return;
+    }
+
+    const task = projections.research?.tasks.find((item) => item.researchTaskId === researchTaskId);
+    const allowlist = researchOperations.allowlists?.allowlists.find((item) => item.status === "active");
+
+    if (!task) {
+      setWorkflowError("Select a planned research task before starting a read-only research run.");
+      return;
+    }
+
+    if (!allowlist) {
+      setWorkflowError("Create or reactivate an active public-safe allowlist before starting a research run.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const response = await appendCommand(
+        "Start read-only research run",
+        await client.startResearchRun(
+          projections.session.projectId,
+          buildDesktopResearchRunRequest({
+            allowlist,
+            specTitle: projections.spec?.title,
+            task
+          })
+        )
+      );
+
+      setResearchOperations((current) => ({
+        ...current,
+        runs: researchRunProjectionFromResponse(response)
+      }));
+      await refreshResearchOperations(projections.session.projectId);
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [
+    appendCommand,
+    client,
+    projections.research,
+    projections.session,
+    projections.spec,
+    refreshResearchOperations,
+    researchOperations.allowlists
+  ]);
+
+  const refreshResearchRunStatus = useCallback(
+    async (researchRunId: ResearchRunId) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active project is required before refreshing research run status.");
+        return;
+      }
+
+      setWorkflowError(null);
+
+      try {
+        const runs = await client.getResearchRunStatus(projections.session.projectId, researchRunId);
+
+        setResearchOperations((current) => ({
+          ...current,
+          runs
+        }));
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      }
+    },
+    [client, projections.session]
+  );
+
+  const cancelResearchRun = useCallback(
+    async (researchRunId: ResearchRunId) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active project is required before cancelling a research run.");
+        return;
+      }
+
+      setIsBusy(true);
+      setWorkflowError(null);
+
+      try {
+        const response = await appendCommand(
+          "Cancel research run",
+          await client.cancelResearchRun(projections.session.projectId, researchRunId, {
+            reason: "Cancelled from the Phase 1.5A operations screen."
+          })
+        );
+
+        setResearchOperations((current) => ({
+          ...current,
+          runs: researchRunProjectionFromResponse(response)
+        }));
+        await refreshResearchOperations(projections.session.projectId);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [appendCommand, client, projections.session, refreshResearchOperations]
+  );
+
+  const retryResearchRun = useCallback(
+    async (researchRunId: ResearchRunId) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active project is required before retrying a research run.");
+        return;
+      }
+
+      setIsBusy(true);
+      setWorkflowError(null);
+
+      try {
+        const response = await appendCommand(
+          "Retry research run",
+          await client.retryResearchRun(projections.session.projectId, researchRunId, {
+            retryReason: "Manual retry from the Phase 1.5A operations screen.",
+            contextHash: `${researchRunId}_desktop_retry`
+          })
+        );
+
+        setResearchOperations((current) => ({
+          ...current,
+          runs: researchRunProjectionFromResponse(response)
+        }));
+        await refreshResearchOperations(projections.session.projectId);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [appendCommand, client, projections.session, refreshResearchOperations]
+  );
+
   const scoreCompleteness = useCallback(async () => {
     if (!client || !projections.session) {
       setWorkflowError("An active session is required before scoring completeness.");
@@ -519,7 +873,19 @@ export function DecisionQueueShell() {
       confidencePlaceholder(projections.session?.sessionId ?? null, projections.research?.knownRisks ?? []),
     [projections.confidence, projections.research, projections.session]
   );
+  const phase15aOperations = useMemo(
+    () =>
+      phase15aOperationsViewModel({
+        allowlists: researchOperations.allowlists,
+        disclosures: researchOperations.disclosures,
+        runs: researchOperations.runs,
+        research: projections.research
+      }),
+    [projections.research, researchOperations]
+  );
   const canStart = connectionState.status === "connected" && Boolean(client) && !isBusy;
+  const hasActiveResearchAllowlist =
+    researchOperations.allowlists?.allowlists.some((allowlist) => allowlist.status === "active") ?? false;
 
   return (
     <main className="app-shell">
@@ -659,6 +1025,11 @@ export function DecisionQueueShell() {
               <h2>Research</h2>
               <span>{projections.research?.proConBalanceStatus ?? "unknown"}</span>
             </div>
+            <div className="card-actions panel-actions">
+              <button type="button" disabled={isBusy || !projections.session} onClick={() => void planPhase15aResearchTask()}>
+                Plan 1.5A task
+              </button>
+            </div>
             {projections.research?.tasks.length ? (
               <div className="research-list">
                 {projections.research.tasks.map((task) => {
@@ -710,6 +1081,15 @@ export function DecisionQueueShell() {
                           </button>
                         </div>
                       ) : null}
+                      <div className="card-actions">
+                        <button
+                          type="button"
+                          disabled={isBusy || !hasActiveResearchAllowlist}
+                          onClick={() => void startReadOnlyResearchRun(task.researchTaskId)}
+                        >
+                          Start read-only run
+                        </button>
+                      </div>
                       {card && !card.terminalOutcome && card.availableOutcomes.length ? (
                         <div className="card-actions">
                           {card.availableOutcomes.map((outcome) => (
@@ -732,6 +1112,24 @@ export function DecisionQueueShell() {
               <p className="empty-state">No research tasks yet.</p>
             )}
           </section>
+
+          <Phase15aOperationsPanel
+            hasActiveSession={Boolean(projections.session)}
+            isBusy={isBusy}
+            operations={phase15aOperations}
+            researchOperations={researchOperations}
+            onCreateOrReactivateAllowlist={() => void createOrReactivateAllowlist()}
+            onRefreshOperations={() => {
+              if (projections.session) {
+                void refreshResearchOperations(projections.session.projectId);
+              }
+            }}
+            onPauseAllowlist={(allowlistId) => void pauseAllowlist(allowlistId)}
+            onRevokeAllowlist={(allowlistId) => void revokeAllowlist(allowlistId)}
+            onRefreshResearchRunStatus={(researchRunId) => void refreshResearchRunStatus(researchRunId)}
+            onCancelResearchRun={(researchRunId) => void cancelResearchRun(researchRunId)}
+            onRetryResearchRun={(researchRunId) => void retryResearchRun(researchRunId)}
+          />
 
           <section className="panel">
             <div className="panel-heading">
@@ -781,6 +1179,22 @@ export function DecisionQueueShell() {
               <span>{runtimeActivity.runtimeStatus}</span>
             </div>
             <p>{runtimeStatus ? `Adapter ${runtimeStatus.status}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
+            {researchOperations.disclosures?.disclosureLogs.length ? (
+              <div className="activity-list disclosure-activity">
+                {researchOperations.disclosures.disclosureLogs.map((log) => (
+                  <article className="activity-item" key={log.logId}>
+                    <strong>Research disclosure</strong>
+                    <span>{log.status}</span>
+                    <small>
+                      {log.connectorId} · {log.sourceCategory} · {log.researchObjective}
+                    </small>
+                    <small>{log.publicSafeSummarySent}</small>
+                    {log.blockReason ? <small>blocked: {log.blockReason}</small> : null}
+                    {log.manualHandoffReason ? <small>{log.manualHandoffReason}</small> : null}
+                  </article>
+                ))}
+              </div>
+            ) : null}
             <div className="activity-list">
               {commandLog.length ? (
                 commandLog.map((entry) => (

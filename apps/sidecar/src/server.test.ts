@@ -8,8 +8,14 @@ import {
   CONTRACT_SCHEMA_VERSION,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
   type CommandId,
+  type ProjectId,
   type ProjectionVersion,
-  type ResearchRunProjection
+  type ResearchAllowlistId,
+  type ResearchConnectorId,
+  type ResearchDisclosureLogId,
+  type ResearchRunProjection,
+  type ResearchRunId,
+  type ResearchTaskId
 } from "@solo-superman/contracts";
 import {
   applyMigrations,
@@ -97,6 +103,43 @@ function timestampAfterProviderStart(run: ResearchRunProjection) {
   const startMillis = Date.parse(run.provider.startedAt ?? run.createdAt);
 
   return new Date(startMillis + 60_000).toISOString();
+}
+
+function phase15aRecoveryRunFixture(
+  projectId: string,
+  allowlistId: string,
+  researchRunId: string,
+  status: "queued" | "running"
+): ResearchRunProjection {
+  const researchTaskId = `${researchRunId}_task` as ResearchTaskId;
+  const startedAt = "2026-05-06T00:00:30.000Z";
+
+  return {
+    kind: "ResearchRunProjection",
+    version: 1 as ProjectionVersion,
+    researchRunId: researchRunId as ResearchRunId,
+    projectId: projectId as ProjectId,
+    researchTaskId,
+    allowlistId: allowlistId as ResearchAllowlistId,
+    disclosureLogId: `${researchRunId}_disclosure` as ResearchDisclosureLogId,
+    connectorId: "public_search" as ResearchConnectorId,
+    sourceCategory: "public_web",
+    status,
+    provider: {
+      researchRunId: researchRunId as ResearchRunId,
+      researchTaskId,
+      adapterKind: "local_fake_readonly",
+      adapterVersion: "solo-superman.fake-readonly-research-adapter.v1",
+      ...(status === "running" ? { providerRunId: `fake_readonly_${researchRunId}`, startedAt } : {}),
+      sourceCategory: "public_web",
+      idempotencyKey: `research-run:v1:${researchRunId}`,
+      attempt: 1
+    },
+    qualityGateStatus: "not_evaluated",
+    sourceRefs: [`${researchRunId}_source`],
+    createdAt: "2026-05-06T00:00:00.000Z",
+    updatedAt: status === "running" ? startedAt : "2026-05-06T00:00:00.000Z"
+  };
 }
 
 async function createProjectForTest(storageApp: ReturnType<typeof createSidecarApp>, rawIdea: string) {
@@ -665,6 +708,106 @@ describe("PR-02 sidecar health shell", () => {
             reason: "allowlist_revoked"
           })
         ]
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("applies Phase 1.5A pause/revoke recovery to queued and running research runs", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId } = await createProjectForTest(storageApp, "A run recovery allowlist route test idea");
+      const allowlistId = "research_allowlist_run_recovery";
+      const repository = createResearchRunRepository(storage.db);
+
+      await createAllowlistForTest(storageApp, projectId, allowlistId);
+      await repository.create({
+        run: phase15aRecoveryRunFixture(projectId, allowlistId, "research_run_pause_queued", "queued"),
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+      await repository.create({
+        run: phase15aRecoveryRunFixture(projectId, allowlistId, "research_run_pause_running", "running"),
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      const pause = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists/${allowlistId}/pause`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          reason: "Pause should preserve queued run recovery."
+        })
+      });
+
+      expect(pause.status).toBe(200);
+      await expect(repository.getById(projectId as ProjectId, "research_run_pause_queued" as ResearchRunId)).resolves.toMatchObject({
+        status: "paused",
+        qualityGateStatus: "not_evaluated"
+      });
+      await expect(
+        repository.getById(projectId as ProjectId, "research_run_pause_running" as ResearchRunId)
+      ).resolves.toMatchObject({
+        status: "cancel_requested",
+        qualityGateStatus: "not_evaluated"
+      });
+
+      await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists/${allowlistId}`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          status: "active",
+          sourceCategories: ["public_web"],
+          approvedBy: "owner_run_recovery_reactivation"
+        })
+      });
+      await repository.create({
+        run: phase15aRecoveryRunFixture(projectId, allowlistId, "research_run_revoke_queued", "queued"),
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+      await repository.create({
+        run: phase15aRecoveryRunFixture(projectId, allowlistId, "research_run_revoke_running", "running"),
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      const revoke = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists/${allowlistId}/revoke`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          reason: "Revoke should stop active automatic run recovery."
+        })
+      });
+      const runList = await storageApp.request(`/api/v1/projects/${projectId}/research-runs`, {
+        headers: authHeaders()
+      });
+      const runListBody = await jsonBody(runList);
+
+      expect(revoke.status).toBe(200);
+      expect(runList.status).toBe(200);
+      expect(runListBody.data).toMatchObject({
+        recovery: {
+          sseEventNames: ["projection.updated"]
+        },
+        runs: expect.arrayContaining([
+          expect.objectContaining({
+            researchRunId: "research_run_revoke_queued",
+            status: "cancelled",
+            terminalReason: "cancelled_by_user"
+          }),
+          expect.objectContaining({
+            researchRunId: "research_run_revoke_running",
+            status: "cancel_requested"
+          })
+        ])
       });
     } finally {
       await storage.close();

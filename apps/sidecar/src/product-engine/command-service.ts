@@ -1817,6 +1817,65 @@ export function createProductEngineCommandService(
     return logs.find((log) => log.logId === run.disclosureLogId) ?? null;
   }
 
+  async function pauseResearchRunsForAllowlist(
+    projectIdValue: ProjectId,
+    allowlistIdValue: ResearchAllowlistId,
+    pausedAt: string,
+    reason: string
+  ) {
+    const repository = createResearchRunRepository(storage.db);
+    const activeRuns = (await repository.listForProject(projectIdValue)).filter(
+      (run) => run.allowlistId === allowlistIdValue && (run.status === "queued" || run.status === "running")
+    );
+
+    for (const run of activeRuns) {
+      if (run.status === "running") {
+        await cancelResearchRunWithLocalAdapter(run, reason);
+        continue;
+      }
+
+      const updated = await repository.update({
+        run: {
+          ...run,
+          version: (Number(run.version) + 1) as ProjectionVersion,
+          status: "paused",
+          updatedAt: pausedAt
+        },
+        expectedVersion: run.version,
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      if (!updated) {
+        throw new ProductEngineServiceError(
+          "COMMAND_PRECONDITION_FAILED",
+          "Research run changed before allowlist pause recovery could be saved; refetch and retry.",
+          {
+            projectId: projectIdValue,
+            allowlistId: allowlistIdValue,
+            researchRunId: run.researchRunId
+          }
+        );
+      }
+    }
+  }
+
+  async function cancelActiveResearchRunsForRevokedAllowlist(
+    projectIdValue: ProjectId,
+    allowlistIdValue: ResearchAllowlistId,
+    reason: string
+  ) {
+    const repository = createResearchRunRepository(storage.db);
+    const activeRuns = (await repository.listForProject(projectIdValue)).filter(
+      (run) =>
+        run.allowlistId === allowlistIdValue &&
+        (run.status === "queued" || run.status === "running" || run.status === "paused")
+    );
+
+    for (const run of activeRuns) {
+      await cancelResearchRunWithLocalAdapter(run, reason);
+    }
+  }
+
   function allowlistVersionAfter(allowlist: ResearchAllowlistProjection | null) {
     return ((allowlist ? Number(allowlist.version) : 0) + 1) as ProjectionVersion;
   }
@@ -2661,6 +2720,12 @@ export function createProductEngineCommandService(
                 pausedAt: now,
                 updatedAt: now
               });
+        await pauseResearchRunsForAllowlist(
+          input.projectId,
+          input.allowlistId,
+          now,
+          input.reason ?? "Research allowlist paused; pause queued runs and stop in-flight automatic research."
+        );
         const projection = await listAllowlistProjection(input.projectId, paused);
 
         return allowlistCommandResponse(
@@ -2705,6 +2770,11 @@ export function createProductEngineCommandService(
                 createdAt: current.createdAt,
                 updatedAt: now
               });
+        await cancelActiveResearchRunsForRevokedAllowlist(
+          input.projectId,
+          input.allowlistId,
+          input.reason ?? "Research allowlist revoked; stop automatic read-only research runs."
+        );
         const projection = await listAllowlistProjection(input.projectId, revoked);
 
         return allowlistCommandResponse(

@@ -3,6 +3,10 @@ import type {
   DecisionQueueProjection,
   PendingEffectSummaryDto,
   ProjectionVersion,
+  ResearchAllowlistGovernanceProjection,
+  ResearchDisclosureLogProjection,
+  ResearchEvidenceProjection,
+  ResearchRunControlProjection,
   RuntimeActivityProjection,
   SessionId,
   StatusEndpointDto
@@ -15,6 +19,29 @@ export interface QueueSectionViewModel {
   readonly title: string;
   readonly emptyLabel: string;
   readonly items: DecisionQueueProjection[QueueSectionId];
+}
+
+export type Phase15aExitGateStatus = "ready_for_1_5b" | "blocked_for_1_5b";
+
+export interface Phase15aOperationsInput {
+  readonly allowlists: ResearchAllowlistGovernanceProjection | null;
+  readonly disclosures: ResearchDisclosureLogProjection | null;
+  readonly runs: ResearchRunControlProjection | null;
+  readonly research: ResearchEvidenceProjection | null;
+}
+
+export interface Phase15aOperationsViewModel {
+  readonly activeAllowlistCount: number;
+  readonly allowlistPolicyLabel: string;
+  readonly disclosureActivityLabel: string;
+  readonly runRecoveryLabel: string;
+  readonly qualityGateLabel: string;
+  readonly staleOrFailureReasons: readonly string[];
+  readonly exitGate: {
+    readonly status: Phase15aExitGateStatus;
+    readonly label: string;
+    readonly blockers: readonly string[];
+  };
 }
 
 export function queueSections(queue: DecisionQueueProjection | null): readonly QueueSectionViewModel[] {
@@ -78,6 +105,106 @@ export function runtimeActivityProjectionFromStatuses(
     effects,
     runtimeArtifacts: [],
     runtimeStatus: hasBlocked ? "blocked" : hasFailed ? "unavailable" : effects.length ? "available" : "scaffold_placeholder"
+  };
+}
+
+type ResearchRunStatus = ResearchRunControlProjection["runs"][number]["status"];
+
+function runNeedsOperatorAttention(status: ResearchRunStatus) {
+  return status === "failed" || status === "stale" || status === "research_insufficient" || status === "needs_review";
+}
+
+function researchQualityGateVisible(input: Phase15aOperationsInput) {
+  return Boolean(
+    input.research?.evidencePacks.length ||
+      input.research?.reviewCards.some((card) => Boolean(card.gateStatus || card.reviewReason)) ||
+      input.runs?.runs.some((run) => run.qualityGateStatus !== "not_evaluated" || Boolean(run.qualityGateReviewReason))
+  );
+}
+
+function planningBlockingCards(research: ResearchEvidenceProjection | null) {
+  return research?.reviewCards.filter((card) => card.blocksPlanning) ?? [];
+}
+
+function researchQualityGateLabels(input: Phase15aOperationsInput) {
+  return [
+    ...(input.research?.evidencePacks.map((pack) => `${pack.claim}: ${pack.gateStatus}`) ?? []),
+    ...(input.research?.reviewCards
+      .filter((card) => Boolean(card.gateStatus || card.reviewReason))
+      .map((card) =>
+        [
+          card.title,
+          card.gateStatus ?? card.state,
+          card.reviewReason
+        ]
+          .filter((part): part is string => Boolean(part))
+          .join(": ")
+      ) ?? []),
+    ...(input.runs?.runs.map((run) => `${run.researchRunId}: ${run.qualityGateStatus}`) ?? [])
+  ];
+}
+
+export function phase15aOperationsViewModel(input: Phase15aOperationsInput): Phase15aOperationsViewModel {
+  const activeAllowlists = input.allowlists?.allowlists.filter((allowlist) => allowlist.status === "active") ?? [];
+  const selectedAllowlist = activeAllowlists[0] ?? input.allowlists?.allowlists[0] ?? null;
+  const latestDisclosure = input.disclosures?.latestDisclosureLog ?? input.disclosures?.disclosureLogs.at(-1) ?? null;
+  const runs = input.runs?.runs ?? [];
+  const attentionRuns = runs.filter((run) => runNeedsOperatorAttention(run.status));
+  const qualityGateVisible = researchQualityGateVisible(input);
+  const recoveryIsVisible = Boolean(
+    input.allowlists?.refetchUrl &&
+      input.disclosures?.refetchUrl &&
+      input.runs?.refetchUrl &&
+      input.runs.recovery.sseEventNames.includes("projection.updated")
+  );
+  const blockers = [
+    ...(activeAllowlists.length === 0 ? ["No active public-safe research allowlist is visible."] : []),
+    ...(!input.allowlists?.refetchUrl ? ["Allowlist governance refetch recovery is not visible."] : []),
+    ...(!input.disclosures?.refetchUrl ? ["Disclosure activity refetch recovery is not visible."] : []),
+    ...(!input.runs?.refetchUrl ? ["Research run refetch recovery is not visible."] : []),
+    ...(input.runs && !input.runs.recovery.sseEventNames.includes("projection.updated")
+      ? ["Research run SSE recovery hint is missing."]
+      : []),
+    ...(!qualityGateVisible ? ["Evidence quality gate result is not visible yet."] : []),
+    ...planningBlockingCards(input.research).map((card) => `Research card still blocks Planning-ready: ${card.title}`)
+  ];
+  const allowlistPolicyLabel = selectedAllowlist
+    ? [
+        `${selectedAllowlist.status} · ${selectedAllowlist.connectorIds.join(", ")}`,
+        selectedAllowlist.sourceCategories.join(", "),
+        selectedAllowlist.contextMode,
+        `${selectedAllowlist.rateBudgetPolicy.maxConcurrentRunsPerProject} concurrent / ${selectedAllowlist.rateBudgetPolicy.maxRunsPerSession} per session`,
+        selectedAllowlist.disclosureLogPolicy.logEveryAutomaticRun ? "disclosure log required" : null
+      ]
+        .filter((part): part is string => Boolean(part))
+        .join(" · ")
+    : "No allowlist loaded.";
+
+  return {
+    activeAllowlistCount: activeAllowlists.length,
+    allowlistPolicyLabel,
+    disclosureActivityLabel: latestDisclosure
+      ? `${input.disclosures?.disclosureLogs.length ?? 0} disclosure log(s); latest ${latestDisclosure.status}`
+      : "No disclosure activity loaded.",
+    runRecoveryLabel: input.runs
+      ? `${runs.length} run(s); ${attentionRuns.length} need review/recovery; refetch ${input.runs.recovery.refetchUrl}`
+      : "No research run projection loaded.",
+    qualityGateLabel: qualityGateVisible
+      ? researchQualityGateLabels(input).slice(0, 3).join(" · ")
+      : "Quality gate has not produced a visible result.",
+    staleOrFailureReasons: attentionRuns.map((run) =>
+      [run.researchRunId, run.status, run.terminalReason, run.qualityGateReviewReason]
+        .filter((part): part is string => Boolean(part))
+        .join(" · ")
+    ),
+    exitGate: {
+      status: blockers.length || !recoveryIsVisible ? "blocked_for_1_5b" : "ready_for_1_5b",
+      label:
+        blockers.length || !recoveryIsVisible
+          ? "Phase 1.5A exit gate is blocked; keep recovery and review visible before 1.5B."
+          : "Phase 1.5A exit gate is explicit and ready for 1.5B sequencing.",
+      blockers
+    }
   };
 }
 

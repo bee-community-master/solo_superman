@@ -11,7 +11,8 @@ import {
   PHASE1_E2E_INTAKE_ANSWER,
   PHASE1_E2E_RESEARCH_RESULT,
   PHASE1_E2E_SAMPLE_IDEA,
-  PHASE1_E2E_SPEC_SECTIONS
+  PHASE1_E2E_SPEC_SECTIONS,
+  PHASE15A_ACCEPTANCE_EVIDENCE_MAP
 } from "./e2e-dry-run.fixture";
 
 const localCapabilityToken = "test-local-capability-token";
@@ -151,6 +152,28 @@ describe("PR-09 end-to-end dry-run hardening", () => {
     ]);
     expect(PHASE1_E2E_ACCEPTANCE_CHECKLIST.every((item) => item.sourceDocs.length >= 2)).toBe(true);
     expect(PHASE1_E2E_ACCEPTANCE_CHECKLIST.every((item) => item.runtimeEvidence.length >= 3)).toBe(true);
+  });
+
+  it("maps docs/30 Phase 1.5A Scenario A-D to route-level acceptance evidence labels", () => {
+    expect(PHASE15A_ACCEPTANCE_EVIDENCE_MAP.map((item) => item.scenario)).toEqual([
+      "Scenario A. Allowlist happy path",
+      "Scenario B. Private source approval gate",
+      "Scenario C. Revoke, cancel, retry recovery",
+      "Scenario D. Evidence quality gate"
+    ]);
+    expect(
+      PHASE15A_ACCEPTANCE_EVIDENCE_MAP.every((item) =>
+        item.sourceDocs.includes("docs/30-phase1.5-research-runtime-and-readiness-contract.md")
+      )
+    ).toBe(true);
+    expect(PHASE15A_ACCEPTANCE_EVIDENCE_MAP.flatMap((item) => item.runtimeEvidence)).toEqual(
+      expect.arrayContaining([
+        "StartResearchRun",
+        "blocked_manual_handoff",
+        "RetryResearchRun",
+        "ResearchRunProjection.qualityGateStatus"
+      ])
+    );
   });
 
   it("runs the sample idea through question, evidence, approval, SpecVersion, scoring, Founder Brief, and blocked runtime preview", async () => {
