@@ -710,7 +710,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       status: "ok",
       service: "solo-superman-sidecar",
       schemaVersion: CONTRACT_SCHEMA_VERSION,
-      sidecarPhase: "phase_1_5a_pr_06_evidence_quality_gate",
+      sidecarPhase: "phase_1_5b_pr_10_hint_query_export",
       checks: {
         process: "alive"
       },
@@ -888,6 +888,18 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         request: retryResearchRunRequestFromBody(body)
       });
     })
+  );
+
+  app.get("/api/v1/projects/:projectId/phase15b-upgrade-hints", async (context) =>
+    withProductEngine(context, (service) =>
+      service.listPhase15bUpgradeHints(context.req.param("projectId") as ProjectId)
+    )
+  );
+
+  app.get("/api/v1/projects/:projectId/phase15b-upgrade-hints/export", async (context) =>
+    withProductEngine(context, (service) =>
+      service.exportPhase15bUpgradeHints(context.req.param("projectId") as ProjectId)
+    )
   );
 
   app.post("/api/v1/sessions/:sessionId/intake", async (context) =>

@@ -159,4 +159,18 @@ describe("PR-09 desktop route client catalog", () => {
       implementation: "mounted_phase_1_5a_pr_05"
     });
   });
+
+  it("marks Phase 1.5B hint query/export routes as mounted in the sidecar", () => {
+    expect(findDesktopRouteClientPlaceholder("listPhase15bUpgradeHints")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/projects/:projectId/phase15b-upgrade-hints",
+      implementation: "mounted_phase_1_5b_pr_10"
+    });
+
+    expect(findDesktopRouteClientPlaceholder("exportPhase15bUpgradeHints")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/projects/:projectId/phase15b-upgrade-hints/export",
+      implementation: "mounted_phase_1_5b_pr_10"
+    });
+  });
 });

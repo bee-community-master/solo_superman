@@ -15,6 +15,8 @@ import {
   PHASE15A_PR05_RESEARCH_RUN_ROUTE_IDS,
   PHASE15A_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PHASE15A_PR07_RESEARCH_QUEUE_ROUTE_IDS,
+  PHASE15B_PR10_HINT_ROUTE_IDS,
+  PHASE15B_PR10_MOUNTED_PRODUCT_API_ROUTE_IDS,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
@@ -257,11 +259,35 @@ describe("API route catalog", () => {
     const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
 
     expect(PHASE15A_PR07_RESEARCH_QUEUE_ROUTE_IDS).toEqual(["resolveResearchQueueCard"]);
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE15A_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(
+      expect.arrayContaining([...PHASE15A_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS])
+    );
     expect(routeById.get("resolveResearchQueueCard")).toMatchObject({
       method: "POST",
       path: "/api/v1/research-cards/:cardId/resolve",
       commandType: "ResolveResearchQueueCard",
+      implementedInPr01: false
+    });
+  });
+
+  it("keeps Phase 1.5B PR-10 hint query/export route ids aligned with the catalog", () => {
+    const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
+
+    expect(PHASE15B_PR10_HINT_ROUTE_IDS).toEqual([
+      "listPhase15bUpgradeHints",
+      "exportPhase15bUpgradeHints"
+    ]);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE15B_PR10_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(routeById.get("listPhase15bUpgradeHints")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/projects/:projectId/phase15b-upgrade-hints",
+      commandType: "none",
+      implementedInPr01: false
+    });
+    expect(routeById.get("exportPhase15bUpgradeHints")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/projects/:projectId/phase15b-upgrade-hints/export",
+      commandType: "none",
       implementedInPr01: false
     });
   });

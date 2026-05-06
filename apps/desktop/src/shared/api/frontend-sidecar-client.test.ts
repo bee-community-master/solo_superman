@@ -546,6 +546,79 @@ describe("sidecar client", () => {
     ]);
   });
 
+  it("calls Phase 1.5B hint query/export routes as authenticated metadata reads", async () => {
+    const seenRequests: [string, RequestInit | undefined][] = [];
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async (input, init) => {
+        seenRequests.push([input, init]);
+
+        return jsonResponse({
+          ok: true,
+          data: {
+            kind: String(input).endsWith("/export")
+              ? "Phase15bUpgradeHintExport"
+              : "Phase15bUpgradeHintProjection",
+            projectionKind: "Phase15bUpgradeHintProjection",
+            projectId: "proj_hint",
+            version: 0,
+            generatedAt: "2026-05-06T00:00:00.000Z",
+            stale: false,
+            refetchUrl: "/api/v1/projects/proj_hint/phase15b-upgrade-hints",
+            exportUrl: "/api/v1/projects/proj_hint/phase15b-upgrade-hints/export",
+            pendingEffectSummary: {
+              totalPending: 0,
+              byType: {},
+              visibleLabel: "No execution effects are pending."
+            },
+            metadataLabel: "readiness_preview_handoff_metadata",
+            privatePayloadPolicy: "public_safe_metadata_only",
+            noExecution: {
+              semantic: "metadata_only_no_execution",
+              productActionPerformed: false,
+              delegationState: "not_active",
+              credentialValueState: "omitted"
+            },
+            records: [],
+            ...(String(input).endsWith("/export")
+              ? {
+                  exportedAt: "2026-05-06T00:00:00.000Z",
+                  format: "json",
+                  exportPolicy: {
+                    privatePayloadsIncluded: false,
+                    credentialValuesIncluded: false,
+                    sourceRefLabelsIncluded: false,
+                    reason: "phase15b_exports_are_public_safe_readiness_metadata_only"
+                  }
+                }
+              : {})
+          },
+          meta: {
+            requestId: "req_phase15b_hints",
+            schemaVersion: "solo-superman.contracts.v1"
+          }
+        });
+      }
+    });
+
+    await client.listPhase15bUpgradeHints("proj_hint" as ProjectId);
+    await client.exportPhase15bUpgradeHints("proj_hint" as ProjectId);
+
+    expect(seenRequests[0]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/projects/proj_hint/phase15b-upgrade-hints",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-token"
+        })
+      })
+    ]);
+    expect(seenRequests[1]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/projects/proj_hint/phase15b-upgrade-hints/export",
+      expect.objectContaining({ method: "GET" })
+    ]);
+  });
+
   it("posts runtime artifact convert and block commands with session version context", async () => {
     const seenRequests: [string, RequestInit | undefined][] = [];
     const client = createSidecarClient({

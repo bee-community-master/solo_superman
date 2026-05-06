@@ -328,6 +328,7 @@ Phase 1.5 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`�
 - ResearchDisclosureLog는 connector/source category, query/objective summary, public-safe summary sent, source refs를 저장한다.
 - `phase15bUpgradeHints`는 `phase15b_upgrade_hints` local table과 runtime artifact payload에 structured readiness metadata로 저장되며, 조회·export되더라도 실행 권한으로 해석하지 않는다.
 - `phase15b_upgrade_hints` records preserve artifact kind/id, risk/blocked action summary, and sourceRefs back to preview/blocked artifacts, ResearchRun, EvidenceMatrix, allowlist, and disclosure/audit logs when available.
+- Phase 1.5B hint query/export API reads this table as metadata-only JSON and omits private source payloads, credential values, and sourceRef labels from exported records while preserving sourceRef `kind`/`refId` traceability.
 - secret value는 libSQL에 저장하지 않고 OS secret ref만 저장한다.
 
 ## Phase 2 planning handoff storage checklist

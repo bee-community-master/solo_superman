@@ -7,7 +7,9 @@ import {
   API_ROUTE_CATALOG,
   CONTRACT_SCHEMA_VERSION,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION,
   type CommandId,
+  type Phase15bUpgradeHints,
   type ProjectId,
   type ProjectionVersion,
   type ResearchAllowlistId,
@@ -15,11 +17,14 @@ import {
   type ResearchDisclosureLogId,
   type ResearchRunProjection,
   type ResearchRunId,
-  type ResearchTaskId
+  type ResearchTaskId,
+  type RuntimeArtifactId,
+  type SessionId
 } from "@solo-superman/contracts";
 import {
   applyMigrations,
   createEventRepository,
+  createPhase15bUpgradeHintRepository,
   createResearchRunRepository,
   createSoloStorage,
   localDatabaseUrlFromAppDataDir
@@ -103,6 +108,97 @@ function timestampAfterProviderStart(run: ResearchRunProjection) {
   const startMillis = Date.parse(run.provider.startedAt ?? run.createdAt);
 
   return new Date(startMillis + 60_000).toISOString();
+}
+
+function phase15bHintsFixture(overrides: Partial<Phase15bUpgradeHints> = {}): Phase15bUpgradeHints {
+  const createdAt = "2026-05-06T00:00:00.000Z";
+
+  return {
+    executionIntent: {
+      candidateActionType: "shell_command",
+      targetSurface: "local verification command",
+      nonExecutingSummary: "Prepare metadata for a future verification command without running it."
+    },
+    approvalRequirements: [
+      {
+        approvalType: "task_level_execution",
+        reason: "A future phase must ask before shell execution.",
+        scope: "pnpm verify in an isolated worktree",
+        requiredActor: "user",
+        reconfirmRule: "Reconfirm immediately before execution."
+      }
+    ],
+    sandboxRequirements: {
+      isolatedWorktreeRequired: true,
+      browserSandboxRequired: false,
+      networkMode: "offline",
+      commandAllowlist: ["pnpm verify"],
+      secretGrantBoundary: "No secret values are needed or exported.",
+      environmentPolicy: "Use local-only repository state.",
+      logCaptureRequired: true
+    },
+    rollbackReference: {
+      baseRef: "main",
+      diffRef: "runtime_artifact_hint_export",
+      rollbackNote: "Drop the preview metadata if the future execution is not approved.",
+      reversible: true,
+      cleanupExpectation: "Remove temporary worktree and captured logs after review."
+    },
+    expectedEvidence: {
+      tests: ["pnpm verify"],
+      smokeChecks: ["GET /phase15b-upgrade-hints/export"],
+      artifactPaths: ["packages/contracts/src/api/phase15b-hint-export.ts"],
+      manualInspection: ["Confirm labels say readiness metadata."],
+      expectedLogs: ["phase15b readiness metadata exported"]
+    },
+    riskNormalization: {
+      riskLevel: "medium",
+      blockedActionType: "shell_command",
+      blockReason: "Shell commands remain blocked in Phase 1.5B.",
+      userVisibleAction: "Review command metadata and approve in a later safe-execution phase.",
+      escalationTarget: "phase3_safe_execution"
+    },
+    sourceRefs: [
+      {
+        kind: "preview_artifact",
+        refId: "runtime_artifact_hint_export",
+        label: "Private customer Alpha raw idea payload"
+      },
+      {
+        kind: "blocked_action",
+        refId: "runtime_artifact_hint_export:shell_command",
+        label: "Shell command blocked"
+      },
+      {
+        kind: "research_run",
+        refId: "research_run_hint_export",
+        label: "Read-only research run"
+      },
+      {
+        kind: "evidence_matrix",
+        refId: "evidence_matrix_hint_export",
+        label: "Evidence Matrix source"
+      },
+      {
+        kind: "research_allowlist",
+        refId: "research_allowlist_hint_export",
+        label: "Public web allowlist"
+      },
+      {
+        kind: "research_disclosure_log",
+        refId: "research_disclosure_hint_export",
+        label: "Public-safe disclosure log"
+      },
+      {
+        kind: "audit_log",
+        refId: "audit_log_hint_export",
+        label: "Audit trail"
+      }
+    ],
+    createdAt,
+    schemaVersion: PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION,
+    ...overrides
+  };
 }
 
 function phase15aRecoveryRunFixture(
@@ -194,7 +290,7 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       status: "ok",
-      sidecarPhase: "phase_1_5a_pr_06_evidence_quality_gate",
+      sidecarPhase: "phase_1_5b_pr_10_hint_query_export",
       checks: {
         process: "alive"
       },
@@ -2133,6 +2229,175 @@ describe("PR-02 sidecar health shell", () => {
 
       expect(rows.rows).toHaveLength(0);
       expect(JSON.stringify(rows.rows)).not.toContain("sk-secret-token-value");
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("queries and exports Phase 1.5B upgrade hints as sanitized no-execution metadata", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId, sessionId } = await createProjectForTest(
+        storageApp,
+        "A Phase 1.5B hint query/export route test idea"
+      );
+      const artifactId = "runtime_artifact_hint_export" as RuntimeArtifactId;
+      const hintFixture = phase15bHintsFixture();
+
+      await createPhase15bUpgradeHintRepository(storage.db).saveForArtifact({
+        projectId: projectId as ProjectId,
+        sessionId: sessionId as SessionId,
+        artifactId,
+        artifactKind: "BlockedActionArtifact",
+        hints: phase15bHintsFixture({
+          executionIntent: {
+            ...hintFixture.executionIntent,
+            targetSurface: "https://example.invalid/private-source?token=secret-token-value",
+            nonExecutingSummary: "Private customer Alpha raw idea payload"
+          },
+          expectedEvidence: {
+            ...hintFixture.expectedEvidence,
+            manualInspection: ["Customer Jane internal roadmap"],
+            expectedLogs: ["Bearer abcdefghijklmnop"]
+          },
+          sourceRefs: [
+            ...hintFixture.sourceRefs,
+            {
+              kind: "spec_section",
+              refId: "https://example.invalid/spec?token=secret-token-value",
+              label: "Private source URL"
+            },
+            {
+              kind: "spec_section",
+              refId: "spec_section_private_customer_alpha_raw_idea",
+              label: "Private source id"
+            }
+          ]
+        }),
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      const query = await storageApp.request(`/api/v1/projects/${projectId}/phase15b-upgrade-hints`, {
+        headers: authHeaders()
+      });
+      const queryBody = await jsonBody(query);
+      const queryJson = JSON.stringify(queryBody);
+      const queryData = queryBody.data as {
+        readonly records: readonly [
+          {
+            readonly hints: {
+              readonly sourceRefs: readonly Readonly<Record<string, unknown>>[];
+            };
+          }
+        ];
+      };
+
+      expect(query.status).toBe(200);
+      expect(queryBody.data).toMatchObject({
+        kind: "Phase15bUpgradeHintProjection",
+        projectionKind: "Phase15bUpgradeHintProjection",
+        projectId,
+        metadataLabel: "readiness_preview_handoff_metadata",
+        privatePayloadPolicy: "public_safe_metadata_only",
+        noExecution: {
+          semantic: "metadata_only_no_execution",
+          productActionPerformed: false,
+          delegationState: "not_active",
+          credentialValueState: "omitted"
+        },
+        refetchUrl: `/api/v1/projects/${projectId}/phase15b-upgrade-hints`,
+        exportUrl: `/api/v1/projects/${projectId}/phase15b-upgrade-hints/export`,
+        records: [
+          expect.objectContaining({
+            artifactId,
+            artifactKind: "BlockedActionArtifact",
+            metadataLabel: "readiness_preview_handoff_metadata",
+            sourceRefLabelPolicy: "labels_omitted_to_avoid_private_payload_export",
+            hints: expect.objectContaining({
+              approvalRequirements: [
+                expect.objectContaining({
+                  approvalType: "task_level_execution"
+                })
+              ],
+              sandboxRequirements: expect.objectContaining({
+                commandAllowlist: ["pnpm verify"]
+              }),
+              rollbackReference: expect.objectContaining({
+                baseRef: "main"
+              }),
+              expectedEvidence: expect.objectContaining({
+                tests: ["pnpm verify"]
+              }),
+              sourceRefs: expect.arrayContaining([
+                expect.objectContaining({ kind: "preview_artifact", refId: "runtime_artifact_hint_export" }),
+                expect.objectContaining({ kind: "blocked_action", refId: "runtime_artifact_hint_export:shell_command" }),
+                expect.objectContaining({ kind: "research_run", refId: "research_run_hint_export" }),
+                expect.objectContaining({ kind: "evidence_matrix", refId: "evidence_matrix_hint_export" }),
+                expect.objectContaining({ kind: "research_allowlist", refId: "research_allowlist_hint_export" }),
+                expect.objectContaining({ kind: "research_disclosure_log", refId: "research_disclosure_hint_export" }),
+                expect.objectContaining({ kind: "audit_log", refId: "audit_log_hint_export" })
+              ])
+            })
+          })
+        ]
+      });
+      expect(queryData.records[0].hints.sourceRefs.every((sourceRef) => !("label" in sourceRef))).toBe(true);
+      expect(queryData.records[0].hints.sourceRefs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "spec_section",
+            refId: expect.stringMatching(/^redacted_ref:spec_section:/)
+          })
+        ])
+      );
+      expect(queryJson).not.toContain("Private customer Alpha");
+      expect(queryJson).not.toContain("Customer Jane internal roadmap");
+      expect(queryJson).not.toContain("spec_section_private_customer_alpha_raw_idea");
+      expect(queryJson).not.toContain("token=secret-token-value");
+      expect(queryJson).not.toContain("Bearer abcdefghijklmnop");
+
+      const exported = await storageApp.request(`/api/v1/projects/${projectId}/phase15b-upgrade-hints/export`, {
+        headers: authHeaders()
+      });
+      const exportedBody = await jsonBody(exported);
+      const exportedJson = JSON.stringify(exportedBody);
+      const exportedData = exportedBody.data as {
+        readonly records: readonly [
+          {
+            readonly hints: {
+              readonly sourceRefs: readonly Readonly<Record<string, unknown>>[];
+            };
+          }
+        ];
+      };
+
+      expect(exported.status).toBe(200);
+      expect(exportedBody.data).toMatchObject({
+        kind: "Phase15bUpgradeHintExport",
+        format: "json",
+        exportPolicy: {
+          privatePayloadsIncluded: false,
+          credentialValuesIncluded: false,
+          sourceRefLabelsIncluded: false,
+          reason: "phase15b_exports_are_public_safe_readiness_metadata_only"
+        },
+        records: [
+          expect.objectContaining({
+            hints: expect.objectContaining({
+              expectedEvidence: expect.objectContaining({
+                smokeChecks: ["GET /phase15b-upgrade-hints/export"]
+              })
+            })
+          })
+        ]
+      });
+      expect(exportedData.records[0].hints.sourceRefs.every((sourceRef) => !("label" in sourceRef))).toBe(true);
+      expect(exportedJson).not.toContain("Private customer Alpha");
+      expect(exportedJson).not.toContain("Customer Jane internal roadmap");
+      expect(exportedJson).not.toContain("spec_section_private_customer_alpha_raw_idea");
+      expect(exportedJson).not.toContain("token=secret-token-value");
+      expect(exportedJson).not.toContain("Bearer abcdefghijklmnop");
     } finally {
       await storage.close();
     }

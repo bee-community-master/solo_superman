@@ -278,7 +278,8 @@ The new canonical types are implemented later in `packages/contracts`, DB schema
 - start automatic research run endpoint rejects missing/paused/revoked allowlist.
 - private/full/credentialed source request returns approval/manual handoff route, not automatic run.
 - cancel/retry endpoints enforce state transition and idempotency rules.
-- hint query/export endpoints return readiness metadata without enabling execution.
+- hint query/export endpoints return `Phase15bUpgradeHintProjection` and `Phase15bUpgradeHintExportDto` readiness metadata without enabling execution.
+- hint query/export endpoints label records as `readiness_preview_handoff_metadata`, preserve sourceRef `kind`/`refId` traceability, and omit sourceRef labels/private payloads/credential values unless a future explicit app policy approves a safe export path.
 - SSE/refetch hints exist for allowlist, research run, disclosure log, evidence gate, and hint export changes.
 
 ### DB/checklist

@@ -16,6 +16,8 @@ import type {
   ImportResearchResultRequest,
   LivingSpecProjection,
   PlanResearchRequest,
+  Phase15bUpgradeHintExportDto,
+  Phase15bUpgradeHintProjection,
   PrepareResearchDisclosureRequest,
   PrepareFounderBriefRequest,
   ProjectId,
@@ -144,6 +146,14 @@ function researchDisclosureCollectionPath(projectId: ProjectId) {
 
 function researchRunCollectionPath(projectId: ProjectId) {
   return `/api/v1/projects/${encodeURIComponent(projectId)}/research-runs`;
+}
+
+function phase15bUpgradeHintCollectionPath(projectId: ProjectId) {
+  return `/api/v1/projects/${encodeURIComponent(projectId)}/phase15b-upgrade-hints`;
+}
+
+function phase15bUpgradeHintExportPath(projectId: ProjectId) {
+  return `${phase15bUpgradeHintCollectionPath(projectId)}/export`;
 }
 
 function researchRunStatusPath(projectId: ProjectId, researchRunId: ResearchRunId) {
@@ -427,6 +437,14 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     getResearchRunStatus(projectId: ProjectId, researchRunId: ResearchRunId) {
       return getProjection<ResearchRunStatusDto>(researchRunStatusPath(projectId, researchRunId));
+    },
+
+    listPhase15bUpgradeHints(projectId: ProjectId) {
+      return getProjection<Phase15bUpgradeHintProjection>(phase15bUpgradeHintCollectionPath(projectId));
+    },
+
+    exportPhase15bUpgradeHints(projectId: ProjectId) {
+      return getProjection<Phase15bUpgradeHintExportDto>(phase15bUpgradeHintExportPath(projectId));
     },
 
     getSession(projectId: string, sessionId: SessionId) {

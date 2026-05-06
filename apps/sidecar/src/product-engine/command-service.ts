@@ -34,6 +34,8 @@ import {
   type FounderBriefProjection,
   type LivingSpecProjection,
   type PendingEffectSummaryDto,
+  type Phase15bUpgradeHintExportDto,
+  type Phase15bUpgradeHintProjection,
   type PrepareResearchDisclosureRequest,
   type ProjectApplicationCommandType,
   type ProductEngineCommand,
@@ -82,6 +84,7 @@ import {
   createProjectionRepository,
   createResearchAllowlistRepository,
   createResearchDisclosureLogRepository,
+  createPhase15bUpgradeHintRepository,
   createResearchRunRepository,
   createResearchRepository,
   createRuntimeRepository,
@@ -108,6 +111,7 @@ import {
   type CodexRuntimeAdapter,
   type CodexRuntimePreviewInput
 } from "../runtime";
+import { buildPhase15bHintExport, buildPhase15bHintProjection } from "./phase15b-hint-projection";
 
 export class ProductEngineServiceError extends Error {
   readonly code: ApiErrorCode;
@@ -1798,6 +1802,38 @@ export function createProductEngineCommandService(
     );
   }
 
+  async function readPhase15bHintCollection(projectIdValue: ProjectId) {
+    const repository = createPhase15bUpgradeHintRepository(storage.db);
+
+    return {
+      records: await repository.listForProject(projectIdValue),
+      version: await repository.collectionVersion(projectIdValue),
+      generatedAt: new Date().toISOString()
+    };
+  }
+
+  async function listPhase15bHintProjection(projectIdValue: ProjectId) {
+    const collection = await readPhase15bHintCollection(projectIdValue);
+
+    return buildPhase15bHintProjection(
+      projectIdValue,
+      collection.records,
+      collection.generatedAt,
+      collection.version
+    );
+  }
+
+  async function exportPhase15bHintProjection(projectIdValue: ProjectId) {
+    const collection = await readPhase15bHintCollection(projectIdValue);
+
+    return buildPhase15bHintExport(
+      projectIdValue,
+      collection.records,
+      collection.generatedAt,
+      collection.version
+    );
+  }
+
   async function findProjectResearchRun(projectIdValue: ProjectId, researchRunIdValue: ResearchRunId) {
     const run = await createResearchRunRepository(storage.db).getById(projectIdValue, researchRunIdValue);
 
@@ -2854,6 +2890,18 @@ export function createProductEngineCommandService(
         selectedRun: run,
         statusUrl: researchRunStatusUrl(input.projectId, input.researchRunId)
       };
+    },
+
+    async listPhase15bUpgradeHints(projectIdValue: ProjectId): Promise<Phase15bUpgradeHintProjection> {
+      await requireProject(projectIdValue);
+
+      return listPhase15bHintProjection(projectIdValue);
+    },
+
+    async exportPhase15bUpgradeHints(projectIdValue: ProjectId): Promise<Phase15bUpgradeHintExportDto> {
+      await requireProject(projectIdValue);
+
+      return exportPhase15bHintProjection(projectIdValue);
     },
 
     async startResearchRun(

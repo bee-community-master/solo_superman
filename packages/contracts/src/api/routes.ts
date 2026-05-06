@@ -151,6 +151,22 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "listPhase15bUpgradeHints",
+    clientName: "listPhase15bUpgradeHints",
+    method: "GET",
+    path: "/api/v1/projects/:projectId/phase15b-upgrade-hints",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
+    routeId: "exportPhase15bUpgradeHints",
+    clientName: "exportPhase15bUpgradeHints",
+    method: "GET",
+    path: "/api/v1/projects/:projectId/phase15b-upgrade-hints/export",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
     routeId: "startOrResumeSession",
     clientName: "startOrResumeSession",
     method: "POST",
@@ -528,4 +544,14 @@ export const PHASE15A_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...PHASE15A_PR07_RESEARCH_QUEUE_ROUTE_IDS
 ] as const satisfies readonly ApiRouteId[];
 
-export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE15A_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS;
+export const PHASE15B_PR10_HINT_ROUTE_IDS = [
+  "listPhase15bUpgradeHints",
+  "exportPhase15bUpgradeHints"
+] as const satisfies readonly ApiRouteId[];
+
+export const PHASE15B_PR10_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...PHASE15A_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  ...PHASE15B_PR10_HINT_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE15B_PR10_MOUNTED_PRODUCT_API_ROUTE_IDS;

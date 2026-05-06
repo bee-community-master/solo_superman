@@ -5,4 +5,5 @@ export * from "./requests";
 export * from "./research-allowlist-governance";
 export * from "./research-disclosure";
 export * from "./research-run-control";
+export * from "./phase15b-hint-export";
 export * from "./routes";

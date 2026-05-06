@@ -4,6 +4,7 @@ import {
   PHASE15A_PR02_ALLOWLIST_ROUTE_IDS,
   PHASE15A_PR03_DISCLOSURE_ROUTE_IDS,
   PHASE15A_PR05_RESEARCH_RUN_ROUTE_IDS,
+  PHASE15B_PR10_HINT_ROUTE_IDS,
   type ApiRoute
 } from "@solo-superman/contracts";
 
@@ -13,11 +14,13 @@ type DesktopRouteClientImplementation =
   | "mounted_pr_09"
   | "mounted_phase_1_5a_pr_02"
   | "mounted_phase_1_5a_pr_03"
-  | "mounted_phase_1_5a_pr_05";
+  | "mounted_phase_1_5a_pr_05"
+  | "mounted_phase_1_5b_pr_10";
 const CURRENT_MOUNTED_PRODUCT_API_ROUTE_ID_SET = new Set<string>(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS);
 const PHASE15A_PR02_ALLOWLIST_ROUTE_ID_SET = new Set<string>(PHASE15A_PR02_ALLOWLIST_ROUTE_IDS);
 const PHASE15A_PR03_DISCLOSURE_ROUTE_ID_SET = new Set<string>(PHASE15A_PR03_DISCLOSURE_ROUTE_IDS);
 const PHASE15A_PR05_RESEARCH_RUN_ROUTE_ID_SET = new Set<string>(PHASE15A_PR05_RESEARCH_RUN_ROUTE_IDS);
+const PHASE15B_PR10_HINT_ROUTE_ID_SET = new Set<string>(PHASE15B_PR10_HINT_ROUTE_IDS);
 
 export interface DesktopRouteClientPlaceholder {
   readonly clientName: ProductApiRoute["clientName"];
@@ -42,6 +45,10 @@ function implementationStatus(route: ProductApiRoute): DesktopRouteClientImpleme
 
   if (PHASE15A_PR05_RESEARCH_RUN_ROUTE_ID_SET.has(route.routeId)) {
     return "mounted_phase_1_5a_pr_05";
+  }
+
+  if (PHASE15B_PR10_HINT_ROUTE_ID_SET.has(route.routeId)) {
+    return "mounted_phase_1_5b_pr_10";
   }
 
   return PHASE15A_PR02_ALLOWLIST_ROUTE_ID_SET.has(route.routeId)

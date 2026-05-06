@@ -17,6 +17,7 @@ export type ProjectionKind =
   | "ResearchAllowlistProjection"
   | "ResearchDisclosureLogProjection"
   | "ResearchRunProjection"
+  | "Phase15bUpgradeHintProjection"
   | "ResearchEvidenceProjection"
   | "ConfidenceCompletionProjection"
   | "RuntimeActivityProjection"

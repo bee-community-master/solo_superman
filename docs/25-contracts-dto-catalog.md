@@ -629,7 +629,7 @@ Example accepted_with_projection response:
 
 | Field | Required | Type | Rule |
 | --- | --- | --- | --- |
-| `projectionKind` | yes | enum | one of 8 UI projection kinds |
+| `projectionKind` | yes | enum | one of the UI/query projection kinds |
 | `version` | no | `ProjectionVersion` | latest known version if available |
 | `refetchUrl` | yes | string | relative `/api/v1/...` URL |
 | `affectedIds` | yes | string[] | can be empty |
@@ -691,6 +691,7 @@ Phase 1.5A PR-01 implementation note:
 | `ResearchAllowlistProjection` | `projections/research-allowlist.ts` | research allowlist governance/readiness |
 | `ResearchDisclosureLogProjection` | `projections/research-disclosure-log.ts` | Activity Feed / disclosure audit |
 | `ResearchRunProjection` | `projections/research-run.ts` | BackgroundResearchRun lifecycle/provider reference |
+| `Phase15bUpgradeHintProjection` | `api/phase15b-hint-export.ts` | Phase 1.5B readiness hint query/export |
 | `ResearchEvidenceProjection` | `projections/research-evidence.ts` | Research Results/Evidence Matrix |
 | `ConfidenceCompletionProjection` | `projections/confidence-completion.ts` | progress/radar/risk cards |
 | `RuntimeActivityProjection` | `projections/runtime-activity.ts` | background task board/activity feed |
@@ -706,6 +707,7 @@ Phase 1.5A PR-01 implementation note:
 | `ResearchAllowlistProjection` | status, connector ids, source categories, context mode, rate/budget policy including per-session run cap, staleness/disclosure policies, pause/revoke timestamps |
 | `ResearchDisclosureLogProjection` | connector/source category, objective summary, exact public-safe summary sent/prepared, source refs, automatic-vs-manual handoff status |
 | `ResearchRunProjection` | status state machine, provider-neutral reference, attempt/idempotency key, source category, disclosure log ref, quality gate status, terminal reason |
+| `Phase15bUpgradeHintProjection` | readiness/preview/handoff metadata records, sanitized source refs, private payload policy, no-execution semantics, export URL |
 | `ResearchEvidenceProjection` | research tasks, manual handoff prompts, evidence matrix summary, decision evidence packs, pro/con balance, review cards |
 | `ConfidenceCompletionProjection` | five-axis scores, radar data, composite completeness, top risk cards, score history |
 | `RuntimeActivityProjection` | effect tasks, Codex runtime status, runtime artifacts, retry/blocked cards, activity feed |
@@ -756,6 +758,8 @@ Example DecisionQueueProjection:
 | `BlockedActionType` | 24번 blocked action taxonomy | Phase 1 blocked, Phase 1.5B hint only |
 | `CodexOutputEnvelopeRef` | 24번 output envelope | reference type for runtime artifacts, not raw Codex client type |
 | `Phase15bUpgradeHints` | 30번 Phase 1.5B readiness contract | structured approval/sandbox/rollback/evidence/risk/sourceRef metadata; not execution permission |
+| `Phase15bUpgradeHintProjection` | 30번 Phase 1.5B readiness query/export contract | project-scoped sanitized query view; labels hints as readiness/preview/handoff metadata and never as execution state |
+| `Phase15bUpgradeHintExportDto` | 30번 Phase 1.5B readiness query/export contract | JSON export DTO with approval/sandbox/rollback/evidence/risk/source ids and private payload/credential values omitted |
 
 Rules:
 
@@ -767,8 +771,9 @@ Rules:
 
 Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`를 canonical source로 사용한다.
 
-- `ResearchAllowlistProjection` is implemented first for Phase 1.5A PR-01; `ResearchDisclosureLogProjection` is implemented in Phase 1.5A PR-03 before provider execution; `ResearchRunProjection` is implemented in Phase 1.5A PR-04 for lifecycle/provider-reference storage; Phase 1.5A PR-05 adds `StartResearchRunRequest`, `CancelResearchRunRequest`, `RetryResearchRunRequest`, `ResearchRunControlProjection`, `ResearchRunControlResult`, and `ResearchRunStatusDto` for run control/status/refetch recovery; Phase 1.5A PR-06 adds quality-gate checks and `DecisionEvidencePackProjection` records without auto-updating SpecVersion; Phase 1.5A PR-07 adds Research-updated Queue card types/outcomes and `ResolveResearchQueueCardRequest`; Phase 1.5B PR-09 adds structured `Phase15bUpgradeHints` contracts and local hint records.
+- `ResearchAllowlistProjection` is implemented first for Phase 1.5A PR-01; `ResearchDisclosureLogProjection` is implemented in Phase 1.5A PR-03 before provider execution; `ResearchRunProjection` is implemented in Phase 1.5A PR-04 for lifecycle/provider-reference storage; Phase 1.5A PR-05 adds `StartResearchRunRequest`, `CancelResearchRunRequest`, `RetryResearchRunRequest`, `ResearchRunControlProjection`, `ResearchRunControlResult`, and `ResearchRunStatusDto` for run control/status/refetch recovery; Phase 1.5A PR-06 adds quality-gate checks and `DecisionEvidencePackProjection` records without auto-updating SpecVersion; Phase 1.5A PR-07 adds Research-updated Queue card types/outcomes and `ResolveResearchQueueCardRequest`; Phase 1.5B PR-09 adds structured `Phase15bUpgradeHints` contracts and local hint records; Phase 1.5B PR-10 adds `Phase15bUpgradeHintProjection` and `Phase15bUpgradeHintExportDto` for metadata-only hint query/export.
 - Phase15bUpgradeHints must expose approval requirements, sandbox/workspace requirements, rollback/reference plan, expected evidence, risk normalization, and sourceRefs.
+- Phase15bUpgradeHint query/export DTOs must omit private source payloads, credential values, and sourceRef labels by default while preserving sourceRef kind/refId traceability.
 - DTOs must preserve no-execution semantics; no field should imply active delegation or executed side effects in Phase 1.5B.
 - `packages/contracts` still must not import runtime clients, Hono, Drizzle, React, or Tauri modules.
 

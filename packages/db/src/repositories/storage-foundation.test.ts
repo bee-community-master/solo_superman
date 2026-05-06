@@ -1272,6 +1272,49 @@ describe("PR-03 local libSQL storage foundation", () => {
     }
   });
 
+  it("bumps source and destination project versions when Phase15b hints move projects", async () => {
+    const { storage } = await createMigratedStorage();
+
+    try {
+      const repository = createPhase15bUpgradeHintRepository(storage.db);
+      const sourceProjectId = "proj_phase15b_hint_source" as ProjectId;
+      const destinationProjectId = "proj_phase15b_hint_destination" as ProjectId;
+      const sourceSessionId = "sess_phase15b_hint_source" as SessionId;
+      const destinationSessionId = "sess_phase15b_hint_destination" as SessionId;
+      const artifactId = "runtime_artifact_project_move_hint" as RuntimeArtifactId;
+
+      await repository.saveForArtifact({
+        projectId: sourceProjectId,
+        sessionId: sourceSessionId,
+        artifactId,
+        artifactKind: "BlockedActionArtifact",
+        hints: phase15bHintsFixture(),
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      await expect(repository.collectionVersion(sourceProjectId)).resolves.toBe(1 as ProjectionVersion);
+      await expect(repository.collectionVersion(destinationProjectId)).resolves.toBe(0 as ProjectionVersion);
+
+      await repository.saveForArtifact({
+        projectId: destinationProjectId,
+        sessionId: destinationSessionId,
+        artifactId,
+        artifactKind: "BlockedActionArtifact",
+        hints: phase15bHintsFixture({
+          createdAt: "2026-05-06T00:02:00.000Z"
+        }),
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      await expect(repository.collectionVersion(sourceProjectId)).resolves.toBe(2 as ProjectionVersion);
+      await expect(repository.collectionVersion(destinationProjectId)).resolves.toBe(1 as ProjectionVersion);
+      await expect(repository.listForProject(sourceProjectId)).resolves.toEqual([]);
+      await expect(repository.listForProject(destinationProjectId)).resolves.toMatchObject([{ artifactId }]);
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("stores Phase15bUpgradeHints as dedicated readiness records without broadening artifact kinds", async () => {
     const { storage } = await createMigratedStorage();
 
@@ -1310,6 +1353,7 @@ describe("PR-03 local libSQL storage foundation", () => {
         schemaVersion: CONTRACT_SCHEMA_VERSION
       });
 
+      await expect(repository.collectionVersion(projectId)).resolves.toBe(2 as ProjectionVersion);
       await expect(repository.listForSession(sessionId)).resolves.toMatchObject([
         { artifactId: "runtime_artifact_earlier_hint" },
         { artifactId }
@@ -1321,6 +1365,20 @@ describe("PR-03 local libSQL storage foundation", () => {
           sourceRefs: expect.arrayContaining([expect.objectContaining({ kind: "blocked_action" })])
         }
       });
+      await repository.saveForArtifact({
+        projectId,
+        sessionId,
+        artifactId,
+        artifactKind: "BlockedActionArtifact",
+        hints: phase15bHintsFixture({
+          createdAt: "2026-05-06T00:01:00.000Z"
+        }),
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+      await expect(repository.collectionVersion(projectId)).resolves.toBe(3 as ProjectionVersion);
+      await repository.deleteForArtifact("runtime_artifact_earlier_hint" as RuntimeArtifactId);
+      await expect(repository.collectionVersion(projectId)).resolves.toBe(4 as ProjectionVersion);
+      await expect(repository.listForSession(sessionId)).resolves.toMatchObject([{ artifactId }]);
       await expect(
         repository.saveForArtifact({
           projectId,
