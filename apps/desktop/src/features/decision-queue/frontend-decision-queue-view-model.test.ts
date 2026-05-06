@@ -8,6 +8,7 @@ import type {
   DecisionQueueProjection,
   EffectTaskId,
   EventId,
+  Phase15bUpgradeHintProjection,
   ProjectId,
   ProjectionVersion,
   QueueItemId,
@@ -21,6 +22,7 @@ import type {
   ResearchRunControlProjection,
   ResearchRunId,
   ResearchTaskId,
+  RuntimeArtifactId,
   SchemaVersion,
   SessionId,
   StatusEndpointDto
@@ -29,10 +31,12 @@ import {
   pendingEffectSummary,
   type Phase15aOperationsInput,
   phase15aOperationsViewModel,
+  phase15bReadinessViewModel,
   queueSections,
   runtimeActivityProjectionFromStatuses
 } from "./decision-queue-view-model";
 import { Phase15aOperationsPanel } from "./Phase15aOperationsPanel";
+import { Phase15bReadinessPanel } from "./Phase15bReadinessPanel";
 import { buildDesktopResearchRunRequest } from "./phase15a-research-run-request";
 
 const projectId = "proj_phase15a_ui" as ProjectId;
@@ -257,6 +261,110 @@ function phase15aOperations(overrides: Partial<Phase15aOperationsInput> = {}) {
   });
 }
 
+function phase15bHintProjection(): Phase15bUpgradeHintProjection {
+  return {
+    kind: "Phase15bUpgradeHintProjection",
+    projectionKind: "Phase15bUpgradeHintProjection",
+    projectId,
+    version: 4 as ProjectionVersion,
+    generatedAt: "2026-05-06T00:02:00.000Z",
+    stale: false,
+    refetchUrl: `/api/v1/projects/${projectId}/phase15b-upgrade-hints`,
+    exportUrl: `/api/v1/projects/${projectId}/phase15b-upgrade-hints/export`,
+    pendingEffectSummary: {
+      totalPending: 0,
+      byType: {},
+      visibleLabel: "No execution effects are pending."
+    },
+    metadataLabel: "readiness_preview_handoff_metadata",
+    privatePayloadPolicy: "public_safe_metadata_only",
+    noExecution: {
+      semantic: "metadata_only_no_execution",
+      productActionPerformed: false,
+      delegationState: "not_active",
+      credentialValueState: "omitted"
+    },
+    records: [
+      {
+        hintId: "phase15b_hint_ui",
+        projectId,
+        sessionId: "sess_phase15a_ui" as SessionId,
+        artifactId: "runtime_artifact_phase15b_ui" as RuntimeArtifactId,
+        artifactKind: "BlockedActionArtifact",
+        metadataLabel: "readiness_preview_handoff_metadata",
+        privatePayloadPolicy: "public_safe_metadata_only",
+        noExecution: {
+          semantic: "metadata_only_no_execution",
+          productActionPerformed: false,
+          delegationState: "not_active",
+          credentialValueState: "omitted"
+        },
+        sourceRefLabelPolicy: "labels_omitted_to_avoid_private_payload_export",
+        hints: {
+          executionIntent: {
+            candidateActionType: "shell_command",
+            targetSurface: "Planning handoff checklist",
+            nonExecutingSummary: "Preview the command prerequisites without running them."
+          },
+          approvalRequirements: [
+            {
+              approvalType: "task_level_execution",
+              reason: "A later phase must ask before a shell command can run.",
+              scope: "pnpm verify in an isolated workspace",
+              requiredActor: "user",
+              reconfirmRule: "Ask again for every new command target."
+            }
+          ],
+          sandboxRequirements: {
+            isolatedWorktreeRequired: true,
+            browserSandboxRequired: false,
+            networkMode: "offline",
+            commandAllowlist: ["pnpm verify"],
+            secretGrantBoundary: "No secret values are needed for this readiness check.",
+            environmentPolicy: "local-only test process",
+            logCaptureRequired: true
+          },
+          rollbackReference: {
+            baseRef: "origin/main",
+            diffRef: "codex/issue-37-readiness-ui-handoff-copy",
+            rollbackNote: "Reset the feature branch to the base ref if the handoff checklist is withdrawn.",
+            reversible: true,
+            cleanupExpectation: "Delete the feature branch after merge or cancellation."
+          },
+          expectedEvidence: {
+            tests: ["pnpm verify"],
+            smokeChecks: ["pnpm smoke:e2e"],
+            artifactPaths: ["apps/desktop/src/features/decision-queue/Phase15bReadinessPanel.tsx"],
+            manualInspection: ["Confirm labels say readiness, preview, blocked, or handoff."],
+            expectedLogs: ["readiness metadata fetched"]
+          },
+          riskNormalization: {
+            riskLevel: "medium",
+            blockedActionType: "shell_command",
+            blockReason: "Phase 1.5B may describe shell-command needs but cannot run commands as product behavior.",
+            userVisibleAction: "Review the handoff checklist before a later phase asks for approval.",
+            escalationTarget: "Phase 3 safe execution policy"
+          },
+          sourceRefs: [
+            {
+              kind: "blocked_action",
+              refId: "runtime_artifact_phase15b_ui"
+            },
+            {
+              kind: "research_run",
+              refId: "research_run_phase15a_ui"
+            }
+          ],
+          createdAt: "2026-05-06T00:02:00.000Z",
+          schemaVersion: "solo-superman.phase15b-hints.v1" as SchemaVersion
+        },
+        createdAt: "2026-05-06T00:02:00.000Z",
+        schemaVersion: "solo-superman.phase15b-hints.v1" as SchemaVersion
+      }
+    ]
+  };
+}
+
 describe("Decision Queue view model", () => {
   it("keeps active batch items separate from queued-next items", () => {
     const queue: DecisionQueueProjection = {
@@ -457,6 +565,50 @@ describe("Decision Queue view model", () => {
     });
   });
 
+  it("summarizes Phase 1.5B readiness hints without execution-result copy", () => {
+    const readiness = phase15bReadinessViewModel(phase15bHintProjection());
+    const [record] = readiness.records;
+
+    expect(readiness).toMatchObject({
+      status: "metadata_visible",
+      statusLabel: "readiness metadata visible",
+      label: expect.stringContaining("readiness/preview/handoff"),
+      noExecutionLabel: expect.stringContaining("product action not performed"),
+      exportLabel: expect.stringContaining("/phase15b-upgrade-hints/export"),
+      emptyLabel: expect.stringContaining("No readiness/preview/handoff metadata records")
+    });
+    expect(record).toMatchObject({
+      surfaceLabel: expect.stringContaining("Planning handoff checklist"),
+      approvalLabel: expect.stringContaining("task level execution"),
+      sandboxLabel: expect.stringContaining("isolated worktree required"),
+      rollbackLabel: expect.stringContaining("origin/main"),
+      evidenceLabel: expect.stringContaining("pnpm verify"),
+      riskLabel: expect.stringContaining("Phase 1.5B"),
+      sourceRefLabel: expect.stringContaining("blocked action:runtime_artifact_phase15b_ui")
+    });
+
+    const renderedCopy = [
+      readiness.label,
+      readiness.noExecutionLabel,
+      readiness.exportLabel,
+      ...readiness.records.flatMap((item) => [
+        item.surfaceLabel,
+        item.statusLabel,
+        item.previewSummary,
+        item.approvalLabel,
+        item.sandboxLabel,
+        item.rollbackLabel,
+        item.evidenceLabel,
+        item.riskLabel,
+        item.sourceRefLabel
+      ])
+    ].join(" ");
+
+    expect(renderedCopy).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
+    expect(renderedCopy).not.toContain("metadata_only_no_execution");
+    expect(renderedCopy).not.toContain("readiness_preview_handoff_metadata");
+  });
+
   it("builds read-only run requests from the selected research task instead of the first task", () => {
     const research = researchProjection(true);
     const [firstTask] = research.tasks;
@@ -517,5 +669,52 @@ describe("Decision Queue view model", () => {
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Revoke</button>");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Refresh status</button>");
     expect(markup).toContain("quality gate: pending_review");
+  });
+
+  it("renders Phase 1.5B readiness metadata on a non-executing handoff panel", () => {
+    const markup = renderToStaticMarkup(
+      createElement(Phase15bReadinessPanel, {
+        hasActiveProject: true,
+        isBusy: false,
+        readiness: phase15bReadinessViewModel(phase15bHintProjection()),
+        onRefreshReadiness: () => undefined
+      })
+    );
+
+    expect(markup).toContain("1.5B Readiness Handoff");
+    expect(markup).toContain("readiness metadata visible");
+    expect(markup).toContain("readiness preview handoff");
+    expect(markup).toContain("approvals:");
+    expect(markup).toContain("sandbox:");
+    expect(markup).toContain("rollback:");
+    expect(markup).toContain("expected evidence:");
+    expect(markup).toContain("blocked risk:");
+    expect(markup).toContain("source refs:");
+    expect(markup).toContain("product action not performed");
+    expect(markup).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
+    expect(markup).not.toContain("metadata_visible");
+    expect(markup).not.toContain("metadata_only_no_execution");
+    expect(markup).not.toContain("readiness_preview_handoff_metadata");
+  });
+
+  it("distinguishes unloaded readiness metadata from loaded empty records", () => {
+    expect(phase15bReadinessViewModel(null)).toMatchObject({
+      status: "empty",
+      statusLabel: "readiness handoff pending",
+      emptyLabel: "No readiness metadata loaded yet.",
+      exportLabel: "Planning handoff export metadata is not loaded yet."
+    });
+
+    expect(
+      phase15bReadinessViewModel({
+        ...phase15bHintProjection(),
+        records: []
+      })
+    ).toMatchObject({
+      status: "empty",
+      statusLabel: "readiness handoff pending",
+      emptyLabel: "No readiness/preview/handoff metadata records are available for this project yet.",
+      exportLabel: expect.stringContaining("/phase15b-upgrade-hints/export")
+    });
   });
 });

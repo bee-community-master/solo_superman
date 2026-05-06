@@ -7,6 +7,7 @@ import {
   type DecisionQueueProjection,
   type FounderBriefProjection,
   type LivingSpecProjection,
+  type Phase15bUpgradeHintProjection,
   type ProjectId,
   type QueueItemId,
   type ResearchAllowlistGovernanceProjection,
@@ -22,6 +23,7 @@ import {
   type StatusEndpointDto
 } from "@solo-superman/contracts";
 import { Phase15aOperationsPanel, type ResearchOperationsState } from "./Phase15aOperationsPanel";
+import { Phase15bReadinessPanel } from "./Phase15bReadinessPanel";
 import {
   commandResponseVersion,
   optionalCommandProjection,
@@ -37,6 +39,7 @@ import {
 import {
   confidencePlaceholder,
   phase15aOperationsViewModel,
+  phase15bReadinessViewModel,
   pendingEffectSummary,
   queueSections,
   runtimeActivityProjectionFromStatuses
@@ -128,6 +131,7 @@ export function DecisionQueueShell() {
   const [researchDrafts, setResearchDrafts] = useState<Record<string, string>>({});
   const [projections, setProjections] = useState<ProjectionState>(emptyProjectionState);
   const [researchOperations, setResearchOperations] = useState<ResearchOperationsState>(emptyResearchOperationsState);
+  const [phase15bReadiness, setPhase15bReadiness] = useState<Phase15bUpgradeHintProjection | null>(null);
   const [runtimeStatus, setRuntimeStatus] = useState<CodexRuntimeStatusDto | null>(null);
   const [commandLog, setCommandLog] = useState<readonly CommandLogEntry[]>([]);
   const [statuses, setStatuses] = useState<readonly StatusEndpointDto[]>([]);
@@ -181,6 +185,17 @@ export function DecisionQueueShell() {
     [client]
   );
 
+  const refreshPhase15bReadiness = useCallback(
+    async (projectId: ProjectId) => {
+      if (!client) {
+        return;
+      }
+
+      setPhase15bReadiness(await client.listPhase15bUpgradeHints(projectId));
+    },
+    [client]
+  );
+
   const refreshProjections = useCallback(
     async (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"]) => {
       if (!client) {
@@ -206,9 +221,9 @@ export function DecisionQueueShell() {
         confidence,
         founderBrief
       });
-      await refreshResearchOperations(projectId);
+      await Promise.all([refreshResearchOperations(projectId), refreshPhase15bReadiness(projectId)]);
     },
-    [client, refreshResearchOperations]
+    [client, refreshPhase15bReadiness, refreshResearchOperations]
   );
 
   const recordCommandStatus = useCallback((status: StatusEndpointDto) => {
@@ -295,6 +310,7 @@ export function DecisionQueueShell() {
       setStatuses([]);
       setProjections(emptyProjectionState());
       setResearchOperations(emptyResearchOperationsState());
+      setPhase15bReadiness(null);
 
       try {
         const start = await appendCommand(
@@ -883,6 +899,10 @@ export function DecisionQueueShell() {
       }),
     [projections.research, researchOperations]
   );
+  const phase15bReadinessView = useMemo(
+    () => phase15bReadinessViewModel(phase15bReadiness),
+    [phase15bReadiness]
+  );
   const canStart = connectionState.status === "connected" && Boolean(client) && !isBusy;
   const hasActiveResearchAllowlist =
     researchOperations.allowlists?.allowlists.some((allowlist) => allowlist.status === "active") ?? false;
@@ -1129,6 +1149,17 @@ export function DecisionQueueShell() {
             onRefreshResearchRunStatus={(researchRunId) => void refreshResearchRunStatus(researchRunId)}
             onCancelResearchRun={(researchRunId) => void cancelResearchRun(researchRunId)}
             onRetryResearchRun={(researchRunId) => void retryResearchRun(researchRunId)}
+          />
+
+          <Phase15bReadinessPanel
+            hasActiveProject={Boolean(projections.session)}
+            isBusy={isBusy}
+            readiness={phase15bReadinessView}
+            onRefreshReadiness={() => {
+              if (projections.session) {
+                void refreshPhase15bReadiness(projections.session.projectId);
+              }
+            }}
           />
 
           <section className="panel">

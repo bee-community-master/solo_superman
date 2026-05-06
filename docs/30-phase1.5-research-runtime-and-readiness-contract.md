@@ -296,6 +296,7 @@ The new canonical types are implemented later in `packages/contracts`, DB schema
 - Activity Feed shows automatic research disclosure entries.
 - Research cards show run status, retry/cancel actions, stale/failure reasons, and quality gate result.
 - Runtime/Planning cards show 1.5B hints as readiness metadata, not execution results.
+- Phase 1.5B PR-11 adds a desktop readiness handoff panel that reads `Phase15bUpgradeHintProjection` and exposes required approvals, sandbox, rollback, expected evidence, risk reason, and source refs using readiness/preview/blocked/handoff copy only.
 
 ## Acceptance scenarios
 

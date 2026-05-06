@@ -2,6 +2,8 @@ import type {
   ConfidenceCompletionProjection,
   DecisionQueueProjection,
   PendingEffectSummaryDto,
+  Phase15bUpgradeHintApiRecord,
+  Phase15bUpgradeHintProjection,
   ProjectionVersion,
   ResearchAllowlistGovernanceProjection,
   ResearchDisclosureLogProjection,
@@ -44,6 +46,33 @@ export interface Phase15aOperationsViewModel {
   };
 }
 
+export type Phase15bReadinessStatus = "metadata_visible" | "empty";
+
+export interface Phase15bReadinessRecordViewModel {
+  readonly hintId: string;
+  readonly surfaceLabel: string;
+  readonly statusLabel: string;
+  readonly previewSummary: string;
+  readonly approvalLabel: string;
+  readonly sandboxLabel: string;
+  readonly rollbackLabel: string;
+  readonly evidenceLabel: string;
+  readonly riskLabel: string;
+  readonly sourceRefLabel: string;
+}
+
+export interface Phase15bReadinessViewModel {
+  readonly status: Phase15bReadinessStatus;
+  readonly statusLabel: string;
+  readonly label: string;
+  readonly noExecutionLabel: string;
+  readonly exportLabel: string;
+  readonly emptyLabel: string;
+  readonly records: readonly Phase15bReadinessRecordViewModel[];
+}
+
+const READINESS_DETAIL_SEPARATOR = " · ";
+
 export function queueSections(queue: DecisionQueueProjection | null): readonly QueueSectionViewModel[] {
   return [
     {
@@ -71,6 +100,115 @@ export function queueSections(queue: DecisionQueueProjection | null): readonly Q
       items: queue?.deferred ?? []
     }
   ];
+}
+
+function commaList(items: readonly string[], fallback: string) {
+  return items.length ? items.join(", ") : fallback;
+}
+
+function readableToken(value: string) {
+  return value.replace(/[_-]+/gu, " ");
+}
+
+function readableArtifactKind(value: string) {
+  return readableToken(value.replace(/([a-z])([A-Z])/gu, "$1 $2"));
+}
+
+function readinessDetails(parts: readonly (string | null | undefined)[]) {
+  return parts.filter((part): part is string => Boolean(part)).join(READINESS_DETAIL_SEPARATOR);
+}
+
+function readinessRecordViewModel(record: Phase15bUpgradeHintApiRecord): Phase15bReadinessRecordViewModel {
+  const { hints } = record;
+  const approvalLabel = readinessDetails(
+    hints.approvalRequirements.map((requirement) => {
+      const approvalType = readableToken(requirement.approvalType);
+      const requiredActor = readableToken(requirement.requiredActor);
+
+      return `${approvalType} by ${requiredActor}: ${requirement.reason} (${requirement.scope}; ${requirement.reconfirmRule})`;
+    })
+  );
+  const sandboxLabel = readinessDetails([
+    hints.sandboxRequirements.isolatedWorktreeRequired ? "isolated worktree required" : "isolated worktree not required",
+    hints.sandboxRequirements.browserSandboxRequired ? "browser sandbox required" : "browser sandbox not required",
+    `network ${readableToken(hints.sandboxRequirements.networkMode)}`,
+    `commands ${commaList(hints.sandboxRequirements.commandAllowlist, "none")}`,
+    `secrets ${hints.sandboxRequirements.secretGrantBoundary}`,
+    hints.sandboxRequirements.logCaptureRequired ? "log capture required" : "log capture not required",
+    hints.sandboxRequirements.environmentPolicy
+  ]);
+  const rollbackLabel = readinessDetails([
+    `base ${hints.rollbackReference.baseRef}`,
+    hints.rollbackReference.diffRef ? `diff ${hints.rollbackReference.diffRef}` : null,
+    hints.rollbackReference.reversible ? "reversible" : "not reversible",
+    hints.rollbackReference.rollbackNote,
+    `cleanup ${hints.rollbackReference.cleanupExpectation}`
+  ]);
+  const evidenceLabel = readinessDetails([
+    `tests ${commaList(hints.expectedEvidence.tests, "none")}`,
+    `smoke ${commaList(hints.expectedEvidence.smokeChecks, "none")}`,
+    `artifacts ${commaList(hints.expectedEvidence.artifactPaths, "none")}`,
+    `manual ${commaList(hints.expectedEvidence.manualInspection, "none")}`,
+    `logs ${commaList(hints.expectedEvidence.expectedLogs, "none")}`
+  ]);
+  const riskLabel = readinessDetails([
+    `${readableToken(hints.riskNormalization.blockedActionType)} risk ${hints.riskNormalization.riskLevel}`,
+    hints.riskNormalization.blockReason,
+    `user handoff ${hints.riskNormalization.userVisibleAction}`,
+    `escalate ${hints.riskNormalization.escalationTarget}`
+  ]);
+  const statusLabel = readinessDetails([
+    readableArtifactKind(record.artifactKind),
+    readableToken(record.metadataLabel),
+    "metadata only; product action not performed",
+    `delegation ${readableToken(record.noExecution.delegationState)}`
+  ]);
+
+  return {
+    hintId: record.hintId,
+    surfaceLabel: `${readableToken(hints.executionIntent.candidateActionType)} readiness for ${hints.executionIntent.targetSurface}`,
+    statusLabel,
+    previewSummary: hints.executionIntent.nonExecutingSummary,
+    approvalLabel,
+    sandboxLabel,
+    rollbackLabel,
+    evidenceLabel,
+    riskLabel,
+    sourceRefLabel: commaList(
+      hints.sourceRefs.map((sourceRef) => `${readableToken(sourceRef.kind)}:${sourceRef.refId}`),
+      "no source refs"
+    )
+  };
+}
+
+export function phase15bReadinessViewModel(
+  projection: Phase15bUpgradeHintProjection | null
+): Phase15bReadinessViewModel {
+  const records = projection?.records.map(readinessRecordViewModel) ?? [];
+  const noExecutionLabel = projection
+    ? [
+        readableToken(projection.metadataLabel),
+        "product action not performed",
+        `delegation ${readableToken(projection.noExecution.delegationState)}`,
+        `credential values ${readableToken(projection.noExecution.credentialValueState)}`
+      ].join("; ") + "."
+    : "Metadata only; product action not performed; delegation not active; credential values omitted.";
+
+  return {
+    status: records.length ? "metadata_visible" : "empty",
+    statusLabel: records.length ? "readiness metadata visible" : "readiness handoff pending",
+    label: records.length
+      ? `${records.length} readiness/preview/handoff metadata record(s) visible for Planning and BlockedAction review.`
+      : "No Phase 1.5B readiness/preview/handoff metadata is visible yet.",
+    noExecutionLabel,
+    exportLabel: projection?.exportUrl
+      ? `Planning handoff export metadata: ${projection.exportUrl}`
+      : "Planning handoff export metadata is not loaded yet.",
+    emptyLabel: projection
+      ? "No readiness/preview/handoff metadata records are available for this project yet."
+      : "No readiness metadata loaded yet.",
+    records
+  };
 }
 
 export function pendingEffectSummary(statuses: readonly StatusEndpointDto[]): PendingEffectSummaryDto {

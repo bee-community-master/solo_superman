@@ -321,6 +321,11 @@ h4 {
   font-weight: 700;
 }
 
+.readiness-card {
+  border-left-color: #0f766e;
+  background: #f7fffd;
+}
+
 .metrics {
   display: grid;
   gap: 10px;
