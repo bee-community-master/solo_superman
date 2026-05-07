@@ -619,6 +619,88 @@ describe("sidecar client", () => {
     ]);
   });
 
+  it("calls Phase 2 Planning Handoff POST and GET routes with the session path contract", async () => {
+    const seenRequests: [string, RequestInit | undefined][] = [];
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async (input, init) => {
+        seenRequests.push([input, init]);
+
+        return jsonResponse({
+          ok: true,
+          data: String(init?.method ?? "GET") === "POST"
+            ? {
+                category: "accepted_with_projection",
+                commandId: "cmd_handoff",
+                correlationId: "corr_handoff",
+                stateVersionBefore: 3,
+                stateVersionAfter: 4,
+                eventIds: ["evt_handoff"],
+                effectTaskIds: [],
+                immediateProjection: {
+                  kind: "PlanningHandoffProjection",
+                  sessionId: "sess_handoff",
+                  version: 4,
+                  currentStatus: "source_trace_incomplete",
+                  blockerArtifact: {
+                    kind: "PlanningHandoffBlockerArtifact",
+                    status: "source_trace_incomplete",
+                    noFinalLabelRule: "must_not_use_planning_ready_label"
+                  },
+                  sourceRefs: [],
+                  summary: "Planning Handoff blocker artifact",
+                  refetchUrl: "/api/v1/sessions/sess_handoff/planning-handoff"
+                }
+              }
+            : null,
+          meta: {
+            requestId: "req_handoff",
+            schemaVersion: "solo-superman.contracts.v1"
+          }
+        });
+      }
+    });
+
+    await client.createPlanningHandoff({
+      sessionId: "sess_handoff" as SessionId,
+      expectedStateVersion: 3 as StateVersion,
+      sourceRefs: [
+        {
+          sourceType: "spec_version",
+          sourceId: "spec_version_handoff",
+          required: true,
+          stale: false
+        }
+      ]
+    });
+    await client.getPlanningHandoff("sess_handoff" as SessionId);
+
+    expect(seenRequests[0]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/sessions/sess_handoff/planning-handoff",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-token",
+          "Content-Type": "application/json"
+        })
+      })
+    ]);
+    expect(JSON.parse(String(seenRequests[0]?.[1]?.body))).toMatchObject({
+      sessionId: "sess_handoff",
+      expectedStateVersion: 3,
+      sourceRefs: [
+        expect.objectContaining({
+          sourceType: "spec_version",
+          sourceId: "spec_version_handoff"
+        })
+      ]
+    });
+    expect(seenRequests[1]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/sessions/sess_handoff/planning-handoff",
+      expect.objectContaining({ method: "GET" })
+    ]);
+  });
+
   it("posts runtime artifact convert and block commands with session version context", async () => {
     const seenRequests: [string, RequestInit | undefined][] = [];
     const client = createSidecarClient({

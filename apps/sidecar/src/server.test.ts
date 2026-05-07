@@ -9,12 +9,19 @@ import {
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION,
   type CommandId,
+  type CorrelationId,
+  type DecisionEvidencePackId,
+  type EventId,
+  type EvidenceItemId,
   type Phase15bUpgradeHints,
+  type PlanningHandoffSourceRefDto,
   type ProjectId,
   type ProjectionVersion,
+  type QueueItemId,
   type ResearchAllowlistId,
   type ResearchConnectorId,
   type ResearchDisclosureLogId,
+  type ResearchResultId,
   type ResearchRunProjection,
   type ResearchRunId,
   type ResearchTaskId,
@@ -282,6 +289,224 @@ async function createAllowlistForTest(
   });
 }
 
+const planningReadySpecVersionRef = "spec_version_api_ready";
+const planningReadyQueueItemId = "queue_api_ready" as QueueItemId;
+const planningReadyResearchTaskId = "research_task_api_ready" as ResearchTaskId;
+const planningReadyResearchResultId = "research_result_api_ready" as ResearchResultId;
+const planningReadyEvidencePackId = "evidence_pack_api_ready" as DecisionEvidencePackId;
+const planningReadyEvidenceItemId = "evidence_item_api_ready" as EvidenceItemId;
+const planningReadyProjectionVersion = 3 as ProjectionVersion;
+
+function planningReadySourceRefs(sessionId: string): readonly PlanningHandoffSourceRefDto[] {
+  return [
+    {
+      sourceType: "spec_version",
+      sourceId: planningReadySpecVersionRef,
+      sourceLabel: "API ready SpecVersion",
+      required: true,
+      stale: false
+    },
+    {
+      sourceType: "completion_candidate",
+      sourceId: `completion_candidate:${sessionId}:3`,
+      sourceLabel: "API ready completion candidate",
+      required: true,
+      stale: false
+    },
+    {
+      sourceType: "decision_linked_evidence_pack",
+      sourceId: planningReadyEvidencePackId,
+      sourceLabel: "API ready Evidence Pack",
+      required: true,
+      stale: false
+    },
+    {
+      sourceType: "research_updated_queue_item",
+      sourceId: planningReadyQueueItemId,
+      sourceLabel: "API ready research queue card",
+      required: true,
+      stale: false
+    }
+  ];
+}
+
+async function seedPlanningReadyState(
+  storage: Awaited<ReturnType<typeof createMigratedStorageApp>>["storage"],
+  projectId: string,
+  sessionId: string
+) {
+  const eventRepository = createEventRepository(storage.db);
+
+  await eventRepository.append({
+    eventId: `evt_planning_ready_spec_${sessionId}` as EventId,
+    eventType: "SpecVersionCreated",
+    projectId: projectId as ProjectId,
+    sessionId: sessionId as SessionId,
+    sourceCommandId: `cmd_seed_spec_version_${sessionId}` as CommandId,
+    correlationId: `corr_seed_planning_ready_${sessionId}` as CorrelationId,
+    causationId: null,
+    schemaVersion: CONTRACT_SCHEMA_VERSION,
+    occurredAt: "2026-05-06T00:01:00.000Z",
+    payload: {
+      versionRef: planningReadySpecVersionRef,
+      title: "Planning Handoff API ready spec",
+      sections: ["Problem", "Customer", "Value", "Validation"]
+    }
+  });
+
+  await eventRepository.append({
+    eventId: `evt_planning_ready_evidence_${sessionId}` as EventId,
+    eventType: "EvidenceSynthesized",
+    projectId: projectId as ProjectId,
+    sessionId: sessionId as SessionId,
+    sourceCommandId: `cmd_seed_evidence_${sessionId}` as CommandId,
+    correlationId: `corr_seed_planning_ready_${sessionId}` as CorrelationId,
+    causationId: null,
+    schemaVersion: CONTRACT_SCHEMA_VERSION,
+    occurredAt: "2026-05-06T00:02:00.000Z",
+    payload: {
+      projection: {
+        kind: "ResearchEvidenceProjection",
+        version: planningReadyProjectionVersion,
+        taskIds: [planningReadyResearchTaskId],
+        tasks: [
+          {
+            researchTaskId: planningReadyResearchTaskId,
+            sessionId: sessionId as SessionId,
+            objective: "Validate Planning Handoff API route evidence.",
+            routeOutcome: "research_needed",
+            impact: "high",
+            status: "evidence_ready",
+            createdAt: "2026-05-06T00:01:30.000Z"
+          }
+        ],
+        results: [
+          {
+            researchResultId: planningReadyResearchResultId,
+            researchTaskId: planningReadyResearchTaskId,
+            resultSummary: "Accepted evidence supports the API handoff route.",
+            sourceReliability: "high",
+            claim: "The Planning Handoff route can return a final handoff.",
+            decisionContext: "Planning Handoff API route",
+            importedAt: "2026-05-06T00:01:45.000Z"
+          }
+        ],
+        evidenceMatrices: [
+          {
+            evidenceMatrixId: "evidence_matrix_api_ready",
+            researchTaskId: planningReadyResearchTaskId,
+            researchResultId: planningReadyResearchResultId,
+            synthesisVersion: 1,
+            proEvidence: [
+              {
+                evidenceItemId: planningReadyEvidenceItemId,
+                kind: "pro",
+                summary: "Route fixture has accepted evidence."
+              }
+            ],
+            conEvidence: [],
+            uncertainties: [],
+            additionalQuestions: [],
+            balanceStatus: "balanced",
+            decisionBlocked: false
+          }
+        ],
+        evidencePacks: [
+          {
+            evidencePackId: planningReadyEvidencePackId,
+            researchTaskId: planningReadyResearchTaskId,
+            researchResultId: planningReadyResearchResultId,
+            claim: "The Planning Handoff route can return a final handoff.",
+            decisionContext: "Planning Handoff API route",
+            sourceReliability: "high",
+            retrievedAt: "2026-05-06T00:01:50.000Z",
+            gateStatus: "accepted",
+            gateChecks: [
+              {
+                code: "source_metadata",
+                status: "passed",
+                reason: "Source metadata is present."
+              }
+            ],
+            proEvidenceItemIds: [planningReadyEvidenceItemId],
+            conEvidenceItemIds: [],
+            uncertaintyItemIds: [],
+            limitationRefs: [],
+            implicationScope: "Phase 2 Planning Handoff",
+            createdAt: "2026-05-06T00:01:55.000Z"
+          }
+        ],
+        reviewCards: [
+          {
+            cardId: planningReadyQueueItemId,
+            researchTaskId: planningReadyResearchTaskId,
+            evidencePackId: planningReadyEvidencePackId,
+            cardType: "research_review",
+            title: "Planning Handoff API route evidence",
+            state: "resolved",
+            impact: "high",
+            gateStatus: "accepted",
+            availableOutcomes: ["approved", "revised", "risk_accepted", "research_insufficient"],
+            terminalOutcome: "approved",
+            blocksPlanning: true,
+            recoveryActions: ["approve_evidence"]
+          }
+        ],
+        knownRisks: [],
+        nextValidationActions: [],
+        proConBalanceStatus: "balanced"
+      },
+      queueProjection: {
+        kind: "DecisionQueueProjection",
+        version: planningReadyProjectionVersion,
+        active: [],
+        next: [],
+        blocked: [],
+        deferred: [
+          {
+            queueItemId: planningReadyQueueItemId,
+            title: "Planning Handoff API route evidence",
+            state: "resolved",
+            cardType: "research_review",
+            researchTaskId: planningReadyResearchTaskId,
+            evidencePackId: planningReadyEvidencePackId,
+            blocksPlanning: true,
+            availableOutcomes: ["approved", "revised", "risk_accepted", "research_insufficient"],
+            terminalOutcome: "approved"
+          }
+        ]
+      },
+      confidenceProjection: {
+        kind: "ConfidenceCompletionProjection",
+        version: planningReadyProjectionVersion,
+        compositeScore: 92,
+        readinessLabel: "spec_ready",
+        gates: [
+          {
+            gateId: "research_queue_cards",
+            label: "Research-updated Queue cards terminal",
+            passed: true
+          }
+        ],
+        topRisks: [],
+        topRiskCards: [],
+        nextBestActions: ["Create Planning Handoff."],
+        completionCandidate: {
+          status: "candidate",
+          summary: "Spec and research are ready for Planning Handoff.",
+          gateFailures: [],
+          ifStopNowArtifact: {
+            title: "Planning Handoff candidate",
+            summary: "Next build slice can be planned.",
+            knownRisks: [],
+            nextValidationActions: []
+          }
+        }
+      }
+    }
+  });
+}
+
 describe("PR-02 sidecar health shell", () => {
   it("serves health without auth before storage or ProductEngine initialization", async () => {
     const response = await app.request("/healthz");
@@ -290,7 +515,7 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       status: "ok",
-      sidecarPhase: "phase_1_5b_pr_10_hint_query_export",
+      sidecarPhase: "phase_2_pr_04_planning_handoff_api",
       checks: {
         process: "alive"
       },
@@ -2398,6 +2623,277 @@ describe("PR-02 sidecar health shell", () => {
       expect(exportedJson).not.toContain("spec_section_private_customer_alpha_raw_idea");
       expect(exportedJson).not.toContain("token=secret-token-value");
       expect(exportedJson).not.toContain("Bearer abcdefghijklmnop");
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("mounts Planning Handoff POST/GET routes for blocker and final projections", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId, sessionId } = await createProjectForTest(
+        storageApp,
+        "A Planning Handoff API final route test idea"
+      );
+      const empty = await storageApp.request(`/api/v1/sessions/${sessionId}/planning-handoff`, {
+        headers: authHeaders()
+      });
+      const emptyBody = await jsonBody(empty);
+
+      expect(empty.status).toBe(200);
+      expect(emptyBody.data).toBeNull();
+
+      await seedPlanningReadyState(storage, projectId, sessionId);
+
+      const create = await storageApp.request(`/api/v1/sessions/${sessionId}/planning-handoff`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 3,
+          sourceRefs: planningReadySourceRefs(sessionId)
+        })
+      });
+      const createBody = await jsonBody(create);
+      const createData = createBody.data as Readonly<Record<string, unknown>>;
+
+      expect(create.status).toBe(200);
+      expect(createData).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionBefore: 3,
+        stateVersionAfter: 4,
+        effectTaskIds: [],
+        immediateProjection: {
+          kind: "PlanningHandoffProjection",
+          currentStatus: "planning_ready",
+          finalArtifact: {
+            kind: "PlanningHandoffArtifact",
+            status: "planning_ready",
+            noExecutionPolicy: "no_file_shell_browser_deploy_or_external_mutation"
+          },
+          refetchUrl: `/api/v1/sessions/${sessionId}/planning-handoff`
+        }
+      });
+      expect(createData.statusUrl).toBeUndefined();
+
+      const fetched = await storageApp.request(`/api/v1/sessions/${sessionId}/planning-handoff`, {
+        headers: authHeaders()
+      });
+      const fetchedBody = await jsonBody(fetched);
+
+      expect(fetched.status).toBe(200);
+      expect(fetchedBody.data).toMatchObject({
+        kind: "PlanningHandoffProjection",
+        currentStatus: "planning_ready",
+        finalArtifact: {
+          kind: "PlanningHandoffArtifact"
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("keeps Planning Handoff blocker, missing session, malformed body, and stale version outcomes explicit", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "A Planning Handoff API blocker route test idea"
+      );
+      const sourceRefs = [
+        {
+          sourceType: "spec_version",
+          sourceId: "spec_version_missing_api",
+          required: true,
+          stale: false
+        },
+        {
+          sourceType: "founder_brief",
+          sourceId: "founder_brief_missing_api",
+          required: true,
+          stale: false
+        },
+        {
+          sourceType: "decision_linked_evidence_pack",
+          sourceId: "evidence_pack_missing_api",
+          required: true,
+          stale: false
+        },
+        {
+          sourceType: "research_updated_queue_item",
+          sourceId: "queue_missing_api",
+          required: true,
+          stale: false
+        }
+      ];
+
+      const blocker = await storageApp.request(`/api/v1/sessions/${sessionId}/planning-handoff`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 1,
+          sourceRefs
+        })
+      });
+      const blockerBody = await jsonBody(blocker);
+      const blockerData = blockerBody.data as Readonly<Record<string, unknown>>;
+
+      expect(blocker.status).toBe(200);
+      expect(blockerData).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionBefore: 1,
+        stateVersionAfter: 2,
+        effectTaskIds: [],
+        immediateProjection: {
+          kind: "PlanningHandoffProjection",
+          currentStatus: "source_trace_incomplete",
+          blockerArtifact: {
+            kind: "PlanningHandoffBlockerArtifact",
+            status: "source_trace_incomplete",
+            noFinalLabelRule: "must_not_use_planning_ready_label"
+          }
+        }
+      });
+      expect(blockerData.statusUrl).toBeUndefined();
+
+      const fetchedBlocker = await storageApp.request(`/api/v1/sessions/${sessionId}/planning-handoff`, {
+        headers: authHeaders()
+      });
+      const fetchedBlockerBody = await jsonBody(fetchedBlocker);
+
+      expect(fetchedBlockerBody.data).toMatchObject({
+        currentStatus: "source_trace_incomplete",
+        blockerArtifact: {
+          noFinalLabelRule: "must_not_use_planning_ready_label"
+        }
+      });
+
+      const eventCountBeforeValidationFailures = (await createEventRepository(storage.db).listForSession(sessionId as SessionId)).length;
+
+      const missingSession = await storageApp.request("/api/v1/sessions/sess_missing/planning-handoff", {
+        headers: authHeaders()
+      });
+      const missingSessionBody = await jsonBody(missingSession);
+
+      expect(missingSession.status).toBe(404);
+      expect(missingSessionBody.error).toMatchObject({
+        code: "RESOURCE_NOT_FOUND"
+      });
+
+      const malformedBody = await storageApp.request(`/api/v1/sessions/${sessionId}/planning-handoff`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId: "different_session",
+          expectedStateVersion: 2,
+          sourceRefs
+        })
+      });
+      const malformedBodyJson = await jsonBody(malformedBody);
+
+      expect(malformedBody.status).toBe(400);
+      expect(malformedBodyJson.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "sessionId must match the route param."
+      });
+
+      const emptySourceRefs = await storageApp.request(`/api/v1/sessions/${sessionId}/planning-handoff`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 2,
+          sourceRefs: []
+        })
+      });
+      const emptySourceRefsBody = await jsonBody(emptySourceRefs);
+
+      expect(emptySourceRefs.status).toBe(400);
+      expect(emptySourceRefsBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "sourceRefs must include at least one Planning Handoff source ref."
+      });
+
+      const invalidRequestedScope = await storageApp.request(`/api/v1/sessions/${sessionId}/planning-handoff`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 2,
+          sourceRefs,
+          requestedScope: {
+            productSlice: "Planning Handoff invalid scope",
+            userFacingJourneyLabel: "Not Planning-ready",
+            nonGoals: ["Do not execute anything."],
+            excludedInternalPhases: ["phase3_controlled_execution"],
+            assumptions: ["Invalid label should reject before persistence."]
+          }
+        })
+      });
+      const invalidRequestedScopeBody = await jsonBody(invalidRequestedScope);
+
+      expect(invalidRequestedScope.status).toBe(200);
+      expect(invalidRequestedScopeBody.data).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "VALIDATION_FAILED"
+        }
+      });
+      expect(await createEventRepository(storage.db).listForSession(sessionId as SessionId)).toHaveLength(
+        eventCountBeforeValidationFailures
+      );
+
+      const stale = await storageApp.request(`/api/v1/sessions/${sessionId}/planning-handoff`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 1,
+          sourceRefs
+        })
+      });
+      const staleBody = await jsonBody(stale);
+
+      expect(stale.status).toBe(200);
+      expect(staleBody.data).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "STATE_VERSION_CONFLICT"
+        }
+      });
+      expect(await createEventRepository(storage.db).listForSession(sessionId as SessionId)).toHaveLength(
+        eventCountBeforeValidationFailures
+      );
+
+      const fetchedAfterStale = await storageApp.request(`/api/v1/sessions/${sessionId}/planning-handoff`, {
+        headers: authHeaders()
+      });
+      const fetchedAfterStaleBody = await jsonBody(fetchedAfterStale);
+
+      expect(fetchedAfterStale.status).toBe(200);
+      expect(fetchedAfterStaleBody.data).toEqual(fetchedBlockerBody.data);
     } finally {
       await storage.close();
     }

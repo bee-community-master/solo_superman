@@ -18,8 +18,11 @@ import {
   type CancelResearchRunRequest,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
   MANUAL_RESEARCH_SOURCE_CATEGORIES,
+  type CreatePlanningHandoffRequest,
   type CreateResearchAllowlistRequest,
   type PrepareResearchDisclosureRequest,
+  type PlanningHandoffRequestedScopeDto,
+  type PlanningHandoffSourceRefDto,
   type ProjectId,
   type QueueItemId,
   type ResearchAllowlistId,
@@ -644,6 +647,74 @@ function retryResearchRunRequestFromBody(body: Readonly<Record<string, unknown>>
   };
 }
 
+function booleanFromBody(value: unknown, fieldName: string) {
+  if (typeof value !== "boolean") {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be a boolean.`);
+  }
+
+  return value;
+}
+
+function planningHandoffSourceRefFromBody(value: unknown, fieldName: string): PlanningHandoffSourceRefDto {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be a PlanningHandoffSourceRefDto object.`);
+  }
+
+  const sourceRef = value as Readonly<Record<string, unknown>>;
+  const sourceLabel = optionalStringFromBody(sourceRef.sourceLabel, `${fieldName}.sourceLabel`);
+
+  return {
+    sourceType: stringFromBody(sourceRef.sourceType, `${fieldName}.sourceType`) as PlanningHandoffSourceRefDto["sourceType"],
+    sourceId: stringFromBody(sourceRef.sourceId, `${fieldName}.sourceId`),
+    ...(sourceLabel ? { sourceLabel } : {}),
+    required: booleanFromBody(sourceRef.required, `${fieldName}.required`),
+    stale: booleanFromBody(sourceRef.stale, `${fieldName}.stale`)
+  };
+}
+
+function planningHandoffSourceRefsFromBody(value: unknown): readonly PlanningHandoffSourceRefDto[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sourceRefs must include at least one Planning Handoff source ref.");
+  }
+
+  return value.map((sourceRef, index) => planningHandoffSourceRefFromBody(sourceRef, `sourceRefs[${index}]`));
+}
+
+function optionalPlanningHandoffRequestedScopeFromBody(value: unknown): PlanningHandoffRequestedScopeDto | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "requestedScope must be a PlanningHandoffRequestedScopeDto object.");
+  }
+
+  return value as PlanningHandoffRequestedScopeDto;
+}
+
+function createPlanningHandoffRequestFromBody(
+  routeSessionId: SessionId,
+  body: Readonly<Record<string, unknown>>
+): CreatePlanningHandoffRequest {
+  const bodySessionId = stringFromBody(body.sessionId, "sessionId") as SessionId;
+
+  if (bodySessionId !== routeSessionId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId must match the route param.", {
+      routeSessionId,
+      bodySessionId
+    });
+  }
+
+  const requestedScope = optionalPlanningHandoffRequestedScopeFromBody(body.requestedScope);
+
+  return {
+    sessionId: routeSessionId,
+    expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+    sourceRefs: planningHandoffSourceRefsFromBody(body.sourceRefs),
+    ...(requestedScope ? { requestedScope } : {})
+  };
+}
+
 export function createSidecarApp(options: CreateSidecarAppOptions) {
   const { localCapabilityToken, migrationStatus = defaultMigrationStatus(), storage = null } = options;
   const codexRuntimeAdapter = options.codexRuntimeAdapter ?? createCodexRuntimeAdapter();
@@ -710,7 +781,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       status: "ok",
       service: "solo-superman-sidecar",
       schemaVersion: CONTRACT_SCHEMA_VERSION,
-      sidecarPhase: "phase_1_5b_pr_10_hint_query_export",
+      sidecarPhase: "phase_2_pr_04_planning_handoff_api",
       checks: {
         process: "alive"
       },
@@ -1350,6 +1421,29 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         }
       });
     })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/planning-handoff", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const request = createPlanningHandoffRequestFromBody(routeSessionId, await jsonBody(context));
+
+      return service.runSessionCommand({
+        sessionId: routeSessionId,
+        commandType: "CreatePlanningHandoff",
+        expectedStateVersion: request.expectedStateVersion,
+        payload: {
+          sourceRefs: request.sourceRefs,
+          ...(request.requestedScope ? { requestedScope: request.requestedScope } : {})
+        }
+      });
+    })
+  );
+
+  app.get("/api/v1/sessions/:sessionId/planning-handoff", async (context) =>
+    withProductEngine(context, (service) =>
+      service.getPlanningHandoff(context.req.param("sessionId") as SessionId)
+    )
   );
 
   app.get("/api/v1/commands/:commandId/status", (context) => {

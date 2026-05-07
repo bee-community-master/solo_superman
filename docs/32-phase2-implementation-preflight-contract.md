@@ -349,11 +349,11 @@ Projection rules:
 | MVP 범위/비범위 | `mvp_scope_non_scope` | non-fatal when visible as residual risk |
 | Phase 1.5B readiness gap | `phase15b_readiness_gap` | non-fatal unless it hides required approval/security evidence |
 
-Gate failure is not runtime `blocked`. It is an accepted ProductEngine command that persists `PlanningHandoffBlockerArtifactDto` whenever validation and state-version checks pass.
+Gate failure is not runtime `blocked`. It is an accepted ProductEngine command that persists `PlanningHandoffBlockerArtifactDto` whenever validation and state-version checks pass. #45 exposes this through mounted `POST /api/v1/sessions/:sessionId/planning-handoff` and `GET /api/v1/sessions/:sessionId/planning-handoff` routes.
 
 ## 3. Storage schema exact default
 
-후속 storage PR은 `20-data-storage-contract.md`의 table group names를 아래 columns/indexes로 구현한다. Full artifact JSON is stored for forward compatibility, while source/task/PR/risk rows are normalized for query and projection recovery.
+#44 storage PR은 `20-data-storage-contract.md`의 table group names를 아래 columns/indexes로 구현한다. Full artifact JSON is stored for forward compatibility, while source/task/PR/risk rows are normalized for query and projection recovery. #45 mounts the sidecar API routes over this storage/query contract without adding execution effects.
 
 ### `planning_handoffs`
 
@@ -508,9 +508,10 @@ Rules:
 
 | Case | Response |
 | --- | --- |
-| malformed body | `rejected` with `VALIDATION_FAILED`, no event |
+| malformed JSON/body object or route/body `sessionId` mismatch | `ApiErrorEnvelope` with `VALIDATION_FAILED`, no ProductEngine command/event |
+| reducer-level payload validation failure after command construction | `rejected` with `VALIDATION_FAILED`, no event |
 | stale `expectedStateVersion` | `rejected` with `STATE_VERSION_CONFLICT`, no event |
-| missing session | `rejected` with `RESOURCE_NOT_FOUND`, no event |
+| missing session | `ApiErrorEnvelope` with `RESOURCE_NOT_FOUND`, no ProductEngine command/event |
 | source trace semantic gap | `accepted_with_projection` with `PlanningHandoffBlockerArtifactDto`, no `statusUrl` |
 | queue review incomplete | `accepted_with_projection` with `PlanningHandoffBlockerArtifactDto`, no `statusUrl` |
 | fatal blocker / needs risk acceptance | `accepted_with_projection` with `PlanningHandoffBlockerArtifactDto`, no `statusUrl` |

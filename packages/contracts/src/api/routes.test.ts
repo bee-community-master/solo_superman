@@ -17,7 +17,8 @@ import {
   PHASE15A_PR07_RESEARCH_QUEUE_ROUTE_IDS,
   PHASE15B_PR10_HINT_ROUTE_IDS,
   PHASE15B_PR10_MOUNTED_PRODUCT_API_ROUTE_IDS,
-  PHASE2_PR01_PLANNING_HANDOFF_ROUTE_IDS,
+  PHASE2_PR04_PLANNING_HANDOFF_ROUTE_IDS,
+  PHASE2_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
@@ -278,7 +279,9 @@ describe("API route catalog", () => {
       "listPhase15bUpgradeHints",
       "exportPhase15bUpgradeHints"
     ]);
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE15B_PR10_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(
+      expect.arrayContaining([...PHASE15B_PR10_MOUNTED_PRODUCT_API_ROUTE_IDS])
+    );
     expect(routeById.get("listPhase15bUpgradeHints")).toMatchObject({
       method: "GET",
       path: "/api/v1/projects/:projectId/phase15b-upgrade-hints",
@@ -293,14 +296,18 @@ describe("API route catalog", () => {
     });
   });
 
-  it("keeps Phase 2 PR-01 Planning Handoff route placeholders aligned with the catalog", () => {
+  it("keeps Phase 2 PR-04 Planning Handoff route ids aligned with the catalog", () => {
     const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
 
-    expect(PHASE2_PR01_PLANNING_HANDOFF_ROUTE_IDS).toEqual([
+    expect(PHASE2_PR04_PLANNING_HANDOFF_ROUTE_IDS).toEqual([
       "createPlanningHandoff",
       "getPlanningHandoff"
     ]);
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE15B_PR10_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(PHASE2_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual([
+      ...PHASE15B_PR10_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      ...PHASE2_PR04_PLANNING_HANDOFF_ROUTE_IDS
+    ]);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE2_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS);
     expect(routeById.get("createPlanningHandoff")).toMatchObject({
       method: "POST",
       path: "/api/v1/sessions/:sessionId/planning-handoff",

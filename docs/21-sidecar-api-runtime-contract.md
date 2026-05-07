@@ -379,8 +379,10 @@ Phase 2 Planning Handoff는 runtime artifact conversion의 확장이 아니라 d
 
 - `ImplementationPlanPreviewArtifact`는 Phase 1/1.5B에서 `PlanningNote` 또는 safe preview로만 변환된다. final `PlanningHandoffArtifact`로 직접 승격하지 않는다.
 - final/blocker handoff 생성은 `ConvertRuntimeArtifact`가 아니라 ProductEngine command `CreatePlanningHandoff`가 담당한다.
+- `POST /api/v1/sessions/:sessionId/planning-handoff`는 `CreatePlanningHandoffRequest`의 route/body `sessionId` 일치를 검증한 뒤 ProductEngine command를 실행한다.
 - gate 통과 시 sidecar는 `PlanningHandoffArtifact`를 영속화하고 `PlanningHandoffProjection`을 담은 `accepted_with_projection` response를 반환한다.
 - gate 실패, fatal blocker, queue review incomplete, source trace incomplete 상태도 command rejection만으로 끝내지 않는다. 가능한 경우 `PlanningHandoffBlockerArtifact`를 영속화하고 같은 projection response로 사용자가 다음 조치를 볼 수 있게 한다.
+- `GET /api/v1/sessions/:sessionId/planning-handoff`는 기존 session에 handoff가 없으면 `data: null`을, missing session이면 `RESOURCE_NOT_FOUND`를 반환한다.
 - 이 command는 Codex runtime effect를 queue하지 않는다. file patch, shell command, browser action, deploy, external mutation, active delegation은 Phase 2 handoff 생성의 side effect가 아니다.
 - DTO 이름과 artifact projection field는 `25-contracts-dto-catalog.md`의 Phase 2 checklist가 소유하고, endpoint behavior는 `26-api-route-behavior-catalog.md`의 Planning Handoff section이 소유한다.
 - `CreatePlanningHandoff`의 gate precedence, idempotency formula, final/blocker response category, and `ConvertRuntimeArtifact` guard exact defaults are owned by `32-phase2-implementation-preflight-contract.md`.

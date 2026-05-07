@@ -9,6 +9,7 @@ import type {
   ConfidenceCompletionProjection,
   ConvertRuntimeArtifactRequest,
   CreateManualHandoffRequest,
+  CreatePlanningHandoffRequest,
   CreateResearchAllowlistRequest,
   CreateRuntimePreviewRequest,
   DecisionQueueProjection,
@@ -18,6 +19,7 @@ import type {
   PlanResearchRequest,
   Phase15bUpgradeHintExportDto,
   Phase15bUpgradeHintProjection,
+  PlanningHandoffProjection,
   PrepareResearchDisclosureRequest,
   PrepareFounderBriefRequest,
   ProjectId,
@@ -71,6 +73,7 @@ export type StartResearchRunInput = StartResearchRunRequest;
 export type CancelResearchRunInput = CancelResearchRunRequest;
 export type RetryResearchRunInput = RetryResearchRunRequest;
 export type ResolveResearchQueueCardInput = ResolveResearchQueueCardRequest;
+export type CreatePlanningHandoffInput = CreatePlanningHandoffRequest;
 
 export class SidecarClientError extends Error {
   readonly apiError: ApiError;
@@ -154,6 +157,10 @@ function phase15bUpgradeHintCollectionPath(projectId: ProjectId) {
 
 function phase15bUpgradeHintExportPath(projectId: ProjectId) {
   return `${phase15bUpgradeHintCollectionPath(projectId)}/export`;
+}
+
+function planningHandoffPath(sessionId: SessionId) {
+  return `/api/v1/sessions/${encodeURIComponent(sessionId)}/planning-handoff`;
 }
 
 function researchRunStatusPath(projectId: ProjectId, researchRunId: ResearchRunId) {
@@ -445,6 +452,14 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     exportPhase15bUpgradeHints(projectId: ProjectId) {
       return getProjection<Phase15bUpgradeHintExportDto>(phase15bUpgradeHintExportPath(projectId));
+    },
+
+    createPlanningHandoff(input: CreatePlanningHandoffInput) {
+      return postCommand<PlanningHandoffProjection>(planningHandoffPath(input.sessionId), input);
+    },
+
+    getPlanningHandoff(sessionId: SessionId) {
+      return getProjection<PlanningHandoffProjection | null>(planningHandoffPath(sessionId));
     },
 
     getSession(projectId: string, sessionId: SessionId) {

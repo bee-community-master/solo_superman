@@ -173,4 +173,18 @@ describe("PR-09 desktop route client catalog", () => {
       implementation: "mounted_phase_1_5b_pr_10"
     });
   });
+
+  it("marks Phase 2 Planning Handoff routes as mounted in the sidecar", () => {
+    expect(findDesktopRouteClientPlaceholder("createPlanningHandoff")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/planning-handoff",
+      implementation: "mounted_phase_2_pr_04"
+    });
+
+    expect(findDesktopRouteClientPlaceholder("getPlanningHandoff")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/sessions/:sessionId/planning-handoff",
+      implementation: "mounted_phase_2_pr_04"
+    });
+  });
 });

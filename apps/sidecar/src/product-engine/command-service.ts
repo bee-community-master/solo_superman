@@ -3566,6 +3566,18 @@ export function createProductEngineCommandService(
       return projection;
     },
 
+    async getPlanningHandoff(sessionIdValue: SessionId): Promise<PlanningHandoffProjection | null> {
+      const session = await createProjectRepository(storage.db).getSession(sessionIdValue);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: sessionIdValue
+        });
+      }
+
+      return createPlanningHandoffRepository(storage.db).getLatestForSession(sessionIdValue);
+    },
+
     async getCommandStatus(commandIdValue: CommandId): Promise<StatusEndpointDto | null> {
       const eventRepository = createEventRepository(storage.db);
       const effectRepository = createEffectTaskRepository(storage.db);
