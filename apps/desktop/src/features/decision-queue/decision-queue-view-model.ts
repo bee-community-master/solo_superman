@@ -4,6 +4,11 @@ import type {
   PendingEffectSummaryDto,
   Phase15bUpgradeHintApiRecord,
   Phase15bUpgradeHintProjection,
+  PlanningHandoffArtifactDto,
+  PlanningHandoffBlockerArtifactDto,
+  PlanningHandoffProjection,
+  PlanningHandoffResidualRiskDto,
+  PlanningHandoffSourceRefDto,
   ProjectionVersion,
   ResearchAllowlistGovernanceProjection,
   ResearchDisclosureLogProjection,
@@ -71,7 +76,36 @@ export interface Phase15bReadinessViewModel {
   readonly records: readonly Phase15bReadinessRecordViewModel[];
 }
 
+export type PlanningHandoffUiStatus = "empty" | "final" | "blocked";
+
+export interface PlanningHandoffDetailGroup {
+  readonly title: string;
+  readonly items: readonly string[];
+}
+
+export interface PlanningHandoffArtifactViewModel {
+  readonly heading: string;
+  readonly groups: readonly PlanningHandoffDetailGroup[];
+}
+
+export interface PlanningHandoffViewModel {
+  readonly status: PlanningHandoffUiStatus;
+  readonly statusLabel: string;
+  readonly label: string;
+  readonly summary: string;
+  readonly noExecutionLabel: string;
+  readonly refetchLabel: string;
+  readonly sourceRefsLabel: string;
+  readonly final: PlanningHandoffArtifactViewModel | null;
+  readonly blocker: PlanningHandoffArtifactViewModel | null;
+  readonly emptyLabel: string;
+}
+
 const READINESS_DETAIL_SEPARATOR = " · ";
+const PLANNING_HANDOFF_EMPTY_LABEL = "No final handoff or blocker artifact is available for this session yet.";
+const PLANNING_HANDOFF_NO_EXECUTION_LABEL =
+  "Planning Handoff is read-only planning context; no file, shell, browser, deploy, external mutation, credential, or active delegation controls are available.";
+const PLANNING_READY_TOKEN_PATTERN = /\bplanning[-_]ready\b/giu;
 
 export function queueSections(queue: DecisionQueueProjection | null): readonly QueueSectionViewModel[] {
   return [
@@ -116,6 +150,74 @@ function readableArtifactKind(value: string) {
 
 function readinessDetails(parts: readonly (string | null | undefined)[]) {
   return parts.filter((part): part is string => Boolean(part)).join(READINESS_DETAIL_SEPARATOR);
+}
+
+function displayPlanningReadyLabel(value: string, allowFinalLabel: boolean) {
+  return value.replace(PLANNING_READY_TOKEN_PATTERN, allowFinalLabel ? "Planning-ready" : "final handoff");
+}
+
+function displayPlanningHandoffGroup(
+  group: PlanningHandoffDetailGroup,
+  allowFinalLabel: boolean
+): PlanningHandoffDetailGroup {
+  return {
+    title: displayPlanningReadyLabel(group.title, allowFinalLabel),
+    items: group.items.map((item) => displayPlanningReadyLabel(item, allowFinalLabel))
+  };
+}
+
+function sourceRefLabel(sourceRef: PlanningHandoffSourceRefDto) {
+  return readinessDetails([
+    `${readableToken(sourceRef.sourceType)}:${sourceRef.sourceId}`,
+    sourceRef.sourceLabel,
+    sourceRef.required ? "required" : "optional",
+    sourceRef.stale ? "stale" : "current"
+  ]);
+}
+
+function sourceRefsLabel(sourceRefs: readonly PlanningHandoffSourceRefDto[]) {
+  return commaList(sourceRefs.map(sourceRefLabel), "no source refs");
+}
+
+function residualRiskItems(residualRisks: readonly PlanningHandoffResidualRiskDto[]) {
+  return residualRisks.length
+    ? residualRisks.map((risk) =>
+        readinessDetails([
+          `${risk.riskId}: ${readableToken(risk.riskClass)} (${risk.severity})`,
+          risk.title,
+          `assumption ${risk.assumption}`,
+          `prerequisite ${risk.prerequisite}`,
+          `validation ${risk.validationDependency}`,
+          `owner ${risk.ownerRole}`,
+          `follow-up ${risk.followUpTrigger}`,
+          `sources ${sourceRefsLabel(risk.sourceRefs)}`
+        ])
+      )
+    : ["No additional residual risk entries are hidden for this handoff state."];
+}
+
+function gateVerdictLabel(
+  gateVerdict: PlanningHandoffArtifactDto["gateVerdict"] | PlanningHandoffBlockerArtifactDto["gateVerdict"]
+) {
+  return readinessDetails([
+    `verdict ${readableToken(gateVerdict.verdict)}`,
+    `reviewed ${commaList(gateVerdict.reviewedQueueItemIds, "no queue items")}`,
+    `fatal classes ${commaList(gateVerdict.fatalBlockerClassesChecked.map(readableToken), "none")}`,
+    `residual risk visibility ${gateVerdict.residualRiskVisibilityCheck}`,
+    gateVerdict.rationale,
+    `terminal outcomes ${commaList(
+      gateVerdict.terminalOutcomeSummary.map((outcome) =>
+        readinessDetails([
+          `${outcome.queueItemId}: ${readableToken(outcome.outcome)}`,
+          outcome.riskAccepted ? "risk accepted" : "risk not accepted",
+          outcome.blockerClass ? `blocker ${readableToken(outcome.blockerClass)}` : null,
+          outcome.residualRiskClass ? `residual risk ${readableToken(outcome.residualRiskClass)}` : null,
+          `sources ${sourceRefsLabel(outcome.sourceRefs)}`
+        ])
+      ),
+      "none"
+    )}`
+  ]);
 }
 
 function readinessRecordViewModel(record: Phase15bUpgradeHintApiRecord): Phase15bReadinessRecordViewModel {
@@ -208,6 +310,213 @@ export function phase15bReadinessViewModel(
       ? "No readiness/preview/handoff metadata records are available for this project yet."
       : "No readiness metadata loaded yet.",
     records
+  };
+}
+
+function planningHandoffArtifactView(
+  heading: string,
+  groups: readonly PlanningHandoffDetailGroup[],
+  allowFinalLabel: boolean
+): PlanningHandoffArtifactViewModel {
+  return {
+    heading: displayPlanningReadyLabel(heading, allowFinalLabel),
+    groups: groups.map((group) => displayPlanningHandoffGroup(group, allowFinalLabel))
+  };
+}
+
+function finalPlanningHandoffGroups(finalArtifact: PlanningHandoffArtifactDto): readonly PlanningHandoffDetailGroup[] {
+  return [
+    {
+      title: "Gate verdict",
+      items: [gateVerdictLabel(finalArtifact.gateVerdict)]
+    },
+    {
+      title: "Task breakdown",
+      items: finalArtifact.taskBreakdown.map((task) =>
+        readinessDetails([
+          `${task.taskId}: ${task.title}`,
+          task.intent,
+          `owner ${task.ownerRole}`,
+          `depends ${commaList(task.dependsOn, "none")}`,
+          `evidence ${commaList(task.acceptanceEvidence, "none")}`,
+          `non-goals ${commaList(task.nonGoals, "none")}`,
+          `risks ${commaList(task.riskRefs, "none")}`,
+          `sources ${sourceRefsLabel(task.sourceRefs)}`
+        ])
+      )
+    },
+    {
+      title: "PR/issue plan",
+      items: finalArtifact.prIssuePlan.map((plan) =>
+        readinessDetails([
+          `${plan.sequenceId}: ${plan.summary}`,
+          `tasks ${commaList(plan.includedTaskIds, "none")}`,
+          `entry ${commaList(plan.entryPrerequisites, "none")}`,
+          `exit ${commaList(plan.exitEvidence, "none")}`,
+          `blocked by ${commaList(plan.blockedBy, "none")}`,
+          `boundary ${readableToken(plan.phaseBoundary)}`
+        ])
+      )
+    },
+    {
+      title: "Build slice",
+      items: [
+        readinessDetails([
+          finalArtifact.buildSlicePlan.sliceGoal,
+          `capabilities ${commaList(finalArtifact.buildSlicePlan.includedCapabilities, "none")}`,
+          `non-goals ${commaList(finalArtifact.buildSlicePlan.nonGoals, "none")}`,
+          `acceptance ${commaList(finalArtifact.buildSlicePlan.acceptanceCriteria, "none")}`,
+          `smoke ${commaList(finalArtifact.buildSlicePlan.smokeTests, "none")}`,
+          `metric ${finalArtifact.buildSlicePlan.validationMetric}`,
+          `residual risks ${commaList(finalArtifact.buildSlicePlan.residualRisks, "none")}`,
+          `sources ${sourceRefsLabel(finalArtifact.buildSlicePlan.sourceRefs)}`
+        ])
+      ]
+    },
+    {
+      title: "Serve checklist",
+      items: [
+        readinessDetails([
+          `target ${finalArtifact.serveChecklist.serveTarget}`,
+          `env ${commaList(
+            finalArtifact.serveChecklist.envVars.map((envVar) =>
+              readinessDetails([
+                envVar.envVarName,
+                envVar.required ? "required" : "optional",
+                envVar.present ? "present" : "not present",
+                "value omitted",
+                envVar.note
+              ])
+            ),
+            "none"
+          )}`,
+          finalArtifact.serveChecklist.authAndPrivacyCheck,
+          `smoke ${commaList(finalArtifact.serveChecklist.smokeTestChecklist, "none")}`,
+          `rollback ${finalArtifact.serveChecklist.rollbackPlan}`,
+          `launch ${finalArtifact.serveChecklist.launchNote}`,
+          `metrics ${commaList(finalArtifact.serveChecklist.learningMetrics, "none")}`
+        ])
+      ]
+    },
+    {
+      title: "Learning loop",
+      items: [
+        readinessDetails([
+          `signals ${commaList(finalArtifact.learningLoopHook.signalsToCollect, "none")}`,
+          finalArtifact.learningLoopHook.interpretationFrame,
+          `decisions ${commaList(finalArtifact.learningLoopHook.decisionOptions.map(readableToken), "none")}`,
+          `next slice ${finalArtifact.learningLoopHook.recommendedNextSliceRule}`,
+          `risk update ${finalArtifact.learningLoopHook.riskUpdateRule}`
+        ])
+      ]
+    },
+    {
+      title: "Readiness checklist",
+      items: [
+        readinessDetails([
+          `approvals ${commaList(finalArtifact.readinessChecklist.requiredApprovals, "none")}`,
+          `sandbox ${finalArtifact.readinessChecklist.sandboxBoundary}`,
+          `rollback ${finalArtifact.readinessChecklist.rollbackReference}`,
+          `expected evidence ${commaList(finalArtifact.readinessChecklist.expectedEvidence, "none")}`,
+          `command preview ${commaList(finalArtifact.readinessChecklist.commandPreviewRequirements, "none")}`,
+          `file preview ${commaList(finalArtifact.readinessChecklist.filePreviewRequirements, "none")}`,
+          `browser preview ${commaList(finalArtifact.readinessChecklist.browserPreviewRequirements, "none")}`
+        ])
+      ]
+    },
+    {
+      title: "Residual risks",
+      items: residualRiskItems(finalArtifact.residualRiskRegister)
+    },
+    {
+      title: "Phase 1.5B hint mapping",
+      items: [sourceRefsLabel(finalArtifact.phase15bHintMapping)]
+    }
+  ];
+}
+
+function blockerPlanningHandoffGroups(
+  blockerArtifact: PlanningHandoffBlockerArtifactDto
+): readonly PlanningHandoffDetailGroup[] {
+  return [
+    {
+      title: "Gate blocker",
+      items: [gateVerdictLabel(blockerArtifact.gateVerdict)]
+    },
+    {
+      title: "Blockers",
+      items: blockerArtifact.blockers.map((blocker) =>
+        readinessDetails([
+          `${blocker.blockerId}: ${readableToken(blocker.blockerClass)}`,
+          blocker.queueItemId ? `queue ${blocker.queueItemId}` : null,
+          blocker.currentOutcome ? `outcome ${readableToken(blocker.currentOutcome)}` : null,
+          blocker.whyFatal,
+          `required next action ${readableToken(blocker.requiredNextAction)}`,
+          `sources ${sourceRefsLabel(blocker.sourceRefs)}`
+        ])
+      )
+    },
+    {
+      title: "Required user actions",
+      items: [commaList(blockerArtifact.requiredUserActions.map(readableToken), "none")]
+    },
+    {
+      title: "Residual risks",
+      items: residualRiskItems(blockerArtifact.residualRisks)
+    },
+    {
+      title: "Safe preview refs",
+      items: [sourceRefsLabel(blockerArtifact.safePreviewRefs)]
+    }
+  ];
+}
+
+export function planningHandoffViewModel(projection: PlanningHandoffProjection | null): PlanningHandoffViewModel {
+  if (!projection) {
+    return {
+      status: "empty",
+      statusLabel: "handoff pending",
+      label: "No Planning Handoff projection is loaded yet.",
+      summary: "Run or refresh the handoff query after the Planning Handoff gate creates a final or blocker artifact.",
+      noExecutionLabel: PLANNING_HANDOFF_NO_EXECUTION_LABEL,
+      refetchLabel: "Planning Handoff refetch URL is not loaded yet.",
+      sourceRefsLabel: "no source refs",
+      final: null,
+      blocker: null,
+      emptyLabel: PLANNING_HANDOFF_EMPTY_LABEL
+    };
+  }
+
+  if (projection.currentStatus === "planning_ready") {
+    const { finalArtifact } = projection;
+
+    return {
+      status: "final",
+      statusLabel: "Planning-ready",
+      label: "Final Planning-ready handoff is visible with residual risk and readiness context.",
+      summary: displayPlanningReadyLabel(projection.summary, true),
+      noExecutionLabel: PLANNING_HANDOFF_NO_EXECUTION_LABEL,
+      refetchLabel: `Refetch ${projection.refetchUrl}`,
+      sourceRefsLabel: displayPlanningReadyLabel(sourceRefsLabel(projection.sourceRefs), true),
+      final: planningHandoffArtifactView(finalArtifact.handoffSummary, finalPlanningHandoffGroups(finalArtifact), true),
+      blocker: null,
+      emptyLabel: PLANNING_HANDOFF_EMPTY_LABEL
+    };
+  }
+
+  const { blockerArtifact } = projection;
+
+  return {
+    status: "blocked",
+    statusLabel: `handoff blocker: ${readableToken(projection.currentStatus)}`,
+    label: "Planning handoff remains blocked; final handoff label is withheld until the gate returns final state.",
+    summary: displayPlanningReadyLabel(projection.summary, false),
+    noExecutionLabel: PLANNING_HANDOFF_NO_EXECUTION_LABEL,
+    refetchLabel: `Refetch ${projection.refetchUrl}`,
+    sourceRefsLabel: displayPlanningReadyLabel(sourceRefsLabel(projection.sourceRefs), false),
+    final: null,
+    blocker: planningHandoffArtifactView("Blocker report", blockerPlanningHandoffGroups(blockerArtifact), false),
+    emptyLabel: PLANNING_HANDOFF_EMPTY_LABEL
   };
 }
 

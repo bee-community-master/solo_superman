@@ -8,6 +8,7 @@ import {
   type FounderBriefProjection,
   type LivingSpecProjection,
   type Phase15bUpgradeHintProjection,
+  type PlanningHandoffProjection,
   type ProjectId,
   type QueueItemId,
   type ResearchAllowlistGovernanceProjection,
@@ -24,6 +25,7 @@ import {
 } from "@solo-superman/contracts";
 import { Phase15aOperationsPanel, type ResearchOperationsState } from "./Phase15aOperationsPanel";
 import { Phase15bReadinessPanel } from "./Phase15bReadinessPanel";
+import { PlanningHandoffPanel } from "./PlanningHandoffPanel";
 import {
   commandResponseVersion,
   optionalCommandProjection,
@@ -40,6 +42,7 @@ import {
   confidencePlaceholder,
   phase15aOperationsViewModel,
   phase15bReadinessViewModel,
+  planningHandoffViewModel,
   pendingEffectSummary,
   queueSections,
   runtimeActivityProjectionFromStatuses
@@ -71,6 +74,7 @@ interface ProjectionState {
   readonly activity: RuntimeActivityProjection | null;
   readonly confidence: ConfidenceCompletionProjection | null;
   readonly founderBrief: FounderBriefProjection | null;
+  readonly planningHandoff: PlanningHandoffProjection | null;
 }
 
 const DEFAULT_IDEA = "A focused founder brief generator";
@@ -94,7 +98,8 @@ function latestProjectionVersion(projections: ProjectionState) {
     Number(projections.research?.version ?? 0),
     Number(projections.activity?.version ?? 0),
     Number(projections.confidence?.version ?? 0),
-    Number(projections.founderBrief?.version ?? 0)
+    Number(projections.founderBrief?.version ?? 0),
+    Number(projections.planningHandoff?.version ?? 0)
   ) as StateVersion;
 }
 
@@ -106,7 +111,8 @@ function emptyProjectionState(): ProjectionState {
     research: null,
     activity: null,
     confidence: null,
-    founderBrief: null
+    founderBrief: null,
+    planningHandoff: null
   };
 }
 
@@ -196,20 +202,37 @@ export function DecisionQueueShell() {
     [client]
   );
 
+  const refreshPlanningHandoff = useCallback(
+    async (sessionId: SessionShellProjection["sessionId"]) => {
+      if (!client) {
+        return;
+      }
+
+      const planningHandoff = await client.getPlanningHandoff(sessionId);
+
+      setProjections((current) => ({
+        ...current,
+        planningHandoff
+      }));
+    },
+    [client]
+  );
+
   const refreshProjections = useCallback(
     async (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"]) => {
       if (!client) {
         return;
       }
 
-      const [session, spec, queue, research, activity, confidence, founderBrief] = await Promise.all([
+      const [session, spec, queue, research, activity, confidence, founderBrief, planningHandoff] = await Promise.all([
         client.getSession(projectId, sessionId),
         client.getSpec(sessionId),
         client.getQueue(sessionId),
         client.getResearch(sessionId),
         client.getActivity(sessionId),
         client.getCompleteness(sessionId),
-        client.getFounderBrief(sessionId).catch(() => null)
+        client.getFounderBrief(sessionId).catch(() => null),
+        client.getPlanningHandoff(sessionId)
       ]);
 
       setProjections({
@@ -219,7 +242,8 @@ export function DecisionQueueShell() {
         research,
         activity,
         confidence,
-        founderBrief
+        founderBrief,
+        planningHandoff
       });
       await Promise.all([refreshResearchOperations(projectId), refreshPhase15bReadiness(projectId)]);
     },
@@ -903,6 +927,10 @@ export function DecisionQueueShell() {
     () => phase15bReadinessViewModel(phase15bReadiness),
     [phase15bReadiness]
   );
+  const planningHandoffView = useMemo(
+    () => planningHandoffViewModel(projections.planningHandoff),
+    [projections.planningHandoff]
+  );
   const canStart = connectionState.status === "connected" && Boolean(client) && !isBusy;
   const hasActiveResearchAllowlist =
     researchOperations.allowlists?.allowlists.some((allowlist) => allowlist.status === "active") ?? false;
@@ -1158,6 +1186,17 @@ export function DecisionQueueShell() {
             onRefreshReadiness={() => {
               if (projections.session) {
                 void refreshPhase15bReadiness(projections.session.projectId);
+              }
+            }}
+          />
+
+          <PlanningHandoffPanel
+            hasActiveSession={Boolean(projections.session)}
+            isBusy={isBusy}
+            handoff={planningHandoffView}
+            onRefreshHandoff={() => {
+              if (projections.session) {
+                void refreshPlanningHandoff(projections.session.sessionId);
               }
             }}
           />

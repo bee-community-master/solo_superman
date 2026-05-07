@@ -555,7 +555,7 @@ This is not a GitHub issue draft. It is the required follow-up code PR order for
 2. **ProductEngine gate PR**: implement `reduceCreatePlanningHandoff`, verdict precedence, no-execution enforcement, `ConvertRuntimeArtifact` guard, reducer tests.
 3. **Storage/projection PR**: add Drizzle schema/migration, planningHandoffRepository, projection persistence, migration tests.
 4. **Sidecar/API PR**: wire the route catalog placeholders to Hono handlers, command service persistence path, GET projection query, and API tests.
-5. **UI/fixture/docs sync PR**: add read-only Planning-ready/blocker display surface, sample fixture coverage, docs acceptance refresh.
+5. **UI/fixture/docs sync PR (#46)**: add read-only Planning-ready/blocker display surface, sample fixture coverage, docs acceptance refresh. The display uses `Planning-ready` only for final `PlanningHandoffArtifact` and keeps blocker class, required next action, residual risk, and safe preview refs visible on blocker artifacts.
 
 Sequencing rules:
 

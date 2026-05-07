@@ -19,7 +19,7 @@ Canonical path: `docs/31-phase2-planning-handoff-contract.md`.
 | Field depth | 전체 추적형 계약: sourceRefs, gate verdict, task/PR/issue plan, Build Slice Plan, Serve Checklist, Learning Loop hook, readiness checklist, residual risk, Phase 1.5B hints mapping을 모두 필수 field family로 둠 |
 | Execution boundary | Phase 2는 실행계획 handoff까지이며 file patch, shell command, browser action, deploy, external mutation을 실행하지 않음 |
 | User-facing label | `Planning-ready`는 final `PlanningHandoffArtifact`가 생성될 때만 사용할 수 있음 |
-| Code boundary | #42 Contracts PR은 `packages/contracts` DTO/command/event/projection/route placeholder와 verifier sync만 승격한다. reducer behavior, storage schema, API handler, UI 구현은 후속 Phase 2 구현 PR이 소유 |
+| Code boundary | #42 Contracts PR은 `packages/contracts` DTO/command/event/projection/route placeholder와 verifier sync만 승격한다. #43~#46 구현 PR은 reducer behavior, storage schema, API handler, read-only UI 구현을 각자 소유한다. |
 
 ## Phase 2 source inputs
 
@@ -172,10 +172,11 @@ Mapping rule:
 
 Binding rules:
 
-- DTO/API contract names are current in docs/25, docs/26, `packages/contracts`, and the doc-contract verifier after #42; reducer/storage/handler/UI behavior remains follow-up work.
+- DTO/API contract names are current in docs/25, docs/26, `packages/contracts`, and the doc-contract verifier after #42; #43~#46 connect reducer, storage, handler, and read-only UI behavior without changing the Phase 2 no-execution boundary.
 - exact implementation defaults for those contract names are owned by `32-phase2-implementation-preflight-contract.md`.
 - gate failure output is a durable blocker artifact whenever safe to persist, not just a transient error response.
 - final and blocker artifacts share source trace/readiness/risk semantics but only final `PlanningHandoffArtifact` may carry the user-facing `Planning-ready` label.
+- Desktop UI must preserve that label boundary: final artifact surfaces may say `Planning-ready`, while blocker report surfaces must show blocker class, required next action, residual risk, and safe preview refs without final handoff copy.
 - Build Slice, Serve Checklist, Learning Loop hook은 final artifact에 포함되어도 no-execution policy 아래의 planning context다. 이 field를 근거로 file patch, shell command, browser action, deploy, external mutation을 실행하면 안 된다.
 
 ## Non-goals

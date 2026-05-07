@@ -326,6 +326,31 @@ h4 {
   background: #f7fffd;
 }
 
+.handoff-card.final {
+  border-left-color: #0f766e;
+  background: #f7fffd;
+}
+
+.handoff-card.blocked {
+  border-left-color: #b42318;
+  background: #fff7f6;
+}
+
+.handoff-card section {
+  display: grid;
+  gap: 5px;
+}
+
+.handoff-detail-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  color: #506170;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 .metrics {
   display: grid;
   gap: 10px;

@@ -413,6 +413,7 @@ Follow-up questions:
 
 - `CreatePlanningHandoff` gate 통과는 final `PlanningHandoffArtifact`를 `planning_handoffs` family에 저장하고 `PlanningHandoffProjection`을 반환한다.
 - `CreatePlanningHandoff` gate 실패는 command rejection만 반환하지 않고 `PlanningHandoffBlockerArtifact`를 저장해 blocker class, required next action, safe preview refs를 조회 가능하게 한다.
+- Desktop UI는 `PlanningHandoffProjection`을 read-only로 조회해 final artifact에서만 `Planning-ready` label을 보여주고, blocker artifact에서는 blocker class, required next action, residual risk 상태, safe preview refs를 별도 report로 보여준다.
 - `32-phase2-implementation-preflight-contract.md`는 DTO field names/types, gate precedence, storage columns/indexes, idempotency key, routeId/clientName, Phase 1.5 dependency fallback을 Phase 2 implementation exact default로 고정한다.
 - DTO names (`CreatePlanningHandoffRequest`, `PlanningHandoffProjection`, `PlanningHandoffArtifactDto`, `PlanningHandoffBlockerArtifactDto`)는 #42 이후 `25`번의 current closed enum/projection tables와 `packages/contracts` public surface에 있어야 한다.
 - endpoint names (`POST /api/v1/sessions/:sessionId/planning-handoff`, `GET /api/v1/sessions/:sessionId/planning-handoff`)는 #42 이후 `26`번의 current route catalog rows와 `API_ROUTE_CATALOG` placeholder에 있어야 한다.
@@ -425,6 +426,7 @@ Follow-up questions:
 - fatal blocker나 source trace gap이 있는데도 blocker artifact를 저장하지 않고 transient error만 반환한다.
 - `25`번 parsed current enum/projection table 또는 `26`번 current route catalog row에 Phase 2 값을 추가하면서 `packages/contracts`와 doc-contract verifier를 함께 갱신하지 않는다.
 - final/blocker artifact projection이 동시에 current final state처럼 표시된다.
+- blocker artifact UI가 `Planning-ready` label, final task/PR plan heading, or execution-control copy처럼 보인다.
 - DTO/API/storage field가 Phase 2 handoff를 Controlled Execution 또는 Phase 3 실행 설계로 해석하게 만든다.
 
 ### Build/Serve/Learning handoff dry-run
