@@ -36,6 +36,7 @@ import {
   type PendingEffectSummaryDto,
   type Phase15bUpgradeHintExportDto,
   type Phase15bUpgradeHintProjection,
+  type PlanningHandoffProjection,
   type PrepareResearchDisclosureRequest,
   type ProjectApplicationCommandType,
   type ProductEngineCommand,
@@ -80,6 +81,7 @@ import {
 import {
   createEffectTaskRepository,
   createEventRepository,
+  createPlanningHandoffRepository,
   createProjectRepository,
   createProjectionRepository,
   createResearchAllowlistRepository,
@@ -147,6 +149,7 @@ export interface RunSessionCommandInput {
     | "CreateSpecVersion"
     | "ScoreCompleteness"
     | "PrepareFounderBrief"
+    | "CreatePlanningHandoff"
   >;
   readonly expectedStateVersion: StateVersion;
   readonly payload: Readonly<Record<string, unknown>>;
@@ -521,6 +524,7 @@ function isPersistedProjection(value: unknown): value is PersistedProjection {
     kind === "DecisionQueueProjection" ||
     kind === "FounderBriefProjection" ||
     kind === "LivingSpecProjection" ||
+    kind === "PlanningHandoffProjection" ||
     kind === "ResearchEvidenceProjection" ||
     kind === "RuntimeActivityProjection" ||
     kind === "SessionShellProjection"
@@ -744,6 +748,14 @@ function runtimeArtifactsFromEvent(event: ProductEngineEvent): readonly RuntimeP
   return [...artifacts.values()];
 }
 
+function planningHandoffProjectionFromEvent(event: ProductEngineEvent): PlanningHandoffProjection | null {
+  const projection = event.payload.projection;
+
+  return isPersistedProjection(projection) && projection.kind === "PlanningHandoffProjection"
+    ? projection
+    : null;
+}
+
 function decisionQueueProjectionFromEvents(events: readonly ProductEngineEvent[]): DecisionQueueProjection | null {
   for (const event of [...events].reverse()) {
     const projection = event.payload.queueProjection;
@@ -778,6 +790,7 @@ export function createProductEngineCommandService(
         case "completeness_snapshot":
         case "confidence_map":
         case "founder_brief_draft":
+        case "planning_handoff_artifact":
           break;
         case "spec_version_material":
           throw new Error(`${output.outputType} requires a persistence interpreter before it can be emitted.`);
@@ -1068,6 +1081,7 @@ export function createProductEngineCommandService(
       const projectRepository = createProjectRepository(transaction);
       const researchRepository = createResearchRepository(transaction);
       const runtimeRepository = createRuntimeRepository(transaction);
+      const planningHandoffRepository = createPlanningHandoffRepository(transaction);
       const persistedEvents: ProductEngineEvent[] = [];
 
       for (const event of reduction.events) {
@@ -1171,6 +1185,19 @@ export function createProductEngineCommandService(
             sessionId: command.sessionId,
             artifact,
             schemaVersion: command.schemaVersion
+          });
+        }
+
+        const planningHandoffProjection = planningHandoffProjectionFromEvent(event);
+
+        if (planningHandoffProjection) {
+          await planningHandoffRepository.saveFromProjection({
+            projectId: command.projectId,
+            sessionId: command.sessionId,
+            sourceCommandId: command.commandId,
+            sourceEventId: event.eventId,
+            sourceStateVersion: command.expectedStateVersion,
+            projection: planningHandoffProjection
           });
         }
       }

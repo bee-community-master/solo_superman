@@ -333,7 +333,7 @@ Phase 1.5 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.md`�
 
 ## Phase 2 planning handoff storage checklist
 
-Phase 2 Planning Handoff 저장소 구현자는 `31-phase2-planning-handoff-contract.md`를 artifact/report canonical source로 사용하고, `32-phase2-implementation-preflight-contract.md`를 exact column/index/current-state default로 사용한다. 이 섹션은 후속 구현 PR에서 추가할 storage 이름과 책임을 고정하지만, 현재 PR에서 SQL DDL이나 product code를 추가하지 않는다.
+Phase 2 Planning Handoff 저장소 구현자는 `31-phase2-planning-handoff-contract.md`를 artifact/report canonical source로 사용하고, `32-phase2-implementation-preflight-contract.md`를 exact column/index/current-state default로 사용한다. #44 storage PR부터 아래 table family와 `planningHandoffRepository`가 code-backed contract이며, 후속 #45/#46은 이 저장소를 Hono route/UI read surface로 노출한다.
 
 - `CreatePlanningHandoff`는 gate 통과 시 final `PlanningHandoffArtifact`, gate 실패 시 `PlanningHandoffBlockerArtifact`를 같은 handoff storage family에 영속화한다.
 - `planning_handoffs`는 `artifactId`, `sessionId`, artifact kind, schemaVersion, status, gate verdict, summary, createdAt, createdBy, source session/version refs를 저장한다.

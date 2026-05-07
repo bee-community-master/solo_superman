@@ -800,7 +800,7 @@ Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.
 
 ## Phase 2 Planning Handoff DTO checklist
 
-Phase 2 Planning Handoff 구현자는 `31-phase2-planning-handoff-contract.md`를 canonical artifact contract로 사용하고, `32-phase2-implementation-preflight-contract.md`를 exact DTO/wire shape, enum, route id, idempotency, and implementation sequencing default로 사용한다. 아래 이름은 #42에서 `packages/contracts` public contract surface와 parsed verifier table로 승격된 현재 DTO/command/event/projection names다. #43에서 ProductEngine reducer gate는 `CreatePlanningHandoff`로 연결되었고, Drizzle persistence, Hono route handler, sidecar service implementation, and UI rendering remain 후속 Phase 2 issues #44~#46 범위다.
+Phase 2 Planning Handoff 구현자는 `31-phase2-planning-handoff-contract.md`를 canonical artifact contract로 사용하고, `32-phase2-implementation-preflight-contract.md`를 exact DTO/wire shape, enum, route id, idempotency, and implementation sequencing default로 사용한다. 아래 이름은 #42에서 `packages/contracts` public contract surface와 parsed verifier table로 승격된 현재 DTO/command/event/projection names다. #43에서 ProductEngine reducer gate는 `CreatePlanningHandoff`로 연결되었고, #44에서 Drizzle persistence와 `planningHandoffRepository` normalized projection storage가 추가되었다. Hono route handler, sidecar service read APIs, and UI rendering remain 후속 Phase 2 issues #45~#46 범위다.
 
 | Surface | Exact current name | Implementation note |
 | --- | --- | --- |
@@ -819,6 +819,7 @@ Phase 2 Planning Handoff 구현자는 `31-phase2-planning-handoff-contract.md`�
 | Residual risk DTO | `PlanningHandoffResidualRiskDto` | visible residual risk, assumption, prerequisite, validation dependency, owner/follow-up trigger를 담는다. |
 | ProductEngine event | `PlanningHandoffCreated` | gate 통과 후 final artifact가 persisted 되었음을 기록한다. |
 | ProductEngine event | `PlanningHandoffBlocked` | gate 실패 후 blocker artifact가 persisted 되었음을 기록한다. |
+| Storage repository | `planningHandoffRepository` | final/blocker artifact JSON, source/task/PR-risk rows, latest-session projection recovery를 `planning_handoffs` family에 저장한다. |
 | Deterministic output type | `planning_handoff_artifact` | final/blocker artifact materialization ref를 reducer output으로 추적한다. |
 | Projection family file | `projections/planning-handoff.ts` | `PlanningHandoffProjection` export 위치다. |
 

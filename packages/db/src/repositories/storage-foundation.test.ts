@@ -146,7 +146,7 @@ describe("PR-03 local libSQL storage foundation", () => {
       expect(existsSync(join(appDataDir, "solo-superman.db"))).toBe(true);
       expect(migrationStatus).toMatchObject({
         state: "migrated",
-        appliedMigrationCount: 9
+        appliedMigrationCount: 10
       });
       expect(migrationStatus.latestMigrationMillis).toEqual(expect.any(Number));
     } finally {
@@ -179,6 +179,11 @@ describe("PR-03 local libSQL storage foundation", () => {
           "research_runs",
           "runtime_preview_artifacts",
           "phase15b_upgrade_hints",
+          "planning_handoffs",
+          "planning_handoff_sources",
+          "planning_handoff_tasks",
+          "planning_handoff_pr_issue_items",
+          "planning_handoff_risks",
           "runtime_task_refs",
           "app_config",
           "secret_refs",
@@ -206,6 +211,15 @@ describe("PR-03 local libSQL storage foundation", () => {
           "phase15b_upgrade_hints_artifact_idx",
           "phase15b_upgrade_hints_session_idx",
           "phase15b_upgrade_hints_risk_idx",
+          "planning_handoffs_session_created_idx",
+          "planning_handoffs_source_command_idx",
+          "planning_handoffs_session_verdict_idx",
+          "planning_handoff_sources_handoff_idx",
+          "planning_handoff_sources_source_idx",
+          "planning_handoff_tasks_handoff_order_idx",
+          "planning_handoff_pr_issue_items_handoff_order_idx",
+          "planning_handoff_risks_handoff_idx",
+          "planning_handoff_risks_class_idx",
           "runtime_task_refs_effect_artifact_idx"
         ])
       );

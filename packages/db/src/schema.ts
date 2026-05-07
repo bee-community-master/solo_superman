@@ -360,6 +360,105 @@ export const phase15bUpgradeHints = sqliteTable(
   ]
 );
 
+export const planningHandoffs = sqliteTable(
+  "planning_handoffs",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    sourceCommandId: text("source_command_id").notNull(),
+    sourceEventId: text("source_event_id").notNull(),
+    artifactKind: text("artifact_kind").notNull(),
+    status: text("status").notNull(),
+    gateVerdict: text("gate_verdict").notNull(),
+    sourceStateVersion: integer("source_state_version").notNull(),
+    summary: text("summary").notNull(),
+    artifactJson: text("artifact_json").notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: text("created_at").notNull(),
+    schemaVersion: text("schema_version").notNull()
+  },
+  (table) => [
+    index("planning_handoffs_session_created_idx").on(table.sessionId, table.createdAt),
+    uniqueIndex("planning_handoffs_source_command_idx").on(table.sourceCommandId),
+    index("planning_handoffs_session_verdict_idx").on(table.sessionId, table.gateVerdict)
+  ]
+);
+
+export const planningHandoffSources = sqliteTable(
+  "planning_handoff_sources",
+  {
+    id: text("id").primaryKey(),
+    handoffId: text("handoff_id").notNull(),
+    sourceType: text("source_type").notNull(),
+    sourceId: text("source_id").notNull(),
+    sourceLabel: text("source_label"),
+    required: integer("required", { mode: "boolean" }).notNull(),
+    stale: integer("stale", { mode: "boolean" }).notNull(),
+    createdAt: text("created_at").notNull()
+  },
+  (table) => [
+    index("planning_handoff_sources_handoff_idx").on(table.handoffId),
+    index("planning_handoff_sources_source_idx").on(table.sourceType, table.sourceId)
+  ]
+);
+
+export const planningHandoffTasks = sqliteTable(
+  "planning_handoff_tasks",
+  {
+    id: text("id").primaryKey(),
+    handoffId: text("handoff_id").notNull(),
+    sequenceOrder: integer("sequence_order").notNull(),
+    title: text("title").notNull(),
+    intent: text("intent").notNull(),
+    ownerRole: text("owner_role").notNull(),
+    sourceRefsJson: text("source_refs_json").notNull(),
+    dependsOnJson: text("depends_on_json").notNull(),
+    acceptanceEvidenceJson: text("acceptance_evidence_json").notNull(),
+    nonGoalsJson: text("non_goals_json").notNull(),
+    riskRefsJson: text("risk_refs_json").notNull()
+  },
+  (table) => [index("planning_handoff_tasks_handoff_order_idx").on(table.handoffId, table.sequenceOrder)]
+);
+
+export const planningHandoffPrIssueItems = sqliteTable(
+  "planning_handoff_pr_issue_items",
+  {
+    id: text("id").primaryKey(),
+    handoffId: text("handoff_id").notNull(),
+    sequenceOrder: integer("sequence_order").notNull(),
+    summary: text("summary").notNull(),
+    includedTaskIdsJson: text("included_task_ids_json").notNull(),
+    entryPrerequisitesJson: text("entry_prerequisites_json").notNull(),
+    exitEvidenceJson: text("exit_evidence_json").notNull(),
+    blockedByJson: text("blocked_by_json").notNull(),
+    phaseBoundary: text("phase_boundary").notNull()
+  },
+  (table) => [
+    index("planning_handoff_pr_issue_items_handoff_order_idx").on(table.handoffId, table.sequenceOrder)
+  ]
+);
+
+export const planningHandoffRisks = sqliteTable(
+  "planning_handoff_risks",
+  {
+    id: text("id").primaryKey(),
+    handoffId: text("handoff_id").notNull(),
+    riskKind: text("risk_kind").notNull(),
+    riskClass: text("risk_class").notNull(),
+    severity: text("severity").notNull(),
+    title: text("title").notNull(),
+    sourceRefsJson: text("source_refs_json").notNull(),
+    ownerRole: text("owner_role").notNull(),
+    followUpTrigger: text("follow_up_trigger").notNull(),
+    requiredAction: text("required_action")
+  },
+  (table) => [
+    index("planning_handoff_risks_handoff_idx").on(table.handoffId),
+    index("planning_handoff_risks_class_idx").on(table.riskClass, table.severity)
+  ]
+);
+
 export const runtimeTaskRefs = sqliteTable(
   "runtime_task_refs",
   {
