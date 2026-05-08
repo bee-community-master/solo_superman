@@ -1,4 +1,4 @@
-import type { DecisionEvidencePackId, ProjectionVersion, QueueItemId, ResearchTaskId } from "../ids";
+import type { DecisionEvidencePackId, ProjectionVersion, QueueItemId, ResearchTaskId, SessionId } from "../ids";
 import type {
   AmbiguityExpectedAnswerType,
   AmbiguityIssueSeverity,
@@ -17,6 +17,31 @@ export type QueueCardType =
   | "completion_candidate";
 
 export type QueueTerminalOutcome = ResearchQueueTerminalOutcome;
+
+export type DecisionQueueRecoveryStatus =
+  | "fresh"
+  | "pending_refetch"
+  | "recovering"
+  | "recovered_by_refetch"
+  | "stale";
+
+export interface DecisionQueueActiveBatchProjection {
+  readonly batchId: string;
+  readonly queueItemIds: readonly QueueItemId[];
+  readonly selectedAt: string;
+  readonly priorityReason: string;
+  readonly stabilityPolicy: "preserve_active_batch_until_terminal_or_explicit_reactivation";
+}
+
+export interface DecisionQueueRecoveryProjection {
+  readonly status: DecisionQueueRecoveryStatus;
+  readonly refetchUrl: string;
+  readonly sseStreamUrl: string;
+  readonly sseEventNames: readonly ["projection.updated"];
+  readonly pendingEffectCount: number;
+  readonly lastRefetchedAt?: string;
+  readonly staleReason?: string;
+}
 
 export interface QueueItemProjection {
   readonly queueItemId: QueueItemId;
@@ -40,7 +65,14 @@ export interface QueueItemProjection {
 
 export interface DecisionQueueProjection {
   readonly kind: "DecisionQueueProjection";
+  readonly projectionKind?: "DecisionQueueProjection";
+  readonly sessionId?: SessionId;
   readonly version: ProjectionVersion;
+  readonly generatedAt?: string;
+  readonly stale?: boolean;
+  readonly refetchUrl?: string;
+  readonly activeBatch?: DecisionQueueActiveBatchProjection;
+  readonly recovery?: DecisionQueueRecoveryProjection;
   readonly active: readonly QueueItemProjection[];
   readonly next: readonly QueueItemProjection[];
   readonly blocked: readonly QueueItemProjection[];

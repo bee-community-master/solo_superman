@@ -190,6 +190,27 @@ h4 {
   min-width: 0;
 }
 
+.queue-recovery {
+  display: grid;
+  gap: 5px;
+  border: 1px solid #d8ece8;
+  border-radius: 8px;
+  background: #f5fbfa;
+  margin-bottom: 12px;
+  padding: 10px;
+}
+
+.queue-recovery p {
+  margin: 0;
+  color: #244b56;
+  font-size: 0.86rem;
+}
+
+.queue-recovery small {
+  color: #607080;
+  font-size: 0.76rem;
+}
+
 .queue-sections,
 .queue-list,
 .side-panels,

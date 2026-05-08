@@ -6,6 +6,8 @@ import {
   CANONICAL_INITIAL_SPEC_SECTIONS,
   type CommandId,
   type CorrelationId,
+  type DecisionQueueProjection,
+  type ProjectionVersion,
   type ProjectId,
   type QueueItemId,
   type SessionId,
@@ -13,6 +15,7 @@ import {
 } from "@solo-superman/contracts";
 import {
   createInitialProductEngineState,
+  decisionQueueProjectionWithRecovery,
   reduceProductEngineCommand,
   replayProductEngineEvents,
   sessionPhaseForProductEngineEvent,
@@ -477,6 +480,50 @@ describe("PR-04 ProductEngine reducer", () => {
           state: "active"
         })
       ])
+    });
+  });
+
+  it("does not keep stale active-batch metadata after canonical queue refetch recovery", () => {
+    const queueWithActiveItem: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 7 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_recovery_active" as QueueItemId,
+          title: "Clarify the highest-risk assumption?",
+          state: "active",
+          severity: "high",
+          topicKey: "highest_risk_assumption"
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+    const withActiveBatch = decisionQueueProjectionWithRecovery(
+      queueWithActiveItem,
+      sessionId,
+      "2026-05-05T00:00:05.000Z"
+    );
+    const recoveredWithoutActiveItems = decisionQueueProjectionWithRecovery(
+      {
+        ...withActiveBatch,
+        version: 8 as ProjectionVersion,
+        active: []
+      },
+      sessionId,
+      "2026-05-05T00:00:06.000Z"
+    );
+
+    expect(withActiveBatch.activeBatch).toMatchObject({
+      queueItemIds: ["queue_recovery_active"],
+      priorityReason: expect.stringContaining("severity:high")
+    });
+    expect(recoveredWithoutActiveItems.activeBatch).toBeUndefined();
+    expect(recoveredWithoutActiveItems.recovery).toMatchObject({
+      status: "fresh",
+      pendingEffectCount: 0,
+      refetchUrl: `/api/v1/sessions/${sessionId}/queue`
     });
   });
 

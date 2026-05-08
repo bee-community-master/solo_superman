@@ -187,4 +187,13 @@ describe("PR-09 desktop route client catalog", () => {
       implementation: "mounted_phase_2_pr_04"
     });
   });
+
+  it("marks the Decision Queue SSE notification stream as mounted for refetch recovery", () => {
+    expect(findDesktopRouteClientPlaceholder("subscribeEventStream")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/events/stream",
+      requiredQueryParams: ["sessionId"],
+      implementation: "mounted_phase_1_queue_recovery"
+    });
+  });
 });

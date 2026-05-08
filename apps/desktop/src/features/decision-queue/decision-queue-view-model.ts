@@ -16,6 +16,7 @@ import type {
   ResearchRunControlProjection,
   RuntimeActivityProjection,
   SessionId,
+  SseEvent,
   StatusEndpointDto
 } from "@solo-superman/contracts";
 
@@ -26,6 +27,16 @@ export interface QueueSectionViewModel {
   readonly title: string;
   readonly emptyLabel: string;
   readonly items: DecisionQueueProjection[QueueSectionId];
+}
+
+export type DecisionQueueRecoveryUiStatus = "idle" | "pending_refetch" | "recovering" | "recovered_by_refetch" | "stale";
+
+export interface DecisionQueueRecoveryViewModel {
+  readonly status: DecisionQueueRecoveryUiStatus;
+  readonly label: string;
+  readonly refetchLabel: string;
+  readonly sseLabel: string;
+  readonly activeBatchLabel: string;
 }
 
 export type Phase15aExitGateStatus = "ready_for_1_5b" | "blocked_for_1_5b";
@@ -134,6 +145,65 @@ export function queueSections(queue: DecisionQueueProjection | null): readonly Q
       items: queue?.deferred ?? []
     }
   ];
+}
+
+function queueRecoveryStatus(queue: DecisionQueueProjection | null): DecisionQueueRecoveryUiStatus {
+  if (!queue) {
+    return "idle";
+  }
+
+  if (queue.stale) {
+    return "stale";
+  }
+
+  if (queue.recovery?.status === "pending_refetch" || (queue.recovery?.pendingEffectCount ?? 0) > 0) {
+    return "pending_refetch";
+  }
+
+  if (queue.recovery?.status === "recovering" || queue.recovery?.status === "recovered_by_refetch") {
+    return queue.recovery.status;
+  }
+
+  return "idle";
+}
+
+export function decisionQueueRecoveryViewModel(queue: DecisionQueueProjection | null): DecisionQueueRecoveryViewModel {
+  const status = queueRecoveryStatus(queue);
+  const pendingCount = queue?.recovery?.pendingEffectCount ?? 0;
+  const activeBatchCount = queue?.activeBatch?.queueItemIds.length ?? 0;
+
+  return {
+    status,
+    label:
+      status === "stale"
+        ? `Queue projection is stale; refetch before using it as canonical state. ${queue?.recovery?.staleReason ?? ""}`.trim()
+        : status === "pending_refetch"
+          ? `${pendingCount} queue projection effect(s) pending; SSE is notification-only and refetch remains canonical.`
+          : status === "recovering"
+            ? "Queue recovery is in progress after an SSE notification or reconnect."
+            : status === "recovered_by_refetch"
+              ? "Queue recovered from canonical projection refetch after an SSE notification."
+              : "Queue projection is fresh; SSE notifications will trigger refetch instead of local state mutation.",
+    refetchLabel: queue?.refetchUrl ? `Canonical refetch ${queue.refetchUrl}` : "Canonical queue refetch URL is not loaded yet.",
+    sseLabel: queue?.recovery?.sseStreamUrl
+      ? `SSE notification stream ${queue.recovery.sseStreamUrl}`
+      : "SSE notification stream is not loaded yet.",
+    activeBatchLabel: queue?.activeBatch
+      ? `${activeBatchCount} item active batch · ${queue.activeBatch.priorityReason}`
+      : "No active batch metadata loaded yet."
+  };
+}
+
+export function shouldRefetchQueueForSseNotification(
+  event: SseEvent,
+  queue: DecisionQueueProjection | null
+): boolean {
+  return (
+    event.event === "projection.updated" &&
+    event.projectionKind === "DecisionQueueProjection" &&
+    (!queue?.sessionId || event.affectedIds.includes(queue.sessionId)) &&
+    (!queue || Number(event.version) >= Number(queue.version))
+  );
 }
 
 function commaList(items: readonly string[], fallback: string) {

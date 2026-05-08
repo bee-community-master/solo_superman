@@ -10,7 +10,13 @@ import type {
   SessionId,
   StateVersion
 } from "@solo-superman/contracts";
-import { createSidecarClient, SidecarClientError, sidecarConnectionFromEnv, type SidecarConnection } from "./sidecar-client";
+import {
+  createSidecarClient,
+  parseSseEvents,
+  SidecarClientError,
+  sidecarConnectionFromEnv,
+  type SidecarConnection
+} from "./sidecar-client";
 
 const connection: SidecarConnection = {
   baseUrl: "http://127.0.0.1:43110",
@@ -163,6 +169,51 @@ describe("sidecar client", () => {
       expectedStateVersion: 5,
       answer: "The first answer"
     });
+  });
+
+  it("reads the authenticated SSE stream as notification-only refetch hints", async () => {
+    const seenRequests: [string, RequestInit | undefined][] = [];
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async (input, init) => {
+        seenRequests.push([input, init]);
+
+        return new Response(
+          [
+            "retry: 5000",
+            "event: projection.updated",
+            'data: {"event":"projection.updated","emittedAt":"2026-05-08T00:00:00.000Z","projectionKind":"DecisionQueueProjection","version":8,"affectedIds":["sess_test"],"refetchUrl":"/api/v1/sessions/sess_test/queue"}',
+            ""
+          ].join("\n"),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "text/event-stream"
+            }
+          }
+        );
+      }
+    });
+
+    const notifications = await client.readSessionEventStreamSnapshot("sess_test" as SessionId);
+
+    expect(seenRequests[0]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/events/stream?sessionId=sess_test",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-token"
+        })
+      })
+    ]);
+    expect(notifications).toEqual([
+      expect.objectContaining({
+        event: "projection.updated",
+        projectionKind: "DecisionQueueProjection",
+        refetchUrl: "/api/v1/sessions/sess_test/queue"
+      })
+    ]);
+    expect(parseSseEvents("event: projection.updated\n")).toEqual([]);
   });
 
   it("imports manual research results through the mounted research endpoint", async () => {

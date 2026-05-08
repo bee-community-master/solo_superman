@@ -10,7 +10,8 @@ import type {
   EventId,
   ProductEngineEvent,
   ProjectId,
-  SchemaVersion
+  SchemaVersion,
+  SessionId
 } from "@solo-superman/contracts";
 import type { SoloDatabaseExecutor } from "../client";
 import { parseJsonArray, parseJsonRecord, stringifyJson, type JsonRecord } from "../json";
@@ -239,6 +240,12 @@ export function createEffectTaskRepository(db: SoloDatabaseExecutor) {
 
     async listForCommand(commandId: CommandId): Promise<readonly EffectTaskDto[]> {
       const rows = await db.select().from(effectTasks).where(eq(effectTasks.sourceCommandId, commandId));
+
+      return rows.map(mapEffectTask);
+    },
+
+    async listForSession(sessionId: SessionId): Promise<readonly EffectTaskDto[]> {
+      const rows = await db.select().from(effectTasks).where(eq(effectTasks.sessionId, sessionId));
 
       return rows.map(mapEffectTask);
     },

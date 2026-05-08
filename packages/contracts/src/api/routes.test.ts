@@ -19,6 +19,8 @@ import {
   PHASE15B_PR10_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PHASE2_PR04_PLANNING_HANDOFF_ROUTE_IDS,
   PHASE2_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  PHASE1_QUEUE_RECOVERY_ROUTE_IDS,
+  PHASE1_QUEUE_RECOVERY_MOUNTED_PRODUCT_API_ROUTE_IDS,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
@@ -307,7 +309,9 @@ describe("API route catalog", () => {
       ...PHASE15B_PR10_MOUNTED_PRODUCT_API_ROUTE_IDS,
       ...PHASE2_PR04_PLANNING_HANDOFF_ROUTE_IDS
     ]);
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE2_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(
+      expect.arrayContaining([...PHASE2_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS])
+    );
     expect(routeById.get("createPlanningHandoff")).toMatchObject({
       method: "POST",
       path: "/api/v1/sessions/:sessionId/planning-handoff",
@@ -317,6 +321,24 @@ describe("API route catalog", () => {
     expect(routeById.get("getPlanningHandoff")).toMatchObject({
       method: "GET",
       path: "/api/v1/sessions/:sessionId/planning-handoff",
+      commandType: "none",
+      implementedInPr01: false
+    });
+  });
+
+  it("mounts the Phase 1 Decision Queue SSE/refetch recovery route after the Phase 2 baseline", () => {
+    const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
+
+    expect(PHASE1_QUEUE_RECOVERY_ROUTE_IDS).toEqual(["subscribeEventStream"]);
+    expect(PHASE1_QUEUE_RECOVERY_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual([
+      ...PHASE2_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      ...PHASE1_QUEUE_RECOVERY_ROUTE_IDS
+    ]);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE1_QUEUE_RECOVERY_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(routeById.get("subscribeEventStream")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/events/stream",
+      requiredQueryParams: ["sessionId"],
       commandType: "none",
       implementedInPr01: false
     });

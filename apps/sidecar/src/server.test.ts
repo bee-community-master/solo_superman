@@ -516,7 +516,7 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       status: "ok",
-      sidecarPhase: "phase_2_pr_04_planning_handoff_api",
+      sidecarPhase: "phase_1_queue_sse_refetch_recovery",
       checks: {
         process: "alive"
       },
@@ -774,6 +774,42 @@ describe("PR-02 sidecar health shell", () => {
         schemaVersion: expect.any(String)
       }
     });
+  });
+
+  it("requires session scope for the authenticated SSE event stream", async () => {
+    const response = await app.request("/api/v1/events/stream", {
+      headers: authHeaders()
+    });
+    const body = await jsonBody(response);
+
+    expect(response.status).toBe(400);
+    expect(body.error).toMatchObject({
+      code: "STREAM_SESSION_REQUIRED",
+      details: {
+        requiredQueryParams: ["sessionId"]
+      }
+    });
+  });
+
+  it("streams Decision Queue projection notifications as refetch hints rather than canonical state", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A Decision Queue SSE recovery route test idea");
+      const response = await storageApp.request(`/api/v1/events/stream?sessionId=${sessionId}`, {
+        headers: authHeaders()
+      });
+      const body = await response.text();
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toContain("text/event-stream");
+      expect(body).toContain("event: projection.updated");
+      expect(body).toContain(`"refetchUrl":"/api/v1/sessions/${sessionId}/queue"`);
+      expect(body).toContain('"projectionKind":"DecisionQueueProjection"');
+      expect(body).not.toContain('"active":');
+    } finally {
+      await storage.close();
+    }
   });
 
   it("keeps product command routes unavailable until migrated storage is mounted", async () => {

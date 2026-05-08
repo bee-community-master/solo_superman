@@ -40,12 +40,14 @@ import {
 } from "../../shared/api/sidecar-client";
 import {
   confidencePlaceholder,
+  decisionQueueRecoveryViewModel,
   phase15aOperationsViewModel,
   phase15bReadinessViewModel,
   planningHandoffViewModel,
   pendingEffectSummary,
   queueSections,
-  runtimeActivityProjectionFromStatuses
+  runtimeActivityProjectionFromStatuses,
+  shouldRefetchQueueForSseNotification
 } from "./decision-queue-view-model";
 import {
   buildDesktopResearchRunRequest,
@@ -250,6 +252,28 @@ export function DecisionQueueShell() {
     [client, refreshPhase15bReadiness, refreshResearchOperations]
   );
 
+  const refetchQueueAfterSseNotification = useCallback(
+    async (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"], currentQueue: DecisionQueueProjection | null) => {
+      if (!client) {
+        return;
+      }
+
+      try {
+        const notifications = await client.readSessionEventStreamSnapshot(sessionId);
+        const queueNeedsCanonicalRefetch = notifications.some((notification) =>
+          shouldRefetchQueueForSseNotification(notification, currentQueue)
+        );
+
+        if (queueNeedsCanonicalRefetch) {
+          await refreshProjections(projectId, sessionId);
+        }
+      } catch {
+        return;
+      }
+    },
+    [client, refreshProjections]
+  );
+
   const recordCommandStatus = useCallback((status: StatusEndpointDto) => {
     setStatuses((previous) => [status, ...previous.filter((item) => item.commandId !== status.commandId)]);
     setCommandLog((previous) =>
@@ -366,19 +390,21 @@ export function DecisionQueueShell() {
           "Activate question batch",
           await client.activateQuestionBatch(session.sessionId, commandResponseVersion(analyzeResponse))
         );
+        const queue = requiredCommandProjection<DecisionQueueProjection>(activateResponse, "DecisionQueueProjection");
 
         setProjections((current) => ({
           ...current,
-          queue: requiredCommandProjection<DecisionQueueProjection>(activateResponse, "DecisionQueueProjection")
+          queue
         }));
         await refreshProjections(session.projectId, session.sessionId);
+        await refetchQueueAfterSseNotification(session.projectId, session.sessionId, queue);
       } catch (error) {
         setWorkflowError(displayError(error));
       } finally {
         setIsBusy(false);
       }
     },
-    [appendCommand, client, idea, intake, refreshProjections]
+    [appendCommand, client, idea, intake, refetchQueueAfterSseNotification, refreshProjections]
   );
 
   const submitAnswer = useCallback(
@@ -419,13 +445,14 @@ export function DecisionQueueShell() {
           queue
         }));
         await refreshProjections(projections.session.projectId, projections.session.sessionId);
+        await refetchQueueAfterSseNotification(projections.session.projectId, projections.session.sessionId, queue);
       } catch (error) {
         setWorkflowError(displayError(error));
       } finally {
         setIsBusy(false);
       }
     },
-    [answerDrafts, appendCommand, client, projections, refreshProjections]
+    [answerDrafts, appendCommand, client, projections, refetchQueueAfterSseNotification, refreshProjections]
   );
 
   const importResearchResult = useCallback(
@@ -902,6 +929,7 @@ export function DecisionQueueShell() {
   }, [appendCommand, client, projections]);
 
   const sections = useMemo(() => queueSections(projections.queue), [projections.queue]);
+  const queueRecovery = useMemo(() => decisionQueueRecoveryViewModel(projections.queue), [projections.queue]);
   const pendingSummary = useMemo(() => pendingEffectSummary(statuses), [statuses]);
   const runtimeActivity = useMemo(
     () => projections.activity ?? runtimeActivityProjectionFromStatuses(statuses),
@@ -986,7 +1014,13 @@ export function DecisionQueueShell() {
         <section className="panel queue-panel">
           <div className="panel-heading">
             <h2>Queue</h2>
-            <span>v{projections.queue?.version ?? 0}</span>
+            <span>{queueRecovery.status} · v{projections.queue?.version ?? 0}</span>
+          </div>
+          <div className="queue-recovery">
+            <p>{queueRecovery.label}</p>
+            <small>{queueRecovery.activeBatchLabel}</small>
+            <small>{queueRecovery.refetchLabel}</small>
+            <small>{queueRecovery.sseLabel}</small>
           </div>
           <div className="queue-sections">
             {sections.map((section) => (

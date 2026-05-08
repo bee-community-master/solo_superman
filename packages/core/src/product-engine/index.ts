@@ -313,8 +313,111 @@ function stableToken(input: string) {
   return (hash >>> 0).toString(36);
 }
 
-function emptyQueueProjection(version: ProjectionVersion = 0 as ProjectionVersion): DecisionQueueProjection {
+function queueRefetchUrl(sessionId: SessionId) {
+  return `/api/v1/sessions/${sessionId}/queue`;
+}
+
+function queueSseStreamUrl(sessionId: SessionId) {
+  return `/api/v1/events/stream?sessionId=${encodeURIComponent(sessionId)}`;
+}
+
+function activeBatchProjection(
+  items: readonly QueueItemProjection[],
+  generatedAt: string
+): DecisionQueueProjection["activeBatch"] {
+  if (!items.length) {
+    return undefined;
+  }
+
+  const prioritySignals = [
+    ...new Set(
+      items.map((item) =>
+        [
+          item.severity ? `severity:${item.severity}` : null,
+          item.topicKey ? `topic:${item.topicKey}` : null,
+          item.cardType ? `card:${item.cardType}` : null
+        ]
+          .filter((part): part is string => Boolean(part))
+          .join("/")
+      )
+    )
+  ].filter(Boolean);
+
   return {
+    batchId: `active-batch:${items.map((item) => item.queueItemId).join(",")}`,
+    queueItemIds: items.map((item) => item.queueItemId),
+    selectedAt: generatedAt,
+    priorityReason: prioritySignals.length
+      ? `severity_ordered_batch(${prioritySignals.join("; ")})`
+      : "active_batch_preserved_without_additional_priority_metadata",
+    stabilityPolicy: "preserve_active_batch_until_terminal_or_explicit_reactivation"
+  };
+}
+
+export function decisionQueueProjectionWithRecovery(
+  projection: DecisionQueueProjection,
+  sessionId: SessionId,
+  generatedAt: string,
+  pendingEffectCount = 0,
+  staleReason?: string
+): DecisionQueueProjection {
+  const stale = Boolean(staleReason);
+  const refetchUrl = queueRefetchUrl(sessionId);
+  const activeBatch = activeBatchProjection(projection.active, generatedAt);
+
+  return {
+    kind: projection.kind,
+    projectionKind: "DecisionQueueProjection",
+    sessionId,
+    version: projection.version,
+    generatedAt,
+    stale,
+    refetchUrl,
+    ...(activeBatch ? { activeBatch } : {}),
+    active: projection.active,
+    next: projection.next,
+    blocked: projection.blocked,
+    deferred: projection.deferred,
+    recovery: {
+      status: stale ? "stale" : pendingEffectCount > 0 ? "pending_refetch" : "fresh",
+      refetchUrl,
+      sseStreamUrl: queueSseStreamUrl(sessionId),
+      sseEventNames: ["projection.updated"],
+      pendingEffectCount,
+      ...(pendingEffectCount > 0 || stale ? {} : { lastRefetchedAt: generatedAt }),
+      ...(staleReason ? { staleReason } : {})
+    }
+  };
+}
+
+function refreshQueueProjectionMetadata(
+  projection: DecisionQueueProjection,
+  version: ProjectionVersion,
+  generatedAt: string
+): DecisionQueueProjection {
+  if (!projection.sessionId) {
+    return {
+      ...projection,
+      version
+    };
+  }
+
+  return decisionQueueProjectionWithRecovery(
+    {
+      ...projection,
+      version
+    },
+    projection.sessionId,
+    generatedAt
+  );
+}
+
+function emptyQueueProjection(
+  version: ProjectionVersion = 0 as ProjectionVersion,
+  sessionId?: SessionId,
+  generatedAt = new Date(0).toISOString()
+): DecisionQueueProjection {
+  const projection: DecisionQueueProjection = {
     kind: "DecisionQueueProjection",
     version,
     active: [],
@@ -322,6 +425,8 @@ function emptyQueueProjection(version: ProjectionVersion = 0 as ProjectionVersio
     blocked: [],
     deferred: []
   };
+
+  return sessionId ? decisionQueueProjectionWithRecovery(projection, sessionId, generatedAt) : projection;
 }
 
 export function createInitialProductEngineState(projectId: ProjectId, sessionId: SessionId): ProductEngineStateSnapshot {
@@ -339,7 +444,7 @@ export function createInitialProductEngineState(projectId: ProjectId, sessionId:
       draftRef: ""
     },
     openIssues: [],
-    queueProjection: emptyQueueProjection(),
+    queueProjection: emptyQueueProjection(0 as ProjectionVersion, sessionId),
     researchState: EMPTY_RESEARCH_PROJECTION,
     decisions: [],
     specUpdatePreviews: [],
@@ -601,16 +706,22 @@ function createAmbiguityIssues(sessionId: SessionId, specRef: string): readonly 
 
 function queueProjectionFromIssues(
   issues: readonly AmbiguityIssueSnapshot[],
-  version: ProjectionVersion
+  version: ProjectionVersion,
+  sessionId: SessionId,
+  generatedAt: string
 ): DecisionQueueProjection {
-  return {
-    kind: "DecisionQueueProjection",
-    version,
-    active: issues.map(queueItemProjectionFromIssue),
-    next: [],
-    blocked: [],
-    deferred: []
-  };
+  return decisionQueueProjectionWithRecovery(
+    {
+      kind: "DecisionQueueProjection",
+      version,
+      active: issues.map(queueItemProjectionFromIssue),
+      next: [],
+      blocked: [],
+      deferred: []
+    },
+    sessionId,
+    generatedAt
+  );
 }
 
 function queueItemProjectionFromIssue(issue: AmbiguityIssueSnapshot): QueueItemProjection {
@@ -665,7 +776,8 @@ function hasDuplicateTopicKey(issues: readonly AmbiguityIssueSnapshot[]) {
 function queueProjectionWithAnsweredItem(
   projection: DecisionQueueProjection,
   queueItemId: QueueItemId,
-  version: ProjectionVersion
+  version: ProjectionVersion,
+  generatedAt = projection.generatedAt ?? new Date(0).toISOString()
 ): DecisionQueueProjection {
   const markAnswered = (items: DecisionQueueProjection["active"]) =>
     items.map((item) =>
@@ -677,59 +789,76 @@ function queueProjectionWithAnsweredItem(
         : item
     );
 
-  return {
-    ...projection,
+  return refreshQueueProjectionMetadata(
+    {
+      ...projection,
+      active: markAnswered(projection.active),
+      next: markAnswered(projection.next),
+      blocked: markAnswered(projection.blocked),
+      deferred: markAnswered(projection.deferred)
+    },
     version,
-    active: markAnswered(projection.active),
-    next: markAnswered(projection.next),
-    blocked: markAnswered(projection.blocked),
-    deferred: markAnswered(projection.deferred)
-  };
+    generatedAt
+  );
 }
 
 function queueProjectionWithoutItem(
   projection: DecisionQueueProjection,
   queueItemId: QueueItemId,
-  version: ProjectionVersion
+  version: ProjectionVersion,
+  generatedAt = projection.generatedAt ?? new Date(0).toISOString()
 ): DecisionQueueProjection {
   const withoutItem = (items: readonly QueueItemProjection[]) =>
     items.filter((candidate) => candidate.queueItemId !== queueItemId);
 
-  return {
-    ...projection,
+  return refreshQueueProjectionMetadata(
+    {
+      ...projection,
+      active: withoutItem(projection.active),
+      next: withoutItem(projection.next),
+      blocked: withoutItem(projection.blocked),
+      deferred: withoutItem(projection.deferred)
+    },
     version,
-    active: withoutItem(projection.active),
-    next: withoutItem(projection.next),
-    blocked: withoutItem(projection.blocked),
-    deferred: withoutItem(projection.deferred)
-  };
+    generatedAt
+  );
 }
 
 function queueProjectionWithNextOrBlockedItem(
   projection: DecisionQueueProjection,
   item: QueueItemProjection & { readonly state: "next" | "blocked" },
-  version: ProjectionVersion
+  version: ProjectionVersion,
+  generatedAt = projection.generatedAt ?? new Date(0).toISOString()
 ): DecisionQueueProjection {
-  const withoutItem = queueProjectionWithoutItem(projection, item.queueItemId, version);
+  const withoutItem = queueProjectionWithoutItem(projection, item.queueItemId, version, generatedAt);
 
-  return {
-    ...withoutItem,
-    next: item.state === "next" ? [...withoutItem.next, item] : withoutItem.next,
-    blocked: item.state === "blocked" ? [...withoutItem.blocked, item] : withoutItem.blocked
-  };
+  return refreshQueueProjectionMetadata(
+    {
+      ...withoutItem,
+      next: item.state === "next" ? [...withoutItem.next, item] : withoutItem.next,
+      blocked: item.state === "blocked" ? [...withoutItem.blocked, item] : withoutItem.blocked
+    },
+    version,
+    generatedAt
+  );
 }
 
 function queueProjectionWithDeferredItem(
   projection: DecisionQueueProjection,
   item: QueueItemProjection & { readonly state: "deferred" },
-  version: ProjectionVersion
+  version: ProjectionVersion,
+  generatedAt = projection.generatedAt ?? new Date(0).toISOString()
 ): DecisionQueueProjection {
-  const withoutItem = queueProjectionWithoutItem(projection, item.queueItemId, version);
+  const withoutItem = queueProjectionWithoutItem(projection, item.queueItemId, version, generatedAt);
 
-  return {
-    ...withoutItem,
-    deferred: [...withoutItem.deferred, item]
-  };
+  return refreshQueueProjectionMetadata(
+    {
+      ...withoutItem,
+      deferred: [...withoutItem.deferred, item]
+    },
+    version,
+    generatedAt
+  );
 }
 
 function queueItemFromProjection(
@@ -874,9 +1003,10 @@ function runtimePreviewQueueItem(artifact: RuntimePreviewArtifact) {
 function queueProjectionWithRuntimePreviewItem(
   projection: DecisionQueueProjection,
   artifact: RuntimePreviewArtifact,
-  version: ProjectionVersion
+  version: ProjectionVersion,
+  generatedAt?: string
 ): DecisionQueueProjection {
-  return queueProjectionWithNextOrBlockedItem(projection, runtimePreviewQueueItem(artifact), version);
+  return queueProjectionWithNextOrBlockedItem(projection, runtimePreviewQueueItem(artifact), version, generatedAt);
 }
 
 function completionCandidateQueueItem(projection: ConfidenceCompletionProjection) {
@@ -894,9 +1024,10 @@ function completionCandidateQueueItem(projection: ConfidenceCompletionProjection
 function queueProjectionWithCompletionCandidate(
   projection: DecisionQueueProjection,
   confidenceProjection: ConfidenceCompletionProjection,
-  version: ProjectionVersion
+  version: ProjectionVersion,
+  generatedAt?: string
 ): DecisionQueueProjection {
-  return queueProjectionWithNextOrBlockedItem(projection, completionCandidateQueueItem(confidenceProjection), version);
+  return queueProjectionWithNextOrBlockedItem(projection, completionCandidateQueueItem(confidenceProjection), version, generatedAt);
 }
 
 function decisionIdForSpecUpdatePreview(previewRef: string): DecisionId {
@@ -921,9 +1052,10 @@ function queueProjectionWithSpecUpdateDecision(
   projection: DecisionQueueProjection,
   decisionId: DecisionId,
   title: string,
-  version: ProjectionVersion
+  version: ProjectionVersion,
+  generatedAt?: string
 ): DecisionQueueProjection {
-  return queueProjectionWithNextOrBlockedItem(projection, specUpdateDecisionQueueItem(decisionId, title), version);
+  return queueProjectionWithNextOrBlockedItem(projection, specUpdateDecisionQueueItem(decisionId, title), version, generatedAt);
 }
 
 function completenessDeterministicOutputs(
@@ -1064,9 +1196,15 @@ function queueProjectionWithResearchReviewItem(
   researchTaskId: ResearchTaskId,
   title: string,
   state: "next" | "blocked",
-  version: ProjectionVersion
+  version: ProjectionVersion,
+  generatedAt?: string
 ): DecisionQueueProjection {
-  return queueProjectionWithNextOrBlockedItem(projection, researchReviewQueueItem(researchTaskId, title, state), version);
+  return queueProjectionWithNextOrBlockedItem(
+    projection,
+    researchReviewQueueItem(researchTaskId, title, state),
+    version,
+    generatedAt
+  );
 }
 
 function researchCardQueueMetadata(
@@ -1095,7 +1233,8 @@ function queueProjectionWithResearchCard(
   projection: DecisionQueueProjection,
   card: ResearchReviewCardProjection,
   state: "next" | "blocked",
-  version: ProjectionVersion
+  version: ProjectionVersion,
+  generatedAt?: string
 ): DecisionQueueProjection {
   return queueProjectionWithNextOrBlockedItem(
     projection,
@@ -1105,7 +1244,8 @@ function queueProjectionWithResearchCard(
       state,
       ...researchCardQueueMetadata(card)
     },
-    version
+    version,
+    generatedAt
   );
 }
 
@@ -1114,7 +1254,8 @@ function queueProjectionAfterResearchCardResolution(
   card: ResearchReviewCardProjection,
   outcome: ResearchQueueTerminalOutcome,
   rationale: string | undefined,
-  version: ProjectionVersion
+  version: ProjectionVersion,
+  generatedAt?: string
 ): DecisionQueueProjection {
   if (outcome === "deferred") {
     return queueProjectionWithDeferredItem(
@@ -1129,7 +1270,8 @@ function queueProjectionAfterResearchCardResolution(
           ...(rationale ? { terminalRationale: rationale } : {})
         })
       },
-      version
+      version,
+      generatedAt
     );
   }
 
@@ -1146,11 +1288,12 @@ function queueProjectionAfterResearchCardResolution(
           ...(rationale ? { terminalRationale: rationale } : {})
         })
       },
-      version
+      version,
+      generatedAt
     );
   }
 
-  return queueProjectionWithoutItem(projection, card.cardId, version);
+  return queueProjectionWithoutItem(projection, card.cardId, version, generatedAt);
 }
 
 function evidenceReviewQueueTitle(
@@ -1494,7 +1637,7 @@ function reduceActivateQuestionBatch(command: ProductEngineCommand, state: Produ
     return reject("ActivateQuestionBatch cannot replace an already active batch.");
   }
 
-  const projection = queueProjectionFromIssues(candidateIssues, projectionVersionFor(state));
+  const projection = queueProjectionFromIssues(candidateIssues, projectionVersionFor(state), command.sessionId, command.issuedAt);
   const event = eventDraft(command, "QuestionBatchActivated", {
     batchRef: `batch_${stableToken(`${command.sessionId}:${candidateIssues.map((issue) => issue.queueItemId).join(":")}`)}`,
     activeCount: projection.active.length,
@@ -1540,7 +1683,8 @@ interface QueueItemResolutionConfig {
   readonly nextQueueProjection: (
     projection: DecisionQueueProjection,
     item: QueueItemProjection,
-    version: ProjectionVersion
+    version: ProjectionVersion,
+    generatedAt: string
   ) => DecisionQueueProjection;
   readonly unavailableMessage: string;
 }
@@ -1571,7 +1715,8 @@ function reduceQueueItemResolution(
   const queueProjection = config.nextQueueProjection(
     state.queueProjection,
     existingItem,
-    projectionVersionFor(state)
+    projectionVersionFor(state),
+    command.issuedAt
   );
   const nextOpenIssues = issuesWithQueueItemStatus(state.openIssues, typedQueueItemId, config.issueStatus);
   const confidenceProjection = buildConfidenceCompletionProjection(
@@ -1629,14 +1774,15 @@ function reduceDeferQueueItem(command: ProductEngineCommand, state: ProductEngin
     commandType: "DeferQueueItem",
     eventType: "QueueItemDeferred",
     issueStatus: "deferred",
-    nextQueueProjection: (projection, item, version) =>
+    nextQueueProjection: (projection, item, version, generatedAt) =>
       queueProjectionWithDeferredItem(
         projection,
         {
           ...item,
           state: "deferred"
         },
-        version
+        version,
+        generatedAt
       ),
     unavailableMessage: "DeferQueueItem requires a queue item that is not already deferred."
   });
@@ -1647,7 +1793,8 @@ function reduceDismissQueueItem(command: ProductEngineCommand, state: ProductEng
     commandType: "DismissQueueItem",
     eventType: "QueueItemDismissed",
     issueStatus: "resolved",
-    nextQueueProjection: (projection, item, version) => queueProjectionWithoutItem(projection, item.queueItemId, version),
+    nextQueueProjection: (projection, item, version, generatedAt) =>
+      queueProjectionWithoutItem(projection, item.queueItemId, version, generatedAt),
     unavailableMessage: "DismissQueueItem requires a queue item that is not already resolved."
   });
 }
@@ -1669,7 +1816,8 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
   const projection = queueProjectionWithAnsweredItem(
     state.queueProjection,
     queueItemId as QueueItemId,
-    (numericVersion(state.stateVersion) + 2) as ProjectionVersion
+    (numericVersion(state.stateVersion) + 2) as ProjectionVersion,
+    command.issuedAt
   );
   const answerRef = `answer_${stableToken(`${command.sessionId}:${queueItemId}:${answer}`)}`;
   const routeOutcome = routeOutcomeForAnswer(command);
@@ -1696,7 +1844,8 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
       ? `반대근거 탐색 필요: ${activeItem.title}`
       : `Research review: ${activeItem.title}`,
     routeOutcome === "missing_con_evidence" ? "blocked" : "next",
-    projection.version
+    projection.version,
+    command.issuedAt
   );
   const researchProjection = addResearchTaskToProjection(
     state.researchState,
@@ -2057,14 +2206,16 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
         state.queueProjection,
         researchCard,
         evidenceReviewQueueState(evidenceMatrix, evidencePack.gateStatus),
-        researchProjection.version
+        researchProjection.version,
+        command.issuedAt
       )
     : queueProjectionWithResearchReviewItem(
         state.queueProjection,
         researchTask.researchTaskId,
         evidenceReviewQueueTitle(researchTask, evidenceMatrix, evidencePack.gateStatus),
         evidenceReviewQueueState(evidenceMatrix, evidencePack.gateStatus),
-        researchProjection.version
+        researchProjection.version,
+        command.issuedAt
       );
   const confidenceProjection = buildConfidenceCompletionProjection(
     {
@@ -2173,7 +2324,8 @@ function reduceResolveResearchQueueCard(
     resolvedCard,
     outcome,
     rationale,
-    version
+    version,
+    command.issuedAt
   );
   const confidenceProjection = buildConfidenceCompletionProjection(
     {
@@ -2431,7 +2583,8 @@ function reduceCreateRuntimePreview(
   const queueProjection = queueProjectionWithRuntimePreviewItem(
     state.queueProjection,
     artifactOrRejection,
-    runtimeProjection.version
+    runtimeProjection.version,
+    command.issuedAt
   );
   const confidenceProjection = buildConfidenceCompletionProjection(
     {
@@ -2523,7 +2676,8 @@ function reduceConvertRuntimeArtifact(
     const queueProjection = queueProjectionWithRuntimePreviewItem(
       state.queueProjection,
       blockedArtifact,
-      runtimeProjection.version
+      runtimeProjection.version,
+      command.issuedAt
     );
     const confidenceProjection = buildConfidenceCompletionProjection(
       {
@@ -3739,7 +3893,8 @@ function reduceCreateSpecUpdatePreview(command: ProductEngineCommand, state: Pro
     state.queueProjection,
     decisionId,
     `Decision approval required: ${requiredDecisionRef}`,
-    version
+    version,
+    command.issuedAt
   );
   const confidenceProjection = buildConfidenceCompletionProjection(
     {
@@ -3838,9 +3993,10 @@ function reduceResolveDecision(command: ProductEngineCommand, state: ProductEngi
             title: `Decision deferred: ${existingDecision.requiredDecisionRef}`,
             state: "deferred"
           },
-          version
+          version,
+          command.issuedAt
         )
-      : queueProjectionWithoutItem(state.queueProjection, queueItemId, version);
+      : queueProjectionWithoutItem(state.queueProjection, queueItemId, version, command.issuedAt);
   const updatedConfidenceProjection = buildConfidenceCompletionProjection(
     {
       ...state,
@@ -4013,7 +4169,8 @@ function reduceScoreCompleteness(
   const queueProjection = queueProjectionWithCompletionCandidate(
     state.queueProjection,
     confidenceProjection,
-    version
+    version,
+    command.issuedAt
   );
   const event = eventDraft(command, "CompletenessScored", {
     projection: confidenceProjection,

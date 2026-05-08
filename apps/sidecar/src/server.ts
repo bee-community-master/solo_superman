@@ -35,7 +35,9 @@ import {
   type ResearchSourceReliability,
   type ResearchTaskId,
   type RuntimeArtifactId,
+  type ProjectionUpdatedSseEvent,
   type SessionId,
+  type SseEvent,
   type StartResearchRunRequest,
   type StateVersion,
   type StatusEndpointDto,
@@ -157,6 +159,24 @@ function commandStatusUnavailableShape(commandId: CommandId): StatusEndpointDto 
     },
     projectionHints: [],
     lastUpdatedAt: new Date(0).toISOString()
+  };
+}
+
+function sseFrame(event: SseEvent) {
+  return `event: ${event.event}\ndata: ${JSON.stringify(event)}\n\n`;
+}
+
+function decisionQueueProjectionUpdatedEvent(
+  sessionId: SessionId,
+  projectionVersion: ProjectionUpdatedSseEvent["version"]
+): ProjectionUpdatedSseEvent {
+  return {
+    event: "projection.updated",
+    emittedAt: new Date().toISOString(),
+    projectionKind: "DecisionQueueProjection",
+    version: projectionVersion,
+    affectedIds: [sessionId],
+    refetchUrl: `/api/v1/sessions/${sessionId}/queue`
   };
 }
 
@@ -781,7 +801,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       status: "ok",
       service: "solo-superman-sidecar",
       schemaVersion: CONTRACT_SCHEMA_VERSION,
-      sidecarPhase: "phase_2_pr_04_planning_handoff_api",
+      sidecarPhase: "phase_1_queue_sse_refetch_recovery",
       checks: {
         process: "alive"
       },
@@ -1475,6 +1495,52 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       ),
       503
     );
+  });
+
+  app.get("/api/v1/events/stream", async (context) => {
+    const sessionId = context.req.query("sessionId")?.trim() as SessionId | undefined;
+
+    if (!sessionId) {
+      return context.json(
+        jsonError(context, "STREAM_SESSION_REQUIRED", "SSE event stream requires a sessionId query parameter.", {
+          requiredQueryParams: ["sessionId"]
+        }),
+        400
+      );
+    }
+
+    if (!commandService) {
+      return context.json(
+        jsonError(context, "SIDECAR_NOT_READY", "SSE event stream requires migrated local storage.", {
+          migrationState: migrationStatus.state
+        }),
+        503
+      );
+    }
+
+    try {
+      const queue = await commandService.getQueue(sessionId);
+      const body = `retry: 5000\n${sseFrame(decisionQueueProjectionUpdatedEvent(sessionId, queue.version))}`;
+
+      return new Response(body, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive",
+          "X-Accel-Buffering": "no"
+        }
+      });
+    } catch (error) {
+      if (error instanceof ProductEngineServiceError) {
+        return context.json(
+          jsonError(context, error.code, error.message, error.details),
+          error.code === "RESOURCE_NOT_FOUND" ? 404 : 400
+        );
+      }
+
+      throw error;
+    }
   });
 
   app.notFound((context) => {

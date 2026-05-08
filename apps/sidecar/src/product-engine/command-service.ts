@@ -96,6 +96,7 @@ import {
 } from "@solo-superman/db";
 import {
   createInitialProductEngineState,
+  decisionQueueProjectionWithRecovery,
   reduceProductEngineCommand,
   replayProductEngineEvents,
   sessionPhaseForProductEngineEvent,
@@ -558,6 +559,24 @@ function pendingEffectSummary(effects: readonly EffectTaskDto[]): PendingEffectS
   };
 }
 
+function queueProjectionPendingEffectCount(effects: readonly EffectTaskDto[]) {
+  return effects.filter((effect) => effect.effectType === "queue_projection_effect" && isPendingEffect(effect)).length;
+}
+
+function decisionQueueProjectionForRecovery(
+  projection: DecisionQueueProjection,
+  sessionIdValue: SessionId,
+  effects: readonly EffectTaskDto[],
+  generatedAt: string
+) {
+  return decisionQueueProjectionWithRecovery(
+    projection,
+    sessionIdValue,
+    generatedAt,
+    queueProjectionPendingEffectCount(effects)
+  );
+}
+
 function isPendingEffect(effect: EffectTaskDto) {
   return effect.status === "queued" || effect.status === "leased" || effect.status === "running";
 }
@@ -664,6 +683,11 @@ function responseForAccepted(
   const hasDecisionQueueProjection =
     isPersistedProjection(immediateProjection) && immediateProjection.kind === "DecisionQueueProjection";
   const queueProjection = hasDecisionQueueProjection ? immediateProjection : decisionQueueProjectionFromEvents(events);
+  const generatedAt = events.at(-1)?.occurredAt ?? new Date(0).toISOString();
+  const recoveredQueueProjection = queueProjection
+    ? decisionQueueProjectionForRecovery(queueProjection, command.sessionId, effects, generatedAt)
+    : null;
+  const responseImmediateProjection = hasDecisionQueueProjection ? recoveredQueueProjection : immediateProjection;
   const category = hasBlockedRuntimeConversion(events)
     ? "blocked"
     : hasImmediateProjection
@@ -688,8 +712,8 @@ function responseForAccepted(
           pendingEffectSummary: pendingEffectSummary(effects)
         }
       : {}),
-    ...(immediateProjection ? { immediateProjection } : {}),
-    ...(queueProjection ? { queueProjection } : {}),
+    ...(responseImmediateProjection ? { immediateProjection: responseImmediateProjection } : {}),
+    ...(recoveredQueueProjection ? { queueProjection: recoveredQueueProjection } : {}),
     ...(reduction.deterministicOutputs.length ? { deterministicOutputs: reduction.deterministicOutputs } : {})
   };
 }
@@ -3472,12 +3496,25 @@ export function createProductEngineCommandService(
         sessionIdValue,
         "DecisionQueueProjection"
       );
+      const effects = await createEffectTaskRepository(storage.db).listForSession(sessionIdValue);
 
       if (projection) {
-        return projection;
+        return decisionQueueProjectionForRecovery(
+          projection,
+          sessionIdValue,
+          effects,
+          projection.generatedAt ?? new Date(0).toISOString()
+        );
       }
 
-      return (await stateForSession(session.projectId, sessionIdValue)).queueProjection;
+      const stateProjection = (await stateForSession(session.projectId, sessionIdValue)).queueProjection;
+
+      return decisionQueueProjectionForRecovery(
+        stateProjection,
+        sessionIdValue,
+        effects,
+        stateProjection.generatedAt ?? new Date(0).toISOString()
+      );
     },
 
     async getResearch(sessionIdValue: SessionId): Promise<ResearchEvidenceProjection> {

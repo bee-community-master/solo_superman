@@ -31,9 +31,11 @@ import type {
   RuntimeArtifactId,
   SchemaVersion,
   SessionId,
+  SseEvent,
   StatusEndpointDto
 } from "@solo-superman/contracts";
 import {
+  decisionQueueRecoveryViewModel,
   pendingEffectSummary,
   type Phase15aOperationsInput,
   type PlanningHandoffViewModel,
@@ -41,7 +43,8 @@ import {
   phase15bReadinessViewModel,
   planningHandoffViewModel,
   queueSections,
-  runtimeActivityProjectionFromStatuses
+  runtimeActivityProjectionFromStatuses,
+  shouldRefetchQueueForSseNotification
 } from "./decision-queue-view-model";
 import { Phase15aOperationsPanel } from "./Phase15aOperationsPanel";
 import { Phase15bReadinessPanel } from "./Phase15bReadinessPanel";
@@ -427,6 +430,70 @@ describe("Decision Queue view model", () => {
     expect(sections.find((section) => section.id === "next")?.items.map((item) => item.queueItemId)).toEqual([
       "queue_next_1"
     ]);
+  });
+
+  it("surfaces active batch priority and notification-only SSE refetch recovery state", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      projectionKind: "DecisionQueueProjection",
+      sessionId: "sess_queue_recovery" as SessionId,
+      version: 7 as ProjectionVersion,
+      generatedAt: "2026-05-08T00:00:00.000Z",
+      stale: false,
+      refetchUrl: "/api/v1/sessions/sess_queue_recovery/queue",
+      activeBatch: {
+        batchId: "active-batch:queue_active_1",
+        queueItemIds: ["queue_active_1" as QueueItemId],
+        selectedAt: "2026-05-08T00:00:00.000Z",
+        priorityReason: "severity_ordered_batch(severity:high/topic:primary_customer)",
+        stabilityPolicy: "preserve_active_batch_until_terminal_or_explicit_reactivation"
+      },
+      recovery: {
+        status: "pending_refetch",
+        refetchUrl: "/api/v1/sessions/sess_queue_recovery/queue",
+        sseStreamUrl: "/api/v1/events/stream?sessionId=sess_queue_recovery",
+        sseEventNames: ["projection.updated"],
+        pendingEffectCount: 1
+      },
+      active: [
+        {
+          queueItemId: "queue_active_1" as QueueItemId,
+          title: "What problem is most urgent?",
+          state: "active",
+          severity: "high",
+          topicKey: "primary_customer"
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+    const event: SseEvent = {
+      event: "projection.updated",
+      emittedAt: "2026-05-08T00:00:05.000Z",
+      projectionKind: "DecisionQueueProjection",
+      version: 7 as ProjectionVersion,
+      affectedIds: ["sess_queue_recovery"],
+      refetchUrl: "/api/v1/sessions/sess_queue_recovery/queue"
+    };
+    const recovery = decisionQueueRecoveryViewModel(queue);
+
+    expect(recovery).toMatchObject({
+      status: "pending_refetch",
+      refetchLabel: "Canonical refetch /api/v1/sessions/sess_queue_recovery/queue",
+      sseLabel: "SSE notification stream /api/v1/events/stream?sessionId=sess_queue_recovery"
+    });
+    expect(recovery.activeBatchLabel).toContain("severity_ordered_batch");
+    expect(shouldRefetchQueueForSseNotification(event, queue)).toBe(true);
+    expect(
+      shouldRefetchQueueForSseNotification(
+        {
+          ...event,
+          affectedIds: ["sess_other_queue"]
+        },
+        queue
+      )
+    ).toBe(false);
   });
 
   it("preserves Research-updated Queue card metadata for terminal-outcome rendering", () => {

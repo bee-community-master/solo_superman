@@ -41,6 +41,7 @@ import type {
   StartResearchRunRequest,
   StartProjectRequest,
   SubmitAnswerRequest,
+  SseEvent,
   SynthesizeEvidenceRequest,
   StateVersion,
   StatusEndpointDto,
@@ -120,6 +121,28 @@ async function unwrapEnvelope<TData>(response: Response): Promise<TData> {
   }
 
   throw new SidecarClientError(envelope.error, response.status);
+}
+
+export function parseSseEvents(text: string): readonly SseEvent[] {
+  return text
+    .split(/\n\n+/u)
+    .map((frame) =>
+      frame
+        .split(/\n/u)
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice("data:".length).trim())
+        .join("\n")
+    )
+    .filter((payload) => payload.length > 0)
+    .map((payload) => JSON.parse(payload) as SseEvent);
+}
+
+async function unwrapSseEvents(response: Response): Promise<readonly SseEvent[]> {
+  if (!response.ok) {
+    await unwrapEnvelope<never>(response);
+  }
+
+  return parseSseEvents(await response.text());
 }
 
 function jsonHeaders(token: string) {
@@ -474,6 +497,15 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     getQueue(sessionId: SessionId) {
       return getProjection<DecisionQueueProjection>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/queue`);
+    },
+
+    async readSessionEventStreamSnapshot(sessionId: SessionId) {
+      return unwrapSseEvents(
+        await fetchImpl(apiUrl(connection.baseUrl, `/api/v1/events/stream?sessionId=${encodeURIComponent(sessionId)}`), {
+          method: "GET",
+          headers: authHeaders(connection.localCapabilityToken)
+        })
+      );
     },
 
     getResearch(sessionId: SessionId) {
