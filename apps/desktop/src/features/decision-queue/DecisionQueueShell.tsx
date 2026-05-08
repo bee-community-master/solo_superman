@@ -53,6 +53,7 @@ import {
   buildDesktopResearchRunRequest,
   DESKTOP_PUBLIC_SEARCH_CONNECTOR_ID
 } from "./phase15a-research-run-request";
+import { buildPlanningHandoffRequest } from "./phase2-planning-handoff-request";
 
 type ConnectionState =
   | { readonly status: "connecting" }
@@ -928,6 +929,41 @@ export function DecisionQueueShell() {
     }
   }, [appendCommand, client, projections]);
 
+  const runPlanningHandoffGate = useCallback(async () => {
+    if (!client || !projections.session) {
+      setWorkflowError("An active session is required before running the Planning Handoff gate.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const request = buildPlanningHandoffRequest({
+        session: projections.session,
+        spec: projections.spec,
+        queue: projections.queue,
+        research: projections.research,
+        confidence: projections.confidence,
+        founderBrief: projections.founderBrief,
+        phase15bReadiness,
+        expectedStateVersion: latestProjectionVersion(projections)
+      });
+      const response = await appendCommand("Run Planning Handoff gate", await client.createPlanningHandoff(request));
+      const planningHandoff = requiredCommandProjection<PlanningHandoffProjection>(response, "PlanningHandoffProjection");
+
+      setProjections((current) => ({
+        ...current,
+        planningHandoff
+      }));
+      await refreshProjections(projections.session.projectId, projections.session.sessionId);
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [appendCommand, client, phase15bReadiness, projections, refreshProjections]);
+
   const sections = useMemo(() => queueSections(projections.queue), [projections.queue]);
   const queueRecovery = useMemo(() => decisionQueueRecoveryViewModel(projections.queue), [projections.queue]);
   const pendingSummary = useMemo(() => pendingEffectSummary(statuses), [statuses]);
@@ -1228,6 +1264,7 @@ export function DecisionQueueShell() {
             hasActiveSession={Boolean(projections.session)}
             isBusy={isBusy}
             handoff={planningHandoffView}
+            onRunHandoffGate={() => void runPlanningHandoffGate()}
             onRefreshHandoff={() => {
               if (projections.session) {
                 void refreshPlanningHandoff(projections.session.sessionId);

@@ -582,12 +582,14 @@ This is not a GitHub issue draft. It is the required follow-up code PR order for
 3. **Storage/projection PR**: add Drizzle schema/migration, planningHandoffRepository, projection persistence, migration tests.
 4. **Sidecar/API PR**: wire the route catalog placeholders to Hono handlers, command service persistence path, GET projection query, and API tests.
 5. **UI/fixture/docs sync PR (#46)**: add read-only Planning-ready/blocker display surface, sample fixture coverage, docs acceptance refresh. The display uses `Planning-ready` only for final `PlanningHandoffArtifact` and keeps blocker class, required next action, residual risk, and safe preview refs visible on blocker artifacts.
+6. **Source-driven synthesis/UI trigger PR (#74)**: replace generic single task/PR/build scaffold output with source-driven product-context, evidence/queue, and readiness/residual-risk tasks. Add a Desktop `Run Planning Handoff gate` control that posts current projection source refs to `CreatePlanningHandoff` and then displays the returned final/blocker projection without adding execution authority.
 
 Sequencing rules:
 
 - Do not start storage/API/UI PRs before the Contracts PR (#42) lands.
 - Do not expose a user-facing `Planning-ready` label before ProductEngine gate tests prove `planning_ready` and blocker paths.
 - Do not create Phase 3 execution capability in any Phase 2 handoff PR.
+- The Desktop gate trigger is allowed to create local final/blocker Planning Handoff metadata only. It must not introduce file patch, shell command, browser action, deploy, credential, external mutation, or active delegation controls.
 
 ## 7. Phase 1.5 dependency handling
 

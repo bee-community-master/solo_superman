@@ -3985,6 +3985,167 @@ function planningHandoffArtifactId(
   return `handoff_${sha256Hex(planningHandoffArtifactIdentityKey(command, sourceRefs, scope)).slice(0, 32)}`;
 }
 
+function planningHandoffSourceRefsForTypes(
+  sourceRefs: readonly PlanningHandoffSourceRefDto[],
+  sourceTypes: readonly PlanningHandoffSourceType[]
+) {
+  const sourceTypeSet = new Set(sourceTypes);
+
+  return sourceRefs.filter((sourceRef) => sourceTypeSet.has(sourceRef.sourceType));
+}
+
+function fallbackSourceRefs(
+  sourceRefs: readonly PlanningHandoffSourceRefDto[],
+  preferredSourceRefs: readonly PlanningHandoffSourceRefDto[]
+) {
+  return preferredSourceRefs.length ? preferredSourceRefs : sourceRefs;
+}
+
+function planningHandoffTaskId(artifactId: string, taskKey: string) {
+  return `task_${stableToken(`${artifactId}:${taskKey}`)}`;
+}
+
+function sourceTraceLabels(sourceRefs: readonly PlanningHandoffSourceRefDto[]) {
+  return sourceRefs.map((sourceRef) => `${sourceRef.sourceType}:${sourceRef.sourceId}`);
+}
+
+function queueOutcomeEvidence(queueSummaries: readonly PlanningHandoffQueueOutcomeSummaryDto[]) {
+  return queueSummaries.map(
+    (summary) => `Research-updated queue ${summary.queueItemId} terminal outcome is ${summary.outcome}.`
+  );
+}
+
+function sourceDrivenPlanningHandoffTasks(
+  artifactId: string,
+  sourceRefs: readonly PlanningHandoffSourceRefDto[],
+  scope: PlanningHandoffRequestedScopeDto,
+  queueSummaries: readonly PlanningHandoffQueueOutcomeSummaryDto[],
+  residualRisks: readonly PlanningHandoffResidualRiskDto[],
+  phase15bExpectedEvidence: readonly string[]
+): readonly PlanningHandoffTaskDto[] {
+  const productContextSourceRefs = fallbackSourceRefs(
+    sourceRefs,
+    planningHandoffSourceRefsForTypes(sourceRefs, ["spec_version", "founder_brief", "completion_candidate"])
+  );
+  const decisionEvidenceSourceRefs = fallbackSourceRefs(
+    sourceRefs,
+    planningHandoffSourceRefsForTypes(sourceRefs, [
+      "decision_linked_evidence_pack",
+      "research_updated_queue_item",
+      "decision",
+      "risk_acceptance"
+    ])
+  );
+  const readinessSourceRefs = fallbackSourceRefs(
+    sourceRefs,
+    planningHandoffSourceRefsForTypes(sourceRefs, [
+      "known_risk",
+      "open_question",
+      "phase15b_hint",
+      "runtime_preview_artifact",
+      "activity_event"
+    ])
+  );
+  const productContextTaskId = planningHandoffTaskId(artifactId, "product-context");
+  const decisionEvidenceTaskId = planningHandoffTaskId(artifactId, "decision-evidence");
+  const readinessTaskId = planningHandoffTaskId(artifactId, "readiness-risk");
+  const riskRefs = residualRisks.map((risk) => risk.riskId);
+
+  return [
+    {
+      taskId: productContextTaskId,
+      title: `${scope.productSlice} product context와 non-goal source trace 고정`,
+      intent:
+        "Spec, Founder Brief, or Completion Candidate source refs define the implementation slice before downstream task planning starts.",
+      sourceRefs: productContextSourceRefs,
+      dependsOn: [],
+      ownerRole: "product",
+      acceptanceEvidence: uniqueStrings([
+        "Living Product Spec source trace is current.",
+        "Founder-facing summary or Completion Candidate is current.",
+        ...sourceTraceLabels(productContextSourceRefs)
+      ]),
+      nonGoals: scope.nonGoals,
+      riskRefs: []
+    },
+    {
+      taskId: decisionEvidenceTaskId,
+      title: `${scope.productSlice} evidence와 Research-updated Queue outcome을 task로 합성`,
+      intent:
+        "Decision-linked Evidence Pack and terminal Research-updated Queue outcomes drive the concrete PR-sized task and acceptance evidence.",
+      sourceRefs: decisionEvidenceSourceRefs,
+      dependsOn: [productContextTaskId],
+      ownerRole: "research",
+      acceptanceEvidence: uniqueStrings([
+        "Decision-linked Evidence Pack remains accepted or explicitly marked research_insufficient.",
+        ...queueOutcomeEvidence(queueSummaries),
+        ...sourceTraceLabels(decisionEvidenceSourceRefs)
+      ]),
+      nonGoals: scope.nonGoals,
+      riskRefs
+    },
+    {
+      taskId: readinessTaskId,
+      title: `${scope.productSlice} readiness, residual risk, no-execution boundary 검증`,
+      intent:
+        "Known risks, open questions, Phase 1.5B hints, and preview/activity refs stay visible as planning metadata without granting execution authority.",
+      sourceRefs: readinessSourceRefs,
+      dependsOn: [productContextTaskId, decisionEvidenceTaskId],
+      ownerRole: phase15bExpectedEvidence.length ? "security" : "qa",
+      acceptanceEvidence: uniqueStrings([
+        "Residual risks are present in the handoff instead of hidden.",
+        "No file, shell, browser, deploy, credential, external mutation, or active delegation authority is introduced.",
+        "Blocker paths remain separate from final Planning-ready copy.",
+        ...phase15bExpectedEvidence,
+        ...sourceTraceLabels(readinessSourceRefs)
+      ]),
+      nonGoals: scope.nonGoals,
+      riskRefs
+    }
+  ];
+}
+
+function planningHandoffPrIssuePlan(
+  artifactId: string,
+  tasks: readonly PlanningHandoffTaskDto[],
+  phase15bRequiredApprovals: readonly string[],
+  phase15bHintMapping: PlanningHandoffArtifactDto["phase15bHintMapping"],
+  phase15bExpectedEvidence: readonly string[]
+): PlanningHandoffArtifactDto["prIssuePlan"] {
+  return tasks.map((task, index) => ({
+    sequenceId: `phase2_${String(index + 1).padStart(2, "0")}_${stableToken(`${artifactId}:${task.taskId}`)}`,
+    summary: `${task.title} 완료`,
+    includedTaskIds: [task.taskId],
+    entryPrerequisites: uniqueStrings([
+      index === 0
+        ? "Planning Handoff gate verdict is planning_ready."
+        : `Previous source-driven task ${tasks[index - 1]!.taskId} is reviewed.`,
+      ...task.sourceRefs.map((sourceRef) => `${sourceRef.sourceType}:${sourceRef.sourceId} source trace is current.`),
+      ...phase15bRequiredApprovals,
+      ...phase15bHintMapping.map((mapping) => `Phase 1.5B sandbox: ${mapping.sandboxBoundary}`),
+      ...phase15bHintMapping.map((mapping) => `Phase 1.5B rollback: ${mapping.rollbackReference}`)
+    ]),
+    exitEvidence: uniqueStrings([
+      ...task.acceptanceEvidence,
+      "Tests and docs contract checks pass.",
+      "No execution authority was introduced.",
+      ...phase15bExpectedEvidence
+    ]),
+    blockedBy: task.dependsOn,
+    phaseBoundary: "phase2_planning_handoff" as const
+  }));
+}
+
+function buildSliceCapabilities(tasks: readonly PlanningHandoffTaskDto[]) {
+  return uniqueStrings([
+    "source-driven task synthesis",
+    "deterministic planning handoff",
+    "visible source trace",
+    "visible residual risk",
+    ...tasks.map((task) => `${task.ownerRole} task: ${task.title}`)
+  ]);
+}
+
 function buildPlanningHandoffFinalArtifact(
   command: ProductEngineCommand,
   artifactId: string,
@@ -4016,17 +4177,14 @@ function buildPlanningHandoffFinalArtifact(
     followUpTrigger: "Before Phase 3 controlled execution, delegation, browser automation, or external mutation."
   }));
   const residualRiskRegister = [...residualRisks, ...phase15bResidualRisks];
-  const task: PlanningHandoffTaskDto = {
-    taskId: `task_${stableToken(`${artifactId}:build-slice`)}`,
-    title: `${scope.productSlice} build slice를 검증 가능하게 구현`,
-    intent: "Current source refs and queue outcomes are ready for the next PR-sized implementation slice.",
+  const taskBreakdown = sourceDrivenPlanningHandoffTasks(
+    artifactId,
     sourceRefs,
-    dependsOn: [],
-    ownerRole: "backend",
-    acceptanceEvidence: uniqueStrings(["targeted reducer tests", "pnpm verify:docs", "pnpm verify", ...phase15bExpectedEvidence]),
-    nonGoals: scope.nonGoals,
-    riskRefs: residualRiskRegister.map((risk) => risk.riskId)
-  };
+    scope,
+    queueSummaries,
+    residualRiskRegister,
+    phase15bExpectedEvidence
+  );
   const handoffSummary = `Planning-ready handoff가 준비됐습니다: ${scope.productSlice}. 실행 권한 없이 다음 구현 조각과 잔여 리스크만 고정합니다.`;
 
   return {
@@ -4043,35 +4201,32 @@ function buildPlanningHandoffFinalArtifact(
       "All required source traces are current, high-impact queue cards are terminal, and residual risks are visible."
     ) as PlanningHandoffArtifactDto["gateVerdict"],
     scopeSnapshot: scope,
-    taskBreakdown: [task],
-    prIssuePlan: [
-      {
-        sequenceId: `phase2_${stableToken(`${artifactId}:pr`)}`,
-        summary: `${scope.productSlice}의 가장 작은 다음 구현 단위`,
-        includedTaskIds: [task.taskId],
-        entryPrerequisites: uniqueStrings([
-          "Planning Handoff gate verdict is planning_ready.",
-          ...phase15bRequiredApprovals,
-          ...phase15bHintMapping.map((mapping) => `Phase 1.5B sandbox: ${mapping.sandboxBoundary}`),
-          ...phase15bHintMapping.map((mapping) => `Phase 1.5B rollback: ${mapping.rollbackReference}`)
-        ]),
-        exitEvidence: uniqueStrings([
-          "Tests and docs contract checks pass.",
-          "No execution authority was introduced.",
-          ...phase15bExpectedEvidence
-        ]),
-        blockedBy: [],
-        phaseBoundary: "phase2_planning_handoff"
-      }
-    ],
+    taskBreakdown,
+    prIssuePlan: planningHandoffPrIssuePlan(
+      artifactId,
+      taskBreakdown,
+      phase15bRequiredApprovals,
+      phase15bHintMapping,
+      phase15bExpectedEvidence
+    ),
     buildSlicePlan: {
       sliceGoal: scope.productSlice,
-      includedCapabilities: ["deterministic planning handoff", "visible source trace", "visible residual risk"],
+      includedCapabilities: buildSliceCapabilities(taskBreakdown),
       nonGoals: scope.nonGoals,
       sourceRefs,
-      acceptanceCriteria: ["Final handoff exists only for planning_ready verdict.", "Blocker paths remain separate."],
-      smokeTests: uniqueStrings(["run ProductEngine reducer tests", "run docs verifier", ...phase15bExpectedEvidence]),
-      validationMetric: "Reviewer can identify the next PR-sized build slice without hidden fatal blockers.",
+      acceptanceCriteria: [
+        "Final handoff exists only for planning_ready verdict.",
+        "Spec/Evidence/Queue sources drive task and PR/issue breakdown instead of a generic scaffold.",
+        "Blocker paths remain separate."
+      ],
+      smokeTests: uniqueStrings([
+        "run ProductEngine reducer tests",
+        "run Planning Handoff UI trigger smoke tests",
+        "run docs verifier",
+        ...phase15bExpectedEvidence
+      ]),
+      validationMetric:
+        "Reviewer can trace each next PR-sized build slice back to Spec, Evidence Pack, Queue outcome, and visible residual risk sources.",
       residualRisks: residualRiskRegister.map((risk) => risk.riskId)
     },
     serveChecklist: {

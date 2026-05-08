@@ -890,6 +890,7 @@ describe("Decision Queue view model", () => {
         hasActiveSession: true,
         isBusy: false,
         handoff,
+        onRunHandoffGate: () => undefined,
         onRefreshHandoff: () => undefined
       })
     );
@@ -928,6 +929,7 @@ describe("Decision Queue view model", () => {
         hasActiveSession: true,
         isBusy: false,
         handoff,
+        onRunHandoffGate: () => undefined,
         onRefreshHandoff: () => undefined
       })
     );
@@ -960,6 +962,7 @@ describe("Decision Queue view model", () => {
         hasActiveSession: false,
         isBusy: false,
         handoff,
+        onRunHandoffGate: () => undefined,
         onRefreshHandoff: () => undefined
       })
     );
@@ -971,6 +974,7 @@ describe("Decision Queue view model", () => {
       blocker: null
     });
     expect(markup).toContain("No final handoff or blocker artifact is available");
+    expect(markup).toContain("<button type=\"button\" disabled=\"\">Run Planning Handoff gate</button>");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Refresh handoff</button>");
     expect(markup).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
   });

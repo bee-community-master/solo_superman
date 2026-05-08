@@ -19,7 +19,7 @@ Canonical path: `docs/31-phase2-planning-handoff-contract.md`.
 | Field depth | 전체 추적형 계약: sourceRefs, gate verdict, task/PR/issue plan, Build Slice Plan, Serve Checklist, Learning Loop hook, readiness checklist, residual risk, Phase 1.5B hints mapping을 모두 필수 field family로 둠 |
 | Execution boundary | Phase 2는 실행계획 handoff까지이며 file patch, shell command, browser action, deploy, external mutation을 실행하지 않음 |
 | User-facing label | `Planning-ready`는 final `PlanningHandoffArtifact`가 생성될 때만 사용할 수 있음 |
-| Code boundary | #42 Contracts PR은 `packages/contracts` DTO/command/event/projection/route placeholder와 verifier sync만 승격한다. #43~#46 구현 PR은 reducer behavior, storage schema, API handler, read-only UI 구현을 각자 소유한다. |
+| Code boundary | #42 Contracts PR은 `packages/contracts` DTO/command/event/projection/route placeholder와 verifier sync만 승격한다. #43~#46 구현 PR은 reducer behavior, storage schema, API handler, read-only UI 구현을 각자 소유한다. #74는 기존 Phase 2 surface를 Spec/Evidence/Queue source-driven synthesis와 안전한 local gate trigger로 보강한다. |
 
 ## Phase 2 source inputs
 
@@ -180,6 +180,8 @@ Binding rules:
 - final and blocker artifacts share source trace/readiness/risk semantics but only final `PlanningHandoffArtifact` may carry the user-facing `Planning-ready` label.
 - Desktop UI must preserve that label boundary: final artifact surfaces may say `Planning-ready`, while blocker report surfaces must show blocker class, required next action, residual risk, and safe preview refs without final handoff copy.
 - Build Slice, Serve Checklist, Learning Loop hook은 final artifact에 포함되어도 no-execution policy 아래의 planning context다. 이 field를 근거로 file patch, shell command, browser action, deploy, external mutation을 실행하면 안 된다.
+- #74 이후 `taskBreakdown`과 `prIssuePlan`은 generic single scaffold가 아니라 source-driven synthesis여야 한다. 최소한 product context(Spec/Founder Brief/Completion Candidate), decision evidence(Evidence Pack/Research-updated Queue), readiness/residual risk(Phase 1.5B hints/Known Risks/Open Questions)의 source family가 task와 PR/issue item으로 추적되어야 한다.
+- Desktop의 `Run Planning Handoff gate` action은 `CreatePlanningHandoffRequest`를 현재 projection source refs로 구성해 local gate만 실행한다. 이 trigger는 final/blocker `PlanningHandoffProjection`을 생성/조회할 수 있지만 file patch, shell command, browser action, deploy, credential, external mutation, active delegation capability를 열지 않는다.
 
 ## Non-goals
 

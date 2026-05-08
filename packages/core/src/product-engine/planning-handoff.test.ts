@@ -506,6 +506,58 @@ describe("Phase 2 Planning Handoff ProductEngine gate", () => {
     });
   });
 
+  it("synthesizes source-driven task, PR/issue, and build-slice plans instead of a generic scaffold", () => {
+    const reduction = reduceProductEngineCommand(
+      planningHandoffCommand({
+        sourceRefs: [...readySourceRefs(), phase15bHintSourceRef()]
+      }),
+      readyStateWithPhase15bHint()
+    );
+    const projection = reduction.immediateProjection as PlanningHandoffProjection;
+
+    if (projection.currentStatus !== "planning_ready") {
+      throw new Error("Expected a final Planning Handoff projection.");
+    }
+
+    const { finalArtifact } = projection;
+
+    expect(finalArtifact.taskBreakdown).toHaveLength(3);
+    expect(finalArtifact.taskBreakdown.map((task) => task.ownerRole)).toEqual(["product", "research", "security"]);
+    expect(finalArtifact.taskBreakdown[0]).toMatchObject({
+      title: expect.stringContaining("product context"),
+      sourceRefs: expect.arrayContaining([expect.objectContaining({ sourceType: "spec_version" })])
+    });
+    expect(finalArtifact.taskBreakdown[1]).toMatchObject({
+      title: expect.stringContaining("evidence"),
+      sourceRefs: expect.arrayContaining([
+        expect.objectContaining({ sourceType: "decision_linked_evidence_pack" }),
+        expect.objectContaining({ sourceType: "research_updated_queue_item" })
+      ]),
+      acceptanceEvidence: expect.arrayContaining([
+        expect.stringContaining(`Research-updated queue ${QUEUE_ITEM_ID} terminal outcome is approved.`)
+      ])
+    });
+    expect(finalArtifact.taskBreakdown[2]).toMatchObject({
+      title: expect.stringContaining("readiness"),
+      sourceRefs: expect.arrayContaining([expect.objectContaining({ sourceType: "phase15b_hint" })]),
+      acceptanceEvidence: expect.arrayContaining([
+        "No file, shell, browser, deploy, credential, external mutation, or active delegation authority is introduced.",
+        "pnpm verify"
+      ])
+    });
+    expect(finalArtifact.prIssuePlan).toHaveLength(finalArtifact.taskBreakdown.length);
+    expect(finalArtifact.prIssuePlan[1]?.blockedBy).toEqual([finalArtifact.taskBreakdown[0]?.taskId]);
+    expect(finalArtifact.prIssuePlan[2]?.entryPrerequisites).toEqual(
+      expect.arrayContaining([expect.stringContaining("Phase 1.5B sandbox")])
+    );
+    expect(finalArtifact.buildSlicePlan.includedCapabilities).toEqual(
+      expect.arrayContaining(["source-driven task synthesis", expect.stringContaining("research task")])
+    );
+    expect(finalArtifact.buildSlicePlan.acceptanceCriteria).toEqual(
+      expect.arrayContaining([expect.stringContaining("Spec/Evidence/Queue sources drive task")])
+    );
+  });
+
   it("maps Phase 1.5B readiness hints into Phase 2 approvals, sandbox, rollback, evidence, and residual risk", () => {
     const hintRef = phase15bHintSourceRef();
     const reduction = reduceProductEngineCommand(
@@ -525,7 +577,7 @@ describe("Phase 2 Planning Handoff ProductEngine gate", () => {
           rollbackReference: expect.stringContaining("origin/main"),
           expectedEvidence: expect.arrayContaining(["pnpm verify", "pnpm smoke:e2e"])
         },
-        prIssuePlan: [
+        prIssuePlan: expect.arrayContaining([
           expect.objectContaining({
             entryPrerequisites: expect.arrayContaining([
               expect.stringContaining("Phase 1.5B sandbox"),
@@ -533,7 +585,7 @@ describe("Phase 2 Planning Handoff ProductEngine gate", () => {
             ]),
             exitEvidence: expect.arrayContaining(["pnpm verify", "pnpm smoke:e2e"])
           })
-        ],
+        ]),
         phase15bHintMapping: [
           expect.objectContaining({
             hintRef,

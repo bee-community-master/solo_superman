@@ -4,6 +4,7 @@ interface PlanningHandoffPanelProps {
   readonly hasActiveSession: boolean;
   readonly isBusy: boolean;
   readonly handoff: PlanningHandoffViewModel;
+  readonly onRunHandoffGate: () => void;
   readonly onRefreshHandoff: () => void;
 }
 
@@ -24,6 +25,7 @@ export function PlanningHandoffPanel({
   hasActiveSession,
   isBusy,
   handoff,
+  onRunHandoffGate,
   onRefreshHandoff
 }: PlanningHandoffPanelProps) {
   const artifact = handoff.final ?? handoff.blocker;
@@ -40,6 +42,9 @@ export function PlanningHandoffPanel({
       <p className="operations-summary">{handoff.refetchLabel}</p>
       <p className="operations-summary">source refs: {handoff.sourceRefsLabel}</p>
       <div className="card-actions panel-actions">
+        <button type="button" disabled={isBusy || !hasActiveSession} onClick={onRunHandoffGate}>
+          Run Planning Handoff gate
+        </button>
         <button type="button" disabled={isBusy || !hasActiveSession} onClick={onRefreshHandoff}>
           Refresh handoff
         </button>
