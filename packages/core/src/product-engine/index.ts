@@ -2863,6 +2863,43 @@ const PLANNING_HANDOFF_ALLOWED_REQUESTED_SCOPE_KEYS = [
   "assumptions"
 ] as const;
 
+// Planning Handoff can surface Phase 1.5B readiness hints outside the dedicated
+// query/export route, so reuse a conservative public-safe boundary here too:
+// keep trace shape and deterministic refs, but never copy obvious private or
+// credential-bearing hint payload text into the final handoff artifact.
+const PHASE15B_NON_EXPORTABLE_TEXT_PATTERNS = [
+  /sk-[A-Za-z0-9][A-Za-z0-9_-]{8,}/iu,
+  /gh[pousr]_[A-Za-z0-9_]{20,}/iu,
+  /AKIA[0-9A-Z]{16}/u,
+  /\b[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|CREDENTIAL|API_KEY|ACCESS_KEY)[A-Z0-9_]*\b\s*(?:[=:]|\s+)\s*["']?[A-Za-z0-9._~+/=-]{8,}/u,
+  /(?:api[_-]?key|password|secret|token|credential)\s*[=:]\s*["']?[^\s,"']{4,}/iu,
+  /\b(?:api[_-]?key|client[_-]?secret|password|secret|token|credential)\b\s+(?!values?\b|required\b|not\b|none\b|no\b)[A-Za-z0-9._~+/=-]{8,}/iu,
+  /\bauthorization\s*:\s*(?:basic|bearer)\s+[A-Za-z0-9._~+/=-]{8,}/iu,
+  /\bbasic\s+[A-Za-z0-9+/=-]{8,}/iu,
+  /bearer\s+[A-Za-z0-9._~+/=-]{10,}/iu,
+  /https?:\/\/\S*(?:api[_-]?key|password|secret|token|credential)=\S*/iu,
+  /private\s+(?:customer|payload|context|document)/iu,
+  /customer\s+[A-Z][A-Za-z0-9_-]+/iu,
+  /raw[_-]?idea/iu,
+  /internal\s+roadmap/iu
+] as const satisfies readonly RegExp[];
+const PHASE15B_NON_EXPORTABLE_SOURCE_REF_TEXT_PATTERN =
+  /(?:private|customer|raw[_-]?idea|payload|internal|roadmap|secret|token|credential|password|bearer|sk-)/iu;
+const PHASE15B_REDACTED_TEXT = "[redacted_phase15b_non_exportable_metadata]";
+const PHASE15B_PUBLIC_SAFE_SECRET_BOUNDARY_PATTERN = /^(?:(?:no|none)\b|.*\bnot required\b)/iu;
+
+const PHASE15B_SOURCE_REF_PATTERNS = {
+  preview_artifact: /^runtime_artifact_[A-Za-z0-9_:-]+$/u,
+  blocked_action: /^runtime_artifact_[A-Za-z0-9_:-]+(?::[A-Za-z0-9_:-]+)?$/u,
+  research_run: /^research_run_[A-Za-z0-9_:-]+$/u,
+  evidence_matrix: /^evidence_matrix_[A-Za-z0-9_:-]+$/u,
+  decision_evidence_pack: /^(?:decision_evidence_pack|evidence_pack)_[A-Za-z0-9_:-]+$/u,
+  research_allowlist: /^research_allowlist_[A-Za-z0-9_:-]+$/u,
+  research_disclosure_log: /^research_disclosure(?:_log)?_[A-Za-z0-9_:-]+$/u,
+  audit_log: /^audit_log_[A-Za-z0-9_:-]+$/u,
+  spec_section: /^spec(?:_section)?_[A-Za-z0-9_:-]+$/u
+} as const satisfies Record<Phase15bUpgradeHints["sourceRefs"][number]["kind"], RegExp>;
+
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -3129,12 +3166,202 @@ function planningHandoffSourceExists(
     case "runtime_preview_artifact":
       return state.runtimeState.runtimeArtifacts.some((artifact) => artifact.artifactId === sourceRef.sourceId);
     case "phase15b_hint":
-      return state.runtimeState.runtimeArtifacts.some(
-        (artifact) => artifact.artifactId === sourceRef.sourceId && hasOwnRecordKey(artifact.payload, "phase15bUpgradeHints")
-      );
+      return phase15bHintsForArtifact(state, sourceRef.sourceId as RuntimeArtifactId) !== null;
     case "activity_event":
       return false;
   }
+}
+
+function phase15bHintsForArtifact(
+  state: ProductEngineStateSnapshot,
+  artifactId: RuntimeArtifactId
+): Phase15bUpgradeHints | null {
+  const artifact = state.runtimeState.runtimeArtifacts.find((candidate) => candidate.artifactId === artifactId);
+
+  if (!artifact || !hasOwnRecordKey(artifact.payload, "phase15bUpgradeHints")) {
+    return null;
+  }
+
+  try {
+    return validatePhase15bUpgradeHints(artifact.payload.phase15bUpgradeHints);
+  } catch {
+    return null;
+  }
+}
+
+function phase15bSafeReadinessText(value: string) {
+  return phase15bContainsNonExportableText(value) ? PHASE15B_REDACTED_TEXT : value;
+}
+
+function phase15bSafeReadinessStrings(values: readonly string[]) {
+  return values.map(phase15bSafeReadinessText);
+}
+
+function phase15bSafeSecretBoundaryForHandoff(value: string) {
+  return PHASE15B_PUBLIC_SAFE_SECRET_BOUNDARY_PATTERN.test(value.trim()) && !phase15bContainsNonExportableText(value)
+    ? value
+    : PHASE15B_REDACTED_TEXT;
+}
+
+function phase15bContainsNonExportableText(value: string) {
+  return PHASE15B_NON_EXPORTABLE_TEXT_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+function phase15bContainsUnsafeSourceRefText(value: string) {
+  return (
+    phase15bContainsNonExportableText(value) ||
+    PHASE15B_NON_EXPORTABLE_SOURCE_REF_TEXT_PATTERN.test(value)
+  );
+}
+
+function isSafePhase15bSourceRef(sourceRef: Phase15bUpgradeHints["sourceRefs"][number]) {
+  return (
+    PHASE15B_SOURCE_REF_PATTERNS[sourceRef.kind].test(sourceRef.refId) &&
+    !phase15bContainsUnsafeSourceRefText(sourceRef.refId)
+  );
+}
+
+function redactedPhase15bSourceRefId(sourceRef: Phase15bUpgradeHints["sourceRefs"][number]) {
+  const digest = sha256Hex(`${sourceRef.kind}\0${sourceRef.refId}`).slice(0, 16);
+
+  return `redacted_ref:${sourceRef.kind}:${digest}`;
+}
+
+function phase15bSafeSourceTrace(sourceRef: Phase15bUpgradeHints["sourceRefs"][number]) {
+  return {
+    kind: sourceRef.kind,
+    refId: isSafePhase15bSourceRef(sourceRef) ? sourceRef.refId : redactedPhase15bSourceRefId(sourceRef)
+  };
+}
+
+function phase15bSafeHintSourceId(sourceId: string) {
+  return isSafePhase15bSourceRef({ kind: "preview_artifact", refId: sourceId })
+    ? sourceId
+    : `redacted_ref:phase15b_hint:${sha256Hex(`phase15b_hint\0${sourceId}`).slice(0, 16)}`;
+}
+
+function phase15bSafeHintRef(sourceRef: PlanningHandoffSourceRefDto): PlanningHandoffSourceRefDto {
+  return {
+    ...sourceRef,
+    sourceId: phase15bSafeHintSourceId(sourceRef.sourceId),
+    ...(sourceRef.sourceLabel ? { sourceLabel: phase15bSafeReadinessText(sourceRef.sourceLabel) } : {})
+  };
+}
+
+function planningHandoffOutputSourceRef(sourceRef: PlanningHandoffSourceRefDto): PlanningHandoffSourceRefDto {
+  return sourceRef.sourceType === "phase15b_hint" ? phase15bSafeHintRef(sourceRef) : sourceRef;
+}
+
+function planningHandoffOutputSourceRefs(
+  sourceRefs: readonly PlanningHandoffSourceRefDto[]
+): readonly PlanningHandoffSourceRefDto[] {
+  return sourceRefs.map(planningHandoffOutputSourceRef);
+}
+
+function planningHandoffOutputQueueSummaries(
+  queueSummaries: readonly PlanningHandoffQueueOutcomeSummaryDto[]
+): readonly PlanningHandoffQueueOutcomeSummaryDto[] {
+  return queueSummaries.map((summary) => ({
+    ...summary,
+    sourceRefs: planningHandoffOutputSourceRefs(summary.sourceRefs)
+  }));
+}
+
+function planningHandoffOutputResidualRisks(
+  residualRisks: readonly PlanningHandoffResidualRiskDto[]
+): readonly PlanningHandoffResidualRiskDto[] {
+  return residualRisks.map((risk) => ({
+    ...risk,
+    sourceRefs: planningHandoffOutputSourceRefs(risk.sourceRefs)
+  }));
+}
+
+function planningHandoffOutputBlockers(
+  blockers: readonly PlanningHandoffBlockerDto[]
+): readonly PlanningHandoffBlockerDto[] {
+  return blockers.map((blocker) => ({
+    ...blocker,
+    sourceRefs: planningHandoffOutputSourceRefs(blocker.sourceRefs)
+  }));
+}
+
+function phase15bRequiredApprovalsForHandoff(hints: Phase15bUpgradeHints): readonly string[] {
+  return hints.approvalRequirements.map(
+    (requirement) =>
+      `${requirement.approvalType}:${requirement.requiredActor}:${phase15bSafeReadinessText(
+        requirement.scope
+      )} — ${phase15bSafeReadinessText(requirement.reason)}; ${phase15bSafeReadinessText(requirement.reconfirmRule)}`
+  );
+}
+
+function phase15bSandboxBoundaryForHandoff(hints: Phase15bUpgradeHints) {
+  return [
+    `isolatedWorktree=${hints.sandboxRequirements.isolatedWorktreeRequired}`,
+    `browserSandbox=${hints.sandboxRequirements.browserSandboxRequired}`,
+    `network=${hints.sandboxRequirements.networkMode}`,
+    `commands=${phase15bSafeReadinessStrings(hints.sandboxRequirements.commandAllowlist).join(", ") || "none"}`,
+    `secrets=${phase15bSafeSecretBoundaryForHandoff(hints.sandboxRequirements.secretGrantBoundary)}`,
+    `environment=${phase15bSafeReadinessText(hints.sandboxRequirements.environmentPolicy)}`,
+    `logCapture=${hints.sandboxRequirements.logCaptureRequired}`
+  ].join("; ");
+}
+
+function phase15bRollbackReferenceForHandoff(hints: Phase15bUpgradeHints) {
+  return [
+    `base=${phase15bSafeReadinessText(hints.rollbackReference.baseRef)}`,
+    hints.rollbackReference.diffRef ? `diff=${phase15bSafeReadinessText(hints.rollbackReference.diffRef)}` : null,
+    hints.rollbackReference.reversible ? "reversible" : "not reversible",
+    phase15bSafeReadinessText(hints.rollbackReference.rollbackNote),
+    phase15bSafeReadinessText(hints.rollbackReference.cleanupExpectation)
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join("; ");
+}
+
+function phase15bExpectedEvidenceForHandoff(hints: Phase15bUpgradeHints): readonly string[] {
+  return [
+    ...phase15bSafeReadinessStrings(hints.expectedEvidence.tests),
+    ...phase15bSafeReadinessStrings(hints.expectedEvidence.smokeChecks),
+    ...phase15bSafeReadinessStrings(hints.expectedEvidence.artifactPaths),
+    ...phase15bSafeReadinessStrings(hints.expectedEvidence.manualInspection),
+    ...(hints.expectedEvidence.expectedLogs.length > 0
+      ? [`${hints.expectedEvidence.expectedLogs.length} expected log pattern(s) captured as metadata only`]
+      : [])
+  ];
+}
+
+function phase15bHintMappingsForPlanningHandoff(
+  state: ProductEngineStateSnapshot,
+  sourceRefs: readonly PlanningHandoffSourceRefDto[]
+): PlanningHandoffArtifactDto["phase15bHintMapping"] {
+  return sourceRefs
+    .filter((sourceRef) => sourceRef.sourceType === "phase15b_hint" && !sourceRef.stale)
+    .flatMap((sourceRef) => {
+      const hints = phase15bHintsForArtifact(state, sourceRef.sourceId as RuntimeArtifactId);
+
+      if (!hints) {
+        return [];
+      }
+
+      return [
+        {
+          hintRef: phase15bSafeHintRef(sourceRef),
+          requiredApprovals: phase15bRequiredApprovalsForHandoff(hints),
+          sandboxBoundary: phase15bSandboxBoundaryForHandoff(hints),
+          rollbackReference: phase15bRollbackReferenceForHandoff(hints),
+          expectedEvidence: phase15bExpectedEvidenceForHandoff(hints),
+          riskNormalization: {
+            riskLevel: hints.riskNormalization.riskLevel,
+            blockedActionType: hints.riskNormalization.blockedActionType,
+            blockReason: phase15bSafeReadinessText(hints.riskNormalization.blockReason),
+            userVisibleAction: phase15bSafeReadinessText(hints.riskNormalization.userVisibleAction),
+            escalationTarget: phase15bSafeReadinessText(hints.riskNormalization.escalationTarget)
+          },
+          sourceTrace: hints.sourceRefs.map(phase15bSafeSourceTrace),
+          noExecutionPolicy: "metadata_only_no_execution" as const
+        }
+      ];
+    });
 }
 
 function sourceRefForStateSourceId(
@@ -3709,6 +3936,10 @@ function sortedStrings(values: readonly string[]) {
   return [...values].sort((left, right) => left.localeCompare(right));
 }
 
+function uniqueStrings(values: readonly string[]) {
+  return [...new Set(values)];
+}
+
 function planningHandoffSourceRefHashMaterial(sourceRefs: readonly PlanningHandoffSourceRefDto[]) {
   return [...sourceRefs]
     .sort((left, right) =>
@@ -3760,8 +3991,31 @@ function buildPlanningHandoffFinalArtifact(
   sourceRefs: readonly PlanningHandoffSourceRefDto[],
   scope: PlanningHandoffRequestedScopeDto,
   queueSummaries: readonly PlanningHandoffQueueOutcomeSummaryDto[],
-  residualRisks: readonly PlanningHandoffResidualRiskDto[]
+  residualRisks: readonly PlanningHandoffResidualRiskDto[],
+  phase15bHintMapping: PlanningHandoffArtifactDto["phase15bHintMapping"]
 ): PlanningHandoffArtifactDto {
+  const phase15bExpectedEvidence = uniqueStrings(
+    phase15bHintMapping.flatMap((mapping) => mapping.expectedEvidence)
+  );
+  const phase15bRequiredApprovals = uniqueStrings(
+    phase15bHintMapping.flatMap((mapping) => mapping.requiredApprovals)
+  );
+  const phase15bResidualRisks: readonly PlanningHandoffResidualRiskDto[] = phase15bHintMapping.map((mapping) => ({
+    riskId: `phase15b_${stableToken(mapping.hintRef.sourceId)}`,
+    riskClass: "phase15b_readiness_gap",
+    title: `Phase 1.5B readiness hint preserved for ${mapping.riskNormalization.blockedActionType}`,
+    severity:
+      mapping.riskNormalization.riskLevel === "critical" || mapping.riskNormalization.riskLevel === "high"
+        ? "high"
+        : mapping.riskNormalization.riskLevel,
+    sourceRefs: [mapping.hintRef],
+    assumption: "Phase 1.5B hint metadata is reusable for planning but still grants no execution authority.",
+    prerequisite: mapping.riskNormalization.userVisibleAction,
+    validationDependency: mapping.riskNormalization.blockReason,
+    ownerRole: "security",
+    followUpTrigger: "Before Phase 3 controlled execution, delegation, browser automation, or external mutation."
+  }));
+  const residualRiskRegister = [...residualRisks, ...phase15bResidualRisks];
   const task: PlanningHandoffTaskDto = {
     taskId: `task_${stableToken(`${artifactId}:build-slice`)}`,
     title: `${scope.productSlice} build slice를 검증 가능하게 구현`,
@@ -3769,9 +4023,9 @@ function buildPlanningHandoffFinalArtifact(
     sourceRefs,
     dependsOn: [],
     ownerRole: "backend",
-    acceptanceEvidence: ["targeted reducer tests", "pnpm verify:docs", "pnpm verify"],
+    acceptanceEvidence: uniqueStrings(["targeted reducer tests", "pnpm verify:docs", "pnpm verify", ...phase15bExpectedEvidence]),
     nonGoals: scope.nonGoals,
-    riskRefs: residualRisks.map((risk) => risk.riskId)
+    riskRefs: residualRiskRegister.map((risk) => risk.riskId)
   };
   const handoffSummary = `Planning-ready handoff가 준비됐습니다: ${scope.productSlice}. 실행 권한 없이 다음 구현 조각과 잔여 리스크만 고정합니다.`;
 
@@ -3795,8 +4049,17 @@ function buildPlanningHandoffFinalArtifact(
         sequenceId: `phase2_${stableToken(`${artifactId}:pr`)}`,
         summary: `${scope.productSlice}의 가장 작은 다음 구현 단위`,
         includedTaskIds: [task.taskId],
-        entryPrerequisites: ["Planning Handoff gate verdict is planning_ready."],
-        exitEvidence: ["Tests and docs contract checks pass.", "No execution authority was introduced."],
+        entryPrerequisites: uniqueStrings([
+          "Planning Handoff gate verdict is planning_ready.",
+          ...phase15bRequiredApprovals,
+          ...phase15bHintMapping.map((mapping) => `Phase 1.5B sandbox: ${mapping.sandboxBoundary}`),
+          ...phase15bHintMapping.map((mapping) => `Phase 1.5B rollback: ${mapping.rollbackReference}`)
+        ]),
+        exitEvidence: uniqueStrings([
+          "Tests and docs contract checks pass.",
+          "No execution authority was introduced.",
+          ...phase15bExpectedEvidence
+        ]),
         blockedBy: [],
         phaseBoundary: "phase2_planning_handoff"
       }
@@ -3807,9 +4070,9 @@ function buildPlanningHandoffFinalArtifact(
       nonGoals: scope.nonGoals,
       sourceRefs,
       acceptanceCriteria: ["Final handoff exists only for planning_ready verdict.", "Blocker paths remain separate."],
-      smokeTests: ["run ProductEngine reducer tests", "run docs verifier"],
+      smokeTests: uniqueStrings(["run ProductEngine reducer tests", "run docs verifier", ...phase15bExpectedEvidence]),
       validationMetric: "Reviewer can identify the next PR-sized build slice without hidden fatal blockers.",
-      residualRisks: residualRisks.map((risk) => risk.riskId)
+      residualRisks: residualRiskRegister.map((risk) => risk.riskId)
     },
     serveChecklist: {
       serveTarget: "local preview",
@@ -3836,16 +4099,26 @@ function buildPlanningHandoffFinalArtifact(
       riskUpdateRule: "Convert repeated blocker feedback into Known Risks or queue items before retrying final handoff."
     },
     readinessChecklist: {
-      requiredApprovals: ["Reviewer confirms the Planning-ready handoff."],
-      sandboxBoundary: "No file, shell, browser, deploy, credential, or external mutation authority.",
-      rollbackReference: `recompute CreatePlanningHandoff from stateVersion ${command.expectedStateVersion}`,
-      expectedEvidence: ["pnpm --filter @solo-superman/core test -- product-engine", "pnpm verify:docs"],
+      requiredApprovals: uniqueStrings(["Reviewer confirms the Planning-ready handoff.", ...phase15bRequiredApprovals]),
+      sandboxBoundary: [
+        "No file, shell, browser, deploy, credential, or external mutation authority.",
+        ...phase15bHintMapping.map((mapping) => `Phase 1.5B hint ${mapping.hintRef.sourceId}: ${mapping.sandboxBoundary}`)
+      ].join(" "),
+      rollbackReference: [
+        `recompute CreatePlanningHandoff from stateVersion ${command.expectedStateVersion}`,
+        ...phase15bHintMapping.map((mapping) => `Phase 1.5B hint ${mapping.hintRef.sourceId}: ${mapping.rollbackReference}`)
+      ].join("; "),
+      expectedEvidence: uniqueStrings([
+        "pnpm --filter @solo-superman/core test -- product-engine",
+        "pnpm verify:docs",
+        ...phase15bExpectedEvidence
+      ]),
       commandPreviewRequirements: ["Command previews remain non-executing."],
       filePreviewRequirements: ["File patches are future evidence only."],
       browserPreviewRequirements: ["Browser actions remain excluded from Phase 2 handoff."]
     },
-    residualRiskRegister: residualRisks,
-    phase15bHintMapping: sourceRefs.filter((sourceRef) => sourceRef.sourceType === "phase15b_hint"),
+    residualRiskRegister,
+    phase15bHintMapping,
     noExecutionPolicy: "no_file_shell_browser_deploy_or_external_mutation",
     handoffSummary
   };
@@ -3858,7 +4131,8 @@ function buildPlanningHandoffBlockerArtifact(
   sourceRefs: readonly PlanningHandoffSourceRefDto[],
   blockers: readonly PlanningHandoffBlockerDto[],
   queueSummaries: readonly PlanningHandoffQueueOutcomeSummaryDto[],
-  residualRisks: readonly PlanningHandoffResidualRiskDto[]
+  residualRisks: readonly PlanningHandoffResidualRiskDto[],
+  phase15bHintMapping: PlanningHandoffArtifactDto["phase15bHintMapping"]
 ): PlanningHandoffBlockerArtifactDto {
   return {
     artifactId,
@@ -3879,6 +4153,7 @@ function buildPlanningHandoffBlockerArtifact(
     safePreviewRefs: sourceRefs.filter(
       (sourceRef) => sourceRef.sourceType === "runtime_preview_artifact" || sourceRef.sourceType === "phase15b_hint"
     ),
+    phase15bHintMapping,
     noFinalLabelRule: "must_not_use_planning_ready_label"
   };
 }
@@ -3941,24 +4216,31 @@ function reduceCreatePlanningHandoff(
   const scope = requestedScope ?? derivePlanningHandoffScope(state);
   const gate = planningHandoffGateContext(state, sourceRefsOrRejection);
   const artifactId = planningHandoffArtifactId(command, sourceRefsOrRejection, scope);
+  const phase15bHintMapping = phase15bHintMappingsForPlanningHandoff(state, sourceRefsOrRejection);
+  const outputSourceRefs = planningHandoffOutputSourceRefs(sourceRefsOrRejection);
+  const outputQueueSummaries = planningHandoffOutputQueueSummaries(gate.queueSummaries);
+  const outputResidualRisks = planningHandoffOutputResidualRisks(gate.residualRisks);
+  const outputBlockers = planningHandoffOutputBlockers(gate.blockers);
   const artifact =
     gate.verdict === "planning_ready"
       ? buildPlanningHandoffFinalArtifact(
           command,
           artifactId,
-          sourceRefsOrRejection,
+          outputSourceRefs,
           scope,
-          gate.queueSummaries,
-          gate.residualRisks
+          outputQueueSummaries,
+          outputResidualRisks,
+          phase15bHintMapping
         )
       : buildPlanningHandoffBlockerArtifact(
           command,
           artifactId,
           gate.verdict,
-          sourceRefsOrRejection,
-          gate.blockers,
-          gate.queueSummaries,
-          gate.residualRisks
+          outputSourceRefs,
+          outputBlockers,
+          outputQueueSummaries,
+          outputResidualRisks,
+          phase15bHintMapping
         );
   const projection = planningHandoffProjection(command, artifact);
   const event = eventDraft(
@@ -3968,7 +4250,7 @@ function reduceCreatePlanningHandoff(
       artifactId,
       verdict: gate.verdict,
       artifactKind: artifact.kind,
-      sourceRefs: sourceRefsOrRejection,
+      sourceRefs: outputSourceRefs,
       projection,
       summary: projection.summary
     }
@@ -3989,7 +4271,7 @@ function reduceCreatePlanningHandoff(
           artifactId,
           verdict: gate.verdict,
           artifactKind: artifact.kind,
-          sourceRefs: sourceRefsOrRejection,
+          sourceRefs: outputSourceRefs,
           summary: projection.summary
         }
       }

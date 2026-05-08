@@ -34,11 +34,11 @@ export const PHASE15B_SOURCE_REF_KINDS = [
   "spec_section"
 ] as const;
 
-type Phase15bApprovalType = (typeof PHASE15B_APPROVAL_TYPES)[number];
-type Phase15bRequiredActor = (typeof PHASE15B_REQUIRED_ACTORS)[number];
-type Phase15bNetworkMode = (typeof PHASE15B_NETWORK_MODES)[number];
-type Phase15bRiskLevel = (typeof PHASE15B_RISK_LEVELS)[number];
-type Phase15bSourceRefKind = (typeof PHASE15B_SOURCE_REF_KINDS)[number];
+export type Phase15bApprovalType = (typeof PHASE15B_APPROVAL_TYPES)[number];
+export type Phase15bRequiredActor = (typeof PHASE15B_REQUIRED_ACTORS)[number];
+export type Phase15bNetworkMode = (typeof PHASE15B_NETWORK_MODES)[number];
+export type Phase15bRiskLevel = (typeof PHASE15B_RISK_LEVELS)[number];
+export type Phase15bSourceRefKind = (typeof PHASE15B_SOURCE_REF_KINDS)[number];
 
 export interface Phase15bExecutionIntent {
   readonly candidateActionType: BlockedActionType;

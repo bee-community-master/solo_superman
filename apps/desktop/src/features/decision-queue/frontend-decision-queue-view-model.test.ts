@@ -903,10 +903,14 @@ describe("Decision Queue view model", () => {
     expect(copy).toContain("Planning-ready");
     expect(copy).toContain("final handoff shows only when the gate verdict is Planning-ready");
     expect(copy).toContain("Readiness hint requires explicit future execution approval");
+    expect(copy).toContain("Phase 1.5B hint mapping");
+    expect(copy).toContain("source trace preview_artifact:runtime_artifact_demo");
+    expect(copy).toContain("policy metadata only no execution");
     expect(copy).toContain("residual risk visibility passed");
     expect(copy).toContain("no file, shell, browser, deploy, external mutation");
     expect(markup).toContain("Planning Handoff");
     expect(markup).toContain("Planning-ready");
+    expect(markup).toContain("Phase 1.5B hint mapping");
     expect(markup).toContain("Residual risks");
     expect(markup).toContain("source refs:");
     expect(markup).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
@@ -939,8 +943,11 @@ describe("Decision Queue view model", () => {
     expect(copy).toContain("Blocked lowercase final handoff and final handoff copy must remain a blocker report.");
     expect(copy).toContain("required next action research more");
     expect(copy).toContain("Safe preview refs");
+    expect(copy).toContain("Phase 1.5B hint mapping");
+    expect(copy).toContain("policy metadata only no execution");
     expect(copy).toContain("No additional residual risk entries are hidden");
     expect(markup).toContain("Blocker report");
+    expect(markup).toContain("Phase 1.5B hint mapping");
     expect(markup).not.toContain("Planning-ready");
     expect(markup).not.toMatch(/\bplanning[-_]ready\b/iu);
     expect(markup).not.toMatch(/\b(executed|succeeded|applied)\b/iu);

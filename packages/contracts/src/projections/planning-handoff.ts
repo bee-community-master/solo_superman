@@ -1,3 +1,8 @@
+import type {
+  BlockedActionType,
+  Phase15bRiskLevel,
+  Phase15bUpgradeHintSourceRef
+} from "../codex";
 import type { ProjectionVersion, SessionId } from "../ids";
 
 export type PlanningHandoffArtifactKind = "PlanningHandoffArtifact" | "PlanningHandoffBlockerArtifact";
@@ -136,6 +141,27 @@ export interface PlanningHandoffResidualRiskDto {
   readonly followUpTrigger: string;
 }
 
+export type PlanningHandoffPhase15bSourceTraceDto = Pick<Phase15bUpgradeHintSourceRef, "kind" | "refId">;
+
+export interface PlanningHandoffPhase15bRiskMappingDto {
+  readonly riskLevel: Phase15bRiskLevel;
+  readonly blockedActionType: BlockedActionType;
+  readonly blockReason: string;
+  readonly userVisibleAction: string;
+  readonly escalationTarget: string;
+}
+
+export interface PlanningHandoffPhase15bHintMappingDto {
+  readonly hintRef: PlanningHandoffSourceRefDto;
+  readonly requiredApprovals: readonly string[];
+  readonly sandboxBoundary: string;
+  readonly rollbackReference: string;
+  readonly expectedEvidence: readonly string[];
+  readonly riskNormalization: PlanningHandoffPhase15bRiskMappingDto;
+  readonly sourceTrace: readonly PlanningHandoffPhase15bSourceTraceDto[];
+  readonly noExecutionPolicy: "metadata_only_no_execution";
+}
+
 export interface PlanningHandoffBuildSlicePlanDto {
   readonly sliceGoal: string;
   readonly includedCapabilities: readonly string[];
@@ -193,7 +219,7 @@ export interface PlanningHandoffArtifactDto {
   readonly learningLoopHook: PlanningHandoffLearningLoopHookDto;
   readonly readinessChecklist: PlanningHandoffReadinessChecklistDto;
   readonly residualRiskRegister: readonly PlanningHandoffResidualRiskDto[];
-  readonly phase15bHintMapping: readonly PlanningHandoffSourceRefDto[];
+  readonly phase15bHintMapping: readonly PlanningHandoffPhase15bHintMappingDto[];
   readonly noExecutionPolicy: "no_file_shell_browser_deploy_or_external_mutation";
   readonly handoffSummary: string;
 }
@@ -223,6 +249,7 @@ export interface PlanningHandoffBlockerArtifactDto {
   readonly residualRisks: readonly PlanningHandoffResidualRiskDto[];
   readonly requiredUserActions: readonly PlanningHandoffRequiredUserAction[];
   readonly safePreviewRefs: readonly PlanningHandoffSourceRefDto[];
+  readonly phase15bHintMapping: readonly PlanningHandoffPhase15bHintMappingDto[];
   readonly noFinalLabelRule: "must_not_use_planning_ready_label";
 }
 
@@ -424,7 +451,49 @@ export const PLANNING_HANDOFF_FINAL_ARTIFACT_FIXTURE = {
       followUpTrigger: "Before implementing any controlled execution adapter."
     }
   ],
-  phase15bHintMapping: [planningHandoffHintRef],
+  phase15bHintMapping: [
+    {
+      hintRef: planningHandoffHintRef,
+      requiredApprovals: ["task_level_execution:user:future implementation verification"],
+      sandboxBoundary: "isolated worktree required; network=offline; commands=pnpm verify",
+      rollbackReference: "base=origin/main; diff=runtime_artifact_demo:preview_diff; discard readiness metadata before execution",
+      expectedEvidence: ["pnpm verify", "GET /api/v1/projects/:projectId/phase15b-upgrade-hints/export"],
+      riskNormalization: {
+        riskLevel: "medium",
+        blockedActionType: "shell_command",
+        blockReason: "Shell execution remains blocked in Phase 1.5B and Phase 2.",
+        userVisibleAction: "Ask again before any future controlled execution.",
+        escalationTarget: "phase3_safe_execution"
+      },
+      sourceTrace: [
+        {
+          kind: "preview_artifact",
+          refId: "runtime_artifact_demo"
+        },
+        {
+          kind: "blocked_action",
+          refId: "runtime_artifact_demo:shell_command"
+        },
+        {
+          kind: "research_run",
+          refId: "research_run_demo"
+        },
+        {
+          kind: "evidence_matrix",
+          refId: "evidence_matrix_demo"
+        },
+        {
+          kind: "research_allowlist",
+          refId: "research_allowlist_demo"
+        },
+        {
+          kind: "audit_log",
+          refId: "audit_log_demo"
+        }
+      ],
+      noExecutionPolicy: "metadata_only_no_execution"
+    }
+  ],
   noExecutionPolicy: "no_file_shell_browser_deploy_or_external_mutation",
   handoffSummary: "계획 준비(Planning-ready) handoff가 확정됐으며, 실행 권한 없이 다음 구현 조각과 남은 리스크를 보여준다."
 } as const satisfies PlanningHandoffArtifactDto;
@@ -448,7 +517,8 @@ const stalePlanningHandoffSpecRef = {
 
 const planningHandoffBlockerSourceRefs = [
   stalePlanningHandoffSpecRef,
-  planningHandoffQueueRef
+  planningHandoffQueueRef,
+  planningHandoffHintRef
 ] as const satisfies readonly PlanningHandoffSourceRefDto[];
 
 export const PLANNING_HANDOFF_BLOCKER_ARTIFACT_FIXTURE = {
@@ -497,6 +567,7 @@ export const PLANNING_HANDOFF_BLOCKER_ARTIFACT_FIXTURE = {
   residualRisks: [],
   requiredUserActions: ["revise", "research_more"],
   safePreviewRefs: [planningHandoffHintRef],
+  phase15bHintMapping: PLANNING_HANDOFF_FINAL_ARTIFACT_FIXTURE.phase15bHintMapping,
   noFinalLabelRule: "must_not_use_planning_ready_label"
 } as const satisfies PlanningHandoffBlockerArtifactDto;
 

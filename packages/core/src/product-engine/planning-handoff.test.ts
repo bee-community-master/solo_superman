@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CONTRACT_SCHEMA_VERSION,
+  PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION,
   type CommandId,
   type CorrelationId,
   type DecisionId,
@@ -16,6 +17,8 @@ import {
   type RuntimeArtifactId,
   type SessionId,
   type StateVersion,
+  type Phase15bUpgradeHints,
+  type PlanningHandoffProjection,
   type PlanningHandoffSourceRefDto
 } from "@solo-superman/contracts";
 import { createInitialProductEngineState, reduceProductEngineCommand } from "./index";
@@ -30,6 +33,7 @@ const QUEUE_ITEM_ID = "queue_ready" as QueueItemId;
 const RESEARCH_TASK_ID = "research_task_ready" as ResearchTaskId;
 const RESEARCH_RESULT_ID = "research_result_ready" as ResearchResultId;
 const EVIDENCE_PACK_ID = "evidence_pack_ready" as DecisionEvidencePackId;
+const PHASE15B_HINT_ARTIFACT_ID = "runtime_artifact_phase15b_handoff" as RuntimeArtifactId;
 
 function readySourceRefs(
   overrides: Partial<Record<"spec" | "completion" | "evidence" | "queue", Partial<PlanningHandoffSourceRefDto>>> = {}
@@ -68,6 +72,99 @@ function readySourceRefs(
       ...overrides.queue
     }
   ];
+}
+
+function phase15bHintsFixture(): Phase15bUpgradeHints {
+  return {
+    executionIntent: {
+      candidateActionType: "shell_command",
+      targetSurface: "local verification command",
+      nonExecutingSummary: "Preserve future shell readiness without running it."
+    },
+    approvalRequirements: [
+      {
+        approvalType: "task_level_execution",
+        reason: "User approval is required before running future verification commands.",
+        scope: "pnpm verify in an isolated worktree",
+        requiredActor: "user",
+        reconfirmRule: "Reconfirm when the base ref or command changes."
+      }
+    ],
+    sandboxRequirements: {
+      isolatedWorktreeRequired: true,
+      browserSandboxRequired: false,
+      networkMode: "offline",
+      commandAllowlist: ["pnpm verify", "git diff --check"],
+      secretGrantBoundary: "No credential values are required.",
+      environmentPolicy: "Use local-only deterministic environment variables.",
+      logCaptureRequired: true
+    },
+    rollbackReference: {
+      baseRef: "origin/main",
+      diffRef: "runtime_artifact_phase15b_handoff:preview_diff",
+      rollbackNote: "Discard the hint or revert the later approved implementation commit.",
+      reversible: true,
+      cleanupExpectation: "Remove temporary preview logs after review."
+    },
+    expectedEvidence: {
+      tests: ["pnpm verify"],
+      smokeChecks: ["pnpm smoke:e2e"],
+      artifactPaths: ["packages/core/src/product-engine/planning-handoff.test.ts"],
+      manualInspection: ["Confirm Planning Handoff treats the hint as metadata only."],
+      expectedLogs: ["phase15b readiness metadata exported without execution"]
+    },
+    riskNormalization: {
+      riskLevel: "medium",
+      blockedActionType: "shell_command",
+      blockReason: "Shell execution is blocked until Phase 3 controlled execution approval.",
+      userVisibleAction: "Ask again before running any command.",
+      escalationTarget: "phase3_safe_execution"
+    },
+    sourceRefs: [
+      {
+        kind: "preview_artifact",
+        refId: PHASE15B_HINT_ARTIFACT_ID,
+        label: "Preview artifact label must not be needed for mapping."
+      },
+      {
+        kind: "blocked_action",
+        refId: `${PHASE15B_HINT_ARTIFACT_ID}:shell_command`,
+        label: "Blocked shell action"
+      },
+      {
+        kind: "research_run",
+        refId: "research_run_phase15b_handoff",
+        label: "Research run provenance"
+      },
+      {
+        kind: "evidence_matrix",
+        refId: "evidence_matrix_phase15b_handoff",
+        label: "Evidence matrix provenance"
+      },
+      {
+        kind: "research_allowlist",
+        refId: "research_allowlist_phase15b_handoff",
+        label: "Allowlist provenance"
+      },
+      {
+        kind: "audit_log",
+        refId: "audit_log_phase15b_handoff",
+        label: "Audit log provenance"
+      }
+    ],
+    createdAt: "2026-05-06T00:05:00.000Z",
+    schemaVersion: PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION
+  };
+}
+
+function phase15bHintSourceRef(): PlanningHandoffSourceRefDto {
+  return {
+    sourceType: "phase15b_hint",
+    sourceId: PHASE15B_HINT_ARTIFACT_ID,
+    sourceLabel: "Phase 1.5B readiness hint",
+    required: false,
+    stale: false
+  };
 }
 
 function baseReadyState(): ProductEngineStateSnapshot {
@@ -224,6 +321,46 @@ function baseReadyState(): ProductEngineStateSnapshot {
   };
 }
 
+function readyStateWithPhase15bHint(hints: Phase15bUpgradeHints = phase15bHintsFixture()): ProductEngineStateSnapshot {
+  return {
+    ...baseReadyState(),
+    runtimeState: {
+      kind: "RuntimeActivityProjection",
+      version: READY_PROJECTION_VERSION,
+      runtimeStatus: "blocked",
+      effects: [],
+      runtimeArtifacts: [
+        {
+          artifactId: PHASE15B_HINT_ARTIFACT_ID,
+          turnPurpose: "implementation_plan_preview",
+          kind: "BlockedActionArtifact",
+          applyPolicy: "blocked",
+          status: "blocked",
+          source: "protocol_fixture",
+          targetObject: "blocked_action",
+          summary: "Shell readiness handoff blocked",
+          payload: {
+            title: "Shell readiness handoff blocked",
+            body: "Metadata only; no command was executed.",
+            targetObject: "blocked_action",
+            sourceRefs: ["research_run_phase15b_handoff"],
+            phase15bUpgradeHints: hints
+          },
+          sourceRefs: ["research_run_phase15b_handoff"],
+          contextHash: "ctx_phase15b_handoff",
+          runtimeAdapterVersion: "codex-app-server-preview-v1",
+          blockedAction: {
+            actionType: "shell_command",
+            reason: "Phase 1.5B preserves readiness only."
+          },
+          createdAt: "2026-05-06T00:05:00.000Z",
+          schemaVersion: CONTRACT_SCHEMA_VERSION
+        }
+      ]
+    }
+  };
+}
+
 function planningHandoffCommand(
   payload: ProductEngineCommand["payload"],
   overrides: Partial<Pick<ProductEngineCommand, "idempotencyKey">> = {}
@@ -366,6 +503,208 @@ describe("Phase 2 Planning Handoff ProductEngine gate", () => {
       planningHandoff: expect.objectContaining({
         currentStatus: "planning_ready"
       })
+    });
+  });
+
+  it("maps Phase 1.5B readiness hints into Phase 2 approvals, sandbox, rollback, evidence, and residual risk", () => {
+    const hintRef = phase15bHintSourceRef();
+    const reduction = reduceProductEngineCommand(
+      planningHandoffCommand({
+        sourceRefs: [...readySourceRefs(), hintRef]
+      }),
+      readyStateWithPhase15bHint()
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "planning_ready",
+      finalArtifact: {
+        readinessChecklist: {
+          requiredApprovals: expect.arrayContaining([expect.stringContaining("task_level_execution")]),
+          sandboxBoundary: expect.stringContaining("network=offline"),
+          rollbackReference: expect.stringContaining("origin/main"),
+          expectedEvidence: expect.arrayContaining(["pnpm verify", "pnpm smoke:e2e"])
+        },
+        prIssuePlan: [
+          expect.objectContaining({
+            entryPrerequisites: expect.arrayContaining([
+              expect.stringContaining("Phase 1.5B sandbox"),
+              expect.stringContaining("Phase 1.5B rollback")
+            ]),
+            exitEvidence: expect.arrayContaining(["pnpm verify", "pnpm smoke:e2e"])
+          })
+        ],
+        phase15bHintMapping: [
+          expect.objectContaining({
+            hintRef,
+            requiredApprovals: expect.arrayContaining([expect.stringContaining("task_level_execution")]),
+            sandboxBoundary: expect.stringContaining("isolatedWorktree=true"),
+            rollbackReference: expect.stringContaining("runtime_artifact_phase15b_handoff:preview_diff"),
+            expectedEvidence: expect.arrayContaining(["pnpm verify", "pnpm smoke:e2e"]),
+            riskNormalization: {
+              riskLevel: "medium",
+              blockedActionType: "shell_command",
+              blockReason: "Shell execution is blocked until Phase 3 controlled execution approval.",
+              userVisibleAction: "Ask again before running any command.",
+              escalationTarget: "phase3_safe_execution"
+            },
+            sourceTrace: expect.arrayContaining([
+              expect.objectContaining({ kind: "research_run", refId: "research_run_phase15b_handoff" }),
+              expect.objectContaining({ kind: "evidence_matrix", refId: "evidence_matrix_phase15b_handoff" }),
+              expect.objectContaining({ kind: "research_allowlist", refId: "research_allowlist_phase15b_handoff" }),
+              expect.objectContaining({ kind: "audit_log", refId: "audit_log_phase15b_handoff" })
+            ]),
+            noExecutionPolicy: "metadata_only_no_execution"
+          })
+        ],
+        residualRiskRegister: expect.arrayContaining([
+          expect.objectContaining({
+            riskId: expect.stringContaining("phase15b_"),
+            riskClass: "phase15b_readiness_gap",
+            validationDependency: "Shell execution is blocked until Phase 3 controlled execution approval.",
+            sourceRefs: [hintRef]
+          })
+        ])
+      }
+    });
+    expect(JSON.stringify(reduction.immediateProjection)).not.toContain("Preview artifact label must not be needed");
+  });
+
+  it("redacts non-public Phase 1.5B hint text before reusing it in Planning Handoff", () => {
+    const unsafeHintArtifactId = "runtime_artifact_private_customer_alpha_raw_idea" as RuntimeArtifactId;
+    const hintRef: PlanningHandoffSourceRefDto = {
+      ...phase15bHintSourceRef(),
+      sourceId: unsafeHintArtifactId,
+      sourceLabel: "Private customer Alpha sourceRef includes token=secret-token-value."
+    };
+    const baseHints = phase15bHintsFixture();
+    const privateHints: Phase15bUpgradeHints = {
+      ...baseHints,
+      approvalRequirements: [
+        {
+          ...baseHints.approvalRequirements[0]!,
+          reason: "Private customer Alpha approval includes token=secret-token-value.",
+          scope: "Customer Jane internal roadmap",
+          reconfirmRule: "Bearer abcdefghijklmnop"
+        }
+      ],
+      sandboxRequirements: {
+        ...baseHints.sandboxRequirements,
+        secretGrantBoundary: "AWS_SECRET_ACCESS_KEY wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        environmentPolicy: "Private customer Alpha local environment"
+      },
+      rollbackReference: {
+        ...baseHints.rollbackReference,
+        diffRef: "runtime_artifact_phase15b_handoff:preview_diff?token=secret-token-value",
+        rollbackNote: "Discard Private customer Alpha payload notes.",
+        cleanupExpectation: "Remove Customer Jane internal roadmap notes."
+      },
+      expectedEvidence: {
+        ...baseHints.expectedEvidence,
+        manualInspection: ["Review clientSecret client-secret-value-123 before execution."],
+        expectedLogs: ["Authorization: Basic dXNlcjpwYXNz"]
+      },
+      riskNormalization: {
+        ...baseHints.riskNormalization,
+        blockReason: "Future shell action has token secret-token-value-12345.",
+        userVisibleAction: "Ask about Customer Jane internal roadmap before any command."
+      },
+      sourceRefs: [
+        ...baseHints.sourceRefs,
+        {
+          kind: "spec_section",
+          refId: "spec_section_private_customer_alpha_raw_idea",
+          label: "Private customer Alpha raw idea"
+        }
+      ]
+    };
+    const stateWithUnsafeHintRef = readyStateWithPhase15bHint(privateHints);
+    const reduction = reduceProductEngineCommand(
+      planningHandoffCommand({
+        sourceRefs: [...readySourceRefs(), hintRef]
+      }),
+      {
+        ...stateWithUnsafeHintRef,
+        runtimeState: {
+          ...stateWithUnsafeHintRef.runtimeState,
+          runtimeArtifacts: [
+            {
+              ...stateWithUnsafeHintRef.runtimeState.runtimeArtifacts[0]!,
+              artifactId: unsafeHintArtifactId
+            }
+          ]
+        }
+      }
+    );
+    const serializedPublicOutputs = JSON.stringify({
+      events: reduction.events,
+      deterministicOutputs: reduction.deterministicOutputs,
+      immediateProjection: reduction.immediateProjection
+    });
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      finalArtifact: {
+        sourceRefs: expect.arrayContaining([
+          expect.objectContaining({
+            sourceType: "phase15b_hint",
+            sourceId: expect.stringMatching(/^redacted_ref:phase15b_hint:[a-f0-9]{16}$/u),
+            sourceLabel: "[redacted_phase15b_non_exportable_metadata]"
+          })
+        ]),
+        phase15bHintMapping: [
+          expect.objectContaining({
+            hintRef: expect.objectContaining({
+              sourceId: expect.stringMatching(/^redacted_ref:phase15b_hint:[a-f0-9]{16}$/u),
+              sourceLabel: "[redacted_phase15b_non_exportable_metadata]"
+            })
+          })
+        ]
+      }
+    });
+    expect(serializedPublicOutputs).toContain("[redacted_phase15b_non_exportable_metadata]");
+    expect(serializedPublicOutputs).toMatch(/redacted_ref:spec_section:[a-f0-9]{16}/u);
+    expect(serializedPublicOutputs).not.toContain("Private customer Alpha");
+    expect(serializedPublicOutputs).not.toContain("Customer Jane internal roadmap");
+    expect(serializedPublicOutputs).not.toContain("runtime_artifact_private_customer_alpha_raw_idea");
+    expect(serializedPublicOutputs).not.toContain("spec_section_private_customer_alpha_raw_idea");
+    expect(serializedPublicOutputs).not.toContain("token=secret-token-value");
+    expect(serializedPublicOutputs).not.toContain("Bearer abcdefghijklmnop");
+    expect(serializedPublicOutputs).not.toContain("AWS_SECRET_ACCESS_KEY");
+    expect(serializedPublicOutputs).not.toContain("wJalrXUtnFEMI");
+    expect(serializedPublicOutputs).not.toContain("clientSecret");
+    expect(serializedPublicOutputs).not.toContain("client-secret-value-123");
+    expect(serializedPublicOutputs).not.toContain("Authorization: Basic");
+    expect(serializedPublicOutputs).not.toContain("dXNlcjpwYXNz");
+    expect(serializedPublicOutputs).not.toContain("secret-token-value-12345");
+  });
+
+  it("blocks required Phase 1.5B hint refs that do not resolve to valid hint payloads", () => {
+    const missingRequiredHintRef: PlanningHandoffSourceRefDto = {
+      ...phase15bHintSourceRef(),
+      sourceId: "runtime_artifact_missing_phase15b",
+      required: true
+    };
+    const reduction = reduceProductEngineCommand(
+      planningHandoffCommand({
+        sourceRefs: [...readySourceRefs(), missingRequiredHintRef]
+      }),
+      baseReadyState()
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "source_trace_incomplete",
+      blockerArtifact: {
+        blockers: expect.arrayContaining([
+          expect.objectContaining({
+            blockerClass: "source_trace",
+            whyFatal:
+              "Planning Handoff cannot use required source refs that are not present, accepted, and current in the loaded ProductEngine state.",
+            sourceRefs: [missingRequiredHintRef]
+          })
+        ])
+      }
     });
   });
 
@@ -527,6 +866,54 @@ describe("Phase 2 Planning Handoff ProductEngine gate", () => {
         requiredUserActions: expect.arrayContaining(["research_more"])
       }
     });
+  });
+
+  it("carries Phase 1.5B readiness semantics into blocker reports without making them gate actions", () => {
+    const hintRef = phase15bHintSourceRef();
+    const state = readyStateWithPhase15bHint();
+    const queueItemWithoutOutcome = withoutTerminalOutcome(state.queueProjection.deferred[0]!);
+    const cardWithoutOutcome = withoutTerminalOutcome(state.researchState.reviewCards[0]!);
+    const reduction = reduceProductEngineCommand(
+      planningHandoffCommand({
+        sourceRefs: [...readySourceRefs(), hintRef]
+      }),
+      {
+        ...state,
+        queueProjection: {
+          ...state.queueProjection,
+          deferred: [queueItemWithoutOutcome]
+        },
+        researchState: {
+          ...state.researchState,
+          reviewCards: [cardWithoutOutcome]
+        }
+      }
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "queue_review_incomplete",
+      blockerArtifact: {
+        requiredUserActions: ["research_more"],
+        phase15bHintMapping: [
+          expect.objectContaining({
+            hintRef,
+            sandboxBoundary: expect.stringContaining("network=offline"),
+            noExecutionPolicy: "metadata_only_no_execution"
+          })
+        ],
+        safePreviewRefs: expect.arrayContaining([hintRef])
+      }
+    });
+    const planningHandoffProjection = reduction.immediateProjection as PlanningHandoffProjection;
+    const blockerArtifact =
+      planningHandoffProjection.currentStatus === "queue_review_incomplete"
+        ? planningHandoffProjection.blockerArtifact
+        : null;
+
+    expect(blockerArtifact?.blockers.some((blocker) => blocker.sourceRefs.includes(hintRef))).toBe(false);
+    expect(JSON.stringify(blockerArtifact?.phase15bHintMapping)).toContain("metadata_only_no_execution");
+    expect(JSON.stringify(blockerArtifact?.phase15bHintMapping)).toContain("network=offline");
   });
 
   it("emits blocked_by_fatal for terminal research_insufficient high-impact queue outcomes", () => {

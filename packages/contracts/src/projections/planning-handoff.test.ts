@@ -84,6 +84,7 @@ describe("Planning Handoff projection contract", () => {
       | "residualRisks"
       | "requiredUserActions"
       | "safePreviewRefs"
+      | "phase15bHintMapping"
       | "noFinalLabelRule"
     >();
     expectTypeOf<CreatePlanningHandoffRequest>().toEqualTypeOf<{
@@ -117,7 +118,24 @@ describe("Planning Handoff projection contract", () => {
       "chatgpt_web_automation",
       "external_deploy"
     ]);
-    expect(artifact.phase15bHintMapping.every((ref) => ref.sourceType === "phase15b_hint")).toBe(true);
+    expect(artifact.phase15bHintMapping.every((mapping) => mapping.hintRef.sourceType === "phase15b_hint")).toBe(true);
+    expect(artifact.phase15bHintMapping[0]).toMatchObject({
+      requiredApprovals: [expect.stringContaining("task_level_execution")],
+      sandboxBoundary: expect.stringContaining("network=offline"),
+      rollbackReference: expect.stringContaining("origin/main"),
+      expectedEvidence: expect.arrayContaining(["pnpm verify"]),
+      riskNormalization: {
+        riskLevel: "medium",
+        blockedActionType: "shell_command"
+      },
+      sourceTrace: expect.arrayContaining([
+        expect.objectContaining({ kind: "research_run", refId: "research_run_demo" }),
+        expect.objectContaining({ kind: "evidence_matrix", refId: "evidence_matrix_demo" }),
+        expect.objectContaining({ kind: "research_allowlist", refId: "research_allowlist_demo" }),
+        expect.objectContaining({ kind: "audit_log", refId: "audit_log_demo" })
+      ]),
+      noExecutionPolicy: "metadata_only_no_execution"
+    });
   });
 
   it("keeps Build/Serve/Learning handoff fields preview-only and value-safe", () => {
@@ -143,6 +161,12 @@ describe("Planning Handoff projection contract", () => {
     expect(artifact.requiredUserActions).toEqual(["revise", "research_more"]);
     expect(artifact.blockers.map((blocker) => blocker.blockerClass)).toEqual(["source_trace", "queue_review"]);
     expect(artifact.gateVerdict.terminalOutcomeSummary.map((summary) => summary.outcome)).toContain("deferred");
+    expect(artifact.phase15bHintMapping[0]).toMatchObject({
+      noExecutionPolicy: "metadata_only_no_execution",
+      riskNormalization: {
+        blockedActionType: "shell_command"
+      }
+    });
   });
 
   it("keeps every non-ready verdict on the blocker-only path", () => {

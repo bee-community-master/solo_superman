@@ -231,6 +231,31 @@ export interface PlanningHandoffLearningLoopHookDto {
   readonly riskUpdateRule: string;
 }
 
+// BlockedActionType, Phase15bRiskLevel, and Phase15bSourceRefKind come from the Phase 1.5B contracts.
+export interface PlanningHandoffPhase15bSourceTraceDto {
+  readonly kind: Phase15bSourceRefKind;
+  readonly refId: string;
+}
+
+export interface PlanningHandoffPhase15bRiskMappingDto {
+  readonly riskLevel: Phase15bRiskLevel;
+  readonly blockedActionType: BlockedActionType;
+  readonly blockReason: string;
+  readonly userVisibleAction: string;
+  readonly escalationTarget: string;
+}
+
+export interface PlanningHandoffPhase15bHintMappingDto {
+  readonly hintRef: PlanningHandoffSourceRefDto;
+  readonly requiredApprovals: readonly string[];
+  readonly sandboxBoundary: string;
+  readonly rollbackReference: string;
+  readonly expectedEvidence: readonly string[];
+  readonly riskNormalization: PlanningHandoffPhase15bRiskMappingDto;
+  readonly sourceTrace: readonly PlanningHandoffPhase15bSourceTraceDto[];
+  readonly noExecutionPolicy: "metadata_only_no_execution";
+}
+
 export interface PlanningHandoffArtifactDto {
   readonly artifactId: string;
   readonly kind: "PlanningHandoffArtifact";
@@ -248,7 +273,7 @@ export interface PlanningHandoffArtifactDto {
   readonly learningLoopHook: PlanningHandoffLearningLoopHookDto;
   readonly readinessChecklist: PlanningHandoffReadinessChecklistDto;
   readonly residualRiskRegister: readonly PlanningHandoffResidualRiskDto[];
-  readonly phase15bHintMapping: readonly PlanningHandoffSourceRefDto[];
+  readonly phase15bHintMapping: readonly PlanningHandoffPhase15bHintMappingDto[];
   readonly noExecutionPolicy: "no_file_shell_browser_deploy_or_external_mutation";
   readonly handoffSummary: string;
 }
@@ -276,6 +301,7 @@ export interface PlanningHandoffBlockerArtifactDto {
   readonly residualRisks: readonly PlanningHandoffResidualRiskDto[];
   readonly requiredUserActions: readonly PlanningHandoffRequiredUserAction[];
   readonly safePreviewRefs: readonly PlanningHandoffSourceRefDto[];
+  readonly phase15bHintMapping: readonly PlanningHandoffPhase15bHintMappingDto[];
   readonly noFinalLabelRule: "must_not_use_planning_ready_label";
 }
 ```
@@ -569,7 +595,8 @@ Phase 2 implementation may depend on Phase 1.5A/B artifacts, but it must not sil
 
 Exact defaults:
 
-- `phase15bUpgradeHints` are optional source refs. If present, map them into `readinessChecklist`, `phase15bHintMapping`, and blocker `requiredUserActions` without reinterpreting them as execution permission.
+- `phase15bUpgradeHints` are optional source refs. If present, map them into `readinessChecklist`, structured `phase15bHintMapping`, residual risks, and blocker artifact readiness context without reinterpreting them as execution permission or current gate-resolving actions.
+- Any Phase 1.5B hint `sourceLabel`, unsafe hint id, or `sourceTrace.refId` that implies private/credential payload must be replaced with a deterministic redacted ref before it reaches final artifacts, blocker reports, events, deterministic outputs, or UI view models. Free-form secret boundaries and expected log examples must not be copied raw; expose only a public-safe summary or redacted marker.
 - `30-phase1.5-research-runtime-and-readiness-contract.md` remains the source of truth for Phase 1.5B readiness metadata semantics; this document only defines Phase 2 implementation defaults for consuming those hints.
 - Missing `phase15bUpgradeHints` does not block final handoff by itself.
 - Missing current SpecVersion, Completion Candidate/Founder Brief, Evidence Pack, or terminal Research-updated Queue source creates `source_trace_incomplete` or `queue_review_incomplete` blocker artifact.

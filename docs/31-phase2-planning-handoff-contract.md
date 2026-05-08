@@ -75,7 +75,7 @@ Gate 규칙:
 | `learningLoopHook` | yes | Served MVP 이후 수집할 feedback/usage signal, 해석 기준, pivot/persevere decision 후보, 다음 Build Slice trigger |
 | `readinessChecklist` | yes | required approvals, sandbox/worktree boundary, rollback reference, expected evidence, command/file/browser preview requirements |
 | `residualRiskRegister` | yes | visible residual risk, assumptions, prerequisites, validation dependencies, owner/follow-up trigger |
-| `phase15bHintMapping` | yes | Phase 1.5B hint refs mapped to approval, sandbox, rollback, expected evidence, risk normalization |
+| `phase15bHintMapping` | yes | Phase 1.5B hint refs mapped to approval, sandbox, rollback, expected evidence, risk normalization, sanitized upstream sourceTrace(kind/refId), and metadata-only no-execution policy |
 | `noExecutionPolicy` | yes | explicit statement that Phase 2 does not apply file patch, run shell, perform browser action, deploy, or mutate external systems |
 | `handoffSummary` | yes | Korean-first summary that is safe to show as final Planning-ready context without hiding remaining risk |
 
@@ -131,17 +131,19 @@ Phase 1.5B `phase15bUpgradeHints`는 실행 권한이 아니라 Phase 2 handoff�
 
 | Phase 1.5B field family | Phase 2 mapping |
 | --- | --- |
-| `approvalRequirements` | `readinessChecklist.requiredApprovals`와 blocker `requiredUserActions` |
+| `approvalRequirements` | `readinessChecklist.requiredApprovals`, final PR/issue prerequisites, blocker `phase15bHintMapping.requiredApprovals` readiness context. 현재 gate-resolving user action 목록으로 승격하지 않음 |
 | `sandboxRequirements` | `readinessChecklist.sandboxBoundary`와 PR/issue `entryPrerequisites` |
 | `rollbackReference` | `readinessChecklist.rollbackReference`와 Phase 3 준비 조건 |
 | `expectedEvidence` | `taskBreakdown[].acceptanceEvidence`와 `prIssuePlan[].exitEvidence` |
-| `riskNormalization` | `gateVerdict`, `residualRiskRegister`, blocker `blockers[].whyFatal` |
+| `riskNormalization` | `gateVerdict`, `residualRiskRegister`, blocker `phase15bHintMapping.riskNormalization` readiness context |
 | `sourceRefs` | artifact-level `sourceRefs`와 task/PR/issue source trace |
 | `createdAt` / `schemaVersion` | stale hint detection과 migration 없이 읽기 위한 compatibility check |
 
 Mapping rule:
 
 - hint가 존재하면 final artifact 또는 blocker report는 이를 sourceRef로 남긴다.
+- final `phase15bHintMapping` entry는 `hintRef`, `requiredApprovals`, `sandboxBoundary`, `rollbackReference`, `expectedEvidence`, `riskNormalization`, `sourceTrace(kind/refId)`, `noExecutionPolicy = metadata_only_no_execution`을 포함해 Phase 1.5B hint를 실행 권한이 아닌 재사용 가능한 readiness source로 정규화한다. `hintRef` label 또는 unsafe id와 `sourceTrace.refId`가 private/credential payload를 암시하면 deterministic redacted ref만 노출한다.
+- blocker report는 Phase 1.5B hint를 gate-resolving blocker 또는 현재 `requiredUserActions`로 승격하지 않고, 별도 readiness context로만 보여준다.
 - hint가 실행을 암시하는 field처럼 보이더라도 Phase 2에서는 readiness metadata로만 해석한다.
 - missing hint는 final handoff를 자동으로 막지 않는다. 다만 approval/sandbox/rollback/expected evidence가 필요한 task라면 `readinessChecklist` 또는 blocker report에 gap을 표시한다.
 

@@ -249,6 +249,27 @@ function sourceRefsLabel(sourceRefs: readonly PlanningHandoffSourceRefDto[]) {
   return commaList(sourceRefs.map(sourceRefLabel), "no source refs");
 }
 
+function phase15bHintMappingLabel(mappings: PlanningHandoffArtifactDto["phase15bHintMapping"]) {
+  return commaList(
+    mappings.map((mapping) =>
+      readinessDetails([
+        `hint ${sourceRefLabel(mapping.hintRef)}`,
+        `approvals ${commaList(mapping.requiredApprovals, "none")}`,
+        `sandbox ${mapping.sandboxBoundary}`,
+        `rollback ${mapping.rollbackReference}`,
+        `expected evidence ${commaList(mapping.expectedEvidence, "none")}`,
+        `risk ${readableToken(mapping.riskNormalization.blockedActionType)} ${mapping.riskNormalization.riskLevel}`,
+        `source trace ${commaList(
+          mapping.sourceTrace.map((sourceRef) => `${sourceRef.kind}:${sourceRef.refId}`),
+          "none"
+        )}`,
+        `policy ${readableToken(mapping.noExecutionPolicy)}`
+      ])
+    ),
+    "no Phase 1.5B readiness hints"
+  );
+}
+
 function residualRiskItems(residualRisks: readonly PlanningHandoffResidualRiskDto[]) {
   return residualRisks.length
     ? residualRisks.map((risk) =>
@@ -500,7 +521,7 @@ function finalPlanningHandoffGroups(finalArtifact: PlanningHandoffArtifactDto): 
     },
     {
       title: "Phase 1.5B hint mapping",
-      items: [sourceRefsLabel(finalArtifact.phase15bHintMapping)]
+      items: [phase15bHintMappingLabel(finalArtifact.phase15bHintMapping)]
     }
   ];
 }
@@ -537,6 +558,10 @@ function blockerPlanningHandoffGroups(
     {
       title: "Safe preview refs",
       items: [sourceRefsLabel(blockerArtifact.safePreviewRefs)]
+    },
+    {
+      title: "Phase 1.5B hint mapping",
+      items: [phase15bHintMappingLabel(blockerArtifact.phase15bHintMapping)]
     }
   ];
 }
