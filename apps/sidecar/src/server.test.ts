@@ -1835,6 +1835,120 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("ingests completed provider results into Evidence Pack and Research-updated Queue", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId, sessionId } = await createProjectForTest(storageApp, "A provider ingest route test idea");
+      const allowlistId = "research_allowlist_provider_ingest";
+      await createAllowlistForTest(storageApp, projectId, allowlistId);
+
+      const planResearch = await storageApp.request(`/api/v1/sessions/${sessionId}/research-tasks`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 1,
+          objective: "Validate provider result ingest traceability",
+          sourceQueueItemId: "queue_provider_ingest",
+          routeOutcome: "research_needed",
+          impact: "high"
+        })
+      });
+      const planResearchBody = await jsonBody(planResearch);
+      const planResearchData = planResearchBody.data as Readonly<Record<string, unknown>>;
+      const researchProjection = planResearchData.immediateProjection as Readonly<Record<string, unknown>>;
+      const researchTaskId = (researchProjection.taskIds as readonly string[])[0] as ResearchTaskId;
+      const repository = createResearchRunRepository(storage.db);
+      const providerRun = phase15aRecoveryRunFixture(
+        projectId,
+        allowlistId,
+        "research_run_provider_ingest",
+        "running"
+      );
+
+      expect(planResearch.status).toBe(200);
+      await repository.create({
+        run: {
+          ...providerRun,
+          researchTaskId,
+          provider: {
+            ...providerRun.provider,
+            researchTaskId
+          },
+          sourceRefs: ["queue_provider_ingest"]
+        },
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      const status = await storageApp.request(
+        `/api/v1/projects/${projectId}/research-runs/research_run_provider_ingest/status`,
+        { headers: authHeaders() }
+      );
+      const statusBody = await jsonBody(status);
+
+      expect(status.status).toBe(200);
+      expect(statusBody.data).toMatchObject({
+        selectedRun: {
+          researchRunId: "research_run_provider_ingest",
+          status: "research_insufficient",
+          qualityGateStatus: "insufficient",
+          terminalReason: "quality_gate_insufficient"
+        }
+      });
+
+      const research = await storageApp.request(`/api/v1/sessions/${sessionId}/research`, {
+        headers: authHeaders()
+      });
+      const researchBody = await jsonBody(research);
+
+      expect(research.status).toBe(200);
+      expect(researchBody.data).toMatchObject({
+        results: [
+          expect.objectContaining({
+            researchRunId: "research_run_provider_ingest",
+            sourceRetrievedAt: expect.any(String)
+          })
+        ],
+        evidencePacks: [
+          expect.objectContaining({
+            researchRunId: "research_run_provider_ingest",
+            gateStatus: "research_insufficient",
+            claim: "Validate provider result ingest traceability"
+          })
+        ],
+        reviewCards: [
+          expect.objectContaining({
+            state: "terminal_failure",
+            gateStatus: "research_insufficient",
+            blocksPlanning: true,
+            retainedSourceRefs: expect.arrayContaining(["research_run_provider_ingest"])
+          })
+        ]
+      });
+
+      const queue = await storageApp.request(`/api/v1/sessions/${sessionId}/queue`, {
+        headers: authHeaders()
+      });
+      const queueBody = await jsonBody(queue);
+
+      expect(queue.status).toBe(200);
+      expect(queueBody.data).toMatchObject({
+        blocked: [
+          expect.objectContaining({
+            researchTaskId,
+            blocksPlanning: true,
+            availableOutcomes: expect.arrayContaining(["research_insufficient"])
+          })
+        ]
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("keeps quality-gate-unknown research run results in needs_review with Evidence Pack trace", async () => {
     const { app: storageApp, storage } = await createMigratedStorageApp();
 

@@ -2432,6 +2432,107 @@ export function createProductEngineCommandService(
     return elapsedMillis >= LOCAL_FAKE_PROVIDER_RESULT_DELAY_MILLIS;
   }
 
+  type LocalFakeProviderResult = Awaited<ReturnType<ReturnType<typeof createFakeReadOnlyResearchAdapter>["pollResult"]>>;
+
+  function limitationNotesFromProviderResult(providerResult: LocalFakeProviderResult) {
+    return providerResult.limitations.join(" ");
+  }
+
+  async function importProviderResultIntoResearchEvidence(
+    run: ResearchRunProjection,
+    providerResult: LocalFakeProviderResult
+  ) {
+    const researchRepository = createResearchRepository(storage.db);
+    const task = await researchRepository.getTask(run.researchTaskId);
+
+    if (!task) {
+      return run;
+    }
+
+    const existingProjection = await researchRepository.getProjection(task.sessionId);
+    const existingResult = existingProjection.results.find((result) => result.researchRunId === run.researchRunId);
+    let effectTaskIds: readonly EffectTaskId[] = [];
+
+    if (!existingResult) {
+      effectTaskIds = await runSessionCommandSerialized(task.sessionId, async () => {
+        const events = await createEventRepository(storage.db).listForSession(task.sessionId);
+        const currentState = replayProductEngineEvents(run.projectId, task.sessionId, events);
+        const alreadyImported = currentState.researchState.results.some(
+          (result) => result.researchRunId === run.researchRunId
+        );
+
+        if (alreadyImported) {
+          return [];
+        }
+
+        const command: ProductEngineCommand = {
+          commandId: commandId(),
+          commandType: "ImportResearchResult",
+          projectId: run.projectId,
+          sessionId: task.sessionId,
+          actor: "effect_executor",
+          issuedAt: providerResult.completedAt,
+          idempotencyKey: `ProviderResultIngest:${run.researchRunId}:${providerResult.providerRunId}`,
+          expectedStateVersion: currentState.stateVersion,
+          causationId: null,
+          correlationId: correlationId(),
+          schemaVersion: CONTRACT_SCHEMA_VERSION,
+          payload: {
+            researchTaskId: task.researchTaskId,
+            researchRunId: run.researchRunId,
+            result: providerResult.summary,
+            ...(providerResult.sourceTitle ? { sourceTitle: providerResult.sourceTitle } : {}),
+            ...(providerResult.sourceUrl ? { sourceUrl: providerResult.sourceUrl } : {}),
+            sourceReliability: "medium",
+            sourceRetrievedAt: providerResult.completedAt,
+            limitationNotes: limitationNotesFromProviderResult(providerResult),
+            claim: task.objective,
+            decisionContext: task.routeOutcome,
+            ...(task.sourceQueueItemId ? { questionRef: task.sourceQueueItemId } : {}),
+            implicationScope:
+              "Read-only provider result is retained as Evidence Pack input and does not update SpecVersion automatically.",
+            synthesisVersion: 1
+          }
+        };
+        const response = await runCommand(command, events);
+
+        if (response.category === "rejected") {
+          throw new ProductEngineServiceError(
+            "COMMAND_PRECONDITION_FAILED",
+            response.error?.message ?? "Provider result import was rejected.",
+            {
+              researchRunId: run.researchRunId,
+              researchTaskId: task.researchTaskId
+            }
+          );
+        }
+
+        return response.effectTaskIds ?? [];
+      });
+    }
+
+    const queuedEffects = await createEffectTaskRepository(storage.db).listQueuedByType("research_evidence_effect");
+    const relevantEffects = queuedEffects.filter((effect) => {
+      if (effect.sessionId !== task.sessionId) {
+        return false;
+      }
+
+      if (effectTaskIds.includes(effect.effectTaskId)) {
+        return true;
+      }
+
+      return existingResult
+        ? effect.idempotencyKey.startsWith(`research-result:${existingResult.researchResultId}:`)
+        : false;
+    });
+
+    for (const effect of relevantEffects) {
+      await runResearchEvidenceEffect(effect);
+    }
+
+    return (await createResearchRunRepository(storage.db).getById(run.projectId, run.researchRunId)) ?? run;
+  }
+
   async function pollLocalFakeRunResultIfReady(run: ResearchRunProjection) {
     const now = new Date().toISOString();
 
@@ -2479,7 +2580,7 @@ export function createProductEngineCommandService(
       );
     }
 
-    return updated;
+    return importProviderResultIntoResearchEvidence(updated, providerResult);
   }
 
   function isResearchRunStartInProgress(run: ResearchRunProjection) {

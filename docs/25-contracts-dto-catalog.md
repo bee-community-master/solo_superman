@@ -795,7 +795,8 @@ Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.
 - Evidence Pack projection, not raw source dumps, derives Research Review, Decision Approval, Risk Acceptance, Conflict Resolution, and Follow-up Question queue card behavior.
 - Research-updated Queue terminal outcomes are `approved`, `revised`, `rejected`, `deferred`, `risk_accepted`, and `research_insufficient`.
 - `ResolveResearchQueueCardRequest` requires `sessionId`, `cardId`, `expectedStateVersion`, `outcome`, and a user-visible `rationale` for `deferred` or `risk_accepted`.
-- High-impact research cards expose `blocksPlanning: true` until resolved; terminal `deferred` and `research_insufficient` remain visible blockers, while `risk_accepted` carries rationale into Known Risks.
+- High-impact research cards expose `blocksPlanning: true` until resolved; terminal `deferred` and `research_insufficient` remain blockers only for fatal classes (`customer_problem_jtbd`, `success_metrics_validation`, `approval_security_execution_safety`). Non-fatal value proposition/differentiation or MVP scope/non-scope gaps must be carried into Planning Handoff residual risk, prerequisite, and validation dependency fields instead of being hidden.
+- `risk_accepted` carries rationale into Known Risks and may unblock fatal classes only when the risk-acceptance source is linked to the queue card/evidence source trace.
 - `DecisionQueueProjection` items may include `cardType`, `researchTaskId`, `evidencePackId`, `availableOutcomes`, `terminalOutcome`, `terminalRationale`, and `blocksPlanning` so UI and refetch recovery can render the same state.
 
 ## Phase 2 Planning Handoff DTO checklist

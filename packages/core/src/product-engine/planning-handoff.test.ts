@@ -269,6 +269,62 @@ function withoutTerminalOutcome<T extends { terminalOutcome?: unknown }>(value: 
   return copy;
 }
 
+interface ResearchInsufficientQueueOutcomeOptions {
+  readonly title: string;
+  readonly decisionContext: string;
+  readonly knownRisk: string;
+  readonly knownRisks?: readonly string[];
+  readonly nextValidationActions?: readonly string[];
+}
+
+function withResearchInsufficientQueueOutcome(
+  state: ProductEngineStateSnapshot,
+  options: ResearchInsufficientQueueOutcomeOptions
+): ProductEngineStateSnapshot {
+  return {
+    ...state,
+    queueProjection: {
+      ...state.queueProjection,
+      deferred: [
+        {
+          ...state.queueProjection.deferred[0]!,
+          title: options.title,
+          terminalOutcome: "research_insufficient" as const
+        }
+      ]
+    },
+    researchState: {
+      ...state.researchState,
+      evidenceMatrices: [
+        {
+          ...state.researchState.evidenceMatrices[0]!,
+          balanceStatus: "missing_con_evidence" as const,
+          decisionBlocked: true,
+          knownRisk: options.knownRisk
+        }
+      ],
+      evidencePacks: [
+        {
+          ...state.researchState.evidencePacks[0]!,
+          gateStatus: "research_insufficient" as const,
+          decisionContext: options.decisionContext,
+          knownRisk: options.knownRisk
+        }
+      ],
+      reviewCards: [
+        {
+          ...state.researchState.reviewCards[0]!,
+          title: options.title,
+          decisionContext: options.decisionContext,
+          terminalOutcome: "research_insufficient" as const
+        }
+      ],
+      knownRisks: options.knownRisks ?? state.researchState.knownRisks,
+      nextValidationActions: options.nextValidationActions ?? state.researchState.nextValidationActions
+    }
+  };
+}
+
 describe("Phase 2 Planning Handoff ProductEngine gate", () => {
   it("creates a deterministic final Planning Handoff without queuing effects when the gate is planning_ready", () => {
     const reduction = reduceProductEngineCommand(
@@ -505,6 +561,102 @@ describe("Phase 2 Planning Handoff ProductEngine gate", () => {
       currentStatus: "blocked_by_fatal",
       blockerArtifact: {
         requiredUserActions: expect.arrayContaining(["research_more"])
+      }
+    });
+  });
+
+  it("carries non-fatal research_insufficient queue outcomes as visible residual risks", () => {
+    const state = withResearchInsufficientQueueOutcome(baseReadyState(), {
+      title: "Value proposition differentiation evidence gap",
+      decisionContext: "value_proposition",
+      knownRisk: "Value proposition differentiation evidence remains insufficient.",
+      knownRisks: ["Value proposition differentiation evidence remains insufficient."],
+      nextValidationActions: ["Validate value proposition differentiation before execution."]
+    });
+    const reduction = reduceProductEngineCommand(
+      planningHandoffCommand({
+        sourceRefs: readySourceRefs()
+      }),
+      state
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "planning_ready",
+      finalArtifact: {
+        gateVerdict: {
+          terminalOutcomeSummary: [
+            expect.objectContaining({
+              queueItemId: QUEUE_ITEM_ID,
+              outcome: "research_insufficient",
+              residualRiskClass: "value_proposition_differentiation"
+            })
+          ]
+        },
+        residualRiskRegister: expect.arrayContaining([
+          expect.objectContaining({
+            riskId: `research_queue_${QUEUE_ITEM_ID}_research_insufficient`,
+            riskClass: "value_proposition_differentiation",
+            validationDependency: expect.stringContaining("Supplement")
+          })
+        ])
+      }
+    });
+  });
+
+  it("keeps value proposition validation gaps residual instead of matching generic validation as fatal", () => {
+    const state = withResearchInsufficientQueueOutcome(baseReadyState(), {
+      title: "Value proposition validation evidence gap",
+      decisionContext: "value_proposition",
+      knownRisk: "Value proposition validation evidence remains insufficient."
+    });
+    const reduction = reduceProductEngineCommand(
+      planningHandoffCommand({
+        sourceRefs: readySourceRefs()
+      }),
+      state
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "planning_ready",
+      finalArtifact: {
+        gateVerdict: {
+          terminalOutcomeSummary: [
+            expect.objectContaining({
+              queueItemId: QUEUE_ITEM_ID,
+              outcome: "research_insufficient",
+              residualRiskClass: "value_proposition_differentiation"
+            })
+          ]
+        }
+      }
+    });
+  });
+
+  it("keeps success metrics validation gaps fatal for Planning Handoff", () => {
+    const state = withResearchInsufficientQueueOutcome(baseReadyState(), {
+      title: "Success metrics validation gap",
+      decisionContext: "success_metrics_validation",
+      knownRisk: "Success metrics validation evidence remains insufficient."
+    });
+    const reduction = reduceProductEngineCommand(
+      planningHandoffCommand({
+        sourceRefs: readySourceRefs()
+      }),
+      state
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "blocked_by_fatal",
+      blockerArtifact: {
+        blockers: [
+          expect.objectContaining({
+            blockerClass: "success_metrics_validation",
+            currentOutcome: "research_insufficient"
+          })
+        ]
       }
     });
   });

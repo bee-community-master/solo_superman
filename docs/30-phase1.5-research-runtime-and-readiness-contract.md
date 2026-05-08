@@ -205,7 +205,8 @@ Terminal outcome rules:
 
 - `deferred` and `risk_accepted` must preserve a user-visible rationale.
 - High-impact Research-updated Queue cards block `Planning-ready` until resolved.
-- Terminal `deferred` and `research_insufficient` remain visible blockers for high-impact cards.
+- Terminal `deferred` and `research_insufficient` remain visible blockers for fatal classes (`고객/문제/JTBD`, `성공기준/검증계획`, `승인/보안/실행안전`).
+- Terminal `deferred` or `research_insufficient` for `가치제안/차별화` and `MVP 범위/비범위` may proceed only as visible residual risk with explicit prerequisite and validation dependency in the Phase 2 handoff.
 - `risk_accepted` unblocks only when the rationale is carried forward into Known Risks.
 - None of these outcomes creates a Phase 2 planning artifact, SpecVersion, file patch, shell/browser action, network write, or safe-execution capability.
 

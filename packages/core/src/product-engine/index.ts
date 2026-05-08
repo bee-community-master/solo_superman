@@ -2771,6 +2771,42 @@ const PLANNING_HANDOFF_FATAL_BLOCKER_CLASSES = [
   "approval_security_execution_safety"
 ] as const satisfies readonly PlanningHandoffBlockerClass[];
 
+const RESEARCH_QUEUE_FATAL_CLASS_KEYWORDS = {
+  customer_problem_jtbd: ["customer", "problem", "jtbd", "target customer", "고객", "문제"] as const,
+  success_metrics_validation: [
+    "success metric",
+    "success metrics",
+    "metric",
+    "metrics",
+    "validation plan",
+    "검증계획",
+    "검증 계획",
+    "성공기준",
+    "성공 기준"
+  ] as const,
+  approval_security_execution_safety: [
+    "approval",
+    "security",
+    "execution",
+    "safety",
+    "승인",
+    "보안",
+    "실행안전",
+    "실행 안전"
+  ] as const
+} as const satisfies Record<PlanningHandoffBlockerClass, readonly string[]>;
+
+const RESEARCH_QUEUE_RESIDUAL_RISK_KEYWORDS = {
+  value_proposition_differentiation: [
+    "value proposition",
+    "differentiation",
+    "차별화",
+    "가치제안",
+    "가치 제안"
+  ] as const,
+  mvp_scope_non_scope: ["mvp", "non-goal", "non goal", "non-scope", "non scope", "non_scope", "범위", "비범위"] as const
+} as const satisfies Partial<Record<PlanningHandoffResidualRiskClass, readonly string[]>>;
+
 const PLANNING_HANDOFF_REQUIRED_SOURCE_REQUIREMENTS = [
   {
     sourceTypes: ["spec_version"],
@@ -3009,6 +3045,37 @@ function sourceRefMatches(sourceRef: PlanningHandoffSourceRefDto, sourceType: Pl
   return sourceRef.sourceType === sourceType && sourceRef.sourceId === sourceId;
 }
 
+function evidencePackHasMatrix(
+  state: ProductEngineStateSnapshot,
+  pack: ProductEngineStateSnapshot["researchState"]["evidencePacks"][number]
+) {
+  return state.researchState.evidenceMatrices.some(
+    (matrix) => matrix.researchTaskId === pack.researchTaskId && matrix.researchResultId === pack.researchResultId
+  );
+}
+
+function evidencePackCanSourcePlanningHandoff(
+  state: ProductEngineStateSnapshot,
+  pack: ProductEngineStateSnapshot["researchState"]["evidencePacks"][number]
+) {
+  if (pack.gateStatus === "accepted") {
+    return state.researchState.evidenceMatrices.some(
+      (matrix) =>
+        matrix.researchTaskId === pack.researchTaskId &&
+        matrix.researchResultId === pack.researchResultId &&
+        matrix.balanceStatus === "balanced" &&
+        !matrix.decisionBlocked
+    );
+  }
+
+  // `research_insufficient` packs are still current source traces: the linked
+  // Research-updated Queue terminal outcome decides whether they are fatal
+  // blockers or visible residual risks. Keep `needs_review`/`stale` out of
+  // source traces so quality-gate-unknown or expired evidence cannot masquerade
+  // as Planning-ready context.
+  return pack.gateStatus === "research_insufficient" && evidencePackHasMatrix(state, pack);
+}
+
 function planningHandoffSourceExists(
   state: ProductEngineStateSnapshot,
   sourceRef: PlanningHandoffSourceRefDto
@@ -3037,16 +3104,7 @@ function planningHandoffSourceExists(
       );
     case "decision_linked_evidence_pack":
       return state.researchState.evidencePacks.some(
-        (pack) =>
-          pack.evidencePackId === sourceRef.sourceId &&
-          pack.gateStatus === "accepted" &&
-          state.researchState.evidenceMatrices.some(
-            (matrix) =>
-              matrix.researchTaskId === pack.researchTaskId &&
-              matrix.researchResultId === pack.researchResultId &&
-              matrix.balanceStatus === "balanced" &&
-              !matrix.decisionBlocked
-          )
+        (pack) => pack.evidencePackId === sourceRef.sourceId && evidencePackCanSourcePlanningHandoff(state, pack)
       );
     case "research_updated_queue_item":
       return (
@@ -3236,7 +3294,41 @@ function isResearchUpdatedQueueItem(item: QueueItemProjection) {
   );
 }
 
-function blockerClassForQueueItem(item: QueueItemProjection): PlanningHandoffBlockerClass {
+function researchQueueClassificationText(
+  item: QueueItemProjection,
+  card: ResearchReviewCardProjection | undefined
+) {
+  return [
+    item.title,
+    item.sectionRef,
+    item.topicKey,
+    card?.title,
+    card?.decisionContext,
+    card?.reviewReason,
+    card?.retainedSourceRef,
+    ...(card?.retainedSourceRefs ?? [])
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" ")
+    .toLowerCase();
+}
+
+function firstMatchingPlanningClass<TKeywordMap extends Readonly<Record<string, readonly string[]>>>(
+  normalizedText: string,
+  keywordMap: TKeywordMap
+): (keyof TKeywordMap & string) | null {
+  for (const planningClass of Object.keys(keywordMap) as readonly (keyof TKeywordMap & string)[]) {
+    const keywords = keywordMap[planningClass] ?? [];
+
+    if (keywords.some((keyword) => normalizedText.includes(keyword.toLowerCase()))) {
+      return planningClass;
+    }
+  }
+
+  return null;
+}
+
+function fallbackBlockerClassForQueueItem(item: QueueItemProjection): PlanningHandoffBlockerClass {
   if (item.cardType === "risk_acceptance") {
     return "approval_security_execution_safety";
   }
@@ -3246,6 +3338,40 @@ function blockerClassForQueueItem(item: QueueItemProjection): PlanningHandoffBlo
   }
 
   return "customer_problem_jtbd";
+}
+
+function planningClassForResearchQueueItem(
+  item: QueueItemProjection,
+  card: ResearchReviewCardProjection | undefined
+):
+  | { readonly kind: "fatal"; readonly blockerClass: PlanningHandoffBlockerClass }
+  | { readonly kind: "residual"; readonly residualRiskClass: PlanningHandoffResidualRiskClass } {
+  const normalizedText = researchQueueClassificationText(item, card);
+  const fatalClass = firstMatchingPlanningClass(normalizedText, RESEARCH_QUEUE_FATAL_CLASS_KEYWORDS);
+
+  if (fatalClass) {
+    return {
+      kind: "fatal",
+      blockerClass: fatalClass
+    };
+  }
+
+  const residualRiskClass = firstMatchingPlanningClass(
+    normalizedText,
+    RESEARCH_QUEUE_RESIDUAL_RISK_KEYWORDS
+  );
+
+  if (residualRiskClass) {
+    return {
+      kind: "residual",
+      residualRiskClass
+    };
+  }
+
+  return {
+    kind: "fatal",
+    blockerClass: fallbackBlockerClassForQueueItem(item)
+  };
 }
 
 function highImpactPlanningQueueItems(state: ProductEngineStateSnapshot): readonly QueueItemProjection[] {
@@ -3285,7 +3411,7 @@ function queueOutcomeSummary(
     return null;
   }
 
-  const blockerClass = blockerClassForQueueItem(item);
+  const planningClass = planningClassForResearchQueueItem(item, card);
   const riskAccepted =
     terminalOutcome === "risk_accepted" ||
     hasRiskAcceptanceLinkedTo(state, sourceRefs, [
@@ -3298,14 +3424,29 @@ function queueOutcomeSummary(
       card?.retainedSourceRef,
       ...(card?.retainedSourceRefs ?? [])
     ]);
+  const carriesResidualRisk =
+    terminalOutcome === "risk_accepted" ||
+    ((terminalOutcome === "deferred" || terminalOutcome === "research_insufficient") &&
+      (riskAccepted || planningClass.kind === "residual"));
 
   return {
     queueItemId: item.queueItemId,
     outcome: terminalOutcome as PlanningHandoffQueueOutcome,
     impact: card?.impact ?? (item.blocksPlanning ? "high" : "medium"),
-    ...(terminalOutcome === "research_insufficient" || terminalOutcome === "deferred" ? { blockerClass } : {}),
-    ...(terminalOutcome === "risk_accepted"
-      ? { residualRiskClass: "known_low_medium_risk" as PlanningHandoffResidualRiskClass }
+    ...(terminalOutcome === "research_insufficient" || terminalOutcome === "deferred"
+      ? planningClass.kind === "fatal"
+        ? { blockerClass: planningClass.blockerClass }
+        : {}
+      : {}),
+    ...(carriesResidualRisk
+      ? {
+          residualRiskClass:
+            terminalOutcome === "risk_accepted" || riskAccepted
+              ? ("known_low_medium_risk" as PlanningHandoffResidualRiskClass)
+              : planningClass.kind === "residual"
+                ? planningClass.residualRiskClass
+                : ("known_low_medium_risk" as PlanningHandoffResidualRiskClass)
+        }
       : {}),
     riskAccepted,
     sourceRefs: [sourceRefForQueueItem(sourceRefs, item.queueItemId, item.title)]
@@ -3335,7 +3476,9 @@ function fatalQueueBlockersFromSummaries(
   return summaries
     .filter(
       (summary) =>
-        (summary.outcome === "research_insufficient" || summary.outcome === "deferred") && !summary.riskAccepted
+        Boolean(summary.blockerClass) &&
+        (summary.outcome === "research_insufficient" || summary.outcome === "deferred") &&
+        !summary.riskAccepted
     )
     .map((summary) => ({
       blockerId: `blocker_fatal_queue_${stableToken(`${summary.queueItemId}:${summary.outcome}`)}`,
@@ -3382,7 +3525,8 @@ function riskAcceptanceNeededBlockers(
 
 function residualRisksForPlanningHandoff(
   state: ProductEngineStateSnapshot,
-  sourceRefs: readonly PlanningHandoffSourceRefDto[]
+  sourceRefs: readonly PlanningHandoffSourceRefDto[],
+  queueSummaries: readonly PlanningHandoffQueueOutcomeSummaryDto[]
 ): readonly PlanningHandoffResidualRiskDto[] {
   const residualRisks = new Map<string, PlanningHandoffResidualRiskDto>();
   const addResidualRisk = (risk: PlanningHandoffResidualRiskDto) => {
@@ -3390,6 +3534,33 @@ function residualRisksForPlanningHandoff(
       residualRisks.set(risk.riskId, risk);
     }
   };
+
+  for (const summary of queueSummaries.filter((candidate) => candidate.residualRiskClass)) {
+    const queueSourceRef = summary.sourceRefs.find((sourceRef) => sourceRef.sourceType === "research_updated_queue_item");
+    const label = queueSourceRef?.sourceLabel ?? summary.queueItemId;
+    const riskId = `research_queue_${summary.queueItemId}_${summary.outcome}`;
+
+    addResidualRisk({
+      riskId,
+      riskClass: summary.residualRiskClass ?? "known_low_medium_risk",
+      title: `Research-updated queue ${summary.outcome}: ${label}`,
+      severity: summary.impact,
+      sourceRefs: summary.sourceRefs,
+      assumption: summary.riskAccepted
+        ? "The residual research risk has an explicit risk-acceptance trace."
+        : "The residual research risk is non-fatal only while it remains visible in the Planning Handoff.",
+      prerequisite:
+        summary.outcome === "research_insufficient"
+          ? "Reviewer preserves the insufficient evidence boundary before planning downstream implementation."
+          : "Reviewer preserves the deferred research rationale before planning downstream implementation.",
+      validationDependency:
+        summary.outcome === "research_insufficient"
+          ? "Supplement or validate the carried research gap before controlled execution."
+          : "Revisit the deferred research card before controlled execution or scope expansion.",
+      ownerRole: "research",
+      followUpTrigger: "Before Phase 3 controlled execution or any broader product scope commitment."
+    });
+  }
 
   for (const risk of state.completeness.topRiskCards) {
     addResidualRisk({
@@ -3467,7 +3638,7 @@ function planningHandoffGateContext(
   const queueBlockers = queueReviewIncompleteBlockers(queueItems, state, sourceRefs);
   const fatalBlockers = fatalQueueBlockersFromSummaries(queueSummaries);
   const riskAcceptanceBlockers = riskAcceptanceNeededBlockers(state, sourceRefs);
-  const residualRisks = residualRisksForPlanningHandoff(state, sourceRefs);
+  const residualRisks = residualRisksForPlanningHandoff(state, sourceRefs, queueSummaries);
 
   if (sourceBlockers.length > 0) {
     return {
