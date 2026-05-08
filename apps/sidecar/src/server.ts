@@ -675,12 +675,73 @@ function booleanFromBody(value: unknown, fieldName: string) {
   return value;
 }
 
+const PLANNING_HANDOFF_REQUEST_BODY_KEYS = [
+  "scaffoldOnly",
+  "sessionId",
+  "expectedStateVersion",
+  "sourceRefs",
+  "requestedScope"
+] as const satisfies readonly (keyof CreatePlanningHandoffRequest)[];
+const PLANNING_HANDOFF_SOURCE_REF_KEYS = [
+  "sourceType",
+  "sourceId",
+  "sourceLabel",
+  "required",
+  "stale"
+] as const satisfies readonly (keyof PlanningHandoffSourceRefDto)[];
+const PLANNING_HANDOFF_REQUESTED_SCOPE_KEYS = [
+  "productSlice",
+  "userFacingJourneyLabel",
+  "nonGoals",
+  "excludedInternalPhases",
+  "assumptions"
+] as const satisfies readonly (keyof PlanningHandoffRequestedScopeDto)[];
+const PLANNING_HANDOFF_EXECUTION_INTENT_KEY_PATTERN =
+  /(?:execution|execute|file|shell|browser|deploy|credential|external(?:_|-)?mutation|write|command|patch)/iu;
+
+function assertPlanningHandoffScaffoldOnly(value: unknown) {
+  if (value !== undefined && value !== true) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "scaffoldOnly must be true when provided.", {
+      fieldName: "scaffoldOnly"
+    });
+  }
+}
+
+function assertPlanningHandoffRecordKeys(
+  record: Readonly<Record<string, unknown>>,
+  allowedKeys: readonly string[],
+  fieldName: string
+) {
+  const unsupportedKey = Object.keys(record).find((key) => !allowedKeys.includes(key));
+
+  if (!unsupportedKey) {
+    return;
+  }
+
+  const intentLabel = PLANNING_HANDOFF_EXECUTION_INTENT_KEY_PATTERN.test(unsupportedKey)
+    ? " execution-intent"
+    : "";
+
+  throw new ProductEngineServiceError(
+    "VALIDATION_FAILED",
+    `${fieldName} includes unsupported${intentLabel} key "${unsupportedKey}".`,
+    {
+      fieldName,
+      unsupportedKey,
+      allowedKeys
+    }
+  );
+}
+
 function planningHandoffSourceRefFromBody(value: unknown, fieldName: string): PlanningHandoffSourceRefDto {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be a PlanningHandoffSourceRefDto object.`);
   }
 
   const sourceRef = value as Readonly<Record<string, unknown>>;
+
+  assertPlanningHandoffRecordKeys(sourceRef, PLANNING_HANDOFF_SOURCE_REF_KEYS, fieldName);
+
   const sourceLabel = optionalStringFromBody(sourceRef.sourceLabel, `${fieldName}.sourceLabel`);
 
   return {
@@ -709,13 +770,24 @@ function optionalPlanningHandoffRequestedScopeFromBody(value: unknown): Planning
     throw new ProductEngineServiceError("VALIDATION_FAILED", "requestedScope must be a PlanningHandoffRequestedScopeDto object.");
   }
 
-  return value as PlanningHandoffRequestedScopeDto;
+  const requestedScope = value as Readonly<Record<string, unknown>>;
+
+  assertPlanningHandoffRecordKeys(
+    requestedScope,
+    PLANNING_HANDOFF_REQUESTED_SCOPE_KEYS,
+    "requestedScope"
+  );
+
+  return requestedScope as unknown as PlanningHandoffRequestedScopeDto;
 }
 
 function createPlanningHandoffRequestFromBody(
   routeSessionId: SessionId,
   body: Readonly<Record<string, unknown>>
 ): CreatePlanningHandoffRequest {
+  assertPlanningHandoffRecordKeys(body, PLANNING_HANDOFF_REQUEST_BODY_KEYS, "Planning Handoff request body");
+  assertPlanningHandoffScaffoldOnly(body.scaffoldOnly);
+
   const bodySessionId = stringFromBody(body.sessionId, "sessionId") as SessionId;
 
   if (bodySessionId !== routeSessionId) {

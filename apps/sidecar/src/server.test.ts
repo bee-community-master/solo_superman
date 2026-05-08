@@ -268,6 +268,35 @@ async function createProjectForTest(storageApp: ReturnType<typeof createSidecarA
   };
 }
 
+function planningHandoffSourceRefsFixture(idSuffix: string): readonly PlanningHandoffSourceRefDto[] {
+  return [
+    {
+      sourceType: "spec_version",
+      sourceId: `spec_version_${idSuffix}`,
+      required: true,
+      stale: false
+    },
+    {
+      sourceType: "founder_brief",
+      sourceId: `founder_brief_${idSuffix}`,
+      required: true,
+      stale: false
+    },
+    {
+      sourceType: "decision_linked_evidence_pack",
+      sourceId: `evidence_pack_${idSuffix}`,
+      required: true,
+      stale: false
+    },
+    {
+      sourceType: "research_updated_queue_item",
+      sourceId: `queue_${idSuffix}`,
+      required: true,
+      stale: false
+    }
+  ];
+}
+
 async function createAllowlistForTest(
   storageApp: ReturnType<typeof createSidecarApp>,
   projectId: string,
@@ -2984,32 +3013,7 @@ describe("PR-02 sidecar health shell", () => {
         storageApp,
         "A Planning Handoff API blocker route test idea"
       );
-      const sourceRefs = [
-        {
-          sourceType: "spec_version",
-          sourceId: "spec_version_missing_api",
-          required: true,
-          stale: false
-        },
-        {
-          sourceType: "founder_brief",
-          sourceId: "founder_brief_missing_api",
-          required: true,
-          stale: false
-        },
-        {
-          sourceType: "decision_linked_evidence_pack",
-          sourceId: "evidence_pack_missing_api",
-          required: true,
-          stale: false
-        },
-        {
-          sourceType: "research_updated_queue_item",
-          sourceId: "queue_missing_api",
-          required: true,
-          stale: false
-        }
-      ];
+      const sourceRefs = planningHandoffSourceRefsFixture("missing_api");
 
       const blocker = await storageApp.request(`/api/v1/sessions/${sessionId}/planning-handoff`, {
         method: "POST",
@@ -3018,6 +3022,7 @@ describe("PR-02 sidecar health shell", () => {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
+          scaffoldOnly: true,
           sessionId,
           expectedStateVersion: 1,
           sourceRefs
@@ -3172,6 +3177,80 @@ describe("PR-02 sidecar health shell", () => {
 
       expect(fetchedAfterStale.status).toBe(200);
       expect(fetchedAfterStaleBody.data).toEqual(fetchedBlockerBody.data);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rejects Planning Handoff unsupported and execution-intent keys before command construction", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "A Planning Handoff strict request validation test idea"
+      );
+      const sourceRefs = planningHandoffSourceRefsFixture("strict_validation");
+      const eventCountBeforeStrictValidation = (await createEventRepository(storage.db).listForSession(sessionId as SessionId)).length;
+      const postPlanningHandoff = (body: Readonly<Record<string, unknown>>) =>
+        storageApp.request(`/api/v1/sessions/${sessionId}/planning-handoff`, {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
+        });
+
+      const invalidScaffoldOnly = await postPlanningHandoff({
+        scaffoldOnly: false,
+        sessionId,
+        expectedStateVersion: 1,
+        sourceRefs
+      });
+      const invalidScaffoldOnlyBody = await jsonBody(invalidScaffoldOnly);
+
+      expect(invalidScaffoldOnly.status).toBe(400);
+      expect(invalidScaffoldOnlyBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "scaffoldOnly must be true when provided."
+      });
+
+      const unsupportedTopLevelKey = await postPlanningHandoff({
+        sessionId,
+        expectedStateVersion: 1,
+        sourceRefs,
+        debugMode: true
+      });
+      const unsupportedTopLevelKeyBody = await jsonBody(unsupportedTopLevelKey);
+
+      expect(unsupportedTopLevelKey.status).toBe(400);
+      expect(unsupportedTopLevelKeyBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: 'Planning Handoff request body includes unsupported key "debugMode".'
+      });
+
+      const unsupportedExecutionIntentKey = await postPlanningHandoff({
+        sessionId,
+        expectedStateVersion: 1,
+        sourceRefs: [
+          {
+            ...sourceRefs[0],
+            shellCommand: "pnpm verify"
+          },
+          ...sourceRefs.slice(1)
+        ]
+      });
+      const unsupportedExecutionIntentKeyBody = await jsonBody(unsupportedExecutionIntentKey);
+
+      expect(unsupportedExecutionIntentKey.status).toBe(400);
+      expect(unsupportedExecutionIntentKeyBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: 'sourceRefs[0] includes unsupported execution-intent key "shellCommand".'
+      });
+      expect(await createEventRepository(storage.db).listForSession(sessionId as SessionId)).toHaveLength(
+        eventCountBeforeStrictValidation
+      );
     } finally {
       await storage.close();
     }

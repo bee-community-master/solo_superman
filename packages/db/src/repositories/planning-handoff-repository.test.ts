@@ -215,6 +215,59 @@ describe("Planning Handoff repository", () => {
     }
   });
 
+  it("returns the existing projection for identical semantic handoff retries without duplicating rows", async () => {
+    const storage = await createMigratedStorage();
+
+    try {
+      const repository = createPlanningHandoffRepository(storage.db);
+      const projection = finalProjection();
+      const finalArtifact = projection.finalArtifact;
+
+      if (!finalArtifact) {
+        throw new Error("final projection fixture must include finalArtifact");
+      }
+
+      await repository.saveFromProjection({
+        projectId: "proj_planning_handoff_idempotent" as ProjectId,
+        sessionId: projection.sessionId,
+        sourceCommandId: "cmd_planning_handoff_idempotent_a" as CommandId,
+        sourceEventId: "evt_planning_handoff_idempotent_a" as EventId,
+        sourceStateVersion: 12 as StateVersion,
+        projection
+      });
+
+      await expect(
+        repository.saveFromProjection({
+          projectId: "proj_planning_handoff_idempotent" as ProjectId,
+          sessionId: projection.sessionId,
+          sourceCommandId: "cmd_planning_handoff_idempotent_b" as CommandId,
+          sourceEventId: "evt_planning_handoff_idempotent_b" as EventId,
+          sourceStateVersion: 12 as StateVersion,
+          projection
+        })
+      ).resolves.toMatchObject({
+        currentStatus: "planning_ready",
+        finalArtifact: {
+          artifactId: finalArtifact.artifactId
+        }
+      });
+
+      const handoffRows = await storage.client.execute("SELECT id FROM planning_handoffs");
+      const sourceRows = await storage.client.execute("SELECT id FROM planning_handoff_sources");
+      const taskRows = await storage.client.execute("SELECT id FROM planning_handoff_tasks");
+      const issueRows = await storage.client.execute("SELECT id FROM planning_handoff_pr_issue_items");
+      const riskRows = await storage.client.execute("SELECT id FROM planning_handoff_risks");
+
+      expect(handoffRows.rows).toHaveLength(1);
+      expect(sourceRows.rows).toHaveLength(finalArtifact.sourceRefs.length);
+      expect(taskRows.rows).toHaveLength(finalArtifact.taskBreakdown.length);
+      expect(issueRows.rows).toHaveLength(finalArtifact.prIssuePlan.length);
+      expect(riskRows.rows).toHaveLength(finalArtifact.residualRiskRegister.length * 4);
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("persists blocker artifacts in the same family and recovers only the latest state per session", async () => {
     const storage = await createMigratedStorage();
 

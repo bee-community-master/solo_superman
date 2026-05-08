@@ -212,28 +212,58 @@ function riskRowsFor(handoffId: string, artifact: PlanningHandoffArtifact): Plan
 }
 
 export function createPlanningHandoffRepository(db: SoloDatabaseExecutor) {
+  async function getProjectionById(handoffId: string): Promise<PlanningHandoffProjection | null> {
+    const rows = await db.select().from(planningHandoffs).where(eq(planningHandoffs.id, handoffId)).limit(1);
+    const row = rows[0];
+
+    return row ? projectionFromRow(row) : null;
+  }
+
+  async function insertHandoffRow(
+    input: SavePlanningHandoffProjectionInput,
+    artifact: PlanningHandoffArtifact
+  ): Promise<boolean> {
+    const rows = await db
+      .insert(planningHandoffs)
+      .values({
+        id: artifact.artifactId,
+        projectId: input.projectId,
+        sessionId: input.sessionId,
+        sourceCommandId: input.sourceCommandId,
+        sourceEventId: input.sourceEventId,
+        artifactKind: artifact.kind,
+        status: artifact.status,
+        gateVerdict: artifact.gateVerdict.verdict,
+        sourceStateVersion: Number(input.sourceStateVersion),
+        summary: input.projection.summary,
+        artifactJson: stringifyJson(artifact),
+        createdBy: artifact.createdBy,
+        createdAt: artifact.createdAt,
+        schemaVersion: artifact.schemaVersion as SchemaVersion
+      })
+      .onConflictDoNothing({ target: planningHandoffs.id })
+      .returning({ id: planningHandoffs.id });
+
+    return Boolean(rows[0]);
+  }
+
   async function saveRows(input: SavePlanningHandoffProjectionInput): Promise<PlanningHandoffProjection> {
     const artifact = artifactFromProjection(input.projection);
     const handoffId = artifact.artifactId;
 
     assertPlanningHandoffId(handoffId);
 
-    await db.insert(planningHandoffs).values({
-      id: handoffId,
-      projectId: input.projectId,
-      sessionId: input.sessionId,
-      sourceCommandId: input.sourceCommandId,
-      sourceEventId: input.sourceEventId,
-      artifactKind: artifact.kind,
-      status: artifact.status,
-      gateVerdict: artifact.gateVerdict.verdict,
-      sourceStateVersion: Number(input.sourceStateVersion),
-      summary: input.projection.summary,
-      artifactJson: stringifyJson(artifact),
-      createdBy: artifact.createdBy,
-      createdAt: artifact.createdAt,
-      schemaVersion: artifact.schemaVersion as SchemaVersion
-    });
+    const inserted = await insertHandoffRow(input, artifact);
+
+    if (!inserted) {
+      const existingProjection = await getProjectionById(handoffId);
+
+      if (!existingProjection) {
+        throw new Error(`Planning Handoff idempotent insert conflicted but ${handoffId} was not found.`);
+      }
+
+      return existingProjection;
+    }
 
     const sourceRows = sourceRowsFor(handoffId, artifact.sourceRefs, artifact.createdAt);
 
@@ -292,10 +322,7 @@ export function createPlanningHandoffRepository(db: SoloDatabaseExecutor) {
     },
 
     async getById(handoffId: string): Promise<PlanningHandoffProjection | null> {
-      const rows = await db.select().from(planningHandoffs).where(eq(planningHandoffs.id, handoffId)).limit(1);
-      const row = rows[0];
-
-      return row ? projectionFromRow(row) : null;
+      return getProjectionById(handoffId);
     },
 
     async getLatestForSession(sessionId: SessionId): Promise<PlanningHandoffProjection | null> {
