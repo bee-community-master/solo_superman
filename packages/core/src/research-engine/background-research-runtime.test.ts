@@ -136,6 +136,24 @@ describe("fake read-only background research adapter", () => {
     ).toMatchObject({ status: "cancelled" });
   });
 
+  it("cancels a paused local fake run without inventing a provider execution", async () => {
+    const adapter = createFakeReadOnlyResearchAdapter({ now: () => "2026-05-05T00:02:00.000Z" });
+
+    await expect(
+      adapter.cancel({
+        researchRun: runFixture({
+          status: "paused",
+          updatedAt: "2026-05-05T00:01:00.000Z"
+        }),
+        reason: "Allowlist was revoked before the paused run resumed."
+      })
+    ).resolves.toEqual({
+      status: "cancelled",
+      completedAt: "2026-05-05T00:02:00.000Z",
+      reason: "Allowlist was revoked before the paused run resumed."
+    });
+  });
+
   it("keeps provider cancellation pending when a provider run id exists", async () => {
     const adapter = createFakeReadOnlyResearchAdapter();
 

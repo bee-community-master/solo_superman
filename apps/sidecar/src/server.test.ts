@@ -1125,6 +1125,14 @@ describe("PR-02 sidecar health shell", () => {
           approvedBy: "owner_run_recovery_reactivation"
         })
       });
+      await expect(repository.getById(projectId as ProjectId, "research_run_pause_queued" as ResearchRunId)).resolves.toMatchObject({
+        status: "running",
+        provider: {
+          adapterKind: "local_fake_readonly",
+          providerRunId: "fake_readonly_research_run_pause_queued"
+        }
+      });
+
       await repository.create({
         run: phase15aRecoveryRunFixture(projectId, allowlistId, "research_run_revoke_queued", "queued"),
         schemaVersion: CONTRACT_SCHEMA_VERSION
@@ -1166,6 +1174,66 @@ describe("PR-02 sidecar health shell", () => {
             status: "cancel_requested"
           })
         ])
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("does not resume paused research runs when reactivated policy no longer allows the original source", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId } = await createProjectForTest(storageApp, "A narrowed allowlist recovery test idea");
+      const allowlistId = "research_allowlist_policy_narrowed_resume";
+      const repository = createResearchRunRepository(storage.db);
+
+      await createAllowlistForTest(storageApp, projectId, allowlistId);
+      await repository.create({
+        run: phase15aRecoveryRunFixture(projectId, allowlistId, "research_run_policy_narrowed", "queued"),
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      const pause = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists/${allowlistId}/pause`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          reason: "Pause before narrowing the allowlist policy."
+        })
+      });
+
+      expect(pause.status).toBe(200);
+      await expect(repository.getById(projectId as ProjectId, "research_run_policy_narrowed" as ResearchRunId)).resolves.toMatchObject({
+        status: "paused",
+        provider: expect.not.objectContaining({
+          providerRunId: expect.any(String)
+        })
+      });
+
+      const reactivate = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists/${allowlistId}`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          status: "active",
+          connectorIds: ["official_docs"],
+          sourceCategories: ["official_docs"],
+          approvedBy: "owner_policy_narrowed_reactivation"
+        })
+      });
+
+      expect(reactivate.status).toBe(200);
+      await expect(repository.getById(projectId as ProjectId, "research_run_policy_narrowed" as ResearchRunId)).resolves.toMatchObject({
+        status: "cancelled",
+        terminalReason: "cancelled_by_user",
+        provider: expect.not.objectContaining({
+          providerRunId: expect.any(String)
+        })
       });
     } finally {
       await storage.close();
@@ -1702,6 +1770,65 @@ describe("PR-02 sidecar health shell", () => {
           expect.objectContaining({ researchRunId: "research_run_failed_source", status: "failed" }),
           expect.objectContaining({ retryOfRunId: "research_run_failed_source", status: "running" })
         ]
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("polls completed local fake provider runs into needs_review without accepting evidence", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId } = await createProjectForTest(storageApp, "A provider polling route test idea");
+      const allowlistId = "research_allowlist_provider_poll";
+      const repository = createResearchRunRepository(storage.db);
+
+      await createAllowlistForTest(storageApp, projectId, allowlistId);
+      await repository.create({
+        run: phase15aRecoveryRunFixture(projectId, allowlistId, "research_run_provider_poll", "running"),
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      const status = await storageApp.request(
+        `/api/v1/projects/${projectId}/research-runs/research_run_provider_poll/status`,
+        { headers: authHeaders() }
+      );
+      const statusBody = await jsonBody(status);
+
+      expect(status.status).toBe(200);
+      expect(statusBody.data).toMatchObject({
+        selectedRun: {
+          researchRunId: "research_run_provider_poll",
+          status: "needs_review",
+          qualityGateStatus: "pending_review",
+          qualityGateReviewReason: expect.stringContaining("Evidence Pack quality-gate"),
+          provider: {
+            completedAt: expect.any(String)
+          }
+        },
+        recovery: {
+          refetchUrl: `/api/v1/projects/${projectId}/research-runs/research_run_provider_poll/status`,
+          sseEventNames: ["projection.updated"]
+        }
+      });
+      await expect(repository.getById(projectId as ProjectId, "research_run_provider_poll" as ResearchRunId)).resolves.toMatchObject({
+        status: "needs_review"
+      });
+
+      const repeatStatus = await storageApp.request(
+        `/api/v1/projects/${projectId}/research-runs/research_run_provider_poll/status`,
+        { headers: authHeaders() }
+      );
+      const repeatStatusBody = await jsonBody(repeatStatus);
+
+      expect(repeatStatus.status).toBe(200);
+      expect(repeatStatusBody.data).toMatchObject({
+        selectedRun: {
+          researchRunId: "research_run_provider_poll",
+          status: "needs_review",
+          qualityGateStatus: "pending_review"
+        }
       });
     } finally {
       await storage.close();

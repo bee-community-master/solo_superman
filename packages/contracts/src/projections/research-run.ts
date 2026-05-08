@@ -143,12 +143,12 @@ export const RESEARCH_RUN_TERMINAL_REASONS = [
   "staleness_policy_failed"
 ] as const satisfies readonly ResearchRunTerminalReason[];
 
-// A queued run may be cancelled directly because no provider has started yet.
+// A queued or paused run may be cancelled directly when no provider has started yet.
 // Once a provider can be involved, cancellation flows through cancel_requested.
 const SAME_RUN_TRANSITIONS = {
   queued: ["running", "paused", "cancel_requested", "cancelled"],
   running: ["needs_review", "failed", "stale", "paused", "cancel_requested"],
-  paused: ["queued", "running", "cancel_requested"],
+  paused: ["queued", "running", "cancel_requested", "cancelled"],
   cancel_requested: ["cancelled", "failed"],
   needs_review: ["accepted", "research_insufficient", "stale"],
   cancelled: [],

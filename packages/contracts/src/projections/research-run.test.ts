@@ -275,6 +275,7 @@ describe("ResearchRun projection contract", () => {
     expect(canTransitionResearchRunStatus("needs_review", "accepted")).toBe(true);
     expect(canTransitionResearchRunStatus("queued", "cancelled")).toBe(true);
     expect(canTransitionResearchRunStatus("queued", "cancel_requested")).toBe(true);
+    expect(canTransitionResearchRunStatus("paused", "cancelled")).toBe(true);
     expect(canTransitionResearchRunStatus("cancel_requested", "cancelled")).toBe(true);
 
     expect(canTransitionResearchRunStatus("failed", "queued")).toBe(false);

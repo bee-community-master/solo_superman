@@ -82,7 +82,9 @@ function assertLocalFakeRun(run: ResearchRunProjection) {
 }
 
 function cancellationStatusFor(run: ResearchRunProjection): BackgroundResearchAdapterCancelResult["status"] {
-  return run.status === "queued" && !run.provider.providerRunId ? "cancelled" : "cancel_requested";
+  return (run.status === "queued" || run.status === "paused") && !run.provider.providerRunId
+    ? "cancelled"
+    : "cancel_requested";
 }
 
 export function createFakeReadOnlyResearchAdapter(

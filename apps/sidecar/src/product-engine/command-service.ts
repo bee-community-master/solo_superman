@@ -130,6 +130,8 @@ export class ProductEngineServiceError extends Error {
   }
 }
 
+const LOCAL_FAKE_PROVIDER_RESULT_DELAY_MILLIS = 30_000;
+
 export interface RunSessionCommandInput {
   readonly sessionId: SessionId;
   readonly commandType: Extract<
@@ -1947,6 +1949,57 @@ export function createProductEngineCommandService(
     }
   }
 
+  async function resumePausedResearchRunsForAllowlist(
+    projectIdValue: ProjectId,
+    allowlist: ResearchAllowlistProjection,
+    resumedAt: string
+  ) {
+    const repository = createResearchRunRepository(storage.db);
+    const pausedRuns = (await repository.listForProject(projectIdValue)).filter(
+      (run) => run.allowlistId === allowlist.allowlistId && run.status === "paused"
+    );
+
+    for (const run of pausedRuns) {
+      if (!allowlistPermitsResearchRun(allowlist, run)) {
+        await cancelResearchRunWithLocalAdapter(
+          run,
+          "Research allowlist was reactivated with policy that no longer permits this paused run; restart with fresh approval if needed."
+        );
+        continue;
+      }
+
+      const disclosureLog = await findDisclosureLogForRun(run);
+      const resumed = await repository.update({
+        run: {
+          ...run,
+          version: (Number(run.version) + 1) as ProjectionVersion,
+          status: "queued",
+          updatedAt: resumedAt
+        },
+        expectedVersion: run.version,
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      if (!resumed) {
+        throw new ProductEngineServiceError(
+          "COMMAND_PRECONDITION_FAILED",
+          "Research run changed before allowlist resume recovery could be saved; refetch and retry.",
+          {
+            projectId: projectIdValue,
+            allowlistId: allowlist.allowlistId,
+            researchRunId: run.researchRunId
+          }
+        );
+      }
+
+      await startLocalFakeRunIfQueued(resumed, {
+        researchObjective: disclosureLog?.researchObjective ?? resumed.researchTaskId,
+        publicSafeSummary:
+          disclosureLog?.publicSafeSummarySent ?? "Resumed allowlisted run uses the prior public-safe disclosure summary."
+      });
+    }
+  }
+
   async function cancelActiveResearchRunsForRevokedAllowlist(
     projectIdValue: ProjectId,
     allowlistIdValue: ResearchAllowlistId,
@@ -1987,6 +2040,14 @@ export function createProductEngineCommandService(
     const automaticSourceCategory = automaticResearchSourceCategoryOrNull(sourceCategory);
 
     return automaticSourceCategory ? allowlist.sourceCategories.includes(automaticSourceCategory) : false;
+  }
+
+  function allowlistPermitsResearchRun(allowlist: ResearchAllowlistProjection, run: ResearchRunProjection) {
+    return (
+      allowlist.status === "active" &&
+      allowlist.connectorIds.includes(run.connectorId) &&
+      allowlistIncludesSourceCategory(allowlist, run.sourceCategory)
+    );
   }
 
   function sourceRefsFromDisclosureRequest(request: PrepareResearchDisclosureRequest) {
@@ -2348,6 +2409,71 @@ export function createProductEngineCommandService(
         "Research run changed before provider start could be recorded; refetch and retry.",
         {
           projectId: run.projectId,
+          researchRunId: run.researchRunId
+        }
+      );
+    }
+
+    return updated;
+  }
+
+  function providerHasObservedResultWindow(run: ResearchRunProjection, now: string) {
+    if (
+      run.status !== "running" ||
+      run.provider.adapterKind !== "local_fake_readonly" ||
+      !run.provider.providerRunId ||
+      !run.provider.startedAt
+    ) {
+      return false;
+    }
+
+    const elapsedMillis = isoTimestampMillis(now, "now") - isoTimestampMillis(run.provider.startedAt, "provider.startedAt");
+
+    return elapsedMillis >= LOCAL_FAKE_PROVIDER_RESULT_DELAY_MILLIS;
+  }
+
+  async function pollLocalFakeRunResultIfReady(run: ResearchRunProjection) {
+    const now = new Date().toISOString();
+
+    if (!providerHasObservedResultWindow(run, now)) {
+      return run;
+    }
+
+    const providerResult = await createFakeReadOnlyResearchAdapter({ now: () => now }).pollResult({
+      researchRun: run
+    });
+    const repository = createResearchRunRepository(storage.db);
+    const updated = await repository.update({
+      run: {
+        ...run,
+        version: (Number(run.version) + 1) as ProjectionVersion,
+        status: providerResult.status,
+        provider: {
+          ...run.provider,
+          providerRunId: providerResult.providerRunId,
+          completedAt: providerResult.completedAt
+        },
+        qualityGateStatus: "pending_review",
+        qualityGateReviewReason:
+          "Read-only provider result is complete and requires Evidence Pack quality-gate review before acceptance.",
+        sourceRefs: [...new Set([...run.sourceRefs, ...providerResult.sourceRefs])],
+        updatedAt: providerResult.completedAt
+      },
+      expectedVersion: run.version,
+      schemaVersion: CONTRACT_SCHEMA_VERSION
+    });
+
+    if (!updated) {
+      const latest = await repository.getById(run.projectId, run.researchRunId);
+
+      if (latest) {
+        return latest;
+      }
+
+      throw new ProductEngineServiceError(
+        "COMMAND_PRECONDITION_FAILED",
+        "Research run changed before provider result polling could be saved; refetch and retry.",
+        {
           researchRunId: run.researchRunId
         }
       );
@@ -2765,9 +2891,15 @@ export function createProductEngineCommandService(
 
         const current = await findProjectAllowlist(input.projectId, input.allowlistId);
         const stateVersionBefore = await allowlistCollectionStateVersion(input.projectId);
+        const now = new Date().toISOString();
         const updated = await updatePersistedAllowlist(
-          updateAllowlistFromRequest(current, input.request, new Date().toISOString())
+          updateAllowlistFromRequest(current, input.request, now)
         );
+
+        if (current.status === "paused" && updated.status === "active") {
+          await resumePausedResearchRunsForAllowlist(input.projectId, updated, now);
+        }
+
         const projection = await listAllowlistProjection(input.projectId, updated);
 
         return allowlistCommandResponse(
@@ -2934,7 +3066,9 @@ export function createProductEngineCommandService(
     async getResearchRunStatus(input: RunResearchRunStatusInput): Promise<ResearchRunStatusDto> {
       await requireProject(input.projectId);
 
-      const run = await findProjectResearchRun(input.projectId, input.researchRunId);
+      const run = await pollLocalFakeRunResultIfReady(
+        await findProjectResearchRun(input.projectId, input.researchRunId)
+      );
       const projection = await listResearchRunProjection(input.projectId, run);
 
       return {
