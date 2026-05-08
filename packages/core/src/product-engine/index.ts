@@ -7,6 +7,7 @@ import {
   CODEX_ARTIFACT_KINDS,
   CODEX_RUNTIME_ADAPTER_VERSION,
   CODEX_TURN_PURPOSES,
+  CANONICAL_INITIAL_SPEC_SECTIONS,
   assertPhase15bUpgradeHintsMatchBlockedAction,
   isPhase15bHintArtifactKind,
   validatePhase15bUpgradeHints,
@@ -102,6 +103,13 @@ const EMPTY_RUNTIME_PROJECTION: RuntimeActivityProjection = {
   runtimeArtifacts: [],
   runtimeStatus: "scaffold_placeholder"
 };
+
+const DEFAULT_QUESTION_BATCH_SIZE = 5;
+const AMBIGUITY_SEVERITY_PRIORITY = {
+  high: 0,
+  medium: 1,
+  low: 2
+} satisfies Record<NonNullable<AmbiguityIssueSnapshot["severity"]>, number>;
 
 function emptyConfidenceCompletionProjection(
   sessionIdValue: SessionId,
@@ -368,37 +376,226 @@ function createLivingSpecProjection(
   } as const;
 }
 
+type AmbiguityIssueSeed = {
+  readonly sectionRef: string;
+  readonly topicKey: string;
+  readonly uncertaintyType: NonNullable<AmbiguityIssueSnapshot["uncertaintyType"]>;
+  readonly severity: NonNullable<AmbiguityIssueSnapshot["severity"]>;
+  readonly summary: string;
+  readonly whyItMatters: string;
+  readonly question: string;
+  readonly expectedAnswerType: NonNullable<AmbiguityIssueSnapshot["expectedAnswerType"]>;
+  readonly decisionItUnlocks: string;
+  readonly routes: NonNullable<AmbiguityIssueSnapshot["possibleRoutes"]>;
+  readonly suggestedResearchTask?: string;
+};
+
+const INITIAL_AMBIGUITY_ISSUE_SEEDS = [
+  {
+    sectionRef: "Target Customer",
+    topicKey: "primary_customer_narrowing",
+    uncertaintyType: "vague",
+    severity: "high",
+    summary: "첫 고객 세그먼트가 너무 넓음",
+    whyItMatters: "첫 고객이 좁혀지지 않으면 문제 강도, 채널, MVP scope 판단이 모두 흔들립니다.",
+    question: "가장 먼저 검증할 primary customer는 어떤 상황의 누구인가?",
+    expectedAnswerType: "choice",
+    decisionItUnlocks: "primary_customer decision과 Target Customer section의 검증 채널을 잠급니다.",
+    routes: ["question", "decision_candidate"]
+  },
+  {
+    sectionRef: "Target Customer",
+    topicKey: "buyer_user_split",
+    uncertaintyType: "missing",
+    severity: "high",
+    summary: "구매자와 실제 사용자가 같은지 확인되지 않음",
+    whyItMatters: "구매자와 사용자가 다르면 가격, 인터뷰 대상, 채널, 메시지가 모두 달라집니다.",
+    question: "돈을 내는 사람과 실제 사용하는 사람은 같은가, 다르다면 각각 누구인가?",
+    expectedAnswerType: "choice",
+    decisionItUnlocks: "buyer/user split과 Target Customer section의 interview target을 잠급니다.",
+    routes: ["question", "decision_candidate"]
+  },
+  {
+    sectionRef: "Problem",
+    topicKey: "problem_pain_intensity",
+    uncertaintyType: "missing",
+    severity: "high",
+    summary: "문제 빈도와 강도가 아직 측정되지 않음",
+    whyItMatters: "문제가 드물거나 약하면 value proposition과 validation plan이 재작성됩니다.",
+    question: "이 문제가 얼마나 자주, 얼마나 큰 비용으로 발생하는가?",
+    expectedAnswerType: "text",
+    decisionItUnlocks: "problem decision과 Success Criteria의 pain threshold를 잠급니다.",
+    routes: ["question", "research_needed"]
+  },
+  {
+    sectionRef: "Value Proposition",
+    topicKey: "value_prop_switching_reason",
+    uncertaintyType: "decision_required",
+    severity: "high",
+    summary: "대체재 대비 전환 이유가 결정되지 않음",
+    whyItMatters: "전환 이유가 없으면 MVP 기능과 메시지가 경쟁 대체재를 이길 수 없습니다.",
+    question: "사용자가 현재 대체재를 버리고 이 제품으로 전환할 이유는 무엇인가?",
+    expectedAnswerType: "rank",
+    decisionItUnlocks: "value decision과 Differentiation section의 핵심 claim을 잠급니다.",
+    routes: ["question", "decision_candidate"]
+  },
+  {
+    sectionRef: "Current Alternatives",
+    topicKey: "alternative_dissatisfaction_gap",
+    uncertaintyType: "missing_con_evidence",
+    severity: "medium",
+    summary: "현재 대체재와 불만족 지점이 균형 있게 검증되지 않음",
+    whyItMatters: "대체재 만족/불만족 근거 없이 차별화를 확정하면 Founder Brief 신뢰도가 낮아집니다.",
+    question: "현재 대체재는 무엇이고, 충분히 좋은 상황과 불만족이 생기는 상황은 각각 언제인가?",
+    expectedAnswerType: "evidence",
+    decisionItUnlocks: "alternatives claim의 pro/con evidence gate와 differentiation 판단을 엽니다.",
+    routes: ["research_needed", "missing_con_evidence"],
+    suggestedResearchTask: "대체재 만족/불만족 근거를 균형 있게 수집합니다."
+  },
+  {
+    sectionRef: "MVP Scope",
+    topicKey: "mvp_validation_scope",
+    uncertaintyType: "decision_required",
+    severity: "high",
+    summary: "MVP에 반드시 포함할 기능과 제외할 기능이 불명확함",
+    whyItMatters: "MVP scope가 흐리면 Build Slice가 커지고 Planning Handoff가 blocker 상태로 남습니다.",
+    question: "첫 Build Slice에서 반드시 검증해야 할 기능과 제외할 기능은 무엇인가?",
+    expectedAnswerType: "choice",
+    decisionItUnlocks: "mvp_scope decision과 Build Slice readiness를 잠급니다.",
+    routes: ["question", "decision_candidate", "deferred"]
+  },
+  {
+    sectionRef: "Validation Plan",
+    topicKey: "first_validation_experiment",
+    uncertaintyType: "missing",
+    severity: "high",
+    summary: "제품 없이 가능한 첫 검증 실험이 정의되지 않음",
+    whyItMatters: "실험이 없으면 evidence loop가 시작되지 않아 SpecVersion 승인 근거가 부족합니다.",
+    question: "제품 구현 전에 수행할 수 있는 첫 검증 실험은 무엇인가?",
+    expectedAnswerType: "experiment",
+    decisionItUnlocks: "validation_plan decision과 Research/Evidence task 생성을 엽니다.",
+    routes: ["question", "research_needed"]
+  },
+  {
+    sectionRef: "Success Criteria",
+    topicKey: "success_metric_measurability",
+    uncertaintyType: "vague",
+    severity: "high",
+    summary: "성공/실패 기준이 측정 가능하지 않음",
+    whyItMatters: "측정 기준이 없으면 completeness score와 pivot trigger를 신뢰할 수 없습니다.",
+    question: "첫 실험의 성공과 실패를 어떤 수치 또는 관찰 신호로 판단할 것인가?",
+    expectedAnswerType: "text",
+    decisionItUnlocks: "success_criteria decision과 completion gate 판단을 잠급니다.",
+    routes: ["question", "decision_candidate"]
+  },
+  {
+    sectionRef: "Evidence Status",
+    topicKey: "evidence_balance",
+    uncertaintyType: "unsupported",
+    severity: "medium",
+    summary: "핵심 claim의 찬반 근거 균형이 부족함",
+    whyItMatters: "찬성 근거만 있으면 high-impact claim을 완료 상태로 승격할 수 없습니다.",
+    question: "핵심 claim을 지지하거나 반박하는 근거는 무엇이며 어느 쪽이 비어 있는가?",
+    expectedAnswerType: "evidence",
+    decisionItUnlocks: "Evidence Matrix와 pro/con gate의 다음 research route를 결정합니다.",
+    routes: ["research_needed", "missing_con_evidence"],
+    suggestedResearchTask: "핵심 claim별 pro/con evidence coverage를 점검합니다."
+  },
+  {
+    sectionRef: "Non-goals",
+    topicKey: "non_goal_boundaries",
+    uncertaintyType: "decision_required",
+    severity: "medium",
+    summary: "이번 MVP에서 하지 않을 범위가 충분히 잠기지 않음",
+    whyItMatters: "non-goal이 명시되지 않으면 scope creep과 downstream rework가 생깁니다.",
+    question: "이번 MVP에서 의도적으로 제외해야 하는 범위는 무엇인가?",
+    expectedAnswerType: "choice",
+    decisionItUnlocks: "Non-goals section과 Planning Handoff blocker 여부를 잠급니다.",
+    routes: ["question", "deferred", "decision_candidate"]
+  },
+  {
+    sectionRef: "Validation Plan",
+    topicKey: "acquisition_channel_realism",
+    uncertaintyType: "unsupported",
+    severity: "medium",
+    summary: "첫 사용자 모집 채널의 현실성이 근거로 확인되지 않음",
+    whyItMatters: "획득 채널이 막히면 제품 없이 하는 검증 실험과 초기 adoption evidence가 진행되지 않습니다.",
+    question: "첫 검증 참여자를 어디서 어떻게 모집할 수 있으며, 그 채널은 현실적인가?",
+    expectedAnswerType: "evidence",
+    decisionItUnlocks: "Validation Plan의 first channel과 acquisition risk 판단을 엽니다.",
+    routes: ["research_needed", "spec_update_candidate"],
+    suggestedResearchTask: "초기 사용자 모집 채널의 접근 가능성과 비용/응답률 근거를 확인합니다."
+  },
+  {
+    sectionRef: "MVP Scope",
+    topicKey: "implementation_resource_fit",
+    uncertaintyType: "unsupported",
+    severity: "medium",
+    summary: "구현 난이도와 창업자 리소스의 적합성이 검증되지 않음",
+    whyItMatters: "리소스 대비 어려운 MVP는 Planning Handoff 이후에도 실행 불가능한 Build Slice가 됩니다.",
+    question: "현재 리소스로 첫 Build Slice를 구현할 수 있는가, 줄여야 할 scope는 무엇인가?",
+    expectedAnswerType: "text",
+    decisionItUnlocks: "MVP Scope와 Planning Handoff의 implementation fit blocker를 판단합니다.",
+    routes: ["question", "deferred", "spec_update_candidate"]
+  },
+  {
+    sectionRef: "Differentiation",
+    topicKey: "founder_advantage",
+    uncertaintyType: "unsupported",
+    severity: "medium",
+    summary: "창업자만의 유리함이나 방어 가능성이 근거로 연결되지 않음",
+    whyItMatters: "차별화 근거가 약하면 Founder Brief와 acquisition story가 설득력을 잃습니다.",
+    question: "이 founder/team이 이 문제를 더 잘 풀 수 있는 근거는 무엇인가?",
+    expectedAnswerType: "evidence",
+    decisionItUnlocks: "Differentiation section과 Founder Brief의 핵심 narrative를 엽니다.",
+    routes: ["research_needed", "spec_update_candidate"]
+  },
+  {
+    sectionRef: "JTBD / Use Case",
+    topicKey: "job_context_specificity",
+    uncertaintyType: "vague",
+    severity: "medium",
+    summary: "사용 맥락과 전후 행동 변화가 충분히 구체적이지 않음",
+    whyItMatters: "use case가 흐리면 질문, 리서치, UI slice가 서로 다른 상황을 겨냥합니다.",
+    question: "사용자가 어떤 상황에서 어떤 진전을 얻기 위해 이 제품을 쓰는가?",
+    expectedAnswerType: "text",
+    decisionItUnlocks: "JTBD section과 첫 UX journey 가설을 잠급니다.",
+    routes: ["question", "spec_update_candidate"]
+  },
+  {
+    sectionRef: "Known Risks / Open Questions",
+    topicKey: "operational_risk_boundary",
+    uncertaintyType: "missing",
+    severity: "low",
+    summary: "보안/법률/운영 리스크와 보류 이유가 정리되지 않음",
+    whyItMatters: "남은 리스크가 보이지 않으면 완료 선언과 Planning Handoff가 과신 상태가 됩니다.",
+    question: "현 단계에서 명시적으로 남겨야 할 보안, 법률, 운영 리스크는 무엇인가?",
+    expectedAnswerType: "text",
+    decisionItUnlocks: "Known Risks section과 residual risk register를 갱신합니다.",
+    routes: ["question", "deferred", "repeat_limit_reached"]
+  }
+] satisfies readonly AmbiguityIssueSeed[];
+
 function createAmbiguityIssues(sessionId: SessionId, specRef: string): readonly AmbiguityIssueSnapshot[] {
   const token = stableToken(`${sessionId}:${specRef}`);
-  const issueSeeds = [
-    {
-      key: "customer-problem",
-      summary: "핵심 고객 문제와 즉시성",
-      question: "가장 먼저 검증해야 할 고객 문제는 무엇인가?"
-    },
-    {
-      key: "cost-of-delay",
-      summary: "문제를 방치했을 때의 비용",
-      question: "이 문제를 지금 해결하지 못하면 어떤 비용이 생기는가?"
-    },
-    {
-      key: "alternative-gap",
-      summary: "대체재 대비 차별화 기준",
-      question: "대체재와 비교했을 때 반드시 달라야 하는 지점은 무엇인가?"
-    },
-    {
-      key: "first-decision",
-      summary: "세션 종료 시 내려야 할 첫 결정",
-      question: "2~5시간 세션이 끝났을 때 창업자가 내려야 할 첫 결정은 무엇인가?"
-    }
-  ] as const;
 
-  return issueSeeds.map((seed, index) => ({
+  return INITIAL_AMBIGUITY_ISSUE_SEEDS.map((seed, index) => ({
     queueItemId: `queue_${token}_${index + 1}` as QueueItemId,
+    sectionRef: seed.sectionRef,
+    topicKey: seed.topicKey,
+    uncertaintyType: seed.uncertaintyType,
+    severity: seed.severity,
     summary: seed.summary,
+    whyItMatters: seed.whyItMatters,
     status: "open",
     questionText: seed.question,
-    sourceRef: seed.key
+    expectedAnswerType: seed.expectedAnswerType,
+    decisionItUnlocks: seed.decisionItUnlocks,
+    ...(seed.suggestedResearchTask ? { suggestedResearchTask: seed.suggestedResearchTask } : {}),
+    repeatCount: 0,
+    repeatLimit: 3,
+    possibleRoutes: seed.routes,
+    sourceRef: seed.topicKey
   }));
 }
 
@@ -409,15 +606,60 @@ function queueProjectionFromIssues(
   return {
     kind: "DecisionQueueProjection",
     version,
-    active: issues.map((issue) => ({
-      queueItemId: issue.queueItemId,
-      title: issue.questionText ?? issue.summary,
-      state: "active"
-    })),
+    active: issues.map(queueItemProjectionFromIssue),
     next: [],
     blocked: [],
     deferred: []
   };
+}
+
+function queueItemProjectionFromIssue(issue: AmbiguityIssueSnapshot): QueueItemProjection {
+  return {
+    queueItemId: issue.queueItemId,
+    title: issue.questionText ?? issue.summary,
+    state: "active",
+    cardType: "question",
+    ...(issue.sectionRef ? { sectionRef: issue.sectionRef } : {}),
+    ...(issue.topicKey ? { topicKey: issue.topicKey } : {}),
+    ...(issue.severity ? { severity: issue.severity } : {}),
+    ...(issue.whyItMatters ? { whyItMatters: issue.whyItMatters } : {}),
+    ...(issue.decisionItUnlocks ? { decisionItUnlocks: issue.decisionItUnlocks } : {}),
+    ...(issue.expectedAnswerType ? { expectedAnswerType: issue.expectedAnswerType } : {}),
+    ...(issue.possibleRoutes ? { possibleRoutes: issue.possibleRoutes } : {})
+  };
+}
+
+function ambiguityIssueSeverityRank(issue: AmbiguityIssueSnapshot) {
+  return issue.severity ? AMBIGUITY_SEVERITY_PRIORITY[issue.severity] : 3;
+}
+
+function defaultQuestionBatchIssues(openIssues: readonly AmbiguityIssueSnapshot[]) {
+  return openIssues
+    .map((issue, index) => ({ issue, index }))
+    .sort(
+      (left, right) =>
+        ambiguityIssueSeverityRank(left.issue) - ambiguityIssueSeverityRank(right.issue) || left.index - right.index
+    )
+    .slice(0, DEFAULT_QUESTION_BATCH_SIZE)
+    .map(({ issue }) => issue);
+}
+
+function hasDuplicateTopicKey(issues: readonly AmbiguityIssueSnapshot[]) {
+  const topicKeys = new Set<string>();
+
+  return issues.some((issue) => {
+    if (!issue.topicKey) {
+      return false;
+    }
+
+    if (topicKeys.has(issue.topicKey)) {
+      return true;
+    }
+
+    topicKeys.add(issue.topicKey);
+
+    return false;
+  });
 }
 
 function queueProjectionWithAnsweredItem(
@@ -1140,12 +1382,7 @@ function reduceDraftInitialSpec(command: ProductEngineCommand, state: ProductEng
   }
 
   const draftRef = `spec_draft_${stableToken(`${command.sessionId}:${state.intake.answer}`)}`;
-  const sections = [
-    "Problem",
-    "Target customer",
-    "Value proposition",
-    "Validation risks"
-  ];
+  const sections = CANONICAL_INITIAL_SPEC_SECTIONS;
   const title = `초기 제품 스펙 초안: ${state.project.rawIdeaText ?? "Untitled idea"}`;
   const projection = createLivingSpecProjection(command, projectionVersionFor(state), title, sections);
   const event = eventDraft(command, "InitialSpecDrafted", {
@@ -1238,7 +1475,7 @@ function reduceActivateQuestionBatch(command: ProductEngineCommand, state: Produ
 
   const selectedIssues = selectedQueueItemIds
     ? selectedQueueItemIds.map((queueItemId) => openIssues.find((issue) => issue.queueItemId === queueItemId))
-    : openIssues;
+    : defaultQuestionBatchIssues(openIssues);
 
   if (selectedIssues.some((issue) => issue === undefined)) {
     return reject("ActivateQuestionBatch queueItemIds must reference open ambiguity issues.");
@@ -1247,6 +1484,10 @@ function reduceActivateQuestionBatch(command: ProductEngineCommand, state: Produ
 
   if (candidateIssues.length < 3 || candidateIssues.length > 5) {
     return reject("ActivateQuestionBatch requires 3 to 5 open ambiguity issues.");
+  }
+
+  if (hasDuplicateTopicKey(candidateIssues)) {
+    return reject("ActivateQuestionBatch requires at most one open issue per topicKey.");
   }
 
   if (state.queueProjection.active.length > 0) {

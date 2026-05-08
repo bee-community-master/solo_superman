@@ -28,11 +28,59 @@ export interface CurrentSpecSnapshot {
   readonly sections?: readonly string[];
 }
 
+export const CANONICAL_INITIAL_SPEC_SECTIONS = [
+  "Problem",
+  "Target Customer",
+  "JTBD / Use Case",
+  "Current Alternatives",
+  "Value Proposition",
+  "Differentiation",
+  "MVP Scope",
+  "Non-goals",
+  "Validation Plan",
+  "Success Criteria",
+  "Evidence Status",
+  "Known Risks / Open Questions"
+] as const;
+
+export type AmbiguityIssueUncertaintyType =
+  | "missing"
+  | "vague"
+  | "unsupported"
+  | "conflict"
+  | "decision_required"
+  | "missing_con_evidence";
+
+export type AmbiguityIssueSeverity = "high" | "medium" | "low";
+
+export type AmbiguityExpectedAnswerType = "choice" | "text" | "rank" | "evidence" | "experiment";
+
+export type AmbiguityPossibleRoute =
+  | "question"
+  | "research_needed"
+  | "missing_con_evidence"
+  | "decision_candidate"
+  | "spec_update_candidate"
+  | "conflict_detected"
+  | "deferred"
+  | "repeat_limit_reached";
+
 export interface AmbiguityIssueSnapshot {
   readonly queueItemId: QueueItemId;
+  readonly sectionRef?: string;
+  readonly topicKey?: string;
+  readonly uncertaintyType?: AmbiguityIssueUncertaintyType;
+  readonly severity?: AmbiguityIssueSeverity;
   readonly summary: string;
+  readonly whyItMatters?: string;
   readonly status: "open" | "answered" | "deferred" | "resolved";
   readonly questionText?: string;
+  readonly expectedAnswerType?: AmbiguityExpectedAnswerType;
+  readonly decisionItUnlocks?: string;
+  readonly suggestedResearchTask?: string;
+  readonly repeatCount?: number;
+  readonly repeatLimit?: number;
+  readonly possibleRoutes?: readonly AmbiguityPossibleRoute[];
   readonly sourceRef?: string;
 }
 

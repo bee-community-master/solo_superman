@@ -12,12 +12,16 @@ export const PHASE1_E2E_RESEARCH_RESULT =
 export const PHASE1_E2E_SPEC_SECTIONS = [
   "Problem: solo founders start from vague ideas and lose time before validating the riskiest assumptions.",
   "Target customer: solo founders preparing paid customer interviews in the next two weeks.",
+  "JTBD / Use Case: before building, the founder wants to turn scattered assumptions into a decision-ready session plan.",
+  "Current alternatives: templates, accelerator worksheets, generic AI chats, and doing nothing can solve parts of the workflow.",
   "Value proposition: compress problem, target, value, and tradeoff decisions into a traceable Founder Brief.",
-  "Alternative and competition: templates, accelerator worksheets, and generic AI chats can solve parts of the workflow.",
-  "Evidence: manual research contains both support and counter-evidence, with retained uncertainty notes.",
-  "Validation: run five paid-interview prep sessions and compare decision clarity before and after the session.",
+  "Differentiation: local-first traceability keeps decisions, evidence, and known risks connected without external custody.",
   "MVP scope: local-first Tauri desktop loop with sidecar API, evidence matrix, decision approval, and metadata-only export.",
-  "Success criteria: users can name target customer, top risks, next validation action, and stop-now risk within one session."
+  "Non-goals: no Phase 2.5 browser delegation, credential custody, external write, or broad team/mobile/billing expansion.",
+  "Validation plan: run five paid-interview prep sessions and compare decision clarity before and after the session.",
+  "Success criteria: users can name target customer, top risks, next validation action, and stop-now risk within one session.",
+  "Evidence status: manual research contains both support and counter-evidence, with retained uncertainty notes.",
+  "Known risks / open questions: willingness to pay and acquisition channel remain explicit follow-up risks."
 ] as const;
 
 export const PHASE1_E2E_ACCEPTANCE_CHECKLIST = [

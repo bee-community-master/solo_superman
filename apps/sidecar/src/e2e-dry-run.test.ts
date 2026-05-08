@@ -3,7 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
-import type { BlockedActionType, ProjectId, SessionId, StateVersion } from "@solo-superman/contracts";
+import {
+  CANONICAL_INITIAL_SPEC_SECTIONS,
+  type BlockedActionType,
+  type ProjectId,
+  type SessionId,
+  type StateVersion
+} from "@solo-superman/contracts";
 import { createProductEngineCommandService } from "./product-engine/command-service";
 import { createCodexRuntimeAdapter } from "./runtime";
 import { createSidecarApp } from "./server";
@@ -394,6 +400,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       const draft = await postJson(app, `/api/v1/sessions/${sessionId}/spec/initial`, {
         expectedStateVersion: 2
       });
+      const draftData = responseData(draft.body);
       const analyze = await postJson(app, `/api/v1/sessions/${sessionId}/spec/analyze`, {
         expectedStateVersion: 3,
         targetRef: "current_spec"
@@ -403,7 +410,39 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       expect(intake.response.status).toBe(200);
       expect(draft.response.status).toBe(200);
       expect(analyze.response.status).toBe(200);
+      expect(draftData).toMatchObject({
+        immediateProjection: {
+          kind: "LivingSpecProjection",
+          sections: CANONICAL_INITIAL_SPEC_SECTIONS,
+          sectionCount: CANONICAL_INITIAL_SPEC_SECTIONS.length
+        }
+      });
       expect(analyzeData).toMatchObject({
+        deterministicOutputs: [
+          expect.objectContaining({
+            outputType: "ambiguity_analysis",
+            payload: expect.objectContaining({
+              issueCount: 15,
+              issues: expect.arrayContaining([
+                expect.objectContaining({
+                  sectionRef: "Target Customer",
+                  topicKey: "primary_customer_narrowing",
+                  severity: "high",
+                  uncertaintyType: "vague",
+                  whyItMatters: expect.any(String),
+                  expectedAnswerType: "choice",
+                  decisionItUnlocks: expect.any(String),
+                  possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
+                }),
+                expect.objectContaining({
+                  sectionRef: "Validation Plan",
+                  expectedAnswerType: "experiment",
+                  possibleRoutes: expect.arrayContaining(["research_needed"])
+                })
+              ])
+            })
+          })
+        ],
         pendingEffectSummary: {
           byType: {
             queue_projection_effect: 1
@@ -440,7 +479,17 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       expect(activeBatch).toMatchObject({
         kind: "DecisionQueueProjection"
       });
-      expect(activeItems).toHaveLength(4);
+      expect(activeItems).toHaveLength(5);
+      expect(firstQuestion).toMatchObject({
+        cardType: "question",
+        sectionRef: "Target Customer",
+        topicKey: "primary_customer_narrowing",
+        severity: "high",
+        whyItMatters: expect.any(String),
+        decisionItUnlocks: expect.any(String),
+        expectedAnswerType: "choice",
+        possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
+      });
 
       const answer = await postJson(app, `/api/v1/questions/${firstQuestion.queueItemId as string}/answers`, {
         sessionId,

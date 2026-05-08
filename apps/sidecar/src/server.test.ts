@@ -5,6 +5,7 @@ import { afterEach } from "vitest";
 import { describe, expect, it } from "vitest";
 import {
   API_ROUTE_CATALOG,
+  CANONICAL_INITIAL_SPEC_SECTIONS,
   CONTRACT_SCHEMA_VERSION,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION,
@@ -3265,8 +3266,8 @@ describe("PR-02 sidecar health shell", () => {
       expect(draftProjection).toMatchObject({
         kind: "LivingSpecProjection",
         title: "초기 제품 스펙 초안: A focused founder brief generator",
-        sections: ["Problem", "Target customer", "Value proposition", "Validation risks"],
-        sectionCount: 4
+        sections: CANONICAL_INITIAL_SPEC_SECTIONS,
+        sectionCount: CANONICAL_INITIAL_SPEC_SECTIONS.length
       });
 
       const spec = await storageApp.request(`/api/v1/sessions/${sessionId}/spec`, {
@@ -3277,8 +3278,8 @@ describe("PR-02 sidecar health shell", () => {
       expect(spec.status).toBe(200);
       expect(specBody.data).toMatchObject({
         title: "초기 제품 스펙 초안: A focused founder brief generator",
-        sections: ["Problem", "Target customer", "Value proposition", "Validation risks"],
-        sectionCount: 4
+        sections: CANONICAL_INITIAL_SPEC_SECTIONS,
+        sectionCount: CANONICAL_INITIAL_SPEC_SECTIONS.length
       });
 
       const specSession = await storageApp.request(`/api/v1/projects/${projectId}/sessions/${sessionId}`, {
@@ -3311,6 +3312,26 @@ describe("PR-02 sidecar health shell", () => {
       expect(analyzeData).toMatchObject({
         category: "accepted",
         stateVersionAfter: 4,
+        deterministicOutputs: [
+          expect.objectContaining({
+            outputType: "ambiguity_analysis",
+            payload: expect.objectContaining({
+              issueCount: 15,
+              issues: expect.arrayContaining([
+                expect.objectContaining({
+                  sectionRef: "Target Customer",
+                  topicKey: "primary_customer_narrowing",
+                  severity: "high",
+                  uncertaintyType: "vague",
+                  whyItMatters: expect.any(String),
+                  expectedAnswerType: "choice",
+                  decisionItUnlocks: expect.any(String),
+                  possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
+                })
+              ])
+            })
+          })
+        ],
         pendingEffectSummary: {
           totalPending: 1,
           byType: {
@@ -3345,7 +3366,17 @@ describe("PR-02 sidecar health shell", () => {
       expect(queueProjection).toMatchObject({
         kind: "DecisionQueueProjection"
       });
-      expect(activeItems).toHaveLength(4);
+      expect(activeItems).toHaveLength(5);
+      expect(activeItems[0]).toMatchObject({
+        cardType: "question",
+        sectionRef: "Target Customer",
+        topicKey: "primary_customer_narrowing",
+        severity: "high",
+        whyItMatters: expect.any(String),
+        decisionItUnlocks: expect.any(String),
+        expectedAnswerType: "choice",
+        possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
+      });
 
       const validationSession = await storageApp.request(`/api/v1/projects/${projectId}/sessions/${sessionId}`, {
         headers: authHeaders()

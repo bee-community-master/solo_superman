@@ -1,4 +1,9 @@
 import type { DecisionEvidencePackId, ProjectionVersion, QueueItemId, ResearchTaskId } from "../ids";
+import type {
+  AmbiguityExpectedAnswerType,
+  AmbiguityIssueSeverity,
+  AmbiguityPossibleRoute
+} from "../product-engine/state";
 import type { ResearchQueueTerminalOutcome } from "./research-evidence";
 
 export type QueueCardType =
@@ -18,6 +23,13 @@ export interface QueueItemProjection {
   readonly title: string;
   readonly state: "active" | "next" | "blocked" | "deferred" | "answered" | "resolved";
   readonly cardType?: QueueCardType;
+  readonly sectionRef?: string;
+  readonly topicKey?: string;
+  readonly severity?: AmbiguityIssueSeverity;
+  readonly whyItMatters?: string;
+  readonly decisionItUnlocks?: string;
+  readonly expectedAnswerType?: AmbiguityExpectedAnswerType;
+  readonly possibleRoutes?: readonly AmbiguityPossibleRoute[];
   readonly researchTaskId?: ResearchTaskId;
   readonly evidencePackId?: DecisionEvidencePackId;
   readonly blocksPlanning?: boolean;

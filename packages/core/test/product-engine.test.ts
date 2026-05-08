@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   CONTRACT_SCHEMA_VERSION,
+  CANONICAL_INITIAL_SPEC_SECTIONS,
   type CommandId,
   type CorrelationId,
   type ProjectId,
@@ -21,6 +22,22 @@ import {
 const projectId = "proj_product_engine_test" as ProjectId;
 const sessionId = "sess_product_engine_test" as SessionId;
 const correlationId = "corr_product_engine_test" as CorrelationId;
+const canonicalInitialSpecSectionSet = new Set<string>(CANONICAL_INITIAL_SPEC_SECTIONS);
+const docsRequiredAmbiguityTopicKeys = [
+  "primary_customer_narrowing",
+  "buyer_user_split",
+  "problem_pain_intensity",
+  "value_prop_switching_reason",
+  "alternative_dissatisfaction_gap",
+  "mvp_validation_scope",
+  "non_goal_boundaries",
+  "success_metric_measurability",
+  "first_validation_experiment",
+  "acquisition_channel_realism",
+  "implementation_resource_fit",
+  "operational_risk_boundary",
+  "founder_advantage"
+] as const;
 
 function command(
   commandType: Parameters<typeof reduceProductEngineCommand>[0]["commandType"],
@@ -144,11 +161,76 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(state.livingSpecProjection).toMatchObject({
       title: "초기 제품 스펙 초안: A focused founder brief generator",
-      sections: ["Problem", "Target customer", "Value proposition", "Validation risks"],
-      sectionCount: 4
+      sections: CANONICAL_INITIAL_SPEC_SECTIONS,
+      sectionCount: CANONICAL_INITIAL_SPEC_SECTIONS.length
     });
-    expect(state.queueProjection.active).toHaveLength(4);
+    expect(state.openIssues).toHaveLength(15);
+    expect(state.openIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sectionRef: "Target Customer",
+          severity: "high",
+          uncertaintyType: "vague",
+          topicKey: "primary_customer_narrowing",
+          whyItMatters: expect.any(String),
+          decisionItUnlocks: expect.any(String),
+          expectedAnswerType: "choice",
+          possibleRoutes: expect.arrayContaining(["question", "decision_candidate"]),
+          repeatCount: 0,
+          repeatLimit: 3
+        }),
+        expect.objectContaining({
+          sectionRef: "Target Customer",
+          topicKey: "buyer_user_split",
+          severity: "high",
+          expectedAnswerType: "choice"
+        }),
+        expect.objectContaining({
+          sectionRef: "Validation Plan",
+          topicKey: "acquisition_channel_realism",
+          expectedAnswerType: "evidence",
+          suggestedResearchTask: expect.any(String)
+        }),
+        expect.objectContaining({
+          sectionRef: "MVP Scope",
+          topicKey: "implementation_resource_fit",
+          possibleRoutes: expect.arrayContaining(["spec_update_candidate"])
+        }),
+        expect.objectContaining({
+          sectionRef: "Evidence Status",
+          severity: "medium",
+          uncertaintyType: "unsupported",
+          expectedAnswerType: "evidence",
+          suggestedResearchTask: expect.any(String),
+          possibleRoutes: expect.arrayContaining(["research_needed", "missing_con_evidence"])
+        })
+      ])
+    );
+    expect(state.openIssues.every((issue) => canonicalInitialSpecSectionSet.has(issue.sectionRef ?? ""))).toBe(
+      true
+    );
+    expect(state.openIssues.map((issue) => issue.topicKey)).toEqual(
+      expect.arrayContaining([...docsRequiredAmbiguityTopicKeys])
+    );
+    expect(state.queueProjection.active).toHaveLength(5);
+    const activeIssueIds = new Set(state.queueProjection.active.map((item) => item.queueItemId));
+    const activeIssues = state.openIssues.filter((issue) => activeIssueIds.has(issue.queueItemId));
+    expect(activeIssues.every((issue) => issue.severity === "high")).toBe(true);
     expect(state.queueProjection.active.every((item) => item.state === "active")).toBe(true);
+    expect(state.queueProjection.active.every((item) => item.cardType === "question")).toBe(true);
+    expect(state.queueProjection.active).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sectionRef: "Target Customer",
+          topicKey: "primary_customer_narrowing",
+          severity: "high",
+          whyItMatters: expect.any(String),
+          decisionItUnlocks: expect.any(String),
+          expectedAnswerType: "choice",
+          possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
+        })
+      ])
+    );
     expect(state.queueProjection.next).toEqual([]);
     expect(state.session.phase).toBe("question_loop");
   });
@@ -398,7 +480,7 @@ describe("PR-04 ProductEngine reducer", () => {
     });
   });
 
-  it("activates an explicit 3 to 5 item candidate batch when more open issues exist", () => {
+  it("defaults to a canonical five-item batch and still supports explicit 3 to 5 item selection", () => {
     const openIssues = Array.from({ length: 6 }, (_, index) => ({
       queueItemId: `queue_explicit_${index + 1}` as QueueItemId,
       summary: `Ambiguity issue ${index + 1}`,
@@ -426,11 +508,16 @@ describe("PR-04 ProductEngine reducer", () => {
       state
     );
 
-    expect(implicitActivation).toMatchObject({
-      accepted: false,
-      rejectionReason: {
-        code: "COMMAND_PRECONDITION_FAILED"
-      }
+    expect(implicitActivation.accepted).toBe(true);
+    expect(implicitActivation.immediateProjection).toMatchObject({
+      kind: "DecisionQueueProjection",
+      active: openIssues.slice(0, 5).map((issue) =>
+        expect.objectContaining({
+          queueItemId: issue.queueItemId,
+          state: "active",
+          cardType: "question"
+        })
+      )
     });
     expect(explicitActivation.accepted).toBe(true);
     expect(explicitActivation.immediateProjection).toMatchObject({
@@ -446,6 +533,88 @@ describe("PR-04 ProductEngine reducer", () => {
       accepted: false,
       rejectionReason: {
         code: "COMMAND_PRECONDITION_FAILED"
+      }
+    });
+  });
+
+  it("prioritizes high-severity ambiguity issues for the default question batch", () => {
+    const openIssues = [
+      { queueItemId: "queue_priority_medium_1" as QueueItemId, severity: "medium" as const },
+      { queueItemId: "queue_priority_low" as QueueItemId, severity: "low" as const },
+      { queueItemId: "queue_priority_high_1" as QueueItemId, severity: "high" as const },
+      { queueItemId: "queue_priority_high_2" as QueueItemId, severity: "high" as const },
+      { queueItemId: "queue_priority_high_3" as QueueItemId, severity: "high" as const },
+      { queueItemId: "queue_priority_high_4" as QueueItemId, severity: "high" as const },
+      { queueItemId: "queue_priority_high_5" as QueueItemId, severity: "high" as const },
+      { queueItemId: "queue_priority_medium_2" as QueueItemId, severity: "medium" as const }
+    ].map((issue, index) => ({
+      ...issue,
+      summary: `Priority issue ${index + 1}`,
+      status: "open" as const,
+      questionText: `Priority question ${index + 1}?`,
+      sourceRef: `priority_${index + 1}`
+    }));
+    const state = {
+      ...createInitialProductEngineState(projectId, sessionId),
+      stateVersion: 4 as StateVersion,
+      openIssues
+    };
+    const activation = reduceProductEngineCommand(command("ActivateQuestionBatch", 4, {}, 5), state);
+
+    expect(activation.accepted).toBe(true);
+    expect(activation.immediateProjection).toMatchObject({
+      active: openIssues.slice(2, 7).map((issue) =>
+        expect.objectContaining({
+          queueItemId: issue.queueItemId,
+          state: "active",
+          cardType: "question"
+        })
+      )
+    });
+  });
+
+  it("rejects question batches that would ask the same topic twice", () => {
+    const openIssues = [
+      {
+        queueItemId: "queue_duplicate_topic_1" as QueueItemId,
+        topicKey: "duplicate_topic",
+        summary: "Duplicate topic issue 1",
+        status: "open" as const,
+        questionText: "First duplicate topic question?"
+      },
+      {
+        queueItemId: "queue_duplicate_topic_2" as QueueItemId,
+        topicKey: "duplicate_topic",
+        summary: "Duplicate topic issue 2",
+        status: "open" as const,
+        questionText: "Second duplicate topic question?"
+      },
+      {
+        queueItemId: "queue_distinct_topic" as QueueItemId,
+        topicKey: "distinct_topic",
+        summary: "Distinct topic issue",
+        status: "open" as const,
+        questionText: "Distinct topic question?"
+      }
+    ];
+    const state = {
+      ...createInitialProductEngineState(projectId, sessionId),
+      stateVersion: 4 as StateVersion,
+      openIssues
+    };
+
+    const activation = reduceProductEngineCommand(
+      command("ActivateQuestionBatch", 4, {
+        queueItemIds: openIssues.map((issue) => issue.queueItemId)
+      }, 5),
+      state
+    );
+
+    expect(activation).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "COMMAND_PRECONDITION_FAILED",
+        message: "ActivateQuestionBatch requires at most one open issue per topicKey."
       }
     });
   });
