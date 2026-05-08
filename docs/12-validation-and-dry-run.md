@@ -469,6 +469,8 @@ Follow-up questions:
 
 ## 정적 일관성 검토 체크리스트
 
+Phase 1~2 구현 보강 closeout의 repo-local evidence ledger는 `docs/35-phase1-2-closeout-evidence.md`가 소유한다. 이 체크리스트가 구현 완료 주장으로 사용될 때는 #65 child issue evidence, `pnpm verify`, `pnpm smoke:e2e`, `node scripts/verify-doc-contracts.mjs`, final/blocker Planning Handoff dry-run, no-execution boundary 증거를 함께 첨부해야 한다.
+
 - [ ] 모든 문서가 Phase 1을 Research 포함 폐루프로 정의한다.
 - [ ] 자동 코드 실행은 Phase 1에서 제외된다.
 - [ ] 모바일 앱은 Phase 1에서 제외된다.

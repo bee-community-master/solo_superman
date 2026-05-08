@@ -143,3 +143,81 @@ export const PHASE15B_ACCEPTANCE_EVIDENCE_MAP = [
     ]
   }
 ] as const;
+
+export const PHASE2_ACCEPTANCE_EVIDENCE_MAP = [
+  {
+    scenario: "Scenario H. Phase 2 final Planning Handoff dry-run",
+    sourceDocs: [
+      "docs/12-validation-and-dry-run.md",
+      "docs/31-phase2-planning-handoff-contract.md",
+      "docs/32-phase2-implementation-preflight-contract.md"
+    ],
+    runtimeEvidence: [
+      "CreatePlanningHandoff",
+      "PlanningHandoffArtifact",
+      "planning_ready",
+      "taskBreakdown",
+      "prIssuePlan",
+      "buildSlicePlan",
+      "no_file_shell_browser_deploy_or_external_mutation"
+    ]
+  },
+  {
+    scenario: "Scenario I. Phase 2 blocker Planning Handoff dry-run",
+    sourceDocs: [
+      "docs/12-validation-and-dry-run.md",
+      "docs/31-phase2-planning-handoff-contract.md",
+      "docs/32-phase2-implementation-preflight-contract.md"
+    ],
+    runtimeEvidence: [
+      "PlanningHandoffBlockerArtifact",
+      "source_trace_incomplete",
+      "must_not_use_planning_ready_label",
+      "requiredNextAction",
+      "PlanningHandoffProjection"
+    ]
+  }
+] as const;
+
+export const PHASE1_2_CLOSEOUT_EVIDENCE = [
+  {
+    issue: "#66",
+    phase: "Phase 1",
+    evidence: ["canonical 12-section Living Spec", "15 ambiguity issues", "priority question batch"]
+  },
+  {
+    issue: "#67",
+    phase: "Phase 1",
+    evidence: ["Decision Queue refetch URL", "SSE projection.updated notification", "missed-SSE recovery"]
+  },
+  {
+    issue: "#68",
+    phase: "Phase 1.5A",
+    evidence: ["allowlist lifecycle", "local fake read-only provider", "needs_review before quality acceptance"]
+  },
+  {
+    issue: "#69",
+    phase: "Phase 1.5A",
+    evidence: ["Decision-linked Evidence Pack", "Research-updated Queue", "Planning Handoff quality gate"]
+  },
+  {
+    issue: "#70",
+    phase: "Phase 1.5B",
+    evidence: ["Phase15bUpgradeHints", "metadata_only_no_execution", "Phase 2 sourceRef reuse"]
+  },
+  {
+    issue: "#71",
+    phase: "Phase 2",
+    evidence: ["strict Planning Handoff validation", "idempotent artifact save", "source trace preservation"]
+  },
+  {
+    issue: "#74",
+    phase: "Phase 2",
+    evidence: ["source-driven synthesis", "safe UI trigger", "final/blocker Planning Handoff projection"]
+  },
+  {
+    issue: "#75",
+    phase: "Hardening",
+    evidence: ["pnpm smoke:e2e", "node scripts/verify-doc-contracts.mjs", "docs/35 closeout report"]
+  }
+] as const;

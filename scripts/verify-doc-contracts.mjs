@@ -644,6 +644,46 @@ export function findPhase25ExecutionPermissionClaims(documents) {
   });
 }
 
+const PHASE12_CLOSEOUT_DOC_PATH = "docs/35-phase1-2-closeout-evidence.md";
+
+const PHASE12_CLOSEOUT_REQUIRED_REFERENCES = [
+  "docs/README.md",
+  "docs/12-validation-and-dry-run.md"
+];
+
+const PHASE12_CLOSEOUT_REQUIRED_SNIPPETS = [
+  "Child issue evidence ledger",
+  "#66",
+  "#67",
+  "#68",
+  "#69",
+  "#70",
+  "#71",
+  "#74",
+  "#75",
+  "Phase 1 canonical output dry-run",
+  "Phase 1.5A allowlist/research lifecycle dry-run",
+  "apps/sidecar/src/server.test.ts",
+  "Phase 1.5B hint/no-execution dry-run",
+  "Phase 2 final/blocker Planning Handoff dry-run",
+  "Completion Candidate or Founder Brief",
+  "Route/DTO/projection/SSE contract drift",
+  "No-execution boundary",
+  "pnpm verify",
+  "pnpm smoke:e2e",
+  "node scripts/verify-doc-contracts.mjs",
+  "Tracker #65 update rule"
+];
+
+const PHASE12_CLOSEOUT_FIXTURE_SNIPPETS = [
+  "PHASE1_2_CLOSEOUT_EVIDENCE",
+  "PHASE2_ACCEPTANCE_EVIDENCE_MAP",
+  "Scenario H. Phase 2 final Planning Handoff dry-run",
+  "Scenario I. Phase 2 blocker Planning Handoff dry-run",
+  "no_file_shell_browser_deploy_or_external_mutation",
+  "docs/35 closeout report"
+];
+
 function requireSnippets(message, text, snippets) {
   const missingSnippets = snippets.filter((snippet) => !text.includes(snippet));
 
@@ -723,6 +763,23 @@ function checkPhase25DocConsistency() {
   );
 }
 
+function checkPhase12CloseoutConsistency() {
+  const docs35 = readText(PHASE12_CLOSEOUT_DOC_PATH);
+  const e2eFixture = readText("apps/sidecar/src/e2e-dry-run.fixture.ts");
+
+  requireSnippets("docs/35 Phase 1~2 closeout report missing required evidence", docs35, PHASE12_CLOSEOUT_REQUIRED_SNIPPETS);
+  requireSnippets(
+    "e2e dry-run fixture missing Phase 1~2 closeout evidence labels",
+    e2eFixture,
+    PHASE12_CLOSEOUT_FIXTURE_SNIPPETS
+  );
+  requireDocReferences(
+    "Phase 1~2 closeout report reference missing",
+    PHASE12_CLOSEOUT_REQUIRED_REFERENCES,
+    PHASE12_CLOSEOUT_DOC_PATH
+  );
+}
+
 export function runDocContractChecks() {
   const docs = {
     docs24: readText("docs/24-codex-prompt-output-contract.md"),
@@ -736,6 +793,7 @@ export function runDocContractChecks() {
   scanPackageBoundaries();
   checkPhase15DocConsistency();
   checkPhase25DocConsistency();
+  checkPhase12CloseoutConsistency();
 
   if (!process.exitCode) {
     console.log("doc contract checks passed");

@@ -2,11 +2,22 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
+import { applyMigrations, createEventRepository, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
 import {
   CANONICAL_INITIAL_SPEC_SECTIONS,
+  CONTRACT_SCHEMA_VERSION,
   type BlockedActionType,
+  type CommandId,
+  type CorrelationId,
+  type DecisionEvidencePackId,
+  type EventId,
+  type EvidenceItemId,
+  type PlanningHandoffSourceRefDto,
   type ProjectId,
+  type ProjectionVersion,
+  type QueueItemId,
+  type ResearchResultId,
+  type ResearchTaskId,
   type SessionId,
   type StateVersion
 } from "@solo-superman/contracts";
@@ -19,9 +30,11 @@ import {
   PHASE1_E2E_RESEARCH_RESULT,
   PHASE1_E2E_SAMPLE_IDEA,
   PHASE1_E2E_SPEC_SECTIONS,
+  PHASE1_2_CLOSEOUT_EVIDENCE,
   PHASE15A_ACCEPTANCE_EVIDENCE_MAP,
   PHASE15B_ACCEPTANCE_EVIDENCE_MAP,
-  PHASE15B_NO_EXECUTION_ACTION_TYPES
+  PHASE15B_NO_EXECUTION_ACTION_TYPES,
+  PHASE2_ACCEPTANCE_EVIDENCE_MAP
 } from "./e2e-dry-run.fixture";
 
 const localCapabilityToken = "test-local-capability-token";
@@ -132,6 +145,24 @@ function firstRecord(value: unknown) {
   return first as Readonly<Record<string, unknown>>;
 }
 
+function recordWithStringFieldPrefix(value: unknown, field: string, prefix: string) {
+  const match = records(value).find((item) => {
+    const fieldValue = item[field];
+
+    return typeof fieldValue === "string" && fieldValue.startsWith(prefix);
+  });
+
+  expect(match).toBeDefined();
+
+  return match as Readonly<Record<string, unknown>>;
+}
+
+function stringField(record: Readonly<Record<string, unknown>>, field: string) {
+  expect(typeof record[field]).toBe("string");
+
+  return record[field] as string;
+}
+
 function responseData(body: JsonResponseBody) {
   return record(body.data);
 }
@@ -156,6 +187,224 @@ function projectIdFromStart(data: Readonly<Record<string, unknown>>) {
   expect(typeof projection.projectId).toBe("string");
 
   return projection.projectId as string;
+}
+
+const planningReadySpecVersionRef = "spec_version_e2e_closeout_ready";
+const planningReadyQueueItemId = "queue_e2e_closeout_ready" as QueueItemId;
+const planningReadyResearchTaskId = "research_task_e2e_closeout_ready" as ResearchTaskId;
+const planningReadyResearchResultId = "research_result_e2e_closeout_ready" as ResearchResultId;
+const planningReadyEvidencePackId = "evidence_pack_e2e_closeout_ready" as DecisionEvidencePackId;
+const planningReadyEvidenceItemId = "evidence_item_e2e_closeout_ready" as EvidenceItemId;
+const planningReadyProjectionVersion = 3 as ProjectionVersion;
+
+function planningReadySourceRefs(sessionId: string): readonly PlanningHandoffSourceRefDto[] {
+  return [
+    {
+      sourceType: "spec_version",
+      sourceId: planningReadySpecVersionRef,
+      sourceLabel: "E2E closeout ready SpecVersion",
+      required: true,
+      stale: false
+    },
+    {
+      sourceType: "completion_candidate",
+      sourceId: `completion_candidate:${sessionId}:3`,
+      sourceLabel: "E2E closeout completion candidate",
+      required: true,
+      stale: false
+    },
+    {
+      sourceType: "decision_linked_evidence_pack",
+      sourceId: planningReadyEvidencePackId,
+      sourceLabel: "E2E closeout Evidence Pack",
+      required: true,
+      stale: false
+    },
+    {
+      sourceType: "research_updated_queue_item",
+      sourceId: planningReadyQueueItemId,
+      sourceLabel: "E2E closeout research queue card",
+      required: true,
+      stale: false
+    }
+  ];
+}
+
+async function seedPlanningReadyState(
+  storage: Awaited<ReturnType<typeof createMigratedStorageApp>>["storage"],
+  projectId: string,
+  sessionId: string
+) {
+  const eventRepository = createEventRepository(storage.db);
+
+  await eventRepository.append({
+    eventId: `evt_e2e_closeout_spec_${sessionId}` as EventId,
+    eventType: "SpecVersionCreated",
+    projectId: projectId as ProjectId,
+    sessionId: sessionId as SessionId,
+    sourceCommandId: `cmd_e2e_closeout_spec_${sessionId}` as CommandId,
+    correlationId: `corr_e2e_closeout_${sessionId}` as CorrelationId,
+    causationId: null,
+    schemaVersion: CONTRACT_SCHEMA_VERSION,
+    occurredAt: "2026-05-06T00:01:00.000Z",
+    payload: {
+      versionRef: planningReadySpecVersionRef,
+      title: "E2E closeout Planning Handoff ready spec",
+      sections: ["Problem", "Customer", "Value", "Validation"]
+    }
+  });
+
+  await eventRepository.append({
+    eventId: `evt_e2e_closeout_evidence_${sessionId}` as EventId,
+    eventType: "EvidenceSynthesized",
+    projectId: projectId as ProjectId,
+    sessionId: sessionId as SessionId,
+    sourceCommandId: `cmd_e2e_closeout_evidence_${sessionId}` as CommandId,
+    correlationId: `corr_e2e_closeout_${sessionId}` as CorrelationId,
+    causationId: null,
+    schemaVersion: CONTRACT_SCHEMA_VERSION,
+    occurredAt: "2026-05-06T00:02:00.000Z",
+    payload: {
+      projection: {
+        kind: "ResearchEvidenceProjection",
+        version: planningReadyProjectionVersion,
+        taskIds: [planningReadyResearchTaskId],
+        tasks: [
+          {
+            researchTaskId: planningReadyResearchTaskId,
+            sessionId: sessionId as SessionId,
+            objective: "Validate final Planning Handoff closeout evidence.",
+            routeOutcome: "research_needed",
+            impact: "high",
+            status: "evidence_ready",
+            createdAt: "2026-05-06T00:01:30.000Z"
+          }
+        ],
+        results: [
+          {
+            researchResultId: planningReadyResearchResultId,
+            researchTaskId: planningReadyResearchTaskId,
+            resultSummary: "Accepted evidence supports the final Planning Handoff closeout route.",
+            sourceReliability: "high",
+            claim: "The final Planning Handoff route can synthesize source-driven build slices.",
+            decisionContext: "Planning Handoff closeout",
+            importedAt: "2026-05-06T00:01:45.000Z"
+          }
+        ],
+        evidenceMatrices: [
+          {
+            evidenceMatrixId: "evidence_matrix_e2e_closeout_ready",
+            researchTaskId: planningReadyResearchTaskId,
+            researchResultId: planningReadyResearchResultId,
+            synthesisVersion: 1,
+            proEvidence: [
+              {
+                evidenceItemId: planningReadyEvidenceItemId,
+                kind: "pro",
+                summary: "Closeout fixture has accepted evidence."
+              }
+            ],
+            conEvidence: [],
+            uncertainties: [],
+            additionalQuestions: [],
+            balanceStatus: "balanced",
+            decisionBlocked: false
+          }
+        ],
+        evidencePacks: [
+          {
+            evidencePackId: planningReadyEvidencePackId,
+            researchTaskId: planningReadyResearchTaskId,
+            researchResultId: planningReadyResearchResultId,
+            claim: "The final Planning Handoff route can synthesize source-driven build slices.",
+            decisionContext: "Planning Handoff closeout",
+            sourceReliability: "high",
+            retrievedAt: "2026-05-06T00:01:50.000Z",
+            gateStatus: "accepted",
+            gateChecks: [
+              {
+                code: "source_metadata",
+                status: "passed",
+                reason: "Source metadata is present."
+              }
+            ],
+            proEvidenceItemIds: [planningReadyEvidenceItemId],
+            conEvidenceItemIds: [],
+            uncertaintyItemIds: [],
+            limitationRefs: [],
+            implicationScope: "Phase 2 Planning Handoff",
+            createdAt: "2026-05-06T00:01:55.000Z"
+          }
+        ],
+        reviewCards: [
+          {
+            cardId: planningReadyQueueItemId,
+            researchTaskId: planningReadyResearchTaskId,
+            evidencePackId: planningReadyEvidencePackId,
+            cardType: "research_review",
+            title: "E2E closeout Planning Handoff evidence",
+            state: "resolved",
+            impact: "high",
+            gateStatus: "accepted",
+            availableOutcomes: ["approved", "revised", "risk_accepted", "research_insufficient"],
+            terminalOutcome: "approved",
+            blocksPlanning: true,
+            recoveryActions: ["approve_evidence"]
+          }
+        ],
+        knownRisks: [],
+        nextValidationActions: [],
+        proConBalanceStatus: "balanced"
+      },
+      queueProjection: {
+        kind: "DecisionQueueProjection",
+        version: planningReadyProjectionVersion,
+        active: [],
+        next: [],
+        blocked: [],
+        deferred: [
+          {
+            queueItemId: planningReadyQueueItemId,
+            title: "E2E closeout Planning Handoff evidence",
+            state: "resolved",
+            cardType: "research_review",
+            researchTaskId: planningReadyResearchTaskId,
+            evidencePackId: planningReadyEvidencePackId,
+            blocksPlanning: true,
+            availableOutcomes: ["approved", "revised", "risk_accepted", "research_insufficient"],
+            terminalOutcome: "approved"
+          }
+        ]
+      },
+      confidenceProjection: {
+        kind: "ConfidenceCompletionProjection",
+        version: planningReadyProjectionVersion,
+        compositeScore: 92,
+        readinessLabel: "spec_ready",
+        gates: [
+          {
+            gateId: "research_queue_cards",
+            label: "Research-updated Queue cards terminal",
+            passed: true
+          }
+        ],
+        topRisks: [],
+        topRiskCards: [],
+        nextBestActions: ["Create Planning Handoff."],
+        completionCandidate: {
+          status: "candidate",
+          summary: "Spec and research are ready for Planning Handoff.",
+          gateFailures: [],
+          ifStopNowArtifact: {
+            title: "Planning Handoff candidate",
+            summary: "Next build slice can be planned.",
+            knownRisks: [],
+            nextValidationActions: []
+          }
+        }
+      }
+    }
+  });
 }
 
 describe("PR-09 end-to-end dry-run hardening", () => {
@@ -220,6 +469,159 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         "not execution permission"
       ])
     );
+  });
+
+  it("maps Phase 2 final/blocker Planning Handoff and tracker closeout evidence to executable labels", () => {
+    expect(PHASE2_ACCEPTANCE_EVIDENCE_MAP.map((item) => item.scenario)).toEqual([
+      "Scenario H. Phase 2 final Planning Handoff dry-run",
+      "Scenario I. Phase 2 blocker Planning Handoff dry-run"
+    ]);
+    expect(PHASE2_ACCEPTANCE_EVIDENCE_MAP.every((item) => item.sourceDocs.length >= 3)).toBe(true);
+    expect(PHASE2_ACCEPTANCE_EVIDENCE_MAP.flatMap((item) => item.runtimeEvidence)).toEqual(
+      expect.arrayContaining([
+        "PlanningHandoffArtifact",
+        "PlanningHandoffBlockerArtifact",
+        "must_not_use_planning_ready_label",
+        "no_file_shell_browser_deploy_or_external_mutation"
+      ])
+    );
+    expect(PHASE1_2_CLOSEOUT_EVIDENCE.map((item) => item.issue)).toEqual([
+      "#66",
+      "#67",
+      "#68",
+      "#69",
+      "#70",
+      "#71",
+      "#74",
+      "#75"
+    ]);
+    expect(PHASE1_2_CLOSEOUT_EVIDENCE.flatMap((item) => item.evidence)).toEqual(
+      expect.arrayContaining([
+        "canonical 12-section Living Spec",
+        "missed-SSE recovery",
+        "metadata_only_no_execution",
+        "final/blocker Planning Handoff projection",
+        "docs/35 closeout report"
+      ])
+    );
+  });
+
+  it("runs an allowlisted Phase 1.5A research lifecycle with status/refetch recovery and no external write", async () => {
+    const { app, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await postJson(app, "/api/v1/projects", {
+        rawIdea: "A Phase 1.5A lifecycle closeout dry-run idea",
+        localPrivacyMode: "local_only"
+      });
+      const projectId = projectIdFromStart(responseData(start.body));
+      const allowlist = await postJson(app, `/api/v1/projects/${projectId}/research-allowlists`, {
+        allowlistId: "research_allowlist_phase15a_closeout",
+        connectorIds: ["public_search"],
+        sourceCategories: ["public_web"],
+        approvedBy: "owner_phase15a_closeout"
+      });
+
+      expect(allowlist.response.status).toBe(200);
+      expect(responseData(allowlist.body)).toMatchObject({
+        category: "accepted_with_projection",
+        immediateProjection: {
+          selectedAllowlist: {
+            status: "active",
+            connectorIds: ["public_search"],
+            sourceCategories: ["public_web"]
+          }
+        }
+      });
+
+      const run = await postJson(app, `/api/v1/projects/${projectId}/research-runs`, {
+        researchRunId: "research_run_phase15a_closeout",
+        researchTaskId: "research_task_phase15a_closeout",
+        allowlistId: "research_allowlist_phase15a_closeout",
+        connectorId: "public_search",
+        sourceCategory: "public_web",
+        researchObjective: "Find public onboarding proof for the Phase 1.5A closeout dry-run.",
+        productCategory: "Founder workflow assistant",
+        customerProblemHypothesis: "Early founders need public-safe validation research before planning.",
+        contextHash: "ctx_phase15a_closeout",
+        sourceRefs: ["queue_item_phase15a_closeout"]
+      });
+      const runData = responseData(run.body);
+
+      expect(run.response.status).toBe(200);
+      expect(runData).toMatchObject({
+        category: "accepted_with_projection",
+        statusUrl: `/api/v1/projects/${projectId}/research-runs/research_run_phase15a_closeout/status`,
+        projectionHints: [
+          {
+            projectionKind: "ResearchRunProjection",
+            refetchUrl: `/api/v1/projects/${projectId}/research-runs/research_run_phase15a_closeout/status`
+          }
+        ],
+        deterministicOutputs: [
+          expect.objectContaining({
+            payload: expect.objectContaining({
+              commandType: "StartResearchRun",
+              externalMutationPerformed: false,
+              sseEventHints: ["projection.updated"]
+            })
+          })
+        ],
+        immediateProjection: {
+          kind: "ResearchRunControlResult",
+          action: "start",
+          status: "started",
+          disclosureLog: expect.objectContaining({
+            automaticExternalTransferAllowed: true
+          }),
+          researchRun: {
+            status: "running",
+            provider: {
+              adapterKind: "local_fake_readonly"
+            }
+          }
+        }
+      });
+
+      const status = await getJson(
+        app,
+        `/api/v1/projects/${projectId}/research-runs/research_run_phase15a_closeout/status`
+      );
+
+      expect(status.response.status).toBe(200);
+      expect(responseData(status.body)).toMatchObject({
+        kind: "ResearchRunControlProjection",
+        selectedRun: {
+          status: "running"
+        },
+        recovery: {
+          projectionHints: [
+            {
+              projectionKind: "ResearchRunProjection",
+              refetchUrl: `/api/v1/projects/${projectId}/research-runs/research_run_phase15a_closeout/status`
+            }
+          ]
+        }
+      });
+
+      const cancel = await postJson(app, `/api/v1/projects/${projectId}/research-runs/research_run_phase15a_closeout/cancel`, {
+        researchRunId: "research_run_phase15a_closeout",
+        reason: "Closeout dry-run cancels after proving status/refetch recovery."
+      });
+
+      expect(cancel.response.status).toBe(200);
+      expect(responseData(cancel.body)).toMatchObject({
+        immediateProjection: {
+          action: "cancel",
+          status: "cancel_requested",
+          researchRun: {
+            status: "cancel_requested"
+          }
+        }
+      });
+    } finally {
+      await storage.close();
+    }
   });
 
   it("stores, queries, and exports Phase 1.5B no-execution hints for every forbidden runtime boundary", async () => {
@@ -379,7 +781,151 @@ describe("PR-09 end-to-end dry-run hardening", () => {
     }
   });
 
-  it("runs the sample idea through question, evidence, approval, SpecVersion, scoring, Founder Brief, and blocked runtime preview", async () => {
+  it("persists a Phase 2 final Planning Handoff from current accepted source traces", async () => {
+    const { app, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await postJson(app, "/api/v1/projects", {
+        rawIdea: "A final Planning Handoff closeout dry-run idea",
+        localPrivacyMode: "local_only"
+      });
+      const startData = responseData(start.body);
+      const projectId = projectIdFromStart(startData);
+      const sessionId = sessionIdFromStart(startData);
+
+      await seedPlanningReadyState(storage, projectId, sessionId);
+
+      const final = await postJson(app, `/api/v1/sessions/${sessionId}/planning-handoff`, {
+        sessionId,
+        expectedStateVersion: 3,
+        sourceRefs: planningReadySourceRefs(sessionId)
+      });
+      const finalData = responseData(final.body);
+
+      expect(final.response.status).toBe(200);
+      expect(finalData.statusUrl).toBeUndefined();
+      expect(finalData).toMatchObject({
+        category: "accepted_with_projection",
+        immediateProjection: {
+          kind: "PlanningHandoffProjection",
+          currentStatus: "planning_ready",
+          finalArtifact: {
+            kind: "PlanningHandoffArtifact",
+            status: "planning_ready",
+            noExecutionPolicy: "no_file_shell_browser_deploy_or_external_mutation",
+            gateVerdict: {
+              verdict: "planning_ready",
+              terminalOutcomeSummary: [
+                expect.objectContaining({
+                  queueItemId: planningReadyQueueItemId,
+                  outcome: "approved"
+                })
+              ]
+            },
+            taskBreakdown: expect.arrayContaining([
+              expect.objectContaining({
+                acceptanceEvidence: expect.arrayContaining([
+                  expect.stringContaining("No file, shell, browser, deploy, credential, external mutation")
+                ])
+              })
+            ]),
+            prIssuePlan: expect.arrayContaining([
+              expect.objectContaining({
+                summary: expect.stringContaining("Planning Handoff")
+              })
+            ]),
+            readinessChecklist: expect.objectContaining({
+              expectedEvidence: expect.arrayContaining(["pnpm verify:docs"])
+            }),
+            buildSlicePlan: expect.objectContaining({
+              nonGoals: expect.arrayContaining(["external deployment"])
+            })
+          },
+          refetchUrl: `/api/v1/sessions/${sessionId}/planning-handoff`
+        }
+      });
+
+      const fetched = await getJson(app, `/api/v1/sessions/${sessionId}/planning-handoff`);
+
+      expect(responseData(fetched.body)).toMatchObject({
+        currentStatus: "planning_ready",
+        finalArtifact: {
+          kind: "PlanningHandoffArtifact"
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("persists a Phase 2 blocker Planning Handoff when required source traces are incomplete", async () => {
+    const { app, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await postJson(app, "/api/v1/projects", {
+        rawIdea: "A blocker Planning Handoff closeout dry-run idea",
+        localPrivacyMode: "local_only"
+      });
+      const sessionId = sessionIdFromStart(responseData(start.body));
+      const blocker = await postJson(app, `/api/v1/sessions/${sessionId}/planning-handoff`, {
+        sessionId,
+        expectedStateVersion: 1,
+        sourceRefs: [
+          {
+            sourceType: "spec_version",
+            sourceId: "spec_version_missing_closeout",
+            required: true,
+            stale: false
+          },
+          {
+            sourceType: "decision_linked_evidence_pack",
+            sourceId: "evidence_pack_missing_closeout",
+            required: true,
+            stale: false
+          },
+          {
+            sourceType: "research_updated_queue_item",
+            sourceId: "queue_missing_closeout",
+            required: true,
+            stale: false
+          }
+        ]
+      });
+      const blockerData = responseData(blocker.body);
+
+      expect(blocker.response.status).toBe(200);
+      expect(blockerData).toMatchObject({
+        category: "accepted_with_projection",
+        immediateProjection: {
+          kind: "PlanningHandoffProjection",
+          currentStatus: "source_trace_incomplete",
+          blockerArtifact: {
+            kind: "PlanningHandoffBlockerArtifact",
+            status: "source_trace_incomplete",
+            noFinalLabelRule: "must_not_use_planning_ready_label",
+            blockers: expect.arrayContaining([
+              expect.objectContaining({
+                blockerClass: "source_trace"
+              })
+            ])
+          }
+        }
+      });
+
+      const fetched = await getJson(app, `/api/v1/sessions/${sessionId}/planning-handoff`);
+
+      expect(responseData(fetched.body)).toMatchObject({
+        currentStatus: "source_trace_incomplete",
+        blockerArtifact: {
+          noFinalLabelRule: "must_not_use_planning_ready_label"
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("runs the sample idea through question, evidence, approval, SpecVersion, scoring, Founder Brief, Planning Handoff blocker, and blocked runtime preview", async () => {
     const { app, storage } = await createMigratedStorageApp();
 
     try {
@@ -583,15 +1129,53 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       const researchAfterImport = await getJson(app, `/api/v1/sessions/${sessionId}/research`);
       const researchAfterData = responseData(researchAfterImport.body);
       const evidenceMatrix = firstRecord(researchAfterData.evidenceMatrices);
+      const evidencePack = firstRecord(researchAfterData.evidencePacks);
+      const researchReviewCard = firstRecord(researchAfterData.reviewCards);
+      const researchReviewCardId = String(researchReviewCard.cardId);
 
       expect(evidenceMatrix).toMatchObject({
         balanceStatus: "balanced",
         decisionBlocked: false
       });
+      expect(evidencePack).toMatchObject({
+        gateStatus: "accepted"
+      });
+      expect(researchReviewCard).toMatchObject({
+        cardType: "decision_approval",
+        blocksPlanning: true,
+        availableOutcomes: expect.arrayContaining(["approved"])
+      });
+
+      const resolveResearchReview = await postJson(app, `/api/v1/research-cards/${researchReviewCardId}/resolve`, {
+        sessionId,
+        cardId: researchReviewCardId,
+        expectedStateVersion: 9,
+        outcome: "approved",
+        rationale: "Balanced manual evidence is accepted for the closeout Planning Handoff dry-run."
+      });
+
+      expect(resolveResearchReview.response.status).toBe(200);
+      expect(responseData(resolveResearchReview.body)).toMatchObject({
+        category: "accepted_with_projection",
+        queueProjection: {
+          blocked: []
+        }
+      });
+      const resolvedResearch = await getJson(app, `/api/v1/sessions/${sessionId}/research`);
+
+      expect(responseData(resolvedResearch.body)).toMatchObject({
+        reviewCards: [
+          expect.objectContaining({
+            cardId: researchReviewCardId,
+            terminalOutcome: "approved",
+            blocksPlanning: false
+          })
+        ]
+      });
 
       const specUpdate = await postJson(app, "/api/v1/spec-updates", {
         sessionId,
-        expectedStateVersion: 9,
+        expectedStateVersion: 10,
         sourceRef: evidenceMatrix.evidenceMatrixId,
         requiredDecisionRef: "primary_customer",
         title: "Founder Brief-ready local-first product coaching session",
@@ -599,12 +1183,16 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       });
       const specUpdateData = responseData(specUpdate.body);
       const specUpdateQueue = record(specUpdateData.immediateProjection);
-      const specUpdateOutput = records(specUpdateData.deterministicOutputs).find((output) =>
-        String(output.outputRef).startsWith("spec_update_")
+      const specUpdateOutput = recordWithStringFieldPrefix(
+        specUpdateData.deterministicOutputs,
+        "outputRef",
+        "spec_update_"
       );
-      const specUpdatePayload = record(specUpdateOutput?.payload);
-      const decisionItem = records(specUpdateQueue.next).find((item) =>
-        String(item.queueItemId).startsWith("decision_card_decision_")
+      const specUpdatePayload = record(specUpdateOutput.payload);
+      const decisionItem = recordWithStringFieldPrefix(
+        specUpdateQueue.next,
+        "queueItemId",
+        "decision_card_decision_"
       );
 
       expect(specUpdate.response.status).toBe(200);
@@ -616,10 +1204,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           }
         }
       });
-      expect(decisionItem).toBeDefined();
 
       const decisionId = String(specUpdatePayload.decisionId);
-      const approvedPreviewRef = String(specUpdateOutput?.outputRef);
+      const approvedPreviewRef = stringField(specUpdateOutput, "outputRef");
 
       expect(specUpdatePayload).toMatchObject({
         previewRef: approvedPreviewRef,
@@ -628,23 +1215,29 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         title: "Founder Brief-ready local-first product coaching session",
         sections: PHASE1_E2E_SPEC_SECTIONS
       });
-      expect(decisionItem?.queueItemId).toBe(`decision_card_${decisionId}`);
+      expect(decisionItem.queueItemId).toBe(`decision_card_${decisionId}`);
 
       const resolveDecision = await postJson(app, `/api/v1/decisions/${decisionId}/resolve`, {
         sessionId,
         decisionId,
-        expectedStateVersion: 10,
+        expectedStateVersion: 11,
         outcome: "approved",
         rationale: "Manual evidence includes both support and risk, so the primary customer decision can be approved."
       });
       const resolvedQueue = await getJson(app, `/api/v1/sessions/${sessionId}/queue`);
       const specVersion = await postJson(app, `/api/v1/sessions/${sessionId}/spec/versions`, {
-        expectedStateVersion: 11,
+        expectedStateVersion: 12,
         approvedPreviewRef,
         title: "Founder Brief-ready local-first product coaching session",
         sections: PHASE1_E2E_SPEC_SECTIONS
       });
       const specVersionData = responseData(specVersion.body);
+      const specVersionOutput = recordWithStringFieldPrefix(
+        specVersionData.deterministicOutputs,
+        "outputRef",
+        "spec_version_"
+      );
+      const specVersionRef = stringField(specVersionOutput, "outputRef");
 
       expect(resolveDecision.response.status).toBe(200);
       expect(records(responseData(resolvedQueue.body).next).map((item) => item.queueItemId)).not.toContain(
@@ -670,7 +1263,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       ]);
 
       const score = await postJson(app, `/api/v1/sessions/${sessionId}/completeness/score`, {
-        expectedStateVersion: 12
+        expectedStateVersion: 13
       });
       const scoreData = responseData(score.body);
 
@@ -688,10 +1281,11 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       });
 
       const founderBrief = await postJson(app, `/api/v1/sessions/${sessionId}/founder-brief/export`, {
-        expectedStateVersion: 13,
+        expectedStateVersion: 14,
         requestedFormat: "markdown"
       });
       const founderBriefData = responseData(founderBrief.body);
+      const founderBriefProjection = record(founderBriefData.immediateProjection);
 
       expect(founderBrief.response.status).toBe(200);
       expect(founderBriefData.statusUrl).toBeUndefined();
@@ -706,9 +1300,73 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         }
       });
 
+      const planningHandoff = await postJson(app, `/api/v1/sessions/${sessionId}/planning-handoff`, {
+        sessionId,
+        expectedStateVersion: 15,
+        sourceRefs: [
+          {
+            sourceType: "spec_version",
+            sourceId: specVersionRef,
+            sourceLabel: "Approved closeout SpecVersion",
+            required: true,
+            stale: false
+          },
+          {
+            sourceType: "founder_brief",
+            sourceId: `founder_brief:${sessionId}:${String(founderBriefProjection.version)}`,
+            sourceLabel: "Closeout Founder Brief",
+            required: true,
+            stale: false
+          },
+          {
+            sourceType: "decision_linked_evidence_pack",
+            sourceId: String(evidencePack.evidencePackId),
+            sourceLabel: String(evidencePack.claim),
+            required: true,
+            stale: false
+          },
+          {
+            sourceType: "research_updated_queue_item",
+            sourceId: researchReviewCardId,
+            sourceLabel: String(researchReviewCard.title),
+            required: true,
+            stale: false
+          }
+        ]
+      });
+      const planningHandoffData = responseData(planningHandoff.body);
+      const planningHandoffProjection = record(planningHandoffData.immediateProjection);
+
+      expect(planningHandoff.response.status).toBe(200);
+      expect(planningHandoffData.statusUrl).toBeUndefined();
+      expect(planningHandoffProjection).toMatchObject({
+        kind: "PlanningHandoffProjection",
+        currentStatus: "needs_risk_acceptance",
+        blockerArtifact: {
+          kind: "PlanningHandoffBlockerArtifact",
+          status: "needs_risk_acceptance",
+          noFinalLabelRule: "must_not_use_planning_ready_label",
+          blockers: expect.arrayContaining([
+            expect.objectContaining({
+              requiredNextAction: "risk_accept"
+            })
+          ])
+        },
+        refetchUrl: `/api/v1/sessions/${sessionId}/planning-handoff`
+      });
+
+      const fetchedPlanningHandoff = await getJson(app, `/api/v1/sessions/${sessionId}/planning-handoff`);
+
+      expect(responseData(fetchedPlanningHandoff.body)).toMatchObject({
+        currentStatus: "needs_risk_acceptance",
+        blockerArtifact: {
+          noFinalLabelRule: "must_not_use_planning_ready_label"
+        }
+      });
+
       const blockedPreview = await postJson(app, "/api/v1/runtime/codex/preview", {
         sessionId,
-        expectedStateVersion: 14,
+        expectedStateVersion: 16,
         turnPurpose: "implementation_plan_preview",
         contextHash: "ctx_pr09_e2e_blocked_shell",
         prompt: "Preview a command plan, but Phase 1 must not execute it.",
@@ -778,7 +1436,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       });
 
       const forbiddenFounderBriefWrite = await postJson(app, `/api/v1/sessions/${sessionId}/founder-brief/export`, {
-        expectedStateVersion: 16,
+        expectedStateVersion: 18,
         fileWriteRequested: true
       });
 
