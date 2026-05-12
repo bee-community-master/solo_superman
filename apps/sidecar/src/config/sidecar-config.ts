@@ -65,7 +65,7 @@ function parseHost(rawValue: string | undefined) {
 
 function parseLocalCapabilityToken(rawValue: string | undefined) {
   if (rawValue === undefined) {
-    throw new Error(`${LOCAL_TOKEN_ENV} must be provided by Tauri or dev env`);
+    throw new Error(`${LOCAL_TOKEN_ENV} must be provided by local bootstrap, legacy host, or dev env`);
   }
 
   const token = rawValue;

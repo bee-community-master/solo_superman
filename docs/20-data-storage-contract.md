@@ -356,7 +356,7 @@ Phase 2 Planning Handoff 저장소 구현자는 `31-phase2-planning-handoff-cont
 - Source cache files stay under app data dir.
 - Remote config slot does not upload data.
 - Secret values are not stored in libSQL; only secret refs are stored.
-- Export files require explicit user action through the Tauri native boundary.
+- Export files require explicit user action through the UI/local service export boundary; legacy Tauri native boundary may remain only until removal.
 
 ## Official reference notes
 

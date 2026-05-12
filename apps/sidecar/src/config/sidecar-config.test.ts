@@ -122,7 +122,7 @@ describe("sidecar scaffold config", () => {
   it("rejects missing local capability tokens instead of generating an unreachable sidecar-only token", () => {
     delete process.env.SOLO_LOCAL_CAPABILITY_TOKEN;
 
-    expect(() => resolveSidecarConfig()).toThrow("SOLO_LOCAL_CAPABILITY_TOKEN must be provided by Tauri or dev env");
+    expect(() => resolveSidecarConfig()).toThrow("SOLO_LOCAL_CAPABILITY_TOKEN must be provided by local bootstrap, legacy host, or dev env");
   });
 
   it("rejects malformed port values instead of partially parsing them", () => {

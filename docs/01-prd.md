@@ -122,7 +122,7 @@ MVP는 다음 사용 시나리오가 한 프로젝트 안에서 끊기지 않고
 - Codex는 질문, 리서치 프롬프트, evidence 요약, Spec update preview를 만들 수 있다.
 - Codex가 만든 file diff, shell command, browser action은 Phase 1에서 실행되지 않고 preview artifact로만 남는다.
 - 깊은 리서치가 필요하면 수동 프롬프트 핸드오프를 먼저 제공하고, 사용자가 풀 자동화를 원하면 `17-ai-runtime-access-strategy.md`가 정의한 공식 Codex 경로로만 리서치/분석을 진행한다.
-- ChatGPT Pro 웹 자동화는 Phase 2+ 비전이며 Phase 1 MVP 범위가 아니다.
+- ChatGPT Pro 웹 자동화는 Phase 2.5+ preview/gate 비전이며 Phase 1 MVP 범위가 아니다.
 
 ### F13. Founder-facing language guardrail
 

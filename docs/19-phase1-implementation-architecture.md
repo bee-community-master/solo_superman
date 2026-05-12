@@ -1,40 +1,54 @@
-# 19. Phase 1 Implementation Architecture
+# 19. Phase 1 Implementation Architecture Snapshot
 
 ## 목적
 
-이 문서는 Solo Superman Phase 1을 Codex가 구현할 때 첫 scaffold에서 다시 결정하지 않도록 runtime topology, package layout, dev scripts, process boundary, native boundary, storage/runtime 연결의 기준을 고정한다.
+이 문서는 Solo Superman Phase 1~2.5에서 만들어진 implementation topology를 legacy/current implementation snapshot으로 보존한다. Phase 3 이후 future canonical 방향은 `Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db`이며, 이 문서는 기존 Tauri scaffold와 현재 코드베이스를 어떻게 containment/migration 대상으로 읽을지 고정한다.
 
-이 문서는 Phase 1 구현의 기준 계약이다. 실제 Tauri scaffold, package.json, migration file, API handler, runtime adapter 코드는 각 구현 PR과 현재 코드베이스가 소유하며, 이 문서는 그 구현이 따라야 할 경계와 금지선을 정의한다.
+이 문서는 더 이상 Tauri/native shell을 future default로 확정하지 않는다. 실제 Tauri scaffold, package.json, migration file, API handler, runtime adapter 코드는 각 구현 PR과 현재 코드베이스가 소유하며, 이 문서는 그 구현이 따라야 할 경계, 남겨둘 호환성, 제거 전 검증선을 정의한다.
 
 ## 확정 결정
 
 | 항목 | 결정 |
 | --- | --- |
-| Desktop shell | Tauri v2 |
+| Future canonical host | Local web browser UI |
 | Frontend | React + TypeScript + Vite |
-| Local backend | Node.js sidecar |
+| Local backend | Node.js/Hono sidecar as local service |
+| Legacy/current host | Tauri v2 scaffold, compatibility residue only |
 | Sidecar HTTP framework | Hono |
 | ProductEngine 위치 | Node/Hono sidecar |
 | SQLite/libSQL repository 위치 | Node/Hono sidecar |
 | Codex app-server integration 위치 | Node/Hono sidecar |
-| Rust/Tauri 책임 | native boundary와 sidecar lifecycle |
+| Rust/Tauri 책임 | legacy host compatibility: sidecar lifecycle/discovery until removal |
 | Package manager | pnpm workspace |
 | API contract | Hono route + Zod contract + generated OpenAPI artifact |
 | Storage | local embedded libSQL 우선 |
 | Remote storage | config slot only, no sync in Phase 1 |
-| Runtime execution | sandbox preview only, no file/shell/browser apply |
+| Runtime execution | Phase 1~2.5 sandbox/preview only; Phase 3 requires `ExecutionAuthorityRecord` |
 
 ## Rejected alternatives
 
 | 대안 | 기각 이유 |
 | --- | --- |
-| Rust core 중심 ProductEngine | macOS packaging과 native 경계는 강하지만 ProductEngine, JSON schema, LLM orchestration 구현 속도가 느려진다 |
+| Rust core 중심 ProductEngine | native packaging과 native 경계는 강하지만 ProductEngine, JSON schema, LLM orchestration 구현 속도가 느려진다 |
 | Rust storage + Node orchestration | 모든 repository 호출이 Tauri bridge를 타며 구현 복잡도가 커진다 |
 | Frontend-local prototype | 데모는 빠르지만 Codex 자동 구현 목표와 장기 구조 안정성이 약하다 |
 | 기능별 혼합 ownership | Queue, storage, Codex, ProductEngine 책임이 분산되어 구현 중 의사결정이 다시 발생한다 |
 | Phase 1 remote sync 포함 | auth, conflict, offline/online, privacy disclosure가 함께 필요해 MVP가 커진다 |
 
-## Process topology
+## Canonical Phase 3+ topology
+
+```text
+Local Web Frontend
+  -> loopback HTTP with per-run local capability token
+  -> Local Node/Hono Service
+  -> ProductEngine/contracts/db
+```
+
+이 topology는 `36-phase3-controlled-execution-contract.md`가 소유한다. Browser UI는 DB, filesystem, Codex runtime, shell, browser automation에 직접 접근하지 않고 local service API만 호출한다.
+
+## Legacy/current implementation snapshot
+
+현재 코드에는 다음 Tauri host residue가 남아 있다. 이는 migration inventory이며 future default 선언이 아니다.
 
 ```text
 Tauri desktop process
@@ -66,6 +80,8 @@ Tauri desktop process
 
 ## Ownership boundary
 
+Phase 3 이후 owner 기준은 Local Node/Hono Service와 Local Web Frontend다. Tauri/Rust ownership은 legacy compatibility로만 남긴다.
+
 | Capability | Owner | Notes |
 | --- | --- | --- |
 | ProductEngine command/event/state reduce | Node sidecar | `packages/core`에서 pure service로 구현하고 sidecar가 호출한다 |
@@ -74,15 +90,15 @@ Tauri desktop process
 | SQLite/libSQL connection | Node sidecar | repository layer가 DB를 직접 소유한다 |
 | Migration execution | Node sidecar startup | packaged app startup에서 unapplied migration을 적용한다 |
 | Codex app-server child process | Node sidecar | stdio transport를 기본으로 spawn한다 |
-| Sidecar process launch | Rust/Tauri | Tauri가 Node sidecar binary를 시작하고 health를 확인한다 |
-| App data dir | Rust/Tauri | OS별 path를 계산해 sidecar에 넘긴다 |
-| Secret storage | Rust/Tauri | secret value는 Rust command를 통해 읽고, Node에는 필요한 runtime token만 전달한다 |
-| File picker/export | Rust/Tauri | 사용자가 선택한 path나 export action만 Node에 전달한다 |
+| Sidecar process launch | Local service bootstrap; legacy Rust/Tauri | local service dev bootstrap이 우선이며, Tauri launch는 제거 전 호환성으로만 남긴다 |
+| App data dir | Local service config; legacy Rust/Tauri | local service가 app data dir을 소유하고, legacy host는 값을 전달할 수 있다 |
+| Secret storage | secret ref adapter only | secret value는 저장하지 않고 ref만 전달한다. legacy Rust/Tauri command는 제거 전 호환성이다 |
+| File picker/export | Web/local service UX; legacy Rust/Tauri | 사용자가 승인한 export action만 local service에 전달한다 |
 | UI rendering | React frontend | Sidecar가 view model을 제공하고 frontend는 표시한다 |
 
 ## Package layout contract
 
-Phase 1 implementation must use this layout unless a later ADR explicitly replaces it.
+현재 layout은 migration inventory다. Phase 3 구현은 이 layout을 보존하되, Tauri-specific path는 제거 전까지 legacy/current residue로 취급한다.
 
 ```text
 .
@@ -167,8 +183,8 @@ Root scripts:
 | Script | Required behavior |
 | --- | --- |
 | `pnpm install` | install all workspace dependencies |
-| `pnpm dev` | run desktop and sidecar dev processes together |
-| `pnpm dev:desktop` | run Vite/Tauri desktop dev |
+| `pnpm dev` | run local web frontend and sidecar dev processes together with a local token |
+| `pnpm dev:desktop` | run Vite web frontend dev; Tauri dev is a legacy explicit script if needed |
 | `pnpm dev:sidecar` | run Hono sidecar in watch mode on loopback |
 | `pnpm build` | build contracts, core, db, sidecar, desktop |
 | `pnpm typecheck` | typecheck all TypeScript packages |
@@ -191,9 +207,9 @@ Package scripts may be more granular, but Codex should use root scripts as the i
   - `GET /healthz`: process is alive.
   - `GET /readyz`: DB migrated, ProductEngine initialized, Codex adapter status known.
 
-### Packaged app
+### Legacy packaged host compatibility
 
-- Tauri launches the Node sidecar as an external binary.
+- Tauri launch of the Node sidecar is legacy/current host compatibility, not the future default.
 - Packaged sidecar should accept `--host 127.0.0.1 --port 0` so the OS can allocate an available loopback port.
 - On startup, sidecar prints one JSON line to stdout:
 
@@ -201,13 +217,13 @@ Package scripts may be more granular, but Codex should use root scripts as the i
 {"type":"sidecar-ready","baseUrl":"http://127.0.0.1:<port>","pid":1234}
 ```
 
-- Tauri stores the discovered base URL in process memory and exposes it to the WebView through a native command named `get_sidecar_base_url`.
+- A legacy Tauri host may store the discovered base URL in process memory and expose it to the WebView through a native command named `get_sidecar_base_url`.
 - Frontend must never guess the packaged port.
-- If sidecar exits, Tauri shows a recoverable “local engine unavailable” state instead of silently falling back to frontend-only mode.
+- If sidecar exits, the web UI shows a recoverable “local engine unavailable” state instead of silently falling back to frontend-only mode.
 
-## Rust/Tauri native boundary contract
+## Legacy Rust/Tauri native boundary contract
 
-Rust/Tauri commands are limited to native operations that cannot be owned safely by Node or WebView.
+Rust/Tauri commands are limited to legacy host operations that cannot yet be removed safely. New Phase 3 capability must not depend on adding broader native commands.
 
 | Command | Purpose | Returns | Forbidden |
 | --- | --- | --- | --- |
@@ -219,14 +235,14 @@ Rust/Tauri commands are limited to native operations that cannot be owned safely
 | `write_export_file` | Write approved export artifact | success/failure | Writing arbitrary runtime files |
 | `restart_sidecar` | Restart failed sidecar | status | Migrating DB directly |
 
-Rust/Tauri must not expose a generic shell command, generic file write, or generic SQLite command in Phase 1.
+Rust/Tauri must not expose a generic shell command, generic file write, generic SQLite command, or Phase 3 execution bypass.
 
 ## Node sidecar startup sequence
 
 ```text
 load config
   -> validate loopback host/port
-  -> receive appDataDir and secret refs from Tauri or dev env
+  -> receive appDataDir and secret refs from local service config, dev env, or legacy Tauri host
   -> open local libSQL database
   -> apply migrations
   -> initialize repositories
@@ -244,13 +260,13 @@ Configuration keys are split by owner.
 
 | Key | Owner | Phase 1 behavior |
 | --- | --- | --- |
-| `SOLO_APP_DATA_DIR` | Tauri/Rust in packaged, env in dev | directory for DB/cache/logs |
+| `SOLO_APP_DATA_DIR` | local service config or env; legacy Tauri/Rust may pass it | directory for DB/cache/logs |
 | `SOLO_SIDECAR_HOST` | sidecar | default `127.0.0.1` |
 | `SOLO_SIDECAR_PORT` | sidecar | `43110` in dev, `0` in packaged |
-| `SOLO_LOCAL_CAPABILITY_TOKEN` | Tauri/Rust in packaged, env/CLI in dev | per-startup local auth token passed to sidecar; sidecar must not invent a WebView-unreachable token |
+| `SOLO_LOCAL_CAPABILITY_TOKEN` | local bootstrap or env/CLI; legacy Tauri/Rust may pass it | per-run local capability token passed to sidecar; sidecar must not invent a browser-unreachable token |
 | `SOLO_LOCAL_DB_URL` | sidecar | `file:<appDataDir>/solo-superman.db` |
 | `SOLO_REMOTE_DB_URL` | sidecar config only | stored but not used for sync in Phase 1 |
-| `SOLO_REMOTE_DB_TOKEN_REF` | Tauri secret store | secret ref only, no remote sync call |
+| `SOLO_REMOTE_DB_TOKEN_REF` | secret ref adapter | secret ref only, no remote sync call |
 | `SOLO_CODEX_TRANSPORT` | sidecar | `stdio` default |
 | `SOLO_CODEX_SCHEMA_VERSION` | sidecar/contracts | generated schema directory name |
 
@@ -259,7 +275,7 @@ The default AI path skips API key input. Codex authentication follows the Codex 
 ## Security boundary
 
 - Hono sidecar listens on loopback only.
-- Frontend requests include a local capability token issued by Tauri at app startup.
+- Frontend requests include a per-run local capability token issued by local bootstrap/dev env or a legacy host until removal.
 - Sidecar rejects non-loopback requests.
 - Sidecar rejects requests without the local capability token except `/healthz` and `/readyz`.
 - Remote database config is inert in Phase 1.
@@ -268,7 +284,7 @@ The default AI path skips API key input. Codex authentication follows the Codex 
 
 ## Official reference notes
 
-- Tauri supports bundling external sidecar binaries and provides sidecar launch patterns. Phase 1 uses this only to launch the Node sidecar and not to run arbitrary user commands. Reference: <https://v2.tauri.app/learn/sidecar-nodejs/> and <https://v2.tauri.app/ko/develop/sidecar/>
+- Tauri supports bundling external sidecar binaries and provides sidecar launch patterns. In this repo it is legacy/current host residue only; future default remains web + local Node/Hono service. Reference: <https://v2.tauri.app/learn/sidecar-nodejs/> and <https://v2.tauri.app/ko/develop/sidecar/>
 - Codex app-server is intended for rich product integrations with authentication, conversation history, approvals, and streamed agent events. Reference: <https://developers.openai.com/codex/app-server>
 - Hono supports simple Web Standard based APIs and validation through Zod middleware/OpenAPI integrations. Reference: <https://hono.dev/docs/api>, <https://hono.dev/docs/guides/validation>, <https://hono.dev/examples/zod-openapi>
 - Drizzle supports TypeScript schema and migration generation/apply flows. Reference: <https://orm.drizzle.team/docs/get-started/sqlite-new>, <https://orm.drizzle.team/docs/migrations>
@@ -276,9 +292,9 @@ The default AI path skips API key input. Codex authentication follows the Codex 
 
 ## Implementation checklist
 
-- The first implementation PR must create this workspace layout before feature code.
+- Phase 3 migration PRs must preserve this workspace layout while carving a browser-first local web path before feature code.
 - The sidecar must expose `/healthz` and `/readyz` before ProductEngine features.
 - The frontend must call sidecar APIs through a single API client, not through direct libSQL or Codex access.
 - The sidecar must be startable without Codex app-server availability.
-- The packaged sidecar must not hardcode the dev port.
-- The app must fail closed if sidecar cannot start.
+- The local service and any legacy packaged host must not hardcode the dev port.
+- The web UI and any legacy host must fail closed if sidecar cannot start.

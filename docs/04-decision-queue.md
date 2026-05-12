@@ -119,7 +119,7 @@ Codex app-server 또는 리서치 런타임이 실행 전 산출물을 만들었
 - `risk_level`.
 - `allowed_actions`: copy prompt, import result, convert to SpecUpdate, create Risk Card, defer.
 
-Phase 1에서 이 카드는 실제 파일, shell, browser action을 실행하지 않는다. ChatGPT 웹 자동화 preview는 Phase 2+ 후보로만 표시한다.
+Phase 1에서 이 카드는 실제 파일, shell, browser action을 실행하지 않는다. ChatGPT 웹 자동화 preview는 Phase 2.5+ preview/gate 후보로만 표시한다.
 
 ### Founder-facing label rule
 

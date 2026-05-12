@@ -250,7 +250,7 @@ Phase 1의 Research Engine은 `17-ai-runtime-access-strategy.md`를 따른다. �
 - Phase 1 primary: CodexRuntimeAdapter.
 - Phase 1 support: LocalResearchRuntime for manual prompt handoff/import.
 - Phase 1.5A 후보: OpenClaw Background Task adapter.
-- Phase 2+ 후보: ChatGPT Pro 웹 자동화, Browser-use/Playwright 고급 브라우저 자동화 adapter.
+- Phase 2.5+ preview/gate 후보: ChatGPT Pro 웹 자동화, Browser-use/Playwright 고급 브라우저 자동화 adapter.
 - v2+ 후보: CrewAI research flow adapter.
 
 OpenClaw의 background task 개념은 detached work의 ledger로 적합하고, Task Flow는 여러 단계 리서치 pipeline을 durable하게 관리하는 후보로 둔다. Browser-use는 open-source agent와 cloud browser 성격을 분리해 고급 웹 조작 단계에 붙인다.
@@ -275,7 +275,7 @@ ResearchNeed
 → if still insufficient: Risk Card + Known Risk + Next Validation Action
 ```
 
-Phase 1에서 Research Engine은 ChatGPT 웹 UI를 직접 자동 조작하지 않는다. ChatGPT Pro 웹 자동화는 Phase 2+의 project-level blanket delegation 기능이다.
+Phase 1에서 Research Engine은 ChatGPT 웹 UI를 직접 자동 조작하지 않는다. ChatGPT Pro 웹 자동화는 Phase 2.5+의 project-level blanket delegation 설명과 risk gate를 거친 preview/gate 후보이며 active execution 권한이 아니다.
 
 Manual prompt handoff는 다음을 포함해야 한다.
 

@@ -39,7 +39,7 @@ Phase 1.5A/B의 runtime, allowlist, disclosure, DTO/API/DB, no-execution hint �
 | Phase 1.5A-2: Research-updated Queue | `리서치 결과 검토 중` | 새 evidence가 만든 질문, 승인, risk card를 검토하는 중 | high-impact card가 terminal outcome으로 수렴 |
 | Phase 1.5B: Execution-readiness Hints | `실행 준비 정보 보존` | 나중에 실행계획/위임에 필요한 승인, sandbox, rollback 요구사항을 보존 | hint metadata 저장과 조회, 실제 실행 없음 |
 | Phase 2: Execution Planning Handoff | `Planning-ready` | Spec과 해결된 리서치 큐를 PR/issue/task 단위 계획으로 바꿀 준비가 됨 | final `PlanningHandoffArtifact`를 만들 수 있고 unresolved fatal blocker가 없음 |
-| Phase 3: Safe Execution Adapter | `안전 실행 대기` | 실행계획을 승인, sandbox, rollback 경계 안에서 적용할 준비가 됨 | controlled execution approval model 검증 |
+| Phase 3: Safe Execution Adapter | `안전 실행 대기` | 실행계획을 승인, sandbox, rollback 경계 안에서 적용할 준비가 됨 | `36-phase3-controlled-execution-contract.md`의 `ExecutionAuthorityRecord`와 web/local service approval model 검증 |
 
 이 매핑은 UI copy의 source of truth가 아니다. UI 세부 문구는 `02-user-journey-and-ux.md`와 `13-ux-doctrine-and-session-dynamics.md`가 책임지되, 내부 phase 번호를 사용자에게 노출하지 않는 정책은 이 문서를 따른다. Phase별 capability, entry gate, exit evidence, non-goal의 구현 매트릭스는 `29-phase-capability-implementation-matrix.md`가 책임진다.
 
@@ -50,7 +50,7 @@ Solo Superman은 `문서 생성기 -> 실행 자동화 도구`로 점프하지 �
 1. **Spec-ready**: 사용자가 막연한 아이디어를 결정, 근거, Known Risks가 있는 Living Product Spec과 Founder Brief로 닫는다.
 2. **Research follow-up**: 긴 리서치를 맡기고, 핵심 claim/decision별 균형 근거 원장과 새 결정 큐를 받는다.
 3. **Planning-ready**: unresolved high-impact research queue가 없을 때만 실행계획 handoff를 확정한다.
-4. **Controlled execution-ready**: planning artifact가 충분히 검증된 뒤에만 실제 file, shell, browser action을 approval-first 방식으로 다룬다.
+4. **Controlled execution-ready**: planning artifact가 충분히 검증된 뒤에만 실제 file, shell, browser action을 `Local Web Frontend -> Local Node/Hono Service`와 `ExecutionAuthorityRecord` 기반 approval-first 방식으로 다룬다.
 5. **Operations later**: 팀 협업, cloud/mobile monitor, billing, 운영 dashboard는 개인 창업자의 research/planning loop가 안정된 뒤 확장한다.
 
 각 단계는 다음 단계를 가능하게 하는 증거를 남겨야 한다. 다음 단계가 이전 단계의 미해결 결정을 숨기거나 건너뛰면 실패다.
@@ -146,6 +146,7 @@ Gate 판정 규칙:
 
 - 사용자 UI, onboarding, CTA, export에 내부 phase 용어 노출.
 - Controlled execution capability 전 실제 file patch, shell command, browser action, deploy, external system mutation.
+- Phase 3+ 방향을 hosted SaaS default, browser-only DB rewrite, 새 replacement native shell 개발로 해석하는 것.
 - Serve Checklist를 실제 deploy 권한으로 해석하는 것.
 - Learning Loop를 승인 없는 analytics ingestion, external sync, 자동 pivot decision으로 확장하는 것.
 - unresolved Research-updated Queue에서 planning handoff 확정.
@@ -161,6 +162,7 @@ Gate 판정 규칙:
 - Phase 0~6을 한눈에 보는 capability/gate/evidence 기준은 `29-phase-capability-implementation-matrix.md`를 따른다.
 - Phase 2 handoff artifact/report schema는 `31-phase2-planning-handoff-contract.md`를 따른다.
 - Build Slice/Serve/Learning checklist 계약은 `33-build-slice-serve-learning-loop.md`를 따른다.
+- Phase 3 Controlled Execution 계약은 `36-phase3-controlled-execution-contract.md`를 따른다.
 
 ## Acceptance checklist
 
@@ -171,5 +173,6 @@ Gate 판정 규칙:
 - [ ] Phase 2 final handoff와 blocker report split은 `31-phase2-planning-handoff-contract.md`와 일치한다.
 - [ ] Build Slice, Serve Checklist, Learning Loop는 checklist/handoff artifact로만 설명되고 실제 실행 권한으로 해석되지 않는다.
 - [ ] Controlled execution 전 실제 file/shell/browser/deploy action은 금지된다.
+- [ ] Phase 3+ runtime direction은 local-first web app + local Node/Hono service이며 no hosted SaaS default를 유지한다.
 - [ ] 팀, cloud, mobile, billing, operations 확장은 다음 research/planning capability 범위에 포함되지 않는다.
 - [ ] Phase capability matrix가 내부 phase를 사용자-facing copy source of truth로 바꾸지 않는다.

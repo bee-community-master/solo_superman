@@ -14,14 +14,14 @@ Canonical path: `docs/32-phase2-implementation-preflight-contract.md`.
 | Decision depth | DTO field names/types, enum values, routeId/clientName, DB columns/indexes, idempotency key, gate source-of-truth까지 exact default로 고정한다. |
 | Issue boundary | 이 문서는 PR/issue 분해 기준을 제공하지만 GitHub issue draft나 live issue 생성은 포함하지 않는다. |
 | Code boundary | 이 문서는 implementation defaults를 소유한다. #42 Contracts PR은 DTO/command/event/projection/route placeholder와 verifier sync만 code로 승격하고, Drizzle schema/migration, route handler, reducer, UI behavior는 후속 code PR이 소유한다. |
-| Phase boundary | Phase 2는 planning handoff까지다. Phase 3 controlled execution, file/shell/browser/deploy/external mutation capability는 설계하지 않는다. |
+| Phase boundary | Phase 2는 planning handoff까지다. Phase 3 controlled execution, file/shell/browser/deploy/external mutation capability는 이 문서에서 설계하지 않으며, 후속 실행 권한은 `36-phase3-controlled-execution-contract.md`가 소유한다. |
 
 Non-goals:
 
 - Drizzle schema/migration, Hono route handler, ProductEngine reducer behavior, `apps/*` UI behavior 변경.
 - PR 단위 GitHub issue draft 문서 작성.
 - live GitHub issue 생성/수정.
-- Phase 3 controlled execution 설계.
+- Phase 3 controlled execution 설계. 필요 시 `36-phase3-controlled-execution-contract.md`를 기준으로 별도 구현 PR에서 다룬다.
 
 ## 1. DTO / wire shape exact defaults
 
@@ -588,7 +588,7 @@ Sequencing rules:
 
 - Do not start storage/API/UI PRs before the Contracts PR (#42) lands.
 - Do not expose a user-facing `Planning-ready` label before ProductEngine gate tests prove `planning_ready` and blocker paths.
-- Do not create Phase 3 execution capability in any Phase 2 handoff PR.
+- Do not create Phase 3 execution capability in any Phase 2 handoff PR; only preserve forward references to `36-phase3-controlled-execution-contract.md`.
 - The Desktop gate trigger is allowed to create local final/blocker Planning Handoff metadata only. It must not introduce file patch, shell command, browser action, deploy, credential, external mutation, or active delegation controls.
 
 ## 7. Phase 1.5 dependency handling
@@ -610,5 +610,5 @@ Exact defaults:
 - [ ] `docs/32-phase2-implementation-preflight-contract.md` is referenced from README and owner docs.
 - [ ] The seven decisions are exact enough for Phase 2 implementation PRs to proceed without choosing DTO names, enum values, route ids, storage columns, idempotency, gate precedence, or Phase 1.5 fallback behavior.
 - [ ] The document does not add GitHub issue draft content.
-- [ ] The document does not imply reducer/storage/API handler/UI behavior or Phase 3 execution changes in the Contracts PR (#42).
+- [ ] The document does not imply reducer/storage/API handler/UI behavior or Phase 3 execution changes in the Contracts PR (#42), and any Phase 3 authority wording points forward to `36-phase3-controlled-execution-contract.md`.
 - [ ] Phase 2 contract names are promoted into parsed docs/25 enum/projection tables and docs/26 current route catalog rows only in the Contracts PR (#42), together with code and verifier updates.

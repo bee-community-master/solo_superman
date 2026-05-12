@@ -23,12 +23,12 @@
 - Pro/Con Evidence Gate가 confirmation bias를 막는 evidence 품질 기준을 정의하는가?
 - State/Event Contract가 Question, Research, Approval, SpecVersion, Completion의 trace를 끊기지 않게 정의하는가?
 - ProductEngine Orchestrator가 Phase 1 전체 세션 라이프사이클, 중앙 상태 전이, Queue 재계산, active batch 안정성을 정의하는가?
-- AI Runtime Access Strategy가 Codex app-server, sandbox preview, manual handoff, Phase 2+ ChatGPT 웹 자동화 경계를 정의하는가?
+- AI Runtime Access Strategy가 Codex app-server, sandbox preview, manual handoff, Phase 2.5+ ChatGPT 웹 자동화 preview/gate 경계를 정의하는가?
 - Research Loop의 입력/출력이 명확한가?
 - approval boundary가 명확한가?
 - runtime adapter와 core의 경계가 명확한가?
-- Tauri + Node/Hono sidecar topology가 구현자가 다시 선택하지 않아도 될 만큼 고정되어 있는가?
-- node_core_rust_native_boundary가 Rust/Tauri command와 Node sidecar 책임을 분리하는가?
+- Local Web Frontend + Local Node/Hono Service topology가 구현자가 다시 선택하지 않아도 될 만큼 고정되어 있는가?
+- legacy/current Tauri host residue와 Local Node/Hono Service 책임이 분리되어 있는가?
 - local embedded libSQL + Drizzle 저장소, migration, repository convention이 정의되어 있는가?
 - remote sync가 Phase 1에서 구현되지 않고 remote config placeholder only로 제한되는가?
 - Hono `/api/v1` route group, local auth, SSE event stream, error envelope가 정의되어 있는가?
@@ -53,13 +53,13 @@
 | Pro/Con Evidence | pro_evidence, con_evidence, missing_con_evidence, skeptical search, completion 연결 정의 |
 | State/Event Contract | AmbiguityIssue에서 CompletionCandidate까지 trace link, terminal outcome, guardrail 정의 |
 | ProductEngine | 전체 세션 라이프사이클, command/event/state, Queue 재계산, 모듈 소유권 정의 |
-| AI Runtime | Codex app-server 우선, Phase 1 sandbox preview, ChatGPT 웹 자동화 Phase 2+ 정의 |
+| AI Runtime | Codex app-server 우선, Phase 1 sandbox preview, ChatGPT 웹 자동화 Phase 2.5+ preview/gate 정의 |
 | Founder Brief | Problem-Customer-Value, Top Decisions, Known Risks, Next Validation Actions 정의 |
 | Domain | 핵심 객체와 상태 정의 |
 | Architecture | core와 runtime adapter 경계 정의 |
 | Security | local-first와 승인 경계 정의 |
 | Roadmap | Phase별 진입 조건과 제외 범위 정의 |
-| Implementation Architecture | Tauri + Node/Hono sidecar, package layout, dev scripts, native boundary 정의 |
+| Implementation Architecture Snapshot | legacy/current implementation snapshot, package layout, dev scripts, Tauri containment/migration boundary 정의 |
 | Data Storage | local embedded libSQL, Drizzle migration, repository/projection, remote config placeholder 정의 |
 | Sidecar API Runtime | Hono route shape, validation, SSE, Codex app-server preview boundary 정의 |
 | Implementation Sequence | PR-01~PR-09 acceptance와 cross-PR dependency 정의 |
@@ -413,7 +413,7 @@ Follow-up questions:
 
 - `CreatePlanningHandoff` gate 통과는 final `PlanningHandoffArtifact`를 `planning_handoffs` family에 저장하고 `PlanningHandoffProjection`을 반환한다.
 - `CreatePlanningHandoff` gate 실패는 command rejection만 반환하지 않고 `PlanningHandoffBlockerArtifact`를 저장해 blocker class, required next action, safe preview refs를 조회 가능하게 한다.
-- Desktop UI는 `PlanningHandoffProjection`을 read-only로 조회해 final artifact에서만 `Planning-ready` label을 보여주고, blocker artifact에서는 blocker class, required next action, residual risk 상태, safe preview refs를 별도 report로 보여준다.
+- UI/view-model은 `PlanningHandoffProjection`을 read-only로 조회해 final artifact에서만 `Planning-ready` label을 보여주고, blocker artifact에서는 blocker class, required next action, residual risk 상태, safe preview refs를 별도 report로 보여준다.
 - `32-phase2-implementation-preflight-contract.md`는 DTO field names/types, gate precedence, storage columns/indexes, idempotency key, routeId/clientName, Phase 1.5 dependency fallback을 Phase 2 implementation exact default로 고정한다.
 - DTO names (`CreatePlanningHandoffRequest`, `PlanningHandoffProjection`, `PlanningHandoffArtifactDto`, `PlanningHandoffBlockerArtifactDto`)는 #42 이후 `25`번의 current closed enum/projection tables와 `packages/contracts` public surface에 있어야 한다.
 - endpoint names (`POST /api/v1/sessions/:sessionId/planning-handoff`, `GET /api/v1/sessions/:sessionId/planning-handoff`)는 #42 이후 `26`번의 current route catalog rows와 `API_ROUTE_CATALOG` placeholder에 있어야 한다.
@@ -458,14 +458,14 @@ Follow-up questions:
 - `DelegationRiskGate`가 policy/terms risk, data disclosure, session custody, write boundary, revoke/audit, reliability/fallback을 판정한다.
 - candidate가 quality lift를 보이면 source trace, pro/con/uncertainty, freshness/stale risk, decision impact, fallback/revoke/audit evidence가 Phase 1.5A baseline과 비교된다.
 - candidate가 policy/session/data/write boundary에서 막히면 safe failure로 기록하고 quality lift를 주장하지 않는다.
-- first Artifact+Gate product code is limited to DTO/types, reducer/projection, local persistence, adapter interface port, and deterministic tests; no desktop UI, sidecar API route/client, live browser submit/write, credential custody, account sharing/resale, team/mobile/billing scope가 생성되지 않는다.
+- first Artifact+Gate product code is limited to DTO/types, reducer/projection, local persistence, adapter interface port, and deterministic tests; no review UI panel, sidecar API route/client, live browser submit/write, credential custody, account sharing/resale, team/mobile/billing scope가 생성되지 않는다.
 
 실패 조건:
 
 - ChatGPT Pro/browser candidate output을 Phase 1.5A baseline과 비교하지 않고 품질 향상으로 주장한다.
 - source dump만 남기고 Decision, Research-updated Queue, Known Risk, or Follow-up Question impact를 비워둔다.
 - form submit, POST/write, account/session credential custody, 계정 공유/재판매, external mutation을 Phase 2.5 preview처럼 허용한다.
-- desktop UI, sidecar API route/client, live adapter, Phase 3 execution authority 또는 PR sequence를 34번 문서에서 확정한다.
+- review UI panel, sidecar API route/client, live adapter, Phase 3 execution authority 또는 PR sequence를 34번 문서에서 확정한다.
 
 ## 정적 일관성 검토 체크리스트
 
@@ -503,7 +503,7 @@ Phase 1~2 구현 보강 closeout의 repo-local evidence ledger는 `docs/35-phase
 - [ ] Phase 1에서 실제 파일 patch, shell command, browser action은 실행되지 않는다.
 - [ ] Phase 1에서 ChatGPT 웹 자동화는 구현 범위 밖이다.
 - [ ] 깊은 리서치 fallback은 수동 프롬프트 핸드오프 후 `17-ai-runtime-access-strategy.md`의 공식 Codex 경로로 정의된다.
-- [ ] ChatGPT Pro 웹 자동화는 Phase 2+에서 project-level blanket delegation, revoke, audit, fallback chain이 있을 때만 가능하다.
+- [ ] ChatGPT Pro 웹 자동화는 Phase 2.5+에서 project-level blanket delegation 설명, revoke, audit, fallback chain을 갖춘 preview/gate 후보로만 가능하며 active execution은 Phase 3 authority gate 이후다.
 - [ ] Phase 2.5 Browser Automation Preview는 `34-phase2.5-browser-automation-preview-contract.md`의 comparative dry-run, DelegationRiskGate, ResearchQualityComparisonReport, no-execution boundary를 따른다.
 - [ ] Phase 1.5A는 `30-phase1.5-research-runtime-and-readiness-contract.md`의 project allowlisted read-only research runtime으로 정의되며 public-safe summary 자동 전송, private-source approval gate, run lifecycle, disclosure log를 요구한다.
 - [ ] Phase 1.5A는 A-1 Decision-linked Evidence Pack과 A-2 Research-updated Queue로 분리된다.
@@ -526,9 +526,9 @@ Phase 1~2 구현 보강 closeout의 repo-local evidence ledger는 `docs/35-phase
 - [ ] `ConvertRuntimeArtifact`는 `ImplementationPlanPreviewArtifact`를 final `PlanningHandoffArtifact`로 승격하지 않는다.
 - [ ] 사용자 UI/onboarding/CTA/export에는 내부 Phase 용어가 노출되지 않는다.
 - [ ] README, Architecture, Decision Queue, Spec Engine, State/Event Contract는 같은 ProductEngine Orchestrator 경계를 공유한다.
-- [ ] Tauri + Node/Hono sidecar 결정이 README, Architecture, Implementation Architecture에서 일치한다.
-- [ ] Rust/Tauri native boundary는 secret reference, app data dir, file picker/export, sidecar lifecycle에 한정된다.
-- [ ] ProductEngine, DB repository, Codex adapter, Hono API는 Node sidecar 소유로 일관된다.
+- [ ] Local Web Frontend + Local Node/Hono Service 결정이 README, Architecture, Implementation Architecture Snapshot, Phase 3 contract에서 일치한다.
+- [ ] Tauri/native shell은 future default가 아니라 legacy/current host residue로만 설명된다.
+- [ ] ProductEngine, DB repository, Codex adapter, Hono API, Phase 3 authority orchestration은 Local Node/Hono Service 소유로 일관된다.
 - [ ] local embedded libSQL + Drizzle 선택이 Architecture, Domain Model, Data Storage에서 일치한다.
 - [ ] remote config placeholder only 정책이 README, Architecture, Data Storage, Security/Phase boundary와 충돌하지 않는다.
 - [ ] Hono route group은 ProductEngine command/event/state를 우회하지 않는다.
@@ -550,27 +550,27 @@ Phase 1~2 구현 보강 closeout의 repo-local evidence ledger는 `docs/35-phase
 
 - Phase 1 범위: 일관됨.
 - Non-goals: 일관됨.
-- Core stack: Tauri/React/local embedded libSQL/Spec Engine으로 일관됨.
+- Core stack: Local Web Frontend + Local Node/Hono Service + local embedded libSQL + ProductEngine/Spec Engine으로 일관됨.
 - Runtime: Codex app-server primary와 adapter 후보로 일관됨.
 - UX 중심: Decision Queue 중심으로 일관됨.
 - Completion: 복합 완성도 + gate로 일관됨.
 - UX Doctrine: confidence map, adaptive session, Founder Brief 기준으로 일관됨.
 - State/Event Contract: Question, Research, Approval, SpecVersion, Completion trace 기준으로 일관됨.
-- Implementation Architecture: Tauri + Node/Hono sidecar, package layout, dev scripts, native boundary 기준으로 일관됨.
+- Implementation Architecture Snapshot: legacy/current implementation snapshot, package layout, dev scripts, Tauri containment/migration boundary 기준으로 일관됨.
 - Data Storage: local embedded libSQL + Drizzle, repository/projection, remote config placeholder 기준으로 일관됨.
-- Sidecar API Runtime: Hono `/api/v1`, local auth, SSE, Codex app-server preview boundary 기준으로 일관됨.
+- Sidecar API Runtime: Hono `/api/v1`, per-run local capability token, loopback-only service, explicit CORS allowlist, CSRF/replay guard, SSE, Codex app-server preview boundary 기준으로 일관됨.
 - Implementation Sequence: PR-01~PR-09 순서와 acceptance 기준으로 일관됨.
 - ProductEngine Runtime Contract: pure reducer + effect plan, persisted async effect queue, active batch/deterministic projection exception, effect type taxonomy, conservative AI retry matrix 기준으로 일관됨.
 - Operations/Observability Contract: 전구간 failure/status/recovery, 대표 장애 dry-run, user-visible recovery, statusUrl/projection refetch 기준으로 일관됨.
-- Founder OS Product Doctrine: 내부 capability phase와 사용자-facing journey stage 분리, Phase 1.5A subphase, Phase 2 strict gate 기준으로 일관됨.
+- Founder OS Product Doctrine: 내부 capability phase와 사용자-facing journey stage 분리, Phase 1.5A subphase, Phase 2 strict gate, Phase 3 web/local controlled execution gate 기준으로 일관됨.
 
 이번 문서에서 고정된 구현 결정:
 
-- Tauri 내부 core 구현 방식은 Rust command 중심이 아니라 Node/Hono sidecar 중심이다.
+- Tauri 내부 core 구현 방식은 future default가 아니며, Phase 3+ core 구현 방식은 Local Node/Hono Service 중심이다.
 - SQLite binding은 local embedded libSQL via `@libsql/client`다.
 - schema/migration은 Drizzle schema와 generated SQL migration이다.
 - Codex app-server는 stdio 기본값과 generated schema pinning을 사용한다.
-- ChatGPT/Codex secret value는 DB에 저장하지 않고 Rust/Tauri native boundary가 secret reference만 다룬다.
+- ChatGPT/Codex secret value는 DB에 저장하지 않고 secret reference만 다룬다. legacy Rust/Tauri boundary는 제거 전 호환성이다.
 - 첫 LLM provider abstraction은 `CodexRuntimeAdapter`이며, API key provider abstraction은 후속 후보로 둔다.
 - Phase 1 source cache는 app data dir 격리와 export prohibition을 우선하고, 파일 암호화는 후속 hardening 후보로 둔다.
 - ProductEngine core는 pure reducer + effect plan이다.
@@ -578,3 +578,16 @@ Phase 1~2 구현 보강 closeout의 repo-local evidence ledger는 `docs/35-phase
 - First-class effect types는 queue_projection_effect, research_evidence_effect, codex_runtime_preview_effect다.
 - Completeness/Scoring, SpecVersion, Founder Brief draft는 reducer_deterministic_output이다.
 - Retry policy는 conservative_ai_retry_matrix다.
+
+
+## Phase 3 web/local controlled execution dry-run
+
+`36-phase3-controlled-execution-contract.md`가 추가된 뒤 문서 검증자는 다음을 확인한다.
+
+- [ ] Phase 3 canonical topology가 `Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db`로 설명된다.
+- [ ] no hosted SaaS default, no browser-only DB rewrite, no new replacement native shell이 Phase 3 non-goal로 유지된다.
+- [ ] `ExecutionAuthorityRecord`가 source planning handoff, preview artifact, `approvalDecision`, sandbox boundary, `rollbackReference`, `executionResult`, `evidenceRefs`, `auditRefs`를 포함한다.
+- [ ] `BoundedAgentOutputRecord`가 source/evidence/approval 없는 agent output을 suggestion-only 또는 preview-only로 제한한다.
+- [ ] `10`, `17`, `21`, `36`번 문서가 per-run local capability token, loopback-only Local Node/Hono Service, explicit local origin allowlist, CSRF/replay/idempotency guard, hosted web origin not implicit authority를 공유한다.
+- [ ] Phase 3 전 실제 file/shell/browser/deploy/external mutation은 계속 금지된다.
+- [ ] `node scripts/verify-doc-contracts.mjs`가 Phase 3 계약 문서와 stale Tauri future-default 문구를 함께 검증한다.

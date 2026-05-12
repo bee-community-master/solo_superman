@@ -4,7 +4,7 @@
 
 AI Runtime Access Strategy는 Solo Superman이 AI를 어떻게 사용자의 제품 경험으로 제공할지 정의한다. 핵심은 “AI provider를 얼마나 많이 붙일 것인가”가 아니라, **초기 창업자가 API key 발급 없이 Codex 중심 자동화와 깊은 리서치 보조를 사용할 수 있게 하되, Phase별 권한 경계를 명확히 지키는 것**이다.
 
-이 문서는 `09-system-architecture.md`의 RuntimeAdapter 선택, `10-security-privacy-and-approval.md`의 권한 경계, `06-research-engine.md`의 리서치 실행 경로, `11-roadmap-and-phase-boundaries.md`의 Phase 진입 조건을 연결한다. Codex Prompt/Output의 canonical schema와 repair/failure routing은 `24-codex-prompt-output-contract.md`가 소유한다.
+이 문서는 `09-system-architecture.md`의 RuntimeAdapter 선택, `10-security-privacy-and-approval.md`의 권한 경계, `06-research-engine.md`의 리서치 실행 경로, `11-roadmap-and-phase-boundaries.md`의 Phase 진입 조건을 연결한다. Codex Prompt/Output의 canonical schema와 repair/failure routing은 `24-codex-prompt-output-contract.md`가 소유하고, Phase 3 controlled execution 권한은 `36-phase3-controlled-execution-contract.md`가 소유한다.
 
 ## 확정 결정
 
@@ -19,8 +19,9 @@ AI Runtime Access Strategy는 Solo Superman이 AI를 어떻게 사용자의 제�
 | Phase 1.5A research runtime | Phase 1 구현 밖. `30-phase1.5-research-runtime-and-readiness-contract.md`의 allowlisted read-only external research runtime |
 | Phase 1.5B execution-readiness hints | Phase 1 구현 밖. `30-phase1.5-research-runtime-and-readiness-contract.md`의 no-execution readiness metadata 저장·조회·export |
 | Phase 1 browser automation | 제외 |
+| Phase 3 execution runtime | Local Web Frontend + Local Node/Hono Service, `ExecutionAuthorityRecord` required |
 | Phase 1 deep research fallback | 수동 프롬프트 핸드오프 → 공식 Codex 경로 |
-| ChatGPT Pro 웹 자동화 | Phase 2+ 비전 |
+| ChatGPT Pro 웹 자동화 | Phase 2.5+ preview/gate 비전; active execution은 Phase 3 authority gate 이후 |
 | ChatGPT Pro 웹 자동화 승인 모델 | 프로젝트 단위 1회 포괄 위임, revoke/audit 필수 |
 | 일반 사용자 API key fallback | 기본 UX에서 제외 |
 | 고급 API key fallback | 후속 ADR 후보이며 Phase 1 기본값 아님 |
@@ -33,7 +34,7 @@ AI Runtime Access Strategy는 Solo Superman이 AI를 어떻게 사용자의 제�
 
 1. 사용자는 Codex/ChatGPT 계정 기반 AI 사용을 먼저 시도한다.
 2. Phase 1은 Codex app-server를 로컬 sidecar처럼 다루는 방향으로 설계한다.
-3. ChatGPT Pro 웹 자동화는 Phase 1에서 구현하지 않고, Phase 2+의 깊은 리서치 자동화 비전으로 둔다.
+3. ChatGPT Pro 웹 자동화는 Phase 1에서 구현하지 않고, Phase 2.5+의 깊은 리서치 자동화 preview/gate 비전으로 둔다.
 4. 자동화가 막히면 API key 입력을 요구하기보다 수동 프롬프트 핸드오프와 공식 Codex 경로를 먼저 제공한다.
 
 ## 공식 근거와 설계 제약
@@ -68,10 +69,18 @@ Phase 1.5B
   Execution-readiness hints
   + no file/shell/browser execution
 
-Phase 2+
-  ChatGPT Pro web deep research automation
-  + project-level blanket delegation
-  + revoke/audit/session failure handling
+Phase 2.5
+  Browser/ChatGPT delegation preview
+  + DelegationRiskGate
+  + ResearchQualityComparisonReport
+  + no live execution
+
+Phase 3
+  Controlled Execution Adapter
+  + Local Web Frontend -> Local Node/Hono Service
+  + per-run local capability token
+  + loopback-only execution authority
+  + ExecutionAuthorityRecord approval/rollback/audit
 
 Later / ADR only
   Advanced API-key provider fallback
@@ -126,7 +135,7 @@ Phase 1 구현자는 다음 결정을 다시 하지 않는다.
 | 실제 프로젝트 파일 patch 적용 | “자동 코드 실행 없음” non-goal 위반 |
 | shell command 실행 적용 | 로컬 환경과 데이터 안전 경계 위반 |
 | browser action 실행 | Phase 1 browser automation 제외 원칙 위반 |
-| ChatGPT 웹 UI 자동 조작 | Phase 2+ 비전이며 Phase 1 구현 제외 |
+| ChatGPT 웹 UI 자동 조작 | Phase 2.5+ preview/gate 비전이며 Phase 1 구현 제외 |
 | 사용자의 ChatGPT 계정 공유/대리 보관 | 보안/정책 리스크 |
 | API key를 일반 사용자 onboarding 필수값으로 요구 | 진입 장벽과 비용 통제 UX 악화 |
 
@@ -149,9 +158,20 @@ Preview artifact 유형:
 - `implementation_plan_preview`: Phase 1/1.5B preview-only planning note와 Phase 2 handoff 후보 정보. final `PlanningHandoffArtifact`는 `31-phase2-planning-handoff-contract.md`가 소유한다.
 - `diff_preview`: 실제 파일 적용 전의 예상 diff 설명.
 - `command_plan_preview`: 실행하지 않는 명령 계획과 위험 설명.
-- `browser_action_preview`: Phase 2+에서만 실행 가능한 브라우저 조작 계획.
+- `browser_action_preview`: Phase 2.5+에서 검토 가능하지만 Phase 3 authority gate 전에는 실행되지 않는 브라우저 조작 계획.
 
 Preview artifact는 “실행 결과”가 아니라 “검토 가능한 제안”이다. high-impact artifact는 Decision Approval Card 또는 Risk Card로 연결한다.
+
+## Phase 3: Controlled execution runtime boundary
+
+Phase 3에서 runtime output은 `36-phase3-controlled-execution-contract.md`의 `BoundedAgentOutputRecord`와 `ExecutionAuthorityRecord`를 통과해야 한다. 이 단계는 local-first web app + local Node/Hono service 안에서 시작하며 hosted SaaS default가 아니다.
+
+- Local Node/Hono Service는 loopback-only로 bind한다.
+- Non-health API와 execution route는 per-run local capability token을 요구한다.
+- hosted web origin은 local sidecar를 묵시적으로 제어할 수 없다.
+- approval/execution route는 CSRF/replay 방지를 위해 idempotency key, preview hash, authority record id, expiry check를 검증한다.
+- Codex output은 source/evidence/approval linkage가 없으면 suggestion-only이며, file/shell/browser action으로 바로 승격되지 않는다.
+
 
 
 
@@ -206,9 +226,9 @@ Manual handoff는 실패가 아니라 Phase 1의 안전한 깊은 리서치 경�
 
 공식 Codex 경로도 Phase 1에서는 sandbox preview 권한만 가진다. 즉, 결과는 Spec/Research artifact로 들어오지만 OS 파일, shell, browser에 적용되지 않는다.
 
-## Phase 2+: ChatGPT Pro web automation vision
+## Phase 2.5+: ChatGPT Pro web automation preview/gate vision
 
-ChatGPT Pro 웹 자동화는 Phase 2+의 후보이며, Phase 2.5 Browser Automation Preview의 canonical 계약은 `34-phase2.5-browser-automation-preview-contract.md`가 소유한다.
+ChatGPT Pro 웹 자동화는 Phase 2.5+의 preview/gate 후보이며, Phase 2.5 Browser Automation Preview의 canonical 계약은 `34-phase2.5-browser-automation-preview-contract.md`가 소유한다. active browser execution authority는 `36-phase3-controlled-execution-contract.md`의 `ExecutionAuthorityRecord` 이후에만 다룬다.
 
 목표:
 
@@ -309,5 +329,6 @@ AI runtime 작업은 State/Event Contract를 우회하지 않는다.
 - Phase 1에서 ChatGPT 웹 자동화가 구현 범위 밖인가?
 - API key가 일반 사용자 onboarding 필수값이 아닌가?
 - 깊은 리서치가 필요할 때 수동 handoff와 공식 Codex 경로 fallback이 정의되어 있는가?
-- Phase 2+ ChatGPT 웹 자동화의 프로젝트 단위 포괄 위임, revoke, audit, policy/session failure가 정의되어 있는가?
+- Phase 2.5+ ChatGPT 웹 자동화 preview/gate의 프로젝트 단위 포괄 위임 설명, revoke, audit, policy/session failure가 정의되어 있고 active execution으로 오해되지 않는가?
+- Phase 3 execution runtime이 `36-phase3-controlled-execution-contract.md`, `ExecutionAuthorityRecord`, per-run local capability token, loopback-only local service, CSRF/replay 방어에 연결되어 있는가?
 - Codex 결과가 Question, ResearchTask, EvidenceMatrix, Decision, SpecVersion trace를 우회하지 않는가?

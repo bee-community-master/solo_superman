@@ -8,6 +8,7 @@ import {
   findPhase15bExecutionPermissionClaims,
   findPhase25ExecutionPermissionClaims,
   findRouteQueryMismatches,
+  findWebRealignmentFutureDefaultClaims,
   moduleSpecifiers,
   parseConstArray,
   parseDocs25DeterministicOutputTypes,
@@ -162,6 +163,38 @@ describe("doc contract verification helpers", () => {
       "docs/example.md:1: Phase 2.5 can execute browser action after a delegation preview.",
       "docs/example.md:4: Phase 2.5는 submit/write를 허용한다.",
       "docs/example.md:5: Phase 2.5는 DTO/API/storage preflight를 구현한다."
+    ]);
+  });
+
+
+  it("flags stale Tauri/native future-default claims after web realignment", () => {
+    const documents = [
+      {
+        path: "docs/README.md",
+        text: [
+          "Solo Superman is now local web first.",
+          "Solo Superman은 macOS-first, local-first Founder OS다.",
+          "Tauri/native shell은 future default가 아니라 legacy/current host다.",
+          "ChatGPT automation is Phase 2+ vision.",
+          "Desktop UI keeps the old label.",
+          "Desktop session outside the app.",
+          "Export files require explicit user action through the Tauri native boundary.",
+          "Phase 3 uses Local Web Frontend + Local Node/Hono Service."
+        ].join("\n")
+      },
+      {
+        path: "docs/09-system-architecture.md",
+        text: "| Desktop shell | Tauri v2 | core 확정 |"
+      }
+    ];
+
+    expect(findWebRealignmentFutureDefaultClaims(documents)).toEqual([
+      "docs/README.md:2: Solo Superman은 macOS-first, local-first Founder OS다.",
+      "docs/README.md:4: ChatGPT automation is Phase 2+ vision.",
+      "docs/README.md:5: Desktop UI keeps the old label.",
+      "docs/README.md:6: Desktop session outside the app.",
+      "docs/README.md:7: Export files require explicit user action through the Tauri native boundary.",
+      "docs/09-system-architecture.md:1: | Desktop shell | Tauri v2 | core 확정 |"
     ]);
   });
 

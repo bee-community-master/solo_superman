@@ -23,7 +23,7 @@ Idea
 -> Learning Loop
 ```
 
-Phase 1은 `Idea -> Spec -> Evidence -> Decision`을 닫고, Phase 2는 `Build Slice -> Serve -> Learning`으로 넘어가기 위한 planning context를 만든다. 실제 controlled execution adapter의 권한, 승인, 실행 절차는 이 문서가 아니라 별도 Phase 3+ 계약에서만 다루며, 이 문서는 그 전 단계의 checklist/handoff 경계만 고정한다.
+Phase 1은 `Idea -> Spec -> Evidence -> Decision`을 닫고, Phase 2는 `Build Slice -> Serve -> Learning`으로 넘어가기 위한 planning context를 만든다. 실제 controlled execution adapter의 권한, 승인, 실행 절차는 이 문서가 아니라 `36-phase3-controlled-execution-contract.md`에서만 다루며, 이 문서는 그 전 단계의 checklist/handoff 경계만 고정한다.
 
 ## Build Slice Plan
 
@@ -126,3 +126,8 @@ Gate 실패 또는 fatal blocker가 있으면 이 세 field family를 final hand
 - [ ] Learning Loop Hook은 feedback/usage signal을 Evidence, Decision, 다음 Build Slice로 되돌린다.
 - [ ] Pivot/persevere decision은 사용자 승인 없이 확정되지 않는다.
 - [ ] Planning Handoff에 연결될 때 no-execution policy가 함께 표시된다.
+
+
+## Phase 3 handoff reference
+
+Phase 3 controlled execution authority, `ExecutionAuthorityRecord`, rollback, audit, Local Web Frontend + Local Node/Hono Service topology는 `36-phase3-controlled-execution-contract.md`가 canonical source다.

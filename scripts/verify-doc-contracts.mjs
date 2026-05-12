@@ -684,6 +684,203 @@ const PHASE12_CLOSEOUT_FIXTURE_SNIPPETS = [
   "docs/35 closeout report"
 ];
 
+
+const PHASE3_DOC_PATH = "docs/36-phase3-controlled-execution-contract.md";
+
+const PHASE3_REQUIRED_REFERENCES = [
+  "docs/README.md",
+  "docs/09-system-architecture.md",
+  "docs/10-security-privacy-and-approval.md",
+  "docs/11-roadmap-and-phase-boundaries.md",
+  "docs/12-validation-and-dry-run.md",
+  "docs/13-ux-doctrine-and-session-dynamics.md",
+  "docs/17-ai-runtime-access-strategy.md",
+  "docs/19-phase1-implementation-architecture.md",
+  "docs/21-sidecar-api-runtime-contract.md",
+  "docs/24-codex-prompt-output-contract.md",
+  "docs/28-founder-os-product-doctrine.md",
+  "docs/29-phase-capability-implementation-matrix.md",
+  "docs/31-phase2-planning-handoff-contract.md",
+  "docs/32-phase2-implementation-preflight-contract.md",
+  "docs/33-build-slice-serve-learning-loop.md",
+  "docs/34-phase2.5-browser-automation-preview-contract.md",
+  "docs/35-phase1-2-closeout-evidence.md"
+];
+
+const PHASE3_REQUIRED_CONTRACT_SNIPPETS = [
+  "local-first web app + local Node/Hono service",
+  "Local Web Frontend",
+  "Local Node/Hono Service",
+  "no hosted SaaS default",
+  "ExecutionAuthorityRecord",
+  "approvalDecision",
+  "rollbackReference",
+  "BoundedAgentOutputRecord",
+  "per-run local capability token",
+  "loopback-only",
+  "CSRF/replay",
+  "hosted web origin",
+  "not executable plan"
+];
+
+const PHASE3_REFERENCE_REQUIREMENTS = [
+  {
+    path: "docs/README.md",
+    snippets: [
+      "36-phase3-controlled-execution-contract.md",
+      "Tauri/native shell은 future default가 아니라 legacy/current host",
+      "no hosted SaaS default"
+    ]
+  },
+  {
+    path: "docs/09-system-architecture.md",
+    snippets: [
+      "Local Web Frontend",
+      "Local Node/Hono Service",
+      "legacy/current implementation residue",
+      "36-phase3-controlled-execution-contract.md"
+    ]
+  },
+  {
+    path: "docs/19-phase1-implementation-architecture.md",
+    snippets: [
+      "legacy/current implementation snapshot",
+      "Local Web Frontend",
+      "Local Node/Hono Service",
+      "ExecutionAuthorityRecord"
+    ]
+  },
+  {
+    path: "docs/10-security-privacy-and-approval.md",
+    snippets: ["per-run local capability token", "loopback-only", "CSRF/replay", "hosted web origin"]
+  },
+  {
+    path: "docs/17-ai-runtime-access-strategy.md",
+    snippets: ["per-run local capability token", "loopback-only", "CSRF/replay", "hosted web origin"]
+  },
+  {
+    path: "docs/21-sidecar-api-runtime-contract.md",
+    snippets: ["per-run local capability token", "loopback-only", "CSRF/replay", "hosted web origin"]
+  },
+  {
+    path: "docs/11-roadmap-and-phase-boundaries.md",
+    snippets: ["ExecutionAuthorityRecord", "no hosted SaaS default", "36-phase3-controlled-execution-contract.md"]
+  },
+  {
+    path: "docs/29-phase-capability-implementation-matrix.md",
+    snippets: ["ExecutionAuthorityRecord", "no hosted SaaS default", "36-phase3-controlled-execution-contract.md"]
+  },
+  {
+    path: "docs/31-phase2-planning-handoff-contract.md",
+    snippets: ["ExecutionAuthorityRecord", "36-phase3-controlled-execution-contract.md", "Local Web Frontend + Local Node/Hono Service"]
+  },
+  {
+    path: "docs/32-phase2-implementation-preflight-contract.md",
+    snippets: ["36-phase3-controlled-execution-contract.md", "Phase 3 controlled execution"]
+  },
+  {
+    path: "docs/28-founder-os-product-doctrine.md",
+    snippets: ["local-first web app + local Node/Hono service", "no hosted SaaS default"]
+  },
+  {
+    path: "docs/13-ux-doctrine-and-session-dynamics.md",
+    snippets: ["36-phase3-controlled-execution-contract.md", "ExecutionAuthorityRecord"]
+  },
+  {
+    path: "docs/24-codex-prompt-output-contract.md",
+    snippets: ["36-phase3-controlled-execution-contract.md", "Phase 3 execution authority"]
+  },
+  {
+    path: "docs/35-phase1-2-closeout-evidence.md",
+    snippets: ["36-phase3-controlled-execution-contract.md", "Phase 3 authority"]
+  }
+];
+
+const WEB_REALIGNMENT_SCAN_PATHS = [
+  "docs/README.md",
+  ...Array.from({ length: 37 }, (_, index) => `docs/${String(index).padStart(2, "0")}-${[
+    "product-brief",
+    "prd",
+    "user-journey-and-ux",
+    "living-product-spec",
+    "decision-queue",
+    "spec-engine",
+    "research-engine",
+    "completeness-scoring",
+    "domain-model",
+    "system-architecture",
+    "security-privacy-and-approval",
+    "roadmap-and-phase-boundaries",
+    "validation-and-dry-run",
+    "ux-doctrine-and-session-dynamics",
+    "ambiguity-question-lifecycle",
+    "pro-con-evidence-gate",
+    "state-event-contract",
+    "ai-runtime-access-strategy",
+    "product-engine-orchestrator",
+    "phase1-implementation-architecture",
+    "data-storage-contract",
+    "sidecar-api-runtime-contract",
+    "phase1-implementation-sequence",
+    "product-engine-runtime-contract",
+    "codex-prompt-output-contract",
+    "contracts-dto-catalog",
+    "api-route-behavior-catalog",
+    "operations-observability-contract",
+    "founder-os-product-doctrine",
+    "phase-capability-implementation-matrix",
+    "phase1.5-research-runtime-and-readiness-contract",
+    "phase2-planning-handoff-contract",
+    "phase2-implementation-preflight-contract",
+    "build-slice-serve-learning-loop",
+    "phase2.5-browser-automation-preview-contract",
+    "phase1-2-closeout-evidence",
+    "phase3-controlled-execution-contract"
+  ][index]}.md`)
+];
+
+const WEB_REALIGNMENT_FUTURE_DEFAULT_DENY_PATTERNS = [
+  /macOS-first,\s*local-first Founder OS/iu,
+  /Tauri\/React\/local embedded libSQL\/Spec Engine은 core/iu,
+  /Tauri \+ React\/Vite desktop shell \+ Node\/Hono sidecar/iu,
+  /Desktop shell\s*\|\s*Tauri v2\s*\|\s*core 확정/iu,
+  /Phase 1은 macOS desktop \+ local-first를 우선한다/iu,
+  /Tauri \+ Node\/Hono sidecar topology/iu,
+  /Implementation Architecture\s*\|\s*Tauri \+ Node\/Hono sidecar/iu,
+  /Core stack:\s*Tauri\/React\/local embedded libSQL\/Spec Engine/iu,
+  /Phase 2\+/iu,
+  /\bDesktop UI\b/iu,
+  /\bdesktop UI\b/iu,
+  /native shell replacement/iu,
+  /Desktop review UI/iu,
+  /desktop read-only/iu,
+  /desktop readiness/iu,
+  /desktop trigger/iu,
+  /Desktop session/iu,
+  /desktop\/local source of truth/iu,
+  /through the Tauri native boundary/iu
+];
+
+export function findWebRealignmentFutureDefaultClaims(documents) {
+  const claims = [];
+
+  for (const document of documents) {
+    document.text.split(/\r?\n/u).forEach((line, index) => {
+      const trimmed = line.trim();
+
+      if (!trimmed) {
+        return;
+      }
+
+      if (WEB_REALIGNMENT_FUTURE_DEFAULT_DENY_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+        claims.push(`${document.path}:${index + 1}: ${trimmed}`);
+      }
+    });
+  }
+
+  return claims;
+}
+
 function requireSnippets(message, text, snippets) {
   const missingSnippets = snippets.filter((snippet) => !text.includes(snippet));
 
@@ -780,6 +977,42 @@ function checkPhase12CloseoutConsistency() {
   );
 }
 
+
+function checkPhase3WebRealignmentConsistency() {
+  const docs36 = readText(PHASE3_DOC_PATH);
+
+  requireSnippets("docs/36 Phase 3 controlled execution contract missing required sections", docs36, PHASE3_REQUIRED_CONTRACT_SNIPPETS);
+
+  requireDocReferences(
+    "Phase 3 controlled execution canonical doc reference missing",
+    PHASE3_REQUIRED_REFERENCES,
+    "36-phase3-controlled-execution-contract.md"
+  );
+
+  const missingPhase3References = [];
+
+  for (const requirement of PHASE3_REFERENCE_REQUIREMENTS) {
+    const text = readText(requirement.path);
+    const missing = requirement.snippets.filter((snippet) => !text.includes(snippet));
+
+    for (const snippet of missing) {
+      missingPhase3References.push(`${requirement.path}: ${snippet}`);
+    }
+  }
+
+  if (missingPhase3References.length) {
+    fail("Phase 3 web/local realignment reference missing", missingPhase3References);
+  }
+
+  const futureDefaultClaims = findWebRealignmentFutureDefaultClaims(
+    WEB_REALIGNMENT_SCAN_PATHS.map((path) => ({ path, text: readText(path) }))
+  );
+
+  if (futureDefaultClaims.length) {
+    fail("web/local realignment docs contain stale Tauri/native future-default claims", futureDefaultClaims);
+  }
+}
+
 export function runDocContractChecks() {
   const docs = {
     docs24: readText("docs/24-codex-prompt-output-contract.md"),
@@ -794,6 +1027,7 @@ export function runDocContractChecks() {
   checkPhase15DocConsistency();
   checkPhase25DocConsistency();
   checkPhase12CloseoutConsistency();
+  checkPhase3WebRealignmentConsistency();
 
   if (!process.exitCode) {
     console.log("doc contract checks passed");

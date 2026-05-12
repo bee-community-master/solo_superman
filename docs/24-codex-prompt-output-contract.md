@@ -184,7 +184,7 @@ Phase 1에서 허용되는 Codex turnPurpose는 다음 6개뿐이다.
 | `targetObject` | yes | enum | `queue`, `confidence_projection`, `research_task`, `evidence_matrix`, `spec_update`, `planning_note`, `blocked_action`, `activity_only` | ProductEngine 변환 대상 |
 | `sourceRefs` | yes | array | confirmed decision, ambiguity issue, research source, event id 참조 | traceability |
 | `requiredApprovals` | yes | array | none이면 empty array | Phase 1.5B readiness field와 공유 가능 |
-| `phase15bUpgradeHints` | no | object | preview-only. 실행 금지 | Phase 1.5B/Phase 2+ migration 대비 |
+| `phase15bUpgradeHints` | no | object | preview-only. 실행 금지 | Phase 1.5B/Phase 2.5+/Phase 3 migration 대비; Phase 3 authority는 `36-phase3-controlled-execution-contract.md` |
 
 ## applyPolicy enum
 
@@ -471,7 +471,7 @@ Example JSON skeleton:
 | `network_write` | POST to external API, create cloud resource | `BlockedActionArtifact` | explicit credential scope, dry-run proof |
 | `credential_access` | read API key, use ChatGPT session outside allowed path | `BlockedActionArtifact` | explicit secret grant and revocation |
 | `destructive_operation` | delete files, reset DB, force push | `BlockedActionArtifact` | separate high-risk approval, rollback plan |
-| `chatgpt_web_automation` | automate ChatGPT Pro web UI | `BlockedActionArtifact` | Phase 2+ only, policy review required |
+| `chatgpt_web_automation` | automate ChatGPT Pro web UI | `BlockedActionArtifact` | Phase 2.5+ preview/gate only, policy review required |
 
 ## Auto-apply and gate matrix
 
@@ -482,7 +482,7 @@ Example JSON skeleton:
 | `ResearchPromptArtifact` | automatically creates ResearchTask or handoff-ready prompt | external browser automation remains blocked |
 | `EvidenceSynthesisArtifact` | conditionally writes EvidenceMatrix when quality gate passes | conclusion-changing, weak source, missing con evidence routes to review/risk/follow-up |
 | `SpecUpdatePreviewArtifact` | stores preview/candidate | Living Spec change requires approval |
-| `ImplementationPlanPreviewArtifact` | stores PlanningNote | implementation commitment is Phase 2; execution is Phase 3+; Phase 1.5B stores readiness hints only |
+| `ImplementationPlanPreviewArtifact` | stores PlanningNote | implementation commitment is Phase 2; execution authority is Phase 3+ via `36-phase3-controlled-execution-contract.md`; Phase 1.5B stores readiness hints only |
 | `BlockedActionArtifact` | stores blocked card | never executes in Phase 1 |
 
 ## Parse, repair, and validation pipeline
@@ -846,7 +846,7 @@ Then:
 
 - executionIntent, requiredApprovals, riskLevel, sandboxRequirements are preserved.
 - Phase 1 does not execute the plan.
-- future Phase 1.5B/Phase 2+ implementation can read the hints without migrating the artifact shape.
+- future Phase 1.5B/Phase 2.5+/Phase 3 implementation can read the hints without migrating the artifact shape; Phase 3 execution authority still requires `36-phase3-controlled-execution-contract.md`.
 - Phase 2 final handoff still requires `31-phase2-planning-handoff-contract.md` gate verdict and `PlanningHandoffArtifact`; preview storage alone is not final handoff.
 
 ### Scenario G. Severity routing

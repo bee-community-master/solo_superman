@@ -14,7 +14,7 @@ Canonical path: `docs/34-phase2.5-browser-automation-preview-contract.md`.
 | --- | --- |
 | Canonical source | Phase 2.5 Browser Automation Preview 계약은 이 문서가 소유 |
 | Primary objective | Phase 1.5A baseline 대비 research quality lift를 비교 dry-run으로 검증 |
-| Scope depth | first slice는 product-code Artifact+Gate core: closed DTO/types, ProductEngine command/event/projection, local persistence, adapter interface port를 포함한다. Desktop UI, sidecar API route/client, live browser/ChatGPT execution, Phase 3 execution authority는 제외한다. |
+| Scope depth | first slice는 product-code Artifact+Gate core: closed DTO/types, ProductEngine command/event/projection, local persistence, adapter interface port를 포함한다. review UI panel, sidecar API route/client, live browser/ChatGPT execution, Phase 3 execution authority는 제외한다. |
 | Candidate surfaces | PlaywrightRuntime, BrowserUseRuntime, ChatGPT Pro/Deep Research web delegation, manual prompt handoff, official Codex path fallback |
 | ChatGPT Pro boundary | 정책·약관·세션·사용량·account-risk gate를 통과해야 하며, 계정 공유나 credential custody가 아님 |
 | No-execution boundary | Phase 2.5는 form submit, POST/write, deploy, external mutation, credential storage, hidden browser action을 실행하지 않음 |
@@ -30,7 +30,7 @@ Canonical path: `docs/34-phase2.5-browser-automation-preview-contract.md`.
 | Phase 1.5A | ResearchAllowlist, ResearchRun, disclosure log, Evidence Pack, Research-updated Queue, read-only connector 기준 | allowlist를 account-session scraping 또는 write action 승인으로 확장하지 않음 |
 | Phase 1.5B | approval, sandbox, rollback, expected evidence, risk metadata를 readiness hint로 보존하는 패턴 | hint를 active permission 또는 실행 commitment로 해석하지 않음 |
 | Phase 2 | PlanningHandoffArtifact, blocker report, residual risk visibility, no-execution policy | planning handoff를 browser action 실행으로 승격하지 않음 |
-| Phase 2.5 | browser/ChatGPT delegation preview가 research quality lift를 만드는지 Artifact+Gate core로 검증 | submit/write/credential custody/account sharing/live adapter/desktop UI/sidecar API/team/mobile/billing을 하지 않음 |
+| Phase 2.5 | browser/ChatGPT delegation preview가 research quality lift를 만드는지 Artifact+Gate core로 검증 | submit/write/credential custody/account sharing/live adapter/review UI panel/sidecar API/team/mobile/billing을 하지 않음 |
 | Phase 3 | controlled execution에 필요한 approval-first, sandbox, rollback, audit expectation을 준비 | Phase 3의 controlled execution adapter를 설계하거나 구현하지 않음 |
 
 ## Ambiguities resolved
@@ -41,7 +41,7 @@ Canonical path: `docs/34-phase2.5-browser-automation-preview-contract.md`.
 | ChatGPT Pro web automation이 기본 실행 경로인가 | 아니다. ChatGPT Pro/Deep Research는 quality-lift 검증 후보이며, 정책·세션·사용량·데이터 노출 gate를 통과하지 못하면 manual handoff 또는 official Codex path fallback으로 수렴한다. |
 | Project-level delegation이 credential 보관인가 | 아니다. 위임은 사용자가 볼 수 있는 목적/데이터 범주/revoke/audit/fallback 설명이며, Solo Superman은 ChatGPT 계정 비밀번호, 2FA, API key, session token을 저장하거나 대리 입력하지 않는다. |
 | Source capture가 source dump인가 | 아니다. source capture는 Evidence Pack/Research-updated Queue에 연결되는 URL/report/screenshot/log/provenance summary와 decision impact trace다. Decision impact 없는 source list는 실패다. |
-| Phase 2.5가 구현 preflight인가 | 첫 slice는 Artifact+Gate product-code core다. DTO/type, reducer projection, local persistence, adapter interface port는 닫지만 route ids, desktop UI, sidecar API/client, live adapter, GitHub issue/PR execution slicing은 후속 작업이다. |
+| Phase 2.5가 구현 preflight인가 | 첫 slice는 Artifact+Gate product-code core다. DTO/type, reducer projection, local persistence, adapter interface port는 닫지만 route ids, review UI panel, sidecar API/client, live adapter, GitHub issue/PR execution slicing은 후속 작업이다. |
 
 ## Candidate runtime lanes
 
@@ -117,7 +117,7 @@ Phase 2.5 first slice does not include:
 - actual form submission, POST/write action, external mutation, deploy, payment, legal/medical/financial/sensitive action.
 - ChatGPT credential/session custody, account sharing, resale, team-shared account use, or third-party service operation through a user's Pro account.
 - storing password, 2FA, API key, session token, or credential value in libSQL or app state.
-- desktop review panel, sidecar API route/client, live Playwright/BrowserUse/ChatGPT runtime adapter, hidden browser action, or Phase 3 execution authority.
+- review UI panel, sidecar API route/client, live Playwright/BrowserUse/ChatGPT runtime adapter, hidden browser action, or Phase 3 execution authority.
 - team collaboration, mobile approval monitor, billing, marketplace, or full cloud sync expansion.
 - recurring/open-ended market watch productization.
 - treating a blocked policy/session result as final research success.
@@ -216,3 +216,8 @@ Then:
 
 - ChatGPT Pro includes advanced tools such as Deep Research and Codex, but OpenAI Help materials describe abuse guardrails around automated/programmatic data extraction, account credential sharing, and reselling or powering third-party services. Phase 2.5 must treat these as policy risk gates rather than assumed permission. 참고: <https://help.openai.com/en/articles/9793128-what-is-c>.
 - Deep Research in ChatGPT can use public web and user-provided sources depending on plan/settings, and usage/limits vary. Phase 2.5 must preserve user-visible source trace, usage/failure awareness, and fallback. 참고: <https://help.openai.com/en/articles/10500283-deep-research-in-chatgpt>.
+
+
+## Phase 3 handoff reference
+
+Phase 3 controlled execution authority, `ExecutionAuthorityRecord`, rollback, audit, Local Web Frontend + Local Node/Hono Service topology는 `36-phase3-controlled-execution-contract.md`가 canonical source다.

@@ -34,7 +34,7 @@ Phase 1은 프로젝트 단위 포괄 위임이 아니라 **task-level disclosur
 - 민감한 section 제외 여부.
 - 결과가 실제 파일/쉘/브라우저에 적용되지 않고 preview artifact로만 남는다는 점.
 
-Phase 2+에서 ChatGPT Pro 웹 자동화를 도입하면 프로젝트 단위 1회 포괄 위임을 사용할 수 있다. 이때는 최초 위임 화면, revoke control, audit log, fallback chain이 필수다.
+Phase 2.5+에서 ChatGPT Pro 웹 자동화 후보를 검토하면 프로젝트 단위 1회 포괄 위임 설명을 사용할 수 있다. 이때는 최초 위임 화면, revoke control, audit log, fallback chain이 필수다. Phase 3 controlled execution은 `36-phase3-controlled-execution-contract.md`를 따르며 local-first web app + local Node/Hono service 위에서 preview, explicit approval, rollback, audit evidence를 요구한다.
 
 Phase 1.5A의 예외는 `30-phase1.5-research-runtime-and-readiness-contract.md`가 정의한 **project-level read-only research allowlist**뿐이다. 이 allowlist는 외부 write/action/browser/file/shell 실행을 허용하지 않으며, automatic external transfer는 public-safe summary + research objective까지만 허용한다. private document, full raw idea, detailed answers, credentialed source는 항상 task-level approval 또는 manual handoff가 필요하다.
 
@@ -62,6 +62,7 @@ Phase 1.5A의 예외는 `30-phase1.5-research-runtime-and-readiness-contract.md`
 - private document 외부 분석.
 - Codex가 file/shell/browser approval request를 생성하는 경우.
 - code/file/browser execution.
+- Phase 3 `ExecutionAuthorityRecord.approvalDecision` 승인.
 
 ## Decision approval 상태
 
@@ -104,7 +105,7 @@ Phase 1 기본 허용.
 - 리서치 프롬프트와 import template 생성.
 - diff/command/browser action plan preview.
 
-Phase 1 primary AI runtime 권한이다. 실제 파일 patch, shell command, browser action 적용은 금지한다. Codex approval request가 발생하면 Approval Manager는 `preview_only`, `decline`, 또는 Phase 2+ handoff로 라우팅한다.
+Phase 1 primary AI runtime 권한이다. 실제 파일 patch, shell command, browser action 적용은 금지한다. Codex approval request가 발생하면 Approval Manager는 `preview_only`, `decline`, Phase 2 planning handoff, 또는 Phase 3 authority gate 후보로 라우팅한다.
 
 ### Tier 1B: Phase 1.5A read-only research allowlist
 
@@ -135,11 +136,11 @@ Phase 1 구현 제외. Phase 2.5에서는 `34-phase2.5-browser-automation-previe
 - shell command.
 - code generation applied to repo.
 
-Phase 1 실제 적용 제외. Codex sandbox preview artifact는 허용할 수 있지만, 장기적으로 실제 적용은 preview + approval + rollback이 필수다.
+Phase 1~2.5 실제 적용 제외. Codex sandbox preview artifact는 허용할 수 있지만, Phase 3 실제 적용은 `36-phase3-controlled-execution-contract.md`의 `ExecutionAuthorityRecord`, preview + approval + rollback + audit가 필수다. Local Node/Hono Service는 loopback-only로 bind하고, 실행 route는 per-run local capability token, idempotency key, preview hash, authority record id, expiry check를 요구한다.
 
 ## Project-level blanket delegation
 
-ChatGPT Pro 웹 자동화의 프로젝트 단위 포괄 위임은 Phase 2+ 기능이다. Phase 2.5에서는 이를 active permission이 아니라 risk-gated preview/delegation explanation으로 검증한다. 최초 위임 검토 시 사용자는 다음을 봐야 한다.
+ChatGPT Pro 웹 자동화의 프로젝트 단위 포괄 위임 설명은 Phase 2.5+ preview/gate 후보이며, active permission 자체가 아니다. Phase 2.5에서는 이를 active permission이 아니라 risk-gated preview/delegation explanation으로 검증한다. 최초 위임 검토 시 사용자는 다음을 봐야 한다.
 
 - ChatGPT 웹이 어떤 deep research 목적에 쓰이는가.
 - 어떤 project context가 전송될 수 있는가.
@@ -149,6 +150,18 @@ ChatGPT Pro 웹 자동화의 프로젝트 단위 포괄 위임은 Phase 2+ 기�
 - audit log에 남는 항목.
 
 포괄 위임은 계정 공유나 인증정보 대리 보관을 의미하지 않는다. Solo Superman은 사용자의 ChatGPT 계정 비밀번호, 2FA, API key, session token을 저장하거나 대리 입력하지 않는다. Phase 2.5에서 이 경계가 필요해지는 후보는 `DelegationRiskGate`에서 차단한다.
+
+## Phase 3 local web security contract
+
+Phase 3 web/local 방향은 hosted SaaS default가 아니다. Local Web Frontend는 browser UI이고 Local Node/Hono Service는 loopback-only execution authority boundary다.
+
+- Non-health local API는 per-run local capability token 없이는 접근할 수 없다.
+- CORS는 explicit local origin allowlist만 허용한다.
+- hosted web origin은 local sidecar 실행 권한을 묵시적으로 얻지 않는다.
+- CSRF/replay 방지를 위해 approval/execution route는 idempotency key, preview hash, `ExecutionAuthorityRecord.recordId`, expiry check를 검증해야 한다.
+- local token은 Codex credential, ChatGPT session, API key, durable user secret이 아니며 disk persistence 금지다.
+- external-production browser mutation, destructive action, credential value access는 별도 narrower contract 전까지 blocked로 수렴한다.
+
 
 ## Audit log
 
@@ -178,3 +191,5 @@ ChatGPT Pro 웹 자동화의 프로젝트 단위 포괄 위임은 Phase 2+ 기�
 - Phase 1에서 자동 코드 실행을 제공하지 않는다.
 - Phase 1에서 ChatGPT 웹 자동화를 제공하지 않는다.
 - Codex app-server를 붙이더라도 Phase 1에서는 sandbox preview 권한을 넘지 않는다.
+- Phase 3에서도 hosted web origin에 local execution authority를 묵시적으로 주지 않는다.
+- Phase 3에서도 `ExecutionAuthorityRecord` 없는 file/shell/browser 실행 claim을 인정하지 않는다.

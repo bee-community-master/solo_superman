@@ -98,7 +98,7 @@ Minimum Phase 1.5A defaults:
 | `user_provided_public_url` | yes | URL must not require auth |
 | `private_document` | no | task-level approval or manual handoff |
 | `credentialed_source` | no | task-level explicit grant; no secret value in libSQL |
-| `account_session_source` | no | Phase 2+ / separate approval model |
+| `account_session_source` | no | Phase 2.5+ preview/gate / separate approval model |
 
 ### Context disclosure policy
 
@@ -250,7 +250,7 @@ Hints must describe what a later execution phase needs before it can run.
 - network write: credential scope, dry-run proof, idempotency and rollback note.
 - credential access: OS secret ref, purpose, revocation, no value in libSQL.
 - destructive operation: separate high-risk approval, backup/rollback plan.
-- ChatGPT web automation: Phase 2+ only, policy review and revoke/audit/session failure handling.
+- ChatGPT web automation: Phase 2.5+ preview/gate only, policy review and revoke/audit/session failure handling.
 
 ### No-execution preservation
 
@@ -297,7 +297,7 @@ The new canonical types are implemented later in `packages/contracts`, DB schema
 - Activity Feed shows automatic research disclosure entries.
 - Research cards show run status, retry/cancel actions, stale/failure reasons, and quality gate result.
 - Runtime/Planning cards show 1.5B hints as readiness metadata, not execution results.
-- Phase 1.5B PR-11 adds a desktop readiness handoff panel that reads `Phase15bUpgradeHintProjection` and exposes required approvals, sandbox, rollback, expected evidence, risk reason, and source refs using readiness/preview/blocked/handoff copy only.
+- Phase 1.5B PR-11 adds a UI readiness handoff panel that reads `Phase15bUpgradeHintProjection` and exposes required approvals, sandbox, rollback, expected evidence, risk reason, and source refs using readiness/preview/blocked/handoff copy only.
 
 ## Acceptance scenarios
 

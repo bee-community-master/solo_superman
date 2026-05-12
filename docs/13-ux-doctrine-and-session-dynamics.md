@@ -36,7 +36,7 @@ Phase 1의 UX Doctrine은 다음 다섯 가지다.
 | `Planning-ready` | fatal blocker 없이 high-impact research queue가 해결되고 final handoff artifact가 준비됨 | Phase 2 진입 |
 | `안전 실행 대기` | controlled execution 승인과 sandbox가 필요한 상태 | Phase 3 |
 
-이 단계명은 진행률 badge가 아니라 현재 사용자가 할 수 있는 다음 행동을 설명하는 문구다. 내부 phase 번호가 사용자 화면에 직접 표시되면 실패다.
+이 단계명은 진행률 badge가 아니라 현재 사용자가 할 수 있는 다음 행동을 설명하는 문구다. 내부 phase 번호가 사용자 화면에 직접 표시되면 실패다. Phase 3의 실제 실행 권한, `ExecutionAuthorityRecord`, rollback, audit 계약은 `36-phase3-controlled-execution-contract.md`가 소유한다.
 
 ## Founder-facing copy guardrail
 

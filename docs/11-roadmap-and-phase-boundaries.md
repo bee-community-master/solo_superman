@@ -34,9 +34,9 @@
 
 포함:
 
-- macOS desktop app.
-- Tauri + React/Vite desktop shell.
-- Node/Hono sidecar.
+- local web frontend 방향성.
+- current Tauri/Vite scaffold는 legacy/current host residue로 보존하되 future default로 확장하지 않음.
+- Local Node/Hono Service.
 - local embedded libSQL + Drizzle.
 - Project 생성.
 - Initial Spec Draft.
@@ -263,28 +263,47 @@ Phase 1.5A 공통 완료 조건:
 
 - form submission, POST/write action, deploy, external mutation 실행.
 - ChatGPT credential/session custody, account sharing/resale, third-party service operation.
-- desktop UI, sidecar API route/client, live browser/ChatGPT adapter, Phase 3 execution authority, GitHub issue/PR slicing.
+- review UI panel, sidecar API route/client, live browser/ChatGPT adapter, Phase 3 execution authority, GitHub issue/PR slicing.
 - 팀 협업, 모바일 원격 승인, 결제/과금, marketplace, 본격 cloud sync 확장.
 
 ## Phase 3: Safe Execution Adapter (Controlled Execution)
 
+상세 구현 계약은 `36-phase3-controlled-execution-contract.md`가 소유한다. Phase 3의 runtime 방향은 `Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db`이며, no hosted SaaS default와 no browser-only DB rewrite를 유지한다.
+
 목표:
 
 - 코드/문서/브라우저 실행을 approval-first 방식으로 제공한다.
+- 모든 실행 claim을 `ExecutionAuthorityRecord`로 묶어 source planning handoff, preview, approval, sandbox, rollback, evidence, audit을 추적한다.
+- Tauri/native shell은 future default가 아니라 legacy/current host로 containment/removal 대상임을 전제로 구현한다.
 
 포함:
 
-- file diff preview.
-- shell command preview.
-- browser action preview.
-- sandbox.
-- rollback.
-- audit log.
+- file diff preview + approved workspace patch.
+- shell command preview + approved command sandbox.
+- browser action preview + approved browser preview session.
+- per-run local capability token, loopback-only local service, explicit local origin allowlist.
+- CSRF/replay/idempotency check for approval/execution routes.
+- rollback reference, evidence refs, audit refs.
+- `BoundedAgentOutputRecord`로 source/evidence/approval 없는 agent output을 suggestion-only로 격리.
 
 진입 조건:
 
 - Phase 2 task breakdown 품질이 충분히 검증됨.
-- approval model이 안정됨.
+- Phase 2.5 Artifact+Gate core가 no-execution boundary를 유지함.
+- approval model, sandbox boundary, rollback reference가 docs/36 기준으로 설명됨.
+
+완료 조건:
+
+- 사용자가 승인한 controlled execution만 적용되고, 실행 전 preview와 실행 후 evidence/audit/rollback reference가 남는다.
+- `ExecutionAuthorityRecord.approvalDecision`, `sandboxBoundary`, `rollbackReference`, `executionResult`, `evidenceRefs`, `auditRefs`가 저장된다.
+- hosted web origin이 local execution authority를 묵시적으로 얻지 않는다.
+
+제외:
+
+- 무승인 실행.
+- credential/destructive/external-production action 자동 실행.
+- blanket delegation.
+- hosted SaaS default, 새 replacement native shell 개발, browser-only DB rewrite.
 
 ## Phase 4: Optional Cloud and Mobile Monitor
 
@@ -302,7 +321,7 @@ Phase 1.5A 공통 완료 조건:
 
 진입 조건:
 
-- 사용자가 desktop 세션 밖에서도 질문/승인을 처리하려는 니즈가 확인됨.
+- 사용자가 local web/service 세션 밖에서도 질문/승인을 처리하려는 니즈가 확인됨.
 
 ## Phase 5: Team Collaboration
 
@@ -351,6 +370,7 @@ Phase 1.5A 공통 완료 조건:
 - Phase 2 DTO/API/storage/gate exact defaults는 `32-phase2-implementation-preflight-contract.md`를 따른다.
 - Build Slice, Serve Checklist, Learning Loop는 `33-build-slice-serve-learning-loop.md`의 no-execution checklist/handoff contract를 따른다.
 - Phase 2.5 Browser Automation Preview의 canonical 계약은 `34-phase2.5-browser-automation-preview-contract.md`를 따른다.
+- Phase 3 Controlled Execution의 canonical 계약은 `36-phase3-controlled-execution-contract.md`를 따른다.
 - Phase 1에서 Codex app-server는 sandbox preview 권한을 넘지 않는다.
 - Phase 1에서 ChatGPT Pro 웹 자동화를 만들지 않는다.
 - 다음 research/planning capability 보강에서 모바일 앱을 만들지 않는다.

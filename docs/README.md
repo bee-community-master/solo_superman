@@ -1,8 +1,8 @@
 # Solo Superman 기획 문서 인덱스
 
-Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질문·리서치·결정 세션으로 구체화하고, 최소 Build Slice와 서빙/학습 준비까지 연결하는 macOS-first, local-first Founder OS다.
+Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질문·리서치·결정 세션으로 구체화하고, 최소 Build Slice와 서빙/학습 준비까지 연결하는 local-first web app + local Node/Hono service 기반 Founder OS다.
 
-이 레포의 현재 기준은 **Phase 2.5 Artifact+Gate core 첫 slice를 product-code로 고정하는 단계**다. Phase 1~2 hardening closeout evidence는 `docs/35-phase1-2-closeout-evidence.md`로 보존하고, Phase 2.5는 `DelegationRiskGate`와 `ResearchQualityComparisonReport`를 DTO/type, ProductEngine reducer/projection, local persistence, adapter interface port로 닫는다. 현재 문서 세트는 `00`~`35`의 번호 문서 36개와 이 인덱스를 합쳐 총 37개의 Markdown 문서로 구성한다.
+이 레포의 현재 기준은 **Phase 3 web/local controlled execution을 시작하기 전 제품 방향을 재정렬하는 단계**다. Phase 1~2 hardening closeout evidence는 `docs/35-phase1-2-closeout-evidence.md`로 보존하고, Phase 2.5는 `DelegationRiskGate`와 `ResearchQualityComparisonReport`를 DTO/type, ProductEngine reducer/projection, local persistence, adapter interface port로 닫았다. Phase 3의 canonical 실행 권한 계약은 `docs/36-phase3-controlled-execution-contract.md`가 소유한다. 현재 문서 세트는 `00`~`36`의 번호 문서 37개와 이 인덱스를 합쳐 총 38개의 Markdown 문서로 구성한다.
 
 ## 확정된 1차 제품 결정
 
@@ -28,14 +28,14 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 | 1급 Effect Type | `queue_projection_effect`, `research_evidence_effect`, `codex_runtime_preview_effect` |
 | Effect retry 정책 | `conservative_ai_retry_matrix`: queue max 3, research/evidence max 2, Codex preview max 1 자동 재시도 |
 | Deterministic output | Completeness/Scoring, SpecVersion, Founder Brief draft는 `reducer_deterministic_output` |
-| AI Runtime 접근 | Codex app-server 우선, Phase 1 sandbox preview, ChatGPT Pro 웹 자동화는 Phase 2+ |
+| AI Runtime 접근 | Codex app-server 우선, Phase 1 sandbox preview, ChatGPT Pro 웹 자동화는 Phase 2.5+ risk-gated preview 후보이며 active execution은 Phase 3 authority gate 이후 |
 | 세션 깊이 | Adaptive mode, 모든 축 75점 이상이면 Spec-ready 후보 |
 | 기본 export | Founder Brief |
 | 기본 화면 | Decision Queue 중심 |
 | 데이터 정책 | local-first; Phase 1은 remote config placeholder only, 사용자 선택 sync는 후속 |
-| 기술 고정 | Tauri/React/local embedded libSQL/Spec Engine은 core, 외부 런타임은 adapter |
-| Phase 1 구현 topology | Tauri + React/Vite desktop shell + Node/Hono sidecar |
-| native/runtime 경계 | node_core_rust_native_boundary: Rust/Tauri는 native boundary, Node/Hono는 ProductEngine/DB/Codex API 소유 |
+| 기술 고정 | Local Web Frontend + Local Node/Hono Service + local embedded libSQL + ProductEngine/Spec Engine은 core, 외부 런타임은 adapter |
+| Phase 3+ 구현 topology | Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db |
+| native/runtime 경계 | Tauri/native shell은 future default가 아니라 legacy/current host; Node/Hono local service가 ProductEngine/DB/Codex API와 Phase 3 execution authority를 소유 |
 | Phase 1 저장소 | local embedded libSQL + Drizzle, remote config placeholder only |
 | Phase 1 API | Hono `/api/v1` + Zod contract + SSE event stream |
 | Codex 구현 경계 | Codex app-server stdio + schema pinning, sandbox preview만 허용 |
@@ -53,7 +53,9 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 | Phase 2 implementation preflight | DTO wire shape, gate algorithm, storage columns/indexes, command/idempotency, route ids, 구현 순서, Phase 1.5 dependency fallback은 `32-phase2-implementation-preflight-contract.md`의 exact default를 따른다 |
 | Build/Serve/Learning loop | Build Slice Plan, Serve Checklist, Learning Loop Hook은 `33-build-slice-serve-learning-loop.md`의 checklist/handoff 계약을 따른다 |
 | Phase 2.5 browser automation preview | Phase 2.5는 `34-phase2.5-browser-automation-preview-contract.md`의 Artifact+Gate 계약을 따르며, ChatGPT Pro/Deep Research/browser delegation이 Phase 1.5A baseline보다 research quality lift를 만드는지 deterministic comparison report로 검증한다 |
-| Phase 2.5 no-execution | Phase 2.5 첫 slice는 submit/write, credential custody, account sharing/resale, live browser/ChatGPT adapter, desktop UI, sidecar API, team/mobile/billing 확장을 하지 않는다 |
+| Phase 2.5 no-execution | Phase 2.5 첫 slice는 submit/write, credential custody, account sharing/resale, live browser/ChatGPT adapter, review UI panel, sidecar API, team/mobile/billing 확장을 하지 않는다 |
+| Phase 3 controlled execution | `36-phase3-controlled-execution-contract.md`의 `ExecutionAuthorityRecord` 없이는 file/shell/browser 실행 claim이 유효하지 않다 |
+| Web/local realignment | no hosted SaaS default, no browser-only DB rewrite, no new replacement native shell; local web UI와 local Node/Hono service가 기본이다 |
 | Phase 1~2 closeout evidence | #65 child issue evidence, Phase 1~2 dry-run matrix, doc-contract verifier, no-execution boundary를 `docs/35-phase1-2-closeout-evidence.md`로 추적한다 |
 | Phase 1 MVP | Research 포함 폐루프 |
 | 1순위 실패 방지 | 무한 질문 루프 |
@@ -79,7 +81,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 17. `16-state-event-contract.md` - Question→Research→Approval→SpecVersion→Completion 상태·이벤트 계약.
 18. `17-ai-runtime-access-strategy.md` - Codex app-server, ChatGPT Pro 웹 자동화 비전, runtime 권한 경계.
 19. `18-product-engine-orchestrator.md` - Phase 1 ProductEngine Orchestrator의 전체 세션 라이프사이클, command/event/state, queue 재계산 계약.
-20. `19-phase1-implementation-architecture.md` - Tauri + Node/Hono sidecar topology, package layout, dev scripts, native boundary 계약.
+20. `19-phase1-implementation-architecture.md` - legacy/current implementation snapshot, package layout, dev scripts, Tauri containment/migration boundary 계약.
 21. `20-data-storage-contract.md` - local embedded libSQL, Drizzle migration, repository/projection, remote config placeholder 계약.
 22. `21-sidecar-api-runtime-contract.md` - Hono API route shape, local auth, SSE, Codex app-server runtime preview 계약.
 23. `22-phase1-implementation-sequence.md` - Phase 1을 결정 없이 구현하기 위한 PR-01~PR-09 순서와 검증 기준.
@@ -96,6 +98,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 34. `33-build-slice-serve-learning-loop.md` - Build Slice, Serve Checklist, Learning Loop Hook의 no-execution checklist/handoff 계약.
 35. `34-phase2.5-browser-automation-preview-contract.md` - Phase 2.5 Browser Automation Preview의 research quality comparison, DelegationRiskGate, no-execution boundary, ChatGPT Pro/Deep Research policy gate 계약.
 36. `35-phase1-2-closeout-evidence.md` - #65 closeout evidence ledger, Phase 1~2 dry-run acceptance matrix, tracker update rule.
+37. `36-phase3-controlled-execution-contract.md` - Phase 3 web/local controlled execution, `ExecutionAuthorityRecord`, approval, rollback, audit, Phase 4~6 gates.
 
 ## 문서 책임 경계
 
@@ -118,9 +121,9 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 | Ambiguity/Question Lifecycle | AmbiguityIssue, QuestionBatch, answer routing, repeat limit, completion 수렴 | Research 상세 품질 산식은 Research/Evidence 문서로, 저장소/API/DTO/route 세부 계약은 20/21/25/26번으로 넘긴다 |
 | Pro/Con Evidence Gate | pro_evidence, con_evidence, missing_con_evidence, skeptical search | 외부 리서치 런타임 구현과 고객 인터뷰 방법론 깊은 설계는 후속 문서로 넘긴다 |
 | State/Event Contract | Question, ResearchTask, EvidenceMatrix, Decision, SpecUpdate, SpecVersion, CompletionCandidate의 end-to-end trace | 저장소/API/DTO/route 세부 계약은 20/21/25/26번으로, 런타임/코드 구현은 후속 구현 PR로 넘긴다 |
-| AI Runtime Access Strategy | Codex app-server 우선 통합, sandbox preview 권한, ChatGPT Pro 웹 자동화의 Phase 2+ 비전 | 리서치 품질은 Research Engine으로, 승인/프라이버시 세부는 Security 문서로 넘긴다 |
+| AI Runtime Access Strategy | Codex app-server 우선 통합, sandbox preview 권한, ChatGPT Pro 웹 자동화의 Phase 2.5+ preview/gate 비전 | 리서치 품질은 Research Engine으로, 승인/프라이버시 세부는 Security 문서로 넘긴다 |
 | Product Engine Orchestrator | Phase 1 전체 세션 라이프사이클, 중앙 상태 전이, Queue 재계산, 모듈 소유권 | 세부 카드 UX는 Decision Queue로, trace link는 State/Event Contract로, runtime 권한은 AI Runtime Access Strategy로 넘긴다 |
-| Phase 1 Implementation Architecture | Tauri + Node/Hono sidecar, monorepo layout, dev scripts, native boundary | DB 저장 상세는 Data Storage Contract로, API route shape는 Sidecar API Runtime Contract로 넘긴다 |
+| Phase 1 Implementation Architecture Snapshot | legacy/current implementation snapshot, monorepo layout, dev scripts, Tauri containment/migration boundary | DB 저장 상세는 Data Storage Contract로, API route shape는 Sidecar API Runtime Contract로, Phase 3 authority는 36번으로 넘긴다 |
 | Data Storage Contract | local embedded libSQL, Drizzle schema/migration, repository/projection, event persistence | 도메인 의미는 Domain Model로, API request/response는 Sidecar API Runtime Contract로 넘긴다 |
 | Sidecar API Runtime Contract | Hono route group, validation envelope, local auth, SSE, Codex app-server preview boundary | UI 화면 상세는 UX 문서로, 저장소 내부 구현은 Data Storage Contract로 넘긴다 |
 | Phase 1 Implementation Sequence | Codex가 구현 중 다시 결정하지 않도록 PR-01~PR-09 순서와 acceptance를 고정 | 실제 코드 변경은 후속 구현 PR에서 수행한다 |
@@ -137,15 +140,16 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 | Build Slice, Serve Checklist, and Learning Loop | Build Slice Plan, Serve Checklist, Learning Loop Hook의 checklist/handoff 계약 | 31번은 final handoff artifact field family를, 33번은 그 field family의 제품 의미와 no-execution boundary를 책임진다. Phase 3 execution adapter와 실제 deploy는 후속 작업으로 넘긴다 |
 | Phase 2.5 Browser Automation Preview Contract | Browser/ChatGPT Pro delegation preview, DelegationRiskGate, ResearchQualityComparisonReport, comparative dry-run, no-execution boundary | 11/17/10/29번은 phase/runtimes/security/matrix 요약을, 이 문서는 Phase 2.5의 canonical Artifact+Gate 계약을 책임진다. 첫 slice의 DTO/type, reducer/projection, storage, adapter interface port를 고정하고 sidecar API/UI/live adapter는 후속으로 넘긴다 |
 | Phase 1~2 Closeout Evidence Report | #65 child issue evidence ledger, dry-run acceptance matrix, closeout commands, tracker update rule | 12번은 validation checklist를, 26/27번은 route/ops acceptance를, 30~32번은 Phase 1.5/2 canonical contracts를 책임진다. 이 문서는 구현 완료 주장을 검증 가능한 evidence로 묶되 tracker #65 업데이트를 대체하지 않는다 |
+| Phase 3 Controlled Execution Contract | Local Web Frontend + Local Node/Hono Service topology, `ExecutionAuthorityRecord`, `BoundedAgentOutputRecord`, approval/rollback/audit/security contract | 10/17/21번은 security/runtime 요약을, 11/29번은 phase gate를, 36번은 Phase 3 실제 실행 권한의 canonical contract를 책임진다 |
 
 ## 공식 자료 기반 설계 메모
 
 - Spec-first 흐름은 GitHub Spec Kit의 “spec이 실행의 중심 산출물”이라는 관점을 차용한다. 참고: <https://github.com/github/spec-kit>
-- 데스크톱 shell은 Tauri v2를 기준으로 하며, 현재 repo에는 Phase 1 구현 순서에 따른 초기 Tauri/React/Vite scaffold가 존재한다. 참고: <https://v2.tauri.app/>
-- Phase 1 packaged desktop은 Tauri sidecar 패턴으로 Node/Hono sidecar를 실행하는 방향을 고정한다. 참고: <https://v2.tauri.app/learn/sidecar-nodejs/>, <https://v2.tauri.app/ko/develop/sidecar/>
+- 현재 repo에는 Phase 1 구현 순서에 따른 초기 Tauri/React/Vite scaffold가 존재하지만, Tauri/native shell은 future default가 아니라 legacy/current host residue다. 참고: <https://v2.tauri.app/>
+- Phase 3 이후 기본 방향은 Local Web Frontend와 loopback Local Node/Hono Service다. legacy Tauri sidecar 패턴은 제거 전 호환성 inventory로만 유지한다. 참고: <https://v2.tauri.app/learn/sidecar-nodejs/>, <https://v2.tauri.app/ko/develop/sidecar/>
 - 백그라운드 작업과 장기 flow는 OpenClaw Background Tasks/Task Flow를 adapter 후보로 둔다. 참고: <https://docs.openclaw.ai/automation/tasks>, <https://docs.openclaw.ai/automation/taskflow>
 - 선택적 sync와 후속 모바일/대시보드 실시간성은 Supabase Realtime 확장 후보로 둔다. 참고: <https://supabase.com/docs/guides/realtime>
-- 브라우저 자동화는 기본 Playwright, 고급 단계 Browser-use adapter로 분리한다. Phase 1에서는 제외하고 Phase 2+에서 ChatGPT Pro 웹 자동화 비전과 함께 검토한다. 참고: <https://github.com/browser-use/browser-use>
+- 브라우저 자동화는 기본 Playwright, 고급 단계 Browser-use adapter로 분리한다. Phase 1에서는 제외하고 Phase 2.5+에서 ChatGPT Pro 웹 자동화 후보를 preview/gate로 검토하며 active execution은 Phase 3 authority gate 이후에만 다룬다. 참고: <https://github.com/browser-use/browser-use>
 - Codex CLI는 ChatGPT 계정 또는 API key 인증을 지원하며, Phase 1의 AI 통합 근거로 둔다. 참고: <https://developers.openai.com/codex/cli>
 - Codex app-server는 인증, 대화 기록, 승인, 스트리밍 이벤트를 제품에 연결하는 깊은 통합 경로로 두며 Phase 1 우선 통합 후보로 고정한다. 참고: <https://developers.openai.com/codex/app-server>
 - Codex Prompt/Output의 앱 내부 canonical schema는 `24-codex-prompt-output-contract.md`가 소유한다. Codex generated schema와 앱 내부 schema는 둘 다 versioned input으로 검증한다.
@@ -161,7 +165,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 - Phase 1~2 hardening closeout evidence와 #65 tracker update rule은 `docs/35-phase1-2-closeout-evidence.md`가 소유한다.
 - Hono는 local sidecar API의 route/validation surface로 고정하고, validation은 Hono validator/Zod 계열로 문서화한다. 참고: <https://hono.dev/docs/api>, <https://hono.dev/docs/guides/validation>
 - Phase 1 저장소는 local embedded libSQL + Drizzle schema/migration 계약으로 고정한다. 참고: <https://docs.turso.tech/sdk/ts/reference>, <https://docs.turso.tech/local-development>, <https://orm.drizzle.team/docs/get-started/sqlite-new>, <https://orm.drizzle.team/docs/migrations>
-- ChatGPT Pro에는 Codex와 Deep Research가 포함되지만 자동 추출, 계정 공유, 제3자 서비스 구동/재판매 제한이 있을 수 있으므로 ChatGPT Pro 웹 자동화는 Phase 2+ 비전으로 둔다. 참고: <https://help.openai.com/en/articles/9793128-what-is-c>
+- ChatGPT Pro에는 Codex와 Deep Research가 포함되지만 자동 추출, 계정 공유, 제3자 서비스 구동/재판매 제한이 있을 수 있으므로 ChatGPT Pro 웹 자동화는 Phase 2.5+ preview/gate 비전으로 두고 active execution 권한으로 해석하지 않는다. 참고: <https://help.openai.com/en/articles/9793128-what-is-c>
 - Deep Research in ChatGPT는 public web과 사용자가 제공한 source를 활용할 수 있지만 plan/settings/usage limit에 따라 다르므로, Phase 2.5는 source trace, usage/session failure, fallback을 사용자에게 보이는 계약으로 다룬다. 참고: <https://help.openai.com/en/articles/10500283-deep-research-in-chatgpt>
 
 ## 현재 금지 사항
@@ -172,7 +176,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 - 실제 remote sync 구현은 다음 research/planning capability 범위에서 제외한다. Phase 1 기준 허용된 것은 remote config placeholder뿐이다.
 - Phase 1 제품 범위에서 OpenClaw/Goose/CrewAI/Browser-use 실제 연동 금지. Phase 1.5A read-only research connector 후보는 `30-phase1.5-research-runtime-and-readiness-contract.md`의 allowlist/no-write 계약을 먼저 만족해야 한다.
 - Phase 1에서 ChatGPT 웹 자동화 구현 금지.
-- Phase 2.5에서 ChatGPT Pro/Deep Research 또는 browser delegation을 검토하더라도 실제 submit/write, credential/session custody, account sharing/resale, live browser/ChatGPT adapter, desktop UI, sidecar API, team/mobile/billing 확장 금지.
+- Phase 2.5에서 ChatGPT Pro/Deep Research 또는 browser delegation을 검토하더라도 실제 submit/write, credential/session custody, account sharing/resale, live browser/ChatGPT adapter, review UI panel, sidecar API, team/mobile/billing 확장 금지.
 - Codex를 통한 실제 파일 patch, shell 실행, 브라우저 action 실행 금지. `diff_preview`, `command_plan_preview`, `browser_action_preview`는 preview artifact 또는 `BlockedActionArtifact`로만 남긴다. Phase 1.5A는 `30-phase1.5-research-runtime-and-readiness-contract.md`의 allowlisted read-only research runtime, Phase 1.5B는 execution-readiness hint 저장만 다루며 실제 실행은 Controlled Execution capability 전에는 하지 않는다.
 - ProductEngine effect는 in-memory-only queue로 처리 금지. Phase 1 1급 effect는 persisted async effect queue에 저장한다.
 - `scoring_effect`와 `spec_export_effect`를 Phase 1 1급 async effect로 승격 금지. scoring/export는 reducer deterministic output으로 유지한다.

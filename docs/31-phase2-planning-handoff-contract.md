@@ -79,7 +79,7 @@ Gate 규칙:
 | `noExecutionPolicy` | yes | explicit statement that Phase 2 does not apply file patch, run shell, perform browser action, deploy, or mutate external systems |
 | `handoffSummary` | yes | Korean-first summary that is safe to show as final Planning-ready context without hiding remaining risk |
 
-Build/Serve/Learning field family의 세부 의미는 `33-build-slice-serve-learning-loop.md`를 따른다. 이 문서는 final handoff artifact에 해당 field family가 있어야 한다는 trace requirement를 소유하고, Phase 3 실행 adapter나 배포 구현을 소유하지 않는다.
+Build/Serve/Learning field family의 세부 의미는 `33-build-slice-serve-learning-loop.md`를 따른다. 이 문서는 final handoff artifact에 해당 field family가 있어야 한다는 trace requirement를 소유하고, Phase 3 실행 adapter나 배포 구현을 소유하지 않는다. Phase 3의 실행 권한, `ExecutionAuthorityRecord`, rollback, audit, Local Web Frontend + Local Node/Hono Service topology는 `36-phase3-controlled-execution-contract.md`가 소유한다.
 
 ### `taskBreakdown` minimum item
 
@@ -178,7 +178,7 @@ Binding rules:
 - exact implementation defaults for those contract names are owned by `32-phase2-implementation-preflight-contract.md`.
 - gate failure output is a durable blocker artifact whenever safe to persist, not just a transient error response.
 - final and blocker artifacts share source trace/readiness/risk semantics but only final `PlanningHandoffArtifact` may carry the user-facing `Planning-ready` label.
-- Desktop UI must preserve that label boundary: final artifact surfaces may say `Planning-ready`, while blocker report surfaces must show blocker class, required next action, residual risk, and safe preview refs without final handoff copy.
+- UI/view-model must preserve that label boundary: final artifact surfaces may say `Planning-ready`, while blocker report surfaces must show blocker class, required next action, residual risk, and safe preview refs without final handoff copy.
 - Build Slice, Serve Checklist, Learning Loop hook은 final artifact에 포함되어도 no-execution policy 아래의 planning context다. 이 field를 근거로 file patch, shell command, browser action, deploy, external mutation을 실행하면 안 된다.
 - #74 이후 `taskBreakdown`과 `prIssuePlan`은 generic single scaffold가 아니라 source-driven synthesis여야 한다. 최소한 product context(Spec/Founder Brief/Completion Candidate), decision evidence(Evidence Pack/Research-updated Queue), readiness/residual risk(Phase 1.5B hints/Known Risks/Open Questions)의 source family가 task와 PR/issue item으로 추적되어야 한다.
 - Desktop의 `Run Planning Handoff gate` action은 `CreatePlanningHandoffRequest`를 현재 projection source refs로 구성해 local gate만 실행한다. 이 trigger는 final/blocker `PlanningHandoffProjection`을 생성/조회할 수 있지만 file patch, shell command, browser action, deploy, credential, external mutation, active delegation capability를 열지 않는다.
@@ -189,7 +189,7 @@ Binding rules:
 - API route handler, storage schema, repository, ProductEngine reducer, sidecar runtime conversion을 구현하지 않는다.
 - `verify-doc-contracts`에 doc 31 전용 guard를 추가하지 않는다. #42는 docs/25와 docs/26의 current parsed contract table sync만 유지한다.
 - file patch, shell command, browser action, deploy, external mutation 실행 capability를 만들지 않는다.
-- Build Slice, Serve Checklist, Learning Loop hook을 Phase 3 execution adapter 세부 설계로 확장하지 않는다.
+- Build Slice, Serve Checklist, Learning Loop hook을 Phase 3 execution adapter 세부 설계로 확장하지 않는다. Phase 3 세부 설계가 필요하면 `36-phase3-controlled-execution-contract.md`를 기준으로 별도 구현 PR에서 다룬다.
 - provisional plan을 final implementation plan처럼 표시하지 않는다.
 - 사용자-facing UI copy source of truth를 이 문서로 옮기지 않는다.
 
