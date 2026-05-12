@@ -720,6 +720,7 @@ const PHASE3_REQUIRED_REFERENCES = [
   "docs/19-phase1-implementation-architecture.md",
   "docs/21-sidecar-api-runtime-contract.md",
   "docs/24-codex-prompt-output-contract.md",
+  "docs/25-contracts-dto-catalog.md",
   "docs/26-api-route-behavior-catalog.md",
   "docs/28-founder-os-product-doctrine.md",
   "docs/29-phase-capability-implementation-matrix.md",
@@ -742,6 +743,7 @@ const PHASE3_REQUIRED_CONTRACT_SNIPPETS = [
   "rollbackReference",
   "`git_diff_reverse` by default",
   "Read-only diagnostics time out at 30 seconds",
+  "POST /api/v1/execution-authorities/:authorityRecordId/shell-command",
   "loopback-only local targets",
   "BoundedAgentOutputRecord",
   "per-run local capability token",
@@ -850,6 +852,7 @@ const PHASE3_REFERENCE_REQUIREMENTS = [
       "`file_diff`",
       "`shell_command`",
       "`browser_action`",
+      "POST /api/v1/execution-authorities/:authorityRecordId/shell-command",
       "ProductEngine/application command boundary",
       "executionResult` may become `running`",
       "loopback-only targets"
@@ -867,11 +870,16 @@ const PHASE3_REFERENCE_REQUIREMENTS = [
       "`file_diff`",
       "`shell_command`",
       "`browser_action`",
+      "ExecuteShellCommandRequest",
       "blocked",
       "ProductEngine/application command boundary",
       "Read-only diagnostics time out at 30 seconds",
       "LAN/private IP targets and cloud preview URLs"
     ]
+  },
+  {
+    path: "docs/25-contracts-dto-catalog.md",
+    snippets: ["ExecuteShellCommandRequest", "ShellCommandExecutionResult", "Phase 3 Execution Authority DTO checklist"]
   },
   {
     path: "docs/11-roadmap-and-phase-boundaries.md",

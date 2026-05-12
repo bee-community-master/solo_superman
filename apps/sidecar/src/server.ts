@@ -29,6 +29,7 @@ import {
   type CreateExecutionAuthorityPayload,
   type CreateExecutionAuthorityRequest,
   type ExecuteFileDiffRequest,
+  type ExecuteShellCommandRequest,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
   MANUAL_RESEARCH_SOURCE_CATEGORIES,
   type CreatePlanningHandoffRequest,
@@ -950,6 +951,17 @@ const FILE_DIFF_EXECUTION_KEYS = [
   "workspaceRoot",
   "unifiedDiff"
 ] as const;
+const SHELL_COMMAND_EXECUTION_KEYS = [
+  "scaffoldOnly",
+  "sessionId",
+  "idempotencyKey",
+  "previewArtifactHash",
+  "requestedAt",
+  "approvalExpiresAt",
+  "workspaceRoot",
+  "command",
+  "workingDirectory"
+] as const;
 
 function executionAuthorityActionClassFromBody(value: unknown, fieldName: string): ExecutionAuthorityActionClass {
   const actionClass = stringFromBody(value, fieldName);
@@ -1282,10 +1294,20 @@ function executionAuthorityPayloadFromRequest(
   return payload;
 }
 
-function validateExecutionAuthorityPreflightRequestFromBody(
-  body: Readonly<Record<string, unknown>>
-): ValidateExecutionAuthorityPreflightRequest {
-  assertExecutionAuthorityRecordKeys(body, EXECUTION_AUTHORITY_PREFLIGHT_KEYS, "Execution Authority preflight body");
+interface ExecutionAdapterBaseRequest {
+  readonly sessionId: SessionId;
+  readonly idempotencyKey: string;
+  readonly previewArtifactHash: string;
+  readonly requestedAt: string;
+  readonly approvalExpiresAt?: string;
+}
+
+function executionAdapterBaseRequestFromBody(
+  body: Readonly<Record<string, unknown>>,
+  allowedKeys: readonly string[],
+  bodyName: string
+): ExecutionAdapterBaseRequest {
+  assertExecutionAuthorityRecordKeys(body, allowedKeys, bodyName);
 
   if (body.scaffoldOnly !== undefined && body.scaffoldOnly !== true) {
     throw new ProductEngineServiceError("VALIDATION_FAILED", "scaffoldOnly must be true when provided.");
@@ -1296,30 +1318,48 @@ function validateExecutionAuthorityPreflightRequestFromBody(
   return {
     sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
     idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
-    actionClass: executionAuthorityActionClassFromBody(body.actionClass, "actionClass"),
     previewArtifactHash: stringFromBody(body.previewArtifactHash, "previewArtifactHash"),
     requestedAt: isoTimestampFromBody(body.requestedAt, "requestedAt"),
     ...(approvalExpiresAt ? { approvalExpiresAt } : {})
   };
 }
 
+function validateExecutionAuthorityPreflightRequestFromBody(
+  body: Readonly<Record<string, unknown>>
+): ValidateExecutionAuthorityPreflightRequest {
+  return {
+    ...executionAdapterBaseRequestFromBody(
+      body,
+      EXECUTION_AUTHORITY_PREFLIGHT_KEYS,
+      "Execution Authority preflight body"
+    ),
+    actionClass: executionAuthorityActionClassFromBody(body.actionClass, "actionClass")
+  };
+}
+
 function executeFileDiffRequestFromBody(body: Readonly<Record<string, unknown>>): ExecuteFileDiffRequest {
-  assertExecutionAuthorityRecordKeys(body, FILE_DIFF_EXECUTION_KEYS, "file_diff execution body");
-
-  if (body.scaffoldOnly !== undefined && body.scaffoldOnly !== true) {
-    throw new ProductEngineServiceError("VALIDATION_FAILED", "scaffoldOnly must be true when provided.");
-  }
-
-  const approvalExpiresAt = optionalIsoTimestampFromBody(body.approvalExpiresAt, "approvalExpiresAt");
+  const baseRequest = executionAdapterBaseRequestFromBody(body, FILE_DIFF_EXECUTION_KEYS, "file_diff execution body");
 
   return {
-    sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
-    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
-    previewArtifactHash: stringFromBody(body.previewArtifactHash, "previewArtifactHash"),
-    requestedAt: isoTimestampFromBody(body.requestedAt, "requestedAt"),
-    ...(approvalExpiresAt ? { approvalExpiresAt } : {}),
+    ...baseRequest,
     workspaceRoot: stringFromBody(body.workspaceRoot, "workspaceRoot"),
     unifiedDiff: stringContentFromBody(body.unifiedDiff, "unifiedDiff")
+  };
+}
+
+function executeShellCommandRequestFromBody(body: Readonly<Record<string, unknown>>): ExecuteShellCommandRequest {
+  const baseRequest = executionAdapterBaseRequestFromBody(
+    body,
+    SHELL_COMMAND_EXECUTION_KEYS,
+    "shell_command execution body"
+  );
+  const workingDirectory = optionalStringFromBody(body.workingDirectory, "workingDirectory");
+
+  return {
+    ...baseRequest,
+    workspaceRoot: stringFromBody(body.workspaceRoot, "workspaceRoot"),
+    command: stringArrayFromBody(body.command, "command"),
+    ...(workingDirectory ? { workingDirectory } : {})
   };
 }
 
@@ -2107,6 +2147,17 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       const request = executeFileDiffRequestFromBody(await jsonBody(context));
 
       return service.executeFileDiff({
+        ...request,
+        authorityRecordId: context.req.param("authorityRecordId")
+      });
+    })
+  );
+
+  app.post("/api/v1/execution-authorities/:authorityRecordId/shell-command", async (context) =>
+    withProductEngine(context, async (service) => {
+      const request = executeShellCommandRequestFromBody(await jsonBody(context));
+
+      return service.executeShellCommand({
         ...request,
         authorityRecordId: context.req.param("authorityRecordId")
       });

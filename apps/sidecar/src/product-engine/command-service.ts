@@ -33,6 +33,7 @@ import {
   type EffectTaskId,
   type EventId,
   type ExecuteFileDiffRequest,
+  type ExecuteShellCommandRequest,
   type ExecutionAuthorityBlockCode,
   type ExecutionAuthorityBlockReasonDto,
   type ExecutionAuthorityLedgerProjection,
@@ -82,6 +83,8 @@ import {
   type SchemaVersion,
   type SessionId,
   type SessionShellProjection,
+  type ShellCommandExecutionResult,
+  type ShellCommandRunSummaryDto,
   type StartResearchRunRequest,
   type StartProjectRequest,
   type StateVersion,
@@ -130,6 +133,7 @@ import {
 } from "../runtime";
 import { applyFileDiff } from "./file-diff-adapter";
 import { buildPhase15bHintExport, buildPhase15bHintProjection } from "./phase15b-hint-projection";
+import { runShellCommand } from "./shell-command-adapter";
 
 export class ProductEngineServiceError extends Error {
   readonly code: ApiErrorCode;
@@ -181,6 +185,10 @@ export interface ValidateExecutionAuthorityPreflightInput extends ValidateExecut
 }
 
 export interface ExecuteFileDiffInput extends ExecuteFileDiffRequest {
+  readonly authorityRecordId: string;
+}
+
+export interface ExecuteShellCommandInput extends ExecuteShellCommandRequest {
   readonly authorityRecordId: string;
 }
 
@@ -987,9 +995,75 @@ function fileDiffExecutionResult(input: {
   };
 }
 
-function existingFileDiffExecutionStatus(
+function shellCommandExecutionResult(input: {
+  readonly request: ExecuteShellCommandInput;
+  readonly checkedAt: string;
+  readonly record?: ExecutionAuthorityRecord;
+  readonly status: ShellCommandExecutionResult["status"];
+  readonly command?: ShellCommandRunSummaryDto;
+  readonly exitCode?: number | null;
+  readonly durationMs?: number;
+  readonly stdoutSummary?: string;
+  readonly stderrSummary?: string;
+  readonly blockReasons: readonly ExecutionAuthorityBlockReasonDto[];
+  readonly evidenceRefs?: readonly string[];
+  readonly auditRefs?: readonly string[];
+  readonly includeRequestAuditRef?: boolean;
+}): ShellCommandExecutionResult {
+  const blockEvidenceRefs = input.blockReasons.flatMap((reason) => reason.evidenceRefs);
+  const requestAuditRefs = input.includeRequestAuditRef === false
+    ? []
+    : [`audit:shell_command:${input.request.idempotencyKey}`];
+  const evidenceRefs = input.record
+    ? uniqueRefs([...(input.record.evidenceRefs ?? []), ...(input.evidenceRefs ?? []), ...blockEvidenceRefs])
+    : uniqueRefs([...(input.evidenceRefs ?? []), ...blockEvidenceRefs]);
+  const auditRefs = input.record
+    ? uniqueRefs([...(input.record.auditRefs ?? []), ...requestAuditRefs, ...(input.auditRefs ?? [])])
+    : uniqueRefs([...requestAuditRefs, ...(input.auditRefs ?? [])]);
+
+  return {
+    kind: "ShellCommandExecutionResult",
+    authorityRecordId: input.request.authorityRecordId,
+    idempotencyKey: input.request.idempotencyKey,
+    previewArtifactHash: input.request.previewArtifactHash,
+    requestedAt: input.request.requestedAt,
+    checkedAt: input.checkedAt,
+    status: input.status,
+    command: input.command ?? shellCommandSummaryFromRequest({
+      request: input.request,
+      ...(input.record ? { record: input.record } : {})
+    }),
+    exitCode: input.exitCode ?? null,
+    durationMs: input.durationMs ?? 0,
+    stdoutSummary: input.stdoutSummary ?? "",
+    stderrSummary: input.stderrSummary ?? "",
+    blockReasons: input.blockReasons,
+    rollbackReference: input.record?.rollbackReference ?? null,
+    evidenceRefs,
+    auditRefs,
+    refetchUrl: `/api/v1/sessions/${input.request.sessionId}/execution-authority`
+  };
+}
+
+function shellCommandSummaryFromRequest(input: {
+  readonly request: ExecuteShellCommandInput;
+  readonly record?: ExecutionAuthorityRecord;
+  readonly commandClass?: ShellCommandRunSummaryDto["commandClass"];
+  readonly timedOut?: boolean;
+}): ShellCommandRunSummaryDto {
+  return {
+    executable: input.request.command[0] ?? "",
+    args: input.request.command.slice(1),
+    workingDirectory: input.request.workingDirectory ?? ".",
+    commandClass: input.commandClass ?? "diagnostic",
+    timeoutMs: input.record?.requestedScope.maxDurationMs ?? 0,
+    timedOut: input.timedOut ?? false
+  };
+}
+
+function existingExecutionStatus(
   record: ExecutionAuthorityRecord
-): FileDiffExecutionResult["status"] | null {
+): Extract<ExecutionAuthorityRecord["executionResult"], "blocked" | "completed" | "failed" | "partial"> | null {
   switch (record.executionResult) {
     case "blocked":
     case "completed":
@@ -4286,7 +4360,7 @@ export function createProductEngineCommandService(
         });
       }
 
-      const existingStatus = existingFileDiffExecutionStatus(projection.latestRecord);
+      const existingStatus = existingExecutionStatus(projection.latestRecord);
 
       if (existingStatus) {
         if (
@@ -4349,6 +4423,143 @@ export function createProductEngineCommandService(
         blockReasons: fileDiffOutput.blockReasons,
         evidenceRefs: fileDiffOutput.evidenceRefs,
         auditRefs: fileDiffOutput.auditRefs
+      });
+      const updatedProjection = await repository.updateExecutionOutcome({
+        recordId: input.authorityRecordId,
+        executionResult: result.status,
+        blockReasons: result.status === "blocked" ? result.blockReasons : [],
+        evidenceRefs: result.evidenceRefs,
+        auditRefs: result.auditRefs
+      });
+
+      if (!updatedProjection) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Execution authority record was not found.", {
+          authorityRecordId: input.authorityRecordId
+        });
+      }
+
+      return result;
+    },
+
+    async executeShellCommand(input: ExecuteShellCommandInput): Promise<ShellCommandExecutionResult> {
+      const session = await createProjectRepository(storage.db).getSession(input.sessionId);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: input.sessionId
+        });
+      }
+
+      parseExecutionAuthorityTimestamp(input.requestedAt, "requestedAt");
+      if (input.approvalExpiresAt) {
+        parseExecutionAuthorityTimestamp(input.approvalExpiresAt, "approvalExpiresAt");
+      }
+
+      const repository = createExecutionAuthorityRepository(storage.db);
+      const projection = await repository.getById(input.authorityRecordId);
+
+      if (projection && projection.sessionId !== input.sessionId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "authorityRecordId must belong to the request session.", {
+          authorityRecordId: input.authorityRecordId,
+          routeSessionId: input.sessionId,
+          authoritySessionId: projection.sessionId
+        });
+      }
+
+      const preflightInput: ValidateExecutionAuthorityPreflightInput = {
+        authorityRecordId: input.authorityRecordId,
+        sessionId: input.sessionId,
+        idempotencyKey: input.idempotencyKey,
+        actionClass: "shell_command",
+        previewArtifactHash: input.previewArtifactHash,
+        requestedAt: input.requestedAt,
+        ...(input.approvalExpiresAt ? { approvalExpiresAt: input.approvalExpiresAt } : {})
+      };
+      const preflightBlockReasons = executionAuthorityPreflightBlockReasons(preflightInput, projection);
+      const checkedAt = new Date().toISOString();
+
+      if (!projection) {
+        return shellCommandExecutionResult({
+          request: input,
+          checkedAt,
+          status: "blocked",
+          blockReasons: preflightBlockReasons
+        });
+      }
+
+      const existingStatus = existingExecutionStatus(projection.latestRecord);
+
+      if (existingStatus) {
+        if (
+          projection.latestRecord.actionClass !== "shell_command" ||
+          projection.latestRecord.previewArtifactHash !== input.previewArtifactHash
+        ) {
+          return shellCommandExecutionResult({
+            request: input,
+            checkedAt,
+            record: projection.latestRecord,
+            status: "blocked",
+            blockReasons: preflightBlockReasons,
+            includeRequestAuditRef: false
+          });
+        }
+
+        return shellCommandExecutionResult({
+          request: input,
+          checkedAt,
+          record: projection.latestRecord,
+          status: existingStatus,
+          blockReasons: existingStatus === "blocked" ? projection.latestRecord.blockReasons : [],
+          includeRequestAuditRef: false
+        });
+      }
+
+      if (projection.latestRecord.executionResult !== "not_run") {
+        return shellCommandExecutionResult({
+          request: input,
+          checkedAt,
+          record: projection.latestRecord,
+          status: "blocked",
+          blockReasons: preflightBlockReasons,
+          includeRequestAuditRef: false
+        });
+      }
+
+      const shellCommandOutput = preflightBlockReasons.length
+        ? {
+            status: "blocked" as const,
+            command: shellCommandSummaryFromRequest({
+              request: input,
+              record: projection.latestRecord
+            }),
+            exitCode: null,
+            durationMs: 0,
+            stdoutSummary: "",
+            stderrSummary: "",
+            blockReasons: preflightBlockReasons,
+            evidenceRefs: [],
+            auditRefs: []
+          }
+        : await runShellCommand({
+            record: projection.latestRecord,
+            idempotencyKey: input.idempotencyKey,
+            workspaceRoot: input.workspaceRoot,
+            command: input.command,
+            ...(input.workingDirectory ? { workingDirectory: input.workingDirectory } : {})
+          });
+      const result = shellCommandExecutionResult({
+        request: input,
+        checkedAt,
+        record: projection.latestRecord,
+        status: shellCommandOutput.status,
+        command: shellCommandOutput.command,
+        exitCode: shellCommandOutput.exitCode,
+        durationMs: shellCommandOutput.durationMs,
+        stdoutSummary: shellCommandOutput.stdoutSummary,
+        stderrSummary: shellCommandOutput.stderrSummary,
+        blockReasons: shellCommandOutput.blockReasons,
+        evidenceRefs: shellCommandOutput.evidenceRefs,
+        auditRefs: shellCommandOutput.auditRefs
       });
       const updatedProjection = await repository.updateExecutionOutcome({
         recordId: input.authorityRecordId,

@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach } from "vitest";
@@ -39,6 +40,7 @@ import {
 } from "@solo-superman/db";
 import { createProductEngineCommandService } from "./product-engine/command-service";
 import { hashFileDiffPreview } from "./product-engine/file-diff-adapter";
+import { hashShellCommandPreview } from "./product-engine/shell-command-adapter";
 import { CodexRuntimeUnavailableError, createCodexRuntimeAdapter, fixtureCodexPreviewOutput } from "./runtime";
 import { createSidecarApp } from "./server";
 
@@ -4087,6 +4089,498 @@ describe("PR-02 sidecar health shell", () => {
           evidenceRefs: expect.arrayContaining(["file_diff:sandbox_failure"])
         },
         blockedPreconditions: []
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("executes shell_command only for exact allowlisted commands and records safe terminal evidence", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const workspaceRoot = await makeTempAppDataDir();
+      await writeFile(
+        join(workspaceRoot, "public-output.txt"),
+        "token=super-secret-value\nNPM_TOKEN=plain-npm-token-value\nvisible line\n"
+      );
+      await mkdir(join(workspaceRoot, "nested"));
+      await writeFile(join(workspaceRoot, "nested", "cwd-output.txt"), "cwd visible\n");
+      execFileSync("mkfifo", [join(workspaceRoot, "wait.fifo")]);
+
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "A shell_command controlled adapter route test idea"
+      );
+      let expectedStateVersion = 1;
+      const nextExpectedStateVersion = () => expectedStateVersion++;
+      const postShellCommand = (targetRecordId: string, body: Readonly<Record<string, unknown>>) =>
+        storageApp.request(`/api/v1/execution-authorities/${targetRecordId}/shell-command`, {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
+        });
+      const createShellAuthority = (
+        idSuffix: string,
+        command: readonly string[],
+        expectedStateVersion: number,
+        options: {
+          readonly authorityOverrides?: Readonly<Record<string, unknown>>;
+          readonly workingDirectory?: string;
+        } = {}
+      ) => {
+        const previewArtifactHash = hashShellCommandPreview({
+          command,
+          ...(options.workingDirectory ? { workingDirectory: options.workingDirectory } : {})
+        });
+
+        return createExecutionAuthorityForTest(storageApp, sessionId, idSuffix, {
+          expectedStateVersion,
+          actionClass: "shell_command",
+          previewArtifactHash,
+          reviewedPreviewArtifactHash: previewArtifactHash,
+          requestedScope: {
+            workspaceRef: `workspace:${workspaceRoot}`,
+            commandAllowlistRef: "shell_command:default",
+            maxDurationMs: 1_000
+          },
+          sandboxBoundary: {
+            mode: "command_sandbox",
+            networkPolicy: "blocked",
+            secretPolicy: "no_secret_values"
+          },
+          rollbackReference: {
+            kind: "command_compensating_action",
+            ref: `rollback_${idSuffix}`
+          },
+          preconditionChecks: {
+            planningSourceExists: true,
+            previewArtifactExists: true,
+            previewHashMatches: true,
+            rollbackAvailable: true,
+            credentialValueRequired: false,
+            sandboxEnforced: true
+          },
+          ...options.authorityOverrides
+        });
+      };
+
+      const listCommand = ["ls", "."] as const;
+      const listHash = hashShellCommandPreview({ command: listCommand });
+      const { recordId } = await createShellAuthority("shell_command_ls", listCommand, nextExpectedStateVersion());
+      const requestBody = {
+        sessionId,
+        idempotencyKey: "shell-command:ls",
+        previewArtifactHash: listHash,
+        requestedAt: "2026-05-13T00:01:00.000Z",
+        approvalExpiresAt: "2026-05-13T00:05:00.000Z",
+        workspaceRoot,
+        command: listCommand
+      };
+
+      const completed = await postShellCommand(recordId, requestBody);
+      const completedBody = await jsonBody(completed);
+
+      expect(completed.status).toBe(200);
+      expect(completedBody.data).toMatchObject({
+        kind: "ShellCommandExecutionResult",
+        authorityRecordId: recordId,
+        status: "completed",
+        command: {
+          executable: "ls",
+          args: ["."],
+          commandClass: "diagnostic",
+          timeoutMs: 1_000,
+          timedOut: false
+        },
+        exitCode: 0,
+        rollbackReference: {
+          kind: "command_compensating_action"
+        },
+        evidenceRefs: expect.arrayContaining([
+          expect.stringContaining("shell_command:exit_code:0")
+        ]),
+        auditRefs: expect.arrayContaining(["audit:shell_command:shell-command:ls"])
+      });
+
+      const replayCompleted = await postShellCommand(recordId, requestBody);
+      const replayCompletedBody = await jsonBody(replayCompleted);
+
+      expect(replayCompleted.status).toBe(200);
+      expect(replayCompletedBody.data).toMatchObject({
+        status: "completed",
+        blockReasons: []
+      });
+
+      const cwdCommand = ["cat", "cwd-output.txt"] as const;
+      const cwdHash = hashShellCommandPreview({ command: cwdCommand, workingDirectory: "nested" });
+      const { recordId: cwdRecordId } = await createShellAuthority(
+        "shell_command_cwd",
+        cwdCommand,
+        nextExpectedStateVersion(),
+        { workingDirectory: "nested" }
+      );
+      const cwdResult = await postShellCommand(cwdRecordId, {
+        ...requestBody,
+        idempotencyKey: "shell-command:cwd",
+        previewArtifactHash: cwdHash,
+        command: cwdCommand,
+        workingDirectory: "nested"
+      });
+      const cwdBody = await jsonBody(cwdResult);
+
+      expect(cwdResult.status).toBe(200);
+      expect(cwdBody.data).toMatchObject({
+        status: "completed",
+        command: {
+          workingDirectory: "nested"
+        },
+        stdoutSummary: expect.stringContaining("cwd visible")
+      });
+
+      const cwdEscapeCommand = ["ls", "."] as const;
+      const cwdEscapeHash = hashShellCommandPreview({ command: cwdEscapeCommand, workingDirectory: "../" });
+      const { recordId: cwdEscapeRecordId } = await createShellAuthority(
+        "shell_command_cwd_escape",
+        cwdEscapeCommand,
+        nextExpectedStateVersion(),
+        { workingDirectory: "../" }
+      );
+      const cwdEscape = await postShellCommand(cwdEscapeRecordId, {
+        ...requestBody,
+        idempotencyKey: "shell-command:cwd-escape",
+        previewArtifactHash: cwdEscapeHash,
+        command: cwdEscapeCommand,
+        workingDirectory: "../"
+      });
+      const cwdEscapeBody = await jsonBody(cwdEscape);
+
+      expect(cwdEscape.status).toBe(200);
+      expect(cwdEscapeBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "sandbox_failure",
+            message: expect.stringContaining("workingDirectory")
+          })
+        ])
+      });
+
+      const tamperedReplay = await postShellCommand(recordId, {
+        ...requestBody,
+        idempotencyKey: "shell-command:tampered-replay",
+        previewArtifactHash: "sha256:tampered"
+      });
+      const tamperedReplayBody = await jsonBody(tamperedReplay);
+
+      expect(tamperedReplay.status).toBe(200);
+      expect(tamperedReplayBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "preview_hash_mismatch"
+          })
+        ])
+      });
+
+      const redactionCommand = ["cat", "public-output.txt"] as const;
+      const redactionHash = hashShellCommandPreview({ command: redactionCommand });
+      const { recordId: redactionRecordId } = await createShellAuthority(
+        "shell_command_redaction",
+        redactionCommand,
+        nextExpectedStateVersion()
+      );
+      const redacted = await postShellCommand(redactionRecordId, {
+        ...requestBody,
+        idempotencyKey: "shell-command:redaction",
+        previewArtifactHash: redactionHash,
+        command: redactionCommand
+      });
+      const redactedBody = await jsonBody(redacted);
+      const redactedData = redactedBody.data as Readonly<Record<string, unknown>>;
+
+      expect(redacted.status).toBe(200);
+      expect(redactedData).toMatchObject({
+        status: "completed",
+        stdoutSummary: expect.stringContaining("token=[REDACTED]")
+      });
+      expect(redactedData.stdoutSummary).toEqual(expect.stringContaining("NPM_TOKEN=[REDACTED]"));
+      expect(redactedData.stdoutSummary).not.toContain("super-secret-value");
+      expect(redactedData.stdoutSummary).not.toContain("plain-npm-token-value");
+
+      const nonzeroCommand = ["cat", "missing-file.txt"] as const;
+      const nonzeroHash = hashShellCommandPreview({ command: nonzeroCommand });
+      const { recordId: nonzeroRecordId } = await createShellAuthority(
+        "shell_command_nonzero",
+        nonzeroCommand,
+        nextExpectedStateVersion()
+      );
+      const nonzero = await postShellCommand(nonzeroRecordId, {
+        ...requestBody,
+        idempotencyKey: "shell-command:nonzero",
+        previewArtifactHash: nonzeroHash,
+        command: nonzeroCommand
+      });
+      const nonzeroBody = await jsonBody(nonzero);
+
+      expect(nonzero.status).toBe(200);
+      expect(nonzeroBody.data).toMatchObject({
+        status: "failed",
+        exitCode: expect.any(Number),
+        evidenceRefs: expect.arrayContaining([
+          expect.stringMatching(/^shell_command:exit_code:/u)
+        ])
+      });
+
+      const destructiveCommand = ["rm", "-rf", "."] as const;
+      const destructiveHash = hashShellCommandPreview({ command: destructiveCommand });
+      const { recordId: destructiveRecordId } = await createShellAuthority(
+        "shell_command_destructive",
+        destructiveCommand,
+        nextExpectedStateVersion()
+      );
+      const destructive = await postShellCommand(destructiveRecordId, {
+        ...requestBody,
+        idempotencyKey: "shell-command:destructive",
+        previewArtifactHash: destructiveHash,
+        command: destructiveCommand
+      });
+      const destructiveBody = await jsonBody(destructive);
+
+      expect(destructive.status).toBe(200);
+      expect(destructiveBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "sandbox_failure",
+            message: expect.stringContaining("outside the default allowlist")
+          })
+        ])
+      });
+
+      const timeoutCommand = ["cat", "wait.fifo"] as const;
+      const timeoutHash = hashShellCommandPreview({ command: timeoutCommand });
+      const { recordId: timeoutRecordId } = await createShellAuthority(
+        "shell_command_timeout",
+        timeoutCommand,
+        nextExpectedStateVersion(),
+        {
+          authorityOverrides: {
+            requestedScope: {
+              workspaceRef: `workspace:${workspaceRoot}`,
+              commandAllowlistRef: "diagnostics:read_only",
+              maxDurationMs: 100
+            }
+          }
+        }
+      );
+      const timeout = await postShellCommand(timeoutRecordId, {
+        ...requestBody,
+        idempotencyKey: "shell-command:timeout",
+        previewArtifactHash: timeoutHash,
+        command: timeoutCommand
+      });
+      const timeoutBody = await jsonBody(timeout);
+
+      expect(timeout.status).toBe(200);
+      expect(timeoutBody.data).toMatchObject({
+        status: "failed",
+        command: {
+          timedOut: true
+        },
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining("timed out")
+          })
+        ])
+      });
+
+      const outsideDir = await makeTempAppDataDir();
+      await writeFile(join(outsideDir, "data.txt"), "password=should-not-be-readable\n");
+      await symlink(outsideDir, join(workspaceRoot, "outside-link"), "dir");
+
+      const symlinkEscapeCommand = ["cat", "outside-link/data.txt"] as const;
+      const symlinkEscapeHash = hashShellCommandPreview({ command: symlinkEscapeCommand });
+      const { recordId: symlinkEscapeRecordId } = await createShellAuthority(
+        "shell_command_symlink_escape",
+        symlinkEscapeCommand,
+        nextExpectedStateVersion()
+      );
+      const symlinkEscape = await postShellCommand(symlinkEscapeRecordId, {
+        ...requestBody,
+        idempotencyKey: "shell-command:symlink-escape",
+        previewArtifactHash: symlinkEscapeHash,
+        command: symlinkEscapeCommand
+      });
+      const symlinkEscapeBody = await jsonBody(symlinkEscape);
+
+      expect(symlinkEscape.status).toBe(200);
+      expect(symlinkEscapeBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "sandbox_failure",
+            message: expect.stringContaining("symlink outside the workspace boundary")
+          })
+        ])
+      });
+
+      const safeRgCommand = ["rg", "visible", "public-output.txt"] as const;
+      const safeRgHash = hashShellCommandPreview({ command: safeRgCommand });
+      const { recordId: safeRgRecordId } = await createShellAuthority(
+        "shell_command_rg_file",
+        safeRgCommand,
+        nextExpectedStateVersion()
+      );
+      const safeRg = await postShellCommand(safeRgRecordId, {
+        ...requestBody,
+        idempotencyKey: "shell-command:rg-file",
+        previewArtifactHash: safeRgHash,
+        command: safeRgCommand
+      });
+      const safeRgBody = await jsonBody(safeRg);
+
+      expect(safeRg.status).toBe(200);
+      expect(safeRgBody.data).toMatchObject({
+        status: "completed",
+        stdoutSummary: expect.stringContaining("visible line")
+      });
+
+      const implicitRgScanCommand = ["rg", "visible"] as const;
+      const implicitRgScanHash = hashShellCommandPreview({ command: implicitRgScanCommand });
+      const { recordId: implicitRgScanRecordId } = await createShellAuthority(
+        "shell_command_rg_implicit_scan",
+        implicitRgScanCommand,
+        nextExpectedStateVersion()
+      );
+      const implicitRgScan = await postShellCommand(implicitRgScanRecordId, {
+        ...requestBody,
+        idempotencyKey: "shell-command:rg-implicit",
+        previewArtifactHash: implicitRgScanHash,
+        command: implicitRgScanCommand
+      });
+      const implicitRgScanBody = await jsonBody(implicitRgScan);
+
+      expect(implicitRgScan.status).toBe(200);
+      expect(implicitRgScanBody.data).toMatchObject({
+        status: "blocked",
+        stdoutSummary: "",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "credential_value_required",
+            message: expect.stringContaining("implicit workspace scans are blocked")
+          })
+        ])
+      });
+
+      const recursiveRgScanCommand = ["rg", "visible", "."] as const;
+      const recursiveRgScanHash = hashShellCommandPreview({ command: recursiveRgScanCommand });
+      const { recordId: recursiveRgScanRecordId } = await createShellAuthority(
+        "shell_command_rg_recursive_scan",
+        recursiveRgScanCommand,
+        nextExpectedStateVersion()
+      );
+      const recursiveRgScan = await postShellCommand(recursiveRgScanRecordId, {
+        ...requestBody,
+        idempotencyKey: "shell-command:rg-recursive",
+        previewArtifactHash: recursiveRgScanHash,
+        command: recursiveRgScanCommand
+      });
+      const recursiveRgScanBody = await jsonBody(recursiveRgScan);
+
+      expect(recursiveRgScan.status).toBe(200);
+      expect(recursiveRgScanBody.data).toMatchObject({
+        status: "blocked",
+        stdoutSummary: "",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "credential_value_required",
+            message: expect.stringContaining("recursive directory scans are blocked")
+          })
+        ])
+      });
+
+      const unsafeRgFlagCommand = ["rg", "--pre", "cat", "visible"] as const;
+      const unsafeRgFlagHash = hashShellCommandPreview({ command: unsafeRgFlagCommand });
+      const { recordId: unsafeRgFlagRecordId } = await createShellAuthority(
+        "shell_command_rg_pre",
+        unsafeRgFlagCommand,
+        nextExpectedStateVersion()
+      );
+      const unsafeRgFlag = await postShellCommand(unsafeRgFlagRecordId, {
+        ...requestBody,
+        idempotencyKey: "shell-command:rg-pre",
+        previewArtifactHash: unsafeRgFlagHash,
+        command: unsafeRgFlagCommand
+      });
+      const unsafeRgFlagBody = await jsonBody(unsafeRgFlag);
+
+      expect(unsafeRgFlag.status).toBe(200);
+      expect(unsafeRgFlagBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "sandbox_failure",
+            message: expect.stringContaining("rg option is outside")
+          })
+        ])
+      });
+
+      await writeFile(join(workspaceRoot, ".npmrc"), "//registry.npmjs.org/:_authToken=plain-npm-token-value\n");
+      const credentialPathCommand = ["cat", ".npmrc"] as const;
+      const credentialPathHash = hashShellCommandPreview({ command: credentialPathCommand });
+      const { recordId: credentialPathRecordId } = await createShellAuthority(
+        "shell_command_npmrc_path",
+        credentialPathCommand,
+        nextExpectedStateVersion()
+      );
+      const credentialPath = await postShellCommand(credentialPathRecordId, {
+        ...requestBody,
+        idempotencyKey: "shell-command:npmrc-path",
+        previewArtifactHash: credentialPathHash,
+        command: credentialPathCommand
+      });
+      const credentialPathBody = await jsonBody(credentialPath);
+
+      expect(credentialPath.status).toBe(200);
+      expect(credentialPathBody.data).toMatchObject({
+        status: "blocked",
+        stdoutSummary: "",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "credential_value_required",
+            message: expect.stringContaining("credential/secret/key material")
+          })
+        ])
+      });
+
+      const credentialArgCommand = ["rg", "NPM_TOKEN=plain-secret-value", "public-output.txt"] as const;
+      const credentialArgHash = hashShellCommandPreview({ command: credentialArgCommand });
+      const { recordId: credentialArgRecordId } = await createShellAuthority(
+        "shell_command_secret_arg",
+        credentialArgCommand,
+        nextExpectedStateVersion()
+      );
+      const credentialArg = await postShellCommand(credentialArgRecordId, {
+        ...requestBody,
+        idempotencyKey: "shell-command:secret-arg",
+        previewArtifactHash: credentialArgHash,
+        command: credentialArgCommand
+      });
+      const credentialArgBody = await jsonBody(credentialArg);
+
+      expect(credentialArg.status).toBe(200);
+      expect(credentialArgBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "credential_value_required",
+            message: expect.stringContaining("credential or secret values")
+          })
+        ])
       });
     } finally {
       await storage.close();

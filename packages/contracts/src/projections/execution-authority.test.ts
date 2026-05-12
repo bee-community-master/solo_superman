@@ -309,11 +309,21 @@ describe("Phase 3 ExecutionAuthority ledger contract", () => {
         apiKey: "sk-test-secret-value-000000"
       } as ExecutionAuthorityRecord["requestedScope"]
     } satisfies ExecutionAuthorityRecord;
+    const secretValueScope = {
+      ...PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE.latestRecord,
+      requestedScope: {
+        ...PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE.latestRecord.requestedScope,
+        diagnosticPattern: "NPM_TOKEN=plain-secret-value"
+      } as ExecutionAuthorityRecord["requestedScope"]
+    } satisfies ExecutionAuthorityRecord;
 
     expect(executionAuthorityRecordValidationIssues(missingApprover)).toContain(
       "not_run/running/terminal state requires valid approver"
     );
     expect(executionAuthorityRecordValidationIssues(secretScope)).toContain(
+      "ExecutionAuthorityRecord must not contain credential or secret values"
+    );
+    expect(executionAuthorityRecordValidationIssues(secretValueScope)).toContain(
       "ExecutionAuthorityRecord must not contain credential or secret values"
     );
   });

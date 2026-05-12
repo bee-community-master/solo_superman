@@ -252,6 +252,46 @@ export interface FileDiffExecutionResult {
   readonly refetchUrl: string;
 }
 
+export interface ExecuteShellCommandRequest {
+  readonly sessionId: SessionId;
+  readonly idempotencyKey: string;
+  readonly previewArtifactHash: string;
+  readonly requestedAt: string;
+  readonly approvalExpiresAt?: string;
+  readonly workspaceRoot: string;
+  readonly command: readonly string[];
+  readonly workingDirectory?: string;
+}
+
+export interface ShellCommandRunSummaryDto {
+  readonly executable: string;
+  readonly args: readonly string[];
+  readonly workingDirectory: string;
+  readonly commandClass: "diagnostic" | "test" | "build_or_full_verify";
+  readonly timeoutMs: number;
+  readonly timedOut: boolean;
+}
+
+export interface ShellCommandExecutionResult {
+  readonly kind: "ShellCommandExecutionResult";
+  readonly authorityRecordId: string;
+  readonly idempotencyKey: string;
+  readonly previewArtifactHash: string;
+  readonly requestedAt: string;
+  readonly checkedAt: string;
+  readonly status: Extract<ExecutionResultState, "blocked" | "completed" | "failed" | "partial">;
+  readonly command: ShellCommandRunSummaryDto;
+  readonly exitCode: number | null;
+  readonly durationMs: number;
+  readonly stdoutSummary: string;
+  readonly stderrSummary: string;
+  readonly blockReasons: readonly ExecutionAuthorityBlockReasonDto[];
+  readonly rollbackReference: ExecutionRollbackReference | null;
+  readonly evidenceRefs: readonly string[];
+  readonly auditRefs: readonly string[];
+  readonly refetchUrl: string;
+}
+
 export class ExecutionAuthorityValidationError extends Error {
   readonly issues: readonly string[];
 
@@ -328,6 +368,9 @@ const EXECUTION_AUTHORITY_FORBIDDEN_SECRET_FIELD_NAMES = new Set([
   "sessioncookie",
   "token"
 ]);
+const SECRET_ASSIGNMENT_KEY_PATTERN =
+  /(?:^|[^a-z0-9])(?:api[_-]?key|auth[_-]?token|access[_-]?token|refresh[_-]?token|id[_-]?token|token|secret|password|passwd|private[_-]?key)(?:$|[^a-z0-9])/iu;
+const SECRET_ASSIGNMENT_PATTERN = /([A-Za-z0-9_./:-]*[A-Za-z0-9_./-])\s*[:=]\s*\S+/gu;
 
 function normalizedSecretFieldName(key: string) {
   return key.toLowerCase().replace(/[^a-z0-9]/gu, "");
@@ -335,6 +378,7 @@ function normalizedSecretFieldName(key: string) {
 
 function looksLikeSecretValue(value: string) {
   return (
+    [...value.matchAll(SECRET_ASSIGNMENT_PATTERN)].some((match) => SECRET_ASSIGNMENT_KEY_PATTERN.test(match[1] ?? "")) ||
     /\b(?:api[_-]?key|password|secret|token)\s*[:=]\s*\S+/iu.test(value) ||
     /\bBearer\s+[A-Za-z0-9._~+/-]{10,}/u.test(value) ||
     /\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]{20,}/u.test(value) ||
@@ -548,6 +592,10 @@ function actionClassBoundaryValidationIssues(record: ExecutionAuthorityRecord): 
       break;
     }
     case "shell_command": {
+      if (!record.requestedScope.workspaceRef) {
+        issues.push("shell_command authority requires workspaceRef requestedScope");
+      }
+
       if (!record.requestedScope.commandAllowlistRef) {
         issues.push("shell_command authority requires commandAllowlistRef requestedScope");
       }

@@ -878,7 +878,7 @@ Behavior rules:
 
 ## Phase 3 Execution Authority DTO checklist
 
-Phase 3 PR-01은 `36-phase3-controlled-execution-contract.md`의 common ledger/authority slice를 code surface로 승격했고, PR-02(#93)는 same ledger를 local route/preflight API boundary로 노출한다. PR-03(#94)는 `file_diff` adapter route/DTO/result를 추가하되, `shell_command` / `browser_action` slice는 여전히 후속 approval/evidence/audit ledger를 참조해야 한다.
+Phase 3 PR-01은 `36-phase3-controlled-execution-contract.md`의 common ledger/authority slice를 code surface로 승격했고, PR-02(#93)는 same ledger를 local route/preflight API boundary로 노출한다. PR-03(#94)는 `file_diff` adapter route/DTO/result를 추가했고, PR-04(#95)는 `shell_command` adapter route/DTO/result를 same ledger approval/evidence/audit boundary에 연결한다. `browser_action` slice는 여전히 후속 approval/evidence/audit ledger를 참조해야 한다.
 
 | Surface | Exact current name | Implementation note |
 | --- | --- | --- |
@@ -891,9 +891,11 @@ Phase 3 PR-01은 `36-phase3-controlled-execution-contract.md`의 common ledger/a
 | Result DTO | `ExecutionAuthorityPreflightResult` | returns `ready_for_execution` or `blocked` without adapter execution; blocked reasons cover missing authority, action mismatch, hash mismatch, expiry, rollback, evidence, and audit gaps. |
 | Request DTO | `ExecuteFileDiffRequest` | `file_diff` route body with session id, idempotency key, exact preview hash, requestedAt/optional expiry, approved workspace root, and exact unified diff body. |
 | Result DTO | `FileDiffExecutionResult` | completed/blocked/failed/partial adapter result with changed files, diff stats, rollback ref, evidence refs, audit refs, and execution authority refetch URL. |
+| Request DTO | `ExecuteShellCommandRequest` | `shell_command` route body with session id, idempotency key, exact preview hash, requestedAt/optional expiry, approved workspace root, argv-style command, and optional relative working directory. |
+| Result DTO | `ShellCommandExecutionResult` | completed/blocked/failed/partial adapter result with command class, timeout, exit code, duration, redacted stdout/stderr summaries, rollback ref, evidence refs, audit refs, and execution authority refetch URL. |
 | Record DTO | `ExecutionAuthorityRecord` | `actionClass`, `approvalDecision`, explicit-boundary `requestedScope`, `sandboxBoundary`, `rollbackReference`, `executionResult`, `evidenceRefs`, `auditRefs` closed field family다. |
 | Bounded output DTO | `BoundedAgentOutputRecord` | source/evidence/approval-linked agent output only; unlinked output is suggestion/preview, not execution authority. |
-| Storage repository | `executionAuthorityRepository` | `execution_authority_records`와 `bounded_agent_output_records`에 query columns plus JSON refs를 저장하고, `file_diff` terminal outcome을 같은 authority row에 evidence/audit refs로 갱신한다. |
+| Storage repository | `executionAuthorityRepository` | `execution_authority_records`와 `bounded_agent_output_records`에 query columns plus JSON refs를 저장하고, `file_diff`/`shell_command` terminal outcome을 같은 authority row에 evidence/audit refs로 갱신한다. |
 | Deterministic output type | `execution_authority_record` | reducer output에서 authority record ref와 blocked-precondition evidence를 추적한다. |
 
 Behavior rules:
