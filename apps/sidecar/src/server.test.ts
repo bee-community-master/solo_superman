@@ -268,6 +268,91 @@ async function createProjectForTest(storageApp: ReturnType<typeof createSidecarA
   };
 }
 
+function executionAuthorityRequestFixture(
+  sessionId: string,
+  idSuffix: string,
+  overrides: Readonly<Record<string, unknown>> = {}
+) {
+  return {
+    sessionId,
+    expectedStateVersion: 1,
+    idempotencyKey: `exec-auth-route:${idSuffix}`,
+    sourcePlanningHandoffRef: `planning_handoff_${idSuffix}`,
+    boundedAgentOutput: {
+      outputId: `bounded_output_${idSuffix}`,
+      sourceRefs: [`planning_handoff_${idSuffix}`],
+      intendedDecisionImpact: "Validate the Phase 3 approval/API boundary before adapter execution.",
+      proposedActionPreviewRefs: [`preview_${idSuffix}`],
+      requiredApprovals: [`approval_${idSuffix}`],
+      evidenceRefs: [`evidence_${idSuffix}`],
+      failureMode: "ready_for_preview",
+      noExecutionPolicy: "controlled_execution_required"
+    },
+    actionClass: "file_diff",
+    previewArtifactRef: `preview_${idSuffix}`,
+    previewArtifactHash: `sha256:${idSuffix}`,
+    reviewedPreviewArtifactHash: `sha256:${idSuffix}`,
+    requestedScope: {
+      workspaceRef: "workspace:solo-superman",
+      filePathGlobs: ["packages/**", "apps/**"]
+    },
+    approvalDecision: "approved",
+    approver: {
+      actorId: "user_route_approver",
+      actorType: "user",
+      approvedAt: "2026-05-13T00:00:00.000Z",
+      decidedAt: "2026-05-13T00:00:00.000Z"
+    },
+    sandboxBoundary: {
+      mode: "workspace_patch",
+      networkPolicy: "blocked",
+      secretPolicy: "no_secret_values"
+    },
+    rollbackReference: {
+      kind: "git_diff_reverse",
+      ref: `rollback_${idSuffix}`
+    },
+    evidenceRefs: [`route_evidence_${idSuffix}`],
+    auditRefs: [`audit_${idSuffix}`],
+    preconditionChecks: {
+      planningSourceExists: true,
+      previewArtifactExists: true,
+      previewHashMatches: true,
+      rollbackAvailable: true,
+      credentialValueRequired: false,
+      sandboxEnforced: true
+    },
+    ...overrides
+  };
+}
+
+async function createExecutionAuthorityForTest(
+  storageApp: ReturnType<typeof createSidecarApp>,
+  sessionId: string,
+  idSuffix: string,
+  overrides: Readonly<Record<string, unknown>> = {}
+) {
+  const response = await storageApp.request(`/api/v1/sessions/${sessionId}/execution-authority`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(executionAuthorityRequestFixture(sessionId, idSuffix, overrides))
+  });
+  const body = await jsonBody(response);
+  const data = body.data as Readonly<Record<string, unknown>>;
+  const projection = data.immediateProjection as Readonly<Record<string, unknown>>;
+  const latestRecord = projection.latestRecord as Readonly<Record<string, unknown>>;
+
+  return {
+    response,
+    body,
+    projection,
+    recordId: latestRecord.recordId as string
+  };
+}
+
 function planningHandoffSourceRefsFixture(idSuffix: string): readonly PlanningHandoffSourceRefDto[] {
   return [
     {
@@ -734,6 +819,23 @@ describe("PR-02 sidecar health shell", () => {
     });
 
     expect(response.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("rejects hosted origins before they can obtain local execution authority", async () => {
+    const response = await app.request("/api/v1/sessions/sess_hosted/execution-authority", {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        Origin: "https://example.com",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({})
+    });
+    const body = await jsonBody(response);
+
+    expect(response.status).toBe(403);
+    expect(body.error?.code).toBe("AUTH_REQUIRED");
+    expect(body.error?.details?.policy).toBe("explicit_local_cors_allowlist");
   });
 
   it("rejects explicitly non-loopback preflight before CORS handling", async () => {
@@ -3251,6 +3353,380 @@ describe("PR-02 sidecar health shell", () => {
       expect(await createEventRepository(storage.db).listForSession(sessionId as SessionId)).toHaveLength(
         eventCountBeforeStrictValidation
       );
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("mounts Execution Authority POST/GET routes on the ProductEngine ledger boundary", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "An Execution Authority route boundary test idea"
+      );
+      const empty = await storageApp.request(`/api/v1/sessions/${sessionId}/execution-authority`, {
+        headers: authHeaders()
+      });
+      const emptyBody = await jsonBody(empty);
+
+      expect(empty.status).toBe(200);
+      expect(emptyBody.data).toBeNull();
+
+      const { response, body, recordId } = await createExecutionAuthorityForTest(
+        storageApp,
+        sessionId,
+        "route_ready"
+      );
+
+      expect(response.status).toBe(200);
+      expect(body.data).toMatchObject({
+        category: "accepted_with_projection",
+        immediateProjection: {
+          currentStatus: "ready_for_execution",
+          latestRecord: {
+            recordId,
+            actionClass: "file_diff",
+            approvalDecision: "approved",
+            executionResult: "not_run"
+          },
+          refetchUrl: `/api/v1/sessions/${sessionId}/execution-authority`
+        }
+      });
+
+      const fetched = await storageApp.request(`/api/v1/sessions/${sessionId}/execution-authority`, {
+        headers: authHeaders()
+      });
+      const fetchedBody = await jsonBody(fetched);
+
+      expect(fetched.status).toBe(200);
+      expect(fetchedBody.data).toMatchObject({
+        latestRecord: {
+          recordId,
+          approvalDecision: "approved",
+          executionResult: "not_run"
+        }
+      });
+
+      const replay = await storageApp.request(`/api/v1/sessions/${sessionId}/execution-authority`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(executionAuthorityRequestFixture(sessionId, "route_ready"))
+      });
+      const replayBody = await jsonBody(replay);
+
+      expect(replay.status).toBe(200);
+      expect(replayBody.data).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "STATE_VERSION_CONFLICT"
+        }
+      });
+      expect(await createEventRepository(storage.db).listForSession(sessionId as SessionId)).toHaveLength(2);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("keeps Execution Authority route validation fail-closed before command construction", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "An Execution Authority route validation test idea"
+      );
+      const eventCountBeforeValidationFailures = (await createEventRepository(storage.db).listForSession(sessionId as SessionId)).length;
+      const postExecutionAuthority = (body: Readonly<Record<string, unknown>>) =>
+        storageApp.request(`/api/v1/sessions/${sessionId}/execution-authority`, {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
+        });
+
+      const missingIdempotencyKey = await postExecutionAuthority({
+        ...executionAuthorityRequestFixture(sessionId, "missing_idempotency"),
+        idempotencyKey: ""
+      });
+      const missingIdempotencyKeyBody = await jsonBody(missingIdempotencyKey);
+
+      expect(missingIdempotencyKey.status).toBe(400);
+      expect(missingIdempotencyKeyBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "idempotencyKey must be a non-empty string."
+      });
+
+      const unsupportedTopLevelKey = await postExecutionAuthority({
+        ...executionAuthorityRequestFixture(sessionId, "unsupported_key"),
+        adapterCommand: "pnpm verify"
+      });
+      const unsupportedTopLevelKeyBody = await jsonBody(unsupportedTopLevelKey);
+
+      expect(unsupportedTopLevelKey.status).toBe(400);
+      expect(unsupportedTopLevelKeyBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: 'Execution Authority request body includes unsupported key "adapterCommand".'
+      });
+
+      const unsupportedBoundedOutputFixture = executionAuthorityRequestFixture(
+        sessionId,
+        "unsupported_bounded_output_key"
+      );
+      const unsupportedBoundedOutputKey = await postExecutionAuthority({
+        ...unsupportedBoundedOutputFixture,
+        boundedAgentOutput: {
+          ...unsupportedBoundedOutputFixture.boundedAgentOutput,
+          shellCommand: "pnpm verify"
+        }
+      });
+      const unsupportedBoundedOutputKeyBody = await jsonBody(unsupportedBoundedOutputKey);
+
+      expect(unsupportedBoundedOutputKey.status).toBe(400);
+      expect(unsupportedBoundedOutputKeyBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: 'boundedAgentOutput includes unsupported key "shellCommand".'
+      });
+
+      const invalidBoundedOutputPolicyFixture = executionAuthorityRequestFixture(
+        sessionId,
+        "invalid_bounded_output_policy"
+      );
+      const invalidBoundedOutputPolicy = await postExecutionAuthority({
+        ...invalidBoundedOutputPolicyFixture,
+        boundedAgentOutput: {
+          ...invalidBoundedOutputPolicyFixture.boundedAgentOutput,
+          noExecutionPolicy: "execute_immediately"
+        }
+      });
+      const invalidBoundedOutputPolicyBody = await jsonBody(invalidBoundedOutputPolicy);
+
+      expect(invalidBoundedOutputPolicy.status).toBe(400);
+      expect(invalidBoundedOutputPolicyBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "boundedAgentOutput.noExecutionPolicy must be a Phase 3 no-execution policy."
+      });
+
+      const routeMismatch = await storageApp.request("/api/v1/sessions/sess_other/execution-authority", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(executionAuthorityRequestFixture(sessionId, "route_mismatch"))
+      });
+      const routeMismatchBody = await jsonBody(routeMismatch);
+
+      expect(routeMismatch.status).toBe(400);
+      expect(routeMismatchBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "sessionId must match the route param."
+      });
+      expect(await createEventRepository(storage.db).listForSession(sessionId as SessionId)).toHaveLength(
+        eventCountBeforeValidationFailures
+      );
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("runs Execution Authority preflight without executing adapters and blocks unsafe attempts", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "An Execution Authority adapter preflight test idea"
+      );
+      const { recordId } = await createExecutionAuthorityForTest(storageApp, sessionId, "preflight_ready");
+      const postPreflight = (targetRecordId: string, body: Readonly<Record<string, unknown>>) =>
+        storageApp.request(`/api/v1/execution-authorities/${targetRecordId}/preflight`, {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
+        });
+      const preflightBody = {
+        sessionId,
+        idempotencyKey: "exec-preflight:ready",
+        actionClass: "file_diff",
+        previewArtifactHash: "sha256:preflight_ready",
+        requestedAt: "2026-05-13T00:01:00.000Z",
+        approvalExpiresAt: "2026-05-13T00:05:00.000Z"
+      };
+
+      const ready = await postPreflight(recordId, preflightBody);
+      const readyBody = await jsonBody(ready);
+
+      expect(ready.status).toBe(200);
+      expect(readyBody.data).toMatchObject({
+        kind: "ExecutionAuthorityPreflightResult",
+        authorityRecordId: recordId,
+        status: "ready_for_execution",
+        blockReasons: []
+      });
+
+      const { recordId: previewOnlyRecordId, body: previewOnlyBody } = await createExecutionAuthorityForTest(
+        storageApp,
+        sessionId,
+        "preflight_preview_only",
+        {
+          expectedStateVersion: 2,
+          actionClass: "external_mutation_preview_only",
+          requestedScope: {
+            browserTargetRef: "browser_target_external_preview_review"
+          },
+          sandboxBoundary: {
+            mode: "browser_preview_session",
+            networkPolicy: "blocked",
+            secretPolicy: "no_secret_values"
+          },
+          rollbackReference: undefined
+        }
+      );
+
+      expect(previewOnlyBody.data).toMatchObject({
+        immediateProjection: {
+          currentStatus: "preview_only"
+        }
+      });
+
+      const previewOnlyPreflight = await postPreflight(previewOnlyRecordId, {
+        sessionId,
+        idempotencyKey: "exec-preflight:preview-only",
+        actionClass: "external_mutation_preview_only",
+        previewArtifactHash: "sha256:preflight_preview_only",
+        requestedAt: "2026-05-13T00:01:00.000Z",
+        approvalExpiresAt: "2026-05-13T00:05:00.000Z"
+      });
+      const previewOnlyPreflightBody = await jsonBody(previewOnlyPreflight);
+
+      expect(previewOnlyPreflight.status).toBe(200);
+      expect(previewOnlyPreflightBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "sandbox_failure"
+          })
+        ])
+      });
+
+      const hashMismatch = await postPreflight(recordId, {
+        ...preflightBody,
+        idempotencyKey: "exec-preflight:hash-mismatch",
+        previewArtifactHash: "sha256:tampered"
+      });
+      const hashMismatchBody = await jsonBody(hashMismatch);
+
+      expect(hashMismatch.status).toBe(200);
+      expect(hashMismatchBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "preview_hash_mismatch"
+          })
+        ])
+      });
+
+      const actionMismatch = await postPreflight(recordId, {
+        ...preflightBody,
+        idempotencyKey: "exec-preflight:action-mismatch",
+        actionClass: "shell_command"
+      });
+      const actionMismatchBody = await jsonBody(actionMismatch);
+
+      expect(actionMismatch.status).toBe(200);
+      expect(actionMismatchBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "sandbox_failure"
+          })
+        ])
+      });
+
+      const expired = await postPreflight(recordId, {
+        ...preflightBody,
+        idempotencyKey: "exec-preflight:expired",
+        requestedAt: "2026-05-13T00:06:00.000Z"
+      });
+      const expiredBody = await jsonBody(expired);
+
+      expect(expired.status).toBe(200);
+      expect(expiredBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "expired_approval"
+          })
+        ])
+      });
+
+      const expiresAtBoundary = await postPreflight(recordId, {
+        ...preflightBody,
+        idempotencyKey: "exec-preflight:expires-at-boundary",
+        requestedAt: "2026-05-13T00:05:00.000Z"
+      });
+      const expiresAtBoundaryBody = await jsonBody(expiresAtBoundary);
+
+      expect(expiresAtBoundary.status).toBe(200);
+      expect(expiresAtBoundaryBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "expired_approval"
+          })
+        ])
+      });
+
+      const missingAuthority = await postPreflight("exec_auth_missing", {
+        ...preflightBody,
+        idempotencyKey: "exec-preflight:missing-authority"
+      });
+      const missingAuthorityBody = await jsonBody(missingAuthority);
+
+      expect(missingAuthority.status).toBe(200);
+      expect(missingAuthorityBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "missing_source"
+          })
+        ])
+      });
+
+      const malformedPreflight = await postPreflight(recordId, {
+        ...preflightBody,
+        idempotencyKey: ""
+      });
+      const malformedPreflightBody = await jsonBody(malformedPreflight);
+
+      expect(malformedPreflight.status).toBe(400);
+      expect(malformedPreflightBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "idempotencyKey must be a non-empty string."
+      });
+
+      const looseTimestampPreflight = await postPreflight(recordId, {
+        ...preflightBody,
+        idempotencyKey: "exec-preflight:loose-timestamp",
+        requestedAt: "2026-05-13"
+      });
+      const looseTimestampPreflightBody = await jsonBody(looseTimestampPreflight);
+
+      expect(looseTimestampPreflight.status).toBe(400);
+      expect(looseTimestampPreflightBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "requestedAt must be an ISO timestamp."
+      });
     } finally {
       await storage.close();
     }

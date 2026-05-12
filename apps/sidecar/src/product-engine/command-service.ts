@@ -9,6 +9,7 @@ import {
   DEFAULT_RESEARCH_DISCLOSURE_LOG_POLICY,
   DEFAULT_RESEARCH_RATE_BUDGET_POLICY,
   DEFAULT_RESEARCH_STALENESS_POLICY,
+  isExecutionAuthorityIsoTimestamp,
   MANUAL_RESEARCH_SOURCE_CATEGORIES,
   ResearchAllowlistValidationError,
   ResearchRunValidationError,
@@ -31,7 +32,11 @@ import {
   type EffectTaskDto,
   type EffectTaskId,
   type EventId,
+  type ExecutionAuthorityBlockCode,
+  type ExecutionAuthorityBlockReasonDto,
   type ExecutionAuthorityLedgerProjection,
+  type ExecutionAuthorityPreflightResult,
+  type ExecutionAuthorityRecord,
   type FounderBriefProjection,
   type LivingSpecProjection,
   type PendingEffectSummaryDto,
@@ -78,7 +83,8 @@ import {
   type StateVersion,
   type StatusEndpointDto,
   type RetryResearchRunRequest,
-  type UpdateResearchAllowlistRequest
+  type UpdateResearchAllowlistRequest,
+  type ValidateExecutionAuthorityPreflightRequest
 } from "@solo-superman/contracts";
 import {
   createEffectTaskRepository,
@@ -161,7 +167,12 @@ export interface RunSessionCommandInput {
     | "CreateExecutionAuthority"
   >;
   readonly expectedStateVersion: StateVersion;
+  readonly idempotencyKey?: string;
   readonly payload: Readonly<Record<string, unknown>>;
+}
+
+export interface ValidateExecutionAuthorityPreflightInput extends ValidateExecutionAuthorityPreflightRequest {
+  readonly authorityRecordId: string;
 }
 
 export interface RunResearchAllowlistGovernanceInput<TRequest> {
@@ -827,6 +838,184 @@ async function persistExecutionAuthorityProjectionForEvent(input: {
     sourceStateVersion: input.command.expectedStateVersion,
     projection: executionAuthorityLedgerProjection
   });
+}
+
+function executionAuthorityPreflightBlockReason(
+  code: ExecutionAuthorityBlockCode,
+  message: string,
+  evidenceRefs: readonly string[] = [`preflight:${code}`]
+): ExecutionAuthorityBlockReasonDto {
+  return {
+    code,
+    message,
+    evidenceRefs
+  };
+}
+
+function approvalDecisionPreflightBlockCode(
+  decision: ExecutionAuthorityRecord["approvalDecision"]
+): ExecutionAuthorityBlockCode | null {
+  switch (decision) {
+    case "approved":
+      return null;
+    case "rejected":
+      return "rejected_approval";
+    case "revoked":
+      return "revoked_approval";
+    case "expired":
+      return "expired_approval";
+    case "pending":
+      return "missing_approval";
+  }
+}
+
+function parseExecutionAuthorityTimestamp(value: string, fieldName: string) {
+  if (!isExecutionAuthorityIsoTimestamp(value)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be an ISO timestamp.`);
+  }
+
+  return Date.parse(value);
+}
+
+function isExecutionAuthorityApprovalExpired(input: ValidateExecutionAuthorityPreflightInput) {
+  if (!input.approvalExpiresAt) {
+    return false;
+  }
+
+  return (
+    parseExecutionAuthorityTimestamp(input.requestedAt, "requestedAt") >=
+    parseExecutionAuthorityTimestamp(input.approvalExpiresAt, "approvalExpiresAt")
+  );
+}
+
+function executionAuthorityPreflightResult(input: {
+  readonly request: ValidateExecutionAuthorityPreflightInput;
+  readonly checkedAt: string;
+  readonly record?: ExecutionAuthorityRecord;
+  readonly blockReasons: readonly ExecutionAuthorityBlockReasonDto[];
+}): ExecutionAuthorityPreflightResult {
+  const evidenceRefs = input.record
+    ? [...new Set([...input.record.evidenceRefs, ...input.blockReasons.flatMap((reason) => reason.evidenceRefs)])]
+    : input.blockReasons.flatMap((reason) => reason.evidenceRefs);
+  const auditRefs = input.record
+    ? [...new Set([...input.record.auditRefs, `audit:preflight:${input.request.idempotencyKey}`])]
+    : [`audit:preflight:${input.request.idempotencyKey}`];
+
+  return {
+    kind: "ExecutionAuthorityPreflightResult",
+    authorityRecordId: input.request.authorityRecordId,
+    idempotencyKey: input.request.idempotencyKey,
+    actionClass: input.request.actionClass,
+    previewArtifactHash: input.request.previewArtifactHash,
+    requestedAt: input.request.requestedAt,
+    checkedAt: input.checkedAt,
+    status: input.blockReasons.length ? "blocked" : "ready_for_execution",
+    blockReasons: input.blockReasons,
+    evidenceRefs,
+    auditRefs,
+    refetchUrl: `/api/v1/execution-authorities/${input.request.authorityRecordId}/preflight`
+  };
+}
+
+function executionAuthorityPreflightBlockReasons(
+  input: ValidateExecutionAuthorityPreflightInput,
+  projection: ExecutionAuthorityLedgerProjection | null
+): readonly ExecutionAuthorityBlockReasonDto[] {
+  if (!projection) {
+    return [
+      executionAuthorityPreflightBlockReason(
+        "missing_source",
+        "Execution authority record was not found, so no adapter execution can start."
+      )
+    ];
+  }
+
+  const record = projection.latestRecord;
+  const reasons: ExecutionAuthorityBlockReasonDto[] = [...record.blockReasons];
+  const approvalBlockCode = approvalDecisionPreflightBlockCode(record.approvalDecision);
+
+  if (record.actionClass !== input.actionClass) {
+    reasons.push(
+      executionAuthorityPreflightBlockReason(
+        "sandbox_failure",
+        "Requested adapter action class does not match the stored ExecutionAuthorityRecord action class."
+      )
+    );
+  }
+
+  if (record.previewArtifactHash !== input.previewArtifactHash) {
+    reasons.push(
+      executionAuthorityPreflightBlockReason(
+        "preview_hash_mismatch",
+        "Adapter preflight preview hash does not match the approved authority preview hash."
+      )
+    );
+  }
+
+  if (approvalBlockCode) {
+    reasons.push(
+      executionAuthorityPreflightBlockReason(
+        approvalBlockCode,
+        "Stored approval decision is not an active approved state for adapter execution."
+      )
+    );
+  }
+
+  if (record.actionClass === "external_mutation_preview_only") {
+    reasons.push(
+      executionAuthorityPreflightBlockReason(
+        "sandbox_failure",
+        "Preview-only external mutation authorities cannot start adapter execution."
+      )
+    );
+  }
+
+  if (isExecutionAuthorityApprovalExpired(input)) {
+    reasons.push(
+      executionAuthorityPreflightBlockReason(
+        "expired_approval",
+        "Adapter preflight requestedAt is at or after the approval expiry timestamp."
+      )
+    );
+  }
+
+  if (record.executionResult !== "not_run") {
+    reasons.push(
+      executionAuthorityPreflightBlockReason(
+        record.executionResult === "blocked" ? "sandbox_failure" : "missing_approval",
+        "Adapter preflight requires an approved authority that has not started execution yet."
+      )
+    );
+  }
+
+  if (record.actionClass !== "external_mutation_preview_only" && !record.rollbackReference) {
+    reasons.push(
+      executionAuthorityPreflightBlockReason(
+        "missing_rollback",
+        "Adapter preflight requires a rollback reference before execution can start."
+      )
+    );
+  }
+
+  if (!record.evidenceRefs.length) {
+    reasons.push(
+      executionAuthorityPreflightBlockReason(
+        "missing_source",
+        "Adapter preflight requires evidence refs linked to the authority record."
+      )
+    );
+  }
+
+  if (!record.auditRefs.length) {
+    reasons.push(
+      executionAuthorityPreflightBlockReason(
+        "missing_source",
+        "Adapter preflight requires audit refs linked to the authority record."
+      )
+    );
+  }
+
+  return reasons;
 }
 
 function decisionQueueProjectionFromEvents(events: readonly ProductEngineEvent[]): DecisionQueueProjection | null {
@@ -1829,7 +2018,7 @@ export function createProductEngineCommandService(
         sessionId: input.sessionId,
         actor: "user",
         issuedAt: new Date().toISOString(),
-        idempotencyKey: `${input.commandType}:${input.sessionId}:${input.expectedStateVersion}`,
+        idempotencyKey: input.idempotencyKey ?? `${input.commandType}:${input.sessionId}:${input.expectedStateVersion}`,
         expectedStateVersion: input.expectedStateVersion,
         causationId: (lastEvent?.eventId ?? null) as CausationId | null,
         correlationId: lastEvent?.correlationId ?? correlationId(),
@@ -3930,6 +4119,40 @@ export function createProductEngineCommandService(
       }
 
       return createExecutionAuthorityRepository(storage.db).getLatestForSession(sessionIdValue);
+    },
+
+    async validateExecutionAuthorityPreflight(
+      input: ValidateExecutionAuthorityPreflightInput
+    ): Promise<ExecutionAuthorityPreflightResult> {
+      const session = await createProjectRepository(storage.db).getSession(input.sessionId);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: input.sessionId
+        });
+      }
+
+      parseExecutionAuthorityTimestamp(input.requestedAt, "requestedAt");
+      if (input.approvalExpiresAt) {
+        parseExecutionAuthorityTimestamp(input.approvalExpiresAt, "approvalExpiresAt");
+      }
+
+      const projection = await createExecutionAuthorityRepository(storage.db).getById(input.authorityRecordId);
+
+      if (projection && projection.sessionId !== input.sessionId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "authorityRecordId must belong to the request session.", {
+          authorityRecordId: input.authorityRecordId,
+          routeSessionId: input.sessionId,
+          authoritySessionId: projection.sessionId
+        });
+      }
+
+      return executionAuthorityPreflightResult({
+        request: input,
+        checkedAt: new Date().toISOString(),
+        ...(projection ? { record: projection.latestRecord } : {}),
+        blockReasons: executionAuthorityPreflightBlockReasons(input, projection)
+      });
     },
 
     async getCommandStatus(commandIdValue: CommandId): Promise<StatusEndpointDto | null> {

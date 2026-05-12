@@ -7,19 +7,38 @@ import {
   BLOCKED_ACTION_TYPES,
   CODEX_TURN_PURPOSES,
   BACKGROUND_RESEARCH_ADAPTER_KINDS,
+  BOUNDED_AGENT_FAILURE_MODES,
+  BOUNDED_AGENT_NO_EXECUTION_POLICIES,
+  EXECUTION_APPROVAL_DECISIONS,
+  EXECUTION_AUTHORITY_ACTION_CLASSES,
+  EXECUTION_NETWORK_POLICIES,
+  EXECUTION_ROLLBACK_KINDS,
+  EXECUTION_SANDBOX_MODES,
+  EXECUTION_SECRET_POLICIES,
+  isExecutionAuthorityIsoTimestamp,
   type ApiErrorCode,
   type ApiErrorEnvelope,
   type ApiResponseMeta,
   type ApiSuccessEnvelope,
   type AutomaticResearchSourceCategory,
+  type BoundedAgentOutputRecord,
   type BackgroundResearchAdapterKind,
   type CommandId,
   type CommandResponse,
   type CancelResearchRunRequest,
+  type CreateExecutionAuthorityPayload,
+  type CreateExecutionAuthorityRequest,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
   MANUAL_RESEARCH_SOURCE_CATEGORIES,
   type CreatePlanningHandoffRequest,
   type CreateResearchAllowlistRequest,
+  type ExecutionApprovalDecision,
+  type ExecutionAuthorityActionClass,
+  type ExecutionAuthorityApprover,
+  type ExecutionAuthorityPreconditionChecks,
+  type ExecutionAuthorityRequestedScope,
+  type ExecutionRollbackReference,
+  type ExecutionSandboxBoundary,
   type PrepareResearchDisclosureRequest,
   type PlanningHandoffRequestedScopeDto,
   type PlanningHandoffSourceRefDto,
@@ -42,7 +61,8 @@ import {
   type StateVersion,
   type StatusEndpointDto,
   type RetryResearchRunRequest,
-  type UpdateResearchAllowlistRequest
+  type UpdateResearchAllowlistRequest,
+  type ValidateExecutionAuthorityPreflightRequest
 } from "@solo-superman/contracts";
 import type { MigrationStatus, SoloStorage } from "@solo-superman/db";
 import { createProductEngineCommandService, ProductEngineServiceError } from "./product-engine/command-service";
@@ -140,6 +160,10 @@ function explicitClientAddress(headers: Headers) {
 
 function allowedCorsOrigin(origin: string) {
   return LOCAL_CORS_ORIGINS.has(origin) ? origin : null;
+}
+
+function explicitRequestOrigin(headers: Headers) {
+  return headers.get("origin");
 }
 
 function commandStatusUnavailableShape(commandId: CommandId): StatusEndpointDto {
@@ -283,6 +307,16 @@ function optionalStringArrayFromBody(value: unknown, fieldName: string) {
   }
 
   return value.map((item) => stringFromBody(item, fieldName));
+}
+
+function stringArrayFromBody(value: unknown, fieldName: string) {
+  const strings = optionalStringArrayFromBody(value, fieldName);
+
+  if (!strings) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be an array of non-empty strings.`);
+  }
+
+  return strings;
 }
 
 function optionalSectionsFromBody(value: unknown, fieldName: string) {
@@ -804,6 +838,452 @@ function createPlanningHandoffRequestFromBody(
   };
 }
 
+function requiredJsonObjectFromBody(value: unknown, fieldName: string) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be a JSON object.`);
+  }
+
+  return value as Readonly<Record<string, unknown>>;
+}
+
+function assertExecutionAuthorityRecordKeys(
+  record: Readonly<Record<string, unknown>>,
+  allowedKeys: readonly string[],
+  fieldName: string
+) {
+  const unsupportedKey = Object.keys(record).find((key) => !allowedKeys.includes(key));
+
+  if (unsupportedKey) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} includes unsupported key "${unsupportedKey}".`, {
+      fieldName,
+      unsupportedKey,
+      allowedKeys
+    });
+  }
+}
+
+const EXECUTION_AUTHORITY_REQUEST_BODY_KEYS = [
+  "scaffoldOnly",
+  "sessionId",
+  "expectedStateVersion",
+  "idempotencyKey",
+  "sourcePlanningHandoffRef",
+  "boundedAgentOutput",
+  "actionClass",
+  "previewArtifactRef",
+  "previewArtifactHash",
+  "reviewedPreviewArtifactHash",
+  "requestedScope",
+  "approvalDecision",
+  "approver",
+  "sandboxBoundary",
+  "rollbackReference",
+  "evidenceRefs",
+  "auditRefs",
+  "preconditionChecks"
+] as const satisfies readonly (keyof CreateExecutionAuthorityRequest)[];
+const EXECUTION_AUTHORITY_BOUNDED_OUTPUT_KEYS = [
+  "outputId",
+  "sourceRefs",
+  "intendedDecisionImpact",
+  "proposedActionPreviewRefs",
+  "requiredApprovals",
+  "evidenceRefs",
+  "failureMode",
+  "noExecutionPolicy"
+] as const satisfies readonly (keyof BoundedAgentOutputRecord)[];
+const EXECUTION_AUTHORITY_REQUESTED_SCOPE_KEYS = [
+  "workspaceRef",
+  "commandAllowlistRef",
+  "browserTargetRef",
+  "filePathGlobs",
+  "maxDurationMs"
+] as const satisfies readonly (keyof ExecutionAuthorityRequestedScope)[];
+const EXECUTION_AUTHORITY_APPROVER_KEYS = [
+  "actorId",
+  "actorType",
+  "approvedAt",
+  "decidedAt"
+] as const satisfies readonly (keyof ExecutionAuthorityApprover)[];
+const EXECUTION_AUTHORITY_SANDBOX_KEYS = [
+  "mode",
+  "networkPolicy",
+  "secretPolicy"
+] as const satisfies readonly (keyof ExecutionSandboxBoundary)[];
+const EXECUTION_AUTHORITY_ROLLBACK_KEYS = [
+  "kind",
+  "ref"
+] as const satisfies readonly (keyof ExecutionRollbackReference)[];
+const EXECUTION_AUTHORITY_PRECONDITION_KEYS = [
+  "planningSourceExists",
+  "previewArtifactExists",
+  "previewHashMatches",
+  "rollbackAvailable",
+  "credentialValueRequired",
+  "sandboxEnforced"
+] as const satisfies readonly (keyof ExecutionAuthorityPreconditionChecks)[];
+const EXECUTION_AUTHORITY_PREFLIGHT_KEYS = [
+  "scaffoldOnly",
+  "sessionId",
+  "idempotencyKey",
+  "actionClass",
+  "previewArtifactHash",
+  "requestedAt",
+  "approvalExpiresAt"
+] as const satisfies readonly (keyof ValidateExecutionAuthorityPreflightRequest)[];
+
+function executionAuthorityActionClassFromBody(value: unknown, fieldName: string): ExecutionAuthorityActionClass {
+  const actionClass = stringFromBody(value, fieldName);
+
+  if (!EXECUTION_AUTHORITY_ACTION_CLASSES.includes(actionClass as ExecutionAuthorityActionClass)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be a Phase 3 execution action class.`);
+  }
+
+  return actionClass as ExecutionAuthorityActionClass;
+}
+
+function executionApprovalDecisionFromBody(value: unknown, fieldName: string): ExecutionApprovalDecision {
+  const approvalDecision = stringFromBody(value, fieldName);
+
+  if (!EXECUTION_APPROVAL_DECISIONS.includes(approvalDecision as ExecutionApprovalDecision)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be a Phase 3 approval decision.`);
+  }
+
+  return approvalDecision as ExecutionApprovalDecision;
+}
+
+function boundedAgentOutputFromBody(value: unknown): BoundedAgentOutputRecord {
+  const boundedAgentOutput = requiredJsonObjectFromBody(value, "boundedAgentOutput");
+
+  assertExecutionAuthorityRecordKeys(
+    boundedAgentOutput,
+    EXECUTION_AUTHORITY_BOUNDED_OUTPUT_KEYS,
+    "boundedAgentOutput"
+  );
+
+  const failureMode = stringFromBody(boundedAgentOutput.failureMode, "boundedAgentOutput.failureMode");
+  const noExecutionPolicy = stringFromBody(
+    boundedAgentOutput.noExecutionPolicy,
+    "boundedAgentOutput.noExecutionPolicy"
+  );
+
+  if (!BOUNDED_AGENT_FAILURE_MODES.includes(failureMode as BoundedAgentOutputRecord["failureMode"])) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "boundedAgentOutput.failureMode must be a Phase 3 bounded-agent failure mode."
+    );
+  }
+
+  if (
+    !BOUNDED_AGENT_NO_EXECUTION_POLICIES.includes(
+      noExecutionPolicy as BoundedAgentOutputRecord["noExecutionPolicy"]
+    )
+  ) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "boundedAgentOutput.noExecutionPolicy must be a Phase 3 no-execution policy."
+    );
+  }
+
+  const sourceRefs = stringArrayFromBody(boundedAgentOutput.sourceRefs, "boundedAgentOutput.sourceRefs");
+  const proposedActionPreviewRefs = stringArrayFromBody(
+    boundedAgentOutput.proposedActionPreviewRefs,
+    "boundedAgentOutput.proposedActionPreviewRefs"
+  );
+  const requiredApprovals = stringArrayFromBody(
+    boundedAgentOutput.requiredApprovals,
+    "boundedAgentOutput.requiredApprovals"
+  );
+  const evidenceRefs = stringArrayFromBody(boundedAgentOutput.evidenceRefs, "boundedAgentOutput.evidenceRefs");
+
+  if (failureMode === "ready_for_preview") {
+    if (!sourceRefs.length) {
+      throw new ProductEngineServiceError(
+        "VALIDATION_FAILED",
+        "boundedAgentOutput.sourceRefs must include at least one trace reference."
+      );
+    }
+
+    if (!proposedActionPreviewRefs.length) {
+      throw new ProductEngineServiceError(
+        "VALIDATION_FAILED",
+        "boundedAgentOutput.proposedActionPreviewRefs must include at least one trace reference."
+      );
+    }
+
+    if (!requiredApprovals.length) {
+      throw new ProductEngineServiceError(
+        "VALIDATION_FAILED",
+        "boundedAgentOutput.requiredApprovals must include at least one trace reference."
+      );
+    }
+
+    if (!evidenceRefs.length) {
+      throw new ProductEngineServiceError(
+        "VALIDATION_FAILED",
+        "boundedAgentOutput.evidenceRefs must include at least one trace reference."
+      );
+    }
+
+    if (noExecutionPolicy !== "controlled_execution_required") {
+      throw new ProductEngineServiceError(
+        "VALIDATION_FAILED",
+        "boundedAgentOutput.noExecutionPolicy must be controlled_execution_required when ready for preview."
+      );
+    }
+  }
+
+  return {
+    outputId: stringFromBody(boundedAgentOutput.outputId, "boundedAgentOutput.outputId"),
+    sourceRefs,
+    intendedDecisionImpact: stringFromBody(
+      boundedAgentOutput.intendedDecisionImpact,
+      "boundedAgentOutput.intendedDecisionImpact"
+    ),
+    proposedActionPreviewRefs,
+    requiredApprovals,
+    evidenceRefs,
+    failureMode: failureMode as BoundedAgentOutputRecord["failureMode"],
+    noExecutionPolicy: noExecutionPolicy as BoundedAgentOutputRecord["noExecutionPolicy"]
+  };
+}
+
+function optionalIsoTimestampFromBody(value: unknown, fieldName: string) {
+  const timestamp = optionalStringFromBody(value, fieldName);
+
+  if (timestamp && !isExecutionAuthorityIsoTimestamp(timestamp)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be an ISO timestamp.`);
+  }
+
+  return timestamp;
+}
+
+function isoTimestampFromBody(value: unknown, fieldName: string) {
+  const timestamp = stringFromBody(value, fieldName);
+
+  if (!isExecutionAuthorityIsoTimestamp(timestamp)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be an ISO timestamp.`);
+  }
+
+  return timestamp;
+}
+
+function optionalExecutionAuthorityApproverFromBody(value: unknown): ExecutionAuthorityApprover | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const approver = requiredJsonObjectFromBody(value, "approver");
+
+  assertExecutionAuthorityRecordKeys(approver, EXECUTION_AUTHORITY_APPROVER_KEYS, "approver");
+
+  const actorType = stringFromBody(approver.actorType, "approver.actorType");
+  const approvedAt = optionalIsoTimestampFromBody(approver.approvedAt, "approver.approvedAt");
+  const decidedAt = optionalIsoTimestampFromBody(approver.decidedAt, "approver.decidedAt");
+
+  if (actorType !== "user" && actorType !== "local_operator") {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "approver.actorType must be user or local_operator.");
+  }
+
+  return {
+    actorId: stringFromBody(approver.actorId, "approver.actorId"),
+    actorType,
+    ...(approvedAt ? { approvedAt } : {}),
+    ...(decidedAt ? { decidedAt } : {})
+  };
+}
+
+function executionAuthorityRequestedScopeFromBody(value: unknown): ExecutionAuthorityRequestedScope {
+  const requestedScope = requiredJsonObjectFromBody(value, "requestedScope");
+
+  assertExecutionAuthorityRecordKeys(requestedScope, EXECUTION_AUTHORITY_REQUESTED_SCOPE_KEYS, "requestedScope");
+
+  const workspaceRef = optionalStringFromBody(requestedScope.workspaceRef, "requestedScope.workspaceRef");
+  const commandAllowlistRef = optionalStringFromBody(
+    requestedScope.commandAllowlistRef,
+    "requestedScope.commandAllowlistRef"
+  );
+  const browserTargetRef = optionalStringFromBody(requestedScope.browserTargetRef, "requestedScope.browserTargetRef");
+  const filePathGlobs = optionalStringArrayFromBody(requestedScope.filePathGlobs, "requestedScope.filePathGlobs");
+  const maxDurationMs = optionalPositiveIntegerFromBody(requestedScope.maxDurationMs, "requestedScope.maxDurationMs");
+
+  return {
+    ...(workspaceRef ? { workspaceRef } : {}),
+    ...(commandAllowlistRef ? { commandAllowlistRef } : {}),
+    ...(browserTargetRef ? { browserTargetRef } : {}),
+    ...(filePathGlobs ? { filePathGlobs } : {}),
+    ...(maxDurationMs ? { maxDurationMs } : {})
+  };
+}
+
+function executionAuthoritySandboxBoundaryFromBody(value: unknown): ExecutionSandboxBoundary {
+  const sandboxBoundary = requiredJsonObjectFromBody(value, "sandboxBoundary");
+
+  assertExecutionAuthorityRecordKeys(sandboxBoundary, EXECUTION_AUTHORITY_SANDBOX_KEYS, "sandboxBoundary");
+
+  const mode = stringFromBody(sandboxBoundary.mode, "sandboxBoundary.mode");
+  const networkPolicy = stringFromBody(sandboxBoundary.networkPolicy, "sandboxBoundary.networkPolicy");
+  const secretPolicy = stringFromBody(sandboxBoundary.secretPolicy, "sandboxBoundary.secretPolicy");
+
+  if (!EXECUTION_SANDBOX_MODES.includes(mode as ExecutionSandboxBoundary["mode"])) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sandboxBoundary.mode must be a Phase 3 sandbox mode.");
+  }
+
+  if (!EXECUTION_NETWORK_POLICIES.includes(networkPolicy as ExecutionSandboxBoundary["networkPolicy"])) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sandboxBoundary.networkPolicy must be a Phase 3 network policy.");
+  }
+
+  if (!EXECUTION_SECRET_POLICIES.includes(secretPolicy as ExecutionSandboxBoundary["secretPolicy"])) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sandboxBoundary.secretPolicy must be a Phase 3 secret policy.");
+  }
+
+  return {
+    mode: mode as ExecutionSandboxBoundary["mode"],
+    networkPolicy: networkPolicy as ExecutionSandboxBoundary["networkPolicy"],
+    secretPolicy: secretPolicy as ExecutionSandboxBoundary["secretPolicy"]
+  };
+}
+
+function optionalExecutionAuthorityRollbackReferenceFromBody(value: unknown): ExecutionRollbackReference | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const rollbackReference = requiredJsonObjectFromBody(value, "rollbackReference");
+
+  assertExecutionAuthorityRecordKeys(rollbackReference, EXECUTION_AUTHORITY_ROLLBACK_KEYS, "rollbackReference");
+
+  const kind = stringFromBody(rollbackReference.kind, "rollbackReference.kind");
+
+  if (!EXECUTION_ROLLBACK_KINDS.includes(kind as ExecutionRollbackReference["kind"])) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "rollbackReference.kind must be a Phase 3 rollback kind.");
+  }
+
+  return {
+    kind: kind as ExecutionRollbackReference["kind"],
+    ref: stringFromBody(rollbackReference.ref, "rollbackReference.ref")
+  };
+}
+
+function optionalExecutionAuthorityPreconditionChecksFromBody(
+  value: unknown
+): ExecutionAuthorityPreconditionChecks | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const preconditionChecks = requiredJsonObjectFromBody(value, "preconditionChecks");
+
+  assertExecutionAuthorityRecordKeys(preconditionChecks, EXECUTION_AUTHORITY_PRECONDITION_KEYS, "preconditionChecks");
+
+  for (const [key, check] of Object.entries(preconditionChecks)) {
+    if (typeof check !== "boolean") {
+      throw new ProductEngineServiceError("VALIDATION_FAILED", `preconditionChecks.${key} must be a boolean.`);
+    }
+  }
+
+  return preconditionChecks as unknown as ExecutionAuthorityPreconditionChecks;
+}
+
+function createExecutionAuthorityRequestFromBody(
+  routeSessionId: SessionId,
+  body: Readonly<Record<string, unknown>>
+): CreateExecutionAuthorityRequest {
+  assertExecutionAuthorityRecordKeys(body, EXECUTION_AUTHORITY_REQUEST_BODY_KEYS, "Execution Authority request body");
+
+  if (body.scaffoldOnly !== undefined && body.scaffoldOnly !== true) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "scaffoldOnly must be true when provided.");
+  }
+
+  const bodySessionId = stringFromBody(body.sessionId, "sessionId") as SessionId;
+  const approver = optionalExecutionAuthorityApproverFromBody(body.approver);
+  const rollbackReference = optionalExecutionAuthorityRollbackReferenceFromBody(body.rollbackReference);
+  const evidenceRefs = optionalStringArrayFromBody(body.evidenceRefs, "evidenceRefs");
+  const auditRefs = optionalStringArrayFromBody(body.auditRefs, "auditRefs");
+  const preconditionChecks = optionalExecutionAuthorityPreconditionChecksFromBody(body.preconditionChecks);
+  const sourcePlanningHandoffRef = optionalStringFromBody(
+    body.sourcePlanningHandoffRef,
+    "sourcePlanningHandoffRef"
+  );
+  const previewArtifactRef = optionalStringFromBody(body.previewArtifactRef, "previewArtifactRef");
+  const previewArtifactHash = optionalStringFromBody(body.previewArtifactHash, "previewArtifactHash");
+  const reviewedPreviewArtifactHash = optionalStringFromBody(
+    body.reviewedPreviewArtifactHash,
+    "reviewedPreviewArtifactHash"
+  );
+
+  if (bodySessionId !== routeSessionId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId must match the route param.", {
+      routeSessionId,
+      bodySessionId
+    });
+  }
+
+  return {
+    sessionId: routeSessionId,
+    expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    ...(sourcePlanningHandoffRef ? { sourcePlanningHandoffRef } : {}),
+    boundedAgentOutput: boundedAgentOutputFromBody(body.boundedAgentOutput),
+    actionClass: executionAuthorityActionClassFromBody(body.actionClass, "actionClass"),
+    ...(previewArtifactRef ? { previewArtifactRef } : {}),
+    ...(previewArtifactHash ? { previewArtifactHash } : {}),
+    ...(reviewedPreviewArtifactHash ? { reviewedPreviewArtifactHash } : {}),
+    requestedScope: executionAuthorityRequestedScopeFromBody(body.requestedScope),
+    approvalDecision: executionApprovalDecisionFromBody(body.approvalDecision, "approvalDecision"),
+    ...(approver ? { approver } : {}),
+    sandboxBoundary: executionAuthoritySandboxBoundaryFromBody(body.sandboxBoundary),
+    ...(rollbackReference ? { rollbackReference } : {}),
+    ...(evidenceRefs ? { evidenceRefs } : {}),
+    ...(auditRefs ? { auditRefs } : {}),
+    ...(preconditionChecks ? { preconditionChecks } : {})
+  };
+}
+
+function executionAuthorityPayloadFromRequest(
+  request: CreateExecutionAuthorityRequest
+): Readonly<Record<string, unknown>> {
+  const payload = {
+    ...(request.sourcePlanningHandoffRef ? { sourcePlanningHandoffRef: request.sourcePlanningHandoffRef } : {}),
+    boundedAgentOutput: request.boundedAgentOutput,
+    actionClass: request.actionClass,
+    ...(request.previewArtifactRef ? { previewArtifactRef: request.previewArtifactRef } : {}),
+    ...(request.previewArtifactHash ? { previewArtifactHash: request.previewArtifactHash } : {}),
+    ...(request.reviewedPreviewArtifactHash ? { reviewedPreviewArtifactHash: request.reviewedPreviewArtifactHash } : {}),
+    requestedScope: request.requestedScope,
+    approvalDecision: request.approvalDecision,
+    ...(request.approver ? { approver: request.approver } : {}),
+    sandboxBoundary: request.sandboxBoundary,
+    ...(request.rollbackReference ? { rollbackReference: request.rollbackReference } : {}),
+    ...(request.evidenceRefs ? { evidenceRefs: request.evidenceRefs } : {}),
+    ...(request.auditRefs ? { auditRefs: request.auditRefs } : {}),
+    ...(request.preconditionChecks ? { preconditionChecks: request.preconditionChecks } : {})
+  } satisfies CreateExecutionAuthorityPayload;
+
+  return payload;
+}
+
+function validateExecutionAuthorityPreflightRequestFromBody(
+  body: Readonly<Record<string, unknown>>
+): ValidateExecutionAuthorityPreflightRequest {
+  assertExecutionAuthorityRecordKeys(body, EXECUTION_AUTHORITY_PREFLIGHT_KEYS, "Execution Authority preflight body");
+
+  if (body.scaffoldOnly !== undefined && body.scaffoldOnly !== true) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "scaffoldOnly must be true when provided.");
+  }
+
+  const approvalExpiresAt = optionalIsoTimestampFromBody(body.approvalExpiresAt, "approvalExpiresAt");
+
+  return {
+    sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    actionClass: executionAuthorityActionClassFromBody(body.actionClass, "actionClass"),
+    previewArtifactHash: stringFromBody(body.previewArtifactHash, "previewArtifactHash"),
+    requestedAt: isoTimestampFromBody(body.requestedAt, "requestedAt"),
+    ...(approvalExpiresAt ? { approvalExpiresAt } : {})
+  };
+}
+
 export function createSidecarApp(options: CreateSidecarAppOptions) {
   const { localCapabilityToken, migrationStatus = defaultMigrationStatus(), storage = null } = options;
   const codexRuntimeAdapter = options.codexRuntimeAdapter ?? createCodexRuntimeAdapter();
@@ -823,6 +1303,22 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         jsonError(context, "AUTH_REQUIRED", "Sidecar API accepts only loopback clients.", {
           policy: "loopback_only",
           receivedAddress: clientAddress
+        }),
+        403
+      );
+    }
+
+    return next();
+  });
+
+  app.use("*", async (context, next) => {
+    const origin = explicitRequestOrigin(context.req.raw.headers);
+
+    if (context.req.path.startsWith("/api/v1") && origin && !allowedCorsOrigin(origin)) {
+      return context.json(
+        jsonError(context, "AUTH_REQUIRED", "Sidecar API accepts only explicit local web origins.", {
+          policy: "explicit_local_cors_allowlist",
+          receivedOrigin: origin
         }),
         403
       );
@@ -1533,6 +2029,38 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
     withProductEngine(context, (service) =>
       service.getPlanningHandoff(context.req.param("sessionId") as SessionId)
     )
+  );
+
+  app.post("/api/v1/sessions/:sessionId/execution-authority", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const request = createExecutionAuthorityRequestFromBody(routeSessionId, await jsonBody(context));
+
+      return service.runSessionCommand({
+        sessionId: routeSessionId,
+        commandType: "CreateExecutionAuthority",
+        expectedStateVersion: request.expectedStateVersion,
+        idempotencyKey: request.idempotencyKey,
+        payload: executionAuthorityPayloadFromRequest(request)
+      });
+    })
+  );
+
+  app.get("/api/v1/sessions/:sessionId/execution-authority", async (context) =>
+    withProductEngine(context, (service) =>
+      service.getExecutionAuthority(context.req.param("sessionId") as SessionId)
+    )
+  );
+
+  app.post("/api/v1/execution-authorities/:authorityRecordId/preflight", async (context) =>
+    withProductEngine(context, async (service) => {
+      const request = validateExecutionAuthorityPreflightRequestFromBody(await jsonBody(context));
+
+      return service.validateExecutionAuthorityPreflight({
+        ...request,
+        authorityRecordId: context.req.param("authorityRecordId")
+      });
+    })
   );
 
   app.get("/api/v1/commands/:commandId/status", (context) => {

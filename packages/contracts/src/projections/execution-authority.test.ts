@@ -5,6 +5,7 @@ import {
   PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE,
   executionAuthorityLedgerSummaryForStatus,
   executionAuthorityRecordValidationIssues,
+  isExecutionAuthorityIsoTimestamp,
   validateBoundedAgentOutputRecord,
   validateExecutionAuthorityLedgerProjection,
   validateExecutionAuthorityRecord
@@ -99,6 +100,13 @@ describe("Phase 3 ExecutionAuthority ledger contract", () => {
     expect(record.blockReasons).toEqual([]);
     expect(output.noExecutionPolicy).toBe("controlled_execution_required");
     expect(JSON.stringify(projection)).not.toMatch(/credentialValue|secretValue|sessionCookie|adapterExecuted/iu);
+  });
+
+  it("accepts only explicit ISO timestamps for authority expiry checks", () => {
+    expect(isExecutionAuthorityIsoTimestamp("2026-05-13T00:05:00.000Z")).toBe(true);
+    expect(isExecutionAuthorityIsoTimestamp("2026-05-13T09:05:00+09:00")).toBe(true);
+    expect(isExecutionAuthorityIsoTimestamp("2026-05-13")).toBe(false);
+    expect(isExecutionAuthorityIsoTimestamp("2026-02-31T00:00:00.000Z")).toBe(false);
   });
 
   it("keeps running authority gated by approved preview, sandbox, and rollback evidence", () => {

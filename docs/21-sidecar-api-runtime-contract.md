@@ -396,6 +396,8 @@ Phase 3 execution API behavior is canonical in `36-phase3-controlled-execution-c
 - Controlled execution implementation is gated on #86, #87, and #88. Before that gate is complete, Phase 3 routes may be documented as placeholders only and must return `blocked` or remain unmounted.
 - `ExecutionAuthorityRecord` must be created before file/shell/browser execution starts.
 - ProductEngine/application command boundary is the source of truth for approval/security semantics before concrete REST route naming is finalized.
+- #93 mounts the common ledger/authority route group: `POST /api/v1/sessions/:sessionId/execution-authority`, `GET /api/v1/sessions/:sessionId/execution-authority`, and adapter preflight `POST /api/v1/execution-authorities/:authorityRecordId/preflight`.
+- The preflight route validates idempotency key, stored authority record id, action-class match, exact preview hash, optional approval expiry, rollback, evidence, and audit refs; it returns `blocked` without running file/shell/browser adapters when any check fails.
 - `approvalDecision` starts as `pending`; pending/rejected/revoked/expired records cannot execute.
 - `approvalDecision` must be `approved`, unexpired, and tied to the exact preview artifact hash.
 - `executionResult` may become `running` only after approval, sandbox, preview hash, and rollback checks pass; `cancelled`/`rolled_back` are not MVP result states.
@@ -449,5 +451,5 @@ When Codex app-server is unavailable or the user chooses not to connect it:
 - Complete #86, #87, and #88 before implementing Phase 3 controlled execution routes.
 - Implement Phase 3 local service token, loopback-only, explicit CORS allowlist, CSRF/replay/idempotency checks before controlled execution routes.
 - Implement common ledger/authority routes before any `file_diff`, `shell_command`, or `browser_action` adapter route.
-- Keep Phase 3 route placeholders in `26-api-route-behavior-catalog.md` synchronized with this boundary without adding them to the mounted route catalog until code exists.
+- Keep Phase 3 route placeholders in `26-api-route-behavior-catalog.md` synchronized with this boundary; when code exists, add the route to the mounted catalog in the same implementation slice.
 - Treat generated Codex schema as versioned implementation input.

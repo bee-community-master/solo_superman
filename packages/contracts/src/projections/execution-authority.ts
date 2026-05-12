@@ -194,6 +194,25 @@ export interface ExecutionAuthorityLedgerProjection {
   readonly refetchUrl: string;
 }
 
+export const EXECUTION_AUTHORITY_PREFLIGHT_STATUSES = ["ready_for_execution", "blocked"] as const;
+
+export type ExecutionAuthorityPreflightStatus = (typeof EXECUTION_AUTHORITY_PREFLIGHT_STATUSES)[number];
+
+export interface ExecutionAuthorityPreflightResult {
+  readonly kind: "ExecutionAuthorityPreflightResult";
+  readonly authorityRecordId: string;
+  readonly idempotencyKey: string;
+  readonly actionClass: ExecutionAuthorityActionClass;
+  readonly previewArtifactHash: string;
+  readonly requestedAt: string;
+  readonly checkedAt: string;
+  readonly status: ExecutionAuthorityPreflightStatus;
+  readonly blockReasons: readonly ExecutionAuthorityBlockReasonDto[];
+  readonly evidenceRefs: readonly string[];
+  readonly auditRefs: readonly string[];
+  readonly refetchUrl: string;
+}
+
 export class ExecutionAuthorityValidationError extends Error {
   readonly issues: readonly string[];
 
@@ -214,6 +233,41 @@ function isStringArray(value: readonly string[] | undefined) {
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+const EXECUTION_AUTHORITY_ISO_TIMESTAMP_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d):([0-5]\d)(?:\.(\d{1,3}))?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/u;
+
+export function isExecutionAuthorityIsoTimestamp(value: unknown): value is string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return false;
+  }
+
+  const match = EXECUTION_AUTHORITY_ISO_TIMESTAMP_PATTERN.exec(value);
+
+  if (!match || Number.isNaN(Date.parse(value))) {
+    return false;
+  }
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, millisecondText = "0"] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const millisecond = Number(millisecondText.padEnd(3, "0"));
+  const utcDate = new Date(Date.UTC(year, month - 1, day, hour, minute, second, millisecond));
+
+  return (
+    utcDate.getUTCFullYear() === year &&
+    utcDate.getUTCMonth() === month - 1 &&
+    utcDate.getUTCDate() === day &&
+    utcDate.getUTCHours() === hour &&
+    utcDate.getUTCMinutes() === minute &&
+    utcDate.getUTCSeconds() === second &&
+    utcDate.getUTCMilliseconds() === millisecond
+  );
 }
 
 const EXECUTION_AUTHORITY_FORBIDDEN_SECRET_FIELD_NAMES = new Set([

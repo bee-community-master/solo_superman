@@ -10,6 +10,16 @@ import type {
   StateVersion
 } from "../ids";
 import type { ResearchImpact, ResearchRouteOutcome, ResearchSourceReliability } from "../projections";
+import type {
+  BoundedAgentOutputRecord,
+  ExecutionApprovalDecision,
+  ExecutionAuthorityActionClass,
+  ExecutionAuthorityApprover,
+  ExecutionAuthorityPreconditionChecks,
+  ExecutionAuthorityRequestedScope,
+  ExecutionRollbackReference,
+  ExecutionSandboxBoundary
+} from "../projections/execution-authority";
 import type { PlanningHandoffRequestedScopeDto, PlanningHandoffSourceRefDto } from "../projections/planning-handoff";
 import type { ResearchQueueTerminalOutcome } from "../projections/research-evidence";
 import type { BlockedActionType, CodexTurnPurpose } from "../codex";
@@ -210,4 +220,33 @@ export interface CreatePlanningHandoffRequest extends ScaffoldRequestPlaceholder
   readonly expectedStateVersion: StateVersion;
   readonly sourceRefs: readonly PlanningHandoffSourceRefDto[];
   readonly requestedScope?: PlanningHandoffRequestedScopeDto;
+}
+
+export interface CreateExecutionAuthorityRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
+  readonly idempotencyKey: string;
+  readonly sourcePlanningHandoffRef?: string;
+  readonly boundedAgentOutput: BoundedAgentOutputRecord;
+  readonly actionClass: ExecutionAuthorityActionClass;
+  readonly previewArtifactRef?: string;
+  readonly previewArtifactHash?: string;
+  readonly reviewedPreviewArtifactHash?: string;
+  readonly requestedScope: ExecutionAuthorityRequestedScope;
+  readonly approvalDecision: ExecutionApprovalDecision;
+  readonly approver?: ExecutionAuthorityApprover;
+  readonly sandboxBoundary: ExecutionSandboxBoundary;
+  readonly rollbackReference?: ExecutionRollbackReference;
+  readonly evidenceRefs?: readonly string[];
+  readonly auditRefs?: readonly string[];
+  readonly preconditionChecks?: ExecutionAuthorityPreconditionChecks;
+}
+
+export interface ValidateExecutionAuthorityPreflightRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly idempotencyKey: string;
+  readonly actionClass: ExecutionAuthorityActionClass;
+  readonly previewArtifactHash: string;
+  readonly requestedAt: string;
+  readonly approvalExpiresAt?: string;
 }

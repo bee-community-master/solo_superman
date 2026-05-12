@@ -207,15 +207,17 @@ MVP acceptance is per slice, not all-or-nothing. A later action class can be pla
 The common ledger/authority slice is represented in code by:
 
 - `packages/contracts/src/projections/execution-authority.ts` for `ExecutionAuthorityRecord`, `BoundedAgentOutputRecord`, validation fixtures, and `ExecutionAuthorityLedgerProjection`.
+- `CreateExecutionAuthorityRequest`, `ValidateExecutionAuthorityPreflightRequest`, and `ExecutionAuthorityPreflightResult` for #93 route/preflight API shape.
 - `CreateExecutionAuthority`, `ExecutionAuthorityRecorded`, and `ExecutionAuthorityBlocked` in ProductEngine contracts/core.
 - `execution_authority_records` and `bounded_agent_output_records` plus `executionAuthorityRepository` for local persistence and latest-session query.
+- `POST /api/v1/sessions/:sessionId/execution-authority`, `GET /api/v1/sessions/:sessionId/execution-authority`, and `POST /api/v1/execution-authorities/:authorityRecordId/preflight` for local-token, loopback, explicit-CORS, idempotency-key, preview-hash, authority-id, and expiry-check route coverage.
 - `ExecutionAuthorityRecorded` means the authority ledger is approved and `executionResult=not_run`; it does not mean a file, shell, browser, deploy, external-production, or credential operation executed.
 
 ## MVP route and docs ownership
 
 - This document owns Phase 3 policy, prerequisite gate, action-class sequence, non-goals, deferred boundaries, and acceptance criteria.
 - `21-sidecar-api-runtime-contract.md` owns local service security, route group boundaries, local token, loopback, CORS, CSRF/replay/idempotency, and fail-closed route handling requirements.
-- `26-api-route-behavior-catalog.md` owns endpoint behavior placeholders for approval/execution routes until code routes are implemented.
+- `26-api-route-behavior-catalog.md` owns endpoint behavior placeholders plus mounted endpoint rows for implemented approval/preflight routes.
 - `25-contracts-dto-catalog.md` owns final public DTO/type shape when an implementation PR promotes these records into code.
 - `37-post-phase3-full-vision-backlog-contract.md` owns the full-vision backlog tracked under #91 after Phase 3 child issues #92~#97: project purpose modes, business critic intensity, ChatGPT Pro per-run local browser delegation, external service page-use permission, implementation step ledger, and macOS/Windows PowerShell setup verification.
 

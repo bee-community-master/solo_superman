@@ -431,6 +431,30 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "createExecutionAuthority",
+    clientName: "createExecutionAuthority",
+    method: "POST",
+    path: "/api/v1/sessions/:sessionId/execution-authority",
+    commandType: "CreateExecutionAuthority",
+    implementedInPr01: false
+  },
+  {
+    routeId: "getExecutionAuthority",
+    clientName: "getExecutionAuthority",
+    method: "GET",
+    path: "/api/v1/sessions/:sessionId/execution-authority",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
+    routeId: "validateExecutionAuthorityPreflight",
+    clientName: "validateExecutionAuthorityPreflight",
+    method: "POST",
+    path: "/api/v1/execution-authorities/:authorityRecordId/preflight",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
     routeId: "getCommandStatus",
     clientName: "getCommandStatus",
     method: "GET",
@@ -589,4 +613,15 @@ export const PHASE1_QUEUE_RECOVERY_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...PHASE1_QUEUE_RECOVERY_ROUTE_IDS
 ] as const satisfies readonly ApiRouteId[];
 
-export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE1_QUEUE_RECOVERY_MOUNTED_PRODUCT_API_ROUTE_IDS;
+export const PHASE3_PR02_EXECUTION_AUTHORITY_ROUTE_IDS = [
+  "createExecutionAuthority",
+  "getExecutionAuthority",
+  "validateExecutionAuthorityPreflight"
+] as const satisfies readonly ApiRouteId[];
+
+export const PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...PHASE1_QUEUE_RECOVERY_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  ...PHASE3_PR02_EXECUTION_AUTHORITY_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS;

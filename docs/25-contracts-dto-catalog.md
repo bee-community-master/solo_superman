@@ -878,7 +878,7 @@ Behavior rules:
 
 ## Phase 3 Execution Authority DTO checklist
 
-Phase 3 PR-01은 `36-phase3-controlled-execution-contract.md`의 common ledger/authority slice만 code surface로 승격한다. 아래 surface는 adapter 실행을 열지 않고, 이후 `file_diff` / `shell_command` / `browser_action` slice가 참조할 approval/evidence/audit ledger를 고정한다.
+Phase 3 PR-01은 `36-phase3-controlled-execution-contract.md`의 common ledger/authority slice를 code surface로 승격했고, PR-02(#93)는 same ledger를 local route/preflight API boundary로 노출한다. 아래 surface는 adapter 실행을 열지 않고, 이후 `file_diff` / `shell_command` / `browser_action` slice가 참조할 approval/evidence/audit ledger를 고정한다.
 
 | Surface | Exact current name | Implementation note |
 | --- | --- | --- |
@@ -886,6 +886,9 @@ Phase 3 PR-01은 `36-phase3-controlled-execution-contract.md`의 common ledger/a
 | ProductEngine event | `ExecutionAuthorityRecorded` | approval is `approved`, preview hash/rollback/sandbox preconditions pass, and execution result remains `not_run`; no adapter effect is queued. |
 | ProductEngine event | `ExecutionAuthorityBlocked` | missing source/preview/approval/rollback, preview hash mismatch, credential requirement, sandbox failure, rejected/revoked/expired approval을 blocked ledger record로 저장한다. |
 | Projection | `ExecutionAuthorityLedgerProjection` | latest authority record, same-ledger bounded output, blocked preconditions, summary, and refetch URL을 반환한다. `currentStatus`는 `preview_only`, `ready_for_execution`, `running`, `blocked`, `closed`로 닫혀 있으며 `blockedPreconditions`는 latest blocked record의 `blockReasons`와 일치해야 한다. |
+| Request DTO | `CreateExecutionAuthorityRequest` | local route body for `CreateExecutionAuthority`; requires session/body match and `idempotencyKey` before command construction. |
+| Request DTO | `ValidateExecutionAuthorityPreflightRequest` | adapter preflight body with authority id from route, idempotency key, action class, exact preview hash, requestedAt, and optional approvalExpiresAt. |
+| Result DTO | `ExecutionAuthorityPreflightResult` | returns `ready_for_execution` or `blocked` without adapter execution; blocked reasons cover missing authority, action mismatch, hash mismatch, expiry, rollback, evidence, and audit gaps. |
 | Record DTO | `ExecutionAuthorityRecord` | `actionClass`, `approvalDecision`, explicit-boundary `requestedScope`, `sandboxBoundary`, `rollbackReference`, `executionResult`, `evidenceRefs`, `auditRefs` closed field family다. |
 | Bounded output DTO | `BoundedAgentOutputRecord` | source/evidence/approval-linked agent output only; unlinked output is suggestion/preview, not execution authority. |
 | Storage repository | `executionAuthorityRepository` | `execution_authority_records`와 `bounded_agent_output_records`에 query columns plus JSON refs를 저장한다. |
