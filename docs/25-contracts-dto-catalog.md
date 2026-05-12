@@ -198,6 +198,7 @@ Phase 1 command type values are closed, and Phase 1.5A allowlist/disclosure/run-
 | `ScoreCompleteness` | calculate deterministic completeness snapshot |
 | `PrepareFounderBrief` | prepare deterministic founder brief draft |
 | `CreatePlanningHandoff` | create the deterministic Phase 2 final/blocker Planning Handoff artifact and projection without execution side effects |
+| `CreatePhase25ResearchComparison` | create deterministic Phase 2.5 ResearchQualityComparisonReport quality-lift or safe-failure artifact without live browser/ChatGPT execution |
 | `CreateResearchAllowlist` | create project-level read-only research allowlist governance projection; no ProductEngine reducer side effects |
 | `UpdateResearchAllowlist` | update active/paused allowlist policy fields or reactivate paused allowlist; no ProductEngine reducer side effects |
 | `PauseResearchAllowlist` | pause future automatic research run starts for an allowlist; no ProductEngine reducer side effects |
@@ -273,6 +274,7 @@ Example command envelope:
 | runtime/codex | `CreateRuntimePreviewPayload`, `ConvertRuntimeArtifactPayload` | turnPurpose/artifact id/target conversion request |
 | decision/spec version | `CreateSpecUpdatePreviewPayload`, `ResolveDecisionPayload`, `CreateSpecVersionPayload` | decision/spec update refs and approval outcome |
 | completion/export | `ScoreCompletenessPayload`, `PrepareFounderBriefPayload` | scoring target or founder brief draft target |
+| phase2.5 artifact gate | `CreatePhase25ResearchComparisonPayload` | research question, decision context, baseline, candidate, DelegationRiskGate, rubric, trace source refs |
 | allowlist governance | `CreateResearchAllowlistRequest`, `UpdateResearchAllowlistRequest`, `PauseResearchAllowlistRequest`, `RevokeResearchAllowlistRequest` | project id, allowlist id, read-only connector/source policy, pause/revoke transition target |
 | disclosure governance | `PrepareResearchDisclosureRequest` | project id, optional allowlist id, connector/source category, research objective, public-safe summary inputs, source refs |
 
@@ -291,7 +293,8 @@ Example command envelope:
 | `specUpdatePreviews` | no | `SpecUpdatePreviewSnapshot[]` | preview material keyed by `previewRef` so approved decisions cannot version different title/sections |
 | `runtimeState` | yes | `RuntimeActivityProjection` | runtime preview/retry/block summary |
 | `completeness` | yes | `ConfidenceCompletionProjection` | latest deterministic scoring projection |
-| `planningHandoff` | no | `PlanningHandoffProjection` | latest Phase 2 final or blocker Planning Handoff projection emitted by `CreatePlanningHandoff`; storage/API persistence remains downstream work |
+| `planningHandoff` | no | `PlanningHandoffProjection` | latest Phase 2 final or blocker Planning Handoff projection emitted by `CreatePlanningHandoff` |
+| `phase25ResearchComparison` | no | `Phase25ResearchComparisonProjection` | latest Phase 2.5 quality-lift or safe-failure comparison report emitted by `CreatePhase25ResearchComparison` |
 
 `DecisionSnapshot.requiredDecisionRef` is a closed completion-gate key: `primary_customer`, `problem`, `value`, `mvp_scope`, `validation_plan`, or `success_criteria`. PR-08 completeness must count unique closed required refs, not any six unrelated decisions.
 High-impact `CreateSpecVersion` must consume the approved `SpecUpdatePreviewSnapshot` material for its `approvedPreviewRef`; request body title/sections are optional echoes and must not mutate the approved preview material.
@@ -305,7 +308,7 @@ High-impact `CreateSpecVersion` must consume the approved `SpecUpdatePreviewSnap
 | `events` | yes | `ProductEngineEventDraft[]` | can be empty only when rejected |
 | `nextState` | yes | `ProductEngineStatePatch` | semantic state patch, not DB row diff |
 | `effectPlan` | yes | `ProductEngineEffectPlanItem[]` | first-class effect types only |
-| `deterministicOutputs` | yes | `ProductEngineDeterministicOutput[]` | completeness/spec/founder brief/planning handoff deterministic material |
+| `deterministicOutputs` | yes | `ProductEngineDeterministicOutput[]` | completeness/spec/founder brief/planning handoff/Phase 2.5 comparison deterministic material |
 | `immediateProjection` | no | `ActiveBatchSafeProjection` | active-batch-safe or explicitly deterministic projection exception |
 
 Example reduction summary:
@@ -351,6 +354,7 @@ Closed ProductEngine event type groups:
 | runtime | `RuntimePreviewRequested`, `RuntimeArtifactConverted` | sandbox preview only |
 | completeness/export | `CompletenessScored`, `FounderBriefPrepared` | deterministic output refs |
 | planning handoff | `PlanningHandoffCreated`, `PlanningHandoffBlocked` | Phase 2 final/blocker handoff artifact persistence; deterministic, no effect queue |
+| phase2.5 artifact gate | `Phase25ResearchComparisonCreated`, `Phase25ResearchComparisonBlocked` | Phase 2.5 quality-lift/safe-failure comparison report persistence; deterministic, no effect queue |
 
 ### ProductEngineEffectPlanItem
 
@@ -392,6 +396,7 @@ Deterministic outputs are reducer-created artifacts that can be persisted or pro
 | `completeness_snapshot` | radar/progress/history | no async scoring effect in Phase 1 |
 | `founder_brief_draft` | Founder Brief | if-stop-now artifact, deterministic draft |
 | `planning_handoff_artifact` | Planning Handoff | final or blocker handoff artifact; deterministic and no execution side effects |
+| `phase25_research_comparison_report` | Phase 2.5 Artifact+Gate | quality-lift or safe-failure ResearchQualityComparisonReport; deterministic and no live adapter execution |
 
 ## Effect and runtime types
 
@@ -469,7 +474,7 @@ All JSON API responses use `ApiSuccessEnvelope<T>` or `ApiErrorEnvelope`.
 | `effectTaskIds` | no | `EffectTaskId[]` | required when effects queued |
 | `statusUrl` | no | string | required when async effects are pending |
 | `queuedActivity` | no | `ActivityItemDto` | allowed for accepted |
-| `deterministicOutputs` | no | `ProductEngineDeterministicOutput[]` | public reducer outputs for accepted commands, including spec update preview and Planning Handoff refs |
+| `deterministicOutputs` | no | `ProductEngineDeterministicOutput[]` | public reducer outputs for accepted commands, including spec update preview, Planning Handoff refs, and Phase 2.5 comparison refs |
 | `queueProjection` | no | `DecisionQueueProjection` | only accepted_with_projection |
 | `pendingEffectSummary` | no | `PendingEffectSummaryDto` | only accepted_with_projection or status payload |
 | `blockingCard` | no | `QueueItemProjection` | required for blocked when user-visible |
@@ -701,6 +706,7 @@ Phase 1.5A PR-01 implementation note:
 | `RuntimeActivityProjection` | `projections/runtime-activity.ts` | background task board/activity feed |
 | `FounderBriefProjection` | `projections/founder-brief.ts` | if-stop-now/founder brief export |
 | `PlanningHandoffProjection` | `projections/planning-handoff.ts` | Phase 2 final/blocker Planning Handoff |
+| `Phase25ResearchComparisonProjection` | `projections/phase25-research-comparison.ts` | Phase 2.5 Artifact+Gate comparison report |
 
 ### Projection minimum fields
 
@@ -718,6 +724,7 @@ Phase 1.5A PR-01 implementation note:
 | `RuntimeActivityProjection` | effect tasks, Codex runtime status, runtime artifacts, retry/blocked cards, activity feed |
 | `FounderBriefProjection` | if-stop-now artifact, brief draft sections, export readiness, known risks, next validation actions |
 | `PlanningHandoffProjection` | latest final `PlanningHandoffArtifactDto` or latest `PlanningHandoffBlockerArtifactDto`, source refs, gate verdict, build/serve/learning checklist fields on final handoff, readiness/residual-risk summary, refetch URL |
+| `Phase25ResearchComparisonProjection` | latest `ResearchQualityComparisonReport`, source refs, DelegationRiskGate verdict, baseline/candidate comparison, quality-lift claim flag, safe-failure status, refetch URL |
 
 Example DecisionQueueProjection:
 
@@ -835,6 +842,33 @@ Behavior rules:
 - 어떤 DTO field도 file patch, shell command, browser action, deploy, external mutation, active delegation을 실행했거나 실행할 권한을 부여한 것처럼 보이면 안 된다.
 - exact field names/types/required flags for the Phase 2 DTO family are owned by `32-phase2-implementation-preflight-contract.md`.
 - #42 이후 이 current 이름을 reducer/storage/API/UI 동작으로 연결할 때는 20/21/26번 문서와 `scripts/verify-doc-contracts.mjs` 검증을 함께 유지한다.
+
+
+## Phase 2.5 Artifact+Gate DTO checklist
+
+Phase 2.5 첫 product-code slice는 `34-phase2.5-browser-automation-preview-contract.md`를 canonical Artifact+Gate contract로 사용한다. 아래 이름은 `packages/contracts`, ProductEngine reducer, local persistence가 공유하는 현재 closed surface다. Desktop review UI, sidecar API route/client, live Playwright/BrowserUse/ChatGPT adapter, Phase 3 execution authority는 포함하지 않는다.
+
+| Surface | Exact current name | Implementation note |
+| --- | --- | --- |
+| ProductEngine command | `CreatePhase25ResearchComparison` | baseline/candidate/risk gate/rubric payload를 deterministic report로 닫는다. |
+| ProductEngine event | `Phase25ResearchComparisonCreated` | `allowed_for_comparative_preview`와 모든 rubric pass가 material quality lift로 저장됐음을 기록한다. |
+| ProductEngine event | `Phase25ResearchComparisonBlocked` | policy/session/source/rubric 문제를 safe-failure report로 저장하고 quality lift를 claim하지 않는다. |
+| Projection | `Phase25ResearchComparisonProjection` | latest `ResearchQualityComparisonReport`와 source refs, summary, refetch URL을 반환하는 read model이다. |
+| Report DTO | `Phase25ResearchQualityComparisonReportDto` | `ResearchQualityComparisonReport` artifact의 closed field family다. |
+| Gate DTO | `Phase25DelegationRiskGateDto` | verdict, checks, blocked reasons, fallback lane, no-execution boundary를 담는다. |
+| Adapter port | `Phase25ResearchCandidateAdapterPort` | future adapter interface only; live adapter implementation은 후속 phase다. |
+| Storage repository | `phase25ResearchComparisonRepository` | `phase25_research_comparisons`와 trace source rows에 artifact JSON과 query columns를 저장한다. |
+| Deterministic output type | `phase25_research_comparison_report` | reducer output에서 quality-lift/safe-failure report ref를 추적한다. |
+
+Behavior rules:
+
+- `quality_lift_ready`는 `allowed_for_comparative_preview`, source trace, pro/con/uncertainty, decision impact, all-rubric-pass를 모두 요구한다.
+- pro-only, source-dump, untraceable candidate output은 valid quality lift가 아니며 safe failure 또는 validation error로 수렴한다.
+- `safe_failure_blocked`는 `qualityLiftClaimed=false`와 `safe_failure_no_lift`를 유지해야 한다.
+- `DelegationRiskGate`는 exact no-execution boundary와 canonical check별 1개 row만 허용하며, rubric도 canonical quality dimension별 1개 score만 허용한다.
+- `fallback_required` gate는 `manual_prompt_handoff` 또는 `official_codex_fallback` 중 하나를 explicit `fallbackLane`으로 가져야 한다.
+- source refs의 `required`/`stale` metadata는 boolean으로 명시해야 하며, 누락 또는 string coercion은 validation error다.
+- 어떤 DTO, repository row, adapter port도 submit/write, credential custody, hidden browser action, live adapter execution을 수행하거나 권한으로 표현하지 않는다.
 
 ## Validation notes
 

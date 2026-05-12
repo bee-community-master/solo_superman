@@ -26,7 +26,9 @@ describe("ProductEngine event contract surface", () => {
       "CompletenessScored",
       "FounderBriefPrepared",
       "PlanningHandoffCreated",
-      "PlanningHandoffBlocked"
+      "PlanningHandoffBlocked",
+      "Phase25ResearchComparisonCreated",
+      "Phase25ResearchComparisonBlocked"
     ]);
   });
 });

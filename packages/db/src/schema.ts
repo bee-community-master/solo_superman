@@ -459,6 +459,50 @@ export const planningHandoffRisks = sqliteTable(
   ]
 );
 
+export const phase25ResearchComparisons = sqliteTable(
+  "phase25_research_comparisons",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    sourceCommandId: text("source_command_id").notNull(),
+    sourceEventId: text("source_event_id").notNull(),
+    status: text("status").notNull(),
+    gateVerdict: text("gate_verdict").notNull(),
+    candidateLane: text("candidate_lane").notNull(),
+    qualityLiftClaimed: integer("quality_lift_claimed", { mode: "boolean" }).notNull(),
+    sourceStateVersion: integer("source_state_version").notNull(),
+    summary: text("summary").notNull(),
+    artifactJson: text("artifact_json").notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: text("created_at").notNull(),
+    schemaVersion: text("schema_version").notNull()
+  },
+  (table) => [
+    index("phase25_research_comparisons_session_created_idx").on(table.sessionId, table.createdAt),
+    uniqueIndex("phase25_research_comparisons_source_command_idx").on(table.sourceCommandId),
+    index("phase25_research_comparisons_session_verdict_idx").on(table.sessionId, table.gateVerdict)
+  ]
+);
+
+export const phase25ResearchComparisonSources = sqliteTable(
+  "phase25_research_comparison_sources",
+  {
+    id: text("id").primaryKey(),
+    comparisonId: text("comparison_id").notNull(),
+    sourceType: text("source_type").notNull(),
+    sourceId: text("source_id").notNull(),
+    sourceLabel: text("source_label"),
+    required: integer("required", { mode: "boolean" }).notNull(),
+    stale: integer("stale", { mode: "boolean" }).notNull(),
+    createdAt: text("created_at").notNull()
+  },
+  (table) => [
+    index("phase25_research_comparison_sources_comparison_idx").on(table.comparisonId),
+    index("phase25_research_comparison_sources_source_idx").on(table.sourceType, table.sourceId)
+  ]
+);
+
 export const runtimeTaskRefs = sqliteTable(
   "runtime_task_refs",
   {

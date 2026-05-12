@@ -8,9 +8,17 @@ import {
   CODEX_RUNTIME_ADAPTER_VERSION,
   CODEX_TURN_PURPOSES,
   CANONICAL_INITIAL_SPEC_SECTIONS,
+  PHASE25_CANDIDATE_LANES,
+  PHASE25_DELEGATION_RISK_GATE_CHECKS,
+  PHASE25_DELEGATION_RISK_GATE_VERDICTS,
+  PHASE25_NO_EXECUTION_BOUNDARY,
+  PHASE25_RESEARCH_COMPARISON_SCHEMA_VERSION,
+  PHASE25_RESEARCH_QUALITY_RUBRIC_DIMENSIONS,
+  PHASE25_SOURCE_TYPES,
   assertPhase15bUpgradeHintsMatchBlockedAction,
   isPhase15bHintArtifactKind,
   validatePhase15bUpgradeHints,
+  validatePhase25ResearchComparisonReport,
   type ActiveBatchSafeProjection,
   type AmbiguityIssueSnapshot,
   type BlockedActionType,
@@ -25,6 +33,21 @@ import {
   type EvidenceMatrixProjection,
   type FounderBriefProjection,
   type LivingSpecProjection,
+  type Phase25BaselineResearchSummaryDto,
+  type Phase25CandidateLane,
+  type Phase25CandidateResearchSummaryDto,
+  type Phase25FallbackLane,
+  type Phase25DelegationRiskGateCheckDto,
+  type Phase25DelegationRiskGateCheckName,
+  type Phase25DelegationRiskGateDto,
+  type Phase25DelegationRiskGateVerdict,
+  type Phase25ResearchComparisonProjection,
+  type Phase25ResearchComparisonStatus,
+  type Phase25ResearchQualityComparisonReportDto,
+  type Phase25ResearchQualityRubricScoreDto,
+  type Phase25ResearchQualityRubricDimension,
+  type Phase25SourceRefDto,
+  type Phase25SourceType,
   type PlanningHandoffArtifactDto,
   type PlanningHandoffBlockerArtifactDto,
   type PlanningHandoffBlockerClass,
@@ -4436,6 +4459,541 @@ function reduceCreatePlanningHandoff(
   );
 }
 
+const PHASE25_ALLOWED_PAYLOAD_KEYS = [
+  "researchQuestion",
+  "decisionContext",
+  "sourceRefs",
+  "baseline",
+  "candidate",
+  "delegationRiskGate",
+  "rubric"
+] as const;
+
+function containsUnsupportedPhase25Payload(command: ProductEngineCommand) {
+  return !hasOnlyRecordKeys(command.payload, PHASE25_ALLOWED_PAYLOAD_KEYS);
+}
+
+function recordFromUnknown(value: unknown): Readonly<Record<string, unknown>> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Readonly<Record<string, unknown>>) : null;
+}
+
+function stringArray(value: unknown, allowEmpty: boolean) {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const strings = value.map((item) => requiredString(item));
+
+  return (allowEmpty || strings.length > 0) && strings.every(Boolean) ? (strings as readonly string[]) : null;
+}
+
+function requiredStringArray(value: unknown) {
+  return stringArray(value, false);
+}
+
+function optionalStringArray(value: unknown) {
+  if (value === undefined) {
+    return [] as const;
+  }
+
+  return stringArray(value, true);
+}
+
+function isPhase25SourceType(value: unknown): value is Phase25SourceType {
+  return typeof value === "string" && PHASE25_SOURCE_TYPES.includes(value as Phase25SourceType);
+}
+
+function isPhase25CandidateLane(value: unknown): value is Phase25CandidateLane {
+  return typeof value === "string" && PHASE25_CANDIDATE_LANES.includes(value as Phase25CandidateLane);
+}
+
+function isPhase25FallbackLane(value: unknown): value is Phase25FallbackLane {
+  return value === "manual_prompt_handoff" || value === "official_codex_fallback";
+}
+
+function phase25OptionalFallbackLaneFromValue(value: unknown): Phase25FallbackLane | undefined | null {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return isPhase25FallbackLane(value) ? value : null;
+}
+
+function isPhase25GateVerdict(value: unknown): value is Phase25DelegationRiskGateVerdict {
+  return typeof value === "string" && PHASE25_DELEGATION_RISK_GATE_VERDICTS.includes(value as Phase25DelegationRiskGateVerdict);
+}
+
+function isPhase25GateCheckName(value: unknown): value is Phase25DelegationRiskGateCheckName {
+  return typeof value === "string" && PHASE25_DELEGATION_RISK_GATE_CHECKS.includes(value as Phase25DelegationRiskGateCheckName);
+}
+
+function isPhase25RubricDimension(value: unknown): value is Phase25ResearchQualityRubricDimension {
+  return (
+    typeof value === "string" &&
+    PHASE25_RESEARCH_QUALITY_RUBRIC_DIMENSIONS.includes(value as Phase25ResearchQualityRubricDimension)
+  );
+}
+
+function phase25SourceRefFromValue(value: unknown): Phase25SourceRefDto | null {
+  const record = recordFromUnknown(value);
+
+  if (!record) {
+    return null;
+  }
+
+  const sourceId = requiredString(record.sourceId);
+
+  if (
+    !isPhase25SourceType(record.sourceType) ||
+    !sourceId ||
+    typeof record.required !== "boolean" ||
+    typeof record.stale !== "boolean"
+  ) {
+    return null;
+  }
+
+  const sourceLabel = record.sourceLabel === undefined ? undefined : requiredString(record.sourceLabel);
+
+  if (sourceLabel === null) {
+    return null;
+  }
+
+  return {
+    sourceType: record.sourceType,
+    sourceId,
+    ...(sourceLabel ? { sourceLabel } : {}),
+    required: record.required,
+    stale: record.stale
+  };
+}
+
+function phase25SourceRefsFromValue(value: unknown, fieldName: string) {
+  if (!Array.isArray(value)) {
+    return reject(`CreatePhase25ResearchComparison ${fieldName} must be an array.`, "VALIDATION_FAILED");
+  }
+
+  const sourceRefs = value.map(phase25SourceRefFromValue);
+
+  if (!sourceRefs.every(Boolean)) {
+    return reject(
+      `CreatePhase25ResearchComparison ${fieldName} must contain valid Phase25SourceRefDto objects.`,
+      "VALIDATION_FAILED"
+    );
+  }
+
+  if (!sourceRefs.length) {
+    return reject(`CreatePhase25ResearchComparison ${fieldName} must contain at least one sourceRef.`, "VALIDATION_FAILED");
+  }
+
+  return sourceRefs as readonly Phase25SourceRefDto[];
+}
+
+function uniquePhase25SourceRefs(sourceRefs: readonly Phase25SourceRefDto[]) {
+  const byKey = new Map<string, Phase25SourceRefDto>();
+
+  for (const sourceRef of sourceRefs) {
+    byKey.set(`${sourceRef.sourceType}:${sourceRef.sourceId}`, sourceRef);
+  }
+
+  return [...byKey.values()];
+}
+
+function phase25BaselineFromValue(value: unknown): Phase25BaselineResearchSummaryDto | null {
+  const record = recordFromUnknown(value);
+
+  if (!record) {
+    return null;
+  }
+
+  const sourceRefs = phase25SourceRefsFromValue(record.sourceRefs, "baseline.sourceRefs");
+
+  if ("accepted" in sourceRefs) {
+    return null;
+  }
+
+  const baselineRef = requiredString(record.baselineRef);
+  const summary = requiredString(record.summary);
+  const proEvidence = requiredStringArray(record.proEvidence);
+  const conEvidence = requiredStringArray(record.conEvidence);
+  const uncertainties = requiredStringArray(record.uncertainties);
+  const limitations = optionalStringArray(record.limitations);
+
+  if (!baselineRef || !summary || !proEvidence || !conEvidence || !uncertainties || !limitations) {
+    return null;
+  }
+
+  return {
+    baselineRef,
+    summary,
+    proEvidence,
+    conEvidence,
+    uncertainties,
+    limitations,
+    sourceRefs
+  };
+}
+
+function phase25CandidateFromValue(value: unknown): Phase25CandidateResearchSummaryDto | null {
+  const record = recordFromUnknown(value);
+
+  if (!record) {
+    return null;
+  }
+
+  const sourceTraceRefs = phase25SourceRefsFromValue(record.sourceTraceRefs, "candidate.sourceTraceRefs");
+
+  if ("accepted" in sourceTraceRefs) {
+    return null;
+  }
+
+  const candidateRef = requiredString(record.candidateRef);
+  const summary = requiredString(record.summary);
+  const proEvidence = optionalStringArray(record.proEvidence);
+  const conEvidence = optionalStringArray(record.conEvidence);
+  const uncertainties = optionalStringArray(record.uncertainties);
+  const decisionImpacts = optionalStringArray(record.decisionImpacts);
+  const policyNotes = optionalStringArray(record.policyNotes);
+
+  if (
+    !candidateRef ||
+    !isPhase25CandidateLane(record.lane) ||
+    !summary ||
+    !proEvidence ||
+    !conEvidence ||
+    !uncertainties ||
+    !decisionImpacts ||
+    !policyNotes ||
+    (record.staleRisk !== "low" && record.staleRisk !== "medium" && record.staleRisk !== "high")
+  ) {
+    return null;
+  }
+
+  return {
+    candidateRef,
+    lane: record.lane,
+    summary,
+    proEvidence,
+    conEvidence,
+    uncertainties,
+    decisionImpacts,
+    sourceTraceRefs,
+    staleRisk: record.staleRisk,
+    policyNotes
+  };
+}
+
+function phase25GateCheckFromValue(value: unknown): Phase25DelegationRiskGateCheckDto | null {
+  const record = recordFromUnknown(value);
+
+  if (!record) {
+    return null;
+  }
+
+  const sourceRefs = phase25SourceRefsFromValue(record.sourceRefs, "delegationRiskGate.checks.sourceRefs");
+  const rationale = requiredString(record.rationale);
+
+  if (
+    "accepted" in sourceRefs ||
+    !isPhase25GateCheckName(record.checkName) ||
+    (record.status !== "pass" && record.status !== "block" && record.status !== "fallback") ||
+    !rationale
+  ) {
+    return null;
+  }
+
+  return {
+    checkName: record.checkName,
+    status: record.status,
+    rationale,
+    sourceRefs
+  };
+}
+
+function phase25GateFromValue(value: unknown, candidateLane: Phase25CandidateLane): Phase25DelegationRiskGateDto | null {
+  const record = recordFromUnknown(value);
+
+  if (
+    !record ||
+    !isPhase25GateVerdict(record.verdict) ||
+    record.candidateLane !== candidateLane ||
+    record.noExecutionBoundary !== PHASE25_NO_EXECUTION_BOUNDARY
+  ) {
+    return null;
+  }
+
+  const checks = Array.isArray(record.checks) ? record.checks.map(phase25GateCheckFromValue) : [];
+  const blockedReasons = optionalStringArray(record.blockedReasons);
+  const rationale = requiredString(record.rationale);
+  const fallbackLane = phase25OptionalFallbackLaneFromValue(record.fallbackLane);
+
+  if (
+    !checks.length ||
+    !checks.every(Boolean) ||
+    !blockedReasons ||
+    !rationale ||
+    fallbackLane === null ||
+    (record.verdict === "fallback_required" && !fallbackLane)
+  ) {
+    return null;
+  }
+
+  return {
+    verdict: record.verdict,
+    candidateLane,
+    checks: checks as readonly Phase25DelegationRiskGateCheckDto[],
+    blockedReasons,
+    ...(fallbackLane ? { fallbackLane } : {}),
+    noExecutionBoundary: PHASE25_NO_EXECUTION_BOUNDARY,
+    rationale
+  };
+}
+
+function phase25RubricFromValue(value: unknown): readonly Phase25ResearchQualityRubricScoreDto[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const scores = value.map((item): Phase25ResearchQualityRubricScoreDto | null => {
+    const record = recordFromUnknown(item);
+
+    if (!record) {
+      return null;
+    }
+
+    const sourceRefs = phase25SourceRefsFromValue(record.sourceRefs, "rubric.sourceRefs");
+    const rationale = requiredString(record.rationale);
+
+    if (
+      "accepted" in sourceRefs ||
+      !isPhase25RubricDimension(record.dimension) ||
+      (record.status !== "pass" && record.status !== "fail") ||
+      !rationale
+    ) {
+      return null;
+    }
+
+    return {
+      dimension: record.dimension,
+      status: record.status,
+      rationale,
+      sourceRefs
+    };
+  });
+
+  return scores.length && scores.every(Boolean) ? (scores as readonly Phase25ResearchQualityRubricScoreDto[]) : null;
+}
+
+function phase25GateCheckBlockers(gate: Phase25DelegationRiskGateDto) {
+  return gate.checks
+    .filter((check) => check.status !== "pass")
+    .map((check) => `DelegationRiskGate check ${check.checkName} is ${check.status}: ${check.rationale}`);
+}
+
+function phase25RubricCoversEveryDimension(rubric: readonly Phase25ResearchQualityRubricScoreDto[]) {
+  const dimensions = new Set(rubric.map((score) => score.dimension));
+
+  return PHASE25_RESEARCH_QUALITY_RUBRIC_DIMENSIONS.every((dimension) => dimensions.has(dimension));
+}
+
+function phase25MaterialQualityLiftBlockers(
+  candidate: Phase25CandidateResearchSummaryDto,
+  gate: Phase25DelegationRiskGateDto,
+  rubric: readonly Phase25ResearchQualityRubricScoreDto[]
+) {
+  const blockers: string[] = [];
+
+  if (gate.verdict !== "allowed_for_comparative_preview") {
+    blockers.push(`DelegationRiskGate verdict is ${gate.verdict}.`);
+  }
+
+  blockers.push(...gate.blockedReasons);
+  blockers.push(...phase25GateCheckBlockers(gate));
+
+  if (!candidate.proEvidence.length) {
+    blockers.push("Candidate output lacks pro evidence.");
+  }
+
+  if (!candidate.conEvidence.length) {
+    blockers.push("Candidate output is pro-only and lacks counter-evidence.");
+  }
+
+  if (!candidate.uncertainties.length) {
+    blockers.push("Candidate output lacks explicit uncertainties.");
+  }
+
+  if (!candidate.decisionImpacts.length) {
+    blockers.push("Candidate output lacks decision-impact evidence.");
+  }
+
+  if (!candidate.sourceTraceRefs.length) {
+    blockers.push("Candidate output lacks source trace refs.");
+  }
+
+  if (!phase25RubricCoversEveryDimension(rubric)) {
+    blockers.push("Rubric does not cover every Phase 2.5 quality dimension.");
+  }
+
+  if (!rubric.every((score) => score.status === "pass")) {
+    blockers.push("At least one quality rubric dimension failed.");
+  }
+
+  return blockers;
+}
+
+function phase25ComparisonArtifactId(
+  command: ProductEngineCommand,
+  candidate: Phase25CandidateResearchSummaryDto,
+  sourceRefs: readonly Phase25SourceRefDto[]
+) {
+  const refs = sourceRefs.map((sourceRef) => `${sourceRef.sourceType}:${sourceRef.sourceId}`).sort().join("|");
+
+  return `phase25_cmp_${stableToken(`${command.sessionId}:${command.expectedStateVersion}:${candidate.candidateRef}:${refs}`)}`;
+}
+
+function phase25CreatedBy(command: ProductEngineCommand): Phase25ResearchQualityComparisonReportDto["createdBy"] {
+  return command.actor === "user" || command.actor === "system" ? command.actor : "product_engine";
+}
+
+function phase25Projection(
+  command: ProductEngineCommand,
+  report: Phase25ResearchQualityComparisonReportDto
+): Phase25ResearchComparisonProjection {
+  return {
+    kind: "Phase25ResearchComparisonProjection",
+    sessionId: command.sessionId,
+    version: (Number(command.expectedStateVersion) + 1) as ProjectionVersion,
+    currentStatus: report.status,
+    artifact: report,
+    sourceRefs: report.sourceRefs,
+    summary: report.decisionImpactSummary,
+    refetchUrl: `/api/v1/sessions/${command.sessionId}/phase25/research-comparison`
+  };
+}
+
+function reduceCreatePhase25ResearchComparison(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  if (containsUnsupportedPhase25Payload(command)) {
+    return reject(
+      "CreatePhase25ResearchComparison payload must only include researchQuestion, decisionContext, sourceRefs, baseline, candidate, delegationRiskGate, and rubric.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  const researchQuestion = requiredString(command.payload.researchQuestion);
+  const decisionContext = requiredString(command.payload.decisionContext);
+  const baseline = phase25BaselineFromValue(command.payload.baseline);
+  const candidate = phase25CandidateFromValue(command.payload.candidate);
+  const rubric = phase25RubricFromValue(command.payload.rubric);
+  const payloadSourceRefs = phase25SourceRefsFromValue(command.payload.sourceRefs, "sourceRefs");
+
+  if (!researchQuestion || !decisionContext || !baseline || !candidate || !rubric || "accepted" in payloadSourceRefs) {
+    return reject(
+      "CreatePhase25ResearchComparison requires a research question, decision context, baseline, candidate, rubric, and traceable sourceRefs.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  const payloadGate = phase25GateFromValue(command.payload.delegationRiskGate, candidate.lane);
+
+  if (!payloadGate) {
+    return reject("CreatePhase25ResearchComparison requires a valid DelegationRiskGate.", "VALIDATION_FAILED");
+  }
+
+  const sourceRefs = uniquePhase25SourceRefs([
+    ...payloadSourceRefs,
+    ...baseline.sourceRefs,
+    ...candidate.sourceTraceRefs,
+    ...payloadGate.checks.flatMap((check) => check.sourceRefs),
+    ...rubric.flatMap((score) => score.sourceRefs)
+  ]);
+  const blockers = phase25MaterialQualityLiftBlockers(candidate, payloadGate, rubric);
+  const status: Phase25ResearchComparisonStatus = blockers.length ? "safe_failure_blocked" : "quality_lift_ready";
+  const delegationRiskGate: Phase25DelegationRiskGateDto = blockers.length
+    ? {
+        ...payloadGate,
+        verdict: payloadGate.verdict === "allowed_for_comparative_preview" ? "fallback_required" : payloadGate.verdict,
+        blockedReasons: uniqueStrings([...payloadGate.blockedReasons, ...blockers]),
+        fallbackLane: payloadGate.fallbackLane ?? "manual_prompt_handoff",
+        rationale: `${payloadGate.rationale} Safe failure: ${blockers.join(" ")}`
+      }
+    : payloadGate;
+  const decisionImpactSummary =
+    status === "quality_lift_ready"
+      ? `Phase 2.5 comparison shows material research quality lift for: ${researchQuestion}`
+      : `Phase 2.5 comparison failed safely for: ${researchQuestion}`;
+  const report: Phase25ResearchQualityComparisonReportDto = {
+    artifactId: phase25ComparisonArtifactId(command, candidate, sourceRefs),
+    kind: "ResearchQualityComparisonReport",
+    schemaVersion: PHASE25_RESEARCH_COMPARISON_SCHEMA_VERSION,
+    createdAt: command.issuedAt,
+    createdBy: phase25CreatedBy(command),
+    status,
+    researchQuestion,
+    decisionContext,
+    candidateLane: candidate.lane,
+    sourceRefs,
+    baseline,
+    candidate,
+    delegationRiskGate,
+    rubric,
+    qualityLiftStatus: status === "quality_lift_ready" ? "material_quality_lift" : "safe_failure_no_lift",
+    qualityLiftClaimed: status === "quality_lift_ready",
+    decisionImpactSummary,
+    requiredFollowUps:
+      status === "quality_lift_ready"
+        ? ["Keep live adapter execution behind a separate Phase 3 approval gate."]
+        : delegationRiskGate.blockedReasons,
+    noExecutionPolicy: PHASE25_NO_EXECUTION_BOUNDARY
+  };
+
+  try {
+    validatePhase25ResearchComparisonReport(report);
+  } catch (error) {
+    return reject(error instanceof Error ? error.message : String(error), "VALIDATION_FAILED");
+  }
+
+  const projection = phase25Projection(command, report);
+  const event = eventDraft(
+    command,
+    status === "quality_lift_ready" ? "Phase25ResearchComparisonCreated" : "Phase25ResearchComparisonBlocked",
+    {
+      artifactId: report.artifactId,
+      artifactKind: report.kind,
+      verdict: delegationRiskGate.verdict,
+      status,
+      sourceRefs,
+      projection,
+      summary: projection.summary
+    }
+  );
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      phase25ResearchComparison: projection
+    },
+    [
+      {
+        outputType: "phase25_research_comparison_report",
+        outputRef: report.artifactId,
+        payload: {
+          artifactId: report.artifactId,
+          status,
+          verdict: delegationRiskGate.verdict,
+          qualityLiftClaimed: report.qualityLiftClaimed,
+          candidateLane: report.candidateLane
+        }
+      }
+    ],
+    [],
+    projection
+  );
+}
+
 function reduceCreateSpecUpdatePreview(command: ProductEngineCommand, state: ProductEngineStateSnapshot): ProductEngineReduction {
   if (!state.currentSpec.draftRef) {
     return reject("CreateSpecUpdatePreview requires an initial spec draft.");
@@ -4926,6 +5484,8 @@ export function reduceProductEngineCommand(
       return reducePrepareFounderBrief(command, state);
     case "CreatePlanningHandoff":
       return reduceCreatePlanningHandoff(command, state);
+    case "CreatePhase25ResearchComparison":
+      return reduceCreatePhase25ResearchComparison(command, state);
     default:
       return reject(`${command.commandType} is outside the mounted PR-09 reducer slice.`);
   }
@@ -5301,6 +5861,16 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
         ...state,
         stateVersion: nextStateVersion,
         ...(planningHandoff ? { planningHandoff } : {})
+      };
+    }
+    case "Phase25ResearchComparisonCreated":
+    case "Phase25ResearchComparisonBlocked": {
+      const phase25ResearchComparison = projectionPayload(event.payload, state.phase25ResearchComparison);
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        ...(phase25ResearchComparison ? { phase25ResearchComparison } : {})
       };
     }
     default:

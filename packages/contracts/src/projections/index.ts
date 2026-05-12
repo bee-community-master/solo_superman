@@ -10,6 +10,7 @@ export * from "./research-review-card-derivation";
 export * from "./runtime-activity";
 export * from "./session-shell";
 export * from "./planning-handoff";
+export * from "./phase25-research-comparison";
 
 export type ProjectionKind =
   | "SessionShellProjection"
@@ -23,4 +24,5 @@ export type ProjectionKind =
   | "ConfidenceCompletionProjection"
   | "RuntimeActivityProjection"
   | "FounderBriefProjection"
-  | "PlanningHandoffProjection";
+  | "PlanningHandoffProjection"
+  | "Phase25ResearchComparisonProjection";

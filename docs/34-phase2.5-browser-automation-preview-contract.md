@@ -4,7 +4,7 @@
 
 이 문서는 Phase 2.5 Browser Automation Preview의 canonical 문서 계약이다. 목표는 Phase 2 Planning Handoff 이후, Phase 3 Controlled Execution 이전에 브라우저/ChatGPT Pro 계열 research delegation이 Phase 1.5A allowlisted read-only research보다 실제로 더 나은 evidence depth, source trace, decision impact를 만드는지 검증하는 기준을 고정하는 것이다.
 
-Phase 2.5는 실행 단계가 아니다. 이 문서는 browser automation과 ChatGPT Pro/Deep Research delegation을 제품 capability로 바로 구현하기 전에, 정책·세션·데이터 노출·revoke/audit·fallback·품질 향상 기준을 문서 계약으로 잠근다.
+Phase 2.5는 실행 단계가 아니다. 다만 2026-05-12 결정 이후 첫 product-code slice는 browser/ChatGPT 실행이 아니라 `DelegationRiskGate`와 `ResearchQualityComparisonReport`를 deterministic Artifact+Gate core로 잠그는 범위까지 포함한다. 정책·세션·데이터 노출·revoke/audit·fallback·품질 향상 기준은 코드와 문서에서 동시에 유지한다.
 
 Canonical path: `docs/34-phase2.5-browser-automation-preview-contract.md`.
 
@@ -14,13 +14,13 @@ Canonical path: `docs/34-phase2.5-browser-automation-preview-contract.md`.
 | --- | --- |
 | Canonical source | Phase 2.5 Browser Automation Preview 계약은 이 문서가 소유 |
 | Primary objective | Phase 1.5A baseline 대비 research quality lift를 비교 dry-run으로 검증 |
-| Scope depth | docs-level contract only; DTO/API/DB exact default, route id, PR sequence는 후속 preflight 전까지 확정하지 않음 |
+| Scope depth | first slice는 product-code Artifact+Gate core: closed DTO/types, ProductEngine command/event/projection, local persistence, adapter interface port를 포함한다. Desktop UI, sidecar API route/client, live browser/ChatGPT execution, Phase 3 execution authority는 제외한다. |
 | Candidate surfaces | PlaywrightRuntime, BrowserUseRuntime, ChatGPT Pro/Deep Research web delegation, manual prompt handoff, official Codex path fallback |
 | ChatGPT Pro boundary | 정책·약관·세션·사용량·account-risk gate를 통과해야 하며, 계정 공유나 credential custody가 아님 |
 | No-execution boundary | Phase 2.5는 form submit, POST/write, deploy, external mutation, credential storage, hidden browser action을 실행하지 않음 |
 | User value | 사용자는 browser/ChatGPT delegation을 켜기 전에 어떤 evidence 품질 개선, 위험, fallback, revoke 경계가 있는지 본다 |
-| Completion evidence | 동일 high-impact research question에 대한 Phase 1.5A vs Phase 2.5 comparative dry-run contract |
-| Artifact status | 이 문서의 artifact names는 docs-level vocabulary이며 `packages/contracts` closed DTO로 승격하지 않음 |
+| Completion evidence | 동일 high-impact research question에 대한 Phase 1.5A vs Phase 2.5 comparative dry-run artifact를 deterministic reducer/persistence round-trip으로 검증 |
+| Artifact status | `ResearchQualityComparisonReport`, `DelegationRiskGate`, `Phase25ResearchComparisonProjection`, `CreatePhase25ResearchComparison`은 첫 product-code slice의 closed contract 이름이다. |
 
 ## Phase relationship
 
@@ -30,7 +30,7 @@ Canonical path: `docs/34-phase2.5-browser-automation-preview-contract.md`.
 | Phase 1.5A | ResearchAllowlist, ResearchRun, disclosure log, Evidence Pack, Research-updated Queue, read-only connector 기준 | allowlist를 account-session scraping 또는 write action 승인으로 확장하지 않음 |
 | Phase 1.5B | approval, sandbox, rollback, expected evidence, risk metadata를 readiness hint로 보존하는 패턴 | hint를 active permission 또는 실행 commitment로 해석하지 않음 |
 | Phase 2 | PlanningHandoffArtifact, blocker report, residual risk visibility, no-execution policy | planning handoff를 browser action 실행으로 승격하지 않음 |
-| Phase 2.5 | browser/ChatGPT delegation preview가 research quality lift를 만드는지 검증 | submit/write/credential custody/account sharing/implementation preflight/team/mobile/billing을 하지 않음 |
+| Phase 2.5 | browser/ChatGPT delegation preview가 research quality lift를 만드는지 Artifact+Gate core로 검증 | submit/write/credential custody/account sharing/live adapter/desktop UI/sidecar API/team/mobile/billing을 하지 않음 |
 | Phase 3 | controlled execution에 필요한 approval-first, sandbox, rollback, audit expectation을 준비 | Phase 3의 controlled execution adapter를 설계하거나 구현하지 않음 |
 
 ## Ambiguities resolved
@@ -41,7 +41,7 @@ Canonical path: `docs/34-phase2.5-browser-automation-preview-contract.md`.
 | ChatGPT Pro web automation이 기본 실행 경로인가 | 아니다. ChatGPT Pro/Deep Research는 quality-lift 검증 후보이며, 정책·세션·사용량·데이터 노출 gate를 통과하지 못하면 manual handoff 또는 official Codex path fallback으로 수렴한다. |
 | Project-level delegation이 credential 보관인가 | 아니다. 위임은 사용자가 볼 수 있는 목적/데이터 범주/revoke/audit/fallback 설명이며, Solo Superman은 ChatGPT 계정 비밀번호, 2FA, API key, session token을 저장하거나 대리 입력하지 않는다. |
 | Source capture가 source dump인가 | 아니다. source capture는 Evidence Pack/Research-updated Queue에 연결되는 URL/report/screenshot/log/provenance summary와 decision impact trace다. Decision impact 없는 source list는 실패다. |
-| Phase 2.5가 구현 preflight인가 | 아니다. DTO wire shape, DB columns, route ids, product code, GitHub issue/PR slicing은 후속 작업이다. |
+| Phase 2.5가 구현 preflight인가 | 첫 slice는 Artifact+Gate product-code core다. DTO/type, reducer projection, local persistence, adapter interface port는 닫지만 route ids, desktop UI, sidecar API/client, live adapter, GitHub issue/PR execution slicing은 후속 작업이다. |
 
 ## Candidate runtime lanes
 
@@ -55,7 +55,7 @@ Canonical path: `docs/34-phase2.5-browser-automation-preview-contract.md`.
 
 ## `DelegationRiskGate` contract
 
-`DelegationRiskGate` is a docs-level gate run before any Phase 2.5 browser/ChatGPT delegation is treated as valid comparison evidence.
+`DelegationRiskGate` is a closed DTO/code gate run before any Phase 2.5 browser/ChatGPT delegation is treated as valid comparison evidence.
 
 | Check | Pass condition | Block condition |
 | --- | --- | --- |
@@ -75,9 +75,11 @@ Gate verdicts:
 - `blocked_by_write_action`: browser or ChatGPT flow requires submit/write/external mutation.
 - `fallback_required`: candidate is not safe/reliable enough; use manual handoff, official Codex path, Risk Card, or Known Risk.
 
+`DelegationRiskGate` must carry the exact `no_submit_write_credential_custody_or_live_browser_execution` boundary, one row per canonical gate check, and no duplicate check names. Future adapters must not rely on the reducer to infer or repair this no-execution boundary. When the verdict is `fallback_required`, `fallbackLane` must be explicit and limited to `manual_prompt_handoff` or `official_codex_fallback`.
+
 ## `ResearchQualityComparisonReport` contract
 
-`ResearchQualityComparisonReport` is a docs-level comparative dry-run artifact. It decides whether Phase 2.5 creates enough quality lift to justify later implementation planning.
+`ResearchQualityComparisonReport` is a deterministic comparative dry-run artifact. It decides whether Phase 2.5 creates enough quality lift to justify later adapter or UI planning.
 
 Required inputs:
 
@@ -87,6 +89,8 @@ Required inputs:
 - DelegationRiskGate verdict and rationale.
 - source refs, retrieved/exported timestamps, disclosure summary, fallback/revoke/audit refs.
 - linked Spec section, Decision, Question, ResearchTask, Risk Card, or Research-updated Queue item.
+- one rubric score per canonical quality dimension, with no duplicate dimensions.
+- source refs must preserve explicit boolean `required` and `stale` metadata; missing or string-coerced metadata is invalid.
 
 Comparison rubric:
 
@@ -104,15 +108,16 @@ Completion rule:
 - Phase 2.5 is worth later implementation planning only if at least one representative high-impact research question produces material quality lift without DelegationRiskGate block.
 - If candidate output is blocked but the block is well explained, Phase 2.5 may still pass the safety contract but must not claim quality lift.
 - If neither quality lift nor safe failure evidence is available, Phase 2.5 remains a research/planning risk and should not open Phase 3 execution planning.
+- `safe_failure_blocked` must include explicit blocked reasons and required follow-up/boundary notes.
 
 ## Non-goals
 
-Phase 2.5 does not include:
+Phase 2.5 first slice does not include:
 
 - actual form submission, POST/write action, external mutation, deploy, payment, legal/medical/financial/sensitive action.
 - ChatGPT credential/session custody, account sharing, resale, team-shared account use, or third-party service operation through a user's Pro account.
 - storing password, 2FA, API key, session token, or credential value in libSQL or app state.
-- product DTO/API/storage/route implementation, route id/client name defaults, migration, generated code, live GitHub issue/PR slicing.
+- desktop review panel, sidecar API route/client, live Playwright/BrowserUse/ChatGPT runtime adapter, hidden browser action, or Phase 3 execution authority.
 - team collaboration, mobile approval monitor, billing, marketplace, or full cloud sync expansion.
 - recurring/open-ended market watch productization.
 - treating a blocked policy/session result as final research success.
@@ -195,7 +200,7 @@ Then:
 - Research-updated Queue or Known Risks records the unresolved evidence dependency.
 - no successful research claim is emitted from partial hidden state.
 
-### Scenario F. Docs contract consistency
+### Scenario F. Docs/code contract consistency
 
 Given Phase 2.5 references appear in roadmap, runtime, security, matrix, validation, and README docs.
 
@@ -204,8 +209,8 @@ When documentation is reviewed.
 Then:
 
 - all references point to this document as canonical.
-- no document claims Phase 2.5 executes submit/write, stores credentials, shares accounts, or implements DTO/API/storage defaults.
-- Phase 2.5 remains preview/quality-comparison only until a separate preflight is approved.
+- no document claims Phase 2.5 executes submit/write, stores credentials, shares accounts, opens live browser/ChatGPT sessions, or grants Phase 3 authority.
+- first-slice product code remains Artifact+Gate only: DTO/types, reducer, projection, persistence, adapter interface port, and deterministic tests.
 
 ## Official reference notes
 

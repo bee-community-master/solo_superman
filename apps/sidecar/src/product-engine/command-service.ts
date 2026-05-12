@@ -36,6 +36,7 @@ import {
   type PendingEffectSummaryDto,
   type Phase15bUpgradeHintExportDto,
   type Phase15bUpgradeHintProjection,
+  type Phase25ResearchComparisonProjection,
   type PlanningHandoffProjection,
   type PrepareResearchDisclosureRequest,
   type ProjectApplicationCommandType,
@@ -81,6 +82,7 @@ import {
 import {
   createEffectTaskRepository,
   createEventRepository,
+  createPhase25ResearchComparisonRepository,
   createPlanningHandoffRepository,
   createProjectRepository,
   createProjectionRepository,
@@ -153,6 +155,7 @@ export interface RunSessionCommandInput {
     | "ScoreCompleteness"
     | "PrepareFounderBrief"
     | "CreatePlanningHandoff"
+    | "CreatePhase25ResearchComparison"
   >;
   readonly expectedStateVersion: StateVersion;
   readonly payload: Readonly<Record<string, unknown>>;
@@ -528,6 +531,7 @@ function isPersistedProjection(value: unknown): value is PersistedProjection {
     kind === "FounderBriefProjection" ||
     kind === "LivingSpecProjection" ||
     kind === "PlanningHandoffProjection" ||
+    kind === "Phase25ResearchComparisonProjection" ||
     kind === "ResearchEvidenceProjection" ||
     kind === "RuntimeActivityProjection" ||
     kind === "SessionShellProjection"
@@ -782,6 +786,16 @@ function planningHandoffProjectionFromEvent(event: ProductEngineEvent): Planning
     : null;
 }
 
+function phase25ResearchComparisonProjectionFromEvent(
+  event: ProductEngineEvent
+): Phase25ResearchComparisonProjection | null {
+  const projection = event.payload.projection;
+
+  return isPersistedProjection(projection) && projection.kind === "Phase25ResearchComparisonProjection"
+    ? projection
+    : null;
+}
+
 function decisionQueueProjectionFromEvents(events: readonly ProductEngineEvent[]): DecisionQueueProjection | null {
   for (const event of [...events].reverse()) {
     const projection = event.payload.queueProjection;
@@ -817,6 +831,7 @@ export function createProductEngineCommandService(
         case "confidence_map":
         case "founder_brief_draft":
         case "planning_handoff_artifact":
+        case "phase25_research_comparison_report":
           break;
         case "spec_version_material":
           throw new Error(`${output.outputType} requires a persistence interpreter before it can be emitted.`);
@@ -1108,6 +1123,7 @@ export function createProductEngineCommandService(
       const researchRepository = createResearchRepository(transaction);
       const runtimeRepository = createRuntimeRepository(transaction);
       const planningHandoffRepository = createPlanningHandoffRepository(transaction);
+      const phase25ResearchComparisonRepository = createPhase25ResearchComparisonRepository(transaction);
       const persistedEvents: ProductEngineEvent[] = [];
 
       for (const event of reduction.events) {
@@ -1224,6 +1240,19 @@ export function createProductEngineCommandService(
             sourceEventId: event.eventId,
             sourceStateVersion: command.expectedStateVersion,
             projection: planningHandoffProjection
+          });
+        }
+
+        const phase25ResearchComparisonProjection = phase25ResearchComparisonProjectionFromEvent(event);
+
+        if (phase25ResearchComparisonProjection) {
+          await phase25ResearchComparisonRepository.saveFromProjection({
+            projectId: command.projectId,
+            sessionId: command.sessionId,
+            sourceCommandId: command.commandId,
+            sourceEventId: event.eventId,
+            sourceStateVersion: command.expectedStateVersion,
+            projection: phase25ResearchComparisonProjection
           });
         }
       }

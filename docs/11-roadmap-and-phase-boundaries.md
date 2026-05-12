@@ -242,6 +242,7 @@ Phase 1.5A 공통 완료 조건:
 
 - `DelegationRiskGate`: policy/terms risk, data disclosure, session custody, browser write boundary, revoke/audit, reliability/fallback 판정.
 - `ResearchQualityComparisonReport`: 동일 high-impact research question에 대한 Phase 1.5A baseline vs Phase 2.5 candidate 비교.
+- `Phase25ResearchComparisonProjection`: 첫 Artifact+Gate core의 DTO/reducer/storage read model.
 - source capture/provenance plan, action preview, revoke control, audit log, failure/fallback copy.
 - ChatGPT Pro/Deep Research policy/session/usage-risk 검토와 safe failure recording.
 
@@ -254,7 +255,7 @@ Phase 1.5A 공통 완료 조건:
 
 완료 조건:
 
-- 대표 high-impact research question에서 Phase 1.5A baseline과 Phase 2.5 candidate를 비교하는 dry-run 계약이 있다.
+- 대표 high-impact research question에서 Phase 1.5A baseline과 Phase 2.5 candidate를 비교하는 dry-run artifact가 DTO/reducer/storage round-trip으로 검증된다.
 - candidate가 quality lift를 보이면 source trace, pro/con/uncertainty, decision impact, stale risk, fallback/revoke/audit evidence가 설명된다.
 - candidate가 policy/session/data/write boundary에서 막히면 safe failure로 기록하고 quality lift를 주장하지 않는다.
 
@@ -262,7 +263,7 @@ Phase 1.5A 공통 완료 조건:
 
 - form submission, POST/write action, deploy, external mutation 실행.
 - ChatGPT credential/session custody, account sharing/resale, third-party service operation.
-- DTO/API/storage exact default, route id, migration, product code, GitHub issue/PR slicing.
+- desktop UI, sidecar API route/client, live browser/ChatGPT adapter, Phase 3 execution authority, GitHub issue/PR slicing.
 - 팀 협업, 모바일 원격 승인, 결제/과금, marketplace, 본격 cloud sync 확장.
 
 ## Phase 3: Safe Execution Adapter (Controlled Execution)

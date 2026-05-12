@@ -20,7 +20,8 @@ export const PRODUCT_ENGINE_COMMAND_TYPES = [
   "CreateSpecVersion",
   "ScoreCompleteness",
   "PrepareFounderBrief",
-  "CreatePlanningHandoff"
+  "CreatePlanningHandoff",
+  "CreatePhase25ResearchComparison"
 ] as const;
 
 export const PROJECT_APPLICATION_COMMAND_TYPES = [

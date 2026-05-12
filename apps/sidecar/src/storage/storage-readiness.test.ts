@@ -32,7 +32,7 @@ describe("PR-03 sidecar storage readiness", () => {
       expect(readiness.storage).not.toBeNull();
       expect(readiness.migrationStatus).toMatchObject({
         state: "migrated",
-        appliedMigrationCount: 10
+        appliedMigrationCount: 11
       });
       expect(existsSync(join(appDataDir, "solo-superman.db"))).toBe(true);
     } finally {
@@ -87,7 +87,7 @@ describe("PR-03 sidecar storage readiness", () => {
       expect(readiness.migrationStatus).toMatchObject({
         state: "migrated",
         databaseUrl,
-        appliedMigrationCount: 10
+        appliedMigrationCount: 11
       });
       expect(existsSync(join(appDataDir, "custom", "solo-superman.db"))).toBe(true);
     } finally {

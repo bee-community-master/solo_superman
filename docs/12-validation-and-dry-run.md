@@ -458,14 +458,14 @@ Follow-up questions:
 - `DelegationRiskGate`가 policy/terms risk, data disclosure, session custody, write boundary, revoke/audit, reliability/fallback을 판정한다.
 - candidate가 quality lift를 보이면 source trace, pro/con/uncertainty, freshness/stale risk, decision impact, fallback/revoke/audit evidence가 Phase 1.5A baseline과 비교된다.
 - candidate가 policy/session/data/write boundary에서 막히면 safe failure로 기록하고 quality lift를 주장하지 않는다.
-- no product code, DTO/API/storage route, migration, live browser submit/write, credential custody, account sharing/resale, team/mobile/billing scope가 생성되지 않는다.
+- first Artifact+Gate product code is limited to DTO/types, reducer/projection, local persistence, adapter interface port, and deterministic tests; no desktop UI, sidecar API route/client, live browser submit/write, credential custody, account sharing/resale, team/mobile/billing scope가 생성되지 않는다.
 
 실패 조건:
 
 - ChatGPT Pro/browser candidate output을 Phase 1.5A baseline과 비교하지 않고 품질 향상으로 주장한다.
 - source dump만 남기고 Decision, Research-updated Queue, Known Risk, or Follow-up Question impact를 비워둔다.
 - form submit, POST/write, account/session credential custody, 계정 공유/재판매, external mutation을 Phase 2.5 preview처럼 허용한다.
-- DTO/API/storage exact default 또는 PR sequence를 34번 문서에서 확정한다.
+- desktop UI, sidecar API route/client, live adapter, Phase 3 execution authority 또는 PR sequence를 34번 문서에서 확정한다.
 
 ## 정적 일관성 검토 체크리스트
 

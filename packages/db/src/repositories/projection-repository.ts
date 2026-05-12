@@ -4,6 +4,7 @@ import type {
   ConfidenceCompletionProjection,
   FounderBriefProjection,
   LivingSpecProjection,
+  Phase25ResearchComparisonProjection,
   PlanningHandoffProjection,
   ProjectId,
   ProjectionVersion,
@@ -23,6 +24,7 @@ export type PersistedProjection =
   | FounderBriefProjection
   | LivingSpecProjection
   | PlanningHandoffProjection
+  | Phase25ResearchComparisonProjection
   | ResearchEvidenceProjection
   | RuntimeActivityProjection
   | SessionShellProjection;

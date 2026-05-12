@@ -4,6 +4,7 @@ import type {
   ConfidenceCompletionProjection,
   FounderBriefProjection,
   LivingSpecProjection,
+  Phase25ResearchComparisonProjection,
   PlanningHandoffProjection,
   ResearchEvidenceProjection,
   RuntimeActivityProjection,
@@ -35,7 +36,8 @@ export type ProductEngineDeterministicOutputType =
   | "confidence_map"
   | "spec_version_material"
   | "founder_brief_draft"
-  | "planning_handoff_artifact";
+  | "planning_handoff_artifact"
+  | "phase25_research_comparison_report";
 
 export interface ProductEngineDeterministicOutput {
   readonly outputType: ProductEngineDeterministicOutputType;
@@ -49,6 +51,7 @@ export type ActiveBatchSafeProjection =
   | FounderBriefProjection
   | LivingSpecProjection
   | PlanningHandoffProjection
+  | Phase25ResearchComparisonProjection
   | ResearchEvidenceProjection
   | RuntimeActivityProjection
   | SessionShellProjection;

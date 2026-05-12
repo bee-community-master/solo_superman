@@ -103,6 +103,7 @@ This document defines table groups and minimum responsibilities, not final SQL D
 | Decision | `decisions`, `decision_options` | approval outcomes and rationale |
 | Runtime | `runtime_preview_artifacts`, `runtime_task_refs` | Codex/manual handoff preview outputs |
 | Planning handoff | `planning_handoffs`, `planning_handoff_sources`, `planning_handoff_tasks`, `planning_handoff_pr_issue_items`, `planning_handoff_risks` | Phase 2 final/blocker handoff artifacts, source trace, task/PR/issue plan, residual risk/readiness mapping |
+| Phase 2.5 artifact gate | `phase25_research_comparisons`, `phase25_research_comparison_sources` | ResearchQualityComparisonReport artifact JSON, query columns, and trace source refs for quality-lift/safe-failure persistence |
 | Effect queue | `effect_tasks` | durable execution state for `queue_projection_effect`, `research_evidence_effect`, `codex_runtime_preview_effect` |
 | Scoring/export | `completeness_snapshots`, `founder_briefs` | progress, completion, export artifacts |
 | Config | `app_config`, `secret_refs` | local settings and opaque OS secret references |
@@ -125,6 +126,7 @@ This document defines table groups and minimum responsibilities, not final SQL D
   - `decision_`
   - `runtime_`
   - `handoff_`
+  - `phase25_cmp_`
   - `eft_`
   - `score_`
   - `brief_`
@@ -177,7 +179,7 @@ ProductEngine runtime policy:
 - active batch projection exception allows immediate active-batch-safe queue projection in the command response.
 - First-class effect types are queue_projection_effect, research_evidence_effect, and codex_runtime_preview_effect.
 - scoring_effect and spec_export_effect are not Phase 1 first-class async effects.
-- Completeness/Scoring, SpecVersion, and Founder Brief draft are reducer_deterministic_output values persisted in the repository transaction.
+- Completeness/Scoring, SpecVersion, Founder Brief draft, Planning Handoff, and Phase 2.5 ResearchQualityComparisonReport are deterministic outputs persisted in the repository transaction.
 - Retry policy is conservative_ai_retry_matrix.
 ```
 
@@ -281,6 +283,7 @@ Projection modules live under `packages/db/src/projections/` and build read mode
 | `completenessProjection` | score, confidence map, risk cards |
 | `founderBriefProjection` | if-stop-now and final export view |
 | `planningHandoffProjection` | latest Phase 2 final/blocker handoff state for a session |
+| `phase25ResearchComparisonProjection` | latest Phase 2.5 quality-lift or safe-failure comparison state for a session |
 
 React frontend must consume projections through Hono APIs, not by reconstructing state from raw tables.
 
@@ -337,6 +340,7 @@ Phase 2 Planning Handoff 저장소 구현자는 `31-phase2-planning-handoff-cont
 
 - `CreatePlanningHandoff`는 gate 통과 시 final `PlanningHandoffArtifact`, gate 실패 시 `PlanningHandoffBlockerArtifact`를 같은 handoff storage family에 영속화한다.
 - `planning_handoffs`는 `artifactId`, `sessionId`, artifact kind, schemaVersion, status, gate verdict, summary, createdAt, createdBy, source session/version refs를 저장한다.
+- `phase25_research_comparisons`는 `phase25_cmp_` artifact id, status, gate verdict, candidate lane, quality-lift flag, summary, artifact JSON, createdAt/createdBy를 저장하고 `phase25_research_comparison_sources`가 source trace refs를 정규화한다.
 - `planning_handoff_sources`는 SpecVersion, Founder Brief/Completion Candidate, Decision-linked Evidence Pack, Research-updated Queue item, Decision/RiskAcceptance, Known Risk/Open Question, Phase 1.5B hint sourceRef를 저장한다.
 - `planning_handoff_tasks`는 final artifact의 `taskBreakdown[]` item, dependency, owner role, acceptance evidence, non-goal, linked risk/validation dependency refs를 저장한다.
 - `planning_handoff_pr_issue_items`는 final artifact의 PR/issue sequence, included task ids, entry prerequisites, exit evidence, blocked-by relationship, phase boundary를 저장한다.
