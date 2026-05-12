@@ -1,11 +1,15 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { relative } from "node:path";
-import { pathToFileURL, URL } from "node:url";
+import { fileURLToPath, pathToFileURL, URL } from "node:url";
 
 const ROOT = new URL("../", import.meta.url);
 
 function readText(path) {
   return readFileSync(new URL(path, ROOT), "utf8");
+}
+
+function relativeUrlPath(root, url) {
+  return relative(fileURLToPath(root), fileURLToPath(url));
 }
 
 function fail(message, details = []) {
@@ -442,8 +446,26 @@ export const DEFAULT_PACKAGE_BOUNDARY_CHECKS = [
     forbiddenModules: ["hono", "@hono/", "@tauri-apps/", "react", "react-dom", "node:", "http", "https"]
   },
   {
-    root: "apps/desktop/src",
-    forbiddenModules: ["@solo-superman/db", "@libsql/", "libsql", "sqlite", "sqlite3", "better-sqlite3"]
+    root: "apps/web/src",
+    forbiddenModules: [
+      "@hono/",
+      "@libsql/",
+      "@solo-superman/core",
+      "@solo-superman/db",
+      "@tauri-apps/",
+      "better-sqlite3",
+      "child_process",
+      "drizzle-kit",
+      "drizzle-orm",
+      "fs",
+      "hono",
+      "http",
+      "https",
+      "libsql",
+      "node:",
+      "sqlite",
+      "sqlite3"
+    ]
   },
   {
     root: "packages/contracts/src",
@@ -479,7 +501,7 @@ export function collectPackageBoundaryViolations({ root = ROOT, checks = DEFAULT
         for (const specifier of imports) {
           for (const forbidden of check.forbiddenModules) {
             if (moduleMatches(specifier, forbidden)) {
-              violations.push(`${relative(root.pathname, url.pathname)} imports ${specifier}`);
+              violations.push(`${relativeUrlPath(root, url)} imports ${specifier}`);
             }
           }
         }
@@ -739,7 +761,7 @@ const PHASE3_REFERENCE_REQUIREMENTS = [
     path: "docs/README.md",
     snippets: [
       "36-phase3-controlled-execution-contract.md",
-      "Tauri/native shell은 future default가 아니라 legacy/current host",
+      "Tauri/native shell source·dependency·script 경로는 제거됐고 historical context로만 남는다",
       "no hosted SaaS default",
       "#86",
       "#87",
@@ -752,14 +774,14 @@ const PHASE3_REFERENCE_REQUIREMENTS = [
     snippets: [
       "Local Web Frontend",
       "Local Node/Hono Service",
-      "legacy/current implementation residue",
+      "historical context only; source/dependency/script path removed",
       "36-phase3-controlled-execution-contract.md"
     ]
   },
   {
     path: "docs/19-phase1-implementation-architecture.md",
     snippets: [
-      "legacy/current implementation snapshot",
+      "web-local implementation snapshot",
       "Local Web Frontend",
       "Local Node/Hono Service",
       "ExecutionAuthorityRecord"
@@ -839,47 +861,73 @@ const PHASE3_REFERENCE_REQUIREMENTS = [
   }
 ];
 
+const WEB_LOCAL_REMOVAL_MANIFEST_PATHS = [
+  "package.json",
+  "pnpm-lock.yaml",
+  "scripts/dev-with-local-token.mjs",
+  "apps/web/package.json"
+];
+
+const WEB_LOCAL_REMOVAL_SCAN_ROOTS = ["apps/web/src", "apps/sidecar/src"];
+
+const WEB_LOCAL_ACTIVE_DENY_PATTERNS = [
+  /@tauri-apps\//u,
+  /\bsrc-tauri\b/u,
+  /\bdev:tauri\b/u,
+  /@solo-superman\/desktop/u,
+  /\bapps\/desktop\b/u,
+  /\bdev:desktop\b/u,
+  /tauri dev/u,
+  /get_sidecar_base_url/u
+];
+
+const NUMBERED_DOC_SLUGS = [
+  "product-brief",
+  "prd",
+  "user-journey-and-ux",
+  "living-product-spec",
+  "decision-queue",
+  "spec-engine",
+  "research-engine",
+  "completeness-scoring",
+  "domain-model",
+  "system-architecture",
+  "security-privacy-and-approval",
+  "roadmap-and-phase-boundaries",
+  "validation-and-dry-run",
+  "ux-doctrine-and-session-dynamics",
+  "ambiguity-question-lifecycle",
+  "pro-con-evidence-gate",
+  "state-event-contract",
+  "ai-runtime-access-strategy",
+  "product-engine-orchestrator",
+  "phase1-implementation-architecture",
+  "data-storage-contract",
+  "sidecar-api-runtime-contract",
+  "phase1-implementation-sequence",
+  "product-engine-runtime-contract",
+  "codex-prompt-output-contract",
+  "contracts-dto-catalog",
+  "api-route-behavior-catalog",
+  "operations-observability-contract",
+  "founder-os-product-doctrine",
+  "phase-capability-implementation-matrix",
+  "phase1.5-research-runtime-and-readiness-contract",
+  "phase2-planning-handoff-contract",
+  "phase2-implementation-preflight-contract",
+  "build-slice-serve-learning-loop",
+  "phase2.5-browser-automation-preview-contract",
+  "phase1-2-closeout-evidence",
+  "phase3-controlled-execution-contract"
+];
+
+function numberedDocPath(slug, index) {
+  return `docs/${String(index).padStart(2, "0")}-${slug}.md`;
+}
+
 const WEB_REALIGNMENT_SCAN_PATHS = [
   "docs/README.md",
-  ...Array.from({ length: 37 }, (_, index) => `docs/${String(index).padStart(2, "0")}-${[
-    "product-brief",
-    "prd",
-    "user-journey-and-ux",
-    "living-product-spec",
-    "decision-queue",
-    "spec-engine",
-    "research-engine",
-    "completeness-scoring",
-    "domain-model",
-    "system-architecture",
-    "security-privacy-and-approval",
-    "roadmap-and-phase-boundaries",
-    "validation-and-dry-run",
-    "ux-doctrine-and-session-dynamics",
-    "ambiguity-question-lifecycle",
-    "pro-con-evidence-gate",
-    "state-event-contract",
-    "ai-runtime-access-strategy",
-    "product-engine-orchestrator",
-    "phase1-implementation-architecture",
-    "data-storage-contract",
-    "sidecar-api-runtime-contract",
-    "phase1-implementation-sequence",
-    "product-engine-runtime-contract",
-    "codex-prompt-output-contract",
-    "contracts-dto-catalog",
-    "api-route-behavior-catalog",
-    "operations-observability-contract",
-    "founder-os-product-doctrine",
-    "phase-capability-implementation-matrix",
-    "phase1.5-research-runtime-and-readiness-contract",
-    "phase2-planning-handoff-contract",
-    "phase2-implementation-preflight-contract",
-    "build-slice-serve-learning-loop",
-    "phase2.5-browser-automation-preview-contract",
-    "phase1-2-closeout-evidence",
-    "phase3-controlled-execution-contract"
-  ][index]}.md`)
+  ...NUMBERED_DOC_SLUGS.map((slug, index) => numberedDocPath(slug, index))
 ];
 
 const WEB_REALIGNMENT_FUTURE_DEFAULT_DENY_PATTERNS = [
@@ -891,6 +939,13 @@ const WEB_REALIGNMENT_FUTURE_DEFAULT_DENY_PATTERNS = [
   /Tauri \+ Node\/Hono sidecar topology/iu,
   /Implementation Architecture\s*\|\s*Tauri \+ Node\/Hono sidecar/iu,
   /Core stack:\s*Tauri\/React\/local embedded libSQL\/Spec Engine/iu,
+  /legacy\/current/iu,
+  /compatibility residue/iu,
+  /\bapps\/desktop\b/iu,
+  /@solo-superman\/desktop/iu,
+  /\bdev:desktop\b/iu,
+  /\bsrc-tauri\b/iu,
+  /\bdev:tauri\b/iu,
   /Phase 2\+/iu,
   /\bDesktop UI\b/iu,
   /\bdesktop UI\b/iu,
@@ -916,6 +971,57 @@ export function findWebRealignmentFutureDefaultClaims(documents) {
       }
 
       if (WEB_REALIGNMENT_FUTURE_DEFAULT_DENY_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+        claims.push(`${document.path}:${index + 1}: ${trimmed}`);
+      }
+    });
+  }
+
+  return claims;
+}
+
+function collectTextFiles(paths, roots) {
+  const files = [...paths];
+
+  for (const rootPath of roots) {
+    const pending = [new URL(`${rootPath}/`, ROOT)];
+
+    while (pending.length) {
+      const dir = pending.pop();
+      const entries = readdirSync(dir).sort();
+
+      for (const entry of entries) {
+        const url = new URL(entry, `${dir.href.replace(/\/?$/, "/")}`);
+        const stat = statSync(url);
+
+        if (stat.isDirectory()) {
+          pending.push(url);
+          continue;
+        }
+
+        if (!/\.(ts|tsx|js|mjs|json|yaml|yml|html|css)$/.test(url.pathname)) {
+          continue;
+        }
+
+        files.push(relativeUrlPath(ROOT, url));
+      }
+    }
+  }
+
+  return [...new Set(files)].sort();
+}
+
+export function findWebLocalActiveResidue(documents) {
+  const claims = [];
+
+  for (const document of documents) {
+    document.text.split(/\r?\n/u).forEach((line, index) => {
+      const trimmed = line.trim();
+
+      if (!trimmed) {
+        return;
+      }
+
+      if (WEB_LOCAL_ACTIVE_DENY_PATTERNS.some((pattern) => pattern.test(trimmed))) {
         claims.push(`${document.path}:${index + 1}: ${trimmed}`);
       }
     });
@@ -1053,6 +1159,17 @@ function checkPhase3WebRealignmentConsistency() {
 
   if (futureDefaultClaims.length) {
     fail("web/local realignment docs contain stale Tauri/native future-default claims", futureDefaultClaims);
+  }
+
+  const activeResidue = findWebLocalActiveResidue(
+    collectTextFiles(WEB_LOCAL_REMOVAL_MANIFEST_PATHS, WEB_LOCAL_REMOVAL_SCAN_ROOTS).map((path) => ({
+      path,
+      text: readText(path)
+    }))
+  );
+
+  if (activeResidue.length) {
+    fail("web/local migration active source contains removed desktop/native residue", activeResidue);
   }
 }
 

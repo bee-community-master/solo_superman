@@ -4,7 +4,7 @@
 
 - Core는 작고 명확하게 고정한다.
 - 외부 runtime은 직접 결합하지 않고 adapter로 둔다.
-- Phase 3 이후 canonical 방향은 `local-first web app + local Node/Hono service`다.
+- Phase 3 web-local canonical 방향은 `local-first web app + local Node/Hono service`다.
 - Windows/macOS 유지보수는 native shell을 늘리는 방식이 아니라 browser UI와 local service 계약으로 해결한다.
 - hosted SaaS, mobile monitor, cloud control plane은 후속 opt-in capability이며 기본 topology가 아니다.
 
@@ -12,9 +12,9 @@
 
 | 영역 | 선택 | 상태 |
 | --- | --- | --- |
-| Local Web Frontend | React + TypeScript + Vite in browser | Phase 3 이후 future canonical |
-| Local Node/Hono Service | Hono loopback service | Phase 3 이후 future canonical |
-| Legacy/current host | Tauri v2 scaffold | legacy/current implementation residue, containment/removal 대상 |
+| Local Web Frontend | React + TypeScript + Vite in browser | Phase 3 web-local future canonical |
+| Local Node/Hono Service | Hono loopback service | Phase 3 web-local future canonical |
+| Removed native host history | Tauri v2 scaffold | historical context only; source/dependency/script path removed |
 | Local data | local embedded libSQL + Drizzle | Phase 1~2.5 구현 확정, 계속 canonical |
 | State/data fetching | Zustand + TanStack Query | Phase 1 기본값 유지 |
 | ProductEngine Orchestrator | 중앙 command/event/state reducer | 최상위 제품 계약 |
@@ -25,7 +25,7 @@
 | Cloud sync | Supabase optional sync | 후속/선택 기능 |
 | Mobile | Expo or equivalent monitor | 후속 Phase |
 
-Tauri/native shell은 future default가 아니라 legacy/current host다. 현재 repo의 Tauri/Vite scaffold는 existing implementation residue로 유지하되, Phase 3 이후 제품 방향은 사용자가 브라우저에서 여는 Local Web Frontend와 loopback Local Node/Hono Service 조합으로 고정한다.
+Tauri/native shell은 제거된 historical native-host context이며 future/default/runtime path가 아니다. Phase 3 web-local 제품 방향은 사용자가 브라우저에서 여는 Local Web Frontend와 loopback Local Node/Hono Service 조합으로 고정한다.
 
 ## High-level architecture
 
@@ -59,17 +59,9 @@ Local Node/Hono Service
 └─ source cache / export / audit / rollback helpers
 ```
 
-Current code note:
-
-```text
-Tauri/native shell
-└─ may still launch or discover the sidecar in the current scaffold,
-   but this is legacy/current implementation residue and not the future default.
-```
-
 Implementation-level 계약은 다음 문서를 따른다.
 
-- `19-phase1-implementation-architecture.md`: legacy/current implementation snapshot, package layout, dev scripts, sidecar lifecycle, migration impact.
+- `19-phase1-implementation-architecture.md`: web-local implementation snapshot, package layout, dev scripts, sidecar lifecycle, migration impact.
 - `20-data-storage-contract.md`: libSQL/Drizzle, migration, repository/projection, remote config placeholder.
 - `21-sidecar-api-runtime-contract.md`: Hono routes, validation envelope, local auth, SSE, Codex app-server integration, loopback/CORS/token policy.
 - `26-api-route-behavior-catalog.md`: endpoint별 request/command/response/SSE/error behavior.
@@ -213,7 +205,7 @@ v2+ 후보.
 - provider routing.
 - code/research subagent 후보.
 
-Goose는 desktop app, CLI, API와 MCP extension ecosystem이 강하므로, core가 아니라 확장 runtime으로 둔다.
+Goose는 web app, CLI, API와 MCP extension ecosystem이 강하므로, core가 아니라 확장 runtime으로 둔다.
 
 ### CrewAIRuntime
 
@@ -234,7 +226,7 @@ CrewAI Crews/Flows는 다중 agent와 event-driven workflow에 강하지만, Pha
 - repository owner: Node/Hono sidecar.
 - source cache folder: `<appDataDir>/source-cache/`.
 - exports folder: `<appDataDir>/exports/`.
-- secret value itself: local service/browser UI는 raw credential을 저장하지 않는다. OS secret store reference는 legacy host compatibility 또는 후속 local service secret adapter로만 다룬다.
+- secret value itself: local service/browser UI는 raw credential을 저장하지 않는다. OS secret store reference는 후속 local service secret adapter로만 다룬다.
 
 기본 정책:
 
@@ -270,7 +262,7 @@ Supabase Realtime은 Broadcast, Presence, Postgres Changes를 제공하므로 �
 | 항목 | Phase 3 기준 | 상세 문서 |
 | --- | --- | --- |
 | local backend topology | Local Web Frontend + Local Node/Hono Service | `19-phase1-implementation-architecture.md`, `36-phase3-controlled-execution-contract.md` |
-| Tauri/native 역할 | legacy/current implementation residue; future default 아님 | `19-phase1-implementation-architecture.md` |
+| Native host history | removed historical context; future/default/runtime path 아님 | `19-phase1-implementation-architecture.md` |
 | Node/Hono 역할 | ProductEngine, repositories, Codex adapter, Hono API, SSE, controlled execution orchestration | `21-sidecar-api-runtime-contract.md`, `36-phase3-controlled-execution-contract.md` |
 | SQLite binding | local embedded libSQL via `@libsql/client` | `20-data-storage-contract.md` |
 | schema/migration | Drizzle schema + generated SQL migrations | `20-data-storage-contract.md` |

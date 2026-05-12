@@ -10,8 +10,6 @@ export default [
       "packages/*/dist/**",
       "coverage/**",
       ".omx/**",
-      "apps/desktop/src-tauri/target/**",
-      "apps/desktop/src-tauri/gen/**",
       "pnpm-lock.yaml"
     ]
   },

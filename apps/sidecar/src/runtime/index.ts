@@ -30,7 +30,7 @@ import {
   type Phase15bUpgradeHints
 } from "@solo-superman/contracts";
 
-export const RUNTIME_ADAPTER_STATUS = "codex-app-server-preview-pr-07" as const;
+export const RUNTIME_ADAPTER_VERSION = "codex-app-server-preview-pr-07" as const;
 
 export interface CodexRuntimePreviewInput {
   readonly turnPurpose: CodexTurnPurpose;
@@ -492,7 +492,7 @@ export function buildCodexStdioTurnRequests(
         clientInfo: {
           name: "solo-superman-sidecar",
           title: "Solo Superman Sidecar",
-          version: RUNTIME_ADAPTER_STATUS
+          version: RUNTIME_ADAPTER_VERSION
         },
         capabilities: {
           experimentalApi: true,

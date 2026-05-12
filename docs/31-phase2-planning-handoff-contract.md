@@ -181,7 +181,7 @@ Binding rules:
 - UI/view-model must preserve that label boundary: final artifact surfaces may say `Planning-ready`, while blocker report surfaces must show blocker class, required next action, residual risk, and safe preview refs without final handoff copy.
 - Build Slice, Serve Checklist, Learning Loop hook은 final artifact에 포함되어도 no-execution policy 아래의 planning context다. 이 field를 근거로 file patch, shell command, browser action, deploy, external mutation을 실행하면 안 된다.
 - #74 이후 `taskBreakdown`과 `prIssuePlan`은 generic single scaffold가 아니라 source-driven synthesis여야 한다. 최소한 product context(Spec/Founder Brief/Completion Candidate), decision evidence(Evidence Pack/Research-updated Queue), readiness/residual risk(Phase 1.5B hints/Known Risks/Open Questions)의 source family가 task와 PR/issue item으로 추적되어야 한다.
-- Desktop의 `Run Planning Handoff gate` action은 `CreatePlanningHandoffRequest`를 현재 projection source refs로 구성해 local gate만 실행한다. 이 trigger는 final/blocker `PlanningHandoffProjection`을 생성/조회할 수 있지만 file patch, shell command, browser action, deploy, credential, external mutation, active delegation capability를 열지 않는다.
+- Web의 `Run Planning Handoff gate` action은 `CreatePlanningHandoffRequest`를 현재 projection source refs로 구성해 local gate만 실행한다. 이 trigger는 final/blocker `PlanningHandoffProjection`을 생성/조회할 수 있지만 file patch, shell command, browser action, deploy, credential, external mutation, active delegation capability를 열지 않는다.
 
 ## Non-goals
 

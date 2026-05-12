@@ -2,7 +2,7 @@
 
 ## 목적
 
-이 문서는 Node/Hono sidecar의 API route, validation, local auth, event stream, Codex app-server integration, RuntimePreviewArtifact 변환 계약을 고정한다. Phase 3 이후 이 sidecar는 Local Node/Hono Service로 불리며, web/local controlled execution security boundary도 소유한다.
+이 문서는 Node/Hono sidecar의 API route, validation, local auth, event stream, Codex app-server integration, RuntimePreviewArtifact 변환 계약을 고정한다. Phase 3 web-local 경로에서 이 sidecar는 Local Node/Hono Service로 불리며, web/local controlled execution security boundary도 소유한다.
 
 `19-phase1-implementation-architecture.md`가 process topology를 정의하고, `20-data-storage-contract.md`가 persistence를 정의한다면, 이 문서는 frontend와 sidecar, sidecar와 Codex app-server 사이의 구현 계약을 정의한다.
 
@@ -17,7 +17,7 @@
 | API version prefix | `/api/v1` |
 | Health endpoints | `/healthz`, `/readyz` |
 | Event stream | Server-Sent Events at `/api/v1/events/stream` |
-| Local auth | per-run local capability token from local bootstrap/dev env; legacy Tauri may pass it until removal |
+| Local auth | per-run local capability token from local bootstrap/dev env |
 | Codex app-server transport | stdio by default |
 | Codex generated schema | generated per installed Codex version |
 | Codex app schema | `24-codex-prompt-output-contract.md`의 internal Prompt/Output schema |
@@ -106,11 +106,11 @@ Rules:
 ## Local auth and loopback policy
 
 - Local Node/Hono Service listens on loopback-only host by default.
-- Local bootstrap/dev env issues a high-entropy per-run local capability token; a legacy Tauri host may pass the same token until removal.
+- Local bootstrap/dev env issues a high-entropy per-run local capability token.
 - Local Web Frontend sends `Authorization: Bearer <local-token>` to sidecar.
 - Sidecar accepts unauthenticated requests only for `/healthz` and `/readyz`.
 - Sidecar rejects requests from non-loopback addresses.
-- CORS is restricted to an explicit local origin allowlist: local web dev/build origins plus temporary legacy host origins only.
+- CORS is restricted to an explicit local origin allowlist: local web dev/build origins only.
 - hosted web origin is not implicitly trusted and cannot receive local execution authority without a separate explicit pairing contract.
 - The local token is not the user's Codex credential and must not be persisted to disk.
 - Phase 3 approval/execution routes must defend CSRF/replay with idempotency key, preview hash, `ExecutionAuthorityRecord.recordId`, and approval expiry checks.

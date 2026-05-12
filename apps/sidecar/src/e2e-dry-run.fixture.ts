@@ -16,7 +16,7 @@ export const PHASE1_E2E_SPEC_SECTIONS = [
   "Current alternatives: templates, accelerator worksheets, generic AI chats, and doing nothing can solve parts of the workflow.",
   "Value proposition: compress problem, target, value, and tradeoff decisions into a traceable Founder Brief.",
   "Differentiation: local-first traceability keeps decisions, evidence, and known risks connected without external custody.",
-  "MVP scope: local-first Tauri desktop loop with sidecar API, evidence matrix, decision approval, and metadata-only export.",
+  "MVP scope: local-first web loop with sidecar API, evidence matrix, decision approval, and metadata-only export.",
   "Non-goals: no Phase 2.5 browser delegation, credential custody, external write, or broad team/mobile/billing expansion.",
   "Validation plan: run five paid-interview prep sessions and compare decision clarity before and after the session.",
   "Success criteria: users can name target customer, top risks, next validation action, and stop-now risk within one session.",

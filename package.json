@@ -11,7 +11,6 @@
   },
   "scripts": {
     "dev": "node scripts/dev-with-local-token.mjs",
-    "dev:desktop": "pnpm --filter @solo-superman/desktop dev",
     "dev:sidecar": "pnpm --filter @solo-superman/sidecar dev",
     "build": "pnpm -r --if-present build",
     "db:generate": "pnpm --filter @solo-superman/db db:generate",
@@ -21,7 +20,8 @@
     "test": "vitest run --passWithNoTests",
     "smoke:e2e": "vitest run e2e --passWithNoTests",
     "verify:docs": "node scripts/verify-doc-contracts.mjs",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs"
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs",
+    "dev:web": "pnpm --filter @solo-superman/web dev"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

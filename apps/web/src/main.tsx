@@ -6,7 +6,7 @@ import "./styles.css";
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
-  throw new Error("Solo Superman desktop root element was not found.");
+  throw new Error("Solo Superman web root element was not found.");
 }
 
 createRoot(rootElement).render(

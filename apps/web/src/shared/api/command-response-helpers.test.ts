@@ -22,7 +22,7 @@ function commandResponseWithoutStateVersion(): CommandResponse {
   };
 }
 
-describe("desktop command response helpers", () => {
+describe("web command response helpers", () => {
   it("requires state version for command chaining", () => {
     expect(commandResponseVersion(commandResponse())).toBe(2);
     expect(() => commandResponseVersion(commandResponseWithoutStateVersion())).toThrow(

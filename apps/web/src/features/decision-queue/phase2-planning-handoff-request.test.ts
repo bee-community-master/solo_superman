@@ -19,12 +19,12 @@ import type {
 } from "@solo-superman/contracts";
 import { buildPlanningHandoffRequest } from "./phase2-planning-handoff-request";
 
-const PROJECT_ID = "proj_desktop_handoff" as ProjectId;
-const SESSION_ID = "sess_desktop_handoff" as SessionId;
-const RESEARCH_TASK_ID = "research_task_desktop" as ResearchTaskId;
-const RESEARCH_RESULT_ID = "research_result_desktop" as ResearchResultId;
-const EVIDENCE_PACK_ID = "evidence_pack_desktop" as DecisionEvidencePackId;
-const QUEUE_ITEM_ID = "queue_desktop_handoff" as QueueItemId;
+const PROJECT_ID = "proj_web_handoff" as ProjectId;
+const SESSION_ID = "sess_web_handoff" as SessionId;
+const RESEARCH_TASK_ID = "research_task_web" as ResearchTaskId;
+const RESEARCH_RESULT_ID = "research_result_web" as ResearchResultId;
+const EVIDENCE_PACK_ID = "evidence_pack_web" as DecisionEvidencePackId;
+const QUEUE_ITEM_ID = "queue_web_handoff" as QueueItemId;
 
 function sessionFixture(): SessionShellProjection {
   return {
@@ -67,7 +67,7 @@ function confidenceFixture(): ConfidenceCompletionProjection {
     topRisks: ["Retain manual verification gap"],
     topRiskCards: [
       {
-        riskId: "risk_desktop_verification",
+        riskId: "risk_web_verification",
         title: "Retain manual verification gap",
         severity: "medium",
         sourceRefs: [],
@@ -216,8 +216,8 @@ function phase15bFixture(): Phase15bUpgradeHintProjection {
     version: 19 as ProjectionVersion,
     generatedAt: "2026-05-08T00:05:00.000Z",
     stale: false,
-    refetchUrl: "/api/v1/projects/proj_desktop_handoff/phase15b-upgrade-hints",
-    exportUrl: "/api/v1/projects/proj_desktop_handoff/phase15b-upgrade-hints/export",
+    refetchUrl: "/api/v1/projects/proj_web_handoff/phase15b-upgrade-hints",
+    exportUrl: "/api/v1/projects/proj_web_handoff/phase15b-upgrade-hints/export",
     pendingEffectSummary: {
       totalPending: 0,
       byType: {},
@@ -233,10 +233,10 @@ function phase15bFixture(): Phase15bUpgradeHintProjection {
     },
     records: [
       {
-        hintId: "hint_desktop",
+        hintId: "hint_web",
         projectId: PROJECT_ID,
         sessionId: SESSION_ID,
-        artifactId: "runtime_artifact_desktop_phase15b",
+        artifactId: "runtime_artifact_web_phase15b",
         artifactKind: "BlockedActionArtifact",
         metadataLabel: "readiness_preview_handoff_metadata",
         privatePayloadPolicy: "public_safe_metadata_only",
@@ -294,7 +294,7 @@ function phase15bFixture(): Phase15bUpgradeHintProjection {
   };
 }
 
-describe("desktop Planning Handoff request builder", () => {
+describe("web Planning Handoff request builder", () => {
   it("builds source-driven local gate requests without execution payload fields", () => {
     const request = buildPlanningHandoffRequest({
       session: sessionFixture(),
@@ -319,10 +319,10 @@ describe("desktop Planning Handoff request builder", () => {
       expect.arrayContaining([
         expect.objectContaining({ sourceType: "spec_version", sourceId: `living_spec:${SESSION_ID}:13` }),
         expect.objectContaining({ sourceType: "founder_brief", sourceId: `founder_brief:${SESSION_ID}:18` }),
-        expect.objectContaining({ sourceType: "decision_linked_evidence_pack", sourceId: "evidence_pack_desktop" }),
+        expect.objectContaining({ sourceType: "decision_linked_evidence_pack", sourceId: "evidence_pack_web" }),
         expect.objectContaining({ sourceType: "research_updated_queue_item", sourceId: QUEUE_ITEM_ID }),
-        expect.objectContaining({ sourceType: "known_risk", sourceId: "risk_desktop_verification" }),
-        expect.objectContaining({ sourceType: "phase15b_hint", sourceId: "runtime_artifact_desktop_phase15b" })
+        expect.objectContaining({ sourceType: "known_risk", sourceId: "risk_web_verification" }),
+        expect.objectContaining({ sourceType: "phase15b_hint", sourceId: "runtime_artifact_web_phase15b" })
       ])
     );
     expect(new Set(request.sourceRefs.map((ref) => `${ref.sourceType}:${ref.sourceId}`)).size).toBe(
@@ -346,8 +346,8 @@ describe("desktop Planning Handoff request builder", () => {
     expect(request.sourceRefs).toEqual([
       {
         sourceType: "activity_event",
-        sourceId: `desktop_planning_handoff_gate:${SESSION_ID}:12`,
-        sourceLabel: "Desktop local gate trigger attempted before source projections were loaded.",
+        sourceId: `web_planning_handoff_gate:${SESSION_ID}:12`,
+        sourceLabel: "Web local gate trigger attempted before source projections were loaded.",
         required: false,
         stale: false
       }

@@ -209,8 +209,8 @@ function planningHandoffSourceRefs(
     : [
         {
           sourceType: "activity_event",
-          sourceId: `desktop_planning_handoff_gate:${inputs.session.sessionId}:${inputs.expectedStateVersion}`,
-          sourceLabel: "Desktop local gate trigger attempted before source projections were loaded.",
+          sourceId: `web_planning_handoff_gate:${inputs.session.sessionId}:${inputs.expectedStateVersion}`,
+          sourceLabel: "Web local gate trigger attempted before source projections were loaded.",
           required: false,
           stale: false
         }
@@ -228,7 +228,7 @@ function planningHandoffRequestedScope(inputs: PlanningHandoffRequestProjectionI
     nonGoals: PLANNING_HANDOFF_NON_GOALS,
     excludedInternalPhases: PLANNING_HANDOFF_EXCLUDED_INTERNAL_PHASES,
     assumptions: [
-      "Desktop trigger only runs the local Planning Handoff gate and persists final/blocker planning metadata.",
+      "Web trigger only runs the local Planning Handoff gate and persists final/blocker planning metadata.",
       "Execution remains out of scope: no file patch, shell command, browser action, deploy, credential, external mutation, or active delegation.",
       `Projection versions: session=${inputs.session.version}, spec=${inputs.spec?.version ?? 0}, queue=${inputs.queue?.version ?? 0}, research=${inputs.research?.version ?? 0}, confidence=${inputs.confidence?.version ?? 0}.`
     ]

@@ -52,6 +52,8 @@ import type {
 type ApiEnvelope<TData> = ApiSuccessEnvelope<TData> | ApiErrorEnvelope;
 type FetchImplementation = (input: string, init?: RequestInit) => Promise<Response>;
 
+const LOOPBACK_URL_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+
 export interface SidecarConnection {
   readonly baseUrl: string;
   readonly localCapabilityToken: string;
@@ -82,6 +84,7 @@ export class SidecarClientError extends Error {
 
   constructor(apiError: ApiError, httpStatus: number) {
     super(apiError.message);
+    this.name = "SidecarClientError";
     this.apiError = apiError;
     this.httpStatus = httpStatus;
   }
@@ -92,9 +95,14 @@ function ensureNoTrailingSlash(value: string) {
 }
 
 function apiUrl(baseUrl: string, path: string) {
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const base = new URL(`${ensureNoTrailingSlash(baseUrl)}/`);
+  const requestUrl = /^https?:\/\//iu.test(path) ? new URL(path) : new URL(path.startsWith("/") ? path : `/${path}`, base);
 
-  return `${ensureNoTrailingSlash(baseUrl)}${normalizedPath}`;
+  if (requestUrl.origin !== base.origin) {
+    throw new Error("Sidecar request URL must stay on the discovered sidecar origin.");
+  }
+
+  return requestUrl.toString();
 }
 
 function invalidApiResponse(response: Response, message: string) {
@@ -186,6 +194,10 @@ function planningHandoffPath(sessionId: SessionId) {
   return `/api/v1/sessions/${encodeURIComponent(sessionId)}/planning-handoff`;
 }
 
+function sessionEventStreamPath(sessionId: SessionId) {
+  return `/api/v1/events/stream?${new URLSearchParams({ sessionId }).toString()}`;
+}
+
 function researchRunStatusPath(projectId: ProjectId, researchRunId: ResearchRunId) {
   return `${researchRunCollectionPath(projectId)}/${encodeURIComponent(researchRunId)}/status`;
 }
@@ -203,7 +215,7 @@ function envValue(env: Readonly<Record<string, string | boolean | undefined>>, k
 function loopbackHttpBaseUrl(value: string) {
   try {
     const url = new URL(value);
-    const isLoopbackHost = url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "[::1]";
+    const isLoopbackHost = LOOPBACK_URL_HOSTNAMES.has(url.hostname);
     const hasOnlyOriginParts =
       value === url.origin &&
       url.username.length === 0 &&
@@ -228,7 +240,7 @@ export function sidecarConnectionFromEnv(
   }
 
   const envBaseUrl = envValue(env, "VITE_SOLO_SIDECAR_BASE_URL");
-  const baseUrl = envBaseUrl ? loopbackHttpBaseUrl(envBaseUrl) : "http://127.0.0.1:43110";
+  const baseUrl = envBaseUrl ? loopbackHttpBaseUrl(envBaseUrl) : null;
 
   if (!baseUrl) {
     return null;
@@ -244,19 +256,7 @@ export function sidecarConnectionFromEnv(
 }
 
 export async function discoverSidecarConnection(): Promise<SidecarConnection | null> {
-  const envConnection = sidecarConnectionFromEnv();
-
-  if (envConnection) {
-    return envConnection;
-  }
-
-  try {
-    const { invoke } = await import("@tauri-apps/api/core");
-
-    return await invoke<SidecarConnection>("get_sidecar_base_url");
-  } catch {
-    return null;
-  }
+  return sidecarConnectionFromEnv();
 }
 
 export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarClientOptions) {
@@ -485,7 +485,7 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
       return getProjection<PlanningHandoffProjection | null>(planningHandoffPath(sessionId));
     },
 
-    getSession(projectId: string, sessionId: SessionId) {
+    getSession(projectId: ProjectId, sessionId: SessionId) {
       return getProjection<SessionShellProjection>(
         `/api/v1/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}`
       );
@@ -501,7 +501,7 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     async readSessionEventStreamSnapshot(sessionId: SessionId) {
       return unwrapSseEvents(
-        await fetchImpl(apiUrl(connection.baseUrl, `/api/v1/events/stream?sessionId=${encodeURIComponent(sessionId)}`), {
+        await fetchImpl(apiUrl(connection.baseUrl, sessionEventStreamPath(sessionId)), {
           method: "GET",
           headers: authHeaders(connection.localCapabilityToken)
         })

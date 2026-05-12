@@ -50,8 +50,8 @@ import {
   shouldRefetchQueueForSseNotification
 } from "./decision-queue-view-model";
 import {
-  buildDesktopResearchRunRequest,
-  DESKTOP_PUBLIC_SEARCH_CONNECTOR_ID
+  buildWebResearchRunRequest,
+  WEB_PUBLIC_SEARCH_CONNECTOR_ID
 } from "./phase15a-research-run-request";
 import { buildPlanningHandoffRequest } from "./phase2-planning-handoff-request";
 
@@ -83,7 +83,7 @@ interface ProjectionState {
 const DEFAULT_IDEA = "A focused founder brief generator";
 const DEFAULT_INTAKE =
   "Help solo founders turn a rough idea into a traceable product spec before they start building.";
-const DESKTOP_PUBLIC_SAFE_ALLOWLIST_ID = "research_allowlist_desktop_public_safe" as ResearchAllowlistId;
+const WEB_PUBLIC_SAFE_ALLOWLIST_ID = "research_allowlist_web_public_safe" as ResearchAllowlistId;
 
 function displayError(error: unknown) {
   if (error instanceof SidecarClientError) {
@@ -269,7 +269,7 @@ export function DecisionQueueShell() {
           await refreshProjections(projectId, sessionId);
         }
       } catch {
-        return;
+        // SSE snapshots are best-effort refetch hints; the command-driven refresh above remains canonical.
       }
     },
     [client, refreshProjections]
@@ -567,12 +567,12 @@ export function DecisionQueueShell() {
       );
       const defaultAllowlistIdExists =
         researchOperations.allowlists?.allowlists.some(
-          (allowlist) => allowlist.allowlistId === DESKTOP_PUBLIC_SAFE_ALLOWLIST_ID
+          (allowlist) => allowlist.allowlistId === WEB_PUBLIC_SAFE_ALLOWLIST_ID
         ) ?? false;
       const policy = {
-        connectorIds: [DESKTOP_PUBLIC_SEARCH_CONNECTOR_ID],
+        connectorIds: [WEB_PUBLIC_SEARCH_CONNECTOR_ID],
         sourceCategories: ["public_web" as const],
-        approvedBy: "desktop_ui_founder"
+        approvedBy: "web_ui_founder"
       };
       const response = await appendCommand(
         reusableAllowlist ? "Reactivate research allowlist" : "Create research allowlist",
@@ -583,7 +583,7 @@ export function DecisionQueueShell() {
             })
           : await client.createResearchAllowlist(projectId, {
               ...policy,
-              ...(defaultAllowlistIdExists ? {} : { allowlistId: DESKTOP_PUBLIC_SAFE_ALLOWLIST_ID })
+              ...(defaultAllowlistIdExists ? {} : { allowlistId: WEB_PUBLIC_SAFE_ALLOWLIST_ID })
             })
       );
       const allowlists = requiredCommandProjection<ResearchAllowlistGovernanceProjection>(
@@ -741,7 +741,7 @@ export function DecisionQueueShell() {
         "Start read-only research run",
         await client.startResearchRun(
           projections.session.projectId,
-          buildDesktopResearchRunRequest({
+          buildWebResearchRunRequest({
             allowlist,
             specTitle: projections.spec?.title,
             task
@@ -839,7 +839,7 @@ export function DecisionQueueShell() {
           "Retry research run",
           await client.retryResearchRun(projections.session.projectId, researchRunId, {
             retryReason: "Manual retry from the Phase 1.5A operations screen.",
-            contextHash: `${researchRunId}_desktop_retry`
+            contextHash: `${researchRunId}_web_retry`
           })
         );
 

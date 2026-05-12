@@ -49,7 +49,7 @@ import {
 import { Phase15aOperationsPanel } from "./Phase15aOperationsPanel";
 import { Phase15bReadinessPanel } from "./Phase15bReadinessPanel";
 import { PlanningHandoffPanel } from "./PlanningHandoffPanel";
-import { buildDesktopResearchRunRequest } from "./phase15a-research-run-request";
+import { buildWebResearchRunRequest } from "./phase15a-research-run-request";
 
 const projectId = "proj_phase15a_ui" as ProjectId;
 const allowlistId = "research_allowlist_phase15a_ui" as ResearchAllowlistId;
@@ -346,7 +346,7 @@ function phase15bHintProjection(): Phase15bUpgradeHintProjection {
           expectedEvidence: {
             tests: ["pnpm verify"],
             smokeChecks: ["pnpm smoke:e2e"],
-            artifactPaths: ["apps/desktop/src/features/decision-queue/Phase15bReadinessPanel.tsx"],
+            artifactPaths: ["apps/web/src/features/decision-queue/Phase15bReadinessPanel.tsx"],
             manualInspection: ["Confirm labels say readiness, preview, blocked, or handoff."],
             expectedLogs: ["readiness metadata fetched"]
           },
@@ -724,7 +724,7 @@ describe("Decision Queue view model", () => {
       objective: "Validate the second task source linkage.",
       sourceQueueItemId: "queue_item_selected" as QueueItemId
     };
-    const request = buildDesktopResearchRunRequest({
+    const request = buildWebResearchRunRequest({
       allowlist,
       specTitle: "Selected task product",
       task: selectedTask

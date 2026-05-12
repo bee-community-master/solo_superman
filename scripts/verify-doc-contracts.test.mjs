@@ -8,6 +8,7 @@ import {
   findPhase15bExecutionPermissionClaims,
   findPhase25ExecutionPermissionClaims,
   findRouteQueryMismatches,
+  findWebLocalActiveResidue,
   findWebRealignmentFutureDefaultClaims,
   moduleSpecifiers,
   parseConstArray,
@@ -129,16 +130,24 @@ describe("doc contract verification helpers", () => {
   it("scans package boundary fixtures deterministically", () => {
     const tempRoot = mkdtempSync(join(tmpdir(), "solo-doc-contracts-"));
     const nestedDir = join(tempRoot, "packages/core/src/nested");
+    const webDir = join(tempRoot, "apps/web/src");
     mkdirSync(nestedDir, { recursive: true });
+    mkdirSync(webDir, { recursive: true });
     writeFileSync(join(tempRoot, "packages/core/src/allowed.ts"), 'import { ok } from "@solo-superman/contracts";\n');
     writeFileSync(join(nestedDir, "bad.ts"), 'import "hono";\nimport type { Server } from "node:http";\n');
+    writeFileSync(join(webDir, "bad.ts"), 'import { readFileSync } from "node:fs";\nimport "@solo-superman/db";\n');
 
     const violations = collectPackageBoundaryViolations({
       root: pathToFileURL(`${tempRoot}/`),
-      checks: [{ root: "packages/core/src", forbiddenModules: ["hono", "node:"] }]
+      checks: [
+        { root: "packages/core/src", forbiddenModules: ["hono", "node:"] },
+        { root: "apps/web/src", forbiddenModules: ["@solo-superman/db", "node:"] }
+      ]
     });
 
     expect(violations).toEqual([
+      "apps/web/src/bad.ts imports @solo-superman/db",
+      "apps/web/src/bad.ts imports node:fs",
       "packages/core/src/nested/bad.ts imports hono",
       "packages/core/src/nested/bad.ts imports node:http"
     ]);
@@ -190,11 +199,34 @@ describe("doc contract verification helpers", () => {
 
     expect(findWebRealignmentFutureDefaultClaims(documents)).toEqual([
       "docs/README.md:2: Solo Superman은 macOS-first, local-first Founder OS다.",
+      "docs/README.md:3: Tauri/native shell은 future default가 아니라 legacy/current host다.",
       "docs/README.md:4: ChatGPT automation is Phase 2+ vision.",
       "docs/README.md:5: Desktop UI keeps the old label.",
       "docs/README.md:6: Desktop session outside the app.",
       "docs/README.md:7: Export files require explicit user action through the Tauri native boundary.",
       "docs/09-system-architecture.md:1: | Desktop shell | Tauri v2 | core 확정 |"
+    ]);
+  });
+
+  it("flags active desktop/native residue in web-local source paths", () => {
+    const documents = [
+      {
+        path: "package.json",
+        text: '{ "scripts": { "dev:desktop": "pnpm --filter @solo-superman/desktop dev" } }'
+      },
+      {
+        path: "apps/web/src/shared/api/sidecar-client.ts",
+        text: 'await import("@tauri-apps/api/core");'
+      },
+      {
+        path: "apps/web/src/app/App.tsx",
+        text: "const ok = 'Local Web Frontend';"
+      }
+    ];
+
+    expect(findWebLocalActiveResidue(documents)).toEqual([
+      'package.json:1: { "scripts": { "dev:desktop": "pnpm --filter @solo-superman/desktop dev" } }',
+      'apps/web/src/shared/api/sidecar-client.ts:1: await import("@tauri-apps/api/core");'
     ]);
   });
 

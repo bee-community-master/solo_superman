@@ -35,7 +35,7 @@
 포함:
 
 - local web frontend 방향성.
-- current Tauri/Vite scaffold는 legacy/current host residue로 보존하되 future default로 확장하지 않음.
+- 초기 Tauri/Vite scaffold history는 historical context로만 보존하고 future default로 확장하지 않음.
 - Local Node/Hono Service.
 - local embedded libSQL + Drizzle.
 - Project 생성.
@@ -274,7 +274,7 @@ Phase 1.5A 공통 완료 조건:
 
 - 코드/문서/브라우저 실행을 approval-first 방식으로 제공한다.
 - 모든 실행 claim을 `ExecutionAuthorityRecord`로 묶어 source planning handoff, preview, approval, sandbox, rollback, evidence, audit을 추적한다.
-- Tauri/native shell은 future default가 아니라 legacy/current host로 containment/removal 대상임을 전제로 구현한다.
+- Tauri/native shell은 제거된 historical context이며 source/dependency/script/runtime 기본 경로에 남지 않음을 전제로 구현한다.
 
 포함:
 

@@ -11,7 +11,7 @@ import {
 } from "@solo-superman/contracts";
 
 type ProductApiRoute = Extract<ApiRoute, { readonly path: `/api/v1${string}` }>;
-type DesktopRouteClientImplementation =
+type WebRouteClientImplementation =
   | "not_mounted_yet"
   | "mounted_pr_09"
   | "mounted_phase_1_5a_pr_02"
@@ -28,19 +28,19 @@ const PHASE15B_PR10_HINT_ROUTE_ID_SET = new Set<string>(PHASE15B_PR10_HINT_ROUTE
 const PHASE1_QUEUE_RECOVERY_ROUTE_ID_SET = new Set<string>(PHASE1_QUEUE_RECOVERY_ROUTE_IDS);
 const PHASE2_PR04_PLANNING_HANDOFF_ROUTE_ID_SET = new Set<string>(PHASE2_PR04_PLANNING_HANDOFF_ROUTE_IDS);
 
-export interface DesktopRouteClientPlaceholder {
+export interface WebRouteClientPlaceholder {
   readonly clientName: ProductApiRoute["clientName"];
   readonly method: ProductApiRoute["method"];
   readonly path: ProductApiRoute["path"];
   readonly requiredQueryParams: readonly string[];
-  readonly implementation: DesktopRouteClientImplementation;
+  readonly implementation: WebRouteClientImplementation;
 }
 
 function isProductApiRoute(route: ApiRoute): route is ProductApiRoute {
   return route.path.startsWith("/api/v1");
 }
 
-function implementationStatus(route: ProductApiRoute): DesktopRouteClientImplementation {
+function implementationStatus(route: ProductApiRoute): WebRouteClientImplementation {
   if (!CURRENT_MOUNTED_PRODUCT_API_ROUTE_ID_SET.has(route.routeId)) {
     return "not_mounted_yet";
   }
@@ -70,7 +70,7 @@ function implementationStatus(route: ProductApiRoute): DesktopRouteClientImpleme
     : "mounted_pr_09";
 }
 
-export const desktopRouteClientPlaceholders: readonly DesktopRouteClientPlaceholder[] = API_ROUTE_CATALOG.filter(isProductApiRoute).map((route) => ({
+export const webRouteClientPlaceholders: readonly WebRouteClientPlaceholder[] = API_ROUTE_CATALOG.filter(isProductApiRoute).map((route) => ({
   clientName: route.clientName,
   method: route.method,
   path: route.path,
@@ -78,6 +78,6 @@ export const desktopRouteClientPlaceholders: readonly DesktopRouteClientPlacehol
   implementation: implementationStatus(route)
 }));
 
-export function findDesktopRouteClientPlaceholder(clientName: ProductApiRoute["clientName"]) {
-  return desktopRouteClientPlaceholders.find((route) => route.clientName === clientName) ?? null;
+export function findWebRouteClientPlaceholder(clientName: ProductApiRoute["clientName"]) {
+  return webRouteClientPlaceholders.find((route) => route.clientName === clientName) ?? null;
 }

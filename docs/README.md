@@ -35,7 +35,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 | 데이터 정책 | local-first; Phase 1은 remote config placeholder only, 사용자 선택 sync는 후속 |
 | 기술 고정 | Local Web Frontend + Local Node/Hono Service + local embedded libSQL + ProductEngine/Spec Engine은 core, 외부 런타임은 adapter |
 | Phase 3+ 구현 topology | Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db |
-| native/runtime 경계 | Tauri/native shell은 future default가 아니라 legacy/current host; Node/Hono local service가 ProductEngine/DB/Codex API와 Phase 3 execution authority를 소유 |
+| native/runtime 경계 | Tauri/native shell source·dependency·script 경로는 제거됐고 historical context로만 남는다; Node/Hono local service가 ProductEngine/DB/Codex API와 Phase 3 execution authority를 소유 |
 | Phase 1 저장소 | local embedded libSQL + Drizzle, remote config placeholder only |
 | Phase 1 API | Hono `/api/v1` + Zod contract + SSE event stream |
 | Codex 구현 경계 | Codex app-server stdio + schema pinning, sandbox preview만 허용 |
@@ -81,7 +81,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 17. `16-state-event-contract.md` - Question→Research→Approval→SpecVersion→Completion 상태·이벤트 계약.
 18. `17-ai-runtime-access-strategy.md` - Codex app-server, ChatGPT Pro 웹 자동화 비전, runtime 권한 경계.
 19. `18-product-engine-orchestrator.md` - Phase 1 ProductEngine Orchestrator의 전체 세션 라이프사이클, command/event/state, queue 재계산 계약.
-20. `19-phase1-implementation-architecture.md` - legacy/current implementation snapshot, package layout, dev scripts, Tauri containment/migration boundary 계약.
+20. `19-phase1-implementation-architecture.md` - web-local implementation snapshot, package layout, dev scripts, native-host removal boundary 계약.
 21. `20-data-storage-contract.md` - local embedded libSQL, Drizzle migration, repository/projection, remote config placeholder 계약.
 22. `21-sidecar-api-runtime-contract.md` - Hono API route shape, local auth, SSE, Codex app-server runtime preview 계약.
 23. `22-phase1-implementation-sequence.md` - Phase 1을 결정 없이 구현하기 위한 PR-01~PR-09 순서와 검증 기준.
@@ -123,7 +123,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 | State/Event Contract | Question, ResearchTask, EvidenceMatrix, Decision, SpecUpdate, SpecVersion, CompletionCandidate의 end-to-end trace | 저장소/API/DTO/route 세부 계약은 20/21/25/26번으로, 런타임/코드 구현은 후속 구현 PR로 넘긴다 |
 | AI Runtime Access Strategy | Codex app-server 우선 통합, sandbox preview 권한, ChatGPT Pro 웹 자동화의 Phase 2.5+ preview/gate 비전 | 리서치 품질은 Research Engine으로, 승인/프라이버시 세부는 Security 문서로 넘긴다 |
 | Product Engine Orchestrator | Phase 1 전체 세션 라이프사이클, 중앙 상태 전이, Queue 재계산, 모듈 소유권 | 세부 카드 UX는 Decision Queue로, trace link는 State/Event Contract로, runtime 권한은 AI Runtime Access Strategy로 넘긴다 |
-| Phase 1 Implementation Architecture Snapshot | legacy/current implementation snapshot, monorepo layout, dev scripts, Tauri containment/migration boundary | DB 저장 상세는 Data Storage Contract로, API route shape는 Sidecar API Runtime Contract로, Phase 3 authority는 36번으로 넘긴다 |
+| Phase 1 Implementation Architecture Snapshot | web-local implementation snapshot, monorepo layout, dev scripts, native-host removal boundary | DB 저장 상세는 Data Storage Contract로, API route shape는 Sidecar API Runtime Contract로, Phase 3 authority는 36번으로 넘긴다 |
 | Data Storage Contract | local embedded libSQL, Drizzle schema/migration, repository/projection, event persistence | 도메인 의미는 Domain Model로, API request/response는 Sidecar API Runtime Contract로 넘긴다 |
 | Sidecar API Runtime Contract | Hono route group, validation envelope, local auth, SSE, Codex app-server preview boundary | UI 화면 상세는 UX 문서로, 저장소 내부 구현은 Data Storage Contract로 넘긴다 |
 | Phase 1 Implementation Sequence | Codex가 구현 중 다시 결정하지 않도록 PR-01~PR-09 순서와 acceptance를 고정 | 실제 코드 변경은 후속 구현 PR에서 수행한다 |
@@ -145,8 +145,8 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 ## 공식 자료 기반 설계 메모
 
 - Spec-first 흐름은 GitHub Spec Kit의 “spec이 실행의 중심 산출물”이라는 관점을 차용한다. 참고: <https://github.com/github/spec-kit>
-- 현재 repo에는 Phase 1 구현 순서에 따른 초기 Tauri/React/Vite scaffold가 존재하지만, Tauri/native shell은 future default가 아니라 legacy/current host residue다. 참고: <https://v2.tauri.app/>
-- Phase 3 이후 기본 방향은 Local Web Frontend와 loopback Local Node/Hono Service다. legacy Tauri sidecar 패턴은 제거 전 호환성 inventory로만 유지한다. 참고: <https://v2.tauri.app/learn/sidecar-nodejs/>, <https://v2.tauri.app/ko/develop/sidecar/>
+- Phase 1 초기에는 Tauri/React/Vite scaffold가 있었지만, 현재 source/dependency/script 기본 경로에서는 제거됐고 historical context로만 남는다. 참고: <https://v2.tauri.app/>
+- Phase 3 web-local 기본 방향은 Local Web Frontend와 loopback Local Node/Hono Service다. native sidecar 패턴은 historical reference일 뿐 구현 기본값이 아니다. 참고: <https://v2.tauri.app/learn/sidecar-nodejs/>, <https://v2.tauri.app/ko/develop/sidecar/>
 - 백그라운드 작업과 장기 flow는 OpenClaw Background Tasks/Task Flow를 adapter 후보로 둔다. 참고: <https://docs.openclaw.ai/automation/tasks>, <https://docs.openclaw.ai/automation/taskflow>
 - 선택적 sync와 후속 모바일/대시보드 실시간성은 Supabase Realtime 확장 후보로 둔다. 참고: <https://supabase.com/docs/guides/realtime>
 - 브라우저 자동화는 기본 Playwright, 고급 단계 Browser-use adapter로 분리한다. Phase 1에서는 제외하고 Phase 2.5+에서 ChatGPT Pro 웹 자동화 후보를 preview/gate로 검토하며 active execution은 Phase 3 authority gate 이후에만 다룬다. 참고: <https://github.com/browser-use/browser-use>

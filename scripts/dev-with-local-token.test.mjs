@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createDevEnvironment, resolveLocalCapabilityToken } from "./dev-with-local-token.mjs";
+import { createDevEnvironment, resolveLocalCapabilityToken, resolveSidecarBaseUrl } from "./dev-with-local-token.mjs";
 
 describe("PR-02 dev local capability token launcher", () => {
-  it("preserves an explicitly shared token for both desktop and sidecar dev processes", () => {
+  it("preserves an explicitly shared token for both web frontend and sidecar dev processes", () => {
     const env = createDevEnvironment({
       PATH: "/usr/bin",
       SOLO_LOCAL_CAPABILITY_TOKEN: "shared-dev-token"
@@ -31,9 +31,54 @@ describe("PR-02 dev local capability token launcher", () => {
     expect(env.VITE_SOLO_SIDECAR_BASE_URL).toBe("http://127.0.0.1:61234");
   });
 
+  it("derives the Vite sidecar base URL from the loopback sidecar host and port overrides", () => {
+    const env = createDevEnvironment({
+      SOLO_LOCAL_CAPABILITY_TOKEN: "shared-dev-token",
+      SOLO_SIDECAR_HOST: "localhost",
+      SOLO_SIDECAR_PORT: "61234"
+    });
+
+    expect(env.VITE_SOLO_SIDECAR_BASE_URL).toBe("http://localhost:61234");
+  });
+
+  it("normalizes IPv6 loopback sidecar host overrides into a browser-usable origin", () => {
+    expect(
+      resolveSidecarBaseUrl({
+        SOLO_SIDECAR_HOST: "::1",
+        SOLO_SIDECAR_PORT: "61234"
+      })
+    ).toBe("http://[::1]:61234");
+  });
+
   it("rejects an explicitly empty shared token before spawning dev processes", () => {
     expect(() => resolveLocalCapabilityToken({ SOLO_LOCAL_CAPABILITY_TOKEN: "   " })).toThrow(
       "SOLO_LOCAL_CAPABILITY_TOKEN must not be empty"
     );
+  });
+
+  it("rejects non-loopback sidecar development overrides before exposing the token to Vite", () => {
+    expect(() =>
+      createDevEnvironment({
+        SOLO_LOCAL_CAPABILITY_TOKEN: "shared-dev-token",
+        SOLO_SIDECAR_HOST: "0.0.0.0",
+        SOLO_SIDECAR_PORT: "61234"
+      })
+    ).toThrow("SOLO_SIDECAR_HOST must be loopback-only");
+
+    expect(() =>
+      createDevEnvironment({
+        SOLO_LOCAL_CAPABILITY_TOKEN: "shared-dev-token",
+        SOLO_SIDECAR_BASE_URL: "http://192.0.2.10:61234"
+      })
+    ).toThrow("SOLO_SIDECAR_BASE_URL must be an origin-only loopback HTTP URL");
+  });
+
+  it("rejects ephemeral sidecar ports for root local web dev because Vite needs a fixed origin", () => {
+    expect(() =>
+      createDevEnvironment({
+        SOLO_LOCAL_CAPABILITY_TOKEN: "shared-dev-token",
+        SOLO_SIDECAR_PORT: "0"
+      })
+    ).toThrow("SOLO_SIDECAR_PORT must be a fixed port");
   });
 });

@@ -60,10 +60,7 @@ const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "localhost"]);
 const LOCAL_CORS_ORIGINS = new Set([
   "http://127.0.0.1:1420",
   "http://localhost:1420",
-  "http://[::1]:1420",
-  "tauri://localhost",
-  "http://tauri.localhost",
-  "https://tauri.localhost"
+  "http://[::1]:1420"
 ]);
 const REQUIRED_DECISION_REFS = new Set([
   "primary_customer",

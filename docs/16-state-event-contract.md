@@ -19,7 +19,7 @@ State/Event Contract는 Solo Superman Phase 1의 핵심 객체가 어떤 순서�
 
 - 런타임/코드 구현 제외.
 - 이 문서 안에서 DB/API/DTO/route 세부 shape 재정의.
-- SQLite table DDL, Tauri command, HTTP endpoint, queue worker 구현 설계.
+- SQLite table DDL, native command, HTTP endpoint, queue worker 구현 설계.
 - 외부 리서치 runtime adapter의 내부 실행 방식.
 - 모바일, 팀 협업, 결제, 자동 코드 실행.
 

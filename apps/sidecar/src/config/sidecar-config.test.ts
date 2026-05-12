@@ -101,10 +101,10 @@ describe("sidecar scaffold config", () => {
     expect(resolveSidecarConfig().port).toBe(0);
   });
 
-  it("accepts a Tauri-issued local capability token from env", () => {
-    process.env.SOLO_LOCAL_CAPABILITY_TOKEN = "tauri-issued-test-token";
+  it("accepts a local bootstrap capability token from env", () => {
+    process.env.SOLO_LOCAL_CAPABILITY_TOKEN = "local-bootstrap-test-token";
 
-    expect(resolveSidecarConfig().localCapabilityToken).toBe("tauri-issued-test-token");
+    expect(resolveSidecarConfig().localCapabilityToken).toBe("local-bootstrap-test-token");
   });
 
   it("accepts a local capability token from packaged sidecar args", () => {
@@ -122,7 +122,7 @@ describe("sidecar scaffold config", () => {
   it("rejects missing local capability tokens instead of generating an unreachable sidecar-only token", () => {
     delete process.env.SOLO_LOCAL_CAPABILITY_TOKEN;
 
-    expect(() => resolveSidecarConfig()).toThrow("SOLO_LOCAL_CAPABILITY_TOKEN must be provided by local bootstrap, legacy host, or dev env");
+    expect(() => resolveSidecarConfig()).toThrow("SOLO_LOCAL_CAPABILITY_TOKEN must be provided by local bootstrap or dev env");
   });
 
   it("rejects malformed port values instead of partially parsing them", () => {

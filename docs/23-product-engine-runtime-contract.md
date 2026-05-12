@@ -4,7 +4,7 @@
 
 이 문서는 Phase 1 ProductEngine을 실제 코드로 옮길 때 구현자가 다시 결정하지 않아야 할 reducer, effect plan, effect queue, retry/idempotency, API response, SSE, test contract를 고정한다. 전구간 failure/status/recovery와 대표 장애 dry-run은 `27-operations-observability-contract.md`가 소유한다.
 
-`18-product-engine-orchestrator.md`가 제품 엔진의 command/event/state 의미를 정의한다면, 이 문서는 그 의미를 `packages/core`, `packages/db`, `apps/sidecar`, `apps/desktop`이 어떻게 나눠 구현해야 하는지 정의한다.
+`18-product-engine-orchestrator.md`가 제품 엔진의 command/event/state 의미를 정의한다면, 이 문서는 그 의미를 `packages/core`, `packages/db`, `apps/sidecar`, `apps/web`이 어떻게 나눠 구현해야 하는지 정의한다.
 
 이 문서는 ProductEngine runtime의 기준 계약이다. 런타임 코드, 앱 scaffold, DB migration file, Hono handler, Codex adapter 코드는 각 구현 PR과 현재 코드베이스가 소유하며, 이 문서는 reducer/effect/status 경계와 금지선을 정의한다.
 
@@ -62,7 +62,7 @@ ProductEngine runtime policy:
 | `packages/core` | ProductEngine command/reducer/types/effect plan/deterministic output | import Hono, Drizzle client, Codex client, Tauri, filesystem, browser automation |
 | `packages/db` | load state snapshot, persist events, persist deterministic outputs, persist effect tasks, update effect status | decide product state transitions |
 | `apps/sidecar` | Hono route, local auth, application service, effect executor, SSE stream | place ProductEngine branching logic in route handlers |
-| `apps/desktop` | call sidecar API, render projection, subscribe to SSE, show pending/manual retry cards | mutate queue/spec/scoring as source of truth |
+| `apps/web` | call sidecar API, render projection, subscribe to SSE, show pending/manual retry cards | mutate queue/spec/scoring as source of truth |
 | `packages/contracts` | shared command/event/effect/API/SSE/projection DTOs defined in `25-contracts-dto-catalog.md` | define behavior not backed by ProductEngine contract or import runtime/db/ui frameworks |
 
 ## ProductEngine reducer contract

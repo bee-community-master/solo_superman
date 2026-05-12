@@ -28,7 +28,7 @@
 - approval boundary가 명확한가?
 - runtime adapter와 core의 경계가 명확한가?
 - Local Web Frontend + Local Node/Hono Service topology가 구현자가 다시 선택하지 않아도 될 만큼 고정되어 있는가?
-- legacy/current Tauri host residue와 Local Node/Hono Service 책임이 분리되어 있는가?
+- Tauri/native shell이 historical context로만 남고 Local Node/Hono Service 책임이 기본 경로로 고정되어 있는가?
 - local embedded libSQL + Drizzle 저장소, migration, repository convention이 정의되어 있는가?
 - remote sync가 Phase 1에서 구현되지 않고 remote config placeholder only로 제한되는가?
 - Hono `/api/v1` route group, local auth, SSE event stream, error envelope가 정의되어 있는가?
@@ -59,7 +59,7 @@
 | Architecture | core와 runtime adapter 경계 정의 |
 | Security | local-first와 승인 경계 정의 |
 | Roadmap | Phase별 진입 조건과 제외 범위 정의 |
-| Implementation Architecture Snapshot | legacy/current implementation snapshot, package layout, dev scripts, Tauri containment/migration boundary 정의 |
+| Implementation Architecture Snapshot | web-local implementation snapshot, package layout, dev scripts, native-host removal boundary 정의 |
 | Data Storage | local embedded libSQL, Drizzle migration, repository/projection, remote config placeholder 정의 |
 | Sidecar API Runtime | Hono route shape, validation, SSE, Codex app-server preview boundary 정의 |
 | Implementation Sequence | PR-01~PR-09 acceptance와 cross-PR dependency 정의 |
@@ -527,7 +527,7 @@ Phase 1~2 구현 보강 closeout의 repo-local evidence ledger는 `docs/35-phase
 - [ ] 사용자 UI/onboarding/CTA/export에는 내부 Phase 용어가 노출되지 않는다.
 - [ ] README, Architecture, Decision Queue, Spec Engine, State/Event Contract는 같은 ProductEngine Orchestrator 경계를 공유한다.
 - [ ] Local Web Frontend + Local Node/Hono Service 결정이 README, Architecture, Implementation Architecture Snapshot, Phase 3 contract에서 일치한다.
-- [ ] Tauri/native shell은 future default가 아니라 legacy/current host residue로만 설명된다.
+- [ ] Tauri/native shell은 historical context로만 설명되고 source/dependency/script/runtime 기본 경로에 남지 않는다.
 - [ ] ProductEngine, DB repository, Codex adapter, Hono API, Phase 3 authority orchestration은 Local Node/Hono Service 소유로 일관된다.
 - [ ] local embedded libSQL + Drizzle 선택이 Architecture, Domain Model, Data Storage에서 일치한다.
 - [ ] remote config placeholder only 정책이 README, Architecture, Data Storage, Security/Phase boundary와 충돌하지 않는다.
@@ -556,7 +556,7 @@ Phase 1~2 구현 보강 closeout의 repo-local evidence ledger는 `docs/35-phase
 - Completion: 복합 완성도 + gate로 일관됨.
 - UX Doctrine: confidence map, adaptive session, Founder Brief 기준으로 일관됨.
 - State/Event Contract: Question, Research, Approval, SpecVersion, Completion trace 기준으로 일관됨.
-- Implementation Architecture Snapshot: legacy/current implementation snapshot, package layout, dev scripts, Tauri containment/migration boundary 기준으로 일관됨.
+- Implementation Architecture Snapshot: web-local implementation snapshot, package layout, dev scripts, native-host removal boundary 기준으로 일관됨.
 - Data Storage: local embedded libSQL + Drizzle, repository/projection, remote config placeholder 기준으로 일관됨.
 - Sidecar API Runtime: Hono `/api/v1`, per-run local capability token, loopback-only service, explicit CORS allowlist, CSRF/replay guard, SSE, Codex app-server preview boundary 기준으로 일관됨.
 - Implementation Sequence: PR-01~PR-09 순서와 acceptance 기준으로 일관됨.
@@ -566,11 +566,11 @@ Phase 1~2 구현 보강 closeout의 repo-local evidence ledger는 `docs/35-phase
 
 이번 문서에서 고정된 구현 결정:
 
-- Tauri 내부 core 구현 방식은 future default가 아니며, Phase 3+ core 구현 방식은 Local Node/Hono Service 중심이다.
+- native-host 내부 core 구현 방식은 future default가 아니며, Phase 3+ core 구현 방식은 Local Node/Hono Service 중심이다.
 - SQLite binding은 local embedded libSQL via `@libsql/client`다.
 - schema/migration은 Drizzle schema와 generated SQL migration이다.
 - Codex app-server는 stdio 기본값과 generated schema pinning을 사용한다.
-- ChatGPT/Codex secret value는 DB에 저장하지 않고 secret reference만 다룬다. legacy Rust/Tauri boundary는 제거 전 호환성이다.
+- ChatGPT/Codex secret value는 DB에 저장하지 않고 secret reference만 다룬다. native-host boundary는 제거된 historical context다.
 - 첫 LLM provider abstraction은 `CodexRuntimeAdapter`이며, API key provider abstraction은 후속 후보로 둔다.
 - Phase 1 source cache는 app data dir 격리와 export prohibition을 우선하고, 파일 암호화는 후속 hardening 후보로 둔다.
 - ProductEngine core는 pure reducer + effect plan이다.

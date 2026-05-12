@@ -266,7 +266,7 @@ Rules:
 - Repositories may enforce persistence invariants and foreign-key-like checks.
 - Repositories return domain objects from `packages/contracts`.
 - Repositories never call Codex app-server.
-- Repositories never call Tauri commands.
+- Repositories never call native commands.
 - Repositories persist `effect_tasks` but do not decide whether a command should create a specific effect type. That decision belongs to ProductEngine reducer output.
 
 ## Projection contract
@@ -356,7 +356,7 @@ Phase 2 Planning Handoff 저장소 구현자는 `31-phase2-planning-handoff-cont
 - Source cache files stay under app data dir.
 - Remote config slot does not upload data.
 - Secret values are not stored in libSQL; only secret refs are stored.
-- Export files require explicit user action through the UI/local service export boundary; legacy Tauri native boundary may remain only until removal.
+- Export files require explicit user action through the UI/local service export boundary; native boundary is historical context only.
 
 ## Official reference notes
 

@@ -52,14 +52,14 @@ PR numbering here is implementation sequence numbering, not GitHub PR number.
 
 Goal:
 
-- Create pnpm workspace and Tauri/React/Hono package skeleton without product logic.
+- Create pnpm workspace and React/Vite web frontend plus Hono sidecar package skeleton without product logic.
 
 Owns:
 
 - root package/workspace config.
 - `packages/contracts` family-folder scaffold matching `25-contracts-dto-catalog.md`, with placeholder exports for ProductEngineCommand, ProductEngineReduction, EffectTask, API DTO, SSE DTO, and UI Projection types without behavior.
 - route placeholder names and client stubs follow `26-api-route-behavior-catalog.md` endpoint behavior without implementing real handlers beyond skeletons.
-- `apps/desktop` skeleton.
+- `apps/web` skeleton.
 - `apps/sidecar` skeleton.
 - `packages/contracts`, `packages/core`, `packages/db` skeleton.
 
@@ -68,7 +68,7 @@ Acceptance criteria:
 - `pnpm install` succeeds.
 - `pnpm typecheck` runs with empty/skeleton packages.
 - `pnpm dev:sidecar` can start placeholder Hono app.
-- `pnpm dev:desktop` can start Tauri/Vite shell or documented minimal dev shell.
+- `pnpm dev:web` can start the Vite web frontend on loopback.
 - No ProductEngine behavior implemented yet.
 
 Verification:
@@ -89,7 +89,7 @@ Forbidden:
 
 Goal:
 
-- Implement sidecar lifecycle contract and Tauri/native boundary shell.
+- Implement local sidecar lifecycle contract and web/runtime boundary.
 
 Owns:
 
@@ -98,7 +98,7 @@ Owns:
 - `GET /api/v1/commands/:commandId/status` placeholder shape from `26-api-route-behavior-catalog.md`.
 - loopback host/port config.
 - local capability token middleware.
-- Tauri sidecar launch/readiness discovery contract.
+- Local sidecar launch/readiness discovery contract.
 - app data dir and secret ref command stubs.
 
 Acceptance criteria:
@@ -106,7 +106,7 @@ Acceptance criteria:
 - Sidecar rejects non-health API requests without local token.
 - `/healthz` returns alive before DB initialization.
 - `/readyz` reports not ready until DB layer is initialized.
-- Tauri can discover sidecar base URL in dev or mocked packaged mode.
+- Web frontend receives sidecar base URL and token through the dev bootstrap env.
 - No ProductEngine behavior implemented yet.
 
 Verification:

@@ -693,7 +693,7 @@ describe("PR-02 sidecar health shell", () => {
     expect(() => createSidecarApp({ localCapabilityToken: "   " })).toThrow("localCapabilityToken must not be empty");
   });
 
-  it("answers CORS preflight for the Tauri development WebView before the auth guard", async () => {
+  it("answers CORS preflight for the local web frontend before the auth guard", async () => {
     const response = await app.request("/api/v1/projects", {
       method: "OPTIONS",
       headers: {
@@ -709,7 +709,7 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.headers.get("access-control-allow-headers")).toContain("X-Request-Id");
   });
 
-  it("exposes request ids to the local WebView for correlation", async () => {
+  it("exposes request ids to the local web frontend for correlation", async () => {
     const response = await app.request("/api/v1/commands/cmd_demo/status", {
       headers: {
         ...authHeaders(),

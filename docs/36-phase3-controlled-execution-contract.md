@@ -4,11 +4,11 @@
 
 이 문서는 Phase 3 Safe Execution Adapter의 canonical 계약이다. Phase 2.5까지는 Artifact+Gate와 Planning-ready handoff를 product code로 고정했지만, 실제 file diff, shell command, browser action 적용은 아직 제품 capability가 아니다. Phase 3는 그 다음 단계를 **approval-first controlled execution**으로 여는 계약이며, 기본 배포 방향은 `local-first web app + local Node/Hono service`다.
 
-Phase 3 이후 방향성은 다음으로 재정렬한다.
+Phase 3 controlled execution 방향성은 다음으로 재정렬한다.
 
 - `Local Web Frontend`는 사용자가 브라우저에서 여는 기본 UI다.
 - `Local Node/Hono Service`는 loopback-only API, ProductEngine, repository, runtime adapter, audit writer를 소유한다.
-- Tauri/native shell은 future default가 아니라 legacy/current host residue이며, Phase 3 구현을 막지 않는 선에서 containment/removal 대상으로 둔다.
+- Tauri/native shell source·dependency·script 경로는 제거됐고 historical context로만 남는다. Phase 3 future/default/runtime path는 Local Web Frontend + Local Node/Hono Service다.
 - no hosted SaaS default: hosted control plane, team sync, billing, remote execution은 Phase 3 기본값이 아니다.
 - browser-only DB rewrite도 하지 않는다. canonical data/event source는 계속 local service와 local embedded DB다.
 
@@ -50,12 +50,12 @@ Runtime ownership:
 
 | Layer | Owner | Contract |
 | --- | --- | --- |
-| Local Web Frontend | `apps/desktop` web build or renamed successor | UI, preview review, approval decision capture, evidence display |
+| Local Web Frontend | `apps/web` | UI, preview review, approval decision capture, evidence display |
 | Local Node/Hono Service | `apps/sidecar` | auth, CORS, CSRF/replay checks, ProductEngine command boundary, execution adapter orchestration |
 | Product contracts | `packages/contracts` | DTO/envelope/schema source of truth |
 | ProductEngine | `packages/core` | pure reducer/effect plan; no direct shell/browser/filesystem mutation |
 | Repository/audit ledger | `packages/db` | append-only events, execution authority records, evidence refs, rollback refs |
-| Legacy host | Tauri/native shell | compatibility residue only; not Phase 3 future default |
+| Removed native host history | Tauri/native shell | historical context only; not source/dependency/script/runtime path |
 
 ## MVP prerequisite gate
 
@@ -204,7 +204,7 @@ MVP acceptance is per slice, not all-or-nothing. A later action class can be pla
 
 - [ ] #86, #87, and #88 are complete before any Phase 3 MVP implementation claim.
 - [ ] Phase 3 implementation starts from `Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db`.
-- [ ] Tauri/native shell is not described as future default.
+- [ ] Tauri/native shell is not described as future/default/runtime path and has no active source/dependency/script path.
 - [ ] `ExecutionAuthorityRecord` exists before every controlled execution attempt.
 - [ ] `approvalDecision`, `sandboxBoundary`, `rollbackReference`, `executionResult`, `evidenceRefs`, and `auditRefs` are persisted.
 - [ ] per-run local capability token, loopback-only service binding, explicit CORS allowlist, and CSRF/replay/idempotency checks are documented and tested.
