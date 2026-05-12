@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type {
   DecisionQueueProjection,
   ConfidenceCompletionProjection,
+  ExecutionAuthorityLedgerProjection,
   FounderBriefProjection,
   LivingSpecProjection,
   Phase25ResearchComparisonProjection,
@@ -21,6 +22,7 @@ import { projections } from "../schema";
 export type PersistedProjection =
   | ConfidenceCompletionProjection
   | DecisionQueueProjection
+  | ExecutionAuthorityLedgerProjection
   | FounderBriefProjection
   | LivingSpecProjection
   | PlanningHandoffProjection

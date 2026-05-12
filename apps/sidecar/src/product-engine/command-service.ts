@@ -31,6 +31,7 @@ import {
   type EffectTaskDto,
   type EffectTaskId,
   type EventId,
+  type ExecutionAuthorityLedgerProjection,
   type FounderBriefProjection,
   type LivingSpecProjection,
   type PendingEffectSummaryDto,
@@ -82,6 +83,7 @@ import {
 import {
   createEffectTaskRepository,
   createEventRepository,
+  createExecutionAuthorityRepository,
   createPhase25ResearchComparisonRepository,
   createPlanningHandoffRepository,
   createProjectRepository,
@@ -156,6 +158,7 @@ export interface RunSessionCommandInput {
     | "PrepareFounderBrief"
     | "CreatePlanningHandoff"
     | "CreatePhase25ResearchComparison"
+    | "CreateExecutionAuthority"
   >;
   readonly expectedStateVersion: StateVersion;
   readonly payload: Readonly<Record<string, unknown>>;
@@ -532,6 +535,7 @@ function isPersistedProjection(value: unknown): value is PersistedProjection {
     kind === "LivingSpecProjection" ||
     kind === "PlanningHandoffProjection" ||
     kind === "Phase25ResearchComparisonProjection" ||
+    kind === "ExecutionAuthorityLedgerProjection" ||
     kind === "ResearchEvidenceProjection" ||
     kind === "RuntimeActivityProjection" ||
     kind === "SessionShellProjection"
@@ -796,6 +800,35 @@ function phase25ResearchComparisonProjectionFromEvent(
     : null;
 }
 
+function executionAuthorityLedgerProjectionFromEvent(event: ProductEngineEvent): ExecutionAuthorityLedgerProjection | null {
+  const projection = event.payload.projection;
+
+  return isPersistedProjection(projection) && projection.kind === "ExecutionAuthorityLedgerProjection"
+    ? projection
+    : null;
+}
+
+async function persistExecutionAuthorityProjectionForEvent(input: {
+  readonly command: ProductEngineCommand;
+  readonly event: ProductEngineEvent;
+  readonly repository: ReturnType<typeof createExecutionAuthorityRepository>;
+}): Promise<void> {
+  const executionAuthorityLedgerProjection = executionAuthorityLedgerProjectionFromEvent(input.event);
+
+  if (!executionAuthorityLedgerProjection) {
+    return;
+  }
+
+  await input.repository.saveFromProjection({
+    projectId: input.command.projectId,
+    sessionId: input.command.sessionId,
+    sourceCommandId: input.command.commandId,
+    sourceEventId: input.event.eventId,
+    sourceStateVersion: input.command.expectedStateVersion,
+    projection: executionAuthorityLedgerProjection
+  });
+}
+
 function decisionQueueProjectionFromEvents(events: readonly ProductEngineEvent[]): DecisionQueueProjection | null {
   for (const event of [...events].reverse()) {
     const projection = event.payload.queueProjection;
@@ -832,6 +865,7 @@ export function createProductEngineCommandService(
         case "founder_brief_draft":
         case "planning_handoff_artifact":
         case "phase25_research_comparison_report":
+        case "execution_authority_record":
           break;
         case "spec_version_material":
           throw new Error(`${output.outputType} requires a persistence interpreter before it can be emitted.`);
@@ -1124,6 +1158,7 @@ export function createProductEngineCommandService(
       const runtimeRepository = createRuntimeRepository(transaction);
       const planningHandoffRepository = createPlanningHandoffRepository(transaction);
       const phase25ResearchComparisonRepository = createPhase25ResearchComparisonRepository(transaction);
+      const executionAuthorityRepository = createExecutionAuthorityRepository(transaction);
       const persistedEvents: ProductEngineEvent[] = [];
 
       for (const event of reduction.events) {
@@ -1255,6 +1290,12 @@ export function createProductEngineCommandService(
             projection: phase25ResearchComparisonProjection
           });
         }
+
+        await persistExecutionAuthorityProjectionForEvent({
+          command,
+          event,
+          repository: executionAuthorityRepository
+        });
       }
 
       if (isPersistedProjection(reduction.immediateProjection)) {
@@ -3877,6 +3918,18 @@ export function createProductEngineCommandService(
       }
 
       return createPlanningHandoffRepository(storage.db).getLatestForSession(sessionIdValue);
+    },
+
+    async getExecutionAuthority(sessionIdValue: SessionId): Promise<ExecutionAuthorityLedgerProjection | null> {
+      const session = await createProjectRepository(storage.db).getSession(sessionIdValue);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: sessionIdValue
+        });
+      }
+
+      return createExecutionAuthorityRepository(storage.db).getLatestForSession(sessionIdValue);
     },
 
     async getCommandStatus(commandIdValue: CommandId): Promise<StatusEndpointDto | null> {

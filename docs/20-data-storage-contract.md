@@ -104,6 +104,7 @@ This document defines table groups and minimum responsibilities, not final SQL D
 | Runtime | `runtime_preview_artifacts`, `runtime_task_refs` | Codex/manual handoff preview outputs |
 | Planning handoff | `planning_handoffs`, `planning_handoff_sources`, `planning_handoff_tasks`, `planning_handoff_pr_issue_items`, `planning_handoff_risks` | Phase 2 final/blocker handoff artifacts, source trace, task/PR/issue plan, residual risk/readiness mapping |
 | Phase 2.5 artifact gate | `phase25_research_comparisons`, `phase25_research_comparison_sources` | ResearchQualityComparisonReport artifact JSON, query columns, and trace source refs for quality-lift/safe-failure persistence |
+| Phase 3 authority ledger | `execution_authority_records`, `bounded_agent_output_records` | ExecutionAuthorityRecord and BoundedAgentOutputRecord rows with query columns plus requested scope, sandbox, rollback, evidence, audit, and block reason refs |
 | Effect queue | `effect_tasks` | durable execution state for `queue_projection_effect`, `research_evidence_effect`, `codex_runtime_preview_effect` |
 | Scoring/export | `completeness_snapshots`, `founder_briefs` | progress, completion, export artifacts |
 | Config | `app_config`, `secret_refs` | local settings and opaque OS secret references |
@@ -127,6 +128,8 @@ This document defines table groups and minimum responsibilities, not final SQL D
   - `runtime_`
   - `handoff_`
   - `phase25_cmp_`
+  - `exec_auth_`
+  - `bounded_output_`
   - `eft_`
   - `score_`
   - `brief_`
@@ -179,7 +182,7 @@ ProductEngine runtime policy:
 - active batch projection exception allows immediate active-batch-safe queue projection in the command response.
 - First-class effect types are queue_projection_effect, research_evidence_effect, and codex_runtime_preview_effect.
 - scoring_effect and spec_export_effect are not Phase 1 first-class async effects.
-- Completeness/Scoring, SpecVersion, Founder Brief draft, Planning Handoff, and Phase 2.5 ResearchQualityComparisonReport are deterministic outputs persisted in the repository transaction.
+- Completeness/Scoring, SpecVersion, Founder Brief draft, Planning Handoff, Phase 2.5 ResearchQualityComparisonReport, and Phase 3 ExecutionAuthority ledger records are deterministic outputs persisted in the repository transaction.
 - Retry policy is conservative_ai_retry_matrix.
 ```
 
@@ -349,6 +352,18 @@ Phase 2 Planning Handoff 저장소 구현자는 `31-phase2-planning-handoff-cont
 - `GET /api/v1/sessions/:sessionId/planning-handoff`는 `planningHandoffRepository.getLatestForSession`으로 한 session의 최신 final handoff 또는 blocker artifact를 반환하며, 기존 session에 handoff가 없으면 `data: null`을 반환한다. 두 artifact가 동시에 current final state로 보이면 안 된다.
 - exact table columns, indexes, append-only current-state rule, and projection persistence defaults are owned by `32-phase2-implementation-preflight-contract.md`.
 - 이 storage family는 실행 권한을 만들지 않는다. file patch, shell command, browser action, deploy, external mutation, active delegation 상태는 저장하지 않는다.
+
+## Phase 3 execution authority storage checklist
+
+Phase 3 common ledger/authority 저장소 구현자는 `36-phase3-controlled-execution-contract.md`를 canonical source로 사용한다. PR-01 scope는 adapter 실행이 아니라 `ExecutionAuthorityRecord`와 `BoundedAgentOutputRecord`를 ProductEngine event/projection/repository transaction 안에 고정하는 것이다.
+
+- `execution_authority_records`는 `exec_auth_` record id, source command/event/state version, planning handoff ref, bounded output id, action class, approval decision, execution result, preview artifact ref/hash, requested scope JSON, approver JSON, sandbox boundary JSON, rollback reference JSON, block reasons, evidence refs, audit refs, createdAt/schemaVersion을 저장한다.
+- `bounded_agent_output_records`는 `bounded_output_` id, first linked authority record id, source refs, intended decision impact, proposed preview refs, required approval refs, evidence refs, failure mode, no-execution policy를 저장한다. 같은 bounded output에 대해 pending → approved/rejected/revoked/expired authority rows가 추가될 수 있으므로 `bounded_output_` row는 canonical output으로 재사용하고 중복 insert는 무시한다.
+- approved record는 `executionResult=not_run`으로 저장되며 adapter execution row나 effect task를 만들지 않는다.
+- missing source, missing preview, preview hash mismatch, missing approval, rejected/revoked/expired approval, missing rollback, credential value requirement, sandbox failure는 `executionResult=blocked`와 evidence/audit refs로 저장한다.
+- `executionAuthorityRepository`는 authority row와 bounded-output rows를 한 transaction에서 저장하고, ProductEngine reducer의 fail-closed 판단을 재구현하지 않는다.
+- `GET /api/v1/sessions/:sessionId/execution-authority`가 구현되는 slice에서는 `executionAuthorityRepository.getLatestForSession`으로 최신 ledger projection 또는 `data: null`을 반환한다.
+- 이 storage family는 file patch, shell command, browser action, deploy, external-production mutation, credential custody, blanket approval을 실행하거나 허용하지 않는다.
 
 ## Data privacy rules
 

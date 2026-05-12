@@ -242,17 +242,18 @@ Endpoint names:
 
 ## Phase 3 Controlled Execution route placeholders
 
-이 섹션은 `36-phase3-controlled-execution-contract.md`와 `21-sidecar-api-runtime-contract.md`를 endpoint behavior로 연결하는 placeholder contract다. 아래 route family names는 Phase 3 구현 전 설계 기준이며, mounted route catalog나 코드 구현 완료 claim이 아니다. #86, #87, #88이 완료되기 전에는 모든 Phase 3 execution route가 unmounted 또는 `blocked` 상태여야 한다.
+이 섹션은 `36-phase3-controlled-execution-contract.md`와 `21-sidecar-api-runtime-contract.md`를 endpoint behavior로 연결한다. #86, #87, #88 web-local migration prerequisite이 완료된 뒤 PR-01 common ledger/authority slice는 `CreateExecutionAuthority`, `ExecutionAuthorityLedgerProjection`, `executionAuthorityRepository`로 code-backed ProductEngine/storage surface가 됐지만, Hono approval/execution route mounting과 file/shell/browser adapter execution은 후속 slice 전까지 placeholder 또는 blocked 상태다.
 
 Placeholder route families:
 
 - Common ledger/authority family
   - Purpose: create/read `BoundedAgentOutputRecord`, create/read `ExecutionAuthorityRecord`, record pending/approval/rejection/revocation/expiry transitions, and expose audit/evidence/rollback refs.
+  - Current PR-01 code-backed surface: `CreateExecutionAuthority` accepts a same-ledger bounded output plus source/preview/explicit-scope/approval/sandbox/rollback refs and returns `ExecutionAuthorityLedgerProjection`; `ExecutionAuthorityRecorded` means approved + `not_run`, not adapter execution. `external_mutation_preview_only` returns `currentStatus=preview_only`, not executable `ready_for_execution`.
   - Request contract: Auth required; local token, loopback, explicit CORS, CSRF/replay/idempotency, preview hash, authority record id, and expiry checks follow 21번.
   - Response/statusUrl: `accepted_with_projection` or `blocked`; no adapter `statusUrl` until an implementation PR introduces a non-blocked execution effect.
   - Effects/SSE/refetch: ledger projection and activity refetch only; no file/shell/browser adapter runs in this family.
   - State defaults: `approvalDecision` includes `pending`; `executionResult` includes `running`; `cancelled` and `rolled_back` are not MVP execution result states.
-  - Errors/preconditions: missing planning source, missing bounded output, missing preview artifact, preview hash mismatch, missing rollback reference, credential value requirement, pending/rejected/revoked/expired approval, or sandbox boundary failure returns `blocked`.
+  - Errors/preconditions: missing planning source, missing bounded output link, missing explicit requested scope, missing preview artifact, preview hash mismatch, missing rollback reference, credential value requirement, pending/rejected/revoked/expired approval, or sandbox boundary failure returns `blocked`.
 - `file_diff` adapter family
   - Purpose: apply an exact approved diff preview to a limited workspace/sandbox after common ledger/authority is green.
   - Response/statusUrl: completed/failed/partial/blocked result with diff stats, changed-file evidence refs, rollback refs, and audit refs.

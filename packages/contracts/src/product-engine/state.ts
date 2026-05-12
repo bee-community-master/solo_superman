@@ -1,6 +1,7 @@
 import type {
   ConfidenceCompletionProjection,
   DecisionQueueProjection,
+  ExecutionAuthorityLedgerProjection,
   FounderBriefProjection,
   LivingSpecProjection,
   Phase25ResearchComparisonProjection,
@@ -129,4 +130,5 @@ export interface ProductEngineStateSnapshot {
   readonly founderBrief?: FounderBriefProjection;
   readonly planningHandoff?: PlanningHandoffProjection;
   readonly phase25ResearchComparison?: Phase25ResearchComparisonProjection;
+  readonly executionAuthorityLedger?: ExecutionAuthorityLedgerProjection;
 }

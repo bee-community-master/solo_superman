@@ -503,6 +503,65 @@ export const phase25ResearchComparisonSources = sqliteTable(
   ]
 );
 
+export const executionAuthorityRecords = sqliteTable(
+  "execution_authority_records",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    sourceCommandId: text("source_command_id").notNull(),
+    sourceEventId: text("source_event_id").notNull(),
+    sourceStateVersion: integer("source_state_version").notNull(),
+    sourcePlanningHandoffRef: text("source_planning_handoff_ref").notNull(),
+    boundedAgentOutputId: text("bounded_agent_output_id").notNull(),
+    actionClass: text("action_class").notNull(),
+    approvalDecision: text("approval_decision").notNull(),
+    executionResult: text("execution_result").notNull(),
+    previewArtifactRef: text("preview_artifact_ref"),
+    previewArtifactHash: text("preview_artifact_hash"),
+    reviewedPreviewArtifactHash: text("reviewed_preview_artifact_hash"),
+    requestedScopeJson: text("requested_scope_json").notNull(),
+    approverJson: text("approver_json"),
+    sandboxBoundaryJson: text("sandbox_boundary_json").notNull(),
+    rollbackReferenceJson: text("rollback_reference_json"),
+    blockReasonsJson: text("block_reasons_json").notNull(),
+    evidenceRefsJson: text("evidence_refs_json").notNull(),
+    auditRefsJson: text("audit_refs_json").notNull(),
+    createdAt: text("created_at").notNull(),
+    schemaVersion: text("schema_version").notNull()
+  },
+  (table) => [
+    index("execution_authority_records_session_created_idx").on(table.sessionId, table.createdAt),
+    uniqueIndex("execution_authority_records_source_command_idx").on(table.sourceCommandId),
+    index("execution_authority_records_session_result_idx").on(table.sessionId, table.executionResult),
+    index("execution_authority_records_bounded_output_idx").on(table.boundedAgentOutputId)
+  ]
+);
+
+export const boundedAgentOutputRecords = sqliteTable(
+  "bounded_agent_output_records",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    authorityRecordId: text("authority_record_id").notNull(),
+    sourceRefsJson: text("source_refs_json").notNull(),
+    intendedDecisionImpact: text("intended_decision_impact").notNull(),
+    proposedActionPreviewRefsJson: text("proposed_action_preview_refs_json").notNull(),
+    requiredApprovalsJson: text("required_approvals_json").notNull(),
+    evidenceRefsJson: text("evidence_refs_json").notNull(),
+    failureMode: text("failure_mode").notNull(),
+    noExecutionPolicy: text("no_execution_policy").notNull(),
+    createdAt: text("created_at").notNull(),
+    schemaVersion: text("schema_version").notNull()
+  },
+  (table) => [
+    index("bounded_agent_output_records_session_idx").on(table.sessionId),
+    index("bounded_agent_output_records_authority_idx").on(table.authorityRecordId),
+    index("bounded_agent_output_records_failure_mode_idx").on(table.failureMode)
+  ]
+);
+
 export const runtimeTaskRefs = sqliteTable(
   "runtime_task_refs",
   {

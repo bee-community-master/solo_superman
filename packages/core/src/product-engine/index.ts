@@ -1,5 +1,14 @@
 import {
   CONTRACT_SCHEMA_VERSION,
+  BOUNDED_AGENT_FAILURE_MODES,
+  BOUNDED_AGENT_NO_EXECUTION_POLICIES,
+  EXECUTION_AUTHORITY_SCHEMA_VERSION,
+  EXECUTION_APPROVAL_DECISIONS,
+  EXECUTION_AUTHORITY_ACTION_CLASSES,
+  EXECUTION_NETWORK_POLICIES,
+  EXECUTION_ROLLBACK_KINDS,
+  EXECUTION_SANDBOX_MODES,
+  EXECUTION_SECRET_POLICIES,
   BLOCKED_ACTION_TYPES,
   CODEX_APPLY_POLICY_BY_TURN_PURPOSE,
   CODEX_APPLY_POLICIES,
@@ -17,7 +26,11 @@ import {
   PHASE25_SOURCE_TYPES,
   assertPhase15bUpgradeHintsMatchBlockedAction,
   isPhase15bHintArtifactKind,
+  containsExecutionAuthoritySecretValueLeak,
+  executionAuthorityLedgerStatusForRecord,
+  executionAuthorityLedgerSummaryForStatus,
   validatePhase15bUpgradeHints,
+  validateExecutionAuthorityLedgerProjection,
   validatePhase25ResearchComparisonReport,
   type ActiveBatchSafeProjection,
   type AmbiguityIssueSnapshot,
@@ -30,7 +43,20 @@ import {
   type DecisionId,
   type QueueItemProjection,
   type DecisionQueueProjection,
+  type BoundedAgentOutputRecord,
+  type CreateExecutionAuthorityPayload,
   type EvidenceMatrixProjection,
+  type ExecutionApprovalDecision,
+  type ExecutionAuthorityApprover,
+  type ExecutionAuthorityActionClass,
+  type ExecutionAuthorityBlockCode,
+  type ExecutionAuthorityBlockReasonDto,
+  type ExecutionAuthorityLedgerProjection,
+  type ExecutionAuthorityPreconditionChecks,
+  type ExecutionAuthorityRecord,
+  type ExecutionAuthorityRequestedScope,
+  type ExecutionRollbackReference,
+  type ExecutionSandboxBoundary,
   type FounderBriefProjection,
   type LivingSpecProjection,
   type Phase25BaselineResearchSummaryDto,
@@ -4459,6 +4485,539 @@ function reduceCreatePlanningHandoff(
   );
 }
 
+const EXECUTION_AUTHORITY_ALLOWED_PAYLOAD_KEYS = [
+  "sourcePlanningHandoffRef",
+  "boundedAgentOutput",
+  "actionClass",
+  "previewArtifactRef",
+  "previewArtifactHash",
+  "reviewedPreviewArtifactHash",
+  "requestedScope",
+  "approvalDecision",
+  "approver",
+  "sandboxBoundary",
+  "rollbackReference",
+  "evidenceRefs",
+  "auditRefs",
+  "preconditionChecks"
+] as const;
+
+function containsUnsupportedExecutionAuthorityPayload(command: ProductEngineCommand) {
+  return !hasOnlyRecordKeys(command.payload, EXECUTION_AUTHORITY_ALLOWED_PAYLOAD_KEYS);
+}
+
+function isExecutionAuthorityActionClass(value: unknown): value is ExecutionAuthorityActionClass {
+  return (
+    typeof value === "string" &&
+    EXECUTION_AUTHORITY_ACTION_CLASSES.includes(value as ExecutionAuthorityActionClass)
+  );
+}
+
+function isExecutionApprovalDecision(value: unknown): value is ExecutionApprovalDecision {
+  return typeof value === "string" && EXECUTION_APPROVAL_DECISIONS.includes(value as ExecutionApprovalDecision);
+}
+
+function boundedAgentOutputFromValue(value: unknown): BoundedAgentOutputRecord | null {
+  const record = recordFromUnknown(value);
+
+  if (!record) {
+    return null;
+  }
+
+  const outputId = requiredString(record.outputId);
+  const sourceRefs = stringArray(record.sourceRefs, true);
+  const intendedDecisionImpact = requiredString(record.intendedDecisionImpact);
+  const proposedActionPreviewRefs = stringArray(record.proposedActionPreviewRefs, true);
+  const requiredApprovals = stringArray(record.requiredApprovals, true);
+  const evidenceRefs = stringArray(record.evidenceRefs, true);
+  const failureMode = record.failureMode;
+  const noExecutionPolicy = record.noExecutionPolicy;
+
+  if (
+    !outputId ||
+    !sourceRefs ||
+    !intendedDecisionImpact ||
+    !proposedActionPreviewRefs ||
+    !requiredApprovals ||
+    !evidenceRefs ||
+    !(
+      typeof failureMode === "string" &&
+      BOUNDED_AGENT_FAILURE_MODES.includes(failureMode as BoundedAgentOutputRecord["failureMode"])
+    ) ||
+    !(
+      typeof noExecutionPolicy === "string" &&
+      BOUNDED_AGENT_NO_EXECUTION_POLICIES.includes(
+        noExecutionPolicy as BoundedAgentOutputRecord["noExecutionPolicy"]
+      )
+    )
+  ) {
+    return null;
+  }
+
+  return {
+    outputId,
+    sourceRefs,
+    intendedDecisionImpact,
+    proposedActionPreviewRefs,
+    requiredApprovals,
+    evidenceRefs,
+    failureMode: failureMode as BoundedAgentOutputRecord["failureMode"],
+    noExecutionPolicy: noExecutionPolicy as BoundedAgentOutputRecord["noExecutionPolicy"]
+  };
+}
+
+function executionAuthorityRequestedScopeFromValue(value: unknown): ExecutionAuthorityRequestedScope | null {
+  const record = recordFromUnknown(value);
+
+  if (!record) {
+    return null;
+  }
+
+  const workspaceRef = record.workspaceRef === undefined ? undefined : requiredString(record.workspaceRef);
+  const commandAllowlistRef =
+    record.commandAllowlistRef === undefined ? undefined : requiredString(record.commandAllowlistRef);
+  const browserTargetRef = record.browserTargetRef === undefined ? undefined : requiredString(record.browserTargetRef);
+  const filePathGlobs = record.filePathGlobs === undefined ? undefined : stringArray(record.filePathGlobs, true);
+  const maxDurationMs = record.maxDurationMs;
+
+  if (
+    workspaceRef === null ||
+    commandAllowlistRef === null ||
+    browserTargetRef === null ||
+    filePathGlobs === null ||
+    (maxDurationMs !== undefined &&
+      (typeof maxDurationMs !== "number" || !Number.isInteger(maxDurationMs) || maxDurationMs <= 0))
+  ) {
+    return null;
+  }
+
+  return {
+    ...(workspaceRef ? { workspaceRef } : {}),
+    ...(commandAllowlistRef ? { commandAllowlistRef } : {}),
+    ...(browserTargetRef ? { browserTargetRef } : {}),
+    ...(filePathGlobs ? { filePathGlobs } : {}),
+    ...(typeof maxDurationMs === "number" ? { maxDurationMs } : {})
+  };
+}
+
+function executionApproverFromValue(value: unknown): ExecutionAuthorityApprover | null {
+  if (value === undefined) {
+    return null;
+  }
+
+  const record = recordFromUnknown(value);
+
+  if (!record) {
+    return null;
+  }
+
+  const actorId = requiredString(record.actorId);
+  const actorType = record.actorType === "user" || record.actorType === "local_operator" ? record.actorType : null;
+  const approvedAt = record.approvedAt === undefined ? undefined : requiredString(record.approvedAt);
+  const decidedAt = record.decidedAt === undefined ? undefined : requiredString(record.decidedAt);
+
+  if (
+    !actorId ||
+    !actorType ||
+    approvedAt === null ||
+    decidedAt === null
+  ) {
+    return null;
+  }
+
+  return {
+    actorId,
+    actorType,
+    ...(approvedAt ? { approvedAt } : {}),
+    ...(decidedAt ? { decidedAt } : {})
+  };
+}
+
+function executionSandboxBoundaryFromValue(value: unknown): ExecutionSandboxBoundary | null {
+  const record = recordFromUnknown(value);
+
+  if (!record) {
+    return null;
+  }
+
+  if (
+    !(
+      typeof record.mode === "string" &&
+      EXECUTION_SANDBOX_MODES.includes(record.mode as ExecutionSandboxBoundary["mode"])
+    ) ||
+    !(
+      typeof record.networkPolicy === "string" &&
+      EXECUTION_NETWORK_POLICIES.includes(record.networkPolicy as ExecutionSandboxBoundary["networkPolicy"])
+    ) ||
+    !(
+      typeof record.secretPolicy === "string" &&
+      EXECUTION_SECRET_POLICIES.includes(record.secretPolicy as ExecutionSandboxBoundary["secretPolicy"])
+    )
+  ) {
+    return null;
+  }
+
+  return {
+    mode: record.mode as ExecutionSandboxBoundary["mode"],
+    networkPolicy: record.networkPolicy as ExecutionSandboxBoundary["networkPolicy"],
+    secretPolicy: record.secretPolicy as ExecutionSandboxBoundary["secretPolicy"]
+  };
+}
+
+function executionRollbackReferenceFromValue(value: unknown): ExecutionRollbackReference | null {
+  if (value === undefined) {
+    return null;
+  }
+
+  const record = recordFromUnknown(value);
+
+  if (!record) {
+    return null;
+  }
+
+  const rollbackRef = requiredString(record.ref);
+
+  if (
+    !rollbackRef ||
+    !(
+      typeof record.kind === "string" &&
+      EXECUTION_ROLLBACK_KINDS.includes(record.kind as ExecutionRollbackReference["kind"])
+    )
+  ) {
+    return null;
+  }
+
+  return {
+    kind: record.kind as ExecutionRollbackReference["kind"],
+    ref: rollbackRef
+  };
+}
+
+function executionAuthorityPreconditionChecksFromValue(value: unknown): ExecutionAuthorityPreconditionChecks | null {
+  if (value === undefined) {
+    return {};
+  }
+
+  const record = recordFromUnknown(value);
+
+  if (!record) {
+    return null;
+  }
+
+  const booleanKeys = [
+    "planningSourceExists",
+    "previewArtifactExists",
+    "previewHashMatches",
+    "rollbackAvailable",
+    "credentialValueRequired",
+    "sandboxEnforced"
+  ] as const;
+
+  if (
+    Object.keys(record).some((key) => !booleanKeys.includes(key as (typeof booleanKeys)[number])) ||
+    booleanKeys.some((key) => record[key] !== undefined && typeof record[key] !== "boolean")
+  ) {
+    return null;
+  }
+
+  return {
+    ...(typeof record.planningSourceExists === "boolean" ? { planningSourceExists: record.planningSourceExists } : {}),
+    ...(typeof record.previewArtifactExists === "boolean" ? { previewArtifactExists: record.previewArtifactExists } : {}),
+    ...(typeof record.previewHashMatches === "boolean" ? { previewHashMatches: record.previewHashMatches } : {}),
+    ...(typeof record.rollbackAvailable === "boolean" ? { rollbackAvailable: record.rollbackAvailable } : {}),
+    ...(typeof record.credentialValueRequired === "boolean"
+      ? { credentialValueRequired: record.credentialValueRequired }
+      : {}),
+    ...(typeof record.sandboxEnforced === "boolean" ? { sandboxEnforced: record.sandboxEnforced } : {})
+  };
+}
+
+function executionAuthorityBlockReason(
+  code: ExecutionAuthorityBlockCode,
+  message: string
+): ExecutionAuthorityBlockReasonDto {
+  return {
+    code,
+    message,
+    evidenceRefs: [`block:${code}`]
+  };
+}
+
+function approvalBlockCode(decision: ExecutionApprovalDecision): ExecutionAuthorityBlockCode | null {
+  switch (decision) {
+    case "approved":
+      return null;
+    case "rejected":
+      return "rejected_approval";
+    case "revoked":
+      return "revoked_approval";
+    case "expired":
+      return "expired_approval";
+    case "pending":
+      return "missing_approval";
+  }
+}
+
+function executionAuthorityBlockReasons(input: {
+  readonly sourcePlanningHandoffRef: string | null;
+  readonly previewArtifactRef: string | null;
+  readonly previewArtifactHash: string | null;
+  readonly reviewedPreviewArtifactHash: string | null;
+  readonly approvalDecision: ExecutionApprovalDecision;
+  readonly approver: ReturnType<typeof executionApproverFromValue>;
+  readonly actionClass: ExecutionAuthorityActionClass;
+  readonly rollbackReference: ExecutionRollbackReference | null;
+  readonly checks: ExecutionAuthorityPreconditionChecks;
+}): readonly ExecutionAuthorityBlockReasonDto[] {
+  const reasons: ExecutionAuthorityBlockReasonDto[] = [];
+  const previewHashesMatch =
+    Boolean(input.previewArtifactHash && input.reviewedPreviewArtifactHash) &&
+    input.previewArtifactHash === input.reviewedPreviewArtifactHash;
+
+  if (!input.sourcePlanningHandoffRef || input.checks.planningSourceExists === false) {
+    reasons.push(
+      executionAuthorityBlockReason(
+        "missing_source",
+        "Planning Handoff source is missing, so no adapter execution can start."
+      )
+    );
+  }
+
+  if (!input.previewArtifactRef || input.checks.previewArtifactExists === false) {
+    reasons.push(
+      executionAuthorityBlockReason(
+        "missing_preview",
+        "Preview artifact is missing, so no user-reviewed action can be approved."
+      )
+    );
+  }
+
+  if (
+    input.previewArtifactRef &&
+    (!previewHashesMatch || input.checks.previewHashMatches === false)
+  ) {
+    reasons.push(
+      executionAuthorityBlockReason(
+        "preview_hash_mismatch",
+        "Preview hash does not match the user-reviewed artifact hash."
+      )
+    );
+  }
+
+  const approvalCode = approvalBlockCode(input.approvalDecision);
+
+  if (approvalCode) {
+    reasons.push(
+      executionAuthorityBlockReason(
+        approvalCode,
+        "Approval decision is not an active approved state for execution start."
+      )
+    );
+  } else if (!input.approver) {
+    reasons.push(
+      executionAuthorityBlockReason(
+        "missing_approval",
+        "Approved authority requires an approver record before execution start."
+      )
+    );
+  }
+
+  if (
+    input.actionClass !== "external_mutation_preview_only" &&
+    (!input.rollbackReference || input.checks.rollbackAvailable === false)
+  ) {
+    reasons.push(
+      executionAuthorityBlockReason(
+        "missing_rollback",
+        "Rollback reference is mandatory before controlled execution can start."
+      )
+    );
+  }
+
+  if (input.checks.credentialValueRequired === true) {
+    reasons.push(
+      executionAuthorityBlockReason(
+        "credential_value_required",
+        "Execution would require a credential value, which is blocked by Phase 3 policy."
+      )
+    );
+  }
+
+  if (input.checks.sandboxEnforced !== true) {
+    reasons.push(
+      executionAuthorityBlockReason(
+        "sandbox_failure",
+        "Sandbox boundary is not confirmed as enforced, so the action must fail closed."
+      )
+    );
+  }
+
+  return reasons;
+}
+
+function uniqueStringRefs(values: readonly string[]) {
+  return [...new Set(values.filter((value) => value.trim().length > 0))];
+}
+
+function executionAuthorityProjection(
+  command: ProductEngineCommand,
+  record: ExecutionAuthorityRecord,
+  boundedOutput: BoundedAgentOutputRecord
+): ExecutionAuthorityLedgerProjection {
+  const currentStatus = executionAuthorityLedgerStatusForRecord(record);
+  const summary = executionAuthorityLedgerSummaryForStatus(currentStatus);
+
+  return validateExecutionAuthorityLedgerProjection({
+    kind: "ExecutionAuthorityLedgerProjection",
+    sessionId: command.sessionId,
+    version: (Number(command.expectedStateVersion) + 1) as ProjectionVersion,
+    currentStatus,
+    records: [record],
+    boundedOutputs: [boundedOutput],
+    latestRecord: record,
+    blockedPreconditions: record.blockReasons,
+    summary,
+    refetchUrl: `/api/v1/sessions/${command.sessionId}/execution-authority`
+  });
+}
+
+function reduceCreateExecutionAuthority(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  if (containsUnsupportedExecutionAuthorityPayload(command)) {
+    return reject(
+      "CreateExecutionAuthority payload contains unsupported keys.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  const payload = command.payload as Partial<CreateExecutionAuthorityPayload>;
+  const boundedOutput = boundedAgentOutputFromValue(payload.boundedAgentOutput);
+  const requestedScope = executionAuthorityRequestedScopeFromValue(payload.requestedScope);
+  const approver = executionApproverFromValue(payload.approver);
+  const sandboxBoundary = executionSandboxBoundaryFromValue(payload.sandboxBoundary);
+  const rollbackReference = executionRollbackReferenceFromValue(payload.rollbackReference);
+  const checks = executionAuthorityPreconditionChecksFromValue(payload.preconditionChecks);
+  const sourcePlanningHandoffRef = requiredString(payload.sourcePlanningHandoffRef);
+  const previewArtifactRef = requiredString(payload.previewArtifactRef);
+  const previewArtifactHash = requiredString(payload.previewArtifactHash);
+  const reviewedPreviewArtifactHash = requiredString(payload.reviewedPreviewArtifactHash);
+  const evidenceRefs = optionalStringArray(payload.evidenceRefs);
+  const auditRefs = optionalStringArray(payload.auditRefs);
+
+  if (
+    !boundedOutput ||
+    !requestedScope ||
+    !isExecutionAuthorityActionClass(payload.actionClass) ||
+    !isExecutionApprovalDecision(payload.approvalDecision) ||
+    !sandboxBoundary ||
+    !checks ||
+    evidenceRefs === null ||
+    auditRefs === null
+  ) {
+    return reject("CreateExecutionAuthority payload is invalid.", "VALIDATION_FAILED");
+  }
+
+  if (containsExecutionAuthoritySecretValueLeak(command.payload)) {
+    return reject(
+      "CreateExecutionAuthority payload must not contain credential or secret values.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  const blockReasons = executionAuthorityBlockReasons({
+    sourcePlanningHandoffRef,
+    previewArtifactRef,
+    previewArtifactHash,
+    reviewedPreviewArtifactHash,
+    approvalDecision: payload.approvalDecision,
+    approver,
+    actionClass: payload.actionClass,
+    rollbackReference,
+    checks
+  });
+  const recordId = `exec_auth_${stableToken(
+    JSON.stringify({
+      sessionId: command.sessionId,
+      expectedStateVersion: command.expectedStateVersion,
+      sourcePlanningHandoffRef,
+      outputId: boundedOutput.outputId,
+      actionClass: payload.actionClass,
+      previewArtifactRef,
+      approvalDecision: payload.approvalDecision
+    })
+  )}`;
+  const blockEvidenceRefs = blockReasons.flatMap((reason) => reason.evidenceRefs);
+  const record: ExecutionAuthorityRecord = {
+    recordId,
+    sourcePlanningHandoffRef: sourcePlanningHandoffRef ?? "missing_planning_handoff_source",
+    boundedAgentOutputId: boundedOutput.outputId,
+    actionClass: payload.actionClass,
+    previewArtifactRef,
+    previewArtifactHash,
+    reviewedPreviewArtifactHash,
+    requestedScope,
+    approvalDecision: payload.approvalDecision,
+    approver,
+    sandboxBoundary,
+    rollbackReference,
+    executionResult: blockReasons.length ? "blocked" : "not_run",
+    blockReasons,
+    evidenceRefs: uniqueStringRefs([...evidenceRefs, ...boundedOutput.evidenceRefs, ...blockEvidenceRefs]),
+    auditRefs: uniqueStringRefs([
+      ...auditRefs,
+      `audit:${command.commandId}`,
+      `event:ExecutionAuthority${blockReasons.length ? "Blocked" : "Recorded"}`
+    ]),
+    createdAt: command.issuedAt,
+    schemaVersion: EXECUTION_AUTHORITY_SCHEMA_VERSION
+  };
+  let projection: ExecutionAuthorityLedgerProjection;
+
+  try {
+    projection = executionAuthorityProjection(command, record, boundedOutput);
+  } catch (error) {
+    return reject(error instanceof Error ? error.message : String(error), "VALIDATION_FAILED");
+  }
+
+  const eventType = blockReasons.length ? "ExecutionAuthorityBlocked" : "ExecutionAuthorityRecorded";
+  const event = eventDraft(command, eventType, {
+    recordId,
+    actionClass: record.actionClass,
+    approvalDecision: record.approvalDecision,
+    executionResult: record.executionResult,
+    blockReasons,
+    projection,
+    boundedOutput,
+    summary: projection.summary
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      executionAuthorityLedger: projection
+    },
+    [
+      {
+        outputType: "execution_authority_record",
+        outputRef: recordId,
+        payload: {
+          recordId,
+          actionClass: record.actionClass,
+          approvalDecision: record.approvalDecision,
+          executionResult: record.executionResult,
+          blockReasons
+        }
+      }
+    ],
+    [],
+    projection
+  );
+}
+
 const PHASE25_ALLOWED_PAYLOAD_KEYS = [
   "researchQuestion",
   "decisionContext",
@@ -5486,6 +6045,8 @@ export function reduceProductEngineCommand(
       return reduceCreatePlanningHandoff(command, state);
     case "CreatePhase25ResearchComparison":
       return reduceCreatePhase25ResearchComparison(command, state);
+    case "CreateExecutionAuthority":
+      return reduceCreateExecutionAuthority(command, state);
     default:
       return reject(`${command.commandType} is outside the mounted PR-09 reducer slice.`);
   }
@@ -5871,6 +6432,16 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
         ...state,
         stateVersion: nextStateVersion,
         ...(phase25ResearchComparison ? { phase25ResearchComparison } : {})
+      };
+    }
+    case "ExecutionAuthorityRecorded":
+    case "ExecutionAuthorityBlocked": {
+      const executionAuthorityLedger = projectionPayload(event.payload, state.executionAuthorityLedger);
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        ...(executionAuthorityLedger ? { executionAuthorityLedger } : {})
       };
     }
     default:

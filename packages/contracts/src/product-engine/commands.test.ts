@@ -27,7 +27,8 @@ const DOCS_25_PRODUCT_ENGINE_COMMAND_TYPES = [
   "ScoreCompleteness",
   "PrepareFounderBrief",
   "CreatePlanningHandoff",
-  "CreatePhase25ResearchComparison"
+  "CreatePhase25ResearchComparison",
+  "CreateExecutionAuthority"
 ] as const;
 
 const DOCS_25_PROJECT_APPLICATION_COMMAND_TYPES = [

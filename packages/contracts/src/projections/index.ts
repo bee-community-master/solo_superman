@@ -11,6 +11,7 @@ export * from "./runtime-activity";
 export * from "./session-shell";
 export * from "./planning-handoff";
 export * from "./phase25-research-comparison";
+export * from "./execution-authority";
 
 export type ProjectionKind =
   | "SessionShellProjection"
@@ -25,4 +26,5 @@ export type ProjectionKind =
   | "RuntimeActivityProjection"
   | "FounderBriefProjection"
   | "PlanningHandoffProjection"
-  | "Phase25ResearchComparisonProjection";
+  | "Phase25ResearchComparisonProjection"
+  | "ExecutionAuthorityLedgerProjection";

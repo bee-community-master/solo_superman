@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
-import { PHASE25_QUALITY_LIFT_PROJECTION_FIXTURE } from "@solo-superman/contracts";
+import { PHASE25_QUALITY_LIFT_PROJECTION_FIXTURE, PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE } from "@solo-superman/contracts";
 import type { PlanningHandoffSourceRefDto, SessionId, StateVersion } from "@solo-superman/contracts";
 import { createProductEngineCommandService } from "./command-service";
 
@@ -165,6 +165,35 @@ function phase25PayloadFromFixture() {
   };
 }
 
+function executionAuthorityPayloadFromFixture(): Readonly<Record<string, unknown>> {
+  const projection = PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE;
+  const record = projection.latestRecord;
+
+  return {
+    sourcePlanningHandoffRef: record.sourcePlanningHandoffRef,
+    boundedAgentOutput: projection.boundedOutputs[0],
+    actionClass: record.actionClass,
+    previewArtifactRef: record.previewArtifactRef ?? undefined,
+    previewArtifactHash: record.previewArtifactHash ?? undefined,
+    reviewedPreviewArtifactHash: record.reviewedPreviewArtifactHash ?? undefined,
+    requestedScope: record.requestedScope,
+    approvalDecision: record.approvalDecision,
+    approver: record.approver ?? undefined,
+    sandboxBoundary: record.sandboxBoundary,
+    rollbackReference: record.rollbackReference ?? undefined,
+    evidenceRefs: record.evidenceRefs,
+    auditRefs: record.auditRefs,
+    preconditionChecks: {
+      planningSourceExists: true,
+      previewArtifactExists: true,
+      previewHashMatches: true,
+      rollbackAvailable: true,
+      credentialValueRequired: false,
+      sandboxEnforced: true
+    }
+  };
+}
+
 describe("ProductEngine command service Phase 2.5 persistence", () => {
   it("accepts CreatePhase25ResearchComparison and persists comparison rows in the command transaction", async () => {
     const storage = await createMigratedStorage();
@@ -226,6 +255,154 @@ describe("ProductEngine command service Phase 2.5 persistence", () => {
         })
       ]);
       expect(sourceRows.rows.length).toBeGreaterThan(0);
+    } finally {
+      await storage.close();
+    }
+  });
+});
+
+describe("ProductEngine command service execution authority persistence", () => {
+  it("accepts CreateExecutionAuthority and persists authority plus bounded-output rows in the command transaction", async () => {
+    const storage = await createMigratedStorage();
+
+    try {
+      const service = createProductEngineCommandService(storage);
+      const start = await service.startProject({
+        rawIdea: "A command-service Phase 3 execution authority persistence fixture",
+        localPrivacyMode: "local_only"
+      });
+      const startProjection = start.immediateProjection as { readonly sessionId: SessionId };
+      const expectedStateVersion = start.stateVersionAfter as StateVersion;
+      const response = await service.runSessionCommand({
+        sessionId: startProjection.sessionId,
+        commandType: "CreateExecutionAuthority",
+        expectedStateVersion,
+        payload: executionAuthorityPayloadFromFixture()
+      });
+
+      expect(response).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionBefore: 1,
+        stateVersionAfter: 2,
+        immediateProjection: {
+          kind: "ExecutionAuthorityLedgerProjection",
+          currentStatus: "ready_for_execution",
+          latestRecord: {
+            approvalDecision: "approved",
+            executionResult: "not_run"
+          }
+        }
+      });
+      expect(response.statusUrl).toBeUndefined();
+
+      const authorityRows = await storage.client.execute(
+        "SELECT approval_decision, execution_result, action_class FROM execution_authority_records"
+      );
+      const outputRows = await storage.client.execute(
+        "SELECT failure_mode, no_execution_policy FROM bounded_agent_output_records"
+      );
+      const projectionRows = await storage.client.execute(
+        "SELECT projection_kind, version FROM projections WHERE projection_kind = 'ExecutionAuthorityLedgerProjection'"
+      );
+
+      expect(authorityRows.rows).toEqual([
+        expect.objectContaining({
+          approval_decision: "approved",
+          execution_result: "not_run",
+          action_class: "file_diff"
+        })
+      ]);
+      expect(outputRows.rows).toEqual([
+        expect.objectContaining({
+          failure_mode: "ready_for_preview",
+          no_execution_policy: "controlled_execution_required"
+        })
+      ]);
+      expect(projectionRows.rows).toEqual([
+        expect.objectContaining({
+          projection_kind: "ExecutionAuthorityLedgerProjection",
+          version: 2
+        })
+      ]);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("persists pending to approved authority lifecycle records for the same bounded output", async () => {
+    const storage = await createMigratedStorage();
+
+    try {
+      const service = createProductEngineCommandService(storage);
+      const start = await service.startProject({
+        rawIdea: "A command-service Phase 3 authority lifecycle persistence fixture",
+        localPrivacyMode: "local_only"
+      });
+      const startProjection = start.immediateProjection as { readonly sessionId: SessionId };
+      const pending = await service.runSessionCommand({
+        sessionId: startProjection.sessionId,
+        commandType: "CreateExecutionAuthority",
+        expectedStateVersion: start.stateVersionAfter as StateVersion,
+        payload: {
+          ...executionAuthorityPayloadFromFixture(),
+          approvalDecision: "pending",
+          approver: undefined
+        }
+      });
+      const approved = await service.runSessionCommand({
+        sessionId: startProjection.sessionId,
+        commandType: "CreateExecutionAuthority",
+        expectedStateVersion: pending.stateVersionAfter! as StateVersion,
+        payload: executionAuthorityPayloadFromFixture()
+      });
+
+      expect(pending).toMatchObject({
+        category: "accepted_with_projection",
+        immediateProjection: {
+          kind: "ExecutionAuthorityLedgerProjection",
+          currentStatus: "blocked",
+          latestRecord: {
+            boundedAgentOutputId: PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE.boundedOutputs[0]?.outputId,
+            approvalDecision: "pending",
+            executionResult: "blocked"
+          }
+        }
+      });
+      expect(approved).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionBefore: 2,
+        stateVersionAfter: 3,
+        immediateProjection: {
+          kind: "ExecutionAuthorityLedgerProjection",
+          currentStatus: "ready_for_execution",
+          latestRecord: {
+            boundedAgentOutputId: PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE.boundedOutputs[0]?.outputId,
+            approvalDecision: "approved",
+            executionResult: "not_run"
+          }
+        }
+      });
+
+      const authorityRows = await storage.client.execute("SELECT id FROM execution_authority_records");
+      const outputRows = await storage.client.execute("SELECT id FROM bounded_agent_output_records");
+      const latestAuthority = await service.getExecutionAuthority(startProjection.sessionId);
+
+      expect(authorityRows.rows).toHaveLength(2);
+      expect(outputRows.rows).toHaveLength(1);
+      expect(latestAuthority).toMatchObject({
+        currentStatus: "ready_for_execution",
+        latestRecord: {
+          boundedAgentOutputId: PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE.boundedOutputs[0]?.outputId,
+          approvalDecision: "approved",
+          executionResult: "not_run"
+        },
+        boundedOutputs: [
+          expect.objectContaining({
+            outputId: PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE.boundedOutputs[0]?.outputId,
+            noExecutionPolicy: "controlled_execution_required"
+          })
+        ]
+      });
     } finally {
       await storage.close();
     }

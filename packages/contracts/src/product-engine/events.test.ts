@@ -28,7 +28,9 @@ describe("ProductEngine event contract surface", () => {
       "PlanningHandoffCreated",
       "PlanningHandoffBlocked",
       "Phase25ResearchComparisonCreated",
-      "Phase25ResearchComparisonBlocked"
+      "Phase25ResearchComparisonBlocked",
+      "ExecutionAuthorityRecorded",
+      "ExecutionAuthorityBlocked"
     ]);
   });
 });

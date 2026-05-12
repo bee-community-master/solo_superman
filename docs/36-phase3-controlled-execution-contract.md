@@ -89,8 +89,11 @@ No Phase 3 execution claim is valid without an `ExecutionAuthorityRecord` stored
 type ExecutionAuthorityRecord = {
   recordId: string;
   sourcePlanningHandoffRef: string;
+  boundedAgentOutputId: string;
   actionClass: 'file_diff' | 'shell_command' | 'browser_action' | 'external_mutation_preview_only';
-  previewArtifactRef: string;
+  previewArtifactRef: string | null;
+  previewArtifactHash: string | null;
+  reviewedPreviewArtifactHash: string | null;
   requestedScope: {
     workspaceRef?: string;
     commandAllowlistRef?: string;
@@ -103,7 +106,8 @@ type ExecutionAuthorityRecord = {
     actorId: string;
     actorType: 'user' | 'local_operator';
     approvedAt?: string;
-  };
+    decidedAt?: string;
+  } | null;
   sandboxBoundary: {
     mode: 'workspace_patch' | 'command_sandbox' | 'browser_preview_session';
     networkPolicy: 'loopback_only' | 'approved_public_read' | 'blocked';
@@ -112,11 +116,17 @@ type ExecutionAuthorityRecord = {
   rollbackReference: {
     kind: 'git_diff_reverse' | 'filesystem_snapshot' | 'command_compensating_action' | 'browser_state_reset' | 'not_applicable_preview_only';
     ref: string;
-  };
+  } | null;
   executionResult: 'not_run' | 'running' | 'blocked' | 'completed' | 'failed' | 'partial';
+  blockReasons: Array<{
+    code: 'missing_source' | 'missing_preview' | 'preview_hash_mismatch' | 'missing_approval' | 'rejected_approval' | 'revoked_approval' | 'expired_approval' | 'missing_rollback' | 'credential_value_required' | 'sandbox_failure';
+    message: string;
+    evidenceRefs: string[];
+  }>;
   evidenceRefs: string[];
   auditRefs: string[];
   createdAt: string;
+  schemaVersion: 'solo-superman.phase3-execution-authority.v1';
 };
 ```
 
@@ -124,10 +134,15 @@ Rules:
 
 - `approvalDecision` starts as `pending`; pending/rejected/revoked/expired records cannot execute.
 - `approvalDecision` must be `approved` at execution start and can later become `revoked` only for future/retry attempts.
+- `boundedAgentOutputId` must resolve to a `BoundedAgentOutputRecord` in the same `ExecutionAuthorityLedgerProjection`.
 - `previewArtifactRef` must resolve to the exact user-reviewed diff/command/browser action plan.
+- `requestedScope` must include at least one explicit boundary: `workspaceRef`, `commandAllowlistRef`, `browserTargetRef`, or non-empty `filePathGlobs`.
 - `rollbackReference` is mandatory before execution unless `actionClass` is `external_mutation_preview_only` and the result stays `not_run`.
-- `executionResult` starts as `not_run`, may become `running` only after approval/sandbox/rollback checks pass, and then becomes `blocked`, `completed`, `failed`, or `partial` with evidence.
+- `external_mutation_preview_only` can only stay `not_run` or `blocked`; it does not create a running/completed external mutation path.
+- `ExecutionAuthorityLedgerProjection.currentStatus = preview_only` is reserved for approved `external_mutation_preview_only` records so UI/API clients do not present them as executable `ready_for_execution` authorities.
+- `executionResult` starts as `not_run`, may become `running` only after approval, sandbox, preview hash, and rollback checks pass, then becomes `blocked`, `completed`, `failed`, or `partial` with evidence.
 - `cancelled` and `rolled_back` are not MVP `executionResult` states. Cancellation or rollback evidence is recorded through `failed`/`partial`/`blocked` plus rollback/audit refs until a later explicit contract adds richer recovery states.
+- `ExecutionAuthorityLedgerProjection.blockedPreconditions` must mirror the latest blocked record's `blockReasons`; a `blocked` projection cannot point at a non-blocked latest record, and non-blocked projections must not retain stale blocked preconditions.
 - `evidenceRefs` must include stdout/stderr summaries, diff stats, browser screenshots/log refs, or block reasons appropriate to the action class.
 - `auditRefs` must connect to ProductEngine events and user-visible activity.
 
@@ -137,7 +152,7 @@ Rules:
 PlanningHandoffArtifact
   -> BoundedAgentOutputRecord
   -> preview artifact
-  -> ExecutionAuthorityRecord(approval pending -> approved/rejected; execution not_run -> running -> terminal)
+  -> ExecutionAuthorityRecord(approval pending -> approved/rejected/revoked/expired; execution not_run when approved, blocked when precondition-failed, running -> terminal only in later adapter slices)
   -> sandboxed execution if approved
   -> evidence capture
   -> rollbackReference validation
@@ -180,12 +195,21 @@ The MVP is intentionally sequential. Later slices cannot skip the shared authori
 
 | Slice | Scope | Entry gate | Exit evidence |
 | --- | --- | --- | --- |
-| 0. Common ledger/authority | Persist `ExecutionAuthorityRecord`, `BoundedAgentOutputRecord`, approval decisions, rollback refs, evidence refs, and audit refs. Add read/query projections before adapters run. | #86, #87, #88 complete; no route can execute an adapter yet. | Pending/approved/rejected/revoked/expired authority records and not_run/running/blocked/completed/failed/partial execution results round-trip through local persistence; missing source, preview hash mismatch, missing approval, missing rollback, credential value requirement, and sandbox failure all return `blocked`. |
+| 0. Common ledger/authority | Persist `ExecutionAuthorityRecord`, same-ledger `BoundedAgentOutputRecord`, approval decisions, explicit requested scope, rollback refs, evidence refs, and audit refs. Add read/query projections before adapters run. | #86, #87, #88 complete; no route can execute an adapter yet. | Pending/approved/rejected/revoked/expired authority records and not_run/running/blocked/completed/failed/partial execution results round-trip through local persistence; missing source, missing bounded-output link, missing explicit scope, preview hash mismatch, missing approval, missing rollback, credential value requirement, and sandbox failure all return `blocked`. |
 | 1. `file_diff` | Apply an exact approved diff preview to a limited workspace/sandbox. | Slice 0 green; preview hash and rollback reference exist. | Diff stats and changed-file evidence refs are captured; rollback uses `git_diff_reverse` by default. `filesystem_snapshot` is allowed only as an explicit exception when reverse diff is unsafe or unavailable. File changes stay inside the approved project workspace root; `.env*`, credential/secret/key files, home directory paths, repo-outside paths, and symlink escape are blocked. No file patch runs without an approved unexpired authority record. |
 | 2. `shell_command` | Run only non-destructive allowlisted commands in a bounded command sandbox. | Slice 1 green; command allowlist and max duration are present. | Default allowlist is repo `package.json` scripts plus limited read-only diagnostics such as `ls`, `cat`, `rg`, and `git status`. Raw shell mutation outside that allowlist is blocked. Read-only diagnostics time out at 30 seconds; test/typecheck/lint/docs verify commands time out at 10 minutes; build/full verify commands time out at 20 minutes; dev server commands require a separate preview mode with automatic shutdown/kill evidence. Exit code, duration, stdout/stderr summary, and compensating-action/rollback refs are captured; destructive shell commands, deploy, force reset/delete, system setting mutation, and credential value access return `blocked`. |
 | 3. `browser_action` | Run approved browser action preview sessions only against loopback-only local targets by default. | Slice 2 green; loopback browser target and reset boundary are present. | Allowed targets are `localhost`, `127.0.0.1`, `::1`, and explicit local web/sidecar ports only. LAN/private IP targets and cloud preview URLs are blocked. Screenshot/log refs, target URL, and `browser_state_reset` or equivalent rollback refs are captured; external-production browser mutation remains `blocked` until a later narrower explicit contract exists. |
 
 MVP acceptance is per slice, not all-or-nothing. A later action class can be planned but not claimed complete until its own authority, adapter, evidence, rollback, and audit checks pass.
+
+### Slice 0 current code-backed surface
+
+The common ledger/authority slice is represented in code by:
+
+- `packages/contracts/src/projections/execution-authority.ts` for `ExecutionAuthorityRecord`, `BoundedAgentOutputRecord`, validation fixtures, and `ExecutionAuthorityLedgerProjection`.
+- `CreateExecutionAuthority`, `ExecutionAuthorityRecorded`, and `ExecutionAuthorityBlocked` in ProductEngine contracts/core.
+- `execution_authority_records` and `bounded_agent_output_records` plus `executionAuthorityRepository` for local persistence and latest-session query.
+- `ExecutionAuthorityRecorded` means the authority ledger is approved and `executionResult=not_run`; it does not mean a file, shell, browser, deploy, external-production, or credential operation executed.
 
 ## MVP route and docs ownership
 

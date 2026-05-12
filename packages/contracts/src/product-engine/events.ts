@@ -25,7 +25,9 @@ export const PRODUCT_ENGINE_EVENT_TYPES = [
   "PlanningHandoffCreated",
   "PlanningHandoffBlocked",
   "Phase25ResearchComparisonCreated",
-  "Phase25ResearchComparisonBlocked"
+  "Phase25ResearchComparisonBlocked",
+  "ExecutionAuthorityRecorded",
+  "ExecutionAuthorityBlocked"
 ] as const;
 
 export type ProductEngineEventType = (typeof PRODUCT_ENGINE_EVENT_TYPES)[number];

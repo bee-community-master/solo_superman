@@ -1,6 +1,7 @@
 import type { ProductEngineEffectPlanItem } from "../effects";
 import type {
   DecisionQueueProjection,
+  ExecutionAuthorityLedgerProjection,
   ConfidenceCompletionProjection,
   FounderBriefProjection,
   LivingSpecProjection,
@@ -37,7 +38,8 @@ export type ProductEngineDeterministicOutputType =
   | "spec_version_material"
   | "founder_brief_draft"
   | "planning_handoff_artifact"
-  | "phase25_research_comparison_report";
+  | "phase25_research_comparison_report"
+  | "execution_authority_record";
 
 export interface ProductEngineDeterministicOutput {
   readonly outputType: ProductEngineDeterministicOutputType;
@@ -48,6 +50,7 @@ export interface ProductEngineDeterministicOutput {
 export type ActiveBatchSafeProjection =
   | ConfidenceCompletionProjection
   | DecisionQueueProjection
+  | ExecutionAuthorityLedgerProjection
   | FounderBriefProjection
   | LivingSpecProjection
   | PlanningHandoffProjection

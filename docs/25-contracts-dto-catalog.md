@@ -199,6 +199,7 @@ Phase 1 command type values are closed, and Phase 1.5A allowlist/disclosure/run-
 | `PrepareFounderBrief` | prepare deterministic founder brief draft |
 | `CreatePlanningHandoff` | create the deterministic Phase 2 final/blocker Planning Handoff artifact and projection without execution side effects |
 | `CreatePhase25ResearchComparison` | create deterministic Phase 2.5 ResearchQualityComparisonReport quality-lift or safe-failure artifact without live browser/ChatGPT execution |
+| `CreateExecutionAuthority` | create deterministic Phase 3 common `ExecutionAuthorityRecord` / `BoundedAgentOutputRecord` ledger projection; records approval and blocked preconditions without running adapters |
 | `CreateResearchAllowlist` | create project-level read-only research allowlist governance projection; no ProductEngine reducer side effects |
 | `UpdateResearchAllowlist` | update active/paused allowlist policy fields or reactivate paused allowlist; no ProductEngine reducer side effects |
 | `PauseResearchAllowlist` | pause future automatic research run starts for an allowlist; no ProductEngine reducer side effects |
@@ -295,6 +296,7 @@ Example command envelope:
 | `completeness` | yes | `ConfidenceCompletionProjection` | latest deterministic scoring projection |
 | `planningHandoff` | no | `PlanningHandoffProjection` | latest Phase 2 final or blocker Planning Handoff projection emitted by `CreatePlanningHandoff` |
 | `phase25ResearchComparison` | no | `Phase25ResearchComparisonProjection` | latest Phase 2.5 quality-lift or safe-failure comparison report emitted by `CreatePhase25ResearchComparison` |
+| `executionAuthorityLedger` | no | `ExecutionAuthorityLedgerProjection` | latest Phase 3 common authority ledger record emitted by `CreateExecutionAuthority`; approved records remain `not_run` until adapter slices exist |
 
 `DecisionSnapshot.requiredDecisionRef` is a closed completion-gate key: `primary_customer`, `problem`, `value`, `mvp_scope`, `validation_plan`, or `success_criteria`. PR-08 completeness must count unique closed required refs, not any six unrelated decisions.
 High-impact `CreateSpecVersion` must consume the approved `SpecUpdatePreviewSnapshot` material for its `approvedPreviewRef`; request body title/sections are optional echoes and must not mutate the approved preview material.
@@ -308,7 +310,7 @@ High-impact `CreateSpecVersion` must consume the approved `SpecUpdatePreviewSnap
 | `events` | yes | `ProductEngineEventDraft[]` | can be empty only when rejected |
 | `nextState` | yes | `ProductEngineStatePatch` | semantic state patch, not DB row diff |
 | `effectPlan` | yes | `ProductEngineEffectPlanItem[]` | first-class effect types only |
-| `deterministicOutputs` | yes | `ProductEngineDeterministicOutput[]` | completeness/spec/founder brief/planning handoff/Phase 2.5 comparison deterministic material |
+| `deterministicOutputs` | yes | `ProductEngineDeterministicOutput[]` | completeness/spec/founder brief/planning handoff/Phase 2.5 comparison/Phase 3 authority deterministic material |
 | `immediateProjection` | no | `ActiveBatchSafeProjection` | active-batch-safe or explicitly deterministic projection exception |
 
 Example reduction summary:
@@ -355,6 +357,7 @@ Closed ProductEngine event type groups:
 | completeness/export | `CompletenessScored`, `FounderBriefPrepared` | deterministic output refs |
 | planning handoff | `PlanningHandoffCreated`, `PlanningHandoffBlocked` | Phase 2 final/blocker handoff artifact persistence; deterministic, no effect queue |
 | phase2.5 artifact gate | `Phase25ResearchComparisonCreated`, `Phase25ResearchComparisonBlocked` | Phase 2.5 quality-lift/safe-failure comparison report persistence; deterministic, no effect queue |
+| phase3 authority ledger | `ExecutionAuthorityRecorded`, `ExecutionAuthorityBlocked` | Phase 3 common authority/bounded-output ledger persistence; deterministic, no adapter execution effect queue |
 
 ### ProductEngineEffectPlanItem
 
@@ -397,6 +400,7 @@ Deterministic outputs are reducer-created artifacts that can be persisted or pro
 | `founder_brief_draft` | Founder Brief | if-stop-now artifact, deterministic draft |
 | `planning_handoff_artifact` | Planning Handoff | final or blocker handoff artifact; deterministic and no execution side effects |
 | `phase25_research_comparison_report` | Phase 2.5 Artifact+Gate | quality-lift or safe-failure ResearchQualityComparisonReport; deterministic and no live adapter execution |
+| `execution_authority_record` | Phase 3 common ledger/authority | approved/not-run or blocked `ExecutionAuthorityRecord` plus bounded output refs; deterministic and no adapter execution |
 
 ## Effect and runtime types
 
@@ -707,6 +711,7 @@ Phase 1.5A PR-01 implementation note:
 | `FounderBriefProjection` | `projections/founder-brief.ts` | if-stop-now/founder brief export |
 | `PlanningHandoffProjection` | `projections/planning-handoff.ts` | Phase 2 final/blocker Planning Handoff |
 | `Phase25ResearchComparisonProjection` | `projections/phase25-research-comparison.ts` | Phase 2.5 Artifact+Gate comparison report |
+| `ExecutionAuthorityLedgerProjection` | `projections/execution-authority.ts` | Phase 3 common authority ledger and blocked-precondition visibility |
 
 ### Projection minimum fields
 
@@ -725,6 +730,7 @@ Phase 1.5A PR-01 implementation note:
 | `FounderBriefProjection` | if-stop-now artifact, brief draft sections, export readiness, known risks, next validation actions |
 | `PlanningHandoffProjection` | latest final `PlanningHandoffArtifactDto` or latest `PlanningHandoffBlockerArtifactDto`, source refs, gate verdict, build/serve/learning checklist fields on final handoff, readiness/residual-risk summary, refetch URL |
 | `Phase25ResearchComparisonProjection` | latest `ResearchQualityComparisonReport`, source refs, DelegationRiskGate verdict, baseline/candidate comparison, quality-lift claim flag, safe-failure status, refetch URL |
+| `ExecutionAuthorityLedgerProjection` | latest `ExecutionAuthorityRecord`, `BoundedAgentOutputRecord`, approval decision, requested scope, sandbox boundary, rollback/evidence/audit refs, blocked preconditions, summary, refetch URL |
 
 Example DecisionQueueProjection:
 
@@ -869,6 +875,29 @@ Behavior rules:
 - `fallback_required` gate는 `manual_prompt_handoff` 또는 `official_codex_fallback` 중 하나를 explicit `fallbackLane`으로 가져야 한다.
 - source refs의 `required`/`stale` metadata는 boolean으로 명시해야 하며, 누락 또는 string coercion은 validation error다.
 - 어떤 DTO, repository row, adapter port도 submit/write, credential custody, hidden browser action, live adapter execution을 수행하거나 권한으로 표현하지 않는다.
+
+## Phase 3 Execution Authority DTO checklist
+
+Phase 3 PR-01은 `36-phase3-controlled-execution-contract.md`의 common ledger/authority slice만 code surface로 승격한다. 아래 surface는 adapter 실행을 열지 않고, 이후 `file_diff` / `shell_command` / `browser_action` slice가 참조할 approval/evidence/audit ledger를 고정한다.
+
+| Surface | Exact current name | Implementation note |
+| --- | --- | --- |
+| ProductEngine command | `CreateExecutionAuthority` | `BoundedAgentOutputRecord`, preview hash, requested scope, approval decision, sandbox/rollback/evidence/audit refs를 deterministic record로 닫는다. |
+| ProductEngine event | `ExecutionAuthorityRecorded` | approval is `approved`, preview hash/rollback/sandbox preconditions pass, and execution result remains `not_run`; no adapter effect is queued. |
+| ProductEngine event | `ExecutionAuthorityBlocked` | missing source/preview/approval/rollback, preview hash mismatch, credential requirement, sandbox failure, rejected/revoked/expired approval을 blocked ledger record로 저장한다. |
+| Projection | `ExecutionAuthorityLedgerProjection` | latest authority record, same-ledger bounded output, blocked preconditions, summary, and refetch URL을 반환한다. `currentStatus`는 `preview_only`, `ready_for_execution`, `running`, `blocked`, `closed`로 닫혀 있으며 `blockedPreconditions`는 latest blocked record의 `blockReasons`와 일치해야 한다. |
+| Record DTO | `ExecutionAuthorityRecord` | `actionClass`, `approvalDecision`, explicit-boundary `requestedScope`, `sandboxBoundary`, `rollbackReference`, `executionResult`, `evidenceRefs`, `auditRefs` closed field family다. |
+| Bounded output DTO | `BoundedAgentOutputRecord` | source/evidence/approval-linked agent output only; unlinked output is suggestion/preview, not execution authority. |
+| Storage repository | `executionAuthorityRepository` | `execution_authority_records`와 `bounded_agent_output_records`에 query columns plus JSON refs를 저장한다. |
+| Deterministic output type | `execution_authority_record` | reducer output에서 authority record ref와 blocked-precondition evidence를 추적한다. |
+
+Behavior rules:
+
+- `approvalDecision` lifecycle is closed to `pending`, `approved`, `rejected`, `revoked`, and `expired`.
+- `executionResult` lifecycle is closed to `not_run`, `running`, `blocked`, `completed`, `failed`, and `partial`, but this slice only creates `not_run` or `blocked`.
+- `approved` authority still does not execute an adapter; it only proves that future adapter slices may look up an unexpired approved record. `external_mutation_preview_only` uses `currentStatus=preview_only` so it is visible but not executable.
+- missing planning source, missing preview, preview hash mismatch, missing approval, expired/rejected/revoked approval, missing rollback, credential value requirement, and sandbox failure must persist as `blocked` evidence/audit refs.
+- DTOs and projections must not contain credential values, session cookies, API key values, or raw secret values.
 
 ## Validation notes
 
