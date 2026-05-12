@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach } from "vitest";
@@ -38,6 +38,7 @@ import {
   localDatabaseUrlFromAppDataDir
 } from "@solo-superman/db";
 import { createProductEngineCommandService } from "./product-engine/command-service";
+import { hashFileDiffPreview } from "./product-engine/file-diff-adapter";
 import { CodexRuntimeUnavailableError, createCodexRuntimeAdapter, fixtureCodexPreviewOutput } from "./runtime";
 import { createSidecarApp } from "./server";
 
@@ -351,6 +352,30 @@ async function createExecutionAuthorityForTest(
     projection,
     recordId: latestRecord.recordId as string
   };
+}
+
+function fileDiffFixture(path: string, beforeLine: string, afterLine: string) {
+  return [
+    `diff --git a/${path} b/${path}`,
+    `--- a/${path}`,
+    `+++ b/${path}`,
+    "@@ -1 +1 @@",
+    `-${beforeLine}`,
+    `+${afterLine}`,
+    ""
+  ].join("\n");
+}
+
+function fileDiffCreateFixture(path: string, contentLine: string) {
+  return [
+    `diff --git a/${path} b/${path}`,
+    "new file mode 100644",
+    "--- /dev/null",
+    `+++ b/${path}`,
+    "@@ -0,0 +1 @@",
+    `+${contentLine}`,
+    ""
+  ].join("\n");
 }
 
 function planningHandoffSourceRefsFixture(idSuffix: string): readonly PlanningHandoffSourceRefDto[] {
@@ -3726,6 +3751,342 @@ describe("PR-02 sidecar health shell", () => {
       expect(looseTimestampPreflightBody.error).toMatchObject({
         code: "VALIDATION_FAILED",
         message: "requestedAt must be an ISO timestamp."
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("executes file_diff only after exact authority, path, rollback, evidence, and audit checks", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const workspaceRoot = await makeTempAppDataDir();
+      await mkdir(join(workspaceRoot, "packages/contracts/src"), { recursive: true });
+      await writeFile(join(workspaceRoot, "packages/contracts/src/file-diff-target.ts"), "export const value = 1;\n");
+
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "A file_diff controlled adapter route test idea"
+      );
+      const diff = fileDiffFixture(
+        "packages/contracts/src/file-diff-target.ts",
+        "export const value = 1;",
+        "export const value = 2;"
+      );
+      const previewArtifactHash = hashFileDiffPreview(diff);
+      const { recordId } = await createExecutionAuthorityForTest(storageApp, sessionId, "file_diff_apply", {
+        previewArtifactHash,
+        reviewedPreviewArtifactHash: previewArtifactHash,
+        requestedScope: {
+          workspaceRef: `workspace:${workspaceRoot}`,
+          filePathGlobs: ["packages/contracts/src/**"]
+        }
+      });
+      const postFileDiff = (targetRecordId: string, body: Readonly<Record<string, unknown>>) =>
+        storageApp.request(`/api/v1/execution-authorities/${targetRecordId}/file-diff`, {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
+        });
+      const requestBody = {
+        sessionId,
+        idempotencyKey: "file-diff:apply",
+        previewArtifactHash,
+        requestedAt: "2026-05-13T00:01:00.000Z",
+        approvalExpiresAt: "2026-05-13T00:05:00.000Z",
+        workspaceRoot,
+        unifiedDiff: diff
+      };
+
+      const applied = await postFileDiff(recordId, requestBody);
+      const appliedBody = await jsonBody(applied);
+
+      expect(applied.status).toBe(200);
+      expect(appliedBody.data).toMatchObject({
+        kind: "FileDiffExecutionResult",
+        authorityRecordId: recordId,
+        status: "completed",
+        changedFiles: [
+          {
+            path: "packages/contracts/src/file-diff-target.ts",
+            additions: 1,
+            deletions: 1
+          }
+        ],
+        diffStats: {
+          fileCount: 1,
+          additions: 1,
+          deletions: 1
+        },
+        rollbackReference: {
+          kind: "git_diff_reverse"
+        },
+        evidenceRefs: expect.arrayContaining([
+          expect.stringContaining("file_diff:changed_files:packages/contracts/src/file-diff-target.ts")
+        ]),
+        auditRefs: expect.arrayContaining(["audit:file_diff:file-diff:apply"])
+      });
+      await expect(readFile(join(workspaceRoot, "packages/contracts/src/file-diff-target.ts"), "utf8")).resolves.toBe(
+        "export const value = 2;\n"
+      );
+
+      const fetchedAfterApply = await storageApp.request(`/api/v1/sessions/${sessionId}/execution-authority`, {
+        headers: authHeaders()
+      });
+      const fetchedAfterApplyBody = await jsonBody(fetchedAfterApply);
+
+      expect(fetchedAfterApplyBody.data).toMatchObject({
+        latestRecord: {
+          recordId,
+          executionResult: "completed",
+          evidenceRefs: expect.arrayContaining([
+            expect.stringContaining("file_diff:changed_files:packages/contracts/src/file-diff-target.ts")
+          ]),
+          auditRefs: expect.arrayContaining(["audit:file_diff:file-diff:apply"])
+        }
+      });
+
+      const replayApplied = await postFileDiff(recordId, requestBody);
+      const replayAppliedBody = await jsonBody(replayApplied);
+
+      expect(replayApplied.status).toBe(200);
+      expect(replayAppliedBody.data).toMatchObject({
+        status: "completed",
+        blockReasons: []
+      });
+
+      const fetchedAfterReplay = await storageApp.request(`/api/v1/sessions/${sessionId}/execution-authority`, {
+        headers: authHeaders()
+      });
+      const fetchedAfterReplayBody = await jsonBody(fetchedAfterReplay);
+
+      expect(fetchedAfterReplayBody.data).toMatchObject({
+        latestRecord: {
+          recordId,
+          executionResult: "completed",
+          blockReasons: []
+        }
+      });
+
+      const tamperedReplay = await postFileDiff(recordId, {
+        ...requestBody,
+        idempotencyKey: "file-diff:tampered-replay",
+        previewArtifactHash: "sha256:tampered"
+      });
+      const tamperedReplayBody = await jsonBody(tamperedReplay);
+      const tamperedReplayData = tamperedReplayBody.data as Readonly<Record<string, unknown>>;
+
+      expect(tamperedReplay.status).toBe(200);
+      expect(tamperedReplayData).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "preview_hash_mismatch"
+          })
+        ])
+      });
+      expect(tamperedReplayData.auditRefs).not.toContain("audit:file_diff:file-diff:tampered-replay");
+
+      const fetchedAfterTamperedReplay = await storageApp.request(
+        `/api/v1/sessions/${sessionId}/execution-authority`,
+        {
+          headers: authHeaders()
+        }
+      );
+      const fetchedAfterTamperedReplayBody = await jsonBody(fetchedAfterTamperedReplay);
+
+      expect(fetchedAfterTamperedReplayBody.data).toMatchObject({
+        latestRecord: {
+          recordId,
+          executionResult: "completed",
+          blockReasons: []
+        }
+      });
+
+      const mismatchDiff = fileDiffFixture(
+        "packages/contracts/src/hash-mismatch.ts",
+        "export const value = 1;",
+        "export const value = 2;"
+      );
+      const mismatchHash = hashFileDiffPreview(mismatchDiff);
+      const { recordId: mismatchRecordId } = await createExecutionAuthorityForTest(
+        storageApp,
+        sessionId,
+        "file_diff_hash_mismatch",
+        {
+          expectedStateVersion: 2,
+          previewArtifactHash: mismatchHash,
+          reviewedPreviewArtifactHash: mismatchHash,
+          requestedScope: {
+            workspaceRef: `workspace:${workspaceRoot}`,
+            filePathGlobs: ["packages/contracts/src/**"]
+          }
+        }
+      );
+      const hashMismatch = await postFileDiff(mismatchRecordId, {
+        ...requestBody,
+        idempotencyKey: "file-diff:hash-mismatch",
+        previewArtifactHash: mismatchHash,
+        unifiedDiff: diff
+      });
+      const hashMismatchBody = await jsonBody(hashMismatch);
+
+      expect(hashMismatch.status).toBe(200);
+      expect(hashMismatchBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "preview_hash_mismatch"
+          })
+        ])
+      });
+
+      const outsideDiff = fileDiffFixture(
+        "packages/secrets.env",
+        "SECRET=old",
+        "SECRET=new"
+      );
+      const outsideHash = hashFileDiffPreview(outsideDiff);
+      const { recordId: outsideRecordId } = await createExecutionAuthorityForTest(
+        storageApp,
+        sessionId,
+        "file_diff_outside_scope",
+        {
+          expectedStateVersion: 3,
+          previewArtifactHash: outsideHash,
+          reviewedPreviewArtifactHash: outsideHash,
+          requestedScope: {
+            workspaceRef: `workspace:${workspaceRoot}`,
+            filePathGlobs: ["packages/contracts/src/**"]
+          }
+        }
+      );
+      const outside = await postFileDiff(outsideRecordId, {
+        ...requestBody,
+        idempotencyKey: "file-diff:outside-scope",
+        previewArtifactHash: outsideHash,
+        unifiedDiff: outsideDiff
+      });
+      const outsideBody = await jsonBody(outside);
+
+      expect(outside.status).toBe(200);
+      expect(outsideBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "sandbox_failure"
+          }),
+          expect.objectContaining({
+            code: "credential_value_required"
+          })
+        ])
+      });
+
+      const missingRollbackHash = hashFileDiffPreview(diff);
+      const { recordId: missingRollbackRecordId } = await createExecutionAuthorityForTest(
+        storageApp,
+        sessionId,
+        "file_diff_missing_rollback",
+        {
+          expectedStateVersion: 4,
+          previewArtifactHash: missingRollbackHash,
+          reviewedPreviewArtifactHash: missingRollbackHash,
+          requestedScope: {
+            workspaceRef: `workspace:${workspaceRoot}`,
+            filePathGlobs: ["packages/contracts/src/**"]
+          },
+          rollbackReference: undefined,
+          preconditionChecks: {
+            planningSourceExists: true,
+            previewArtifactExists: true,
+            previewHashMatches: true,
+            rollbackAvailable: false,
+            credentialValueRequired: false,
+            sandboxEnforced: true
+          }
+        }
+      );
+      const missingRollback = await postFileDiff(missingRollbackRecordId, {
+        ...requestBody,
+        idempotencyKey: "file-diff:missing-rollback"
+      });
+      const missingRollbackBody = await jsonBody(missingRollback);
+
+      expect(missingRollback.status).toBe(200);
+      expect(missingRollbackBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "missing_rollback"
+          })
+        ])
+      });
+
+      await writeFile(join(workspaceRoot, "packages/contracts/src/existing-create-target.ts"), "keep me\n");
+      const createOverwriteDiff = fileDiffCreateFixture(
+        "packages/contracts/src/existing-create-target.ts",
+        "overwrite"
+      );
+      const createOverwriteHash = hashFileDiffPreview(createOverwriteDiff);
+      const { recordId: createOverwriteRecordId } = await createExecutionAuthorityForTest(
+        storageApp,
+        sessionId,
+        "file_diff_create_overwrite",
+        {
+          expectedStateVersion: 5,
+          previewArtifactHash: createOverwriteHash,
+          reviewedPreviewArtifactHash: createOverwriteHash,
+          requestedScope: {
+            workspaceRef: `workspace:${workspaceRoot}`,
+            filePathGlobs: ["packages/contracts/src/**"]
+          }
+        }
+      );
+      const createOverwrite = await postFileDiff(createOverwriteRecordId, {
+        ...requestBody,
+        idempotencyKey: "file-diff:create-overwrite",
+        previewArtifactHash: createOverwriteHash,
+        unifiedDiff: createOverwriteDiff
+      });
+      const createOverwriteBody = await jsonBody(createOverwrite);
+
+      expect(createOverwrite.status).toBe(200);
+      expect(createOverwriteBody.data).toMatchObject({
+        status: "failed",
+        changedFiles: [],
+        diffStats: {
+          fileCount: 0,
+          additions: 0,
+          deletions: 0
+        },
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "sandbox_failure",
+            message: expect.stringContaining("refused to overwrite existing target")
+          })
+        ])
+      });
+      await expect(readFile(join(workspaceRoot, "packages/contracts/src/existing-create-target.ts"), "utf8")).resolves.toBe(
+        "keep me\n"
+      );
+
+      const fetchedAfterCreateOverwrite = await storageApp.request(`/api/v1/sessions/${sessionId}/execution-authority`, {
+        headers: authHeaders()
+      });
+      const fetchedAfterCreateOverwriteBody = await jsonBody(fetchedAfterCreateOverwrite);
+
+      expect(fetchedAfterCreateOverwriteBody.data).toMatchObject({
+        latestRecord: {
+          recordId: createOverwriteRecordId,
+          executionResult: "failed",
+          blockReasons: [],
+          evidenceRefs: expect.arrayContaining(["file_diff:sandbox_failure"])
+        },
+        blockedPreconditions: []
       });
     } finally {
       await storage.close();

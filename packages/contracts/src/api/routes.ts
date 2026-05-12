@@ -455,6 +455,14 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "executeFileDiff",
+    clientName: "executeFileDiff",
+    method: "POST",
+    path: "/api/v1/execution-authorities/:authorityRecordId/file-diff",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
     routeId: "getCommandStatus",
     clientName: "getCommandStatus",
     method: "GET",
@@ -624,4 +632,13 @@ export const PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...PHASE3_PR02_EXECUTION_AUTHORITY_ROUTE_IDS
 ] as const satisfies readonly ApiRouteId[];
 
-export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS;
+export const PHASE3_PR03_FILE_DIFF_ROUTE_IDS = [
+  "executeFileDiff"
+] as const satisfies readonly ApiRouteId[];
+
+export const PHASE3_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  ...PHASE3_PR03_FILE_DIFF_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE3_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS;

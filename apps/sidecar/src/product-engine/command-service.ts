@@ -32,11 +32,15 @@ import {
   type EffectTaskDto,
   type EffectTaskId,
   type EventId,
+  type ExecuteFileDiffRequest,
   type ExecutionAuthorityBlockCode,
   type ExecutionAuthorityBlockReasonDto,
   type ExecutionAuthorityLedgerProjection,
   type ExecutionAuthorityPreflightResult,
   type ExecutionAuthorityRecord,
+  type FileDiffChangedFileDto,
+  type FileDiffExecutionResult,
+  type FileDiffStatsDto,
   type FounderBriefProjection,
   type LivingSpecProjection,
   type PendingEffectSummaryDto,
@@ -124,6 +128,7 @@ import {
   type CodexRuntimeAdapter,
   type CodexRuntimePreviewInput
 } from "../runtime";
+import { applyFileDiff } from "./file-diff-adapter";
 import { buildPhase15bHintExport, buildPhase15bHintProjection } from "./phase15b-hint-projection";
 
 export class ProductEngineServiceError extends Error {
@@ -172,6 +177,10 @@ export interface RunSessionCommandInput {
 }
 
 export interface ValidateExecutionAuthorityPreflightInput extends ValidateExecutionAuthorityPreflightRequest {
+  readonly authorityRecordId: string;
+}
+
+export interface ExecuteFileDiffInput extends ExecuteFileDiffRequest {
   readonly authorityRecordId: string;
 }
 
@@ -915,6 +924,82 @@ function executionAuthorityPreflightResult(input: {
     auditRefs,
     refetchUrl: `/api/v1/execution-authorities/${input.request.authorityRecordId}/preflight`
   };
+}
+
+function fileDiffStats(changedFiles: readonly FileDiffChangedFileDto[]): FileDiffStatsDto {
+  return changedFiles.reduce<FileDiffStatsDto>(
+    (stats, file) => ({
+      fileCount: stats.fileCount + 1,
+      additions: stats.additions + file.additions,
+      deletions: stats.deletions + file.deletions
+    }),
+    {
+      fileCount: 0,
+      additions: 0,
+      deletions: 0
+    }
+  );
+}
+
+function uniqueRefs(values: readonly string[]) {
+  return [...new Set(values.filter((value) => value.trim().length > 0))];
+}
+
+function fileDiffExecutionResult(input: {
+  readonly request: ExecuteFileDiffInput;
+  readonly checkedAt: string;
+  readonly record?: ExecutionAuthorityRecord;
+  readonly status: FileDiffExecutionResult["status"];
+  readonly changedFiles?: readonly FileDiffChangedFileDto[];
+  readonly diffStats?: FileDiffStatsDto;
+  readonly blockReasons: readonly ExecutionAuthorityBlockReasonDto[];
+  readonly evidenceRefs?: readonly string[];
+  readonly auditRefs?: readonly string[];
+  readonly includeRequestAuditRef?: boolean;
+}): FileDiffExecutionResult {
+  const changedFiles = input.changedFiles ?? [];
+  const blockEvidenceRefs = input.blockReasons.flatMap((reason) => reason.evidenceRefs);
+  const requestAuditRefs = input.includeRequestAuditRef === false
+    ? []
+    : [`audit:file_diff:${input.request.idempotencyKey}`];
+  const evidenceRefs = input.record
+    ? uniqueRefs([...(input.record.evidenceRefs ?? []), ...(input.evidenceRefs ?? []), ...blockEvidenceRefs])
+    : uniqueRefs([...(input.evidenceRefs ?? []), ...blockEvidenceRefs]);
+  const auditRefs = input.record
+    ? uniqueRefs([...(input.record.auditRefs ?? []), ...requestAuditRefs, ...(input.auditRefs ?? [])])
+    : uniqueRefs([...requestAuditRefs, ...(input.auditRefs ?? [])]);
+
+  return {
+    kind: "FileDiffExecutionResult",
+    authorityRecordId: input.request.authorityRecordId,
+    idempotencyKey: input.request.idempotencyKey,
+    previewArtifactHash: input.request.previewArtifactHash,
+    requestedAt: input.request.requestedAt,
+    checkedAt: input.checkedAt,
+    status: input.status,
+    changedFiles,
+    diffStats: input.diffStats ?? fileDiffStats(changedFiles),
+    blockReasons: input.blockReasons,
+    rollbackReference: input.record?.rollbackReference ?? null,
+    evidenceRefs,
+    auditRefs,
+    refetchUrl: `/api/v1/sessions/${input.request.sessionId}/execution-authority`
+  };
+}
+
+function existingFileDiffExecutionStatus(
+  record: ExecutionAuthorityRecord
+): FileDiffExecutionResult["status"] | null {
+  switch (record.executionResult) {
+    case "blocked":
+    case "completed":
+    case "failed":
+    case "partial":
+      return record.executionResult;
+    case "not_run":
+    case "running":
+      return null;
+  }
 }
 
 function executionAuthorityPreflightBlockReasons(
@@ -4153,6 +4238,133 @@ export function createProductEngineCommandService(
         ...(projection ? { record: projection.latestRecord } : {}),
         blockReasons: executionAuthorityPreflightBlockReasons(input, projection)
       });
+    },
+
+    async executeFileDiff(input: ExecuteFileDiffInput): Promise<FileDiffExecutionResult> {
+      const session = await createProjectRepository(storage.db).getSession(input.sessionId);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: input.sessionId
+        });
+      }
+
+      parseExecutionAuthorityTimestamp(input.requestedAt, "requestedAt");
+      if (input.approvalExpiresAt) {
+        parseExecutionAuthorityTimestamp(input.approvalExpiresAt, "approvalExpiresAt");
+      }
+
+      const repository = createExecutionAuthorityRepository(storage.db);
+      const projection = await repository.getById(input.authorityRecordId);
+
+      if (projection && projection.sessionId !== input.sessionId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "authorityRecordId must belong to the request session.", {
+          authorityRecordId: input.authorityRecordId,
+          routeSessionId: input.sessionId,
+          authoritySessionId: projection.sessionId
+        });
+      }
+
+      const preflightInput: ValidateExecutionAuthorityPreflightInput = {
+        authorityRecordId: input.authorityRecordId,
+        sessionId: input.sessionId,
+        idempotencyKey: input.idempotencyKey,
+        actionClass: "file_diff",
+        previewArtifactHash: input.previewArtifactHash,
+        requestedAt: input.requestedAt,
+        ...(input.approvalExpiresAt ? { approvalExpiresAt: input.approvalExpiresAt } : {})
+      };
+      const preflightBlockReasons = executionAuthorityPreflightBlockReasons(preflightInput, projection);
+      const checkedAt = new Date().toISOString();
+
+      if (!projection) {
+        return fileDiffExecutionResult({
+          request: input,
+          checkedAt,
+          status: "blocked",
+          blockReasons: preflightBlockReasons
+        });
+      }
+
+      const existingStatus = existingFileDiffExecutionStatus(projection.latestRecord);
+
+      if (existingStatus) {
+        if (
+          projection.latestRecord.actionClass !== "file_diff" ||
+          projection.latestRecord.previewArtifactHash !== input.previewArtifactHash
+        ) {
+          return fileDiffExecutionResult({
+            request: input,
+            checkedAt,
+            record: projection.latestRecord,
+            status: "blocked",
+            blockReasons: preflightBlockReasons,
+            includeRequestAuditRef: false
+          });
+        }
+
+        return fileDiffExecutionResult({
+          request: input,
+          checkedAt,
+          record: projection.latestRecord,
+          status: existingStatus,
+          blockReasons: existingStatus === "blocked" ? projection.latestRecord.blockReasons : [],
+          includeRequestAuditRef: false
+        });
+      }
+
+      if (projection.latestRecord.executionResult !== "not_run") {
+        return fileDiffExecutionResult({
+          request: input,
+          checkedAt,
+          record: projection.latestRecord,
+          status: "blocked",
+          blockReasons: preflightBlockReasons,
+          includeRequestAuditRef: false
+        });
+      }
+
+      const fileDiffOutput = preflightBlockReasons.length
+        ? {
+            status: "blocked" as const,
+            changedFiles: [],
+            diffStats: fileDiffStats([]),
+            blockReasons: preflightBlockReasons,
+            evidenceRefs: [],
+            auditRefs: []
+          }
+        : await applyFileDiff({
+            record: projection.latestRecord,
+            idempotencyKey: input.idempotencyKey,
+            workspaceRoot: input.workspaceRoot,
+            unifiedDiff: input.unifiedDiff
+          });
+      const result = fileDiffExecutionResult({
+        request: input,
+        checkedAt,
+        record: projection.latestRecord,
+        status: fileDiffOutput.status,
+        changedFiles: fileDiffOutput.changedFiles,
+        diffStats: fileDiffOutput.diffStats,
+        blockReasons: fileDiffOutput.blockReasons,
+        evidenceRefs: fileDiffOutput.evidenceRefs,
+        auditRefs: fileDiffOutput.auditRefs
+      });
+      const updatedProjection = await repository.updateExecutionOutcome({
+        recordId: input.authorityRecordId,
+        executionResult: result.status,
+        blockReasons: result.status === "blocked" ? result.blockReasons : [],
+        evidenceRefs: result.evidenceRefs,
+        auditRefs: result.auditRefs
+      });
+
+      if (!updatedProjection) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Execution authority record was not found.", {
+          authorityRecordId: input.authorityRecordId
+        });
+      }
+
+      return result;
     },
 
     async getCommandStatus(commandIdValue: CommandId): Promise<StatusEndpointDto | null> {

@@ -9,6 +9,7 @@ import {
   type ExecutionAuthorityBlockReasonDto,
   type ExecutionAuthorityLedgerProjection,
   type ExecutionAuthorityRecord,
+  type ExecutionResultState,
   type ProjectId,
   type SchemaVersion,
   type SessionId,
@@ -25,6 +26,14 @@ export interface SaveExecutionAuthorityLedgerProjectionInput {
   readonly sourceEventId: EventId;
   readonly sourceStateVersion: StateVersion;
   readonly projection: ExecutionAuthorityLedgerProjection;
+}
+
+export interface UpdateExecutionAuthorityOutcomeInput {
+  readonly recordId: string;
+  readonly executionResult: Extract<ExecutionResultState, "blocked" | "completed" | "failed" | "partial">;
+  readonly blockReasons: readonly ExecutionAuthorityBlockReasonDto[];
+  readonly evidenceRefs: readonly string[];
+  readonly auditRefs: readonly string[];
 }
 
 function assertAuthorityRecordId(recordId: string) {
@@ -255,6 +264,23 @@ export function createExecutionAuthorityRepository(db: SoloDatabaseExecutor) {
       const row = rows[0];
 
       return row ? getProjectionById(row.id) : null;
+    },
+
+    async updateExecutionOutcome(
+      input: UpdateExecutionAuthorityOutcomeInput
+    ): Promise<ExecutionAuthorityLedgerProjection | null> {
+      const rows = await db
+        .update(executionAuthorityRecords)
+        .set({
+          executionResult: input.executionResult,
+          blockReasonsJson: stringifyJson(input.blockReasons),
+          evidenceRefsJson: stringifyJson(input.evidenceRefs),
+          auditRefsJson: stringifyJson(input.auditRefs)
+        })
+        .where(eq(executionAuthorityRecords.id, input.recordId))
+        .returning({ id: executionAuthorityRecords.id });
+
+      return rows[0] ? getProjectionById(rows[0].id) : null;
     }
   };
 }

@@ -213,6 +213,45 @@ export interface ExecutionAuthorityPreflightResult {
   readonly refetchUrl: string;
 }
 
+export interface ExecuteFileDiffRequest {
+  readonly sessionId: SessionId;
+  readonly idempotencyKey: string;
+  readonly previewArtifactHash: string;
+  readonly requestedAt: string;
+  readonly approvalExpiresAt?: string;
+  readonly workspaceRoot: string;
+  readonly unifiedDiff: string;
+}
+
+export interface FileDiffChangedFileDto {
+  readonly path: string;
+  readonly additions: number;
+  readonly deletions: number;
+}
+
+export interface FileDiffStatsDto {
+  readonly fileCount: number;
+  readonly additions: number;
+  readonly deletions: number;
+}
+
+export interface FileDiffExecutionResult {
+  readonly kind: "FileDiffExecutionResult";
+  readonly authorityRecordId: string;
+  readonly idempotencyKey: string;
+  readonly previewArtifactHash: string;
+  readonly requestedAt: string;
+  readonly checkedAt: string;
+  readonly status: Extract<ExecutionResultState, "blocked" | "completed" | "failed" | "partial">;
+  readonly changedFiles: readonly FileDiffChangedFileDto[];
+  readonly diffStats: FileDiffStatsDto;
+  readonly blockReasons: readonly ExecutionAuthorityBlockReasonDto[];
+  readonly rollbackReference: ExecutionRollbackReference | null;
+  readonly evidenceRefs: readonly string[];
+  readonly auditRefs: readonly string[];
+  readonly refetchUrl: string;
+}
+
 export class ExecutionAuthorityValidationError extends Error {
   readonly issues: readonly string[];
 

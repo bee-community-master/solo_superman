@@ -213,6 +213,18 @@ The common ledger/authority slice is represented in code by:
 - `POST /api/v1/sessions/:sessionId/execution-authority`, `GET /api/v1/sessions/:sessionId/execution-authority`, and `POST /api/v1/execution-authorities/:authorityRecordId/preflight` for local-token, loopback, explicit-CORS, idempotency-key, preview-hash, authority-id, and expiry-check route coverage.
 - `ExecutionAuthorityRecorded` means the authority ledger is approved and `executionResult=not_run`; it does not mean a file, shell, browser, deploy, external-production, or credential operation executed.
 
+### Slice 1 current code-backed surface
+
+The `file_diff` slice is represented in code by:
+
+- `ExecuteFileDiffRequest` and `FileDiffExecutionResult` in `packages/contracts/src/projections/execution-authority.ts`.
+- `POST /api/v1/execution-authorities/:authorityRecordId/file-diff` in the sidecar route catalog and Hono router.
+- `apps/sidecar/src/product-engine/file-diff-adapter.ts`, which hashes the exact unified diff body, validates the authority record, checks the approved workspace and file globs, blocks sensitive paths and symlink escape, applies text hunks without invoking shell commands, and returns changed files plus diff stats.
+- `executionAuthorityRepository.updateExecutionOutcome`, which persists `completed`, `blocked`, `failed`, or `partial` terminal state plus evidence/audit refs onto the same `ExecutionAuthorityRecord` so the user-visible ledger does not hide failed/blocked attempts.
+- Route tests cover happy-path application in an isolated temp workspace, preview hash mismatch, path/sensitive-file blocking, and missing rollback blocking.
+
+`file_diff` remains narrower than future shell/browser execution: it does not run shell commands, browser actions, deploys, external-production mutations, destructive delete/reset operations, or credential reads.
+
 ## MVP route and docs ownership
 
 - This document owns Phase 3 policy, prerequisite gate, action-class sequence, non-goals, deferred boundaries, and acceptance criteria.

@@ -23,6 +23,8 @@ import {
   PHASE1_QUEUE_RECOVERY_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PHASE3_PR02_EXECUTION_AUTHORITY_ROUTE_IDS,
   PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  PHASE3_PR03_FILE_DIFF_ROUTE_IDS,
+  PHASE3_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
@@ -360,7 +362,9 @@ describe("API route catalog", () => {
       ...PHASE1_QUEUE_RECOVERY_MOUNTED_PRODUCT_API_ROUTE_IDS,
       ...PHASE3_PR02_EXECUTION_AUTHORITY_ROUTE_IDS
     ]);
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(
+      expect.arrayContaining([...PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS])
+    );
     expect(routeById.get("createExecutionAuthority")).toMatchObject({
       method: "POST",
       path: "/api/v1/sessions/:sessionId/execution-authority",
@@ -376,6 +380,23 @@ describe("API route catalog", () => {
     expect(routeById.get("validateExecutionAuthorityPreflight")).toMatchObject({
       method: "POST",
       path: "/api/v1/execution-authorities/:authorityRecordId/preflight",
+      commandType: "none",
+      implementedInPr01: false
+    });
+  });
+
+  it("mounts the Phase 3 PR-03 file_diff controlled adapter after authority preflight", () => {
+    const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
+
+    expect(PHASE3_PR03_FILE_DIFF_ROUTE_IDS).toEqual(["executeFileDiff"]);
+    expect(PHASE3_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual([
+      ...PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      ...PHASE3_PR03_FILE_DIFF_ROUTE_IDS
+    ]);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE3_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(routeById.get("executeFileDiff")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/execution-authorities/:authorityRecordId/file-diff",
       commandType: "none",
       implementedInPr01: false
     });

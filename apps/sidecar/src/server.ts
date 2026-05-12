@@ -28,6 +28,7 @@ import {
   type CancelResearchRunRequest,
   type CreateExecutionAuthorityPayload,
   type CreateExecutionAuthorityRequest,
+  type ExecuteFileDiffRequest,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
   MANUAL_RESEARCH_SOURCE_CATEGORIES,
   type CreatePlanningHandoffRequest,
@@ -295,6 +296,14 @@ function stringFromBody(value: unknown, fieldName: string) {
   }
 
   return value.trim();
+}
+
+function stringContentFromBody(value: unknown, fieldName: string) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be a non-empty string.`);
+  }
+
+  return value;
 }
 
 function optionalStringArrayFromBody(value: unknown, fieldName: string) {
@@ -931,6 +940,16 @@ const EXECUTION_AUTHORITY_PREFLIGHT_KEYS = [
   "requestedAt",
   "approvalExpiresAt"
 ] as const satisfies readonly (keyof ValidateExecutionAuthorityPreflightRequest)[];
+const FILE_DIFF_EXECUTION_KEYS = [
+  "scaffoldOnly",
+  "sessionId",
+  "idempotencyKey",
+  "previewArtifactHash",
+  "requestedAt",
+  "approvalExpiresAt",
+  "workspaceRoot",
+  "unifiedDiff"
+] as const;
 
 function executionAuthorityActionClassFromBody(value: unknown, fieldName: string): ExecutionAuthorityActionClass {
   const actionClass = stringFromBody(value, fieldName);
@@ -1281,6 +1300,26 @@ function validateExecutionAuthorityPreflightRequestFromBody(
     previewArtifactHash: stringFromBody(body.previewArtifactHash, "previewArtifactHash"),
     requestedAt: isoTimestampFromBody(body.requestedAt, "requestedAt"),
     ...(approvalExpiresAt ? { approvalExpiresAt } : {})
+  };
+}
+
+function executeFileDiffRequestFromBody(body: Readonly<Record<string, unknown>>): ExecuteFileDiffRequest {
+  assertExecutionAuthorityRecordKeys(body, FILE_DIFF_EXECUTION_KEYS, "file_diff execution body");
+
+  if (body.scaffoldOnly !== undefined && body.scaffoldOnly !== true) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "scaffoldOnly must be true when provided.");
+  }
+
+  const approvalExpiresAt = optionalIsoTimestampFromBody(body.approvalExpiresAt, "approvalExpiresAt");
+
+  return {
+    sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    previewArtifactHash: stringFromBody(body.previewArtifactHash, "previewArtifactHash"),
+    requestedAt: isoTimestampFromBody(body.requestedAt, "requestedAt"),
+    ...(approvalExpiresAt ? { approvalExpiresAt } : {}),
+    workspaceRoot: stringFromBody(body.workspaceRoot, "workspaceRoot"),
+    unifiedDiff: stringContentFromBody(body.unifiedDiff, "unifiedDiff")
   };
 }
 
@@ -2057,6 +2096,17 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       const request = validateExecutionAuthorityPreflightRequestFromBody(await jsonBody(context));
 
       return service.validateExecutionAuthorityPreflight({
+        ...request,
+        authorityRecordId: context.req.param("authorityRecordId")
+      });
+    })
+  );
+
+  app.post("/api/v1/execution-authorities/:authorityRecordId/file-diff", async (context) =>
+    withProductEngine(context, async (service) => {
+      const request = executeFileDiffRequestFromBody(await jsonBody(context));
+
+      return service.executeFileDiff({
         ...request,
         authorityRecordId: context.req.param("authorityRecordId")
       });
