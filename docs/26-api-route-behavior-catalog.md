@@ -247,28 +247,33 @@ Endpoint names:
 Placeholder route families:
 
 - Common ledger/authority family
-  - Purpose: create/read `BoundedAgentOutputRecord`, create/read `ExecutionAuthorityRecord`, record approval/rejection/revocation/expiry transitions, and expose audit/evidence/rollback refs.
+  - Purpose: create/read `BoundedAgentOutputRecord`, create/read `ExecutionAuthorityRecord`, record pending/approval/rejection/revocation/expiry transitions, and expose audit/evidence/rollback refs.
   - Request contract: Auth required; local token, loopback, explicit CORS, CSRF/replay/idempotency, preview hash, authority record id, and expiry checks follow 21번.
   - Response/statusUrl: `accepted_with_projection` or `blocked`; no adapter `statusUrl` until an implementation PR introduces a non-blocked execution effect.
   - Effects/SSE/refetch: ledger projection and activity refetch only; no file/shell/browser adapter runs in this family.
-  - Errors/preconditions: missing planning source, missing bounded output, missing preview artifact, preview hash mismatch, missing rollback reference, credential value requirement, expired approval, or sandbox boundary failure returns `blocked`.
+  - State defaults: `approvalDecision` includes `pending`; `executionResult` includes `running`; `cancelled` and `rolled_back` are not MVP execution result states.
+  - Errors/preconditions: missing planning source, missing bounded output, missing preview artifact, preview hash mismatch, missing rollback reference, credential value requirement, pending/rejected/revoked/expired approval, or sandbox boundary failure returns `blocked`.
 - `file_diff` adapter family
   - Purpose: apply an exact approved diff preview to a limited workspace/sandbox after common ledger/authority is green.
   - Response/statusUrl: completed/failed/partial/blocked result with diff stats, changed-file evidence refs, rollback refs, and audit refs.
-  - Errors/preconditions: missing approved unexpired authority, missing `git_diff_reverse` or `filesystem_snapshot`, path outside allowed glob, or preview hash mismatch returns `blocked`.
+  - Rollback/path default: `git_diff_reverse` is the default rollback kind; `filesystem_snapshot` is allowed only as an explicit exception when reverse diff is unsafe or unavailable. Allowed paths stay under the approved project workspace root; `.env*`, credential/secret/key files, home directory paths, repo-outside paths, and symlink escape return `blocked`.
+  - Errors/preconditions: missing approved unexpired authority, missing rollback ref, path outside allowed workspace/glob, sensitive path, or preview hash mismatch returns `blocked`.
 - `shell_command` adapter family
   - Purpose: run only non-destructive allowlisted commands inside a command sandbox after `file_diff` slice is green.
   - Response/statusUrl: completed/failed/partial/blocked result with exit code, duration, stdout/stderr summary, rollback or compensating-action refs, and audit refs.
-  - Errors/preconditions: destructive shell command, deploy, force reset/delete, system setting mutation, credential value requirement, missing allowlist, timeout, or sandbox enforcement failure returns `blocked`.
+  - Allowlist/timeout default: allowed commands are repo `package.json` scripts plus limited read-only diagnostics such as `ls`, `cat`, `rg`, and `git status`. Read-only diagnostics time out at 30 seconds; test/typecheck/lint/docs verify commands time out at 10 minutes; build/full verify commands time out at 20 minutes; dev server commands require preview mode with automatic shutdown/kill evidence.
+  - Errors/preconditions: raw shell mutation outside the allowlist, destructive shell command, deploy, force reset/delete, system setting mutation, credential value requirement, missing allowlist, timeout, or sandbox enforcement failure returns `blocked`.
 - `browser_action` adapter family
-  - Purpose: run approved browser action preview sessions only against local/dev targets by default after `shell_command` slice is green.
+  - Purpose: run approved browser action preview sessions only against loopback-only local targets by default after `shell_command` slice is green.
   - Response/statusUrl: completed/failed/partial/blocked result with screenshot/log refs, target ref, reset/rollback refs, and audit refs.
-  - Errors/preconditions: external-production mutation, blanket/project-level approval, credential/session custody, missing browser reset boundary, or target outside local/dev policy returns `blocked` until a later explicit contract changes the class.
+  - Target default: allowed targets are `localhost`, `127.0.0.1`, `::1`, and explicit local web/sidecar ports. LAN/private IP targets and cloud preview URLs are outside MVP target policy.
+  - Errors/preconditions: external-production mutation, blanket/project-level approval, credential/session custody, missing browser reset boundary, LAN/private/cloud target, or target outside loopback policy returns `blocked` until a later explicit contract changes the class.
 
 Phase 3 route placeholder acceptance:
 
 - The behavior catalog must keep the sequence common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`.
 - A route family cannot claim execution success without `ExecutionAuthorityRecord.approvalDecision = approved`, exact preview hash match, rollback reference, evidence refs, and audit refs.
+- Concrete route naming can follow later implementation slices, but the ProductEngine/application command boundary and these fail-closed defaults are authoritative for #93.
 - Placeholder wording must not imply current-MVP support for credential custody, hosted control plane, destructive shell command allowlist, 모바일 승인, 팀 협업, 제품 결제/과금, external-production mutation, or blanket approval.
 - Once a Phase 3 route is implemented in code, this section must be promoted into concrete endpoint rows and `packages/contracts/src/api/routes.ts` in the same implementation slice.
 

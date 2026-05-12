@@ -737,7 +737,12 @@ const PHASE3_REQUIRED_CONTRACT_SNIPPETS = [
   "no hosted SaaS default",
   "ExecutionAuthorityRecord",
   "approvalDecision",
+  "approvalDecision` starts as `pending`",
+  "executionResult` includes `running`",
   "rollbackReference",
+  "`git_diff_reverse` by default",
+  "Read-only diagnostics time out at 30 seconds",
+  "loopback-only local targets",
   "BoundedAgentOutputRecord",
   "per-run local capability token",
   "loopback-only",
@@ -754,6 +759,41 @@ const PHASE3_REQUIRED_CONTRACT_SNIPPETS = [
   "browser_action",
   "destructive shell command",
   "explicit contract"
+];
+
+const POST_PHASE3_FULL_VISION_DOC_PATH = "docs/37-post-phase3-full-vision-backlog-contract.md";
+
+const POST_PHASE3_FULL_VISION_REQUIRED_REFERENCES = [
+  "docs/README.md",
+  "docs/01-prd.md",
+  "docs/06-research-engine.md",
+  "docs/10-security-privacy-and-approval.md",
+  "docs/11-roadmap-and-phase-boundaries.md",
+  "docs/12-validation-and-dry-run.md",
+  "docs/17-ai-runtime-access-strategy.md",
+  "docs/22-phase1-implementation-sequence.md",
+  "docs/29-phase-capability-implementation-matrix.md",
+  "docs/36-phase3-controlled-execution-contract.md"
+];
+
+const POST_PHASE3_FULL_VISION_REQUIRED_SNIPPETS = [
+  "projectPurposeMode",
+  "business",
+  "personal",
+  "businessCriticIntensity",
+  "default value를 갖지 않는다",
+  "per-run 승인형 로컬 브라우저 자동화",
+  "no credential/2FA/session custody",
+  "account sharing/resale",
+  "redaction preview",
+  "export/delete",
+  "credential/session/secret/2FA/payment/legal-sensitive field",
+  "ServicePageUsePermission",
+  "ImplementationStepLedger",
+  "Windows PowerShell",
+  "`winget` 우선",
+  "#91 `[Tracker] Phase 3 Controlled Execution + Post-Phase3 Full-Vision Backlog`",
+  "#98 was the temporary standalone Post-Phase3 tracker and is closed"
 ];
 
 const PHASE3_REFERENCE_REQUIREMENTS = [
@@ -809,7 +849,10 @@ const PHASE3_REFERENCE_REQUIREMENTS = [
       "common ledger/authority",
       "`file_diff`",
       "`shell_command`",
-      "`browser_action`"
+      "`browser_action`",
+      "ProductEngine/application command boundary",
+      "executionResult` may become `running`",
+      "loopback-only targets"
     ]
   },
   {
@@ -824,7 +867,10 @@ const PHASE3_REFERENCE_REQUIREMENTS = [
       "`file_diff`",
       "`shell_command`",
       "`browser_action`",
-      "blocked"
+      "blocked",
+      "ProductEngine/application command boundary",
+      "Read-only diagnostics time out at 30 seconds",
+      "LAN/private IP targets and cloud preview URLs"
     ]
   },
   {
@@ -918,7 +964,8 @@ const NUMBERED_DOC_SLUGS = [
   "build-slice-serve-learning-loop",
   "phase2.5-browser-automation-preview-contract",
   "phase1-2-closeout-evidence",
-  "phase3-controlled-execution-contract"
+  "phase3-controlled-execution-contract",
+  "post-phase3-full-vision-backlog-contract"
 ];
 
 function numberedDocPath(slug, index) {
@@ -1127,6 +1174,22 @@ function checkPhase12CloseoutConsistency() {
 }
 
 
+function checkPostPhase3FullVisionConsistency() {
+  const docs37 = readText(POST_PHASE3_FULL_VISION_DOC_PATH);
+
+  requireSnippets(
+    "docs/37 Post-Phase3 full-vision backlog contract missing required sections",
+    docs37,
+    POST_PHASE3_FULL_VISION_REQUIRED_SNIPPETS
+  );
+
+  requireDocReferences(
+    "Post-Phase3 full-vision backlog canonical doc reference missing",
+    POST_PHASE3_FULL_VISION_REQUIRED_REFERENCES,
+    "37-post-phase3-full-vision-backlog-contract.md"
+  );
+}
+
 function checkPhase3WebRealignmentConsistency() {
   const docs36 = readText(PHASE3_DOC_PATH);
 
@@ -1188,6 +1251,7 @@ export function runDocContractChecks() {
   checkPhase25DocConsistency();
   checkPhase12CloseoutConsistency();
   checkPhase3WebRealignmentConsistency();
+  checkPostPhase3FullVisionConsistency();
 
   if (!process.exitCode) {
     console.log("doc contract checks passed");

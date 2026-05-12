@@ -445,3 +445,16 @@ If implementation discovers a real contract problem:
 - 23번 문서가 ProductEngine runtime contract, effect queue, retry/idempotency, API/SSE 구현 기준을 고정한다.
 - 12번 dry-run은 PR-09의 integration target으로 남는다.
 - 27번 문서가 전구간 운영·관측성 recovery와 대표 장애 dry-run을 고정한다.
+
+## Post-Phase3 implementation step ledger reference
+
+Phase 1 PR sequence는 이 문서가 소유하지만, Phase 3 이후 “사용자의 프로그램을 실제로 구현해주는” 제품 기능은 `37-post-phase3-full-vision-backlog-contract.md`의 `ImplementationStepLedger` 계약을 따른다. 후속 implementation issue는 다음을 step 완료 조건으로 삼아야 하며, 구현자가 임의로 생략하면 안 된다.
+
+- `TrackerDoc`: 전체 목표, child step, dependency, stop condition.
+- `ImplementationStepDoc`: step 목표, 예상 파일/모듈, 명령, 테스트, rollback, review criteria.
+- `StepCommitRecord`: local git commit SHA와 related step doc.
+- `CodeReviewRecord`: 이전 step commit 대비 correctness/security/API/UX/test review.
+- `CleanCodeReviewRecord`: 단순화, 중복, naming, boundary, dependency creep review.
+- `TestEvidenceRecord`: commands, exit code, 핵심 log, known gaps.
+
+한 step은 local commit, code review, clean-code review, test evidence가 모두 연결되기 전 완료로 표시하지 않는다. 새 dependency, 외부 서비스, production mutation, credential access가 필요하면 현재 step에서 멈추고 별도 approval 또는 issue로 분리한다.

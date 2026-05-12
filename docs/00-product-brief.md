@@ -60,6 +60,15 @@ Solo Superman은 이 문제를 “AI가 대신 기획서를 작성한다”가 �
 2. **리서치한다** - 주장마다 찬성/반대 근거와 불확실성을 만든다.
 3. **기록한다** - 승인된 결정만 Living Product Spec에 반영하고 버전을 남긴다.
 
+## 장기 project purpose mode
+
+Solo Superman의 장기 제품은 모든 아이디어를 사업화 후보로만 다루지 않는다. 프로젝트 생성 시 사용자는 목적을 `business` 또는 `personal`로 선택할 수 있어야 하며, 세부 계약은 `37-post-phase3-full-vision-backlog-contract.md`가 소유한다.
+
+- `business`: 사업화, 출시, 유료화, 고객 검증이 목표다. 시장, 고객, 경쟁, 유료 의향, 채널, 법무/운영 리스크를 비판적으로 묻고 리서치한다.
+- `personal`: 사용자가 본인이 쓰고 싶은 도구나 개인 workflow를 만들려는 경우다. 상업성 리서치는 기본 생략 가능하며 사용성, workflow 빈도, GUI 필요성, 구현 난이도, 로컬 데이터/보안, 유지보수 비용을 중심으로 묻는다.
+
+사업화 모드에서는 사용자가 `businessCriticIntensity`를 선택한다. 강한 비판 질문은 사용자를 공격하기 위한 것이 아니라, 실제 사업 실패 가능성을 먼저 발견해 Founder Brief와 Validation Plan에 남기기 위한 장치다.
+
 ## 가치제안
 
 | 가치 | 설명 | 제품 기능 |

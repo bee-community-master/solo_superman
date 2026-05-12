@@ -305,6 +305,47 @@ Phase 1.5A 공통 완료 조건:
 - blanket delegation.
 - hosted SaaS default, 새 replacement native shell 개발, browser-only DB rewrite.
 
+## Post-Phase3: Full-Vision Backlog Alignment
+
+상세 기능 단위 계약은 `37-post-phase3-full-vision-backlog-contract.md`가 소유한다. 이 section은 #91 unified tracker 안의 Phase 3 #92~#97 Controlled Execution MVP를 대체하지 않고, 같은 tracker 아래 이어지는 Post-Phase3 #99~#106 issue graph의 entry gate를 정의한다.
+
+목표:
+
+- 사업화하려는 사용자와 개인용 도구를 만들려는 사용자의 질문·리서치·완성도 기준을 분리한다.
+- 사업화 모드에서 사용자가 비판 질문 강도를 선택하고, 강도에 따라 business risk completion gate를 다르게 적용한다.
+- ChatGPT Pro 사용자가 API key 없이 사용자가 직접 로그인한 local browser session을 per-run 승인해 깊은 리서치에 활용할 수 있게 한다.
+- 외부 서비스 로그인/페이지 사용은 credential custody가 아니라 page-use permission과 audit/revoke로 다룬다.
+- 실제 프로그램 구현 단계는 tracker doc, implement step doc, step별 commit, code review, clean-code review, test evidence ledger를 남긴다.
+- macOS shell과 Windows PowerShell 설치/실행/검증 경로를 모두 문서화하고 검증한다.
+
+포함:
+
+- `projectPurposeMode`: `business` | `personal`.
+- `businessCriticIntensity`: `balanced` | `strong` | `investor_grade`.
+- ChatGPT Pro per-run local browser delegation preflight: policy/session/data disclosure/approval/fallback.
+- `ServicePageUsePermission` 후보 record와 final submit boundary.
+- `ImplementationStepLedger` 후보 artifact family.
+- macOS + Windows PowerShell setup/run/verify runbook.
+
+진입 조건:
+
+- Phase 3 `ExecutionAuthorityRecord`, approval, rollback, audit evidence가 안정됨.
+- #91 unified tracker 아래 Phase 3 #92~#97과 Post-Phase3 #99~#106의 경계가 중복 없이 정리됨.
+- OpenAI 공식 문서와 약관, browser automation reliability risk를 구현 직전에 재검토할 준비가 있음.
+
+완료 조건:
+
+- tracker issue와 PR-sized child issue가 GitHub에 등록되고, 각 issue가 goal, user value, dependency, in-scope, out-of-scope, data/API/UI notes, acceptance, verification, sequencing을 가진다.
+- `pnpm verify`와 doc-contract verifier가 full-vision backlog cross-reference를 검증한다.
+- 개인용 모드는 상업성 리서치를 생략할 수 있고, 사업화 모드는 선택한 critic intensity에 따라 비판 질문과 completion gate가 작동한다는 테스트 계획이 존재한다.
+
+제외:
+
+- #91 tracker의 Phase 3 #92~#97 common ledger/authority, approval/API security, `file_diff`, `shell_command`, `browser_action` 구현을 재정의하지 않는다.
+- ChatGPT credential/session custody, account sharing/resale, unattended signup/login, 민감/결제/법률/의료/금융/production mutation 자동 submit.
+- hosted web origin의 implicit local control.
+- 프로젝트 단위 장기 ChatGPT background queue 또는 blanket delegation.
+
 ## Phase 4: Optional Cloud and Mobile Monitor
 
 목표:

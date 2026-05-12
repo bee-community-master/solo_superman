@@ -98,6 +98,25 @@ Medium severity의 `research_needed`는 완료를 무조건 막지 않는다. �
 - success criteria.
 - failure criteria.
 
+## Project purpose mode별 Research policy
+
+후속 full-vision backlog에서 Research Engine은 `37-post-phase3-full-vision-backlog-contract.md`의 `projectPurposeMode`를 따른다.
+
+| Mode | Research default | Optional / skipped by default | Evidence gate emphasis |
+| --- | --- | --- | --- |
+| `business` | customer segment, problem validity, competition/alternatives, willingness-to-pay, pricing pressure, acquisition channel, validation experiment, legal/ops/security risk | 없음. 사용자가 명시 defer한 축만 Known Risk로 남김 | high-impact business claim은 pro/con evidence, skeptical search, next validation action 없이는 decision-ready가 아니다 |
+| `personal` | user workflow, repetitive pain, input/output shape, GUI need, implementation feasibility, local data/security, maintenance cost, personal success criteria | market size, willingness-to-pay, investor narrative, acquisition channel, competitor landscape | workflow fit, feasibility, safety, maintainability evidence가 충분하면 completion 가능 |
+
+### Business critic intensity
+
+`business` 모드에서는 `businessCriticIntensity`가 Question Queue와 ResearchNeed 생성에 영향을 준다.
+
+- `balanced`: 주요 decision group마다 최소 1개 이상의 비판/반대 질문 또는 skeptical search를 만든다.
+- `strong`: 매 active batch에 핵심 가설 반박 질문을 최소 1개 포함하고, 고객/문제/유료화/대체재/채널 high-impact gap을 우선한다.
+- `investor_grade`: 가격, 획득 채널, retention proxy, 법무/운영, 시장 타이밍, founder advantage까지 별도 pressure pass와 evidence requirement로 다룬다.
+
+이 설정은 현재 active question batch를 중간에 갈아끼우지 않는다. 새 critical item은 `04-decision-queue.md`의 `queued_next` 정책을 따른다.
+
 ## Evidence Matrix schema
 
 ```yaml
@@ -275,7 +294,7 @@ ResearchNeed
 → if still insufficient: Risk Card + Known Risk + Next Validation Action
 ```
 
-Phase 1에서 Research Engine은 ChatGPT 웹 UI를 직접 자동 조작하지 않는다. ChatGPT Pro 웹 자동화는 Phase 2.5+의 project-level blanket delegation 설명과 risk gate를 거친 preview/gate 후보이며 active execution 권한이 아니다.
+Phase 1에서 Research Engine은 ChatGPT 웹 UI를 직접 자동 조작하지 않는다. ChatGPT Pro 웹 자동화는 Phase 2.5+의 risk gate와 comparative dry-run을 거친 후보이며 active execution 권한이 아니다. Phase 3 이후 첫 live 목표는 `37-post-phase3-full-vision-backlog-contract.md`가 정의한 per-run 승인형 로컬 브라우저 자동화다.
 
 Manual prompt handoff는 다음을 포함해야 한다.
 

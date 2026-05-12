@@ -79,7 +79,7 @@ The Phase 3 sidecar remains local-only.
 - CORS uses an explicit origin allowlist for local web dev/build origins and any temporary legacy host origin.
 - A hosted web origin is not implicitly trusted and cannot obtain local execution authority without a separate explicit local pairing contract.
 - CSRF/replay defense is required for approval and execution routes: approved action requests carry an idempotency key, preview hash, authority record id, and expiry check.
-- Browser actions default to preview/local-dev targets; external-production browser mutation remains blocked unless a later contract creates a narrower approval class.
+- Browser actions default to loopback-only local targets: `localhost`, `127.0.0.1`, `::1`, and explicit local web/sidecar ports. LAN/private IPs and cloud preview URLs are blocked until a later explicit contract changes the target class.
 
 ## ExecutionAuthorityRecord
 
@@ -98,7 +98,7 @@ type ExecutionAuthorityRecord = {
     filePathGlobs?: string[];
     maxDurationMs?: number;
   };
-  approvalDecision: 'approved' | 'rejected' | 'revoked' | 'expired';
+  approvalDecision: 'pending' | 'approved' | 'rejected' | 'revoked' | 'expired';
   approver: {
     actorId: string;
     actorType: 'user' | 'local_operator';
@@ -113,7 +113,7 @@ type ExecutionAuthorityRecord = {
     kind: 'git_diff_reverse' | 'filesystem_snapshot' | 'command_compensating_action' | 'browser_state_reset' | 'not_applicable_preview_only';
     ref: string;
   };
-  executionResult: 'not_run' | 'blocked' | 'completed' | 'failed' | 'partial';
+  executionResult: 'not_run' | 'running' | 'blocked' | 'completed' | 'failed' | 'partial';
   evidenceRefs: string[];
   auditRefs: string[];
   createdAt: string;
@@ -122,10 +122,12 @@ type ExecutionAuthorityRecord = {
 
 Rules:
 
+- `approvalDecision` starts as `pending`; pending/rejected/revoked/expired records cannot execute.
 - `approvalDecision` must be `approved` at execution start and can later become `revoked` only for future/retry attempts.
 - `previewArtifactRef` must resolve to the exact user-reviewed diff/command/browser action plan.
 - `rollbackReference` is mandatory before execution unless `actionClass` is `external_mutation_preview_only` and the result stays `not_run`.
-- `executionResult` starts as `not_run`, then becomes `blocked`, `completed`, `failed`, or `partial` with evidence.
+- `executionResult` starts as `not_run`, may become `running` only after approval/sandbox/rollback checks pass, and then becomes `blocked`, `completed`, `failed`, or `partial` with evidence.
+- `cancelled` and `rolled_back` are not MVP `executionResult` states. Cancellation or rollback evidence is recorded through `failed`/`partial`/`blocked` plus rollback/audit refs until a later explicit contract adds richer recovery states.
 - `evidenceRefs` must include stdout/stderr summaries, diff stats, browser screenshots/log refs, or block reasons appropriate to the action class.
 - `auditRefs` must connect to ProductEngine events and user-visible activity.
 
@@ -135,7 +137,7 @@ Rules:
 PlanningHandoffArtifact
   -> BoundedAgentOutputRecord
   -> preview artifact
-  -> ExecutionAuthorityRecord(not_run, approved/rejected)
+  -> ExecutionAuthorityRecord(approval pending -> approved/rejected; execution not_run -> running -> terminal)
   -> sandboxed execution if approved
   -> evidence capture
   -> rollbackReference validation
@@ -178,10 +180,10 @@ The MVP is intentionally sequential. Later slices cannot skip the shared authori
 
 | Slice | Scope | Entry gate | Exit evidence |
 | --- | --- | --- | --- |
-| 0. Common ledger/authority | Persist `ExecutionAuthorityRecord`, `BoundedAgentOutputRecord`, approval decisions, rollback refs, evidence refs, and audit refs. Add read/query projections before adapters run. | #86, #87, #88 complete; no route can execute an adapter yet. | Approved/rejected/revoked/expired authority records round-trip through local persistence; missing source, preview hash mismatch, missing approval, missing rollback, credential value requirement, and sandbox failure all return `blocked`. |
-| 1. `file_diff` | Apply an exact approved diff preview to a limited workspace/sandbox. | Slice 0 green; preview hash and rollback reference exist. | Diff stats and changed-file evidence refs are captured; rollback uses `git_diff_reverse` or `filesystem_snapshot`; no file patch runs without an approved unexpired authority record. |
-| 2. `shell_command` | Run only non-destructive allowlisted commands in a bounded command sandbox. | Slice 1 green; command allowlist and max duration are present. | Exit code, duration, stdout/stderr summary, and compensating-action/rollback refs are captured; destructive shell commands, deploy, force reset/delete, system setting mutation, and credential value access return `blocked`. |
-| 3. `browser_action` | Run approved browser action preview sessions only against local/dev targets by default. | Slice 2 green; local/dev browser target and reset boundary are present. | Screenshot/log refs, target URL, and `browser_state_reset` or equivalent rollback refs are captured; external-production browser mutation remains `blocked` until a later narrower explicit contract exists. |
+| 0. Common ledger/authority | Persist `ExecutionAuthorityRecord`, `BoundedAgentOutputRecord`, approval decisions, rollback refs, evidence refs, and audit refs. Add read/query projections before adapters run. | #86, #87, #88 complete; no route can execute an adapter yet. | Pending/approved/rejected/revoked/expired authority records and not_run/running/blocked/completed/failed/partial execution results round-trip through local persistence; missing source, preview hash mismatch, missing approval, missing rollback, credential value requirement, and sandbox failure all return `blocked`. |
+| 1. `file_diff` | Apply an exact approved diff preview to a limited workspace/sandbox. | Slice 0 green; preview hash and rollback reference exist. | Diff stats and changed-file evidence refs are captured; rollback uses `git_diff_reverse` by default. `filesystem_snapshot` is allowed only as an explicit exception when reverse diff is unsafe or unavailable. File changes stay inside the approved project workspace root; `.env*`, credential/secret/key files, home directory paths, repo-outside paths, and symlink escape are blocked. No file patch runs without an approved unexpired authority record. |
+| 2. `shell_command` | Run only non-destructive allowlisted commands in a bounded command sandbox. | Slice 1 green; command allowlist and max duration are present. | Default allowlist is repo `package.json` scripts plus limited read-only diagnostics such as `ls`, `cat`, `rg`, and `git status`. Raw shell mutation outside that allowlist is blocked. Read-only diagnostics time out at 30 seconds; test/typecheck/lint/docs verify commands time out at 10 minutes; build/full verify commands time out at 20 minutes; dev server commands require a separate preview mode with automatic shutdown/kill evidence. Exit code, duration, stdout/stderr summary, and compensating-action/rollback refs are captured; destructive shell commands, deploy, force reset/delete, system setting mutation, and credential value access return `blocked`. |
+| 3. `browser_action` | Run approved browser action preview sessions only against loopback-only local targets by default. | Slice 2 green; loopback browser target and reset boundary are present. | Allowed targets are `localhost`, `127.0.0.1`, `::1`, and explicit local web/sidecar ports only. LAN/private IP targets and cloud preview URLs are blocked. Screenshot/log refs, target URL, and `browser_state_reset` or equivalent rollback refs are captured; external-production browser mutation remains `blocked` until a later narrower explicit contract exists. |
 
 MVP acceptance is per slice, not all-or-nothing. A later action class can be planned but not claimed complete until its own authority, adapter, evidence, rollback, and audit checks pass.
 
@@ -191,11 +193,13 @@ MVP acceptance is per slice, not all-or-nothing. A later action class can be pla
 - `21-sidecar-api-runtime-contract.md` owns local service security, route group boundaries, local token, loopback, CORS, CSRF/replay/idempotency, and fail-closed route handling requirements.
 - `26-api-route-behavior-catalog.md` owns endpoint behavior placeholders for approval/execution routes until code routes are implemented.
 - `25-contracts-dto-catalog.md` owns final public DTO/type shape when an implementation PR promotes these records into code.
+- `37-post-phase3-full-vision-backlog-contract.md` owns the full-vision backlog tracked under #91 after Phase 3 child issues #92~#97: project purpose modes, business critic intensity, ChatGPT Pro per-run local browser delegation, external service page-use permission, implementation step ledger, and macOS/Windows PowerShell setup verification.
 
 ## Phase 4~6 handoff gates
 
 | Next phase | Gate after Phase 3 |
 | --- | --- |
+| Post-Phase3 Full-Vision Backlog Alignment | local approval/audit/rollback evidence is stable, #91 tracks both Phase 3 #92~#97 and Post-Phase3 #99~#106 without scope duplication, and #98 is not used as a standalone tracker |
 | Phase 4 Optional Cloud/Mobile Monitor | local approval/audit/rollback evidence is stable, and remote monitor is opt-in/read-only by default |
 | Phase 5 Team Collaboration | approval authority, decision owner, audit trail, and revocation semantics are stable for one local user first |
 | Phase 6 Advanced Multi-agent Strategy Engine | `BoundedAgentOutputRecord` ties every agent output to source, evidence, approval, and no-execution policy |
@@ -206,11 +210,16 @@ MVP acceptance is per slice, not all-or-nothing. A later action class can be pla
 - [ ] Phase 3 implementation starts from `Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db`.
 - [ ] Tauri/native shell is not described as future/default/runtime path and has no active source/dependency/script path.
 - [ ] `ExecutionAuthorityRecord` exists before every controlled execution attempt.
+- [ ] `approvalDecision` includes `pending` before approval and `executionResult` includes `running` while execution is in progress; `cancelled`/`rolled_back` are not silently added to the MVP state model.
 - [ ] `approvalDecision`, `sandboxBoundary`, `rollbackReference`, `executionResult`, `evidenceRefs`, and `auditRefs` are persisted.
 - [ ] per-run local capability token, loopback-only service binding, explicit CORS allowlist, and CSRF/replay/idempotency checks are documented and tested.
 - [ ] hosted web origin does not receive implicit local execution authority.
 - [ ] `BoundedAgentOutputRecord` rejects untrusted agent suggestions without source/evidence/approval linkage.
 - [ ] MVP sequence is common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`.
+- [ ] `file_diff` defaults to `git_diff_reverse`, blocks secret/home/repo-outside/symlink-escape paths, and treats `filesystem_snapshot` as an explicit exception.
+- [ ] `shell_command` defaults to repo scripts plus limited read-only diagnostics and enforces class-specific timeout limits.
+- [ ] `browser_action` target policy is loopback-only for MVP.
 - [ ] credential custody, hosted control plane, destructive shell commands, 모바일 승인, 팀 협업, 제품 결제/과금은 MVP 범위에서 제외된다.
 - [ ] external-production mutation and blanket/project-level approval remain blocked until a later explicit contract exists.
 - [ ] Phase 4~6 remain gated by Phase 3 evidence, not enabled by default.
+- [ ] Post-Phase3 full-vision backlog work references `37-post-phase3-full-vision-backlog-contract.md` and does not reinterpret Phase 3 readiness as credential custody, hosted control, external production mutation, or project-level ChatGPT background delegation.

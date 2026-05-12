@@ -4,7 +4,7 @@
 
 AI Runtime Access Strategy는 Solo Superman이 AI를 어떻게 사용자의 제품 경험으로 제공할지 정의한다. 핵심은 “AI provider를 얼마나 많이 붙일 것인가”가 아니라, **초기 창업자가 API key 발급 없이 Codex 중심 자동화와 깊은 리서치 보조를 사용할 수 있게 하되, Phase별 권한 경계를 명확히 지키는 것**이다.
 
-이 문서는 `09-system-architecture.md`의 RuntimeAdapter 선택, `10-security-privacy-and-approval.md`의 권한 경계, `06-research-engine.md`의 리서치 실행 경로, `11-roadmap-and-phase-boundaries.md`의 Phase 진입 조건을 연결한다. Codex Prompt/Output의 canonical schema와 repair/failure routing은 `24-codex-prompt-output-contract.md`가 소유하고, Phase 3 controlled execution 권한은 `36-phase3-controlled-execution-contract.md`가 소유한다.
+이 문서는 `09-system-architecture.md`의 RuntimeAdapter 선택, `10-security-privacy-and-approval.md`의 권한 경계, `06-research-engine.md`의 리서치 실행 경로, `11-roadmap-and-phase-boundaries.md`의 Phase 진입 조건을 연결한다. Codex Prompt/Output의 canonical schema와 repair/failure routing은 `24-codex-prompt-output-contract.md`가 소유한다. Phase 3 controlled execution 권한은 `36-phase3-controlled-execution-contract.md`가 소유하고, Phase 3 이후 ChatGPT Pro per-run local browser delegation과 external service page-use permission은 `37-post-phase3-full-vision-backlog-contract.md`가 소유한다.
 
 ## 확정 결정
 
@@ -22,7 +22,7 @@ AI Runtime Access Strategy는 Solo Superman이 AI를 어떻게 사용자의 제�
 | Phase 3 execution runtime | Local Web Frontend + Local Node/Hono Service, `ExecutionAuthorityRecord` required |
 | Phase 1 deep research fallback | 수동 프롬프트 핸드오프 → 공식 Codex 경로 |
 | ChatGPT Pro 웹 자동화 | Phase 2.5+ preview/gate 비전; active execution은 Phase 3 authority gate 이후 |
-| ChatGPT Pro 웹 자동화 승인 모델 | 프로젝트 단위 1회 포괄 위임, revoke/audit 필수 |
+| ChatGPT Pro 웹 자동화 승인 모델 | Phase 3 이후 첫 live 목표는 per-run 승인형 로컬 브라우저 자동화; 장기 queue/blanket delegation은 별도 explicit contract 전까지 금지 |
 | 일반 사용자 API key fallback | 기본 UX에서 제외 |
 | 고급 API key fallback | 후속 ADR 후보이며 Phase 1 기본값 아님 |
 
@@ -35,7 +35,8 @@ AI Runtime Access Strategy는 Solo Superman이 AI를 어떻게 사용자의 제�
 1. 사용자는 Codex/ChatGPT 계정 기반 AI 사용을 먼저 시도한다.
 2. Phase 1은 Codex app-server를 로컬 sidecar처럼 다루는 방향으로 설계한다.
 3. ChatGPT Pro 웹 자동화는 Phase 1에서 구현하지 않고, Phase 2.5+의 깊은 리서치 자동화 preview/gate 비전으로 둔다.
-4. 자동화가 막히면 API key 입력을 요구하기보다 수동 프롬프트 핸드오프와 공식 Codex 경로를 먼저 제공한다.
+4. Phase 3 이후 첫 live 목표는 `37-post-phase3-full-vision-backlog-contract.md`의 per-run 승인형 로컬 브라우저 자동화다.
+5. 자동화가 막히면 API key 입력을 요구하기보다 수동 프롬프트 핸드오프와 공식 Codex 경로를 먼저 제공한다.
 
 ## 공식 근거와 설계 제약
 
@@ -45,7 +46,8 @@ OpenAI 공식 문서 기준으로 다음 사실을 Phase 0 문서 계약의 근�
 - Codex app-server는 자체 제품 안에서 인증, 대화 기록, 승인, 스트리밍 이벤트를 연결하는 깊은 통합 경로다. 참고: <https://developers.openai.com/codex/app-server>
 - Codex SDK는 프로그래밍 방식의 Codex 작업 자동화 경로다. 참고: <https://developers.openai.com/codex/sdk>
 - Codex는 ChatGPT Plus, Pro, Business, Edu, Enterprise 계정에서 사용할 수 있다. 참고: <https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan>
-- ChatGPT Pro는 Codex와 Deep Research를 포함하지만, 자동/프로그램 방식의 데이터 추출, 계정 공유, 제3자 서비스 구동/재판매 관련 제한이 있을 수 있다. 참고: <https://help.openai.com/en/articles/9793128-what-is-c>
+- ChatGPT Pro는 Codex와 Deep Research를 포함하지만, 자동/프로그램 방식의 데이터 추출, 계정 공유, 제3자 서비스 구동/재판매 관련 제한이 있을 수 있다. 참고: <https://help.openai.com/en/articles/9793128-what-is-chatgpt-pro/>
+- 개인용 OpenAI 서비스의 이용약관은 credential sharing, automated/programmatic extraction, rate-limit 우회, 서비스 재판매/복제에 대한 제한을 포함하므로 구현 직전 최신 약관을 다시 확인해야 한다. 참고: <https://openai.com/policies/terms-of-use/>
 
 설계 제약:
 
@@ -81,6 +83,12 @@ Phase 3
   + per-run local capability token
   + loopback-only execution authority
   + ExecutionAuthorityRecord approval/rollback/audit
+
+Post-Phase3 full-vision backlog
+  ChatGPT Pro per-run local browser delegation
+  + user-owned browser session
+  + no credential/session custody
+  + revoke/audit/fallback
 
 Later / ADR only
   Advanced API-key provider fallback
@@ -240,26 +248,28 @@ ChatGPT Pro 웹 자동화는 Phase 2.5+의 preview/gate 후보이며, Phase 2.5 
 
 - ChatGPT 웹 자동화의 정책/약관 리스크 검토 완료.
 - 웹 UI 변경, 세션 만료, 사용량 제한, CAPTCHA/anti-bot, 결과 회수 실패에 대한 recovery policy 정의.
-- 프로젝트 단위 포괄 위임 screen, revoke control, audit log 설계 완료.
+- per-run 승인 screen, revoke control, audit log 설계 완료.
 - private data 전송 금지 또는 redaction 규칙 정의.
 - `34-phase2.5-browser-automation-preview-contract.md`의 `DelegationRiskGate`와 `ResearchQualityComparisonReport` 기준 정의.
 - fallback chain이 구현되어 있거나 safe failure로 기록됨.
 
-## Project-level blanket delegation
+## Per-run local browser delegation target
 
-Phase 2.5에서 ChatGPT Pro 웹 자동화를 검증할 때 포괄 위임은 active permission이 아니라 사용자가 보는 목적/데이터 범주/revoke/audit/fallback 설명이다. 실제 active delegation 모델은 후속 go/no-go 이후 별도 preflight에서 다룬다.
+Phase 2.5에서 ChatGPT Pro 웹 자동화를 검증할 때 위임 설명은 active permission이 아니라 사용자가 보는 목적/데이터 범주/revoke/audit/fallback 설명이다. 실제 active delegation의 첫 구현 목표는 `37-post-phase3-full-vision-backlog-contract.md`가 정의한 per-run 승인형 로컬 브라우저 자동화다. 프로젝트 단위 장기 background queue 또는 blanket delegation은 별도 explicit contract 전까지 구현하지 않는다.
 
-사용자에게 최초 1회 표시할 내용:
+사용자에게 각 run 승인 전에 표시할 내용:
 
 - 어떤 목적의 deep research에 ChatGPT 웹이 사용되는가.
 - 어떤 데이터 범주가 전송될 수 있는가.
 - 어떤 데이터는 절대 전송하지 않는가.
 - 자동화가 실패하면 어떤 fallback이 적용되는가.
 - 사용량 제한과 정책 리스크가 있을 수 있다는 점.
-- 언제든 끌 수 있는 revoke control 위치.
+- 이번 run을 끄거나 중단할 수 있는 revoke control 위치.
 - audit log에서 확인할 수 있는 항목.
+- 사용자가 직접 로그인한 local browser session만 사용하며, Solo Superman은 비밀번호/2FA/session cookie/API key를 저장하거나 대리 입력하지 않는다는 점.
+- 승인된 prompt/result/screenshot/log는 research artifact로 기본 보존되지만 credential/session/secret/2FA/payment/legal-sensitive field는 저장하지 않고, redaction preview와 사용자 export/delete control을 제공한다는 점.
 
-포괄 위임 이후에도 다음은 별도 차단 또는 재확인 후보로 둔다.
+Per-run 승인 이후에도 다음은 별도 차단 또는 재확인 후보로 둔다.
 
 - 계정 비밀번호/2FA/인증정보 입력 대리.
 - 결제, 법률, 의료, 금융, 민감 개인정보 자동 제출.
@@ -267,7 +277,7 @@ Phase 2.5에서 ChatGPT Pro 웹 자동화를 검증할 때 포괄 위임은 acti
 - 로그인된 외부 SaaS에서 데이터 추출.
 - 약관 위반 가능성이 큰 반복 자동화.
 
-Phase 2.5는 계정 공유, credential/session custody, 제3자 서비스 구동/재판매, 자동 submit/write를 허용하지 않는다. 이러한 항목은 `34-phase2.5-browser-automation-preview-contract.md`의 gate에서 block verdict로 수렴한다.
+Phase 2.5와 Post-Phase3 첫 live implementation은 계정 공유, credential/session custody, 제3자 서비스 구동/재판매, unattended background queue, 자동 submit/write를 허용하지 않는다. 이러한 항목은 `34-phase2.5-browser-automation-preview-contract.md`와 `37-post-phase3-full-vision-backlog-contract.md`의 gate에서 block verdict로 수렴한다.
 
 ## Fallback chain
 
@@ -277,7 +287,7 @@ ChatGPT Pro 웹 자동화가 실패하거나 정책 리스크가 감지되면 �
 ChatGPT web automation requested
 → policy/session/reliability check
 → if risky or failed: recommend manual prompt handoff
-→ if user still wants full automation: use official Codex path only
+→ if user still wants automation before per-run local browser delegation is available: use official Codex path only
 → if official Codex path is insufficient: create Risk Card + Known Risk + Next Validation Action
 ```
 
@@ -329,6 +339,6 @@ AI runtime 작업은 State/Event Contract를 우회하지 않는다.
 - Phase 1에서 ChatGPT 웹 자동화가 구현 범위 밖인가?
 - API key가 일반 사용자 onboarding 필수값이 아닌가?
 - 깊은 리서치가 필요할 때 수동 handoff와 공식 Codex 경로 fallback이 정의되어 있는가?
-- Phase 2.5+ ChatGPT 웹 자동화 preview/gate의 프로젝트 단위 포괄 위임 설명, revoke, audit, policy/session failure가 정의되어 있고 active execution으로 오해되지 않는가?
+- Phase 2.5+ ChatGPT 웹 자동화 preview/gate의 per-run delegation 설명, revoke, audit, policy/session failure가 정의되어 있고 active execution으로 오해되지 않는가?
 - Phase 3 execution runtime이 `36-phase3-controlled-execution-contract.md`, `ExecutionAuthorityRecord`, per-run local capability token, loopback-only local service, CSRF/replay 방어에 연결되어 있는가?
 - Codex 결과가 Question, ResearchTask, EvidenceMatrix, Decision, SpecVersion trace를 우회하지 않는가?

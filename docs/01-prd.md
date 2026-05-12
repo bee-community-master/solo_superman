@@ -27,6 +27,15 @@ MVP는 다음 사용 시나리오가 한 프로젝트 안에서 끊기지 않고
 - 프로젝트는 기본적으로 local-only 상태로 생성된다.
 - 사용자가 명시적으로 켜기 전에는 cloud sync가 활성화되지 않는다.
 
+### F1a. Project purpose mode (후속 full-vision backlog)
+
+Phase 1 MVP의 기본 사용자는 초기 창업자지만, 장기 제품은 프로젝트 목적을 `business`와 `personal`로 분리한다. 구현 계약과 issue graph는 `37-post-phase3-full-vision-backlog-contract.md`를 따른다.
+
+- `business` 모드는 시장, 고객, 유료화, 경쟁/대체재, 채널, 법무/운영 리스크, validation experiment를 기본 질문/리서치 축으로 둔다.
+- `personal` 모드는 상업성 리서치를 기본 요구하지 않고, 개인 workflow, 반복 빈도, 입력/출력, GUI 필요성, 구현 난이도, local data/security, 유지보수 비용, 성공 기준을 중심으로 한다.
+- 모드는 AI가 추론해 확정하지 않는다. 사용자가 선택하거나 AI가 제안한 모드를 사용자가 확인해야 한다.
+- 모드 변경은 Queue priority, ResearchNeed, Completeness, Founder Brief, Planning Handoff에 왜 영향을 주는지 Activity Feed에 남겨야 한다.
+
 ### F2. Initial Spec 생성
 
 - 시스템은 입력 아이디어를 기반으로 Living Product Spec 초안을 만든다.
@@ -63,6 +72,17 @@ MVP는 다음 사용 시나리오가 한 프로젝트 안에서 끊기지 않고
 - 사용자의 답변은 단순 텍스트가 아니라 Decision 후보로 저장된다.
 - 선택지 답변, 직접 입력, 복수 선택을 모두 지원한다.
 - 답변은 어느 모호함을 해소했는지 연결되어야 한다.
+
+### F5a. Business critic intensity (후속 full-vision backlog)
+
+`business` 모드에서는 사용자가 비판 질문 강도를 선택한다. 이 설정은 질문량만 늘리는 옵션이 아니라 completion gate와 Known Risk 기록 방식을 바꾸는 제품 계약이다.
+
+- 기본 강도는 없다. 사용자가 `balanced`, `strong`, `investor_grade` 중 하나를 명시 선택하기 전에는 business completion gate를 확정하지 않는다.
+- `balanced`: 각 주요 decision group마다 최소 1개 이상의 비판/반대 질문을 포함한다.
+- `strong`: 매 active question batch에 핵심 가설 반박 질문을 최소 1개 포함하고, high-impact business risk가 답변/evidence/명시 defer 없이 남으면 completion candidate를 막는다.
+- `investor_grade`: 가격, 획득 채널, retention proxy, 법무/운영, 시장 타이밍, founder advantage까지 투자심사급 pressure pass로 묻는다.
+
+현재 active batch 안정성은 유지한다. 새 critical question은 현재 질문 묶음을 중간에 바꾸지 않고 `queued_next`로 들어간다.
 
 ### F6. Research Loop
 
@@ -152,6 +172,10 @@ MVP는 다음 사용 시나리오가 한 프로젝트 안에서 끊기지 않고
 - Codex app-server 통합은 실제 파일/쉘/브라우저 적용 없이 sandbox preview 권한으로 제한한다.
 - cloud sync는 명시적 opt-in이다.
 - 핵심 결정 자동 반영은 금지한다.
+
+## Post-Phase3 full-vision backlog reference
+
+#91 unified tracker 아래 Post-Phase3 추가 기능은 `37-post-phase3-full-vision-backlog-contract.md`의 기능 단위 backlog를 따른다. 이 backlog는 ChatGPT Pro per-run local browser delegation, external service page-use permission, implementation step ledger, macOS/Windows PowerShell install/run verification을 포함한다. Windows 설치 기본 경로는 `winget` 우선이며, 공식 다운로드 수동 설치는 fallback이다.
 
 ## 제외 범위
 

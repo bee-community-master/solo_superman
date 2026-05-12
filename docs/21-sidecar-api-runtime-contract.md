@@ -395,7 +395,10 @@ Phase 3 execution API behavior is canonical in `36-phase3-controlled-execution-c
 
 - Controlled execution implementation is gated on #86, #87, and #88. Before that gate is complete, Phase 3 routes may be documented as placeholders only and must return `blocked` or remain unmounted.
 - `ExecutionAuthorityRecord` must be created before file/shell/browser execution starts.
+- ProductEngine/application command boundary is the source of truth for approval/security semantics before concrete REST route naming is finalized.
+- `approvalDecision` starts as `pending`; pending/rejected/revoked/expired records cannot execute.
 - `approvalDecision` must be `approved`, unexpired, and tied to the exact preview artifact hash.
+- `executionResult` may become `running` only after approval, sandbox, preview hash, and rollback checks pass; `cancelled`/`rolled_back` are not MVP result states.
 - `rollbackReference`, `evidenceRefs`, and `auditRefs` are required for completion claims.
 - Missing source planning handoff, missing preview, missing approval, missing rollback, sandbox enforcement failure, or credential value requirement returns `blocked`.
 - ProductEngine core remains pure reducer + effect plan; route handlers and adapters cannot bypass contracts/db/audit records.
@@ -403,8 +406,9 @@ Phase 3 execution API behavior is canonical in `36-phase3-controlled-execution-c
 - MVP route groups follow the docs/36 sequence: common ledger/authority first, then `file_diff`, then `shell_command`, then `browser_action`.
 - The common ledger route group must support create/read of bounded agent output records, create/read of execution authority records, approval/rejection/revocation/expiry transitions, and audit/evidence/rollback refs before any adapter route can run.
 - Adapter route groups must fail closed when the action class is out of sequence, the authority record is not approved, the preview hash differs, approval is expired, rollback is missing, or the request needs credential values.
-- `shell_command` routes accept only non-destructive allowlisted commands in MVP. Destructive shell commands, deploy, force reset/delete, and system setting mutation return `blocked`.
-- `browser_action` routes default to local/dev targets. External-production mutation and blanket/project-level approval stay blocked until a later explicit contract defines a narrower approval class.
+- `file_diff` routes default rollback to `git_diff_reverse`; `filesystem_snapshot` is an explicit exception. Project workspace root is the maximum file boundary, and `.env*`, credential/secret/key files, home directory paths, repo-outside paths, and symlink escape return `blocked`.
+- `shell_command` routes accept only repo scripts plus limited read-only diagnostics by default. Read-only diagnostics time out at 30 seconds; test/typecheck/lint/docs verify commands time out at 10 minutes; build/full verify commands time out at 20 minutes; dev server commands require preview mode with automatic shutdown/kill evidence. Destructive shell commands, deploy, force reset/delete, and system setting mutation return `blocked`.
+- `browser_action` routes default to loopback-only targets: `localhost`, `127.0.0.1`, `::1`, and explicit local web/sidecar ports. LAN/private IPs, cloud preview URLs, external-production mutation, and blanket/project-level approval stay blocked until a later explicit contract defines a narrower approval class.
 
 ## Manual handoff fallback
 

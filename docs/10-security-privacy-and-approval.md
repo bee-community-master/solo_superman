@@ -34,7 +34,7 @@ Phase 1은 프로젝트 단위 포괄 위임이 아니라 **task-level disclosur
 - 민감한 section 제외 여부.
 - 결과가 실제 파일/쉘/브라우저에 적용되지 않고 preview artifact로만 남는다는 점.
 
-Phase 2.5+에서 ChatGPT Pro 웹 자동화 후보를 검토하면 프로젝트 단위 1회 포괄 위임 설명을 사용할 수 있다. 이때는 최초 위임 화면, revoke control, audit log, fallback chain이 필수다. Phase 3 controlled execution은 `36-phase3-controlled-execution-contract.md`를 따르며 local-first web app + local Node/Hono service 위에서 preview, explicit approval, rollback, audit evidence를 요구한다.
+Phase 2.5+에서 ChatGPT Pro 웹 자동화 후보를 검토하면 per-run delegation 설명을 사용한다. 이때는 run 승인 화면, revoke control, audit log, fallback chain이 필수다. Phase 3 controlled execution은 `36-phase3-controlled-execution-contract.md`를 따르며 local-first web app + local Node/Hono service 위에서 preview, explicit approval, rollback, audit evidence를 요구한다.
 
 Phase 1.5A의 예외는 `30-phase1.5-research-runtime-and-readiness-contract.md`가 정의한 **project-level read-only research allowlist**뿐이다. 이 allowlist는 외부 write/action/browser/file/shell 실행을 허용하지 않으며, automatic external transfer는 public-safe summary + research objective까지만 허용한다. private document, full raw idea, detailed answers, credentialed source는 항상 task-level approval 또는 manual handoff가 필요하다.
 
@@ -128,7 +128,7 @@ Phase 1.5A에서만 허용되는 read-only research 권한이다. 세부 계약�
 - Playwright/Browser-use browsing.
 - form fill/action preview.
 
-Phase 1 구현 제외. Phase 2.5에서는 `34-phase2.5-browser-automation-preview-contract.md`의 Browser Automation Preview 계약에 따라 ChatGPT Pro/Deep Research delegation을 포함해 검토할 수 있으며, project-level delegation 설명, revoke, audit log, session failure fallback, research quality comparison이 필요하다.
+Phase 1 구현 제외. Phase 2.5에서는 `34-phase2.5-browser-automation-preview-contract.md`의 Browser Automation Preview 계약에 따라 ChatGPT Pro/Deep Research delegation을 포함해 검토할 수 있으며, delegation 설명, revoke, audit log, session failure fallback, research quality comparison이 필요하다. Phase 3 이후 첫 live 목표는 `37-post-phase3-full-vision-backlog-contract.md`의 per-run 승인형 로컬 브라우저 자동화다.
 
 ### Tier 4: File/code/shell execution
 
@@ -138,18 +138,30 @@ Phase 1 구현 제외. Phase 2.5에서는 `34-phase2.5-browser-automation-previe
 
 Phase 1~2.5 실제 적용 제외. Codex sandbox preview artifact는 허용할 수 있지만, Phase 3 실제 적용은 `36-phase3-controlled-execution-contract.md`의 `ExecutionAuthorityRecord`, preview + approval + rollback + audit가 필수다. Local Node/Hono Service는 loopback-only로 bind하고, 실행 route는 per-run local capability token, idempotency key, preview hash, authority record id, expiry check를 요구한다.
 
-## Project-level blanket delegation
+## ChatGPT Pro local browser delegation boundary
 
-ChatGPT Pro 웹 자동화의 프로젝트 단위 포괄 위임 설명은 Phase 2.5+ preview/gate 후보이며, active permission 자체가 아니다. Phase 2.5에서는 이를 active permission이 아니라 risk-gated preview/delegation explanation으로 검증한다. 최초 위임 검토 시 사용자는 다음을 봐야 한다.
+ChatGPT Pro 웹 자동화의 Phase 2.5 설명은 active permission 자체가 아니다. Phase 2.5에서는 risk-gated preview/delegation explanation만 검증하고, Phase 3 이후 첫 live 목표는 `37-post-phase3-full-vision-backlog-contract.md`의 per-run 승인형 로컬 브라우저 자동화다. 최초 run 승인 시 사용자는 다음을 봐야 한다.
 
 - ChatGPT 웹이 어떤 deep research 목적에 쓰이는가.
 - 어떤 project context가 전송될 수 있는가.
 - 어떤 private data는 전송하지 않는가.
+- 사용자가 직접 로그인한 local browser session만 사용하며, 제품은 비밀번호/2FA/session cookie/API key를 저장하거나 대리 입력하지 않는다는 점.
 - 자동화 실패 시 수동 프롬프트 핸드오프와 `17-ai-runtime-access-strategy.md`가 정의한 공식 Codex 경로 fallback이 적용된다는 점.
-- 언제든 revoke할 수 있는 위치.
+- 이번 run을 revoke하거나 중단할 수 있는 위치.
 - audit log에 남는 항목.
+- 승인된 prompt/result/screenshot/log는 연구 근거로 기본 보존되지만 credential/session/secret/2FA/payment/legal-sensitive field는 저장하지 않고, 저장 전 redaction preview와 사용자 export/delete control이 제공된다는 점.
 
-포괄 위임은 계정 공유나 인증정보 대리 보관을 의미하지 않는다. Solo Superman은 사용자의 ChatGPT 계정 비밀번호, 2FA, API key, session token을 저장하거나 대리 입력하지 않는다. Phase 2.5에서 이 경계가 필요해지는 후보는 `DelegationRiskGate`에서 차단한다.
+Per-run delegation은 계정 공유, credential/session custody, 제3자 서비스 구동/재판매, unattended background queue를 의미하지 않는다. 이런 후보는 `DelegationRiskGate`, `ExecutionAuthorityRecord`, 또는 `ServicePageUsePermission` gate에서 block verdict로 수렴한다.
+
+## External service page-use permission boundary
+
+외부 서비스 가입/로그인/설정 페이지를 사용할 때 권한은 계정 대리 보관이 아니라 page-use permission이어야 한다. 후속 구현은 `37-post-phase3-full-vision-backlog-contract.md`의 `ServicePageUsePermission` 계약을 따른다.
+
+- 사용자가 직접 로그인한 페이지에서만 작업한다.
+- read, fill draft, preview, copy generated value, final submit request를 action class로 분리한다.
+- final submit, 결제, 법률/의료/금융/개인정보 제출, production deploy, DNS cutover, account deletion은 별도 explicit contract 전까지 blocked다.
+- 모든 page-use permission은 revoke state, audit refs, evidence refs를 가져야 한다.
+- page-use artifact를 보존할 때도 credential/session/secret/2FA/payment/legal-sensitive field는 저장하지 않으며, redaction preview와 사용자 export/delete control이 필수다.
 
 ## Phase 3 local web security contract
 
@@ -193,3 +205,5 @@ Phase 3 web/local 방향은 hosted SaaS default가 아니다. Local Web Frontend
 - Codex app-server를 붙이더라도 Phase 1에서는 sandbox preview 권한을 넘지 않는다.
 - Phase 3에서도 hosted web origin에 local execution authority를 묵시적으로 주지 않는다.
 - Phase 3에서도 `ExecutionAuthorityRecord` 없는 file/shell/browser 실행 claim을 인정하지 않는다.
+- ChatGPT Pro no-API-key 경로도 사용자 소유 local browser session, per-run approval, no credential custody, no account sharing/resale, revoke/audit/fallback을 만족해야 한다.
+- 외부 서비스 로그인은 unattended signup/login으로 실행하지 않으며, 사용자가 현존하고 중단할 수 있는 page-use permission 안에서만 다룬다.
