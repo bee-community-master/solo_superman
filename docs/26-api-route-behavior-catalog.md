@@ -240,6 +240,38 @@ Endpoint names:
   - Projection content: latest final handoff or latest blocker artifact for the session, sourceRefs, gate verdict, readiness/residual risk summary, and recovery/next-action hints.
   - Errors/preconditions: `RESOURCE_NOT_FOUND` for missing session; auth/project ownership checks match the session route family.
 
+## Phase 3 Controlled Execution route placeholders
+
+이 섹션은 `36-phase3-controlled-execution-contract.md`와 `21-sidecar-api-runtime-contract.md`를 endpoint behavior로 연결하는 placeholder contract다. 아래 route family names는 Phase 3 구현 전 설계 기준이며, mounted route catalog나 코드 구현 완료 claim이 아니다. #86, #87, #88이 완료되기 전에는 모든 Phase 3 execution route가 unmounted 또는 `blocked` 상태여야 한다.
+
+Placeholder route families:
+
+- Common ledger/authority family
+  - Purpose: create/read `BoundedAgentOutputRecord`, create/read `ExecutionAuthorityRecord`, record approval/rejection/revocation/expiry transitions, and expose audit/evidence/rollback refs.
+  - Request contract: Auth required; local token, loopback, explicit CORS, CSRF/replay/idempotency, preview hash, authority record id, and expiry checks follow 21번.
+  - Response/statusUrl: `accepted_with_projection` or `blocked`; no adapter `statusUrl` until an implementation PR introduces a non-blocked execution effect.
+  - Effects/SSE/refetch: ledger projection and activity refetch only; no file/shell/browser adapter runs in this family.
+  - Errors/preconditions: missing planning source, missing bounded output, missing preview artifact, preview hash mismatch, missing rollback reference, credential value requirement, expired approval, or sandbox boundary failure returns `blocked`.
+- `file_diff` adapter family
+  - Purpose: apply an exact approved diff preview to a limited workspace/sandbox after common ledger/authority is green.
+  - Response/statusUrl: completed/failed/partial/blocked result with diff stats, changed-file evidence refs, rollback refs, and audit refs.
+  - Errors/preconditions: missing approved unexpired authority, missing `git_diff_reverse` or `filesystem_snapshot`, path outside allowed glob, or preview hash mismatch returns `blocked`.
+- `shell_command` adapter family
+  - Purpose: run only non-destructive allowlisted commands inside a command sandbox after `file_diff` slice is green.
+  - Response/statusUrl: completed/failed/partial/blocked result with exit code, duration, stdout/stderr summary, rollback or compensating-action refs, and audit refs.
+  - Errors/preconditions: destructive shell command, deploy, force reset/delete, system setting mutation, credential value requirement, missing allowlist, timeout, or sandbox enforcement failure returns `blocked`.
+- `browser_action` adapter family
+  - Purpose: run approved browser action preview sessions only against local/dev targets by default after `shell_command` slice is green.
+  - Response/statusUrl: completed/failed/partial/blocked result with screenshot/log refs, target ref, reset/rollback refs, and audit refs.
+  - Errors/preconditions: external-production mutation, blanket/project-level approval, credential/session custody, missing browser reset boundary, or target outside local/dev policy returns `blocked` until a later explicit contract changes the class.
+
+Phase 3 route placeholder acceptance:
+
+- The behavior catalog must keep the sequence common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`.
+- A route family cannot claim execution success without `ExecutionAuthorityRecord.approvalDecision = approved`, exact preview hash match, rollback reference, evidence refs, and audit refs.
+- Placeholder wording must not imply current-MVP support for credential custody, hosted control plane, destructive shell command allowlist, 모바일 승인, 팀 협업, 제품 결제/과금, external-production mutation, or blanket approval.
+- Once a Phase 3 route is implemented in code, this section must be promoted into concrete endpoint rows and `packages/contracts/src/api/routes.ts` in the same implementation slice.
+
 ## Required acceptance scenarios
 
 ### Scenario A. Endpoint coverage matrix

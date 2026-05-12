@@ -21,13 +21,18 @@ Phase 3에서 허용되는 capability는 다음뿐이다.
 - browser action preview를 사용자가 승인한 뒤 local/dev target 중심으로 실행한다.
 - 모든 action은 preview, approval, sandbox boundary, rollback reference, execution evidence, audit record를 남긴다.
 
-Phase 3에서 여전히 제외한다.
+Phase 3 MVP에서 hard non-goal로 제외한다.
 
 - 승인 없는 file/shell/browser/deploy/external mutation.
 - credential custody, 계정 대리 보관, secret value 저장.
 - hosted web origin에서 사용자의 local sidecar를 묵시적으로 제어하는 capability.
-- external-production mutation, 결제/법률/의료/금융 등 high-stakes 제출 자동화.
-- 팀 협업, billing, marketplace, public SaaS dashboard.
+- destructive shell command, deploy, system setting mutation, force reset/delete 계열 command allowlist.
+- 모바일 승인, 팀 협업, 제품 결제/과금, marketplace, public SaaS dashboard.
+
+Phase 3 MVP에서 구현하지 않지만 영구 non-goal로 닫지 않는 항목은 별도 후속 explicit contract가 생기기 전까지 `blocked`로 수렴한다.
+
+- external-production mutation(결제/법률/의료/금융 제출 자동화 포함).
+- blanket/project-level approval.
 
 ## Canonical topology
 
@@ -51,6 +56,18 @@ Runtime ownership:
 | ProductEngine | `packages/core` | pure reducer/effect plan; no direct shell/browser/filesystem mutation |
 | Repository/audit ledger | `packages/db` | append-only events, execution authority records, evidence refs, rollback refs |
 | Legacy host | Tauri/native shell | compatibility residue only; not Phase 3 future default |
+
+## MVP prerequisite gate
+
+Controlled execution MVP implementation does not start until the Phase 3 web/local migration gate is complete.
+
+Required prerequisites:
+
+1. #86 `web + local sidecar 기본 실행 경로 고정` is complete: root dev path starts Local Web Frontend and loopback Local Node/Hono Service with a shared per-run local capability token.
+2. #87 `Tauri/native shell 잔여물 제거` is complete: default source, dependency, script, and build paths no longer require Tauri/native shell.
+3. #88 `docs/verifier와 web-local 전환 완료 기준 정렬` is complete: docs and verifier agree that Local Web Frontend + Local Node/Hono Service is the only current future-default runtime path.
+
+If any prerequisite is incomplete, Phase 3 execution routes, adapters, and UI approval controls may be documented as placeholders only. They must not be claimed as implemented product capability.
 
 ## Security and local service contract
 
@@ -155,6 +172,26 @@ type BoundedAgentOutputRecord = {
 
 Outputs lacking source/evidence/approval linkage are rejected as untrusted suggestion, not executable plan.
 
+## MVP implementation sequence
+
+The MVP is intentionally sequential. Later slices cannot skip the shared authority ledger or reinterpret readiness hints as approval.
+
+| Slice | Scope | Entry gate | Exit evidence |
+| --- | --- | --- | --- |
+| 0. Common ledger/authority | Persist `ExecutionAuthorityRecord`, `BoundedAgentOutputRecord`, approval decisions, rollback refs, evidence refs, and audit refs. Add read/query projections before adapters run. | #86, #87, #88 complete; no route can execute an adapter yet. | Approved/rejected/revoked/expired authority records round-trip through local persistence; missing source, preview hash mismatch, missing approval, missing rollback, credential value requirement, and sandbox failure all return `blocked`. |
+| 1. `file_diff` | Apply an exact approved diff preview to a limited workspace/sandbox. | Slice 0 green; preview hash and rollback reference exist. | Diff stats and changed-file evidence refs are captured; rollback uses `git_diff_reverse` or `filesystem_snapshot`; no file patch runs without an approved unexpired authority record. |
+| 2. `shell_command` | Run only non-destructive allowlisted commands in a bounded command sandbox. | Slice 1 green; command allowlist and max duration are present. | Exit code, duration, stdout/stderr summary, and compensating-action/rollback refs are captured; destructive shell commands, deploy, force reset/delete, system setting mutation, and credential value access return `blocked`. |
+| 3. `browser_action` | Run approved browser action preview sessions only against local/dev targets by default. | Slice 2 green; local/dev browser target and reset boundary are present. | Screenshot/log refs, target URL, and `browser_state_reset` or equivalent rollback refs are captured; external-production browser mutation remains `blocked` until a later narrower explicit contract exists. |
+
+MVP acceptance is per slice, not all-or-nothing. A later action class can be planned but not claimed complete until its own authority, adapter, evidence, rollback, and audit checks pass.
+
+## MVP route and docs ownership
+
+- This document owns Phase 3 policy, prerequisite gate, action-class sequence, non-goals, deferred boundaries, and acceptance criteria.
+- `21-sidecar-api-runtime-contract.md` owns local service security, route group boundaries, local token, loopback, CORS, CSRF/replay/idempotency, and fail-closed route handling requirements.
+- `26-api-route-behavior-catalog.md` owns endpoint behavior placeholders for approval/execution routes until code routes are implemented.
+- `25-contracts-dto-catalog.md` owns final public DTO/type shape when an implementation PR promotes these records into code.
+
 ## Phase 4~6 handoff gates
 
 | Next phase | Gate after Phase 3 |
@@ -165,6 +202,7 @@ Outputs lacking source/evidence/approval linkage are rejected as untrusted sugge
 
 ## Acceptance checklist
 
+- [ ] #86, #87, and #88 are complete before any Phase 3 MVP implementation claim.
 - [ ] Phase 3 implementation starts from `Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db`.
 - [ ] Tauri/native shell is not described as future default.
 - [ ] `ExecutionAuthorityRecord` exists before every controlled execution attempt.
@@ -172,4 +210,7 @@ Outputs lacking source/evidence/approval linkage are rejected as untrusted sugge
 - [ ] per-run local capability token, loopback-only service binding, explicit CORS allowlist, and CSRF/replay/idempotency checks are documented and tested.
 - [ ] hosted web origin does not receive implicit local execution authority.
 - [ ] `BoundedAgentOutputRecord` rejects untrusted agent suggestions without source/evidence/approval linkage.
+- [ ] MVP sequence is common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`.
+- [ ] credential custody, hosted control plane, destructive shell commands, 모바일 승인, 팀 협업, 제품 결제/과금은 MVP 범위에서 제외된다.
+- [ ] external-production mutation and blanket/project-level approval remain blocked until a later explicit contract exists.
 - [ ] Phase 4~6 remain gated by Phase 3 evidence, not enabled by default.

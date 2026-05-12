@@ -698,6 +698,7 @@ const PHASE3_REQUIRED_REFERENCES = [
   "docs/19-phase1-implementation-architecture.md",
   "docs/21-sidecar-api-runtime-contract.md",
   "docs/24-codex-prompt-output-contract.md",
+  "docs/26-api-route-behavior-catalog.md",
   "docs/28-founder-os-product-doctrine.md",
   "docs/29-phase-capability-implementation-matrix.md",
   "docs/31-phase2-planning-handoff-contract.md",
@@ -720,7 +721,17 @@ const PHASE3_REQUIRED_CONTRACT_SNIPPETS = [
   "loopback-only",
   "CSRF/replay",
   "hosted web origin",
-  "not executable plan"
+  "not executable plan",
+  "MVP prerequisite gate",
+  "#86",
+  "#87",
+  "#88",
+  "common ledger/authority",
+  "file_diff",
+  "shell_command",
+  "browser_action",
+  "destructive shell command",
+  "explicit contract"
 ];
 
 const PHASE3_REFERENCE_REQUIREMENTS = [
@@ -729,7 +740,11 @@ const PHASE3_REFERENCE_REQUIREMENTS = [
     snippets: [
       "36-phase3-controlled-execution-contract.md",
       "Tauri/native shell은 future default가 아니라 legacy/current host",
-      "no hosted SaaS default"
+      "no hosted SaaS default",
+      "#86",
+      "#87",
+      "#88",
+      "common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`"
     ]
   },
   {
@@ -760,7 +775,35 @@ const PHASE3_REFERENCE_REQUIREMENTS = [
   },
   {
     path: "docs/21-sidecar-api-runtime-contract.md",
-    snippets: ["per-run local capability token", "loopback-only", "CSRF/replay", "hosted web origin"]
+    snippets: [
+      "per-run local capability token",
+      "loopback-only",
+      "CSRF/replay",
+      "hosted web origin",
+      "without Phase 3 authority",
+      "#86",
+      "#87",
+      "#88",
+      "common ledger/authority",
+      "`file_diff`",
+      "`shell_command`",
+      "`browser_action`"
+    ]
+  },
+  {
+    path: "docs/26-api-route-behavior-catalog.md",
+    snippets: [
+      "Phase 3 Controlled Execution route placeholders",
+      "36-phase3-controlled-execution-contract.md",
+      "#86",
+      "#87",
+      "#88",
+      "common ledger/authority",
+      "`file_diff`",
+      "`shell_command`",
+      "`browser_action`",
+      "blocked"
+    ]
   },
   {
     path: "docs/11-roadmap-and-phase-boundaries.md",

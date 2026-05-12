@@ -101,7 +101,7 @@ Rules:
 - Hono route handlers map request to the ProductEngine command or explicit query/application action defined in `26-api-route-behavior-catalog.md`, call the application service, and serialize the defined response category.
 - Frontend treats any returned projection as read model, not source of truth.
 - SSE/refetch is the source of truth for effect completion.
-- File/shell/browser execution requests return `blocked` or preview-only artifact, never actual execution.
+- Runtime preview routes and any file/shell/browser request without Phase 3 authority return `blocked` or preview-only artifact, never actual execution; Phase 3 execution is valid only through the authority-gated route boundary defined below and in `36-phase3-controlled-execution-contract.md`.
 
 ## Local auth and loopback policy
 
@@ -393,12 +393,18 @@ Phase 2 Planning Handoff는 runtime artifact conversion의 확장이 아니라 d
 
 Phase 3 execution API behavior is canonical in `36-phase3-controlled-execution-contract.md`.
 
+- Controlled execution implementation is gated on #86, #87, and #88. Before that gate is complete, Phase 3 routes may be documented as placeholders only and must return `blocked` or remain unmounted.
 - `ExecutionAuthorityRecord` must be created before file/shell/browser execution starts.
 - `approvalDecision` must be `approved`, unexpired, and tied to the exact preview artifact hash.
 - `rollbackReference`, `evidenceRefs`, and `auditRefs` are required for completion claims.
 - Missing source planning handoff, missing preview, missing approval, missing rollback, sandbox enforcement failure, or credential value requirement returns `blocked`.
 - ProductEngine core remains pure reducer + effect plan; route handlers and adapters cannot bypass contracts/db/audit records.
 - Hosted SaaS/web origins cannot call local execution routes by default.
+- MVP route groups follow the docs/36 sequence: common ledger/authority first, then `file_diff`, then `shell_command`, then `browser_action`.
+- The common ledger route group must support create/read of bounded agent output records, create/read of execution authority records, approval/rejection/revocation/expiry transitions, and audit/evidence/rollback refs before any adapter route can run.
+- Adapter route groups must fail closed when the action class is out of sequence, the authority record is not approved, the preview hash differs, approval is expired, rollback is missing, or the request needs credential values.
+- `shell_command` routes accept only non-destructive allowlisted commands in MVP. Destructive shell commands, deploy, force reset/delete, and system setting mutation return `blocked`.
+- `browser_action` routes default to local/dev targets. External-production mutation and blanket/project-level approval stay blocked until a later explicit contract defines a narrower approval class.
 
 ## Manual handoff fallback
 
@@ -418,7 +424,7 @@ When Codex app-server is unavailable or the user chooses not to connect it:
 | `PROJECT_NOT_FOUND` | invalid project id | show recoverable not found |
 | `COMMAND_PRECONDITION_FAILED` | ProductEngine state mismatch | refetch projections |
 | `CODEX_UNAVAILABLE` | Codex app-server not available | offer manual handoff |
-| `RUNTIME_EXECUTION_FORBIDDEN` | file/shell/browser apply requested | create blocked preview card |
+| `RUNTIME_EXECUTION_FORBIDDEN` | file/shell/browser apply requested without Phase 3 authority | create blocked preview card |
 | `VALIDATION_FAILED` | request schema invalid | show field-level guidance |
 | `MIGRATION_FAILED` | DB migration failed | keep sidecar not ready |
 
@@ -436,5 +442,8 @@ When Codex app-server is unavailable or the user chooses not to connect it:
 - Implement SSE reconnect behavior before long-running runtime preview UI.
 - Validate the `27-operations-observability-contract.md` incidents before claiming long-running effect UI is production-ready.
 - Implement Codex app-server status detection before creating runtime preview turns.
+- Complete #86, #87, and #88 before implementing Phase 3 controlled execution routes.
 - Implement Phase 3 local service token, loopback-only, explicit CORS allowlist, CSRF/replay/idempotency checks before controlled execution routes.
+- Implement common ledger/authority routes before any `file_diff`, `shell_command`, or `browser_action` adapter route.
+- Keep Phase 3 route placeholders in `26-api-route-behavior-catalog.md` synchronized with this boundary without adding them to the mounted route catalog until code exists.
 - Treat generated Codex schema as versioned implementation input.

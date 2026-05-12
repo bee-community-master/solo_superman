@@ -2,7 +2,7 @@
 
 Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질문·리서치·결정 세션으로 구체화하고, 최소 Build Slice와 서빙/학습 준비까지 연결하는 local-first web app + local Node/Hono service 기반 Founder OS다.
 
-이 레포의 현재 기준은 **Phase 3 web/local controlled execution을 시작하기 전 제품 방향을 재정렬하는 단계**다. Phase 1~2 hardening closeout evidence는 `docs/35-phase1-2-closeout-evidence.md`로 보존하고, Phase 2.5는 `DelegationRiskGate`와 `ResearchQualityComparisonReport`를 DTO/type, ProductEngine reducer/projection, local persistence, adapter interface port로 닫았다. Phase 3의 canonical 실행 권한 계약은 `docs/36-phase3-controlled-execution-contract.md`가 소유한다. 현재 문서 세트는 `00`~`36`의 번호 문서 37개와 이 인덱스를 합쳐 총 38개의 Markdown 문서로 구성한다.
+이 레포의 현재 기준은 **Phase 3 web/local controlled execution을 시작하기 전 제품 방향을 재정렬하는 단계**다. Phase 1~2 hardening closeout evidence는 `docs/35-phase1-2-closeout-evidence.md`로 보존하고, Phase 2.5는 `DelegationRiskGate`와 `ResearchQualityComparisonReport`를 DTO/type, ProductEngine reducer/projection, local persistence, adapter interface port로 닫았다. Phase 3의 canonical 실행 권한 계약과 Controlled execution MVP 순서는 `docs/36-phase3-controlled-execution-contract.md`가 소유한다. MVP 구현 시작은 #86, #87, #88 web/local migration closeout 이후이며, 구현 순서는 common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`이다. 현재 문서 세트는 `00`~`36`의 번호 문서 37개와 이 인덱스를 합쳐 총 38개의 Markdown 문서로 구성한다.
 
 ## 확정된 1차 제품 결정
 
@@ -54,7 +54,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 | Build/Serve/Learning loop | Build Slice Plan, Serve Checklist, Learning Loop Hook은 `33-build-slice-serve-learning-loop.md`의 checklist/handoff 계약을 따른다 |
 | Phase 2.5 browser automation preview | Phase 2.5는 `34-phase2.5-browser-automation-preview-contract.md`의 Artifact+Gate 계약을 따르며, ChatGPT Pro/Deep Research/browser delegation이 Phase 1.5A baseline보다 research quality lift를 만드는지 deterministic comparison report로 검증한다 |
 | Phase 2.5 no-execution | Phase 2.5 첫 slice는 submit/write, credential custody, account sharing/resale, live browser/ChatGPT adapter, review UI panel, sidecar API, team/mobile/billing 확장을 하지 않는다 |
-| Phase 3 controlled execution | `36-phase3-controlled-execution-contract.md`의 `ExecutionAuthorityRecord` 없이는 file/shell/browser 실행 claim이 유효하지 않다 |
+| Phase 3 controlled execution | #86/#87/#88 완료 후 `36-phase3-controlled-execution-contract.md`의 common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action` 순서로만 MVP를 연다. `ExecutionAuthorityRecord` 없이는 file/shell/browser 실행 claim이 유효하지 않다 |
 | Web/local realignment | no hosted SaaS default, no browser-only DB rewrite, no new replacement native shell; local web UI와 local Node/Hono service가 기본이다 |
 | Phase 1~2 closeout evidence | #65 child issue evidence, Phase 1~2 dry-run matrix, doc-contract verifier, no-execution boundary를 `docs/35-phase1-2-closeout-evidence.md`로 추적한다 |
 | Phase 1 MVP | Research 포함 폐루프 |
@@ -98,7 +98,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 34. `33-build-slice-serve-learning-loop.md` - Build Slice, Serve Checklist, Learning Loop Hook의 no-execution checklist/handoff 계약.
 35. `34-phase2.5-browser-automation-preview-contract.md` - Phase 2.5 Browser Automation Preview의 research quality comparison, DelegationRiskGate, no-execution boundary, ChatGPT Pro/Deep Research policy gate 계약.
 36. `35-phase1-2-closeout-evidence.md` - #65 closeout evidence ledger, Phase 1~2 dry-run acceptance matrix, tracker update rule.
-37. `36-phase3-controlled-execution-contract.md` - Phase 3 web/local controlled execution, `ExecutionAuthorityRecord`, approval, rollback, audit, Phase 4~6 gates.
+37. `36-phase3-controlled-execution-contract.md` - Phase 3 web/local controlled execution, #86/#87/#88 prerequisite gate, common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action` MVP sequence, `ExecutionAuthorityRecord`, approval, rollback, audit, Phase 4~6 gates.
 
 ## 문서 책임 경계
 
@@ -140,7 +140,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 | Build Slice, Serve Checklist, and Learning Loop | Build Slice Plan, Serve Checklist, Learning Loop Hook의 checklist/handoff 계약 | 31번은 final handoff artifact field family를, 33번은 그 field family의 제품 의미와 no-execution boundary를 책임진다. Phase 3 execution adapter와 실제 deploy는 후속 작업으로 넘긴다 |
 | Phase 2.5 Browser Automation Preview Contract | Browser/ChatGPT Pro delegation preview, DelegationRiskGate, ResearchQualityComparisonReport, comparative dry-run, no-execution boundary | 11/17/10/29번은 phase/runtimes/security/matrix 요약을, 이 문서는 Phase 2.5의 canonical Artifact+Gate 계약을 책임진다. 첫 slice의 DTO/type, reducer/projection, storage, adapter interface port를 고정하고 sidecar API/UI/live adapter는 후속으로 넘긴다 |
 | Phase 1~2 Closeout Evidence Report | #65 child issue evidence ledger, dry-run acceptance matrix, closeout commands, tracker update rule | 12번은 validation checklist를, 26/27번은 route/ops acceptance를, 30~32번은 Phase 1.5/2 canonical contracts를 책임진다. 이 문서는 구현 완료 주장을 검증 가능한 evidence로 묶되 tracker #65 업데이트를 대체하지 않는다 |
-| Phase 3 Controlled Execution Contract | Local Web Frontend + Local Node/Hono Service topology, `ExecutionAuthorityRecord`, `BoundedAgentOutputRecord`, approval/rollback/audit/security contract | 10/17/21번은 security/runtime 요약을, 11/29번은 phase gate를, 36번은 Phase 3 실제 실행 권한의 canonical contract를 책임진다 |
+| Phase 3 Controlled Execution Contract | Local Web Frontend + Local Node/Hono Service topology, #86/#87/#88 prerequisite gate, common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action` MVP sequence, `ExecutionAuthorityRecord`, `BoundedAgentOutputRecord`, approval/rollback/audit/security contract | 10/17/21번은 security/runtime 요약을, 26번은 endpoint behavior placeholder를, 11/29번은 phase gate를, 36번은 Phase 3 실제 실행 권한의 canonical contract를 책임진다 |
 
 ## 공식 자료 기반 설계 메모
 
@@ -163,6 +163,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 - Build Slice, Serve Checklist, Learning Loop Hook의 no-execution checklist/handoff 계약은 `33-build-slice-serve-learning-loop.md`가 소유한다.
 - Phase 2.5 Browser Automation Preview의 research quality comparison, DelegationRiskGate, `Phase25ResearchComparisonProjection`, ChatGPT Pro/Deep Research policy risk, no-execution boundary는 `34-phase2.5-browser-automation-preview-contract.md`가 소유한다.
 - Phase 1~2 hardening closeout evidence와 #65 tracker update rule은 `docs/35-phase1-2-closeout-evidence.md`가 소유한다.
+- Phase 3 Controlled execution MVP의 prerequisite gate, 순차 구현 순서, hard non-goals, deferred/blocked boundary는 `36-phase3-controlled-execution-contract.md`가 소유하고, route/API placeholder behavior는 `26-api-route-behavior-catalog.md`가 소유한다.
 - Hono는 local sidecar API의 route/validation surface로 고정하고, validation은 Hono validator/Zod 계열로 문서화한다. 참고: <https://hono.dev/docs/api>, <https://hono.dev/docs/guides/validation>
 - Phase 1 저장소는 local embedded libSQL + Drizzle schema/migration 계약으로 고정한다. 참고: <https://docs.turso.tech/sdk/ts/reference>, <https://docs.turso.tech/local-development>, <https://orm.drizzle.team/docs/get-started/sqlite-new>, <https://orm.drizzle.team/docs/migrations>
 - ChatGPT Pro에는 Codex와 Deep Research가 포함되지만 자동 추출, 계정 공유, 제3자 서비스 구동/재판매 제한이 있을 수 있으므로 ChatGPT Pro 웹 자동화는 Phase 2.5+ preview/gate 비전으로 두고 active execution 권한으로 해석하지 않는다. 참고: <https://help.openai.com/en/articles/9793128-what-is-c>
@@ -178,6 +179,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 2~5시간의 질�
 - Phase 1에서 ChatGPT 웹 자동화 구현 금지.
 - Phase 2.5에서 ChatGPT Pro/Deep Research 또는 browser delegation을 검토하더라도 실제 submit/write, credential/session custody, account sharing/resale, live browser/ChatGPT adapter, review UI panel, sidecar API, team/mobile/billing 확장 금지.
 - Codex를 통한 실제 파일 patch, shell 실행, 브라우저 action 실행 금지. `diff_preview`, `command_plan_preview`, `browser_action_preview`는 preview artifact 또는 `BlockedActionArtifact`로만 남긴다. Phase 1.5A는 `30-phase1.5-research-runtime-and-readiness-contract.md`의 allowlisted read-only research runtime, Phase 1.5B는 execution-readiness hint 저장만 다루며 실제 실행은 Controlled Execution capability 전에는 하지 않는다.
+- Phase 3 MVP에서도 credential custody, hosted control plane, destructive shell command, 모바일 승인/팀 협업/제품 결제·과금은 금지하며, external-production mutation(결제/법률/의료/금융 제출 자동화 포함)과 blanket/project-level approval은 후속 explicit contract 없이는 `blocked`로 수렴한다.
 - ProductEngine effect는 in-memory-only queue로 처리 금지. Phase 1 1급 effect는 persisted async effect queue에 저장한다.
 - `scoring_effect`와 `spec_export_effect`를 Phase 1 1급 async effect로 승격 금지. scoring/export는 reducer deterministic output으로 유지한다.
 - 모바일 앱 생성 금지.
