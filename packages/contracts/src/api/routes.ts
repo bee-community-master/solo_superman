@@ -471,6 +471,14 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "executeBrowserAction",
+    clientName: "executeBrowserAction",
+    method: "POST",
+    path: "/api/v1/execution-authorities/:authorityRecordId/browser-action",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
     routeId: "getCommandStatus",
     clientName: "getCommandStatus",
     method: "GET",
@@ -658,4 +666,13 @@ export const PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...PHASE3_PR04_SHELL_COMMAND_ROUTE_IDS
 ] as const satisfies readonly ApiRouteId[];
 
-export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS;
+export const PHASE3_PR05_BROWSER_ACTION_ROUTE_IDS = [
+  "executeBrowserAction"
+] as const satisfies readonly ApiRouteId[];
+
+export const PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  ...PHASE3_PR05_BROWSER_ACTION_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS;

@@ -235,7 +235,19 @@ The `shell_command` slice is represented in code by:
 - `executionAuthorityRepository.updateExecutionOutcome`, which persists `completed`, `blocked`, `failed`, or `partial` terminal state plus evidence/audit refs onto the same `ExecutionAuthorityRecord` so the user-visible ledger does not hide failed/blocked attempts.
 - Route tests cover happy-path read-only diagnostics, replay/tamper behavior, redacted stdout, nonzero exit, destructive command blocking, timeout evidence, symlink escape blocking, implicit or recursive `rg` scan blocking, and unsafe diagnostic flag blocking.
 
-`shell_command` remains narrower than future browser execution: it does not run browser actions, deploys, external-production mutations, destructive delete/reset/system operations, dev servers, or credential reads.
+`shell_command` remains narrower than browser execution: it does not run browser actions, deploys, external-production mutations, destructive delete/reset/system operations, dev servers, or credential reads.
+
+### Slice 3 current code-backed surface
+
+The `browser_action` slice is represented in code by:
+
+- `ExecuteBrowserActionRequest`, `BrowserActionPreviewDto`, and `BrowserActionExecutionResult` in `packages/contracts/src/projections/execution-authority.ts`.
+- `POST /api/v1/execution-authorities/:authorityRecordId/browser-action` in the sidecar route catalog and Hono router.
+- `apps/sidecar/src/product-engine/browser-action-adapter.ts`, which hashes the exact loopback target URL plus visible action preview, validates the authority record, requires `browser_state_reset`, blocks LAN/private/cloud/non-loopback targets, missing explicit ports, credential-bearing target URLs, credential/session custody, hidden actions, external mutation requests, and target-ref mismatch, then captures screenshot/log refs for visible `navigate_and_capture` previews.
+- `executionAuthorityRepository.updateExecutionOutcome`, which persists `completed`, `blocked`, `failed`, or `partial` terminal state plus screenshot/log/evidence/audit refs onto the same `ExecutionAuthorityRecord` so the user-visible ledger does not hide failed/blocked attempts.
+- Route tests cover happy-path loopback target capture, replay/tamper behavior, external target blocking, credential-bearing target URL blocking, missing reset boundary, hidden action blocking, credential/session custody blocking, and expired approval blocking.
+
+`browser_action` remains narrower than future external service/browser delegation work: it does not mutate external-production pages, store credentials/session values, perform hidden actions, support LAN/private/cloud preview URLs, or grant blanket/project-level browser approval.
 
 ## MVP route and docs ownership
 

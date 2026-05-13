@@ -9,6 +9,9 @@ import {
   BACKGROUND_RESEARCH_ADAPTER_KINDS,
   BOUNDED_AGENT_FAILURE_MODES,
   BOUNDED_AGENT_NO_EXECUTION_POLICIES,
+  BROWSER_ACTION_CREDENTIAL_MODES,
+  BROWSER_ACTION_EXTERNAL_MUTATION_POLICIES,
+  BROWSER_ACTION_PREVIEW_KINDS,
   EXECUTION_APPROVAL_DECISIONS,
   EXECUTION_AUTHORITY_ACTION_CLASSES,
   EXECUTION_NETWORK_POLICIES,
@@ -28,6 +31,8 @@ import {
   type CancelResearchRunRequest,
   type CreateExecutionAuthorityPayload,
   type CreateExecutionAuthorityRequest,
+  type BrowserActionPreviewDto,
+  type ExecuteBrowserActionRequest,
   type ExecuteFileDiffRequest,
   type ExecuteShellCommandRequest,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
@@ -962,6 +967,22 @@ const SHELL_COMMAND_EXECUTION_KEYS = [
   "command",
   "workingDirectory"
 ] as const;
+const BROWSER_ACTION_EXECUTION_KEYS = [
+  "scaffoldOnly",
+  "sessionId",
+  "idempotencyKey",
+  "previewArtifactHash",
+  "requestedAt",
+  "approvalExpiresAt",
+  "targetUrl",
+  "action"
+] as const;
+const BROWSER_ACTION_PREVIEW_KEYS = [
+  "kind",
+  "visibleAction",
+  "credentialMode",
+  "externalMutation"
+] as const satisfies readonly (keyof BrowserActionPreviewDto)[];
 
 function executionAuthorityActionClassFromBody(value: unknown, fieldName: string): ExecutionAuthorityActionClass {
   const actionClass = stringFromBody(value, fieldName);
@@ -1360,6 +1381,62 @@ function executeShellCommandRequestFromBody(body: Readonly<Record<string, unknow
     workspaceRoot: stringFromBody(body.workspaceRoot, "workspaceRoot"),
     command: stringArrayFromBody(body.command, "command"),
     ...(workingDirectory ? { workingDirectory } : {})
+  };
+}
+
+function browserActionPreviewFromBody(value: unknown): BrowserActionPreviewDto {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "action must be a browser action preview object.");
+  }
+
+  const action = value as Readonly<Record<string, unknown>>;
+
+  assertExecutionAuthorityRecordKeys(action, BROWSER_ACTION_PREVIEW_KEYS, "browser_action preview");
+
+  const kind = stringFromBody(action.kind, "action.kind");
+
+  if (!BROWSER_ACTION_PREVIEW_KINDS.includes(kind as BrowserActionPreviewDto["kind"])) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "action.kind must be a browser action preview kind.");
+  }
+
+  const credentialMode = stringFromBody(action.credentialMode, "action.credentialMode");
+
+  if (!BROWSER_ACTION_CREDENTIAL_MODES.includes(credentialMode as BrowserActionPreviewDto["credentialMode"])) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "action.credentialMode must be a browser credential mode.");
+  }
+
+  const externalMutation = stringFromBody(action.externalMutation, "action.externalMutation");
+
+  if (
+    !BROWSER_ACTION_EXTERNAL_MUTATION_POLICIES.includes(
+      externalMutation as BrowserActionPreviewDto["externalMutation"]
+    )
+  ) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "action.externalMutation must be a browser external mutation policy."
+    );
+  }
+
+  return {
+    kind: kind as BrowserActionPreviewDto["kind"],
+    visibleAction: booleanFromBody(action.visibleAction, "action.visibleAction"),
+    credentialMode: credentialMode as BrowserActionPreviewDto["credentialMode"],
+    externalMutation: externalMutation as BrowserActionPreviewDto["externalMutation"]
+  };
+}
+
+function executeBrowserActionRequestFromBody(body: Readonly<Record<string, unknown>>): ExecuteBrowserActionRequest {
+  const baseRequest = executionAdapterBaseRequestFromBody(
+    body,
+    BROWSER_ACTION_EXECUTION_KEYS,
+    "browser_action execution body"
+  );
+
+  return {
+    ...baseRequest,
+    targetUrl: stringFromBody(body.targetUrl, "targetUrl"),
+    action: browserActionPreviewFromBody(body.action)
   };
 }
 
@@ -2158,6 +2235,17 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       const request = executeShellCommandRequestFromBody(await jsonBody(context));
 
       return service.executeShellCommand({
+        ...request,
+        authorityRecordId: context.req.param("authorityRecordId")
+      });
+    })
+  );
+
+  app.post("/api/v1/execution-authorities/:authorityRecordId/browser-action", async (context) =>
+    withProductEngine(context, async (service) => {
+      const request = executeBrowserActionRequestFromBody(await jsonBody(context));
+
+      return service.executeBrowserAction({
         ...request,
         authorityRecordId: context.req.param("authorityRecordId")
       });

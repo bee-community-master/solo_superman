@@ -27,6 +27,8 @@ import {
   PHASE3_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PHASE3_PR04_SHELL_COMMAND_ROUTE_IDS,
   PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  PHASE3_PR05_BROWSER_ACTION_ROUTE_IDS,
+  PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
@@ -414,10 +416,29 @@ describe("API route catalog", () => {
       ...PHASE3_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS,
       ...PHASE3_PR04_SHELL_COMMAND_ROUTE_IDS
     ]);
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(
+      expect.arrayContaining([...PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS])
+    );
     expect(routeById.get("executeShellCommand")).toMatchObject({
       method: "POST",
       path: "/api/v1/execution-authorities/:authorityRecordId/shell-command",
+      commandType: "none",
+      implementedInPr01: false
+    });
+  });
+
+  it("mounts the Phase 3 PR-05 browser_action controlled adapter after shell_command", () => {
+    const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
+
+    expect(PHASE3_PR05_BROWSER_ACTION_ROUTE_IDS).toEqual(["executeBrowserAction"]);
+    expect(PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual([
+      ...PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      ...PHASE3_PR05_BROWSER_ACTION_ROUTE_IDS
+    ]);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(routeById.get("executeBrowserAction")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/execution-authorities/:authorityRecordId/browser-action",
       commandType: "none",
       implementedInPr01: false
     });

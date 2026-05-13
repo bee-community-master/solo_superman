@@ -1,5 +1,6 @@
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach } from "vitest";
@@ -11,6 +12,7 @@ import {
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION,
   type CommandId,
+  type BrowserActionPreviewDto,
   type CorrelationId,
   type DecisionEvidencePackId,
   type EventId,
@@ -39,6 +41,7 @@ import {
   localDatabaseUrlFromAppDataDir
 } from "@solo-superman/db";
 import { createProductEngineCommandService } from "./product-engine/command-service";
+import { hashBrowserActionPreview } from "./product-engine/browser-action-adapter";
 import { hashFileDiffPreview } from "./product-engine/file-diff-adapter";
 import { hashShellCommandPreview } from "./product-engine/shell-command-adapter";
 import { CodexRuntimeUnavailableError, createCodexRuntimeAdapter, fixtureCodexPreviewOutput } from "./runtime";
@@ -378,6 +381,42 @@ function fileDiffCreateFixture(path: string, contentLine: string) {
     `+${contentLine}`,
     ""
   ].join("\n");
+}
+
+async function createLocalBrowserTargetServer() {
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end("<!doctype html><title>Solo local preview</title><h1>Local browser target</h1>");
+  });
+
+  await new Promise<void>((resolveListen, rejectListen) => {
+    server.once("error", rejectListen);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", rejectListen);
+      resolveListen();
+    });
+  });
+
+  const address = server.address();
+
+  if (!address || typeof address === "string") {
+    throw new Error("Local browser target server did not expose a TCP address.");
+  }
+
+  return {
+    targetUrl: `http://127.0.0.1:${address.port}/preview`,
+    close: () =>
+      new Promise<void>((resolveClose, rejectClose) => {
+        server.close((error) => {
+          if (error) {
+            rejectClose(error);
+            return;
+          }
+
+          resolveClose();
+        });
+      })
+  };
 }
 
 function planningHandoffSourceRefsFixture(idSuffix: string): readonly PlanningHandoffSourceRefDto[] {
@@ -4583,6 +4622,408 @@ describe("PR-02 sidecar health shell", () => {
         ])
       });
     } finally {
+      await storage.close();
+    }
+  });
+
+  it("executes browser_action only for exact loopback targets with reset, screenshot, log, evidence, and audit refs", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+    const localTarget = await createLocalBrowserTargetServer();
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "A browser_action controlled adapter route test idea"
+      );
+      let expectedStateVersion = 1;
+      const nextExpectedStateVersion = () => expectedStateVersion++;
+      const safeAction = {
+        kind: "navigate_and_capture",
+        visibleAction: true,
+        credentialMode: "none",
+        externalMutation: "blocked"
+      } as const satisfies BrowserActionPreviewDto;
+      const postBrowserAction = (targetRecordId: string, body: Readonly<Record<string, unknown>>) =>
+        storageApp.request(`/api/v1/execution-authorities/${targetRecordId}/browser-action`, {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
+        });
+      const createBrowserAuthority = (
+        idSuffix: string,
+        targetUrl: string,
+        action: BrowserActionPreviewDto,
+        expectedStateVersion: number,
+        authorityOverrides: Readonly<Record<string, unknown>> = {}
+      ) => {
+        const previewArtifactHash = hashBrowserActionPreview({ targetUrl, action });
+        const origin = new URL(targetUrl).origin;
+
+        return createExecutionAuthorityForTest(storageApp, sessionId, idSuffix, {
+          expectedStateVersion,
+          actionClass: "browser_action",
+          previewArtifactHash,
+          reviewedPreviewArtifactHash: previewArtifactHash,
+          requestedScope: {
+            browserTargetRef: `browser_target:${origin}`,
+            maxDurationMs: 1_000
+          },
+          sandboxBoundary: {
+            mode: "browser_preview_session",
+            networkPolicy: "loopback_only",
+            secretPolicy: "no_secret_values"
+          },
+          rollbackReference: {
+            kind: "browser_state_reset",
+            ref: `rollback_${idSuffix}`
+          },
+          preconditionChecks: {
+            planningSourceExists: true,
+            previewArtifactExists: true,
+            previewHashMatches: true,
+            rollbackAvailable: true,
+            credentialValueRequired: false,
+            sandboxEnforced: true
+          },
+          ...authorityOverrides
+        });
+      };
+
+      const localHash = hashBrowserActionPreview({ targetUrl: localTarget.targetUrl, action: safeAction });
+      const { recordId } = await createBrowserAuthority(
+        "browser_action_local",
+        localTarget.targetUrl,
+        safeAction,
+        nextExpectedStateVersion()
+      );
+      const requestBody = {
+        sessionId,
+        idempotencyKey: "browser-action:local",
+        previewArtifactHash: localHash,
+        requestedAt: "2026-05-13T00:01:00.000Z",
+        approvalExpiresAt: "2026-05-13T00:05:00.000Z",
+        targetUrl: localTarget.targetUrl,
+        action: safeAction
+      };
+
+      const completed = await postBrowserAction(recordId, requestBody);
+      const completedBody = await jsonBody(completed);
+
+      expect(completed.status).toBe(200);
+      expect(completedBody.data).toMatchObject({
+        kind: "BrowserActionExecutionResult",
+        authorityRecordId: recordId,
+        status: "completed",
+        target: {
+          origin: new URL(localTarget.targetUrl).origin,
+          hostname: "127.0.0.1"
+        },
+        action: safeAction,
+        httpStatusCode: 200,
+        screenshotRefs: expect.arrayContaining(["browser_action:screenshot:browser-action:local"]),
+        logRefs: expect.arrayContaining([expect.stringContaining("browser_action:log:browser-action:local")]),
+        rollbackReference: {
+          kind: "browser_state_reset"
+        },
+        evidenceRefs: expect.arrayContaining([
+          expect.stringContaining("browser_action:http_status:200"),
+          "browser_action:screenshot:browser-action:local"
+        ]),
+        auditRefs: expect.arrayContaining(["audit:browser_action:browser-action:local"])
+      });
+
+      const replayCompleted = await postBrowserAction(recordId, requestBody);
+      const replayCompletedBody = await jsonBody(replayCompleted);
+
+      expect(replayCompleted.status).toBe(200);
+      expect(replayCompletedBody.data).toMatchObject({
+        status: "completed",
+        blockReasons: []
+      });
+
+      const mismatchedReplay = await postBrowserAction(recordId, {
+        ...requestBody,
+        idempotencyKey: "browser-action:mismatched-replay",
+        targetUrl: `${localTarget.targetUrl}?view=other`
+      });
+      const mismatchedReplayBody = await jsonBody(mismatchedReplay);
+
+      expect(mismatchedReplay.status).toBe(200);
+      expect(mismatchedReplayBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "preview_hash_mismatch",
+            message: expect.stringContaining("targetUrl and action")
+          })
+        ])
+      });
+
+      const tamperedReplay = await postBrowserAction(recordId, {
+        ...requestBody,
+        idempotencyKey: "browser-action:tampered-replay",
+        previewArtifactHash: "sha256:tampered"
+      });
+      const tamperedReplayBody = await jsonBody(tamperedReplay);
+
+      expect(tamperedReplay.status).toBe(200);
+      expect(tamperedReplayBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "preview_hash_mismatch"
+          })
+        ])
+      });
+
+      const externalTargetUrl = "https://example.com/preview";
+      const { recordId: externalRecordId } = await createBrowserAuthority(
+        "browser_action_external",
+        externalTargetUrl,
+        safeAction,
+        nextExpectedStateVersion(),
+        {
+          requestedScope: {
+            browserTargetRef: "browser_target:https://example.com",
+            maxDurationMs: 1_000
+          }
+        }
+      );
+      const externalTarget = await postBrowserAction(externalRecordId, {
+        ...requestBody,
+        idempotencyKey: "browser-action:external-target",
+        previewArtifactHash: hashBrowserActionPreview({ targetUrl: externalTargetUrl, action: safeAction }),
+        targetUrl: externalTargetUrl
+      });
+      const externalTargetBody = await jsonBody(externalTarget);
+
+      expect(externalTarget.status).toBe(200);
+      expect(externalTargetBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "sandbox_failure",
+            message: expect.stringContaining("loopback HTTP")
+          })
+        ])
+      });
+
+      const credentialTargetUrl = `${localTarget.targetUrl}?token=plain-secret-value`;
+      const { recordId: credentialTargetRecordId } = await createBrowserAuthority(
+        "browser_action_credential_target",
+        credentialTargetUrl,
+        safeAction,
+        nextExpectedStateVersion()
+      );
+      const credentialTarget = await postBrowserAction(credentialTargetRecordId, {
+        ...requestBody,
+        idempotencyKey: "browser-action:credential-target",
+        previewArtifactHash: hashBrowserActionPreview({ targetUrl: credentialTargetUrl, action: safeAction }),
+        targetUrl: credentialTargetUrl
+      });
+      const credentialTargetBody = await jsonBody(credentialTarget);
+
+      expect(credentialTarget.status).toBe(200);
+      expect(credentialTargetBody.data).toMatchObject({
+        status: "blocked",
+        target: null,
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "credential_value_required",
+            message: expect.stringContaining("targetUrl")
+          })
+        ])
+      });
+      expect(JSON.stringify(credentialTargetBody.data)).not.toContain("plain-secret-value");
+
+      const privateLanTargetUrl = "http://192.168.0.10:3000/preview";
+      const { recordId: privateLanRecordId } = await createBrowserAuthority(
+        "browser_action_private_lan",
+        privateLanTargetUrl,
+        safeAction,
+        nextExpectedStateVersion(),
+        {
+          requestedScope: {
+            browserTargetRef: "browser_target:http://192.168.0.10:3000",
+            maxDurationMs: 1_000
+          }
+        }
+      );
+      const privateLanTarget = await postBrowserAction(privateLanRecordId, {
+        ...requestBody,
+        idempotencyKey: "browser-action:private-lan-target",
+        previewArtifactHash: hashBrowserActionPreview({ targetUrl: privateLanTargetUrl, action: safeAction }),
+        targetUrl: privateLanTargetUrl
+      });
+      const privateLanTargetBody = await jsonBody(privateLanTarget);
+
+      expect(privateLanTarget.status).toBe(200);
+      expect(privateLanTargetBody.data).toMatchObject({
+        status: "blocked",
+        target: null,
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "sandbox_failure",
+            message: expect.stringContaining("localhost")
+          })
+        ])
+      });
+
+      const missingResetHash = hashBrowserActionPreview({ targetUrl: localTarget.targetUrl, action: safeAction });
+      const { recordId: missingResetRecordId } = await createBrowserAuthority(
+        "browser_action_missing_reset",
+        localTarget.targetUrl,
+        safeAction,
+        nextExpectedStateVersion(),
+        {
+          rollbackReference: undefined,
+          preconditionChecks: {
+            planningSourceExists: true,
+            previewArtifactExists: true,
+            previewHashMatches: true,
+            rollbackAvailable: false,
+            credentialValueRequired: false,
+            sandboxEnforced: true
+          }
+        }
+      );
+      const missingReset = await postBrowserAction(missingResetRecordId, {
+        ...requestBody,
+        idempotencyKey: "browser-action:missing-reset",
+        previewArtifactHash: missingResetHash
+      });
+      const missingResetBody = await jsonBody(missingReset);
+
+      expect(missingReset.status).toBe(200);
+      expect(missingResetBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "missing_rollback"
+          })
+        ])
+      });
+
+      const hiddenAction = {
+        ...safeAction,
+        visibleAction: false
+      } as const;
+      const { recordId: hiddenRecordId } = await createBrowserAuthority(
+        "browser_action_hidden",
+        localTarget.targetUrl,
+        hiddenAction,
+        nextExpectedStateVersion()
+      );
+      const hidden = await postBrowserAction(hiddenRecordId, {
+        ...requestBody,
+        idempotencyKey: "browser-action:hidden",
+        previewArtifactHash: hashBrowserActionPreview({ targetUrl: localTarget.targetUrl, action: hiddenAction }),
+        action: hiddenAction
+      });
+      const hiddenBody = await jsonBody(hidden);
+
+      expect(hidden.status).toBe(200);
+      expect(hiddenBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "sandbox_failure",
+            message: expect.stringContaining("visible action")
+          })
+        ])
+      });
+
+      const credentialAction = {
+        ...safeAction,
+        credentialMode: "session_custody"
+      } as const;
+      const { recordId: credentialRecordId } = await createBrowserAuthority(
+        "browser_action_credential",
+        localTarget.targetUrl,
+        credentialAction,
+        nextExpectedStateVersion()
+      );
+      const credential = await postBrowserAction(credentialRecordId, {
+        ...requestBody,
+        idempotencyKey: "browser-action:credential",
+        previewArtifactHash: hashBrowserActionPreview({
+          targetUrl: localTarget.targetUrl,
+          action: credentialAction
+        }),
+        action: credentialAction
+      });
+      const credentialBody = await jsonBody(credential);
+
+      expect(credential.status).toBe(200);
+      expect(credentialBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "credential_value_required"
+          })
+        ])
+      });
+
+      const externalMutationAction = {
+        ...safeAction,
+        externalMutation: "requested"
+      } as const;
+      const { recordId: externalMutationRecordId } = await createBrowserAuthority(
+        "browser_action_external_mutation",
+        localTarget.targetUrl,
+        externalMutationAction,
+        nextExpectedStateVersion()
+      );
+      const externalMutation = await postBrowserAction(externalMutationRecordId, {
+        ...requestBody,
+        idempotencyKey: "browser-action:external-mutation",
+        previewArtifactHash: hashBrowserActionPreview({
+          targetUrl: localTarget.targetUrl,
+          action: externalMutationAction
+        }),
+        action: externalMutationAction
+      });
+      const externalMutationBody = await jsonBody(externalMutation);
+
+      expect(externalMutation.status).toBe(200);
+      expect(externalMutationBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "sandbox_failure",
+            message: expect.stringContaining("external-production mutation")
+          })
+        ])
+      });
+
+      const { recordId: expiredRecordId } = await createBrowserAuthority(
+        "browser_action_expired",
+        localTarget.targetUrl,
+        safeAction,
+        nextExpectedStateVersion()
+      );
+      const expired = await postBrowserAction(expiredRecordId, {
+        ...requestBody,
+        idempotencyKey: "browser-action:expired",
+        requestedAt: "2026-05-13T00:06:00.000Z",
+        approvalExpiresAt: "2026-05-13T00:05:00.000Z"
+      });
+      const expiredBody = await jsonBody(expired);
+
+      expect(expired.status).toBe(200);
+      expect(expiredBody.data).toMatchObject({
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({
+            code: "expired_approval"
+          })
+        ])
+      });
+    } finally {
+      await localTarget.close();
       await storage.close();
     }
   });

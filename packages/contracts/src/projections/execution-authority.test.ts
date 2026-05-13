@@ -12,6 +12,8 @@ import {
 } from "./execution-authority";
 import type {
   BoundedAgentOutputRecord,
+  BrowserActionExecutionResult,
+  BrowserActionPreviewDto,
   CreateExecutionAuthorityPayload,
   ExecutionApprovalDecision,
   ExecutionAuthorityLedgerProjection,
@@ -85,6 +87,29 @@ describe("Phase 3 ExecutionAuthority ledger contract", () => {
       | "latestRecord"
       | "blockedPreconditions"
       | "summary"
+      | "refetchUrl"
+    >();
+    expectTypeOf<keyof BrowserActionPreviewDto>().toEqualTypeOf<
+      "kind" | "visibleAction" | "credentialMode" | "externalMutation"
+    >();
+    expectTypeOf<keyof BrowserActionExecutionResult>().toEqualTypeOf<
+      | "kind"
+      | "authorityRecordId"
+      | "idempotencyKey"
+      | "previewArtifactHash"
+      | "requestedAt"
+      | "checkedAt"
+      | "status"
+      | "target"
+      | "action"
+      | "httpStatusCode"
+      | "durationMs"
+      | "screenshotRefs"
+      | "logRefs"
+      | "blockReasons"
+      | "rollbackReference"
+      | "evidenceRefs"
+      | "auditRefs"
       | "refetchUrl"
     >();
   });
@@ -293,6 +318,34 @@ describe("Phase 3 ExecutionAuthority ledger contract", () => {
         "shell_command authority requires maxDurationMs requestedScope",
         "shell_command authority requires command_sandbox sandbox mode",
         "shell_command authority requires command_compensating_action rollback kind"
+      ])
+    );
+
+    const browserWithShellBoundary = {
+      ...PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE.latestRecord,
+      actionClass: "browser_action",
+      requestedScope: {
+        workspaceRef: "workspace_demo_local",
+        commandAllowlistRef: "shell_command:default"
+      },
+      sandboxBoundary: {
+        mode: "command_sandbox",
+        networkPolicy: "approved_public_read",
+        secretPolicy: "no_secret_values"
+      },
+      rollbackReference: {
+        kind: "command_compensating_action",
+        ref: "rollback_command_demo_001"
+      }
+    } satisfies ExecutionAuthorityRecord;
+    const browserIssues = executionAuthorityRecordValidationIssues(browserWithShellBoundary);
+
+    expect(browserIssues).toEqual(
+      expect.arrayContaining([
+        "browser_action authority requires browserTargetRef requestedScope",
+        "browser_action authority requires browser_preview_session sandbox mode",
+        "browser_action authority requires loopback_only network policy",
+        "browser_action authority requires browser_state_reset rollback kind"
       ])
     );
   });

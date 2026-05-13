@@ -292,6 +292,63 @@ export interface ShellCommandExecutionResult {
   readonly refetchUrl: string;
 }
 
+export const BROWSER_ACTION_PREVIEW_KINDS = ["navigate_and_capture"] as const;
+
+export type BrowserActionPreviewKind = (typeof BROWSER_ACTION_PREVIEW_KINDS)[number];
+
+export const BROWSER_ACTION_CREDENTIAL_MODES = ["none", "credential_entry", "session_custody"] as const;
+
+export type BrowserActionCredentialMode = (typeof BROWSER_ACTION_CREDENTIAL_MODES)[number];
+
+export const BROWSER_ACTION_EXTERNAL_MUTATION_POLICIES = ["blocked", "requested"] as const;
+
+export type BrowserActionExternalMutationPolicy = (typeof BROWSER_ACTION_EXTERNAL_MUTATION_POLICIES)[number];
+
+export interface BrowserActionPreviewDto {
+  readonly kind: BrowserActionPreviewKind;
+  readonly visibleAction: boolean;
+  readonly credentialMode: BrowserActionCredentialMode;
+  readonly externalMutation: BrowserActionExternalMutationPolicy;
+}
+
+export interface ExecuteBrowserActionRequest {
+  readonly sessionId: SessionId;
+  readonly idempotencyKey: string;
+  readonly previewArtifactHash: string;
+  readonly requestedAt: string;
+  readonly approvalExpiresAt?: string;
+  readonly targetUrl: string;
+  readonly action: BrowserActionPreviewDto;
+}
+
+export interface BrowserActionTargetDto {
+  readonly url: string;
+  readonly origin: string;
+  readonly hostname: string;
+  readonly port: number;
+}
+
+export interface BrowserActionExecutionResult {
+  readonly kind: "BrowserActionExecutionResult";
+  readonly authorityRecordId: string;
+  readonly idempotencyKey: string;
+  readonly previewArtifactHash: string;
+  readonly requestedAt: string;
+  readonly checkedAt: string;
+  readonly status: Extract<ExecutionResultState, "blocked" | "completed" | "failed" | "partial">;
+  readonly target: BrowserActionTargetDto | null;
+  readonly action: BrowserActionPreviewDto;
+  readonly httpStatusCode: number | null;
+  readonly durationMs: number;
+  readonly screenshotRefs: readonly string[];
+  readonly logRefs: readonly string[];
+  readonly blockReasons: readonly ExecutionAuthorityBlockReasonDto[];
+  readonly rollbackReference: ExecutionRollbackReference | null;
+  readonly evidenceRefs: readonly string[];
+  readonly auditRefs: readonly string[];
+  readonly refetchUrl: string;
+}
+
 export class ExecutionAuthorityValidationError extends Error {
   readonly issues: readonly string[];
 

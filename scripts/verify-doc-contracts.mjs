@@ -744,6 +744,7 @@ const PHASE3_REQUIRED_CONTRACT_SNIPPETS = [
   "`git_diff_reverse` by default",
   "Read-only diagnostics time out at 30 seconds",
   "POST /api/v1/execution-authorities/:authorityRecordId/shell-command",
+  "POST /api/v1/execution-authorities/:authorityRecordId/browser-action",
   "loopback-only local targets",
   "BoundedAgentOutputRecord",
   "per-run local capability token",
@@ -853,6 +854,7 @@ const PHASE3_REFERENCE_REQUIREMENTS = [
       "`shell_command`",
       "`browser_action`",
       "POST /api/v1/execution-authorities/:authorityRecordId/shell-command",
+      "POST /api/v1/execution-authorities/:authorityRecordId/browser-action",
       "ProductEngine/application command boundary",
       "executionResult` may become `running`",
       "loopback-only targets"
@@ -871,6 +873,7 @@ const PHASE3_REFERENCE_REQUIREMENTS = [
       "`shell_command`",
       "`browser_action`",
       "ExecuteShellCommandRequest",
+      "ExecuteBrowserActionRequest",
       "blocked",
       "ProductEngine/application command boundary",
       "Read-only diagnostics time out at 30 seconds",
@@ -879,7 +882,13 @@ const PHASE3_REFERENCE_REQUIREMENTS = [
   },
   {
     path: "docs/25-contracts-dto-catalog.md",
-    snippets: ["ExecuteShellCommandRequest", "ShellCommandExecutionResult", "Phase 3 Execution Authority DTO checklist"]
+    snippets: [
+      "ExecuteShellCommandRequest",
+      "ShellCommandExecutionResult",
+      "ExecuteBrowserActionRequest",
+      "BrowserActionExecutionResult",
+      "Phase 3 Execution Authority DTO checklist"
+    ]
   },
   {
     path: "docs/11-roadmap-and-phase-boundaries.md",

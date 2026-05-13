@@ -25,6 +25,9 @@ import {
   type CreateResearchAllowlistRequest,
   type CorrelationId,
   type CausationId,
+  type BrowserActionExecutionResult,
+  type BrowserActionPreviewDto,
+  type BrowserActionTargetDto,
   type CodexTurnPurpose,
   type ConfidenceCompletionProjection,
   type DecisionQueueProjection,
@@ -32,6 +35,7 @@ import {
   type EffectTaskDto,
   type EffectTaskId,
   type EventId,
+  type ExecuteBrowserActionRequest,
   type ExecuteFileDiffRequest,
   type ExecuteShellCommandRequest,
   type ExecutionAuthorityBlockCode,
@@ -131,6 +135,11 @@ import {
   type CodexRuntimeAdapter,
   type CodexRuntimePreviewInput
 } from "../runtime";
+import {
+  browserActionTargetFromUrl,
+  hashBrowserActionPreview,
+  runBrowserAction
+} from "./browser-action-adapter";
 import { applyFileDiff } from "./file-diff-adapter";
 import { buildPhase15bHintExport, buildPhase15bHintProjection } from "./phase15b-hint-projection";
 import { runShellCommand } from "./shell-command-adapter";
@@ -189,6 +198,10 @@ export interface ExecuteFileDiffInput extends ExecuteFileDiffRequest {
 }
 
 export interface ExecuteShellCommandInput extends ExecuteShellCommandRequest {
+  readonly authorityRecordId: string;
+}
+
+export interface ExecuteBrowserActionInput extends ExecuteBrowserActionRequest {
   readonly authorityRecordId: string;
 }
 
@@ -1045,6 +1058,64 @@ function shellCommandExecutionResult(input: {
   };
 }
 
+function browserActionTargetFromRequest(targetUrl: string): BrowserActionTargetDto | null {
+  const target = browserActionTargetFromUrl(targetUrl);
+
+  return "code" in target ? null : target;
+}
+
+function browserActionExecutionResult(input: {
+  readonly request: ExecuteBrowserActionInput;
+  readonly checkedAt: string;
+  readonly record?: ExecutionAuthorityRecord;
+  readonly status: BrowserActionExecutionResult["status"];
+  readonly target?: BrowserActionTargetDto | null;
+  readonly action?: BrowserActionPreviewDto;
+  readonly httpStatusCode?: number | null;
+  readonly durationMs?: number;
+  readonly screenshotRefs?: readonly string[];
+  readonly logRefs?: readonly string[];
+  readonly blockReasons: readonly ExecutionAuthorityBlockReasonDto[];
+  readonly evidenceRefs?: readonly string[];
+  readonly auditRefs?: readonly string[];
+  readonly includeRequestAuditRef?: boolean;
+}): BrowserActionExecutionResult {
+  const blockEvidenceRefs = input.blockReasons.flatMap((reason) => reason.evidenceRefs);
+  const requestAuditRefs = input.includeRequestAuditRef === false
+    ? []
+    : [`audit:browser_action:${input.request.idempotencyKey}`];
+  const evidenceRefs = input.record
+    ? uniqueRefs([...(input.record.evidenceRefs ?? []), ...(input.evidenceRefs ?? []), ...blockEvidenceRefs])
+    : uniqueRefs([...(input.evidenceRefs ?? []), ...blockEvidenceRefs]);
+  const auditRefs = input.record
+    ? uniqueRefs([...(input.record.auditRefs ?? []), ...requestAuditRefs, ...(input.auditRefs ?? [])])
+    : uniqueRefs([...requestAuditRefs, ...(input.auditRefs ?? [])]);
+  const target = input.target === undefined
+    ? browserActionTargetFromRequest(input.request.targetUrl)
+    : input.target;
+
+  return {
+    kind: "BrowserActionExecutionResult",
+    authorityRecordId: input.request.authorityRecordId,
+    idempotencyKey: input.request.idempotencyKey,
+    previewArtifactHash: input.request.previewArtifactHash,
+    requestedAt: input.request.requestedAt,
+    checkedAt: input.checkedAt,
+    status: input.status,
+    target,
+    action: input.action ?? input.request.action,
+    httpStatusCode: input.httpStatusCode ?? null,
+    durationMs: input.durationMs ?? 0,
+    screenshotRefs: input.screenshotRefs ?? [],
+    logRefs: input.logRefs ?? [],
+    blockReasons: input.blockReasons,
+    rollbackReference: input.record?.rollbackReference ?? null,
+    evidenceRefs,
+    auditRefs,
+    refetchUrl: `/api/v1/sessions/${input.request.sessionId}/execution-authority`
+  };
+}
+
 function shellCommandSummaryFromRequest(input: {
   readonly request: ExecuteShellCommandInput;
   readonly record?: ExecutionAuthorityRecord;
@@ -1074,6 +1145,25 @@ function existingExecutionStatus(
     case "running":
       return null;
   }
+}
+
+function browserActionRequestPreviewHashBlockReason(
+  input: ExecuteBrowserActionInput
+): ExecutionAuthorityBlockReasonDto | null {
+  const computedHash = hashBrowserActionPreview({
+    targetUrl: input.targetUrl,
+    action: input.action
+  });
+
+  if (computedHash === input.previewArtifactHash) {
+    return null;
+  }
+
+  return executionAuthorityPreflightBlockReason(
+    "preview_hash_mismatch",
+    "Browser action request targetUrl and action must match the supplied previewArtifactHash.",
+    ["preflight:browser_action_request_preview_hash_mismatch"]
+  );
 }
 
 function executionAuthorityPreflightBlockReasons(
@@ -4560,6 +4650,151 @@ export function createProductEngineCommandService(
         blockReasons: shellCommandOutput.blockReasons,
         evidenceRefs: shellCommandOutput.evidenceRefs,
         auditRefs: shellCommandOutput.auditRefs
+      });
+      const updatedProjection = await repository.updateExecutionOutcome({
+        recordId: input.authorityRecordId,
+        executionResult: result.status,
+        blockReasons: result.status === "blocked" ? result.blockReasons : [],
+        evidenceRefs: result.evidenceRefs,
+        auditRefs: result.auditRefs
+      });
+
+      if (!updatedProjection) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Execution authority record was not found.", {
+          authorityRecordId: input.authorityRecordId
+        });
+      }
+
+      return result;
+    },
+
+    async executeBrowserAction(input: ExecuteBrowserActionInput): Promise<BrowserActionExecutionResult> {
+      const session = await createProjectRepository(storage.db).getSession(input.sessionId);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: input.sessionId
+        });
+      }
+
+      parseExecutionAuthorityTimestamp(input.requestedAt, "requestedAt");
+      if (input.approvalExpiresAt) {
+        parseExecutionAuthorityTimestamp(input.approvalExpiresAt, "approvalExpiresAt");
+      }
+
+      const repository = createExecutionAuthorityRepository(storage.db);
+      const projection = await repository.getById(input.authorityRecordId);
+
+      if (projection && projection.sessionId !== input.sessionId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "authorityRecordId must belong to the request session.", {
+          authorityRecordId: input.authorityRecordId,
+          routeSessionId: input.sessionId,
+          authoritySessionId: projection.sessionId
+        });
+      }
+
+      const preflightInput: ValidateExecutionAuthorityPreflightInput = {
+        authorityRecordId: input.authorityRecordId,
+        sessionId: input.sessionId,
+        idempotencyKey: input.idempotencyKey,
+        actionClass: "browser_action",
+        previewArtifactHash: input.previewArtifactHash,
+        requestedAt: input.requestedAt,
+        ...(input.approvalExpiresAt ? { approvalExpiresAt: input.approvalExpiresAt } : {})
+      };
+      const basePreflightBlockReasons = executionAuthorityPreflightBlockReasons(preflightInput, projection);
+      const requestPreviewHashBlockReason = browserActionRequestPreviewHashBlockReason(input);
+      const preflightBlockReasons = requestPreviewHashBlockReason
+        ? [...basePreflightBlockReasons, requestPreviewHashBlockReason]
+        : basePreflightBlockReasons;
+      const checkedAt = new Date().toISOString();
+
+      if (!projection) {
+        return browserActionExecutionResult({
+          request: input,
+          checkedAt,
+          status: "blocked",
+          blockReasons: preflightBlockReasons
+        });
+      }
+
+      const existingStatus = existingExecutionStatus(projection.latestRecord);
+
+      if (existingStatus) {
+        const recordReplayBlockReasons =
+          projection.latestRecord.actionClass !== "browser_action" ||
+          projection.latestRecord.previewArtifactHash !== input.previewArtifactHash
+            ? basePreflightBlockReasons
+            : [];
+        const replayGuardBlockReasons = requestPreviewHashBlockReason
+          ? [...recordReplayBlockReasons, requestPreviewHashBlockReason]
+          : recordReplayBlockReasons;
+
+        if (replayGuardBlockReasons.length) {
+          return browserActionExecutionResult({
+            request: input,
+            checkedAt,
+            record: projection.latestRecord,
+            status: "blocked",
+            blockReasons: replayGuardBlockReasons,
+            includeRequestAuditRef: false
+          });
+        }
+
+        return browserActionExecutionResult({
+          request: input,
+          checkedAt,
+          record: projection.latestRecord,
+          status: existingStatus,
+          blockReasons: existingStatus === "blocked" ? projection.latestRecord.blockReasons : [],
+          includeRequestAuditRef: false
+        });
+      }
+
+      if (projection.latestRecord.executionResult !== "not_run") {
+        return browserActionExecutionResult({
+          request: input,
+          checkedAt,
+          record: projection.latestRecord,
+          status: "blocked",
+          blockReasons: preflightBlockReasons,
+          includeRequestAuditRef: false
+        });
+      }
+
+      const browserActionOutput = preflightBlockReasons.length
+        ? {
+            status: "blocked" as const,
+            target: browserActionTargetFromRequest(input.targetUrl),
+            action: input.action,
+            httpStatusCode: null,
+            durationMs: 0,
+            screenshotRefs: [],
+            logRefs: [],
+            blockReasons: preflightBlockReasons,
+            evidenceRefs: [],
+            auditRefs: []
+          }
+        : await runBrowserAction({
+            record: projection.latestRecord,
+            idempotencyKey: input.idempotencyKey,
+            targetUrl: input.targetUrl,
+            action: input.action
+          });
+      const result = browserActionExecutionResult({
+        request: input,
+        checkedAt,
+        record: projection.latestRecord,
+        status: browserActionOutput.status,
+        target: browserActionOutput.target,
+        action: browserActionOutput.action,
+        httpStatusCode: browserActionOutput.httpStatusCode,
+        durationMs: browserActionOutput.durationMs,
+        screenshotRefs: browserActionOutput.screenshotRefs,
+        logRefs: browserActionOutput.logRefs,
+        blockReasons: browserActionOutput.blockReasons,
+        evidenceRefs: browserActionOutput.evidenceRefs,
+        auditRefs: browserActionOutput.auditRefs
       });
       const updatedProjection = await repository.updateExecutionOutcome({
         recordId: input.authorityRecordId,
