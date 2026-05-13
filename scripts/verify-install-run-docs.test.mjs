@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const runbook = readFileSync("docs/39-local-install-run-verification.md", "utf8");
+const windowsBlocks = [...runbook.matchAll(/```powershell<br>(.*?)<br>```/gs)].map((match) => match[1]);
 
 describe("#105 local install/run verification docs", () => {
   it("documents macOS and Windows command blocks side by side", () => {
@@ -14,6 +15,7 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("winget install --id OpenJS.NodeJS.LTS -e");
     expect(runbook).toContain("$env:SOLO_LOCAL_CAPABILITY_TOKEN");
     expect(runbook).toContain("Set-Location .\\solo_superman");
+    expect(windowsBlocks.join("\n")).not.toMatch(/\bexport\s+|\bcd\s+solo_superman\b|&&/u);
   });
 
   it("keeps local token, sidecar URL, prod bundle smoke, and no-API-key defaults explicit", () => {
