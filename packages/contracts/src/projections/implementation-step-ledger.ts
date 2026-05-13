@@ -501,10 +501,11 @@ export function validateImplementationStepLedgerProjection(
     }
   }
 
-  const stepIds = new Set(projection.steps.map((step) => step.stepDoc.stepId));
+  const validSteps = projection.steps.filter((step) => isStepDoc(step.stepDoc));
+  const stepIds = new Set(validSteps.map((step) => step.stepDoc.stepId));
   const stepDocsById = new Map<string, ImplementationStepDoc>();
 
-  for (const step of projection.steps) {
+  for (const step of validSteps) {
     const existingDoc = stepDocsById.get(step.stepDoc.stepId);
 
     if (existingDoc && !sameImplementationStepDoc(existingDoc, step.stepDoc)) {

@@ -94,6 +94,27 @@ describe("ImplementationStepLedgerProjection contract", () => {
     expect(() => validateImplementationStepLedgerProjection(invalid)).toThrow(ImplementationStepLedgerValidationError);
   });
 
+  it("reports invalid step docs as validation errors without crashing cross-record checks", () => {
+    const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
+    const invalid = {
+      ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+      steps: [
+        {
+          ...step,
+          stepDoc: {
+            stepId: "",
+            title: "",
+            description: "",
+            sourceRefs: [],
+            expectedChangeScope: "tracked_code_docs_config"
+          }
+        }
+      ]
+    } as unknown as ImplementationStepLedgerProjection;
+
+    expect(() => validateImplementationStepLedgerProjection(invalid)).toThrow(ImplementationStepLedgerValidationError);
+  });
+
   it("rejects step-level evidence records that point to a different step id", () => {
     const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
     const invalid = {
