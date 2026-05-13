@@ -28,6 +28,9 @@ describe("#105 local install/run verification docs", () => {
   it("covers browser fallback and required troubleshooting cases", () => {
     for (const snippet of [
       "manual browser smoke",
+      "Manual Windows PowerShell checklist",
+      "managed child processes stopped",
+      "temporary app data removed",
       "Port conflict",
       "Token mismatch",
       "CORS/origin",

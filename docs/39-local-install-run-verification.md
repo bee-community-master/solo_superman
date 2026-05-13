@@ -77,6 +77,15 @@ No browser automation package is required for the default local install path. Fo
 | --- | --- |
 | ```sh<br># Optional only if a future issue adds Playwright/browser automation.<br>pnpm exec playwright --version || echo "Playwright is not installed; use manual browser smoke."<br>``` | ```powershell<br># Optional only if a future issue adds Playwright/browser automation.<br>pnpm exec playwright --version; if ($LASTEXITCODE -ne 0) { Write-Host "Playwright is not installed; use manual browser smoke." }<br>``` |
 
+## Manual Windows PowerShell checklist
+
+Use this checklist when CI or the current machine cannot run real Windows PowerShell:
+
+- [ ] Run the prerequisite checks in a new PowerShell window and confirm Node LTS, pnpm/Corepack, and Git are available.
+- [ ] Clone the repo, run `pnpm install --frozen-lockfile`, then run `pnpm verify:prod-bundle`.
+- [ ] Confirm the smoke output ends with `status:"passed"`, `build_auto_local_smoke`, `token mismatch returned 401`, `managed child processes stopped`, and `temporary app data removed`.
+- [ ] Run `pnpm verify` in the same checkout and record any Windows-only failure as a follow-up blocker issue.
+
 ## Troubleshooting
 
 | Symptom | macOS shell | Windows PowerShell |
