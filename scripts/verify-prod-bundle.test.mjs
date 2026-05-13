@@ -64,4 +64,20 @@ describe("verify-prod-bundle smoke plan", () => {
       SOLO_PROD_SMOKE_SIDECAR_PORT: "0"
     })).toThrow("SOLO_PROD_SMOKE_SIDECAR_PORT must be a fixed local port");
   });
+
+  it("uses unbracketed IPv6 loopback for process hosts and bracketed IPv6 in URLs", () => {
+    const config = prodBundleSmokeConfig({
+      SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token",
+      SOLO_PROD_SMOKE_SIDECAR_HOST: "::1",
+      SOLO_PROD_SMOKE_WEB_HOST: "[::1]"
+    });
+    const commands = prodBundleSmokeCommands(config);
+
+    expect(config.sidecarHost).toBe("::1");
+    expect(config.webHost).toBe("::1");
+    expect(config.sidecarBaseUrl).toBe("http://[::1]:43110");
+    expect(config.webBaseUrl).toBe("http://[::1]:4173");
+    expect(commands.webPreview[1]).toContain("::1");
+    expect(commands.webPreview[1]).not.toContain("[::1]");
+  });
 });

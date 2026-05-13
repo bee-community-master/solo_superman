@@ -35,7 +35,7 @@ function loopbackHostEnv(env, name, fallback) {
     throw new Error(`${name} must be loopback-only for local production smoke: ${value}`);
   }
 
-  return value === "::1" || value === "[::1]" ? "[::1]" : value;
+  return value === "[::1]" ? "::1" : value;
 }
 
 function fixedPortEnv(env, name, fallback) {
@@ -58,14 +58,20 @@ function generatedToken() {
   return randomBytes(32).toString("hex");
 }
 
+function formatHttpOrigin(host, port) {
+  const urlHost = host.includes(":") ? `[${host}]` : host;
+
+  return `http://${urlHost}:${port}`;
+}
+
 export function prodBundleSmokeConfig(env = process.env) {
   const sidecarHost = loopbackHostEnv(env, "SOLO_PROD_SMOKE_SIDECAR_HOST", DEFAULT_SIDECAR_HOST);
   const sidecarPort = fixedPortEnv(env, "SOLO_PROD_SMOKE_SIDECAR_PORT", DEFAULT_SIDECAR_PORT);
   const webHost = loopbackHostEnv(env, "SOLO_PROD_SMOKE_WEB_HOST", DEFAULT_WEB_HOST);
   const webPort = fixedPortEnv(env, "SOLO_PROD_SMOKE_WEB_PORT", DEFAULT_WEB_PORT);
   const localCapabilityToken = envValue(env, "SOLO_LOCAL_CAPABILITY_TOKEN", generatedToken());
-  const sidecarBaseUrl = `http://${sidecarHost}:${sidecarPort}`;
-  const webBaseUrl = `http://${webHost}:${webPort}`;
+  const sidecarBaseUrl = formatHttpOrigin(sidecarHost, sidecarPort);
+  const webBaseUrl = formatHttpOrigin(webHost, webPort);
 
   return {
     localCapabilityToken,
