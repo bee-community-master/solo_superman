@@ -8,6 +8,7 @@ import {
   PHASE1_QUEUE_RECOVERY_ROUTE_IDS,
   PHASE2_PR04_PLANNING_HANDOFF_ROUTE_IDS,
   POST_PHASE3_PR01_PROJECT_PURPOSE_ROUTE_IDS,
+  POST_PHASE3_PR02_BUSINESS_CRITIC_ROUTE_IDS,
   type ApiRoute
 } from "@solo-superman/contracts";
 
@@ -21,7 +22,8 @@ type WebRouteClientImplementation =
   | "mounted_phase_1_5b_pr_10"
   | "mounted_phase_1_queue_recovery"
   | "mounted_phase_2_pr_04"
-  | "mounted_post_phase3_pr_01";
+  | "mounted_post_phase3_pr_01"
+  | "mounted_post_phase3_pr_02";
 const CURRENT_MOUNTED_PRODUCT_API_ROUTE_ID_SET = new Set<string>(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS);
 const PHASE15A_PR02_ALLOWLIST_ROUTE_ID_SET = new Set<string>(PHASE15A_PR02_ALLOWLIST_ROUTE_IDS);
 const PHASE15A_PR03_DISCLOSURE_ROUTE_ID_SET = new Set<string>(PHASE15A_PR03_DISCLOSURE_ROUTE_IDS);
@@ -30,6 +32,7 @@ const PHASE15B_PR10_HINT_ROUTE_ID_SET = new Set<string>(PHASE15B_PR10_HINT_ROUTE
 const PHASE1_QUEUE_RECOVERY_ROUTE_ID_SET = new Set<string>(PHASE1_QUEUE_RECOVERY_ROUTE_IDS);
 const PHASE2_PR04_PLANNING_HANDOFF_ROUTE_ID_SET = new Set<string>(PHASE2_PR04_PLANNING_HANDOFF_ROUTE_IDS);
 const POST_PHASE3_PR01_PROJECT_PURPOSE_ROUTE_ID_SET = new Set<string>(POST_PHASE3_PR01_PROJECT_PURPOSE_ROUTE_IDS);
+const POST_PHASE3_PR02_BUSINESS_CRITIC_ROUTE_ID_SET = new Set<string>(POST_PHASE3_PR02_BUSINESS_CRITIC_ROUTE_IDS);
 
 export interface WebRouteClientPlaceholder {
   readonly clientName: ProductApiRoute["clientName"];
@@ -62,6 +65,10 @@ function implementationStatus(route: ProductApiRoute): WebRouteClientImplementat
 
   if (PHASE2_PR04_PLANNING_HANDOFF_ROUTE_ID_SET.has(route.routeId)) {
     return "mounted_phase_2_pr_04";
+  }
+
+  if (POST_PHASE3_PR02_BUSINESS_CRITIC_ROUTE_ID_SET.has(route.routeId)) {
+    return "mounted_post_phase3_pr_02";
   }
 
   if (POST_PHASE3_PR01_PROJECT_PURPOSE_ROUTE_ID_SET.has(route.routeId)) {

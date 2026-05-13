@@ -169,7 +169,13 @@ function sessionProjectPurposeModeFields(project: ProductEngineStateSnapshot["pr
     projectPurposeModeSelectionStatus:
       project.projectPurposeModeSelectionStatus ?? projectPurposeModeSelectionStatus(project.projectPurposeMode),
     projectPurposeModeLabel: project.projectPurposeModeLabel,
-    projectPurposeModeEffect: projectPurposeModeEffect(project.projectPurposeMode)
+    projectPurposeModeEffect: projectPurposeModeEffect(project.projectPurposeMode),
+    ...(project.businessCriticIntensity ? { businessCriticIntensity: project.businessCriticIntensity } : {}),
+    ...(project.businessCriticIntensitySelectionStatus
+      ? { businessCriticIntensitySelectionStatus: project.businessCriticIntensitySelectionStatus }
+      : {}),
+    ...(project.businessCriticIntensityLabel ? { businessCriticIntensityLabel: project.businessCriticIntensityLabel } : {}),
+    ...(project.businessCriticIntensityEffect ? { businessCriticIntensityEffect: project.businessCriticIntensityEffect } : {})
   };
 }
 
@@ -179,10 +185,13 @@ export interface RunSessionCommandInput {
     ProductEngineCommandType,
     | "CaptureIntake"
     | "ChangeProjectPurposeMode"
+    | "ChangeBusinessCriticIntensity"
     | "DraftInitialSpec"
     | "AnalyzeAmbiguity"
     | "ActivateQuestionBatch"
     | "SubmitAnswer"
+    | "DeferQueueItem"
+    | "DismissQueueItem"
     | "PlanResearch"
     | "ImportResearchResult"
     | "SynthesizeEvidence"
@@ -217,6 +226,10 @@ export interface ExecuteShellCommandInput extends ExecuteShellCommandRequest {
 
 export interface ExecuteBrowserActionInput extends ExecuteBrowserActionRequest {
   readonly authorityRecordId: string;
+}
+
+function rawIdeaIdempotencyHash(rawIdea: string) {
+  return `sha256:${createHash("sha256").update(rawIdea.trim()).digest("hex").slice(0, 32)}`;
 }
 
 export interface RunResearchAllowlistGovernanceInput<TRequest> {
@@ -3433,7 +3446,9 @@ export function createProductEngineCommandService(
         sessionId: nextSessionId,
         actor: "user",
         issuedAt: new Date().toISOString(),
-        idempotencyKey: `StartProject:${input.rawIdea.trim()}:${input.localPrivacyMode}:${input.projectPurposeMode}`,
+        idempotencyKey: `StartProject:${rawIdeaIdempotencyHash(input.rawIdea)}:${input.localPrivacyMode}:${input.projectPurposeMode}:${
+          input.businessCriticIntensity ?? "intensity_required"
+        }`,
         expectedStateVersion: 0 as StateVersion,
         causationId: null,
         correlationId: correlationId(),

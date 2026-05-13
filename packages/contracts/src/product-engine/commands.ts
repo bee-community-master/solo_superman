@@ -3,6 +3,7 @@ import type { CausationId, CommandId, CorrelationId, ProjectId, SchemaVersion, S
 export const PRODUCT_ENGINE_COMMAND_TYPES = [
   "StartProject",
   "ChangeProjectPurposeMode",
+  "ChangeBusinessCriticIntensity",
   "CaptureIntake",
   "DraftInitialSpec",
   "AnalyzeAmbiguity",

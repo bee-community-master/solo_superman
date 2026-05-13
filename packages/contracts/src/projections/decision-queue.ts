@@ -3,6 +3,10 @@ import type {
   AmbiguityExpectedAnswerType,
   AmbiguityIssueSeverity,
   AmbiguityPossibleRoute,
+  BusinessCriticalQuestionCategory,
+  BusinessCriticIntensity,
+  BusinessCriticIntensitySelectionStatus,
+  BusinessCriticPressureKind,
   ProjectPurposeMode,
   ProjectPurposeModeSelectionStatus
 } from "../product-engine/state";
@@ -54,6 +58,11 @@ export interface QueueItemProjection {
   readonly topicKey?: string;
   readonly purposeModeAxis?: string;
   readonly purposeModeEffect?: string;
+  readonly businessCriticCategory?: BusinessCriticalQuestionCategory;
+  readonly businessCriticIntensity?: BusinessCriticIntensity;
+  readonly businessCriticPressureKind?: BusinessCriticPressureKind;
+  readonly knownRiskAccepted?: boolean;
+  readonly nextValidationAction?: string;
   readonly severity?: AmbiguityIssueSeverity;
   readonly whyItMatters?: string;
   readonly decisionItUnlocks?: string;
@@ -79,6 +88,11 @@ export interface DecisionQueueProjection {
   readonly projectPurposeModeSelectionStatus?: ProjectPurposeModeSelectionStatus;
   readonly modeEffectSummary?: string;
   readonly skippedCommercializationAxes?: readonly string[];
+  readonly businessCriticIntensity?: BusinessCriticIntensity;
+  readonly businessCriticIntensitySelectionStatus?: BusinessCriticIntensitySelectionStatus;
+  readonly businessCriticIntensityLabel?: string;
+  readonly businessCriticIntensityEffect?: string;
+  readonly businessCriticPressureSummary?: string;
   readonly activeBatch?: DecisionQueueActiveBatchProjection;
   readonly recovery?: DecisionQueueRecoveryProjection;
   readonly active: readonly QueueItemProjection[];

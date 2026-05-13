@@ -1,11 +1,18 @@
 import type { ProjectionVersion, SessionId } from "../ids";
-import type { ProjectPurposeMode, ProjectPurposeModeSelectionStatus } from "../product-engine";
+import type {
+  BusinessCriticIntensity,
+  BusinessCriticIntensitySelectionStatus,
+  ProjectPurposeMode,
+  ProjectPurposeModeSelectionStatus
+} from "../product-engine";
 
 export type ConfidenceAxisId = "problem" | "customer" | "value" | "validation" | "implementation";
 export type ReadinessLabel = "draft" | "clarifying" | "researching" | "decision_ready" | "spec_ready";
 export type CompletionCandidateStatus = "not_ready" | "candidate";
 export type CompletionGateId =
   | "project_purpose_mode"
+  | "business_critic_intensity"
+  | "business_critic_pressure"
   | "score_threshold"
   | "confidence_axes"
   | "question_debt"
@@ -67,6 +74,10 @@ export interface ConfidenceCompletionProjection {
   readonly projectPurposeModeLabel?: string;
   readonly projectPurposeModeEffect?: string;
   readonly skippedCommercializationAxes?: readonly string[];
+  readonly businessCriticIntensity?: BusinessCriticIntensity;
+  readonly businessCriticIntensitySelectionStatus?: BusinessCriticIntensitySelectionStatus;
+  readonly businessCriticIntensityLabel?: string;
+  readonly businessCriticIntensityEffect?: string;
   readonly compositeScore: number;
   readonly readinessLabel: ReadinessLabel;
   readonly axes: readonly ConfidenceAxisScore[];

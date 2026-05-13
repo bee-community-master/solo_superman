@@ -28,6 +28,11 @@ function stateWithKnownRisk() {
       projectPurposeModeLabel: "사업화 검증 중심",
       projectPurposeModeReason: "Test fixture",
       projectPurposeModeAudit: [],
+      businessCriticIntensity: "balanced" as const,
+      businessCriticIntensitySelectionStatus: "confirmed" as const,
+      businessCriticIntensityLabel: "균형형 사업 검증",
+      businessCriticIntensityEffect: "주요 decision group마다 최소 1개의 반대/비판 질문을 유지합니다.",
+      businessCriticIntensityAudit: [],
       rawIdeaText: "Founder Brief Generator"
     },
     currentSpec: {

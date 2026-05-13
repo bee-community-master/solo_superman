@@ -100,7 +100,12 @@ function completeState(): ProductEngineStateSnapshot {
       projectPurposeMode: "business",
       projectPurposeModeSelectionStatus: "confirmed",
       projectPurposeModeLabel: "사업화 검증 중심",
-      projectPurposeModeReason: "Test fixture confirms business purpose mode."
+      projectPurposeModeReason: "Test fixture confirms business purpose mode.",
+      businessCriticIntensity: "balanced",
+      businessCriticIntensitySelectionStatus: "confirmed",
+      businessCriticIntensityLabel: "균형형 사업 검증",
+      businessCriticIntensityEffect: "주요 decision group마다 최소 1개의 반대/비판 질문을 유지합니다.",
+      businessCriticIntensityAudit: []
     },
     currentSpec: {
       draftRef: "spec_draft_complete",
@@ -209,6 +214,141 @@ describe("PR-08 completeness scoring", () => {
     expect(projection.gates.every((gate) => gate.passed)).toBe(true);
     expect(projection.completionCandidate.status).toBe("candidate");
     expect(projection.topRiskCards).toEqual([]);
+  });
+
+  it("blocks strong and investor-grade completion pressure until carried as Known Risk", () => {
+    const strongOpenProjection = buildConfidenceCompletionProjection(
+      {
+        ...completeState(),
+        project: {
+          ...completeState().project,
+          businessCriticIntensity: "strong",
+          businessCriticIntensityLabel: "강한 사업 검증"
+        },
+        openIssues: [
+          {
+            queueItemId: "queue_strong_pressure" as QueueItemId,
+            topicKey: "strong_paid_intent_core_assumption",
+            businessCriticCategory: "paid_intent",
+            businessCriticIntensityMinimum: "strong",
+            businessCriticPressureKind: "core_assumption_challenge",
+            summary: "유료 의향 핵심 가설이 반박 질문 없이 남아 있음",
+            status: "open",
+            questionText: "사용자가 돈을 내지 않을 가장 강한 이유는 무엇인가?"
+          }
+        ]
+      },
+      13 as ProjectionVersion
+    );
+    const investorOpenProjection = buildConfidenceCompletionProjection(
+      {
+        ...completeState(),
+        project: {
+          ...completeState().project,
+          businessCriticIntensity: "investor_grade",
+          businessCriticIntensityLabel: "투자심사급 사업 검증"
+        },
+        openIssues: [
+          {
+            queueItemId: "queue_investor_pressure" as QueueItemId,
+            topicKey: "investor_pricing_pressure",
+            businessCriticCategory: "pricing",
+            businessCriticIntensityMinimum: "investor_grade",
+            businessCriticPressureKind: "investor_pressure_pass",
+            summary: "가격 검증 pressure item이 닫히지 않음",
+            status: "open",
+            questionText: "어떤 가격에서 누가 거절할 것인가?"
+          }
+        ]
+      },
+      13 as ProjectionVersion
+    );
+    const investorKnownRiskProjection = buildConfidenceCompletionProjection(
+      {
+        ...completeState(),
+        project: {
+          ...completeState().project,
+          businessCriticIntensity: "investor_grade",
+          businessCriticIntensityLabel: "투자심사급 사업 검증"
+        },
+        openIssues: [
+          {
+            queueItemId: "queue_investor_pressure" as QueueItemId,
+            topicKey: "investor_pricing_pressure",
+            businessCriticCategory: "pricing",
+            businessCriticIntensityMinimum: "investor_grade",
+            businessCriticPressureKind: "investor_pressure_pass",
+            knownRiskAccepted: true,
+            nextValidationAction: "Run a price sensitivity smoke test.",
+            summary: "가격 검증 pressure item이 닫히지 않음",
+            status: "deferred",
+            questionText: "어떤 가격에서 누가 거절할 것인가?"
+          }
+        ]
+      },
+      13 as ProjectionVersion
+    );
+    const investorCoreChallengeProjection = buildConfidenceCompletionProjection(
+      {
+        ...completeState(),
+        project: {
+          ...completeState().project,
+          businessCriticIntensity: "investor_grade",
+          businessCriticIntensityLabel: "투자심사급 사업 검증"
+        },
+        openIssues: [
+          {
+            queueItemId: "queue_investor_core_pressure" as QueueItemId,
+            topicKey: "strong_paid_intent_core_assumption",
+            businessCriticCategory: "paid_intent",
+            businessCriticIntensityMinimum: "strong",
+            businessCriticPressureKind: "core_assumption_challenge",
+            summary: "유료 의향 핵심 가설이 반박 질문 없이 남아 있음",
+            status: "open",
+            questionText: "사용자가 돈을 내지 않을 가장 강한 이유는 무엇인가?"
+          }
+        ]
+      },
+      13 as ProjectionVersion
+    );
+
+    expect(strongOpenProjection.gates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gateId: "business_critic_pressure",
+          passed: false,
+          blockingReason: expect.stringContaining("core-assumption")
+        })
+      ])
+    );
+    expect(strongOpenProjection.completionCandidate.status).toBe("not_ready");
+    expect(investorOpenProjection.gates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gateId: "business_critic_pressure",
+          passed: false,
+          blockingReason: expect.stringContaining("pricing")
+        })
+      ])
+    );
+    expect(investorOpenProjection.completionCandidate.status).toBe("not_ready");
+    expect(investorCoreChallengeProjection.gates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gateId: "business_critic_pressure",
+          passed: false,
+          blockingReason: expect.stringContaining("paid_intent")
+        })
+      ])
+    );
+    expect(investorKnownRiskProjection.gates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gateId: "business_critic_pressure",
+          passed: true
+        })
+      ])
+    );
   });
 
   it("lets personal workflow projects complete without market-size, investor, or willingness-to-pay gates", () => {

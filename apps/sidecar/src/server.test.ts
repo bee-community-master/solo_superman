@@ -263,7 +263,9 @@ async function createProjectForTest(storageApp: ReturnType<typeof createSidecarA
       rawIdea,
       localPrivacyMode: "local_only",
       projectPurposeMode: "business",
-      projectPurposeModeConfirmation: "user_confirmed"
+      projectPurposeModeConfirmation: "user_confirmed",
+      businessCriticIntensity: "balanced",
+      businessCriticIntensityConfirmation: "user_confirmed"
     })
   });
   const startBody = await jsonBody(start);
@@ -1018,7 +1020,9 @@ describe("PR-02 sidecar health shell", () => {
         rawIdea: "Storage unavailable",
         localPrivacyMode: "local_only",
         projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed"
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
       }),
       headers: authHeaders()
     });
@@ -1145,6 +1149,113 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("changes business critic intensity through a user-audited session command route", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A business critic intensity route test idea");
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/business-critic-intensity`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 1,
+          businessCriticIntensity: "strong",
+          businessCriticIntensityConfirmation: "user_confirmed",
+          reason: "User wants stronger commercialization pressure."
+        })
+      });
+      const body = await jsonBody(response);
+      const data = body.data as Readonly<Record<string, unknown>>;
+
+      expect(response.status).toBe(200);
+      expect(data).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionBefore: 1,
+        stateVersionAfter: 2,
+        immediateProjection: {
+          kind: "SessionShellProjection",
+          projectPurposeMode: "business",
+          businessCriticIntensity: "strong",
+          businessCriticIntensitySelectionStatus: "confirmed",
+          businessCriticIntensityLabel: "강한 사업 검증"
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("queues investor-grade pressure through the sidecar without replacing an active batch", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    async function postCommand(path: string, body: Readonly<Record<string, unknown>>) {
+      const response = await storageApp.request(path, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+      const responseBody = await jsonBody(response);
+
+      return {
+        response,
+        data: responseBody.data as Readonly<Record<string, unknown>>
+      };
+    }
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "A post-active business critic intensity route test idea"
+      );
+      await postCommand(`/api/v1/sessions/${sessionId}/intake`, {
+        expectedStateVersion: 1,
+        answer: "Validate investor-grade pressure after the first batch is already active."
+      });
+      await postCommand(`/api/v1/sessions/${sessionId}/spec/initial`, {
+        expectedStateVersion: 2
+      });
+      await postCommand(`/api/v1/sessions/${sessionId}/spec/analyze`, {
+        expectedStateVersion: 3,
+        targetRef: "current_spec"
+      });
+      const activate = await postCommand(`/api/v1/sessions/${sessionId}/queue/activate`, {
+        expectedStateVersion: 4
+      });
+      const activeIds = ((activate.data.queueProjection as Readonly<Record<string, unknown>>).active as readonly Readonly<
+        Record<string, unknown>
+      >[]).map((item) => item.queueItemId);
+      const change = await postCommand(`/api/v1/sessions/${sessionId}/business-critic-intensity`, {
+        sessionId,
+        expectedStateVersion: 5,
+        businessCriticIntensity: "investor_grade",
+        businessCriticIntensityConfirmation: "user_confirmed",
+        reason: "Escalate after preserving the active question batch."
+      });
+      const queueProjection = change.data.queueProjection as Readonly<Record<string, unknown>>;
+
+      expect(change.response.status).toBe(200);
+      expect((queueProjection.active as readonly Readonly<Record<string, unknown>>[]).map((item) => item.queueItemId)).toEqual(
+        activeIds
+      );
+      expect(queueProjection.next).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            businessCriticPressureKind: "investor_pressure_pass"
+          })
+        ])
+      );
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("mounts Phase 1.5A allowlist governance create/update/pause/revoke without reducer effects", async () => {
     const { app: storageApp, storage } = await createMigratedStorageApp();
 
@@ -1159,7 +1270,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A research allowlist governance route test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -1540,7 +1653,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A multi-allowlist governance projection test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -1658,7 +1773,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A disclosure-safe research route test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -1782,7 +1899,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A disclosure blocked route test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -2995,7 +3114,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A disclosure connector secret guard test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -5156,7 +5277,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A route failure normalization test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -5417,7 +5540,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A focused founder brief generator",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -6060,7 +6185,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A duplicate research task test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -6145,7 +6272,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A runtime handoff test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -6239,7 +6368,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A runtime artifact block route test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -6447,7 +6578,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A completion route test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startData = (await jsonBody(start)).data as Readonly<Record<string, unknown>>;
@@ -6666,7 +6799,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A runtime fixture test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -6823,7 +6958,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A cross-source runtime context test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -6927,7 +7064,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A mismatched runtime adapter output test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -7011,7 +7150,9 @@ describe("PR-02 sidecar health shell", () => {
             rawIdea,
             localPrivacyMode: "local_only",
             projectPurposeMode: "business",
-            projectPurposeModeConfirmation: "user_confirmed"
+            projectPurposeModeConfirmation: "user_confirmed",
+            businessCriticIntensity: "balanced",
+            businessCriticIntensityConfirmation: "user_confirmed"
           })
         });
         const startBody = await jsonBody(start);
@@ -7075,7 +7216,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A runtime unavailable fallback test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -7223,7 +7366,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A runtime failure test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -7298,7 +7443,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A runtime blocked action test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -7464,7 +7611,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A stale version test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -7510,7 +7659,9 @@ describe("PR-02 sidecar health shell", () => {
           rawIdea: "A concurrent command test idea",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed"
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);

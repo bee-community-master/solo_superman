@@ -16,6 +16,40 @@ export const PROJECT_PURPOSE_MODES = ["business", "personal"] as const;
 export type ProjectPurposeMode = (typeof PROJECT_PURPOSE_MODES)[number];
 export type ProjectPurposeModeSelectionStatus = "mode_required" | "confirmed";
 
+export const BUSINESS_CRITIC_INTENSITIES = ["balanced", "strong", "investor_grade"] as const;
+export type BusinessCriticIntensity = (typeof BUSINESS_CRITIC_INTENSITIES)[number];
+export type BusinessCriticIntensitySelectionStatus = "not_applicable" | "intensity_required" | "confirmed";
+
+export const BUSINESS_CRITIC_INTENSITY_LABELS = {
+  balanced: "균형형 사업 검증",
+  strong: "강한 사업 검증",
+  investor_grade: "투자심사급 사업 검증"
+} as const satisfies Record<BusinessCriticIntensity, string>;
+
+export const BUSINESS_CRITIC_INTENSITY_EFFECTS = {
+  balanced: "주요 decision group마다 최소 1개의 반대/비판 질문을 유지합니다.",
+  strong: "high-impact business gap이 있으면 active batch마다 핵심 가설 반박 질문을 queued_next로 유지합니다.",
+  investor_grade: "가격, 채널, retention proxy, 법무/운영, 시장 타이밍, founder advantage pressure pass를 요구합니다."
+} as const satisfies Record<BusinessCriticIntensity, string>;
+
+export const BUSINESS_CRITIC_INTENSITY_REQUIRED_LABEL = "상업성 검증 강도 선택 필요";
+
+export const BUSINESS_CRITICAL_QUESTION_CATEGORIES = [
+  "customer_pain",
+  "paid_intent",
+  "alternatives",
+  "pricing",
+  "acquisition",
+  "mvp_validation",
+  "legal_ops_security",
+  "retention_proxy",
+  "market_timing",
+  "founder_advantage"
+] as const;
+export type BusinessCriticalQuestionCategory = (typeof BUSINESS_CRITICAL_QUESTION_CATEGORIES)[number];
+
+export type BusinessCriticPressureKind = "balanced_con" | "core_assumption_challenge" | "investor_pressure_pass";
+
 export const PROJECT_PURPOSE_MODE_LABELS = {
   business: "사업화 검증 중심",
   personal: "개인 workflow 구현 중심"
@@ -45,6 +79,14 @@ export interface ProjectPurposeModeAuditSnapshot {
   readonly suggestedMode?: ProjectPurposeMode;
 }
 
+export interface BusinessCriticIntensityAuditSnapshot {
+  readonly previousIntensity?: BusinessCriticIntensity;
+  readonly newIntensity: BusinessCriticIntensity;
+  readonly reason: string;
+  readonly actor: ProjectPurposeModeAuditActor;
+  readonly changedAt: string;
+}
+
 export interface ProjectSnapshot {
   readonly projectId: ProjectId;
   readonly privacyMode: "local_only" | "local_with_manual_export";
@@ -53,6 +95,12 @@ export interface ProjectSnapshot {
   readonly projectPurposeModeLabel: string;
   readonly projectPurposeModeReason?: string;
   readonly projectPurposeModeAudit: readonly ProjectPurposeModeAuditSnapshot[];
+  readonly businessCriticIntensity?: BusinessCriticIntensity | undefined;
+  readonly businessCriticIntensitySelectionStatus?: BusinessCriticIntensitySelectionStatus | undefined;
+  readonly businessCriticIntensityLabel?: string | undefined;
+  readonly businessCriticIntensityEffect?: string | undefined;
+  readonly businessCriticIntensityReason?: string | undefined;
+  readonly businessCriticIntensityAudit?: readonly BusinessCriticIntensityAuditSnapshot[] | undefined;
   readonly rawIdeaText?: string;
 }
 
@@ -111,6 +159,12 @@ export interface AmbiguityIssueSnapshot {
   readonly topicKey?: string;
   readonly purposeModeAxis?: string;
   readonly purposeModeEffect?: string;
+  readonly businessCriticCategory?: BusinessCriticalQuestionCategory;
+  readonly businessCriticIntensityMinimum?: BusinessCriticIntensity;
+  readonly businessCriticPressureKind?: BusinessCriticPressureKind;
+  readonly businessCriticRepeatGroup?: string;
+  readonly knownRiskAccepted?: boolean;
+  readonly nextValidationAction?: string;
   readonly uncertaintyType?: AmbiguityIssueUncertaintyType;
   readonly severity?: AmbiguityIssueSeverity;
   readonly summary: string;

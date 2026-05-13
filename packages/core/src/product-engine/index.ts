@@ -17,6 +17,10 @@ import {
   CODEX_RUNTIME_ADAPTER_VERSION,
   CODEX_TURN_PURPOSES,
   CANONICAL_INITIAL_SPEC_SECTIONS,
+  BUSINESS_CRITIC_INTENSITIES,
+  BUSINESS_CRITIC_INTENSITY_EFFECTS,
+  BUSINESS_CRITIC_INTENSITY_LABELS,
+  BUSINESS_CRITIC_INTENSITY_REQUIRED_LABEL,
   PROJECT_PURPOSE_MODES,
   PROJECT_PURPOSE_MODE_LABELS,
   PROJECT_PURPOSE_MODE_REQUIRED_LABEL,
@@ -38,6 +42,11 @@ import {
   validatePhase25ResearchComparisonReport,
   type ActiveBatchSafeProjection,
   type AmbiguityIssueSnapshot,
+  type BusinessCriticalQuestionCategory,
+  type BusinessCriticIntensity,
+  type BusinessCriticIntensityAuditSnapshot,
+  type BusinessCriticIntensitySelectionStatus,
+  type BusinessCriticPressureKind,
   type BlockedActionType,
   type CodexApplyPolicy,
   type CodexArtifactKind,
@@ -173,6 +182,13 @@ const PROJECT_PURPOSE_MODE_DETAILS = {
   }
 >;
 
+const BUSINESS_CRITIC_PRESSURE_SUMMARY = {
+  balanced: "balanced: major decision group마다 최소 1개 con/critical question을 요구합니다.",
+  strong: "strong: high-impact business gap이 있으면 core-assumption challenge를 active batch 교체 없이 queued_next로 보냅니다.",
+  investor_grade:
+    "investor_grade: pricing/channel/retention/legal-ops/market timing/founder advantage pressure item 또는 Known Risk + Next Validation Action을 요구합니다."
+} as const satisfies Record<BusinessCriticIntensity, string>;
+
 const EMPTY_RESEARCH_PROJECTION: ResearchEvidenceProjection = emptyResearchEvidenceProjection();
 
 const EMPTY_RUNTIME_PROJECTION: RuntimeActivityProjection = {
@@ -270,6 +286,63 @@ function projectPurposeModeFromPayload(value: unknown): ProjectPurposeMode | "in
   }
 
   return isProjectPurposeMode(value) ? value : "invalid";
+}
+
+function isBusinessCriticIntensity(value: unknown): value is BusinessCriticIntensity {
+  return typeof value === "string" && BUSINESS_CRITIC_INTENSITIES.includes(value as BusinessCriticIntensity);
+}
+
+function businessCriticIntensityFromPayload(value: unknown): BusinessCriticIntensity | "invalid" | null {
+  if (value === undefined) {
+    return null;
+  }
+
+  return isBusinessCriticIntensity(value) ? value : "invalid";
+}
+
+export function businessCriticIntensityLabel(intensity: BusinessCriticIntensity | null | undefined) {
+  return intensity ? BUSINESS_CRITIC_INTENSITY_LABELS[intensity] : BUSINESS_CRITIC_INTENSITY_REQUIRED_LABEL;
+}
+
+export function businessCriticIntensityEffect(intensity: BusinessCriticIntensity | null | undefined) {
+  return intensity
+    ? BUSINESS_CRITIC_INTENSITY_EFFECTS[intensity]
+    : "사업화 모드에서는 사용자가 balanced, strong, investor_grade 중 하나를 명시 선택하기 전까지 business completion gate를 확정하지 않습니다.";
+}
+
+export function businessCriticIntensitySelectionStatus(
+  mode: ProjectPurposeMode | null | undefined,
+  intensity: BusinessCriticIntensity | null | undefined
+): BusinessCriticIntensitySelectionStatus {
+  if (mode !== "business") {
+    return "not_applicable";
+  }
+
+  return intensity ? "confirmed" : "intensity_required";
+}
+
+function businessCriticProjectFields(
+  mode: ProjectPurposeMode | null | undefined,
+  intensity: BusinessCriticIntensity | null | undefined
+) {
+  const selectionStatus = businessCriticIntensitySelectionStatus(mode, intensity);
+
+  return {
+    businessCriticIntensitySelectionStatus: selectionStatus,
+    ...(selectionStatus === "confirmed" && intensity
+      ? {
+          businessCriticIntensity: intensity,
+          businessCriticIntensityLabel: businessCriticIntensityLabel(intensity),
+          businessCriticIntensityEffect: businessCriticIntensityEffect(intensity)
+        }
+      : {}),
+    ...(selectionStatus === "intensity_required"
+      ? {
+          businessCriticIntensityLabel: BUSINESS_CRITIC_INTENSITY_REQUIRED_LABEL,
+          businessCriticIntensityEffect: businessCriticIntensityEffect(null)
+        }
+      : {})
+  } as const;
 }
 
 export function projectPurposeModeLabel(mode: ProjectPurposeMode | null | undefined) {
@@ -510,6 +583,19 @@ export function decisionQueueProjectionWithRecovery(
     ...(projection.skippedCommercializationAxes
       ? { skippedCommercializationAxes: projection.skippedCommercializationAxes }
       : {}),
+    ...(projection.businessCriticIntensity ? { businessCriticIntensity: projection.businessCriticIntensity } : {}),
+    ...(projection.businessCriticIntensitySelectionStatus
+      ? { businessCriticIntensitySelectionStatus: projection.businessCriticIntensitySelectionStatus }
+      : {}),
+    ...(projection.businessCriticIntensityLabel
+      ? { businessCriticIntensityLabel: projection.businessCriticIntensityLabel }
+      : {}),
+    ...(projection.businessCriticIntensityEffect
+      ? { businessCriticIntensityEffect: projection.businessCriticIntensityEffect }
+      : {}),
+    ...(projection.businessCriticPressureSummary
+      ? { businessCriticPressureSummary: projection.businessCriticPressureSummary }
+      : {}),
     ...(activeBatch ? { activeBatch } : {}),
     active: projection.active,
     next: projection.next,
@@ -575,7 +661,9 @@ export function createInitialProductEngineState(projectId: ProjectId, sessionId:
       projectPurposeModeSelectionStatus: "mode_required",
       projectPurposeModeLabel: projectPurposeModeLabel(null),
       projectPurposeModeReason: "Project purpose mode must be user-confirmed before mode-specific gates run.",
-      projectPurposeModeAudit: []
+      projectPurposeModeAudit: [],
+      businessCriticIntensitySelectionStatus: "not_applicable",
+      businessCriticIntensityAudit: []
     },
     session: {
       sessionId,
@@ -598,7 +686,8 @@ function createSessionShellProjection(
   command: ProductEngineCommand,
   version: ProjectionVersion,
   mode: ProjectPurposeMode | null | undefined,
-  phase: SessionShellProjection["phase"] = "intake"
+  phase: SessionShellProjection["phase"] = "intake",
+  intensity?: BusinessCriticIntensity | null
 ) {
   return {
     kind: "SessionShellProjection",
@@ -609,7 +698,8 @@ function createSessionShellProjection(
     ...(mode ? { projectPurposeMode: mode } : {}),
     projectPurposeModeSelectionStatus: projectPurposeModeSelectionStatus(mode),
     projectPurposeModeLabel: projectPurposeModeLabel(mode),
-    projectPurposeModeEffect: projectPurposeModeEffect(mode)
+    projectPurposeModeEffect: projectPurposeModeEffect(mode),
+    ...businessCriticProjectFields(mode, intensity)
   } as const;
 }
 
@@ -636,6 +726,11 @@ type AmbiguityIssueSeed = {
   readonly topicKey: string;
   readonly purposeModeAxis?: string;
   readonly purposeModeEffect?: string;
+  readonly businessCriticCategory?: BusinessCriticalQuestionCategory;
+  readonly businessCriticIntensityMinimum?: BusinessCriticIntensity;
+  readonly businessCriticPressureKind?: BusinessCriticPressureKind;
+  readonly businessCriticRepeatGroup?: string;
+  readonly nextValidationAction?: string;
   readonly uncertaintyType: NonNullable<AmbiguityIssueSnapshot["uncertaintyType"]>;
   readonly severity: NonNullable<AmbiguityIssueSnapshot["severity"]>;
   readonly summary: string;
@@ -833,6 +928,154 @@ const BUSINESS_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
   }
 ] satisfies readonly AmbiguityIssueSeed[];
 
+const BUSINESS_CRITIC_CATEGORY_BY_TOPIC_KEY: Readonly<Record<string, BusinessCriticalQuestionCategory>> = {
+  primary_customer_narrowing: "customer_pain",
+  buyer_user_split: "paid_intent",
+  problem_pain_intensity: "customer_pain",
+  value_prop_switching_reason: "alternatives",
+  alternative_dissatisfaction_gap: "alternatives",
+  mvp_validation_scope: "mvp_validation",
+  first_validation_experiment: "mvp_validation",
+  success_metric_measurability: "mvp_validation",
+  evidence_balance: "paid_intent",
+  non_goal_boundaries: "legal_ops_security",
+  acquisition_channel_realism: "acquisition",
+  implementation_resource_fit: "legal_ops_security",
+  founder_advantage: "founder_advantage",
+  job_context_specificity: "customer_pain",
+  operational_risk_boundary: "legal_ops_security"
+} as const satisfies Record<string, BusinessCriticalQuestionCategory>;
+
+const STRONG_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
+  {
+    sectionRef: "Value Proposition",
+    topicKey: "strong_paid_intent_core_assumption",
+    businessCriticCategory: "paid_intent",
+    businessCriticIntensityMinimum: "strong",
+    businessCriticPressureKind: "core_assumption_challenge",
+    businessCriticRepeatGroup: "paid_intent_core_assumption",
+    nextValidationAction: "Run a willingness-to-pay test or explicitly carry this as a Known Risk.",
+    uncertaintyType: "missing_con_evidence",
+    severity: "high",
+    summary: "유료 의향 핵심 가설이 반박 질문 없이 남아 있음",
+    whyItMatters: "사업화 모드의 high-impact gap은 지불 의향이 틀렸을 때 계획 전체가 무너질 수 있습니다.",
+    question: "사용자가 돈을 내지 않을 가장 강한 이유는 무엇이며, 이번 주에 어떻게 검증할 것인가?",
+    expectedAnswerType: "experiment",
+    decisionItUnlocks: "paid intent core-assumption risk를 Known Risk 또는 validation action으로 닫습니다.",
+    routes: ["question", "missing_con_evidence", "deferred", "repeat_limit_reached"],
+    suggestedResearchTask: "유료 의향 반대근거와 willingness-to-pay proxy를 확인합니다."
+  },
+  {
+    sectionRef: "Validation Plan",
+    topicKey: "strong_channel_core_assumption",
+    businessCriticCategory: "acquisition",
+    businessCriticIntensityMinimum: "strong",
+    businessCriticPressureKind: "core_assumption_challenge",
+    businessCriticRepeatGroup: "acquisition_core_assumption",
+    nextValidationAction: "Identify one reachable channel and one fallback if it fails.",
+    uncertaintyType: "unsupported",
+    severity: "high",
+    summary: "초기 획득 채널 핵심 가설이 반박되지 않음",
+    whyItMatters: "첫 사용자에게 도달하지 못하면 MVP validation이 실행되지 않습니다.",
+    question: "첫 사용자 모집 채널이 실패한다면 가장 가능성 높은 원인은 무엇인가?",
+    expectedAnswerType: "evidence",
+    decisionItUnlocks: "acquisition core-assumption risk와 validation plan fallback을 잠급니다.",
+    routes: ["question", "research_needed", "deferred", "repeat_limit_reached"],
+    suggestedResearchTask: "초기 획득 채널의 접근 가능성과 실패 패턴을 확인합니다."
+  }
+] satisfies readonly AmbiguityIssueSeed[];
+
+const INVESTOR_GRADE_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
+  {
+    sectionRef: "Value Proposition",
+    topicKey: "investor_pricing_pressure",
+    businessCriticCategory: "pricing",
+    businessCriticIntensityMinimum: "investor_grade",
+    businessCriticPressureKind: "investor_pressure_pass",
+    businessCriticRepeatGroup: "pricing_pressure",
+    nextValidationAction: "Define a price proxy test or carry pricing as a Known Risk with owner/date.",
+    uncertaintyType: "missing_con_evidence",
+    severity: "high",
+    summary: "가격 검증 pressure item이 닫히지 않음",
+    whyItMatters: "가격 저항을 모르면 매출 가능성과 target segment가 검증되지 않습니다.",
+    question: "어떤 가격에서 누가 거절할 것이며, 그 거절 신호를 어떻게 수집할 것인가?",
+    expectedAnswerType: "experiment",
+    decisionItUnlocks: "pricing pressure pass를 evidence 또는 Known Risk + Next Validation Action으로 닫습니다.",
+    routes: ["question", "missing_con_evidence", "deferred", "repeat_limit_reached"],
+    suggestedResearchTask: "pricing proxy와 경쟁 대체재 가격 근거를 수집합니다."
+  },
+  {
+    sectionRef: "Validation Plan",
+    topicKey: "investor_retention_proxy_pressure",
+    businessCriticCategory: "retention_proxy",
+    businessCriticIntensityMinimum: "investor_grade",
+    businessCriticPressureKind: "investor_pressure_pass",
+    businessCriticRepeatGroup: "retention_proxy_pressure",
+    nextValidationAction: "Define the smallest retention proxy before claiming repeat value.",
+    uncertaintyType: "missing",
+    severity: "high",
+    summary: "retention proxy pressure item이 정의되지 않음",
+    whyItMatters: "반복 사용 신호가 없으면 초기 관심이 지속 가치로 이어지는지 알 수 없습니다.",
+    question: "첫 버전에서 반복 가치가 있음을 보여줄 retention proxy는 무엇인가?",
+    expectedAnswerType: "text",
+    decisionItUnlocks: "retention proxy pressure pass를 success criteria에 연결합니다.",
+    routes: ["question", "deferred", "repeat_limit_reached"]
+  },
+  {
+    sectionRef: "Known Risks / Open Questions",
+    topicKey: "investor_market_timing_pressure",
+    businessCriticCategory: "market_timing",
+    businessCriticIntensityMinimum: "investor_grade",
+    businessCriticPressureKind: "investor_pressure_pass",
+    businessCriticRepeatGroup: "market_timing_pressure",
+    nextValidationAction: "Capture the market timing evidence or explicitly defer it as a Known Risk.",
+    uncertaintyType: "unsupported",
+    severity: "high",
+    summary: "시장 타이밍 pressure item이 근거 없이 남아 있음",
+    whyItMatters: "왜 지금인지 설명하지 못하면 Founder Brief의 urgency narrative가 약해집니다.",
+    question: "왜 지금 이 문제가 더 급해졌고, 그 신호가 사라지면 어떤 검증이 실패하는가?",
+    expectedAnswerType: "evidence",
+    decisionItUnlocks: "market timing pressure pass를 evidence 또는 Known Risk로 닫습니다.",
+    routes: ["question", "research_needed", "deferred", "repeat_limit_reached"],
+    suggestedResearchTask: "market timing 근거와 반대근거를 수집합니다."
+  },
+  {
+    sectionRef: "Known Risks / Open Questions",
+    topicKey: "investor_legal_ops_pressure",
+    businessCriticCategory: "legal_ops_security",
+    businessCriticIntensityMinimum: "investor_grade",
+    businessCriticPressureKind: "investor_pressure_pass",
+    businessCriticRepeatGroup: "legal_ops_pressure",
+    nextValidationAction: "Name the legal/ops/security assumption and the next owner/date validation.",
+    uncertaintyType: "missing",
+    severity: "high",
+    summary: "법무/운영/security pressure item이 명시되지 않음",
+    whyItMatters: "법무·운영·보안 리스크가 숨겨지면 초기 판매/배포 가능성이 과신됩니다.",
+    question: "가장 먼저 판매 또는 운영을 막을 법무/운영/security 리스크는 무엇이며, 다음 검증 행동은 무엇인가?",
+    expectedAnswerType: "text",
+    decisionItUnlocks: "legal/ops/security pressure pass를 Known Risk 또는 validation action으로 닫습니다.",
+    routes: ["question", "deferred", "repeat_limit_reached"]
+  },
+  {
+    sectionRef: "Differentiation",
+    topicKey: "investor_founder_advantage_pressure",
+    businessCriticCategory: "founder_advantage",
+    businessCriticIntensityMinimum: "investor_grade",
+    businessCriticPressureKind: "investor_pressure_pass",
+    businessCriticRepeatGroup: "founder_advantage_pressure",
+    nextValidationAction: "Validate the founder advantage or carry it as an explicit narrative risk.",
+    uncertaintyType: "unsupported",
+    severity: "high",
+    summary: "founder advantage pressure item이 근거 없이 남아 있음",
+    whyItMatters: "창업자 우위가 약하면 투자심사급 narrative에서 방어 가능성이 낮아집니다.",
+    question: "왜 이 founder/team이 지금 이 문제를 더 잘 풀 수 있으며, 그 주장을 반박할 근거는 무엇인가?",
+    expectedAnswerType: "evidence",
+    decisionItUnlocks: "founder advantage pressure pass를 evidence 또는 Known Risk로 닫습니다.",
+    routes: ["question", "research_needed", "deferred", "repeat_limit_reached"],
+    suggestedResearchTask: "founder advantage 주장과 반대근거를 수집합니다."
+  }
+] satisfies readonly AmbiguityIssueSeed[];
+
 const PERSONAL_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
   {
     sectionRef: "JTBD / Use Case",
@@ -949,64 +1192,169 @@ const PERSONAL_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
   }
 ] satisfies readonly AmbiguityIssueSeed[];
 
-function ambiguityIssueSeedsForMode(mode: ProjectPurposeMode) {
-  return mode === "personal" ? PERSONAL_AMBIGUITY_ISSUE_SEEDS : BUSINESS_AMBIGUITY_ISSUE_SEEDS;
+function ambiguityIssueSeedsForMode(mode: ProjectPurposeMode, intensity?: BusinessCriticIntensity | null) {
+  if (mode === "personal") {
+    return PERSONAL_AMBIGUITY_ISSUE_SEEDS;
+  }
+
+  const pressureSeeds =
+    intensity === "investor_grade"
+      ? [...STRONG_BUSINESS_CRITIC_SEEDS, ...INVESTOR_GRADE_BUSINESS_CRITIC_SEEDS]
+      : intensity === "strong"
+        ? STRONG_BUSINESS_CRITIC_SEEDS
+        : [];
+
+  return [...BUSINESS_AMBIGUITY_ISSUE_SEEDS, ...pressureSeeds];
 }
 
-function queueProjectionPurposeMetadata(mode: ProjectPurposeMode) {
+function queueProjectionPurposeMetadata(mode: ProjectPurposeMode, intensity?: BusinessCriticIntensity | null) {
   const skippedAxes = skippedCommercializationAxes(mode);
+  const criticFields = businessCriticProjectFields(mode, intensity);
 
   return {
     projectPurposeMode: mode,
     projectPurposeModeSelectionStatus: "confirmed" as const,
     modeEffectSummary: projectPurposeModeEffect(mode),
-    ...(skippedAxes.length ? { skippedCommercializationAxes: skippedAxes } : {})
+    ...(skippedAxes.length ? { skippedCommercializationAxes: skippedAxes } : {}),
+    ...criticFields,
+    ...(mode === "business" && intensity ? { businessCriticPressureSummary: BUSINESS_CRITIC_PRESSURE_SUMMARY[intensity] } : {})
   };
+}
+
+function categoryForBusinessSeed(seed: AmbiguityIssueSeed): BusinessCriticalQuestionCategory | undefined {
+  return seed.businessCriticCategory ?? BUSINESS_CRITIC_CATEGORY_BY_TOPIC_KEY[seed.topicKey];
 }
 
 function createAmbiguityIssues(
   sessionId: SessionId,
   specRef: string,
-  mode: ProjectPurposeMode
+  mode: ProjectPurposeMode,
+  intensity?: BusinessCriticIntensity | null
 ): readonly AmbiguityIssueSnapshot[] {
-  const token = stableToken(`${sessionId}:${specRef}`);
+  const token = stableToken(`${sessionId}:${specRef}:${mode}:${intensity ?? "none"}`);
 
-  return ambiguityIssueSeedsForMode(mode).map((seed, index) => ({
-    queueItemId: `queue_${token}_${index + 1}` as QueueItemId,
-    sectionRef: seed.sectionRef,
-    topicKey: seed.topicKey,
-    ...(seed.purposeModeAxis ? { purposeModeAxis: seed.purposeModeAxis } : {}),
-    ...(seed.purposeModeEffect ? { purposeModeEffect: seed.purposeModeEffect } : {}),
-    uncertaintyType: seed.uncertaintyType,
-    severity: seed.severity,
-    summary: seed.summary,
-    whyItMatters: seed.whyItMatters,
-    status: "open",
-    questionText: seed.question,
-    expectedAnswerType: seed.expectedAnswerType,
-    decisionItUnlocks: seed.decisionItUnlocks,
-    ...(seed.suggestedResearchTask ? { suggestedResearchTask: seed.suggestedResearchTask } : {}),
-    repeatCount: 0,
-    repeatLimit: 3,
-    possibleRoutes: seed.routes,
-    sourceRef: seed.topicKey
-  }));
+  return ambiguityIssueSeedsForMode(mode, intensity).map((seed, index) => {
+    const businessCriticCategory = categoryForBusinessSeed(seed);
+
+    return {
+      queueItemId: `queue_${token}_${index + 1}` as QueueItemId,
+      sectionRef: seed.sectionRef,
+      topicKey: seed.topicKey,
+      ...(seed.purposeModeAxis ? { purposeModeAxis: seed.purposeModeAxis } : {}),
+      ...(seed.purposeModeEffect ? { purposeModeEffect: seed.purposeModeEffect } : {}),
+      ...(mode === "business" && businessCriticCategory ? { businessCriticCategory } : {}),
+      ...(mode === "business"
+        ? { businessCriticIntensityMinimum: seed.businessCriticIntensityMinimum ?? "balanced" }
+        : {}),
+      ...(seed.businessCriticPressureKind
+        ? { businessCriticPressureKind: seed.businessCriticPressureKind }
+        : mode === "business"
+          ? { businessCriticPressureKind: "balanced_con" as const }
+          : {}),
+      ...(seed.businessCriticRepeatGroup ? { businessCriticRepeatGroup: seed.businessCriticRepeatGroup } : {}),
+      ...(seed.nextValidationAction ? { nextValidationAction: seed.nextValidationAction } : {}),
+      uncertaintyType: seed.uncertaintyType,
+      severity: seed.severity,
+      summary: seed.summary,
+      whyItMatters: seed.whyItMatters,
+      status: "open",
+      questionText: seed.question,
+      expectedAnswerType: seed.expectedAnswerType,
+      decisionItUnlocks: seed.decisionItUnlocks,
+      ...(seed.suggestedResearchTask ? { suggestedResearchTask: seed.suggestedResearchTask } : {}),
+      repeatCount: 0,
+      repeatLimit: seed.businessCriticPressureKind ? 2 : 3,
+      possibleRoutes: seed.routes,
+      sourceRef: seed.topicKey
+    };
+  });
+}
+
+function businessCriticQueuedNextIssues(
+  allOpenIssues: readonly AmbiguityIssueSnapshot[],
+  activeIssues: readonly AmbiguityIssueSnapshot[],
+  intensity?: BusinessCriticIntensity | null
+) {
+  if (!intensity || intensity === "balanced") {
+    return [] as readonly AmbiguityIssueSnapshot[];
+  }
+
+  const activeIds = new Set(activeIssues.map((issue) => issue.queueItemId));
+
+  return allOpenIssues.filter(
+    (issue) =>
+      !activeIds.has(issue.queueItemId) &&
+      isElevatedBusinessCriticIssue(issue) &&
+      issue.status === "open" &&
+      issue.businessCriticIntensityMinimum &&
+      BUSINESS_CRITIC_INTENSITIES.indexOf(issue.businessCriticIntensityMinimum) <= BUSINESS_CRITIC_INTENSITIES.indexOf(intensity)
+  );
+}
+
+function businessCriticIntensityRank(intensity: BusinessCriticIntensity) {
+  return BUSINESS_CRITIC_INTENSITIES.indexOf(intensity);
+}
+
+function isBusinessCriticPressureAllowedAtIntensity(
+  minimumIntensity: BusinessCriticIntensity | undefined,
+  selectedIntensity: BusinessCriticIntensity
+) {
+  return minimumIntensity
+    ? businessCriticIntensityRank(minimumIntensity) <= businessCriticIntensityRank(selectedIntensity)
+    : true;
+}
+
+function isBusinessCriticIssueAllowedAtIntensity(
+  issue: AmbiguityIssueSnapshot,
+  selectedIntensity: BusinessCriticIntensity
+) {
+  return (
+    !isElevatedBusinessCriticIssue(issue)
+  ) || isBusinessCriticPressureAllowedAtIntensity(issue.businessCriticIntensityMinimum, selectedIntensity);
+}
+
+function retainedIssuesForBusinessCriticIntensity(
+  issues: readonly AmbiguityIssueSnapshot[],
+  activeItems: readonly QueueItemProjection[],
+  selectedIntensity: BusinessCriticIntensity
+) {
+  const activeIds = new Set(activeItems.map((item) => item.queueItemId));
+
+  return issues.filter(
+    (issue) =>
+      issue.status !== "open" ||
+      activeIds.has(issue.queueItemId) ||
+      isBusinessCriticIssueAllowedAtIntensity(issue, selectedIntensity)
+  );
+}
+
+function isBusinessCriticQueueItemAllowedAtIntensity(
+  item: QueueItemProjection,
+  selectedIntensity: BusinessCriticIntensity
+) {
+  return (
+    !isElevatedBusinessCriticQueueItem(item)
+  ) || isBusinessCriticPressureAllowedAtIntensity(item.businessCriticIntensity, selectedIntensity);
 }
 
 function queueProjectionFromIssues(
   issues: readonly AmbiguityIssueSnapshot[],
+  activeIssues: readonly AmbiguityIssueSnapshot[],
   version: ProjectionVersion,
   sessionId: SessionId,
   generatedAt: string,
-  mode: ProjectPurposeMode
+  mode: ProjectPurposeMode,
+  intensity?: BusinessCriticIntensity | null
 ): DecisionQueueProjection {
+  const queuedNextIssues = businessCriticQueuedNextIssues(issues, activeIssues, intensity);
+
   return decisionQueueProjectionWithRecovery(
     {
       kind: "DecisionQueueProjection",
       version,
-      ...queueProjectionPurposeMetadata(mode),
-      active: issues.map(queueItemProjectionFromIssue),
-      next: [],
+      ...queueProjectionPurposeMetadata(mode, intensity),
+      active: activeIssues.map((issue) => queueItemProjectionFromIssue(issue, "active")),
+      next: queuedNextIssues.map((issue) => queueItemProjectionFromIssue(issue, "next")),
       blocked: [],
       deferred: []
     },
@@ -1020,13 +1368,14 @@ function queueProjectionWithPurposeMetadata(
   version: ProjectionVersion,
   sessionId: SessionId,
   generatedAt: string,
-  mode: ProjectPurposeMode
+  mode: ProjectPurposeMode,
+  intensity?: BusinessCriticIntensity | null
 ): DecisionQueueProjection {
   return decisionQueueProjectionWithRecovery(
     {
       kind: "DecisionQueueProjection",
       version,
-      ...queueProjectionPurposeMetadata(mode),
+      ...queueProjectionPurposeMetadata(mode, intensity),
       ...(projection.activeBatch ? { activeBatch: projection.activeBatch } : {}),
       active: projection.active,
       next: projection.next,
@@ -1038,16 +1387,53 @@ function queueProjectionWithPurposeMetadata(
   );
 }
 
-function queueItemProjectionFromIssue(issue: AmbiguityIssueSnapshot): QueueItemProjection {
+function queueProjectionWithBusinessCriticIntensity(
+  projection: DecisionQueueProjection,
+  version: ProjectionVersion,
+  sessionId: SessionId,
+  generatedAt: string,
+  intensity: BusinessCriticIntensity
+): DecisionQueueProjection {
+  const withMetadata = queueProjectionWithPurposeMetadata(
+    projection,
+    version,
+    sessionId,
+    generatedAt,
+    "business",
+    intensity
+  );
+
+  return refreshQueueProjectionMetadata(
+    {
+      ...withMetadata,
+      next: withMetadata.next.filter((item) => isBusinessCriticQueueItemAllowedAtIntensity(item, intensity)),
+      blocked: withMetadata.blocked.filter((item) => isBusinessCriticQueueItemAllowedAtIntensity(item, intensity))
+    },
+    version,
+    generatedAt
+  );
+}
+
+function queueItemProjectionFromIssue(
+  issue: AmbiguityIssueSnapshot,
+  state: QueueItemProjection["state"] = "active"
+): QueueItemProjection {
   return {
     queueItemId: issue.queueItemId,
     title: issue.questionText ?? issue.summary,
-    state: "active",
+    state,
     cardType: "question",
     ...(issue.sectionRef ? { sectionRef: issue.sectionRef } : {}),
     ...(issue.topicKey ? { topicKey: issue.topicKey } : {}),
     ...(issue.purposeModeAxis ? { purposeModeAxis: issue.purposeModeAxis } : {}),
     ...(issue.purposeModeEffect ? { purposeModeEffect: issue.purposeModeEffect } : {}),
+    ...(issue.businessCriticCategory ? { businessCriticCategory: issue.businessCriticCategory } : {}),
+    ...(issue.businessCriticIntensityMinimum
+      ? { businessCriticIntensity: issue.businessCriticIntensityMinimum }
+      : {}),
+    ...(issue.businessCriticPressureKind ? { businessCriticPressureKind: issue.businessCriticPressureKind } : {}),
+    ...(issue.knownRiskAccepted ? { knownRiskAccepted: issue.knownRiskAccepted } : {}),
+    ...(issue.nextValidationAction ? { nextValidationAction: issue.nextValidationAction } : {}),
     ...(issue.severity ? { severity: issue.severity } : {}),
     ...(issue.whyItMatters ? { whyItMatters: issue.whyItMatters } : {}),
     ...(issue.decisionItUnlocks ? { decisionItUnlocks: issue.decisionItUnlocks } : {}),
@@ -1056,19 +1442,42 @@ function queueItemProjectionFromIssue(issue: AmbiguityIssueSnapshot): QueueItemP
   };
 }
 
+function isCoreAssumptionChallengeIssue(issue: AmbiguityIssueSnapshot) {
+  return issue.businessCriticPressureKind === "core_assumption_challenge";
+}
+
+function isElevatedBusinessCriticPressureKind(kind: BusinessCriticPressureKind | undefined) {
+  return kind === "core_assumption_challenge" || kind === "investor_pressure_pass";
+}
+
+function isElevatedBusinessCriticIssue(issue: AmbiguityIssueSnapshot) {
+  return isElevatedBusinessCriticPressureKind(issue.businessCriticPressureKind);
+}
+
+function isElevatedBusinessCriticQueueItem(item: QueueItemProjection) {
+  return isElevatedBusinessCriticPressureKind(item.businessCriticPressureKind);
+}
+
 function ambiguityIssueSeverityRank(issue: AmbiguityIssueSnapshot) {
   return issue.severity ? AMBIGUITY_SEVERITY_PRIORITY[issue.severity] : 3;
 }
 
 function defaultQuestionBatchIssues(openIssues: readonly AmbiguityIssueSnapshot[]) {
-  return openIssues
+  const prioritizedIssues = openIssues
     .map((issue, index) => ({ issue, index }))
     .sort(
       (left, right) =>
         ambiguityIssueSeverityRank(left.issue) - ambiguityIssueSeverityRank(right.issue) || left.index - right.index
     )
-    .slice(0, DEFAULT_QUESTION_BATCH_SIZE)
     .map(({ issue }) => issue);
+  const selectedIssues = prioritizedIssues.slice(0, DEFAULT_QUESTION_BATCH_SIZE);
+  const requiredCoreChallenge = prioritizedIssues.find(isCoreAssumptionChallengeIssue);
+
+  if (requiredCoreChallenge && !selectedIssues.some(isCoreAssumptionChallengeIssue)) {
+    return [...selectedIssues.slice(0, DEFAULT_QUESTION_BATCH_SIZE - 1), requiredCoreChallenge];
+  }
+
+  return selectedIssues;
 }
 
 function hasDuplicateTopicKey(issues: readonly AmbiguityIssueSnapshot[]) {
@@ -1191,15 +1600,24 @@ function queueItemFromProjection(
   );
 }
 
+function queueItemRequiresKnownRiskDeferral(item: QueueItemProjection) {
+  return (
+    isElevatedBusinessCriticQueueItem(item) ||
+    (item.businessCriticCategory !== undefined && item.severity === "high")
+  );
+}
+
 function issuesWithQueueItemStatus(
   issues: readonly AmbiguityIssueSnapshot[],
   queueItemId: QueueItemId,
-  status: AmbiguityIssueSnapshot["status"]
+  status: AmbiguityIssueSnapshot["status"],
+  patch: Partial<AmbiguityIssueSnapshot> = {}
 ): readonly AmbiguityIssueSnapshot[] {
   return issues.map((issue) =>
     issue.queueItemId === queueItemId
       ? {
           ...issue,
+          ...patch,
           status
         }
       : issue
@@ -1755,6 +2173,7 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
   const localPrivacyMode = command.payload.localPrivacyMode;
   const requestedMode = projectPurposeModeFromPayload(command.payload.projectPurposeMode);
   const suggestedMode = projectPurposeModeFromPayload(command.payload.suggestedProjectPurposeMode);
+  const requestedIntensity = businessCriticIntensityFromPayload(command.payload.businessCriticIntensity);
 
   if (!rawIdea || !isPrivacyMode(localPrivacyMode)) {
     return reject("StartProject requires rawIdea and a valid local privacy mode.", "VALIDATION_FAILED");
@@ -1762,6 +2181,22 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
 
   if (requestedMode === "invalid" || suggestedMode === "invalid" || !requestedMode) {
     return reject("StartProject requires a supported user-confirmed projectPurposeMode.", "VALIDATION_FAILED");
+  }
+
+  if (requestedIntensity === "invalid") {
+    return reject("StartProject businessCriticIntensity must be balanced, strong, or investor_grade.", "VALIDATION_FAILED");
+  }
+
+  if (requestedMode === "personal" && requestedIntensity) {
+    return reject("StartProject accepts businessCriticIntensity only for business projects.", "VALIDATION_FAILED");
+  }
+
+  if (requestedMode === "business" && requestedIntensity && command.payload.businessCriticIntensityConfirmation !== "user_confirmed") {
+    return reject(
+      "StartProject requires businessCriticIntensityConfirmation to be user_confirmed when intensity is provided.",
+      "VALIDATION_FAILED",
+      { businessCriticIntensitySelectionStatus: "intensity_required" }
+    );
   }
 
   if (command.payload.projectPurposeModeConfirmation !== "user_confirmed") {
@@ -1775,7 +2210,13 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
   }
 
   const projectPurposeMode = requestedMode;
+  const businessCriticIntensity = requestedMode === "business" ? requestedIntensity : null;
   const projectPurposeModeExplicitReason = requiredString(command.payload.projectPurposeModeReason) ?? undefined;
+  const businessCriticIntensityExplicitReason =
+    requiredString(command.payload.businessCriticIntensityReason) ??
+    (businessCriticIntensity
+      ? `${businessCriticIntensityLabel(businessCriticIntensity)}으로 사용자 확인된 사업 검증 강도입니다.`
+      : undefined);
   const initialProjectPurposeModeAuditEntry: ProjectPurposeModeAuditSnapshot = {
     newMode: projectPurposeMode,
     reason: purposeModeReason(projectPurposeMode, projectPurposeModeExplicitReason),
@@ -1784,7 +2225,23 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
     ...(suggestedMode ? { suggestedMode } : {})
   };
   const projectPurposeModeAudit = [initialProjectPurposeModeAuditEntry] as const;
-  const projection = createSessionShellProjection(command, projectionVersionFor(state), projectPurposeMode);
+  const businessCriticIntensityAudit = businessCriticIntensity
+    ? ([
+        {
+          newIntensity: businessCriticIntensity,
+          reason: businessCriticIntensityExplicitReason ?? businessCriticIntensityEffect(businessCriticIntensity),
+          actor: "user",
+          changedAt: command.issuedAt
+        } satisfies BusinessCriticIntensityAuditSnapshot
+      ] as const)
+    : ([] as const);
+  const projection = createSessionShellProjection(
+    command,
+    projectionVersionFor(state),
+    projectPurposeMode,
+    "intake",
+    businessCriticIntensity
+  );
   const event = eventDraft(command, "ProjectStarted", {
     rawIdea,
     localPrivacyMode,
@@ -1795,6 +2252,14 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
     projectPurposeModeConfirmation: "user_confirmed",
     ...(suggestedMode ? { suggestedProjectPurposeMode: suggestedMode } : {}),
     projectPurposeModeAudit,
+    ...businessCriticProjectFields(projectPurposeMode, businessCriticIntensity),
+    ...(businessCriticIntensity
+      ? {
+          businessCriticIntensityReason: businessCriticIntensityExplicitReason,
+          businessCriticIntensityConfirmation: "user_confirmed",
+          businessCriticIntensityAudit
+        }
+      : { businessCriticIntensityAudit }),
     sourceNote: typeof command.payload.sourceNote === "string" ? command.payload.sourceNote : undefined,
     sessionPhase: "intake",
     projection
@@ -1813,6 +2278,11 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
         projectPurposeModeLabel: projectPurposeModeLabel(projectPurposeMode),
         projectPurposeModeReason: initialProjectPurposeModeAuditEntry.reason,
         projectPurposeModeAudit,
+        ...businessCriticProjectFields(projectPurposeMode, businessCriticIntensity),
+        ...(businessCriticIntensityExplicitReason
+          ? { businessCriticIntensityReason: businessCriticIntensityExplicitReason }
+          : {}),
+        businessCriticIntensityAudit,
         rawIdeaText: rawIdea
       },
       session: {
@@ -1829,7 +2299,9 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
           rawIdea,
           localPrivacyMode,
           projectPurposeMode,
-          projectPurposeModeLabel: projectPurposeModeLabel(projectPurposeMode)
+          projectPurposeModeLabel: projectPurposeModeLabel(projectPurposeMode),
+          businessCriticIntensitySelectionStatus: businessCriticIntensitySelectionStatus(projectPurposeMode, businessCriticIntensity),
+          ...(businessCriticIntensity ? { businessCriticIntensity } : {})
         }
       }
     ],
@@ -1868,18 +2340,22 @@ function reduceChangeProjectPurposeMode(
     ...(state.project.projectPurposeMode ? { previousMode: state.project.projectPurposeMode } : {}),
     ...(suggestedMode ? { suggestedMode } : {})
   };
+  const retainedBusinessCriticIntensity =
+    requestedMode === "business" ? state.project.businessCriticIntensity : null;
   const projection = createSessionShellProjection(
     command,
     projectionVersionFor(state),
     requestedMode,
-    sessionShellPhaseForProductEnginePhase(state.session.phase)
+    sessionShellPhaseForProductEnginePhase(state.session.phase),
+    retainedBusinessCriticIntensity
   );
   const queueProjection = queueProjectionWithPurposeMetadata(
     state.queueProjection,
     projectionVersionFor(state),
     command.sessionId,
     command.issuedAt,
-    requestedMode
+    requestedMode,
+    retainedBusinessCriticIntensity
   );
   const event = eventDraft(command, "ProjectPurposeModeChanged", {
     newMode: requestedMode,
@@ -1890,6 +2366,7 @@ function reduceChangeProjectPurposeMode(
     actor: auditEntry.actor,
     changedAt: command.issuedAt,
     ...(suggestedMode ? { suggestedProjectPurposeMode: suggestedMode } : {}),
+    ...businessCriticProjectFields(requestedMode, retainedBusinessCriticIntensity),
     projection,
     queueProjection
   });
@@ -1905,7 +2382,21 @@ function reduceChangeProjectPurposeMode(
         projectPurposeModeSelectionStatus: "confirmed",
         projectPurposeModeLabel: projectPurposeModeLabel(requestedMode),
         projectPurposeModeReason: reason,
-        projectPurposeModeAudit: [...state.project.projectPurposeModeAudit, auditEntry]
+        projectPurposeModeAudit: [...state.project.projectPurposeModeAudit, auditEntry],
+        ...businessCriticProjectFields(requestedMode, retainedBusinessCriticIntensity),
+        businessCriticIntensity: retainedBusinessCriticIntensity ?? undefined,
+        ...(requestedMode !== "business"
+          ? {
+              businessCriticIntensityLabel: undefined,
+              businessCriticIntensityEffect: undefined
+            }
+          : {}),
+        businessCriticIntensityReason:
+          retainedBusinessCriticIntensity && state.project.businessCriticIntensityReason
+            ? state.project.businessCriticIntensityReason
+            : undefined,
+        businessCriticIntensityAudit:
+          requestedMode === "business" ? (state.project.businessCriticIntensityAudit ?? []) : []
       },
       queueProjection,
       sessionShellProjection: projection
@@ -1918,11 +2409,189 @@ function reduceChangeProjectPurposeMode(
           newMode: requestedMode,
           ...(state.project.projectPurposeMode ? { previousMode: state.project.projectPurposeMode } : {}),
           projectPurposeModeLabel: projectPurposeModeLabel(requestedMode),
+          businessCriticIntensitySelectionStatus: businessCriticIntensitySelectionStatus(
+            requestedMode,
+            retainedBusinessCriticIntensity
+          ),
+          ...(retainedBusinessCriticIntensity ? { businessCriticIntensity: retainedBusinessCriticIntensity } : {}),
           reason
         }
       }
     ],
     [],
+    projection
+  );
+}
+
+function reduceChangeBusinessCriticIntensity(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  const requestedIntensity = businessCriticIntensityFromPayload(command.payload.businessCriticIntensity);
+  const reason = requiredString(command.payload.reason);
+
+  if (numericVersion(state.stateVersion) < 1) {
+    return reject("ChangeBusinessCriticIntensity requires an initialized project.");
+  }
+
+  if (state.project.projectPurposeMode !== "business") {
+    return reject("ChangeBusinessCriticIntensity requires business projectPurposeMode.", "COMMAND_PRECONDITION_FAILED", {
+      projectPurposeMode: state.project.projectPurposeMode ?? "mode_required"
+    });
+  }
+
+  if (requestedIntensity === "invalid" || !requestedIntensity || !reason) {
+    return reject(
+      "ChangeBusinessCriticIntensity requires balanced, strong, or investor_grade and a user-visible reason.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  if (command.payload.businessCriticIntensityConfirmation !== "user_confirmed") {
+    return reject("ChangeBusinessCriticIntensity requires businessCriticIntensityConfirmation to be user_confirmed.", "VALIDATION_FAILED");
+  }
+
+  if (requestedIntensity === state.project.businessCriticIntensity) {
+    return reject("ChangeBusinessCriticIntensity requires a different intensity.");
+  }
+
+  const auditActor: ProjectPurposeModeAuditActor =
+    command.actor === "product_engine" || command.actor === "system" ? command.actor : "user";
+  const auditEntry: BusinessCriticIntensityAuditSnapshot = {
+    newIntensity: requestedIntensity,
+    reason,
+    actor: auditActor,
+    changedAt: command.issuedAt,
+    ...(state.project.businessCriticIntensity ? { previousIntensity: state.project.businessCriticIntensity } : {})
+  };
+  const version = projectionVersionFor(state);
+  const projection = createSessionShellProjection(
+    command,
+    version,
+    "business",
+    sessionShellPhaseForProductEnginePhase(state.session.phase),
+    requestedIntensity
+  );
+  const hasAnalyzedAmbiguityIssueSet = state.openIssues.length > 0;
+  const generatedPressureIssues = state.currentSpec.draftRef && hasAnalyzedAmbiguityIssueSet
+    ? createAmbiguityIssues(command.sessionId, state.currentSpec.draftRef, "business", requestedIntensity).filter(
+        isElevatedBusinessCriticIssue
+      )
+    : [];
+  const retainedOpenIssues = retainedIssuesForBusinessCriticIntensity(
+    state.openIssues,
+    state.queueProjection.active,
+    requestedIntensity
+  );
+  const existingTopicKeys = new Set(retainedOpenIssues.map((issue) => issue.topicKey).filter(Boolean));
+  const newPressureIssues = generatedPressureIssues.filter((issue) => !existingTopicKeys.has(issue.topicKey));
+  const nextOpenIssues = [...retainedOpenIssues, ...newPressureIssues];
+  const queueWithMetadata = queueProjectionWithBusinessCriticIntensity(
+    state.queueProjection,
+    version,
+    command.sessionId,
+    command.issuedAt,
+    requestedIntensity
+  );
+  const pressureQueueItems = nextOpenIssues
+    .filter(
+      (issue) =>
+        issue.status === "open" &&
+        isElevatedBusinessCriticIssue(issue) &&
+        isBusinessCriticIssueAllowedAtIntensity(issue, requestedIntensity)
+    )
+    .map((issue) => queueItemProjectionFromIssue(issue, "next"));
+  const existingQueueItemIds = new Set([
+    ...queueWithMetadata.active,
+    ...queueWithMetadata.next,
+    ...queueWithMetadata.blocked,
+    ...queueWithMetadata.deferred
+  ].map((item) => item.queueItemId));
+  const pressureQueueItemsToAppend = pressureQueueItems.filter((item) => !existingQueueItemIds.has(item.queueItemId));
+  const queueProjection = pressureQueueItemsToAppend.length
+    ? refreshQueueProjectionMetadata(
+        {
+          ...queueWithMetadata,
+          next: [...queueWithMetadata.next, ...pressureQueueItemsToAppend]
+        },
+        version,
+        command.issuedAt
+      )
+    : queueWithMetadata;
+  const confidenceProjection = buildConfidenceCompletionProjection(
+    {
+      ...state,
+      project: {
+        ...state.project,
+        ...businessCriticProjectFields("business", requestedIntensity),
+        businessCriticIntensity: requestedIntensity,
+        businessCriticIntensityReason: reason,
+        businessCriticIntensityAudit: [...(state.project.businessCriticIntensityAudit ?? []), auditEntry]
+      },
+      openIssues: nextOpenIssues,
+      queueProjection
+    },
+    version
+  );
+  const event = eventDraft(command, "BusinessCriticIntensityChanged", {
+    newIntensity: requestedIntensity,
+    ...(state.project.businessCriticIntensity ? { previousIntensity: state.project.businessCriticIntensity } : {}),
+    businessCriticIntensityLabel: businessCriticIntensityLabel(requestedIntensity),
+    businessCriticIntensityEffect: businessCriticIntensityEffect(requestedIntensity),
+    businessCriticPressureSummary: BUSINESS_CRITIC_PRESSURE_SUMMARY[requestedIntensity],
+    reason,
+    actor: auditEntry.actor,
+    changedAt: command.issuedAt,
+    queuedNextCriticalItemCount: pressureQueueItemsToAppend.length,
+    openIssues: nextOpenIssues,
+    ...(newPressureIssues.length ? { newPressureIssues } : {}),
+    projection,
+    queueProjection,
+    confidenceProjection
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      project: {
+        ...state.project,
+        ...businessCriticProjectFields("business", requestedIntensity),
+        businessCriticIntensity: requestedIntensity,
+        businessCriticIntensityReason: reason,
+        businessCriticIntensityAudit: [...(state.project.businessCriticIntensityAudit ?? []), auditEntry]
+      },
+      openIssues: nextOpenIssues,
+      queueProjection,
+      completeness: confidenceProjection,
+      sessionShellProjection: projection
+    },
+    [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: `business-critic-intensity:${command.projectId}:${command.sessionId}:${requestedIntensity}`,
+        payload: {
+          businessCriticIntensity: requestedIntensity,
+          queuedNextCriticalItemCount: pressureQueueItemsToAppend.length,
+          businessCriticPressureSummary: BUSINESS_CRITIC_PRESSURE_SUMMARY[requestedIntensity]
+        }
+      },
+      ...completenessDeterministicOutputs(command, confidenceProjection)
+    ],
+    pressureQueueItemsToAppend.length
+      ? [
+          queueProjectionEffect(
+            command,
+            "BusinessCriticIntensityChanged",
+            {
+              refType: "queue_item",
+              refId: `business_critic_intensity:${requestedIntensity}`
+            },
+            "high"
+          )
+        ]
+      : [],
     projection
   );
 }
@@ -2016,7 +2685,23 @@ function reduceAnalyzeAmbiguity(command: ProductEngineCommand, state: ProductEng
     return confirmedMode;
   }
 
-  const issues = createAmbiguityIssues(command.sessionId, state.currentSpec.draftRef, confirmedMode);
+  if (confirmedMode === "business" && !state.project.businessCriticIntensity) {
+    return reject(
+      "AnalyzeAmbiguity requires a user-confirmed businessCriticIntensity for business projects.",
+      "COMMAND_PRECONDITION_FAILED",
+      {
+        businessCriticIntensitySelectionStatus: "intensity_required",
+        requiredUserAction: "select_business_critic_intensity"
+      }
+    );
+  }
+
+  const issues = createAmbiguityIssues(
+    command.sessionId,
+    state.currentSpec.draftRef,
+    confirmedMode,
+    state.project.businessCriticIntensity
+  );
   const event = eventDraft(command, "AmbiguityAnalyzed", {
     targetRef: typeof command.payload.targetRef === "string" ? command.payload.targetRef : state.currentSpec.draftRef,
     issueCount: issues.length,
@@ -2088,12 +2773,31 @@ function reduceActivateQuestionBatch(command: ProductEngineCommand, state: Produ
     return confirmedMode;
   }
 
+  if (
+    confirmedMode === "business" &&
+    state.project.businessCriticIntensity &&
+    businessCriticIntensityRank(state.project.businessCriticIntensity) >= businessCriticIntensityRank("strong") &&
+    openIssues.some(isCoreAssumptionChallengeIssue) &&
+    !candidateIssues.some(isCoreAssumptionChallengeIssue)
+  ) {
+    return reject(
+      "ActivateQuestionBatch requires at least one core-assumption challenge for strong or investor-grade business critic intensity.",
+      "COMMAND_PRECONDITION_FAILED",
+      {
+        businessCriticIntensity: state.project.businessCriticIntensity,
+        requiredBusinessCriticPressureKind: "core_assumption_challenge"
+      }
+    );
+  }
+
   const projection = queueProjectionFromIssues(
+    openIssues,
     candidateIssues,
     projectionVersionFor(state),
     command.sessionId,
     command.issuedAt,
-    confirmedMode
+    confirmedMode,
+    state.project.businessCriticIntensity
   );
   const event = eventDraft(command, "QuestionBatchActivated", {
     batchRef: `batch_${stableToken(`${command.sessionId}:${candidateIssues.map((issue) => issue.queueItemId).join(":")}`)}`,
@@ -2153,6 +2857,8 @@ function reduceQueueItemResolution(
 ): ProductEngineReduction {
   const queueItemId = requiredString(command.payload.queueItemId);
   const reason = requiredString(command.payload.reason);
+  const nextValidationAction = requiredString(command.payload.nextValidationAction) ?? undefined;
+  const riskDisposition = command.payload.riskDisposition;
 
   if (!queueItemId || !reason) {
     return reject(`${config.commandType} requires queueItemId and a non-empty reason.`, "VALIDATION_FAILED");
@@ -2169,13 +2875,68 @@ function reduceQueueItemResolution(
     return reject(config.unavailableMessage, "COMMAND_PRECONDITION_FAILED");
   }
 
+  if (
+    config.commandType === "DeferQueueItem" &&
+    riskDisposition === "known_risk_next_validation_action" &&
+    !nextValidationAction
+  ) {
+    return reject(
+      "DeferQueueItem requires nextValidationAction when riskDisposition is known_risk_next_validation_action.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  if (
+    config.commandType === "DeferQueueItem" &&
+    queueItemRequiresKnownRiskDeferral(existingItem) &&
+    (riskDisposition !== "known_risk_next_validation_action" || !nextValidationAction)
+  ) {
+    return reject(
+      "DeferQueueItem requires Known Risk + Next Validation Action for high-severity business critic items.",
+      "COMMAND_PRECONDITION_FAILED",
+      {
+        queueItemId,
+        businessCriticPressureKind: existingItem.businessCriticPressureKind,
+        requiredRiskDisposition: "known_risk_next_validation_action"
+      }
+    );
+  }
+
+  if (config.commandType === "DismissQueueItem" && queueItemRequiresKnownRiskDeferral(existingItem)) {
+    return reject(
+      "DismissQueueItem cannot hide high-severity business critic items; defer with Known Risk + Next Validation Action instead.",
+      "COMMAND_PRECONDITION_FAILED",
+      {
+        queueItemId,
+        businessCriticPressureKind: existingItem.businessCriticPressureKind,
+        businessCriticCategory: existingItem.businessCriticCategory,
+        requiredRiskDisposition: "known_risk_next_validation_action"
+      }
+    );
+  }
+
+  const hasKnownRiskPatch =
+    config.commandType === "DeferQueueItem" &&
+    riskDisposition === "known_risk_next_validation_action" &&
+    Boolean(nextValidationAction);
+  const knownRiskPatch = hasKnownRiskPatch
+    ? { knownRiskAccepted: true, nextValidationAction: nextValidationAction as string }
+    : {};
   const queueProjection = config.nextQueueProjection(
     state.queueProjection,
-    existingItem,
+    {
+      ...existingItem,
+      ...knownRiskPatch
+    },
     projectionVersionFor(state),
     command.issuedAt
   );
-  const nextOpenIssues = issuesWithQueueItemStatus(state.openIssues, typedQueueItemId, config.issueStatus);
+  const nextOpenIssues = issuesWithQueueItemStatus(
+    state.openIssues,
+    typedQueueItemId,
+    config.issueStatus,
+    knownRiskPatch
+  );
   const confidenceProjection = buildConfidenceCompletionProjection(
     {
       ...state,
@@ -2187,6 +2948,9 @@ function reduceQueueItemResolution(
   const event = eventDraft(command, config.eventType, {
     queueItemId,
     reason,
+    ...(nextValidationAction ? { nextValidationAction } : {}),
+    ...(hasKnownRiskPatch ? { knownRiskAccepted: true } : {}),
+    ...(riskDisposition === "known_risk_next_validation_action" ? { riskDisposition } : {}),
     projection: queueProjection,
     confidenceProjection
   });
@@ -2206,7 +2970,9 @@ function reduceQueueItemResolution(
         outputRef: queueItemId,
         payload: {
           queueItemId,
-          reason
+          reason,
+          ...(nextValidationAction ? { nextValidationAction } : {}),
+          ...(riskDisposition === "known_risk_next_validation_action" ? { riskDisposition } : {})
         }
       },
       ...completenessDeterministicOutputs(command, confidenceProjection)
@@ -2299,6 +3065,10 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
     projectPurposeModeLabel: projectPurposeModeLabel(confirmedMode),
     projectPurposeModeEffect: projectPurposeModeEffect(confirmedMode),
     skippedCommercializationAxes: skippedCommercializationAxes(confirmedMode),
+    ...(state.project.businessCriticIntensity
+      ? { businessCriticIntensity: state.project.businessCriticIntensity }
+      : {}),
+    ...(activeItem.businessCriticCategory ? { businessCriticCategory: activeItem.businessCriticCategory } : {}),
     routeOutcome,
     impact,
     createdAt: command.issuedAt
@@ -2427,6 +3197,9 @@ function reducePlanResearch(command: ProductEngineCommand, state: ProductEngineS
     projectPurposeModeLabel: projectPurposeModeLabel(confirmedMode),
     projectPurposeModeEffect: projectPurposeModeEffect(confirmedMode),
     skippedCommercializationAxes: skippedCommercializationAxes(confirmedMode),
+    ...(state.project.businessCriticIntensity
+      ? { businessCriticIntensity: state.project.businessCriticIntensity }
+      : {}),
     routeOutcome,
     impact,
     createdAt: command.issuedAt
@@ -6471,6 +7244,8 @@ export function reduceProductEngineCommand(
       return reduceStartProject(command, state);
     case "ChangeProjectPurposeMode":
       return reduceChangeProjectPurposeMode(command, state);
+    case "ChangeBusinessCriticIntensity":
+      return reduceChangeBusinessCriticIntensity(command, state);
     case "CaptureIntake":
       return reduceCaptureIntake(command, state);
     case "DraftInitialSpec":
@@ -6556,6 +7331,12 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
           : (mode
               ? (audit[0]?.reason ?? purposeModeReason(mode))
               : "Project purpose mode selection is required before mode-specific gates run.");
+      const businessCriticIntensity = isBusinessCriticIntensity(event.payload.businessCriticIntensity)
+        ? event.payload.businessCriticIntensity
+        : undefined;
+      const businessCriticIntensityAudit = Array.isArray(event.payload.businessCriticIntensityAudit)
+        ? (event.payload.businessCriticIntensityAudit as ProductEngineStateSnapshot["project"]["businessCriticIntensityAudit"])
+        : [];
 
       return {
         ...state,
@@ -6568,6 +7349,11 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
           projectPurposeModeLabel: projectPurposeModeLabel(mode),
           projectPurposeModeReason,
           projectPurposeModeAudit: audit,
+          ...businessCriticProjectFields(mode, businessCriticIntensity),
+          ...(typeof event.payload.businessCriticIntensityReason === "string"
+            ? { businessCriticIntensityReason: event.payload.businessCriticIntensityReason }
+            : {}),
+          businessCriticIntensityAudit,
           ...(rawIdeaText ? { rawIdeaText } : {})
         },
         session: {
@@ -6603,6 +7389,8 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
       };
       const projection = projectionPayload(event.payload, state.sessionShellProjection);
       const queueProjection = queueProjectionPayload(event.payload);
+      const retainedBusinessCriticIntensity =
+        newMode === "business" ? state.project.businessCriticIntensity : undefined;
 
       return {
         ...state,
@@ -6613,9 +7401,73 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
           projectPurposeModeSelectionStatus: "confirmed",
           projectPurposeModeLabel: projectPurposeModeLabel(newMode),
           projectPurposeModeReason: reason,
-          projectPurposeModeAudit: [...state.project.projectPurposeModeAudit, auditEntry]
+          projectPurposeModeAudit: [...state.project.projectPurposeModeAudit, auditEntry],
+          ...businessCriticProjectFields(newMode, retainedBusinessCriticIntensity),
+          businessCriticIntensity: retainedBusinessCriticIntensity,
+          ...(newMode !== "business"
+            ? {
+                businessCriticIntensityLabel: undefined,
+                businessCriticIntensityEffect: undefined
+              }
+            : {}),
+          businessCriticIntensityReason:
+            retainedBusinessCriticIntensity && state.project.businessCriticIntensityReason
+              ? state.project.businessCriticIntensityReason
+              : undefined,
+          businessCriticIntensityAudit: newMode === "business" ? (state.project.businessCriticIntensityAudit ?? []) : []
         },
         ...(queueProjection ? { queueProjection } : {}),
+        ...(projection ? { sessionShellProjection: projection } : {})
+      };
+    }
+    case "BusinessCriticIntensityChanged": {
+      const newIntensity = isBusinessCriticIntensity(event.payload.newIntensity)
+        ? event.payload.newIntensity
+        : state.project.businessCriticIntensity;
+      if (!newIntensity) {
+        return {
+          ...state,
+          stateVersion: nextStateVersion
+        };
+      }
+      const reason = typeof event.payload.reason === "string" ? event.payload.reason : businessCriticIntensityEffect(newIntensity);
+      const actor: ProjectPurposeModeAuditActor =
+        event.payload.actor === "product_engine" || event.payload.actor === "system" ? event.payload.actor : "user";
+      const auditEntry: BusinessCriticIntensityAuditSnapshot = {
+        newIntensity,
+        reason,
+        actor,
+        changedAt: typeof event.payload.changedAt === "string" ? event.payload.changedAt : event.occurredAt,
+        ...(state.project.businessCriticIntensity ? { previousIntensity: state.project.businessCriticIntensity } : {})
+      };
+      const projection = projectionPayload(event.payload, state.sessionShellProjection);
+      const queueProjection = queueProjectionPayload(event.payload) ?? state.queueProjection;
+      const confidenceProjection = confidenceProjectionPayload(event.payload) ?? state.completeness;
+      const newPressureIssues = Array.isArray(event.payload.newPressureIssues)
+        ? (event.payload.newPressureIssues as readonly AmbiguityIssueSnapshot[])
+        : [];
+      const replayedOpenIssues = Array.isArray(event.payload.openIssues)
+        ? (event.payload.openIssues as readonly AmbiguityIssueSnapshot[])
+        : [
+            ...retainedIssuesForBusinessCriticIntensity(state.openIssues, state.queueProjection.active, newIntensity),
+            ...newPressureIssues.filter(
+              (issue) => !state.openIssues.some((existingIssue) => existingIssue.queueItemId === issue.queueItemId)
+            )
+          ];
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        project: {
+          ...state.project,
+          ...businessCriticProjectFields("business", newIntensity),
+          businessCriticIntensity: newIntensity,
+          businessCriticIntensityReason: reason,
+          businessCriticIntensityAudit: [...(state.project.businessCriticIntensityAudit ?? []), auditEntry]
+        },
+        openIssues: replayedOpenIssues,
+        queueProjection,
+        completeness: confidenceProjection,
         ...(projection ? { sessionShellProjection: projection } : {})
       };
     }
@@ -6700,12 +7552,20 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
       const queueItemId = typeof event.payload.queueItemId === "string" ? (event.payload.queueItemId as QueueItemId) : null;
       const projection = projectionPayload(event.payload, state.queueProjection);
       const confidenceProjection = confidenceProjectionPayload(event.payload) ?? state.completeness;
+      const nextValidationAction =
+        typeof event.payload.nextValidationAction === "string" ? event.payload.nextValidationAction : undefined;
+      const knownRiskPatch =
+        (event.payload.knownRiskAccepted === true ||
+          event.payload.riskDisposition === "known_risk_next_validation_action") &&
+        nextValidationAction
+          ? { knownRiskAccepted: true, nextValidationAction }
+          : {};
 
       return {
         ...state,
         stateVersion: nextStateVersion,
         openIssues: queueItemId
-          ? issuesWithQueueItemStatus(state.openIssues, queueItemId, "deferred")
+          ? issuesWithQueueItemStatus(state.openIssues, queueItemId, "deferred", knownRiskPatch)
           : state.openIssues,
         queueProjection: projection,
         completeness: confidenceProjection

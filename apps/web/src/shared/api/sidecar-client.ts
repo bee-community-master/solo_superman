@@ -8,12 +8,15 @@ import type {
   CompletionCandidateRequest,
   ConfidenceCompletionProjection,
   ConvertRuntimeArtifactRequest,
+  ChangeBusinessCriticIntensityRequest,
   ChangeProjectPurposeModeRequest,
   CreateManualHandoffRequest,
   CreatePlanningHandoffRequest,
   CreateResearchAllowlistRequest,
   CreateRuntimePreviewRequest,
   DecisionQueueProjection,
+  DeferQueueItemRequest,
+  DismissQueueItemRequest,
   FounderBriefProjection,
   ImportResearchResultRequest,
   LivingSpecProjection,
@@ -74,6 +77,9 @@ export type CompletionCandidateInput = CompletionCandidateRequest;
 export type PrepareFounderBriefInput = PrepareFounderBriefRequest;
 export type PrepareResearchDisclosureInput = PrepareResearchDisclosureRequest;
 export type ChangeProjectPurposeModeInput = ChangeProjectPurposeModeRequest;
+export type ChangeBusinessCriticIntensityInput = ChangeBusinessCriticIntensityRequest;
+export type DeferQueueItemInput = DeferQueueItemRequest;
+export type DismissQueueItemInput = DismissQueueItemRequest;
 export type StartResearchRunInput = StartResearchRunRequest;
 export type CancelResearchRunInput = CancelResearchRunRequest;
 export type RetryResearchRunInput = RetryResearchRunRequest;
@@ -293,6 +299,13 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
       );
     },
 
+    changeBusinessCriticIntensity(input: ChangeBusinessCriticIntensityInput) {
+      return postCommand<SessionShellProjection>(
+        `/api/v1/sessions/${encodeURIComponent(input.sessionId)}/business-critic-intensity`,
+        input
+      );
+    },
+
     captureIntake(sessionId: SessionId, expectedStateVersion: StateVersion, answer: string) {
       return postCommand(`/api/v1/sessions/${encodeURIComponent(sessionId)}/intake`, {
         expectedStateVersion,
@@ -322,6 +335,20 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
     submitAnswer(input: SubmitAnswerInput) {
       return postCommand<DecisionQueueProjection>(
         `/api/v1/questions/${encodeURIComponent(input.queueItemId)}/answers`,
+        input
+      );
+    },
+
+    deferQueueItem(input: DeferQueueItemInput) {
+      return postCommand<DecisionQueueProjection>(
+        `/api/v1/queue-items/${encodeURIComponent(input.queueItemId)}/defer`,
+        input
+      );
+    },
+
+    dismissQueueItem(input: DismissQueueItemInput) {
+      return postCommand<DecisionQueueProjection>(
+        `/api/v1/queue-items/${encodeURIComponent(input.queueItemId)}/dismiss`,
         input
       );
     },

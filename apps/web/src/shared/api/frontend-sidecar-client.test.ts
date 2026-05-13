@@ -199,6 +199,67 @@ describe("sidecar client", () => {
     });
   });
 
+  it("changes business critic intensity through the auditable session endpoint", async () => {
+    const seenRequests: [string, RequestInit | undefined][] = [];
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async (input, init) => {
+        seenRequests.push([input, init]);
+
+        return jsonResponse({
+          ok: true,
+          data: {
+            category: "accepted_with_projection",
+            commandId: "cmd_business_critic",
+            correlationId: "corr_business_critic",
+            stateVersionBefore: 5,
+            stateVersionAfter: 6,
+            immediateProjection: {
+              kind: "SessionShellProjection",
+              projectId: "proj_test",
+              sessionId: "sess_test",
+              version: 6,
+              phase: "validation",
+              projectPurposeMode: "business",
+              projectPurposeModeLabel: "사업화 검증 중심",
+              businessCriticIntensity: "strong",
+              businessCriticIntensitySelectionStatus: "confirmed",
+              businessCriticIntensityLabel: "강한 사업 검증"
+            }
+          },
+          meta: {
+            requestId: "req_business_critic",
+            schemaVersion: "solo-superman.contracts.v1"
+          }
+        });
+      }
+    });
+
+    await client.changeBusinessCriticIntensity({
+      sessionId: "sess_test" as SessionId,
+      expectedStateVersion: 5 as StateVersion,
+      businessCriticIntensity: "strong",
+      businessCriticIntensityConfirmation: "user_confirmed",
+      reason: "User wants stronger pressure testing."
+    });
+
+    const [url, init] = seenRequests[0]!;
+
+    expect(url).toBe("http://127.0.0.1:43110/api/v1/sessions/sess_test/business-critic-intensity");
+    expect(init?.method).toBe("POST");
+    expect(init?.headers).toMatchObject({
+      Authorization: "Bearer test-token",
+      "Content-Type": "application/json"
+    });
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      sessionId: "sess_test",
+      expectedStateVersion: 5,
+      businessCriticIntensity: "strong",
+      businessCriticIntensityConfirmation: "user_confirmed",
+      reason: "User wants stronger pressure testing."
+    });
+  });
+
   it("submits answers through the documented question endpoint with session version context", async () => {
     const seenRequests: [string, RequestInit | undefined][] = [];
     const client = createSidecarClient({
@@ -251,6 +312,67 @@ describe("sidecar client", () => {
       queueItemId: "queue_item_1",
       expectedStateVersion: 5,
       answer: "The first answer"
+    });
+  });
+
+  it("defers and dismisses queue items through mounted queue item endpoints", async () => {
+    const seenRequests: [string, RequestInit | undefined][] = [];
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async (input, init) => {
+        seenRequests.push([input, init]);
+
+        return jsonResponse({
+          ok: true,
+          data: {
+            category: "accepted_with_projection",
+            commandId: "cmd_queue_route",
+            correlationId: "corr_queue_route",
+            stateVersionBefore: 6,
+            stateVersionAfter: 7,
+            queueProjection: {
+              kind: "DecisionQueueProjection",
+              version: 7,
+              active: [],
+              next: [],
+              blocked: [],
+              deferred: []
+            }
+          },
+          meta: {
+            requestId: "req_queue_route",
+            schemaVersion: "solo-superman.contracts.v1"
+          }
+        });
+      }
+    });
+
+    await client.deferQueueItem({
+      sessionId: "sess_test" as SessionId,
+      queueItemId: "queue_item_1" as QueueItemId,
+      expectedStateVersion: 6 as StateVersion,
+      reason: "Carry as known risk with a validation action.",
+      riskDisposition: "known_risk_next_validation_action",
+      nextValidationAction: "Run a pricing smoke test."
+    });
+    await client.dismissQueueItem({
+      sessionId: "sess_test" as SessionId,
+      queueItemId: "queue_item_2" as QueueItemId,
+      expectedStateVersion: 7 as StateVersion,
+      reason: "Covered by an existing decision."
+    });
+
+    expect(seenRequests.map(([url]) => url)).toEqual([
+      "http://127.0.0.1:43110/api/v1/queue-items/queue_item_1/defer",
+      "http://127.0.0.1:43110/api/v1/queue-items/queue_item_2/dismiss"
+    ]);
+    expect(JSON.parse(String(seenRequests[0]![1]?.body))).toMatchObject({
+      sessionId: "sess_test",
+      queueItemId: "queue_item_1",
+      expectedStateVersion: 6,
+      reason: "Carry as known risk with a validation action.",
+      riskDisposition: "known_risk_next_validation_action",
+      nextValidationAction: "Run a pricing smoke test."
     });
   });
 
@@ -1093,7 +1215,9 @@ describe("sidecar client", () => {
         rawIdea: "Unavailable sidecar",
         localPrivacyMode: "local_only",
         projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed"
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
       })
     ).rejects.toMatchObject({
       httpStatus: 503,
@@ -1119,7 +1243,9 @@ describe("sidecar client", () => {
       rawIdea: "Unavailable sidecar",
       localPrivacyMode: "local_only",
       projectPurposeMode: "business",
-      projectPurposeModeConfirmation: "user_confirmed"
+      projectPurposeModeConfirmation: "user_confirmed",
+      businessCriticIntensity: "balanced",
+      businessCriticIntensityConfirmation: "user_confirmed"
     });
 
     await expect(request).rejects.toBeInstanceOf(SidecarClientError);

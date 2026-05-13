@@ -31,6 +31,8 @@ import {
   PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
   POST_PHASE3_PR01_PROJECT_PURPOSE_ROUTE_IDS,
   POST_PHASE3_PR01_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  POST_PHASE3_PR02_BUSINESS_CRITIC_ROUTE_IDS,
+  POST_PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
@@ -456,11 +458,46 @@ describe("API route catalog", () => {
       ...PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
       ...POST_PHASE3_PR01_PROJECT_PURPOSE_ROUTE_IDS
     ]);
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(POST_PHASE3_PR01_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(
+      expect.arrayContaining([...POST_PHASE3_PR01_MOUNTED_PRODUCT_API_ROUTE_IDS])
+    );
     expect(routeById.get("changeProjectPurposeMode")).toMatchObject({
       method: "POST",
       path: "/api/v1/sessions/:sessionId/project-purpose-mode",
       commandType: "ChangeProjectPurposeMode",
+      implementedInPr01: false
+    });
+  });
+
+  it("mounts the Post-Phase3 PR-02 business critic routes after project purpose mode", () => {
+    const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
+
+    expect(POST_PHASE3_PR02_BUSINESS_CRITIC_ROUTE_IDS).toEqual([
+      "changeBusinessCriticIntensity",
+      "deferQueueItem",
+      "dismissQueueItem"
+    ]);
+    expect(POST_PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual([
+      ...POST_PHASE3_PR01_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      ...POST_PHASE3_PR02_BUSINESS_CRITIC_ROUTE_IDS
+    ]);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(POST_PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(routeById.get("changeBusinessCriticIntensity")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/business-critic-intensity",
+      commandType: "ChangeBusinessCriticIntensity",
+      implementedInPr01: false
+    });
+    expect(routeById.get("deferQueueItem")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/queue-items/:queueItemId/defer",
+      commandType: "DeferQueueItem",
+      implementedInPr01: false
+    });
+    expect(routeById.get("dismissQueueItem")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/queue-items/:queueItemId/dismiss",
+      commandType: "DismissQueueItem",
       implementedInPr01: false
     });
   });

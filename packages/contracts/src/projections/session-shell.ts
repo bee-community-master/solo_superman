@@ -1,5 +1,10 @@
 import type { ProjectId, ProjectionVersion, SessionId } from "../ids";
-import type { ProjectPurposeMode, ProjectPurposeModeSelectionStatus } from "../product-engine";
+import type {
+  BusinessCriticIntensity,
+  BusinessCriticIntensitySelectionStatus,
+  ProjectPurposeMode,
+  ProjectPurposeModeSelectionStatus
+} from "../product-engine";
 
 export interface SessionShellProjection {
   readonly kind: "SessionShellProjection";
@@ -11,4 +16,8 @@ export interface SessionShellProjection {
   readonly projectPurposeModeSelectionStatus?: ProjectPurposeModeSelectionStatus;
   readonly projectPurposeModeLabel: string;
   readonly projectPurposeModeEffect: string;
+  readonly businessCriticIntensity?: BusinessCriticIntensity;
+  readonly businessCriticIntensitySelectionStatus?: BusinessCriticIntensitySelectionStatus;
+  readonly businessCriticIntensityLabel?: string;
+  readonly businessCriticIntensityEffect?: string;
 }

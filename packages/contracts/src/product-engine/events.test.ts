@@ -6,6 +6,7 @@ describe("ProductEngine event contract surface", () => {
     expect(PRODUCT_ENGINE_EVENT_TYPES).toEqual([
       "ProjectStarted",
       "ProjectPurposeModeChanged",
+      "BusinessCriticIntensityChanged",
       "IntakeCaptured",
       "SessionPhaseChanged",
       "InitialSpecDrafted",

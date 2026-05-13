@@ -196,6 +196,24 @@ describe("PR-09 web route client catalog", () => {
     });
   });
 
+  it("marks the Post-Phase3 PR-02 business critic routes with their own mounted lane", () => {
+    expect(findWebRouteClientPlaceholder("changeBusinessCriticIntensity")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/business-critic-intensity",
+      implementation: "mounted_post_phase3_pr_02"
+    });
+    expect(findWebRouteClientPlaceholder("deferQueueItem")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/queue-items/:queueItemId/defer",
+      implementation: "mounted_post_phase3_pr_02"
+    });
+    expect(findWebRouteClientPlaceholder("dismissQueueItem")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/queue-items/:queueItemId/dismiss",
+      implementation: "mounted_post_phase3_pr_02"
+    });
+  });
+
   it("marks the Decision Queue SSE notification stream as mounted for refetch recovery", () => {
     expect(findWebRouteClientPlaceholder("subscribeEventStream")).toMatchObject({
       method: "GET",

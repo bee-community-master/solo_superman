@@ -180,6 +180,7 @@ Phase 1 command type values are closed, and Phase 1.5A allowlist/disclosure/run-
 | --- | --- |
 | `StartProject` | create project shell from raw idea |
 | `ChangeProjectPurposeMode` | user-confirmed change between business and personal project-purpose modes; records an audit reason and updates shell/planning scope without rewriting the active batch |
+| `ChangeBusinessCriticIntensity` | user-confirmed business critic intensity change (`balanced`, `strong`, `investor_grade`); queues new critical pressure items as `queued_next` without replacing the active batch |
 | `CaptureIntake` | store initial idea/intake answer |
 | `DraftInitialSpec` | create initial Living Spec draft material |
 | `AnalyzeAmbiguity` | derive ambiguity issues/confidence projection |
@@ -269,7 +270,7 @@ Example command envelope:
 
 | CommandType group | Payload type | Required fields |
 | --- | --- | --- |
-| project/session intake | `StartProjectPayload`, `ChangeProjectPurposeModePayload`, `CaptureIntakePayload` | raw idea, local privacy mode, user-confirmed `projectPurposeMode`, mode-change reason/audit metadata, optional source note |
+| project/session intake | `StartProjectPayload`, `ChangeProjectPurposeModePayload`, `ChangeBusinessCriticIntensityPayload`, `CaptureIntakePayload` | raw idea, local privacy mode, user-confirmed `projectPurposeMode`, mode-change reason/audit metadata, explicit `businessCriticIntensity` when the business user has confirmed one, `intensity_required` while unselected, optional source note |
 | spec/ambiguity | `DraftInitialSpecPayload`, `AnalyzeAmbiguityPayload` | target spec draft/version refs, analysis target refs |
 | queue/answer | `ActivateQuestionBatchPayload`, `SubmitAnswerPayload`, `DeferQueueItemPayload`, `DismissQueueItemPayload` | queue item/batch ids and answer/defer/dismiss reason |
 | research/evidence | `PlanResearchPayload`, `ImportResearchResultPayload`, `SynthesizeEvidencePayload` | research task/result refs, source reliability/metadata, claim/decision/spec/question refs, synthesis target |
@@ -349,7 +350,7 @@ Closed ProductEngine event type groups:
 
 | Group | EventType examples | Notes |
 | --- | --- | --- |
-| project/session | `ProjectStarted`, `ProjectPurposeModeChanged`, `IntakeCaptured`, `SessionPhaseChanged` | shell/session state, project-purpose mode audit trail |
+| project/session | `ProjectStarted`, `ProjectPurposeModeChanged`, `BusinessCriticIntensityChanged`, `IntakeCaptured`, `SessionPhaseChanged` | shell/session state, project-purpose mode and business critic intensity audit trails |
 | spec | `InitialSpecDrafted`, `SpecUpdatePreviewCreated`, `SpecVersionCreated` | Living Spec state |
 | ambiguity/queue | `AmbiguityAnalyzed`, `QuestionBatchActivated`, `QueueItemDeferred`, `QueueItemDismissed` | queue and question loop |
 | answer/decision | `AnswerSubmitted`, `DecisionResolved` | user decisions and answer cards |
@@ -718,15 +719,15 @@ Phase 1.5A PR-01 implementation note:
 
 | Projection | Required domain fields |
 | --- | --- |
-| `SessionShellProjection` | project summary, session phase, readiness, active lanes, global pending effects, user-facing project-purpose mode label/effect |
-| `DecisionQueueProjection` | active, next, blocked, deferred queue item arrays, active batch id, priority reasons, mode effect summary and skipped commercialization axes when personal mode applies |
+| `SessionShellProjection` | project summary, session phase, readiness, active lanes, global pending effects, user-facing project-purpose mode label/effect, business critic intensity selection status/label/effect when in business mode |
+| `DecisionQueueProjection` | active, next, blocked, deferred queue item arrays, active batch id, priority reasons, mode effect summary, business critic intensity pressure summary, and skipped commercialization axes when personal mode applies |
 | `LivingSpecProjection` | spec sections, current draft/version ref, pending spec update previews, approval status |
 | `ResearchAllowlistProjection` | status, connector ids, source categories, context mode, rate/budget policy including per-session run cap, staleness/disclosure policies, pause/revoke timestamps |
 | `ResearchDisclosureLogProjection` | connector/source category, objective summary, exact public-safe summary sent/prepared, source refs, automatic-vs-manual handoff status |
 | `ResearchRunProjection` | status state machine, provider-neutral reference, attempt/idempotency key, source category, disclosure log ref, quality gate status, terminal reason |
 | `Phase15bUpgradeHintProjection` | readiness/preview/handoff metadata records, sanitized source refs, private payload policy, no-execution semantics, export URL |
 | `ResearchEvidenceProjection` | research tasks, manual handoff prompts, evidence matrix summary, decision evidence packs, pro/con balance, review cards, research tasks annotated with project-purpose mode effect |
-| `ConfidenceCompletionProjection` | five-axis scores, radar data, composite completeness, top risk cards, score history, purpose-mode adjusted next-best actions and skipped commercialization gates |
+| `ConfidenceCompletionProjection` | five-axis scores, radar data, composite completeness, top risk cards, score history, purpose-mode adjusted next-best actions, business critic intensity/pressure gates, and skipped commercialization gates |
 | `RuntimeActivityProjection` | effect tasks, Codex runtime status, runtime artifacts, retry/blocked cards, activity feed |
 | `FounderBriefProjection` | if-stop-now artifact, brief draft sections, export readiness, known risks, next validation actions, founder-facing project-purpose mode narrative |
 | `PlanningHandoffProjection` | latest final `PlanningHandoffArtifactDto` or latest `PlanningHandoffBlockerArtifactDto`, source refs, gate verdict, build/serve/learning checklist fields on final handoff, readiness/residual-risk summary, project-purpose mode scope fields, refetch URL |
@@ -811,7 +812,8 @@ Phase 1.5 DTO 구현자는 `30-phase1.5-research-runtime-and-readiness-contract.
 - `ResolveResearchQueueCardRequest` requires `sessionId`, `cardId`, `expectedStateVersion`, `outcome`, and a user-visible `rationale` for `deferred` or `risk_accepted`.
 - High-impact research cards expose `blocksPlanning: true` until resolved; terminal `deferred` and `research_insufficient` remain blockers only for fatal classes (`customer_problem_jtbd`, `success_metrics_validation`, `approval_security_execution_safety`). Non-fatal value proposition/differentiation or MVP scope/non-scope gaps must be carried into Planning Handoff residual risk, prerequisite, and validation dependency fields instead of being hidden.
 - `risk_accepted` carries rationale into Known Risks and may unblock fatal classes only when the risk-acceptance source is linked to the queue card/evidence source trace.
-- `DecisionQueueProjection` items may include `cardType`, `researchTaskId`, `evidencePackId`, `availableOutcomes`, `terminalOutcome`, `terminalRationale`, and `blocksPlanning` so UI and refetch recovery can render the same state.
+- `DecisionQueueProjection` items may include `cardType`, `researchTaskId`, `evidencePackId`, `availableOutcomes`, `terminalOutcome`, `terminalRationale`, `blocksPlanning`, `businessCriticCategory`, `businessCriticIntensity`, `businessCriticPressureKind`, `knownRiskAccepted`, and `nextValidationAction` so UI and refetch recovery can render the same state.
+- Business mode does not default `businessCriticIntensity`; until the user confirms `balanced`, `strong`, or `investor_grade`, business completion remains gated with the `상업성 검증 강도 선택 필요` label. `strong` and `investor_grade` pressure additions must enter `queued_next` and must not replace the current active batch. A founder may defer a pressure item only by carrying it as a Known Risk with a Next Validation Action.
 
 ## Phase 2 Planning Handoff DTO checklist
 

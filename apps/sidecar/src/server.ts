@@ -18,6 +18,7 @@ import {
   EXECUTION_ROLLBACK_KINDS,
   EXECUTION_SANDBOX_MODES,
   EXECUTION_SECRET_POLICIES,
+  BUSINESS_CRITIC_INTENSITIES,
   PROJECT_PURPOSE_MODES,
   isExecutionAuthorityIsoTimestamp,
   type ApiErrorCode,
@@ -50,6 +51,7 @@ import {
   type PrepareResearchDisclosureRequest,
   type PlanningHandoffRequestedScopeDto,
   type PlanningHandoffSourceRefDto,
+  type BusinessCriticIntensity,
   type ProjectPurposeMode,
   type ProjectId,
   type QueueItemId,
@@ -390,6 +392,30 @@ function optionalProjectPurposeModeFromBody(value: unknown, fieldName = "project
   }
 
   return projectPurposeModeFromBody(value, fieldName);
+}
+
+function businessCriticIntensityFromBody(
+  value: unknown,
+  fieldName = "businessCriticIntensity"
+): BusinessCriticIntensity {
+  const intensity = stringFromBody(value, fieldName);
+
+  if (!BUSINESS_CRITIC_INTENSITIES.includes(intensity as BusinessCriticIntensity)) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      `${fieldName} must be balanced, strong, or investor_grade.`
+    );
+  }
+
+  return intensity as BusinessCriticIntensity;
+}
+
+function optionalBusinessCriticIntensityFromBody(value: unknown, fieldName = "businessCriticIntensity") {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  return businessCriticIntensityFromBody(value, fieldName);
 }
 
 function optionalPositiveIntegerFromBody(value: unknown, fieldName: string) {
@@ -1598,6 +1624,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         body.suggestedProjectPurposeMode,
         "suggestedProjectPurposeMode"
       );
+      const businessCriticIntensity = optionalBusinessCriticIntensityFromBody(body.businessCriticIntensity);
 
       if (localPrivacyMode !== "local_only" && localPrivacyMode !== "local_with_manual_export") {
         throw new ProductEngineServiceError("VALIDATION_FAILED", "localPrivacyMode must be a supported local privacy mode.");
@@ -1610,6 +1637,13 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         );
       }
 
+      if (businessCriticIntensity && body.businessCriticIntensityConfirmation !== "user_confirmed") {
+        throw new ProductEngineServiceError(
+          "VALIDATION_FAILED",
+          "businessCriticIntensityConfirmation must be user_confirmed when businessCriticIntensity is provided."
+        );
+      }
+
       return service.startProject({
         rawIdea,
         localPrivacyMode,
@@ -1618,6 +1652,15 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         ...(suggestedProjectPurposeMode ? { suggestedProjectPurposeMode } : {}),
         ...(typeof body.projectPurposeModeReason === "string"
           ? { projectPurposeModeReason: body.projectPurposeModeReason }
+          : {}),
+        ...(businessCriticIntensity
+          ? {
+              businessCriticIntensity,
+              businessCriticIntensityConfirmation: "user_confirmed" as const,
+              ...(typeof body.businessCriticIntensityReason === "string"
+                ? { businessCriticIntensityReason: body.businessCriticIntensityReason }
+                : {})
+            }
           : {}),
         ...(typeof body.sourceNote === "string" ? { sourceNote: body.sourceNote } : {})
       });
@@ -1649,6 +1692,39 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
           projectPurposeMode: projectPurposeModeFromBody(body.projectPurposeMode),
           reason: stringFromBody(body.reason, "reason"),
           ...(suggestedProjectPurposeMode ? { suggestedProjectPurposeMode } : {})
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/business-critic-intensity", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const bodySessionId = stringFromBody(body.sessionId, "sessionId") as SessionId;
+
+      if (bodySessionId !== routeSessionId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId must match the route param.", {
+          routeSessionId,
+          bodySessionId
+        });
+      }
+
+      if (body.businessCriticIntensityConfirmation !== "user_confirmed") {
+        throw new ProductEngineServiceError(
+          "VALIDATION_FAILED",
+          "businessCriticIntensityConfirmation must be user_confirmed."
+        );
+      }
+
+      return service.runSessionCommand({
+        sessionId: routeSessionId,
+        commandType: "ChangeBusinessCriticIntensity",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          businessCriticIntensity: businessCriticIntensityFromBody(body.businessCriticIntensity),
+          businessCriticIntensityConfirmation: "user_confirmed",
+          reason: stringFromBody(body.reason, "reason")
         }
       });
     })
@@ -1862,6 +1938,56 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
           ...(typeof body.claimImpact === "string" ? { claimImpact: body.claimImpact } : {}),
           ...(typeof body.evidenceBalanceHint === "string" ? { evidenceBalanceHint: body.evidenceBalanceHint } : {}),
           ...(typeof body.researchObjective === "string" ? { researchObjective: body.researchObjective } : {})
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/queue-items/:queueItemId/defer", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const routeQueueItemId = context.req.param("queueItemId") as QueueItemId;
+      const bodyQueueItemId = stringFromBody(body.queueItemId, "queueItemId") as QueueItemId;
+
+      if (bodyQueueItemId !== routeQueueItemId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "queueItemId must match the queue item route param.");
+      }
+
+      return service.runSessionCommand({
+        sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
+        commandType: "DeferQueueItem",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          queueItemId: routeQueueItemId,
+          reason: stringFromBody(body.reason, "reason"),
+          ...(typeof body.nextValidationAction === "string"
+            ? { nextValidationAction: body.nextValidationAction }
+            : {}),
+          ...(body.riskDisposition === "known_risk_next_validation_action"
+            ? { riskDisposition: "known_risk_next_validation_action" }
+            : {})
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/queue-items/:queueItemId/dismiss", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const routeQueueItemId = context.req.param("queueItemId") as QueueItemId;
+      const bodyQueueItemId = stringFromBody(body.queueItemId, "queueItemId") as QueueItemId;
+
+      if (bodyQueueItemId !== routeQueueItemId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "queueItemId must match the queue item route param.");
+      }
+
+      return service.runSessionCommand({
+        sessionId: stringFromBody(body.sessionId, "sessionId") as SessionId,
+        commandType: "DismissQueueItem",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          queueItemId: routeQueueItemId,
+          reason: stringFromBody(body.reason, "reason")
         }
       });
     })

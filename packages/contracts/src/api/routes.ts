@@ -191,6 +191,14 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "changeBusinessCriticIntensity",
+    clientName: "changeBusinessCriticIntensity",
+    method: "POST",
+    path: "/api/v1/sessions/:sessionId/business-critic-intensity",
+    commandType: "ChangeBusinessCriticIntensity",
+    implementedInPr01: false
+  },
+  {
     routeId: "captureIntake",
     clientName: "captureIntake",
     method: "POST",
@@ -692,4 +700,15 @@ export const POST_PHASE3_PR01_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...POST_PHASE3_PR01_PROJECT_PURPOSE_ROUTE_IDS
 ] as const satisfies readonly ApiRouteId[];
 
-export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = POST_PHASE3_PR01_MOUNTED_PRODUCT_API_ROUTE_IDS;
+export const POST_PHASE3_PR02_BUSINESS_CRITIC_ROUTE_IDS = [
+  "changeBusinessCriticIntensity",
+  "deferQueueItem",
+  "dismissQueueItem"
+] as const satisfies readonly ApiRouteId[];
+
+export const POST_PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...POST_PHASE3_PR01_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  ...POST_PHASE3_PR02_BUSINESS_CRITIC_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = POST_PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS;

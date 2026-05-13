@@ -3,6 +3,7 @@ import type { CausationId, CommandId, CorrelationId, EventId, ProjectId, SchemaV
 export const PRODUCT_ENGINE_EVENT_TYPES = [
   "ProjectStarted",
   "ProjectPurposeModeChanged",
+  "BusinessCriticIntensityChanged",
   "IntakeCaptured",
   "SessionPhaseChanged",
   "InitialSpecDrafted",

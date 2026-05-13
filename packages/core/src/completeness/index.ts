@@ -1,4 +1,7 @@
 import {
+  BUSINESS_CRITIC_INTENSITY_EFFECTS,
+  BUSINESS_CRITIC_INTENSITY_LABELS,
+  BUSINESS_CRITIC_INTENSITY_REQUIRED_LABEL,
   PROJECT_PURPOSE_MODE_LABELS,
   PROJECT_PURPOSE_MODE_REQUIRED_LABEL,
   PROJECT_PURPOSE_MODE_SKIPPED_COMMERCIALIZATION_AXES,
@@ -7,6 +10,8 @@ import {
   type ConfidenceCompletionProjection,
   type FounderBriefProjection,
   type IfStopNowArtifactProjection,
+  type BusinessCriticalQuestionCategory,
+  type BusinessCriticIntensity,
   type ProductEngineStateSnapshot,
   type ProjectPurposeMode,
   type ProjectionVersion,
@@ -73,6 +78,19 @@ const PROJECT_PURPOSE_MODE_DETAILS = {
 
 const PROJECT_PURPOSE_MODE_REQUIRED_EFFECT =
   "사용자가 사업화 검증 중심 또는 개인 workflow 구현 중심을 명시 선택하기 전까지 mode-specific completeness gate를 확정하지 않습니다.";
+
+const BUSINESS_CRITIC_INTENSITY_REQUIRED_EFFECT =
+  "사업화 모드에서는 사용자가 balanced, strong, investor_grade 중 하나를 명시 선택하기 전까지 business completion gate를 확정하지 않습니다.";
+
+const ELEVATED_BUSINESS_CRITIC_CATEGORY_REPORT_ORDER = [
+  "paid_intent",
+  "acquisition",
+  "pricing",
+  "retention_proxy",
+  "legal_ops_security",
+  "market_timing",
+  "founder_advantage"
+] as const satisfies readonly BusinessCriticalQuestionCategory[];
 
 const REQUIRED_DECISION_REFS: readonly RequiredDecisionRef[] = [
   "primary_customer",
@@ -202,6 +220,75 @@ function researchCardBlocksCompletion(
   return card.blocksPlanning;
 }
 
+function businessCriticIntensityLabel(intensity: BusinessCriticIntensity | null | undefined) {
+  return intensity ? BUSINESS_CRITIC_INTENSITY_LABELS[intensity] : BUSINESS_CRITIC_INTENSITY_REQUIRED_LABEL;
+}
+
+function businessCriticIntensityEffect(intensity: BusinessCriticIntensity | null | undefined) {
+  return intensity ? BUSINESS_CRITIC_INTENSITY_EFFECTS[intensity] : BUSINESS_CRITIC_INTENSITY_REQUIRED_EFFECT;
+}
+
+function isKnownRiskWithValidationAction(issue: ProductEngineStateSnapshot["openIssues"][number]) {
+  return issue.status === "deferred" && issue.knownRiskAccepted === true && Boolean(issue.nextValidationAction);
+}
+
+function unresolvedBusinessCriticIssues(state: ProductEngineStateSnapshot) {
+  return state.openIssues.filter((issue) => issue.businessCriticCategory && issue.status === "open");
+}
+
+function businessCriticPressureGate(state: ProductEngineStateSnapshot): CompletionGateStatus | null {
+  if (state.project.projectPurposeMode !== "business") {
+    return null;
+  }
+
+  const intensity = state.project.businessCriticIntensity;
+
+  if (!intensity) {
+    return {
+      gateId: "business_critic_intensity",
+      label: BUSINESS_CRITIC_INTENSITY_REQUIRED_LABEL,
+      passed: false,
+      blockingReason: "사업화 모드 사용자가 balanced, strong, investor_grade 중 하나를 명시 선택해야 합니다."
+    };
+  }
+
+  const unresolved = unresolvedBusinessCriticIssues(state);
+  const unresolvedStrong = unresolved.filter((issue) => issue.businessCriticPressureKind === "core_assumption_challenge");
+  const unresolvedInvestor = unresolved.filter((issue) => issue.businessCriticPressureKind === "investor_pressure_pass");
+  const unresolvedInvestorPressure = [...unresolvedStrong, ...unresolvedInvestor];
+  const unresolvedInvestorCategories = new Set(unresolvedInvestorPressure.map((issue) => issue.businessCriticCategory));
+  const unresolvedCategoryLabel = ELEVATED_BUSINESS_CRITIC_CATEGORY_REPORT_ORDER.filter((category) =>
+    unresolvedInvestorCategories.has(category)
+  ).join(", ");
+
+  if (intensity === "strong" && unresolvedStrong.length > 0) {
+    return {
+      gateId: "business_critic_pressure",
+      label: "Strong critic core-assumption challenges are resolved or carried as Known Risks",
+      passed: false,
+      blockingReason: `${unresolvedStrong.length} core-assumption challenge(s) need an answer or Known Risk + Next Validation Action.`
+    };
+  }
+
+  if (intensity === "investor_grade" && unresolvedInvestorPressure.length > 0) {
+    return {
+      gateId: "business_critic_pressure",
+      label: "Investor-grade pressure passes are resolved or carried as Known Risks",
+      passed: false,
+      blockingReason: `Investor-grade pressure categories remain open: ${unresolvedCategoryLabel || unresolvedInvestorPressure.length}.`
+    };
+  }
+
+  return {
+    gateId: "business_critic_pressure",
+    label:
+      intensity === "balanced"
+        ? "Balanced critic questions are resolved or visible"
+        : `${businessCriticIntensityLabel(intensity)} pressure questions are resolved or carried as Known Risks`,
+    passed: true
+  };
+}
+
 function researchCardRiskTitle(
   card: ProductEngineStateSnapshot["researchState"]["reviewCards"][number]
 ) {
@@ -298,7 +385,17 @@ function riskCards(state: ProductEngineStateSnapshot, fallbackActions: readonly 
       title: `Open question remains: ${issue.summary}`,
       severity: "high" as const,
       sourceRefs: [issue.queueItemId],
-      nextValidationAction: issue.questionText ?? `Resolve ${issue.summary}.`
+      nextValidationAction:
+        issue.nextValidationAction ?? issue.questionText ?? `Resolve ${issue.summary}.`
+    }));
+  const knownBusinessRisks = state.openIssues
+    .filter(isKnownRiskWithValidationAction)
+    .map((issue, index) => ({
+      riskId: `risk_business_known_${index + 1}`,
+      title: `Known business risk accepted: ${issue.summary}`,
+      severity: "medium" as const,
+      sourceRefs: [issue.queueItemId],
+      nextValidationAction: issue.nextValidationAction ?? `Validate ${issue.summary}.`
     }));
   const runtimeRisks = state.runtimeState.runtimeArtifacts
     .filter((artifact) => artifact.status === "blocked")
@@ -310,7 +407,7 @@ function riskCards(state: ProductEngineStateSnapshot, fallbackActions: readonly 
       nextValidationAction: artifact.blockedAction?.suggestedSafeAlternative ?? "Use a manual handoff or safe preview path."
     }));
 
-  return [...matrixRisks, ...researchCardRisks, ...openQuestionRisks, ...runtimeRisks].sort(
+  return [...matrixRisks, ...researchCardRisks, ...openQuestionRisks, ...knownBusinessRisks, ...runtimeRisks].sort(
     (left, right) => RISK_SEVERITY_RANK[left.severity] - RISK_SEVERITY_RANK[right.severity]
   );
 }
@@ -331,6 +428,11 @@ function nextBestActions(state: ProductEngineStateSnapshot, cards: readonly TopR
           "Confirm GUI fit, local data/security boundaries, implementation feasibility, maintainability, and personal success criteria."
         ]
       : [
+          state.project.businessCriticIntensity
+            ? `${businessCriticIntensityLabel(state.project.businessCriticIntensity)}: ${businessCriticIntensityEffect(
+                state.project.businessCriticIntensity
+              )}`
+            : "Select the business critic intensity before scoring business completion gates.",
           "Validate customer/problem urgency, willingness to pay, competition, channel, and legal/ops risks."
         ];
 
@@ -401,8 +503,10 @@ function gateStatuses(
   const blockingIncidents =
     state.runtimeState.runtimeArtifacts.filter((artifact) => artifact.status === "blocked").length +
     state.runtimeState.effects.filter((effect) => effect.status === "failed" || effect.status === "blocked").length;
+  const criticGate = businessCriticPressureGate(state);
 
   return [
+    ...(criticGate ? [criticGate] : []),
     {
       gateId: "score_threshold",
       label: "Composite score is 85 or higher",
@@ -487,6 +591,7 @@ export function buildConfidenceCompletionProjection(
       projectPurposeModeLabel: PROJECT_PURPOSE_MODE_REQUIRED_LABEL,
       projectPurposeModeEffect: PROJECT_PURPOSE_MODE_REQUIRED_EFFECT,
       skippedCommercializationAxes: [],
+      businessCriticIntensitySelectionStatus: "not_applicable",
       compositeScore: 0,
       readinessLabel: "draft",
       axes: [],
@@ -570,6 +675,7 @@ export function buildConfidenceCompletionProjection(
   );
   const gatesPassed = gates.every((gate) => gate.passed);
   const purposeModeDetails = PROJECT_PURPOSE_MODE_DETAILS[state.project.projectPurposeMode];
+  const businessCriticIntensity = state.project.businessCriticIntensity;
 
   return {
     kind: "ConfidenceCompletionProjection",
@@ -580,6 +686,24 @@ export function buildConfidenceCompletionProjection(
     projectPurposeModeLabel: purposeModeDetails.label,
     projectPurposeModeEffect: purposeModeDetails.effect,
     skippedCommercializationAxes: purposeModeDetails.skippedCommercializationAxes,
+    businessCriticIntensitySelectionStatus:
+      state.project.projectPurposeMode === "business"
+        ? businessCriticIntensity
+          ? "confirmed"
+          : "intensity_required"
+        : "not_applicable",
+    ...(businessCriticIntensity
+      ? {
+          businessCriticIntensity,
+          businessCriticIntensityLabel: businessCriticIntensityLabel(businessCriticIntensity),
+          businessCriticIntensityEffect: businessCriticIntensityEffect(businessCriticIntensity)
+        }
+      : state.project.projectPurposeMode === "business"
+        ? {
+            businessCriticIntensityLabel: BUSINESS_CRITIC_INTENSITY_REQUIRED_LABEL,
+            businessCriticIntensityEffect: BUSINESS_CRITIC_INTENSITY_REQUIRED_EFFECT
+          }
+        : {}),
     compositeScore,
     readinessLabel: readinessLabel(compositeScore, gatesPassed),
     axes,

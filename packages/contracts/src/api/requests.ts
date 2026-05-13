@@ -23,7 +23,7 @@ import type {
 import type { PlanningHandoffRequestedScopeDto, PlanningHandoffSourceRefDto } from "../projections/planning-handoff";
 import type { ResearchQueueTerminalOutcome } from "../projections/research-evidence";
 import type { BlockedActionType, CodexTurnPurpose } from "../codex";
-import type { ProjectPurposeMode, RequiredDecisionRef } from "../product-engine";
+import type { BusinessCriticIntensity, ProjectPurposeMode, RequiredDecisionRef } from "../product-engine";
 
 export interface ScaffoldRequestPlaceholder {
   readonly scaffoldOnly?: true;
@@ -36,6 +36,9 @@ export interface StartProjectRequest extends ScaffoldRequestPlaceholder {
   readonly suggestedProjectPurposeMode?: ProjectPurposeMode;
   readonly projectPurposeModeConfirmation: "user_confirmed";
   readonly projectPurposeModeReason?: string;
+  readonly businessCriticIntensity?: BusinessCriticIntensity;
+  readonly businessCriticIntensityConfirmation?: "user_confirmed";
+  readonly businessCriticIntensityReason?: string;
   readonly sourceNote?: string;
 }
 
@@ -45,6 +48,14 @@ export interface ChangeProjectPurposeModeRequest extends ScaffoldRequestPlacehol
   readonly projectPurposeMode: ProjectPurposeMode;
   readonly reason: string;
   readonly suggestedProjectPurposeMode?: ProjectPurposeMode;
+}
+
+export interface ChangeBusinessCriticIntensityRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
+  readonly businessCriticIntensity: BusinessCriticIntensity;
+  readonly businessCriticIntensityConfirmation: "user_confirmed";
+  readonly reason: string;
 }
 
 export interface StartOrResumeSessionRequest extends ScaffoldRequestPlaceholder {
@@ -86,11 +97,17 @@ export interface SubmitAnswerRequest extends ScaffoldRequestPlaceholder {
 }
 
 export interface DeferQueueItemRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
   readonly queueItemId: QueueItemId;
   readonly reason: string;
+  readonly nextValidationAction?: string;
+  readonly riskDisposition?: "known_risk_next_validation_action";
 }
 
 export interface DismissQueueItemRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
   readonly queueItemId: QueueItemId;
   readonly reason: string;
 }

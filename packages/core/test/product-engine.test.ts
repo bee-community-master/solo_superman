@@ -86,18 +86,27 @@ function withConfirmedBusinessPurposeMode(state: ProductEngineStateSnapshot): Pr
       projectPurposeMode: "business",
       projectPurposeModeSelectionStatus: "confirmed",
       projectPurposeModeLabel: "사업화 검증 중심",
-      projectPurposeModeReason: "Test fixture confirms business purpose mode."
+      projectPurposeModeReason: "Test fixture confirms business purpose mode.",
+      businessCriticIntensity: "balanced",
+      businessCriticIntensitySelectionStatus: "confirmed",
+      businessCriticIntensityLabel: "균형형 사업 검증",
+      businessCriticIntensityEffect: "주요 decision group마다 최소 1개의 반대/비판 질문을 유지합니다.",
+      businessCriticIntensityAudit: []
     }
   };
 }
 
-function stateWithActiveQuestionBatch() {
+function stateWithActiveQuestionBatch(
+  businessCriticIntensity: "balanced" | "strong" | "investor_grade" = "balanced"
+) {
   const commands = [
     command("StartProject", 0, {
       rawIdea: "A focused founder brief generator",
       localPrivacyMode: "local_only",
       projectPurposeMode: "business",
-      projectPurposeModeConfirmation: "user_confirmed"
+      projectPurposeModeConfirmation: "user_confirmed",
+      businessCriticIntensity,
+      businessCriticIntensityConfirmation: "user_confirmed"
     }, 1),
     command("CaptureIntake", 1, {
       answer: "Help solo founders turn a rough idea into a traceable product spec."
@@ -131,6 +140,46 @@ function stateWithActiveQuestionBatch() {
   return { state, eventDrafts } as const;
 }
 
+function stateWithPersonalActiveQuestionBatch() {
+  const commands = [
+    command("StartProject", 0, {
+      rawIdea: "A focused personal workflow helper",
+      localPrivacyMode: "local_only",
+      projectPurposeMode: "personal",
+      projectPurposeModeConfirmation: "user_confirmed"
+    }, 1),
+    command("CaptureIntake", 1, {
+      answer: "Help one user automate a repeated local workflow."
+    }, 2),
+    command("DraftInitialSpec", 2, {}, 3),
+    command("AnalyzeAmbiguity", 3, {
+      targetRef: "current_spec"
+    }, 4),
+    command("ActivateQuestionBatch", 4, {}, 5)
+  ] as const;
+  let state = createInitialProductEngineState(projectId, sessionId);
+  const eventDrafts = [];
+
+  for (const nextCommand of commands) {
+    const reduction = reduceProductEngineCommand(nextCommand, state);
+
+    expect(reduction.accepted).toBe(true);
+    eventDrafts.push(reduction.events[0]);
+    state = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      eventDrafts.map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_personal_active_batch_${index + 1}`,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:00:${index + 1}0.000Z`
+      }))
+    );
+  }
+
+  return { state, eventDrafts } as const;
+}
+
 describe("PR-04 ProductEngine reducer", () => {
   it("keeps the reducer source free of runtime, DB, Hono, Tauri, filesystem, shell, browser, and network imports", () => {
     const sourcePath = fileURLToPath(new URL("../src/product-engine/index.ts", import.meta.url));
@@ -146,7 +195,9 @@ describe("PR-04 ProductEngine reducer", () => {
         rawIdea: "A focused founder brief generator",
         localPrivacyMode: "local_only",
         projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed"
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
       }, 1),
       command("CaptureIntake", 1, {
         answer: "Help solo founders turn a rough idea into a traceable product spec."
@@ -358,13 +409,483 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(replayedLegacyState.project.projectPurposeMode).toBeUndefined();
   });
 
+  it("requires explicit business critic intensity before business ambiguity analysis", () => {
+    let state = createInitialProductEngineState(projectId, sessionId);
+    const eventDrafts = [];
+    const start = reduceProductEngineCommand(
+      command("StartProject", 0, {
+        rawIdea: "A business idea that still needs critic intensity selection",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
+      }, 1),
+      state
+    );
+
+    expect(start.accepted).toBe(true);
+    expect(start.nextState.project).toMatchObject({
+      projectPurposeMode: "business",
+      businessCriticIntensitySelectionStatus: "intensity_required",
+      businessCriticIntensityLabel: "상업성 검증 강도 선택 필요"
+    });
+    eventDrafts.push(start.events[0]);
+    state = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      eventDrafts.map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_missing_business_critic_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:25:${index + 1}0.000Z`
+      }))
+    );
+
+    const intake = reduceProductEngineCommand(command("CaptureIntake", 1, { answer: "Business validation." }, 2), state);
+    expect(intake.accepted).toBe(true);
+    eventDrafts.push(intake.events[0]);
+    state = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      eventDrafts.map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_missing_business_critic_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:25:${index + 1}0.000Z`
+      }))
+    );
+
+    const draft = reduceProductEngineCommand(command("DraftInitialSpec", 2, {}, 3), state);
+    expect(draft.accepted).toBe(true);
+    eventDrafts.push(draft.events[0]);
+    state = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      eventDrafts.map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_missing_business_critic_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:25:${index + 1}0.000Z`
+      }))
+    );
+
+    const analyze = reduceProductEngineCommand(command("AnalyzeAmbiguity", 3, { targetRef: "current_spec" }, 4), state);
+
+    expect(analyze).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "COMMAND_PRECONDITION_FAILED"
+      }
+    });
+    expect(analyze.rejectionReason?.details).toMatchObject({
+      businessCriticIntensitySelectionStatus: "intensity_required"
+    });
+  });
+
+  it("allows late business critic intensity selection before ambiguity analysis", () => {
+    let state = createInitialProductEngineState(projectId, sessionId);
+    const eventDrafts = [];
+
+    const appendAcceptedEvent = (
+      reduction: ReturnType<typeof reduceProductEngineCommand>,
+      eventPrefix: string
+    ) => {
+      expect(reduction.accepted).toBe(true);
+      eventDrafts.push(reduction.events[0]);
+      state = replayProductEngineEvents(
+        projectId,
+        sessionId,
+        eventDrafts.map((eventDraft, index) => ({
+          ...eventDraft,
+          eventId: `${eventPrefix}_${index + 1}` as EventId,
+          sequence: index + 1,
+          occurredAt: `2026-05-05T00:26:${index + 1}0.000Z`
+        }))
+      );
+    };
+
+    appendAcceptedEvent(
+      reduceProductEngineCommand(
+        command("StartProject", 0, {
+          rawIdea: "A business idea that selects critic intensity after the draft",
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
+        }, 1),
+        state
+      ),
+      "evt_late_business_critic"
+    );
+    appendAcceptedEvent(
+      reduceProductEngineCommand(command("CaptureIntake", 1, { answer: "Business validation." }, 2), state),
+      "evt_late_business_critic"
+    );
+    appendAcceptedEvent(
+      reduceProductEngineCommand(command("DraftInitialSpec", 2, {}, 3), state),
+      "evt_late_business_critic"
+    );
+
+    const intensityChange = reduceProductEngineCommand(
+      command("ChangeBusinessCriticIntensity", 3, {
+        businessCriticIntensity: "strong",
+        businessCriticIntensityConfirmation: "user_confirmed",
+        reason: "User selected strong critic pressure before ambiguity analysis."
+      }, 4),
+      state
+    );
+
+    expect(intensityChange.accepted).toBe(true);
+    expect(intensityChange.nextState.project).toMatchObject({
+      businessCriticIntensity: "strong",
+      businessCriticIntensitySelectionStatus: "confirmed"
+    });
+    expect(intensityChange.nextState.openIssues).toHaveLength(0);
+    expect(intensityChange.nextState.queueProjection.next).toHaveLength(0);
+    appendAcceptedEvent(intensityChange, "evt_late_business_critic");
+
+    const analyze = reduceProductEngineCommand(command("AnalyzeAmbiguity", 4, { targetRef: "current_spec" }, 5), state);
+
+    expect(analyze.accepted).toBe(true);
+    expect(analyze.nextState.openIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          businessCriticIntensityMinimum: "strong",
+          businessCriticPressureKind: "core_assumption_challenge"
+        })
+      ])
+    );
+  });
+
+  it("keeps queued_next limited to elevated business critic pressure for explicit stronger starts", () => {
+    const strongState = stateWithActiveQuestionBatch("strong").state;
+    const investorGradeState = stateWithActiveQuestionBatch("investor_grade").state;
+
+    expect(strongState.queueProjection.active.some((item) => item.businessCriticPressureKind === "core_assumption_challenge")).toBe(true);
+    expect(strongState.queueProjection.next).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          state: "next",
+          businessCriticPressureKind: "core_assumption_challenge"
+        })
+      ])
+    );
+    expect(strongState.queueProjection.next.every((item) => item.businessCriticPressureKind !== "balanced_con")).toBe(true);
+    expect(strongState.queueProjection.next.some((item) => item.businessCriticPressureKind === "investor_pressure_pass")).toBe(false);
+
+    expect(
+      investorGradeState.queueProjection.active.some((item) => item.businessCriticPressureKind === "core_assumption_challenge")
+    ).toBe(true);
+    expect(investorGradeState.queueProjection.next).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          state: "next",
+          businessCriticPressureKind: "core_assumption_challenge"
+        }),
+        expect.objectContaining({
+          state: "next",
+          businessCriticPressureKind: "investor_pressure_pass"
+        })
+      ])
+    );
+    expect(investorGradeState.queueProjection.next.every((item) => item.businessCriticPressureKind !== "balanced_con")).toBe(true);
+  });
+
+  it("rejects explicit stronger business batches that omit a core-assumption challenge", () => {
+    const commands = [
+      command("StartProject", 0, {
+        rawIdea: "A strong critic explicit batch test idea",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "strong",
+        businessCriticIntensityConfirmation: "user_confirmed"
+      }, 1),
+      command("CaptureIntake", 1, {
+        answer: "Validate the strongest business risks without bypassing core assumptions."
+      }, 2),
+      command("DraftInitialSpec", 2, {}, 3),
+      command("AnalyzeAmbiguity", 3, {
+        targetRef: "current_spec"
+      }, 4)
+    ] as const;
+    let state = createInitialProductEngineState(projectId, sessionId);
+    const eventDrafts = [];
+
+    for (const nextCommand of commands) {
+      const reduction = reduceProductEngineCommand(nextCommand, state);
+
+      expect(reduction.accepted).toBe(true);
+      eventDrafts.push(reduction.events[0]);
+      state = replayProductEngineEvents(
+        projectId,
+        sessionId,
+        eventDrafts.map((eventDraft, index) => ({
+          ...eventDraft,
+          eventId: `evt_strong_explicit_batch_${index + 1}` as EventId,
+          sequence: index + 1,
+          occurredAt: `2026-05-05T00:28:${index + 1}0.000Z`
+        }))
+      );
+    }
+
+    const baseOnlyQueueItemIds = state.openIssues
+      .filter((issue) => issue.businessCriticPressureKind !== "core_assumption_challenge")
+      .slice(0, 5)
+      .map((issue) => issue.queueItemId);
+    const activate = reduceProductEngineCommand(
+      command("ActivateQuestionBatch", Number(state.stateVersion), {
+        queueItemIds: baseOnlyQueueItemIds
+      }, 5),
+      state
+    );
+
+    expect(activate).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "COMMAND_PRECONDITION_FAILED",
+        details: {
+          businessCriticIntensity: "strong",
+          requiredBusinessCriticPressureKind: "core_assumption_challenge"
+        }
+      }
+    });
+  });
+
+  it("queues stronger business critic pressure without replacing the active question batch", () => {
+    const { state, eventDrafts } = stateWithActiveQuestionBatch();
+    const activeItemIds = state.queueProjection.active.map((item) => item.queueItemId);
+    const reduction = reduceProductEngineCommand(
+      command("ChangeBusinessCriticIntensity", Number(state.stateVersion), {
+        businessCriticIntensity: "investor_grade",
+        businessCriticIntensityConfirmation: "user_confirmed",
+        reason: "Investor-facing review needs pressure on pricing, retention, timing, and channel assumptions."
+      }, 6),
+      state
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.events[0]).toMatchObject({
+      eventType: "BusinessCriticIntensityChanged",
+      payload: {
+        previousIntensity: "balanced",
+        newIntensity: "investor_grade",
+        queuedNextCriticalItemCount: expect.any(Number)
+      }
+    });
+    expect(reduction.nextState.queueProjection.active.map((item) => item.queueItemId)).toEqual(activeItemIds);
+    expect(reduction.nextState.queueProjection.next).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          state: "next",
+          businessCriticPressureKind: "core_assumption_challenge"
+        }),
+        expect.objectContaining({
+          state: "next",
+          businessCriticIntensity: "investor_grade",
+          businessCriticPressureKind: "investor_pressure_pass",
+          businessCriticCategory: "pricing"
+        })
+      ])
+    );
+
+    const replayed = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      [...eventDrafts, reduction.events[0]].map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_business_critic_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:30:${index + 1}0.000Z`
+      }))
+    );
+
+    expect(replayed.project).toMatchObject({
+      businessCriticIntensity: "investor_grade",
+      businessCriticIntensitySelectionStatus: "confirmed",
+      businessCriticIntensityAudit: expect.arrayContaining([
+        expect.objectContaining({
+          previousIntensity: "balanced",
+          newIntensity: "investor_grade"
+        })
+      ])
+    });
+    expect(replayed.queueProjection.active.map((item) => item.queueItemId)).toEqual(activeItemIds);
+    expect(replayed.queueProjection.next.map((item) => item.businessCriticPressureKind)).toEqual(
+      expect.arrayContaining(["core_assumption_challenge", "investor_pressure_pass"])
+    );
+  });
+
+  it("downgrades queued business critic pressure without replacing the active question batch", () => {
+    const { state, eventDrafts } = stateWithActiveQuestionBatch();
+    const activeItemIds = state.queueProjection.active.map((item) => item.queueItemId);
+    const investorGrade = reduceProductEngineCommand(
+      command("ChangeBusinessCriticIntensity", Number(state.stateVersion), {
+        businessCriticIntensity: "investor_grade",
+        businessCriticIntensityConfirmation: "user_confirmed",
+        reason: "Investor-facing review needs the strongest pressure first."
+      }, 6),
+      state
+    );
+
+    expect(investorGrade.accepted).toBe(true);
+
+    const investorGradeState = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      [...eventDrafts, investorGrade.events[0]].map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_business_critic_downgrade_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:32:${index + 1}0.000Z`
+      }))
+    );
+    const downgraded = reduceProductEngineCommand(
+      command("ChangeBusinessCriticIntensity", Number(investorGradeState.stateVersion), {
+        businessCriticIntensity: "strong",
+        businessCriticIntensityConfirmation: "user_confirmed",
+        reason: "User wants strong pressure without investor-grade interrogation."
+      }, 7),
+      investorGradeState
+    );
+
+    expect(downgraded.accepted).toBe(true);
+    expect(downgraded.nextState.queueProjection.active.map((item) => item.queueItemId)).toEqual(activeItemIds);
+    expect(downgraded.nextState.queueProjection.next).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          businessCriticPressureKind: "core_assumption_challenge"
+        })
+      ])
+    );
+    expect(
+      downgraded.nextState.queueProjection.next.some(
+        (item) =>
+          item.businessCriticIntensity === "investor_grade" ||
+          item.businessCriticPressureKind === "investor_pressure_pass"
+      )
+    ).toBe(false);
+    expect(
+      downgraded.nextState.openIssues.some(
+        (issue) => issue.status === "open" && issue.businessCriticPressureKind === "investor_pressure_pass"
+      )
+    ).toBe(false);
+    expect(downgraded.nextState.completeness?.completionCandidate.gateFailures).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("Investor-grade pressure")])
+    );
+  });
+
+  it("accepts investor pressure as a Known Risk only with a next validation action", () => {
+    const { state, eventDrafts } = stateWithActiveQuestionBatch();
+    const investorGrade = reduceProductEngineCommand(
+      command("ChangeBusinessCriticIntensity", Number(state.stateVersion), {
+        businessCriticIntensity: "investor_grade",
+        businessCriticIntensityConfirmation: "user_confirmed",
+        reason: "Escalate to investor-grade pressure before handoff."
+      }, 6),
+      state
+    );
+
+    expect(investorGrade.accepted).toBe(true);
+
+    const investorGradeState = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      [...eventDrafts, investorGrade.events[0]].map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_business_critic_defer_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:35:${index + 1}0.000Z`
+      }))
+    );
+    const pressureItem = investorGradeState.queueProjection.next.find(
+      (item) => item.businessCriticPressureKind === "investor_pressure_pass"
+    );
+
+    expect(pressureItem).toBeDefined();
+
+    const deferredWithoutKnownRisk = reduceProductEngineCommand(
+      command("DeferQueueItem", Number(investorGradeState.stateVersion), {
+        queueItemId: pressureItem?.queueItemId,
+        reason: "Hide pricing pressure without carrying a follow-up."
+      }, 7),
+      investorGradeState
+    );
+
+    expect(deferredWithoutKnownRisk).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "COMMAND_PRECONDITION_FAILED"
+      }
+    });
+
+    const deferredWithoutAction = reduceProductEngineCommand(
+      command("DeferQueueItem", Number(investorGradeState.stateVersion), {
+        queueItemId: pressureItem?.queueItemId,
+        reason: "Carry as a known risk but omit the next validation action.",
+        riskDisposition: "known_risk_next_validation_action"
+      }, 8),
+      investorGradeState
+    );
+
+    expect(deferredWithoutAction).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "VALIDATION_FAILED"
+      }
+    });
+
+    const deferred = reduceProductEngineCommand(
+      command("DeferQueueItem", Number(investorGradeState.stateVersion), {
+        queueItemId: pressureItem?.queueItemId,
+        reason: "Pricing pressure is explicitly carried as a known risk for the next validation step.",
+        riskDisposition: "known_risk_next_validation_action",
+        nextValidationAction: "Run a price sensitivity smoke test with three target customers."
+      }, 9),
+      investorGradeState
+    );
+
+    expect(deferred.accepted).toBe(true);
+    expect(deferred.nextState.openIssues.find((issue) => issue.queueItemId === pressureItem?.queueItemId)).toMatchObject({
+      status: "deferred",
+      knownRiskAccepted: true,
+      nextValidationAction: "Run a price sensitivity smoke test with three target customers."
+    });
+    expect(deferred.nextState.queueProjection.deferred).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          queueItemId: pressureItem?.queueItemId,
+          knownRiskAccepted: true,
+          nextValidationAction: "Run a price sensitivity smoke test with three target customers."
+        })
+      ])
+    );
+
+    const replayed = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      [...eventDrafts, investorGrade.events[0], deferred.events[0]].map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_business_critic_known_risk_replay_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:36:${index + 1}0.000Z`
+      }))
+    );
+
+    expect(replayed.openIssues.find((issue) => issue.queueItemId === pressureItem?.queueItemId)).toMatchObject({
+      status: "deferred",
+      knownRiskAccepted: true,
+      nextValidationAction: "Run a price sensitivity smoke test with three target customers."
+    });
+  });
+
   it("switches ambiguity analysis between business and personal purpose modes", () => {
     const businessCommands = [
       command("StartProject", 0, {
         rawIdea: "A paid founder brief generator",
         localPrivacyMode: "local_only",
         projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed"
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
       }, 1),
       command("CaptureIntake", 1, { answer: "Business validation workflow." }, 2),
       command("DraftInitialSpec", 2, {}, 3),
@@ -502,6 +1023,7 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(replayed.project).toMatchObject({
       projectPurposeMode: "personal",
+      businessCriticIntensitySelectionStatus: "not_applicable",
       projectPurposeModeAudit: expect.arrayContaining([
         expect.objectContaining({
           previousMode: "business",
@@ -510,6 +1032,9 @@ describe("PR-04 ProductEngine reducer", () => {
         })
       ])
     });
+    expect(replayed.project.businessCriticIntensity).toBeUndefined();
+    expect(replayed.project.businessCriticIntensityLabel).toBeUndefined();
+    expect(replayed.project.businessCriticIntensityEffect).toBeUndefined();
     expect(replayed.queueProjection.active.map((item) => item.queueItemId)).toEqual(activeItemIds);
     expect(replayed.queueProjection).toMatchObject({
       projectPurposeMode: "personal",
@@ -526,7 +1051,9 @@ describe("PR-04 ProductEngine reducer", () => {
       rawIdea: "A phase mapping test idea",
       localPrivacyMode: "local_only",
       projectPurposeMode: "business",
-      projectPurposeModeConfirmation: "user_confirmed"
+      projectPurposeModeConfirmation: "user_confirmed",
+      businessCriticIntensity: "balanced",
+      businessCriticIntensityConfirmation: "user_confirmed"
     }, 1);
     const started = reduceProductEngineCommand(startProject, createInitialProductEngineState(projectId, sessionId));
 
@@ -542,7 +1069,7 @@ describe("PR-04 ProductEngine reducer", () => {
   });
 
   it("defers active queue items through reducer and replay", () => {
-    const { state, eventDrafts } = stateWithActiveQuestionBatch();
+    const { state, eventDrafts } = stateWithPersonalActiveQuestionBatch();
     const queueItemId = state.queueProjection.active[0]?.queueItemId;
 
     expect(queueItemId).toBeDefined();
@@ -593,8 +1120,61 @@ describe("PR-04 ProductEngine reducer", () => {
     );
   });
 
+  it("prevents hiding high-severity business critic items without a Known Risk handoff", () => {
+    const { state } = stateWithActiveQuestionBatch();
+    const queueItem = state.queueProjection.active.find(
+      (item) => item.businessCriticCategory && item.severity === "high"
+    );
+
+    expect(queueItem).toBeDefined();
+
+    const deferWithoutKnownRisk = reduceProductEngineCommand(
+      command("DeferQueueItem", Number(state.stateVersion), {
+        queueItemId: queueItem?.queueItemId,
+        reason: "Hide a high-severity business critic question without a follow-up."
+      }, 6),
+      state
+    );
+    const dismiss = reduceProductEngineCommand(
+      command("DismissQueueItem", Number(state.stateVersion), {
+        queueItemId: queueItem?.queueItemId,
+        reason: "Dismiss a high-severity business critic question without evidence."
+      }, 7),
+      state
+    );
+    const deferWithKnownRisk = reduceProductEngineCommand(
+      command("DeferQueueItem", Number(state.stateVersion), {
+        queueItemId: queueItem?.queueItemId,
+        reason: "Carry the business critic blocker as a known risk.",
+        riskDisposition: "known_risk_next_validation_action",
+        nextValidationAction: "Run one customer pain validation interview before planning handoff."
+      }, 8),
+      state
+    );
+
+    expect(deferWithoutKnownRisk).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "COMMAND_PRECONDITION_FAILED",
+        details: {
+          requiredRiskDisposition: "known_risk_next_validation_action"
+        }
+      }
+    });
+    expect(dismiss).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "COMMAND_PRECONDITION_FAILED",
+        details: {
+          requiredRiskDisposition: "known_risk_next_validation_action"
+        }
+      }
+    });
+    expect(deferWithKnownRisk.accepted).toBe(true);
+  });
+
   it("dismisses active queue items through reducer and replay", () => {
-    const { state, eventDrafts } = stateWithActiveQuestionBatch();
+    const { state, eventDrafts } = stateWithPersonalActiveQuestionBatch();
     const queueItemId = state.queueProjection.active[0]?.queueItemId;
 
     expect(queueItemId).toBeDefined();
@@ -652,7 +1232,9 @@ describe("PR-04 ProductEngine reducer", () => {
         rawIdea: "",
         localPrivacyMode: "local_only",
         projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed"
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
       }, 1),
       state
     );
@@ -685,7 +1267,9 @@ describe("PR-04 ProductEngine reducer", () => {
         rawIdea: "A focused founder brief generator",
         localPrivacyMode: "local_only",
         projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed"
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
       }, 1),
       command("CaptureIntake", 1, {
         answer: "A session flow for founders."
@@ -934,7 +1518,9 @@ describe("PR-04 ProductEngine reducer", () => {
         rawIdea: "A focused founder brief generator",
         localPrivacyMode: "local_only",
         projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed"
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
       }, 1),
       command("CaptureIntake", 1, {
         answer: "A session flow for founders."

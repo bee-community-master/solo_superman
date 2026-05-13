@@ -1,7 +1,9 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  BUSINESS_CRITIC_INTENSITY_LABELS,
   CONTRACT_SCHEMA_VERSION,
   PROJECT_PURPOSE_MODE_LABELS,
+  type BusinessCriticIntensity,
   type CodexRuntimeStatusDto,
   type CommandResponse,
   type ConfidenceCompletionProjection,
@@ -101,6 +103,27 @@ const PROJECT_PURPOSE_MODE_OPTIONS = [
   readonly label: string;
   readonly description: string;
 }[];
+const BUSINESS_CRITIC_INTENSITY_OPTIONS = [
+  {
+    intensity: "balanced",
+    label: BUSINESS_CRITIC_INTENSITY_LABELS.balanced,
+    description: "주요 decision group마다 최소 1개의 반대/비판 질문을 유지합니다."
+  },
+  {
+    intensity: "strong",
+    label: BUSINESS_CRITIC_INTENSITY_LABELS.strong,
+    description: "high-impact business gap이 있으면 핵심 가설 반박 질문을 queued_next로 유지합니다."
+  },
+  {
+    intensity: "investor_grade",
+    label: BUSINESS_CRITIC_INTENSITY_LABELS.investor_grade,
+    description: "가격, 채널, retention proxy, 법무/운영, 시장 타이밍, founder advantage를 압박 검증합니다."
+  }
+] as const satisfies readonly {
+  readonly intensity: BusinessCriticIntensity;
+  readonly label: string;
+  readonly description: string;
+}[];
 const WEB_PUBLIC_SAFE_ALLOWLIST_ID = "research_allowlist_web_public_safe" as ResearchAllowlistId;
 
 function displayError(error: unknown) {
@@ -149,6 +172,10 @@ function researchRunProjectionFromResponse(response: CommandResponse<ResearchRun
   return requiredCommandProjection<ResearchRunControlResult>(response, "ResearchRunControlResult").projection;
 }
 
+function isBusinessCriticQueueItem(item: DecisionQueueProjection["active"][number]) {
+  return Boolean(item.businessCriticCategory || item.businessCriticPressureKind);
+}
+
 export function DecisionQueueShell() {
   const [connectionState, setConnectionState] = useState<ConnectionState>({ status: "connecting" });
   const [client, setClient] = useState<SidecarClient | null>(null);
@@ -156,7 +183,11 @@ export function DecisionQueueShell() {
   const [intake, setIntake] = useState(DEFAULT_INTAKE);
   const [projectPurposeMode, setProjectPurposeMode] = useState<ProjectPurposeMode | null>(null);
   const [purposeModeChangeReason, setPurposeModeChangeReason] = useState("");
+  const [businessCriticIntensity, setBusinessCriticIntensity] = useState<BusinessCriticIntensity | null>(null);
+  const [initialBusinessCriticIntensityReason, setInitialBusinessCriticIntensityReason] = useState("");
+  const [businessCriticIntensityChangeReason, setBusinessCriticIntensityChangeReason] = useState("");
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
+  const [knownRiskDrafts, setKnownRiskDrafts] = useState<Record<string, string>>({});
   const [researchDrafts, setResearchDrafts] = useState<Record<string, string>>({});
   const [projections, setProjections] = useState<ProjectionState>(emptyProjectionState);
   const [researchOperations, setResearchOperations] = useState<ResearchOperationsState>(emptyResearchOperationsState);
@@ -377,6 +408,11 @@ export function DecisionQueueShell() {
         return;
       }
 
+      if (projectPurposeMode === "business" && !businessCriticIntensity) {
+        setWorkflowError("상업성 검증 강도를 선택해야 사업화 검증 큐를 확정할 수 있습니다.");
+        return;
+      }
+
       setIsBusy(true);
       setWorkflowError(null);
       setAnswerDrafts({});
@@ -394,7 +430,16 @@ export function DecisionQueueShell() {
             localPrivacyMode: "local_only",
             projectPurposeMode,
             projectPurposeModeConfirmation: "user_confirmed",
-            projectPurposeModeReason: `${PROJECT_PURPOSE_MODE_LABELS[projectPurposeMode]}으로 사용자가 시작 전에 확인했습니다.`
+            projectPurposeModeReason: `${PROJECT_PURPOSE_MODE_LABELS[projectPurposeMode]}으로 사용자가 시작 전에 확인했습니다.`,
+            ...(projectPurposeMode === "business" && businessCriticIntensity
+              ? {
+                  businessCriticIntensity,
+                  businessCriticIntensityConfirmation: "user_confirmed" as const,
+                  businessCriticIntensityReason:
+                    initialBusinessCriticIntensityReason.trim() ||
+                    `${BUSINESS_CRITIC_INTENSITY_LABELS[businessCriticIntensity]}으로 사용자가 시작 전에 확인했습니다.`
+                }
+              : {})
           })
         );
         const session = requiredCommandProjection<SessionShellProjection>(start, "SessionShellProjection");
@@ -433,7 +478,17 @@ export function DecisionQueueShell() {
         setIsBusy(false);
       }
     },
-    [appendCommand, client, idea, intake, projectPurposeMode, refetchQueueAfterSseNotification, refreshProjections]
+    [
+      appendCommand,
+      businessCriticIntensity,
+      initialBusinessCriticIntensityReason,
+      client,
+      idea,
+      intake,
+      projectPurposeMode,
+      refetchQueueAfterSseNotification,
+      refreshProjections
+    ]
   );
 
   const changeProjectPurposeMode = useCallback(
@@ -485,6 +540,55 @@ export function DecisionQueueShell() {
     [appendCommand, client, projections, purposeModeChangeReason, refreshProjections]
   );
 
+  const changeBusinessCriticIntensity = useCallback(
+    async (nextIntensity: BusinessCriticIntensity) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active session is required before changing the business critic intensity.");
+        return;
+      }
+
+      if (projections.session.projectPurposeMode !== "business") {
+        setWorkflowError("상업성 검증 강도는 사업화 검증 중심 프로젝트에서만 변경할 수 있습니다.");
+        return;
+      }
+
+      const selectedOption = BUSINESS_CRITIC_INTENSITY_OPTIONS.find((option) => option.intensity === nextIntensity);
+      const reason =
+        businessCriticIntensityChangeReason.trim() ||
+        `사용자가 상업성 검증 강도를 ${selectedOption?.label ?? nextIntensity}으로 변경했습니다.`;
+
+      setIsBusy(true);
+      setWorkflowError(null);
+
+      try {
+        const response = await appendCommand(
+          "Change business critic intensity",
+          await client.changeBusinessCriticIntensity({
+            sessionId: projections.session.sessionId,
+            expectedStateVersion: latestProjectionVersion(projections),
+            businessCriticIntensity: nextIntensity,
+            businessCriticIntensityConfirmation: "user_confirmed",
+            reason
+          })
+        );
+        const session = requiredCommandProjection<SessionShellProjection>(response, "SessionShellProjection");
+
+        setBusinessCriticIntensity(nextIntensity);
+        setBusinessCriticIntensityChangeReason("");
+        setProjections((current) => ({
+          ...current,
+          session
+        }));
+        await refreshProjections(session.projectId, session.sessionId);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [appendCommand, businessCriticIntensityChangeReason, client, projections, refreshProjections]
+  );
+
   const submitAnswer = useCallback(
     async (queueItemId: QueueItemId) => {
       if (!client || !projections.session) {
@@ -531,6 +635,56 @@ export function DecisionQueueShell() {
       }
     },
     [answerDrafts, appendCommand, client, projections, refetchQueueAfterSseNotification, refreshProjections]
+  );
+
+  const carryQueueItemAsKnownRisk = useCallback(
+    async (queueItemId: QueueItemId) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active session is required before carrying a queue item as a Known Risk.");
+        return;
+      }
+
+      const nextValidationAction = knownRiskDrafts[queueItemId]?.trim();
+
+      if (!nextValidationAction) {
+        setWorkflowError("Next Validation Action is required to carry a business critic item as a Known Risk.");
+        return;
+      }
+
+      setIsBusy(true);
+      setWorkflowError(null);
+
+      try {
+        const response = await appendCommand(
+          "Carry as Known Risk",
+          await client.deferQueueItem({
+            sessionId: projections.session.sessionId,
+            queueItemId,
+            expectedStateVersion: latestProjectionVersion(projections),
+            reason: "사용자가 business critic item을 Known Risk로 이관했습니다.",
+            riskDisposition: "known_risk_next_validation_action",
+            nextValidationAction
+          })
+        );
+        const queue = requiredCommandProjection<DecisionQueueProjection>(response, "DecisionQueueProjection");
+
+        setKnownRiskDrafts((current) => ({
+          ...current,
+          [queueItemId]: ""
+        }));
+        setProjections((current) => ({
+          ...current,
+          queue
+        }));
+        await refreshProjections(projections.session.projectId, projections.session.sessionId);
+        await refetchQueueAfterSseNotification(projections.session.projectId, projections.session.sessionId, queue);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [appendCommand, client, knownRiskDrafts, projections, refetchQueueAfterSseNotification, refreshProjections]
   );
 
   const importResearchResult = useCallback(
@@ -1076,6 +1230,7 @@ export function DecisionQueueShell() {
     connectionState.status === "connected" &&
     Boolean(client) &&
     Boolean(projectPurposeMode) &&
+    (projectPurposeMode !== "business" || Boolean(businessCriticIntensity)) &&
     Boolean(idea.trim()) &&
     Boolean(intake.trim()) &&
     !isBusy;
@@ -1146,6 +1301,37 @@ export function DecisionQueueShell() {
               AI가 모드를 제안할 수 있어도 확정은 사용자가 선택합니다. 선택 전에는 mode_required 상태로 두며 이후 변경은 auditable event로 남습니다.
             </p>
           </fieldset>
+          {projectPurposeMode === "business" ? (
+            <fieldset className="mode-fieldset">
+              <legend>Business critic intensity</legend>
+              {BUSINESS_CRITIC_INTENSITY_OPTIONS.map((option) => (
+                <label className="mode-option" key={option.intensity}>
+                  <input
+                    checked={businessCriticIntensity === option.intensity}
+                    name="business-critic-intensity"
+                    onChange={() => setBusinessCriticIntensity(option.intensity)}
+                    type="radio"
+                    value={option.intensity}
+                  />
+                  <span>
+                    <strong>{option.label}</strong>
+                    <small>{option.description}</small>
+                  </span>
+                </label>
+              ))}
+              <label>
+                Intensity reason
+                <input
+                  value={initialBusinessCriticIntensityReason}
+                  onChange={(event) => setInitialBusinessCriticIntensityReason(event.target.value)}
+                  placeholder="검증 강도를 선택한 이유를 audit에 남깁니다."
+                />
+              </label>
+              <p className="mode-help">
+                사업화 모드는 기본 강도를 자동 선택하지 않습니다. 선택 전에는 상업성 검증 강도 선택 필요 상태로 남습니다.
+              </p>
+            </fieldset>
+          ) : null}
           <button type="submit" disabled={!canStart}>
             {isBusy ? "Running" : "Create first batch"}
           </button>
@@ -1176,6 +1362,16 @@ export function DecisionQueueShell() {
                         <div>
                           <span>{item.state}</span>
                           <h4>{item.title}</h4>
+                          {isBusinessCriticQueueItem(item) ? (
+                            <p className="mode-summary">
+                              {[item.businessCriticCategory, item.businessCriticPressureKind, item.businessCriticIntensity]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                          ) : null}
+                          {item.nextValidationAction ? (
+                            <p className="research-recovery">Next validation: {item.nextValidationAction}</p>
+                          ) : null}
                         </div>
                         {section.id === "active" && item.state === "active" ? (
                           <div className="answer-box">
@@ -1192,6 +1388,29 @@ export function DecisionQueueShell() {
                             />
                             <button type="button" disabled={isBusy} onClick={() => void submitAnswer(item.queueItemId)}>
                               Submit answer
+                            </button>
+                          </div>
+                        ) : null}
+                        {isBusinessCriticQueueItem(item) && item.state !== "deferred" ? (
+                          <div className="answer-box">
+                            <textarea
+                              aria-label={`Next validation action for ${item.title}`}
+                              value={knownRiskDrafts[item.queueItemId] ?? ""}
+                              onChange={(event) =>
+                                setKnownRiskDrafts((current) => ({
+                                  ...current,
+                                  [item.queueItemId]: event.target.value
+                                }))
+                              }
+                              placeholder="Known Risk로 남길 때 다음 검증 행동을 적어주세요."
+                              rows={2}
+                            />
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => void carryQueueItemAsKnownRisk(item.queueItemId)}
+                            >
+                              Carry as Known Risk
                             </button>
                           </div>
                         ) : null}
@@ -1243,9 +1462,44 @@ export function DecisionQueueShell() {
                 <dt>Project purpose</dt>
                 <dd>{projections.session?.projectPurposeModeLabel ?? "not selected"}</dd>
               </div>
+              <div>
+                <dt>Business critic</dt>
+                <dd>{projections.session?.businessCriticIntensityLabel ?? "not applicable"}</dd>
+              </div>
             </dl>
             {projections.session?.projectPurposeModeEffect ? (
               <p className="mode-summary">{projections.session.projectPurposeModeEffect}</p>
+            ) : null}
+            {projections.session?.businessCriticIntensityEffect ? (
+              <p className="mode-summary">{projections.session.businessCriticIntensityEffect}</p>
+            ) : null}
+            {projections.session?.projectPurposeMode === "business" ? (
+              <div className="mode-change-panel">
+                <label>
+                  Business critic change reason
+                  <input
+                    value={businessCriticIntensityChangeReason}
+                    onChange={(event) => setBusinessCriticIntensityChangeReason(event.target.value)}
+                    placeholder="상업성 검증 강도를 바꾸는 이유를 기록합니다."
+                  />
+                </label>
+                <div className="card-actions">
+                  {BUSINESS_CRITIC_INTENSITY_OPTIONS.map((option) => (
+                    <button
+                      type="button"
+                      disabled={isBusy || projections.session?.businessCriticIntensity === option.intensity}
+                      key={option.intensity}
+                      onClick={() => void changeBusinessCriticIntensity(option.intensity)}
+                    >
+                      {option.label}으로 변경
+                    </button>
+                  ))}
+                </div>
+                <small>
+                  변경은 `BusinessCriticIntensityChanged` 이벤트로 audit되며 새 critical pressure는 active batch를
+                  교체하지 않고 queued_next에 추가됩니다.
+                </small>
+              </div>
             ) : null}
             {projections.session ? (
               <div className="mode-change-panel">

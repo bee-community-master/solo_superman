@@ -699,6 +699,94 @@ describe("PR-09 end-to-end dry-run hardening", () => {
     );
   });
 
+  it("runs a business critic dry-run sample for each explicit intensity", async () => {
+    const { app, storage } = await createMigratedStorageApp();
+
+    try {
+      for (const intensity of ["balanced", "strong", "investor_grade"] as const) {
+        const start = await postJson(app, "/api/v1/projects", {
+          rawIdea: `A ${intensity} business critic dry-run idea`,
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: intensity,
+          businessCriticIntensityConfirmation: "user_confirmed",
+          businessCriticIntensityReason: `E2E dry-run sample for ${intensity}.`
+        });
+        const startData = responseData(start.body);
+        const sessionId = sessionIdFromStart(startData);
+
+        expect(start.response.status).toBe(200);
+        expect(record(startData.immediateProjection)).toMatchObject({
+          projectPurposeMode: "business",
+          businessCriticIntensity: intensity,
+          businessCriticIntensitySelectionStatus: "confirmed"
+        });
+
+        const intake = await postJson(app, `/api/v1/sessions/${sessionId}/intake`, {
+          expectedStateVersion: stateVersionAfter(startData),
+          answer: `Validate the ${intensity} business critic path.`
+        });
+        const draft = await postJson(app, `/api/v1/sessions/${sessionId}/spec/initial`, {
+          expectedStateVersion: stateVersionAfter(responseData(intake.body))
+        });
+        const analyze = await postJson(app, `/api/v1/sessions/${sessionId}/spec/analyze`, {
+          expectedStateVersion: stateVersionAfter(responseData(draft.body)),
+          targetRef: "current_spec"
+        });
+        const analyzeData = responseData(analyze.body);
+        const activate = await postJson(app, `/api/v1/sessions/${sessionId}/queue/activate`, {
+          expectedStateVersion: stateVersionAfter(analyzeData)
+        });
+        const queue = record(responseData(activate.body).immediateProjection);
+        const nextItems = records(queue.next);
+
+        expect(intake.response.status).toBe(200);
+        expect(draft.response.status).toBe(200);
+        expect(analyze.response.status).toBe(200);
+        expect(activate.response.status).toBe(200);
+        expect(queue).toMatchObject({
+          kind: "DecisionQueueProjection",
+          businessCriticIntensity: intensity,
+          businessCriticIntensitySelectionStatus: "confirmed"
+        });
+        expect(records(queue.active)).toHaveLength(5);
+        expect(analyzeData).toMatchObject({
+          deterministicOutputs: [
+            expect.objectContaining({
+              outputType: "ambiguity_analysis",
+              payload: expect.objectContaining({
+                issueCount: intensity === "balanced" ? 15 : intensity === "strong" ? 17 : 22
+              })
+            })
+          ]
+        });
+
+        if (intensity === "balanced") {
+          expect(nextItems).toEqual([]);
+        } else if (intensity === "strong") {
+          expect(nextItems).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                businessCriticPressureKind: "core_assumption_challenge"
+              })
+            ])
+          );
+        } else {
+          expect(nextItems).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                businessCriticPressureKind: "investor_pressure_pass"
+              })
+            ])
+          );
+        }
+      }
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("runs Phase 3 approved and blocked controlled execution through the same authority ledger", async () => {
     const { app, storage } = await createMigratedStorageApp();
     let localTarget: Awaited<ReturnType<typeof createLocalBrowserTargetServer>> | undefined;
@@ -715,7 +803,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         rawIdea: "A Phase 3 closeout controlled execution dry-run idea",
         localPrivacyMode: "local_only",
         projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed"
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
       });
       const sessionId = sessionIdFromStart(responseData(start.body));
       let expectedStateVersion = 1;
@@ -1109,7 +1199,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         rawIdea: "A Phase 1.5A lifecycle closeout dry-run idea",
         localPrivacyMode: "local_only",
         projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed"
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
       });
       const projectId = projectIdFromStart(responseData(start.body));
       const allowlist = await postJson(app, `/api/v1/projects/${projectId}/research-allowlists`, {
@@ -1229,7 +1321,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         rawIdea: "A Phase 1.5B no-execution readiness acceptance idea",
         localPrivacyMode: "local_only",
         projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed"
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
       });
       const startData = responseData(start.body);
       const projectId = projectIdFromStart(startData) as ProjectId;
@@ -1388,7 +1482,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         rawIdea: "A final Planning Handoff closeout dry-run idea",
         localPrivacyMode: "local_only",
         projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed"
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
       });
       const startData = responseData(start.body);
       const projectId = projectIdFromStart(startData);
@@ -1467,7 +1563,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         rawIdea: "A blocker Planning Handoff closeout dry-run idea",
         localPrivacyMode: "local_only",
         projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed"
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
       });
       const sessionId = sessionIdFromStart(responseData(start.body));
       const blocker = await postJson(app, `/api/v1/sessions/${sessionId}/planning-handoff`, {
@@ -1536,7 +1634,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         rawIdea: PHASE1_E2E_SAMPLE_IDEA,
         localPrivacyMode: "local_only",
         projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed"
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
       });
       const startData = responseData(start.body);
       const sessionId = sessionIdFromStart(startData);
@@ -2064,7 +2164,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         rawIdea: "A research incident dry-run idea",
         localPrivacyMode: "local_only",
         projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed"
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
       });
       const sessionId = sessionIdFromStart(responseData(start.body));
 
