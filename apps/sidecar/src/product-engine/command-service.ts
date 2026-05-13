@@ -60,6 +60,7 @@ import {
   type ProductEngineEffectPlanItem,
   type ProductEngineEvent,
   type ProductEngineReduction,
+  type ProductEngineStateSnapshot,
   type ProjectionRefetchHint,
   type ProjectId,
   type ProjectionVersion,
@@ -118,6 +119,8 @@ import {
 import {
   createInitialProductEngineState,
   decisionQueueProjectionWithRecovery,
+  projectPurposeModeEffect,
+  projectPurposeModeSelectionStatus,
   reduceProductEngineCommand,
   replayProductEngineEvents,
   sessionPhaseForProductEngineEvent,
@@ -160,11 +163,22 @@ export class ProductEngineServiceError extends Error {
 
 const LOCAL_FAKE_PROVIDER_RESULT_DELAY_MILLIS = 30_000;
 
+function sessionProjectPurposeModeFields(project: ProductEngineStateSnapshot["project"]) {
+  return {
+    ...(project.projectPurposeMode ? { projectPurposeMode: project.projectPurposeMode } : {}),
+    projectPurposeModeSelectionStatus:
+      project.projectPurposeModeSelectionStatus ?? projectPurposeModeSelectionStatus(project.projectPurposeMode),
+    projectPurposeModeLabel: project.projectPurposeModeLabel,
+    projectPurposeModeEffect: projectPurposeModeEffect(project.projectPurposeMode)
+  };
+}
+
 export interface RunSessionCommandInput {
   readonly sessionId: SessionId;
   readonly commandType: Extract<
     ProductEngineCommandType,
     | "CaptureIntake"
+    | "ChangeProjectPurposeMode"
     | "DraftInitialSpec"
     | "AnalyzeAmbiguity"
     | "ActivateQuestionBatch"
@@ -3419,7 +3433,7 @@ export function createProductEngineCommandService(
         sessionId: nextSessionId,
         actor: "user",
         issuedAt: new Date().toISOString(),
-        idempotencyKey: `StartProject:${input.rawIdea.trim()}:${input.localPrivacyMode}`,
+        idempotencyKey: `StartProject:${input.rawIdea.trim()}:${input.localPrivacyMode}:${input.projectPurposeMode}`,
         expectedStateVersion: 0 as StateVersion,
         causationId: null,
         correlationId: correlationId(),
@@ -4153,6 +4167,7 @@ export function createProductEngineCommandService(
         return {
           ...projection,
           phase,
+          ...sessionProjectPurposeModeFields(state.project),
           version:
             projection.phase === phase
               ? projection.version
@@ -4165,7 +4180,8 @@ export function createProductEngineCommandService(
         projectId: session.projectId,
         sessionId: session.sessionId,
         version: Number(state.stateVersion) as SessionShellProjection["version"],
-        phase
+        phase,
+        ...sessionProjectPurposeModeFields(state.project)
       };
     },
 

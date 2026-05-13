@@ -1,16 +1,17 @@
-import type {
-  ConfidenceCompletionProjection,
-  CreatePlanningHandoffRequest,
-  DecisionQueueProjection,
-  FounderBriefProjection,
-  LivingSpecProjection,
-  Phase15bUpgradeHintProjection,
-  PlanningHandoffRequestedScopeDto,
-  PlanningHandoffSourceRefDto,
-  QueueItemProjection,
-  ResearchEvidenceProjection,
-  SessionShellProjection,
-  StateVersion
+import {
+  PROJECT_PURPOSE_MODE_SKIPPED_COMMERCIALIZATION_AXES,
+  type ConfidenceCompletionProjection,
+  type CreatePlanningHandoffRequest,
+  type DecisionQueueProjection,
+  type FounderBriefProjection,
+  type LivingSpecProjection,
+  type Phase15bUpgradeHintProjection,
+  type PlanningHandoffRequestedScopeDto,
+  type PlanningHandoffSourceRefDto,
+  type QueueItemProjection,
+  type ResearchEvidenceProjection,
+  type SessionShellProjection,
+  type StateVersion
 } from "@solo-superman/contracts";
 
 interface PlanningHandoffRequestProjectionInputs {
@@ -225,6 +226,14 @@ function planningHandoffRequestedScope(inputs: PlanningHandoffRequestProjectionI
       inputs.confidence?.completionCandidate.summary ??
       "Founder planning handoff",
     userFacingJourneyLabel: "Planning-ready",
+    ...(inputs.session.projectPurposeMode ? { projectPurposeMode: inputs.session.projectPurposeMode } : {}),
+    projectPurposeModeLabel: inputs.session.projectPurposeModeLabel,
+    projectPurposeModeEffect: inputs.session.projectPurposeModeEffect,
+    ...(inputs.session.projectPurposeMode === "personal"
+      ? {
+          skippedCommercializationAxes: PROJECT_PURPOSE_MODE_SKIPPED_COMMERCIALIZATION_AXES.personal
+        }
+      : {}),
     nonGoals: PLANNING_HANDOFF_NON_GOALS,
     excludedInternalPhases: PLANNING_HANDOFF_EXCLUDED_INTERNAL_PHASES,
     assumptions: [

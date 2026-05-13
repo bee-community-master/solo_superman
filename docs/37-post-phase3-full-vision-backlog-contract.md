@@ -47,11 +47,12 @@
 - 모드는 나중에 변경 가능하지만, 변경 시 새 질문과 리서치 기준이 왜 바뀌는지 Activity Feed에 남긴다.
 - Founder Brief에는 모드를 표시하되 내부 enum이 아니라 “사업화 검증 중심” 또는 “개인 workflow 구현 중심”으로 표시한다.
 
-### Data/API notes for future implementation
+### Data/API notes
 
-- Persisted project profile 후보 field: `projectPurposeMode: "business" | "personal"`.
-- Mode 변경 event 후보: `ProjectPurposeModeChanged` with previous mode, new mode, reason, actor, timestamp.
-- Queue projection은 mode별 skipped/completed research axes를 설명할 수 있어야 한다.
+- #99 implementation records `projectPurposeMode: "business" | "personal"` in the ProductEngine project snapshot and StartProject payload only after `projectPurposeModeConfirmation: "user_confirmed"`; legacy/imported projects with no mode remain `mode_required` and do not receive an implicit business default.
+- Mode 변경 event: `ProjectPurposeModeChanged` with previous mode, new mode, reason, actor, timestamp, and optional suggested mode.
+- Queue, ResearchNeed/ResearchTask, Completeness, Founder Brief, and Planning Handoff projection surfaces explain mode effects; `personal` mode includes skipped commercialization axes.
+- 변경 route: `POST /api/v1/sessions/:sessionId/project-purpose-mode` persists the audit event and updates the SessionShellProjection while preserving the current active question batch.
 
 ## Feature contract B — Business critic intensity
 

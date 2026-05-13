@@ -24,6 +24,10 @@ function stateWithKnownRisk() {
     project: {
       projectId,
       privacyMode: "local_only" as const,
+      projectPurposeMode: "business" as const,
+      projectPurposeModeLabel: "사업화 검증 중심",
+      projectPurposeModeReason: "Test fixture",
+      projectPurposeModeAudit: [],
       rawIdeaText: "Founder Brief Generator"
     },
     currentSpec: {
@@ -79,11 +83,16 @@ describe("PR-08 founder-brief projection", () => {
       expect.arrayContaining(["Run skeptical search for customer urgency."])
     );
     expect(projection.briefSections.map((section) => section.sectionId)).toEqual([
+      "project_purpose_mode",
       "problem_customer_value",
       "top_decisions",
       "known_risks",
       "next_validation_actions"
     ]);
+    expect(projection.projectPurposeModeLabel).toBe("사업화 검증 중심");
+    expect(projection.briefSections.find((section) => section.sectionId === "project_purpose_mode")?.body).toContain(
+      "사업화 검증 중심"
+    );
     expect(projection.exportMetadata).toMatchObject({
       format: "markdown",
       writePolicy: "metadata_only_no_file_write",

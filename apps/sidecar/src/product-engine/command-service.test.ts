@@ -73,7 +73,9 @@ describe("ProductEngine command service Planning Handoff persistence", () => {
       const service = createProductEngineCommandService(storage);
       const start = await service.startProject({
         rawIdea: "A command-service Planning Handoff persistence fixture",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       });
       const startProjection = start.immediateProjection as { readonly sessionId: SessionId };
       const expectedStateVersion = start.stateVersionAfter as StateVersion;
@@ -202,7 +204,9 @@ describe("ProductEngine command service Phase 2.5 persistence", () => {
       const service = createProductEngineCommandService(storage);
       const start = await service.startProject({
         rawIdea: "A command-service Phase 2.5 comparison persistence fixture",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       });
       const startProjection = start.immediateProjection as { readonly sessionId: SessionId };
       const expectedStateVersion = start.stateVersionAfter as StateVersion;
@@ -269,7 +273,9 @@ describe("ProductEngine command service execution authority persistence", () => 
       const service = createProductEngineCommandService(storage);
       const start = await service.startProject({
         rawIdea: "A command-service Phase 3 execution authority persistence fixture",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       });
       const startProjection = start.immediateProjection as { readonly sessionId: SessionId };
       const expectedStateVersion = start.stateVersionAfter as StateVersion;
@@ -336,7 +342,9 @@ describe("ProductEngine command service execution authority persistence", () => 
       const service = createProductEngineCommandService(storage);
       const start = await service.startProject({
         rawIdea: "A command-service Phase 3 authority lifecycle persistence fixture",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       });
       const startProjection = start.immediateProjection as { readonly sessionId: SessionId };
       const pending = await service.runSessionCommand({

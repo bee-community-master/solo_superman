@@ -8,6 +8,7 @@ import {
 
 const DOCS_25_PRODUCT_ENGINE_COMMAND_TYPES = [
   "StartProject",
+  "ChangeProjectPurposeMode",
   "CaptureIntake",
   "DraftInitialSpec",
   "AnalyzeAmbiguity",

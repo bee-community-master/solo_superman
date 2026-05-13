@@ -713,7 +713,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
 
       const start = await postJson(app, "/api/v1/projects", {
         rawIdea: "A Phase 3 closeout controlled execution dry-run idea",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       });
       const sessionId = sessionIdFromStart(responseData(start.body));
       let expectedStateVersion = 1;
@@ -1105,7 +1107,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
     try {
       const start = await postJson(app, "/api/v1/projects", {
         rawIdea: "A Phase 1.5A lifecycle closeout dry-run idea",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       });
       const projectId = projectIdFromStart(responseData(start.body));
       const allowlist = await postJson(app, `/api/v1/projects/${projectId}/research-allowlists`, {
@@ -1223,7 +1227,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
     try {
       const start = await postJson(app, "/api/v1/projects", {
         rawIdea: "A Phase 1.5B no-execution readiness acceptance idea",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       });
       const startData = responseData(start.body);
       const projectId = projectIdFromStart(startData) as ProjectId;
@@ -1380,7 +1386,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
     try {
       const start = await postJson(app, "/api/v1/projects", {
         rawIdea: "A final Planning Handoff closeout dry-run idea",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       });
       const startData = responseData(start.body);
       const projectId = projectIdFromStart(startData);
@@ -1457,7 +1465,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
     try {
       const start = await postJson(app, "/api/v1/projects", {
         rawIdea: "A blocker Planning Handoff closeout dry-run idea",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       });
       const sessionId = sessionIdFromStart(responseData(start.body));
       const blocker = await postJson(app, `/api/v1/sessions/${sessionId}/planning-handoff`, {
@@ -1524,7 +1534,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
     try {
       const start = await postJson(app, "/api/v1/projects", {
         rawIdea: PHASE1_E2E_SAMPLE_IDEA,
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       });
       const startData = responseData(start.body);
       const sessionId = sessionIdFromStart(startData);
@@ -2050,7 +2062,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
     try {
       const start = await postJson(app, "/api/v1/projects", {
         rawIdea: "A research incident dry-run idea",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       });
       const sessionId = sessionIdFromStart(responseData(start.body));
 

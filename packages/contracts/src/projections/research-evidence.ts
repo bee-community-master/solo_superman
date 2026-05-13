@@ -8,6 +8,7 @@ import type {
   ResearchTaskId,
   SessionId
 } from "../ids";
+import type { ProjectPurposeMode } from "../product-engine/state";
 
 export type ResearchRouteOutcome = "research_needed" | "missing_con_evidence";
 export type ResearchImpact = "low" | "medium" | "high";
@@ -64,6 +65,10 @@ export interface ResearchTaskProjection {
   readonly sourceQueueItemId?: QueueItemId;
   readonly sourceAnswerRef?: string;
   readonly objective: string;
+  readonly projectPurposeMode?: ProjectPurposeMode;
+  readonly projectPurposeModeLabel?: string;
+  readonly projectPurposeModeEffect?: string;
+  readonly skippedCommercializationAxes?: readonly string[];
   readonly routeOutcome: ResearchRouteOutcome;
   readonly impact: ResearchImpact;
   readonly status: ResearchTaskStatus;

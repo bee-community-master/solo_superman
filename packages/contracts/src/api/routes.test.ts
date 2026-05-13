@@ -29,6 +29,8 @@ import {
   PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
   PHASE3_PR05_BROWSER_ACTION_ROUTE_IDS,
   PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  POST_PHASE3_PR01_PROJECT_PURPOSE_ROUTE_IDS,
+  POST_PHASE3_PR01_MOUNTED_PRODUCT_API_ROUTE_IDS,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
@@ -435,11 +437,30 @@ describe("API route catalog", () => {
       ...PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
       ...PHASE3_PR05_BROWSER_ACTION_ROUTE_IDS
     ]);
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(
+      expect.arrayContaining([...PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS])
+    );
     expect(routeById.get("executeBrowserAction")).toMatchObject({
       method: "POST",
       path: "/api/v1/execution-authorities/:authorityRecordId/browser-action",
       commandType: "none",
+      implementedInPr01: false
+    });
+  });
+
+  it("mounts the Post-Phase3 PR-01 project-purpose mode command after Phase 3", () => {
+    const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
+
+    expect(POST_PHASE3_PR01_PROJECT_PURPOSE_ROUTE_IDS).toEqual(["changeProjectPurposeMode"]);
+    expect(POST_PHASE3_PR01_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual([
+      ...PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      ...POST_PHASE3_PR01_PROJECT_PURPOSE_ROUTE_IDS
+    ]);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(POST_PHASE3_PR01_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(routeById.get("changeProjectPurposeMode")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/project-purpose-mode",
+      commandType: "ChangeProjectPurposeMode",
       implementedInPr01: false
     });
   });

@@ -2,7 +2,9 @@ import type { DecisionEvidencePackId, ProjectionVersion, QueueItemId, ResearchTa
 import type {
   AmbiguityExpectedAnswerType,
   AmbiguityIssueSeverity,
-  AmbiguityPossibleRoute
+  AmbiguityPossibleRoute,
+  ProjectPurposeMode,
+  ProjectPurposeModeSelectionStatus
 } from "../product-engine/state";
 import type { ResearchQueueTerminalOutcome } from "./research-evidence";
 
@@ -50,6 +52,8 @@ export interface QueueItemProjection {
   readonly cardType?: QueueCardType;
   readonly sectionRef?: string;
   readonly topicKey?: string;
+  readonly purposeModeAxis?: string;
+  readonly purposeModeEffect?: string;
   readonly severity?: AmbiguityIssueSeverity;
   readonly whyItMatters?: string;
   readonly decisionItUnlocks?: string;
@@ -71,6 +75,10 @@ export interface DecisionQueueProjection {
   readonly generatedAt?: string;
   readonly stale?: boolean;
   readonly refetchUrl?: string;
+  readonly projectPurposeMode?: ProjectPurposeMode;
+  readonly projectPurposeModeSelectionStatus?: ProjectPurposeModeSelectionStatus;
+  readonly modeEffectSummary?: string;
+  readonly skippedCommercializationAxes?: readonly string[];
   readonly activeBatch?: DecisionQueueActiveBatchProjection;
   readonly recovery?: DecisionQueueRecoveryProjection;
   readonly active: readonly QueueItemProjection[];

@@ -7,6 +7,8 @@ import {
   type CommandId,
   type CorrelationId,
   type DecisionQueueProjection,
+  type EventId,
+  type ProductEngineStateSnapshot,
   type ProjectionVersion,
   type ProjectId,
   type QueueItemId,
@@ -76,11 +78,26 @@ function effectExecutorCommand(
   };
 }
 
+function withConfirmedBusinessPurposeMode(state: ProductEngineStateSnapshot): ProductEngineStateSnapshot {
+  return {
+    ...state,
+    project: {
+      ...state.project,
+      projectPurposeMode: "business",
+      projectPurposeModeSelectionStatus: "confirmed",
+      projectPurposeModeLabel: "사업화 검증 중심",
+      projectPurposeModeReason: "Test fixture confirms business purpose mode."
+    }
+  };
+}
+
 function stateWithActiveQuestionBatch() {
   const commands = [
     command("StartProject", 0, {
       rawIdea: "A focused founder brief generator",
-      localPrivacyMode: "local_only"
+      localPrivacyMode: "local_only",
+      projectPurposeMode: "business",
+      projectPurposeModeConfirmation: "user_confirmed"
     }, 1),
     command("CaptureIntake", 1, {
       answer: "Help solo founders turn a rough idea into a traceable product spec."
@@ -127,7 +144,9 @@ describe("PR-04 ProductEngine reducer", () => {
     const commands = [
       command("StartProject", 0, {
         rawIdea: "A focused founder brief generator",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       }, 1),
       command("CaptureIntake", 1, {
         answer: "Help solo founders turn a rough idea into a traceable product spec."
@@ -241,7 +260,10 @@ describe("PR-04 ProductEngine reducer", () => {
   it("replays the start-project session shell projection from the event log", () => {
     const startProject = command("StartProject", 0, {
       rawIdea: "A replayable founder brief generator",
-      localPrivacyMode: "local_only"
+      localPrivacyMode: "local_only",
+      projectPurposeMode: "personal",
+      projectPurposeModeConfirmation: "user_confirmed",
+      projectPurposeModeReason: "Personal workflow tool confirmed by the user."
     }, 1);
     const reduction = reduceProductEngineCommand(startProject, createInitialProductEngineState(projectId, sessionId));
 
@@ -261,14 +283,250 @@ describe("PR-04 ProductEngine reducer", () => {
       projectId,
       sessionId,
       version: 1,
-      phase: "intake"
+      phase: "intake",
+      projectPurposeMode: "personal",
+      projectPurposeModeLabel: "개인 workflow 구현 중심"
     });
+    expect(state.project.projectPurposeModeAudit).toMatchObject([
+      {
+        newMode: "personal",
+        reason: "Personal workflow tool confirmed by the user.",
+        actor: "user"
+      }
+    ]);
+  });
+
+  it("keeps missing purpose mode in a mode_required gate until a user confirms the mode", () => {
+    const initialState = createInitialProductEngineState(projectId, sessionId);
+    const missingMode = reduceProductEngineCommand(
+      command("StartProject", 0, {
+        rawIdea: "A legacy import without a selected mode",
+        localPrivacyMode: "local_only"
+      }, 1),
+      initialState
+    );
+    const missingConfirmation = reduceProductEngineCommand(
+      command("StartProject", 0, {
+        rawIdea: "A project with an inferred but unconfirmed mode",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business"
+      }, 1),
+      initialState
+    );
+    const replayedLegacyState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        eventType: "ProjectStarted",
+        projectId,
+        sessionId,
+        sourceCommandId: "cmd_legacy_project_started" as CommandId,
+        correlationId,
+        causationId: null,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        payload: {
+          rawIdea: "A persisted legacy project without a mode",
+          localPrivacyMode: "local_only"
+        },
+        eventId: "evt_legacy_project_started" as EventId,
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:10.000Z"
+      }
+    ]);
+
+    expect(initialState.project).toMatchObject({
+      projectPurposeModeSelectionStatus: "mode_required",
+      projectPurposeModeLabel: "프로젝트 목적 선택 필요"
+    });
+    expect(initialState.project.projectPurposeMode).toBeUndefined();
+    expect(missingMode).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "VALIDATION_FAILED",
+        message: "StartProject requires a supported user-confirmed projectPurposeMode."
+      }
+    });
+    expect(missingConfirmation).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "VALIDATION_FAILED",
+        message: "StartProject requires projectPurposeModeConfirmation to be user_confirmed."
+      }
+    });
+    expect(replayedLegacyState.project).toMatchObject({
+      projectPurposeModeSelectionStatus: "mode_required",
+      projectPurposeModeLabel: "프로젝트 목적 선택 필요"
+    });
+    expect(replayedLegacyState.project.projectPurposeMode).toBeUndefined();
+  });
+
+  it("switches ambiguity analysis between business and personal purpose modes", () => {
+    const businessCommands = [
+      command("StartProject", 0, {
+        rawIdea: "A paid founder brief generator",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
+      }, 1),
+      command("CaptureIntake", 1, { answer: "Business validation workflow." }, 2),
+      command("DraftInitialSpec", 2, {}, 3),
+      command("AnalyzeAmbiguity", 3, { targetRef: "current_spec" }, 4),
+      command("ActivateQuestionBatch", 4, {}, 5)
+    ] as const;
+    const personalCommands = [
+      command("StartProject", 0, {
+        rawIdea: "A personal local workflow helper",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "personal",
+        projectPurposeModeConfirmation: "user_confirmed"
+      }, 1),
+      command("CaptureIntake", 1, { answer: "Personal tool for a repeated local workflow." }, 2),
+      command("DraftInitialSpec", 2, {}, 3),
+      command("AnalyzeAmbiguity", 3, { targetRef: "current_spec" }, 4),
+      command("ActivateQuestionBatch", 4, {}, 5)
+    ] as const;
+
+    function replay(commands: readonly ReturnType<typeof command>[]) {
+      let state = createInitialProductEngineState(projectId, sessionId);
+      const eventDrafts = [];
+
+      for (const nextCommand of commands) {
+        const reduction = reduceProductEngineCommand(nextCommand, state);
+
+        expect(reduction.accepted).toBe(true);
+        eventDrafts.push(reduction.events[0]);
+        state = replayProductEngineEvents(
+          projectId,
+          sessionId,
+          eventDrafts.map((eventDraft, index) => ({
+            ...eventDraft,
+            eventId: `evt_purpose_mode_${index + 1}` as EventId,
+            sequence: index + 1,
+            occurredAt: `2026-05-05T00:10:${index + 1}0.000Z`
+          }))
+        );
+      }
+
+      return state;
+    }
+
+    const businessState = replay(businessCommands);
+    const personalState = replay(personalCommands);
+
+    expect(businessState.openIssues.map((issue) => issue.topicKey)).toEqual(
+      expect.arrayContaining(["buyer_user_split", "alternative_dissatisfaction_gap", "acquisition_channel_realism"])
+    );
+    expect(businessState.queueProjection).toMatchObject({
+      projectPurposeMode: "business",
+      projectPurposeModeSelectionStatus: "confirmed",
+      modeEffectSummary: expect.stringContaining("유료 의향")
+    });
+    expect(personalState.openIssues.map((issue) => issue.topicKey)).toEqual(
+      expect.arrayContaining(["personal_workflow_context", "personal_usage_frequency", "personal_gui_fit"])
+    );
+    expect(personalState.openIssues.map((issue) => issue.topicKey)).not.toEqual(
+      expect.arrayContaining(["buyer_user_split", "acquisition_channel_realism"])
+    );
+    expect(personalState.queueProjection.active).toHaveLength(5);
+    expect(personalState.queueProjection).toMatchObject({
+      projectPurposeMode: "personal",
+      projectPurposeModeSelectionStatus: "confirmed",
+      skippedCommercializationAxes: expect.arrayContaining(["market_size", "willingness_to_pay"])
+    });
+
+    const personalResearch = reduceProductEngineCommand(
+      command("PlanResearch", Number(personalState.stateVersion), {
+        objective: "Compare current manual workflow friction before building automation.",
+        routeOutcome: "research_needed",
+        impact: "medium"
+      }, 6),
+      personalState
+    );
+
+    expect(personalResearch.accepted).toBe(true);
+    expect(personalResearch.nextState).toMatchObject({
+      researchState: {
+        tasks: [
+          expect.objectContaining({
+            projectPurposeMode: "personal",
+            projectPurposeModeLabel: "개인 workflow 구현 중심",
+            skippedCommercializationAxes: expect.arrayContaining(["market_size", "willingness_to_pay"])
+          })
+        ]
+      }
+    });
+  });
+
+  it("audits later purpose-mode changes without replacing the active question batch", () => {
+    const { state, eventDrafts } = stateWithActiveQuestionBatch();
+    const activeItemIds = state.queueProjection.active.map((item) => item.queueItemId);
+    const reduction = reduceProductEngineCommand(
+      command("ChangeProjectPurposeMode", Number(state.stateVersion), {
+        projectPurposeMode: "personal",
+        suggestedProjectPurposeMode: "personal",
+        reason: "User clarified this is for a private workflow, not commercialization."
+      }, 6),
+      state
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.events[0]).toMatchObject({
+      eventType: "ProjectPurposeModeChanged",
+      payload: {
+        previousMode: "business",
+        newMode: "personal",
+        reason: "User clarified this is for a private workflow, not commercialization."
+      }
+    });
+    expect(reduction.immediateProjection).toMatchObject({
+      kind: "SessionShellProjection",
+      phase: "validation",
+      projectPurposeMode: "personal",
+      projectPurposeModeLabel: "개인 workflow 구현 중심"
+    });
+    expect(reduction.nextState).toMatchObject({
+      queueProjection: {
+        projectPurposeMode: "personal",
+        modeEffectSummary: expect.stringContaining("workflow")
+      }
+    });
+
+    const replayed = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      [...eventDrafts, reduction.events[0]].map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_mode_change_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:20:${index + 1}0.000Z`
+      }))
+    );
+
+    expect(replayed.project).toMatchObject({
+      projectPurposeMode: "personal",
+      projectPurposeModeAudit: expect.arrayContaining([
+        expect.objectContaining({
+          previousMode: "business",
+          newMode: "personal",
+          actor: "user"
+        })
+      ])
+    });
+    expect(replayed.queueProjection.active.map((item) => item.queueItemId)).toEqual(activeItemIds);
+    expect(replayed.queueProjection).toMatchObject({
+      projectPurposeMode: "personal",
+      projectPurposeModeSelectionStatus: "confirmed",
+      skippedCommercializationAxes: expect.arrayContaining(["market_size", "willingness_to_pay"])
+    });
+    expect(replayed.queueProjection.activeBatch?.stabilityPolicy).toBe(
+      "preserve_active_batch_until_terminal_or_explicit_reactivation"
+    );
   });
 
   it("keeps session phase mapping centralized for replay and sidecar shell projections", () => {
     const startProject = command("StartProject", 0, {
       rawIdea: "A phase mapping test idea",
-      localPrivacyMode: "local_only"
+      localPrivacyMode: "local_only",
+      projectPurposeMode: "business",
+      projectPurposeModeConfirmation: "user_confirmed"
     }, 1);
     const started = reduceProductEngineCommand(startProject, createInitialProductEngineState(projectId, sessionId));
 
@@ -392,7 +650,9 @@ describe("PR-04 ProductEngine reducer", () => {
     const invalidStart = reduceProductEngineCommand(
       command("StartProject", 0, {
         rawIdea: "",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       }, 1),
       state
     );
@@ -423,7 +683,9 @@ describe("PR-04 ProductEngine reducer", () => {
     const commands = [
       command("StartProject", 0, {
         rawIdea: "A focused founder brief generator",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       }, 1),
       command("CaptureIntake", 1, {
         answer: "A session flow for founders."
@@ -536,7 +798,7 @@ describe("PR-04 ProductEngine reducer", () => {
       sourceRef: `issue_${index + 1}`
     }));
     const state = {
-      ...createInitialProductEngineState(projectId, sessionId),
+      ...withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId)),
       stateVersion: 4 as StateVersion,
       openIssues
     };
@@ -602,7 +864,7 @@ describe("PR-04 ProductEngine reducer", () => {
       sourceRef: `priority_${index + 1}`
     }));
     const state = {
-      ...createInitialProductEngineState(projectId, sessionId),
+      ...withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId)),
       stateVersion: 4 as StateVersion,
       openIssues
     };
@@ -645,7 +907,7 @@ describe("PR-04 ProductEngine reducer", () => {
       }
     ];
     const state = {
-      ...createInitialProductEngineState(projectId, sessionId),
+      ...withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId)),
       stateVersion: 4 as StateVersion,
       openIssues
     };
@@ -670,7 +932,9 @@ describe("PR-04 ProductEngine reducer", () => {
     const commands = [
       command("StartProject", 0, {
         rawIdea: "A focused founder brief generator",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       }, 1),
       command("CaptureIntake", 1, {
         answer: "A session flow for founders."
@@ -808,6 +1072,11 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(replayed.queueProjection.active[0]?.state).toBe("answered");
     expect(replayed.queueProjection.next).toHaveLength(1);
     expect(replayed.researchState.tasks).toHaveLength(1);
+    expect(replayed.researchState.tasks[0]).toMatchObject({
+      projectPurposeMode: "business",
+      projectPurposeModeLabel: "사업화 검증 중심",
+      projectPurposeModeEffect: expect.stringContaining("유료 의향")
+    });
     expect(replayed.completeness).toMatchObject({
       kind: "ConfidenceCompletionProjection",
       version: 7,
@@ -823,7 +1092,7 @@ describe("PR-04 ProductEngine reducer", () => {
 
   it("imports manual research and blocks high-impact pro-only evidence as known risk", () => {
     const taskId = "research_task_high_impact" as const;
-    const initialState = createInitialProductEngineState(projectId, sessionId);
+    const initialState = withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId));
     const plannedTaskCommand = command("PlanResearch", 0, {
       objective: "Validate paid founder urgency",
       routeOutcome: "missing_con_evidence",
@@ -923,7 +1192,7 @@ describe("PR-04 ProductEngine reducer", () => {
   });
 
   it("persists a decision-linked Evidence Pack and keeps unknown quality gates in review", () => {
-    const initialState = createInitialProductEngineState(projectId, sessionId);
+    const initialState = withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId));
     const planned = reduceProductEngineCommand(
       command("PlanResearch", 0, {
         objective: "Validate implementation readiness claim",
@@ -1029,7 +1298,7 @@ describe("PR-04 ProductEngine reducer", () => {
         routeOutcome: "research_needed",
         impact: "high"
       }, 1),
-      createInitialProductEngineState(projectId, sessionId)
+      withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId))
     );
 
     expect(planned.accepted).toBe(true);
@@ -1120,7 +1389,7 @@ describe("PR-04 ProductEngine reducer", () => {
         routeOutcome: "research_needed",
         impact: "high"
       }, 1),
-      createInitialProductEngineState(projectId, sessionId)
+      withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId))
     );
 
     expect(planned.accepted).toBe(true);
@@ -1263,7 +1532,7 @@ describe("PR-04 ProductEngine reducer", () => {
         routeOutcome: "missing_con_evidence",
         impact: "high"
       }, 1),
-      createInitialProductEngineState(projectId, sessionId)
+      withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId))
     );
     const plannedState = replayProductEngineEvents(projectId, sessionId, [
       {
@@ -1398,7 +1667,7 @@ describe("PR-04 ProductEngine reducer", () => {
         routeOutcome: "missing_con_evidence",
         impact: "low"
       }, 1),
-      createInitialProductEngineState(projectId, sessionId)
+      withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId))
     );
 
     expect(planned.accepted).toBe(true);
@@ -1711,7 +1980,10 @@ describe("PR-04 ProductEngine reducer", () => {
       routeOutcome: "missing_con_evidence",
       impact: "high"
     }, 1);
-    const planned = reduceProductEngineCommand(plannedTaskCommand, createInitialProductEngineState(projectId, sessionId));
+    const planned = reduceProductEngineCommand(
+      plannedTaskCommand,
+      withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId))
+    );
 
     expect(planned.accepted).toBe(true);
 
@@ -1792,7 +2064,10 @@ describe("PR-04 ProductEngine reducer", () => {
       routeOutcome: "missing_con_evidence",
       impact: "high"
     }, 1);
-    const planned = reduceProductEngineCommand(plannedTaskCommand, createInitialProductEngineState(projectId, sessionId));
+    const planned = reduceProductEngineCommand(
+      plannedTaskCommand,
+      withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId))
+    );
 
     expect(planned.accepted).toBe(true);
 

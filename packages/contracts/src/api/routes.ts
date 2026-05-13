@@ -183,6 +183,14 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "changeProjectPurposeMode",
+    clientName: "changeProjectPurposeMode",
+    method: "POST",
+    path: "/api/v1/sessions/:sessionId/project-purpose-mode",
+    commandType: "ChangeProjectPurposeMode",
+    implementedInPr01: false
+  },
+  {
     routeId: "captureIntake",
     clientName: "captureIntake",
     method: "POST",
@@ -675,4 +683,13 @@ export const PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...PHASE3_PR05_BROWSER_ACTION_ROUTE_IDS
 ] as const satisfies readonly ApiRouteId[];
 
-export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS;
+export const POST_PHASE3_PR01_PROJECT_PURPOSE_ROUTE_IDS = [
+  "changeProjectPurposeMode"
+] as const satisfies readonly ApiRouteId[];
+
+export const POST_PHASE3_PR01_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  ...POST_PHASE3_PR01_PROJECT_PURPOSE_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = POST_PHASE3_PR01_MOUNTED_PRODUCT_API_ROUTE_IDS;

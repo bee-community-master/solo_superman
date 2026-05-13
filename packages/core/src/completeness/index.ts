@@ -1,14 +1,18 @@
-import type {
-  CompletionGateStatus,
-  ConfidenceAxisScore,
-  ConfidenceCompletionProjection,
-  FounderBriefProjection,
-  IfStopNowArtifactProjection,
-  ProductEngineStateSnapshot,
-  ProjectionVersion,
-  RequiredDecisionRef,
-  ReadinessLabel,
-  TopRiskCardProjection
+import {
+  PROJECT_PURPOSE_MODE_LABELS,
+  PROJECT_PURPOSE_MODE_REQUIRED_LABEL,
+  PROJECT_PURPOSE_MODE_SKIPPED_COMMERCIALIZATION_AXES,
+  type CompletionGateStatus,
+  type ConfidenceAxisScore,
+  type ConfidenceCompletionProjection,
+  type FounderBriefProjection,
+  type IfStopNowArtifactProjection,
+  type ProductEngineStateSnapshot,
+  type ProjectPurposeMode,
+  type ProjectionVersion,
+  type RequiredDecisionRef,
+  type ReadinessLabel,
+  type TopRiskCardProjection
 } from "@solo-superman/contracts";
 
 export const COMPLETENESS_ENGINE_SLICE_STATUS = "completeness-founder-brief-pr-08" as const;
@@ -31,6 +35,44 @@ const REQUIRED_SECTION_KEYWORDS = [
   ["mvp", "scope"],
   ["success", "criteria"]
 ] as const;
+
+const PERSONAL_REQUIRED_SECTION_KEYWORDS = [
+  ["workflow"],
+  ["frequency"],
+  ["input"],
+  ["output"],
+  ["gui"],
+  ["implementation"],
+  ["local", "data"],
+  ["security"],
+  ["maintainability"],
+  ["success", "criteria"]
+] as const;
+
+const PROJECT_PURPOSE_MODE_DETAILS = {
+  business: {
+    label: PROJECT_PURPOSE_MODE_LABELS.business,
+    effect:
+      "고객/문제/유료 의향/대체재/채널/법무·운영 리스크를 completion gate와 다음 검증 행동에 유지합니다.",
+    skippedCommercializationAxes: PROJECT_PURPOSE_MODE_SKIPPED_COMMERCIALIZATION_AXES.business
+  },
+  personal: {
+    label: PROJECT_PURPOSE_MODE_LABELS.personal,
+    effect:
+      "시장 규모, 투자자 narrative, 유료 의향을 기본 completion 요구에서 제외하고 workflow/GUI/구현 가능성/local data/security/유지보수를 우선합니다.",
+    skippedCommercializationAxes: PROJECT_PURPOSE_MODE_SKIPPED_COMMERCIALIZATION_AXES.personal
+  }
+} as const satisfies Record<
+  ProjectPurposeMode,
+  {
+    readonly label: string;
+    readonly effect: string;
+    readonly skippedCommercializationAxes: readonly string[];
+  }
+>;
+
+const PROJECT_PURPOSE_MODE_REQUIRED_EFFECT =
+  "사용자가 사업화 검증 중심 또는 개인 workflow 구현 중심을 명시 선택하기 전까지 mode-specific completeness gate를 확정하지 않습니다.";
 
 const REQUIRED_DECISION_REFS: readonly RequiredDecisionRef[] = [
   "primary_customer",
@@ -60,13 +102,19 @@ function uniqueStrings(values: readonly string[]) {
 }
 
 function sectionCompletenessScore(state: ProductEngineStateSnapshot) {
+  if (!state.project.projectPurposeMode) {
+    return 0;
+  }
+
   const sections = state.currentSpec.sections ?? [];
   const normalizedSections = sections.map((section) => section.toLowerCase());
-  const matched = REQUIRED_SECTION_KEYWORDS.filter((keywords) =>
+  const requiredSectionKeywords =
+    state.project.projectPurposeMode === "personal" ? PERSONAL_REQUIRED_SECTION_KEYWORDS : REQUIRED_SECTION_KEYWORDS;
+  const matched = requiredSectionKeywords.filter((keywords) =>
     normalizedSections.some((section) => keywords.every((keyword) => section.includes(keyword)))
   ).length;
 
-  return clampScore((matched / REQUIRED_SECTION_KEYWORDS.length) * 100);
+  return clampScore((matched / requiredSectionKeywords.length) * 100);
 }
 
 function questionDebtScore(state: ProductEngineStateSnapshot) {
@@ -274,7 +322,20 @@ function acceptedRiskDecisionRisks(state: ProductEngineStateSnapshot) {
 }
 
 function nextBestActions(state: ProductEngineStateSnapshot, cards: readonly TopRiskCardProjection[]) {
+  const modeActions =
+    !state.project.projectPurposeMode
+      ? ["Select the project purpose mode before scoring mode-specific completion gates."]
+      : state.project.projectPurposeMode === "personal"
+      ? [
+          "Validate the personal workflow frequency and manual baseline.",
+          "Confirm GUI fit, local data/security boundaries, implementation feasibility, maintainability, and personal success criteria."
+        ]
+      : [
+          "Validate customer/problem urgency, willingness to pay, competition, channel, and legal/ops risks."
+        ];
+
   return uniqueStrings([
+    ...modeActions,
     ...state.researchState.nextValidationActions,
     ...cards.map((card) => card.nextValidationAction),
     ...(state.openIssues.some((issue) => issue.status === "open") ? ["Resolve the remaining high-priority question cards."] : []),
@@ -417,6 +478,58 @@ export function buildConfidenceCompletionProjection(
   state: ProductEngineStateSnapshot,
   version: ProjectionVersion
 ): ConfidenceCompletionProjection {
+  if (!state.project.projectPurposeMode) {
+    return {
+      kind: "ConfidenceCompletionProjection",
+      sessionId: state.session.sessionId,
+      version,
+      projectPurposeModeSelectionStatus: "mode_required",
+      projectPurposeModeLabel: PROJECT_PURPOSE_MODE_REQUIRED_LABEL,
+      projectPurposeModeEffect: PROJECT_PURPOSE_MODE_REQUIRED_EFFECT,
+      skippedCommercializationAxes: [],
+      compositeScore: 0,
+      readinessLabel: "draft",
+      axes: [],
+      scoreBreakdown: {
+        sectionCompleteness: 0,
+        questionDebtResolution: 0,
+        evidenceQuality: 0,
+        decisionApproval: 0,
+        consistencyAndConflict: 0
+      },
+      gates: [
+        {
+          gateId: "project_purpose_mode",
+          label: PROJECT_PURPOSE_MODE_REQUIRED_LABEL,
+          passed: false,
+          blockingReason: "사용자가 business 또는 personal project purpose mode를 명시 선택해야 합니다."
+        }
+      ],
+      topRisks: [PROJECT_PURPOSE_MODE_REQUIRED_LABEL],
+      topRiskCards: [
+        {
+          riskId: "risk_project_purpose_mode_required",
+          title: PROJECT_PURPOSE_MODE_REQUIRED_LABEL,
+          severity: "high",
+          sourceRefs: [state.session.sessionId],
+          nextValidationAction: "사용자가 사업화 검증 중심 또는 개인 workflow 구현 중심을 선택합니다."
+        }
+      ],
+      nextBestActions: ["Select the project purpose mode before scoring mode-specific completion gates."],
+      completionCandidate: {
+        status: "not_ready",
+        summary: "Completion is blocked until the user confirms the project purpose mode.",
+        gateFailures: ["사용자가 business 또는 personal project purpose mode를 명시 선택해야 합니다."],
+        ifStopNowArtifact: {
+          title: "If stop now",
+          summary: "No founder brief can be prepared before project purpose mode selection.",
+          knownRisks: [PROJECT_PURPOSE_MODE_REQUIRED_LABEL],
+          nextValidationActions: ["사용자가 사업화 검증 중심 또는 개인 workflow 구현 중심을 선택합니다."]
+        }
+      }
+    };
+  }
+
   const scoreBreakdown = {
     sectionCompleteness: sectionCompletenessScore(state),
     questionDebtResolution: questionDebtScore(state),
@@ -456,11 +569,17 @@ export function buildConfidenceCompletionProjection(
     nextActions
   );
   const gatesPassed = gates.every((gate) => gate.passed);
+  const purposeModeDetails = PROJECT_PURPOSE_MODE_DETAILS[state.project.projectPurposeMode];
 
   return {
     kind: "ConfidenceCompletionProjection",
     sessionId: state.session.sessionId,
     version,
+    projectPurposeMode: state.project.projectPurposeMode,
+    projectPurposeModeSelectionStatus: "confirmed",
+    projectPurposeModeLabel: purposeModeDetails.label,
+    projectPurposeModeEffect: purposeModeDetails.effect,
+    skippedCommercializationAxes: purposeModeDetails.skippedCommercializationAxes,
     compositeScore,
     readinessLabel: readinessLabel(compositeScore, gatesPassed),
     axes,
@@ -486,6 +605,14 @@ export function buildFounderBriefProjection(
   version: ProjectionVersion,
   preparedAt: string
 ): FounderBriefProjection {
+  const projectPurposeMode = state.project.projectPurposeMode;
+
+  if (!projectPurposeMode) {
+    throw new Error("buildFounderBriefProjection requires a user-confirmed projectPurposeMode.");
+  }
+
+  const purposeModeDetails = PROJECT_PURPOSE_MODE_DETAILS[projectPurposeMode];
+  const projectPurposeModeNarrative = `${purposeModeDetails.label}: ${purposeModeDetails.effect}`;
   const problemCustomerValue = [
     state.currentSpec.title ?? state.project.rawIdeaText ?? "Untitled product idea",
     ...(state.currentSpec.sections ?? [])
@@ -503,6 +630,11 @@ export function buildFounderBriefProjection(
   ]);
   const decisions = uniqueStrings([...topDecisions, ...inferredDecisions]).slice(0, 6);
   const briefSections = [
+    {
+      sectionId: "project_purpose_mode" as const,
+      title: "Project purpose mode",
+      body: projectPurposeModeNarrative
+    },
     {
       sectionId: "problem_customer_value" as const,
       title: "Problem-Customer-Value",
@@ -531,6 +663,10 @@ export function buildFounderBriefProjection(
     kind: "FounderBriefProjection",
     sessionId: state.session.sessionId,
     version,
+    projectPurposeMode,
+    projectPurposeModeLabel: purposeModeDetails.label,
+    projectPurposeModeNarrative,
+    skippedCommercializationAxes: purposeModeDetails.skippedCommercializationAxes,
     exportReady: completeness.completionCandidate.status === "candidate",
     problemCustomerValue,
     topDecisions: decisions,

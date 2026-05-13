@@ -95,6 +95,13 @@ function completeState(): ProductEngineStateSnapshot {
   return {
     ...createInitialProductEngineState(projectId, sessionId),
     stateVersion: 12 as StateVersion,
+    project: {
+      ...createInitialProductEngineState(projectId, sessionId).project,
+      projectPurposeMode: "business",
+      projectPurposeModeSelectionStatus: "confirmed",
+      projectPurposeModeLabel: "사업화 검증 중심",
+      projectPurposeModeReason: "Test fixture confirms business purpose mode."
+    },
     currentSpec: {
       draftRef: "spec_draft_complete",
       versionRef: "spec_version_1",
@@ -202,6 +209,55 @@ describe("PR-08 completeness scoring", () => {
     expect(projection.gates.every((gate) => gate.passed)).toBe(true);
     expect(projection.completionCandidate.status).toBe("candidate");
     expect(projection.topRiskCards).toEqual([]);
+  });
+
+  it("lets personal workflow projects complete without market-size, investor, or willingness-to-pay gates", () => {
+    const state = {
+      ...completeState(),
+      project: {
+        ...completeState().project,
+        projectPurposeMode: "personal" as const,
+        projectPurposeModeSelectionStatus: "confirmed" as const,
+        projectPurposeModeLabel: "개인 workflow 구현 중심",
+        projectPurposeModeReason: "User confirmed personal workflow mode.",
+        projectPurposeModeAudit: []
+      },
+      currentSpec: {
+        ...completeState().currentSpec,
+        title: "Personal Workflow Helper",
+        sections: [
+          "Workflow",
+          "Frequency",
+          "Input",
+          "Output",
+          "GUI",
+          "Implementation Feasibility",
+          "Local Data",
+          "Security",
+          "Maintainability",
+          "Success Criteria"
+        ]
+      },
+      researchState: {
+        ...completeState().researchState,
+        nextValidationActions: ["Run the tool on three repeated personal workflow examples."]
+      }
+    };
+    const projection = buildConfidenceCompletionProjection(state, 13 as ProjectionVersion);
+    const serialized = JSON.stringify({
+      gateFailures: projection.completionCandidate.gateFailures,
+      nextBestActions: projection.nextBestActions,
+      projectPurposeModeEffect: projection.projectPurposeModeEffect
+    }).toLowerCase();
+
+    expect(projection.projectPurposeMode).toBe("personal");
+    expect(projection.completionCandidate.status).toBe("candidate");
+    expect(serialized).not.toContain("market size");
+    expect(serialized).not.toContain("investor");
+    expect(serialized).not.toContain("willingness to pay");
+    expect(projection.skippedCommercializationAxes).toEqual(
+      expect.arrayContaining(["market_size", "investor_narrative", "willingness_to_pay"])
+    );
   });
 
   it("carries open questions and missing con evidence into risk cards instead of hiding them", () => {

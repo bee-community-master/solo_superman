@@ -1,9 +1,11 @@
 import type { ProjectionVersion, SessionId } from "../ids";
+import type { ProjectPurposeMode, ProjectPurposeModeSelectionStatus } from "../product-engine";
 
 export type ConfidenceAxisId = "problem" | "customer" | "value" | "validation" | "implementation";
 export type ReadinessLabel = "draft" | "clarifying" | "researching" | "decision_ready" | "spec_ready";
 export type CompletionCandidateStatus = "not_ready" | "candidate";
 export type CompletionGateId =
+  | "project_purpose_mode"
   | "score_threshold"
   | "confidence_axes"
   | "question_debt"
@@ -60,6 +62,11 @@ export interface ConfidenceCompletionProjection {
   readonly kind: "ConfidenceCompletionProjection";
   readonly sessionId: SessionId;
   readonly version: ProjectionVersion;
+  readonly projectPurposeMode?: ProjectPurposeMode;
+  readonly projectPurposeModeSelectionStatus?: ProjectPurposeModeSelectionStatus;
+  readonly projectPurposeModeLabel?: string;
+  readonly projectPurposeModeEffect?: string;
+  readonly skippedCommercializationAxes?: readonly string[];
   readonly compositeScore: number;
   readonly readinessLabel: ReadinessLabel;
   readonly axes: readonly ConfidenceAxisScore[];

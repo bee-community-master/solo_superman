@@ -4,6 +4,7 @@ import type {
   Phase15bUpgradeHintSourceRef
 } from "../codex";
 import type { ProjectionVersion, SessionId } from "../ids";
+import type { ProjectPurposeMode } from "../product-engine";
 
 export type PlanningHandoffArtifactKind = "PlanningHandoffArtifact" | "PlanningHandoffBlockerArtifact";
 
@@ -66,6 +67,10 @@ export interface PlanningHandoffSourceRefDto {
 export interface PlanningHandoffRequestedScopeDto {
   readonly productSlice: string;
   readonly userFacingJourneyLabel: "Planning-ready";
+  readonly projectPurposeMode?: ProjectPurposeMode;
+  readonly projectPurposeModeLabel?: string;
+  readonly projectPurposeModeEffect?: string;
+  readonly skippedCommercializationAxes?: readonly string[];
   readonly nonGoals: readonly string[];
   readonly excludedInternalPhases: readonly (
     | "phase3_controlled_execution"

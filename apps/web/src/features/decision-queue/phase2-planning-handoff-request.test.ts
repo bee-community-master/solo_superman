@@ -32,7 +32,10 @@ function sessionFixture(): SessionShellProjection {
     projectId: PROJECT_ID,
     sessionId: SESSION_ID,
     version: 12 as ProjectionVersion,
-    phase: "validation"
+    phase: "validation",
+    projectPurposeMode: "business",
+    projectPurposeModeLabel: "사업화 검증 중심",
+    projectPurposeModeEffect: "고객/문제/유료 의향/채널 리스크를 검증합니다."
   };
 }
 
@@ -186,6 +189,10 @@ function founderBriefFixture(): FounderBriefProjection {
     kind: "FounderBriefProjection",
     sessionId: SESSION_ID,
     version: 18 as ProjectionVersion,
+    projectPurposeMode: "business",
+    projectPurposeModeLabel: "사업화 검증 중심",
+    projectPurposeModeNarrative: "사업화 검증 중심: 고객/문제/유료 의향/채널 리스크를 검증합니다.",
+    skippedCommercializationAxes: [],
     exportReady: true,
     problemCustomerValue: "Source-driven handoff for solo founders",
     topDecisions: [],

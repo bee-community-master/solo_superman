@@ -121,7 +121,9 @@ describe("sidecar client", () => {
 
     const response = await client.createProject({
       rawIdea: "A projection-backed queue shell",
-      localPrivacyMode: "local_only"
+      localPrivacyMode: "local_only",
+      projectPurposeMode: "personal",
+      projectPurposeModeConfirmation: "user_confirmed"
     });
     const [url, init] = requests[0]!;
 
@@ -132,7 +134,68 @@ describe("sidecar client", () => {
       "Content-Type": "application/json"
     });
     expect(JSON.parse(String(init?.body))).toMatchObject({
-      rawIdea: "A projection-backed queue shell"
+      rawIdea: "A projection-backed queue shell",
+      projectPurposeMode: "personal",
+      projectPurposeModeConfirmation: "user_confirmed"
+    });
+  });
+
+  it("changes project purpose mode through the auditable session endpoint", async () => {
+    const seenRequests: [string, RequestInit | undefined][] = [];
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async (input, init) => {
+        seenRequests.push([input, init]);
+
+        return jsonResponse({
+          ok: true,
+          data: {
+            category: "accepted_with_projection",
+            commandId: "cmd_mode",
+            correlationId: "corr_mode",
+            stateVersionBefore: 4,
+            stateVersionAfter: 5,
+            immediateProjection: {
+              kind: "SessionShellProjection",
+              projectId: "proj_test",
+              sessionId: "sess_test",
+              version: 5,
+              phase: "validation",
+              projectPurposeMode: "personal",
+              projectPurposeModeLabel: "개인 workflow 구현 중심",
+              projectPurposeModeEffect: "개인 workflow 기준으로 질문과 리서치를 조정합니다."
+            }
+          },
+          meta: {
+            requestId: "req_mode",
+            schemaVersion: "solo-superman.contracts.v1"
+          }
+        });
+      }
+    });
+
+    await client.changeProjectPurposeMode({
+      sessionId: "sess_test" as SessionId,
+      expectedStateVersion: 4 as StateVersion,
+      projectPurposeMode: "personal",
+      suggestedProjectPurposeMode: "personal",
+      reason: "User clarified this is a personal workflow tool."
+    });
+
+    const [url, init] = seenRequests[0]!;
+
+    expect(url).toBe("http://127.0.0.1:43110/api/v1/sessions/sess_test/project-purpose-mode");
+    expect(init?.method).toBe("POST");
+    expect(init?.headers).toMatchObject({
+      Authorization: "Bearer test-token",
+      "Content-Type": "application/json"
+    });
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      sessionId: "sess_test",
+      expectedStateVersion: 4,
+      projectPurposeMode: "personal",
+      suggestedProjectPurposeMode: "personal",
+      reason: "User clarified this is a personal workflow tool."
     });
   });
 
@@ -1028,7 +1091,9 @@ describe("sidecar client", () => {
     await expect(
       client.createProject({
         rawIdea: "Unavailable sidecar",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       })
     ).rejects.toMatchObject({
       httpStatus: 503,
@@ -1052,7 +1117,9 @@ describe("sidecar client", () => {
 
     const request = client.createProject({
       rawIdea: "Unavailable sidecar",
-      localPrivacyMode: "local_only"
+      localPrivacyMode: "local_only",
+      projectPurposeMode: "business",
+      projectPurposeModeConfirmation: "user_confirmed"
     });
 
     await expect(request).rejects.toBeInstanceOf(SidecarClientError);

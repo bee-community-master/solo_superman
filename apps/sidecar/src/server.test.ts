@@ -261,7 +261,9 @@ async function createProjectForTest(storageApp: ReturnType<typeof createSidecarA
     },
     body: JSON.stringify({
       rawIdea,
-      localPrivacyMode: "local_only"
+      localPrivacyMode: "local_only",
+      projectPurposeMode: "business",
+      projectPurposeModeConfirmation: "user_confirmed"
     })
   });
   const startBody = await jsonBody(start);
@@ -1014,7 +1016,9 @@ describe("PR-02 sidecar health shell", () => {
       method: "POST",
       body: JSON.stringify({
         rawIdea: "Storage unavailable",
-        localPrivacyMode: "local_only"
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed"
       }),
       headers: authHeaders()
     });
@@ -1058,6 +1062,89 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("rejects project creation until the user confirms a business or personal purpose mode", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const missingMode = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A mode-required route test idea",
+          localPrivacyMode: "local_only"
+        })
+      });
+      const missingConfirmation = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A mode-confirmation route test idea",
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business"
+        })
+      });
+      const missingModeBody = await jsonBody(missingMode);
+      const missingConfirmationBody = await jsonBody(missingConfirmation);
+
+      expect(missingMode.status).toBe(400);
+      expect(missingModeBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "projectPurposeMode must be a non-empty string."
+      });
+      expect(missingConfirmation.status).toBe(400);
+      expect(missingConfirmationBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "projectPurposeModeConfirmation must be user_confirmed."
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("changes project purpose mode through a user-audited session command route", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A personal workflow mode route test idea");
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/project-purpose-mode`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 1,
+          projectPurposeMode: "personal",
+          suggestedProjectPurposeMode: "personal",
+          reason: "User clarified this project is for a private workflow."
+        })
+      });
+      const body = await jsonBody(response);
+      const data = body.data as Readonly<Record<string, unknown>>;
+
+      expect(response.status).toBe(200);
+      expect(data).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionBefore: 1,
+        stateVersionAfter: 2,
+        immediateProjection: {
+          kind: "SessionShellProjection",
+          projectPurposeMode: "personal",
+          projectPurposeModeLabel: "개인 workflow 구현 중심"
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("mounts Phase 1.5A allowlist governance create/update/pause/revoke without reducer effects", async () => {
     const { app: storageApp, storage } = await createMigratedStorageApp();
 
@@ -1070,7 +1157,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A research allowlist governance route test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -1449,7 +1538,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A multi-allowlist governance projection test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -1565,7 +1656,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A disclosure-safe research route test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -1687,7 +1780,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A disclosure blocked route test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -2898,7 +2993,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A disclosure connector secret guard test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -5057,7 +5154,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A route failure normalization test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -5316,7 +5415,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A focused founder brief generator",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -5957,7 +6058,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A duplicate research task test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -6040,7 +6143,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A runtime handoff test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -6132,7 +6237,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A runtime artifact block route test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -6338,7 +6445,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A completion route test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startData = (await jsonBody(start)).data as Readonly<Record<string, unknown>>;
@@ -6555,7 +6664,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A runtime fixture test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -6710,7 +6821,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A cross-source runtime context test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -6812,7 +6925,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A mismatched runtime adapter output test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -6894,7 +7009,9 @@ describe("PR-02 sidecar health shell", () => {
           },
           body: JSON.stringify({
             rawIdea,
-            localPrivacyMode: "local_only"
+            localPrivacyMode: "local_only",
+            projectPurposeMode: "business",
+            projectPurposeModeConfirmation: "user_confirmed"
           })
         });
         const startBody = await jsonBody(start);
@@ -6956,7 +7073,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A runtime unavailable fallback test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -7102,7 +7221,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A runtime failure test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -7175,7 +7296,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A runtime blocked action test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -7339,7 +7462,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A stale version test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);
@@ -7383,7 +7508,9 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           rawIdea: "A concurrent command test idea",
-          localPrivacyMode: "local_only"
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed"
         })
       });
       const startBody = await jsonBody(start);

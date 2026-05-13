@@ -23,7 +23,7 @@ import type {
 import type { PlanningHandoffRequestedScopeDto, PlanningHandoffSourceRefDto } from "../projections/planning-handoff";
 import type { ResearchQueueTerminalOutcome } from "../projections/research-evidence";
 import type { BlockedActionType, CodexTurnPurpose } from "../codex";
-import type { RequiredDecisionRef } from "../product-engine";
+import type { ProjectPurposeMode, RequiredDecisionRef } from "../product-engine";
 
 export interface ScaffoldRequestPlaceholder {
   readonly scaffoldOnly?: true;
@@ -32,7 +32,19 @@ export interface ScaffoldRequestPlaceholder {
 export interface StartProjectRequest extends ScaffoldRequestPlaceholder {
   readonly rawIdea: string;
   readonly localPrivacyMode: "local_only" | "local_with_manual_export";
+  readonly projectPurposeMode: ProjectPurposeMode;
+  readonly suggestedProjectPurposeMode?: ProjectPurposeMode;
+  readonly projectPurposeModeConfirmation: "user_confirmed";
+  readonly projectPurposeModeReason?: string;
   readonly sourceNote?: string;
+}
+
+export interface ChangeProjectPurposeModeRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
+  readonly projectPurposeMode: ProjectPurposeMode;
+  readonly reason: string;
+  readonly suggestedProjectPurposeMode?: ProjectPurposeMode;
 }
 
 export interface StartOrResumeSessionRequest extends ScaffoldRequestPlaceholder {

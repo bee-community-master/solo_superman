@@ -5,6 +5,7 @@ describe("ProductEngine event contract surface", () => {
   it("uses the closed docs/25 event examples", () => {
     expect(PRODUCT_ENGINE_EVENT_TYPES).toEqual([
       "ProjectStarted",
+      "ProjectPurposeModeChanged",
       "IntakeCaptured",
       "SessionPhaseChanged",
       "InitialSpecDrafted",

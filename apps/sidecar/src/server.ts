@@ -18,6 +18,7 @@ import {
   EXECUTION_ROLLBACK_KINDS,
   EXECUTION_SANDBOX_MODES,
   EXECUTION_SECRET_POLICIES,
+  PROJECT_PURPOSE_MODES,
   isExecutionAuthorityIsoTimestamp,
   type ApiErrorCode,
   type ApiErrorEnvelope,
@@ -49,6 +50,7 @@ import {
   type PrepareResearchDisclosureRequest,
   type PlanningHandoffRequestedScopeDto,
   type PlanningHandoffSourceRefDto,
+  type ProjectPurposeMode,
   type ProjectId,
   type QueueItemId,
   type ResearchAllowlistId,
@@ -370,6 +372,24 @@ function optionalStringFromBody(value: unknown, fieldName: string) {
   }
 
   return stringFromBody(value, fieldName);
+}
+
+function projectPurposeModeFromBody(value: unknown, fieldName = "projectPurposeMode"): ProjectPurposeMode {
+  const mode = stringFromBody(value, fieldName);
+
+  if (!PROJECT_PURPOSE_MODES.includes(mode as ProjectPurposeMode)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be business or personal.`);
+  }
+
+  return mode as ProjectPurposeMode;
+}
+
+function optionalProjectPurposeModeFromBody(value: unknown, fieldName = "projectPurposeMode") {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  return projectPurposeModeFromBody(value, fieldName);
 }
 
 function optionalPositiveIntegerFromBody(value: unknown, fieldName: string) {
@@ -1573,15 +1593,63 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       const body = await jsonBody(context);
       const rawIdea = stringFromBody(body.rawIdea, "rawIdea");
       const localPrivacyMode = body.localPrivacyMode;
+      const projectPurposeMode = projectPurposeModeFromBody(body.projectPurposeMode);
+      const suggestedProjectPurposeMode = optionalProjectPurposeModeFromBody(
+        body.suggestedProjectPurposeMode,
+        "suggestedProjectPurposeMode"
+      );
 
       if (localPrivacyMode !== "local_only" && localPrivacyMode !== "local_with_manual_export") {
         throw new ProductEngineServiceError("VALIDATION_FAILED", "localPrivacyMode must be a supported local privacy mode.");
       }
 
+      if (body.projectPurposeModeConfirmation !== "user_confirmed") {
+        throw new ProductEngineServiceError(
+          "VALIDATION_FAILED",
+          "projectPurposeModeConfirmation must be user_confirmed."
+        );
+      }
+
       return service.startProject({
         rawIdea,
         localPrivacyMode,
+        projectPurposeMode,
+        projectPurposeModeConfirmation: "user_confirmed",
+        ...(suggestedProjectPurposeMode ? { suggestedProjectPurposeMode } : {}),
+        ...(typeof body.projectPurposeModeReason === "string"
+          ? { projectPurposeModeReason: body.projectPurposeModeReason }
+          : {}),
         ...(typeof body.sourceNote === "string" ? { sourceNote: body.sourceNote } : {})
+      });
+    })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/project-purpose-mode", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const body = await jsonBody(context);
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const bodySessionId = stringFromBody(body.sessionId, "sessionId") as SessionId;
+      const suggestedProjectPurposeMode = optionalProjectPurposeModeFromBody(
+        body.suggestedProjectPurposeMode,
+        "suggestedProjectPurposeMode"
+      );
+
+      if (bodySessionId !== routeSessionId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId must match the route param.", {
+          routeSessionId,
+          bodySessionId
+        });
+      }
+
+      return service.runSessionCommand({
+        sessionId: routeSessionId,
+        commandType: "ChangeProjectPurposeMode",
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        payload: {
+          projectPurposeMode: projectPurposeModeFromBody(body.projectPurposeMode),
+          reason: stringFromBody(body.reason, "reason"),
+          ...(suggestedProjectPurposeMode ? { suggestedProjectPurposeMode } : {})
+        }
       });
     })
   );

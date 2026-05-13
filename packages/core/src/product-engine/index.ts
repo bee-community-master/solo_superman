@@ -17,6 +17,10 @@ import {
   CODEX_RUNTIME_ADAPTER_VERSION,
   CODEX_TURN_PURPOSES,
   CANONICAL_INITIAL_SPEC_SECTIONS,
+  PROJECT_PURPOSE_MODES,
+  PROJECT_PURPOSE_MODE_LABELS,
+  PROJECT_PURPOSE_MODE_REQUIRED_LABEL,
+  PROJECT_PURPOSE_MODE_SKIPPED_COMMERCIALIZATION_AXES,
   PHASE25_CANDIDATE_LANES,
   PHASE25_DELEGATION_RISK_GATE_CHECKS,
   PHASE25_DELEGATION_RISK_GATE_VERDICTS,
@@ -98,6 +102,9 @@ import {
   type ProductEngineRejectionCode,
   type ProductEngineStateSnapshot,
   type Phase15bUpgradeHints,
+  type ProjectPurposeMode,
+  type ProjectPurposeModeAuditActor,
+  type ProjectPurposeModeAuditSnapshot,
   type ProjectId,
   type ProjectionVersion,
   type QueueItemId,
@@ -142,6 +149,29 @@ import { sha256Hex } from "./deterministic-hash";
 export const PACKAGE_SLICE_STATUS = "product-engine-e2e-dry-run-pr-09" as const;
 
 type PrivacyMode = "local_only" | "local_with_manual_export";
+const PROJECT_PURPOSE_MODE_REQUIRED_EFFECT =
+  "사용자가 사업화 검증 중심 또는 개인 workflow 구현 중심을 명시 선택하기 전까지 mode-specific 질문·리서치·완성도·handoff gate를 확정하지 않습니다.";
+const PROJECT_PURPOSE_MODE_DETAILS = {
+  business: {
+    label: PROJECT_PURPOSE_MODE_LABELS.business,
+    effect:
+      "고객, 문제 강도, 유료 의향, 대체재, 채널, 법무/운영 리스크를 질문·리서치·완성도 판단에 포함합니다.",
+    skippedCommercializationAxes: PROJECT_PURPOSE_MODE_SKIPPED_COMMERCIALIZATION_AXES.business
+  },
+  personal: {
+    label: PROJECT_PURPOSE_MODE_LABELS.personal,
+    effect:
+      "시장 규모나 투자자 narrative 대신 workflow 빈도, GUI 적합성, 구현 가능성, local data/security, 유지보수, 개인 성공 기준을 우선합니다.",
+    skippedCommercializationAxes: PROJECT_PURPOSE_MODE_SKIPPED_COMMERCIALIZATION_AXES.personal
+  }
+} as const satisfies Record<
+  ProjectPurposeMode,
+  {
+    readonly label: string;
+    readonly effect: string;
+    readonly skippedCommercializationAxes: readonly string[];
+  }
+>;
 
 const EMPTY_RESEARCH_PROJECTION: ResearchEvidenceProjection = emptyResearchEvidenceProjection();
 
@@ -228,6 +258,56 @@ function reject(
 
 function isPrivacyMode(value: unknown): value is PrivacyMode {
   return value === "local_only" || value === "local_with_manual_export";
+}
+
+function isProjectPurposeMode(value: unknown): value is ProjectPurposeMode {
+  return typeof value === "string" && PROJECT_PURPOSE_MODES.includes(value as ProjectPurposeMode);
+}
+
+function projectPurposeModeFromPayload(value: unknown): ProjectPurposeMode | "invalid" | null {
+  if (value === undefined) {
+    return null;
+  }
+
+  return isProjectPurposeMode(value) ? value : "invalid";
+}
+
+export function projectPurposeModeLabel(mode: ProjectPurposeMode | null | undefined) {
+  return mode ? PROJECT_PURPOSE_MODE_DETAILS[mode].label : PROJECT_PURPOSE_MODE_REQUIRED_LABEL;
+}
+
+export function projectPurposeModeEffect(mode: ProjectPurposeMode | null | undefined) {
+  return mode ? PROJECT_PURPOSE_MODE_DETAILS[mode].effect : PROJECT_PURPOSE_MODE_REQUIRED_EFFECT;
+}
+
+function skippedCommercializationAxes(mode: ProjectPurposeMode | null | undefined) {
+  return mode ? PROJECT_PURPOSE_MODE_DETAILS[mode].skippedCommercializationAxes : [];
+}
+
+function purposeModeReason(mode: ProjectPurposeMode, explicitReason?: string) {
+  return explicitReason ?? `${projectPurposeModeLabel(mode)}으로 사용자 확인된 프로젝트 목적입니다.`;
+}
+
+export function projectPurposeModeSelectionStatus(mode: ProjectPurposeMode | null | undefined) {
+  return mode ? "confirmed" : "mode_required";
+}
+
+function requireConfirmedProjectPurposeMode(
+  state: ProductEngineStateSnapshot,
+  commandName: string
+): ProjectPurposeMode | ProductEngineReduction {
+  if (state.project.projectPurposeMode) {
+    return state.project.projectPurposeMode;
+  }
+
+  return reject(
+    `${commandName} requires a user-confirmed projectPurposeMode before mode-specific gates can run.`,
+    "COMMAND_PRECONDITION_FAILED",
+    {
+      projectPurposeModeSelectionStatus: "mode_required",
+      requiredUserAction: "select_business_or_personal"
+    }
+  );
 }
 
 function isDecisionResolutionStatus(value: unknown): value is Exclude<
@@ -422,6 +502,14 @@ export function decisionQueueProjectionWithRecovery(
     generatedAt,
     stale,
     refetchUrl,
+    ...(projection.projectPurposeMode ? { projectPurposeMode: projection.projectPurposeMode } : {}),
+    ...(projection.projectPurposeModeSelectionStatus
+      ? { projectPurposeModeSelectionStatus: projection.projectPurposeModeSelectionStatus }
+      : {}),
+    ...(projection.modeEffectSummary ? { modeEffectSummary: projection.modeEffectSummary } : {}),
+    ...(projection.skippedCommercializationAxes
+      ? { skippedCommercializationAxes: projection.skippedCommercializationAxes }
+      : {}),
     ...(activeBatch ? { activeBatch } : {}),
     active: projection.active,
     next: projection.next,
@@ -483,7 +571,11 @@ export function createInitialProductEngineState(projectId: ProjectId, sessionId:
     stateVersion: 0 as StateVersion,
     project: {
       projectId,
-      privacyMode: "local_only"
+      privacyMode: "local_only",
+      projectPurposeModeSelectionStatus: "mode_required",
+      projectPurposeModeLabel: projectPurposeModeLabel(null),
+      projectPurposeModeReason: "Project purpose mode must be user-confirmed before mode-specific gates run.",
+      projectPurposeModeAudit: []
     },
     session: {
       sessionId,
@@ -502,13 +594,22 @@ export function createInitialProductEngineState(projectId: ProjectId, sessionId:
   };
 }
 
-function createSessionShellProjection(command: ProductEngineCommand, version: ProjectionVersion) {
+function createSessionShellProjection(
+  command: ProductEngineCommand,
+  version: ProjectionVersion,
+  mode: ProjectPurposeMode | null | undefined,
+  phase: SessionShellProjection["phase"] = "intake"
+) {
   return {
     kind: "SessionShellProjection",
     projectId: command.projectId,
     sessionId: command.sessionId,
     version,
-    phase: "intake"
+    phase,
+    ...(mode ? { projectPurposeMode: mode } : {}),
+    projectPurposeModeSelectionStatus: projectPurposeModeSelectionStatus(mode),
+    projectPurposeModeLabel: projectPurposeModeLabel(mode),
+    projectPurposeModeEffect: projectPurposeModeEffect(mode)
   } as const;
 }
 
@@ -533,6 +634,8 @@ function createLivingSpecProjection(
 type AmbiguityIssueSeed = {
   readonly sectionRef: string;
   readonly topicKey: string;
+  readonly purposeModeAxis?: string;
+  readonly purposeModeEffect?: string;
   readonly uncertaintyType: NonNullable<AmbiguityIssueSnapshot["uncertaintyType"]>;
   readonly severity: NonNullable<AmbiguityIssueSnapshot["severity"]>;
   readonly summary: string;
@@ -544,7 +647,7 @@ type AmbiguityIssueSeed = {
   readonly suggestedResearchTask?: string;
 };
 
-const INITIAL_AMBIGUITY_ISSUE_SEEDS = [
+const BUSINESS_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
   {
     sectionRef: "Target Customer",
     topicKey: "primary_customer_narrowing",
@@ -730,13 +833,150 @@ const INITIAL_AMBIGUITY_ISSUE_SEEDS = [
   }
 ] satisfies readonly AmbiguityIssueSeed[];
 
-function createAmbiguityIssues(sessionId: SessionId, specRef: string): readonly AmbiguityIssueSnapshot[] {
+const PERSONAL_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
+  {
+    sectionRef: "JTBD / Use Case",
+    topicKey: "personal_workflow_context",
+    purposeModeAxis: "workflow",
+    purposeModeEffect: "개인 workflow 구현 중심에서는 실제 사용 흐름을 먼저 잠급니다.",
+    uncertaintyType: "vague",
+    severity: "high",
+    summary: "개인이 반복해서 겪는 workflow가 충분히 구체적이지 않음",
+    whyItMatters: "workflow가 흐리면 GUI, 데이터 입력, 자동화 범위가 서로 다른 문제를 겨냥합니다.",
+    question: "이 도구를 쓰는 실제 개인 workflow는 어떤 순서로 진행되는가?",
+    expectedAnswerType: "text",
+    decisionItUnlocks: "personal workflow와 첫 UX journey 가설을 잠급니다.",
+    routes: ["question", "decision_candidate"]
+  },
+  {
+    sectionRef: "JTBD / Use Case",
+    topicKey: "personal_usage_frequency",
+    purposeModeAxis: "frequency",
+    purposeModeEffect: "시장 규모 대신 사용 빈도와 반복 비용을 검증합니다.",
+    uncertaintyType: "missing",
+    severity: "high",
+    summary: "개인 사용 빈도와 반복 비용이 정의되지 않음",
+    whyItMatters: "자주 쓰지 않는 도구라면 자동화와 GUI 구현 범위를 줄여야 합니다.",
+    question: "이 workflow는 얼마나 자주 발생하고, 매번 어떤 시간이 낭비되는가?",
+    expectedAnswerType: "text",
+    decisionItUnlocks: "success_criteria decision과 개인 효용 기준을 잠급니다.",
+    routes: ["question", "decision_candidate"]
+  },
+  {
+    sectionRef: "MVP Scope",
+    topicKey: "personal_gui_fit",
+    purposeModeAxis: "gui",
+    purposeModeEffect: "개인 모드는 판매 narrative보다 직접 조작 가능한 GUI 필요성을 우선합니다.",
+    uncertaintyType: "decision_required",
+    severity: "high",
+    summary: "GUI가 꼭 필요한지, CLI/문서/자동화로 충분한지 결정되지 않음",
+    whyItMatters: "GUI 필요성이 잠기지 않으면 구현 slice가 과도하게 커집니다.",
+    question: "첫 버전은 GUI가 필요한가, 아니면 CLI/문서/간단한 로컬 화면으로 충분한가?",
+    expectedAnswerType: "choice",
+    decisionItUnlocks: "mvp_scope decision과 UI/non-UI 구현 경계를 잠급니다.",
+    routes: ["question", "decision_candidate", "deferred"]
+  },
+  {
+    sectionRef: "MVP Scope",
+    topicKey: "personal_implementation_feasibility",
+    purposeModeAxis: "implementation",
+    purposeModeEffect: "개인 모드는 구현 가능성과 유지 가능한 slice 크기를 completion 핵심 축으로 둡니다.",
+    uncertaintyType: "unsupported",
+    severity: "high",
+    summary: "현재 리소스로 구현 가능한 첫 slice가 확인되지 않음",
+    whyItMatters: "개인용 도구라도 첫 slice가 너무 크면 완성되지 못하고 유지보수 부채가 됩니다.",
+    question: "현재 시간과 기술 스택으로 가장 작게 구현 가능한 첫 slice는 무엇인가?",
+    expectedAnswerType: "text",
+    decisionItUnlocks: "implementation fit과 Build Slice readiness를 판단합니다.",
+    routes: ["question", "spec_update_candidate"]
+  },
+  {
+    sectionRef: "Known Risks / Open Questions",
+    topicKey: "personal_local_data_security",
+    purposeModeAxis: "local_data_security",
+    purposeModeEffect: "개인 모드는 외부 시장 검증 대신 로컬 데이터와 보안 경계를 먼저 확인합니다.",
+    uncertaintyType: "missing",
+    severity: "high",
+    summary: "로컬 데이터, 파일, 계정, secret 경계가 정리되지 않음",
+    whyItMatters: "개인용 도구도 local data/security 경계를 놓치면 사용자가 실제로 쓰기 어렵습니다.",
+    question: "이 도구가 읽거나 보관할 local data, 계정, secret, 파일 경계는 무엇인가?",
+    expectedAnswerType: "text",
+    decisionItUnlocks: "local data/security risk와 non-goal 경계를 잠급니다.",
+    routes: ["question", "deferred", "decision_candidate"]
+  },
+  {
+    sectionRef: "Non-goals",
+    topicKey: "personal_maintainability_boundary",
+    purposeModeAxis: "maintainability",
+    purposeModeEffect: "개인 모드는 장기 운영 가능성과 유지보수 비용을 명시합니다.",
+    uncertaintyType: "decision_required",
+    severity: "medium",
+    summary: "나중에 유지보수하지 않을 범위가 잠기지 않음",
+    whyItMatters: "개인용 도구는 편해지려다 관리 부담이 더 커질 수 있습니다.",
+    question: "이번 개인용 도구에서 의도적으로 만들지 않을 기능과 유지보수 한계는 무엇인가?",
+    expectedAnswerType: "choice",
+    decisionItUnlocks: "Non-goals section과 maintainability residual risk를 잠급니다.",
+    routes: ["question", "deferred", "decision_candidate"]
+  },
+  {
+    sectionRef: "Success Criteria",
+    topicKey: "personal_success_criteria",
+    purposeModeAxis: "personal_success",
+    purposeModeEffect: "개인 모드는 유료화가 아니라 개인 성공 기준으로 completion을 판단합니다.",
+    uncertaintyType: "vague",
+    severity: "high",
+    summary: "개인 성공 기준이 측정 가능하지 않음",
+    whyItMatters: "성공 기준이 없으면 구현을 멈출 지점과 다음 개선 기준이 모호합니다.",
+    question: "첫 버전이 성공했다고 판단할 개인 기준은 무엇인가?",
+    expectedAnswerType: "text",
+    decisionItUnlocks: "success_criteria decision과 completion gate 판단을 잠급니다.",
+    routes: ["question", "decision_candidate"]
+  },
+  {
+    sectionRef: "Evidence Status",
+    topicKey: "personal_manual_baseline",
+    purposeModeAxis: "workflow_baseline",
+    purposeModeEffect: "개인 모드는 경쟁사 비교 대신 현재 수동 baseline과 개선 폭을 확인합니다.",
+    uncertaintyType: "unsupported",
+    severity: "medium",
+    summary: "현재 수동 방식과 개선 폭이 근거로 연결되지 않음",
+    whyItMatters: "수동 baseline이 없으면 자동화가 실제로 시간을 줄이는지 판단할 수 없습니다.",
+    question: "현재 수동 방식은 무엇이고, 첫 버전은 어떤 단계를 얼마나 줄여야 하는가?",
+    expectedAnswerType: "evidence",
+    decisionItUnlocks: "Evidence Matrix와 personal success criteria를 연결합니다.",
+    routes: ["question", "research_needed"],
+    suggestedResearchTask: "현재 수동 workflow baseline과 자동화 후 개선 폭을 비교합니다."
+  }
+] satisfies readonly AmbiguityIssueSeed[];
+
+function ambiguityIssueSeedsForMode(mode: ProjectPurposeMode) {
+  return mode === "personal" ? PERSONAL_AMBIGUITY_ISSUE_SEEDS : BUSINESS_AMBIGUITY_ISSUE_SEEDS;
+}
+
+function queueProjectionPurposeMetadata(mode: ProjectPurposeMode) {
+  const skippedAxes = skippedCommercializationAxes(mode);
+
+  return {
+    projectPurposeMode: mode,
+    projectPurposeModeSelectionStatus: "confirmed" as const,
+    modeEffectSummary: projectPurposeModeEffect(mode),
+    ...(skippedAxes.length ? { skippedCommercializationAxes: skippedAxes } : {})
+  };
+}
+
+function createAmbiguityIssues(
+  sessionId: SessionId,
+  specRef: string,
+  mode: ProjectPurposeMode
+): readonly AmbiguityIssueSnapshot[] {
   const token = stableToken(`${sessionId}:${specRef}`);
 
-  return INITIAL_AMBIGUITY_ISSUE_SEEDS.map((seed, index) => ({
+  return ambiguityIssueSeedsForMode(mode).map((seed, index) => ({
     queueItemId: `queue_${token}_${index + 1}` as QueueItemId,
     sectionRef: seed.sectionRef,
     topicKey: seed.topicKey,
+    ...(seed.purposeModeAxis ? { purposeModeAxis: seed.purposeModeAxis } : {}),
+    ...(seed.purposeModeEffect ? { purposeModeEffect: seed.purposeModeEffect } : {}),
     uncertaintyType: seed.uncertaintyType,
     severity: seed.severity,
     summary: seed.summary,
@@ -757,16 +997,41 @@ function queueProjectionFromIssues(
   issues: readonly AmbiguityIssueSnapshot[],
   version: ProjectionVersion,
   sessionId: SessionId,
-  generatedAt: string
+  generatedAt: string,
+  mode: ProjectPurposeMode
 ): DecisionQueueProjection {
   return decisionQueueProjectionWithRecovery(
     {
       kind: "DecisionQueueProjection",
       version,
+      ...queueProjectionPurposeMetadata(mode),
       active: issues.map(queueItemProjectionFromIssue),
       next: [],
       blocked: [],
       deferred: []
+    },
+    sessionId,
+    generatedAt
+  );
+}
+
+function queueProjectionWithPurposeMetadata(
+  projection: DecisionQueueProjection,
+  version: ProjectionVersion,
+  sessionId: SessionId,
+  generatedAt: string,
+  mode: ProjectPurposeMode
+): DecisionQueueProjection {
+  return decisionQueueProjectionWithRecovery(
+    {
+      kind: "DecisionQueueProjection",
+      version,
+      ...queueProjectionPurposeMetadata(mode),
+      ...(projection.activeBatch ? { activeBatch: projection.activeBatch } : {}),
+      active: projection.active,
+      next: projection.next,
+      blocked: projection.blocked,
+      deferred: projection.deferred
     },
     sessionId,
     generatedAt
@@ -781,6 +1046,8 @@ function queueItemProjectionFromIssue(issue: AmbiguityIssueSnapshot): QueueItemP
     cardType: "question",
     ...(issue.sectionRef ? { sectionRef: issue.sectionRef } : {}),
     ...(issue.topicKey ? { topicKey: issue.topicKey } : {}),
+    ...(issue.purposeModeAxis ? { purposeModeAxis: issue.purposeModeAxis } : {}),
+    ...(issue.purposeModeEffect ? { purposeModeEffect: issue.purposeModeEffect } : {}),
     ...(issue.severity ? { severity: issue.severity } : {}),
     ...(issue.whyItMatters ? { whyItMatters: issue.whyItMatters } : {}),
     ...(issue.decisionItUnlocks ? { decisionItUnlocks: issue.decisionItUnlocks } : {}),
@@ -1486,19 +1753,48 @@ export function sessionShellPhaseForProductEnginePhase(
 function reduceStartProject(command: ProductEngineCommand, state: ProductEngineStateSnapshot): ProductEngineReduction {
   const rawIdea = requiredString(command.payload.rawIdea);
   const localPrivacyMode = command.payload.localPrivacyMode;
+  const requestedMode = projectPurposeModeFromPayload(command.payload.projectPurposeMode);
+  const suggestedMode = projectPurposeModeFromPayload(command.payload.suggestedProjectPurposeMode);
 
   if (!rawIdea || !isPrivacyMode(localPrivacyMode)) {
     return reject("StartProject requires rawIdea and a valid local privacy mode.", "VALIDATION_FAILED");
+  }
+
+  if (requestedMode === "invalid" || suggestedMode === "invalid" || !requestedMode) {
+    return reject("StartProject requires a supported user-confirmed projectPurposeMode.", "VALIDATION_FAILED");
+  }
+
+  if (command.payload.projectPurposeModeConfirmation !== "user_confirmed") {
+    return reject("StartProject requires projectPurposeModeConfirmation to be user_confirmed.", "VALIDATION_FAILED", {
+      projectPurposeModeSelectionStatus: "mode_required"
+    });
   }
 
   if (numericVersion(state.stateVersion) !== 0) {
     return reject("StartProject can only initialize an empty ProductEngine state.");
   }
 
-  const projection = createSessionShellProjection(command, projectionVersionFor(state));
+  const projectPurposeMode = requestedMode;
+  const projectPurposeModeExplicitReason = requiredString(command.payload.projectPurposeModeReason) ?? undefined;
+  const initialProjectPurposeModeAuditEntry: ProjectPurposeModeAuditSnapshot = {
+    newMode: projectPurposeMode,
+    reason: purposeModeReason(projectPurposeMode, projectPurposeModeExplicitReason),
+    actor: "user",
+    changedAt: command.issuedAt,
+    ...(suggestedMode ? { suggestedMode } : {})
+  };
+  const projectPurposeModeAudit = [initialProjectPurposeModeAuditEntry] as const;
+  const projection = createSessionShellProjection(command, projectionVersionFor(state), projectPurposeMode);
   const event = eventDraft(command, "ProjectStarted", {
     rawIdea,
     localPrivacyMode,
+    projectPurposeMode,
+    projectPurposeModeLabel: projectPurposeModeLabel(projectPurposeMode),
+    projectPurposeModeEffect: projectPurposeModeEffect(projectPurposeMode),
+    projectPurposeModeReason: initialProjectPurposeModeAuditEntry.reason,
+    projectPurposeModeConfirmation: "user_confirmed",
+    ...(suggestedMode ? { suggestedProjectPurposeMode: suggestedMode } : {}),
+    projectPurposeModeAudit,
     sourceNote: typeof command.payload.sourceNote === "string" ? command.payload.sourceNote : undefined,
     sessionPhase: "intake",
     projection
@@ -1512,6 +1808,11 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
       project: {
         projectId: command.projectId,
         privacyMode: localPrivacyMode,
+        projectPurposeMode,
+        projectPurposeModeSelectionStatus: "confirmed",
+        projectPurposeModeLabel: projectPurposeModeLabel(projectPurposeMode),
+        projectPurposeModeReason: initialProjectPurposeModeAuditEntry.reason,
+        projectPurposeModeAudit,
         rawIdeaText: rawIdea
       },
       session: {
@@ -1526,7 +1827,98 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
         outputRef: `project:${command.projectId}:session:${command.sessionId}`,
         payload: {
           rawIdea,
-          localPrivacyMode
+          localPrivacyMode,
+          projectPurposeMode,
+          projectPurposeModeLabel: projectPurposeModeLabel(projectPurposeMode)
+        }
+      }
+    ],
+    [],
+    projection
+  );
+}
+
+function reduceChangeProjectPurposeMode(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  const requestedMode = projectPurposeModeFromPayload(command.payload.projectPurposeMode);
+  const suggestedMode = projectPurposeModeFromPayload(command.payload.suggestedProjectPurposeMode);
+  const reason = requiredString(command.payload.reason);
+
+  if (numericVersion(state.stateVersion) < 1) {
+    return reject("ChangeProjectPurposeMode requires an initialized project.");
+  }
+
+  if (requestedMode === "invalid" || suggestedMode === "invalid" || !requestedMode || !reason) {
+    return reject("ChangeProjectPurposeMode requires a supported projectPurposeMode and a user-visible reason.", "VALIDATION_FAILED");
+  }
+
+  if (requestedMode === state.project.projectPurposeMode) {
+    return reject("ChangeProjectPurposeMode requires a new mode different from the current project purpose mode.");
+  }
+
+  const auditActor: ProjectPurposeModeAuditActor =
+    command.actor === "product_engine" || command.actor === "system" ? command.actor : "user";
+  const auditEntry: ProjectPurposeModeAuditSnapshot = {
+    newMode: requestedMode,
+    reason,
+    actor: auditActor,
+    changedAt: command.issuedAt,
+    ...(state.project.projectPurposeMode ? { previousMode: state.project.projectPurposeMode } : {}),
+    ...(suggestedMode ? { suggestedMode } : {})
+  };
+  const projection = createSessionShellProjection(
+    command,
+    projectionVersionFor(state),
+    requestedMode,
+    sessionShellPhaseForProductEnginePhase(state.session.phase)
+  );
+  const queueProjection = queueProjectionWithPurposeMetadata(
+    state.queueProjection,
+    projectionVersionFor(state),
+    command.sessionId,
+    command.issuedAt,
+    requestedMode
+  );
+  const event = eventDraft(command, "ProjectPurposeModeChanged", {
+    newMode: requestedMode,
+    ...(state.project.projectPurposeMode ? { previousMode: state.project.projectPurposeMode } : {}),
+    projectPurposeModeLabel: projectPurposeModeLabel(requestedMode),
+    projectPurposeModeEffect: projectPurposeModeEffect(requestedMode),
+    reason,
+    actor: auditEntry.actor,
+    changedAt: command.issuedAt,
+    ...(suggestedMode ? { suggestedProjectPurposeMode: suggestedMode } : {}),
+    projection,
+    queueProjection
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      project: {
+        ...state.project,
+        projectPurposeMode: requestedMode,
+        projectPurposeModeSelectionStatus: "confirmed",
+        projectPurposeModeLabel: projectPurposeModeLabel(requestedMode),
+        projectPurposeModeReason: reason,
+        projectPurposeModeAudit: [...state.project.projectPurposeModeAudit, auditEntry]
+      },
+      queueProjection,
+      sessionShellProjection: projection
+    },
+    [
+      {
+        outputType: "reducer_deterministic_output",
+        outputRef: `project-purpose-mode:${command.projectId}:${command.sessionId}:${requestedMode}`,
+        payload: {
+          newMode: requestedMode,
+          ...(state.project.projectPurposeMode ? { previousMode: state.project.projectPurposeMode } : {}),
+          projectPurposeModeLabel: projectPurposeModeLabel(requestedMode),
+          reason
         }
       }
     ],
@@ -1619,7 +2011,12 @@ function reduceAnalyzeAmbiguity(command: ProductEngineCommand, state: ProductEng
     return reject("AnalyzeAmbiguity cannot run while open ambiguity issues already exist.");
   }
 
-  const issues = createAmbiguityIssues(command.sessionId, state.currentSpec.draftRef);
+  const confirmedMode = requireConfirmedProjectPurposeMode(state, "AnalyzeAmbiguity");
+  if (typeof confirmedMode !== "string") {
+    return confirmedMode;
+  }
+
+  const issues = createAmbiguityIssues(command.sessionId, state.currentSpec.draftRef, confirmedMode);
   const event = eventDraft(command, "AmbiguityAnalyzed", {
     targetRef: typeof command.payload.targetRef === "string" ? command.payload.targetRef : state.currentSpec.draftRef,
     issueCount: issues.length,
@@ -1686,7 +2083,18 @@ function reduceActivateQuestionBatch(command: ProductEngineCommand, state: Produ
     return reject("ActivateQuestionBatch cannot replace an already active batch.");
   }
 
-  const projection = queueProjectionFromIssues(candidateIssues, projectionVersionFor(state), command.sessionId, command.issuedAt);
+  const confirmedMode = requireConfirmedProjectPurposeMode(state, "ActivateQuestionBatch");
+  if (typeof confirmedMode !== "string") {
+    return confirmedMode;
+  }
+
+  const projection = queueProjectionFromIssues(
+    candidateIssues,
+    projectionVersionFor(state),
+    command.sessionId,
+    command.issuedAt,
+    confirmedMode
+  );
   const event = eventDraft(command, "QuestionBatchActivated", {
     batchRef: `batch_${stableToken(`${command.sessionId}:${candidateIssues.map((issue) => issue.queueItemId).join(":")}`)}`,
     activeCount: projection.active.length,
@@ -1862,6 +2270,11 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
     return reject("SubmitAnswer requires an active question card.");
   }
 
+  const confirmedMode = requireConfirmedProjectPurposeMode(state, "SubmitAnswer");
+  if (typeof confirmedMode !== "string") {
+    return confirmedMode;
+  }
+
   const projection = queueProjectionWithAnsweredItem(
     state.queueProjection,
     queueItemId as QueueItemId,
@@ -1882,6 +2295,10 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
     sourceQueueItemId: queueItemId as QueueItemId,
     sourceAnswerRef: answerRef,
     objective,
+    projectPurposeMode: confirmedMode,
+    projectPurposeModeLabel: projectPurposeModeLabel(confirmedMode),
+    projectPurposeModeEffect: projectPurposeModeEffect(confirmedMode),
+    skippedCommercializationAxes: skippedCommercializationAxes(confirmedMode),
     routeOutcome,
     impact,
     createdAt: command.issuedAt
@@ -1991,6 +2408,11 @@ function reducePlanResearch(command: ProductEngineCommand, state: ProductEngineS
     return reject("PlanResearch requires a non-empty objective.", "VALIDATION_FAILED");
   }
 
+  const confirmedMode = requireConfirmedProjectPurposeMode(state, "PlanResearch");
+  if (typeof confirmedMode !== "string") {
+    return confirmedMode;
+  }
+
   const sourceQueueItemId = requiredString(command.payload.sourceQueueItemId) as QueueItemId | null;
   const routeOutcome =
     command.payload.routeOutcome === "missing_con_evidence" ? "missing_con_evidence" : "research_needed";
@@ -2001,6 +2423,10 @@ function reducePlanResearch(command: ProductEngineCommand, state: ProductEngineS
     sessionId: command.sessionId,
     ...(sourceQueueItemId ? { sourceQueueItemId } : {}),
     objective,
+    projectPurposeMode: confirmedMode,
+    projectPurposeModeLabel: projectPurposeModeLabel(confirmedMode),
+    projectPurposeModeEffect: projectPurposeModeEffect(confirmedMode),
+    skippedCommercializationAxes: skippedCommercializationAxes(confirmedMode),
     routeOutcome,
     impact,
     createdAt: command.issuedAt
@@ -2907,6 +3333,10 @@ const PLANNING_HANDOFF_ALLOWED_SOURCE_REF_KEYS = [
 const PLANNING_HANDOFF_ALLOWED_REQUESTED_SCOPE_KEYS = [
   "productSlice",
   "userFacingJourneyLabel",
+  "projectPurposeMode",
+  "projectPurposeModeLabel",
+  "projectPurposeModeEffect",
+  "skippedCommercializationAxes",
   "nonGoals",
   "excludedInternalPhases",
   "assumptions"
@@ -3055,8 +3485,13 @@ function planningHandoffRequestedScopeFromValue(value: unknown): PlanningHandoff
 
   const nonGoals = requiredNonEmptyStringArray(value.nonGoals);
   const assumptions = requiredNonEmptyStringArray(value.assumptions);
+  const requestedMode = projectPurposeModeFromPayload(value.projectPurposeMode);
+  const skippedAxes =
+    value.skippedCommercializationAxes === undefined
+      ? null
+      : requiredNonEmptyStringArray(value.skippedCommercializationAxes);
 
-  if (nonGoals === "invalid" || assumptions === "invalid") {
+  if (nonGoals === "invalid" || assumptions === "invalid" || requestedMode === "invalid" || skippedAxes === "invalid") {
     return null;
   }
 
@@ -3075,6 +3510,14 @@ function planningHandoffRequestedScopeFromValue(value: unknown): PlanningHandoff
   return {
     productSlice,
     userFacingJourneyLabel: "Planning-ready",
+    ...(requestedMode ? { projectPurposeMode: requestedMode } : {}),
+    ...(typeof value.projectPurposeModeLabel === "string" && value.projectPurposeModeLabel.trim()
+      ? { projectPurposeModeLabel: value.projectPurposeModeLabel.trim() }
+      : {}),
+    ...(typeof value.projectPurposeModeEffect === "string" && value.projectPurposeModeEffect.trim()
+      ? { projectPurposeModeEffect: value.projectPurposeModeEffect.trim() }
+      : {}),
+    ...(skippedAxes ? { skippedCommercializationAxes: skippedAxes } : {}),
     nonGoals,
     excludedInternalPhases: excludedInternalPhases as PlanningHandoffRequestedScopeDto["excludedInternalPhases"],
     assumptions
@@ -3088,6 +3531,12 @@ function derivePlanningHandoffScope(state: ProductEngineStateSnapshot): Planning
       state.founderBrief?.problemCustomerValue ??
       "Founder planning handoff",
     userFacingJourneyLabel: "Planning-ready",
+    ...(state.project.projectPurposeMode ? { projectPurposeMode: state.project.projectPurposeMode } : {}),
+    projectPurposeModeLabel: projectPurposeModeLabel(state.project.projectPurposeMode),
+    projectPurposeModeEffect: projectPurposeModeEffect(state.project.projectPurposeMode),
+    ...(skippedCommercializationAxes(state.project.projectPurposeMode).length
+      ? { skippedCommercializationAxes: skippedCommercializationAxes(state.project.projectPurposeMode) }
+      : {}),
     nonGoals: [
       "controlled execution",
       "file patches",
@@ -4009,6 +4458,10 @@ function planningHandoffScopeHashMaterial(scope: PlanningHandoffRequestedScopeDt
   return {
     productSlice: scope.productSlice,
     userFacingJourneyLabel: scope.userFacingJourneyLabel,
+    projectPurposeMode: scope.projectPurposeMode ?? null,
+    projectPurposeModeLabel: scope.projectPurposeModeLabel ?? null,
+    projectPurposeModeEffect: scope.projectPurposeModeEffect ?? null,
+    skippedCommercializationAxes: sortedStrings(scope.skippedCommercializationAxes ?? []),
     nonGoals: sortedStrings(scope.nonGoals),
     excludedInternalPhases: sortedStrings(scope.excludedInternalPhases),
     assumptions: sortedStrings(scope.assumptions)
@@ -4234,7 +4687,8 @@ function buildPlanningHandoffFinalArtifact(
     residualRiskRegister,
     phase15bExpectedEvidence
   );
-  const handoffSummary = `Planning-ready handoff가 준비됐습니다: ${scope.productSlice}. 실행 권한 없이 다음 구현 조각과 잔여 리스크만 고정합니다.`;
+  const purposeModeCopy = scope.projectPurposeModeLabel ? `${scope.projectPurposeModeLabel} 기준으로 ` : "";
+  const handoffSummary = `Planning-ready handoff가 준비됐습니다: ${purposeModeCopy}${scope.productSlice}. 실행 권한 없이 다음 구현 조각과 잔여 리스크만 고정합니다.`;
 
   return {
     artifactId,
@@ -4398,6 +4852,11 @@ function reduceCreatePlanningHandoff(
   command: ProductEngineCommand,
   state: ProductEngineStateSnapshot
 ): ProductEngineReduction {
+  const confirmedMode = requireConfirmedProjectPurposeMode(state, "CreatePlanningHandoff");
+  if (typeof confirmedMode !== "string") {
+    return confirmedMode;
+  }
+
   if (containsUnsupportedPlanningHandoffPayload(command)) {
     return reject(
       "CreatePlanningHandoff payload must only include sourceRefs and optional requestedScope.",
@@ -5934,6 +6393,11 @@ function reducePrepareFounderBrief(
     return reject("PrepareFounderBrief requires an initial spec draft.");
   }
 
+  const confirmedMode = requireConfirmedProjectPurposeMode(state, "PrepareFounderBrief");
+  if (typeof confirmedMode !== "string") {
+    return confirmedMode;
+  }
+
   if (command.payload.requestedFormat !== undefined && command.payload.requestedFormat !== "markdown") {
     return reject("PrepareFounderBrief requestedFormat must be markdown.", "VALIDATION_FAILED");
   }
@@ -6005,6 +6469,8 @@ export function reduceProductEngineCommand(
   switch (command.commandType) {
     case "StartProject":
       return reduceStartProject(command, state);
+    case "ChangeProjectPurposeMode":
+      return reduceChangeProjectPurposeMode(command, state);
     case "CaptureIntake":
       return reduceCaptureIntake(command, state);
     case "DraftInitialSpec":
@@ -6060,6 +6526,36 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
       const rawIdeaText = typeof event.payload.rawIdea === "string" ? event.payload.rawIdea : undefined;
       const projection = projectionPayload(event.payload, state.sessionShellProjection);
       const phase = sessionPhaseForProductEngineEvent(event) ?? "intake";
+      const mode = isProjectPurposeMode(event.payload.projectPurposeMode)
+        ? event.payload.projectPurposeMode
+        : undefined;
+      const audit =
+        Array.isArray(event.payload.projectPurposeModeAudit) && mode
+          ? (event.payload.projectPurposeModeAudit as ProductEngineStateSnapshot["project"]["projectPurposeModeAudit"])
+          : mode
+            ? [
+              {
+                newMode: mode,
+                reason: purposeModeReason(
+                  mode,
+                  typeof event.payload.projectPurposeModeReason === "string"
+                    ? event.payload.projectPurposeModeReason
+                    : undefined
+                ),
+                actor: "user" as const,
+                changedAt: event.occurredAt,
+                ...(isProjectPurposeMode(event.payload.suggestedProjectPurposeMode)
+                  ? { suggestedMode: event.payload.suggestedProjectPurposeMode }
+                  : {})
+              }
+            ]
+            : [];
+      const projectPurposeModeReason =
+        typeof event.payload.projectPurposeModeReason === "string"
+          ? event.payload.projectPurposeModeReason
+          : (mode
+              ? (audit[0]?.reason ?? purposeModeReason(mode))
+              : "Project purpose mode selection is required before mode-specific gates run.");
 
       return {
         ...state,
@@ -6067,12 +6563,59 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
         project: {
           projectId: event.projectId,
           privacyMode: isPrivacyMode(event.payload.localPrivacyMode) ? event.payload.localPrivacyMode : "local_only",
+          ...(mode ? { projectPurposeMode: mode } : {}),
+          projectPurposeModeSelectionStatus: projectPurposeModeSelectionStatus(mode),
+          projectPurposeModeLabel: projectPurposeModeLabel(mode),
+          projectPurposeModeReason,
+          projectPurposeModeAudit: audit,
           ...(rawIdeaText ? { rawIdeaText } : {})
         },
         session: {
           sessionId: event.sessionId,
           phase
         },
+        ...(projection ? { sessionShellProjection: projection } : {})
+      };
+    }
+    case "ProjectPurposeModeChanged": {
+      const newMode = isProjectPurposeMode(event.payload.newMode) ? event.payload.newMode : state.project.projectPurposeMode;
+      if (!newMode) {
+        return {
+          ...state,
+          stateVersion: nextStateVersion
+        };
+      }
+      const reason =
+        typeof event.payload.reason === "string"
+          ? event.payload.reason
+          : purposeModeReason(newMode, state.project.projectPurposeModeReason);
+      const actor: ProjectPurposeModeAuditActor =
+        event.payload.actor === "product_engine" || event.payload.actor === "system" ? event.payload.actor : "user";
+      const auditEntry: ProjectPurposeModeAuditSnapshot = {
+        newMode,
+        reason,
+        actor,
+        changedAt: typeof event.payload.changedAt === "string" ? event.payload.changedAt : event.occurredAt,
+        ...(state.project.projectPurposeMode ? { previousMode: state.project.projectPurposeMode } : {}),
+        ...(isProjectPurposeMode(event.payload.suggestedProjectPurposeMode)
+          ? { suggestedMode: event.payload.suggestedProjectPurposeMode }
+          : {})
+      };
+      const projection = projectionPayload(event.payload, state.sessionShellProjection);
+      const queueProjection = queueProjectionPayload(event.payload);
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        project: {
+          ...state.project,
+          projectPurposeMode: newMode,
+          projectPurposeModeSelectionStatus: "confirmed",
+          projectPurposeModeLabel: projectPurposeModeLabel(newMode),
+          projectPurposeModeReason: reason,
+          projectPurposeModeAudit: [...state.project.projectPurposeModeAudit, auditEntry]
+        },
+        ...(queueProjection ? { queueProjection } : {}),
         ...(projection ? { sessionShellProjection: projection } : {})
       };
     }
@@ -6303,10 +6846,26 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
       const projection = projectionPayload(event.payload, state.researchState);
       const confidenceProjection = confidenceProjectionPayload(event.payload) ?? state.completeness;
       const phase = sessionPhaseForProductEngineEvent(event) ?? state.session.phase;
+      const researchTask = objectPayload<ResearchTaskProjection>(event.payload, "researchTask");
+      const eventMode = isProjectPurposeMode(researchTask?.projectPurposeMode)
+        ? researchTask.projectPurposeMode
+        : undefined;
+      const project =
+        !state.project.projectPurposeMode && eventMode
+          ? {
+              ...state.project,
+              projectPurposeMode: eventMode,
+              projectPurposeModeSelectionStatus: "confirmed" as const,
+              projectPurposeModeLabel: projectPurposeModeLabel(eventMode),
+              projectPurposeModeReason:
+                "Project purpose mode was recovered from a replayed ResearchPlanned event generated after user confirmation."
+            }
+          : state.project;
 
       return {
         ...state,
         stateVersion: nextStateVersion,
+        project,
         session: {
           ...state.session,
           phase

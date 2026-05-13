@@ -179,6 +179,7 @@ Phase 1 command type values are closed, and Phase 1.5A allowlist/disclosure/run-
 | CommandType | Purpose |
 | --- | --- |
 | `StartProject` | create project shell from raw idea |
+| `ChangeProjectPurposeMode` | user-confirmed change between business and personal project-purpose modes; records an audit reason and updates shell/planning scope without rewriting the active batch |
 | `CaptureIntake` | store initial idea/intake answer |
 | `DraftInitialSpec` | create initial Living Spec draft material |
 | `AnalyzeAmbiguity` | derive ambiguity issues/confidence projection |
@@ -268,7 +269,7 @@ Example command envelope:
 
 | CommandType group | Payload type | Required fields |
 | --- | --- | --- |
-| project/session intake | `StartProjectPayload`, `CaptureIntakePayload` | raw idea, local privacy mode, optional source note |
+| project/session intake | `StartProjectPayload`, `ChangeProjectPurposeModePayload`, `CaptureIntakePayload` | raw idea, local privacy mode, user-confirmed `projectPurposeMode`, mode-change reason/audit metadata, optional source note |
 | spec/ambiguity | `DraftInitialSpecPayload`, `AnalyzeAmbiguityPayload` | target spec draft/version refs, analysis target refs |
 | queue/answer | `ActivateQuestionBatchPayload`, `SubmitAnswerPayload`, `DeferQueueItemPayload`, `DismissQueueItemPayload` | queue item/batch ids and answer/defer/dismiss reason |
 | research/evidence | `PlanResearchPayload`, `ImportResearchResultPayload`, `SynthesizeEvidencePayload` | research task/result refs, source reliability/metadata, claim/decision/spec/question refs, synthesis target |
@@ -348,7 +349,7 @@ Closed ProductEngine event type groups:
 
 | Group | EventType examples | Notes |
 | --- | --- | --- |
-| project/session | `ProjectStarted`, `IntakeCaptured`, `SessionPhaseChanged` | shell/session state |
+| project/session | `ProjectStarted`, `ProjectPurposeModeChanged`, `IntakeCaptured`, `SessionPhaseChanged` | shell/session state, project-purpose mode audit trail |
 | spec | `InitialSpecDrafted`, `SpecUpdatePreviewCreated`, `SpecVersionCreated` | Living Spec state |
 | ambiguity/queue | `AmbiguityAnalyzed`, `QuestionBatchActivated`, `QueueItemDeferred`, `QueueItemDismissed` | queue and question loop |
 | answer/decision | `AnswerSubmitted`, `DecisionResolved` | user decisions and answer cards |
@@ -717,18 +718,18 @@ Phase 1.5A PR-01 implementation note:
 
 | Projection | Required domain fields |
 | --- | --- |
-| `SessionShellProjection` | project summary, session phase, readiness, active lanes, global pending effects |
-| `DecisionQueueProjection` | active, next, blocked, deferred queue item arrays, active batch id, priority reasons |
+| `SessionShellProjection` | project summary, session phase, readiness, active lanes, global pending effects, user-facing project-purpose mode label/effect |
+| `DecisionQueueProjection` | active, next, blocked, deferred queue item arrays, active batch id, priority reasons, mode effect summary and skipped commercialization axes when personal mode applies |
 | `LivingSpecProjection` | spec sections, current draft/version ref, pending spec update previews, approval status |
 | `ResearchAllowlistProjection` | status, connector ids, source categories, context mode, rate/budget policy including per-session run cap, staleness/disclosure policies, pause/revoke timestamps |
 | `ResearchDisclosureLogProjection` | connector/source category, objective summary, exact public-safe summary sent/prepared, source refs, automatic-vs-manual handoff status |
 | `ResearchRunProjection` | status state machine, provider-neutral reference, attempt/idempotency key, source category, disclosure log ref, quality gate status, terminal reason |
 | `Phase15bUpgradeHintProjection` | readiness/preview/handoff metadata records, sanitized source refs, private payload policy, no-execution semantics, export URL |
-| `ResearchEvidenceProjection` | research tasks, manual handoff prompts, evidence matrix summary, decision evidence packs, pro/con balance, review cards |
-| `ConfidenceCompletionProjection` | five-axis scores, radar data, composite completeness, top risk cards, score history |
+| `ResearchEvidenceProjection` | research tasks, manual handoff prompts, evidence matrix summary, decision evidence packs, pro/con balance, review cards, research tasks annotated with project-purpose mode effect |
+| `ConfidenceCompletionProjection` | five-axis scores, radar data, composite completeness, top risk cards, score history, purpose-mode adjusted next-best actions and skipped commercialization gates |
 | `RuntimeActivityProjection` | effect tasks, Codex runtime status, runtime artifacts, retry/blocked cards, activity feed |
-| `FounderBriefProjection` | if-stop-now artifact, brief draft sections, export readiness, known risks, next validation actions |
-| `PlanningHandoffProjection` | latest final `PlanningHandoffArtifactDto` or latest `PlanningHandoffBlockerArtifactDto`, source refs, gate verdict, build/serve/learning checklist fields on final handoff, readiness/residual-risk summary, refetch URL |
+| `FounderBriefProjection` | if-stop-now artifact, brief draft sections, export readiness, known risks, next validation actions, founder-facing project-purpose mode narrative |
+| `PlanningHandoffProjection` | latest final `PlanningHandoffArtifactDto` or latest `PlanningHandoffBlockerArtifactDto`, source refs, gate verdict, build/serve/learning checklist fields on final handoff, readiness/residual-risk summary, project-purpose mode scope fields, refetch URL |
 | `Phase25ResearchComparisonProjection` | latest `ResearchQualityComparisonReport`, source refs, DelegationRiskGate verdict, baseline/candidate comparison, quality-lift claim flag, safe-failure status, refetch URL |
 | `ExecutionAuthorityLedgerProjection` | latest `ExecutionAuthorityRecord`, `BoundedAgentOutputRecord`, approval decision, requested scope, sandbox boundary, rollback/evidence/audit refs, blocked preconditions, summary, refetch URL |
 

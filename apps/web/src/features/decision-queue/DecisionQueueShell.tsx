@@ -1,6 +1,7 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   CONTRACT_SCHEMA_VERSION,
+  PROJECT_PURPOSE_MODE_LABELS,
   type CodexRuntimeStatusDto,
   type CommandResponse,
   type ConfidenceCompletionProjection,
@@ -9,6 +10,7 @@ import {
   type LivingSpecProjection,
   type Phase15bUpgradeHintProjection,
   type PlanningHandoffProjection,
+  type ProjectPurposeMode,
   type ProjectId,
   type QueueItemId,
   type ResearchAllowlistGovernanceProjection,
@@ -83,6 +85,22 @@ interface ProjectionState {
 const DEFAULT_IDEA = "A focused founder brief generator";
 const DEFAULT_INTAKE =
   "Help solo founders turn a rough idea into a traceable product spec before they start building.";
+const PROJECT_PURPOSE_MODE_OPTIONS = [
+  {
+    mode: "business",
+    label: PROJECT_PURPOSE_MODE_LABELS.business,
+    description: "고객, 문제 강도, 유료 의향, 경쟁, 채널, 법무/운영 리스크를 검증합니다."
+  },
+  {
+    mode: "personal",
+    label: PROJECT_PURPOSE_MODE_LABELS.personal,
+    description: "시장/투자자 narrative 대신 개인 workflow, GUI, 구현 가능성, local data/security를 검증합니다."
+  }
+] as const satisfies readonly {
+  readonly mode: ProjectPurposeMode;
+  readonly label: string;
+  readonly description: string;
+}[];
 const WEB_PUBLIC_SAFE_ALLOWLIST_ID = "research_allowlist_web_public_safe" as ResearchAllowlistId;
 
 function displayError(error: unknown) {
@@ -136,6 +154,8 @@ export function DecisionQueueShell() {
   const [client, setClient] = useState<SidecarClient | null>(null);
   const [idea, setIdea] = useState(DEFAULT_IDEA);
   const [intake, setIntake] = useState(DEFAULT_INTAKE);
+  const [projectPurposeMode, setProjectPurposeMode] = useState<ProjectPurposeMode | null>(null);
+  const [purposeModeChangeReason, setPurposeModeChangeReason] = useState("");
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
   const [researchDrafts, setResearchDrafts] = useState<Record<string, string>>({});
   const [projections, setProjections] = useState<ProjectionState>(emptyProjectionState);
@@ -352,6 +372,11 @@ export function DecisionQueueShell() {
         return;
       }
 
+      if (!projectPurposeMode) {
+        setWorkflowError("프로젝트 목적을 사업화 검증 중심 또는 개인 workflow 구현 중심 중 하나로 선택해야 합니다.");
+        return;
+      }
+
       setIsBusy(true);
       setWorkflowError(null);
       setAnswerDrafts({});
@@ -366,7 +391,10 @@ export function DecisionQueueShell() {
           "Create project",
           await client.createProject({
             rawIdea: idea,
-            localPrivacyMode: "local_only"
+            localPrivacyMode: "local_only",
+            projectPurposeMode,
+            projectPurposeModeConfirmation: "user_confirmed",
+            projectPurposeModeReason: `${PROJECT_PURPOSE_MODE_LABELS[projectPurposeMode]}으로 사용자가 시작 전에 확인했습니다.`
           })
         );
         const session = requiredCommandProjection<SessionShellProjection>(start, "SessionShellProjection");
@@ -405,7 +433,56 @@ export function DecisionQueueShell() {
         setIsBusy(false);
       }
     },
-    [appendCommand, client, idea, intake, refetchQueueAfterSseNotification, refreshProjections]
+    [appendCommand, client, idea, intake, projectPurposeMode, refetchQueueAfterSseNotification, refreshProjections]
+  );
+
+  const changeProjectPurposeMode = useCallback(
+    async (nextMode: ProjectPurposeMode) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active session is required before changing the project purpose mode.");
+        return;
+      }
+
+      if (nextMode === projections.session.projectPurposeMode) {
+        setWorkflowError("Project purpose mode is already set to the selected value.");
+        return;
+      }
+
+      const selectedOption = PROJECT_PURPOSE_MODE_OPTIONS.find((option) => option.mode === nextMode);
+      const reason =
+        purposeModeChangeReason.trim() ||
+        `사용자가 프로젝트 목적을 ${selectedOption?.label ?? nextMode}으로 변경했습니다.`;
+
+      setIsBusy(true);
+      setWorkflowError(null);
+
+      try {
+        const response = await appendCommand(
+          "Change project purpose mode",
+          await client.changeProjectPurposeMode({
+            sessionId: projections.session.sessionId,
+            expectedStateVersion: latestProjectionVersion(projections),
+            projectPurposeMode: nextMode,
+            suggestedProjectPurposeMode: nextMode,
+            reason
+          })
+        );
+        const session = requiredCommandProjection<SessionShellProjection>(response, "SessionShellProjection");
+
+        setProjectPurposeMode(nextMode);
+        setPurposeModeChangeReason("");
+        setProjections((current) => ({
+          ...current,
+          session
+        }));
+        await refreshProjections(session.projectId, session.sessionId);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [appendCommand, client, projections, purposeModeChangeReason, refreshProjections]
   );
 
   const submitAnswer = useCallback(
@@ -995,7 +1072,13 @@ export function DecisionQueueShell() {
     () => planningHandoffViewModel(projections.planningHandoff),
     [projections.planningHandoff]
   );
-  const canStart = connectionState.status === "connected" && Boolean(client) && !isBusy;
+  const canStart =
+    connectionState.status === "connected" &&
+    Boolean(client) &&
+    Boolean(projectPurposeMode) &&
+    Boolean(idea.trim()) &&
+    Boolean(intake.trim()) &&
+    !isBusy;
   const hasActiveResearchAllowlist =
     researchOperations.allowlists?.allowlists.some((allowlist) => allowlist.status === "active") ?? false;
 
@@ -1042,6 +1125,27 @@ export function DecisionQueueShell() {
             Intake answer
             <textarea value={intake} onChange={(event) => setIntake(event.target.value)} rows={5} />
           </label>
+          <fieldset className="mode-fieldset">
+            <legend>Project purpose</legend>
+            {PROJECT_PURPOSE_MODE_OPTIONS.map((option) => (
+              <label className="mode-option" key={option.mode}>
+                <input
+                  checked={projectPurposeMode === option.mode}
+                  name="project-purpose-mode"
+                  onChange={() => setProjectPurposeMode(option.mode)}
+                  type="radio"
+                  value={option.mode}
+                />
+                <span>
+                  <strong>{option.label}</strong>
+                  <small>{option.description}</small>
+                </span>
+              </label>
+            ))}
+            <p className="mode-help">
+              AI가 모드를 제안할 수 있어도 확정은 사용자가 선택합니다. 선택 전에는 mode_required 상태로 두며 이후 변경은 auditable event로 남습니다.
+            </p>
+          </fieldset>
           <button type="submit" disabled={!canStart}>
             {isBusy ? "Running" : "Create first batch"}
           </button>
@@ -1135,7 +1239,39 @@ export function DecisionQueueShell() {
                 <dt>Approval</dt>
                 <dd>{projections.spec?.approvalStatus ?? "draft"}</dd>
               </div>
+              <div>
+                <dt>Project purpose</dt>
+                <dd>{projections.session?.projectPurposeModeLabel ?? "not selected"}</dd>
+              </div>
             </dl>
+            {projections.session?.projectPurposeModeEffect ? (
+              <p className="mode-summary">{projections.session.projectPurposeModeEffect}</p>
+            ) : null}
+            {projections.session ? (
+              <div className="mode-change-panel">
+                <label>
+                  Mode change reason
+                  <input
+                    value={purposeModeChangeReason}
+                    onChange={(event) => setPurposeModeChangeReason(event.target.value)}
+                    placeholder="왜 질문/리서치 기준을 바꾸는지 기록합니다."
+                  />
+                </label>
+                <div className="card-actions">
+                  {PROJECT_PURPOSE_MODE_OPTIONS.map((option) => (
+                    <button
+                      type="button"
+                      disabled={isBusy || projections.session?.projectPurposeMode === option.mode}
+                      key={option.mode}
+                      onClick={() => void changeProjectPurposeMode(option.mode)}
+                    >
+                      {option.label}으로 변경
+                    </button>
+                  ))}
+                </div>
+                <small>변경은 `ProjectPurposeModeChanged` 이벤트로 audit되고 기존 active batch는 유지됩니다.</small>
+              </div>
+            ) : null}
           </section>
 
           <section className="panel">

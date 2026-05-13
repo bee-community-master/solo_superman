@@ -11,6 +11,7 @@ import type {
   QueueItemId,
   ResearchEvidenceProjection,
   ResearchImpact,
+  ProjectPurposeMode,
   ResearchQueueTerminalOutcome,
   ResearchQualityGateCheckProjection,
   ResearchResultId,
@@ -33,6 +34,10 @@ export interface PlanResearchTaskInput {
   readonly researchTaskId: ResearchTaskId;
   readonly sessionId: SessionId;
   readonly objective: string;
+  readonly projectPurposeMode?: ProjectPurposeMode;
+  readonly projectPurposeModeLabel?: string;
+  readonly projectPurposeModeEffect?: string;
+  readonly skippedCommercializationAxes?: readonly string[];
   readonly routeOutcome: ResearchRouteOutcome;
   readonly impact: ResearchImpact;
   readonly createdAt: string;
@@ -327,6 +332,12 @@ export function planResearchTask(input: PlanResearchTaskInput): ResearchTaskProj
     ...(input.sourceQueueItemId ? { sourceQueueItemId: input.sourceQueueItemId } : {}),
     ...(input.sourceAnswerRef ? { sourceAnswerRef: input.sourceAnswerRef } : {}),
     objective: input.objective,
+    ...(input.projectPurposeMode ? { projectPurposeMode: input.projectPurposeMode } : {}),
+    ...(input.projectPurposeModeLabel ? { projectPurposeModeLabel: input.projectPurposeModeLabel } : {}),
+    ...(input.projectPurposeModeEffect ? { projectPurposeModeEffect: input.projectPurposeModeEffect } : {}),
+    ...(input.skippedCommercializationAxes?.length
+      ? { skippedCommercializationAxes: input.skippedCommercializationAxes }
+      : {}),
     routeOutcome: input.routeOutcome,
     impact: input.impact,
     status: "planned",

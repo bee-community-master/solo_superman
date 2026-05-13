@@ -174,6 +174,13 @@ function baseReadyState(): ProductEngineStateSnapshot {
   return {
     ...initialState,
     stateVersion: READY_STATE_VERSION,
+    project: {
+      ...initialState.project,
+      projectPurposeMode: "business",
+      projectPurposeModeSelectionStatus: "confirmed",
+      projectPurposeModeLabel: "사업화 검증 중심",
+      projectPurposeModeReason: "Test fixture confirms business purpose mode."
+    },
     currentSpec: {
       draftRef: "spec_draft_ready",
       versionRef: SPEC_VERSION_REF,
@@ -209,6 +216,9 @@ function baseReadyState(): ProductEngineStateSnapshot {
           researchTaskId: RESEARCH_TASK_ID,
           sessionId: SESSION_ID,
           objective: "Validate the handoff decision evidence.",
+          projectPurposeMode: "business",
+          projectPurposeModeLabel: "사업화 검증 중심",
+          projectPurposeModeEffect: "고객/문제/유료 의향/대체재/채널/법무·운영 리스크를 completion gate와 다음 검증 행동에 유지합니다.",
           routeOutcome: "research_needed",
           impact: "high",
           status: "evidence_ready",
@@ -294,6 +304,11 @@ function baseReadyState(): ProductEngineStateSnapshot {
     completeness: {
       ...initialState.completeness,
       version: READY_PROJECTION_VERSION,
+      projectPurposeMode: "business",
+      projectPurposeModeSelectionStatus: "confirmed",
+      projectPurposeModeLabel: "사업화 검증 중심",
+      projectPurposeModeEffect: "고객/문제/유료 의향/대체재/채널/법무·운영 리스크를 completion gate와 다음 검증 행동에 유지합니다.",
+      skippedCommercializationAxes: [],
       compositeScore: 92,
       readinessLabel: "spec_ready",
       gates: [
@@ -484,7 +499,7 @@ describe("Phase 2 Planning Handoff ProductEngine gate", () => {
     expect(reduction.deterministicOutputs).toEqual([
       expect.objectContaining({
         outputType: "planning_handoff_artifact",
-        outputRef: "handoff_d912dcf3a29eef63c6f7afbff007623e",
+        outputRef: "handoff_09eca92ee7c42d6b985a3e99dd352899",
         payload: expect.objectContaining({
           verdict: "planning_ready",
           artifactKind: "PlanningHandoffArtifact"
@@ -1385,6 +1400,10 @@ describe("Phase 2 Planning Handoff ProductEngine gate", () => {
           kind: "FounderBriefProjection",
           sessionId: SESSION_ID,
           version: READY_PROJECTION_VERSION,
+          projectPurposeMode: "business",
+          projectPurposeModeLabel: "사업화 검증 중심",
+          projectPurposeModeNarrative: "사업화 검증 중심: 고객/문제/유료 의향/채널 리스크를 검증합니다.",
+          skippedCommercializationAxes: [],
           exportReady: true,
           problemCustomerValue: "Planning Handoff customer/problem/value summary",
           topDecisions: ["Proceed with the next build slice."],

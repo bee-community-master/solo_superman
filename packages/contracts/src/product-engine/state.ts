@@ -12,9 +12,47 @@ import type {
 } from "../projections";
 import type { DecisionId, ProjectId, QueueItemId, SessionId, StateVersion } from "../ids";
 
+export const PROJECT_PURPOSE_MODES = ["business", "personal"] as const;
+export type ProjectPurposeMode = (typeof PROJECT_PURPOSE_MODES)[number];
+export type ProjectPurposeModeSelectionStatus = "mode_required" | "confirmed";
+
+export const PROJECT_PURPOSE_MODE_LABELS = {
+  business: "사업화 검증 중심",
+  personal: "개인 workflow 구현 중심"
+} as const satisfies Record<ProjectPurposeMode, string>;
+
+export const PROJECT_PURPOSE_MODE_REQUIRED_LABEL = "프로젝트 목적 선택 필요";
+
+export const PROJECT_PURPOSE_MODE_SKIPPED_COMMERCIALIZATION_AXES = {
+  business: [] as readonly string[],
+  personal: [
+    "market_size",
+    "investor_narrative",
+    "willingness_to_pay",
+    "acquisition_channel",
+    "competition_pressure"
+  ] as readonly string[]
+} as const satisfies Record<ProjectPurposeMode, readonly string[]>;
+
+export type ProjectPurposeModeAuditActor = "user" | "product_engine" | "system";
+
+export interface ProjectPurposeModeAuditSnapshot {
+  readonly previousMode?: ProjectPurposeMode;
+  readonly newMode: ProjectPurposeMode;
+  readonly reason: string;
+  readonly actor: ProjectPurposeModeAuditActor;
+  readonly changedAt: string;
+  readonly suggestedMode?: ProjectPurposeMode;
+}
+
 export interface ProjectSnapshot {
   readonly projectId: ProjectId;
   readonly privacyMode: "local_only" | "local_with_manual_export";
+  readonly projectPurposeMode?: ProjectPurposeMode;
+  readonly projectPurposeModeSelectionStatus?: ProjectPurposeModeSelectionStatus;
+  readonly projectPurposeModeLabel: string;
+  readonly projectPurposeModeReason?: string;
+  readonly projectPurposeModeAudit: readonly ProjectPurposeModeAuditSnapshot[];
   readonly rawIdeaText?: string;
 }
 
@@ -71,6 +109,8 @@ export interface AmbiguityIssueSnapshot {
   readonly queueItemId: QueueItemId;
   readonly sectionRef?: string;
   readonly topicKey?: string;
+  readonly purposeModeAxis?: string;
+  readonly purposeModeEffect?: string;
   readonly uncertaintyType?: AmbiguityIssueUncertaintyType;
   readonly severity?: AmbiguityIssueSeverity;
   readonly summary: string;

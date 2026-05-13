@@ -188,6 +188,14 @@ describe("PR-09 web route client catalog", () => {
     });
   });
 
+  it("marks the Post-Phase3 PR-01 project purpose route with its own mounted lane", () => {
+    expect(findWebRouteClientPlaceholder("changeProjectPurposeMode")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/project-purpose-mode",
+      implementation: "mounted_post_phase3_pr_01"
+    });
+  });
+
   it("marks the Decision Queue SSE notification stream as mounted for refetch recovery", () => {
     expect(findWebRouteClientPlaceholder("subscribeEventStream")).toMatchObject({
       method: "GET",

@@ -8,6 +8,7 @@ import type {
   CompletionCandidateRequest,
   ConfidenceCompletionProjection,
   ConvertRuntimeArtifactRequest,
+  ChangeProjectPurposeModeRequest,
   CreateManualHandoffRequest,
   CreatePlanningHandoffRequest,
   CreateResearchAllowlistRequest,
@@ -72,6 +73,7 @@ export type ScoreCompletenessInput = ScoreCompletenessRequest;
 export type CompletionCandidateInput = CompletionCandidateRequest;
 export type PrepareFounderBriefInput = PrepareFounderBriefRequest;
 export type PrepareResearchDisclosureInput = PrepareResearchDisclosureRequest;
+export type ChangeProjectPurposeModeInput = ChangeProjectPurposeModeRequest;
 export type StartResearchRunInput = StartResearchRunRequest;
 export type CancelResearchRunInput = CancelResearchRunRequest;
 export type RetryResearchRunInput = RetryResearchRunRequest;
@@ -282,6 +284,13 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
   return {
     createProject(input: StartProjectRequest) {
       return postCommand<SessionShellProjection>("/api/v1/projects", input);
+    },
+
+    changeProjectPurposeMode(input: ChangeProjectPurposeModeInput) {
+      return postCommand<SessionShellProjection>(
+        `/api/v1/sessions/${encodeURIComponent(input.sessionId)}/project-purpose-mode`,
+        input
+      );
     },
 
     captureIntake(sessionId: SessionId, expectedStateVersion: StateVersion, answer: string) {
