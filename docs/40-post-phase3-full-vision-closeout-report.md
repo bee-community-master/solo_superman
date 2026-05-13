@@ -59,4 +59,4 @@ The live GitHub issue graph at closeout is:
 - Live ChatGPT browser automation is still not enabled; future work must re-check current OpenAI terms and keep per-run approval, no credential/session custody, revoke, audit, and fallback.
 - External service page-use can read/preview/fill draft under scoped permission, but production final submit remains blocked until a later explicit production-mutation contract exists.
 - Real Windows PowerShell verification may still reveal machine-policy issues; `docs/39-local-install-run-verification.md` contains the manual checklist and blocker-recording rule.
-- #91 remains open as the umbrella tracker until this #106 PR merges and the tracker checklist is updated.
+- Closeout operator must update #91 after this #106 PR merges; if no tracker-scoped child remains open, close #91 rather than leaving the umbrella tracker stale.
