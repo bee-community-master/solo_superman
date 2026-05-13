@@ -365,6 +365,15 @@ function isBlockReason(value: unknown): value is ChatGptBrowserDelegationBlockRe
   );
 }
 
+function resultImportGateStatuses(gate: ChatGptBrowserDelegationResultImportGate) {
+  return [
+    gate.sourceProvenanceStatus,
+    gate.uncertaintyStatus,
+    gate.conEvidenceStatus,
+    gate.staleRiskStatus
+  ] as const;
+}
+
 function isAuditEntry(value: unknown): value is ChatGptBrowserDelegationAuditEntry {
   return (
     isRecord(value) &&
@@ -503,12 +512,7 @@ export function chatGptBrowserDelegationRunValidationIssues(
   }
 
   if (run.resultImportGate) {
-    const gateStatuses = [
-      run.resultImportGate.sourceProvenanceStatus,
-      run.resultImportGate.uncertaintyStatus,
-      run.resultImportGate.conEvidenceStatus,
-      run.resultImportGate.staleRiskStatus
-    ];
+    const gateStatuses = resultImportGateStatuses(run.resultImportGate);
 
     if (
       gateStatuses.some((status) => status !== "pass") &&
@@ -519,12 +523,7 @@ export function chatGptBrowserDelegationRunValidationIssues(
   }
 
   if (run.status === "completed" && run.resultImportGate) {
-    const gateStatuses = [
-      run.resultImportGate.sourceProvenanceStatus,
-      run.resultImportGate.uncertaintyStatus,
-      run.resultImportGate.conEvidenceStatus,
-      run.resultImportGate.staleRiskStatus
-    ];
+    const gateStatuses = resultImportGateStatuses(run.resultImportGate);
 
     if (gateStatuses.some((status) => status !== "pass")) {
       issues.push("completed runs require all resultImportGate statuses to pass");

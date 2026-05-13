@@ -1252,51 +1252,72 @@ describe("PR-02 sidecar health shell", () => {
           }
         }
       );
-      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/chatgpt-browser-delegations`, {
+      const delegationRequestBody = {
+        sessionId,
+        expectedStateVersion: 3,
+        idempotencyKey: "chatgpt-delegation-route:ready",
+        researchTaskId,
+        promptPreviewRef: "prompt_preview_route_ready",
+        dataDisclosurePreview: {
+          disclosurePreviewRef: "disclosure_preview_route_ready",
+          promptContextSummaryRef: "context_summary_route_ready",
+          redactedPromptPreviewRef: "redacted_prompt_route_ready",
+          excludedSensitiveFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
+          redactionPreviewShown: true,
+          userCanEditPromptBeforeRun: true
+        },
+        redactionSummary: {
+          redactionPreviewRef: "redaction_preview_route_ready",
+          redactedFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
+          retainedArtifactKinds: ["prompt", "imported_result", "screenshot", "log"],
+          defaultRetention: "prompt_result_screenshot_log",
+          forbiddenRetentionPolicy: "no_credential_session_secret_2fa_payment_or_legal_sensitive_fields",
+          userExportDeleteControls: true,
+          deletionLeavesAuditMetadataOnly: true
+        },
+        policyRiskVerdict: {
+          verdict: "pass",
+          rationale: "Per-run local research assist only; no account sharing, resale, backend, or unattended queue.",
+          evidenceRefs: ["policy:route:pass"]
+        },
+        sessionOwnershipVerdict: {
+          verdict: "pass",
+          rationale: "User confirms they logged into the local browser directly.",
+          evidenceRefs: ["session:route:owner-confirmed"]
+        },
+        approvalDecision: "approved",
+        browserActionAuthorityRef,
+        screenshotRefs: ["browser_action:screenshot:route-chatgpt-ready"],
+        logRefs: ["browser_action:log:route-chatgpt-ready"],
+        auditRefs: ["audit:chatgpt-browser-delegation:route-ready"]
+      };
+      const invalidStatus = await storageApp.request(`/api/v1/sessions/${sessionId}/chatgpt-browser-delegations`, {
         method: "POST",
         headers: {
           ...authHeaders(),
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          sessionId,
-          expectedStateVersion: 3,
-          idempotencyKey: "chatgpt-delegation-route:ready",
-          researchTaskId,
-          promptPreviewRef: "prompt_preview_route_ready",
-          dataDisclosurePreview: {
-            disclosurePreviewRef: "disclosure_preview_route_ready",
-            promptContextSummaryRef: "context_summary_route_ready",
-            redactedPromptPreviewRef: "redacted_prompt_route_ready",
-            excludedSensitiveFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
-            redactionPreviewShown: true,
-            userCanEditPromptBeforeRun: true
-          },
-          redactionSummary: {
-            redactionPreviewRef: "redaction_preview_route_ready",
-            redactedFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
-            retainedArtifactKinds: ["prompt", "imported_result", "screenshot", "log"],
-            defaultRetention: "prompt_result_screenshot_log",
-            forbiddenRetentionPolicy: "no_credential_session_secret_2fa_payment_or_legal_sensitive_fields",
-            userExportDeleteControls: true,
-            deletionLeavesAuditMetadataOnly: true
-          },
-          policyRiskVerdict: {
-            verdict: "pass",
-            rationale: "Per-run local research assist only; no account sharing, resale, backend, or unattended queue.",
-            evidenceRefs: ["policy:route:pass"]
-          },
-          sessionOwnershipVerdict: {
-            verdict: "pass",
-            rationale: "User confirms they logged into the local browser directly.",
-            evidenceRefs: ["session:route:owner-confirmed"]
-          },
-          approvalDecision: "approved",
-          browserActionAuthorityRef,
-          screenshotRefs: ["browser_action:screenshot:route-chatgpt-ready"],
-          logRefs: ["browser_action:log:route-chatgpt-ready"],
-          auditRefs: ["audit:chatgpt-browser-delegation:route-ready"]
+          ...delegationRequestBody,
+          idempotencyKey: "chatgpt-delegation-route:invalid-status",
+          status: "ready_for_browser_action"
         })
+      });
+      const invalidStatusBody = await jsonBody(invalidStatus);
+
+      expect(invalidStatus.status).toBe(400);
+      expect(invalidStatusBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "status must be a valid ChatGPT browser delegation status."
+      });
+
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/chatgpt-browser-delegations`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(delegationRequestBody)
       });
       const body = await jsonBody(response);
       const data = body.data as Readonly<Record<string, unknown>>;

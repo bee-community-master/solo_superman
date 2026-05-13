@@ -1239,12 +1239,13 @@ export function DecisionQueueShell() {
       setWorkflowError(null);
 
       try {
+        const expectedStateVersion = latestProjectionVersion(projections);
         const response = await appendCommand(
           "Revoke ChatGPT delegation",
           await client.revokeChatGptBrowserDelegationRun({
             sessionId: projections.session.sessionId,
-            expectedStateVersion: latestProjectionVersion(projections),
-            idempotencyKey: `chatgpt-delegation:revoke:${runId}:${latestProjectionVersion(projections)}`,
+            expectedStateVersion,
+            idempotencyKey: `chatgpt-delegation:revoke:${runId}:${expectedStateVersion}`,
             runId,
             reason: "Revoked from the ChatGPT delegation run panel.",
             auditRefs: [`audit:chatgpt-browser-delegation:web-revoke:${runId}`]

@@ -8,6 +8,7 @@ import { chatGptDelegationViewModel } from "./ChatGptDelegationPanel";
 describe("chatGptDelegationViewModel", () => {
   it("surfaces running state, revoke control, artifacts, and ResearchTask activity links", () => {
     const view = chatGptDelegationViewModel(CHATGPT_BROWSER_DELEGATION_READY_PROJECTION_FIXTURE);
+    const artifactControlText = view.artifactControlLabels.join("\n");
 
     expect(view).toMatchObject({
       status: "running",
@@ -22,8 +23,8 @@ describe("chatGptDelegationViewModel", () => {
       "log:browser_action:log:chatgpt-ready"
     ]));
     expect(view.redactionPreviewRef).toBe("redaction_preview_chatgpt_ready");
-    expect(view.artifactControlLabels.join("\n")).toContain("Export retained");
-    expect(view.artifactControlLabels.join("\n")).toContain("Delete retained");
+    expect(artifactControlText).toContain("Export retained");
+    expect(artifactControlText).toContain("Delete retained");
     expect(view.auditItems.join("\n")).toContain("DelegationRunApproved");
     expect(view.retentionLabel).toContain("export/delete controls");
   });

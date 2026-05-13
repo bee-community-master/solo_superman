@@ -5,6 +5,7 @@ import {
   CONTRACT_SCHEMA_VERSION,
   EXECUTION_AUTHORITY_SCHEMA_VERSION,
   type ChatGptBrowserDelegationProjection,
+  type ChatGptBrowserDelegationResultImportGate,
   type CommandId,
   type CorrelationId,
   type EventId,
@@ -172,6 +173,37 @@ function payloadFromReadyFixture(overrides: Readonly<Record<string, unknown>> = 
   };
 }
 
+function passingResultImportGate(
+  overrides: Partial<ChatGptBrowserDelegationResultImportGate> = {}
+): ChatGptBrowserDelegationResultImportGate {
+  return {
+    sourceProvenanceStatus: "pass",
+    uncertaintyStatus: "pass",
+    conEvidenceStatus: "pass",
+    staleRiskStatus: "pass",
+    sourceRefs: ["chatgpt:conversation:hash"],
+    uncertaintyRefs: ["uncertainty:preserved"],
+    conEvidenceRefs: ["con:evidence:preserved"],
+    staleRiskRefs: ["stale-risk:checked"],
+    importRationale: "Candidate output preserves source, uncertainty, counter-evidence, and stale-risk gates.",
+    ...overrides
+  };
+}
+
+function failedResultImportGate(): ChatGptBrowserDelegationResultImportGate {
+  return passingResultImportGate({
+    sourceProvenanceStatus: "pass",
+    uncertaintyStatus: "block",
+    conEvidenceStatus: "block",
+    staleRiskStatus: "pass",
+    sourceRefs: ["chatgpt:conversation:hash-only"],
+    uncertaintyRefs: ["uncertainty:missing"],
+    conEvidenceRefs: ["con:evidence:missing"],
+    staleRiskRefs: ["stale-risk:checked"],
+    importRationale: "Candidate output did not preserve uncertainty or counter-evidence."
+  });
+}
+
 describe("CreateChatGptBrowserDelegationRun reducer", () => {
   it("records an approved per-run local browser delegation preflight without adapter side effects", () => {
     const reduction = reduceProductEngineCommand(command(payloadFromReadyFixture()), stateWithResearchTaskAndBrowserAuthority());
@@ -245,6 +277,35 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
     });
   });
 
+  it("maps named ChatGPT policy risk patterns to durable block codes", () => {
+    const fallbackRun = CHATGPT_BROWSER_DELEGATION_FALLBACK_PROJECTION_FIXTURE.latestRun;
+    const reduction = reduceProductEngineCommand(
+      command(
+        payloadFromReadyFixture({
+          policyRiskVerdict: {
+            verdict: "block",
+            rationale: "Structured policy evidence requires fallback.",
+            evidenceRefs: ["policy:third-party-backend", "policy:project-level-queue"]
+          },
+          browserActionAuthorityRef: undefined,
+          fallbackApplied: fallbackRun.fallbackApplied
+        })
+      ),
+      stateWithResearchTaskAndBrowserAuthority()
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "blocked",
+      latestRun: {
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({ code: "account_sharing_or_resale_risk" }),
+          expect.objectContaining({ code: "unattended_queue_risk" })
+        ])
+      }
+    });
+  });
+
   it("keeps missing approval waiting instead of starting a browser action", () => {
     const reduction = reduceProductEngineCommand(
       command(
@@ -307,17 +368,9 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
         payloadFromReadyFixture({
           status: "importing_result",
           resultImportRef: "research_result_chatgpt_importing_action",
-          resultImportGate: {
-            sourceProvenanceStatus: "pass",
-            uncertaintyStatus: "pass",
-            conEvidenceStatus: "pass",
-            staleRiskStatus: "pass",
-            sourceRefs: ["chatgpt:conversation:hash"],
-            uncertaintyRefs: ["uncertainty:preserved"],
-            conEvidenceRefs: ["con:evidence:preserved"],
-            staleRiskRefs: ["stale-risk:checked"],
+          resultImportGate: passingResultImportGate({
             importRationale: "Candidate output is captured while import remains revokable."
-          }
+          })
         })
       ),
       stateWithResearchTaskAndBrowserAuthority()
@@ -370,17 +423,9 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
           approvalDecision: "pending",
           browserActionAuthorityRef: undefined,
           resultImportRef: "research_result_chatgpt_unapproved",
-          resultImportGate: {
-            sourceProvenanceStatus: "pass",
-            uncertaintyStatus: "pass",
-            conEvidenceStatus: "pass",
-            staleRiskStatus: "pass",
-            sourceRefs: ["chatgpt:conversation:hash"],
-            uncertaintyRefs: ["uncertainty:preserved"],
-            conEvidenceRefs: ["con:evidence:preserved"],
-            staleRiskRefs: ["stale-risk:checked"],
+          resultImportGate: passingResultImportGate({
             importRationale: "Candidate output claims to preserve quality gates before approval."
-          }
+          })
         })
       ),
       stateWithResearchTaskAndBrowserAuthority()
@@ -404,17 +449,9 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
         payloadFromReadyFixture({
           status: "importing_result",
           resultImportRef: "research_result_chatgpt_importing",
-          resultImportGate: {
-            sourceProvenanceStatus: "pass",
-            uncertaintyStatus: "pass",
-            conEvidenceStatus: "pass",
-            staleRiskStatus: "pass",
-            sourceRefs: ["chatgpt:conversation:hash"],
-            uncertaintyRefs: ["uncertainty:preserved"],
-            conEvidenceRefs: ["con:evidence:preserved"],
-            staleRiskRefs: ["stale-risk:checked"],
+          resultImportGate: passingResultImportGate({
             importRationale: "Candidate output is captured while import remains revokable."
-          }
+          })
         })
       ),
       stateWithResearchTaskAndBrowserAuthority()
@@ -477,6 +514,27 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
         auditLog: expect.arrayContaining([expect.objectContaining({ eventType: "DelegationRunRevoked" })])
       }
     });
+
+    const duplicateRevoke = reduceProductEngineCommand(
+      revokeCommand({
+        runId: projection.latestRun.runId,
+        reason: "Duplicate revoke should not append another revoke audit event.",
+        auditRefs: ["audit:chatgpt-browser-delegation:duplicate-revoke"]
+      }, 2 as StateVersion),
+      {
+        ...stateWithResearchTaskAndBrowserAuthority(),
+        stateVersion: 2 as StateVersion,
+        chatGptBrowserDelegation: revoked.immediateProjection as ChatGptBrowserDelegationProjection
+      }
+    );
+
+    expect(duplicateRevoke).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "COMMAND_PRECONDITION_FAILED",
+        message: "RevokeChatGptBrowserDelegationRun can only revoke pending, waiting, running, or importing runs."
+      }
+    });
   });
 
   it("blocks result imports without provenance, uncertainty, con-evidence, and stale-risk gates", () => {
@@ -484,17 +542,7 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
       command(
         payloadFromReadyFixture({
           resultImportRef: "research_result_chatgpt_gate_fail",
-          resultImportGate: {
-            sourceProvenanceStatus: "pass",
-            uncertaintyStatus: "block",
-            conEvidenceStatus: "block",
-            staleRiskStatus: "pass",
-            sourceRefs: ["chatgpt:conversation:hash-only"],
-            uncertaintyRefs: ["uncertainty:missing"],
-            conEvidenceRefs: ["con:evidence:missing"],
-            staleRiskRefs: ["stale-risk:checked"],
-            importRationale: "Candidate output did not preserve uncertainty or counter-evidence."
-          }
+          resultImportGate: failedResultImportGate()
         })
       ),
       stateWithResearchTaskAndBrowserAuthority()
@@ -515,17 +563,7 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
       command(
         payloadFromReadyFixture({
           resultImportRef: "research_result_chatgpt_gate_pass",
-          resultImportGate: {
-            sourceProvenanceStatus: "pass",
-            uncertaintyStatus: "pass",
-            conEvidenceStatus: "pass",
-            staleRiskStatus: "pass",
-            sourceRefs: ["chatgpt:conversation:hash"],
-            uncertaintyRefs: ["uncertainty:preserved"],
-            conEvidenceRefs: ["con:evidence:preserved"],
-            staleRiskRefs: ["stale-risk:checked"],
-            importRationale: "Candidate output preserves source, uncertainty, counter-evidence, and stale-risk gates."
-          }
+          resultImportGate: passingResultImportGate()
         })
       ),
       stateWithResearchTaskAndBrowserAuthority()

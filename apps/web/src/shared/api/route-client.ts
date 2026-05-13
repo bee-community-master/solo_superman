@@ -38,6 +38,47 @@ const POST_PHASE3_PR02_BUSINESS_CRITIC_ROUTE_ID_SET = new Set<string>(POST_PHASE
 const POST_PHASE3_PR04_CHATGPT_DELEGATION_RUN_ROUTE_ID_SET = new Set<string>(
   POST_PHASE3_PR04_CHATGPT_DELEGATION_RUN_ROUTE_IDS
 );
+const IMPLEMENTATION_ROUTE_GROUPS = [
+  {
+    routeIds: PHASE15A_PR03_DISCLOSURE_ROUTE_ID_SET,
+    implementation: "mounted_phase_1_5a_pr_03"
+  },
+  {
+    routeIds: PHASE15A_PR05_RESEARCH_RUN_ROUTE_ID_SET,
+    implementation: "mounted_phase_1_5a_pr_05"
+  },
+  {
+    routeIds: PHASE15B_PR10_HINT_ROUTE_ID_SET,
+    implementation: "mounted_phase_1_5b_pr_10"
+  },
+  {
+    routeIds: PHASE2_PR04_PLANNING_HANDOFF_ROUTE_ID_SET,
+    implementation: "mounted_phase_2_pr_04"
+  },
+  {
+    routeIds: POST_PHASE3_PR02_BUSINESS_CRITIC_ROUTE_ID_SET,
+    implementation: "mounted_post_phase3_pr_02"
+  },
+  {
+    routeIds: POST_PHASE3_PR04_CHATGPT_DELEGATION_RUN_ROUTE_ID_SET,
+    implementation: "mounted_post_phase3_pr_04"
+  },
+  {
+    routeIds: POST_PHASE3_PR01_PROJECT_PURPOSE_ROUTE_ID_SET,
+    implementation: "mounted_post_phase3_pr_01"
+  },
+  {
+    routeIds: PHASE1_QUEUE_RECOVERY_ROUTE_ID_SET,
+    implementation: "mounted_phase_1_queue_recovery"
+  },
+  {
+    routeIds: PHASE15A_PR02_ALLOWLIST_ROUTE_ID_SET,
+    implementation: "mounted_phase_1_5a_pr_02"
+  }
+] as const satisfies readonly {
+  readonly routeIds: ReadonlySet<string>;
+  readonly implementation: WebRouteClientImplementation;
+}[];
 
 export interface WebRouteClientPlaceholder {
   readonly clientName: ProductApiRoute["clientName"];
@@ -56,41 +97,9 @@ function implementationStatus(route: ProductApiRoute): WebRouteClientImplementat
     return "not_mounted_yet";
   }
 
-  if (PHASE15A_PR03_DISCLOSURE_ROUTE_ID_SET.has(route.routeId)) {
-    return "mounted_phase_1_5a_pr_03";
-  }
+  const implementationGroup = IMPLEMENTATION_ROUTE_GROUPS.find((group) => group.routeIds.has(route.routeId));
 
-  if (PHASE15A_PR05_RESEARCH_RUN_ROUTE_ID_SET.has(route.routeId)) {
-    return "mounted_phase_1_5a_pr_05";
-  }
-
-  if (PHASE15B_PR10_HINT_ROUTE_ID_SET.has(route.routeId)) {
-    return "mounted_phase_1_5b_pr_10";
-  }
-
-  if (PHASE2_PR04_PLANNING_HANDOFF_ROUTE_ID_SET.has(route.routeId)) {
-    return "mounted_phase_2_pr_04";
-  }
-
-  if (POST_PHASE3_PR02_BUSINESS_CRITIC_ROUTE_ID_SET.has(route.routeId)) {
-    return "mounted_post_phase3_pr_02";
-  }
-
-  if (POST_PHASE3_PR04_CHATGPT_DELEGATION_RUN_ROUTE_ID_SET.has(route.routeId)) {
-    return "mounted_post_phase3_pr_04";
-  }
-
-  if (POST_PHASE3_PR01_PROJECT_PURPOSE_ROUTE_ID_SET.has(route.routeId)) {
-    return "mounted_post_phase3_pr_01";
-  }
-
-  if (PHASE1_QUEUE_RECOVERY_ROUTE_ID_SET.has(route.routeId)) {
-    return "mounted_phase_1_queue_recovery";
-  }
-
-  return PHASE15A_PR02_ALLOWLIST_ROUTE_ID_SET.has(route.routeId)
-    ? "mounted_phase_1_5a_pr_02"
-    : "mounted_pr_09";
+  return implementationGroup?.implementation ?? "mounted_pr_09";
 }
 
 export const webRouteClientPlaceholders: readonly WebRouteClientPlaceholder[] = API_ROUTE_CATALOG.filter(isProductApiRoute).map((route) => ({

@@ -26,6 +26,7 @@ import type {
   ChatGptBrowserDelegationRedactionSummary,
   ChatGptBrowserDelegationResultImportGate,
   ChatGptBrowserDelegationStatus,
+  ChatGptBrowserDelegationApprovalDecision,
   ChatGptBrowserDelegationVerdictDto
 } from "../projections/chatgpt-browser-delegation";
 import type { PlanningHandoffRequestedScopeDto, PlanningHandoffSourceRefDto } from "../projections/planning-handoff";
@@ -292,7 +293,7 @@ export interface CreateChatGptBrowserDelegationRunRequest extends ScaffoldReques
   readonly redactionSummary: ChatGptBrowserDelegationRedactionSummary;
   readonly policyRiskVerdict: ChatGptBrowserDelegationVerdictDto;
   readonly sessionOwnershipVerdict: ChatGptBrowserDelegationVerdictDto;
-  readonly approvalDecision: "pending" | "approved" | "rejected" | "revision_requested";
+  readonly approvalDecision: ChatGptBrowserDelegationApprovalDecision;
   readonly browserActionAuthorityRef?: string;
   readonly resultImportRef?: ResearchResultId;
   readonly resultImportGate?: ChatGptBrowserDelegationResultImportGate;

@@ -214,6 +214,24 @@ describe("PR-09 web route client catalog", () => {
     });
   });
 
+  it("marks the Post-Phase3 PR-04 ChatGPT delegation run/revoke routes with their own mounted lane", () => {
+    expect(findWebRouteClientPlaceholder("createChatGptBrowserDelegationRun")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/chatgpt-browser-delegations",
+      implementation: "mounted_post_phase3_pr_04"
+    });
+    expect(findWebRouteClientPlaceholder("getChatGptBrowserDelegationRuns")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/sessions/:sessionId/chatgpt-browser-delegations",
+      implementation: "mounted_post_phase3_pr_04"
+    });
+    expect(findWebRouteClientPlaceholder("revokeChatGptBrowserDelegationRun")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/chatgpt-browser-delegations/:runId/revoke",
+      implementation: "mounted_post_phase3_pr_04"
+    });
+  });
+
   it("marks the Decision Queue SSE notification stream as mounted for refetch recovery", () => {
     expect(findWebRouteClientPlaceholder("subscribeEventStream")).toMatchObject({
       method: "GET",

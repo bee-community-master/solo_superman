@@ -12,6 +12,7 @@ import {
   BROWSER_ACTION_CREDENTIAL_MODES,
   BROWSER_ACTION_EXTERNAL_MUTATION_POLICIES,
   BROWSER_ACTION_PREVIEW_KINDS,
+  CHATGPT_BROWSER_DELEGATION_STATUSES,
   EXECUTION_APPROVAL_DECISIONS,
   EXECUTION_AUTHORITY_ACTION_CLASSES,
   EXECUTION_NETWORK_POLICIES,
@@ -33,6 +34,7 @@ import {
   type CancelResearchRunRequest,
   type CreateExecutionAuthorityPayload,
   type CreateExecutionAuthorityRequest,
+  type CreateChatGptBrowserDelegationRunPayload,
   type CreateChatGptBrowserDelegationRunRequest,
   type RevokeChatGptBrowserDelegationRunRequest,
   type BrowserActionPreviewDto,
@@ -1423,7 +1425,7 @@ function createChatGptBrowserDelegationRunRequestFromBody(
     body.browserActionAuthorityRef,
     "browserActionAuthorityRef"
   );
-  const status = optionalStringFromBody(body.status, "status") as CreateChatGptBrowserDelegationRunRequest["status"];
+  const status = optionalChatGptDelegationStatusFromBody(body.status, "status");
   const userVisibleExplanation = optionalStringFromBody(
     body.userVisibleExplanation,
     "userVisibleExplanation"
@@ -1485,6 +1487,53 @@ function createChatGptBrowserDelegationRunRequestFromBody(
     ...(auditRefs ? { auditRefs } : {}),
     ...(activityFeedRefs ? { activityFeedRefs } : {})
   };
+}
+
+function optionalChatGptDelegationStatusFromBody(
+  value: unknown,
+  fieldName: string
+): CreateChatGptBrowserDelegationRunRequest["status"] {
+  const status = optionalStringFromBody(value, fieldName);
+
+  if (status === undefined) {
+    return undefined;
+  }
+
+  if (!CHATGPT_BROWSER_DELEGATION_STATUSES.includes(status as (typeof CHATGPT_BROWSER_DELEGATION_STATUSES)[number])) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      `${fieldName} must be a valid ChatGPT browser delegation status.`
+    );
+  }
+
+  return status as CreateChatGptBrowserDelegationRunRequest["status"];
+}
+
+function chatGptBrowserDelegationPayloadFromRequest(
+  request: CreateChatGptBrowserDelegationRunRequest
+): Readonly<Record<string, unknown>> {
+  const payload = {
+    researchTaskId: request.researchTaskId,
+    ...(request.status ? { status: request.status } : {}),
+    ...(request.userVisibleExplanation ? { userVisibleExplanation: request.userVisibleExplanation } : {}),
+    ...(request.nextAction ? { nextAction: request.nextAction } : {}),
+    promptPreviewRef: request.promptPreviewRef,
+    dataDisclosurePreview: request.dataDisclosurePreview,
+    redactionSummary: request.redactionSummary,
+    policyRiskVerdict: request.policyRiskVerdict,
+    sessionOwnershipVerdict: request.sessionOwnershipVerdict,
+    approvalDecision: request.approvalDecision,
+    ...(request.browserActionAuthorityRef ? { browserActionAuthorityRef: request.browserActionAuthorityRef } : {}),
+    ...(request.resultImportRef ? { resultImportRef: request.resultImportRef } : {}),
+    ...(request.resultImportGate ? { resultImportGate: request.resultImportGate } : {}),
+    ...(request.fallbackApplied ? { fallbackApplied: request.fallbackApplied } : {}),
+    ...(request.screenshotRefs ? { screenshotRefs: request.screenshotRefs } : {}),
+    ...(request.logRefs ? { logRefs: request.logRefs } : {}),
+    ...(request.auditRefs ? { auditRefs: request.auditRefs } : {}),
+    ...(request.activityFeedRefs ? { activityFeedRefs: request.activityFeedRefs } : {})
+  } satisfies CreateChatGptBrowserDelegationRunPayload;
+
+  return payload;
 }
 
 function revokeChatGptBrowserDelegationRunRequestFromBody(
@@ -2582,28 +2631,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         commandType: "CreateChatGptBrowserDelegationRun",
         expectedStateVersion: request.expectedStateVersion,
         idempotencyKey: request.idempotencyKey,
-        payload: {
-          researchTaskId: request.researchTaskId,
-          ...(request.status ? { status: request.status } : {}),
-          ...(request.userVisibleExplanation ? { userVisibleExplanation: request.userVisibleExplanation } : {}),
-          ...(request.nextAction ? { nextAction: request.nextAction } : {}),
-          promptPreviewRef: request.promptPreviewRef,
-          dataDisclosurePreview: request.dataDisclosurePreview,
-          redactionSummary: request.redactionSummary,
-          policyRiskVerdict: request.policyRiskVerdict,
-          sessionOwnershipVerdict: request.sessionOwnershipVerdict,
-          approvalDecision: request.approvalDecision,
-          ...(request.browserActionAuthorityRef
-            ? { browserActionAuthorityRef: request.browserActionAuthorityRef }
-            : {}),
-          ...(request.resultImportRef ? { resultImportRef: request.resultImportRef } : {}),
-          ...(request.resultImportGate ? { resultImportGate: request.resultImportGate } : {}),
-          ...(request.fallbackApplied ? { fallbackApplied: request.fallbackApplied } : {}),
-          ...(request.screenshotRefs ? { screenshotRefs: request.screenshotRefs } : {}),
-          ...(request.logRefs ? { logRefs: request.logRefs } : {}),
-          ...(request.auditRefs ? { auditRefs: request.auditRefs } : {}),
-          ...(request.activityFeedRefs ? { activityFeedRefs: request.activityFeedRefs } : {})
-        }
+        payload: chatGptBrowserDelegationPayloadFromRequest(request)
       });
     })
   );
