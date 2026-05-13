@@ -215,7 +215,6 @@ async function stopProcess(processInfo) {
   }
 
   processInfo.stopping = true;
-  processInfo.child.kill("SIGTERM");
 
   await new Promise((resolve) => {
     const killTimer = setTimeout(() => {
@@ -228,6 +227,8 @@ async function stopProcess(processInfo) {
       globalThis.clearTimeout(killTimer);
       resolve();
     });
+
+    processInfo.child.kill("SIGTERM");
   });
 }
 
