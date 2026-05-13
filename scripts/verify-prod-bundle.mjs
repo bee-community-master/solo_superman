@@ -298,7 +298,9 @@ export async function runProdBundleSmoke() {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+const invokedScriptUrl = process.argv[1] ? pathToFileURL(process.argv[1]).href : null;
+
+if (import.meta.url === invokedScriptUrl) {
   runProdBundleSmoke().catch((error) => {
     console.error(error instanceof Error ? error.stack ?? error.message : error);
     process.exit(1);
