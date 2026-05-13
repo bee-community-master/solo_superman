@@ -582,15 +582,17 @@ Phase 1~2 구현 보강 closeout의 repo-local evidence ledger는 `docs/35-phase
 
 ## Phase 3 web/local controlled execution dry-run
 
-`36-phase3-controlled-execution-contract.md`가 추가된 뒤 문서 검증자는 다음을 확인한다.
+`36-phase3-controlled-execution-contract.md`가 canonical policy를 소유하고, `38-phase3-closeout-evidence.md`가 #92~#97 closeout evidence를 묶는다. 문서 검증자와 `pnpm smoke:e2e`는 다음을 확인한다.
 
-- [ ] Phase 3 canonical topology가 `Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db`로 설명된다.
-- [ ] no hosted SaaS default, no browser-only DB rewrite, no new replacement native shell이 Phase 3 non-goal로 유지된다.
-- [ ] `ExecutionAuthorityRecord`가 source planning handoff, preview artifact, `approvalDecision`, sandbox boundary, `rollbackReference`, `executionResult`, `evidenceRefs`, `auditRefs`를 포함한다.
-- [ ] `BoundedAgentOutputRecord`가 source/evidence/approval 없는 agent output을 suggestion-only 또는 preview-only로 제한한다.
-- [ ] `10`, `17`, `21`, `36`번 문서가 per-run local capability token, loopback-only Local Node/Hono Service, explicit local origin allowlist, CSRF/replay/idempotency guard, hosted web origin not implicit authority를 공유한다.
-- [ ] Phase 3 전 실제 file/shell/browser/deploy/external mutation은 계속 금지된다.
-- [ ] `node scripts/verify-doc-contracts.mjs`가 Phase 3 계약 문서와 stale Tauri future-default 문구를 함께 검증한다.
+- [x] Phase 3 canonical topology가 `Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db`로 설명된다.
+- [x] no hosted SaaS default, no browser-only DB rewrite, no new replacement native shell이 Phase 3 non-goal로 유지된다.
+- [x] `ExecutionAuthorityRecord`가 source planning handoff, preview artifact, `approvalDecision`, sandbox boundary, `rollbackReference`, `executionResult`, `evidenceRefs`, `auditRefs`를 포함한다.
+- [x] `BoundedAgentOutputRecord`가 source/evidence/approval 없는 agent output을 suggestion-only 또는 preview-only로 제한한다.
+- [x] `10`, `17`, `21`, `36`, `38`번 문서가 per-run local capability token, loopback-only Local Node/Hono Service, explicit local origin allowlist, CSRF/replay/idempotency guard, hosted web origin not implicit authority를 공유한다.
+- [x] Unauthorized execution, credential custody, destructive shell command, external-production mutation, hosted SaaS default, browser-only DB rewrite, blanket approval은 `blocked` 또는 non-goal로 유지된다.
+- [x] Scenario J. Phase 3 approved controlled execution dry-run은 common authority -> `file_diff` -> `shell_command` -> `browser_action` completed evidence/audit refs를 남긴다.
+- [x] Scenario K. Phase 3 blocked unsafe execution dry-run은 credential/sandbox/destructive/external target guardrail을 terminal blocked evidence로 남긴다.
+- [x] `node scripts/verify-doc-contracts.mjs`가 Phase 3 계약 문서, closeout evidence, stale Tauri future-default 문구를 함께 검증한다.
 
 ## Post-Phase3 full-vision backlog dry-run
 

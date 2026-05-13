@@ -1,4 +1,5 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { createServer } from "node:http";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -6,6 +7,7 @@ import { applyMigrations, createEventRepository, createSoloStorage, localDatabas
 import {
   CANONICAL_INITIAL_SPEC_SECTIONS,
   CONTRACT_SCHEMA_VERSION,
+  type BrowserActionPreviewDto,
   type BlockedActionType,
   type CommandId,
   type CorrelationId,
@@ -34,8 +36,13 @@ import {
   PHASE15A_ACCEPTANCE_EVIDENCE_MAP,
   PHASE15B_ACCEPTANCE_EVIDENCE_MAP,
   PHASE15B_NO_EXECUTION_ACTION_TYPES,
-  PHASE2_ACCEPTANCE_EVIDENCE_MAP
+  PHASE2_ACCEPTANCE_EVIDENCE_MAP,
+  PHASE3_CLOSEOUT_DRY_RUN_EVIDENCE_MAP,
+  PHASE3_CLOSEOUT_EVIDENCE
 } from "./e2e-dry-run.fixture";
+import { hashBrowserActionPreview } from "./product-engine/browser-action-adapter";
+import { hashFileDiffPreview } from "./product-engine/file-diff-adapter";
+import { hashShellCommandPreview } from "./product-engine/shell-command-adapter";
 
 const localCapabilityToken = "test-local-capability-token";
 const tempDirs: string[] = [];
@@ -44,6 +51,10 @@ const fixtureCodexRuntimeAdapter = createCodexRuntimeAdapter({
   now: () => "2026-05-05T00:00:00.000Z",
   env: {}
 });
+const phase3CloseoutExecutionWindow = {
+  requestedAt: "2026-05-13T00:01:00.000Z",
+  approvalExpiresAt: "2026-05-13T00:05:00.000Z"
+} as const;
 
 interface JsonResponseBody {
   readonly data?: unknown;
@@ -187,6 +198,161 @@ function projectIdFromStart(data: Readonly<Record<string, unknown>>) {
   expect(typeof projection.projectId).toBe("string");
 
   return projection.projectId as string;
+}
+
+function executionAuthorityRequestFixture(
+  sessionId: string,
+  idSuffix: string,
+  overrides: Readonly<Record<string, unknown>> = {}
+) {
+  return {
+    sessionId,
+    expectedStateVersion: 1,
+    idempotencyKey: `phase3-closeout-exec-auth:${idSuffix}`,
+    sourcePlanningHandoffRef: `planning_handoff_${idSuffix}`,
+    boundedAgentOutput: {
+      outputId: `bounded_output_${idSuffix}`,
+      sourceRefs: [`planning_handoff_${idSuffix}`],
+      intendedDecisionImpact: "Validate the Phase 3 closeout controlled execution dry-run.",
+      proposedActionPreviewRefs: [`preview_${idSuffix}`],
+      requiredApprovals: [`approval_${idSuffix}`],
+      evidenceRefs: [`evidence_${idSuffix}`],
+      failureMode: "ready_for_preview",
+      noExecutionPolicy: "controlled_execution_required"
+    },
+    actionClass: "file_diff",
+    previewArtifactRef: `preview_${idSuffix}`,
+    previewArtifactHash: `sha256:${idSuffix}`,
+    reviewedPreviewArtifactHash: `sha256:${idSuffix}`,
+    requestedScope: {
+      workspaceRef: "workspace:phase3-closeout",
+      filePathGlobs: ["packages/**", "apps/**"]
+    },
+    approvalDecision: "approved",
+    approver: {
+      actorId: "phase3_closeout_owner",
+      actorType: "user",
+      approvedAt: "2026-05-13T00:00:00.000Z",
+      decidedAt: "2026-05-13T00:00:00.000Z"
+    },
+    sandboxBoundary: {
+      mode: "workspace_patch",
+      networkPolicy: "blocked",
+      secretPolicy: "no_secret_values"
+    },
+    rollbackReference: {
+      kind: "git_diff_reverse",
+      ref: `rollback_${idSuffix}`
+    },
+    evidenceRefs: [`phase3_closeout_evidence_${idSuffix}`],
+    auditRefs: [`phase3_closeout_audit_${idSuffix}`],
+    preconditionChecks: {
+      planningSourceExists: true,
+      previewArtifactExists: true,
+      previewHashMatches: true,
+      rollbackAvailable: true,
+      credentialValueRequired: false,
+      sandboxEnforced: true
+    },
+    ...overrides
+  };
+}
+
+async function createExecutionAuthorityForE2e(
+  app: ReturnType<typeof createSidecarApp>,
+  sessionId: string,
+  idSuffix: string,
+  overrides: Readonly<Record<string, unknown>> = {}
+) {
+  const { response, body } = await postJson(
+    app,
+    `/api/v1/sessions/${sessionId}/execution-authority`,
+    executionAuthorityRequestFixture(sessionId, idSuffix, overrides)
+  );
+
+  expect(response.status).toBe(200);
+
+  const data = responseData(body);
+  const projection = record(data.immediateProjection);
+  const latestRecord = record(projection.latestRecord);
+
+  return {
+    projection,
+    recordId: stringField(latestRecord, "recordId")
+  };
+}
+
+async function expectLatestExecutionAuthorityRecord(
+  app: ReturnType<typeof createSidecarApp>,
+  sessionId: string,
+  latestRecord: Readonly<Record<string, unknown>>
+) {
+  const ledger = await getJson(app, `/api/v1/sessions/${sessionId}/execution-authority`);
+
+  expect(ledger.response.status).toBe(200);
+  expect(responseData(ledger.body)).toMatchObject({
+    latestRecord
+  });
+}
+
+async function expectAdapterResultAndLatestLedgerRecord(
+  app: ReturnType<typeof createSidecarApp>,
+  sessionId: string,
+  result: Awaited<ReturnType<typeof postJson>>,
+  expectedResult: Readonly<Record<string, unknown>>,
+  expectedLatestRecord: Readonly<Record<string, unknown>>
+) {
+  expect(result.response.status).toBe(200);
+  expect(responseData(result.body)).toMatchObject(expectedResult);
+  await expectLatestExecutionAuthorityRecord(app, sessionId, expectedLatestRecord);
+}
+
+function fileDiffFixture(path: string, beforeLine: string, afterLine: string) {
+  return [
+    `diff --git a/${path} b/${path}`,
+    `--- a/${path}`,
+    `+++ b/${path}`,
+    "@@ -1 +1 @@",
+    `-${beforeLine}`,
+    `+${afterLine}`,
+    ""
+  ].join("\n");
+}
+
+async function createLocalBrowserTargetServer() {
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end("<!doctype html><title>Solo phase 3 closeout</title><h1>Loopback target</h1>");
+  });
+
+  await new Promise<void>((resolveListen, rejectListen) => {
+    server.once("error", rejectListen);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", rejectListen);
+      resolveListen();
+    });
+  });
+
+  const address = server.address();
+
+  if (!address || typeof address === "string") {
+    throw new Error("Local browser target server did not expose a TCP address.");
+  }
+
+  return {
+    targetUrl: `http://127.0.0.1:${address.port}/phase3-closeout`,
+    close: () =>
+      new Promise<void>((resolveClose, rejectClose) => {
+        server.close((error) => {
+          if (error) {
+            rejectClose(error);
+            return;
+          }
+
+          resolveClose();
+        });
+      })
+  };
 }
 
 const planningReadySpecVersionRef = "spec_version_e2e_closeout_ready";
@@ -504,6 +670,433 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         "docs/35 closeout report"
       ])
     );
+  });
+
+  it("maps Phase 3 closeout evidence to approved and blocked controlled execution labels", () => {
+    expect(PHASE3_CLOSEOUT_EVIDENCE.map((item) => item.issue)).toEqual([
+      "#92",
+      "#93",
+      "#94",
+      "#95",
+      "#96",
+      "#97"
+    ]);
+    expect(PHASE3_CLOSEOUT_DRY_RUN_EVIDENCE_MAP.map((item) => item.scenario)).toEqual([
+      "Scenario J. Phase 3 approved controlled execution dry-run",
+      "Scenario K. Phase 3 blocked unsafe execution dry-run"
+    ]);
+    expect(PHASE3_CLOSEOUT_DRY_RUN_EVIDENCE_MAP.flatMap((item) => item.runtimeEvidence)).toEqual(
+      expect.arrayContaining([
+        "ExecutionAuthorityLedgerProjection.ready_for_execution",
+        "FileDiffExecutionResult.completed",
+        "ShellCommandExecutionResult.completed",
+        "BrowserActionExecutionResult.completed",
+        "credential custody blocked",
+        "destructive shell command blocked",
+        "external-production mutation blocked",
+        "blanket approval blocked"
+      ])
+    );
+  });
+
+  it("runs Phase 3 approved and blocked controlled execution through the same authority ledger", async () => {
+    const { app, storage } = await createMigratedStorageApp();
+    let localTarget: Awaited<ReturnType<typeof createLocalBrowserTargetServer>> | undefined;
+
+    try {
+      const workspaceRoot = await makeTempAppDataDir();
+
+      await mkdir(join(workspaceRoot, "packages/contracts/src"), { recursive: true });
+      await writeFile(join(workspaceRoot, "packages/contracts/src/phase3-closeout-target.ts"), "export const value = 1;\n");
+      await writeFile(join(workspaceRoot, "README.md"), "phase 3 closeout workspace\n");
+      localTarget = await createLocalBrowserTargetServer();
+
+      const start = await postJson(app, "/api/v1/projects", {
+        rawIdea: "A Phase 3 closeout controlled execution dry-run idea",
+        localPrivacyMode: "local_only"
+      });
+      const sessionId = sessionIdFromStart(responseData(start.body));
+      let expectedStateVersion = 1;
+      const nextExpectedStateVersion = () => expectedStateVersion++;
+
+      const fileDiff = fileDiffFixture(
+        "packages/contracts/src/phase3-closeout-target.ts",
+        "export const value = 1;",
+        "export const value = 2;"
+      );
+      const fileDiffHash = hashFileDiffPreview(fileDiff);
+      const { projection: fileDiffProjection, recordId: fileDiffRecordId } = await createExecutionAuthorityForE2e(
+        app,
+        sessionId,
+        "phase3_file_diff_completed",
+        {
+          expectedStateVersion: nextExpectedStateVersion(),
+          previewArtifactHash: fileDiffHash,
+          reviewedPreviewArtifactHash: fileDiffHash,
+          requestedScope: {
+            workspaceRef: `workspace:${workspaceRoot}`,
+            filePathGlobs: ["packages/contracts/src/**"]
+          }
+        }
+      );
+
+      expect(fileDiffProjection).toMatchObject({
+        kind: "ExecutionAuthorityLedgerProjection",
+        currentStatus: "ready_for_execution"
+      });
+
+      const fileDiffResult = await postJson(app, `/api/v1/execution-authorities/${fileDiffRecordId}/file-diff`, {
+        sessionId,
+        idempotencyKey: "phase3-closeout:file-diff:completed",
+        previewArtifactHash: fileDiffHash,
+        ...phase3CloseoutExecutionWindow,
+        workspaceRoot,
+        unifiedDiff: fileDiff
+      });
+
+      await expectAdapterResultAndLatestLedgerRecord(
+        app,
+        sessionId,
+        fileDiffResult,
+        {
+          kind: "FileDiffExecutionResult",
+          authorityRecordId: fileDiffRecordId,
+          status: "completed",
+          rollbackReference: {
+            kind: "git_diff_reverse"
+          },
+          evidenceRefs: expect.arrayContaining([
+            expect.stringContaining("file_diff:changed_files:packages/contracts/src/phase3-closeout-target.ts")
+          ]),
+          auditRefs: expect.arrayContaining(["audit:file_diff:phase3-closeout:file-diff:completed"])
+        },
+        {
+          recordId: fileDiffRecordId,
+          executionResult: "completed",
+          evidenceRefs: expect.arrayContaining([
+            expect.stringContaining("file_diff:changed_files:packages/contracts/src/phase3-closeout-target.ts")
+          ]),
+          auditRefs: expect.arrayContaining(["audit:file_diff:phase3-closeout:file-diff:completed"])
+        }
+      );
+
+      const secretDiff = fileDiffFixture("packages/secrets.env", "SECRET=old", "SECRET=new");
+      const secretDiffHash = hashFileDiffPreview(secretDiff);
+      const { recordId: blockedFileDiffRecordId } = await createExecutionAuthorityForE2e(
+        app,
+        sessionId,
+        "phase3_file_diff_blocked",
+        {
+          expectedStateVersion: nextExpectedStateVersion(),
+          previewArtifactHash: secretDiffHash,
+          reviewedPreviewArtifactHash: secretDiffHash,
+          requestedScope: {
+            workspaceRef: `workspace:${workspaceRoot}`,
+            filePathGlobs: ["packages/contracts/src/**"]
+          }
+        }
+      );
+      const blockedFileDiff = await postJson(
+        app,
+        `/api/v1/execution-authorities/${blockedFileDiffRecordId}/file-diff`,
+        {
+          sessionId,
+          idempotencyKey: "phase3-closeout:file-diff:blocked",
+          previewArtifactHash: secretDiffHash,
+          ...phase3CloseoutExecutionWindow,
+          workspaceRoot,
+          unifiedDiff: secretDiff
+        }
+      );
+
+      await expectAdapterResultAndLatestLedgerRecord(
+        app,
+        sessionId,
+        blockedFileDiff,
+        {
+          kind: "FileDiffExecutionResult",
+          status: "blocked",
+          blockReasons: expect.arrayContaining([
+            expect.objectContaining({ code: "sandbox_failure" }),
+            expect.objectContaining({ code: "credential_value_required" })
+          ])
+        },
+        {
+          recordId: blockedFileDiffRecordId,
+          executionResult: "blocked",
+          blockReasons: expect.arrayContaining([
+            expect.objectContaining({ code: "sandbox_failure" }),
+            expect.objectContaining({ code: "credential_value_required" })
+          ]),
+          evidenceRefs: expect.arrayContaining(["file_diff:sensitive_path:packages/secrets.env"]),
+          auditRefs: expect.arrayContaining(["audit:file_diff:phase3-closeout:file-diff:blocked"])
+        }
+      );
+
+      const shellCommand = ["ls", "."] as const;
+      const shellHash = hashShellCommandPreview({ command: shellCommand });
+      const { recordId: shellRecordId } = await createExecutionAuthorityForE2e(
+        app,
+        sessionId,
+        "phase3_shell_completed",
+        {
+          expectedStateVersion: nextExpectedStateVersion(),
+          actionClass: "shell_command",
+          previewArtifactHash: shellHash,
+          reviewedPreviewArtifactHash: shellHash,
+          requestedScope: {
+            workspaceRef: `workspace:${workspaceRoot}`,
+            commandAllowlistRef: "shell_command:default",
+            maxDurationMs: 1_000
+          },
+          sandboxBoundary: {
+            mode: "command_sandbox",
+            networkPolicy: "blocked",
+            secretPolicy: "no_secret_values"
+          },
+          rollbackReference: {
+            kind: "command_compensating_action",
+            ref: "rollback_phase3_shell_completed"
+          }
+        }
+      );
+      const shellResult = await postJson(app, `/api/v1/execution-authorities/${shellRecordId}/shell-command`, {
+        sessionId,
+        idempotencyKey: "phase3-closeout:shell:completed",
+        previewArtifactHash: shellHash,
+        ...phase3CloseoutExecutionWindow,
+        workspaceRoot,
+        command: shellCommand
+      });
+
+      await expectAdapterResultAndLatestLedgerRecord(
+        app,
+        sessionId,
+        shellResult,
+        {
+          kind: "ShellCommandExecutionResult",
+          authorityRecordId: shellRecordId,
+          status: "completed",
+          command: {
+            executable: "ls",
+            commandClass: "diagnostic",
+            timedOut: false
+          },
+          evidenceRefs: expect.arrayContaining([expect.stringContaining("shell_command:exit_code:0")]),
+          auditRefs: expect.arrayContaining(["audit:shell_command:phase3-closeout:shell:completed"])
+        },
+        {
+          recordId: shellRecordId,
+          executionResult: "completed",
+          evidenceRefs: expect.arrayContaining([expect.stringContaining("shell_command:exit_code:0")]),
+          auditRefs: expect.arrayContaining(["audit:shell_command:phase3-closeout:shell:completed"])
+        }
+      );
+
+      const destructiveCommand = ["rm", "-rf", "."] as const;
+      const destructiveHash = hashShellCommandPreview({ command: destructiveCommand });
+      const { recordId: destructiveRecordId } = await createExecutionAuthorityForE2e(
+        app,
+        sessionId,
+        "phase3_shell_blocked",
+        {
+          expectedStateVersion: nextExpectedStateVersion(),
+          actionClass: "shell_command",
+          previewArtifactHash: destructiveHash,
+          reviewedPreviewArtifactHash: destructiveHash,
+          requestedScope: {
+            workspaceRef: `workspace:${workspaceRoot}`,
+            commandAllowlistRef: "shell_command:default",
+            maxDurationMs: 1_000
+          },
+          sandboxBoundary: {
+            mode: "command_sandbox",
+            networkPolicy: "blocked",
+            secretPolicy: "no_secret_values"
+          },
+          rollbackReference: {
+            kind: "command_compensating_action",
+            ref: "rollback_phase3_shell_blocked"
+          }
+        }
+      );
+      const blockedShell = await postJson(app, `/api/v1/execution-authorities/${destructiveRecordId}/shell-command`, {
+        sessionId,
+        idempotencyKey: "phase3-closeout:shell:blocked",
+        previewArtifactHash: destructiveHash,
+        ...phase3CloseoutExecutionWindow,
+        workspaceRoot,
+        command: destructiveCommand
+      });
+
+      await expectAdapterResultAndLatestLedgerRecord(
+        app,
+        sessionId,
+        blockedShell,
+        {
+          kind: "ShellCommandExecutionResult",
+          status: "blocked",
+          blockReasons: expect.arrayContaining([
+            expect.objectContaining({
+              code: "sandbox_failure"
+            })
+          ])
+        },
+        {
+          recordId: destructiveRecordId,
+          executionResult: "blocked",
+          blockReasons: expect.arrayContaining([
+            expect.objectContaining({
+              code: "sandbox_failure"
+            })
+          ]),
+          evidenceRefs: expect.arrayContaining(["shell_command:sandbox_failure"]),
+          auditRefs: expect.arrayContaining(["audit:shell_command:phase3-closeout:shell:blocked"])
+        }
+      );
+
+      const browserAction = {
+        kind: "navigate_and_capture",
+        visibleAction: true,
+        credentialMode: "none",
+        externalMutation: "blocked"
+      } as const satisfies BrowserActionPreviewDto;
+      const browserHash = hashBrowserActionPreview({ targetUrl: localTarget.targetUrl, action: browserAction });
+      const { recordId: browserRecordId } = await createExecutionAuthorityForE2e(
+        app,
+        sessionId,
+        "phase3_browser_completed",
+        {
+          expectedStateVersion: nextExpectedStateVersion(),
+          actionClass: "browser_action",
+          previewArtifactHash: browserHash,
+          reviewedPreviewArtifactHash: browserHash,
+          requestedScope: {
+            browserTargetRef: `browser_target:${new URL(localTarget.targetUrl).origin}`,
+            maxDurationMs: 1_000
+          },
+          sandboxBoundary: {
+            mode: "browser_preview_session",
+            networkPolicy: "loopback_only",
+            secretPolicy: "no_secret_values"
+          },
+          rollbackReference: {
+            kind: "browser_state_reset",
+            ref: "rollback_phase3_browser_completed"
+          }
+        }
+      );
+      const browserResult = await postJson(app, `/api/v1/execution-authorities/${browserRecordId}/browser-action`, {
+        sessionId,
+        idempotencyKey: "phase3-closeout:browser:completed",
+        previewArtifactHash: browserHash,
+        ...phase3CloseoutExecutionWindow,
+        targetUrl: localTarget.targetUrl,
+        action: browserAction
+      });
+
+      await expectAdapterResultAndLatestLedgerRecord(
+        app,
+        sessionId,
+        browserResult,
+        {
+          kind: "BrowserActionExecutionResult",
+          authorityRecordId: browserRecordId,
+          status: "completed",
+          target: {
+            hostname: "127.0.0.1"
+          },
+          screenshotRefs: expect.arrayContaining(["browser_action:screenshot:phase3-closeout:browser:completed"]),
+          logRefs: expect.arrayContaining([expect.stringContaining("browser_action:log:phase3-closeout:browser:completed")]),
+          rollbackReference: {
+            kind: "browser_state_reset"
+          },
+          evidenceRefs: expect.arrayContaining([
+            expect.stringContaining("browser_action:http_status:200"),
+            "browser_action:screenshot:phase3-closeout:browser:completed"
+          ]),
+          auditRefs: expect.arrayContaining(["audit:browser_action:phase3-closeout:browser:completed"])
+        },
+        {
+          recordId: browserRecordId,
+          executionResult: "completed",
+          evidenceRefs: expect.arrayContaining([
+            expect.stringContaining("browser_action:http_status:200"),
+            "browser_action:screenshot:phase3-closeout:browser:completed"
+          ]),
+          auditRefs: expect.arrayContaining(["audit:browser_action:phase3-closeout:browser:completed"])
+        }
+      );
+
+      const externalTargetUrl = "https://example.com/phase3-closeout";
+      const externalHash = hashBrowserActionPreview({ targetUrl: externalTargetUrl, action: browserAction });
+      const { recordId: externalBrowserRecordId } = await createExecutionAuthorityForE2e(
+        app,
+        sessionId,
+        "phase3_browser_blocked",
+        {
+          expectedStateVersion: nextExpectedStateVersion(),
+          actionClass: "browser_action",
+          previewArtifactHash: externalHash,
+          reviewedPreviewArtifactHash: externalHash,
+          requestedScope: {
+            browserTargetRef: "browser_target:https://example.com",
+            maxDurationMs: 1_000
+          },
+          sandboxBoundary: {
+            mode: "browser_preview_session",
+            networkPolicy: "loopback_only",
+            secretPolicy: "no_secret_values"
+          },
+          rollbackReference: {
+            kind: "browser_state_reset",
+            ref: "rollback_phase3_browser_blocked"
+          }
+        }
+      );
+      const blockedBrowser = await postJson(
+        app,
+        `/api/v1/execution-authorities/${externalBrowserRecordId}/browser-action`,
+        {
+          sessionId,
+          idempotencyKey: "phase3-closeout:browser:blocked",
+          previewArtifactHash: externalHash,
+          ...phase3CloseoutExecutionWindow,
+          targetUrl: externalTargetUrl,
+          action: browserAction
+        }
+      );
+
+      await expectAdapterResultAndLatestLedgerRecord(
+        app,
+        sessionId,
+        blockedBrowser,
+        {
+          kind: "BrowserActionExecutionResult",
+          status: "blocked",
+          blockReasons: expect.arrayContaining([
+            expect.objectContaining({
+              code: "sandbox_failure",
+              message: expect.stringContaining("loopback HTTP")
+            })
+          ])
+        },
+        {
+          recordId: externalBrowserRecordId,
+          executionResult: "blocked",
+          blockReasons: expect.arrayContaining([
+            expect.objectContaining({
+              code: "sandbox_failure"
+            })
+          ]),
+          evidenceRefs: expect.arrayContaining(["browser_action:sandbox_failure"]),
+          auditRefs: expect.arrayContaining(["audit:browser_action:phase3-closeout:browser:blocked"])
+        }
+      );
+    } finally {
+      await localTarget?.close();
+      await storage.close();
+    }
   });
 
   it("runs an allowlisted Phase 1.5A research lifecycle with status/refetch recovery and no external write", async () => {

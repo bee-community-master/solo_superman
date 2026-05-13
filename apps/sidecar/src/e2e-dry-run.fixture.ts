@@ -221,3 +221,97 @@ export const PHASE1_2_CLOSEOUT_EVIDENCE = [
     evidence: ["pnpm smoke:e2e", "node scripts/verify-doc-contracts.mjs", "docs/35 closeout report"]
   }
 ] as const;
+
+export const PHASE3_CLOSEOUT_EVIDENCE = [
+  {
+    issue: "#92",
+    slice: "common ledger/authority",
+    evidence: [
+      "ExecutionAuthorityRecord",
+      "BoundedAgentOutputRecord",
+      "approvalDecision pending/approved",
+      "executionResult running terminal family"
+    ]
+  },
+  {
+    issue: "#93",
+    slice: "approval/API security boundary",
+    evidence: [
+      "POST /api/v1/sessions/:sessionId/execution-authority",
+      "preflight exact preview hash",
+      "local token + loopback + CSRF/replay"
+    ]
+  },
+  {
+    issue: "#94",
+    slice: "file_diff controlled adapter",
+    evidence: [
+      "FileDiffExecutionResult.completed",
+      "git_diff_reverse",
+      "credential/secret/repo-outside/symlink escape blocked"
+    ]
+  },
+  {
+    issue: "#95",
+    slice: "shell_command controlled adapter",
+    evidence: [
+      "ShellCommandExecutionResult.completed",
+      "repo scripts + read-only diagnostics allowlist",
+      "destructive shell command blocked"
+    ]
+  },
+  {
+    issue: "#96",
+    slice: "browser_action controlled adapter",
+    evidence: [
+      "BrowserActionExecutionResult.completed",
+      "loopback-only browser target policy",
+      "external-production mutation and blanket approval blocked"
+    ]
+  },
+  {
+    issue: "#97",
+    slice: "closeout hardening",
+    evidence: [
+      "docs/38 Phase 3 closeout evidence",
+      "Phase 3 approved/blocked E2E dry-run",
+      "docs/verifier Phase 3 guardrails"
+    ]
+  }
+] as const;
+
+export const PHASE3_CLOSEOUT_DRY_RUN_EVIDENCE_MAP = [
+  {
+    scenario: "Scenario J. Phase 3 approved controlled execution dry-run",
+    sourceDocs: [
+      "docs/12-validation-and-dry-run.md",
+      "docs/36-phase3-controlled-execution-contract.md",
+      "docs/38-phase3-closeout-evidence.md"
+    ],
+    runtimeEvidence: [
+      "CreateExecutionAuthority",
+      "ExecutionAuthorityLedgerProjection.ready_for_execution",
+      "FileDiffExecutionResult.completed",
+      "ShellCommandExecutionResult.completed",
+      "BrowserActionExecutionResult.completed",
+      "terminal evidence/audit refs"
+    ]
+  },
+  {
+    scenario: "Scenario K. Phase 3 blocked unsafe execution dry-run",
+    sourceDocs: [
+      "docs/12-validation-and-dry-run.md",
+      "docs/36-phase3-controlled-execution-contract.md",
+      "docs/38-phase3-closeout-evidence.md"
+    ],
+    runtimeEvidence: [
+      "preview_hash_or_sandbox_failure blocked",
+      "credential custody blocked",
+      "destructive shell command blocked",
+      "external-production mutation blocked",
+      "hosted SaaS default blocked",
+      "browser-only DB rewrite blocked",
+      "blanket approval blocked"
+    ]
+  }
+] as const;

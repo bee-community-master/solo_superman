@@ -407,6 +407,7 @@ Phase 3 execution API behavior is canonical in `36-phase3-controlled-execution-c
 - `approvalDecision` starts as `pending`; pending/rejected/revoked/expired records cannot execute.
 - `approvalDecision` must be `approved`, unexpired, and tied to the exact preview artifact hash.
 - `executionResult` may become `running` only after approval, sandbox, preview hash, and rollback checks pass; `cancelled`/`rolled_back` are not MVP result states.
+- Phase 3 closeout evidence is tracked in `38-phase3-closeout-evidence.md`; `pnpm smoke:e2e` must keep approved `file_diff`/`shell_command`/`browser_action` paths and blocked credential/destructive/external target paths visible as terminal ledger evidence.
 - `rollbackReference`, `evidenceRefs`, and `auditRefs` are required for completion claims.
 - Missing source planning handoff, missing preview, missing approval, missing rollback, sandbox enforcement failure, or credential value requirement returns `blocked`.
 - ProductEngine core remains pure reducer + effect plan; route handlers and adapters cannot bypass contracts/db/audit records.
@@ -455,8 +456,8 @@ When Codex app-server is unavailable or the user chooses not to connect it:
 - Implement SSE reconnect behavior before long-running runtime preview UI.
 - Validate the `27-operations-observability-contract.md` incidents before claiming long-running effect UI is production-ready.
 - Implement Codex app-server status detection before creating runtime preview turns.
-- Complete #86, #87, and #88 before implementing Phase 3 controlled execution routes.
-- Implement Phase 3 local service token, loopback-only, explicit CORS allowlist, CSRF/replay/idempotency checks before controlled execution routes.
-- Implement common ledger/authority routes before any `file_diff`, `shell_command`, or `browser_action` adapter route.
-- Keep Phase 3 route placeholders in `26-api-route-behavior-catalog.md` synchronized with this boundary; when code exists, add the route to the mounted catalog in the same implementation slice.
+- Keep #86, #87, and #88 as completed migration prerequisites; do not reopen native shell or browser-only DB rewrite paths during Phase 3 closeout.
+- Preserve Phase 3 local service token, loopback-only, explicit CORS allowlist, CSRF/replay/idempotency checks before controlled execution routes.
+- Preserve common ledger/authority routes before any `file_diff`, `shell_command`, or `browser_action` adapter route.
+- Keep Phase 3 route rows in `26-api-route-behavior-catalog.md` synchronized with this boundary and `38-phase3-closeout-evidence.md`; when code exists, keep the route in the mounted catalog in the same implementation slice.
 - Treat generated Codex schema as versioned implementation input.

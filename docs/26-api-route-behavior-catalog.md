@@ -248,7 +248,7 @@ Endpoint names:
 
 ## Phase 3 Controlled Execution route placeholders
 
-이 섹션은 `36-phase3-controlled-execution-contract.md`와 `21-sidecar-api-runtime-contract.md`를 endpoint behavior로 연결한다. #86, #87, #88 web-local migration prerequisite이 완료된 뒤 PR-01 common ledger/authority slice는 `CreateExecutionAuthority`, `ExecutionAuthorityLedgerProjection`, `executionAuthorityRepository`로 code-backed ProductEngine/storage surface가 됐다. #93은 common ledger/authority Hono route와 adapter preflight guard를 mounted route로 승격했고, #94는 `file_diff` controlled adapter route를 exact preview hash + workspace/path/rollback/evidence/audit guard 뒤에 mounted surface로 연다. #95는 `shell_command` controlled adapter route를 exact argv preview hash + workspace/cwd/allowlist/timeout/rollback/evidence/audit guard 뒤에 mounted surface로 연다. #96은 `browser_action` controlled adapter route를 exact target/action preview hash + loopback target/reset/screenshot/log/evidence/audit guard 뒤에 mounted surface로 연다.
+이 섹션은 `36-phase3-controlled-execution-contract.md`, `21-sidecar-api-runtime-contract.md`, `38-phase3-closeout-evidence.md`를 endpoint behavior로 연결한다. #86, #87, #88 web-local migration prerequisite이 완료된 뒤 PR-01 common ledger/authority slice는 `CreateExecutionAuthority`, `ExecutionAuthorityLedgerProjection`, `executionAuthorityRepository`로 code-backed ProductEngine/storage surface가 됐다. #93은 common ledger/authority Hono route와 adapter preflight guard를 mounted route로 승격했고, #94는 `file_diff` controlled adapter route를 exact preview hash + workspace/path/rollback/evidence/audit guard 뒤에 mounted surface로 연다. #95는 `shell_command` controlled adapter route를 exact argv preview hash + workspace/cwd/allowlist/timeout/rollback/evidence/audit guard 뒤에 mounted surface로 연다. #96은 `browser_action` controlled adapter route를 exact target/action preview hash + loopback target/reset/screenshot/log/evidence/audit guard 뒤에 mounted surface로 연다. #97 closeout은 approved/blocked route behavior를 E2E dry-run fixture와 docs/verifier guardrail로 고정한다.
 
 Placeholder route families:
 
@@ -285,13 +285,13 @@ Placeholder route families:
   - Target default: allowed targets are `localhost`, `127.0.0.1`, `::1`, and explicit local web/sidecar ports. LAN/private IP targets and cloud preview URLs are outside MVP target policy.
   - Errors/preconditions: external-production mutation, blanket/project-level approval, credential/session custody, credential-bearing target URL, missing browser reset boundary, LAN/private/cloud target, or target outside loopback policy returns `blocked` until a later explicit contract changes the class.
 
-Phase 3 route placeholder acceptance:
+Phase 3 route closeout acceptance:
 
 - The behavior catalog must keep the sequence common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`.
 - A route family cannot claim execution success without `ExecutionAuthorityRecord.approvalDecision = approved`, exact preview hash match, rollback reference, evidence refs, and audit refs.
-- Concrete route naming can follow later implementation slices, but the ProductEngine/application command boundary and these fail-closed defaults are authoritative for #93.
-- Placeholder wording must not imply current-MVP support for credential custody, hosted control plane, destructive shell command allowlist, 모바일 승인, 팀 협업, 제품 결제/과금, external-production mutation, or blanket approval.
-- Once a Phase 3 route is implemented in code, this section must be promoted into concrete endpoint rows and `packages/contracts/src/api/routes.ts` in the same implementation slice.
+- Concrete route naming is now represented by endpoint rows and `packages/contracts/src/api/routes.ts`; the ProductEngine/application command boundary and these fail-closed defaults remain authoritative.
+- Wording must not imply current-MVP support for unauthorized execution, credential custody, hosted control plane, hosted SaaS default, browser-only DB rewrite, destructive shell command allowlist, 모바일 승인, 팀 협업, 제품 결제/과금, external-production mutation, or blanket approval.
+- Concrete endpoint rows and `packages/contracts/src/api/routes.ts` must remain synchronized with `PHASE3_CLOSEOUT_DRY_RUN_EVIDENCE_MAP`.
 
 ## Required acceptance scenarios
 

@@ -708,6 +708,7 @@ const PHASE12_CLOSEOUT_FIXTURE_SNIPPETS = [
 
 
 const PHASE3_DOC_PATH = "docs/36-phase3-controlled-execution-contract.md";
+const PHASE3_CLOSEOUT_DOC_PATH = "docs/38-phase3-closeout-evidence.md";
 
 const PHASE3_REQUIRED_REFERENCES = [
   "docs/README.md",
@@ -728,7 +729,8 @@ const PHASE3_REQUIRED_REFERENCES = [
   "docs/32-phase2-implementation-preflight-contract.md",
   "docs/33-build-slice-serve-learning-loop.md",
   "docs/34-phase2.5-browser-automation-preview-contract.md",
-  "docs/35-phase1-2-closeout-evidence.md"
+  "docs/35-phase1-2-closeout-evidence.md",
+  PHASE3_CLOSEOUT_DOC_PATH
 ];
 
 const PHASE3_REQUIRED_CONTRACT_SNIPPETS = [
@@ -762,6 +764,60 @@ const PHASE3_REQUIRED_CONTRACT_SNIPPETS = [
   "browser_action",
   "destructive shell command",
   "explicit contract"
+];
+
+const PHASE3_CLOSEOUT_REQUIRED_REFERENCES = [
+  "docs/README.md",
+  "docs/12-validation-and-dry-run.md",
+  "docs/21-sidecar-api-runtime-contract.md",
+  "docs/25-contracts-dto-catalog.md",
+  "docs/26-api-route-behavior-catalog.md",
+  "docs/29-phase-capability-implementation-matrix.md",
+  "docs/36-phase3-controlled-execution-contract.md"
+];
+
+const PHASE3_CLOSEOUT_REQUIRED_SNIPPETS = [
+  "#92",
+  "#93",
+  "#94",
+  "#95",
+  "#96",
+  "#97",
+  "Phase 3 approved/blocked E2E dry-run",
+  "common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`",
+  "ExecutionAuthorityRecord",
+  "FileDiffExecutionResult.status = completed",
+  "ShellCommandExecutionResult.status = completed",
+  "BrowserActionExecutionResult.status = completed",
+  "credential custody",
+  "destructive shell command",
+  "external-production mutation",
+  "hosted SaaS default",
+  "browser-only DB rewrite",
+  "blanket approval",
+  "PHASE3_CLOSEOUT_EVIDENCE",
+  "PHASE3_CLOSEOUT_DRY_RUN_EVIDENCE_MAP",
+  "pnpm verify:docs",
+  "pnpm smoke:e2e",
+  "pnpm verify",
+  "Tracker #91 update rule"
+];
+
+const PHASE3_CLOSEOUT_FIXTURE_SNIPPETS = [
+  "PHASE3_CLOSEOUT_EVIDENCE",
+  "PHASE3_CLOSEOUT_DRY_RUN_EVIDENCE_MAP",
+  "Scenario J. Phase 3 approved controlled execution dry-run",
+  "Scenario K. Phase 3 blocked unsafe execution dry-run",
+  "ExecutionAuthorityLedgerProjection.ready_for_execution",
+  "FileDiffExecutionResult.completed",
+  "ShellCommandExecutionResult.completed",
+  "BrowserActionExecutionResult.completed",
+  "credential custody blocked",
+  "destructive shell command blocked",
+  "external-production mutation blocked",
+  "hosted SaaS default blocked",
+  "browser-only DB rewrite blocked",
+  "blanket approval blocked"
 ];
 
 const POST_PHASE3_FULL_VISION_DOC_PATH = "docs/37-post-phase3-full-vision-backlog-contract.md";
@@ -921,6 +977,20 @@ const PHASE3_REFERENCE_REQUIREMENTS = [
   {
     path: "docs/35-phase1-2-closeout-evidence.md",
     snippets: ["36-phase3-controlled-execution-contract.md", "Phase 3 authority"]
+  },
+  {
+    path: PHASE3_CLOSEOUT_DOC_PATH,
+    snippets: [
+      "36-phase3-controlled-execution-contract.md",
+      "ExecutionAuthorityRecord",
+      "unauthorized execution",
+      "credential custody",
+      "destructive shell command",
+      "external-production mutation",
+      "hosted SaaS default",
+      "browser-only DB rewrite",
+      "blanket approval"
+    ]
   }
 ];
 
@@ -944,7 +1014,7 @@ const WEB_LOCAL_ACTIVE_DENY_PATTERNS = [
   /get_sidecar_base_url/u
 ];
 
-const NUMBERED_DOC_SLUGS = [
+export const NUMBERED_DOC_SLUGS = [
   "product-brief",
   "prd",
   "user-journey-and-ux",
@@ -982,14 +1052,15 @@ const NUMBERED_DOC_SLUGS = [
   "phase2.5-browser-automation-preview-contract",
   "phase1-2-closeout-evidence",
   "phase3-controlled-execution-contract",
-  "post-phase3-full-vision-backlog-contract"
+  "post-phase3-full-vision-backlog-contract",
+  "phase3-closeout-evidence"
 ];
 
 function numberedDocPath(slug, index) {
   return `docs/${String(index).padStart(2, "0")}-${slug}.md`;
 }
 
-const WEB_REALIGNMENT_SCAN_PATHS = [
+export const WEB_REALIGNMENT_SCAN_PATHS = [
   "docs/README.md",
   ...NUMBERED_DOC_SLUGS.map((slug, index) => numberedDocPath(slug, index))
 ];
@@ -1207,6 +1278,27 @@ function checkPostPhase3FullVisionConsistency() {
   );
 }
 
+function checkPhase3CloseoutConsistency() {
+  const docs38 = readText(PHASE3_CLOSEOUT_DOC_PATH);
+  const e2eFixture = readText("apps/sidecar/src/e2e-dry-run.fixture.ts");
+
+  requireSnippets(
+    "docs/38 Phase 3 closeout evidence missing required guardrails",
+    docs38,
+    PHASE3_CLOSEOUT_REQUIRED_SNIPPETS
+  );
+  requireSnippets(
+    "e2e dry-run fixture missing Phase 3 closeout evidence labels",
+    e2eFixture,
+    PHASE3_CLOSEOUT_FIXTURE_SNIPPETS
+  );
+  requireDocReferences(
+    "Phase 3 closeout evidence reference missing",
+    PHASE3_CLOSEOUT_REQUIRED_REFERENCES,
+    "38-phase3-closeout-evidence.md"
+  );
+}
+
 function checkPhase3WebRealignmentConsistency() {
   const docs36 = readText(PHASE3_DOC_PATH);
 
@@ -1268,6 +1360,7 @@ export function runDocContractChecks() {
   checkPhase25DocConsistency();
   checkPhase12CloseoutConsistency();
   checkPhase3WebRealignmentConsistency();
+  checkPhase3CloseoutConsistency();
   checkPostPhase3FullVisionConsistency();
 
   if (!process.exitCode) {

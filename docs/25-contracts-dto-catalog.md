@@ -878,7 +878,7 @@ Behavior rules:
 
 ## Phase 3 Execution Authority DTO checklist
 
-Phase 3 PR-01은 `36-phase3-controlled-execution-contract.md`의 common ledger/authority slice를 code surface로 승격했고, PR-02(#93)는 same ledger를 local route/preflight API boundary로 노출한다. PR-03(#94)는 `file_diff` adapter route/DTO/result를 추가했고, PR-04(#95)는 `shell_command` adapter route/DTO/result를 same ledger approval/evidence/audit boundary에 연결한다. PR-05(#96)는 `browser_action` adapter route/DTO/result를 same ledger approval/reset/screenshot/log/evidence/audit boundary에 연결한다.
+Phase 3 PR-01은 `36-phase3-controlled-execution-contract.md`의 common ledger/authority slice를 code surface로 승격했고, PR-02(#93)는 same ledger를 local route/preflight API boundary로 노출한다. PR-03(#94)는 `file_diff` adapter route/DTO/result를 추가했고, PR-04(#95)는 `shell_command` adapter route/DTO/result를 same ledger approval/evidence/audit boundary에 연결한다. PR-05(#96)는 `browser_action` adapter route/DTO/result를 same ledger approval/reset/screenshot/log/evidence/audit boundary에 연결한다. PR-06(#97) closeout은 `38-phase3-closeout-evidence.md`, `PHASE3_CLOSEOUT_EVIDENCE`, and `PHASE3_CLOSEOUT_DRY_RUN_EVIDENCE_MAP`로 DTO/route/evidence guardrail을 재검증한다.
 
 | Surface | Exact current name | Implementation note |
 | --- | --- | --- |
@@ -899,6 +899,12 @@ Phase 3 PR-01은 `36-phase3-controlled-execution-contract.md`의 common ledger/a
 | Record DTO | `ExecutionAuthorityRecord` | `actionClass`, `approvalDecision`, explicit-boundary `requestedScope`, `sandboxBoundary`, `rollbackReference`, `executionResult`, `evidenceRefs`, `auditRefs` closed field family다. |
 | Bounded output DTO | `BoundedAgentOutputRecord` | source/evidence/approval-linked agent output only; unlinked output is suggestion/preview, not execution authority. |
 | Storage repository | `executionAuthorityRepository` | `execution_authority_records`와 `bounded_agent_output_records`에 query columns plus JSON refs를 저장하고, `file_diff`/`shell_command`/`browser_action` terminal outcome을 같은 authority row에 evidence/audit refs로 갱신한다. |
+
+Closeout DTO invariant:
+
+- `ExecutionAuthorityLedgerProjection.ready_for_execution`은 approved/non-expired/exact-hash/rollback/evidence/audit-ready authority에만 붙는다.
+- `FileDiffExecutionResult`, `ShellCommandExecutionResult`, `BrowserActionExecutionResult`는 `completed`, `blocked`, `failed`, `partial` terminal outcome 중 하나와 evidence/audit refs를 반환해야 하며, unauthorized execution이나 missing Phase 3 authority를 success로 바꾸지 않는다.
+- Credential custody, destructive shell command, external-production mutation, hosted SaaS default, browser-only DB rewrite, and blanket approval remain blocked or non-goal boundaries.
 | Deterministic output type | `execution_authority_record` | reducer output에서 authority record ref와 blocked-precondition evidence를 추적한다. |
 
 Behavior rules:

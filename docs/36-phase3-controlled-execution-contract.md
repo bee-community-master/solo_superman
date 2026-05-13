@@ -255,6 +255,7 @@ The `browser_action` slice is represented in code by:
 - `21-sidecar-api-runtime-contract.md` owns local service security, route group boundaries, local token, loopback, CORS, CSRF/replay/idempotency, and fail-closed route handling requirements.
 - `26-api-route-behavior-catalog.md` owns endpoint behavior placeholders plus mounted endpoint rows for implemented approval/preflight routes.
 - `25-contracts-dto-catalog.md` owns final public DTO/type shape when an implementation PR promotes these records into code.
+- `38-phase3-closeout-evidence.md` owns #91/#92~#97 closeout evidence, the approved/blocked E2E dry-run matrix, docs/verifier guardrail snippets, and tracker update rule.
 - `37-post-phase3-full-vision-backlog-contract.md` owns the full-vision backlog tracked under #91 after Phase 3 child issues #92~#97: project purpose modes, business critic intensity, ChatGPT Pro per-run local browser delegation, external service page-use permission, implementation step ledger, and macOS/Windows PowerShell setup verification.
 
 ## Phase 4~6 handoff gates
@@ -268,20 +269,21 @@ The `browser_action` slice is represented in code by:
 
 ## Acceptance checklist
 
-- [ ] #86, #87, and #88 are complete before any Phase 3 MVP implementation claim.
-- [ ] Phase 3 implementation starts from `Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db`.
-- [ ] Tauri/native shell is not described as future/default/runtime path and has no active source/dependency/script path.
-- [ ] `ExecutionAuthorityRecord` exists before every controlled execution attempt.
-- [ ] `approvalDecision` includes `pending` before approval and `executionResult` includes `running` while execution is in progress; `cancelled`/`rolled_back` are not silently added to the MVP state model.
-- [ ] `approvalDecision`, `sandboxBoundary`, `rollbackReference`, `executionResult`, `evidenceRefs`, and `auditRefs` are persisted.
-- [ ] per-run local capability token, loopback-only service binding, explicit CORS allowlist, and CSRF/replay/idempotency checks are documented and tested.
-- [ ] hosted web origin does not receive implicit local execution authority.
-- [ ] `BoundedAgentOutputRecord` rejects untrusted agent suggestions without source/evidence/approval linkage.
-- [ ] MVP sequence is common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`.
-- [ ] `file_diff` defaults to `git_diff_reverse`, blocks secret/home/repo-outside/symlink-escape paths, and treats `filesystem_snapshot` as an explicit exception.
-- [ ] `shell_command` defaults to repo scripts plus limited read-only diagnostics and enforces class-specific timeout limits.
-- [ ] `browser_action` target policy is loopback-only for MVP.
-- [ ] credential custody, hosted control plane, destructive shell commands, 모바일 승인, 팀 협업, 제품 결제/과금은 MVP 범위에서 제외된다.
-- [ ] external-production mutation and blanket/project-level approval remain blocked until a later explicit contract exists.
-- [ ] Phase 4~6 remain gated by Phase 3 evidence, not enabled by default.
-- [ ] Post-Phase3 full-vision backlog work references `37-post-phase3-full-vision-backlog-contract.md` and does not reinterpret Phase 3 readiness as credential custody, hosted control, external production mutation, or project-level ChatGPT background delegation.
+- [x] #86, #87, and #88 are complete before any Phase 3 MVP implementation claim.
+- [x] Phase 3 implementation starts from `Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db`.
+- [x] Tauri/native shell is not described as future/default/runtime path and has no active source/dependency/script path.
+- [x] `ExecutionAuthorityRecord` exists before every controlled execution attempt.
+- [x] `approvalDecision` includes `pending` before approval and `executionResult` includes `running` while execution is in progress; `cancelled`/`rolled_back` are not silently added to the MVP state model.
+- [x] `approvalDecision`, `sandboxBoundary`, `rollbackReference`, `executionResult`, `evidenceRefs`, and `auditRefs` are persisted.
+- [x] per-run local capability token, loopback-only service binding, explicit CORS allowlist, and CSRF/replay/idempotency checks are documented and tested.
+- [x] hosted web origin does not receive implicit local execution authority.
+- [x] `BoundedAgentOutputRecord` rejects untrusted agent suggestions without source/evidence/approval linkage.
+- [x] MVP sequence is common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`.
+- [x] `file_diff` defaults to `git_diff_reverse`, blocks secret/home/repo-outside/symlink-escape paths, and treats `filesystem_snapshot` as an explicit exception.
+- [x] `shell_command` defaults to repo scripts plus limited read-only diagnostics and enforces class-specific timeout limits.
+- [x] `browser_action` target policy is loopback-only for MVP.
+- [x] credential custody, hosted control plane, destructive shell commands, 모바일 승인, 팀 협업, 제품 결제/과금은 MVP 범위에서 제외된다.
+- [x] external-production mutation and blanket/project-level approval remain blocked until a later explicit contract exists.
+- [x] Phase 4~6 remain gated by Phase 3 evidence, not enabled by default.
+- [x] Post-Phase3 full-vision backlog work references `37-post-phase3-full-vision-backlog-contract.md` and does not reinterpret Phase 3 readiness as credential custody, hosted control, external production mutation, or project-level ChatGPT background delegation.
+- [x] `38-phase3-closeout-evidence.md` ties #92~#97 to approved/blocked E2E dry-run evidence and docs/verifier guardrails.

@@ -10,6 +10,7 @@ import {
   findRouteQueryMismatches,
   findWebLocalActiveResidue,
   findWebRealignmentFutureDefaultClaims,
+  WEB_REALIGNMENT_SCAN_PATHS,
   moduleSpecifiers,
   parseConstArray,
   parseDocs25DeterministicOutputTypes,
@@ -206,6 +207,11 @@ describe("doc contract verification helpers", () => {
       "docs/README.md:7: Export files require explicit user action through the Tauri native boundary.",
       "docs/09-system-architecture.md:1: | Desktop shell | Tauri v2 | core 확정 |"
     ]);
+  });
+
+  it("includes the Phase 3 closeout evidence doc in web/local realignment scans", () => {
+    expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/37-post-phase3-full-vision-backlog-contract.md");
+    expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/38-phase3-closeout-evidence.md");
   });
 
   it("flags active desktop/native residue in web-local source paths", () => {
