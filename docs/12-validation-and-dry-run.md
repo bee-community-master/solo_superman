@@ -598,15 +598,22 @@ Phase 1~2 구현 보강 closeout의 repo-local evidence ledger는 `docs/35-phase
 
 `37-post-phase3-full-vision-backlog-contract.md`가 추가된 뒤 문서 검증자는 다음을 확인한다.
 
-- [ ] #91 unified tracker가 Phase 3 #92~#97과 Post-Phase3 #99~#106을 함께 추적하며, #98 standalone tracker가 재도입되지 않는다.
-- [ ] `projectPurposeMode = business`인 샘플 프로젝트는 고객/문제/유료화/대체재/채널/법무·운영 리스크 중 high-impact gap을 질문 또는 research task로 만든다.
-- [ ] `projectPurposeMode = personal`인 샘플 프로젝트는 시장규모/유료화/투자자 narrative를 completion blocker로 요구하지 않고, workflow/use-frequency/GUI/implementation feasibility/local data risk를 묻는다.
-- [ ] `businessCriticIntensity = strong` 또는 `investor_grade`인 경우 새 critical question이 active batch를 중간에 교체하지 않고 `queued_next`로 들어간다.
+- [x] #91 unified tracker가 Phase 3 #92~#97과 Post-Phase3 #99~#106을 함께 추적하며, #98 standalone tracker가 재도입되지 않는다.
+  - Evidence: `docs/40-post-phase3-full-vision-closeout-report.md`의 Created issue graph와 `gh issue view 91`은 #92~#97, #99~#106, closed #98 absorbed-only boundary를 함께 검증한다.
+- [x] `projectPurposeMode = business`인 샘플 프로젝트는 고객/문제/유료화/대체재/채널/법무·운영 리스크 중 high-impact gap을 질문 또는 research task로 만든다.
+  - Evidence: `docs/37-post-phase3-full-vision-backlog-contract.md`의 Feature A/B와 `apps/sidecar/src/e2e-dry-run.test.ts`의 business critic dry-run은 `balanced`, `strong`, `investor_grade`별 issue count와 pressure item을 검증한다.
+- [x] `projectPurposeMode = personal`인 샘플 프로젝트는 시장규모/유료화/투자자 narrative를 completion blocker로 요구하지 않고, workflow/use-frequency/GUI/implementation feasibility/local data risk를 묻는다.
+  - Evidence: `docs/37-post-phase3-full-vision-backlog-contract.md`의 personal mode row와 `scripts/verify-post-phase3-closeout.test.mjs`는 commercialization axes가 optional/skipped이고 workflow/local implementation criteria가 required임을 검증한다.
+- [x] `businessCriticIntensity = strong` 또는 `investor_grade`인 경우 새 critical question이 active batch를 중간에 교체하지 않고 `queued_next`로 들어간다.
+  - Evidence: `apps/sidecar/src/e2e-dry-run.test.ts`의 business critic dry-run은 active batch length를 유지하고 `strong`은 `core_assumption_challenge`, `investor_grade`는 `investor_pressure_pass`를 `next` queue로 남긴다.
 - [x] ChatGPT Pro local browser delegation dry-run은 policy/session/data disclosure/approval/fallback preflight 없이는 시작되지 않는다.
 - [x] ChatGPT Pro delegation dry-run은 credential/session custody, account sharing/resale, unattended background queue, automatic submit/write를 block verdict로 기록한다.
   - Evidence: `apps/sidecar/src/e2e-dry-run.test.ts`의 Scenario L은 mocked ChatGPT page state, Phase 3 `browser_action` authority, `ChatGptBrowserDelegationProjection.running`, revoke, blocked/fallback, failed result-import gate를 함께 검증한다.
-- [ ] External service page-use permission dry-run은 read/fill draft/preview/final submit request action class를 구분하고, final submit은 별도 explicit approval 없이는 blocked다.
+- [x] External service page-use permission dry-run은 read/fill draft/preview/final submit request action class를 구분하고, final submit은 별도 explicit approval 없이는 blocked다.
+  - Evidence: `apps/sidecar/src/e2e-dry-run.test.ts`의 service page-use dry-run은 read/preview, fill_draft, artifact delete, revoke, scope mismatch, and final_submit_request blocked evidence를 모두 검증한다.
 - [x] Implementation step ledger dry-run은 tracker doc, implementation step doc, local commit SHA, code review, clean-code review, test evidence를 하나의 step completion condition으로 검증하고, failed/Not-tested evidence는 completed가 아니라 blocked로 남긴다.
   - Evidence: `apps/sidecar/src/e2e-dry-run.test.ts`의 Post-Phase3 #104 dry-run은 `RecordImplementationStepLedger` + `GET /implementation-step-ledger` route를 통해 completed step과 failed-test blocked step을 모두 검증한다.
 - [x] macOS shell과 Windows PowerShell install/run/verify command family가 모두 문서화되고, API key 기본 입력 없이 local web + sidecar 실행 경로를 설명한다.
   - Evidence: `docs/39-local-install-run-verification.md`는 side-by-side macOS shell / Windows PowerShell command blocks를 제공하고, `pnpm verify:prod-bundle`은 production bundle + local sidecar/web preview smoke를 실행한다.
+- [x] #106 closeout report는 changed docs, created issues, verification evidence, and remaining implementation risks를 기록한다.
+  - Evidence: `docs/40-post-phase3-full-vision-closeout-report.md`와 `scripts/verify-doc-contracts.mjs`가 Post-Phase3 final report snippets와 canonical references를 검증한다.

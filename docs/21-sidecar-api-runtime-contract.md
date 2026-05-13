@@ -460,4 +460,5 @@ When Codex app-server is unavailable or the user chooses not to connect it:
 - Preserve Phase 3 local service token, loopback-only, explicit CORS allowlist, CSRF/replay/idempotency checks before controlled execution routes.
 - Preserve common ledger/authority routes before any `file_diff`, `shell_command`, or `browser_action` adapter route.
 - Keep Phase 3 route rows in `26-api-route-behavior-catalog.md` synchronized with this boundary and `38-phase3-closeout-evidence.md`; when code exists, keep the route in the mounted catalog in the same implementation slice.
+- Keep Post-Phase3 runtime surfaces synchronized with `37-post-phase3-full-vision-backlog-contract.md`: project purpose mode, business critic intensity, ChatGPT browser delegation, service page-use permission, implementation step ledger, and local install/run verification remain separate from Phase 3 execution authority.
 - Treat generated Codex schema as versioned implementation input.

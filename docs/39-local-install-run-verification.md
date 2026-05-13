@@ -1,6 +1,6 @@
 # Local install/run verification
 
-This runbook is the #105 contract for non-developer local web usage. It keeps macOS shell and Windows PowerShell paths side by side and does not require an OpenAI or ChatGPT API key by default.
+This runbook is the #105 contract for non-developer local web usage under `37-post-phase3-full-vision-backlog-contract.md`. It keeps macOS shell and Windows PowerShell paths side by side and does not require an OpenAI or ChatGPT API key by default.
 
 ## What this verifies
 

@@ -60,6 +60,8 @@
 
 사업화 모드에서 `businessCriticIntensity`는 default value를 갖지 않는다. 사용자가 `balanced`, `strong`, `investor_grade` 중 하나를 명시 선택하기 전에는 business completion gate를 확정하지 않고, UI는 “상업성 검증 강도 선택 필요” 상태를 보여준다. AI가 강도를 추정하거나 조용히 `balanced`/`strong`을 적용하지 않는다.
 
+Closeout verifier는 각 intensity가 아래 minimum pressure count를 잃지 않았는지 확인한다.
+
 | Intensity | 사용자-facing 표현 | 질문 정책 | Completion 영향 |
 | --- | --- | --- | --- |
 | `balanced` | 균형형 검증 | 각 주요 decision group마다 최소 1개 이상의 반대/비판 질문을 포함 | 미해결 business risk는 Known Risk로 남기되 일부 medium risk는 completion을 막지 않음 |
@@ -162,6 +164,7 @@ Solo Superman이 사용자의 프로그램 구현을 위해 Vercel, Supabase, St
 - “저장 직전까지 채우기”와 “최종 submit/click/구매/배포”는 다른 권한이다.
 - final submit은 별도 confirmation card와 `ExecutionAuthorityRecord` linkage만으로 실행 가능 상태가 되지 않으며, production mutation을 명시적으로 검증하는 후속 contract가 생기기 전까지 blocked 상태로 남긴다.
 - 결제, 법률, 의료, 금융, 개인정보, production deploy, DNS cutover, account deletion은 later explicit contract 전까지 blocked다.
+- Closeout verifier는 read/preview page-or-step scope와 fill/copy/final-submit per-action approval이 섞이지 않고, final-submit request가 confirmation card + `ExecutionAuthorityRecord` linkage를 기록하더라도 production mutation 없이 blocked로 남는지 확인한다.
 
 ## Feature contract E — Implementation step ledger
 
@@ -220,6 +223,19 @@ Windows PowerShell 문서의 기본 설치 경로는 `winget` 우선이다.
 - No install command requires storing ChatGPT/OpenAI API keys by default.
 - Verification can be run without external production credentials.
 - Current #105 implementation surface: `docs/39-local-install-run-verification.md` owns the copy-paste runbook and `pnpm verify:prod-bundle` runs the `build_auto_local_smoke` script for production bundle + local sidecar/web preview verification.
+- Closeout verifier는 `verify:prod-bundle`이 production build, local sidecar, production web preview, loopback smoke, auto shutdown/kill evidence를 요구하며, Vite dev server나 build-only로 축소되지 않는지 확인한다.
+
+## Closeout verifier requirements
+
+#106 docs/verifier closeout은 다음을 regression guard로 고정한다.
+
+- #99 `mode_required` / “프로젝트 목적 선택 필요”는 세 번째 mode가 아니라 user-confirmed `business | personal` 선택 전 gate 상태다.
+- #99~#104 issue body의 Candidate field/record/event/status/projection/aggregate 이름은 default implementation contract names다. 기존 코드 명명 충돌이 있을 때만 PR에서 old/new name과 변경 근거를 남긴다.
+- #100 `businessCriticIntensity`는 default 없이 명시 선택되어야 하며, 각 intensity의 minimum pressure count와 completion blocking behavior가 문서/테스트에서 회귀하면 안 된다.
+- #103 service page-use permission은 read/preview scope, fill/copy/final-submit per-action approval, final-submit confirmation card, `ExecutionAuthorityRecord` linkage, no credential/session custody, export/delete control을 함께 보존한다.
+- #104 implementation step ledger는 evidence-gated linear transition과 `NoCodeStepEvidence` 예외 규칙을 보존하고, dirty/failed/missing-test evidence를 completed로 표시하지 않는다.
+- #105 install/run verification은 production bundle non-developer path와 developer dev path를 분리하고, `verify:prod-bundle`의 loopback smoke와 auto shutdown/kill evidence를 유지한다.
+- `docs/40-post-phase3-full-vision-closeout-report.md`가 final report로 changed docs, created issues, verification evidence, and remaining implementation risks를 기록한다.
 
 ## Registered GitHub issue graph
 
@@ -245,4 +261,5 @@ Windows PowerShell 문서의 기본 설치 경로는 `winget` 우선이다.
 - [x] `docs/README.md`, `01-prd.md`, `06-research-engine.md`, `10-security-privacy-and-approval.md`, `11-roadmap-and-phase-boundaries.md`, `17-ai-runtime-access-strategy.md`, `29-phase-capability-implementation-matrix.md`, `36-phase3-controlled-execution-contract.md`가 이 문서를 참조한다.
 - [x] `scripts/verify-doc-contracts.mjs`가 이 문서의 핵심 snippet과 cross-reference를 검증한다.
 - [x] GitHub issue tracker #91이 Phase 3 #92~#97과 Post-Phase3 #99~#106을 함께 추적하고, #98은 #91에 흡수되어 closed 상태다.
+- [x] `docs/40-post-phase3-full-vision-closeout-report.md`가 #106 final report, no-duplicate boundary, verification evidence, remaining implementation risks를 소유한다.
 - [x] `pnpm verify`가 통과한다.

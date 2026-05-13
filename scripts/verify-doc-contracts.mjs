@@ -821,6 +821,7 @@ const PHASE3_CLOSEOUT_FIXTURE_SNIPPETS = [
 ];
 
 const POST_PHASE3_FULL_VISION_DOC_PATH = "docs/37-post-phase3-full-vision-backlog-contract.md";
+const POST_PHASE3_CLOSEOUT_DOC_PATH = "docs/40-post-phase3-full-vision-closeout-report.md";
 
 const POST_PHASE3_FULL_VISION_REQUIRED_REFERENCES = [
   "docs/README.md",
@@ -830,9 +831,15 @@ const POST_PHASE3_FULL_VISION_REQUIRED_REFERENCES = [
   "docs/11-roadmap-and-phase-boundaries.md",
   "docs/12-validation-and-dry-run.md",
   "docs/17-ai-runtime-access-strategy.md",
+  "docs/21-sidecar-api-runtime-contract.md",
   "docs/22-phase1-implementation-sequence.md",
+  "docs/25-contracts-dto-catalog.md",
+  "docs/26-api-route-behavior-catalog.md",
   "docs/29-phase-capability-implementation-matrix.md",
-  "docs/36-phase3-controlled-execution-contract.md"
+  "docs/36-phase3-controlled-execution-contract.md",
+  "docs/38-phase3-closeout-evidence.md",
+  "docs/39-local-install-run-verification.md",
+  POST_PHASE3_CLOSEOUT_DOC_PATH
 ];
 
 const POST_PHASE3_FULL_VISION_REQUIRED_SNIPPETS = [
@@ -851,8 +858,57 @@ const POST_PHASE3_FULL_VISION_REQUIRED_SNIPPETS = [
   "ImplementationStepLedger",
   "Windows PowerShell",
   "`winget` 우선",
+  "mode_required",
+  "프로젝트 목적 선택 필요",
+  "Candidate field/record/event/status/projection/aggregate",
+  "minimum pressure count",
+  "read/preview page-or-step scope",
+  "per-action approval",
+  "ExecutionAuthorityRecord` linkage",
+  "NoCodeStepEvidence",
+  "evidence-gated linear transition",
+  "verify:prod-bundle",
+  "build_auto_local_smoke",
+  "auto shutdown/kill evidence",
+  "docs/40-post-phase3-full-vision-closeout-report.md",
   "#91 `[Tracker] Phase 3 Controlled Execution + Post-Phase3 Full-Vision Backlog`",
   "#98 was the temporary standalone Post-Phase3 tracker and is closed"
+];
+
+const POST_PHASE3_CLOSEOUT_REQUIRED_REFERENCES = [
+  "docs/README.md",
+  "docs/12-validation-and-dry-run.md",
+  "docs/37-post-phase3-full-vision-backlog-contract.md"
+];
+
+const POST_PHASE3_CLOSEOUT_REQUIRED_SNIPPETS = [
+  "Changed docs and verifier surfaces",
+  "Created issue graph",
+  "No-duplicate boundary verification",
+  "Verification evidence",
+  "Remaining implementation risks",
+  "#91",
+  "#92",
+  "#93",
+  "#94",
+  "#95",
+  "#96",
+  "#97",
+  "#99",
+  "#100",
+  "#101",
+  "#102",
+  "#103",
+  "#104",
+  "#105",
+  "#106",
+  "#98 was the temporary standalone Post-Phase3 tracker",
+  "Candidate field/record/event/status/projection/aggregate",
+  "mode_required",
+  "NoCodeStepEvidence",
+  "verify:prod-bundle",
+  "pnpm verify",
+  "Remaining implementation risks"
 ];
 
 const PHASE3_REFERENCE_REQUIREMENTS = [
@@ -1053,7 +1109,9 @@ export const NUMBERED_DOC_SLUGS = [
   "phase1-2-closeout-evidence",
   "phase3-controlled-execution-contract",
   "post-phase3-full-vision-backlog-contract",
-  "phase3-closeout-evidence"
+  "phase3-closeout-evidence",
+  "local-install-run-verification",
+  "post-phase3-full-vision-closeout-report"
 ];
 
 function numberedDocPath(slug, index) {
@@ -1264,6 +1322,7 @@ function checkPhase12CloseoutConsistency() {
 
 function checkPostPhase3FullVisionConsistency() {
   const docs37 = readText(POST_PHASE3_FULL_VISION_DOC_PATH);
+  const docs40 = readText(POST_PHASE3_CLOSEOUT_DOC_PATH);
 
   requireSnippets(
     "docs/37 Post-Phase3 full-vision backlog contract missing required sections",
@@ -1275,6 +1334,18 @@ function checkPostPhase3FullVisionConsistency() {
     "Post-Phase3 full-vision backlog canonical doc reference missing",
     POST_PHASE3_FULL_VISION_REQUIRED_REFERENCES,
     "37-post-phase3-full-vision-backlog-contract.md"
+  );
+
+  requireSnippets(
+    "docs/40 Post-Phase3 full-vision closeout report missing required evidence",
+    docs40,
+    POST_PHASE3_CLOSEOUT_REQUIRED_SNIPPETS
+  );
+
+  requireDocReferences(
+    "Post-Phase3 full-vision closeout report reference missing",
+    POST_PHASE3_CLOSEOUT_REQUIRED_REFERENCES,
+    "40-post-phase3-full-vision-closeout-report.md"
   );
 }
 

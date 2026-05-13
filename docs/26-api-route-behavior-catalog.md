@@ -405,4 +405,5 @@ Then:
 - Add status endpoint support before relying on `statusUrl` in clients.
 - Add SSE reconnection/refetch tests before claiming async effect UI completion.
 - Add representative operations incident tests from `27-operations-observability-contract.md` before claiming end-to-end dry-run hardening.
+- Keep Post-Phase3 route rows synchronized with `37-post-phase3-full-vision-backlog-contract.md` and `40-post-phase3-full-vision-closeout-report.md`, especially no-default business intensity, service page-use final-submit blocking, implementation ledger evidence gates, and install/run verification boundaries.
 - Do not generate Hono/Zod/OpenAPI files in this docs-only PR.

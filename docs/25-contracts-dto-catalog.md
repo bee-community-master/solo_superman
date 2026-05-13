@@ -1007,6 +1007,7 @@ Then:
 - Implement command fixtures for the required acceptance scenario.
 - Implement CommandResponse/statusUrl fixtures for all four response categories.
 - Verify `26-api-route-behavior-catalog.md` route command mappings do not invent CommandType values.
+- Verify Post-Phase3 DTO/projection families against `37-post-phase3-full-vision-backlog-contract.md` before renaming any Candidate field/record/event/status/projection/aggregate from #99~#104.
 - Implement SSE fixtures for command/effect/projection/runtime event families.
 - Add UI Projection fixtures during frontend implementation, even though they are not required acceptance scenarios for this document.
 - Add forbidden import checks during implementation verification.
