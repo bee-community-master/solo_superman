@@ -10,6 +10,7 @@ const DEFAULT_SIDECAR_PORT = "43110";
 const DEFAULT_WEB_HOST = "127.0.0.1";
 const DEFAULT_WEB_PORT = "4173";
 const DEFAULT_TIMEOUT_MS = 30_000;
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
 function envValue(env, name, fallback) {
   const value = env[name];
@@ -27,15 +28,41 @@ function positiveIntegerEnv(env, name, fallback) {
   return Number.parseInt(value, 10);
 }
 
+function loopbackHostEnv(env, name, fallback) {
+  const value = envValue(env, name, fallback);
+
+  if (!LOOPBACK_HOSTS.has(value)) {
+    throw new Error(`${name} must be loopback-only for local production smoke: ${value}`);
+  }
+
+  return value === "::1" || value === "[::1]" ? "[::1]" : value;
+}
+
+function fixedPortEnv(env, name, fallback) {
+  const value = envValue(env, name, fallback);
+
+  if (!/^\d+$/.test(value)) {
+    throw new Error(`${name} must be a numeric fixed local port: ${value}`);
+  }
+
+  const parsed = Number.parseInt(value, 10);
+
+  if (Number.isNaN(parsed) || parsed <= 0 || parsed > 65535) {
+    throw new Error(`${name} must be a fixed local port between 1 and 65535: ${value}`);
+  }
+
+  return String(parsed);
+}
+
 function generatedToken() {
   return randomBytes(32).toString("hex");
 }
 
 export function prodBundleSmokeConfig(env = process.env) {
-  const sidecarHost = envValue(env, "SOLO_PROD_SMOKE_SIDECAR_HOST", DEFAULT_SIDECAR_HOST);
-  const sidecarPort = envValue(env, "SOLO_PROD_SMOKE_SIDECAR_PORT", DEFAULT_SIDECAR_PORT);
-  const webHost = envValue(env, "SOLO_PROD_SMOKE_WEB_HOST", DEFAULT_WEB_HOST);
-  const webPort = envValue(env, "SOLO_PROD_SMOKE_WEB_PORT", DEFAULT_WEB_PORT);
+  const sidecarHost = loopbackHostEnv(env, "SOLO_PROD_SMOKE_SIDECAR_HOST", DEFAULT_SIDECAR_HOST);
+  const sidecarPort = fixedPortEnv(env, "SOLO_PROD_SMOKE_SIDECAR_PORT", DEFAULT_SIDECAR_PORT);
+  const webHost = loopbackHostEnv(env, "SOLO_PROD_SMOKE_WEB_HOST", DEFAULT_WEB_HOST);
+  const webPort = fixedPortEnv(env, "SOLO_PROD_SMOKE_WEB_PORT", DEFAULT_WEB_PORT);
   const localCapabilityToken = envValue(env, "SOLO_LOCAL_CAPABILITY_TOKEN", generatedToken());
   const sidecarBaseUrl = `http://${sidecarHost}:${sidecarPort}`;
   const webBaseUrl = `http://${webHost}:${webPort}`;

@@ -54,4 +54,14 @@ describe("verify-prod-bundle smoke plan", () => {
       SOLO_PROD_SMOKE_TIMEOUT_MS: "ten seconds"
     })).toThrow("SOLO_PROD_SMOKE_TIMEOUT_MS must be a positive integer");
   });
+
+  it("keeps smoke host and port overrides loopback-only and fixed", () => {
+    expect(() => prodBundleSmokeConfig({
+      SOLO_PROD_SMOKE_WEB_HOST: "0.0.0.0"
+    })).toThrow("SOLO_PROD_SMOKE_WEB_HOST must be loopback-only");
+
+    expect(() => prodBundleSmokeConfig({
+      SOLO_PROD_SMOKE_SIDECAR_PORT: "0"
+    })).toThrow("SOLO_PROD_SMOKE_SIDECAR_PORT must be a fixed local port");
+  });
 });
