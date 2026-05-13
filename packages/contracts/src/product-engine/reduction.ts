@@ -10,6 +10,7 @@ import type {
   PlanningHandoffProjection,
   ResearchEvidenceProjection,
   RuntimeActivityProjection,
+  ServicePageUsePermissionProjection,
   SessionShellProjection
 } from "../projections";
 import type { ProductEngineEventDraft } from "./events";
@@ -41,7 +42,8 @@ export type ProductEngineDeterministicOutputType =
   | "planning_handoff_artifact"
   | "phase25_research_comparison_report"
   | "execution_authority_record"
-  | "chatgpt_browser_delegation_run";
+  | "chatgpt_browser_delegation_run"
+  | "service_page_use_permission";
 
 export interface ProductEngineDeterministicOutput {
   readonly outputType: ProductEngineDeterministicOutputType;
@@ -60,6 +62,7 @@ export type ActiveBatchSafeProjection =
   | Phase25ResearchComparisonProjection
   | ResearchEvidenceProjection
   | RuntimeActivityProjection
+  | ServicePageUsePermissionProjection
   | SessionShellProjection;
 
 export interface ProductEngineReduction<TImmediateProjection = ActiveBatchSafeProjection> {

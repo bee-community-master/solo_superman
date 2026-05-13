@@ -36,7 +36,11 @@ describe("ProductEngine event contract surface", () => {
       "ChatGptBrowserDelegationRunRecorded",
       "ChatGptBrowserDelegationRunBlocked",
       "ChatGptBrowserDelegationRunFailed",
-      "ChatGptBrowserDelegationRunRevoked"
+      "ChatGptBrowserDelegationRunRevoked",
+      "ServicePagePermissionGranted",
+      "ServicePagePermissionRevoked",
+      "ServicePageActionBlocked",
+      "ServicePageFinalSubmitRequested"
     ]);
   });
 });

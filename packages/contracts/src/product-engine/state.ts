@@ -9,6 +9,7 @@ import type {
   PlanningHandoffProjection,
   ResearchEvidenceProjection,
   RuntimeActivityProjection,
+  ServicePageUsePermissionProjection,
   SessionShellProjection
 } from "../projections";
 import type { DecisionId, ProjectId, QueueItemId, SessionId, StateVersion } from "../ids";
@@ -227,4 +228,5 @@ export interface ProductEngineStateSnapshot {
   readonly phase25ResearchComparison?: Phase25ResearchComparisonProjection;
   readonly executionAuthorityLedger?: ExecutionAuthorityLedgerProjection;
   readonly chatGptBrowserDelegation?: ChatGptBrowserDelegationProjection;
+  readonly servicePageUsePermission?: ServicePageUsePermissionProjection;
 }

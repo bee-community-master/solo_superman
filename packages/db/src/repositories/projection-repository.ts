@@ -12,6 +12,7 @@ import type {
   ProjectionVersion,
   ResearchEvidenceProjection,
   RuntimeActivityProjection,
+  ServicePageUsePermissionProjection,
   SchemaVersion,
   SessionId,
   SessionShellProjection
@@ -31,6 +32,7 @@ export type PersistedProjection =
   | Phase25ResearchComparisonProjection
   | ResearchEvidenceProjection
   | RuntimeActivityProjection
+  | ServicePageUsePermissionProjection
   | SessionShellProjection;
 export type PersistedProjectionKind = PersistedProjection["kind"];
 

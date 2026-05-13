@@ -11,8 +11,10 @@ import type {
   ChangeBusinessCriticIntensityRequest,
   ChangeProjectPurposeModeRequest,
   ChatGptBrowserDelegationProjection,
+  ServicePageUsePermissionProjection,
   CreateManualHandoffRequest,
   CreateChatGptBrowserDelegationRunRequest,
+  CreateServicePageUsePermissionRequest,
   CreatePlanningHandoffRequest,
   CreateResearchAllowlistRequest,
   CreateRuntimePreviewRequest,
@@ -53,6 +55,7 @@ import type {
   StatusEndpointDto,
   RetryResearchRunRequest,
   RevokeChatGptBrowserDelegationRunRequest,
+  RevokeServicePageUsePermissionRequest,
   UpdateResearchAllowlistRequest
 } from "@solo-superman/contracts";
 
@@ -90,6 +93,8 @@ export type ResolveResearchQueueCardInput = ResolveResearchQueueCardRequest;
 export type CreatePlanningHandoffInput = CreatePlanningHandoffRequest;
 export type CreateChatGptBrowserDelegationRunInput = CreateChatGptBrowserDelegationRunRequest;
 export type RevokeChatGptBrowserDelegationRunInput = RevokeChatGptBrowserDelegationRunRequest;
+export type CreateServicePageUsePermissionInput = CreateServicePageUsePermissionRequest;
+export type RevokeServicePageUsePermissionInput = RevokeServicePageUsePermissionRequest;
 
 export class SidecarClientError extends Error {
   readonly apiError: ApiError;
@@ -213,6 +218,14 @@ function chatGptBrowserDelegationPath(sessionId: SessionId) {
 
 function chatGptBrowserDelegationRunRevokePath(sessionId: SessionId, runId: string) {
   return `${chatGptBrowserDelegationPath(sessionId)}/${encodeURIComponent(runId)}/revoke`;
+}
+
+function servicePageUsePermissionPath(sessionId: SessionId) {
+  return `/api/v1/sessions/${encodeURIComponent(sessionId)}/service-page-use-permissions`;
+}
+
+function servicePageUsePermissionRevokePath(sessionId: SessionId, permissionId: string) {
+  return `${servicePageUsePermissionPath(sessionId)}/${encodeURIComponent(permissionId)}/revoke`;
 }
 
 function sessionEventStreamPath(sessionId: SessionId) {
@@ -547,6 +560,21 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     getChatGptBrowserDelegation(sessionId: SessionId) {
       return getProjection<ChatGptBrowserDelegationProjection | null>(chatGptBrowserDelegationPath(sessionId));
+    },
+
+    createServicePageUsePermission(input: CreateServicePageUsePermissionInput) {
+      return postCommand<ServicePageUsePermissionProjection>(servicePageUsePermissionPath(input.sessionId), input);
+    },
+
+    revokeServicePageUsePermission(input: RevokeServicePageUsePermissionInput) {
+      return postCommand<ServicePageUsePermissionProjection>(
+        servicePageUsePermissionRevokePath(input.sessionId, input.permissionId),
+        input
+      );
+    },
+
+    getServicePageUsePermission(sessionId: SessionId) {
+      return getProjection<ServicePageUsePermissionProjection | null>(servicePageUsePermissionPath(sessionId));
     },
 
     getSession(projectId: ProjectId, sessionId: SessionId) {

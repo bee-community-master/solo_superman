@@ -29,6 +29,11 @@ import {
   CHATGPT_BROWSER_DELEGATION_SCHEMA_VERSION,
   CHATGPT_BROWSER_DELEGATION_STATUSES,
   CHATGPT_BROWSER_DELEGATION_VERDICTS,
+  SERVICE_PAGE_USE_PERMISSION_ACTION_CLASSES,
+  SERVICE_PAGE_USE_PERMISSION_APPROVAL_GRANULARITIES,
+  SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES,
+  SERVICE_PAGE_USE_PERMISSION_DATA_CATEGORIES,
+  SERVICE_PAGE_USE_PERMISSION_SCHEMA_VERSION,
   PROJECT_PURPOSE_MODES,
   PROJECT_PURPOSE_MODE_LABELS,
   PROJECT_PURPOSE_MODE_REQUIRED_LABEL,
@@ -51,6 +56,9 @@ import {
   validatePhase15bUpgradeHints,
   validateExecutionAuthorityLedgerProjection,
   validateChatGptBrowserDelegationProjection,
+  validateServicePageUsePermissionProjection,
+  servicePageUsePermissionIsRevokableStatus,
+  servicePageUsePermissionSummaryForStatus,
   validatePhase25ResearchComparisonReport,
   type ActiveBatchSafeProjection,
   type AmbiguityIssueSnapshot,
@@ -89,6 +97,8 @@ import {
   type CreateExecutionAuthorityPayload,
   type CreateChatGptBrowserDelegationRunPayload,
   type RevokeChatGptBrowserDelegationRunPayload,
+  type CreateServicePageUsePermissionPayload,
+  type RevokeServicePageUsePermissionPayload,
   type EvidenceMatrixProjection,
   type ExecutionApprovalDecision,
   type ExecutionAuthorityApprover,
@@ -163,6 +173,17 @@ import {
   type RuntimeActivityProjection,
   type RuntimeArtifactId,
   type RuntimePreviewArtifact,
+  type ServicePageApprovalGranularity,
+  type ServicePageBlockedActionClass,
+  type ServicePageDataCategory,
+  type ServicePageFinalSubmitBoundary,
+  type ServicePageUseActionClass,
+  type ServicePageUsePermissionAuditEntry,
+  type ServicePageUsePermissionBlockCode,
+  type ServicePageUsePermissionBlockReasonDto,
+  type ServicePageUsePermissionProjection,
+  type ServicePageUsePermissionRecord,
+  type ServicePageUsePermissionStatus,
   type SessionShellProjection,
   type SessionId,
   type SpecVersionId,
@@ -7453,6 +7474,697 @@ function reduceRevokeChatGptBrowserDelegationRun(
   );
 }
 
+const SERVICE_PAGE_USE_PERMISSION_ALLOWED_PAYLOAD_KEYS = [
+  "serviceName",
+  "serviceOrigin",
+  "pageUrl",
+  "purpose",
+  "allowedActionClasses",
+  "blockedActionClasses",
+  "dataCategories",
+  "approvalGranularity",
+  "promptPreviewRef",
+  "redactionPreviewRef",
+  "userExportDeleteControls",
+  "finalSubmitRequested",
+  "finalSubmitConfirmationRef",
+  "finalSubmitExecutionAuthorityRef",
+  "screenshotRefs",
+  "logRefs",
+  "evidenceRefs",
+  "auditRefs",
+  "activityFeedRefs"
+] as const;
+
+const SERVICE_PAGE_USE_PERMISSION_REVOKE_ALLOWED_PAYLOAD_KEYS = [
+  "permissionId",
+  "reason",
+  "auditRefs"
+] as const;
+
+function containsUnsupportedServicePageUsePermissionPayload(command: ProductEngineCommand) {
+  return !hasOnlyRecordKeys(command.payload, SERVICE_PAGE_USE_PERMISSION_ALLOWED_PAYLOAD_KEYS);
+}
+
+function containsUnsupportedServicePageUsePermissionRevokePayload(command: ProductEngineCommand) {
+  return !hasOnlyRecordKeys(command.payload, SERVICE_PAGE_USE_PERMISSION_REVOKE_ALLOWED_PAYLOAD_KEYS);
+}
+
+function uniqueTypedValues<TValue extends string>(
+  value: unknown,
+  allowedValues: readonly TValue[],
+  allowEmpty = false
+): readonly TValue[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const values = value.map((item) => requiredString(item));
+
+  if ((!allowEmpty && !values.length) || !values.every(Boolean)) {
+    return null;
+  }
+
+  const uniqueValues = [...new Set(values)] as readonly string[];
+
+  return uniqueValues.every((item): item is TValue => allowedValues.includes(item as TValue))
+    ? uniqueValues
+    : null;
+}
+
+function servicePageBlockReason(
+  code: ServicePageUsePermissionBlockCode,
+  message: string,
+  evidenceRefs: readonly string[]
+): ServicePageUsePermissionBlockReasonDto {
+  return {
+    code,
+    message,
+    evidenceRefs: uniqueStringRefs(evidenceRefs.length ? evidenceRefs : [`service-page:${code}`])
+  };
+}
+
+function isValidServiceOrigin(origin: string) {
+  return /^https:\/\/[a-z0-9.-]+(?::[0-9]{1,5})?$/iu.test(origin);
+}
+
+function servicePageActionRequiresPerActionApproval(action: ServicePageUseActionClass) {
+  return action === "fill_draft" || action === "copy_generated_value" || action === "final_submit_request";
+}
+
+function servicePageUsePermissionBlockReasons(input: {
+  readonly serviceOrigin: string;
+  readonly purpose: string;
+  readonly allowedActionClasses: readonly ServicePageUseActionClass[];
+  readonly blockedActionClasses: readonly ServicePageBlockedActionClass[];
+  readonly approvalGranularity: ServicePageApprovalGranularity;
+  readonly redactionPreviewRef: string;
+  readonly userExportDeleteControls: true;
+  readonly finalSubmitRequested: boolean;
+  readonly finalSubmitConfirmationRef: string | null;
+  readonly finalSubmitExecutionAuthorityRef: string | null;
+  readonly evidenceRefs: readonly string[];
+}): readonly ServicePageUsePermissionBlockReasonDto[] {
+  const reasons: ServicePageUsePermissionBlockReasonDto[] = [];
+
+  if (!isValidServiceOrigin(input.serviceOrigin)) {
+    reasons.push(servicePageBlockReason(
+      "invalid_service_origin",
+      "Service page-use permission requires an explicit https service origin.",
+      [...input.evidenceRefs, `origin:${input.serviceOrigin}`]
+    ));
+  }
+
+  if (!input.redactionPreviewRef) {
+    reasons.push(servicePageBlockReason(
+      "missing_redaction_preview",
+      "A redaction preview must be shown before storing prompt/result/screenshot/log evidence refs.",
+      input.evidenceRefs
+    ));
+  }
+
+  if (input.userExportDeleteControls !== true) {
+    reasons.push(servicePageBlockReason(
+      "missing_export_delete_controls",
+      "Artifact export/delete controls must be visible before page-use evidence is retained.",
+      input.evidenceRefs
+    ));
+  }
+
+  if (/unattended|background login|stored login|headless login/iu.test(input.purpose)) {
+    reasons.push(servicePageBlockReason(
+      "user_login_not_present",
+      "External service login must remain user-present; unattended signup/login is blocked.",
+      input.evidenceRefs
+    ));
+  }
+
+  if (
+    input.allowedActionClasses.some(servicePageActionRequiresPerActionApproval) &&
+    input.approvalGranularity !== "per_action"
+  ) {
+    if (input.allowedActionClasses.includes("fill_draft")) {
+      reasons.push(servicePageBlockReason(
+        "fill_draft_requires_per_action",
+        "Fill-draft permission is separate from page/setup-step approval and requires per-action approval.",
+        input.evidenceRefs
+      ));
+    }
+
+    if (input.allowedActionClasses.includes("copy_generated_value")) {
+      reasons.push(servicePageBlockReason(
+        "copy_generated_value_requires_per_action",
+        "Copy-generated-value permission is separate from page/setup-step approval and requires per-action approval.",
+        input.evidenceRefs
+      ));
+    }
+  }
+
+  const sensitiveBlockedClassesMissing = SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES.some(
+    (actionClass) => !input.blockedActionClasses.includes(actionClass)
+  );
+
+  if (sensitiveBlockedClassesMissing) {
+    reasons.push(servicePageBlockReason(
+      "sensitive_or_production_action",
+      "Payment/legal/medical/financial/privacy submit, production deploy, DNS cutover, and account deletion must stay blocked until a later explicit contract exists.",
+      input.evidenceRefs
+    ));
+  }
+
+  if (
+    input.finalSubmitRequested ||
+    input.allowedActionClasses.includes("final_submit_request")
+  ) {
+    if (
+      !input.allowedActionClasses.includes("final_submit_request") ||
+      input.approvalGranularity !== "per_action" ||
+      !input.finalSubmitConfirmationRef ||
+      !input.finalSubmitExecutionAuthorityRef
+    ) {
+      reasons.push(servicePageBlockReason(
+        "final_submit_requires_confirmation_and_authority",
+        "Final submit is only a request until a separate confirmation card and ExecutionAuthorityRecord linkage both exist.",
+        input.evidenceRefs
+      ));
+    }
+  }
+
+  return reasons;
+}
+
+function servicePagePermissionStatus(input: {
+  readonly blockReasons: readonly ServicePageUsePermissionBlockReasonDto[];
+  readonly finalSubmitRequested: boolean;
+}): ServicePageUsePermissionStatus {
+  if (input.blockReasons.length) {
+    return "blocked";
+  }
+
+  return input.finalSubmitRequested ? "final_submit_requested" : "granted";
+}
+
+function servicePagePermissionEventType(status: ServicePageUsePermissionStatus) {
+  switch (status) {
+    case "blocked":
+      return "ServicePageActionBlocked" as const;
+    case "final_submit_requested":
+      return "ServicePageFinalSubmitRequested" as const;
+    case "revoked":
+      return "ServicePagePermissionRevoked" as const;
+    case "granted":
+      return "ServicePagePermissionGranted" as const;
+  }
+}
+
+function servicePageVisibleState(input: {
+  readonly status: ServicePageUsePermissionStatus;
+  readonly serviceName: string;
+  readonly blockReasons: readonly ServicePageUsePermissionBlockReasonDto[];
+}) {
+  const defaultExplanation = input.blockReasons.map((reason) => reason.message).join(" ") ||
+    servicePageUsePermissionSummaryForStatus(input.status);
+
+  function defaultNextAction() {
+    switch (input.status) {
+      case "granted":
+        return `Use ${input.serviceName} only for the listed read/preview page actions; request fill-draft or final submit separately.`;
+      case "blocked":
+        return "Fix the visible permission boundary, redaction preview, or final-submit confirmation before using the service page.";
+      case "final_submit_requested":
+        return "Show the final confirmation card and verify the linked ExecutionAuthorityRecord before any submit action.";
+      case "revoked":
+        return "Create a new service page-use permission before any further page action.";
+    }
+  }
+
+  return {
+    userVisibleExplanation: defaultExplanation,
+    nextAction: defaultNextAction()
+  };
+}
+
+function defaultServicePageAuditLog(input: {
+  readonly status: ServicePageUsePermissionStatus;
+  readonly serviceName: string;
+  readonly serviceOrigin: string;
+  readonly promptPreviewRef: string;
+  readonly redactionPreviewRef: string;
+  readonly auditRefs: readonly string[];
+}): readonly ServicePageUsePermissionAuditEntry[] {
+  const entries: ServicePageUsePermissionAuditEntry[] = [
+    {
+      eventType: "permission_preview",
+      label: `${input.serviceName} page-use purpose, origin, data categories, allowed actions, and blocked actions were previewed.`,
+      evidenceRefs: [input.promptPreviewRef, `origin:${input.serviceOrigin}`]
+    },
+    {
+      eventType: "user_present_login_required",
+      label: "Login and credential entry stay user-owned and visible; no credential/session custody is delegated.",
+      evidenceRefs: input.auditRefs
+    },
+    {
+      eventType: "redaction_preview",
+      label: "Redaction preview and export/delete controls were shown before retaining evidence refs.",
+      evidenceRefs: [input.redactionPreviewRef]
+    }
+  ];
+
+  entries.push({
+    eventType: servicePagePermissionEventType(input.status),
+    label: servicePageUsePermissionSummaryForStatus(input.status),
+    evidenceRefs: input.auditRefs
+  });
+
+  return entries;
+}
+
+interface ParsedServicePageUsePermissionPayload {
+  readonly serviceName: string;
+  readonly serviceOrigin: string;
+  readonly pageUrl: string;
+  readonly purpose: string;
+  readonly allowedActionClasses: readonly ServicePageUseActionClass[];
+  readonly blockedActionClasses: readonly ServicePageBlockedActionClass[];
+  readonly dataCategories: readonly ServicePageDataCategory[];
+  readonly approvalGranularity: ServicePageApprovalGranularity;
+  readonly promptPreviewRef: string;
+  readonly redactionPreviewRef: string;
+  readonly userExportDeleteControls: true;
+  readonly finalSubmitRequested: boolean;
+  readonly finalSubmitConfirmationRef: string | null;
+  readonly finalSubmitExecutionAuthorityRef: string | null;
+  readonly screenshotRefs: readonly string[];
+  readonly logRefs: readonly string[];
+  readonly evidenceRefs: readonly string[];
+  readonly auditRefs: readonly string[];
+  readonly activityFeedRefs: readonly string[];
+}
+
+function parseServicePageUsePermissionPayload(
+  command: ProductEngineCommand
+): ParsedServicePageUsePermissionPayload | null {
+  const payload = command.payload as Partial<CreateServicePageUsePermissionPayload>;
+  const serviceName = requiredString(payload.serviceName);
+  const serviceOrigin = requiredString(payload.serviceOrigin);
+  const pageUrl = requiredString(payload.pageUrl);
+  const purpose = requiredString(payload.purpose);
+  const allowedActionClasses = uniqueTypedValues(
+    payload.allowedActionClasses,
+    SERVICE_PAGE_USE_PERMISSION_ACTION_CLASSES
+  );
+  const blockedActionClasses = uniqueTypedValues(
+    payload.blockedActionClasses,
+    SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES
+  );
+  const dataCategories = uniqueTypedValues(
+    payload.dataCategories,
+    SERVICE_PAGE_USE_PERMISSION_DATA_CATEGORIES
+  );
+  const approvalGranularity = requiredString(payload.approvalGranularity);
+  const promptPreviewRef = requiredString(payload.promptPreviewRef);
+  const redactionPreviewRef = requiredString(payload.redactionPreviewRef);
+  const finalSubmitConfirmationRef = requiredString(payload.finalSubmitConfirmationRef);
+  const finalSubmitExecutionAuthorityRef = requiredString(payload.finalSubmitExecutionAuthorityRef);
+  const screenshotRefs = optionalStringArray(payload.screenshotRefs);
+  const logRefs = optionalStringArray(payload.logRefs);
+  const evidenceRefs = optionalStringArray(payload.evidenceRefs);
+  const auditRefs = optionalStringArray(payload.auditRefs);
+  const activityFeedRefs = optionalStringArray(payload.activityFeedRefs);
+
+  if (
+    !serviceName ||
+    !serviceOrigin ||
+    !pageUrl ||
+    !purpose ||
+    !allowedActionClasses ||
+    !blockedActionClasses ||
+    !dataCategories ||
+    !approvalGranularity ||
+    !SERVICE_PAGE_USE_PERMISSION_APPROVAL_GRANULARITIES.includes(approvalGranularity as ServicePageApprovalGranularity) ||
+    !promptPreviewRef ||
+    !redactionPreviewRef ||
+    payload.userExportDeleteControls !== true ||
+    screenshotRefs === null ||
+    logRefs === null ||
+    evidenceRefs === null ||
+    auditRefs === null ||
+    activityFeedRefs === null
+  ) {
+    return null;
+  }
+
+  return {
+    serviceName,
+    serviceOrigin,
+    pageUrl,
+    purpose,
+    allowedActionClasses,
+    blockedActionClasses,
+    dataCategories,
+    approvalGranularity: approvalGranularity as ServicePageApprovalGranularity,
+    promptPreviewRef,
+    redactionPreviewRef,
+    userExportDeleteControls: true,
+    finalSubmitRequested: payload.finalSubmitRequested === true,
+    finalSubmitConfirmationRef,
+    finalSubmitExecutionAuthorityRef,
+    screenshotRefs,
+    logRefs,
+    evidenceRefs,
+    auditRefs,
+    activityFeedRefs
+  };
+}
+
+function servicePageUsePermissionProjectionFromRecords(
+  command: ProductEngineCommand,
+  version: ProjectionVersion,
+  permissions: readonly ServicePageUsePermissionRecord[]
+): ServicePageUsePermissionProjection {
+  const latestPermission = permissions.at(-1);
+
+  if (!latestPermission) {
+    throw new Error("ServicePageUsePermissionProjection requires at least one permission record.");
+  }
+
+  const currentStatus = latestPermission.status;
+
+  return validateServicePageUsePermissionProjection({
+    kind: "ServicePageUsePermissionProjection",
+    sessionId: command.sessionId,
+    version,
+    currentStatus,
+    permissions,
+    latestPermission,
+    blockedPreconditions: currentStatus === "blocked" || currentStatus === "revoked"
+      ? latestPermission.blockReasons
+      : [],
+    summary: servicePageUsePermissionSummaryForStatus(currentStatus),
+    refetchUrl: `/api/v1/sessions/${command.sessionId}/service-page-use-permissions`
+  });
+}
+
+function servicePageUsePermissionProjection(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot,
+  permission: ServicePageUsePermissionRecord
+): ServicePageUsePermissionProjection {
+  return servicePageUsePermissionProjectionFromRecords(command, projectionVersionFor(state), [
+    ...(state.servicePageUsePermission?.permissions ?? []),
+    permission
+  ]);
+}
+
+function reduceCreateServicePageUsePermission(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  if (containsUnsupportedServicePageUsePermissionPayload(command)) {
+    return reject(
+      "CreateServicePageUsePermission payload contains unsupported keys.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  const payload = parseServicePageUsePermissionPayload(command);
+
+  if (!payload) {
+    return reject("CreateServicePageUsePermission payload is invalid.", "VALIDATION_FAILED");
+  }
+
+  if (containsExecutionAuthoritySecretValueLeak(command.payload)) {
+    return reject(
+      "CreateServicePageUsePermission payload must not contain credential, session, token, or secret values.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  const evidenceRefs = uniqueStringRefs([
+    ...payload.evidenceRefs,
+    payload.promptPreviewRef,
+    payload.redactionPreviewRef,
+    ...payload.screenshotRefs,
+    ...payload.logRefs
+  ]);
+  const blockReasons = servicePageUsePermissionBlockReasons({
+    serviceOrigin: payload.serviceOrigin,
+    purpose: payload.purpose,
+    allowedActionClasses: payload.allowedActionClasses,
+    blockedActionClasses: payload.blockedActionClasses,
+    approvalGranularity: payload.approvalGranularity,
+    redactionPreviewRef: payload.redactionPreviewRef,
+    userExportDeleteControls: payload.userExportDeleteControls,
+    finalSubmitRequested: payload.finalSubmitRequested,
+    finalSubmitConfirmationRef: payload.finalSubmitConfirmationRef,
+    finalSubmitExecutionAuthorityRef: payload.finalSubmitExecutionAuthorityRef,
+    evidenceRefs
+  });
+  const status = servicePagePermissionStatus({
+    blockReasons,
+    finalSubmitRequested: payload.finalSubmitRequested
+  });
+  const eventType = servicePagePermissionEventType(status);
+  const visibleState = servicePageVisibleState({
+    status,
+    serviceName: payload.serviceName,
+    blockReasons
+  });
+  const auditRefs = uniqueStringRefs([
+    ...payload.auditRefs,
+    `audit:${command.commandId}`,
+    `event:${eventType}`
+  ]);
+  const permissionId = `service_page_permission_${stableToken(
+    JSON.stringify({
+      sessionId: command.sessionId,
+      expectedStateVersion: command.expectedStateVersion,
+      serviceName: payload.serviceName,
+      serviceOrigin: payload.serviceOrigin,
+      pageUrl: payload.pageUrl,
+      purpose: payload.purpose,
+      allowedActionClasses: payload.allowedActionClasses,
+      finalSubmitRequested: payload.finalSubmitRequested
+    })
+  )}`;
+  const finalSubmitBoundary: ServicePageFinalSubmitBoundary = {
+    requested: payload.finalSubmitRequested,
+    confirmationCardRef: payload.finalSubmitConfirmationRef,
+    executionAuthorityRef: payload.finalSubmitExecutionAuthorityRef,
+    productionMutationPerformed: false
+  };
+  const permission: ServicePageUsePermissionRecord = {
+    permissionId,
+    serviceName: payload.serviceName,
+    serviceOrigin: payload.serviceOrigin,
+    pageUrl: payload.pageUrl,
+    purpose: payload.purpose,
+    allowedActionClasses: payload.allowedActionClasses,
+    blockedActionClasses: payload.blockedActionClasses,
+    dataCategories: payload.dataCategories,
+    approvalGranularity: payload.approvalGranularity,
+    status,
+    userVisibleExplanation: visibleState.userVisibleExplanation,
+    nextAction: visibleState.nextAction,
+    userPresentLoginRequired: true,
+    credentialEntryDelegated: false,
+    fillDraftRequiresPerActionApproval: true,
+    finalSubmitRequiresSeparateConfirmation: true,
+    finalSubmitBoundary,
+    artifactRetention: {
+      promptResultScreenshotLogRetention: "default_evidence_refs_only",
+      redactionPreviewRef: payload.redactionPreviewRef,
+      userExportDeleteControls: true,
+      deletionLeavesAuditMetadataOnly: true,
+      forbiddenRetentionPolicy:
+        "no_credential_session_secret_2fa_payment_legal_medical_financial_privacy_values"
+    },
+    promptPreviewRef: payload.promptPreviewRef,
+    screenshotRefs: uniqueStringRefs(payload.screenshotRefs),
+    logRefs: uniqueStringRefs(payload.logRefs),
+    evidenceRefs: uniqueStringRefs([...evidenceRefs, ...blockReasons.flatMap((reason) => reason.evidenceRefs)]),
+    auditRefs,
+    activityFeedRefs: uniqueStringRefs([
+      `service:${payload.serviceName.toLowerCase().replace(/[^a-z0-9]+/gu, "-")}`,
+      ...payload.activityFeedRefs
+    ]),
+    blockReasons,
+    auditLog: defaultServicePageAuditLog({
+      status,
+      serviceName: payload.serviceName,
+      serviceOrigin: payload.serviceOrigin,
+      promptPreviewRef: payload.promptPreviewRef,
+      redactionPreviewRef: payload.redactionPreviewRef,
+      auditRefs
+    }),
+    canRevoke: servicePageUsePermissionIsRevokableStatus(status),
+    createdAt: command.issuedAt,
+    revokedAt: null,
+    schemaVersion: SERVICE_PAGE_USE_PERMISSION_SCHEMA_VERSION
+  };
+  let projection: ServicePageUsePermissionProjection;
+
+  try {
+    projection = servicePageUsePermissionProjection(command, state, permission);
+  } catch (error) {
+    return reject(error instanceof Error ? error.message : String(error), "VALIDATION_FAILED");
+  }
+
+  const event = eventDraft(command, eventType, {
+    permissionId,
+    serviceName: permission.serviceName,
+    serviceOrigin: permission.serviceOrigin,
+    allowedActionClasses: permission.allowedActionClasses,
+    approvalGranularity: permission.approvalGranularity,
+    status,
+    blockReasons,
+    finalSubmitBoundary,
+    projection,
+    summary: projection.summary
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      servicePageUsePermission: projection
+    },
+    [
+      {
+        outputType: "service_page_use_permission",
+        outputRef: permissionId,
+        payload: {
+          permissionId,
+          serviceName: permission.serviceName,
+          serviceOrigin: permission.serviceOrigin,
+          status,
+          allowedActionClasses: permission.allowedActionClasses,
+          blockReasons
+        }
+      }
+    ],
+    [],
+    projection
+  );
+}
+
+function reduceRevokeServicePageUsePermission(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  if (containsUnsupportedServicePageUsePermissionRevokePayload(command)) {
+    return reject(
+      "RevokeServicePageUsePermission payload contains unsupported keys.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  const payload = command.payload as Partial<RevokeServicePageUsePermissionPayload>;
+  const permissionId = requiredString(payload.permissionId);
+  const reason = requiredString(payload.reason);
+  const auditRefs = optionalStringArray(payload.auditRefs);
+  const projectionBefore = state.servicePageUsePermission;
+
+  if (!permissionId || !reason || auditRefs === null) {
+    return reject("RevokeServicePageUsePermission payload is invalid.", "VALIDATION_FAILED");
+  }
+
+  if (containsExecutionAuthoritySecretValueLeak(command.payload)) {
+    return reject(
+      "RevokeServicePageUsePermission payload must not contain credential, session, token, or secret values.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  if (!projectionBefore) {
+    return reject("RevokeServicePageUsePermission requires an existing service page-use projection.", "RESOURCE_NOT_FOUND");
+  }
+
+  const target = projectionBefore.latestPermission.permissionId === permissionId
+    ? projectionBefore.latestPermission
+    : null;
+
+  if (!target) {
+    return reject("RevokeServicePageUsePermission can only revoke the latest service page-use permission.", "RESOURCE_NOT_FOUND");
+  }
+
+  if (!servicePageUsePermissionIsRevokableStatus(target.status)) {
+    return reject("RevokeServicePageUsePermission can only revoke granted or final-submit-requested permissions.", "COMMAND_PRECONDITION_FAILED");
+  }
+
+  const revokeAuditRefs = uniqueStringRefs([
+    ...auditRefs,
+    `audit:${command.commandId}`,
+    "audit:service-page-use-permission:revoked"
+  ]);
+  const revokedReason = servicePageBlockReason(
+    "revoked_by_user",
+    "The user revoked this external service page-use permission before further page actions could continue.",
+    revokeAuditRefs
+  );
+  const revokedPermission: ServicePageUsePermissionRecord = {
+    ...target,
+    status: "revoked",
+    userVisibleExplanation: reason,
+    nextAction: "Create a new purpose-limited service page-use permission before any further page action.",
+    blockReasons: [...target.blockReasons, revokedReason],
+    auditRefs: uniqueStringRefs([...target.auditRefs, ...revokeAuditRefs]),
+    activityFeedRefs: uniqueStringRefs([...target.activityFeedRefs, "service-page-permission:revoked"]),
+    auditLog: [
+      ...target.auditLog,
+      {
+        eventType: "ServicePagePermissionRevoked",
+        label: reason,
+        evidenceRefs: revokeAuditRefs
+      }
+    ],
+    canRevoke: false,
+    revokedAt: command.issuedAt
+  };
+  let projection: ServicePageUsePermissionProjection;
+
+  try {
+    projection = servicePageUsePermissionProjectionFromRecords(command, projectionVersionFor(state), [
+      ...projectionBefore.permissions.slice(0, -1),
+      revokedPermission
+    ]);
+  } catch (error) {
+    return reject(error instanceof Error ? error.message : String(error), "VALIDATION_FAILED");
+  }
+
+  const event = eventDraft(command, "ServicePagePermissionRevoked", {
+    permissionId,
+    serviceName: revokedPermission.serviceName,
+    serviceOrigin: revokedPermission.serviceOrigin,
+    reason,
+    projection,
+    summary: projection.summary
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      servicePageUsePermission: projection
+    },
+    [
+      {
+        outputType: "service_page_use_permission",
+        outputRef: permissionId,
+        payload: {
+          permissionId,
+          status: "revoked",
+          blockReasons: revokedPermission.blockReasons
+        }
+      }
+    ],
+    [],
+    projection
+  );
+}
+
 const PHASE25_ALLOWED_PAYLOAD_KEYS = [
   "researchQuestion",
   "decisionContext",
@@ -8495,6 +9207,10 @@ export function reduceProductEngineCommand(
       return reduceCreateChatGptBrowserDelegationRun(command, state);
     case "RevokeChatGptBrowserDelegationRun":
       return reduceRevokeChatGptBrowserDelegationRun(command, state);
+    case "CreateServicePageUsePermission":
+      return reduceCreateServicePageUsePermission(command, state);
+    case "RevokeServicePageUsePermission":
+      return reduceRevokeServicePageUsePermission(command, state);
     default:
       return reject(`${command.commandType} is outside the mounted PR-09 reducer slice.`);
   }
@@ -9080,6 +9796,18 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
         ...state,
         stateVersion: nextStateVersion,
         ...(chatGptBrowserDelegation ? { chatGptBrowserDelegation } : {})
+      };
+    }
+    case "ServicePagePermissionGranted":
+    case "ServicePagePermissionRevoked":
+    case "ServicePageActionBlocked":
+    case "ServicePageFinalSubmitRequested": {
+      const servicePageUsePermission = projectionPayload(event.payload, state.servicePageUsePermission);
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        ...(servicePageUsePermission ? { servicePageUsePermission } : {})
       };
     }
     default:

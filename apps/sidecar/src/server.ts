@@ -19,6 +19,10 @@ import {
   EXECUTION_ROLLBACK_KINDS,
   EXECUTION_SANDBOX_MODES,
   EXECUTION_SECRET_POLICIES,
+  SERVICE_PAGE_USE_PERMISSION_ACTION_CLASSES,
+  SERVICE_PAGE_USE_PERMISSION_APPROVAL_GRANULARITIES,
+  SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES,
+  SERVICE_PAGE_USE_PERMISSION_DATA_CATEGORIES,
   BUSINESS_CRITIC_INTENSITIES,
   PROJECT_PURPOSE_MODES,
   isExecutionAuthorityIsoTimestamp,
@@ -36,7 +40,10 @@ import {
   type CreateExecutionAuthorityRequest,
   type CreateChatGptBrowserDelegationRunPayload,
   type CreateChatGptBrowserDelegationRunRequest,
+  type CreateServicePageUsePermissionPayload,
+  type CreateServicePageUsePermissionRequest,
   type RevokeChatGptBrowserDelegationRunRequest,
+  type RevokeServicePageUsePermissionRequest,
   type BrowserActionPreviewDto,
   type ExecuteBrowserActionRequest,
   type ExecuteFileDiffRequest,
@@ -1060,6 +1067,40 @@ const CHATGPT_BROWSER_DELEGATION_REVOKE_REQUEST_BODY_KEYS = [
   "reason",
   "auditRefs"
 ] as const satisfies readonly (keyof RevokeChatGptBrowserDelegationRunRequest)[];
+const SERVICE_PAGE_USE_PERMISSION_REQUEST_BODY_KEYS = [
+  "scaffoldOnly",
+  "sessionId",
+  "expectedStateVersion",
+  "idempotencyKey",
+  "serviceName",
+  "serviceOrigin",
+  "pageUrl",
+  "purpose",
+  "allowedActionClasses",
+  "blockedActionClasses",
+  "dataCategories",
+  "approvalGranularity",
+  "promptPreviewRef",
+  "redactionPreviewRef",
+  "userExportDeleteControls",
+  "finalSubmitRequested",
+  "finalSubmitConfirmationRef",
+  "finalSubmitExecutionAuthorityRef",
+  "screenshotRefs",
+  "logRefs",
+  "evidenceRefs",
+  "auditRefs",
+  "activityFeedRefs"
+] as const satisfies readonly (keyof CreateServicePageUsePermissionRequest)[];
+const SERVICE_PAGE_USE_PERMISSION_REVOKE_REQUEST_BODY_KEYS = [
+  "scaffoldOnly",
+  "sessionId",
+  "expectedStateVersion",
+  "idempotencyKey",
+  "permissionId",
+  "reason",
+  "auditRefs"
+] as const satisfies readonly (keyof RevokeServicePageUsePermissionRequest)[];
 const BROWSER_ACTION_PREVIEW_KEYS = [
   "kind",
   "visibleAction",
@@ -1575,6 +1616,203 @@ function revokeChatGptBrowserDelegationRunRequestFromBody(
     expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
     idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
     runId: routeRunId,
+    reason: stringFromBody(body.reason, "reason"),
+    ...(auditRefs ? { auditRefs } : {})
+  };
+}
+
+function typedStringArrayFromBody<TValue extends string>(
+  value: unknown,
+  fieldName: string,
+  allowedValues: readonly TValue[]
+): readonly TValue[] {
+  const values = stringArrayFromBody(value, fieldName);
+
+  if (!values.every((item): item is TValue => allowedValues.includes(item as TValue))) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      `${fieldName} includes an unsupported value.`
+    );
+  }
+
+  return [...new Set(values)] as readonly TValue[];
+}
+
+function optionalBooleanFromBody(value: unknown, fieldName: string) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "boolean") {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be a boolean.`);
+  }
+
+  return value;
+}
+
+function servicePageUsePermissionRequestFromBody(
+  routeSessionId: SessionId,
+  body: Readonly<Record<string, unknown>>
+): CreateServicePageUsePermissionRequest {
+  assertAllowedRecordKeys(
+    body,
+    SERVICE_PAGE_USE_PERMISSION_REQUEST_BODY_KEYS,
+    "service page-use permission request body"
+  );
+
+  if (body.scaffoldOnly !== undefined && body.scaffoldOnly !== true) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "scaffoldOnly must be true when provided.");
+  }
+
+  const bodySessionId = stringFromBody(body.sessionId, "sessionId") as SessionId;
+
+  if (bodySessionId !== routeSessionId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId must match the route param.", {
+      routeSessionId,
+      bodySessionId
+    });
+  }
+
+  const finalSubmitRequested = optionalBooleanFromBody(body.finalSubmitRequested, "finalSubmitRequested");
+  const finalSubmitConfirmationRef = optionalStringFromBody(
+    body.finalSubmitConfirmationRef,
+    "finalSubmitConfirmationRef"
+  );
+  const finalSubmitExecutionAuthorityRef = optionalStringFromBody(
+    body.finalSubmitExecutionAuthorityRef,
+    "finalSubmitExecutionAuthorityRef"
+  );
+  const approvalGranularity = stringFromBody(body.approvalGranularity, "approvalGranularity");
+
+  if (
+    !SERVICE_PAGE_USE_PERMISSION_APPROVAL_GRANULARITIES.includes(
+      approvalGranularity as (typeof SERVICE_PAGE_USE_PERMISSION_APPROVAL_GRANULARITIES)[number]
+    )
+  ) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "approvalGranularity must be a valid service page-use approval granularity."
+    );
+  }
+
+  const screenshotRefs = optionalStringArrayFromBody(body.screenshotRefs, "screenshotRefs");
+  const logRefs = optionalStringArrayFromBody(body.logRefs, "logRefs");
+  const evidenceRefs = optionalStringArrayFromBody(body.evidenceRefs, "evidenceRefs");
+  const auditRefs = optionalStringArrayFromBody(body.auditRefs, "auditRefs");
+  const activityFeedRefs = optionalStringArrayFromBody(body.activityFeedRefs, "activityFeedRefs");
+
+  return {
+    sessionId: routeSessionId,
+    expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    serviceName: stringFromBody(body.serviceName, "serviceName"),
+    serviceOrigin: stringFromBody(body.serviceOrigin, "serviceOrigin"),
+    pageUrl: stringFromBody(body.pageUrl, "pageUrl"),
+    purpose: stringFromBody(body.purpose, "purpose"),
+    allowedActionClasses: typedStringArrayFromBody(
+      body.allowedActionClasses,
+      "allowedActionClasses",
+      SERVICE_PAGE_USE_PERMISSION_ACTION_CLASSES
+    ),
+    blockedActionClasses: typedStringArrayFromBody(
+      body.blockedActionClasses,
+      "blockedActionClasses",
+      SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES
+    ),
+    dataCategories: typedStringArrayFromBody(
+      body.dataCategories,
+      "dataCategories",
+      SERVICE_PAGE_USE_PERMISSION_DATA_CATEGORIES
+    ),
+    approvalGranularity: approvalGranularity as CreateServicePageUsePermissionRequest["approvalGranularity"],
+    promptPreviewRef: stringFromBody(body.promptPreviewRef, "promptPreviewRef"),
+    redactionPreviewRef: stringFromBody(body.redactionPreviewRef, "redactionPreviewRef"),
+    userExportDeleteControls: body.userExportDeleteControls === true
+      ? true
+      : (() => {
+          throw new ProductEngineServiceError(
+            "VALIDATION_FAILED",
+            "userExportDeleteControls must be true."
+          );
+        })(),
+    ...(finalSubmitRequested !== undefined ? { finalSubmitRequested } : {}),
+    ...(finalSubmitConfirmationRef !== undefined ? { finalSubmitConfirmationRef } : {}),
+    ...(finalSubmitExecutionAuthorityRef !== undefined ? { finalSubmitExecutionAuthorityRef } : {}),
+    ...(screenshotRefs ? { screenshotRefs } : {}),
+    ...(logRefs ? { logRefs } : {}),
+    ...(evidenceRefs ? { evidenceRefs } : {}),
+    ...(auditRefs ? { auditRefs } : {}),
+    ...(activityFeedRefs ? { activityFeedRefs } : {})
+  };
+}
+
+function servicePageUsePermissionPayloadFromRequest(
+  request: CreateServicePageUsePermissionRequest
+): Readonly<Record<string, unknown>> {
+  const payload = {
+    serviceName: request.serviceName,
+    serviceOrigin: request.serviceOrigin,
+    pageUrl: request.pageUrl,
+    purpose: request.purpose,
+    allowedActionClasses: request.allowedActionClasses,
+    blockedActionClasses: request.blockedActionClasses,
+    dataCategories: request.dataCategories,
+    approvalGranularity: request.approvalGranularity,
+    promptPreviewRef: request.promptPreviewRef,
+    redactionPreviewRef: request.redactionPreviewRef,
+    userExportDeleteControls: request.userExportDeleteControls,
+    ...(request.finalSubmitRequested !== undefined ? { finalSubmitRequested: request.finalSubmitRequested } : {}),
+    ...(request.finalSubmitConfirmationRef ? { finalSubmitConfirmationRef: request.finalSubmitConfirmationRef } : {}),
+    ...(request.finalSubmitExecutionAuthorityRef ? { finalSubmitExecutionAuthorityRef: request.finalSubmitExecutionAuthorityRef } : {}),
+    ...(request.screenshotRefs ? { screenshotRefs: request.screenshotRefs } : {}),
+    ...(request.logRefs ? { logRefs: request.logRefs } : {}),
+    ...(request.evidenceRefs ? { evidenceRefs: request.evidenceRefs } : {}),
+    ...(request.auditRefs ? { auditRefs: request.auditRefs } : {}),
+    ...(request.activityFeedRefs ? { activityFeedRefs: request.activityFeedRefs } : {})
+  } satisfies CreateServicePageUsePermissionPayload;
+
+  return payload;
+}
+
+function revokeServicePageUsePermissionRequestFromBody(
+  routeSessionId: SessionId,
+  routePermissionId: string,
+  body: Readonly<Record<string, unknown>>
+): RevokeServicePageUsePermissionRequest {
+  assertAllowedRecordKeys(
+    body,
+    SERVICE_PAGE_USE_PERMISSION_REVOKE_REQUEST_BODY_KEYS,
+    "service page-use permission revoke request body"
+  );
+
+  if (body.scaffoldOnly !== undefined && body.scaffoldOnly !== true) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "scaffoldOnly must be true when provided.");
+  }
+
+  const bodySessionId = stringFromBody(body.sessionId, "sessionId") as SessionId;
+  const bodyPermissionId = stringFromBody(body.permissionId, "permissionId");
+
+  if (bodySessionId !== routeSessionId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId must match the route param.", {
+      routeSessionId,
+      bodySessionId
+    });
+  }
+
+  if (bodyPermissionId !== routePermissionId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "permissionId must match the route param.", {
+      routePermissionId,
+      bodyPermissionId
+    });
+  }
+
+  const auditRefs = optionalStringArrayFromBody(body.auditRefs, "auditRefs");
+
+  return {
+    sessionId: routeSessionId,
+    expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    permissionId: routePermissionId,
     reason: stringFromBody(body.reason, "reason"),
     ...(auditRefs ? { auditRefs } : {})
   };
@@ -2663,6 +2901,51 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
   app.get("/api/v1/sessions/:sessionId/chatgpt-browser-delegations", async (context) =>
     withProductEngine(context, (service) =>
       service.getChatGptBrowserDelegation(context.req.param("sessionId") as SessionId)
+    )
+  );
+
+  app.post("/api/v1/sessions/:sessionId/service-page-use-permissions", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const request = servicePageUsePermissionRequestFromBody(routeSessionId, await jsonBody(context));
+
+      return service.runSessionCommand({
+        sessionId: routeSessionId,
+        commandType: "CreateServicePageUsePermission",
+        expectedStateVersion: request.expectedStateVersion,
+        idempotencyKey: request.idempotencyKey,
+        payload: servicePageUsePermissionPayloadFromRequest(request)
+      });
+    })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/service-page-use-permissions/:permissionId/revoke", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const routePermissionId = context.req.param("permissionId");
+      const request = revokeServicePageUsePermissionRequestFromBody(
+        routeSessionId,
+        routePermissionId,
+        await jsonBody(context)
+      );
+
+      return service.runSessionCommand({
+        sessionId: routeSessionId,
+        commandType: "RevokeServicePageUsePermission",
+        expectedStateVersion: request.expectedStateVersion,
+        idempotencyKey: request.idempotencyKey,
+        payload: {
+          permissionId: request.permissionId,
+          reason: request.reason,
+          ...(request.auditRefs ? { auditRefs: request.auditRefs } : {})
+        }
+      });
+    })
+  );
+
+  app.get("/api/v1/sessions/:sessionId/service-page-use-permissions", async (context) =>
+    withProductEngine(context, (service) =>
+      service.getServicePageUsePermission(context.req.param("sessionId") as SessionId)
     )
   );
 

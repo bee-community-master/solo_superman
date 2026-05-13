@@ -24,6 +24,7 @@ import {
   type ResearchRunId,
   type ResearchTaskId,
   type RuntimeActivityProjection,
+  type ServicePageUsePermissionProjection,
   type SessionShellProjection,
   type StateVersion,
   type StatusEndpointDto
@@ -32,6 +33,10 @@ import { Phase15aOperationsPanel, type ResearchOperationsState } from "./Phase15
 import { Phase15bReadinessPanel } from "./Phase15bReadinessPanel";
 import { PlanningHandoffPanel } from "./PlanningHandoffPanel";
 import { ChatGptDelegationPanel, chatGptDelegationViewModel } from "./ChatGptDelegationPanel";
+import {
+  ServicePageUsePermissionPanel,
+  servicePageUsePermissionViewModel
+} from "./ServicePageUsePermissionPanel";
 import {
   commandResponseVersion,
   optionalCommandProjection,
@@ -85,6 +90,7 @@ interface ProjectionState {
   readonly founderBrief: FounderBriefProjection | null;
   readonly planningHandoff: PlanningHandoffProjection | null;
   readonly chatGptDelegation: ChatGptBrowserDelegationProjection | null;
+  readonly servicePageUsePermission: ServicePageUsePermissionProjection | null;
 }
 
 const DEFAULT_IDEA = "A focused founder brief generator";
@@ -147,7 +153,8 @@ function latestProjectionVersion(projections: ProjectionState) {
     Number(projections.confidence?.version ?? 0),
     Number(projections.founderBrief?.version ?? 0),
     Number(projections.planningHandoff?.version ?? 0),
-    Number(projections.chatGptDelegation?.version ?? 0)
+    Number(projections.chatGptDelegation?.version ?? 0),
+    Number(projections.servicePageUsePermission?.version ?? 0)
   ) as StateVersion;
 }
 
@@ -161,7 +168,8 @@ function emptyProjectionState(): ProjectionState {
     confidence: null,
     founderBrief: null,
     planningHandoff: null,
-    chatGptDelegation: null
+    chatGptDelegation: null,
+    servicePageUsePermission: null
   };
 }
 
@@ -293,6 +301,22 @@ export function DecisionQueueShell() {
     [client]
   );
 
+  const refreshServicePageUsePermission = useCallback(
+    async (sessionId: SessionShellProjection["sessionId"]) => {
+      if (!client) {
+        return;
+      }
+
+      const servicePageUsePermission = await client.getServicePageUsePermission(sessionId);
+
+      setProjections((current) => ({
+        ...current,
+        servicePageUsePermission
+      }));
+    },
+    [client]
+  );
+
   const refreshProjections = useCallback(
     async (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"]) => {
       if (!client) {
@@ -308,7 +332,8 @@ export function DecisionQueueShell() {
         confidence,
         founderBrief,
         planningHandoff,
-        chatGptDelegation
+        chatGptDelegation,
+        servicePageUsePermission
       ] = await Promise.all([
         client.getSession(projectId, sessionId),
         client.getSpec(sessionId),
@@ -318,7 +343,8 @@ export function DecisionQueueShell() {
         client.getCompleteness(sessionId),
         client.getFounderBrief(sessionId).catch(() => null),
         client.getPlanningHandoff(sessionId),
-        client.getChatGptBrowserDelegation(sessionId)
+        client.getChatGptBrowserDelegation(sessionId),
+        client.getServicePageUsePermission(sessionId)
       ]);
 
       setProjections({
@@ -330,7 +356,8 @@ export function DecisionQueueShell() {
         confidence,
         founderBrief,
         planningHandoff,
-        chatGptDelegation
+        chatGptDelegation,
+        servicePageUsePermission
       });
       await Promise.all([refreshResearchOperations(projectId), refreshPhase15bReadiness(projectId)]);
     },
@@ -1270,6 +1297,48 @@ export function DecisionQueueShell() {
     [appendCommand, client, projections, refreshChatGptDelegation]
   );
 
+  const revokeServicePageUsePermission = useCallback(
+    async (permissionId: string) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active session is required before revoking service page-use permission.");
+        return;
+      }
+
+      setIsBusy(true);
+      setWorkflowError(null);
+
+      try {
+        const expectedStateVersion = latestProjectionVersion(projections);
+        const response = await appendCommand(
+          "Revoke service page-use permission",
+          await client.revokeServicePageUsePermission({
+            sessionId: projections.session.sessionId,
+            expectedStateVersion,
+            idempotencyKey: `service-page-permission:revoke:${permissionId}:${expectedStateVersion}`,
+            permissionId,
+            reason: "Revoked from the service page-use permission panel.",
+            auditRefs: [`audit:service-page-use-permission:web-revoke:${permissionId}`]
+          })
+        );
+        const servicePageUsePermission = requiredCommandProjection<ServicePageUsePermissionProjection>(
+          response,
+          "ServicePageUsePermissionProjection"
+        );
+
+        setProjections((current) => ({
+          ...current,
+          servicePageUsePermission
+        }));
+        await refreshServicePageUsePermission(projections.session.sessionId);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [appendCommand, client, projections, refreshServicePageUsePermission]
+  );
+
   const sections = useMemo(() => queueSections(projections.queue), [projections.queue]);
   const queueRecovery = useMemo(() => decisionQueueRecoveryViewModel(projections.queue), [projections.queue]);
   const pendingSummary = useMemo(() => pendingEffectSummary(statuses), [statuses]);
@@ -1304,6 +1373,10 @@ export function DecisionQueueShell() {
   const chatGptDelegationView = useMemo(
     () => chatGptDelegationViewModel(projections.chatGptDelegation),
     [projections.chatGptDelegation]
+  );
+  const servicePageUsePermissionView = useMemo(
+    () => servicePageUsePermissionViewModel(projections.servicePageUsePermission),
+    [projections.servicePageUsePermission]
   );
   const canStart =
     connectionState.status === "connected" &&
@@ -1738,6 +1811,17 @@ export function DecisionQueueShell() {
               }
             }}
             onRevokeDelegation={(runId) => void revokeChatGptDelegation(runId)}
+          />
+
+          <ServicePageUsePermissionPanel
+            permission={servicePageUsePermissionView}
+            isBusy={isBusy}
+            onRefreshPermission={() => {
+              if (projections.session) {
+                void refreshServicePageUsePermission(projections.session.sessionId);
+              }
+            }}
+            onRevokePermission={(permissionId) => void revokeServicePageUsePermission(permissionId)}
           />
 
           <PlanningHandoffPanel

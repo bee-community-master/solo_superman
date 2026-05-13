@@ -7,6 +7,7 @@ import { applyMigrations, createEventRepository, createSoloStorage, localDatabas
 import {
   CANONICAL_INITIAL_SPEC_SECTIONS,
   CONTRACT_SCHEMA_VERSION,
+  SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES,
   type BrowserActionPreviewDto,
   type BlockedActionType,
   type CommandId,
@@ -271,7 +272,7 @@ async function createExecutionAuthorityForE2e(
     executionAuthorityRequestFixture(sessionId, idSuffix, overrides)
   );
 
-  expect(response.status).toBe(200);
+  expect(response.status, JSON.stringify(body)).toBe(200);
 
   const data = responseData(body);
   const projection = record(data.immediateProjection);
@@ -1511,6 +1512,220 @@ describe("PR-09 end-to-end dry-run hardening", () => {
     } finally {
       await mockChatGptTarget?.close();
       await storage.close();
+    }
+  });
+
+  it("runs external service page-use permission dry-runs for read, fill, preview, revoke, and final-submit-blocked", async () => {
+    const { app, storage } = await createMigratedStorageApp();
+    let mockServiceTarget: Awaited<ReturnType<typeof createLocalBrowserTargetServer>> | undefined;
+
+    try {
+      mockServiceTarget = await createLocalBrowserTargetServer(
+        [
+          "<!doctype html>",
+          "<title>Mock Vercel setup page</title>",
+          "<main data-service-page-state=\"ready\">User-owned Vercel login mock with visible setup fields</main>"
+        ].join(""),
+        "/mock-vercel/setup"
+      );
+
+      const start = await postJson(app, "/api/v1/projects", {
+        rawIdea: "An external service page-use permission dry-run idea",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "personal",
+        projectPurposeModeConfirmation: "user_confirmed"
+      });
+      const sessionId = sessionIdFromStart(responseData(start.body));
+      const browserAction = {
+        kind: "navigate_and_capture",
+        visibleAction: true,
+        credentialMode: "none",
+        externalMutation: "blocked"
+      } as const satisfies BrowserActionPreviewDto;
+      const browserHash = hashBrowserActionPreview({ targetUrl: mockServiceTarget.targetUrl, action: browserAction });
+      const { recordId: browserRecordId } = await createExecutionAuthorityForE2e(
+        app,
+        sessionId,
+        "service_page_read_preview",
+        {
+          actionClass: "browser_action",
+          previewArtifactHash: browserHash,
+          reviewedPreviewArtifactHash: browserHash,
+          requestedScope: {
+            browserTargetRef: `browser_target:${mockServiceTarget.targetUrl}`,
+            maxDurationMs: 1_000
+          },
+          sandboxBoundary: {
+            mode: "browser_preview_session",
+            networkPolicy: "loopback_only",
+            secretPolicy: "no_secret_values"
+          },
+          rollbackReference: {
+            kind: "browser_state_reset",
+            ref: "rollback_service_page_read_preview"
+          }
+        }
+      );
+      const browserResult = await postJson(app, `/api/v1/execution-authorities/${browserRecordId}/browser-action`, {
+        sessionId,
+        idempotencyKey: "post-phase3:service-page:browser-read-preview",
+        previewArtifactHash: browserHash,
+        ...phase3CloseoutExecutionWindow,
+        targetUrl: mockServiceTarget.targetUrl,
+        action: browserAction
+      });
+      const browserData = responseData(browserResult.body) as Readonly<Record<string, unknown>>;
+
+      expect(browserData).toMatchObject({
+        kind: "BrowserActionExecutionResult",
+        status: "completed",
+        target: {
+          hostname: "127.0.0.1"
+        }
+      });
+
+      const servicePermissionBase = {
+        sessionId,
+        serviceName: "Vercel",
+        serviceOrigin: "https://vercel.com",
+        pageUrl: "https://vercel.com/new",
+        purpose: "Use a user-present Vercel setup page to read and preview deployment settings.",
+        blockedActionClasses: SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES,
+        dataCategories: ["public_page_content", "user_provided_project_context", "prompt_result_screenshot_log_refs"],
+        promptPreviewRef: "prompt_preview_service_page_e2e",
+        redactionPreviewRef: "redaction_preview_service_page_e2e",
+        userExportDeleteControls: true,
+        screenshotRefs: browserData.screenshotRefs as readonly string[],
+        logRefs: browserData.logRefs as readonly string[],
+        evidenceRefs: [
+          "evidence:service-page-permission:e2e",
+          ...((browserData.evidenceRefs as readonly string[] | undefined) ?? [])
+        ],
+        auditRefs: [
+          "audit:service-page-permission:e2e",
+          ...((browserData.auditRefs as readonly string[] | undefined) ?? [])
+        ],
+        activityFeedRefs: ["setup_step:vercel-deploy-settings"]
+      } as const;
+
+      const readPreview = await postJson(app, `/api/v1/sessions/${sessionId}/service-page-use-permissions`, {
+        ...servicePermissionBase,
+        expectedStateVersion: 2,
+        idempotencyKey: "post-phase3:service-page:read-preview",
+        allowedActionClasses: ["read", "preview"],
+        approvalGranularity: "per_page"
+      });
+      const readPreviewData = responseData(readPreview.body);
+
+      expect(readPreviewData).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionBefore: 2,
+        stateVersionAfter: 3,
+        immediateProjection: {
+          kind: "ServicePageUsePermissionProjection",
+          currentStatus: "granted",
+          latestPermission: {
+            serviceOrigin: "https://vercel.com",
+            credentialEntryDelegated: false,
+            canRevoke: true
+          }
+        }
+      });
+
+      const readPreviewPermissionId = stringField(
+        record(record(readPreviewData.immediateProjection).latestPermission),
+        "permissionId"
+      );
+      const revoked = await postJson(
+        app,
+        `/api/v1/sessions/${sessionId}/service-page-use-permissions/${readPreviewPermissionId}/revoke`,
+        {
+          sessionId,
+          expectedStateVersion: 3,
+          idempotencyKey: "post-phase3:service-page:revoked",
+          permissionId: readPreviewPermissionId,
+          reason: "User stopped the mocked Vercel page-use permission during the dry-run.",
+          auditRefs: ["audit:service-page-permission:e2e-revoked"]
+        }
+      );
+
+      expect(responseData(revoked.body)).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionBefore: 3,
+        stateVersionAfter: 4,
+        immediateProjection: {
+          kind: "ServicePageUsePermissionProjection",
+          currentStatus: "revoked",
+          latestPermission: {
+            canRevoke: false,
+            blockReasons: expect.arrayContaining([expect.objectContaining({ code: "revoked_by_user" })])
+          }
+        }
+      });
+
+      const fillDraft = await postJson(app, `/api/v1/sessions/${sessionId}/service-page-use-permissions`, {
+        ...servicePermissionBase,
+        expectedStateVersion: 4,
+        idempotencyKey: "post-phase3:service-page:fill-draft",
+        purpose: "Fill a draft deployment settings form while the user stays present and can stop automation.",
+        allowedActionClasses: ["fill_draft"],
+        approvalGranularity: "per_action",
+        activityFeedRefs: ["setup_step:vercel-fill-draft"]
+      });
+
+      expect(responseData(fillDraft.body)).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionBefore: 4,
+        stateVersionAfter: 5,
+        immediateProjection: {
+          currentStatus: "granted",
+          latestPermission: {
+            allowedActionClasses: ["fill_draft"],
+            approvalGranularity: "per_action"
+          }
+        }
+      });
+
+      const finalSubmitBlocked = await postJson(app, `/api/v1/sessions/${sessionId}/service-page-use-permissions`, {
+        ...servicePermissionBase,
+        expectedStateVersion: 5,
+        idempotencyKey: "post-phase3:service-page:final-submit-blocked",
+        purpose: "Request final submit for a deployment settings form without a separate execution authority.",
+        allowedActionClasses: ["final_submit_request"],
+        approvalGranularity: "per_action",
+        finalSubmitRequested: true,
+        activityFeedRefs: ["setup_step:vercel-final-submit"]
+      });
+
+      expect(responseData(finalSubmitBlocked.body)).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionBefore: 5,
+        stateVersionAfter: 6,
+        immediateProjection: {
+          currentStatus: "blocked",
+          latestPermission: {
+            finalSubmitBoundary: {
+              requested: true,
+              confirmationCardRef: null,
+              executionAuthorityRef: null,
+              productionMutationPerformed: false
+            },
+            blockReasons: expect.arrayContaining([
+              expect.objectContaining({ code: "final_submit_requires_confirmation_and_authority" })
+            ])
+          }
+        }
+      });
+
+      const latest = await getJson(app, `/api/v1/sessions/${sessionId}/service-page-use-permissions`);
+
+      expect(responseData(latest.body)).toMatchObject({
+        kind: "ServicePageUsePermissionProjection",
+        currentStatus: "blocked"
+      });
+    } finally {
+      await storage.close();
+      await mockServiceTarget?.close();
     }
   });
 

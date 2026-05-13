@@ -519,6 +519,30 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "createServicePageUsePermission",
+    clientName: "createServicePageUsePermission",
+    method: "POST",
+    path: "/api/v1/sessions/:sessionId/service-page-use-permissions",
+    commandType: "CreateServicePageUsePermission",
+    implementedInPr01: false
+  },
+  {
+    routeId: "getServicePageUsePermissions",
+    clientName: "getServicePageUsePermissions",
+    method: "GET",
+    path: "/api/v1/sessions/:sessionId/service-page-use-permissions",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
+    routeId: "revokeServicePageUsePermission",
+    clientName: "revokeServicePageUsePermission",
+    method: "POST",
+    path: "/api/v1/sessions/:sessionId/service-page-use-permissions/:permissionId/revoke",
+    commandType: "RevokeServicePageUsePermission",
+    implementedInPr01: false
+  },
+  {
     routeId: "getCommandStatus",
     clientName: "getCommandStatus",
     method: "GET",
@@ -754,4 +778,15 @@ export const POST_PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...POST_PHASE3_PR04_CHATGPT_DELEGATION_RUN_ROUTE_IDS
 ] as const satisfies readonly ApiRouteId[];
 
-export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = POST_PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS;
+export const POST_PHASE3_PR05_SERVICE_PAGE_PERMISSION_ROUTE_IDS = [
+  "createServicePageUsePermission",
+  "getServicePageUsePermissions",
+  "revokeServicePageUsePermission"
+] as const satisfies readonly ApiRouteId[];
+
+export const POST_PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...POST_PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  ...POST_PHASE3_PR05_SERVICE_PAGE_PERMISSION_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = POST_PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS;

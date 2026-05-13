@@ -85,6 +85,7 @@ import {
   type ResearchSourceCategory,
   type ResearchTaskId,
   type RuntimeActivityProjection,
+  type ServicePageUsePermissionProjection,
   type RuntimePreviewArtifact,
   type SchemaVersion,
   type SessionId,
@@ -209,6 +210,8 @@ export interface RunSessionCommandInput {
     | "CreateExecutionAuthority"
     | "CreateChatGptBrowserDelegationRun"
     | "RevokeChatGptBrowserDelegationRun"
+    | "CreateServicePageUsePermission"
+    | "RevokeServicePageUsePermission"
   >;
   readonly expectedStateVersion: StateVersion;
   readonly idempotencyKey?: string;
@@ -608,6 +611,7 @@ function isPersistedProjection(value: unknown): value is PersistedProjection {
     kind === "Phase25ResearchComparisonProjection" ||
     kind === "ExecutionAuthorityLedgerProjection" ||
     kind === "ChatGptBrowserDelegationProjection" ||
+    kind === "ServicePageUsePermissionProjection" ||
     kind === "ResearchEvidenceProjection" ||
     kind === "RuntimeActivityProjection" ||
     kind === "SessionShellProjection"
@@ -4417,6 +4421,21 @@ export function createProductEngineCommandService(
       return createProjectionRepository(storage.db).get<ChatGptBrowserDelegationProjection>(
         sessionIdValue,
         "ChatGptBrowserDelegationProjection"
+      );
+    },
+
+    async getServicePageUsePermission(sessionIdValue: SessionId): Promise<ServicePageUsePermissionProjection | null> {
+      const session = await createProjectRepository(storage.db).getSession(sessionIdValue);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: sessionIdValue
+        });
+      }
+
+      return createProjectionRepository(storage.db).get<ServicePageUsePermissionProjection>(
+        sessionIdValue,
+        "ServicePageUsePermissionProjection"
       );
     },
 

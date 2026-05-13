@@ -232,6 +232,24 @@ describe("PR-09 web route client catalog", () => {
     });
   });
 
+  it("marks Post-Phase3 PR-05 service page-use permission routes with their own mounted lane", () => {
+    expect(findWebRouteClientPlaceholder("createServicePageUsePermission")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/service-page-use-permissions",
+      implementation: "mounted_post_phase3_pr_05"
+    });
+    expect(findWebRouteClientPlaceholder("getServicePageUsePermissions")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/sessions/:sessionId/service-page-use-permissions",
+      implementation: "mounted_post_phase3_pr_05"
+    });
+    expect(findWebRouteClientPlaceholder("revokeServicePageUsePermission")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/service-page-use-permissions/:permissionId/revoke",
+      implementation: "mounted_post_phase3_pr_05"
+    });
+  });
+
   it("marks the Decision Queue SSE notification stream as mounted for refetch recovery", () => {
     expect(findWebRouteClientPlaceholder("subscribeEventStream")).toMatchObject({
       method: "GET",

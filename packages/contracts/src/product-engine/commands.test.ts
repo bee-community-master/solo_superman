@@ -32,7 +32,9 @@ const DOCS_25_PRODUCT_ENGINE_COMMAND_TYPES = [
   "CreatePhase25ResearchComparison",
   "CreateExecutionAuthority",
   "CreateChatGptBrowserDelegationRun",
-  "RevokeChatGptBrowserDelegationRun"
+  "RevokeChatGptBrowserDelegationRun",
+  "CreateServicePageUsePermission",
+  "RevokeServicePageUsePermission"
 ] as const;
 
 const DOCS_25_PROJECT_APPLICATION_COMMAND_TYPES = [

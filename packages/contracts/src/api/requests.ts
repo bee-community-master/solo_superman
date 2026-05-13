@@ -29,6 +29,12 @@ import type {
   ChatGptBrowserDelegationApprovalDecision,
   ChatGptBrowserDelegationVerdictDto
 } from "../projections/chatgpt-browser-delegation";
+import type {
+  ServicePageApprovalGranularity,
+  ServicePageBlockedActionClass,
+  ServicePageDataCategory,
+  ServicePageUseActionClass
+} from "../projections/service-page-use-permission";
 import type { PlanningHandoffRequestedScopeDto, PlanningHandoffSourceRefDto } from "../projections/planning-handoff";
 import type { ResearchQueueTerminalOutcome } from "../projections/research-evidence";
 import type { BlockedActionType, CodexTurnPurpose } from "../codex";
@@ -309,6 +315,40 @@ export interface RevokeChatGptBrowserDelegationRunRequest extends ScaffoldReques
   readonly expectedStateVersion: StateVersion;
   readonly idempotencyKey: string;
   readonly runId: string;
+  readonly reason: string;
+  readonly auditRefs?: readonly string[];
+}
+
+export interface CreateServicePageUsePermissionRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
+  readonly idempotencyKey: string;
+  readonly serviceName: string;
+  readonly serviceOrigin: string;
+  readonly pageUrl: string;
+  readonly purpose: string;
+  readonly allowedActionClasses: readonly ServicePageUseActionClass[];
+  readonly blockedActionClasses: readonly ServicePageBlockedActionClass[];
+  readonly dataCategories: readonly ServicePageDataCategory[];
+  readonly approvalGranularity: ServicePageApprovalGranularity;
+  readonly promptPreviewRef: string;
+  readonly redactionPreviewRef: string;
+  readonly userExportDeleteControls: true;
+  readonly finalSubmitRequested?: boolean;
+  readonly finalSubmitConfirmationRef?: string;
+  readonly finalSubmitExecutionAuthorityRef?: string;
+  readonly screenshotRefs?: readonly string[];
+  readonly logRefs?: readonly string[];
+  readonly evidenceRefs?: readonly string[];
+  readonly auditRefs?: readonly string[];
+  readonly activityFeedRefs?: readonly string[];
+}
+
+export interface RevokeServicePageUsePermissionRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
+  readonly idempotencyKey: string;
+  readonly permissionId: string;
   readonly reason: string;
   readonly auditRefs?: readonly string[];
 }
