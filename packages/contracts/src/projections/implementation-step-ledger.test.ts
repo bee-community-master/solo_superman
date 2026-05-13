@@ -72,6 +72,69 @@ describe("ImplementationStepLedgerProjection contract", () => {
     expect(() => validateImplementationStepLedgerProjection(invalid)).toThrow(ImplementationStepLedgerValidationError);
   });
 
+  it("rejects repeated step ids with mutated step docs", () => {
+    const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
+    const invalid = {
+      ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+      steps: [
+        {
+          ...step,
+          status: "ready"
+        },
+        {
+          ...step,
+          stepDoc: {
+            ...step.stepDoc,
+            expectedChangeScope: "verification_only"
+          }
+        }
+      ]
+    } as ImplementationStepLedgerProjection;
+
+    expect(() => validateImplementationStepLedgerProjection(invalid)).toThrow(ImplementationStepLedgerValidationError);
+  });
+
+  it("rejects step-level evidence records that point to a different step id", () => {
+    const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
+    const invalid = {
+      ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+      steps: [
+        {
+          ...step,
+          testEvidenceRecord: {
+            ...step.testEvidenceRecord!,
+            stepId: "step_other"
+          }
+        },
+        {
+          ...step,
+          stepDoc: {
+            ...step.stepDoc,
+            stepId: "step_other"
+          },
+          stepCommitRecord: {
+            ...step.stepCommitRecord!,
+            stepId: "step_other"
+          },
+          codeReviewRecord: {
+            ...step.codeReviewRecord!,
+            stepId: "step_other"
+          },
+          cleanCodeReviewRecord: {
+            ...step.cleanCodeReviewRecord!,
+            stepId: "step_other"
+          },
+          testEvidenceRecord: {
+            ...step.testEvidenceRecord!,
+            stepId: "step_other"
+          }
+        }
+      ]
+    } as ImplementationStepLedgerProjection;
+
+    expect(() => validateImplementationStepLedgerProjection(invalid)).toThrow(ImplementationStepLedgerValidationError);
+  });
+
   it("rejects completed passing test evidence with zero passing tests", () => {
     const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
     const invalid = {

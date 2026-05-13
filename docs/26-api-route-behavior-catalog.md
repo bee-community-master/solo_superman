@@ -319,7 +319,7 @@ Placeholder route families:
   - Request DTO: `RecordImplementationStepLedgerRequest` records tracker/step docs, target status, step-local commit/no-code evidence, separate code review and clean-code review records, test evidence with `verifiedCommitSha`, blockers, and evidence refs.
   - Response/statusUrl: `accepted_with_projection` with `ImplementationStepLedgerProjection`; no provider background queue and no hidden retry.
   - Completion rule: tracked code/docs/config steps need `StepCommitRecord.commitSha`, `previousCommitSha`, `diffRange`, changed files, rollback ref, separate reviews comparing previous -> step commit, and passing test evidence whose `verifiedCommitSha` equals the step commit with no Not-tested gaps. Verification-only/no-op steps may use `NoCodeStepEvidence` with clean tracked state, baseline-bound reviews/tests, and no Not-tested gaps.
-  - Blockers: failed/missing tests, missing evidence, dirty no-code evidence, same review id for code and clean-code review, mismatched diff/test commit, credential/session/token/secret-shaped values, credential-bearing URLs, or explicit blockers stay visible in the ledger/progress report and cannot be reported as completed.
+  - Blockers: failed/missing tests, missing evidence, dirty no-code evidence, same review id for code and clean-code review, changed `ImplementationStepDoc` for an existing step id, mismatched diff/test commit, credential/session/token/secret-shaped values, credential-bearing URLs, or explicit blockers stay visible in the ledger/progress report and cannot be reported as completed.
 
 Phase 3 route closeout acceptance:
 

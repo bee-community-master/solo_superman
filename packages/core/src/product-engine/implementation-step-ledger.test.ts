@@ -262,6 +262,79 @@ describe("RecordImplementationStepLedger reducer", () => {
     expect(mismatchedDiff.rejectionReason?.message).toContain("diffRange must equal");
   });
 
+  it("rejects tracker doc changes after the ledger starts", () => {
+    const initialReduction = reduceProductEngineCommand(
+      command({ ...fullPayload(), targetStatus: "ready" }),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(initialReduction.accepted).toBe(true);
+
+    const changedTracker = reduceProductEngineCommand(
+      command(
+        fullPayload({
+          targetStatus: "implementing",
+          trackerDoc: {
+            trackerId: "tracker_issue_104",
+            title: "Mutated implementation tracker",
+            goal: "Silently change the tracker after the first record.",
+            sourceRefs: ["issue:104"]
+          }
+        }),
+        initialReduction.nextState.stateVersion as StateVersion
+      ),
+      {
+        ...createInitialProductEngineState(projectId, sessionId),
+        ...initialReduction.nextState
+      } as ProductEngineStateSnapshot
+    );
+
+    expect(changedTracker.accepted).toBe(false);
+    expect(changedTracker.rejectionReason?.message).toContain("trackerDoc must match");
+  });
+
+  it("rejects step doc changes for an existing step id so no-code scope cannot bypass a tracked step", () => {
+    const initialReduction = reduceProductEngineCommand(
+      command({ ...fullPayload(), targetStatus: "ready" }),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(initialReduction.accepted).toBe(true);
+
+    const changedStepDoc = reduceProductEngineCommand(
+      command(
+        fullPayload({
+          targetStatus: "implementing",
+          stepCommitRecord: undefined,
+          stepDoc: {
+            stepId: "step_contracts",
+            title: "Add ledger contracts",
+            description: "Add the implementation step ledger projection and reducer command.",
+            sourceRefs: ["issue:104", "docs:37"],
+            expectedChangeScope: "verification_only"
+          },
+          noCodeStepEvidence: {
+            stepId: "step_contracts",
+            baselineCommitSha: "1234567",
+            cleanTrackedState: true,
+            intendedTrackedDiff: "none",
+            noCodeReason: "Attempt to change a tracked step into a no-code step.",
+            commandEvidenceRefs: ["git:status"],
+            notTestedGaps: []
+          }
+        }),
+        initialReduction.nextState.stateVersion as StateVersion
+      ),
+      {
+        ...createInitialProductEngineState(projectId, sessionId),
+        ...initialReduction.nextState
+      } as ProductEngineStateSnapshot
+    );
+
+    expect(changedStepDoc.accepted).toBe(false);
+    expect(changedStepDoc.rejectionReason?.message).toContain("stepDoc must match");
+  });
+
   it("keeps failed tests and Not-tested gaps visible as blockers", () => {
     const projection = projectionFrom(fullPayload({
       testEvidenceRecord: {

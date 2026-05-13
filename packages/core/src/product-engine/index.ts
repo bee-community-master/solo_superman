@@ -8624,6 +8624,17 @@ function trackerDocFromValue(value: unknown): TrackerDoc | null {
     : null;
 }
 
+function sameImplementationStepStringArray(left: readonly string[], right: readonly string[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function sameTrackerDoc(left: TrackerDoc, right: TrackerDoc) {
+  return left.trackerId === right.trackerId &&
+    left.title === right.title &&
+    left.goal === right.goal &&
+    sameImplementationStepStringArray(left.sourceRefs, right.sourceRefs);
+}
+
 function implementationStepDocFromValue(value: unknown): ImplementationStepDoc | null {
   const record = recordFromUnknown(value);
   const stepId = requiredString(record?.stepId);
@@ -8649,6 +8660,14 @@ function implementationStepDocFromValue(value: unknown): ImplementationStepDoc |
     sourceRefs,
     expectedChangeScope
   };
+}
+
+function sameImplementationStepDoc(left: ImplementationStepDoc, right: ImplementationStepDoc) {
+  return left.stepId === right.stepId &&
+    left.title === right.title &&
+    left.description === right.description &&
+    left.expectedChangeScope === right.expectedChangeScope &&
+    sameImplementationStepStringArray(left.sourceRefs, right.sourceRefs);
 }
 
 function stepCommitRecordFromValue(value: unknown, stepId: string): StepCommitRecord | null | undefined {
@@ -9108,6 +9127,15 @@ function reduceRecordImplementationStepLedger(
   }
 
   const existingSteps = state.implementationStepLedger?.steps ?? [];
+  const existingStepForId = existingSteps.find((step) => step.stepDoc.stepId === stepDoc.stepId) ?? null;
+
+  if (state.implementationStepLedger && !sameTrackerDoc(state.implementationStepLedger.trackerDoc, trackerDoc)) {
+    return reject("RecordImplementationStepLedger trackerDoc must match the existing ledger trackerDoc.", "VALIDATION_FAILED");
+  }
+  if (existingStepForId && !sameImplementationStepDoc(existingStepForId.stepDoc, stepDoc)) {
+    return reject("RecordImplementationStepLedger stepDoc must match the existing step doc for the same step id.", "VALIDATION_FAILED");
+  }
+
   const previousNonBlockedStep = [...existingSteps]
     .reverse()
     .find((step) => step.stepDoc.stepId === stepDoc.stepId && step.status !== "blocked") ?? null;

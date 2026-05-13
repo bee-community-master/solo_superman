@@ -166,6 +166,18 @@ function stringArray(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every(isNonEmptyString);
 }
 
+function sameStringArray(left: readonly string[], right: readonly string[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function sameImplementationStepDoc(left: ImplementationStepDoc, right: ImplementationStepDoc) {
+  return left.stepId === right.stepId &&
+    left.title === right.title &&
+    left.description === right.description &&
+    left.expectedChangeScope === right.expectedChangeScope &&
+    sameStringArray(left.sourceRefs, right.sourceRefs);
+}
+
 function isOneOf<TValue extends string>(value: unknown, allowedValues: readonly TValue[]): value is TValue {
   return typeof value === "string" && allowedValues.includes(value as TValue);
 }
@@ -423,6 +435,9 @@ export function validateImplementationStepLedgerProjection(
     if (step.stepCommitRecord !== null && !isStepCommitRecord(step.stepCommitRecord)) {
       issues.push("stepCommitRecord must include commit SHA, previous commit, diff range, rollback ref, and evidence");
     }
+    if (step.stepCommitRecord !== null && step.stepCommitRecord.stepId !== step.stepDoc.stepId) {
+      issues.push("stepCommitRecord must match its ImplementationStepDoc stepId");
+    }
     if (
       step.stepCommitRecord !== null &&
       step.stepCommitRecord.diffRange !== `${step.stepCommitRecord.previousCommitSha}..${step.stepCommitRecord.commitSha}`
@@ -432,14 +447,26 @@ export function validateImplementationStepLedgerProjection(
     if (step.noCodeStepEvidence !== null && !isNoCodeStepEvidence(step.noCodeStepEvidence)) {
       issues.push("NoCodeStepEvidence must include baseline commit, clean tracked state, no-code reason, command evidence, and Not-tested gaps");
     }
+    if (step.noCodeStepEvidence !== null && step.noCodeStepEvidence.stepId !== step.stepDoc.stepId) {
+      issues.push("NoCodeStepEvidence must match its ImplementationStepDoc stepId");
+    }
     if (step.codeReviewRecord !== null && !isCodeReviewRecord(step.codeReviewRecord)) {
       issues.push("CodeReviewRecord must be valid and separate from clean-code review");
+    }
+    if (step.codeReviewRecord !== null && step.codeReviewRecord.stepId !== step.stepDoc.stepId) {
+      issues.push("CodeReviewRecord must match its ImplementationStepDoc stepId");
     }
     if (step.cleanCodeReviewRecord !== null && !isCleanCodeReviewRecord(step.cleanCodeReviewRecord)) {
       issues.push("CleanCodeReviewRecord must be valid and separate from code review");
     }
+    if (step.cleanCodeReviewRecord !== null && step.cleanCodeReviewRecord.stepId !== step.stepDoc.stepId) {
+      issues.push("CleanCodeReviewRecord must match its ImplementationStepDoc stepId");
+    }
     if (step.testEvidenceRecord !== null && !isTestEvidenceRecord(step.testEvidenceRecord)) {
       issues.push("TestEvidenceRecord must include commands, outcome, counts, Not-tested gaps, and evidence refs");
+    }
+    if (step.testEvidenceRecord !== null && step.testEvidenceRecord.stepId !== step.stepDoc.stepId) {
+      issues.push("TestEvidenceRecord must match its ImplementationStepDoc stepId");
     }
     if (step.testEvidenceRecord && step.stepCommitRecord && step.testEvidenceRecord.verifiedCommitSha !== step.stepCommitRecord.commitSha) {
       issues.push("TestEvidenceRecord verifiedCommitSha must match StepCommitRecord commitSha");
@@ -455,6 +482,9 @@ export function validateImplementationStepLedgerProjection(
     }
     if (step.blocker !== null && !isBlocker(step.blocker)) {
       issues.push("blocked step must include blocker reason, missing evidence, next action, and evidence refs");
+    }
+    if (step.blocker !== null && step.blocker.stepId !== step.stepDoc.stepId) {
+      issues.push("blocked step must match its ImplementationStepDoc stepId");
     }
     if (step.status === "completed") {
       const missing = completedEvidenceMissing(step);
@@ -472,7 +502,16 @@ export function validateImplementationStepLedgerProjection(
   }
 
   const stepIds = new Set(projection.steps.map((step) => step.stepDoc.stepId));
+  const stepDocsById = new Map<string, ImplementationStepDoc>();
 
+  for (const step of projection.steps) {
+    const existingDoc = stepDocsById.get(step.stepDoc.stepId);
+
+    if (existingDoc && !sameImplementationStepDoc(existingDoc, step.stepDoc)) {
+      issues.push("ImplementationStepDoc must stay stable for repeated records of the same step id");
+    }
+    stepDocsById.set(step.stepDoc.stepId, step.stepDoc);
+  }
   for (const record of projection.stepCommitRecords) {
     if (!isStepCommitRecord(record) || !stepIds.has(record.stepId)) {
       issues.push("stepCommitRecords must point to known steps");
