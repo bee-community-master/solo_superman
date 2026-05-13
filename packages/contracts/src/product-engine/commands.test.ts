@@ -31,7 +31,8 @@ const DOCS_25_PRODUCT_ENGINE_COMMAND_TYPES = [
   "CreatePlanningHandoff",
   "CreatePhase25ResearchComparison",
   "CreateExecutionAuthority",
-  "CreateChatGptBrowserDelegationRun"
+  "CreateChatGptBrowserDelegationRun",
+  "RevokeChatGptBrowserDelegationRun"
 ] as const;
 
 const DOCS_25_PROJECT_APPLICATION_COMMAND_TYPES = [

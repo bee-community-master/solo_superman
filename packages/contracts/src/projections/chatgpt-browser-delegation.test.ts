@@ -14,7 +14,7 @@ describe("ChatGPT browser delegation contract", () => {
     const projection = validateChatGptBrowserDelegationProjection(CHATGPT_BROWSER_DELEGATION_READY_PROJECTION_FIXTURE);
     const run = validateChatGptBrowserDelegationRun(projection.latestRun);
 
-    expect(chatGptBrowserDelegationStatusForRun(run)).toBe("ready_for_browser_action");
+    expect(chatGptBrowserDelegationStatusForRun(run)).toBe("running");
     expect(run).toMatchObject({
       approvalDecision: "approved",
       policyRiskVerdict: { verdict: "pass" },
@@ -36,7 +36,7 @@ describe("ChatGPT browser delegation contract", () => {
       CHATGPT_BROWSER_DELEGATION_FALLBACK_PROJECTION_FIXTURE
     );
 
-    expect(projection.currentStatus).toBe("fallback_required");
+    expect(projection.currentStatus).toBe("blocked");
     expect(projection.blockedPreconditions).toEqual(projection.latestRun.blockReasons);
     expect(projection.latestRun.fallbackApplied).toMatchObject({
       lane: "manual_prompt_handoff",
@@ -61,6 +61,10 @@ describe("ChatGPT browser delegation contract", () => {
   it("requires failed result-import gates to surface as visible fallback blockers", () => {
     const blockedRun: ChatGptBrowserDelegationRun = {
       ...CHATGPT_BROWSER_DELEGATION_READY_PROJECTION_FIXTURE.latestRun,
+      status: "failed",
+      userVisibleExplanation: "ChatGPT result import gates failed.",
+      nextAction: "Review the transcript manually before importing the result.",
+      canRevoke: false,
       resultImportRef: "research_result_chatgpt_gate_fail" as ResearchResultId,
       resultImportGate: {
         sourceProvenanceStatus: "pass",
@@ -94,7 +98,7 @@ describe("ChatGPT browser delegation contract", () => {
     };
 
     expect(chatGptBrowserDelegationStatusForRun(validateChatGptBrowserDelegationRun(blockedRun))).toBe(
-      "fallback_required"
+      "failed"
     );
     expect(() => validateChatGptBrowserDelegationRun(silentRun)).toThrow(/result_import_gate_failed/);
   });
@@ -102,6 +106,10 @@ describe("ChatGPT browser delegation contract", () => {
   it("allows result imports only when all provenance and quality gates pass", () => {
     const importReadyRun: ChatGptBrowserDelegationRun = {
       ...CHATGPT_BROWSER_DELEGATION_READY_PROJECTION_FIXTURE.latestRun,
+      status: "completed",
+      userVisibleExplanation: "ChatGPT result import gates passed.",
+      nextAction: "Import the result with source and counter-evidence refs attached.",
+      canRevoke: false,
       resultImportRef: "research_result_chatgpt_gate_pass" as ResearchResultId,
       resultImportGate: {
         sourceProvenanceStatus: "pass",
@@ -117,7 +125,7 @@ describe("ChatGPT browser delegation contract", () => {
     };
 
     expect(chatGptBrowserDelegationStatusForRun(validateChatGptBrowserDelegationRun(importReadyRun))).toBe(
-      "result_import_ready"
+      "completed"
     );
   });
 

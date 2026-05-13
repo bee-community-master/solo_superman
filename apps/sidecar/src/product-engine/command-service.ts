@@ -208,6 +208,7 @@ export interface RunSessionCommandInput {
     | "CreatePhase25ResearchComparison"
     | "CreateExecutionAuthority"
     | "CreateChatGptBrowserDelegationRun"
+    | "RevokeChatGptBrowserDelegationRun"
   >;
   readonly expectedStateVersion: StateVersion;
   readonly idempotencyKey?: string;

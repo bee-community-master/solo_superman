@@ -34,6 +34,7 @@ import {
   type CreateExecutionAuthorityPayload,
   type CreateExecutionAuthorityRequest,
   type CreateChatGptBrowserDelegationRunRequest,
+  type RevokeChatGptBrowserDelegationRunRequest,
   type BrowserActionPreviewDto,
   type ExecuteBrowserActionRequest,
   type ExecuteFileDiffRequest,
@@ -1030,6 +1031,9 @@ const CHATGPT_BROWSER_DELEGATION_REQUEST_BODY_KEYS = [
   "expectedStateVersion",
   "idempotencyKey",
   "researchTaskId",
+  "status",
+  "userVisibleExplanation",
+  "nextAction",
   "promptPreviewRef",
   "dataDisclosurePreview",
   "redactionSummary",
@@ -1042,8 +1046,18 @@ const CHATGPT_BROWSER_DELEGATION_REQUEST_BODY_KEYS = [
   "fallbackApplied",
   "screenshotRefs",
   "logRefs",
-  "auditRefs"
+  "auditRefs",
+  "activityFeedRefs"
 ] as const satisfies readonly (keyof CreateChatGptBrowserDelegationRunRequest)[];
+const CHATGPT_BROWSER_DELEGATION_REVOKE_REQUEST_BODY_KEYS = [
+  "scaffoldOnly",
+  "sessionId",
+  "expectedStateVersion",
+  "idempotencyKey",
+  "runId",
+  "reason",
+  "auditRefs"
+] as const satisfies readonly (keyof RevokeChatGptBrowserDelegationRunRequest)[];
 const BROWSER_ACTION_PREVIEW_KEYS = [
   "kind",
   "visibleAction",
@@ -1409,6 +1423,12 @@ function createChatGptBrowserDelegationRunRequestFromBody(
     body.browserActionAuthorityRef,
     "browserActionAuthorityRef"
   );
+  const status = optionalStringFromBody(body.status, "status") as CreateChatGptBrowserDelegationRunRequest["status"];
+  const userVisibleExplanation = optionalStringFromBody(
+    body.userVisibleExplanation,
+    "userVisibleExplanation"
+  );
+  const nextAction = optionalStringFromBody(body.nextAction, "nextAction");
   const resultImportRef = optionalStringFromBody(body.resultImportRef, "resultImportRef") as ResearchResultId | undefined;
   const resultImportGate = body.resultImportGate === undefined
     ? undefined
@@ -1425,12 +1445,16 @@ function createChatGptBrowserDelegationRunRequestFromBody(
   const screenshotRefs = optionalStringArrayFromBody(body.screenshotRefs, "screenshotRefs");
   const logRefs = optionalStringArrayFromBody(body.logRefs, "logRefs");
   const auditRefs = optionalStringArrayFromBody(body.auditRefs, "auditRefs");
+  const activityFeedRefs = optionalStringArrayFromBody(body.activityFeedRefs, "activityFeedRefs");
 
   return {
     sessionId: routeSessionId,
     expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
     idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
     researchTaskId: stringFromBody(body.researchTaskId, "researchTaskId") as ResearchTaskId,
+    ...(status !== undefined ? { status } : {}),
+    ...(userVisibleExplanation !== undefined ? { userVisibleExplanation } : {}),
+    ...(nextAction !== undefined ? { nextAction } : {}),
     promptPreviewRef: stringFromBody(body.promptPreviewRef, "promptPreviewRef"),
     dataDisclosurePreview: requiredJsonObjectFromBody(
       body.dataDisclosurePreview,
@@ -1458,6 +1482,51 @@ function createChatGptBrowserDelegationRunRequestFromBody(
     ...(fallbackApplied !== undefined ? { fallbackApplied } : {}),
     ...(screenshotRefs ? { screenshotRefs } : {}),
     ...(logRefs ? { logRefs } : {}),
+    ...(auditRefs ? { auditRefs } : {}),
+    ...(activityFeedRefs ? { activityFeedRefs } : {})
+  };
+}
+
+function revokeChatGptBrowserDelegationRunRequestFromBody(
+  routeSessionId: SessionId,
+  routeRunId: string,
+  body: Readonly<Record<string, unknown>>
+): RevokeChatGptBrowserDelegationRunRequest {
+  assertAllowedRecordKeys(
+    body,
+    CHATGPT_BROWSER_DELEGATION_REVOKE_REQUEST_BODY_KEYS,
+    "ChatGPT browser delegation revoke request body"
+  );
+
+  if (body.scaffoldOnly !== undefined && body.scaffoldOnly !== true) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "scaffoldOnly must be true when provided.");
+  }
+
+  const bodySessionId = stringFromBody(body.sessionId, "sessionId") as SessionId;
+  const bodyRunId = stringFromBody(body.runId, "runId");
+
+  if (bodySessionId !== routeSessionId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId must match the route param.", {
+      routeSessionId,
+      bodySessionId
+    });
+  }
+
+  if (bodyRunId !== routeRunId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "runId must match the route param.", {
+      routeRunId,
+      bodyRunId
+    });
+  }
+
+  const auditRefs = optionalStringArrayFromBody(body.auditRefs, "auditRefs");
+
+  return {
+    sessionId: routeSessionId,
+    expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    runId: routeRunId,
+    reason: stringFromBody(body.reason, "reason"),
     ...(auditRefs ? { auditRefs } : {})
   };
 }
@@ -2515,6 +2584,9 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         idempotencyKey: request.idempotencyKey,
         payload: {
           researchTaskId: request.researchTaskId,
+          ...(request.status ? { status: request.status } : {}),
+          ...(request.userVisibleExplanation ? { userVisibleExplanation: request.userVisibleExplanation } : {}),
+          ...(request.nextAction ? { nextAction: request.nextAction } : {}),
           promptPreviewRef: request.promptPreviewRef,
           dataDisclosurePreview: request.dataDisclosurePreview,
           redactionSummary: request.redactionSummary,
@@ -2529,6 +2601,31 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
           ...(request.fallbackApplied ? { fallbackApplied: request.fallbackApplied } : {}),
           ...(request.screenshotRefs ? { screenshotRefs: request.screenshotRefs } : {}),
           ...(request.logRefs ? { logRefs: request.logRefs } : {}),
+          ...(request.auditRefs ? { auditRefs: request.auditRefs } : {}),
+          ...(request.activityFeedRefs ? { activityFeedRefs: request.activityFeedRefs } : {})
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/chatgpt-browser-delegations/:runId/revoke", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const routeRunId = context.req.param("runId");
+      const request = revokeChatGptBrowserDelegationRunRequestFromBody(
+        routeSessionId,
+        routeRunId,
+        await jsonBody(context)
+      );
+
+      return service.runSessionCommand({
+        sessionId: routeSessionId,
+        commandType: "RevokeChatGptBrowserDelegationRun",
+        expectedStateVersion: request.expectedStateVersion,
+        idempotencyKey: request.idempotencyKey,
+        payload: {
+          runId: request.runId,
+          reason: request.reason,
           ...(request.auditRefs ? { auditRefs: request.auditRefs } : {})
         }
       });

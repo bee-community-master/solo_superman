@@ -25,7 +25,8 @@ export const PRODUCT_ENGINE_COMMAND_TYPES = [
   "CreatePlanningHandoff",
   "CreatePhase25ResearchComparison",
   "CreateExecutionAuthority",
-  "CreateChatGptBrowserDelegationRun"
+  "CreateChatGptBrowserDelegationRun",
+  "RevokeChatGptBrowserDelegationRun"
 ] as const;
 
 export const PROJECT_APPLICATION_COMMAND_TYPES = [

@@ -1332,7 +1332,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         stateVersionAfter: 4,
         immediateProjection: {
           kind: "ChatGptBrowserDelegationProjection",
-          currentStatus: "ready_for_browser_action",
+          currentStatus: "running",
           latestRun: {
             researchTaskId,
             browserActionAuthorityRef: browserRecordId,
@@ -1341,9 +1341,40 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         }
       });
 
+      const readyRunId = (responseData(readyDelegation.body) as {
+        readonly immediateProjection: { readonly latestRun: { readonly runId: string } };
+      }).immediateProjection.latestRun.runId;
+      const revokedDelegation = await postJson(
+        app,
+        `/api/v1/sessions/${sessionId}/chatgpt-browser-delegations/${readyRunId}/revoke`,
+        {
+          sessionId,
+          expectedStateVersion: 4,
+          idempotencyKey: "post-phase3:chatgpt-delegation:revoked",
+          runId: readyRunId,
+          reason: "User revoked the mocked ChatGPT delegation run during the dry-run.",
+          auditRefs: ["audit:chatgpt-browser-delegation:e2e-revoked"]
+        }
+      );
+
+      expect(responseData(revokedDelegation.body)).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionBefore: 4,
+        stateVersionAfter: 5,
+        immediateProjection: {
+          kind: "ChatGptBrowserDelegationProjection",
+          currentStatus: "revoked",
+          latestRun: {
+            runId: readyRunId,
+            canRevoke: false,
+            blockReasons: expect.arrayContaining([expect.objectContaining({ code: "revoked_by_user" })])
+          }
+        }
+      });
+
       const blockedDelegation = await postJson(app, `/api/v1/sessions/${sessionId}/chatgpt-browser-delegations`, {
         sessionId,
-        expectedStateVersion: 4,
+        expectedStateVersion: 5,
         idempotencyKey: "post-phase3:chatgpt-delegation:blocked",
         researchTaskId,
         promptPreviewRef: "prompt_preview_chatgpt_e2e_blocked",
@@ -1386,9 +1417,11 @@ describe("PR-09 end-to-end dry-run hardening", () => {
 
       expect(responseData(blockedDelegation.body)).toMatchObject({
         category: "accepted_with_projection",
+        stateVersionBefore: 5,
+        stateVersionAfter: 6,
         immediateProjection: {
           kind: "ChatGptBrowserDelegationProjection",
-          currentStatus: "fallback_required",
+          currentStatus: "blocked",
           latestRun: {
             fallbackApplied: {
               lane: "manual_prompt_handoff"
@@ -1399,6 +1432,79 @@ describe("PR-09 end-to-end dry-run hardening", () => {
               expect.objectContaining({ code: "unattended_queue_risk" }),
               expect.objectContaining({ code: "credential_or_session_custody_required" })
             ])
+          }
+        }
+      });
+
+      const failedDelegation = await postJson(app, `/api/v1/sessions/${sessionId}/chatgpt-browser-delegations`, {
+        sessionId,
+        expectedStateVersion: 6,
+        idempotencyKey: "post-phase3:chatgpt-delegation:failed-import",
+        researchTaskId,
+        promptPreviewRef: "prompt_preview_chatgpt_e2e_failed",
+        dataDisclosurePreview: {
+          disclosurePreviewRef: "disclosure_preview_chatgpt_e2e_failed",
+          promptContextSummaryRef: "context_summary_chatgpt_e2e_failed",
+          redactedPromptPreviewRef: "redacted_prompt_chatgpt_e2e_failed",
+          excludedSensitiveFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
+          redactionPreviewShown: true,
+          userCanEditPromptBeforeRun: true
+        },
+        redactionSummary: {
+          redactionPreviewRef: "redaction_preview_chatgpt_e2e_failed",
+          redactedFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
+          retainedArtifactKinds: ["prompt", "imported_result", "screenshot", "log"],
+          defaultRetention: "prompt_result_screenshot_log",
+          forbiddenRetentionPolicy: "no_credential_session_secret_2fa_payment_or_legal_sensitive_fields",
+          userExportDeleteControls: true,
+          deletionLeavesAuditMetadataOnly: true
+        },
+        policyRiskVerdict: {
+          verdict: "pass",
+          rationale: "Per-run local research assist only.",
+          evidenceRefs: ["policy:chatgpt-pro:per-run"]
+        },
+        sessionOwnershipVerdict: {
+          verdict: "pass",
+          rationale: "User-owned local browser session mock.",
+          evidenceRefs: ["session:owner-confirmed"]
+        },
+        approvalDecision: "approved",
+        browserActionAuthorityRef: browserRecordId,
+        resultImportRef: "research_result_chatgpt_e2e_failed",
+        resultImportGate: {
+          sourceProvenanceStatus: "pass",
+          uncertaintyStatus: "block",
+          conEvidenceStatus: "block",
+          staleRiskStatus: "pass",
+          sourceRefs: ["chatgpt:conversation:hash-only"],
+          uncertaintyRefs: ["uncertainty:missing"],
+          conEvidenceRefs: ["con:evidence:missing"],
+          staleRiskRefs: ["stale-risk:checked"],
+          importRationale: "Mocked ChatGPT output missed uncertainty and counter-evidence gates."
+        },
+        fallbackApplied: {
+          lane: "manual_prompt_handoff",
+          visibleState: "ChatGPT 결과 가져오기는 수동 검토가 필요합니다.",
+          reason: "Result import quality gates failed.",
+          userAction: "Review the transcript manually before importing any result."
+        },
+        auditRefs: ["audit:chatgpt-browser-delegation:e2e-failed"]
+      });
+
+      expect(responseData(failedDelegation.body)).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionBefore: 6,
+        stateVersionAfter: 7,
+        immediateProjection: {
+          kind: "ChatGptBrowserDelegationProjection",
+          currentStatus: "failed",
+          latestRun: {
+            resultImportRef: "research_result_chatgpt_e2e_failed",
+            fallbackApplied: {
+              lane: "manual_prompt_handoff"
+            },
+            blockReasons: expect.arrayContaining([expect.objectContaining({ code: "result_import_gate_failed" })])
           }
         }
       });

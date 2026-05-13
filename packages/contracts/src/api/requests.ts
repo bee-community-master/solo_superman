@@ -25,6 +25,7 @@ import type {
   ChatGptBrowserDelegationFallbackState,
   ChatGptBrowserDelegationRedactionSummary,
   ChatGptBrowserDelegationResultImportGate,
+  ChatGptBrowserDelegationStatus,
   ChatGptBrowserDelegationVerdictDto
 } from "../projections/chatgpt-browser-delegation";
 import type { PlanningHandoffRequestedScopeDto, PlanningHandoffSourceRefDto } from "../projections/planning-handoff";
@@ -283,6 +284,9 @@ export interface CreateChatGptBrowserDelegationRunRequest extends ScaffoldReques
   readonly expectedStateVersion: StateVersion;
   readonly idempotencyKey: string;
   readonly researchTaskId: ResearchTaskId;
+  readonly status?: ChatGptBrowserDelegationStatus;
+  readonly userVisibleExplanation?: string;
+  readonly nextAction?: string;
   readonly promptPreviewRef: string;
   readonly dataDisclosurePreview: ChatGptBrowserDelegationDataDisclosurePreview;
   readonly redactionSummary: ChatGptBrowserDelegationRedactionSummary;
@@ -295,6 +299,16 @@ export interface CreateChatGptBrowserDelegationRunRequest extends ScaffoldReques
   readonly fallbackApplied?: ChatGptBrowserDelegationFallbackState;
   readonly screenshotRefs?: readonly string[];
   readonly logRefs?: readonly string[];
+  readonly auditRefs?: readonly string[];
+  readonly activityFeedRefs?: readonly string[];
+}
+
+export interface RevokeChatGptBrowserDelegationRunRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
+  readonly idempotencyKey: string;
+  readonly runId: string;
+  readonly reason: string;
   readonly auditRefs?: readonly string[];
 }
 

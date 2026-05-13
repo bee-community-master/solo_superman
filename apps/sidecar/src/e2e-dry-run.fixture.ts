@@ -325,7 +325,7 @@ export const POST_PHASE3_CHATGPT_DELEGATION_DRY_RUN_EVIDENCE = {
   ],
   runtimeEvidence: [
     "CreateChatGptBrowserDelegationRun",
-    "ChatGptBrowserDelegationProjection.ready_for_browser_action",
+    "ChatGptBrowserDelegationProjection.running",
     "BrowserActionExecutionResult.completed against a mocked ChatGPT page state",
     "policy/session/data disclosure/approval/fallback preflight",
     "credential/session custody and account sharing/resale blocked"

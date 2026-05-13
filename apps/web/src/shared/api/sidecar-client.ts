@@ -10,7 +10,9 @@ import type {
   ConvertRuntimeArtifactRequest,
   ChangeBusinessCriticIntensityRequest,
   ChangeProjectPurposeModeRequest,
+  ChatGptBrowserDelegationProjection,
   CreateManualHandoffRequest,
+  CreateChatGptBrowserDelegationRunRequest,
   CreatePlanningHandoffRequest,
   CreateResearchAllowlistRequest,
   CreateRuntimePreviewRequest,
@@ -50,6 +52,7 @@ import type {
   StateVersion,
   StatusEndpointDto,
   RetryResearchRunRequest,
+  RevokeChatGptBrowserDelegationRunRequest,
   UpdateResearchAllowlistRequest
 } from "@solo-superman/contracts";
 
@@ -85,6 +88,8 @@ export type CancelResearchRunInput = CancelResearchRunRequest;
 export type RetryResearchRunInput = RetryResearchRunRequest;
 export type ResolveResearchQueueCardInput = ResolveResearchQueueCardRequest;
 export type CreatePlanningHandoffInput = CreatePlanningHandoffRequest;
+export type CreateChatGptBrowserDelegationRunInput = CreateChatGptBrowserDelegationRunRequest;
+export type RevokeChatGptBrowserDelegationRunInput = RevokeChatGptBrowserDelegationRunRequest;
 
 export class SidecarClientError extends Error {
   readonly apiError: ApiError;
@@ -200,6 +205,14 @@ function phase15bUpgradeHintExportPath(projectId: ProjectId) {
 
 function planningHandoffPath(sessionId: SessionId) {
   return `/api/v1/sessions/${encodeURIComponent(sessionId)}/planning-handoff`;
+}
+
+function chatGptBrowserDelegationPath(sessionId: SessionId) {
+  return `/api/v1/sessions/${encodeURIComponent(sessionId)}/chatgpt-browser-delegations`;
+}
+
+function chatGptBrowserDelegationRunRevokePath(sessionId: SessionId, runId: string) {
+  return `${chatGptBrowserDelegationPath(sessionId)}/${encodeURIComponent(runId)}/revoke`;
 }
 
 function sessionEventStreamPath(sessionId: SessionId) {
@@ -519,6 +532,21 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     getPlanningHandoff(sessionId: SessionId) {
       return getProjection<PlanningHandoffProjection | null>(planningHandoffPath(sessionId));
+    },
+
+    createChatGptBrowserDelegationRun(input: CreateChatGptBrowserDelegationRunInput) {
+      return postCommand<ChatGptBrowserDelegationProjection>(chatGptBrowserDelegationPath(input.sessionId), input);
+    },
+
+    revokeChatGptBrowserDelegationRun(input: RevokeChatGptBrowserDelegationRunInput) {
+      return postCommand<ChatGptBrowserDelegationProjection>(
+        chatGptBrowserDelegationRunRevokePath(input.sessionId, input.runId),
+        input
+      );
+    },
+
+    getChatGptBrowserDelegation(sessionId: SessionId) {
+      return getProjection<ChatGptBrowserDelegationProjection | null>(chatGptBrowserDelegationPath(sessionId));
     },
 
     getSession(projectId: ProjectId, sessionId: SessionId) {

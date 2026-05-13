@@ -5,13 +5,33 @@ export const CHATGPT_BROWSER_DELEGATION_SCHEMA_VERSION =
   "solo-superman.post-phase3-chatgpt-browser-delegation.v1" as SchemaVersion;
 
 export const CHATGPT_BROWSER_DELEGATION_STATUSES = [
-  "ready_for_browser_action",
-  "result_import_ready",
-  "fallback_required",
-  "blocked"
+  "pending_preflight",
+  "waiting_for_approval",
+  "running",
+  "waiting_for_user",
+  "importing_result",
+  "completed",
+  "blocked",
+  "failed",
+  "revoked"
 ] as const;
 
 export type ChatGptBrowserDelegationStatus = (typeof CHATGPT_BROWSER_DELEGATION_STATUSES)[number];
+
+export const CHATGPT_BROWSER_DELEGATION_TERMINAL_STATUSES = [
+  "completed",
+  "blocked",
+  "failed",
+  "revoked"
+] as const satisfies readonly ChatGptBrowserDelegationStatus[];
+
+export const CHATGPT_BROWSER_DELEGATION_REVOKABLE_STATUSES = [
+  "pending_preflight",
+  "waiting_for_approval",
+  "running",
+  "waiting_for_user",
+  "importing_result"
+] as const satisfies readonly ChatGptBrowserDelegationStatus[];
 
 export const CHATGPT_BROWSER_DELEGATION_VERDICTS = ["pass", "block"] as const;
 export type ChatGptBrowserDelegationVerdict = (typeof CHATGPT_BROWSER_DELEGATION_VERDICTS)[number];
@@ -70,10 +90,35 @@ export const CHATGPT_BROWSER_DELEGATION_BLOCK_CODES = [
   "unattended_queue_risk",
   "missing_browser_action_authority",
   "result_import_gate_failed",
-  "fallback_state_missing"
+  "fallback_state_missing",
+  "chatgpt_ui_changed",
+  "login_or_session_expired",
+  "captcha_or_antibot_required",
+  "usage_limit_reached",
+  "result_parse_failed",
+  "sensitive_field_detected",
+  "revoked_by_user"
 ] as const;
 
 export type ChatGptBrowserDelegationBlockCode = (typeof CHATGPT_BROWSER_DELEGATION_BLOCK_CODES)[number];
+
+export const CHATGPT_BROWSER_DELEGATION_AUDIT_EVENT_TYPES = [
+  "prompt_preview",
+  "approval",
+  "browser_start",
+  "user_intervention",
+  "result_capture",
+  "fallback",
+  "revoke",
+  "DelegationRunApproved",
+  "DelegationRunRevoked",
+  "DelegationRunBlocked",
+  "DelegationFallbackApplied",
+  "DelegationResultImported"
+] as const;
+
+export type ChatGptBrowserDelegationAuditEventType =
+  (typeof CHATGPT_BROWSER_DELEGATION_AUDIT_EVENT_TYPES)[number];
 
 export interface ChatGptBrowserDelegationVerdictDto {
   readonly verdict: ChatGptBrowserDelegationVerdict;
@@ -125,9 +170,19 @@ export interface ChatGptBrowserDelegationBlockReasonDto {
   readonly evidenceRefs: readonly string[];
 }
 
+export interface ChatGptBrowserDelegationAuditEntry {
+  readonly eventType: ChatGptBrowserDelegationAuditEventType;
+  readonly label: string;
+  readonly evidenceRefs: readonly string[];
+}
+
 export interface ChatGptBrowserDelegationRun {
   readonly runId: string;
   readonly researchTaskId: ResearchTaskId;
+  readonly status: ChatGptBrowserDelegationStatus;
+  readonly userVisibleExplanation: string;
+  readonly nextAction: string;
+  readonly canRevoke: boolean;
   readonly promptPreviewRef: string;
   readonly dataDisclosurePreview: ChatGptBrowserDelegationDataDisclosurePreview;
   readonly redactionSummary: ChatGptBrowserDelegationRedactionSummary;
@@ -142,12 +197,17 @@ export interface ChatGptBrowserDelegationRun {
   readonly screenshotRefs: readonly string[];
   readonly logRefs: readonly string[];
   readonly auditRefs: readonly string[];
+  readonly activityFeedRefs: readonly string[];
+  readonly auditLog: readonly ChatGptBrowserDelegationAuditEntry[];
   readonly createdAt: string;
   readonly schemaVersion: typeof CHATGPT_BROWSER_DELEGATION_SCHEMA_VERSION;
 }
 
 export interface CreateChatGptBrowserDelegationRunPayload {
   readonly researchTaskId: ResearchTaskId;
+  readonly status?: ChatGptBrowserDelegationStatus;
+  readonly userVisibleExplanation?: string;
+  readonly nextAction?: string;
   readonly promptPreviewRef: string;
   readonly dataDisclosurePreview: ChatGptBrowserDelegationDataDisclosurePreview;
   readonly redactionSummary: ChatGptBrowserDelegationRedactionSummary;
@@ -160,6 +220,14 @@ export interface CreateChatGptBrowserDelegationRunPayload {
   readonly fallbackApplied?: ChatGptBrowserDelegationFallbackState;
   readonly screenshotRefs?: readonly string[];
   readonly logRefs?: readonly string[];
+  readonly auditRefs?: readonly string[];
+  readonly activityFeedRefs?: readonly string[];
+  readonly auditLog?: readonly ChatGptBrowserDelegationAuditEntry[];
+}
+
+export interface RevokeChatGptBrowserDelegationRunPayload {
+  readonly runId: string;
+  readonly reason: string;
   readonly auditRefs?: readonly string[];
 }
 
@@ -297,24 +365,49 @@ function isBlockReason(value: unknown): value is ChatGptBrowserDelegationBlockRe
   );
 }
 
-export function chatGptBrowserDelegationStatusForRun(run: ChatGptBrowserDelegationRun): ChatGptBrowserDelegationStatus {
-  if (run.blockReasons.length) {
-    return run.fallbackApplied ? "fallback_required" : "blocked";
-  }
+function isAuditEntry(value: unknown): value is ChatGptBrowserDelegationAuditEntry {
+  return (
+    isRecord(value) &&
+    CHATGPT_BROWSER_DELEGATION_AUDIT_EVENT_TYPES.includes(
+      value.eventType as ChatGptBrowserDelegationAuditEventType
+    ) &&
+    isNonEmptyString(value.label) &&
+    stringArray(value.evidenceRefs)
+  );
+}
 
-  return run.resultImportRef ? "result_import_ready" : "ready_for_browser_action";
+export function chatGptBrowserDelegationIsTerminalStatus(status: ChatGptBrowserDelegationStatus) {
+  return (CHATGPT_BROWSER_DELEGATION_TERMINAL_STATUSES as readonly ChatGptBrowserDelegationStatus[]).includes(status);
+}
+
+export function chatGptBrowserDelegationIsRevokableStatus(status: ChatGptBrowserDelegationStatus) {
+  return (CHATGPT_BROWSER_DELEGATION_REVOKABLE_STATUSES as readonly ChatGptBrowserDelegationStatus[]).includes(status);
+}
+
+export function chatGptBrowserDelegationStatusForRun(run: ChatGptBrowserDelegationRun): ChatGptBrowserDelegationStatus {
+  return run.status;
 }
 
 export function chatGptBrowserDelegationSummaryForStatus(status: ChatGptBrowserDelegationStatus) {
   switch (status) {
-    case "ready_for_browser_action":
-      return "ChatGPT browser delegation preflight is approved for one user-reviewed browser action run.";
-    case "result_import_ready":
-      return "ChatGPT browser delegation result is ready for research/evidence import with provenance gates preserved.";
-    case "fallback_required":
-      return "ChatGPT browser delegation is blocked and has a visible fallback state.";
+    case "pending_preflight":
+      return "ChatGPT browser delegation is collecting data disclosure, redaction, policy, session, and authority preflight evidence.";
+    case "waiting_for_approval":
+      return "ChatGPT browser delegation is waiting for the user to approve, revise, or reject this specific run.";
+    case "running":
+      return "ChatGPT browser delegation has approval and is running one user-reviewed loopback browser action.";
+    case "waiting_for_user":
+      return "ChatGPT browser delegation is waiting for visible user intervention such as login, CAPTCHA, usage-limit, or UI-change recovery.";
+    case "importing_result":
+      return "ChatGPT browser delegation captured a candidate result and is checking evidence quality before import.";
+    case "completed":
+      return "ChatGPT browser delegation completed with source, uncertainty, counter-evidence, and stale-risk gates preserved.";
     case "blocked":
-      return "ChatGPT browser delegation is blocked before browser action start.";
+      return "ChatGPT browser delegation is blocked before browser action start and requires a visible fallback.";
+    case "failed":
+      return "ChatGPT browser delegation failed safely and requires manual or official Codex fallback.";
+    case "revoked":
+      return "ChatGPT browser delegation was revoked by the user and no further browser action may continue.";
   }
 }
 
@@ -329,6 +422,28 @@ export function chatGptBrowserDelegationRunValidationIssues(
 
   if (!isNonEmptyString(run.researchTaskId)) {
     issues.push("researchTaskId is required");
+  }
+
+  if (!CHATGPT_BROWSER_DELEGATION_STATUSES.includes(run.status)) {
+    issues.push("status must be a valid ChatGPT delegation run state");
+  }
+
+  if (!isNonEmptyString(run.userVisibleExplanation)) {
+    issues.push("userVisibleExplanation is required for the run state");
+  }
+
+  if (!isNonEmptyString(run.nextAction)) {
+    issues.push("nextAction is required for the run state");
+  }
+
+  if (typeof run.canRevoke !== "boolean") {
+    issues.push("canRevoke must be a boolean");
+  } else if (CHATGPT_BROWSER_DELEGATION_STATUSES.includes(run.status)) {
+    const expectedCanRevoke = chatGptBrowserDelegationIsRevokableStatus(run.status);
+
+    if (run.canRevoke !== expectedCanRevoke) {
+      issues.push("canRevoke must match whether the current run state is revokable");
+    }
   }
 
   if (!isNonEmptyString(run.promptPreviewRef)) {
@@ -383,6 +498,10 @@ export function chatGptBrowserDelegationRunValidationIssues(
     issues.push("resultImportGate is required when resultImportRef is present");
   }
 
+  if (run.status === "completed" && (!run.resultImportRef || !isResultImportGate(run.resultImportGate))) {
+    issues.push("completed runs require resultImportRef and a valid resultImportGate");
+  }
+
   if (run.resultImportGate) {
     const gateStatuses = [
       run.resultImportGate.sourceProvenanceStatus,
@@ -399,6 +518,19 @@ export function chatGptBrowserDelegationRunValidationIssues(
     }
   }
 
+  if (run.status === "completed" && run.resultImportGate) {
+    const gateStatuses = [
+      run.resultImportGate.sourceProvenanceStatus,
+      run.resultImportGate.uncertaintyStatus,
+      run.resultImportGate.conEvidenceStatus,
+      run.resultImportGate.staleRiskStatus
+    ];
+
+    if (gateStatuses.some((status) => status !== "pass")) {
+      issues.push("completed runs require all resultImportGate statuses to pass");
+    }
+  }
+
   if (run.fallbackApplied !== null && !isFallbackState(run.fallbackApplied)) {
     issues.push("fallbackApplied must be null or a visible fallback state");
   }
@@ -411,6 +543,30 @@ export function chatGptBrowserDelegationRunValidationIssues(
     issues.push("blocked runs must include fallbackApplied so failures are not silent retries");
   }
 
+  if ((run.status === "blocked" || run.status === "failed") && !run.blockReasons.length) {
+    issues.push("blocked or failed terminal states require blockReasons");
+  }
+
+  if (run.blockReasons.length && !["blocked", "failed", "revoked"].includes(run.status)) {
+    issues.push("runs with blockReasons must use blocked, failed, or revoked status");
+  }
+
+  if ((run.status === "blocked" || run.status === "failed") && !run.fallbackApplied) {
+    issues.push("blocked or failed terminal states require fallbackApplied");
+  }
+
+  if (run.status === "completed" && run.blockReasons.length) {
+    issues.push("completed runs cannot include blockReasons");
+  }
+
+  if (run.resultImportRef && !["completed", "importing_result", "failed"].includes(run.status)) {
+    issues.push("runs with resultImportRef must be completed, importing_result, or failed");
+  }
+
+  if (run.status === "revoked" && !run.blockReasons.some((reason) => reason.code === "revoked_by_user")) {
+    issues.push("revoked runs must include a revoked_by_user block reason");
+  }
+
   if (!stringArray(run.screenshotRefs)) {
     issues.push("screenshotRefs must be string refs");
   }
@@ -421,6 +577,18 @@ export function chatGptBrowserDelegationRunValidationIssues(
 
   if (!stringArray(run.auditRefs) || !run.auditRefs.length) {
     issues.push("auditRefs must include at least one audit ref");
+  }
+
+  if (!stringArray(run.activityFeedRefs) || !run.activityFeedRefs.length) {
+    issues.push("activityFeedRefs must link the delegation run to the originating ResearchTask or Decision");
+  }
+
+  if (!run.activityFeedRefs.some((ref) => ref.includes(run.researchTaskId))) {
+    issues.push("activityFeedRefs must include the originating researchTaskId");
+  }
+
+  if (!Array.isArray(run.auditLog) || !run.auditLog.length || !run.auditLog.every(isAuditEntry)) {
+    issues.push("auditLog must include valid user-visible ChatGPT delegation audit entries");
   }
 
   if (!isExecutionAuthorityIsoTimestamp(run.createdAt)) {
@@ -492,7 +660,7 @@ export function validateChatGptBrowserDelegationProjection(
       issues.push("currentStatus must match latestRun status");
     }
 
-    const expectedBlocked = expectedStatus === "fallback_required" || expectedStatus === "blocked"
+    const expectedBlocked = expectedStatus === "blocked" || expectedStatus === "failed" || expectedStatus === "revoked"
       ? latestRun.blockReasons
       : [];
 
@@ -521,6 +689,10 @@ export function validateChatGptBrowserDelegationProjection(
 export const CHATGPT_BROWSER_DELEGATION_READY_RUN_FIXTURE = {
   runId: "chatgpt_delegation_ready_fixture",
   researchTaskId: "research_task_chatgpt_ready" as ResearchTaskId,
+  status: "running",
+  userVisibleExplanation: chatGptBrowserDelegationSummaryForStatus("running"),
+  nextAction: "Keep the local browser visible until the result is captured, or revoke this run.",
+  canRevoke: true,
   promptPreviewRef: "prompt_preview_chatgpt_ready",
   dataDisclosurePreview: {
     disclosurePreviewRef: "disclosure_preview_chatgpt_ready",
@@ -558,6 +730,24 @@ export const CHATGPT_BROWSER_DELEGATION_READY_RUN_FIXTURE = {
   screenshotRefs: ["browser_action:screenshot:chatgpt-ready"],
   logRefs: ["browser_action:log:chatgpt-ready"],
   auditRefs: ["audit:chatgpt-browser-delegation:ready"],
+  activityFeedRefs: ["research_task:research_task_chatgpt_ready"],
+  auditLog: [
+    {
+      eventType: "prompt_preview",
+      label: "Redacted ChatGPT prompt preview shown to the user.",
+      evidenceRefs: ["prompt_preview_chatgpt_ready", "redaction_preview_chatgpt_ready"]
+    },
+    {
+      eventType: "DelegationRunApproved",
+      label: "User approved one local browser ChatGPT delegation run.",
+      evidenceRefs: ["exec_auth_chatgpt_ready", "policy:chatgpt-pro:per-run"]
+    },
+    {
+      eventType: "browser_start",
+      label: "Loopback browser action authority is ready for the run.",
+      evidenceRefs: ["browser_action:screenshot:chatgpt-ready", "browser_action:log:chatgpt-ready"]
+    }
+  ],
   createdAt: "2026-05-13T00:00:00.000Z",
   schemaVersion: CHATGPT_BROWSER_DELEGATION_SCHEMA_VERSION
 } as const satisfies ChatGptBrowserDelegationRun;
@@ -566,17 +756,21 @@ export const CHATGPT_BROWSER_DELEGATION_READY_PROJECTION_FIXTURE = {
   kind: "ChatGptBrowserDelegationProjection",
   sessionId: "sess_chatgpt_delegation_fixture" as SessionId,
   version: 1 as ProjectionVersion,
-  currentStatus: "ready_for_browser_action",
+  currentStatus: "running",
   runs: [CHATGPT_BROWSER_DELEGATION_READY_RUN_FIXTURE],
   latestRun: CHATGPT_BROWSER_DELEGATION_READY_RUN_FIXTURE,
   blockedPreconditions: [],
-  summary: chatGptBrowserDelegationSummaryForStatus("ready_for_browser_action"),
+  summary: chatGptBrowserDelegationSummaryForStatus("running"),
   refetchUrl: "/api/v1/sessions/sess_chatgpt_delegation_fixture/chatgpt-browser-delegations"
 } as const satisfies ChatGptBrowserDelegationProjection;
 
 export const CHATGPT_BROWSER_DELEGATION_FALLBACK_RUN_FIXTURE = {
   ...CHATGPT_BROWSER_DELEGATION_READY_RUN_FIXTURE,
   runId: "chatgpt_delegation_fallback_fixture",
+  status: "blocked",
+  userVisibleExplanation: chatGptBrowserDelegationSummaryForStatus("blocked"),
+  nextAction: "Use manual prompt handoff, official Codex fallback, or record this research as Known Risk.",
+  canRevoke: false,
   policyRiskVerdict: {
     verdict: "block",
     rationale: "Detected unattended queue semantics and account sharing/resale risk.",
@@ -611,17 +805,31 @@ export const CHATGPT_BROWSER_DELEGATION_FALLBACK_RUN_FIXTURE = {
       evidenceRefs: ["execution-authority:missing"]
     }
   ],
-  auditRefs: ["audit:chatgpt-browser-delegation:fallback"]
+  auditRefs: ["audit:chatgpt-browser-delegation:fallback"],
+  activityFeedRefs: ["research_task:research_task_chatgpt_ready", "fallback:manual_prompt_handoff"],
+  auditLog: [
+    ...CHATGPT_BROWSER_DELEGATION_READY_RUN_FIXTURE.auditLog,
+    {
+      eventType: "DelegationRunBlocked",
+      label: "Policy and browser-authority preconditions blocked the delegation run.",
+      evidenceRefs: ["policy:blocked:unattended-queue", "execution-authority:missing"]
+    },
+    {
+      eventType: "DelegationFallbackApplied",
+      label: "Manual prompt handoff fallback was made visible to the user.",
+      evidenceRefs: ["audit:chatgpt-browser-delegation:fallback"]
+    }
+  ]
 } as const satisfies ChatGptBrowserDelegationRun;
 
 export const CHATGPT_BROWSER_DELEGATION_FALLBACK_PROJECTION_FIXTURE = {
   kind: "ChatGptBrowserDelegationProjection",
   sessionId: "sess_chatgpt_delegation_fixture" as SessionId,
   version: 1 as ProjectionVersion,
-  currentStatus: "fallback_required",
+  currentStatus: "blocked",
   runs: [CHATGPT_BROWSER_DELEGATION_FALLBACK_RUN_FIXTURE],
   latestRun: CHATGPT_BROWSER_DELEGATION_FALLBACK_RUN_FIXTURE,
   blockedPreconditions: CHATGPT_BROWSER_DELEGATION_FALLBACK_RUN_FIXTURE.blockReasons,
-  summary: chatGptBrowserDelegationSummaryForStatus("fallback_required"),
+  summary: chatGptBrowserDelegationSummaryForStatus("blocked"),
   refetchUrl: "/api/v1/sessions/sess_chatgpt_delegation_fixture/chatgpt-browser-delegations"
 } as const satisfies ChatGptBrowserDelegationProjection;

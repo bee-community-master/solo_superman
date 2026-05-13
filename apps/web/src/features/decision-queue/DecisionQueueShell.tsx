@@ -4,6 +4,7 @@ import {
   CONTRACT_SCHEMA_VERSION,
   PROJECT_PURPOSE_MODE_LABELS,
   type BusinessCriticIntensity,
+  type ChatGptBrowserDelegationProjection,
   type CodexRuntimeStatusDto,
   type CommandResponse,
   type ConfidenceCompletionProjection,
@@ -30,6 +31,7 @@ import {
 import { Phase15aOperationsPanel, type ResearchOperationsState } from "./Phase15aOperationsPanel";
 import { Phase15bReadinessPanel } from "./Phase15bReadinessPanel";
 import { PlanningHandoffPanel } from "./PlanningHandoffPanel";
+import { ChatGptDelegationPanel, chatGptDelegationViewModel } from "./ChatGptDelegationPanel";
 import {
   commandResponseVersion,
   optionalCommandProjection,
@@ -82,6 +84,7 @@ interface ProjectionState {
   readonly confidence: ConfidenceCompletionProjection | null;
   readonly founderBrief: FounderBriefProjection | null;
   readonly planningHandoff: PlanningHandoffProjection | null;
+  readonly chatGptDelegation: ChatGptBrowserDelegationProjection | null;
 }
 
 const DEFAULT_IDEA = "A focused founder brief generator";
@@ -143,7 +146,8 @@ function latestProjectionVersion(projections: ProjectionState) {
     Number(projections.activity?.version ?? 0),
     Number(projections.confidence?.version ?? 0),
     Number(projections.founderBrief?.version ?? 0),
-    Number(projections.planningHandoff?.version ?? 0)
+    Number(projections.planningHandoff?.version ?? 0),
+    Number(projections.chatGptDelegation?.version ?? 0)
   ) as StateVersion;
 }
 
@@ -156,7 +160,8 @@ function emptyProjectionState(): ProjectionState {
     activity: null,
     confidence: null,
     founderBrief: null,
-    planningHandoff: null
+    planningHandoff: null,
+    chatGptDelegation: null
   };
 }
 
@@ -272,13 +277,39 @@ export function DecisionQueueShell() {
     [client]
   );
 
+  const refreshChatGptDelegation = useCallback(
+    async (sessionId: SessionShellProjection["sessionId"]) => {
+      if (!client) {
+        return;
+      }
+
+      const chatGptDelegation = await client.getChatGptBrowserDelegation(sessionId);
+
+      setProjections((current) => ({
+        ...current,
+        chatGptDelegation
+      }));
+    },
+    [client]
+  );
+
   const refreshProjections = useCallback(
     async (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"]) => {
       if (!client) {
         return;
       }
 
-      const [session, spec, queue, research, activity, confidence, founderBrief, planningHandoff] = await Promise.all([
+      const [
+        session,
+        spec,
+        queue,
+        research,
+        activity,
+        confidence,
+        founderBrief,
+        planningHandoff,
+        chatGptDelegation
+      ] = await Promise.all([
         client.getSession(projectId, sessionId),
         client.getSpec(sessionId),
         client.getQueue(sessionId),
@@ -286,7 +317,8 @@ export function DecisionQueueShell() {
         client.getActivity(sessionId),
         client.getCompleteness(sessionId),
         client.getFounderBrief(sessionId).catch(() => null),
-        client.getPlanningHandoff(sessionId)
+        client.getPlanningHandoff(sessionId),
+        client.getChatGptBrowserDelegation(sessionId)
       ]);
 
       setProjections({
@@ -297,7 +329,8 @@ export function DecisionQueueShell() {
         activity,
         confidence,
         founderBrief,
-        planningHandoff
+        planningHandoff,
+        chatGptDelegation
       });
       await Promise.all([refreshResearchOperations(projectId), refreshPhase15bReadiness(projectId)]);
     },
@@ -1195,6 +1228,47 @@ export function DecisionQueueShell() {
     }
   }, [appendCommand, client, phase15bReadiness, projections, refreshProjections]);
 
+  const revokeChatGptDelegation = useCallback(
+    async (runId: string) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active session is required before revoking ChatGPT delegation.");
+        return;
+      }
+
+      setIsBusy(true);
+      setWorkflowError(null);
+
+      try {
+        const response = await appendCommand(
+          "Revoke ChatGPT delegation",
+          await client.revokeChatGptBrowserDelegationRun({
+            sessionId: projections.session.sessionId,
+            expectedStateVersion: latestProjectionVersion(projections),
+            idempotencyKey: `chatgpt-delegation:revoke:${runId}:${latestProjectionVersion(projections)}`,
+            runId,
+            reason: "Revoked from the ChatGPT delegation run panel.",
+            auditRefs: [`audit:chatgpt-browser-delegation:web-revoke:${runId}`]
+          })
+        );
+        const chatGptDelegation = requiredCommandProjection<ChatGptBrowserDelegationProjection>(
+          response,
+          "ChatGptBrowserDelegationProjection"
+        );
+
+        setProjections((current) => ({
+          ...current,
+          chatGptDelegation
+        }));
+        await refreshChatGptDelegation(projections.session.sessionId);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [appendCommand, client, projections, refreshChatGptDelegation]
+  );
+
   const sections = useMemo(() => queueSections(projections.queue), [projections.queue]);
   const queueRecovery = useMemo(() => decisionQueueRecoveryViewModel(projections.queue), [projections.queue]);
   const pendingSummary = useMemo(() => pendingEffectSummary(statuses), [statuses]);
@@ -1225,6 +1299,10 @@ export function DecisionQueueShell() {
   const planningHandoffView = useMemo(
     () => planningHandoffViewModel(projections.planningHandoff),
     [projections.planningHandoff]
+  );
+  const chatGptDelegationView = useMemo(
+    () => chatGptDelegationViewModel(projections.chatGptDelegation),
+    [projections.chatGptDelegation]
   );
   const canStart =
     connectionState.status === "connected" &&
@@ -1648,6 +1726,17 @@ export function DecisionQueueShell() {
                 void refreshPhase15bReadiness(projections.session.projectId);
               }
             }}
+          />
+
+          <ChatGptDelegationPanel
+            delegation={chatGptDelegationView}
+            isBusy={isBusy}
+            onRefreshDelegation={() => {
+              if (projections.session) {
+                void refreshChatGptDelegation(projections.session.sessionId);
+              }
+            }}
+            onRevokeDelegation={(runId) => void revokeChatGptDelegation(runId)}
           />
 
           <PlanningHandoffPanel

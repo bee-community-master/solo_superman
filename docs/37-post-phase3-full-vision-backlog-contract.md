@@ -127,9 +127,10 @@ ChatGPT Pro 구독자는 API key를 만들지 않아도, 사용자가 직접 로
 
 ### PR-03 code-backed surface
 
-- Record/projection: `ChatGptBrowserDelegationRun` inside `ChatGptBrowserDelegationProjection`.
-- Command/API: `CreateChatGptBrowserDelegationRun` via `POST /api/v1/sessions/:sessionId/chatgpt-browser-delegations`; latest projection via `GET /api/v1/sessions/:sessionId/chatgpt-browser-delegations`.
-- Result import model: failed source/provenance, uncertainty, con-evidence, or stale-risk gates must become `fallback_required` with `result_import_gate_failed`, not a silent retry or blind import.
+- Record/projection: `ChatGptBrowserDelegationRun` inside existing `ChatGptBrowserDelegationProjection` (retained from #101 instead of renaming to `ChatGptDelegationRunProjection` because the route/projection was already mounted).
+- Command/API: `CreateChatGptBrowserDelegationRun` via `POST /api/v1/sessions/:sessionId/chatgpt-browser-delegations`; latest projection via `GET /api/v1/sessions/:sessionId/chatgpt-browser-delegations`; revoke via `POST /api/v1/sessions/:sessionId/chatgpt-browser-delegations/:runId/revoke`.
+- Run state model: `pending_preflight`, `waiting_for_approval`, `running`, `waiting_for_user`, `importing_result`, `completed`, `blocked`, `failed`, `revoked`; terminal states must include user-visible explanation and next action.
+- Result import model: failed source/provenance, uncertainty, con-evidence, or stale-risk gates must become `failed` with `result_import_gate_failed` and visible fallback, not a silent retry or blind import.
 - Execution boundary: the command persists deterministic preflight/result-import evidence only. Live navigation/capture remains tied to a Phase 3 `browser_action` `ExecutionAuthorityRecord`.
 
 ## Feature contract D — External service login and page-use permission

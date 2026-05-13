@@ -1308,7 +1308,7 @@ describe("PR-02 sidecar health shell", () => {
         stateVersionAfter: 4,
         immediateProjection: {
           kind: "ChatGptBrowserDelegationProjection",
-          currentStatus: "ready_for_browser_action",
+          currentStatus: "running",
           latestRun: {
             researchTaskId,
             approvalDecision: "approved",
@@ -1328,6 +1328,38 @@ describe("PR-02 sidecar health shell", () => {
         kind: "ChatGptBrowserDelegationProjection",
         latestRun: {
           researchTaskId
+        }
+      });
+
+      const runId = (queryBody.data as { readonly latestRun: { readonly runId: string } }).latestRun.runId;
+      const revoke = await storageApp.request(`/api/v1/sessions/${sessionId}/chatgpt-browser-delegations/${runId}/revoke`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 4,
+          idempotencyKey: "chatgpt-delegation-route:revoke",
+          runId,
+          reason: "Route test revokes the visible ChatGPT delegation run.",
+          auditRefs: ["audit:chatgpt-browser-delegation:route-revoke"]
+        })
+      });
+      const revokeBody = await jsonBody(revoke);
+
+      expect(revoke.status).toBe(200);
+      expect(revokeBody.data).toMatchObject({
+        category: "accepted_with_projection",
+        immediateProjection: {
+          kind: "ChatGptBrowserDelegationProjection",
+          currentStatus: "revoked",
+          latestRun: {
+            runId,
+            canRevoke: false,
+            blockReasons: expect.arrayContaining([expect.objectContaining({ code: "revoked_by_user" })])
+          }
         }
       });
     } finally {

@@ -511,6 +511,14 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "revokeChatGptBrowserDelegationRun",
+    clientName: "revokeChatGptBrowserDelegationRun",
+    method: "POST",
+    path: "/api/v1/sessions/:sessionId/chatgpt-browser-delegations/:runId/revoke",
+    commandType: "RevokeChatGptBrowserDelegationRun",
+    implementedInPr01: false
+  },
+  {
     routeId: "getCommandStatus",
     clientName: "getCommandStatus",
     method: "GET",
@@ -737,4 +745,14 @@ export const POST_PHASE3_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...POST_PHASE3_PR03_CHATGPT_DELEGATION_ROUTE_IDS
 ] as const satisfies readonly ApiRouteId[];
 
-export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = POST_PHASE3_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS;
+export const POST_PHASE3_PR04_CHATGPT_DELEGATION_RUN_ROUTE_IDS = [
+  ...POST_PHASE3_PR03_CHATGPT_DELEGATION_ROUTE_IDS,
+  "revokeChatGptBrowserDelegationRun"
+] as const satisfies readonly ApiRouteId[];
+
+export const POST_PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...POST_PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  ...POST_PHASE3_PR04_CHATGPT_DELEGATION_RUN_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = POST_PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS;

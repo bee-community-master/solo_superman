@@ -4,6 +4,7 @@ import {
   CHATGPT_BROWSER_DELEGATION_READY_PROJECTION_FIXTURE,
   CONTRACT_SCHEMA_VERSION,
   EXECUTION_AUTHORITY_SCHEMA_VERSION,
+  type ChatGptBrowserDelegationProjection,
   type CommandId,
   type CorrelationId,
   type EventId,
@@ -40,6 +41,18 @@ function command(
     correlationId: "corr_chatgpt_delegation" as CorrelationId,
     schemaVersion: CONTRACT_SCHEMA_VERSION,
     payload
+  };
+}
+
+function revokeCommand(
+  payload: ProductEngineCommand["payload"],
+  expectedStateVersion: StateVersion = 1 as StateVersion
+): ProductEngineCommand {
+  return {
+    ...command(payload, expectedStateVersion),
+    commandId: `cmd_chatgpt_delegation_revoke_${expectedStateVersion}` as CommandId,
+    commandType: "RevokeChatGptBrowserDelegationRun",
+    idempotencyKey: `RevokeChatGptBrowserDelegationRun:${expectedStateVersion}`
   };
 }
 
@@ -169,7 +182,7 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
       expect.objectContaining({
         eventType: "ChatGptBrowserDelegationRunRecorded",
         payload: expect.objectContaining({
-          status: "ready_for_browser_action",
+          status: "running",
           approvalDecision: "approved",
           browserActionAuthorityRef: "exec_auth_chatgpt_ready",
           blockReasons: []
@@ -181,13 +194,13 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
         outputType: "chatgpt_browser_delegation_run",
         payload: expect.objectContaining({
           researchTaskId,
-          status: "ready_for_browser_action"
+          status: "running"
         })
       })
     ]);
     expect(reduction.immediateProjection).toMatchObject({
       kind: "ChatGptBrowserDelegationProjection",
-      currentStatus: "ready_for_browser_action",
+      currentStatus: "running",
       latestRun: {
         dataDisclosurePreview: {
           redactionPreviewShown: true,
@@ -217,7 +230,7 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
     expect(reduction.accepted).toBe(true);
     expect(reduction.events[0]).toMatchObject({ eventType: "ChatGptBrowserDelegationRunBlocked" });
     expect(reduction.immediateProjection).toMatchObject({
-      currentStatus: "fallback_required",
+      currentStatus: "blocked",
       latestRun: {
         fallbackApplied: {
           lane: "manual_prompt_handoff"
@@ -232,7 +245,7 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
     });
   });
 
-  it("auto-materializes fallback instead of silently retrying when approval is missing", () => {
+  it("keeps missing approval waiting instead of starting a browser action", () => {
     const reduction = reduceProductEngineCommand(
       command(
         payloadFromReadyFixture({
@@ -246,16 +259,43 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
 
     expect(reduction.accepted).toBe(true);
     expect(reduction.immediateProjection).toMatchObject({
-      currentStatus: "fallback_required",
+      currentStatus: "waiting_for_approval",
       latestRun: {
-        fallbackApplied: {
-          lane: "manual_prompt_handoff",
-          visibleState: expect.stringContaining("ChatGPT 브라우저 위임")
-        },
-        blockReasons: expect.arrayContaining([
-          expect.objectContaining({ code: "missing_user_approval" }),
-          expect.objectContaining({ code: "missing_browser_action_authority" })
-        ])
+        canRevoke: true,
+        fallbackApplied: null,
+        blockReasons: []
+      }
+    });
+  });
+
+  it("revokes the latest running delegation run with audit evidence", () => {
+    const created = reduceProductEngineCommand(
+      command(payloadFromReadyFixture()),
+      stateWithResearchTaskAndBrowserAuthority()
+    );
+    const projection = created.immediateProjection as ChatGptBrowserDelegationProjection;
+    const revoked = reduceProductEngineCommand(
+      revokeCommand({
+        runId: projection.latestRun.runId,
+        reason: "User stopped the visible ChatGPT browser delegation run.",
+        auditRefs: ["audit:chatgpt-browser-delegation:test-revoke"]
+      }),
+      {
+        ...stateWithResearchTaskAndBrowserAuthority(),
+        stateVersion: 1 as StateVersion,
+        chatGptBrowserDelegation: projection
+      }
+    );
+
+    expect(revoked.accepted).toBe(true);
+    expect(revoked.events[0]).toMatchObject({ eventType: "ChatGptBrowserDelegationRunRevoked" });
+    expect(revoked.immediateProjection).toMatchObject({
+      currentStatus: "revoked",
+      latestRun: {
+        runId: projection.latestRun.runId,
+        canRevoke: false,
+        blockReasons: expect.arrayContaining([expect.objectContaining({ code: "revoked_by_user" })]),
+        auditLog: expect.arrayContaining([expect.objectContaining({ eventType: "DelegationRunRevoked" })])
       }
     });
   });
@@ -283,7 +323,7 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
 
     expect(reduction.accepted).toBe(true);
     expect(reduction.immediateProjection).toMatchObject({
-      currentStatus: "fallback_required",
+      currentStatus: "failed",
       latestRun: {
         resultImportRef: "research_result_chatgpt_gate_fail",
         blockReasons: expect.arrayContaining([expect.objectContaining({ code: "result_import_gate_failed" })])
@@ -314,7 +354,7 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
 
     expect(reduction.accepted).toBe(true);
     expect(reduction.immediateProjection).toMatchObject({
-      currentStatus: "result_import_ready",
+      currentStatus: "completed",
       latestRun: {
         resultImportRef: "research_result_chatgpt_gate_pass",
         blockReasons: []
@@ -376,7 +416,7 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
     expect(missingAuthority).toMatchObject({
       accepted: true,
       immediateProjection: {
-        currentStatus: "fallback_required",
+        currentStatus: "blocked",
         latestRun: {
           blockReasons: expect.arrayContaining([
             expect.objectContaining({ code: "missing_browser_action_authority" })
@@ -388,7 +428,7 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
     expect(wrongActionClass).toMatchObject({
       accepted: true,
       immediateProjection: {
-        currentStatus: "fallback_required",
+        currentStatus: "blocked",
         latestRun: {
           blockReasons: expect.arrayContaining([
             expect.objectContaining({
@@ -402,7 +442,7 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
     expect(failedAuthority).toMatchObject({
       accepted: true,
       immediateProjection: {
-        currentStatus: "fallback_required",
+        currentStatus: "blocked",
         latestRun: {
           blockReasons: expect.arrayContaining([
             expect.objectContaining({
@@ -460,7 +500,7 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
 
     expect(replayed.chatGptBrowserDelegation).toMatchObject({
       kind: "ChatGptBrowserDelegationProjection",
-      currentStatus: "ready_for_browser_action"
+      currentStatus: "running"
     });
   });
 });

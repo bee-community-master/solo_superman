@@ -35,6 +35,8 @@ import {
   POST_PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
   POST_PHASE3_PR03_CHATGPT_DELEGATION_ROUTE_IDS,
   POST_PHASE3_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  POST_PHASE3_PR04_CHATGPT_DELEGATION_RUN_ROUTE_IDS,
+  POST_PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
@@ -506,7 +508,7 @@ describe("API route catalog", () => {
     });
   });
 
-  it("mounts the Post-Phase3 PR-03 ChatGPT browser delegation routes after business critic gates", () => {
+  it("mounts the Post-Phase3 PR-04 ChatGPT delegation run/revoke routes after business critic gates", () => {
     const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
 
     expect(POST_PHASE3_PR03_CHATGPT_DELEGATION_ROUTE_IDS).toEqual([
@@ -517,7 +519,15 @@ describe("API route catalog", () => {
       ...POST_PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
       ...POST_PHASE3_PR03_CHATGPT_DELEGATION_ROUTE_IDS
     ]);
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(POST_PHASE3_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(POST_PHASE3_PR04_CHATGPT_DELEGATION_RUN_ROUTE_IDS).toEqual([
+      ...POST_PHASE3_PR03_CHATGPT_DELEGATION_ROUTE_IDS,
+      "revokeChatGptBrowserDelegationRun"
+    ]);
+    expect(POST_PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual([
+      ...POST_PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      ...POST_PHASE3_PR04_CHATGPT_DELEGATION_RUN_ROUTE_IDS
+    ]);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(POST_PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS);
     expect(routeById.get("createChatGptBrowserDelegationRun")).toMatchObject({
       method: "POST",
       path: "/api/v1/sessions/:sessionId/chatgpt-browser-delegations",
@@ -528,6 +538,12 @@ describe("API route catalog", () => {
       method: "GET",
       path: "/api/v1/sessions/:sessionId/chatgpt-browser-delegations",
       commandType: "none",
+      implementedInPr01: false
+    });
+    expect(routeById.get("revokeChatGptBrowserDelegationRun")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/chatgpt-browser-delegations/:runId/revoke",
+      commandType: "RevokeChatGptBrowserDelegationRun",
       implementedInPr01: false
     });
   });
