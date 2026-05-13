@@ -366,6 +366,25 @@ describe("RecordImplementationStepLedger reducer", () => {
     expect(projection.steps[0]!.missingEvidence).toContain("passing TestEvidenceRecord without failed tests or Not-tested gaps");
   });
 
+  it("blocks inconsistent test evidence that reports passed outcome with failed tests", () => {
+    const projection = projectionFrom(fullPayload({
+      testEvidenceRecord: {
+        stepId: "step_contracts",
+        testEvidenceId: "test_step_contracts",
+        commands: ["pnpm test"],
+        outcome: "passed",
+        verifiedCommitSha: "abcdef1",
+        passedTestCount: 4,
+        failedTestCount: 1,
+        notTestedGaps: [],
+        evidenceRefs: ["test:inconsistent"]
+      }
+    }));
+
+    expect(projection.currentStatus).toBe("blocked");
+    expect(projection.steps[0]!.missingEvidence).toContain("passing TestEvidenceRecord without failed tests or Not-tested gaps");
+  });
+
   it("does not complete when passing test evidence reports zero passing tests", () => {
     const projection = projectionFrom(fullPayload({
       testEvidenceRecord: {

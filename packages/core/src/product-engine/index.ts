@@ -8881,11 +8881,25 @@ function implementationStepRequiredEvidence(input: {
   if (input.cleanCodeReviewRecord?.verdict !== "passed") {
     missing.push("passing CleanCodeReviewRecord");
   }
-  if (!input.testEvidenceRecord || input.testEvidenceRecord.outcome !== "passed" || input.testEvidenceRecord.passedTestCount <= 0 || input.testEvidenceRecord.failedTestCount > 0 || input.testEvidenceRecord.notTestedGaps.length > 0) {
+  if (!implementationTestEvidencePassed(input.testEvidenceRecord)) {
     missing.push("passing TestEvidenceRecord without failed tests or Not-tested gaps");
   }
 
   return uniqueStringRefs(missing);
+}
+
+function implementationTestEvidencePassed(record: TestEvidenceRecord | null) {
+  return Boolean(
+    record &&
+    record.outcome === "passed" &&
+    record.passedTestCount > 0 &&
+    record.failedTestCount === 0 &&
+    record.notTestedGaps.length === 0
+  );
+}
+
+function implementationTestEvidenceHasFailureOrGap(record: TestEvidenceRecord | null) {
+  return Boolean(record && (record.outcome === "failed" || record.failedTestCount > 0 || record.notTestedGaps.length > 0));
 }
 
 function implementationStepStageEvidence(input: {
@@ -8929,7 +8943,7 @@ function implementationStepStageEvidence(input: {
   if (needsCleanCodeReview && input.cleanCodeReviewRecord?.verdict !== "passed") {
     missing.push("passing CleanCodeReviewRecord");
   }
-  if (needsTests && (!input.testEvidenceRecord || input.testEvidenceRecord.outcome !== "passed" || input.testEvidenceRecord.failedTestCount > 0 || input.testEvidenceRecord.notTestedGaps.length > 0)) {
+  if (needsTests && !implementationTestEvidencePassed(input.testEvidenceRecord)) {
     missing.push("passing TestEvidenceRecord without failed tests or Not-tested gaps");
   }
 
@@ -8986,17 +9000,14 @@ function implementationStepLinearMissingEvidence(input: {
 
 function implementationStepStatus(input: {
   readonly targetStatus: ImplementationStepStatus;
-  readonly startedEvidenceRefs: readonly string[];
   readonly missingRequiredEvidence: readonly string[];
   readonly missingStageEvidence: readonly string[];
   readonly blocker: ImplementationStepBlocker | null;
-  readonly stepCommitRecord: StepCommitRecord | null;
-  readonly noCodeStepEvidence: NoCodeStepEvidence | null;
   readonly codeReviewRecord: CodeReviewRecord | null;
   readonly cleanCodeReviewRecord: CleanCodeReviewRecord | null;
   readonly testEvidenceRecord: TestEvidenceRecord | null;
 }): ImplementationStepStatus {
-  if (input.blocker || input.codeReviewRecord?.verdict === "changes_requested" || input.codeReviewRecord?.verdict === "blocked" || input.cleanCodeReviewRecord?.verdict === "changes_requested" || input.cleanCodeReviewRecord?.verdict === "blocked" || input.testEvidenceRecord?.outcome === "failed" || (input.testEvidenceRecord?.notTestedGaps.length ?? 0) > 0) {
+  if (input.blocker || input.codeReviewRecord?.verdict === "changes_requested" || input.codeReviewRecord?.verdict === "blocked" || input.cleanCodeReviewRecord?.verdict === "changes_requested" || input.cleanCodeReviewRecord?.verdict === "blocked" || implementationTestEvidenceHasFailureOrGap(input.testEvidenceRecord)) {
     return "blocked";
   }
 
@@ -9163,12 +9174,9 @@ function reduceRecordImplementationStepLedger(
   });
   const status = implementationStepStatus({
     targetStatus,
-    startedEvidenceRefs,
     missingRequiredEvidence,
     missingStageEvidence: uniqueStringRefs([...missingStageEvidence, ...missingLinearEvidence]),
     blocker: explicitBlocker ?? null,
-    stepCommitRecord: stepCommitRecord ?? null,
-    noCodeStepEvidence: noCodeStepEvidence ?? null,
     codeReviewRecord: codeReviewRecord ?? null,
     cleanCodeReviewRecord: cleanCodeReviewRecord ?? null,
     testEvidenceRecord: testEvidenceRecord ?? null
