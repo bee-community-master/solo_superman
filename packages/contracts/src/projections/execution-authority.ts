@@ -1,5 +1,8 @@
 import type { ProjectionVersion, SchemaVersion, SessionId } from "../ids";
-import type { ServicePageUseActionClass } from "./service-page-use-permission";
+import {
+  SERVICE_PAGE_USE_PERMISSION_ACTION_CLASSES,
+  type ServicePageUseActionClass
+} from "./service-page-use-permission";
 
 export const EXECUTION_AUTHORITY_SCHEMA_VERSION =
   "solo-superman.phase3-execution-authority.v1" as SchemaVersion;
@@ -99,6 +102,10 @@ export interface ExecutionAuthorityRequestedScope {
   readonly workspaceRef?: string;
   readonly commandAllowlistRef?: string;
   readonly browserTargetRef?: string;
+  readonly servicePagePermissionId?: string;
+  readonly servicePageActionClass?: ServicePageUseActionClass;
+  readonly serviceOrigin?: string;
+  readonly servicePageUrl?: string;
   readonly filePathGlobs?: readonly string[];
   readonly maxDurationMs?: number;
 }
@@ -599,6 +606,10 @@ function requestedScopeValidationIssues(scope: ExecutionAuthorityRequestedScope)
   const hasCommandAllowlistRef = scope.commandAllowlistRef !== undefined;
   const hasBrowserTargetRef = scope.browserTargetRef !== undefined;
   const hasFilePathGlobs = scope.filePathGlobs !== undefined;
+  const hasServicePagePermissionId = scope.servicePagePermissionId !== undefined;
+  const hasServicePageActionClass = scope.servicePageActionClass !== undefined;
+  const hasServiceOrigin = scope.serviceOrigin !== undefined;
+  const hasServicePageUrl = scope.servicePageUrl !== undefined;
 
   if (hasWorkspaceRef && !isNonEmptyString(scope.workspaceRef)) {
     issues.push("requestedScope.workspaceRef must be a non-empty string when present");
@@ -610,6 +621,32 @@ function requestedScopeValidationIssues(scope: ExecutionAuthorityRequestedScope)
 
   if (hasBrowserTargetRef && !isNonEmptyString(scope.browserTargetRef)) {
     issues.push("requestedScope.browserTargetRef must be a non-empty string when present");
+  }
+
+  if (hasServicePagePermissionId && !isNonEmptyString(scope.servicePagePermissionId)) {
+    issues.push("requestedScope.servicePagePermissionId must be a non-empty string when present");
+  }
+
+  if (
+    hasServicePageActionClass &&
+    !SERVICE_PAGE_USE_PERMISSION_ACTION_CLASSES.includes(scope.servicePageActionClass as ServicePageUseActionClass)
+  ) {
+    issues.push("requestedScope.servicePageActionClass must be a valid service page-use action class when present");
+  }
+
+  if (hasServiceOrigin && !isNonEmptyString(scope.serviceOrigin)) {
+    issues.push("requestedScope.serviceOrigin must be a non-empty string when present");
+  }
+
+  if (hasServicePageUrl && !isNonEmptyString(scope.servicePageUrl)) {
+    issues.push("requestedScope.servicePageUrl must be a non-empty string when present");
+  }
+
+  if (
+    [hasServicePagePermissionId, hasServicePageActionClass, hasServiceOrigin, hasServicePageUrl].some(Boolean) &&
+    (!hasServicePagePermissionId || !hasServicePageActionClass || !hasServiceOrigin || !hasServicePageUrl)
+  ) {
+    issues.push("requestedScope service page-use boundary requires permission id, action class, service origin, and page URL together");
   }
 
   if (hasFilePathGlobs && (!isStringArray(scope.filePathGlobs) || scope.filePathGlobs.length === 0)) {
@@ -685,6 +722,17 @@ function actionClassBoundaryValidationIssues(record: ExecutionAuthorityRecord): 
     case "browser_action": {
       if (!record.requestedScope.browserTargetRef) {
         issues.push("browser_action authority requires browserTargetRef requestedScope");
+      }
+
+      if (
+        record.requestedScope.servicePagePermissionId ||
+        record.requestedScope.servicePageActionClass ||
+        record.requestedScope.serviceOrigin ||
+        record.requestedScope.servicePageUrl
+      ) {
+        if (!record.requestedScope.servicePagePermissionId || !record.requestedScope.servicePageActionClass) {
+          issues.push("service page-use browser_action authority requires permission id and action class in requestedScope");
+        }
       }
 
       if (record.sandboxBoundary.mode !== "browser_preview_session") {

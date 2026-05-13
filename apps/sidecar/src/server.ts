@@ -968,6 +968,10 @@ const EXECUTION_AUTHORITY_REQUESTED_SCOPE_KEYS = [
   "workspaceRef",
   "commandAllowlistRef",
   "browserTargetRef",
+  "servicePagePermissionId",
+  "servicePageActionClass",
+  "serviceOrigin",
+  "servicePageUrl",
   "filePathGlobs",
   "maxDurationMs"
 ] as const satisfies readonly (keyof ExecutionAuthorityRequestedScope)[];
@@ -1284,13 +1288,45 @@ function executionAuthorityRequestedScopeFromBody(value: unknown): ExecutionAuth
     "requestedScope.commandAllowlistRef"
   );
   const browserTargetRef = optionalStringFromBody(requestedScope.browserTargetRef, "requestedScope.browserTargetRef");
+  const servicePagePermissionId = optionalStringFromBody(
+    requestedScope.servicePagePermissionId,
+    "requestedScope.servicePagePermissionId"
+  );
+  const servicePageActionClass = optionalStringFromBody(
+    requestedScope.servicePageActionClass,
+    "requestedScope.servicePageActionClass"
+  );
+  const serviceOrigin = optionalStringFromBody(requestedScope.serviceOrigin, "requestedScope.serviceOrigin");
+  const servicePageUrl = optionalStringFromBody(requestedScope.servicePageUrl, "requestedScope.servicePageUrl");
   const filePathGlobs = optionalStringArrayFromBody(requestedScope.filePathGlobs, "requestedScope.filePathGlobs");
   const maxDurationMs = optionalPositiveIntegerFromBody(requestedScope.maxDurationMs, "requestedScope.maxDurationMs");
+
+  if (
+    servicePageActionClass !== undefined &&
+    !SERVICE_PAGE_USE_PERMISSION_ACTION_CLASSES.includes(
+      servicePageActionClass as (typeof SERVICE_PAGE_USE_PERMISSION_ACTION_CLASSES)[number]
+    )
+  ) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "requestedScope.servicePageActionClass must be a valid service page-use action class."
+    );
+  }
+
+  const parsedServicePageActionClass = servicePageActionClass as
+    | (typeof SERVICE_PAGE_USE_PERMISSION_ACTION_CLASSES)[number]
+    | undefined;
 
   return {
     ...(workspaceRef ? { workspaceRef } : {}),
     ...(commandAllowlistRef ? { commandAllowlistRef } : {}),
     ...(browserTargetRef ? { browserTargetRef } : {}),
+    ...(servicePagePermissionId ? { servicePagePermissionId } : {}),
+    ...(parsedServicePageActionClass
+      ? { servicePageActionClass: parsedServicePageActionClass }
+      : {}),
+    ...(serviceOrigin ? { serviceOrigin } : {}),
+    ...(servicePageUrl ? { servicePageUrl } : {}),
     ...(filePathGlobs ? { filePathGlobs } : {}),
     ...(maxDurationMs ? { maxDurationMs } : {})
   };

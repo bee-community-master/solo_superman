@@ -19,6 +19,7 @@ import type {
   ExecutionApprovalDecision,
   ExecutionAuthorityLedgerProjection,
   ExecutionAuthorityLedgerStatus,
+  ExecutionAuthorityRequestedScope,
   ExecutionAuthorityRecord,
   ExecutionResultState
 } from "./execution-authority";
@@ -89,6 +90,17 @@ describe("Phase 3 ExecutionAuthority ledger contract", () => {
       | "blockedPreconditions"
       | "summary"
       | "refetchUrl"
+    >();
+    expectTypeOf<keyof ExecutionAuthorityRequestedScope>().toEqualTypeOf<
+      | "workspaceRef"
+      | "commandAllowlistRef"
+      | "browserTargetRef"
+      | "servicePagePermissionId"
+      | "servicePageActionClass"
+      | "serviceOrigin"
+      | "servicePageUrl"
+      | "filePathGlobs"
+      | "maxDurationMs"
     >();
     expectTypeOf<keyof BrowserActionPreviewDto>().toEqualTypeOf<
       "kind" | "visibleAction" | "credentialMode" | "externalMutation"
@@ -298,6 +310,30 @@ describe("Phase 3 ExecutionAuthority ledger contract", () => {
         "requestedScope.filePathGlobs must include non-empty string globs when present",
         "requestedScope.maxDurationMs must be a positive integer when present"
       ])
+    );
+  });
+
+  it("requires complete service page-use metadata when a browser authority is bound to a page-use permission", () => {
+    const incompleteServicePageScope = {
+      ...PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE.latestRecord,
+      actionClass: "browser_action",
+      requestedScope: {
+        browserTargetRef: "browser_target:http://127.0.0.1:4321/mock",
+        servicePagePermissionId: "service_page_permission_vercel_ready"
+      },
+      sandboxBoundary: {
+        mode: "browser_preview_session",
+        networkPolicy: "loopback_only",
+        secretPolicy: "no_secret_values"
+      },
+      rollbackReference: {
+        kind: "browser_state_reset",
+        ref: "rollback_browser_page_use"
+      }
+    } satisfies ExecutionAuthorityRecord;
+
+    expect(executionAuthorityRecordValidationIssues(incompleteServicePageScope)).toContain(
+      "requestedScope service page-use boundary requires permission id, action class, service origin, and page URL together"
     );
   });
 

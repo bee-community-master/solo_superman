@@ -1551,10 +1551,16 @@ describe("PR-09 end-to-end dry-run hardening", () => {
 
       async function createServicePageBrowserAuthority(
         idSuffix: string,
-        action: BrowserActionPreviewDto = safeBrowserAction
+        action: BrowserActionPreviewDto = safeBrowserAction,
+        servicePageScope: Readonly<{
+          readonly permissionId?: string;
+          readonly actionClass?: string;
+          readonly serviceOrigin?: string;
+          readonly servicePageUrl?: string;
+        }> = {}
       ) {
         const browserHash = hashBrowserActionPreview({ targetUrl: mockServiceTarget!.targetUrl, action });
-        const { recordId: browserRecordId } = await createExecutionAuthorityForE2e(
+        const { projection, recordId: browserRecordId } = await createExecutionAuthorityForE2e(
           app,
           sessionId,
           idSuffix,
@@ -1565,6 +1571,10 @@ describe("PR-09 end-to-end dry-run hardening", () => {
             reviewedPreviewArtifactHash: browserHash,
             requestedScope: {
               browserTargetRef: `browser_target:${mockServiceTarget!.targetUrl}`,
+              ...(servicePageScope.permissionId ? { servicePagePermissionId: servicePageScope.permissionId } : {}),
+              ...(servicePageScope.actionClass ? { servicePageActionClass: servicePageScope.actionClass } : {}),
+              ...(servicePageScope.serviceOrigin ? { serviceOrigin: servicePageScope.serviceOrigin } : {}),
+              ...(servicePageScope.servicePageUrl ? { servicePageUrl: servicePageScope.servicePageUrl } : {}),
               maxDurationMs: 1_000
             },
             sandboxBoundary: {
@@ -1578,8 +1588,23 @@ describe("PR-09 end-to-end dry-run hardening", () => {
             }
           }
         );
+        const browserScope = record(record(projection).latestRecord).requestedScope;
 
-        return { browserHash, browserRecordId };
+        if (servicePageScope.permissionId || servicePageScope.actionClass) {
+          expect(browserScope).toMatchObject({
+            servicePagePermissionId: servicePageScope.permissionId,
+            servicePageActionClass: servicePageScope.actionClass,
+            serviceOrigin: servicePageScope.serviceOrigin,
+            servicePageUrl: servicePageScope.servicePageUrl
+          });
+        }
+
+        return {
+          browserHash,
+          browserRecordId,
+          ...(servicePageScope.permissionId ? { servicePagePermissionId: servicePageScope.permissionId } : {}),
+          ...(servicePageScope.actionClass ? { servicePageActionClass: servicePageScope.actionClass } : {})
+        };
       }
 
       async function runServicePageBrowserAction(input: {
@@ -1602,11 +1627,19 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         });
       }
 
-      const missingPermissionAuthority = await createServicePageBrowserAuthority("service_page_missing_permission");
+      const missingPermissionAuthority = await createServicePageBrowserAuthority(
+        "service_page_missing_permission",
+        safeBrowserAction,
+        {
+          permissionId: "service_page_permission_missing",
+          actionClass: "read",
+          serviceOrigin: "https://vercel.com",
+          servicePageUrl: "https://vercel.com/new"
+        }
+      );
       const missingPermissionBrowser = await runServicePageBrowserAction({
         ...missingPermissionAuthority,
-        idempotencyKey: "post-phase3:service-page:browser-missing-permission",
-        servicePageActionClass: "read"
+        idempotencyKey: "post-phase3:service-page:browser-missing-permission"
       });
 
       expect(responseData(missingPermissionBrowser.body)).toMatchObject({
@@ -1666,12 +1699,19 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         record(record(readPreviewData.immediateProjection).latestPermission),
         "permissionId"
       );
-      const readPreviewAuthority = await createServicePageBrowserAuthority("service_page_read_preview");
+      const readPreviewAuthority = await createServicePageBrowserAuthority(
+        "service_page_read_preview",
+        safeBrowserAction,
+        {
+          permissionId: readPreviewPermissionId,
+          actionClass: "read",
+          serviceOrigin: "https://vercel.com",
+          servicePageUrl: "https://vercel.com/new"
+        }
+      );
       const readPreviewBrowser = await runServicePageBrowserAction({
         ...readPreviewAuthority,
-        idempotencyKey: "post-phase3:service-page:browser-read-preview",
-        servicePagePermissionId: readPreviewPermissionId,
-        servicePageActionClass: "read"
+        idempotencyKey: "post-phase3:service-page:browser-read-preview"
       });
 
       expect(responseData(readPreviewBrowser.body)).toMatchObject({
@@ -1682,6 +1722,74 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         },
         screenshotRefs: expect.arrayContaining(["browser_action:screenshot:post-phase3:service-page:browser-read-preview"]),
         auditRefs: expect.arrayContaining(["audit:browser_action:post-phase3:service-page:browser-read-preview"])
+      });
+
+      const omittedEchoAuthority = await createServicePageBrowserAuthority(
+        "service_page_omitted_request_echo",
+        safeBrowserAction,
+        {
+          permissionId: readPreviewPermissionId,
+          actionClass: "read",
+          serviceOrigin: "https://vercel.com",
+          servicePageUrl: "https://vercel.com/new"
+        }
+      );
+      const omittedEchoBrowser = await runServicePageBrowserAction({
+        browserRecordId: omittedEchoAuthority.browserRecordId,
+        browserHash: omittedEchoAuthority.browserHash,
+        idempotencyKey: "post-phase3:service-page:browser-omitted-request-echo"
+      });
+
+      expect(responseData(omittedEchoBrowser.body)).toMatchObject({
+        kind: "BrowserActionExecutionResult",
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({ code: "service_page_permission_scope_mismatch" })
+        ])
+      });
+
+      const previewAuthority = await createServicePageBrowserAuthority(
+        "service_page_preview",
+        safeBrowserAction,
+        {
+          permissionId: readPreviewPermissionId,
+          actionClass: "preview",
+          serviceOrigin: "https://vercel.com",
+          servicePageUrl: "https://vercel.com/new"
+        }
+      );
+      const previewBrowser = await runServicePageBrowserAction({
+        ...previewAuthority,
+        idempotencyKey: "post-phase3:service-page:browser-preview"
+      });
+
+      expect(responseData(previewBrowser.body)).toMatchObject({
+        kind: "BrowserActionExecutionResult",
+        status: "completed",
+        screenshotRefs: expect.arrayContaining(["browser_action:screenshot:post-phase3:service-page:browser-preview"])
+      });
+
+      const wrongServiceAuthority = await createServicePageBrowserAuthority(
+        "service_page_wrong_service_origin",
+        safeBrowserAction,
+        {
+          permissionId: readPreviewPermissionId,
+          actionClass: "read",
+          serviceOrigin: "https://example.com",
+          servicePageUrl: "https://example.com/new"
+        }
+      );
+      const wrongServiceBrowser = await runServicePageBrowserAction({
+        ...wrongServiceAuthority,
+        idempotencyKey: "post-phase3:service-page:browser-wrong-service-origin"
+      });
+
+      expect(responseData(wrongServiceBrowser.body)).toMatchObject({
+        kind: "BrowserActionExecutionResult",
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({ code: "service_page_permission_scope_mismatch" })
+        ])
       });
 
       const revoked = await postJson(
@@ -1709,12 +1817,19 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         }
       });
 
-      const revokedPreviewAuthority = await createServicePageBrowserAuthority("service_page_after_revoke");
+      const revokedPreviewAuthority = await createServicePageBrowserAuthority(
+        "service_page_after_revoke",
+        safeBrowserAction,
+        {
+          permissionId: readPreviewPermissionId,
+          actionClass: "preview",
+          serviceOrigin: "https://vercel.com",
+          servicePageUrl: "https://vercel.com/new"
+        }
+      );
       const revokedPreviewBrowser = await runServicePageBrowserAction({
         ...revokedPreviewAuthority,
-        idempotencyKey: "post-phase3:service-page:browser-after-revoke",
-        servicePagePermissionId: readPreviewPermissionId,
-        servicePageActionClass: "preview"
+        idempotencyKey: "post-phase3:service-page:browser-after-revoke"
       });
 
       expect(responseData(revokedPreviewBrowser.body)).toMatchObject({
@@ -1752,12 +1867,19 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         record(record(fillDraftData.immediateProjection).latestPermission),
         "permissionId"
       );
-      const fillDraftAuthority = await createServicePageBrowserAuthority("service_page_fill_draft");
+      const fillDraftAuthority = await createServicePageBrowserAuthority(
+        "service_page_fill_draft",
+        safeBrowserAction,
+        {
+          permissionId: fillDraftPermissionId,
+          actionClass: "fill_draft",
+          serviceOrigin: "https://vercel.com",
+          servicePageUrl: "https://vercel.com/new"
+        }
+      );
       const fillDraftBrowser = await runServicePageBrowserAction({
         ...fillDraftAuthority,
-        idempotencyKey: "post-phase3:service-page:browser-fill-draft",
-        servicePagePermissionId: fillDraftPermissionId,
-        servicePageActionClass: "fill_draft"
+        idempotencyKey: "post-phase3:service-page:browser-fill-draft"
       });
 
       expect(responseData(fillDraftBrowser.body)).toMatchObject({
@@ -1808,14 +1930,18 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       );
       const finalSubmitAuthority = await createServicePageBrowserAuthority(
         "service_page_final_submit_blocked",
-        finalSubmitBrowserAction
+        finalSubmitBrowserAction,
+        {
+          permissionId: finalSubmitPermissionId,
+          actionClass: "final_submit_request",
+          serviceOrigin: "https://vercel.com",
+          servicePageUrl: "https://vercel.com/new"
+        }
       );
       const finalSubmitBrowser = await runServicePageBrowserAction({
         ...finalSubmitAuthority,
         idempotencyKey: "post-phase3:service-page:browser-final-submit-blocked",
-        action: finalSubmitBrowserAction,
-        servicePagePermissionId: finalSubmitPermissionId,
-        servicePageActionClass: "final_submit_request"
+        action: finalSubmitBrowserAction
       });
 
       expect(responseData(finalSubmitBrowser.body)).toMatchObject({

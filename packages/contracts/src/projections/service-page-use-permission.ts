@@ -318,7 +318,7 @@ export function validateServicePageUsePermissionProjection(
   if (!SERVICE_PAGE_USE_PERMISSION_STATUSES.includes(projection.currentStatus)) {
     issues.push("currentStatus must be a ServicePageUsePermissionStatus");
   }
-  if (latestPermission !== projection.permissions.at(-1)) {
+  if (latestPermission.permissionId !== projection.permissions.at(-1)?.permissionId) {
     issues.push("latestPermission must point to the newest permission record");
   }
   if (projection.summary !== servicePageUsePermissionSummaryForStatus(projection.currentStatus)) {

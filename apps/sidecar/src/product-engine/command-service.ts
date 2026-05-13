@@ -1153,13 +1153,46 @@ function browserActionExecutionResult(input: {
 
 async function servicePageUsePermissionBrowserActionBlockReasons(
   storage: SoloStorage,
+  record: ExecutionAuthorityRecord,
   input: ExecuteBrowserActionInput
 ): Promise<readonly ExecutionAuthorityBlockReasonDto[]> {
-  if (!input.servicePageActionClass && !input.servicePagePermissionId) {
+  const scope = record.requestedScope;
+  const scopedServicePageFields = [
+    scope.servicePagePermissionId,
+    scope.servicePageActionClass,
+    scope.serviceOrigin,
+    scope.servicePageUrl
+  ].filter(Boolean);
+  const servicePagePermissionId = scope.servicePagePermissionId ?? input.servicePagePermissionId;
+  const servicePageActionClass = scope.servicePageActionClass ?? input.servicePageActionClass;
+  const requiresRequestEcho = Boolean(scope.servicePagePermissionId || scope.servicePageActionClass);
+
+  if (
+    !servicePageActionClass &&
+    !servicePagePermissionId &&
+    !scopedServicePageFields.length
+  ) {
     return [];
   }
 
-  if (!input.servicePageActionClass || !input.servicePagePermissionId) {
+  if (
+    (requiresRequestEcho && (
+      input.servicePagePermissionId !== scope.servicePagePermissionId ||
+      input.servicePageActionClass !== scope.servicePageActionClass
+    )) ||
+    (input.servicePagePermissionId && scope.servicePagePermissionId && input.servicePagePermissionId !== scope.servicePagePermissionId) ||
+    (input.servicePageActionClass && scope.servicePageActionClass && input.servicePageActionClass !== scope.servicePageActionClass)
+  ) {
+    return [
+      executionAuthorityPreflightBlockReason(
+        "service_page_permission_scope_mismatch",
+        "Service page-use browser action request does not match the approved authority scope.",
+        ["service_page_permission:request_scope_mismatch"]
+      )
+    ];
+  }
+
+  if (!servicePageActionClass || !servicePagePermissionId) {
     return [
       executionAuthorityPreflightBlockReason(
         "service_page_permission_required",
@@ -1175,12 +1208,12 @@ async function servicePageUsePermissionBrowserActionBlockReasons(
   );
   const permission = serviceProjection?.latestPermission;
 
-  if (!permission || permission.permissionId !== input.servicePagePermissionId) {
+  if (!permission || permission.permissionId !== servicePagePermissionId) {
     return [
       executionAuthorityPreflightBlockReason(
         "service_page_permission_required",
         "Service page-use browser action requires the latest service page-use permission.",
-        [`service_page_permission:${input.servicePagePermissionId}`]
+        [`service_page_permission:${servicePagePermissionId}`]
       )
     ];
   }
@@ -1205,20 +1238,20 @@ async function servicePageUsePermissionBrowserActionBlockReasons(
     ];
   }
 
-  if (!permission.allowedActionClasses.includes(input.servicePageActionClass)) {
+  if (!permission.allowedActionClasses.includes(servicePageActionClass)) {
     return [
       executionAuthorityPreflightBlockReason(
         "service_page_permission_scope_mismatch",
         "The referenced service page-use permission does not allow this page action class.",
-        [`service_page_permission:${permission.permissionId}:${input.servicePageActionClass}`]
+        [`service_page_permission:${permission.permissionId}:${servicePageActionClass}`]
       )
     ];
   }
 
   if (
-    (input.servicePageActionClass === "fill_draft" ||
-      input.servicePageActionClass === "copy_generated_value" ||
-      input.servicePageActionClass === "final_submit_request") &&
+    (servicePageActionClass === "fill_draft" ||
+      servicePageActionClass === "copy_generated_value" ||
+      servicePageActionClass === "final_submit_request") &&
     permission.approvalGranularity !== "per_action"
   ) {
     return [
@@ -1226,6 +1259,23 @@ async function servicePageUsePermissionBrowserActionBlockReasons(
         "service_page_permission_scope_mismatch",
         "Fill, copy, and final-submit service page-use actions require per-action permission.",
         [`service_page_permission:${permission.permissionId}:approval:${permission.approvalGranularity}`]
+      )
+    ];
+  }
+
+  if (
+    (scope.serviceOrigin && scope.serviceOrigin !== permission.serviceOrigin) ||
+    (scope.servicePageUrl && scope.servicePageUrl !== permission.pageUrl)
+  ) {
+    return [
+      executionAuthorityPreflightBlockReason(
+        "service_page_permission_scope_mismatch",
+        "The approved browser authority service origin/page URL does not match the service page-use permission.",
+        [
+          `service_page_permission:${permission.permissionId}:origin:${permission.serviceOrigin}`,
+          ...(scope.serviceOrigin ? [`authority_scope:service_origin:${scope.serviceOrigin}`] : []),
+          ...(scope.servicePageUrl ? [`authority_scope:service_page_url:${scope.servicePageUrl}`] : [])
+        ]
       )
     ];
   }
@@ -4856,7 +4906,9 @@ export function createProductEngineCommandService(
       const basePreflightBlockReasons = executionAuthorityPreflightBlockReasons(preflightInput, projection);
       const requestPreviewHashBlockReason = browserActionRequestPreviewHashBlockReason(input);
       const servicePagePermissionBlockReasons =
-        await servicePageUsePermissionBrowserActionBlockReasons(storage, input);
+        projection
+          ? await servicePageUsePermissionBrowserActionBlockReasons(storage, projection.latestRecord, input)
+          : [];
       const preflightBlockReasons = [
         ...basePreflightBlockReasons,
         ...(requestPreviewHashBlockReason ? [requestPreviewHashBlockReason] : []),

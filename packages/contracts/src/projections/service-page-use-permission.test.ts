@@ -52,6 +52,16 @@ describe("Service page-use permission projection contract", () => {
     expect(projection.latestPermission.finalSubmitBoundary.productionMutationPerformed).toBe(false);
   });
 
+  it("validates projections after JSON persistence/API round-trip", () => {
+    const roundTripped = JSON.parse(
+      JSON.stringify(SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE)
+    ) as typeof SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE;
+    const projection = validateServicePageUsePermissionProjection(roundTripped);
+
+    expect(projection.latestPermission).not.toBe(projection.permissions.at(-1));
+    expect(projection.latestPermission.permissionId).toBe(projection.permissions.at(-1)?.permissionId);
+  });
+
   it("rejects records that omit the user-owned login boundary", () => {
     expect(() =>
       validateServicePageUsePermissionProjection({

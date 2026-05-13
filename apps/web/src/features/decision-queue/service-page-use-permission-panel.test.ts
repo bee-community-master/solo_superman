@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE,
   servicePageUsePermissionSummaryForStatus
 } from "@solo-superman/contracts";
-import { servicePageUsePermissionViewModel } from "./ServicePageUsePermissionPanel";
+import {
+  ServicePageUsePermissionPanel,
+  servicePageUsePermissionViewModel
+} from "./ServicePageUsePermissionPanel";
 
 describe("ServicePageUsePermissionPanel view model", () => {
   it("shows the service origin, allowed and blocked actions, login boundary, and artifact controls", () => {
@@ -20,7 +25,8 @@ describe("ServicePageUsePermissionPanel view model", () => {
     expect(view.approvalLabel).toContain("user_approval_service_page_vercel");
     expect(view.loginBoundaryLabel).toContain("User logs in directly");
     expect(view.finalSubmitBoundaryLabel).toContain("final submit requires confirmation");
-    expect(view.artifactControlLabels).toContain("Delete retained artifacts while leaving audit metadata only");
+    expect(view.exportControlLabel).toContain("Export retained");
+    expect(view.deleteControlLabel).toContain("Delete retained artifacts while leaving audit metadata only");
     expect(view.activityFeedRefs).toContain("setup_step:vercel-deploy-settings");
     expect(view.auditItems.join("\n")).toContain("ServicePagePermissionGranted");
   });
@@ -34,5 +40,23 @@ describe("ServicePageUsePermissionPanel view model", () => {
     expect(view.loginBoundaryLabel).toContain("User-owned login");
     expect(view.finalSubmitBoundaryLabel).toContain("separate confirmation card");
     expect(view.blockedActionsLabel).toContain("credential/session/secret custody");
+  });
+
+  it("renders enabled artifact export/delete controls when retained refs are user-controllable", () => {
+    const view = servicePageUsePermissionViewModel(SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE);
+    const markup = renderToStaticMarkup(
+      createElement(ServicePageUsePermissionPanel, {
+        permission: view,
+        isBusy: false,
+        onRefreshPermission: () => undefined,
+        onRevokePermission: () => undefined,
+        onExportArtifacts: () => undefined,
+        onDeleteArtifacts: () => undefined
+      })
+    );
+
+    expect(markup).toContain("Export retained prompt/result/screenshot/log artifact refs");
+    expect(markup).toContain("Delete retained artifacts while leaving audit metadata only");
+    expect(markup).not.toContain("disabled=\"\"");
   });
 });

@@ -5862,6 +5862,12 @@ function executionAuthorityRequestedScopeFromValue(value: unknown): ExecutionAut
   const commandAllowlistRef =
     record.commandAllowlistRef === undefined ? undefined : requiredString(record.commandAllowlistRef);
   const browserTargetRef = record.browserTargetRef === undefined ? undefined : requiredString(record.browserTargetRef);
+  const servicePagePermissionId =
+    record.servicePagePermissionId === undefined ? undefined : requiredString(record.servicePagePermissionId);
+  const servicePageActionClass =
+    record.servicePageActionClass === undefined ? undefined : requiredString(record.servicePageActionClass);
+  const serviceOrigin = record.serviceOrigin === undefined ? undefined : requiredString(record.serviceOrigin);
+  const servicePageUrl = record.servicePageUrl === undefined ? undefined : requiredString(record.servicePageUrl);
   const filePathGlobs = record.filePathGlobs === undefined ? undefined : stringArray(record.filePathGlobs, true);
   const maxDurationMs = record.maxDurationMs;
 
@@ -5869,6 +5875,19 @@ function executionAuthorityRequestedScopeFromValue(value: unknown): ExecutionAut
     workspaceRef === null ||
     commandAllowlistRef === null ||
     browserTargetRef === null ||
+    servicePagePermissionId === null ||
+    servicePageActionClass === null ||
+    serviceOrigin === null ||
+    servicePageUrl === null ||
+    (servicePageActionClass !== undefined &&
+      !SERVICE_PAGE_USE_PERMISSION_ACTION_CLASSES.includes(servicePageActionClass as ServicePageUseActionClass)) ||
+    ([
+      servicePagePermissionId,
+      servicePageActionClass,
+      serviceOrigin,
+      servicePageUrl
+    ].some((field) => field !== undefined) &&
+      (!servicePagePermissionId || !servicePageActionClass || !serviceOrigin || !servicePageUrl)) ||
     filePathGlobs === null ||
     (maxDurationMs !== undefined &&
       (typeof maxDurationMs !== "number" || !Number.isInteger(maxDurationMs) || maxDurationMs <= 0))
@@ -5880,6 +5899,10 @@ function executionAuthorityRequestedScopeFromValue(value: unknown): ExecutionAut
     ...(workspaceRef ? { workspaceRef } : {}),
     ...(commandAllowlistRef ? { commandAllowlistRef } : {}),
     ...(browserTargetRef ? { browserTargetRef } : {}),
+    ...(servicePagePermissionId ? { servicePagePermissionId } : {}),
+    ...(servicePageActionClass ? { servicePageActionClass: servicePageActionClass as ServicePageUseActionClass } : {}),
+    ...(serviceOrigin ? { serviceOrigin } : {}),
+    ...(servicePageUrl ? { servicePageUrl } : {}),
     ...(filePathGlobs ? { filePathGlobs } : {}),
     ...(typeof maxDurationMs === "number" ? { maxDurationMs } : {})
   };

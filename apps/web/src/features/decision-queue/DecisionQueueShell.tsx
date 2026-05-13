@@ -77,6 +77,7 @@ interface CommandLogEntry {
   readonly createdAt: string;
   readonly response?: CommandResponse;
   readonly status?: StatusEndpointDto;
+  readonly message?: string;
   readonly error?: string;
 }
 
@@ -207,6 +208,8 @@ export function DecisionQueueShell() {
   const [phase15bReadiness, setPhase15bReadiness] = useState<Phase15bUpgradeHintProjection | null>(null);
   const [runtimeStatus, setRuntimeStatus] = useState<CodexRuntimeStatusDto | null>(null);
   const [commandLog, setCommandLog] = useState<readonly CommandLogEntry[]>([]);
+  const [deletedServicePageArtifactPermissionIds, setDeletedServicePageArtifactPermissionIds] =
+    useState<readonly string[]>([]);
   const [statuses, setStatuses] = useState<readonly StatusEndpointDto[]>([]);
   const [isBusy, setIsBusy] = useState(false);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
@@ -1339,6 +1342,87 @@ export function DecisionQueueShell() {
     [appendCommand, client, projections, refreshServicePageUsePermission]
   );
 
+  const exportServicePageArtifacts = useCallback(
+    (permissionId: string) => {
+      const projection = projections.servicePageUsePermission;
+      const permission = projection?.latestPermission;
+
+      if (!permission || permission.permissionId !== permissionId) {
+        setWorkflowError("The latest service page-use permission no longer matches this artifact export request.");
+        return;
+      }
+
+      if (typeof document === "undefined" || typeof URL === "undefined") {
+        setWorkflowError("Artifact ref export requires a browser document context.");
+        return;
+      }
+
+      const view = servicePageUsePermissionViewModel(projection);
+      const exportedAt = new Date().toISOString();
+      const payload = {
+        exportedAt,
+        permissionId,
+        serviceName: permission.serviceName,
+        serviceOrigin: permission.serviceOrigin,
+        pageUrl: permission.pageUrl,
+        purpose: permission.purpose,
+        redactionPreviewRef: permission.artifactRetention.redactionPreviewRef,
+        artifactRefs: view.artifactRefs,
+        auditEvidenceRefs: permission.auditLog.flatMap((entry) => entry.evidenceRefs),
+        note: "Exports retained artifact references only; credentials, cookies, sessions, 2FA codes, API keys, and raw secret values are never stored or exported."
+      };
+      const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+
+      anchor.href = url;
+      anchor.download = `service-page-artifact-refs-${permissionId}.json`;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+
+      setCommandLog((previous) => [
+        {
+          id: `service-page-permission:export:artifacts:${permissionId}:${Date.now()}`,
+          label: "Export service page-use artifact refs",
+          createdAt: exportedAt,
+          message: `exported_refs_only: ${view.artifactRefs.length} retained refs for ${permissionId}; audit metadata preserved.`
+        },
+        ...previous
+      ].slice(0, 8));
+    },
+    [projections.servicePageUsePermission]
+  );
+
+  const deleteServicePageArtifacts = useCallback(
+    (permissionId: string) => {
+      const projection = projections.servicePageUsePermission;
+      const permission = projection?.latestPermission;
+
+      if (!permission || permission.permissionId !== permissionId) {
+        setWorkflowError("The latest service page-use permission no longer matches this artifact delete request.");
+        return;
+      }
+
+      const deletedAt = new Date().toISOString();
+
+      setDeletedServicePageArtifactPermissionIds((previous) =>
+        previous.includes(permissionId) ? previous : [...previous, permissionId]
+      );
+      setCommandLog((previous) => [
+        {
+          id: `service-page-permission:delete:artifacts:${permissionId}:${Date.now()}`,
+          label: "Delete service page-use artifact refs",
+          createdAt: deletedAt,
+          message: `deleted_local_refs: retained artifact refs for ${permissionId} are hidden locally; audit metadata and permission history remain visible.`
+        },
+        ...previous
+      ].slice(0, 8));
+    },
+    [projections.servicePageUsePermission]
+  );
+
   const sections = useMemo(() => queueSections(projections.queue), [projections.queue]);
   const queueRecovery = useMemo(() => decisionQueueRecoveryViewModel(projections.queue), [projections.queue]);
   const pendingSummary = useMemo(() => pendingEffectSummary(statuses), [statuses]);
@@ -1374,10 +1458,21 @@ export function DecisionQueueShell() {
     () => chatGptDelegationViewModel(projections.chatGptDelegation),
     [projections.chatGptDelegation]
   );
-  const servicePageUsePermissionView = useMemo(
-    () => servicePageUsePermissionViewModel(projections.servicePageUsePermission),
-    [projections.servicePageUsePermission]
-  );
+  const servicePageUsePermissionView = useMemo(() => {
+    const view = servicePageUsePermissionViewModel(projections.servicePageUsePermission);
+
+    if (view.permissionId && deletedServicePageArtifactPermissionIds.includes(view.permissionId)) {
+      return {
+        ...view,
+        artifactRefs: [],
+        redactionPreviewRef: null,
+        exportControlLabel: null,
+        deleteControlLabel: null
+      };
+    }
+
+    return view;
+  }, [deletedServicePageArtifactPermissionIds, projections.servicePageUsePermission]);
   const canStart =
     connectionState.status === "connected" &&
     Boolean(client) &&
@@ -1822,6 +1917,8 @@ export function DecisionQueueShell() {
               }
             }}
             onRevokePermission={(permissionId) => void revokeServicePageUsePermission(permissionId)}
+            onExportArtifacts={(permissionId) => exportServicePageArtifacts(permissionId)}
+            onDeleteArtifacts={(permissionId) => deleteServicePageArtifacts(permissionId)}
           />
 
           <PlanningHandoffPanel
@@ -1905,7 +2002,7 @@ export function DecisionQueueShell() {
                 commandLog.map((entry) => (
                   <article className="activity-item" key={entry.id}>
                     <strong>{entry.label}</strong>
-                    <span>{entry.status?.commandStatus ?? entry.response?.category ?? entry.error ?? "pending"}</span>
+                    <span>{entry.status?.commandStatus ?? entry.response?.category ?? entry.message ?? entry.error ?? "pending"}</span>
                     {entry.status?.effects.length ? (
                       <ul className="effect-list">
                         {entry.status.effects.map((effect) => (
@@ -1916,6 +2013,7 @@ export function DecisionQueueShell() {
                       </ul>
                     ) : null}
                     {entry.error ? <small>{entry.error}</small> : null}
+                    {entry.message ? <small>{entry.message}</small> : null}
                     {entry.response?.statusUrl ? (
                       <button
                         type="button"

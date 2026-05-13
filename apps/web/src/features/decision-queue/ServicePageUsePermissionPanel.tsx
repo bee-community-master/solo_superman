@@ -22,7 +22,8 @@ export interface ServicePageUsePermissionViewModel {
   readonly permissionId: string | null;
   readonly artifactRefs: readonly string[];
   readonly redactionPreviewRef: string | null;
-  readonly artifactControlLabels: readonly string[];
+  readonly exportControlLabel: string | null;
+  readonly deleteControlLabel: string | null;
   readonly auditItems: readonly string[];
   readonly activityFeedRefs: readonly string[];
   readonly blockReasonItems: readonly string[];
@@ -64,7 +65,8 @@ export function servicePageUsePermissionViewModel(
       permissionId: null,
       artifactRefs: [],
       redactionPreviewRef: null,
-      artifactControlLabels: [],
+      exportControlLabel: null,
+      deleteControlLabel: null,
       auditItems: [],
       activityFeedRefs: [],
       blockReasonItems: []
@@ -96,12 +98,12 @@ export function servicePageUsePermissionViewModel(
     permissionId: permission.permissionId,
     artifactRefs: artifactRefsForPermission(permission),
     redactionPreviewRef: permission.artifactRetention.redactionPreviewRef,
-    artifactControlLabels: permission.artifactRetention.userExportDeleteControls
-      ? [
-          "Export retained prompt/result/screenshot/log artifact refs",
-          "Delete retained artifacts while leaving audit metadata only"
-        ]
-      : [],
+    exportControlLabel: permission.artifactRetention.userExportDeleteControls
+      ? "Export retained prompt/result/screenshot/log artifact refs"
+      : null,
+    deleteControlLabel: permission.artifactRetention.userExportDeleteControls
+      ? "Delete retained artifacts while leaving audit metadata only"
+      : null,
     auditItems: permission.auditLog.map((entry) => `${entry.eventType}: ${entry.label}`),
     activityFeedRefs: permission.activityFeedRefs,
     blockReasonItems: permission.blockReasons.map((reason) => `${reason.code}: ${reason.message}`)
@@ -113,15 +115,20 @@ interface ServicePageUsePermissionPanelProps {
   readonly isBusy: boolean;
   readonly onRefreshPermission: () => void;
   readonly onRevokePermission: (permissionId: string) => void;
+  readonly onExportArtifacts: (permissionId: string) => void;
+  readonly onDeleteArtifacts: (permissionId: string) => void;
 }
 
 export function ServicePageUsePermissionPanel({
   permission,
   isBusy,
   onRefreshPermission,
-  onRevokePermission
+  onRevokePermission,
+  onExportArtifacts,
+  onDeleteArtifacts
 }: ServicePageUsePermissionPanelProps) {
   const revokablePermissionId = permission.canRevoke ? permission.permissionId : null;
+  const artifactControlPermissionId = permission.permissionId;
 
   return (
     <section className="panel service-page-use-permission-panel">
@@ -161,18 +168,26 @@ export function ServicePageUsePermissionPanel({
       {permission.redactionPreviewRef ? (
         <p className="mode-summary">Redaction preview: {permission.redactionPreviewRef}</p>
       ) : null}
-      {permission.artifactControlLabels.length ? (
+      {artifactControlPermissionId && (permission.exportControlLabel || permission.deleteControlLabel) ? (
         <div className="card-actions panel-actions">
-          {permission.artifactControlLabels.map((label) => (
+          {permission.exportControlLabel ? (
             <button
               type="button"
-              disabled
-              title="This PR exposes the artifact control surface and retained refs; artifact content export/delete execution is separate from permission revoke."
-              key={label}
+              disabled={isBusy}
+              onClick={() => onExportArtifacts(artifactControlPermissionId)}
             >
-              {label}
+              {permission.exportControlLabel}
             </button>
-          ))}
+          ) : null}
+          {permission.deleteControlLabel ? (
+            <button
+              type="button"
+              disabled={isBusy}
+              onClick={() => onDeleteArtifacts(artifactControlPermissionId)}
+            >
+              {permission.deleteControlLabel}
+            </button>
+          ) : null}
         </div>
       ) : null}
       {permission.artifactRefs.length ? (

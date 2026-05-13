@@ -104,6 +104,48 @@ describe("CreateExecutionAuthority reducer", () => {
     });
   });
 
+  it("preserves service page-use browser authority scope for revoke/bypass enforcement", () => {
+    const reduction = reduceProductEngineCommand(
+      command(
+        readyPayload({
+          actionClass: "browser_action",
+          requestedScope: {
+            browserTargetRef: "browser_target:http://127.0.0.1:4321/mock-vercel/setup",
+            servicePagePermissionId: "service_page_permission_vercel_ready",
+            servicePageActionClass: "read",
+            serviceOrigin: "https://vercel.com",
+            servicePageUrl: "https://vercel.com/new",
+            maxDurationMs: 1_000
+          },
+          sandboxBoundary: {
+            mode: "browser_preview_session",
+            networkPolicy: "loopback_only",
+            secretPolicy: "no_secret_values"
+          },
+          rollbackReference: {
+            kind: "browser_state_reset",
+            ref: "rollback_service_page_browser"
+          }
+        })
+      ),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "ready_for_execution",
+      latestRecord: {
+        actionClass: "browser_action",
+        requestedScope: {
+          servicePagePermissionId: "service_page_permission_vercel_ready",
+          servicePageActionClass: "read",
+          serviceOrigin: "https://vercel.com",
+          servicePageUrl: "https://vercel.com/new"
+        }
+      }
+    });
+  });
+
   it("converges missing source, preview, rollback, credential, and sandbox preconditions to blocked", () => {
     const state = createInitialProductEngineState(projectId, sessionId);
     const reduction = reduceProductEngineCommand(
