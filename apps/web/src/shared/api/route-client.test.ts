@@ -248,6 +248,11 @@ describe("PR-09 web route client catalog", () => {
       path: "/api/v1/sessions/:sessionId/service-page-use-permissions/:permissionId/revoke",
       implementation: "mounted_post_phase3_pr_05"
     });
+    expect(findWebRouteClientPlaceholder("deleteServicePageUsePermissionArtifacts")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/service-page-use-permissions/:permissionId/artifacts/delete",
+      implementation: "mounted_post_phase3_pr_05"
+    });
   });
 
   it("marks the Decision Queue SSE notification stream as mounted for refetch recovery", () => {

@@ -98,6 +98,7 @@ import {
   type CreateChatGptBrowserDelegationRunPayload,
   type RevokeChatGptBrowserDelegationRunPayload,
   type CreateServicePageUsePermissionPayload,
+  type DeleteServicePageUsePermissionArtifactsPayload,
   type RevokeServicePageUsePermissionPayload,
   type EvidenceMatrixProjection,
   type ExecutionApprovalDecision,
@@ -7528,12 +7529,22 @@ const SERVICE_PAGE_USE_PERMISSION_REVOKE_ALLOWED_PAYLOAD_KEYS = [
   "auditRefs"
 ] as const;
 
+const SERVICE_PAGE_USE_PERMISSION_ARTIFACT_DELETE_ALLOWED_PAYLOAD_KEYS = [
+  "permissionId",
+  "reason",
+  "auditRefs"
+] as const;
+
 function containsUnsupportedServicePageUsePermissionPayload(command: ProductEngineCommand) {
   return !hasOnlyRecordKeys(command.payload, SERVICE_PAGE_USE_PERMISSION_ALLOWED_PAYLOAD_KEYS);
 }
 
 function containsUnsupportedServicePageUsePermissionRevokePayload(command: ProductEngineCommand) {
   return !hasOnlyRecordKeys(command.payload, SERVICE_PAGE_USE_PERMISSION_REVOKE_ALLOWED_PAYLOAD_KEYS);
+}
+
+function containsUnsupportedServicePageUsePermissionArtifactDeletePayload(command: ProductEngineCommand) {
+  return !hasOnlyRecordKeys(command.payload, SERVICE_PAGE_USE_PERMISSION_ARTIFACT_DELETE_ALLOWED_PAYLOAD_KEYS);
 }
 
 function uniqueTypedValues<TValue extends string>(
@@ -8038,6 +8049,8 @@ function reduceCreateServicePageUsePermission(
       redactionPreviewRef: payload.redactionPreviewRef,
       userExportDeleteControls: true,
       deletionLeavesAuditMetadataOnly: true,
+      artifactRefsDeletedAt: null,
+      artifactRefsDeletionAuditRef: null,
       forbiddenRetentionPolicy:
         "no_credential_session_secret_2fa_payment_legal_medical_financial_privacy_values"
     },
@@ -8221,6 +8234,150 @@ function reduceRevokeServicePageUsePermission(
           permissionId,
           status: "revoked",
           blockReasons: revokedPermission.blockReasons
+        }
+      }
+    ],
+    [],
+    projection
+  );
+}
+
+function servicePageArtifactRefsForPermission(permission: ServicePageUsePermissionRecord) {
+  return new Set([
+    permission.promptPreviewRef,
+    permission.artifactRetention.redactionPreviewRef,
+    ...permission.screenshotRefs,
+    ...permission.logRefs,
+    ...permission.screenshotRefs.map((ref) => `screenshot:${ref}`),
+    ...permission.logRefs.map((ref) => `log:${ref}`)
+  ].filter((ref): ref is string => typeof ref === "string" && ref.length > 0));
+}
+
+function reduceDeleteServicePageUsePermissionArtifacts(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  if (containsUnsupportedServicePageUsePermissionArtifactDeletePayload(command)) {
+    return reject(
+      "DeleteServicePageUsePermissionArtifacts payload contains unsupported keys.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  const payload = command.payload as Partial<DeleteServicePageUsePermissionArtifactsPayload>;
+  const permissionId = requiredString(payload.permissionId);
+  const reason = requiredString(payload.reason);
+  const auditRefs = optionalStringArray(payload.auditRefs);
+  const projectionBefore = state.servicePageUsePermission;
+
+  if (!permissionId || !reason || auditRefs === null) {
+    return reject("DeleteServicePageUsePermissionArtifacts payload is invalid.", "VALIDATION_FAILED");
+  }
+
+  if (containsExecutionAuthoritySecretValueLeak(command.payload)) {
+    return reject(
+      "DeleteServicePageUsePermissionArtifacts payload must not contain credential, session, token, or secret values.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  if (!projectionBefore) {
+    return reject(
+      "DeleteServicePageUsePermissionArtifacts requires an existing service page-use projection.",
+      "RESOURCE_NOT_FOUND"
+    );
+  }
+
+  const target = projectionBefore.latestPermission.permissionId === permissionId
+    ? projectionBefore.latestPermission
+    : null;
+
+  if (!target) {
+    return reject(
+      "DeleteServicePageUsePermissionArtifacts can only delete artifacts for the latest service page-use permission.",
+      "RESOURCE_NOT_FOUND"
+    );
+  }
+
+  if (target.artifactRetention.promptResultScreenshotLogRetention === "deleted_audit_metadata_only") {
+    return reject(
+      "DeleteServicePageUsePermissionArtifacts requires retained artifact refs.",
+      "COMMAND_PRECONDITION_FAILED"
+    );
+  }
+
+  const deletionAuditRef = `audit:service-page-use-permission:artifacts-deleted:${command.commandId}`;
+  const deletionAuditRefs = uniqueStringRefs([
+    ...auditRefs,
+    `audit:${command.commandId}`,
+    deletionAuditRef
+  ]);
+  const artifactRefs = servicePageArtifactRefsForPermission(target);
+  const retainedEvidenceRefs = target.evidenceRefs.filter((ref) => !artifactRefs.has(ref));
+  const deletedPermission: ServicePageUsePermissionRecord = {
+    ...target,
+    artifactRetention: {
+      ...target.artifactRetention,
+      promptResultScreenshotLogRetention: "deleted_audit_metadata_only",
+      redactionPreviewRef: null,
+      artifactRefsDeletedAt: command.issuedAt,
+      artifactRefsDeletionAuditRef: deletionAuditRef
+    },
+    promptPreviewRef: null,
+    screenshotRefs: [],
+    logRefs: [],
+    evidenceRefs: uniqueStringRefs([
+      ...retainedEvidenceRefs,
+      ...deletionAuditRefs,
+      "service-page-permission:artifact-refs-deleted"
+    ]),
+    auditRefs: uniqueStringRefs([...target.auditRefs, ...deletionAuditRefs]),
+    activityFeedRefs: uniqueStringRefs([...target.activityFeedRefs, "service-page-permission:artifacts-deleted"]),
+    auditLog: [
+      ...target.auditLog,
+      {
+        eventType: "ServicePageArtifactsDeleted",
+        label: reason,
+        evidenceRefs: deletionAuditRefs
+      }
+    ]
+  };
+  let projection: ServicePageUsePermissionProjection;
+
+  try {
+    projection = servicePageUsePermissionProjectionFromRecords(command, projectionVersionFor(state), [
+      ...projectionBefore.permissions.slice(0, -1),
+      deletedPermission
+    ]);
+  } catch (error) {
+    return reject(error instanceof Error ? error.message : String(error), "VALIDATION_FAILED");
+  }
+
+  const event = eventDraft(command, "ServicePageArtifactsDeleted", {
+    permissionId,
+    serviceName: deletedPermission.serviceName,
+    serviceOrigin: deletedPermission.serviceOrigin,
+    reason,
+    deletedArtifactKinds: ["prompt_preview_ref", "redaction_preview_ref", "screenshot_refs", "log_refs"],
+    projection,
+    summary: projection.summary
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      servicePageUsePermission: projection
+    },
+    [
+      {
+        outputType: "service_page_use_permission",
+        outputRef: permissionId,
+        payload: {
+          permissionId,
+          status: deletedPermission.status,
+          artifactRetention: deletedPermission.artifactRetention
         }
       }
     ],
@@ -9275,6 +9432,8 @@ export function reduceProductEngineCommand(
       return reduceCreateServicePageUsePermission(command, state);
     case "RevokeServicePageUsePermission":
       return reduceRevokeServicePageUsePermission(command, state);
+    case "DeleteServicePageUsePermissionArtifacts":
+      return reduceDeleteServicePageUsePermissionArtifacts(command, state);
     default:
       return reject(`${command.commandType} is outside the mounted PR-09 reducer slice.`);
   }
@@ -9864,6 +10023,7 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
     }
     case "ServicePagePermissionGranted":
     case "ServicePagePermissionRevoked":
+    case "ServicePageArtifactsDeleted":
     case "ServicePageActionBlocked":
     case "ServicePageFinalSubmitRequested": {
       const servicePageUsePermission = projectionPayload(event.payload, state.servicePageUsePermission);

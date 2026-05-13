@@ -59,4 +59,29 @@ describe("ServicePageUsePermissionPanel view model", () => {
     expect(markup).toContain("Delete retained artifacts while leaving audit metadata only");
     expect(markup).not.toContain("disabled=\"\"");
   });
+
+  it("hides artifact refs and controls after durable artifact deletion", () => {
+    const deletedProjection = {
+      ...SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE,
+      latestPermission: {
+        ...SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE.latestPermission,
+        promptPreviewRef: null,
+        screenshotRefs: [],
+        logRefs: [],
+        artifactRetention: {
+          ...SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE.latestPermission.artifactRetention,
+          promptResultScreenshotLogRetention: "deleted_audit_metadata_only",
+          redactionPreviewRef: null,
+          artifactRefsDeletedAt: "2026-05-13T00:01:00.000Z",
+          artifactRefsDeletionAuditRef: "audit:service-page-artifacts-deleted"
+        }
+      }
+    } as typeof SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE;
+    const view = servicePageUsePermissionViewModel(deletedProjection);
+
+    expect(view.artifactRefs).toEqual([]);
+    expect(view.redactionPreviewRef).toBeNull();
+    expect(view.exportControlLabel).toBeNull();
+    expect(view.deleteControlLabel).toBeNull();
+  });
 });

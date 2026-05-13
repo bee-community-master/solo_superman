@@ -208,8 +208,6 @@ export function DecisionQueueShell() {
   const [phase15bReadiness, setPhase15bReadiness] = useState<Phase15bUpgradeHintProjection | null>(null);
   const [runtimeStatus, setRuntimeStatus] = useState<CodexRuntimeStatusDto | null>(null);
   const [commandLog, setCommandLog] = useState<readonly CommandLogEntry[]>([]);
-  const [deletedServicePageArtifactPermissionIds, setDeletedServicePageArtifactPermissionIds] =
-    useState<readonly string[]>([]);
   const [statuses, setStatuses] = useState<readonly StatusEndpointDto[]>([]);
   const [isBusy, setIsBusy] = useState(false);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
@@ -1396,7 +1394,12 @@ export function DecisionQueueShell() {
   );
 
   const deleteServicePageArtifacts = useCallback(
-    (permissionId: string) => {
+    async (permissionId: string) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active session is required before deleting service page-use artifact refs.");
+        return;
+      }
+
       const projection = projections.servicePageUsePermission;
       const permission = projection?.latestPermission;
 
@@ -1405,22 +1408,39 @@ export function DecisionQueueShell() {
         return;
       }
 
-      const deletedAt = new Date().toISOString();
+      setIsBusy(true);
+      setWorkflowError(null);
 
-      setDeletedServicePageArtifactPermissionIds((previous) =>
-        previous.includes(permissionId) ? previous : [...previous, permissionId]
-      );
-      setCommandLog((previous) => [
-        {
-          id: `service-page-permission:delete:artifacts:${permissionId}:${Date.now()}`,
-          label: "Delete service page-use artifact refs",
-          createdAt: deletedAt,
-          message: `deleted_local_refs: retained artifact refs for ${permissionId} are hidden locally; audit metadata and permission history remain visible.`
-        },
-        ...previous
-      ].slice(0, 8));
+      try {
+        const expectedStateVersion = latestProjectionVersion(projections);
+        const response = await appendCommand(
+          "Delete service page-use artifact refs",
+          await client.deleteServicePageUsePermissionArtifacts({
+            sessionId: projections.session.sessionId,
+            expectedStateVersion,
+            idempotencyKey: `service-page-permission:delete-artifacts:${permissionId}:${expectedStateVersion}`,
+            permissionId,
+            reason: "User deleted retained service page-use artifact refs from the permission panel.",
+            auditRefs: [`audit:service-page-use-permission:web-delete-artifacts:${permissionId}`]
+          })
+        );
+        const servicePageUsePermission = requiredCommandProjection<ServicePageUsePermissionProjection>(
+          response,
+          "ServicePageUsePermissionProjection"
+        );
+
+        setProjections((current) => ({
+          ...current,
+          servicePageUsePermission
+        }));
+        await refreshServicePageUsePermission(projections.session.sessionId);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
     },
-    [projections.servicePageUsePermission]
+    [appendCommand, client, projections, refreshServicePageUsePermission]
   );
 
   const sections = useMemo(() => queueSections(projections.queue), [projections.queue]);
@@ -1458,21 +1478,10 @@ export function DecisionQueueShell() {
     () => chatGptDelegationViewModel(projections.chatGptDelegation),
     [projections.chatGptDelegation]
   );
-  const servicePageUsePermissionView = useMemo(() => {
-    const view = servicePageUsePermissionViewModel(projections.servicePageUsePermission);
-
-    if (view.permissionId && deletedServicePageArtifactPermissionIds.includes(view.permissionId)) {
-      return {
-        ...view,
-        artifactRefs: [],
-        redactionPreviewRef: null,
-        exportControlLabel: null,
-        deleteControlLabel: null
-      };
-    }
-
-    return view;
-  }, [deletedServicePageArtifactPermissionIds, projections.servicePageUsePermission]);
+  const servicePageUsePermissionView = useMemo(
+    () => servicePageUsePermissionViewModel(projections.servicePageUsePermission),
+    [projections.servicePageUsePermission]
+  );
   const canStart =
     connectionState.status === "connected" &&
     Boolean(client) &&

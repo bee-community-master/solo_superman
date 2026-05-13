@@ -5,6 +5,7 @@ import {
   SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE,
   validateServicePageUsePermissionProjection,
   type CreateServicePageUsePermissionPayload,
+  type DeleteServicePageUsePermissionArtifactsPayload,
   type RevokeServicePageUsePermissionPayload
 } from "./service-page-use-permission";
 
@@ -36,6 +37,9 @@ describe("Service page-use permission projection contract", () => {
     expectTypeOf<keyof RevokeServicePageUsePermissionPayload>().toEqualTypeOf<
       "permissionId" | "reason" | "auditRefs"
     >();
+    expectTypeOf<keyof DeleteServicePageUsePermissionArtifactsPayload>().toEqualTypeOf<
+      "permissionId" | "reason" | "auditRefs"
+    >();
   });
 
   it("validates the ready fixture with user-owned login and sensitive actions blocked", () => {
@@ -49,6 +53,9 @@ describe("Service page-use permission projection contract", () => {
       SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES
     );
     expect(projection.latestPermission.artifactRetention.userExportDeleteControls).toBe(true);
+    expect(projection.latestPermission.artifactRetention.promptResultScreenshotLogRetention).toBe(
+      "default_evidence_refs_only"
+    );
     expect(projection.latestPermission.finalSubmitBoundary.productionMutationPerformed).toBe(false);
   });
 
@@ -60,6 +67,40 @@ describe("Service page-use permission projection contract", () => {
 
     expect(projection.latestPermission).not.toBe(projection.permissions.at(-1));
     expect(projection.latestPermission.permissionId).toBe(projection.permissions.at(-1)?.permissionId);
+  });
+
+  it("accepts durable artifact deletion while audit metadata remains", () => {
+    const deletedPermission = {
+      ...SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE.latestPermission,
+      promptPreviewRef: null,
+      screenshotRefs: [],
+      logRefs: [],
+      artifactRetention: {
+        ...SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE.latestPermission.artifactRetention,
+        promptResultScreenshotLogRetention: "deleted_audit_metadata_only",
+        redactionPreviewRef: null,
+        artifactRefsDeletedAt: "2026-05-13T00:01:00.000Z",
+        artifactRefsDeletionAuditRef: "audit:service-page-artifacts-deleted"
+      },
+      auditLog: [
+        ...SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE.latestPermission.auditLog,
+        {
+          eventType: "ServicePageArtifactsDeleted",
+          label: "Artifact refs were deleted while audit metadata was retained.",
+          evidenceRefs: ["audit:service-page-artifacts-deleted"]
+        }
+      ]
+    } as const;
+    const projection = validateServicePageUsePermissionProjection({
+      ...SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE,
+      permissions: [deletedPermission],
+      latestPermission: deletedPermission
+    });
+
+    expect(projection.latestPermission.promptPreviewRef).toBeNull();
+    expect(projection.latestPermission.artifactRetention.promptResultScreenshotLogRetention).toBe(
+      "deleted_audit_metadata_only"
+    );
   });
 
   it("rejects records that omit the user-owned login boundary", () => {

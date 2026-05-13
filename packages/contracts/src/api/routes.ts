@@ -543,6 +543,14 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "deleteServicePageUsePermissionArtifacts",
+    clientName: "deleteServicePageUsePermissionArtifacts",
+    method: "POST",
+    path: "/api/v1/sessions/:sessionId/service-page-use-permissions/:permissionId/artifacts/delete",
+    commandType: "DeleteServicePageUsePermissionArtifacts",
+    implementedInPr01: false
+  },
+  {
     routeId: "getCommandStatus",
     clientName: "getCommandStatus",
     method: "GET",
@@ -781,7 +789,8 @@ export const POST_PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS = [
 export const POST_PHASE3_PR05_SERVICE_PAGE_PERMISSION_ROUTE_IDS = [
   "createServicePageUsePermission",
   "getServicePageUsePermissions",
-  "revokeServicePageUsePermission"
+  "revokeServicePageUsePermission",
+  "deleteServicePageUsePermissionArtifacts"
 ] as const satisfies readonly ApiRouteId[];
 
 export const POST_PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS = [

@@ -212,6 +212,7 @@ export interface RunSessionCommandInput {
     | "RevokeChatGptBrowserDelegationRun"
     | "CreateServicePageUsePermission"
     | "RevokeServicePageUsePermission"
+    | "DeleteServicePageUsePermissionArtifacts"
   >;
   readonly expectedStateVersion: StateVersion;
   readonly idempotencyKey?: string;
@@ -1163,41 +1164,38 @@ async function servicePageUsePermissionBrowserActionBlockReasons(
     scope.serviceOrigin,
     scope.servicePageUrl
   ].filter(Boolean);
-  const servicePagePermissionId = scope.servicePagePermissionId ?? input.servicePagePermissionId;
-  const servicePageActionClass = scope.servicePageActionClass ?? input.servicePageActionClass;
-  const requiresRequestEcho = Boolean(scope.servicePagePermissionId || scope.servicePageActionClass);
+  const requestHasServicePageMetadata = Boolean(input.servicePagePermissionId || input.servicePageActionClass);
+  const servicePagePermissionId = scope.servicePagePermissionId;
+  const servicePageActionClass = scope.servicePageActionClass;
+  const serviceOrigin = scope.serviceOrigin;
+  const servicePageUrl = scope.servicePageUrl;
 
   if (
-    !servicePageActionClass &&
-    !servicePagePermissionId &&
+    !requestHasServicePageMetadata &&
     !scopedServicePageFields.length
   ) {
     return [];
   }
 
+  if (!servicePagePermissionId || !servicePageActionClass || !serviceOrigin || !servicePageUrl) {
+    return [
+      executionAuthorityPreflightBlockReason(
+        "service_page_permission_required",
+        "Service page-use browser actions must be approved with permission id, action class, service origin, and page URL.",
+        ["service_page_permission:authority_scope_missing"]
+      )
+    ];
+  }
+
   if (
-    (requiresRequestEcho && (
-      input.servicePagePermissionId !== scope.servicePagePermissionId ||
-      input.servicePageActionClass !== scope.servicePageActionClass
-    )) ||
-    (input.servicePagePermissionId && scope.servicePagePermissionId && input.servicePagePermissionId !== scope.servicePagePermissionId) ||
-    (input.servicePageActionClass && scope.servicePageActionClass && input.servicePageActionClass !== scope.servicePageActionClass)
+    input.servicePagePermissionId !== servicePagePermissionId ||
+    input.servicePageActionClass !== servicePageActionClass
   ) {
     return [
       executionAuthorityPreflightBlockReason(
         "service_page_permission_scope_mismatch",
         "Service page-use browser action request does not match the approved authority scope.",
         ["service_page_permission:request_scope_mismatch"]
-      )
-    ];
-  }
-
-  if (!servicePageActionClass || !servicePagePermissionId) {
-    return [
-      executionAuthorityPreflightBlockReason(
-        "service_page_permission_required",
-        "Service page-use browser actions must reference a current permission id and action class.",
-        ["service_page_permission:missing"]
       )
     ];
   }
@@ -1264,8 +1262,8 @@ async function servicePageUsePermissionBrowserActionBlockReasons(
   }
 
   if (
-    (scope.serviceOrigin && scope.serviceOrigin !== permission.serviceOrigin) ||
-    (scope.servicePageUrl && scope.servicePageUrl !== permission.pageUrl)
+    serviceOrigin !== permission.serviceOrigin ||
+    servicePageUrl !== permission.pageUrl
   ) {
     return [
       executionAuthorityPreflightBlockReason(
@@ -1273,8 +1271,8 @@ async function servicePageUsePermissionBrowserActionBlockReasons(
         "The approved browser authority service origin/page URL does not match the service page-use permission.",
         [
           `service_page_permission:${permission.permissionId}:origin:${permission.serviceOrigin}`,
-          ...(scope.serviceOrigin ? [`authority_scope:service_origin:${scope.serviceOrigin}`] : []),
-          ...(scope.servicePageUrl ? [`authority_scope:service_page_url:${scope.servicePageUrl}`] : [])
+          `authority_scope:service_origin:${serviceOrigin}`,
+          `authority_scope:service_page_url:${servicePageUrl}`
         ]
       )
     ];
@@ -4933,9 +4931,11 @@ export function createProductEngineCommandService(
           projection.latestRecord.previewArtifactHash !== input.previewArtifactHash
             ? basePreflightBlockReasons
             : [];
-        const replayGuardBlockReasons = requestPreviewHashBlockReason
-          ? [...recordReplayBlockReasons, requestPreviewHashBlockReason]
-          : recordReplayBlockReasons;
+        const replayGuardBlockReasons = [
+          ...recordReplayBlockReasons,
+          ...(requestPreviewHashBlockReason ? [requestPreviewHashBlockReason] : []),
+          ...servicePagePermissionBlockReasons
+        ];
 
         if (replayGuardBlockReasons.length) {
           return browserActionExecutionResult({

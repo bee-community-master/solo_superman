@@ -28,7 +28,8 @@ export const PRODUCT_ENGINE_COMMAND_TYPES = [
   "CreateChatGptBrowserDelegationRun",
   "RevokeChatGptBrowserDelegationRun",
   "CreateServicePageUsePermission",
-  "RevokeServicePageUsePermission"
+  "RevokeServicePageUsePermission",
+  "DeleteServicePageUsePermissionArtifacts"
 ] as const;
 
 export const PROJECT_APPLICATION_COMMAND_TYPES = [

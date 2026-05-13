@@ -87,6 +87,7 @@ export const SERVICE_PAGE_USE_PERMISSION_AUDIT_EVENT_TYPES = [
   "redaction_preview",
   "ServicePagePermissionGranted",
   "ServicePagePermissionRevoked",
+  "ServicePageArtifactsDeleted",
   "ServicePageActionBlocked",
   "ServicePageFinalSubmitRequested"
 ] as const;
@@ -107,10 +108,12 @@ export interface ServicePageUsePermissionAuditEntry {
 }
 
 export interface ServicePageArtifactRetentionPolicy {
-  readonly promptResultScreenshotLogRetention: "default_evidence_refs_only";
-  readonly redactionPreviewRef: string;
+  readonly promptResultScreenshotLogRetention: "default_evidence_refs_only" | "deleted_audit_metadata_only";
+  readonly redactionPreviewRef: string | null;
   readonly userExportDeleteControls: true;
   readonly deletionLeavesAuditMetadataOnly: true;
+  readonly artifactRefsDeletedAt: string | null;
+  readonly artifactRefsDeletionAuditRef: string | null;
   readonly forbiddenRetentionPolicy: "no_credential_session_secret_2fa_payment_legal_medical_financial_privacy_values";
 }
 
@@ -142,7 +145,7 @@ export interface ServicePageUsePermissionRecord {
   readonly finalSubmitRequiresSeparateConfirmation: true;
   readonly finalSubmitBoundary: ServicePageFinalSubmitBoundary;
   readonly artifactRetention: ServicePageArtifactRetentionPolicy;
-  readonly promptPreviewRef: string;
+  readonly promptPreviewRef: string | null;
   readonly screenshotRefs: readonly string[];
   readonly logRefs: readonly string[];
   readonly evidenceRefs: readonly string[];
@@ -193,6 +196,12 @@ export interface CreateServicePageUsePermissionPayload {
 }
 
 export interface RevokeServicePageUsePermissionPayload {
+  readonly permissionId: string;
+  readonly reason: string;
+  readonly auditRefs?: readonly string[];
+}
+
+export interface DeleteServicePageUsePermissionArtifactsPayload {
   readonly permissionId: string;
   readonly reason: string;
   readonly auditRefs?: readonly string[];
@@ -265,14 +274,30 @@ function isAuditEntry(value: unknown): value is ServicePageUsePermissionAuditEnt
 }
 
 function isArtifactRetentionPolicy(value: unknown): value is ServicePageArtifactRetentionPolicy {
-  return (
-    isRecord(value) &&
-    value.promptResultScreenshotLogRetention === "default_evidence_refs_only" &&
-    isNonEmptyString(value.redactionPreviewRef) &&
-    value.userExportDeleteControls === true &&
-    value.deletionLeavesAuditMetadataOnly === true &&
-    value.forbiddenRetentionPolicy ===
+  if (!isRecord(value) || value.userExportDeleteControls !== true || value.deletionLeavesAuditMetadataOnly !== true) {
+    return false;
+  }
+
+  if (
+    value.forbiddenRetentionPolicy !==
       "no_credential_session_secret_2fa_payment_legal_medical_financial_privacy_values"
+  ) {
+    return false;
+  }
+
+  if (value.promptResultScreenshotLogRetention === "default_evidence_refs_only") {
+    return (
+      isNonEmptyString(value.redactionPreviewRef) &&
+      value.artifactRefsDeletedAt === null &&
+      value.artifactRefsDeletionAuditRef === null
+    );
+  }
+
+  return (
+    value.promptResultScreenshotLogRetention === "deleted_audit_metadata_only" &&
+    value.redactionPreviewRef === null &&
+    isNonEmptyString(value.artifactRefsDeletedAt) &&
+    isNonEmptyString(value.artifactRefsDeletionAuditRef)
   );
 }
 
@@ -377,6 +402,17 @@ export function validateServicePageUsePermissionProjection(
     if (!isArtifactRetentionPolicy(permission.artifactRetention)) {
       issues.push("artifactRetention must include redaction preview and export/delete controls");
     }
+    if (permission.artifactRetention.promptResultScreenshotLogRetention === "default_evidence_refs_only") {
+      if (!isNonEmptyString(permission.promptPreviewRef)) {
+        issues.push("promptPreviewRef is required while retained artifact refs are available");
+      }
+    } else if (
+      permission.promptPreviewRef !== null ||
+      permission.screenshotRefs.length > 0 ||
+      permission.logRefs.length > 0
+    ) {
+      issues.push("deleted artifact refs must clear prompt, screenshot, and log refs while preserving audit metadata");
+    }
     if (!stringArray(permission.screenshotRefs) || !stringArray(permission.logRefs)) {
       issues.push("screenshotRefs and logRefs must be string arrays");
     }
@@ -437,6 +473,8 @@ export const SERVICE_PAGE_USE_PERMISSION_READY_FIXTURE: ServicePageUsePermission
     redactionPreviewRef: "redaction_preview_service_page_vercel",
     userExportDeleteControls: true,
     deletionLeavesAuditMetadataOnly: true,
+    artifactRefsDeletedAt: null,
+    artifactRefsDeletionAuditRef: null,
     forbiddenRetentionPolicy:
       "no_credential_session_secret_2fa_payment_legal_medical_financial_privacy_values"
   },

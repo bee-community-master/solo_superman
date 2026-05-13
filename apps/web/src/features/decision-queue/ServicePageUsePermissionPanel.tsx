@@ -34,9 +34,15 @@ function commaList(values: readonly string[]) {
 }
 
 function artifactRefsForPermission(permission: ServicePageUsePermissionRecord) {
+  if (permission.artifactRetention.promptResultScreenshotLogRetention === "deleted_audit_metadata_only") {
+    return [];
+  }
+
   return [
-    `prompt:${permission.promptPreviewRef}`,
-    `redaction:${permission.artifactRetention.redactionPreviewRef}`,
+    ...(permission.promptPreviewRef ? [`prompt:${permission.promptPreviewRef}`] : []),
+    ...(permission.artifactRetention.redactionPreviewRef
+      ? [`redaction:${permission.artifactRetention.redactionPreviewRef}`]
+      : []),
     ...permission.screenshotRefs.map((ref) => `screenshot:${ref}`),
     ...permission.logRefs.map((ref) => `log:${ref}`)
   ];
@@ -98,10 +104,12 @@ export function servicePageUsePermissionViewModel(
     permissionId: permission.permissionId,
     artifactRefs: artifactRefsForPermission(permission),
     redactionPreviewRef: permission.artifactRetention.redactionPreviewRef,
-    exportControlLabel: permission.artifactRetention.userExportDeleteControls
+    exportControlLabel: permission.artifactRetention.userExportDeleteControls &&
+      permission.artifactRetention.promptResultScreenshotLogRetention === "default_evidence_refs_only"
       ? "Export retained prompt/result/screenshot/log artifact refs"
       : null,
-    deleteControlLabel: permission.artifactRetention.userExportDeleteControls
+    deleteControlLabel: permission.artifactRetention.userExportDeleteControls &&
+      permission.artifactRetention.promptResultScreenshotLogRetention === "default_evidence_refs_only"
       ? "Delete retained artifacts while leaving audit metadata only"
       : null,
     auditItems: permission.auditLog.map((entry) => `${entry.eventType}: ${entry.label}`),

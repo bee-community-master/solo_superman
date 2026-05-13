@@ -356,6 +356,15 @@ export interface RevokeServicePageUsePermissionRequest extends ScaffoldRequestPl
   readonly auditRefs?: readonly string[];
 }
 
+export interface DeleteServicePageUsePermissionArtifactsRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
+  readonly idempotencyKey: string;
+  readonly permissionId: string;
+  readonly reason: string;
+  readonly auditRefs?: readonly string[];
+}
+
 export interface ValidateExecutionAuthorityPreflightRequest extends ScaffoldRequestPlaceholder {
   readonly sessionId: SessionId;
   readonly idempotencyKey: string;

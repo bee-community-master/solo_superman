@@ -529,7 +529,8 @@ describe("API route catalog", () => {
     expect(POST_PHASE3_PR05_SERVICE_PAGE_PERMISSION_ROUTE_IDS).toEqual([
       "createServicePageUsePermission",
       "getServicePageUsePermissions",
-      "revokeServicePageUsePermission"
+      "revokeServicePageUsePermission",
+      "deleteServicePageUsePermissionArtifacts"
     ]);
     expect(POST_PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual([
       ...POST_PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
@@ -570,6 +571,12 @@ describe("API route catalog", () => {
       method: "POST",
       path: "/api/v1/sessions/:sessionId/service-page-use-permissions/:permissionId/revoke",
       commandType: "RevokeServicePageUsePermission",
+      implementedInPr01: false
+    });
+    expect(routeById.get("deleteServicePageUsePermissionArtifacts")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/service-page-use-permissions/:permissionId/artifacts/delete",
+      commandType: "DeleteServicePageUsePermissionArtifacts",
       implementedInPr01: false
     });
   });

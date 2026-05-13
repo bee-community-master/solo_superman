@@ -36,6 +36,7 @@ export const PRODUCT_ENGINE_EVENT_TYPES = [
   "ChatGptBrowserDelegationRunRevoked",
   "ServicePagePermissionGranted",
   "ServicePagePermissionRevoked",
+  "ServicePageArtifactsDeleted",
   "ServicePageActionBlocked",
   "ServicePageFinalSubmitRequested"
 ] as const;

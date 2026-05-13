@@ -46,6 +46,18 @@ function revokeCommand(
   };
 }
 
+function deleteArtifactsCommand(
+  payload: ProductEngineCommand["payload"],
+  expectedStateVersion: StateVersion = 1 as StateVersion
+): ProductEngineCommand {
+  return {
+    ...command(payload, expectedStateVersion),
+    commandId: `cmd_service_page_permission_artifacts_delete_${expectedStateVersion}` as CommandId,
+    commandType: "DeleteServicePageUsePermissionArtifacts",
+    idempotencyKey: `DeleteServicePageUsePermissionArtifacts:${expectedStateVersion}`
+  };
+}
+
 function readyPayload(overrides: ProductEngineCommand["payload"] = {}): ProductEngineCommand["payload"] {
   return {
     serviceName: "Vercel",
@@ -120,6 +132,47 @@ describe("CreateServicePageUsePermission reducer", () => {
           expect.objectContaining({ code: "fill_draft_requires_per_action" })
         ]),
         canRevoke: false
+      }
+    });
+  });
+
+  it("blocks copy-generated-value when approval is broader than per-action", () => {
+    const reduction = reduceProductEngineCommand(
+      command(readyPayload({
+        allowedActionClasses: ["copy_generated_value"],
+        approvalGranularity: "per_page"
+      })),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "blocked",
+      latestPermission: {
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({ code: "copy_generated_value_requires_per_action" })
+        ])
+      }
+    });
+  });
+
+  it("blocks permissions that omit sensitive or production action classes from the blocked list", () => {
+    const reduction = reduceProductEngineCommand(
+      command(readyPayload({
+        blockedActionClasses: SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES.filter(
+          (actionClass) => actionClass !== "payment_submit"
+        )
+      })),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "blocked",
+      latestPermission: {
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({ code: "sensitive_or_production_action" })
+        ])
       }
     });
   });
@@ -248,6 +301,47 @@ describe("CreateServicePageUsePermission reducer", () => {
     expect(sessionCookieReduction.rejectionReason).toMatchObject({
       code: "VALIDATION_FAILED",
       message: "CreateServicePageUsePermission payload must not contain credential, session, token, or secret values."
+    });
+  });
+});
+
+describe("DeleteServicePageUsePermissionArtifacts reducer", () => {
+  it("durably clears retained artifact refs while preserving audit metadata", () => {
+    const state = createInitialProductEngineState(projectId, sessionId);
+    const granted = reduceProductEngineCommand(command(readyPayload()), state);
+    const replayed = {
+      ...state,
+      ...granted.nextState
+    };
+    const permissionId = replayed.servicePageUsePermission?.latestPermission.permissionId;
+
+    expect(permissionId).toBeTruthy();
+
+    const deleted = reduceProductEngineCommand(
+      deleteArtifactsCommand({
+        permissionId,
+        reason: "User requested artifact deletion while keeping audit metadata.",
+        auditRefs: ["audit:service-page-artifact-delete"]
+      }),
+      replayed
+    );
+
+    expect(deleted.accepted).toBe(true);
+    expect(deleted.events[0]).toMatchObject({ eventType: "ServicePageArtifactsDeleted" });
+    expect(deleted.immediateProjection).toMatchObject({
+      currentStatus: "granted",
+      latestPermission: {
+        promptPreviewRef: null,
+        screenshotRefs: [],
+        logRefs: [],
+        artifactRetention: {
+          promptResultScreenshotLogRetention: "deleted_audit_metadata_only",
+          redactionPreviewRef: null,
+          artifactRefsDeletedAt: "2026-05-13T00:00:00.000Z",
+          artifactRefsDeletionAuditRef: expect.stringContaining("artifacts-deleted")
+        },
+        auditLog: expect.arrayContaining([expect.objectContaining({ eventType: "ServicePageArtifactsDeleted" })])
+      }
     });
   });
 });

@@ -55,6 +55,7 @@ import type {
   StatusEndpointDto,
   RetryResearchRunRequest,
   RevokeChatGptBrowserDelegationRunRequest,
+  DeleteServicePageUsePermissionArtifactsRequest,
   RevokeServicePageUsePermissionRequest,
   UpdateResearchAllowlistRequest
 } from "@solo-superman/contracts";
@@ -95,6 +96,7 @@ export type CreateChatGptBrowserDelegationRunInput = CreateChatGptBrowserDelegat
 export type RevokeChatGptBrowserDelegationRunInput = RevokeChatGptBrowserDelegationRunRequest;
 export type CreateServicePageUsePermissionInput = CreateServicePageUsePermissionRequest;
 export type RevokeServicePageUsePermissionInput = RevokeServicePageUsePermissionRequest;
+export type DeleteServicePageUsePermissionArtifactsInput = DeleteServicePageUsePermissionArtifactsRequest;
 
 export class SidecarClientError extends Error {
   readonly apiError: ApiError;
@@ -226,6 +228,10 @@ function servicePageUsePermissionPath(sessionId: SessionId) {
 
 function servicePageUsePermissionRevokePath(sessionId: SessionId, permissionId: string) {
   return `${servicePageUsePermissionPath(sessionId)}/${encodeURIComponent(permissionId)}/revoke`;
+}
+
+function servicePageUsePermissionArtifactDeletePath(sessionId: SessionId, permissionId: string) {
+  return `${servicePageUsePermissionPath(sessionId)}/${encodeURIComponent(permissionId)}/artifacts/delete`;
 }
 
 function sessionEventStreamPath(sessionId: SessionId) {
@@ -569,6 +575,13 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
     revokeServicePageUsePermission(input: RevokeServicePageUsePermissionInput) {
       return postCommand<ServicePageUsePermissionProjection>(
         servicePageUsePermissionRevokePath(input.sessionId, input.permissionId),
+        input
+      );
+    },
+
+    deleteServicePageUsePermissionArtifacts(input: DeleteServicePageUsePermissionArtifactsInput) {
+      return postCommand<ServicePageUsePermissionProjection>(
+        servicePageUsePermissionArtifactDeletePath(input.sessionId, input.permissionId),
         input
       );
     },

@@ -39,6 +39,7 @@ describe("ProductEngine event contract surface", () => {
       "ChatGptBrowserDelegationRunRevoked",
       "ServicePagePermissionGranted",
       "ServicePagePermissionRevoked",
+      "ServicePageArtifactsDeleted",
       "ServicePageActionBlocked",
       "ServicePageFinalSubmitRequested"
     ]);

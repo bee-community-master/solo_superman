@@ -42,6 +42,7 @@ import {
   type CreateChatGptBrowserDelegationRunRequest,
   type CreateServicePageUsePermissionPayload,
   type CreateServicePageUsePermissionRequest,
+  type DeleteServicePageUsePermissionArtifactsRequest,
   type RevokeChatGptBrowserDelegationRunRequest,
   type RevokeServicePageUsePermissionRequest,
   type BrowserActionPreviewDto,
@@ -1109,6 +1110,15 @@ const SERVICE_PAGE_USE_PERMISSION_REVOKE_REQUEST_BODY_KEYS = [
   "reason",
   "auditRefs"
 ] as const satisfies readonly (keyof RevokeServicePageUsePermissionRequest)[];
+const SERVICE_PAGE_USE_PERMISSION_ARTIFACT_DELETE_REQUEST_BODY_KEYS = [
+  "scaffoldOnly",
+  "sessionId",
+  "expectedStateVersion",
+  "idempotencyKey",
+  "permissionId",
+  "reason",
+  "auditRefs"
+] as const satisfies readonly (keyof DeleteServicePageUsePermissionArtifactsRequest)[];
 const BROWSER_ACTION_PREVIEW_KEYS = [
   "kind",
   "visibleAction",
@@ -1835,6 +1845,50 @@ function revokeServicePageUsePermissionRequestFromBody(
     body,
     SERVICE_PAGE_USE_PERMISSION_REVOKE_REQUEST_BODY_KEYS,
     "service page-use permission revoke request body"
+  );
+
+  if (body.scaffoldOnly !== undefined && body.scaffoldOnly !== true) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "scaffoldOnly must be true when provided.");
+  }
+
+  const bodySessionId = stringFromBody(body.sessionId, "sessionId") as SessionId;
+  const bodyPermissionId = stringFromBody(body.permissionId, "permissionId");
+
+  if (bodySessionId !== routeSessionId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId must match the route param.", {
+      routeSessionId,
+      bodySessionId
+    });
+  }
+
+  if (bodyPermissionId !== routePermissionId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "permissionId must match the route param.", {
+      routePermissionId,
+      bodyPermissionId
+    });
+  }
+
+  const auditRefs = optionalStringArrayFromBody(body.auditRefs, "auditRefs");
+
+  return {
+    sessionId: routeSessionId,
+    expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    permissionId: routePermissionId,
+    reason: stringFromBody(body.reason, "reason"),
+    ...(auditRefs ? { auditRefs } : {})
+  };
+}
+
+function deleteServicePageUsePermissionArtifactsRequestFromBody(
+  routeSessionId: SessionId,
+  routePermissionId: string,
+  body: Readonly<Record<string, unknown>>
+): DeleteServicePageUsePermissionArtifactsRequest {
+  assertAllowedRecordKeys(
+    body,
+    SERVICE_PAGE_USE_PERMISSION_ARTIFACT_DELETE_REQUEST_BODY_KEYS,
+    "service page-use permission artifact delete request body"
   );
 
   if (body.scaffoldOnly !== undefined && body.scaffoldOnly !== true) {
@@ -3012,6 +3066,30 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       return service.runSessionCommand({
         sessionId: routeSessionId,
         commandType: "RevokeServicePageUsePermission",
+        expectedStateVersion: request.expectedStateVersion,
+        idempotencyKey: request.idempotencyKey,
+        payload: {
+          permissionId: request.permissionId,
+          reason: request.reason,
+          ...(request.auditRefs ? { auditRefs: request.auditRefs } : {})
+        }
+      });
+    })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/service-page-use-permissions/:permissionId/artifacts/delete", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const routePermissionId = context.req.param("permissionId");
+      const request = deleteServicePageUsePermissionArtifactsRequestFromBody(
+        routeSessionId,
+        routePermissionId,
+        await jsonBody(context)
+      );
+
+      return service.runSessionCommand({
+        sessionId: routeSessionId,
+        commandType: "DeleteServicePageUsePermissionArtifacts",
         expectedStateVersion: request.expectedStateVersion,
         idempotencyKey: request.idempotencyKey,
         payload: {

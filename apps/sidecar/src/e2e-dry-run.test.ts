@@ -1724,6 +1724,20 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         auditRefs: expect.arrayContaining(["audit:browser_action:post-phase3:service-page:browser-read-preview"])
       });
 
+      const completedReplayWithoutEcho = await runServicePageBrowserAction({
+        browserRecordId: readPreviewAuthority.browserRecordId,
+        browserHash: readPreviewAuthority.browserHash,
+        idempotencyKey: "post-phase3:service-page:browser-read-preview-replay-without-echo"
+      });
+
+      expect(responseData(completedReplayWithoutEcho.body)).toMatchObject({
+        kind: "BrowserActionExecutionResult",
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({ code: "service_page_permission_scope_mismatch" })
+        ])
+      });
+
       const omittedEchoAuthority = await createServicePageBrowserAuthority(
         "service_page_omitted_request_echo",
         safeBrowserAction,
@@ -1745,6 +1759,48 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         status: "blocked",
         blockReasons: expect.arrayContaining([
           expect.objectContaining({ code: "service_page_permission_scope_mismatch" })
+        ])
+      });
+
+      const mismatchedEchoAuthority = await createServicePageBrowserAuthority(
+        "service_page_mismatched_request_echo",
+        safeBrowserAction,
+        {
+          permissionId: readPreviewPermissionId,
+          actionClass: "read",
+          serviceOrigin: "https://vercel.com",
+          servicePageUrl: "https://vercel.com/new"
+        }
+      );
+      const mismatchedEchoBrowser = await runServicePageBrowserAction({
+        ...mismatchedEchoAuthority,
+        idempotencyKey: "post-phase3:service-page:browser-mismatched-request-echo",
+        servicePageActionClass: "preview"
+      });
+
+      expect(responseData(mismatchedEchoBrowser.body)).toMatchObject({
+        kind: "BrowserActionExecutionResult",
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({ code: "service_page_permission_scope_mismatch" })
+        ])
+      });
+
+      const genericAuthorityWithServiceRequest = await createServicePageBrowserAuthority(
+        "service_page_generic_authority_with_service_request"
+      );
+      const genericAuthorityBrowser = await runServicePageBrowserAction({
+        ...genericAuthorityWithServiceRequest,
+        idempotencyKey: "post-phase3:service-page:browser-generic-authority-with-service-request",
+        servicePagePermissionId: readPreviewPermissionId,
+        servicePageActionClass: "read"
+      });
+
+      expect(responseData(genericAuthorityBrowser.body)).toMatchObject({
+        kind: "BrowserActionExecutionResult",
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({ code: "service_page_permission_required" })
         ])
       });
 
@@ -1792,6 +1848,53 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         ])
       });
 
+      const deletedArtifacts = await postJson(
+        app,
+        `/api/v1/sessions/${sessionId}/service-page-use-permissions/${readPreviewPermissionId}/artifacts/delete`,
+        {
+          sessionId,
+          expectedStateVersion: nextExpectedStateVersion(),
+          idempotencyKey: "post-phase3:service-page:artifacts-delete",
+          permissionId: readPreviewPermissionId,
+          reason: "User deleted retained service page-use artifact refs during the dry-run.",
+          auditRefs: ["audit:service-page-permission:e2e-artifacts-deleted"]
+        }
+      );
+
+      expect(responseData(deletedArtifacts.body)).toMatchObject({
+        category: "accepted_with_projection",
+        immediateProjection: {
+          kind: "ServicePageUsePermissionProjection",
+          currentStatus: "granted",
+          latestPermission: {
+            promptPreviewRef: null,
+            screenshotRefs: [],
+            logRefs: [],
+            artifactRetention: {
+              promptResultScreenshotLogRetention: "deleted_audit_metadata_only",
+              redactionPreviewRef: null,
+              artifactRefsDeletionAuditRef: expect.stringContaining("artifacts-deleted")
+            },
+            auditLog: expect.arrayContaining([expect.objectContaining({ eventType: "ServicePageArtifactsDeleted" })])
+          }
+        }
+      });
+
+      const afterDeleteLatest = await getJson(app, `/api/v1/sessions/${sessionId}/service-page-use-permissions`);
+
+      expect(responseData(afterDeleteLatest.body)).toMatchObject({
+        kind: "ServicePageUsePermissionProjection",
+        latestPermission: {
+          promptPreviewRef: null,
+          screenshotRefs: [],
+          logRefs: [],
+          artifactRetention: {
+            promptResultScreenshotLogRetention: "deleted_audit_metadata_only",
+            redactionPreviewRef: null
+          }
+        }
+      });
+
       const revoked = await postJson(
         app,
         `/api/v1/sessions/${sessionId}/service-page-use-permissions/${readPreviewPermissionId}/revoke`,
@@ -1815,6 +1918,19 @@ describe("PR-09 end-to-end dry-run hardening", () => {
             blockReasons: expect.arrayContaining([expect.objectContaining({ code: "revoked_by_user" })])
           }
         }
+      });
+
+      const completedReplayAfterRevoke = await runServicePageBrowserAction({
+        ...readPreviewAuthority,
+        idempotencyKey: "post-phase3:service-page:browser-read-preview-replay-after-revoke"
+      });
+
+      expect(responseData(completedReplayAfterRevoke.body)).toMatchObject({
+        kind: "BrowserActionExecutionResult",
+        status: "blocked",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({ code: "service_page_permission_revoked" })
+        ])
       });
 
       const revokedPreviewAuthority = await createServicePageBrowserAuthority(
