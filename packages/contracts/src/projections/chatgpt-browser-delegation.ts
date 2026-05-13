@@ -222,7 +222,6 @@ export interface CreateChatGptBrowserDelegationRunPayload {
   readonly logRefs?: readonly string[];
   readonly auditRefs?: readonly string[];
   readonly activityFeedRefs?: readonly string[];
-  readonly auditLog?: readonly ChatGptBrowserDelegationAuditEntry[];
 }
 
 export interface RevokeChatGptBrowserDelegationRunPayload {

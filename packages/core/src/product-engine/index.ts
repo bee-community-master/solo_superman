@@ -23,7 +23,6 @@ import {
   BUSINESS_CRITIC_INTENSITY_REQUIRED_LABEL,
   CHATGPT_BROWSER_DELEGATION_APPROVAL_DECISIONS,
   CHATGPT_BROWSER_DELEGATION_ARTIFACT_KINDS,
-  CHATGPT_BROWSER_DELEGATION_AUDIT_EVENT_TYPES,
   CHATGPT_BROWSER_DELEGATION_FALLBACK_LANES,
   CHATGPT_BROWSER_DELEGATION_FORBIDDEN_FIELD_KINDS,
   CHATGPT_BROWSER_DELEGATION_IMPORT_GATE_STATUSES,
@@ -64,7 +63,6 @@ import {
   type ChatGptBrowserDelegationApprovalDecision,
   type ChatGptBrowserDelegationArtifactKind,
   type ChatGptBrowserDelegationAuditEntry,
-  type ChatGptBrowserDelegationAuditEventType,
   type ChatGptBrowserDelegationBlockCode,
   type ChatGptBrowserDelegationBlockReasonDto,
   type ChatGptBrowserDelegationDataDisclosurePreview,
@@ -6304,8 +6302,7 @@ const CHATGPT_BROWSER_DELEGATION_ALLOWED_PAYLOAD_KEYS = [
   "screenshotRefs",
   "logRefs",
   "auditRefs",
-  "activityFeedRefs",
-  "auditLog"
+  "activityFeedRefs"
 ] as const;
 
 const CHATGPT_BROWSER_DELEGATION_REVOKE_ALLOWED_PAYLOAD_KEYS = [
@@ -6372,13 +6369,6 @@ function chatGptDelegationOptionalStatusFromValue(
   }
 
   return isChatGptDelegationRunStatus(value) ? value : null;
-}
-
-function isChatGptDelegationAuditEventType(value: unknown): value is ChatGptBrowserDelegationAuditEventType {
-  return (
-    typeof value === "string" &&
-    CHATGPT_BROWSER_DELEGATION_AUDIT_EVENT_TYPES.includes(value as ChatGptBrowserDelegationAuditEventType)
-  );
 }
 
 function chatGptDelegationStringArray(value: unknown, allowEmpty = true) {
@@ -6572,37 +6562,6 @@ function chatGptFallbackStateFromValue(value: unknown): ChatGptBrowserDelegation
     reason,
     userAction
   };
-}
-
-function chatGptAuditLogFromValue(value: unknown): readonly ChatGptBrowserDelegationAuditEntry[] | null | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (!Array.isArray(value)) {
-    return null;
-  }
-
-  const entries = value.map((item) => {
-    const record = recordFromUnknown(item);
-
-    if (!record) {
-      return null;
-    }
-
-    const label = requiredString(record.label);
-    const evidenceRefs = chatGptDelegationStringArray(record.evidenceRefs);
-
-    return isChatGptDelegationAuditEventType(record.eventType) && label && evidenceRefs
-      ? {
-          eventType: record.eventType,
-          label,
-          evidenceRefs
-        }
-      : null;
-  });
-
-  return entries.every(Boolean) ? (entries as readonly ChatGptBrowserDelegationAuditEntry[]) : null;
 }
 
 function chatGptDelegationBlockReason(
@@ -7064,7 +7023,6 @@ interface ParsedChatGptDelegationCreatePayload {
   readonly logRefs: readonly string[];
   readonly auditRefs: readonly string[];
   readonly activityFeedRefs: readonly string[];
-  readonly auditLog: readonly ChatGptBrowserDelegationAuditEntry[] | undefined;
 }
 
 type ChatGptDelegationRunBuildResult =
@@ -7107,7 +7065,6 @@ function parseChatGptDelegationCreatePayload(
   const logRefs = optionalStringArray(payload.logRefs);
   const auditRefs = optionalStringArray(payload.auditRefs);
   const activityFeedRefs = optionalStringArray(payload.activityFeedRefs);
-  const auditLog = chatGptAuditLogFromValue(payload.auditLog);
 
   if (
     requestedStatus === null ||
@@ -7125,8 +7082,7 @@ function parseChatGptDelegationCreatePayload(
     screenshotRefs === null ||
     logRefs === null ||
     auditRefs === null ||
-    activityFeedRefs === null ||
-    auditLog === null
+    activityFeedRefs === null
   ) {
     return null;
   }
@@ -7149,8 +7105,7 @@ function parseChatGptDelegationCreatePayload(
     screenshotRefs,
     logRefs,
     auditRefs,
-    activityFeedRefs,
-    auditLog
+    activityFeedRefs
   };
 }
 
@@ -7249,7 +7204,7 @@ function chatGptDelegationRunFromParsedPayload(
       `research_task:${payload.researchTaskId}`,
       ...payload.activityFeedRefs
     ]),
-    auditLog: payload.auditLog ?? defaultChatGptAuditLog({
+    auditLog: defaultChatGptAuditLog({
       status: runStatus,
       promptPreviewRef: payload.promptPreviewRef,
       redactionSummary: payload.redactionSummary,

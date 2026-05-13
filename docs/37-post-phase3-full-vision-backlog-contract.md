@@ -132,6 +132,7 @@ ChatGPT Pro 구독자는 API key를 만들지 않아도, 사용자가 직접 로
 - Run state model: `pending_preflight`, `waiting_for_approval`, `running`, `waiting_for_user`, `importing_result`, `completed`, `blocked`, `failed`, `revoked`; terminal states must include user-visible explanation and next action.
 - Result import model: failed source/provenance, uncertainty, con-evidence, or stale-risk gates must become `failed` with `result_import_gate_failed` and visible fallback, not a silent retry or blind import.
 - Execution boundary: the command persists deterministic preflight/result-import evidence only. Live navigation/capture remains tied to a Phase 3 `browser_action` `ExecutionAuthorityRecord`.
+- Persistence boundary: #102 remains projection-only. The latest `ChatGptBrowserDelegationProjection` carries the run list/audit refs, while canonical chronology stays in ProductEngine events; add a dedicated run repository only when a later PR needs query-by-run or artifact-custody workflows beyond latest projection/refetch.
 
 ## Feature contract D — External service login and page-use permission
 

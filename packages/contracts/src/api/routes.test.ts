@@ -527,7 +527,7 @@ describe("API route catalog", () => {
       ...POST_PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
       ...POST_PHASE3_PR04_CHATGPT_DELEGATION_RUN_ROUTE_IDS
     ]);
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(POST_PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(POST_PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS);
     expect(routeById.get("createChatGptBrowserDelegationRun")).toMatchObject({
       method: "POST",
       path: "/api/v1/sessions/:sessionId/chatgpt-browser-delegations",

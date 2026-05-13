@@ -363,6 +363,54 @@ async function createExecutionAuthorityForTest(
   };
 }
 
+function chatGptDelegationRouteRequestFixture(input: {
+  readonly sessionId: string;
+  readonly expectedStateVersion: number;
+  readonly idempotencyKey: string;
+  readonly researchTaskId: string;
+  readonly browserActionAuthorityRef: string;
+}) {
+  return {
+    sessionId: input.sessionId,
+    expectedStateVersion: input.expectedStateVersion,
+    idempotencyKey: input.idempotencyKey,
+    researchTaskId: input.researchTaskId,
+    promptPreviewRef: "prompt_preview_route_ready",
+    dataDisclosurePreview: {
+      disclosurePreviewRef: "disclosure_preview_route_ready",
+      promptContextSummaryRef: "context_summary_route_ready",
+      redactedPromptPreviewRef: "redacted_prompt_route_ready",
+      excludedSensitiveFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
+      redactionPreviewShown: true,
+      userCanEditPromptBeforeRun: true
+    },
+    redactionSummary: {
+      redactionPreviewRef: "redaction_preview_route_ready",
+      redactedFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
+      retainedArtifactKinds: ["prompt", "imported_result", "screenshot", "log"],
+      defaultRetention: "prompt_result_screenshot_log",
+      forbiddenRetentionPolicy: "no_credential_session_secret_2fa_payment_or_legal_sensitive_fields",
+      userExportDeleteControls: true,
+      deletionLeavesAuditMetadataOnly: true
+    },
+    policyRiskVerdict: {
+      verdict: "pass",
+      rationale: "Per-run local research assist only; no account sharing, resale, backend, or unattended queue.",
+      evidenceRefs: ["policy:route:pass"]
+    },
+    sessionOwnershipVerdict: {
+      verdict: "pass",
+      rationale: "User confirms they logged into the local browser directly.",
+      evidenceRefs: ["session:route:owner-confirmed"]
+    },
+    approvalDecision: "approved",
+    browserActionAuthorityRef: input.browserActionAuthorityRef,
+    screenshotRefs: ["browser_action:screenshot:route-chatgpt-ready"],
+    logRefs: ["browser_action:log:route-chatgpt-ready"],
+    auditRefs: ["audit:chatgpt-browser-delegation:route-ready"]
+  };
+}
+
 function fileDiffFixture(path: string, beforeLine: string, afterLine: string) {
   return [
     `diff --git a/${path} b/${path}`,
@@ -1252,45 +1300,13 @@ describe("PR-02 sidecar health shell", () => {
           }
         }
       );
-      const delegationRequestBody = {
+      const delegationRequestBody = chatGptDelegationRouteRequestFixture({
         sessionId,
         expectedStateVersion: 3,
         idempotencyKey: "chatgpt-delegation-route:ready",
         researchTaskId,
-        promptPreviewRef: "prompt_preview_route_ready",
-        dataDisclosurePreview: {
-          disclosurePreviewRef: "disclosure_preview_route_ready",
-          promptContextSummaryRef: "context_summary_route_ready",
-          redactedPromptPreviewRef: "redacted_prompt_route_ready",
-          excludedSensitiveFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
-          redactionPreviewShown: true,
-          userCanEditPromptBeforeRun: true
-        },
-        redactionSummary: {
-          redactionPreviewRef: "redaction_preview_route_ready",
-          redactedFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
-          retainedArtifactKinds: ["prompt", "imported_result", "screenshot", "log"],
-          defaultRetention: "prompt_result_screenshot_log",
-          forbiddenRetentionPolicy: "no_credential_session_secret_2fa_payment_or_legal_sensitive_fields",
-          userExportDeleteControls: true,
-          deletionLeavesAuditMetadataOnly: true
-        },
-        policyRiskVerdict: {
-          verdict: "pass",
-          rationale: "Per-run local research assist only; no account sharing, resale, backend, or unattended queue.",
-          evidenceRefs: ["policy:route:pass"]
-        },
-        sessionOwnershipVerdict: {
-          verdict: "pass",
-          rationale: "User confirms they logged into the local browser directly.",
-          evidenceRefs: ["session:route:owner-confirmed"]
-        },
-        approvalDecision: "approved",
-        browserActionAuthorityRef,
-        screenshotRefs: ["browser_action:screenshot:route-chatgpt-ready"],
-        logRefs: ["browser_action:log:route-chatgpt-ready"],
-        auditRefs: ["audit:chatgpt-browser-delegation:route-ready"]
-      };
+        browserActionAuthorityRef
+      });
       const invalidStatus = await storageApp.request(`/api/v1/sessions/${sessionId}/chatgpt-browser-delegations`, {
         method: "POST",
         headers: {

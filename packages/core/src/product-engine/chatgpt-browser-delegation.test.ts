@@ -354,23 +354,11 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
     });
   });
 
-  it("keeps waiting-for-user and importing-result next actions distinct from fallback copy", () => {
+  it("keeps waiting-for-user next action distinct from fallback copy", () => {
     const waiting = reduceProductEngineCommand(
       command(
         payloadFromReadyFixture({
           status: "waiting_for_user"
-        })
-      ),
-      stateWithResearchTaskAndBrowserAuthority()
-    );
-    const importing = reduceProductEngineCommand(
-      command(
-        payloadFromReadyFixture({
-          status: "importing_result",
-          resultImportRef: "research_result_chatgpt_importing_action",
-          resultImportGate: passingResultImportGate({
-            importRationale: "Candidate output is captured while import remains revokable."
-          })
         })
       ),
       stateWithResearchTaskAndBrowserAuthority()
@@ -384,6 +372,22 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
         fallbackApplied: null
       }
     });
+  });
+
+  it("keeps importing-result next action distinct from fallback copy", () => {
+    const importing = reduceProductEngineCommand(
+      command(
+        payloadFromReadyFixture({
+          status: "importing_result",
+          resultImportRef: "research_result_chatgpt_importing_action",
+          resultImportGate: passingResultImportGate({
+            importRationale: "Candidate output is captured while import remains revokable."
+          })
+        })
+      ),
+      stateWithResearchTaskAndBrowserAuthority()
+    );
+
     expect(importing.accepted).toBe(true);
     expect(importing.immediateProjection).toMatchObject({
       currentStatus: "importing_result",
@@ -514,6 +518,26 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
         auditLog: expect.arrayContaining([expect.objectContaining({ eventType: "DelegationRunRevoked" })])
       }
     });
+  });
+
+  it("rejects duplicate revoke after a run is already revoked", () => {
+    const created = reduceProductEngineCommand(
+      command(payloadFromReadyFixture()),
+      stateWithResearchTaskAndBrowserAuthority()
+    );
+    const projection = created.immediateProjection as ChatGptBrowserDelegationProjection;
+    const revoked = reduceProductEngineCommand(
+      revokeCommand({
+        runId: projection.latestRun.runId,
+        reason: "User stopped the visible ChatGPT browser delegation run.",
+        auditRefs: ["audit:chatgpt-browser-delegation:test-revoke"]
+      }),
+      {
+        ...stateWithResearchTaskAndBrowserAuthority(),
+        stateVersion: 1 as StateVersion,
+        chatGptBrowserDelegation: projection
+      }
+    );
 
     const duplicateRevoke = reduceProductEngineCommand(
       revokeCommand({
