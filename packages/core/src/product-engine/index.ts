@@ -9001,7 +9001,7 @@ function implementationStepStatus(input: {
   }
 
   if (input.targetStatus === "completed") {
-    return input.missingRequiredEvidence.length ? "blocked" : "completed";
+    return input.missingRequiredEvidence.length || input.missingStageEvidence.length ? "blocked" : "completed";
   }
 
   if (input.targetStatus !== "blocked" && input.missingStageEvidence.length > 0) {

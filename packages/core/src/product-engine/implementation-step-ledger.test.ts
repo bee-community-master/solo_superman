@@ -175,6 +175,13 @@ describe("RecordImplementationStepLedger reducer", () => {
     expect(projection.progressReport).toContain("Add ledger contracts");
   });
 
+  it("blocks direct completion even when evidence exists until the linear status sequence is recorded", () => {
+    const projection = projectionFrom(fullPayload());
+
+    expect(projection.currentStatus).toBe("blocked");
+    expect(projection.steps[0]!.missingEvidence).toContain("linear status transition before completed");
+  });
+
   it("keeps target-completed steps blocked when the step-local commit SHA is missing", () => {
     const projection = projectionFrom(fullPayload({
       stepCommitRecord: undefined
