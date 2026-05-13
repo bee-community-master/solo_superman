@@ -28,6 +28,7 @@ import {
   type BrowserActionExecutionResult,
   type BrowserActionPreviewDto,
   type BrowserActionTargetDto,
+  type ChatGptBrowserDelegationProjection,
   type CodexTurnPurpose,
   type ConfidenceCompletionProjection,
   type DecisionQueueProjection,
@@ -206,6 +207,7 @@ export interface RunSessionCommandInput {
     | "CreatePlanningHandoff"
     | "CreatePhase25ResearchComparison"
     | "CreateExecutionAuthority"
+    | "CreateChatGptBrowserDelegationRun"
   >;
   readonly expectedStateVersion: StateVersion;
   readonly idempotencyKey?: string;
@@ -604,6 +606,7 @@ function isPersistedProjection(value: unknown): value is PersistedProjection {
     kind === "PlanningHandoffProjection" ||
     kind === "Phase25ResearchComparisonProjection" ||
     kind === "ExecutionAuthorityLedgerProjection" ||
+    kind === "ChatGptBrowserDelegationProjection" ||
     kind === "ResearchEvidenceProjection" ||
     kind === "RuntimeActivityProjection" ||
     kind === "SessionShellProjection"
@@ -4399,6 +4402,21 @@ export function createProductEngineCommandService(
       }
 
       return createExecutionAuthorityRepository(storage.db).getLatestForSession(sessionIdValue);
+    },
+
+    async getChatGptBrowserDelegation(sessionIdValue: SessionId): Promise<ChatGptBrowserDelegationProjection | null> {
+      const session = await createProjectRepository(storage.db).getSession(sessionIdValue);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: sessionIdValue
+        });
+      }
+
+      return createProjectionRepository(storage.db).get<ChatGptBrowserDelegationProjection>(
+        sessionIdValue,
+        "ChatGptBrowserDelegationProjection"
+      );
     },
 
     async validateExecutionAuthorityPreflight(

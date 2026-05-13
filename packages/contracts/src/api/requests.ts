@@ -20,6 +20,13 @@ import type {
   ExecutionRollbackReference,
   ExecutionSandboxBoundary
 } from "../projections/execution-authority";
+import type {
+  ChatGptBrowserDelegationDataDisclosurePreview,
+  ChatGptBrowserDelegationFallbackState,
+  ChatGptBrowserDelegationRedactionSummary,
+  ChatGptBrowserDelegationResultImportGate,
+  ChatGptBrowserDelegationVerdictDto
+} from "../projections/chatgpt-browser-delegation";
 import type { PlanningHandoffRequestedScopeDto, PlanningHandoffSourceRefDto } from "../projections/planning-handoff";
 import type { ResearchQueueTerminalOutcome } from "../projections/research-evidence";
 import type { BlockedActionType, CodexTurnPurpose } from "../codex";
@@ -269,6 +276,26 @@ export interface CreateExecutionAuthorityRequest extends ScaffoldRequestPlacehol
   readonly evidenceRefs?: readonly string[];
   readonly auditRefs?: readonly string[];
   readonly preconditionChecks?: ExecutionAuthorityPreconditionChecks;
+}
+
+export interface CreateChatGptBrowserDelegationRunRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
+  readonly idempotencyKey: string;
+  readonly researchTaskId: ResearchTaskId;
+  readonly promptPreviewRef: string;
+  readonly dataDisclosurePreview: ChatGptBrowserDelegationDataDisclosurePreview;
+  readonly redactionSummary: ChatGptBrowserDelegationRedactionSummary;
+  readonly policyRiskVerdict: ChatGptBrowserDelegationVerdictDto;
+  readonly sessionOwnershipVerdict: ChatGptBrowserDelegationVerdictDto;
+  readonly approvalDecision: "pending" | "approved" | "rejected" | "revision_requested";
+  readonly browserActionAuthorityRef?: string;
+  readonly resultImportRef?: ResearchResultId;
+  readonly resultImportGate?: ChatGptBrowserDelegationResultImportGate;
+  readonly fallbackApplied?: ChatGptBrowserDelegationFallbackState;
+  readonly screenshotRefs?: readonly string[];
+  readonly logRefs?: readonly string[];
+  readonly auditRefs?: readonly string[];
 }
 
 export interface ValidateExecutionAuthorityPreflightRequest extends ScaffoldRequestPlaceholder {

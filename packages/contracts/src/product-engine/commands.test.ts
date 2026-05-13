@@ -30,7 +30,8 @@ const DOCS_25_PRODUCT_ENGINE_COMMAND_TYPES = [
   "PrepareFounderBrief",
   "CreatePlanningHandoff",
   "CreatePhase25ResearchComparison",
-  "CreateExecutionAuthority"
+  "CreateExecutionAuthority",
+  "CreateChatGptBrowserDelegationRun"
 ] as const;
 
 const DOCS_25_PROJECT_APPLICATION_COMMAND_TYPES = [

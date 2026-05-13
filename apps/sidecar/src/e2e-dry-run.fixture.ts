@@ -315,3 +315,19 @@ export const PHASE3_CLOSEOUT_DRY_RUN_EVIDENCE_MAP = [
     ]
   }
 ] as const;
+
+export const POST_PHASE3_CHATGPT_DELEGATION_DRY_RUN_EVIDENCE = {
+  issue: "#101",
+  scenario: "Scenario L. ChatGPT Pro local browser delegation preflight dry-run",
+  sourceDocs: [
+    "docs/12-validation-and-dry-run.md",
+    "docs/37-post-phase3-full-vision-backlog-contract.md"
+  ],
+  runtimeEvidence: [
+    "CreateChatGptBrowserDelegationRun",
+    "ChatGptBrowserDelegationProjection.ready_for_browser_action",
+    "BrowserActionExecutionResult.completed against a mocked ChatGPT page state",
+    "policy/session/data disclosure/approval/fallback preflight",
+    "credential/session custody and account sharing/resale blocked"
+  ]
+} as const;

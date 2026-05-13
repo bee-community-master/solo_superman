@@ -32,7 +32,9 @@ describe("ProductEngine event contract surface", () => {
       "Phase25ResearchComparisonCreated",
       "Phase25ResearchComparisonBlocked",
       "ExecutionAuthorityRecorded",
-      "ExecutionAuthorityBlocked"
+      "ExecutionAuthorityBlocked",
+      "ChatGptBrowserDelegationRunRecorded",
+      "ChatGptBrowserDelegationRunBlocked"
     ]);
   });
 });

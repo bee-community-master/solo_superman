@@ -29,7 +29,9 @@ export const PRODUCT_ENGINE_EVENT_TYPES = [
   "Phase25ResearchComparisonCreated",
   "Phase25ResearchComparisonBlocked",
   "ExecutionAuthorityRecorded",
-  "ExecutionAuthorityBlocked"
+  "ExecutionAuthorityBlocked",
+  "ChatGptBrowserDelegationRunRecorded",
+  "ChatGptBrowserDelegationRunBlocked"
 ] as const;
 
 export type ProductEngineEventType = (typeof PRODUCT_ENGINE_EVENT_TYPES)[number];

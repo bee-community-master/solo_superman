@@ -33,6 +33,7 @@ import {
   type CancelResearchRunRequest,
   type CreateExecutionAuthorityPayload,
   type CreateExecutionAuthorityRequest,
+  type CreateChatGptBrowserDelegationRunRequest,
   type BrowserActionPreviewDto,
   type ExecuteBrowserActionRequest,
   type ExecuteFileDiffRequest,
@@ -907,7 +908,7 @@ function requiredJsonObjectFromBody(value: unknown, fieldName: string) {
   return value as Readonly<Record<string, unknown>>;
 }
 
-function assertExecutionAuthorityRecordKeys(
+function assertAllowedRecordKeys(
   record: Readonly<Record<string, unknown>>,
   allowedKeys: readonly string[],
   fieldName: string
@@ -1023,6 +1024,26 @@ const BROWSER_ACTION_EXECUTION_KEYS = [
   "targetUrl",
   "action"
 ] as const;
+const CHATGPT_BROWSER_DELEGATION_REQUEST_BODY_KEYS = [
+  "scaffoldOnly",
+  "sessionId",
+  "expectedStateVersion",
+  "idempotencyKey",
+  "researchTaskId",
+  "promptPreviewRef",
+  "dataDisclosurePreview",
+  "redactionSummary",
+  "policyRiskVerdict",
+  "sessionOwnershipVerdict",
+  "approvalDecision",
+  "browserActionAuthorityRef",
+  "resultImportRef",
+  "resultImportGate",
+  "fallbackApplied",
+  "screenshotRefs",
+  "logRefs",
+  "auditRefs"
+] as const satisfies readonly (keyof CreateChatGptBrowserDelegationRunRequest)[];
 const BROWSER_ACTION_PREVIEW_KEYS = [
   "kind",
   "visibleAction",
@@ -1053,7 +1074,7 @@ function executionApprovalDecisionFromBody(value: unknown, fieldName: string): E
 function boundedAgentOutputFromBody(value: unknown): BoundedAgentOutputRecord {
   const boundedAgentOutput = requiredJsonObjectFromBody(value, "boundedAgentOutput");
 
-  assertExecutionAuthorityRecordKeys(
+  assertAllowedRecordKeys(
     boundedAgentOutput,
     EXECUTION_AUTHORITY_BOUNDED_OUTPUT_KEYS,
     "boundedAgentOutput"
@@ -1173,7 +1194,7 @@ function optionalExecutionAuthorityApproverFromBody(value: unknown): ExecutionAu
 
   const approver = requiredJsonObjectFromBody(value, "approver");
 
-  assertExecutionAuthorityRecordKeys(approver, EXECUTION_AUTHORITY_APPROVER_KEYS, "approver");
+  assertAllowedRecordKeys(approver, EXECUTION_AUTHORITY_APPROVER_KEYS, "approver");
 
   const actorType = stringFromBody(approver.actorType, "approver.actorType");
   const approvedAt = optionalIsoTimestampFromBody(approver.approvedAt, "approver.approvedAt");
@@ -1194,7 +1215,7 @@ function optionalExecutionAuthorityApproverFromBody(value: unknown): ExecutionAu
 function executionAuthorityRequestedScopeFromBody(value: unknown): ExecutionAuthorityRequestedScope {
   const requestedScope = requiredJsonObjectFromBody(value, "requestedScope");
 
-  assertExecutionAuthorityRecordKeys(requestedScope, EXECUTION_AUTHORITY_REQUESTED_SCOPE_KEYS, "requestedScope");
+  assertAllowedRecordKeys(requestedScope, EXECUTION_AUTHORITY_REQUESTED_SCOPE_KEYS, "requestedScope");
 
   const workspaceRef = optionalStringFromBody(requestedScope.workspaceRef, "requestedScope.workspaceRef");
   const commandAllowlistRef = optionalStringFromBody(
@@ -1217,7 +1238,7 @@ function executionAuthorityRequestedScopeFromBody(value: unknown): ExecutionAuth
 function executionAuthoritySandboxBoundaryFromBody(value: unknown): ExecutionSandboxBoundary {
   const sandboxBoundary = requiredJsonObjectFromBody(value, "sandboxBoundary");
 
-  assertExecutionAuthorityRecordKeys(sandboxBoundary, EXECUTION_AUTHORITY_SANDBOX_KEYS, "sandboxBoundary");
+  assertAllowedRecordKeys(sandboxBoundary, EXECUTION_AUTHORITY_SANDBOX_KEYS, "sandboxBoundary");
 
   const mode = stringFromBody(sandboxBoundary.mode, "sandboxBoundary.mode");
   const networkPolicy = stringFromBody(sandboxBoundary.networkPolicy, "sandboxBoundary.networkPolicy");
@@ -1249,7 +1270,7 @@ function optionalExecutionAuthorityRollbackReferenceFromBody(value: unknown): Ex
 
   const rollbackReference = requiredJsonObjectFromBody(value, "rollbackReference");
 
-  assertExecutionAuthorityRecordKeys(rollbackReference, EXECUTION_AUTHORITY_ROLLBACK_KEYS, "rollbackReference");
+  assertAllowedRecordKeys(rollbackReference, EXECUTION_AUTHORITY_ROLLBACK_KEYS, "rollbackReference");
 
   const kind = stringFromBody(rollbackReference.kind, "rollbackReference.kind");
 
@@ -1272,7 +1293,7 @@ function optionalExecutionAuthorityPreconditionChecksFromBody(
 
   const preconditionChecks = requiredJsonObjectFromBody(value, "preconditionChecks");
 
-  assertExecutionAuthorityRecordKeys(preconditionChecks, EXECUTION_AUTHORITY_PRECONDITION_KEYS, "preconditionChecks");
+  assertAllowedRecordKeys(preconditionChecks, EXECUTION_AUTHORITY_PRECONDITION_KEYS, "preconditionChecks");
 
   for (const [key, check] of Object.entries(preconditionChecks)) {
     if (typeof check !== "boolean") {
@@ -1287,7 +1308,7 @@ function createExecutionAuthorityRequestFromBody(
   routeSessionId: SessionId,
   body: Readonly<Record<string, unknown>>
 ): CreateExecutionAuthorityRequest {
-  assertExecutionAuthorityRecordKeys(body, EXECUTION_AUTHORITY_REQUEST_BODY_KEYS, "Execution Authority request body");
+  assertAllowedRecordKeys(body, EXECUTION_AUTHORITY_REQUEST_BODY_KEYS, "Execution Authority request body");
 
   if (body.scaffoldOnly !== undefined && body.scaffoldOnly !== true) {
     throw new ProductEngineServiceError("VALIDATION_FAILED", "scaffoldOnly must be true when provided.");
@@ -1361,6 +1382,86 @@ function executionAuthorityPayloadFromRequest(
   return payload;
 }
 
+function createChatGptBrowserDelegationRunRequestFromBody(
+  routeSessionId: SessionId,
+  body: Readonly<Record<string, unknown>>
+): CreateChatGptBrowserDelegationRunRequest {
+  assertAllowedRecordKeys(
+    body,
+    CHATGPT_BROWSER_DELEGATION_REQUEST_BODY_KEYS,
+    "ChatGPT browser delegation request body"
+  );
+
+  if (body.scaffoldOnly !== undefined && body.scaffoldOnly !== true) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "scaffoldOnly must be true when provided.");
+  }
+
+  const bodySessionId = stringFromBody(body.sessionId, "sessionId") as SessionId;
+
+  if (bodySessionId !== routeSessionId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId must match the route param.", {
+      routeSessionId,
+      bodySessionId
+    });
+  }
+
+  const browserActionAuthorityRef = optionalStringFromBody(
+    body.browserActionAuthorityRef,
+    "browserActionAuthorityRef"
+  );
+  const resultImportRef = optionalStringFromBody(body.resultImportRef, "resultImportRef") as ResearchResultId | undefined;
+  const resultImportGate = body.resultImportGate === undefined
+    ? undefined
+    : (requiredJsonObjectFromBody(
+        body.resultImportGate,
+        "resultImportGate"
+      ) as unknown as NonNullable<CreateChatGptBrowserDelegationRunRequest["resultImportGate"]>);
+  const fallbackApplied = body.fallbackApplied === undefined
+    ? undefined
+    : (requiredJsonObjectFromBody(
+        body.fallbackApplied,
+        "fallbackApplied"
+      ) as unknown as NonNullable<CreateChatGptBrowserDelegationRunRequest["fallbackApplied"]>);
+  const screenshotRefs = optionalStringArrayFromBody(body.screenshotRefs, "screenshotRefs");
+  const logRefs = optionalStringArrayFromBody(body.logRefs, "logRefs");
+  const auditRefs = optionalStringArrayFromBody(body.auditRefs, "auditRefs");
+
+  return {
+    sessionId: routeSessionId,
+    expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    researchTaskId: stringFromBody(body.researchTaskId, "researchTaskId") as ResearchTaskId,
+    promptPreviewRef: stringFromBody(body.promptPreviewRef, "promptPreviewRef"),
+    dataDisclosurePreview: requiredJsonObjectFromBody(
+      body.dataDisclosurePreview,
+      "dataDisclosurePreview"
+    ) as unknown as CreateChatGptBrowserDelegationRunRequest["dataDisclosurePreview"],
+    redactionSummary: requiredJsonObjectFromBody(
+      body.redactionSummary,
+      "redactionSummary"
+    ) as unknown as CreateChatGptBrowserDelegationRunRequest["redactionSummary"],
+    policyRiskVerdict: requiredJsonObjectFromBody(
+      body.policyRiskVerdict,
+      "policyRiskVerdict"
+    ) as unknown as CreateChatGptBrowserDelegationRunRequest["policyRiskVerdict"],
+    sessionOwnershipVerdict: requiredJsonObjectFromBody(
+      body.sessionOwnershipVerdict,
+      "sessionOwnershipVerdict"
+    ) as unknown as CreateChatGptBrowserDelegationRunRequest["sessionOwnershipVerdict"],
+    approvalDecision: stringFromBody(
+      body.approvalDecision,
+      "approvalDecision"
+    ) as CreateChatGptBrowserDelegationRunRequest["approvalDecision"],
+    ...(browserActionAuthorityRef !== undefined ? { browserActionAuthorityRef } : {}),
+    ...(resultImportRef !== undefined ? { resultImportRef } : {}),
+    ...(resultImportGate !== undefined ? { resultImportGate } : {}),
+    ...(fallbackApplied !== undefined ? { fallbackApplied } : {}),
+    ...(screenshotRefs ? { screenshotRefs } : {}),
+    ...(logRefs ? { logRefs } : {}),
+    ...(auditRefs ? { auditRefs } : {})
+  };
+}
+
 interface ExecutionAdapterBaseRequest {
   readonly sessionId: SessionId;
   readonly idempotencyKey: string;
@@ -1374,7 +1475,7 @@ function executionAdapterBaseRequestFromBody(
   allowedKeys: readonly string[],
   bodyName: string
 ): ExecutionAdapterBaseRequest {
-  assertExecutionAuthorityRecordKeys(body, allowedKeys, bodyName);
+  assertAllowedRecordKeys(body, allowedKeys, bodyName);
 
   if (body.scaffoldOnly !== undefined && body.scaffoldOnly !== true) {
     throw new ProductEngineServiceError("VALIDATION_FAILED", "scaffoldOnly must be true when provided.");
@@ -1437,7 +1538,7 @@ function browserActionPreviewFromBody(value: unknown): BrowserActionPreviewDto {
 
   const action = value as Readonly<Record<string, unknown>>;
 
-  assertExecutionAuthorityRecordKeys(action, BROWSER_ACTION_PREVIEW_KEYS, "browser_action preview");
+  assertAllowedRecordKeys(action, BROWSER_ACTION_PREVIEW_KEYS, "browser_action preview");
 
   const kind = stringFromBody(action.kind, "action.kind");
 
@@ -2399,6 +2500,44 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
   app.get("/api/v1/sessions/:sessionId/execution-authority", async (context) =>
     withProductEngine(context, (service) =>
       service.getExecutionAuthority(context.req.param("sessionId") as SessionId)
+    )
+  );
+
+  app.post("/api/v1/sessions/:sessionId/chatgpt-browser-delegations", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const request = createChatGptBrowserDelegationRunRequestFromBody(routeSessionId, await jsonBody(context));
+
+      return service.runSessionCommand({
+        sessionId: routeSessionId,
+        commandType: "CreateChatGptBrowserDelegationRun",
+        expectedStateVersion: request.expectedStateVersion,
+        idempotencyKey: request.idempotencyKey,
+        payload: {
+          researchTaskId: request.researchTaskId,
+          promptPreviewRef: request.promptPreviewRef,
+          dataDisclosurePreview: request.dataDisclosurePreview,
+          redactionSummary: request.redactionSummary,
+          policyRiskVerdict: request.policyRiskVerdict,
+          sessionOwnershipVerdict: request.sessionOwnershipVerdict,
+          approvalDecision: request.approvalDecision,
+          ...(request.browserActionAuthorityRef
+            ? { browserActionAuthorityRef: request.browserActionAuthorityRef }
+            : {}),
+          ...(request.resultImportRef ? { resultImportRef: request.resultImportRef } : {}),
+          ...(request.resultImportGate ? { resultImportGate: request.resultImportGate } : {}),
+          ...(request.fallbackApplied ? { fallbackApplied: request.fallbackApplied } : {}),
+          ...(request.screenshotRefs ? { screenshotRefs: request.screenshotRefs } : {}),
+          ...(request.logRefs ? { logRefs: request.logRefs } : {}),
+          ...(request.auditRefs ? { auditRefs: request.auditRefs } : {})
+        }
+      });
+    })
+  );
+
+  app.get("/api/v1/sessions/:sessionId/chatgpt-browser-delegations", async (context) =>
+    withProductEngine(context, (service) =>
+      service.getChatGptBrowserDelegation(context.req.param("sessionId") as SessionId)
     )
   );
 

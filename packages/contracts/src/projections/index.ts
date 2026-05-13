@@ -12,6 +12,7 @@ export * from "./session-shell";
 export * from "./planning-handoff";
 export * from "./phase25-research-comparison";
 export * from "./execution-authority";
+export * from "./chatgpt-browser-delegation";
 
 export type ProjectionKind =
   | "SessionShellProjection"
@@ -27,4 +28,5 @@ export type ProjectionKind =
   | "FounderBriefProjection"
   | "PlanningHandoffProjection"
   | "Phase25ResearchComparisonProjection"
-  | "ExecutionAuthorityLedgerProjection";
+  | "ExecutionAuthorityLedgerProjection"
+  | "ChatGptBrowserDelegationProjection";

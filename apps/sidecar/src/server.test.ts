@@ -1189,6 +1189,152 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("records ChatGPT browser delegation preflight through the session command route", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A ChatGPT browser delegation route test idea");
+      const research = await storageApp.request(`/api/v1/sessions/${sessionId}/research-tasks`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 1,
+          objective: "Compare competitor evidence using a user-owned ChatGPT browser run.",
+          sourceQueueItemId: "queue_chatgpt_delegation_route",
+          routeOutcome: "research_needed",
+          impact: "high"
+        })
+      });
+      const researchBody = await jsonBody(research);
+      const researchData = researchBody.data as Readonly<Record<string, unknown>>;
+      const researchOutput = (researchData.deterministicOutputs as readonly Readonly<Record<string, unknown>>[])[0];
+
+      if (!researchOutput) {
+        throw new Error("research task command should emit a deterministic output");
+      }
+
+      const researchTaskId = researchOutput.outputRef as string;
+      const browserAction = {
+        kind: "navigate_and_capture",
+        visibleAction: true,
+        credentialMode: "none",
+        externalMutation: "blocked"
+      } as const satisfies BrowserActionPreviewDto;
+      const previewArtifactHash = hashBrowserActionPreview({
+        targetUrl: "http://127.0.0.1:4173/mock-chatgpt",
+        action: browserAction
+      });
+      const { recordId: browserActionAuthorityRef } = await createExecutionAuthorityForTest(
+        storageApp,
+        sessionId,
+        "route_chatgpt_browser",
+        {
+          expectedStateVersion: 2,
+          actionClass: "browser_action",
+          previewArtifactRef: "preview_route_chatgpt_browser",
+          previewArtifactHash,
+          reviewedPreviewArtifactHash: previewArtifactHash,
+          requestedScope: {
+            browserTargetRef: "browser_target:http://127.0.0.1:4173",
+            maxDurationMs: 1_000
+          },
+          sandboxBoundary: {
+            mode: "browser_preview_session",
+            networkPolicy: "loopback_only",
+            secretPolicy: "no_secret_values"
+          },
+          rollbackReference: {
+            kind: "browser_state_reset",
+            ref: "rollback_route_chatgpt_browser"
+          }
+        }
+      );
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/chatgpt-browser-delegations`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 3,
+          idempotencyKey: "chatgpt-delegation-route:ready",
+          researchTaskId,
+          promptPreviewRef: "prompt_preview_route_ready",
+          dataDisclosurePreview: {
+            disclosurePreviewRef: "disclosure_preview_route_ready",
+            promptContextSummaryRef: "context_summary_route_ready",
+            redactedPromptPreviewRef: "redacted_prompt_route_ready",
+            excludedSensitiveFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
+            redactionPreviewShown: true,
+            userCanEditPromptBeforeRun: true
+          },
+          redactionSummary: {
+            redactionPreviewRef: "redaction_preview_route_ready",
+            redactedFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
+            retainedArtifactKinds: ["prompt", "imported_result", "screenshot", "log"],
+            defaultRetention: "prompt_result_screenshot_log",
+            forbiddenRetentionPolicy: "no_credential_session_secret_2fa_payment_or_legal_sensitive_fields",
+            userExportDeleteControls: true,
+            deletionLeavesAuditMetadataOnly: true
+          },
+          policyRiskVerdict: {
+            verdict: "pass",
+            rationale: "Per-run local research assist only; no account sharing, resale, backend, or unattended queue.",
+            evidenceRefs: ["policy:route:pass"]
+          },
+          sessionOwnershipVerdict: {
+            verdict: "pass",
+            rationale: "User confirms they logged into the local browser directly.",
+            evidenceRefs: ["session:route:owner-confirmed"]
+          },
+          approvalDecision: "approved",
+          browserActionAuthorityRef,
+          screenshotRefs: ["browser_action:screenshot:route-chatgpt-ready"],
+          logRefs: ["browser_action:log:route-chatgpt-ready"],
+          auditRefs: ["audit:chatgpt-browser-delegation:route-ready"]
+        })
+      });
+      const body = await jsonBody(response);
+      const data = body.data as Readonly<Record<string, unknown>>;
+
+      expect(response.status).toBe(200);
+      expect(data).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionBefore: 3,
+        stateVersionAfter: 4,
+        immediateProjection: {
+          kind: "ChatGptBrowserDelegationProjection",
+          currentStatus: "ready_for_browser_action",
+          latestRun: {
+            researchTaskId,
+            approvalDecision: "approved",
+            browserActionAuthorityRef,
+            blockReasons: []
+          }
+        }
+      });
+
+      const query = await storageApp.request(`/api/v1/sessions/${sessionId}/chatgpt-browser-delegations`, {
+        headers: authHeaders()
+      });
+      const queryBody = await jsonBody(query);
+
+      expect(query.status).toBe(200);
+      expect(queryBody.data).toMatchObject({
+        kind: "ChatGptBrowserDelegationProjection",
+        latestRun: {
+          researchTaskId
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("queues investor-grade pressure through the sidecar without replacing an active batch", async () => {
     const { app: storageApp, storage } = await createMigratedStorageApp();
 

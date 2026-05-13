@@ -122,8 +122,15 @@ ChatGPT Pro 구독자는 API key를 만들지 않아도, 사용자가 직접 로
 구현 직전 반드시 최신 OpenAI 문서와 약관을 다시 확인한다.
 
 - Codex with ChatGPT plan: <https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan>
-- ChatGPT Pro: <https://help.openai.com/en/articles/9793128-what-is-chatgpt-pro/>
+- ChatGPT Pro plans: <https://help.openai.com/en/articles/9793128-about-chatgpt-pro-plans>
 - OpenAI Terms of Use: <https://openai.com/policies/terms-of-use/>
+
+### PR-03 code-backed surface
+
+- Record/projection: `ChatGptBrowserDelegationRun` inside `ChatGptBrowserDelegationProjection`.
+- Command/API: `CreateChatGptBrowserDelegationRun` via `POST /api/v1/sessions/:sessionId/chatgpt-browser-delegations`; latest projection via `GET /api/v1/sessions/:sessionId/chatgpt-browser-delegations`.
+- Result import model: failed source/provenance, uncertainty, con-evidence, or stale-risk gates must become `fallback_required` with `result_import_gate_failed`, not a silent retry or blind import.
+- Execution boundary: the command persists deterministic preflight/result-import evidence only. Live navigation/capture remains tied to a Phase 3 `browser_action` `ExecutionAuthorityRecord`.
 
 ## Feature contract D — External service login and page-use permission
 

@@ -38,7 +38,8 @@ import {
   PHASE15B_NO_EXECUTION_ACTION_TYPES,
   PHASE2_ACCEPTANCE_EVIDENCE_MAP,
   PHASE3_CLOSEOUT_DRY_RUN_EVIDENCE_MAP,
-  PHASE3_CLOSEOUT_EVIDENCE
+  PHASE3_CLOSEOUT_EVIDENCE,
+  POST_PHASE3_CHATGPT_DELEGATION_DRY_RUN_EVIDENCE
 } from "./e2e-dry-run.fixture";
 import { hashBrowserActionPreview } from "./product-engine/browser-action-adapter";
 import { hashFileDiffPreview } from "./product-engine/file-diff-adapter";
@@ -319,10 +320,13 @@ function fileDiffFixture(path: string, beforeLine: string, afterLine: string) {
   ].join("\n");
 }
 
-async function createLocalBrowserTargetServer() {
+async function createLocalBrowserTargetServer(
+  html = "<!doctype html><title>Solo phase 3 closeout</title><h1>Loopback target</h1>",
+  path = "/phase3-closeout"
+) {
   const server = createServer((_request, response) => {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    response.end("<!doctype html><title>Solo phase 3 closeout</title><h1>Loopback target</h1>");
+    response.end(html);
   });
 
   await new Promise<void>((resolveListen, rejectListen) => {
@@ -340,7 +344,7 @@ async function createLocalBrowserTargetServer() {
   }
 
   return {
-    targetUrl: `http://127.0.0.1:${address.port}/phase3-closeout`,
+    targetUrl: `http://127.0.0.1:${address.port}${path}`,
     close: () =>
       new Promise<void>((resolveClose, rejectClose) => {
         server.close((error) => {
@@ -1187,6 +1191,219 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       );
     } finally {
       await localTarget?.close();
+      await storage.close();
+    }
+  });
+
+  it("runs ChatGPT Pro local browser delegation preflight with mocked ChatGPT page states", async () => {
+    const { app, storage } = await createMigratedStorageApp();
+    let mockChatGptTarget: Awaited<ReturnType<typeof createLocalBrowserTargetServer>> | undefined;
+
+    try {
+      mockChatGptTarget = await createLocalBrowserTargetServer(
+        [
+          "<!doctype html>",
+          "<title>Mock ChatGPT ready state</title>",
+          "<main data-chatgpt-page-state=\"ready\">User-owned ChatGPT browser session mock</main>"
+        ].join(""),
+        "/mock-chatgpt/ready"
+      );
+
+      const start = await postJson(app, "/api/v1/projects", {
+        rawIdea: "A ChatGPT delegation dry-run idea",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
+      });
+      const sessionId = sessionIdFromStart(responseData(start.body));
+      const research = await postJson(app, `/api/v1/sessions/${sessionId}/research-tasks`, {
+        expectedStateVersion: 1,
+        objective: "Use a user-approved ChatGPT Pro browser session to gather deeper competitor counter-evidence.",
+        sourceQueueItemId: "queue_chatgpt_delegation_e2e",
+        routeOutcome: "missing_con_evidence",
+        impact: "high"
+      });
+      const researchData = responseData(research.body) as Readonly<Record<string, unknown>>;
+      const researchOutput = (researchData.deterministicOutputs as readonly Readonly<Record<string, unknown>>[])[0];
+
+      if (!researchOutput) {
+        throw new Error("research task command should emit a deterministic output");
+      }
+
+      const researchTaskId = researchOutput.outputRef as string;
+      const browserAction = {
+        kind: "navigate_and_capture",
+        visibleAction: true,
+        credentialMode: "none",
+        externalMutation: "blocked"
+      } as const satisfies BrowserActionPreviewDto;
+      const browserHash = hashBrowserActionPreview({ targetUrl: mockChatGptTarget.targetUrl, action: browserAction });
+      const { recordId: browserRecordId } = await createExecutionAuthorityForE2e(
+        app,
+        sessionId,
+        "post_phase3_chatgpt_mock_ready",
+        {
+          expectedStateVersion: 2,
+          actionClass: "browser_action",
+          previewArtifactHash: browserHash,
+          reviewedPreviewArtifactHash: browserHash,
+          requestedScope: {
+            browserTargetRef: `browser_target:${new URL(mockChatGptTarget.targetUrl).origin}`,
+            maxDurationMs: 1_000
+          },
+          sandboxBoundary: {
+            mode: "browser_preview_session",
+            networkPolicy: "loopback_only",
+            secretPolicy: "no_secret_values"
+          },
+          rollbackReference: {
+            kind: "browser_state_reset",
+            ref: "rollback_post_phase3_chatgpt_mock_ready"
+          }
+        }
+      );
+      const browserResult = await postJson(app, `/api/v1/execution-authorities/${browserRecordId}/browser-action`, {
+        sessionId,
+        idempotencyKey: "post-phase3:chatgpt-mock:browser-ready",
+        previewArtifactHash: browserHash,
+        ...phase3CloseoutExecutionWindow,
+        targetUrl: mockChatGptTarget.targetUrl,
+        action: browserAction
+      });
+      const browserData = responseData(browserResult.body) as Readonly<Record<string, unknown>>;
+
+      expect(browserData).toMatchObject({
+        kind: "BrowserActionExecutionResult",
+        status: "completed",
+        target: {
+          hostname: "127.0.0.1"
+        },
+        evidenceRefs: expect.arrayContaining([expect.stringContaining("browser_action:http_status:200")])
+      });
+
+      const readyDelegation = await postJson(app, `/api/v1/sessions/${sessionId}/chatgpt-browser-delegations`, {
+        sessionId,
+        expectedStateVersion: 3,
+        idempotencyKey: "post-phase3:chatgpt-delegation:ready",
+        researchTaskId,
+        promptPreviewRef: "prompt_preview_chatgpt_e2e_ready",
+        dataDisclosurePreview: {
+          disclosurePreviewRef: "disclosure_preview_chatgpt_e2e_ready",
+          promptContextSummaryRef: "context_summary_chatgpt_e2e_ready",
+          redactedPromptPreviewRef: "redacted_prompt_chatgpt_e2e_ready",
+          excludedSensitiveFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
+          redactionPreviewShown: true,
+          userCanEditPromptBeforeRun: true
+        },
+        redactionSummary: {
+          redactionPreviewRef: "redaction_preview_chatgpt_e2e_ready",
+          redactedFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
+          retainedArtifactKinds: ["prompt", "imported_result", "screenshot", "log"],
+          defaultRetention: "prompt_result_screenshot_log",
+          forbiddenRetentionPolicy: "no_credential_session_secret_2fa_payment_or_legal_sensitive_fields",
+          userExportDeleteControls: true,
+          deletionLeavesAuditMetadataOnly: true
+        },
+        policyRiskVerdict: {
+          verdict: "pass",
+          rationale: "One research task, per-run approval, user-owned local session, no account sharing, resale, backend, or unattended queue.",
+          evidenceRefs: ["policy:chatgpt-pro:per-run", POST_PHASE3_CHATGPT_DELEGATION_DRY_RUN_EVIDENCE.issue]
+        },
+        sessionOwnershipVerdict: {
+          verdict: "pass",
+          rationale: "The browser page state is a local mock of a user-owned ChatGPT session; no credential/session custody is requested.",
+          evidenceRefs: ["session:owner-confirmed", "mock-chatgpt-page-state:ready"]
+        },
+        approvalDecision: "approved",
+        browserActionAuthorityRef: browserRecordId,
+        screenshotRefs: browserData.screenshotRefs as readonly string[],
+        logRefs: browserData.logRefs as readonly string[],
+        auditRefs: [
+          "audit:chatgpt-browser-delegation:e2e-ready",
+          ...((browserData.auditRefs as readonly string[] | undefined) ?? [])
+        ]
+      });
+
+      expect(responseData(readyDelegation.body)).toMatchObject({
+        category: "accepted_with_projection",
+        stateVersionBefore: 3,
+        stateVersionAfter: 4,
+        immediateProjection: {
+          kind: "ChatGptBrowserDelegationProjection",
+          currentStatus: "ready_for_browser_action",
+          latestRun: {
+            researchTaskId,
+            browserActionAuthorityRef: browserRecordId,
+            blockReasons: []
+          }
+        }
+      });
+
+      const blockedDelegation = await postJson(app, `/api/v1/sessions/${sessionId}/chatgpt-browser-delegations`, {
+        sessionId,
+        expectedStateVersion: 4,
+        idempotencyKey: "post-phase3:chatgpt-delegation:blocked",
+        researchTaskId,
+        promptPreviewRef: "prompt_preview_chatgpt_e2e_blocked",
+        dataDisclosurePreview: {
+          disclosurePreviewRef: "disclosure_preview_chatgpt_e2e_blocked",
+          promptContextSummaryRef: "context_summary_chatgpt_e2e_blocked",
+          redactedPromptPreviewRef: "redacted_prompt_chatgpt_e2e_blocked",
+          excludedSensitiveFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
+          redactionPreviewShown: true,
+          userCanEditPromptBeforeRun: true
+        },
+        redactionSummary: {
+          redactionPreviewRef: "redaction_preview_chatgpt_e2e_blocked",
+          redactedFieldKinds: ["credential", "session", "secret", "2fa", "payment", "legal_sensitive"],
+          retainedArtifactKinds: ["prompt", "imported_result", "screenshot", "log"],
+          defaultRetention: "prompt_result_screenshot_log",
+          forbiddenRetentionPolicy: "no_credential_session_secret_2fa_payment_or_legal_sensitive_fields",
+          userExportDeleteControls: true,
+          deletionLeavesAuditMetadataOnly: true
+        },
+        policyRiskVerdict: {
+          verdict: "block",
+          rationale: "Detected account sharing/resale backend semantics and unattended background queue risk.",
+          evidenceRefs: ["policy:blocked:resale", "policy:blocked:unattended-queue"]
+        },
+        sessionOwnershipVerdict: {
+          verdict: "block",
+          rationale: "Credential/session custody would be required to proceed.",
+          evidenceRefs: ["session:blocked:custody"]
+        },
+        approvalDecision: "pending",
+        fallbackApplied: {
+          lane: "manual_prompt_handoff",
+          visibleState: "ChatGPT 브라우저 위임 대신 수동 프롬프트 전달이 필요합니다.",
+          reason: "Policy and session custody gates blocked the run.",
+          userAction: "Use manual prompt handoff or mark the research gap as Known Risk."
+        },
+        auditRefs: ["audit:chatgpt-browser-delegation:e2e-blocked"]
+      });
+
+      expect(responseData(blockedDelegation.body)).toMatchObject({
+        category: "accepted_with_projection",
+        immediateProjection: {
+          kind: "ChatGptBrowserDelegationProjection",
+          currentStatus: "fallback_required",
+          latestRun: {
+            fallbackApplied: {
+              lane: "manual_prompt_handoff"
+            },
+            blockReasons: expect.arrayContaining([
+              expect.objectContaining({ code: "policy_risk_blocked" }),
+              expect.objectContaining({ code: "account_sharing_or_resale_risk" }),
+              expect.objectContaining({ code: "unattended_queue_risk" }),
+              expect.objectContaining({ code: "credential_or_session_custody_required" })
+            ])
+          }
+        }
+      });
+    } finally {
+      await mockChatGptTarget?.close();
       await storage.close();
     }
   });

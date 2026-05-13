@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type {
   DecisionQueueProjection,
+  ChatGptBrowserDelegationProjection,
   ConfidenceCompletionProjection,
   ExecutionAuthorityLedgerProjection,
   FounderBriefProjection,
@@ -21,6 +22,7 @@ import { projections } from "../schema";
 
 export type PersistedProjection =
   | ConfidenceCompletionProjection
+  | ChatGptBrowserDelegationProjection
   | DecisionQueueProjection
   | ExecutionAuthorityLedgerProjection
   | FounderBriefProjection

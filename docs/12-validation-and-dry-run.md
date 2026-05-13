@@ -602,8 +602,9 @@ Phase 1~2 구현 보강 closeout의 repo-local evidence ledger는 `docs/35-phase
 - [ ] `projectPurposeMode = business`인 샘플 프로젝트는 고객/문제/유료화/대체재/채널/법무·운영 리스크 중 high-impact gap을 질문 또는 research task로 만든다.
 - [ ] `projectPurposeMode = personal`인 샘플 프로젝트는 시장규모/유료화/투자자 narrative를 completion blocker로 요구하지 않고, workflow/use-frequency/GUI/implementation feasibility/local data risk를 묻는다.
 - [ ] `businessCriticIntensity = strong` 또는 `investor_grade`인 경우 새 critical question이 active batch를 중간에 교체하지 않고 `queued_next`로 들어간다.
-- [ ] ChatGPT Pro local browser delegation dry-run은 policy/session/data disclosure/approval/fallback preflight 없이는 시작되지 않는다.
-- [ ] ChatGPT Pro delegation dry-run은 credential/session custody, account sharing/resale, unattended background queue, automatic submit/write를 block verdict로 기록한다.
+- [x] ChatGPT Pro local browser delegation dry-run은 policy/session/data disclosure/approval/fallback preflight 없이는 시작되지 않는다.
+- [x] ChatGPT Pro delegation dry-run은 credential/session custody, account sharing/resale, unattended background queue, automatic submit/write를 block verdict로 기록한다.
+  - Evidence: `apps/sidecar/src/e2e-dry-run.test.ts`의 Scenario L은 mocked ChatGPT page state, Phase 3 `browser_action` authority, `ChatGptBrowserDelegationProjection.ready_for_browser_action`, blocked/fallback preflight를 함께 검증한다.
 - [ ] External service page-use permission dry-run은 read/fill draft/preview/final submit request action class를 구분하고, final submit은 별도 explicit approval 없이는 blocked다.
 - [ ] Implementation step ledger dry-run은 tracker doc, implement step doc, local commit SHA, code review, clean-code review, test evidence를 하나의 step completion condition으로 검증한다.
 - [ ] macOS shell과 Windows PowerShell install/run/verify command family가 모두 문서화되고, API key 기본 입력 없이 local web + sidecar 실행 경로를 설명한다.

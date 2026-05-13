@@ -1,5 +1,6 @@
 import type {
   ConfidenceCompletionProjection,
+  ChatGptBrowserDelegationProjection,
   DecisionQueueProjection,
   ExecutionAuthorityLedgerProjection,
   FounderBriefProjection,
@@ -225,4 +226,5 @@ export interface ProductEngineStateSnapshot {
   readonly planningHandoff?: PlanningHandoffProjection;
   readonly phase25ResearchComparison?: Phase25ResearchComparisonProjection;
   readonly executionAuthorityLedger?: ExecutionAuthorityLedgerProjection;
+  readonly chatGptBrowserDelegation?: ChatGptBrowserDelegationProjection;
 }

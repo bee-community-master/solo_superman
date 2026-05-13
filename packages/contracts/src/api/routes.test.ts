@@ -33,6 +33,8 @@ import {
   POST_PHASE3_PR01_MOUNTED_PRODUCT_API_ROUTE_IDS,
   POST_PHASE3_PR02_BUSINESS_CRITIC_ROUTE_IDS,
   POST_PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  POST_PHASE3_PR03_CHATGPT_DELEGATION_ROUTE_IDS,
+  POST_PHASE3_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
@@ -481,7 +483,9 @@ describe("API route catalog", () => {
       ...POST_PHASE3_PR01_MOUNTED_PRODUCT_API_ROUTE_IDS,
       ...POST_PHASE3_PR02_BUSINESS_CRITIC_ROUTE_IDS
     ]);
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(POST_PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(
+      expect.arrayContaining([...POST_PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS])
+    );
     expect(routeById.get("changeBusinessCriticIntensity")).toMatchObject({
       method: "POST",
       path: "/api/v1/sessions/:sessionId/business-critic-intensity",
@@ -498,6 +502,32 @@ describe("API route catalog", () => {
       method: "POST",
       path: "/api/v1/queue-items/:queueItemId/dismiss",
       commandType: "DismissQueueItem",
+      implementedInPr01: false
+    });
+  });
+
+  it("mounts the Post-Phase3 PR-03 ChatGPT browser delegation routes after business critic gates", () => {
+    const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
+
+    expect(POST_PHASE3_PR03_CHATGPT_DELEGATION_ROUTE_IDS).toEqual([
+      "createChatGptBrowserDelegationRun",
+      "getChatGptBrowserDelegationRuns"
+    ]);
+    expect(POST_PHASE3_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual([
+      ...POST_PHASE3_PR02_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      ...POST_PHASE3_PR03_CHATGPT_DELEGATION_ROUTE_IDS
+    ]);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toBe(POST_PHASE3_PR03_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(routeById.get("createChatGptBrowserDelegationRun")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/chatgpt-browser-delegations",
+      commandType: "CreateChatGptBrowserDelegationRun",
+      implementedInPr01: false
+    });
+    expect(routeById.get("getChatGptBrowserDelegationRuns")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/sessions/:sessionId/chatgpt-browser-delegations",
+      commandType: "none",
       implementedInPr01: false
     });
   });

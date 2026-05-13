@@ -1,6 +1,7 @@
 import type { ProductEngineEffectPlanItem } from "../effects";
 import type {
   DecisionQueueProjection,
+  ChatGptBrowserDelegationProjection,
   ExecutionAuthorityLedgerProjection,
   ConfidenceCompletionProjection,
   FounderBriefProjection,
@@ -39,7 +40,8 @@ export type ProductEngineDeterministicOutputType =
   | "founder_brief_draft"
   | "planning_handoff_artifact"
   | "phase25_research_comparison_report"
-  | "execution_authority_record";
+  | "execution_authority_record"
+  | "chatgpt_browser_delegation_run";
 
 export interface ProductEngineDeterministicOutput {
   readonly outputType: ProductEngineDeterministicOutputType;
@@ -50,6 +52,7 @@ export interface ProductEngineDeterministicOutput {
 export type ActiveBatchSafeProjection =
   | ConfidenceCompletionProjection
   | DecisionQueueProjection
+  | ChatGptBrowserDelegationProjection
   | ExecutionAuthorityLedgerProjection
   | FounderBriefProjection
   | LivingSpecProjection

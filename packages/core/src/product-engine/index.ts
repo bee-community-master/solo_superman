@@ -21,6 +21,13 @@ import {
   BUSINESS_CRITIC_INTENSITY_EFFECTS,
   BUSINESS_CRITIC_INTENSITY_LABELS,
   BUSINESS_CRITIC_INTENSITY_REQUIRED_LABEL,
+  CHATGPT_BROWSER_DELEGATION_APPROVAL_DECISIONS,
+  CHATGPT_BROWSER_DELEGATION_ARTIFACT_KINDS,
+  CHATGPT_BROWSER_DELEGATION_FALLBACK_LANES,
+  CHATGPT_BROWSER_DELEGATION_FORBIDDEN_FIELD_KINDS,
+  CHATGPT_BROWSER_DELEGATION_IMPORT_GATE_STATUSES,
+  CHATGPT_BROWSER_DELEGATION_SCHEMA_VERSION,
+  CHATGPT_BROWSER_DELEGATION_VERDICTS,
   PROJECT_PURPOSE_MODES,
   PROJECT_PURPOSE_MODE_LABELS,
   PROJECT_PURPOSE_MODE_REQUIRED_LABEL,
@@ -33,12 +40,15 @@ import {
   PHASE25_RESEARCH_QUALITY_RUBRIC_DIMENSIONS,
   PHASE25_SOURCE_TYPES,
   assertPhase15bUpgradeHintsMatchBlockedAction,
+  chatGptBrowserDelegationStatusForRun,
+  chatGptBrowserDelegationSummaryForStatus,
   isPhase15bHintArtifactKind,
   containsExecutionAuthoritySecretValueLeak,
   executionAuthorityLedgerStatusForRecord,
   executionAuthorityLedgerSummaryForStatus,
   validatePhase15bUpgradeHints,
   validateExecutionAuthorityLedgerProjection,
+  validateChatGptBrowserDelegationProjection,
   validatePhase25ResearchComparisonReport,
   type ActiveBatchSafeProjection,
   type AmbiguityIssueSnapshot,
@@ -48,6 +58,21 @@ import {
   type BusinessCriticIntensitySelectionStatus,
   type BusinessCriticPressureKind,
   type BlockedActionType,
+  type ChatGptBrowserDelegationApprovalDecision,
+  type ChatGptBrowserDelegationArtifactKind,
+  type ChatGptBrowserDelegationBlockCode,
+  type ChatGptBrowserDelegationBlockReasonDto,
+  type ChatGptBrowserDelegationDataDisclosurePreview,
+  type ChatGptBrowserDelegationFallbackLane,
+  type ChatGptBrowserDelegationForbiddenFieldKind,
+  type ChatGptBrowserDelegationFallbackState,
+  type ChatGptBrowserDelegationImportGateStatus,
+  type ChatGptBrowserDelegationProjection,
+  type ChatGptBrowserDelegationRedactionSummary,
+  type ChatGptBrowserDelegationResultImportGate,
+  type ChatGptBrowserDelegationRun,
+  type ChatGptBrowserDelegationVerdict,
+  type ChatGptBrowserDelegationVerdictDto,
   type CodexApplyPolicy,
   type CodexArtifactKind,
   type CodexRuntimeSource,
@@ -58,6 +83,7 @@ import {
   type DecisionQueueProjection,
   type BoundedAgentOutputRecord,
   type CreateExecutionAuthorityPayload,
+  type CreateChatGptBrowserDelegationRunPayload,
   type EvidenceMatrixProjection,
   type ExecutionApprovalDecision,
   type ExecutionAuthorityApprover,
@@ -6250,6 +6276,657 @@ function reduceCreateExecutionAuthority(
   );
 }
 
+type ChatGptDelegationForbiddenFieldKinds = readonly ChatGptBrowserDelegationForbiddenFieldKind[];
+type ChatGptDelegationRetainedArtifactKinds = readonly ChatGptBrowserDelegationArtifactKind[];
+
+const CHATGPT_BROWSER_DELEGATION_ALLOWED_PAYLOAD_KEYS = [
+  "researchTaskId",
+  "promptPreviewRef",
+  "dataDisclosurePreview",
+  "redactionSummary",
+  "policyRiskVerdict",
+  "sessionOwnershipVerdict",
+  "approvalDecision",
+  "browserActionAuthorityRef",
+  "resultImportRef",
+  "resultImportGate",
+  "fallbackApplied",
+  "screenshotRefs",
+  "logRefs",
+  "auditRefs"
+] as const;
+
+function containsUnsupportedChatGptBrowserDelegationPayload(command: ProductEngineCommand) {
+  return !hasOnlyRecordKeys(command.payload, CHATGPT_BROWSER_DELEGATION_ALLOWED_PAYLOAD_KEYS);
+}
+
+function isChatGptDelegationVerdict(value: unknown): value is ChatGptBrowserDelegationVerdict {
+  return typeof value === "string" && CHATGPT_BROWSER_DELEGATION_VERDICTS.includes(value as ChatGptBrowserDelegationVerdict);
+}
+
+function isChatGptDelegationApprovalDecision(value: unknown): value is ChatGptBrowserDelegationApprovalDecision {
+  return (
+    typeof value === "string" &&
+    CHATGPT_BROWSER_DELEGATION_APPROVAL_DECISIONS.includes(value as ChatGptBrowserDelegationApprovalDecision)
+  );
+}
+
+function isChatGptDelegationFallbackLane(value: unknown): value is ChatGptBrowserDelegationFallbackLane {
+  return (
+    typeof value === "string" &&
+    CHATGPT_BROWSER_DELEGATION_FALLBACK_LANES.includes(value as ChatGptBrowserDelegationFallbackLane)
+  );
+}
+
+function isChatGptDelegationForbiddenFieldKind(value: unknown): value is ChatGptBrowserDelegationForbiddenFieldKind {
+  return (
+    typeof value === "string" &&
+    CHATGPT_BROWSER_DELEGATION_FORBIDDEN_FIELD_KINDS.includes(value as ChatGptBrowserDelegationForbiddenFieldKind)
+  );
+}
+
+function isChatGptDelegationArtifactKind(value: unknown): value is ChatGptBrowserDelegationArtifactKind {
+  return (
+    typeof value === "string" &&
+    CHATGPT_BROWSER_DELEGATION_ARTIFACT_KINDS.includes(value as ChatGptBrowserDelegationArtifactKind)
+  );
+}
+
+function isChatGptDelegationImportGateStatus(value: unknown): value is ChatGptBrowserDelegationImportGateStatus {
+  return (
+    typeof value === "string" &&
+    CHATGPT_BROWSER_DELEGATION_IMPORT_GATE_STATUSES.includes(value as ChatGptBrowserDelegationImportGateStatus)
+  );
+}
+
+function chatGptDelegationStringArray(value: unknown, allowEmpty = true) {
+  const strings = stringArray(value, allowEmpty);
+
+  return strings ? uniqueStringRefs(strings) : null;
+}
+
+function chatGptDelegationVerdictFromValue(value: unknown): ChatGptBrowserDelegationVerdictDto | null {
+  const record = recordFromUnknown(value);
+
+  if (!record) {
+    return null;
+  }
+
+  const rationale = requiredString(record.rationale);
+  const evidenceRefs = chatGptDelegationStringArray(record.evidenceRefs);
+
+  if (!isChatGptDelegationVerdict(record.verdict) || !rationale || !evidenceRefs) {
+    return null;
+  }
+
+  return {
+    verdict: record.verdict,
+    rationale,
+    evidenceRefs
+  };
+}
+
+function chatGptForbiddenFieldKindsFromValue(value: unknown): ChatGptDelegationForbiddenFieldKinds | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const kinds = value.map((item) => (isChatGptDelegationForbiddenFieldKind(item) ? item : null));
+
+  return kinds.every(Boolean)
+    ? (uniqueStrings(
+        kinds as readonly ChatGptBrowserDelegationForbiddenFieldKind[]
+      ) as ChatGptDelegationForbiddenFieldKinds)
+    : null;
+}
+
+function chatGptArtifactKindsFromValue(value: unknown): ChatGptDelegationRetainedArtifactKinds | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const kinds = value.map((item) => (isChatGptDelegationArtifactKind(item) ? item : null));
+
+  return kinds.every(Boolean)
+    ? (uniqueStrings(
+        kinds as readonly ChatGptBrowserDelegationArtifactKind[]
+      ) as ChatGptDelegationRetainedArtifactKinds)
+    : null;
+}
+
+function chatGptRedactionSummaryFromValue(value: unknown): ChatGptBrowserDelegationRedactionSummary | null {
+  const record = recordFromUnknown(value);
+
+  if (!record) {
+    return null;
+  }
+
+  const redactionPreviewRef = requiredString(record.redactionPreviewRef);
+  const redactedFieldKinds = chatGptForbiddenFieldKindsFromValue(record.redactedFieldKinds);
+  const retainedArtifactKinds = chatGptArtifactKindsFromValue(record.retainedArtifactKinds);
+
+  if (
+    !redactionPreviewRef ||
+    !redactedFieldKinds ||
+    !retainedArtifactKinds ||
+    record.defaultRetention !== "prompt_result_screenshot_log" ||
+    record.forbiddenRetentionPolicy !== "no_credential_session_secret_2fa_payment_or_legal_sensitive_fields" ||
+    record.userExportDeleteControls !== true ||
+    record.deletionLeavesAuditMetadataOnly !== true
+  ) {
+    return null;
+  }
+
+  return {
+    redactionPreviewRef,
+    redactedFieldKinds,
+    retainedArtifactKinds,
+    defaultRetention: "prompt_result_screenshot_log",
+    forbiddenRetentionPolicy: "no_credential_session_secret_2fa_payment_or_legal_sensitive_fields",
+    userExportDeleteControls: true,
+    deletionLeavesAuditMetadataOnly: true
+  };
+}
+
+function chatGptDataDisclosurePreviewFromValue(value: unknown): ChatGptBrowserDelegationDataDisclosurePreview | null {
+  const record = recordFromUnknown(value);
+
+  if (!record) {
+    return null;
+  }
+
+  const disclosurePreviewRef = requiredString(record.disclosurePreviewRef);
+  const promptContextSummaryRef = requiredString(record.promptContextSummaryRef);
+  const redactedPromptPreviewRef = requiredString(record.redactedPromptPreviewRef);
+  const excludedSensitiveFieldKinds = chatGptForbiddenFieldKindsFromValue(record.excludedSensitiveFieldKinds);
+
+  if (
+    !disclosurePreviewRef ||
+    !promptContextSummaryRef ||
+    !redactedPromptPreviewRef ||
+    !excludedSensitiveFieldKinds ||
+    typeof record.redactionPreviewShown !== "boolean" ||
+    typeof record.userCanEditPromptBeforeRun !== "boolean"
+  ) {
+    return null;
+  }
+
+  return {
+    disclosurePreviewRef,
+    promptContextSummaryRef,
+    redactedPromptPreviewRef,
+    excludedSensitiveFieldKinds,
+    redactionPreviewShown: record.redactionPreviewShown,
+    userCanEditPromptBeforeRun: record.userCanEditPromptBeforeRun
+  };
+}
+
+function chatGptResultImportGateFromValue(value: unknown): ChatGptBrowserDelegationResultImportGate | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const record = recordFromUnknown(value);
+
+  if (!record) {
+    return null;
+  }
+
+  const sourceRefs = chatGptDelegationStringArray(record.sourceRefs, false);
+  const uncertaintyRefs = chatGptDelegationStringArray(record.uncertaintyRefs);
+  const conEvidenceRefs = chatGptDelegationStringArray(record.conEvidenceRefs);
+  const staleRiskRefs = chatGptDelegationStringArray(record.staleRiskRefs);
+  const importRationale = requiredString(record.importRationale);
+
+  if (
+    !isChatGptDelegationImportGateStatus(record.sourceProvenanceStatus) ||
+    !isChatGptDelegationImportGateStatus(record.uncertaintyStatus) ||
+    !isChatGptDelegationImportGateStatus(record.conEvidenceStatus) ||
+    !isChatGptDelegationImportGateStatus(record.staleRiskStatus) ||
+    !sourceRefs ||
+    !uncertaintyRefs ||
+    !conEvidenceRefs ||
+    !staleRiskRefs ||
+    !importRationale
+  ) {
+    return null;
+  }
+
+  return {
+    sourceProvenanceStatus: record.sourceProvenanceStatus,
+    uncertaintyStatus: record.uncertaintyStatus,
+    conEvidenceStatus: record.conEvidenceStatus,
+    staleRiskStatus: record.staleRiskStatus,
+    sourceRefs,
+    uncertaintyRefs,
+    conEvidenceRefs,
+    staleRiskRefs,
+    importRationale
+  };
+}
+
+function chatGptFallbackStateFromValue(value: unknown): ChatGptBrowserDelegationFallbackState | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const record = recordFromUnknown(value);
+
+  if (!record) {
+    return null;
+  }
+
+  const visibleState = requiredString(record.visibleState);
+  const reason = requiredString(record.reason);
+  const userAction = requiredString(record.userAction);
+
+  if (!isChatGptDelegationFallbackLane(record.lane) || !visibleState || !reason || !userAction) {
+    return null;
+  }
+
+  return {
+    lane: record.lane,
+    visibleState,
+    reason,
+    userAction
+  };
+}
+
+function chatGptDelegationBlockReason(
+  code: ChatGptBrowserDelegationBlockCode,
+  message: string,
+  evidenceRefs: readonly string[] = [`chatgpt_browser_delegation:${code}`]
+): ChatGptBrowserDelegationBlockReasonDto {
+  return {
+    code,
+    message,
+    evidenceRefs
+  };
+}
+
+function chatGptDelegationBrowserActionAuthorityBlockReason(
+  browserActionAuthorityRef: string | null,
+  state: ProductEngineStateSnapshot
+): ChatGptBrowserDelegationBlockReasonDto | null {
+  if (!browserActionAuthorityRef) {
+    return chatGptDelegationBlockReason(
+      "missing_browser_action_authority",
+      "A ready ExecutionAuthorityRecord is required before browser action start.",
+      ["execution-authority:missing"]
+    );
+  }
+
+  const authorityRecord = state.executionAuthorityLedger?.records.find(
+    (record) => record.recordId === browserActionAuthorityRef
+  );
+
+  if (!authorityRecord) {
+    return chatGptDelegationBlockReason(
+      "missing_browser_action_authority",
+      "browserActionAuthorityRef must reference an existing ExecutionAuthorityRecord in this session.",
+      [`execution-authority:${browserActionAuthorityRef}:missing`]
+    );
+  }
+
+  if (authorityRecord.actionClass !== "browser_action") {
+    return chatGptDelegationBlockReason(
+      "missing_browser_action_authority",
+      "browserActionAuthorityRef must reference a browser_action ExecutionAuthorityRecord.",
+      [`execution-authority:${browserActionAuthorityRef}:action-class:${authorityRecord.actionClass}`]
+    );
+  }
+
+  if (
+    authorityRecord.approvalDecision !== "approved" ||
+    authorityRecord.blockReasons.length ||
+    authorityRecord.executionResult === "blocked" ||
+    authorityRecord.executionResult === "failed" ||
+    authorityRecord.executionResult === "running" ||
+    authorityRecord.executionResult === "partial"
+  ) {
+    return chatGptDelegationBlockReason(
+      "missing_browser_action_authority",
+      "browserActionAuthorityRef must reference an approved, unblocked browser_action authority.",
+      [`execution-authority:${browserActionAuthorityRef}:status:${executionAuthorityLedgerStatusForRecord(authorityRecord)}`]
+    );
+  }
+
+  if (
+    authorityRecord.sandboxBoundary.mode !== "browser_preview_session" ||
+    authorityRecord.sandboxBoundary.networkPolicy !== "loopback_only" ||
+    authorityRecord.sandboxBoundary.secretPolicy !== "no_secret_values" ||
+    !authorityRecord.requestedScope.browserTargetRef ||
+    authorityRecord.rollbackReference?.kind !== "browser_state_reset"
+  ) {
+    return chatGptDelegationBlockReason(
+      "missing_browser_action_authority",
+      "browserActionAuthorityRef must preserve the Phase 3 browser_action loopback sandbox, no-secret, target, and reset boundary.",
+      [`execution-authority:${browserActionAuthorityRef}:boundary-invalid`]
+    );
+  }
+
+  return null;
+}
+
+function chatGptDelegationRiskText(verdict: ChatGptBrowserDelegationVerdictDto) {
+  return `${verdict.rationale} ${verdict.evidenceRefs.join(" ")}`.toLowerCase();
+}
+
+function chatGptDelegationBlockReasons(input: {
+  readonly dataDisclosurePreview: ChatGptBrowserDelegationDataDisclosurePreview;
+  readonly policyRiskVerdict: ChatGptBrowserDelegationVerdictDto;
+  readonly sessionOwnershipVerdict: ChatGptBrowserDelegationVerdictDto;
+  readonly approvalDecision: ChatGptBrowserDelegationApprovalDecision;
+  readonly browserActionAuthorityRef: string | null;
+  readonly resultImportGate: ChatGptBrowserDelegationResultImportGate | null;
+  readonly state: ProductEngineStateSnapshot;
+}): readonly ChatGptBrowserDelegationBlockReasonDto[] {
+  const reasons: ChatGptBrowserDelegationBlockReasonDto[] = [];
+
+  if (!input.dataDisclosurePreview.disclosurePreviewRef) {
+    reasons.push(
+      chatGptDelegationBlockReason(
+        "missing_data_disclosure_preview",
+        "ChatGPT browser delegation cannot start before a data disclosure preview exists."
+      )
+    );
+  }
+
+  if (!input.dataDisclosurePreview.redactionPreviewShown || !input.dataDisclosurePreview.userCanEditPromptBeforeRun) {
+    reasons.push(
+      chatGptDelegationBlockReason(
+        "redaction_preview_missing",
+        "The user must see redaction preview and be able to edit the prompt/context before this run starts."
+      )
+    );
+  }
+
+  if (input.policyRiskVerdict.verdict === "block") {
+    const text = chatGptDelegationRiskText(input.policyRiskVerdict);
+
+    reasons.push(
+      chatGptDelegationBlockReason(
+        "policy_risk_blocked",
+        "Policy risk verdict blocks this ChatGPT browser delegation run.",
+        input.policyRiskVerdict.evidenceRefs
+      )
+    );
+
+    if (/account sharing|resale|third[- ]party|backend|shared capacity/u.test(text)) {
+      reasons.push(
+        chatGptDelegationBlockReason(
+          "account_sharing_or_resale_risk",
+          "ChatGPT Pro account sharing/resale or third-party backend semantics are blocked.",
+          input.policyRiskVerdict.evidenceRefs
+        )
+      );
+    }
+
+    if (/unattended|overnight|background queue|long[- ]running|project[- ]level/u.test(text)) {
+      reasons.push(
+        chatGptDelegationBlockReason(
+          "unattended_queue_risk",
+          "Unattended or project-level ChatGPT background queue semantics are blocked.",
+          input.policyRiskVerdict.evidenceRefs
+        )
+      );
+    }
+  }
+
+  if (input.sessionOwnershipVerdict.verdict === "block") {
+    reasons.push(
+      chatGptDelegationBlockReason(
+        "session_ownership_blocked",
+        "Session ownership verdict blocks this run; the user must directly own the local browser session.",
+        input.sessionOwnershipVerdict.evidenceRefs
+      )
+    );
+    reasons.push(
+      chatGptDelegationBlockReason(
+        "credential_or_session_custody_required",
+        "Credential, 2FA, cookie, token, or session custody would be required, which is blocked.",
+        input.sessionOwnershipVerdict.evidenceRefs
+      )
+    );
+  }
+
+  if (input.approvalDecision !== "approved") {
+    reasons.push(
+      chatGptDelegationBlockReason(
+        "missing_user_approval",
+        "Per-run user approval is required before ChatGPT browser delegation can start."
+      )
+    );
+  }
+
+  const authorityBlockReason = chatGptDelegationBrowserActionAuthorityBlockReason(
+    input.browserActionAuthorityRef,
+    input.state
+  );
+
+  if (authorityBlockReason) {
+    reasons.push(authorityBlockReason);
+  }
+
+  if (
+    input.resultImportGate &&
+    (input.resultImportGate.sourceProvenanceStatus !== "pass" ||
+      input.resultImportGate.uncertaintyStatus !== "pass" ||
+      input.resultImportGate.conEvidenceStatus !== "pass" ||
+      input.resultImportGate.staleRiskStatus !== "pass")
+  ) {
+    reasons.push(
+      chatGptDelegationBlockReason(
+        "result_import_gate_failed",
+        "ChatGPT result import must preserve source/provenance, uncertainty, con evidence, and stale-risk gates.",
+        [
+          ...input.resultImportGate.sourceRefs,
+          ...input.resultImportGate.uncertaintyRefs,
+          ...input.resultImportGate.conEvidenceRefs,
+          ...input.resultImportGate.staleRiskRefs
+        ]
+      )
+    );
+  }
+
+  const byCode = new Map<ChatGptBrowserDelegationBlockCode, ChatGptBrowserDelegationBlockReasonDto>();
+
+  for (const reason of reasons) {
+    byCode.set(reason.code, reason);
+  }
+
+  return [...byCode.values()];
+}
+
+function defaultChatGptDelegationFallback(
+  blockReasons: readonly ChatGptBrowserDelegationBlockReasonDto[]
+): ChatGptBrowserDelegationFallbackState {
+  return {
+    lane: "manual_prompt_handoff",
+    visibleState: "ChatGPT 브라우저 위임을 시작하지 않고 수동 프롬프트 전달 또는 Known Risk 처리로 전환해야 합니다.",
+    reason: blockReasons.map((reason) => reason.message).join(" "),
+    userAction: "redaction preview를 다시 확인한 뒤 수동으로 프롬프트를 전달하거나, official Codex path 또는 Known Risk로 기록하세요."
+  };
+}
+
+function chatGptDelegationProjection(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot,
+  run: ChatGptBrowserDelegationRun
+): ChatGptBrowserDelegationProjection {
+  const runs = [...(state.chatGptBrowserDelegation?.runs ?? []), run];
+  const currentStatus = chatGptBrowserDelegationStatusForRun(run);
+
+  return validateChatGptBrowserDelegationProjection({
+    kind: "ChatGptBrowserDelegationProjection",
+    sessionId: command.sessionId,
+    version: projectionVersionFor(state),
+    currentStatus,
+    runs,
+    latestRun: run,
+    blockedPreconditions: currentStatus === "blocked" || currentStatus === "fallback_required" ? run.blockReasons : [],
+    summary: chatGptBrowserDelegationSummaryForStatus(currentStatus),
+    refetchUrl: `/api/v1/sessions/${command.sessionId}/chatgpt-browser-delegations`
+  });
+}
+
+function reduceCreateChatGptBrowserDelegationRun(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  if (containsUnsupportedChatGptBrowserDelegationPayload(command)) {
+    return reject(
+      "CreateChatGptBrowserDelegationRun payload contains unsupported keys.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  const payload = command.payload as Partial<CreateChatGptBrowserDelegationRunPayload>;
+  const researchTaskId = requiredString(payload.researchTaskId) as ResearchTaskId | null;
+  const promptPreviewRef = requiredString(payload.promptPreviewRef);
+  const dataDisclosurePreview = chatGptDataDisclosurePreviewFromValue(payload.dataDisclosurePreview);
+  const redactionSummary = chatGptRedactionSummaryFromValue(payload.redactionSummary);
+  const policyRiskVerdict = chatGptDelegationVerdictFromValue(payload.policyRiskVerdict);
+  const sessionOwnershipVerdict = chatGptDelegationVerdictFromValue(payload.sessionOwnershipVerdict);
+  const browserActionAuthorityRef = requiredString(payload.browserActionAuthorityRef);
+  const resultImportRef = requiredString(payload.resultImportRef) as ResearchResultId | null;
+  const resultImportGate = chatGptResultImportGateFromValue(payload.resultImportGate);
+  const fallbackApplied = chatGptFallbackStateFromValue(payload.fallbackApplied);
+  const screenshotRefs = optionalStringArray(payload.screenshotRefs);
+  const logRefs = optionalStringArray(payload.logRefs);
+  const auditRefs = optionalStringArray(payload.auditRefs);
+
+  if (
+    !researchTaskId ||
+    !promptPreviewRef ||
+    !dataDisclosurePreview ||
+    !redactionSummary ||
+    !policyRiskVerdict ||
+    !sessionOwnershipVerdict ||
+    !isChatGptDelegationApprovalDecision(payload.approvalDecision) ||
+    resultImportGate === null ||
+    fallbackApplied === null ||
+    screenshotRefs === null ||
+    logRefs === null ||
+    auditRefs === null
+  ) {
+    return reject("CreateChatGptBrowserDelegationRun payload is invalid.", "VALIDATION_FAILED");
+  }
+
+  if (containsExecutionAuthoritySecretValueLeak(command.payload)) {
+    return reject(
+      "CreateChatGptBrowserDelegationRun payload must not contain credential, session, token, or secret values.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  const taskExists = state.researchState.tasks.some((task) => task.researchTaskId === researchTaskId);
+
+  if (!taskExists) {
+    return reject("CreateChatGptBrowserDelegationRun requires an existing ResearchTask.", "RESOURCE_NOT_FOUND");
+  }
+
+  if (resultImportRef && !resultImportGate) {
+    return reject(
+      "CreateChatGptBrowserDelegationRun resultImportGate is required when resultImportRef is provided.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  const blockReasons = chatGptDelegationBlockReasons({
+    dataDisclosurePreview,
+    policyRiskVerdict,
+    sessionOwnershipVerdict,
+    approvalDecision: payload.approvalDecision,
+    browserActionAuthorityRef,
+    resultImportGate: resultImportGate ?? null,
+    state
+  });
+  const visibleFallback = blockReasons.length ? fallbackApplied ?? defaultChatGptDelegationFallback(blockReasons) : null;
+  const runId = `chatgpt_delegation_${stableToken(
+    JSON.stringify({
+      sessionId: command.sessionId,
+      expectedStateVersion: command.expectedStateVersion,
+      researchTaskId,
+      promptPreviewRef,
+      browserActionAuthorityRef,
+      resultImportRef,
+      approvalDecision: payload.approvalDecision
+    })
+  )}`;
+  const run: ChatGptBrowserDelegationRun = {
+    runId,
+    researchTaskId,
+    promptPreviewRef,
+    dataDisclosurePreview,
+    redactionSummary,
+    policyRiskVerdict,
+    sessionOwnershipVerdict,
+    approvalDecision: payload.approvalDecision,
+    browserActionAuthorityRef,
+    resultImportRef,
+    resultImportGate: resultImportGate ?? null,
+    fallbackApplied: visibleFallback,
+    blockReasons,
+    screenshotRefs: uniqueStringRefs(screenshotRefs),
+    logRefs: uniqueStringRefs(logRefs),
+    auditRefs: uniqueStringRefs([
+      ...auditRefs,
+      `audit:${command.commandId}`,
+      `event:ChatGptBrowserDelegationRun${blockReasons.length ? "Blocked" : "Recorded"}`
+    ]),
+    createdAt: command.issuedAt,
+    schemaVersion: CHATGPT_BROWSER_DELEGATION_SCHEMA_VERSION
+  };
+  let projection: ChatGptBrowserDelegationProjection;
+
+  try {
+    projection = chatGptDelegationProjection(command, state, run);
+  } catch (error) {
+    return reject(error instanceof Error ? error.message : String(error), "VALIDATION_FAILED");
+  }
+
+  const status = projection.currentStatus;
+  const eventType = blockReasons.length ? "ChatGptBrowserDelegationRunBlocked" : "ChatGptBrowserDelegationRunRecorded";
+  const event = eventDraft(command, eventType, {
+    runId,
+    researchTaskId,
+    status,
+    approvalDecision: run.approvalDecision,
+    browserActionAuthorityRef: run.browserActionAuthorityRef,
+    resultImportRef: run.resultImportRef,
+    blockReasons,
+    fallbackApplied: run.fallbackApplied,
+    projection,
+    summary: projection.summary
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      chatGptBrowserDelegation: projection
+    },
+    [
+      {
+        outputType: "chatgpt_browser_delegation_run",
+        outputRef: runId,
+        payload: {
+          runId,
+          researchTaskId,
+          status,
+          browserActionAuthorityRef: run.browserActionAuthorityRef,
+          resultImportRef: run.resultImportRef,
+          blockReasons
+        }
+      }
+    ],
+    [],
+    projection
+  );
+}
+
 const PHASE25_ALLOWED_PAYLOAD_KEYS = [
   "researchQuestion",
   "decisionContext",
@@ -7288,6 +7965,8 @@ export function reduceProductEngineCommand(
       return reduceCreatePhase25ResearchComparison(command, state);
     case "CreateExecutionAuthority":
       return reduceCreateExecutionAuthority(command, state);
+    case "CreateChatGptBrowserDelegationRun":
+      return reduceCreateChatGptBrowserDelegationRun(command, state);
     default:
       return reject(`${command.commandType} is outside the mounted PR-09 reducer slice.`);
   }
@@ -7861,6 +8540,16 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
         ...state,
         stateVersion: nextStateVersion,
         ...(executionAuthorityLedger ? { executionAuthorityLedger } : {})
+      };
+    }
+    case "ChatGptBrowserDelegationRunRecorded":
+    case "ChatGptBrowserDelegationRunBlocked": {
+      const chatGptBrowserDelegation = projectionPayload(event.payload, state.chatGptBrowserDelegation);
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        ...(chatGptBrowserDelegation ? { chatGptBrowserDelegation } : {})
       };
     }
     default:
