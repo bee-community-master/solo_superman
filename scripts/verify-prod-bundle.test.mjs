@@ -48,4 +48,10 @@ describe("verify-prod-bundle smoke plan", () => {
       ]
     ]);
   });
+
+  it("rejects invalid timeout overrides before starting the smoke process", () => {
+    expect(() => prodBundleSmokeConfig({
+      SOLO_PROD_SMOKE_TIMEOUT_MS: "ten seconds"
+    })).toThrow("SOLO_PROD_SMOKE_TIMEOUT_MS must be a positive integer");
+  });
 });

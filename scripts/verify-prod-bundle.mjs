@@ -17,6 +17,16 @@ function envValue(env, name, fallback) {
   return value && value.trim().length > 0 ? value.trim() : fallback;
 }
 
+function positiveIntegerEnv(env, name, fallback) {
+  const value = envValue(env, name, String(fallback));
+
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw new Error(`${name} must be a positive integer number of milliseconds; received ${JSON.stringify(value)}`);
+  }
+
+  return Number.parseInt(value, 10);
+}
+
 function generatedToken() {
   return randomBytes(32).toString("hex");
 }
@@ -38,7 +48,7 @@ export function prodBundleSmokeConfig(env = process.env) {
     webHost,
     webPort,
     webBaseUrl,
-    timeoutMs: Number.parseInt(envValue(env, "SOLO_PROD_SMOKE_TIMEOUT_MS", String(DEFAULT_TIMEOUT_MS)), 10)
+    timeoutMs: positiveIntegerEnv(env, "SOLO_PROD_SMOKE_TIMEOUT_MS", DEFAULT_TIMEOUT_MS)
   };
 }
 
@@ -130,13 +140,17 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function hasExited(processInfo) {
+  return processInfo.child.exitCode !== null || processInfo.child.signalCode !== null;
+}
+
 async function waitForFetch(url, options) {
   const startedAt = Date.now();
   let lastError = null;
 
   while (Date.now() - startedAt < options.timeoutMs) {
-    if (options.processes?.some((processInfo) => processInfo.child.exitCode !== null)) {
-      const exited = options.processes.find((processInfo) => processInfo.child.exitCode !== null);
+    if (options.processes?.some(hasExited)) {
+      const exited = options.processes.find(hasExited);
 
       throw new Error(`${exited.label} exited before ${url} became ready.\n${exited.logs.join("")}`);
     }
@@ -163,20 +177,25 @@ async function waitForFetch(url, options) {
 }
 
 async function stopProcess(processInfo) {
-  if (processInfo.child.exitCode !== null || processInfo.child.signalCode !== null) {
+  if (hasExited(processInfo)) {
     return;
   }
 
   processInfo.stopping = true;
   processInfo.child.kill("SIGTERM");
-  await Promise.race([
-    new Promise((resolve) => processInfo.child.once("exit", resolve)),
-    sleep(5_000).then(() => {
-      if (processInfo.child.exitCode === null && processInfo.child.signalCode === null) {
+
+  await new Promise((resolve) => {
+    const killTimer = setTimeout(() => {
+      if (!hasExited(processInfo)) {
         processInfo.child.kill("SIGKILL");
       }
-    })
-  ]);
+    }, 5_000);
+
+    processInfo.child.once("exit", () => {
+      globalThis.clearTimeout(killTimer);
+      resolve();
+    });
+  });
 }
 
 export async function runProdBundleSmoke() {
