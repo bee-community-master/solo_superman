@@ -2303,6 +2303,25 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       });
       expect(JSON.stringify(secretInRefField.body)).not.toContain("abcd1234567890");
 
+      const credentialBearingUrl = await postJson(
+        app,
+        `/api/v1/sessions/${sessionId}/service-page-use-permissions`,
+        {
+          ...safeBody,
+          pageUrl: "https://user:hunter2@vercel.com/new"
+        }
+      );
+
+      expect(credentialBearingUrl.response.status).toBe(200);
+      expect(responseData(credentialBearingUrl.body)).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "VALIDATION_FAILED",
+          message: "CreateServicePageUsePermission payload must not contain credential, session, token, or secret values."
+        }
+      });
+      expect(JSON.stringify(credentialBearingUrl.body)).not.toContain("hunter2");
+
       const latest = await getJson(app, `/api/v1/sessions/${sessionId}/service-page-use-permissions`);
 
       expect(latest.response.status).toBe(200);

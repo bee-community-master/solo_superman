@@ -317,6 +317,18 @@ describe("CreateServicePageUsePermission reducer", () => {
       code: "VALIDATION_FAILED",
       message: "CreateServicePageUsePermission payload must not contain credential, session, token, or secret values."
     });
+
+    const credentialUrlReduction = reduceProductEngineCommand(
+      command(readyPayload({ pageUrl: "https://user:hunter2@vercel.com/new" })),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(credentialUrlReduction.accepted).toBe(false);
+    expect(credentialUrlReduction.rejectionReason).toMatchObject({
+      code: "VALIDATION_FAILED",
+      message: "CreateServicePageUsePermission payload must not contain credential, session, token, or secret values."
+    });
+    expect(JSON.stringify(credentialUrlReduction)).not.toContain("hunter2");
   });
 });
 

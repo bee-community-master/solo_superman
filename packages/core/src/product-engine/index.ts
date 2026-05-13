@@ -59,6 +59,7 @@ import {
   validateServicePageUsePermissionProjection,
   servicePageUsePermissionIsRevokableStatus,
   servicePageUsePermissionRefHasForbiddenCustodyContent,
+  servicePageUsePermissionStringHasUrlCredentials,
   servicePageUsePermissionSummaryForStatus,
   validatePhase25ResearchComparisonReport,
   type ActiveBatchSafeProjection,
@@ -7576,6 +7577,14 @@ const SERVICE_PAGE_USE_PERMISSION_CREATE_PRIVATE_REF_FIELDS = [
   "activityFeedRefs"
 ] as const;
 
+const SERVICE_PAGE_USE_PERMISSION_CREATE_URL_CREDENTIAL_FIELDS = [
+  "serviceName",
+  "serviceOrigin",
+  "pageUrl",
+  "purpose",
+  ...SERVICE_PAGE_USE_PERMISSION_CREATE_PRIVATE_REF_FIELDS
+] as const;
+
 const SERVICE_PAGE_USE_PERMISSION_REASON_PRIVATE_REF_FIELDS = [
   "reason",
   "auditRefs"
@@ -7586,6 +7595,13 @@ function containsServicePageUsePermissionForbiddenCustodyRef(
   fields: readonly string[]
 ) {
   return stringValuesFromPayloadFields(payload, fields).some(servicePageUsePermissionRefHasForbiddenCustodyContent);
+}
+
+function containsServicePageUsePermissionUrlCredentials(
+  payload: Readonly<Partial<Record<string, unknown>>>,
+  fields: readonly string[]
+) {
+  return stringValuesFromPayloadFields(payload, fields).some(servicePageUsePermissionStringHasUrlCredentials);
 }
 
 function uniqueTypedValues<TValue extends string>(
@@ -7997,6 +8013,10 @@ function reduceCreateServicePageUsePermission(
 
   if (
     containsExecutionAuthoritySecretValueLeak(command.payload) ||
+    containsServicePageUsePermissionUrlCredentials(
+      command.payload,
+      SERVICE_PAGE_USE_PERMISSION_CREATE_URL_CREDENTIAL_FIELDS
+    ) ||
     containsServicePageUsePermissionForbiddenCustodyRef(
       command.payload,
       SERVICE_PAGE_USE_PERMISSION_CREATE_PRIVATE_REF_FIELDS
@@ -8196,6 +8216,10 @@ function reduceRevokeServicePageUsePermission(
 
   if (
     containsExecutionAuthoritySecretValueLeak(command.payload) ||
+    containsServicePageUsePermissionUrlCredentials(
+      command.payload,
+      SERVICE_PAGE_USE_PERMISSION_REASON_PRIVATE_REF_FIELDS
+    ) ||
     containsServicePageUsePermissionForbiddenCustodyRef(
       command.payload,
       SERVICE_PAGE_USE_PERMISSION_REASON_PRIVATE_REF_FIELDS
@@ -8368,6 +8392,10 @@ function reduceDeleteServicePageUsePermissionArtifacts(
 
   if (
     containsExecutionAuthoritySecretValueLeak(command.payload) ||
+    containsServicePageUsePermissionUrlCredentials(
+      command.payload,
+      SERVICE_PAGE_USE_PERMISSION_REASON_PRIVATE_REF_FIELDS
+    ) ||
     containsServicePageUsePermissionForbiddenCustodyRef(
       command.payload,
       SERVICE_PAGE_USE_PERMISSION_REASON_PRIVATE_REF_FIELDS

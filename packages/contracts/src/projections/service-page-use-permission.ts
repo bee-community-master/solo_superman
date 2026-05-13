@@ -232,6 +232,10 @@ export function servicePageUsePermissionRefHasForbiddenCustodyContent(value: str
   );
 }
 
+export function servicePageUsePermissionStringHasUrlCredentials(value: string) {
+  return /\b[a-z][a-z0-9+.-]*:\/\/[^\s/?#@]+@/iu.test(value);
+}
+
 function stringArray(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every(isNonEmptyString);
 }
@@ -251,6 +255,31 @@ function servicePagePermissionRefStrings(permission: ServicePageUsePermissionRec
     ...permission.activityFeedRefs,
     ...permission.blockReasons.flatMap((reason) => reason.evidenceRefs),
     ...permission.auditLog.flatMap((entry) => entry.evidenceRefs)
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+}
+
+function servicePagePermissionStrings(permission: ServicePageUsePermissionRecord) {
+  return [
+    permission.permissionId,
+    permission.serviceName,
+    permission.serviceOrigin,
+    permission.pageUrl,
+    permission.purpose,
+    permission.userApprovalRef,
+    permission.userVisibleExplanation,
+    permission.nextAction,
+    permission.promptPreviewRef,
+    permission.artifactRetention.redactionPreviewRef,
+    permission.artifactRetention.artifactRefsDeletionAuditRef,
+    permission.finalSubmitBoundary.confirmationCardRef,
+    permission.finalSubmitBoundary.executionAuthorityRef,
+    ...permission.screenshotRefs,
+    ...permission.logRefs,
+    ...permission.evidenceRefs,
+    ...permission.auditRefs,
+    ...permission.activityFeedRefs,
+    ...permission.blockReasons.flatMap((reason) => [reason.message, ...reason.evidenceRefs]),
+    ...permission.auditLog.flatMap((entry) => [entry.label, ...entry.evidenceRefs])
   ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 }
 
@@ -461,6 +490,9 @@ export function validateServicePageUsePermissionProjection(
     }
     if (servicePagePermissionRefStrings(permission).some(servicePageUsePermissionRefHasForbiddenCustodyContent)) {
       issues.push("service page-use refs must not contain credential/session/token/secret-bearing values");
+    }
+    if (servicePagePermissionStrings(permission).some(servicePageUsePermissionStringHasUrlCredentials)) {
+      issues.push("service page-use strings must not contain credential-bearing URL userinfo");
     }
     if (permission.canRevoke !== servicePageUsePermissionIsRevokableStatus(permission.status)) {
       issues.push("canRevoke must match the permission status");

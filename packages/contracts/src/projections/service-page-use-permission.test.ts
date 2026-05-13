@@ -119,6 +119,21 @@ describe("Service page-use permission projection contract", () => {
     ).toThrow(/refs must not contain credential.*secret-bearing values/iu);
   });
 
+  it("rejects credential-bearing URL userinfo before projection persistence", () => {
+    const unsafePermission = {
+      ...SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE.latestPermission,
+      pageUrl: "https://user:hunter2@vercel.com/new"
+    } as const;
+
+    expect(() =>
+      validateServicePageUsePermissionProjection({
+        ...SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE,
+        permissions: [unsafePermission],
+        latestPermission: unsafePermission
+      })
+    ).toThrow(/strings must not contain credential-bearing URL userinfo/iu);
+  });
+
   it("rejects records that omit the user-owned login boundary", () => {
     expect(() =>
       validateServicePageUsePermissionProjection({
