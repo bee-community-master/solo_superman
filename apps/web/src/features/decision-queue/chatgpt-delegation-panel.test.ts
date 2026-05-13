@@ -21,6 +21,9 @@ describe("chatGptDelegationViewModel", () => {
       "screenshot:browser_action:screenshot:chatgpt-ready",
       "log:browser_action:log:chatgpt-ready"
     ]));
+    expect(view.redactionPreviewRef).toBe("redaction_preview_chatgpt_ready");
+    expect(view.artifactControlLabels.join("\n")).toContain("Export retained");
+    expect(view.artifactControlLabels.join("\n")).toContain("Delete retained");
     expect(view.auditItems.join("\n")).toContain("DelegationRunApproved");
     expect(view.retentionLabel).toContain("export/delete controls");
   });
@@ -31,6 +34,8 @@ describe("chatGptDelegationViewModel", () => {
     expect(view.status).toBe("blocked");
     expect(view.canRevoke).toBe(false);
     expect(view.fallbackLabel).toContain("manual_prompt_handoff");
+    expect(view.fallbackReason).toContain("Policy risk blocks");
+    expect(view.blockReasonItems.join("\n")).toContain("policy_risk_blocked");
     expect(view.nextAction).toContain("Known Risk");
     expect(view.auditItems.join("\n")).toContain("DelegationFallbackApplied");
   });
@@ -41,5 +46,6 @@ describe("chatGptDelegationViewModel", () => {
     expect(view.status).toBe("not_started");
     expect(view.canRevoke).toBe(false);
     expect(view.artifactRefs).toEqual([]);
+    expect(view.artifactControlLabels).toEqual([]);
   });
 });

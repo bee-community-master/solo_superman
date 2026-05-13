@@ -6870,6 +6870,7 @@ function requestedChatGptDelegationStatusMatchesFacts(
 ) {
   return (
     requestedStatus === derivedStatus ||
+    (requestedStatus === "pending_preflight" && derivedStatus === "waiting_for_approval") ||
     (requestedStatus === "waiting_for_user" && derivedStatus === "running") ||
     (requestedStatus === "importing_result" && derivedStatus === "completed")
   );
@@ -6885,17 +6886,30 @@ function chatGptDelegationVisibleState(input: {
   const fallback = input.fallbackApplied;
   const blockReason = input.blockReasons.map((reason) => reason.message).join(" ");
   const defaultExplanation = fallback?.visibleState ?? (blockReason || chatGptBrowserDelegationSummaryForStatus(input.status));
-  const defaultNextAction = fallback?.userAction ?? (
-    input.status === "completed"
-      ? "Import the result only through the Evidence Matrix quality gates and keep provenance attached."
-      : input.status === "revoked"
-        ? "Start a new per-run approval if ChatGPT delegation is still needed."
-        : input.status === "running"
-          ? "Keep the local browser visible, watch for user-intervention prompts, or revoke this run."
-          : input.status === "waiting_for_approval"
-            ? "Review the redaction preview and approve, request revisions, or reject this run."
-            : "Use manual prompt handoff, official Codex fallback, or record a Known Risk before proceeding."
-  );
+
+  function defaultNextActionForStatus() {
+    switch (input.status) {
+      case "pending_preflight":
+        return "Finish data disclosure, redaction preview, policy/session checks, and authority evidence before asking for approval.";
+      case "waiting_for_approval":
+        return "Review the redaction preview and approve, request revisions, or reject this run.";
+      case "running":
+        return "Keep the local browser visible, watch for user-intervention prompts, or revoke this run.";
+      case "waiting_for_user":
+        return "Complete the visible browser intervention, then continue result capture or revoke this run.";
+      case "importing_result":
+        return "Review the captured ChatGPT result against source, uncertainty, counter-evidence, and stale-risk gates before import.";
+      case "completed":
+        return "Import the result only through the Evidence Matrix quality gates and keep provenance attached.";
+      case "revoked":
+        return "Start a new per-run approval if ChatGPT delegation is still needed.";
+      case "blocked":
+      case "failed":
+        return "Use manual prompt handoff, official Codex fallback, or record a Known Risk before proceeding.";
+    }
+  }
+
+  const defaultNextAction = fallback?.userAction ?? defaultNextActionForStatus();
 
   return {
     userVisibleExplanation: input.explicitExplanation?.trim() || defaultExplanation,

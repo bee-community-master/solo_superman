@@ -268,6 +268,79 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
     });
   });
 
+  it("keeps explicit preflight records revokable before approval starts", () => {
+    const reduction = reduceProductEngineCommand(
+      command(
+        payloadFromReadyFixture({
+          status: "pending_preflight",
+          approvalDecision: "pending",
+          browserActionAuthorityRef: undefined,
+          fallbackApplied: undefined
+        })
+      ),
+      stateWithResearchTaskAndBrowserAuthority()
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "pending_preflight",
+      latestRun: {
+        canRevoke: true,
+        fallbackApplied: null,
+        blockReasons: [],
+        nextAction: expect.stringContaining("Finish data disclosure")
+      }
+    });
+  });
+
+  it("keeps waiting-for-user and importing-result next actions distinct from fallback copy", () => {
+    const waiting = reduceProductEngineCommand(
+      command(
+        payloadFromReadyFixture({
+          status: "waiting_for_user"
+        })
+      ),
+      stateWithResearchTaskAndBrowserAuthority()
+    );
+    const importing = reduceProductEngineCommand(
+      command(
+        payloadFromReadyFixture({
+          status: "importing_result",
+          resultImportRef: "research_result_chatgpt_importing_action",
+          resultImportGate: {
+            sourceProvenanceStatus: "pass",
+            uncertaintyStatus: "pass",
+            conEvidenceStatus: "pass",
+            staleRiskStatus: "pass",
+            sourceRefs: ["chatgpt:conversation:hash"],
+            uncertaintyRefs: ["uncertainty:preserved"],
+            conEvidenceRefs: ["con:evidence:preserved"],
+            staleRiskRefs: ["stale-risk:checked"],
+            importRationale: "Candidate output is captured while import remains revokable."
+          }
+        })
+      ),
+      stateWithResearchTaskAndBrowserAuthority()
+    );
+
+    expect(waiting.accepted).toBe(true);
+    expect(waiting.immediateProjection).toMatchObject({
+      currentStatus: "waiting_for_user",
+      latestRun: {
+        nextAction: expect.stringContaining("Complete the visible browser intervention"),
+        fallbackApplied: null
+      }
+    });
+    expect(importing.accepted).toBe(true);
+    expect(importing.immediateProjection).toMatchObject({
+      currentStatus: "importing_result",
+      latestRun: {
+        nextAction: expect.stringContaining("Review the captured ChatGPT result"),
+        fallbackApplied: null
+      }
+    });
+  });
+
   it("rejects explicit run states that conflict with approval and authority facts", () => {
     const reduction = reduceProductEngineCommand(
       command(
