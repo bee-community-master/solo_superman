@@ -19,6 +19,7 @@
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run --passWithNoTests",
     "smoke:e2e": "vitest run e2e --passWithNoTests",
+    "verify:prod-bundle": "node scripts/verify-prod-bundle.mjs",
     "verify:docs": "node scripts/verify-doc-contracts.mjs",
     "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs",
     "dev:web": "pnpm --filter @solo-superman/web dev"

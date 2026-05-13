@@ -219,6 +219,7 @@ Windows PowerShell 문서의 기본 설치 경로는 `winget` 우선이다.
 - Windows prerequisite installation uses `winget` as the primary path and official manual downloads as fallback.
 - No install command requires storing ChatGPT/OpenAI API keys by default.
 - Verification can be run without external production credentials.
+- Current #105 implementation surface: `docs/39-local-install-run-verification.md` owns the copy-paste runbook and `pnpm verify:prod-bundle` runs the `build_auto_local_smoke` script for production bundle + local sidecar/web preview verification.
 
 ## Registered GitHub issue graph
 
