@@ -238,6 +238,7 @@ export async function runProdBundleSmoke() {
   const env = prodBundleSmokeEnvironment(config, appDataDir);
   const commands = prodBundleSmokeCommands(config);
   const processes = [];
+  let passedEvidence;
 
   try {
     console.log(`verify-prod-bundle: building web production bundle for ${config.sidecarBaseUrl}`);
@@ -279,7 +280,7 @@ export async function runProdBundleSmoke() {
       processes
     });
 
-    console.log(JSON.stringify({
+    passedEvidence = {
       status: "passed",
       smoke: "build_auto_local_smoke",
       sidecarBaseUrl: config.sidecarBaseUrl,
@@ -289,12 +290,21 @@ export async function runProdBundleSmoke() {
         "sidecar health responded",
         "authenticated local API responded",
         "token mismatch returned 401",
-        "production web preview responded"
+        "production web preview responded",
+        "managed child processes stopped",
+        "temporary app data removed"
       ]
-    }));
+    };
   } finally {
     await Promise.all(processes.reverse().map(stopProcess));
     await rm(appDataDir, { recursive: true, force: true });
+    if (processes.length > 0) {
+      console.log(`verify-prod-bundle: stopped ${processes.length} managed process(es) and removed temporary app data`);
+    }
+  }
+
+  if (passedEvidence) {
+    console.log(JSON.stringify(passedEvidence));
   }
 }
 
