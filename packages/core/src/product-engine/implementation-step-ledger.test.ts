@@ -405,9 +405,10 @@ describe("RecordImplementationStepLedger reducer", () => {
   });
 
   it("rejects credential or token shaped ledger payload values without echoing them into a projection", () => {
+    const tokenShapedValue = "access_token=redacted_test_value_1234567890";
     const reduction = reduceProductEngineCommand(
       command(fullPayload({
-        evidenceRefs: ["test:ghp_123456789012345678901234567890123456"]
+        evidenceRefs: [`test:${tokenShapedValue}`]
       })),
       createInitialProductEngineState(projectId, sessionId)
     );
@@ -417,7 +418,7 @@ describe("RecordImplementationStepLedger reducer", () => {
       code: "VALIDATION_FAILED",
       message: "RecordImplementationStepLedger payload must not contain credential, session, token, or secret values."
     });
-    expect(JSON.stringify(reduction)).not.toContain("ghp_123456789012345678901234567890123456");
+    expect(JSON.stringify(reduction)).not.toContain(tokenShapedValue);
   });
 
   it("allows verification-only no-code completion with clean tracked state evidence", () => {

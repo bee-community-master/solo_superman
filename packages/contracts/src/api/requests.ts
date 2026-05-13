@@ -376,7 +376,6 @@ export interface DeleteServicePageUsePermissionArtifactsRequest extends Scaffold
   readonly auditRefs?: readonly string[];
 }
 
-
 export interface RecordImplementationStepLedgerRequest extends ScaffoldRequestPlaceholder {
   readonly sessionId: SessionId;
   readonly expectedStateVersion: StateVersion;
