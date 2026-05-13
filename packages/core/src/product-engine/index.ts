@@ -6692,10 +6692,13 @@ function chatGptDelegationBlockReasons(input: {
   readonly sessionOwnershipVerdict: ChatGptBrowserDelegationVerdictDto;
   readonly approvalDecision: ChatGptBrowserDelegationApprovalDecision;
   readonly browserActionAuthorityRef: string | null;
+  readonly resultImportRef: ResearchResultId | null;
   readonly resultImportGate: ChatGptBrowserDelegationResultImportGate | null;
   readonly state: ProductEngineStateSnapshot;
 }): readonly ChatGptBrowserDelegationBlockReasonDto[] {
   const reasons: ChatGptBrowserDelegationBlockReasonDto[] = [];
+  const resultImportAttempted = Boolean(input.resultImportRef || input.resultImportGate);
+  const browserActionAttempted = Boolean(input.browserActionAuthorityRef || resultImportAttempted);
 
   if (!input.dataDisclosurePreview.disclosurePreviewRef) {
     reasons.push(
@@ -6764,16 +6767,18 @@ function chatGptDelegationBlockReasons(input: {
     );
   }
 
-  if (input.approvalDecision === "rejected") {
+  if (input.approvalDecision === "rejected" || (input.approvalDecision !== "approved" && browserActionAttempted)) {
     reasons.push(
       chatGptDelegationBlockReason(
         "missing_user_approval",
-        "The user rejected this ChatGPT browser delegation run."
+        input.approvalDecision === "rejected"
+          ? "The user rejected this ChatGPT browser delegation run."
+          : "Per-run user approval is required before ChatGPT browser delegation can start or import results."
       )
     );
   }
 
-  const authorityBlockReason = input.approvalDecision === "approved"
+  const authorityBlockReason = (input.approvalDecision === "approved" || resultImportAttempted)
     ? chatGptDelegationBrowserActionAuthorityBlockReason(
         input.browserActionAuthorityRef,
         input.state
@@ -6833,7 +6838,7 @@ function chatGptDelegationStatusFromFacts(input: {
   readonly blockReasons: readonly ChatGptBrowserDelegationBlockReasonDto[];
 }): ChatGptBrowserDelegationStatus {
   if (input.blockReasons.length) {
-    return input.blockReasons.some((reason) =>
+    return input.resultImportRef || input.blockReasons.some((reason) =>
       ["chatgpt_ui_changed", "login_or_session_expired", "captcha_or_antibot_required", "usage_limit_reached", "result_parse_failed", "result_import_gate_failed"].includes(reason.code)
     )
       ? "failed"
@@ -6857,6 +6862,17 @@ function chatGptDelegationStatusFromFacts(input: {
 
 function canRevokeChatGptDelegationStatus(status: ChatGptBrowserDelegationStatus) {
   return ["pending_preflight", "waiting_for_approval", "running", "waiting_for_user", "importing_result"].includes(status);
+}
+
+function requestedChatGptDelegationStatusMatchesFacts(
+  requestedStatus: ChatGptBrowserDelegationStatus,
+  derivedStatus: ChatGptBrowserDelegationStatus
+) {
+  return (
+    requestedStatus === derivedStatus ||
+    (requestedStatus === "waiting_for_user" && derivedStatus === "running") ||
+    (requestedStatus === "importing_result" && derivedStatus === "completed")
+  );
 }
 
 function chatGptDelegationVisibleState(input: {
@@ -7090,17 +7106,27 @@ function reduceCreateChatGptBrowserDelegationRun(
     sessionOwnershipVerdict,
     approvalDecision: payload.approvalDecision,
     browserActionAuthorityRef,
+    resultImportRef,
     resultImportGate: resultImportGate ?? null,
     state
   });
   const visibleFallback = blockReasons.length ? fallbackApplied ?? defaultChatGptDelegationFallback(blockReasons) : null;
-  const runStatus = requestedStatus ?? chatGptDelegationStatusFromFacts({
+  const derivedRunStatus = chatGptDelegationStatusFromFacts({
     approvalDecision: payload.approvalDecision,
     browserActionAuthorityRef,
     resultImportRef,
     resultImportGate: resultImportGate ?? null,
     blockReasons
   });
+
+  if (requestedStatus && !requestedChatGptDelegationStatusMatchesFacts(requestedStatus, derivedRunStatus)) {
+    return reject(
+      `CreateChatGptBrowserDelegationRun status ${requestedStatus} conflicts with derived run state ${derivedRunStatus}.`,
+      "COMMAND_PRECONDITION_FAILED"
+    );
+  }
+
+  const runStatus = requestedStatus ?? derivedRunStatus;
   const visibleState = chatGptDelegationVisibleState({
     status: runStatus,
     explicitExplanation: userVisibleExplanation,

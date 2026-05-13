@@ -559,8 +559,8 @@ export function chatGptBrowserDelegationRunValidationIssues(
     issues.push("completed runs cannot include blockReasons");
   }
 
-  if (run.resultImportRef && !["completed", "importing_result", "failed"].includes(run.status)) {
-    issues.push("runs with resultImportRef must be completed, importing_result, or failed");
+  if (run.resultImportRef && !["completed", "importing_result", "failed", "revoked"].includes(run.status)) {
+    issues.push("runs with resultImportRef must be completed, importing_result, failed, or revoked");
   }
 
   if (run.status === "revoked" && !run.blockReasons.some((reason) => reason.code === "revoked_by_user")) {

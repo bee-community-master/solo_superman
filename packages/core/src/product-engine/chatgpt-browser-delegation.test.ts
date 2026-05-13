@@ -268,6 +268,112 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
     });
   });
 
+  it("rejects explicit run states that conflict with approval and authority facts", () => {
+    const reduction = reduceProductEngineCommand(
+      command(
+        payloadFromReadyFixture({
+          status: "running",
+          approvalDecision: "pending",
+          browserActionAuthorityRef: undefined,
+          fallbackApplied: undefined
+        })
+      ),
+      stateWithResearchTaskAndBrowserAuthority()
+    );
+
+    expect(reduction).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "COMMAND_PRECONDITION_FAILED",
+        message: expect.stringContaining("conflicts with derived run state waiting_for_approval")
+      }
+    });
+  });
+
+  it("fails result import attempts that do not have per-run approval or browser authority", () => {
+    const reduction = reduceProductEngineCommand(
+      command(
+        payloadFromReadyFixture({
+          approvalDecision: "pending",
+          browserActionAuthorityRef: undefined,
+          resultImportRef: "research_result_chatgpt_unapproved",
+          resultImportGate: {
+            sourceProvenanceStatus: "pass",
+            uncertaintyStatus: "pass",
+            conEvidenceStatus: "pass",
+            staleRiskStatus: "pass",
+            sourceRefs: ["chatgpt:conversation:hash"],
+            uncertaintyRefs: ["uncertainty:preserved"],
+            conEvidenceRefs: ["con:evidence:preserved"],
+            staleRiskRefs: ["stale-risk:checked"],
+            importRationale: "Candidate output claims to preserve quality gates before approval."
+          }
+        })
+      ),
+      stateWithResearchTaskAndBrowserAuthority()
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "failed",
+      latestRun: {
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({ code: "missing_user_approval" }),
+          expect.objectContaining({ code: "missing_browser_action_authority" })
+        ])
+      }
+    });
+  });
+
+  it("revokes importing-result runs while preserving captured result refs for audit recovery", () => {
+    const created = reduceProductEngineCommand(
+      command(
+        payloadFromReadyFixture({
+          status: "importing_result",
+          resultImportRef: "research_result_chatgpt_importing",
+          resultImportGate: {
+            sourceProvenanceStatus: "pass",
+            uncertaintyStatus: "pass",
+            conEvidenceStatus: "pass",
+            staleRiskStatus: "pass",
+            sourceRefs: ["chatgpt:conversation:hash"],
+            uncertaintyRefs: ["uncertainty:preserved"],
+            conEvidenceRefs: ["con:evidence:preserved"],
+            staleRiskRefs: ["stale-risk:checked"],
+            importRationale: "Candidate output is captured while import remains revokable."
+          }
+        })
+      ),
+      stateWithResearchTaskAndBrowserAuthority()
+    );
+    const projection = created.immediateProjection as ChatGptBrowserDelegationProjection;
+
+    expect(created.accepted).toBe(true);
+    expect(projection.currentStatus).toBe("importing_result");
+
+    const revoked = reduceProductEngineCommand(
+      revokeCommand({
+        runId: projection.latestRun.runId,
+        reason: "User stopped ChatGPT result import before committing the captured output.",
+        auditRefs: ["audit:chatgpt-browser-delegation:importing-revoke"]
+      }),
+      {
+        ...stateWithResearchTaskAndBrowserAuthority(),
+        stateVersion: 1 as StateVersion,
+        chatGptBrowserDelegation: projection
+      }
+    );
+
+    expect(revoked.accepted).toBe(true);
+    expect(revoked.immediateProjection).toMatchObject({
+      currentStatus: "revoked",
+      latestRun: {
+        resultImportRef: "research_result_chatgpt_importing",
+        blockReasons: expect.arrayContaining([expect.objectContaining({ code: "revoked_by_user" })])
+      }
+    });
+  });
+
   it("revokes the latest running delegation run with audit evidence", () => {
     const created = reduceProductEngineCommand(
       command(payloadFromReadyFixture()),
