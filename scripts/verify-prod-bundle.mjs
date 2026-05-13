@@ -11,6 +11,11 @@ const DEFAULT_WEB_HOST = "127.0.0.1";
 const DEFAULT_WEB_PORT = "4173";
 const DEFAULT_TIMEOUT_MS = 30_000;
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+const RUNTIME_STATUS_PATH = "/api/v1/runtime/status";
+const WRONG_TOKEN = "intentionally-wrong-prod-smoke-token";
+const FETCH_RETRY_INTERVAL_MS = 250;
+const TERMINATE_GRACE_MS = 5_000;
+const FORCE_KILL_GRACE_MS = 2_000;
 
 function envValue(env, name, fallback) {
   const value = env[name];
@@ -203,7 +208,7 @@ async function waitForFetch(url, options) {
       lastError = error;
     }
 
-    await sleep(250);
+    await sleep(FETCH_RETRY_INTERVAL_MS);
   }
 
   throw lastError ?? new Error(`${url} did not become ready within ${options.timeoutMs}ms`);
@@ -225,9 +230,9 @@ async function stopProcess(processInfo) {
           if (!hasExited(processInfo)) {
             reject(new Error(`${processInfo.label} did not exit after SIGKILL`));
           }
-        }, 2_000);
+        }, FORCE_KILL_GRACE_MS);
       }
-    }, 5_000);
+    }, TERMINATE_GRACE_MS);
 
     processInfo.child.once("exit", () => {
       globalThis.clearTimeout(killTimer);
@@ -262,7 +267,7 @@ export async function runProdBundleSmoke() {
       timeoutMs: config.timeoutMs,
       processes
     });
-    await waitForFetch(`${config.sidecarBaseUrl}/api/v1/runtime/status`, {
+    await waitForFetch(`${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH}`, {
       expectedStatus: 200,
       headers: {
         Authorization: `Bearer ${config.localCapabilityToken}`
@@ -270,10 +275,10 @@ export async function runProdBundleSmoke() {
       timeoutMs: config.timeoutMs,
       processes
     });
-    await waitForFetch(`${config.sidecarBaseUrl}/api/v1/runtime/status`, {
+    await waitForFetch(`${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH}`, {
       expectedStatus: 401,
       headers: {
-        Authorization: "Bearer intentionally-wrong-prod-smoke-token"
+        Authorization: `Bearer ${WRONG_TOKEN}`
       },
       timeoutMs: config.timeoutMs,
       processes
