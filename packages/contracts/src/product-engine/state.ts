@@ -3,6 +3,7 @@ import type {
   ChatGptBrowserDelegationProjection,
   DecisionQueueProjection,
   ExecutionAuthorityLedgerProjection,
+  ImplementationStepLedgerProjection,
   FounderBriefProjection,
   LivingSpecProjection,
   Phase25ResearchComparisonProjection,
@@ -229,4 +230,5 @@ export interface ProductEngineStateSnapshot {
   readonly executionAuthorityLedger?: ExecutionAuthorityLedgerProjection;
   readonly chatGptBrowserDelegation?: ChatGptBrowserDelegationProjection;
   readonly servicePageUsePermission?: ServicePageUsePermissionProjection;
+  readonly implementationStepLedger?: ImplementationStepLedgerProjection;
 }

@@ -91,6 +91,7 @@ describe("PR-08 founder-brief projection", () => {
       "project_purpose_mode",
       "problem_customer_value",
       "top_decisions",
+      "implementation_progress",
       "known_risks",
       "next_validation_actions"
     ]);
@@ -103,6 +104,63 @@ describe("PR-08 founder-brief projection", () => {
       writePolicy: "metadata_only_no_file_write",
       blockedSideEffects: ["file_write", "external_export"]
     });
+  });
+
+  it("carries implementation ledger blockers and Not-tested gaps into the Founder Brief", () => {
+    const state = {
+      ...stateWithKnownRisk(),
+      implementationStepLedger: {
+        kind: "ImplementationStepLedgerProjection" as const,
+        sessionId,
+        version: 8 as ProjectionVersion,
+        currentStatus: "blocked" as const,
+        trackerDoc: {
+          trackerId: "tracker_impl",
+          title: "Implementation tracker",
+          goal: "Ship reviewed code",
+          sourceRefs: ["issue:104"]
+        },
+        steps: [],
+        stepCommitRecords: [],
+        noCodeStepEvidenceRecords: [],
+        codeReviewRecords: [],
+        cleanCodeReviewRecords: [],
+        testEvidenceRecords: [
+          {
+            stepId: "step_impl",
+            testEvidenceId: "test_impl",
+            commands: ["pnpm verify"],
+            outcome: "failed" as const,
+            verifiedCommitSha: "abcdef1",
+            passedTestCount: 4,
+            failedTestCount: 1,
+            notTestedGaps: ["e2e not re-run"],
+            evidenceRefs: ["test:failed"]
+          }
+        ],
+        blockedSteps: [
+          {
+            stepId: "step_impl",
+            reason: "Tests failed.",
+            missingEvidence: ["passing TestEvidenceRecord without failed tests or Not-tested gaps"],
+            nextRequiredAction: "Fix tests and re-run pnpm verify.",
+            evidenceRefs: ["test:failed"]
+          }
+        ],
+        progressReport: "Tracker: Implementation tracker\n1. Step impl — blocked. Missing: passing TestEvidenceRecord without failed tests or Not-tested gaps.",
+        summary: "Implementation step ledger is blocked by missing or failed evidence.",
+        refetchUrl: `/api/v1/sessions/${sessionId}/implementation-step-ledger`,
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      }
+    };
+    const completeness = buildConfidenceCompletionProjection(state, 8 as ProjectionVersion);
+    const projection = buildFounderBriefProjection(state, completeness, 8 as ProjectionVersion, preparedAt);
+
+    expect(projection.briefSections.find((section) => section.sectionId === "implementation_progress")?.body).toContain(
+      "Step impl — blocked"
+    );
+    expect(projection.knownRisks.join("\n")).toContain("Implementation tests not clean for step_impl");
+    expect(projection.nextValidationActions).toContain("Implementation step step_impl: Fix tests and re-run pnpm verify.");
   });
 
   it("carries accepted-risk decisions into Founder Brief known risks", () => {

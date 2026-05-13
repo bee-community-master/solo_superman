@@ -10,6 +10,7 @@ import {
   type ConfidenceCompletionProjection,
   type DecisionQueueProjection,
   type FounderBriefProjection,
+  type ImplementationStepLedgerProjection,
   type LivingSpecProjection,
   type Phase15bUpgradeHintProjection,
   type PlanningHandoffProjection,
@@ -37,6 +38,10 @@ import {
   ServicePageUsePermissionPanel,
   servicePageUsePermissionViewModel
 } from "./ServicePageUsePermissionPanel";
+import {
+  ImplementationStepLedgerPanel,
+  implementationStepLedgerViewModel
+} from "./ImplementationStepLedgerPanel";
 import {
   commandResponseVersion,
   optionalCommandProjection,
@@ -92,6 +97,7 @@ interface ProjectionState {
   readonly planningHandoff: PlanningHandoffProjection | null;
   readonly chatGptDelegation: ChatGptBrowserDelegationProjection | null;
   readonly servicePageUsePermission: ServicePageUsePermissionProjection | null;
+  readonly implementationStepLedger: ImplementationStepLedgerProjection | null;
 }
 
 const DEFAULT_IDEA = "A focused founder brief generator";
@@ -155,7 +161,8 @@ function latestProjectionVersion(projections: ProjectionState) {
     Number(projections.founderBrief?.version ?? 0),
     Number(projections.planningHandoff?.version ?? 0),
     Number(projections.chatGptDelegation?.version ?? 0),
-    Number(projections.servicePageUsePermission?.version ?? 0)
+    Number(projections.servicePageUsePermission?.version ?? 0),
+    Number(projections.implementationStepLedger?.version ?? 0)
   ) as StateVersion;
 }
 
@@ -170,7 +177,8 @@ function emptyProjectionState(): ProjectionState {
     founderBrief: null,
     planningHandoff: null,
     chatGptDelegation: null,
-    servicePageUsePermission: null
+    servicePageUsePermission: null,
+    implementationStepLedger: null
   };
 }
 
@@ -318,6 +326,22 @@ export function DecisionQueueShell() {
     [client]
   );
 
+  const refreshImplementationStepLedger = useCallback(
+    async (sessionId: SessionShellProjection["sessionId"]) => {
+      if (!client) {
+        return;
+      }
+
+      const implementationStepLedger = await client.getImplementationStepLedger(sessionId);
+
+      setProjections((current) => ({
+        ...current,
+        implementationStepLedger
+      }));
+    },
+    [client]
+  );
+
   const refreshProjections = useCallback(
     async (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"]) => {
       if (!client) {
@@ -334,7 +358,8 @@ export function DecisionQueueShell() {
         founderBrief,
         planningHandoff,
         chatGptDelegation,
-        servicePageUsePermission
+        servicePageUsePermission,
+        implementationStepLedger
       ] = await Promise.all([
         client.getSession(projectId, sessionId),
         client.getSpec(sessionId),
@@ -345,7 +370,8 @@ export function DecisionQueueShell() {
         client.getFounderBrief(sessionId).catch(() => null),
         client.getPlanningHandoff(sessionId),
         client.getChatGptBrowserDelegation(sessionId),
-        client.getServicePageUsePermission(sessionId)
+        client.getServicePageUsePermission(sessionId),
+        client.getImplementationStepLedger(sessionId)
       ]);
 
       setProjections({
@@ -358,7 +384,8 @@ export function DecisionQueueShell() {
         founderBrief,
         planningHandoff,
         chatGptDelegation,
-        servicePageUsePermission
+        servicePageUsePermission,
+        implementationStepLedger
       });
       await Promise.all([refreshResearchOperations(projectId), refreshPhase15bReadiness(projectId)]);
     },
@@ -1482,6 +1509,10 @@ export function DecisionQueueShell() {
     () => servicePageUsePermissionViewModel(projections.servicePageUsePermission),
     [projections.servicePageUsePermission]
   );
+  const implementationStepLedgerView = useMemo(
+    () => implementationStepLedgerViewModel(projections.implementationStepLedger),
+    [projections.implementationStepLedger]
+  );
   const canStart =
     connectionState.status === "connected" &&
     Boolean(client) &&
@@ -1928,6 +1959,16 @@ export function DecisionQueueShell() {
             onRevokePermission={(permissionId) => void revokeServicePageUsePermission(permissionId)}
             onExportArtifacts={(permissionId) => exportServicePageArtifacts(permissionId)}
             onDeleteArtifacts={(permissionId) => deleteServicePageArtifacts(permissionId)}
+          />
+
+          <ImplementationStepLedgerPanel
+            ledger={implementationStepLedgerView}
+            isBusy={isBusy}
+            onRefreshLedger={() => {
+              if (projections.session) {
+                void refreshImplementationStepLedger(projections.session.sessionId);
+              }
+            }}
           />
 
           <PlanningHandoffPanel

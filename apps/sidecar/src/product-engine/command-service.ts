@@ -44,6 +44,7 @@ import {
   type ExecutionAuthorityLedgerProjection,
   type ExecutionAuthorityPreflightResult,
   type ExecutionAuthorityRecord,
+  type ImplementationStepLedgerProjection,
   type FileDiffChangedFileDto,
   type FileDiffExecutionResult,
   type FileDiffStatsDto,
@@ -213,6 +214,7 @@ export interface RunSessionCommandInput {
     | "CreateServicePageUsePermission"
     | "RevokeServicePageUsePermission"
     | "DeleteServicePageUsePermissionArtifacts"
+    | "RecordImplementationStepLedger"
   >;
   readonly expectedStateVersion: StateVersion;
   readonly idempotencyKey?: string;
@@ -613,6 +615,7 @@ function isPersistedProjection(value: unknown): value is PersistedProjection {
     kind === "ExecutionAuthorityLedgerProjection" ||
     kind === "ChatGptBrowserDelegationProjection" ||
     kind === "ServicePageUsePermissionProjection" ||
+    kind === "ImplementationStepLedgerProjection" ||
     kind === "ResearchEvidenceProjection" ||
     kind === "RuntimeActivityProjection" ||
     kind === "SessionShellProjection"
@@ -4566,6 +4569,21 @@ export function createProductEngineCommandService(
       return createProjectionRepository(storage.db).get<ServicePageUsePermissionProjection>(
         sessionIdValue,
         "ServicePageUsePermissionProjection"
+      );
+    },
+
+    async getImplementationStepLedger(sessionIdValue: SessionId): Promise<ImplementationStepLedgerProjection | null> {
+      const session = await createProjectRepository(storage.db).getSession(sessionIdValue);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: sessionIdValue
+        });
+      }
+
+      return createProjectionRepository(storage.db).get<ImplementationStepLedgerProjection>(
+        sessionIdValue,
+        "ImplementationStepLedgerProjection"
       );
     },
 

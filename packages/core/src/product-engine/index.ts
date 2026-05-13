@@ -61,6 +61,12 @@ import {
   servicePageUsePermissionRefHasForbiddenCustodyContent,
   servicePageUsePermissionStringHasUrlCredentials,
   servicePageUsePermissionSummaryForStatus,
+  IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION,
+  IMPLEMENTATION_STEP_STATUSES,
+  IMPLEMENTATION_REVIEW_VERDICTS,
+  IMPLEMENTATION_TEST_OUTCOMES,
+  implementationStepLedgerProgressReport,
+  validateImplementationStepLedgerProjection,
   validatePhase25ResearchComparisonReport,
   type ActiveBatchSafeProjection,
   type AmbiguityIssueSnapshot,
@@ -94,8 +100,11 @@ import {
   type ConfidenceCompletionProjection,
   type DecisionId,
   type QueueItemProjection,
+  type RecordImplementationStepLedgerPayload,
   type DecisionQueueProjection,
   type BoundedAgentOutputRecord,
+  type CodeReviewRecord,
+  type CleanCodeReviewRecord,
   type CreateExecutionAuthorityPayload,
   type CreateChatGptBrowserDelegationRunPayload,
   type RevokeChatGptBrowserDelegationRunPayload,
@@ -114,8 +123,14 @@ import {
   type ExecutionAuthorityRequestedScope,
   type ExecutionRollbackReference,
   type ExecutionSandboxBoundary,
+  type ImplementationStepBlocker,
+  type ImplementationStepDoc,
+  type ImplementationStepLedgerProjection,
+  type ImplementationStepRecord,
+  type ImplementationStepStatus,
   type FounderBriefProjection,
   type LivingSpecProjection,
+  type NoCodeStepEvidence,
   type Phase25BaselineResearchSummaryDto,
   type Phase25CandidateLane,
   type Phase25CandidateResearchSummaryDto,
@@ -192,6 +207,9 @@ import {
   type SessionId,
   type SpecVersionId,
   type SpecUpdatePreviewSnapshot,
+  type StepCommitRecord,
+  type TestEvidenceRecord,
+  type TrackerDoc,
   type StateVersion
 } from "@solo-superman/contracts";
 import {
@@ -8521,6 +8539,696 @@ function reduceDeleteServicePageUsePermissionArtifacts(
   );
 }
 
+const IMPLEMENTATION_STEP_LEDGER_ALLOWED_PAYLOAD_KEYS = [
+  "trackerDoc",
+  "stepDoc",
+  "targetStatus",
+  "startedEvidenceRefs",
+  "stepCommitRecord",
+  "noCodeStepEvidence",
+  "codeReviewRecord",
+  "cleanCodeReviewRecord",
+  "testEvidenceRecord",
+  "blocker",
+  "evidenceRefs"
+] as const;
+
+function containsUnsupportedImplementationStepLedgerPayload(command: ProductEngineCommand) {
+  return !hasOnlyRecordKeys(command.payload, IMPLEMENTATION_STEP_LEDGER_ALLOWED_PAYLOAD_KEYS);
+}
+
+function stringValuesFromUnknown(value: unknown): readonly string[] {
+  if (typeof value === "string") {
+    return [value];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap(stringValuesFromUnknown);
+  }
+
+  const record = recordFromUnknown(value);
+
+  return record ? Object.values(record).flatMap(stringValuesFromUnknown) : [];
+}
+
+function containsImplementationStepLedgerForbiddenCustodyValue(payload: ProductEngineCommand["payload"]) {
+  return stringValuesFromUnknown(payload).some((value) =>
+    servicePageUsePermissionRefHasForbiddenCustodyContent(value) ||
+    servicePageUsePermissionStringHasUrlCredentials(value)
+  );
+}
+
+function stringArrayFromRecord(value: unknown, allowEmpty = false) {
+  if (value === undefined && allowEmpty) {
+    return [] as readonly string[];
+  }
+
+  const values = stringArray(value, allowEmpty);
+
+  return values === null ? null : uniqueStringRefs([...values]);
+}
+
+function implementationStepStatusFromValue(value: unknown): ImplementationStepStatus | null {
+  const status = requiredString(value);
+
+  return status && IMPLEMENTATION_STEP_STATUSES.includes(status as ImplementationStepStatus)
+    ? (status as ImplementationStepStatus)
+    : null;
+}
+
+function implementationReviewVerdictFromValue(value: unknown) {
+  const verdict = requiredString(value);
+
+  return verdict && IMPLEMENTATION_REVIEW_VERDICTS.includes(verdict as CodeReviewRecord["verdict"])
+    ? verdict as CodeReviewRecord["verdict"]
+    : null;
+}
+
+function implementationTestOutcomeFromValue(value: unknown) {
+  const outcome = requiredString(value);
+
+  return outcome && IMPLEMENTATION_TEST_OUTCOMES.includes(outcome as TestEvidenceRecord["outcome"])
+    ? outcome as TestEvidenceRecord["outcome"]
+    : null;
+}
+
+function trackerDocFromValue(value: unknown): TrackerDoc | null {
+  const record = recordFromUnknown(value);
+  const trackerId = requiredString(record?.trackerId);
+  const title = requiredString(record?.title);
+  const goal = requiredString(record?.goal);
+  const sourceRefs = stringArrayFromRecord(record?.sourceRefs);
+
+  return trackerId && title && goal && sourceRefs?.length
+    ? { trackerId, title, goal, sourceRefs }
+    : null;
+}
+
+function implementationStepDocFromValue(value: unknown): ImplementationStepDoc | null {
+  const record = recordFromUnknown(value);
+  const stepId = requiredString(record?.stepId);
+  const title = requiredString(record?.title);
+  const description = requiredString(record?.description);
+  const sourceRefs = stringArrayFromRecord(record?.sourceRefs);
+  const expectedChangeScope = requiredString(record?.expectedChangeScope);
+
+  if (
+    !stepId ||
+    !title ||
+    !description ||
+    !sourceRefs?.length ||
+    (expectedChangeScope !== "tracked_code_docs_config" && expectedChangeScope !== "verification_only" && expectedChangeScope !== "no_op_review")
+  ) {
+    return null;
+  }
+
+  return {
+    stepId,
+    title,
+    description,
+    sourceRefs,
+    expectedChangeScope
+  };
+}
+
+function stepCommitRecordFromValue(value: unknown, stepId: string): StepCommitRecord | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const record = recordFromUnknown(value);
+  const recordStepId = requiredString(record?.stepId);
+  const commitSha = requiredString(record?.commitSha);
+  const previousCommitSha = requiredString(record?.previousCommitSha);
+  const diffRange = requiredString(record?.diffRange);
+  const changedFiles = stringArrayFromRecord(record?.changedFiles);
+  const rollbackRef = requiredString(record?.rollbackRef);
+  const evidenceRefs = stringArrayFromRecord(record?.evidenceRefs);
+
+  if (!recordStepId || recordStepId !== stepId || !commitSha || !previousCommitSha || !diffRange || !changedFiles?.length || !rollbackRef || !evidenceRefs?.length) {
+    return null;
+  }
+
+  return {
+    stepId,
+    commitSha,
+    previousCommitSha,
+    diffRange,
+    changedFiles,
+    rollbackRef,
+    evidenceRefs
+  };
+}
+
+function noCodeStepEvidenceFromValue(value: unknown, stepId: string): NoCodeStepEvidence | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const record = recordFromUnknown(value);
+  const recordStepId = requiredString(record?.stepId);
+  const baselineCommitSha = requiredString(record?.baselineCommitSha);
+  const noCodeReason = requiredString(record?.noCodeReason);
+  const commandEvidenceRefs = stringArrayFromRecord(record?.commandEvidenceRefs);
+  const notTestedGaps = stringArrayFromRecord(record?.notTestedGaps, true);
+
+  if (
+    !recordStepId ||
+    recordStepId !== stepId ||
+    !baselineCommitSha ||
+    record?.cleanTrackedState === undefined ||
+    record?.intendedTrackedDiff !== "none" ||
+    !noCodeReason ||
+    !commandEvidenceRefs?.length ||
+    notTestedGaps === null
+  ) {
+    return null;
+  }
+
+  return {
+    stepId,
+    baselineCommitSha,
+    cleanTrackedState: record.cleanTrackedState === true,
+    intendedTrackedDiff: "none",
+    noCodeReason,
+    commandEvidenceRefs,
+    notTestedGaps
+  };
+}
+
+function codeReviewRecordFromValue(value: unknown, stepId: string): CodeReviewRecord | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const record = recordFromUnknown(value);
+  const recordStepId = requiredString(record?.stepId);
+  const reviewId = requiredString(record?.reviewId);
+  const reviewer = requiredString(record?.reviewer);
+  const verdict = implementationReviewVerdictFromValue(record?.verdict);
+  const comparedFromCommitSha = requiredString(record?.comparedFromCommitSha);
+  const comparedToCommitSha = requiredString(record?.comparedToCommitSha);
+  const findings = stringArrayFromRecord(record?.findings, true);
+  const evidenceRefs = stringArrayFromRecord(record?.evidenceRefs);
+
+  if (!recordStepId || recordStepId !== stepId || !reviewId || !reviewer || !verdict || !comparedFromCommitSha || !comparedToCommitSha || findings === null || !evidenceRefs?.length) {
+    return null;
+  }
+
+  return {
+    stepId,
+    reviewId,
+    reviewer,
+    verdict,
+    comparedFromCommitSha,
+    comparedToCommitSha,
+    findings,
+    evidenceRefs
+  };
+}
+
+function cleanCodeReviewRecordFromValue(value: unknown, stepId: string): CleanCodeReviewRecord | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const record = recordFromUnknown(value);
+  const recordStepId = requiredString(record?.stepId);
+  const reviewId = requiredString(record?.reviewId);
+  const reviewer = requiredString(record?.reviewer);
+  const verdict = implementationReviewVerdictFromValue(record?.verdict);
+  const comparedFromCommitSha = requiredString(record?.comparedFromCommitSha);
+  const comparedToCommitSha = requiredString(record?.comparedToCommitSha);
+  const simplifications = stringArrayFromRecord(record?.simplifications, true);
+  const evidenceRefs = stringArrayFromRecord(record?.evidenceRefs);
+
+  if (!recordStepId || recordStepId !== stepId || !reviewId || !reviewer || !verdict || !comparedFromCommitSha || !comparedToCommitSha || simplifications === null || !evidenceRefs?.length) {
+    return null;
+  }
+
+  return {
+    stepId,
+    reviewId,
+    reviewer,
+    verdict,
+    comparedFromCommitSha,
+    comparedToCommitSha,
+    simplifications,
+    evidenceRefs
+  };
+}
+
+function testEvidenceRecordFromValue(value: unknown, stepId: string): TestEvidenceRecord | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const record = recordFromUnknown(value);
+  const recordStepId = requiredString(record?.stepId);
+  const testEvidenceId = requiredString(record?.testEvidenceId);
+  const commands = stringArrayFromRecord(record?.commands);
+  const outcome = implementationTestOutcomeFromValue(record?.outcome);
+  const verifiedCommitSha = record?.verifiedCommitSha === undefined ? undefined : requiredString(record.verifiedCommitSha);
+  const passedTestCount = typeof record?.passedTestCount === "number" ? record.passedTestCount : null;
+  const failedTestCount = typeof record?.failedTestCount === "number" ? record.failedTestCount : null;
+  const notTestedGaps = stringArrayFromRecord(record?.notTestedGaps, true);
+  const evidenceRefs = stringArrayFromRecord(record?.evidenceRefs);
+
+  if (!recordStepId || recordStepId !== stepId || !testEvidenceId || !commands?.length || !outcome || verifiedCommitSha === null || passedTestCount === null || failedTestCount === null || notTestedGaps === null || !evidenceRefs?.length) {
+    return null;
+  }
+
+  return {
+    stepId,
+    testEvidenceId,
+    commands,
+    outcome,
+    ...(verifiedCommitSha ? { verifiedCommitSha } : {}),
+    passedTestCount,
+    failedTestCount,
+    notTestedGaps,
+    evidenceRefs
+  };
+}
+
+function implementationStepBlockerFromValue(value: unknown, stepId: string): ImplementationStepBlocker | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const record = recordFromUnknown(value);
+  const recordStepId = requiredString(record?.stepId);
+  const reason = requiredString(record?.reason);
+  const missingEvidence = stringArrayFromRecord(record?.missingEvidence);
+  const nextRequiredAction = requiredString(record?.nextRequiredAction);
+  const evidenceRefs = stringArrayFromRecord(record?.evidenceRefs);
+
+  if (!recordStepId || recordStepId !== stepId || !reason || !missingEvidence?.length || !nextRequiredAction || !evidenceRefs?.length) {
+    return null;
+  }
+
+  return {
+    stepId,
+    reason,
+    missingEvidence,
+    nextRequiredAction,
+    evidenceRefs
+  };
+}
+
+function implementationStepRequiredEvidence(input: {
+  readonly stepDoc: ImplementationStepDoc;
+  readonly stepCommitRecord: StepCommitRecord | null;
+  readonly noCodeStepEvidence: NoCodeStepEvidence | null;
+  readonly codeReviewRecord: CodeReviewRecord | null;
+  readonly cleanCodeReviewRecord: CleanCodeReviewRecord | null;
+  readonly testEvidenceRecord: TestEvidenceRecord | null;
+}) {
+  const missing: string[] = [];
+  const implementationEvidence = input.stepCommitRecord ?? input.noCodeStepEvidence;
+
+  if (!implementationEvidence) {
+    missing.push(input.stepDoc.expectedChangeScope === "tracked_code_docs_config" ? "StepCommitRecord" : "StepCommitRecord or NoCodeStepEvidence");
+  }
+  if (input.stepDoc.expectedChangeScope === "tracked_code_docs_config" && !input.stepCommitRecord) {
+    missing.push("tracked step-local commit SHA");
+  }
+  if (input.noCodeStepEvidence && (!input.noCodeStepEvidence.cleanTrackedState || input.noCodeStepEvidence.notTestedGaps.length > 0)) {
+    missing.push("clean NoCodeStepEvidence without Not-tested gaps");
+  }
+  if (input.codeReviewRecord?.verdict !== "passed") {
+    missing.push("passing CodeReviewRecord");
+  }
+  if (input.cleanCodeReviewRecord?.verdict !== "passed") {
+    missing.push("passing CleanCodeReviewRecord");
+  }
+  if (!input.testEvidenceRecord || input.testEvidenceRecord.outcome !== "passed" || input.testEvidenceRecord.passedTestCount <= 0 || input.testEvidenceRecord.failedTestCount > 0 || input.testEvidenceRecord.notTestedGaps.length > 0) {
+    missing.push("passing TestEvidenceRecord without failed tests or Not-tested gaps");
+  }
+
+  return uniqueStringRefs(missing);
+}
+
+function implementationStepStageEvidence(input: {
+  readonly targetStatus: ImplementationStepStatus;
+  readonly stepDoc: ImplementationStepDoc;
+  readonly startedEvidenceRefs: readonly string[];
+  readonly stepCommitRecord: StepCommitRecord | null;
+  readonly noCodeStepEvidence: NoCodeStepEvidence | null;
+  readonly codeReviewRecord: CodeReviewRecord | null;
+  readonly cleanCodeReviewRecord: CleanCodeReviewRecord | null;
+  readonly testEvidenceRecord: TestEvidenceRecord | null;
+}) {
+  const missing: string[] = [];
+  const implementationEvidence = input.stepCommitRecord ?? input.noCodeStepEvidence;
+  const needsImplementationEvidence = [
+    "committed",
+    "review_required",
+    "clean_code_review_required",
+    "tests_required",
+    "completed"
+  ].includes(input.targetStatus);
+  const needsCodeReview = ["clean_code_review_required", "tests_required", "completed"].includes(input.targetStatus);
+  const needsCleanCodeReview = ["tests_required", "completed"].includes(input.targetStatus);
+  const needsTests = input.targetStatus === "completed";
+
+  if (input.targetStatus === "implementing" && input.startedEvidenceRefs.length === 0) {
+    missing.push("started implementation evidence refs");
+  }
+  if (needsImplementationEvidence && !implementationEvidence) {
+    missing.push(input.stepDoc.expectedChangeScope === "tracked_code_docs_config" ? "StepCommitRecord" : "StepCommitRecord or NoCodeStepEvidence");
+  }
+  if (needsImplementationEvidence && input.stepDoc.expectedChangeScope === "tracked_code_docs_config" && !input.stepCommitRecord) {
+    missing.push("tracked step-local commit SHA");
+  }
+  if (input.noCodeStepEvidence && (!input.noCodeStepEvidence.cleanTrackedState || input.noCodeStepEvidence.notTestedGaps.length > 0)) {
+    missing.push("clean NoCodeStepEvidence without Not-tested gaps");
+  }
+  if (needsCodeReview && input.codeReviewRecord?.verdict !== "passed") {
+    missing.push("passing CodeReviewRecord");
+  }
+  if (needsCleanCodeReview && input.cleanCodeReviewRecord?.verdict !== "passed") {
+    missing.push("passing CleanCodeReviewRecord");
+  }
+  if (needsTests && (!input.testEvidenceRecord || input.testEvidenceRecord.outcome !== "passed" || input.testEvidenceRecord.failedTestCount > 0 || input.testEvidenceRecord.notTestedGaps.length > 0)) {
+    missing.push("passing TestEvidenceRecord without failed tests or Not-tested gaps");
+  }
+
+  return uniqueStringRefs(missing);
+}
+
+const IMPLEMENTATION_STEP_LINEAR_STATUSES = [
+  "planned",
+  "ready",
+  "implementing",
+  "committed",
+  "review_required",
+  "clean_code_review_required",
+  "tests_required",
+  "completed"
+] as const satisfies readonly ImplementationStepStatus[];
+
+function implementationStepLinearIndex(status: ImplementationStepStatus) {
+  return IMPLEMENTATION_STEP_LINEAR_STATUSES.indexOf(status as (typeof IMPLEMENTATION_STEP_LINEAR_STATUSES)[number]);
+}
+
+function implementationStepLinearMissingEvidence(input: {
+  readonly targetStatus: ImplementationStepStatus;
+  readonly previousNonBlockedStep: ImplementationStepRecord | null;
+}) {
+  if (input.targetStatus === "blocked") {
+    return [];
+  }
+
+  const targetIndex = implementationStepLinearIndex(input.targetStatus);
+
+  if (!input.previousNonBlockedStep) {
+    return targetIndex <= implementationStepLinearIndex("ready")
+      ? []
+      : [`linear status transition before ${input.targetStatus}`];
+  }
+
+  const previousIndex = implementationStepLinearIndex(input.previousNonBlockedStep.status);
+
+  if (previousIndex < 0) {
+    return targetIndex <= implementationStepLinearIndex("ready")
+      ? []
+      : [`linear status transition before ${input.targetStatus}`];
+  }
+  if (targetIndex === previousIndex || targetIndex === previousIndex + 1) {
+    return [];
+  }
+  if (targetIndex < previousIndex) {
+    return [`linear status regression from ${input.previousNonBlockedStep.status} to ${input.targetStatus}`];
+  }
+
+  return [`linear status transition: record ${IMPLEMENTATION_STEP_LINEAR_STATUSES[previousIndex + 1]} before ${input.targetStatus}`];
+}
+
+function implementationStepStatus(input: {
+  readonly targetStatus: ImplementationStepStatus;
+  readonly startedEvidenceRefs: readonly string[];
+  readonly missingRequiredEvidence: readonly string[];
+  readonly missingStageEvidence: readonly string[];
+  readonly blocker: ImplementationStepBlocker | null;
+  readonly stepCommitRecord: StepCommitRecord | null;
+  readonly noCodeStepEvidence: NoCodeStepEvidence | null;
+  readonly codeReviewRecord: CodeReviewRecord | null;
+  readonly cleanCodeReviewRecord: CleanCodeReviewRecord | null;
+  readonly testEvidenceRecord: TestEvidenceRecord | null;
+}): ImplementationStepStatus {
+  if (input.blocker || input.codeReviewRecord?.verdict === "changes_requested" || input.codeReviewRecord?.verdict === "blocked" || input.cleanCodeReviewRecord?.verdict === "changes_requested" || input.cleanCodeReviewRecord?.verdict === "blocked" || input.testEvidenceRecord?.outcome === "failed" || (input.testEvidenceRecord?.notTestedGaps.length ?? 0) > 0) {
+    return "blocked";
+  }
+
+  if (input.targetStatus === "completed") {
+    return input.missingRequiredEvidence.length ? "blocked" : "completed";
+  }
+
+  if (input.targetStatus !== "blocked" && input.missingStageEvidence.length > 0) {
+    return "blocked";
+  }
+
+  return input.targetStatus;
+}
+
+function implementationStepBlocker(input: {
+  readonly stepId: string;
+  readonly status: ImplementationStepStatus;
+  readonly explicitBlocker: ImplementationStepBlocker | null;
+  readonly missingRequiredEvidence: readonly string[];
+  readonly commandId: string;
+}) {
+  if (input.explicitBlocker) {
+    return input.explicitBlocker;
+  }
+
+  if (input.status !== "blocked") {
+    return null;
+  }
+
+  return {
+    stepId: input.stepId,
+    reason: "Implementation step cannot complete until required commit, review, clean-code review, and test evidence is present and passing.",
+    missingEvidence: input.missingRequiredEvidence.length ? input.missingRequiredEvidence : ["passing implementation step evidence"],
+    nextRequiredAction: "Record the missing evidence or leave the step visible as blocked/Not-tested.",
+    evidenceRefs: [`implementation-step-ledger:blocker:${input.commandId}`]
+  } satisfies ImplementationStepBlocker;
+}
+
+function implementationStepLedgerSummaryForStatus(status: ImplementationStepStatus) {
+  switch (status) {
+    case "completed":
+      return "Implementation step is completed with commit/review/test evidence.";
+    case "blocked":
+      return "Implementation step ledger is blocked by missing or failed evidence.";
+    case "tests_required":
+      return "Implementation step is waiting for test evidence.";
+    case "clean_code_review_required":
+      return "Implementation step is waiting for clean-code review.";
+    case "review_required":
+      return "Implementation step is waiting for code review.";
+    case "committed":
+      return "Implementation step has a local commit record.";
+    case "implementing":
+      return "Implementation step is in progress.";
+    case "ready":
+      return "Implementation step is ready with documented inputs.";
+    case "planned":
+      return "Implementation step is planned.";
+  }
+}
+
+function implementationStepLedgerProjectionFromSteps(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot,
+  trackerDoc: TrackerDoc,
+  steps: readonly ImplementationStepRecord[]
+): ImplementationStepLedgerProjection {
+  const currentStatus = steps.at(-1)?.status ?? "planned";
+  const draft = {
+    kind: "ImplementationStepLedgerProjection",
+    sessionId: command.sessionId,
+    version: projectionVersionFor(state),
+    currentStatus,
+    trackerDoc,
+    steps,
+    stepCommitRecords: steps.flatMap((step) => step.stepCommitRecord ? [step.stepCommitRecord] : []),
+    noCodeStepEvidenceRecords: steps.flatMap((step) => step.noCodeStepEvidence ? [step.noCodeStepEvidence] : []),
+    codeReviewRecords: steps.flatMap((step) => step.codeReviewRecord ? [step.codeReviewRecord] : []),
+    cleanCodeReviewRecords: steps.flatMap((step) => step.cleanCodeReviewRecord ? [step.cleanCodeReviewRecord] : []),
+    testEvidenceRecords: steps.flatMap((step) => step.testEvidenceRecord ? [step.testEvidenceRecord] : []),
+    blockedSteps: steps.flatMap((step) => step.blocker ? [step.blocker] : []),
+    progressReport: "",
+    summary: implementationStepLedgerSummaryForStatus(currentStatus),
+    refetchUrl: `/api/v1/sessions/${command.sessionId}/implementation-step-ledger`,
+    schemaVersion: IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION
+  } satisfies ImplementationStepLedgerProjection;
+
+  return validateImplementationStepLedgerProjection({
+    ...draft,
+    progressReport: implementationStepLedgerProgressReport(draft)
+  });
+}
+
+function reduceRecordImplementationStepLedger(
+  command: ProductEngineCommand,
+  state: ProductEngineStateSnapshot
+): ProductEngineReduction {
+  if (containsUnsupportedImplementationStepLedgerPayload(command)) {
+    return reject("RecordImplementationStepLedger payload contains unsupported keys.", "VALIDATION_FAILED");
+  }
+  if (containsImplementationStepLedgerForbiddenCustodyValue(command.payload)) {
+    return reject(
+      "RecordImplementationStepLedger payload must not contain credential, session, token, or secret values.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  const payload = command.payload as Partial<RecordImplementationStepLedgerPayload>;
+  const trackerDoc = trackerDocFromValue(payload.trackerDoc);
+  const stepDoc = implementationStepDocFromValue(payload.stepDoc);
+  const targetStatus = implementationStepStatusFromValue(payload.targetStatus);
+  const startedEvidenceRefs = stringArrayFromRecord(payload.startedEvidenceRefs, true);
+  const evidenceRefs = stringArrayFromRecord(payload.evidenceRefs, true);
+
+  if (!trackerDoc || !stepDoc || !targetStatus || startedEvidenceRefs === null || evidenceRefs === null) {
+    return reject("RecordImplementationStepLedger payload is invalid.", "VALIDATION_FAILED");
+  }
+
+  const stepCommitRecord = stepCommitRecordFromValue(payload.stepCommitRecord, stepDoc.stepId);
+  const noCodeStepEvidence = noCodeStepEvidenceFromValue(payload.noCodeStepEvidence, stepDoc.stepId);
+  const codeReviewRecord = codeReviewRecordFromValue(payload.codeReviewRecord, stepDoc.stepId);
+  const cleanCodeReviewRecord = cleanCodeReviewRecordFromValue(payload.cleanCodeReviewRecord, stepDoc.stepId);
+  const testEvidenceRecord = testEvidenceRecordFromValue(payload.testEvidenceRecord, stepDoc.stepId);
+  const explicitBlocker = implementationStepBlockerFromValue(payload.blocker, stepDoc.stepId);
+
+  if ([stepCommitRecord, noCodeStepEvidence, codeReviewRecord, cleanCodeReviewRecord, testEvidenceRecord, explicitBlocker].some((record) => record === null)) {
+    return reject("RecordImplementationStepLedger evidence records are invalid or do not match the step id.", "VALIDATION_FAILED");
+  }
+
+  const existingSteps = state.implementationStepLedger?.steps ?? [];
+  const previousNonBlockedStep = [...existingSteps]
+    .reverse()
+    .find((step) => step.stepDoc.stepId === stepDoc.stepId && step.status !== "blocked") ?? null;
+  const missingRequiredEvidence = implementationStepRequiredEvidence({
+    stepDoc,
+    stepCommitRecord: stepCommitRecord ?? null,
+    noCodeStepEvidence: noCodeStepEvidence ?? null,
+    codeReviewRecord: codeReviewRecord ?? null,
+    cleanCodeReviewRecord: cleanCodeReviewRecord ?? null,
+    testEvidenceRecord: testEvidenceRecord ?? null
+  });
+  const missingStageEvidence = implementationStepStageEvidence({
+    targetStatus,
+    stepDoc,
+    startedEvidenceRefs,
+    stepCommitRecord: stepCommitRecord ?? null,
+    noCodeStepEvidence: noCodeStepEvidence ?? null,
+    codeReviewRecord: codeReviewRecord ?? null,
+    cleanCodeReviewRecord: cleanCodeReviewRecord ?? null,
+    testEvidenceRecord: testEvidenceRecord ?? null
+  });
+  const missingLinearEvidence = implementationStepLinearMissingEvidence({
+    targetStatus,
+    previousNonBlockedStep
+  });
+  const status = implementationStepStatus({
+    targetStatus,
+    startedEvidenceRefs,
+    missingRequiredEvidence,
+    missingStageEvidence: uniqueStringRefs([...missingStageEvidence, ...missingLinearEvidence]),
+    blocker: explicitBlocker ?? null,
+    stepCommitRecord: stepCommitRecord ?? null,
+    noCodeStepEvidence: noCodeStepEvidence ?? null,
+    codeReviewRecord: codeReviewRecord ?? null,
+    cleanCodeReviewRecord: cleanCodeReviewRecord ?? null,
+    testEvidenceRecord: testEvidenceRecord ?? null
+  });
+  const visibleMissingEvidence = status === "completed" ? [] : uniqueStringRefs([
+    ...missingStageEvidence,
+    ...missingLinearEvidence,
+    ...(status === "blocked" ? missingRequiredEvidence : [])
+  ]);
+  const blocker = implementationStepBlocker({
+    stepId: stepDoc.stepId,
+    status,
+    explicitBlocker: explicitBlocker ?? null,
+    missingRequiredEvidence: visibleMissingEvidence,
+    commandId: command.commandId
+  });
+  const stepRecord: ImplementationStepRecord = {
+    stepDoc,
+    status,
+    missingEvidence: visibleMissingEvidence,
+    blocker,
+    evidenceRefs: uniqueStringRefs([
+      `implementation-step:${stepDoc.stepId}`,
+      ...startedEvidenceRefs,
+      ...evidenceRefs,
+      ...(stepCommitRecord?.evidenceRefs ?? []),
+      ...(noCodeStepEvidence?.commandEvidenceRefs ?? []),
+      ...(codeReviewRecord?.evidenceRefs ?? []),
+      ...(cleanCodeReviewRecord?.evidenceRefs ?? []),
+      ...(testEvidenceRecord?.evidenceRefs ?? []),
+      ...(blocker?.evidenceRefs ?? [])
+    ]),
+    updatedAt: command.issuedAt,
+    stepCommitRecord: stepCommitRecord ?? null,
+    noCodeStepEvidence: noCodeStepEvidence ?? null,
+    codeReviewRecord: codeReviewRecord ?? null,
+    cleanCodeReviewRecord: cleanCodeReviewRecord ?? null,
+    testEvidenceRecord: testEvidenceRecord ?? null
+  };
+  let projection: ImplementationStepLedgerProjection;
+
+  try {
+    projection = implementationStepLedgerProjectionFromSteps(command, state, trackerDoc, [
+      ...existingSteps,
+      stepRecord
+    ]);
+  } catch (error) {
+    return reject(error instanceof Error ? error.message : String(error), "VALIDATION_FAILED");
+  }
+
+  const eventType = status === "completed"
+    ? "ImplementationStepCompleted"
+    : status === "blocked"
+      ? "ImplementationStepBlocked"
+      : "ImplementationStepLedgerRecorded";
+  const event = eventDraft(command, eventType, {
+    trackerId: trackerDoc.trackerId,
+    stepId: stepDoc.stepId,
+    status,
+    projection,
+    summary: projection.summary
+  });
+
+  return acceptedReduction(
+    command,
+    state,
+    event,
+    {
+      implementationStepLedger: projection
+    },
+    [
+      {
+        outputType: "implementation_step_ledger",
+        outputRef: stepDoc.stepId,
+        payload: {
+          trackerId: trackerDoc.trackerId,
+          stepId: stepDoc.stepId,
+          status,
+          missingEvidence: stepRecord.missingEvidence,
+          progressReport: projection.progressReport
+        }
+      }
+    ],
+    [],
+    projection
+  );
+}
+
 const PHASE25_ALLOWED_PAYLOAD_KEYS = [
   "researchQuestion",
   "decisionContext",
@@ -9569,6 +10277,8 @@ export function reduceProductEngineCommand(
       return reduceRevokeServicePageUsePermission(command, state);
     case "DeleteServicePageUsePermissionArtifacts":
       return reduceDeleteServicePageUsePermissionArtifacts(command, state);
+    case "RecordImplementationStepLedger":
+      return reduceRecordImplementationStepLedger(command, state);
     default:
       return reject(`${command.commandType} is outside the mounted PR-09 reducer slice.`);
   }
@@ -10167,6 +10877,17 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
         ...state,
         stateVersion: nextStateVersion,
         ...(servicePageUsePermission ? { servicePageUsePermission } : {})
+      };
+    }
+    case "ImplementationStepLedgerRecorded":
+    case "ImplementationStepBlocked":
+    case "ImplementationStepCompleted": {
+      const implementationStepLedger = projectionPayload(event.payload, state.implementationStepLedger);
+
+      return {
+        ...state,
+        stateVersion: nextStateVersion,
+        ...(implementationStepLedger ? { implementationStepLedger } : {})
       };
     }
     default:

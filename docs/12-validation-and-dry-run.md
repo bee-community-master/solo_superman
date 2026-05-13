@@ -606,5 +606,6 @@ Phase 1~2 구현 보강 closeout의 repo-local evidence ledger는 `docs/35-phase
 - [x] ChatGPT Pro delegation dry-run은 credential/session custody, account sharing/resale, unattended background queue, automatic submit/write를 block verdict로 기록한다.
   - Evidence: `apps/sidecar/src/e2e-dry-run.test.ts`의 Scenario L은 mocked ChatGPT page state, Phase 3 `browser_action` authority, `ChatGptBrowserDelegationProjection.running`, revoke, blocked/fallback, failed result-import gate를 함께 검증한다.
 - [ ] External service page-use permission dry-run은 read/fill draft/preview/final submit request action class를 구분하고, final submit은 별도 explicit approval 없이는 blocked다.
-- [ ] Implementation step ledger dry-run은 tracker doc, implement step doc, local commit SHA, code review, clean-code review, test evidence를 하나의 step completion condition으로 검증한다.
+- [x] Implementation step ledger dry-run은 tracker doc, implementation step doc, local commit SHA, code review, clean-code review, test evidence를 하나의 step completion condition으로 검증하고, failed/Not-tested evidence는 completed가 아니라 blocked로 남긴다.
+  - Evidence: `apps/sidecar/src/e2e-dry-run.test.ts`의 Post-Phase3 #104 dry-run은 `RecordImplementationStepLedger` + `GET /implementation-step-ledger` route를 통해 completed step과 failed-test blocked step을 모두 검증한다.
 - [ ] macOS shell과 Windows PowerShell install/run/verify command family가 모두 문서화되고, API key 기본 입력 없이 local web + sidecar 실행 경로를 설명한다.

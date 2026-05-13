@@ -2217,6 +2217,259 @@ describe("PR-09 end-to-end dry-run hardening", () => {
     }
   });
 
+  it("records and refetches implementation step ledger completion and visible blockers", async () => {
+    const { app, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await postJson(app, "/api/v1/projects", {
+        rawIdea: "An implementation step ledger dry-run idea",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "personal",
+        projectPurposeModeConfirmation: "user_confirmed"
+      });
+      const sessionId = sessionIdFromStart(responseData(start.body));
+      const trackerDoc = {
+        trackerId: "tracker_e2e_issue_104",
+        title: "E2E implementation ledger tracker",
+        goal: "Prove step-local commit, review, clean-code review, and test evidence gates.",
+        sourceRefs: ["issue:104"]
+      };
+      let expectedStateVersion = 1;
+      const recordLedger = async (payload: Readonly<Record<string, unknown>>) => {
+        const targetStatus = String(payload.targetStatus);
+        const stepDoc = record(payload.stepDoc);
+        const stepId = stringField(stepDoc, "stepId");
+
+        return postJson(app, `/api/v1/sessions/${sessionId}/implementation-step-ledger`, {
+          ...payload,
+          sessionId,
+          expectedStateVersion: expectedStateVersion++,
+          idempotencyKey: `post-phase3:implementation-ledger:${stepId}:${targetStatus}:${expectedStateVersion}`
+        });
+      };
+      const completedLedgerPayload = {
+        sessionId,
+        trackerDoc,
+        startedEvidenceRefs: ["started:step_e2e_complete"],
+        stepDoc: {
+          stepId: "step_e2e_complete",
+          title: "Record complete implementation step",
+          description: "Dry-run a completed tracked-code step.",
+          sourceRefs: ["issue:104", "e2e:implementation-step-ledger"],
+          expectedChangeScope: "tracked_code_docs_config"
+        },
+        targetStatus: "completed",
+        stepCommitRecord: {
+          stepId: "step_e2e_complete",
+          commitSha: "abcdef1",
+          previousCommitSha: "1234567",
+          diffRange: "1234567..abcdef1",
+          changedFiles: ["packages/contracts/src/projections/implementation-step-ledger.ts"],
+          rollbackRef: "rollback:git-revert:abcdef1",
+          evidenceRefs: ["commit:abcdef1"]
+        },
+        codeReviewRecord: {
+          stepId: "step_e2e_complete",
+          reviewId: "review_code_e2e_complete",
+          reviewer: "codex-code-reviewer",
+          verdict: "passed",
+          comparedFromCommitSha: "1234567",
+          comparedToCommitSha: "abcdef1",
+          findings: [],
+          evidenceRefs: ["review:code:e2e"]
+        },
+        cleanCodeReviewRecord: {
+          stepId: "step_e2e_complete",
+          reviewId: "review_clean_e2e_complete",
+          reviewer: "codex-clean-code-reviewer",
+          verdict: "passed",
+          comparedFromCommitSha: "1234567",
+          comparedToCommitSha: "abcdef1",
+          simplifications: ["kept route payload mapping explicit"],
+          evidenceRefs: ["review:clean:e2e"]
+        },
+        testEvidenceRecord: {
+          stepId: "step_e2e_complete",
+          testEvidenceId: "test_e2e_complete",
+          commands: ["pnpm test apps/sidecar/src/e2e-dry-run.test.ts"],
+          outcome: "passed",
+          verifiedCommitSha: "abcdef1",
+          passedTestCount: 1,
+          failedTestCount: 0,
+          notTestedGaps: [],
+          evidenceRefs: ["test:e2e"]
+        },
+        evidenceRefs: ["ledger:e2e:complete"]
+      };
+      let completedLedger: Awaited<ReturnType<typeof postJson>> | null = null;
+
+      for (const targetStatus of [
+        "ready",
+        "implementing",
+        "committed",
+        "review_required",
+        "clean_code_review_required",
+        "tests_required",
+        "completed"
+      ]) {
+        completedLedger = await recordLedger({
+          ...completedLedgerPayload,
+          targetStatus
+        });
+      }
+
+      expect(completedLedger?.response.status, JSON.stringify(completedLedger?.body)).toBe(200);
+      expect(responseData(completedLedger!.body)).toMatchObject({
+        category: "accepted_with_projection",
+        immediateProjection: {
+          kind: "ImplementationStepLedgerProjection",
+          currentStatus: "completed",
+          stepCommitRecords: expect.arrayContaining([expect.objectContaining({ commitSha: "abcdef1" })]),
+          codeReviewRecords: expect.arrayContaining([expect.objectContaining({ reviewId: "review_code_e2e_complete" })]),
+          cleanCodeReviewRecords: expect.arrayContaining([
+            expect.objectContaining({ reviewId: "review_clean_e2e_complete" })
+          ]),
+          testEvidenceRecords: expect.arrayContaining([expect.objectContaining({ outcome: "passed" })]),
+          progressReport: expect.stringContaining("Record complete implementation step")
+        }
+      });
+
+      const blockedLedgerBasePayload = {
+        trackerDoc,
+        startedEvidenceRefs: ["started:step_e2e_blocked"],
+        stepDoc: {
+          stepId: "step_e2e_blocked",
+          title: "Keep missing tests visible",
+          description: "Dry-run a step that cannot complete without passing tests.",
+          sourceRefs: ["issue:104", "e2e:implementation-step-ledger"],
+          expectedChangeScope: "tracked_code_docs_config"
+        },
+        stepCommitRecord: {
+          stepId: "step_e2e_blocked",
+          commitSha: "bcdef12",
+          previousCommitSha: "abcdef1",
+          diffRange: "abcdef1..bcdef12",
+          changedFiles: ["packages/core/src/product-engine/index.ts"],
+          rollbackRef: "rollback:git-revert:bcdef12",
+          evidenceRefs: ["commit:bcdef12"]
+        },
+        codeReviewRecord: {
+          stepId: "step_e2e_blocked",
+          reviewId: "review_code_e2e_blocked",
+          reviewer: "codex-code-reviewer",
+          verdict: "passed",
+          comparedFromCommitSha: "abcdef1",
+          comparedToCommitSha: "bcdef12",
+          findings: [],
+          evidenceRefs: ["review:code:e2e-blocked"]
+        },
+        cleanCodeReviewRecord: {
+          stepId: "step_e2e_blocked",
+          reviewId: "review_clean_e2e_blocked",
+          reviewer: "codex-clean-code-reviewer",
+          verdict: "passed",
+          comparedFromCommitSha: "abcdef1",
+          comparedToCommitSha: "bcdef12",
+          simplifications: [],
+          evidenceRefs: ["review:clean:e2e-blocked"]
+        },
+        evidenceRefs: ["ledger:e2e:blocked"]
+      };
+
+      for (const targetStatus of [
+        "ready",
+        "implementing",
+        "committed",
+        "review_required",
+        "clean_code_review_required",
+        "tests_required"
+      ]) {
+        const transition = await recordLedger({
+          ...blockedLedgerBasePayload,
+          targetStatus
+        });
+
+        expect(transition.response.status, JSON.stringify(transition.body)).toBe(200);
+      }
+
+      const blockedLedger = await recordLedger({
+        ...blockedLedgerBasePayload,
+        targetStatus: "completed",
+        testEvidenceRecord: {
+          stepId: "step_e2e_blocked",
+          testEvidenceId: "test_e2e_blocked",
+          commands: ["pnpm verify"],
+          outcome: "failed",
+          verifiedCommitSha: "bcdef12",
+          passedTestCount: 12,
+          failedTestCount: 1,
+          notTestedGaps: ["lint not re-run after the failure"],
+          evidenceRefs: ["test:e2e-blocked"]
+        }
+      });
+
+      expect(blockedLedger.response.status, JSON.stringify(blockedLedger.body)).toBe(200);
+      expect(responseData(blockedLedger.body)).toMatchObject({
+        immediateProjection: {
+          currentStatus: "blocked",
+          blockedSteps: [
+            expect.objectContaining({
+              stepId: "step_e2e_blocked",
+              missingEvidence: expect.arrayContaining(["passing TestEvidenceRecord without failed tests or Not-tested gaps"])
+            })
+          ],
+          progressReport: expect.stringContaining("Keep missing tests visible")
+        }
+      });
+
+      const refetched = await getJson(app, `/api/v1/sessions/${sessionId}/implementation-step-ledger`);
+
+      expect(refetched.response.status).toBe(200);
+      expect(responseData(refetched.body)).toMatchObject({
+        currentStatus: "blocked",
+        steps: expect.arrayContaining([
+          expect.objectContaining({ status: "completed" }),
+          expect.objectContaining({
+            status: "blocked",
+            testEvidenceRecord: expect.objectContaining({
+              outcome: "failed",
+              notTestedGaps: ["lint not re-run after the failure"]
+            })
+          })
+        ])
+      });
+
+      const tokenShapedValue = "access_token=redacted_test_value_1234567890";
+      const rejectedSecret = await postJson(app, `/api/v1/sessions/${sessionId}/implementation-step-ledger`, {
+        sessionId,
+        expectedStateVersion,
+        idempotencyKey: "post-phase3:implementation-ledger:secret-rejected",
+        trackerDoc,
+        stepDoc: {
+          stepId: "step_e2e_secret_rejected",
+          title: "Reject token-shaped evidence",
+          description: "Reject ledger payloads that would persist token-shaped values.",
+          sourceRefs: ["issue:104"],
+          expectedChangeScope: "verification_only"
+        },
+        targetStatus: "ready",
+        evidenceRefs: [`leaked:${tokenShapedValue}`]
+      });
+
+      expect(rejectedSecret.response.status, JSON.stringify(rejectedSecret.body)).toBe(200);
+      expect(responseData(rejectedSecret.body)).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "VALIDATION_FAILED",
+          message: "RecordImplementationStepLedger payload must not contain credential, session, token, or secret values."
+        }
+      });
+      expect(JSON.stringify(rejectedSecret.body)).not.toContain(tokenShapedValue);
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("rejects service page-use permission route bodies that carry credential, cookie, or session material", async () => {
     const { app, storage } = await createMigratedStorageApp();
 

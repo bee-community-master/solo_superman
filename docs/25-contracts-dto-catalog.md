@@ -207,6 +207,7 @@ Phase 1 command type values are closed, and Phase 1.5A allowlist/disclosure/run-
 | `CreateServicePageUsePermission` | create purpose-limited external service page-use permission; requires explicit user approval evidence after previewing service origin/page URL, purpose, data categories, allowed/blocked actions, user-owned login, redaction/export/delete controls, and final-submit boundary without credential/session custody |
 | `RevokeServicePageUsePermission` | revoke the latest granted/final-submit-requested service page-use permission and record audit evidence so further page-use actions are blocked |
 | `DeleteServicePageUsePermissionArtifacts` | delete retained service page-use prompt/redaction/screenshot/log artifact refs from the addressed permission record while preserving audit metadata and user-visible deletion evidence |
+| `RecordImplementationStepLedger` | record a Codex-built implementation step ledger entry; tracked code/docs/config steps require a step-local commit SHA, previous commit/diff/rollback ref, separate code review and clean-code review records, and passing test evidence before completion |
 | `CreateResearchAllowlist` | create project-level read-only research allowlist governance projection; no ProductEngine reducer side effects |
 | `UpdateResearchAllowlist` | update active/paused allowlist policy fields or reactivate paused allowlist; no ProductEngine reducer side effects |
 | `PauseResearchAllowlist` | pause future automatic research run starts for an allowlist; no ProductEngine reducer side effects |
@@ -285,6 +286,7 @@ Example command envelope:
 | phase2.5 artifact gate | `CreatePhase25ResearchComparisonPayload` | research question, decision context, baseline, candidate, DelegationRiskGate, rubric, trace source refs |
 | ChatGPT browser delegation | `CreateChatGptBrowserDelegationRunPayload` | research task id, prompt preview ref, redaction/data-disclosure preview, policy/session verdicts, approval decision, browser action authority ref, optional result import gate, fallback, screenshot/log/audit refs |
 | service page-use permission | `CreateServicePageUsePermissionPayload`, `RevokeServicePageUsePermissionPayload`, `DeleteServicePageUsePermissionArtifactsPayload` | service name/origin/page URL, user-visible purpose, allowed and blocked action classes, visible data categories, approval granularity, explicit `approvalDecision=approved` + `userApprovalRef` after preview, prompt/redaction previews, durable export/delete controls, optional final-submit confirmation/authority refs, screenshot/log/evidence/audit/activity refs that must not contain credential/session/token/secret-bearing values or credential-bearing URL userinfo |
+| implementation step ledger | `RecordImplementationStepLedgerPayload` | `TrackerDoc`, `ImplementationStepDoc`, target status, optional started/evidence refs, `StepCommitRecord` or `NoCodeStepEvidence`, separate `CodeReviewRecord` and `CleanCodeReviewRecord`, `TestEvidenceRecord` with `verifiedCommitSha`, and optional blocker. `completed` is only valid when implementation evidence, reviews, clean-code review, and tests are present, passing, and bound to the same commit/baseline; failed/missing tests, Not-tested gaps, dirty no-code evidence, mismatched review/test ranges, or credential/session/token/secret-shaped payload values remain visible blockers or validation failures. |
 | allowlist governance | `CreateResearchAllowlistRequest`, `UpdateResearchAllowlistRequest`, `PauseResearchAllowlistRequest`, `RevokeResearchAllowlistRequest` | project id, allowlist id, read-only connector/source policy, pause/revoke transition target |
 | disclosure governance | `PrepareResearchDisclosureRequest` | project id, optional allowlist id, connector/source category, research objective, public-safe summary inputs, source refs |
 
@@ -308,6 +310,7 @@ Example command envelope:
 | `executionAuthorityLedger` | no | `ExecutionAuthorityLedgerProjection` | latest Phase 3 common authority ledger record emitted by `CreateExecutionAuthority`; approved records remain `not_run` until adapter slices exist |
 | `chatGptBrowserDelegation` | no | `ChatGptBrowserDelegationProjection` | latest Post-Phase3 ChatGPT Pro local browser delegation preflight/run record emitted by `CreateChatGptBrowserDelegationRun`; blocked runs must expose fallback |
 | `servicePageUsePermission` | no | `ServicePageUsePermissionProjection` | latest Post-Phase3 external service page-use permission emitted by `CreateServicePageUsePermission`; login remains user-owned, fill-draft/final-submit permissions are separate, sensitive production actions stay blocked, and artifact deletion clears prompt/redaction/screenshot/log refs while keeping audit metadata |
+| `implementationStepLedger` | no | `ImplementationStepLedgerProjection` | latest Post-Phase3 implementation-step ledger emitted by `RecordImplementationStepLedger`; step completion requires step-local commit or clean no-code evidence, separate code/clean-code reviews over the same step range, passing tests bound by `verifiedCommitSha`, visible Not-tested gaps/blockers, and rollback/reference metadata |
 
 `DecisionSnapshot.requiredDecisionRef` is a closed completion-gate key: `primary_customer`, `problem`, `value`, `mvp_scope`, `validation_plan`, or `success_criteria`. PR-08 completeness must count unique closed required refs, not any six unrelated decisions.
 High-impact `CreateSpecVersion` must consume the approved `SpecUpdatePreviewSnapshot` material for its `approvedPreviewRef`; request body title/sections are optional echoes and must not mutate the approved preview material.
@@ -371,6 +374,7 @@ Closed ProductEngine event type groups:
 | phase3 authority ledger | `ExecutionAuthorityRecorded`, `ExecutionAuthorityBlocked` | Phase 3 common authority/bounded-output ledger persistence; deterministic, no adapter execution effect queue |
 | ChatGPT browser delegation | `ChatGptBrowserDelegationRunRecorded`, `ChatGptBrowserDelegationRunBlocked`, `ChatGptBrowserDelegationRunFailed`, `ChatGptBrowserDelegationRunRevoked` | Post-Phase3 per-run ChatGPT delegation run/audit/revoke/result-import gate persistence; deterministic, no hidden retry or credential/session custody |
 | service page-use permission | `ServicePagePermissionGranted`, `ServicePagePermissionRevoked`, `ServicePageArtifactsDeleted`, `ServicePageActionBlocked`, `ServicePageFinalSubmitRequested` | Post-Phase3 external service page-use permission grant/revoke/artifact-delete/block/final-submit-request persistence; deterministic, no credential/session custody or unattended account operation |
+| implementation step ledger | `ImplementationStepLedgerRecorded`, `ImplementationStepBlocked`, `ImplementationStepCompleted` | Post-Phase3 implementation step ledger persistence; deterministic, no external service mutation, and completion cannot skip commit/review/clean-code/test evidence gates |
 
 ### ProductEngineEffectPlanItem
 
@@ -416,6 +420,7 @@ Deterministic outputs are reducer-created artifacts that can be persisted or pro
 | `execution_authority_record` | Phase 3 common ledger/authority | approved/not-run or blocked `ExecutionAuthorityRecord` plus bounded output refs; deterministic and no adapter execution |
 | `chatgpt_browser_delegation_run` | Post-Phase3 ChatGPT browser delegation | pending/waiting/running/completed/blocked/failed/revoked `ChatGptBrowserDelegationRun` with policy/session/data disclosure/approval/fallback/revoke audit and result-import quality gates; deterministic and no hidden live retry |
 | `service_page_use_permission` | Post-Phase3 external service page-use permission | granted/blocked/final-submit-requested/revoked `ServicePageUsePermission` with service origin/page URL, data categories, allowed/blocked actions, explicit user approval ref, redaction/export/delete controls, user-owned login boundary, and final-submit confirmation/authority gate |
+| `implementation_step_ledger` | Post-Phase3 implementation step ledger | planned/ready/implementing/committed/review-required/clean-code-review-required/tests-required/blocked/completed implementation step progress with commit/no-code evidence, separate review records, commit/baseline-bound test evidence, missing evidence, blockers, and rollback refs |
 
 ## Effect and runtime types
 
@@ -729,6 +734,7 @@ Phase 1.5A PR-01 implementation note:
 | `ExecutionAuthorityLedgerProjection` | `projections/execution-authority.ts` | Phase 3 common authority ledger and blocked-precondition visibility |
 | `ChatGptBrowserDelegationProjection` | `projections/chatgpt-browser-delegation.ts` | Post-Phase3 ChatGPT Pro local browser delegation run state, audit, revoke, fallback, retention, and result-import gate visibility |
 | `ServicePageUsePermissionProjection` | `projections/service-page-use-permission.ts` | Post-Phase3 external service login/page-use permission state, audit, revoke, retention, and final-submit boundary visibility |
+| `ImplementationStepLedgerProjection` | `projections/implementation-step-ledger.ts` | Post-Phase3 Codex implementation step ledger state, commit/review/clean-code/test gates, visible blockers, rollback refs, and user-readable progress report |
 
 ### Projection minimum fields
 
@@ -750,6 +756,7 @@ Phase 1.5A PR-01 implementation note:
 | `ExecutionAuthorityLedgerProjection` | latest `ExecutionAuthorityRecord`, `BoundedAgentOutputRecord`, approval decision, requested scope, sandbox boundary, rollback/evidence/audit refs, blocked preconditions, summary, refetch URL |
 | `ChatGptBrowserDelegationProjection` | latest `ChatGptBrowserDelegationRun`, `pending_preflight`/`waiting_for_approval`/`running`/`waiting_for_user`/`importing_result`/`completed`/`blocked`/`failed`/`revoked` status, user-visible explanation and next action, policy/session verdicts, data disclosure preview, redaction summary, browser action authority ref, result import gate, fallback state, retained screenshot/log/audit/activity-feed refs, blocked preconditions, refetch URL |
 | `ServicePageUsePermissionProjection` | latest `ServicePageUsePermission` record, `granted`/`blocked`/`final_submit_requested`/`revoked` status, service origin, page URL, purpose, visible data categories, allowed/blocked action classes, approval granularity, explicit user approval ref, user-owned login boundary, redaction/export/delete controls, retained prompt/screenshot/log/audit/activity refs, final-submit confirmation/authority boundary, blocked preconditions, refetch URL |
+| `ImplementationStepLedgerProjection` | `TrackerDoc`, ordered `ImplementationStepDoc` entries, current status, `StepCommitRecord` / `NoCodeStepEvidence`, separate `CodeReviewRecord` and `CleanCodeReviewRecord`, `TestEvidenceRecord.verifiedCommitSha`, blocked steps, missing evidence, rollback refs, Not-tested gaps, summary, refetch URL, Founder Brief implementation-progress input, and user-readable progress report |
 
 Example DecisionQueueProjection:
 
@@ -943,7 +950,7 @@ These are not required acceptance scenarios, but they remain implementation chec
 | --- | --- |
 | Contract export map | root/family index files export only public contract types |
 | API route command mapping | 26번 route catalog uses only this closed `CommandType` enum |
-| UI Projection fixture | each of 8 projections has at least one fixture in implementation PR |
+| UI Projection fixture | each user-facing projection has at least one fixture in implementation PR |
 | Codex re-export compatibility | 24번 and 25번 enum values match |
 | Forbidden dependency imports | contracts package imports no Hono, Drizzle, React, Tauri, Codex runtime client |
 

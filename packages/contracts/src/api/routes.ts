@@ -551,6 +551,22 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "recordImplementationStepLedger",
+    clientName: "recordImplementationStepLedger",
+    method: "POST",
+    path: "/api/v1/sessions/:sessionId/implementation-step-ledger",
+    commandType: "RecordImplementationStepLedger",
+    implementedInPr01: false
+  },
+  {
+    routeId: "getImplementationStepLedger",
+    clientName: "getImplementationStepLedger",
+    method: "GET",
+    path: "/api/v1/sessions/:sessionId/implementation-step-ledger",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
     routeId: "getCommandStatus",
     clientName: "getCommandStatus",
     method: "GET",
@@ -798,4 +814,14 @@ export const POST_PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...POST_PHASE3_PR05_SERVICE_PAGE_PERMISSION_ROUTE_IDS
 ] as const satisfies readonly ApiRouteId[];
 
-export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = POST_PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS;
+export const POST_PHASE3_PR06_IMPLEMENTATION_STEP_LEDGER_ROUTE_IDS = [
+  "recordImplementationStepLedger",
+  "getImplementationStepLedger"
+] as const satisfies readonly ApiRouteId[];
+
+export const POST_PHASE3_PR06_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...POST_PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  ...POST_PHASE3_PR06_IMPLEMENTATION_STEP_LEDGER_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = POST_PHASE3_PR06_MOUNTED_PRODUCT_API_ROUTE_IDS;

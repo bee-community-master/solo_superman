@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type {
-  ProjectId,
-  QueueItemId,
-  ResearchAllowlistId,
-  ResearchConnectorId,
-  ResearchRunId,
-  ResearchTaskId,
-  RuntimeArtifactId,
-  SessionId,
-  StateVersion
+import {
+  IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+  type ProjectId,
+  type QueueItemId,
+  type ResearchAllowlistId,
+  type ResearchConnectorId,
+  type ResearchRunId,
+  type ResearchTaskId,
+  type RuntimeArtifactId,
+  type SessionId,
+  type StateVersion
 } from "@solo-superman/contracts";
 import {
   createSidecarClient,
@@ -953,6 +954,105 @@ describe("sidecar client", () => {
     });
     expect(seenRequests[1]).toMatchObject([
       "http://127.0.0.1:43110/api/v1/sessions/sess_handoff/planning-handoff",
+      expect.objectContaining({ method: "GET" })
+    ]);
+  });
+
+  it("records and reads implementation step ledger routes with commit/review/test evidence in the JSON body", async () => {
+    const seenRequests: [string, RequestInit | undefined][] = [];
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async (input, init) => {
+        seenRequests.push([input, init]);
+
+        return jsonResponse({
+          ok: true,
+          data: String(init?.method ?? "GET") === "POST"
+            ? {
+                category: "accepted_with_projection",
+                commandId: "cmd_step_ledger",
+                correlationId: "corr_step_ledger",
+                stateVersionBefore: 9,
+                stateVersionAfter: 10,
+                eventIds: ["evt_step_ledger"],
+                effectTaskIds: [],
+                immediateProjection: {
+                  ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+                  sessionId: "sess_ledger",
+                  version: 10,
+                  refetchUrl: "/api/v1/sessions/sess_ledger/implementation-step-ledger"
+                }
+              }
+            : {
+                ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+                sessionId: "sess_ledger",
+                version: 10,
+                refetchUrl: "/api/v1/sessions/sess_ledger/implementation-step-ledger"
+              },
+          meta: {
+            requestId: "req_step_ledger",
+            schemaVersion: "solo-superman.contracts.v1"
+          }
+        });
+      }
+    });
+    const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
+
+    const commandResponse = await client.recordImplementationStepLedger({
+      sessionId: "sess_ledger" as SessionId,
+      expectedStateVersion: 9 as StateVersion,
+      idempotencyKey: "step-ledger-client-test",
+      trackerDoc: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.trackerDoc,
+      stepDoc: step.stepDoc,
+      targetStatus: "completed",
+      startedEvidenceRefs: ["plan:step-demo"],
+      stepCommitRecord: step.stepCommitRecord!,
+      codeReviewRecord: step.codeReviewRecord!,
+      cleanCodeReviewRecord: step.cleanCodeReviewRecord!,
+      testEvidenceRecord: step.testEvidenceRecord!,
+      evidenceRefs: ["commit:abcdef1", "review:code", "review:clean", "test:verify"]
+    });
+    const projection = await client.getImplementationStepLedger("sess_ledger" as SessionId);
+
+    expect(commandResponse.category).toBe("accepted_with_projection");
+    expect(projection?.kind).toBe("ImplementationStepLedgerProjection");
+    expect(seenRequests[0]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/sessions/sess_ledger/implementation-step-ledger",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-token",
+          "Content-Type": "application/json"
+        })
+      })
+    ]);
+    expect(JSON.parse(String(seenRequests[0]?.[1]?.body))).toMatchObject({
+      sessionId: "sess_ledger",
+      expectedStateVersion: 9,
+      idempotencyKey: "step-ledger-client-test",
+      targetStatus: "completed",
+      stepCommitRecord: {
+        commitSha: "abcdef1",
+        previousCommitSha: "1234567",
+        diffRange: "1234567..abcdef1"
+      },
+      codeReviewRecord: {
+        reviewId: "review_code_demo",
+        comparedFromCommitSha: "1234567",
+        comparedToCommitSha: "abcdef1"
+      },
+      cleanCodeReviewRecord: {
+        reviewId: "review_clean_demo",
+        comparedFromCommitSha: "1234567",
+        comparedToCommitSha: "abcdef1"
+      },
+      testEvidenceRecord: {
+        verifiedCommitSha: "abcdef1",
+        outcome: "passed"
+      }
+    });
+    expect(seenRequests[1]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/sessions/sess_ledger/implementation-step-ledger",
       expect.objectContaining({ method: "GET" })
     ]);
   });

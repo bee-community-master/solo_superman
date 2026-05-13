@@ -5,6 +5,7 @@ import type {
   ConfidenceCompletionProjection,
   ExecutionAuthorityLedgerProjection,
   FounderBriefProjection,
+  ImplementationStepLedgerProjection,
   LivingSpecProjection,
   Phase25ResearchComparisonProjection,
   PlanningHandoffProjection,
@@ -27,6 +28,7 @@ export type PersistedProjection =
   | DecisionQueueProjection
   | ExecutionAuthorityLedgerProjection
   | FounderBriefProjection
+  | ImplementationStepLedgerProjection
   | LivingSpecProjection
   | PlanningHandoffProjection
   | Phase25ResearchComparisonProjection

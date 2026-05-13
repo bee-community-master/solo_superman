@@ -23,6 +23,7 @@ import type {
   DismissQueueItemRequest,
   FounderBriefProjection,
   ImportResearchResultRequest,
+  ImplementationStepLedgerProjection,
   LivingSpecProjection,
   PlanResearchRequest,
   Phase15bUpgradeHintExportDto,
@@ -31,6 +32,7 @@ import type {
   PrepareResearchDisclosureRequest,
   PrepareFounderBriefRequest,
   ProjectId,
+  RecordImplementationStepLedgerRequest,
   CancelResearchRunRequest,
   ResearchAllowlistGovernanceProjection,
   ResearchAllowlistId,
@@ -97,6 +99,7 @@ export type RevokeChatGptBrowserDelegationRunInput = RevokeChatGptBrowserDelegat
 export type CreateServicePageUsePermissionInput = CreateServicePageUsePermissionRequest;
 export type RevokeServicePageUsePermissionInput = RevokeServicePageUsePermissionRequest;
 export type DeleteServicePageUsePermissionArtifactsInput = DeleteServicePageUsePermissionArtifactsRequest;
+export type RecordImplementationStepLedgerInput = RecordImplementationStepLedgerRequest;
 
 export class SidecarClientError extends Error {
   readonly apiError: ApiError;
@@ -232,6 +235,10 @@ function servicePageUsePermissionRevokePath(sessionId: SessionId, permissionId: 
 
 function servicePageUsePermissionArtifactDeletePath(sessionId: SessionId, permissionId: string) {
   return `${servicePageUsePermissionPath(sessionId)}/${encodeURIComponent(permissionId)}/artifacts/delete`;
+}
+
+function implementationStepLedgerPath(sessionId: SessionId) {
+  return `/api/v1/sessions/${encodeURIComponent(sessionId)}/implementation-step-ledger`;
 }
 
 function sessionEventStreamPath(sessionId: SessionId) {
@@ -588,6 +595,14 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     getServicePageUsePermission(sessionId: SessionId) {
       return getProjection<ServicePageUsePermissionProjection | null>(servicePageUsePermissionPath(sessionId));
+    },
+
+    recordImplementationStepLedger(input: RecordImplementationStepLedgerInput) {
+      return postCommand<ImplementationStepLedgerProjection>(implementationStepLedgerPath(input.sessionId), input);
+    },
+
+    getImplementationStepLedger(sessionId: SessionId) {
+      return getProjection<ImplementationStepLedgerProjection | null>(implementationStepLedgerPath(sessionId));
     },
 
     getSession(projectId: ProjectId, sessionId: SessionId) {

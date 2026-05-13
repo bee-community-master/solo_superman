@@ -38,7 +38,10 @@ export const PRODUCT_ENGINE_EVENT_TYPES = [
   "ServicePagePermissionRevoked",
   "ServicePageArtifactsDeleted",
   "ServicePageActionBlocked",
-  "ServicePageFinalSubmitRequested"
+  "ServicePageFinalSubmitRequested",
+  "ImplementationStepLedgerRecorded",
+  "ImplementationStepBlocked",
+  "ImplementationStepCompleted"
 ] as const;
 
 export type ProductEngineEventType = (typeof PRODUCT_ENGINE_EVENT_TYPES)[number];

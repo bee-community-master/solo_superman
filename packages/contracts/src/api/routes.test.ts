@@ -39,6 +39,8 @@ import {
   POST_PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
   POST_PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
   POST_PHASE3_PR05_SERVICE_PAGE_PERMISSION_ROUTE_IDS,
+  POST_PHASE3_PR06_IMPLEMENTATION_STEP_LEDGER_ROUTE_IDS,
+  POST_PHASE3_PR06_MOUNTED_PRODUCT_API_ROUTE_IDS,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
@@ -536,7 +538,9 @@ describe("API route catalog", () => {
       ...POST_PHASE3_PR04_MOUNTED_PRODUCT_API_ROUTE_IDS,
       ...POST_PHASE3_PR05_SERVICE_PAGE_PERMISSION_ROUTE_IDS
     ]);
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(POST_PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(
+      expect.arrayContaining([...POST_PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS])
+    );
     expect(routeById.get("createChatGptBrowserDelegationRun")).toMatchObject({
       method: "POST",
       path: "/api/v1/sessions/:sessionId/chatgpt-browser-delegations",
@@ -577,6 +581,32 @@ describe("API route catalog", () => {
       method: "POST",
       path: "/api/v1/sessions/:sessionId/service-page-use-permissions/:permissionId/artifacts/delete",
       commandType: "DeleteServicePageUsePermissionArtifacts",
+      implementedInPr01: false
+    });
+  });
+
+  it("mounts the Post-Phase3 PR-06 implementation step ledger routes after service page-use permission", () => {
+    const routeById = new Map(API_ROUTE_CATALOG.map((route) => [route.routeId, route]));
+
+    expect(POST_PHASE3_PR06_IMPLEMENTATION_STEP_LEDGER_ROUTE_IDS).toEqual([
+      "recordImplementationStepLedger",
+      "getImplementationStepLedger"
+    ]);
+    expect(POST_PHASE3_PR06_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual([
+      ...POST_PHASE3_PR05_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      ...POST_PHASE3_PR06_IMPLEMENTATION_STEP_LEDGER_ROUTE_IDS
+    ]);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(POST_PHASE3_PR06_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(routeById.get("recordImplementationStepLedger")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/implementation-step-ledger",
+      commandType: "RecordImplementationStepLedger",
+      implementedInPr01: false
+    });
+    expect(routeById.get("getImplementationStepLedger")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/sessions/:sessionId/implementation-step-ledger",
+      commandType: "none",
       implementedInPr01: false
     });
   });

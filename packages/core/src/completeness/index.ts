@@ -747,10 +747,32 @@ export function buildFounderBriefProjection(
   const inferredDecisions = state.researchState.evidenceMatrices
     .filter((matrix) => matrix.balanceStatus === "balanced")
     .map((matrix) => `Evidence-backed decision signal: ${matrix.researchTaskId}`);
-  const knownRisks = uniqueStrings([...completeness.topRisks, ...acceptedRiskDecisionRisks(state)]);
+  const implementationProgressReport =
+    state.implementationStepLedger?.progressReport ?? "No implementation step ledger has been recorded yet.";
+  const implementationLedgerRisks = state.implementationStepLedger
+    ? [
+        ...state.implementationStepLedger.blockedSteps.map((blocker) =>
+          `Implementation step blocked: ${blocker.stepId} — ${blocker.reason} Missing: ${blocker.missingEvidence.join(", ")}`
+        ),
+        ...state.implementationStepLedger.testEvidenceRecords.flatMap((record) =>
+          record.outcome !== "passed" || record.failedTestCount > 0 || record.notTestedGaps.length > 0
+            ? [`Implementation tests not clean for ${record.stepId}: ${record.outcome}; failed=${record.failedTestCount}; Not-tested=${record.notTestedGaps.join(", ") || "none"}`]
+            : []
+        )
+      ]
+    : [];
+  const implementationNextActions = state.implementationStepLedger?.blockedSteps.map((blocker) =>
+    `Implementation step ${blocker.stepId}: ${blocker.nextRequiredAction}`
+  ) ?? [];
+  const knownRisks = uniqueStrings([
+    ...completeness.topRisks,
+    ...acceptedRiskDecisionRisks(state),
+    ...implementationLedgerRisks
+  ]);
   const nextValidationActions = uniqueStrings([
     ...completeness.nextBestActions,
-    ...state.researchState.nextValidationActions
+    ...state.researchState.nextValidationActions,
+    ...implementationNextActions
   ]);
   const decisions = uniqueStrings([...topDecisions, ...inferredDecisions]).slice(0, 6);
   const briefSections = [
@@ -768,6 +790,11 @@ export function buildFounderBriefProjection(
       sectionId: "top_decisions" as const,
       title: "Top decisions",
       body: decisions.length ? decisions.join("\n") : "No approved or evidence-backed decisions are closed yet."
+    },
+    {
+      sectionId: "implementation_progress" as const,
+      title: "Implementation progress",
+      body: implementationProgressReport
     },
     {
       sectionId: "known_risks" as const,

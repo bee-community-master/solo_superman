@@ -41,7 +41,10 @@ describe("ProductEngine event contract surface", () => {
       "ServicePagePermissionRevoked",
       "ServicePageArtifactsDeleted",
       "ServicePageActionBlocked",
-      "ServicePageFinalSubmitRequested"
+      "ServicePageFinalSubmitRequested",
+      "ImplementationStepLedgerRecorded",
+      "ImplementationStepBlocked",
+      "ImplementationStepCompleted"
     ]);
   });
 });

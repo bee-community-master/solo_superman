@@ -23,6 +23,7 @@ import {
   SERVICE_PAGE_USE_PERMISSION_APPROVAL_GRANULARITIES,
   SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES,
   SERVICE_PAGE_USE_PERMISSION_DATA_CATEGORIES,
+  IMPLEMENTATION_STEP_STATUSES,
   BUSINESS_CRITIC_INTENSITIES,
   PROJECT_PURPOSE_MODES,
   isExecutionAuthorityIsoTimestamp,
@@ -43,6 +44,8 @@ import {
   type CreateServicePageUsePermissionPayload,
   type CreateServicePageUsePermissionRequest,
   type DeleteServicePageUsePermissionArtifactsRequest,
+  type RecordImplementationStepLedgerPayload,
+  type RecordImplementationStepLedgerRequest,
   type RevokeChatGptBrowserDelegationRunRequest,
   type RevokeServicePageUsePermissionRequest,
   type BrowserActionPreviewDto,
@@ -1924,6 +1927,120 @@ function deleteServicePageUsePermissionArtifactsRequestFromBody(
   };
 }
 
+const IMPLEMENTATION_STEP_LEDGER_REQUEST_BODY_KEYS = [
+  "scaffoldOnly",
+  "sessionId",
+  "expectedStateVersion",
+  "idempotencyKey",
+  "trackerDoc",
+  "stepDoc",
+  "targetStatus",
+  "startedEvidenceRefs",
+  "stepCommitRecord",
+  "noCodeStepEvidence",
+  "codeReviewRecord",
+  "cleanCodeReviewRecord",
+  "testEvidenceRecord",
+  "blocker",
+  "evidenceRefs"
+] as const satisfies readonly (keyof RecordImplementationStepLedgerRequest)[];
+
+function optionalJsonRecordFromBody(value: unknown, fieldName: string) {
+  return value === undefined ? undefined : requiredJsonObjectFromBody(value, fieldName);
+}
+
+function implementationStepStatusFromBody(value: unknown) {
+  const status = stringFromBody(value, "targetStatus");
+
+  if (!IMPLEMENTATION_STEP_STATUSES.includes(status as (typeof IMPLEMENTATION_STEP_STATUSES)[number])) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "targetStatus must be an implementation step status.");
+  }
+
+  return status as RecordImplementationStepLedgerRequest["targetStatus"];
+}
+
+function implementationStepLedgerRequestFromBody(
+  routeSessionId: SessionId,
+  body: Readonly<Record<string, unknown>>
+): RecordImplementationStepLedgerRequest {
+  assertAllowedRecordKeys(
+    body,
+    IMPLEMENTATION_STEP_LEDGER_REQUEST_BODY_KEYS,
+    "implementation step ledger request body"
+  );
+
+  if (body.scaffoldOnly !== undefined && body.scaffoldOnly !== true) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "scaffoldOnly must be true when provided.");
+  }
+
+  const bodySessionId = stringFromBody(body.sessionId, "sessionId") as SessionId;
+
+  if (bodySessionId !== routeSessionId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId must match the route param.", {
+      routeSessionId,
+      bodySessionId
+    });
+  }
+
+  const startedEvidenceRefs = optionalStringArrayFromBody(body.startedEvidenceRefs, "startedEvidenceRefs");
+  const evidenceRefs = optionalStringArrayFromBody(body.evidenceRefs, "evidenceRefs");
+  const stepCommitRecord = optionalJsonRecordFromBody(body.stepCommitRecord, "stepCommitRecord") as
+    | RecordImplementationStepLedgerRequest["stepCommitRecord"]
+    | undefined;
+  const noCodeStepEvidence = optionalJsonRecordFromBody(body.noCodeStepEvidence, "noCodeStepEvidence") as
+    | RecordImplementationStepLedgerRequest["noCodeStepEvidence"]
+    | undefined;
+  const codeReviewRecord = optionalJsonRecordFromBody(body.codeReviewRecord, "codeReviewRecord") as
+    | RecordImplementationStepLedgerRequest["codeReviewRecord"]
+    | undefined;
+  const cleanCodeReviewRecord = optionalJsonRecordFromBody(body.cleanCodeReviewRecord, "cleanCodeReviewRecord") as
+    | RecordImplementationStepLedgerRequest["cleanCodeReviewRecord"]
+    | undefined;
+  const testEvidenceRecord = optionalJsonRecordFromBody(body.testEvidenceRecord, "testEvidenceRecord") as
+    | RecordImplementationStepLedgerRequest["testEvidenceRecord"]
+    | undefined;
+  const blocker = optionalJsonRecordFromBody(body.blocker, "blocker") as
+    | RecordImplementationStepLedgerRequest["blocker"]
+    | undefined;
+
+  return {
+    sessionId: routeSessionId,
+    expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    trackerDoc: requiredJsonObjectFromBody(body.trackerDoc, "trackerDoc") as unknown as RecordImplementationStepLedgerRequest["trackerDoc"],
+    stepDoc: requiredJsonObjectFromBody(body.stepDoc, "stepDoc") as unknown as RecordImplementationStepLedgerRequest["stepDoc"],
+    targetStatus: implementationStepStatusFromBody(body.targetStatus),
+    ...(startedEvidenceRefs ? { startedEvidenceRefs } : {}),
+    ...(stepCommitRecord !== undefined ? { stepCommitRecord } : {}),
+    ...(noCodeStepEvidence !== undefined ? { noCodeStepEvidence } : {}),
+    ...(codeReviewRecord !== undefined ? { codeReviewRecord } : {}),
+    ...(cleanCodeReviewRecord !== undefined ? { cleanCodeReviewRecord } : {}),
+    ...(testEvidenceRecord !== undefined ? { testEvidenceRecord } : {}),
+    ...(blocker !== undefined ? { blocker } : {}),
+    ...(evidenceRefs ? { evidenceRefs } : {})
+  };
+}
+
+function implementationStepLedgerPayloadFromRequest(
+  request: RecordImplementationStepLedgerRequest
+): Readonly<Record<string, unknown>> {
+  const payload = {
+    trackerDoc: request.trackerDoc,
+    stepDoc: request.stepDoc,
+    targetStatus: request.targetStatus,
+    ...(request.startedEvidenceRefs ? { startedEvidenceRefs: request.startedEvidenceRefs } : {}),
+    ...(request.stepCommitRecord ? { stepCommitRecord: request.stepCommitRecord } : {}),
+    ...(request.noCodeStepEvidence ? { noCodeStepEvidence: request.noCodeStepEvidence } : {}),
+    ...(request.codeReviewRecord ? { codeReviewRecord: request.codeReviewRecord } : {}),
+    ...(request.cleanCodeReviewRecord ? { cleanCodeReviewRecord: request.cleanCodeReviewRecord } : {}),
+    ...(request.testEvidenceRecord ? { testEvidenceRecord: request.testEvidenceRecord } : {}),
+    ...(request.blocker ? { blocker: request.blocker } : {}),
+    ...(request.evidenceRefs ? { evidenceRefs: request.evidenceRefs } : {})
+  } satisfies RecordImplementationStepLedgerPayload;
+
+  return payload;
+}
+
 interface ExecutionAdapterBaseRequest {
   readonly sessionId: SessionId;
   readonly idempotencyKey: string;
@@ -3104,6 +3221,28 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
   app.get("/api/v1/sessions/:sessionId/service-page-use-permissions", async (context) =>
     withProductEngine(context, (service) =>
       service.getServicePageUsePermission(context.req.param("sessionId") as SessionId)
+    )
+  );
+
+
+  app.post("/api/v1/sessions/:sessionId/implementation-step-ledger", async (context) =>
+    withCommandResponse(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const request = implementationStepLedgerRequestFromBody(routeSessionId, await jsonBody(context));
+
+      return service.runSessionCommand({
+        sessionId: routeSessionId,
+        commandType: "RecordImplementationStepLedger",
+        expectedStateVersion: request.expectedStateVersion,
+        idempotencyKey: request.idempotencyKey,
+        payload: implementationStepLedgerPayloadFromRequest(request)
+      });
+    })
+  );
+
+  app.get("/api/v1/sessions/:sessionId/implementation-step-ledger", async (context) =>
+    withProductEngine(context, (service) =>
+      service.getImplementationStepLedger(context.req.param("sessionId") as SessionId)
     )
   );
 

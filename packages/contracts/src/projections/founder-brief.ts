@@ -7,6 +7,7 @@ export interface FounderBriefSectionProjection {
     | "project_purpose_mode"
     | "problem_customer_value"
     | "top_decisions"
+    | "implementation_progress"
     | "known_risks"
     | "next_validation_actions";
   readonly title: string;

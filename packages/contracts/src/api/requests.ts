@@ -36,6 +36,17 @@ import type {
   ServicePageDataCategory,
   ServicePageUseActionClass
 } from "../projections/service-page-use-permission";
+import type {
+  CodeReviewRecord,
+  CleanCodeReviewRecord,
+  ImplementationStepBlocker,
+  ImplementationStepDoc,
+  ImplementationStepStatus,
+  NoCodeStepEvidence,
+  StepCommitRecord,
+  TestEvidenceRecord,
+  TrackerDoc
+} from "../projections/implementation-step-ledger";
 import type { PlanningHandoffRequestedScopeDto, PlanningHandoffSourceRefDto } from "../projections/planning-handoff";
 import type { ResearchQueueTerminalOutcome } from "../projections/research-evidence";
 import type { BlockedActionType, CodexTurnPurpose } from "../codex";
@@ -363,6 +374,24 @@ export interface DeleteServicePageUsePermissionArtifactsRequest extends Scaffold
   readonly permissionId: string;
   readonly reason: string;
   readonly auditRefs?: readonly string[];
+}
+
+
+export interface RecordImplementationStepLedgerRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
+  readonly idempotencyKey: string;
+  readonly trackerDoc: TrackerDoc;
+  readonly stepDoc: ImplementationStepDoc;
+  readonly targetStatus: ImplementationStepStatus;
+  readonly startedEvidenceRefs?: readonly string[];
+  readonly stepCommitRecord?: StepCommitRecord;
+  readonly noCodeStepEvidence?: NoCodeStepEvidence;
+  readonly codeReviewRecord?: CodeReviewRecord;
+  readonly cleanCodeReviewRecord?: CleanCodeReviewRecord;
+  readonly testEvidenceRecord?: TestEvidenceRecord;
+  readonly blocker?: ImplementationStepBlocker;
+  readonly evidenceRefs?: readonly string[];
 }
 
 export interface ValidateExecutionAuthorityPreflightRequest extends ScaffoldRequestPlaceholder {

@@ -35,7 +35,8 @@ const DOCS_25_PRODUCT_ENGINE_COMMAND_TYPES = [
   "RevokeChatGptBrowserDelegationRun",
   "CreateServicePageUsePermission",
   "RevokeServicePageUsePermission",
-  "DeleteServicePageUsePermissionArtifacts"
+  "DeleteServicePageUsePermissionArtifacts",
+  "RecordImplementationStepLedger"
 ] as const;
 
 const DOCS_25_PROJECT_APPLICATION_COMMAND_TYPES = [

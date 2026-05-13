@@ -176,14 +176,19 @@ Canonical artifact family name: `ImplementationStepLedger`.
 - `StepCommitRecord`: local git commit SHA, diff summary, related step doc, authoring agent, timestamp.
 - `CodeReviewRecord`: 이전 commit 대비 correctness/security/API/UX/test review 결과.
 - `CleanCodeReviewRecord`: 단순화, 중복, naming, boundary, dependency creep 검토 결과.
-- `TestEvidenceRecord`: commands, exit codes, logs, known gaps.
+- `TestEvidenceRecord`: commands, outcome/counts, `verifiedCommitSha`, logs/evidence refs, and known gaps.
+- Current #104 implementation surface: `ImplementationStepLedgerProjection`, recorded by `RecordImplementationStepLedger` at `POST /api/v1/sessions/:sessionId/implementation-step-ledger` and queried by `GET /api/v1/sessions/:sessionId/implementation-step-ledger`.
+- Events: `ImplementationStepLedgerRecorded`, `ImplementationStepBlocked`, and `ImplementationStepCompleted`.
+- UI/read model: the Decision Queue side panel renders the latest step, progress report, step-local commit SHA or no-code baseline, previous commit/diff range, rollback ref, separate code/clean-code review records, test evidence, blockers, and Not-tested gaps. Founder Brief also carries blocked/failed ledger evidence into implementation progress, Known Risks, and Next Validation Actions.
 
 ### Step policy
 
-- 한 step은 구현, local commit, code review, clean-code review, test evidence 없이는 완료되지 않는다.
-- 리뷰는 “현재 working tree”가 아니라 “이전 step commit 대비 diff”를 기준으로 한다.
-- 실패한 test나 미실행 test는 다음 step으로 숨기지 않고 blocker 또는 Not-tested로 남긴다.
-- 구현자가 새 dependency, external service, production mutation을 필요로 하면 step을 멈추고 새 approval/issue로 분리한다.
+- 한 step은 구현, local commit 또는 clean no-code evidence, code review, clean-code review, test evidence 없이는 완료되지 않는다.
+- tracked code/docs/config step은 PR의 최종 commit만으로 대체할 수 없고 step-local `StepCommitRecord.commitSha`, `previousCommitSha`, `diffRange`, changed files, rollback ref가 있어야 한다.
+- verification-only/no-op step은 `NoCodeStepEvidence`로 완료할 수 있지만 baseline commit, clean tracked state, intended diff none, command evidence, no Not-tested gaps를 기록해야 한다.
+- 리뷰는 “현재 working tree”가 아니라 tracked step의 `previousCommitSha..commitSha` 또는 no-code step의 baseline 대비 evidence를 기준으로 하며, `CodeReviewRecord`와 `CleanCodeReviewRecord`는 별도 record여야 한다.
+- test evidence는 같은 step commit 또는 no-code baseline을 `verifiedCommitSha`로 가리켜야 한다. 실패한 test나 미실행 test는 다음 step으로 숨기지 않고 blocker 또는 Not-tested로 남긴다.
+- ledger payload에는 credential/session/token/secret value 또는 credential-bearing URL을 저장하지 않는다. 구현자가 새 dependency, external service, production mutation, credential requirement를 필요로 하면 step을 멈추고 새 approval/issue로 분리한다.
 
 ## Feature contract F — macOS and Windows PowerShell install/run verification
 

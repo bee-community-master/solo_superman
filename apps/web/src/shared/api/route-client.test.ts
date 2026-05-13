@@ -255,6 +255,19 @@ describe("PR-09 web route client catalog", () => {
     });
   });
 
+  it("marks Post-Phase3 PR-06 implementation step ledger routes with their own mounted lane", () => {
+    expect(findWebRouteClientPlaceholder("recordImplementationStepLedger")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/implementation-step-ledger",
+      implementation: "mounted_post_phase3_pr_06"
+    });
+    expect(findWebRouteClientPlaceholder("getImplementationStepLedger")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/sessions/:sessionId/implementation-step-ledger",
+      implementation: "mounted_post_phase3_pr_06"
+    });
+  });
+
   it("marks the Decision Queue SSE notification stream as mounted for refetch recovery", () => {
     expect(findWebRouteClientPlaceholder("subscribeEventStream")).toMatchObject({
       method: "GET",

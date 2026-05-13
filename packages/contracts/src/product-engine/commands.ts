@@ -29,7 +29,8 @@ export const PRODUCT_ENGINE_COMMAND_TYPES = [
   "RevokeChatGptBrowserDelegationRun",
   "CreateServicePageUsePermission",
   "RevokeServicePageUsePermission",
-  "DeleteServicePageUsePermissionArtifacts"
+  "DeleteServicePageUsePermissionArtifacts",
+  "RecordImplementationStepLedger"
 ] as const;
 
 export const PROJECT_APPLICATION_COMMAND_TYPES = [

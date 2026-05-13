@@ -3,6 +3,7 @@ import type {
   DecisionQueueProjection,
   ChatGptBrowserDelegationProjection,
   ExecutionAuthorityLedgerProjection,
+  ImplementationStepLedgerProjection,
   ConfidenceCompletionProjection,
   FounderBriefProjection,
   LivingSpecProjection,
@@ -43,7 +44,8 @@ export type ProductEngineDeterministicOutputType =
   | "phase25_research_comparison_report"
   | "execution_authority_record"
   | "chatgpt_browser_delegation_run"
-  | "service_page_use_permission";
+  | "service_page_use_permission"
+  | "implementation_step_ledger";
 
 export interface ProductEngineDeterministicOutput {
   readonly outputType: ProductEngineDeterministicOutputType;
@@ -63,6 +65,7 @@ export type ActiveBatchSafeProjection =
   | ResearchEvidenceProjection
   | RuntimeActivityProjection
   | ServicePageUsePermissionProjection
+  | ImplementationStepLedgerProjection
   | SessionShellProjection;
 
 export interface ProductEngineReduction<TImmediateProjection = ActiveBatchSafeProjection> {
