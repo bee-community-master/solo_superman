@@ -2083,6 +2083,140 @@ describe("PR-09 end-to-end dry-run hardening", () => {
     }
   });
 
+  it("deletes service page-use artifact refs from non-latest permission records through the route", async () => {
+    const { app, storage } = await createMigratedStorageApp();
+
+    try {
+      const start = await postJson(app, "/api/v1/projects", {
+        rawIdea: "A non-latest service page-use artifact delete dry-run idea",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "personal",
+        projectPurposeModeConfirmation: "user_confirmed"
+      });
+      const sessionId = sessionIdFromStart(responseData(start.body));
+      const basePermission = {
+        sessionId,
+        blockedActionClasses: SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES,
+        dataCategories: ["public_page_content", "user_provided_project_context", "prompt_result_screenshot_log_refs"],
+        allowedActionClasses: ["read", "preview"],
+        approvalGranularity: "per_page",
+        approvalDecision: "approved",
+        userExportDeleteControls: true
+      } as const;
+
+      const first = await postJson(app, `/api/v1/sessions/${sessionId}/service-page-use-permissions`, {
+        ...basePermission,
+        expectedStateVersion: 1,
+        idempotencyKey: "post-phase3:service-page:non-latest-delete-first",
+        serviceName: "Vercel",
+        serviceOrigin: "https://vercel.com",
+        pageUrl: "https://vercel.com/new",
+        purpose: "Retain Vercel preview artifacts before a newer service page grant is created.",
+        userApprovalRef: "user_approval:service-page:non-latest-vercel",
+        promptPreviewRef: "prompt_preview_service_page_nonlatest_vercel",
+        redactionPreviewRef: "redaction_preview_service_page_nonlatest_vercel",
+        screenshotRefs: ["screenshot:nonlatest-vercel"],
+        logRefs: ["log:nonlatest-vercel"],
+        evidenceRefs: ["evidence:service-page:nonlatest-vercel"],
+        auditRefs: ["audit:service-page:nonlatest-vercel"],
+        activityFeedRefs: ["setup_step:nonlatest-vercel"]
+      });
+      const firstPermissionId = stringField(
+        record(record(responseData(first.body).immediateProjection).latestPermission),
+        "permissionId"
+      );
+      const second = await postJson(app, `/api/v1/sessions/${sessionId}/service-page-use-permissions`, {
+        ...basePermission,
+        expectedStateVersion: 2,
+        idempotencyKey: "post-phase3:service-page:non-latest-delete-second",
+        serviceName: "Example",
+        serviceOrigin: "https://example.com",
+        pageUrl: "https://example.com/setup",
+        purpose: "Keep a newer Example setup page permission active while deleting old Vercel artifact refs.",
+        userApprovalRef: "user_approval:service-page:non-latest-example",
+        promptPreviewRef: "prompt_preview_service_page_nonlatest_example",
+        redactionPreviewRef: "redaction_preview_service_page_nonlatest_example",
+        screenshotRefs: ["screenshot:nonlatest-example"],
+        logRefs: ["log:nonlatest-example"],
+        evidenceRefs: ["evidence:service-page:nonlatest-example"],
+        auditRefs: ["audit:service-page:nonlatest-example"],
+        activityFeedRefs: ["setup_step:nonlatest-example"]
+      });
+
+      expect(responseData(second.body)).toMatchObject({
+        category: "accepted_with_projection",
+        immediateProjection: {
+          latestPermission: {
+            serviceOrigin: "https://example.com",
+            promptPreviewRef: "prompt_preview_service_page_nonlatest_example"
+          }
+        }
+      });
+
+      const deleted = await postJson(
+        app,
+        `/api/v1/sessions/${sessionId}/service-page-use-permissions/${firstPermissionId}/artifacts/delete`,
+        {
+          sessionId,
+          expectedStateVersion: 3,
+          idempotencyKey: "post-phase3:service-page:non-latest-artifacts-delete",
+          permissionId: firstPermissionId,
+          reason: "User deleted retained artifact refs from an older service page grant.",
+          auditRefs: ["audit:service-page:nonlatest-artifacts-deleted"]
+        }
+      );
+      const deletedProjection = record(responseData(deleted.body).immediateProjection);
+      const deletedOldPermission = record(
+        records(deletedProjection.permissions).find((permission) => permission.permissionId === firstPermissionId)
+      );
+
+      expect(deletedProjection).toMatchObject({
+        currentStatus: "granted",
+        latestPermission: {
+          serviceOrigin: "https://example.com",
+          promptPreviewRef: "prompt_preview_service_page_nonlatest_example",
+          artifactRetention: {
+            promptResultScreenshotLogRetention: "default_evidence_refs_only"
+          }
+        }
+      });
+      expect(deletedOldPermission).toMatchObject({
+        promptPreviewRef: null,
+        screenshotRefs: [],
+        logRefs: [],
+        artifactRetention: {
+          promptResultScreenshotLogRetention: "deleted_audit_metadata_only",
+          redactionPreviewRef: null,
+          artifactRefsDeletionAuditRef: expect.stringContaining("artifacts-deleted")
+        },
+        auditLog: expect.arrayContaining([expect.objectContaining({ eventType: "ServicePageArtifactsDeleted" })])
+      });
+
+      const deletedOldPermissionJson = JSON.stringify(deletedOldPermission);
+
+      expect(deletedOldPermissionJson).not.toContain("prompt_preview_service_page_nonlatest_vercel");
+      expect(deletedOldPermissionJson).not.toContain("redaction_preview_service_page_nonlatest_vercel");
+      expect(deletedOldPermissionJson).not.toContain("screenshot:nonlatest-vercel");
+      expect(deletedOldPermissionJson).not.toContain("log:nonlatest-vercel");
+
+      const afterDelete = await getJson(app, `/api/v1/sessions/${sessionId}/service-page-use-permissions`);
+      const refetchedProjection = record(responseData(afterDelete.body));
+      const refetchedOldPermission = record(
+        records(refetchedProjection.permissions).find((permission) => permission.permissionId === firstPermissionId)
+      );
+
+      expect(refetchedProjection).toMatchObject({
+        latestPermission: {
+          serviceOrigin: "https://example.com",
+          promptPreviewRef: "prompt_preview_service_page_nonlatest_example"
+        }
+      });
+      expect(JSON.stringify(refetchedOldPermission)).not.toContain("prompt_preview_service_page_nonlatest_vercel");
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("rejects service page-use permission route bodies that carry credential, cookie, or session material", async () => {
     const { app, storage } = await createMigratedStorageApp();
 
@@ -2148,6 +2282,26 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         }
       });
       expect(JSON.stringify(secretInSupportedField.body)).not.toContain("abcd1234");
+
+      const secretInRefField = await postJson(
+        app,
+        `/api/v1/sessions/${sessionId}/service-page-use-permissions`,
+        {
+          ...safeBody,
+          screenshotRefs: ["screenshot:session_cookie_abcd1234567890"],
+          auditRefs: ["audit:password-abcd1234567890"]
+        }
+      );
+
+      expect(secretInRefField.response.status).toBe(200);
+      expect(responseData(secretInRefField.body)).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "VALIDATION_FAILED",
+          message: "CreateServicePageUsePermission payload must not contain credential, session, token, or secret values."
+        }
+      });
+      expect(JSON.stringify(secretInRefField.body)).not.toContain("abcd1234567890");
 
       const latest = await getJson(app, `/api/v1/sessions/${sessionId}/service-page-use-permissions`);
 

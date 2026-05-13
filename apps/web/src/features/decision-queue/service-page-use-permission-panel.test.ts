@@ -19,6 +19,7 @@ describe("ServicePageUsePermissionPanel view model", () => {
     expect(view.serviceLabel).toContain("Vercel");
     expect(view.serviceLabel).toContain("https://vercel.com");
     expect(view.pageUrl).toBe("https://vercel.com/new");
+    expect(view.purpose).toContain("Prepare a deployment settings draft");
     expect(view.allowedActionsLabel).toContain("read");
     expect(view.blockedActionsLabel).toContain("credential_entry");
     expect(view.dataCategoriesLabel).toContain("user_provided_project_context");
@@ -55,6 +56,7 @@ describe("ServicePageUsePermissionPanel view model", () => {
       })
     );
 
+    expect(markup).toContain("Purpose: Prepare a deployment settings draft");
     expect(markup).toContain("Export retained prompt/result/screenshot/log artifact refs");
     expect(markup).toContain("Delete retained artifacts while leaving audit metadata only");
     expect(markup).not.toContain("disabled=\"\"");

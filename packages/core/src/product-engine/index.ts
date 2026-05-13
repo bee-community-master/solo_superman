@@ -58,6 +58,7 @@ import {
   validateChatGptBrowserDelegationProjection,
   validateServicePageUsePermissionProjection,
   servicePageUsePermissionIsRevokableStatus,
+  servicePageUsePermissionRefHasForbiddenCustodyContent,
   servicePageUsePermissionSummaryForStatus,
   validatePhase25ResearchComparisonReport,
   type ActiveBatchSafeProjection,
@@ -7547,6 +7548,46 @@ function containsUnsupportedServicePageUsePermissionArtifactDeletePayload(comman
   return !hasOnlyRecordKeys(command.payload, SERVICE_PAGE_USE_PERMISSION_ARTIFACT_DELETE_ALLOWED_PAYLOAD_KEYS);
 }
 
+function stringValuesFromPayloadFields(
+  payload: Readonly<Partial<Record<string, unknown>>>,
+  fields: readonly string[]
+) {
+  return fields.flatMap((field) => {
+    const value = payload[field];
+
+    if (Array.isArray(value)) {
+      return value.filter((item): item is string => typeof item === "string");
+    }
+
+    return typeof value === "string" ? [value] : [];
+  });
+}
+
+const SERVICE_PAGE_USE_PERMISSION_CREATE_PRIVATE_REF_FIELDS = [
+  "userApprovalRef",
+  "promptPreviewRef",
+  "redactionPreviewRef",
+  "finalSubmitConfirmationRef",
+  "finalSubmitExecutionAuthorityRef",
+  "screenshotRefs",
+  "logRefs",
+  "evidenceRefs",
+  "auditRefs",
+  "activityFeedRefs"
+] as const;
+
+const SERVICE_PAGE_USE_PERMISSION_REASON_PRIVATE_REF_FIELDS = [
+  "reason",
+  "auditRefs"
+] as const;
+
+function containsServicePageUsePermissionForbiddenCustodyRef(
+  payload: Readonly<Partial<Record<string, unknown>>>,
+  fields: readonly string[]
+) {
+  return stringValuesFromPayloadFields(payload, fields).some(servicePageUsePermissionRefHasForbiddenCustodyContent);
+}
+
 function uniqueTypedValues<TValue extends string>(
   value: unknown,
   allowedValues: readonly TValue[],
@@ -7954,17 +7995,23 @@ function reduceCreateServicePageUsePermission(
     );
   }
 
-  const payload = parseServicePageUsePermissionPayload(command);
-
-  if (!payload) {
-    return reject("CreateServicePageUsePermission payload is invalid.", "VALIDATION_FAILED");
-  }
-
-  if (containsExecutionAuthoritySecretValueLeak(command.payload)) {
+  if (
+    containsExecutionAuthoritySecretValueLeak(command.payload) ||
+    containsServicePageUsePermissionForbiddenCustodyRef(
+      command.payload,
+      SERVICE_PAGE_USE_PERMISSION_CREATE_PRIVATE_REF_FIELDS
+    )
+  ) {
     return reject(
       "CreateServicePageUsePermission payload must not contain credential, session, token, or secret values.",
       "VALIDATION_FAILED"
     );
+  }
+
+  const payload = parseServicePageUsePermissionPayload(command);
+
+  if (!payload) {
+    return reject("CreateServicePageUsePermission payload is invalid.", "VALIDATION_FAILED");
   }
 
   const evidenceRefs = uniqueStringRefs([
@@ -8147,7 +8194,13 @@ function reduceRevokeServicePageUsePermission(
     return reject("RevokeServicePageUsePermission payload is invalid.", "VALIDATION_FAILED");
   }
 
-  if (containsExecutionAuthoritySecretValueLeak(command.payload)) {
+  if (
+    containsExecutionAuthoritySecretValueLeak(command.payload) ||
+    containsServicePageUsePermissionForbiddenCustodyRef(
+      command.payload,
+      SERVICE_PAGE_USE_PERMISSION_REASON_PRIVATE_REF_FIELDS
+    )
+  ) {
     return reject(
       "RevokeServicePageUsePermission payload must not contain credential, session, token, or secret values.",
       "VALIDATION_FAILED"
@@ -8313,7 +8366,13 @@ function reduceDeleteServicePageUsePermissionArtifacts(
     return reject("DeleteServicePageUsePermissionArtifacts payload is invalid.", "VALIDATION_FAILED");
   }
 
-  if (containsExecutionAuthoritySecretValueLeak(command.payload)) {
+  if (
+    containsExecutionAuthoritySecretValueLeak(command.payload) ||
+    containsServicePageUsePermissionForbiddenCustodyRef(
+      command.payload,
+      SERVICE_PAGE_USE_PERMISSION_REASON_PRIVATE_REF_FIELDS
+    )
+  ) {
     return reject(
       "DeleteServicePageUsePermissionArtifacts payload must not contain credential, session, token, or secret values.",
       "VALIDATION_FAILED"

@@ -103,6 +103,22 @@ describe("Service page-use permission projection contract", () => {
     );
   });
 
+  it("rejects ref-shaped credential/session/secret values", () => {
+    const unsafePermission = {
+      ...SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE.latestPermission,
+      screenshotRefs: ["screenshot:session_cookie_abcd1234567890"],
+      auditRefs: ["audit:password-abcd1234567890"]
+    } as const;
+
+    expect(() =>
+      validateServicePageUsePermissionProjection({
+        ...SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE,
+        permissions: [unsafePermission],
+        latestPermission: unsafePermission
+      })
+    ).toThrow(/refs must not contain credential.*secret-bearing values/iu);
+  });
+
   it("rejects records that omit the user-owned login boundary", () => {
     expect(() =>
       validateServicePageUsePermissionProjection({

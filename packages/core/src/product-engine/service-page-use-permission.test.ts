@@ -303,6 +303,20 @@ describe("CreateServicePageUsePermission reducer", () => {
       code: "VALIDATION_FAILED",
       message: "CreateServicePageUsePermission payload must not contain credential, session, token, or secret values."
     });
+
+    const refShapedSecretReduction = reduceProductEngineCommand(
+      command(readyPayload({
+        screenshotRefs: ["screenshot:session_cookie_abcd1234567890"],
+        auditRefs: ["audit:password-abcd1234567890"]
+      })),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(refShapedSecretReduction.accepted).toBe(false);
+    expect(refShapedSecretReduction.rejectionReason).toMatchObject({
+      code: "VALIDATION_FAILED",
+      message: "CreateServicePageUsePermission payload must not contain credential, session, token, or secret values."
+    });
   });
 });
 

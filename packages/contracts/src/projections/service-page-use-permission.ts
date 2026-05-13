@@ -222,8 +222,36 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+const SERVICE_PAGE_REF_FORBIDDEN_CONTENT_PATTERN =
+  /(?:password|passwd|secret|bearer|cookie|session[_-]?cookie|2fa|mfa|otp|totp|api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|auth[_-]?token|payment[_-]?token|financial[_-]?token|privacy[_-]?token|sk-|xox[baprs]-|gh[pousr]_|github_pat_)/iu;
+
+export function servicePageUsePermissionRefHasForbiddenCustodyContent(value: string) {
+  return (
+    SERVICE_PAGE_REF_FORBIDDEN_CONTENT_PATTERN.test(value) ||
+    /\bBearer\s+[A-Za-z0-9._~+/-]{10,}/u.test(value)
+  );
+}
+
 function stringArray(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every(isNonEmptyString);
+}
+
+function servicePagePermissionRefStrings(permission: ServicePageUsePermissionRecord) {
+  return [
+    permission.userApprovalRef,
+    permission.promptPreviewRef,
+    permission.artifactRetention.redactionPreviewRef,
+    permission.artifactRetention.artifactRefsDeletionAuditRef,
+    permission.finalSubmitBoundary.confirmationCardRef,
+    permission.finalSubmitBoundary.executionAuthorityRef,
+    ...permission.screenshotRefs,
+    ...permission.logRefs,
+    ...permission.evidenceRefs,
+    ...permission.auditRefs,
+    ...permission.activityFeedRefs,
+    ...permission.blockReasons.flatMap((reason) => reason.evidenceRefs),
+    ...permission.auditLog.flatMap((entry) => entry.evidenceRefs)
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 }
 
 function isOneOf<TValue extends string>(
@@ -430,6 +458,9 @@ export function validateServicePageUsePermissionProjection(
     }
     if (!Array.isArray(permission.auditLog) || !permission.auditLog.length || !permission.auditLog.every(isAuditEntry)) {
       issues.push("auditLog must include valid user-visible service page-use audit entries");
+    }
+    if (servicePagePermissionRefStrings(permission).some(servicePageUsePermissionRefHasForbiddenCustodyContent)) {
+      issues.push("service page-use refs must not contain credential/session/token/secret-bearing values");
     }
     if (permission.canRevoke !== servicePageUsePermissionIsRevokableStatus(permission.status)) {
       issues.push("canRevoke must match the permission status");
