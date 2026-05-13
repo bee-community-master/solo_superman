@@ -216,15 +216,24 @@ async function stopProcess(processInfo) {
 
   processInfo.stopping = true;
 
-  await new Promise((resolve) => {
+  await new Promise((resolve, reject) => {
+    let failTimer;
     const killTimer = setTimeout(() => {
       if (!hasExited(processInfo)) {
         processInfo.child.kill("SIGKILL");
+        failTimer = setTimeout(() => {
+          if (!hasExited(processInfo)) {
+            reject(new Error(`${processInfo.label} did not exit after SIGKILL`));
+          }
+        }, 2_000);
       }
     }, 5_000);
 
     processInfo.child.once("exit", () => {
       globalThis.clearTimeout(killTimer);
+      if (failTimer) {
+        globalThis.clearTimeout(failTimer);
+      }
       resolve();
     });
 
