@@ -302,6 +302,7 @@ Placeholder route families:
   - Response/statusUrl: `accepted_with_projection` with `ChatGptBrowserDelegationProjection`; no provider background queue and no hidden retry.
   - Revoke: latest pending/waiting/running/importing run becomes `revoked`, appends audit entries, stops later browser actions, and keeps artifact deletion separate from revoke.
   - Persistence boundary: latest projection/refetch is the mounted storage surface for #102; ProductEngine events and projection `runs` preserve chronology. A dedicated run repository is intentionally deferred until a later PR needs query-by-run or artifact-custody operations.
+  - Parser/lifecycle boundary: `packages/core/src/product-engine/chatgpt-browser-delegation.ts` owns ChatGPT delegation parsing, status derivation, audit defaults, projection construction, create/revoke reduction, and contract-owned request/payload key validation shared with the Hono route parser.
   - Policy defaults: requires per-run approval, user-editable prompt preview, redaction preview, no credential/2FA/session/cookie/token/API-key storage, no account sharing/resale/backend capacity, no unattended project-level ChatGPT queue, and result import gates for source/provenance, uncertainty, con evidence, and stale risk.
   - Errors/preconditions: missing research task, missing disclosure or approval, blocked policy/session verdict, missing browser action authority, failed result-import gate, or secret-shaped payload value fails closed with visible fallback or validation rejection.
 - Service page-use permission family

@@ -12,7 +12,8 @@ import {
   BROWSER_ACTION_CREDENTIAL_MODES,
   BROWSER_ACTION_EXTERNAL_MUTATION_POLICIES,
   BROWSER_ACTION_PREVIEW_KINDS,
-  CHATGPT_BROWSER_DELEGATION_STATUSES,
+  CHATGPT_BROWSER_DELEGATION_CREATE_REQUEST_KEYS,
+  CHATGPT_BROWSER_DELEGATION_REVOKE_REQUEST_KEYS,
   EXECUTION_APPROVAL_DECISIONS,
   EXECUTION_AUTHORITY_ACTION_CLASSES,
   EXECUTION_NETWORK_POLICIES,
@@ -27,6 +28,8 @@ import {
   BUSINESS_CRITIC_INTENSITIES,
   PROJECT_PURPOSE_MODES,
   isExecutionAuthorityIsoTimestamp,
+  isChatGptBrowserDelegationApprovalDecision,
+  isChatGptBrowserDelegationStatus,
   type ApiErrorCode,
   type ApiErrorEnvelope,
   type ApiResponseMeta,
@@ -1044,39 +1047,6 @@ const BROWSER_ACTION_EXECUTION_KEYS = [
   "servicePagePermissionId",
   "servicePageActionClass"
 ] as const;
-const CHATGPT_BROWSER_DELEGATION_REQUEST_BODY_KEYS = [
-  "scaffoldOnly",
-  "sessionId",
-  "expectedStateVersion",
-  "idempotencyKey",
-  "researchTaskId",
-  "status",
-  "userVisibleExplanation",
-  "nextAction",
-  "promptPreviewRef",
-  "dataDisclosurePreview",
-  "redactionSummary",
-  "policyRiskVerdict",
-  "sessionOwnershipVerdict",
-  "approvalDecision",
-  "browserActionAuthorityRef",
-  "resultImportRef",
-  "resultImportGate",
-  "fallbackApplied",
-  "screenshotRefs",
-  "logRefs",
-  "auditRefs",
-  "activityFeedRefs"
-] as const satisfies readonly (keyof CreateChatGptBrowserDelegationRunRequest)[];
-const CHATGPT_BROWSER_DELEGATION_REVOKE_REQUEST_BODY_KEYS = [
-  "scaffoldOnly",
-  "sessionId",
-  "expectedStateVersion",
-  "idempotencyKey",
-  "runId",
-  "reason",
-  "auditRefs"
-] as const satisfies readonly (keyof RevokeChatGptBrowserDelegationRunRequest)[];
 const SERVICE_PAGE_USE_PERMISSION_REQUEST_BODY_KEYS = [
   "scaffoldOnly",
   "sessionId",
@@ -1498,7 +1468,7 @@ function createChatGptBrowserDelegationRunRequestFromBody(
 ): CreateChatGptBrowserDelegationRunRequest {
   assertAllowedRecordKeys(
     body,
-    CHATGPT_BROWSER_DELEGATION_REQUEST_BODY_KEYS,
+    CHATGPT_BROWSER_DELEGATION_CREATE_REQUEST_KEYS,
     "ChatGPT browser delegation request body"
   );
 
@@ -1568,10 +1538,7 @@ function createChatGptBrowserDelegationRunRequestFromBody(
       body.sessionOwnershipVerdict,
       "sessionOwnershipVerdict"
     ) as unknown as CreateChatGptBrowserDelegationRunRequest["sessionOwnershipVerdict"],
-    approvalDecision: stringFromBody(
-      body.approvalDecision,
-      "approvalDecision"
-    ) as CreateChatGptBrowserDelegationRunRequest["approvalDecision"],
+    approvalDecision: chatGptDelegationApprovalDecisionFromBody(body.approvalDecision, "approvalDecision"),
     ...(browserActionAuthorityRef !== undefined ? { browserActionAuthorityRef } : {}),
     ...(resultImportRef !== undefined ? { resultImportRef } : {}),
     ...(resultImportGate !== undefined ? { resultImportGate } : {}),
@@ -1593,7 +1560,7 @@ function optionalChatGptDelegationStatusFromBody(
     return undefined;
   }
 
-  if (!CHATGPT_BROWSER_DELEGATION_STATUSES.includes(status as (typeof CHATGPT_BROWSER_DELEGATION_STATUSES)[number])) {
+  if (!isChatGptBrowserDelegationStatus(status)) {
     throw new ProductEngineServiceError(
       "VALIDATION_FAILED",
       `${fieldName} must be a valid ChatGPT browser delegation status.`
@@ -1601,6 +1568,22 @@ function optionalChatGptDelegationStatusFromBody(
   }
 
   return status as CreateChatGptBrowserDelegationRunRequest["status"];
+}
+
+function chatGptDelegationApprovalDecisionFromBody(
+  value: unknown,
+  fieldName: string
+): CreateChatGptBrowserDelegationRunRequest["approvalDecision"] {
+  const approvalDecision = stringFromBody(value, fieldName);
+
+  if (!isChatGptBrowserDelegationApprovalDecision(approvalDecision)) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      `${fieldName} must be a valid ChatGPT browser delegation approval decision.`
+    );
+  }
+
+  return approvalDecision;
 }
 
 function chatGptBrowserDelegationPayloadFromRequest(
@@ -1637,7 +1620,7 @@ function revokeChatGptBrowserDelegationRunRequestFromBody(
 ): RevokeChatGptBrowserDelegationRunRequest {
   assertAllowedRecordKeys(
     body,
-    CHATGPT_BROWSER_DELEGATION_REVOKE_REQUEST_BODY_KEYS,
+    CHATGPT_BROWSER_DELEGATION_REVOKE_REQUEST_KEYS,
     "ChatGPT browser delegation revoke request body"
   );
 

@@ -1327,6 +1327,26 @@ describe("PR-02 sidecar health shell", () => {
         message: "status must be a valid ChatGPT browser delegation status."
       });
 
+      const invalidApproval = await storageApp.request(`/api/v1/sessions/${sessionId}/chatgpt-browser-delegations`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          ...delegationRequestBody,
+          idempotencyKey: "chatgpt-delegation-route:invalid-approval",
+          approvalDecision: "auto_approved"
+        })
+      });
+      const invalidApprovalBody = await jsonBody(invalidApproval);
+
+      expect(invalidApproval.status).toBe(400);
+      expect(invalidApprovalBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "approvalDecision must be a valid ChatGPT browser delegation approval decision."
+      });
+
       const response = await storageApp.request(`/api/v1/sessions/${sessionId}/chatgpt-browser-delegations`, {
         method: "POST",
         headers: {

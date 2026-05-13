@@ -420,6 +420,25 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
     });
   });
 
+  it("rejects unsupported ProductEngine payload keys before lifecycle reduction", () => {
+    const reduction = reduceProductEngineCommand(
+      command(
+        payloadFromReadyFixture({
+          sessionCookie: "blocked-by-contract"
+        })
+      ),
+      stateWithResearchTaskAndBrowserAuthority()
+    );
+
+    expect(reduction).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "VALIDATION_FAILED",
+        message: "CreateChatGptBrowserDelegationRun payload contains unsupported keys."
+      }
+    });
+  });
+
   it("fails result import attempts that do not have per-run approval or browser authority", () => {
     const reduction = reduceProductEngineCommand(
       command(

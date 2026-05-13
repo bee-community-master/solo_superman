@@ -10,6 +10,10 @@ import type {
   StateVersion
 } from "../ids";
 import type { ResearchImpact, ResearchRouteOutcome, ResearchSourceReliability } from "../projections";
+import {
+  CHATGPT_BROWSER_DELEGATION_APPROVAL_DECISIONS,
+  CHATGPT_BROWSER_DELEGATION_STATUSES
+} from "../projections/chatgpt-browser-delegation";
 import type {
   BoundedAgentOutputRecord,
   ExecutionApprovalDecision,
@@ -21,13 +25,15 @@ import type {
   ExecutionSandboxBoundary
 } from "../projections/execution-authority";
 import type {
+  CreateChatGptBrowserDelegationRunPayload,
   ChatGptBrowserDelegationDataDisclosurePreview,
   ChatGptBrowserDelegationFallbackState,
   ChatGptBrowserDelegationRedactionSummary,
   ChatGptBrowserDelegationResultImportGate,
   ChatGptBrowserDelegationStatus,
   ChatGptBrowserDelegationApprovalDecision,
-  ChatGptBrowserDelegationVerdictDto
+  ChatGptBrowserDelegationVerdictDto,
+  RevokeChatGptBrowserDelegationRunPayload
 } from "../projections/chatgpt-browser-delegation";
 import type {
   ServicePageApprovalGranularity,
@@ -329,6 +335,84 @@ export interface RevokeChatGptBrowserDelegationRunRequest extends ScaffoldReques
   readonly runId: string;
   readonly reason: string;
   readonly auditRefs?: readonly string[];
+}
+
+export const CHATGPT_BROWSER_DELEGATION_CREATE_REQUEST_KEYS = [
+  "scaffoldOnly",
+  "sessionId",
+  "expectedStateVersion",
+  "idempotencyKey",
+  "researchTaskId",
+  "status",
+  "userVisibleExplanation",
+  "nextAction",
+  "promptPreviewRef",
+  "dataDisclosurePreview",
+  "redactionSummary",
+  "policyRiskVerdict",
+  "sessionOwnershipVerdict",
+  "approvalDecision",
+  "browserActionAuthorityRef",
+  "resultImportRef",
+  "resultImportGate",
+  "fallbackApplied",
+  "screenshotRefs",
+  "logRefs",
+  "auditRefs",
+  "activityFeedRefs"
+] as const satisfies readonly (keyof CreateChatGptBrowserDelegationRunRequest)[];
+
+export const CHATGPT_BROWSER_DELEGATION_CREATE_PAYLOAD_KEYS = [
+  "researchTaskId",
+  "status",
+  "userVisibleExplanation",
+  "nextAction",
+  "promptPreviewRef",
+  "dataDisclosurePreview",
+  "redactionSummary",
+  "policyRiskVerdict",
+  "sessionOwnershipVerdict",
+  "approvalDecision",
+  "browserActionAuthorityRef",
+  "resultImportRef",
+  "resultImportGate",
+  "fallbackApplied",
+  "screenshotRefs",
+  "logRefs",
+  "auditRefs",
+  "activityFeedRefs"
+] as const satisfies readonly (keyof CreateChatGptBrowserDelegationRunPayload)[];
+
+export const CHATGPT_BROWSER_DELEGATION_REVOKE_REQUEST_KEYS = [
+  "scaffoldOnly",
+  "sessionId",
+  "expectedStateVersion",
+  "idempotencyKey",
+  "runId",
+  "reason",
+  "auditRefs"
+] as const satisfies readonly (keyof RevokeChatGptBrowserDelegationRunRequest)[];
+
+export const CHATGPT_BROWSER_DELEGATION_REVOKE_PAYLOAD_KEYS = [
+  "runId",
+  "reason",
+  "auditRefs"
+] as const satisfies readonly (keyof RevokeChatGptBrowserDelegationRunPayload)[];
+
+export function isChatGptBrowserDelegationStatus(value: unknown): value is ChatGptBrowserDelegationStatus {
+  return (
+    typeof value === "string" &&
+    CHATGPT_BROWSER_DELEGATION_STATUSES.includes(value as ChatGptBrowserDelegationStatus)
+  );
+}
+
+export function isChatGptBrowserDelegationApprovalDecision(
+  value: unknown
+): value is ChatGptBrowserDelegationApprovalDecision {
+  return (
+    typeof value === "string" &&
+    CHATGPT_BROWSER_DELEGATION_APPROVAL_DECISIONS.includes(value as ChatGptBrowserDelegationApprovalDecision)
+  );
 }
 
 export interface CreateServicePageUsePermissionRequest extends ScaffoldRequestPlaceholder {
