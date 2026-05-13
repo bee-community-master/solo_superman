@@ -6,6 +6,7 @@ import {
   type CorrelationId,
   type ProductEngineCommand,
   type ProjectId,
+  type ServicePageUsePermissionProjection,
   type SessionId,
   type StateVersion
 } from "@solo-superman/contracts";
@@ -343,6 +344,85 @@ describe("DeleteServicePageUsePermissionArtifacts reducer", () => {
         auditLog: expect.arrayContaining([expect.objectContaining({ eventType: "ServicePageArtifactsDeleted" })])
       }
     });
+
+    const deletedProjection = deleted.nextState.servicePageUsePermission as ServicePageUsePermissionProjection | undefined;
+    const deletedPermissionJson = JSON.stringify(deletedProjection?.latestPermission);
+    expect(deletedPermissionJson).not.toContain("prompt_preview_service_page_vercel");
+    expect(deletedPermissionJson).not.toContain("redaction_preview_service_page_vercel");
+    expect(deletedPermissionJson).not.toContain("screenshot:vercel-setup");
+    expect(deletedPermissionJson).not.toContain("log:vercel-setup");
+  });
+
+  it("can delete retained artifact refs from a non-latest permission record", () => {
+    const state = createInitialProductEngineState(projectId, sessionId);
+    const first = reduceProductEngineCommand(command(readyPayload()), state);
+    const stateAfterFirst = {
+      ...state,
+      ...first.nextState
+    };
+    const firstPermissionId = stateAfterFirst.servicePageUsePermission?.latestPermission.permissionId;
+    const second = reduceProductEngineCommand(
+      command(readyPayload({
+        serviceOrigin: "https://example.com",
+        pageUrl: "https://example.com/setup",
+        promptPreviewRef: "prompt_preview_service_page_example",
+        redactionPreviewRef: "redaction_preview_service_page_example",
+        screenshotRefs: ["screenshot:example-setup"],
+        logRefs: ["log:example-setup"],
+        evidenceRefs: ["evidence:example-setup"],
+        auditRefs: ["audit:example-setup"],
+        userApprovalRef: "user_approval:service-page:example"
+      }), 1 as StateVersion),
+      stateAfterFirst
+    );
+    const stateAfterSecond = {
+      ...stateAfterFirst,
+      ...second.nextState
+    };
+
+    expect(firstPermissionId).toBeTruthy();
+    expect(stateAfterSecond.servicePageUsePermission?.permissions).toHaveLength(2);
+
+    const deleted = reduceProductEngineCommand(
+      deleteArtifactsCommand({
+        permissionId: firstPermissionId,
+        reason: "User deleted old permission artifact refs while keeping the newer grant active.",
+        auditRefs: ["audit:service-page-old-artifact-delete"]
+      }, 2 as StateVersion),
+      stateAfterSecond
+    );
+
+    expect(deleted.accepted).toBe(true);
+    expect(deleted.immediateProjection).toMatchObject({
+      currentStatus: "granted",
+      latestPermission: {
+        serviceOrigin: "https://example.com",
+        artifactRetention: {
+          promptResultScreenshotLogRetention: "default_evidence_refs_only"
+        }
+      }
+    });
+
+    const deletedProjection = deleted.nextState.servicePageUsePermission as ServicePageUsePermissionProjection | undefined;
+    const deletedOldPermission = deletedProjection?.permissions.find(
+      (permission) => permission.permissionId === firstPermissionId
+    );
+
+    expect(deletedOldPermission).toMatchObject({
+      promptPreviewRef: null,
+      screenshotRefs: [],
+      logRefs: [],
+      artifactRetention: {
+        promptResultScreenshotLogRetention: "deleted_audit_metadata_only",
+        redactionPreviewRef: null
+      }
+    });
+
+    const deletedOldPermissionJson = JSON.stringify(deletedOldPermission);
+    expect(deletedOldPermissionJson).not.toContain("prompt_preview_service_page_vercel");
+    expect(deletedOldPermissionJson).not.toContain("redaction_preview_service_page_vercel");
+    expect(deletedOldPermissionJson).not.toContain("screenshot:vercel-setup");
+    expect(deletedOldPermissionJson).not.toContain("log:vercel-setup");
   });
 });
 

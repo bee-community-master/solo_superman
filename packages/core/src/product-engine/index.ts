@@ -8253,6 +8253,45 @@ function servicePageArtifactRefsForPermission(permission: ServicePageUsePermissi
   ].filter((ref): ref is string => typeof ref === "string" && ref.length > 0));
 }
 
+function servicePageRefsWithoutArtifactRefs(
+  refs: readonly string[],
+  artifactRefs: ReadonlySet<string>
+) {
+  return uniqueStringRefs(refs.filter((ref) => !artifactRefs.has(ref)));
+}
+
+function servicePageEvidenceRefsWithoutArtifactRefs(
+  refs: readonly string[],
+  artifactRefs: ReadonlySet<string>,
+  fallbackRefs: readonly string[]
+) {
+  const retainedRefs = servicePageRefsWithoutArtifactRefs(refs, artifactRefs);
+
+  return retainedRefs.length ? retainedRefs : fallbackRefs;
+}
+
+function servicePageBlockReasonsWithoutArtifactRefs(
+  reasons: readonly ServicePageUsePermissionBlockReasonDto[],
+  artifactRefs: ReadonlySet<string>,
+  fallbackRefs: readonly string[]
+) {
+  return reasons.map((reason) => ({
+    ...reason,
+    evidenceRefs: servicePageEvidenceRefsWithoutArtifactRefs(reason.evidenceRefs, artifactRefs, fallbackRefs)
+  }));
+}
+
+function servicePageAuditLogWithoutArtifactRefs(
+  auditLog: readonly ServicePageUsePermissionAuditEntry[],
+  artifactRefs: ReadonlySet<string>,
+  fallbackRefs: readonly string[]
+) {
+  return auditLog.map((entry) => ({
+    ...entry,
+    evidenceRefs: servicePageEvidenceRefsWithoutArtifactRefs(entry.evidenceRefs, artifactRefs, fallbackRefs)
+  }));
+}
+
 function reduceDeleteServicePageUsePermissionArtifacts(
   command: ProductEngineCommand,
   state: ProductEngineStateSnapshot
@@ -8288,13 +8327,12 @@ function reduceDeleteServicePageUsePermissionArtifacts(
     );
   }
 
-  const target = projectionBefore.latestPermission.permissionId === permissionId
-    ? projectionBefore.latestPermission
-    : null;
+  const targetIndex = projectionBefore.permissions.findIndex((permission) => permission.permissionId === permissionId);
+  const target = targetIndex >= 0 ? projectionBefore.permissions[targetIndex] : null;
 
   if (!target) {
     return reject(
-      "DeleteServicePageUsePermissionArtifacts can only delete artifacts for the latest service page-use permission.",
+      "DeleteServicePageUsePermissionArtifacts requires an existing service page-use permission.",
       "RESOURCE_NOT_FOUND"
     );
   }
@@ -8313,7 +8351,15 @@ function reduceDeleteServicePageUsePermissionArtifacts(
     deletionAuditRef
   ]);
   const artifactRefs = servicePageArtifactRefsForPermission(target);
-  const retainedEvidenceRefs = target.evidenceRefs.filter((ref) => !artifactRefs.has(ref));
+  const retainedEvidenceRefs = servicePageRefsWithoutArtifactRefs(target.evidenceRefs, artifactRefs);
+  const retainedAuditRefs = servicePageRefsWithoutArtifactRefs(target.auditRefs, artifactRefs);
+  const retainedActivityFeedRefs = servicePageRefsWithoutArtifactRefs(target.activityFeedRefs, artifactRefs);
+  const retainedBlockReasons = servicePageBlockReasonsWithoutArtifactRefs(
+    target.blockReasons,
+    artifactRefs,
+    deletionAuditRefs
+  );
+  const retainedAuditLog = servicePageAuditLogWithoutArtifactRefs(target.auditLog, artifactRefs, deletionAuditRefs);
   const deletedPermission: ServicePageUsePermissionRecord = {
     ...target,
     artifactRetention: {
@@ -8331,10 +8377,11 @@ function reduceDeleteServicePageUsePermissionArtifacts(
       ...deletionAuditRefs,
       "service-page-permission:artifact-refs-deleted"
     ]),
-    auditRefs: uniqueStringRefs([...target.auditRefs, ...deletionAuditRefs]),
-    activityFeedRefs: uniqueStringRefs([...target.activityFeedRefs, "service-page-permission:artifacts-deleted"]),
+    auditRefs: uniqueStringRefs([...retainedAuditRefs, ...deletionAuditRefs]),
+    activityFeedRefs: uniqueStringRefs([...retainedActivityFeedRefs, "service-page-permission:artifacts-deleted"]),
+    blockReasons: retainedBlockReasons,
     auditLog: [
-      ...target.auditLog,
+      ...retainedAuditLog,
       {
         eventType: "ServicePageArtifactsDeleted",
         label: reason,
@@ -8346,8 +8393,9 @@ function reduceDeleteServicePageUsePermissionArtifacts(
 
   try {
     projection = servicePageUsePermissionProjectionFromRecords(command, projectionVersionFor(state), [
-      ...projectionBefore.permissions.slice(0, -1),
-      deletedPermission
+      ...projectionBefore.permissions.slice(0, targetIndex),
+      deletedPermission,
+      ...projectionBefore.permissions.slice(targetIndex + 1)
     ]);
   } catch (error) {
     return reject(error instanceof Error ? error.message : String(error), "VALIDATION_FAILED");

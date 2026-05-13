@@ -153,8 +153,8 @@ Solo Superman이 사용자의 프로그램 구현을 위해 Vercel, Supabase, St
 - audit refs and evidence refs.
 - prompt/result/screenshot/log artifact는 연구·구현 근거로 기본 보존할 수 있지만, credential/session/secret/2FA/payment/legal-sensitive field는 저장하지 않는다.
 - artifact 보존 전 redaction preview를 제공하고, 사용자가 원문 artifact를 export/delete할 수 있어야 한다.
-- Current #103 implementation surface: `ServicePageUsePermission` records inside `ServicePageUsePermissionProjection`, created by `CreateServicePageUsePermission`, queried with `GET /api/v1/sessions/:sessionId/service-page-use-permissions`, and revoked by `RevokeServicePageUsePermission`.
-- Events: `ServicePagePermissionGranted`, `ServicePagePermissionRevoked`, `ServicePageActionBlocked`, and `ServicePageFinalSubmitRequested`.
+- Current #103 implementation surface: `ServicePageUsePermission` records inside `ServicePageUsePermissionProjection`, created by `CreateServicePageUsePermission`, queried with `GET /api/v1/sessions/:sessionId/service-page-use-permissions`, revoked by `RevokeServicePageUsePermission`, and artifact-ref deleted by `DeleteServicePageUsePermissionArtifacts` via `POST /api/v1/sessions/:sessionId/service-page-use-permissions/:permissionId/artifacts/delete`.
+- Events: `ServicePagePermissionGranted`, `ServicePagePermissionRevoked`, `ServicePageArtifactsDeleted`, `ServicePageActionBlocked`, and `ServicePageFinalSubmitRequested`.
 - Persistence boundary: #103 remains projection-only. Browser page capture evidence comes from the Phase 3 `browser_action` `ExecutionAuthorityRecord`; service page-use dry-runs pass the permission id/action class so revoked or scope-mismatched permissions block before capture, while this permission route records purpose/action/data/retention/audit refs and never stores credentials/session values.
 
 ### Submit boundary
