@@ -32,6 +32,7 @@ export const PRODUCT_ENGINE_EVENT_TYPES = [
   "ExecutionAuthorityBlocked",
   "ChatGptBrowserDelegationRunRecorded",
   "ChatGptBrowserDelegationRunBlocked",
+  "ChatGptBrowserDelegationRunFailed",
   "ChatGptBrowserDelegationRunRevoked"
 ] as const;
 

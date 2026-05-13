@@ -214,16 +214,16 @@ describe("PR-09 web route client catalog", () => {
     });
   });
 
-  it("marks the Post-Phase3 PR-04 ChatGPT delegation run/revoke routes with their own mounted lane", () => {
+  it("keeps Post-Phase3 PR-03 ChatGPT delegation routes distinct from the PR-04 revoke route", () => {
     expect(findWebRouteClientPlaceholder("createChatGptBrowserDelegationRun")).toMatchObject({
       method: "POST",
       path: "/api/v1/sessions/:sessionId/chatgpt-browser-delegations",
-      implementation: "mounted_post_phase3_pr_04"
+      implementation: "mounted_post_phase3_pr_03"
     });
     expect(findWebRouteClientPlaceholder("getChatGptBrowserDelegationRuns")).toMatchObject({
       method: "GET",
       path: "/api/v1/sessions/:sessionId/chatgpt-browser-delegations",
-      implementation: "mounted_post_phase3_pr_04"
+      implementation: "mounted_post_phase3_pr_03"
     });
     expect(findWebRouteClientPlaceholder("revokeChatGptBrowserDelegationRun")).toMatchObject({
       method: "POST",

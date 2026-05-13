@@ -113,6 +113,7 @@ export const CHATGPT_BROWSER_DELEGATION_AUDIT_EVENT_TYPES = [
   "DelegationRunApproved",
   "DelegationRunRevoked",
   "DelegationRunBlocked",
+  "DelegationRunFailed",
   "DelegationFallbackApplied",
   "DelegationResultImported"
 ] as const;

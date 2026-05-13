@@ -364,7 +364,7 @@ Closed ProductEngine event type groups:
 | planning handoff | `PlanningHandoffCreated`, `PlanningHandoffBlocked` | Phase 2 final/blocker handoff artifact persistence; deterministic, no effect queue |
 | phase2.5 artifact gate | `Phase25ResearchComparisonCreated`, `Phase25ResearchComparisonBlocked` | Phase 2.5 quality-lift/safe-failure comparison report persistence; deterministic, no effect queue |
 | phase3 authority ledger | `ExecutionAuthorityRecorded`, `ExecutionAuthorityBlocked` | Phase 3 common authority/bounded-output ledger persistence; deterministic, no adapter execution effect queue |
-| ChatGPT browser delegation | `ChatGptBrowserDelegationRunRecorded`, `ChatGptBrowserDelegationRunBlocked`, `ChatGptBrowserDelegationRunRevoked` | Post-Phase3 per-run ChatGPT delegation run/audit/revoke/result-import gate persistence; deterministic, no hidden retry or credential/session custody |
+| ChatGPT browser delegation | `ChatGptBrowserDelegationRunRecorded`, `ChatGptBrowserDelegationRunBlocked`, `ChatGptBrowserDelegationRunFailed`, `ChatGptBrowserDelegationRunRevoked` | Post-Phase3 per-run ChatGPT delegation run/audit/revoke/result-import gate persistence; deterministic, no hidden retry or credential/session custody |
 
 ### ProductEngineEffectPlanItem
 

@@ -6847,6 +6847,19 @@ function requestedChatGptDelegationStatusMatchesFacts(
   );
 }
 
+function chatGptDelegationRunEventType(
+  status: ChatGptBrowserDelegationStatus,
+  blockReasons: readonly ChatGptBrowserDelegationBlockReasonDto[]
+) {
+  if (status === "failed") {
+    return "ChatGptBrowserDelegationRunFailed" as const;
+  }
+
+  return blockReasons.length
+    ? "ChatGptBrowserDelegationRunBlocked"
+    : "ChatGptBrowserDelegationRunRecorded";
+}
+
 function chatGptDelegationVisibleState(input: {
   readonly status: ChatGptBrowserDelegationStatus;
   readonly explicitExplanation: string | undefined;
@@ -6956,7 +6969,7 @@ function defaultChatGptAuditLog(input: {
 
   if (input.status === "blocked" || input.status === "failed") {
     entries.push({
-      eventType: "DelegationRunBlocked",
+      eventType: input.status === "failed" ? "DelegationRunFailed" : "DelegationRunBlocked",
       label: chatGptBrowserDelegationSummaryForStatus(input.status),
       evidenceRefs: input.auditRefs
     });
@@ -7156,6 +7169,7 @@ function chatGptDelegationRunFromParsedPayload(
   }
 
   const runStatus = payload.requestedStatus ?? derivedRunStatus;
+  const eventType = chatGptDelegationRunEventType(runStatus, blockReasons);
   const visibleState = chatGptDelegationVisibleState({
     status: runStatus,
     explicitExplanation: payload.userVisibleExplanation,
@@ -7166,7 +7180,7 @@ function chatGptDelegationRunFromParsedPayload(
   const resolvedAuditRefs = uniqueStringRefs([
     ...payload.auditRefs,
     `audit:${command.commandId}`,
-    `event:ChatGptBrowserDelegationRun${blockReasons.length ? "Blocked" : "Recorded"}`
+    `event:${eventType}`
   ]);
   const runId = `chatgpt_delegation_${stableToken(
     JSON.stringify({
@@ -7269,7 +7283,7 @@ function reduceCreateChatGptBrowserDelegationRun(
   }
 
   const status = projection.currentStatus;
-  const eventType = blockReasons.length ? "ChatGptBrowserDelegationRunBlocked" : "ChatGptBrowserDelegationRunRecorded";
+  const eventType = chatGptDelegationRunEventType(run.status, blockReasons);
   const event = eventDraft(command, eventType, {
     runId: run.runId,
     researchTaskId: run.researchTaskId,
@@ -9058,6 +9072,7 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
     }
     case "ChatGptBrowserDelegationRunRecorded":
     case "ChatGptBrowserDelegationRunBlocked":
+    case "ChatGptBrowserDelegationRunFailed":
     case "ChatGptBrowserDelegationRunRevoked": {
       const chatGptBrowserDelegation = projectionPayload(event.payload, state.chatGptBrowserDelegation);
 

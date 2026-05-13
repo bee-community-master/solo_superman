@@ -573,11 +573,14 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
     );
 
     expect(reduction.accepted).toBe(true);
+    expect(reduction.events[0]).toMatchObject({ eventType: "ChatGptBrowserDelegationRunFailed" });
     expect(reduction.immediateProjection).toMatchObject({
       currentStatus: "failed",
       latestRun: {
         resultImportRef: "research_result_chatgpt_gate_fail",
-        blockReasons: expect.arrayContaining([expect.objectContaining({ code: "result_import_gate_failed" })])
+        auditRefs: expect.arrayContaining(["event:ChatGptBrowserDelegationRunFailed"]),
+        blockReasons: expect.arrayContaining([expect.objectContaining({ code: "result_import_gate_failed" })]),
+        auditLog: expect.arrayContaining([expect.objectContaining({ eventType: "DelegationRunFailed" })])
       }
     });
   });
