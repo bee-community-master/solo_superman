@@ -19,6 +19,8 @@ describe("Service page-use permission projection contract", () => {
       | "blockedActionClasses"
       | "dataCategories"
       | "approvalGranularity"
+      | "approvalDecision"
+      | "userApprovalRef"
       | "promptPreviewRef"
       | "redactionPreviewRef"
       | "userExportDeleteControls"

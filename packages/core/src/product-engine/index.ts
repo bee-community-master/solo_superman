@@ -177,6 +177,7 @@ import {
   type ServicePageBlockedActionClass,
   type ServicePageDataCategory,
   type ServicePageFinalSubmitBoundary,
+  type ServicePageUsePermissionApprovalDecision,
   type ServicePageUseActionClass,
   type ServicePageUsePermissionAuditEntry,
   type ServicePageUsePermissionBlockCode,
@@ -7483,6 +7484,8 @@ const SERVICE_PAGE_USE_PERMISSION_ALLOWED_PAYLOAD_KEYS = [
   "blockedActionClasses",
   "dataCategories",
   "approvalGranularity",
+  "approvalDecision",
+  "userApprovalRef",
   "promptPreviewRef",
   "redactionPreviewRef",
   "userExportDeleteControls",
@@ -7548,16 +7551,29 @@ function isValidServiceOrigin(origin: string) {
   return /^https:\/\/[a-z0-9.-]+(?::[0-9]{1,5})?$/iu.test(origin);
 }
 
+function servicePageOriginFromPageUrl(pageUrl: string) {
+  const match = pageUrl.match(/^(https:\/\/[a-z0-9.-]+(?::[0-9]{1,5})?)(?:[/?#]|$)/iu);
+
+  return match?.[1] ?? null;
+}
+
+function servicePageUrlMatchesOrigin(serviceOrigin: string, pageUrl: string) {
+  return servicePageOriginFromPageUrl(pageUrl) === serviceOrigin;
+}
+
 function servicePageActionRequiresPerActionApproval(action: ServicePageUseActionClass) {
   return action === "fill_draft" || action === "copy_generated_value" || action === "final_submit_request";
 }
 
 function servicePageUsePermissionBlockReasons(input: {
   readonly serviceOrigin: string;
+  readonly pageUrl: string;
   readonly purpose: string;
   readonly allowedActionClasses: readonly ServicePageUseActionClass[];
   readonly blockedActionClasses: readonly ServicePageBlockedActionClass[];
   readonly approvalGranularity: ServicePageApprovalGranularity;
+  readonly approvalDecision: ServicePageUsePermissionApprovalDecision;
+  readonly userApprovalRef: string;
   readonly redactionPreviewRef: string;
   readonly userExportDeleteControls: true;
   readonly finalSubmitRequested: boolean;
@@ -7572,6 +7588,22 @@ function servicePageUsePermissionBlockReasons(input: {
       "invalid_service_origin",
       "Service page-use permission requires an explicit https service origin.",
       [...input.evidenceRefs, `origin:${input.serviceOrigin}`]
+    ));
+  }
+
+  if (!servicePageUrlMatchesOrigin(input.serviceOrigin, input.pageUrl)) {
+    reasons.push(servicePageBlockReason(
+      "invalid_page_url",
+      "Service page-use permission pageUrl must be an HTTPS URL on the approved service origin and must not include credentials.",
+      [...input.evidenceRefs, `pageUrl:${input.pageUrl}`]
+    ));
+  }
+
+  if (input.approvalDecision !== "approved" || !input.userApprovalRef) {
+    reasons.push(servicePageBlockReason(
+      "missing_user_approval",
+      "User approval evidence is required after previewing service origin, purpose, data categories, allowed actions, blocked actions, and redaction controls.",
+      input.evidenceRefs
     ));
   }
 
@@ -7636,18 +7668,11 @@ function servicePageUsePermissionBlockReasons(input: {
     input.finalSubmitRequested ||
     input.allowedActionClasses.includes("final_submit_request")
   ) {
-    if (
-      !input.allowedActionClasses.includes("final_submit_request") ||
-      input.approvalGranularity !== "per_action" ||
-      !input.finalSubmitConfirmationRef ||
-      !input.finalSubmitExecutionAuthorityRef
-    ) {
-      reasons.push(servicePageBlockReason(
-        "final_submit_requires_confirmation_and_authority",
-        "Final submit is only a request until a separate confirmation card and ExecutionAuthorityRecord linkage both exist.",
-        input.evidenceRefs
-      ));
-    }
+    reasons.push(servicePageBlockReason(
+      "final_submit_requires_confirmation_and_authority",
+      "Final submit remains blocked until a later explicit production-mutation contract validates the confirmation card and ExecutionAuthorityRecord linkage.",
+      input.evidenceRefs
+    ));
   }
 
   return reasons;
@@ -7748,6 +7773,8 @@ interface ParsedServicePageUsePermissionPayload {
   readonly blockedActionClasses: readonly ServicePageBlockedActionClass[];
   readonly dataCategories: readonly ServicePageDataCategory[];
   readonly approvalGranularity: ServicePageApprovalGranularity;
+  readonly approvalDecision: ServicePageUsePermissionApprovalDecision;
+  readonly userApprovalRef: string;
   readonly promptPreviewRef: string;
   readonly redactionPreviewRef: string;
   readonly userExportDeleteControls: true;
@@ -7782,6 +7809,8 @@ function parseServicePageUsePermissionPayload(
     SERVICE_PAGE_USE_PERMISSION_DATA_CATEGORIES
   );
   const approvalGranularity = requiredString(payload.approvalGranularity);
+  const approvalDecision = requiredString(payload.approvalDecision);
+  const userApprovalRef = requiredString(payload.userApprovalRef);
   const promptPreviewRef = requiredString(payload.promptPreviewRef);
   const redactionPreviewRef = requiredString(payload.redactionPreviewRef);
   const finalSubmitConfirmationRef = requiredString(payload.finalSubmitConfirmationRef);
@@ -7802,6 +7831,8 @@ function parseServicePageUsePermissionPayload(
     !dataCategories ||
     !approvalGranularity ||
     !SERVICE_PAGE_USE_PERMISSION_APPROVAL_GRANULARITIES.includes(approvalGranularity as ServicePageApprovalGranularity) ||
+    approvalDecision !== "approved" ||
+    !userApprovalRef ||
     !promptPreviewRef ||
     !redactionPreviewRef ||
     payload.userExportDeleteControls !== true ||
@@ -7823,6 +7854,8 @@ function parseServicePageUsePermissionPayload(
     blockedActionClasses,
     dataCategories,
     approvalGranularity: approvalGranularity as ServicePageApprovalGranularity,
+    approvalDecision: approvalDecision as ServicePageUsePermissionApprovalDecision,
+    userApprovalRef,
     promptPreviewRef,
     redactionPreviewRef,
     userExportDeleteControls: true,
@@ -7909,10 +7942,13 @@ function reduceCreateServicePageUsePermission(
   ]);
   const blockReasons = servicePageUsePermissionBlockReasons({
     serviceOrigin: payload.serviceOrigin,
+    pageUrl: payload.pageUrl,
     purpose: payload.purpose,
     allowedActionClasses: payload.allowedActionClasses,
     blockedActionClasses: payload.blockedActionClasses,
     approvalGranularity: payload.approvalGranularity,
+    approvalDecision: payload.approvalDecision,
+    userApprovalRef: payload.userApprovalRef,
     redactionPreviewRef: payload.redactionPreviewRef,
     userExportDeleteControls: payload.userExportDeleteControls,
     finalSubmitRequested: payload.finalSubmitRequested,
@@ -7944,6 +7980,7 @@ function reduceCreateServicePageUsePermission(
       pageUrl: payload.pageUrl,
       purpose: payload.purpose,
       allowedActionClasses: payload.allowedActionClasses,
+      userApprovalRef: payload.userApprovalRef,
       finalSubmitRequested: payload.finalSubmitRequested
     })
   )}`;
@@ -7963,6 +8000,8 @@ function reduceCreateServicePageUsePermission(
     blockedActionClasses: payload.blockedActionClasses,
     dataCategories: payload.dataCategories,
     approvalGranularity: payload.approvalGranularity,
+    approvalDecision: payload.approvalDecision,
+    userApprovalRef: payload.userApprovalRef,
     status,
     userVisibleExplanation: visibleState.userVisibleExplanation,
     nextAction: visibleState.nextAction,
@@ -8014,6 +8053,8 @@ function reduceCreateServicePageUsePermission(
     permissionId,
     serviceName: permission.serviceName,
     serviceOrigin: permission.serviceOrigin,
+    pageUrl: permission.pageUrl,
+    userApprovalRef: permission.userApprovalRef,
     allowedActionClasses: permission.allowedActionClasses,
     approvalGranularity: permission.approvalGranularity,
     status,

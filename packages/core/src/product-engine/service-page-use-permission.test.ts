@@ -56,6 +56,8 @@ function readyPayload(overrides: ProductEngineCommand["payload"] = {}): ProductE
     blockedActionClasses: SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES,
     dataCategories: ["public_page_content", "user_provided_project_context", "prompt_result_screenshot_log_refs"],
     approvalGranularity: "per_page",
+    approvalDecision: "approved",
+    userApprovalRef: "user_approval:service-page:vercel",
     promptPreviewRef: "prompt_preview_service_page_vercel",
     redactionPreviewRef: "redaction_preview_service_page_vercel",
     userExportDeleteControls: true,
@@ -86,11 +88,13 @@ describe("CreateServicePageUsePermission reducer", () => {
     });
     expect(reduction.immediateProjection).toMatchObject({
       kind: "ServicePageUsePermissionProjection",
-      currentStatus: "granted",
-      latestPermission: expect.objectContaining({
-        serviceOrigin: "https://vercel.com",
-        allowedActionClasses: ["read", "preview"],
-        credentialEntryDelegated: false,
+          currentStatus: "granted",
+          latestPermission: expect.objectContaining({
+            serviceOrigin: "https://vercel.com",
+            pageUrl: "https://vercel.com/new",
+            allowedActionClasses: ["read", "preview"],
+            userApprovalRef: "user_approval:service-page:vercel",
+            credentialEntryDelegated: false,
         userPresentLoginRequired: true,
         canRevoke: true
       })
@@ -148,6 +152,70 @@ describe("CreateServicePageUsePermission reducer", () => {
     });
   });
 
+  it("keeps final-submit blocked even when arbitrary confirmation and authority refs are supplied", () => {
+    const reduction = reduceProductEngineCommand(
+      command(readyPayload({
+        allowedActionClasses: ["final_submit_request"],
+        approvalGranularity: "per_action",
+        finalSubmitRequested: true,
+        finalSubmitConfirmationRef: "confirmation_card_fake",
+        finalSubmitExecutionAuthorityRef: "exec_auth_fake"
+      })),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "blocked",
+      latestPermission: {
+        finalSubmitBoundary: {
+          requested: true,
+          confirmationCardRef: "confirmation_card_fake",
+          executionAuthorityRef: "exec_auth_fake",
+          productionMutationPerformed: false
+        },
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({ code: "final_submit_requires_confirmation_and_authority" })
+        ])
+      }
+    });
+  });
+
+  it("blocks page URLs that do not match the approved service origin", () => {
+    const reduction = reduceProductEngineCommand(
+      command(readyPayload({ pageUrl: "https://attacker.example/phish" })),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "blocked",
+      latestPermission: {
+        pageUrl: "https://attacker.example/phish",
+        blockReasons: expect.arrayContaining([
+          expect.objectContaining({ code: "invalid_page_url" })
+        ])
+      }
+    });
+  });
+
+  it("rejects missing explicit user approval evidence before grant", () => {
+    const reduction = reduceProductEngineCommand(
+      command({
+        ...readyPayload(),
+        approvalDecision: undefined,
+        userApprovalRef: undefined
+      }),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(reduction.accepted).toBe(false);
+    expect(reduction.rejectionReason).toMatchObject({
+      code: "VALIDATION_FAILED",
+      message: "CreateServicePageUsePermission payload is invalid."
+    });
+  });
+
   it("rejects credential-shaped values before they enter permission storage", () => {
     const reduction = reduceProductEngineCommand(
       command(readyPayload({ credentialPassword: "secret_password=abc123" })),
@@ -167,6 +235,17 @@ describe("CreateServicePageUsePermission reducer", () => {
 
     expect(secretValueReduction.accepted).toBe(false);
     expect(secretValueReduction.rejectionReason).toMatchObject({
+      code: "VALIDATION_FAILED",
+      message: "CreateServicePageUsePermission payload must not contain credential, session, token, or secret values."
+    });
+
+    const sessionCookieReduction = reduceProductEngineCommand(
+      command(readyPayload({ purpose: "Keep session_cookie=abcd1234 in retained evidence." })),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(sessionCookieReduction.accepted).toBe(false);
+    expect(sessionCookieReduction.rejectionReason).toMatchObject({
       code: "VALIDATION_FAILED",
       message: "CreateServicePageUsePermission payload must not contain credential, session, token, or secret values."
     });

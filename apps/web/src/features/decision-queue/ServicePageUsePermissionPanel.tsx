@@ -7,11 +7,13 @@ export interface ServicePageUsePermissionViewModel {
   readonly status: string;
   readonly summary: string;
   readonly serviceLabel: string;
+  readonly pageUrl: string;
   readonly purpose: string;
   readonly allowedActionsLabel: string;
   readonly blockedActionsLabel: string;
   readonly dataCategoriesLabel: string;
   readonly approvalGranularityLabel: string;
+  readonly approvalLabel: string;
   readonly loginBoundaryLabel: string;
   readonly finalSubmitBoundaryLabel: string;
   readonly explanation: string;
@@ -47,11 +49,13 @@ export function servicePageUsePermissionViewModel(
       status: "not_started",
       summary: "Service page-use permission has not been granted.",
       serviceLabel: "No service selected",
+      pageUrl: "No page URL has been previewed.",
       purpose: "No purpose has been previewed for an external service page.",
       allowedActionsLabel: "none",
       blockedActionsLabel: "credential/session/secret custody and sensitive production submits stay blocked",
       dataCategoriesLabel: "none",
       approvalGranularityLabel: "not set",
+      approvalLabel: "No user approval ref has been recorded.",
       loginBoundaryLabel: "User-owned login is required before any page-use permission.",
       finalSubmitBoundaryLabel: "Final submit requires a separate confirmation card and ExecutionAuthorityRecord.",
       explanation: "Create a purpose-limited service page-use permission before using an external service page.",
@@ -73,11 +77,13 @@ export function servicePageUsePermissionViewModel(
     status: projection.currentStatus,
     summary: projection.summary,
     serviceLabel: `${permission.serviceName} (${permission.serviceOrigin})`,
+    pageUrl: permission.pageUrl,
     purpose: permission.purpose,
     allowedActionsLabel: commaList(permission.allowedActionClasses),
     blockedActionsLabel: commaList(permission.blockedActionClasses),
     dataCategoriesLabel: commaList(permission.dataCategories),
     approvalGranularityLabel: permission.approvalGranularity,
+    approvalLabel: `${permission.approvalDecision} via ${permission.userApprovalRef}`,
     loginBoundaryLabel: permission.credentialEntryDelegated
       ? "Credential entry is delegated — blocked by contract."
       : "User logs in directly; credentials, cookies, sessions, 2FA, API keys, and secrets are never stored.",
@@ -140,11 +146,13 @@ export function ServicePageUsePermissionPanel({
       <h3>Permission preview</h3>
       <ul>
         <li>Service: {permission.serviceLabel}</li>
+        <li>Page URL: {permission.pageUrl}</li>
         <li>Purpose: {permission.purpose}</li>
         <li>Allowed actions: {permission.allowedActionsLabel}</li>
         <li>Blocked actions: {permission.blockedActionsLabel}</li>
         <li>Visible data categories: {permission.dataCategoriesLabel}</li>
         <li>Approval granularity: {permission.approvalGranularityLabel}</li>
+        <li>User approval: {permission.approvalLabel}</li>
         <li>Login boundary: {permission.loginBoundaryLabel}</li>
         <li>Final submit boundary: {permission.finalSubmitBoundaryLabel}</li>
       </ul>

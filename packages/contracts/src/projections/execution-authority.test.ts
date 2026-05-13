@@ -3,6 +3,7 @@ import {
   PHASE3_BOUNDED_OUTPUT_READY_FIXTURE,
   PHASE3_EXECUTION_AUTHORITY_BLOCKED_PROJECTION_FIXTURE,
   PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE,
+  containsExecutionAuthoritySecretValueLeak,
   executionAuthorityLedgerSummaryForStatus,
   executionAuthorityRecordValidationIssues,
   isExecutionAuthorityIsoTimestamp,
@@ -112,6 +113,14 @@ describe("Phase 3 ExecutionAuthority ledger contract", () => {
       | "auditRefs"
       | "refetchUrl"
     >();
+  });
+
+  it("detects session, cookie, and one-time-code custody values inside allowed strings", () => {
+    expect(containsExecutionAuthoritySecretValueLeak("keep session_cookie=abcd1234 in evidence")).toBe(true);
+    expect(containsExecutionAuthoritySecretValueLeak("callback?cookie=abcd1234")).toBe(true);
+    expect(containsExecutionAuthoritySecretValueLeak("2fa=123456")).toBe(true);
+    expect(containsExecutionAuthoritySecretValueLeak("otp=123456")).toBe(true);
+    expect(containsExecutionAuthoritySecretValueLeak({ sessionId: "sess_public_identifier" })).toBe(false);
   });
 
   it("validates an approved authority record without running an adapter", () => {

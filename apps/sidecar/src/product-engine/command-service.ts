@@ -1151,6 +1151,88 @@ function browserActionExecutionResult(input: {
   };
 }
 
+async function servicePageUsePermissionBrowserActionBlockReasons(
+  storage: SoloStorage,
+  input: ExecuteBrowserActionInput
+): Promise<readonly ExecutionAuthorityBlockReasonDto[]> {
+  if (!input.servicePageActionClass && !input.servicePagePermissionId) {
+    return [];
+  }
+
+  if (!input.servicePageActionClass || !input.servicePagePermissionId) {
+    return [
+      executionAuthorityPreflightBlockReason(
+        "service_page_permission_required",
+        "Service page-use browser actions must reference a current permission id and action class.",
+        ["service_page_permission:missing"]
+      )
+    ];
+  }
+
+  const serviceProjection = await createProjectionRepository(storage.db).get<ServicePageUsePermissionProjection>(
+    input.sessionId,
+    "ServicePageUsePermissionProjection"
+  );
+  const permission = serviceProjection?.latestPermission;
+
+  if (!permission || permission.permissionId !== input.servicePagePermissionId) {
+    return [
+      executionAuthorityPreflightBlockReason(
+        "service_page_permission_required",
+        "Service page-use browser action requires the latest service page-use permission.",
+        [`service_page_permission:${input.servicePagePermissionId}`]
+      )
+    ];
+  }
+
+  if (permission.status === "revoked") {
+    return [
+      executionAuthorityPreflightBlockReason(
+        "service_page_permission_revoked",
+        "The referenced service page-use permission was revoked; further page-use actions are blocked.",
+        [`service_page_permission:${permission.permissionId}:revoked`]
+      )
+    ];
+  }
+
+  if (permission.status !== "granted" && permission.status !== "final_submit_requested") {
+    return [
+      executionAuthorityPreflightBlockReason(
+        "service_page_permission_required",
+        "The referenced service page-use permission is not active.",
+        [`service_page_permission:${permission.permissionId}:${permission.status}`]
+      )
+    ];
+  }
+
+  if (!permission.allowedActionClasses.includes(input.servicePageActionClass)) {
+    return [
+      executionAuthorityPreflightBlockReason(
+        "service_page_permission_scope_mismatch",
+        "The referenced service page-use permission does not allow this page action class.",
+        [`service_page_permission:${permission.permissionId}:${input.servicePageActionClass}`]
+      )
+    ];
+  }
+
+  if (
+    (input.servicePageActionClass === "fill_draft" ||
+      input.servicePageActionClass === "copy_generated_value" ||
+      input.servicePageActionClass === "final_submit_request") &&
+    permission.approvalGranularity !== "per_action"
+  ) {
+    return [
+      executionAuthorityPreflightBlockReason(
+        "service_page_permission_scope_mismatch",
+        "Fill, copy, and final-submit service page-use actions require per-action permission.",
+        [`service_page_permission:${permission.permissionId}:approval:${permission.approvalGranularity}`]
+      )
+    ];
+  }
+
+  return [];
+}
+
 function shellCommandSummaryFromRequest(input: {
   readonly request: ExecuteShellCommandInput;
   readonly record?: ExecutionAuthorityRecord;
@@ -4773,9 +4855,13 @@ export function createProductEngineCommandService(
       };
       const basePreflightBlockReasons = executionAuthorityPreflightBlockReasons(preflightInput, projection);
       const requestPreviewHashBlockReason = browserActionRequestPreviewHashBlockReason(input);
-      const preflightBlockReasons = requestPreviewHashBlockReason
-        ? [...basePreflightBlockReasons, requestPreviewHashBlockReason]
-        : basePreflightBlockReasons;
+      const servicePagePermissionBlockReasons =
+        await servicePageUsePermissionBrowserActionBlockReasons(storage, input);
+      const preflightBlockReasons = [
+        ...basePreflightBlockReasons,
+        ...(requestPreviewHashBlockReason ? [requestPreviewHashBlockReason] : []),
+        ...servicePagePermissionBlockReasons
+      ];
       const checkedAt = new Date().toISOString();
 
       if (!projection) {

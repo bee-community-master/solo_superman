@@ -148,18 +148,19 @@ Solo Superman이 사용자의 프로그램 구현을 위해 Vercel, Supabase, St
 - explicitly blocked action classes.
 - data categories visible to the agent.
 - approval granularity: per action, per page, per setup step.
+- explicit user approval ref after previewing service origin, page URL, purpose, data categories, allowed actions, blocked actions, and redaction/export/delete controls.
 - revoke state and timestamp.
 - audit refs and evidence refs.
 - prompt/result/screenshot/log artifact는 연구·구현 근거로 기본 보존할 수 있지만, credential/session/secret/2FA/payment/legal-sensitive field는 저장하지 않는다.
 - artifact 보존 전 redaction preview를 제공하고, 사용자가 원문 artifact를 export/delete할 수 있어야 한다.
 - Current #103 implementation surface: `ServicePageUsePermission` records inside `ServicePageUsePermissionProjection`, created by `CreateServicePageUsePermission`, queried with `GET /api/v1/sessions/:sessionId/service-page-use-permissions`, and revoked by `RevokeServicePageUsePermission`.
 - Events: `ServicePagePermissionGranted`, `ServicePagePermissionRevoked`, `ServicePageActionBlocked`, and `ServicePageFinalSubmitRequested`.
-- Persistence boundary: #103 remains projection-only. Browser page capture evidence comes from the Phase 3 `browser_action` `ExecutionAuthorityRecord`, while this permission route records purpose/action/data/retention/audit refs and never stores credentials/session values.
+- Persistence boundary: #103 remains projection-only. Browser page capture evidence comes from the Phase 3 `browser_action` `ExecutionAuthorityRecord`; service page-use dry-runs pass the permission id/action class so revoked or scope-mismatched permissions block before capture, while this permission route records purpose/action/data/retention/audit refs and never stores credentials/session values.
 
 ### Submit boundary
 
 - “저장 직전까지 채우기”와 “최종 submit/click/구매/배포”는 다른 권한이다.
-- final submit은 별도 confirmation card와 `ExecutionAuthorityRecord` linkage 없이는 실행하지 않는다.
+- final submit은 별도 confirmation card와 `ExecutionAuthorityRecord` linkage만으로 실행 가능 상태가 되지 않으며, production mutation을 명시적으로 검증하는 후속 contract가 생기기 전까지 blocked 상태로 남긴다.
 - 결제, 법률, 의료, 금융, 개인정보, production deploy, DNS cutover, account deletion은 later explicit contract 전까지 blocked다.
 
 ## Feature contract E — Implementation step ledger

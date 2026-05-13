@@ -1032,7 +1032,9 @@ const BROWSER_ACTION_EXECUTION_KEYS = [
   "requestedAt",
   "approvalExpiresAt",
   "targetUrl",
-  "action"
+  "action",
+  "servicePagePermissionId",
+  "servicePageActionClass"
 ] as const;
 const CHATGPT_BROWSER_DELEGATION_REQUEST_BODY_KEYS = [
   "scaffoldOnly",
@@ -1080,6 +1082,8 @@ const SERVICE_PAGE_USE_PERMISSION_REQUEST_BODY_KEYS = [
   "blockedActionClasses",
   "dataCategories",
   "approvalGranularity",
+  "approvalDecision",
+  "userApprovalRef",
   "promptPreviewRef",
   "redactionPreviewRef",
   "userExportDeleteControls",
@@ -1683,6 +1687,7 @@ function servicePageUsePermissionRequestFromBody(
     "finalSubmitExecutionAuthorityRef"
   );
   const approvalGranularity = stringFromBody(body.approvalGranularity, "approvalGranularity");
+  const approvalDecision = stringFromBody(body.approvalDecision, "approvalDecision");
 
   if (
     !SERVICE_PAGE_USE_PERMISSION_APPROVAL_GRANULARITIES.includes(
@@ -1692,6 +1697,13 @@ function servicePageUsePermissionRequestFromBody(
     throw new ProductEngineServiceError(
       "VALIDATION_FAILED",
       "approvalGranularity must be a valid service page-use approval granularity."
+    );
+  }
+
+  if (approvalDecision !== "approved") {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "approvalDecision must be approved after the user previews the service page-use permission."
     );
   }
 
@@ -1725,6 +1737,8 @@ function servicePageUsePermissionRequestFromBody(
       SERVICE_PAGE_USE_PERMISSION_DATA_CATEGORIES
     ),
     approvalGranularity: approvalGranularity as CreateServicePageUsePermissionRequest["approvalGranularity"],
+    approvalDecision: "approved",
+    userApprovalRef: stringFromBody(body.userApprovalRef, "userApprovalRef"),
     promptPreviewRef: stringFromBody(body.promptPreviewRef, "promptPreviewRef"),
     redactionPreviewRef: stringFromBody(body.redactionPreviewRef, "redactionPreviewRef"),
     userExportDeleteControls: body.userExportDeleteControls === true
@@ -1758,6 +1772,8 @@ function servicePageUsePermissionPayloadFromRequest(
     blockedActionClasses: request.blockedActionClasses,
     dataCategories: request.dataCategories,
     approvalGranularity: request.approvalGranularity,
+    approvalDecision: request.approvalDecision,
+    userApprovalRef: request.userApprovalRef,
     promptPreviewRef: request.promptPreviewRef,
     redactionPreviewRef: request.redactionPreviewRef,
     userExportDeleteControls: request.userExportDeleteControls,
@@ -1935,11 +1951,39 @@ function executeBrowserActionRequestFromBody(body: Readonly<Record<string, unkno
     BROWSER_ACTION_EXECUTION_KEYS,
     "browser_action execution body"
   );
+  const servicePagePermissionId = optionalStringFromBody(
+    body.servicePagePermissionId,
+    "servicePagePermissionId"
+  );
+  const servicePageActionClass = optionalStringFromBody(
+    body.servicePageActionClass,
+    "servicePageActionClass"
+  );
+
+  if (
+    servicePageActionClass !== undefined &&
+    !SERVICE_PAGE_USE_PERMISSION_ACTION_CLASSES.includes(
+      servicePageActionClass as (typeof SERVICE_PAGE_USE_PERMISSION_ACTION_CLASSES)[number]
+    )
+  ) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "servicePageActionClass must be a valid service page-use action class."
+    );
+  }
+
+  const parsedServicePageActionClass = servicePageActionClass as
+    | (typeof SERVICE_PAGE_USE_PERMISSION_ACTION_CLASSES)[number]
+    | undefined;
 
   return {
     ...baseRequest,
     targetUrl: stringFromBody(body.targetUrl, "targetUrl"),
-    action: browserActionPreviewFromBody(body.action)
+    action: browserActionPreviewFromBody(body.action),
+    ...(servicePagePermissionId ? { servicePagePermissionId } : {}),
+    ...(parsedServicePageActionClass
+      ? { servicePageActionClass: parsedServicePageActionClass }
+      : {})
   };
 }
 

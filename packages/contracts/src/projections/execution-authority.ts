@@ -1,4 +1,5 @@
 import type { ProjectionVersion, SchemaVersion, SessionId } from "../ids";
+import type { ServicePageUseActionClass } from "./service-page-use-permission";
 
 export const EXECUTION_AUTHORITY_SCHEMA_VERSION =
   "solo-superman.phase3-execution-authority.v1" as SchemaVersion;
@@ -68,6 +69,9 @@ export const EXECUTION_AUTHORITY_BLOCK_CODES = [
   "expired_approval",
   "missing_rollback",
   "credential_value_required",
+  "service_page_permission_required",
+  "service_page_permission_revoked",
+  "service_page_permission_scope_mismatch",
   "sandbox_failure"
 ] as const;
 
@@ -319,6 +323,8 @@ export interface ExecuteBrowserActionRequest {
   readonly approvalExpiresAt?: string;
   readonly targetUrl: string;
   readonly action: BrowserActionPreviewDto;
+  readonly servicePagePermissionId?: string;
+  readonly servicePageActionClass?: ServicePageUseActionClass;
 }
 
 export interface BrowserActionTargetDto {
@@ -417,16 +423,21 @@ const EXECUTION_AUTHORITY_FORBIDDEN_SECRET_FIELD_NAMES = new Set([
   "credential",
   "credentialvalue",
   "idtoken",
+  "mfa",
+  "otp",
   "password",
   "passwordvalue",
   "refreshtoken",
   "secret",
   "secretvalue",
   "sessioncookie",
+  "setcookie",
+  "totp",
+  "2fa",
   "token"
 ]);
 const SECRET_ASSIGNMENT_KEY_PATTERN =
-  /(?:^|[^a-z0-9])(?:api[_-]?key|auth[_-]?token|access[_-]?token|refresh[_-]?token|id[_-]?token|token|secret|password|passwd|private[_-]?key)(?:$|[^a-z0-9])/iu;
+  /(?:^|[^a-z0-9])(?:api[_-]?key|auth[_-]?token|access[_-]?token|refresh[_-]?token|id[_-]?token|token|secret|password|passwd|private[_-]?key|session[_-]?cookie|cookie|set[_-]?cookie|2fa|mfa|otp|totp|payment[_-]?token|legal[_-]?sensitive|medical[_-]?sensitive|financial[_-]?token|privacy[_-]?token)(?:$|[^a-z0-9])/iu;
 const SECRET_ASSIGNMENT_PATTERN = /([A-Za-z0-9_./:-]*[A-Za-z0-9_./-])\s*[:=]\s*\S+/gu;
 
 function normalizedSecretFieldName(key: string) {
@@ -436,7 +447,7 @@ function normalizedSecretFieldName(key: string) {
 function looksLikeSecretValue(value: string) {
   return (
     [...value.matchAll(SECRET_ASSIGNMENT_PATTERN)].some((match) => SECRET_ASSIGNMENT_KEY_PATTERN.test(match[1] ?? "")) ||
-    /\b(?:api[_-]?key|password|secret|token)\s*[:=]\s*\S+/iu.test(value) ||
+    /\b(?:api[_-]?key|password|secret|token|session[_-]?cookie|cookie|set[_-]?cookie|2fa|mfa|otp|totp)\s*[:=]\s*\S+/iu.test(value) ||
     /\bBearer\s+[A-Za-z0-9._~+/-]{10,}/u.test(value) ||
     /\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]{20,}/u.test(value) ||
     /\bsk-[A-Za-z0-9_-]{16,}/u.test(value) ||

@@ -49,6 +49,11 @@ export const SERVICE_PAGE_USE_PERMISSION_APPROVAL_GRANULARITIES = [
 export type ServicePageApprovalGranularity =
   (typeof SERVICE_PAGE_USE_PERMISSION_APPROVAL_GRANULARITIES)[number];
 
+export const SERVICE_PAGE_USE_PERMISSION_APPROVAL_DECISIONS = ["approved"] as const;
+
+export type ServicePageUsePermissionApprovalDecision =
+  (typeof SERVICE_PAGE_USE_PERMISSION_APPROVAL_DECISIONS)[number];
+
 export const SERVICE_PAGE_USE_PERMISSION_STATUSES = [
   "granted",
   "blocked",
@@ -60,8 +65,10 @@ export type ServicePageUsePermissionStatus = (typeof SERVICE_PAGE_USE_PERMISSION
 
 export const SERVICE_PAGE_USE_PERMISSION_BLOCK_CODES = [
   "invalid_service_origin",
+  "invalid_page_url",
   "missing_redaction_preview",
   "missing_export_delete_controls",
+  "missing_user_approval",
   "credential_or_secret_value",
   "user_login_not_present",
   "fill_draft_requires_per_action",
@@ -124,6 +131,8 @@ export interface ServicePageUsePermissionRecord {
   readonly blockedActionClasses: readonly ServicePageBlockedActionClass[];
   readonly dataCategories: readonly ServicePageDataCategory[];
   readonly approvalGranularity: ServicePageApprovalGranularity;
+  readonly approvalDecision: ServicePageUsePermissionApprovalDecision;
+  readonly userApprovalRef: string;
   readonly status: ServicePageUsePermissionStatus;
   readonly userVisibleExplanation: string;
   readonly nextAction: string;
@@ -168,6 +177,8 @@ export interface CreateServicePageUsePermissionPayload {
   readonly blockedActionClasses: readonly ServicePageBlockedActionClass[];
   readonly dataCategories: readonly ServicePageDataCategory[];
   readonly approvalGranularity: ServicePageApprovalGranularity;
+  readonly approvalDecision: ServicePageUsePermissionApprovalDecision;
+  readonly userApprovalRef: string;
   readonly promptPreviewRef: string;
   readonly redactionPreviewRef: string;
   readonly userExportDeleteControls: true;
@@ -223,6 +234,16 @@ function isBlockedActionClass(value: unknown): value is ServicePageBlockedAction
 
 function isDataCategory(value: unknown): value is ServicePageDataCategory {
   return isOneOf(value, SERVICE_PAGE_USE_PERMISSION_DATA_CATEGORIES);
+}
+
+function servicePageOriginFromPageUrl(pageUrl: string) {
+  const match = pageUrl.match(/^(https:\/\/[a-z0-9.-]+(?::[0-9]{1,5})?)(?:[/?#]|$)/iu);
+
+  return match?.[1] ?? null;
+}
+
+function servicePageUrlMatchesOrigin(serviceOrigin: string, pageUrl: string) {
+  return servicePageOriginFromPageUrl(pageUrl) === serviceOrigin;
 }
 
 function isBlockReason(value: unknown): value is ServicePageUsePermissionBlockReasonDto {
@@ -317,6 +338,15 @@ export function validateServicePageUsePermissionProjection(
     if (!isNonEmptyString(permission.purpose)) {
       issues.push("purpose is required");
     }
+    if (!isNonEmptyString(permission.pageUrl)) {
+      issues.push("pageUrl is required");
+    }
+    if (
+      permission.status !== "blocked" &&
+      !servicePageUrlMatchesOrigin(permission.serviceOrigin, permission.pageUrl)
+    ) {
+      issues.push("non-blocked pageUrl must be an https URL on the approved service origin");
+    }
     if (!permission.allowedActionClasses.length || !permission.allowedActionClasses.every(isActionClass)) {
       issues.push("allowedActionClasses must include valid page-use action classes");
     }
@@ -328,6 +358,12 @@ export function validateServicePageUsePermissionProjection(
     }
     if (!SERVICE_PAGE_USE_PERMISSION_APPROVAL_GRANULARITIES.includes(permission.approvalGranularity)) {
       issues.push("approvalGranularity must be valid");
+    }
+    if (
+      !SERVICE_PAGE_USE_PERMISSION_APPROVAL_DECISIONS.includes(permission.approvalDecision) ||
+      !isNonEmptyString(permission.userApprovalRef)
+    ) {
+      issues.push("service page-use grant requires an explicit user approval ref after preview");
     }
     if (permission.userPresentLoginRequired !== true || permission.credentialEntryDelegated !== false) {
       issues.push("login credentials must stay user-owned and never delegated");
@@ -381,6 +417,8 @@ export const SERVICE_PAGE_USE_PERMISSION_READY_FIXTURE: ServicePageUsePermission
   blockedActionClasses: SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES,
   dataCategories: ["public_page_content", "user_provided_project_context", "prompt_result_screenshot_log_refs"],
   approvalGranularity: "per_page",
+  approvalDecision: "approved",
+  userApprovalRef: "user_approval_service_page_vercel",
   status: "granted",
   userVisibleExplanation: servicePageUsePermissionSummaryForStatus("granted"),
   nextAction: "Keep the service page visible; approve fill-draft or final-submit actions separately.",

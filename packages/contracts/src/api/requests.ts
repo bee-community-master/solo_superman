@@ -31,6 +31,7 @@ import type {
 } from "../projections/chatgpt-browser-delegation";
 import type {
   ServicePageApprovalGranularity,
+  ServicePageUsePermissionApprovalDecision,
   ServicePageBlockedActionClass,
   ServicePageDataCategory,
   ServicePageUseActionClass
@@ -331,6 +332,8 @@ export interface CreateServicePageUsePermissionRequest extends ScaffoldRequestPl
   readonly blockedActionClasses: readonly ServicePageBlockedActionClass[];
   readonly dataCategories: readonly ServicePageDataCategory[];
   readonly approvalGranularity: ServicePageApprovalGranularity;
+  readonly approvalDecision: ServicePageUsePermissionApprovalDecision;
+  readonly userApprovalRef: string;
   readonly promptPreviewRef: string;
   readonly redactionPreviewRef: string;
   readonly userExportDeleteControls: true;
