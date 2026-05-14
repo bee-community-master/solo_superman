@@ -16,8 +16,8 @@ export function PlanningCompletenessRadar({ axes, polygonPoints, readinessLabel,
         role="img"
         viewBox="0 0 100 100"
       >
-        {RADAR_RING_SCORES.map((score) => (
-          <polygon className="radar-ring" key={score} points={radarRingPoints(score)} />
+        {RADAR_RING_SCORES.map((ringScore) => (
+          <polygon className="radar-ring" key={ringScore} points={radarRingPoints(ringScore)} />
         ))}
         {axes.map((axis) => (
           <line className="radar-spoke" key={axis.axisId} x1="50" x2={axis.guideX} y1="50" y2={axis.guideY} />
