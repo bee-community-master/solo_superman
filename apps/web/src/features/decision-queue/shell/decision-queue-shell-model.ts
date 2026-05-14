@@ -152,12 +152,17 @@ export function displayError(error: unknown) {
 
 export function latestProjectionVersion(projections: ProjectionState) {
   return Math.max(
-    projections.session?.version ?? 0,
-    projections.spec?.version ?? 0,
-    projections.queue?.version ?? 0,
-    projections.research?.version ?? 0,
-    projections.activity?.version ?? 0,
-    projections.confidence?.version ?? 0
+    Number(projections.session?.version ?? 0),
+    Number(projections.spec?.version ?? 0),
+    Number(projections.queue?.version ?? 0),
+    Number(projections.research?.version ?? 0),
+    Number(projections.activity?.version ?? 0),
+    Number(projections.confidence?.version ?? 0),
+    Number(projections.founderBrief?.version ?? 0),
+    Number(projections.planningHandoff?.version ?? 0),
+    Number(projections.chatGptDelegation?.version ?? 0),
+    Number(projections.servicePageUsePermission?.version ?? 0),
+    Number(projections.implementationStepLedger?.version ?? 0)
   ) as StateVersion;
 }
 
