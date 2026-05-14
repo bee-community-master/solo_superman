@@ -8,6 +8,14 @@ export function researchAllowlistMemberPath(projectId: ProjectId, allowlistId: R
   return `${researchAllowlistCollectionPath(projectId)}/${encodeURIComponent(allowlistId)}`;
 }
 
+export function researchAllowlistPausePath(projectId: ProjectId, allowlistId: ResearchAllowlistId) {
+  return `${researchAllowlistMemberPath(projectId, allowlistId)}/pause`;
+}
+
+export function researchAllowlistRevokePath(projectId: ProjectId, allowlistId: ResearchAllowlistId) {
+  return `${researchAllowlistMemberPath(projectId, allowlistId)}/revoke`;
+}
+
 export function researchDisclosureCollectionPath(projectId: ProjectId) {
   return `/api/v1/projects/${encodeURIComponent(projectId)}/research-disclosures`;
 }

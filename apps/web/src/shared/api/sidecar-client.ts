@@ -66,6 +66,8 @@ import {
   planningHandoffPath,
   researchAllowlistCollectionPath,
   researchAllowlistMemberPath,
+  researchAllowlistPausePath,
+  researchAllowlistRevokePath,
   researchDisclosureCollectionPath,
   researchRunCollectionPath,
   researchRunControlPath,
@@ -293,7 +295,7 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     pauseResearchAllowlist(projectId: ProjectId, allowlistId: ResearchAllowlistId, reason?: string) {
       return postCommand<ResearchAllowlistGovernanceProjection>(
-        `${researchAllowlistMemberPath(projectId, allowlistId)}/pause`,
+        researchAllowlistPausePath(projectId, allowlistId),
         {
           projectId,
           allowlistId,
@@ -304,7 +306,7 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     revokeResearchAllowlist(projectId: ProjectId, allowlistId: ResearchAllowlistId, reason?: string) {
       return postCommand<ResearchAllowlistGovernanceProjection>(
-        `${researchAllowlistMemberPath(projectId, allowlistId)}/revoke`,
+        researchAllowlistRevokePath(projectId, allowlistId),
         {
           projectId,
           allowlistId,
