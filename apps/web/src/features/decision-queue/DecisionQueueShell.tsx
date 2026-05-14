@@ -142,6 +142,51 @@ const BUSINESS_CRITIC_INTENSITY_OPTIONS = [
 }[];
 const WEB_PUBLIC_SAFE_ALLOWLIST_ID = "research_allowlist_web_public_safe" as ResearchAllowlistId;
 
+
+type DecisionQueuePageId = "questions" | "research" | "planning" | "implementation" | "permissions";
+
+type PageHealth = "done" | "active" | "pending" | "blocked";
+
+interface PageMeta {
+  readonly label: string;
+  readonly shortLabel: string;
+  readonly title: string;
+  readonly description: string;
+}
+
+const PAGE_META: Record<DecisionQueuePageId, PageMeta> = {
+  questions: {
+    label: "질문 답변",
+    shortLabel: "질문",
+    title: "질문 답변",
+    description: "Founder intake와 Decision Queue를 실제 sidecar 상태로 관리합니다."
+  },
+  research: {
+    label: "리서치",
+    shortLabel: "리서치",
+    title: "리서치 운영",
+    description: "Research tasks, allowlist, disclosure, run recovery를 local service projection으로 제어합니다."
+  },
+  planning: {
+    label: "기획 검토",
+    shortLabel: "기획",
+    title: "기획 검토",
+    description: "Spec, confidence, Founder Brief, Planning Handoff readiness를 확인합니다."
+  },
+  implementation: {
+    label: "구현 현황",
+    shortLabel: "구현",
+    title: "구현 현황",
+    description: "Implementation ledger와 local command/effect evidence를 추적합니다."
+  },
+  permissions: {
+    label: "권한 관리",
+    shortLabel: "권한",
+    title: "권한 관리",
+    description: "ChatGPT delegation과 service page-use permission boundary를 관리합니다."
+  }
+};
+
 function displayError(error: unknown) {
   if (error instanceof SidecarClientError) {
     return `${error.apiError.code}: ${error.apiError.message}`;
@@ -219,6 +264,7 @@ export function DecisionQueueShell() {
   const [statuses, setStatuses] = useState<readonly StatusEndpointDto[]>([]);
   const [isBusy, setIsBusy] = useState(false);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
+  const [activePage, setActivePage] = useState<DecisionQueuePageId>("questions");
 
   const connect = useCallback(async () => {
     setConnectionState({ status: "connecting" });
@@ -1524,564 +1570,781 @@ export function DecisionQueueShell() {
   const hasActiveResearchAllowlist =
     researchOperations.allowlists?.allowlists.some((allowlist) => allowlist.status === "active") ?? false;
 
+  const activeQueueCount = sections.find((section) => section.id === "active")?.items.length ?? 0;
+  const nextQueueCount = sections.find((section) => section.id === "next")?.items.length ?? 0;
+  const blockedQueueCount = sections.find((section) => section.id === "blocked")?.items.length ?? 0;
+  const totalQueueCount = sections.reduce((total, section) => total + section.items.length, 0);
+  const activeResearchRunCount =
+    researchOperations.runs?.runs.filter((run) => run.status === "queued" || run.status === "running" || run.status === "paused")
+      .length ?? 0;
+  const activePageMeta = PAGE_META[activePage];
+  const connectionLabel = connectionState.status === "connected" ? connectionState.connection.mode : connectionState.status;
+  const connectionTone = connectionState.status === "connected" ? "connected" : connectionState.status;
+  const navItems = [
+    {
+      id: "questions" as const,
+      label: PAGE_META.questions.label,
+      sublabel: `${activeQueueCount} active · ${nextQueueCount} next`,
+      badge: totalQueueCount,
+      health: activeQueueCount ? "active" : projections.queue ? "done" : "pending"
+    },
+    {
+      id: "research" as const,
+      label: PAGE_META.research.label,
+      sublabel: `${projections.research?.tasks.length ?? 0} tasks · ${activeResearchRunCount} runs`,
+      badge: activeResearchRunCount || undefined,
+      health: activeResearchRunCount ? "active" : projections.research ? "done" : "pending"
+    },
+    {
+      id: "planning" as const,
+      label: PAGE_META.planning.label,
+      sublabel: planningHandoffView.statusLabel,
+      health: planningHandoffView.status === "blocked" ? "blocked" : projections.spec ? "active" : "pending"
+    },
+    {
+      id: "implementation" as const,
+      label: PAGE_META.implementation.label,
+      sublabel: implementationStepLedgerView.status,
+      health: implementationStepLedgerView.status === "completed" ? "done" : projections.implementationStepLedger ? "active" : "pending"
+    },
+    {
+      id: "permissions" as const,
+      label: PAGE_META.permissions.label,
+      sublabel: `${chatGptDelegationView.status} · ${servicePageUsePermissionView.status}`,
+      health:
+        chatGptDelegationView.status !== "not_started" || servicePageUsePermissionView.status !== "not_started"
+          ? "active"
+          : "pending"
+    }
+  ] satisfies readonly {
+    readonly id: DecisionQueuePageId;
+    readonly label: string;
+    readonly sublabel: string;
+    readonly badge?: number | undefined;
+    readonly health: PageHealth;
+  }[];
+
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div>
-          <h1>Solo Superman</h1>
-          <p>Decision Queue</p>
+    <main className="desktop-shell">
+      <header className="desktop-topbar">
+        <div className="brand-block">
+          <div className="brand-mark" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
+          <div>
+            <h1>Solo Superman</h1>
+            <p>{projections.session?.projectId ?? "Local Decision Queue"}</p>
+          </div>
         </div>
-        <div className={`connection ${connectionState.status}`}>
-          {connectionState.status === "connected" ? connectionState.connection.mode : connectionState.status}
-        </div>
+        <nav className="phase-trail" aria-label="Desktop workflow sections">
+          {Object.entries(PAGE_META).map(([id, meta], index) => {
+            const pageId = id as DecisionQueuePageId;
+            const isActive = activePage === pageId;
+
+            return (
+              <button
+                aria-current={isActive ? "page" : undefined}
+                className={`phase-pill ${isActive ? "active" : ""}`}
+                key={pageId}
+                onClick={() => setActivePage(pageId)}
+                type="button"
+              >
+                <span className="phase-dot" />
+                {meta.shortLabel}
+                {index < Object.keys(PAGE_META).length - 1 ? <span className="phase-chevron">›</span> : null}
+              </button>
+            );
+          })}
+        </nav>
+        <div className={`connection-badge ${connectionTone}`}>{connectionLabel}</div>
       </header>
 
-      {connectionState.status === "unavailable" ? (
-        <section className="notice-panel">
-          <h2>Sidecar unavailable</h2>
-          <p>{connectionState.message}</p>
-          <button type="button" onClick={connect}>
-            Retry connection
-          </button>
-        </section>
-      ) : null}
+      <div className="desktop-body">
+        <aside className="left-rail" aria-label="Workflow navigation">
+          <nav className="left-nav">
+            <p className="rail-label">작업 단계</p>
+            {navItems.map((item) => {
+              const isActive = activePage === item.id;
 
-      {workflowError ? (
-        <section className="notice-panel error">
-          <h2>Command failed</h2>
-          <p>{workflowError}</p>
-        </section>
-      ) : null}
-
-      <section className="workspace-grid">
-        <form className="panel start-panel" onSubmit={runInitialQueueFlow}>
-          <div className="panel-heading">
-            <h2>Session start</h2>
-            <span>{CONTRACT_SCHEMA_VERSION}</span>
-          </div>
-          <label>
-            Raw idea
-            <textarea value={idea} onChange={(event) => setIdea(event.target.value)} rows={4} />
-          </label>
-          <label>
-            Intake answer
-            <textarea value={intake} onChange={(event) => setIntake(event.target.value)} rows={5} />
-          </label>
-          <fieldset className="mode-fieldset">
-            <legend>Project purpose</legend>
-            {PROJECT_PURPOSE_MODE_OPTIONS.map((option) => (
-              <label className="mode-option" key={option.mode}>
-                <input
-                  checked={projectPurposeMode === option.mode}
-                  name="project-purpose-mode"
-                  onChange={() => setProjectPurposeMode(option.mode)}
-                  type="radio"
-                  value={option.mode}
-                />
-                <span>
-                  <strong>{option.label}</strong>
-                  <small>{option.description}</small>
-                </span>
-              </label>
-            ))}
-            <p className="mode-help">
-              AI가 모드를 제안할 수 있어도 확정은 사용자가 선택합니다. 선택 전에는 mode_required 상태로 두며 이후 변경은 auditable event로 남습니다.
-            </p>
-          </fieldset>
-          {projectPurposeMode === "business" ? (
-            <fieldset className="mode-fieldset">
-              <legend>Business critic intensity</legend>
-              {BUSINESS_CRITIC_INTENSITY_OPTIONS.map((option) => (
-                <label className="mode-option" key={option.intensity}>
-                  <input
-                    checked={businessCriticIntensity === option.intensity}
-                    name="business-critic-intensity"
-                    onChange={() => setBusinessCriticIntensity(option.intensity)}
-                    type="radio"
-                    value={option.intensity}
-                  />
-                  <span>
-                    <strong>{option.label}</strong>
-                    <small>{option.description}</small>
+              return (
+                <button
+                  aria-current={isActive ? "page" : undefined}
+                  className={`nav-card ${isActive ? "active" : ""}`}
+                  key={item.id}
+                  onClick={() => setActivePage(item.id)}
+                  type="button"
+                >
+                  <span className={`status-orb ${item.health}`} />
+                  <span className="nav-copy">
+                    <strong>{item.label}</strong>
+                    <small>{item.sublabel}</small>
                   </span>
-                </label>
-              ))}
-              <label>
-                Intensity reason
-                <input
-                  value={initialBusinessCriticIntensityReason}
-                  onChange={(event) => setInitialBusinessCriticIntensityReason(event.target.value)}
-                  placeholder="검증 강도를 선택한 이유를 audit에 남깁니다."
-                />
-              </label>
-              <p className="mode-help">
-                사업화 모드는 기본 강도를 자동 선택하지 않습니다. 선택 전에는 상업성 검증 강도 선택 필요 상태로 남습니다.
-              </p>
-            </fieldset>
-          ) : null}
-          <button type="submit" disabled={!canStart}>
-            {isBusy ? "Running" : "Create first batch"}
-          </button>
-        </form>
+                  {item.badge ? <span className="nav-badge">{item.badge}</span> : null}
+                </button>
+              );
+            })}
+          </nav>
 
-        <section className="panel queue-panel">
-          <div className="panel-heading">
-            <h2>Queue</h2>
-            <span>{queueRecovery.status} · v{projections.queue?.version ?? 0}</span>
+          <section className="rail-progress" aria-label="Live queue progress">
+            <p className="rail-label">진행 현황</p>
+            <div className="progress-row">
+              <span>완성도</span>
+              <strong>{confidence?.compositeScore ?? 0}%</strong>
+            </div>
+            <div className="progress-track">
+              <span style={{ width: `${Math.min(100, confidence?.compositeScore ?? 0)}%` }} />
+            </div>
+            <dl>
+              <div>
+                <dt>대기 중인 질문</dt>
+                <dd>{totalQueueCount}</dd>
+              </div>
+              <div>
+                <dt>차단 질문</dt>
+                <dd>{blockedQueueCount}</dd>
+              </div>
+            </dl>
+          </section>
+        </aside>
+
+        <section className="desktop-workspace" aria-labelledby="active-view-title">
+          <div className="workspace-heading">
+            <div>
+              <p className="view-kicker">{CONTRACT_SCHEMA_VERSION}</p>
+              <h2 id="active-view-title">{activePageMeta.title}</h2>
+              <p>{activePageMeta.description}</p>
+            </div>
+            <div className="workspace-actions">
+              <button type="button" className="ghost-button" onClick={connect} disabled={isBusy}>
+                Reconnect sidecar
+              </button>
+            </div>
           </div>
-          <div className="queue-recovery">
-            <p>{queueRecovery.label}</p>
-            <small>{queueRecovery.activeBatchLabel}</small>
-            <small>{queueRecovery.refetchLabel}</small>
-            <small>{queueRecovery.sseLabel}</small>
-          </div>
-          <div className="queue-sections">
-            {sections.map((section) => (
-              <section className="queue-section" key={section.id}>
-                <div className="queue-section-heading">
-                  <h3>{section.title}</h3>
-                  <span>{section.items.length}</span>
+
+          {connectionState.status === "unavailable" ? (
+            <section className="notice-panel">
+              <h2>Sidecar unavailable</h2>
+              <p>{connectionState.message}</p>
+              <button type="button" onClick={connect}>
+                Retry connection
+              </button>
+            </section>
+          ) : null}
+
+          {workflowError ? (
+            <section className="notice-panel error">
+              <h2>Command failed</h2>
+              <p>{workflowError}</p>
+            </section>
+          ) : null}
+
+          {activePage === "questions" ? (
+            <div className="view-grid questions-view">
+              <form className="panel start-panel" onSubmit={runInitialQueueFlow}>
+                <div className="panel-heading">
+                  <h2>Session start</h2>
+                  <span>{CONTRACT_SCHEMA_VERSION}</span>
                 </div>
-                {section.items.length ? (
-                  <div className="queue-list">
-                    {section.items.map((item) => (
-                      <article className={`queue-card ${item.state}`} key={item.queueItemId}>
-                        <div>
-                          <span>{item.state}</span>
-                          <h4>{item.title}</h4>
-                          {isBusinessCriticQueueItem(item) ? (
-                            <p className="mode-summary">
-                              {[item.businessCriticCategory, item.businessCriticPressureKind, item.businessCriticIntensity]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </p>
-                          ) : null}
-                          {item.nextValidationAction ? (
-                            <p className="research-recovery">Next validation: {item.nextValidationAction}</p>
-                          ) : null}
+                <label>
+                  Raw idea
+                  <textarea value={idea} onChange={(event) => setIdea(event.target.value)} rows={4} />
+                </label>
+                <label>
+                  Intake answer
+                  <textarea value={intake} onChange={(event) => setIntake(event.target.value)} rows={5} />
+                </label>
+                <fieldset className="mode-fieldset">
+                  <legend>Project purpose</legend>
+                  {PROJECT_PURPOSE_MODE_OPTIONS.map((option) => (
+                    <label className="mode-option" key={option.mode}>
+                      <input
+                        checked={projectPurposeMode === option.mode}
+                        name="project-purpose-mode"
+                        onChange={() => setProjectPurposeMode(option.mode)}
+                        type="radio"
+                        value={option.mode}
+                      />
+                      <span>
+                        <strong>{option.label}</strong>
+                        <small>{option.description}</small>
+                      </span>
+                    </label>
+                  ))}
+                  <p className="mode-help">
+                    AI가 모드를 제안할 수 있어도 확정은 사용자가 선택합니다. 선택 전에는 mode_required 상태로 두며 이후 변경은 auditable event로 남습니다.
+                  </p>
+                </fieldset>
+                {projectPurposeMode === "business" ? (
+                  <fieldset className="mode-fieldset">
+                    <legend>Business critic intensity</legend>
+                    {BUSINESS_CRITIC_INTENSITY_OPTIONS.map((option) => (
+                      <label className="mode-option" key={option.intensity}>
+                        <input
+                          checked={businessCriticIntensity === option.intensity}
+                          name="business-critic-intensity"
+                          onChange={() => setBusinessCriticIntensity(option.intensity)}
+                          type="radio"
+                          value={option.intensity}
+                        />
+                        <span>
+                          <strong>{option.label}</strong>
+                          <small>{option.description}</small>
+                        </span>
+                      </label>
+                    ))}
+                    <label>
+                      Intensity reason
+                      <input
+                        value={initialBusinessCriticIntensityReason}
+                        onChange={(event) => setInitialBusinessCriticIntensityReason(event.target.value)}
+                        placeholder="검증 강도를 선택한 이유를 audit에 남깁니다."
+                      />
+                    </label>
+                    <p className="mode-help">
+                      사업화 모드는 기본 강도를 자동 선택하지 않습니다. 선택 전에는 상업성 검증 강도 선택 필요 상태로 남습니다.
+                    </p>
+                  </fieldset>
+                ) : null}
+                <button type="submit" disabled={!canStart}>
+                  {isBusy ? "Running" : "Create first batch"}
+                </button>
+              </form>
+
+              <section className="panel queue-panel">
+                <div className="panel-heading">
+                  <h2>Queue</h2>
+                  <span>{queueRecovery.status} · v{projections.queue?.version ?? 0}</span>
+                </div>
+                <div className="queue-recovery">
+                  <p>{queueRecovery.label}</p>
+                  <small>{queueRecovery.activeBatchLabel}</small>
+                  <small>{queueRecovery.refetchLabel}</small>
+                  <small>{queueRecovery.sseLabel}</small>
+                </div>
+                <div className="queue-sections">
+                  {sections.map((section) => (
+                    <section className="queue-section" key={section.id}>
+                      <div className="queue-section-heading">
+                        <h3>{section.title}</h3>
+                        <span>{section.items.length}</span>
+                      </div>
+                      {section.items.length ? (
+                        <div className="queue-list">
+                          {section.items.map((item) => (
+                            <article className={`queue-card ${item.state}`} key={item.queueItemId}>
+                              <div>
+                                <span>{item.state}</span>
+                                <h4>{item.title}</h4>
+                                {isBusinessCriticQueueItem(item) ? (
+                                  <p className="mode-summary">
+                                    {[item.businessCriticCategory, item.businessCriticPressureKind, item.businessCriticIntensity]
+                                      .filter(Boolean)
+                                      .join(" · ")}
+                                  </p>
+                                ) : null}
+                                {item.nextValidationAction ? (
+                                  <p className="research-recovery">Next validation: {item.nextValidationAction}</p>
+                                ) : null}
+                              </div>
+                              {section.id === "active" && item.state === "active" ? (
+                                <div className="answer-box">
+                                  <textarea
+                                    aria-label={`Answer ${item.title}`}
+                                    value={answerDrafts[item.queueItemId] ?? ""}
+                                    onChange={(event) =>
+                                      setAnswerDrafts((current) => ({
+                                        ...current,
+                                        [item.queueItemId]: event.target.value
+                                      }))
+                                    }
+                                    rows={3}
+                                  />
+                                  <button type="button" disabled={isBusy} onClick={() => void submitAnswer(item.queueItemId)}>
+                                    Submit answer
+                                  </button>
+                                </div>
+                              ) : null}
+                              {isBusinessCriticQueueItem(item) && item.state !== "deferred" ? (
+                                <div className="answer-box">
+                                  <textarea
+                                    aria-label={`Next validation action for ${item.title}`}
+                                    value={knownRiskDrafts[item.queueItemId] ?? ""}
+                                    onChange={(event) =>
+                                      setKnownRiskDrafts((current) => ({
+                                        ...current,
+                                        [item.queueItemId]: event.target.value
+                                      }))
+                                    }
+                                    placeholder="Known Risk로 남길 때 다음 검증 행동을 적어주세요."
+                                    rows={2}
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={isBusy}
+                                    onClick={() => void carryQueueItemAsKnownRisk(item.queueItemId)}
+                                  >
+                                    Carry as Known Risk
+                                  </button>
+                                </div>
+                              ) : null}
+                            </article>
+                          ))}
                         </div>
-                        {section.id === "active" && item.state === "active" ? (
-                          <div className="answer-box">
-                            <textarea
-                              aria-label={`Answer ${item.title}`}
-                              value={answerDrafts[item.queueItemId] ?? ""}
-                              onChange={(event) =>
-                                setAnswerDrafts((current) => ({
-                                  ...current,
-                                  [item.queueItemId]: event.target.value
-                                }))
-                              }
-                              rows={3}
-                            />
-                            <button type="button" disabled={isBusy} onClick={() => void submitAnswer(item.queueItemId)}>
-                              Submit answer
-                            </button>
+                      ) : (
+                        <p className="empty-state">{section.emptyLabel}</p>
+                      )}
+                    </section>
+                  ))}
+                </div>
+              </section>
+            </div>
+          ) : null}
+
+          {activePage === "research" ? (
+            <div className="view-grid research-view">
+              <section className="panel research-main-panel">
+                <div className="panel-heading">
+                  <h2>Research</h2>
+                  <span>{projections.research?.proConBalanceStatus ?? "unknown"}</span>
+                </div>
+                <div className="card-actions panel-actions">
+                  <button type="button" disabled={isBusy || !projections.session} onClick={() => void planPhase15aResearchTask()}>
+                    Plan 1.5A task
+                  </button>
+                </div>
+                {projections.research?.tasks.length ? (
+                  <div className="research-list">
+                    {projections.research.tasks.map((task) => {
+                      const card = projections.research?.reviewCards.find(
+                        (item) => item.researchTaskId === task.researchTaskId
+                      );
+                      const canImportResearch =
+                        task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true;
+
+                      return (
+                        <article className="research-card" key={task.researchTaskId}>
+                          <div>
+                            <span>{card?.state ?? task.status}</span>
+                            <h3>{task.objective}</h3>
+                            <p>{card?.title ?? task.routeOutcome}</p>
+                            {card?.cardType ? (
+                              <p className="research-recovery">
+                                {card.cardType}
+                                {card.blocksPlanning ? " · blocks Planning-ready" : ""}
+                                {card.terminalOutcome ? ` · ${card.terminalOutcome}` : ""}
+                              </p>
+                            ) : null}
+                            {card?.terminalRationale ? (
+                              <p className="research-recovery">Rationale: {card.terminalRationale}</p>
+                            ) : null}
+                            {card?.recoveryActions.length ? (
+                              <p className="research-recovery">{card.recoveryActions.join(" / ")}</p>
+                            ) : null}
                           </div>
-                        ) : null}
-                        {isBusinessCriticQueueItem(item) && item.state !== "deferred" ? (
-                          <div className="answer-box">
-                            <textarea
-                              aria-label={`Next validation action for ${item.title}`}
-                              value={knownRiskDrafts[item.queueItemId] ?? ""}
-                              onChange={(event) =>
-                                setKnownRiskDrafts((current) => ({
-                                  ...current,
-                                  [item.queueItemId]: event.target.value
-                                }))
-                              }
-                              placeholder="Known Risk로 남길 때 다음 검증 행동을 적어주세요."
-                              rows={2}
-                            />
+                          {canImportResearch ? (
+                            <div className="answer-box">
+                              <textarea
+                                aria-label={`Import research for ${task.objective}`}
+                                value={researchDrafts[task.researchTaskId] ?? ""}
+                                onChange={(event) =>
+                                  setResearchDrafts((current) => ({
+                                    ...current,
+                                    [task.researchTaskId]: event.target.value
+                                  }))
+                                }
+                                rows={3}
+                              />
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => void importResearchResult(task.researchTaskId)}
+                              >
+                                Import result
+                              </button>
+                            </div>
+                          ) : null}
+                          <div className="card-actions">
                             <button
                               type="button"
-                              disabled={isBusy}
-                              onClick={() => void carryQueueItemAsKnownRisk(item.queueItemId)}
+                              disabled={isBusy || !hasActiveResearchAllowlist}
+                              onClick={() => void startReadOnlyResearchRun(task.researchTaskId)}
                             >
-                              Carry as Known Risk
+                              Start read-only run
                             </button>
                           </div>
-                        ) : null}
-                      </article>
+                          {card && !card.terminalOutcome && card.availableOutcomes.length ? (
+                            <div className="card-actions">
+                              {card.availableOutcomes.map((outcome) => (
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  key={outcome}
+                                  onClick={() => void resolveResearchCard(card.cardId, outcome, card.title)}
+                                >
+                                  {outcome}
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="empty-state">No research tasks yet.</p>
+                )}
+              </section>
+
+              <Phase15aOperationsPanel
+                hasActiveSession={Boolean(projections.session)}
+                isBusy={isBusy}
+                operations={phase15aOperations}
+                researchOperations={researchOperations}
+                onCreateOrReactivateAllowlist={() => void createOrReactivateAllowlist()}
+                onRefreshOperations={() => {
+                  if (projections.session) {
+                    void refreshResearchOperations(projections.session.projectId);
+                  }
+                }}
+                onPauseAllowlist={(allowlistId) => void pauseAllowlist(allowlistId)}
+                onRevokeAllowlist={(allowlistId) => void revokeAllowlist(allowlistId)}
+                onRefreshResearchRunStatus={(researchRunId) => void refreshResearchRunStatus(researchRunId)}
+                onCancelResearchRun={(researchRunId) => void cancelResearchRun(researchRunId)}
+                onRetryResearchRun={(researchRunId) => void retryResearchRun(researchRunId)}
+              />
+            </div>
+          ) : null}
+
+          {activePage === "planning" ? (
+            <div className="view-grid planning-view">
+              <section className="panel spec-panel">
+                <div className="panel-heading">
+                  <h2>Spec</h2>
+                  <span>{projections.session?.phase ?? "none"}</span>
+                </div>
+                {projections.spec?.title ? (
+                  <div className="spec-outline">
+                    <h3>{projections.spec.title}</h3>
+                    {projections.spec.sections?.length ? (
+                      <ol>
+                        {projections.spec.sections.map((section) => (
+                          <li key={section}>{section}</li>
+                        ))}
+                      </ol>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="empty-state">No spec draft yet.</p>
+                )}
+                <dl className="metrics">
+                  <div>
+                    <dt>Session version</dt>
+                    <dd>{projections.session?.version ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt>Spec sections</dt>
+                    <dd>{projections.spec?.sectionCount ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt>Approval</dt>
+                    <dd>{projections.spec?.approvalStatus ?? "draft"}</dd>
+                  </div>
+                  <div>
+                    <dt>Project purpose</dt>
+                    <dd>{projections.session?.projectPurposeModeLabel ?? "not selected"}</dd>
+                  </div>
+                  <div>
+                    <dt>Business critic</dt>
+                    <dd>{projections.session?.businessCriticIntensityLabel ?? "not applicable"}</dd>
+                  </div>
+                </dl>
+                {projections.session?.projectPurposeModeEffect ? (
+                  <p className="mode-summary">{projections.session.projectPurposeModeEffect}</p>
+                ) : null}
+                {projections.session?.businessCriticIntensityEffect ? (
+                  <p className="mode-summary">{projections.session.businessCriticIntensityEffect}</p>
+                ) : null}
+                {projections.session?.projectPurposeMode === "business" ? (
+                  <div className="mode-change-panel">
+                    <label>
+                      Business critic change reason
+                      <input
+                        value={businessCriticIntensityChangeReason}
+                        onChange={(event) => setBusinessCriticIntensityChangeReason(event.target.value)}
+                        placeholder="상업성 검증 강도를 바꾸는 이유를 기록합니다."
+                      />
+                    </label>
+                    <div className="card-actions">
+                      {BUSINESS_CRITIC_INTENSITY_OPTIONS.map((option) => (
+                        <button
+                          type="button"
+                          disabled={isBusy || projections.session?.businessCriticIntensity === option.intensity}
+                          key={option.intensity}
+                          onClick={() => void changeBusinessCriticIntensity(option.intensity)}
+                        >
+                          {option.label}으로 변경
+                        </button>
+                      ))}
+                    </div>
+                    <small>
+                      변경은 `BusinessCriticIntensityChanged` 이벤트로 audit되며 새 critical pressure는 active batch를
+                      교체하지 않고 queued_next에 추가됩니다.
+                    </small>
+                  </div>
+                ) : null}
+                {projections.session ? (
+                  <div className="mode-change-panel">
+                    <label>
+                      Mode change reason
+                      <input
+                        value={purposeModeChangeReason}
+                        onChange={(event) => setPurposeModeChangeReason(event.target.value)}
+                        placeholder="왜 질문/리서치 기준을 바꾸는지 기록합니다."
+                      />
+                    </label>
+                    <div className="card-actions">
+                      {PROJECT_PURPOSE_MODE_OPTIONS.map((option) => (
+                        <button
+                          type="button"
+                          disabled={isBusy || projections.session?.projectPurposeMode === option.mode}
+                          key={option.mode}
+                          onClick={() => void changeProjectPurposeMode(option.mode)}
+                        >
+                          {option.label}으로 변경
+                        </button>
+                      ))}
+                    </div>
+                    <small>변경은 `ProjectPurposeModeChanged` 이벤트로 audit되고 기존 active batch는 유지됩니다.</small>
+                  </div>
+                ) : null}
+              </section>
+
+              <Phase15bReadinessPanel
+                hasActiveProject={Boolean(projections.session)}
+                isBusy={isBusy}
+                readiness={phase15bReadinessView}
+                onRefreshReadiness={() => {
+                  if (projections.session) {
+                    void refreshPhase15bReadiness(projections.session.projectId);
+                  }
+                }}
+              />
+
+              <PlanningHandoffPanel
+                hasActiveSession={Boolean(projections.session)}
+                isBusy={isBusy}
+                handoff={planningHandoffView}
+                onRunHandoffGate={() => void runPlanningHandoffGate()}
+                onRefreshHandoff={() => {
+                  if (projections.session) {
+                    void refreshPlanningHandoff(projections.session.sessionId);
+                  }
+                }}
+              />
+
+              <section className="panel score-panel">
+                <div className="panel-heading">
+                  <h2>Progress</h2>
+                  <span>{confidence?.readinessLabel ?? "pending"}</span>
+                </div>
+                <div className="score">{confidence?.compositeScore ?? 0}</div>
+                <button type="button" disabled={isBusy || !projections.session} onClick={() => void scoreCompleteness()}>
+                  Score completeness
+                </button>
+                {confidence?.topRisks.length ? (
+                  <ul>
+                    {confidence.topRisks.map((risk) => (
+                      <li key={risk}>{risk}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="empty-state">No risk projection yet.</p>
+                )}
+              </section>
+
+              <section className="panel founder-brief-panel">
+                <div className="panel-heading">
+                  <h2>Founder Brief</h2>
+                  <span>{projections.founderBrief?.exportReady ? "ready" : "draft"}</span>
+                </div>
+                <button type="button" disabled={isBusy || !projections.session} onClick={() => void prepareFounderBrief()}>
+                  Prepare export metadata
+                </button>
+                {projections.founderBrief ? (
+                  <div className="spec-outline">
+                    {projections.founderBrief.briefSections.map((section) => (
+                      <section key={section.sectionId}>
+                        <h3>{section.title}</h3>
+                        <p>{section.body}</p>
+                      </section>
                     ))}
                   </div>
                 ) : (
-                  <p className="empty-state">{section.emptyLabel}</p>
+                  <p className="empty-state">No Founder Brief prepared yet.</p>
                 )}
               </section>
-            ))}
-          </div>
-        </section>
-
-        <aside className="side-panels">
-          <section className="panel">
-            <div className="panel-heading">
-              <h2>Spec</h2>
-              <span>{projections.session?.phase ?? "none"}</span>
             </div>
-            {projections.spec?.title ? (
-              <div className="spec-outline">
-                <h3>{projections.spec.title}</h3>
-                {projections.spec.sections?.length ? (
-                  <ol>
-                    {projections.spec.sections.map((section) => (
-                      <li key={section}>{section}</li>
+          ) : null}
+
+          {activePage === "implementation" ? (
+            <div className="view-grid implementation-view">
+              <ImplementationStepLedgerPanel
+                ledger={implementationStepLedgerView}
+                isBusy={isBusy}
+                onRefreshLedger={() => {
+                  if (projections.session) {
+                    void refreshImplementationStepLedger(projections.session.sessionId);
+                  }
+                }}
+              />
+
+              <section className="panel runtime-panel">
+                <div className="panel-heading">
+                  <h2>Runtime evidence</h2>
+                  <span>{runtimeActivity.runtimeStatus}</span>
+                </div>
+                <p>{runtimeStatus ? `Adapter ${runtimeStatus.status}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
+                {statuses.length ? (
+                  <ul className="effect-list">
+                    {statuses.map((status) => (
+                      <li key={status.commandId}>
+                        {status.commandStatus}: {status.effects.length} effect(s)
+                      </li>
                     ))}
-                  </ol>
-                ) : null}
-              </div>
-            ) : (
-              <p className="empty-state">No spec draft yet.</p>
-            )}
-            <dl className="metrics">
-              <div>
-                <dt>Session version</dt>
-                <dd>{projections.session?.version ?? 0}</dd>
-              </div>
-              <div>
-                <dt>Spec sections</dt>
-                <dd>{projections.spec?.sectionCount ?? 0}</dd>
-              </div>
-              <div>
-                <dt>Approval</dt>
-                <dd>{projections.spec?.approvalStatus ?? "draft"}</dd>
-              </div>
-              <div>
-                <dt>Project purpose</dt>
-                <dd>{projections.session?.projectPurposeModeLabel ?? "not selected"}</dd>
-              </div>
-              <div>
-                <dt>Business critic</dt>
-                <dd>{projections.session?.businessCriticIntensityLabel ?? "not applicable"}</dd>
-              </div>
-            </dl>
-            {projections.session?.projectPurposeModeEffect ? (
-              <p className="mode-summary">{projections.session.projectPurposeModeEffect}</p>
-            ) : null}
-            {projections.session?.businessCriticIntensityEffect ? (
-              <p className="mode-summary">{projections.session.businessCriticIntensityEffect}</p>
-            ) : null}
-            {projections.session?.projectPurposeMode === "business" ? (
-              <div className="mode-change-panel">
-                <label>
-                  Business critic change reason
-                  <input
-                    value={businessCriticIntensityChangeReason}
-                    onChange={(event) => setBusinessCriticIntensityChangeReason(event.target.value)}
-                    placeholder="상업성 검증 강도를 바꾸는 이유를 기록합니다."
-                  />
-                </label>
-                <div className="card-actions">
-                  {BUSINESS_CRITIC_INTENSITY_OPTIONS.map((option) => (
-                    <button
-                      type="button"
-                      disabled={isBusy || projections.session?.businessCriticIntensity === option.intensity}
-                      key={option.intensity}
-                      onClick={() => void changeBusinessCriticIntensity(option.intensity)}
-                    >
-                      {option.label}으로 변경
-                    </button>
-                  ))}
-                </div>
-                <small>
-                  변경은 `BusinessCriticIntensityChanged` 이벤트로 audit되며 새 critical pressure는 active batch를
-                  교체하지 않고 queued_next에 추가됩니다.
-                </small>
-              </div>
-            ) : null}
-            {projections.session ? (
-              <div className="mode-change-panel">
-                <label>
-                  Mode change reason
-                  <input
-                    value={purposeModeChangeReason}
-                    onChange={(event) => setPurposeModeChangeReason(event.target.value)}
-                    placeholder="왜 질문/리서치 기준을 바꾸는지 기록합니다."
-                  />
-                </label>
-                <div className="card-actions">
-                  {PROJECT_PURPOSE_MODE_OPTIONS.map((option) => (
-                    <button
-                      type="button"
-                      disabled={isBusy || projections.session?.projectPurposeMode === option.mode}
-                      key={option.mode}
-                      onClick={() => void changeProjectPurposeMode(option.mode)}
-                    >
-                      {option.label}으로 변경
-                    </button>
-                  ))}
-                </div>
-                <small>변경은 `ProjectPurposeModeChanged` 이벤트로 audit되고 기존 active batch는 유지됩니다.</small>
-              </div>
-            ) : null}
-          </section>
+                  </ul>
+                ) : (
+                  <p className="empty-state">No command status records yet.</p>
+                )}
+              </section>
 
-          <section className="panel">
-            <div className="panel-heading">
-              <h2>Research</h2>
-              <span>{projections.research?.proConBalanceStatus ?? "unknown"}</span>
-            </div>
-            <div className="card-actions panel-actions">
-              <button type="button" disabled={isBusy || !projections.session} onClick={() => void planPhase15aResearchTask()}>
-                Plan 1.5A task
-              </button>
-            </div>
-            {projections.research?.tasks.length ? (
-              <div className="research-list">
-                {projections.research.tasks.map((task) => {
-                  const card = projections.research?.reviewCards.find(
-                    (item) => item.researchTaskId === task.researchTaskId
-                  );
-                  const canImportResearch =
-                    task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true;
-
-                  return (
-                    <article className="research-card" key={task.researchTaskId}>
-                      <div>
-                        <span>{card?.state ?? task.status}</span>
-                        <h3>{task.objective}</h3>
-                        <p>{card?.title ?? task.routeOutcome}</p>
-                        {card?.cardType ? (
-                          <p className="research-recovery">
-                            {card.cardType}
-                            {card.blocksPlanning ? " · blocks Planning-ready" : ""}
-                            {card.terminalOutcome ? ` · ${card.terminalOutcome}` : ""}
-                          </p>
+              <section className="panel activity-panel">
+                <div className="panel-heading">
+                  <h2>Activity</h2>
+                  <span>{commandLog.length}</span>
+                </div>
+                <div className="activity-list">
+                  {commandLog.length ? (
+                    commandLog.map((entry) => (
+                      <article className="activity-item" key={entry.id}>
+                        <strong>{entry.label}</strong>
+                        <span>{entry.status?.commandStatus ?? entry.response?.category ?? entry.message ?? entry.error ?? "pending"}</span>
+                        {entry.status?.effects.length ? (
+                          <ul className="effect-list">
+                            {entry.status.effects.map((effect) => (
+                              <li key={effect.effectTaskId}>
+                                {effect.effectType}: {effect.status}
+                              </li>
+                            ))}
+                          </ul>
                         ) : null}
-                        {card?.terminalRationale ? (
-                          <p className="research-recovery">Rationale: {card.terminalRationale}</p>
-                        ) : null}
-                        {card?.recoveryActions.length ? (
-                          <p className="research-recovery">{card.recoveryActions.join(" / ")}</p>
-                        ) : null}
-                      </div>
-                      {canImportResearch ? (
-                        <div className="answer-box">
-                          <textarea
-                            aria-label={`Import research for ${task.objective}`}
-                            value={researchDrafts[task.researchTaskId] ?? ""}
-                            onChange={(event) =>
-                              setResearchDrafts((current) => ({
-                                ...current,
-                                [task.researchTaskId]: event.target.value
-                              }))
-                            }
-                            rows={3}
-                          />
+                        {entry.error ? <small>{entry.error}</small> : null}
+                        {entry.message ? <small>{entry.message}</small> : null}
+                        {entry.response?.statusUrl ? (
                           <button
                             type="button"
-                            disabled={isBusy}
-                            onClick={() => void importResearchResult(task.researchTaskId)}
+                            disabled={isBusy || !entry.response?.statusUrl || !client}
+                            onClick={() => {
+                              if (entry.response?.statusUrl && client) {
+                                const { commandId, statusUrl } = entry.response;
+
+                                void client
+                                  .getCommandStatus(statusUrl)
+                                  .then(recordCommandStatus)
+                                  .catch((error) => recordCommandStatusError(commandId, error));
+                              }
+                            }}
                           >
-                            Import result
+                            Refresh status
                           </button>
-                        </div>
-                      ) : null}
-                      <div className="card-actions">
-                        <button
-                          type="button"
-                          disabled={isBusy || !hasActiveResearchAllowlist}
-                          onClick={() => void startReadOnlyResearchRun(task.researchTaskId)}
-                        >
-                          Start read-only run
-                        </button>
-                      </div>
-                      {card && !card.terminalOutcome && card.availableOutcomes.length ? (
-                        <div className="card-actions">
-                          {card.availableOutcomes.map((outcome) => (
-                            <button
-                              type="button"
-                              disabled={isBusy}
-                              key={outcome}
-                              onClick={() => void resolveResearchCard(card.cardId, outcome, card.title)}
-                            >
-                              {outcome}
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </article>
-                  );
-                })}
+                        ) : null}
+                      </article>
+                    ))
+                  ) : (
+                    <p className="empty-state">No activity yet.</p>
+                  )}
+                </div>
+              </section>
+            </div>
+          ) : null}
+
+          {activePage === "permissions" ? (
+            <div className="view-grid permissions-view">
+              <ChatGptDelegationPanel
+                delegation={chatGptDelegationView}
+                isBusy={isBusy}
+                onRefreshDelegation={() => {
+                  if (projections.session) {
+                    void refreshChatGptDelegation(projections.session.sessionId);
+                  }
+                }}
+                onRevokeDelegation={(runId) => void revokeChatGptDelegation(runId)}
+              />
+
+              <ServicePageUsePermissionPanel
+                permission={servicePageUsePermissionView}
+                isBusy={isBusy}
+                onRefreshPermission={() => {
+                  if (projections.session) {
+                    void refreshServicePageUsePermission(projections.session.sessionId);
+                  }
+                }}
+                onRevokePermission={(permissionId) => void revokeServicePageUsePermission(permissionId)}
+                onExportArtifacts={(permissionId) => exportServicePageArtifacts(permissionId)}
+                onDeleteArtifacts={(permissionId) => deleteServicePageArtifacts(permissionId)}
+              />
+            </div>
+          ) : null}
+        </section>
+
+        <aside className="right-rail" aria-label="Live project summary">
+          <section className="summary-card completeness-card">
+            <p className="rail-label">기획 완성도</p>
+            <div
+              className="completion-ring"
+              style={{
+                background: `conic-gradient(#0f766e 0 ${Math.min(100, confidence?.compositeScore ?? 0)}%, #eaeae6 ${Math.min(100, confidence?.compositeScore ?? 0)}% 100%)`
+              }}
+            >
+              <span>{confidence?.compositeScore ?? 0}%</span>
+              <small>{confidence?.readinessLabel ?? "pending"}</small>
+            </div>
+            <dl className="summary-metrics">
+              <div>
+                <dt>Queue</dt>
+                <dd>{totalQueueCount}</dd>
               </div>
-            ) : (
-              <p className="empty-state">No research tasks yet.</p>
-            )}
+              <div>
+                <dt>Spec</dt>
+                <dd>{projections.spec?.sectionCount ?? 0}</dd>
+              </div>
+            </dl>
           </section>
 
-          <Phase15aOperationsPanel
-            hasActiveSession={Boolean(projections.session)}
-            isBusy={isBusy}
-            operations={phase15aOperations}
-            researchOperations={researchOperations}
-            onCreateOrReactivateAllowlist={() => void createOrReactivateAllowlist()}
-            onRefreshOperations={() => {
-              if (projections.session) {
-                void refreshResearchOperations(projections.session.projectId);
-              }
-            }}
-            onPauseAllowlist={(allowlistId) => void pauseAllowlist(allowlistId)}
-            onRevokeAllowlist={(allowlistId) => void revokeAllowlist(allowlistId)}
-            onRefreshResearchRunStatus={(researchRunId) => void refreshResearchRunStatus(researchRunId)}
-            onCancelResearchRun={(researchRunId) => void cancelResearchRun(researchRunId)}
-            onRetryResearchRun={(researchRunId) => void retryResearchRun(researchRunId)}
-          />
-
-          <Phase15bReadinessPanel
-            hasActiveProject={Boolean(projections.session)}
-            isBusy={isBusy}
-            readiness={phase15bReadinessView}
-            onRefreshReadiness={() => {
-              if (projections.session) {
-                void refreshPhase15bReadiness(projections.session.projectId);
-              }
-            }}
-          />
-
-          <ChatGptDelegationPanel
-            delegation={chatGptDelegationView}
-            isBusy={isBusy}
-            onRefreshDelegation={() => {
-              if (projections.session) {
-                void refreshChatGptDelegation(projections.session.sessionId);
-              }
-            }}
-            onRevokeDelegation={(runId) => void revokeChatGptDelegation(runId)}
-          />
-
-          <ServicePageUsePermissionPanel
-            permission={servicePageUsePermissionView}
-            isBusy={isBusy}
-            onRefreshPermission={() => {
-              if (projections.session) {
-                void refreshServicePageUsePermission(projections.session.sessionId);
-              }
-            }}
-            onRevokePermission={(permissionId) => void revokeServicePageUsePermission(permissionId)}
-            onExportArtifacts={(permissionId) => exportServicePageArtifacts(permissionId)}
-            onDeleteArtifacts={(permissionId) => deleteServicePageArtifacts(permissionId)}
-          />
-
-          <ImplementationStepLedgerPanel
-            ledger={implementationStepLedgerView}
-            isBusy={isBusy}
-            onRefreshLedger={() => {
-              if (projections.session) {
-                void refreshImplementationStepLedger(projections.session.sessionId);
-              }
-            }}
-          />
-
-          <PlanningHandoffPanel
-            hasActiveSession={Boolean(projections.session)}
-            isBusy={isBusy}
-            handoff={planningHandoffView}
-            onRunHandoffGate={() => void runPlanningHandoffGate()}
-            onRefreshHandoff={() => {
-              if (projections.session) {
-                void refreshPlanningHandoff(projections.session.sessionId);
-              }
-            }}
-          />
-
-          <section className="panel">
-            <div className="panel-heading">
-              <h2>Progress</h2>
-              <span>{confidence?.readinessLabel ?? "pending"}</span>
+          <section className="summary-card">
+            <p className="rail-label">리서치 현황</p>
+            <div className="research-stats">
+              <span>
+                <strong>{projections.research?.tasks.length ?? 0}</strong>
+                tasks
+              </span>
+              <span>
+                <strong>{activeResearchRunCount}</strong>
+                active runs
+              </span>
             </div>
-            <div className="score">{confidence?.compositeScore ?? 0}</div>
-            <button type="button" disabled={isBusy || !projections.session} onClick={() => void scoreCompleteness()}>
-              Score completeness
-            </button>
-            {confidence?.topRisks.length ? (
-              <ul>
-                {confidence.topRisks.map((risk) => (
-                  <li key={risk}>{risk}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="empty-state">No risk projection yet.</p>
-            )}
+            <p className="mode-summary">{phase15aOperations.exitGate.label}</p>
           </section>
 
-          <section className="panel">
-            <div className="panel-heading">
-              <h2>Founder Brief</h2>
-              <span>{projections.founderBrief?.exportReady ? "ready" : "draft"}</span>
-            </div>
-            <button type="button" disabled={isBusy || !projections.session} onClick={() => void prepareFounderBrief()}>
-              Prepare export metadata
-            </button>
-            {projections.founderBrief ? (
-              <div className="spec-outline">
-                {projections.founderBrief.briefSections.map((section) => (
-                  <section key={section.sectionId}>
-                    <h3>{section.title}</h3>
-                    <p>{section.body}</p>
-                  </section>
-                ))}
-              </div>
-            ) : (
-              <p className="empty-state">No Founder Brief prepared yet.</p>
-            )}
-          </section>
-
-          <section className="panel">
-            <div className="panel-heading">
-              <h2>Activity</h2>
-              <span>{runtimeActivity.runtimeStatus}</span>
-            </div>
-            <p>{runtimeStatus ? `Adapter ${runtimeStatus.status}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
-            {researchOperations.disclosures?.disclosureLogs.length ? (
-              <div className="activity-list disclosure-activity">
-                {researchOperations.disclosures.disclosureLogs.map((log) => (
-                  <article className="activity-item" key={log.logId}>
-                    <strong>Research disclosure</strong>
-                    <span>{log.status}</span>
-                    <small>
-                      {log.connectorId} · {log.sourceCategory} · {log.researchObjective}
-                    </small>
-                    <small>{log.publicSafeSummarySent}</small>
-                    {log.blockReason ? <small>blocked: {log.blockReason}</small> : null}
-                    {log.manualHandoffReason ? <small>{log.manualHandoffReason}</small> : null}
-                  </article>
-                ))}
-              </div>
-            ) : null}
-            <div className="activity-list">
-              {commandLog.length ? (
-                commandLog.map((entry) => (
+          <section className="summary-card">
+            <p className="rail-label">최근 활동</p>
+            <div className="activity-list compact">
+              {commandLog.slice(0, 5).length ? (
+                commandLog.slice(0, 5).map((entry) => (
                   <article className="activity-item" key={entry.id}>
                     <strong>{entry.label}</strong>
                     <span>{entry.status?.commandStatus ?? entry.response?.category ?? entry.message ?? entry.error ?? "pending"}</span>
-                    {entry.status?.effects.length ? (
-                      <ul className="effect-list">
-                        {entry.status.effects.map((effect) => (
-                          <li key={effect.effectTaskId}>
-                            {effect.effectType}: {effect.status}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    {entry.error ? <small>{entry.error}</small> : null}
-                    {entry.message ? <small>{entry.message}</small> : null}
-                    {entry.response?.statusUrl ? (
-                      <button
-                        type="button"
-                        disabled={isBusy || !entry.response?.statusUrl || !client}
-                        onClick={() => {
-                          if (entry.response?.statusUrl && client) {
-                            const { commandId, statusUrl } = entry.response;
-
-                            void client
-                              .getCommandStatus(statusUrl)
-                              .then(recordCommandStatus)
-                              .catch((error) => recordCommandStatusError(commandId, error));
-                          }
-                        }}
-                      >
-                        Refresh status
-                      </button>
-                    ) : null}
                   </article>
                 ))
               ) : (
@@ -2090,7 +2353,7 @@ export function DecisionQueueShell() {
             </div>
           </section>
         </aside>
-      </section>
+      </div>
     </main>
   );
 }
