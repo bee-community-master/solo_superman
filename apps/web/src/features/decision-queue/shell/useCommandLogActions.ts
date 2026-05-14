@@ -1,7 +1,7 @@
 import { type Dispatch, type SetStateAction, useCallback } from "react";
 import type { CommandResponse, StatusEndpointDto } from "@solo-superman/contracts";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
-import { displayError, type CommandLogEntry } from "./decision-queue-shell-model";
+import { COMMAND_LOG_LIMIT, displayError, type CommandLogEntry } from "./decision-queue-shell-model";
 
 interface CommandLogActionsProps {
   readonly client: SidecarClient | null;
@@ -14,15 +14,7 @@ export function useCommandLogActions({ client, setCommandLog, setStatuses }: Com
     setStatuses((previous) => [status, ...previous.filter((item) => item.commandId !== status.commandId)]);
     setCommandLog((previous) =>
       previous.map((item) =>
-        item.response?.commandId === status.commandId
-          ? {
-              id: item.id,
-              label: item.label,
-              createdAt: item.createdAt,
-              ...(item.response ? { response: item.response } : {}),
-              status
-            }
-          : item
+        item.response?.commandId === status.commandId ? { ...item, status } : item
       )
     );
   }, [setCommandLog, setStatuses]);
@@ -50,7 +42,7 @@ export function useCommandLogActions({ client, setCommandLog, setStatuses }: Com
         response: response as CommandResponse
       };
 
-      setCommandLog((previous) => [entry, ...previous].slice(0, 8));
+      setCommandLog((previous) => [entry, ...previous].slice(0, COMMAND_LOG_LIMIT));
 
       if (!client || !response.statusUrl) {
         return response;

@@ -44,6 +44,8 @@ export interface CommandLogEntry {
   readonly error?: string;
 }
 
+export const COMMAND_LOG_LIMIT = 8;
+
 export interface ProjectionState {
   readonly session: SessionShellProjection | null;
   readonly spec: LivingSpecProjection | null;

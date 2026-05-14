@@ -16,6 +16,7 @@ import type { SidecarClient } from "../../../shared/api/sidecar-client";
 import { servicePageUsePermissionViewModel } from "../ServicePageUsePermissionPanel";
 import { buildPlanningHandoffRequest } from "../phase2-planning-handoff-request";
 import {
+  COMMAND_LOG_LIMIT,
   displayError,
   latestProjectionVersion,
   type AppendCommand,
@@ -289,7 +290,7 @@ export function useDecisionQueuePlanningPermissionActions({
           message: `exported_refs_only: ${view.artifactRefs.length} retained refs for ${permissionId}; audit metadata preserved.`
         },
         ...previous
-      ].slice(0, 8));
+      ].slice(0, COMMAND_LOG_LIMIT));
     },
     [projections.servicePageUsePermission]
   );

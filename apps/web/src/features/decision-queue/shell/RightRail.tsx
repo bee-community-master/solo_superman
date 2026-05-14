@@ -5,6 +5,8 @@ interface RightRailProps {
   readonly controller: DecisionQueueShellController;
 }
 
+const RECENT_ACTIVITY_LIMIT = 5;
+
 export function RightRail({ controller }: RightRailProps) {
   const {
     activeResearchRunCount,
@@ -14,6 +16,7 @@ export function RightRail({ controller }: RightRailProps) {
     planningReadinessLabel,
     projections
   } = controller;
+  const recentCommandLog = commandLog.slice(0, RECENT_ACTIVITY_LIMIT);
 
   return (
     <aside className="right-rail" aria-label="Live project summary">
@@ -46,8 +49,8 @@ export function RightRail({ controller }: RightRailProps) {
       <section className="summary-card">
         <p className="rail-label">최근 활동</p>
         <div className="activity-list compact">
-          {commandLog.slice(0, 5).length ? (
-            commandLog.slice(0, 5).map((entry) => (
+          {recentCommandLog.length ? (
+            recentCommandLog.map((entry) => (
               <article className="activity-item" key={entry.id}>
                 <strong>{entry.label}</strong>
                 <span>{entry.status?.commandStatus ?? entry.response?.category ?? entry.message ?? entry.error ?? "pending"}</span>
