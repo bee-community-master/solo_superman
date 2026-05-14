@@ -43,6 +43,21 @@ export function useCommandLogActions({ client, setCommandLog, setStatuses }: Com
     );
   }, [setCommandLog]);
 
+  const refreshCommandStatus = useCallback(
+    async (entry: CommandLogEntry) => {
+      if (!client || !entry.response?.statusUrl) {
+        return;
+      }
+
+      try {
+        recordCommandStatus(await client.getCommandStatus(entry.response.statusUrl));
+      } catch (error) {
+        recordCommandStatusError(entry.response.commandId, error);
+      }
+    },
+    [client, recordCommandStatus, recordCommandStatusError]
+  );
+
   const appendCommand = useCallback(
     async <TProjection,>(label: string, response: CommandResponse<TProjection>) => {
       const id = response.commandId;
@@ -59,31 +74,15 @@ export function useCommandLogActions({ client, setCommandLog, setStatuses }: Com
         return response;
       }
 
-      try {
-        const status = await client.getCommandStatus(response.statusUrl);
-
-        recordCommandStatus(status);
-      } catch (error) {
-        setCommandLog((previous) =>
-          previous.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  error: displayError(error)
-                }
-              : item
-          )
-        );
-      }
+      await refreshCommandStatus(entry);
 
       return response;
     },
-    [client, recordCommandStatus, setCommandLog]
+    [client, refreshCommandStatus, setCommandLog]
   );
 
   return {
-    recordCommandStatus,
-    recordCommandStatusError,
+    refreshCommandStatus,
     appendCommand
   };
 }

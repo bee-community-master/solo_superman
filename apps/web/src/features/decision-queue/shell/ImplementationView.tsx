@@ -7,14 +7,12 @@ interface ImplementationViewProps {
 
 export function ImplementationView({ controller }: ImplementationViewProps) {
   const {
-    client,
     commandLog,
     implementationStepLedgerView,
     isBusy,
     pendingSummary,
     projections,
-    recordCommandStatus,
-    recordCommandStatusError,
+    refreshCommandStatus,
     refreshImplementationStepLedger,
     runtimeActivity,
     runtimeStatus,
@@ -77,17 +75,8 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
                 {entry.response?.statusUrl ? (
                   <button
                     type="button"
-                    disabled={isBusy || !entry.response?.statusUrl || !client}
-                    onClick={() => {
-                      if (entry.response?.statusUrl && client) {
-                        const { commandId, statusUrl } = entry.response;
-
-                        void client
-                          .getCommandStatus(statusUrl)
-                          .then(recordCommandStatus)
-                          .catch((error) => recordCommandStatusError(commandId, error));
-                      }
-                    }}
+                    disabled={isBusy}
+                    onClick={() => void refreshCommandStatus(entry)}
                   >
                     Refresh status
                   </button>

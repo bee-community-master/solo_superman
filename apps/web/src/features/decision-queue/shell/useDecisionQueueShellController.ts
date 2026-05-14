@@ -110,7 +110,7 @@ export function useDecisionQueueShellController() {
     setResearchOperations
   });
 
-  const { recordCommandStatus, recordCommandStatusError, appendCommand } = useCommandLogActions({
+  const { refreshCommandStatus, appendCommand } = useCommandLogActions({
     client,
     setCommandLog,
     setStatuses
@@ -315,7 +315,6 @@ export function useDecisionQueueShellController() {
 
   return {
     connectionState,
-    client,
     idea,
     setIdea,
     intake,
@@ -355,9 +354,7 @@ export function useDecisionQueueShellController() {
     refreshImplementationStepLedger,
     refreshProjections,
     refetchQueueAfterSseNotification,
-    recordCommandStatus,
-    recordCommandStatusError,
-    appendCommand,
+    refreshCommandStatus,
     runInitialQueueFlow,
     changeProjectPurposeMode,
     changeBusinessCriticIntensity,
