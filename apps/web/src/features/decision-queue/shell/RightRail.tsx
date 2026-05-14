@@ -13,6 +13,8 @@ export function RightRail({ controller }: RightRailProps) {
     commandLog,
     phase15aOperations,
     planningCompletenessScore,
+    planningRadarAxesView,
+    planningRadarPolygonPoints,
     planningReadinessLabel,
     projections
   } = controller;
@@ -28,7 +30,12 @@ export function RightRail({ controller }: RightRailProps) {
             <span>{planningReadinessLabel}</span>
           </div>
         </div>
-        <PlanningCompletenessRadar controller={controller} />
+        <PlanningCompletenessRadar
+          axes={planningRadarAxesView}
+          polygonPoints={planningRadarPolygonPoints}
+          readinessLabel={planningReadinessLabel}
+          score={planningCompletenessScore}
+        />
       </section>
 
       <section className="summary-card">
