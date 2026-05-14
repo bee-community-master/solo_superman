@@ -182,6 +182,27 @@ function hasExited(processInfo) {
   return processInfo.child.exitCode !== null || processInfo.child.signalCode !== null;
 }
 
+function remainingTimeoutMs(startedAt, timeoutMs) {
+  return Math.max(1, timeoutMs - (Date.now() - startedAt));
+}
+
+export async function fetchWithTimeout(url, options) {
+  const controller = new globalThis.AbortController();
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, options.timeoutMs);
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch;
+
+  try {
+    return await fetchImpl(url, {
+      headers: options.headers,
+      signal: controller.signal
+    });
+  } finally {
+    globalThis.clearTimeout(timer);
+  }
+}
+
 async function waitForFetch(url, options) {
   const startedAt = Date.now();
   let lastError = null;
@@ -194,8 +215,9 @@ async function waitForFetch(url, options) {
     }
 
     try {
-      const response = await fetch(url, {
-        headers: options.headers
+      const response = await fetchWithTimeout(url, {
+        headers: options.headers,
+        timeoutMs: remainingTimeoutMs(startedAt, options.timeoutMs)
       });
       const text = await response.text();
 
@@ -244,6 +266,29 @@ async function stopProcess(processInfo) {
 
     processInfo.child.kill("SIGTERM");
   });
+}
+
+export async function cleanupProdBundleSmoke(processes, appDataDir, options = {}) {
+  const stopManagedProcess = options.stopProcess ?? stopProcess;
+  const removeAppDataDir = options.remove ?? rm;
+  const cleanupFailures = [];
+  const stopResults = await Promise.allSettled([...processes].reverse().map(stopManagedProcess));
+
+  for (const result of stopResults) {
+    if (result.status === "rejected") {
+      cleanupFailures.push(result.reason);
+    }
+  }
+
+  try {
+    await removeAppDataDir(appDataDir, { recursive: true, force: true });
+  } catch (error) {
+    cleanupFailures.push(error);
+  }
+
+  if (cleanupFailures.length > 0) {
+    throw new AggregateError(cleanupFailures, "verify-prod-bundle cleanup failed");
+  }
 }
 
 export async function runProdBundleSmoke() {
@@ -310,8 +355,7 @@ export async function runProdBundleSmoke() {
       ]
     };
   } finally {
-    await Promise.all(processes.reverse().map(stopProcess));
-    await rm(appDataDir, { recursive: true, force: true });
+    await cleanupProdBundleSmoke(processes, appDataDir);
     if (processes.length > 0) {
       console.log(`verify-prod-bundle: stopped ${processes.length} managed process(es) and removed temporary app data`);
     }

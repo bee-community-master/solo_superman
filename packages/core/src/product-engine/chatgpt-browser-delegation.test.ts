@@ -604,6 +604,25 @@ describe("CreateChatGptBrowserDelegationRun reducer", () => {
     });
   });
 
+  it("rejects a result-import gate when no resultImportRef is attached", () => {
+    const reduction = reduceProductEngineCommand(
+      command(
+        payloadFromReadyFixture({
+          resultImportGate: passingResultImportGate()
+        })
+      ),
+      stateWithResearchTaskAndBrowserAuthority()
+    );
+
+    expect(reduction).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "VALIDATION_FAILED",
+        message: "CreateChatGptBrowserDelegationRun resultImportRef is required when resultImportGate is provided."
+      }
+    });
+  });
+
   it("marks ChatGPT result imports ready only after all quality gates pass", () => {
     const reduction = reduceProductEngineCommand(
       command(

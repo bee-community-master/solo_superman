@@ -292,6 +292,23 @@ function isBlocker(value: unknown): value is ImplementationStepBlocker {
     value.evidenceRefs.length > 0;
 }
 
+function topLevelRecordStepId(value: unknown) {
+  return isRecord(value) && typeof value.stepId === "string" ? value.stepId : null;
+}
+
+function topLevelStepRecordIssues(
+  records: readonly unknown[],
+  isValid: (value: unknown) => boolean,
+  stepIds: ReadonlySet<string>,
+  issue: string
+) {
+  return records.flatMap((record) => {
+    const stepId = topLevelRecordStepId(record);
+
+    return isValid(record) && stepId && stepIds.has(stepId) ? [] : [issue];
+  });
+}
+
 function hasImplementationEvidence(step: ImplementationStepRecord) {
   return Boolean(step.stepCommitRecord || step.noCodeStepEvidence);
 }
@@ -513,31 +530,14 @@ export function validateImplementationStepLedgerProjection(
     }
     stepDocsById.set(step.stepDoc.stepId, step.stepDoc);
   }
-  for (const record of projection.stepCommitRecords) {
-    if (!isStepCommitRecord(record) || !stepIds.has(record.stepId)) {
-      issues.push("stepCommitRecords must point to known steps");
-    }
-  }
-  for (const record of projection.noCodeStepEvidenceRecords) {
-    if (!isNoCodeStepEvidence(record) || !stepIds.has(record.stepId)) {
-      issues.push("noCodeStepEvidenceRecords must point to known steps");
-    }
-  }
-  for (const record of projection.codeReviewRecords) {
-    if (!isCodeReviewRecord(record) || !stepIds.has(record.stepId)) {
-      issues.push("codeReviewRecords must point to known steps");
-    }
-  }
-  for (const record of projection.cleanCodeReviewRecords) {
-    if (!isCleanCodeReviewRecord(record) || !stepIds.has(record.stepId)) {
-      issues.push("cleanCodeReviewRecords must point to known steps");
-    }
-  }
-  for (const record of projection.testEvidenceRecords) {
-    if (!isTestEvidenceRecord(record) || !stepIds.has(record.stepId)) {
-      issues.push("testEvidenceRecords must point to known steps");
-    }
-  }
+  issues.push(
+    ...topLevelStepRecordIssues(projection.stepCommitRecords, isStepCommitRecord, stepIds, "stepCommitRecords must point to known steps"),
+    ...topLevelStepRecordIssues(projection.noCodeStepEvidenceRecords, isNoCodeStepEvidence, stepIds, "noCodeStepEvidenceRecords must point to known steps"),
+    ...topLevelStepRecordIssues(projection.codeReviewRecords, isCodeReviewRecord, stepIds, "codeReviewRecords must point to known steps"),
+    ...topLevelStepRecordIssues(projection.cleanCodeReviewRecords, isCleanCodeReviewRecord, stepIds, "cleanCodeReviewRecords must point to known steps"),
+    ...topLevelStepRecordIssues(projection.testEvidenceRecords, isTestEvidenceRecord, stepIds, "testEvidenceRecords must point to known steps"),
+    ...topLevelStepRecordIssues(projection.blockedSteps, isBlocker, stepIds, "blockedSteps must point to known steps")
+  );
 
   if (issues.length) {
     throw new ImplementationStepLedgerValidationError(issues);

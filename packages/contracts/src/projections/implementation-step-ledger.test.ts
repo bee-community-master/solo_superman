@@ -233,6 +233,23 @@ describe("ImplementationStepLedgerProjection contract", () => {
     );
   });
 
+  it("rejects top-level blocked steps that do not point to known implementation steps", () => {
+    const invalid = {
+      ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+      blockedSteps: [
+        {
+          stepId: "step_missing",
+          reason: "A stale blocker from another ledger leaked into this projection.",
+          missingEvidence: ["known step blocker"],
+          nextRequiredAction: "Record a blocker for an existing step only.",
+          evidenceRefs: ["blocker:stale"]
+        }
+      ]
+    } as ImplementationStepLedgerProjection;
+
+    expect(() => validateImplementationStepLedgerProjection(invalid)).toThrow(ImplementationStepLedgerValidationError);
+  });
+
   it("accepts no-code verification-only completion with baseline commit and clean tracked state", () => {
     const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
     const noCode = {

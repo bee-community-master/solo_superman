@@ -5,9 +5,38 @@ import {
   chatGptBrowserDelegationStatusForRun,
   validateChatGptBrowserDelegationProjection,
   validateChatGptBrowserDelegationRun,
+  type ChatGptBrowserDelegationResultImportGate,
   type ChatGptBrowserDelegationRun
 } from "./chatgpt-browser-delegation";
 import type { ResearchResultId } from "../ids";
+
+function passingResultImportGate(
+  overrides: Partial<ChatGptBrowserDelegationResultImportGate> = {}
+): ChatGptBrowserDelegationResultImportGate {
+  return {
+    sourceProvenanceStatus: "pass",
+    uncertaintyStatus: "pass",
+    conEvidenceStatus: "pass",
+    staleRiskStatus: "pass",
+    sourceRefs: ["chatgpt:conversation:hash"],
+    uncertaintyRefs: ["uncertainty:preserved"],
+    conEvidenceRefs: ["con:evidence:preserved"],
+    staleRiskRefs: ["stale-risk:checked"],
+    importRationale: "Candidate output preserves source, uncertainty, counter-evidence, and stale-risk gates.",
+    ...overrides
+  };
+}
+
+function failedResultImportGate(): ChatGptBrowserDelegationResultImportGate {
+  return passingResultImportGate({
+    uncertaintyStatus: "block",
+    conEvidenceStatus: "block",
+    sourceRefs: ["chatgpt:conversation:hash-only"],
+    uncertaintyRefs: ["uncertainty:missing"],
+    conEvidenceRefs: ["con:evidence:missing"],
+    importRationale: "Candidate output did not preserve uncertainty or counter-evidence."
+  });
+}
 
 describe("ChatGPT browser delegation contract", () => {
   it("validates the ready preflight record without requiring credential or session custody", () => {
@@ -66,17 +95,7 @@ describe("ChatGPT browser delegation contract", () => {
       nextAction: "Review the transcript manually before importing the result.",
       canRevoke: false,
       resultImportRef: "research_result_chatgpt_gate_fail" as ResearchResultId,
-      resultImportGate: {
-        sourceProvenanceStatus: "pass",
-        uncertaintyStatus: "block",
-        conEvidenceStatus: "block",
-        staleRiskStatus: "pass",
-        sourceRefs: ["chatgpt:conversation:hash-only"],
-        uncertaintyRefs: ["uncertainty:missing"],
-        conEvidenceRefs: ["con:evidence:missing"],
-        staleRiskRefs: ["stale-risk:checked"],
-        importRationale: "Candidate output did not preserve uncertainty or counter-evidence."
-      },
+      resultImportGate: failedResultImportGate(),
       fallbackApplied: {
         lane: "manual_prompt_handoff",
         visibleState: "ChatGPT 결과 가져오기를 보류하고 수동 검토가 필요합니다.",
@@ -111,17 +130,7 @@ describe("ChatGPT browser delegation contract", () => {
       nextAction: "Import the result with source and counter-evidence refs attached.",
       canRevoke: false,
       resultImportRef: "research_result_chatgpt_gate_pass" as ResearchResultId,
-      resultImportGate: {
-        sourceProvenanceStatus: "pass",
-        uncertaintyStatus: "pass",
-        conEvidenceStatus: "pass",
-        staleRiskStatus: "pass",
-        sourceRefs: ["chatgpt:conversation:hash"],
-        uncertaintyRefs: ["uncertainty:preserved"],
-        conEvidenceRefs: ["con:evidence:preserved"],
-        staleRiskRefs: ["stale-risk:checked"],
-        importRationale: "Candidate output preserves source, uncertainty, counter-evidence, and stale-risk gates."
-      }
+      resultImportGate: passingResultImportGate()
     };
 
     expect(chatGptBrowserDelegationStatusForRun(validateChatGptBrowserDelegationRun(importReadyRun))).toBe(
@@ -129,21 +138,23 @@ describe("ChatGPT browser delegation contract", () => {
     );
   });
 
+  it("rejects orphaned result-import gates without a result import ref", () => {
+    const orphanedGateRun: ChatGptBrowserDelegationRun = {
+      ...CHATGPT_BROWSER_DELEGATION_READY_PROJECTION_FIXTURE.latestRun,
+      resultImportGate: passingResultImportGate()
+    };
+
+    expect(() => validateChatGptBrowserDelegationRun(orphanedGateRun)).toThrow(/resultImportRef/);
+  });
+
   it("rejects source-less result imports before they can look ready", () => {
     const sourceLessRun: ChatGptBrowserDelegationRun = {
       ...CHATGPT_BROWSER_DELEGATION_READY_PROJECTION_FIXTURE.latestRun,
       resultImportRef: "research_result_chatgpt_sourceless" as ResearchResultId,
-      resultImportGate: {
-        sourceProvenanceStatus: "pass",
-        uncertaintyStatus: "pass",
-        conEvidenceStatus: "pass",
-        staleRiskStatus: "pass",
+      resultImportGate: passingResultImportGate({
         sourceRefs: [],
-        uncertaintyRefs: ["uncertainty:preserved"],
-        conEvidenceRefs: ["con:evidence:preserved"],
-        staleRiskRefs: ["stale-risk:checked"],
         importRationale: "Candidate output claims to preserve quality gates without source provenance."
-      }
+      })
     };
 
     expect(() => validateChatGptBrowserDelegationRun(sourceLessRun)).toThrow(/resultImportGate/);

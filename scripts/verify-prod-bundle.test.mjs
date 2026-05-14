@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  cleanupProdBundleSmoke,
+  fetchWithTimeout,
   prodBundleSmokeCommands,
   prodBundleSmokeConfig,
   prodBundleSmokeEnvironment
@@ -79,5 +81,43 @@ describe("verify-prod-bundle smoke plan", () => {
     expect(config.webBaseUrl).toBe("http://[::1]:4173");
     expect(commands.webPreview[1]).toContain("::1");
     expect(commands.webPreview[1]).not.toContain("[::1]");
+  });
+
+  it("removes temporary app data even when process cleanup fails", async () => {
+    const removed = [];
+
+    await expect(
+      cleanupProdBundleSmoke([{ label: "hung preview" }], "/tmp/solo-prod-smoke", {
+        remove: async (target, options) => {
+          removed.push({ target, options });
+        },
+        stopProcess: async () => {
+          throw new Error("process did not exit");
+        }
+      })
+    ).rejects.toThrow("verify-prod-bundle cleanup failed");
+
+    expect(removed).toEqual([
+      {
+        target: "/tmp/solo-prod-smoke",
+        options: { recursive: true, force: true }
+      }
+    ]);
+  });
+
+  it("bounds each smoke fetch attempt with an abort signal", async () => {
+    let capturedSignal;
+    const response = await fetchWithTimeout("http://127.0.0.1:43110/healthz", {
+      timeoutMs: 1_000,
+      fetchImpl: async (_url, init) => {
+        capturedSignal = init?.signal;
+
+        return new globalThis.Response("ok", { status: 200 });
+      }
+    });
+
+    expect(response.status).toBe(200);
+    expect(capturedSignal).toBeInstanceOf(globalThis.AbortSignal);
+    expect(capturedSignal.aborted).toBe(false);
   });
 });

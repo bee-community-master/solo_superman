@@ -880,6 +880,14 @@ function chatGptDelegationRunFromParsedPayload(
     };
   }
 
+  if (!payload.resultImportRef && payload.resultImportGate) {
+    return {
+      ok: false,
+      message: "CreateChatGptBrowserDelegationRun resultImportRef is required when resultImportGate is provided.",
+      code: "VALIDATION_FAILED"
+    };
+  }
+
   const blockReasons = chatGptDelegationBlockReasons({
     dataDisclosurePreview: payload.dataDisclosurePreview,
     policyRiskVerdict: payload.policyRiskVerdict,

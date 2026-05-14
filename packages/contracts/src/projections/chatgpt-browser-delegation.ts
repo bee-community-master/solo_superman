@@ -507,6 +507,10 @@ export function chatGptBrowserDelegationRunValidationIssues(
     issues.push("resultImportGate is required when resultImportRef is present");
   }
 
+  if (run.resultImportGate && !run.resultImportRef) {
+    issues.push("resultImportGate requires resultImportRef");
+  }
+
   if (run.status === "completed" && (!run.resultImportRef || !isResultImportGate(run.resultImportGate))) {
     issues.push("completed runs require resultImportRef and a valid resultImportGate");
   }
