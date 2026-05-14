@@ -152,19 +152,23 @@ export function displayError(error: unknown) {
   return "Unknown sidecar error.";
 }
 
+const PROJECTION_VERSION_KEYS = [
+  "session",
+  "spec",
+  "queue",
+  "research",
+  "activity",
+  "confidence",
+  "founderBrief",
+  "planningHandoff",
+  "chatGptDelegation",
+  "servicePageUsePermission",
+  "implementationStepLedger"
+] as const satisfies readonly (keyof ProjectionState)[];
+
 export function latestProjectionVersion(projections: ProjectionState) {
   return Math.max(
-    Number(projections.session?.version ?? 0),
-    Number(projections.spec?.version ?? 0),
-    Number(projections.queue?.version ?? 0),
-    Number(projections.research?.version ?? 0),
-    Number(projections.activity?.version ?? 0),
-    Number(projections.confidence?.version ?? 0),
-    Number(projections.founderBrief?.version ?? 0),
-    Number(projections.planningHandoff?.version ?? 0),
-    Number(projections.chatGptDelegation?.version ?? 0),
-    Number(projections.servicePageUsePermission?.version ?? 0),
-    Number(projections.implementationStepLedger?.version ?? 0)
+    ...PROJECTION_VERSION_KEYS.map((key) => Number(projections[key]?.version ?? 0))
   ) as StateVersion;
 }
 
