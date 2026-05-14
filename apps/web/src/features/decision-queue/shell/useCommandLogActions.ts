@@ -9,12 +9,23 @@ interface CommandLogActionsProps {
   readonly setStatuses: Dispatch<SetStateAction<readonly StatusEndpointDto[]>>;
 }
 
+function commandLogEntryWithStatus(entry: CommandLogEntry, status: StatusEndpointDto): CommandLogEntry {
+  return {
+    id: entry.id,
+    label: entry.label,
+    createdAt: entry.createdAt,
+    ...(entry.response ? { response: entry.response } : {}),
+    ...(entry.message ? { message: entry.message } : {}),
+    status
+  };
+}
+
 export function useCommandLogActions({ client, setCommandLog, setStatuses }: CommandLogActionsProps) {
   const recordCommandStatus = useCallback((status: StatusEndpointDto) => {
     setStatuses((previous) => [status, ...previous.filter((item) => item.commandId !== status.commandId)]);
     setCommandLog((previous) =>
       previous.map((item) =>
-        item.response?.commandId === status.commandId ? { ...item, status } : item
+        item.response?.commandId === status.commandId ? commandLogEntryWithStatus(item, status) : item
       )
     );
   }, [setCommandLog, setStatuses]);
