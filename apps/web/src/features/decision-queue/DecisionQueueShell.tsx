@@ -154,6 +154,102 @@ interface PageMeta {
   readonly description: string;
 }
 
+
+const RADAR_CENTER = 50;
+const RADAR_MAX_RADIUS = 31;
+const RADAR_LABEL_RADIUS = 44;
+const RADAR_AXIS_DEFAULTS = [
+  { axisId: "problem", label: "문제정의" },
+  { axisId: "customer", label: "고객/JTBD" },
+  { axisId: "value", label: "가치제안" },
+  { axisId: "validation", label: "검증계획" },
+  { axisId: "implementation", label: "구현가능성" }
+] as const;
+const RADAR_RING_SCORES = [20, 40, 60, 80, 100] as const;
+
+type RadarTextAnchor = "start" | "middle" | "end";
+
+interface RadarAxisViewModel {
+  readonly axisId: (typeof RADAR_AXIS_DEFAULTS)[number]["axisId"];
+  readonly label: string;
+  readonly score: number;
+  readonly point: string;
+  readonly pointX: number;
+  readonly pointY: number;
+  readonly guideX: number;
+  readonly guideY: number;
+  readonly labelX: number;
+  readonly labelY: number;
+  readonly textAnchor: RadarTextAnchor;
+}
+
+function clampRadarScore(score: number) {
+  if (!Number.isFinite(score)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function radarPoint(index: number, radius: number) {
+  const angle = -Math.PI / 2 + (Math.PI * 2 * index) / RADAR_AXIS_DEFAULTS.length;
+
+  return {
+    x: RADAR_CENTER + Math.cos(angle) * radius,
+    y: RADAR_CENTER + Math.sin(angle) * radius
+  };
+}
+
+function radarPointString(index: number, radius: number) {
+  const point = radarPoint(index, radius);
+
+  return `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
+}
+
+function radarRingPoints(score: number) {
+  const radius = (RADAR_MAX_RADIUS * score) / 100;
+
+  return RADAR_AXIS_DEFAULTS.map((_, index) => radarPointString(index, radius)).join(" ");
+}
+
+function radarTextAnchor(x: number): RadarTextAnchor {
+  if (x > RADAR_CENTER + 6) {
+    return "start";
+  }
+
+  if (x < RADAR_CENTER - 6) {
+    return "end";
+  }
+
+  return "middle";
+}
+
+function planningRadarAxes(confidence: ConfidenceCompletionProjection | null): readonly RadarAxisViewModel[] {
+  const liveAxisById = new Map(confidence?.axes.map((axis) => [axis.axisId, axis]) ?? []);
+
+  return RADAR_AXIS_DEFAULTS.map((axis, index) => {
+    const liveAxis = liveAxisById.get(axis.axisId);
+    const score = clampRadarScore(liveAxis?.score ?? 0);
+    const point = radarPoint(index, (RADAR_MAX_RADIUS * score) / 100);
+    const guidePoint = radarPoint(index, RADAR_MAX_RADIUS);
+    const labelPoint = radarPoint(index, RADAR_LABEL_RADIUS);
+
+    return {
+      axisId: axis.axisId,
+      label: axis.label,
+      score,
+      point: `${point.x.toFixed(2)},${point.y.toFixed(2)}`,
+      pointX: point.x,
+      pointY: point.y,
+      guideX: guidePoint.x,
+      guideY: guidePoint.y,
+      labelX: labelPoint.x,
+      labelY: labelPoint.y,
+      textAnchor: radarTextAnchor(labelPoint.x)
+    };
+  });
+}
+
 const PAGE_META: Record<DecisionQueuePageId, PageMeta> = {
   questions: {
     label: "질문 답변",
@@ -1559,6 +1655,10 @@ export function DecisionQueueShell() {
     () => implementationStepLedgerViewModel(projections.implementationStepLedger),
     [projections.implementationStepLedger]
   );
+  const planningRadarAxesView = useMemo(() => planningRadarAxes(confidence), [confidence]);
+  const planningRadarPolygonPoints = planningRadarAxesView.map((axis) => axis.point).join(" ");
+  const planningCompletenessScore = confidence?.compositeScore ?? 0;
+  const planningReadinessLabel = confidence?.readinessLabel ?? "pending";
   const canStart =
     connectionState.status === "connected" &&
     Boolean(client) &&
@@ -2300,25 +2400,44 @@ export function DecisionQueueShell() {
 
         <aside className="right-rail" aria-label="Live project summary">
           <section className="summary-card completeness-card">
-            <p className="rail-label">기획 완성도</p>
-            <div
-              className="completion-ring"
-              style={{
-                background: `conic-gradient(#0f766e 0 ${Math.min(100, confidence?.compositeScore ?? 0)}%, #eaeae6 ${Math.min(100, confidence?.compositeScore ?? 0)}% 100%)`
-              }}
-            >
-              <span>{confidence?.compositeScore ?? 0}%</span>
-              <small>{confidence?.readinessLabel ?? "pending"}</small>
+            <div className="radar-card-header">
+              <p className="rail-label">기획 완성도</p>
+              <div>
+                <strong>{planningCompletenessScore}%</strong>
+                <span>{planningReadinessLabel}</span>
+              </div>
             </div>
-            <dl className="summary-metrics">
-              <div>
-                <dt>Queue</dt>
-                <dd>{totalQueueCount}</dd>
-              </div>
-              <div>
-                <dt>Spec</dt>
-                <dd>{projections.spec?.sectionCount ?? 0}</dd>
-              </div>
+            <svg
+              aria-label={`기획 완성도 레이더 그래프, 종합 ${planningCompletenessScore}%, ${planningReadinessLabel}`}
+              className="planning-radar"
+              role="img"
+              viewBox="0 0 100 100"
+            >
+              {RADAR_RING_SCORES.map((score) => (
+                <polygon className="radar-ring" key={score} points={radarRingPoints(score)} />
+              ))}
+              {planningRadarAxesView.map((axis) => (
+                <line className="radar-spoke" key={axis.axisId} x1="50" x2={axis.guideX} y1="50" y2={axis.guideY} />
+              ))}
+              <polygon className="radar-area" points={planningRadarPolygonPoints} />
+              {planningRadarAxesView.map((axis) => (
+                <circle className="radar-point" cx={axis.pointX} cy={axis.pointY} key={axis.axisId} r="1.7">
+                  <title>{`${axis.label}: ${axis.score}%`}</title>
+                </circle>
+              ))}
+              {planningRadarAxesView.map((axis) => (
+                <text className="radar-label" key={`${axis.axisId}-label`} textAnchor={axis.textAnchor} x={axis.labelX} y={axis.labelY}>
+                  {axis.label}
+                </text>
+              ))}
+            </svg>
+            <dl className="radar-axis-list">
+              {planningRadarAxesView.map((axis) => (
+                <div key={axis.axisId}>
+                  <dt>{axis.label}</dt>
+                  <dd>{axis.score}%</dd>
+                </div>
+              ))}
             </dl>
           </section>
 
