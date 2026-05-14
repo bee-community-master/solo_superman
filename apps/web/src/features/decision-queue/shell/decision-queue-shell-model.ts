@@ -22,7 +22,7 @@ import {
 } from "@solo-superman/contracts";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
 import { requiredCommandProjection } from "../../../shared/api/command-response-helpers";
-import type { SidecarConnection } from "../../../shared/api/sidecar-client";
+import { SidecarClientError, type SidecarConnection } from "../../../shared/api/sidecar-client";
 
 export type ConnectionState =
   | { readonly status: "connecting" }
@@ -139,11 +139,15 @@ export const PAGE_META: Record<DecisionQueuePageId, PageMeta> = {
 };
 
 export function displayError(error: unknown) {
+  if (error instanceof SidecarClientError) {
+    return `${error.apiError.code}: ${error.apiError.message}`;
+  }
+
   if (error instanceof Error) {
     return error.message;
   }
 
-  return String(error);
+  return "Unknown sidecar error.";
 }
 
 export function latestProjectionVersion(projections: ProjectionState) {
