@@ -1,21 +1,12 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   BLOCKED_ACTION_TYPES,
-  PLANNING_HANDOFF_BLOCKER_PROJECTION_FIXTURE,
-  PLANNING_HANDOFF_FINAL_PROJECTION_FIXTURE
 } from "@solo-superman/contracts";
 import type {
-  CommandId,
-  CorrelationId,
   DecisionEvidencePackId,
-  DecisionQueueProjection,
-  EffectTaskId,
-  EventId,
   Phase15bUpgradeHintProjection,
-  PlanningHandoffProjection,
   ProjectId,
   ProjectionVersion,
   QueueItemId,
@@ -32,24 +23,15 @@ import type {
   RuntimeArtifactId,
   SchemaVersion,
   SessionId,
-  SseEvent,
-  StatusEndpointDto
 } from "@solo-superman/contracts";
 import {
-  decisionQueueRecoveryViewModel,
-  pendingEffectSummary,
   type Phase15aOperationsInput,
-  type PlanningHandoffViewModel,
   phase15aOperationsViewModel,
   phase15bReadinessViewModel,
-  planningHandoffViewModel,
-  queueSections,
-  runtimeActivityProjectionFromStatuses,
-  shouldRefetchQueueForSseNotification
 } from "./decision-queue-view-model";
 import { Phase15aOperationsPanel } from "./Phase15aOperationsPanel";
 import { Phase15bReadinessPanel } from "./Phase15bReadinessPanel";
-import { PlanningHandoffPanel } from "./PlanningHandoffPanel";
+
 import { buildWebResearchRunRequest } from "./phase15a-research-run-request";
 
 const projectId = "proj_phase15a_ui" as ProjectId;
@@ -377,30 +359,6 @@ function phase15bHintProjection(): Phase15bUpgradeHintProjection {
     ]
   };
 }
-
-function handoffProjectionFixture(kind: "final" | "blocker"): PlanningHandoffProjection {
-  return kind === "final"
-    ? (PLANNING_HANDOFF_FINAL_PROJECTION_FIXTURE as PlanningHandoffProjection)
-    : (PLANNING_HANDOFF_BLOCKER_PROJECTION_FIXTURE as PlanningHandoffProjection);
-}
-
-function handoffCopy(handoff: PlanningHandoffViewModel) {
-  const artifact = handoff.final ?? handoff.blocker;
-
-  return [
-    handoff.statusLabel,
-    handoff.label,
-    handoff.summary,
-    handoff.noExecutionLabel,
-    handoff.refetchLabel,
-    handoff.sourceRefsLabel,
-    artifact?.heading,
-    ...(artifact?.groups.flatMap((group) => [group.title, ...group.items]) ?? [])
-  ]
-    .filter((part): part is string => Boolean(part))
-    .join(" ");
-}
-
 
 describe("Decision Queue view model readiness-panels", () => {
   it("summarizes Phase 1.5B readiness hints without execution-result copy", () => {

@@ -1,21 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { describe, expect, it } from "vitest";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import {
-  BLOCKED_ACTION_TYPES,
-  PLANNING_HANDOFF_BLOCKER_PROJECTION_FIXTURE,
-  PLANNING_HANDOFF_FINAL_PROJECTION_FIXTURE
-} from "@solo-superman/contracts";
+
 import type {
-  CommandId,
-  CorrelationId,
   DecisionEvidencePackId,
-  DecisionQueueProjection,
-  EffectTaskId,
-  EventId,
-  Phase15bUpgradeHintProjection,
-  PlanningHandoffProjection,
   ProjectId,
   ProjectionVersion,
   QueueItemId,
@@ -29,28 +15,12 @@ import type {
   ResearchRunControlProjection,
   ResearchRunId,
   ResearchTaskId,
-  RuntimeArtifactId,
-  SchemaVersion,
   SessionId,
-  SseEvent,
-  StatusEndpointDto
 } from "@solo-superman/contracts";
 import {
-  decisionQueueRecoveryViewModel,
-  pendingEffectSummary,
   type Phase15aOperationsInput,
-  type PlanningHandoffViewModel,
   phase15aOperationsViewModel,
-  phase15bReadinessViewModel,
-  planningHandoffViewModel,
-  queueSections,
-  runtimeActivityProjectionFromStatuses,
-  shouldRefetchQueueForSseNotification
 } from "./decision-queue-view-model";
-import { Phase15aOperationsPanel } from "./Phase15aOperationsPanel";
-import { Phase15bReadinessPanel } from "./Phase15bReadinessPanel";
-import { PlanningHandoffPanel } from "./PlanningHandoffPanel";
-import { buildWebResearchRunRequest } from "./phase15a-research-run-request";
 
 const projectId = "proj_phase15a_ui" as ProjectId;
 const allowlistId = "research_allowlist_phase15a_ui" as ResearchAllowlistId;
@@ -273,134 +243,6 @@ function phase15aOperations(overrides: Partial<Phase15aOperationsInput> = {}) {
     ...overrides
   });
 }
-
-function phase15bHintProjection(): Phase15bUpgradeHintProjection {
-  return {
-    kind: "Phase15bUpgradeHintProjection",
-    projectionKind: "Phase15bUpgradeHintProjection",
-    projectId,
-    version: 4 as ProjectionVersion,
-    generatedAt: "2026-05-06T00:02:00.000Z",
-    stale: false,
-    refetchUrl: `/api/v1/projects/${projectId}/phase15b-upgrade-hints`,
-    exportUrl: `/api/v1/projects/${projectId}/phase15b-upgrade-hints/export`,
-    pendingEffectSummary: {
-      totalPending: 0,
-      byType: {},
-      visibleLabel: "No execution effects are pending."
-    },
-    metadataLabel: "readiness_preview_handoff_metadata",
-    privatePayloadPolicy: "public_safe_metadata_only",
-    noExecution: {
-      semantic: "metadata_only_no_execution",
-      productActionPerformed: false,
-      delegationState: "not_active",
-      credentialValueState: "omitted"
-    },
-    records: [
-      {
-        hintId: "phase15b_hint_ui",
-        projectId,
-        sessionId: "sess_phase15a_ui" as SessionId,
-        artifactId: "runtime_artifact_phase15b_ui" as RuntimeArtifactId,
-        artifactKind: "BlockedActionArtifact",
-        metadataLabel: "readiness_preview_handoff_metadata",
-        privatePayloadPolicy: "public_safe_metadata_only",
-        noExecution: {
-          semantic: "metadata_only_no_execution",
-          productActionPerformed: false,
-          delegationState: "not_active",
-          credentialValueState: "omitted"
-        },
-        sourceRefLabelPolicy: "labels_omitted_to_avoid_private_payload_export",
-        hints: {
-          executionIntent: {
-            candidateActionType: "shell_command",
-            targetSurface: "Planning handoff checklist",
-            nonExecutingSummary: "Preview the command prerequisites without running them."
-          },
-          approvalRequirements: [
-            {
-              approvalType: "task_level_execution",
-              reason: "A later phase must ask before a shell command can run.",
-              scope: "pnpm verify in an isolated workspace",
-              requiredActor: "user",
-              reconfirmRule: "Ask again for every new command target."
-            }
-          ],
-          sandboxRequirements: {
-            isolatedWorktreeRequired: true,
-            browserSandboxRequired: false,
-            networkMode: "offline",
-            commandAllowlist: ["pnpm verify"],
-            secretGrantBoundary: "No secret values are needed for this readiness check.",
-            environmentPolicy: "local-only test process",
-            logCaptureRequired: true
-          },
-          rollbackReference: {
-            baseRef: "origin/main",
-            diffRef: "codex/issue-37-readiness-ui-handoff-copy",
-            rollbackNote: "Reset the feature branch to the base ref if the handoff checklist is withdrawn.",
-            reversible: true,
-            cleanupExpectation: "Delete the feature branch after merge or cancellation."
-          },
-          expectedEvidence: {
-            tests: ["pnpm verify"],
-            smokeChecks: ["pnpm smoke:e2e"],
-            artifactPaths: ["apps/web/src/features/decision-queue/Phase15bReadinessPanel.tsx"],
-            manualInspection: ["Confirm labels say readiness, preview, blocked, or handoff."],
-            expectedLogs: ["readiness metadata fetched"]
-          },
-          riskNormalization: {
-            riskLevel: "medium",
-            blockedActionType: "shell_command",
-            blockReason: "Phase 1.5B may describe shell-command needs but cannot run commands as product behavior.",
-            userVisibleAction: "Review the handoff checklist before a later phase asks for approval.",
-            escalationTarget: "Phase 3 safe execution policy"
-          },
-          sourceRefs: [
-            {
-              kind: "blocked_action",
-              refId: "runtime_artifact_phase15b_ui"
-            },
-            {
-              kind: "research_run",
-              refId: "research_run_phase15a_ui"
-            }
-          ],
-          createdAt: "2026-05-06T00:02:00.000Z",
-          schemaVersion: "solo-superman.phase15b-hints.v1" as SchemaVersion
-        },
-        createdAt: "2026-05-06T00:02:00.000Z",
-        schemaVersion: "solo-superman.phase15b-hints.v1" as SchemaVersion
-      }
-    ]
-  };
-}
-
-function handoffProjectionFixture(kind: "final" | "blocker"): PlanningHandoffProjection {
-  return kind === "final"
-    ? (PLANNING_HANDOFF_FINAL_PROJECTION_FIXTURE as PlanningHandoffProjection)
-    : (PLANNING_HANDOFF_BLOCKER_PROJECTION_FIXTURE as PlanningHandoffProjection);
-}
-
-function handoffCopy(handoff: PlanningHandoffViewModel) {
-  const artifact = handoff.final ?? handoff.blocker;
-
-  return [
-    handoff.statusLabel,
-    handoff.label,
-    handoff.summary,
-    handoff.noExecutionLabel,
-    handoff.refetchLabel,
-    handoff.sourceRefsLabel,
-    artifact?.heading,
-    ...(artifact?.groups.flatMap((group) => [group.title, ...group.items]) ?? [])
-  ]
-    .filter((part): part is string => Boolean(part))
-    .join(" ");
-}
-
 
 describe("Decision Queue view model phase15a", () => {
   it("summarizes Phase 1.5A operations recovery and keeps blocking research cards explicit", () => {

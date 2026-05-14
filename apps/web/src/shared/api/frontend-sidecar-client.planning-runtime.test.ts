@@ -1,23 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { describe, expect, it } from "vitest";
 import {
   IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
   type ProjectId,
-  type QueueItemId,
-  type ResearchAllowlistId,
-  type ResearchConnectorId,
-  type ResearchRunId,
-  type ResearchTaskId,
   type RuntimeArtifactId,
   type SessionId,
   type StateVersion
 } from "@solo-superman/contracts";
 import {
   createSidecarClient,
-  parseSseEvents,
-  SidecarClientError,
-  discoverSidecarConnection,
-  sidecarConnectionFromEnv
 } from "./sidecar-client";
 import { connection, jsonResponse } from "./sidecar-client.test-helpers";
 
