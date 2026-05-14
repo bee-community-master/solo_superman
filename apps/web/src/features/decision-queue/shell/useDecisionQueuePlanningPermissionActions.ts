@@ -1,0 +1,357 @@
+import { type Dispatch, type SetStateAction, useCallback } from "react";
+import type {
+  ChatGptBrowserDelegationProjection,
+  CommandResponse,
+  ConfidenceCompletionProjection,
+  DecisionQueueProjection,
+  FounderBriefProjection,
+  Phase15bUpgradeHintProjection,
+  PlanningHandoffProjection,
+  ProjectId,
+  ServicePageUsePermissionProjection,
+  SessionShellProjection
+} from "@solo-superman/contracts";
+import { requiredCommandProjection } from "../../../shared/api/command-response-helpers";
+import type { SidecarClient } from "../../../shared/api/sidecar-client";
+import { servicePageUsePermissionViewModel } from "../ServicePageUsePermissionPanel";
+import { buildPlanningHandoffRequest } from "../phase2-planning-handoff-request";
+import {
+  displayError,
+  latestProjectionVersion,
+  type AppendCommand,
+  type CommandLogEntry,
+  type ProjectionState
+} from "./decision-queue-shell-model";
+
+interface DecisionQueuePlanningPermissionActionsProps {
+  readonly appendCommand: AppendCommand;
+  readonly client: SidecarClient | null;
+  readonly phase15bReadiness: Phase15bUpgradeHintProjection | null;
+  readonly projections: ProjectionState;
+  readonly refreshChatGptDelegation: (sessionId: SessionShellProjection["sessionId"]) => Promise<void>;
+  readonly refreshProjections: (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"]) => Promise<void>;
+  readonly refreshServicePageUsePermission: (sessionId: SessionShellProjection["sessionId"]) => Promise<void>;
+  readonly setCommandLog: Dispatch<SetStateAction<readonly CommandLogEntry[]>>;
+  readonly setIsBusy: Dispatch<SetStateAction<boolean>>;
+  readonly setProjections: Dispatch<SetStateAction<ProjectionState>>;
+  readonly setWorkflowError: Dispatch<SetStateAction<string | null>>;
+}
+
+export function useDecisionQueuePlanningPermissionActions({
+  appendCommand,
+  client,
+  phase15bReadiness,
+  projections,
+  refreshChatGptDelegation,
+  refreshProjections,
+  refreshServicePageUsePermission,
+  setCommandLog,
+  setIsBusy,
+  setProjections,
+  setWorkflowError
+}: DecisionQueuePlanningPermissionActionsProps) {
+  const scoreCompleteness = useCallback(async () => {
+    if (!client || !projections.session) {
+      setWorkflowError("An active session is required before scoring completeness.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const response = await appendCommand(
+        "Score completeness",
+        await client.scoreCompleteness({
+          sessionId: projections.session.sessionId,
+          expectedStateVersion: latestProjectionVersion(projections)
+        })
+      );
+      const confidence = requiredCommandProjection<ConfidenceCompletionProjection>(
+        response,
+        "ConfidenceCompletionProjection"
+      );
+      const maybeQueueProjection = (response as CommandResponse<unknown>).queueProjection;
+
+      setProjections((current) => ({
+        ...current,
+        confidence,
+        queue:
+          maybeQueueProjection &&
+          typeof maybeQueueProjection === "object" &&
+          "kind" in maybeQueueProjection &&
+          maybeQueueProjection.kind === "DecisionQueueProjection"
+            ? (maybeQueueProjection as DecisionQueueProjection)
+            : current.queue
+      }));
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [appendCommand, client, projections]);
+
+  const prepareFounderBrief = useCallback(async () => {
+    if (!client || !projections.session) {
+      setWorkflowError("An active session is required before preparing a Founder Brief.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const response = await appendCommand(
+        "Prepare Founder Brief",
+        await client.prepareFounderBriefExport({
+          sessionId: projections.session.sessionId,
+          expectedStateVersion: latestProjectionVersion(projections),
+          requestedFormat: "markdown"
+        })
+      );
+      const founderBrief = requiredCommandProjection<FounderBriefProjection>(response, "FounderBriefProjection");
+
+      setProjections((current) => ({
+        ...current,
+        founderBrief
+      }));
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [appendCommand, client, projections]);
+
+  const runPlanningHandoffGate = useCallback(async () => {
+    if (!client || !projections.session) {
+      setWorkflowError("An active session is required before running the Planning Handoff gate.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const request = buildPlanningHandoffRequest({
+        session: projections.session,
+        spec: projections.spec,
+        queue: projections.queue,
+        research: projections.research,
+        confidence: projections.confidence,
+        founderBrief: projections.founderBrief,
+        phase15bReadiness,
+        expectedStateVersion: latestProjectionVersion(projections)
+      });
+      const response = await appendCommand("Run Planning Handoff gate", await client.createPlanningHandoff(request));
+      const planningHandoff = requiredCommandProjection<PlanningHandoffProjection>(response, "PlanningHandoffProjection");
+
+      setProjections((current) => ({
+        ...current,
+        planningHandoff
+      }));
+      await refreshProjections(projections.session.projectId, projections.session.sessionId);
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [appendCommand, client, phase15bReadiness, projections, refreshProjections]);
+
+  const revokeChatGptDelegation = useCallback(
+    async (runId: string) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active session is required before revoking ChatGPT delegation.");
+        return;
+      }
+
+      setIsBusy(true);
+      setWorkflowError(null);
+
+      try {
+        const expectedStateVersion = latestProjectionVersion(projections);
+        const response = await appendCommand(
+          "Revoke ChatGPT delegation",
+          await client.revokeChatGptBrowserDelegationRun({
+            sessionId: projections.session.sessionId,
+            expectedStateVersion,
+            idempotencyKey: `chatgpt-delegation:revoke:${runId}:${expectedStateVersion}`,
+            runId,
+            reason: "Revoked from the ChatGPT delegation run panel.",
+            auditRefs: [`audit:chatgpt-browser-delegation:web-revoke:${runId}`]
+          })
+        );
+        const chatGptDelegation = requiredCommandProjection<ChatGptBrowserDelegationProjection>(
+          response,
+          "ChatGptBrowserDelegationProjection"
+        );
+
+        setProjections((current) => ({
+          ...current,
+          chatGptDelegation
+        }));
+        await refreshChatGptDelegation(projections.session.sessionId);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [appendCommand, client, projections, refreshChatGptDelegation]
+  );
+
+  const revokeServicePageUsePermission = useCallback(
+    async (permissionId: string) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active session is required before revoking service page-use permission.");
+        return;
+      }
+
+      setIsBusy(true);
+      setWorkflowError(null);
+
+      try {
+        const expectedStateVersion = latestProjectionVersion(projections);
+        const response = await appendCommand(
+          "Revoke service page-use permission",
+          await client.revokeServicePageUsePermission({
+            sessionId: projections.session.sessionId,
+            expectedStateVersion,
+            idempotencyKey: `service-page-permission:revoke:${permissionId}:${expectedStateVersion}`,
+            permissionId,
+            reason: "Revoked from the service page-use permission panel.",
+            auditRefs: [`audit:service-page-use-permission:web-revoke:${permissionId}`]
+          })
+        );
+        const servicePageUsePermission = requiredCommandProjection<ServicePageUsePermissionProjection>(
+          response,
+          "ServicePageUsePermissionProjection"
+        );
+
+        setProjections((current) => ({
+          ...current,
+          servicePageUsePermission
+        }));
+        await refreshServicePageUsePermission(projections.session.sessionId);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [appendCommand, client, projections, refreshServicePageUsePermission]
+  );
+
+  const exportServicePageArtifacts = useCallback(
+    (permissionId: string) => {
+      const projection = projections.servicePageUsePermission;
+      const permission = projection?.latestPermission;
+
+      if (!permission || permission.permissionId !== permissionId) {
+        setWorkflowError("The latest service page-use permission no longer matches this artifact export request.");
+        return;
+      }
+
+      if (typeof document === "undefined" || typeof URL === "undefined") {
+        setWorkflowError("Artifact ref export requires a browser document context.");
+        return;
+      }
+
+      const view = servicePageUsePermissionViewModel(projection);
+      const exportedAt = new Date().toISOString();
+      const payload = {
+        exportedAt,
+        permissionId,
+        serviceName: permission.serviceName,
+        serviceOrigin: permission.serviceOrigin,
+        pageUrl: permission.pageUrl,
+        purpose: permission.purpose,
+        redactionPreviewRef: permission.artifactRetention.redactionPreviewRef,
+        artifactRefs: view.artifactRefs,
+        auditEvidenceRefs: permission.auditLog.flatMap((entry) => entry.evidenceRefs),
+        note: "Exports retained artifact references only; credentials, cookies, sessions, 2FA codes, API keys, and raw secret values are never stored or exported."
+      };
+      const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+
+      anchor.href = url;
+      anchor.download = `service-page-artifact-refs-${permissionId}.json`;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+
+      setCommandLog((previous) => [
+        {
+          id: `service-page-permission:export:artifacts:${permissionId}:${Date.now()}`,
+          label: "Export service page-use artifact refs",
+          createdAt: exportedAt,
+          message: `exported_refs_only: ${view.artifactRefs.length} retained refs for ${permissionId}; audit metadata preserved.`
+        },
+        ...previous
+      ].slice(0, 8));
+    },
+    [projections.servicePageUsePermission]
+  );
+
+  const deleteServicePageArtifacts = useCallback(
+    async (permissionId: string) => {
+      if (!client || !projections.session) {
+        setWorkflowError("An active session is required before deleting service page-use artifact refs.");
+        return;
+      }
+
+      const projection = projections.servicePageUsePermission;
+      const permission = projection?.latestPermission;
+
+      if (!permission || permission.permissionId !== permissionId) {
+        setWorkflowError("The latest service page-use permission no longer matches this artifact delete request.");
+        return;
+      }
+
+      setIsBusy(true);
+      setWorkflowError(null);
+
+      try {
+        const expectedStateVersion = latestProjectionVersion(projections);
+        const response = await appendCommand(
+          "Delete service page-use artifact refs",
+          await client.deleteServicePageUsePermissionArtifacts({
+            sessionId: projections.session.sessionId,
+            expectedStateVersion,
+            idempotencyKey: `service-page-permission:delete-artifacts:${permissionId}:${expectedStateVersion}`,
+            permissionId,
+            reason: "User deleted retained service page-use artifact refs from the permission panel.",
+            auditRefs: [`audit:service-page-use-permission:web-delete-artifacts:${permissionId}`]
+          })
+        );
+        const servicePageUsePermission = requiredCommandProjection<ServicePageUsePermissionProjection>(
+          response,
+          "ServicePageUsePermissionProjection"
+        );
+
+        setProjections((current) => ({
+          ...current,
+          servicePageUsePermission
+        }));
+        await refreshServicePageUsePermission(projections.session.sessionId);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [appendCommand, client, projections, refreshServicePageUsePermission]
+  );
+
+
+  return {
+    scoreCompleteness,
+    prepareFounderBrief,
+    runPlanningHandoffGate,
+    revokeChatGptDelegation,
+    revokeServicePageUsePermission,
+    exportServicePageArtifacts,
+    deleteServicePageArtifacts
+  };
+}

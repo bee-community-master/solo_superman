@@ -1,0 +1,33 @@
+@media (max-width: 1240px) {
+  body {
+    min-width: 960px;
+  }
+
+  .desktop-topbar {
+    grid-template-columns: 220px minmax(0, 1fr) 180px;
+    padding-inline: 18px;
+  }
+
+  .desktop-body {
+    grid-template-columns: 206px minmax(0, 1fr) 260px;
+  }
+
+  .desktop-workspace {
+    padding: 22px 20px 30px;
+  }
+
+  .questions-view,
+  .research-view,
+  .permissions-view,
+  .implementation-view,
+  .planning-view {
+    grid-template-columns: 1fr;
+  }
+
+  .planning-view .spec-panel,
+  .planning-view .founder-brief-panel,
+  .implementation-view .implementation-step-ledger-panel,
+  .implementation-view .activity-panel {
+    grid-column: auto;
+  }
+}

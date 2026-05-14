@@ -1,0 +1,141 @@
+.summary-card {
+  box-shadow: none;
+  margin-bottom: 12px;
+}
+
+.completeness-card {
+  display: grid;
+  gap: 12px;
+}
+
+.radar-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.radar-card-header .rail-label {
+  margin-bottom: 0;
+}
+
+.radar-card-header div {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.radar-card-header strong {
+  color: var(--solo-text);
+  font-size: 1.12rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.radar-card-header span {
+  color: var(--solo-faint);
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.planning-radar {
+  width: 100%;
+  max-width: 224px;
+  aspect-ratio: 1;
+  justify-self: center;
+  overflow: visible;
+}
+
+.radar-ring {
+  fill: none;
+  stroke: var(--solo-soft-border);
+  stroke-width: 0.65;
+}
+
+.radar-spoke {
+  stroke: #d8d8d2;
+  stroke-width: 0.55;
+}
+
+.radar-area {
+  fill: rgb(15 118 110 / 18%);
+  stroke: var(--solo-accent);
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.radar-point {
+  fill: var(--solo-accent);
+  stroke: var(--solo-surface);
+  stroke-width: 0.7;
+}
+
+.radar-label {
+  fill: var(--solo-muted);
+  font-size: 5.2px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  paint-order: stroke;
+  stroke: var(--solo-surface);
+  stroke-linejoin: round;
+  stroke-width: 2.4px;
+}
+
+.radar-axis-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  width: 100%;
+}
+
+.radar-axis-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 8px;
+  background: var(--solo-bg);
+  padding: 7px 9px;
+}
+
+.radar-axis-list dt,
+.radar-axis-list dd {
+  font-size: 0.68rem;
+}
+
+.radar-axis-list dd {
+  color: var(--solo-accent);
+}
+
+.summary-metrics {
+  width: 100%;
+  grid-template-columns: 1fr 1fr;
+}
+
+.research-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.research-stats span {
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--solo-bg);
+  color: var(--solo-muted);
+  font-size: 0.7rem;
+  padding: 10px 8px;
+}
+
+.research-stats strong {
+  color: var(--solo-accent);
+  font-size: 1rem;
+}
+
+.activity-list.compact .activity-item {
+  box-shadow: none;
+  padding: 9px 10px;
+}
+

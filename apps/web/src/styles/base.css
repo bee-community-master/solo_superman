@@ -1,0 +1,138 @@
+:root {
+  color: #111111;
+  background: #f4f3f0;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --solo-accent: #0f766e;
+  --solo-accent-dark: #0a5c56;
+  --solo-accent-bg: #effaf9;
+  --solo-bg: #f4f3f0;
+  --solo-surface: #ffffff;
+  --solo-text: #111111;
+  --solo-muted: #71717a;
+  --solo-faint: #a8a8a2;
+  --solo-border: #e4e4e0;
+  --solo-soft-border: #eaeae6;
+  --solo-red: #dc2626;
+  --solo-red-bg: #fef2f2;
+  --solo-amber: #d97706;
+  --solo-amber-bg: #fffbeb;
+  --solo-blue: #1d4ed8;
+  --solo-blue-bg: #eff6ff;
+  --solo-shadow: 0 18px 42px rgb(17 24 39 / 7%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 1120px;
+  background: var(--solo-bg);
+}
+
+button,
+textarea,
+input {
+  font: inherit;
+}
+
+button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--solo-accent);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0 14px;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+button:hover:not(:disabled) {
+  background: var(--solo-accent-dark);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+button:disabled {
+  background: #e4e4e0;
+  color: var(--solo-faint);
+  cursor: not-allowed;
+}
+
+textarea,
+input:not([type="radio"]) {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--solo-border);
+  border-radius: 9px;
+  background: #fbfbf9;
+  color: var(--solo-text);
+  line-height: 1.45;
+  padding: 10px 12px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+textarea:focus,
+input:not([type="radio"]):focus {
+  border-color: var(--solo-accent);
+  background: var(--solo-surface);
+  outline: 3px solid rgb(15 118 110 / 14%);
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+ul,
+ol,
+dl {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+h2 {
+  margin-bottom: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+h3 {
+  margin-bottom: 0;
+  font-size: 0.9rem;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+h4 {
+  margin-bottom: 0;
+  font-size: 0.92rem;
+  font-weight: 720;
+  line-height: 1.35;
+}
+
