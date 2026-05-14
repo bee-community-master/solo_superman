@@ -69,16 +69,11 @@ export function useCommandLogActions({ client, setCommandLog, setStatuses }: Com
       };
 
       setCommandLog((previous) => [entry, ...previous].slice(0, COMMAND_LOG_LIMIT));
-
-      if (!client || !response.statusUrl) {
-        return response;
-      }
-
       await refreshCommandStatus(entry);
 
       return response;
     },
-    [client, refreshCommandStatus, setCommandLog]
+    [refreshCommandStatus, setCommandLog]
   );
 
   return {
