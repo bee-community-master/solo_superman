@@ -139,6 +139,7 @@ Root scripts:
 | --- | --- |
 | `pnpm install` | install all workspace dependencies |
 | `pnpm dev` | run local web frontend and sidecar dev processes together with a local token |
+| `pnpm start:local` | run local sidecar and web on loopback, auto-select safe ports, open the browser, and keep servers running until `Ctrl+C` |
 | `pnpm dev:web` | run Vite web frontend dev on loopback |
 | `pnpm dev:sidecar` | run Hono sidecar in watch mode on loopback |
 | `pnpm build` | build contracts, core, db, sidecar, web |

@@ -44,6 +44,14 @@ Optional port overrides use platform-native environment syntax:
 | --- | --- |
 | ```sh<br>SOLO_PROD_SMOKE_SIDECAR_PORT=43112 \<br>SOLO_PROD_SMOKE_WEB_PORT=4175 \<br>pnpm verify:prod-bundle<br>``` | ```powershell<br>$env:SOLO_PROD_SMOKE_SIDECAR_PORT = "43112"<br>$env:SOLO_PROD_SMOKE_WEB_PORT = "4175"<br>pnpm verify:prod-bundle<br>``` |
 
+## Beginner local web run
+
+The README one-line installers finish by launching this command. It keeps the local sidecar and web server running, opens the default browser automatically, and chooses alternate loopback ports without killing existing processes when the defaults are busy. Stop it with `Ctrl+C`.
+
+| macOS shell | Windows PowerShell |
+| --- | --- |
+| ```sh<br>pnpm start:local<br>``` | ```powershell<br>pnpm start:local<br>``` |
+
 ## Manual production bundle run
 
 Use two terminals. Terminal 1 starts the sidecar. Terminal 2 serves the already-built production web bundle.

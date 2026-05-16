@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_URL="${SOLO_SUPERMAN_REPO_URL:-https://github.com/HearingOffice/solo_superman.git}"
+DEFAULT_TARGET_DIR="${SOLO_SUPERMAN_DIR:-solo_superman}"
+PNPM_VERSION="${SOLO_SUPERMAN_PNPM_VERSION:-11.0.4}"
+RUN_SMOKE="${SOLO_SUPERMAN_RUN_SMOKE:-1}"
+START_LOCAL="${SOLO_SUPERMAN_START_LOCAL:-1}"
+BOOTSTRAP_COMMAND='/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/HearingOffice/solo_superman/main/scripts/bootstrap-macos.sh)"'
+MIN_NODE_MAJOR=20
+
+info() {
+  printf '\n==> %s\n' "$1"
+}
+
+warn() {
+  printf '\nWARN: %s\n' "$1" >&2
+}
+
+print_recovery_hint() {
+  printf '\n다시 시도하려면 새 터미널에서 아래 한 줄을 그대로 붙여넣으세요:\n%s\n' "$BOOTSTRAP_COMMAND" >&2
+  printf '네트워크/회사 보안 정책/관리자 권한이 막는 경우에는 정책을 우회하지 않고 여기서 멈춥니다.\n' >&2
+}
+
+fail() {
+  printf '\nERROR: %s\n' "$1" >&2
+  print_recovery_hint
+  exit 1
+}
+
+has_command() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+load_brew_path() {
+  if has_command brew; then
+    return 0
+  fi
+
+  if [ -x /opt/homebrew/bin/brew ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+  elif [ -x /usr/local/bin/brew ]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+  fi
+}
+
+ensure_homebrew() {
+  load_brew_path
+  if has_command brew; then
+    return 0
+  fi
+
+  info "Homebrew가 없어 설치를 시도합니다. macOS가 암호를 요청할 수 있습니다."
+  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  load_brew_path
+  has_command brew || fail "Homebrew 설치 후에도 brew를 찾지 못했습니다. 새 터미널에서 README의 한 줄 설치 명령을 다시 실행하세요."
+}
+
+ensure_git() {
+  if has_command git; then
+    info "git already installed: $(git --version 2>/dev/null | head -n 1)"
+    return 0
+  fi
+
+  ensure_homebrew
+  info "git 설치: brew install git"
+  brew install git
+  has_command git || fail "git 설치 후에도 명령을 찾지 못했습니다. 새 터미널에서 README의 한 줄 설치 명령을 다시 실행하세요."
+}
+
+node_major() {
+  if ! has_command node; then
+    printf '0\n'
+    return 0
+  fi
+
+  node -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || printf '0\n'
+}
+
+ensure_node() {
+  local major
+  major="$(node_major)"
+  if [ "$major" -ge "$MIN_NODE_MAJOR" ]; then
+    info "node already installed: $(node --version)"
+    return 0
+  fi
+
+  ensure_homebrew
+  if has_command node; then
+    warn "현재 node 버전이 너무 낮아 업그레이드를 시도합니다: $(node --version)"
+    brew upgrade node || brew install node
+  else
+    info "node 설치: brew install node"
+    brew install node
+  fi
+
+  load_brew_path
+  major="$(node_major)"
+  if [ "$major" -lt "$MIN_NODE_MAJOR" ]; then
+    fail "Node $MIN_NODE_MAJOR 이상이 필요합니다. 새 터미널에서 README의 한 줄 설치 명령을 다시 실행하세요."
+  fi
+  info "node ready: $(node --version)"
+}
+
+ensure_pnpm() {
+  if has_command corepack; then
+    info "pnpm@$PNPM_VERSION 활성화"
+    if corepack enable && corepack prepare "pnpm@$PNPM_VERSION" --activate && has_command pnpm; then
+      pnpm --version
+      return 0
+    fi
+    warn "Corepack pnpm 활성화가 실패해 npm global 설치로 fallback합니다."
+  else
+    warn "corepack을 찾지 못해 npm global pnpm 설치로 fallback합니다."
+  fi
+
+  has_command npm || fail "npm을 찾지 못했습니다. Node LTS 설치 후 새 터미널에서 README의 한 줄 설치 명령을 다시 실행하세요."
+  npm install -g "pnpm@$PNPM_VERSION"
+  has_command pnpm || fail "pnpm 설치에 실패했습니다. 새 터미널에서 README의 한 줄 설치 명령을 다시 실행하세요."
+  pnpm --version
+}
+
+is_expected_repo() {
+  local dir="$1"
+  local remote
+
+  [ -d "$dir/.git" ] || return 1
+  remote="$(git -C "$dir" remote get-url origin 2>/dev/null || true)"
+  case "$remote" in
+    "$REPO_URL"|*HearingOffice/solo_superman*|*HearingOffice/solo_superman.git*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+choose_target_dir() {
+  local base="$DEFAULT_TARGET_DIR"
+  local candidate
+  local i
+
+  if is_expected_repo "$base" || [ ! -e "$base" ]; then
+    printf '%s\n' "$base"
+    return 0
+  fi
+
+  warn "$base 경로가 이미 있어 건드리지 않고 새 경로를 자동 선택합니다."
+  i=2
+  while [ "$i" -le 99 ]; do
+    candidate="${base}-${i}"
+    if is_expected_repo "$candidate" || [ ! -e "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+    i=$((i + 1))
+  done
+
+  fail "사용 가능한 설치 경로를 자동으로 찾지 못했습니다. solo_superman-* 폴더를 정리한 뒤 다시 실행하세요."
+}
+
+absolute_target_path() {
+  local target="$1"
+  local parent
+  local name
+
+  parent="$(dirname "$target")"
+  name="$(basename "$target")"
+  mkdir -p "$parent"
+  printf '%s/%s\n' "$(cd "$parent" && pwd)" "$name"
+}
+
+pick_free_port() {
+  node -e 'const net = require("node:net"); const server = net.createServer(); server.listen(0, "127.0.0.1", () => { console.log(server.address().port); server.close(); }); server.on("error", (error) => { console.error(error.message); process.exit(1); });'
+}
+
+run_prod_smoke() {
+  if [ "$RUN_SMOKE" = "0" ]; then
+    info "내장 설정으로 smoke 검증을 건너뜁니다."
+    return 0
+  fi
+
+  info "production bundle smoke"
+  if pnpm verify:prod-bundle; then
+    return 0
+  fi
+
+  warn "기본 로컬 포트가 사용 중일 수 있어 빈 포트를 자동 선택해 한 번 더 시도합니다."
+  local sidecar_port
+  local web_port
+  sidecar_port="$(pick_free_port)"
+  web_port="$(pick_free_port)"
+  while [ "$sidecar_port" = "$web_port" ]; do
+    web_port="$(pick_free_port)"
+  done
+
+  info "production bundle smoke retry: sidecar=$sidecar_port web=$web_port"
+  SOLO_PROD_SMOKE_SIDECAR_PORT="$sidecar_port" \
+    SOLO_PROD_SMOKE_WEB_PORT="$web_port" \
+    pnpm verify:prod-bundle
+}
+
+run_local_web() {
+  if [ "$START_LOCAL" = "0" ]; then
+    info "내장 설정으로 local web 자동 실행을 건너뜁니다."
+    return 0
+  fi
+
+  info "Solo Superman web 화면을 엽니다. 브라우저가 열리면 이 터미널을 닫지 마세요."
+  pnpm start:local || fail "로컬 web 자동 실행에 실패했습니다."
+}
+
+if [ "$(uname -s)" != "Darwin" ]; then
+  fail "이 스크립트는 macOS용입니다. Windows에서는 README의 Windows PowerShell 한 줄 설치 명령을 사용하세요."
+fi
+
+ensure_git
+ensure_node
+ensure_pnpm
+
+TARGET_DIR="$(choose_target_dir)"
+TARGET_PATH="$(absolute_target_path "$TARGET_DIR")"
+
+if is_expected_repo "$TARGET_PATH"; then
+  info "기존 checkout 사용: $TARGET_PATH"
+  git -C "$TARGET_PATH" fetch origin || warn "원격 업데이트 확인에 실패했지만 기존 checkout으로 계속 진행합니다."
+else
+  info "repo clone: $REPO_URL -> $TARGET_PATH"
+  git clone "$REPO_URL" "$TARGET_PATH"
+fi
+
+cd "$TARGET_PATH"
+info "dependency install"
+pnpm install --frozen-lockfile
+
+run_prod_smoke
+run_local_web
