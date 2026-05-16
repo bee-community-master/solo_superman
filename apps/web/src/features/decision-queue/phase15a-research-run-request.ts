@@ -28,7 +28,7 @@ export function buildWebResearchRunRequest({
     sourceCategory: allowlist.sourceCategories[0] ?? "public_web",
     researchObjective: task.objective,
     productCategory: specTitle ?? "Founder workflow assistant",
-    customerProblemHypothesis: "Founder needs public-safe evidence before Phase 1.5B readiness hints.",
+    customerProblemHypothesis: "Founder needs public-safe evidence before execution preparation notes.",
     contextHash: `${task.researchTaskId}_${allowlist.version}_web`,
     sourceRefs: [task.sourceQueueItemId ?? task.researchTaskId]
   };

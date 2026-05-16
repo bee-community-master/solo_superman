@@ -11,13 +11,13 @@ interface Phase15bReadinessPanelProps {
 
 function readinessRecordRows(record: Phase15bReadinessRecord) {
   return [
-    { label: "preview summary", value: record.previewSummary },
-    { label: "approvals", value: record.approvalLabel },
-    { label: "sandbox", value: record.sandboxLabel },
-    { label: "rollback", value: record.rollbackLabel },
-    { label: "expected evidence", value: record.evidenceLabel },
-    { label: "blocked risk", value: record.riskLabel },
-    { label: "source refs", value: record.sourceRefLabel }
+    { label: "요약", value: record.previewSummary },
+    { label: "승인", value: record.approvalLabel },
+    { label: "실행 격리", value: record.sandboxLabel },
+    { label: "되돌리기", value: record.rollbackLabel },
+    { label: "확인 자료", value: record.evidenceLabel },
+    { label: "차단 위험", value: record.riskLabel },
+    { label: "출처", value: record.sourceRefLabel }
   ];
 }
 
@@ -30,7 +30,7 @@ export function Phase15bReadinessPanel({
   return (
     <section className="panel">
       <div className="panel-heading">
-        <h2>1.5B Readiness Handoff</h2>
+        <h2>실행 준비 노트</h2>
         <span>{readiness.statusLabel}</span>
       </div>
       <p className="operations-summary">{readiness.label}</p>
@@ -38,7 +38,7 @@ export function Phase15bReadinessPanel({
       <p className="operations-summary">{readiness.exportLabel}</p>
       <div className="card-actions panel-actions">
         <button type="button" disabled={isBusy || !hasActiveProject} onClick={onRefreshReadiness}>
-          Refresh readiness metadata
+          실행 준비 새로고침
         </button>
       </div>
       {readiness.records.length ? (
@@ -46,7 +46,7 @@ export function Phase15bReadinessPanel({
           {readiness.records.map((record) => (
             <article className="operations-card readiness-card" key={record.hintId}>
               <strong>{record.surfaceLabel}</strong>
-              <span>readiness preview handoff</span>
+              <span>안전 실행 노트</span>
               <small>{record.statusLabel}</small>
               {readinessRecordRows(record).map((row) => (
                 <small key={row.label}>

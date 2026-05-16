@@ -161,7 +161,7 @@ export function useDecisionQueuePlanningPermissionActions({
   const revokeChatGptDelegation = useCallback(
     async (runId: string) => {
       if (!client || !projections.session) {
-        setWorkflowError("An active session is required before revoking ChatGPT delegation.");
+        setWorkflowError("An active session is required before revoking an external AI workspace.");
         return;
       }
 
@@ -171,13 +171,13 @@ export function useDecisionQueuePlanningPermissionActions({
       try {
         const expectedStateVersion = latestProjectionVersion(projections);
         const response = await appendCommand(
-          "Revoke ChatGPT delegation",
+          "Revoke external AI workspace",
           await client.revokeChatGptBrowserDelegationRun({
             sessionId: projections.session.sessionId,
             expectedStateVersion,
             idempotencyKey: `chatgpt-delegation:revoke:${runId}:${expectedStateVersion}`,
             runId,
-            reason: "Revoked from the ChatGPT delegation run panel.",
+            reason: "Revoked from the external AI workspace panel.",
             auditRefs: [`audit:chatgpt-browser-delegation:web-revoke:${runId}`]
           })
         );

@@ -2,7 +2,7 @@
   "name": "solo-superman-workspace",
   "version": "0.1.0",
   "private": true,
-  "description": "Phase 1 PR-01 workspace scaffold for Solo Superman.",
+  "description": "Technical preview workspace for Solo Superman local-first founder planning.",
   "type": "module",
   "packageManager": "pnpm@11.0.4",
   "engines": {

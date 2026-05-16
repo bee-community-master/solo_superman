@@ -115,7 +115,7 @@ export function useDecisionQueueResearchActions({
           await client.pauseResearchAllowlist(
             projections.session.projectId,
             allowlistId,
-            "Paused from the Phase 1.5A operations screen."
+            "Paused from the research operations screen."
           )
         );
         const allowlists = requiredCommandProjection<ResearchAllowlistGovernanceProjection>(
@@ -153,7 +153,7 @@ export function useDecisionQueueResearchActions({
           await client.revokeResearchAllowlist(
             projections.session.projectId,
             allowlistId,
-            "Revoked from the Phase 1.5A operations screen."
+            "Revoked from the research operations screen."
           )
         );
         const allowlists = requiredCommandProjection<ResearchAllowlistGovernanceProjection>(
@@ -177,7 +177,7 @@ export function useDecisionQueueResearchActions({
 
   const planPhase15aResearchTask = useCallback(async () => {
     if (!client || !projections.session) {
-      setWorkflowError("An active session is required before planning Phase 1.5A research.");
+      setWorkflowError("An active session is required before planning public-safe research.");
       return;
     }
 
@@ -186,11 +186,11 @@ export function useDecisionQueueResearchActions({
 
     try {
       const response = await appendCommand(
-        "Plan Phase 1.5A research task",
+        "Plan public-safe research task",
         await client.planResearch({
           sessionId: projections.session.sessionId,
           expectedStateVersion: latestProjectionVersion(projections),
-          objective: "Validate public onboarding evidence and quality-gate readiness for Phase 1.5A.",
+          objective: "Validate public onboarding evidence and quality-gate readiness for the research loop.",
           sourceQueueItemId: "phase15a_operations_acceptance" as QueueItemId,
           routeOutcome: "research_needed",
           impact: "high"
@@ -302,7 +302,7 @@ export function useDecisionQueueResearchActions({
         const response = await appendCommand(
           "Cancel research run",
           await client.cancelResearchRun(projections.session.projectId, researchRunId, {
-            reason: "Cancelled from the Phase 1.5A operations screen."
+            reason: "Cancelled from the research operations screen."
           })
         );
 
@@ -334,7 +334,7 @@ export function useDecisionQueueResearchActions({
         const response = await appendCommand(
           "Retry research run",
           await client.retryResearchRun(projections.session.projectId, researchRunId, {
-            retryReason: "Manual retry from the Phase 1.5A operations screen.",
+            retryReason: "Manual retry from the research operations screen.",
             contextHash: `${researchRunId}_web_retry`
           })
         );

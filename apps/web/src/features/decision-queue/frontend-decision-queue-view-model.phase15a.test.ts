@@ -258,7 +258,7 @@ describe("Decision Queue view model phase15a", () => {
     ]);
     expect(operations.exitGate).toMatchObject({
       status: "blocked_for_1_5b",
-      blockers: [expect.stringContaining("Research card still blocks Planning-ready")]
+      blockers: [expect.stringContaining("다음 리서치 카드 검토가 남아 있습니다")]
     });
   });
 
@@ -270,7 +270,7 @@ describe("Decision Queue view model phase15a", () => {
 
     expect(operations.exitGate).toEqual({
       status: "ready_for_1_5b",
-      label: "Phase 1.5A exit gate is explicit and ready for 1.5B sequencing.",
+      label: "리서치 결과와 복구 경로가 준비됐습니다. 실행 준비 검토로 넘어갈 수 있습니다.",
       blockers: []
     });
   });
@@ -330,7 +330,7 @@ describe("Decision Queue view model phase15a", () => {
 
     expect(operations.exitGate).toMatchObject({
       status: "blocked_for_1_5b",
-      blockers: ["Allowlist governance refetch recovery is not visible."]
+      blockers: ["리서치 소스 상태를 다시 불러오는 경로가 보이지 않습니다."]
     });
   });
 

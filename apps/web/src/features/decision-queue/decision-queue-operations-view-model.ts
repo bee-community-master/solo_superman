@@ -95,15 +95,15 @@ export function phase15aOperationsViewModel(input: Phase15aOperationsInput): Pha
       input.runs.recovery.sseEventNames.includes("projection.updated")
   );
   const blockers = [
-    ...(activeAllowlists.length === 0 ? ["No active public-safe research allowlist is visible."] : []),
-    ...(!input.allowlists?.refetchUrl ? ["Allowlist governance refetch recovery is not visible."] : []),
-    ...(!input.disclosures?.refetchUrl ? ["Disclosure activity refetch recovery is not visible."] : []),
-    ...(!input.runs?.refetchUrl ? ["Research run refetch recovery is not visible."] : []),
+    ...(activeAllowlists.length === 0 ? ["안전한 공개 리서치 소스가 아직 활성화되지 않았습니다."] : []),
+    ...(!input.allowlists?.refetchUrl ? ["리서치 소스 상태를 다시 불러오는 경로가 보이지 않습니다."] : []),
+    ...(!input.disclosures?.refetchUrl ? ["리서치 사용 내역을 다시 불러오는 경로가 보이지 않습니다."] : []),
+    ...(!input.runs?.refetchUrl ? ["리서치 실행 상태를 다시 불러오는 경로가 보이지 않습니다."] : []),
     ...(input.runs && !input.runs.recovery.sseEventNames.includes("projection.updated")
-      ? ["Research run SSE recovery hint is missing."]
+      ? ["리서치 상태 업데이트 알림 경로가 빠져 있습니다."]
       : []),
-    ...(!qualityGateVisible ? ["Evidence quality gate result is not visible yet."] : []),
-    ...planningBlockingCards(input.research).map((card) => `Research card still blocks Planning-ready: ${card.title}`)
+    ...(!qualityGateVisible ? ["근거 품질 검토 결과가 아직 보이지 않습니다."] : []),
+    ...planningBlockingCards(input.research).map((card) => `다음 리서치 카드 검토가 남아 있습니다: ${card.title}`)
   ];
   const allowlistPolicyLabel = selectedAllowlist
     ? [
@@ -138,8 +138,8 @@ export function phase15aOperationsViewModel(input: Phase15aOperationsInput): Pha
       status: blockers.length || !recoveryIsVisible ? "blocked_for_1_5b" : "ready_for_1_5b",
       label:
         blockers.length || !recoveryIsVisible
-          ? "Phase 1.5A exit gate is blocked; keep recovery and review visible before 1.5B."
-          : "Phase 1.5A exit gate is explicit and ready for 1.5B sequencing.",
+          ? "리서치 검토가 아직 끝나지 않았습니다. 남은 항목과 복구 경로를 먼저 확인하세요."
+          : "리서치 결과와 복구 경로가 준비됐습니다. 실행 준비 검토로 넘어갈 수 있습니다.",
       blockers
     }
   };

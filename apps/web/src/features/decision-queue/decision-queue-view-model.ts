@@ -208,12 +208,34 @@ function readableToken(value: string) {
   return value.replace(/[_-]+/gu, " ");
 }
 
+function userFacingCopy(value: string) {
+  return value
+    .replace(/Phase 1\.5A/gu, "리서치 준비")
+    .replace(/Phase 1\.5B/gu, "실행 준비")
+    .replace(/\b1\.5A\b/gu, "리서치 준비")
+    .replace(/\b1\.5B\b/gu, "실행 준비")
+    .replace(/readiness preview handoff metadata/gu, "실행 준비 노트")
+    .replace(/readiness\/preview\/handoff metadata/gu, "실행 준비 노트")
+    .replace(/Blocked Action Artifact/gu, "차단 작업 검토 자료")
+    .replace(/ChatGPT Pro local browser delegation/gu, "외부 AI 작업공간")
+    .replace(/ChatGPT browser delegation/gu, "외부 AI 작업공간")
+    .replace(/ChatGPT delegation/gu, "외부 AI 작업공간")
+    .replace(/chatgpt web automation/gu, "외부 AI 작업공간 자동화");
+}
+
+function readableUserToken(value: string) {
+  return userFacingCopy(readableToken(value));
+}
+
 function readableArtifactKind(value: string) {
-  return readableToken(value.replace(/([a-z])([A-Z])/gu, "$1 $2"));
+  return readableUserToken(value.replace(/([a-z])([A-Z])/gu, "$1 $2"));
 }
 
 function readinessDetails(parts: readonly (string | null | undefined)[]) {
-  return parts.filter((part): part is string => Boolean(part)).join(READINESS_DETAIL_SEPARATOR);
+  return parts
+    .filter((part): part is string => Boolean(part))
+    .map(userFacingCopy)
+    .join(READINESS_DETAIL_SEPARATOR);
 }
 
 function displayPlanningReadyLabel(value: string, allowFinalLabel: boolean) {
@@ -260,7 +282,7 @@ function phase15bHintMappingLabel(mappings: PlanningHandoffArtifactDto["phase15b
         `policy ${readableToken(mapping.noExecutionPolicy)}`
       ])
     ),
-    "no Phase 1.5B readiness hints"
+    "no execution preparation notes"
   );
 }
 
@@ -346,16 +368,18 @@ function readinessRecordViewModel(record: Phase15bUpgradeHintApiRecord): Phase15
   ]);
   const statusLabel = readinessDetails([
     readableArtifactKind(record.artifactKind),
-    readableToken(record.metadataLabel),
-    "metadata only; product action not performed",
-    `delegation ${readableToken(record.noExecution.delegationState)}`
+    readableUserToken(record.metadataLabel),
+    "검토 노트만 저장됨; 실제 작업은 실행하지 않음",
+    `위임 상태 ${readableUserToken(record.noExecution.delegationState)}`
   ]);
 
   return {
     hintId: record.hintId,
-    surfaceLabel: `${readableToken(hints.executionIntent.candidateActionType)} readiness for ${hints.executionIntent.targetSurface}`,
+    surfaceLabel: userFacingCopy(
+      `${readableUserToken(hints.executionIntent.candidateActionType)} readiness for ${hints.executionIntent.targetSurface}`
+    ),
     statusLabel,
-    previewSummary: hints.executionIntent.nonExecutingSummary,
+    previewSummary: userFacingCopy(hints.executionIntent.nonExecutingSummary),
     approvalLabel,
     sandboxLabel,
     rollbackLabel,
@@ -374,26 +398,26 @@ export function phase15bReadinessViewModel(
   const records = projection?.records.map(readinessRecordViewModel) ?? [];
   const noExecutionLabel = projection
     ? [
-        readableToken(projection.metadataLabel),
-        "product action not performed",
-        `delegation ${readableToken(projection.noExecution.delegationState)}`,
-        `credential values ${readableToken(projection.noExecution.credentialValueState)}`
+        readableUserToken(projection.metadataLabel),
+        "실제 작업은 실행하지 않음",
+        `위임 상태 ${readableUserToken(projection.noExecution.delegationState)}`,
+        `인증 정보 ${readableUserToken(projection.noExecution.credentialValueState)}`
       ].join("; ") + "."
-    : "Metadata only; product action not performed; delegation not active; credential values omitted.";
+    : "실행 준비 노트가 아직 없습니다. 실제 작업은 실행하지 않았고 인증 정보도 저장하지 않았습니다.";
 
   return {
     status: records.length ? "metadata_visible" : "empty",
-    statusLabel: records.length ? "readiness metadata visible" : "readiness handoff pending",
+    statusLabel: records.length ? "실행 준비 노트 있음" : "실행 준비 대기",
     label: records.length
-      ? `${records.length} readiness/preview/handoff metadata record(s) visible for Planning and BlockedAction review.`
-      : "No Phase 1.5B readiness/preview/handoff metadata is visible yet.",
+      ? `${records.length}개 실행 준비 노트가 계획 및 안전 검토용으로 표시됩니다.`
+      : "아직 표시할 실행 준비 노트가 없습니다.",
     noExecutionLabel,
     exportLabel: projection?.exportUrl
-      ? `Planning handoff export metadata: ${projection.exportUrl}`
-      : "Planning handoff export metadata is not loaded yet.",
+      ? `실행 준비 내보내기 정보: ${projection.exportUrl}`
+      : "실행 준비 내보내기 정보가 아직 로드되지 않았습니다.",
     emptyLabel: projection
-      ? "No readiness/preview/handoff metadata records are available for this project yet."
-      : "No readiness metadata loaded yet.",
+      ? "이 프로젝트에 표시할 실행 준비 노트가 아직 없습니다."
+      : "실행 준비 노트가 아직 로드되지 않았습니다.",
     records
   };
 }
@@ -514,7 +538,7 @@ function finalPlanningHandoffGroups(finalArtifact: PlanningHandoffArtifactDto): 
       items: residualRiskItems(finalArtifact.residualRiskRegister)
     },
     {
-      title: "Phase 1.5B hint mapping",
+      title: "Execution preparation notes",
       items: [phase15bHintMappingLabel(finalArtifact.phase15bHintMapping)]
     }
   ];
@@ -554,7 +578,7 @@ function blockerPlanningHandoffGroups(
       items: [sourceRefsLabel(blockerArtifact.safePreviewRefs)]
     },
     {
-      title: "Phase 1.5B hint mapping",
+      title: "Execution preparation notes",
       items: [phase15bHintMappingLabel(blockerArtifact.phase15bHintMapping)]
     }
   ];

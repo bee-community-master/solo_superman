@@ -36,7 +36,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
         </div>
         <div className="card-actions panel-actions">
           <button type="button" disabled={isBusy || !projections.session} onClick={() => void planPhase15aResearchTask()}>
-            Plan 1.5A task
+            Plan research task
           </button>
         </div>
         {projections.research?.tasks.length ? (

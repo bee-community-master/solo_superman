@@ -37,6 +37,10 @@ function isRetryableResearchRun(status: ResearchRunStatus) {
   return status === "failed" || status === "stale" || status === "research_insufficient";
 }
 
+function exitGateStatusLabel(status: Phase15aOperationsViewModel["exitGate"]["status"]) {
+  return status === "ready_for_1_5b" ? "준비됨" : "검토 필요";
+}
+
 export function Phase15aOperationsPanel({
   hasActiveSession,
   isBusy,
@@ -53,8 +57,8 @@ export function Phase15aOperationsPanel({
   return (
     <section className="panel">
       <div className="panel-heading">
-        <h2>1.5A Operations</h2>
-        <span>{operations.exitGate.status}</span>
+        <h2>리서치 운영</h2>
+        <span>{exitGateStatusLabel(operations.exitGate.status)}</span>
       </div>
       <p className="operations-summary">{operations.exitGate.label}</p>
       {operations.exitGate.blockers.length ? (
@@ -66,10 +70,10 @@ export function Phase15aOperationsPanel({
       ) : null}
       <div className="card-actions panel-actions">
         <button type="button" disabled={isBusy || !hasActiveSession} onClick={onCreateOrReactivateAllowlist}>
-          Create/reactivate allowlist
+          리서치 소스 켜기
         </button>
         <button type="button" disabled={isBusy || !hasActiveSession} onClick={onRefreshOperations}>
-          Refresh operations
+          상태 새로고침
         </button>
       </div>
       <div className="operations-list">

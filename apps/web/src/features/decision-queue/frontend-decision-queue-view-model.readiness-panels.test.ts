@@ -367,11 +367,11 @@ describe("Decision Queue view model readiness-panels", () => {
 
     expect(readiness).toMatchObject({
       status: "metadata_visible",
-      statusLabel: "readiness metadata visible",
-      label: expect.stringContaining("readiness/preview/handoff"),
-      noExecutionLabel: expect.stringContaining("product action not performed"),
+      statusLabel: "실행 준비 노트 있음",
+      label: expect.stringContaining("실행 준비 노트"),
+      noExecutionLabel: expect.stringContaining("실제 작업은 실행하지 않음"),
       exportLabel: expect.stringContaining("/phase15b-upgrade-hints/export"),
-      emptyLabel: expect.stringContaining("No readiness/preview/handoff metadata records")
+      emptyLabel: expect.stringContaining("실행 준비 노트")
     });
     expect(record).toMatchObject({
       surfaceLabel: expect.stringContaining("Planning handoff checklist"),
@@ -379,7 +379,7 @@ describe("Decision Queue view model readiness-panels", () => {
       sandboxLabel: expect.stringContaining("isolated worktree required"),
       rollbackLabel: expect.stringContaining("origin/main"),
       evidenceLabel: expect.stringContaining("pnpm verify"),
-      riskLabel: expect.stringContaining("Phase 1.5B"),
+      riskLabel: expect.stringContaining("실행 준비"),
       sourceRefLabel: expect.stringContaining("blocked action:runtime_artifact_phase15b_ui")
     });
 
@@ -458,9 +458,9 @@ describe("Decision Queue view model readiness-panels", () => {
       })
     );
 
-    expect(markup).toContain("1.5A Operations");
-    expect(markup).toContain("<button type=\"button\" disabled=\"\">Create/reactivate allowlist</button>");
-    expect(markup).toContain("<button type=\"button\" disabled=\"\">Refresh operations</button>");
+    expect(markup).toContain("리서치 운영");
+    expect(markup).toContain("<button type=\"button\" disabled=\"\">리서치 소스 켜기</button>");
+    expect(markup).toContain("<button type=\"button\" disabled=\"\">상태 새로고침</button>");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Pause</button>");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Revoke</button>");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Refresh status</button>");
@@ -477,16 +477,16 @@ describe("Decision Queue view model readiness-panels", () => {
       })
     );
 
-    expect(markup).toContain("1.5B Readiness Handoff");
-    expect(markup).toContain("readiness metadata visible");
-    expect(markup).toContain("readiness preview handoff");
-    expect(markup).toContain("approvals:");
-    expect(markup).toContain("sandbox:");
-    expect(markup).toContain("rollback:");
-    expect(markup).toContain("expected evidence:");
-    expect(markup).toContain("blocked risk:");
-    expect(markup).toContain("source refs:");
-    expect(markup).toContain("product action not performed");
+    expect(markup).toContain("실행 준비 노트");
+    expect(markup).toContain("실행 준비 노트 있음");
+    expect(markup).toContain("안전 실행 노트");
+    expect(markup).toContain("승인:");
+    expect(markup).toContain("실행 격리:");
+    expect(markup).toContain("되돌리기:");
+    expect(markup).toContain("확인 자료:");
+    expect(markup).toContain("차단 위험:");
+    expect(markup).toContain("출처:");
+    expect(markup).toContain("실제 작업은 실행하지 않음");
     expect(markup).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
     expect(markup).not.toContain("metadata_visible");
     expect(markup).not.toContain("metadata_only_no_execution");
@@ -542,17 +542,20 @@ describe("Decision Queue view model readiness-panels", () => {
     );
 
     expect(readiness.records).toHaveLength(BLOCKED_ACTION_TYPES.length);
-    expect(markup).toContain(`${BLOCKED_ACTION_TYPES.length} readiness/preview/handoff metadata record`);
+    expect(markup).toContain(`${BLOCKED_ACTION_TYPES.length}개 실행 준비 노트`);
 
     for (const actionType of BLOCKED_ACTION_TYPES) {
-      const readableActionType = actionType.replace(/[_-]+/gu, " ");
+      const readableActionType =
+        actionType === "chatgpt_web_automation"
+          ? "외부 AI 작업공간 자동화"
+          : actionType.replace(/[_-]+/gu, " ");
 
       expect(markup).toContain(`${readableActionType} readiness`);
       expect(markup).toContain(`${readableActionType} risk`);
       expect(markup).toContain(`runtime_artifact_phase15b_${actionType}:${actionType}`);
     }
 
-    expect(markup).toContain("product action not performed");
+    expect(markup).toContain("실제 작업은 실행하지 않음");
     expect(markup).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
     expect(markup).not.toContain("metadata_only_no_execution");
     expect(markup).not.toContain("readiness_preview_handoff_metadata");
@@ -561,9 +564,9 @@ describe("Decision Queue view model readiness-panels", () => {
   it("distinguishes unloaded readiness metadata from loaded empty records", () => {
     expect(phase15bReadinessViewModel(null)).toMatchObject({
       status: "empty",
-      statusLabel: "readiness handoff pending",
-      emptyLabel: "No readiness metadata loaded yet.",
-      exportLabel: "Planning handoff export metadata is not loaded yet."
+      statusLabel: "실행 준비 대기",
+      emptyLabel: "실행 준비 노트가 아직 로드되지 않았습니다.",
+      exportLabel: "실행 준비 내보내기 정보가 아직 로드되지 않았습니다."
     });
 
     expect(
@@ -573,8 +576,8 @@ describe("Decision Queue view model readiness-panels", () => {
       })
     ).toMatchObject({
       status: "empty",
-      statusLabel: "readiness handoff pending",
-      emptyLabel: "No readiness/preview/handoff metadata records are available for this project yet.",
+      statusLabel: "실행 준비 대기",
+      emptyLabel: "이 프로젝트에 표시할 실행 준비 노트가 아직 없습니다.",
       exportLabel: expect.stringContaining("/phase15b-upgrade-hints/export")
     });
   });

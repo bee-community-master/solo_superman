@@ -43,6 +43,14 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
           <h2>Session start</h2>
           <span>{CONTRACT_SCHEMA_VERSION}</span>
         </div>
+        <section className="start-guide" aria-label="First run guidance">
+          <h3>처음 시작하기</h3>
+          <ul>
+            <li>아이디어와 현재 고민을 적으면 첫 질문 묶음을 만듭니다.</li>
+            <li>사업 목적이면 검증 강도를 직접 고릅니다. 앱이 임의로 강도를 정하지 않습니다.</li>
+            <li>리서치와 실행 준비는 먼저 검토 가능한 노트로 남고, 위험한 작업은 자동 실행하지 않습니다.</li>
+          </ul>
+        </section>
         <label>
           Raw idea
           <textarea value={idea} onChange={(event) => setIdea(event.target.value)} rows={4} />

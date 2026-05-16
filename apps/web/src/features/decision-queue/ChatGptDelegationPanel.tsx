@@ -37,9 +37,9 @@ export function chatGptDelegationViewModel(
   if (!projection) {
     return {
       status: "not_started",
-      summary: "ChatGPT delegation run has not started.",
-      explanation: "No ChatGPT Pro local browser delegation projection has been recorded for this session.",
-      nextAction: "Plan a research task and create a per-run delegation preview before using ChatGPT browser delegation.",
+      summary: "External AI workspace has not been prepared.",
+      explanation: "No per-run local browser workspace has been recorded for this session.",
+      nextAction: "Plan a research task and prepare a safe browser handoff preview before using an external AI workspace.",
       canRevoke: false,
       runId: null,
       activityFeedRefs: [],
@@ -102,7 +102,7 @@ export function ChatGptDelegationPanel({
   return (
     <section className="panel chatgpt-delegation-panel">
       <div className="panel-heading">
-        <h2>ChatGPT delegation</h2>
+        <h2>External AI workspace</h2>
         <span>{delegation.status}</span>
       </div>
       <p>{delegation.summary}</p>
@@ -110,11 +110,11 @@ export function ChatGptDelegationPanel({
       <p className="mode-summary">Next action: {delegation.nextAction}</p>
       <div className="card-actions panel-actions">
         <button type="button" disabled={isBusy} onClick={onRefreshDelegation}>
-          Refresh delegation
+          Refresh workspace
         </button>
         {revokableRunId ? (
           <button type="button" disabled={isBusy} onClick={() => onRevokeDelegation(revokableRunId)}>
-            Revoke run
+            Revoke workspace
           </button>
         ) : null}
       </div>

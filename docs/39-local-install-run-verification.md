@@ -2,6 +2,18 @@
 
 This runbook is the #105 contract for non-developer local web usage under `37-post-phase3-full-vision-backlog-contract.md`. It keeps macOS shell and Windows PowerShell paths side by side and does not require an OpenAI or ChatGPT API key by default.
 
+## Release posture
+
+The current non-developer path is a technical preview. It is suitable for limited beta users who can run a one-line terminal installer, keep a local server terminal open, and report setup failures. It is not yet a packaged consumer app.
+
+Before broad non-developer distribution, the project still needs:
+
+- real Windows device validation of the PowerShell bootstrap path;
+- a signed macOS package or disk image;
+- a Windows installer or launcher;
+- an update path that does not require users to know Git;
+- a user-visible failure report and recovery flow.
+
 ## What this verifies
 
 - production web bundle can be built and served locally;
