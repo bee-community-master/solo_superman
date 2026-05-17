@@ -29,7 +29,7 @@ Before broad non-developer distribution, the project still needs:
 | Node.js | `node --version` | `node --version` |
 | pnpm/Corepack | `corepack --version && pnpm --version` | `corepack --version; pnpm --version` |
 | Git | `git --version` | `git --version` |
-| Codex CLI login for backend question/research preview | `codex login status || codex login` | `codex login status; if ($LASTEXITCODE -ne 0) { codex login }` |
+| Codex CLI login for backend question/research preview | `codex login status || codex auth login` | `codex login status; if ($LASTEXITCODE -ne 0) { codex auth login }` |
 
 ## Install prerequisites
 
@@ -68,7 +68,7 @@ The README one-line installers finish by launching this command. It keeps the lo
 The first-run screen checks two user-owned login prerequisites before creating backend questions or research preview artifacts:
 
 - open ChatGPT in the same browser profile and sign in directly;
-- keep the local Codex CLI logged in (`codex login status` should succeed).
+- keep the local Codex CLI logged in (`codex login status` should succeed). If missing, click `Open Codex login` in the local UI to start `codex auth login` in a background Terminal and finish the browser login flow.
 
 The local sidecar uses `codex app-server` `account/read` to verify account presence. It returns only account status/type/email/plan metadata for UI readiness and never stores passwords, 2FA codes, session cookies, API keys, access tokens, or refresh tokens.
 
@@ -121,7 +121,7 @@ Use this checklist when CI or the current machine cannot run real Windows PowerS
 | Port conflict on `43110` or `4173` | `lsof -nP -iTCP:43110 -sTCP:LISTEN` then choose `SOLO_PROD_SMOKE_SIDECAR_PORT=43112` | `Get-NetTCPConnection -LocalPort 43110 -ErrorAction SilentlyContinue` then choose `$env:SOLO_PROD_SMOKE_SIDECAR_PORT = "43112"` |
 | Token mismatch | Rebuild after setting both `SOLO_LOCAL_CAPABILITY_TOKEN` and `VITE_SOLO_LOCAL_CAPABILITY_TOKEN` to the same value. | Rebuild after setting both `$env:SOLO_LOCAL_CAPABILITY_TOKEN` and `$env:VITE_SOLO_LOCAL_CAPABILITY_TOKEN` to the same value. |
 | CORS/origin blocked | Use `http://127.0.0.1:<port>`; do not use hosted/cloud preview URLs. | Use `http://127.0.0.1:<port>`; do not use hosted/cloud preview URLs. |
-| Codex login missing | Run `codex login`, finish the browser/device login flow, then click `Refresh Codex login status` in the local UI. | Run `codex login`, finish the browser/device login flow, then click `Refresh Codex login status` in the local UI. |
+| Codex login missing | Click `Open Codex login` in the local UI, or run `codex auth login` directly, finish the browser/device login flow, then click `Refresh Codex login status`. | Click `Open Codex login` in the local UI, or run `codex auth login` directly, finish the browser/device login flow, then click `Refresh Codex login status`. |
 | Execution policy blocks scripts | Not applicable for shell; reinstall Node/pnpm if `pnpm` is missing. | Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` only if your organization permits it, then open a new PowerShell window. |
 | Path quoting | Quote paths with spaces: `cd "$HOME/Projects/solo superman"`. | Quote paths with spaces: `Set-Location "C:\Users\you\Projects\solo superman"`. |
 | Long path checkout errors | Use a shorter path such as `$HOME/src/solo_superman`. | Enable Git long paths if permitted: `git config --global core.longpaths true`, or clone to `C:\src\solo_superman`. |

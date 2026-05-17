@@ -21,6 +21,7 @@ function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellCont
     canStart: false,
     carryQueueItemAsKnownRisk: vi.fn(),
     chatGptLoginAcknowledged: false,
+    codexLoginStart: null,
     idea: "",
     initialBusinessCriticIntensityReason: "",
     intake: "",
@@ -40,6 +41,7 @@ function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellCont
     setIntake: vi.fn(),
     setKnownRiskDrafts: vi.fn(),
     setProjectPurposeMode: vi.fn(),
+    startCodexLogin: vi.fn(),
     submitAnswer: vi.fn(),
     ...controllerOverrides
   } as unknown as DecisionQueueShellController;
@@ -136,7 +138,7 @@ describe("QuestionsView", () => {
         manualHandoffAvailable: true,
         account: {
           status: "missing",
-          loginCommand: "codex login",
+          loginCommand: "codex auth login",
           loginStatusCommand: "codex login status",
           reason: "Codex CLI is not logged in for this local environment."
         }
@@ -146,7 +148,8 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Sign in to Codex CLI for backend questions and research");
     expect(markup).toContain("Codex status");
     expect(markup).toContain("Login required");
-    expect(markup).toContain("codex login");
+    expect(markup).toContain("codex auth login");
+    expect(markup).toContain("Open Codex login");
     expect(markup).toContain("Refresh Codex login status");
     expect(markup.indexOf("Sign in to Codex CLI for backend questions and research")).toBeLessThan(
       markup.indexOf("Idea summary")

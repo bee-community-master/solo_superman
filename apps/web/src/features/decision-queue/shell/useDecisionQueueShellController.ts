@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   type BusinessCriticIntensity,
+  type CodexRuntimeLoginStartDto,
   type CodexRuntimeStatusDto,
   type Phase15bUpgradeHintProjection,
   type ProjectPurposeMode,
@@ -29,6 +30,7 @@ import {
   DEFAULT_IDEA,
   DEFAULT_INTAKE,
   canStartInitialQueueFlow,
+  displayError,
   emptyProjectionState,
   emptyResearchOperationsState,
   type CommandLogEntry,
@@ -65,6 +67,7 @@ export function useDecisionQueueShellController() {
   const [researchOperations, setResearchOperations] = useState<ResearchOperationsState>(emptyResearchOperationsState);
   const [phase15bReadiness, setPhase15bReadiness] = useState<Phase15bUpgradeHintProjection | null>(null);
   const [runtimeStatus, setRuntimeStatus] = useState<CodexRuntimeStatusDto | null>(null);
+  const [codexLoginStart, setCodexLoginStart] = useState<CodexRuntimeLoginStartDto | null>(null);
   const [commandLog, setCommandLog] = useState<readonly CommandLogEntry[]>([]);
   const [statuses, setStatuses] = useState<readonly StatusEndpointDto[]>([]);
   const [isBusy, setIsBusy] = useState(false);
@@ -110,6 +113,22 @@ export function useDecisionQueueShellController() {
       setRuntimeStatus(null);
     }
   }, [client, connect]);
+
+  const startCodexLogin = useCallback(async () => {
+    if (!client) {
+      await connect();
+      return;
+    }
+
+    setWorkflowError(null);
+    try {
+      const loginStart = await client.startCodexLogin();
+      setCodexLoginStart(loginStart);
+      setRuntimeStatus(await client.getRuntimeStatus().catch(() => runtimeStatus));
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    }
+  }, [client, connect, runtimeStatus]);
 
   const {
     refreshResearchOperations,
@@ -405,6 +424,7 @@ export function useDecisionQueueShellController() {
     researchOperations,
     phase15bReadiness,
     runtimeStatus,
+    codexLoginStart,
     commandLog,
     statuses,
     isBusy,
@@ -413,6 +433,7 @@ export function useDecisionQueueShellController() {
     setActivePage,
     connect,
     refreshRuntimeStatus,
+    startCodexLogin,
     refreshResearchOperations,
     refreshPhase15bReadiness,
     refreshPlanningHandoff,

@@ -341,7 +341,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       account: {
         status: "authenticated",
         accountType: "chatgpt",
-        loginCommand: "codex login",
+        loginCommand: "codex auth login",
         loginStatusCommand: "codex login status"
       },
       adapterVersion: "codex-app-server-preview-v1",
@@ -355,13 +355,64 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     });
   });
 
+  it("starts Codex auth login through the injected background-terminal launcher", async () => {
+    const startedAt = "2026-05-17T00:00:00.000Z";
+    const adapter = createCodexRuntimeAdapter({
+      now: () => startedAt,
+      env: {},
+      accountReader: async () => ({
+        status: "missing",
+        loginCommand: "codex auth login",
+        loginStatusCommand: "codex login status",
+        requiresOpenaiAuth: true
+      }),
+      loginLauncher: async () => ({
+        status: "started",
+        command: "codex auth login",
+        statusCommand: "codex login status",
+        startedAt,
+        terminal: "Terminal.app",
+        message: "Opened `codex auth login` in a background Terminal window."
+      })
+    });
+
+    await expect(adapter.startLogin()).resolves.toMatchObject({
+      status: "started",
+      command: "codex auth login",
+      statusCommand: "codex login status",
+      terminal: "Terminal.app"
+    });
+  });
+
+  it("does not open a login terminal when Codex CLI is already authenticated", async () => {
+    const adapter = createCodexRuntimeAdapter({
+      now: () => "2026-05-17T00:00:00.000Z",
+      env: {},
+      accountReader: async () => ({
+        status: "authenticated",
+        loginCommand: "codex auth login",
+        loginStatusCommand: "codex login status",
+        accountType: "chatgpt"
+      }),
+      loginLauncher: async () => {
+        throw new Error("Login launcher should not run for authenticated accounts.");
+      }
+    });
+
+    await expect(adapter.startLogin()).resolves.toMatchObject({
+      status: "already_authenticated",
+      command: "codex auth login",
+      terminal: "not_started"
+    });
+  });
+
   it("does not report live preview availability when turn execution is disabled", async () => {
     const adapter = createCodexRuntimeAdapter({
       now: () => "2026-05-05T00:00:00.000Z",
       env: {},
       accountReader: async () => ({
         status: "missing",
-        loginCommand: "codex login",
+        loginCommand: "codex auth login",
         loginStatusCommand: "codex login status",
         requiresOpenaiAuth: true
       })
@@ -371,7 +422,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       status: "unavailable",
       account: {
         status: "missing",
-        loginCommand: "codex login"
+        loginCommand: "codex auth login"
       },
       manualHandoffAvailable: true,
       reason: expect.any(String)
@@ -402,7 +453,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       accountType: "chatgpt",
       email: "founder@example.com",
       planType: "pro",
-      loginCommand: "codex login",
+      loginCommand: "codex auth login",
       loginStatusCommand: "codex login status"
     });
     expect(codexAccountStatusFromAccountReadResponse({ account: null, requiresOpenaiAuth: true })).toMatchObject({

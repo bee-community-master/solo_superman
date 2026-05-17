@@ -1,5 +1,6 @@
 import type {
   CommandResponse,
+  CodexRuntimeLoginStartDto,
   CodexRuntimeStatusDto,
   BlockRuntimeArtifactRequest,
   CompletionCandidateRequest,
@@ -137,6 +138,13 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
   async function getProjection<TProjection>(path: string) {
     return request<TProjection>(path, {
       method: "GET",
+      headers: authHeaders(connection.localCapabilityToken)
+    });
+  }
+
+  async function postProjection<TProjection>(path: string) {
+    return request<TProjection>(path, {
+      method: "POST",
       headers: authHeaders(connection.localCapabilityToken)
     });
   }
@@ -341,6 +349,10 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     getRuntimeStatus() {
       return getProjection<CodexRuntimeStatusDto>("/api/v1/runtime/status");
+    },
+
+    startCodexLogin() {
+      return postProjection<CodexRuntimeLoginStartDto>("/api/v1/runtime/codex/login/start");
     },
 
     listResearchAllowlists(projectId: ProjectId) {

@@ -6493,6 +6493,41 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("starts Codex CLI auth login through the runtime adapter", async () => {
+    const startedAt = "2026-05-17T00:00:00.000Z";
+    const { app: storageApp, storage } = await createMigratedStorageApp({
+      ...fixtureCodexRuntimeAdapter,
+      async startLogin() {
+        return {
+          status: "started",
+          command: "codex auth login",
+          statusCommand: "codex login status",
+          startedAt,
+          terminal: "Terminal.app",
+          message: "Opened `codex auth login` in a background Terminal window."
+        };
+      }
+    });
+
+    try {
+      const response = await storageApp.request("/api/v1/runtime/codex/login/start", {
+        method: "POST",
+        headers: authHeaders()
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(200);
+      expect(body.data).toMatchObject({
+        status: "started",
+        command: "codex auth login",
+        statusCommand: "codex login status",
+        terminal: "Terminal.app"
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("exposes runtime status and creates manual handoff RuntimePreviewArtifact without Codex execution", async () => {
     const { app: storageApp, storage } = await createMigratedStorageApp();
 

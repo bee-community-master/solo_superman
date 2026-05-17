@@ -17,6 +17,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     canStart,
     carryQueueItemAsKnownRisk,
     chatGptLoginAcknowledged,
+    codexLoginStart,
     idea,
     initialBusinessCriticIntensityReason,
     intake,
@@ -36,6 +37,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     setIntake,
     setKnownRiskDrafts,
     setProjectPurposeMode,
+    startCodexLogin,
     submitAnswer
   } = controller;
   const codexAccount = controller.runtimeStatus?.account ?? null;
@@ -86,12 +88,18 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
             </p>
             {codexAccount?.status === "authenticated" ? null : (
               <p className="mode-summary">
-                {copy.questions.codexLoginCommandLabel}: <code>{codexAccount?.loginCommand ?? "codex login"}</code>
+                {copy.questions.codexLoginCommandLabel}: <code>{codexAccount?.loginCommand ?? "codex auth login"}</code>
               </p>
             )}
             {codexAccount?.reason ? <p className="research-recovery">{codexAccount.reason}</p> : null}
+            {codexLoginStart?.message ? <p className="research-recovery">{codexLoginStart.message}</p> : null}
           </div>
           <div className="card-actions panel-actions">
+            {codexAccount?.status === "authenticated" ? null : (
+              <button type="button" disabled={isBusy} onClick={() => void startCodexLogin()}>
+                {copy.questions.codexLoginStart}
+              </button>
+            )}
             <button type="button" disabled={isBusy} onClick={() => void refreshRuntimeStatus()}>
               {copy.questions.codexLoginRefresh}
             </button>

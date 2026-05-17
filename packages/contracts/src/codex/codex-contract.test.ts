@@ -6,6 +6,7 @@ import {
   CODEX_APPLY_POLICIES,
   CODEX_ARTIFACT_KINDS,
   type CodexRuntimeAccountDto,
+  type CodexRuntimeLoginStartDto,
   CODEX_RUNTIME_ADAPTER_VERSION,
   CODEX_RUNTIME_TRANSPORT,
   CODEX_TURN_PURPOSES
@@ -74,17 +75,36 @@ describe("PR-07 codex-contract generated schema and internal taxonomy", () => {
       email: "founder@example.com",
       planType: "pro",
       requiresOpenaiAuth: true,
-      loginCommand: "codex login",
+      loginCommand: "codex auth login",
       loginStatusCommand: "codex login status"
     } satisfies CodexRuntimeAccountDto;
 
     expect(accountStatus).toMatchObject({
       status: "authenticated",
       accountType: "chatgpt",
-      loginCommand: "codex login",
+      loginCommand: "codex auth login",
       loginStatusCommand: "codex login status"
     });
     expect(JSON.stringify(accountStatus)).not.toContain("token");
     expect(JSON.stringify(accountStatus)).not.toContain("secret");
+  });
+
+  it("keeps Codex login start output command-based and credential-free", () => {
+    const loginStart = {
+      status: "started",
+      command: "codex auth login",
+      statusCommand: "codex login status",
+      startedAt: "2026-05-17T00:00:00.000Z",
+      terminal: "Terminal.app",
+      message: "Opened `codex auth login` in a background Terminal window."
+    } satisfies CodexRuntimeLoginStartDto;
+
+    expect(loginStart).toMatchObject({
+      status: "started",
+      command: "codex auth login",
+      statusCommand: "codex login status"
+    });
+    expect(JSON.stringify(loginStart)).not.toContain("token");
+    expect(JSON.stringify(loginStart)).not.toContain("secret");
   });
 });

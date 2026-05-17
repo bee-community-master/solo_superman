@@ -27,6 +27,7 @@ import {
   type CodexAppServerJsonValue,
   type CodexArtifactKind,
   type CodexRuntimeAccountDto,
+  type CodexRuntimeLoginStartDto,
   type CodexPreviewOutputEnvelope,
   type CodexRuntimeStatusDto,
   type CodexTurnPurpose,
@@ -50,6 +51,7 @@ export interface CodexRuntimeAdapterOptions {
   readonly fixtureMode?: boolean;
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly accountReader?: () => Promise<CodexRuntimeAccountDto>;
+  readonly loginLauncher?: () => Promise<CodexRuntimeLoginStartDto>;
 }
 
 export interface CodexRuntimePreviewFixtureOptions {
@@ -80,8 +82,9 @@ export class CodexRuntimeUnavailableError extends Error {
 }
 
 const CODEX_ACCOUNT_READ_TIMEOUT_MS = 5_000;
-const CODEX_LOGIN_COMMAND = "codex login" as const;
+const CODEX_LOGIN_COMMAND = "codex auth login" as const;
 const CODEX_LOGIN_STATUS_COMMAND = "codex login status" as const;
+const CODEX_LOGIN_COMMAND_ARGS = ["codex", "auth", "login"] as const;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -107,6 +110,33 @@ function fixtureCodexAccountStatus(): CodexRuntimeAccountDto {
     planType: "pro",
     requiresOpenaiAuth: true
   };
+}
+
+function codexLoginStartDto(input: {
+  readonly status: CodexRuntimeLoginStartDto["status"];
+  readonly startedAt: string;
+  readonly terminal: string;
+  readonly message: string;
+  readonly reason?: string;
+}): CodexRuntimeLoginStartDto {
+  return {
+    status: input.status,
+    command: CODEX_LOGIN_COMMAND,
+    statusCommand: CODEX_LOGIN_STATUS_COMMAND,
+    startedAt: input.startedAt,
+    terminal: input.terminal,
+    message: input.message,
+    ...(input.reason ? { reason: input.reason } : {})
+  };
+}
+
+function fixtureCodexLoginStart(now: () => string): CodexRuntimeLoginStartDto {
+  return codexLoginStartDto({
+    status: "started",
+    startedAt: now(),
+    terminal: "fixture-terminal",
+    message: "Fixture mode simulates opening `codex auth login` in a background terminal."
+  });
 }
 
 export function codexAccountStatusFromAccountReadResponse(value: unknown): CodexRuntimeAccountDto {
@@ -151,6 +181,123 @@ function codexSpawnEnv(env: Readonly<Record<string, string | undefined>>): NodeJ
   return Object.fromEntries(
     Object.entries(env).filter((entry): entry is [string, string] => typeof entry[1] === "string")
   );
+}
+
+function shellQuote(value: string) {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function loginCommandString() {
+  return CODEX_LOGIN_COMMAND_ARGS.map(shellQuote).join(" ");
+}
+
+async function spawnDetached(
+  command: string,
+  args: readonly string[],
+  env: Readonly<Record<string, string | undefined>>
+): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command, [...args], {
+      detached: true,
+      env: codexSpawnEnv(env),
+      stdio: "ignore"
+    });
+    const onError = (error: Error) => {
+      reject(error);
+    };
+
+    child.once("error", onError);
+    child.once("spawn", () => {
+      child.off("error", onError);
+      child.unref();
+      resolve();
+    });
+  });
+}
+
+export async function startCodexLoginInBackgroundTerminal(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+  cwd = process.cwd(),
+  now = () => new Date().toISOString()
+): Promise<CodexRuntimeLoginStartDto> {
+  const loginShellCommand = `cd ${shellQuote(cwd)}; ${loginCommandString()}`;
+
+  try {
+    if (process.platform === "darwin") {
+      await spawnDetached(
+        "osascript",
+        [
+          "-e",
+          [
+            'tell application "Terminal"',
+            `  do script ${JSON.stringify(loginShellCommand)}`,
+            "end tell"
+          ].join("\n")
+        ],
+        env
+      );
+
+      return codexLoginStartDto({
+        status: "started",
+        startedAt: now(),
+        terminal: "Terminal.app",
+        message: "Opened `codex auth login` in a background Terminal window. Complete the browser login, then refresh Codex login status."
+      });
+    }
+
+    if (process.platform === "win32") {
+      await spawnDetached(
+        "cmd.exe",
+        [
+          "/d",
+          "/s",
+          "/c",
+          "start",
+          "Solo Superman Codex Login",
+          "cmd.exe",
+          "/k",
+          `cd /d ${cwd} && ${CODEX_LOGIN_COMMAND}`
+        ],
+        env
+      );
+
+      return codexLoginStartDto({
+        status: "started",
+        startedAt: now(),
+        terminal: "Windows cmd.exe",
+        message: "Opened `codex auth login` in a background terminal. Complete the browser login, then refresh Codex login status."
+      });
+    }
+
+    if (env.TERMINAL) {
+      await spawnDetached(env.TERMINAL, ["-e", "sh", "-lc", loginShellCommand], env);
+
+      return codexLoginStartDto({
+        status: "started",
+        startedAt: now(),
+        terminal: env.TERMINAL,
+        message: "Opened `codex auth login` in the configured background terminal. Complete the browser login, then refresh Codex login status."
+      });
+    }
+
+    return codexLoginStartDto({
+      status: "unavailable",
+      startedAt: now(),
+      terminal: "none",
+      message: "No supported local terminal launcher was detected for `codex auth login`.",
+      reason: "Set the TERMINAL environment variable or run `codex auth login` directly in a terminal."
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    return codexLoginStartDto({
+      status: "unavailable",
+      startedAt: now(),
+      terminal: process.platform === "darwin" ? "Terminal.app" : process.platform === "win32" ? "Windows cmd.exe" : env.TERMINAL ?? "none",
+      message: "Could not open `codex auth login` in a background terminal.",
+      reason: message
+    });
+  }
 }
 
 function responseErrorMessage(response: Readonly<Record<string, unknown>>) {
@@ -1007,6 +1154,7 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
   const env = options.env ?? process.env;
   const fixtureMode = options.fixtureMode ?? env.SOLO_CODEX_APP_SERVER_USE_FIXTURES === "1";
   const accountReader = options.accountReader ?? (() => readCodexAccountStatus(env));
+  const loginLauncher = options.loginLauncher ?? (() => startCodexLoginInBackgroundTerminal(env, process.cwd(), now));
 
   return {
     async getStatus(): Promise<CodexRuntimeStatusDto> {
@@ -1038,6 +1186,35 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
             ? "Codex CLI login is available, but live turn execution is still disabled for Phase 1; manual handoff fallback is required."
             : "Codex CLI login is required before backend question or research preview work can use the local Codex runtime."
       });
+    },
+
+    async startLogin(): Promise<CodexRuntimeLoginStartDto> {
+      if (fixtureMode) {
+        return fixtureCodexLoginStart(now);
+      }
+
+      if (env.SOLO_CODEX_APP_SERVER_DISABLED === "1") {
+        return codexLoginStartDto({
+          status: "unavailable",
+          startedAt: now(),
+          terminal: "none",
+          message: "`codex auth login` was not started because live Codex probing is disabled.",
+          reason: "SOLO_CODEX_APP_SERVER_DISABLED disables Codex CLI login helpers."
+        });
+      }
+
+      const account = await accountReader().catch(() => null);
+
+      if (account?.status === "authenticated") {
+        return codexLoginStartDto({
+          status: "already_authenticated",
+          startedAt: now(),
+          terminal: "not_started",
+          message: "Codex CLI is already authenticated for this local environment."
+        });
+      }
+
+      return loginLauncher();
     },
 
     buildStdioSpawnPlan() {

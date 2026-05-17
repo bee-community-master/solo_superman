@@ -177,6 +177,7 @@ Rules:
 | Method | Path | Command/query | Returns |
 | --- | --- | --- | --- |
 | GET | `/api/v1/runtime/status` | runtime availability | adapter status |
+| POST | `/api/v1/runtime/codex/login/start` | open `codex auth login` in a background Terminal | login start status |
 | POST | `/api/v1/runtime/codex/preview` | `CreateRuntimePreview` | RuntimePreviewArtifact |
 | POST | `/api/v1/runtime/manual-handoff` | `CreateRuntimePreview` in manual handoff mode | RuntimePreviewArtifact |
 | POST | `/api/v1/runtime/artifacts/:artifactId/convert` | `ConvertRuntimeArtifact` | queue projection |

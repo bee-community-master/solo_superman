@@ -359,6 +359,14 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "startCodexLogin",
+    clientName: "startCodexLogin",
+    method: "POST",
+    path: "/api/v1/runtime/codex/login/start",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
     routeId: "createRuntimePreview",
     clientName: "createRuntimePreview",
     method: "POST",
@@ -625,6 +633,7 @@ export const PR06_MOUNTED_PRODUCT_API_ROUTE_IDS = [
 export const PR07_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...PR06_MOUNTED_PRODUCT_API_ROUTE_IDS,
   "getRuntimeStatus",
+  "startCodexLogin",
   "createRuntimePreview",
   "createManualHandoff",
   "convertRuntimeArtifact",

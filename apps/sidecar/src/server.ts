@@ -2892,6 +2892,10 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
     context.json(jsonSuccess(context, await codexRuntimeAdapter.getStatus()))
   );
 
+  app.post("/api/v1/runtime/codex/login/start", async (context) =>
+    context.json(jsonSuccess(context, await codexRuntimeAdapter.startLogin()))
+  );
+
   app.post("/api/v1/runtime/codex/preview", async (context) =>
     withCommandResponse(context, async (service) => {
       const body = await jsonBody(context);
