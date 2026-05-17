@@ -44,11 +44,11 @@ function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellCont
     startCodexLogin: vi.fn(),
     submitAnswer: vi.fn(),
     ...controllerOverrides
-  } as unknown as DecisionQueueShellController;
+  } satisfies Partial<DecisionQueueShellController>;
 
   return renderToStaticMarkup(
     <AppLanguageProvider initialLanguage="en">
-      <QuestionsView controller={controller} />
+      <QuestionsView controller={controller as DecisionQueueShellController} />
     </AppLanguageProvider>
   );
 }

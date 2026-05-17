@@ -47,11 +47,11 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
     setProjectPurposeMode: vi.fn(),
     startCodexLogin: vi.fn(),
     ...controllerOverrides
-  } as unknown as DecisionQueueShellController;
+  } satisfies Partial<DecisionQueueShellController>;
 
   return renderToStaticMarkup(
     <AppLanguageProvider initialLanguage="en">
-      <OnboardingView controller={controller} />
+      <OnboardingView controller={controller as DecisionQueueShellController} />
     </AppLanguageProvider>
   );
 }
