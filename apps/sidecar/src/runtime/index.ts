@@ -364,6 +364,14 @@ function responseErrorMessage(response: Readonly<Record<string, unknown>>) {
   return "Codex app-server account/read failed.";
 }
 
+async function readAccountBeforeLogin(accountReader: () => Promise<CodexRuntimeAccountDto>) {
+  try {
+    return await accountReader();
+  } catch {
+    return null;
+  }
+}
+
 export async function readCodexAccountStatus(
   env: Readonly<Record<string, string | undefined>> = process.env
 ): Promise<CodexRuntimeAccountDto> {
@@ -1255,7 +1263,7 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
         });
       }
 
-      const account = await accountReader().catch(() => null);
+      const account = await readAccountBeforeLogin(accountReader);
 
       if (account?.status === "authenticated") {
         return codexLoginStartDto({

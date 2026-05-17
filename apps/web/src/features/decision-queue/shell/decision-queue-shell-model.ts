@@ -99,6 +99,10 @@ export const WEB_PUBLIC_SAFE_ALLOWLIST_ID = "research_allowlist_web_public_safe"
 export type DecisionQueuePageId = "onboarding" | "questions" | "research" | "planning" | "implementation" | "permissions";
 export type PageHealth = "done" | "active" | "pending" | "blocked";
 
+export type ProjectionVersionSnapshot = {
+  readonly [Key in keyof ProjectionState]: { readonly version?: unknown } | null;
+};
+
 export interface InitialQueueStartReadinessInput {
   readonly chatGptLoginAcknowledged: boolean;
   readonly codexLoginAuthenticated: boolean;
@@ -208,7 +212,7 @@ const PROJECTION_VERSION_KEYS = [
   "implementationStepLedger"
 ] as const satisfies readonly (keyof ProjectionState)[];
 
-export function latestProjectionVersion(projections: ProjectionState) {
+export function latestProjectionVersion(projections: ProjectionVersionSnapshot) {
   return Math.max(
     ...PROJECTION_VERSION_KEYS.map((key) => Number(projections[key]?.version ?? 0))
   ) as StateVersion;

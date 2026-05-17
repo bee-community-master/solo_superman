@@ -58,6 +58,14 @@ function unavailableCodexLoginStart(message: string): CodexRuntimeLoginStartDto 
   };
 }
 
+async function getRuntimeStatusBestEffort(activeClient: SidecarClient, fallback: CodexRuntimeStatusDto | null) {
+  try {
+    return await activeClient.getRuntimeStatus();
+  } catch {
+    return fallback;
+  }
+}
+
 export function useDecisionQueueShellController() {
   const copy = useDecisionQueueCopy();
   const [connectionState, setConnectionState] = useState<ConnectionState>({ status: "connecting" });
@@ -161,7 +169,7 @@ export function useDecisionQueueShellController() {
 
       const loginStart = await activeClient.startCodexLogin();
       setCodexLoginStart(loginStart);
-      setRuntimeStatus(await activeClient.getRuntimeStatus().catch(() => runtimeStatus));
+      setRuntimeStatus(await getRuntimeStatusBestEffort(activeClient, runtimeStatus));
     } catch (error) {
       const message = displayError(error);
       setCodexLoginStart(unavailableCodexLoginStart(message));

@@ -11,7 +11,7 @@ import {
   latestProjectionVersion,
   type InitialQueueStartBlocker,
   type InitialQueueStartReadinessInput,
-  type ProjectionState
+  type ProjectionVersionSnapshot
 } from "./shell/decision-queue-shell-model";
 
 const READY_INITIAL_QUEUE_START_INPUT = {
@@ -78,7 +78,7 @@ describe("decision queue shell model", () => {
       chatGptDelegation: { version: 9 },
       servicePageUsePermission: { version: 10 },
       implementationStepLedger: { version: 11 }
-    } as unknown as ProjectionState;
+    } satisfies ProjectionVersionSnapshot;
 
     expect(latestProjectionVersion(projections)).toBe(11);
   });
