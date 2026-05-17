@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   type BusinessCriticIntensity,
+  type CodexRuntimeLoginStartDto,
   type CodexRuntimeStatusDto,
   type Phase15bUpgradeHintProjection,
   type ProjectPurposeMode,
@@ -29,6 +30,7 @@ import {
   DEFAULT_IDEA,
   DEFAULT_INTAKE,
   canStartInitialQueueFlow,
+  displayError,
   emptyProjectionState,
   emptyResearchOperationsState,
   type CommandLogEntry,
@@ -45,6 +47,24 @@ import { useDecisionQueueRefreshers } from "./useDecisionQueueRefreshers";
 import { useDecisionQueueResearchActions } from "./useDecisionQueueResearchActions";
 import { useDecisionQueueSessionActions } from "./useDecisionQueueSessionActions";
 
+function unavailableCodexLoginStart(message: string): CodexRuntimeLoginStartDto {
+  return {
+    status: "unavailable",
+    command: "codex auth login",
+    statusCommand: "codex login status",
+    startedAt: new Date().toISOString(),
+    terminal: "none",
+    message
+  };
+}
+
+async function getRuntimeStatusBestEffort(activeClient: SidecarClient, fallback: CodexRuntimeStatusDto | null) {
+  try {
+    return await activeClient.getRuntimeStatus();
+  } catch {
+    return fallback;
+  }
+}
 
 export function useDecisionQueueShellController() {
   const copy = useDecisionQueueCopy();
@@ -65,11 +85,12 @@ export function useDecisionQueueShellController() {
   const [researchOperations, setResearchOperations] = useState<ResearchOperationsState>(emptyResearchOperationsState);
   const [phase15bReadiness, setPhase15bReadiness] = useState<Phase15bUpgradeHintProjection | null>(null);
   const [runtimeStatus, setRuntimeStatus] = useState<CodexRuntimeStatusDto | null>(null);
+  const [codexLoginStart, setCodexLoginStart] = useState<CodexRuntimeLoginStartDto | null>(null);
   const [commandLog, setCommandLog] = useState<readonly CommandLogEntry[]>([]);
   const [statuses, setStatuses] = useState<readonly StatusEndpointDto[]>([]);
   const [isBusy, setIsBusy] = useState(false);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
-  const [activePage, setActivePage] = useState<DecisionQueuePageId>("questions");
+  const [activePage, setActivePage] = useState<DecisionQueuePageId>("onboarding");
 
   const connect = useCallback(async () => {
     setConnectionState({ status: "connecting" });
@@ -83,19 +104,80 @@ export function useDecisionQueueShellController() {
         status: "unavailable",
         message: "Sidecar connection is unavailable."
       });
-      return;
+      return null;
     }
 
     const nextClient = createSidecarClient({ connection });
 
     setClient(nextClient);
     setConnectionState({ status: "connected", connection });
-    nextClient.getRuntimeStatus().then(setRuntimeStatus).catch(() => setRuntimeStatus(null));
+    nextClient
+      .getRuntimeStatus()
+      .then(setRuntimeStatus)
+      .catch((error) => {
+        setRuntimeStatus(null);
+        setWorkflowError(displayError(error));
+      });
+    return nextClient;
   }, []);
 
   useEffect(() => {
     void connect();
   }, [connect]);
+
+  const refreshRuntimeStatus = useCallback(async () => {
+    if (isBusy) {
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+    try {
+      const activeClient = client ?? await connect();
+
+      if (!activeClient) {
+        setWorkflowError(copy.layout.sidecarUnavailableRecovery);
+        return;
+      }
+
+      setRuntimeStatus(await activeClient.getRuntimeStatus());
+    } catch (error) {
+      setRuntimeStatus(null);
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [client, connect, copy.layout.sidecarUnavailableRecovery, isBusy]);
+
+  const startCodexLogin = useCallback(async () => {
+    if (isBusy) {
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+    setCodexLoginStart(null);
+    try {
+      const activeClient = client ?? await connect();
+
+      if (!activeClient) {
+        const loginStart = unavailableCodexLoginStart(copy.layout.sidecarUnavailableRecovery);
+        setCodexLoginStart(loginStart);
+        setWorkflowError(loginStart.message);
+        return;
+      }
+
+      const loginStart = await activeClient.startCodexLogin();
+      setCodexLoginStart(loginStart);
+      setRuntimeStatus(await getRuntimeStatusBestEffort(activeClient, runtimeStatus));
+    } catch (error) {
+      const message = displayError(error);
+      setCodexLoginStart(unavailableCodexLoginStart(message));
+      setWorkflowError(message);
+    } finally {
+      setIsBusy(false);
+    }
+  }, [client, connect, copy.layout.sidecarUnavailableRecovery, isBusy, runtimeStatus]);
 
   const {
     refreshResearchOperations,
@@ -133,6 +215,7 @@ export function useDecisionQueueShellController() {
     businessCriticIntensity,
     businessCriticIntensityChangeReason,
     chatGptLoginAcknowledged,
+    codexLoginAuthenticated: runtimeStatus?.account?.status === "authenticated",
     client,
     connectionStatus: connectionState.status,
     idea,
@@ -159,7 +242,8 @@ export function useDecisionQueueShellController() {
     setResearchDrafts,
     setResearchOperations,
     setStatuses,
-    setWorkflowError
+    setWorkflowError,
+    onInitialQueueCreated: () => setActivePage("questions")
   });
 
   const {
@@ -295,6 +379,7 @@ export function useDecisionQueueShellController() {
   const planningReadinessLabel = confidence?.readinessLabel ?? copy.rightRail.pending;
   const canStart = canStartInitialQueueFlow({
     chatGptLoginAcknowledged,
+    codexLoginAuthenticated: runtimeStatus?.account?.status === "authenticated",
     connectionStatus: connectionState.status,
     hasClient: Boolean(client),
     projectPurposeMode,
@@ -317,6 +402,12 @@ export function useDecisionQueueShellController() {
   const connectionLabel = connectionState.status === "connected" ? connectionState.connection.mode : connectionState.status;
   const connectionTone = connectionState.status === "connected" ? "connected" : connectionState.status;
   const navItems = [
+    {
+      id: "onboarding" as const,
+      label: copy.pageMeta.onboarding.label,
+      sublabel: projections.queue ? copy.nav.onboardingComplete : copy.nav.onboardingReady,
+      health: projections.queue ? "done" : canStart ? "active" : "pending"
+    },
     {
       id: "questions" as const,
       label: copy.pageMeta.questions.label,
@@ -389,6 +480,7 @@ export function useDecisionQueueShellController() {
     researchOperations,
     phase15bReadiness,
     runtimeStatus,
+    codexLoginStart,
     commandLog,
     statuses,
     isBusy,
@@ -396,6 +488,8 @@ export function useDecisionQueueShellController() {
     activePage,
     setActivePage,
     connect,
+    refreshRuntimeStatus,
+    startCodexLogin,
     refreshResearchOperations,
     refreshPhase15bReadiness,
     refreshPlanningHandoff,

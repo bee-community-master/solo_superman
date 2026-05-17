@@ -6,16 +6,30 @@ import {
   CODEX_TURN_PURPOSES,
   CONTRACT_SCHEMA_VERSION,
   PHASE15B_ISO_UTC_TIMESTAMP_PATTERN,
-  PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION
+  PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION,
+  type CodexRuntimeAccountDto
 } from "@solo-superman/contracts";
 import {
   assertCodexPreviewOutputMatchesInput,
+  codexAccountStatusFromAccountReadResponse,
   createCodexRuntimeAdapter,
   fixtureCodexPreviewOutput,
   parseCodexPreviewOutput,
   repairCodexJsonOutput,
-  validateCodexPreviewOutput
+  validateCodexPreviewOutput,
+  windowsCodexLoginShellCommand
 } from "./index";
+
+function codexRuntimeAccount(
+  overrides: Partial<CodexRuntimeAccountDto> = {}
+): CodexRuntimeAccountDto {
+  return {
+    status: "missing",
+    loginCommand: "codex auth login",
+    loginStatusCommand: "codex login status",
+    ...overrides
+  };
+}
 
 function phase15bHintsFixture() {
   return {
@@ -337,6 +351,12 @@ describe("PR-07 Codex runtime adapter contracts", () => {
 
     await expect(adapter.getStatus()).resolves.toMatchObject({
       status: "available",
+      account: {
+        status: "authenticated",
+        accountType: "chatgpt",
+        loginCommand: "codex auth login",
+        loginStatusCommand: "codex login status"
+      },
       adapterVersion: "codex-app-server-preview-v1",
       generatedSchemaVersion: "codex-cli-0.128.0",
       manualHandoffAvailable: true
@@ -348,14 +368,73 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     });
   });
 
+  it("starts Codex auth login through the injected background-terminal launcher", async () => {
+    const startedAt = "2026-05-17T00:00:00.000Z";
+    const adapter = createCodexRuntimeAdapter({
+      now: () => startedAt,
+      env: {},
+      accountReader: async () => codexRuntimeAccount({
+        requiresOpenaiAuth: true
+      }),
+      loginLauncher: async () => ({
+        status: "started",
+        command: "codex auth login",
+        statusCommand: "codex login status",
+        startedAt,
+        terminal: "Terminal.app",
+        message: "Opened `codex auth login` in a background Terminal window."
+      })
+    });
+
+    await expect(adapter.startLogin()).resolves.toMatchObject({
+      status: "started",
+      command: "codex auth login",
+      statusCommand: "codex login status",
+      terminal: "Terminal.app"
+    });
+  });
+
+  it("does not open a login terminal when Codex CLI is already authenticated", async () => {
+    const adapter = createCodexRuntimeAdapter({
+      now: () => "2026-05-17T00:00:00.000Z",
+      env: {},
+      accountReader: async () => codexRuntimeAccount({
+        status: "authenticated",
+        accountType: "chatgpt"
+      }),
+      loginLauncher: async () => {
+        throw new Error("Login launcher should not run for authenticated accounts.");
+      }
+    });
+
+    await expect(adapter.startLogin()).resolves.toMatchObject({
+      status: "already_authenticated",
+      command: "codex auth login",
+      terminal: "not_started"
+    });
+  });
+
+  it("quotes Windows Codex auth login working directories with spaces", () => {
+    expect(windowsCodexLoginShellCommand("C:\\Users\\Founder Name\\solo_superman")).toBe(
+      'cd /d "C:\\Users\\Founder Name\\solo_superman" && codex auth login'
+    );
+  });
+
   it("does not report live preview availability when turn execution is disabled", async () => {
     const adapter = createCodexRuntimeAdapter({
       now: () => "2026-05-05T00:00:00.000Z",
-      env: {}
+      env: {},
+      accountReader: async () => codexRuntimeAccount({
+        requiresOpenaiAuth: true
+      })
     });
 
     await expect(adapter.getStatus()).resolves.toMatchObject({
       status: "unavailable",
+      account: {
+        status: "missing",
+        loginCommand: "codex auth login"
+      },
       manualHandoffAvailable: true,
       reason: expect.any(String)
     });
@@ -368,6 +447,30 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         targetObject: "SpecVersion"
       })
     ).rejects.toThrow("manual handoff fallback is required");
+  });
+
+  it("maps Codex app-server account/read into a credential-free auth status", () => {
+    expect(
+      codexAccountStatusFromAccountReadResponse({
+        account: {
+          type: "chatgpt",
+          email: "founder@example.com",
+          planType: "pro"
+        },
+        requiresOpenaiAuth: true
+      })
+    ).toMatchObject({
+      status: "authenticated",
+      accountType: "chatgpt",
+      email: "founder@example.com",
+      planType: "pro",
+      loginCommand: "codex auth login",
+      loginStatusCommand: "codex login status"
+    });
+    expect(codexAccountStatusFromAccountReadResponse({ account: null, requiresOpenaiAuth: true })).toMatchObject({
+      status: "missing",
+      requiresOpenaiAuth: true
+    });
   });
 
   it("builds typed stdio requests for a preview-only Codex turn", () => {

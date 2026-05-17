@@ -96,11 +96,16 @@ export const BUSINESS_CRITIC_INTENSITY_OPTIONS = [
 
 export const WEB_PUBLIC_SAFE_ALLOWLIST_ID = "research_allowlist_web_public_safe" as ResearchAllowlistId;
 
-export type DecisionQueuePageId = "questions" | "research" | "planning" | "implementation" | "permissions";
+export type DecisionQueuePageId = "onboarding" | "questions" | "research" | "planning" | "implementation" | "permissions";
 export type PageHealth = "done" | "active" | "pending" | "blocked";
+
+export type ProjectionVersionSnapshot = {
+  readonly [Key in keyof ProjectionState]: { readonly version?: unknown } | null;
+};
 
 export interface InitialQueueStartReadinessInput {
   readonly chatGptLoginAcknowledged: boolean;
+  readonly codexLoginAuthenticated: boolean;
   readonly connectionStatus: ConnectionState["status"];
   readonly hasClient: boolean;
   readonly projectPurposeMode: ProjectPurposeMode | null;
@@ -113,6 +118,7 @@ export interface InitialQueueStartReadinessInput {
 export type InitialQueueStartBlocker =
   | "busy"
   | "chatgpt_login"
+  | "codex_login"
   | "sidecar_connection"
   | "project_purpose"
   | "business_critic_intensity"
@@ -122,6 +128,7 @@ export type InitialQueueStartBlocker =
 export const INITIAL_QUEUE_START_BLOCKER_MESSAGES = {
   busy: "첫 질문 묶음을 이미 생성 중입니다.",
   chatgpt_login: "ChatGPT에 직접 로그인했다는 확인이 필요합니다.",
+  codex_login: "로컬 Codex CLI 로그인이 확인되어야 backend 질문/리서치 준비를 시작할 수 있습니다.",
   sidecar_connection: "Local service is not connected.",
   project_purpose: "프로젝트 목적을 사업화 검증 중심 또는 개인 workflow 구현 중심 중 하나로 선택해야 합니다.",
   business_critic_intensity: "상업성 검증 강도를 선택해야 사업화 검증 큐를 확정할 수 있습니다.",
@@ -131,6 +138,7 @@ export const INITIAL_QUEUE_START_BLOCKER_MESSAGES = {
 
 export function initialQueueStartBlocker({
   chatGptLoginAcknowledged,
+  codexLoginAuthenticated,
   connectionStatus,
   hasClient,
   projectPurposeMode,
@@ -149,6 +157,10 @@ export function initialQueueStartBlocker({
 
   if (connectionStatus !== "connected" || !hasClient) {
     return "sidecar_connection";
+  }
+
+  if (!codexLoginAuthenticated) {
+    return "codex_login";
   }
 
   if (!projectPurposeMode) {
@@ -200,7 +212,7 @@ const PROJECTION_VERSION_KEYS = [
   "implementationStepLedger"
 ] as const satisfies readonly (keyof ProjectionState)[];
 
-export function latestProjectionVersion(projections: ProjectionState) {
+export function latestProjectionVersion(projections: ProjectionVersionSnapshot) {
   return Math.max(
     ...PROJECTION_VERSION_KEYS.map((key) => Number(projections[key]?.version ?? 0))
   ) as StateVersion;

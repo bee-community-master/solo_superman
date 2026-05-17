@@ -24,6 +24,10 @@
     grid-template-columns: 1fr;
   }
 
+  .session-start-layout {
+    grid-template-columns: 1fr;
+  }
+
   .planning-view .spec-panel,
   .planning-view .founder-brief-panel,
   .implementation-view .implementation-step-ledger-panel,

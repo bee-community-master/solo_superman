@@ -168,7 +168,7 @@ Per-run delegation은 계정 공유, credential/session custody, 제3자 서비�
 Phase 3 web/local 방향은 hosted SaaS default가 아니다. Local Web Frontend는 browser UI이고 Local Node/Hono Service는 loopback-only execution authority boundary다.
 
 - Non-health local API는 per-run local capability token 없이는 접근할 수 없다.
-- CORS는 explicit local origin allowlist만 허용한다.
+- CORS는 `127.0.0.1`, `localhost`, `[::1]` 기반의 명시적 loopback web origin만 허용하며 동적 로컬 포트는 허용한다.
 - hosted web origin은 local sidecar 실행 권한을 묵시적으로 얻지 않는다.
 - CSRF/replay 방지를 위해 approval/execution route는 idempotency key, preview hash, `ExecutionAuthorityRecord.recordId`, expiry check를 검증해야 한다.
 - local token은 Codex credential, ChatGPT session, API key, durable user secret이 아니며 disk persistence 금지다.

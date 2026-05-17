@@ -2,15 +2,21 @@ import type { BusinessCriticIntensity, ProjectPurposeMode } from "@solo-superman
 import { useAppLanguage } from "../../../shared/i18n/app-language";
 import type { DecisionQueuePageId } from "./decision-queue-shell-model";
 
-export const DECISION_QUEUE_PAGE_ORDER = ["questions", "research", "planning", "implementation", "permissions"] as const satisfies readonly DecisionQueuePageId[];
+export const DECISION_QUEUE_PAGE_ORDER = ["onboarding", "questions", "research", "planning", "implementation", "permissions"] as const satisfies readonly DecisionQueuePageId[];
 
 const EN_COPY = {
   pageMeta: {
+    onboarding: {
+      label: "Onboarding",
+      shortLabel: "O",
+      title: "Onboarding",
+      description: "Sign in to ChatGPT and Codex, then set the goal before the first question batch."
+    },
     questions: {
       label: "Questions",
       shortLabel: "Q",
       title: "Questions",
-      description: "Set the project goal, answer open questions, and keep known risks visible."
+      description: "Answer active questions, review upcoming questions, and keep known risks visible."
     },
     research: {
       label: "Research",
@@ -79,10 +85,13 @@ const EN_COPY = {
     reconnectSidecar: "Reconnect local service",
     sidecarUnavailable: "Local service unavailable",
     sidecarUnavailableMessage: "The local service is not connected.",
+    sidecarUnavailableRecovery: "The local service is not connected. Start Solo Superman with `pnpm start:local`, then reconnect and try Codex login again.",
     retryConnection: "Retry connection",
     commandFailed: "Action failed"
   },
   nav: {
+    onboardingReady: "Login + goal setup",
+    onboardingComplete: "First questions created",
     questionsSublabel: (active: number, next: number) => `${active} active · ${next} next`,
     researchSublabel: (tasks: number, runs: number) => `${tasks} tasks · ${runs} runs`,
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
@@ -102,6 +111,20 @@ const EN_COPY = {
     chatGptCredentialBoundary: "Solo Superman never asks for or stores your password, 2FA code, session cookie, API key, or secrets.",
     chatGptLoginOpen: "Open ChatGPT",
     chatGptLoginAcknowledge: "I signed in to ChatGPT directly in this browser/profile.",
+    codexLoginAria: "Codex CLI login gate",
+    codexLoginTitle: "Sign in to Codex CLI for backend questions and research",
+    codexLoginDescription: "The local sidecar checks Codex CLI before backend question or research preview work starts. If needed, open a background Terminal that runs `codex auth login`; Codex opens the browser login screen for you.",
+    codexCredentialBoundary: "Solo Superman only reads Codex account status. It never asks for or stores access tokens, API keys, passwords, or cookies.",
+    codexLoginStatus: "Codex status",
+    codexLoginCommandLabel: "Background terminal command",
+    codexLoginStart: "Open Codex login",
+    codexLoginRefresh: "Refresh Codex login status",
+    codexLoginStatusLabels: {
+      authenticated: "Signed in",
+      missing: "Login required",
+      unknown: "Unknown",
+      blocked: "Blocked"
+    },
     rawIdea: "Idea summary",
     rawIdeaPlaceholder: "Example: A focused founder brief generator",
     intakeAnswer: "Goal description",
@@ -317,11 +340,17 @@ const EN_COPY = {
 
 const JA_COPY: typeof EN_COPY = {
   pageMeta: {
+    onboarding: {
+      label: "オンボーディング",
+      shortLabel: "O",
+      title: "オンボーディング",
+      description: "ChatGPTとCodexにログインし、最初の質問セットの前に目標を設定します。"
+    },
     questions: {
       label: "質問",
       shortLabel: "Q",
       title: "質問",
-      description: "プロジェクトの目的、未回答の質問、既知のリスクを一つの画面で整理します。"
+      description: "現在の質問、次の質問、既知のリスクを一つの画面で整理します。"
     },
     research: {
       label: "リサーチ",
@@ -390,10 +419,13 @@ const JA_COPY: typeof EN_COPY = {
     reconnectSidecar: "ローカルサービスに再接続",
     sidecarUnavailable: "ローカルサービスを利用できません",
     sidecarUnavailableMessage: "ローカルサービスに接続されていません。",
+    sidecarUnavailableRecovery: "ローカルサービスに接続されていません。`pnpm start:local`でSolo Supermanを起動し、再接続してからCodexログインをもう一度開いてください。",
     retryConnection: "再接続",
     commandFailed: "操作に失敗しました"
   },
   nav: {
+    onboardingReady: "ログイン + 目標設定",
+    onboardingComplete: "最初の質問を作成済み",
     questionsSublabel: (active: number, next: number) => `${active} active · ${next} next`,
     researchSublabel: (tasks: number, runs: number) => `${tasks} tasks · ${runs} runs`,
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
@@ -413,6 +445,20 @@ const JA_COPY: typeof EN_COPY = {
     chatGptCredentialBoundary: "Solo Supermanはパスワード、2FAコード、セッションCookie、API key、secretを要求・保存しません。",
     chatGptLoginOpen: "ChatGPTを開く",
     chatGptLoginAcknowledge: "このブラウザ/プロファイルでChatGPTに直接ログインしました。",
+    codexLoginAria: "Codex CLIログイン確認",
+    codexLoginTitle: "backendの質問・リサーチ用にCodex CLIへログイン",
+    codexLoginDescription: "ローカルsidecarは、backendの質問やリサーチpreviewを始める前にCodex CLI状態を確認します。必要なら`codex auth login`を実行するバックグラウンドTerminalを開き、Codexがブラウザのログイン画面を表示します。",
+    codexCredentialBoundary: "Solo SupermanはCodexのアカウント状態だけを読み取ります。access token、API key、password、cookieは要求・保存しません。",
+    codexLoginStatus: "Codex状態",
+    codexLoginCommandLabel: "バックグラウンドTerminalコマンド",
+    codexLoginStart: "Codexログインを開く",
+    codexLoginRefresh: "Codexログイン状態を更新",
+    codexLoginStatusLabels: {
+      authenticated: "ログイン済み",
+      missing: "ログインが必要",
+      unknown: "不明",
+      blocked: "ブロック中"
+    },
     rawIdea: "アイデア概要",
     rawIdeaPlaceholder: "例: 創業者向けのFounder Brief生成ツール",
     intakeAnswer: "目標の説明",
@@ -628,11 +674,17 @@ const JA_COPY: typeof EN_COPY = {
 
 const KO_COPY: typeof EN_COPY = {
   pageMeta: {
+    onboarding: {
+      label: "온보딩",
+      shortLabel: "O",
+      title: "온보딩",
+      description: "첫 질문을 만들기 전에 ChatGPT와 Codex에 로그인하고 목표를 설정합니다."
+    },
     questions: {
       label: "질문",
       shortLabel: "Q",
       title: "질문",
-      description: "프로젝트 목표, 남은 질문, 알려진 리스크를 한곳에서 정리합니다."
+      description: "현재 질문, 다음 질문, 알려진 리스크를 한곳에서 정리합니다."
     },
     research: {
       label: "리서치",
@@ -701,10 +753,13 @@ const KO_COPY: typeof EN_COPY = {
     reconnectSidecar: "로컬 서비스 다시 연결",
     sidecarUnavailable: "로컬 서비스를 사용할 수 없음",
     sidecarUnavailableMessage: "로컬 서비스가 연결되어 있지 않습니다.",
+    sidecarUnavailableRecovery: "로컬 서비스가 연결되어 있지 않습니다. `pnpm start:local`로 Solo Superman을 실행한 뒤 다시 연결하고 Codex 로그인을 다시 열어주세요.",
     retryConnection: "다시 연결",
     commandFailed: "작업 실패"
   },
   nav: {
+    onboardingReady: "로그인 + 목표 설정",
+    onboardingComplete: "첫 질문 생성됨",
     questionsSublabel: (active: number, next: number) => `${active}개 활성 · 다음 ${next}개`,
     researchSublabel: (tasks: number, runs: number) => `${tasks}개 작업 · ${runs}개 실행`,
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
@@ -724,6 +779,20 @@ const KO_COPY: typeof EN_COPY = {
     chatGptCredentialBoundary: "Solo Superman은 비밀번호, 2FA 코드, session cookie, API key, secret을 요구하거나 저장하지 않습니다.",
     chatGptLoginOpen: "ChatGPT 열기",
     chatGptLoginAcknowledge: "이 브라우저/프로필에서 ChatGPT에 직접 로그인했습니다.",
+    codexLoginAria: "Codex CLI 로그인 확인",
+    codexLoginTitle: "backend 질문·리서치를 위해 Codex CLI에 로그인",
+    codexLoginDescription: "로컬 sidecar는 backend 질문 또는 리서치 preview를 시작하기 전에 Codex CLI 상태를 확인합니다. 필요하면 `codex auth login`을 실행하는 백그라운드 Terminal을 열고, Codex가 브라우저 로그인 화면을 띄웁니다.",
+    codexCredentialBoundary: "Solo Superman은 Codex 계정 상태만 읽습니다. access token, API key, 비밀번호, cookie를 요구하거나 저장하지 않습니다.",
+    codexLoginStatus: "Codex 상태",
+    codexLoginCommandLabel: "백그라운드 Terminal 명령",
+    codexLoginStart: "Codex 로그인 열기",
+    codexLoginRefresh: "Codex 로그인 상태 새로고침",
+    codexLoginStatusLabels: {
+      authenticated: "로그인됨",
+      missing: "로그인 필요",
+      unknown: "알 수 없음",
+      blocked: "차단됨"
+    },
     rawIdea: "아이디어 요약",
     rawIdeaPlaceholder: "예: 창업자를 위한 Founder Brief 생성 도구",
     intakeAnswer: "목표에 대한 서술",

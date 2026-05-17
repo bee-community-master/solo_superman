@@ -27,6 +27,12 @@ describe("PR-09 web route client catalog", () => {
       implementation: "mounted_pr_09"
     });
 
+    expect(findWebRouteClientPlaceholder("startCodexLogin")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/runtime/codex/login/start",
+      implementation: "mounted_pr_09"
+    });
+
     expect(findWebRouteClientPlaceholder("createManualHandoff")).toMatchObject({
       method: "POST",
       path: "/api/v1/runtime/manual-handoff",

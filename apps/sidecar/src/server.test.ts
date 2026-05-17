@@ -912,11 +912,42 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.headers.get("access-control-allow-headers")).toContain("X-Request-Id");
   });
 
+  it("answers CORS preflight for dynamically allocated local web ports", async () => {
+    const response = await app.request("/api/v1/runtime/codex/login/start", {
+      method: "OPTIONS",
+      headers: {
+        Origin: "http://127.0.0.1:58973",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "Authorization"
+      }
+    });
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-origin")).toBe("http://127.0.0.1:58973");
+    expect(response.headers.get("access-control-allow-methods")).toContain("POST");
+  });
+
+  it("answers CORS preflight for localhost and IPv6 loopback frontend origins", async () => {
+    for (const origin of ["http://localhost:55222", "http://[::1]:55222"]) {
+      const response = await app.request("/api/v1/runtime/status", {
+        method: "OPTIONS",
+        headers: {
+          Origin: origin,
+          "Access-Control-Request-Method": "GET",
+          "Access-Control-Request-Headers": "Authorization"
+        }
+      });
+
+      expect(response.status).toBe(204);
+      expect(response.headers.get("access-control-allow-origin")).toBe(origin);
+    }
+  });
+
   it("exposes request ids to the local web frontend for correlation", async () => {
     const response = await app.request("/api/v1/commands/cmd_demo/status", {
       headers: {
         ...authHeaders(),
-        Origin: "http://127.0.0.1:1420",
+        Origin: "http://127.0.0.1:58973",
         "X-Request-Id": "req_command_status"
       }
     });
@@ -931,6 +962,32 @@ describe("PR-02 sidecar health shell", () => {
       method: "OPTIONS",
       headers: {
         Origin: "https://example.com",
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "Authorization"
+      }
+    });
+
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("does not grant CORS to loopback-looking hosted origins", async () => {
+    const response = await app.request("/api/v1/projects", {
+      method: "OPTIONS",
+      headers: {
+        Origin: "http://127.0.0.1.evil.example:1420",
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "Authorization"
+      }
+    });
+
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("does not normalize malformed loopback origin headers into allowed origins", async () => {
+    const response = await app.request("/api/v1/projects", {
+      method: "OPTIONS",
+      headers: {
+        Origin: "http://127.0.0.1:58973/unexpected-path",
         "Access-Control-Request-Method": "GET",
         "Access-Control-Request-Headers": "Authorization"
       }
@@ -6487,6 +6544,41 @@ describe("PR-02 sidecar health shell", () => {
         error: {
           code: "IDEMPOTENCY_CONFLICT"
         }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("starts Codex CLI auth login through the runtime adapter", async () => {
+    const startedAt = "2026-05-17T00:00:00.000Z";
+    const { app: storageApp, storage } = await createMigratedStorageApp({
+      ...fixtureCodexRuntimeAdapter,
+      async startLogin() {
+        return {
+          status: "started",
+          command: "codex auth login",
+          statusCommand: "codex login status",
+          startedAt,
+          terminal: "Terminal.app",
+          message: "Opened `codex auth login` in a background Terminal window."
+        };
+      }
+    });
+
+    try {
+      const response = await storageApp.request("/api/v1/runtime/codex/login/start", {
+        method: "POST",
+        headers: authHeaders()
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(200);
+      expect(body.data).toMatchObject({
+        status: "started",
+        command: "codex auth login",
+        statusCommand: "codex login status",
+        terminal: "Terminal.app"
       });
     } finally {
       await storage.close();

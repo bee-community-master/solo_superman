@@ -1,5 +1,6 @@
 import { DecisionQueueDesktopLayout } from "./shell/DecisionQueueDesktopLayout";
 import { ImplementationView } from "./shell/ImplementationView";
+import { OnboardingView } from "./shell/OnboardingView";
 import { PermissionsView } from "./shell/PermissionsView";
 import { PlanningView } from "./shell/PlanningView";
 import { QuestionsView } from "./shell/QuestionsView";
@@ -12,6 +13,7 @@ export function DecisionQueueShell() {
 
   return (
     <DecisionQueueDesktopLayout controller={controller} rightRail={<RightRail controller={controller} />}>
+      {controller.activePage === "onboarding" ? <OnboardingView controller={controller} /> : null}
       {controller.activePage === "questions" ? <QuestionsView controller={controller} /> : null}
       {controller.activePage === "research" ? <ResearchView controller={controller} /> : null}
       {controller.activePage === "planning" ? <PlanningView controller={controller} /> : null}
