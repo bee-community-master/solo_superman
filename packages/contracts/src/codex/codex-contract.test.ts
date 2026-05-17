@@ -5,6 +5,7 @@ import {
   CODEX_APP_SERVER_GENERATED_VERSION,
   CODEX_APPLY_POLICIES,
   CODEX_ARTIFACT_KINDS,
+  type CodexRuntimeAccountDto,
   CODEX_RUNTIME_ADAPTER_VERSION,
   CODEX_RUNTIME_TRANSPORT,
   CODEX_TURN_PURPOSES
@@ -64,5 +65,26 @@ describe("PR-07 codex-contract generated schema and internal taxonomy", () => {
       "destructive_operation",
       "chatgpt_web_automation"
     ]);
+  });
+
+  it("keeps Codex account login status explicit without storing credentials", () => {
+    const accountStatus = {
+      status: "authenticated",
+      accountType: "chatgpt",
+      email: "founder@example.com",
+      planType: "pro",
+      requiresOpenaiAuth: true,
+      loginCommand: "codex login",
+      loginStatusCommand: "codex login status"
+    } satisfies CodexRuntimeAccountDto;
+
+    expect(accountStatus).toMatchObject({
+      status: "authenticated",
+      accountType: "chatgpt",
+      loginCommand: "codex login",
+      loginStatusCommand: "codex login status"
+    });
+    expect(JSON.stringify(accountStatus)).not.toContain("token");
+    expect(JSON.stringify(accountStatus)).not.toContain("secret");
   });
 });

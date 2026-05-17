@@ -29,6 +29,7 @@ function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellCont
     projectPurposeMode: null,
     projections: emptyProjectionState(),
     queueRecovery: DEFAULT_QUEUE_RECOVERY,
+    refreshRuntimeStatus: vi.fn(),
     runInitialQueueFlow: vi.fn(),
     sections: [],
     setAnswerDrafts: vi.fn(),
@@ -122,6 +123,34 @@ describe("QuestionsView", () => {
       markup.indexOf("Idea summary")
     );
     expect(markup.indexOf("Idea summary")).toBeLessThan(markup.indexOf("Goal description"));
+  });
+
+  it("renders backend Codex CLI login status before the first queue can start", () => {
+    const markup = renderQuestionsView({
+      runtimeStatus: {
+        status: "unavailable",
+        adapterVersion: "codex-app-server-preview-v1",
+        generatedSchemaVersion: "codex-cli-0.128.0",
+        transport: "stdio",
+        checkedAt: "2026-05-17T00:00:00.000Z",
+        manualHandoffAvailable: true,
+        account: {
+          status: "missing",
+          loginCommand: "codex login",
+          loginStatusCommand: "codex login status",
+          reason: "Codex CLI is not logged in for this local environment."
+        }
+      }
+    });
+
+    expect(markup).toContain("Sign in to Codex CLI for backend questions and research");
+    expect(markup).toContain("Codex status");
+    expect(markup).toContain("Login required");
+    expect(markup).toContain("codex login");
+    expect(markup).toContain("Refresh Codex login status");
+    expect(markup.indexOf("Sign in to Codex CLI for backend questions and research")).toBeLessThan(
+      markup.indexOf("Idea summary")
+    );
   });
 
 });

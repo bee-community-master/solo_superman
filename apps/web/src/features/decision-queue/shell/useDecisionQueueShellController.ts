@@ -97,6 +97,20 @@ export function useDecisionQueueShellController() {
     void connect();
   }, [connect]);
 
+  const refreshRuntimeStatus = useCallback(async () => {
+    if (!client) {
+      await connect();
+      return;
+    }
+
+    setWorkflowError(null);
+    try {
+      setRuntimeStatus(await client.getRuntimeStatus());
+    } catch {
+      setRuntimeStatus(null);
+    }
+  }, [client, connect]);
+
   const {
     refreshResearchOperations,
     refreshPhase15bReadiness,
@@ -133,6 +147,7 @@ export function useDecisionQueueShellController() {
     businessCriticIntensity,
     businessCriticIntensityChangeReason,
     chatGptLoginAcknowledged,
+    codexLoginAuthenticated: runtimeStatus?.account.status === "authenticated",
     client,
     connectionStatus: connectionState.status,
     idea,
@@ -295,6 +310,7 @@ export function useDecisionQueueShellController() {
   const planningReadinessLabel = confidence?.readinessLabel ?? copy.rightRail.pending;
   const canStart = canStartInitialQueueFlow({
     chatGptLoginAcknowledged,
+    codexLoginAuthenticated: runtimeStatus?.account.status === "authenticated",
     connectionStatus: connectionState.status,
     hasClient: Boolean(client),
     projectPurposeMode,
@@ -396,6 +412,7 @@ export function useDecisionQueueShellController() {
     activePage,
     setActivePage,
     connect,
+    refreshRuntimeStatus,
     refreshResearchOperations,
     refreshPhase15bReadiness,
     refreshPlanningHandoff,

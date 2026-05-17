@@ -10,6 +10,7 @@ import {
 } from "@solo-superman/contracts";
 import {
   assertCodexPreviewOutputMatchesInput,
+  codexAccountStatusFromAccountReadResponse,
   createCodexRuntimeAdapter,
   fixtureCodexPreviewOutput,
   parseCodexPreviewOutput,
@@ -337,6 +338,12 @@ describe("PR-07 Codex runtime adapter contracts", () => {
 
     await expect(adapter.getStatus()).resolves.toMatchObject({
       status: "available",
+      account: {
+        status: "authenticated",
+        accountType: "chatgpt",
+        loginCommand: "codex login",
+        loginStatusCommand: "codex login status"
+      },
       adapterVersion: "codex-app-server-preview-v1",
       generatedSchemaVersion: "codex-cli-0.128.0",
       manualHandoffAvailable: true
@@ -351,11 +358,21 @@ describe("PR-07 Codex runtime adapter contracts", () => {
   it("does not report live preview availability when turn execution is disabled", async () => {
     const adapter = createCodexRuntimeAdapter({
       now: () => "2026-05-05T00:00:00.000Z",
-      env: {}
+      env: {},
+      accountReader: async () => ({
+        status: "missing",
+        loginCommand: "codex login",
+        loginStatusCommand: "codex login status",
+        requiresOpenaiAuth: true
+      })
     });
 
     await expect(adapter.getStatus()).resolves.toMatchObject({
       status: "unavailable",
+      account: {
+        status: "missing",
+        loginCommand: "codex login"
+      },
       manualHandoffAvailable: true,
       reason: expect.any(String)
     });
@@ -368,6 +385,30 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         targetObject: "SpecVersion"
       })
     ).rejects.toThrow("manual handoff fallback is required");
+  });
+
+  it("maps Codex app-server account/read into a credential-free auth status", () => {
+    expect(
+      codexAccountStatusFromAccountReadResponse({
+        account: {
+          type: "chatgpt",
+          email: "founder@example.com",
+          planType: "pro"
+        },
+        requiresOpenaiAuth: true
+      })
+    ).toMatchObject({
+      status: "authenticated",
+      accountType: "chatgpt",
+      email: "founder@example.com",
+      planType: "pro",
+      loginCommand: "codex login",
+      loginStatusCommand: "codex login status"
+    });
+    expect(codexAccountStatusFromAccountReadResponse({ account: null, requiresOpenaiAuth: true })).toMatchObject({
+      status: "missing",
+      requiresOpenaiAuth: true
+    });
   });
 
   it("builds typed stdio requests for a preview-only Codex turn", () => {

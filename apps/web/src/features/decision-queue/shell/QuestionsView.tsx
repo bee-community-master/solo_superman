@@ -25,6 +25,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     projectPurposeMode,
     projections,
     queueRecovery,
+    refreshRuntimeStatus,
     runInitialQueueFlow,
     sections,
     setAnswerDrafts,
@@ -37,6 +38,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     setProjectPurposeMode,
     submitAnswer
   } = controller;
+  const codexAccount = controller.runtimeStatus?.account ?? null;
 
   return (
     <div className="view-grid questions-view">
@@ -66,6 +68,34 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
               <strong>{copy.questions.chatGptLoginAcknowledge}</strong>
             </span>
           </label>
+        </section>
+        <section className="start-guide codex-login-gate" aria-label={copy.questions.codexLoginAria}>
+          <div className="chatgpt-login-copy">
+            <h3>{copy.questions.codexLoginTitle}</h3>
+            <p>{copy.questions.codexLoginDescription}</p>
+            <p className="mode-summary">{copy.questions.codexCredentialBoundary}</p>
+            <p className="runtime-status-line">
+              {copy.questions.codexLoginStatus}:{" "}
+              <strong>
+                {codexAccount
+                  ? copy.questions.codexLoginStatusLabels[codexAccount.status]
+                  : copy.questions.codexLoginStatusLabels.unknown}
+              </strong>
+              {codexAccount?.email ? ` · ${codexAccount.email}` : ""}
+              {codexAccount?.planType ? ` · ${codexAccount.planType}` : ""}
+            </p>
+            {codexAccount?.status === "authenticated" ? null : (
+              <p className="mode-summary">
+                {copy.questions.codexLoginCommandLabel}: <code>{codexAccount?.loginCommand ?? "codex login"}</code>
+              </p>
+            )}
+            {codexAccount?.reason ? <p className="research-recovery">{codexAccount.reason}</p> : null}
+          </div>
+          <div className="card-actions panel-actions">
+            <button type="button" disabled={isBusy} onClick={() => void refreshRuntimeStatus()}>
+              {copy.questions.codexLoginRefresh}
+            </button>
+          </div>
         </section>
         <section className="start-guide" aria-label={copy.questions.firstRunAria}>
           <h3>{copy.questions.firstRunTitle}</h3>

@@ -42,6 +42,7 @@ interface DecisionQueueSessionActionsProps {
   readonly businessCriticIntensity: BusinessCriticIntensity | null;
   readonly businessCriticIntensityChangeReason: string;
   readonly chatGptLoginAcknowledged: boolean;
+  readonly codexLoginAuthenticated: boolean;
   readonly client: SidecarClient | null;
   readonly connectionStatus: ConnectionState["status"];
   readonly idea: string;
@@ -81,6 +82,7 @@ export function useDecisionQueueSessionActions({
   businessCriticIntensity,
   businessCriticIntensityChangeReason,
   chatGptLoginAcknowledged,
+  codexLoginAuthenticated,
   client,
   connectionStatus,
   idea,
@@ -115,6 +117,7 @@ export function useDecisionQueueSessionActions({
 
       const startBlocker = initialQueueStartBlocker({
         chatGptLoginAcknowledged,
+        codexLoginAuthenticated,
         connectionStatus,
         hasClient: Boolean(client),
         projectPurposeMode,
@@ -213,6 +216,7 @@ export function useDecisionQueueSessionActions({
       appendCommand,
       businessCriticIntensity,
       chatGptLoginAcknowledged,
+      codexLoginAuthenticated,
       connectionStatus,
       initialBusinessCriticIntensityReason,
       client,

@@ -44,7 +44,7 @@ cd solo_superman && pnpm start:local
 Set-Location .\solo_superman; pnpm start:local
 ```
 
-기본 로컬 설치/실행 경로에는 OpenAI API key나 ChatGPT credential이 필요하지 않습니다. 자세한 운영 번들 실행과 문제 해결은 [`docs/39-local-install-run-verification.md`](docs/39-local-install-run-verification.md)를 참고합니다.
+기본 로컬 설치/실행 경로에는 OpenAI API key나 ChatGPT credential이 필요하지 않습니다. 다만 backend 질문/리서치 preview를 시작하기 전에는 사용자가 브라우저에서 ChatGPT에 직접 로그인했는지 확인하고, 로컬 Codex CLI가 `codex login`으로 로그인되어 있는지 확인합니다. Solo Superman은 해당 credential을 수집하거나 저장하지 않습니다. 자세한 운영 번들 실행과 문제 해결은 [`docs/39-local-install-run-verification.md`](docs/39-local-install-run-verification.md)를 참고합니다.
 
 ## 배포 범위
 

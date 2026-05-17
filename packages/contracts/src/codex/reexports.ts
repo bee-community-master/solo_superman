@@ -50,6 +50,8 @@ export type BlockedActionType = (typeof BLOCKED_ACTION_TYPES)[number];
 export type CodexRuntimeSource = "codex_app_server" | "manual_prompt_handoff" | "protocol_fixture";
 export type CodexRuntimeStatus = "available" | "unavailable" | "blocked";
 export type RuntimePreviewStatus = "preview_ready" | "manual_handoff" | "blocked";
+export type CodexAccountAuthStatus = "authenticated" | "missing" | "unknown" | "blocked";
+export type CodexAccountType = "apiKey" | "chatgpt" | "amazonBedrock";
 
 export const CODEX_ARTIFACT_KIND_BY_TURN_PURPOSE = {
   question_generation: "QuestionBatchArtifact",
@@ -76,6 +78,18 @@ export interface CodexRuntimeStatusDto {
   readonly transport: typeof CODEX_RUNTIME_TRANSPORT;
   readonly checkedAt: string;
   readonly manualHandoffAvailable: boolean;
+  readonly account: CodexRuntimeAccountDto;
+  readonly reason?: string;
+}
+
+export interface CodexRuntimeAccountDto {
+  readonly status: CodexAccountAuthStatus;
+  readonly loginCommand: "codex login";
+  readonly loginStatusCommand: "codex login status";
+  readonly accountType?: CodexAccountType;
+  readonly email?: string;
+  readonly planType?: string;
+  readonly requiresOpenaiAuth?: boolean;
   readonly reason?: string;
 }
 

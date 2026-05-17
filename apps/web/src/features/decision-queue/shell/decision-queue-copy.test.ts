@@ -16,6 +16,10 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.questions.firstRunTitle).toBe("목표 설정");
     expect(DECISION_QUEUE_COPY.en.questions.chatGptLoginTitle).toBe("Sign in to ChatGPT in your browser first");
     expect(DECISION_QUEUE_COPY.ko.questions.chatGptLoginTitle).toBe("먼저 브라우저에서 ChatGPT에 로그인");
+    expect(DECISION_QUEUE_COPY.en.questions.codexLoginTitle).toBe(
+      "Sign in to Codex CLI for backend questions and research"
+    );
+    expect(DECISION_QUEUE_COPY.ko.questions.codexLoginStatusLabels.authenticated).toBe("로그인됨");
     expect(DECISION_QUEUE_COPY.en.questions.rawIdea).toBe("Idea summary");
     expect(DECISION_QUEUE_COPY.ja.questions.rawIdea).toBe("アイデア概要");
     expect(DECISION_QUEUE_COPY.ko.questions.rawIdea).toBe("아이디어 요약");

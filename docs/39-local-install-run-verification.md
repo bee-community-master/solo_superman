@@ -1,6 +1,6 @@
 # Local install/run verification
 
-This runbook is the #105 contract for non-developer local web usage under `37-post-phase3-full-vision-backlog-contract.md`. It keeps macOS shell and Windows PowerShell paths side by side and does not require an OpenAI or ChatGPT API key by default.
+This runbook is the #105 contract for non-developer local web usage under `37-post-phase3-full-vision-backlog-contract.md`. It keeps macOS shell and Windows PowerShell paths side by side and does not require an OpenAI or ChatGPT API key by default. Backend question/research preview work still requires a user-owned ChatGPT browser session plus a local Codex CLI login check; Solo Superman reads account status only and does not collect or store credentials.
 
 ## Release posture
 
@@ -29,6 +29,7 @@ Before broad non-developer distribution, the project still needs:
 | Node.js | `node --version` | `node --version` |
 | pnpm/Corepack | `corepack --version && pnpm --version` | `corepack --version; pnpm --version` |
 | Git | `git --version` | `git --version` |
+| Codex CLI login for backend question/research preview | `codex login status || codex login` | `codex login status; if ($LASTEXITCODE -ne 0) { codex login }` |
 
 ## Install prerequisites
 
@@ -64,6 +65,13 @@ The README one-line installers finish by launching this command. It keeps the lo
 | --- | --- |
 | ```sh<br>pnpm start:local<br>``` | ```powershell<br>pnpm start:local<br>``` |
 
+The first-run screen checks two user-owned login prerequisites before creating backend questions or research preview artifacts:
+
+- open ChatGPT in the same browser profile and sign in directly;
+- keep the local Codex CLI logged in (`codex login status` should succeed).
+
+The local sidecar uses `codex app-server` `account/read` to verify account presence. It returns only account status/type/email/plan metadata for UI readiness and never stores passwords, 2FA codes, session cookies, API keys, access tokens, or refresh tokens.
+
 ## Manual production bundle run
 
 Use two terminals. Terminal 1 starts the sidecar. Terminal 2 serves the already-built production web bundle.
@@ -87,7 +95,7 @@ This path is for contributors. It uses Vite dev server and sidecar watch mode; i
 | --- | --- |
 | ```sh<br>pnpm verify<br>``` | ```powershell<br>pnpm verify<br>``` |
 
-`pnpm verify` runs typecheck, lint, test, and doc-contract checks. It does not require external production credentials or OpenAI/ChatGPT API keys.
+`pnpm verify` runs typecheck, lint, test, and doc-contract checks. It does not require external production credentials or OpenAI/ChatGPT API keys. Live first-run backend readiness still checks the user's browser ChatGPT login acknowledgement and local Codex CLI account status.
 
 ## Browser automation prerequisite
 
@@ -113,6 +121,7 @@ Use this checklist when CI or the current machine cannot run real Windows PowerS
 | Port conflict on `43110` or `4173` | `lsof -nP -iTCP:43110 -sTCP:LISTEN` then choose `SOLO_PROD_SMOKE_SIDECAR_PORT=43112` | `Get-NetTCPConnection -LocalPort 43110 -ErrorAction SilentlyContinue` then choose `$env:SOLO_PROD_SMOKE_SIDECAR_PORT = "43112"` |
 | Token mismatch | Rebuild after setting both `SOLO_LOCAL_CAPABILITY_TOKEN` and `VITE_SOLO_LOCAL_CAPABILITY_TOKEN` to the same value. | Rebuild after setting both `$env:SOLO_LOCAL_CAPABILITY_TOKEN` and `$env:VITE_SOLO_LOCAL_CAPABILITY_TOKEN` to the same value. |
 | CORS/origin blocked | Use `http://127.0.0.1:<port>`; do not use hosted/cloud preview URLs. | Use `http://127.0.0.1:<port>`; do not use hosted/cloud preview URLs. |
+| Codex login missing | Run `codex login`, finish the browser/device login flow, then click `Refresh Codex login status` in the local UI. | Run `codex login`, finish the browser/device login flow, then click `Refresh Codex login status` in the local UI. |
 | Execution policy blocks scripts | Not applicable for shell; reinstall Node/pnpm if `pnpm` is missing. | Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` only if your organization permits it, then open a new PowerShell window. |
 | Path quoting | Quote paths with spaces: `cd "$HOME/Projects/solo superman"`. | Quote paths with spaces: `Set-Location "C:\Users\you\Projects\solo superman"`. |
 | Long path checkout errors | Use a shorter path such as `$HOME/src/solo_superman`. | Enable Git long paths if permitted: `git config --global core.longpaths true`, or clone to `C:\src\solo_superman`. |
