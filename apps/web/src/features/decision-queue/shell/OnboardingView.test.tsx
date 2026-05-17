@@ -92,4 +92,26 @@ describe("OnboardingView", () => {
       markup.indexOf("Idea summary")
     );
   });
+
+  it("disables Codex login actions while another local action is running", () => {
+    const markup = renderOnboardingView({
+      isBusy: true,
+      runtimeStatus: {
+        status: "unavailable",
+        adapterVersion: "codex-app-server-preview-v1",
+        generatedSchemaVersion: "codex-cli-0.128.0",
+        transport: "stdio",
+        checkedAt: "2026-05-17T00:00:00.000Z",
+        manualHandoffAvailable: true,
+        account: {
+          status: "missing",
+          loginCommand: "codex auth login",
+          loginStatusCommand: "codex login status"
+        }
+      }
+    });
+
+    expect(markup).toContain('<button type="button" disabled="">Open Codex login</button>');
+    expect(markup).toContain('<button type="button" disabled="">Refresh Codex login status</button>');
+  });
 });

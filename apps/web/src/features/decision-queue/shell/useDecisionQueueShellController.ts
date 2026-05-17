@@ -86,7 +86,7 @@ export function useDecisionQueueShellController() {
         status: "unavailable",
         message: "Sidecar connection is unavailable."
       });
-      return;
+      return null;
     }
 
     const nextClient = createSidecarClient({ connection });
@@ -94,6 +94,7 @@ export function useDecisionQueueShellController() {
     setClient(nextClient);
     setConnectionState({ status: "connected", connection });
     nextClient.getRuntimeStatus().then(setRuntimeStatus).catch(() => setRuntimeStatus(null));
+    return nextClient;
   }, []);
 
   useEffect(() => {
@@ -101,34 +102,50 @@ export function useDecisionQueueShellController() {
   }, [connect]);
 
   const refreshRuntimeStatus = useCallback(async () => {
-    if (!client) {
-      await connect();
+    if (isBusy) {
       return;
     }
 
+    setIsBusy(true);
     setWorkflowError(null);
     try {
-      setRuntimeStatus(await client.getRuntimeStatus());
+      const activeClient = client ?? await connect();
+
+      if (!activeClient) {
+        return;
+      }
+
+      setRuntimeStatus(await activeClient.getRuntimeStatus());
     } catch {
       setRuntimeStatus(null);
+    } finally {
+      setIsBusy(false);
     }
-  }, [client, connect]);
+  }, [client, connect, isBusy]);
 
   const startCodexLogin = useCallback(async () => {
-    if (!client) {
-      await connect();
+    if (isBusy) {
       return;
     }
 
+    setIsBusy(true);
     setWorkflowError(null);
     try {
-      const loginStart = await client.startCodexLogin();
+      const activeClient = client ?? await connect();
+
+      if (!activeClient) {
+        return;
+      }
+
+      const loginStart = await activeClient.startCodexLogin();
       setCodexLoginStart(loginStart);
-      setRuntimeStatus(await client.getRuntimeStatus().catch(() => runtimeStatus));
+      setRuntimeStatus(await activeClient.getRuntimeStatus().catch(() => runtimeStatus));
     } catch (error) {
       setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
     }
-  }, [client, connect, runtimeStatus]);
+  }, [client, connect, isBusy, runtimeStatus]);
 
   const {
     refreshResearchOperations,
