@@ -110,7 +110,7 @@ Rules:
 - Local Web Frontend sends `Authorization: Bearer <local-token>` to sidecar.
 - Sidecar accepts unauthenticated requests only for `/healthz` and `/readyz`.
 - Sidecar rejects requests from non-loopback addresses.
-- CORS is restricted to an explicit local origin allowlist: local web dev/build origins only.
+- CORS is restricted to explicit loopback web origins only: `http://127.0.0.1:<port>`, `http://localhost:<port>`, or `http://[::1]:<port>` from local dev/build/preview runs.
 - hosted web origin is not implicitly trusted and cannot receive local execution authority without a separate explicit pairing contract.
 - The local token is not the user's Codex credential and must not be persisted to disk.
 - Phase 3 approval/execution routes must defend CSRF/replay with idempotency key, preview hash, `ExecutionAuthorityRecord.recordId`, and approval expiry checks.
