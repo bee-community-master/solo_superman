@@ -1,5 +1,5 @@
 @media (max-width: 1240px) {
-  body {
+  .desktop-shell {
     min-width: 960px;
   }
 
@@ -29,5 +29,26 @@
   .implementation-view .implementation-step-ledger-panel,
   .implementation-view .activity-panel {
     grid-column: auto;
+  }
+}
+
+@media (max-width: 960px), (max-height: 720px) {
+  .desktop-shell {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .desktop-body {
+    min-height: calc(100vh - 52px);
+    min-height: calc(100dvh - 52px);
+    overflow: visible;
+  }
+
+  .left-rail,
+  .right-rail,
+  .desktop-workspace {
+    overflow-y: visible;
   }
 }
