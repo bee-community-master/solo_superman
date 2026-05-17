@@ -1,4 +1,5 @@
 import type { PlanningHandoffDetailGroup, PlanningHandoffViewModel } from "./decision-queue-view-model";
+import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
 interface PlanningHandoffPanelProps {
   readonly hasActiveSession: boolean;
@@ -28,6 +29,7 @@ export function PlanningHandoffPanel({
   onRunHandoffGate,
   onRefreshHandoff
 }: PlanningHandoffPanelProps) {
+  const copy = useDecisionQueueCopy();
   const artifact = handoff.final ?? handoff.blocker;
 
   return (
@@ -40,13 +42,13 @@ export function PlanningHandoffPanel({
       <p className="operations-summary">{handoff.summary}</p>
       <p className="operations-summary">{handoff.noExecutionLabel}</p>
       <p className="operations-summary">{handoff.refetchLabel}</p>
-      <p className="operations-summary">source refs: {handoff.sourceRefsLabel}</p>
+      <p className="operations-summary">{copy.handoff.sourceRefs}: {handoff.sourceRefsLabel}</p>
       <div className="card-actions panel-actions">
         <button type="button" disabled={isBusy || !hasActiveSession} onClick={onRunHandoffGate}>
-          Run Planning Handoff gate
+          {copy.handoff.runGate}
         </button>
         <button type="button" disabled={isBusy || !hasActiveSession} onClick={onRefreshHandoff}>
-          Refresh handoff
+          {copy.handoff.refresh}
         </button>
       </div>
       {artifact ? (

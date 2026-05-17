@@ -100,46 +100,6 @@ export const WEB_PUBLIC_SAFE_ALLOWLIST_ID = "research_allowlist_web_public_safe"
 export type DecisionQueuePageId = "questions" | "research" | "planning" | "implementation" | "permissions";
 export type PageHealth = "done" | "active" | "pending" | "blocked";
 
-export interface PageMeta {
-  readonly label: string;
-  readonly shortLabel: string;
-  readonly title: string;
-  readonly description: string;
-}
-
-export const PAGE_META: Record<DecisionQueuePageId, PageMeta> = {
-  questions: {
-    label: "질문 큐",
-    shortLabel: "Q",
-    title: "Decision Queue",
-    description: "사업 목적, 리서치 필요성, 알려진 리스크를 한 화면에서 처리합니다."
-  },
-  research: {
-    label: "리서치",
-    shortLabel: "R",
-    title: "Research Evidence",
-    description: "허용된 public-safe 리서치 실행과 수동 근거 import를 관리합니다."
-  },
-  planning: {
-    label: "기획",
-    shortLabel: "P",
-    title: "Planning Readiness",
-    description: "Spec, completeness score, Founder Brief, handoff gate를 확인합니다."
-  },
-  implementation: {
-    label: "구현",
-    shortLabel: "I",
-    title: "Implementation Runtime",
-    description: "런타임 activity와 implementation ledger를 한 흐름으로 추적합니다."
-  },
-  permissions: {
-    label: "권한",
-    shortLabel: "A",
-    title: "Delegation & Permissions",
-    description: "외부 브라우저 위임과 service page-use 권한을 별도 audit 흐름으로 관리합니다."
-  }
-};
-
 export function displayError(error: unknown) {
   if (error instanceof SidecarClientError) {
     return `${error.apiError.code}: ${error.apiError.message}`;

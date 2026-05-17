@@ -30,13 +30,13 @@ import {
   DEFAULT_INTAKE,
   emptyProjectionState,
   emptyResearchOperationsState,
-  PAGE_META,
   type CommandLogEntry,
   type ConnectionState,
   type DecisionQueuePageId,
   type PageHealth,
   type ProjectionState
 } from "./decision-queue-shell-model";
+import { useDecisionQueueCopy } from "./decision-queue-copy";
 import { planningRadarAxes } from "./planning-radar-model";
 import { useCommandLogActions } from "./useCommandLogActions";
 import { useDecisionQueuePlanningPermissionActions } from "./useDecisionQueuePlanningPermissionActions";
@@ -46,6 +46,7 @@ import { useDecisionQueueSessionActions } from "./useDecisionQueueSessionActions
 
 
 export function useDecisionQueueShellController() {
+  const copy = useDecisionQueueCopy();
   const [connectionState, setConnectionState] = useState<ConnectionState>({ status: "connecting" });
   const [client, setClient] = useState<SidecarClient | null>(null);
   const [idea, setIdea] = useState(DEFAULT_IDEA);
@@ -200,8 +201,29 @@ export function useDecisionQueueShellController() {
     setWorkflowError
   });
 
-  const sections = useMemo(() => queueSections(projections.queue), [projections.queue]);
-  const queueRecovery = useMemo(() => decisionQueueRecoveryViewModel(projections.queue), [projections.queue]);
+  const sections = useMemo(
+    () =>
+      queueSections(projections.queue).map((section) => ({
+        ...section,
+        ...copy.questions.queueSections[section.id]
+      })),
+    [copy, projections.queue]
+  );
+  const queueRecovery = useMemo(() => {
+    const recovery = decisionQueueRecoveryViewModel(projections.queue);
+
+    if (projections.queue) {
+      return recovery;
+    }
+
+    return {
+      ...recovery,
+      label: copy.questions.queueRecoveryFresh,
+      refetchLabel: copy.questions.queueRefetchMissing,
+      sseLabel: copy.questions.queueSseMissing,
+      activeBatchLabel: copy.questions.queueActiveBatchMissing
+    };
+  }, [copy, projections.queue]);
   const pendingSummary = useMemo(() => pendingEffectSummary(statuses), [statuses]);
   const runtimeActivity = useMemo(
     () => projections.activity ?? runtimeActivityProjectionFromStatuses(statuses),
@@ -243,10 +265,17 @@ export function useDecisionQueueShellController() {
     () => implementationStepLedgerViewModel(projections.implementationStepLedger),
     [projections.implementationStepLedger]
   );
-  const planningRadarAxesView = useMemo(() => planningRadarAxes(confidence), [confidence]);
+  const planningRadarAxesView = useMemo(
+    () =>
+      planningRadarAxes(confidence).map((axis) => ({
+        ...axis,
+        label: copy.rightRail.radarAxes[axis.axisId as keyof typeof copy.rightRail.radarAxes] ?? axis.label
+      })),
+    [confidence, copy]
+  );
   const planningRadarPolygonPoints = planningRadarAxesView.map((axis) => axis.point).join(" ");
   const planningCompletenessScore = confidence?.compositeScore ?? 0;
-  const planningReadinessLabel = confidence?.readinessLabel ?? "pending";
+  const planningReadinessLabel = confidence?.readinessLabel ?? copy.rightRail.pending;
   const canStart =
     connectionState.status === "connected" &&
     Boolean(client) &&
@@ -265,40 +294,40 @@ export function useDecisionQueueShellController() {
   const activeResearchRunCount =
     researchOperations.runs?.runs.filter((run) => run.status === "queued" || run.status === "running" || run.status === "paused")
       .length ?? 0;
-  const activePageMeta = PAGE_META[activePage];
+  const activePageMeta = copy.pageMeta[activePage];
   const connectionLabel = connectionState.status === "connected" ? connectionState.connection.mode : connectionState.status;
   const connectionTone = connectionState.status === "connected" ? "connected" : connectionState.status;
   const navItems = [
     {
       id: "questions" as const,
-      label: PAGE_META.questions.label,
-      sublabel: `${activeQueueCount} active · ${nextQueueCount} next`,
+      label: copy.pageMeta.questions.label,
+      sublabel: copy.nav.questionsSublabel(activeQueueCount, nextQueueCount),
       badge: totalQueueCount,
       health: activeQueueCount ? "active" : projections.queue ? "done" : "pending"
     },
     {
       id: "research" as const,
-      label: PAGE_META.research.label,
-      sublabel: `${projections.research?.tasks.length ?? 0} tasks · ${activeResearchRunCount} runs`,
+      label: copy.pageMeta.research.label,
+      sublabel: copy.nav.researchSublabel(projections.research?.tasks.length ?? 0, activeResearchRunCount),
       badge: activeResearchRunCount || undefined,
       health: activeResearchRunCount ? "active" : projections.research ? "done" : "pending"
     },
     {
       id: "planning" as const,
-      label: PAGE_META.planning.label,
+      label: copy.pageMeta.planning.label,
       sublabel: planningHandoffView.statusLabel,
       health: planningHandoffView.status === "blocked" ? "blocked" : projections.spec ? "active" : "pending"
     },
     {
       id: "implementation" as const,
-      label: PAGE_META.implementation.label,
+      label: copy.pageMeta.implementation.label,
       sublabel: implementationStepLedgerView.status,
       health: implementationStepLedgerView.status === "completed" ? "done" : projections.implementationStepLedger ? "active" : "pending"
     },
     {
       id: "permissions" as const,
-      label: PAGE_META.permissions.label,
-      sublabel: `${chatGptDelegationView.status} · ${servicePageUsePermissionView.status}`,
+      label: copy.pageMeta.permissions.label,
+      sublabel: copy.nav.permissionsSublabel(chatGptDelegationView.status, servicePageUsePermissionView.status),
       health:
         chatGptDelegationView.status !== "not_started" || servicePageUsePermissionView.status !== "not_started"
           ? "active"
@@ -402,7 +431,8 @@ export function useDecisionQueueShellController() {
     activePageMeta,
     connectionLabel,
     connectionTone,
-    navItems
+    navItems,
+    pageMeta: copy.pageMeta
   };
 }
 

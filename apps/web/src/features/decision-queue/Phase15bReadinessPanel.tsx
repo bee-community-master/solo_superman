@@ -1,4 +1,5 @@
 import type { Phase15bReadinessViewModel } from "./decision-queue-view-model";
+import { useDecisionQueueCopy, type DecisionQueueCopy } from "./shell/decision-queue-copy";
 
 type Phase15bReadinessRecord = Phase15bReadinessViewModel["records"][number];
 
@@ -9,15 +10,15 @@ interface Phase15bReadinessPanelProps {
   readonly onRefreshReadiness: () => void;
 }
 
-function readinessRecordRows(record: Phase15bReadinessRecord) {
+function readinessRecordRows(record: Phase15bReadinessRecord, copy: DecisionQueueCopy) {
   return [
-    { label: "요약", value: record.previewSummary },
-    { label: "승인", value: record.approvalLabel },
-    { label: "실행 격리", value: record.sandboxLabel },
-    { label: "되돌리기", value: record.rollbackLabel },
-    { label: "확인 자료", value: record.evidenceLabel },
-    { label: "차단 위험", value: record.riskLabel },
-    { label: "출처", value: record.sourceRefLabel }
+    { label: copy.phase15b.rows.summary, value: record.previewSummary },
+    { label: copy.phase15b.rows.approval, value: record.approvalLabel },
+    { label: copy.phase15b.rows.sandbox, value: record.sandboxLabel },
+    { label: copy.phase15b.rows.rollback, value: record.rollbackLabel },
+    { label: copy.phase15b.rows.evidence, value: record.evidenceLabel },
+    { label: copy.phase15b.rows.risk, value: record.riskLabel },
+    { label: copy.phase15b.rows.source, value: record.sourceRefLabel }
   ];
 }
 
@@ -27,10 +28,12 @@ export function Phase15bReadinessPanel({
   readiness,
   onRefreshReadiness
 }: Phase15bReadinessPanelProps) {
+  const copy = useDecisionQueueCopy();
+
   return (
     <section className="panel">
       <div className="panel-heading">
-        <h2>실행 준비 노트</h2>
+        <h2>{copy.phase15b.title}</h2>
         <span>{readiness.statusLabel}</span>
       </div>
       <p className="operations-summary">{readiness.label}</p>
@@ -38,7 +41,7 @@ export function Phase15bReadinessPanel({
       <p className="operations-summary">{readiness.exportLabel}</p>
       <div className="card-actions panel-actions">
         <button type="button" disabled={isBusy || !hasActiveProject} onClick={onRefreshReadiness}>
-          실행 준비 새로고침
+          {copy.phase15b.refresh}
         </button>
       </div>
       {readiness.records.length ? (
@@ -46,9 +49,9 @@ export function Phase15bReadinessPanel({
           {readiness.records.map((record) => (
             <article className="operations-card readiness-card" key={record.hintId}>
               <strong>{record.surfaceLabel}</strong>
-              <span>안전 실행 노트</span>
+              <span>{copy.phase15b.safeExecutionNote}</span>
               <small>{record.statusLabel}</small>
-              {readinessRecordRows(record).map((row) => (
+              {readinessRecordRows(record, copy).map((row) => (
                 <small key={row.label}>
                   {row.label}: {row.value}
                 </small>

@@ -1,9 +1,6 @@
 import { CONTRACT_SCHEMA_VERSION } from "@solo-superman/contracts";
-import {
-  BUSINESS_CRITIC_INTENSITY_OPTIONS,
-  isBusinessCriticQueueItem,
-  PROJECT_PURPOSE_MODE_OPTIONS
-} from "./decision-queue-shell-model";
+import { isBusinessCriticQueueItem } from "./decision-queue-shell-model";
+import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface QuestionsViewProps {
@@ -11,6 +8,7 @@ interface QuestionsViewProps {
 }
 
 export function QuestionsView({ controller }: QuestionsViewProps) {
+  const copy = useDecisionQueueCopy();
   const {
     answerDrafts,
     businessCriticIntensity,
@@ -40,28 +38,28 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     <div className="view-grid questions-view">
       <form className="panel start-panel" onSubmit={runInitialQueueFlow}>
         <div className="panel-heading">
-          <h2>Session start</h2>
+          <h2>{copy.questions.sessionStart}</h2>
           <span>{CONTRACT_SCHEMA_VERSION}</span>
         </div>
-        <section className="start-guide" aria-label="First run guidance">
-          <h3>처음 시작하기</h3>
+        <section className="start-guide" aria-label={copy.questions.firstRunAria}>
+          <h3>{copy.questions.firstRunTitle}</h3>
           <ul>
-            <li>아이디어와 현재 고민을 적으면 첫 질문 묶음을 만듭니다.</li>
-            <li>사업 목적이면 검증 강도를 직접 고릅니다. 앱이 임의로 강도를 정하지 않습니다.</li>
-            <li>리서치와 실행 준비는 먼저 검토 가능한 노트로 남고, 위험한 작업은 자동 실행하지 않습니다.</li>
+            {copy.questions.firstRunItems.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
           </ul>
         </section>
         <label>
-          Raw idea
+          {copy.questions.rawIdea}
           <textarea value={idea} onChange={(event) => setIdea(event.target.value)} rows={4} />
         </label>
         <label>
-          Intake answer
+          {copy.questions.intakeAnswer}
           <textarea value={intake} onChange={(event) => setIntake(event.target.value)} rows={5} />
         </label>
         <fieldset className="mode-fieldset">
-          <legend>Project purpose</legend>
-          {PROJECT_PURPOSE_MODE_OPTIONS.map((option) => (
+          <legend>{copy.questions.projectPurpose}</legend>
+          {copy.projectPurposeModeOptions.map((option) => (
             <label className="mode-option" key={option.mode}>
               <input
                 checked={projectPurposeMode === option.mode}
@@ -77,13 +75,13 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
             </label>
           ))}
           <p className="mode-help">
-            AI가 모드를 제안할 수 있어도 확정은 사용자가 선택합니다. 선택 전에는 mode_required 상태로 두며 이후 변경은 auditable event로 남습니다.
+            {copy.questions.purposeHelp}
           </p>
         </fieldset>
         {projectPurposeMode === "business" ? (
           <fieldset className="mode-fieldset">
-            <legend>Business critic intensity</legend>
-            {BUSINESS_CRITIC_INTENSITY_OPTIONS.map((option) => (
+            <legend>{copy.questions.businessCriticIntensity}</legend>
+            {copy.businessCriticIntensityOptions.map((option) => (
               <label className="mode-option" key={option.intensity}>
                 <input
                   checked={businessCriticIntensity === option.intensity}
@@ -99,26 +97,26 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
               </label>
             ))}
             <label>
-              Intensity reason
+              {copy.questions.intensityReason}
               <input
                 value={initialBusinessCriticIntensityReason}
                 onChange={(event) => setInitialBusinessCriticIntensityReason(event.target.value)}
-                placeholder="검증 강도를 선택한 이유를 audit에 남깁니다."
+                placeholder={copy.questions.intensityReasonPlaceholder}
               />
             </label>
             <p className="mode-help">
-              사업화 모드는 기본 강도를 자동 선택하지 않습니다. 선택 전에는 상업성 검증 강도 선택 필요 상태로 남습니다.
+              {copy.questions.intensityHelp}
             </p>
           </fieldset>
         ) : null}
         <button type="submit" disabled={!canStart}>
-          {isBusy ? "Running" : "Create first batch"}
+          {isBusy ? copy.questions.running : copy.questions.createFirstBatch}
         </button>
       </form>
 
       <section className="panel queue-panel">
         <div className="panel-heading">
-          <h2>Queue</h2>
+          <h2>{copy.questions.queue}</h2>
           <span>{queueRecovery.status} · v{projections.queue?.version ?? 0}</span>
         </div>
         <div className="queue-recovery">
@@ -149,13 +147,13 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                           </p>
                         ) : null}
                         {item.nextValidationAction ? (
-                          <p className="research-recovery">Next validation: {item.nextValidationAction}</p>
+                          <p className="research-recovery">{copy.questions.nextValidation}: {item.nextValidationAction}</p>
                         ) : null}
                       </div>
                       {section.id === "active" && item.state === "active" ? (
                         <div className="answer-box">
                           <textarea
-                            aria-label={`Answer ${item.title}`}
+                            aria-label={`${copy.questions.answerAriaPrefix} ${item.title}`}
                             value={answerDrafts[item.queueItemId] ?? ""}
                             onChange={(event) =>
                               setAnswerDrafts((current) => ({
@@ -166,14 +164,14 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                             rows={3}
                           />
                           <button type="button" disabled={isBusy} onClick={() => void submitAnswer(item.queueItemId)}>
-                            Submit answer
+                            {copy.questions.submitAnswer}
                           </button>
                         </div>
                       ) : null}
                       {isBusinessCriticQueueItem(item) && item.state !== "deferred" ? (
                         <div className="answer-box">
                           <textarea
-                            aria-label={`Next validation action for ${item.title}`}
+                            aria-label={`${copy.questions.nextValidationActionAriaPrefix} ${item.title}`}
                             value={knownRiskDrafts[item.queueItemId] ?? ""}
                             onChange={(event) =>
                               setKnownRiskDrafts((current) => ({
@@ -181,7 +179,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                                 [item.queueItemId]: event.target.value
                               }))
                             }
-                            placeholder="Known Risk로 남길 때 다음 검증 행동을 적어주세요."
+                            placeholder={copy.questions.knownRiskPlaceholder}
                             rows={2}
                           />
                           <button
@@ -189,7 +187,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                             disabled={isBusy}
                             onClick={() => void carryQueueItemAsKnownRisk(item.queueItemId)}
                           >
-                            Carry as Known Risk
+                            {copy.questions.carryAsKnownRisk}
                           </button>
                         </div>
                       ) : null}

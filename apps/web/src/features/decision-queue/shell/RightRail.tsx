@@ -1,4 +1,5 @@
 import { PlanningCompletenessRadar } from "./PlanningCompletenessRadar";
+import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface RightRailProps {
@@ -8,6 +9,7 @@ interface RightRailProps {
 const RECENT_ACTIVITY_LIMIT = 5;
 
 export function RightRail({ controller }: RightRailProps) {
+  const copy = useDecisionQueueCopy();
   const {
     activeResearchRunCount,
     commandLog,
@@ -21,10 +23,10 @@ export function RightRail({ controller }: RightRailProps) {
   const recentCommandLog = commandLog.slice(0, RECENT_ACTIVITY_LIMIT);
 
   return (
-    <aside className="right-rail" aria-label="Live project summary">
+    <aside className="right-rail" aria-label={copy.rightRail.aria}>
       <section className="summary-card completeness-card">
         <div className="radar-card-header">
-          <p className="rail-label">기획 완성도</p>
+          <p className="rail-label">{copy.rightRail.planningCompleteness}</p>
           <div>
             <strong>{planningCompletenessScore}%</strong>
             <span>{planningReadinessLabel}</span>
@@ -39,32 +41,34 @@ export function RightRail({ controller }: RightRailProps) {
       </section>
 
       <section className="summary-card">
-        <p className="rail-label">리서치 현황</p>
+        <p className="rail-label">{copy.rightRail.researchStatus}</p>
         <div className="research-stats">
           <span>
             <strong>{projections.research?.tasks.length ?? 0}</strong>
-            tasks
+            {" "}
+            {copy.rightRail.tasks}
           </span>
           <span>
             <strong>{activeResearchRunCount}</strong>
-            active runs
+            {" "}
+            {copy.rightRail.activeRuns}
           </span>
         </div>
-        <p className="mode-summary">{phase15aOperations.exitGate.label}</p>
+        <p className="mode-summary">{projections.research ? phase15aOperations.exitGate.label : copy.rightRail.researchNeedsReview}</p>
       </section>
 
       <section className="summary-card">
-        <p className="rail-label">최근 활동</p>
+        <p className="rail-label">{copy.rightRail.recentActivity}</p>
         <div className="activity-list compact">
           {recentCommandLog.length ? (
             recentCommandLog.map((entry) => (
               <article className="activity-item" key={entry.id}>
                 <strong>{entry.label}</strong>
-                <span>{entry.status?.commandStatus ?? entry.response?.category ?? entry.message ?? entry.error ?? "pending"}</span>
+                <span>{entry.status?.commandStatus ?? entry.response?.category ?? entry.message ?? entry.error ?? copy.rightRail.pending}</span>
               </article>
             ))
           ) : (
-            <p className="empty-state">No activity yet.</p>
+            <p className="empty-state">{copy.rightRail.noActivity}</p>
           )}
         </div>
       </section>

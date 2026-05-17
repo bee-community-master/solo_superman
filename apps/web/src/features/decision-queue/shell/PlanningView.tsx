@@ -1,9 +1,6 @@
 import { Phase15bReadinessPanel } from "../Phase15bReadinessPanel";
 import { PlanningHandoffPanel } from "../PlanningHandoffPanel";
-import {
-  BUSINESS_CRITIC_INTENSITY_OPTIONS,
-  PROJECT_PURPOSE_MODE_OPTIONS
-} from "./decision-queue-shell-model";
+import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface PlanningViewProps {
@@ -11,6 +8,7 @@ interface PlanningViewProps {
 }
 
 export function PlanningView({ controller }: PlanningViewProps) {
+  const copy = useDecisionQueueCopy();
   const {
     businessCriticIntensityChangeReason,
     changeBusinessCriticIntensity,
@@ -34,7 +32,7 @@ export function PlanningView({ controller }: PlanningViewProps) {
     <div className="view-grid planning-view">
       <section className="panel spec-panel">
         <div className="panel-heading">
-          <h2>Spec</h2>
+          <h2>{copy.planning.spec}</h2>
           <span>{projections.session?.phase ?? "none"}</span>
         </div>
         {projections.spec?.title ? (
@@ -49,28 +47,28 @@ export function PlanningView({ controller }: PlanningViewProps) {
             ) : null}
           </div>
         ) : (
-          <p className="empty-state">No spec draft yet.</p>
+          <p className="empty-state">{copy.planning.noSpecDraft}</p>
         )}
         <dl className="metrics">
           <div>
-            <dt>Session version</dt>
+            <dt>{copy.planning.sessionVersion}</dt>
             <dd>{projections.session?.version ?? 0}</dd>
           </div>
           <div>
-            <dt>Spec sections</dt>
+            <dt>{copy.planning.specSections}</dt>
             <dd>{projections.spec?.sectionCount ?? 0}</dd>
           </div>
           <div>
-            <dt>Approval</dt>
+            <dt>{copy.planning.approval}</dt>
             <dd>{projections.spec?.approvalStatus ?? "draft"}</dd>
           </div>
           <div>
-            <dt>Project purpose</dt>
-            <dd>{projections.session?.projectPurposeModeLabel ?? "not selected"}</dd>
+            <dt>{copy.planning.projectPurpose}</dt>
+            <dd>{projections.session?.projectPurposeModeLabel ?? copy.planning.notSelected}</dd>
           </div>
           <div>
-            <dt>Business critic</dt>
-            <dd>{projections.session?.businessCriticIntensityLabel ?? "not applicable"}</dd>
+            <dt>{copy.planning.businessCritic}</dt>
+            <dd>{projections.session?.businessCriticIntensityLabel ?? copy.planning.notApplicable}</dd>
           </div>
         </dl>
         {projections.session?.projectPurposeModeEffect ? (
@@ -82,53 +80,53 @@ export function PlanningView({ controller }: PlanningViewProps) {
         {projections.session?.projectPurposeMode === "business" ? (
           <div className="mode-change-panel">
             <label>
-              Business critic change reason
+              {copy.planning.businessCriticChangeReason}
               <input
                 value={businessCriticIntensityChangeReason}
                 onChange={(event) => setBusinessCriticIntensityChangeReason(event.target.value)}
-                placeholder="상업성 검증 강도를 바꾸는 이유를 기록합니다."
+                placeholder={copy.planning.businessCriticChangeReasonPlaceholder}
               />
             </label>
             <div className="card-actions">
-              {BUSINESS_CRITIC_INTENSITY_OPTIONS.map((option) => (
+              {copy.businessCriticIntensityOptions.map((option) => (
                 <button
                   type="button"
                   disabled={isBusy || projections.session?.businessCriticIntensity === option.intensity}
                   key={option.intensity}
                   onClick={() => void changeBusinessCriticIntensity(option.intensity)}
                 >
-                  {option.label}으로 변경
+                  {copy.planning.changeTo(option.label)}
                 </button>
               ))}
             </div>
             <small>
-              변경은 `BusinessCriticIntensityChanged` 이벤트로 audit되며 새 critical pressure는 active batch를 교체하지 않고 queued_next에 추가됩니다.
+              {copy.planning.businessCriticAuditHelp}
             </small>
           </div>
         ) : null}
         {projections.session ? (
           <div className="mode-change-panel">
             <label>
-              Mode change reason
+              {copy.planning.modeChangeReason}
               <input
                 value={purposeModeChangeReason}
                 onChange={(event) => setPurposeModeChangeReason(event.target.value)}
-                placeholder="왜 질문/리서치 기준을 바꾸는지 기록합니다."
+                placeholder={copy.planning.modeChangeReasonPlaceholder}
               />
             </label>
             <div className="card-actions">
-              {PROJECT_PURPOSE_MODE_OPTIONS.map((option) => (
+              {copy.projectPurposeModeOptions.map((option) => (
                 <button
                   type="button"
                   disabled={isBusy || projections.session?.projectPurposeMode === option.mode}
                   key={option.mode}
                   onClick={() => void changeProjectPurposeMode(option.mode)}
                 >
-                  {option.label}으로 변경
+                  {copy.planning.changeTo(option.label)}
                 </button>
               ))}
             </div>
-            <small>변경은 `ProjectPurposeModeChanged` 이벤트로 audit되고 기존 active batch는 유지됩니다.</small>
+            <small>{copy.planning.modeAuditHelp}</small>
           </div>
         ) : null}
       </section>
@@ -158,12 +156,12 @@ export function PlanningView({ controller }: PlanningViewProps) {
 
       <section className="panel score-panel">
         <div className="panel-heading">
-          <h2>Progress</h2>
-          <span>{confidence?.readinessLabel ?? "pending"}</span>
+          <h2>{copy.planning.progress}</h2>
+          <span>{confidence?.readinessLabel ?? copy.planning.pending}</span>
         </div>
         <div className="score">{confidence?.compositeScore ?? 0}</div>
         <button type="button" disabled={isBusy || !projections.session} onClick={() => void scoreCompleteness()}>
-          Score completeness
+          {copy.planning.scoreCompleteness}
         </button>
         {confidence?.topRisks.length ? (
           <ul>
@@ -172,17 +170,17 @@ export function PlanningView({ controller }: PlanningViewProps) {
             ))}
           </ul>
         ) : (
-          <p className="empty-state">No risk projection yet.</p>
+          <p className="empty-state">{copy.planning.noRiskProjection}</p>
         )}
       </section>
 
       <section className="panel founder-brief-panel">
         <div className="panel-heading">
-          <h2>Founder Brief</h2>
-          <span>{projections.founderBrief?.exportReady ? "ready" : "draft"}</span>
+          <h2>{copy.planning.founderBrief}</h2>
+          <span>{projections.founderBrief?.exportReady ? copy.planning.ready : copy.planning.draft}</span>
         </div>
         <button type="button" disabled={isBusy || !projections.session} onClick={() => void prepareFounderBrief()}>
-          Prepare export metadata
+          {copy.planning.prepareExportMetadata}
         </button>
         {projections.founderBrief ? (
           <div className="spec-outline">
@@ -194,7 +192,7 @@ export function PlanningView({ controller }: PlanningViewProps) {
             ))}
           </div>
         ) : (
-          <p className="empty-state">No Founder Brief prepared yet.</p>
+          <p className="empty-state">{copy.planning.noFounderBrief}</p>
         )}
       </section>
     </div>

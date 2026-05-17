@@ -458,9 +458,9 @@ describe("Decision Queue view model readiness-panels", () => {
       })
     );
 
-    expect(markup).toContain("리서치 운영");
-    expect(markup).toContain("<button type=\"button\" disabled=\"\">리서치 소스 켜기</button>");
-    expect(markup).toContain("<button type=\"button\" disabled=\"\">상태 새로고침</button>");
+    expect(markup).toContain("Research operations");
+    expect(markup).toContain("<button type=\"button\" disabled=\"\">Enable research sources</button>");
+    expect(markup).toContain("<button type=\"button\" disabled=\"\">Refresh status</button>");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Pause</button>");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Revoke</button>");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Refresh status</button>");
@@ -477,15 +477,15 @@ describe("Decision Queue view model readiness-panels", () => {
       })
     );
 
-    expect(markup).toContain("실행 준비 노트");
+    expect(markup).toContain("Execution readiness notes");
     expect(markup).toContain("실행 준비 노트 있음");
-    expect(markup).toContain("안전 실행 노트");
-    expect(markup).toContain("승인:");
-    expect(markup).toContain("실행 격리:");
-    expect(markup).toContain("되돌리기:");
-    expect(markup).toContain("확인 자료:");
-    expect(markup).toContain("차단 위험:");
-    expect(markup).toContain("출처:");
+    expect(markup).toContain("Safe execution note");
+    expect(markup).toContain("Approval:");
+    expect(markup).toContain("Execution isolation:");
+    expect(markup).toContain("Rollback:");
+    expect(markup).toContain("Evidence:");
+    expect(markup).toContain("Blocked risk:");
+    expect(markup).toContain("Source:");
     expect(markup).toContain("실제 작업은 실행하지 않음");
     expect(markup).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
     expect(markup).not.toContain("metadata_visible");

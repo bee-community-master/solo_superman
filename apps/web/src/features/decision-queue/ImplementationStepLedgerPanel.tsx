@@ -2,6 +2,7 @@ import type {
   ImplementationStepLedgerProjection,
   ImplementationStepRecord
 } from "@solo-superman/contracts";
+import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
 export interface ImplementationStepLedgerViewModel {
   readonly status: string;
@@ -120,25 +121,27 @@ export function ImplementationStepLedgerPanel({
   isBusy,
   onRefreshLedger
 }: ImplementationStepLedgerPanelProps) {
+  const copy = useDecisionQueueCopy();
+
   return (
     <section className="panel implementation-step-ledger-panel">
       <div className="panel-heading">
-        <h2>Implementation step ledger</h2>
+        <h2>{copy.ledger.title}</h2>
         <span>{ledger.status}</span>
       </div>
       <p>{ledger.summary}</p>
       <p className="research-recovery">{ledger.trackerLabel}</p>
-      <p className="mode-summary">Next action: {ledger.nextAction}</p>
+      <p className="mode-summary">{copy.ledger.nextAction}: {ledger.nextAction}</p>
       <div className="card-actions panel-actions">
         <button type="button" disabled={isBusy} onClick={onRefreshLedger}>
-          Refresh implementation ledger
+          {copy.ledger.refresh}
         </button>
       </div>
 
-      <h3>Latest step</h3>
+      <h3>{copy.ledger.latestStep}</h3>
       <ul>
-        <li>Step: {ledger.latestStepTitle}</li>
-        <li>Scope: {ledger.latestStepScope}</li>
+        <li>{copy.ledger.step}: {ledger.latestStepTitle}</li>
+        <li>{copy.ledger.scope}: {ledger.latestStepScope}</li>
         <li>{ledger.commitLabel}</li>
         <li>{ledger.previousCommitLabel}</li>
         <li>{ledger.diffRangeLabel}</li>
@@ -149,12 +152,12 @@ export function ImplementationStepLedgerPanel({
         {ledger.noCodeEvidenceLabel ? <li>{ledger.noCodeEvidenceLabel}</li> : null}
       </ul>
 
-      <h3>Progress report</h3>
+      <h3>{copy.ledger.progressReport}</h3>
       <pre className="ledger-progress-report">{ledger.progressReport}</pre>
 
       {ledger.missingEvidenceItems.length ? (
         <>
-          <h3>Missing or blocked evidence</h3>
+          <h3>{copy.ledger.missingEvidence}</h3>
           <ul>
             {ledger.missingEvidenceItems.map((item) => (
               <li key={item}>{item}</li>
@@ -165,7 +168,7 @@ export function ImplementationStepLedgerPanel({
 
       {ledger.blockerLabel ? <p className="research-recovery">{ledger.blockerLabel}</p> : null}
 
-      <h3>Evidence refs</h3>
+      <h3>{copy.ledger.evidenceRefs}</h3>
       {ledger.evidenceRefs.length ? (
         <ul>
           {ledger.evidenceRefs.map((ref) => (
@@ -173,7 +176,7 @@ export function ImplementationStepLedgerPanel({
           ))}
         </ul>
       ) : (
-        <p className="empty-state">No implementation evidence refs recorded.</p>
+        <p className="empty-state">{copy.ledger.noEvidenceRefs}</p>
       )}
     </section>
   );

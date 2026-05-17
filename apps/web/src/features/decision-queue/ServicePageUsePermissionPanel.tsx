@@ -2,6 +2,7 @@ import type {
   ServicePageUsePermissionProjection,
   ServicePageUsePermissionRecord
 } from "@solo-superman/contracts";
+import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
 export interface ServicePageUsePermissionViewModel {
   readonly status: string;
@@ -135,46 +136,47 @@ export function ServicePageUsePermissionPanel({
   onExportArtifacts,
   onDeleteArtifacts
 }: ServicePageUsePermissionPanelProps) {
+  const copy = useDecisionQueueCopy();
   const revokablePermissionId = permission.canRevoke ? permission.permissionId : null;
   const artifactControlPermissionId = permission.permissionId;
 
   return (
     <section className="panel service-page-use-permission-panel">
       <div className="panel-heading">
-        <h2>Service login permission</h2>
+        <h2>{copy.permissions.serviceLoginPermission}</h2>
         <span>{permission.status}</span>
       </div>
       <p>{permission.summary}</p>
       <p className="research-recovery">{permission.explanation}</p>
-      <p className="mode-summary">Next action: {permission.nextAction}</p>
+      <p className="mode-summary">{copy.permissions.nextAction}: {permission.nextAction}</p>
       <div className="card-actions panel-actions">
         <button type="button" disabled={isBusy} onClick={onRefreshPermission}>
-          Refresh service permission
+          {copy.permissions.refreshServicePermission}
         </button>
         {revokablePermissionId ? (
           <button type="button" disabled={isBusy} onClick={() => onRevokePermission(revokablePermissionId)}>
-            Revoke service permission
+            {copy.permissions.revokeServicePermission}
           </button>
         ) : null}
       </div>
 
-      <h3>Permission preview</h3>
+      <h3>{copy.permissions.permissionPreview}</h3>
       <ul>
-        <li>Service: {permission.serviceLabel}</li>
-        <li>Page URL: {permission.pageUrl}</li>
-        <li>Purpose: {permission.purpose}</li>
-        <li>Allowed actions: {permission.allowedActionsLabel}</li>
-        <li>Blocked actions: {permission.blockedActionsLabel}</li>
-        <li>Visible data categories: {permission.dataCategoriesLabel}</li>
-        <li>Approval granularity: {permission.approvalGranularityLabel}</li>
-        <li>User approval: {permission.approvalLabel}</li>
-        <li>Login boundary: {permission.loginBoundaryLabel}</li>
-        <li>Final submit boundary: {permission.finalSubmitBoundaryLabel}</li>
+        <li>{copy.permissions.service}: {permission.serviceLabel}</li>
+        <li>{copy.permissions.pageUrl}: {permission.pageUrl}</li>
+        <li>{copy.permissions.purpose}: {permission.purpose}</li>
+        <li>{copy.permissions.allowedActions}: {permission.allowedActionsLabel}</li>
+        <li>{copy.permissions.blockedActions}: {permission.blockedActionsLabel}</li>
+        <li>{copy.permissions.visibleDataCategories}: {permission.dataCategoriesLabel}</li>
+        <li>{copy.permissions.approvalGranularity}: {permission.approvalGranularityLabel}</li>
+        <li>{copy.permissions.userApproval}: {permission.approvalLabel}</li>
+        <li>{copy.permissions.loginBoundary}: {permission.loginBoundaryLabel}</li>
+        <li>{copy.permissions.finalSubmitBoundary}: {permission.finalSubmitBoundaryLabel}</li>
       </ul>
 
-      <h3>Stored artifacts</h3>
+      <h3>{copy.permissions.storedArtifacts}</h3>
       {permission.redactionPreviewRef ? (
-        <p className="mode-summary">Redaction preview: {permission.redactionPreviewRef}</p>
+        <p className="mode-summary">{copy.permissions.redactionPreview}: {permission.redactionPreviewRef}</p>
       ) : null}
       {artifactControlPermissionId && (permission.exportControlLabel || permission.deleteControlLabel) ? (
         <div className="card-actions panel-actions">
@@ -205,12 +207,12 @@ export function ServicePageUsePermissionPanel({
           ))}
         </ul>
       ) : (
-        <p className="empty-state">No retained artifact refs.</p>
+        <p className="empty-state">{copy.permissions.noRetainedArtifactRefs}</p>
       )}
 
       {permission.blockReasonItems.length ? (
         <>
-          <h3>Blocked reasons</h3>
+          <h3>{copy.permissions.blockedReasons}</h3>
           <ul>
             {permission.blockReasonItems.map((item) => (
               <li key={item}>{item}</li>
@@ -219,7 +221,7 @@ export function ServicePageUsePermissionPanel({
         </>
       ) : null}
 
-      <h3>Activity feed links</h3>
+      <h3>{copy.permissions.activityFeedLinks}</h3>
       {permission.activityFeedRefs.length ? (
         <ul>
           {permission.activityFeedRefs.map((ref) => (
@@ -227,10 +229,10 @@ export function ServicePageUsePermissionPanel({
           ))}
         </ul>
       ) : (
-        <p className="empty-state">No linked setup-step/decision refs.</p>
+        <p className="empty-state">{copy.permissions.noLinkedSetupDecisionRefs}</p>
       )}
 
-      <h3>Audit log</h3>
+      <h3>{copy.permissions.auditLog}</h3>
       {permission.auditItems.length ? (
         <ul>
           {permission.auditItems.map((item) => (
@@ -238,7 +240,7 @@ export function ServicePageUsePermissionPanel({
           ))}
         </ul>
       ) : (
-        <p className="empty-state">No service permission audit entries yet.</p>
+        <p className="empty-state">{copy.permissions.noServicePermissionAuditEntries}</p>
       )}
     </section>
   );

@@ -1,4 +1,5 @@
 import { RADAR_RING_SCORES, radarRingPoints, type RadarAxisViewModel } from "./planning-radar-model";
+import { useDecisionQueueCopy } from "./decision-queue-copy";
 
 interface PlanningCompletenessRadarProps {
   readonly axes: readonly RadarAxisViewModel[];
@@ -8,10 +9,12 @@ interface PlanningCompletenessRadarProps {
 }
 
 export function PlanningCompletenessRadar({ axes, polygonPoints, readinessLabel, score }: PlanningCompletenessRadarProps) {
+  const copy = useDecisionQueueCopy();
+
   return (
     <>
       <svg
-        aria-label={`기획 완성도 레이더 그래프, 종합 ${score}%, ${readinessLabel}`}
+        aria-label={copy.rightRail.radarAria(score, readinessLabel)}
         className="planning-radar"
         role="img"
         viewBox="0 0 100 100"

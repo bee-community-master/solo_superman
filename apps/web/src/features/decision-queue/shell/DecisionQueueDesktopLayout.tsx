@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { CONTRACT_SCHEMA_VERSION } from "@solo-superman/contracts";
-import { PAGE_META, type DecisionQueuePageId } from "./decision-queue-shell-model";
+import { LanguageSwitcher } from "../../../shared/i18n/app-language";
+import { DECISION_QUEUE_PAGE_ORDER, useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface DecisionQueueDesktopLayoutProps {
@@ -10,6 +11,7 @@ interface DecisionQueueDesktopLayoutProps {
 }
 
 export function DecisionQueueDesktopLayout({ controller, children, rightRail }: DecisionQueueDesktopLayoutProps) {
+  const copy = useDecisionQueueCopy();
   const {
     activePage,
     activePageMeta,
@@ -21,6 +23,7 @@ export function DecisionQueueDesktopLayout({ controller, children, rightRail }: 
     connectionTone,
     isBusy,
     navItems,
+    pageMeta,
     projections,
     setActivePage,
     totalQueueCount,
@@ -38,12 +41,12 @@ export function DecisionQueueDesktopLayout({ controller, children, rightRail }: 
           </div>
           <div>
             <h1>Solo Superman</h1>
-            <p>{projections.session?.projectId ?? "Local Decision Queue"}</p>
+            <p>{projections.session?.projectId ?? copy.layout.localQueueFallback}</p>
           </div>
         </div>
-        <nav className="phase-trail" aria-label="Desktop workflow sections">
-          {Object.entries(PAGE_META).map(([id, meta], index) => {
-            const pageId = id as DecisionQueuePageId;
+        <nav className="phase-trail" aria-label={copy.layout.workflowSectionsAria}>
+          {DECISION_QUEUE_PAGE_ORDER.map((pageId, index) => {
+            const meta = pageMeta[pageId];
             const isActive = activePage === pageId;
 
             return (
@@ -56,18 +59,21 @@ export function DecisionQueueDesktopLayout({ controller, children, rightRail }: 
               >
                 <span className="phase-dot" />
                 {meta.shortLabel}
-                {index < Object.keys(PAGE_META).length - 1 ? <span className="phase-chevron">›</span> : null}
+                {index < DECISION_QUEUE_PAGE_ORDER.length - 1 ? <span className="phase-chevron">›</span> : null}
               </button>
             );
           })}
         </nav>
-        <div className={`connection-badge ${connectionTone}`}>{connectionLabel}</div>
+        <div className="topbar-actions">
+          <LanguageSwitcher />
+          <div className={`connection-badge ${connectionTone}`}>{connectionLabel}</div>
+        </div>
       </header>
 
       <div className="desktop-body">
-        <aside className="left-rail" aria-label="Workflow navigation">
+        <aside className="left-rail" aria-label={copy.layout.leftRailAria}>
           <nav className="left-nav">
-            <p className="rail-label">작업 단계</p>
+            <p className="rail-label">{copy.layout.workflowSteps}</p>
             {navItems.map((item) => {
               const isActive = activePage === item.id;
 
@@ -90,10 +96,10 @@ export function DecisionQueueDesktopLayout({ controller, children, rightRail }: 
             })}
           </nav>
 
-          <section className="rail-progress" aria-label="Live queue progress">
-            <p className="rail-label">진행 현황</p>
+          <section className="rail-progress" aria-label={copy.layout.progressAria}>
+            <p className="rail-label">{copy.layout.progress}</p>
             <div className="progress-row">
-              <span>완성도</span>
+              <span>{copy.layout.completeness}</span>
               <strong>{confidence?.compositeScore ?? 0}%</strong>
             </div>
             <div className="progress-track">
@@ -101,11 +107,11 @@ export function DecisionQueueDesktopLayout({ controller, children, rightRail }: 
             </div>
             <dl>
               <div>
-                <dt>대기 중인 질문</dt>
+                <dt>{copy.layout.pendingQuestions}</dt>
                 <dd>{totalQueueCount}</dd>
               </div>
               <div>
-                <dt>차단 질문</dt>
+                <dt>{copy.layout.blockedQuestions}</dt>
                 <dd>{blockedQueueCount}</dd>
               </div>
             </dl>
@@ -121,24 +127,28 @@ export function DecisionQueueDesktopLayout({ controller, children, rightRail }: 
             </div>
             <div className="workspace-actions">
               <button type="button" className="ghost-button" onClick={connect} disabled={isBusy}>
-                Reconnect sidecar
+                {copy.layout.reconnectSidecar}
               </button>
             </div>
           </div>
 
           {connectionState.status === "unavailable" ? (
             <section className="notice-panel">
-              <h2>Sidecar unavailable</h2>
-              <p>{connectionState.message}</p>
+              <h2>{copy.layout.sidecarUnavailable}</h2>
+              <p>
+                {connectionState.message === "Sidecar connection is unavailable."
+                  ? copy.layout.sidecarUnavailableMessage
+                  : connectionState.message}
+              </p>
               <button type="button" onClick={connect}>
-                Retry connection
+                {copy.layout.retryConnection}
               </button>
             </section>
           ) : null}
 
           {workflowError ? (
             <section className="notice-panel error">
-              <h2>Command failed</h2>
+              <h2>{copy.layout.commandFailed}</h2>
               <p>{workflowError}</p>
             </section>
           ) : null}

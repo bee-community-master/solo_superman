@@ -1,4 +1,5 @@
 import { ImplementationStepLedgerPanel } from "../ImplementationStepLedgerPanel";
+import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface ImplementationViewProps {
@@ -6,6 +7,7 @@ interface ImplementationViewProps {
 }
 
 export function ImplementationView({ controller }: ImplementationViewProps) {
+  const copy = useDecisionQueueCopy();
   const {
     commandLog,
     implementationStepLedgerView,
@@ -33,26 +35,26 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
 
       <section className="panel runtime-panel">
         <div className="panel-heading">
-          <h2>Runtime evidence</h2>
+          <h2>{copy.implementation.runtimeEvidence}</h2>
           <span>{runtimeActivity.runtimeStatus}</span>
         </div>
-        <p>{runtimeStatus ? `Adapter ${runtimeStatus.status}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
+        <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatus.status}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
         {statuses.length ? (
           <ul className="effect-list">
             {statuses.map((status) => (
               <li key={status.commandId}>
-                {status.commandStatus}: {status.effects.length} effect(s)
+                {status.commandStatus}: {status.effects.length} {copy.implementation.effectSuffix}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="empty-state">No command status records yet.</p>
+          <p className="empty-state">{copy.implementation.noCommandStatus}</p>
         )}
       </section>
 
       <section className="panel activity-panel">
         <div className="panel-heading">
-          <h2>Activity</h2>
+          <h2>{copy.implementation.activity}</h2>
           <span>{commandLog.length}</span>
         </div>
         <div className="activity-list">
@@ -60,7 +62,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             commandLog.map((entry) => (
               <article className="activity-item" key={entry.id}>
                 <strong>{entry.label}</strong>
-                <span>{entry.status?.commandStatus ?? entry.response?.category ?? entry.message ?? entry.error ?? "pending"}</span>
+                <span>{entry.status?.commandStatus ?? entry.response?.category ?? entry.message ?? entry.error ?? copy.implementation.pending}</span>
                 {entry.status?.effects.length ? (
                   <ul className="effect-list">
                     {entry.status.effects.map((effect) => (
@@ -78,13 +80,13 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
                     disabled={isBusy}
                     onClick={() => void refreshCommandStatus(entry)}
                   >
-                    Refresh status
+                    {copy.implementation.refreshStatus}
                   </button>
                 ) : null}
               </article>
             ))
           ) : (
-            <p className="empty-state">No activity yet.</p>
+            <p className="empty-state">{copy.implementation.noActivity}</p>
           )}
         </div>
       </section>

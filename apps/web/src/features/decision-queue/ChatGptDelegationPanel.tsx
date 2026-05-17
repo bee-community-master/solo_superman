@@ -2,6 +2,7 @@ import type {
   ChatGptBrowserDelegationProjection,
   ChatGptBrowserDelegationRun
 } from "@solo-superman/contracts";
+import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
 export interface ChatGptDelegationViewModel {
   readonly status: string;
@@ -97,29 +98,30 @@ export function ChatGptDelegationPanel({
   onRefreshDelegation,
   onRevokeDelegation
 }: ChatGptDelegationPanelProps) {
+  const copy = useDecisionQueueCopy();
   const revokableRunId = delegation.canRevoke ? delegation.runId : null;
 
   return (
     <section className="panel chatgpt-delegation-panel">
       <div className="panel-heading">
-        <h2>External AI workspace</h2>
+        <h2>{copy.permissions.externalAiWorkspace}</h2>
         <span>{delegation.status}</span>
       </div>
       <p>{delegation.summary}</p>
       <p className="research-recovery">{delegation.explanation}</p>
-      <p className="mode-summary">Next action: {delegation.nextAction}</p>
+      <p className="mode-summary">{copy.permissions.nextAction}: {delegation.nextAction}</p>
       <div className="card-actions panel-actions">
         <button type="button" disabled={isBusy} onClick={onRefreshDelegation}>
-          Refresh workspace
+          {copy.permissions.refreshWorkspace}
         </button>
         {revokableRunId ? (
           <button type="button" disabled={isBusy} onClick={() => onRevokeDelegation(revokableRunId)}>
-            Revoke workspace
+            {copy.permissions.revokeWorkspace}
           </button>
         ) : null}
       </div>
-      {delegation.fallbackLabel ? <p className="research-recovery">Fallback: {delegation.fallbackLabel}</p> : null}
-      {delegation.fallbackReason ? <p className="mode-summary">Fallback reason: {delegation.fallbackReason}</p> : null}
+      {delegation.fallbackLabel ? <p className="research-recovery">{copy.permissions.fallback}: {delegation.fallbackLabel}</p> : null}
+      {delegation.fallbackReason ? <p className="mode-summary">{copy.permissions.fallbackReason}: {delegation.fallbackReason}</p> : null}
       {delegation.blockReasonItems.length ? (
         <ul>
           {delegation.blockReasonItems.map((item) => (
@@ -127,10 +129,10 @@ export function ChatGptDelegationPanel({
           ))}
         </ul>
       ) : null}
-      <h3>Stored artifacts</h3>
+      <h3>{copy.permissions.storedArtifacts}</h3>
       <p className="mode-summary">{delegation.retentionLabel}</p>
       {delegation.redactionPreviewRef ? (
-        <p className="mode-summary">Redaction preview: {delegation.redactionPreviewRef}</p>
+        <p className="mode-summary">{copy.permissions.redactionPreview}: {delegation.redactionPreviewRef}</p>
       ) : null}
       {delegation.artifactControlLabels.length ? (
         <div className="card-actions panel-actions">
@@ -153,9 +155,9 @@ export function ChatGptDelegationPanel({
           ))}
         </ul>
       ) : (
-        <p className="empty-state">No retained artifact refs.</p>
+        <p className="empty-state">{copy.permissions.noRetainedArtifactRefs}</p>
       )}
-      <h3>Activity feed links</h3>
+      <h3>{copy.permissions.activityFeedLinks}</h3>
       {delegation.activityFeedRefs.length ? (
         <ul>
           {delegation.activityFeedRefs.map((ref) => (
@@ -163,9 +165,9 @@ export function ChatGptDelegationPanel({
           ))}
         </ul>
       ) : (
-        <p className="empty-state">No linked ResearchTask/Decision refs.</p>
+        <p className="empty-state">{copy.permissions.noLinkedResearchDecisionRefs}</p>
       )}
-      <h3>Audit log</h3>
+      <h3>{copy.permissions.auditLog}</h3>
       {delegation.auditItems.length ? (
         <ul>
           {delegation.auditItems.map((item) => (
@@ -173,7 +175,7 @@ export function ChatGptDelegationPanel({
           ))}
         </ul>
       ) : (
-        <p className="empty-state">No audit entries yet.</p>
+        <p className="empty-state">{copy.permissions.noAuditEntries}</p>
       )}
     </section>
   );

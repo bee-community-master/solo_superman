@@ -6,6 +6,7 @@ import type {
   ResearchRunId
 } from "@solo-superman/contracts";
 import type { Phase15aOperationsViewModel } from "./decision-queue-view-model";
+import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
 export interface ResearchOperationsState {
   readonly allowlists: ResearchAllowlistGovernanceProjection | null;
@@ -37,8 +38,8 @@ function isRetryableResearchRun(status: ResearchRunStatus) {
   return status === "failed" || status === "stale" || status === "research_insufficient";
 }
 
-function exitGateStatusLabel(status: Phase15aOperationsViewModel["exitGate"]["status"]) {
-  return status === "ready_for_1_5b" ? "준비됨" : "검토 필요";
+function exitGateStatusLabel(status: Phase15aOperationsViewModel["exitGate"]["status"], copy: ReturnType<typeof useDecisionQueueCopy>) {
+  return status === "ready_for_1_5b" ? copy.phase15a.ready : copy.phase15a.needsReview;
 }
 
 export function Phase15aOperationsPanel({
@@ -54,11 +55,13 @@ export function Phase15aOperationsPanel({
   onCancelResearchRun,
   onRetryResearchRun
 }: Phase15aOperationsPanelProps) {
+  const copy = useDecisionQueueCopy();
+
   return (
     <section className="panel">
       <div className="panel-heading">
-        <h2>리서치 운영</h2>
-        <span>{exitGateStatusLabel(operations.exitGate.status)}</span>
+        <h2>{copy.phase15a.title}</h2>
+        <span>{exitGateStatusLabel(operations.exitGate.status, copy)}</span>
       </div>
       <p className="operations-summary">{operations.exitGate.label}</p>
       {operations.exitGate.blockers.length ? (
@@ -70,15 +73,15 @@ export function Phase15aOperationsPanel({
       ) : null}
       <div className="card-actions panel-actions">
         <button type="button" disabled={isBusy || !hasActiveSession} onClick={onCreateOrReactivateAllowlist}>
-          리서치 소스 켜기
+          {copy.phase15a.enableResearchSources}
         </button>
         <button type="button" disabled={isBusy || !hasActiveSession} onClick={onRefreshOperations}>
-          상태 새로고침
+          {copy.phase15a.refreshStatus}
         </button>
       </div>
       <div className="operations-list">
         <section>
-          <h3>Allowlist screen</h3>
+          <h3>{copy.phase15a.allowlistScreen}</h3>
           <p className="operations-summary">{operations.allowlistPolicyLabel}</p>
           {researchOperations.allowlists?.allowlists.length ? (
             <div className="operations-cards">
@@ -91,15 +94,15 @@ export function Phase15aOperationsPanel({
                     {allowlist.contextMode}
                   </small>
                   <small>
-                    limits: {allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject} concurrent /{" "}
-                    {allowlist.rateBudgetPolicy.maxRunsPerSession} session /{" "}
-                    {allowlist.rateBudgetPolicy.maxAutomaticRetriesPerRun} retries
+                    {copy.phase15a.limits}: {allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject} {copy.phase15a.concurrent} /{" "}
+                    {allowlist.rateBudgetPolicy.maxRunsPerSession} {copy.phase15a.session} /{" "}
+                    {allowlist.rateBudgetPolicy.maxAutomaticRetriesPerRun} {copy.phase15a.retries}
                   </small>
                   <small>
-                    disclosure:{" "}
+                    {copy.phase15a.disclosure}:{" "}
                     {allowlist.disclosureLogPolicy.publicSafeSummaryRequired
-                      ? "public-safe summary required"
-                      : "policy missing"}
+                      ? copy.phase15a.publicSafeSummaryRequired
+                      : copy.phase15a.policyMissing}
                   </small>
                   {allowlist.status !== "revoked" ? (
                     <div className="card-actions">
@@ -108,14 +111,14 @@ export function Phase15aOperationsPanel({
                         disabled={isBusy || !hasActiveSession || allowlist.status === "paused"}
                         onClick={() => onPauseAllowlist(allowlist.allowlistId)}
                       >
-                        Pause
+                        {copy.phase15a.pause}
                       </button>
                       <button
                         type="button"
                         disabled={isBusy || !hasActiveSession}
                         onClick={() => onRevokeAllowlist(allowlist.allowlistId)}
                       >
-                        Revoke
+                        {copy.phase15a.revoke}
                       </button>
                     </div>
                   ) : null}
@@ -123,12 +126,12 @@ export function Phase15aOperationsPanel({
               ))}
             </div>
           ) : (
-            <p className="empty-state">No allowlist loaded yet.</p>
+            <p className="empty-state">{copy.phase15a.noAllowlist}</p>
           )}
         </section>
 
         <section>
-          <h3>Research run cards</h3>
+          <h3>{copy.phase15a.researchRunCards}</h3>
           <p className="operations-summary">{operations.runRecoveryLabel}</p>
           {operations.staleOrFailureReasons.length ? (
             <ul className="effect-list">
@@ -144,19 +147,19 @@ export function Phase15aOperationsPanel({
                   <strong>{run.researchTaskId}</strong>
                   <span>{run.status}</span>
                   <small>
-                    run {run.researchRunId} · {run.provider.adapterKind} · attempt {run.provider.attempt}
+                    {copy.phase15a.run} {run.researchRunId} · {run.provider.adapterKind} · {copy.phase15a.attempt} {run.provider.attempt}
                   </small>
-                  <small>quality gate: {run.qualityGateStatus}</small>
+                  <small>{copy.phase15a.qualityGate}: {run.qualityGateStatus}</small>
                   {run.qualityGateReviewReason ? <small>{run.qualityGateReviewReason}</small> : null}
-                  {run.terminalReason ? <small>terminal: {run.terminalReason}</small> : null}
-                  <small>recovery: {researchOperations.runs?.recovery.refetchUrl ?? "refetch unavailable"}</small>
+                  {run.terminalReason ? <small>{copy.phase15a.terminal}: {run.terminalReason}</small> : null}
+                  <small>{copy.phase15a.recovery}: {researchOperations.runs?.recovery.refetchUrl ?? copy.phase15a.refetchUnavailable}</small>
                   <div className="card-actions">
                     <button
                       type="button"
                       disabled={isBusy || !hasActiveSession}
                       onClick={() => onRefreshResearchRunStatus(run.researchRunId)}
                     >
-                      Refresh status
+                      {copy.phase15a.refreshRunStatus}
                     </button>
                     {isCancellableResearchRun(run.status) ? (
                       <button
@@ -164,7 +167,7 @@ export function Phase15aOperationsPanel({
                         disabled={isBusy || !hasActiveSession}
                         onClick={() => onCancelResearchRun(run.researchRunId)}
                       >
-                        Cancel
+                        {copy.phase15a.cancel}
                       </button>
                     ) : null}
                     {isRetryableResearchRun(run.status) ? (
@@ -173,7 +176,7 @@ export function Phase15aOperationsPanel({
                         disabled={isBusy || !hasActiveSession}
                         onClick={() => onRetryResearchRun(run.researchRunId)}
                       >
-                        Retry
+                        {copy.phase15a.retry}
                       </button>
                     ) : null}
                   </div>
@@ -181,12 +184,12 @@ export function Phase15aOperationsPanel({
               ))}
             </div>
           ) : (
-            <p className="empty-state">No research runs loaded yet.</p>
+            <p className="empty-state">{copy.phase15a.noResearchRuns}</p>
           )}
         </section>
 
         <section>
-          <h3>Quality gate display</h3>
+          <h3>{copy.phase15a.qualityGateDisplay}</h3>
           <p className="operations-summary">{operations.qualityGateLabel}</p>
         </section>
       </div>

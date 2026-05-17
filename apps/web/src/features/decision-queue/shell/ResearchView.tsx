@@ -1,4 +1,5 @@
 import { Phase15aOperationsPanel } from "../Phase15aOperationsPanel";
+import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface ResearchViewProps {
@@ -6,6 +7,7 @@ interface ResearchViewProps {
 }
 
 export function ResearchView({ controller }: ResearchViewProps) {
+  const copy = useDecisionQueueCopy();
   const {
     cancelResearchRun,
     createOrReactivateAllowlist,
@@ -31,12 +33,12 @@ export function ResearchView({ controller }: ResearchViewProps) {
     <div className="view-grid research-view">
       <section className="panel research-main-panel">
         <div className="panel-heading">
-          <h2>Research</h2>
-          <span>{projections.research?.proConBalanceStatus ?? "unknown"}</span>
+          <h2>{copy.research.research}</h2>
+          <span>{projections.research?.proConBalanceStatus ?? copy.research.unknown}</span>
         </div>
         <div className="card-actions panel-actions">
           <button type="button" disabled={isBusy || !projections.session} onClick={() => void planPhase15aResearchTask()}>
-            Plan research task
+            {copy.research.planResearchTask}
           </button>
         </div>
         {projections.research?.tasks.length ? (
@@ -58,13 +60,13 @@ export function ResearchView({ controller }: ResearchViewProps) {
                         {card.terminalOutcome ? ` · ${card.terminalOutcome}` : ""}
                       </p>
                     ) : null}
-                    {card?.terminalRationale ? <p className="research-recovery">Rationale: {card.terminalRationale}</p> : null}
+                    {card?.terminalRationale ? <p className="research-recovery">{copy.research.rationale}: {card.terminalRationale}</p> : null}
                     {card?.recoveryActions.length ? <p className="research-recovery">{card.recoveryActions.join(" / ")}</p> : null}
                   </div>
                   {canImportResearch ? (
                     <div className="answer-box">
                       <textarea
-                        aria-label={`Import research for ${task.objective}`}
+                        aria-label={`${copy.research.importResearchAriaPrefix} ${task.objective}`}
                         value={researchDrafts[task.researchTaskId] ?? ""}
                         onChange={(event) =>
                           setResearchDrafts((current) => ({
@@ -75,7 +77,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
                         rows={3}
                       />
                       <button type="button" disabled={isBusy} onClick={() => void importResearchResult(task.researchTaskId)}>
-                        Import result
+                        {copy.research.importResult}
                       </button>
                     </div>
                   ) : null}
@@ -85,7 +87,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
                       disabled={isBusy || !hasActiveResearchAllowlist}
                       onClick={() => void startReadOnlyResearchRun(task.researchTaskId)}
                     >
-                      Start read-only run
+                      {copy.research.startReadOnlyRun}
                     </button>
                   </div>
                   {card && !card.terminalOutcome && card.availableOutcomes.length ? (
@@ -107,7 +109,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
             })}
           </div>
         ) : (
-          <p className="empty-state">No research tasks yet.</p>
+          <p className="empty-state">{copy.research.noResearchTasks}</p>
         )}
       </section>
 
