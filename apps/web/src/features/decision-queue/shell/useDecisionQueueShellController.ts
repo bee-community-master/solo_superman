@@ -47,15 +47,14 @@ import { useDecisionQueueRefreshers } from "./useDecisionQueueRefreshers";
 import { useDecisionQueueResearchActions } from "./useDecisionQueueResearchActions";
 import { useDecisionQueueSessionActions } from "./useDecisionQueueSessionActions";
 
-function unavailableCodexLoginStart(message: string, reason?: string): CodexRuntimeLoginStartDto {
+function unavailableCodexLoginStart(message: string): CodexRuntimeLoginStartDto {
   return {
     status: "unavailable",
     command: "codex auth login",
     statusCommand: "codex login status",
     startedAt: new Date().toISOString(),
     terminal: "none",
-    message,
-    ...(reason ? { reason } : {})
+    message
   };
 }
 
