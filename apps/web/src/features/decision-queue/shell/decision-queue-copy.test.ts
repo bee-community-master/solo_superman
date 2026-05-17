@@ -33,6 +33,9 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ja.questions.codexLoginStart).toBe("Codexログインを開く");
     expect(DECISION_QUEUE_COPY.ko.questions.codexLoginStart).toBe("Codex 로그인 열기");
     expect(DECISION_QUEUE_COPY.ko.questions.codexLoginStatusLabels.authenticated).toBe("로그인됨");
+    expect(DECISION_QUEUE_COPY.en.layout.sidecarUnavailableRecovery).toContain("pnpm start:local");
+    expect(DECISION_QUEUE_COPY.ja.layout.sidecarUnavailableRecovery).toContain("pnpm start:local");
+    expect(DECISION_QUEUE_COPY.ko.layout.sidecarUnavailableRecovery).toContain("pnpm start:local");
     expect(DECISION_QUEUE_COPY.en.questions.rawIdea).toBe("Idea summary");
     expect(DECISION_QUEUE_COPY.ja.questions.rawIdea).toBe("アイデア概要");
     expect(DECISION_QUEUE_COPY.ko.questions.rawIdea).toBe("아이디어 요약");

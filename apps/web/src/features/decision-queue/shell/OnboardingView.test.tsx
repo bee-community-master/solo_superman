@@ -114,4 +114,23 @@ describe("OnboardingView", () => {
     expect(markup).toContain('<button type="button" disabled="">Open Codex login</button>');
     expect(markup).toContain('<button type="button" disabled="">Refresh Codex login status</button>');
   });
+
+  it("keeps Codex login feedback visible when runtime status is still unknown", () => {
+    const markup = renderOnboardingView({
+      codexLoginStart: {
+        status: "unavailable",
+        command: "codex auth login",
+        statusCommand: "codex login status",
+        startedAt: "2026-05-17T00:00:00.000Z",
+        terminal: "none",
+        message: "The local service is not connected. Start Solo Superman with `pnpm start:local`, then reconnect and try Codex login again."
+      }
+    });
+
+    expect(markup).toContain("Codex status");
+    expect(markup).toContain("Unknown");
+    expect(markup).toContain("codex auth login");
+    expect(markup).toContain("Open Codex login");
+    expect(markup).toContain("The local service is not connected.");
+  });
 });

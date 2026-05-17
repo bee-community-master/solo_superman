@@ -85,6 +85,7 @@ const EN_COPY = {
     reconnectSidecar: "Reconnect local service",
     sidecarUnavailable: "Local service unavailable",
     sidecarUnavailableMessage: "The local service is not connected.",
+    sidecarUnavailableRecovery: "The local service is not connected. Start Solo Superman with `pnpm start:local`, then reconnect and try Codex login again.",
     retryConnection: "Retry connection",
     commandFailed: "Action failed"
   },
@@ -418,6 +419,7 @@ const JA_COPY: typeof EN_COPY = {
     reconnectSidecar: "ローカルサービスに再接続",
     sidecarUnavailable: "ローカルサービスを利用できません",
     sidecarUnavailableMessage: "ローカルサービスに接続されていません。",
+    sidecarUnavailableRecovery: "ローカルサービスに接続されていません。`pnpm start:local`でSolo Supermanを起動し、再接続してからCodexログインをもう一度開いてください。",
     retryConnection: "再接続",
     commandFailed: "操作に失敗しました"
   },
@@ -751,6 +753,7 @@ const KO_COPY: typeof EN_COPY = {
     reconnectSidecar: "로컬 서비스 다시 연결",
     sidecarUnavailable: "로컬 서비스를 사용할 수 없음",
     sidecarUnavailableMessage: "로컬 서비스가 연결되어 있지 않습니다.",
+    sidecarUnavailableRecovery: "로컬 서비스가 연결되어 있지 않습니다. `pnpm start:local`로 Solo Superman을 실행한 뒤 다시 연결하고 Codex 로그인을 다시 열어주세요.",
     retryConnection: "다시 연결",
     commandFailed: "작업 실패"
   },

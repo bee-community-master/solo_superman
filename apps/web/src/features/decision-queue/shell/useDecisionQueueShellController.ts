@@ -47,6 +47,17 @@ import { useDecisionQueueRefreshers } from "./useDecisionQueueRefreshers";
 import { useDecisionQueueResearchActions } from "./useDecisionQueueResearchActions";
 import { useDecisionQueueSessionActions } from "./useDecisionQueueSessionActions";
 
+function unavailableCodexLoginStart(message: string, reason?: string): CodexRuntimeLoginStartDto {
+  return {
+    status: "unavailable",
+    command: "codex auth login",
+    statusCommand: "codex login status",
+    startedAt: new Date().toISOString(),
+    terminal: "none",
+    message,
+    ...(reason ? { reason } : {})
+  };
+}
 
 export function useDecisionQueueShellController() {
   const copy = useDecisionQueueCopy();
@@ -93,7 +104,13 @@ export function useDecisionQueueShellController() {
 
     setClient(nextClient);
     setConnectionState({ status: "connected", connection });
-    nextClient.getRuntimeStatus().then(setRuntimeStatus).catch(() => setRuntimeStatus(null));
+    nextClient
+      .getRuntimeStatus()
+      .then(setRuntimeStatus)
+      .catch((error) => {
+        setRuntimeStatus(null);
+        setWorkflowError(displayError(error));
+      });
     return nextClient;
   }, []);
 
@@ -112,16 +129,18 @@ export function useDecisionQueueShellController() {
       const activeClient = client ?? await connect();
 
       if (!activeClient) {
+        setWorkflowError(copy.layout.sidecarUnavailableRecovery);
         return;
       }
 
       setRuntimeStatus(await activeClient.getRuntimeStatus());
-    } catch {
+    } catch (error) {
       setRuntimeStatus(null);
+      setWorkflowError(displayError(error));
     } finally {
       setIsBusy(false);
     }
-  }, [client, connect, isBusy]);
+  }, [client, connect, copy.layout.sidecarUnavailableRecovery, isBusy]);
 
   const startCodexLogin = useCallback(async () => {
     if (isBusy) {
@@ -130,10 +149,14 @@ export function useDecisionQueueShellController() {
 
     setIsBusy(true);
     setWorkflowError(null);
+    setCodexLoginStart(null);
     try {
       const activeClient = client ?? await connect();
 
       if (!activeClient) {
+        const loginStart = unavailableCodexLoginStart(copy.layout.sidecarUnavailableRecovery);
+        setCodexLoginStart(loginStart);
+        setWorkflowError(loginStart.message);
         return;
       }
 
@@ -141,11 +164,13 @@ export function useDecisionQueueShellController() {
       setCodexLoginStart(loginStart);
       setRuntimeStatus(await activeClient.getRuntimeStatus().catch(() => runtimeStatus));
     } catch (error) {
-      setWorkflowError(displayError(error));
+      const message = displayError(error);
+      setCodexLoginStart(unavailableCodexLoginStart(message));
+      setWorkflowError(message);
     } finally {
       setIsBusy(false);
     }
-  }, [client, connect, isBusy, runtimeStatus]);
+  }, [client, connect, copy.layout.sidecarUnavailableRecovery, isBusy, runtimeStatus]);
 
   const {
     refreshResearchOperations,
