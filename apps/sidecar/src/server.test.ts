@@ -983,6 +983,19 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.headers.get("access-control-allow-origin")).toBeNull();
   });
 
+  it("does not normalize malformed loopback origin headers into allowed origins", async () => {
+    const response = await app.request("/api/v1/projects", {
+      method: "OPTIONS",
+      headers: {
+        Origin: "http://127.0.0.1:58973/unexpected-path",
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "Authorization"
+      }
+    });
+
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
   it("rejects hosted origins before they can obtain local execution authority", async () => {
     const response = await app.request("/api/v1/sessions/sess_hosted/execution-authority", {
       method: "POST",

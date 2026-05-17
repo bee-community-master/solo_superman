@@ -196,7 +196,7 @@ function allowedCorsOrigin(origin: string) {
     return null;
   }
 
-  return originUrl.origin;
+  return origin === originUrl.origin ? origin : null;
 }
 
 function explicitRequestOrigin(headers: Headers) {
