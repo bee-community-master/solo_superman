@@ -46,17 +46,17 @@ describe("QuestionsView", () => {
       },
       queueRecovery: {
         status: "idle",
-        label: "Queue projection is fresh.",
-        refetchLabel: "Canonical queue refetch URL is not loaded yet.",
-        sseLabel: "SSE notification stream is not loaded yet.",
-        activeBatchLabel: "No active batch metadata loaded yet."
+        label: "Questions are up to date.",
+        refetchLabel: "Question refresh path is not loaded yet.",
+        sseLabel: "Live update stream is not loaded yet.",
+        activeBatchLabel: "Current question details are not loaded yet."
       },
       runInitialQueueFlow: vi.fn(),
       sections: [
         {
           id: "active",
-          title: "Active batch",
-          emptyLabel: "No active questions.",
+          title: "Current questions",
+          emptyLabel: "No current questions.",
           items: queue.active
         }
       ],
@@ -76,6 +76,10 @@ describe("QuestionsView", () => {
       </AppLanguageProvider>
     );
 
+    expect(markup).toContain("Idea summary");
+    expect(markup).toContain("Goal description");
+    expect(markup).toContain("Up to date");
+    expect(markup).toContain("Describe who this is for, what problem it solves, and what you want to decide in this session.");
     expect(markup).toContain("Suggested answer choices");
     expect(markup).toContain("Pro: Fast interviews with a narrow segment.");
     expect(markup).toContain("Con: May miss team buyer needs.");

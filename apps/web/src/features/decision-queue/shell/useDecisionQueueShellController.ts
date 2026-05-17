@@ -213,7 +213,19 @@ export function useDecisionQueueShellController() {
     const recovery = decisionQueueRecoveryViewModel(projections.queue);
 
     if (projections.queue) {
-      return recovery;
+      return {
+        ...recovery,
+        label: copy.questions.queueRecoveryMessages[recovery.status],
+        refetchLabel: projections.queue.refetchUrl
+          ? copy.questions.queueRefetchReady(projections.queue.refetchUrl)
+          : copy.questions.queueRefetchMissing,
+        sseLabel: projections.queue.recovery?.sseStreamUrl
+          ? copy.questions.queueSseReady(projections.queue.recovery.sseStreamUrl)
+          : copy.questions.queueSseMissing,
+        activeBatchLabel: projections.queue.activeBatch
+          ? copy.questions.queueActiveBatchReady(projections.queue.activeBatch.queueItemIds.length)
+          : copy.questions.queueActiveBatchMissing
+      };
     }
 
     return {

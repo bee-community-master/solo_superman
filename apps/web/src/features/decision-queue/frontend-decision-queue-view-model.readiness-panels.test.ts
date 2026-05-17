@@ -464,7 +464,7 @@ describe("Decision Queue view model readiness-panels", () => {
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Pause</button>");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Revoke</button>");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Refresh status</button>");
-    expect(markup).toContain("quality gate: pending_review");
+    expect(markup).toContain("quality check: pending_review");
   });
 
   it("renders Phase 1.5B readiness metadata on a non-executing handoff panel", () => {

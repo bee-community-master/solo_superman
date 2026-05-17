@@ -67,7 +67,7 @@ describe("Decision Queue view model queue", () => {
     ]);
   });
 
-  it("surfaces active batch priority and notification-only SSE refetch recovery state", () => {
+  it("surfaces current-question selection and notification-only refresh recovery state", () => {
     const queue: DecisionQueueProjection = {
       kind: "DecisionQueueProjection",
       projectionKind: "DecisionQueueProjection",
@@ -115,10 +115,10 @@ describe("Decision Queue view model queue", () => {
 
     expect(recovery).toMatchObject({
       status: "pending_refetch",
-      refetchLabel: "Canonical refetch /api/v1/sessions/sess_queue_recovery/queue",
-      sseLabel: "SSE notification stream /api/v1/events/stream?sessionId=sess_queue_recovery"
+      refetchLabel: "Question refresh /api/v1/sessions/sess_queue_recovery/queue",
+      sseLabel: "Live update stream /api/v1/events/stream?sessionId=sess_queue_recovery"
     });
-    expect(recovery.activeBatchLabel).toContain("severity_ordered_batch");
+    expect(recovery.activeBatchLabel).toBe("1 current question selected for this round.");
     expect(shouldRefetchQueueForSseNotification(event, queue)).toBe(true);
     expect(
       shouldRefetchQueueForSseNotification(

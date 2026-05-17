@@ -10,6 +10,12 @@ export const APP_LANGUAGE_OPTIONS = [
   { value: "ko", label: "한국어" }
 ] as const satisfies readonly { readonly value: AppLanguage; readonly label: string }[];
 
+const LANGUAGE_SWITCHER_LABELS = {
+  en: "Language",
+  ja: "言語",
+  ko: "언어"
+} as const satisfies Record<AppLanguage, string>;
+
 interface AppLanguageContextValue {
   readonly language: AppLanguage;
   readonly setLanguage: (language: AppLanguage) => void;
@@ -84,12 +90,13 @@ export function useAppLanguage() {
 
 export function LanguageSwitcher() {
   const { language, setLanguage } = useAppLanguage();
+  const label = LANGUAGE_SWITCHER_LABELS[language];
 
   return (
     <label className="language-switcher">
-      <span>Language</span>
+      <span>{label}</span>
       <select
-        aria-label="Language"
+        aria-label={label}
         value={language}
         onChange={(event) => setLanguage(normalizeAppLanguage(event.target.value))}
       >

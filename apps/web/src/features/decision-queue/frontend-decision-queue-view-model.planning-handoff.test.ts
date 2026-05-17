@@ -66,12 +66,12 @@ describe("Decision Queue view model planning-handoff", () => {
     expect(copy).toContain("source trace preview_artifact:runtime_artifact_demo");
     expect(copy).toContain("policy metadata only no execution");
     expect(copy).toContain("residual risk visibility passed");
-    expect(copy).toContain("no file, shell, browser, deploy, external mutation");
+    expect(copy).toContain("file, shell, browser, deploy, credential, and delegation controls stay unavailable");
     expect(markup).toContain("Planning Handoff");
     expect(markup).toContain("Planning-ready");
     expect(markup).toContain("Execution preparation notes");
     expect(markup).toContain("Residual risks");
-    expect(markup).toContain("source refs:");
+    expect(markup).toContain("Source references:");
     expect(markup).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
     expect(markup).not.toContain("no_file_shell_browser_deploy_or_external_mutation");
   });
@@ -131,8 +131,8 @@ describe("Decision Queue view model planning-handoff", () => {
       final: null,
       blocker: null
     });
-    expect(markup).toContain("No final handoff or blocker artifact is available");
-    expect(markup).toContain("<button type=\"button\" disabled=\"\">Run Planning Handoff gate</button>");
+    expect(markup).toContain("No final handoff or blocker is available");
+    expect(markup).toContain("<button type=\"button\" disabled=\"\">Run planning handoff check</button>");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Refresh handoff</button>");
     expect(markup).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
   });

@@ -107,35 +107,35 @@ export interface PlanningHandoffViewModel {
 }
 
 const READINESS_DETAIL_SEPARATOR = " · ";
-const PLANNING_HANDOFF_EMPTY_LABEL = "No final handoff or blocker artifact is available for this session yet.";
+const PLANNING_HANDOFF_EMPTY_LABEL = "No final handoff or blocker is available for this session yet.";
 const PLANNING_HANDOFF_NO_EXECUTION_LABEL =
-  "Planning Handoff is read-only planning context; no file, shell, browser, deploy, external mutation, credential, or active delegation controls are available.";
+  "Planning handoff is read-only planning context; file, shell, browser, deploy, credential, and delegation controls stay unavailable.";
 const PLANNING_READY_TOKEN_PATTERN = /\bplanning[-_]ready\b/giu;
 
 export function queueSections(queue: DecisionQueueProjection | null): readonly QueueSectionViewModel[] {
   return [
     {
       id: "active",
-      title: "Active batch",
-      emptyLabel: "No active questions.",
+      title: "Current questions",
+      emptyLabel: "No current questions.",
       items: queue?.active ?? []
     },
     {
       id: "next",
-      title: "Next",
-      emptyLabel: "No queued-next items.",
+      title: "Up next",
+      emptyLabel: "No upcoming questions.",
       items: queue?.next ?? []
     },
     {
       id: "blocked",
-      title: "Blocked",
-      emptyLabel: "No blocked cards.",
+      title: "Needs attention",
+      emptyLabel: "No blocked items.",
       items: queue?.blocked ?? []
     },
     {
       id: "deferred",
-      title: "Deferred",
-      emptyLabel: "No deferred cards.",
+      title: "Saved for later",
+      emptyLabel: "No saved items.",
       items: queue?.deferred ?? []
     }
   ];
@@ -165,26 +165,27 @@ export function decisionQueueRecoveryViewModel(queue: DecisionQueueProjection | 
   const status = queueRecoveryStatus(queue);
   const pendingCount = queue?.recovery?.pendingEffectCount ?? 0;
   const activeBatchCount = queue?.activeBatch?.queueItemIds.length ?? 0;
+  const currentRoundLabel = activeBatchCount === 1 ? "1 current question" : `${activeBatchCount} current questions`;
 
   return {
     status,
     label:
       status === "stale"
-        ? `Queue projection is stale; refetch before using it as canonical state. ${queue?.recovery?.staleReason ?? ""}`.trim()
+        ? `Questions may be out of date. Refresh before using them as the source of truth. ${queue?.recovery?.staleReason ?? ""}`.trim()
         : status === "pending_refetch"
-          ? `${pendingCount} queue projection effect(s) pending; SSE is notification-only and refetch remains canonical.`
+          ? `${pendingCount} question update(s) pending. This list will refresh from the local service.`
           : status === "recovering"
-            ? "Queue recovery is in progress after an SSE notification or reconnect."
+            ? "Questions are refreshing after a live update or reconnect."
             : status === "recovered_by_refetch"
-              ? "Queue recovered from canonical projection refetch after an SSE notification."
-              : "Queue projection is fresh; SSE notifications will trigger refetch instead of local state mutation.",
-    refetchLabel: queue?.refetchUrl ? `Canonical refetch ${queue.refetchUrl}` : "Canonical queue refetch URL is not loaded yet.",
+              ? "Questions refreshed after a live update."
+              : "Questions are up to date. Live updates will refresh this list.",
+    refetchLabel: queue?.refetchUrl ? `Question refresh ${queue.refetchUrl}` : "Question refresh path is not loaded yet.",
     sseLabel: queue?.recovery?.sseStreamUrl
-      ? `SSE notification stream ${queue.recovery.sseStreamUrl}`
-      : "SSE notification stream is not loaded yet.",
+      ? `Live update stream ${queue.recovery.sseStreamUrl}`
+      : "Live update stream is not loaded yet.",
     activeBatchLabel: queue?.activeBatch
-      ? `${activeBatchCount} item active batch · ${queue.activeBatch.priorityReason}`
-      : "No active batch metadata loaded yet."
+      ? `${currentRoundLabel} selected for this round.`
+      : "Current question details are not loaded yet."
   };
 }
 
@@ -262,7 +263,7 @@ function sourceRefLabel(sourceRef: PlanningHandoffSourceRefDto) {
 }
 
 function sourceRefsLabel(sourceRefs: readonly PlanningHandoffSourceRefDto[]) {
-  return commaList(sourceRefs.map(sourceRefLabel), "no source refs");
+  return commaList(sourceRefs.map(sourceRefLabel), "no source references");
 }
 
 function phase15bHintMappingLabel(mappings: PlanningHandoffArtifactDto["phase15bHintMapping"]) {
@@ -387,7 +388,7 @@ function readinessRecordViewModel(record: Phase15bUpgradeHintApiRecord): Phase15
     riskLabel,
     sourceRefLabel: commaList(
       hints.sourceRefs.map((sourceRef) => `${readableToken(sourceRef.kind)}:${sourceRef.refId}`),
-      "no source refs"
+      "no source references"
     )
   };
 }
@@ -589,11 +590,11 @@ export function planningHandoffViewModel(projection: PlanningHandoffProjection |
     return {
       status: "empty",
       statusLabel: "handoff pending",
-      label: "No Planning Handoff projection is loaded yet.",
-      summary: "Run or refresh the handoff query after the Planning Handoff gate creates a final or blocker artifact.",
+      label: "No planning handoff has loaded yet.",
+      summary: "Run or refresh the planning handoff check after it creates a final handoff or blocker.",
       noExecutionLabel: PLANNING_HANDOFF_NO_EXECUTION_LABEL,
-      refetchLabel: "Planning Handoff refetch URL is not loaded yet.",
-      sourceRefsLabel: "no source refs",
+      refetchLabel: "Planning handoff refresh path is not loaded yet.",
+      sourceRefsLabel: "no source references",
       final: null,
       blocker: null,
       emptyLabel: PLANNING_HANDOFF_EMPTY_LABEL
@@ -609,7 +610,7 @@ export function planningHandoffViewModel(projection: PlanningHandoffProjection |
       label: "Final Planning-ready handoff is visible with residual risk and readiness context.",
       summary: displayPlanningReadyLabel(projection.summary, true),
       noExecutionLabel: PLANNING_HANDOFF_NO_EXECUTION_LABEL,
-      refetchLabel: `Refetch ${projection.refetchUrl}`,
+      refetchLabel: `Refresh ${projection.refetchUrl}`,
       sourceRefsLabel: displayPlanningReadyLabel(sourceRefsLabel(projection.sourceRefs), true),
       final: planningHandoffArtifactView(finalArtifact.handoffSummary, finalPlanningHandoffGroups(finalArtifact), true),
       blocker: null,
@@ -625,7 +626,7 @@ export function planningHandoffViewModel(projection: PlanningHandoffProjection |
     label: "Planning handoff remains blocked; final handoff label is withheld until the gate returns final state.",
     summary: displayPlanningReadyLabel(projection.summary, false),
     noExecutionLabel: PLANNING_HANDOFF_NO_EXECUTION_LABEL,
-    refetchLabel: `Refetch ${projection.refetchUrl}`,
+    refetchLabel: `Refresh ${projection.refetchUrl}`,
     sourceRefsLabel: displayPlanningReadyLabel(sourceRefsLabel(projection.sourceRefs), false),
     final: null,
     blocker: planningHandoffArtifactView("Blocker report", blockerPlanningHandoffGroups(blockerArtifact), false),

@@ -25,7 +25,7 @@ export function pendingEffectSummary(statuses: readonly StatusEndpointDto[]): Pe
   return {
     totalPending,
     byType,
-    visibleLabel: totalPending ? `${totalPending} persisted effect task(s) pending.` : "No persisted effects are pending."
+    visibleLabel: totalPending ? `${totalPending} background task(s) pending.` : "No background tasks are pending."
   };
 }
 
@@ -111,24 +111,24 @@ export function phase15aOperationsViewModel(input: Phase15aOperationsInput): Pha
         selectedAllowlist.sourceCategories.join(", "),
         selectedAllowlist.contextMode,
         `${selectedAllowlist.rateBudgetPolicy.maxConcurrentRunsPerProject} concurrent / ${selectedAllowlist.rateBudgetPolicy.maxRunsPerSession} per session`,
-        selectedAllowlist.disclosureLogPolicy.logEveryAutomaticRun ? "disclosure log required" : null
+        selectedAllowlist.disclosureLogPolicy.logEveryAutomaticRun ? "activity log required" : null
       ]
         .filter((part): part is string => Boolean(part))
         .join(" · ")
-    : "No allowlist loaded.";
+    : "No research source settings loaded.";
 
   return {
     activeAllowlistCount: activeAllowlists.length,
     allowlistPolicyLabel,
     disclosureActivityLabel: latestDisclosure
-      ? `${input.disclosures?.disclosureLogs.length ?? 0} disclosure log(s); latest ${latestDisclosure.status}`
+      ? `${input.disclosures?.disclosureLogs.length ?? 0} research-use log(s); latest ${latestDisclosure.status}`
       : "No disclosure activity loaded.",
     runRecoveryLabel: input.runs
-      ? `${runs.length} run(s); ${attentionRuns.length} need review/recovery; refetch ${input.runs.recovery.refetchUrl}`
-      : "No research run projection loaded.",
+      ? `${runs.length} run(s); ${attentionRuns.length} need review or recovery; refresh ${input.runs.recovery.refetchUrl}`
+      : "No research run status loaded.",
     qualityGateLabel: qualityGateVisible
       ? researchQualityGateLabels(input).slice(0, 3).join(" · ")
-      : "Quality gate has not produced a visible result.",
+      : "Quality check has not produced a visible result.",
     staleOrFailureReasons: attentionRuns.map((run) =>
       [run.researchRunId, run.status, run.terminalReason, run.qualityGateReviewReason]
         .filter((part): part is string => Boolean(part))

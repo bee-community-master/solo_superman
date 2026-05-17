@@ -105,7 +105,7 @@ export function useDecisionQueueSessionActions({
       event.preventDefault();
 
       if (!client) {
-        setWorkflowError("Sidecar client is not connected.");
+        setWorkflowError("Local service is not connected.");
         return;
       }
 

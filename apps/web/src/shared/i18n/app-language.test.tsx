@@ -31,18 +31,29 @@ describe("app language settings", () => {
     expect(readStoredAppLanguage(fakeStorage)).toBe("ja");
   });
 
-  it("renders a corner-friendly switcher with a stable Language label in Japanese mode", () => {
+  it("renders a corner-friendly switcher with a localized label in Japanese mode", () => {
     const markup = renderToStaticMarkup(
       <AppLanguageProvider initialLanguage="ja">
         <LanguageSwitcher />
       </AppLanguageProvider>
     );
 
-    expect(markup).toContain("Language");
+    expect(markup).toContain("言語");
     expect(markup).toContain("English");
     expect(markup).toContain("日本語");
     expect(markup).toContain("한국어");
     expect(markup).toContain("selected");
+  });
+
+  it("renders the language switcher label in Korean mode", () => {
+    const markup = renderToStaticMarkup(
+      <AppLanguageProvider initialLanguage="ko">
+        <LanguageSwitcher />
+      </AppLanguageProvider>
+    );
+
+    expect(markup).toContain("언어");
+    expect(markup).toContain("한국어");
   });
 
   it("persists Korean as a supported first-setup language", () => {

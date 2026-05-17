@@ -11,9 +11,18 @@ describe("decision queue language copy", () => {
   });
 
   it("keeps the first-run language switch focused on supported setup languages", () => {
-    expect(DECISION_QUEUE_COPY.en.questions.firstRunTitle).toBe("First run setup");
-    expect(DECISION_QUEUE_COPY.ja.questions.firstRunTitle).toBe("最初の設定");
-    expect(DECISION_QUEUE_COPY.ko.questions.firstRunTitle).toBe("첫 설정");
+    expect(DECISION_QUEUE_COPY.en.questions.firstRunTitle).toBe("Goal setup");
+    expect(DECISION_QUEUE_COPY.ja.questions.firstRunTitle).toBe("目標設定");
+    expect(DECISION_QUEUE_COPY.ko.questions.firstRunTitle).toBe("목표 설정");
+    expect(DECISION_QUEUE_COPY.en.questions.rawIdea).toBe("Idea summary");
+    expect(DECISION_QUEUE_COPY.ja.questions.rawIdea).toBe("アイデア概要");
+    expect(DECISION_QUEUE_COPY.ko.questions.rawIdea).toBe("아이디어 요약");
+    expect(DECISION_QUEUE_COPY.en.questions.intakeAnswer).toBe("Goal description");
+    expect(DECISION_QUEUE_COPY.ja.questions.intakeAnswer).toBe("目標の説明");
+    expect(DECISION_QUEUE_COPY.ko.questions.intakeAnswer).toBe("목표에 대한 서술");
+    expect(DECISION_QUEUE_COPY.en.questions.queueRecoveryStatusLabels.pending_refetch).toBe("Refresh pending");
+    expect(DECISION_QUEUE_COPY.ja.questions.queueRecoveryStatusLabels.pending_refetch).toBe("更新待ち");
+    expect(DECISION_QUEUE_COPY.ko.questions.queueRecoveryStatusLabels.pending_refetch).toBe("새로고침 대기");
     expect(DECISION_QUEUE_COPY.ko.projectPurposeModeOptions.map((option) => option.mode)).toEqual([
       "business",
       "personal"

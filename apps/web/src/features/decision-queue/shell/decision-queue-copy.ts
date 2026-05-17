@@ -9,78 +9,78 @@ const EN_COPY = {
     questions: {
       label: "Questions",
       shortLabel: "Q",
-      title: "Decision Queue",
-      description: "Handle purpose choices, research needs, and known risks in one place."
+      title: "Questions",
+      description: "Set the project goal, answer open questions, and keep known risks visible."
     },
     research: {
       label: "Research",
       shortLabel: "R",
-      title: "Research Evidence",
-      description: "Manage approved public-safe research runs and manual evidence imports."
+      title: "Research review",
+      description: "Manage approved public research and manually imported evidence."
     },
     planning: {
       label: "Planning",
       shortLabel: "P",
-      title: "Planning Readiness",
-      description: "Review the spec, completeness score, Founder Brief, and handoff gate."
+      title: "Planning readiness",
+      description: "Review the product spec, readiness score, Founder Brief, and handoff check."
     },
     implementation: {
       label: "Implementation",
       shortLabel: "I",
-      title: "Implementation Runtime",
-      description: "Track runtime activity and the implementation ledger in one flow."
+      title: "Implementation activity",
+      description: "Track local activity and the implementation log in one flow."
     },
     permissions: {
       label: "Permissions",
       shortLabel: "A",
-      title: "Delegation & Permissions",
-      description: "Audit external browser delegation and service page-use permissions separately."
+      title: "Delegation and permissions",
+      description: "Review external AI workspace access and service-page permissions separately."
     }
   },
   projectPurposeModeOptions: [
     {
       mode: "business" as ProjectPurposeMode,
       label: "Business validation",
-      description: "Validate customers, problem intensity, paid intent, competition, channels, and legal/ops risk."
+      description: "Validate customers, problem urgency, willingness to pay, competitors, channels, and legal or operational risk."
     },
     {
       mode: "personal" as ProjectPurposeMode,
       label: "Personal workflow build",
-      description: "Focus on personal workflow, GUI, implementation feasibility, and local data/security instead of market narrative."
+      description: "Focus on your workflow, interface, build feasibility, and local data or security needs instead of a market story."
     }
   ],
   businessCriticIntensityOptions: [
     {
       intensity: "balanced" as BusinessCriticIntensity,
       label: "Balanced business review",
-      description: "Keep at least one opposing or critical question in each major decision group."
+      description: "Keep at least one challenge question in each major decision area."
     },
     {
       intensity: "strong" as BusinessCriticIntensity,
       label: "Strong business review",
-      description: "Keep core-assumption challenge questions queued when high-impact business gaps appear."
+      description: "Keep challenge questions visible when a major business assumption is still weak."
     },
     {
       intensity: "investor_grade" as BusinessCriticIntensity,
       label: "Investor-grade review",
-      description: "Pressure-test pricing, channels, retention proxies, legal/ops risk, market timing, and founder advantage."
+      description: "Stress-test pricing, channels, retention signals, legal or operational risk, timing, and founder advantage."
     }
   ],
   layout: {
-    localQueueFallback: "Local Decision Queue",
+    localQueueFallback: "Local planning workspace",
     workflowSectionsAria: "Desktop workflow sections",
     leftRailAria: "Workflow navigation",
-    workflowSteps: "Workflow steps",
+    workflowSteps: "Workspace steps",
     progressAria: "Live queue progress",
     progress: "Progress",
     completeness: "Completeness",
     pendingQuestions: "Pending questions",
     blockedQuestions: "Blocked questions",
-    reconnectSidecar: "Reconnect sidecar",
-    sidecarUnavailable: "Sidecar unavailable",
-    sidecarUnavailableMessage: "Sidecar connection is unavailable.",
+    reconnectSidecar: "Reconnect local service",
+    sidecarUnavailable: "Local service unavailable",
+    sidecarUnavailableMessage: "The local service is not connected.",
     retryConnection: "Retry connection",
-    commandFailed: "Command failed"
+    commandFailed: "Action failed"
   },
   nav: {
     questionsSublabel: (active: number, next: number) => `${active} active · ${next} next`,
@@ -88,24 +88,26 @@ const EN_COPY = {
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
   },
   questions: {
-    sessionStart: "Session start",
-    firstRunAria: "First run guidance",
-    firstRunTitle: "First run setup",
+    sessionStart: "Start a session",
+    firstRunAria: "Goal setup guide",
+    firstRunTitle: "Goal setup",
     firstRunItems: [
-      "Write the idea and current concern to create the first question batch.",
-      "If this is a business goal, choose the review intensity yourself. The app does not decide it for you.",
-      "Research and execution prep are recorded as reviewable notes first; risky actions are not run automatically."
+      "Summarize the idea and describe the goal so Solo Superman can create the first question set.",
+      "For business validation, choose how strongly the app should challenge the idea.",
+      "Research and implementation prep start as reviewable notes; risky actions never run automatically."
     ],
-    rawIdea: "Raw idea",
-    intakeAnswer: "Intake answer",
+    rawIdea: "Idea summary",
+    rawIdeaPlaceholder: "Example: A focused founder brief generator",
+    intakeAnswer: "Goal description",
+    intakeAnswerPlaceholder: "Describe who this is for, what problem it solves, and what you want to decide in this session.",
     projectPurpose: "Project purpose",
-    purposeHelp: "Even if AI suggests a mode, you confirm it. Until then the session stays in mode_required, and later changes are auditable events.",
-    businessCriticIntensity: "Business critic intensity",
-    intensityReason: "Intensity reason",
-    intensityReasonPlaceholder: "Record why this validation intensity was selected.",
-    intensityHelp: "Business mode does not auto-select an intensity. Until you choose one, it remains blocked on business critic intensity.",
+    purposeHelp: "You choose the project purpose. Until you choose, the app will not lock business- or workflow-specific questions.",
+    businessCriticIntensity: "Business review intensity",
+    intensityReason: "Reason for this intensity",
+    intensityReasonPlaceholder: "Note why this level of challenge fits the project.",
+    intensityHelp: "Business mode needs an explicit review intensity before the first question set can be created.",
     running: "Running",
-    createFirstBatch: "Create first batch",
+    createFirstBatch: "Create first questions",
     queue: "Queue",
     nextValidation: "Next validation",
     suggestedAnswers: "Suggested answer choices",
@@ -116,44 +118,61 @@ const EN_COPY = {
     answerAriaPrefix: "Answer",
     submitAnswer: "Submit answer",
     nextValidationActionAriaPrefix: "Next validation action for",
-    knownRiskPlaceholder: "When carrying this as a Known Risk, write the next validation action.",
-    carryAsKnownRisk: "Carry as Known Risk",
-    queueRecoveryFresh: "Queue projection is fresh; SSE notifications will trigger refetch instead of local state mutation.",
-    queueRefetchMissing: "Canonical queue refetch URL is not loaded yet.",
-    queueSseMissing: "SSE notification stream is not loaded yet.",
-    queueActiveBatchMissing: "No active batch metadata loaded yet.",
+    knownRiskPlaceholder: "If you keep this as a known risk, write the next validation step.",
+    carryAsKnownRisk: "Keep as a known risk",
+    queueRecoveryFresh: "Questions are up to date. New local-service updates will refresh this list.",
+    queueRefetchMissing: "The question refresh path is not loaded yet.",
+    queueSseMissing: "Live update notifications are not connected yet.",
+    queueActiveBatchMissing: "Current question details are not loaded yet.",
+    queueRefetchReady: (url: string) => `Question refresh ${url}`,
+    queueSseReady: (url: string) => `Live update stream ${url}`,
+    queueActiveBatchReady: (count: number) => `${count === 1 ? "1 current question" : `${count} current questions`} selected for this round.`,
+    queueRecoveryStatusLabels: {
+      idle: "Up to date",
+      pending_refetch: "Refresh pending",
+      recovering: "Refreshing",
+      recovered_by_refetch: "Updated",
+      stale: "Needs refresh"
+    },
+    queueRecoveryMessages: {
+      idle: "Questions are up to date. New local-service updates will refresh this list.",
+      pending_refetch: "Question updates are waiting. This list will refresh from the local service.",
+      recovering: "Questions are refreshing after a live update or reconnect.",
+      recovered_by_refetch: "Questions refreshed after a live update.",
+      stale: "Questions may be out of date. Refresh before using them as the source of truth."
+    },
     queueSections: {
-      active: { title: "Active batch", emptyLabel: "No active questions." },
-      next: { title: "Next", emptyLabel: "No queued-next items." },
-      blocked: { title: "Blocked", emptyLabel: "No blocked cards." },
-      deferred: { title: "Deferred", emptyLabel: "No deferred cards." }
+      active: { title: "Current questions", emptyLabel: "No current questions." },
+      next: { title: "Up next", emptyLabel: "No upcoming questions." },
+      blocked: { title: "Needs attention", emptyLabel: "No blocked items." },
+      deferred: { title: "Saved for later", emptyLabel: "No saved items." }
     }
   },
   planning: {
-    spec: "Spec",
-    noSpecDraft: "No spec draft yet.",
+    spec: "Product spec",
+    noSpecDraft: "No product spec draft yet.",
     sessionVersion: "Session version",
     specSections: "Spec sections",
     approval: "Approval",
     projectPurpose: "Project purpose",
-    businessCritic: "Business critic",
+    businessCritic: "Business review",
     notSelected: "not selected",
     notApplicable: "not applicable",
-    businessCriticChangeReason: "Business critic change reason",
+    businessCriticChangeReason: "Business review change reason",
     businessCriticChangeReasonPlaceholder: "Record why the business validation intensity is changing.",
     changeTo: (label: string) => `Change to ${label}`,
-    businessCriticAuditHelp: "Changes are audited as BusinessCriticIntensityChanged events and add new pressure to queued_next without replacing the active batch.",
+    businessCriticAuditHelp: "Changes are saved to the audit trail and add new review pressure without replacing current questions.",
     modeChangeReason: "Mode change reason",
     modeChangeReasonPlaceholder: "Record why the question/research criteria are changing.",
-    modeAuditHelp: "Changes are audited as ProjectPurposeModeChanged events and keep the current active batch.",
+    modeAuditHelp: "Changes are saved to the audit trail and keep the current question set.",
     progress: "Progress",
     pending: "pending",
     scoreCompleteness: "Score completeness",
-    noRiskProjection: "No risk projection yet.",
+    noRiskProjection: "No risk summary yet.",
     founderBrief: "Founder Brief",
     ready: "ready",
     draft: "draft",
-    prepareExportMetadata: "Prepare export metadata",
+    prepareExportMetadata: "Prepare export details",
     noFounderBrief: "No Founder Brief prepared yet."
   },
   research: {
@@ -167,9 +186,9 @@ const EN_COPY = {
     noResearchTasks: "No research tasks yet."
   },
   implementation: {
-    runtimeEvidence: "Runtime evidence",
-    adapterPrefix: "Adapter",
-    effectSuffix: "effect(s)",
+    runtimeEvidence: "Execution records",
+    adapterPrefix: "Tool",
+    effectSuffix: "item(s)",
     noCommandStatus: "No command status records yet.",
     activity: "Activity",
     pending: "pending",
@@ -188,7 +207,7 @@ const EN_COPY = {
     noActivity: "No activity yet.",
     radarAxes: {
       problem: "Problem",
-      customer: "Customer/JTBD",
+      customer: "Customer / job",
       value: "Value proposition",
       validation: "Validation plan",
       implementation: "Implementation"
@@ -201,29 +220,29 @@ const EN_COPY = {
     title: "Research operations",
     enableResearchSources: "Enable research sources",
     refreshStatus: "Refresh status",
-    allowlistScreen: "Allowlist screen",
+    allowlistScreen: "Research source setup",
     limits: "limits",
     concurrent: "concurrent",
     session: "session",
     retries: "retries",
     disclosure: "disclosure",
-    publicSafeSummaryRequired: "public-safe summary required",
-    policyMissing: "policy missing",
+    publicSafeSummaryRequired: "safe public summary required",
+    policyMissing: "policy not set",
     pause: "Pause",
     revoke: "Revoke",
-    noAllowlist: "No allowlist loaded yet.",
+    noAllowlist: "No research source settings loaded yet.",
     researchRunCards: "Research run cards",
     run: "run",
     attempt: "attempt",
-    qualityGate: "quality gate",
-    terminal: "terminal",
+    qualityGate: "quality check",
+    terminal: "final state",
     recovery: "recovery",
-    refetchUnavailable: "refetch unavailable",
+    refetchUnavailable: "refresh unavailable",
     refreshRunStatus: "Refresh status",
     cancel: "Cancel",
     retry: "Retry",
     noResearchRuns: "No research runs loaded yet.",
-    qualityGateDisplay: "Quality gate display"
+    qualityGateDisplay: "Quality check display"
   },
   phase15b: {
     rows: {
@@ -240,8 +259,8 @@ const EN_COPY = {
     safeExecutionNote: "Safe execution note"
   },
   handoff: {
-    sourceRefs: "source refs",
-    runGate: "Run Planning Handoff gate",
+    sourceRefs: "Source references",
+    runGate: "Run planning handoff check",
     refresh: "Refresh handoff"
   },
   permissions: {
@@ -251,11 +270,11 @@ const EN_COPY = {
     revokeWorkspace: "Revoke workspace",
     fallback: "Fallback",
     fallbackReason: "Fallback reason",
-    storedArtifacts: "Stored artifacts",
+    storedArtifacts: "Saved artifacts",
     redactionPreview: "Redaction preview",
-    noRetainedArtifactRefs: "No retained artifact refs.",
+    noRetainedArtifactRefs: "No saved artifact references.",
     activityFeedLinks: "Activity feed links",
-    noLinkedResearchDecisionRefs: "No linked ResearchTask/Decision refs.",
+    noLinkedResearchDecisionRefs: "No linked research or decision references.",
     auditLog: "Audit log",
     noAuditEntries: "No audit entries yet.",
     serviceLoginPermission: "Service login permission",
@@ -273,20 +292,20 @@ const EN_COPY = {
     loginBoundary: "Login boundary",
     finalSubmitBoundary: "Final submit boundary",
     blockedReasons: "Blocked reasons",
-    noLinkedSetupDecisionRefs: "No linked setup-step/decision refs.",
+    noLinkedSetupDecisionRefs: "No linked setup or decision references.",
     noServicePermissionAuditEntries: "No service permission audit entries yet."
   },
   ledger: {
-    title: "Implementation step ledger",
+    title: "Implementation log",
     nextAction: "Next action",
-    refresh: "Refresh implementation ledger",
+    refresh: "Refresh implementation log",
     latestStep: "Latest step",
     step: "Step",
     scope: "Scope",
     progressReport: "Progress report",
     missingEvidence: "Missing or blocked evidence",
-    evidenceRefs: "Evidence refs",
-    noEvidenceRefs: "No implementation evidence refs recorded."
+    evidenceRefs: "Evidence references",
+    noEvidenceRefs: "No implementation evidence references recorded."
   }
 };
 
@@ -295,32 +314,32 @@ const JA_COPY: typeof EN_COPY = {
     questions: {
       label: "質問",
       shortLabel: "Q",
-      title: "Decision Queue",
-      description: "目的の選択、リサーチ要否、既知リスクを一つの画面で処理します。"
+      title: "質問",
+      description: "プロジェクトの目的、未回答の質問、既知のリスクを一つの画面で整理します。"
     },
     research: {
       label: "リサーチ",
       shortLabel: "R",
-      title: "Research Evidence",
-      description: "承認済みの公開安全リサーチ実行と手動エビデンス取り込みを管理します。"
+      title: "リサーチ確認",
+      description: "承認済みの公開リサーチと手動で追加した根拠を管理します。"
     },
     planning: {
       label: "計画",
       shortLabel: "P",
-      title: "Planning Readiness",
-      description: "仕様、完成度スコア、Founder Brief、handoff gateを確認します。"
+      title: "計画の準備状況",
+      description: "プロダクト仕様、準備スコア、Founder Brief、引き継ぎ確認を見直します。"
     },
     implementation: {
       label: "実装",
       shortLabel: "I",
-      title: "Implementation Runtime",
-      description: "ランタイム活動と実装台帳を一つの流れで追跡します。"
+      title: "実装の動き",
+      description: "ローカルでの動きと実装ログを一つの流れで追跡します。"
     },
     permissions: {
       label: "権限",
       shortLabel: "A",
-      title: "Delegation & Permissions",
-      description: "外部ブラウザ委任とサービスページ利用権限を別々の監査フローで管理します。"
+      title: "委任と権限",
+      description: "外部AIワークスペースとサービスページの利用権限を分けて確認します。"
     }
   },
   projectPurposeModeOptions: [
@@ -331,29 +350,29 @@ const JA_COPY: typeof EN_COPY = {
     },
     {
       mode: "personal",
-      label: "個人ワークフロー実装",
-      description: "市場向け narrative ではなく、個人ワークフロー、GUI、実装可能性、ローカルデータ/セキュリティに集中します。"
+      label: "個人ワークフローの構築",
+      description: "市場向けの説明よりも、自分の作業フロー、画面、実装可能性、ローカルデータやセキュリティに集中します。"
     }
   ],
   businessCriticIntensityOptions: [
     {
       intensity: "balanced",
       label: "バランス型事業レビュー",
-      description: "主要 decision group ごとに最低1つの反対/批判質問を維持します。"
+      description: "主要な判断領域ごとに、少なくとも1つの反証質問を残します。"
     },
     {
       intensity: "strong",
       label: "強い事業レビュー",
-      description: "重要な business gap がある場合、核心仮説への反証質問をキューに残します。"
+      description: "重要な事業上の弱点がある場合、核心仮説への反証質問を残します。"
     },
     {
       intensity: "investor_grade",
       label: "投資審査級レビュー",
-      description: "価格、チャネル、retention proxy、法務/運用、市場タイミング、founder advantage を厳しく検証します。"
+      description: "価格、チャネル、継続利用の兆候、法務・運用リスク、市場タイミング、創業者の強みを厳しく検証します。"
     }
   ],
   layout: {
-    localQueueFallback: "Local Decision Queue",
+    localQueueFallback: "ローカル計画ワークスペース",
     workflowSectionsAria: "デスクトップのワークフロー区分",
     leftRailAria: "ワークフローナビゲーション",
     workflowSteps: "作業ステップ",
@@ -362,11 +381,11 @@ const JA_COPY: typeof EN_COPY = {
     completeness: "完成度",
     pendingQuestions: "待機中の質問",
     blockedQuestions: "ブロック中の質問",
-    reconnectSidecar: "Sidecarに再接続",
-    sidecarUnavailable: "Sidecarを利用できません",
-    sidecarUnavailableMessage: "Sidecar接続を利用できません。",
+    reconnectSidecar: "ローカルサービスに再接続",
+    sidecarUnavailable: "ローカルサービスを利用できません",
+    sidecarUnavailableMessage: "ローカルサービスに接続されていません。",
     retryConnection: "再接続",
-    commandFailed: "コマンド失敗"
+    commandFailed: "操作に失敗しました"
   },
   nav: {
     questionsSublabel: (active: number, next: number) => `${active} active · ${next} next`,
@@ -374,24 +393,26 @@ const JA_COPY: typeof EN_COPY = {
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
   },
   questions: {
-    sessionStart: "セッション開始",
-    firstRunAria: "初回実行ガイド",
-    firstRunTitle: "最初の設定",
+    sessionStart: "セッションを始める",
+    firstRunAria: "目標設定ガイド",
+    firstRunTitle: "目標設定",
     firstRunItems: [
-      "アイデアと現在の悩みを書くと、最初の質問セットを作成します。",
-      "事業目的の場合は検証強度を自分で選びます。アプリが勝手に決めることはありません。",
-      "リサーチと実行準備はまず確認可能なノートとして残し、危険な作業は自動実行しません。"
+      "アイデアの概要と目標を書くと、Solo Superman が最初の質問セットを作成します。",
+      "事業検証の場合は、どの程度厳しく問い直すかを自分で選びます。",
+      "リサーチと実装準備はまず確認できるノートとして残し、危険な操作は自動実行しません。"
     ],
-    rawIdea: "アイデア原文",
-    intakeAnswer: "初回回答",
+    rawIdea: "アイデア概要",
+    rawIdeaPlaceholder: "例: 創業者向けのFounder Brief生成ツール",
+    intakeAnswer: "目標の説明",
+    intakeAnswerPlaceholder: "誰のために、どの問題を解決し、このセッションで何を決めたいかを書いてください。",
     projectPurpose: "プロジェクト目的",
-    purposeHelp: "AIがモードを提案しても、確定するのはユーザーです。選択前は mode_required のままで、後の変更は監査イベントになります。",
-    businessCriticIntensity: "事業批判の強度",
-    intensityReason: "強度を選んだ理由",
-    intensityReasonPlaceholder: "この検証強度を選んだ理由を監査に残します。",
-    intensityHelp: "事業モードでは強度を自動選択しません。選択するまでは事業批判強度が必要な状態です。",
+    purposeHelp: "プロジェクト目的は自分で選びます。選択するまで、事業向け・個人ワークフロー向けの質問は確定しません。",
+    businessCriticIntensity: "事業レビューの強さ",
+    intensityReason: "この強さを選ぶ理由",
+    intensityReasonPlaceholder: "この問い直しの強さが合う理由を書いてください。",
+    intensityHelp: "事業検証では、最初の質問セットを作る前にレビューの強さを明示する必要があります。",
     running: "実行中",
-    createFirstBatch: "最初の質問セットを作成",
+    createFirstBatch: "最初の質問を作成",
     queue: "キュー",
     nextValidation: "次の検証",
     suggestedAnswers: "回答候補",
@@ -402,36 +423,53 @@ const JA_COPY: typeof EN_COPY = {
     answerAriaPrefix: "回答",
     submitAnswer: "回答を送信",
     nextValidationActionAriaPrefix: "次の検証アクション",
-    knownRiskPlaceholder: "Known Risk として残す場合、次の検証アクションを書いてください。",
-    carryAsKnownRisk: "Known Riskとして残す",
-    queueRecoveryFresh: "キュー projection は最新です。SSE通知後も正規状態は refetch で更新します。",
-    queueRefetchMissing: "正規キュー refetch URL はまだ読み込まれていません。",
-    queueSseMissing: "SSE通知ストリームはまだ読み込まれていません。",
-    queueActiveBatchMissing: "active batch metadata はまだ読み込まれていません。",
+    knownRiskPlaceholder: "既知のリスクとして残す場合、次の検証ステップを書いてください。",
+    carryAsKnownRisk: "既知のリスクとして残す",
+    queueRecoveryFresh: "質問は最新です。ローカルサービスの更新が届くと、この一覧を更新します。",
+    queueRefetchMissing: "質問を更新する経路はまだ読み込まれていません。",
+    queueSseMissing: "ライブ更新通知はまだ接続されていません。",
+    queueActiveBatchMissing: "現在の質問の詳細はまだ読み込まれていません。",
+    queueRefetchReady: (url: string) => `質問の更新 ${url}`,
+    queueSseReady: (url: string) => `ライブ更新ストリーム ${url}`,
+    queueActiveBatchReady: (count: number) => `${count}件の現在の質問がこのラウンドに選ばれています。`,
+    queueRecoveryStatusLabels: {
+      idle: "最新",
+      pending_refetch: "更新待ち",
+      recovering: "更新中",
+      recovered_by_refetch: "更新済み",
+      stale: "更新が必要"
+    },
+    queueRecoveryMessages: {
+      idle: "質問は最新です。ローカルサービスの更新が届くと、この一覧を更新します。",
+      pending_refetch: "質問の更新が待機中です。この一覧はローカルサービスから更新されます。",
+      recovering: "ライブ更新または再接続の後、質問を更新しています。",
+      recovered_by_refetch: "ライブ更新の後に質問を更新しました。",
+      stale: "質問が古い可能性があります。判断材料にする前に更新してください。"
+    },
     queueSections: {
-      active: { title: "アクティブ", emptyLabel: "アクティブな質問はありません。" },
-      next: { title: "次", emptyLabel: "queued-next 項目はありません。" },
-      blocked: { title: "ブロック", emptyLabel: "ブロックされたカードはありません。" },
-      deferred: { title: "保留", emptyLabel: "保留中のカードはありません。" }
+      active: { title: "現在の質問", emptyLabel: "現在の質問はありません。" },
+      next: { title: "次に確認", emptyLabel: "次に確認する質問はありません。" },
+      blocked: { title: "確認が必要", emptyLabel: "ブロック中の項目はありません。" },
+      deferred: { title: "後で確認", emptyLabel: "後で確認する項目はありません。" }
     }
   },
   planning: {
-    spec: "仕様",
+    spec: "プロダクト仕様",
     noSpecDraft: "仕様ドラフトはまだありません。",
     sessionVersion: "セッションバージョン",
     specSections: "仕様セクション",
     approval: "承認",
     projectPurpose: "プロジェクト目的",
-    businessCritic: "事業批判",
+    businessCritic: "事業レビュー",
     notSelected: "未選択",
     notApplicable: "対象外",
     businessCriticChangeReason: "事業批判強度の変更理由",
     businessCriticChangeReasonPlaceholder: "事業検証強度を変える理由を記録します。",
     changeTo: (label: string) => `${label}に変更`,
-    businessCriticAuditHelp: "変更は BusinessCriticIntensityChanged として監査され、active batchを置き換えず queued_next に新しい pressure を追加します。",
+    businessCriticAuditHelp: "変更は監査ログに残り、現在の質問を置き換えずに新しい問い直しを追加します。",
     modeChangeReason: "モード変更理由",
     modeChangeReasonPlaceholder: "質問/リサーチ基準を変える理由を記録します。",
-    modeAuditHelp: "変更は ProjectPurposeModeChanged として監査され、既存の active batch は維持されます。",
+    modeAuditHelp: "変更は監査ログに残り、現在の質問セットは維持されます。",
     progress: "進捗",
     pending: "保留中",
     scoreCompleteness: "完成度を採点",
@@ -439,7 +477,7 @@ const JA_COPY: typeof EN_COPY = {
     founderBrief: "Founder Brief",
     ready: "準備完了",
     draft: "ドラフト",
-    prepareExportMetadata: "エクスポート metadata を準備",
+    prepareExportMetadata: "エクスポート情報を準備",
     noFounderBrief: "Founder Brief はまだ準備されていません。"
   },
   research: {
@@ -453,9 +491,9 @@ const JA_COPY: typeof EN_COPY = {
     noResearchTasks: "リサーチタスクはまだありません。"
   },
   implementation: {
-    runtimeEvidence: "ランタイム証跡",
-    adapterPrefix: "アダプター",
-    effectSuffix: "effect(s)",
+    runtimeEvidence: "実行記録",
+    adapterPrefix: "ツール",
+    effectSuffix: "件",
     noCommandStatus: "コマンドステータス記録はまだありません。",
     activity: "活動",
     pending: "保留中",
@@ -466,8 +504,8 @@ const JA_COPY: typeof EN_COPY = {
     aria: "ライブプロジェクト概要",
     planningCompleteness: "計画完成度",
     researchStatus: "リサーチ状況",
-    tasks: "tasks",
-    activeRuns: "active runs",
+    tasks: "タスク",
+    activeRuns: "実行中",
     recentActivity: "最近の活動",
     researchNeedsReview: "リサーチ確認はまだ完了していません。残り項目と復旧経路を先に確認してください。",
     pending: "保留中",
@@ -487,24 +525,24 @@ const JA_COPY: typeof EN_COPY = {
     title: "リサーチ運用",
     enableResearchSources: "リサーチソースを有効化",
     refreshStatus: "状態更新",
-    allowlistScreen: "Allowlist画面",
+    allowlistScreen: "リサーチソース設定",
     limits: "制限",
     concurrent: "同時",
     session: "セッション",
     retries: "再試行",
     disclosure: "開示",
-    publicSafeSummaryRequired: "public-safe summary が必要",
-    policyMissing: "policy missing",
+    publicSafeSummaryRequired: "公開してよい要約が必要",
+    policyMissing: "ポリシー未設定",
     pause: "一時停止",
     revoke: "取り消し",
-    noAllowlist: "Allowlist はまだ読み込まれていません。",
+    noAllowlist: "リサーチソース設定はまだ読み込まれていません。",
     researchRunCards: "リサーチ実行カード",
     run: "run",
     attempt: "試行",
-    qualityGate: "quality gate",
-    terminal: "terminal",
-    recovery: "recovery",
-    refetchUnavailable: "refetch unavailable",
+    qualityGate: "品質確認",
+    terminal: "完了状態",
+    recovery: "復旧",
+    refetchUnavailable: "再読み込み不可",
     refreshRunStatus: "状態更新",
     cancel: "キャンセル",
     retry: "再試行",
@@ -526,22 +564,22 @@ const JA_COPY: typeof EN_COPY = {
     safeExecutionNote: "安全実行ノート"
   },
   handoff: {
-    sourceRefs: "source refs",
-    runGate: "Planning Handoff gateを実行",
-    refresh: "handoff更新"
+    sourceRefs: "参照元",
+    runGate: "計画引き継ぎチェックを実行",
+    refresh: "引き継ぎを更新"
   },
   permissions: {
-    externalAiWorkspace: "外部AIワークスペース",
+    externalAiWorkspace: "外部AI作業スペース",
     nextAction: "次のアクション",
-    refreshWorkspace: "ワークスペース更新",
-    revokeWorkspace: "ワークスペース取り消し",
+    refreshWorkspace: "作業スペースを更新",
+    revokeWorkspace: "作業スペース権限を取り消す",
     fallback: "フォールバック",
     fallbackReason: "フォールバック理由",
-    storedArtifacts: "保存済み artifacts",
-    redactionPreview: "Redaction preview",
-    noRetainedArtifactRefs: "保持された artifact ref はありません。",
-    activityFeedLinks: "Activity feed links",
-    noLinkedResearchDecisionRefs: "ResearchTask/Decision ref はまだリンクされていません。",
+    storedArtifacts: "保存済み資料",
+    redactionPreview: "非表示化プレビュー",
+    noRetainedArtifactRefs: "保存済み資料の参照はありません。",
+    activityFeedLinks: "活動フィードリンク",
+    noLinkedResearchDecisionRefs: "リサーチや判断への参照はまだリンクされていません。",
     auditLog: "監査ログ",
     noAuditEntries: "監査項目はまだありません。",
     serviceLoginPermission: "サービスログイン権限",
@@ -559,20 +597,20 @@ const JA_COPY: typeof EN_COPY = {
     loginBoundary: "ログイン境界",
     finalSubmitBoundary: "最終送信境界",
     blockedReasons: "ブロック理由",
-    noLinkedSetupDecisionRefs: "setup-step/decision ref はまだリンクされていません。",
+    noLinkedSetupDecisionRefs: "設定や判断への参照はまだリンクされていません。",
     noServicePermissionAuditEntries: "サービス権限の監査項目はまだありません。"
   },
   ledger: {
-    title: "実装ステップ台帳",
+    title: "実装ログ",
     nextAction: "次のアクション",
-    refresh: "実装台帳を更新",
+    refresh: "実装ログを更新",
     latestStep: "最新ステップ",
     step: "ステップ",
     scope: "範囲",
     progressReport: "進捗レポート",
     missingEvidence: "不足またはブロック中の証跡",
-    evidenceRefs: "証跡refs",
-    noEvidenceRefs: "実装証跡refはまだ記録されていません。"
+    evidenceRefs: "確認資料",
+    noEvidenceRefs: "実装の確認資料はまだ記録されていません。"
   }
 };
 
@@ -581,32 +619,32 @@ const KO_COPY: typeof EN_COPY = {
     questions: {
       label: "질문",
       shortLabel: "Q",
-      title: "의사결정 큐",
-      description: "목적 선택, 리서치 필요성, 알려진 리스크를 한곳에서 처리합니다."
+      title: "질문",
+      description: "프로젝트 목표, 남은 질문, 알려진 리스크를 한곳에서 정리합니다."
     },
     research: {
       label: "리서치",
       shortLabel: "R",
-      title: "리서치 근거",
-      description: "승인된 공개 안전 리서치 실행과 수동 근거 가져오기를 관리합니다."
+      title: "리서치 검토",
+      description: "승인된 공개 리서치와 직접 추가한 근거를 관리합니다."
     },
     planning: {
       label: "계획",
       shortLabel: "P",
-      title: "계획 준비도",
-      description: "스펙, 완성도 점수, Founder Brief, 핸드오프 게이트를 검토합니다."
+      title: "계획 준비 상태",
+      description: "제품 설명서, 준비 점수, Founder Brief, 인계 확인을 검토합니다."
     },
     implementation: {
       label: "구현",
       shortLabel: "I",
-      title: "구현 런타임",
-      description: "런타임 활동과 구현 원장을 하나의 흐름에서 추적합니다."
+      title: "구현 활동",
+      description: "로컬 실행 상태와 구현 로그를 하나의 흐름에서 추적합니다."
     },
     permissions: {
       label: "권한",
       shortLabel: "A",
-      title: "위임 및 권한",
-      description: "외부 브라우저 위임과 서비스 페이지 사용 권한을 별도 감사 흐름으로 점검합니다."
+      title: "위임과 권한",
+      description: "외부 AI 작업공간 접근과 서비스 페이지 사용 권한을 나누어 확인합니다."
     }
   },
   projectPurposeModeOptions: [
@@ -617,42 +655,42 @@ const KO_COPY: typeof EN_COPY = {
     },
     {
       mode: "personal",
-      label: "개인 워크플로 구축",
-      description: "시장 내러티브 대신 개인 워크플로, GUI, 구현 가능성, 로컬 데이터/보안에 집중합니다."
+      label: "개인 워크플로 만들기",
+      description: "시장 설명보다 내 작업 흐름, 화면, 구현 가능성, 로컬 데이터와 보안에 집중합니다."
     }
   ],
   businessCriticIntensityOptions: [
     {
       intensity: "balanced",
       label: "균형 잡힌 비즈니스 리뷰",
-      description: "주요 의사결정 그룹마다 최소 하나의 반대 또는 비판 질문을 유지합니다."
+      description: "주요 판단 영역마다 최소 하나의 반박 질문을 남깁니다."
     },
     {
       intensity: "strong",
       label: "강한 비즈니스 리뷰",
-      description: "영향이 큰 비즈니스 공백이 보이면 핵심 가정 도전 질문을 큐에 남겨둡니다."
+      description: "중요한 사업 가정이 약하면 핵심 가정을 다시 묻는 질문을 남깁니다."
     },
     {
       intensity: "investor_grade",
       label: "투자 심사급 리뷰",
-      description: "가격, 채널, 유지율 대리지표, 법무/운영 리스크, 시장 타이밍, 창업자 우위를 압박 검증합니다."
+      description: "가격, 채널, 유지 신호, 법무·운영 리스크, 시장 타이밍, 창업자 강점을 강하게 검증합니다."
     }
   ],
   layout: {
-    localQueueFallback: "로컬 의사결정 큐",
+    localQueueFallback: "로컬 계획 작업공간",
     workflowSectionsAria: "데스크톱 워크플로 섹션",
     leftRailAria: "워크플로 내비게이션",
-    workflowSteps: "워크플로 단계",
+    workflowSteps: "작업 단계",
     progressAria: "실시간 큐 진행률",
     progress: "진행률",
     completeness: "완성도",
     pendingQuestions: "대기 중인 질문",
     blockedQuestions: "차단된 질문",
-    reconnectSidecar: "사이드카 다시 연결",
-    sidecarUnavailable: "사이드카를 사용할 수 없음",
-    sidecarUnavailableMessage: "사이드카 연결을 사용할 수 없습니다.",
+    reconnectSidecar: "로컬 서비스 다시 연결",
+    sidecarUnavailable: "로컬 서비스를 사용할 수 없음",
+    sidecarUnavailableMessage: "로컬 서비스가 연결되어 있지 않습니다.",
     retryConnection: "다시 연결",
-    commandFailed: "명령 실패"
+    commandFailed: "작업 실패"
   },
   nav: {
     questionsSublabel: (active: number, next: number) => `${active}개 활성 · 다음 ${next}개`,
@@ -661,23 +699,25 @@ const KO_COPY: typeof EN_COPY = {
   },
   questions: {
     sessionStart: "세션 시작",
-    firstRunAria: "첫 실행 가이드",
-    firstRunTitle: "첫 설정",
+    firstRunAria: "목표 설정 가이드",
+    firstRunTitle: "목표 설정",
     firstRunItems: [
-      "아이디어와 현재 걱정을 적으면 첫 질문 묶음을 만듭니다.",
-      "비즈니스 목표라면 리뷰 강도를 직접 선택합니다. 앱이 대신 결정하지 않습니다.",
-      "리서치와 실행 준비는 먼저 검토 가능한 노트로 기록하며, 위험한 작업은 자동 실행하지 않습니다."
+      "아이디어 요약과 목표를 적으면 Solo Superman이 첫 질문을 만듭니다.",
+      "사업 검증이라면 어느 정도 강하게 되물을지 직접 선택합니다.",
+      "리서치와 구현 준비는 먼저 검토 가능한 노트로 남기며, 위험한 작업은 자동 실행하지 않습니다."
     ],
-    rawIdea: "원본 아이디어",
-    intakeAnswer: "초기 답변",
+    rawIdea: "아이디어 요약",
+    rawIdeaPlaceholder: "예: 창업자를 위한 Founder Brief 생성 도구",
+    intakeAnswer: "목표에 대한 서술",
+    intakeAnswerPlaceholder: "누구를 위한 것인지, 어떤 문제를 풀고 싶은지, 이번 세션에서 무엇을 결정하고 싶은지 적어주세요.",
     projectPurpose: "프로젝트 목적",
-    purposeHelp: "AI가 모드를 제안하더라도 확정은 사용자가 합니다. 그 전까지 세션은 mode_required 상태이며 이후 변경은 감사 이벤트로 남습니다.",
-    businessCriticIntensity: "비즈니스 비판 강도",
-    intensityReason: "강도 선택 이유",
-    intensityReasonPlaceholder: "이 검증 강도를 선택한 이유를 기록하세요.",
-    intensityHelp: "비즈니스 모드에서는 강도를 자동 선택하지 않습니다. 선택 전까지 비즈니스 비판 강도가 필요한 상태로 남습니다.",
+    purposeHelp: "프로젝트 목적은 사용자가 직접 선택합니다. 선택 전에는 사업 검증용 질문이나 개인 워크플로용 질문을 확정하지 않습니다.",
+    businessCriticIntensity: "사업 리뷰 강도",
+    intensityReason: "이 강도를 선택한 이유",
+    intensityReasonPlaceholder: "이 정도로 되묻는 것이 프로젝트에 맞는 이유를 적어주세요.",
+    intensityHelp: "사업 검증에서는 첫 질문을 만들기 전에 리뷰 강도를 명시해야 합니다.",
     running: "실행 중",
-    createFirstBatch: "첫 질문 묶음 만들기",
+    createFirstBatch: "첫 질문 만들기",
     queue: "큐",
     nextValidation: "다음 검증",
     suggestedAnswers: "추천 답변 선택지",
@@ -688,36 +728,53 @@ const KO_COPY: typeof EN_COPY = {
     answerAriaPrefix: "답변",
     submitAnswer: "답변 제출",
     nextValidationActionAriaPrefix: "다음 검증 작업",
-    knownRiskPlaceholder: "Known Risk로 유지할 경우 다음 검증 작업을 작성하세요.",
-    carryAsKnownRisk: "Known Risk로 유지",
-    queueRecoveryFresh: "큐 projection은 최신입니다. SSE 알림은 로컬 상태 변이 대신 다시 가져오기를 트리거합니다.",
-    queueRefetchMissing: "정식 큐 다시 가져오기 URL이 아직 로드되지 않았습니다.",
-    queueSseMissing: "SSE 알림 스트림이 아직 로드되지 않았습니다.",
-    queueActiveBatchMissing: "활성 묶음 메타데이터가 아직 로드되지 않았습니다.",
+    knownRiskPlaceholder: "알려진 리스크로 남길 경우 다음 검증 작업을 적어주세요.",
+    carryAsKnownRisk: "알려진 리스크로 남기기",
+    queueRecoveryFresh: "질문 목록은 최신입니다. 로컬 서비스 업데이트가 오면 이 목록을 새로고침합니다.",
+    queueRefetchMissing: "질문을 새로고침할 경로가 아직 로드되지 않았습니다.",
+    queueSseMissing: "실시간 업데이트 알림이 아직 연결되지 않았습니다.",
+    queueActiveBatchMissing: "현재 질문의 세부 정보가 아직 로드되지 않았습니다.",
+    queueRefetchReady: (url: string) => `질문 새로고침 ${url}`,
+    queueSseReady: (url: string) => `실시간 업데이트 스트림 ${url}`,
+    queueActiveBatchReady: (count: number) => `현재 질문 ${count}개가 이번 라운드에 선택되었습니다.`,
+    queueRecoveryStatusLabels: {
+      idle: "최신",
+      pending_refetch: "새로고침 대기",
+      recovering: "새로고침 중",
+      recovered_by_refetch: "새로고침됨",
+      stale: "새로고침 필요"
+    },
+    queueRecoveryMessages: {
+      idle: "질문 목록은 최신입니다. 로컬 서비스 업데이트가 오면 이 목록을 새로고침합니다.",
+      pending_refetch: "질문 업데이트가 대기 중입니다. 로컬 서비스에서 이 목록을 새로고침합니다.",
+      recovering: "실시간 업데이트 또는 재연결 후 질문을 새로고침하고 있습니다.",
+      recovered_by_refetch: "실시간 업데이트 후 질문을 새로고침했습니다.",
+      stale: "질문이 오래되었을 수 있습니다. 판단 근거로 쓰기 전에 새로고침하세요."
+    },
     queueSections: {
-      active: { title: "활성 묶음", emptyLabel: "활성 질문이 없습니다." },
-      next: { title: "다음", emptyLabel: "queued-next 항목이 없습니다." },
-      blocked: { title: "차단됨", emptyLabel: "차단된 카드가 없습니다." },
-      deferred: { title: "보류", emptyLabel: "보류 중인 카드가 없습니다." }
+      active: { title: "현재 질문", emptyLabel: "현재 질문이 없습니다." },
+      next: { title: "다음에 확인", emptyLabel: "다음에 확인할 질문이 없습니다." },
+      blocked: { title: "확인 필요", emptyLabel: "막힌 항목이 없습니다." },
+      deferred: { title: "나중에 보기", emptyLabel: "나중에 볼 항목이 없습니다." }
     }
   },
   planning: {
-    spec: "스펙",
-    noSpecDraft: "아직 스펙 초안이 없습니다.",
+    spec: "제품 설명서",
+    noSpecDraft: "아직 제품 설명서 초안이 없습니다.",
     sessionVersion: "세션 버전",
-    specSections: "스펙 섹션",
+    specSections: "제품 설명서 섹션",
     approval: "승인",
     projectPurpose: "프로젝트 목적",
-    businessCritic: "비즈니스 비판",
+    businessCritic: "사업 리뷰",
     notSelected: "미선택",
     notApplicable: "해당 없음",
-    businessCriticChangeReason: "비즈니스 비판 강도 변경 이유",
+    businessCriticChangeReason: "사업 리뷰 강도 변경 이유",
     businessCriticChangeReasonPlaceholder: "비즈니스 검증 강도를 바꾸는 이유를 기록하세요.",
     changeTo: (label: string) => `${label}(으)로 변경`,
-    businessCriticAuditHelp: "변경은 BusinessCriticIntensityChanged 이벤트로 감사되며, 활성 묶음을 교체하지 않고 queued_next에 새 pressure를 추가합니다.",
+    businessCriticAuditHelp: "변경은 감사 로그에 남고, 현재 질문을 교체하지 않은 채 새 검토 압력을 추가합니다.",
     modeChangeReason: "모드 변경 이유",
     modeChangeReasonPlaceholder: "질문/리서치 기준을 바꾸는 이유를 기록하세요.",
-    modeAuditHelp: "변경은 ProjectPurposeModeChanged 이벤트로 감사되며 현재 활성 묶음은 유지됩니다.",
+    modeAuditHelp: "변경은 감사 로그에 남고, 현재 질문 묶음은 유지됩니다.",
     progress: "진행률",
     pending: "대기 중",
     scoreCompleteness: "완성도 채점",
@@ -725,7 +782,7 @@ const KO_COPY: typeof EN_COPY = {
     founderBrief: "Founder Brief",
     ready: "준비됨",
     draft: "초안",
-    prepareExportMetadata: "내보내기 메타데이터 준비",
+    prepareExportMetadata: "내보내기 정보 준비",
     noFounderBrief: "아직 Founder Brief가 준비되지 않았습니다."
   },
   research: {
@@ -739,9 +796,9 @@ const KO_COPY: typeof EN_COPY = {
     noResearchTasks: "아직 리서치 작업이 없습니다."
   },
   implementation: {
-    runtimeEvidence: "런타임 근거",
-    adapterPrefix: "어댑터",
-    effectSuffix: "effect(s)",
+    runtimeEvidence: "실행 기록",
+    adapterPrefix: "도구",
+    effectSuffix: "件",
     noCommandStatus: "아직 명령 상태 기록이 없습니다.",
     activity: "활동",
     pending: "대기 중",
@@ -760,7 +817,7 @@ const KO_COPY: typeof EN_COPY = {
     noActivity: "아직 활동이 없습니다.",
     radarAxes: {
       problem: "문제",
-      customer: "고객/JTBD",
+      customer: "고객 / 할 일",
       value: "가치 제안",
       validation: "검증 계획",
       implementation: "구현"
@@ -773,24 +830,24 @@ const KO_COPY: typeof EN_COPY = {
     title: "리서치 운영",
     enableResearchSources: "리서치 소스 활성화",
     refreshStatus: "상태 새로고침",
-    allowlistScreen: "허용 목록 화면",
+    allowlistScreen: "리서치 소스 설정",
     limits: "제한",
     concurrent: "동시",
     session: "세션",
     retries: "재시도",
     disclosure: "공개 고지",
-    publicSafeSummaryRequired: "public-safe summary 필요",
-    policyMissing: "policy 누락",
+    publicSafeSummaryRequired: "공개 가능한 요약 필요",
+    policyMissing: "정책 누락",
     pause: "일시정지",
     revoke: "취소",
-    noAllowlist: "아직 허용 목록이 로드되지 않았습니다.",
+    noAllowlist: "아직 리서치 소스 설정이 로드되지 않았습니다.",
     researchRunCards: "리서치 실행 카드",
     run: "실행",
     attempt: "시도",
-    qualityGate: "품질 게이트",
+    qualityGate: "품질 확인",
     terminal: "종료 상태",
     recovery: "복구",
-    refetchUnavailable: "다시 가져오기 불가",
+    refetchUnavailable: "새로고침 불가",
     refreshRunStatus: "상태 새로고침",
     cancel: "취소",
     retry: "재시도",
@@ -812,22 +869,22 @@ const KO_COPY: typeof EN_COPY = {
     safeExecutionNote: "안전 실행 노트"
   },
   handoff: {
-    sourceRefs: "출처 refs",
-    runGate: "Planning Handoff 게이트 실행",
+    sourceRefs: "참조 출처",
+    runGate: "계획 인계 확인 실행",
     refresh: "핸드오프 새로고침"
   },
   permissions: {
-    externalAiWorkspace: "외부 AI 워크스페이스",
+    externalAiWorkspace: "외부 AI 작업공간",
     nextAction: "다음 작업",
-    refreshWorkspace: "워크스페이스 새로고침",
-    revokeWorkspace: "워크스페이스 취소",
+    refreshWorkspace: "작업공간 새로고침",
+    revokeWorkspace: "작업공간 권한 취소",
     fallback: "대체 경로",
     fallbackReason: "대체 사유",
-    storedArtifacts: "저장된 artifacts",
-    redactionPreview: "비식별화 미리보기",
-    noRetainedArtifactRefs: "보관된 artifact ref가 없습니다.",
-    activityFeedLinks: "활동 피드 링크",
-    noLinkedResearchDecisionRefs: "아직 연결된 ResearchTask/Decision ref가 없습니다.",
+    storedArtifacts: "저장된 자료",
+    redactionPreview: "가림 처리 미리보기",
+    noRetainedArtifactRefs: "저장된 자료 참조가 없습니다.",
+    activityFeedLinks: "활동 기록 링크",
+    noLinkedResearchDecisionRefs: "아직 연결된 리서치나 결정 참조가 없습니다.",
     auditLog: "감사 로그",
     noAuditEntries: "아직 감사 항목이 없습니다.",
     serviceLoginPermission: "서비스 로그인 권한",
@@ -840,25 +897,25 @@ const KO_COPY: typeof EN_COPY = {
     allowedActions: "허용된 작업",
     blockedActions: "차단된 작업",
     visibleDataCategories: "표시되는 데이터 범주",
-    approvalGranularity: "승인 세분성",
+    approvalGranularity: "승인 단위",
     userApproval: "사용자 승인",
-    loginBoundary: "로그인 경계",
-    finalSubmitBoundary: "최종 제출 경계",
+    loginBoundary: "로그인 범위",
+    finalSubmitBoundary: "최종 제출 범위",
     blockedReasons: "차단 사유",
-    noLinkedSetupDecisionRefs: "아직 연결된 setup-step/decision ref가 없습니다.",
+    noLinkedSetupDecisionRefs: "아직 연결된 설정이나 결정 참조가 없습니다.",
     noServicePermissionAuditEntries: "아직 서비스 권한 감사 항목이 없습니다."
   },
   ledger: {
-    title: "구현 단계 원장",
+    title: "구현 로그",
     nextAction: "다음 작업",
-    refresh: "구현 원장 새로고침",
+    refresh: "구현 로그 새로고침",
     latestStep: "최신 단계",
     step: "단계",
     scope: "범위",
     progressReport: "진행 보고",
     missingEvidence: "누락 또는 차단된 근거",
-    evidenceRefs: "근거 refs",
-    noEvidenceRefs: "아직 구현 근거 ref가 기록되지 않았습니다."
+    evidenceRefs: "근거 참조",
+    noEvidenceRefs: "아직 구현 근거 참조가 기록되지 않았습니다."
   }
 };
 

@@ -58,7 +58,7 @@ export function implementationStepLedgerViewModel(
   if (!projection || !step) {
     return {
       status: "not_started",
-      summary: "Implementation step ledger has not been recorded.",
+      summary: "Implementation log has not been recorded.",
       trackerLabel: "No tracker doc recorded",
       progressReport: "No implementation progress report is available yet.",
       latestStepTitle: "No step recorded",

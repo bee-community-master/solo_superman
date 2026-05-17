@@ -53,11 +53,21 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
         </section>
         <label>
           {copy.questions.rawIdea}
-          <textarea value={idea} onChange={(event) => setIdea(event.target.value)} rows={4} />
+          <textarea
+            value={idea}
+            onChange={(event) => setIdea(event.target.value)}
+            placeholder={copy.questions.rawIdeaPlaceholder}
+            rows={4}
+          />
         </label>
         <label>
           {copy.questions.intakeAnswer}
-          <textarea value={intake} onChange={(event) => setIntake(event.target.value)} rows={5} />
+          <textarea
+            value={intake}
+            onChange={(event) => setIntake(event.target.value)}
+            placeholder={copy.questions.intakeAnswerPlaceholder}
+            rows={5}
+          />
         </label>
         <fieldset className="mode-fieldset">
           <legend>{copy.questions.projectPurpose}</legend>
@@ -119,7 +129,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
       <section className="panel queue-panel">
         <div className="panel-heading">
           <h2>{copy.questions.queue}</h2>
-          <span>{queueRecovery.status} · v{projections.queue?.version ?? 0}</span>
+          <span>{copy.questions.queueRecoveryStatusLabels[queueRecovery.status]} · v{projections.queue?.version ?? 0}</span>
         </div>
         <div className="queue-recovery">
           <p>{queueRecovery.label}</p>

@@ -173,7 +173,7 @@ describe("ImplementationStepLedgerPanel view model", () => {
       })
     );
 
-    expect(markup).toContain("Implementation step ledger");
+    expect(markup).toContain("Implementation log");
     expect(markup).toContain("Code review: passed");
     expect(markup).toContain("Clean-code review: passed");
     expect(markup).toContain("Rollback/reference: rollback:git-revert:abcdef1");

@@ -60,9 +60,8 @@ export interface ProjectionState {
   readonly implementationStepLedger: ImplementationStepLedgerProjection | null;
 }
 
-export const DEFAULT_IDEA = "A focused founder brief generator";
-export const DEFAULT_INTAKE =
-  "Help solo founders turn a rough idea into a traceable product spec before they start building.";
+export const DEFAULT_IDEA = "";
+export const DEFAULT_INTAKE = "";
 
 export const PROJECT_PURPOSE_MODE_OPTIONS = [
   {
@@ -109,7 +108,7 @@ export function displayError(error: unknown) {
     return error.message;
   }
 
-  return "Unknown sidecar error.";
+  return "Unknown local service error.";
 }
 
 const PROJECTION_VERSION_KEYS = [

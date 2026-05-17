@@ -1,8 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { SidecarClientError } from "../../shared/api/sidecar-client";
-import { displayError, emptyProjectionState, latestProjectionVersion, type ProjectionState } from "./shell/decision-queue-shell-model";
+import {
+  DEFAULT_IDEA,
+  DEFAULT_INTAKE,
+  displayError,
+  emptyProjectionState,
+  latestProjectionVersion,
+  type ProjectionState
+} from "./shell/decision-queue-shell-model";
 
 describe("decision queue shell model", () => {
+  it("starts first-run fields empty so examples stay as guidance instead of answers", () => {
+    expect(DEFAULT_IDEA).toBe("");
+    expect(DEFAULT_INTAKE).toBe("");
+  });
+
   it("keeps sidecar API error codes visible in workflow errors", () => {
     const error = new SidecarClientError(
       {
@@ -17,8 +29,8 @@ describe("decision queue shell model", () => {
     );
   });
 
-  it("uses the original unknown sidecar error fallback for non-Error throws", () => {
-    expect(displayError(undefined)).toBe("Unknown sidecar error.");
+  it("uses the unknown local service error fallback for non-Error throws", () => {
+    expect(displayError(undefined)).toBe("Unknown local service error.");
   });
 
   it("keeps every refreshed projection in the expected state-version calculation", () => {
