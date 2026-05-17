@@ -576,9 +576,296 @@ const JA_COPY: typeof EN_COPY = {
   }
 };
 
+const KO_COPY: typeof EN_COPY = {
+  pageMeta: {
+    questions: {
+      label: "질문",
+      shortLabel: "Q",
+      title: "의사결정 큐",
+      description: "목적 선택, 리서치 필요성, 알려진 리스크를 한곳에서 처리합니다."
+    },
+    research: {
+      label: "리서치",
+      shortLabel: "R",
+      title: "리서치 근거",
+      description: "승인된 공개 안전 리서치 실행과 수동 근거 가져오기를 관리합니다."
+    },
+    planning: {
+      label: "계획",
+      shortLabel: "P",
+      title: "계획 준비도",
+      description: "스펙, 완성도 점수, Founder Brief, 핸드오프 게이트를 검토합니다."
+    },
+    implementation: {
+      label: "구현",
+      shortLabel: "I",
+      title: "구현 런타임",
+      description: "런타임 활동과 구현 원장을 하나의 흐름에서 추적합니다."
+    },
+    permissions: {
+      label: "권한",
+      shortLabel: "A",
+      title: "위임 및 권한",
+      description: "외부 브라우저 위임과 서비스 페이지 사용 권한을 별도 감사 흐름으로 점검합니다."
+    }
+  },
+  projectPurposeModeOptions: [
+    {
+      mode: "business",
+      label: "비즈니스 검증",
+      description: "고객, 문제 강도, 유료 의향, 경쟁, 채널, 법무/운영 리스크를 검증합니다."
+    },
+    {
+      mode: "personal",
+      label: "개인 워크플로 구축",
+      description: "시장 내러티브 대신 개인 워크플로, GUI, 구현 가능성, 로컬 데이터/보안에 집중합니다."
+    }
+  ],
+  businessCriticIntensityOptions: [
+    {
+      intensity: "balanced",
+      label: "균형 잡힌 비즈니스 리뷰",
+      description: "주요 의사결정 그룹마다 최소 하나의 반대 또는 비판 질문을 유지합니다."
+    },
+    {
+      intensity: "strong",
+      label: "강한 비즈니스 리뷰",
+      description: "영향이 큰 비즈니스 공백이 보이면 핵심 가정 도전 질문을 큐에 남겨둡니다."
+    },
+    {
+      intensity: "investor_grade",
+      label: "투자 심사급 리뷰",
+      description: "가격, 채널, 유지율 대리지표, 법무/운영 리스크, 시장 타이밍, 창업자 우위를 압박 검증합니다."
+    }
+  ],
+  layout: {
+    localQueueFallback: "로컬 의사결정 큐",
+    workflowSectionsAria: "데스크톱 워크플로 섹션",
+    leftRailAria: "워크플로 내비게이션",
+    workflowSteps: "워크플로 단계",
+    progressAria: "실시간 큐 진행률",
+    progress: "진행률",
+    completeness: "완성도",
+    pendingQuestions: "대기 중인 질문",
+    blockedQuestions: "차단된 질문",
+    reconnectSidecar: "사이드카 다시 연결",
+    sidecarUnavailable: "사이드카를 사용할 수 없음",
+    sidecarUnavailableMessage: "사이드카 연결을 사용할 수 없습니다.",
+    retryConnection: "다시 연결",
+    commandFailed: "명령 실패"
+  },
+  nav: {
+    questionsSublabel: (active: number, next: number) => `${active}개 활성 · 다음 ${next}개`,
+    researchSublabel: (tasks: number, runs: number) => `${tasks}개 작업 · ${runs}개 실행`,
+    permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
+  },
+  questions: {
+    sessionStart: "세션 시작",
+    firstRunAria: "첫 실행 가이드",
+    firstRunTitle: "첫 설정",
+    firstRunItems: [
+      "아이디어와 현재 걱정을 적으면 첫 질문 묶음을 만듭니다.",
+      "비즈니스 목표라면 리뷰 강도를 직접 선택합니다. 앱이 대신 결정하지 않습니다.",
+      "리서치와 실행 준비는 먼저 검토 가능한 노트로 기록하며, 위험한 작업은 자동 실행하지 않습니다."
+    ],
+    rawIdea: "원본 아이디어",
+    intakeAnswer: "초기 답변",
+    projectPurpose: "프로젝트 목적",
+    purposeHelp: "AI가 모드를 제안하더라도 확정은 사용자가 합니다. 그 전까지 세션은 mode_required 상태이며 이후 변경은 감사 이벤트로 남습니다.",
+    businessCriticIntensity: "비즈니스 비판 강도",
+    intensityReason: "강도 선택 이유",
+    intensityReasonPlaceholder: "이 검증 강도를 선택한 이유를 기록하세요.",
+    intensityHelp: "비즈니스 모드에서는 강도를 자동 선택하지 않습니다. 선택 전까지 비즈니스 비판 강도가 필요한 상태로 남습니다.",
+    running: "실행 중",
+    createFirstBatch: "첫 질문 묶음 만들기",
+    queue: "큐",
+    nextValidation: "다음 검증",
+    suggestedAnswers: "추천 답변 선택지",
+    optionPro: "찬성",
+    optionCon: "반대",
+    customAnswer: "맞는 선택지가 없으면 다른 답변 작성",
+    customAnswerPlaceholder: "선택지가 상황에 맞지 않으면 여기에 직접 답변을 작성하세요.",
+    answerAriaPrefix: "답변",
+    submitAnswer: "답변 제출",
+    nextValidationActionAriaPrefix: "다음 검증 작업",
+    knownRiskPlaceholder: "Known Risk로 유지할 경우 다음 검증 작업을 작성하세요.",
+    carryAsKnownRisk: "Known Risk로 유지",
+    queueRecoveryFresh: "큐 projection은 최신입니다. SSE 알림은 로컬 상태 변이 대신 다시 가져오기를 트리거합니다.",
+    queueRefetchMissing: "정식 큐 다시 가져오기 URL이 아직 로드되지 않았습니다.",
+    queueSseMissing: "SSE 알림 스트림이 아직 로드되지 않았습니다.",
+    queueActiveBatchMissing: "활성 묶음 메타데이터가 아직 로드되지 않았습니다.",
+    queueSections: {
+      active: { title: "활성 묶음", emptyLabel: "활성 질문이 없습니다." },
+      next: { title: "다음", emptyLabel: "queued-next 항목이 없습니다." },
+      blocked: { title: "차단됨", emptyLabel: "차단된 카드가 없습니다." },
+      deferred: { title: "보류", emptyLabel: "보류 중인 카드가 없습니다." }
+    }
+  },
+  planning: {
+    spec: "스펙",
+    noSpecDraft: "아직 스펙 초안이 없습니다.",
+    sessionVersion: "세션 버전",
+    specSections: "스펙 섹션",
+    approval: "승인",
+    projectPurpose: "프로젝트 목적",
+    businessCritic: "비즈니스 비판",
+    notSelected: "미선택",
+    notApplicable: "해당 없음",
+    businessCriticChangeReason: "비즈니스 비판 강도 변경 이유",
+    businessCriticChangeReasonPlaceholder: "비즈니스 검증 강도를 바꾸는 이유를 기록하세요.",
+    changeTo: (label: string) => `${label}(으)로 변경`,
+    businessCriticAuditHelp: "변경은 BusinessCriticIntensityChanged 이벤트로 감사되며, 활성 묶음을 교체하지 않고 queued_next에 새 pressure를 추가합니다.",
+    modeChangeReason: "모드 변경 이유",
+    modeChangeReasonPlaceholder: "질문/리서치 기준을 바꾸는 이유를 기록하세요.",
+    modeAuditHelp: "변경은 ProjectPurposeModeChanged 이벤트로 감사되며 현재 활성 묶음은 유지됩니다.",
+    progress: "진행률",
+    pending: "대기 중",
+    scoreCompleteness: "완성도 채점",
+    noRiskProjection: "아직 리스크 예측이 없습니다.",
+    founderBrief: "Founder Brief",
+    ready: "준비됨",
+    draft: "초안",
+    prepareExportMetadata: "내보내기 메타데이터 준비",
+    noFounderBrief: "아직 Founder Brief가 준비되지 않았습니다."
+  },
+  research: {
+    research: "리서치",
+    unknown: "알 수 없음",
+    planResearchTask: "리서치 작업 계획",
+    rationale: "근거",
+    importResearchAriaPrefix: "리서치 가져오기",
+    importResult: "결과 가져오기",
+    startReadOnlyRun: "읽기 전용 실행 시작",
+    noResearchTasks: "아직 리서치 작업이 없습니다."
+  },
+  implementation: {
+    runtimeEvidence: "런타임 근거",
+    adapterPrefix: "어댑터",
+    effectSuffix: "effect(s)",
+    noCommandStatus: "아직 명령 상태 기록이 없습니다.",
+    activity: "활동",
+    pending: "대기 중",
+    refreshStatus: "상태 새로고침",
+    noActivity: "아직 활동이 없습니다."
+  },
+  rightRail: {
+    aria: "실시간 프로젝트 요약",
+    planningCompleteness: "계획 완성도",
+    researchStatus: "리서치 상태",
+    tasks: "작업",
+    activeRuns: "활성 실행",
+    recentActivity: "최근 활동",
+    researchNeedsReview: "리서치 검토가 아직 끝나지 않았습니다. 남은 항목과 복구 경로를 먼저 확인하세요.",
+    pending: "대기 중",
+    noActivity: "아직 활동이 없습니다.",
+    radarAxes: {
+      problem: "문제",
+      customer: "고객/JTBD",
+      value: "가치 제안",
+      validation: "검증 계획",
+      implementation: "구현"
+    },
+    radarAria: (score: number, readinessLabel: string) => `계획 완성도 레이더 차트, 총 ${score}%, ${readinessLabel}`
+  },
+  phase15a: {
+    ready: "준비됨",
+    needsReview: "검토 필요",
+    title: "리서치 운영",
+    enableResearchSources: "리서치 소스 활성화",
+    refreshStatus: "상태 새로고침",
+    allowlistScreen: "허용 목록 화면",
+    limits: "제한",
+    concurrent: "동시",
+    session: "세션",
+    retries: "재시도",
+    disclosure: "공개 고지",
+    publicSafeSummaryRequired: "public-safe summary 필요",
+    policyMissing: "policy 누락",
+    pause: "일시정지",
+    revoke: "취소",
+    noAllowlist: "아직 허용 목록이 로드되지 않았습니다.",
+    researchRunCards: "리서치 실행 카드",
+    run: "실행",
+    attempt: "시도",
+    qualityGate: "품질 게이트",
+    terminal: "종료 상태",
+    recovery: "복구",
+    refetchUnavailable: "다시 가져오기 불가",
+    refreshRunStatus: "상태 새로고침",
+    cancel: "취소",
+    retry: "재시도",
+    noResearchRuns: "아직 리서치 실행이 로드되지 않았습니다.",
+    qualityGateDisplay: "품질 게이트 표시"
+  },
+  phase15b: {
+    rows: {
+      summary: "요약",
+      approval: "승인",
+      sandbox: "실행 격리",
+      rollback: "롤백",
+      evidence: "근거",
+      risk: "차단된 리스크",
+      source: "출처"
+    },
+    title: "실행 준비 노트",
+    refresh: "준비 상태 새로고침",
+    safeExecutionNote: "안전 실행 노트"
+  },
+  handoff: {
+    sourceRefs: "출처 refs",
+    runGate: "Planning Handoff 게이트 실행",
+    refresh: "핸드오프 새로고침"
+  },
+  permissions: {
+    externalAiWorkspace: "외부 AI 워크스페이스",
+    nextAction: "다음 작업",
+    refreshWorkspace: "워크스페이스 새로고침",
+    revokeWorkspace: "워크스페이스 취소",
+    fallback: "대체 경로",
+    fallbackReason: "대체 사유",
+    storedArtifacts: "저장된 artifacts",
+    redactionPreview: "비식별화 미리보기",
+    noRetainedArtifactRefs: "보관된 artifact ref가 없습니다.",
+    activityFeedLinks: "활동 피드 링크",
+    noLinkedResearchDecisionRefs: "아직 연결된 ResearchTask/Decision ref가 없습니다.",
+    auditLog: "감사 로그",
+    noAuditEntries: "아직 감사 항목이 없습니다.",
+    serviceLoginPermission: "서비스 로그인 권한",
+    refreshServicePermission: "서비스 권한 새로고침",
+    revokeServicePermission: "서비스 권한 취소",
+    permissionPreview: "권한 미리보기",
+    service: "서비스",
+    pageUrl: "페이지 URL",
+    purpose: "목적",
+    allowedActions: "허용된 작업",
+    blockedActions: "차단된 작업",
+    visibleDataCategories: "표시되는 데이터 범주",
+    approvalGranularity: "승인 세분성",
+    userApproval: "사용자 승인",
+    loginBoundary: "로그인 경계",
+    finalSubmitBoundary: "최종 제출 경계",
+    blockedReasons: "차단 사유",
+    noLinkedSetupDecisionRefs: "아직 연결된 setup-step/decision ref가 없습니다.",
+    noServicePermissionAuditEntries: "아직 서비스 권한 감사 항목이 없습니다."
+  },
+  ledger: {
+    title: "구현 단계 원장",
+    nextAction: "다음 작업",
+    refresh: "구현 원장 새로고침",
+    latestStep: "최신 단계",
+    step: "단계",
+    scope: "범위",
+    progressReport: "진행 보고",
+    missingEvidence: "누락 또는 차단된 근거",
+    evidenceRefs: "근거 refs",
+    noEvidenceRefs: "아직 구현 근거 ref가 기록되지 않았습니다."
+  }
+};
+
 export const DECISION_QUEUE_COPY = {
   en: EN_COPY,
-  ja: JA_COPY
+  ja: JA_COPY,
+  ko: KO_COPY
 } as const;
 
 export type DecisionQueueCopy = typeof EN_COPY;

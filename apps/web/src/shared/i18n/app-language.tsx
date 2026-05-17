@@ -1,12 +1,13 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
 
-export type AppLanguage = "en" | "ja";
+export type AppLanguage = "en" | "ja" | "ko";
 
 export const APP_LANGUAGE_STORAGE_KEY = "solo_superman.language";
 
 export const APP_LANGUAGE_OPTIONS = [
   { value: "en", label: "English" },
-  { value: "ja", label: "日本語" }
+  { value: "ja", label: "日本語" },
+  { value: "ko", label: "한국어" }
 ] as const satisfies readonly { readonly value: AppLanguage; readonly label: string }[];
 
 interface AppLanguageContextValue {
@@ -20,7 +21,7 @@ const AppLanguageContext = createContext<AppLanguageContextValue>({
 });
 
 export function normalizeAppLanguage(value: string | null | undefined): AppLanguage {
-  return value === "ja" ? "ja" : "en";
+  return value === "ja" || value === "ko" ? value : "en";
 }
 
 function browserStorage() {

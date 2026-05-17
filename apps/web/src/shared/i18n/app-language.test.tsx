@@ -10,11 +10,12 @@ import {
 } from "./app-language";
 
 describe("app language settings", () => {
-  it("keeps English as the safe default and accepts Japanese explicitly", () => {
+  it("keeps English as the safe default and accepts supported setup languages explicitly", () => {
     expect(normalizeAppLanguage(undefined)).toBe("en");
-    expect(normalizeAppLanguage("ko")).toBe("en");
+    expect(normalizeAppLanguage("fr")).toBe("en");
     expect(normalizeAppLanguage("en")).toBe("en");
     expect(normalizeAppLanguage("ja")).toBe("ja");
+    expect(normalizeAppLanguage("ko")).toBe("ko");
   });
 
   it("reads and writes the persisted first-setup language preference", () => {
@@ -40,6 +41,20 @@ describe("app language settings", () => {
     expect(markup).toContain("Language");
     expect(markup).toContain("English");
     expect(markup).toContain("日本語");
+    expect(markup).toContain("한국어");
     expect(markup).toContain("selected");
+  });
+
+  it("persists Korean as a supported first-setup language", () => {
+    const storage = new Map<string, string>();
+    const fakeStorage = {
+      getItem: vi.fn((key: string) => storage.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => storage.set(key, value))
+    } as unknown as Storage;
+
+    writeStoredAppLanguage("ko", fakeStorage);
+
+    expect(fakeStorage.setItem).toHaveBeenCalledWith(APP_LANGUAGE_STORAGE_KEY, "ko");
+    expect(readStoredAppLanguage(fakeStorage)).toBe("ko");
   });
 });
