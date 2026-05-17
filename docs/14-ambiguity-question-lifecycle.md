@@ -98,7 +98,7 @@ AmbiguityIssue는 Spec이 실행 가능한 창업 기획으로 가는 데 방해
 | `whyItMatters` | yes | 답하지 않을 때 생기는 downstream decision/rework risk |
 | `questionText` | yes | 하나의 핵심 질문 |
 | `expectedAnswerType` | yes | `choice`, `text`, `rank`, `evidence`, `experiment` |
-| `answerOptions` | yes | 2~4개 선택지. 각 선택지는 `label`, 제출용 `value`, 한 줄 `pro`, 한 줄 `con`을 가진다 |
+| `answerOptions` | generated question cards: yes | 2~4개 선택지. 각 선택지는 `label`, 제출용 `value`, 한 줄 `pro`, 한 줄 `con`을 가진다. legacy/custom issue가 `expectedAnswerType`만 갖는 경우 projection에서 기본 선택지를 보강한다 |
 | `decisionItUnlocks` | yes | 답변 후 잠기거나 열리는 decision, Spec section, Build Slice readiness |
 | `suggestedResearchTask` | optional | 답변보다 근거 보강이 먼저 필요할 때만 연결 |
 

@@ -1393,6 +1393,7 @@ describe("PR-04 ProductEngine reducer", () => {
       summary: `Ambiguity issue ${index + 1}`,
       status: "open" as const,
       questionText: `Question ${index + 1}?`,
+      expectedAnswerType: "choice" as const,
       sourceRef: `issue_${index + 1}`
     }));
     const state = {
@@ -1422,7 +1423,13 @@ describe("PR-04 ProductEngine reducer", () => {
         expect.objectContaining({
           queueItemId: issue.queueItemId,
           state: "active",
-          cardType: "question"
+          cardType: "question",
+          answerOptions: expect.arrayContaining([
+            expect.objectContaining({
+              pro: expect.any(String),
+              con: expect.any(String)
+            })
+          ])
         })
       )
     });

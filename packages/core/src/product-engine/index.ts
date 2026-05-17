@@ -1010,10 +1010,20 @@ const TOPIC_ANSWER_OPTIONS: Readonly<Record<string, readonly AmbiguityAnswerOpti
   ]
 };
 
+function answerOptionsForQuestion(
+  topicKey: string | undefined,
+  expectedAnswerType: AmbiguityIssueSnapshot["expectedAnswerType"]
+) {
+  return (
+    (topicKey ? TOPIC_ANSWER_OPTIONS[topicKey] : undefined) ??
+    (expectedAnswerType ? GENERIC_ANSWER_OPTIONS_BY_TYPE[expectedAnswerType] : undefined)
+  );
+}
+
 function answerOptionsForSeed(seed: AmbiguityIssueSeed) {
   return (
     seed.answerOptions ??
-    TOPIC_ANSWER_OPTIONS[seed.topicKey] ??
+    answerOptionsForQuestion(seed.topicKey, seed.expectedAnswerType) ??
     GENERIC_ANSWER_OPTIONS_BY_TYPE[seed.expectedAnswerType]
   );
 }
@@ -1695,6 +1705,8 @@ function queueItemProjectionFromIssue(
   issue: AmbiguityIssueSnapshot,
   state: QueueItemProjection["state"] = "active"
 ): QueueItemProjection {
+  const answerOptions = issue.answerOptions ?? answerOptionsForQuestion(issue.topicKey, issue.expectedAnswerType);
+
   return {
     queueItemId: issue.queueItemId,
     title: issue.questionText ?? issue.summary,
@@ -1715,7 +1727,7 @@ function queueItemProjectionFromIssue(
     ...(issue.whyItMatters ? { whyItMatters: issue.whyItMatters } : {}),
     ...(issue.decisionItUnlocks ? { decisionItUnlocks: issue.decisionItUnlocks } : {}),
     ...(issue.expectedAnswerType ? { expectedAnswerType: issue.expectedAnswerType } : {}),
-    ...(issue.answerOptions ? { answerOptions: issue.answerOptions } : {}),
+    ...(answerOptions ? { answerOptions } : {}),
     ...(issue.possibleRoutes ? { possibleRoutes: issue.possibleRoutes } : {})
   };
 }
