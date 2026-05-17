@@ -6,7 +6,8 @@ import {
   CODEX_TURN_PURPOSES,
   CONTRACT_SCHEMA_VERSION,
   PHASE15B_ISO_UTC_TIMESTAMP_PATTERN,
-  PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION
+  PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION,
+  type CodexRuntimeAccountDto
 } from "@solo-superman/contracts";
 import {
   assertCodexPreviewOutputMatchesInput,
@@ -18,6 +19,17 @@ import {
   validateCodexPreviewOutput,
   windowsCodexLoginShellCommand
 } from "./index";
+
+function codexRuntimeAccount(
+  overrides: Partial<CodexRuntimeAccountDto> = {}
+): CodexRuntimeAccountDto {
+  return {
+    status: "missing",
+    loginCommand: "codex auth login",
+    loginStatusCommand: "codex login status",
+    ...overrides
+  };
+}
 
 function phase15bHintsFixture() {
   return {
@@ -361,10 +373,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     const adapter = createCodexRuntimeAdapter({
       now: () => startedAt,
       env: {},
-      accountReader: async () => ({
-        status: "missing",
-        loginCommand: "codex auth login",
-        loginStatusCommand: "codex login status",
+      accountReader: async () => codexRuntimeAccount({
         requiresOpenaiAuth: true
       }),
       loginLauncher: async () => ({
@@ -389,10 +398,8 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     const adapter = createCodexRuntimeAdapter({
       now: () => "2026-05-17T00:00:00.000Z",
       env: {},
-      accountReader: async () => ({
+      accountReader: async () => codexRuntimeAccount({
         status: "authenticated",
-        loginCommand: "codex auth login",
-        loginStatusCommand: "codex login status",
         accountType: "chatgpt"
       }),
       loginLauncher: async () => {
@@ -417,10 +424,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     const adapter = createCodexRuntimeAdapter({
       now: () => "2026-05-05T00:00:00.000Z",
       env: {},
-      accountReader: async () => ({
-        status: "missing",
-        loginCommand: "codex auth login",
-        loginStatusCommand: "codex login status",
+      accountReader: async () => codexRuntimeAccount({
         requiresOpenaiAuth: true
       })
     });
