@@ -208,7 +208,7 @@ export function useDecisionQueueShellController() {
     businessCriticIntensity,
     businessCriticIntensityChangeReason,
     chatGptLoginAcknowledged,
-    codexLoginAuthenticated: runtimeStatus?.account.status === "authenticated",
+    codexLoginAuthenticated: runtimeStatus?.account?.status === "authenticated",
     client,
     connectionStatus: connectionState.status,
     idea,
@@ -372,7 +372,7 @@ export function useDecisionQueueShellController() {
   const planningReadinessLabel = confidence?.readinessLabel ?? copy.rightRail.pending;
   const canStart = canStartInitialQueueFlow({
     chatGptLoginAcknowledged,
-    codexLoginAuthenticated: runtimeStatus?.account.status === "authenticated",
+    codexLoginAuthenticated: runtimeStatus?.account?.status === "authenticated",
     connectionStatus: connectionState.status,
     hasClient: Boolean(client),
     projectPurposeMode,
