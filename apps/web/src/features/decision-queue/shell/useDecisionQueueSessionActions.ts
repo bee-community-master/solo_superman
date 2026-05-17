@@ -74,6 +74,7 @@ interface DecisionQueueSessionActionsProps {
   readonly setResearchOperations: Dispatch<SetStateAction<ResearchOperationsState>>;
   readonly setStatuses: Dispatch<SetStateAction<readonly StatusEndpointDto[]>>;
   readonly setWorkflowError: Dispatch<SetStateAction<string | null>>;
+  readonly onInitialQueueCreated?: () => void;
 }
 
 export function useDecisionQueueSessionActions({
@@ -109,7 +110,8 @@ export function useDecisionQueueSessionActions({
   setResearchDrafts,
   setResearchOperations,
   setStatuses,
-  setWorkflowError
+  setWorkflowError,
+  onInitialQueueCreated
 }: DecisionQueueSessionActionsProps) {
   const runInitialQueueFlow = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -206,6 +208,7 @@ export function useDecisionQueueSessionActions({
         }));
         await refreshProjections(session.projectId, session.sessionId);
         await refetchQueueAfterSseNotification(session.projectId, session.sessionId, queue);
+        onInitialQueueCreated?.();
       } catch (error) {
         setWorkflowError(displayError(error));
       } finally {
@@ -225,7 +228,8 @@ export function useDecisionQueueSessionActions({
       isBusy,
       projectPurposeMode,
       refetchQueueAfterSseNotification,
-      refreshProjections
+      refreshProjections,
+      onInitialQueueCreated
     ]
   );
 

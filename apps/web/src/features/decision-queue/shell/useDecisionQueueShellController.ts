@@ -72,7 +72,7 @@ export function useDecisionQueueShellController() {
   const [statuses, setStatuses] = useState<readonly StatusEndpointDto[]>([]);
   const [isBusy, setIsBusy] = useState(false);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
-  const [activePage, setActivePage] = useState<DecisionQueuePageId>("questions");
+  const [activePage, setActivePage] = useState<DecisionQueuePageId>("onboarding");
 
   const connect = useCallback(async () => {
     setConnectionState({ status: "connecting" });
@@ -193,7 +193,8 @@ export function useDecisionQueueShellController() {
     setResearchDrafts,
     setResearchOperations,
     setStatuses,
-    setWorkflowError
+    setWorkflowError,
+    onInitialQueueCreated: () => setActivePage("questions")
   });
 
   const {
@@ -352,6 +353,12 @@ export function useDecisionQueueShellController() {
   const connectionLabel = connectionState.status === "connected" ? connectionState.connection.mode : connectionState.status;
   const connectionTone = connectionState.status === "connected" ? "connected" : connectionState.status;
   const navItems = [
+    {
+      id: "onboarding" as const,
+      label: copy.pageMeta.onboarding.label,
+      sublabel: projections.queue ? copy.nav.onboardingComplete : copy.nav.onboardingReady,
+      health: projections.queue ? "done" : canStart ? "active" : "pending"
+    },
     {
       id: "questions" as const,
       label: copy.pageMeta.questions.label,

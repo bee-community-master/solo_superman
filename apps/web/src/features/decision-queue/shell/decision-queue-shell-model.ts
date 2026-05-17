@@ -96,7 +96,7 @@ export const BUSINESS_CRITIC_INTENSITY_OPTIONS = [
 
 export const WEB_PUBLIC_SAFE_ALLOWLIST_ID = "research_allowlist_web_public_safe" as ResearchAllowlistId;
 
-export type DecisionQueuePageId = "questions" | "research" | "planning" | "implementation" | "permissions";
+export type DecisionQueuePageId = "onboarding" | "questions" | "research" | "planning" | "implementation" | "permissions";
 export type PageHealth = "done" | "active" | "pending" | "blocked";
 
 export interface InitialQueueStartReadinessInput {

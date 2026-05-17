@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { DecisionQueueProjection, ProjectionVersion, QueueItemId } from "@solo-superman/contracts";
 import { AppLanguageProvider } from "../../../shared/i18n/app-language";
 import { QuestionsView } from "./QuestionsView";
-import { DEFAULT_IDEA, DEFAULT_INTAKE, emptyProjectionState } from "./decision-queue-shell-model";
+import { emptyProjectionState } from "./decision-queue-shell-model";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 const DEFAULT_QUEUE_RECOVERY = {
@@ -94,10 +94,10 @@ describe("QuestionsView", () => {
       ]
     });
 
-    expect(markup).toContain("Idea summary");
-    expect(markup).toContain("Goal description");
     expect(markup).toContain("Up to date");
-    expect(markup).toContain("Describe who this is for, what problem it solves, and what you want to decide in this session.");
+    expect(markup).toContain("Queue");
+    expect(markup).not.toContain("Idea summary");
+    expect(markup).not.toContain("Goal description");
     expect(markup).toContain("Suggested answer choices");
     expect(markup).toContain("Pro: Fast interviews with a narrow segment.");
     expect(markup).toContain("Con: May miss team buyer needs.");
@@ -107,53 +107,5 @@ describe("QuestionsView", () => {
     );
   });
 
-  it("renders the ChatGPT direct-login gate before idea and final goal fields", () => {
-    const markup = renderQuestionsView({
-      idea: DEFAULT_IDEA,
-      intake: DEFAULT_INTAKE
-    });
-
-    expect(markup).toContain("Sign in to ChatGPT in your browser first");
-    expect(markup).toContain("Open ChatGPT");
-    expect(markup).toContain('href="https://chatgpt.com/"');
-    expect(markup).toContain('target="_blank"');
-    expect(markup).toContain('rel="noopener noreferrer"');
-    expect(markup).toContain("I signed in to ChatGPT directly in this browser/profile.");
-    expect(markup).toContain("Idea summary");
-    expect(markup).toContain("Goal description");
-    expect(markup.indexOf("Sign in to ChatGPT in your browser first")).toBeLessThan(
-      markup.indexOf("Idea summary")
-    );
-    expect(markup.indexOf("Idea summary")).toBeLessThan(markup.indexOf("Goal description"));
-  });
-
-  it("renders backend Codex CLI login status before the first queue can start", () => {
-    const markup = renderQuestionsView({
-      runtimeStatus: {
-        status: "unavailable",
-        adapterVersion: "codex-app-server-preview-v1",
-        generatedSchemaVersion: "codex-cli-0.128.0",
-        transport: "stdio",
-        checkedAt: "2026-05-17T00:00:00.000Z",
-        manualHandoffAvailable: true,
-        account: {
-          status: "missing",
-          loginCommand: "codex auth login",
-          loginStatusCommand: "codex login status",
-          reason: "Codex CLI is not logged in for this local environment."
-        }
-      }
-    });
-
-    expect(markup).toContain("Sign in to Codex CLI for backend questions and research");
-    expect(markup).toContain("Codex status");
-    expect(markup).toContain("Login required");
-    expect(markup).toContain("codex auth login");
-    expect(markup).toContain("Open Codex login");
-    expect(markup).toContain("Refresh Codex login status");
-    expect(markup.indexOf("Sign in to Codex CLI for backend questions and research")).toBeLessThan(
-      markup.indexOf("Idea summary")
-    );
-  });
 
 });

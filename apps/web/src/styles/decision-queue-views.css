@@ -5,7 +5,7 @@
 }
 
 .questions-view {
-  grid-template-columns: minmax(280px, 0.82fr) minmax(420px, 1.4fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .research-view,
@@ -63,6 +63,8 @@
 
 .start-panel,
 .start-guide,
+.session-login-column,
+.session-goal-column,
 .answer-box,
 .operations-list,
 .operations-cards,
@@ -72,6 +74,13 @@
 .mode-change-panel {
   display: grid;
   gap: 12px;
+}
+
+.session-start-layout {
+  display: grid;
+  align-items: start;
+  gap: 16px;
+  grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr);
 }
 
 .start-panel label,
@@ -160,6 +169,22 @@
 .chatgpt-login-gate {
   border-color: var(--solo-accent);
   background: var(--solo-accent-bg);
+}
+
+.codex-login-gate {
+  border-color: #b2dad7;
+}
+
+.goal-setup-guide {
+  background: var(--solo-bg);
+}
+
+.session-idea-field textarea {
+  min-height: 150px;
+}
+
+.session-intake-field textarea {
+  min-height: 210px;
 }
 
 .chatgpt-login-copy {

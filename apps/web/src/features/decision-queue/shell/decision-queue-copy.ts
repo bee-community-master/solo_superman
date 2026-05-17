@@ -2,10 +2,16 @@ import type { BusinessCriticIntensity, ProjectPurposeMode } from "@solo-superman
 import { useAppLanguage } from "../../../shared/i18n/app-language";
 import type { DecisionQueuePageId } from "./decision-queue-shell-model";
 
-export const DECISION_QUEUE_PAGE_ORDER = ["questions", "research", "planning", "implementation", "permissions"] as const satisfies readonly DecisionQueuePageId[];
+export const DECISION_QUEUE_PAGE_ORDER = ["onboarding", "questions", "research", "planning", "implementation", "permissions"] as const satisfies readonly DecisionQueuePageId[];
 
 const EN_COPY = {
   pageMeta: {
+    onboarding: {
+      label: "Onboarding",
+      shortLabel: "O",
+      title: "Onboarding",
+      description: "Sign in to ChatGPT and Codex, then set the goal before the first question batch."
+    },
     questions: {
       label: "Questions",
       shortLabel: "Q",
@@ -83,6 +89,8 @@ const EN_COPY = {
     commandFailed: "Action failed"
   },
   nav: {
+    onboardingReady: "Login + goal setup",
+    onboardingComplete: "First questions created",
     questionsSublabel: (active: number, next: number) => `${active} active · ${next} next`,
     researchSublabel: (tasks: number, runs: number) => `${tasks} tasks · ${runs} runs`,
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
@@ -331,6 +339,12 @@ const EN_COPY = {
 
 const JA_COPY: typeof EN_COPY = {
   pageMeta: {
+    onboarding: {
+      label: "オンボーディング",
+      shortLabel: "O",
+      title: "オンボーディング",
+      description: "ChatGPTとCodexにログインし、最初の質問セットの前に目標を設定します。"
+    },
     questions: {
       label: "質問",
       shortLabel: "Q",
@@ -408,6 +422,8 @@ const JA_COPY: typeof EN_COPY = {
     commandFailed: "操作に失敗しました"
   },
   nav: {
+    onboardingReady: "ログイン + 目標設定",
+    onboardingComplete: "最初の質問を作成済み",
     questionsSublabel: (active: number, next: number) => `${active} active · ${next} next`,
     researchSublabel: (tasks: number, runs: number) => `${tasks} tasks · ${runs} runs`,
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
@@ -656,6 +672,12 @@ const JA_COPY: typeof EN_COPY = {
 
 const KO_COPY: typeof EN_COPY = {
   pageMeta: {
+    onboarding: {
+      label: "온보딩",
+      shortLabel: "O",
+      title: "온보딩",
+      description: "첫 질문을 만들기 전에 ChatGPT와 Codex에 로그인하고 목표를 설정합니다."
+    },
     questions: {
       label: "질문",
       shortLabel: "Q",
@@ -733,6 +755,8 @@ const KO_COPY: typeof EN_COPY = {
     commandFailed: "작업 실패"
   },
   nav: {
+    onboardingReady: "로그인 + 목표 설정",
+    onboardingComplete: "첫 질문 생성됨",
     questionsSublabel: (active: number, next: number) => `${active}개 활성 · 다음 ${next}개`,
     researchSublabel: (tasks: number, runs: number) => `${tasks}개 작업 · ${runs}개 실행`,
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`

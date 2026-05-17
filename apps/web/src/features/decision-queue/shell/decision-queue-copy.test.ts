@@ -11,6 +11,10 @@ describe("decision queue language copy", () => {
   });
 
   it("keeps the first-run language switch focused on supported setup languages", () => {
+    expect(DECISION_QUEUE_PAGE_ORDER[0]).toBe("onboarding");
+    expect(DECISION_QUEUE_COPY.en.pageMeta.onboarding.label).toBe("Onboarding");
+    expect(DECISION_QUEUE_COPY.ja.pageMeta.onboarding.label).toBe("オンボーディング");
+    expect(DECISION_QUEUE_COPY.ko.pageMeta.onboarding.label).toBe("온보딩");
     expect(DECISION_QUEUE_COPY.en.questions.firstRunTitle).toBe("Goal setup");
     expect(DECISION_QUEUE_COPY.ja.questions.firstRunTitle).toBe("目標設定");
     expect(DECISION_QUEUE_COPY.ko.questions.firstRunTitle).toBe("목표 설정");
