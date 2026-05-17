@@ -191,6 +191,14 @@ function loginCommandString() {
   return CODEX_LOGIN_COMMAND_ARGS.map(shellQuote).join(" ");
 }
 
+function windowsCmdQuote(value: string) {
+  return `"${value.replaceAll('"', '\\"')}"`;
+}
+
+export function windowsCodexLoginShellCommand(cwd: string) {
+  return `cd /d ${windowsCmdQuote(cwd)} && ${CODEX_LOGIN_COMMAND}`;
+}
+
 async function spawnDetached(
   command: string,
   args: readonly string[],
@@ -256,7 +264,7 @@ export async function startCodexLoginInBackgroundTerminal(
           "Solo Superman Codex Login",
           "cmd.exe",
           "/k",
-          `cd /d ${cwd} && ${CODEX_LOGIN_COMMAND}`
+          windowsCodexLoginShellCommand(cwd)
         ],
         env
       );

@@ -15,7 +15,8 @@ import {
   fixtureCodexPreviewOutput,
   parseCodexPreviewOutput,
   repairCodexJsonOutput,
-  validateCodexPreviewOutput
+  validateCodexPreviewOutput,
+  windowsCodexLoginShellCommand
 } from "./index";
 
 function phase15bHintsFixture() {
@@ -404,6 +405,12 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       command: "codex auth login",
       terminal: "not_started"
     });
+  });
+
+  it("quotes Windows Codex auth login working directories with spaces", () => {
+    expect(windowsCodexLoginShellCommand("C:\\Users\\Founder Name\\solo_superman")).toBe(
+      'cd /d "C:\\Users\\Founder Name\\solo_superman" && codex auth login'
+    );
   });
 
   it("does not report live preview availability when turn execution is disabled", async () => {

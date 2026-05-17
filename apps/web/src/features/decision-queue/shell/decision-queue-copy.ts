@@ -16,7 +16,7 @@ const EN_COPY = {
       label: "Questions",
       shortLabel: "Q",
       title: "Questions",
-      description: "Set the project goal, answer open questions, and keep known risks visible."
+      description: "Answer active questions, review upcoming questions, and keep known risks visible."
     },
     research: {
       label: "Research",
@@ -349,7 +349,7 @@ const JA_COPY: typeof EN_COPY = {
       label: "質問",
       shortLabel: "Q",
       title: "質問",
-      description: "プロジェクトの目的、未回答の質問、既知のリスクを一つの画面で整理します。"
+      description: "現在の質問、次の質問、既知のリスクを一つの画面で整理します。"
     },
     research: {
       label: "リサーチ",
@@ -682,7 +682,7 @@ const KO_COPY: typeof EN_COPY = {
       label: "질문",
       shortLabel: "Q",
       title: "질문",
-      description: "프로젝트 목표, 남은 질문, 알려진 리스크를 한곳에서 정리합니다."
+      description: "현재 질문, 다음 질문, 알려진 리스크를 한곳에서 정리합니다."
     },
     research: {
       label: "리서치",

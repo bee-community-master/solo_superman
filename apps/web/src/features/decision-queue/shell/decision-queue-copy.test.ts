@@ -15,6 +15,12 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.pageMeta.onboarding.label).toBe("Onboarding");
     expect(DECISION_QUEUE_COPY.ja.pageMeta.onboarding.label).toBe("オンボーディング");
     expect(DECISION_QUEUE_COPY.ko.pageMeta.onboarding.label).toBe("온보딩");
+    expect(DECISION_QUEUE_COPY.en.pageMeta.questions.description).toBe(
+      "Answer active questions, review upcoming questions, and keep known risks visible."
+    );
+    expect(DECISION_QUEUE_COPY.ko.pageMeta.questions.description).toBe(
+      "현재 질문, 다음 질문, 알려진 리스크를 한곳에서 정리합니다."
+    );
     expect(DECISION_QUEUE_COPY.en.questions.firstRunTitle).toBe("Goal setup");
     expect(DECISION_QUEUE_COPY.ja.questions.firstRunTitle).toBe("目標設定");
     expect(DECISION_QUEUE_COPY.ko.questions.firstRunTitle).toBe("목표 설정");
