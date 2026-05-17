@@ -1,6 +1,7 @@
 import type { DecisionEvidencePackId, ProjectionVersion, QueueItemId, ResearchTaskId, SessionId } from "../ids";
 import type {
   AmbiguityExpectedAnswerType,
+  AmbiguityAnswerOption,
   AmbiguityIssueSeverity,
   AmbiguityPossibleRoute,
   BusinessCriticalQuestionCategory,
@@ -67,6 +68,7 @@ export interface QueueItemProjection {
   readonly whyItMatters?: string;
   readonly decisionItUnlocks?: string;
   readonly expectedAnswerType?: AmbiguityExpectedAnswerType;
+  readonly answerOptions?: readonly AmbiguityAnswerOption[];
   readonly possibleRoutes?: readonly AmbiguityPossibleRoute[];
   readonly researchTaskId?: ResearchTaskId;
   readonly evidencePackId?: DecisionEvidencePackId;

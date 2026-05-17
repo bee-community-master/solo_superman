@@ -156,6 +156,14 @@ export type AmbiguityPossibleRoute =
   | "deferred"
   | "repeat_limit_reached";
 
+export interface AmbiguityAnswerOption {
+  readonly id: string;
+  readonly label: string;
+  readonly value: string;
+  readonly pro: string;
+  readonly con: string;
+}
+
 export interface AmbiguityIssueSnapshot {
   readonly queueItemId: QueueItemId;
   readonly sectionRef?: string;
@@ -175,6 +183,7 @@ export interface AmbiguityIssueSnapshot {
   readonly status: "open" | "answered" | "deferred" | "resolved";
   readonly questionText?: string;
   readonly expectedAnswerType?: AmbiguityExpectedAnswerType;
+  readonly answerOptions?: readonly AmbiguityAnswerOption[];
   readonly decisionItUnlocks?: string;
   readonly suggestedResearchTask?: string;
   readonly repeatCount?: number;

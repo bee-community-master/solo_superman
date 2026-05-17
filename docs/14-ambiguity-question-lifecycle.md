@@ -98,6 +98,7 @@ AmbiguityIssue는 Spec이 실행 가능한 창업 기획으로 가는 데 방해
 | `whyItMatters` | yes | 답하지 않을 때 생기는 downstream decision/rework risk |
 | `questionText` | yes | 하나의 핵심 질문 |
 | `expectedAnswerType` | yes | `choice`, `text`, `rank`, `evidence`, `experiment` |
+| `answerOptions` | yes | 2~4개 선택지. 각 선택지는 `label`, 제출용 `value`, 한 줄 `pro`, 한 줄 `con`을 가진다 |
 | `decisionItUnlocks` | yes | 답변 후 잠기거나 열리는 decision, Spec section, Build Slice readiness |
 | `suggestedResearchTask` | optional | 답변보다 근거 보강이 먼저 필요할 때만 연결 |
 
@@ -207,8 +208,9 @@ Batch guardrail:
 
 선택지
 - 2~4개 meaningful option.
-- 각 option의 tradeoff.
-- 직접 입력 허용 여부.
+- 객관식 선택지가 주관식 입력보다 위에 표시된다.
+- 각 option은 장점(`pro`)과 단점(`con`)을 한 줄씩 같이 보여준다.
+- 보기 중 맞는 답이 없으면 아래 텍스트박스에 직접 서술할 수 있다.
 
 예상 영향
 - 영향을 받는 Spec section.

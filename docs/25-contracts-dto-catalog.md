@@ -266,6 +266,8 @@ Example command envelope:
     "answer": {
       "kind": "single_choice",
       "selectedValue": "idea_stage_solo_founder",
+      "selectedOptionPro": "초기 인터뷰와 검증 채널이 선명해진다",
+      "selectedOptionCon": "조직형 buyer/user split 검증은 뒤로 밀릴 수 있다",
       "freeText": null
     }
   }
@@ -314,6 +316,7 @@ Example command envelope:
 
 `DecisionSnapshot.requiredDecisionRef` is a closed completion-gate key: `primary_customer`, `problem`, `value`, `mvp_scope`, `validation_plan`, or `success_criteria`. PR-08 completeness must count unique closed required refs, not any six unrelated decisions.
 High-impact `CreateSpecVersion` must consume the approved `SpecUpdatePreviewSnapshot` material for its `approvedPreviewRef`; request body title/sections are optional echoes and must not mutate the approved preview material.
+`QueueItemProjection.answerOptions` is the question-card objective-answer surface: render 2~4 choices above the free-form answer field, show each option's one-line `pro` and `con`, and submit the option `value` unless the user overwrites it with free text.
 
 ### ProductEngineReduction
 

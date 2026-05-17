@@ -229,6 +229,59 @@
   min-height: 82px;
 }
 
+.answer-choice-fieldset {
+  border: 1px solid #d8ece8;
+  border-radius: 10px;
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 10px;
+}
+
+.answer-choice-fieldset legend,
+.custom-answer-field span {
+  color: #405161;
+  font-size: 0.76rem;
+  font-weight: 850;
+  padding: 0 4px;
+}
+
+.answer-choice-list,
+.custom-answer-field {
+  display: grid;
+  gap: 8px;
+}
+
+.answer-choice-option {
+  align-items: start;
+  border: 1px solid var(--solo-soft-border);
+  border-radius: 9px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto 1fr;
+  padding: 9px;
+}
+
+.answer-choice-option input {
+  margin-top: 3px;
+}
+
+.answer-choice-option span {
+  display: grid;
+  gap: 3px;
+}
+
+.answer-choice-option strong {
+  color: var(--solo-text);
+  font-size: 0.8rem;
+}
+
+.answer-choice-option small {
+  color: var(--solo-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
 .card-actions,
 .panel-actions {
   display: flex;

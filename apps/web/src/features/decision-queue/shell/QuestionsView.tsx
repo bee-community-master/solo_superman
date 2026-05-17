@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { CONTRACT_SCHEMA_VERSION } from "@solo-superman/contracts";
 import { isBusinessCriticQueueItem } from "./decision-queue-shell-model";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
@@ -9,6 +10,7 @@ interface QuestionsViewProps {
 
 export function QuestionsView({ controller }: QuestionsViewProps) {
   const copy = useDecisionQueueCopy();
+  const [selectedAnswerOptionIds, setSelectedAnswerOptionIds] = useState<Record<string, string>>({});
   const {
     answerDrafts,
     businessCriticIntensity,
@@ -152,17 +154,62 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                       </div>
                       {section.id === "active" && item.state === "active" ? (
                         <div className="answer-box">
-                          <textarea
-                            aria-label={`${copy.questions.answerAriaPrefix} ${item.title}`}
-                            value={answerDrafts[item.queueItemId] ?? ""}
-                            onChange={(event) =>
-                              setAnswerDrafts((current) => ({
-                                ...current,
-                                [item.queueItemId]: event.target.value
-                              }))
-                            }
-                            rows={3}
-                          />
+                          {item.answerOptions?.length ? (
+                            <fieldset className="answer-choice-fieldset">
+                              <legend>{copy.questions.suggestedAnswers}</legend>
+                              <div className="answer-choice-list">
+                                {item.answerOptions.map((option) => (
+                                  <label className="answer-choice-option" key={option.id}>
+                                    <input
+                                      checked={selectedAnswerOptionIds[item.queueItemId] === option.id}
+                                      name={`answer-option-${item.queueItemId}`}
+                                      onChange={() => {
+                                        setSelectedAnswerOptionIds((current) => ({
+                                          ...current,
+                                          [item.queueItemId]: option.id
+                                        }));
+                                        setAnswerDrafts((current) => ({
+                                          ...current,
+                                          [item.queueItemId]: option.value
+                                        }));
+                                      }}
+                                      type="radio"
+                                      value={option.id}
+                                    />
+                                    <span>
+                                      <strong>{option.label}</strong>
+                                      <small>
+                                        {copy.questions.optionPro}: {option.pro} · {copy.questions.optionCon}: {option.con}
+                                      </small>
+                                    </span>
+                                  </label>
+                                ))}
+                              </div>
+                            </fieldset>
+                          ) : null}
+                          <label className="custom-answer-field">
+                            <span>
+                              {item.answerOptions?.length ? copy.questions.customAnswer : copy.questions.answerAriaPrefix}
+                            </span>
+                            <textarea
+                              aria-label={`${copy.questions.answerAriaPrefix} ${item.title}`}
+                              placeholder={
+                                item.answerOptions?.length ? copy.questions.customAnswerPlaceholder : undefined
+                              }
+                              value={answerDrafts[item.queueItemId] ?? ""}
+                              onChange={(event) => {
+                                setSelectedAnswerOptionIds((current) => ({
+                                  ...current,
+                                  [item.queueItemId]: ""
+                                }));
+                                setAnswerDrafts((current) => ({
+                                  ...current,
+                                  [item.queueItemId]: event.target.value
+                                }));
+                              }}
+                              rows={3}
+                            />
+                          </label>
                           <button type="button" disabled={isBusy} onClick={() => void submitAnswer(item.queueItemId)}>
                             {copy.questions.submitAnswer}
                           </button>

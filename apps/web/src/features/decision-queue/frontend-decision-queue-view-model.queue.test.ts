@@ -31,7 +31,16 @@ describe("Decision Queue view model queue", () => {
         {
           queueItemId: "queue_active_1" as QueueItemId,
           title: "What problem is most urgent?",
-          state: "active"
+          state: "active",
+          answerOptions: [
+            {
+              id: "urgent_segment",
+              label: "Pick one urgent segment",
+              value: "The urgent segment is solo founders validating a new product.",
+              pro: "Focuses the next validation step.",
+              con: "May be too narrow if evidence is weak."
+            }
+          ]
         }
       ],
       next: [
@@ -49,6 +58,10 @@ describe("Decision Queue view model queue", () => {
     expect(sections.find((section) => section.id === "active")?.items.map((item) => item.queueItemId)).toEqual([
       "queue_active_1"
     ]);
+    expect(sections.find((section) => section.id === "active")?.items[0]?.answerOptions?.[0]).toMatchObject({
+      pro: "Focuses the next validation step.",
+      con: "May be too narrow if evidence is weak."
+    });
     expect(sections.find((section) => section.id === "next")?.items.map((item) => item.queueItemId)).toEqual([
       "queue_next_1"
     ]);

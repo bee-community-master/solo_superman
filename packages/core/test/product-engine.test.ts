@@ -248,6 +248,14 @@ describe("PR-04 ProductEngine reducer", () => {
           whyItMatters: expect.any(String),
           decisionItUnlocks: expect.any(String),
           expectedAnswerType: "choice",
+          answerOptions: expect.arrayContaining([
+            expect.objectContaining({
+              label: expect.any(String),
+              value: expect.any(String),
+              pro: expect.any(String),
+              con: expect.any(String)
+            })
+          ]),
           possibleRoutes: expect.arrayContaining(["question", "decision_candidate"]),
           repeatCount: 0,
           repeatLimit: 3
@@ -300,6 +308,12 @@ describe("PR-04 ProductEngine reducer", () => {
           whyItMatters: expect.any(String),
           decisionItUnlocks: expect.any(String),
           expectedAnswerType: "choice",
+          answerOptions: expect.arrayContaining([
+            expect.objectContaining({
+              pro: expect.any(String),
+              con: expect.any(String)
+            })
+          ]),
           possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
         })
       ])
