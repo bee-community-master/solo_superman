@@ -1,9 +1,29 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import type { CodexRuntimeStatusDto } from "@solo-superman/contracts";
 import { AppLanguageProvider } from "../../../shared/i18n/app-language";
 import { OnboardingView } from "./OnboardingView";
 import { DEFAULT_IDEA, DEFAULT_INTAKE, emptyProjectionState } from "./decision-queue-shell-model";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
+
+function codexRuntimeStatus(
+  account: Partial<CodexRuntimeStatusDto["account"]> = {}
+): CodexRuntimeStatusDto {
+  return {
+    status: "unavailable",
+    adapterVersion: "codex-app-server-preview-v1",
+    generatedSchemaVersion: "codex-cli-0.128.0",
+    transport: "stdio",
+    checkedAt: "2026-05-17T00:00:00.000Z",
+    manualHandoffAvailable: true,
+    account: {
+      status: "missing",
+      loginCommand: "codex auth login",
+      loginStatusCommand: "codex login status",
+      ...account
+    }
+  };
+}
 
 function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellController> = {}) {
   const controller = {
@@ -66,20 +86,9 @@ describe("OnboardingView", () => {
 
   it("renders backend Codex CLI login status before the first queue can start", () => {
     const markup = renderOnboardingView({
-      runtimeStatus: {
-        status: "unavailable",
-        adapterVersion: "codex-app-server-preview-v1",
-        generatedSchemaVersion: "codex-cli-0.128.0",
-        transport: "stdio",
-        checkedAt: "2026-05-17T00:00:00.000Z",
-        manualHandoffAvailable: true,
-        account: {
-          status: "missing",
-          loginCommand: "codex auth login",
-          loginStatusCommand: "codex login status",
-          reason: "Codex CLI is not logged in for this local environment."
-        }
-      }
+      runtimeStatus: codexRuntimeStatus({
+        reason: "Codex CLI is not logged in for this local environment."
+      })
     });
 
     expect(markup).toContain("Sign in to Codex CLI for backend questions and research");
@@ -96,19 +105,7 @@ describe("OnboardingView", () => {
   it("disables Codex login actions while another local action is running", () => {
     const markup = renderOnboardingView({
       isBusy: true,
-      runtimeStatus: {
-        status: "unavailable",
-        adapterVersion: "codex-app-server-preview-v1",
-        generatedSchemaVersion: "codex-cli-0.128.0",
-        transport: "stdio",
-        checkedAt: "2026-05-17T00:00:00.000Z",
-        manualHandoffAvailable: true,
-        account: {
-          status: "missing",
-          loginCommand: "codex auth login",
-          loginStatusCommand: "codex login status"
-        }
-      }
+      runtimeStatus: codexRuntimeStatus()
     });
 
     expect(markup).toContain('<button type="button" disabled="">Open Codex login</button>');
