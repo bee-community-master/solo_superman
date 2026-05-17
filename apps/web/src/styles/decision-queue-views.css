@@ -187,12 +187,12 @@
   min-height: 210px;
 }
 
-.chatgpt-login-copy {
+.login-gate-copy {
   display: grid;
   gap: 6px;
 }
 
-.chatgpt-login-copy p {
+.login-gate-copy p {
   margin: 0;
 }
 

@@ -82,6 +82,7 @@ export class CodexRuntimeUnavailableError extends Error {
 }
 
 const CODEX_ACCOUNT_READ_TIMEOUT_MS = 5_000;
+const CODEX_PROCESS_OUTPUT_CAPTURE_LIMIT = 2_000;
 const CODEX_LOGIN_COMMAND = "codex auth login" as const;
 const CODEX_LOGIN_STATUS_COMMAND = "codex login status" as const;
 const CODEX_LOGIN_COMMAND_ARGS = ["codex", "auth", "login"] as const;
@@ -183,6 +184,23 @@ function codexSpawnEnv(env: Readonly<Record<string, string | undefined>>): NodeJ
   );
 }
 
+function createLimitedTextCapture(limit = CODEX_PROCESS_OUTPUT_CAPTURE_LIMIT) {
+  let text = "";
+
+  return {
+    append(chunk: unknown) {
+      if (text.length >= limit) {
+        return;
+      }
+
+      text = `${text}${String(chunk)}`.slice(0, limit);
+    },
+    trimmed() {
+      return text.trim();
+    }
+  };
+}
+
 function shellQuote(value: string) {
   return `'${value.replaceAll("'", "'\\''")}'`;
 }
@@ -233,12 +251,10 @@ async function spawnAndWait(
       env: codexSpawnEnv(env),
       stdio: ["ignore", "ignore", "pipe"]
     });
-    const stderrChunks: string[] = [];
+    const stderr = createLimitedTextCapture();
 
     child.stderr?.on("data", (chunk) => {
-      if (stderrChunks.join("").length < 2_000) {
-        stderrChunks.push(String(chunk));
-      }
+      stderr.append(chunk);
     });
     child.once("error", reject);
     child.once("exit", (code, signal) => {
@@ -247,7 +263,7 @@ async function spawnAndWait(
         return;
       }
 
-      const detail = stderrChunks.join("").trim() || signal || `exit ${code ?? "unknown"}`;
+      const detail = stderr.trimmed() || signal || `exit ${code ?? "unknown"}`;
       reject(new Error(`${command} failed while launching Codex login: ${detail}`));
     });
   });
@@ -357,7 +373,7 @@ export async function readCodexAccountStatus(
       env: codexSpawnEnv(env),
       stdio: ["pipe", "pipe", "pipe"]
     });
-    const stderrChunks: string[] = [];
+    const stderr = createLimitedTextCapture();
     const lineReader = createInterface({ input: child.stdout });
     const finish = (status: CodexRuntimeAccountDto) => {
       if (settled) {
@@ -375,9 +391,7 @@ export async function readCodexAccountStatus(
     }, CODEX_ACCOUNT_READ_TIMEOUT_MS);
 
     child.stderr.on("data", (chunk) => {
-      if (stderrChunks.join("").length < 2_000) {
-        stderrChunks.push(String(chunk));
-      }
+      stderr.append(chunk);
     });
     child.stdin.on("error", (error) => {
       finish(baseCodexAccountStatus("unknown", `Could not send account/read to Codex app-server: ${error.message}`));
@@ -387,11 +401,11 @@ export async function readCodexAccountStatus(
     });
     child.on("exit", () => {
       if (!settled) {
-        const stderr = stderrChunks.join("").trim();
+        const stderrText = stderr.trimmed();
         finish(
           baseCodexAccountStatus(
             "unknown",
-            stderr ? `Codex app-server exited before account status was available: ${stderr}` : "Codex app-server exited before account status was available."
+            stderrText ? `Codex app-server exited before account status was available: ${stderrText}` : "Codex app-server exited before account status was available."
           )
         );
       }

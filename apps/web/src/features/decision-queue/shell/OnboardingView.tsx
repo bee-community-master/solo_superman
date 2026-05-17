@@ -40,7 +40,7 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
         <div className="session-start-layout">
           <div className="session-login-column">
             <section className="start-guide chatgpt-login-gate" aria-label={copy.questions.chatGptLoginAria}>
-              <div className="chatgpt-login-copy">
+              <div className="login-gate-copy">
                 <h3>{copy.questions.chatGptLoginTitle}</h3>
                 <p>{copy.questions.chatGptLoginDescription}</p>
                 <p className="mode-summary">{copy.questions.chatGptCredentialBoundary}</p>
@@ -62,7 +62,7 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
               </label>
             </section>
             <section className="start-guide codex-login-gate" aria-label={copy.questions.codexLoginAria}>
-              <div className="chatgpt-login-copy">
+              <div className="login-gate-copy">
                 <h3>{copy.questions.codexLoginTitle}</h3>
                 <p>{copy.questions.codexLoginDescription}</p>
                 <p className="mode-summary">{copy.questions.codexCredentialBoundary}</p>
