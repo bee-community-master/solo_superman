@@ -223,6 +223,36 @@ async function spawnDetached(
   });
 }
 
+async function spawnAndWait(
+  command: string,
+  args: readonly string[],
+  env: Readonly<Record<string, string | undefined>>
+): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command, [...args], {
+      env: codexSpawnEnv(env),
+      stdio: ["ignore", "ignore", "pipe"]
+    });
+    const stderrChunks: string[] = [];
+
+    child.stderr?.on("data", (chunk) => {
+      if (stderrChunks.join("").length < 2_000) {
+        stderrChunks.push(String(chunk));
+      }
+    });
+    child.once("error", reject);
+    child.once("exit", (code, signal) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+
+      const detail = stderrChunks.join("").trim() || signal || `exit ${code ?? "unknown"}`;
+      reject(new Error(`${command} failed while launching Codex login: ${detail}`));
+    });
+  });
+}
+
 export async function startCodexLoginInBackgroundTerminal(
   env: Readonly<Record<string, string | undefined>> = process.env,
   cwd = process.cwd(),
@@ -232,7 +262,7 @@ export async function startCodexLoginInBackgroundTerminal(
 
   try {
     if (process.platform === "darwin") {
-      await spawnDetached(
+      await spawnAndWait(
         "osascript",
         [
           "-e",
@@ -254,7 +284,7 @@ export async function startCodexLoginInBackgroundTerminal(
     }
 
     if (process.platform === "win32") {
-      await spawnDetached(
+      await spawnAndWait(
         "cmd.exe",
         [
           "/d",
