@@ -23,13 +23,16 @@ import type { SidecarClient } from "../../../shared/api/sidecar-client";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
 import {
   BUSINESS_CRITIC_INTENSITY_OPTIONS,
+  INITIAL_QUEUE_START_BLOCKER_MESSAGES,
   displayError,
   emptyProjectionState,
   emptyResearchOperationsState,
+  initialQueueStartBlocker,
   latestProjectionVersion,
   PROJECT_PURPOSE_MODE_OPTIONS,
   type AppendCommand,
   type CommandLogEntry,
+  type ConnectionState,
   type ProjectionState
 } from "./decision-queue-shell-model";
 
@@ -38,10 +41,13 @@ interface DecisionQueueSessionActionsProps {
   readonly appendCommand: AppendCommand;
   readonly businessCriticIntensity: BusinessCriticIntensity | null;
   readonly businessCriticIntensityChangeReason: string;
+  readonly chatGptLoginAcknowledged: boolean;
   readonly client: SidecarClient | null;
+  readonly connectionStatus: ConnectionState["status"];
   readonly idea: string;
   readonly initialBusinessCriticIntensityReason: string;
   readonly intake: string;
+  readonly isBusy: boolean;
   readonly knownRiskDrafts: Record<string, string>;
   readonly projectPurposeMode: ProjectPurposeMode | null;
   readonly projections: ProjectionState;
@@ -74,10 +80,13 @@ export function useDecisionQueueSessionActions({
   appendCommand,
   businessCriticIntensity,
   businessCriticIntensityChangeReason,
+  chatGptLoginAcknowledged,
   client,
+  connectionStatus,
   idea,
   initialBusinessCriticIntensityReason,
   intake,
+  isBusy,
   knownRiskDrafts,
   projectPurposeMode,
   projections,
@@ -104,18 +113,34 @@ export function useDecisionQueueSessionActions({
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
+      const startBlocker = initialQueueStartBlocker({
+        chatGptLoginAcknowledged,
+        connectionStatus,
+        hasClient: Boolean(client),
+        projectPurposeMode,
+        businessCriticIntensity,
+        idea,
+        intake,
+        isBusy
+      });
+
+      if (startBlocker) {
+        setWorkflowError(INITIAL_QUEUE_START_BLOCKER_MESSAGES[startBlocker]);
+        return;
+      }
+
       if (!client) {
-        setWorkflowError("Local service is not connected.");
+        setWorkflowError(INITIAL_QUEUE_START_BLOCKER_MESSAGES.sidecar_connection);
         return;
       }
 
       if (!projectPurposeMode) {
-        setWorkflowError("프로젝트 목적을 사업화 검증 중심 또는 개인 workflow 구현 중심 중 하나로 선택해야 합니다.");
+        setWorkflowError(INITIAL_QUEUE_START_BLOCKER_MESSAGES.project_purpose);
         return;
       }
 
       if (projectPurposeMode === "business" && !businessCriticIntensity) {
-        setWorkflowError("상업성 검증 강도를 선택해야 사업화 검증 큐를 확정할 수 있습니다.");
+        setWorkflowError(INITIAL_QUEUE_START_BLOCKER_MESSAGES.business_critic_intensity);
         return;
       }
 
@@ -187,10 +212,13 @@ export function useDecisionQueueSessionActions({
     [
       appendCommand,
       businessCriticIntensity,
+      chatGptLoginAcknowledged,
+      connectionStatus,
       initialBusinessCriticIntensityReason,
       client,
       idea,
       intake,
+      isBusy,
       projectPurposeMode,
       refetchQueueAfterSseNotification,
       refreshProjections

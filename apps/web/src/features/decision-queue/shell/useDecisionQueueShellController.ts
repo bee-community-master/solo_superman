@@ -28,6 +28,7 @@ import {
 import {
   DEFAULT_IDEA,
   DEFAULT_INTAKE,
+  canStartInitialQueueFlow,
   emptyProjectionState,
   emptyResearchOperationsState,
   type CommandLogEntry,
@@ -51,6 +52,7 @@ export function useDecisionQueueShellController() {
   const [client, setClient] = useState<SidecarClient | null>(null);
   const [idea, setIdea] = useState(DEFAULT_IDEA);
   const [intake, setIntake] = useState(DEFAULT_INTAKE);
+  const [chatGptLoginAcknowledged, setChatGptLoginAcknowledged] = useState(false);
   const [projectPurposeMode, setProjectPurposeMode] = useState<ProjectPurposeMode | null>(null);
   const [purposeModeChangeReason, setPurposeModeChangeReason] = useState("");
   const [businessCriticIntensity, setBusinessCriticIntensity] = useState<BusinessCriticIntensity | null>(null);
@@ -130,10 +132,13 @@ export function useDecisionQueueShellController() {
     appendCommand,
     businessCriticIntensity,
     businessCriticIntensityChangeReason,
+    chatGptLoginAcknowledged,
     client,
+    connectionStatus: connectionState.status,
     idea,
     initialBusinessCriticIntensityReason,
     intake,
+    isBusy,
     knownRiskDrafts,
     projectPurposeMode,
     projections,
@@ -288,14 +293,16 @@ export function useDecisionQueueShellController() {
   const planningRadarPolygonPoints = planningRadarAxesView.map((axis) => axis.point).join(" ");
   const planningCompletenessScore = confidence?.compositeScore ?? 0;
   const planningReadinessLabel = confidence?.readinessLabel ?? copy.rightRail.pending;
-  const canStart =
-    connectionState.status === "connected" &&
-    Boolean(client) &&
-    Boolean(projectPurposeMode) &&
-    (projectPurposeMode !== "business" || Boolean(businessCriticIntensity)) &&
-    Boolean(idea.trim()) &&
-    Boolean(intake.trim()) &&
-    !isBusy;
+  const canStart = canStartInitialQueueFlow({
+    chatGptLoginAcknowledged,
+    connectionStatus: connectionState.status,
+    hasClient: Boolean(client),
+    projectPurposeMode,
+    businessCriticIntensity,
+    idea,
+    intake,
+    isBusy
+  });
   const hasActiveResearchAllowlist =
     researchOperations.allowlists?.allowlists.some((allowlist) => allowlist.status === "active") ?? false;
 
@@ -360,6 +367,8 @@ export function useDecisionQueueShellController() {
     setIdea,
     intake,
     setIntake,
+    chatGptLoginAcknowledged,
+    setChatGptLoginAcknowledged,
     projectPurposeMode,
     setProjectPurposeMode,
     purposeModeChangeReason,

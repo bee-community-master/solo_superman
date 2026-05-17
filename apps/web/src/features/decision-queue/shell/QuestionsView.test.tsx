@@ -3,7 +3,52 @@ import { describe, expect, it, vi } from "vitest";
 import type { DecisionQueueProjection, ProjectionVersion, QueueItemId } from "@solo-superman/contracts";
 import { AppLanguageProvider } from "../../../shared/i18n/app-language";
 import { QuestionsView } from "./QuestionsView";
+import { DEFAULT_IDEA, DEFAULT_INTAKE, emptyProjectionState } from "./decision-queue-shell-model";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
+
+const DEFAULT_QUEUE_RECOVERY = {
+  status: "idle",
+  label: "Questions are up to date.",
+  refetchLabel: "Question refresh path is not loaded yet.",
+  sseLabel: "Live update stream is not loaded yet.",
+  activeBatchLabel: "Current question details are not loaded yet."
+} as const;
+
+function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellController> = {}) {
+  const controller = {
+    answerDrafts: {},
+    businessCriticIntensity: null,
+    canStart: false,
+    carryQueueItemAsKnownRisk: vi.fn(),
+    chatGptLoginAcknowledged: false,
+    idea: "",
+    initialBusinessCriticIntensityReason: "",
+    intake: "",
+    isBusy: false,
+    knownRiskDrafts: {},
+    projectPurposeMode: null,
+    projections: emptyProjectionState(),
+    queueRecovery: DEFAULT_QUEUE_RECOVERY,
+    runInitialQueueFlow: vi.fn(),
+    sections: [],
+    setAnswerDrafts: vi.fn(),
+    setBusinessCriticIntensity: vi.fn(),
+    setChatGptLoginAcknowledged: vi.fn(),
+    setIdea: vi.fn(),
+    setInitialBusinessCriticIntensityReason: vi.fn(),
+    setIntake: vi.fn(),
+    setKnownRiskDrafts: vi.fn(),
+    setProjectPurposeMode: vi.fn(),
+    submitAnswer: vi.fn(),
+    ...controllerOverrides
+  } as unknown as DecisionQueueShellController;
+
+  return renderToStaticMarkup(
+    <AppLanguageProvider initialLanguage="en">
+      <QuestionsView controller={controller} />
+    </AppLanguageProvider>
+  );
+}
 
 describe("QuestionsView", () => {
   it("renders suggested answer choices with pros and cons above the free-form answer box", () => {
@@ -30,28 +75,12 @@ describe("QuestionsView", () => {
       blocked: [],
       deferred: []
     };
-    const controller = {
-      answerDrafts: {},
-      businessCriticIntensity: null,
-      canStart: false,
-      carryQueueItemAsKnownRisk: vi.fn(),
-      idea: "",
-      initialBusinessCriticIntensityReason: "",
-      intake: "",
-      isBusy: false,
-      knownRiskDrafts: {},
-      projectPurposeMode: null,
+
+    const markup = renderQuestionsView({
       projections: {
+        ...emptyProjectionState(),
         queue
       },
-      queueRecovery: {
-        status: "idle",
-        label: "Questions are up to date.",
-        refetchLabel: "Question refresh path is not loaded yet.",
-        sseLabel: "Live update stream is not loaded yet.",
-        activeBatchLabel: "Current question details are not loaded yet."
-      },
-      runInitialQueueFlow: vi.fn(),
       sections: [
         {
           id: "active",
@@ -59,22 +88,8 @@ describe("QuestionsView", () => {
           emptyLabel: "No current questions.",
           items: queue.active
         }
-      ],
-      setAnswerDrafts: vi.fn(),
-      setBusinessCriticIntensity: vi.fn(),
-      setIdea: vi.fn(),
-      setInitialBusinessCriticIntensityReason: vi.fn(),
-      setIntake: vi.fn(),
-      setKnownRiskDrafts: vi.fn(),
-      setProjectPurposeMode: vi.fn(),
-      submitAnswer: vi.fn()
-    } as unknown as DecisionQueueShellController;
-
-    const markup = renderToStaticMarkup(
-      <AppLanguageProvider initialLanguage="en">
-        <QuestionsView controller={controller} />
-      </AppLanguageProvider>
-    );
+      ]
+    });
 
     expect(markup).toContain("Idea summary");
     expect(markup).toContain("Goal description");
@@ -88,4 +103,25 @@ describe("QuestionsView", () => {
       markup.indexOf("Write a different answer if none fit")
     );
   });
+
+  it("renders the ChatGPT direct-login gate before idea and final goal fields", () => {
+    const markup = renderQuestionsView({
+      idea: DEFAULT_IDEA,
+      intake: DEFAULT_INTAKE
+    });
+
+    expect(markup).toContain("Sign in to ChatGPT in your browser first");
+    expect(markup).toContain("Open ChatGPT");
+    expect(markup).toContain('href="https://chatgpt.com/"');
+    expect(markup).toContain('target="_blank"');
+    expect(markup).toContain('rel="noopener noreferrer"');
+    expect(markup).toContain("I signed in to ChatGPT directly in this browser/profile.");
+    expect(markup).toContain("Idea summary");
+    expect(markup).toContain("Goal description");
+    expect(markup.indexOf("Sign in to ChatGPT in your browser first")).toBeLessThan(
+      markup.indexOf("Idea summary")
+    );
+    expect(markup.indexOf("Idea summary")).toBeLessThan(markup.indexOf("Goal description"));
+  });
+
 });

@@ -16,6 +16,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     businessCriticIntensity,
     canStart,
     carryQueueItemAsKnownRisk,
+    chatGptLoginAcknowledged,
     idea,
     initialBusinessCriticIntensityReason,
     intake,
@@ -28,6 +29,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     sections,
     setAnswerDrafts,
     setBusinessCriticIntensity,
+    setChatGptLoginAcknowledged,
     setIdea,
     setInitialBusinessCriticIntensityReason,
     setIntake,
@@ -43,6 +45,28 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
           <h2>{copy.questions.sessionStart}</h2>
           <span>{CONTRACT_SCHEMA_VERSION}</span>
         </div>
+        <section className="start-guide chatgpt-login-gate" aria-label={copy.questions.chatGptLoginAria}>
+          <div className="chatgpt-login-copy">
+            <h3>{copy.questions.chatGptLoginTitle}</h3>
+            <p>{copy.questions.chatGptLoginDescription}</p>
+            <p className="mode-summary">{copy.questions.chatGptCredentialBoundary}</p>
+          </div>
+          <div className="card-actions panel-actions">
+            <a className="chatgpt-login-link" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">
+              {copy.questions.chatGptLoginOpen}
+            </a>
+          </div>
+          <label className="mode-option">
+            <input
+              type="checkbox"
+              checked={chatGptLoginAcknowledged}
+              onChange={(event) => setChatGptLoginAcknowledged(event.target.checked)}
+            />
+            <span>
+              <strong>{copy.questions.chatGptLoginAcknowledge}</strong>
+            </span>
+          </label>
+        </section>
         <section className="start-guide" aria-label={copy.questions.firstRunAria}>
           <h3>{copy.questions.firstRunTitle}</h3>
           <ul>

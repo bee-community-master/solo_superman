@@ -157,6 +157,49 @@
   padding-left: 18px;
 }
 
+.chatgpt-login-gate {
+  border-color: var(--solo-accent);
+  background: var(--solo-accent-bg);
+}
+
+.chatgpt-login-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.chatgpt-login-copy p {
+  margin: 0;
+}
+
+.chatgpt-login-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border-radius: 8px;
+  background: var(--solo-accent);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0 14px;
+  text-decoration: none;
+  transition:
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+.chatgpt-login-link:hover {
+  background: var(--solo-accent-dark);
+}
+
+.chatgpt-login-link:focus-visible {
+  outline: 3px solid rgb(15 118 110 / 20%);
+  outline-offset: 2px;
+}
+
+.chatgpt-login-link:active {
+  transform: translateY(1px);
+}
+
 .mode-help,
 .mode-summary,
 .research-recovery,

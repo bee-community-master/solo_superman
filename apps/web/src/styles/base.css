@@ -79,7 +79,7 @@ button:disabled {
 }
 
 textarea,
-input:not([type="radio"]) {
+input:not([type="radio"]):not([type="checkbox"]) {
   width: 100%;
   min-width: 0;
   border: 1px solid var(--solo-border);
@@ -95,7 +95,7 @@ textarea {
 }
 
 textarea:focus,
-input:not([type="radio"]):focus {
+input:not([type="radio"]):not([type="checkbox"]):focus {
   border-color: var(--solo-accent);
   background: var(--solo-surface);
   outline: 3px solid rgb(15 118 110 / 14%);
