@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
   IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
   type ProjectId,
   type RuntimeArtifactId,
@@ -262,6 +263,60 @@ describe("sidecar client planning-runtime", () => {
     });
     expect(seenRequests[1]).toMatchObject([
       "http://127.0.0.1:43110/api/v1/sessions/sess_ledger/implementation-step-ledger",
+      expect.objectContaining({ method: "GET" })
+    ]);
+  });
+
+  it("creates and reads auto implementation workspace runs with JSON request bodies", async () => {
+    const seenRequests: [string, RequestInit | undefined][] = [];
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async (input, init) => {
+        seenRequests.push([input, init]);
+
+        return jsonResponse({
+          ok: true,
+          data: {
+            ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+            sessionId: "sess_auto_impl",
+            refetchUrl: "/api/v1/sessions/sess_auto_impl/auto-implementation-runs"
+          },
+          meta: {
+            requestId: "req_auto_impl",
+            schemaVersion: "solo-superman.contracts.v1"
+          }
+        });
+      }
+    });
+
+    const created = await client.createAutoImplementationRun({
+      sessionId: "sess_auto_impl" as SessionId,
+      idempotencyKey: "auto-impl-client-test",
+      projectName: "Demo Workspace App",
+      sourcePlanningRef: "planning_handoff_ready_demo"
+    });
+    const projection = await client.getAutoImplementationRuns("sess_auto_impl" as SessionId);
+
+    expect(created.kind).toBe("AutoImplementationRunProjection");
+    expect(projection?.kind).toBe("AutoImplementationRunProjection");
+    expect(seenRequests[0]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-token",
+          "Content-Type": "application/json"
+        })
+      })
+    ]);
+    expect(JSON.parse(String(seenRequests[0]?.[1]?.body))).toMatchObject({
+      sessionId: "sess_auto_impl",
+      idempotencyKey: "auto-impl-client-test",
+      projectName: "Demo Workspace App",
+      sourcePlanningRef: "planning_handoff_ready_demo"
+    });
+    expect(seenRequests[1]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs",
       expect.objectContaining({ method: "GET" })
     ]);
   });

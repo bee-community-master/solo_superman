@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type {
+  AutoImplementationRunProjection,
   DecisionQueueProjection,
   ChatGptBrowserDelegationProjection,
   ConfidenceCompletionProjection,
@@ -28,6 +29,7 @@ export type PersistedProjection =
   | DecisionQueueProjection
   | ExecutionAuthorityLedgerProjection
   | FounderBriefProjection
+  | AutoImplementationRunProjection
   | ImplementationStepLedgerProjection
   | LivingSpecProjection
   | PlanningHandoffProjection

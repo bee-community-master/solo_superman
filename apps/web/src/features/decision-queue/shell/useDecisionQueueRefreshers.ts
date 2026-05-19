@@ -119,6 +119,22 @@ export function useDecisionQueueRefreshers({
     [client, setProjections]
   );
 
+  const refreshAutoImplementationRuns = useCallback(
+    async (sessionId: SessionShellProjection["sessionId"]) => {
+      if (!client) {
+        return;
+      }
+
+      const autoImplementationRuns = await client.getAutoImplementationRuns(sessionId);
+
+      setProjections((current) => ({
+        ...current,
+        autoImplementationRuns
+      }));
+    },
+    [client, setProjections]
+  );
+
   const refreshProjections = useCallback(
     async (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"]) => {
       if (!client) {
@@ -136,7 +152,8 @@ export function useDecisionQueueRefreshers({
         planningHandoff,
         chatGptDelegation,
         servicePageUsePermission,
-        implementationStepLedger
+        implementationStepLedger,
+        autoImplementationRuns
       ] = await Promise.all([
         client.getSession(projectId, sessionId),
         client.getSpec(sessionId),
@@ -148,7 +165,8 @@ export function useDecisionQueueRefreshers({
         client.getPlanningHandoff(sessionId),
         client.getChatGptBrowserDelegation(sessionId),
         client.getServicePageUsePermission(sessionId),
-        client.getImplementationStepLedger(sessionId)
+        client.getImplementationStepLedger(sessionId),
+        client.getAutoImplementationRuns(sessionId)
       ]);
 
       setProjections({
@@ -162,7 +180,8 @@ export function useDecisionQueueRefreshers({
         planningHandoff,
         chatGptDelegation,
         servicePageUsePermission,
-        implementationStepLedger
+        implementationStepLedger,
+        autoImplementationRuns
       });
       await Promise.all([refreshResearchOperations(projectId), refreshPhase15bReadiness(projectId)]);
     },
@@ -198,6 +217,7 @@ export function useDecisionQueueRefreshers({
     refreshChatGptDelegation,
     refreshServicePageUsePermission,
     refreshImplementationStepLedger,
+    refreshAutoImplementationRuns,
     refreshProjections,
     refetchQueueAfterSseNotification
   };

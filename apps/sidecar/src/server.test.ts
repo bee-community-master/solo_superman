@@ -74,7 +74,10 @@ async function makeTempAppDataDir() {
   return tempDir;
 }
 
-async function createMigratedStorageApp(codexRuntimeAdapter = fixtureCodexRuntimeAdapter) {
+async function createMigratedStorageApp(
+  codexRuntimeAdapter = fixtureCodexRuntimeAdapter,
+  options: { readonly autoImplementationWorkspaceRoot?: string } = {}
+) {
   const appDataDir = await makeTempAppDataDir();
   const storage = await createSoloStorage({ url: localDatabaseUrlFromAppDataDir(appDataDir) });
   const migrationStatus = await applyMigrations(storage);
@@ -84,14 +87,19 @@ async function createMigratedStorageApp(codexRuntimeAdapter = fixtureCodexRuntim
     throw new Error(migrationStatus.errorMessage);
   }
 
+  const appOptions = {
+    localCapabilityToken,
+    migrationStatus,
+    storage,
+    codexRuntimeAdapter,
+    ...(options.autoImplementationWorkspaceRoot
+      ? { autoImplementationWorkspaceRoot: options.autoImplementationWorkspaceRoot }
+      : {})
+  };
+
   return {
     storage,
-    app: createSidecarApp({
-      localCapabilityToken,
-      migrationStatus,
-      storage,
-      codexRuntimeAdapter
-    })
+    app: createSidecarApp(appOptions)
   };
 }
 
@@ -7864,6 +7872,150 @@ describe("PR-02 sidecar health shell", () => {
             state: "blocked"
           })
         ]
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("creates a workspace/<project> git repo with markdown fallback issues for auto implementation runs", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A local app that should be implemented after planning");
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          idempotencyKey: "auto-implementation-route:test",
+          projectName: "Demo Workspace App",
+          sourcePlanningRef: "planning_handoff_ready_demo",
+          trackerGoal: "Build the planned demo workspace app through reviewed PR-sized stages."
+        })
+      });
+      const body = await jsonBody(response);
+      const projection = body.data as Readonly<Record<string, unknown>>;
+      const latestRun = projection.latestRun as Readonly<Record<string, unknown>>;
+      const issueManagement = latestRun.issueManagement as Readonly<Record<string, unknown>>;
+      const issueDocs = issueManagement.issueDocs as readonly Readonly<Record<string, unknown>>[];
+      const stagePlan = latestRun.stagePlan as readonly Readonly<Record<string, unknown>>[];
+      const projectDir = join(workspaceRoot, "demo-workspace-app");
+
+      expect(response.status).toBe(200);
+      expect(projection).toMatchObject({
+        kind: "AutoImplementationRunProjection",
+        version: 1,
+        summary: "Auto implementation workspace is ready for demo-workspace-app; remote status is no_remote."
+      });
+      expect(latestRun).toMatchObject({
+        projectFolderName: "demo-workspace-app",
+        workspaceRoot,
+        generatedRepoPath: projectDir,
+        remoteStatus: "no_remote",
+        currentStage: "initial_pr"
+      });
+      expect(stagePlan).toHaveLength(7);
+      expect(issueManagement).toMatchObject({
+        mode: "markdown_fallback",
+        trackerRelativePath: "implementation-tracker.md"
+      });
+      expect(issueDocs).toHaveLength(7);
+      expect(issueDocs[0]).toMatchObject({
+        issueId: "local-001",
+        relativePath: "implementation-issues/001-initial_pr.md",
+        status: "open"
+      });
+
+      const tracker = await readFile(join(projectDir, "implementation-tracker.md"), "utf8");
+      const firstIssue = await readFile(join(projectDir, "implementation-issues", "001-initial_pr.md"), "utf8");
+      const manifest = JSON.parse(await readFile(join(projectDir, ".solo-superman", "auto-implementation-run.json"), "utf8")) as
+        Readonly<Record<string, unknown>>;
+      const gitHead = await readFile(join(projectDir, ".git", "HEAD"), "utf8");
+
+      expect(tracker).toContain("Remote status: no_remote");
+      expect(tracker).toContain("git remote add origin <github-repo-url>");
+      expect(firstIssue).toContain("## Acceptance");
+      expect(manifest).toMatchObject({
+        runId: latestRun.runId,
+        projectFolderName: "demo-workspace-app",
+        remoteStatus: "no_remote"
+      });
+      expect(gitHead).toContain("refs/heads/main");
+
+      const replay = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          idempotencyKey: "auto-implementation-route:test",
+          projectName: "Demo Workspace App"
+        })
+      });
+      const replayProjection = (await jsonBody(replay)).data as Readonly<Record<string, unknown>>;
+
+      expect(replay.status).toBe(200);
+      expect(replayProjection).toMatchObject({
+        version: 1
+      });
+      expect(replayProjection.runs as readonly unknown[]).toHaveLength(1);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rejects malformed auto implementation run requests before filesystem writes", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A malformed auto implementation request test");
+      const unsupported = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          idempotencyKey: "auto-implementation-route:bad",
+          unsafe: true
+        })
+      });
+      const unsupportedBody = await jsonBody(unsupported);
+      const tooManyTitles = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          idempotencyKey: "auto-implementation-route:too-many-titles",
+          issueTitles: ["1", "2", "3", "4", "5", "6", "7", "8"]
+        })
+      });
+      const tooManyTitlesBody = await jsonBody(tooManyTitles);
+
+      expect(unsupported.status).toBe(400);
+      expect(unsupportedBody.error).toMatchObject({
+        code: "VALIDATION_FAILED"
+      });
+      expect(tooManyTitles.status).toBe(400);
+      expect(tooManyTitlesBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "issueTitles must include at most 7 values."
       });
     } finally {
       await storage.close();

@@ -14,8 +14,12 @@ import {
   ResearchAllowlistValidationError,
   ResearchRunValidationError,
   assertSafeResearchConnectorId,
+  AUTO_IMPLEMENTATION_SCHEMA_VERSION,
+  validateAutoImplementationRunProjection,
   isTerminalResearchRunStatus,
   type ApiErrorCode,
+  type AutoImplementationRunProjection,
+  type CreateAutoImplementationRunRequest,
   type AutomaticResearchSourceCategory,
   type BlockedActionType,
   type CommandId,
@@ -149,6 +153,11 @@ import {
 import { applyFileDiff } from "./file-diff-adapter";
 import { buildPhase15bHintExport, buildPhase15bHintProjection } from "./phase15b-hint-projection";
 import { runShellCommand } from "./shell-command-adapter";
+import {
+  autoImplementationRunId,
+  defaultAutoImplementationWorkspaceRoot,
+  prepareAutoImplementationWorkspaceRun
+} from "./auto-implementation-workspace";
 
 export class ProductEngineServiceError extends Error {
   readonly code: ApiErrorCode;
@@ -616,6 +625,7 @@ function isPersistedProjection(value: unknown): value is PersistedProjection {
     kind === "ChatGptBrowserDelegationProjection" ||
     kind === "ServicePageUsePermissionProjection" ||
     kind === "ImplementationStepLedgerProjection" ||
+    kind === "AutoImplementationRunProjection" ||
     kind === "ResearchEvidenceProjection" ||
     kind === "RuntimeActivityProjection" ||
     kind === "SessionShellProjection"
@@ -1447,11 +1457,17 @@ function decisionQueueProjectionFromEvents(events: readonly ProductEngineEvent[]
   return null;
 }
 
+export interface ProductEngineCommandServiceOptions {
+  readonly autoImplementationWorkspaceRoot?: string;
+}
+
 export function createProductEngineCommandService(
   storage: SoloStorage,
-  codexRuntimeAdapter: CodexRuntimeAdapter = createCodexRuntimeAdapter()
+  codexRuntimeAdapter: CodexRuntimeAdapter = createCodexRuntimeAdapter(),
+  options: ProductEngineCommandServiceOptions = {}
 ) {
   const sessionCommandQueues = new Map<SessionId, Promise<void>>();
+  const autoImplementationWorkspaceRoot = options.autoImplementationWorkspaceRoot ?? defaultAutoImplementationWorkspaceRoot();
 
   function assertSupportedReductionPersistence(reduction: ProductEngineReduction) {
     const nextStateVersion = reduction.nextState.stateVersion;
@@ -4584,6 +4600,73 @@ export function createProductEngineCommandService(
       return createProjectionRepository(storage.db).get<ImplementationStepLedgerProjection>(
         sessionIdValue,
         "ImplementationStepLedgerProjection"
+      );
+    },
+
+
+    async createAutoImplementationRun(
+      request: CreateAutoImplementationRunRequest
+    ): Promise<AutoImplementationRunProjection> {
+      const session = await createProjectRepository(storage.db).getSession(request.sessionId);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: request.sessionId
+        });
+      }
+
+      const projectionRepository = createProjectionRepository(storage.db);
+      const existingProjection = await projectionRepository.get<AutoImplementationRunProjection>(
+        request.sessionId,
+        "AutoImplementationRunProjection"
+      );
+      const runId = autoImplementationRunId(request.sessionId, request.idempotencyKey);
+
+      if (existingProjection?.runs.some((run) => run.runId === runId)) {
+        return existingProjection;
+      }
+
+      const now = new Date().toISOString();
+      const run = await prepareAutoImplementationWorkspaceRun({
+        sessionId: request.sessionId,
+        runId,
+        request,
+        workspaceRoot: autoImplementationWorkspaceRoot,
+        now
+      });
+      const runs = [...(existingProjection?.runs ?? []), run];
+      const projection = validateAutoImplementationRunProjection({
+        kind: "AutoImplementationRunProjection",
+        sessionId: request.sessionId,
+        version: ((existingProjection?.version ?? 0) + 1) as ProjectionVersion,
+        latestRun: run,
+        runs,
+        summary: `Auto implementation workspace is ready for ${run.projectFolderName}; remote status is ${run.remoteStatus}.`,
+        refetchUrl: `/api/v1/sessions/${request.sessionId}/auto-implementation-runs`,
+        schemaVersion: AUTO_IMPLEMENTATION_SCHEMA_VERSION
+      });
+
+      return projectionRepository.save({
+        projectId: session.projectId,
+        sessionId: request.sessionId,
+        projection,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        updatedAt: now
+      });
+    },
+
+    async getAutoImplementationRuns(sessionIdValue: SessionId): Promise<AutoImplementationRunProjection | null> {
+      const session = await createProjectRepository(storage.db).getSession(sessionIdValue);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: sessionIdValue
+        });
+      }
+
+      return createProjectionRepository(storage.db).get<AutoImplementationRunProjection>(
+        sessionIdValue,
+        "AutoImplementationRunProjection"
       );
     },
 

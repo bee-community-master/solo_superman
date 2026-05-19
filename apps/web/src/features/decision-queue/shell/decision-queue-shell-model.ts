@@ -1,6 +1,7 @@
 import {
   BUSINESS_CRITIC_INTENSITY_LABELS,
   PROJECT_PURPOSE_MODE_LABELS,
+  type AutoImplementationRunProjection,
   type BusinessCriticIntensity,
   type ChatGptBrowserDelegationProjection,
   type CommandResponse,
@@ -58,6 +59,7 @@ export interface ProjectionState {
   readonly chatGptDelegation: ChatGptBrowserDelegationProjection | null;
   readonly servicePageUsePermission: ServicePageUsePermissionProjection | null;
   readonly implementationStepLedger: ImplementationStepLedgerProjection | null;
+  readonly autoImplementationRuns: AutoImplementationRunProjection | null;
 }
 
 export const DEFAULT_IDEA = "";
@@ -209,7 +211,8 @@ const PROJECTION_VERSION_KEYS = [
   "planningHandoff",
   "chatGptDelegation",
   "servicePageUsePermission",
-  "implementationStepLedger"
+  "implementationStepLedger",
+  "autoImplementationRuns"
 ] as const satisfies readonly (keyof ProjectionState)[];
 
 export function latestProjectionVersion(projections: ProjectionVersionSnapshot) {
@@ -230,7 +233,8 @@ export function emptyProjectionState(): ProjectionState {
     planningHandoff: null,
     chatGptDelegation: null,
     servicePageUsePermission: null,
-    implementationStepLedger: null
+    implementationStepLedger: null,
+    autoImplementationRuns: null
   };
 }
 

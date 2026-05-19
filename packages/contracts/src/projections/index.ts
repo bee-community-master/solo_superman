@@ -15,6 +15,7 @@ export * from "./execution-authority";
 export * from "./chatgpt-browser-delegation";
 export * from "./service-page-use-permission";
 export * from "./implementation-step-ledger";
+export * from "./auto-implementation";
 
 export type ProjectionKind =
   | "SessionShellProjection"
@@ -33,4 +34,5 @@ export type ProjectionKind =
   | "ExecutionAuthorityLedgerProjection"
   | "ChatGptBrowserDelegationProjection"
   | "ServicePageUsePermissionProjection"
-  | "ImplementationStepLedgerProjection";
+  | "ImplementationStepLedgerProjection"
+  | "AutoImplementationRunProjection";

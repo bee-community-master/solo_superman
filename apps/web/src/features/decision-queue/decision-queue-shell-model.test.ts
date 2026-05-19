@@ -77,10 +77,11 @@ describe("decision queue shell model", () => {
       planningHandoff: { version: 8 },
       chatGptDelegation: { version: 9 },
       servicePageUsePermission: { version: 10 },
-      implementationStepLedger: { version: 11 }
+      implementationStepLedger: { version: 11 },
+      autoImplementationRuns: { version: 12 }
     } satisfies ProjectionVersionSnapshot;
 
-    expect(latestProjectionVersion(projections)).toBe(11);
+    expect(latestProjectionVersion(projections)).toBe(12);
   });
 
   it("requires explicit ChatGPT direct-login acknowledgement before starting onboarding", () => {

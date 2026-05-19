@@ -2,6 +2,7 @@ import type {
   CommandResponse,
   CodexRuntimeLoginStartDto,
   CodexRuntimeStatusDto,
+  AutoImplementationRunProjection,
   BlockRuntimeArtifactRequest,
   CompletionCandidateRequest,
   ConfidenceCompletionProjection,
@@ -10,6 +11,7 @@ import type {
   ChangeProjectPurposeModeRequest,
   ChatGptBrowserDelegationProjection,
   ServicePageUsePermissionProjection,
+  CreateAutoImplementationRunRequest,
   CreateManualHandoffRequest,
   CreateChatGptBrowserDelegationRunRequest,
   CreateServicePageUsePermissionRequest,
@@ -61,6 +63,7 @@ import type {
 import {
   chatGptBrowserDelegationPath,
   chatGptBrowserDelegationRunRevokePath,
+  autoImplementationRunPath,
   implementationStepLedgerPath,
   phase15bUpgradeHintCollectionPath,
   phase15bUpgradeHintExportPath,
@@ -115,6 +118,7 @@ export type CancelResearchRunInput = CancelResearchRunRequest;
 export type RetryResearchRunInput = RetryResearchRunRequest;
 export type ResolveResearchQueueCardInput = ResolveResearchQueueCardRequest;
 export type CreatePlanningHandoffInput = CreatePlanningHandoffRequest;
+export type CreateAutoImplementationRunInput = CreateAutoImplementationRunRequest;
 export type CreateChatGptBrowserDelegationRunInput = CreateChatGptBrowserDelegationRunRequest;
 export type RevokeChatGptBrowserDelegationRunInput = RevokeChatGptBrowserDelegationRunRequest;
 export type CreateServicePageUsePermissionInput = CreateServicePageUsePermissionRequest;
@@ -142,10 +146,11 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
     });
   }
 
-  async function postProjection<TProjection>(path: string) {
+  async function postProjection<TProjection>(path: string, body?: unknown) {
     return request<TProjection>(path, {
       method: "POST",
-      headers: authHeaders(connection.localCapabilityToken)
+      headers: body === undefined ? authHeaders(connection.localCapabilityToken) : jsonHeaders(connection.localCapabilityToken),
+      ...(body === undefined ? {} : { body: JSON.stringify(body) })
     });
   }
 
@@ -430,6 +435,14 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     getImplementationStepLedger(sessionId: SessionId) {
       return getProjection<ImplementationStepLedgerProjection | null>(implementationStepLedgerPath(sessionId));
+    },
+
+    createAutoImplementationRun(input: CreateAutoImplementationRunInput) {
+      return postProjection<AutoImplementationRunProjection>(autoImplementationRunPath(input.sessionId), input);
+    },
+
+    getAutoImplementationRuns(sessionId: SessionId) {
+      return getProjection<AutoImplementationRunProjection | null>(autoImplementationRunPath(sessionId));
     },
 
     getSession(projectId: ProjectId, sessionId: SessionId) {

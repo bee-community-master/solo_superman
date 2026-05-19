@@ -60,6 +60,10 @@ export function implementationStepLedgerPath(sessionId: SessionId) {
   return `/api/v1/sessions/${encodeURIComponent(sessionId)}/implementation-step-ledger`;
 }
 
+export function autoImplementationRunPath(sessionId: SessionId) {
+  return `/api/v1/sessions/${encodeURIComponent(sessionId)}/auto-implementation-runs`;
+}
+
 export function sessionEventStreamPath(sessionId: SessionId) {
   return `/api/v1/events/stream?${new URLSearchParams({ sessionId }).toString()}`;
 }

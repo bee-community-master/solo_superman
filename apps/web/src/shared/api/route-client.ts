@@ -13,6 +13,7 @@ import {
   POST_PHASE3_PR04_CHATGPT_DELEGATION_RUN_ROUTE_IDS,
   POST_PHASE3_PR05_SERVICE_PAGE_PERMISSION_ROUTE_IDS,
   POST_PHASE3_PR06_IMPLEMENTATION_STEP_LEDGER_ROUTE_IDS,
+  POST_PHASE3_PR07_AUTO_IMPLEMENTATION_ROUTE_IDS,
   type ApiRoute
 } from "@solo-superman/contracts";
 
@@ -31,7 +32,8 @@ type WebRouteClientImplementation =
   | "mounted_post_phase3_pr_03"
   | "mounted_post_phase3_pr_04"
   | "mounted_post_phase3_pr_05"
-  | "mounted_post_phase3_pr_06";
+  | "mounted_post_phase3_pr_06"
+  | "mounted_post_phase3_pr_07";
 const CURRENT_MOUNTED_PRODUCT_API_ROUTE_ID_SET = new Set<string>(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS);
 const PHASE15A_PR02_ALLOWLIST_ROUTE_ID_SET = new Set<string>(PHASE15A_PR02_ALLOWLIST_ROUTE_IDS);
 const PHASE15A_PR03_DISCLOSURE_ROUTE_ID_SET = new Set<string>(PHASE15A_PR03_DISCLOSURE_ROUTE_IDS);
@@ -53,7 +55,14 @@ const POST_PHASE3_PR05_SERVICE_PAGE_PERMISSION_ROUTE_ID_SET = new Set<string>(
 const POST_PHASE3_PR06_IMPLEMENTATION_STEP_LEDGER_ROUTE_ID_SET = new Set<string>(
   POST_PHASE3_PR06_IMPLEMENTATION_STEP_LEDGER_ROUTE_IDS
 );
+const POST_PHASE3_PR07_AUTO_IMPLEMENTATION_ROUTE_ID_SET = new Set<string>(
+  POST_PHASE3_PR07_AUTO_IMPLEMENTATION_ROUTE_IDS
+);
 const IMPLEMENTATION_ROUTE_GROUPS = [
+  {
+    routeIds: POST_PHASE3_PR07_AUTO_IMPLEMENTATION_ROUTE_ID_SET,
+    implementation: "mounted_post_phase3_pr_07"
+  },
   {
     routeIds: POST_PHASE3_PR06_IMPLEMENTATION_STEP_LEDGER_ROUTE_ID_SET,
     implementation: "mounted_post_phase3_pr_06"

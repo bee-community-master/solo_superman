@@ -274,6 +274,19 @@ describe("PR-09 web route client catalog", () => {
     });
   });
 
+  it("marks Post-Phase3 PR-07 auto implementation workspace routes with their own mounted lane", () => {
+    expect(findWebRouteClientPlaceholder("createAutoImplementationRun")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/auto-implementation-runs",
+      implementation: "mounted_post_phase3_pr_07"
+    });
+    expect(findWebRouteClientPlaceholder("getAutoImplementationRuns")).toMatchObject({
+      method: "GET",
+      path: "/api/v1/sessions/:sessionId/auto-implementation-runs",
+      implementation: "mounted_post_phase3_pr_07"
+    });
+  });
+
   it("marks the Decision Queue SSE notification stream as mounted for refetch recovery", () => {
     expect(findWebRouteClientPlaceholder("subscribeEventStream")).toMatchObject({
       method: "GET",
