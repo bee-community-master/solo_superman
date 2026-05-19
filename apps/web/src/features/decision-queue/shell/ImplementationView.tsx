@@ -1,3 +1,4 @@
+import { AutoImplementationRunPanel } from "../AutoImplementationRunPanel";
 import { ImplementationStepLedgerPanel } from "../ImplementationStepLedgerPanel";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
@@ -10,11 +11,14 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
   const copy = useDecisionQueueCopy();
   const {
     commandLog,
+    autoImplementationRunView,
+    createAutoImplementationRun,
     implementationStepLedgerView,
     isBusy,
     pendingSummary,
     projections,
     refreshCommandStatus,
+    refreshAutoImplementationRuns,
     refreshImplementationStepLedger,
     runtimeActivity,
     runtimeStatus,
@@ -23,6 +27,19 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
 
   return (
     <div className="view-grid implementation-view">
+      <AutoImplementationRunPanel
+        run={autoImplementationRunView}
+        isBusy={isBusy}
+        onCreateRun={() => {
+          void createAutoImplementationRun();
+        }}
+        onRefreshRun={() => {
+          if (projections.session) {
+            void refreshAutoImplementationRuns(projections.session.sessionId);
+          }
+        }}
+      />
+
       <ImplementationStepLedgerPanel
         ledger={implementationStepLedgerView}
         isBusy={isBusy}

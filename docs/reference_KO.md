@@ -285,6 +285,7 @@ Projection hints identify a projection kind and refetch URL.
 | `ChatGptBrowserDelegationProjection` | `packages/contracts/src/projections` | projection refetch |
 | `ServicePageUsePermissionProjection` | `packages/contracts/src/projections` | projection refetch |
 | `ImplementationStepLedgerProjection` | `packages/contracts/src/projections` | projection refetch |
+| `AutoImplementationRunProjection` | `packages/contracts/src/projections` | workspace implementation run / markdown issue fallback |
 
 ### Projection minimum fields
 
@@ -366,6 +367,8 @@ Route definitions are source-owned by `packages/contracts/src/api/routes.ts`. Th
 | `POST /api/v1/sessions/:sessionId/service-page-use-permissions/:permissionId/artifacts/delete` | `deleteServicePageUsePermissionArtifacts` | `DeleteServicePageUsePermissionArtifacts` | - |
 | `POST /api/v1/sessions/:sessionId/implementation-step-ledger` | `recordImplementationStepLedger` | `RecordImplementationStepLedger` | - |
 | `GET /api/v1/sessions/:sessionId/implementation-step-ledger` | `getImplementationStepLedger` | `none` | - |
+| `POST /api/v1/sessions/:sessionId/auto-implementation-runs` | `createAutoImplementationRun` | `none` | - |
+| `GET /api/v1/sessions/:sessionId/auto-implementation-runs` | `getAutoImplementationRuns` | `none` | - |
 | `GET /api/v1/commands/:commandId/status` | `getCommandStatus` | `none` | - |
 | `GET /api/v1/events/stream` | `subscribeEventStream` | `none` | sessionId |
 | `GET /api/v1/sessions/:sessionId/activity` | `getActivity` | `none` | - |

@@ -20,6 +20,7 @@
 
 .planning-view .spec-panel,
 .planning-view .founder-brief-panel,
+.implementation-view .auto-implementation-run-panel,
 .implementation-view .implementation-step-ledger-panel,
 .implementation-view .activity-panel {
   grid-column: span 2;

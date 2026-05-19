@@ -7,6 +7,7 @@ import {
   type ProjectPurposeMode,
   type StatusEndpointDto
 } from "@solo-superman/contracts";
+import { autoImplementationRunViewModel } from "../AutoImplementationRunPanel";
 import { chatGptDelegationViewModel } from "../ChatGptDelegationPanel";
 import { implementationStepLedgerViewModel } from "../ImplementationStepLedgerPanel";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
@@ -29,6 +30,7 @@ import {
 import {
   DEFAULT_IDEA,
   DEFAULT_INTAKE,
+  COMMAND_LOG_LIMIT,
   canStartInitialQueueFlow,
   displayError,
   emptyProjectionState,
@@ -186,6 +188,7 @@ export function useDecisionQueueShellController() {
     refreshChatGptDelegation,
     refreshServicePageUsePermission,
     refreshImplementationStepLedger,
+    refreshAutoImplementationRuns,
     refreshProjections,
     refetchQueueAfterSseNotification
   } = useDecisionQueueRefreshers({
@@ -366,6 +369,53 @@ export function useDecisionQueueShellController() {
     () => implementationStepLedgerViewModel(projections.implementationStepLedger),
     [projections.implementationStepLedger]
   );
+  const autoImplementationRunView = useMemo(
+    () => autoImplementationRunViewModel(projections.autoImplementationRuns),
+    [projections.autoImplementationRuns]
+  );
+  const createAutoImplementationRun = useCallback(async () => {
+    if (!client || !projections.session) {
+      setWorkflowError("An active session is required before creating an auto implementation workspace.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const sourcePlanningRef =
+        projections.planningHandoff?.currentStatus === "planning_ready"
+          ? projections.planningHandoff.finalArtifact.artifactId
+          : projections.planningHandoff?.blockerArtifact.artifactId ?? `session:${projections.session.sessionId}`;
+      const projectName = projections.spec?.title ?? `solo-superman-${projections.session.sessionId}`;
+      const autoImplementationRuns = await client.createAutoImplementationRun({
+        sessionId: projections.session.sessionId,
+        idempotencyKey: `auto-implementation:${projections.session.sessionId}:${sourcePlanningRef}`,
+        projectName,
+        sourcePlanningRef,
+        trackerTitle: `${projectName} implementation tracker`,
+        trackerGoal: projections.planningHandoff?.summary ?? "Move the planning handoff into a reviewed local program repo."
+      });
+
+      setProjections((current) => ({
+        ...current,
+        autoImplementationRuns
+      }));
+      setCommandLog((current) => [
+        {
+          id: `auto-implementation:${autoImplementationRuns.latestRun?.runId ?? Date.now()}`,
+          label: "Create auto implementation workspace",
+          createdAt: new Date().toISOString(),
+          message: autoImplementationRuns.summary
+        },
+        ...current
+      ].slice(0, COMMAND_LOG_LIMIT));
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [client, projections]);
   const planningRadarAxesView = useMemo(
     () =>
       planningRadarAxes(confidence).map((axis) => ({
@@ -431,8 +481,12 @@ export function useDecisionQueueShellController() {
     {
       id: "implementation" as const,
       label: copy.pageMeta.implementation.label,
-      sublabel: implementationStepLedgerView.status,
-      health: implementationStepLedgerView.status === "completed" ? "done" : projections.implementationStepLedger ? "active" : "pending"
+      sublabel: autoImplementationRunView.hasRun ? autoImplementationRunView.status : implementationStepLedgerView.status,
+      health: implementationStepLedgerView.status === "completed"
+        ? "done"
+        : projections.autoImplementationRuns || projections.implementationStepLedger
+          ? "active"
+          : "pending"
     },
     {
       id: "permissions" as const,
@@ -496,6 +550,7 @@ export function useDecisionQueueShellController() {
     refreshChatGptDelegation,
     refreshServicePageUsePermission,
     refreshImplementationStepLedger,
+    refreshAutoImplementationRuns,
     refreshProjections,
     refetchQueueAfterSseNotification,
     refreshCommandStatus,
@@ -521,6 +576,7 @@ export function useDecisionQueueShellController() {
     revokeServicePageUsePermission,
     exportServicePageArtifacts,
     deleteServicePageArtifacts,
+    createAutoImplementationRun,
     sections,
     queueRecovery,
     pendingSummary,
@@ -532,6 +588,7 @@ export function useDecisionQueueShellController() {
     chatGptDelegationView,
     servicePageUsePermissionView,
     implementationStepLedgerView,
+    autoImplementationRunView,
     planningRadarAxesView,
     planningRadarPolygonPoints,
     planningCompletenessScore,

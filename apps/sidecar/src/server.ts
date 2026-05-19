@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import {
   CONTRACT_SCHEMA_VERSION,
   AUTOMATIC_RESEARCH_SOURCE_CATEGORIES,
+  AUTO_IMPLEMENTATION_STAGES,
   BLOCKED_ACTION_TYPES,
   CODEX_TURN_PURPOSES,
   BACKGROUND_RESEARCH_ADAPTER_KINDS,
@@ -40,6 +41,7 @@ import {
   type CommandId,
   type CommandResponse,
   type CancelResearchRunRequest,
+  type CreateAutoImplementationRunRequest,
   type CreateExecutionAuthorityPayload,
   type CreateExecutionAuthorityRequest,
   type CreateChatGptBrowserDelegationRunPayload,
@@ -103,6 +105,7 @@ export interface CreateSidecarAppOptions {
   readonly migrationStatus?: MigrationStatus;
   readonly storage?: SoloStorage | null;
   readonly codexRuntimeAdapter?: CodexRuntimeAdapter;
+  readonly autoImplementationWorkspaceRoot?: string;
 }
 
 const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "localhost"]);
@@ -2032,6 +2035,63 @@ function implementationStepLedgerPayloadFromRequest(
   return payload;
 }
 
+
+const AUTO_IMPLEMENTATION_RUN_REQUEST_BODY_KEYS = [
+  "sessionId",
+  "idempotencyKey",
+  "projectFolderName",
+  "projectName",
+  "sourcePlanningRef",
+  "trackerTitle",
+  "trackerGoal",
+  "issueTitles"
+] as const satisfies readonly (keyof CreateAutoImplementationRunRequest)[];
+
+function createAutoImplementationRunRequestFromBody(
+  routeSessionId: SessionId,
+  body: Readonly<Record<string, unknown>>
+): CreateAutoImplementationRunRequest {
+  assertAllowedRecordKeys(
+    body,
+    AUTO_IMPLEMENTATION_RUN_REQUEST_BODY_KEYS,
+    "auto implementation run request body"
+  );
+  const bodySessionId = optionalStringFromBody(body.sessionId, "sessionId") as SessionId | undefined;
+
+  if (bodySessionId && bodySessionId !== routeSessionId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId must match route sessionId.", {
+      routeSessionId,
+      bodySessionId
+    });
+  }
+
+  const issueTitles = optionalStringArrayFromBody(body.issueTitles, "issueTitles");
+
+  if (issueTitles && issueTitles.length > AUTO_IMPLEMENTATION_STAGES.length) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      `issueTitles must include at most ${AUTO_IMPLEMENTATION_STAGES.length} values.`
+    );
+  }
+
+  const projectFolderName = optionalStringFromBody(body.projectFolderName, "projectFolderName");
+  const projectName = optionalStringFromBody(body.projectName, "projectName");
+  const sourcePlanningRef = optionalStringFromBody(body.sourcePlanningRef, "sourcePlanningRef");
+  const trackerTitle = optionalStringFromBody(body.trackerTitle, "trackerTitle");
+  const trackerGoal = optionalStringFromBody(body.trackerGoal, "trackerGoal");
+
+  return {
+    sessionId: routeSessionId,
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    ...(projectFolderName ? { projectFolderName } : {}),
+    ...(projectName ? { projectName } : {}),
+    ...(sourcePlanningRef ? { sourcePlanningRef } : {}),
+    ...(trackerTitle ? { trackerTitle } : {}),
+    ...(trackerGoal ? { trackerGoal } : {}),
+    ...(issueTitles ? { issueTitles } : {})
+  };
+}
+
 interface ExecutionAdapterBaseRequest {
   readonly sessionId: SessionId;
   readonly idempotencyKey: string;
@@ -2188,7 +2248,12 @@ function executeBrowserActionRequestFromBody(body: Readonly<Record<string, unkno
 export function createSidecarApp(options: CreateSidecarAppOptions) {
   const { localCapabilityToken, migrationStatus = defaultMigrationStatus(), storage = null } = options;
   const codexRuntimeAdapter = options.codexRuntimeAdapter ?? createCodexRuntimeAdapter();
-  const commandService = storage ? createProductEngineCommandService(storage, codexRuntimeAdapter) : null;
+  const commandServiceOptions = options.autoImplementationWorkspaceRoot
+    ? { autoImplementationWorkspaceRoot: options.autoImplementationWorkspaceRoot }
+    : {};
+  const commandService = storage
+    ? createProductEngineCommandService(storage, codexRuntimeAdapter, commandServiceOptions)
+    : null;
 
   if (localCapabilityToken.trim().length === 0) {
     throw new Error("localCapabilityToken must not be empty");
@@ -3238,6 +3303,22 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
   app.get("/api/v1/sessions/:sessionId/implementation-step-ledger", async (context) =>
     withProductEngine(context, (service) =>
       service.getImplementationStepLedger(context.req.param("sessionId") as SessionId)
+    )
+  );
+
+
+  app.post("/api/v1/sessions/:sessionId/auto-implementation-runs", async (context) =>
+    withProductEngine(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const request = createAutoImplementationRunRequestFromBody(routeSessionId, await jsonBody(context));
+
+      return service.createAutoImplementationRun(request);
+    })
+  );
+
+  app.get("/api/v1/sessions/:sessionId/auto-implementation-runs", async (context) =>
+    withProductEngine(context, (service) =>
+      service.getAutoImplementationRuns(context.req.param("sessionId") as SessionId)
     )
   );
 

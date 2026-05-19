@@ -3,5 +3,7 @@ dist/
 build/
 coverage/
 .vite/
+.serena/
+workspace/
 .DS_Store
 *.log

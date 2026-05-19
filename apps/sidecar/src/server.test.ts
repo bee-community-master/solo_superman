@@ -74,7 +74,10 @@ async function makeTempAppDataDir() {
   return tempDir;
 }
 
-async function createMigratedStorageApp(codexRuntimeAdapter = fixtureCodexRuntimeAdapter) {
+async function createMigratedStorageApp(
+  codexRuntimeAdapter = fixtureCodexRuntimeAdapter,
+  options: { readonly autoImplementationWorkspaceRoot?: string } = {}
+) {
   const appDataDir = await makeTempAppDataDir();
   const storage = await createSoloStorage({ url: localDatabaseUrlFromAppDataDir(appDataDir) });
   const migrationStatus = await applyMigrations(storage);
@@ -84,14 +87,19 @@ async function createMigratedStorageApp(codexRuntimeAdapter = fixtureCodexRuntim
     throw new Error(migrationStatus.errorMessage);
   }
 
+  const appOptions = {
+    localCapabilityToken,
+    migrationStatus,
+    storage,
+    codexRuntimeAdapter,
+    ...(options.autoImplementationWorkspaceRoot
+      ? { autoImplementationWorkspaceRoot: options.autoImplementationWorkspaceRoot }
+      : {})
+  };
+
   return {
     storage,
-    app: createSidecarApp({
-      localCapabilityToken,
-      migrationStatus,
-      storage,
-      codexRuntimeAdapter
-    })
+    app: createSidecarApp(appOptions)
   };
 }
 
@@ -116,6 +124,36 @@ interface JsonResponseBody {
 
 async function jsonBody(response: Response) {
   return (await response.json()) as JsonResponseBody;
+}
+
+interface RequestTestApp {
+  request(path: string, init?: RequestInit): Response | Promise<Response>;
+}
+
+async function postAutoImplementationRunForTest(
+  storageApp: RequestTestApp,
+  sessionId: string,
+  payload: Readonly<Record<string, unknown>>
+) {
+  return Promise.resolve(storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      sessionId,
+      ...payload
+    })
+  }));
+}
+
+function jsonDataRecord(body: JsonResponseBody) {
+  return body.data as Readonly<Record<string, unknown>>;
+}
+
+function latestAutoImplementationRunFromBody(body: JsonResponseBody) {
+  return jsonDataRecord(body).latestRun as Readonly<Record<string, unknown>>;
 }
 
 function timestampAfterProviderStart(run: ResearchRunProjection) {
@@ -7864,6 +7902,325 @@ describe("PR-02 sidecar health shell", () => {
             state: "blocked"
           })
         ]
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("creates a workspace/<project> git repo with markdown fallback issues for auto implementation runs", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A local app that should be implemented after planning");
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:test",
+        projectName: "Demo Workspace App",
+        sourcePlanningRef: "planning_handoff_ready_demo",
+        trackerGoal: "Build the planned demo workspace app through reviewed PR-sized stages."
+      });
+      const body = await jsonBody(response);
+      const projection = jsonDataRecord(body);
+      const latestRun = latestAutoImplementationRunFromBody(body);
+      const issueManagement = latestRun.issueManagement as Readonly<Record<string, unknown>>;
+      const issueDocs = issueManagement.issueDocs as readonly Readonly<Record<string, unknown>>[];
+      const stagePlan = latestRun.stagePlan as readonly Readonly<Record<string, unknown>>[];
+      const projectDir = join(workspaceRoot, "demo-workspace-app");
+
+      expect(response.status).toBe(200);
+      expect(projection).toMatchObject({
+        kind: "AutoImplementationRunProjection",
+        version: 1,
+        summary: "Auto implementation workspace is ready for demo-workspace-app; remote status is no_remote."
+      });
+      expect(latestRun).toMatchObject({
+        projectFolderName: "demo-workspace-app",
+        workspaceRoot,
+        generatedRepoPath: projectDir,
+        remoteStatus: "no_remote",
+        currentStage: "initial_pr"
+      });
+      expect(stagePlan).toHaveLength(7);
+      expect(issueManagement).toMatchObject({
+        mode: "markdown_fallback",
+        trackerRelativePath: "implementation-tracker.md"
+      });
+      expect(issueDocs).toHaveLength(7);
+      expect(issueDocs[0]).toMatchObject({
+        issueId: "local-001",
+        relativePath: "implementation-issues/001-initial_pr.md",
+        status: "open"
+      });
+
+      const tracker = await readFile(join(projectDir, "implementation-tracker.md"), "utf8");
+      const firstIssue = await readFile(join(projectDir, "implementation-issues", "001-initial_pr.md"), "utf8");
+      const manifest = JSON.parse(await readFile(join(projectDir, ".solo-superman", "auto-implementation-run.json"), "utf8")) as
+        Readonly<Record<string, unknown>>;
+      const gitHead = await readFile(join(projectDir, ".git", "HEAD"), "utf8");
+
+      expect(tracker).toContain("Remote status: no_remote");
+      expect(tracker).toContain("git remote add origin <github-repo-url>");
+      expect(firstIssue).toContain("## Acceptance");
+      expect(manifest).toMatchObject({
+        runId: latestRun.runId,
+        projectFolderName: "demo-workspace-app",
+        remoteStatus: "no_remote"
+      });
+      expect(gitHead).toContain("refs/heads/main");
+
+      const replay = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:test",
+        projectName: "Demo Workspace App"
+      });
+      const replayProjection = jsonDataRecord(await jsonBody(replay));
+
+      expect(replay.status).toBe(200);
+      expect(replayProjection).toMatchObject({
+        version: 1
+      });
+      expect(replayProjection.runs as readonly unknown[]).toHaveLength(1);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("creates distinct safe workspace folders for non-ASCII project names", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A Korean named app that should be implemented");
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:korean-name",
+        projectName: "고양이 펜팔 서비스",
+        trackerTitle: "고양이 펜팔 서비스 implementation tracker"
+      });
+      const body = await jsonBody(response);
+      const latestRun = latestAutoImplementationRunFromBody(body);
+      const projectFolderName = latestRun.projectFolderName as string;
+
+      expect(response.status).toBe(200);
+      expect(projectFolderName).toMatch(/^solo-superman-project-[a-f0-9]{16}$/u);
+      expect(projectFolderName).not.toBe("solo-superman-project");
+      await expect(readFile(join(workspaceRoot, projectFolderName, "implementation-tracker.md"), "utf8")).resolves.toContain(
+        "고양이 펜팔 서비스 implementation tracker"
+      );
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("keeps markdown fallback active for non-GitHub remotes", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const projectDir = join(workspaceRoot, "existing-local-remote-repo");
+
+    await mkdir(projectDir, { recursive: true });
+    execFileSync("git", ["init"], { cwd: projectDir, stdio: "ignore" });
+    execFileSync("git", ["checkout", "-B", "main"], { cwd: projectDir, stdio: "ignore" });
+    execFileSync("git", ["remote", "add", "origin", join(workspaceRoot, "not-github.git")], {
+      cwd: projectDir,
+      stdio: "ignore"
+    });
+
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A non-GitHub remote test");
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:unsupported-remote",
+        projectFolderName: "existing-local-remote-repo"
+      });
+      const body = await jsonBody(response);
+      const latestRun = latestAutoImplementationRunFromBody(body);
+      const issueManagement = latestRun.issueManagement as Readonly<Record<string, unknown>>;
+      const tracker = await readFile(join(projectDir, "implementation-tracker.md"), "utf8");
+
+      expect(response.status).toBe(200);
+      expect(latestRun).toMatchObject({
+        remoteStatus: "unsupported_remote"
+      });
+      expect(issueManagement).toMatchObject({
+        mode: "markdown_fallback",
+        warning: "Remote exists, but it is not a GitHub remote. Local markdown issues remain active."
+      });
+      expect(tracker).toContain("Remote status: unsupported_remote");
+      expect(tracker).toContain("git remote set-url origin <github-repo-url>");
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rejects auto implementation project folders that are symlinks outside the workspace root", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const outsideDir = await makeTempAppDataDir();
+    await symlink(outsideDir, join(workspaceRoot, "escape-app"), "dir");
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A symlinked auto implementation request test");
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:symlink-project",
+        projectFolderName: "escape-app"
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(400);
+      expect(body.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Auto implementation workspace could not be prepared safely.",
+        details: {
+          message: "Workspace output directories must not contain symbolic links."
+        }
+      });
+      await expect(readFile(join(outsideDir, "implementation-tracker.md"), "utf8")).rejects.toMatchObject({
+        code: "ENOENT"
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rejects auto implementation workspace roots that are symlinks", async () => {
+    const workspaceParent = await makeTempAppDataDir();
+    const outsideDir = await makeTempAppDataDir();
+    const workspaceRoot = join(workspaceParent, "workspace-link");
+    await symlink(outsideDir, workspaceRoot, "dir");
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A symlinked auto implementation workspace root test");
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:symlink-root",
+        projectFolderName: "escape-app"
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(400);
+      expect(body.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Auto implementation workspace could not be prepared safely.",
+        details: {
+          message: "Workspace root must be a real directory."
+        }
+      });
+      await expect(readFile(join(outsideDir, "escape-app", "implementation-tracker.md"), "utf8")).rejects.toMatchObject({
+        code: "ENOENT"
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rejects auto implementation output files that are symlinks outside the workspace root", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const outsideDir = await makeTempAppDataDir();
+    const outsideTrackerPath = join(outsideDir, "outside-tracker.md");
+    const projectDir = join(workspaceRoot, "existing-app");
+
+    await mkdir(projectDir, { recursive: true });
+    await writeFile(outsideTrackerPath, "outside content must remain unchanged\n");
+    await symlink(outsideTrackerPath, join(projectDir, "implementation-tracker.md"), "file");
+
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A symlinked auto implementation output test");
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:symlink-file",
+        projectFolderName: "existing-app"
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(400);
+      expect(body.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Auto implementation workspace could not be prepared safely.",
+        details: {
+          message: "Workspace output files must be regular files."
+        }
+      });
+      await expect(readFile(outsideTrackerPath, "utf8")).resolves.toBe("outside content must remain unchanged\n");
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rejects existing auto implementation repos that are not on main", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const projectDir = join(workspaceRoot, "existing-non-main-repo");
+
+    await mkdir(projectDir, { recursive: true });
+    execFileSync("git", ["init"], { cwd: projectDir, stdio: "ignore" });
+    execFileSync("git", ["checkout", "-B", "not-main"], { cwd: projectDir, stdio: "ignore" });
+
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "An existing non-main repo test");
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:non-main",
+        projectFolderName: "existing-non-main-repo"
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(400);
+      expect(body.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Auto implementation workspace could not be prepared safely.",
+        details: {
+          message: "Auto implementation workspace git repo must be on main."
+        }
+      });
+      await expect(readFile(join(projectDir, "implementation-tracker.md"), "utf8")).rejects.toMatchObject({
+        code: "ENOENT"
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rejects malformed auto implementation run requests before filesystem writes", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A malformed auto implementation request test");
+      const unsupported = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:bad",
+        unsafe: true
+      });
+      const unsupportedBody = await jsonBody(unsupported);
+      const tooManyTitles = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:too-many-titles",
+        issueTitles: ["1", "2", "3", "4", "5", "6", "7", "8"]
+      });
+      const tooManyTitlesBody = await jsonBody(tooManyTitles);
+
+      expect(unsupported.status).toBe(400);
+      expect(unsupportedBody.error).toMatchObject({
+        code: "VALIDATION_FAILED"
+      });
+      expect(tooManyTitles.status).toBe(400);
+      expect(tooManyTitlesBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "issueTitles must include at most 7 values."
       });
     } finally {
       await storage.close();

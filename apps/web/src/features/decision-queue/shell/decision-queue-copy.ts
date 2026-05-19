@@ -224,6 +224,20 @@ const EN_COPY = {
     refreshStatus: "Refresh status",
     noActivity: "No activity yet."
   },
+  autoImplementation: {
+    title: "Auto implementation workspace",
+    create: "Create workspace run",
+    reprepare: "Ensure workspace run",
+    refresh: "Refresh workspace run",
+    stagePlan: "5-minute stage plan",
+    issueDocs: "Issue documents",
+    remoteGuide: "Remote connection guide",
+    evidenceRefs: "Evidence references",
+    noStages: "No implementation stages scheduled yet.",
+    noIssueDocs: "No markdown issue documents created yet.",
+    noRemoteCommands: "Remote is connected or no connection command is needed.",
+    noEvidenceRefs: "No workspace evidence references recorded."
+  },
   rightRail: {
     aria: "Live project summary",
     planningCompleteness: "Planning completeness",
@@ -558,6 +572,20 @@ const JA_COPY: typeof EN_COPY = {
     refreshStatus: "ステータス更新",
     noActivity: "活動はまだありません。"
   },
+  autoImplementation: {
+    title: "自動実装ワークスペース",
+    create: "ワークスペース実行を作成",
+    reprepare: "ワークスペース実行を確認",
+    refresh: "ワークスペース実行を更新",
+    stagePlan: "5分間隔のステージ計画",
+    issueDocs: "Issue文書",
+    remoteGuide: "Remote接続ガイド",
+    evidenceRefs: "確認資料",
+    noStages: "実装ステージはまだ予定されていません。",
+    noIssueDocs: "Markdown issue文書はまだ作成されていません。",
+    noRemoteCommands: "Remoteは接続済み、または接続コマンドは不要です。",
+    noEvidenceRefs: "ワークスペース確認資料はまだ記録されていません。"
+  },
   rightRail: {
     aria: "ライブプロジェクト概要",
     planningCompleteness: "計画完成度",
@@ -885,12 +913,26 @@ const KO_COPY: typeof EN_COPY = {
   implementation: {
     runtimeEvidence: "실행 기록",
     adapterPrefix: "도구",
-    effectSuffix: "件",
+    effectSuffix: "개",
     noCommandStatus: "아직 명령 상태 기록이 없습니다.",
     activity: "활동",
     pending: "대기 중",
     refreshStatus: "상태 새로고침",
     noActivity: "아직 활동이 없습니다."
+  },
+  autoImplementation: {
+    title: "자동 구현 작업공간",
+    create: "작업공간 실행 만들기",
+    reprepare: "작업공간 실행 확인",
+    refresh: "작업공간 실행 새로고침",
+    stagePlan: "5분 단위 단계 계획",
+    issueDocs: "이슈 문서",
+    remoteGuide: "Remote 연결 가이드",
+    evidenceRefs: "근거 참조",
+    noStages: "아직 예약된 구현 단계가 없습니다.",
+    noIssueDocs: "아직 markdown 이슈 문서가 생성되지 않았습니다.",
+    noRemoteCommands: "Remote가 연결되어 있거나 필요한 연결 명령이 없습니다.",
+    noEvidenceRefs: "아직 작업공간 근거 참조가 기록되지 않았습니다."
   },
   rightRail: {
     aria: "실시간 프로젝트 요약",

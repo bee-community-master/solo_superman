@@ -575,6 +575,22 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "createAutoImplementationRun",
+    clientName: "createAutoImplementationRun",
+    method: "POST",
+    path: "/api/v1/sessions/:sessionId/auto-implementation-runs",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
+    routeId: "getAutoImplementationRuns",
+    clientName: "getAutoImplementationRuns",
+    method: "GET",
+    path: "/api/v1/sessions/:sessionId/auto-implementation-runs",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
     routeId: "getCommandStatus",
     clientName: "getCommandStatus",
     method: "GET",
@@ -833,4 +849,14 @@ export const POST_PHASE3_PR06_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...POST_PHASE3_PR06_IMPLEMENTATION_STEP_LEDGER_ROUTE_IDS
 ] as const satisfies readonly ApiRouteId[];
 
-export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = POST_PHASE3_PR06_MOUNTED_PRODUCT_API_ROUTE_IDS;
+export const POST_PHASE3_PR07_AUTO_IMPLEMENTATION_ROUTE_IDS = [
+  "createAutoImplementationRun",
+  "getAutoImplementationRuns"
+] as const satisfies readonly ApiRouteId[];
+
+export const POST_PHASE3_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...POST_PHASE3_PR06_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  ...POST_PHASE3_PR07_AUTO_IMPLEMENTATION_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = POST_PHASE3_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS;

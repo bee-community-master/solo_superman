@@ -12,7 +12,7 @@ The roadmap is a contributor map, not a user-facing UI vocabulary. It mixes code
 | Research and evidence | Allowlisted read-only research, evidence matrix, pro/con/uncertainty, skeptical search. | Research-updated Queue with residual risks explicitly listed instead of hidden. |
 | Planning handoff | Build Slice Plan, Serve Checklist, Learning Loop Hook, blocker report when not ready. | Planning-ready artifact or explicit blocker artifact. |
 | Controlled execution | ExecutionAuthorityRecord ledger plus `file_diff`, `shell_command`, `browser_action` adapters. | Approved and blocked dry-runs with evidence and rollback refs. |
-| Full-vision backlog | business/personal mode, business critic intensity, ChatGPT local browser delegation, service page-use permission, implementation step ledger. | Contributors can implement tracked work without inventing new safety defaults. |
+| Full-vision backlog | business/personal mode, business critic intensity, ChatGPT local browser delegation, service page-use permission, implementation step ledger, workspace auto implementation run bootstrap. | Contributors can implement tracked work without inventing new safety defaults. |
 
 ## Phase history
 
@@ -22,7 +22,11 @@ The roadmap is a contributor map, not a user-facing UI vocabulary. It mixes code
 - Phase 2: Planning Handoff. It produces a final PlanningHandoffArtifact only when evidence and risk gates pass; otherwise it produces a blocker report.
 - Phase 2.5: Browser Automation Preview. It compares research quality and delegation risk; it is no-execution and must not submit, write, deploy, mutate, store credentials, share accounts, or implement DTO/API/storage preflight.
 - Phase 3: Controlled Execution. It opens MVP action classes only in the sequence common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`.
-- Post-Phase3: Full-vision backlog. It adds purpose mode, critic intensity, local ChatGPT browser delegation, external service permission, implementation step ledger, and cross-platform install/run verification.
+- Post-Phase3: Full-vision backlog. It adds purpose mode, critic intensity, local ChatGPT browser delegation, external service permission, implementation step ledger, workspace auto implementation run bootstrap, and cross-platform install/run verification.
+
+## Auto implementation workspace / 자동 구현 작업공간
+
+When planning is detailed enough, Solo Superman may prepare an independent generated-program repo under `workspace/<project>`. The first mounted surface creates a local git repo, `implementation-tracker.md`, seven markdown fallback issue documents, and `.solo-superman/auto-implementation-run.json`. If a GitHub remote or login is missing, local work continues with a visible remote warning and connection guide instead of pretending issue/PR automation succeeded.
 
 ## Tracker history
 

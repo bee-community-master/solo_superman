@@ -44,3 +44,7 @@ The following remain blocked without a later explicit contract:
 For Vercel, Supabase, Stripe, GitHub, domain/DNS, app stores, or similar SaaS pages, permission must use a ServicePageUsePermission style purpose-limited page-use permission, not account delegation.
 
 A permission record must include service origin, purpose, allowed action classes, blocked action classes, visible data categories, approval granularity, revoke state, audit refs, and evidence refs. Filling a draft and final submit are different permissions; final submit remains blocked until a production-mutation contract exists.
+
+## Auto implementation workspace / 자동 구현 작업공간
+
+Generated programs live in independent local git repos under `workspace/<project>`, not inside product source files. The workspace bootstrap may create local tracker/issue markdown files and a manifest, but it must not create remote GitHub issues, open PRs, merge branches, deploy, or store credentials unless a later explicit remote-runner contract and user-owned authentication boundary allow that action. Missing remote or `gh` login is represented as a visible local fallback with connection commands.
