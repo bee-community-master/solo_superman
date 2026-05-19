@@ -190,12 +190,15 @@ function Get-AbsolutePath($Path) {
   return [System.IO.Path]::GetFullPath($Path)
 }
 
-function Get-DesktopPath {
+function Get-DesktopPaths {
   $candidates = New-Object System.Collections.Generic.List[string]
 
   function Add-DesktopCandidate($Path) {
-    if ($Path -and (-not $candidates.Contains([string]$Path))) {
-      $candidates.Add([string]$Path)
+    if ($Path) {
+      $expanded = [Environment]::ExpandEnvironmentVariables([string]$Path)
+      if ($expanded -and (-not $candidates.Contains($expanded))) {
+        $candidates.Add($expanded)
+      }
     }
   }
 
@@ -211,8 +214,7 @@ function Get-DesktopPath {
     "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
   )) {
     try {
-      $desktop = (Get-ItemProperty -Path $registryPath -Name Desktop -ErrorAction Stop).Desktop
-      Add-DesktopCandidate ([Environment]::ExpandEnvironmentVariables($desktop))
+      Add-DesktopCandidate (Get-ItemProperty -Path $registryPath -Name Desktop -ErrorAction Stop).Desktop
     } catch {
       # Registry desktop redirection is optional. Keep checking other sources.
     }
@@ -230,20 +232,27 @@ function Get-DesktopPath {
 
   Add-DesktopCandidate (Join-Path $env:USERPROFILE "Desktop")
   Add-DesktopCandidate (Join-Path $env:USERPROFILE "바탕 화면")
+  if ($env:PUBLIC) {
+    Add-DesktopCandidate (Join-Path $env:PUBLIC "Desktop")
+  }
 
+  $desktopPaths = New-Object System.Collections.Generic.List[string]
   foreach ($candidate in $candidates) {
-    if (Test-Path $candidate) {
-      return $candidate
+    if ((Test-Path $candidate) -and (-not $desktopPaths.Contains($candidate))) {
+      $desktopPaths.Add($candidate)
     }
   }
 
-  $fallback = $candidates | Select-Object -First 1
-  if (-not $fallback) {
-    $fallback = Join-Path $env:USERPROFILE "Desktop"
+  if ($desktopPaths.Count -eq 0) {
+    $fallback = $candidates | Select-Object -First 1
+    if (-not $fallback) {
+      $fallback = Join-Path $env:USERPROFILE "Desktop"
+    }
+    New-Item -ItemType Directory -Path $fallback -Force | Out-Null
+    $desktopPaths.Add($fallback)
   }
 
-  New-Item -ItemType Directory -Path $fallback -Force | Out-Null
-  return $fallback
+  return $desktopPaths.ToArray()
 }
 
 function ConvertTo-CmdValue($Value) {
@@ -251,12 +260,13 @@ function ConvertTo-CmdValue($Value) {
 }
 
 function New-DesktopRunner($TargetPath) {
-  $desktop = Get-DesktopPath
-  $runnerPath = Join-Path $desktop "solo_superman.cmd"
+  $runnerPaths = New-Object System.Collections.Generic.List[string]
   $safeTargetPath = ConvertTo-CmdValue $TargetPath
+  $pathLine = 'set "PATH=%PATH%;%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%LOCALAPPDATA%\Microsoft\WindowsApps"'
   $content = @(
     "@echo off",
     "setlocal",
+    $pathLine,
     "set ""SOLO_SUPERMAN_DIR=$safeTargetPath""",
     "cd /d ""%SOLO_SUPERMAN_DIR%""",
     "echo Starting Solo Superman locally...",
@@ -273,9 +283,35 @@ function New-DesktopRunner($TargetPath) {
     ")"
   ) -join "`r`n"
 
-  Set-Content -Path $runnerPath -Value $content -Encoding ASCII
-  Write-Step "바탕화면 실행파일 생성: $runnerPath"
-  return $runnerPath
+  foreach ($desktop in Get-DesktopPaths) {
+    $runnerPath = Join-Path $desktop "solo_superman.cmd"
+    Set-Content -Path $runnerPath -Value $content -Encoding ASCII
+    if (-not $runnerPaths.Contains($runnerPath)) {
+      $runnerPaths.Add($runnerPath)
+    }
+
+    try {
+      $wscript = New-Object -ComObject WScript.Shell
+      $shortcutPath = Join-Path $desktop "solo_superman.lnk"
+      $shortcut = $wscript.CreateShortcut($shortcutPath)
+      $shortcut.TargetPath = $runnerPath
+      $shortcut.WorkingDirectory = $TargetPath
+      $shortcut.Description = "Start Solo Superman locally"
+      $shortcut.Save()
+      if (-not $runnerPaths.Contains($shortcutPath)) {
+        $runnerPaths.Add($shortcutPath)
+      }
+    } catch {
+      Write-Warn "바탕화면 바로가기(.lnk) 생성은 실패했지만 실행파일(.cmd)은 생성했습니다. $($_.Exception.Message)"
+    }
+  }
+
+  Write-Step "바탕화면 실행파일 확인/생성"
+  foreach ($runnerPath in $runnerPaths) {
+    Write-Host "- $runnerPath"
+  }
+
+  return $runnerPaths.ToArray()
 }
 
 function Get-FreePort {
@@ -333,18 +369,33 @@ function Invoke-LocalWeb {
   Invoke-Tool "pnpm" @("start:local")
 }
 
-function Write-InstallSummary($TargetPath, $DesktopRunnerPath) {
+function Write-InstallSummary($TargetPath, $DesktopRunnerPaths) {
   Write-Host ""
   Write-Host "Solo Superman 설치가 완료됐습니다." -ForegroundColor Green
   Write-Host "설치 경로: $TargetPath"
-  if ($DesktopRunnerPath) {
-    Write-Host "바탕화면 실행파일: $DesktopRunnerPath"
+  if ($DesktopRunnerPaths -and $DesktopRunnerPaths.Count -gt 0) {
+    Write-Host "바탕화면 실행파일/아이콘 확인/생성:"
+    foreach ($runnerPath in $DesktopRunnerPaths) {
+      Write-Host "- $runnerPath"
+    }
     Write-Host "바탕화면에 보이지 않으면 파일 탐색기 주소창에 위 경로의 폴더를 붙여넣어 확인하세요."
   } else {
-    Write-Host "바탕화면 실행파일: 생성되지 않음"
+    Write-Host "바탕화면 실행파일/아이콘: 생성되지 않음"
   }
   Write-Host "다시 실행 명령: Set-Location `"$TargetPath`"; pnpm start:local"
   Write-Host "이제 로컬 web을 시작합니다. 사용하는 동안 이 PowerShell 창을 닫지 마세요. 종료하려면 Ctrl+C를 누르세요."
+}
+
+function Wait-ForUserBeforeExit($Reason) {
+  if ($env:SOLO_SUPERMAN_NO_PAUSE -eq "1") {
+    return
+  }
+
+  Write-Host ""
+  if ($Reason) {
+    Write-Host $Reason
+  }
+  Read-Host "이 창을 닫으려면 Enter를 누르세요" | Out-Null
 }
 
 function Write-FriendlyFailure($Message) {
@@ -382,11 +433,13 @@ Set-Location $TargetPath
 Write-Step "dependency install"
 Invoke-Tool "pnpm" @("install", "--frozen-lockfile")
 
-$DesktopRunnerPath = New-DesktopRunner $TargetPath
+$DesktopRunnerPaths = @(New-DesktopRunner $TargetPath)
 Invoke-ProdSmoke
-Write-InstallSummary $TargetPath $DesktopRunnerPath
+Write-InstallSummary $TargetPath $DesktopRunnerPaths
 Invoke-LocalWeb
+Wait-ForUserBeforeExit "Solo Superman local run이 종료됐습니다."
 } catch {
   Write-FriendlyFailure $_.Exception.Message
+  Wait-ForUserBeforeExit "설치가 실패했습니다. 위 안내를 확인하세요."
   exit 1
 }
