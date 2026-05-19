@@ -21,6 +21,7 @@ describe("verify-prod-bundle smoke plan", () => {
     expect(config.sidecarBindHost).toBe("127.0.0.1");
     expect(config.webBindHost).toBe("127.0.0.1");
     expect(env).toMatchObject({
+      CI: "true",
       SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token",
       SOLO_SIDECAR_HOST: "127.0.0.1",
       VITE_SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token",

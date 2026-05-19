@@ -120,14 +120,21 @@ function Invoke-ToolNoOutput($BaseName, [string[]]$Arguments) {
 function Invoke-Pnpm([string[]]$Arguments) {
   $pnpm = Get-ToolPath "pnpm"
   $oldPnpmCommand = $env:SOLO_PNPM_COMMAND
+  $oldCi = $env:CI
   try {
     $env:SOLO_PNPM_COMMAND = $pnpm
+    $env:CI = "true"
     Invoke-Checked $pnpm $Arguments
   } finally {
     if ($null -eq $oldPnpmCommand) {
       Remove-Item Env:SOLO_PNPM_COMMAND -ErrorAction SilentlyContinue
     } else {
       $env:SOLO_PNPM_COMMAND = $oldPnpmCommand
+    }
+    if ($null -eq $oldCi) {
+      Remove-Item Env:CI -ErrorAction SilentlyContinue
+    } else {
+      $env:CI = $oldCi
     }
   }
 }

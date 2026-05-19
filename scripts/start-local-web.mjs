@@ -124,6 +124,7 @@ export async function resolveLocalRunConfig(env = process.env, platform = proces
 export function localRunEnvironment(config, env = process.env) {
   return {
     ...env,
+    CI: "true",
     SOLO_LOCAL_CAPABILITY_TOKEN: config.localCapabilityToken,
     SOLO_SIDECAR_HOST: config.host,
     SOLO_SIDECAR_PORT: config.sidecarPort,

@@ -7,6 +7,10 @@ const originalPort = process.env.SOLO_SIDECAR_PORT;
 const originalToken = process.env.SOLO_LOCAL_CAPABILITY_TOKEN;
 const originalDatabaseUrl = process.env.SOLO_DATABASE_URL;
 const originalAppDataDir = process.env.SOLO_APP_DATA_DIR;
+const originalWslDistroName = process.env.WSL_DISTRO_NAME;
+const originalWslInterop = process.env.WSL_INTEROP;
+const originalWslenv = process.env.WSLENV;
+const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
 
 function useDefaultProcessInputs() {
   process.argv = ["node", "sidecar"];
@@ -15,11 +19,25 @@ function useDefaultProcessInputs() {
   delete process.env.SOLO_SIDECAR_PORT;
   delete process.env.SOLO_DATABASE_URL;
   delete process.env.SOLO_APP_DATA_DIR;
+  delete process.env.WSL_DISTRO_NAME;
+  delete process.env.WSL_INTEROP;
+  delete process.env.WSLENV;
   process.env.SOLO_LOCAL_CAPABILITY_TOKEN = "test-local-token";
+}
+
+function useProcessPlatform(platform: NodeJS.Platform) {
+  Object.defineProperty(process, "platform", {
+    configurable: true,
+    enumerable: true,
+    value: platform
+  });
 }
 
 function restoreProcessInputs() {
   process.argv = originalArgv;
+  if (originalPlatform) {
+    Object.defineProperty(process, "platform", originalPlatform);
+  }
 
   if (originalHost === undefined) {
     delete process.env.SOLO_SIDECAR_HOST;
@@ -50,6 +68,24 @@ function restoreProcessInputs() {
   } else {
     process.env.SOLO_APP_DATA_DIR = originalAppDataDir;
   }
+
+  if (originalWslDistroName === undefined) {
+    delete process.env.WSL_DISTRO_NAME;
+  } else {
+    process.env.WSL_DISTRO_NAME = originalWslDistroName;
+  }
+
+  if (originalWslInterop === undefined) {
+    delete process.env.WSL_INTEROP;
+  } else {
+    process.env.WSL_INTEROP = originalWslInterop;
+  }
+
+  if (originalWslenv === undefined) {
+    delete process.env.WSLENV;
+  } else {
+    process.env.WSLENV = originalWslenv;
+  }
 }
 
 describe("sidecar scaffold config", () => {
@@ -67,7 +103,7 @@ describe("sidecar scaffold config", () => {
       port: 43110,
       localCapabilityToken: "test-local-token",
       databaseUrl: undefined,
-      appDataDir: expect.stringContaining("Solo Superman")
+      appDataDir: expect.stringMatching(/Solo Superman|solo-superman/u)
     });
   });
 
@@ -137,10 +173,23 @@ describe("sidecar scaffold config", () => {
     expect(() => resolveSidecarConfig()).toThrow("Missing --port value");
   });
 
-  it("keeps PR-02 sidecar binding loopback-only", () => {
+  it("keeps native sidecar binding loopback-only", () => {
+    useProcessPlatform("win32");
     process.env.SOLO_SIDECAR_HOST = "0.0.0.0";
 
     expect(() => resolveSidecarConfig()).toThrow("Sidecar host must be loopback-only");
+  });
+
+  it("allows WSL wildcard binding for Windows host reachability", () => {
+    useProcessPlatform("linux");
+    process.env.WSL_DISTRO_NAME = "Ubuntu";
+    process.env.SOLO_SIDECAR_HOST = "0.0.0.0";
+
+    expect(resolveSidecarConfig()).toMatchObject({
+      host: "0.0.0.0",
+      port: 43110,
+      localCapabilityToken: "test-local-token"
+    });
   });
 
   it("normalizes IPv6 loopback hosts for binding and URL reporting", () => {
