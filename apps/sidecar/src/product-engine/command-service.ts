@@ -18,6 +18,7 @@ import {
   validateAutoImplementationRunProjection,
   isTerminalResearchRunStatus,
   type ApiErrorCode,
+  type AutoImplementationRun,
   type AutoImplementationRunProjection,
   type CreateAutoImplementationRunRequest,
   type AutomaticResearchSourceCategory,
@@ -4627,13 +4628,25 @@ export function createProductEngineCommandService(
       }
 
       const now = new Date().toISOString();
-      const run = await prepareAutoImplementationWorkspaceRun({
-        sessionId: request.sessionId,
-        runId,
-        request,
-        workspaceRoot: autoImplementationWorkspaceRoot,
-        now
-      });
+      let run: AutoImplementationRun;
+
+      try {
+        run = await prepareAutoImplementationWorkspaceRun({
+          sessionId: request.sessionId,
+          runId,
+          request,
+          workspaceRoot: autoImplementationWorkspaceRoot,
+          now
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown workspace preparation failure.";
+
+        throw new ProductEngineServiceError(
+          "VALIDATION_FAILED",
+          "Auto implementation workspace could not be prepared safely.",
+          { message }
+        );
+      }
       const runs = [...(existingProjection?.runs ?? []), run];
       const projection = validateAutoImplementationRunProjection({
         kind: "AutoImplementationRunProjection",

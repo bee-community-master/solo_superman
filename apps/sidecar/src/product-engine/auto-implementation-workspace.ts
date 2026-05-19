@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { access, lstat, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import {
   AUTO_IMPLEMENTATION_SCHEMA_VERSION,
@@ -65,12 +65,84 @@ function isInsideDirectory(parent: string, child: string) {
   return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
+function assertInsideDirectory(parent: string, child: string, message: string) {
+  if (!isInsideDirectory(parent, child)) {
+    throw new Error(message);
+  }
+}
+
 async function pathExists(path: string) {
   try {
     await access(path);
     return true;
   } catch {
     return false;
+  }
+}
+
+async function lstatOrNull(path: string) {
+  try {
+    return await lstat(path);
+  } catch (error) {
+    const maybeError = error as { readonly code?: string };
+
+    if (maybeError.code === "ENOENT") {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function ensureRealDirectoryWithin(workspaceRoot: string, directoryPath: string) {
+  const resolvedRoot = resolve(workspaceRoot);
+  const resolvedDirectoryPath = resolve(directoryPath);
+
+  assertInsideDirectory(
+    resolvedRoot,
+    resolvedDirectoryPath,
+    "Workspace output directory must stay inside the configured workspace root."
+  );
+
+  const rootStat = await lstatOrNull(resolvedRoot);
+
+  if (!rootStat) {
+    await mkdir(resolvedRoot, { recursive: true });
+  } else if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
+    throw new Error("Workspace root must be a real directory.");
+  }
+
+  const relativeDirectoryPath = relative(resolvedRoot, resolvedDirectoryPath);
+  const segments = relativeDirectoryPath ? relativeDirectoryPath.split(sep).filter(Boolean) : [];
+  let current = resolvedRoot;
+
+  for (const segment of segments) {
+    current = resolve(current, segment);
+
+    const segmentStat = await lstatOrNull(current);
+
+    if (!segmentStat) {
+      try {
+        await mkdir(current);
+      } catch (error) {
+        const maybeError = error as { readonly code?: string };
+
+        if (maybeError.code !== "EEXIST") {
+          throw error;
+        }
+
+        const raceStat = await lstatOrNull(current);
+
+        if (raceStat?.isSymbolicLink() || !raceStat?.isDirectory()) {
+          throw new Error("Workspace output directories must not contain symbolic links.", { cause: error });
+        }
+      }
+      continue;
+    }
+
+    if (segmentStat.isSymbolicLink() || !segmentStat.isDirectory()) {
+      throw new Error("Workspace output directories must not contain symbolic links.");
+    }
   }
 }
 
@@ -108,7 +180,7 @@ async function ensureGitRepo(projectDir: string) {
 
   if (!init.ok) {
     await git(projectDir, ["init"]);
-    await safeGit(projectDir, ["checkout", "-B", "main"]);
+    await git(projectDir, ["checkout", "-B", "main"]);
   }
 
   return "git:init:main";
@@ -270,18 +342,53 @@ function issueMarkdown(input: {
   ].join("\n");
 }
 
-async function writeIfChanged(path: string, content: string) {
+async function writeIfChanged(workspaceRoot: string, path: string, content: string) {
+  const resolvedWorkspaceRoot = resolve(workspaceRoot);
+  const resolvedPath = resolve(path);
+
+  assertInsideDirectory(
+    resolvedWorkspaceRoot,
+    resolvedPath,
+    "Workspace output file must stay inside the configured workspace root."
+  );
+  await ensureRealDirectoryWithin(resolvedWorkspaceRoot, dirname(resolvedPath));
+
+  const fileStat = await lstatOrNull(resolvedPath);
+
+  if (fileStat?.isSymbolicLink() || fileStat?.isDirectory()) {
+    throw new Error("Workspace output files must be regular files.");
+  }
+
   let existing: string | null;
 
   try {
-    existing = await readFile(path, "utf8");
-  } catch {
+    existing = await readFile(resolvedPath, "utf8");
+  } catch (error) {
+    const maybeError = error as { readonly code?: string };
+
+    if (maybeError.code !== "ENOENT") {
+      throw error;
+    }
+
     existing = null;
   }
 
   if (existing !== content) {
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, content, "utf8");
+    const temporaryPath = resolve(dirname(resolvedPath), `.${basename(resolvedPath)}.${process.pid}.${Date.now()}.tmp`);
+
+    assertInsideDirectory(
+      resolvedWorkspaceRoot,
+      temporaryPath,
+      "Workspace temporary output file must stay inside the configured workspace root."
+    );
+
+    try {
+      await writeFile(temporaryPath, content, { encoding: "utf8", flag: "wx" });
+      await rename(temporaryPath, resolvedPath);
+    } catch (error) {
+      await unlink(temporaryPath).catch(() => undefined);
+      throw error;
+    }
   }
 }
 
@@ -298,7 +405,7 @@ export async function prepareAutoImplementationWorkspaceRun(
     throw new Error("Generated repo path must stay inside the configured workspace root.");
   }
 
-  await mkdir(generatedRepoPath, { recursive: true });
+  await ensureRealDirectoryWithin(workspaceRoot, generatedRepoPath);
   const gitEvidence = await ensureGitRepo(generatedRepoPath);
   const status = await remoteStatus(generatedRepoPath);
   const guide = remoteGuide(status);
@@ -318,6 +425,7 @@ export async function prepareAutoImplementationWorkspaceRun(
   const trackerRelativePath = "implementation-tracker.md";
 
   await writeIfChanged(
+    workspaceRoot,
     resolve(generatedRepoPath, trackerRelativePath),
     trackerMarkdown({
       title: trackerTitle,
@@ -332,6 +440,7 @@ export async function prepareAutoImplementationWorkspaceRun(
 
   await Promise.all(issueDocs.map((issue) =>
     writeIfChanged(
+      workspaceRoot,
       resolve(generatedRepoPath, issue.relativePath.split("/").join(sep)),
       issueMarkdown({ issue, trackerTitle, goal: trackerGoal, sourcePlanningRef })
     )
@@ -368,7 +477,7 @@ export async function prepareAutoImplementationWorkspaceRun(
     ]
   };
 
-  await writeIfChanged(resolve(generatedRepoPath, manifestRelativePath), `${JSON.stringify(run, null, 2)}\n`);
+  await writeIfChanged(workspaceRoot, resolve(generatedRepoPath, manifestRelativePath), `${JSON.stringify(run, null, 2)}\n`);
 
   return run;
 }

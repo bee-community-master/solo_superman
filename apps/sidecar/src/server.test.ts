@@ -7973,6 +7973,90 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("rejects auto implementation project folders that are symlinks outside the workspace root", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const outsideDir = await makeTempAppDataDir();
+    await symlink(outsideDir, join(workspaceRoot, "escape-app"), "dir");
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A symlinked auto implementation request test");
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          idempotencyKey: "auto-implementation-route:symlink-project",
+          projectFolderName: "escape-app"
+        })
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(400);
+      expect(body.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Auto implementation workspace could not be prepared safely.",
+        details: {
+          message: "Workspace output directories must not contain symbolic links."
+        }
+      });
+      await expect(readFile(join(outsideDir, "implementation-tracker.md"), "utf8")).rejects.toMatchObject({
+        code: "ENOENT"
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rejects auto implementation output files that are symlinks outside the workspace root", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const outsideDir = await makeTempAppDataDir();
+    const outsideTrackerPath = join(outsideDir, "outside-tracker.md");
+    const projectDir = join(workspaceRoot, "existing-app");
+
+    await mkdir(projectDir, { recursive: true });
+    await writeFile(outsideTrackerPath, "outside content must remain unchanged\n");
+    await symlink(outsideTrackerPath, join(projectDir, "implementation-tracker.md"), "file");
+
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A symlinked auto implementation output test");
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          idempotencyKey: "auto-implementation-route:symlink-file",
+          projectFolderName: "existing-app"
+        })
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(400);
+      expect(body.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Auto implementation workspace could not be prepared safely.",
+        details: {
+          message: "Workspace output files must be regular files."
+        }
+      });
+      await expect(readFile(outsideTrackerPath, "utf8")).resolves.toBe("outside content must remain unchanged\n");
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("rejects malformed auto implementation run requests before filesystem writes", async () => {
     const workspaceRoot = await makeTempAppDataDir();
     const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {

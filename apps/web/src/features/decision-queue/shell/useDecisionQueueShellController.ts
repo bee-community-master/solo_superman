@@ -30,6 +30,7 @@ import {
 import {
   DEFAULT_IDEA,
   DEFAULT_INTAKE,
+  COMMAND_LOG_LIMIT,
   canStartInitialQueueFlow,
   displayError,
   emptyProjectionState,
@@ -408,7 +409,7 @@ export function useDecisionQueueShellController() {
           message: autoImplementationRuns.summary
         },
         ...current
-      ].slice(0, 8));
+      ].slice(0, COMMAND_LOG_LIMIT));
     } catch (error) {
       setWorkflowError(displayError(error));
     } finally {
