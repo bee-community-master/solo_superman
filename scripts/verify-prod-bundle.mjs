@@ -110,7 +110,7 @@ export function prodBundleSmokeCommands(config, platform = process.platform) {
   const pnpm = pnpmCommand(platform);
 
   return {
-    build: [pnpm, ["build"]],
+    build: [pnpm, ["-r", "--if-present", "build"]],
     sidecar: [pnpm, ["--filter", "@solo-superman/sidecar", "start"]],
     webPreview: [
       pnpm,

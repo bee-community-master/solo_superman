@@ -201,6 +201,8 @@ describe("#105 local install/run verification docs", () => {
       "Microsoft.VCRedist.2015+.x64",
       "codex.cmd --version failed with exit -1073741515",
       "spawn pnpm ENOENT",
+      "alternate ports",
+      "pnpm.cmd -r --if-present build",
       "pnpm.cmd"
     ]) {
       expect(runbook).toContain(snippet);
