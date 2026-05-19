@@ -46,7 +46,8 @@ export const AUTO_IMPLEMENTATION_REMOTE_STATUSES = [
   "not_authenticated",
   "no_remote",
   "permission_denied",
-  "offline"
+  "offline",
+  "unsupported_remote"
 ] as const;
 
 export const AUTO_IMPLEMENTATION_ISSUE_MODES = ["github_ready", "markdown_fallback"] as const;
@@ -59,6 +60,31 @@ export const DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES = [
   "Broader clean-code review and fix pass 2",
   "Final PR description update and full verification",
   "Merge verified PR to main"
+] as const;
+
+export const AUTO_IMPLEMENTATION_RESERVED_PROJECT_FOLDER_NAMES = [
+  "con",
+  "prn",
+  "aux",
+  "nul",
+  "com1",
+  "com2",
+  "com3",
+  "com4",
+  "com5",
+  "com6",
+  "com7",
+  "com8",
+  "com9",
+  "lpt1",
+  "lpt2",
+  "lpt3",
+  "lpt4",
+  "lpt5",
+  "lpt6",
+  "lpt7",
+  "lpt8",
+  "lpt9"
 ] as const;
 
 export type AutoImplementationStage = (typeof AUTO_IMPLEMENTATION_STAGES)[number];
@@ -162,8 +188,20 @@ function isOneOf<TValue extends string>(value: unknown, values: readonly TValue[
   return typeof value === "string" && values.includes(value as TValue);
 }
 
+export function isAutoImplementationReservedProjectFolderName(value: string) {
+  const baseName = value.toLowerCase().split(".")[0] ?? "";
+
+  return AUTO_IMPLEMENTATION_RESERVED_PROJECT_FOLDER_NAMES.includes(
+    baseName as (typeof AUTO_IMPLEMENTATION_RESERVED_PROJECT_FOLDER_NAMES)[number]
+  );
+}
+
 function validFolderName(value: string) {
-  return /^[a-z0-9](?:[a-z0-9._-]{0,78}[a-z0-9])?$/u.test(value) && value !== "." && value !== ".." && value !== ".git";
+  return /^[a-z0-9](?:[a-z0-9._-]{0,78}[a-z0-9])?$/u.test(value) &&
+    value !== "." &&
+    value !== ".." &&
+    value !== ".git" &&
+    !isAutoImplementationReservedProjectFolderName(value);
 }
 
 function isStageRecord(value: unknown): value is AutoImplementationStageRecord {
@@ -205,6 +243,21 @@ function isIssueManagement(value: unknown): value is AutoImplementationIssueMana
     (value.warning === null || isNonEmptyString(value.warning));
 }
 
+function hasCanonicalStagePlan(stagePlan: readonly AutoImplementationStageRecord[]) {
+  return stagePlan.every((record, index) => {
+    const expectedStage = AUTO_IMPLEMENTATION_STAGES[index];
+
+    return record.stage === expectedStage &&
+      record.sequenceOrder === index + 1 &&
+      record.label === AUTO_IMPLEMENTATION_STAGE_LABELS[record.stage];
+  });
+}
+
+function hasCanonicalIssueDocs(issueDocs: readonly AutoImplementationIssueDocument[]) {
+  return issueDocs.length === AUTO_IMPLEMENTATION_STAGES.length &&
+    issueDocs.every((issue, index) => issue.stage === AUTO_IMPLEMENTATION_STAGES[index]);
+}
+
 function isRun(value: unknown): value is AutoImplementationRun {
   return isRecord(value) &&
     isNonEmptyString(value.runId) &&
@@ -220,7 +273,9 @@ function isRun(value: unknown): value is AutoImplementationRun {
     Array.isArray(value.stagePlan) &&
     value.stagePlan.length === AUTO_IMPLEMENTATION_STAGES.length &&
     value.stagePlan.every(isStageRecord) &&
+    hasCanonicalStagePlan(value.stagePlan) &&
     isIssueManagement(value.issueManagement) &&
+    hasCanonicalIssueDocs(value.issueManagement.issueDocs) &&
     isRemoteGuide(value.remoteGuide) &&
     isNonEmptyString(value.createdAt) &&
     isNonEmptyString(value.updatedAt) &&

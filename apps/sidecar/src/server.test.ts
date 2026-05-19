@@ -7973,6 +7973,92 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("creates distinct safe workspace folders for non-ASCII project names", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A Korean named app that should be implemented");
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          idempotencyKey: "auto-implementation-route:korean-name",
+          projectName: "고양이 펜팔 서비스",
+          trackerTitle: "고양이 펜팔 서비스 implementation tracker"
+        })
+      });
+      const body = await jsonBody(response);
+      const latestRun = (body.data as Readonly<Record<string, unknown>>).latestRun as Readonly<Record<string, unknown>>;
+      const projectFolderName = latestRun.projectFolderName as string;
+
+      expect(response.status).toBe(200);
+      expect(projectFolderName).toMatch(/^solo-superman-project-[a-f0-9]{16}$/u);
+      expect(projectFolderName).not.toBe("solo-superman-project");
+      await expect(readFile(join(workspaceRoot, projectFolderName, "implementation-tracker.md"), "utf8")).resolves.toContain(
+        "고양이 펜팔 서비스 implementation tracker"
+      );
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("keeps markdown fallback active for non-GitHub remotes", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const projectDir = join(workspaceRoot, "existing-local-remote-repo");
+
+    await mkdir(projectDir, { recursive: true });
+    execFileSync("git", ["init"], { cwd: projectDir, stdio: "ignore" });
+    execFileSync("git", ["checkout", "-B", "main"], { cwd: projectDir, stdio: "ignore" });
+    execFileSync("git", ["remote", "add", "origin", join(workspaceRoot, "not-github.git")], {
+      cwd: projectDir,
+      stdio: "ignore"
+    });
+
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A non-GitHub remote test");
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          idempotencyKey: "auto-implementation-route:unsupported-remote",
+          projectFolderName: "existing-local-remote-repo"
+        })
+      });
+      const body = await jsonBody(response);
+      const latestRun = (body.data as Readonly<Record<string, unknown>>).latestRun as Readonly<Record<string, unknown>>;
+      const issueManagement = latestRun.issueManagement as Readonly<Record<string, unknown>>;
+      const tracker = await readFile(join(projectDir, "implementation-tracker.md"), "utf8");
+
+      expect(response.status).toBe(200);
+      expect(latestRun).toMatchObject({
+        remoteStatus: "unsupported_remote"
+      });
+      expect(issueManagement).toMatchObject({
+        mode: "markdown_fallback",
+        warning: "Remote exists, but it is not a GitHub remote. Local markdown issues remain active."
+      });
+      expect(tracker).toContain("Remote status: unsupported_remote");
+      expect(tracker).toContain("git remote set-url origin <github-repo-url>");
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("rejects auto implementation project folders that are symlinks outside the workspace root", async () => {
     const workspaceRoot = await makeTempAppDataDir();
     const outsideDir = await makeTempAppDataDir();
@@ -8062,7 +8148,8 @@ describe("PR-02 sidecar health shell", () => {
     const projectDir = join(workspaceRoot, "existing-non-main-repo");
 
     await mkdir(projectDir, { recursive: true });
-    execFileSync("git", ["init", "-b", "not-main"], { cwd: projectDir, stdio: "ignore" });
+    execFileSync("git", ["init"], { cwd: projectDir, stdio: "ignore" });
+    execFileSync("git", ["checkout", "-B", "not-main"], { cwd: projectDir, stdio: "ignore" });
 
     const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
       autoImplementationWorkspaceRoot: workspaceRoot

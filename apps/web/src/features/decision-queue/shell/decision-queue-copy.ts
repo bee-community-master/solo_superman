@@ -227,7 +227,7 @@ const EN_COPY = {
   autoImplementation: {
     title: "Auto implementation workspace",
     create: "Create workspace run",
-    reprepare: "Reprepare workspace",
+    reprepare: "Ensure workspace run",
     refresh: "Refresh workspace run",
     stagePlan: "5-minute stage plan",
     issueDocs: "Issue documents",
@@ -575,7 +575,7 @@ const JA_COPY: typeof EN_COPY = {
   autoImplementation: {
     title: "自動実装ワークスペース",
     create: "ワークスペース実行を作成",
-    reprepare: "ワークスペースを再準備",
+    reprepare: "ワークスペース実行を確認",
     refresh: "ワークスペース実行を更新",
     stagePlan: "5分間隔のステージ計画",
     issueDocs: "Issue文書",
@@ -923,7 +923,7 @@ const KO_COPY: typeof EN_COPY = {
   autoImplementation: {
     title: "자동 구현 작업공간",
     create: "작업공간 실행 만들기",
-    reprepare: "작업공간 다시 준비",
+    reprepare: "작업공간 실행 확인",
     refresh: "작업공간 실행 새로고침",
     stagePlan: "5분 단위 단계 계획",
     issueDocs: "이슈 문서",

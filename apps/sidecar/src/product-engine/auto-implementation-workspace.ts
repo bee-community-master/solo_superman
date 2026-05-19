@@ -9,6 +9,7 @@ import {
   AUTO_IMPLEMENTATION_STAGES,
   AUTO_IMPLEMENTATION_TICK_INTERVAL_MS,
   DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES,
+  isAutoImplementationReservedProjectFolderName,
   type AutoImplementationIssueDocument,
   type AutoImplementationRemoteGuide,
   type AutoImplementationRemoteStatus,
@@ -20,6 +21,7 @@ import {
 
 const execFileAsync = promisify(execFile);
 const COMMAND_TIMEOUT_MS = 10_000;
+const DEFAULT_PROJECT_FOLDER_NAME = "solo-superman-project";
 
 export interface PrepareAutoImplementationWorkspaceInput {
   readonly sessionId: SessionId;
@@ -41,6 +43,16 @@ export function defaultAutoImplementationWorkspaceRoot() {
   return resolve(process.cwd(), "workspace");
 }
 
+function fallbackProjectFolderName(input: string) {
+  const normalized = input.trim();
+
+  if (!normalized || normalized === DEFAULT_PROJECT_FOLDER_NAME) {
+    return DEFAULT_PROJECT_FOLDER_NAME;
+  }
+
+  return `${DEFAULT_PROJECT_FOLDER_NAME}-${shortHash(normalized)}`;
+}
+
 export function sanitizeProjectFolderName(input: string) {
   const slug = input
     .normalize("NFKD")
@@ -52,8 +64,8 @@ export function sanitizeProjectFolderName(input: string) {
     .slice(0, 80)
     .replace(/[._-]+$/u, "");
 
-  if (!slug || slug === "." || slug === ".." || slug === ".git") {
-    return "solo-superman-project";
+  if (!slug || slug === "." || slug === ".." || slug === ".git" || isAutoImplementationReservedProjectFolderName(slug)) {
+    return fallbackProjectFolderName(input);
   }
 
   return slug;
@@ -211,9 +223,16 @@ function remoteGuide(status: AutoImplementationRemoteStatus): AutoImplementation
     case "not_authenticated":
       return {
         status,
-        warning: "GitHub remote exists, but gh is not authenticated. Local markdown issues remain active until login succeeds.",
+        warning: "GitHub remote exists, but gh is missing or not authenticated. Local markdown issues remain active until login succeeds.",
         commands: ["gh auth login", "gh auth status", "git push -u origin main"],
         nextAction: "Sign in with gh, then retry the auto implementation run."
+      };
+    case "unsupported_remote":
+      return {
+        status,
+        warning: "Remote exists, but it is not a GitHub remote. Local markdown issues remain active.",
+        commands: ["git remote -v", "git remote set-url origin <github-repo-url>", "gh auth login", "git push -u origin main"],
+        nextAction: "Point origin at a writable GitHub repo when remote issue/PR automation is desired."
       };
     case "permission_denied":
       return {
@@ -239,11 +258,34 @@ function remoteGuide(status: AutoImplementationRemoteStatus): AutoImplementation
   }
 }
 
+export function isGitHubRemoteUrl(remoteUrl: string) {
+  const trimmed = remoteUrl.trim();
+  const hasUrlScheme = /^[a-z][a-z0-9+.-]*:\/\//iu.test(trimmed);
+
+  if (!hasUrlScheme) {
+    const scpLikeMatch = /^(?:[^@]+@)?([^:/]+):/u.exec(trimmed);
+
+    if (scpLikeMatch?.[1]) {
+      return scpLikeMatch[1].toLowerCase() === "github.com";
+    }
+  }
+
+  try {
+    return new URL(trimmed).hostname.toLowerCase() === "github.com";
+  } catch {
+    return false;
+  }
+}
+
 async function remoteStatus(projectDir: string): Promise<AutoImplementationRemoteStatus> {
   const origin = await safeGit(projectDir, ["remote", "get-url", "origin"]);
 
   if (!origin.ok || origin.stdout.trim().length === 0) {
     return "no_remote";
+  }
+
+  if (!isGitHubRemoteUrl(origin.stdout)) {
+    return "unsupported_remote";
   }
 
   const ghStatus = await execFileAsync("gh", ["auth", "status"], {
@@ -406,7 +448,7 @@ export async function prepareAutoImplementationWorkspaceRun(
 ): Promise<AutoImplementationRun> {
   const workspaceRoot = resolve(input.workspaceRoot);
   const projectFolderName = sanitizeProjectFolderName(
-    input.request.projectFolderName ?? input.request.projectName ?? "solo-superman-project"
+    input.request.projectFolderName ?? input.request.projectName ?? DEFAULT_PROJECT_FOLDER_NAME
   );
   const generatedRepoPath = resolve(workspaceRoot, projectFolderName);
 
