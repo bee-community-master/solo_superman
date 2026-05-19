@@ -209,9 +209,10 @@ describe("doc contract verification helpers", () => {
     ]);
   });
 
-  it("includes the Phase 3 closeout evidence doc in web/local realignment scans", () => {
-    expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/37-post-phase3-full-vision-backlog-contract.md");
-    expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/38-phase3-closeout-evidence.md");
+  it("includes simplified contributor docs in web/local realignment scans", () => {
+    expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/architecture.md");
+    expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/safety-and-permissions.md");
+    expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/decisions.md");
   });
 
   it("flags active desktop/native residue in web-local source paths", () => {
