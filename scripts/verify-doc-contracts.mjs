@@ -721,6 +721,8 @@ function checkContributorDocsSnippets() {
     "wslpath: C:Users...AppDataLocalTemp...codex-wsl-install.sh",
     "WSL nvm home detection",
     "/nvm.sh: No such file or directory",
+    "WSL setup garbled output",
+    "solo-superman-wsl-ready",
     "WSL nvm Node already installed",
     "v22.22.3 is already installed",
     "Microsoft.VCRedist.2015+.x64",

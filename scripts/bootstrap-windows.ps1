@@ -90,6 +90,14 @@ function Invoke-Checked($FilePath, [string[]]$Arguments) {
   }
 }
 
+function Invoke-CheckedNoOutput($FilePath, [string[]]$Arguments) {
+  & $FilePath @Arguments > $null 2> $null
+  $exitCode = $LASTEXITCODE
+  if ($exitCode -ne 0) {
+    throw "$FilePath $($Arguments -join ' ') failed with exit $exitCode"
+  }
+}
+
 function Get-ToolPath($BaseName) {
   foreach ($name in @("$BaseName.cmd", "$BaseName.exe", $BaseName)) {
     $cmd = Get-Command $name -ErrorAction SilentlyContinue
@@ -103,6 +111,10 @@ function Get-ToolPath($BaseName) {
 
 function Invoke-Tool($BaseName, [string[]]$Arguments) {
   Invoke-Checked (Get-ToolPath $BaseName) $Arguments
+}
+
+function Invoke-ToolNoOutput($BaseName, [string[]]$Arguments) {
+  Invoke-CheckedNoOutput (Get-ToolPath $BaseName) $Arguments
 }
 
 function Invoke-Pnpm([string[]]$Arguments) {
@@ -489,7 +501,7 @@ function Select-CodexWslDistribution($Distributions) {
 function Set-WslDefaultsForCodex($Distributions) {
   Write-Step "Codex CLI용 WSL2/default 배포판 설정"
   try {
-    [void](Invoke-Tool "wsl" @("--set-default-version", "2"))
+    [void](Invoke-ToolNoOutput "wsl" @("--set-default-version", "2"))
   } catch {
     Write-Warn "WSL 기본 버전을 2로 설정하지 못했습니다. 이미 정책으로 고정되어 있거나 Windows가 재부팅을 기다리는 상태일 수 있습니다. $($_.Exception.Message)"
   }
@@ -500,7 +512,7 @@ function Set-WslDefaultsForCodex($Distributions) {
   }
 
   try {
-    [void](Invoke-Tool "wsl" @("--set-default", $targetDistro))
+    [void](Invoke-ToolNoOutput "wsl" @("--set-default", $targetDistro))
   } catch {
     Write-Warn "Codex CLI용 기본 WSL 배포판을 $targetDistro 로 설정하지 못했습니다. 현재 default 배포판으로 계속 시도합니다. $($_.Exception.Message)"
   }
@@ -509,7 +521,7 @@ function Set-WslDefaultsForCodex($Distributions) {
 }
 
 function Invoke-WslBash($Command) {
-  Invoke-Tool "wsl" @("--", "bash", "-lc", $Command)
+  Invoke-ToolNoOutput "wsl" @("--", "bash", "-lc", $Command)
 }
 
 function Invoke-WslRootBash($Command) {
@@ -595,7 +607,7 @@ function Ensure-WslForCodex {
   $targetDistro = Set-WslDefaultsForCodex $distributions
 
   try {
-    Invoke-WslBash "printf solo-superman-wsl-ready"
+    Invoke-WslBash "true"
   } catch {
     throw "WSL 배포판은 보이지만 bash 실행 또는 첫 사용자 설정이 끝나지 않았습니다. Windows가 요청했다면 재부팅하고, $CodexWslDistro 를 한 번 열어 Linux 사용자 이름/비밀번호를 만든 뒤 같은 한 줄 명령을 다시 실행하세요: $BootstrapCommand :: $($_.Exception.Message)"
   }

@@ -122,14 +122,16 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain("chcp.com 65001");
     expect(windowsBootstrap).toContain("$global:OutputEncoding");
     expect(windowsBootstrap).toContain('Join-Path $env:USERPROFILE "solo_superman"');
+    expect(windowsBootstrap).toContain("function Invoke-CheckedNoOutput");
+    expect(windowsBootstrap).toContain("function Invoke-ToolNoOutput");
     expect(windowsBootstrap).toContain("function Ensure-WindowsNativeRuntime");
     expect(windowsBootstrap).toContain("function Get-ProdSmokePortConflicts");
     expect(windowsBootstrap).toContain("function Invoke-ProdSmokeWithAlternatePorts");
     expect(windowsBootstrap).toContain("vcruntime140_1.dll");
     expect(windowsBootstrap).toContain("function Ensure-WslForCodex");
     expect(windowsBootstrap).toContain("function Set-WslDefaultsForCodex");
-    expect(windowsBootstrap).toContain('Invoke-Tool "wsl" @("--set-default-version", "2")');
-    expect(windowsBootstrap).toContain('Invoke-Tool "wsl" @("--set-default", $targetDistro)');
+    expect(windowsBootstrap).toContain('Invoke-ToolNoOutput "wsl" @("--set-default-version", "2")');
+    expect(windowsBootstrap).toContain('Invoke-ToolNoOutput "wsl" @("--set-default", $targetDistro)');
     expect(windowsBootstrap).toContain('Invoke-Tool "wsl" @("--install", "-d", $CodexWslDistro)');
     expect(windowsBootstrap).toContain("WSL/$CodexWslDistro 첫 설치를 시작했습니다");
     expect(windowsBootstrap).toContain("같은 한 줄 명령을 다시 실행하세요");
@@ -162,6 +164,8 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain("npm global Codex CLI install failed; checking existing codex command.");
     expect(windowsBootstrap).toContain("SOLO_CODEX_WINDOWS_MODE");
     expect(windowsBootstrap).toContain('"wsl"');
+    expect(windowsBootstrap).toContain('Invoke-WslBash "true"');
+    expect(windowsBootstrap).not.toContain("printf solo-superman-wsl-ready");
     expect(windowsBootstrap).toContain("function Ensure-CodexCli");
     expect(windowsBootstrap).toContain("function Test-CodexNativeRuntimeFailure");
     expect(windowsBootstrap).toContain("function Install-CodexNativeRuntime");
@@ -268,6 +272,8 @@ describe("#105 local install/run verification docs", () => {
       "WSL nvm home detection",
       "/nvm.sh: No such file or directory",
       "/home/<user>/.nvm/nvm.sh",
+      "WSL setup garbled output",
+      "solo-superman-wsl-ready",
       "WSL nvm Node already installed",
       "v22.22.3 is already installed",
       "Codex CLI native runtime missing",
