@@ -20,6 +20,8 @@ Solo Superman은 솔로 창업자가 아이디어를 질문, 리서치, 결정 �
 
 ### Windows PowerShell
 
+시작 메뉴에서 PowerShell을 **관리자 권한으로 실행**한 뒤 아래 한 줄을 붙여넣으세요. 관리자 권한이 아니면 Node.js/Git 설치 단계에서 실패할 수 있습니다.
+
 ```powershell
 irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1 | iex
 ```
@@ -30,7 +32,7 @@ irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/sc
 
 설치가 끝나면 로컬 서버가 계속 실행되고 기본 브라우저에 Solo Superman web 화면이 자동으로 열립니다. 이 터미널을 열어두고 사용하세요. 종료하려면 `Ctrl+C`를 누릅니다.
 
-나중에 다시 실행하려면 아래 명령을 사용합니다. 설치 완료 메시지는 설치 경로, 다시 실행 명령, 바탕화면 실행파일 여부를 알려줍니다. Windows 설치 프로그램은 이미 설치된 경우에도 실제 표시되는 바탕화면 후보들에 `solo_superman.cmd` 실행파일과 `solo_superman` 바로가기를 다시 확인/생성하므로, 다음부터는 그 파일을 더블클릭해 같은 로컬 실행을 시작할 수 있습니다. macOS 설치 프로그램은 바탕화면 실행파일을 만들지 않고 재실행 명령을 안내합니다.
+나중에 다시 실행하려면 아래 명령을 사용합니다. 설치 완료 메시지는 설치 경로, 다시 실행 명령, 바탕화면 실행파일 여부를 알려줍니다. Windows 설치 프로그램은 이미 설치된 경우에도 실제 표시되는 바탕화면 후보들에 `solo_superman.cmd` 실행파일과 `solo_superman` 바로가기를 다시 확인/생성하므로, 다음부터는 그 파일을 더블클릭해 같은 로컬 실행을 시작할 수 있습니다. 더블클릭 실행이 실패하면 cmd 창을 자동으로 닫지 않고 실패 내용과 종료 코드를 보여준 뒤 Enter를 눌러 닫게 합니다. macOS 설치 프로그램은 바탕화면 실행파일을 만들지 않고 재실행 명령을 안내합니다.
 
 ### macOS shell
 

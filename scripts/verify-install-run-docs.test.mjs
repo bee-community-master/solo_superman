@@ -61,17 +61,26 @@ describe("#105 local install/run verification docs", () => {
 
   it("documents and creates a Windows Desktop runner for later local launches", () => {
     expect(readme).toContain("설치 경로, 다시 실행 명령, 바탕화면 실행파일 여부");
+    expect(readme).toContain("PowerShell을 **관리자 권한으로 실행**");
     expect(readme).toContain("실제 표시되는 바탕화면 후보들에 `solo_superman.cmd` 실행파일");
     expect(readme).toContain("이미 설치된 경우에도");
+    expect(readme).toContain("Enter를 눌러 닫게 합니다");
     expect(readme).toContain("macOS 설치 프로그램은 바탕화면 실행파일을 만들지 않고");
     expect(englishReadme).toContain("install path, rerun command, and Desktop runner status");
+    expect(englishReadme).toContain("Run PowerShell **as Administrator**");
     expect(englishReadme).toContain("checks or recreates `solo_superman.cmd` plus a `solo_superman` shortcut");
+    expect(englishReadme).toContain("waits for Enter before closing");
     expect(runbook).toContain("Desktop runners named `solo_superman.cmd` and `solo_superman.lnk`");
     expect(runbook).toContain("localized, public, or OneDrive-redirected Desktop folders");
+    expect(runbook).toContain("Run as Administrator");
+    expect(runbook).toContain("waits for Enter before closing");
+    expect(windowsBootstrap).toContain("function Write-WindowsAdminNotice");
+    expect(windowsBootstrap).toContain("관리자 권한 PowerShell");
     expect(windowsBootstrap).toContain("function Get-DesktopPaths");
     expect(windowsBootstrap).toContain("function New-DesktopRunner($TargetPath)");
     expect(windowsBootstrap).toContain("function Write-InstallSummary($TargetPath, $DesktopRunnerPaths)");
     expect(windowsBootstrap).toContain("function Wait-ForUserBeforeExit($Reason)");
+    expect(windowsBootstrap).toContain("ConvertTo-CmdEchoValue $BootstrapCommand");
     expect(windowsBootstrap).toContain("WScript.Shell");
     expect(windowsBootstrap).toContain("User Shell Folders");
     expect(windowsBootstrap).toContain("OneDriveCommercial");
@@ -80,8 +89,10 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain('[Environment+SpecialFolder]::DesktopDirectory');
     expect(windowsBootstrap).toContain('Join-Path $desktop "solo_superman.cmd"');
     expect(windowsBootstrap).toContain('Join-Path $desktop "solo_superman.lnk"');
-    expect(windowsBootstrap).toContain('"pnpm start:local"');
+    expect(windowsBootstrap).toContain('"call pnpm start:local"');
+    expect(windowsBootstrap).toContain("Solo Superman failed to start. Exit code: %SOLO_EXIT%");
     expect(windowsBootstrap).toContain("Solo Superman local run has stopped");
+    expect(windowsBootstrap).toContain("Press Enter to close this window");
     expect(windowsBootstrap).toContain("Read-Host \"이 창을 닫으려면 Enter를 누르세요\"");
     expect(windowsBootstrap).toContain("$DesktopRunnerPaths = @(New-DesktopRunner $TargetPath)");
     expect(macosBootstrap).toContain("print_install_summary");

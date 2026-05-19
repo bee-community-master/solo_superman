@@ -25,6 +25,8 @@ pnpm --version
 
 ### Windows PowerShell
 
+Open PowerShell with **Run as Administrator** before installing prerequisites. Without administrator permissions, Windows can block the Node.js or Git install step; if that happens, reopen Administrator PowerShell and rerun the README one-line installer.
+
 ```powershell
 winget install --id OpenJS.NodeJS.LTS -e
 winget install --id Git.Git -e
@@ -34,7 +36,7 @@ pnpm --version
 
 ## Run locally / 로컬 실행
 
-On Windows, the installer creates or refreshes Desktop runners named `solo_superman.cmd` and `solo_superman.lnk` for later launches, including localized, public, or OneDrive-redirected Desktop folders. The macOS installer does not create a Desktop runner and prints the rerun command instead.
+On Windows, the installer creates or refreshes Desktop runners named `solo_superman.cmd` and `solo_superman.lnk` for later launches, including localized, public, or OneDrive-redirected Desktop folders. The Desktop runner uses `call pnpm start:local` so control returns to the cmd wrapper; if launch fails, the cmd window keeps the failure output visible, prints the exit code, and waits for Enter before closing. The macOS installer does not create a Desktop runner and prints the rerun command instead.
 
 ### macOS shell
 
@@ -89,8 +91,10 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 
 ## Manual Windows PowerShell checklist / Windows 수동 체크리스트
 
+- Start PowerShell with **Run as Administrator** before running the README one-line Windows installer.
 - PowerShell execution policy allows the one-line command.
 - Node and Git are visible in a new terminal after installation.
+- Double-click `solo_superman.cmd` or the Desktop shortcut and confirm a failed launch remains visible until Enter is pressed.
 - Path quoting works for folders with spaces.
 - Long path support is not blocking dependency install.
 - Antivirus/network prompt is not silently blocking local server startup.
@@ -102,6 +106,7 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 | Port conflict | Browser or sidecar port is already in use. | Choose a free alternate port; do not kill unknown processes. |
 | Token mismatch | API returns `401`. | Re-run `pnpm start:local` so frontend and sidecar share one token. |
 | CORS/origin | Browser request is blocked. | Confirm loopback URL and local sidecar base URL. |
+| Administrator permissions | Windows blocks prerequisite installation. | Open PowerShell with **Run as Administrator**, then rerun the README one-line installer. |
 | Execution policy | Windows blocks script execution. | Show the policy error and retry command; do not bypass company policy. |
 | Path quoting | Spaces in path break a command. | Use quoted PowerShell paths or `Set-Location`. |
 | Long path | Windows dependency install fails deep in `node_modules`. | Enable long paths or move checkout to a shorter path. |
