@@ -89,7 +89,7 @@ const CODEX_LOGIN_COMMAND_ARGS = ["codex", "auth", "login"] as const;
 const CODEX_WINDOWS_MODE_ENV = "SOLO_CODEX_WINDOWS_MODE" as const;
 const CODEX_LEGACY_COMMAND_MODE_ENV = "SOLO_CODEX_COMMAND_MODE" as const;
 const CODEX_WSL_NVM_SOURCE_COMMAND =
-  "export NVM_DIR=${NVM_DIR:-$HOME/.nvm}; if [ -s $NVM_DIR/nvm.sh ]; then . $NVM_DIR/nvm.sh; nvm use --silent 22 >/dev/null 2>&1 || true; fi" as const;
+  "wsl_home=${HOME:-$(getent passwd $(id -u) | cut -d: -f6 || true)}; export HOME=$wsl_home; export NVM_DIR=${NVM_DIR:-$HOME/.nvm}; if [ -s $NVM_DIR/nvm.sh ]; then . $NVM_DIR/nvm.sh; nvm use --silent 22 >/dev/null 2>&1 || true; fi" as const;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
