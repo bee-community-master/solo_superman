@@ -296,11 +296,29 @@ function Write-LfUtf8NoBomFile($Path, $Content) {
   [System.IO.File]::WriteAllText($Path, $normalized, $utf8NoBom)
 }
 
+function ConvertTo-WslpathInput($WindowsPath) {
+  return ([System.IO.Path]::GetFullPath($WindowsPath)).Replace("\", "/")
+}
+
+function ConvertTo-DefaultWslMountPath($WindowsPath) {
+  $fullPath = [System.IO.Path]::GetFullPath($WindowsPath)
+  if ($fullPath -notmatch "^[A-Za-z]:\\") {
+    throw "WSL 기본 mount path로 변환할 수 있는 drive-letter Windows 경로가 아닙니다: $fullPath"
+  }
+
+  $drive = $fullPath.Substring(0, 1).ToLowerInvariant()
+  $relativePath = $fullPath.Substring(3).Replace("\", "/")
+  return "/mnt/$drive/$relativePath"
+}
+
 function Get-WslPath($WindowsPath) {
   $wsl = Get-ToolPath "wsl"
-  $output = & $wsl @("--", "wslpath", "-a", $WindowsPath) 2>&1
+  $wslpathInput = ConvertTo-WslpathInput $WindowsPath
+  $output = & $wsl @("--", "wslpath", "-a", $wslpathInput) 2>&1
   if ($LASTEXITCODE -ne 0) {
-    throw "Windows 임시 스크립트 경로를 WSL 경로로 변환하지 못했습니다: $WindowsPath :: $output"
+    $fallbackPath = ConvertTo-DefaultWslMountPath $WindowsPath
+    Write-Warn "wslpath가 Windows 임시 스크립트 경로 변환에 실패해 기본 /mnt/<drive> fallback을 사용합니다: $wslpathInput -> $fallbackPath :: $output"
+    return $fallbackPath
   }
 
   $wslPath = Get-NormalizedWslLine ($output | Select-Object -First 1)
