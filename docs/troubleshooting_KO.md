@@ -12,7 +12,7 @@ Solo Superman은 현재 제한 베타 형태의 technical preview입니다. 목�
 | --- | --- |
 | `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-macos.sh)"` | `irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1 \| iex` |
 
-Installer는 Node.js 24+, Git, Corepack/pnpm, Codex CLI, dependency install, local run readiness, browser opening을 확인합니다. Windows에서는 Solo Superman setup 이후 바이브 코딩이나 여러 agent 병렬 작업을 원하는 사용자를 위해 Codex Desktop App 안내 창도 엽니다. 기존 폴더를 덮어쓰거나 관련 없는 프로세스를 종료해 포트를 차지하지 않아야 합니다.
+Installer는 Node.js 24+, Git, Corepack/pnpm, Codex CLI, dependency install, local run readiness, browser opening을 확인합니다. Windows에서는 app 실행용 Node/pnpm은 Windows에 두되 Codex CLI는 기본적으로 WSL 안에 설치하고 `SOLO_CODEX_WINDOWS_MODE=wsl`로 실행합니다. 영향을 받는 Windows 기기에서는 이 경로가 Codex/Codex CLI에 더 안정적이기 때문입니다. Solo Superman setup 이후 바이브 코딩이나 여러 agent 병렬 작업을 원하는 사용자를 위해 Codex Desktop App 안내 창도 엽니다. 기존 폴더를 덮어쓰거나 관련 없는 프로세스를 종료해 포트를 차지하지 않아야 합니다.
 
 ## 수동 준비
 
@@ -29,14 +29,19 @@ pnpm --version
 
 README의 one-line Windows installer는 prerequisite 변경 전에 관리자 권한으로 재실행합니다. 관리자 권한이 아니면 Windows UAC 승인을 요청하고 같은 bootstrap command를 administrator PowerShell에서 다시 실행합니다. Corepack이 `C:\Program Files\nodejs` 아래 shim을 쓰거나 Solo Superman 바탕화면 실행파일 생성 단계가 `C:\Users\Public\Desktop`을 만질 수 있기 때문입니다. UAC 또는 회사 정책이 elevation을 막으면 policy를 우회하지 않고 retry command와 함께 중단합니다.
 
-Node/npm과 pnpm이 준비되면 Windows installer는 `npm install -g @openai/codex@latest`로 OpenAI Codex CLI를 설치 또는 갱신하고 `codex --version`으로 검증합니다. 이 단계는 Codex login flow를 시작하거나 credential을 저장하지 않습니다. 사용자는 Codex를 쓰기로 선택했을 때 ChatGPT account 또는 API key로 sign in합니다. Optional desktop experience를 위해 installer는 `https://openai.com/codex/`를 열고, 바이브 코딩이나 여러 agent 병렬 작업을 원하면 Codex Desktop App for Windows를 받을 수 있다고 안내합니다.
+Node/npm과 pnpm이 준비되면 Windows installer는 Codex에 WSL을 기본 사용합니다. `wsl.exe`와 배포판을 확인하고, 배포판이 없으면 `wsl --install -d Ubuntu`를 시도합니다. Windows 재부팅이나 Ubuntu 첫 실행 Linux 사용자 이름/비밀번호 설정이 필요하면 쉬운 retry message와 함께 멈춥니다. WSL 안에서는 필요할 때 nvm을 설치하고 `nvm install 22`를 실행한 뒤 `npm install -g @openai/codex@latest`로 OpenAI Codex CLI를 설치 또는 갱신하고 `codex --version`으로 검증합니다. 바탕화면 실행파일은 `SOLO_CODEX_WINDOWS_MODE=wsl`을 설정하며 sidecar는 native `codex.cmd` 대신 `wsl.exe -- bash -lc ...`로 Codex account check를 실행합니다.
+
+Maintainer가 `SOLO_SUPERMAN_CODEX_WINDOWS_MODE=native`를 명시한 경우에는 Windows installer가 native fallback을 사용할 수 있습니다. 이때는 `npm install -g @openai/codex@latest`로 OpenAI Codex CLI를 설치 또는 갱신하고 `codex --version`으로 검증합니다. `codex.cmd --version failed with exit -1073741515` 또는 `0xC0000135`가 발생하면 native runtime 누락으로 보고 `winget install --id Microsoft.VCRedist.2015+.x64 -e`로 Microsoft Visual C++ Redistributable (x64)을 설치한 뒤 `codex --version`을 다시 실행합니다. 이 단계는 Codex login flow를 시작하거나 credential을 저장하지 않습니다. 사용자는 Codex를 쓰기로 선택했을 때 ChatGPT account 또는 API key로 sign in합니다. Optional desktop experience를 위해 installer는 `https://openai.com/codex/`를 열고, 바이브 코딩이나 여러 agent 병렬 작업을 원하면 Codex Desktop App for Windows를 받을 수 있다고 안내합니다.
 
 ```powershell
 winget install --id OpenJS.NodeJS.LTS -e
 winget install --id Git.Git -e
 corepack enable
 pnpm --version
-npm install -g @openai/codex@latest
+wsl --install -d Ubuntu
+wsl -- bash -lc 'curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash'
+wsl -- bash -lc 'NVM_DIR="${NVM_DIR:-$HOME/.nvm}"; . "$NVM_DIR/nvm.sh"; nvm install 22; nvm use 22; npm install -g @openai/codex@latest; codex --version'
+winget install --id Microsoft.VCRedist.2015+.x64 -e
 codex --version
 ```
 
@@ -56,7 +61,7 @@ cd solo_superman && pnpm start:local
 Set-Location .\solo_superman; pnpm start:local
 ```
 
-기본 local path에는 OpenAI API key, ChatGPT web credential, ChatGPT Pro session이 필요하지 않습니다. 즉 local first screen에 도달하는 데 이 세 credential이 모두 필요하지 않습니다. Backend question/research preview는 local Codex CLI의 `codex login status`만 확인하며 ChatGPT web sign-in 여부를 검사하지 않습니다. Codex login이 없으면 UI는 background terminal에서 `codex auth login`을 열도록 제안할 수 있습니다. UI label은 Open Codex login과 Refresh Codex login status입니다. 별도의 ChatGPT browser-session delegation은 자체 user-approved flow가 필요하며 default local run의 일부가 아닙니다. Solo Superman은 credential을 수집하거나 저장하지 않습니다.
+기본 local path에는 OpenAI API key, ChatGPT web credential, ChatGPT Pro session이 필요하지 않습니다. 즉 local first screen에 도달하는 데 이 세 credential이 모두 필요하지 않습니다. Backend question/research preview는 local Codex CLI의 `codex login status`만 확인하며 ChatGPT web sign-in 여부를 검사하지 않습니다. Windows에서는 sidecar가 이 Codex CLI를 WSL을 통해 실행하므로 실제 명령은 `wsl.exe -- bash -lc '... codex login status'` 형태이며 login도 WSL-backed `codex auth login` terminal을 엽니다. Codex login이 없으면 UI는 background terminal에서 `codex auth login`을 열도록 제안할 수 있습니다. UI label은 Open Codex login과 Refresh Codex login status입니다. 별도의 ChatGPT browser-session delegation은 자체 user-approved flow가 필요하며 default local run의 일부가 아닙니다. Solo Superman은 credential을 수집하거나 저장하지 않습니다.
 
 ## 검증 명령
 
@@ -98,7 +103,10 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 ## Manual Windows PowerShell checklist / Windows 수동 체크리스트
 
 - non-admin PowerShell에서 시작해 one-line installer가 UAC prompt를 여는지 확인하고, Corepack/pnpm activation 전에 administrator PowerShell로 재실행하는지 확인합니다.
-- Installer가 `npm install -g @openai/codex@latest`를 실행한 뒤 `codex --version`이 credential prompt 없이 성공하는지 확인합니다.
+- Installer가 WSL을 확인하고 배포판이 없을 때 `wsl --install -d Ubuntu`를 실행하는지, reboot 또는 Ubuntu first-run user setup이 필요하면 rerun message를 주는지 확인합니다.
+- Installer가 WSL 안에서 `nvm install 22`를 실행한 뒤 `npm install -g @openai/codex@latest`와 `codex --version`이 credential prompt 없이 성공하는지 확인합니다.
+- `solo_superman.cmd`가 `SOLO_CODEX_WINDOWS_MODE=wsl`을 설정하고 sidecar가 Codex account check에 `wsl.exe`를 사용하는지 확인합니다.
+- Native fallback을 명시적으로 켠 상태에서 `codex.cmd --version failed with exit -1073741515`가 발생하면 installer가 Microsoft Visual C++ Redistributable (x64)을 설치하고 `codex --version`을 다시 실행하는지 확인합니다.
 - Codex Desktop App download window가 `https://openai.com/codex/`로 열리고 popup이 바이브 코딩 / parallel agent work용 optional 안내임을 설명하는지 확인합니다.
 - PowerShell execution policy가 one-line command를 허용하는지 확인합니다.
 - 설치 후 새 terminal에서 Node와 Git이 보이는지 확인합니다.
@@ -115,6 +123,8 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 | Token mismatch | API returns `401`. | frontend와 sidecar가 같은 token을 받도록 `pnpm start:local`을 다시 실행합니다. |
 | CORS/origin | Browser request is blocked. | loopback URL과 local sidecar base URL을 확인합니다. |
 | Administrator permission denied | Corepack reports `operation not permitted` for `C:\Program Files\nodejs\pnpx` or Windows denies `C:\Users\Public\Desktop\solo_superman.cmd`. | README one-line installer를 다시 실행하고 UAC administrator prompt를 승인합니다. 회사 정책이 UAC를 막으면 중단하고 승인된 managed install path를 사용합니다. |
+| Codex WSL setup incomplete | Installer가 WSL/Ubuntu reboot 또는 first-run Linux user/password setup이 필요하다고 보고합니다. | Windows가 요청했다면 reboot하고, Ubuntu를 한 번 열어 Linux user setup을 끝낸 뒤 README one-line installer를 다시 실행합니다. Installer가 WSL 안의 Codex CLI 설치를 이어서 진행합니다. |
+| Codex CLI native runtime missing | Native fallback에서 `npm install -g @openai/codex@latest` 직후 `codex.cmd --version failed with exit -1073741515` 또는 `0xC0000135`가 발생합니다. | 기본 WSL 경로를 우선 사용합니다. Native fallback이 꼭 필요하면 `winget install --id Microsoft.VCRedist.2015+.x64 -e`로 Microsoft Visual C++ Redistributable (x64)을 설치한 뒤 `codex --version`을 다시 실행합니다. updated installer는 native mode에서 이 과정을 자동 수행합니다. |
 | Windows `spawn pnpm ENOENT` during smoke | `pnpm verify:prod-bundle` fails even though `pnpm --version` works in PowerShell, often after a previous install attempt. | Production smoke runner는 Windows에서 bare `pnpm` 대신 `pnpm.cmd`를 spawn해야 합니다. fixed script를 받도록 updated installer를 다시 실행합니다. |
 | Execution policy | Windows blocks script execution. | Policy error와 retry command를 보여주며 회사 정책을 우회하지 않습니다. |
 | Path quoting | Spaces in path break a command. | quoted PowerShell paths 또는 `Set-Location`을 사용합니다. |
