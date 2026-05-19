@@ -734,6 +734,8 @@ function checkContributorDocsSnippets() {
     "Port conflict",
     "Token mismatch",
     "CORS/origin",
+    "Corepack or npm `already exists` for pnpm",
+    "Codex CLI `already exists`",
     "Execution policy",
     "Path quoting",
     "Long path",

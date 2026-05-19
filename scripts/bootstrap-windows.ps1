@@ -649,7 +649,26 @@ fi
 . "$NVM_DIR/nvm.sh"
 nvm install __NODE_MAJOR__
 nvm use __NODE_MAJOR__
-npm install -g @openai/codex@latest
+use_existing_codex_if_ready() {
+  if command -v codex >/dev/null 2>&1; then
+    if codex_version="$(codex --version 2>&1)"; then
+      printf 'Codex CLI already installed: %s\n' "$codex_version"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+if use_existing_codex_if_ready; then
+  exit 0
+fi
+if ! npm install -g @openai/codex@latest; then
+  echo "npm global Codex CLI install failed; checking existing codex command." >&2
+  if use_existing_codex_if_ready; then
+    exit 0
+  fi
+  exit 46
+fi
 codex --version
 '@
   $installScript = $installScript.Replace("__NVM_INSTALL_URL__", $CodexNvmInstallUrl).Replace("__NODE_MAJOR__", $CodexWslNodeMajor)
@@ -665,18 +684,40 @@ function Install-CodexNativeRuntime {
   Install-WindowsNativeRuntime "codex.cmd가 -1073741515(0xC0000135)로 종료되면 필요한 Windows C++ runtime DLL을 찾지 못한 상태일 수 있습니다."
 }
 
-function Ensure-CodexCliNative {
-  if (-not (Test-Command npm)) {
-    throw "Codex CLI 설치를 위해 npm이 필요합니다. Node 24 이상 설치 후 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
-  }
-
-  Write-Step "OpenAI Codex CLI 설치/업데이트"
-  Invoke-Tool "npm" @("install", "-g", "@openai/codex@latest")
-  Add-CommonToolPaths
+function Get-CodexNativeVersion {
   if (-not (Test-Command codex)) {
-    throw "Codex CLI 설치 후에도 codex 명령을 찾지 못했습니다. 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
+    return $null
   }
 
+  try {
+    $codex = Get-ToolPath "codex"
+    $output = & $codex @("--version") 2>&1
+    if ($LASTEXITCODE -ne 0) {
+      return $null
+    }
+
+    $versionLine = [string]($output | Select-Object -First 1)
+    if ([string]::IsNullOrWhiteSpace($versionLine)) {
+      return "codex --version succeeded"
+    }
+
+    return $versionLine.Trim()
+  } catch {
+    return $null
+  }
+}
+
+function Use-ExistingCodexNativeIfReady($Source) {
+  $version = Get-CodexNativeVersion
+  if ($version) {
+    Write-Step "Codex CLI already installed: $version ($Source)"
+    return $true
+  }
+
+  return $false
+}
+
+function Confirm-CodexNativeVersion {
   try {
     Invoke-Tool "codex" @("--version")
   } catch {
@@ -689,6 +730,58 @@ function Ensure-CodexCliNative {
     Add-CommonToolPaths
     Invoke-Tool "codex" @("--version")
   }
+}
+
+function Ensure-CodexCliNative {
+  Add-CommonToolPaths
+  if (Use-ExistingCodexNativeIfReady "existing command") {
+    return
+  }
+
+  if (Test-Command codex) {
+    try {
+      Confirm-CodexNativeVersion
+      Write-Step "Codex CLI already installed: codex --version succeeded after runtime repair (existing command)"
+      return
+    } catch {
+      Write-Warn "기존 Codex CLI가 있지만 실행 확인에 실패해 npm 설치/업데이트를 시도합니다. $($_.Exception.Message)"
+    }
+  }
+
+  if (-not (Test-Command npm)) {
+    throw "Codex CLI 설치를 위해 npm이 필요합니다. Node 24 이상 설치 후 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
+  }
+
+  Write-Step "OpenAI Codex CLI 설치/업데이트"
+  try {
+    Invoke-Tool "npm" @("install", "-g", "@openai/codex@latest")
+  } catch {
+    $installError = $_
+    Write-Warn "npm global Codex CLI 설치가 실패했습니다. 이미 있는 codex 명령을 한 번 더 확인합니다. $($_.Exception.Message)"
+    Add-CommonToolPaths
+    if (Use-ExistingCodexNativeIfReady "after codex npm fallback failure") {
+      return
+    }
+
+    if (Test-Command codex) {
+      try {
+        Confirm-CodexNativeVersion
+        Write-Step "Codex CLI ready after npm install failure"
+        return
+      } catch {
+        Write-Warn "기존 Codex CLI 확인도 실패했습니다. $($_.Exception.Message)"
+      }
+    }
+
+    throw $installError
+  }
+
+  Add-CommonToolPaths
+  if (-not (Test-Command codex)) {
+    throw "Codex CLI 설치 후에도 codex 명령을 찾지 못했습니다. 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
+  }
+
+  Confirm-CodexNativeVersion
 }
 
 function Ensure-CodexCli {
