@@ -10,7 +10,7 @@ Solo Superman is currently a technical preview. The goal is to let a non-develop
 | --- | --- |
 | `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-macos.sh)"` | `irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1 \| iex` |
 
-The installer checks Node.js 24+, Git, Corepack/pnpm, dependency install, local run readiness, and browser opening. It should not overwrite an existing folder or kill an unrelated process to claim a port.
+The installer checks Node.js 24+, Git, Corepack/pnpm, Codex CLI, dependency install, local run readiness, and browser opening. On Windows it also opens a Codex Desktop App guidance window for users who want vibe coding or multiple parallel agents after Solo Superman setup. It should not overwrite an existing folder or kill an unrelated process to claim a port.
 
 ## Manual prerequisites / 수동 준비
 
@@ -25,13 +25,17 @@ pnpm --version
 
 ### Windows PowerShell
 
-Open PowerShell with **Run as Administrator** before installing prerequisites. Without administrator permissions, Windows can block the Node.js or Git install step; if that happens, reopen Administrator PowerShell and rerun the README one-line installer.
+The README one-line Windows installer self-elevates before prerequisite changes: if it is not already running as administrator, it asks for Windows UAC approval and relaunches the same bootstrap command in an administrator PowerShell. This is required because Corepack may need to write shims under `C:\Program Files\nodejs` and the Desktop runner pass may touch `C:\Users\Public\Desktop`. If UAC or company policy blocks elevation, the installer stops with the retry command instead of bypassing policy.
+
+After Node/npm and pnpm are ready, the Windows installer installs or updates OpenAI Codex CLI with `npm install -g @openai/codex@latest` and validates it with `codex --version`. It does not start a Codex login flow or store credentials; users sign in later with their ChatGPT account or API key when they choose to use Codex. For the optional desktop experience, the installer opens `https://openai.com/codex/` and shows a small Windows prompt explaining that users can download Codex Desktop App for Windows if they want vibe coding or multiple parallel agents.
 
 ```powershell
 winget install --id OpenJS.NodeJS.LTS -e
 winget install --id Git.Git -e
 corepack enable
 pnpm --version
+npm install -g @openai/codex@latest
+codex --version
 ```
 
 ## Run locally / 로컬 실행
@@ -91,7 +95,9 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 
 ## Manual Windows PowerShell checklist / Windows 수동 체크리스트
 
-- Start PowerShell with **Run as Administrator** before running the README one-line Windows installer.
+- Start from a non-admin PowerShell and confirm the one-line installer opens a UAC prompt, then relaunches in an administrator PowerShell before Corepack/pnpm activation.
+- Confirm the installer runs `npm install -g @openai/codex@latest`, then `codex --version` succeeds without requiring a credential prompt.
+- Confirm a Codex Desktop App download window opens to `https://openai.com/codex/` and the popup explains it is optional for vibe coding / parallel agent work.
 - PowerShell execution policy allows the one-line command.
 - Node and Git are visible in a new terminal after installation.
 - Double-click `solo_superman.cmd` or the Desktop shortcut and confirm a failed launch remains visible until Enter is pressed.
@@ -106,7 +112,7 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 | Port conflict | Browser or sidecar port is already in use. | Choose a free alternate port; do not kill unknown processes. |
 | Token mismatch | API returns `401`. | Re-run `pnpm start:local` so frontend and sidecar share one token. |
 | CORS/origin | Browser request is blocked. | Confirm loopback URL and local sidecar base URL. |
-| Administrator permissions | Windows blocks prerequisite installation. | Open PowerShell with **Run as Administrator**, then rerun the README one-line installer. |
+| Administrator permission denied | Corepack reports `operation not permitted` for `C:\Program Files\nodejs\pnpx` or Windows denies `C:\Users\Public\Desktop\solo_superman.cmd`. | Rerun the README one-line installer and approve the UAC administrator prompt. If company policy blocks UAC, stop and use an approved managed install path. |
 | Execution policy | Windows blocks script execution. | Show the policy error and retry command; do not bypass company policy. |
 | Path quoting | Spaces in path break a command. | Use quoted PowerShell paths or `Set-Location`. |
 | Long path | Windows dependency install fails deep in `node_modules`. | Enable long paths or move checkout to a shorter path. |
