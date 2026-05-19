@@ -84,6 +84,10 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain("function Ensure-WslForCodex");
     expect(windowsBootstrap).toContain('Invoke-Tool "wsl" @("--install", "-d", "Ubuntu")');
     expect(windowsBootstrap).toContain("function Ensure-CodexCliInWsl");
+    expect(windowsBootstrap).toContain('wsl_home="${HOME:-}"');
+    expect(windowsBootstrap).toContain('getent passwd "$(id -u)"');
+    expect(windowsBootstrap).toContain('export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"');
+    expect(windowsBootstrap).toContain("nvm.sh not found at $NVM_DIR/nvm.sh after nvm install.");
     expect(windowsBootstrap).toContain("nvm install __NODE_MAJOR__");
     expect(windowsBootstrap).toContain("SOLO_CODEX_WINDOWS_MODE");
     expect(windowsBootstrap).toContain('"wsl"');
@@ -170,6 +174,9 @@ describe("#105 local install/run verification docs", () => {
       "Codex WSL setup incomplete",
       "wsl --install -d Ubuntu",
       "SOLO_CODEX_WINDOWS_MODE=wsl",
+      "WSL nvm home detection",
+      "/nvm.sh: No such file or directory",
+      "/home/<user>/.nvm/nvm.sh",
       "Codex CLI native runtime missing",
       "Microsoft.VCRedist.2015+.x64",
       "codex.cmd --version failed with exit -1073741515",

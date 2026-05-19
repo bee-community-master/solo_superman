@@ -391,6 +391,9 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     expect(codexAppServerSpawnPlan({ SOLO_CODEX_WINDOWS_MODE: "wsl" }).args[3]).toContain(
       "nvm use --silent 22"
     );
+    expect(codexAppServerSpawnPlan({ SOLO_CODEX_WINDOWS_MODE: "wsl" }).args[3]).toContain(
+      "getent passwd $(id -u)"
+    );
   });
 
   it("starts Codex auth login through the injected background-terminal launcher", async () => {
@@ -454,6 +457,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
 
     expect(command).toContain("wsl.exe -- bash -lc");
     expect(command).toContain("'codex' 'auth' 'login'");
+    expect(command).toContain("NVM_DIR=${NVM_DIR:-$HOME/.nvm}");
     expect(command).toContain("nvm use --silent 22");
     expect(command).not.toContain("cd /d");
     expect(codexWslShellCommand(["auth", "login"])).toContain("'codex' 'auth' 'login'");

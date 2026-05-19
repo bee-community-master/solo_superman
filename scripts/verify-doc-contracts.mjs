@@ -713,6 +713,8 @@ function checkContributorDocsSnippets() {
     "SOLO_CODEX_WINDOWS_MODE=wsl",
     "wsl --install -d Ubuntu",
     "nvm install 22",
+    "WSL nvm home detection",
+    "/nvm.sh: No such file or directory",
     "Microsoft.VCRedist.2015+.x64",
     "codex.cmd --version failed with exit -1073741515",
     "Open Codex login",

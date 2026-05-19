@@ -341,9 +341,22 @@ function Ensure-CodexCliInWsl {
   Write-Step "OpenAI Codex CLI 설치/업데이트 (WSL)"
   $installScript = @'
 set -euo pipefail
+wsl_home="${HOME:-}"
+if [ -z "$wsl_home" ]; then
+  wsl_home="$(getent passwd "$(id -u)" | cut -d: -f6 || true)"
+fi
+if [ -z "$wsl_home" ]; then
+  echo "Could not determine WSL HOME for nvm." >&2
+  exit 44
+fi
+export HOME="$wsl_home"
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 if [ ! -s "$NVM_DIR/nvm.sh" ]; then
-  curl -fsSL __NVM_INSTALL_URL__ | bash
+  curl -fsSL __NVM_INSTALL_URL__ | PROFILE=/dev/null bash
+fi
+if [ ! -s "$NVM_DIR/nvm.sh" ]; then
+  echo "nvm.sh not found at $NVM_DIR/nvm.sh after nvm install." >&2
+  exit 45
 fi
 . "$NVM_DIR/nvm.sh"
 nvm install __NODE_MAJOR__
