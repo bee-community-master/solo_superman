@@ -180,7 +180,7 @@ describe("doc contract verification helpers", () => {
   it("flags stale Tauri/native future-default claims after web realignment", () => {
     const documents = [
       {
-        path: "docs/README.md",
+        path: "docs/README_KO.md",
         text: [
           "Solo Superman is now local web first.",
           "Solo Superman은 macOS-first, local-first Founder OS다.",
@@ -199,20 +199,20 @@ describe("doc contract verification helpers", () => {
     ];
 
     expect(findWebRealignmentFutureDefaultClaims(documents)).toEqual([
-      "docs/README.md:2: Solo Superman은 macOS-first, local-first Founder OS다.",
-      "docs/README.md:3: Tauri/native shell은 future default가 아니라 legacy/current host다.",
-      "docs/README.md:4: ChatGPT automation is Phase 2+ vision.",
-      "docs/README.md:5: Desktop UI keeps the old label.",
-      "docs/README.md:6: Desktop session outside the app.",
-      "docs/README.md:7: Export files require explicit user action through the Tauri native boundary.",
+      "docs/README_KO.md:2: Solo Superman은 macOS-first, local-first Founder OS다.",
+      "docs/README_KO.md:3: Tauri/native shell은 future default가 아니라 legacy/current host다.",
+      "docs/README_KO.md:4: ChatGPT automation is Phase 2+ vision.",
+      "docs/README_KO.md:5: Desktop UI keeps the old label.",
+      "docs/README_KO.md:6: Desktop session outside the app.",
+      "docs/README_KO.md:7: Export files require explicit user action through the Tauri native boundary.",
       "docs/09-system-architecture.md:1: | Desktop shell | Tauri v2 | core 확정 |"
     ]);
   });
 
   it("includes simplified contributor docs in web/local realignment scans", () => {
-    expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/architecture.md");
-    expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/safety-and-permissions.md");
-    expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/decisions.md");
+    expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/architecture_KO.md");
+    expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/safety-and-permissions_KO.md");
+    expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/decisions_KO.md");
   });
 
   it("flags active desktop/native residue in web-local source paths", () => {

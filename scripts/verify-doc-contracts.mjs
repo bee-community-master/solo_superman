@@ -6,18 +6,32 @@ const ROOT = new URL("../", import.meta.url);
 const DOCS_DIR = new URL("docs/", ROOT);
 
 export const CONTRIBUTOR_DOC_PATHS = [
-  "docs/README.md",
-  "docs/product.md",
-  "docs/contributing.md",
-  "docs/architecture.md",
-  "docs/safety-and-permissions.md",
-  "docs/roadmap.md",
-  "docs/decisions.md",
-  "docs/reference.md",
-  "docs/troubleshooting.md"
+  "docs/README_KO.md",
+  "docs/product_KO.md",
+  "docs/contributing_KO.md",
+  "docs/architecture_KO.md",
+  "docs/safety-and-permissions_KO.md",
+  "docs/roadmap_KO.md",
+  "docs/decisions_KO.md",
+  "docs/reference_KO.md",
+  "docs/troubleshooting_KO.md"
 ];
 
 export const WEB_REALIGNMENT_SCAN_PATHS = CONTRIBUTOR_DOC_PATHS;
+
+const CONTRIBUTOR_DOC_SLUGS = [
+  "README",
+  "product",
+  "contributing",
+  "architecture",
+  "safety-and-permissions",
+  "roadmap",
+  "decisions",
+  "reference",
+  "troubleshooting"
+];
+
+const DEFAULT_KO_DOC_PATH = "docs/README.md";
 
 function readText(path) {
   return readFileSync(new URL(path, ROOT), "utf8");
@@ -553,7 +567,11 @@ function requireSnippets(message, text, snippets) {
 }
 
 function checkContributorDocsShape() {
-  const missingDocs = CONTRIBUTOR_DOC_PATHS.filter((path) => !existsSync(new URL(path, ROOT)));
+  const expectedDocs = [
+    DEFAULT_KO_DOC_PATH,
+    ...CONTRIBUTOR_DOC_SLUGS.flatMap((slug) => [`docs/${slug}_KO.md`, `docs/${slug}_EN.md`])
+  ];
+  const missingDocs = expectedDocs.filter((path) => !existsSync(new URL(path, ROOT)));
 
   if (missingDocs.length) {
     fail("contributor docs missing", missingDocs);
@@ -565,8 +583,42 @@ function checkContributorDocsShape() {
     fail("numbered implementation-planning docs should be consolidated", numberedDocs);
   }
 
-  const hub = readText("docs/README.md");
-  const missingHubLinks = CONTRIBUTOR_DOC_PATHS.filter((path) => path !== "docs/README.md").filter((path) => {
+  const unexpectedUnsuffixedDocs = readdirSync(DOCS_DIR).filter((entry) => {
+    if (!entry.endsWith(".md") || entry === "README.md") {
+      return false;
+    }
+
+    return !/_(KO|EN)\.md$/u.test(entry);
+  });
+
+  if (unexpectedUnsuffixedDocs.length) {
+    fail("contributor docs should use _KO/_EN postfixes", unexpectedUnsuffixedDocs);
+  }
+
+  const languageLinkProblems = CONTRIBUTOR_DOC_SLUGS.flatMap((slug) => {
+    const koPath = `docs/${slug}_KO.md`;
+    const enPath = `docs/${slug}_EN.md`;
+    const ko = readText(koPath);
+    const en = readText(enPath);
+    const problems = [];
+
+    if (!ko.split(/\r?\n/u).slice(0, 5).join("\n").includes(`[English](${slug}_EN.md)`)) {
+      problems.push(`${koPath}: missing top English link`);
+    }
+
+    if (!en.split(/\r?\n/u).slice(0, 5).join("\n").includes(`[한국어](${slug}_KO.md)`)) {
+      problems.push(`${enPath}: missing top Korean link`);
+    }
+
+    return problems;
+  });
+
+  if (languageLinkProblems.length) {
+    fail("contributor docs missing bilingual top links", languageLinkProblems);
+  }
+
+  const hub = readText(DEFAULT_KO_DOC_PATH);
+  const missingHubLinks = CONTRIBUTOR_DOC_PATHS.filter((path) => path !== "docs/README_KO.md").filter((path) => {
     const basename = path.replace("docs/", "");
     return !hub.includes(`(${basename})`);
   });
@@ -579,16 +631,16 @@ function checkContributorDocsShape() {
 function checkContributorDocsSnippets() {
   const docs = Object.fromEntries(CONTRIBUTOR_DOC_PATHS.map((path) => [path, readText(path)]));
 
-  requireSnippets("docs/README onboarding posture missing", docs["docs/README.md"], [
-    "Contributor Docs",
+  requireSnippets("docs/README onboarding posture missing", docs["docs/README_KO.md"], [
+    "기여자 문서",
     "local-first web app + local Node/Hono service",
     "Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db",
     "no hosted SaaS default",
     "ExecutionAuthorityRecord",
-    "old numbered planning docs"
+    "numbered planning docs"
   ]);
 
-  requireSnippets("product overview missing product decisions", docs["docs/product.md"], [
+  requireSnippets("product overview missing product decisions", docs["docs/product_KO.md"], [
     "local-first Founder OS",
     "Decision Queue",
     "Living Product Spec",
@@ -597,30 +649,30 @@ function checkContributorDocsSnippets() {
     "no default value"
   ]);
 
-  requireSnippets("contributing guide missing contributor commands", docs["docs/contributing.md"], [
+  requireSnippets("contributing guide missing contributor commands", docs["docs/contributing_KO.md"], [
     "pnpm start:local",
     "pnpm verify:docs",
     "packages/contracts",
-    "PR checklist"
+    "PR 체크리스트"
   ]);
 
-  requireSnippets("architecture doc missing runtime boundary", docs["docs/architecture.md"], [
+  requireSnippets("architecture doc missing runtime boundary", docs["docs/architecture_KO.md"], [
     "Local Web Frontend",
     "Local Node/Hono Service",
     "ProductEngine/application command boundary",
-    "Read-only diagnostics time out at 30 seconds",
+    "Read-only diagnostics는",
     "per-run local capability token",
     "CSRF/replay",
     "hosted web origin",
     "Tauri/native shell source"
   ]);
 
-  requireSnippets("safety doc missing permission guardrails", docs["docs/safety-and-permissions.md"], [
+  requireSnippets("safety doc missing permission guardrails", docs["docs/safety-and-permissions_KO.md"], [
     "No credential/2FA/session custody",
     "account sharing/resale",
     "ExecutionAuthorityRecord",
-    "approvalDecision` starts as `pending`",
-    "executionResult` includes `running`",
+    "approvalDecision`은 `pending`",
+    "executionResult`는 `running`",
     "rollbackReference",
     "git_diff_reverse",
     "external-production mutation",
@@ -628,17 +680,17 @@ function checkContributorDocsSnippets() {
     "ServicePageUsePermission"
   ]);
 
-  requireSnippets("roadmap doc missing phase history", docs["docs/roadmap.md"], [
+  requireSnippets("roadmap doc missing phase history", docs["docs/roadmap_KO.md"], [
     "Phase 1.5B",
     "not execution permission",
     "Phase 2.5",
     "no-execution",
     "common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`",
     "#91",
-    "#98 was the temporary standalone Post-Phase3 tracker"
+    "#98은 임시 standalone Post-Phase3 tracker"
   ]);
 
-  requireSnippets("decisions doc missing durable decisions", docs["docs/decisions.md"], [
+  requireSnippets("decisions doc missing durable decisions", docs["docs/decisions_KO.md"], [
     "Local-first Founder OS",
     "Tauri/native paths removed",
     "no hosted SaaS default",
@@ -647,7 +699,7 @@ function checkContributorDocsSnippets() {
     "README remains short"
   ]);
 
-  requireSnippets("troubleshooting doc missing install/run contract", docs["docs/troubleshooting.md"], [
+  requireSnippets("troubleshooting doc missing install/run contract", docs["docs/troubleshooting_KO.md"], [
     "macOS shell | Windows PowerShell",
     "winget install --id OpenJS.NodeJS.LTS -e",
     "pnpm verify:prod-bundle",
@@ -655,7 +707,7 @@ function checkContributorDocsSnippets() {
     "VITE_SOLO_LOCAL_CAPABILITY_TOKEN",
     "VITE_SOLO_SIDECAR_BASE_URL",
     "token mismatch fails visibly with `401`",
-    "does not require an OpenAI API key or ChatGPT web credential by default",
+    "OpenAI API key, ChatGPT web credential, ChatGPT Pro session이 필요하지 않습니다",
     "codex login status",
     "codex auth login",
     "Open Codex login",
@@ -773,7 +825,7 @@ export function runDocContractChecks() {
   checkContributorDocsShape();
   checkContributorDocsSnippets();
 
-  const reference = readText("docs/reference.md");
+  const reference = readText("docs/reference_KO.md");
   checkReferenceSnippets(reference);
   compareContractTaxonomies(reference);
   compareRoutes(reference);

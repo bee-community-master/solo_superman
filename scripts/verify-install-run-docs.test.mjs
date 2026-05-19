@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const runbook = readFileSync("docs/troubleshooting.md", "utf8");
+const runbook = readFileSync("docs/troubleshooting_KO.md", "utf8");
 const readme = readFileSync("README.md", "utf8");
 const englishReadme = readFileSync("README.en.md", "utf8");
 const windowsBootstrap = readFileSync("scripts/bootstrap-windows.ps1", "utf8");
@@ -52,7 +52,7 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("VITE_SOLO_LOCAL_CAPABILITY_TOKEN");
     expect(runbook).toContain("VITE_SOLO_SIDECAR_BASE_URL");
     expect(runbook).toContain("token mismatch fails visibly with `401`");
-    expect(runbook).toContain("does not require an OpenAI API key or ChatGPT web credential by default");
+    expect(runbook).toContain("OpenAI API key, ChatGPT web credential, ChatGPT Pro session이 필요하지 않습니다");
     expect(runbook).toContain("codex login status");
     expect(runbook).toContain("codex auth login");
     expect(runbook).toContain("Open Codex login");
@@ -67,7 +67,7 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("npm install -g @openai/codex@latest");
     expect(runbook).toContain("codex --version");
     expect(runbook).toContain("https://openai.com/codex/");
-    expect(runbook).toContain("vibe coding or multiple parallel agents");
+    expect(runbook).toContain("바이브 코딩이나 여러 agent 병렬 작업");
     expect(windowsBootstrap).toContain("$CodexDesktopAppUrl");
     expect(windowsBootstrap).toContain("function Ensure-CodexCli");
     expect(windowsBootstrap).toContain('Invoke-Tool "npm" @("install", "-g", "@openai/codex@latest")');
@@ -92,10 +92,10 @@ describe("#105 local install/run verification docs", () => {
     expect(englishReadme).toContain("relaunches itself in an administrator PowerShell");
     expect(englishReadme).toContain("checks or recreates `solo_superman.cmd` plus a `solo_superman` shortcut");
     expect(englishReadme).toContain("waits for Enter before closing");
-    expect(runbook).toContain("Desktop runners named `solo_superman.cmd` and `solo_superman.lnk`");
-    expect(runbook).toContain("localized, public, or OneDrive-redirected Desktop folders");
-    expect(runbook).toContain("waits for Enter before closing");
-    expect(runbook).toContain("opens a UAC prompt");
+    expect(runbook).toContain("바탕화면 실행파일 `solo_superman.cmd`와 `solo_superman.lnk`");
+    expect(runbook).toContain("localized, public, OneDrive-redirected Desktop folders");
+    expect(runbook).toContain("Enter를 누를 때까지 닫히지 않습니다");
+    expect(runbook).toContain("UAC prompt를 여는지");
     expect(runbook).toContain("C:\\Program Files\\nodejs");
     expect(windowsBootstrap).toContain("function Test-IsAdministrator");
     expect(windowsBootstrap).toContain("function Restart-AsAdministrator");

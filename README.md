@@ -46,11 +46,11 @@ cd solo_superman && pnpm start:local
 Set-Location .\solo_superman; pnpm start:local
 ```
 
-로컬 첫 화면 도달과 기본 실행에는 OpenAI API key, ChatGPT web credential, 또는 ChatGPT Pro 세션이 필요하지 않습니다. backend 질문/리서치 preview를 시작할 때 UI는 ChatGPT 웹 세션을 검사하지 않고 로컬 Codex CLI의 `codex login status`만 확인합니다. 필요하면 `codex auth login`을 실행하는 백그라운드 Terminal을 열어 Codex 브라우저 로그인 화면으로 이어지게 합니다. ChatGPT 브라우저 세션을 사용하는 별도 기능은 사용자 승인 흐름이 필요하며 기본 preview 조건이 아닙니다. Solo Superman은 어떤 credential도 수집하거나 저장하지 않습니다. 자세한 문제 해결은 [`docs/troubleshooting.md`](docs/troubleshooting.md)를 참고합니다. 기여자 온보딩과 아키텍처 문서는 [`docs/README.md`](docs/README.md)에서 시작합니다.
+로컬 첫 화면 도달과 기본 실행에는 OpenAI API key, ChatGPT web credential, 또는 ChatGPT Pro 세션이 필요하지 않습니다. backend 질문/리서치 preview를 시작할 때 UI는 ChatGPT 웹 세션을 검사하지 않고 로컬 Codex CLI의 `codex login status`만 확인합니다. 필요하면 `codex auth login`을 실행하는 백그라운드 Terminal을 열어 Codex 브라우저 로그인 화면으로 이어지게 합니다. ChatGPT 브라우저 세션을 사용하는 별도 기능은 사용자 승인 흐름이 필요하며 기본 preview 조건이 아닙니다. Solo Superman은 어떤 credential도 수집하거나 저장하지 않습니다. 자세한 문제 해결은 [`docs/troubleshooting_KO.md`](docs/troubleshooting_KO.md)를 참고합니다. 기여자 온보딩과 아키텍처 문서는 [`docs/README.md`](docs/README.md)에서 시작합니다.
 
 ## 배포 범위
 
-- 현재 권장 공개 방식: 제한 베타 또는 테크니컬 프리뷰
+- 현재 권장 공개 방식: 제한 베타 형태의 테크니컬 프리뷰
 - 적합한 사용자: 로컬 앱 설치에 익숙하거나 안내를 보며 터미널 한 줄 명령을 실행할 수 있는 사용자
 - 아직 남은 일반 배포 과제: 서명된 macOS/Windows 설치 패키지, 자동 업데이트, 오류 리포트, Windows 실기기 검증
 

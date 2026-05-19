@@ -1,10 +1,12 @@
-# Safety and Permissions / 안전과 권한
+# Safety and Permissions
 
-## Non-negotiable posture / 절대 경계
+Language: [한국어](safety-and-permissions_KO.md) | English
+
+## Non-negotiable posture
 
 Solo Superman can help prepare actions, but it must not silently perform risky work. Risky work includes file patch, shell command, browser action, network write, credential access, destructive operation, ChatGPT web automation, external-production mutation, payment/legal/medical/financial action, DNS cutover, account deletion, or final submit.
 
-## Credential and account policy / 인증정보 정책
+## Credential and account policy
 
 - No credential/2FA/session custody.
 - No password, 2FA, session cookie, API key, ChatGPT credential, or payment secret storage.
@@ -12,7 +14,7 @@ Solo Superman can help prepare actions, but it must not silently perform risky w
 - The user must directly own and see any browser session used for local delegation.
 - Redaction preview is required before storing prompt/result/screenshot/log artifacts that might contain sensitive context; users need export/delete controls for retained artifacts.
 
-## ExecutionAuthorityRecord / 실행 권한 기록
+## ExecutionAuthorityRecord
 
 An action is not executable until it has an `ExecutionAuthorityRecord` with bounded source, preview, approval, rollback, and evidence metadata.
 
@@ -25,7 +27,7 @@ Required rules:
 - `shell_command` needs command allowlist, timeout class, stdout/stderr evidence, and no credential prompt.
 - `browser_action` needs loopback-only local targets for the MVP; LAN/private IP targets and cloud preview URLs stay blocked unless a later explicit contract permits them.
 
-## Blocked by default / 기본 차단
+## Blocked by default
 
 The following remain blocked without a later explicit contract:
 
@@ -37,7 +39,7 @@ The following remain blocked without a later explicit contract:
 - external-production mutation, final submit, deploy, purchase, account deletion, or irreversible service write.
 - automated signup/login for external services.
 
-## Service page-use permission / 외부 서비스 페이지 사용 권한
+## Service page-use permission
 
 For Vercel, Supabase, Stripe, GitHub, domain/DNS, app stores, or similar SaaS pages, permission must use a ServicePageUsePermission style purpose-limited page-use permission, not account delegation.
 

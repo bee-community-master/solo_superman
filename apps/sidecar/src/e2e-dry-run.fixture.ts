@@ -130,7 +130,7 @@ export const PHASE15B_ACCEPTANCE_EVIDENCE_MAP = [
   {
     scenario: "Scenario G. Docs contract consistency",
     sourceDocs: [
-      "docs/README.md",
+      "docs/README_KO.md",
       "docs/30-phase1.5-research-runtime-and-readiness-contract.md",
       "docs/31-phase2-planning-handoff-contract.md",
       "docs/32-phase2-implementation-preflight-contract.md"
