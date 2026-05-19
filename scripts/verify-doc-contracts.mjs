@@ -660,7 +660,7 @@ function checkContributorDocsSnippets() {
     "Local Web Frontend",
     "Local Node/Hono Service",
     "ProductEngine/application command boundary",
-    "Read-only diagnostics time out at 30 seconds",
+    "Read-only diagnostics는",
     "per-run local capability token",
     "CSRF/replay",
     "hosted web origin",
@@ -671,8 +671,8 @@ function checkContributorDocsSnippets() {
     "No credential/2FA/session custody",
     "account sharing/resale",
     "ExecutionAuthorityRecord",
-    "approvalDecision` starts as `pending`",
-    "executionResult` includes `running`",
+    "approvalDecision`은 `pending`",
+    "executionResult`는 `running`",
     "rollbackReference",
     "git_diff_reverse",
     "external-production mutation",
@@ -687,7 +687,7 @@ function checkContributorDocsSnippets() {
     "no-execution",
     "common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`",
     "#91",
-    "#98 was the temporary standalone Post-Phase3 tracker"
+    "#98은 임시 standalone Post-Phase3 tracker"
   ]);
 
   requireSnippets("decisions doc missing durable decisions", docs["docs/decisions_KO.md"], [
@@ -707,7 +707,7 @@ function checkContributorDocsSnippets() {
     "VITE_SOLO_LOCAL_CAPABILITY_TOKEN",
     "VITE_SOLO_SIDECAR_BASE_URL",
     "token mismatch fails visibly with `401`",
-    "does not require an OpenAI API key or ChatGPT web credential by default",
+    "OpenAI API key, ChatGPT web credential, ChatGPT Pro session이 필요하지 않습니다",
     "codex login status",
     "codex auth login",
     "Open Codex login",

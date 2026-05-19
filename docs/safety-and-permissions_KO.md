@@ -20,8 +20,8 @@ Action은 bounded source, preview, approval, rollback, evidence metadata를 가�
 
 필수 규칙:
 
-- `approvalDecision` starts as `pending`; user-visible approval만 approved로 바꿀 수 있습니다.
-- `executionResult` includes `running` and must end in a terminal evidence-backed state such as completed, failed, blocked, or partial.
+- `approvalDecision`은 `pending`으로 시작하며, user-visible approval만 approved로 바꿀 수 있습니다.
+- `executionResult`는 `running`을 포함하고 completed, failed, blocked, partial 같은 terminal evidence-backed state로 끝나야 합니다.
 - Executable action에는 execution 전 `rollbackReference`가 필수입니다. Preview-only artifact는 execution이 아니므로 rollback evidence가 필요하지 않습니다.
 - `file_diff`는 기본 rollback으로 `git_diff_reverse`를 사용합니다.
 - `shell_command`는 command allowlist, timeout class, stdout/stderr evidence, no credential prompt가 필요합니다.

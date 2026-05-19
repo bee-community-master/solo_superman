@@ -4,7 +4,7 @@ Language: [한국어](README_KO.md) | English
 
 Solo Superman is a local-first Founder OS that helps solo founders turn vague ideas into question loops, research, decision sessions, and safe execution-prep artifacts.
 
-This `docs/` folder is optimized for contributor onboarding and code-backed contract checks, not for phase-by-phase implementation ledgers. The old `00`~`40` numbered planning docs have been consolidated into this onboarding set. Korean is the default documentation language, and every document links between its `_KO` and `_EN` variants at the top.
+This `docs/` folder is optimized for contributor onboarding and code-backed contract checks, not for phase-by-phase implementation ledgers. The old `00`~`40` numbered planning docs have been consolidated into this onboarding set. Korean is the default documentation language. `docs/README.md` remains the default Korean entrypoint, while the paired docs use `_KO` and `_EN` postfixes and link to each other at the top.
 
 ## Start here
 
@@ -21,7 +21,7 @@ This `docs/` folder is optimized for contributor onboarding and code-backed cont
 
 ## Current posture
 
-- Release channel: limited beta / technical preview.
+- Release channel: limited-beta-style technical preview.
 - Runtime shape: local-first web app + local Node/Hono service.
 - Default topology: Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db.
 - Storage: local embedded libSQL with Drizzle; remote sync config does not enable remote storage today and remains inert until a later explicit sync contract exists.

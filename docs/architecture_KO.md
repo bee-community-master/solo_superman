@@ -21,11 +21,11 @@ Hosted SaaS default는 없습니다. 나중에 hosted web origin이 생기더라
 | Component | Owns | Must not own |
 | --- | --- | --- |
 | Local Web Frontend | User screens, Decision Queue, approval cards, local browser UX. | Direct DB writes, Node filesystem access, credential custody. |
-| Local Node/Hono Service | API envelope, command dispatch, SSE, local auth, runtime adapter boundary. | Product decision logic hidden outside ProductEngine. |
+| Local Node/Hono Service | API envelope, command dispatch, SSE, local auth, runtime adapter boundary. | ProductEngine 밖에 숨은 product decision logic. |
 | ProductEngine | Pure reducer, state transitions, deterministic outputs, effect plans. | Direct DB/Hono/Codex/filesystem/network calls. |
 | `packages/contracts` | DTOs, command/event types, API route catalog, SSE and projection shapes. | App-specific UI behavior. |
 | `packages/db` | libSQL/Drizzle schema, repositories, projection persistence. | Product scoring or AI policy. |
-| Runtime adapters | Bounded previews/execution with evidence and rollback refs. | Silent auto-apply or broad fallback behavior. |
+| Runtime adapters | Evidence와 rollback refs가 있는 bounded preview/execution. | Silent auto-apply 또는 broad fallback behavior. |
 
 ## ProductEngine 패턴
 
@@ -43,7 +43,7 @@ ProductEngine/application command boundary는 application command, route handler
 - API routes는 `packages/contracts/src/api/routes.ts`에 있으며 `docs/reference_KO.md`와 대조됩니다.
 - Command response는 accepted/rejected category를 쓰며 async work에는 `statusUrl`을 노출할 수 있습니다.
 - SSE event는 command, effect, projection, runtime status change를 제공합니다.
-- Read-only diagnostics time out at 30 seconds unless a later explicit contract changes that limit.
+- Read-only diagnostics는 later explicit contract가 바꾸기 전까지 30초 후 timeout됩니다.
 - Phase 3 controlled execution route presence 자체는 permission이 아닙니다. route가 preflight 또는 bounded adapter code를 노출해도 action은 해당 action class와 scope에 대해 `ExecutionAuthorityRecord`가 승인한 뒤에야 executable입니다.
 
 ## 현재 런타임 경계

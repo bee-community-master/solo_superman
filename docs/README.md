@@ -2,7 +2,8 @@
 
 언어: 한국어(기본) | [English](README_EN.md)
 
-파일명 기준 한국어 정본: [README_KO.md](README_KO.md)
+이 파일은 기본 한국어 진입점입니다. `_KO`/`_EN` 쌍 기준의 한국어 문서는 [README_KO.md](README_KO.md)입니다.
+
 
 Solo Superman은 솔로 창업자가 막연한 아이디어를 질문, 리서치, 결정 세션으로 구체화하고 안전한 실행 준비까지 이어 가는 local-first Founder OS입니다.
 
@@ -23,17 +24,17 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 질문, 리서치
 
 ## 현재 상태
 
-- Release channel: limited beta / technical preview.
+- Release channel: 제한 베타 형태의 technical preview.
 - Runtime shape: local-first web app + local Node/Hono service.
 - Default topology: Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db.
-- Storage: local embedded libSQL with Drizzle; remote sync config does not enable remote storage today and remains inert until a later explicit sync contract exists.
-- Risk posture: no hosted SaaS default, no browser-only DB rewrite, no automatic file/shell/browser action without an ExecutionAuthorityRecord.
+- Storage: local embedded libSQL + Drizzle. Remote sync config는 오늘 기준 remote storage를 켜지 않으며, later explicit sync contract가 생기기 전까지 inert 상태입니다.
+- Risk posture: no hosted SaaS default, no browser-only DB rewrite, ExecutionAuthorityRecord 없는 file/shell/browser 자동 실행 금지.
 - 사용자-facing 문구는 사용자가 contributor/developer mode에 명시적으로 들어와 있지 않은 한 Phase, PR number, tracker number 같은 내부 라벨을 피해야 합니다.
 
 ## 기여자 규칙
 
 1. root README는 end user용으로 짧게 유지하고, 기여자 세부 내용은 이 docs 폴더에 둡니다.
-2. contract enum, DTO family, route surface가 바뀌면 `docs/reference_KO.md`와 `scripts/verify-doc-contracts.mjs`를 함께 갱신합니다.
+2. contract enum, DTO family, route surface가 바뀌면 `docs/reference_KO.md`, `docs/reference_EN.md`, `scripts/verify-doc-contracts.mjs`를 함께 갱신합니다.
 3. local-first safety를 보존합니다: loopback-only local service, per-run local capability token, CSRF/replay protection, no credential custody.
 4. 제품 방향을 바꾸면 `docs/decisions_KO.md`에 결정을 기록하고 capability boundary가 이동한 경우 `docs/roadmap_KO.md`도 갱신합니다.
 5. docs 또는 contract surface를 건드린 PR은 열기 전에 `pnpm verify:docs`를 실행합니다.

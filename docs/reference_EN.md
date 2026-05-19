@@ -4,7 +4,7 @@ Language: [한국어](reference_KO.md) | English
 
 This document is intentionally compact but machine-checked. Keep it in sync with `packages/contracts`, `docs/reference_KO.md`, and `scripts/verify-doc-contracts.mjs`.
 
-## Command and event contracts / 명령과 이벤트
+## Command and event contracts
 
 ### CommandType enum
 
@@ -139,7 +139,7 @@ Effect plans are reducer outputs and are executed by bounded effect executors, n
 
 Effect tasks preserve source command/event refs, correlation, retry counts, output refs, and explicit errors.
 
-## Deterministic outputs / 결정적 출력
+## Deterministic outputs
 
 ### ProductEngineDeterministicOutput
 
@@ -170,9 +170,9 @@ Effect tasks preserve source command/event refs, correlation, retry counts, outp
 
 Phase 1 and later runtime previews use bounded Codex artifacts. Phase 3 execution authority is required before file/shell/browser actions become executable.
 
-## Codex preview contract / Codex 미리보기 계약
+## Codex preview contract
 
-Phase 1에서 허용되는 Codex turnPurpose는 다음 6개뿐이다.
+Phase 1 allows only the following six Codex turnPurpose values.
 
 | Value | Rule |
 | --- | --- |
@@ -246,7 +246,7 @@ Auto-apply is allowed only for low-risk deterministic previews. It does not cove
 
 Unknown applyPolicy values must be rejected.
 
-## SSE and projection contracts / SSE와 projection
+## SSE and projection contracts
 
 ### SseEvent union
 
@@ -290,7 +290,7 @@ Projection hints identify a projection kind and refetch URL.
 
 Every projection carries a kind and version, plus surface-specific status/summary fields where the source type requires them.
 
-## API route behavior catalog / API 라우트 카탈로그
+## API route behavior catalog
 
 Route definitions are source-owned by `packages/contracts/src/api/routes.ts`. This table is checked for route and required-query parity.
 
@@ -370,6 +370,6 @@ Route definitions are source-owned by `packages/contracts/src/api/routes.ts`. Th
 | `GET /api/v1/events/stream` | `subscribeEventStream` | `none` | sessionId |
 | `GET /api/v1/sessions/:sessionId/activity` | `getActivity` | `none` | - |
 
-## Contract change rule / 계약 변경 규칙
+## Contract change rule
 
 When a contributor changes command/event/effect/Codex/SSE/projection/route values, update this document and run `pnpm verify:docs`. The verifier compares this file against source code and fails on drift.

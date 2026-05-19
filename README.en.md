@@ -50,7 +50,7 @@ Reaching the local first screen and running the default local path do not requir
 
 ## Release scope
 
-- Current recommended public channel: limited beta or technical preview
+- Current recommended public channel: limited-beta-style technical preview
 - Suitable users: users who are comfortable installing a local app, or who can follow guidance to run one terminal command
 - Remaining general-release work: signed macOS/Windows installer packages, automatic updates, error reporting, and Windows real-device verification
 

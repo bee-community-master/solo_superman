@@ -14,7 +14,7 @@ Solo Superman은 초기 창업자의 막연한 아이디어를 제품 명세, �
 
 ## 핵심 JTBD
 
-앱은 founder가 idea fog에서 concrete starting point로 이동하도록 돕습니다.
+앱은 founder가 흐릿한 아이디어에서 바로 시작 가능한 구체적 출발점으로 이동하도록 돕습니다.
 
 | 영역 | 고정되어야 하는 결과 |
 | --- | --- |
@@ -28,7 +28,7 @@ Solo Superman은 초기 창업자의 막연한 아이디어를 제품 명세, �
 ## 세션 모델
 
 - Default session: 2~5 hour focused clarification loop.
-- Core surface: Decision Queue with 3~5 prioritized questions at a time.
+- Core surface: Decision Queue. 한 번에 3~5개의 우선순위 질문을 다룹니다.
 - Output: Living Product Spec, Founder Brief, Build Slice Plan, Serve Checklist, Learning Loop Hook.
 - Stop feeling: “perfect certainty”가 아니라 “remaining risks를 알고 deliberate하게 시작할 수 있다.”
 
@@ -53,4 +53,4 @@ Business mode는 명시적인 `businessCriticIntensity`가 필요하며 no defau
 
 ## 현재 배포 범위
 
-현재 public posture는 technical preview입니다. local web install/run path를 증명하고 위험한 행동을 reviewable 상태로 유지합니다. 아직 signed macOS/Windows installer package, automatic update, telemetry, Windows real-device certification을 갖춘 broad consumer-grade installer는 아닙니다.
+현재 public posture는 제한 베타 형태의 technical preview입니다. local web install/run path를 증명하고 위험한 행동을 reviewable 상태로 유지합니다. 아직 signed macOS/Windows installer package, automatic update, telemetry, Windows real-device certification을 갖춘 broad consumer-grade installer는 아닙니다.

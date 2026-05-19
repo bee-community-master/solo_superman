@@ -13,7 +13,7 @@ describe("simplified contributor docs preserve Post-Phase3 decisions", () => {
       expect(roadmap).toContain(`#${issue}`);
     }
 
-    expect(roadmap).toContain("#98 was the temporary standalone Post-Phase3 tracker");
+    expect(roadmap).toContain("#98은 임시 standalone Post-Phase3 tracker");
     expect(roadmap).toContain("closed absorbed reference only");
   });
 

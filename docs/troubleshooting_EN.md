@@ -4,7 +4,7 @@ Language: [한국어](troubleshooting_KO.md) | English
 
 ## Release posture
 
-Solo Superman is currently a technical preview. The goal is to let a non-developer reach the local web screen through a safe one-line installer, while keeping risky actions reviewable.
+Solo Superman is currently a limited-beta-style technical preview. The goal is to let a non-developer reach the local web screen through a safe one-line installer, while keeping risky actions reviewable.
 
 ## One-line install
 
@@ -42,7 +42,7 @@ codex --version
 
 ## Run locally
 
-On Windows, the installer creates or refreshes Desktop runners named `solo_superman.cmd` and `solo_superman.lnk` for later launches, including localized, public, or OneDrive-redirected Desktop folders. The Desktop runner uses `call pnpm start:local` so control returns to the cmd wrapper; if launch fails, the cmd window keeps the failure output visible, prints the exit code, and waits for Enter before closing. The macOS installer does not create a Desktop runner and prints the rerun command instead.
+On Windows, the installer creates or refreshes Solo Superman Desktop runners named `solo_superman.cmd` and `solo_superman.lnk` for later launches, including localized, public, or OneDrive-redirected Desktop folders. These runners are Solo Superman relaunch wrappers, not the OpenAI Codex Desktop App. The runner uses `call pnpm start:local` so control returns to the cmd wrapper; if launch fails, the cmd window keeps the failure output visible, prints the exit code, and waits for Enter before closing. The macOS installer does not create a Desktop runner and prints the rerun command instead.
 
 ### macOS shell
 

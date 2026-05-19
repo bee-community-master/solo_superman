@@ -2,7 +2,7 @@
 
 언어: 한국어 | [English](roadmap_EN.md)
 
-Roadmap은 contributor map이며 user-facing UI vocabulary가 아닙니다. code-backed capability band와 보존된 backlog boundary를 함께 다루므로, 어떤 row가 broad end-user availability를 뜻하지 않습니다. Product UI는 Spec-ready, Research in progress, Planning-ready, Waiting for safe execution 같은 user state로 설명해야 합니다.
+Roadmap은 contributor map이며 user-facing UI vocabulary가 아닙니다. code-backed capability band와 보존된 backlog boundary를 함께 다루므로, 어떤 row도 broad end-user availability를 뜻하지 않습니다. Product UI는 Spec-ready, Research in progress, Planning-ready, Waiting for safe execution 같은 user state로 설명해야 합니다.
 
 ## 현재 기능 지도
 
@@ -16,21 +16,21 @@ Roadmap은 contributor map이며 user-facing UI vocabulary가 아닙니다. code
 
 ## 단계 이력 요약
 
-- Phase 1: Research 포함 Spec 폐루프 MVP. Core outputs were Decision Queue, Living Product Spec, Completeness, Founder Brief, and ProductEngine reducer contract.
-- Phase 1.5A: Background Research Runtime. It stays allowlisted and read-only.
-- Phase 1.5B: Execution-readiness Hints. It is readiness metadata, not execution permission, and cannot execute, run, apply, or perform file/shell/browser work.
-- Phase 2: Planning Handoff. It produces a final PlanningHandoffArtifact only when evidence and risk gates pass; otherwise it produces a blocker report.
-- Phase 2.5: Browser Automation Preview. It compares research quality and delegation risk; it is no-execution and must not submit, write, deploy, mutate, store credentials, share accounts, or implement DTO/API/storage preflight.
-- Phase 3: Controlled Execution. It opens MVP action classes only in the sequence common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`.
-- Post-Phase3: Full-vision backlog. It adds purpose mode, critic intensity, local ChatGPT browser delegation, external service permission, implementation step ledger, and cross-platform install/run verification.
+- Phase 1: Research 포함 Spec 폐루프 MVP. Core outputs는 Decision Queue, Living Product Spec, Completeness, Founder Brief, ProductEngine reducer contract였습니다.
+- Phase 1.5A: Background Research Runtime. Allowlisted and read-only 상태를 유지합니다.
+- Phase 1.5B: Execution-readiness Hints. Readiness metadata이며 not execution permission입니다. file/shell/browser work를 execute, run, apply, perform할 수 없습니다.
+- Phase 2: Planning Handoff. Evidence와 risk gate를 통과할 때만 final PlanningHandoffArtifact를 만들고, 그렇지 않으면 blocker report를 만듭니다.
+- Phase 2.5: Browser Automation Preview. Research quality와 delegation risk를 비교하는 no-execution 단계이며, submit/write/deploy/mutate, credential 저장, account sharing, DTO/API/storage preflight 구현을 허용하지 않습니다.
+- Phase 3: Controlled Execution. MVP action class는 common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action` 순서로만 열립니다.
+- Post-Phase3: Full-vision backlog. purpose mode, critic intensity, local ChatGPT browser delegation, external service permission, implementation step ledger, cross-platform install/run verification을 추가합니다.
 
 ## 이슈 이력
 
-- #86, #87, and #88 established the web/local migration and Phase 3 controlled execution prerequisite gates.
-- #91 became the unified tracker for Phase 3 and Post-Phase3 work.
-- #92, #93, #94, #95, #96, and #97 covered Phase 3 ledger, approval/API security, `file_diff`, `shell_command`, `browser_action`, and closeout hardening.
-- #99, #100, #101, #102, #103, #104, #105, and #106 covered purpose mode, critic intensity, ChatGPT browser delegation, service page-use permission, ImplementationStepLedger, install/run verification, and docs/verifier closeout.
-- #98 was the temporary standalone Post-Phase3 tracker and is a closed absorbed reference only.
+- #86, #87, #88은 web/local migration과 Phase 3 controlled execution prerequisite gate를 세웠습니다.
+- #91은 Phase 3와 Post-Phase3 work의 unified tracker가 되었습니다.
+- #92, #93, #94, #95, #96, #97은 Phase 3 ledger, approval/API security, `file_diff`, `shell_command`, `browser_action`, closeout hardening을 다뤘습니다.
+- #99, #100, #101, #102, #103, #104, #105, #106은 purpose mode, critic intensity, ChatGPT browser delegation, service page-use permission, ImplementationStepLedger, install/run verification, docs/verifier closeout을 다뤘습니다.
+- #98은 임시 standalone Post-Phase3 tracker였고, 지금은 closed absorbed reference only입니다.
 
 ## 전환 규칙
 
