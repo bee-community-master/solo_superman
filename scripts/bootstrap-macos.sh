@@ -7,7 +7,7 @@ PNPM_VERSION="${SOLO_SUPERMAN_PNPM_VERSION:-11.0.4}"
 RUN_SMOKE="${SOLO_SUPERMAN_RUN_SMOKE:-1}"
 START_LOCAL="${SOLO_SUPERMAN_START_LOCAL:-1}"
 BOOTSTRAP_COMMAND='/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-macos.sh)"'
-MIN_NODE_MAJOR=20
+MIN_NODE_MAJOR=24
 
 info() {
   printf '\n==> %s\n' "$1"
@@ -114,7 +114,7 @@ ensure_pnpm() {
     warn "corepack을 찾지 못해 npm global pnpm 설치로 fallback합니다."
   fi
 
-  has_command npm || fail "npm을 찾지 못했습니다. Node LTS 설치 후 새 터미널에서 README의 한 줄 설치 명령을 다시 실행하세요."
+  has_command npm || fail "npm을 찾지 못했습니다. Node 24 이상 설치 후 새 터미널에서 README의 한 줄 설치 명령을 다시 실행하세요."
   npm install -g "pnpm@$PNPM_VERSION"
   has_command pnpm || fail "pnpm 설치에 실패했습니다. 새 터미널에서 README의 한 줄 설치 명령을 다시 실행하세요."
   pnpm --version

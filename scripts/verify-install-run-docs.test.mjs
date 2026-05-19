@@ -38,6 +38,16 @@ describe("#105 local install/run verification docs", () => {
     expect(macosBootstrap).toContain(publicRepoUrl);
   });
 
+
+  it("keeps bootstrap Node requirements aligned with package engines", () => {
+    expect(readFileSync("package.json", "utf8")).toContain('"node": ">=24.0.0"');
+    expect(macosBootstrap).toContain("MIN_NODE_MAJOR=24");
+    expect(windowsBootstrap).toContain("$MinNodeMajor = 24");
+    expect(readme).toContain("Node 24 이상");
+    expect(englishReadme).toContain("Node.js 24 or newer");
+    expect(runbook).toContain("Node.js 24+");
+  });
+
   it("keeps local token, sidecar URL, prod bundle smoke, and no-API-key defaults explicit", () => {
     expect(runbook).toContain("VITE_SOLO_LOCAL_CAPABILITY_TOKEN");
     expect(runbook).toContain("VITE_SOLO_SIDECAR_BASE_URL");

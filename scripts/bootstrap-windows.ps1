@@ -6,7 +6,7 @@ $PnpmVersion = if ($env:SOLO_SUPERMAN_PNPM_VERSION) { $env:SOLO_SUPERMAN_PNPM_VE
 $RunSmoke = if ($env:SOLO_SUPERMAN_RUN_SMOKE) { $env:SOLO_SUPERMAN_RUN_SMOKE } else { "1" }
 $StartLocal = if ($env:SOLO_SUPERMAN_START_LOCAL) { $env:SOLO_SUPERMAN_START_LOCAL } else { "1" }
 $BootstrapCommand = "irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1 | iex"
-$MinNodeMajor = 20
+$MinNodeMajor = 24
 
 function Write-Step($Message) {
   Write-Host ""
@@ -63,7 +63,7 @@ function Add-CommonToolPaths {
 
 function Install-WingetPackage($CommandName, $PackageId) {
   if (-not (Test-Command winget)) {
-    throw "winget을 찾지 못했습니다. Node LTS(https://nodejs.org/)와 Git for Windows(https://git-scm.com/download/win)를 설치한 뒤 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
+    throw "winget을 찾지 못했습니다. Node 24 이상(https://nodejs.org/)과 Git for Windows(https://git-scm.com/download/win)를 설치한 뒤 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
   }
 
   Write-Step "$CommandName 설치/복구: winget install --id $PackageId -e"
@@ -103,7 +103,7 @@ function Ensure-Node {
   }
 
   if (Test-Command node) {
-    Write-Warn "현재 node 버전이 너무 낮아 Node LTS 설치/업그레이드를 시도합니다: $(& node --version)"
+    Write-Warn "현재 node 버전이 너무 낮아 Node 24 이상 설치/업그레이드를 시도합니다: $(& node --version)"
   }
 
   Install-WingetPackage "node" "OpenJS.NodeJS.LTS"
@@ -133,7 +133,7 @@ function Ensure-Pnpm {
   }
 
   if (-not (Test-Command npm)) {
-    throw "npm을 찾지 못했습니다. Node LTS 설치 후 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
+    throw "npm을 찾지 못했습니다. Node 24 이상 설치 후 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
   }
 
   Invoke-Tool "npm" @("install", "-g", "pnpm@$PnpmVersion")
