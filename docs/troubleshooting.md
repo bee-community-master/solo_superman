@@ -34,7 +34,7 @@ pnpm --version
 
 ## Run locally / 로컬 실행
 
-On Windows, the installer also creates a Desktop runner named `solo_superman.cmd` for later launches, including localized or OneDrive-redirected Desktop folders. The macOS installer does not create a Desktop runner and prints the rerun command instead.
+On Windows, the installer creates or refreshes Desktop runners named `solo_superman.cmd` and `solo_superman.lnk` for later launches, including localized, public, or OneDrive-redirected Desktop folders. The macOS installer does not create a Desktop runner and prints the rerun command instead.
 
 ### macOS shell
 
