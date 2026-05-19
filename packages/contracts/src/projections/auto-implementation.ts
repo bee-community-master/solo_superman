@@ -258,6 +258,18 @@ function hasCanonicalIssueDocs(issueDocs: readonly AutoImplementationIssueDocume
     issueDocs.every((issue, index) => issue.stage === AUTO_IMPLEMENTATION_STAGES[index]);
 }
 
+function hasConsistentRemoteIssueState(
+  remoteStatus: AutoImplementationRemoteStatus,
+  issueManagement: AutoImplementationIssueManagement,
+  remoteGuide: AutoImplementationRemoteGuide
+) {
+  const expectedIssueMode = remoteStatus === "connected" ? "github_ready" : "markdown_fallback";
+
+  return remoteGuide.status === remoteStatus &&
+    issueManagement.mode === expectedIssueMode &&
+    issueManagement.warning === remoteGuide.warning;
+}
+
 function isRun(value: unknown): value is AutoImplementationRun {
   return isRecord(value) &&
     isNonEmptyString(value.runId) &&
@@ -277,6 +289,7 @@ function isRun(value: unknown): value is AutoImplementationRun {
     isIssueManagement(value.issueManagement) &&
     hasCanonicalIssueDocs(value.issueManagement.issueDocs) &&
     isRemoteGuide(value.remoteGuide) &&
+    hasConsistentRemoteIssueState(value.remoteStatus, value.issueManagement, value.remoteGuide) &&
     isNonEmptyString(value.createdAt) &&
     isNonEmptyString(value.updatedAt) &&
     isStringArray(value.evidenceRefs) &&

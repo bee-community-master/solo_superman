@@ -8,7 +8,27 @@ import {
   validateAutoImplementationRunProjection
 } from "./auto-implementation";
 
-const readyRun = AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!;
+function readyFixtureRun() {
+  const run = AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun;
+
+  if (!run) {
+    throw new Error("AUTO_IMPLEMENTATION_RUN_READY_FIXTURE must include latestRun.");
+  }
+
+  return run;
+}
+
+function requiredFixtureItem<TItem>(items: readonly TItem[], index: number, label: string) {
+  const item = items[index];
+
+  if (!item) {
+    throw new Error(`${label} fixture item ${index} must exist.`);
+  }
+
+  return item;
+}
+
+const readyRun = readyFixtureRun();
 
 function projectionWithLatestRun(run: AutoImplementationRun): AutoImplementationRunProjection {
   return {
@@ -57,8 +77,8 @@ describe("AutoImplementationRunProjection contract", () => {
 
   it("rejects projections when the stage plan is not the canonical runner sequence", () => {
     const outOfOrderStagePlan = [
-      readyRun.stagePlan[1]!,
-      readyRun.stagePlan[0]!,
+      requiredFixtureItem(readyRun.stagePlan, 1, "stagePlan"),
+      requiredFixtureItem(readyRun.stagePlan, 0, "stagePlan"),
       ...readyRun.stagePlan.slice(2)
     ];
     const invalid = projectionWithLatestRun({
@@ -71,8 +91,8 @@ describe("AutoImplementationRunProjection contract", () => {
 
   it("rejects projections when issue documents do not cover the canonical stages in order", () => {
     const outOfOrderIssueDocs = [
-      readyRun.issueManagement.issueDocs[1]!,
-      readyRun.issueManagement.issueDocs[0]!,
+      requiredFixtureItem(readyRun.issueManagement.issueDocs, 1, "issueDocs"),
+      requiredFixtureItem(readyRun.issueManagement.issueDocs, 0, "issueDocs"),
       ...readyRun.issueManagement.issueDocs.slice(2)
     ];
     const invalid = projectionWithLatestRun({
@@ -80,6 +100,21 @@ describe("AutoImplementationRunProjection contract", () => {
       issueManagement: {
         ...readyRun.issueManagement,
         issueDocs: outOfOrderIssueDocs
+      }
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects projections when remote status, guide, and issue mode drift apart", () => {
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      remoteStatus: "connected",
+      remoteGuide: {
+        ...readyRun.remoteGuide,
+        status: "connected",
+        warning: null,
+        commands: []
       }
     });
 
