@@ -60,11 +60,11 @@ describe("#105 local install/run verification docs", () => {
   });
 
   it("installs Codex CLI on Windows and prompts for the optional Codex desktop app", () => {
-    expect(readme).toContain("Corepack/pnpm, Codex CLI");
+    expect(readme).toContain("Corepack/pnpm, Windows native runtime, Codex CLI");
     expect(readme).toContain("Codex CLI는 안정성을 위해 WSL(Ubuntu) 안에 설치");
     expect(readme).toContain("SOLO_CODEX_WINDOWS_MODE=wsl");
     expect(readme).toContain("Codex Desktop App 다운로드 안내 창");
-    expect(englishReadme).toContain("Corepack/pnpm, and Codex CLI");
+    expect(englishReadme).toContain("Corepack/pnpm, Windows native runtime, and Codex CLI");
     expect(englishReadme).toContain("installs and runs Codex CLI inside WSL");
     expect(englishReadme).toContain("SOLO_CODEX_WINDOWS_MODE=wsl");
     expect(englishReadme).toContain("Codex Desktop App download prompt");
@@ -77,6 +77,8 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("wsl.exe -- bash -lc");
     expect(runbook).toContain("npm install -g @openai/codex@latest");
     expect(runbook).toContain("Microsoft.VCRedist.2015+.x64");
+    expect(runbook).toContain("vcruntime140.dll");
+    expect(runbook).toContain("@libsql/win32-x64-msvc");
     expect(runbook).toContain("codex --version");
     expect(runbook).toContain("codex.cmd --version failed with exit -1073741515");
     expect(runbook).toContain("0xC0000135");
@@ -89,6 +91,10 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain("function Invoke-Pnpm");
     expect(windowsBootstrap).toContain("SOLO_PNPM_COMMAND");
     expect(windowsBootstrap).toContain("function Test-PortConflictError");
+    expect(windowsBootstrap).toContain("function Ensure-WindowsNativeRuntime");
+    expect(windowsBootstrap).toContain("function Get-ProdSmokePortConflicts");
+    expect(windowsBootstrap).toContain("function Invoke-ProdSmokeWithAlternatePorts");
+    expect(windowsBootstrap).toContain("vcruntime140_1.dll");
     expect(windowsBootstrap).toContain("function Ensure-WslForCodex");
     expect(windowsBootstrap).toContain("function Set-WslDefaultsForCodex");
     expect(windowsBootstrap).toContain('Invoke-Tool "wsl" @("--set-default-version", "2")');
@@ -213,7 +219,10 @@ describe("#105 local install/run verification docs", () => {
       "/nvm.sh: No such file or directory",
       "/home/<user>/.nvm/nvm.sh",
       "Codex CLI native runtime missing",
+      "Windows sidecar native runtime missing",
       "Microsoft.VCRedist.2015+.x64",
+      "ERR_DLOPEN_FAILED",
+      "@libsql/win32-x64-msvc/index.node",
       "codex.cmd --version failed with exit -1073741515",
       "Windows/WSL `spawn pnpm ENOENT` during smoke",
       "spawn pnpm ENOENT",

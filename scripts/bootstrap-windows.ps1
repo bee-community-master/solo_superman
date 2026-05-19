@@ -39,9 +39,24 @@ function Test-Command($Name) {
 }
 
 function Invoke-Checked($FilePath, [string[]]$Arguments) {
-  & $FilePath @Arguments
-  if ($LASTEXITCODE -ne 0) {
-    throw "$FilePath $($Arguments -join ' ') failed with exit $LASTEXITCODE"
+  $outputLines = New-Object System.Collections.Generic.List[string]
+  & $FilePath @Arguments 2>&1 | ForEach-Object {
+    $line = [string]$_
+    if ($line.Length -gt 0) {
+      $outputLines.Add($line)
+    }
+    Write-Host $line
+  }
+
+  $exitCode = $LASTEXITCODE
+  if ($exitCode -ne 0) {
+    $message = "$FilePath $($Arguments -join ' ') failed with exit $exitCode"
+    if ($outputLines.Count -gt 0) {
+      $tail = ($outputLines | Select-Object -Last 120) -join "`n"
+      throw "$message`n$tail"
+    }
+
+    throw $message
   }
 }
 
@@ -184,6 +199,43 @@ function Install-WingetPackage($CommandName, $PackageId, $MissingWingetMessage) 
   Write-Step "$CommandName 설치/복구: winget install --id $PackageId -e"
   Invoke-Tool "winget" @("install", "--id", $PackageId, "-e", "--accept-package-agreements", "--accept-source-agreements")
   Add-CommonToolPaths
+}
+
+function Test-WindowsNativeRuntime {
+  if (-not $env:WINDIR) {
+    return $false
+  }
+
+  $system32 = Join-Path $env:WINDIR "System32"
+  foreach ($dllName in @("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll")) {
+    if (-not (Test-Path (Join-Path $system32 $dllName))) {
+      return $false
+    }
+  }
+
+  return $true
+}
+
+function Install-WindowsNativeRuntime($Reason) {
+  Write-Step "Windows native runtime 설치/복구"
+  if ($Reason) {
+    Write-Host $Reason
+  }
+  Install-WingetPackage "Microsoft Visual C++ Redistributable (x64)" "Microsoft.VCRedist.2015+.x64" "winget을 찾지 못해 Microsoft Visual C++ Redistributable (x64)을 자동 설치하지 못했습니다. https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist 에서 x64 runtime을 설치한 뒤 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
+}
+
+function Ensure-WindowsNativeRuntime {
+  if (Test-WindowsNativeRuntime) {
+    Write-Step "Windows native runtime already installed: Microsoft Visual C++ Redistributable (x64)"
+    return
+  }
+
+  Write-Warn "Windows native module 실행에 필요한 Visual C++ runtime DLL(vcruntime140.dll/vcruntime140_1.dll/msvcp140.dll)을 찾지 못해 설치/복구를 시도합니다."
+  Install-WindowsNativeRuntime "Solo Superman sidecar의 @libsql/win32-x64-msvc native module과 Codex native fallback은 Microsoft Visual C++ Redistributable (x64)이 필요합니다."
+  Add-CommonToolPaths
+  if (-not (Test-WindowsNativeRuntime)) {
+    throw "Microsoft Visual C++ Redistributable (x64) 설치 후에도 Windows native runtime DLL을 확인하지 못했습니다. Windows 재부팅 또는 새 관리자 PowerShell이 필요할 수 있습니다. 재부팅 후 README의 한 줄 설치 명령을 다시 실행하세요."
+  }
 }
 
 function Ensure-Git {
@@ -494,9 +546,7 @@ function Test-CodexNativeRuntimeFailure($Message) {
 }
 
 function Install-CodexNativeRuntime {
-  Write-Step "Codex CLI native runtime 설치/복구"
-  Write-Host "codex.cmd가 -1073741515(0xC0000135)로 종료되면 필요한 Windows C++ runtime DLL을 찾지 못한 상태일 수 있습니다."
-  Install-WingetPackage "Microsoft Visual C++ Redistributable (x64)" "Microsoft.VCRedist.2015+.x64" "winget을 찾지 못해 Microsoft Visual C++ Redistributable (x64)을 자동 설치하지 못했습니다. https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist 에서 x64 runtime을 설치한 뒤 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
+  Install-WindowsNativeRuntime "codex.cmd가 -1073741515(0xC0000135)로 종료되면 필요한 Windows C++ runtime DLL을 찾지 못한 상태일 수 있습니다."
 }
 
 function Ensure-CodexCliNative {
@@ -784,24 +834,46 @@ function Get-FreePort {
   }
 }
 
-function Invoke-ProdSmoke {
-  if ($RunSmoke -eq "0") {
-    Write-Step "내장 설정으로 smoke 검증을 건너뜁니다."
-    return
-  }
-
-  Write-Step "production bundle smoke"
+function Test-LocalTcpPortAvailable($Port) {
+  $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Parse("127.0.0.1"), [int]$Port)
   try {
-    Invoke-Pnpm @("verify:prod-bundle")
-    return
+    $listener.Start()
+    return $true
   } catch {
-    if (-not (Test-PortConflictError $_.Exception.Message)) {
-      throw "production bundle smoke가 포트 충돌 전 단계에서 실패했습니다. pnpm child process는 SOLO_PNPM_COMMAND로 현재 pnpm 경로를 전달해 실행합니다. $($_.Exception.Message)"
-    }
+    return $false
+  } finally {
+    $listener.Stop()
+  }
+}
 
-    Write-Warn "기본 로컬 포트가 사용 중일 수 있어 빈 포트를 자동 선택해 한 번 더 시도합니다. $($_.Exception.Message)"
+function Get-ProdSmokeConfiguredPort($Name, $DefaultPort) {
+  $rawValue = [Environment]::GetEnvironmentVariable($Name, "Process")
+  $parsedPort = 0
+  if ($rawValue) {
+    if ([int]::TryParse($rawValue, [ref]$parsedPort) -and ($parsedPort -gt 0) -and ($parsedPort -le 65535)) {
+      return $parsedPort
+    }
   }
 
+  return [int]$DefaultPort
+}
+
+function Get-ProdSmokePortConflicts {
+  $conflicts = New-Object System.Collections.Generic.List[string]
+  foreach ($entry in @(
+    @{ Name = "SOLO_PROD_SMOKE_SIDECAR_PORT"; DefaultPort = 43110 },
+    @{ Name = "SOLO_PROD_SMOKE_WEB_PORT"; DefaultPort = 4173 }
+  )) {
+    $port = Get-ProdSmokeConfiguredPort $entry.Name $entry.DefaultPort
+    if (-not (Test-LocalTcpPortAvailable $port)) {
+      $conflicts.Add("$($entry.Name)=$port")
+    }
+  }
+
+  return $conflicts.ToArray()
+}
+
+function Invoke-ProdSmokeWithAlternatePorts {
   $sidecarPort = Get-FreePort
   $webPort = Get-FreePort
   while ($sidecarPort -eq $webPort) {
@@ -819,6 +891,32 @@ function Invoke-ProdSmoke {
     if ($null -eq $oldSidecarPort) { Remove-Item Env:SOLO_PROD_SMOKE_SIDECAR_PORT -ErrorAction SilentlyContinue } else { $env:SOLO_PROD_SMOKE_SIDECAR_PORT = $oldSidecarPort }
     if ($null -eq $oldWebPort) { Remove-Item Env:SOLO_PROD_SMOKE_WEB_PORT -ErrorAction SilentlyContinue } else { $env:SOLO_PROD_SMOKE_WEB_PORT = $oldWebPort }
   }
+}
+
+function Invoke-ProdSmoke {
+  if ($RunSmoke -eq "0") {
+    Write-Step "내장 설정으로 smoke 검증을 건너뜁니다."
+    return
+  }
+
+  Write-Step "production bundle smoke"
+  $portConflicts = @(Get-ProdSmokePortConflicts)
+  if ($portConflicts.Count -eq 0) {
+    try {
+      Invoke-Pnpm @("verify:prod-bundle")
+      return
+    } catch {
+      if (-not (Test-PortConflictError $_.Exception.Message)) {
+        throw "production bundle smoke가 포트 충돌 전 단계에서 실패했습니다. pnpm child process는 SOLO_PNPM_COMMAND로 현재 pnpm 경로를 전달해 실행합니다. $($_.Exception.Message)"
+      }
+
+      Write-Warn "production bundle smoke 실행 중 포트 충돌 가능성이 있어 빈 포트로 한 번 더 시도합니다. $($_.Exception.Message)"
+    }
+  } else {
+    Write-Warn "production bundle smoke 기본/설정 포트가 이미 사용 중이라 빈 포트를 자동 선택합니다: $($portConflicts -join ', ')"
+  }
+
+  Invoke-ProdSmokeWithAlternatePorts
 }
 
 function Invoke-LocalWeb {
@@ -878,6 +976,7 @@ Restart-AsAdministrator
 Add-CommonToolPaths
 Ensure-Git
 Ensure-Node
+Ensure-WindowsNativeRuntime
 Ensure-Pnpm
 Ensure-CodexCli
 
