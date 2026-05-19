@@ -713,6 +713,8 @@ function checkContributorDocsSnippets() {
     "SOLO_CODEX_WINDOWS_MODE=wsl",
     "wsl --install -d Ubuntu",
     "nvm install 22",
+    "WSL install script quoting",
+    "line 8: syntax error: unexpected end of file from 'if' command on line 6",
     "WSL nvm home detection",
     "/nvm.sh: No such file or directory",
     "Microsoft.VCRedist.2015+.x64",
