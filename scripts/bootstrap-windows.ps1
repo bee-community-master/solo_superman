@@ -231,6 +231,19 @@ function Install-WingetPackage($CommandName, $PackageId, $MissingWingetMessage) 
   Add-CommonToolPaths
 }
 
+function Upgrade-WingetPackage($CommandName, $PackageId, $MissingWingetMessage) {
+  if (-not (Test-Command winget)) {
+    if ($MissingWingetMessage) {
+      throw $MissingWingetMessage
+    }
+    throw "winget을 찾지 못했습니다. Node 24 이상(https://nodejs.org/)과 Git for Windows(https://git-scm.com/download/win)를 설치한 뒤 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
+  }
+
+  Write-Step "$CommandName 업그레이드: winget upgrade --id $PackageId -e"
+  Invoke-Tool "winget" @("upgrade", "--id", $PackageId, "-e", "--accept-package-agreements", "--accept-source-agreements")
+  Add-CommonToolPaths
+}
+
 function Test-WindowsNativeRuntime {
   if (-not $env:WINDIR) {
     return $false
@@ -292,6 +305,51 @@ function Get-NodeMajor {
   }
 }
 
+function Get-PnpmVersion {
+  if (-not (Test-Command pnpm)) {
+    return $null
+  }
+
+  try {
+    $pnpm = Get-ToolPath "pnpm"
+    $output = & $pnpm @("--version") 2>$null
+    if ($LASTEXITCODE -ne 0) {
+      return $null
+    }
+
+    return ([string]($output | Select-Object -First 1)).Trim()
+  } catch {
+    return $null
+  }
+}
+
+function Test-PnpmVersionReady($Version) {
+  if (-not $Version) {
+    return $false
+  }
+
+  $requiredMajor = [int](([string]$PnpmVersion).Split(".")[0])
+  if ([string]$Version -notmatch "^(\d+)") {
+    return $false
+  }
+
+  return [int]$Matches[1] -ge $requiredMajor
+}
+
+function Use-ExistingPnpmIfReady($Source) {
+  $version = Get-PnpmVersion
+  if (Test-PnpmVersionReady $version) {
+    Write-Step "pnpm ready: $version ($Source)"
+    return $true
+  }
+
+  if ($version) {
+    Write-Warn "현재 pnpm 버전이 너무 낮아 pnpm@$PnpmVersion 활성화/설치를 시도합니다: $version"
+  }
+
+  return $false
+}
+
 function Ensure-Node {
   $major = Get-NodeMajor
   if ($major -ge $MinNodeMajor) {
@@ -301,29 +359,47 @@ function Ensure-Node {
 
   if (Test-Command node) {
     Write-Warn "현재 node 버전이 너무 낮아 Node 24 이상 설치/업그레이드를 시도합니다: $(& node --version)"
+    try {
+      Upgrade-WingetPackage "node" "OpenJS.NodeJS.LTS"
+    } catch {
+      Write-Warn "Node winget upgrade가 실패해 install/repair 경로를 시도합니다. $($_.Exception.Message)"
+    }
+    $major = Get-NodeMajor
+    if ($major -ge $MinNodeMajor) {
+      Write-Step "node ready: $(& node --version)"
+      return
+    }
   }
 
   Install-WingetPackage "node" "OpenJS.NodeJS.LTS"
   $major = Get-NodeMajor
   if ($major -lt $MinNodeMajor) {
-    throw "Node $MinNodeMajor 이상이 필요합니다. 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
+    $currentNode = if (Test-Command node) { & node --version } else { "not found" }
+    throw "Node $MinNodeMajor 이상이 필요하지만 현재 PowerShell에서는 $currentNode 입니다. winget upgrade --id OpenJS.NodeJS.LTS -e 또는 https://nodejs.org/ 의 Windows x64 LTS installer로 Node 24 이상을 설치한 뒤 새 관리자 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
   }
   Write-Step "node ready: $(& node --version)"
 }
 
 function Ensure-Pnpm {
+  if (Use-ExistingPnpmIfReady "existing command") {
+    return
+  }
+
   if (Test-Command corepack) {
     Write-Step "pnpm@$PnpmVersion 활성화"
     try {
       Invoke-Tool "corepack" @("enable")
       Invoke-Tool "corepack" @("prepare", "pnpm@$PnpmVersion", "--activate")
       Add-CommonToolPaths
-      if (Test-Command pnpm) {
-        Invoke-Pnpm @("--version")
+      if (Use-ExistingPnpmIfReady "corepack") {
         return
       }
     } catch {
-      Write-Warn "Corepack pnpm 활성화가 실패해 npm global 설치로 fallback합니다. $($_.Exception.Message)"
+      Write-Warn "Corepack pnpm 활성화가 실패했습니다. 이미 있는 pnpm shim을 확인한 뒤 필요할 때만 npm global 설치로 fallback합니다. $($_.Exception.Message)"
+      Add-CommonToolPaths
+      if (Use-ExistingPnpmIfReady "after corepack failure") {
+        return
+      }
     }
   } else {
     Write-Warn "corepack을 찾지 못해 npm global pnpm 설치로 fallback합니다."
@@ -333,12 +409,22 @@ function Ensure-Pnpm {
     throw "npm을 찾지 못했습니다. Node 24 이상 설치 후 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
   }
 
-  Invoke-Tool "npm" @("install", "-g", "pnpm@$PnpmVersion")
+  try {
+    Invoke-Tool "npm" @("install", "-g", "pnpm@$PnpmVersion")
+  } catch {
+    Write-Warn "npm global pnpm 설치가 실패했습니다. 이미 있는 pnpm shim을 한 번 더 확인합니다. $($_.Exception.Message)"
+    Add-CommonToolPaths
+    if (Use-ExistingPnpmIfReady "after npm fallback failure") {
+      return
+    }
+
+    throw
+  }
+
   Add-CommonToolPaths
-  if (-not (Test-Command pnpm)) {
+  if (-not (Use-ExistingPnpmIfReady "npm global install")) {
     throw "pnpm 설치에 실패했습니다. 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
   }
-  Invoke-Pnpm @("--version")
 }
 
 function Assert-CodexWindowsMode {

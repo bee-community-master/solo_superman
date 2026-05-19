@@ -19,6 +19,7 @@ describe("#105 local install/run verification docs", () => {
 
   it("uses PowerShell syntax for Windows setup without relying on bash exports", () => {
     expect(runbook).toContain("winget install --id OpenJS.NodeJS.LTS -e");
+    expect(runbook).toContain("winget upgrade --id OpenJS.NodeJS.LTS -e");
     expect(runbook).toContain("$env:SOLO_LOCAL_CAPABILITY_TOKEN");
     expect(runbook).toContain('Set-Location "$HOME\\solo_superman"');
     expect(runbook).toContain("pnpm.cmd --version");
@@ -56,6 +57,9 @@ describe("#105 local install/run verification docs", () => {
     expect(readFileSync("package.json", "utf8")).toContain('"node": ">=24.0.0"');
     expect(macosBootstrap).toContain("MIN_NODE_MAJOR=24");
     expect(windowsBootstrap).toContain("$MinNodeMajor = 24");
+    expect(windowsBootstrap).toContain("function Upgrade-WingetPackage");
+    expect(windowsBootstrap).toContain('Upgrade-WingetPackage "node" "OpenJS.NodeJS.LTS"');
+    expect(windowsBootstrap).toContain("winget upgrade --id OpenJS.NodeJS.LTS -e");
     expect(readme).toContain("Node 24 이상");
     expect(englishReadme).toContain("Node.js 24 or newer");
     expect(runbook).toContain("Node.js 24+");
@@ -103,6 +107,10 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain('"SOLO_SUPERMAN_CODEX_WSL_DISTRO"');
     expect(windowsBootstrap).toContain("function Invoke-Pnpm");
     expect(windowsBootstrap).toContain("SOLO_PNPM_COMMAND");
+    expect(windowsBootstrap).toContain("function Get-PnpmVersion");
+    expect(windowsBootstrap).toContain("function Use-ExistingPnpmIfReady");
+    expect(windowsBootstrap).toContain("after corepack failure");
+    expect(windowsBootstrap).toContain("after npm fallback failure");
     expect(windowsBootstrap).toContain("function Test-PortConflictError");
     expect(windowsBootstrap).toContain("function Initialize-Utf8Console");
     expect(windowsBootstrap).toContain("chcp.com 65001");
@@ -215,6 +223,8 @@ describe("#105 local install/run verification docs", () => {
       "Token mismatch",
       "CORS/origin",
       "Garbled Korean or UTF-8 output",
+      "Corepack or npm `already exists` for pnpm",
+      "Node stays on v22.x",
       "TLS 1.2",
       "Execution policy",
       "Path quoting",
