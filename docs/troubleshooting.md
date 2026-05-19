@@ -113,6 +113,7 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 | Token mismatch | API returns `401`. | Re-run `pnpm start:local` so frontend and sidecar share one token. |
 | CORS/origin | Browser request is blocked. | Confirm loopback URL and local sidecar base URL. |
 | Administrator permission denied | Corepack reports `operation not permitted` for `C:\Program Files\nodejs\pnpx` or Windows denies `C:\Users\Public\Desktop\solo_superman.cmd`. | Rerun the README one-line installer and approve the UAC administrator prompt. If company policy blocks UAC, stop and use an approved managed install path. |
+| Windows `spawn pnpm ENOENT` during smoke | `pnpm verify:prod-bundle` fails even though `pnpm --version` works in PowerShell, often after a previous install attempt. | The production smoke runner must spawn `pnpm.cmd` on Windows instead of bare `pnpm`; rerun the updated installer so it pulls the fixed script before smoke verification. |
 | Execution policy | Windows blocks script execution. | Show the policy error and retry command; do not bypass company policy. |
 | Path quoting | Spaces in path break a command. | Use quoted PowerShell paths or `Set-Location`. |
 | Long path | Windows dependency install fails deep in `node_modules`. | Enable long paths or move checkout to a shorter path. |

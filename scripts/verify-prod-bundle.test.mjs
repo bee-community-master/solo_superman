@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cleanupProdBundleSmoke,
   fetchWithTimeout,
+  pnpmCommand,
   prodBundleSmokeCommands,
   prodBundleSmokeConfig,
   prodBundleSmokeEnvironment
@@ -49,6 +50,21 @@ describe("verify-prod-bundle smoke plan", () => {
         "--strictPort"
       ]
     ]);
+  });
+
+  it("uses pnpm.cmd on Windows so child_process spawn can run package scripts", () => {
+    expect(pnpmCommand("win32")).toBe("pnpm.cmd");
+    expect(pnpmCommand("darwin")).toBe("pnpm");
+    expect(pnpmCommand("linux")).toBe("pnpm");
+
+    const config = prodBundleSmokeConfig({
+      SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token"
+    });
+    const commands = prodBundleSmokeCommands(config, "win32");
+
+    expect(commands.build[0]).toBe("pnpm.cmd");
+    expect(commands.sidecar[0]).toBe("pnpm.cmd");
+    expect(commands.webPreview[0]).toBe("pnpm.cmd");
   });
 
   it("rejects invalid timeout overrides before starting the smoke process", () => {

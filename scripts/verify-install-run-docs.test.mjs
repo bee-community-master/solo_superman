@@ -142,7 +142,9 @@ describe("#105 local install/run verification docs", () => {
       "Antivirus/network prompt",
       "Administrator permission denied",
       "operation not permitted",
-      "C:\\Users\\Public\\Desktop\\solo_superman.cmd"
+      "C:\\Users\\Public\\Desktop\\solo_superman.cmd",
+      "spawn pnpm ENOENT",
+      "pnpm.cmd"
     ]) {
       expect(runbook).toContain(snippet);
     }
