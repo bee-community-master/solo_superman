@@ -19,8 +19,11 @@ describe("verify-prod-bundle smoke plan", () => {
 
     expect(config.sidecarBaseUrl).toBe("http://127.0.0.1:43112");
     expect(config.webBaseUrl).toBe("http://127.0.0.1:4175");
+    expect(config.sidecarBindHost).toBe("127.0.0.1");
+    expect(config.webBindHost).toBe("127.0.0.1");
     expect(env).toMatchObject({
       SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token",
+      SOLO_SIDECAR_HOST: "127.0.0.1",
       VITE_SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token",
       VITE_SOLO_SIDECAR_BASE_URL: "http://127.0.0.1:43112",
       SOLO_APP_DATA_DIR: "/tmp/solo-prod-smoke"
@@ -31,7 +34,7 @@ describe("verify-prod-bundle smoke plan", () => {
     const config = prodBundleSmokeConfig({
       SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token"
     });
-    const commands = prodBundleSmokeCommands(config);
+    const commands = prodBundleSmokeCommands(config, "linux", {});
 
     expect(commands.build).toEqual(["pnpm", ["-r", "--if-present", "build"]]);
     expect(commands.sidecar).toEqual(["pnpm", ["--filter", "@solo-superman/sidecar", "start"]]);
@@ -53,19 +56,51 @@ describe("verify-prod-bundle smoke plan", () => {
   });
 
   it("uses pnpm.cmd on Windows so child_process spawn can run package scripts", () => {
-    expect(pnpmCommand("win32")).toBe("pnpm.cmd");
-    expect(pnpmCommand("darwin")).toBe("pnpm");
-    expect(pnpmCommand("linux")).toBe("pnpm");
+    expect(pnpmCommand("win32", {})).toBe("pnpm.cmd");
+    expect(pnpmCommand("darwin", {})).toBe("pnpm");
+    expect(pnpmCommand("linux", {})).toBe("pnpm");
 
     const config = prodBundleSmokeConfig({
       SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token"
     });
-    const commands = prodBundleSmokeCommands(config, "win32");
+    const commands = prodBundleSmokeCommands(config, "win32", {});
 
     expect(commands.build[0]).toBe("pnpm.cmd");
     expect(commands.build[1]).toEqual(["-r", "--if-present", "build"]);
     expect(commands.sidecar[0]).toBe("pnpm.cmd");
     expect(commands.webPreview[0]).toBe("pnpm.cmd");
+  });
+
+  it("uses the active pnpm entrypoint instead of a bare pnpm spawn when available", () => {
+    const env = {
+      npm_execpath: "/opt/pnpm/bin/pnpm.cjs",
+      npm_config_user_agent: "pnpm/11.0.4 npm/? node/v24.0.0"
+    };
+    const config = prodBundleSmokeConfig({
+      SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token"
+    });
+    const commands = prodBundleSmokeCommands(config, "linux", env);
+
+    expect(commands.build).toEqual([process.execPath, ["/opt/pnpm/bin/pnpm.cjs", "-r", "--if-present", "build"]]);
+    expect(commands.sidecar[0]).toBe(process.execPath);
+    expect(commands.webPreview[0]).toBe(process.execPath);
+  });
+
+  it("binds smoke servers to wildcard inside WSL while keeping fetch URLs loopback-only", () => {
+    const config = prodBundleSmokeConfig({
+      SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token",
+      WSL_DISTRO_NAME: "Ubuntu"
+    }, "linux");
+    const env = prodBundleSmokeEnvironment(config, "/tmp/solo-prod-smoke");
+    const commands = prodBundleSmokeCommands(config, "linux", {});
+
+    expect(config.sidecarHost).toBe("127.0.0.1");
+    expect(config.webHost).toBe("127.0.0.1");
+    expect(config.sidecarBindHost).toBe("0.0.0.0");
+    expect(config.webBindHost).toBe("0.0.0.0");
+    expect(config.sidecarBaseUrl).toBe("http://127.0.0.1:43110");
+    expect(env.SOLO_SIDECAR_HOST).toBe("0.0.0.0");
+    expect(commands.webPreview[1]).toContain("0.0.0.0");
   });
 
   it("rejects invalid timeout overrides before starting the smoke process", () => {
@@ -80,6 +115,10 @@ describe("verify-prod-bundle smoke plan", () => {
     })).toThrow("SOLO_PROD_SMOKE_WEB_HOST must be loopback-only");
 
     expect(() => prodBundleSmokeConfig({
+      SOLO_PROD_SMOKE_WEB_BIND_HOST: "0.0.0.0"
+    }, "darwin")).toThrow("SOLO_PROD_SMOKE_WEB_BIND_HOST may use 0.0.0.0 only when running inside WSL");
+
+    expect(() => prodBundleSmokeConfig({
       SOLO_PROD_SMOKE_SIDECAR_PORT: "0"
     })).toThrow("SOLO_PROD_SMOKE_SIDECAR_PORT must be a fixed local port");
   });
@@ -90,7 +129,7 @@ describe("verify-prod-bundle smoke plan", () => {
       SOLO_PROD_SMOKE_SIDECAR_HOST: "::1",
       SOLO_PROD_SMOKE_WEB_HOST: "[::1]"
     });
-    const commands = prodBundleSmokeCommands(config);
+    const commands = prodBundleSmokeCommands(config, "linux", {});
 
     expect(config.sidecarHost).toBe("::1");
     expect(config.webHost).toBe("::1");

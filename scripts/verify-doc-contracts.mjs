@@ -711,7 +711,9 @@ function checkContributorDocsSnippets() {
     "codex login status",
     "codex auth login",
     "SOLO_CODEX_WINDOWS_MODE=wsl",
+    "wsl --set-default-version 2",
     "wsl --install -d Ubuntu",
+    "같은 한 줄 명령",
     "nvm install 22",
     "WSL install script quoting",
     "line 8: syntax error: unexpected end of file from 'if' command on line 6",
@@ -736,7 +738,11 @@ function checkContributorDocsSnippets() {
     "Antivirus/network prompt",
     "Administrator permission denied",
     "Codex CLI native runtime missing",
-    "Windows `spawn pnpm ENOENT` during smoke"
+    "Windows/WSL `spawn pnpm ENOENT` during smoke",
+    "npm_execpath",
+    "SOLO_PNPM_COMMAND",
+    "WSL localhost port binding",
+    "0.0.0.0"
   ]);
 }
 

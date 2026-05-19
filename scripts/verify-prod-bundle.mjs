@@ -4,13 +4,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { defaultLocalBindHost, normalizeBindHost, normalizeLoopbackHost, packageManagerSpawn, shouldUseShellForCommand } from "./local-platform.mjs";
 
 const DEFAULT_SIDECAR_HOST = "127.0.0.1";
 const DEFAULT_SIDECAR_PORT = "43110";
 const DEFAULT_WEB_HOST = "127.0.0.1";
 const DEFAULT_WEB_PORT = "4173";
 const DEFAULT_TIMEOUT_MS = 30_000;
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 const RUNTIME_STATUS_PATH = "/api/v1/runtime/status";
 const WRONG_TOKEN = "intentionally-wrong-prod-smoke-token";
 const FETCH_RETRY_INTERVAL_MS = 250;
@@ -34,13 +34,11 @@ function positiveIntegerEnv(env, name, fallback) {
 }
 
 function loopbackHostEnv(env, name, fallback) {
-  const value = envValue(env, name, fallback);
+  return normalizeLoopbackHost(envValue(env, name, fallback), name);
+}
 
-  if (!LOOPBACK_HOSTS.has(value)) {
-    throw new Error(`${name} must be loopback-only for local production smoke: ${value}`);
-  }
-
-  return value === "[::1]" ? "::1" : value;
+function bindHostEnv(env, name, fallback, platform = process.platform) {
+  return normalizeBindHost(envValue(env, name, fallback), name, env, platform);
 }
 
 function fixedPortEnv(env, name, fallback) {
@@ -69,14 +67,27 @@ function formatHttpOrigin(host, port) {
   return `http://${urlHost}:${port}`;
 }
 
-export function pnpmCommand(platform = process.platform) {
-  return platform === "win32" ? "pnpm.cmd" : "pnpm";
+export function pnpmCommand(platform = process.platform, env = process.env) {
+  return packageManagerSpawn([], env, platform)[0];
 }
 
-export function prodBundleSmokeConfig(env = process.env) {
+export function prodBundleSmokeConfig(env = process.env, platform = process.platform) {
+  const defaultBindHost = defaultLocalBindHost(env, platform);
   const sidecarHost = loopbackHostEnv(env, "SOLO_PROD_SMOKE_SIDECAR_HOST", DEFAULT_SIDECAR_HOST);
+  const sidecarBindHost = bindHostEnv(
+    env,
+    "SOLO_PROD_SMOKE_SIDECAR_BIND_HOST",
+    defaultBindHost === "0.0.0.0" ? defaultBindHost : sidecarHost,
+    platform
+  );
   const sidecarPort = fixedPortEnv(env, "SOLO_PROD_SMOKE_SIDECAR_PORT", DEFAULT_SIDECAR_PORT);
   const webHost = loopbackHostEnv(env, "SOLO_PROD_SMOKE_WEB_HOST", DEFAULT_WEB_HOST);
+  const webBindHost = bindHostEnv(
+    env,
+    "SOLO_PROD_SMOKE_WEB_BIND_HOST",
+    defaultBindHost === "0.0.0.0" ? defaultBindHost : webHost,
+    platform
+  );
   const webPort = fixedPortEnv(env, "SOLO_PROD_SMOKE_WEB_PORT", DEFAULT_WEB_PORT);
   const localCapabilityToken = envValue(env, "SOLO_LOCAL_CAPABILITY_TOKEN", generatedToken());
   const sidecarBaseUrl = formatHttpOrigin(sidecarHost, sidecarPort);
@@ -85,9 +96,11 @@ export function prodBundleSmokeConfig(env = process.env) {
   return {
     localCapabilityToken,
     sidecarHost,
+    sidecarBindHost,
     sidecarPort,
     sidecarBaseUrl,
     webHost,
+    webBindHost,
     webPort,
     webBaseUrl,
     timeoutMs: positiveIntegerEnv(env, "SOLO_PROD_SMOKE_TIMEOUT_MS", DEFAULT_TIMEOUT_MS)
@@ -98,7 +111,7 @@ export function prodBundleSmokeEnvironment(config, appDataDir, env = process.env
   return {
     ...env,
     SOLO_LOCAL_CAPABILITY_TOKEN: config.localCapabilityToken,
-    SOLO_SIDECAR_HOST: config.sidecarHost,
+    SOLO_SIDECAR_HOST: config.sidecarBindHost,
     SOLO_SIDECAR_PORT: config.sidecarPort,
     SOLO_APP_DATA_DIR: appDataDir,
     VITE_SOLO_LOCAL_CAPABILITY_TOKEN: config.localCapabilityToken,
@@ -106,27 +119,22 @@ export function prodBundleSmokeEnvironment(config, appDataDir, env = process.env
   };
 }
 
-export function prodBundleSmokeCommands(config, platform = process.platform) {
-  const pnpm = pnpmCommand(platform);
-
+export function prodBundleSmokeCommands(config, platform = process.platform, env = process.env) {
   return {
-    build: [pnpm, ["-r", "--if-present", "build"]],
-    sidecar: [pnpm, ["--filter", "@solo-superman/sidecar", "start"]],
-    webPreview: [
-      pnpm,
-      [
-        "--filter",
-        "@solo-superman/web",
-        "exec",
-        "vite",
-        "preview",
-        "--host",
-        config.webHost,
-        "--port",
-        config.webPort,
-        "--strictPort"
-      ]
-    ]
+    build: packageManagerSpawn(["-r", "--if-present", "build"], env, platform),
+    sidecar: packageManagerSpawn(["--filter", "@solo-superman/sidecar", "start"], env, platform),
+    webPreview: packageManagerSpawn([
+      "--filter",
+      "@solo-superman/web",
+      "exec",
+      "vite",
+      "preview",
+      "--host",
+      config.webBindHost,
+      "--port",
+      config.webPort,
+      "--strictPort"
+    ], env, platform)
   };
 }
 
@@ -135,8 +143,10 @@ function commandLabel(command, args) {
 }
 
 function spawnManaged(command, args, options = {}) {
+  const { platform = process.platform, ...spawnOptions } = options;
   const child = spawn(command, args, {
-    ...options,
+    ...spawnOptions,
+    shell: shouldUseShellForCommand(command, platform),
     stdio: ["ignore", "pipe", "pipe"]
   });
   const managed = {
@@ -301,7 +311,7 @@ export async function runProdBundleSmoke() {
   const config = prodBundleSmokeConfig();
   const appDataDir = await mkdtemp(join(tmpdir(), "solo-superman-prod-smoke-"));
   const env = prodBundleSmokeEnvironment(config, appDataDir);
-  const commands = prodBundleSmokeCommands(config);
+  const commands = prodBundleSmokeCommands(config, process.platform, process.env);
   const processes = [];
   let passedEvidence;
 

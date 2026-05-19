@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDevEnvironment, resolveLocalCapabilityToken, resolveSidecarBaseUrl } from "./dev-with-local-token.mjs";
+import { createDevEnvironment, devCommand, resolveLocalCapabilityToken, resolveSidecarBaseUrl } from "./dev-with-local-token.mjs";
 
 describe("PR-02 dev local capability token launcher", () => {
   it("preserves an explicitly shared token for both web frontend and sidecar dev processes", () => {
@@ -80,5 +80,23 @@ describe("PR-02 dev local capability token launcher", () => {
         SOLO_SIDECAR_PORT: "0"
       })
     ).toThrow("SOLO_SIDECAR_PORT must be a fixed port");
+  });
+
+  it("uses the active pnpm entrypoint for parallel dev process spawning", () => {
+    expect(devCommand("linux", {
+      npm_execpath: "/opt/pnpm/bin/pnpm.cjs",
+      npm_config_user_agent: "pnpm/11.0.4 npm/? node/v24.0.0"
+    })).toEqual([
+      process.execPath,
+      [
+        "/opt/pnpm/bin/pnpm.cjs",
+        "--parallel",
+        "--filter",
+        "@solo-superman/sidecar",
+        "--filter",
+        "@solo-superman/web",
+        "dev"
+      ]
+    ]);
   });
 });

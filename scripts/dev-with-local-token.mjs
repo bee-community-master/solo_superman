@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import { pathToFileURL, URL } from "node:url";
+import { packageManagerSpawn, shouldUseShellForCommand } from "./local-platform.mjs";
 
 const DEFAULT_SIDECAR_HOST = "127.0.0.1";
 const DEFAULT_SIDECAR_PORT = "43110";
@@ -93,15 +94,21 @@ export function createDevEnvironment(env = process.env) {
   };
 }
 
-export function runDev() {
-  const child = spawn(
-    "pnpm",
+export function devCommand(platform = process.platform, env = process.env) {
+  return packageManagerSpawn(
     ["--parallel", "--filter", "@solo-superman/sidecar", "--filter", "@solo-superman/web", "dev"],
-    {
-      env: createDevEnvironment(),
-      stdio: "inherit"
-    }
+    env,
+    platform
   );
+}
+
+export function runDev() {
+  const [command, args] = devCommand();
+  const child = spawn(command, args, {
+    env: createDevEnvironment(),
+    shell: shouldUseShellForCommand(command),
+    stdio: "inherit"
+  });
 
   child.on("exit", (code, signal) => {
     if (signal) {

@@ -29,7 +29,7 @@ pnpm --version
 
 README의 one-line Windows installer는 prerequisite 변경 전에 관리자 권한으로 재실행합니다. 관리자 권한이 아니면 Windows UAC 승인을 요청하고 같은 bootstrap command를 administrator PowerShell에서 다시 실행합니다. Corepack이 `C:\Program Files\nodejs` 아래 shim을 쓰거나 Solo Superman 바탕화면 실행파일 생성 단계가 `C:\Users\Public\Desktop`을 만질 수 있기 때문입니다. UAC 또는 회사 정책이 elevation을 막으면 policy를 우회하지 않고 retry command와 함께 중단합니다.
 
-Node/npm과 pnpm이 준비되면 Windows installer는 Codex에 WSL을 기본 사용합니다. `wsl.exe`와 배포판을 확인하고, 배포판이 없으면 `wsl --install -d Ubuntu`를 시도합니다. Windows 재부팅이나 Ubuntu 첫 실행 Linux 사용자 이름/비밀번호 설정이 필요하면 쉬운 retry message와 함께 멈춥니다. WSL Codex 설치는 multi-line bash를 `bash -lc` 인수로 직접 넘기지 않고 Windows 임시 `.sh` 파일을 LF/UTF-8로 작성한 뒤 `wslpath`로 변환해 `wsl -- bash <script>`로 실행합니다. 그 스크립트 안에서는 Linux home을 명시적으로 계산해 `NVM_DIR`을 `$HOME/.nvm`으로 고정하고, 필요할 때 nvm을 설치한 뒤 `nvm install 22`를 실행합니다. 이어서 `npm install -g @openai/codex@latest`로 OpenAI Codex CLI를 설치 또는 갱신하고 `codex --version`으로 검증합니다. 바탕화면 실행파일은 `SOLO_CODEX_WINDOWS_MODE=wsl`을 설정하며 sidecar는 native `codex.cmd` 대신 `wsl.exe -- bash -lc ...`로 Codex account check를 실행합니다.
+Node/npm과 pnpm이 준비되면 Windows installer는 Codex에 WSL을 기본 사용합니다. `wsl.exe`와 배포판을 확인하고, Codex CLI용 WSL 기본 버전을 `wsl --set-default-version 2`로 WSL2에 맞춘 뒤 Ubuntu 또는 이미 설치된 배포판을 `wsl --set-default <배포판>`으로 기본 배포판에 둡니다. 배포판이 없으면 `wsl --install -d Ubuntu`를 시도하고, 첫 WSL 설치 케이스에서는 Windows 재부팅이나 Ubuntu 첫 실행 Linux 사용자 이름/비밀번호 설정이 필요할 수 있으므로 그 단계에서 멈춥니다. 사용자는 재부팅 후 Ubuntu 첫 실행 Linux 사용자 이름/비밀번호 설정을 끝내고 같은 한 줄 명령을 다시 실행합니다. WSL Codex 설치는 multi-line bash를 `bash -lc` 인수로 직접 넘기지 않고 Windows 임시 `.sh` 파일을 LF/UTF-8로 작성한 뒤 `wslpath`로 변환해 `wsl -- bash <script>`로 실행합니다. 그 스크립트 안에서는 Linux home을 명시적으로 계산해 `NVM_DIR`을 `$HOME/.nvm`으로 고정하고, 필요할 때 nvm을 설치한 뒤 `nvm install 22`를 실행합니다. 이어서 `npm install -g @openai/codex@latest`로 OpenAI Codex CLI를 설치 또는 갱신하고 `codex --version`으로 검증합니다. 바탕화면 실행파일은 `SOLO_CODEX_WINDOWS_MODE=wsl`을 설정하며 sidecar는 native `codex.cmd` 대신 `wsl.exe -- bash -lc ...`로 Codex account check를 실행합니다.
 
 Maintainer가 `SOLO_SUPERMAN_CODEX_WINDOWS_MODE=native`를 명시한 경우에는 Windows installer가 native fallback을 사용할 수 있습니다. 이때는 `npm install -g @openai/codex@latest`로 OpenAI Codex CLI를 설치 또는 갱신하고 `codex --version`으로 검증합니다. `codex.cmd --version failed with exit -1073741515` 또는 `0xC0000135`가 발생하면 native runtime 누락으로 보고 `winget install --id Microsoft.VCRedist.2015+.x64 -e`로 Microsoft Visual C++ Redistributable (x64)을 설치한 뒤 `codex --version`을 다시 실행합니다. 이 단계는 Codex login flow를 시작하거나 credential을 저장하지 않습니다. 사용자는 Codex를 쓰기로 선택했을 때 ChatGPT account 또는 API key로 sign in합니다. Optional desktop experience를 위해 installer는 `https://openai.com/codex/`를 열고, 바이브 코딩이나 여러 agent 병렬 작업을 원하면 Codex Desktop App for Windows를 받을 수 있다고 안내합니다.
 
@@ -38,7 +38,10 @@ winget install --id OpenJS.NodeJS.LTS -e
 winget install --id Git.Git -e
 corepack enable
 pnpm --version
+wsl --set-default-version 2
 wsl --install -d Ubuntu
+# Windows가 요청하면 재부팅하고, Ubuntu 첫 실행 Linux 사용자 이름/비밀번호 설정 후 같은 한 줄 명령을 다시 실행합니다.
+wsl --set-default Ubuntu
 wsl -- bash -lc 'curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash'
 wsl -- bash -lc 'NVM_DIR="${NVM_DIR:-$HOME/.nvm}"; . "$NVM_DIR/nvm.sh"; nvm install 22; nvm use 22; npm install -g @openai/codex@latest; codex --version'
 winget install --id Microsoft.VCRedist.2015+.x64 -e
@@ -103,8 +106,9 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 ## Manual Windows PowerShell checklist / Windows 수동 체크리스트
 
 - non-admin PowerShell에서 시작해 one-line installer가 UAC prompt를 여는지 확인하고, Corepack/pnpm activation 전에 administrator PowerShell로 재실행하는지 확인합니다.
-- Installer가 WSL을 확인하고 배포판이 없을 때 `wsl --install -d Ubuntu`를 실행하는지, reboot 또는 Ubuntu first-run user setup이 필요하면 rerun message를 주는지 확인합니다.
+- Installer가 WSL을 확인하고 `wsl --set-default-version 2` 및 기본 배포판 설정을 수행하는지, 배포판이 없을 때 `wsl --install -d Ubuntu`를 실행한 뒤 reboot 또는 Ubuntu first-run user setup이 필요하면 같은 한 줄 명령 rerun message를 주는지 확인합니다.
 - Installer가 WSL 안에서 `nvm install 22`를 실행한 뒤 `npm install -g @openai/codex@latest`와 `codex --version`이 credential prompt 없이 성공하는지 확인합니다.
+- WSL 안에서 local web 또는 production smoke를 실행할 때 server bind host는 `0.0.0.0`, browser/fetch URL은 `127.0.0.1` loopback으로 유지되는지 확인합니다.
 - `solo_superman.cmd`가 `SOLO_CODEX_WINDOWS_MODE=wsl`을 설정하고 sidecar가 Codex account check에 `wsl.exe`를 사용하는지 확인합니다.
 - Native fallback을 명시적으로 켠 상태에서 `codex.cmd --version failed with exit -1073741515`가 발생하면 installer가 Microsoft Visual C++ Redistributable (x64)을 설치하고 `codex --version`을 다시 실행하는지 확인합니다.
 - Codex Desktop App download window가 `https://openai.com/codex/`로 열리고 popup이 바이브 코딩 / parallel agent work용 optional 안내임을 설명하는지 확인합니다.
@@ -123,12 +127,13 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 | Token mismatch | API returns `401`. | frontend와 sidecar가 같은 token을 받도록 `pnpm start:local`을 다시 실행합니다. |
 | CORS/origin | Browser request is blocked. | loopback URL과 local sidecar base URL을 확인합니다. |
 | Administrator permission denied | Corepack reports `operation not permitted` for `C:\Program Files\nodejs\pnpx` or Windows denies `C:\Users\Public\Desktop\solo_superman.cmd`. | README one-line installer를 다시 실행하고 UAC administrator prompt를 승인합니다. 회사 정책이 UAC를 막으면 중단하고 승인된 managed install path를 사용합니다. |
-| Codex WSL setup incomplete | Installer가 WSL/Ubuntu reboot 또는 first-run Linux user/password setup이 필요하다고 보고합니다. | Windows가 요청했다면 reboot하고, Ubuntu를 한 번 열어 Linux user setup을 끝낸 뒤 README one-line installer를 다시 실행합니다. Installer가 WSL 안의 Codex CLI 설치를 이어서 진행합니다. |
+| Codex WSL setup incomplete | Installer가 WSL/Ubuntu reboot 또는 first-run Linux user/password setup이 필요하다고 보고합니다. | Windows가 요청했다면 reboot하고, Ubuntu를 한 번 열어 Linux user setup을 끝낸 뒤 README의 같은 한 줄 명령을 다시 실행합니다. Installer가 WSL2/default 배포판 설정과 WSL 안의 Codex CLI 설치를 이어서 진행합니다. |
 | WSL install script quoting | `line 8: syntax error: unexpected end of file from 'if' command on line 6`처럼 multi-line bash가 중간에서 끊긴 듯한 오류가 보입니다. | updated installer는 multi-line WSL install script를 `bash -lc` argument로 직접 전달하지 않고 LF/UTF-8 temporary `.sh` file로 작성한 뒤 `wslpath`로 변환해 `wsl -- bash <script>`로 실행합니다. |
 | WSL wslpath Windows path escaping | `wslpath: C:Users...AppDataLocalTemp...codex-wsl-install.sh`처럼 backslash가 사라진 Windows temp path가 보입니다. | updated installer는 `wslpath` 입력을 `C:\...`가 아니라 `C:/...` forward-slash Windows path로 변환합니다. `wslpath`가 그래도 실패하면 default `/mnt/c/...` mount path로 fallback합니다. |
 | WSL nvm home detection | WSL Codex install에서 `/nvm.sh: No such file or directory` 또는 `nvm.sh not found`가 보입니다. | Windows backslash로 바꾸지 않습니다. WSL 안의 nvm path는 Linux slash path인 `/home/<user>/.nvm/nvm.sh`여야 합니다. updated installer는 WSL `HOME`을 명시적으로 계산하고 `NVM_DIR`을 `$HOME/.nvm`으로 고정한 뒤 nvm.sh 존재를 확인합니다. |
 | Codex CLI native runtime missing | Native fallback에서 `npm install -g @openai/codex@latest` 직후 `codex.cmd --version failed with exit -1073741515` 또는 `0xC0000135`가 발생합니다. | 기본 WSL 경로를 우선 사용합니다. Native fallback이 꼭 필요하면 `winget install --id Microsoft.VCRedist.2015+.x64 -e`로 Microsoft Visual C++ Redistributable (x64)을 설치한 뒤 `codex --version`을 다시 실행합니다. updated installer는 native mode에서 이 과정을 자동 수행합니다. |
-| Windows `spawn pnpm ENOENT` during smoke | `pnpm verify:prod-bundle` fails even though `pnpm --version` works in PowerShell, often after a previous install attempt. The same error can appear twice because the installer retries the smoke with alternate ports. | Production smoke runner는 Windows에서 bare `pnpm` 대신 `pnpm.cmd`를 spawn해야 하며, root `pnpm build` script를 한 번 더 호출하지 않고 `pnpm.cmd -r --if-present build`를 직접 실행해야 합니다. fixed script를 받도록 updated installer를 다시 실행합니다. |
+| Windows/WSL `spawn pnpm ENOENT` during smoke | `pnpm verify:prod-bundle` 또는 `pnpm start:local` 안의 child process가 `spawn pnpm ENOENT`로 실패합니다. Windows installer가 같은 오류를 포트 충돌로 오인해 alternate ports retry를 반복할 수 있습니다. | updated runner는 `npm_execpath` 또는 installer가 넘긴 `SOLO_PNPM_COMMAND`로 현재 pnpm entrypoint를 재사용하고, Windows `.cmd` shim은 shell 경유로 실행합니다. installer는 `EADDRINUSE`/`strictPort` 같은 실제 포트 충돌에서만 alternate ports retry를 수행합니다. |
+| WSL localhost port binding | WSL에서 서버가 떠도 Windows 브라우저에서 `localhost`/`127.0.0.1` 포트가 열리지 않거나 readiness fetch가 계속 실패합니다. | updated local runner는 WSL 감지 시 server bind host를 `0.0.0.0`으로 사용하되, browser/fetch URL과 Vite sidecar base URL은 loopback `127.0.0.1`로 유지합니다. Native macOS/Windows에서는 `0.0.0.0` bind override를 허용하지 않습니다. |
 | Execution policy | Windows blocks script execution. | Policy error와 retry command를 보여주며 회사 정책을 우회하지 않습니다. |
 | Path quoting | Spaces in path break a command. | quoted PowerShell paths 또는 `Set-Location`을 사용합니다. |
 | Long path | Windows dependency install fails deep in `node_modules`. | long paths를 enable하거나 checkout을 shorter path로 옮깁니다. |

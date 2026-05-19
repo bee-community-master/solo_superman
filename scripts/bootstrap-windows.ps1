@@ -11,6 +11,7 @@ $ShowCodexDesktopPrompt = if ($env:SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT) { $e
 $CodexWindowsMode = if ($env:SOLO_SUPERMAN_CODEX_WINDOWS_MODE) { $env:SOLO_SUPERMAN_CODEX_WINDOWS_MODE.ToLowerInvariant() } elseif ($env:SOLO_CODEX_WINDOWS_MODE) { $env:SOLO_CODEX_WINDOWS_MODE.ToLowerInvariant() } else { "wsl" }
 $CodexNvmInstallUrl = if ($env:SOLO_SUPERMAN_CODEX_NVM_INSTALL_URL) { $env:SOLO_SUPERMAN_CODEX_NVM_INSTALL_URL } else { "https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh" }
 $CodexWslNodeMajor = if ($env:SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR) { $env:SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR } else { "22" }
+$CodexWslDistro = if ($env:SOLO_SUPERMAN_CODEX_WSL_DISTRO) { $env:SOLO_SUPERMAN_CODEX_WSL_DISTRO } else { "Ubuntu" }
 $MinNodeMajor = 24
 
 function Write-Step($Message) {
@@ -59,6 +60,25 @@ function Invoke-Tool($BaseName, [string[]]$Arguments) {
   Invoke-Checked (Get-ToolPath $BaseName) $Arguments
 }
 
+function Invoke-Pnpm([string[]]$Arguments) {
+  $pnpm = Get-ToolPath "pnpm"
+  $oldPnpmCommand = $env:SOLO_PNPM_COMMAND
+  try {
+    $env:SOLO_PNPM_COMMAND = $pnpm
+    Invoke-Checked $pnpm $Arguments
+  } finally {
+    if ($null -eq $oldPnpmCommand) {
+      Remove-Item Env:SOLO_PNPM_COMMAND -ErrorAction SilentlyContinue
+    } else {
+      $env:SOLO_PNPM_COMMAND = $oldPnpmCommand
+    }
+  }
+}
+
+function Test-PortConflictError($Message) {
+  return [string]$Message -match "EADDRINUSE|address already in use|strictPort|Port conflict|포트 충돌"
+}
+
 function ConvertTo-PowerShellLiteral($Value) {
   if ($null -eq $Value) {
     return "''"
@@ -105,7 +125,8 @@ function Restart-AsAdministrator {
     "SOLO_SUPERMAN_CODEX_WINDOWS_MODE",
     "SOLO_CODEX_WINDOWS_MODE",
     "SOLO_SUPERMAN_CODEX_NVM_INSTALL_URL",
-    "SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR"
+    "SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR",
+    "SOLO_SUPERMAN_CODEX_WSL_DISTRO"
   )) {
     $value = [Environment]::GetEnvironmentVariable($name, "Process")
     if ($null -ne $value) {
@@ -216,7 +237,7 @@ function Ensure-Pnpm {
       Invoke-Tool "corepack" @("prepare", "pnpm@$PnpmVersion", "--activate")
       Add-CommonToolPaths
       if (Test-Command pnpm) {
-        Invoke-Tool "pnpm" @("--version")
+        Invoke-Pnpm @("--version")
         return
       }
     } catch {
@@ -235,7 +256,7 @@ function Ensure-Pnpm {
   if (-not (Test-Command pnpm)) {
     throw "pnpm 설치에 실패했습니다. 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
   }
-  Invoke-Tool "pnpm" @("--version")
+  Invoke-Pnpm @("--version")
 }
 
 function Assert-CodexWindowsMode {
@@ -245,6 +266,10 @@ function Assert-CodexWindowsMode {
 
   if ($CodexWslNodeMajor -notmatch "^\d+$") {
     throw "SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR 값은 숫자 major 버전이어야 합니다. 현재 값: $CodexWslNodeMajor"
+  }
+
+  if ([string]::IsNullOrWhiteSpace($CodexWslDistro)) {
+    throw "SOLO_SUPERMAN_CODEX_WSL_DISTRO 값은 비어 있을 수 없습니다."
   }
 
   if ($CodexNvmInstallUrl -notmatch "^https://") {
@@ -280,6 +305,39 @@ function Get-WslDistributionNames {
   } catch {
     return @()
   }
+}
+
+function Select-CodexWslDistribution($Distributions) {
+  $distributionList = @($Distributions)
+  foreach ($distribution in $distributionList) {
+    if ($distribution -ieq $CodexWslDistro) {
+      return $distribution
+    }
+  }
+
+  return ($distributionList | Select-Object -First 1)
+}
+
+function Set-WslDefaultsForCodex($Distributions) {
+  Write-Step "Codex CLI용 WSL2/default 배포판 설정"
+  try {
+    [void](Invoke-Tool "wsl" @("--set-default-version", "2"))
+  } catch {
+    Write-Warn "WSL 기본 버전을 2로 설정하지 못했습니다. 이미 정책으로 고정되어 있거나 Windows가 재부팅을 기다리는 상태일 수 있습니다. $($_.Exception.Message)"
+  }
+
+  $targetDistro = Select-CodexWslDistribution $Distributions
+  if (-not $targetDistro) {
+    return $null
+  }
+
+  try {
+    [void](Invoke-Tool "wsl" @("--set-default", $targetDistro))
+  } catch {
+    Write-Warn "Codex CLI용 기본 WSL 배포판을 $targetDistro 로 설정하지 못했습니다. 현재 default 배포판으로 계속 시도합니다. $($_.Exception.Message)"
+  }
+
+  return $targetDistro
 }
 
 function Invoke-WslBash($Command) {
@@ -345,31 +403,40 @@ function Invoke-WslScript($Script) {
 
 function Ensure-WslForCodex {
   if (-not (Test-Command wsl)) {
-    throw "WSL 명령을 찾지 못했습니다. Windows 10 2004 이상 또는 Windows 11에서 관리자 PowerShell로 wsl --install을 실행한 뒤 README의 한 줄 설치 명령을 다시 실행하세요."
+    throw "WSL 명령을 찾지 못했습니다. Windows 10 2004 이상 또는 Windows 11에서 관리자 PowerShell로 wsl --install을 실행한 뒤 PC를 재부팅하고, $CodexWslDistro 를 한 번 열어 Linux 사용자 이름/비밀번호를 만든 다음 같은 한 줄 명령을 다시 실행하세요: $BootstrapCommand"
   }
 
   $distributions = @(Get-WslDistributionNames)
   if ($distributions.Count -eq 0) {
-    Write-Step "Codex CLI용 WSL/Ubuntu 설치"
+    Write-Step "Codex CLI용 WSL/$CodexWslDistro 설치 및 기본 경로 설정"
     try {
-      Invoke-Tool "wsl" @("--install", "-d", "Ubuntu")
+      Invoke-Tool "wsl" @("--set-default-version", "2")
     } catch {
-      Write-Warn "wsl --install -d Ubuntu 자동 실행이 실패했습니다. Windows가 재부팅 또는 Microsoft Store/회사 정책 승인을 요구할 수 있습니다. $($_.Exception.Message)"
+      Write-Warn "WSL 설치 전 기본 버전 2 설정이 실패했습니다. wsl --install 뒤 Windows 재부팅으로 해결될 수 있습니다. $($_.Exception.Message)"
     }
 
-    $distributions = @(Get-WslDistributionNames)
-    if ($distributions.Count -eq 0) {
-      throw "Codex CLI는 Windows에서 WSL 경로를 기본으로 사용합니다. Windows가 재부팅을 요청했다면 재부팅하고, Ubuntu를 한 번 열어 Linux 사용자 이름/비밀번호를 만든 뒤 README의 한 줄 설치 명령을 다시 실행하세요."
+    try {
+      Invoke-Tool "wsl" @("--install", "-d", $CodexWslDistro)
+    } catch {
+      throw "WSL/$CodexWslDistro 설치 명령이 완료되지 않았습니다. Windows가 재부팅 또는 Microsoft Store/회사 정책 승인을 요구할 수 있습니다. PC를 재부팅하고, $CodexWslDistro 를 한 번 열어 Linux 사용자 이름/비밀번호를 만든 뒤 새 관리자 PowerShell에서 같은 한 줄 명령을 다시 실행하세요: $BootstrapCommand :: $($_.Exception.Message)"
     }
+
+    throw "WSL/$CodexWslDistro 첫 설치를 시작했습니다. Windows가 재부팅을 요청할 수 있으므로 PC를 재부팅하고, $CodexWslDistro 를 한 번 열어 Linux 사용자 이름/비밀번호를 만든 뒤 새 관리자 PowerShell에서 같은 한 줄 명령을 다시 실행하세요: $BootstrapCommand"
   }
+
+  $targetDistro = Set-WslDefaultsForCodex $distributions
 
   try {
     Invoke-WslBash "printf solo-superman-wsl-ready"
   } catch {
-    throw "WSL 배포판은 보이지만 bash 실행 또는 첫 사용자 설정이 끝나지 않았습니다. Ubuntu를 한 번 열어 Linux 사용자 이름/비밀번호를 만든 뒤 README의 한 줄 설치 명령을 다시 실행하세요. $($_.Exception.Message)"
+    throw "WSL 배포판은 보이지만 bash 실행 또는 첫 사용자 설정이 끝나지 않았습니다. Windows가 요청했다면 재부팅하고, $CodexWslDistro 를 한 번 열어 Linux 사용자 이름/비밀번호를 만든 뒤 같은 한 줄 명령을 다시 실행하세요: $BootstrapCommand :: $($_.Exception.Message)"
   }
 
-  Write-Step "WSL ready for Codex CLI: $($distributions -join ', ')"
+  if ($targetDistro) {
+    Write-Step "WSL ready for Codex CLI: default=$targetDistro installed=$($distributions -join ', ')"
+  } else {
+    Write-Step "WSL ready for Codex CLI: $($distributions -join ', ')"
+  }
 }
 
 function Ensure-WslCurl {
@@ -725,9 +792,13 @@ function Invoke-ProdSmoke {
 
   Write-Step "production bundle smoke"
   try {
-    Invoke-Tool "pnpm" @("verify:prod-bundle")
+    Invoke-Pnpm @("verify:prod-bundle")
     return
   } catch {
+    if (-not (Test-PortConflictError $_.Exception.Message)) {
+      throw "production bundle smoke가 포트 충돌 전 단계에서 실패했습니다. pnpm child process는 SOLO_PNPM_COMMAND로 현재 pnpm 경로를 전달해 실행합니다. $($_.Exception.Message)"
+    }
+
     Write-Warn "기본 로컬 포트가 사용 중일 수 있어 빈 포트를 자동 선택해 한 번 더 시도합니다. $($_.Exception.Message)"
   }
 
@@ -743,7 +814,7 @@ function Invoke-ProdSmoke {
     $env:SOLO_PROD_SMOKE_SIDECAR_PORT = [string]$sidecarPort
     $env:SOLO_PROD_SMOKE_WEB_PORT = [string]$webPort
     Write-Step "production bundle smoke retry: sidecar=$sidecarPort web=$webPort"
-    Invoke-Tool "pnpm" @("verify:prod-bundle")
+    Invoke-Pnpm @("verify:prod-bundle")
   } finally {
     if ($null -eq $oldSidecarPort) { Remove-Item Env:SOLO_PROD_SMOKE_SIDECAR_PORT -ErrorAction SilentlyContinue } else { $env:SOLO_PROD_SMOKE_SIDECAR_PORT = $oldSidecarPort }
     if ($null -eq $oldWebPort) { Remove-Item Env:SOLO_PROD_SMOKE_WEB_PORT -ErrorAction SilentlyContinue } else { $env:SOLO_PROD_SMOKE_WEB_PORT = $oldWebPort }
@@ -760,7 +831,7 @@ function Invoke-LocalWeb {
 
   Write-Step "Solo Superman web 화면을 엽니다. 브라우저가 열리면 이 터미널을 닫지 마세요."
   $env:SOLO_CODEX_WINDOWS_MODE = $CodexWindowsMode
-  Invoke-Tool "pnpm" @("start:local")
+  Invoke-Pnpm @("start:local")
 }
 
 function Write-InstallSummary($TargetPath, $DesktopRunnerPaths) {
@@ -828,7 +899,7 @@ if (Test-ExpectedRepo $TargetPath) {
 
 Set-Location $TargetPath
 Write-Step "dependency install"
-Invoke-Tool "pnpm" @("install", "--frozen-lockfile")
+Invoke-Pnpm @("install", "--frozen-lockfile")
 
 $DesktopRunnerPaths = @(New-DesktopRunner $TargetPath)
 Invoke-ProdSmoke

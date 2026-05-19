@@ -2,8 +2,9 @@ import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { pathToFileURL } from "node:url";
+import { defaultLocalBindHost, normalizeBindHost, normalizeLoopbackHost, packageManagerSpawn, shouldUseShellForCommand } from "./local-platform.mjs";
 
-const LOOPBACK_HOST = "127.0.0.1";
+const DEFAULT_URL_HOST = "127.0.0.1";
 const DEFAULT_SIDECAR_PORT = 43110;
 const DEFAULT_WEB_PORT = 1420;
 const DEFAULT_READY_TIMEOUT_MS = 60_000;
@@ -45,8 +46,8 @@ function parsePreferredPort(env, name, fallback) {
   return parsed;
 }
 
-export function pnpmCommand(platform = process.platform) {
-  return platform === "win32" ? "pnpm.cmd" : "pnpm";
+export function pnpmCommand(platform = process.platform, env = process.env) {
+  return packageManagerSpawn([], env, platform)[0];
 }
 
 export function browserOpenCommand(url, platform = process.platform) {
@@ -66,10 +67,12 @@ export function generatedToken() {
 }
 
 function formatHttpOrigin(host, port) {
-  return `http://${host}:${port}`;
+  const urlHost = host.includes(":") ? `[${host}]` : host;
+
+  return `http://${urlHost}:${port}`;
 }
 
-export async function isPortAvailable(port, host = LOOPBACK_HOST) {
+export async function isPortAvailable(port, host = DEFAULT_URL_HOST) {
   return await new Promise((resolve) => {
     const server = createServer();
 
@@ -82,7 +85,7 @@ export async function isPortAvailable(port, host = LOOPBACK_HOST) {
   });
 }
 
-export async function findAvailablePort(preferredPort, host = LOOPBACK_HOST) {
+export async function findAvailablePort(preferredPort, host = DEFAULT_URL_HOST) {
   if (preferredPort > 0 && await isPortAvailable(preferredPort, host)) {
     return preferredPort;
   }
@@ -104,21 +107,31 @@ export async function findAvailablePort(preferredPort, host = LOOPBACK_HOST) {
   });
 }
 
-export async function resolveLocalRunConfig(env = process.env) {
-  const sidecarPort = await findAvailablePort(
-    parsePreferredPort(env, "SOLO_LOCAL_RUN_SIDECAR_PORT", DEFAULT_SIDECAR_PORT)
+export async function resolveLocalRunConfig(env = process.env, platform = process.platform) {
+  const urlHost = normalizeLoopbackHost(envValue(env, "SOLO_LOCAL_RUN_URL_HOST", DEFAULT_URL_HOST), "SOLO_LOCAL_RUN_URL_HOST");
+  const defaultBindHost = defaultLocalBindHost(env, platform);
+  const bindHost = normalizeBindHost(
+    envValue(env, "SOLO_LOCAL_RUN_BIND_HOST", defaultBindHost === "0.0.0.0" ? defaultBindHost : urlHost),
+    "SOLO_LOCAL_RUN_BIND_HOST",
+    env,
+    platform
   );
-  let webPort = await findAvailablePort(parsePreferredPort(env, "SOLO_LOCAL_RUN_WEB_PORT", DEFAULT_WEB_PORT));
+  const sidecarPort = await findAvailablePort(
+    parsePreferredPort(env, "SOLO_LOCAL_RUN_SIDECAR_PORT", DEFAULT_SIDECAR_PORT),
+    bindHost
+  );
+  let webPort = await findAvailablePort(parsePreferredPort(env, "SOLO_LOCAL_RUN_WEB_PORT", DEFAULT_WEB_PORT), bindHost);
 
   while (webPort === sidecarPort) {
-    webPort = await findAvailablePort(0);
+    webPort = await findAvailablePort(0, bindHost);
   }
 
-  const sidecarBaseUrl = formatHttpOrigin(LOOPBACK_HOST, sidecarPort);
-  const webBaseUrl = formatHttpOrigin(LOOPBACK_HOST, webPort);
+  const sidecarBaseUrl = formatHttpOrigin(urlHost, sidecarPort);
+  const webBaseUrl = formatHttpOrigin(urlHost, webPort);
 
   return {
-    host: LOOPBACK_HOST,
+    host: bindHost,
+    urlHost,
     localCapabilityToken: envValue(env, "SOLO_LOCAL_CAPABILITY_TOKEN", generatedToken()),
     openBrowser: envValue(env, "SOLO_LOCAL_OPEN_BROWSER", "1") !== "0",
     readyTimeoutMs: positiveIntegerEnv(env, "SOLO_LOCAL_READY_TIMEOUT_MS", DEFAULT_READY_TIMEOUT_MS),
@@ -140,25 +153,20 @@ export function localRunEnvironment(config, env = process.env) {
   };
 }
 
-export function localRunCommands(config, platform = process.platform) {
-  const pnpm = pnpmCommand(platform);
-
+export function localRunCommands(config, platform = process.platform, env = process.env) {
   return {
-    sidecar: [pnpm, ["--filter", "@solo-superman/sidecar", "start"]],
-    web: [
-      pnpm,
-      [
-        "--filter",
-        "@solo-superman/web",
-        "exec",
-        "vite",
-        "--host",
-        config.host,
-        "--port",
-        config.webPort,
-        "--strictPort"
-      ]
-    ]
+    sidecar: packageManagerSpawn(["--filter", "@solo-superman/sidecar", "start"], env, platform),
+    web: packageManagerSpawn([
+      "--filter",
+      "@solo-superman/web",
+      "exec",
+      "vite",
+      "--host",
+      config.host,
+      "--port",
+      config.webPort,
+      "--strictPort"
+    ], env, platform)
   };
 }
 
@@ -167,8 +175,10 @@ function commandLabel(command, args) {
 }
 
 function spawnManaged(command, args, options = {}) {
+  const { platform = process.platform, ...spawnOptions } = options;
   const child = spawn(command, args, {
-    ...options,
+    ...spawnOptions,
+    shell: shouldUseShellForCommand(command, platform),
     stdio: ["ignore", "pipe", "pipe"]
   });
   const managed = {
@@ -356,7 +366,7 @@ async function waitForStopSignal(processes) {
 
 async function startOnce(config) {
   const env = localRunEnvironment(config);
-  const commands = localRunCommands(config);
+  const commands = localRunCommands(config, process.platform, process.env);
   const processes = [];
 
   try {
