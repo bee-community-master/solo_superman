@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it } from "vitest";
-import { commandLabel, hasProcessExited, stopManagedProcess } from "./local-processes.mjs";
+import { commandLabel, hasProcessExited, stopManagedProcess, windowsShellCommandLine } from "./local-processes.mjs";
 
 function createFakeProcessInfo() {
   const child = new EventEmitter();
@@ -26,6 +26,15 @@ describe("local process helpers", () => {
   it("formats command labels consistently", () => {
     expect(commandLabel("pnpm", ["--filter", "@solo-superman/web", "dev"])).toBe("pnpm --filter @solo-superman/web dev");
     expect(commandLabel("pnpm")).toBe("pnpm");
+  });
+
+  it("quotes Windows cmd shim paths before sending them through a shell", () => {
+    expect(windowsShellCommandLine("C:\\Program Files\\nodejs\\pnpm.CMD", ["-r", "--if-present", "build"])).toBe(
+      "\"C:\\Program Files\\nodejs\\pnpm.CMD\" -r --if-present build"
+    );
+    expect(windowsShellCommandLine("pnpm.cmd", ["--filter", "@solo-superman/web", "dev"])).toBe(
+      "pnpm.cmd --filter @solo-superman/web dev"
+    );
   });
 
   it("detects exited managed processes", () => {

@@ -8,15 +8,34 @@ export function commandLabel(command, args = []) {
   return [command, ...args].join(" ");
 }
 
+function quoteWindowsShellArgument(value) {
+  const text = String(value);
+
+  if (text.length === 0) {
+    return "\"\"";
+  }
+
+  if (!/[ \t&()^|<>"%]/u.test(text)) {
+    return text;
+  }
+
+  return `"${text.replace(/"/gu, "\"\"")}"`;
+}
+
+export function windowsShellCommandLine(command, args = []) {
+  return [command, ...args].map(quoteWindowsShellArgument).join(" ");
+}
+
 export function hasProcessExited(processInfo) {
   return processInfo.child.exitCode !== null || processInfo.child.signalCode !== null;
 }
 
 export function spawnManagedProcess(command, args, options = {}) {
   const { platform = process.platform, ...spawnOptions } = options;
-  const child = spawn(command, args, {
+  const useShell = shouldUseShellForCommand(command, platform);
+  const child = spawn(useShell ? windowsShellCommandLine(command, args) : command, useShell ? [] : args, {
     ...spawnOptions,
-    shell: shouldUseShellForCommand(command, platform),
+    shell: useShell,
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true
   });
