@@ -216,11 +216,20 @@ run_prod_smoke() {
 run_local_web() {
   if [ "$START_LOCAL" = "0" ]; then
     info "내장 설정으로 local web 자동 실행을 건너뜁니다."
+    printf '나중에 실행하려면 아래 명령을 사용하세요:\ncd "%s" && pnpm start:local\n' "$TARGET_PATH"
     return 0
   fi
 
   info "Solo Superman web 화면을 엽니다. 브라우저가 열리면 이 터미널을 닫지 마세요."
   pnpm start:local || fail "로컬 web 자동 실행에 실패했습니다."
+}
+
+print_install_summary() {
+  info "Solo Superman 설치가 완료됐습니다."
+  printf '설치 경로: %s\n' "$TARGET_PATH"
+  printf 'macOS 바탕화면 실행파일: 생성하지 않음\n'
+  printf '다시 실행 명령: cd "%s" && pnpm start:local\n' "$TARGET_PATH"
+  printf '이제 로컬 web을 시작합니다. 사용하는 동안 이 터미널 창을 닫지 마세요. 종료하려면 Ctrl+C를 누르세요.\n'
 }
 
 if [ "$(uname -s)" != "Darwin" ]; then
@@ -248,4 +257,5 @@ info "dependency install"
 pnpm install --frozen-lockfile
 
 run_prod_smoke
+print_install_summary
 run_local_web

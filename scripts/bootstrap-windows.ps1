@@ -191,16 +191,59 @@ function Get-AbsolutePath($Path) {
 }
 
 function Get-DesktopPath {
-  $desktop = [Environment]::GetFolderPath([Environment+SpecialFolder]::DesktopDirectory)
-  if (-not $desktop) {
-    $desktop = Join-Path $env:USERPROFILE "Desktop"
+  $candidates = New-Object System.Collections.Generic.List[string]
+
+  function Add-DesktopCandidate($Path) {
+    if ($Path -and (-not $candidates.Contains([string]$Path))) {
+      $candidates.Add([string]$Path)
+    }
   }
 
-  if (-not (Test-Path $desktop)) {
-    New-Item -ItemType Directory -Path $desktop -Force | Out-Null
+  try {
+    $wscript = New-Object -ComObject WScript.Shell
+    Add-DesktopCandidate $wscript.SpecialFolders.Item("Desktop")
+  } catch {
+    Write-Warn "Windows Shell에서 바탕화면 경로를 읽지 못해 다른 경로 후보를 확인합니다. $($_.Exception.Message)"
   }
 
-  return $desktop
+  foreach ($registryPath in @(
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders",
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
+  )) {
+    try {
+      $desktop = (Get-ItemProperty -Path $registryPath -Name Desktop -ErrorAction Stop).Desktop
+      Add-DesktopCandidate ([Environment]::ExpandEnvironmentVariables($desktop))
+    } catch {
+      # Registry desktop redirection is optional. Keep checking other sources.
+    }
+  }
+
+  Add-DesktopCandidate ([Environment]::GetFolderPath([Environment+SpecialFolder]::DesktopDirectory))
+  Add-DesktopCandidate ([Environment]::GetFolderPath([Environment+SpecialFolder]::Desktop))
+
+  foreach ($oneDriveRoot in @($env:OneDrive, $env:OneDriveConsumer, $env:OneDriveCommercial)) {
+    if ($oneDriveRoot) {
+      Add-DesktopCandidate (Join-Path $oneDriveRoot "Desktop")
+      Add-DesktopCandidate (Join-Path $oneDriveRoot "바탕 화면")
+    }
+  }
+
+  Add-DesktopCandidate (Join-Path $env:USERPROFILE "Desktop")
+  Add-DesktopCandidate (Join-Path $env:USERPROFILE "바탕 화면")
+
+  foreach ($candidate in $candidates) {
+    if (Test-Path $candidate) {
+      return $candidate
+    }
+  }
+
+  $fallback = $candidates | Select-Object -First 1
+  if (-not $fallback) {
+    $fallback = Join-Path $env:USERPROFILE "Desktop"
+  }
+
+  New-Item -ItemType Directory -Path $fallback -Force | Out-Null
+  return $fallback
 }
 
 function ConvertTo-CmdValue($Value) {
@@ -223,11 +266,16 @@ function New-DesktopRunner($TargetPath) {
     "  echo.",
     "  echo Solo Superman failed to start. Press any key to close this window.",
     "  pause >nul",
+    ") else (",
+    "  echo.",
+    "  echo Solo Superman local run has stopped. Press any key to close this window.",
+    "  pause >nul",
     ")"
   ) -join "`r`n"
 
   Set-Content -Path $runnerPath -Value $content -Encoding ASCII
   Write-Step "바탕화면 실행파일 생성: $runnerPath"
+  return $runnerPath
 }
 
 function Get-FreePort {
@@ -276,11 +324,27 @@ function Invoke-ProdSmoke {
 function Invoke-LocalWeb {
   if ($StartLocal -eq "0") {
     Write-Step "내장 설정으로 local web 자동 실행을 건너뜁니다."
+    Write-Host "나중에 실행하려면 바탕화면의 solo_superman.cmd를 더블클릭하거나 아래 명령을 실행하세요:"
+    Write-Host "Set-Location `"$TargetPath`"; pnpm start:local"
     return
   }
 
   Write-Step "Solo Superman web 화면을 엽니다. 브라우저가 열리면 이 터미널을 닫지 마세요."
   Invoke-Tool "pnpm" @("start:local")
+}
+
+function Write-InstallSummary($TargetPath, $DesktopRunnerPath) {
+  Write-Host ""
+  Write-Host "Solo Superman 설치가 완료됐습니다." -ForegroundColor Green
+  Write-Host "설치 경로: $TargetPath"
+  if ($DesktopRunnerPath) {
+    Write-Host "바탕화면 실행파일: $DesktopRunnerPath"
+    Write-Host "바탕화면에 보이지 않으면 파일 탐색기 주소창에 위 경로의 폴더를 붙여넣어 확인하세요."
+  } else {
+    Write-Host "바탕화면 실행파일: 생성되지 않음"
+  }
+  Write-Host "다시 실행 명령: Set-Location `"$TargetPath`"; pnpm start:local"
+  Write-Host "이제 로컬 web을 시작합니다. 사용하는 동안 이 PowerShell 창을 닫지 마세요. 종료하려면 Ctrl+C를 누르세요."
 }
 
 function Write-FriendlyFailure($Message) {
@@ -318,8 +382,9 @@ Set-Location $TargetPath
 Write-Step "dependency install"
 Invoke-Tool "pnpm" @("install", "--frozen-lockfile")
 
-New-DesktopRunner $TargetPath
+$DesktopRunnerPath = New-DesktopRunner $TargetPath
 Invoke-ProdSmoke
+Write-InstallSummary $TargetPath $DesktopRunnerPath
 Invoke-LocalWeb
 } catch {
   Write-FriendlyFailure $_.Exception.Message
