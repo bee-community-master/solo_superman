@@ -69,6 +69,10 @@ function formatHttpOrigin(host, port) {
   return `http://${urlHost}:${port}`;
 }
 
+export function pnpmCommand(platform = process.platform) {
+  return platform === "win32" ? "pnpm.cmd" : "pnpm";
+}
+
 export function prodBundleSmokeConfig(env = process.env) {
   const sidecarHost = loopbackHostEnv(env, "SOLO_PROD_SMOKE_SIDECAR_HOST", DEFAULT_SIDECAR_HOST);
   const sidecarPort = fixedPortEnv(env, "SOLO_PROD_SMOKE_SIDECAR_PORT", DEFAULT_SIDECAR_PORT);
@@ -102,12 +106,14 @@ export function prodBundleSmokeEnvironment(config, appDataDir, env = process.env
   };
 }
 
-export function prodBundleSmokeCommands(config) {
+export function prodBundleSmokeCommands(config, platform = process.platform) {
+  const pnpm = pnpmCommand(platform);
+
   return {
-    build: ["pnpm", ["build"]],
-    sidecar: ["pnpm", ["--filter", "@solo-superman/sidecar", "start"]],
+    build: [pnpm, ["build"]],
+    sidecar: [pnpm, ["--filter", "@solo-superman/sidecar", "start"]],
     webPreview: [
-      "pnpm",
+      pnpm,
       [
         "--filter",
         "@solo-superman/web",

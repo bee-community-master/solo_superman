@@ -59,23 +59,50 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("Refresh Codex login status");
   });
 
+  it("installs Codex CLI on Windows and prompts for the optional Codex desktop app", () => {
+    expect(readme).toContain("Corepack/pnpm, Codex CLI");
+    expect(readme).toContain("Codex Desktop App 다운로드 안내 창");
+    expect(englishReadme).toContain("Corepack/pnpm, and Codex CLI");
+    expect(englishReadme).toContain("Codex Desktop App download prompt");
+    expect(runbook).toContain("npm install -g @openai/codex@latest");
+    expect(runbook).toContain("codex --version");
+    expect(runbook).toContain("https://openai.com/codex/");
+    expect(runbook).toContain("vibe coding or multiple parallel agents");
+    expect(windowsBootstrap).toContain("$CodexDesktopAppUrl");
+    expect(windowsBootstrap).toContain("function Ensure-CodexCli");
+    expect(windowsBootstrap).toContain('Invoke-Tool "npm" @("install", "-g", "@openai/codex@latest")');
+    expect(windowsBootstrap).toContain('Invoke-Tool "codex" @("--version")');
+    expect(windowsBootstrap).toContain("function Show-CodexDesktopAppPrompt");
+    expect(windowsBootstrap).toContain("Start-Process $CodexDesktopAppUrl");
+    expect(windowsBootstrap).toContain("Codex Desktop App for Windows");
+    expect(windowsBootstrap).toContain("Ensure-CodexCli");
+    expect(windowsBootstrap).toContain("Show-CodexDesktopAppPrompt");
+  });
+
   it("documents and creates a Windows Desktop runner for later local launches", () => {
     expect(readme).toContain("설치 경로, 다시 실행 명령, 바탕화면 실행파일 여부");
     expect(readme).toContain("PowerShell을 **관리자 권한으로 실행**");
+    expect(readme).toContain("관리자 PowerShell로 자동 재실행");
     expect(readme).toContain("실제 표시되는 바탕화면 후보들에 `solo_superman.cmd` 실행파일");
     expect(readme).toContain("이미 설치된 경우에도");
     expect(readme).toContain("Enter를 눌러 닫게 합니다");
     expect(readme).toContain("macOS 설치 프로그램은 바탕화면 실행파일을 만들지 않고");
     expect(englishReadme).toContain("install path, rerun command, and Desktop runner status");
     expect(englishReadme).toContain("Run PowerShell **as Administrator**");
+    expect(englishReadme).toContain("relaunches itself in an administrator PowerShell");
     expect(englishReadme).toContain("checks or recreates `solo_superman.cmd` plus a `solo_superman` shortcut");
     expect(englishReadme).toContain("waits for Enter before closing");
     expect(runbook).toContain("Desktop runners named `solo_superman.cmd` and `solo_superman.lnk`");
     expect(runbook).toContain("localized, public, or OneDrive-redirected Desktop folders");
-    expect(runbook).toContain("Run as Administrator");
     expect(runbook).toContain("waits for Enter before closing");
-    expect(windowsBootstrap).toContain("function Write-WindowsAdminNotice");
-    expect(windowsBootstrap).toContain("관리자 권한 PowerShell");
+    expect(runbook).toContain("opens a UAC prompt");
+    expect(runbook).toContain("C:\\Program Files\\nodejs");
+    expect(windowsBootstrap).toContain("function Test-IsAdministrator");
+    expect(windowsBootstrap).toContain("function Restart-AsAdministrator");
+    expect(windowsBootstrap).toContain("Start-Process -FilePath $powershell");
+    expect(windowsBootstrap).toContain("-Verb RunAs");
+    expect(windowsBootstrap).toContain("-EncodedCommand");
+    expect(windowsBootstrap).toContain("Restart-AsAdministrator");
     expect(windowsBootstrap).toContain("function Get-DesktopPaths");
     expect(windowsBootstrap).toContain("function New-DesktopRunner($TargetPath)");
     expect(windowsBootstrap).toContain("function Write-InstallSummary($TargetPath, $DesktopRunnerPaths)");
@@ -112,7 +139,12 @@ describe("#105 local install/run verification docs", () => {
       "Execution policy",
       "Path quoting",
       "Long path",
-      "Antivirus/network prompt"
+      "Antivirus/network prompt",
+      "Administrator permission denied",
+      "operation not permitted",
+      "C:\\Users\\Public\\Desktop\\solo_superman.cmd",
+      "spawn pnpm ENOENT",
+      "pnpm.cmd"
     ]) {
       expect(runbook).toContain(snippet);
     }
