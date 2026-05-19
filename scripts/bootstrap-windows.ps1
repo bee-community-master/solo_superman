@@ -11,6 +11,7 @@ $ShowCodexDesktopPrompt = if ($env:SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT) { $e
 $CodexWindowsMode = if ($env:SOLO_SUPERMAN_CODEX_WINDOWS_MODE) { $env:SOLO_SUPERMAN_CODEX_WINDOWS_MODE.ToLowerInvariant() } elseif ($env:SOLO_CODEX_WINDOWS_MODE) { $env:SOLO_CODEX_WINDOWS_MODE.ToLowerInvariant() } else { "wsl" }
 $CodexNvmInstallUrl = if ($env:SOLO_SUPERMAN_CODEX_NVM_INSTALL_URL) { $env:SOLO_SUPERMAN_CODEX_NVM_INSTALL_URL } else { "https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh" }
 $CodexWslNodeMajor = if ($env:SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR) { $env:SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR } else { "22" }
+$CodexWslDistro = if ($env:SOLO_SUPERMAN_CODEX_WSL_DISTRO) { $env:SOLO_SUPERMAN_CODEX_WSL_DISTRO } else { "Ubuntu" }
 $MinNodeMajor = 24
 
 function Write-Step($Message) {
@@ -105,7 +106,8 @@ function Restart-AsAdministrator {
     "SOLO_SUPERMAN_CODEX_WINDOWS_MODE",
     "SOLO_CODEX_WINDOWS_MODE",
     "SOLO_SUPERMAN_CODEX_NVM_INSTALL_URL",
-    "SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR"
+    "SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR",
+    "SOLO_SUPERMAN_CODEX_WSL_DISTRO"
   )) {
     $value = [Environment]::GetEnvironmentVariable($name, "Process")
     if ($null -ne $value) {
@@ -247,6 +249,10 @@ function Assert-CodexWindowsMode {
     throw "SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR 값은 숫자 major 버전이어야 합니다. 현재 값: $CodexWslNodeMajor"
   }
 
+  if ([string]::IsNullOrWhiteSpace($CodexWslDistro)) {
+    throw "SOLO_SUPERMAN_CODEX_WSL_DISTRO 값은 비어 있을 수 없습니다."
+  }
+
   if ($CodexNvmInstallUrl -notmatch "^https://") {
     throw "SOLO_SUPERMAN_CODEX_NVM_INSTALL_URL은 https URL이어야 합니다. 현재 값: $CodexNvmInstallUrl"
   }
@@ -280,6 +286,39 @@ function Get-WslDistributionNames {
   } catch {
     return @()
   }
+}
+
+function Select-CodexWslDistribution($Distributions) {
+  $distributionList = @($Distributions)
+  foreach ($distribution in $distributionList) {
+    if ($distribution -ieq $CodexWslDistro) {
+      return $distribution
+    }
+  }
+
+  return ($distributionList | Select-Object -First 1)
+}
+
+function Set-WslDefaultsForCodex($Distributions) {
+  Write-Step "Codex CLI용 WSL2/default 배포판 설정"
+  try {
+    [void](Invoke-Tool "wsl" @("--set-default-version", "2"))
+  } catch {
+    Write-Warn "WSL 기본 버전을 2로 설정하지 못했습니다. 이미 정책으로 고정되어 있거나 Windows가 재부팅을 기다리는 상태일 수 있습니다. $($_.Exception.Message)"
+  }
+
+  $targetDistro = Select-CodexWslDistribution $Distributions
+  if (-not $targetDistro) {
+    return $null
+  }
+
+  try {
+    [void](Invoke-Tool "wsl" @("--set-default", $targetDistro))
+  } catch {
+    Write-Warn "Codex CLI용 기본 WSL 배포판을 $targetDistro 로 설정하지 못했습니다. 현재 default 배포판으로 계속 시도합니다. $($_.Exception.Message)"
+  }
+
+  return $targetDistro
 }
 
 function Invoke-WslBash($Command) {
@@ -345,31 +384,40 @@ function Invoke-WslScript($Script) {
 
 function Ensure-WslForCodex {
   if (-not (Test-Command wsl)) {
-    throw "WSL 명령을 찾지 못했습니다. Windows 10 2004 이상 또는 Windows 11에서 관리자 PowerShell로 wsl --install을 실행한 뒤 README의 한 줄 설치 명령을 다시 실행하세요."
+    throw "WSL 명령을 찾지 못했습니다. Windows 10 2004 이상 또는 Windows 11에서 관리자 PowerShell로 wsl --install을 실행한 뒤 PC를 재부팅하고, $CodexWslDistro 를 한 번 열어 Linux 사용자 이름/비밀번호를 만든 다음 같은 한 줄 명령을 다시 실행하세요: $BootstrapCommand"
   }
 
   $distributions = @(Get-WslDistributionNames)
   if ($distributions.Count -eq 0) {
-    Write-Step "Codex CLI용 WSL/Ubuntu 설치"
+    Write-Step "Codex CLI용 WSL/$CodexWslDistro 설치 및 기본 경로 설정"
     try {
-      Invoke-Tool "wsl" @("--install", "-d", "Ubuntu")
+      Invoke-Tool "wsl" @("--set-default-version", "2")
     } catch {
-      Write-Warn "wsl --install -d Ubuntu 자동 실행이 실패했습니다. Windows가 재부팅 또는 Microsoft Store/회사 정책 승인을 요구할 수 있습니다. $($_.Exception.Message)"
+      Write-Warn "WSL 설치 전 기본 버전 2 설정이 실패했습니다. wsl --install 뒤 Windows 재부팅으로 해결될 수 있습니다. $($_.Exception.Message)"
     }
 
-    $distributions = @(Get-WslDistributionNames)
-    if ($distributions.Count -eq 0) {
-      throw "Codex CLI는 Windows에서 WSL 경로를 기본으로 사용합니다. Windows가 재부팅을 요청했다면 재부팅하고, Ubuntu를 한 번 열어 Linux 사용자 이름/비밀번호를 만든 뒤 README의 한 줄 설치 명령을 다시 실행하세요."
+    try {
+      Invoke-Tool "wsl" @("--install", "-d", $CodexWslDistro)
+    } catch {
+      throw "WSL/$CodexWslDistro 설치 명령이 완료되지 않았습니다. Windows가 재부팅 또는 Microsoft Store/회사 정책 승인을 요구할 수 있습니다. PC를 재부팅하고, $CodexWslDistro 를 한 번 열어 Linux 사용자 이름/비밀번호를 만든 뒤 새 관리자 PowerShell에서 같은 한 줄 명령을 다시 실행하세요: $BootstrapCommand :: $($_.Exception.Message)"
     }
+
+    throw "WSL/$CodexWslDistro 첫 설치를 시작했습니다. Windows가 재부팅을 요청할 수 있으므로 PC를 재부팅하고, $CodexWslDistro 를 한 번 열어 Linux 사용자 이름/비밀번호를 만든 뒤 새 관리자 PowerShell에서 같은 한 줄 명령을 다시 실행하세요: $BootstrapCommand"
   }
+
+  $targetDistro = Set-WslDefaultsForCodex $distributions
 
   try {
     Invoke-WslBash "printf solo-superman-wsl-ready"
   } catch {
-    throw "WSL 배포판은 보이지만 bash 실행 또는 첫 사용자 설정이 끝나지 않았습니다. Ubuntu를 한 번 열어 Linux 사용자 이름/비밀번호를 만든 뒤 README의 한 줄 설치 명령을 다시 실행하세요. $($_.Exception.Message)"
+    throw "WSL 배포판은 보이지만 bash 실행 또는 첫 사용자 설정이 끝나지 않았습니다. Windows가 요청했다면 재부팅하고, $CodexWslDistro 를 한 번 열어 Linux 사용자 이름/비밀번호를 만든 뒤 같은 한 줄 명령을 다시 실행하세요: $BootstrapCommand :: $($_.Exception.Message)"
   }
 
-  Write-Step "WSL ready for Codex CLI: $($distributions -join ', ')"
+  if ($targetDistro) {
+    Write-Step "WSL ready for Codex CLI: default=$targetDistro installed=$($distributions -join ', ')"
+  } else {
+    Write-Step "WSL ready for Codex CLI: $($distributions -join ', ')"
+  }
 }
 
 function Ensure-WslCurl {

@@ -68,7 +68,10 @@ describe("#105 local install/run verification docs", () => {
     expect(englishReadme).toContain("installs and runs Codex CLI inside WSL");
     expect(englishReadme).toContain("SOLO_CODEX_WINDOWS_MODE=wsl");
     expect(englishReadme).toContain("Codex Desktop App download prompt");
+    expect(runbook).toContain("wsl --set-default-version 2");
     expect(runbook).toContain("wsl --install -d Ubuntu");
+    expect(runbook).toContain("Ubuntu 첫 실행 Linux 사용자 이름/비밀번호");
+    expect(runbook).toContain("같은 한 줄 명령");
     expect(runbook).toContain("nvm install 22");
     expect(runbook).toContain("SOLO_CODEX_WINDOWS_MODE=wsl");
     expect(runbook).toContain("wsl.exe -- bash -lc");
@@ -81,8 +84,15 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("바이브 코딩이나 여러 agent 병렬 작업");
     expect(windowsBootstrap).toContain("$CodexDesktopAppUrl");
     expect(windowsBootstrap).toContain("$CodexWindowsMode");
+    expect(windowsBootstrap).toContain("$CodexWslDistro");
+    expect(windowsBootstrap).toContain('"SOLO_SUPERMAN_CODEX_WSL_DISTRO"');
     expect(windowsBootstrap).toContain("function Ensure-WslForCodex");
-    expect(windowsBootstrap).toContain('Invoke-Tool "wsl" @("--install", "-d", "Ubuntu")');
+    expect(windowsBootstrap).toContain("function Set-WslDefaultsForCodex");
+    expect(windowsBootstrap).toContain('Invoke-Tool "wsl" @("--set-default-version", "2")');
+    expect(windowsBootstrap).toContain('Invoke-Tool "wsl" @("--set-default", $targetDistro)');
+    expect(windowsBootstrap).toContain('Invoke-Tool "wsl" @("--install", "-d", $CodexWslDistro)');
+    expect(windowsBootstrap).toContain("WSL/$CodexWslDistro 첫 설치를 시작했습니다");
+    expect(windowsBootstrap).toContain("같은 한 줄 명령을 다시 실행하세요");
     expect(windowsBootstrap).toContain("function Ensure-CodexCliInWsl");
     expect(windowsBootstrap).toContain("function Write-LfUtf8NoBomFile");
     expect(windowsBootstrap).toContain("function ConvertTo-WslpathInput");
@@ -192,7 +202,9 @@ describe("#105 local install/run verification docs", () => {
       "wslpath: C:Users...AppDataLocalTemp...codex-wsl-install.sh",
       "C:/...",
       "/mnt/c/...",
+      "wsl --set-default-version 2",
       "wsl --install -d Ubuntu",
+      "같은 한 줄 명령",
       "SOLO_CODEX_WINDOWS_MODE=wsl",
       "WSL nvm home detection",
       "/nvm.sh: No such file or directory",

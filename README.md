@@ -26,7 +26,7 @@ Solo Superman은 솔로 창업자가 아이디어를 질문, 리서치, 결정 �
 irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1 | iex
 ```
 
-Windows 설치 프로그램은 Node/Corepack/pnpm 활성화, WSL/Ubuntu 확인, 공용 바탕화면 실행파일 생성 전에 관리자 권한이 아니면 UAC 승인을 요청해 관리자 PowerShell로 자동 재실행합니다. WSL 배포판이 없으면 `wsl --install -d Ubuntu`를 시도하며, Windows 재부팅이나 Ubuntu 첫 사용자 이름/비밀번호 생성이 필요하면 그 단계에서 멈추고 같은 한 줄 명령을 다시 실행하라고 안내합니다. PATH 반영을 위해 새 터미널을 요구하면 새 터미널을 열고 같은 한 줄 명령을 다시 실행하면 이어서 진행됩니다. 네트워크, 회사 보안 정책, 관리자 권한 때문에 자동 복구가 안전하지 않은 경우에는 정책을 우회하지 않고 쉬운 오류 메시지와 재실행 명령을 보여줍니다.
+Windows 설치 프로그램은 Node/Corepack/pnpm 활성화, WSL/Ubuntu 확인, 공용 바탕화면 실행파일 생성 전에 관리자 권한이 아니면 UAC 승인을 요청해 관리자 PowerShell로 자동 재실행합니다. Codex CLI용 WSL은 기본값으로 WSL2와 Ubuntu를 쓰도록 `wsl --set-default-version 2` 및 기본 배포판 설정을 수행합니다. WSL 배포판이 없으면 `wsl --install -d Ubuntu`를 시도하며, 첫 WSL 설치처럼 Windows 재부팅이나 Ubuntu 첫 사용자 이름/비밀번호 생성이 필요할 수 있는 경우에는 그 단계에서 멈추고 재부팅 및 Ubuntu 첫 실행 후 같은 한 줄 명령을 다시 실행하라고 안내합니다. PATH 반영을 위해 새 터미널을 요구하면 새 터미널을 열고 같은 한 줄 명령을 다시 실행하면 이어서 진행됩니다. 네트워크, 회사 보안 정책, 관리자 권한 때문에 자동 복구가 안전하지 않은 경우에는 정책을 우회하지 않고 쉬운 오류 메시지와 재실행 명령을 보여줍니다.
 
 ## 실행방법
 
