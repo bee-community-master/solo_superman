@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="${SOLO_SUPERMAN_REPO_URL:-https://github.com/HearingOffice/solo_superman.git}"
+REPO_URL="${SOLO_SUPERMAN_REPO_URL:-https://github.com/bee-community-master/solo_superman.git}"
 DEFAULT_TARGET_DIR="${SOLO_SUPERMAN_DIR:-solo_superman}"
 PNPM_VERSION="${SOLO_SUPERMAN_PNPM_VERSION:-11.0.4}"
 RUN_SMOKE="${SOLO_SUPERMAN_RUN_SMOKE:-1}"
 START_LOCAL="${SOLO_SUPERMAN_START_LOCAL:-1}"
-BOOTSTRAP_COMMAND='/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/HearingOffice/solo_superman/main/scripts/bootstrap-macos.sh)"'
+BOOTSTRAP_COMMAND='/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-macos.sh)"'
 MIN_NODE_MAJOR=20
 
 info() {
@@ -120,16 +120,32 @@ ensure_pnpm() {
   pnpm --version
 }
 
+get_origin_remote() {
+  local dir="$1"
+  git -C "$dir" remote get-url origin 2>/dev/null || true
+}
+
 is_expected_repo() {
   local dir="$1"
   local remote
 
   [ -d "$dir/.git" ] || return 1
-  remote="$(git -C "$dir" remote get-url origin 2>/dev/null || true)"
+  remote="$(get_origin_remote "$dir")"
   case "$remote" in
-    "$REPO_URL"|*HearingOffice/solo_superman*|*HearingOffice/solo_superman.git*) return 0 ;;
+    "$REPO_URL"|*bee-community-master/solo_superman*|*bee-community-master/solo_superman.git*|*HearingOffice/solo_superman*|*HearingOffice/solo_superman.git*) return 0 ;;
     *) return 1 ;;
   esac
+}
+
+sync_origin_remote() {
+  local dir="$1"
+  local remote
+
+  remote="$(get_origin_remote "$dir")"
+  if [ -n "$remote" ] && [ "$remote" != "$REPO_URL" ]; then
+    info "origin remote update: $remote -> $REPO_URL"
+    git -C "$dir" remote set-url origin "$REPO_URL"
+  fi
 }
 
 choose_target_dir() {
@@ -220,6 +236,7 @@ TARGET_PATH="$(absolute_target_path "$TARGET_DIR")"
 
 if is_expected_repo "$TARGET_PATH"; then
   info "기존 checkout 사용: $TARGET_PATH"
+  sync_origin_remote "$TARGET_PATH"
   git -C "$TARGET_PATH" fetch origin || warn "원격 업데이트 확인에 실패했지만 기존 checkout으로 계속 진행합니다."
 else
   info "repo clone: $REPO_URL -> $TARGET_PATH"

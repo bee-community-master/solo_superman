@@ -41,7 +41,7 @@ Before broad non-developer distribution, the project still needs:
 
 | macOS shell | Windows PowerShell |
 | --- | --- |
-| ```sh<br>git clone https://github.com/HearingOffice/solo_superman.git<br>cd solo_superman<br>pnpm install --frozen-lockfile<br>``` | ```powershell<br>git clone https://github.com/HearingOffice/solo_superman.git<br>Set-Location .\solo_superman<br>pnpm install --frozen-lockfile<br>``` |
+| ```sh<br>git clone https://github.com/bee-community-master/solo_superman.git<br>cd solo_superman<br>pnpm install --frozen-lockfile<br>``` | ```powershell<br>git clone https://github.com/bee-community-master/solo_superman.git<br>Set-Location .\solo_superman<br>pnpm install --frozen-lockfile<br>``` |
 
 ## Production bundle auto smoke
 

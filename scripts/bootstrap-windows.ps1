@@ -1,11 +1,11 @@
 $ErrorActionPreference = "Stop"
 
-$RepoUrl = if ($env:SOLO_SUPERMAN_REPO_URL) { $env:SOLO_SUPERMAN_REPO_URL } else { "https://github.com/HearingOffice/solo_superman.git" }
+$RepoUrl = if ($env:SOLO_SUPERMAN_REPO_URL) { $env:SOLO_SUPERMAN_REPO_URL } else { "https://github.com/bee-community-master/solo_superman.git" }
 $DefaultTargetDir = if ($env:SOLO_SUPERMAN_DIR) { $env:SOLO_SUPERMAN_DIR } else { "solo_superman" }
 $PnpmVersion = if ($env:SOLO_SUPERMAN_PNPM_VERSION) { $env:SOLO_SUPERMAN_PNPM_VERSION } else { "11.0.4" }
 $RunSmoke = if ($env:SOLO_SUPERMAN_RUN_SMOKE) { $env:SOLO_SUPERMAN_RUN_SMOKE } else { "1" }
 $StartLocal = if ($env:SOLO_SUPERMAN_START_LOCAL) { $env:SOLO_SUPERMAN_START_LOCAL } else { "1" }
-$BootstrapCommand = "irm https://raw.githubusercontent.com/HearingOffice/solo_superman/main/scripts/bootstrap-windows.ps1 | iex"
+$BootstrapCommand = "irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1 | iex"
 $MinNodeMajor = 20
 
 function Write-Step($Message) {
@@ -144,18 +144,29 @@ function Ensure-Pnpm {
   Invoke-Tool "pnpm" @("--version")
 }
 
+function Get-OriginRemote($Path) {
+  try {
+    return (& git -C $Path remote get-url origin 2>$null | Select-Object -First 1)
+  } catch {
+    return $null
+  }
+}
+
 function Test-ExpectedRepo($Path) {
   if (-not (Test-Path (Join-Path $Path ".git"))) {
     return $false
   }
 
-  try {
-    $remote = (& git -C $Path remote get-url origin 2>$null | Select-Object -First 1)
-  } catch {
-    return $false
-  }
+  $remote = Get-OriginRemote $Path
+  return ($remote -eq $RepoUrl) -or ($remote -like "*bee-community-master/solo_superman*") -or ($remote -like "*bee-community-master/solo_superman.git*") -or ($remote -like "*HearingOffice/solo_superman*") -or ($remote -like "*HearingOffice/solo_superman.git*")
+}
 
-  return ($remote -eq $RepoUrl) -or ($remote -like "*HearingOffice/solo_superman*") -or ($remote -like "*HearingOffice/solo_superman.git*")
+function Sync-OriginRemote($Path) {
+  $remote = Get-OriginRemote $Path
+  if ($remote -and ($remote -ne $RepoUrl)) {
+    Write-Step "origin remote update: $remote -> $RepoUrl"
+    Invoke-Tool "git" @("-C", $Path, "remote", "set-url", "origin", $RepoUrl)
+  }
 }
 
 function Resolve-InstallTarget {
@@ -252,6 +263,7 @@ $TargetPath = Get-AbsolutePath $TargetDir
 
 if (Test-ExpectedRepo $TargetPath) {
   Write-Step "기존 checkout 사용: $TargetPath"
+  Sync-OriginRemote $TargetPath
   try {
     Invoke-Tool "git" @("-C", $TargetPath, "fetch", "origin")
   } catch {
