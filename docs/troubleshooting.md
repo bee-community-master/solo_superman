@@ -48,7 +48,7 @@ cd solo_superman && pnpm start:local
 Set-Location .\solo_superman; pnpm start:local
 ```
 
-The default local path does not require an OpenAI or ChatGPT API key by default; in plain language, reaching the local first screen needs neither an OpenAI API key nor a ChatGPT web credential. Only before backend question/research preview work does the UI check `codex login status` and offer to open `codex auth login` through a background terminal. The UI labels are Open Codex login and Refresh Codex login status. Solo Superman does not collect or store those credentials.
+The default local path does not require an OpenAI API key or ChatGPT web credential by default; in plain language, reaching the local first screen needs neither an OpenAI API key, a ChatGPT web credential, nor a ChatGPT Pro session. Backend question/research preview checks the local Codex CLI with `codex login status`; it does not check whether the user is signed in to ChatGPT on the web. If Codex login is missing, the UI can offer to open `codex auth login` through a background terminal. The UI labels are Open Codex login and Refresh Codex login status. Separate ChatGPT browser-session delegation requires its own user-approved flow and is not part of the default local run. Solo Superman does not collect or store any credentials.
 
 ## Verification commands / 검증 명령
 

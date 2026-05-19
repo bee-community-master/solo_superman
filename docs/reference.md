@@ -229,7 +229,7 @@ Codex preview input combines core project/session context with turn-specific del
 
 ## Auto-apply and gate matrix
 
-Auto-apply is allowed only for low-risk deterministic previews; risky actions are blocked or approval-required.
+Auto-apply is allowed only for low-risk deterministic previews. It does not cover file/shell/browser/network writes or credential access; those risky actions are blocked or approval-required.
 
 ## applyPolicy enum
 

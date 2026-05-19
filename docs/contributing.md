@@ -8,7 +8,7 @@ pnpm install
 pnpm start:local
 ```
 
-The local app opens a browser screen through the local web frontend and local Node/Hono service. Keep the terminal open while testing. The default local install/run path does not require an OpenAI API key or ChatGPT credential.
+The local app opens a browser screen through the local web frontend and local Node/Hono service. Keep the terminal open while testing. The default local install/run path does not require an OpenAI API key, ChatGPT web credential, or ChatGPT Pro session.
 
 ## Useful commands / 자주 쓰는 명령
 

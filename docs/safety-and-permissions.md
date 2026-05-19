@@ -20,7 +20,7 @@ Required rules:
 
 - `approvalDecision` starts as `pending`; only user-visible approval can move it to approved.
 - `executionResult` includes `running` and must end in a terminal evidence-backed state such as completed, failed, blocked, or partial.
-- `rollbackReference` is mandatory before execution unless a later explicit contract says the action is preview-only.
+- For executable actions, `rollbackReference` is mandatory before execution; preview-only artifacts are not execution and do not need rollback evidence.
 - `file_diff` uses `git_diff_reverse` by default for rollback.
 - `shell_command` needs command allowlist, timeout class, stdout/stderr evidence, and no credential prompt.
 - `browser_action` needs loopback-only local targets for the MVP; LAN/private IP targets and cloud preview URLs stay blocked unless a later explicit contract permits them.

@@ -22,7 +22,7 @@ This docs folder is now optimized for contributor onboarding instead of phase-by
 - Release channel: limited beta / technical preview.
 - Runtime shape: local-first web app + local Node/Hono service.
 - Default topology: Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db.
-- Storage: local embedded libSQL with Drizzle; remote config is only a placeholder unless a later explicit sync contract exists.
+- Storage: local embedded libSQL with Drizzle; remote sync config does not enable remote storage today and remains inert until a later explicit sync contract exists.
 - Risk posture: no hosted SaaS default, no browser-only DB rewrite, no automatic file/shell/browser action without an ExecutionAuthorityRecord.
 - User-facing language must avoid internal labels such as Phase, PR number, or tracker number unless the user is explicitly in contributor/developer mode.
 

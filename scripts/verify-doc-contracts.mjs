@@ -655,7 +655,7 @@ function checkContributorDocsSnippets() {
     "VITE_SOLO_LOCAL_CAPABILITY_TOKEN",
     "VITE_SOLO_SIDECAR_BASE_URL",
     "token mismatch fails visibly with `401`",
-    "does not require an OpenAI or ChatGPT API key by default",
+    "does not require an OpenAI API key or ChatGPT web credential by default",
     "codex login status",
     "codex auth login",
     "Open Codex login",

@@ -42,11 +42,11 @@ The ProductEngine/application command boundary keeps application commands, route
 - Command responses use accepted/rejected categories and may expose `statusUrl` for async work.
 - SSE events provide command, effect, projection, and runtime status changes.
 - Read-only diagnostics time out at 30 seconds unless a later explicit contract changes that limit.
-- Phase 3 controlled execution routes are placeholders or bounded adapters unless an `ExecutionAuthorityRecord` makes the action executable.
+- Phase 3 controlled execution route presence is not permission by itself: a route may expose preflight or bounded adapter code, but an action becomes executable only when an `ExecutionAuthorityRecord` approves that exact action class and scope.
 
 ## Current runtime boundary / 현재 런타임 경계
 
-- Codex app-server is the preferred preview runtime for structured prompt/output contracts.
-- ChatGPT Pro browser delegation is per-run local browser delegation, not an API and not a stable backend service.
+- Codex app-server is the preferred preview runtime for structured prompt/output contracts and uses the local Codex CLI login path, not ChatGPT web-session custody.
+- ChatGPT Pro browser delegation is a separate per-run, user-visible local browser delegation path; it is not an API, not a stable backend service, and not required for the default backend question/research preview.
 - `file_diff`, `shell_command`, and `browser_action` are separate action classes with separate preflight, approval, rollback, and evidence requirements.
 - Tauri/native shell source, dependency, and script paths were removed; that native app-host history is recorded in `decisions.md` only and is separate from the Windows `.cmd` Desktop runner.

@@ -44,12 +44,12 @@ cd solo_superman && pnpm start:local
 Set-Location .\solo_superman; pnpm start:local
 ```
 
-Reaching the local first screen and running the default local path do not require an OpenAI API key or ChatGPT credentials. Only when backend question/research preview work starts does the local UI ask you to sign in directly to ChatGPT in your browser and verify that the local Codex CLI is logged in. If it is missing, the UI can open a background Terminal running `codex auth login` so Codex shows the browser login screen; Solo Superman does not collect or store those credentials. For troubleshooting, see [`docs/troubleshooting.md`](docs/troubleshooting.md). For contributor onboarding and architecture notes, start at [`docs/README.md`](docs/README.md).
+Reaching the local first screen and running the default local path do not require an OpenAI API key, ChatGPT web credential, or ChatGPT Pro session. When backend question/research preview work starts, the local UI checks only the local Codex CLI with `codex login status`; it does not inspect a ChatGPT web session. If needed, the UI can open a background Terminal running `codex auth login` so Codex shows the browser login screen. Separate features that use a ChatGPT browser session require a user-approved flow and are not a default preview prerequisite. Solo Superman does not collect or store any credentials. For troubleshooting, see [`docs/troubleshooting.md`](docs/troubleshooting.md). For contributor onboarding and architecture notes, start at [`docs/README.md`](docs/README.md).
 
 ## Release scope
 
 - Current recommended public channel: limited beta or technical preview
 - Suitable users: users who are comfortable installing a local app, or who can follow guidance to run one terminal command
-- Remaining general-release work: macOS/Windows installers, automatic updates, error reporting, and Windows real-device verification
+- Remaining general-release work: signed macOS/Windows installer packages, automatic updates, error reporting, and Windows real-device verification
 
 Note: the Windows PowerShell install path is documented, but before broad public release it still needs a separate real Windows device verification pass from one-line install through first-screen arrival.

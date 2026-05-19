@@ -52,7 +52,7 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("VITE_SOLO_LOCAL_CAPABILITY_TOKEN");
     expect(runbook).toContain("VITE_SOLO_SIDECAR_BASE_URL");
     expect(runbook).toContain("token mismatch fails visibly with `401`");
-    expect(runbook).toContain("does not require an OpenAI or ChatGPT API key by default");
+    expect(runbook).toContain("does not require an OpenAI API key or ChatGPT web credential by default");
     expect(runbook).toContain("codex login status");
     expect(runbook).toContain("codex auth login");
     expect(runbook).toContain("Open Codex login");

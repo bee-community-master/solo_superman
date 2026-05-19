@@ -1,13 +1,13 @@
 # Roadmap and Capability Boundaries / 로드맵과 기능 경계
 
-The roadmap is a contributor map, not a user-facing UI vocabulary. Product UI should describe user states such as Spec-ready, Research in progress, Planning-ready, and Waiting for safe execution.
+The roadmap is a contributor map, not a user-facing UI vocabulary. It mixes code-backed capability bands with preserved backlog boundaries, so a row here is not a claim that the feature is broadly available to end users. Product UI should describe user states such as Spec-ready, Research in progress, Planning-ready, and Waiting for safe execution.
 
 ## Current capability map / 현재 기능 지도
 
 | Capability band | Contributor meaning | Exit evidence |
 | --- | --- | --- |
 | Product foundation | Product brief, PRD, UX doctrine, Living Product Spec, Decision Queue. | New contributor can explain the Founder OS loop. |
-| Research and evidence | Allowlisted read-only research, evidence matrix, pro/con/uncertainty, skeptical search. | Research-updated Queue and no hidden residual risk. |
+| Research and evidence | Allowlisted read-only research, evidence matrix, pro/con/uncertainty, skeptical search. | Research-updated Queue with residual risks explicitly listed instead of hidden. |
 | Planning handoff | Build Slice Plan, Serve Checklist, Learning Loop Hook, blocker report when not ready. | Planning-ready artifact or explicit blocker artifact. |
 | Controlled execution | ExecutionAuthorityRecord ledger plus `file_diff`, `shell_command`, `browser_action` adapters. | Approved and blocked dry-runs with evidence and rollback refs. |
 | Full-vision backlog | business/personal mode, business critic intensity, ChatGPT local browser delegation, service page-use permission, implementation step ledger. | Contributors can implement tracked work without inventing new safety defaults. |

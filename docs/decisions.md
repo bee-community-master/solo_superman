@@ -12,9 +12,9 @@ This file preserves durable project decisions after the old numbered planning do
 | ProductEngine owns decisions | A pure reducer plus effect plan keeps state transitions testable and auditable. | Hidden decision logic inside API handlers or adapters. |
 | Contracts package is public boundary | DTO, command/event, API route, SSE, and projection names must be code-backed. | Copying contract values into prose without verifier coverage. |
 | Local embedded libSQL + Drizzle | It supports local-first persistence and deterministic test fixtures. | Browser-only DB rewrite. |
-| Codex app-server preview first | It avoids requiring an OpenAI API key in the default local path. | Asking every user for an API key during install. |
+| Codex app-server preview first | It avoids requiring an OpenAI API key or ChatGPT web session in the default local path; backend question/research preview checks local Codex CLI login instead. | Asking every user for an API key or ChatGPT web credential during install. |
 | ExecutionAuthorityRecord gate | File, shell, and browser actions need preview, approval, rollback, and evidence. | Blanket approval or silent auto-apply. |
-| ChatGPT browser delegation is per-run | The user owns the browser session and approves each run. | Credential custody, account sharing/resale, or stable backend treatment of ChatGPT web UI. |
+| ChatGPT browser delegation is separate and per-run | The user owns the browser session and approves each run; this path must not be confused with the default Codex CLI preview login. | Credential custody, account sharing/resale, or stable backend treatment of ChatGPT web UI. |
 | README remains short | End users need installation and first run, not implementation history. | Using the root README as a planning ledger. |
 
 ## Historical closeout preservation / 과거 closeout 보존
