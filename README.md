@@ -8,7 +8,7 @@ Solo Superman은 솔로 창업자가 아이디어를 질문, 리서치, 결정 �
 
 현재 배포 상태는 **테크니컬 프리뷰**입니다. 비개발자도 한 줄 설치로 로컬 웹 화면까지 도달할 수 있게 만드는 단계이며, 파일 수정, 셸 실행, 브라우저 조작, 외부 서비스 제출처럼 위험한 작업은 자동 실행하지 않고 먼저 검토 가능한 실행 준비 노트로 남깁니다.
 
-설치 스크립트는 Node 24 이상, Git, Corepack/pnpm, Codex CLI를 점검하고 필요하면 설치한 뒤 repo clone, dependency install, 로컬 실행 가능 여부 확인, 브라우저 자동 실행까지 처리합니다. Windows에서는 앱 실행용 Node/pnpm은 Windows에 두되 Codex CLI는 안정성을 위해 WSL(Ubuntu) 안에 설치하고 `SOLO_CODEX_WINDOWS_MODE=wsl`로 실행합니다. 바이브 코딩이나 여러 agent 병렬 작업을 더 하고 싶은 사용자를 위해 Codex Desktop App 다운로드 안내 창도 띄웁니다. 같은 이름의 폴더가 이미 있거나 기본 로컬 포트가 사용 중인 경우에도 사용자 파일을 덮어쓰거나 실행 중인 프로세스를 종료하지 않고 안전한 대체 경로/포트를 자동 선택합니다.
+설치 스크립트는 Node 24 이상, Git, Corepack/pnpm, Windows native runtime, Codex CLI를 점검하고 필요하면 설치한 뒤 repo clone, dependency install, 로컬 실행 가능 여부 확인, 브라우저 자동 실행까지 처리합니다. Windows에서는 앱 실행용 Node/pnpm은 Windows에 두되 Codex CLI는 안정성을 위해 WSL(Ubuntu) 안에 설치하고 `SOLO_CODEX_WINDOWS_MODE=wsl`로 실행합니다. 바이브 코딩이나 여러 agent 병렬 작업을 더 하고 싶은 사용자를 위해 Codex Desktop App 다운로드 안내 창도 띄웁니다. 같은 이름의 폴더가 이미 있거나 기본 로컬 포트가 사용 중인 경우에도 사용자 파일을 덮어쓰거나 실행 중인 프로세스를 종료하지 않고 안전한 대체 경로/포트를 자동 선택합니다.
 
 ## 설치방법
 
