@@ -10,9 +10,9 @@ Solo Superman은 현재 제한 베타 형태의 technical preview입니다. 목�
 
 | macOS shell | Windows PowerShell |
 | --- | --- |
-| `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-macos.sh)"` | `irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1 \| iex` |
+| `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-macos.sh)"` | `$utf8 = New-Object System.Text.UTF8Encoding $false; [Console]::InputEncoding = $utf8; [Console]::OutputEncoding = $utf8; $OutputEncoding = $utf8; chcp.com 65001 > $null; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $wc = New-Object Net.WebClient; $wc.Encoding = $utf8; $script = $wc.DownloadString("https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1"); if ($script.Length -gt 0 -and $script[0] -eq [char]0xFEFF) { $script = $script.Substring(1) }; iex $script` |
 
-Installer는 Node.js 24+, Git, Corepack/pnpm, Codex CLI, dependency install, local run readiness, browser opening을 확인합니다. Windows에서는 app 실행용 Node/pnpm은 Windows에 두되 Codex CLI는 기본적으로 WSL 안에 설치하고 `SOLO_CODEX_WINDOWS_MODE=wsl`로 실행합니다. 영향을 받는 Windows 기기에서는 이 경로가 Codex/Codex CLI에 더 안정적이기 때문입니다. Solo Superman setup 이후 바이브 코딩이나 여러 agent 병렬 작업을 원하는 사용자를 위해 Codex Desktop App 안내 창도 엽니다. 기존 폴더를 덮어쓰거나 관련 없는 프로세스를 종료해 포트를 차지하지 않아야 합니다.
+Windows 한 줄 명령은 Windows PowerShell 5.1에서도 UTF-8 console output, TLS 1.2, UTF-8 script download decoding을 먼저 설정한 뒤 bootstrap을 실행합니다. Installer는 Node.js 24+, Git, Corepack/pnpm, Codex CLI, dependency install, local run readiness, browser opening을 확인합니다. Windows에서는 app 실행용 Node/pnpm은 Windows에 두되 Codex CLI는 기본적으로 WSL 안에 설치하고 `SOLO_CODEX_WINDOWS_MODE=wsl`로 실행합니다. 영향을 받는 Windows 기기에서는 이 경로가 Codex/Codex CLI에 더 안정적이기 때문입니다. Solo Superman setup 이후 바이브 코딩이나 여러 agent 병렬 작업을 원하는 사용자를 위해 Codex Desktop App 안내 창도 엽니다. 기존 폴더를 덮어쓰거나 관련 없는 프로세스를 종료해 포트를 차지하지 않아야 합니다.
 
 ## 수동 준비
 
@@ -39,7 +39,7 @@ Maintainer가 `SOLO_SUPERMAN_CODEX_WINDOWS_MODE=native`를 명시한 경우에�
 winget install --id OpenJS.NodeJS.LTS -e
 winget install --id Git.Git -e
 corepack enable
-pnpm --version
+pnpm.cmd --version
 wsl --set-default-version 2
 wsl --install -d Ubuntu
 # Windows가 요청하면 재부팅하고, Ubuntu 첫 실행 Linux 사용자 이름/비밀번호 설정 후 같은 한 줄 명령을 다시 실행합니다.
@@ -52,7 +52,7 @@ codex --version
 
 ## 로컬 실행
 
-Windows에서 installer는 나중 실행을 위한 Solo Superman 바탕화면 실행파일 `solo_superman.cmd`와 `solo_superman.lnk`를 만들거나 새로 고칩니다. 대상에는 localized, public, OneDrive-redirected Desktop folders가 포함됩니다. 이 바탕화면 실행파일은 OpenAI의 Codex Desktop App과 다른 Solo Superman 재실행용 wrapper입니다. `call pnpm start:local`을 사용하므로 control이 cmd wrapper로 돌아오며, launch가 실패하면 cmd window는 failure output과 exit code를 보여주고 Enter를 누를 때까지 닫히지 않습니다. macOS installer는 바탕화면 실행파일을 만들지 않고 rerun command를 출력합니다.
+Windows에서 installer는 나중 실행을 위한 Solo Superman 바탕화면 실행파일 `solo_superman.cmd`와 `solo_superman.lnk`를 만들거나 새로 고칩니다. 대상에는 localized, public, OneDrive-redirected Desktop folders가 포함됩니다. 이 바탕화면 실행파일은 OpenAI의 Codex Desktop App과 다른 Solo Superman 재실행용 wrapper입니다. `call pnpm.cmd start:local`을 사용하므로 control이 cmd wrapper로 돌아오며, launch가 실패하면 cmd window는 failure output과 exit code를 보여주고 Enter를 누를 때까지 닫히지 않습니다. macOS installer는 바탕화면 실행파일을 만들지 않고 rerun command를 출력합니다.
 
 ### macOS shell
 
@@ -63,7 +63,7 @@ cd solo_superman && pnpm start:local
 ### Windows PowerShell
 
 ```powershell
-Set-Location .\solo_superman; pnpm start:local
+Set-Location "$HOME\solo_superman"; pnpm.cmd start:local
 ```
 
 기본 local path에는 OpenAI API key, ChatGPT web credential, ChatGPT Pro session이 필요하지 않습니다. 즉 local first screen에 도달하는 데 이 세 credential이 모두 필요하지 않습니다. Backend question/research preview는 local Codex CLI의 `codex login status`만 확인하며 ChatGPT web sign-in 여부를 검사하지 않습니다. Windows에서는 sidecar가 이 Codex CLI를 WSL을 통해 실행하므로 실제 명령은 `wsl.exe -- bash -lc '... codex login status'` 형태이며 login도 WSL-backed `codex auth login` terminal을 엽니다. Codex login이 없으면 UI는 background terminal에서 `codex auth login`을 열도록 제안할 수 있습니다. UI label은 Open Codex login과 Refresh Codex login status입니다. 별도의 ChatGPT browser-session delegation은 자체 user-approved flow가 필요하며 default local run의 일부가 아닙니다. Solo Superman은 credential을 수집하거나 저장하지 않습니다.
@@ -76,6 +76,8 @@ Set-Location .\solo_superman; pnpm start:local
 pnpm verify:prod-bundle
 pnpm verify
 ```
+
+Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 Node/Corepack command shim이 실행되도록 `pnpm.cmd verify:prod-bundle`과 `pnpm.cmd verify`를 사용합니다.
 
 Production bundle smoke는 `build_auto_local_smoke`, browser readiness, managed child processes stopped, temporary app data removed, auto shutdown/kill evidence를 포함해야 합니다.
 
@@ -129,6 +131,7 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 | Port conflict | Browser 또는 sidecar port가 이미 사용 중입니다. | free alternate port를 선택합니다. unknown process를 kill하지 않습니다. |
 | Token mismatch | API returns `401`. | frontend와 sidecar가 같은 token을 받도록 `pnpm start:local`을 다시 실행합니다. |
 | CORS/origin | Browser request is blocked. | loopback URL과 local sidecar base URL을 확인합니다. |
+| Garbled Korean or UTF-8 output | Windows PowerShell에서 README 한 줄 명령을 실행했을 때 한글 출력이나 다운로드된 script text가 깨져 보입니다. | README one-line installer를 사용합니다. 이 명령은 `[Console]::OutputEncoding`, `$OutputEncoding`, `chcp.com 65001`, TLS 1.2, UTF-8 download decoding, BOM 제거를 먼저 수행한 뒤 bootstrap을 실행합니다. |
 | Administrator permission denied | Corepack reports `operation not permitted` for `C:\Program Files\nodejs\pnpx` or Windows denies `C:\Users\Public\Desktop\solo_superman.cmd`. | README one-line installer를 다시 실행하고 UAC administrator prompt를 승인합니다. 회사 정책이 UAC를 막으면 중단하고 승인된 managed install path를 사용합니다. |
 | Codex WSL setup incomplete | Installer가 WSL/Ubuntu reboot 또는 first-run Linux user/password setup이 필요하다고 보고합니다. | Windows가 요청했다면 reboot하고, Ubuntu를 한 번 열어 Linux user setup을 끝낸 뒤 README의 같은 한 줄 명령을 다시 실행합니다. Installer가 WSL2/default 배포판 설정과 WSL 안의 Codex CLI 설치를 이어서 진행합니다. |
 | WSL install script quoting | `line 8: syntax error: unexpected end of file from 'if' command on line 6`처럼 multi-line bash가 중간에서 끊긴 듯한 오류가 보입니다. | updated installer는 multi-line WSL install script를 `bash -lc` argument로 직접 전달하지 않고 LF/UTF-8 temporary `.sh` file로 작성한 뒤 `wslpath`로 변환해 `wsl -- bash <script>`로 실행합니다. |

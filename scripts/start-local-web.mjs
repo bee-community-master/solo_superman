@@ -2,33 +2,18 @@ import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { pathToFileURL } from "node:url";
-import { defaultLocalBindHost, normalizeBindHost, normalizeLoopbackHost, packageManagerSpawn, shouldUseShellForCommand } from "./local-platform.mjs";
+import { envValue, positiveIntegerEnv } from "./local-env.mjs";
+import { waitForFetch } from "./local-http.mjs";
+import { defaultLocalBindHost, normalizeBindHost, normalizeLoopbackHost, packageManagerSpawn } from "./local-platform.mjs";
+import { commandLabel, spawnManagedProcess, stopManagedProcess } from "./local-processes.mjs";
+import { formatHttpOrigin } from "./local-url.mjs";
 
 const DEFAULT_URL_HOST = "127.0.0.1";
 const DEFAULT_SIDECAR_PORT = 43110;
 const DEFAULT_WEB_PORT = 1420;
 const DEFAULT_READY_TIMEOUT_MS = 60_000;
-const FETCH_RETRY_INTERVAL_MS = 250;
-const TERMINATE_GRACE_MS = 5_000;
-const FORCE_KILL_GRACE_MS = 2_000;
 const WRONG_TOKEN = "intentionally-wrong-local-run-token";
 const RUNTIME_STATUS_PATH = "/api/v1/runtime/status";
-
-function envValue(env, name, fallback) {
-  const value = env[name];
-
-  return value && value.trim().length > 0 ? value.trim() : fallback;
-}
-
-function positiveIntegerEnv(env, name, fallback) {
-  const value = envValue(env, name, String(fallback));
-
-  if (!/^[1-9]\d*$/.test(value)) {
-    throw new Error(`${name} must be a positive integer; received ${JSON.stringify(value)}`);
-  }
-
-  return Number.parseInt(value, 10);
-}
 
 function parsePreferredPort(env, name, fallback) {
   const value = envValue(env, name, String(fallback));
@@ -64,12 +49,6 @@ export function browserOpenCommand(url, platform = process.platform) {
 
 export function generatedToken() {
   return randomBytes(32).toString("hex");
-}
-
-function formatHttpOrigin(host, port) {
-  const urlHost = host.includes(":") ? `[${host}]` : host;
-
-  return `http://${urlHost}:${port}`;
 }
 
 export async function isPortAvailable(port, host = DEFAULT_URL_HOST) {
@@ -170,138 +149,8 @@ export function localRunCommands(config, platform = process.platform, env = proc
   };
 }
 
-function commandLabel(command, args) {
-  return [command, ...args].join(" ");
-}
-
-function spawnManaged(command, args, options = {}) {
-  const { platform = process.platform, ...spawnOptions } = options;
-  const child = spawn(command, args, {
-    ...spawnOptions,
-    shell: shouldUseShellForCommand(command, platform),
-    stdio: ["ignore", "pipe", "pipe"]
-  });
-  const managed = {
-    child,
-    label: commandLabel(command, args),
-    logs: [],
-    stopping: false
-  };
-
-  child.stdout?.on("data", (chunk) => {
-    const text = String(chunk);
-    managed.logs.push(text);
-    if (!managed.stopping) {
-      process.stdout.write(text);
-    }
-  });
-  child.stderr?.on("data", (chunk) => {
-    const text = String(chunk);
-    managed.logs.push(text);
-    if (!managed.stopping) {
-      process.stderr.write(text);
-    }
-  });
-
-  return managed;
-}
-
-function hasExited(processInfo) {
-  return processInfo.child.exitCode !== null || processInfo.child.signalCode !== null;
-}
-
-function remainingTimeoutMs(startedAt, timeoutMs) {
-  return Math.max(1, timeoutMs - (Date.now() - startedAt));
-}
-
-async function sleep(ms) {
-  await new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function fetchWithTimeout(url, options) {
-  const controller = new globalThis.AbortController();
-  const timer = setTimeout(() => {
-    controller.abort();
-  }, options.timeoutMs);
-  const fetchImpl = options.fetchImpl ?? globalThis.fetch;
-
-  try {
-    return await fetchImpl(url, {
-      headers: options.headers,
-      signal: controller.signal
-    });
-  } finally {
-    globalThis.clearTimeout(timer);
-  }
-}
-
-async function waitForFetch(url, options) {
-  const startedAt = Date.now();
-  let lastError = null;
-
-  while (Date.now() - startedAt < options.timeoutMs) {
-    if (options.processes?.some(hasExited)) {
-      const exited = options.processes.find(hasExited);
-
-      throw new Error(`${exited.label} exited before ${url} became ready.\n${exited.logs.join("")}`);
-    }
-
-    try {
-      const response = await fetchWithTimeout(url, {
-        headers: options.headers,
-        timeoutMs: remainingTimeoutMs(startedAt, options.timeoutMs)
-      });
-      const text = await response.text();
-
-      if (response.status === options.expectedStatus && (!options.textIncludes || text.includes(options.textIncludes))) {
-        return { response, text };
-      }
-
-      lastError = new Error(`${url} returned ${response.status}; expected ${options.expectedStatus}`);
-    } catch (error) {
-      lastError = error;
-    }
-
-    await sleep(FETCH_RETRY_INTERVAL_MS);
-  }
-
-  throw lastError ?? new Error(`${url} did not become ready within ${options.timeoutMs}ms`);
-}
-
-async function stopProcess(processInfo) {
-  if (hasExited(processInfo)) {
-    return;
-  }
-
-  processInfo.stopping = true;
-
-  await new Promise((resolve, reject) => {
-    let failTimer;
-    const killTimer = setTimeout(() => {
-      if (!hasExited(processInfo)) {
-        processInfo.child.kill("SIGKILL");
-        failTimer = setTimeout(() => {
-          if (!hasExited(processInfo)) {
-            reject(new Error(`${processInfo.label} did not exit after SIGKILL`));
-          }
-        }, FORCE_KILL_GRACE_MS);
-      }
-    }, TERMINATE_GRACE_MS);
-
-    processInfo.child.once("exit", () => {
-      globalThis.clearTimeout(killTimer);
-      if (failTimer) {
-        globalThis.clearTimeout(failTimer);
-      }
-      resolve();
-    });
-
-    processInfo.child.kill("SIGTERM");
-  });
-}
-
 async function stopAll(processes) {
-  await Promise.allSettled([...processes].reverse().map(stopProcess));
+  await Promise.allSettled([...processes].reverse().map(stopManagedProcess));
 }
 
 async function openBrowser(url, options = {}) {
@@ -371,57 +220,57 @@ async function startOnce(config) {
 
   try {
     console.log(`local web run: starting sidecar ${config.sidecarBaseUrl}`);
-    const sidecar = spawnManaged(commands.sidecar[0], commands.sidecar[1], { env });
+    const sidecar = spawnManagedProcess(commands.sidecar[0], commands.sidecar[1], { env });
     processes.push(sidecar);
     await waitForFetch(`${config.sidecarBaseUrl}/healthz`, {
-    expectedStatus: 200,
-    textIncludes: "solo-superman-sidecar",
-    timeoutMs: config.readyTimeoutMs,
-    processes
-  });
-  await waitForFetch(`${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH}`, {
-    expectedStatus: 200,
-    headers: {
-      Authorization: `Bearer ${config.localCapabilityToken}`
-    },
-    timeoutMs: config.readyTimeoutMs,
-    processes
-  });
-  await waitForFetch(`${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH}`, {
-    expectedStatus: 401,
-    headers: {
-      Authorization: `Bearer ${WRONG_TOKEN}`
-    },
-    timeoutMs: config.readyTimeoutMs,
-    processes
-  });
+      expectedStatus: 200,
+      textIncludes: "solo-superman-sidecar",
+      timeoutMs: config.readyTimeoutMs,
+      processes
+    });
+    await waitForFetch(`${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH}`, {
+      expectedStatus: 200,
+      headers: {
+        Authorization: `Bearer ${config.localCapabilityToken}`
+      },
+      timeoutMs: config.readyTimeoutMs,
+      processes
+    });
+    await waitForFetch(`${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH}`, {
+      expectedStatus: 401,
+      headers: {
+        Authorization: `Bearer ${WRONG_TOKEN}`
+      },
+      timeoutMs: config.readyTimeoutMs,
+      processes
+    });
 
-  console.log(`local web run: starting web ${config.webBaseUrl}`);
-  const web = spawnManaged(commands.web[0], commands.web[1], { env });
-  processes.push(web);
-  await waitForFetch(config.webBaseUrl, {
-    expectedStatus: 200,
-    textIncludes: "Solo Superman",
-    timeoutMs: config.readyTimeoutMs,
-    processes
-  });
+    console.log(`local web run: starting web ${config.webBaseUrl}`);
+    const web = spawnManagedProcess(commands.web[0], commands.web[1], { env });
+    processes.push(web);
+    await waitForFetch(config.webBaseUrl, {
+      expectedStatus: 200,
+      textIncludes: "Solo Superman",
+      timeoutMs: config.readyTimeoutMs,
+      processes
+    });
 
-  if (config.openBrowser) {
-    try {
-      await openBrowser(config.webBaseUrl);
-      console.log(`local web run: browser opened ${config.webBaseUrl}`);
-    } catch (error) {
-      console.warn(
-        `local web run: 브라우저 자동 열기에 실패했습니다. 아래 주소를 브라우저에 붙여넣으세요.\n${config.webBaseUrl}\n${error instanceof Error ? error.message : String(error)}`
-      );
+    if (config.openBrowser) {
+      try {
+        await openBrowser(config.webBaseUrl);
+        console.log(`local web run: browser opened ${config.webBaseUrl}`);
+      } catch (error) {
+        console.warn(
+          `local web run: 브라우저 자동 열기에 실패했습니다. 아래 주소를 브라우저에 붙여넣으세요.\n${config.webBaseUrl}\n${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    } else {
+      console.log(`local web run: browser auto-open disabled. Open ${config.webBaseUrl}`);
     }
-  } else {
-    console.log(`local web run: browser auto-open disabled. Open ${config.webBaseUrl}`);
-  }
 
-  console.log("\nSolo Superman web 화면이 준비됐습니다.");
-  console.log(`URL: ${config.webBaseUrl}`);
-  console.log("이 터미널을 열어두세요. 종료하려면 Ctrl+C를 누르세요.");
+    console.log("\nSolo Superman web 화면이 준비됐습니다.");
+    console.log(`URL: ${config.webBaseUrl}`);
+    console.log("이 터미널을 열어두세요. 종료하려면 Ctrl+C를 누르세요.");
 
     const exitCode = await waitForStopSignal(processes);
     process.exit(exitCode);

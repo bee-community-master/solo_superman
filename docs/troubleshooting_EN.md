@@ -10,9 +10,9 @@ Solo Superman is currently a limited-beta-style technical preview. The goal is t
 
 | macOS shell | Windows PowerShell |
 | --- | --- |
-| `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-macos.sh)"` | `irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1 \| iex` |
+| `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-macos.sh)"` | `$utf8 = New-Object System.Text.UTF8Encoding $false; [Console]::InputEncoding = $utf8; [Console]::OutputEncoding = $utf8; $OutputEncoding = $utf8; chcp.com 65001 > $null; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $wc = New-Object Net.WebClient; $wc.Encoding = $utf8; $script = $wc.DownloadString("https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1"); if ($script.Length -gt 0 -and $script[0] -eq [char]0xFEFF) { $script = $script.Substring(1) }; iex $script` |
 
-The installer checks Node.js 24+, Git, Corepack/pnpm, Codex CLI, dependency install, local run readiness, and browser opening. On Windows it keeps app execution on Windows Node/pnpm, but installs and runs Codex CLI inside WSL by default with `SOLO_CODEX_WINDOWS_MODE=wsl` because that path is more stable for Codex/Codex CLI on affected Windows machines. It also opens a Codex Desktop App guidance window for users who want vibe coding or multiple parallel agents after Solo Superman setup. It should not overwrite an existing folder or kill an unrelated process to claim a port.
+The Windows one-line command sets UTF-8 console output, TLS 1.2, and UTF-8 script download decoding before running the bootstrap, including on Windows PowerShell 5.1. The installer checks Node.js 24+, Git, Corepack/pnpm, Codex CLI, dependency install, local run readiness, and browser opening. On Windows it keeps app execution on Windows Node/pnpm, but installs and runs Codex CLI inside WSL by default with `SOLO_CODEX_WINDOWS_MODE=wsl` because that path is more stable for Codex/Codex CLI on affected Windows machines. It also opens a Codex Desktop App guidance window for users who want vibe coding or multiple parallel agents after Solo Superman setup. It should not overwrite an existing folder or kill an unrelated process to claim a port.
 
 ## Manual prerequisites
 
@@ -39,7 +39,7 @@ If a maintainer explicitly sets `SOLO_SUPERMAN_CODEX_WINDOWS_MODE=native`, the W
 winget install --id OpenJS.NodeJS.LTS -e
 winget install --id Git.Git -e
 corepack enable
-pnpm --version
+pnpm.cmd --version
 wsl --set-default-version 2
 wsl --install -d Ubuntu
 # If Windows asks, reboot, open Ubuntu once, finish Linux user/password setup, then rerun the same one-line installer.
@@ -52,7 +52,7 @@ codex --version
 
 ## Run locally
 
-On Windows, the installer creates or refreshes Solo Superman Desktop runners named `solo_superman.cmd` and `solo_superman.lnk` for later launches, including localized, public, or OneDrive-redirected Desktop folders. These runners are Solo Superman relaunch wrappers, not the OpenAI Codex Desktop App. The runner uses `call pnpm start:local` so control returns to the cmd wrapper; if launch fails, the cmd window keeps the failure output visible, prints the exit code, and waits for Enter before closing. The macOS installer does not create a Desktop runner and prints the rerun command instead.
+On Windows, the installer creates or refreshes Solo Superman Desktop runners named `solo_superman.cmd` and `solo_superman.lnk` for later launches, including localized, public, or OneDrive-redirected Desktop folders. These runners are Solo Superman relaunch wrappers, not the OpenAI Codex Desktop App. The runner uses `call pnpm.cmd start:local` so control returns to the cmd wrapper; if launch fails, the cmd window keeps the failure output visible, prints the exit code, and waits for Enter before closing. The macOS installer does not create a Desktop runner and prints the rerun command instead.
 
 ### macOS shell
 
@@ -63,7 +63,7 @@ cd solo_superman && pnpm start:local
 ### Windows PowerShell
 
 ```powershell
-Set-Location .\solo_superman; pnpm start:local
+Set-Location "$HOME\solo_superman"; pnpm.cmd start:local
 ```
 
 The default local path does not require an OpenAI API key or ChatGPT web credential by default; in plain language, reaching the local first screen needs neither an OpenAI API key, a ChatGPT web credential, nor a ChatGPT Pro session. Backend question/research preview checks the local Codex CLI with `codex login status`; it does not check whether the user is signed in to ChatGPT on the web. On Windows, the sidecar runs that Codex CLI through WSL, so the effective command is `wsl.exe -- bash -lc '... codex login status'` and login opens a WSL-backed `codex auth login` terminal. If Codex login is missing, the UI can offer to open `codex auth login` through a background terminal. The UI labels are Open Codex login and Refresh Codex login status. Separate ChatGPT browser-session delegation requires its own user-approved flow and is not part of the default local run. Solo Superman does not collect or store any credentials.
@@ -76,6 +76,8 @@ Contributors can run:
 pnpm verify:prod-bundle
 pnpm verify
 ```
+
+On Windows PowerShell, use `pnpm.cmd verify:prod-bundle` and `pnpm.cmd verify` so the Node/Corepack command shim runs even when local execution policy blocks `pnpm.ps1`.
 
 A production bundle smoke must cover `build_auto_local_smoke`, browser readiness, managed child processes stopped, temporary app data removed, and auto shutdown/kill evidence.
 
@@ -129,6 +131,7 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 | Port conflict | Browser or sidecar port is already in use. | Choose a free alternate port; do not kill unknown processes. |
 | Token mismatch | API returns `401`. | Re-run `pnpm start:local` so frontend and sidecar share one token. |
 | CORS/origin | Browser request is blocked. | Confirm loopback URL and local sidecar base URL. |
+| Garbled Korean or UTF-8 output | Korean output or downloaded script text looks corrupted after running the README one-line command in Windows PowerShell. | Use the README one-line installer. It sets `[Console]::OutputEncoding`, `$OutputEncoding`, `chcp.com 65001`, TLS 1.2, UTF-8 download decoding, and BOM stripping before running the bootstrap. |
 | Administrator permission denied | Corepack reports `operation not permitted` for `C:\Program Files\nodejs\pnpx` or Windows denies `C:\Users\Public\Desktop\solo_superman.cmd`. | Rerun the README one-line installer and approve the UAC administrator prompt. If company policy blocks UAC, stop and use an approved managed install path. |
 | Codex WSL setup incomplete | The installer reports that WSL/Ubuntu needs a reboot or first-run Linux user/password setup. | Reboot if Windows requested it, open Ubuntu once to finish Linux user setup, then rerun the same README one-line installer. The installer will resume WSL2/default distribution setup and Codex CLI installation inside WSL. |
 | WSL install script quoting | The installer shows a truncated multi-line bash error such as `line 8: syntax error: unexpected end of file from 'if' command on line 6`. | The updated installer no longer sends the multi-line WSL install script as a direct `bash -lc` argument. It writes a LF/UTF-8 temporary `.sh` file, converts the path with `wslpath`, and runs it with `wsl -- bash <script>`. |

@@ -1,4 +1,5 @@
 import { basename } from "node:path";
+import { envValue } from "./local-env.mjs";
 
 export const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
@@ -28,12 +29,6 @@ export function normalizeBindHost(value, name, env = process.env, platform = pro
   }
 
   return normalizeLoopbackHost(value, name);
-}
-
-function envValue(env, name, fallback) {
-  const value = env[name];
-
-  return value && value.trim().length > 0 ? value.trim() : fallback;
 }
 
 function isPnpmExecPath(value, env) {

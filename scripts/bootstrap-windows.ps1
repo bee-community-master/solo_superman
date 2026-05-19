@@ -1,11 +1,41 @@
 $ErrorActionPreference = "Stop"
 
+function Initialize-Utf8Console {
+  $utf8 = New-Object System.Text.UTF8Encoding $false
+  try {
+    [Console]::InputEncoding = $utf8
+  } catch {
+    # Some non-interactive hosts do not expose a mutable console input stream.
+  }
+  try {
+    [Console]::OutputEncoding = $utf8
+  } catch {
+    # Some non-interactive hosts do not expose a mutable console output stream.
+  }
+  $global:OutputEncoding = $utf8
+  try {
+    $null = & chcp.com 65001 2>$null
+  } catch {
+    # chcp is best-effort; the .NET encodings above still protect pipeline output.
+  }
+}
+
+Initialize-Utf8Console
+
 $RepoUrl = if ($env:SOLO_SUPERMAN_REPO_URL) { $env:SOLO_SUPERMAN_REPO_URL } else { "https://github.com/bee-community-master/solo_superman.git" }
-$DefaultTargetDir = if ($env:SOLO_SUPERMAN_DIR) { $env:SOLO_SUPERMAN_DIR } else { "solo_superman" }
+$DefaultTargetDir = if ($env:SOLO_SUPERMAN_DIR) {
+  $env:SOLO_SUPERMAN_DIR
+} elseif ($env:USERPROFILE) {
+  Join-Path $env:USERPROFILE "solo_superman"
+} elseif ($HOME) {
+  Join-Path $HOME "solo_superman"
+} else {
+  "solo_superman"
+}
 $PnpmVersion = if ($env:SOLO_SUPERMAN_PNPM_VERSION) { $env:SOLO_SUPERMAN_PNPM_VERSION } else { "11.0.4" }
 $RunSmoke = if ($env:SOLO_SUPERMAN_RUN_SMOKE) { $env:SOLO_SUPERMAN_RUN_SMOKE } else { "1" }
 $StartLocal = if ($env:SOLO_SUPERMAN_START_LOCAL) { $env:SOLO_SUPERMAN_START_LOCAL } else { "1" }
-$BootstrapCommand = "irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1 | iex"
+$BootstrapCommand = '$utf8 = New-Object System.Text.UTF8Encoding $false; [Console]::InputEncoding = $utf8; [Console]::OutputEncoding = $utf8; $OutputEncoding = $utf8; chcp.com 65001 > $null; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $wc = New-Object Net.WebClient; $wc.Encoding = $utf8; $script = $wc.DownloadString("https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1"); if ($script.Length -gt 0 -and $script[0] -eq [char]0xFEFF) { $script = $script.Substring(1) }; iex $script'
 $CodexDesktopAppUrl = if ($env:SOLO_SUPERMAN_CODEX_DESKTOP_URL) { $env:SOLO_SUPERMAN_CODEX_DESKTOP_URL } else { "https://openai.com/codex/" }
 $ShowCodexDesktopPrompt = if ($env:SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT) { $env:SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT } else { "1" }
 $CodexWindowsMode = if ($env:SOLO_SUPERMAN_CODEX_WINDOWS_MODE) { $env:SOLO_SUPERMAN_CODEX_WINDOWS_MODE.ToLowerInvariant() } elseif ($env:SOLO_CODEX_WINDOWS_MODE) { $env:SOLO_CODEX_WINDOWS_MODE.ToLowerInvariant() } else { "wsl" }
@@ -770,7 +800,7 @@ function New-DesktopRunner($TargetPath) {
     ")",
     "echo Starting Solo Superman locally...",
     "echo Keep this window open while using the app. Press Ctrl+C to stop it.",
-    "call pnpm start:local",
+    "call pnpm.cmd start:local",
     "set ""SOLO_EXIT=%ERRORLEVEL%""",
     "if not ""%SOLO_EXIT%""==""0"" goto solo_fail",
     "echo.",
@@ -923,7 +953,7 @@ function Invoke-LocalWeb {
   if ($StartLocal -eq "0") {
     Write-Step "내장 설정으로 local web 자동 실행을 건너뜁니다."
     Write-Host "나중에 실행하려면 바탕화면의 solo_superman.cmd를 더블클릭하거나 아래 명령을 실행하세요:"
-    Write-Host "Set-Location `"$TargetPath`"; pnpm start:local"
+    Write-Host "Set-Location `"$TargetPath`"; pnpm.cmd start:local"
     return
   }
 
@@ -946,7 +976,7 @@ function Write-InstallSummary($TargetPath, $DesktopRunnerPaths) {
   } else {
     Write-Host "바탕화면 실행파일/아이콘: 생성되지 않음"
   }
-  Write-Host "다시 실행 명령: Set-Location `"$TargetPath`"; pnpm start:local"
+  Write-Host "다시 실행 명령: Set-Location `"$TargetPath`"; pnpm.cmd start:local"
   Write-Host "이제 로컬 web을 시작합니다. 사용하는 동안 이 PowerShell 창을 닫지 마세요. 종료하려면 Ctrl+C를 누르세요."
 }
 
