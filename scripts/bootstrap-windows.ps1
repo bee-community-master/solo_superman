@@ -18,6 +18,26 @@ function Write-Warn($Message) {
   Write-Warning $Message
 }
 
+function Test-IsAdministrator {
+  try {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+  } catch {
+    return $false
+  }
+}
+
+function Write-WindowsAdminNotice {
+  Write-Step "Windows 관리자 권한 확인"
+  if (Test-IsAdministrator) {
+    Write-Host "관리자 권한 PowerShell로 실행 중입니다."
+    return
+  }
+
+  Write-Warn "Windows 설치에는 관리자 권한 PowerShell이 필요합니다. Node.js/Git 설치 단계에서 실패하면 시작 메뉴에서 PowerShell을 '관리자 권한으로 실행'한 뒤 README의 한 줄 설치 명령을 다시 실행하세요."
+}
+
 function Test-Command($Name) {
   $null -ne (Get-Command $Name -ErrorAction SilentlyContinue)
 }
@@ -259,28 +279,58 @@ function ConvertTo-CmdValue($Value) {
   return ([string]$Value).Replace("%", "%%")
 }
 
+function ConvertTo-CmdEchoValue($Value) {
+  return (ConvertTo-CmdValue $Value).Replace("^", "^^").Replace("&", "^&").Replace("|", "^|").Replace("<", "^<").Replace(">", "^>")
+}
+
 function New-DesktopRunner($TargetPath) {
   $runnerPaths = New-Object System.Collections.Generic.List[string]
   $safeTargetPath = ConvertTo-CmdValue $TargetPath
+  $safeBootstrapCommand = ConvertTo-CmdEchoValue $BootstrapCommand
   $pathLine = 'set "PATH=%PATH%;%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%LOCALAPPDATA%\Microsoft\WindowsApps"'
   $content = @(
     "@echo off",
-    "setlocal",
+    "setlocal enableextensions",
+    "set ""SOLO_EXIT=0""",
     $pathLine,
     "set ""SOLO_SUPERMAN_DIR=$safeTargetPath""",
+    "if not exist ""%SOLO_SUPERMAN_DIR%"" (",
+    "  echo Install folder not found: ""%SOLO_SUPERMAN_DIR%""",
+    "  set ""SOLO_EXIT=1""",
+    "  goto solo_fail",
+    ")",
     "cd /d ""%SOLO_SUPERMAN_DIR%""",
+    "if errorlevel 1 (",
+    "  echo Failed to enter install folder: ""%SOLO_SUPERMAN_DIR%""",
+    "  set ""SOLO_EXIT=1""",
+    "  goto solo_fail",
+    ")",
+    "where pnpm >nul 2>nul",
+    "if errorlevel 1 (",
+    "  echo pnpm was not found in PATH.",
+    "  echo Run the Windows installer again from an Administrator PowerShell:",
+    "  echo $safeBootstrapCommand",
+    "  set ""SOLO_EXIT=1""",
+    "  goto solo_fail",
+    ")",
     "echo Starting Solo Superman locally...",
     "echo Keep this window open while using the app. Press Ctrl+C to stop it.",
-    "pnpm start:local",
-    "if errorlevel 1 (",
-    "  echo.",
-    "  echo Solo Superman failed to start. Press any key to close this window.",
-    "  pause >nul",
-    ") else (",
-    "  echo.",
-    "  echo Solo Superman local run has stopped. Press any key to close this window.",
-    "  pause >nul",
-    ")"
+    "call pnpm start:local",
+    "set ""SOLO_EXIT=%ERRORLEVEL%""",
+    "if not ""%SOLO_EXIT%""==""0"" goto solo_fail",
+    "echo.",
+    "echo Solo Superman local run has stopped.",
+    "goto solo_wait",
+    ":solo_fail",
+    "echo.",
+    "echo Solo Superman failed to start. Exit code: %SOLO_EXIT%",
+    "echo The failure output above is kept visible so you can copy it.",
+    "echo If this happened right after install, run the installer again from an Administrator PowerShell:",
+    "echo $safeBootstrapCommand",
+    ":solo_wait",
+    "echo.",
+    "set /p ""SOLO_CLOSE=Press Enter to close this window...""",
+    "exit /b %SOLO_EXIT%"
   ) -join "`r`n"
 
   foreach ($desktop in Get-DesktopPaths) {
@@ -408,6 +458,7 @@ function Write-FriendlyFailure($Message) {
 }
 
 try {
+Write-WindowsAdminNotice
 Add-CommonToolPaths
 Ensure-Git
 Ensure-Node

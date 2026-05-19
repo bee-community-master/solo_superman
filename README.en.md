@@ -20,6 +20,8 @@ The installer checks Node.js 24 or newer, Git, and Corepack/pnpm, installs missi
 
 ### Windows PowerShell
 
+Run PowerShell **as Administrator** from the Start menu, then paste the one-line command below. Without administrator permissions, the Node.js/Git install step can fail.
+
 ```powershell
 irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1 | iex
 ```
@@ -30,7 +32,7 @@ If the installer asks for a new terminal so PATH changes can take effect, open a
 
 After installation, the local server keeps running and the Solo Superman web screen opens automatically in your default browser. Keep that terminal open while using the app. Press `Ctrl+C` to stop it.
 
-To run it again later, use the command below. The completion message shows the install path, rerun command, and Desktop runner status. On Windows, the installer checks or recreates `solo_superman.cmd` plus a `solo_superman` shortcut across visible Desktop candidates even when the app is already installed, so later launches can start the same local run by double-clicking that file. On macOS, the installer does not create a Desktop runner and instead shows the rerun command.
+To run it again later, use the command below. The completion message shows the install path, rerun command, and Desktop runner status. On Windows, the installer checks or recreates `solo_superman.cmd` plus a `solo_superman` shortcut across visible Desktop candidates even when the app is already installed, so later launches can start the same local run by double-clicking that file. If the double-click launch fails, the cmd window stays open, shows the failure output and exit code, and waits for Enter before closing. On macOS, the installer does not create a Desktop runner and instead shows the rerun command.
 
 ### macOS shell
 
