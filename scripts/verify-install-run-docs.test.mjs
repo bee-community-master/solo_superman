@@ -65,13 +65,21 @@ describe("#105 local install/run verification docs", () => {
     expect(englishReadme).toContain("Corepack/pnpm, and Codex CLI");
     expect(englishReadme).toContain("Codex Desktop App download prompt");
     expect(runbook).toContain("npm install -g @openai/codex@latest");
+    expect(runbook).toContain("Microsoft.VCRedist.2015+.x64");
     expect(runbook).toContain("codex --version");
+    expect(runbook).toContain("codex.cmd --version failed with exit -1073741515");
+    expect(runbook).toContain("0xC0000135");
     expect(runbook).toContain("https://openai.com/codex/");
     expect(runbook).toContain("바이브 코딩이나 여러 agent 병렬 작업");
     expect(windowsBootstrap).toContain("$CodexDesktopAppUrl");
     expect(windowsBootstrap).toContain("function Ensure-CodexCli");
+    expect(windowsBootstrap).toContain("function Test-CodexNativeRuntimeFailure");
+    expect(windowsBootstrap).toContain("function Install-CodexNativeRuntime");
     expect(windowsBootstrap).toContain('Invoke-Tool "npm" @("install", "-g", "@openai/codex@latest")');
     expect(windowsBootstrap).toContain('Invoke-Tool "codex" @("--version")');
+    expect(windowsBootstrap).toContain('"Microsoft.VCRedist.2015+.x64"');
+    expect(windowsBootstrap).toContain("-1073741515");
+    expect(windowsBootstrap).toContain("0xC0000135");
     expect(windowsBootstrap).toContain("function Show-CodexDesktopAppPrompt");
     expect(windowsBootstrap).toContain("Start-Process $CodexDesktopAppUrl");
     expect(windowsBootstrap).toContain("Codex Desktop App for Windows");
@@ -143,6 +151,9 @@ describe("#105 local install/run verification docs", () => {
       "Administrator permission denied",
       "operation not permitted",
       "C:\\Users\\Public\\Desktop\\solo_superman.cmd",
+      "Codex CLI native runtime missing",
+      "Microsoft.VCRedist.2015+.x64",
+      "codex.cmd --version failed with exit -1073741515",
       "spawn pnpm ENOENT",
       "pnpm.cmd"
     ]) {

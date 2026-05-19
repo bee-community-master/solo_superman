@@ -145,8 +145,11 @@ function Add-CommonToolPaths {
   }
 }
 
-function Install-WingetPackage($CommandName, $PackageId) {
+function Install-WingetPackage($CommandName, $PackageId, $MissingWingetMessage) {
   if (-not (Test-Command winget)) {
+    if ($MissingWingetMessage) {
+      throw $MissingWingetMessage
+    }
     throw "winget을 찾지 못했습니다. Node 24 이상(https://nodejs.org/)과 Git for Windows(https://git-scm.com/download/win)를 설치한 뒤 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
   }
 
@@ -228,6 +231,16 @@ function Ensure-Pnpm {
   Invoke-Tool "pnpm" @("--version")
 }
 
+function Test-CodexNativeRuntimeFailure($Message) {
+  return ([string]$Message -match "codex(?:\\.cmd)? --version failed with exit (-1073741515|3221225781)") -or ([string]$Message -match "0xC0000135")
+}
+
+function Install-CodexNativeRuntime {
+  Write-Step "Codex CLI native runtime 설치/복구"
+  Write-Host "codex.cmd가 -1073741515(0xC0000135)로 종료되면 필요한 Windows C++ runtime DLL을 찾지 못한 상태일 수 있습니다."
+  Install-WingetPackage "Microsoft Visual C++ Redistributable (x64)" "Microsoft.VCRedist.2015+.x64" "winget을 찾지 못해 Microsoft Visual C++ Redistributable (x64)을 자동 설치하지 못했습니다. https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist 에서 x64 runtime을 설치한 뒤 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
+}
+
 function Ensure-CodexCli {
   if (-not (Test-Command npm)) {
     throw "Codex CLI 설치를 위해 npm이 필요합니다. Node 24 이상 설치 후 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
@@ -240,7 +253,18 @@ function Ensure-CodexCli {
     throw "Codex CLI 설치 후에도 codex 명령을 찾지 못했습니다. 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
   }
 
-  Invoke-Tool "codex" @("--version")
+  try {
+    Invoke-Tool "codex" @("--version")
+  } catch {
+    if (-not (Test-CodexNativeRuntimeFailure $_.Exception.Message)) {
+      throw
+    }
+
+    Write-Warn "Codex CLI 실행에 필요한 Windows native runtime이 빠져 있어 Visual C++ Redistributable 설치 후 다시 확인합니다. $($_.Exception.Message)"
+    Install-CodexNativeRuntime
+    Add-CommonToolPaths
+    Invoke-Tool "codex" @("--version")
+  }
 }
 
 function Show-CodexDesktopAppPrompt {

@@ -29,7 +29,7 @@ pnpm --version
 
 The README one-line Windows installer self-elevates before prerequisite changes: if it is not already running as administrator, it asks for Windows UAC approval and relaunches the same bootstrap command in an administrator PowerShell. This is required because Corepack may need to write shims under `C:\Program Files\nodejs` and the Desktop runner pass may touch `C:\Users\Public\Desktop`. If UAC or company policy blocks elevation, the installer stops with the retry command instead of bypassing policy.
 
-After Node/npm and pnpm are ready, the Windows installer installs or updates OpenAI Codex CLI with `npm install -g @openai/codex@latest` and validates it with `codex --version`. It does not start a Codex login flow or store credentials; users sign in later with their ChatGPT account or API key when they choose to use Codex. For the optional desktop experience, the installer opens `https://openai.com/codex/` and shows a small Windows prompt explaining that users can download Codex Desktop App for Windows if they want vibe coding or multiple parallel agents.
+After Node/npm and pnpm are ready, the Windows installer installs or updates OpenAI Codex CLI with `npm install -g @openai/codex@latest` and validates it with `codex --version`. If `codex.cmd --version` fails with exit `-1073741515` (`0xC0000135`), the installer treats that as a missing native runtime signal, installs Microsoft Visual C++ Redistributable (x64) with `winget install --id Microsoft.VCRedist.2015+.x64 -e`, then retries `codex --version`. It does not start a Codex login flow or store credentials; users sign in later with their ChatGPT account or API key when they choose to use Codex. For the optional desktop experience, the installer opens `https://openai.com/codex/` and shows a small Windows prompt explaining that users can download Codex Desktop App for Windows if they want vibe coding or multiple parallel agents.
 
 ```powershell
 winget install --id OpenJS.NodeJS.LTS -e
@@ -37,6 +37,7 @@ winget install --id Git.Git -e
 corepack enable
 pnpm --version
 npm install -g @openai/codex@latest
+winget install --id Microsoft.VCRedist.2015+.x64 -e
 codex --version
 ```
 
@@ -99,6 +100,7 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 
 - Start from a non-admin PowerShell and confirm the one-line installer opens a UAC prompt, then relaunches in an administrator PowerShell before Corepack/pnpm activation.
 - Confirm the installer runs `npm install -g @openai/codex@latest`, then `codex --version` succeeds without requiring a credential prompt.
+- If Codex exits with `codex.cmd --version failed with exit -1073741515`, confirm the installer installs Microsoft Visual C++ Redistributable (x64), then retries `codex --version`.
 - Confirm a Codex Desktop App download window opens to `https://openai.com/codex/` and the popup explains it is optional for vibe coding / parallel agent work.
 - PowerShell execution policy allows the one-line command.
 - Node and Git are visible in a new terminal after installation.
@@ -115,6 +117,7 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 | Token mismatch | API returns `401`. | Re-run `pnpm start:local` so frontend and sidecar share one token. |
 | CORS/origin | Browser request is blocked. | Confirm loopback URL and local sidecar base URL. |
 | Administrator permission denied | Corepack reports `operation not permitted` for `C:\Program Files\nodejs\pnpx` or Windows denies `C:\Users\Public\Desktop\solo_superman.cmd`. | Rerun the README one-line installer and approve the UAC administrator prompt. If company policy blocks UAC, stop and use an approved managed install path. |
+| Codex CLI native runtime missing | `codex.cmd --version failed with exit -1073741515` or `0xC0000135` appears right after `npm install -g @openai/codex@latest`. | Install Microsoft Visual C++ Redistributable (x64) with `winget install --id Microsoft.VCRedist.2015+.x64 -e`, then retry `codex --version`; the updated installer does this automatically. |
 | Windows `spawn pnpm ENOENT` during smoke | `pnpm verify:prod-bundle` fails even though `pnpm --version` works in PowerShell, often after a previous install attempt. | The production smoke runner must spawn `pnpm.cmd` on Windows instead of bare `pnpm`; rerun the updated installer so it pulls the fixed script before smoke verification. |
 | Execution policy | Windows blocks script execution. | Show the policy error and retry command; do not bypass company policy. |
 | Path quoting | Spaces in path break a command. | Use quoted PowerShell paths or `Set-Location`. |

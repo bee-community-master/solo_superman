@@ -710,6 +710,8 @@ function checkContributorDocsSnippets() {
     "OpenAI API key, ChatGPT web credential, ChatGPT Pro session이 필요하지 않습니다",
     "codex login status",
     "codex auth login",
+    "Microsoft.VCRedist.2015+.x64",
+    "codex.cmd --version failed with exit -1073741515",
     "Open Codex login",
     "Refresh Codex login status",
     "manual browser smoke",
@@ -722,7 +724,10 @@ function checkContributorDocsSnippets() {
     "Execution policy",
     "Path quoting",
     "Long path",
-    "Antivirus/network prompt"
+    "Antivirus/network prompt",
+    "Administrator permission denied",
+    "Codex CLI native runtime missing",
+    "Windows `spawn pnpm ENOENT` during smoke"
   ]);
 }
 
