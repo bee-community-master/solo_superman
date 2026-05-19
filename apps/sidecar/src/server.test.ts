@@ -8089,6 +8089,39 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("rejects auto implementation workspace roots that are symlinks", async () => {
+    const workspaceParent = await makeTempAppDataDir();
+    const outsideDir = await makeTempAppDataDir();
+    const workspaceRoot = join(workspaceParent, "workspace-link");
+    await symlink(outsideDir, workspaceRoot, "dir");
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A symlinked auto implementation workspace root test");
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:symlink-root",
+        projectFolderName: "escape-app"
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(400);
+      expect(body.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Auto implementation workspace could not be prepared safely.",
+        details: {
+          message: "Workspace root must be a real directory."
+        }
+      });
+      await expect(readFile(join(outsideDir, "escape-app", "implementation-tracker.md"), "utf8")).rejects.toMatchObject({
+        code: "ENOENT"
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("rejects auto implementation output files that are symlinks outside the workspace root", async () => {
     const workspaceRoot = await makeTempAppDataDir();
     const outsideDir = await makeTempAppDataDir();

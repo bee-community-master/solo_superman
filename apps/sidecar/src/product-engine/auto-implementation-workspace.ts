@@ -97,6 +97,18 @@ async function lstatOrNull(path: string) {
   }
 }
 
+function isRealDirectoryStat(stat: Awaited<ReturnType<typeof lstatOrNull>>) {
+  return Boolean(stat && !stat.isSymbolicLink() && stat.isDirectory());
+}
+
+async function assertRealDirectory(path: string, message: string) {
+  const stat = await lstatOrNull(path);
+
+  if (!isRealDirectoryStat(stat)) {
+    throw new Error(message);
+  }
+}
+
 async function ensureRealDirectoryWithin(workspaceRoot: string, directoryPath: string) {
   const resolvedRoot = resolve(workspaceRoot);
   const resolvedDirectoryPath = resolve(directoryPath);
@@ -111,9 +123,8 @@ async function ensureRealDirectoryWithin(workspaceRoot: string, directoryPath: s
 
   if (!rootStat) {
     await mkdir(resolvedRoot, { recursive: true });
-  } else if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
-    throw new Error("Workspace root must be a real directory.");
   }
+  await assertRealDirectory(resolvedRoot, "Workspace root must be a real directory.");
 
   const relativeDirectoryPath = relative(resolvedRoot, resolvedDirectoryPath);
   const segments = relativeDirectoryPath ? relativeDirectoryPath.split(sep).filter(Boolean) : [];
@@ -133,17 +144,13 @@ async function ensureRealDirectoryWithin(workspaceRoot: string, directoryPath: s
         if (maybeError.code !== "EEXIST") {
           throw error;
         }
-
-        const raceStat = await lstatOrNull(current);
-
-        if (raceStat?.isSymbolicLink() || !raceStat?.isDirectory()) {
-          throw new Error("Workspace output directories must not contain symbolic links.", { cause: error });
-        }
       }
+
+      await assertRealDirectory(current, "Workspace output directories must not contain symbolic links.");
       continue;
     }
 
-    if (segmentStat.isSymbolicLink() || !segmentStat.isDirectory()) {
+    if (!isRealDirectoryStat(segmentStat)) {
       throw new Error("Workspace output directories must not contain symbolic links.");
     }
   }
@@ -207,8 +214,8 @@ async function ensureGitRepo(projectDir: string) {
   return "git:init:main";
 }
 
-function addMinutes(isoDate: string, millis: number) {
-  return new Date(Date.parse(isoDate) + millis).toISOString();
+function addMilliseconds(isoDate: string, durationMs: number) {
+  return new Date(Date.parse(isoDate) + durationMs).toISOString();
 }
 
 function remoteGuide(status: AutoImplementationRemoteStatus): AutoImplementationRemoteGuide {
@@ -460,7 +467,7 @@ export async function prepareAutoImplementationWorkspaceRun(
   const gitEvidence = await ensureGitRepo(generatedRepoPath);
   const status = await remoteStatus(generatedRepoPath);
   const guide = remoteGuide(status);
-  const nextTickAt = addMinutes(input.now, AUTO_IMPLEMENTATION_TICK_INTERVAL_MS);
+  const nextTickAt = addMilliseconds(input.now, AUTO_IMPLEMENTATION_TICK_INTERVAL_MS);
   const sourcePlanningRef = input.request.sourcePlanningRef ?? `session:${input.sessionId}`;
   const trackerTitle = input.request.trackerTitle ?? "Solo Superman auto implementation tracker";
   const trackerGoal = input.request.trackerGoal ?? "Move the planning handoff into a reviewed local program repo.";
