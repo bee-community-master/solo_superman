@@ -60,6 +60,25 @@ function Invoke-Tool($BaseName, [string[]]$Arguments) {
   Invoke-Checked (Get-ToolPath $BaseName) $Arguments
 }
 
+function Invoke-Pnpm([string[]]$Arguments) {
+  $pnpm = Get-ToolPath "pnpm"
+  $oldPnpmCommand = $env:SOLO_PNPM_COMMAND
+  try {
+    $env:SOLO_PNPM_COMMAND = $pnpm
+    Invoke-Checked $pnpm $Arguments
+  } finally {
+    if ($null -eq $oldPnpmCommand) {
+      Remove-Item Env:SOLO_PNPM_COMMAND -ErrorAction SilentlyContinue
+    } else {
+      $env:SOLO_PNPM_COMMAND = $oldPnpmCommand
+    }
+  }
+}
+
+function Test-PortConflictError($Message) {
+  return [string]$Message -match "EADDRINUSE|address already in use|strictPort|Port conflict|포트 충돌"
+}
+
 function ConvertTo-PowerShellLiteral($Value) {
   if ($null -eq $Value) {
     return "''"
@@ -218,7 +237,7 @@ function Ensure-Pnpm {
       Invoke-Tool "corepack" @("prepare", "pnpm@$PnpmVersion", "--activate")
       Add-CommonToolPaths
       if (Test-Command pnpm) {
-        Invoke-Tool "pnpm" @("--version")
+        Invoke-Pnpm @("--version")
         return
       }
     } catch {
@@ -237,7 +256,7 @@ function Ensure-Pnpm {
   if (-not (Test-Command pnpm)) {
     throw "pnpm 설치에 실패했습니다. 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
   }
-  Invoke-Tool "pnpm" @("--version")
+  Invoke-Pnpm @("--version")
 }
 
 function Assert-CodexWindowsMode {
@@ -773,9 +792,13 @@ function Invoke-ProdSmoke {
 
   Write-Step "production bundle smoke"
   try {
-    Invoke-Tool "pnpm" @("verify:prod-bundle")
+    Invoke-Pnpm @("verify:prod-bundle")
     return
   } catch {
+    if (-not (Test-PortConflictError $_.Exception.Message)) {
+      throw "production bundle smoke가 포트 충돌 전 단계에서 실패했습니다. pnpm child process는 SOLO_PNPM_COMMAND로 현재 pnpm 경로를 전달해 실행합니다. $($_.Exception.Message)"
+    }
+
     Write-Warn "기본 로컬 포트가 사용 중일 수 있어 빈 포트를 자동 선택해 한 번 더 시도합니다. $($_.Exception.Message)"
   }
 
@@ -791,7 +814,7 @@ function Invoke-ProdSmoke {
     $env:SOLO_PROD_SMOKE_SIDECAR_PORT = [string]$sidecarPort
     $env:SOLO_PROD_SMOKE_WEB_PORT = [string]$webPort
     Write-Step "production bundle smoke retry: sidecar=$sidecarPort web=$webPort"
-    Invoke-Tool "pnpm" @("verify:prod-bundle")
+    Invoke-Pnpm @("verify:prod-bundle")
   } finally {
     if ($null -eq $oldSidecarPort) { Remove-Item Env:SOLO_PROD_SMOKE_SIDECAR_PORT -ErrorAction SilentlyContinue } else { $env:SOLO_PROD_SMOKE_SIDECAR_PORT = $oldSidecarPort }
     if ($null -eq $oldWebPort) { Remove-Item Env:SOLO_PROD_SMOKE_WEB_PORT -ErrorAction SilentlyContinue } else { $env:SOLO_PROD_SMOKE_WEB_PORT = $oldWebPort }
@@ -808,7 +831,7 @@ function Invoke-LocalWeb {
 
   Write-Step "Solo Superman web 화면을 엽니다. 브라우저가 열리면 이 터미널을 닫지 마세요."
   $env:SOLO_CODEX_WINDOWS_MODE = $CodexWindowsMode
-  Invoke-Tool "pnpm" @("start:local")
+  Invoke-Pnpm @("start:local")
 }
 
 function Write-InstallSummary($TargetPath, $DesktopRunnerPaths) {
@@ -876,7 +899,7 @@ if (Test-ExpectedRepo $TargetPath) {
 
 Set-Location $TargetPath
 Write-Step "dependency install"
-Invoke-Tool "pnpm" @("install", "--frozen-lockfile")
+Invoke-Pnpm @("install", "--frozen-lockfile")
 
 $DesktopRunnerPaths = @(New-DesktopRunner $TargetPath)
 Invoke-ProdSmoke

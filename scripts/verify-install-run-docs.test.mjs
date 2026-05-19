@@ -86,6 +86,9 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain("$CodexWindowsMode");
     expect(windowsBootstrap).toContain("$CodexWslDistro");
     expect(windowsBootstrap).toContain('"SOLO_SUPERMAN_CODEX_WSL_DISTRO"');
+    expect(windowsBootstrap).toContain("function Invoke-Pnpm");
+    expect(windowsBootstrap).toContain("SOLO_PNPM_COMMAND");
+    expect(windowsBootstrap).toContain("function Test-PortConflictError");
     expect(windowsBootstrap).toContain("function Ensure-WslForCodex");
     expect(windowsBootstrap).toContain("function Set-WslDefaultsForCodex");
     expect(windowsBootstrap).toContain('Invoke-Tool "wsl" @("--set-default-version", "2")');
@@ -212,10 +215,14 @@ describe("#105 local install/run verification docs", () => {
       "Codex CLI native runtime missing",
       "Microsoft.VCRedist.2015+.x64",
       "codex.cmd --version failed with exit -1073741515",
+      "Windows/WSL `spawn pnpm ENOENT` during smoke",
       "spawn pnpm ENOENT",
+      "npm_execpath",
+      "SOLO_PNPM_COMMAND",
       "alternate ports",
-      "pnpm.cmd -r --if-present build",
-      "pnpm.cmd"
+      "EADDRINUSE",
+      "WSL localhost port binding",
+      "0.0.0.0"
     ]) {
       expect(runbook).toContain(snippet);
     }

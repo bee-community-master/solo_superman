@@ -738,7 +738,11 @@ function checkContributorDocsSnippets() {
     "Antivirus/network prompt",
     "Administrator permission denied",
     "Codex CLI native runtime missing",
-    "Windows `spawn pnpm ENOENT` during smoke"
+    "Windows/WSL `spawn pnpm ENOENT` during smoke",
+    "npm_execpath",
+    "SOLO_PNPM_COMMAND",
+    "WSL localhost port binding",
+    "0.0.0.0"
   ]);
 }
 

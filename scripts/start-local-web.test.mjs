@@ -27,8 +27,12 @@ afterEach(async () => {
 
 describe("local web starter", () => {
   it("uses pnpm.cmd on Windows and pnpm elsewhere", () => {
-    expect(pnpmCommand("win32")).toBe("pnpm.cmd");
-    expect(pnpmCommand("darwin")).toBe("pnpm");
+    expect(pnpmCommand("win32", {})).toBe("pnpm.cmd");
+    expect(pnpmCommand("darwin", {})).toBe("pnpm");
+    expect(pnpmCommand("linux", {
+      npm_execpath: "/opt/pnpm/bin/pnpm.cjs",
+      npm_config_user_agent: "pnpm/11.0.4 npm/? node/v24.0.0"
+    })).toBe(process.execPath);
   });
 
   it("builds platform-specific browser open commands", () => {
@@ -63,12 +67,25 @@ describe("local web starter", () => {
     expect(env.VITE_SOLO_SIDECAR_BASE_URL).toBe(config.sidecarBaseUrl);
   });
 
+  it("binds to wildcard inside WSL while keeping browser URLs loopback-only", async () => {
+    const config = await resolveLocalRunConfig({
+      SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token",
+      SOLO_LOCAL_OPEN_BROWSER: "0",
+      WSL_DISTRO_NAME: "Ubuntu"
+    }, "linux");
+
+    expect(config.host).toBe("0.0.0.0");
+    expect(config.urlHost).toBe("127.0.0.1");
+    expect(config.sidecarBaseUrl).toBe(`http://127.0.0.1:${config.sidecarPort}`);
+    expect(config.webBaseUrl).toBe(`http://127.0.0.1:${config.webPort}`);
+  });
+
   it("runs sidecar and web on loopback with strict web port", () => {
     const commands = localRunCommands({
       host: "127.0.0.1",
       sidecarPort: "43110",
       webPort: "1420"
-    }, "darwin");
+    }, "darwin", {});
 
     expect(commands.sidecar).toEqual(["pnpm", ["--filter", "@solo-superman/sidecar", "start"]]);
     expect(commands.web).toEqual([
@@ -85,5 +102,23 @@ describe("local web starter", () => {
         "--strictPort"
       ]
     ]);
+  });
+
+  it("uses the active pnpm entrypoint when spawning local WSL processes", () => {
+    const commands = localRunCommands({
+      host: "0.0.0.0",
+      sidecarPort: "43110",
+      webPort: "1420"
+    }, "linux", {
+      WSL_DISTRO_NAME: "Ubuntu",
+      npm_execpath: "/opt/pnpm/bin/pnpm.cjs",
+      npm_config_user_agent: "pnpm/11.0.4 npm/? node/v24.0.0"
+    });
+
+    expect(commands.sidecar).toEqual([
+      process.execPath,
+      ["/opt/pnpm/bin/pnpm.cjs", "--filter", "@solo-superman/sidecar", "start"]
+    ]);
+    expect(commands.web[1]).toContain("0.0.0.0");
   });
 });
