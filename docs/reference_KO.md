@@ -1,6 +1,8 @@
-# Reference Contract Index / 코드 기반 계약 색인
+# 코드 기반 계약 색인
 
-This document is intentionally compact but machine-checked. Keep this file in sync with `packages/contracts` and `scripts/verify-doc-contracts.mjs`.
+언어: 한국어 | [English](reference_EN.md)
+
+이 문서는 의도적으로 compact하지만 machine-checked입니다. `packages/contracts`와 `scripts/verify-doc-contracts.mjs`가 drift하지 않도록 함께 유지합니다.
 
 ## Command and event contracts / 명령과 이벤트
 

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const runbook = readFileSync("docs/troubleshooting.md", "utf8");
+const runbook = readFileSync("docs/troubleshooting_KO.md", "utf8");
 const readme = readFileSync("README.md", "utf8");
 const englishReadme = readFileSync("README.en.md", "utf8");
 const windowsBootstrap = readFileSync("scripts/bootstrap-windows.ps1", "utf8");

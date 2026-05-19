@@ -1,10 +1,10 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const roadmap = readFileSync("docs/roadmap.md", "utf8");
-const product = readFileSync("docs/product.md", "utf8");
-const safety = readFileSync("docs/safety-and-permissions.md", "utf8");
-const decisions = readFileSync("docs/decisions.md", "utf8");
+const roadmap = readFileSync("docs/roadmap_KO.md", "utf8");
+const product = readFileSync("docs/product_KO.md", "utf8");
+const safety = readFileSync("docs/safety-and-permissions_KO.md", "utf8");
+const decisions = readFileSync("docs/decisions_KO.md", "utf8");
 const docVerifier = readFileSync("scripts/verify-doc-contracts.mjs", "utf8");
 
 describe("simplified contributor docs preserve Post-Phase3 decisions", () => {
@@ -42,8 +42,8 @@ describe("simplified contributor docs preserve Post-Phase3 decisions", () => {
 
   it("wires the simplified docs into the doc-contract verifier", () => {
     expect(docVerifier).toContain("CONTRIBUTOR_DOC_PATHS");
-    expect(docVerifier).toContain("docs/reference.md");
-    expect(docVerifier).toContain("docs/troubleshooting.md");
+    expect(docVerifier).toContain("docs/reference_KO.md");
+    expect(docVerifier).toContain("docs/troubleshooting_KO.md");
     expect(readdirSync("docs").filter((entry) => /^\d{2}-.+\.md$/u.test(entry))).toEqual([]);
   });
 });

@@ -1,8 +1,6 @@
 # Solo Superman 기여자 문서 허브
 
-언어: 한국어(기본) | [English](README_EN.md)
-
-파일명 기준 한국어 정본: [README_KO.md](README_KO.md)
+언어: 한국어 | [English](README_EN.md)
 
 Solo Superman은 솔로 창업자가 막연한 아이디어를 질문, 리서치, 결정 세션으로 구체화하고 안전한 실행 준비까지 이어 가는 local-first Founder OS입니다.
 
