@@ -88,6 +88,7 @@ export function prodBundleSmokeConfig(env = process.env, platform = process.plat
 export function prodBundleSmokeEnvironment(config, appDataDir, env = process.env) {
   return {
     ...env,
+    CI: "true",
     SOLO_LOCAL_CAPABILITY_TOKEN: config.localCapabilityToken,
     SOLO_SIDECAR_HOST: config.sidecarBindHost,
     SOLO_SIDECAR_PORT: config.sidecarPort,

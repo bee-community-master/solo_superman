@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { commandLabel, hasProcessExited, stopManagedProcess, windowsShellCommandLine } from "./local-processes.mjs";
 
 function createFakeProcessInfo() {
@@ -23,6 +23,10 @@ function createFakeProcessInfo() {
 }
 
 describe("local process helpers", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("formats command labels consistently", () => {
     expect(commandLabel("pnpm", ["--filter", "@solo-superman/web", "dev"])).toBe("pnpm --filter @solo-superman/web dev");
     expect(commandLabel("pnpm")).toBe("pnpm");
@@ -52,5 +56,22 @@ describe("local process helpers", () => {
 
     expect(processInfo.stopping).toBe(true);
     expect(processInfo.child.killSignals).toEqual(["SIGTERM"]);
+  });
+
+  it("stops POSIX process groups so pnpm grandchildren cannot keep smoke pipes open", async () => {
+    const processInfo = createFakeProcessInfo();
+    processInfo.child.pid = 1234;
+    const kill = vi.spyOn(process, "kill").mockImplementation((pid, signal) => {
+      expect(pid).toBe(-1234);
+      expect(signal).toBe("SIGTERM");
+      processInfo.child.exitCode = 0;
+      processInfo.child.emit("exit", 0, null);
+      return true;
+    });
+
+    await stopManagedProcess(processInfo, { platform: "linux", terminateGraceMs: 1, forceKillGraceMs: 1 });
+
+    expect(kill).toHaveBeenCalledWith(-1234, "SIGTERM");
+    expect(processInfo.child.killSignals).toEqual([]);
   });
 });

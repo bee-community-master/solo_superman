@@ -10,6 +10,7 @@ export interface SidecarConfig {
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 43110;
+const WILDCARD_HOST = "0.0.0.0";
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 const LOCAL_TOKEN_ENV = "SOLO_LOCAL_CAPABILITY_TOKEN";
 
@@ -53,11 +54,19 @@ function parsePort(rawValue: string | undefined) {
   return parsed;
 }
 
-function parseHost(rawValue: string | undefined) {
+function isWslEnvironment(env: NodeJS.ProcessEnv = process.env, platform = process.platform) {
+  return platform === "linux" && Boolean(env.WSL_DISTRO_NAME || env.WSL_INTEROP || env.WSLENV);
+}
+
+function parseHost(rawValue: string | undefined, env: NodeJS.ProcessEnv = process.env, platform = process.platform) {
   const host = rawValue ?? DEFAULT_HOST;
 
+  if (host === WILDCARD_HOST && isWslEnvironment(env, platform)) {
+    return host;
+  }
+
   if (!LOOPBACK_HOSTS.has(host)) {
-    throw new Error(`Sidecar host must be loopback-only in PR-02: ${host}`);
+    throw new Error(`Sidecar host must be loopback-only unless running inside WSL: ${host}`);
   }
 
   return host === "[::1]" ? "::1" : host;
@@ -79,7 +88,7 @@ function parseLocalCapabilityToken(rawValue: string | undefined) {
 
 export function resolveSidecarConfig(): SidecarConfig {
   return {
-    host: parseHost(readArgValue("--host") ?? process.env.SOLO_SIDECAR_HOST),
+    host: parseHost(readArgValue("--host") ?? process.env.SOLO_SIDECAR_HOST, process.env, process.platform),
     port: parsePort(readArgValue("--port") ?? process.env.SOLO_SIDECAR_PORT),
     localCapabilityToken: parseLocalCapabilityToken(readArgValue("--local-token") ?? process.env[LOCAL_TOKEN_ENV]),
     databaseUrl: readArgValue("--database-url") ?? process.env.SOLO_DATABASE_URL,

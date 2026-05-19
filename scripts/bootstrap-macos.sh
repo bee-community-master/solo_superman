@@ -120,6 +120,10 @@ ensure_pnpm() {
   pnpm --version
 }
 
+run_pnpm() {
+  CI=true pnpm "$@"
+}
+
 get_origin_remote() {
   local dir="$1"
   git -C "$dir" remote get-url origin 2>/dev/null || true
@@ -194,7 +198,7 @@ run_prod_smoke() {
   fi
 
   info "production bundle smoke"
-  if pnpm verify:prod-bundle; then
+  if run_pnpm verify:prod-bundle; then
     return 0
   fi
 
@@ -210,7 +214,7 @@ run_prod_smoke() {
   info "production bundle smoke retry: sidecar=$sidecar_port web=$web_port"
   SOLO_PROD_SMOKE_SIDECAR_PORT="$sidecar_port" \
     SOLO_PROD_SMOKE_WEB_PORT="$web_port" \
-    pnpm verify:prod-bundle
+    run_pnpm verify:prod-bundle
 }
 
 run_local_web() {
@@ -221,7 +225,7 @@ run_local_web() {
   fi
 
   info "Solo Superman web 화면을 엽니다. 브라우저가 열리면 이 터미널을 닫지 마세요."
-  pnpm start:local || fail "로컬 web 자동 실행에 실패했습니다."
+  run_pnpm start:local || fail "로컬 web 자동 실행에 실패했습니다."
 }
 
 print_install_summary() {
@@ -254,7 +258,7 @@ fi
 
 cd "$TARGET_PATH"
 info "dependency install"
-pnpm install --frozen-lockfile
+run_pnpm install --frozen-lockfile
 
 run_prod_smoke
 print_install_summary

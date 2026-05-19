@@ -35,6 +35,7 @@ export function spawnManagedProcess(command, args, options = {}) {
   const useShell = shouldUseShellForCommand(command, platform);
   const child = spawn(useShell ? windowsShellCommandLine(command, args) : command, useShell ? [] : args, {
     ...spawnOptions,
+    detached: spawnOptions.detached ?? platform !== "win32",
     shell: useShell,
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true
@@ -79,9 +80,24 @@ async function taskkillProcessTree(pid, platform = process.platform) {
   });
 }
 
+function signalPosixProcessGroup(pid, signal, platform = process.platform) {
+  if (platform === "win32" || !pid) {
+    return false;
+  }
+
+  try {
+    process.kill(-pid, signal);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function requestProcessStop(processInfo, options) {
   const stoppedTree = await taskkillProcessTree(processInfo.child.pid, options.platform);
-  if (!stoppedTree && !hasProcessExited(processInfo)) {
+  const stoppedGroup = stoppedTree || signalPosixProcessGroup(processInfo.child.pid, options.force ? "SIGKILL" : "SIGTERM", options.platform);
+
+  if (!stoppedGroup && !hasProcessExited(processInfo)) {
     try {
       processInfo.child.kill(options.force ? "SIGKILL" : "SIGTERM");
     } catch (error) {

@@ -62,6 +62,7 @@ describe("local web starter", () => {
 
     expect(config.sidecarBaseUrl).toBe(`http://127.0.0.1:${config.sidecarPort}`);
     expect(config.webBaseUrl).toBe(`http://127.0.0.1:${config.webPort}`);
+    expect(env.CI).toBe("true");
     expect(env.SOLO_LOCAL_CAPABILITY_TOKEN).toBe("shared-local-token");
     expect(env.VITE_SOLO_LOCAL_CAPABILITY_TOKEN).toBe("shared-local-token");
     expect(env.VITE_SOLO_SIDECAR_BASE_URL).toBe(config.sidecarBaseUrl);
