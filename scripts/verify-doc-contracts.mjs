@@ -721,6 +721,8 @@ function checkContributorDocsSnippets() {
     "wslpath: C:Users...AppDataLocalTemp...codex-wsl-install.sh",
     "WSL nvm home detection",
     "/nvm.sh: No such file or directory",
+    "WSL nvm Node already installed",
+    "v22.22.3 is already installed",
     "Microsoft.VCRedist.2015+.x64",
     "vcruntime140.dll",
     "@libsql/win32-x64-msvc",

@@ -647,8 +647,25 @@ if [ ! -s "$NVM_DIR/nvm.sh" ]; then
   exit 45
 fi
 . "$NVM_DIR/nvm.sh"
-nvm install __NODE_MAJOR__
-nvm use __NODE_MAJOR__
+use_node_major() {
+  nvm use __NODE_MAJOR__
+}
+ensure_node_major() {
+  if use_node_major; then
+    return 0
+  fi
+
+  if ! nvm install __NODE_MAJOR__; then
+    echo "nvm install __NODE_MAJOR__ failed; checking existing Node __NODE_MAJOR__." >&2
+    if use_node_major; then
+      return 0
+    fi
+    exit 47
+  fi
+
+  use_node_major
+}
+ensure_node_major
 use_existing_codex_if_ready() {
   if command -v codex >/dev/null 2>&1; then
     if codex_version="$(codex --version 2>&1)"; then
