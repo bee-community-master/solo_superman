@@ -80,16 +80,21 @@ describe("#105 local install/run verification docs", () => {
     expect(readme).toContain("Corepack/pnpm, Windows native runtime, Codex CLI");
     expect(readme).toContain("Codex CLI는 안정성을 위해 WSL(Ubuntu) 안에 설치");
     expect(readme).toContain("SOLO_CODEX_WINDOWS_MODE=wsl");
+    expect(readme).toContain("Codex CLI가 `codex --version`으로 검증되면");
+    expect(readme).toContain("`already exists` 충돌");
     expect(readme).toContain("Codex Desktop App 다운로드 안내 창");
     expect(englishReadme).toContain("Corepack/pnpm, Windows native runtime, and Codex CLI");
     expect(englishReadme).toContain("installs and runs Codex CLI inside WSL");
     expect(englishReadme).toContain("SOLO_CODEX_WINDOWS_MODE=wsl");
+    expect(englishReadme).toContain("existing Codex CLI passes `codex --version`");
+    expect(englishReadme).toContain("`already exists` conflict");
     expect(englishReadme).toContain("Codex Desktop App download prompt");
     expect(runbook).toContain("wsl --set-default-version 2");
     expect(runbook).toContain("wsl --install -d Ubuntu");
     expect(runbook).toContain("Ubuntu 첫 실행 Linux 사용자 이름/비밀번호");
     expect(runbook).toContain("같은 한 줄 명령");
     expect(runbook).toContain("nvm install 22");
+    expect(runbook).toContain("command -v codex");
     expect(runbook).toContain("SOLO_CODEX_WINDOWS_MODE=wsl");
     expect(runbook).toContain("wsl.exe -- bash -lc");
     expect(runbook).toContain("npm install -g @openai/codex@latest");
@@ -146,13 +151,21 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain('export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"');
     expect(windowsBootstrap).toContain("nvm.sh not found at $NVM_DIR/nvm.sh after nvm install.");
     expect(windowsBootstrap).toContain("nvm install __NODE_MAJOR__");
+    expect(windowsBootstrap).toContain("use_existing_codex_if_ready");
+    expect(windowsBootstrap).toContain("command -v codex");
+    expect(windowsBootstrap).toContain("Codex CLI already installed");
+    expect(windowsBootstrap).toContain("npm global Codex CLI install failed; checking existing codex command.");
     expect(windowsBootstrap).toContain("SOLO_CODEX_WINDOWS_MODE");
     expect(windowsBootstrap).toContain('"wsl"');
     expect(windowsBootstrap).toContain("function Ensure-CodexCli");
     expect(windowsBootstrap).toContain("function Test-CodexNativeRuntimeFailure");
     expect(windowsBootstrap).toContain("function Install-CodexNativeRuntime");
+    expect(windowsBootstrap).toContain("function Get-CodexNativeVersion");
+    expect(windowsBootstrap).toContain("function Use-ExistingCodexNativeIfReady");
+    expect(windowsBootstrap).toContain("function Confirm-CodexNativeVersion");
     expect(windowsBootstrap).toContain("function Ensure-CodexCliNative");
     expect(windowsBootstrap).toContain('Invoke-Tool "npm" @("install", "-g", "@openai/codex@latest")');
+    expect(windowsBootstrap).toContain("after codex npm fallback failure");
     expect(windowsBootstrap).toContain('Invoke-Tool "codex" @("--version")');
     expect(windowsBootstrap).toContain('"Microsoft.VCRedist.2015+.x64"');
     expect(windowsBootstrap).toContain("-1073741515");
@@ -224,6 +237,8 @@ describe("#105 local install/run verification docs", () => {
       "CORS/origin",
       "Garbled Korean or UTF-8 output",
       "Corepack or npm `already exists` for pnpm",
+      "Codex CLI `already exists`",
+      "`codex`/`codex.cmd` shim",
       "Node stays on v22.x",
       "TLS 1.2",
       "Execution policy",
