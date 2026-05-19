@@ -93,6 +93,7 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("wsl --install -d Ubuntu");
     expect(runbook).toContain("Ubuntu 첫 실행 Linux 사용자 이름/비밀번호");
     expect(runbook).toContain("같은 한 줄 명령");
+    expect(runbook).toContain("nvm use 22");
     expect(runbook).toContain("nvm install 22");
     expect(runbook).toContain("command -v codex");
     expect(runbook).toContain("SOLO_CODEX_WINDOWS_MODE=wsl");
@@ -150,7 +151,11 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain('getent passwd "$(id -u)"');
     expect(windowsBootstrap).toContain('export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"');
     expect(windowsBootstrap).toContain("nvm.sh not found at $NVM_DIR/nvm.sh after nvm install.");
+    expect(windowsBootstrap).toContain("use_node_major");
+    expect(windowsBootstrap).toContain("ensure_node_major");
+    expect(windowsBootstrap).toContain("nvm use __NODE_MAJOR__");
     expect(windowsBootstrap).toContain("nvm install __NODE_MAJOR__");
+    expect(windowsBootstrap).toContain("nvm install __NODE_MAJOR__ failed; checking existing Node __NODE_MAJOR__.");
     expect(windowsBootstrap).toContain("use_existing_codex_if_ready");
     expect(windowsBootstrap).toContain("command -v codex");
     expect(windowsBootstrap).toContain("Codex CLI already installed");
@@ -263,6 +268,8 @@ describe("#105 local install/run verification docs", () => {
       "WSL nvm home detection",
       "/nvm.sh: No such file or directory",
       "/home/<user>/.nvm/nvm.sh",
+      "WSL nvm Node already installed",
+      "v22.22.3 is already installed",
       "Codex CLI native runtime missing",
       "Windows sidecar native runtime missing",
       "Microsoft.VCRedist.2015+.x64",
