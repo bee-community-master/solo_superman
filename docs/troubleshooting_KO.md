@@ -37,6 +37,7 @@ Maintainer가 `SOLO_SUPERMAN_CODEX_WINDOWS_MODE=native`를 명시한 경우에�
 
 ```powershell
 winget install --id OpenJS.NodeJS.LTS -e
+winget upgrade --id OpenJS.NodeJS.LTS -e
 winget install --id Git.Git -e
 corepack enable
 pnpm.cmd --version
@@ -132,6 +133,8 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 | Token mismatch | API returns `401`. | frontend와 sidecar가 같은 token을 받도록 `pnpm start:local`을 다시 실행합니다. |
 | CORS/origin | Browser request is blocked. | loopback URL과 local sidecar base URL을 확인합니다. |
 | Garbled Korean or UTF-8 output | Windows PowerShell에서 README 한 줄 명령을 실행했을 때 한글 출력이나 다운로드된 script text가 깨져 보입니다. | README one-line installer를 사용합니다. 이 명령은 `[Console]::OutputEncoding`, `$OutputEncoding`, `chcp.com 65001`, TLS 1.2, UTF-8 download decoding, BOM 제거를 먼저 수행한 뒤 bootstrap을 실행합니다. |
+| Corepack or npm `already exists` for pnpm | Corepack 또는 npm이 이미 있는 `pnpm`/`pnpm.cmd` shim 때문에 `EEXIST`, `already exists`, `file already exists`를 출력합니다. | updated installer는 먼저 기존 `pnpm.cmd --version`을 확인하고, Corepack/npm fallback 실패 후에도 사용 가능한 pnpm 11+ shim이 있으면 설치를 계속합니다. |
+| Node stays on v22.x | README 한 줄 설치 중 `node already installed: v22...` 또는 `Node 24 이상이 필요` 메시지가 보입니다. | updated installer는 Node 22 같은 오래된 LTS가 있으면 `winget upgrade --id OpenJS.NodeJS.LTS -e`를 먼저 시도합니다. 그래도 `node --version`이 24 이상이 아니면 Node.js Windows x64 LTS installer로 Node 24+를 설치한 뒤 새 관리자 PowerShell에서 다시 실행합니다. |
 | Administrator permission denied | Corepack reports `operation not permitted` for `C:\Program Files\nodejs\pnpx` or Windows denies `C:\Users\Public\Desktop\solo_superman.cmd`. | README one-line installer를 다시 실행하고 UAC administrator prompt를 승인합니다. 회사 정책이 UAC를 막으면 중단하고 승인된 managed install path를 사용합니다. |
 | Codex WSL setup incomplete | Installer가 WSL/Ubuntu reboot 또는 first-run Linux user/password setup이 필요하다고 보고합니다. | Windows가 요청했다면 reboot하고, Ubuntu를 한 번 열어 Linux user setup을 끝낸 뒤 README의 같은 한 줄 명령을 다시 실행합니다. Installer가 WSL2/default 배포판 설정과 WSL 안의 Codex CLI 설치를 이어서 진행합니다. |
 | WSL install script quoting | `line 8: syntax error: unexpected end of file from 'if' command on line 6`처럼 multi-line bash가 중간에서 끊긴 듯한 오류가 보입니다. | updated installer는 multi-line WSL install script를 `bash -lc` argument로 직접 전달하지 않고 LF/UTF-8 temporary `.sh` file로 작성한 뒤 `wslpath`로 변환해 `wsl -- bash <script>`로 실행합니다. |

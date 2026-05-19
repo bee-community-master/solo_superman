@@ -37,6 +37,7 @@ If a maintainer explicitly sets `SOLO_SUPERMAN_CODEX_WINDOWS_MODE=native`, the W
 
 ```powershell
 winget install --id OpenJS.NodeJS.LTS -e
+winget upgrade --id OpenJS.NodeJS.LTS -e
 winget install --id Git.Git -e
 corepack enable
 pnpm.cmd --version
@@ -132,6 +133,8 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 | Token mismatch | API returns `401`. | Re-run `pnpm start:local` so frontend and sidecar share one token. |
 | CORS/origin | Browser request is blocked. | Confirm loopback URL and local sidecar base URL. |
 | Garbled Korean or UTF-8 output | Korean output or downloaded script text looks corrupted after running the README one-line command in Windows PowerShell. | Use the README one-line installer. It sets `[Console]::OutputEncoding`, `$OutputEncoding`, `chcp.com 65001`, TLS 1.2, UTF-8 download decoding, and BOM stripping before running the bootstrap. |
+| Corepack or npm `already exists` for pnpm | Corepack or npm reports `EEXIST`, `already exists`, or `file already exists` for an existing `pnpm`/`pnpm.cmd` shim. | The updated installer checks the existing `pnpm.cmd --version` first, and after Corepack/npm fallback failures it continues when a usable pnpm 11+ shim is already available. |
+| Node stays on v22.x | The README one-line install prints `node already installed: v22...` or `Node 24 or newer is required`. | The updated installer tries `winget upgrade --id OpenJS.NodeJS.LTS -e` first when it sees an older LTS such as Node 22. If `node --version` is still below 24, install Node 24+ with the Node.js Windows x64 LTS installer, then rerun from a new administrator PowerShell. |
 | Administrator permission denied | Corepack reports `operation not permitted` for `C:\Program Files\nodejs\pnpx` or Windows denies `C:\Users\Public\Desktop\solo_superman.cmd`. | Rerun the README one-line installer and approve the UAC administrator prompt. If company policy blocks UAC, stop and use an approved managed install path. |
 | Codex WSL setup incomplete | The installer reports that WSL/Ubuntu needs a reboot or first-run Linux user/password setup. | Reboot if Windows requested it, open Ubuntu once to finish Linux user setup, then rerun the same README one-line installer. The installer will resume WSL2/default distribution setup and Codex CLI installation inside WSL. |
 | WSL install script quoting | The installer shows a truncated multi-line bash error such as `line 8: syntax error: unexpected end of file from 'if' command on line 6`. | The updated installer no longer sends the multi-line WSL install script as a direct `bash -lc` argument. It writes a LF/UTF-8 temporary `.sh` file, converts the path with `wslpath`, and runs it with `wsl -- bash <script>`. |
