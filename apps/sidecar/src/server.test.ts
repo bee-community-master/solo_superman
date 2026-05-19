@@ -8057,6 +8057,49 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("rejects existing auto implementation repos that are not on main", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const projectDir = join(workspaceRoot, "existing-non-main-repo");
+
+    await mkdir(projectDir, { recursive: true });
+    execFileSync("git", ["init", "-b", "not-main"], { cwd: projectDir, stdio: "ignore" });
+
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "An existing non-main repo test");
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          idempotencyKey: "auto-implementation-route:non-main",
+          projectFolderName: "existing-non-main-repo"
+        })
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(400);
+      expect(body.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Auto implementation workspace could not be prepared safely.",
+        details: {
+          message: "Auto implementation workspace git repo must be on main."
+        }
+      });
+      await expect(readFile(join(projectDir, "implementation-tracker.md"), "utf8")).rejects.toMatchObject({
+        code: "ENOENT"
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("rejects malformed auto implementation run requests before filesystem writes", async () => {
     const workspaceRoot = await makeTempAppDataDir();
     const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {

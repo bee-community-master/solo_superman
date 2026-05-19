@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { access, lstat, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import {
@@ -68,15 +68,6 @@ function isInsideDirectory(parent: string, child: string) {
 function assertInsideDirectory(parent: string, child: string, message: string) {
   if (!isInsideDirectory(parent, child)) {
     throw new Error(message);
-  }
-}
-
-async function pathExists(path: string) {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
   }
 }
 
@@ -172,8 +163,20 @@ async function safeGit(cwd: string, args: readonly string[]) {
 }
 
 async function ensureGitRepo(projectDir: string) {
-  if (await pathExists(resolve(projectDir, ".git"))) {
-    return "git:existing";
+  const existingRepo = await safeGit(projectDir, ["rev-parse", "--is-inside-work-tree"]);
+
+  if (existingRepo.ok && existingRepo.stdout === "true") {
+    const currentBranch = await git(projectDir, ["branch", "--show-current"]);
+
+    if (currentBranch !== "main") {
+      throw new Error("Auto implementation workspace git repo must be on main.");
+    }
+
+    return "git:existing:main";
+  }
+
+  if (await lstatOrNull(resolve(projectDir, ".git"))) {
+    throw new Error("Existing .git metadata is not a valid git repository.");
   }
 
   const init = await safeGit(projectDir, ["init", "-b", "main"]);
@@ -181,6 +184,12 @@ async function ensureGitRepo(projectDir: string) {
   if (!init.ok) {
     await git(projectDir, ["init"]);
     await git(projectDir, ["checkout", "-B", "main"]);
+  }
+
+  const currentBranch = await git(projectDir, ["branch", "--show-current"]);
+
+  if (currentBranch !== "main") {
+    throw new Error("Auto implementation workspace git repo must be on main.");
   }
 
   return "git:init:main";
