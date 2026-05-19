@@ -85,9 +85,15 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain('Invoke-Tool "wsl" @("--install", "-d", "Ubuntu")');
     expect(windowsBootstrap).toContain("function Ensure-CodexCliInWsl");
     expect(windowsBootstrap).toContain("function Write-LfUtf8NoBomFile");
+    expect(windowsBootstrap).toContain("function ConvertTo-WslpathInput");
+    expect(windowsBootstrap).toContain('Replace("\\", "/")');
+    expect(windowsBootstrap).toContain("function ConvertTo-DefaultWslMountPath");
+    expect(windowsBootstrap).toContain('return "/mnt/$drive/$relativePath"');
     expect(windowsBootstrap).toContain("function Get-WslPath");
     expect(windowsBootstrap).toContain("function Invoke-WslScript");
     expect(windowsBootstrap).toContain('"wslpath", "-a"');
+    expect(windowsBootstrap).toContain("$wslpathInput");
+    expect(windowsBootstrap).toContain("/mnt/<drive> fallback");
     expect(windowsBootstrap).toContain('Invoke-Tool "wsl" @("--", "bash", $wslScriptPath)');
     expect(windowsBootstrap).toContain("Invoke-WslScript $installScript");
     expect(windowsBootstrap).not.toContain("Invoke-WslBash $installScript");
@@ -182,6 +188,10 @@ describe("#105 local install/run verification docs", () => {
       "WSL install script quoting",
       "line 8: syntax error: unexpected end of file from 'if' command on line 6",
       "wsl -- bash <script>",
+      "WSL wslpath Windows path escaping",
+      "wslpath: C:Users...AppDataLocalTemp...codex-wsl-install.sh",
+      "C:/...",
+      "/mnt/c/...",
       "wsl --install -d Ubuntu",
       "SOLO_CODEX_WINDOWS_MODE=wsl",
       "WSL nvm home detection",
