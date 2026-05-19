@@ -59,7 +59,7 @@ Optional port overrides use platform-native environment syntax:
 
 ## Beginner local web run
 
-The README one-line installers finish by launching this command. It keeps the local sidecar and web server running, opens the default browser automatically, and chooses alternate loopback ports without killing existing processes when the defaults are busy. Stop it with `Ctrl+C`.
+The README one-line installers finish by launching this command. It keeps the local sidecar and web server running, opens the default browser automatically, and chooses alternate loopback ports without killing existing processes when the defaults are busy. Stop it with `Ctrl+C`. The Windows bootstrap also writes a Desktop runner named `solo_superman.cmd` that changes into the installed checkout and runs `pnpm start:local` for later launches.
 
 | macOS shell | Windows PowerShell |
 | --- | --- |

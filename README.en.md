@@ -30,7 +30,7 @@ If the installer asks for a new terminal so PATH changes can take effect, open a
 
 After installation, the local server keeps running and the Solo Superman web screen opens automatically in your default browser. Keep that terminal open while using the app. Press `Ctrl+C` to stop it.
 
-To run it again later, use the command below.
+To run it again later, use the command below. On Windows, the installer also creates a `solo_superman.cmd` runner on the Desktop, so later launches can start the same local run by double-clicking that file.
 
 ### macOS shell
 

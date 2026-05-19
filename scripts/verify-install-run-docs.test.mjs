@@ -49,6 +49,17 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("Refresh Codex login status");
   });
 
+  it("documents and creates a Windows Desktop runner for later local launches", () => {
+    expect(readme).toContain("바탕화면에 `solo_superman.cmd` 실행파일");
+    expect(englishReadme).toContain("creates a `solo_superman.cmd` runner on the Desktop");
+    expect(runbook).toContain("Desktop runner named `solo_superman.cmd`");
+    expect(windowsBootstrap).toContain("function New-DesktopRunner($TargetPath)");
+    expect(windowsBootstrap).toContain('[Environment+SpecialFolder]::DesktopDirectory');
+    expect(windowsBootstrap).toContain('Join-Path $desktop "solo_superman.cmd"');
+    expect(windowsBootstrap).toContain('"pnpm start:local"');
+    expect(windowsBootstrap).toContain("New-DesktopRunner $TargetPath");
+  });
+
   it("covers browser fallback and required troubleshooting cases", () => {
     for (const snippet of [
       "manual browser smoke",

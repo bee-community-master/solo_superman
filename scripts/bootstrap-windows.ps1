@@ -190,6 +190,46 @@ function Get-AbsolutePath($Path) {
   return [System.IO.Path]::GetFullPath($Path)
 }
 
+function Get-DesktopPath {
+  $desktop = [Environment]::GetFolderPath([Environment+SpecialFolder]::DesktopDirectory)
+  if (-not $desktop) {
+    $desktop = Join-Path $env:USERPROFILE "Desktop"
+  }
+
+  if (-not (Test-Path $desktop)) {
+    New-Item -ItemType Directory -Path $desktop -Force | Out-Null
+  }
+
+  return $desktop
+}
+
+function ConvertTo-CmdValue($Value) {
+  return ([string]$Value).Replace("%", "%%")
+}
+
+function New-DesktopRunner($TargetPath) {
+  $desktop = Get-DesktopPath
+  $runnerPath = Join-Path $desktop "solo_superman.cmd"
+  $safeTargetPath = ConvertTo-CmdValue $TargetPath
+  $content = @(
+    "@echo off",
+    "setlocal",
+    "set ""SOLO_SUPERMAN_DIR=$safeTargetPath""",
+    "cd /d ""%SOLO_SUPERMAN_DIR%""",
+    "echo Starting Solo Superman locally...",
+    "echo Keep this window open while using the app. Press Ctrl+C to stop it.",
+    "pnpm start:local",
+    "if errorlevel 1 (",
+    "  echo.",
+    "  echo Solo Superman failed to start. Press any key to close this window.",
+    "  pause >nul",
+    ")"
+  ) -join "`r`n"
+
+  Set-Content -Path $runnerPath -Value $content -Encoding ASCII
+  Write-Step "바탕화면 실행파일 생성: $runnerPath"
+}
+
 function Get-FreePort {
   $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Parse("127.0.0.1"), 0)
   try {
@@ -278,6 +318,7 @@ Set-Location $TargetPath
 Write-Step "dependency install"
 Invoke-Tool "pnpm" @("install", "--frozen-lockfile")
 
+New-DesktopRunner $TargetPath
 Invoke-ProdSmoke
 Invoke-LocalWeb
 } catch {
