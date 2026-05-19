@@ -86,6 +86,10 @@ const CODEX_PROCESS_OUTPUT_CAPTURE_LIMIT = 2_000;
 const CODEX_LOGIN_COMMAND = "codex auth login" as const;
 const CODEX_LOGIN_STATUS_COMMAND = "codex login status" as const;
 const CODEX_LOGIN_COMMAND_ARGS = ["codex", "auth", "login"] as const;
+const CODEX_WINDOWS_MODE_ENV = "SOLO_CODEX_WINDOWS_MODE" as const;
+const CODEX_LEGACY_COMMAND_MODE_ENV = "SOLO_CODEX_COMMAND_MODE" as const;
+const CODEX_WSL_NVM_SOURCE_COMMAND =
+  "export NVM_DIR=${NVM_DIR:-$HOME/.nvm}; if [ -s $NVM_DIR/nvm.sh ]; then . $NVM_DIR/nvm.sh; nvm use --silent 22 >/dev/null 2>&1 || true; fi" as const;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -213,7 +217,51 @@ function windowsCmdQuote(value: string) {
   return `"${value.replaceAll('"', '\\"')}"`;
 }
 
-export function windowsCodexLoginShellCommand(cwd: string) {
+function codexCommandMode(
+  env: Readonly<Record<string, string | undefined>>,
+  platform: NodeJS.Platform = process.platform
+) {
+  const mode = (env[CODEX_WINDOWS_MODE_ENV] ?? env[CODEX_LEGACY_COMMAND_MODE_ENV] ?? "").toLowerCase();
+  if (mode === "native" || mode === "wsl") {
+    return mode;
+  }
+
+  return platform === "win32" ? "wsl" : "native";
+}
+
+export function codexWslShellCommand(args: readonly string[]) {
+  return `${CODEX_WSL_NVM_SOURCE_COMMAND}; exec ${["codex", ...args].map(shellQuote).join(" ")}`;
+}
+
+export function codexAppServerSpawnPlan(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+  platform: NodeJS.Platform = process.platform
+) {
+  if (codexCommandMode(env, platform) === "wsl") {
+    return {
+      command: "wsl.exe",
+      args: ["--", "bash", "-lc", codexWslShellCommand(["app-server", "--listen", "stdio://"])],
+      transport: CODEX_RUNTIME_TRANSPORT,
+      generatedSchemaVersion: CODEX_APP_SERVER_GENERATED_VERSION
+    } as const;
+  }
+
+  return {
+    command: "codex",
+    args: ["app-server", "--listen", "stdio://"],
+    transport: CODEX_RUNTIME_TRANSPORT,
+    generatedSchemaVersion: CODEX_APP_SERVER_GENERATED_VERSION
+  } as const;
+}
+
+export function windowsCodexLoginShellCommand(
+  cwd: string,
+  env: Readonly<Record<string, string | undefined>> = process.env
+) {
+  if (codexCommandMode(env, "win32") === "wsl") {
+    return `wsl.exe -- bash -lc ${windowsCmdQuote(codexWslShellCommand(["auth", "login"]))}`;
+  }
+
   return `cd /d ${windowsCmdQuote(cwd)} && ${CODEX_LOGIN_COMMAND}`;
 }
 
@@ -300,6 +348,7 @@ export async function startCodexLoginInBackgroundTerminal(
     }
 
     if (process.platform === "win32") {
+      const terminal = codexCommandMode(env, "win32") === "wsl" ? "Windows cmd.exe + WSL" : "Windows cmd.exe";
       await spawnAndWait(
         "cmd.exe",
         [
@@ -318,8 +367,11 @@ export async function startCodexLoginInBackgroundTerminal(
       return codexLoginStartDto({
         status: "started",
         startedAt: now(),
-        terminal: "Windows cmd.exe",
-        message: "Opened `codex auth login` in a background terminal. Complete the browser login, then refresh Codex login status."
+        terminal,
+        message:
+          terminal === "Windows cmd.exe + WSL"
+            ? "Opened WSL-backed `codex auth login` in a background terminal. Complete the browser login, then refresh Codex login status."
+            : "Opened `codex auth login` in a background terminal. Complete the browser login, then refresh Codex login status."
       });
     }
 
@@ -347,7 +399,14 @@ export async function startCodexLoginInBackgroundTerminal(
     return codexLoginStartDto({
       status: "unavailable",
       startedAt: now(),
-      terminal: process.platform === "darwin" ? "Terminal.app" : process.platform === "win32" ? "Windows cmd.exe" : env.TERMINAL ?? "none",
+      terminal:
+        process.platform === "darwin"
+          ? "Terminal.app"
+          : process.platform === "win32"
+            ? codexCommandMode(env, "win32") === "wsl"
+              ? "Windows cmd.exe + WSL"
+              : "Windows cmd.exe"
+            : env.TERMINAL ?? "none",
       message: "Could not open `codex auth login` in a background terminal.",
       reason: message
     });
@@ -377,7 +436,8 @@ export async function readCodexAccountStatus(
 ): Promise<CodexRuntimeAccountDto> {
   return await new Promise((resolve) => {
     let settled = false;
-    const child = spawn("codex", ["app-server", "--listen", "stdio://"], {
+    const spawnPlan = codexAppServerSpawnPlan(env);
+    const child = spawn(spawnPlan.command, [...spawnPlan.args], {
       env: codexSpawnEnv(env),
       stdio: ["pipe", "pipe", "pipe"]
     });
@@ -405,7 +465,7 @@ export async function readCodexAccountStatus(
       finish(baseCodexAccountStatus("unknown", `Could not send account/read to Codex app-server: ${error.message}`));
     });
     child.on("error", (error) => {
-      finish(baseCodexAccountStatus("unknown", `Could not start Codex app-server: ${error.message}`));
+      finish(baseCodexAccountStatus("unknown", `Could not start Codex app-server via ${spawnPlan.command}: ${error.message}`));
     });
     child.on("exit", () => {
       if (!settled) {
@@ -1278,12 +1338,7 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
     },
 
     buildStdioSpawnPlan() {
-      return {
-        command: "codex",
-        args: ["app-server", "--listen", "stdio://"],
-        transport: CODEX_RUNTIME_TRANSPORT,
-        generatedSchemaVersion: CODEX_APP_SERVER_GENERATED_VERSION
-      } as const;
+      return codexAppServerSpawnPlan(env);
     },
 
     buildPreviewTurnRequests(input: CodexRuntimePreviewInput, requestOptions?: CodexStdioTurnRequestOptions) {

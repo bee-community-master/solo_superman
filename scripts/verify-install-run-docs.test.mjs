@@ -61,9 +61,17 @@ describe("#105 local install/run verification docs", () => {
 
   it("installs Codex CLI on Windows and prompts for the optional Codex desktop app", () => {
     expect(readme).toContain("Corepack/pnpm, Codex CLI");
+    expect(readme).toContain("Codex CLI는 안정성을 위해 WSL(Ubuntu) 안에 설치");
+    expect(readme).toContain("SOLO_CODEX_WINDOWS_MODE=wsl");
     expect(readme).toContain("Codex Desktop App 다운로드 안내 창");
     expect(englishReadme).toContain("Corepack/pnpm, and Codex CLI");
+    expect(englishReadme).toContain("installs and runs Codex CLI inside WSL");
+    expect(englishReadme).toContain("SOLO_CODEX_WINDOWS_MODE=wsl");
     expect(englishReadme).toContain("Codex Desktop App download prompt");
+    expect(runbook).toContain("wsl --install -d Ubuntu");
+    expect(runbook).toContain("nvm install 22");
+    expect(runbook).toContain("SOLO_CODEX_WINDOWS_MODE=wsl");
+    expect(runbook).toContain("wsl.exe -- bash -lc");
     expect(runbook).toContain("npm install -g @openai/codex@latest");
     expect(runbook).toContain("Microsoft.VCRedist.2015+.x64");
     expect(runbook).toContain("codex --version");
@@ -72,9 +80,17 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("https://openai.com/codex/");
     expect(runbook).toContain("바이브 코딩이나 여러 agent 병렬 작업");
     expect(windowsBootstrap).toContain("$CodexDesktopAppUrl");
+    expect(windowsBootstrap).toContain("$CodexWindowsMode");
+    expect(windowsBootstrap).toContain("function Ensure-WslForCodex");
+    expect(windowsBootstrap).toContain('Invoke-Tool "wsl" @("--install", "-d", "Ubuntu")');
+    expect(windowsBootstrap).toContain("function Ensure-CodexCliInWsl");
+    expect(windowsBootstrap).toContain("nvm install __NODE_MAJOR__");
+    expect(windowsBootstrap).toContain("SOLO_CODEX_WINDOWS_MODE");
+    expect(windowsBootstrap).toContain('"wsl"');
     expect(windowsBootstrap).toContain("function Ensure-CodexCli");
     expect(windowsBootstrap).toContain("function Test-CodexNativeRuntimeFailure");
     expect(windowsBootstrap).toContain("function Install-CodexNativeRuntime");
+    expect(windowsBootstrap).toContain("function Ensure-CodexCliNative");
     expect(windowsBootstrap).toContain('Invoke-Tool "npm" @("install", "-g", "@openai/codex@latest")');
     expect(windowsBootstrap).toContain('Invoke-Tool "codex" @("--version")');
     expect(windowsBootstrap).toContain('"Microsoft.VCRedist.2015+.x64"');
@@ -151,6 +167,9 @@ describe("#105 local install/run verification docs", () => {
       "Administrator permission denied",
       "operation not permitted",
       "C:\\Users\\Public\\Desktop\\solo_superman.cmd",
+      "Codex WSL setup incomplete",
+      "wsl --install -d Ubuntu",
+      "SOLO_CODEX_WINDOWS_MODE=wsl",
       "Codex CLI native runtime missing",
       "Microsoft.VCRedist.2015+.x64",
       "codex.cmd --version failed with exit -1073741515",

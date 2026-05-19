@@ -8,6 +8,9 @@ $StartLocal = if ($env:SOLO_SUPERMAN_START_LOCAL) { $env:SOLO_SUPERMAN_START_LOC
 $BootstrapCommand = "irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1 | iex"
 $CodexDesktopAppUrl = if ($env:SOLO_SUPERMAN_CODEX_DESKTOP_URL) { $env:SOLO_SUPERMAN_CODEX_DESKTOP_URL } else { "https://openai.com/codex/" }
 $ShowCodexDesktopPrompt = if ($env:SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT) { $env:SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT } else { "1" }
+$CodexWindowsMode = if ($env:SOLO_SUPERMAN_CODEX_WINDOWS_MODE) { $env:SOLO_SUPERMAN_CODEX_WINDOWS_MODE.ToLowerInvariant() } elseif ($env:SOLO_CODEX_WINDOWS_MODE) { $env:SOLO_CODEX_WINDOWS_MODE.ToLowerInvariant() } else { "wsl" }
+$CodexNvmInstallUrl = if ($env:SOLO_SUPERMAN_CODEX_NVM_INSTALL_URL) { $env:SOLO_SUPERMAN_CODEX_NVM_INSTALL_URL } else { "https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh" }
+$CodexWslNodeMajor = if ($env:SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR) { $env:SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR } else { "22" }
 $MinNodeMajor = 24
 
 function Write-Step($Message) {
@@ -98,7 +101,11 @@ function Restart-AsAdministrator {
     "SOLO_SUPERMAN_START_LOCAL",
     "SOLO_SUPERMAN_NO_PAUSE",
     "SOLO_SUPERMAN_CODEX_DESKTOP_URL",
-    "SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT"
+    "SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT",
+    "SOLO_SUPERMAN_CODEX_WINDOWS_MODE",
+    "SOLO_CODEX_WINDOWS_MODE",
+    "SOLO_SUPERMAN_CODEX_NVM_INSTALL_URL",
+    "SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR"
   )) {
     $value = [Environment]::GetEnvironmentVariable($name, "Process")
     if ($null -ne $value) {
@@ -231,6 +238,124 @@ function Ensure-Pnpm {
   Invoke-Tool "pnpm" @("--version")
 }
 
+function Assert-CodexWindowsMode {
+  if (($CodexWindowsMode -ne "wsl") -and ($CodexWindowsMode -ne "native")) {
+    throw "SOLO_SUPERMAN_CODEX_WINDOWS_MODE 값은 wsl 또는 native만 지원합니다. 현재 값: $CodexWindowsMode"
+  }
+
+  if ($CodexWslNodeMajor -notmatch "^\d+$") {
+    throw "SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR 값은 숫자 major 버전이어야 합니다. 현재 값: $CodexWslNodeMajor"
+  }
+
+  if ($CodexNvmInstallUrl -notmatch "^https://") {
+    throw "SOLO_SUPERMAN_CODEX_NVM_INSTALL_URL은 https URL이어야 합니다. 현재 값: $CodexNvmInstallUrl"
+  }
+}
+
+function Get-NormalizedWslLine($Value) {
+  return ([string]$Value).Replace([string][char]0, "").Trim()
+}
+
+function Get-WslDistributionNames {
+  if (-not (Test-Command wsl)) {
+    return @()
+  }
+
+  try {
+    $wsl = Get-ToolPath "wsl"
+    $output = & $wsl @("--list", "--quiet") 2>$null
+    if ($LASTEXITCODE -ne 0) {
+      return @()
+    }
+
+    $names = New-Object System.Collections.Generic.List[string]
+    foreach ($line in $output) {
+      $name = Get-NormalizedWslLine $line
+      if ($name -and (-not $names.Contains($name))) {
+        $names.Add($name)
+      }
+    }
+
+    return $names.ToArray()
+  } catch {
+    return @()
+  }
+}
+
+function Invoke-WslBash($Command) {
+  Invoke-Tool "wsl" @("--", "bash", "-lc", $Command)
+}
+
+function Invoke-WslRootBash($Command) {
+  Invoke-Tool "wsl" @("-u", "root", "--", "bash", "-lc", $Command)
+}
+
+function Ensure-WslForCodex {
+  if (-not (Test-Command wsl)) {
+    throw "WSL 명령을 찾지 못했습니다. Windows 10 2004 이상 또는 Windows 11에서 관리자 PowerShell로 wsl --install을 실행한 뒤 README의 한 줄 설치 명령을 다시 실행하세요."
+  }
+
+  $distributions = @(Get-WslDistributionNames)
+  if ($distributions.Count -eq 0) {
+    Write-Step "Codex CLI용 WSL/Ubuntu 설치"
+    try {
+      Invoke-Tool "wsl" @("--install", "-d", "Ubuntu")
+    } catch {
+      Write-Warn "wsl --install -d Ubuntu 자동 실행이 실패했습니다. Windows가 재부팅 또는 Microsoft Store/회사 정책 승인을 요구할 수 있습니다. $($_.Exception.Message)"
+    }
+
+    $distributions = @(Get-WslDistributionNames)
+    if ($distributions.Count -eq 0) {
+      throw "Codex CLI는 Windows에서 WSL 경로를 기본으로 사용합니다. Windows가 재부팅을 요청했다면 재부팅하고, Ubuntu를 한 번 열어 Linux 사용자 이름/비밀번호를 만든 뒤 README의 한 줄 설치 명령을 다시 실행하세요."
+    }
+  }
+
+  try {
+    Invoke-WslBash "printf solo-superman-wsl-ready"
+  } catch {
+    throw "WSL 배포판은 보이지만 bash 실행 또는 첫 사용자 설정이 끝나지 않았습니다. Ubuntu를 한 번 열어 Linux 사용자 이름/비밀번호를 만든 뒤 README의 한 줄 설치 명령을 다시 실행하세요. $($_.Exception.Message)"
+  }
+
+  Write-Step "WSL ready for Codex CLI: $($distributions -join ', ')"
+}
+
+function Ensure-WslCurl {
+  try {
+    Invoke-WslBash "command -v curl >/dev/null 2>&1"
+    return
+  } catch {
+    Write-Warn "WSL 안에서 curl을 찾지 못해 Ubuntu/Debian 계열 apt로 curl 설치를 시도합니다. $($_.Exception.Message)"
+  }
+
+  try {
+    Invoke-WslRootBash "if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y curl ca-certificates; else exit 42; fi"
+  } catch {
+    throw "WSL 안에서 curl을 자동 준비하지 못했습니다. WSL Ubuntu에서 sudo apt-get update; sudo apt-get install -y curl ca-certificates 를 실행한 뒤 README의 한 줄 설치 명령을 다시 실행하세요. $($_.Exception.Message)"
+  }
+}
+
+function Ensure-CodexCliInWsl {
+  Ensure-WslForCodex
+  Ensure-WslCurl
+
+  Write-Step "OpenAI Codex CLI 설치/업데이트 (WSL)"
+  $installScript = @'
+set -euo pipefail
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+if [ ! -s "$NVM_DIR/nvm.sh" ]; then
+  curl -fsSL __NVM_INSTALL_URL__ | bash
+fi
+. "$NVM_DIR/nvm.sh"
+nvm install __NODE_MAJOR__
+nvm use __NODE_MAJOR__
+npm install -g @openai/codex@latest
+codex --version
+'@
+  $installScript = $installScript.Replace("__NVM_INSTALL_URL__", $CodexNvmInstallUrl).Replace("__NODE_MAJOR__", $CodexWslNodeMajor)
+  Invoke-WslBash $installScript
+  $env:SOLO_CODEX_WINDOWS_MODE = "wsl"
+}
+
 function Test-CodexNativeRuntimeFailure($Message) {
   return ([string]$Message -match "codex(?:\\.cmd)? --version failed with exit (-1073741515|3221225781)") -or ([string]$Message -match "0xC0000135")
 }
@@ -241,7 +366,7 @@ function Install-CodexNativeRuntime {
   Install-WingetPackage "Microsoft Visual C++ Redistributable (x64)" "Microsoft.VCRedist.2015+.x64" "winget을 찾지 못해 Microsoft Visual C++ Redistributable (x64)을 자동 설치하지 못했습니다. https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist 에서 x64 runtime을 설치한 뒤 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
 }
 
-function Ensure-CodexCli {
+function Ensure-CodexCliNative {
   if (-not (Test-Command npm)) {
     throw "Codex CLI 설치를 위해 npm이 필요합니다. Node 24 이상 설치 후 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
   }
@@ -267,13 +392,29 @@ function Ensure-CodexCli {
   }
 }
 
+function Ensure-CodexCli {
+  Assert-CodexWindowsMode
+  if ($CodexWindowsMode -eq "native") {
+    Write-Warn "SOLO_SUPERMAN_CODEX_WINDOWS_MODE=native가 지정되어 Windows native Codex CLI 경로를 사용합니다. 기본값은 WSL입니다."
+    Ensure-CodexCliNative
+    $env:SOLO_CODEX_WINDOWS_MODE = "native"
+    return
+  }
+
+  Ensure-CodexCliInWsl
+}
+
 function Show-CodexDesktopAppPrompt {
   if ($ShowCodexDesktopPrompt -eq "0") {
     return
   }
 
   Write-Step "Codex Desktop App 안내"
-  Write-Host "Codex CLI는 설치했습니다. Solo Superman 이후 바이브 코딩/다중 agent 작업을 더 하고 싶으면 열린 창에서 Codex Desktop App for Windows를 다운로드하고 ChatGPT 계정으로 로그인하세요."
+  if ($CodexWindowsMode -eq "wsl") {
+    Write-Host "Codex CLI는 Windows 안정성을 위해 WSL 안에 설치했습니다. Solo Superman 이후 바이브 코딩/다중 agent 작업을 더 하고 싶으면 열린 창에서 Codex Desktop App for Windows를 다운로드하고 ChatGPT 계정으로 로그인하세요."
+  } else {
+    Write-Host "Codex CLI는 Windows native 경로에 설치했습니다. Solo Superman 이후 바이브 코딩/다중 agent 작업을 더 하고 싶으면 열린 창에서 Codex Desktop App for Windows를 다운로드하고 ChatGPT 계정으로 로그인하세요."
+  }
   Write-Host "다운로드 안내: $CodexDesktopAppUrl"
 
   try {
@@ -284,7 +425,8 @@ function Show-CodexDesktopAppPrompt {
 
   try {
     $wscript = New-Object -ComObject WScript.Shell
-    $message = "Codex CLI 설치가 완료되었습니다.`n`nSolo Superman 이후 바이브 코딩이나 여러 agent 병렬 작업을 더 하고 싶으면 열린 브라우저 창에서 Codex Desktop App for Windows를 다운로드하고 ChatGPT 계정으로 로그인하세요.`n`n$CodexDesktopAppUrl"
+    $codexModeMessage = if ($CodexWindowsMode -eq "wsl") { "Codex CLI 설치가 WSL 안에서 완료되었습니다." } else { "Codex CLI 설치가 Windows native 경로에서 완료되었습니다." }
+    $message = "$codexModeMessage`n`nSolo Superman 이후 바이브 코딩이나 여러 agent 병렬 작업을 더 하고 싶으면 열린 브라우저 창에서 Codex Desktop App for Windows를 다운로드하고 ChatGPT 계정으로 로그인하세요.`n`n$CodexDesktopAppUrl"
     $wscript.Popup($message, 0, "Codex Desktop App 안내", 64) | Out-Null
   } catch {
     Write-Warn "Codex Desktop App 안내 팝업을 띄우지 못했습니다. $($_.Exception.Message)"
@@ -415,6 +557,7 @@ function New-DesktopRunner($TargetPath) {
   $failedDesktopPaths = New-Object System.Collections.Generic.List[string]
   $safeTargetPath = ConvertTo-CmdValue $TargetPath
   $safeBootstrapCommand = ConvertTo-CmdEchoValue $BootstrapCommand
+  $safeCodexWindowsMode = ConvertTo-CmdValue $CodexWindowsMode
   $pathLine = 'set "PATH=%PATH%;%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%LOCALAPPDATA%\Microsoft\WindowsApps"'
   $content = @(
     "@echo off",
@@ -422,6 +565,7 @@ function New-DesktopRunner($TargetPath) {
     "set ""SOLO_EXIT=0""",
     $pathLine,
     "set ""SOLO_SUPERMAN_DIR=$safeTargetPath""",
+    "set ""SOLO_CODEX_WINDOWS_MODE=$safeCodexWindowsMode""",
     "if not exist ""%SOLO_SUPERMAN_DIR%"" (",
     "  echo Install folder not found: ""%SOLO_SUPERMAN_DIR%""",
     "  set ""SOLO_EXIT=1""",
@@ -549,6 +693,7 @@ function Invoke-LocalWeb {
   }
 
   Write-Step "Solo Superman web 화면을 엽니다. 브라우저가 열리면 이 터미널을 닫지 마세요."
+  $env:SOLO_CODEX_WINDOWS_MODE = $CodexWindowsMode
   Invoke-Tool "pnpm" @("start:local")
 }
 
@@ -556,6 +701,7 @@ function Write-InstallSummary($TargetPath, $DesktopRunnerPaths) {
   Write-Host ""
   Write-Host "Solo Superman 설치가 완료됐습니다." -ForegroundColor Green
   Write-Host "설치 경로: $TargetPath"
+  Write-Host "Codex 실행 경로: Windows $CodexWindowsMode"
   if ($DesktopRunnerPaths -and $DesktopRunnerPaths.Count -gt 0) {
     Write-Host "바탕화면 실행파일/아이콘 확인/생성:"
     foreach ($runnerPath in $DesktopRunnerPaths) {

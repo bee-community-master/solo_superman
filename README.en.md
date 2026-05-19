@@ -8,7 +8,7 @@ Solo Superman is a local-first Founder OS for solo founders. It turns ideas into
 
 The current release state is a **technical preview**. The goal at this stage is to let non-developers reach the local web screen with a one-line installer. Risky actions such as file edits, shell execution, browser control, or external-service submissions are not run automatically; they are first captured as reviewable execution-prep notes.
 
-The installer checks Node.js 24 or newer, Git, Corepack/pnpm, and Codex CLI, installs missing prerequisites when safe, clones the repository, installs dependencies, verifies that the local app can run, and opens the browser automatically. On Windows, it also opens a Codex Desktop App download prompt for users who want to continue with vibe coding or multiple parallel agents. If a folder with the same name already exists or the default local ports are already in use, it does not overwrite user files or kill running processes; it chooses a safe alternate path or port instead.
+The installer checks Node.js 24 or newer, Git, Corepack/pnpm, and Codex CLI, installs missing prerequisites when safe, clones the repository, installs dependencies, verifies that the local app can run, and opens the browser automatically. On Windows, it keeps the app Node/pnpm toolchain on Windows but installs and runs Codex CLI inside WSL (Ubuntu) with `SOLO_CODEX_WINDOWS_MODE=wsl` for the more stable Codex path. It also opens a Codex Desktop App download prompt for users who want to continue with vibe coding or multiple parallel agents. If a folder with the same name already exists or the default local ports are already in use, it does not overwrite user files or kill running processes; it chooses a safe alternate path or port instead.
 
 ## Installation
 
@@ -26,7 +26,7 @@ Run PowerShell **as Administrator** from the Start menu, then paste the one-line
 irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1 | iex
 ```
 
-On Windows, before Node/Corepack/pnpm activation and public Desktop runner creation, the installer asks for UAC approval and relaunches itself in an administrator PowerShell when needed. If the installer asks for a new terminal so PATH changes can take effect, open a new terminal and run the same one-line command again to continue. When automatic recovery is unsafe because of network restrictions, company security policy, or administrator permissions, the installer does not bypass the policy; it shows a plain-language error and the command to retry.
+On Windows, before Node/Corepack/pnpm activation, WSL/Ubuntu checks, and public Desktop runner creation, the installer asks for UAC approval and relaunches itself in an administrator PowerShell when needed. If no WSL distribution is installed, it tries `wsl --install -d Ubuntu`; if Windows needs a reboot or Ubuntu still needs first-run Linux user/password setup, it stops there and tells the user to rerun the same one-line command after that setup. If the installer asks for a new terminal so PATH changes can take effect, open a new terminal and run the same one-line command again to continue. When automatic recovery is unsafe because of network restrictions, company security policy, or administrator permissions, the installer does not bypass the policy; it shows a plain-language error and the command to retry.
 
 ## Running locally
 
@@ -46,7 +46,7 @@ cd solo_superman && pnpm start:local
 Set-Location .\solo_superman; pnpm start:local
 ```
 
-Reaching the local first screen and running the default local path do not require an OpenAI API key, ChatGPT web credential, or ChatGPT Pro session. When backend question/research preview work starts, the local UI checks only the local Codex CLI with `codex login status`; it does not inspect a ChatGPT web session. If needed, the UI can open a background Terminal running `codex auth login` so Codex shows the browser login screen. Separate features that use a ChatGPT browser session require a user-approved flow and are not a default preview prerequisite. Solo Superman does not collect or store any credentials. For troubleshooting, see [`docs/troubleshooting_EN.md`](docs/troubleshooting_EN.md). For contributor onboarding and architecture notes, start at [`docs/README_EN.md`](docs/README_EN.md).
+Reaching the local first screen and running the default local path do not require an OpenAI API key, ChatGPT web credential, or ChatGPT Pro session. When backend question/research preview work starts, the local UI checks only the local Codex CLI with `codex login status`; it does not inspect a ChatGPT web session. On Windows, that Codex CLI check and `codex auth login` run inside WSL. If needed, the UI can open a background Terminal so Codex shows the browser login screen. Separate features that use a ChatGPT browser session require a user-approved flow and are not a default preview prerequisite. Solo Superman does not collect or store any credentials. For troubleshooting, see [`docs/troubleshooting_EN.md`](docs/troubleshooting_EN.md). For contributor onboarding and architecture notes, start at [`docs/README_EN.md`](docs/README_EN.md).
 
 ## Release scope
 

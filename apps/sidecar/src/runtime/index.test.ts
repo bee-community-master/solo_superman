@@ -11,7 +11,9 @@ import {
 } from "@solo-superman/contracts";
 import {
   assertCodexPreviewOutputMatchesInput,
+  codexAppServerSpawnPlan,
   codexAccountStatusFromAccountReadResponse,
+  codexWslShellCommand,
   createCodexRuntimeAdapter,
   fixtureCodexPreviewOutput,
   parseCodexPreviewOutput,
@@ -368,6 +370,29 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     });
   });
 
+  it("builds a WSL-backed Codex app-server plan when Windows mode requests WSL", () => {
+    const adapter = createCodexRuntimeAdapter({
+      fixtureMode: true,
+      env: {
+        SOLO_CODEX_WINDOWS_MODE: "wsl"
+      }
+    });
+
+    expect(adapter.buildStdioSpawnPlan()).toMatchObject({
+      command: "wsl.exe",
+      args: [
+        "--",
+        "bash",
+        "-lc",
+        expect.stringContaining("'codex' 'app-server' '--listen' 'stdio://'")
+      ],
+      transport: "stdio"
+    });
+    expect(codexAppServerSpawnPlan({ SOLO_CODEX_WINDOWS_MODE: "wsl" }).args[3]).toContain(
+      "nvm use --silent 22"
+    );
+  });
+
   it("starts Codex auth login through the injected background-terminal launcher", async () => {
     const startedAt = "2026-05-17T00:00:00.000Z";
     const adapter = createCodexRuntimeAdapter({
@@ -415,9 +440,23 @@ describe("PR-07 Codex runtime adapter contracts", () => {
   });
 
   it("quotes Windows Codex auth login working directories with spaces", () => {
-    expect(windowsCodexLoginShellCommand("C:\\Users\\Founder Name\\solo_superman")).toBe(
+    expect(
+      windowsCodexLoginShellCommand("C:\\Users\\Founder Name\\solo_superman", {
+        SOLO_CODEX_WINDOWS_MODE: "native"
+      })
+    ).toBe(
       'cd /d "C:\\Users\\Founder Name\\solo_superman" && codex auth login'
     );
+  });
+
+  it("uses WSL for Windows Codex login by default", () => {
+    const command = windowsCodexLoginShellCommand("C:\\Users\\Founder Name\\solo_superman", {});
+
+    expect(command).toContain("wsl.exe -- bash -lc");
+    expect(command).toContain("'codex' 'auth' 'login'");
+    expect(command).toContain("nvm use --silent 22");
+    expect(command).not.toContain("cd /d");
+    expect(codexWslShellCommand(["auth", "login"])).toContain("'codex' 'auth' 'login'");
   });
 
   it("does not report live preview availability when turn execution is disabled", async () => {
