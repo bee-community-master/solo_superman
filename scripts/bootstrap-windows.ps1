@@ -35,7 +35,7 @@ $DefaultTargetDir = if ($env:SOLO_SUPERMAN_DIR) {
 $PnpmVersion = if ($env:SOLO_SUPERMAN_PNPM_VERSION) { $env:SOLO_SUPERMAN_PNPM_VERSION } else { "11.0.4" }
 $RunSmoke = if ($env:SOLO_SUPERMAN_RUN_SMOKE) { $env:SOLO_SUPERMAN_RUN_SMOKE } else { "1" }
 $StartLocal = if ($env:SOLO_SUPERMAN_START_LOCAL) { $env:SOLO_SUPERMAN_START_LOCAL } else { "1" }
-$BootstrapCommand = '$utf8 = New-Object System.Text.UTF8Encoding $false; [Console]::InputEncoding = $utf8; [Console]::OutputEncoding = $utf8; $OutputEncoding = $utf8; chcp.com 65001 > $null; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $wc = New-Object Net.WebClient; $wc.Encoding = $utf8; $script = $wc.DownloadString("https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1"); if ($script.Length -gt 0 -and $script[0] -eq [char]0xFEFF) { $script = $script.Substring(1) }; iex $script'
+$BootstrapCommand = 'irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/win.ps1 | iex'
 $CodexDesktopAppUrl = if ($env:SOLO_SUPERMAN_CODEX_DESKTOP_URL) { $env:SOLO_SUPERMAN_CODEX_DESKTOP_URL } else { "https://openai.com/codex/" }
 $ShowCodexDesktopPrompt = if ($env:SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT) { $env:SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT } else { "1" }
 $CodexWindowsMode = if ($env:SOLO_SUPERMAN_CODEX_WINDOWS_MODE) { $env:SOLO_SUPERMAN_CODEX_WINDOWS_MODE.ToLowerInvariant() } elseif ($env:SOLO_CODEX_WINDOWS_MODE) { $env:SOLO_CODEX_WINDOWS_MODE.ToLowerInvariant() } else { "wsl" }

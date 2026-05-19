@@ -5,6 +5,7 @@ const runbook = readFileSync("docs/troubleshooting_KO.md", "utf8");
 const readme = readFileSync("README.md", "utf8");
 const englishReadme = readFileSync("README.en.md", "utf8");
 const windowsBootstrap = readFileSync("scripts/bootstrap-windows.ps1", "utf8");
+const windowsLauncher = readFileSync("scripts/win.ps1", "utf8");
 const macosBootstrap = readFileSync("scripts/bootstrap-macos.sh", "utf8");
 const windowsBlocks = [...runbook.matchAll(/```powershell\n([\s\S]*?)\n```/g)].map((match) => match[1]);
 const publicRepoUrl = "https://github.com/bee-community-master/solo_superman.git";
@@ -28,24 +29,31 @@ describe("#105 local install/run verification docs", () => {
   });
 
   it("keeps public bootstrap surfaces on the public GitHub repository", () => {
-    for (const surface of [runbook, readme, englishReadme, windowsBootstrap, macosBootstrap]) {
+    for (const surface of [runbook, readme, englishReadme, windowsBootstrap, windowsLauncher, macosBootstrap]) {
       expect(surface).toContain("bee-community-master/solo_superman");
       expect(surface).not.toContain("raw.githubusercontent.com/HearingOffice/solo_superman");
       expect(surface).not.toContain("https://github.com/HearingOffice/solo_superman.git");
     }
 
     expect(readme).toContain("언어: 한국어 | [English](README.en.md)");
-    expect(readme).toContain(`${publicRawBase}/scripts/bootstrap-windows.ps1`);
-    expect(readme).toContain("[Console]::OutputEncoding");
-    expect(readme).toContain("[Net.ServicePointManager]::SecurityProtocol");
-    expect(readme).toContain("Net.WebClient");
+    expect(readme).toContain(`irm ${publicRawBase}/scripts/win.ps1 | iex`);
+    expect(readme).toContain("작은 Windows launcher");
+    expect(readme).not.toContain("New-Object System.Text.UTF8Encoding");
     expect(readme).toContain('Set-Location "$HOME\\solo_superman"; pnpm.cmd start:local');
     expect(readme).toContain("설치 완료 메시지에 표시된 다시 실행 명령");
     expect(englishReadme).toContain("Language: [한국어](README.md) | English");
-    expect(englishReadme).toContain("[Console]::OutputEncoding");
-    expect(englishReadme).toContain("[Net.ServicePointManager]::SecurityProtocol");
+    expect(englishReadme).toContain(`irm ${publicRawBase}/scripts/win.ps1 | iex`);
+    expect(englishReadme).toContain("tiny Windows launcher");
+    expect(englishReadme).not.toContain("New-Object System.Text.UTF8Encoding");
     expect(englishReadme).toContain('Set-Location "$HOME\\solo_superman"; pnpm.cmd start:local');
     expect(englishReadme).toContain("use the rerun command printed by the installer");
+    expect(windowsLauncher).toContain(`${publicRawBase}/scripts/bootstrap-windows.ps1`);
+    expect(windowsLauncher).toContain("[Console]::OutputEncoding");
+    expect(windowsLauncher).toContain("[Net.ServicePointManager]::SecurityProtocol");
+    expect(windowsLauncher).toContain("Net.WebClient");
+    expect(windowsLauncher).toContain("$wc.Encoding = $utf8");
+    expect(windowsLauncher).toContain("if ($script.Length -gt 0 -and $script[0] -eq [char]0xFEFF)");
+    expect(windowsBootstrap).toContain(`irm ${publicRawBase}/scripts/win.ps1 | iex`);
     expect(readme).not.toContain(`${publicRawBase}/scripts/bootstrap-windows.ps1 | iex`);
     expect(englishReadme).not.toContain(`${publicRawBase}/scripts/bootstrap-windows.ps1 | iex`);
     expect(windowsBootstrap).toContain(publicRepoUrl);

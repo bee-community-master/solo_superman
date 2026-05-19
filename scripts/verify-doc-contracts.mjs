@@ -701,6 +701,8 @@ function checkContributorDocsSnippets() {
 
   requireSnippets("troubleshooting doc missing install/run contract", docs["docs/troubleshooting_KO.md"], [
     "macOS shell | Windows PowerShell",
+    "scripts/win.ps1",
+    "Launcher",
     "winget install --id OpenJS.NodeJS.LTS -e",
     "pnpm verify:prod-bundle",
     "pnpm verify",

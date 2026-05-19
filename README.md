@@ -23,10 +23,10 @@ Solo Superman은 솔로 창업자가 아이디어를 질문, 리서치, 결정 �
 시작 메뉴에서 PowerShell을 **관리자 권한으로 실행**한 뒤 아래 한 줄을 붙여넣으세요. 관리자 권한이 아니면 Node.js/Git 설치 단계에서 실패할 수 있습니다.
 
 ```powershell
-$utf8 = New-Object System.Text.UTF8Encoding $false; [Console]::InputEncoding = $utf8; [Console]::OutputEncoding = $utf8; $OutputEncoding = $utf8; chcp.com 65001 > $null; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $wc = New-Object Net.WebClient; $wc.Encoding = $utf8; $script = $wc.DownloadString("https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1"); if ($script.Length -gt 0 -and $script[0] -eq [char]0xFEFF) { $script = $script.Substring(1) }; iex $script
+irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/win.ps1 | iex
 ```
 
-이 명령은 Windows PowerShell 5.1에서도 UTF-8 콘솔 출력, TLS 1.2, UTF-8 스크립트 다운로드를 먼저 설정한 뒤 설치를 시작합니다. Windows 설치 프로그램은 Node/Corepack/pnpm 활성화, WSL/Ubuntu 확인, 공용 바탕화면 실행파일 생성 전에 관리자 권한이 아니면 UAC 승인을 요청해 관리자 PowerShell로 자동 재실행합니다. Codex CLI용 WSL은 기본값으로 WSL2와 Ubuntu를 쓰도록 `wsl --set-default-version 2` 및 기본 배포판 설정을 수행합니다. WSL 배포판이 없으면 `wsl --install -d Ubuntu`를 시도하며, 첫 WSL 설치처럼 Windows 재부팅이나 Ubuntu 첫 사용자 이름/비밀번호 생성이 필요할 수 있는 경우에는 그 단계에서 멈추고 재부팅 및 Ubuntu 첫 실행 후 같은 한 줄 명령을 다시 실행하라고 안내합니다. PATH 반영을 위해 새 터미널을 요구하면 새 터미널을 열고 같은 한 줄 명령을 다시 실행하면 이어서 진행됩니다. 네트워크, 회사 보안 정책, 관리자 권한 때문에 자동 복구가 안전하지 않은 경우에는 정책을 우회하지 않고 쉬운 오류 메시지와 재실행 명령을 보여줍니다.
+이 짧은 명령은 작은 Windows launcher를 먼저 실행합니다. Launcher는 Windows PowerShell 5.1에서도 UTF-8 콘솔 출력, TLS 1.2, UTF-8 스크립트 다운로드, BOM 제거를 설정한 뒤 실제 설치 스크립트를 내려받아 시작합니다. Windows 설치 프로그램은 Node/Corepack/pnpm 활성화, WSL/Ubuntu 확인, 공용 바탕화면 실행파일 생성 전에 관리자 권한이 아니면 UAC 승인을 요청해 관리자 PowerShell로 자동 재실행합니다. Codex CLI용 WSL은 기본값으로 WSL2와 Ubuntu를 쓰도록 `wsl --set-default-version 2` 및 기본 배포판 설정을 수행합니다. WSL 배포판이 없으면 `wsl --install -d Ubuntu`를 시도하며, 첫 WSL 설치처럼 Windows 재부팅이나 Ubuntu 첫 사용자 이름/비밀번호 생성이 필요할 수 있는 경우에는 그 단계에서 멈추고 재부팅 및 Ubuntu 첫 실행 후 같은 한 줄 명령을 다시 실행하라고 안내합니다. PATH 반영을 위해 새 터미널을 요구하면 새 터미널을 열고 같은 한 줄 명령을 다시 실행하면 이어서 진행됩니다. 네트워크, 회사 보안 정책, 관리자 권한 때문에 자동 복구가 안전하지 않은 경우에는 정책을 우회하지 않고 쉬운 오류 메시지와 재실행 명령을 보여줍니다.
 
 ## 실행방법
 
