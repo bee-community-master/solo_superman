@@ -290,6 +290,41 @@ function Invoke-WslRootBash($Command) {
   Invoke-Tool "wsl" @("-u", "root", "--", "bash", "-lc", $Command)
 }
 
+function Write-LfUtf8NoBomFile($Path, $Content) {
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  $normalized = ([string]$Content).Replace("`r`n", "`n").Replace("`r", "`n")
+  [System.IO.File]::WriteAllText($Path, $normalized, $utf8NoBom)
+}
+
+function Get-WslPath($WindowsPath) {
+  $wsl = Get-ToolPath "wsl"
+  $output = & $wsl @("--", "wslpath", "-a", $WindowsPath) 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    throw "Windows 임시 스크립트 경로를 WSL 경로로 변환하지 못했습니다: $WindowsPath :: $output"
+  }
+
+  $wslPath = Get-NormalizedWslLine ($output | Select-Object -First 1)
+  if (-not $wslPath) {
+    throw "Windows 임시 스크립트 경로를 WSL 경로로 변환했지만 결과가 비어 있습니다: $WindowsPath"
+  }
+
+  return $wslPath
+}
+
+function Invoke-WslScript($Script) {
+  $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) "solo-superman"
+  New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+  $scriptPath = Join-Path $tempRoot "codex-wsl-install.sh"
+  Write-LfUtf8NoBomFile $scriptPath $Script
+  $wslScriptPath = Get-WslPath $scriptPath
+
+  try {
+    Invoke-Tool "wsl" @("--", "bash", $wslScriptPath)
+  } finally {
+    Remove-Item -Path $scriptPath -Force -ErrorAction SilentlyContinue
+  }
+}
+
 function Ensure-WslForCodex {
   if (-not (Test-Command wsl)) {
     throw "WSL 명령을 찾지 못했습니다. Windows 10 2004 이상 또는 Windows 11에서 관리자 PowerShell로 wsl --install을 실행한 뒤 README의 한 줄 설치 명령을 다시 실행하세요."
@@ -365,7 +400,7 @@ npm install -g @openai/codex@latest
 codex --version
 '@
   $installScript = $installScript.Replace("__NVM_INSTALL_URL__", $CodexNvmInstallUrl).Replace("__NODE_MAJOR__", $CodexWslNodeMajor)
-  Invoke-WslBash $installScript
+  Invoke-WslScript $installScript
   $env:SOLO_CODEX_WINDOWS_MODE = "wsl"
 }
 
