@@ -126,6 +126,36 @@ async function jsonBody(response: Response) {
   return (await response.json()) as JsonResponseBody;
 }
 
+interface RequestTestApp {
+  request(path: string, init?: RequestInit): Response | Promise<Response>;
+}
+
+async function postAutoImplementationRunForTest(
+  storageApp: RequestTestApp,
+  sessionId: string,
+  payload: Readonly<Record<string, unknown>>
+) {
+  return Promise.resolve(storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      sessionId,
+      ...payload
+    })
+  }));
+}
+
+function jsonDataRecord(body: JsonResponseBody) {
+  return body.data as Readonly<Record<string, unknown>>;
+}
+
+function latestAutoImplementationRunFromBody(body: JsonResponseBody) {
+  return jsonDataRecord(body).latestRun as Readonly<Record<string, unknown>>;
+}
+
 function timestampAfterProviderStart(run: ResearchRunProjection) {
   const startMillis = Date.parse(run.provider.startedAt ?? run.createdAt);
 
@@ -7886,23 +7916,15 @@ describe("PR-02 sidecar health shell", () => {
 
     try {
       const { sessionId } = await createProjectForTest(storageApp, "A local app that should be implemented after planning");
-      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
-        method: "POST",
-        headers: {
-          ...authHeaders(),
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          sessionId,
-          idempotencyKey: "auto-implementation-route:test",
-          projectName: "Demo Workspace App",
-          sourcePlanningRef: "planning_handoff_ready_demo",
-          trackerGoal: "Build the planned demo workspace app through reviewed PR-sized stages."
-        })
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:test",
+        projectName: "Demo Workspace App",
+        sourcePlanningRef: "planning_handoff_ready_demo",
+        trackerGoal: "Build the planned demo workspace app through reviewed PR-sized stages."
       });
       const body = await jsonBody(response);
-      const projection = body.data as Readonly<Record<string, unknown>>;
-      const latestRun = projection.latestRun as Readonly<Record<string, unknown>>;
+      const projection = jsonDataRecord(body);
+      const latestRun = latestAutoImplementationRunFromBody(body);
       const issueManagement = latestRun.issueManagement as Readonly<Record<string, unknown>>;
       const issueDocs = issueManagement.issueDocs as readonly Readonly<Record<string, unknown>>[];
       const stagePlan = latestRun.stagePlan as readonly Readonly<Record<string, unknown>>[];
@@ -7949,19 +7971,11 @@ describe("PR-02 sidecar health shell", () => {
       });
       expect(gitHead).toContain("refs/heads/main");
 
-      const replay = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
-        method: "POST",
-        headers: {
-          ...authHeaders(),
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          sessionId,
-          idempotencyKey: "auto-implementation-route:test",
-          projectName: "Demo Workspace App"
-        })
+      const replay = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:test",
+        projectName: "Demo Workspace App"
       });
-      const replayProjection = (await jsonBody(replay)).data as Readonly<Record<string, unknown>>;
+      const replayProjection = jsonDataRecord(await jsonBody(replay));
 
       expect(replay.status).toBe(200);
       expect(replayProjection).toMatchObject({
@@ -7981,21 +7995,13 @@ describe("PR-02 sidecar health shell", () => {
 
     try {
       const { sessionId } = await createProjectForTest(storageApp, "A Korean named app that should be implemented");
-      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
-        method: "POST",
-        headers: {
-          ...authHeaders(),
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          sessionId,
-          idempotencyKey: "auto-implementation-route:korean-name",
-          projectName: "고양이 펜팔 서비스",
-          trackerTitle: "고양이 펜팔 서비스 implementation tracker"
-        })
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:korean-name",
+        projectName: "고양이 펜팔 서비스",
+        trackerTitle: "고양이 펜팔 서비스 implementation tracker"
       });
       const body = await jsonBody(response);
-      const latestRun = (body.data as Readonly<Record<string, unknown>>).latestRun as Readonly<Record<string, unknown>>;
+      const latestRun = latestAutoImplementationRunFromBody(body);
       const projectFolderName = latestRun.projectFolderName as string;
 
       expect(response.status).toBe(200);
@@ -8027,20 +8033,12 @@ describe("PR-02 sidecar health shell", () => {
 
     try {
       const { sessionId } = await createProjectForTest(storageApp, "A non-GitHub remote test");
-      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
-        method: "POST",
-        headers: {
-          ...authHeaders(),
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          sessionId,
-          idempotencyKey: "auto-implementation-route:unsupported-remote",
-          projectFolderName: "existing-local-remote-repo"
-        })
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:unsupported-remote",
+        projectFolderName: "existing-local-remote-repo"
       });
       const body = await jsonBody(response);
-      const latestRun = (body.data as Readonly<Record<string, unknown>>).latestRun as Readonly<Record<string, unknown>>;
+      const latestRun = latestAutoImplementationRunFromBody(body);
       const issueManagement = latestRun.issueManagement as Readonly<Record<string, unknown>>;
       const tracker = await readFile(join(projectDir, "implementation-tracker.md"), "utf8");
 
@@ -8069,17 +8067,9 @@ describe("PR-02 sidecar health shell", () => {
 
     try {
       const { sessionId } = await createProjectForTest(storageApp, "A symlinked auto implementation request test");
-      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
-        method: "POST",
-        headers: {
-          ...authHeaders(),
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          sessionId,
-          idempotencyKey: "auto-implementation-route:symlink-project",
-          projectFolderName: "escape-app"
-        })
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:symlink-project",
+        projectFolderName: "escape-app"
       });
       const body = await jsonBody(response);
 
@@ -8115,17 +8105,9 @@ describe("PR-02 sidecar health shell", () => {
 
     try {
       const { sessionId } = await createProjectForTest(storageApp, "A symlinked auto implementation output test");
-      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
-        method: "POST",
-        headers: {
-          ...authHeaders(),
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          sessionId,
-          idempotencyKey: "auto-implementation-route:symlink-file",
-          projectFolderName: "existing-app"
-        })
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:symlink-file",
+        projectFolderName: "existing-app"
       });
       const body = await jsonBody(response);
 
@@ -8157,17 +8139,9 @@ describe("PR-02 sidecar health shell", () => {
 
     try {
       const { sessionId } = await createProjectForTest(storageApp, "An existing non-main repo test");
-      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
-        method: "POST",
-        headers: {
-          ...authHeaders(),
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          sessionId,
-          idempotencyKey: "auto-implementation-route:non-main",
-          projectFolderName: "existing-non-main-repo"
-        })
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:non-main",
+        projectFolderName: "existing-non-main-repo"
       });
       const body = await jsonBody(response);
 
@@ -8195,30 +8169,14 @@ describe("PR-02 sidecar health shell", () => {
 
     try {
       const { sessionId } = await createProjectForTest(storageApp, "A malformed auto implementation request test");
-      const unsupported = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
-        method: "POST",
-        headers: {
-          ...authHeaders(),
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          sessionId,
-          idempotencyKey: "auto-implementation-route:bad",
-          unsafe: true
-        })
+      const unsupported = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:bad",
+        unsafe: true
       });
       const unsupportedBody = await jsonBody(unsupported);
-      const tooManyTitles = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
-        method: "POST",
-        headers: {
-          ...authHeaders(),
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          sessionId,
-          idempotencyKey: "auto-implementation-route:too-many-titles",
-          issueTitles: ["1", "2", "3", "4", "5", "6", "7", "8"]
-        })
+      const tooManyTitles = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:too-many-titles",
+        issueTitles: ["1", "2", "3", "4", "5", "6", "7", "8"]
       });
       const tooManyTitlesBody = await jsonBody(tooManyTitles);
 
