@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const runbook = readFileSync("docs/39-local-install-run-verification.md", "utf8");
+const runbook = readFileSync("docs/troubleshooting.md", "utf8");
 const readme = readFileSync("README.md", "utf8");
 const englishReadme = readFileSync("README.en.md", "utf8");
 const windowsBootstrap = readFileSync("scripts/bootstrap-windows.ps1", "utf8");
 const macosBootstrap = readFileSync("scripts/bootstrap-macos.sh", "utf8");
-const windowsBlocks = [...runbook.matchAll(/```powershell<br>(.*?)<br>```/gs)].map((match) => match[1]);
+const windowsBlocks = [...runbook.matchAll(/```powershell\n([\s\S]*?)\n```/g)].map((match) => match[1]);
 const publicRepoUrl = "https://github.com/bee-community-master/solo_superman.git";
 const publicRawBase = "https://raw.githubusercontent.com/bee-community-master/solo_superman/main";
 

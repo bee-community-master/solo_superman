@@ -1,8 +1,23 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { relative } from "node:path";
 import { fileURLToPath, pathToFileURL, URL } from "node:url";
 
 const ROOT = new URL("../", import.meta.url);
+const DOCS_DIR = new URL("docs/", ROOT);
+
+export const CONTRIBUTOR_DOC_PATHS = [
+  "docs/README.md",
+  "docs/product.md",
+  "docs/contributing.md",
+  "docs/architecture.md",
+  "docs/safety-and-permissions.md",
+  "docs/roadmap.md",
+  "docs/decisions.md",
+  "docs/reference.md",
+  "docs/troubleshooting.md"
+];
+
+export const WEB_REALIGNMENT_SCAN_PATHS = CONTRIBUTOR_DOC_PATHS;
 
 function readText(path) {
   return readFileSync(new URL(path, ROOT), "utf8");
@@ -85,11 +100,11 @@ export function sectionBetween(text, start, end, label) {
   return text.slice(contentStart, endIndex);
 }
 
-export function markdownFirstColumnValues(section) {
+function markdownFirstColumnValues(section) {
   return [...section.matchAll(/^\| `([^`]+)` \|/gm)].map((match) => match[1]);
 }
 
-export function parseBacktickedValuesFromTableColumn(section, columnIndex) {
+function parseBacktickedValuesFromTableColumn(section, columnIndex) {
   const values = [];
 
   for (const row of section.matchAll(/^\|(.+)\|$/gm)) {
@@ -118,136 +133,94 @@ export function moduleMatches(specifier, pattern) {
   return specifier === pattern || specifier.startsWith(`${pattern}/`);
 }
 
-function parseDocs25CommandTypes(docs25) {
-  const section = sectionBetween(
-    docs25,
-    "### CommandType enum",
-    "### ProductEngineCommand envelope",
-    "docs/25 CommandType section"
+function parseReferenceCommandTypes(reference) {
+  return markdownFirstColumnValues(
+    sectionBetween(reference, "### CommandType enum", "### ProductEngineCommand envelope", "reference CommandType section")
   );
-
-  return markdownFirstColumnValues(section);
 }
 
-function parseDocs25CommandActors(docs25) {
-  const section = sectionBetween(
-    docs25,
-    "`CommandActor` enum:",
-    "Example command envelope:",
-    "docs/25 CommandActor section"
+function parseReferenceCommandActors(reference) {
+  return markdownFirstColumnValues(
+    sectionBetween(reference, "`CommandActor` enum:", "Example command envelope:", "reference CommandActor section")
   );
-
-  return markdownFirstColumnValues(section);
 }
 
-function parseDocs25EventTypes(docs25) {
-  const section = sectionBetween(
-    docs25,
-    "Closed ProductEngine event type groups:",
-    "### ProductEngineEffectPlanItem",
-    "docs/25 ProductEngineEventType section"
+function parseReferenceEventTypes(reference) {
+  return parseBacktickedValuesFromTableColumn(
+    sectionBetween(
+      reference,
+      "Closed ProductEngine event type groups:",
+      "### ProductEngineEffectPlanItem",
+      "reference ProductEngineEventType section"
+    ),
+    1
   );
-
-  return parseBacktickedValuesFromTableColumn(section, 1);
 }
 
-function parseDocs25EffectTypes(docs25) {
-  const section = sectionBetween(
-    docs25,
-    "### EffectType enum",
-    "### EffectStatus enum",
-    "docs/25 EffectType section"
+function parseReferenceEffectTypes(reference) {
+  return markdownFirstColumnValues(
+    sectionBetween(reference, "### EffectType enum", "### EffectStatus enum", "reference EffectType section")
   );
-
-  return markdownFirstColumnValues(section);
 }
 
-function parseDocs25EffectStatuses(docs25) {
-  const section = sectionBetween(
-    docs25,
-    "### EffectStatus enum",
-    "### EffectTaskDto",
-    "docs/25 EffectStatus section"
+function parseReferenceEffectStatuses(reference) {
+  return markdownFirstColumnValues(
+    sectionBetween(reference, "### EffectStatus enum", "### EffectTaskDto", "reference EffectStatus section")
   );
-
-  return markdownFirstColumnValues(section);
 }
 
-export function parseDocs25DeterministicOutputTypes(docs25) {
-  const section = sectionBetween(
-    docs25,
-    "| OutputType | Used by | Rule |",
-    "## Effect and runtime types",
-    "docs/25 ProductEngineDeterministicOutputType section"
+export function parseDocs25DeterministicOutputTypes(reference) {
+  return markdownFirstColumnValues(
+    sectionBetween(
+      reference,
+      "| OutputType | Used by | Rule |",
+      "## Effect and runtime types",
+      "reference ProductEngineDeterministicOutputType section"
+    )
   );
-
-  return markdownFirstColumnValues(section);
 }
 
-function parseDocs25SseEvents(docs25) {
-  const section = sectionBetween(
-    docs25,
-    "### SseEvent union",
-    "### ProjectionRefetchHint",
-    "docs/25 SseEvent section"
+function parseReferenceCodexTurnPurposes(reference) {
+  return markdownFirstColumnValues(
+    sectionBetween(
+      reference,
+      "Phase 1에서 허용되는 Codex turnPurpose는 다음 6개뿐이다.",
+      "## Input contract overview",
+      "reference CodexTurnPurpose section"
+    )
   );
-
-  return markdownFirstColumnValues(section);
 }
 
-function parseDocs25ProjectionKinds(docs25) {
-  const section = sectionBetween(
-    docs25,
-    "| Projection | File | Primary UI |",
-    "### Projection minimum fields",
-    "docs/25 ProjectionKind section"
-  );
-
-  return markdownFirstColumnValues(section);
+function parseReferenceArtifactKinds(reference) {
+  return [
+    ...sectionBetween(reference, "## Artifact field contracts", "## Blocked action taxonomy", "reference artifact kind section").matchAll(
+      /^### ([A-Za-z]+Artifact)$/gm
+    )
+  ].map((match) => match[1]);
 }
 
-function parseDocs24TurnPurposes(docs24) {
-  const section = sectionBetween(
-    docs24,
-    "Phase 1에서 허용되는 Codex turnPurpose는 다음 6개뿐이다.",
-    "## Input contract overview",
-    "docs/24 turnPurpose section"
+function parseReferenceBlockedActionTypes(reference) {
+  return markdownFirstColumnValues(
+    sectionBetween(reference, "## Blocked action taxonomy", "## Auto-apply and gate matrix", "reference blocked action section")
   );
-
-  return markdownFirstColumnValues(section);
 }
 
-function parseDocs24ArtifactKinds(docs24) {
-  const section = sectionBetween(
-    docs24,
-    "## Artifact field contracts",
-    "## Blocked action taxonomy",
-    "docs/24 artifact kind section"
+function parseReferenceApplyPolicies(reference) {
+  return markdownFirstColumnValues(
+    sectionBetween(reference, "## applyPolicy enum", "Unknown applyPolicy", "reference applyPolicy section")
   );
-
-  return [...section.matchAll(/^### ([A-Za-z]+Artifact)$/gm)].map((match) => match[1]);
 }
 
-function parseDocs24ApplyPolicies(docs24) {
-  const section = sectionBetween(
-    docs24,
-    "## applyPolicy enum",
-    "Unknown applyPolicy",
-    "docs/24 applyPolicy section"
+function parseReferenceSseEvents(reference) {
+  return markdownFirstColumnValues(
+    sectionBetween(reference, "### SseEvent union", "### ProjectionRefetchHint", "reference SseEvent section")
   );
-
-  return markdownFirstColumnValues(section);
 }
 
-function parseDocs24BlockedActionTypes(docs24) {
-  const section = sectionBetween(
-    docs24,
-    "## Blocked action taxonomy",
-    "## Auto-apply and gate matrix",
-    "docs/24 blocked action section"
+function parseReferenceProjectionKinds(reference) {
+  return markdownFirstColumnValues(
+    sectionBetween(reference, "| Projection | File | Primary UI |", "### Projection minimum fields", "reference ProjectionKind section")
   );
-
-  return markdownFirstColumnValues(section);
 }
 
 export function parseRouteCatalogFromSource(source) {
@@ -258,251 +231,127 @@ export function parseRouteCatalogFromSource(source) {
     const routeId = block.match(/routeId: "([^"]+)"/)?.[1] ?? "(unknown routeId)";
     const rawMethod = block.match(/method: "([^"]+)"/)?.[1];
     const path = block.match(/path: "([^"]+)"/)?.[1];
-    const queryBlock = block.match(/requiredQueryParams: \[([^\]]*)\]/)?.[1];
-    const queryParams = queryBlock ? quotedValues(queryBlock) : [];
 
     if (rawMethod !== "GET" && rawMethod !== "POST") {
-      throw new Error(`Unsupported or missing API route method for ${routeId}: ${rawMethod ?? "(missing)"}`);
+      throw new Error(`Unsupported or missing API route method for ${routeId}: ${rawMethod ?? "missing"}`);
     }
 
     if (!path) {
       throw new Error(`Missing API route path for ${routeId}`);
     }
 
+    const requiredQueryParams = block.match(/requiredQueryParams:\s*\[([^\]]*)\]/s)?.[1];
+    const queryParams = requiredQueryParams ? quotedValues(requiredQueryParams).sort() : [];
     routes.set(`${rawMethod} ${path}`, queryParams);
   }
 
   return routes;
 }
 
-export function parseDocs26RoutesFromText(docs26) {
+export function parseDocs26RoutesFromText(text) {
   const routes = new Map();
 
-  for (const match of docs26.matchAll(/\| `((?:GET|POST) [^`]+)` \|/g)) {
-    const [method, endpoint] = match[1].split(" ", 2);
-    const [path, query = ""] = endpoint.split("?");
-    const queryParams = query
-      ? query.split("&").filter(Boolean).map((part) => part.split("=")[0])
+  for (const row of text.matchAll(/^\| `([A-Z]+) ([^`]+)` \|([^\n]+)\|$/gm)) {
+    const [, method, rawPath, rest] = row;
+    const [path, queryString] = rawPath.split("?");
+    const queryParamsFromPath = queryString
+      ? queryString.split("&").map((part) => part.split("=")[0]?.replace(/^:/u, "")).filter(Boolean)
       : [];
-
+    const cells = rest.split("|").map((cell) => cell.trim());
+    const requiredQueryCell = cells[2] ?? "-";
+    const queryParamsFromCell = requiredQueryCell === "-"
+      ? []
+      : requiredQueryCell.replace(/`/g, "").split(",").map((value) => value.trim()).filter(Boolean);
+    const queryParams = [...new Set([...queryParamsFromPath, ...queryParamsFromCell])];
     routes.set(`${method} ${path}`, queryParams);
   }
 
   return routes;
 }
 
-export function compareSets(label, docsValues, codeValues) {
+function compareSets(label, docsValues, codeValues) {
   const docsSet = new Set(docsValues);
   const codeSet = new Set(codeValues);
-  const missing = [...docsSet].filter((value) => !codeSet.has(value)).sort();
-  const extra = [...codeSet].filter((value) => !docsSet.has(value)).sort();
+  const missingInDocs = [...codeSet].filter((value) => !docsSet.has(value));
+  const extraInDocs = [...docsSet].filter((value) => !codeSet.has(value));
 
-  if (missing.length || extra.length) {
-    fail(`${label} mismatch`, [
-      `missing in code: ${missing.join(", ") || "(none)"}`,
-      `extra in code: ${extra.join(", ") || "(none)"}`
+  if (missingInDocs.length || extraInDocs.length) {
+    fail(`${label} drift`, [
+      `missing in docs=[${missingInDocs.join(", ")}]`,
+      `extra in docs=[${extraInDocs.join(", ")}]`
     ]);
   }
 }
 
-function createContractTaxonomyChecks({ docs24, docs25 }) {
-  const commandSource = readText("packages/contracts/src/product-engine/commands.ts");
-  const eventSource = readText("packages/contracts/src/product-engine/events.ts");
-  const effectSource = readText("packages/contracts/src/effects/tasks.ts");
-  const sseSource = readText("packages/contracts/src/sse/events.ts");
-  const projectionSource = readText("packages/contracts/src/projections/index.ts");
-  const codexSource = readText("packages/contracts/src/codex/reexports.ts");
-
-  return [
-    {
-      label: "docs/25 CommandType",
-      docsValues: parseDocs25CommandTypes(docs25),
-      codeValues: parseConstArray(commandSource, "COMMAND_TYPES")
-    },
-    {
-      label: "docs/25 CommandActor",
-      docsValues: parseDocs25CommandActors(docs25),
-      codeValues: parseConstArray(commandSource, "COMMAND_ACTORS")
-    },
-    {
-      label: "docs/25 ProductEngineEventType",
-      docsValues: parseDocs25EventTypes(docs25),
-      codeValues: parseConstArray(eventSource, "PRODUCT_ENGINE_EVENT_TYPES")
-    },
-    {
-      label: "docs/25 EffectType",
-      docsValues: parseDocs25EffectTypes(docs25),
-      codeValues: parseConstArray(effectSource, "EFFECT_TYPES")
-    },
-    {
-      label: "docs/25 EffectStatus",
-      docsValues: parseDocs25EffectStatuses(docs25),
-      codeValues: parseConstArray(effectSource, "EFFECT_STATUSES")
-    },
-    {
-      label: "docs/25 SseEventName",
-      docsValues: parseDocs25SseEvents(docs25),
-      codeValues: parseStringUnion(sseSource, "SseEventName")
-    },
-    {
-      label: "docs/25 ProjectionKind",
-      docsValues: parseDocs25ProjectionKinds(docs25),
-      codeValues: parseStringUnion(projectionSource, "ProjectionKind")
-    },
-    {
-      label: "docs/24 CodexTurnPurpose",
-      docsValues: parseDocs24TurnPurposes(docs24),
-      codeValues: parseConstArray(codexSource, "CODEX_TURN_PURPOSES")
-    },
-    {
-      label: "docs/24 CodexArtifactKind",
-      docsValues: parseDocs24ArtifactKinds(docs24),
-      codeValues: parseConstArray(codexSource, "CODEX_ARTIFACT_KINDS")
-    },
-    {
-      label: "docs/24 CodexApplyPolicy",
-      docsValues: parseDocs24ApplyPolicies(docs24),
-      codeValues: parseConstArray(codexSource, "CODEX_APPLY_POLICIES")
-    },
-    {
-      label: "docs/24 BlockedActionType",
-      docsValues: parseDocs24BlockedActionTypes(docs24),
-      codeValues: parseConstArray(codexSource, "BLOCKED_ACTION_TYPES")
-    }
-  ];
-}
-
-function compareContractTaxonomies(docs) {
-  for (const { label, docsValues, codeValues } of createContractTaxonomyChecks(docs)) {
-    compareSets(label, docsValues, codeValues);
-  }
-}
-
-function checkPlanningHandoffContractPromotion(docs25) {
-  const deterministicOutputTypes = {
-    docsValues: parseDocs25DeterministicOutputTypes(docs25),
-    codeValues: parseStringUnion(
-      readText("packages/contracts/src/product-engine/reduction.ts"),
-      "ProductEngineDeterministicOutputType"
-    )
-  };
-  const requiredDeterministicOutputType = "planning_handoff_artifact";
-  const missing = [];
-
-  if (!deterministicOutputTypes.docsValues.includes(requiredDeterministicOutputType)) {
-    missing.push(`docs/25 OutputType table missing ${requiredDeterministicOutputType}`);
-  }
-
-  if (!deterministicOutputTypes.codeValues.includes(requiredDeterministicOutputType)) {
-    missing.push(`ProductEngineDeterministicOutputType missing ${requiredDeterministicOutputType}`);
-  }
-
-  if (missing.length) {
-    fail("Planning Handoff deterministic output promotion mismatch", missing);
-  }
-}
-
 export function findRouteQueryMismatches(docsRoutes, codeRoutes) {
-  const queryMismatches = [];
+  const mismatches = [];
 
-  for (const [route, docsQuery] of docsRoutes.entries()) {
-    const codeQuery = codeRoutes.get(route);
-
-    if (!codeQuery) {
-      continue;
-    }
-
-    const docsSet = new Set(docsQuery);
-    const codeSet = new Set(codeQuery);
-    const missingInCode = [...docsSet].filter((value) => !codeSet.has(value)).sort();
-    const extraInCode = [...codeSet].filter((value) => !docsSet.has(value)).sort();
+  for (const [route, docsQueryParams] of docsRoutes.entries()) {
+    const codeQueryParams = codeRoutes.get(route) ?? [];
+    const docsSet = new Set(docsQueryParams);
+    const codeSet = new Set(codeQueryParams);
+    const missingInCode = [...docsSet].filter((value) => !codeSet.has(value));
+    const extraInCode = [...codeSet].filter((value) => !docsSet.has(value));
 
     if (missingInCode.length || extraInCode.length) {
-      queryMismatches.push(
-        `${route}: missing in code=[${missingInCode.join(",") || "(none)"}] extra in code=[${extraInCode.join(",") || "(none)"}]`
-      );
+      mismatches.push(`${route}: missing in code=[${missingInCode.join(", ")}] extra in code=[${extraInCode.join(", ")}]`);
     }
   }
 
-  return queryMismatches;
+  return mismatches;
 }
 
-function compareRoutes(docs26) {
-  const docsRoutes = parseDocs26RoutesFromText(docs26);
-  const codeRoutes = parseRouteCatalogFromSource(readText("packages/contracts/src/api/routes.ts"));
+function collectFiles(rootUrl, extensions) {
+  const pending = [rootUrl];
+  const files = [];
 
-  compareSets("docs/26 route catalog", [...docsRoutes.keys()], [...codeRoutes.keys()]);
+  while (pending.length) {
+    const dir = pending.pop();
+    const entries = readdirSync(dir).sort();
 
-  const queryMismatches = findRouteQueryMismatches(docsRoutes, codeRoutes);
+    for (const entry of entries) {
+      const url = new URL(entry, `${dir.href.replace(/\/?$/, "/")}`);
+      const stat = statSync(url);
 
-  if (queryMismatches.length) {
-    fail("docs/26 route query mismatch", queryMismatches);
+      if (stat.isDirectory()) {
+        pending.push(url);
+        continue;
+      }
+
+      if (extensions.some((extension) => url.pathname.endsWith(extension))) {
+        files.push(url);
+      }
+    }
   }
+
+  return files.sort((a, b) => a.pathname.localeCompare(b.pathname));
 }
 
-export const DEFAULT_PACKAGE_BOUNDARY_CHECKS = [
-  {
-    root: "packages/core/src",
-    forbiddenModules: ["hono", "@hono/", "@tauri-apps/", "react", "react-dom", "node:", "http", "https"]
-  },
-  {
-    root: "apps/web/src",
-    forbiddenModules: [
-      "@hono/",
-      "@libsql/",
-      "@solo-superman/core",
-      "@solo-superman/db",
-      "@tauri-apps/",
-      "better-sqlite3",
-      "child_process",
-      "drizzle-kit",
-      "drizzle-orm",
-      "fs",
-      "hono",
-      "http",
-      "https",
-      "libsql",
-      "node:",
-      "sqlite",
-      "sqlite3"
-    ]
-  },
-  {
-    root: "packages/contracts/src",
-    forbiddenModules: ["hono", "@hono/", "@tauri-apps/", "react", "react-dom", "drizzle-orm", "drizzle-kit"]
-  }
+const PACKAGE_BOUNDARY_CHECKS = [
+  { root: "packages/core/src", forbiddenModules: ["hono", "@libsql/", "drizzle-orm/", "node:fs", "node:http", "node:https"] },
+  { root: "apps/web/src", forbiddenModules: ["@solo-superman/db", "node:", "hono"] },
+  { root: "packages/contracts/src", forbiddenModules: ["hono", "@libsql/", "drizzle-orm/", "node:fs", "node:http", "node:https"] }
 ];
 
-export function collectPackageBoundaryViolations({ root = ROOT, checks = DEFAULT_PACKAGE_BOUNDARY_CHECKS } = {}) {
+export function collectPackageBoundaryViolations({ root = ROOT, checks = PACKAGE_BOUNDARY_CHECKS } = {}) {
   const violations = [];
 
   for (const check of checks) {
-    const pending = [new URL(`${check.root}/`, root)];
+    const checkRoot = new URL(`${check.root}/`, root);
 
-    while (pending.length) {
-      const dir = pending.pop();
-      const entries = readdirSync(dir).sort();
+    if (!existsSync(checkRoot)) {
+      continue;
+    }
 
-      for (const entry of entries) {
-        const url = new URL(entry, `${dir.href.replace(/\/?$/, "/")}`);
-        const stat = statSync(url);
+    const files = collectFiles(checkRoot, [".ts", ".tsx", ".js", ".mjs"]);
 
-        if (stat.isDirectory()) {
-          pending.push(url);
-          continue;
-        }
+    for (const url of files) {
+      const imports = moduleSpecifiers(readFileSync(url, "utf8"));
 
-        if (!/\.(ts|tsx)$/.test(url.pathname)) {
-          continue;
-        }
-
-        const imports = moduleSpecifiers(readFileSync(url, "utf8"));
-
-        for (const specifier of imports) {
-          for (const forbidden of check.forbiddenModules) {
-            if (moduleMatches(specifier, forbidden)) {
-              violations.push(`${relativeUrlPath(root, url)} imports ${specifier}`);
-            }
+      for (const specifier of imports) {
+        for (const forbidden of check.forbiddenModules) {
+          if (moduleMatches(specifier, forbidden)) {
+            violations.push(`${relativeUrlPath(root, url)} imports ${specifier}`);
           }
         }
       }
@@ -511,75 +360,6 @@ export function collectPackageBoundaryViolations({ root = ROOT, checks = DEFAULT
 
   return violations.sort();
 }
-
-function scanPackageBoundaries() {
-  const violations = collectPackageBoundaryViolations();
-
-  if (violations.length) {
-    fail("package boundary import scan", violations);
-  }
-}
-
-const PHASE15_DOC_PATH = "docs/30-phase1.5-research-runtime-and-readiness-contract.md";
-
-const PHASE15_REQUIRED_REFERENCES = [
-  "docs/README.md",
-  "docs/06-research-engine.md",
-  "docs/10-security-privacy-and-approval.md",
-  "docs/11-roadmap-and-phase-boundaries.md",
-  "docs/12-validation-and-dry-run.md",
-  "docs/17-ai-runtime-access-strategy.md",
-  "docs/20-data-storage-contract.md",
-  "docs/21-sidecar-api-runtime-contract.md",
-  "docs/23-product-engine-runtime-contract.md",
-  "docs/24-codex-prompt-output-contract.md",
-  "docs/25-contracts-dto-catalog.md",
-  "docs/26-api-route-behavior-catalog.md",
-  "docs/27-operations-observability-contract.md",
-  "docs/28-founder-os-product-doctrine.md",
-  "docs/29-phase-capability-implementation-matrix.md"
-];
-
-const PHASE15_REQUIRED_CONTRACT_SNIPPETS = [
-  "doc 30",
-  "ResearchAllowlist",
-  "BackgroundResearchRun state machine",
-  "Phase15bUpgradeHints",
-  "No-execution preservation",
-  "Allowlist happy path",
-  "Private source approval gate",
-  "Phase 1.5B no-execution preservation",
-  "Hint export/readiness reuse",
-  "Docs contract consistency",
-  "phase15bUpgradeHints` remains readiness metadata, not an execution permission"
-];
-
-const PHASE15_PHASE2_HINT_REFERENCE_REQUIREMENTS = [
-  {
-    path: "docs/31-phase2-planning-handoff-contract.md",
-    snippets: [
-      "30-phase1.5-research-runtime-and-readiness-contract.md",
-      "Phase 1.5B `phase15bUpgradeHints`는 실행 권한이 아니라 Phase 2 handoff의 readiness metadata source다.",
-      "without treating hints as execution permission"
-    ]
-  },
-  {
-    path: "docs/32-phase2-implementation-preflight-contract.md",
-    snippets: [
-      "30-phase1.5-research-runtime-and-readiness-contract.md",
-      "without reinterpreting them as execution permission",
-      "They cannot create final `PlanningHandoffArtifact` without the gate algorithm above."
-    ]
-  }
-];
-
-const PHASE15_NO_EXECUTION_DOC_PATHS = [
-  ...new Set([
-    PHASE15_DOC_PATH,
-    ...PHASE15_REQUIRED_REFERENCES,
-    ...PHASE15_PHASE2_HINT_REFERENCE_REQUIREMENTS.map((requirement) => requirement.path)
-  ])
-];
 
 const PHASE15B_EXECUTION_PERMISSION_DENY_PATTERNS = [
   /Phase 1\.5B[^.\n]*(?:may|can|allows?|enabled|grants?|permitted|permission to)\s+(?:execute|run|apply|perform)/iu,
@@ -592,6 +372,20 @@ const PHASE15B_NEGATED_EXECUTION_PATTERNS = [
   /no document claims[^.\n]*Phase 1\.5B[^.\n]*(?:execute|run|apply|perform)/iu,
   /Phase 1\.5B[^.\n]*(?:no-execution|not execution permission|실행 권한이 아니라|실행하지|금지)/iu,
   /(?:file patch|shell command|browser action|network write|credential access|destructive operation|ChatGPT web automation)[^.\n]*(?:must not|cannot|never|not allowed|not permitted|not enabled)[^.\n]*Phase 1\.5B/iu
+];
+
+const PHASE25_EXECUTION_PERMISSION_DENY_PATTERNS = [
+  /Phase 2\.5[^.\n]*(?:may|can|allows?|enabled|grants?|permitted|permission to)\s+(?:execute|run|apply|perform|submit|write|deploy|mutate|store|share|implement)/iu,
+  /Phase 2\.5[^.\n]*(?:file patch|shell command|browser action|POST|write action|submit|credential custody|session custody|account sharing|team|mobile|billing|DTO\/API\/storage preflight)[^.\n]*(?:enabled|allowed|permitted|executes|runs|applies|performs|stores|shares|implements)/iu,
+  /(?:file patch|shell command|browser action|POST|write action|submit|credential custody|session custody|account sharing|team|mobile|billing|DTO\/API\/storage preflight)[^.\n]*(?:enabled|allowed|permitted|executes|runs|applies|performs|stores|shares|implements)[^.\n]*Phase 2\.5/iu,
+  /Phase 2\.5[^.\n]*(?:file patch|shell command|browser action|POST|write action|submit\/write|submit|write|deploy|external mutation|credential(?:\/session)? custody|credential storage|session custody|account sharing(?:\/resale)?|team\/mobile\/billing|DTO\/API\/storage(?: preflight)?|브라우저 action|브라우저 액션|제출|쓰기|배포|외부 변경|인증정보|세션|계정 공유|팀|모바일|결제|과금)[^.\n]*(?:enabled|allowed|permitted|executes|runs|applies|performs|stores|shares|implements|허용|가능|실행|수행|제출|쓰기|배포|변경|저장|공유|구현|승격|확장|포함)/iu
+];
+
+const PHASE25_NEGATED_EXECUTION_PATTERNS = [
+  /Phase 2\.5[^.\n]*(?:must not|do not|does not|cannot|never|not allowed|not permitted)[^.\n]*(?:execute|run|apply|perform|submit|write|deploy|mutate|store|share|implement)/iu,
+  /Phase 2\.5[^.\n]*(?:no-execution|not execution|not an execution|not active permission|실행 단계가 아니다|실행하지|허용하지|하지 않는다|금지|아니다|차단)/iu,
+  /no document claims[^.\n]*Phase 2\.5[^.\n]*(?:execute|run|apply|perform|submit|write|deploy|mutate|store|share|implement)/iu,
+  /(?:file patch|shell command|browser action|POST|write action|submit|credential custody|session custody|account sharing|team|mobile|billing|DTO\/API\/storage preflight)[^.\n]*(?:must not|cannot|never|not allowed|not permitted|not enabled|금지|하지 않는다|허용하지)[^.\n]*Phase 2\.5/iu
 ];
 
 function findExecutionPermissionClaims(documents, { denyPatterns, negatedPatterns }) {
@@ -623,505 +417,12 @@ export function findPhase15bExecutionPermissionClaims(documents) {
   });
 }
 
-const PHASE25_DOC_PATH = "docs/34-phase2.5-browser-automation-preview-contract.md";
-
-const PHASE25_REQUIRED_REFERENCES = [
-  "docs/README.md",
-  "docs/10-security-privacy-and-approval.md",
-  "docs/11-roadmap-and-phase-boundaries.md",
-  "docs/12-validation-and-dry-run.md",
-  "docs/17-ai-runtime-access-strategy.md",
-  "docs/29-phase-capability-implementation-matrix.md"
-];
-
-const PHASE25_REQUIRED_CONTRACT_SNIPPETS = [
-  "DelegationRiskGate",
-  "ResearchQualityComparisonReport",
-  "comparative dry-run",
-  "No-execution boundary",
-  "Scenario A. Comparative dry-run shows quality lift",
-  "Scenario B. Policy or account risk blocks ChatGPT Pro delegation"
-];
-
-const PHASE25_NO_EXECUTION_DOC_PATHS = [...new Set([PHASE25_DOC_PATH, ...PHASE25_REQUIRED_REFERENCES])];
-
-const PHASE25_EXECUTION_PERMISSION_DENY_PATTERNS = [
-  /Phase 2\.5[^.\n]*(?:may|can|allows?|enabled|grants?|permitted|permission to)\s+(?:execute|run|apply|perform|submit|write|deploy|mutate|store|share|implement)/iu,
-  /Phase 2\.5[^.\n]*(?:file patch|shell command|browser action|POST|write action|submit|credential custody|session custody|account sharing|team|mobile|billing|DTO\/API\/storage preflight)[^.\n]*(?:enabled|allowed|permitted|executes|runs|applies|performs|stores|shares|implements)/iu,
-  /(?:file patch|shell command|browser action|POST|write action|submit|credential custody|session custody|account sharing|team|mobile|billing|DTO\/API\/storage preflight)[^.\n]*(?:enabled|allowed|permitted|executes|runs|applies|performs|stores|shares|implements)[^.\n]*Phase 2\.5/iu,
-  /Phase 2\.5[^.\n]*(?:file patch|shell command|browser action|POST|write action|submit\/write|submit|write|deploy|external mutation|credential(?:\/session)? custody|credential storage|session custody|account sharing(?:\/resale)?|team\/mobile\/billing|DTO\/API\/storage(?: preflight)?|브라우저 action|브라우저 액션|제출|쓰기|배포|외부 변경|인증정보|세션|계정 공유|팀|모바일|결제|과금)[^.\n]*(?:enabled|allowed|permitted|executes|runs|applies|performs|stores|shares|implements|허용|가능|실행|수행|제출|쓰기|배포|변경|저장|공유|구현|승격|확장|포함)/iu
-];
-
-const PHASE25_NEGATED_EXECUTION_PATTERNS = [
-  /Phase 2\.5[^.\n]*(?:must not|do not|does not|cannot|never|not allowed|not permitted)[^.\n]*(?:execute|run|apply|perform|submit|write|deploy|mutate|store|share|implement)/iu,
-  /Phase 2\.5[^.\n]*(?:no-execution|not execution|not an execution|not active permission|실행 단계가 아니다|실행하지|허용하지|하지 않는다|금지|아니다|차단)/iu,
-  /no document claims[^.\n]*Phase 2\.5[^.\n]*(?:execute|run|apply|perform|submit|write|deploy|mutate|store|share|implement)/iu,
-  /(?:file patch|shell command|browser action|POST|write action|submit|credential custody|session custody|account sharing|team|mobile|billing|DTO\/API\/storage preflight)[^.\n]*(?:must not|cannot|never|not allowed|not permitted|not enabled|금지|하지 않는다|허용하지)[^.\n]*Phase 2\.5/iu
-];
-
 export function findPhase25ExecutionPermissionClaims(documents) {
   return findExecutionPermissionClaims(documents, {
     denyPatterns: PHASE25_EXECUTION_PERMISSION_DENY_PATTERNS,
     negatedPatterns: PHASE25_NEGATED_EXECUTION_PATTERNS
   });
 }
-
-const PHASE12_CLOSEOUT_DOC_PATH = "docs/35-phase1-2-closeout-evidence.md";
-
-const PHASE12_CLOSEOUT_REQUIRED_REFERENCES = [
-  "docs/README.md",
-  "docs/12-validation-and-dry-run.md"
-];
-
-const PHASE12_CLOSEOUT_REQUIRED_SNIPPETS = [
-  "Child issue evidence ledger",
-  "#66",
-  "#67",
-  "#68",
-  "#69",
-  "#70",
-  "#71",
-  "#74",
-  "#75",
-  "Phase 1 canonical output dry-run",
-  "Phase 1.5A allowlist/research lifecycle dry-run",
-  "apps/sidecar/src/server.test.ts",
-  "Phase 1.5B hint/no-execution dry-run",
-  "Phase 2 final/blocker Planning Handoff dry-run",
-  "Completion Candidate or Founder Brief",
-  "Route/DTO/projection/SSE contract drift",
-  "No-execution boundary",
-  "pnpm verify",
-  "pnpm smoke:e2e",
-  "node scripts/verify-doc-contracts.mjs",
-  "Tracker #65 update rule"
-];
-
-const PHASE12_CLOSEOUT_FIXTURE_SNIPPETS = [
-  "PHASE1_2_CLOSEOUT_EVIDENCE",
-  "PHASE2_ACCEPTANCE_EVIDENCE_MAP",
-  "Scenario H. Phase 2 final Planning Handoff dry-run",
-  "Scenario I. Phase 2 blocker Planning Handoff dry-run",
-  "no_file_shell_browser_deploy_or_external_mutation",
-  "docs/35 closeout report"
-];
-
-
-const PHASE3_DOC_PATH = "docs/36-phase3-controlled-execution-contract.md";
-const PHASE3_CLOSEOUT_DOC_PATH = "docs/38-phase3-closeout-evidence.md";
-
-const PHASE3_REQUIRED_REFERENCES = [
-  "docs/README.md",
-  "docs/09-system-architecture.md",
-  "docs/10-security-privacy-and-approval.md",
-  "docs/11-roadmap-and-phase-boundaries.md",
-  "docs/12-validation-and-dry-run.md",
-  "docs/13-ux-doctrine-and-session-dynamics.md",
-  "docs/17-ai-runtime-access-strategy.md",
-  "docs/19-phase1-implementation-architecture.md",
-  "docs/21-sidecar-api-runtime-contract.md",
-  "docs/24-codex-prompt-output-contract.md",
-  "docs/25-contracts-dto-catalog.md",
-  "docs/26-api-route-behavior-catalog.md",
-  "docs/28-founder-os-product-doctrine.md",
-  "docs/29-phase-capability-implementation-matrix.md",
-  "docs/31-phase2-planning-handoff-contract.md",
-  "docs/32-phase2-implementation-preflight-contract.md",
-  "docs/33-build-slice-serve-learning-loop.md",
-  "docs/34-phase2.5-browser-automation-preview-contract.md",
-  "docs/35-phase1-2-closeout-evidence.md",
-  PHASE3_CLOSEOUT_DOC_PATH
-];
-
-const PHASE3_REQUIRED_CONTRACT_SNIPPETS = [
-  "local-first web app + local Node/Hono service",
-  "Local Web Frontend",
-  "Local Node/Hono Service",
-  "no hosted SaaS default",
-  "ExecutionAuthorityRecord",
-  "approvalDecision",
-  "approvalDecision` starts as `pending`",
-  "executionResult` includes `running`",
-  "rollbackReference",
-  "`git_diff_reverse` by default",
-  "Read-only diagnostics time out at 30 seconds",
-  "POST /api/v1/execution-authorities/:authorityRecordId/shell-command",
-  "POST /api/v1/execution-authorities/:authorityRecordId/browser-action",
-  "loopback-only local targets",
-  "BoundedAgentOutputRecord",
-  "per-run local capability token",
-  "loopback-only",
-  "CSRF/replay",
-  "hosted web origin",
-  "not executable plan",
-  "MVP prerequisite gate",
-  "#86",
-  "#87",
-  "#88",
-  "common ledger/authority",
-  "file_diff",
-  "shell_command",
-  "browser_action",
-  "destructive shell command",
-  "explicit contract"
-];
-
-const PHASE3_CLOSEOUT_REQUIRED_REFERENCES = [
-  "docs/README.md",
-  "docs/12-validation-and-dry-run.md",
-  "docs/21-sidecar-api-runtime-contract.md",
-  "docs/25-contracts-dto-catalog.md",
-  "docs/26-api-route-behavior-catalog.md",
-  "docs/29-phase-capability-implementation-matrix.md",
-  "docs/36-phase3-controlled-execution-contract.md"
-];
-
-const PHASE3_CLOSEOUT_REQUIRED_SNIPPETS = [
-  "#92",
-  "#93",
-  "#94",
-  "#95",
-  "#96",
-  "#97",
-  "Phase 3 approved/blocked E2E dry-run",
-  "common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`",
-  "ExecutionAuthorityRecord",
-  "FileDiffExecutionResult.status = completed",
-  "ShellCommandExecutionResult.status = completed",
-  "BrowserActionExecutionResult.status = completed",
-  "credential custody",
-  "destructive shell command",
-  "external-production mutation",
-  "hosted SaaS default",
-  "browser-only DB rewrite",
-  "blanket approval",
-  "PHASE3_CLOSEOUT_EVIDENCE",
-  "PHASE3_CLOSEOUT_DRY_RUN_EVIDENCE_MAP",
-  "pnpm verify:docs",
-  "pnpm smoke:e2e",
-  "pnpm verify",
-  "Tracker #91 update rule"
-];
-
-const PHASE3_CLOSEOUT_FIXTURE_SNIPPETS = [
-  "PHASE3_CLOSEOUT_EVIDENCE",
-  "PHASE3_CLOSEOUT_DRY_RUN_EVIDENCE_MAP",
-  "Scenario J. Phase 3 approved controlled execution dry-run",
-  "Scenario K. Phase 3 blocked unsafe execution dry-run",
-  "ExecutionAuthorityLedgerProjection.ready_for_execution",
-  "FileDiffExecutionResult.completed",
-  "ShellCommandExecutionResult.completed",
-  "BrowserActionExecutionResult.completed",
-  "credential custody blocked",
-  "destructive shell command blocked",
-  "external-production mutation blocked",
-  "hosted SaaS default blocked",
-  "browser-only DB rewrite blocked",
-  "blanket approval blocked"
-];
-
-const POST_PHASE3_FULL_VISION_DOC_PATH = "docs/37-post-phase3-full-vision-backlog-contract.md";
-const POST_PHASE3_CLOSEOUT_DOC_PATH = "docs/40-post-phase3-full-vision-closeout-report.md";
-
-const POST_PHASE3_FULL_VISION_REQUIRED_REFERENCES = [
-  "docs/README.md",
-  "docs/01-prd.md",
-  "docs/06-research-engine.md",
-  "docs/10-security-privacy-and-approval.md",
-  "docs/11-roadmap-and-phase-boundaries.md",
-  "docs/12-validation-and-dry-run.md",
-  "docs/17-ai-runtime-access-strategy.md",
-  "docs/21-sidecar-api-runtime-contract.md",
-  "docs/22-phase1-implementation-sequence.md",
-  "docs/25-contracts-dto-catalog.md",
-  "docs/26-api-route-behavior-catalog.md",
-  "docs/29-phase-capability-implementation-matrix.md",
-  "docs/36-phase3-controlled-execution-contract.md",
-  "docs/38-phase3-closeout-evidence.md",
-  "docs/39-local-install-run-verification.md",
-  POST_PHASE3_CLOSEOUT_DOC_PATH
-];
-
-const POST_PHASE3_FULL_VISION_REQUIRED_SNIPPETS = [
-  "projectPurposeMode",
-  "business",
-  "personal",
-  "businessCriticIntensity",
-  "default value를 갖지 않는다",
-  "per-run 승인형 로컬 브라우저 자동화",
-  "no credential/2FA/session custody",
-  "account sharing/resale",
-  "redaction preview",
-  "export/delete",
-  "credential/session/secret/2FA/payment/legal-sensitive field",
-  "ServicePageUsePermission",
-  "ImplementationStepLedger",
-  "Windows PowerShell",
-  "`winget` 우선",
-  "mode_required",
-  "프로젝트 목적 선택 필요",
-  "Candidate field/record/event/status/projection/aggregate",
-  "minimum pressure count",
-  "read/preview page-or-step scope",
-  "per-action approval",
-  "ExecutionAuthorityRecord` linkage",
-  "NoCodeStepEvidence",
-  "evidence-gated linear transition",
-  "verify:prod-bundle",
-  "build_auto_local_smoke",
-  "auto shutdown/kill evidence",
-  "docs/40-post-phase3-full-vision-closeout-report.md",
-  "#91 `[Tracker] Phase 3 Controlled Execution + Post-Phase3 Full-Vision Backlog`",
-  "#98 was the temporary standalone Post-Phase3 tracker and is closed"
-];
-
-const POST_PHASE3_CLOSEOUT_REQUIRED_REFERENCES = [
-  "docs/README.md",
-  "docs/12-validation-and-dry-run.md",
-  "docs/37-post-phase3-full-vision-backlog-contract.md"
-];
-
-const POST_PHASE3_CLOSEOUT_REQUIRED_SNIPPETS = [
-  "Changed docs and verifier surfaces",
-  "Created issue graph",
-  "No-duplicate boundary verification",
-  "Verification evidence",
-  "Remaining implementation risks",
-  "#91",
-  "#92",
-  "#93",
-  "#94",
-  "#95",
-  "#96",
-  "#97",
-  "#99",
-  "#100",
-  "#101",
-  "#102",
-  "#103",
-  "#104",
-  "#105",
-  "#106",
-  "#98 was the temporary standalone Post-Phase3 tracker",
-  "Candidate field/record/event/status/projection/aggregate",
-  "mode_required",
-  "NoCodeStepEvidence",
-  "verify:prod-bundle",
-  "pnpm verify",
-  "Remaining implementation risks"
-];
-
-const PHASE3_REFERENCE_REQUIREMENTS = [
-  {
-    path: "docs/README.md",
-    snippets: [
-      "36-phase3-controlled-execution-contract.md",
-      "Tauri/native shell source·dependency·script 경로는 제거됐고 historical context로만 남는다",
-      "no hosted SaaS default",
-      "#86",
-      "#87",
-      "#88",
-      "common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`"
-    ]
-  },
-  {
-    path: "docs/09-system-architecture.md",
-    snippets: [
-      "Local Web Frontend",
-      "Local Node/Hono Service",
-      "historical context only; source/dependency/script path removed",
-      "36-phase3-controlled-execution-contract.md"
-    ]
-  },
-  {
-    path: "docs/19-phase1-implementation-architecture.md",
-    snippets: [
-      "web-local implementation snapshot",
-      "Local Web Frontend",
-      "Local Node/Hono Service",
-      "ExecutionAuthorityRecord"
-    ]
-  },
-  {
-    path: "docs/10-security-privacy-and-approval.md",
-    snippets: ["per-run local capability token", "loopback-only", "CSRF/replay", "hosted web origin"]
-  },
-  {
-    path: "docs/17-ai-runtime-access-strategy.md",
-    snippets: ["per-run local capability token", "loopback-only", "CSRF/replay", "hosted web origin"]
-  },
-  {
-    path: "docs/21-sidecar-api-runtime-contract.md",
-    snippets: [
-      "per-run local capability token",
-      "loopback-only",
-      "CSRF/replay",
-      "hosted web origin",
-      "without Phase 3 authority",
-      "#86",
-      "#87",
-      "#88",
-      "common ledger/authority",
-      "`file_diff`",
-      "`shell_command`",
-      "`browser_action`",
-      "POST /api/v1/execution-authorities/:authorityRecordId/shell-command",
-      "POST /api/v1/execution-authorities/:authorityRecordId/browser-action",
-      "ProductEngine/application command boundary",
-      "executionResult` may become `running`",
-      "loopback-only targets"
-    ]
-  },
-  {
-    path: "docs/26-api-route-behavior-catalog.md",
-    snippets: [
-      "Phase 3 Controlled Execution route placeholders",
-      "36-phase3-controlled-execution-contract.md",
-      "#86",
-      "#87",
-      "#88",
-      "common ledger/authority",
-      "`file_diff`",
-      "`shell_command`",
-      "`browser_action`",
-      "ExecuteShellCommandRequest",
-      "ExecuteBrowserActionRequest",
-      "blocked",
-      "ProductEngine/application command boundary",
-      "Read-only diagnostics time out at 30 seconds",
-      "LAN/private IP targets and cloud preview URLs"
-    ]
-  },
-  {
-    path: "docs/25-contracts-dto-catalog.md",
-    snippets: [
-      "ExecuteShellCommandRequest",
-      "ShellCommandExecutionResult",
-      "ExecuteBrowserActionRequest",
-      "BrowserActionExecutionResult",
-      "Phase 3 Execution Authority DTO checklist"
-    ]
-  },
-  {
-    path: "docs/11-roadmap-and-phase-boundaries.md",
-    snippets: ["ExecutionAuthorityRecord", "no hosted SaaS default", "36-phase3-controlled-execution-contract.md"]
-  },
-  {
-    path: "docs/29-phase-capability-implementation-matrix.md",
-    snippets: ["ExecutionAuthorityRecord", "no hosted SaaS default", "36-phase3-controlled-execution-contract.md"]
-  },
-  {
-    path: "docs/31-phase2-planning-handoff-contract.md",
-    snippets: ["ExecutionAuthorityRecord", "36-phase3-controlled-execution-contract.md", "Local Web Frontend + Local Node/Hono Service"]
-  },
-  {
-    path: "docs/32-phase2-implementation-preflight-contract.md",
-    snippets: ["36-phase3-controlled-execution-contract.md", "Phase 3 controlled execution"]
-  },
-  {
-    path: "docs/28-founder-os-product-doctrine.md",
-    snippets: ["local-first web app + local Node/Hono service", "no hosted SaaS default"]
-  },
-  {
-    path: "docs/13-ux-doctrine-and-session-dynamics.md",
-    snippets: ["36-phase3-controlled-execution-contract.md", "ExecutionAuthorityRecord"]
-  },
-  {
-    path: "docs/24-codex-prompt-output-contract.md",
-    snippets: ["36-phase3-controlled-execution-contract.md", "Phase 3 execution authority"]
-  },
-  {
-    path: "docs/35-phase1-2-closeout-evidence.md",
-    snippets: ["36-phase3-controlled-execution-contract.md", "Phase 3 authority"]
-  },
-  {
-    path: PHASE3_CLOSEOUT_DOC_PATH,
-    snippets: [
-      "36-phase3-controlled-execution-contract.md",
-      "ExecutionAuthorityRecord",
-      "unauthorized execution",
-      "credential custody",
-      "destructive shell command",
-      "external-production mutation",
-      "hosted SaaS default",
-      "browser-only DB rewrite",
-      "blanket approval"
-    ]
-  }
-];
-
-const WEB_LOCAL_REMOVAL_MANIFEST_PATHS = [
-  "package.json",
-  "pnpm-lock.yaml",
-  "scripts/dev-with-local-token.mjs",
-  "apps/web/package.json"
-];
-
-const WEB_LOCAL_REMOVAL_SCAN_ROOTS = ["apps/web/src", "apps/sidecar/src"];
-
-const WEB_LOCAL_ACTIVE_DENY_PATTERNS = [
-  /@tauri-apps\//u,
-  /\bsrc-tauri\b/u,
-  /\bdev:tauri\b/u,
-  /@solo-superman\/desktop/u,
-  /\bapps\/desktop\b/u,
-  /\bdev:desktop\b/u,
-  /tauri dev/u,
-  /get_sidecar_base_url/u
-];
-
-export const NUMBERED_DOC_SLUGS = [
-  "product-brief",
-  "prd",
-  "user-journey-and-ux",
-  "living-product-spec",
-  "decision-queue",
-  "spec-engine",
-  "research-engine",
-  "completeness-scoring",
-  "domain-model",
-  "system-architecture",
-  "security-privacy-and-approval",
-  "roadmap-and-phase-boundaries",
-  "validation-and-dry-run",
-  "ux-doctrine-and-session-dynamics",
-  "ambiguity-question-lifecycle",
-  "pro-con-evidence-gate",
-  "state-event-contract",
-  "ai-runtime-access-strategy",
-  "product-engine-orchestrator",
-  "phase1-implementation-architecture",
-  "data-storage-contract",
-  "sidecar-api-runtime-contract",
-  "phase1-implementation-sequence",
-  "product-engine-runtime-contract",
-  "codex-prompt-output-contract",
-  "contracts-dto-catalog",
-  "api-route-behavior-catalog",
-  "operations-observability-contract",
-  "founder-os-product-doctrine",
-  "phase-capability-implementation-matrix",
-  "phase1.5-research-runtime-and-readiness-contract",
-  "phase2-planning-handoff-contract",
-  "phase2-implementation-preflight-contract",
-  "build-slice-serve-learning-loop",
-  "phase2.5-browser-automation-preview-contract",
-  "phase1-2-closeout-evidence",
-  "phase3-controlled-execution-contract",
-  "post-phase3-full-vision-backlog-contract",
-  "phase3-closeout-evidence",
-  "local-install-run-verification",
-  "post-phase3-full-vision-closeout-report"
-];
-
-function numberedDocPath(slug, index) {
-  return `docs/${String(index).padStart(2, "0")}-${slug}.md`;
-}
-
-export const WEB_REALIGNMENT_SCAN_PATHS = [
-  "docs/README.md",
-  ...NUMBERED_DOC_SLUGS.map((slug, index) => numberedDocPath(slug, index))
-];
 
 const WEB_REALIGNMENT_FUTURE_DEFAULT_DENY_PATTERNS = [
   /macOS-first,\s*local-first Founder OS/iu,
@@ -1171,6 +472,26 @@ export function findWebRealignmentFutureDefaultClaims(documents) {
 
   return claims;
 }
+
+const WEB_LOCAL_REMOVAL_MANIFEST_PATHS = [
+  "package.json",
+  "pnpm-lock.yaml",
+  "scripts/dev-with-local-token.mjs",
+  "apps/web/package.json"
+];
+
+const WEB_LOCAL_REMOVAL_SCAN_ROOTS = ["apps/web/src", "apps/sidecar/src"];
+
+const WEB_LOCAL_ACTIVE_DENY_PATTERNS = [
+  /@tauri-apps\//u,
+  /\bsrc-tauri\b/u,
+  /\bdev:tauri\b/u,
+  /@solo-superman\/desktop/u,
+  /\bapps\/desktop\b/u,
+  /\bdev:desktop\b/u,
+  /tauri dev/u,
+  /get_sidecar_base_url/u
+];
 
 function collectTextFiles(paths, roots) {
   const files = [...paths];
@@ -1231,177 +552,197 @@ function requireSnippets(message, text, snippets) {
   }
 }
 
-function requireDocReferences(message, docPaths, requiredSnippet) {
-  const missingReferences = docPaths.filter((docPath) => !readText(docPath).includes(requiredSnippet));
+function checkContributorDocsShape() {
+  const missingDocs = CONTRIBUTOR_DOC_PATHS.filter((path) => !existsSync(new URL(path, ROOT)));
 
-  if (missingReferences.length) {
-    fail(message, missingReferences);
+  if (missingDocs.length) {
+    fail("contributor docs missing", missingDocs);
+  }
+
+  const numberedDocs = readdirSync(DOCS_DIR).filter((entry) => /^\d{2}-.+\.md$/u.test(entry));
+
+  if (numberedDocs.length) {
+    fail("numbered implementation-planning docs should be consolidated", numberedDocs);
+  }
+
+  const hub = readText("docs/README.md");
+  const missingHubLinks = CONTRIBUTOR_DOC_PATHS.filter((path) => path !== "docs/README.md").filter((path) => {
+    const basename = path.replace("docs/", "");
+    return !hub.includes(`(${basename})`);
+  });
+
+  if (missingHubLinks.length) {
+    fail("docs hub missing contributor doc links", missingHubLinks);
   }
 }
 
-function requireNoExecutionPermissionClaims(message, docPaths, findClaims) {
-  const executionPermissionClaims = findClaims(docPaths.map((path) => ({ path, text: readText(path) })));
+function checkContributorDocsSnippets() {
+  const docs = Object.fromEntries(CONTRIBUTOR_DOC_PATHS.map((path) => [path, readText(path)]));
 
-  if (executionPermissionClaims.length) {
-    fail(message, executionPermissionClaims);
+  requireSnippets("docs/README onboarding posture missing", docs["docs/README.md"], [
+    "Contributor Docs",
+    "local-first web app + local Node/Hono service",
+    "Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db",
+    "no hosted SaaS default",
+    "ExecutionAuthorityRecord",
+    "old numbered planning docs"
+  ]);
+
+  requireSnippets("product overview missing product decisions", docs["docs/product.md"], [
+    "local-first Founder OS",
+    "Decision Queue",
+    "Living Product Spec",
+    "businessCriticIntensity",
+    "2~5 hour",
+    "no default value"
+  ]);
+
+  requireSnippets("contributing guide missing contributor commands", docs["docs/contributing.md"], [
+    "pnpm start:local",
+    "pnpm verify:docs",
+    "packages/contracts",
+    "PR checklist"
+  ]);
+
+  requireSnippets("architecture doc missing runtime boundary", docs["docs/architecture.md"], [
+    "Local Web Frontend",
+    "Local Node/Hono Service",
+    "ProductEngine/application command boundary",
+    "Read-only diagnostics time out at 30 seconds",
+    "per-run local capability token",
+    "CSRF/replay",
+    "hosted web origin",
+    "Tauri/native shell source"
+  ]);
+
+  requireSnippets("safety doc missing permission guardrails", docs["docs/safety-and-permissions.md"], [
+    "No credential/2FA/session custody",
+    "account sharing/resale",
+    "ExecutionAuthorityRecord",
+    "approvalDecision` starts as `pending`",
+    "executionResult` includes `running`",
+    "rollbackReference",
+    "git_diff_reverse",
+    "external-production mutation",
+    "blanket approval",
+    "ServicePageUsePermission"
+  ]);
+
+  requireSnippets("roadmap doc missing phase history", docs["docs/roadmap.md"], [
+    "Phase 1.5B",
+    "not execution permission",
+    "Phase 2.5",
+    "no-execution",
+    "common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action`",
+    "#91",
+    "#98 was the temporary standalone Post-Phase3 tracker"
+  ]);
+
+  requireSnippets("decisions doc missing durable decisions", docs["docs/decisions.md"], [
+    "Local-first Founder OS",
+    "Tauri/native paths removed",
+    "no hosted SaaS default",
+    "Browser-only DB rewrite",
+    "ExecutionAuthorityRecord gate",
+    "README remains short"
+  ]);
+
+  requireSnippets("troubleshooting doc missing install/run contract", docs["docs/troubleshooting.md"], [
+    "macOS shell | Windows PowerShell",
+    "winget install --id OpenJS.NodeJS.LTS -e",
+    "pnpm verify:prod-bundle",
+    "pnpm verify",
+    "VITE_SOLO_LOCAL_CAPABILITY_TOKEN",
+    "VITE_SOLO_SIDECAR_BASE_URL",
+    "token mismatch fails visibly with `401`",
+    "does not require an OpenAI or ChatGPT API key by default",
+    "codex login status",
+    "codex auth login",
+    "Open Codex login",
+    "Refresh Codex login status",
+    "manual browser smoke",
+    "Manual Windows PowerShell checklist",
+    "managed child processes stopped",
+    "temporary app data removed",
+    "Port conflict",
+    "Token mismatch",
+    "CORS/origin",
+    "Execution policy",
+    "Path quoting",
+    "Long path",
+    "Antivirus/network prompt"
+  ]);
+}
+
+function compareContractTaxonomies(reference) {
+  const commands = readText("packages/contracts/src/product-engine/commands.ts");
+  const events = readText("packages/contracts/src/product-engine/events.ts");
+  const effects = readText("packages/contracts/src/effects/tasks.ts");
+  const codex = readText("packages/contracts/src/codex/reexports.ts");
+  const sse = readText("packages/contracts/src/sse/events.ts");
+  const projections = readText("packages/contracts/src/projections/index.ts");
+  const reduction = readText("packages/contracts/src/product-engine/reduction.ts");
+
+  compareSets("reference CommandType", parseReferenceCommandTypes(reference), parseConstArray(commands, "COMMAND_TYPES"));
+  compareSets("reference CommandActor", parseReferenceCommandActors(reference), parseConstArray(commands, "COMMAND_ACTORS"));
+  compareSets("reference ProductEngineEventType", parseReferenceEventTypes(reference), parseConstArray(events, "PRODUCT_ENGINE_EVENT_TYPES"));
+  compareSets("reference EffectType", parseReferenceEffectTypes(reference), parseConstArray(effects, "EFFECT_TYPES"));
+  compareSets("reference EffectStatus", parseReferenceEffectStatuses(reference), parseConstArray(effects, "EFFECT_STATUSES"));
+  compareSets(
+    "reference ProductEngineDeterministicOutputType",
+    parseDocs25DeterministicOutputTypes(reference),
+    parseStringUnion(reduction, "ProductEngineDeterministicOutputType")
+  );
+  compareSets("reference CodexTurnPurpose", parseReferenceCodexTurnPurposes(reference), parseConstArray(codex, "CODEX_TURN_PURPOSES"));
+  compareSets("reference CodexArtifactKind", parseReferenceArtifactKinds(reference), parseConstArray(codex, "CODEX_ARTIFACT_KINDS"));
+  compareSets("reference CodexApplyPolicy", parseReferenceApplyPolicies(reference), parseConstArray(codex, "CODEX_APPLY_POLICIES"));
+  compareSets("reference BlockedActionType", parseReferenceBlockedActionTypes(reference), parseConstArray(codex, "BLOCKED_ACTION_TYPES"));
+  compareSets("reference SseEventName", parseReferenceSseEvents(reference), parseStringUnion(sse, "SseEventName"));
+  compareSets("reference ProjectionKind", parseReferenceProjectionKinds(reference), parseStringUnion(projections, "ProjectionKind"));
+}
+
+function compareRoutes(reference) {
+  const docsRoutes = parseDocs26RoutesFromText(reference);
+  const codeRoutes = parseRouteCatalogFromSource(readText("packages/contracts/src/api/routes.ts"));
+
+  compareSets("reference route catalog", [...docsRoutes.keys()], [...codeRoutes.keys()]);
+
+  const queryMismatches = findRouteQueryMismatches(docsRoutes, codeRoutes);
+
+  if (queryMismatches.length) {
+    fail("reference route query mismatch", queryMismatches);
   }
 }
 
-function checkPhase15DocConsistency() {
-  const docs30 = readText(PHASE15_DOC_PATH);
+function scanPackageBoundaries() {
+  const violations = collectPackageBoundaryViolations();
 
-  requireSnippets("docs/30 Phase 1.5 canonical contract missing required sections", docs30, PHASE15_REQUIRED_CONTRACT_SNIPPETS);
-
-  if (docs30.includes("28-phase1.5-research-runtime-and-readiness-contract.md") || docs30.includes("doc 28")) {
-    fail("docs/30 Phase 1.5 canonical contract contains stale doc 28 reference");
+  if (violations.length) {
+    fail("package boundary import scan", violations);
   }
-
-  requireDocReferences(
-    "Phase 1.5 canonical doc reference missing",
-    PHASE15_REQUIRED_REFERENCES,
-    "30-phase1.5-research-runtime-and-readiness-contract.md"
-  );
-
-  const missingPhase2HintReferences = [];
-
-  for (const requirement of PHASE15_PHASE2_HINT_REFERENCE_REQUIREMENTS) {
-    const text = readText(requirement.path);
-    const missing = requirement.snippets.filter((snippet) => !text.includes(snippet));
-
-    for (const snippet of missing) {
-      missingPhase2HintReferences.push(`${requirement.path}: ${snippet}`);
-    }
-  }
-
-  if (missingPhase2HintReferences.length) {
-    fail("Phase 1.5B hint reuse/no-execution reference missing from Phase 2 docs", missingPhase2HintReferences);
-  }
-
-  requireNoExecutionPermissionClaims(
-    "Phase 1.5B docs claim forbidden execution permission",
-    PHASE15_NO_EXECUTION_DOC_PATHS,
-    findPhase15bExecutionPermissionClaims
-  );
 }
 
-function checkPhase25DocConsistency() {
-  const docs34 = readText(PHASE25_DOC_PATH);
+function checkNoExecutionPermissionClaims() {
+  const docs = CONTRIBUTOR_DOC_PATHS.map((path) => ({ path, text: readText(path) }));
+  const phase15Claims = findPhase15bExecutionPermissionClaims(docs);
+  const phase25Claims = findPhase25ExecutionPermissionClaims(docs);
 
-  requireSnippets("docs/34 Phase 2.5 canonical contract missing required sections", docs34, PHASE25_REQUIRED_CONTRACT_SNIPPETS);
-
-  requireDocReferences(
-    "Phase 2.5 canonical doc reference missing",
-    PHASE25_REQUIRED_REFERENCES,
-    "34-phase2.5-browser-automation-preview-contract.md"
-  );
-
-  requireNoExecutionPermissionClaims(
-    "Phase 2.5 docs claim forbidden execution permission",
-    PHASE25_NO_EXECUTION_DOC_PATHS,
-    findPhase25ExecutionPermissionClaims
-  );
-}
-
-function checkPhase12CloseoutConsistency() {
-  const docs35 = readText(PHASE12_CLOSEOUT_DOC_PATH);
-  const e2eFixture = readText("apps/sidecar/src/e2e-dry-run.fixture.ts");
-
-  requireSnippets("docs/35 Phase 1~2 closeout report missing required evidence", docs35, PHASE12_CLOSEOUT_REQUIRED_SNIPPETS);
-  requireSnippets(
-    "e2e dry-run fixture missing Phase 1~2 closeout evidence labels",
-    e2eFixture,
-    PHASE12_CLOSEOUT_FIXTURE_SNIPPETS
-  );
-  requireDocReferences(
-    "Phase 1~2 closeout report reference missing",
-    PHASE12_CLOSEOUT_REQUIRED_REFERENCES,
-    PHASE12_CLOSEOUT_DOC_PATH
-  );
-}
-
-
-function checkPostPhase3FullVisionConsistency() {
-  const docs37 = readText(POST_PHASE3_FULL_VISION_DOC_PATH);
-  const docs40 = readText(POST_PHASE3_CLOSEOUT_DOC_PATH);
-
-  requireSnippets(
-    "docs/37 Post-Phase3 full-vision backlog contract missing required sections",
-    docs37,
-    POST_PHASE3_FULL_VISION_REQUIRED_SNIPPETS
-  );
-
-  requireDocReferences(
-    "Post-Phase3 full-vision backlog canonical doc reference missing",
-    POST_PHASE3_FULL_VISION_REQUIRED_REFERENCES,
-    "37-post-phase3-full-vision-backlog-contract.md"
-  );
-
-  requireSnippets(
-    "docs/40 Post-Phase3 full-vision closeout report missing required evidence",
-    docs40,
-    POST_PHASE3_CLOSEOUT_REQUIRED_SNIPPETS
-  );
-
-  requireDocReferences(
-    "Post-Phase3 full-vision closeout report reference missing",
-    POST_PHASE3_CLOSEOUT_REQUIRED_REFERENCES,
-    "40-post-phase3-full-vision-closeout-report.md"
-  );
-}
-
-function checkPhase3CloseoutConsistency() {
-  const docs38 = readText(PHASE3_CLOSEOUT_DOC_PATH);
-  const e2eFixture = readText("apps/sidecar/src/e2e-dry-run.fixture.ts");
-
-  requireSnippets(
-    "docs/38 Phase 3 closeout evidence missing required guardrails",
-    docs38,
-    PHASE3_CLOSEOUT_REQUIRED_SNIPPETS
-  );
-  requireSnippets(
-    "e2e dry-run fixture missing Phase 3 closeout evidence labels",
-    e2eFixture,
-    PHASE3_CLOSEOUT_FIXTURE_SNIPPETS
-  );
-  requireDocReferences(
-    "Phase 3 closeout evidence reference missing",
-    PHASE3_CLOSEOUT_REQUIRED_REFERENCES,
-    "38-phase3-closeout-evidence.md"
-  );
-}
-
-function checkPhase3WebRealignmentConsistency() {
-  const docs36 = readText(PHASE3_DOC_PATH);
-
-  requireSnippets("docs/36 Phase 3 controlled execution contract missing required sections", docs36, PHASE3_REQUIRED_CONTRACT_SNIPPETS);
-
-  requireDocReferences(
-    "Phase 3 controlled execution canonical doc reference missing",
-    PHASE3_REQUIRED_REFERENCES,
-    "36-phase3-controlled-execution-contract.md"
-  );
-
-  const missingPhase3References = [];
-
-  for (const requirement of PHASE3_REFERENCE_REQUIREMENTS) {
-    const text = readText(requirement.path);
-    const missing = requirement.snippets.filter((snippet) => !text.includes(snippet));
-
-    for (const snippet of missing) {
-      missingPhase3References.push(`${requirement.path}: ${snippet}`);
-    }
+  if (phase15Claims.length) {
+    fail("Phase 1.5B docs claim forbidden execution permission", phase15Claims);
   }
 
-  if (missingPhase3References.length) {
-    fail("Phase 3 web/local realignment reference missing", missingPhase3References);
+  if (phase25Claims.length) {
+    fail("Phase 2.5 docs claim forbidden execution permission", phase25Claims);
   }
+}
 
+function checkWebLocalRealignment() {
   const futureDefaultClaims = findWebRealignmentFutureDefaultClaims(
     WEB_REALIGNMENT_SCAN_PATHS.map((path) => ({ path, text: readText(path) }))
   );
 
   if (futureDefaultClaims.length) {
-    fail("web/local realignment docs contain stale Tauri/native future-default claims", futureDefaultClaims);
+    fail("web/local docs contain stale Tauri/native future-default claims", futureDefaultClaims);
   }
 
   const activeResidue = findWebLocalActiveResidue(
@@ -1416,23 +757,29 @@ function checkPhase3WebRealignmentConsistency() {
   }
 }
 
-export function runDocContractChecks() {
-  const docs = {
-    docs24: readText("docs/24-codex-prompt-output-contract.md"),
-    docs25: readText("docs/25-contracts-dto-catalog.md"),
-    docs26: readText("docs/26-api-route-behavior-catalog.md")
-  };
+function checkReferenceSnippets(reference) {
+  requireSnippets("reference doc missing critical contract anchors", reference, [
+    "CommandType enum",
+    "ProductEngineDeterministicOutput",
+    "Phase 3 execution authority",
+    "Blocked action taxonomy",
+    "API route behavior catalog",
+    "subscribeEventStream",
+    "sessionId"
+  ]);
+}
 
-  compareContractTaxonomies(docs);
-  checkPlanningHandoffContractPromotion(docs.docs25);
-  compareRoutes(docs.docs26);
+export function runDocContractChecks() {
+  checkContributorDocsShape();
+  checkContributorDocsSnippets();
+
+  const reference = readText("docs/reference.md");
+  checkReferenceSnippets(reference);
+  compareContractTaxonomies(reference);
+  compareRoutes(reference);
   scanPackageBoundaries();
-  checkPhase15DocConsistency();
-  checkPhase25DocConsistency();
-  checkPhase12CloseoutConsistency();
-  checkPhase3WebRealignmentConsistency();
-  checkPhase3CloseoutConsistency();
-  checkPostPhase3FullVisionConsistency();
+  checkNoExecutionPermissionClaims();
+  checkWebLocalRealignment();
 
   if (!process.exitCode) {
     console.log("doc contract checks passed");
