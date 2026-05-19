@@ -1,11 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import { pathToFileURL, URL } from "node:url";
-import { packageManagerSpawn, shouldUseShellForCommand } from "./local-platform.mjs";
+import { LOOPBACK_HOSTS, normalizeLoopbackHost, packageManagerSpawn, shouldUseShellForCommand } from "./local-platform.mjs";
+import { formatHttpOrigin } from "./local-url.mjs";
 
 const DEFAULT_SIDECAR_HOST = "127.0.0.1";
 const DEFAULT_SIDECAR_PORT = "43110";
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
 export function resolveLocalCapabilityToken(env = process.env) {
   const explicitToken = env.SOLO_LOCAL_CAPABILITY_TOKEN;
@@ -21,14 +21,14 @@ export function resolveLocalCapabilityToken(env = process.env) {
   return explicitToken;
 }
 
-function normalizeLoopbackHost(rawHost) {
+function normalizeDevLoopbackHost(rawHost) {
   const host = rawHost ?? DEFAULT_SIDECAR_HOST;
 
   if (!LOOPBACK_HOSTS.has(host)) {
     throw new Error(`SOLO_SIDECAR_HOST must be loopback-only for local web dev: ${host}`);
   }
 
-  return host === "::1" || host === "[::1]" ? "[::1]" : host;
+  return normalizeLoopbackHost(host, "SOLO_SIDECAR_HOST");
 }
 
 function parseFixedDevPort(rawPort) {
@@ -76,10 +76,10 @@ export function resolveSidecarBaseUrl(env = process.env) {
     return normalizeLoopbackBaseUrl(explicitBaseUrl);
   }
 
-  const host = normalizeLoopbackHost(env.SOLO_SIDECAR_HOST);
+  const host = normalizeDevLoopbackHost(env.SOLO_SIDECAR_HOST);
   const port = parseFixedDevPort(env.SOLO_SIDECAR_PORT);
 
-  return `http://${host}:${port}`;
+  return formatHttpOrigin(host, port);
 }
 
 export function createDevEnvironment(env = process.env) {

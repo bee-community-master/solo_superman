@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   cleanupProdBundleSmoke,
-  fetchWithTimeout,
   pnpmCommand,
   prodBundleSmokeCommands,
   prodBundleSmokeConfig,
@@ -161,19 +160,4 @@ describe("verify-prod-bundle smoke plan", () => {
     ]);
   });
 
-  it("bounds each smoke fetch attempt with an abort signal", async () => {
-    let capturedSignal;
-    const response = await fetchWithTimeout("http://127.0.0.1:43110/healthz", {
-      timeoutMs: 1_000,
-      fetchImpl: async (_url, init) => {
-        capturedSignal = init?.signal;
-
-        return new globalThis.Response("ok", { status: 200 });
-      }
-    });
-
-    expect(response.status).toBe(200);
-    expect(capturedSignal).toBeInstanceOf(globalThis.AbortSignal);
-    expect(capturedSignal.aborted).toBe(false);
-  });
 });

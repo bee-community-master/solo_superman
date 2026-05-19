@@ -20,7 +20,9 @@ describe("#105 local install/run verification docs", () => {
   it("uses PowerShell syntax for Windows setup without relying on bash exports", () => {
     expect(runbook).toContain("winget install --id OpenJS.NodeJS.LTS -e");
     expect(runbook).toContain("$env:SOLO_LOCAL_CAPABILITY_TOKEN");
-    expect(runbook).toContain("Set-Location .\\solo_superman");
+    expect(runbook).toContain('Set-Location "$HOME\\solo_superman"');
+    expect(runbook).toContain("pnpm.cmd --version");
+    expect(runbook).toContain("pnpm.cmd verify:prod-bundle");
     expect(windowsBlocks.join("\n")).not.toMatch(/\bexport\s+|\bcd\s+solo_superman\b|&&/u);
   });
 
@@ -33,7 +35,18 @@ describe("#105 local install/run verification docs", () => {
 
     expect(readme).toContain("언어: 한국어 | [English](README.en.md)");
     expect(readme).toContain(`${publicRawBase}/scripts/bootstrap-windows.ps1`);
+    expect(readme).toContain("[Console]::OutputEncoding");
+    expect(readme).toContain("[Net.ServicePointManager]::SecurityProtocol");
+    expect(readme).toContain("Net.WebClient");
+    expect(readme).toContain('Set-Location "$HOME\\solo_superman"; pnpm.cmd start:local');
+    expect(readme).toContain("설치 완료 메시지에 표시된 다시 실행 명령");
     expect(englishReadme).toContain("Language: [한국어](README.md) | English");
+    expect(englishReadme).toContain("[Console]::OutputEncoding");
+    expect(englishReadme).toContain("[Net.ServicePointManager]::SecurityProtocol");
+    expect(englishReadme).toContain('Set-Location "$HOME\\solo_superman"; pnpm.cmd start:local');
+    expect(englishReadme).toContain("use the rerun command printed by the installer");
+    expect(readme).not.toContain(`${publicRawBase}/scripts/bootstrap-windows.ps1 | iex`);
+    expect(englishReadme).not.toContain(`${publicRawBase}/scripts/bootstrap-windows.ps1 | iex`);
     expect(windowsBootstrap).toContain(publicRepoUrl);
     expect(macosBootstrap).toContain(publicRepoUrl);
   });
@@ -91,6 +104,10 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain("function Invoke-Pnpm");
     expect(windowsBootstrap).toContain("SOLO_PNPM_COMMAND");
     expect(windowsBootstrap).toContain("function Test-PortConflictError");
+    expect(windowsBootstrap).toContain("function Initialize-Utf8Console");
+    expect(windowsBootstrap).toContain("chcp.com 65001");
+    expect(windowsBootstrap).toContain("$global:OutputEncoding");
+    expect(windowsBootstrap).toContain('Join-Path $env:USERPROFILE "solo_superman"');
     expect(windowsBootstrap).toContain("function Ensure-WindowsNativeRuntime");
     expect(windowsBootstrap).toContain("function Get-ProdSmokePortConflicts");
     expect(windowsBootstrap).toContain("function Invoke-ProdSmokeWithAlternatePorts");
@@ -176,7 +193,8 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain('[Environment+SpecialFolder]::DesktopDirectory');
     expect(windowsBootstrap).toContain('Join-Path $desktop "solo_superman.cmd"');
     expect(windowsBootstrap).toContain('Join-Path $desktop "solo_superman.lnk"');
-    expect(windowsBootstrap).toContain('"call pnpm start:local"');
+    expect(windowsBootstrap).toContain('"call pnpm.cmd start:local"');
+    expect(windowsBootstrap).toContain('Set-Location `"$TargetPath`"; pnpm.cmd start:local');
     expect(windowsBootstrap).toContain("Solo Superman failed to start. Exit code: %SOLO_EXIT%");
     expect(windowsBootstrap).toContain("Solo Superman local run has stopped");
     expect(windowsBootstrap).toContain("Press Enter to close this window");
@@ -196,6 +214,8 @@ describe("#105 local install/run verification docs", () => {
       "Port conflict",
       "Token mismatch",
       "CORS/origin",
+      "Garbled Korean or UTF-8 output",
+      "TLS 1.2",
       "Execution policy",
       "Path quoting",
       "Long path",

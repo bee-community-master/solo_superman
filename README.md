@@ -23,16 +23,16 @@ Solo Superman은 솔로 창업자가 아이디어를 질문, 리서치, 결정 �
 시작 메뉴에서 PowerShell을 **관리자 권한으로 실행**한 뒤 아래 한 줄을 붙여넣으세요. 관리자 권한이 아니면 Node.js/Git 설치 단계에서 실패할 수 있습니다.
 
 ```powershell
-irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1 | iex
+$utf8 = New-Object System.Text.UTF8Encoding $false; [Console]::InputEncoding = $utf8; [Console]::OutputEncoding = $utf8; $OutputEncoding = $utf8; chcp.com 65001 > $null; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $wc = New-Object Net.WebClient; $wc.Encoding = $utf8; $script = $wc.DownloadString("https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1"); if ($script.Length -gt 0 -and $script[0] -eq [char]0xFEFF) { $script = $script.Substring(1) }; iex $script
 ```
 
-Windows 설치 프로그램은 Node/Corepack/pnpm 활성화, WSL/Ubuntu 확인, 공용 바탕화면 실행파일 생성 전에 관리자 권한이 아니면 UAC 승인을 요청해 관리자 PowerShell로 자동 재실행합니다. Codex CLI용 WSL은 기본값으로 WSL2와 Ubuntu를 쓰도록 `wsl --set-default-version 2` 및 기본 배포판 설정을 수행합니다. WSL 배포판이 없으면 `wsl --install -d Ubuntu`를 시도하며, 첫 WSL 설치처럼 Windows 재부팅이나 Ubuntu 첫 사용자 이름/비밀번호 생성이 필요할 수 있는 경우에는 그 단계에서 멈추고 재부팅 및 Ubuntu 첫 실행 후 같은 한 줄 명령을 다시 실행하라고 안내합니다. PATH 반영을 위해 새 터미널을 요구하면 새 터미널을 열고 같은 한 줄 명령을 다시 실행하면 이어서 진행됩니다. 네트워크, 회사 보안 정책, 관리자 권한 때문에 자동 복구가 안전하지 않은 경우에는 정책을 우회하지 않고 쉬운 오류 메시지와 재실행 명령을 보여줍니다.
+이 명령은 Windows PowerShell 5.1에서도 UTF-8 콘솔 출력, TLS 1.2, UTF-8 스크립트 다운로드를 먼저 설정한 뒤 설치를 시작합니다. Windows 설치 프로그램은 Node/Corepack/pnpm 활성화, WSL/Ubuntu 확인, 공용 바탕화면 실행파일 생성 전에 관리자 권한이 아니면 UAC 승인을 요청해 관리자 PowerShell로 자동 재실행합니다. Codex CLI용 WSL은 기본값으로 WSL2와 Ubuntu를 쓰도록 `wsl --set-default-version 2` 및 기본 배포판 설정을 수행합니다. WSL 배포판이 없으면 `wsl --install -d Ubuntu`를 시도하며, 첫 WSL 설치처럼 Windows 재부팅이나 Ubuntu 첫 사용자 이름/비밀번호 생성이 필요할 수 있는 경우에는 그 단계에서 멈추고 재부팅 및 Ubuntu 첫 실행 후 같은 한 줄 명령을 다시 실행하라고 안내합니다. PATH 반영을 위해 새 터미널을 요구하면 새 터미널을 열고 같은 한 줄 명령을 다시 실행하면 이어서 진행됩니다. 네트워크, 회사 보안 정책, 관리자 권한 때문에 자동 복구가 안전하지 않은 경우에는 정책을 우회하지 않고 쉬운 오류 메시지와 재실행 명령을 보여줍니다.
 
 ## 실행방법
 
 설치가 끝나면 로컬 서버가 계속 실행되고 기본 브라우저에 Solo Superman web 화면이 자동으로 열립니다. 이 터미널을 열어두고 사용하세요. 종료하려면 `Ctrl+C`를 누릅니다.
 
-나중에 다시 실행하려면 아래 명령을 사용합니다. 설치 완료 메시지는 설치 경로, 다시 실행 명령, 바탕화면 실행파일 여부를 알려줍니다. Windows 설치 프로그램은 이미 설치된 경우에도 실제 표시되는 바탕화면 후보들에 `solo_superman.cmd` 실행파일과 `solo_superman` 바로가기를 다시 확인/생성하므로, 다음부터는 그 파일을 더블클릭해 같은 로컬 실행을 시작할 수 있습니다. 더블클릭 실행이 실패하면 cmd 창을 자동으로 닫지 않고 실패 내용과 종료 코드를 보여준 뒤 Enter를 눌러 닫게 합니다. macOS 설치 프로그램은 바탕화면 실행파일을 만들지 않고 재실행 명령을 안내합니다.
+나중에 다시 실행하려면 아래 명령을 사용합니다. 설치 완료 메시지는 설치 경로, 다시 실행 명령, 바탕화면 실행파일 여부를 알려줍니다. Windows 설치 프로그램은 이미 설치된 경우에도 실제 표시되는 바탕화면 후보들에 `solo_superman.cmd` 실행파일과 `solo_superman` 바로가기를 다시 확인/생성하므로, 다음부터는 그 파일을 더블클릭해 같은 로컬 실행을 시작할 수 있습니다. 더블클릭 실행이 실패하면 cmd 창을 자동으로 닫지 않고 실패 내용과 종료 코드를 보여준 뒤 Enter를 눌러 닫게 합니다. macOS 설치 프로그램은 바탕화면 실행파일을 만들지 않고 재실행 명령을 안내합니다. Windows에서 설치 경로 충돌 때문에 `solo_superman-2` 같은 대체 경로가 선택되면 설치 완료 메시지에 표시된 다시 실행 명령을 사용하세요.
 
 ### macOS shell
 
@@ -43,7 +43,7 @@ cd solo_superman && pnpm start:local
 ### Windows PowerShell
 
 ```powershell
-Set-Location .\solo_superman; pnpm start:local
+Set-Location "$HOME\solo_superman"; pnpm.cmd start:local
 ```
 
 로컬 첫 화면 도달과 기본 실행에는 OpenAI API key, ChatGPT web credential, 또는 ChatGPT Pro 세션이 필요하지 않습니다. backend 질문/리서치 preview를 시작할 때 UI는 ChatGPT 웹 세션을 검사하지 않고 로컬 Codex CLI의 `codex login status`만 확인합니다. Windows에서는 이 Codex CLI 확인과 `codex auth login`을 WSL 안에서 실행합니다. 필요하면 백그라운드 Terminal을 열어 Codex 브라우저 로그인 화면으로 이어지게 합니다. ChatGPT 브라우저 세션을 사용하는 별도 기능은 사용자 승인 흐름이 필요하며 기본 preview 조건이 아닙니다. Solo Superman은 어떤 credential도 수집하거나 저장하지 않습니다. 자세한 문제 해결은 [`docs/troubleshooting_KO.md`](docs/troubleshooting_KO.md)를 참고합니다. 기여자 온보딩과 아키텍처 문서는 [`docs/README.md`](docs/README.md)에서 시작합니다.
