@@ -27,13 +27,13 @@ describe("verify-prod-bundle smoke plan", () => {
     });
   });
 
-  it("uses production build plus sidecar start and Vite preview instead of the dev server", () => {
+  it("uses direct recursive production build plus sidecar start and Vite preview instead of the dev server", () => {
     const config = prodBundleSmokeConfig({
       SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token"
     });
     const commands = prodBundleSmokeCommands(config);
 
-    expect(commands.build).toEqual(["pnpm", ["build"]]);
+    expect(commands.build).toEqual(["pnpm", ["-r", "--if-present", "build"]]);
     expect(commands.sidecar).toEqual(["pnpm", ["--filter", "@solo-superman/sidecar", "start"]]);
     expect(commands.webPreview).toEqual([
       "pnpm",
@@ -63,6 +63,7 @@ describe("verify-prod-bundle smoke plan", () => {
     const commands = prodBundleSmokeCommands(config, "win32");
 
     expect(commands.build[0]).toBe("pnpm.cmd");
+    expect(commands.build[1]).toEqual(["-r", "--if-present", "build"]);
     expect(commands.sidecar[0]).toBe("pnpm.cmd");
     expect(commands.webPreview[0]).toBe("pnpm.cmd");
   });
