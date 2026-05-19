@@ -1,12 +1,12 @@
 $ErrorActionPreference = "Stop"
 
-$RepoUrl = if ($env:SOLO_SUPERMAN_REPO_URL) { $env:SOLO_SUPERMAN_REPO_URL } else { "https://github.com/HearingOffice/solo_superman.git" }
+$RepoUrl = if ($env:SOLO_SUPERMAN_REPO_URL) { $env:SOLO_SUPERMAN_REPO_URL } else { "https://github.com/bee-community-master/solo_superman.git" }
 $DefaultTargetDir = if ($env:SOLO_SUPERMAN_DIR) { $env:SOLO_SUPERMAN_DIR } else { "solo_superman" }
 $PnpmVersion = if ($env:SOLO_SUPERMAN_PNPM_VERSION) { $env:SOLO_SUPERMAN_PNPM_VERSION } else { "11.0.4" }
 $RunSmoke = if ($env:SOLO_SUPERMAN_RUN_SMOKE) { $env:SOLO_SUPERMAN_RUN_SMOKE } else { "1" }
 $StartLocal = if ($env:SOLO_SUPERMAN_START_LOCAL) { $env:SOLO_SUPERMAN_START_LOCAL } else { "1" }
-$BootstrapCommand = "irm https://raw.githubusercontent.com/HearingOffice/solo_superman/main/scripts/bootstrap-windows.ps1 | iex"
-$MinNodeMajor = 20
+$BootstrapCommand = "irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-windows.ps1 | iex"
+$MinNodeMajor = 24
 
 function Write-Step($Message) {
   Write-Host ""
@@ -63,7 +63,7 @@ function Add-CommonToolPaths {
 
 function Install-WingetPackage($CommandName, $PackageId) {
   if (-not (Test-Command winget)) {
-    throw "winget을 찾지 못했습니다. Node LTS(https://nodejs.org/)와 Git for Windows(https://git-scm.com/download/win)를 설치한 뒤 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
+    throw "winget을 찾지 못했습니다. Node 24 이상(https://nodejs.org/)과 Git for Windows(https://git-scm.com/download/win)를 설치한 뒤 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
   }
 
   Write-Step "$CommandName 설치/복구: winget install --id $PackageId -e"
@@ -103,7 +103,7 @@ function Ensure-Node {
   }
 
   if (Test-Command node) {
-    Write-Warn "현재 node 버전이 너무 낮아 Node LTS 설치/업그레이드를 시도합니다: $(& node --version)"
+    Write-Warn "현재 node 버전이 너무 낮아 Node 24 이상 설치/업그레이드를 시도합니다: $(& node --version)"
   }
 
   Install-WingetPackage "node" "OpenJS.NodeJS.LTS"
@@ -133,7 +133,7 @@ function Ensure-Pnpm {
   }
 
   if (-not (Test-Command npm)) {
-    throw "npm을 찾지 못했습니다. Node LTS 설치 후 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
+    throw "npm을 찾지 못했습니다. Node 24 이상 설치 후 새 PowerShell에서 README의 한 줄 설치 명령을 다시 실행하세요."
   }
 
   Invoke-Tool "npm" @("install", "-g", "pnpm@$PnpmVersion")
@@ -144,18 +144,29 @@ function Ensure-Pnpm {
   Invoke-Tool "pnpm" @("--version")
 }
 
+function Get-OriginRemote($Path) {
+  try {
+    return (& git -C $Path remote get-url origin 2>$null | Select-Object -First 1)
+  } catch {
+    return $null
+  }
+}
+
 function Test-ExpectedRepo($Path) {
   if (-not (Test-Path (Join-Path $Path ".git"))) {
     return $false
   }
 
-  try {
-    $remote = (& git -C $Path remote get-url origin 2>$null | Select-Object -First 1)
-  } catch {
-    return $false
-  }
+  $remote = Get-OriginRemote $Path
+  return ($remote -eq $RepoUrl) -or ($remote -like "*bee-community-master/solo_superman*") -or ($remote -like "*bee-community-master/solo_superman.git*") -or ($remote -like "*HearingOffice/solo_superman*") -or ($remote -like "*HearingOffice/solo_superman.git*")
+}
 
-  return ($remote -eq $RepoUrl) -or ($remote -like "*HearingOffice/solo_superman*") -or ($remote -like "*HearingOffice/solo_superman.git*")
+function Sync-OriginRemote($Path) {
+  $remote = Get-OriginRemote $Path
+  if ($remote -and ($remote -ne $RepoUrl)) {
+    Write-Step "origin remote update: $remote -> $RepoUrl"
+    Invoke-Tool "git" @("-C", $Path, "remote", "set-url", "origin", $RepoUrl)
+  }
 }
 
 function Resolve-InstallTarget {
@@ -177,6 +188,46 @@ function Resolve-InstallTarget {
 
 function Get-AbsolutePath($Path) {
   return [System.IO.Path]::GetFullPath($Path)
+}
+
+function Get-DesktopPath {
+  $desktop = [Environment]::GetFolderPath([Environment+SpecialFolder]::DesktopDirectory)
+  if (-not $desktop) {
+    $desktop = Join-Path $env:USERPROFILE "Desktop"
+  }
+
+  if (-not (Test-Path $desktop)) {
+    New-Item -ItemType Directory -Path $desktop -Force | Out-Null
+  }
+
+  return $desktop
+}
+
+function ConvertTo-CmdValue($Value) {
+  return ([string]$Value).Replace("%", "%%")
+}
+
+function New-DesktopRunner($TargetPath) {
+  $desktop = Get-DesktopPath
+  $runnerPath = Join-Path $desktop "solo_superman.cmd"
+  $safeTargetPath = ConvertTo-CmdValue $TargetPath
+  $content = @(
+    "@echo off",
+    "setlocal",
+    "set ""SOLO_SUPERMAN_DIR=$safeTargetPath""",
+    "cd /d ""%SOLO_SUPERMAN_DIR%""",
+    "echo Starting Solo Superman locally...",
+    "echo Keep this window open while using the app. Press Ctrl+C to stop it.",
+    "pnpm start:local",
+    "if errorlevel 1 (",
+    "  echo.",
+    "  echo Solo Superman failed to start. Press any key to close this window.",
+    "  pause >nul",
+    ")"
+  ) -join "`r`n"
+
+  Set-Content -Path $runnerPath -Value $content -Encoding ASCII
+  Write-Step "바탕화면 실행파일 생성: $runnerPath"
 }
 
 function Get-FreePort {
@@ -252,6 +303,7 @@ $TargetPath = Get-AbsolutePath $TargetDir
 
 if (Test-ExpectedRepo $TargetPath) {
   Write-Step "기존 checkout 사용: $TargetPath"
+  Sync-OriginRemote $TargetPath
   try {
     Invoke-Tool "git" @("-C", $TargetPath, "fetch", "origin")
   } catch {
@@ -266,6 +318,7 @@ Set-Location $TargetPath
 Write-Step "dependency install"
 Invoke-Tool "pnpm" @("install", "--frozen-lockfile")
 
+New-DesktopRunner $TargetPath
 Invoke-ProdSmoke
 Invoke-LocalWeb
 } catch {

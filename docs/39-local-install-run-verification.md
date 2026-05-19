@@ -35,13 +35,13 @@ Before broad non-developer distribution, the project still needs:
 
 | macOS shell | Windows PowerShell |
 | --- | --- |
-| ```sh<br># Option A: use an existing Node LTS + Git install.<br>node --version<br>git --version<br><br># Option B: if Homebrew is already installed.<br>brew install node git<br><br>corepack enable<br>corepack prepare pnpm@11.0.4 --activate<br>pnpm --version<br>``` | ```powershell<br># Primary Windows path: winget.<br>winget install --id OpenJS.NodeJS.LTS -e<br>winget install --id Git.Git -e<br><br>corepack enable<br>corepack prepare pnpm@11.0.4 --activate<br>pnpm --version<br><br># Fallback when winget is unavailable or blocked by policy:<br># 1. Install Node LTS from https://nodejs.org/<br># 2. Install Git for Windows from https://git-scm.com/download/win<br># 3. Open a new PowerShell window and rerun the version checks above.<br>``` |
+| ```sh<br># Option A: use an existing Node.js 24+ and Git install.<br>node --version<br>git --version<br><br># Option B: if Homebrew is already installed.<br>brew install node git<br><br>corepack enable<br>corepack prepare pnpm@11.0.4 --activate<br>pnpm --version<br>``` | ```powershell<br># Primary Windows path: winget.<br>winget install --id OpenJS.NodeJS.LTS -e<br>winget install --id Git.Git -e<br><br>corepack enable<br>corepack prepare pnpm@11.0.4 --activate<br>pnpm --version<br><br># Fallback when winget is unavailable or blocked by policy:<br># 1. Install Node.js 24 or newer from https://nodejs.org/<br># 2. Install Git for Windows from https://git-scm.com/download/win<br># 3. Open a new PowerShell window and rerun the version checks above.<br>``` |
 
 ## Clone and install dependencies
 
 | macOS shell | Windows PowerShell |
 | --- | --- |
-| ```sh<br>git clone https://github.com/HearingOffice/solo_superman.git<br>cd solo_superman<br>pnpm install --frozen-lockfile<br>``` | ```powershell<br>git clone https://github.com/HearingOffice/solo_superman.git<br>Set-Location .\solo_superman<br>pnpm install --frozen-lockfile<br>``` |
+| ```sh<br>git clone https://github.com/bee-community-master/solo_superman.git<br>cd solo_superman<br>pnpm install --frozen-lockfile<br>``` | ```powershell<br>git clone https://github.com/bee-community-master/solo_superman.git<br>Set-Location .\solo_superman<br>pnpm install --frozen-lockfile<br>``` |
 
 ## Production bundle auto smoke
 
@@ -59,7 +59,7 @@ Optional port overrides use platform-native environment syntax:
 
 ## Beginner local web run
 
-The README one-line installers finish by launching this command. It keeps the local sidecar and web server running, opens the default browser automatically, and chooses alternate loopback ports without killing existing processes when the defaults are busy. Stop it with `Ctrl+C`.
+The README one-line installers finish by launching this command. It keeps the local sidecar and web server running, opens the default browser automatically, and chooses alternate loopback ports without killing existing processes when the defaults are busy. Stop it with `Ctrl+C`. The Windows bootstrap also writes a Desktop runner named `solo_superman.cmd` that changes into the installed checkout and runs `pnpm start:local` for later launches.
 
 | macOS shell | Windows PowerShell |
 | --- | --- |
@@ -109,7 +109,7 @@ No browser automation package is required for the default local install path. Fo
 
 Use this checklist when CI or the current machine cannot run real Windows PowerShell:
 
-- [ ] Run the prerequisite checks in a new PowerShell window and confirm Node LTS, pnpm/Corepack, and Git are available.
+- [ ] Run the prerequisite checks in a new PowerShell window and confirm Node 24+, pnpm/Corepack, and Git are available.
 - [ ] Clone the repo, run `pnpm install --frozen-lockfile`, then run `pnpm verify:prod-bundle`.
 - [ ] Confirm the smoke output ends with `status:"passed"`, `build_auto_local_smoke`, `token mismatch returned 401`, `managed child processes stopped`, and `temporary app data removed`.
 - [ ] Run `pnpm verify` in the same checkout and record any Windows-only failure as a follow-up blocker issue.
