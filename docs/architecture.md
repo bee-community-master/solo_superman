@@ -12,7 +12,7 @@ Local Web Frontend
   -> bounded runtime adapters such as Codex preview, file_diff, shell_command, browser_action
 ```
 
-There is no hosted SaaS default. The hosted web origin, if introduced later, must not control local files, shell, browser, or secrets without local pairing, per-run local capability token, explicit approval, loopback-only enforcement, and CSRF/replay protection.
+There is no hosted SaaS default. A hosted web origin, if introduced later, may only be a paired surface; it must not control local files, shell, browser, or secrets without local pairing, per-run local capability token, explicit approval, loopback-only enforcement, and CSRF/replay protection.
 
 ## Component responsibilities / 컴포넌트 책임
 
@@ -49,4 +49,4 @@ The ProductEngine/application command boundary keeps application commands, route
 - Codex app-server is the preferred preview runtime for structured prompt/output contracts.
 - ChatGPT Pro browser delegation is per-run local browser delegation, not an API and not a stable backend service.
 - `file_diff`, `shell_command`, and `browser_action` are separate action classes with separate preflight, approval, rollback, and evidence requirements.
-- Tauri/native shell source, dependency, and script paths were removed; that history is recorded in `decisions.md` only.
+- Tauri/native shell source, dependency, and script paths were removed; that native app-host history is recorded in `decisions.md` only and is separate from the Windows `.cmd` Desktop runner.

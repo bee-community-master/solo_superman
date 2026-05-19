@@ -8,7 +8,7 @@ This file preserves durable project decisions after the old numbered planning do
 | --- | --- | --- |
 | Local-first Founder OS | User data, drafts, and execution preparation stay local by default; the no hosted SaaS default rule protects this. | Hosted SaaS default. |
 | Web/local topology | Local Web Frontend + Local Node/Hono Service keeps install/run and browser UX simple. | New replacement native shell. |
-| Tauri/native paths removed | Native shell code paths are historical context only; source/dependency/script routes are not active. | Keeping a desktop shell as the future default. |
+| Tauri/native paths removed | Native app-host code paths are historical context only; source/dependency/script routes are not active. This does not refer to the Windows `.cmd` Desktop runner used to restart the local web service. | Keeping a desktop shell as the future default. |
 | ProductEngine owns decisions | A pure reducer plus effect plan keeps state transitions testable and auditable. | Hidden decision logic inside API handlers or adapters. |
 | Contracts package is public boundary | DTO, command/event, API route, SSE, and projection names must be code-backed. | Copying contract values into prose without verifier coverage. |
 | Local embedded libSQL + Drizzle | It supports local-first persistence and deterministic test fixtures. | Browser-only DB rewrite. |

@@ -48,7 +48,7 @@ cd solo_superman && pnpm start:local
 Set-Location .\solo_superman; pnpm start:local
 ```
 
-The default local path does not require an OpenAI or ChatGPT API key by default. Before backend question/research preview work, the UI can check `codex login status` and open `codex auth login` through a background terminal. The UI labels are Open Codex login and Refresh Codex login status. Solo Superman does not collect or store those credentials.
+The default local path does not require an OpenAI or ChatGPT API key by default; in plain language, reaching the local first screen needs neither an OpenAI API key nor a ChatGPT web credential. Only before backend question/research preview work does the UI check `codex login status` and offer to open `codex auth login` through a background terminal. The UI labels are Open Codex login and Refresh Codex login status. Solo Superman does not collect or store those credentials.
 
 ## Verification commands / 검증 명령
 
@@ -63,9 +63,9 @@ A production bundle smoke must cover `build_auto_local_smoke`, browser readiness
 
 ## Local token and sidecar URL / 로컬 토큰과 sidecar URL
 
-The local service uses a per-run local capability token. The browser build receives `VITE_SOLO_LOCAL_CAPABILITY_TOKEN` and `VITE_SOLO_SIDECAR_BASE_URL`. The sidecar uses `SOLO_LOCAL_CAPABILITY_TOKEN`. A token mismatch fails visibly with `401`.
+The local service uses a per-run local capability token. In normal `pnpm start:local` or installer runs, the launcher creates one fresh token and passes it to both the browser build and sidecar. The browser build receives `VITE_SOLO_LOCAL_CAPABILITY_TOKEN` and `VITE_SOLO_SIDECAR_BASE_URL`. The sidecar uses `SOLO_LOCAL_CAPABILITY_TOKEN`. A token mismatch fails visibly with `401`.
 
-Example shell values:
+Example shell values. The fixed `local-dev-token` used in the examples below is a manual troubleshooting placeholder only; do not describe it as the launcher-generated per-run token.
 
 ```sh
 export SOLO_LOCAL_CAPABILITY_TOKEN=local-dev-token

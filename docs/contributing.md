@@ -40,7 +40,7 @@ The local app opens a browser screen through the local web frontend and local No
 
 1. Start from current `main` and create a focused branch/worktree.
 2. Read the relevant onboarding docs before editing code.
-3. Make the smallest behavior-preserving change that solves the issue.
+3. Make the smallest focused, reviewable change that solves the issue without widening unrelated behavior.
 4. Update `docs/reference.md` if enum, DTO, route, or public contract values changed.
 5. Run targeted tests first, then `pnpm verify` when the change is broader.
 6. Open a draft PR with evidence: what changed, what was tested, and known gaps.
