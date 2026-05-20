@@ -243,16 +243,18 @@ function codexCommandMode(
 
 function codexWslNvmSourceCommand(env: Readonly<Record<string, string | undefined>>) {
   const nodeMajor = codexWslNodeMajor(env);
+  const nvmSourceBlock = [
+    "if [ -s $NVM_DIR/nvm.sh ]; then . $NVM_DIR/nvm.sh",
+    `nvm use --silent ${nodeMajor} >/dev/null 2>&1 || true`,
+    "hash -r",
+    "fi"
+  ].join("; ");
 
   return [
-    "wsl_home=\\${HOME:-\\$(getent passwd \\$(id -u) | cut -d: -f6 || true)}",
-    "export HOME=\\$wsl_home",
-    "export NVM_DIR=\\${NVM_DIR:-\\$HOME/.nvm}",
-    "if [ -s \\$NVM_DIR/nvm.sh ]; then",
-    "  . \\$NVM_DIR/nvm.sh",
-    `  nvm use --silent ${nodeMajor} >/dev/null 2>&1 || true`,
-    "  hash -r",
-    "fi"
+    "wsl_home=${HOME:-$(getent passwd $(id -u) | cut -d: -f6 || true)}",
+    "export HOME=$wsl_home",
+    "export NVM_DIR=${NVM_DIR:-$HOME/.nvm}",
+    nvmSourceBlock
   ].join("; ");
 }
 
