@@ -105,7 +105,7 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("nvm install 22");
     expect(runbook).toContain("command -v codex");
     expect(runbook).toContain("SOLO_CODEX_WINDOWS_MODE=wsl");
-    expect(runbook).toContain("wsl.exe -- bash -lc");
+    expect(runbook).toContain("wsl.exe -d <배포판> -- bash -lc");
     expect(runbook).toContain("npm install -g @openai/codex@latest");
     expect(runbook).toContain("Microsoft.VCRedist.2015+.x64");
     expect(runbook).toContain("vcruntime140.dll");

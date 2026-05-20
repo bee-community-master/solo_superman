@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   APP_LANGUAGE_STORAGE_KEY,
   AppLanguageProvider,
+  DEFAULT_APP_LANGUAGE,
   LanguageSwitcher,
   normalizeAppLanguage,
   readStoredAppLanguage,
@@ -10,12 +11,22 @@ import {
 } from "./app-language";
 
 describe("app language settings", () => {
-  it("keeps English as the safe default and accepts supported setup languages explicitly", () => {
-    expect(normalizeAppLanguage(undefined)).toBe("en");
-    expect(normalizeAppLanguage("fr")).toBe("en");
+  it("keeps Korean as the safe default and accepts supported setup languages explicitly", () => {
+    expect(DEFAULT_APP_LANGUAGE).toBe("ko");
+    expect(normalizeAppLanguage(undefined)).toBe("ko");
+    expect(normalizeAppLanguage("fr")).toBe("ko");
     expect(normalizeAppLanguage("en")).toBe("en");
     expect(normalizeAppLanguage("ja")).toBe("ja");
     expect(normalizeAppLanguage("ko")).toBe("ko");
+  });
+
+  it("defaults first setup to Korean when no language preference is stored", () => {
+    const fakeStorage = {
+      getItem: vi.fn(() => null),
+      setItem: vi.fn()
+    } as unknown as Storage;
+
+    expect(readStoredAppLanguage(fakeStorage)).toBe("ko");
   });
 
   it("reads and writes the persisted first-setup language preference", () => {
@@ -54,6 +65,8 @@ describe("app language settings", () => {
 
     expect(markup).toContain("언어");
     expect(markup).toContain("한국어");
+    expect(markup).toContain("English");
+    expect(markup).toContain("日本語");
   });
 
   it("persists Korean as a supported first-setup language", () => {

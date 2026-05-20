@@ -1019,6 +1019,8 @@ function New-DesktopRunner($TargetPath) {
   $safeTargetPath = ConvertTo-CmdValue $TargetPath
   $safeBootstrapCommand = ConvertTo-CmdEchoValue $BootstrapCommand
   $safeCodexWindowsMode = ConvertTo-CmdValue $CodexWindowsMode
+  $safeCodexWslDistro = ConvertTo-CmdValue $CodexWslDistro
+  $safeCodexWslNodeMajor = ConvertTo-CmdValue $CodexWslNodeMajor
   $pathLine = 'set "PATH=%PATH%;%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%LOCALAPPDATA%\Microsoft\WindowsApps"'
   $content = @(
     "@echo off",
@@ -1027,6 +1029,8 @@ function New-DesktopRunner($TargetPath) {
     $pathLine,
     "set ""SOLO_SUPERMAN_DIR=$safeTargetPath""",
     "set ""SOLO_CODEX_WINDOWS_MODE=$safeCodexWindowsMode""",
+    "set ""SOLO_SUPERMAN_CODEX_WSL_DISTRO=$safeCodexWslDistro""",
+    "set ""SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR=$safeCodexWslNodeMajor""",
     "if not exist ""%SOLO_SUPERMAN_DIR%"" (",
     "  echo Install folder not found: ""%SOLO_SUPERMAN_DIR%""",
     "  set ""SOLO_EXIT=1""",

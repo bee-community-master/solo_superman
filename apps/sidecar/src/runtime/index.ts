@@ -88,8 +88,10 @@ const CODEX_LOGIN_STATUS_COMMAND = "codex login status" as const;
 const CODEX_LOGIN_COMMAND_ARGS = ["codex", "auth", "login"] as const;
 const CODEX_WINDOWS_MODE_ENV = "SOLO_CODEX_WINDOWS_MODE" as const;
 const CODEX_LEGACY_COMMAND_MODE_ENV = "SOLO_CODEX_COMMAND_MODE" as const;
-const CODEX_WSL_NVM_SOURCE_COMMAND =
-  "wsl_home=${HOME:-$(getent passwd $(id -u) | cut -d: -f6 || true)}; export HOME=$wsl_home; export NVM_DIR=${NVM_DIR:-$HOME/.nvm}; if [ -s $NVM_DIR/nvm.sh ]; then . $NVM_DIR/nvm.sh; nvm use --silent 22 >/dev/null 2>&1 || true; fi" as const;
+const CODEX_WSL_DISTRO_ENV = "SOLO_SUPERMAN_CODEX_WSL_DISTRO" as const;
+const CODEX_WSL_NODE_MAJOR_ENV = "SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR" as const;
+const DEFAULT_CODEX_WSL_DISTRO = "Ubuntu" as const;
+const DEFAULT_CODEX_WSL_NODE_MAJOR = "22" as const;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -217,6 +219,16 @@ function windowsCmdQuote(value: string) {
   return `"${value.replaceAll('"', '\\"')}"`;
 }
 
+function codexWslDistro(env: Readonly<Record<string, string | undefined>>) {
+  return env[CODEX_WSL_DISTRO_ENV]?.trim() || DEFAULT_CODEX_WSL_DISTRO;
+}
+
+function codexWslNodeMajor(env: Readonly<Record<string, string | undefined>>) {
+  const value = env[CODEX_WSL_NODE_MAJOR_ENV]?.trim();
+
+  return value && /^\d+$/u.test(value) ? value : DEFAULT_CODEX_WSL_NODE_MAJOR;
+}
+
 function codexCommandMode(
   env: Readonly<Record<string, string | undefined>>,
   platform: NodeJS.Platform = process.platform
@@ -229,8 +241,33 @@ function codexCommandMode(
   return platform === "win32" ? "wsl" : "native";
 }
 
-export function codexWslShellCommand(args: readonly string[]) {
-  return `${CODEX_WSL_NVM_SOURCE_COMMAND}; exec ${["codex", ...args].map(shellQuote).join(" ")}`;
+function codexWslNvmSourceCommand(env: Readonly<Record<string, string | undefined>>) {
+  const nodeMajor = codexWslNodeMajor(env);
+
+  return [
+    "wsl_home=\\${HOME:-\\$(getent passwd \\$(id -u) | cut -d: -f6 || true)}",
+    "export HOME=\\$wsl_home",
+    "export NVM_DIR=\\${NVM_DIR:-\\$HOME/.nvm}",
+    "if [ -s \\$NVM_DIR/nvm.sh ]; then",
+    "  . \\$NVM_DIR/nvm.sh",
+    `  nvm use --silent ${nodeMajor} >/dev/null 2>&1 || true`,
+    "  hash -r",
+    "fi"
+  ].join("; ");
+}
+
+export function codexWslShellCommand(
+  args: readonly string[],
+  env: Readonly<Record<string, string | undefined>> = process.env
+) {
+  return `${codexWslNvmSourceCommand(env)}; exec ${["codex", ...args].map(shellQuote).join(" ")}`;
+}
+
+function codexWslSpawnArgs(
+  args: readonly string[],
+  env: Readonly<Record<string, string | undefined>>
+) {
+  return ["-d", codexWslDistro(env), "--", "bash", "-lc", codexWslShellCommand(args, env)] as const;
 }
 
 export function codexAppServerSpawnPlan(
@@ -240,7 +277,7 @@ export function codexAppServerSpawnPlan(
   if (codexCommandMode(env, platform) === "wsl") {
     return {
       command: "wsl.exe",
-      args: ["--", "bash", "-lc", codexWslShellCommand(["app-server", "--listen", "stdio://"])],
+      args: codexWslSpawnArgs(["app-server", "--listen", "stdio://"], env),
       transport: CODEX_RUNTIME_TRANSPORT,
       generatedSchemaVersion: CODEX_APP_SERVER_GENERATED_VERSION
     } as const;
@@ -259,7 +296,15 @@ export function windowsCodexLoginShellCommand(
   env: Readonly<Record<string, string | undefined>> = process.env
 ) {
   if (codexCommandMode(env, "win32") === "wsl") {
-    return `wsl.exe -- bash -lc ${windowsCmdQuote(codexWslShellCommand(["auth", "login"]))}`;
+    return [
+      "wsl.exe",
+      "-d",
+      codexWslDistro(env),
+      "--",
+      "bash",
+      "-lc",
+      windowsCmdQuote(codexWslShellCommand(["auth", "login"], env))
+    ].join(" ");
   }
 
   return `cd /d ${windowsCmdQuote(cwd)} && ${CODEX_LOGIN_COMMAND}`;
