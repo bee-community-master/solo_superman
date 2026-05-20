@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { commandLabel, hasProcessExited, stopManagedProcess, windowsShellCommandLine } from "./local-processes.mjs";
+import { commandLabel, hasProcessExited, spawnManagedProcess, stopManagedProcess, windowsShellCommandLine } from "./local-processes.mjs";
 
 function createFakeProcessInfo() {
   const child = new EventEmitter();
@@ -47,6 +47,33 @@ describe("local process helpers", () => {
     expect(hasProcessExited(processInfo)).toBe(false);
     processInfo.child.exitCode = 0;
     expect(hasProcessExited(processInfo)).toBe(true);
+  });
+
+  it("mirrors managed process output to a diagnostic callback", async () => {
+    const output = [];
+    const managed = spawnManagedProcess(process.execPath, [
+      "-e",
+      "console.log('diagnostic stdout'); console.error('diagnostic stderr');"
+    ], {
+      detached: false,
+      onOutput: (event) => output.push(event)
+    });
+
+    await new Promise((resolve, reject) => {
+      managed.child.once("error", reject);
+      managed.child.once("exit", (code) => {
+        if (code === 0) {
+          resolve();
+          return;
+        }
+        reject(new Error(`child exited ${code}`));
+      });
+    });
+
+    expect(output).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: expect.stringContaining(process.execPath), stream: "stdout", text: expect.stringContaining("diagnostic stdout") }),
+      expect.objectContaining({ label: expect.stringContaining(process.execPath), stream: "stderr", text: expect.stringContaining("diagnostic stderr") })
+    ]));
   });
 
   it("marks process shutdown and sends a terminate signal", async () => {

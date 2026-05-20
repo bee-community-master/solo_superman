@@ -31,8 +31,10 @@ export function hasProcessExited(processInfo) {
 }
 
 export function spawnManagedProcess(command, args, options = {}) {
-  const { platform = process.platform, ...spawnOptions } = options;
+  const { onOutput, platform = process.platform, ...spawnOptions } = options;
+  delete spawnOptions.diagnostics;
   const useShell = shouldUseShellForCommand(command, platform);
+  const label = commandLabel(command, args);
   const child = spawn(useShell ? windowsShellCommandLine(command, args) : command, useShell ? [] : args, {
     ...spawnOptions,
     detached: spawnOptions.detached ?? platform !== "win32",
@@ -42,7 +44,7 @@ export function spawnManagedProcess(command, args, options = {}) {
   });
   const managed = {
     child,
-    label: commandLabel(command, args),
+    label,
     logs: [],
     stopping: false
   };
@@ -50,6 +52,7 @@ export function spawnManagedProcess(command, args, options = {}) {
   child.stdout?.on("data", (chunk) => {
     const text = String(chunk);
     managed.logs.push(text);
+    onOutput?.({ label, stream: "stdout", stopping: managed.stopping, text });
     if (!managed.stopping) {
       process.stdout.write(text);
     }
@@ -57,6 +60,7 @@ export function spawnManagedProcess(command, args, options = {}) {
   child.stderr?.on("data", (chunk) => {
     const text = String(chunk);
     managed.logs.push(text);
+    onOutput?.({ label, stream: "stderr", stopping: managed.stopping, text });
     if (!managed.stopping) {
       process.stderr.write(text);
     }

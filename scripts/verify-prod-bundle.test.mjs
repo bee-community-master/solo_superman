@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cleanupProdBundleSmoke,
   pnpmCommand,
+  prodBundleSmokeLogPath,
   prodBundleSmokeCommands,
   prodBundleSmokeConfig,
   prodBundleSmokeEnvironment
@@ -28,6 +29,12 @@ describe("verify-prod-bundle smoke plan", () => {
       VITE_SOLO_SIDECAR_BASE_URL: "http://127.0.0.1:43112",
       SOLO_APP_DATA_DIR: "/tmp/solo-prod-smoke"
     });
+  });
+
+  it("honors an explicit diagnostic log path for Windows bootstrap failures", () => {
+    expect(prodBundleSmokeLogPath({
+      SOLO_PROD_SMOKE_LOG_PATH: "C:/Users/founder/solo_superman/solo-superman-prod-bundle-smoke.log"
+    })).toBe("C:/Users/founder/solo_superman/solo-superman-prod-bundle-smoke.log");
   });
 
   it("uses direct recursive production build plus sidecar start and Vite preview instead of the dev server", () => {
