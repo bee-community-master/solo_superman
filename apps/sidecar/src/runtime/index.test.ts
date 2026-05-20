@@ -390,15 +390,13 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       ],
       transport: "stdio"
     });
-    expect(codexAppServerSpawnPlan({ SOLO_CODEX_WINDOWS_MODE: "wsl" }).args[3]).toContain(
-      "bash"
-    );
-    expect(codexAppServerSpawnPlan({ SOLO_CODEX_WINDOWS_MODE: "wsl" }).args[5]).toContain(
-      "nvm use --silent 22"
-    );
-    expect(codexAppServerSpawnPlan({ SOLO_CODEX_WINDOWS_MODE: "wsl" }).args[5]).toContain(
-      "getent passwd \\$(id -u)"
-    );
+    const shellCommand = codexAppServerSpawnPlan({ SOLO_CODEX_WINDOWS_MODE: "wsl" }).args[5];
+    expect(codexAppServerSpawnPlan({ SOLO_CODEX_WINDOWS_MODE: "wsl" }).args[3]).toContain("bash");
+    expect(shellCommand).toContain("nvm use --silent 22");
+    expect(shellCommand).toContain("getent passwd $(id -u)");
+    expect(shellCommand).toContain("then . $NVM_DIR/nvm.sh");
+    expect(shellCommand).not.toContain("then;");
+    expect(shellCommand).not.toContain("\\$");
   });
 
   it("pins Windows WSL Codex commands to the configured distro and Node major", () => {
@@ -417,7 +415,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       expect.stringContaining("nvm use --silent 24")
     ]);
     expect(codexWslShellCommand(["auth", "login"], env)).toContain(
-      "export NVM_DIR=\\${NVM_DIR:-\\$HOME/.nvm}"
+      "export NVM_DIR=${NVM_DIR:-$HOME/.nvm}"
     );
     expect(windowsCodexLoginShellCommand("C:\\Users\\Founder Name\\solo_superman", env)).toContain(
       "wsl.exe -d Ubuntu-24.04 -- bash -lc"
@@ -485,7 +483,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
 
     expect(command).toContain("wsl.exe -d Ubuntu -- bash -lc");
     expect(command).toContain("'codex' 'auth' 'login'");
-    expect(command).toContain("NVM_DIR=\\${NVM_DIR:-\\$HOME/.nvm}");
+    expect(command).toContain("NVM_DIR=${NVM_DIR:-$HOME/.nvm}");
     expect(command).toContain("nvm use --silent 22");
     expect(command).not.toContain("cd /d");
     expect(codexWslShellCommand(["auth", "login"])).toContain("'codex' 'auth' 'login'");
