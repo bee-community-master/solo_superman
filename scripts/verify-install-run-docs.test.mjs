@@ -132,6 +132,8 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain('Join-Path $env:USERPROFILE "solo_superman"');
     expect(windowsBootstrap).toContain("function Invoke-CheckedNoOutput");
     expect(windowsBootstrap).toContain("function Invoke-ToolNoOutput");
+    expect(windowsBootstrap).toContain("$nativeErrorActionPreference = $ErrorActionPreference");
+    expect(windowsBootstrap).toContain("$ErrorActionPreference = \"Continue\"");
     expect(windowsBootstrap).toContain("function Ensure-WindowsNativeRuntime");
     expect(windowsBootstrap).toContain("function Get-ProdSmokePortConflicts");
     expect(windowsBootstrap).toContain("function Invoke-ProdSmokeWithAlternatePorts");
