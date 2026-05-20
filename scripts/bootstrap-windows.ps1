@@ -43,15 +43,28 @@ $CodexNvmInstallUrl = if ($env:SOLO_SUPERMAN_CODEX_NVM_INSTALL_URL) { $env:SOLO_
 $CodexWslNodeMajor = if ($env:SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR) { $env:SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR } else { "22" }
 $CodexWslDistro = if ($env:SOLO_SUPERMAN_CODEX_WSL_DISTRO) { $env:SOLO_SUPERMAN_CODEX_WSL_DISTRO } else { "Ubuntu" }
 $MinNodeMajor = 24
+$DiagnosticTimestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$BootstrapLogPath = Join-Path ([System.IO.Path]::GetTempPath()) "solo-superman-bootstrap-$DiagnosticTimestamp.log"
+$ProdSmokeLogPath = $null
+
+function Write-DiagnosticLog($Message) {
+  try {
+    Add-Content -Path $BootstrapLogPath -Value "[$((Get-Date).ToString("o"))] $Message" -Encoding UTF8
+  } catch {
+    # Diagnostics are best-effort and must not hide the installer failure.
+  }
+}
 
 function Write-Step($Message) {
   Write-Host ""
   Write-Host "==> $Message"
+  Write-DiagnosticLog "STEP: $Message"
 }
 
 function Write-Warn($Message) {
   Write-Host ""
   Write-Warning $Message
+  Write-DiagnosticLog "WARN: $Message"
 }
 
 function Test-IsAdministrator {
@@ -70,15 +83,20 @@ function Test-Command($Name) {
 
 function Invoke-Checked($FilePath, [string[]]$Arguments) {
   $outputLines = New-Object System.Collections.Generic.List[string]
+  $commandLine = "$FilePath $($Arguments -join ' ')"
+  Write-DiagnosticLog "COMMAND START: $commandLine"
+  Write-DiagnosticLog "COMMAND CWD: $(Get-Location)"
   & $FilePath @Arguments 2>&1 | ForEach-Object {
     $line = [string]$_
     if ($line.Length -gt 0) {
       $outputLines.Add($line)
+      Write-DiagnosticLog "COMMAND OUTPUT: $line"
     }
     Write-Host $line
   }
 
   $exitCode = $LASTEXITCODE
+  Write-DiagnosticLog "COMMAND EXIT: $commandLine :: $exitCode"
   if ($exitCode -ne 0) {
     $message = "$FilePath $($Arguments -join ' ') failed with exit $exitCode"
     if ($outputLines.Count -gt 0) {
@@ -91,8 +109,11 @@ function Invoke-Checked($FilePath, [string[]]$Arguments) {
 }
 
 function Invoke-CheckedNoOutput($FilePath, [string[]]$Arguments) {
+  $commandLine = "$FilePath $($Arguments -join ' ')"
+  Write-DiagnosticLog "COMMAND START NO OUTPUT: $commandLine"
   & $FilePath @Arguments > $null 2> $null
   $exitCode = $LASTEXITCODE
+  Write-DiagnosticLog "COMMAND EXIT NO OUTPUT: $commandLine :: $exitCode"
   if ($exitCode -ne 0) {
     throw "$FilePath $($Arguments -join ' ') failed with exit $exitCode"
   }
@@ -124,6 +145,8 @@ function Invoke-Pnpm([string[]]$Arguments) {
   try {
     $env:SOLO_PNPM_COMMAND = $pnpm
     $env:CI = "true"
+    Write-DiagnosticLog "PNPM COMMAND: $pnpm $($Arguments -join ' ')"
+    Write-DiagnosticLog "PNPM ENV: SOLO_PNPM_COMMAND=$pnpm CI=true SOLO_PROD_SMOKE_LOG_PATH=$env:SOLO_PROD_SMOKE_LOG_PATH"
     Invoke-Checked $pnpm $Arguments
   } finally {
     if ($null -eq $oldPnpmCommand) {
@@ -1131,10 +1154,27 @@ function Invoke-ProdSmokeWithAlternatePorts {
     $env:SOLO_PROD_SMOKE_SIDECAR_PORT = [string]$sidecarPort
     $env:SOLO_PROD_SMOKE_WEB_PORT = [string]$webPort
     Write-Step "production bundle smoke retry: sidecar=$sidecarPort web=$webPort"
-    Invoke-Pnpm @("verify:prod-bundle")
+    Invoke-ProdSmokeCommand
   } finally {
     if ($null -eq $oldSidecarPort) { Remove-Item Env:SOLO_PROD_SMOKE_SIDECAR_PORT -ErrorAction SilentlyContinue } else { $env:SOLO_PROD_SMOKE_SIDECAR_PORT = $oldSidecarPort }
     if ($null -eq $oldWebPort) { Remove-Item Env:SOLO_PROD_SMOKE_WEB_PORT -ErrorAction SilentlyContinue } else { $env:SOLO_PROD_SMOKE_WEB_PORT = $oldWebPort }
+  }
+}
+
+function Invoke-ProdSmokeCommand {
+  $oldSmokeLogPath = $env:SOLO_PROD_SMOKE_LOG_PATH
+  try {
+    if ($ProdSmokeLogPath) {
+      $env:SOLO_PROD_SMOKE_LOG_PATH = $ProdSmokeLogPath
+      Write-DiagnosticLog "production smoke diagnostic log: $ProdSmokeLogPath"
+    }
+    Invoke-Pnpm @("verify:prod-bundle")
+  } finally {
+    if ($null -eq $oldSmokeLogPath) {
+      Remove-Item Env:SOLO_PROD_SMOKE_LOG_PATH -ErrorAction SilentlyContinue
+    } else {
+      $env:SOLO_PROD_SMOKE_LOG_PATH = $oldSmokeLogPath
+    }
   }
 }
 
@@ -1145,14 +1185,17 @@ function Invoke-ProdSmoke {
   }
 
   Write-Step "production bundle smoke"
+  if ($ProdSmokeLogPath) {
+    Write-Host "production smoke 진단 로그: $ProdSmokeLogPath"
+  }
   $portConflicts = @(Get-ProdSmokePortConflicts)
   if ($portConflicts.Count -eq 0) {
     try {
-      Invoke-Pnpm @("verify:prod-bundle")
+      Invoke-ProdSmokeCommand
       return
     } catch {
       if (-not (Test-PortConflictError $_.Exception.Message)) {
-        throw "production bundle smoke가 포트 충돌 전 단계에서 실패했습니다. pnpm child process는 SOLO_PNPM_COMMAND로 현재 pnpm 경로를 전달해 실행합니다. $($_.Exception.Message)"
+        throw "production bundle smoke가 포트 충돌 전 단계에서 실패했습니다. 진단 로그: bootstrap=$BootstrapLogPath smoke=$ProdSmokeLogPath. pnpm child process는 SOLO_PNPM_COMMAND로 현재 pnpm 경로를 전달해 실행합니다. $($_.Exception.Message)"
       }
 
       Write-Warn "production bundle smoke 실행 중 포트 충돌 가능성이 있어 빈 포트로 한 번 더 시도합니다. $($_.Exception.Message)"
@@ -1211,12 +1254,21 @@ function Write-FriendlyFailure($Message) {
   Write-Host ""
   Write-Host "ERROR: $Message" -ForegroundColor Red
   Write-Host ""
+  Write-Host "진단 로그:"
+  Write-Host "- bootstrap: $BootstrapLogPath"
+  if ($ProdSmokeLogPath) {
+    Write-Host "- production smoke: $ProdSmokeLogPath"
+  }
+  Write-Host ""
   Write-Host "다시 시도하려면 새 PowerShell에서 아래 한 줄을 그대로 붙여넣으세요:"
   Write-Host $BootstrapCommand
   Write-Host "네트워크/회사 보안 정책/관리자 권한이 막는 경우에는 정책을 우회하지 않고 여기서 멈춥니다."
 }
 
 try {
+Write-Host "bootstrap 진단 로그: $BootstrapLogPath"
+Write-DiagnosticLog "bootstrap started"
+Write-DiagnosticLog "PowerShell=$($PSVersionTable.PSVersion) OS=$([System.Environment]::OSVersion.VersionString) Process64=$([System.Environment]::Is64BitProcess)"
 Restart-AsAdministrator
 Add-CommonToolPaths
 Ensure-Git
@@ -1242,6 +1294,9 @@ if (Test-ExpectedRepo $TargetPath) {
 }
 
 Set-Location $TargetPath
+$ProdSmokeLogPath = Join-Path $TargetPath "solo-superman-prod-bundle-smoke-$DiagnosticTimestamp.log"
+Write-DiagnosticLog "target path: $TargetPath"
+Write-DiagnosticLog "production smoke log path: $ProdSmokeLogPath"
 Write-Step "dependency install"
 Invoke-Pnpm @("install", "--frozen-lockfile")
 
