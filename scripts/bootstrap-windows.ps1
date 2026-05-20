@@ -207,7 +207,7 @@ function Restart-AsAdministrator {
   }
 
   Write-Step "관리자 권한으로 설치를 다시 시작합니다."
-  Write-Host "Node/Corepack/pnpm 활성화와 공용 바탕화면 실행파일 생성에는 관리자 권한이 필요할 수 있어 Windows UAC 승인을 요청합니다."
+  Write-Host "Node/Corepack/pnpm 활성화와 Windows prerequisite/WSL 설정에는 관리자 권한이 필요할 수 있어 Windows UAC 승인을 요청합니다."
 
   $envAssignments = New-Object System.Collections.Generic.List[string]
   foreach ($name in @(
@@ -1013,6 +1013,29 @@ function ConvertTo-CmdEchoValue($Value) {
   return (ConvertTo-CmdValue $Value).Replace("^", "^^").Replace("&", "^&").Replace("|", "^|").Replace("<", "^<").Replace(">", "^>")
 }
 
+function Remove-LegacyDesktopRunners($DesktopPaths, $KeepPath) {
+  foreach ($desktop in $DesktopPaths) {
+    foreach ($runnerName in @("solo_superman.cmd", "solo_superman.lnk")) {
+      $legacyPath = Join-Path $desktop $runnerName
+      try {
+        if ($KeepPath) {
+          $legacyFullPath = [System.IO.Path]::GetFullPath($legacyPath)
+          $keepFullPath = [System.IO.Path]::GetFullPath($KeepPath)
+          if ([string]::Equals($legacyFullPath, $keepFullPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+            continue
+          }
+        }
+
+        if (Test-Path -LiteralPath $legacyPath) {
+          Remove-Item -LiteralPath $legacyPath -Force -ErrorAction Stop
+        }
+      } catch {
+        Write-Warn "기존 바탕화면 실행파일 정리를 건너뜁니다: $legacyPath :: $($_.Exception.Message)"
+      }
+    }
+  }
+}
+
 function New-DesktopRunner($TargetPath) {
   $runnerPaths = New-Object System.Collections.Generic.List[string]
   $failedDesktopPaths = New-Object System.Collections.Generic.List[string]
@@ -1069,39 +1092,39 @@ function New-DesktopRunner($TargetPath) {
     "set /p ""SOLO_CLOSE=Press Enter to close this window...""",
     "exit /b %SOLO_EXIT%"
   ) -join "`r`n"
+  $wrapperPath = Join-Path $TargetPath "solo_superman.cmd"
+  Set-Content -Path $wrapperPath -Value $content -Encoding ASCII
+  $desktopPaths = @(Get-DesktopPaths)
 
-  foreach ($desktop in Get-DesktopPaths) {
+  foreach ($desktop in $desktopPaths) {
     try {
-      $runnerPath = Join-Path $desktop "solo_superman.cmd"
-      Set-Content -Path $runnerPath -Value $content -Encoding ASCII
-      if (-not $runnerPaths.Contains($runnerPath)) {
-        $runnerPaths.Add($runnerPath)
-      }
-
       $wscript = New-Object -ComObject WScript.Shell
       $shortcutPath = Join-Path $desktop "solo_superman.lnk"
+      Remove-LegacyDesktopRunners $desktopPaths $shortcutPath
       $shortcut = $wscript.CreateShortcut($shortcutPath)
-      $shortcut.TargetPath = $runnerPath
+      $shortcut.TargetPath = $wrapperPath
       $shortcut.WorkingDirectory = $TargetPath
       $shortcut.Description = "Start Solo Superman locally"
       $shortcut.Save()
       if (-not $runnerPaths.Contains($shortcutPath)) {
         $runnerPaths.Add($shortcutPath)
       }
+      break
     } catch {
       $failedDesktopPaths.Add("$desktop :: $($_.Exception.Message)")
-      Write-Warn "바탕화면 실행파일/바로가기 생성 후보를 건너뜁니다: $desktop :: $($_.Exception.Message)"
+      Write-Warn "바탕화면 바로가기 생성 후보를 건너뜁니다: $desktop :: $($_.Exception.Message)"
     }
   }
 
   if ($runnerPaths.Count -eq 0) {
-    throw "바탕화면 실행파일을 만들 수 있는 경로를 찾지 못했습니다. 관리자 권한 PowerShell에서 다시 실행하세요. 실패 후보: $($failedDesktopPaths -join '; ')"
+    throw "바탕화면 바로가기를 만들 수 있는 경로를 찾지 못했습니다. 관리자 권한 PowerShell에서 다시 실행하세요. 실패 후보: $($failedDesktopPaths -join '; ')"
   }
 
-  Write-Step "바탕화면 실행파일 확인/생성"
+  Write-Step "바탕화면 바로가기 확인/생성"
   foreach ($runnerPath in $runnerPaths) {
     Write-Host "- $runnerPath"
   }
+  Write-Host "실행 wrapper: $wrapperPath"
 
   return $runnerPaths.ToArray()
 }
@@ -1224,7 +1247,7 @@ function Invoke-ProdSmoke {
 function Invoke-LocalWeb {
   if ($StartLocal -eq "0") {
     Write-Step "내장 설정으로 local web 자동 실행을 건너뜁니다."
-    Write-Host "나중에 실행하려면 바탕화면의 solo_superman.cmd를 더블클릭하거나 아래 명령을 실행하세요:"
+    Write-Host "나중에 실행하려면 바탕화면의 solo_superman 바로가기를 더블클릭하거나 아래 명령을 실행하세요:"
     Write-Host "Set-Location `"$TargetPath`"; pnpm.cmd start:local"
     return
   }
@@ -1240,13 +1263,13 @@ function Write-InstallSummary($TargetPath, $DesktopRunnerPaths) {
   Write-Host "설치 경로: $TargetPath"
   Write-Host "Codex 실행 경로: Windows $CodexWindowsMode"
   if ($DesktopRunnerPaths -and $DesktopRunnerPaths.Count -gt 0) {
-    Write-Host "바탕화면 실행파일/아이콘 확인/생성:"
+    Write-Host "바탕화면 바로가기 확인/생성:"
     foreach ($runnerPath in $DesktopRunnerPaths) {
       Write-Host "- $runnerPath"
     }
     Write-Host "바탕화면에 보이지 않으면 파일 탐색기 주소창에 위 경로의 폴더를 붙여넣어 확인하세요."
   } else {
-    Write-Host "바탕화면 실행파일/아이콘: 생성되지 않음"
+    Write-Host "바탕화면 바로가기: 생성되지 않음"
   }
   Write-Host "다시 실행 명령: Set-Location `"$TargetPath`"; pnpm.cmd start:local"
   Write-Host "이제 로컬 web을 시작합니다. 사용하는 동안 이 PowerShell 창을 닫지 마세요. 종료하려면 Ctrl+C를 누르세요."

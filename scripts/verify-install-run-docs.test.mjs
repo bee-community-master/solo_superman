@@ -197,20 +197,22 @@ describe("#105 local install/run verification docs", () => {
   });
 
   it("documents and creates a Windows Desktop runner for later local launches", () => {
-    expect(readme).toContain("설치 경로, 다시 실행 명령, 바탕화면 실행파일 여부");
+    expect(readme).toContain("설치 경로, 다시 실행 명령, 바탕화면 바로가기 여부");
     expect(readme).toContain("PowerShell을 **관리자 권한으로 실행**");
     expect(readme).toContain("관리자 PowerShell로 자동 재실행");
-    expect(readme).toContain("실제 표시되는 바탕화면 후보들에 `solo_superman.cmd` 실행파일");
+    expect(readme).toContain("바탕화면에 `solo_superman` 바로가기 하나만");
+    expect(readme).toContain("중복 바탕화면 `solo_superman.cmd`/`solo_superman.lnk`는 정리");
     expect(readme).toContain("이미 설치된 경우에도");
     expect(readme).toContain("Enter를 눌러 닫게 합니다");
     expect(readme).toContain("macOS 설치 프로그램은 바탕화면 실행파일을 만들지 않고");
-    expect(englishReadme).toContain("install path, rerun command, and Desktop runner status");
+    expect(englishReadme).toContain("install path, rerun command, and Desktop shortcut status");
     expect(englishReadme).toContain("Run PowerShell **as Administrator**");
     expect(englishReadme).toContain("relaunches itself in an administrator PowerShell");
-    expect(englishReadme).toContain("checks or recreates `solo_superman.cmd` plus a `solo_superman` shortcut");
+    expect(englishReadme).toContain("keeps only one visible `solo_superman` Desktop shortcut");
+    expect(englishReadme).toContain("duplicate Desktop `solo_superman.cmd`/`solo_superman.lnk`");
     expect(englishReadme).toContain("waits for Enter before closing");
-    expect(runbook).toContain("바탕화면 실행파일 `solo_superman.cmd`와 `solo_superman.lnk`");
-    expect(runbook).toContain("localized, public, OneDrive-redirected Desktop folders");
+    expect(runbook).toContain("바탕화면에 Solo Superman 바로가기 `solo_superman.lnk` 하나만");
+    expect(runbook).toContain("중복 `solo_superman.cmd`/`solo_superman.lnk`는 정리");
     expect(runbook).toContain("Enter를 누를 때까지 닫히지 않습니다");
     expect(runbook).toContain("UAC prompt를 여는지");
     expect(runbook).toContain("C:\\Program Files\\nodejs");
@@ -221,6 +223,7 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain("-EncodedCommand");
     expect(windowsBootstrap).toContain("Restart-AsAdministrator");
     expect(windowsBootstrap).toContain("function Get-DesktopPaths");
+    expect(windowsBootstrap).toContain("function Remove-LegacyDesktopRunners");
     expect(windowsBootstrap).toContain("function New-DesktopRunner($TargetPath)");
     expect(windowsBootstrap).toContain("function Write-InstallSummary($TargetPath, $DesktopRunnerPaths)");
     expect(windowsBootstrap).toContain("function Wait-ForUserBeforeExit($Reason)");
@@ -231,8 +234,11 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain("바탕 화면");
     expect(windowsBootstrap).toContain('Join-Path $env:PUBLIC "Desktop"');
     expect(windowsBootstrap).toContain('[Environment+SpecialFolder]::DesktopDirectory');
-    expect(windowsBootstrap).toContain('Join-Path $desktop "solo_superman.cmd"');
+    expect(windowsBootstrap).toContain('Join-Path $TargetPath "solo_superman.cmd"');
     expect(windowsBootstrap).toContain('Join-Path $desktop "solo_superman.lnk"');
+    expect(windowsBootstrap).toContain("Remove-Item -LiteralPath $legacyPath");
+    expect(windowsBootstrap).toContain('$shortcut.TargetPath = $wrapperPath');
+    expect(windowsBootstrap).not.toContain('Join-Path $desktop "solo_superman.cmd"');
     expect(windowsBootstrap).toContain('"call pnpm.cmd start:local"');
     expect(windowsBootstrap).toContain('Set-Location `"$TargetPath`"; pnpm.cmd start:local');
     expect(windowsBootstrap).toContain("Solo Superman failed to start. Exit code: %SOLO_EXIT%");
@@ -266,7 +272,8 @@ describe("#105 local install/run verification docs", () => {
       "Antivirus/network prompt",
       "Administrator permission denied",
       "operation not permitted",
-      "C:\\Users\\Public\\Desktop\\solo_superman.cmd",
+      "Windows prerequisite/WSL setup is denied",
+      "바탕화면에 Solo Superman 바로가기",
       "Codex WSL setup incomplete",
       "WSL install script quoting",
       "line 8: syntax error: unexpected end of file from 'if' command on line 6",
