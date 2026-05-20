@@ -86,16 +86,26 @@ function Invoke-Checked($FilePath, [string[]]$Arguments) {
   $commandLine = "$FilePath $($Arguments -join ' ')"
   Write-DiagnosticLog "COMMAND START: $commandLine"
   Write-DiagnosticLog "COMMAND CWD: $(Get-Location)"
-  & $FilePath @Arguments 2>&1 | ForEach-Object {
-    $line = [string]$_
-    if ($line.Length -gt 0) {
-      $outputLines.Add($line)
-      Write-DiagnosticLog "COMMAND OUTPUT: $line"
+  $exitCode = $null
+  $nativeErrorActionPreference = $ErrorActionPreference
+  try {
+    # Native tools often write progress to stderr; keep that from becoming
+    # a terminating NativeCommandError while we still check the real exit code.
+    $ErrorActionPreference = "Continue"
+    & $FilePath @Arguments 2>&1 | ForEach-Object {
+      $line = [string]$_
+      if ($line.Length -gt 0) {
+        $outputLines.Add($line)
+        Write-DiagnosticLog "COMMAND OUTPUT: $line"
+      }
+      Write-Host $line
     }
-    Write-Host $line
+
+    $exitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $nativeErrorActionPreference
   }
 
-  $exitCode = $LASTEXITCODE
   Write-DiagnosticLog "COMMAND EXIT: $commandLine :: $exitCode"
   if ($exitCode -ne 0) {
     $message = "$FilePath $($Arguments -join ' ') failed with exit $exitCode"
