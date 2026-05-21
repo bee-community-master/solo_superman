@@ -1,11 +1,11 @@
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { AUTO_IMPLEMENTATION_RUN_READY_FIXTURE } from "@solo-superman/contracts";
 import {
   AutoImplementationRunPanel,
   autoImplementationRunViewModel
 } from "./AutoImplementationRunPanel";
+import { renderEnglishMarkup } from "./test-rendering";
 
 describe("AutoImplementationRunPanel view model", () => {
   it("shows workspace, five-minute stages, markdown issues, and remote guide", () => {
@@ -33,7 +33,7 @@ describe("AutoImplementationRunPanel view model", () => {
 
   it("renders the remote warning and local issue documents", () => {
     const view = autoImplementationRunViewModel(AUTO_IMPLEMENTATION_RUN_READY_FIXTURE);
-    const markup = renderToStaticMarkup(
+    const markup = renderEnglishMarkup(
       createElement(AutoImplementationRunPanel, {
         run: view,
         isBusy: false,
