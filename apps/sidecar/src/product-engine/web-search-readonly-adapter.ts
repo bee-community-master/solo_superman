@@ -266,7 +266,7 @@ function normalizedHostname(rawHostname: string) {
   return rawHostname.replace(/^\[/u, "").replace(/\]$/u, "").replace(/\.$/u, "").toLowerCase();
 }
 
-function isPrivateIpv4(hostname: string) {
+function isNonPublicIpv4Address(hostname: string) {
   const parts = hostname.split(".").map((part) => Number.parseInt(part, 10));
 
   if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
@@ -288,13 +288,59 @@ function isPrivateIpv4(hostname: string) {
   );
 }
 
-function isPrivateIpv6(hostname: string) {
+function ipv4AddressFromMappedIpv6(hostname: string) {
+  if (!hostname.startsWith("::ffff:")) {
+    return null;
+  }
+
+  const suffix = hostname.slice("::ffff:".length);
+
+  if (isIP(suffix) === 4) {
+    return suffix;
+  }
+
+  const hextets = suffix.split(":");
+
+  if (hextets.length !== 2 || hextets.some((hextet) => !/^[\da-f]{1,4}$/iu.test(hextet))) {
+    return null;
+  }
+
+  const [high = Number.NaN, low = Number.NaN] = hextets.map((hextet) => Number.parseInt(hextet, 16));
+
+  if (!Number.isInteger(high) || !Number.isInteger(low)) {
+    return null;
+  }
+
+  return `${Math.floor(high / 256)}.${high % 256}.${Math.floor(low / 256)}.${low % 256}`;
+}
+
+function firstIpv6Hextet(hostname: string) {
+  const [first] = hostname.split(":");
+
+  if (!first || !/^[\da-f]{1,4}$/iu.test(first)) {
+    return null;
+  }
+
+  return Number.parseInt(first, 16);
+}
+
+function isNonPublicIpv6Address(hostname: string) {
+  const mappedIpv4 = ipv4AddressFromMappedIpv6(hostname);
+  const first = firstIpv6Hextet(hostname);
+  const isLinkLocal = first !== null && first >= 0xfe80 && first <= 0xfebf;
+  const isUniqueLocal = first !== null && first >= 0xfc00 && first <= 0xfdff;
+  const isMulticast = first !== null && first >= 0xff00 && first <= 0xffff;
+  const isDiscardOnly = first === 0x0100;
+
   return (
+    Boolean(mappedIpv4 && isNonPublicIpv4Address(mappedIpv4)) ||
     hostname === "::" ||
     hostname === "::1" ||
-    hostname.startsWith("fe80:") ||
-    hostname.startsWith("fc") ||
-    hostname.startsWith("fd")
+    hostname.startsWith("2001:db8:") ||
+    isLinkLocal ||
+    isUniqueLocal ||
+    isMulticast ||
+    isDiscardOnly
   );
 }
 
@@ -303,11 +349,11 @@ function isPublicIpAddress(value: string) {
   const ipVersion = isIP(hostname);
 
   if (ipVersion === 4) {
-    return !isPrivateIpv4(hostname);
+    return !isNonPublicIpv4Address(hostname);
   }
 
   if (ipVersion === 6) {
-    return !isPrivateIpv6(hostname);
+    return !isNonPublicIpv6Address(hostname);
   }
 
   return false;

@@ -192,6 +192,24 @@ describe("web_search_readonly background research adapter", () => {
           url: "http://192.168.0.10/internal",
           snippet: "This should not be reachable through public web research.",
           retrievedAt: input.now()
+        },
+        {
+          title: "IPv4-mapped loopback service",
+          url: "http://[::ffff:127.0.0.1]/private",
+          snippet: "IPv4-mapped loopback must stay outside public web research.",
+          retrievedAt: input.now()
+        },
+        {
+          title: "Documentation IPv6 service",
+          url: "http://[2001:db8::1]/internal",
+          snippet: "Documentation-only IPv6 ranges are not public fetch targets.",
+          retrievedAt: input.now()
+        },
+        {
+          title: "Multicast IPv6 service",
+          url: "http://[ff02::1]/internal",
+          snippet: "Multicast IPv6 ranges are not public fetch targets.",
+          retrievedAt: input.now()
         }
       ]
     });
