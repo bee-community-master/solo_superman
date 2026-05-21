@@ -297,7 +297,20 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(state.openIssues[0]?.questionText).toContain("Help solo founders turn a rough idea");
     expect(state.openIssues[0]?.questionText).not.toContain("primary customer");
     expect(state.openIssues.map((issue) => issue.questionText).join("\n")).not.toMatch(/가장 먼저 검증할 가장|첫 첫/gu);
+    const visibleAnswerOptionCopy = state.openIssues
+      .flatMap((issue) => issue.answerOptions ?? [])
+      .map((option) => [option.label, option.value, option.pro, option.con].join(" "))
+      .join("\n");
+    expect(visibleAnswerOptionCopy).not.toMatch(
+      /\b(primary customer|Build Slice|MVP|workflow|GUI|CLI|planning-ready|tradeoff|proxy|scope creep|customer lock-in|paid intent|research_needed|high-impact gate|Spec section|completion gate|concierge|owner\/date|confidence|pivot|daemon)\b/iu
+    );
     expect(state.queueProjection.active).toHaveLength(5);
+    const visibleActiveQueueCopy = state.queueProjection.active
+      .map((item) => [item.title, item.whyItMatters, item.decisionItUnlocks, item.nextValidationAction].filter(Boolean).join(" "))
+      .join("\n");
+    expect(visibleActiveQueueCopy).not.toMatch(
+      /\b(primary customer|Build Slice|MVP|workflow|GUI|CLI|planning-ready|tradeoff|proxy|scope creep|customer lock-in|paid intent|research_needed|high-impact gate|Spec section|completion gate|concierge|owner\/date|confidence|pivot|daemon|Known Risk|Next Validation Action|legal\/ops\/security|price proxy|willingness-to-pay)\b/iu
+    );
     const activeIssueIds = new Set(state.queueProjection.active.map((item) => item.queueItemId));
     const activeIssues = state.openIssues.filter((issue) => activeIssueIds.has(issue.queueItemId));
     expect(activeIssues.every((issue) => issue.severity === "high")).toBe(true);

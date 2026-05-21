@@ -272,8 +272,8 @@ describe("sidecar client commands", () => {
     });
 
     await client.activateQuestionBatch("sess_test" as SessionId, 5 as StateVersion, [
-      "queue_item_2",
-      "queue_item_3"
+      "queue_item_2" as QueueItemId,
+      "queue_item_3" as QueueItemId
     ]);
 
     const [url, init] = seenRequests[0]!;

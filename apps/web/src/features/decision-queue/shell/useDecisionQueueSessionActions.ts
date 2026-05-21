@@ -82,6 +82,18 @@ interface DecisionQueueSessionActionsProps {
   readonly onInitialQueueCreated?: () => void;
 }
 
+const NEXT_QUESTION_BATCH_LIMIT = 5;
+
+export function nextQuestionBatchIdsForActivation(queue: DecisionQueueProjection | null | undefined) {
+  const queueItemIds =
+    queue?.next
+      .filter((item) => item.cardType === undefined || item.cardType === "question")
+      .slice(0, NEXT_QUESTION_BATCH_LIMIT)
+      .map((item) => item.queueItemId) ?? [];
+
+  return queueItemIds.length ? queueItemIds : undefined;
+}
+
 export function useDecisionQueueSessionActions({
   answerDrafts,
   appendCommand,
@@ -451,7 +463,8 @@ export function useDecisionQueueSessionActions({
         "Load next questions",
         await client.activateQuestionBatch(
           projections.session.sessionId,
-          latestProjectionVersion(projections)
+          latestProjectionVersion(projections),
+          nextQuestionBatchIdsForActivation(projections.queue)
         )
       );
       const queue = requiredCommandProjection<DecisionQueueProjection>(response, "DecisionQueueProjection");

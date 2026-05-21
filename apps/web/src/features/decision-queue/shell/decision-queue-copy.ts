@@ -1,4 +1,9 @@
-import type { BusinessCriticIntensity, ProjectPurposeMode } from "@solo-superman/contracts";
+import type {
+  BusinessCriticalQuestionCategory,
+  BusinessCriticIntensity,
+  BusinessCriticPressureKind,
+  ProjectPurposeMode
+} from "@solo-superman/contracts";
 import { useAppLanguage } from "../../../shared/i18n/app-language";
 import type { DecisionQueuePageId } from "./decision-queue-shell-model";
 
@@ -154,6 +159,23 @@ const EN_COPY = {
     queue: "Queue",
     refreshQuestionList: "Refresh question list",
     loadNextQuestions: "Load next questions",
+    businessCriticCategoryLabels: {
+      customer_pain: "Customer pain",
+      paid_intent: "Willingness to pay",
+      alternatives: "Alternatives",
+      pricing: "Pricing",
+      acquisition: "Finding users",
+      mvp_validation: "First-version validation",
+      legal_ops_security: "Legal, operations, and security",
+      retention_proxy: "Repeat-use signal",
+      market_timing: "Market timing",
+      founder_advantage: "Founder/team advantage"
+    } satisfies Record<BusinessCriticalQuestionCategory, string>,
+    businessCriticPressureKindLabels: {
+      balanced_con: "Balanced challenge",
+      core_assumption_challenge: "Core assumption check",
+      investor_pressure_pass: "Investor-style stress test"
+    } satisfies Record<BusinessCriticPressureKind, string>,
     nextValidation: "Next validation",
     suggestedAnswers: "Suggested answer choices",
     optionPro: "Pro",
@@ -520,6 +542,23 @@ const JA_COPY: typeof EN_COPY = {
     queue: "キュー",
     refreshQuestionList: "質問リストを更新",
     loadNextQuestions: "次の質問を読み込む",
+    businessCriticCategoryLabels: {
+      customer_pain: "顧客の痛み",
+      paid_intent: "支払い意向",
+      alternatives: "代替手段",
+      pricing: "価格",
+      acquisition: "ユーザー獲得",
+      mvp_validation: "初期版の検証",
+      legal_ops_security: "法務・運用・セキュリティ",
+      retention_proxy: "継続利用の兆し",
+      market_timing: "市場タイミング",
+      founder_advantage: "作り手・チームの強み"
+    },
+    businessCriticPressureKindLabels: {
+      balanced_con: "バランス型の問い直し",
+      core_assumption_challenge: "核心仮説の確認",
+      investor_pressure_pass: "投資審査目線の検証"
+    },
     nextValidation: "次の検証",
     suggestedAnswers: "回答候補",
     optionPro: "長所",
@@ -886,6 +925,23 @@ const KO_COPY: typeof EN_COPY = {
     queue: "큐",
     refreshQuestionList: "질문 목록 새로고침",
     loadNextQuestions: "다음 질문 불러오기",
+    businessCriticCategoryLabels: {
+      customer_pain: "고객 문제",
+      paid_intent: "유료 의향",
+      alternatives: "대안/경쟁",
+      pricing: "가격",
+      acquisition: "고객 유입",
+      mvp_validation: "첫 버전 검증",
+      legal_ops_security: "법무·운영·보안",
+      retention_proxy: "반복 사용 신호",
+      market_timing: "시장 타이밍",
+      founder_advantage: "만드는 사람/팀 강점"
+    },
+    businessCriticPressureKindLabels: {
+      balanced_con: "균형형 반대 질문",
+      core_assumption_challenge: "핵심 가설 점검",
+      investor_pressure_pass: "투자심사식 검증"
+    },
     nextValidation: "다음 검증",
     suggestedAnswers: "추천 답변 선택지",
     optionPro: "찬성",

@@ -32,6 +32,7 @@ import type {
   PrepareResearchDisclosureRequest,
   PrepareFounderBriefRequest,
   ProjectId,
+  QueueItemId,
   RecordImplementationStepLedgerRequest,
   CancelResearchRunRequest,
   ResearchAllowlistGovernanceProjection,
@@ -245,7 +246,7 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
       });
     },
 
-    activateQuestionBatch(sessionId: SessionId, expectedStateVersion: StateVersion, queueItemIds?: readonly string[]) {
+    activateQuestionBatch(sessionId: SessionId, expectedStateVersion: StateVersion, queueItemIds?: readonly QueueItemId[]) {
       return postCommand<DecisionQueueProjection>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/queue/activate`, {
         expectedStateVersion,
         ...(queueItemIds ? { queueItemIds } : {})

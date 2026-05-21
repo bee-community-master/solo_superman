@@ -1,10 +1,27 @@
 import { useState } from "react";
+import type { QueueItemProjection } from "@solo-superman/contracts";
 import { isBusinessCriticQueueItem } from "./decision-queue-shell-model";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface QuestionsViewProps {
   readonly controller: DecisionQueueShellController;
+}
+
+type DecisionQueueCopy = ReturnType<typeof useDecisionQueueCopy>;
+
+function businessCriticSummary(copy: DecisionQueueCopy, item: QueueItemProjection) {
+  return [
+    item.businessCriticCategory ? copy.questions.businessCriticCategoryLabels[item.businessCriticCategory] : undefined,
+    item.businessCriticPressureKind
+      ? copy.questions.businessCriticPressureKindLabels[item.businessCriticPressureKind]
+      : undefined,
+    item.businessCriticIntensity
+      ? copy.businessCriticIntensityOptions.find((option) => option.intensity === item.businessCriticIntensity)?.label
+      : undefined
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export function QuestionsView({ controller }: QuestionsViewProps) {
@@ -66,9 +83,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                         <h4>{item.title}</h4>
                         {isBusinessCriticQueueItem(item) ? (
                           <p className="mode-summary">
-                            {[item.businessCriticCategory, item.businessCriticPressureKind, item.businessCriticIntensity]
-                              .filter(Boolean)
-                              .join(" · ")}
+                            {businessCriticSummary(copy, item)}
                           </p>
                         ) : null}
                         {item.nextValidationAction ? (

@@ -201,7 +201,11 @@ import {
   reduceRevokeChatGptBrowserDelegationRun
 } from "./chatgpt-browser-delegation";
 import { sha256Hex } from "./deterministic-hash";
-import { answerOptionsForQuestion, answerOptionsForSeed } from "./answer-options";
+import {
+  answerOptionsForQuestion,
+  answerOptionsForSeed,
+  plainUserFacingDecisionQueueText
+} from "./answer-options";
 import {
   acceptedReduction,
   eventDraft,
@@ -746,25 +750,6 @@ interface OnboardingQuestionContext {
 
 const QUESTION_CONTEXT_MAX_CHARS = 72;
 
-const USER_FACING_QUESTION_TERM_REPLACEMENTS: readonly (readonly [RegExp, string])[] = [
-  [/가장\s+먼저\s+검증할\s+primary customer/giu, "가장 먼저 검증할 고객/사용자"],
-  [/첫\s+Build Slice/giu, "첫 구현 범위"],
-  [/\bprimary customer\b/giu, "핵심 고객/사용자"],
-  [/\bMVP\b/gu, "첫 버전"],
-  [/\bBuild Slice\b/giu, "구현 범위"],
-  [/\bretention proxy\b/giu, "반복해서 쓸 만하다는 신호"],
-  [/\bfounder\/team\b/giu, "만드는 사람/팀"],
-  [/\bfounder\b/giu, "만드는 사람"],
-  [/\bworkflow\b/giu, "일 처리 흐름"],
-  [/\bGUI\b/gu, "화면 UI"],
-  [/\bCLI\b/gu, "명령어 방식"],
-  [/\blocal data\b/giu, "내 컴퓨터의 데이터"],
-  [/\bsecret\b/giu, "비밀값/토큰"],
-  [/\bscope\b/giu, "범위"],
-  [/\breadiness\b/giu, "준비 상태"],
-  [/\bdecision\b/giu, "결정"]
-];
-
 function compactOnboardingContextText(value: string | undefined) {
   const compacted = value?.replace(/\s+/gu, " ").trim();
 
@@ -787,15 +772,8 @@ function onboardingQuestionContextFromState(state: ProductEngineStateSnapshot): 
   };
 }
 
-function plainUserFacingQuestionText(question: string) {
-  return USER_FACING_QUESTION_TERM_REPLACEMENTS.reduce(
-    (text, [pattern, replacement]) => text.replace(pattern, replacement),
-    question
-  );
-}
-
 function contextualQuestionText(seed: AmbiguityIssueSeed, context: OnboardingQuestionContext) {
-  const question = plainUserFacingQuestionText(seed.question);
+  const question = plainUserFacingDecisionQueueText(seed.question);
 
   if (context.idea && context.goal) {
     return `아이디어 “${context.idea}”와 목표 “${context.goal}”에 맞춰, ${question}`;
@@ -817,7 +795,7 @@ function contextualSuggestedResearchTask(seed: AmbiguityIssueSeed, context: Onbo
     return undefined;
   }
 
-  const task = plainUserFacingQuestionText(seed.suggestedResearchTask);
+  const task = plainUserFacingDecisionQueueText(seed.suggestedResearchTask);
 
   if (context.idea && context.goal) {
     return `아이디어 “${context.idea}”와 목표 “${context.goal}” 기준으로 ${task}`;
@@ -1517,7 +1495,7 @@ function queueItemProjectionFromIssue(
 
   return {
     queueItemId: issue.queueItemId,
-    title: issue.questionText ?? issue.summary,
+    title: plainUserFacingDecisionQueueText(issue.questionText ?? issue.summary),
     state,
     cardType: "question",
     ...(issue.sectionRef ? { sectionRef: issue.sectionRef } : {}),
@@ -1530,10 +1508,14 @@ function queueItemProjectionFromIssue(
       : {}),
     ...(issue.businessCriticPressureKind ? { businessCriticPressureKind: issue.businessCriticPressureKind } : {}),
     ...(issue.knownRiskAccepted ? { knownRiskAccepted: issue.knownRiskAccepted } : {}),
-    ...(issue.nextValidationAction ? { nextValidationAction: issue.nextValidationAction } : {}),
+    ...(issue.nextValidationAction
+      ? { nextValidationAction: plainUserFacingDecisionQueueText(issue.nextValidationAction) }
+      : {}),
     ...(issue.severity ? { severity: issue.severity } : {}),
-    ...(issue.whyItMatters ? { whyItMatters: issue.whyItMatters } : {}),
-    ...(issue.decisionItUnlocks ? { decisionItUnlocks: issue.decisionItUnlocks } : {}),
+    ...(issue.whyItMatters ? { whyItMatters: plainUserFacingDecisionQueueText(issue.whyItMatters) } : {}),
+    ...(issue.decisionItUnlocks
+      ? { decisionItUnlocks: plainUserFacingDecisionQueueText(issue.decisionItUnlocks) }
+      : {}),
     ...(issue.expectedAnswerType ? { expectedAnswerType: issue.expectedAnswerType } : {}),
     ...(answerOptions ? { answerOptions } : {}),
     ...(issue.possibleRoutes ? { possibleRoutes: issue.possibleRoutes } : {})

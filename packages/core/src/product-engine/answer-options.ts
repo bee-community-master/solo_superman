@@ -9,6 +9,67 @@ export type AnswerOptionSeed = {
   readonly answerOptions?: readonly AmbiguityAnswerOption[];
 };
 
+const USER_FACING_DECISION_QUEUE_TERM_REPLACEMENTS: readonly (readonly [RegExp, string])[] = [
+  [/가장\s+먼저\s+검증할\s+primary customer/giu, "가장 먼저 검증할 고객/사용자"],
+  [/첫\s+Build Slice/giu, "첫 구현 범위"],
+  [/\bprimary customer\b/giu, "핵심 고객/사용자"],
+  [/\bBuild Slice\b/giu, "구현 범위"],
+  [/\bMVP\b/gu, "첫 버전"],
+  [/\bretention proxy\b/giu, "반복해서 쓸 만하다는 신호"],
+  [/\bfounder\/team\b/giu, "만드는 사람/팀"],
+  [/\bfounder\b/giu, "만드는 사람"],
+  [/\bcustomer lock-in\b/giu, "고객을 성급하게 확정하는 일"],
+  [/\bwillingness-to-pay\b/giu, "돈을 낼 의향"],
+  [/\bpaid intent decision\b/giu, "유료 의향 결정"],
+  [/\bpaid intent\b/giu, "유료 의향"],
+  [/\bDecision Queue burn-down\b/gu, "질문 목록 처리"],
+  [/\bNext Validation Action\b/gu, "다음 검증 작업"],
+  [/\bvalidation action\b/giu, "검증 작업"],
+  [/\bKnown Risk\b/gu, "알려진 리스크"],
+  [/\blegal\/ops\/security\b/giu, "법무/운영/보안"],
+  [/\bprice proxy\b/giu, "가격을 대신 확인할 방법"],
+  [/\bscope creep\b/giu, "범위가 계속 커지는 문제"],
+  [/\bresearch_needed\b/giu, "리서치 필요"],
+  [/\bhigh-impact gate\b/giu, "중요 검증 기준"],
+  [/\bplanning-ready\b/giu, "계획 준비 완료"],
+  [/\bSpec section\b/giu, "스펙 항목"],
+  [/\bcompletion gate\b/giu, "완성 기준"],
+  [/\btradeoff\b/giu, "장단점"],
+  [/\bpro\/con\b/giu, "찬반"],
+  [/\bproxy\b/giu, "대체 지표"],
+  [/\bconcierge\b/giu, "수동 지원"],
+  [/\bowner\/date\b/giu, "담당자/날짜"],
+  [/\bconfidence\b/giu, "확신도"],
+  [/\bpivot\b/giu, "방향 전환"],
+  [/\bworkflow\b/giu, "일 처리 흐름"],
+  [/\bflow\b/giu, "흐름"],
+  [/\bGUI\b/gu, "화면 UI"],
+  [/\bCLI\b/gu, "명령어 방식"],
+  [/\bdaemon\b/giu, "상시 실행 프로그램"],
+  [/\blocal data\b/giu, "내 컴퓨터의 데이터"],
+  [/\bsecret\b/giu, "비밀값/토큰"],
+  [/\bscope\b/giu, "범위"],
+  [/\breadiness\b/giu, "준비 상태"],
+  [/\bdecision\b/giu, "결정"]
+];
+
+export function plainUserFacingDecisionQueueText(text: string) {
+  return USER_FACING_DECISION_QUEUE_TERM_REPLACEMENTS.reduce(
+    (current, [pattern, replacement]) => current.replace(pattern, replacement),
+    text
+  );
+}
+
+function plainUserFacingAnswerOption(option: AmbiguityAnswerOption): AmbiguityAnswerOption {
+  return {
+    ...option,
+    label: plainUserFacingDecisionQueueText(option.label),
+    value: plainUserFacingDecisionQueueText(option.value),
+    pro: plainUserFacingDecisionQueueText(option.pro),
+    con: plainUserFacingDecisionQueueText(option.con)
+  };
+}
+
 function answerOption(
   id: string,
   label: string,
@@ -16,7 +77,13 @@ function answerOption(
   pro: string,
   con: string
 ): AmbiguityAnswerOption {
-  return { id, label, value, pro, con };
+  return plainUserFacingAnswerOption({
+    id,
+    label,
+    value,
+    pro,
+    con
+  });
 }
 
 const GENERIC_ANSWER_OPTIONS_BY_TYPE = {
@@ -300,5 +367,5 @@ export function answerOptionsForQuestion(
 }
 
 export function answerOptionsForSeed(seed: AnswerOptionSeed) {
-  return seed.answerOptions ?? answerOptionsForQuestion(seed.topicKey, seed.expectedAnswerType);
+  return seed.answerOptions?.map(plainUserFacingAnswerOption) ?? answerOptionsForQuestion(seed.topicKey, seed.expectedAnswerType);
 }

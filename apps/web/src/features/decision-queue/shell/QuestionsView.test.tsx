@@ -142,6 +142,10 @@ describe("QuestionsView", () => {
     expect(markup).toContain("<details");
     expect(markup).toContain("Add comment or risk");
     expect(markup).toContain("Keep as a known risk");
+    expect(markup).toContain("Legal, operations, and security");
+    expect(markup).toContain("Core assumption check");
+    expect(markup).not.toContain("legal_ops_security");
+    expect(markup).not.toContain("core_assumption_challenge");
   });
 
 
