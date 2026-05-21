@@ -22,7 +22,7 @@ import {
 } from "../../../shared/api/command-response-helpers";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
-import { WEB_PUBLIC_SEARCH_CONNECTOR_ID } from "../phase15a-research-run-request";
+import { webPublicResearchAllowlistPolicy } from "../phase15a-research-run-request";
 import {
   BUSINESS_CRITIC_INTENSITY_OPTIONS,
   INITIAL_QUEUE_START_BLOCKER_MESSAGES,
@@ -137,9 +137,7 @@ export function useDecisionQueueSessionActions({
         "Enable onboarding research sources",
         await activeClient.createResearchAllowlist(projectId, {
           allowlistId: WEB_PUBLIC_SAFE_ALLOWLIST_ID,
-          connectorIds: [WEB_PUBLIC_SEARCH_CONNECTOR_ID],
-          sourceCategories: ["public_web"],
-          approvedBy: "web_onboarding_founder"
+          ...webPublicResearchAllowlistPolicy("web_onboarding_founder")
         })
       );
       const allowlists = requiredCommandProjection<ResearchAllowlistGovernanceProjection>(

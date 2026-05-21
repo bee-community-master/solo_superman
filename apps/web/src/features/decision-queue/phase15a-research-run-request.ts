@@ -1,4 +1,5 @@
 import type {
+  CreateResearchAllowlistRequest,
   ResearchAllowlistGovernanceProjection,
   ResearchConnectorId,
   ResearchEvidenceProjection
@@ -6,6 +7,18 @@ import type {
 import type { StartResearchRunInput } from "../../shared/api/sidecar-client";
 
 export const WEB_PUBLIC_SEARCH_CONNECTOR_ID = "public_search" as ResearchConnectorId;
+
+type WebPublicResearchAllowlistPolicy = Required<
+  Pick<CreateResearchAllowlistRequest, "approvedBy" | "connectorIds" | "sourceCategories">
+>;
+
+export function webPublicResearchAllowlistPolicy(approvedBy: string): WebPublicResearchAllowlistPolicy {
+  return {
+    connectorIds: [WEB_PUBLIC_SEARCH_CONNECTOR_ID],
+    sourceCategories: ["public_web"],
+    approvedBy
+  };
+}
 
 type ResearchTaskProjection = ResearchEvidenceProjection["tasks"][number];
 type ResearchAllowlistProjection = ResearchAllowlistGovernanceProjection["allowlists"][number];
