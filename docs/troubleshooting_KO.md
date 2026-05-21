@@ -81,6 +81,9 @@ pnpm verify
 Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 Node/Corepack command shim이 실행되도록 `pnpm.cmd verify:prod-bundle`과 `pnpm.cmd verify`를 사용합니다.
 
 Production bundle smoke는 `build_auto_local_smoke`, browser readiness, managed child processes stopped, temporary app data removed, auto shutdown/kill evidence를 포함해야 합니다.
+`pnpm verify:prod-bundle`은 managed sidecar/web child process를 시작하기 전에 fixed smoke port를 먼저 확인합니다. `127.0.0.1:43110` 또는 설정된 web preview port가 이미 사용 중이면 기존 local process를 중지하거나 `SOLO_PROD_SMOKE_SIDECAR_PORT=<free-port>` / `SOLO_PROD_SMOKE_WEB_PORT=<free-port>`로 다시 실행합니다.
+
+Live Codex app-server preview turn은 기본 비활성입니다. Maintainer는 `codex login status`가 local Codex CLI 인증 상태를 보고한 뒤 `SOLO_CODEX_APP_SERVER_LIVE_TURNS=1`로 opt-in할 수 있습니다. App은 이 경우에도 API key, cookie, ChatGPT web credential을 요청하거나 저장하지 않습니다.
 
 ## 로컬 토큰과 sidecar URL
 
@@ -129,7 +132,7 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 
 | Case | Symptom | Safe response |
 | --- | --- | --- |
-| Port conflict | Browser 또는 sidecar port가 이미 사용 중입니다. | free alternate port를 선택합니다. unknown process를 kill하지 않습니다. |
+| Port conflict | Browser 또는 sidecar port가 이미 사용 중입니다. | free alternate port를 선택합니다. unknown process를 kill하지 않습니다. `pnpm verify:prod-bundle`에서는 충돌 process를 확인하거나 중지한 뒤 `SOLO_PROD_SMOKE_SIDECAR_PORT=<free-port>` 또는 `SOLO_PROD_SMOKE_WEB_PORT=<free-port>`를 사용합니다. |
 | Token mismatch | API returns `401`. | frontend와 sidecar가 같은 token을 받도록 `pnpm start:local`을 다시 실행합니다. |
 | CORS/origin | Browser request is blocked. | loopback URL과 local sidecar base URL을 확인합니다. |
 | Garbled Korean or UTF-8 output | Windows PowerShell에서 README 한 줄 명령을 실행했을 때 한글 출력이나 다운로드된 script text가 깨져 보입니다. | README의 짧은 `scripts/win.ps1` launcher 명령을 사용합니다. Launcher가 `[Console]::OutputEncoding`, `$OutputEncoding`, `chcp.com 65001`, TLS 1.2, UTF-8 download decoding, BOM 제거를 먼저 수행한 뒤 bootstrap을 실행합니다. |

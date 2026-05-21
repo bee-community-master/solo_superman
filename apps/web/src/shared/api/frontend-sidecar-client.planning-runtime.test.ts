@@ -404,7 +404,9 @@ describe("sidecar client planning-runtime", () => {
               generatedSchemaVersion: "codex-cli-0.128.0",
               transport: "stdio",
               checkedAt: "2026-05-05T00:00:00.000Z",
-              manualHandoffAvailable: true
+              manualHandoffAvailable: true,
+              liveTurnExecutionEnabled: false,
+              executionMode: "manual_handoff"
             },
             meta: {
               requestId: "req_runtime_status",

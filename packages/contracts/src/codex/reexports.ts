@@ -49,6 +49,7 @@ export type CodexApplyPolicy = (typeof CODEX_APPLY_POLICIES)[number];
 export type BlockedActionType = (typeof BLOCKED_ACTION_TYPES)[number];
 export type CodexRuntimeSource = "codex_app_server" | "manual_prompt_handoff" | "protocol_fixture";
 export type CodexRuntimeStatus = "available" | "unavailable" | "blocked";
+export type CodexRuntimeExecutionMode = "fixture" | "live" | "manual_handoff";
 export type RuntimePreviewStatus = "preview_ready" | "manual_handoff" | "blocked";
 export type CodexAccountAuthStatus = "authenticated" | "missing" | "unknown" | "blocked";
 export type CodexAccountType = "apiKey" | "chatgpt" | "amazonBedrock";
@@ -79,6 +80,8 @@ export interface CodexRuntimeStatusDto {
   readonly transport: typeof CODEX_RUNTIME_TRANSPORT;
   readonly checkedAt: string;
   readonly manualHandoffAvailable: boolean;
+  readonly liveTurnExecutionEnabled: boolean;
+  readonly executionMode: CodexRuntimeExecutionMode;
   readonly account: CodexRuntimeAccountDto;
   readonly reason?: string;
 }

@@ -168,7 +168,7 @@ Effect tasks preserve source command/event refs, correlation, retry counts, outp
 
 ## Effect and runtime types
 
-Phase 1 and later runtime previews use bounded Codex artifacts. Phase 3 execution authority is required before file/shell/browser actions become executable.
+Phase 1 and later runtime previews use bounded Codex artifacts. Phase 3 execution authority is required before file/shell/browser actions become executable. Live Codex app-server preview turns are opt-in with `SOLO_CODEX_APP_SERVER_LIVE_TURNS=1`, require local Codex CLI login, and still run preview-only turns with read-only/no-network runtime boundaries.
 
 ## Codex preview contract
 

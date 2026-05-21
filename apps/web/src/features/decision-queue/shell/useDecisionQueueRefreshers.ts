@@ -5,7 +5,7 @@ import type {
   ProjectId,
   SessionShellProjection
 } from "@solo-superman/contracts";
-import type { SidecarClient } from "../../../shared/api/sidecar-client";
+import { isFounderBriefNotReadyError, type SidecarClient } from "../../../shared/api/sidecar-client";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
 import { shouldRefetchQueueForSseNotification } from "../decision-queue-view-model";
 import type { ProjectionState } from "./decision-queue-shell-model";
@@ -15,6 +15,18 @@ interface DecisionQueueRefreshersProps {
   readonly setPhase15bReadiness: Dispatch<SetStateAction<Phase15bUpgradeHintProjection | null>>;
   readonly setProjections: Dispatch<SetStateAction<ProjectionState>>;
   readonly setResearchOperations: Dispatch<SetStateAction<ResearchOperationsState>>;
+}
+
+async function optionalFounderBrief(client: SidecarClient, sessionId: SessionShellProjection["sessionId"]) {
+  try {
+    return await client.getFounderBrief(sessionId);
+  } catch (error) {
+    if (isFounderBriefNotReadyError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export function useDecisionQueueRefreshers({
@@ -161,7 +173,7 @@ export function useDecisionQueueRefreshers({
         client.getResearch(sessionId),
         client.getActivity(sessionId),
         client.getCompleteness(sessionId),
-        client.getFounderBrief(sessionId).catch(() => null),
+        optionalFounderBrief(client, sessionId),
         client.getPlanningHandoff(sessionId),
         client.getChatGptBrowserDelegation(sessionId),
         client.getServicePageUsePermission(sessionId),

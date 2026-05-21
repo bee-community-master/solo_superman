@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertProdBundleSmokePortsAvailable,
   cleanupProdBundleSmoke,
   pnpmCommand,
   prodBundleSmokeLogPath,
@@ -128,6 +129,39 @@ describe("verify-prod-bundle smoke plan", () => {
     expect(() => prodBundleSmokeConfig({
       SOLO_PROD_SMOKE_SIDECAR_PORT: "0"
     })).toThrow("SOLO_PROD_SMOKE_SIDECAR_PORT must be a fixed local port");
+  });
+
+  it("reports sidecar smoke port conflicts as local environment diagnostics", async () => {
+    const config = prodBundleSmokeConfig({
+      SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token",
+      SOLO_PROD_SMOKE_SIDECAR_PORT: "43110",
+      SOLO_PROD_SMOKE_WEB_PORT: "4173"
+    });
+    const seen = [];
+
+    await expect(
+      assertProdBundleSmokePortsAvailable(config, {
+        listen: async (host, port) => {
+          seen.push(`${host}:${port}`);
+
+          return port === "43110"
+            ? { available: false, reason: `${host}:${port} is already in use` }
+            : { available: true };
+        }
+      })
+    ).rejects.toThrow("sidecar smoke port conflict");
+    await expect(
+      assertProdBundleSmokePortsAvailable(config, {
+        listen: async (host, port) => {
+          if (port === "43110") {
+            return { available: false, reason: `${host}:${port} is already in use` };
+          }
+
+          return { available: true };
+        }
+      })
+    ).rejects.toThrow("SOLO_PROD_SMOKE_SIDECAR_PORT=<free-port>");
+    expect(seen).toEqual(["127.0.0.1:43110"]);
   });
 
   it("uses unbracketed IPv6 loopback for process hosts and bracketed IPv6 in URLs", () => {

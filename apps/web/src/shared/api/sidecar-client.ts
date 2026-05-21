@@ -145,6 +145,27 @@ function logSidecarClientDiagnostic(level: "info" | "warn", event: string, detai
   console[level](`[solo-superman:sidecar-client:${event}]`, details);
 }
 
+function isFounderBriefProjectionPath(path: string) {
+  return /^\/api\/v1\/sessions\/[^/]+\/founder-brief$/u.test(path);
+}
+
+function sidecarResponseLogLevel(method: string, path: string, status: number): "info" | "warn" {
+  if (method === "GET" && status === 404 && isFounderBriefProjectionPath(path)) {
+    return "info";
+  }
+
+  return status >= 200 && status < 300 ? "info" : "warn";
+}
+
+export function isFounderBriefNotReadyError(error: unknown) {
+  return (
+    error instanceof SidecarClientError &&
+    error.httpStatus === 404 &&
+    error.apiError.code === "RESOURCE_NOT_FOUND" &&
+    /Founder Brief has not been prepared yet/u.test(error.apiError.message)
+  );
+}
+
 export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarClientOptions) {
   async function request<TData>(path: string, init: RequestInit = {}) {
     const method = init.method ?? "GET";
@@ -173,12 +194,13 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
       throw error;
     }
 
-    logSidecarClientDiagnostic(response.ok ? "info" : "warn", "response", {
+    logSidecarClientDiagnostic(sidecarResponseLogLevel(method, path, response.status), "response", {
       method,
       path,
       status: response.status,
       requestId: response.headers.get("x-request-id") ?? null,
-      elapsedMs: Math.round(nowMillis() - startedAt)
+      elapsedMs: Math.round(nowMillis() - startedAt),
+      expectedOptionalMiss: method === "GET" && response.status === 404 && isFounderBriefProjectionPath(path)
     });
 
     return unwrapEnvelope<TData>(response);
