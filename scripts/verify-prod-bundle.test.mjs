@@ -164,6 +164,21 @@ describe("verify-prod-bundle smoke plan", () => {
     expect(seen).toEqual(["127.0.0.1:43110"]);
   });
 
+  it("rejects sidecar and web smoke plans that would bind the same port", async () => {
+    const config = prodBundleSmokeConfig({
+      SOLO_PROD_SMOKE_SIDECAR_PORT: "43110",
+      SOLO_PROD_SMOKE_WEB_PORT: "43110"
+    });
+
+    await expect(
+      assertProdBundleSmokePortsAvailable(config, {
+        listen: async () => {
+          throw new Error("listen should not run for an internally conflicting plan");
+        }
+      })
+    ).rejects.toThrow("sidecar and web preview smoke ports conflict before startup");
+  });
+
   it("uses unbracketed IPv6 loopback for process hosts and bracketed IPv6 in URLs", () => {
     const config = prodBundleSmokeConfig({
       SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token",

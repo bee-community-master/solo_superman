@@ -723,8 +723,31 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         payload: {
           required: expect.arrayContaining(["blockedAction", "phase15bUpgradeHints"]),
           properties: {
+            blockedAction: {
+              properties: {
+                suggestedSafeAlternative: {
+                  type: "string"
+                }
+              }
+            },
             phase15bUpgradeHints: {
               properties: {
+                rollbackReference: {
+                  properties: {
+                    diffRef: {
+                      type: "string"
+                    }
+                  }
+                },
+                sourceRefs: {
+                  items: {
+                    properties: {
+                      label: {
+                        type: "string"
+                      }
+                    }
+                  }
+                },
                 createdAt: {
                   pattern: PHASE15B_ISO_UTC_TIMESTAMP_PATTERN
                 }

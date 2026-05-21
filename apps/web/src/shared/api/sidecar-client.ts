@@ -149,14 +149,6 @@ function isFounderBriefProjectionPath(path: string) {
   return /^\/api\/v1\/sessions\/[^/]+\/founder-brief$/u.test(path);
 }
 
-function sidecarResponseLogLevel(method: string, path: string, status: number): "info" | "warn" {
-  if (method === "GET" && status === 404 && isFounderBriefProjectionPath(path)) {
-    return "info";
-  }
-
-  return status >= 200 && status < 300 ? "info" : "warn";
-}
-
 export function isFounderBriefNotReadyError(error: unknown) {
   return (
     error instanceof SidecarClientError &&
@@ -167,6 +159,24 @@ export function isFounderBriefNotReadyError(error: unknown) {
 }
 
 export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarClientOptions) {
+  function logResponse(method: string, path: string, response: Response, startedAt: number, error?: unknown) {
+    const expectedOptionalMiss =
+      method === "GET" &&
+      response.status === 404 &&
+      isFounderBriefProjectionPath(path) &&
+      isFounderBriefNotReadyError(error);
+    const level = response.ok || expectedOptionalMiss ? "info" : "warn";
+
+    logSidecarClientDiagnostic(level, "response", {
+      method,
+      path,
+      status: response.status,
+      requestId: response.headers.get("x-request-id") ?? null,
+      elapsedMs: Math.round(nowMillis() - startedAt),
+      expectedOptionalMiss
+    });
+  }
+
   async function request<TData>(path: string, init: RequestInit = {}) {
     const method = init.method ?? "GET";
     const url = apiUrl(connection.baseUrl, path);
@@ -194,16 +204,16 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
       throw error;
     }
 
-    logSidecarClientDiagnostic(sidecarResponseLogLevel(method, path, response.status), "response", {
-      method,
-      path,
-      status: response.status,
-      requestId: response.headers.get("x-request-id") ?? null,
-      elapsedMs: Math.round(nowMillis() - startedAt),
-      expectedOptionalMiss: method === "GET" && response.status === 404 && isFounderBriefProjectionPath(path)
-    });
+    try {
+      const data = await unwrapEnvelope<TData>(response);
 
-    return unwrapEnvelope<TData>(response);
+      logResponse(method, path, response, startedAt);
+
+      return data;
+    } catch (error) {
+      logResponse(method, path, response, startedAt, error);
+      throw error;
+    }
   }
 
   async function postCommand<TProjection = unknown>(path: string, body: unknown) {

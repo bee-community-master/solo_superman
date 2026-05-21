@@ -174,4 +174,59 @@ describe("sidecar client errors", () => {
       ])
     );
   });
+
+  it("keeps unexpected Founder Brief 404 responses visible as warnings", async () => {
+    vi.stubGlobal("window", {});
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async () =>
+        jsonResponse(
+          {
+            ok: false,
+            error: {
+              code: "RESOURCE_NOT_FOUND",
+              message: "Session was not found."
+            },
+            meta: {
+              requestId: "req_session_missing",
+              schemaVersion: "solo-superman.contracts.v1"
+            }
+          },
+          404
+        )
+    });
+
+    await expect(client.getFounderBrief("sess_missing" as SessionId)).rejects.toMatchObject({
+      httpStatus: 404,
+      apiError: {
+        message: "Session was not found."
+      }
+    });
+    expect(info.mock.calls).not.toEqual(
+      expect.arrayContaining([
+        [
+          "[solo-superman:sidecar-client:response]",
+          expect.objectContaining({
+            status: 404,
+            expectedOptionalMiss: true
+          })
+        ]
+      ])
+    );
+    expect(warn.mock.calls).toEqual(
+      expect.arrayContaining([
+        [
+          "[solo-superman:sidecar-client:response]",
+          expect.objectContaining({
+            method: "GET",
+            path: "/api/v1/sessions/sess_missing/founder-brief",
+            status: 404,
+            expectedOptionalMiss: false
+          })
+        ]
+      ])
+    );
+  });
 });
