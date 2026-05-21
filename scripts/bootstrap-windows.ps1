@@ -184,6 +184,10 @@ function ConvertTo-PowerShellLiteral($Value) {
   return "'" + ([string]$Value).Replace("'", "''") + "'"
 }
 
+if ($env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL) {
+  $BootstrapCommand = "`$env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL = $(ConvertTo-PowerShellLiteral $env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL); $BootstrapCommand"
+}
+
 function ConvertTo-BashSingleQuotedLiteral($Value) {
   if ($null -eq $Value) {
     return "''"
@@ -919,8 +923,14 @@ function Normalize-RepoRemotePath($Remote) {
   }
 
   $normalized = ([string]$Remote).Trim().Replace("\", "/").TrimEnd("/")
-  if ($normalized -match "github\.com[:/](?<owner>[^/]+)/(?<repo>[^/#?]+?)(?:\.git)?$") {
-    return "$($Matches.owner)/$($Matches.repo)"
+  foreach ($pattern in @(
+    "^https://github\.com/(?<owner>[^/]+)/(?<repo>[^/#?]+?)(?:\.git)?$",
+    "^git@github\.com:(?<owner>[^/]+)/(?<repo>[^/#?]+?)(?:\.git)?$",
+    "^ssh://git@github\.com/(?<owner>[^/]+)/(?<repo>[^/#?]+?)(?:\.git)?$"
+  )) {
+    if ($normalized -match $pattern) {
+      return "$($Matches.owner)/$($Matches.repo)"
+    }
   }
 
   return $null

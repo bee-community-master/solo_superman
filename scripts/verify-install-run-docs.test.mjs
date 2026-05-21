@@ -11,6 +11,29 @@ const windowsBlocks = [...runbook.matchAll(/```powershell\n([\s\S]*?)\n```/g)].m
 const publicRepoUrl = "https://github.com/bee-community-master/solo_superman.git";
 const publicRawBase = "https://raw.githubusercontent.com/bee-community-master/solo_superman/main";
 
+function extractExpectedRepoRemotePatterns() {
+  const start = windowsBootstrap.indexOf("function Normalize-RepoRemotePath");
+  const end = windowsBootstrap.indexOf("function Test-ExpectedRepo", start);
+  expect(start).toBeGreaterThanOrEqual(0);
+  expect(end).toBeGreaterThan(start);
+
+  const normalizeFunction = windowsBootstrap.slice(start, end);
+  const patternLiteral = /"(\^(?:https:\/\/github\\\.com\/|git@github\\\.com:|ssh:\/\/git@github\\\.com\/)[^"]+)"/gu;
+  return [...normalizeFunction.matchAll(patternLiteral)].map((match) => match[1]);
+}
+
+function normalizeRepoRemoteForTest(remote, patterns) {
+  const normalized = remote.trim().replaceAll("\\", "/").replace(/\/+$/u, "");
+  for (const pattern of patterns) {
+    const match = new RegExp(pattern, "iu").exec(normalized);
+    if (match?.groups) {
+      return `${match.groups.owner}/${match.groups.repo}`;
+    }
+  }
+
+  return null;
+}
+
 describe("#105 local install/run verification docs", () => {
   it("documents macOS and Windows command blocks side by side", () => {
     expect(runbook).toContain("| macOS shell | Windows PowerShell |");
@@ -226,11 +249,34 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain("-Verb RunAs");
     expect(windowsBootstrap).toContain("-EncodedCommand");
     expect(windowsBootstrap).toContain('"SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL"');
+    expect(windowsBootstrap).toContain('if ($env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL) {');
+    expect(windowsBootstrap).toContain(
+      'ConvertTo-PowerShellLiteral $env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL); $BootstrapCommand"'
+    );
     expect(windowsBootstrap).toContain("Restart-AsAdministrator");
     expect(windowsBootstrap).toContain("function Normalize-RepoRemotePath");
     expect(windowsBootstrap).toContain("[System.StringComparison]::OrdinalIgnoreCase");
     expect(windowsBootstrap).toContain('"bee-community-master/solo_superman"');
     expect(windowsBootstrap).toContain('"HearingOffice/solo_superman"');
+    const repoRemotePatterns = extractExpectedRepoRemotePatterns();
+    expect(repoRemotePatterns).toEqual([
+      "^https://github\\.com/(?<owner>[^/]+)/(?<repo>[^/#?]+?)(?:\\.git)?$",
+      "^git@github\\.com:(?<owner>[^/]+)/(?<repo>[^/#?]+?)(?:\\.git)?$",
+      "^ssh://git@github\\.com/(?<owner>[^/]+)/(?<repo>[^/#?]+?)(?:\\.git)?$"
+    ]);
+    for (const remote of [
+      "https://github.com/bee-community-master/solo_superman.git",
+      "git@github.com:bee-community-master/solo_superman.git",
+      "ssh://git@github.com/bee-community-master/solo_superman.git"
+    ]) {
+      expect(normalizeRepoRemoteForTest(remote, repoRemotePatterns)).toBe("bee-community-master/solo_superman");
+    }
+    for (const remote of [
+      "https://evil.example/github.com/bee-community-master/solo_superman.git",
+      "file:///tmp/github.com/bee-community-master/solo_superman.git"
+    ]) {
+      expect(normalizeRepoRemoteForTest(remote, repoRemotePatterns)).toBeNull();
+    }
     expect(windowsBootstrap).not.toContain('remote -like "*bee-community-master/solo_superman*"');
     expect(windowsBootstrap).toContain("function Get-DesktopPaths");
     expect(windowsBootstrap).toContain("function Remove-LegacyDesktopRunners");
