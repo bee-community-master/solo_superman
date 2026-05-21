@@ -701,7 +701,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       }
     });
 
-    const blockedTurnStartRequest = requests.buildTurnStartRequest("thread_1");
+    const specPreviewTurnStartRequest = requests.buildTurnStartRequest("thread_1");
     const blockedRequests = adapter.buildPreviewTurnRequests(
       {
         turnPurpose: "implementation_plan_preview",
@@ -717,7 +717,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       }
     ).buildTurnStartRequest("thread_1");
 
-    expect(blockedTurnStartRequest.params.outputSchema).toBeDefined();
+    expect(specPreviewTurnStartRequest.params.outputSchema).toBeDefined();
     expect(blockedRequests.params.outputSchema).toMatchObject({
       properties: {
         payload: {

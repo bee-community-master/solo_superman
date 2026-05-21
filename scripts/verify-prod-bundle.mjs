@@ -103,7 +103,7 @@ function listenOnce(host, port) {
   });
 }
 
-function smokePortBindingsOverlap(left, right) {
+function usesSameSmokePort(left, right) {
   return left.port === right.port;
 }
 
@@ -127,7 +127,7 @@ export async function assertProdBundleSmokePortsAvailable(config, options = {}) 
   ];
 
   for (const [index, check] of checks.entries()) {
-    const conflictingCheck = checks.slice(index + 1).find((candidate) => smokePortBindingsOverlap(check, candidate));
+    const conflictingCheck = checks.slice(index + 1).find((candidate) => usesSameSmokePort(check, candidate));
 
     if (conflictingCheck) {
       throw new Error(
