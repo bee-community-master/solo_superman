@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  CODEX_APP_SERVER_GENERATED_VERSION,
+  CODEX_RUNTIME_ADAPTER_VERSION,
+  CODEX_RUNTIME_TRANSPORT,
   type BusinessCriticIntensity,
   type CodexRuntimeLoginStartDto,
   type CodexRuntimeStatusDto,
@@ -60,11 +63,41 @@ function unavailableCodexLoginStart(message: string): CodexRuntimeLoginStartDto 
   };
 }
 
+function unavailableRuntimeStatus(message: string): CodexRuntimeStatusDto {
+  return {
+    status: "unavailable",
+    adapterVersion: CODEX_RUNTIME_ADAPTER_VERSION,
+    generatedSchemaVersion: CODEX_APP_SERVER_GENERATED_VERSION,
+    transport: CODEX_RUNTIME_TRANSPORT,
+    checkedAt: new Date().toISOString(),
+    manualHandoffAvailable: true,
+    account: {
+      status: "unknown",
+      loginCommand: "codex auth login",
+      loginStatusCommand: "codex login status",
+      reason: message
+    },
+    reason: message
+  };
+}
+
+function logRuntimeStatusDiagnostic(level: "info" | "warn", event: string, details: Readonly<Record<string, unknown>>) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  console[level](`[solo-superman:runtime-status:${event}]`, details);
+}
+
 async function getRuntimeStatusBestEffort(activeClient: SidecarClient, fallback: CodexRuntimeStatusDto | null) {
   try {
     return await activeClient.getRuntimeStatus();
-  } catch {
-    return fallback;
+  } catch (error) {
+    const message = displayError(error);
+
+    logRuntimeStatusDiagnostic("warn", "best-effort-failed", { message });
+
+    return fallback ?? unavailableRuntimeStatus(message);
   }
 }
 
@@ -101,11 +134,15 @@ export function useDecisionQueueShellController() {
     const connection = await discoverSidecarConnection();
 
     if (!connection) {
+      const message = copy.layout.sidecarUnavailableRecovery;
+
       setClient(null);
       setConnectionState({
         status: "unavailable",
-        message: "Sidecar connection is unavailable."
+        message
       });
+      setRuntimeStatus(unavailableRuntimeStatus(message));
+      logRuntimeStatusDiagnostic("warn", "connection-unavailable", { message });
       return null;
     }
 
@@ -115,13 +152,23 @@ export function useDecisionQueueShellController() {
     setConnectionState({ status: "connected", connection });
     nextClient
       .getRuntimeStatus()
-      .then(setRuntimeStatus)
+      .then((status) => {
+        setRuntimeStatus(status);
+        logRuntimeStatusDiagnostic("info", "initial-status", {
+          status: status.status,
+          accountStatus: status.account.status,
+          reason: status.account.reason ?? status.reason ?? null
+        });
+      })
       .catch((error) => {
-        setRuntimeStatus(null);
-        setWorkflowError(displayError(error));
+        const message = displayError(error);
+
+        setRuntimeStatus(unavailableRuntimeStatus(message));
+        setWorkflowError(message);
+        logRuntimeStatusDiagnostic("warn", "initial-status-failed", { message });
       });
     return nextClient;
-  }, []);
+  }, [copy.layout.sidecarUnavailableRecovery]);
 
   useEffect(() => {
     void connect();
@@ -138,14 +185,25 @@ export function useDecisionQueueShellController() {
       const activeClient = client ?? await connect();
 
       if (!activeClient) {
+        setRuntimeStatus(unavailableRuntimeStatus(copy.layout.sidecarUnavailableRecovery));
         setWorkflowError(copy.layout.sidecarUnavailableRecovery);
         return;
       }
 
-      setRuntimeStatus(await activeClient.getRuntimeStatus());
+      const status = await activeClient.getRuntimeStatus();
+
+      setRuntimeStatus(status);
+      logRuntimeStatusDiagnostic("info", "refresh-status", {
+        status: status.status,
+        accountStatus: status.account.status,
+        reason: status.account.reason ?? status.reason ?? null
+      });
     } catch (error) {
-      setRuntimeStatus(null);
-      setWorkflowError(displayError(error));
+      const message = displayError(error);
+
+      setRuntimeStatus(unavailableRuntimeStatus(message));
+      setWorkflowError(message);
+      logRuntimeStatusDiagnostic("warn", "refresh-status-failed", { message });
     } finally {
       setIsBusy(false);
     }
@@ -165,6 +223,7 @@ export function useDecisionQueueShellController() {
       if (!activeClient) {
         const loginStart = unavailableCodexLoginStart(copy.layout.sidecarUnavailableRecovery);
         setCodexLoginStart(loginStart);
+        setRuntimeStatus(unavailableRuntimeStatus(loginStart.message));
         setWorkflowError(loginStart.message);
         return;
       }

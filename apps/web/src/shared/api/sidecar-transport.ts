@@ -13,6 +13,18 @@ export interface SidecarConnection {
   readonly tokenSource: string;
 }
 
+export type SidecarConnectionDiagnostic =
+  | {
+      readonly status: "discovered";
+      readonly connection: SidecarConnection;
+      readonly details: Readonly<Record<string, string | boolean>>;
+    }
+  | {
+      readonly status: "unavailable";
+      readonly reason: string;
+      readonly details: Readonly<Record<string, string | boolean>>;
+    };
+
 export interface SidecarClientOptions {
   readonly connection: SidecarConnection;
   readonly fetchImpl?: FetchImplementation;
@@ -112,6 +124,39 @@ function envValue(env: Readonly<Record<string, string | boolean | undefined>>, k
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
+function safeEnvPresence(env: Readonly<Record<string, string | boolean | undefined>>, key: string) {
+  const value = env[key];
+
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+
+  return Boolean(value);
+}
+
+function logSidecarDiscovery(diagnostic: SidecarConnectionDiagnostic) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (diagnostic.status === "discovered") {
+    console.info("[solo-superman:sidecar-discovery]", {
+      status: diagnostic.status,
+      baseUrl: diagnostic.connection.baseUrl,
+      mode: diagnostic.connection.mode,
+      tokenSource: diagnostic.connection.tokenSource,
+      details: diagnostic.details
+    });
+    return;
+  }
+
+  console.warn("[solo-superman:sidecar-discovery]", {
+    status: diagnostic.status,
+    reason: diagnostic.reason,
+    details: diagnostic.details
+  });
+}
+
 function loopbackHttpBaseUrl(value: string) {
   try {
     const url = new URL(value);
@@ -133,28 +178,58 @@ function loopbackHttpBaseUrl(value: string) {
 export function sidecarConnectionFromEnv(
   env: Readonly<Record<string, string | boolean | undefined>> = import.meta.env
 ): SidecarConnection | null {
+  const diagnostic = diagnoseSidecarConnectionFromEnv(env);
+
+  return diagnostic.status === "discovered" ? diagnostic.connection : null;
+}
+
+export function diagnoseSidecarConnectionFromEnv(
+  env: Readonly<Record<string, string | boolean | undefined>> = import.meta.env
+): SidecarConnectionDiagnostic {
   const localCapabilityToken = envValue(env, "VITE_SOLO_LOCAL_CAPABILITY_TOKEN");
+  const details = {
+    hasViteToken: safeEnvPresence(env, "VITE_SOLO_LOCAL_CAPABILITY_TOKEN"),
+    hasViteSidecarBaseUrl: safeEnvPresence(env, "VITE_SOLO_SIDECAR_BASE_URL")
+  } as const;
 
   if (!localCapabilityToken) {
-    return null;
+    return {
+      status: "unavailable",
+      reason: "VITE_SOLO_LOCAL_CAPABILITY_TOKEN is missing. Start the app through `pnpm start:local` or `pnpm dev` so the web and sidecar share a local token.",
+      details
+    };
   }
 
   const envBaseUrl = envValue(env, "VITE_SOLO_SIDECAR_BASE_URL");
   const baseUrl = envBaseUrl ? loopbackHttpBaseUrl(envBaseUrl) : null;
 
   if (!baseUrl) {
-    return null;
+    return {
+      status: "unavailable",
+      reason: envBaseUrl
+        ? `VITE_SOLO_SIDECAR_BASE_URL is not an origin-only loopback HTTP URL with an explicit port: ${envBaseUrl}`
+        : "VITE_SOLO_SIDECAR_BASE_URL is missing. Start the app through `pnpm start:local` or `pnpm dev` so the web process knows the sidecar URL.",
+      details
+    };
   }
 
   return {
-    baseUrl,
-    localCapabilityToken,
-    mode: "vite_env",
     status: "discovered",
-    tokenSource: "vite_env"
+    connection: {
+      baseUrl,
+      localCapabilityToken,
+      mode: "vite_env",
+      status: "discovered",
+      tokenSource: "vite_env"
+    },
+    details
   };
 }
 
 export async function discoverSidecarConnection(): Promise<SidecarConnection | null> {
-  return sidecarConnectionFromEnv();
+  const diagnostic = diagnoseSidecarConnectionFromEnv();
+
+  logSidecarDiscovery(diagnostic);
+
+  return diagnostic.status === "discovered" ? diagnostic.connection : null;
 }

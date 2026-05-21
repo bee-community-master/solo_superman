@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  diagnoseSidecarConnectionFromEnv,
   discoverSidecarConnection,
   sidecarConnectionFromEnv
 } from "./sidecar-client";
@@ -37,6 +38,27 @@ describe("sidecar client connection", () => {
 
   it("does not fall back to a native shell bridge when Vite sidecar env is absent", async () => {
     await expect(discoverSidecarConnection()).resolves.toBeNull();
+  });
+
+  it("explains why Vite sidecar discovery is unavailable", () => {
+    expect(diagnoseSidecarConnectionFromEnv({})).toMatchObject({
+      status: "unavailable",
+      reason: expect.stringContaining("VITE_SOLO_LOCAL_CAPABILITY_TOKEN is missing"),
+      details: {
+        hasViteToken: false,
+        hasViteSidecarBaseUrl: false
+      }
+    });
+
+    expect(
+      diagnoseSidecarConnectionFromEnv({
+        VITE_SOLO_LOCAL_CAPABILITY_TOKEN: "shared-token",
+        VITE_SOLO_SIDECAR_BASE_URL: "http://127.0.0.1:61234/"
+      })
+    ).toMatchObject({
+      status: "unavailable",
+      reason: expect.stringContaining("VITE_SOLO_SIDECAR_BASE_URL is not an origin-only loopback HTTP URL")
+    });
   });
 
   it("rejects non-loopback or non-origin Vite dev base URLs before sending the local token", () => {

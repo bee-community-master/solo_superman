@@ -348,7 +348,9 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     const adapter = createCodexRuntimeAdapter({
       fixtureMode: true,
       now: () => "2026-05-05T00:00:00.000Z",
-      env: {}
+      env: {
+        SOLO_CODEX_WINDOWS_MODE: "native"
+      }
     });
 
     await expect(adapter.getStatus()).resolves.toMatchObject({
@@ -393,10 +395,12 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     const shellCommand = codexAppServerSpawnPlan({ SOLO_CODEX_WINDOWS_MODE: "wsl" }).args[5];
     expect(codexAppServerSpawnPlan({ SOLO_CODEX_WINDOWS_MODE: "wsl" }).args[3]).toContain("bash");
     expect(shellCommand).toContain("nvm use --silent 22");
-    expect(shellCommand).toContain("getent passwd $(id -u)");
-    expect(shellCommand).toContain("then . $NVM_DIR/nvm.sh");
+    expect(shellCommand).toContain("getent passwd \\$(id -u)");
+    expect(shellCommand).toContain("then . \"\\$NVM_DIR/nvm.sh\"");
+    expect(shellCommand).toContain("/mnt/?/*|/mnt/??/*");
+    expect(shellCommand).toContain("could not find the Linux Codex CLI inside WSL");
     expect(shellCommand).not.toContain("then;");
-    expect(shellCommand).not.toContain("\\$");
+    expect(shellCommand).toContain("\\$HOME");
   });
 
   it("pins Windows WSL Codex commands to the configured distro and Node major", () => {
@@ -415,7 +419,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       expect.stringContaining("nvm use --silent 24")
     ]);
     expect(codexWslShellCommand(["auth", "login"], env)).toContain(
-      "export NVM_DIR=${NVM_DIR:-$HOME/.nvm}"
+      "if [ -z \"\\$NVM_DIR\" ]; then NVM_DIR=\"\\$HOME/.nvm\"; fi"
     );
     expect(windowsCodexLoginShellCommand("C:\\Users\\Founder Name\\solo_superman", env)).toContain(
       "wsl.exe -d Ubuntu-24.04 -- bash -lc"
@@ -483,7 +487,8 @@ describe("PR-07 Codex runtime adapter contracts", () => {
 
     expect(command).toContain("wsl.exe -d Ubuntu -- bash -lc");
     expect(command).toContain("'codex' 'auth' 'login'");
-    expect(command).toContain("NVM_DIR=${NVM_DIR:-$HOME/.nvm}");
+    expect(command).toContain("if [ -z \\\"\\$NVM_DIR\\\" ]; then NVM_DIR=\\\"\\$HOME/.nvm\\\"; fi");
+    expect(command).toContain("could not find the Linux Codex CLI inside WSL");
     expect(command).toContain("nvm use --silent 22");
     expect(command).not.toContain("cd /d");
     expect(codexWslShellCommand(["auth", "login"])).toContain("'codex' 'auth' 'login'");

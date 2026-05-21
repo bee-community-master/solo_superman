@@ -2961,13 +2961,36 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
     })
   );
 
-  app.get("/api/v1/runtime/status", async (context) =>
-    context.json(jsonSuccess(context, await codexRuntimeAdapter.getStatus()))
-  );
+  app.get("/api/v1/runtime/status", async (context) => {
+    const status = await codexRuntimeAdapter.getStatus();
 
-  app.post("/api/v1/runtime/codex/login/start", async (context) =>
-    context.json(jsonSuccess(context, await codexRuntimeAdapter.startLogin()))
-  );
+    console.log(JSON.stringify({
+      type: "sidecar-runtime-status",
+      status: status.status,
+      accountStatus: status.account.status,
+      hasAccountEmail: Boolean(status.account.email),
+      reason: status.account.reason ?? status.reason ?? null,
+      origin: context.req.header("origin") ?? null,
+      at: new Date().toISOString()
+    }));
+
+    return context.json(jsonSuccess(context, status));
+  });
+
+  app.post("/api/v1/runtime/codex/login/start", async (context) => {
+    const loginStart = await codexRuntimeAdapter.startLogin();
+
+    console.log(JSON.stringify({
+      type: "sidecar-codex-login-start",
+      status: loginStart.status,
+      terminal: loginStart.terminal,
+      reason: loginStart.reason ?? null,
+      origin: context.req.header("origin") ?? null,
+      at: new Date().toISOString()
+    }));
+
+    return context.json(jsonSuccess(context, loginStart));
+  });
 
   app.post("/api/v1/runtime/codex/preview", async (context) =>
     withCommandResponse(context, async (service) => {

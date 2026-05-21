@@ -31,6 +31,16 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
     canStart: false,
     chatGptLoginAcknowledged: false,
     codexLoginStart: null,
+    connectionState: {
+      status: "connected",
+      connection: {
+        baseUrl: "http://127.0.0.1:43110",
+        localCapabilityToken: "test-token",
+        mode: "vite_env",
+        status: "discovered",
+        tokenSource: "vite_env"
+      }
+    },
     idea: "",
     initialBusinessCriticIntensityReason: "",
     intake: "",
@@ -114,6 +124,10 @@ describe("OnboardingView", () => {
 
   it("keeps Codex login feedback visible when runtime status is still unknown", () => {
     const markup = renderOnboardingView({
+      connectionState: {
+        status: "unavailable",
+        message: "The local service is not connected. Start Solo Superman with `pnpm start:local`, then reconnect and try Codex login again."
+      },
       codexLoginStart: {
         status: "unavailable",
         command: "codex auth login",
@@ -129,5 +143,17 @@ describe("OnboardingView", () => {
     expect(markup).toContain("codex auth login");
     expect(markup).toContain("Open Codex login");
     expect(markup).toContain("The local service is not connected.");
+  });
+
+  it("shows the runtime status failure reason instead of only showing Unknown", () => {
+    const markup = renderOnboardingView({
+      runtimeStatus: codexRuntimeStatus({
+        status: "unknown",
+        reason: "Timed out while checking Codex login status."
+      })
+    });
+
+    expect(markup).toContain("Unknown");
+    expect(markup).toContain("Timed out while checking Codex login status.");
   });
 });
