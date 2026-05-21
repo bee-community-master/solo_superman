@@ -6662,7 +6662,9 @@ describe("PR-02 sidecar health shell", () => {
         adapterVersion: "codex-app-server-preview-v1",
         generatedSchemaVersion: "codex-cli-0.128.0",
         transport: "stdio",
-        manualHandoffAvailable: true
+        manualHandoffAvailable: true,
+        liveTurnExecutionEnabled: false,
+        executionMode: "fixture"
       });
 
       const handoff = await storageApp.request("/api/v1/runtime/manual-handoff", {

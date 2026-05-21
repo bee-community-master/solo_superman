@@ -363,7 +363,9 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       },
       adapterVersion: "codex-app-server-preview-v1",
       generatedSchemaVersion: "codex-cli-0.128.0",
-      manualHandoffAvailable: true
+      manualHandoffAvailable: true,
+      liveTurnExecutionEnabled: false,
+      executionMode: "fixture"
     });
     expect(adapter.buildStdioSpawnPlan()).toMatchObject({
       command: "codex",
@@ -510,6 +512,8 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         loginCommand: "codex auth login"
       },
       manualHandoffAvailable: true,
+      liveTurnExecutionEnabled: false,
+      executionMode: "manual_handoff",
       reason: expect.any(String)
     });
     await expect(
@@ -520,7 +524,85 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         sourceRefs: ["spec_current"],
         targetObject: "SpecVersion"
       })
-    ).rejects.toThrow("manual handoff fallback is required");
+    ).rejects.toThrow("Live Codex app-server turn execution is not enabled");
+  });
+
+  it("reports and runs preview-only live turns when the env gate and Codex login are available", async () => {
+    const previewInput = {
+      turnPurpose: "spec_update_preview" as const,
+      contextHash: "ctx_live_enabled",
+      prompt: "Preview a spec update.",
+      sourceRefs: ["spec_current"],
+      targetObject: "SpecVersion"
+    };
+    const liveCalls: unknown[] = [];
+    const adapter = createCodexRuntimeAdapter({
+      now: () => "2026-05-05T00:00:00.000Z",
+      env: {
+        SOLO_CODEX_APP_SERVER_LIVE_TURNS: "1"
+      },
+      accountReader: async () => codexRuntimeAccount({
+        status: "authenticated",
+        accountType: "chatgpt",
+        email: "founder@example.com"
+      }),
+      livePreviewCreator: async (input) => {
+        liveCalls.push(input);
+
+        return fixtureCodexPreviewOutput(input);
+      }
+    });
+
+    await expect(adapter.getStatus()).resolves.toMatchObject({
+      status: "available",
+      liveTurnExecutionEnabled: true,
+      executionMode: "live",
+      account: {
+        status: "authenticated",
+        email: "founder@example.com"
+      },
+      reason: expect.stringContaining("preview-only")
+    });
+    await expect(adapter.createPreview(previewInput)).resolves.toMatchObject({
+      turnPurpose: "spec_update_preview",
+      artifactKind: "SpecUpdatePreviewArtifact",
+      applyPolicy: "approval_required"
+    });
+    expect(liveCalls).toEqual([previewInput]);
+  });
+
+  it("keeps manual handoff when live turns are requested without a Codex login", async () => {
+    const adapter = createCodexRuntimeAdapter({
+      now: () => "2026-05-05T00:00:00.000Z",
+      env: {
+        SOLO_CODEX_APP_SERVER_LIVE_TURNS: "1"
+      },
+      accountReader: async () => codexRuntimeAccount({
+        requiresOpenaiAuth: true
+      }),
+      livePreviewCreator: async () => {
+        throw new Error("Live preview must not run without login.");
+      }
+    });
+
+    await expect(adapter.getStatus()).resolves.toMatchObject({
+      status: "unavailable",
+      liveTurnExecutionEnabled: true,
+      executionMode: "manual_handoff",
+      account: {
+        status: "missing"
+      },
+      reason: expect.stringContaining("login is required")
+    });
+    await expect(
+      adapter.createPreview({
+        turnPurpose: "spec_update_preview",
+        contextHash: "ctx_live_missing_login",
+        prompt: "Preview a spec update.",
+        sourceRefs: ["spec_current"],
+        targetObject: "SpecVersion"
+      })
+    ).rejects.toThrow("Codex CLI login is required");
   });
 
   it("maps Codex app-server account/read into a credential-free auth status", () => {
@@ -593,7 +675,8 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         sandboxPolicy: {
           type: "readOnly",
           networkAccess: false
-        }
+        },
+        effort: "low"
       }
     });
     expect(turnStartRequest.params.input[0]).toMatchObject({
@@ -605,6 +688,40 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       required: expect.arrayContaining(["schemaVersion", "turnPurpose", "artifactKind", "applyPolicy"]),
       properties: {
         payload: {
+          additionalProperties: false,
+          required: ["title", "body", "targetObject", "sourceRefs"],
+          properties: {
+            sourceRefs: {
+              items: {
+                type: "string"
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const blockedTurnStartRequest = requests.buildTurnStartRequest("thread_1");
+    const blockedRequests = adapter.buildPreviewTurnRequests(
+      {
+        turnPurpose: "implementation_plan_preview",
+        contextHash: "ctx_blocked_stdio",
+        prompt: "Preview a future shell command.",
+        sourceRefs: ["runtime_artifact_1"],
+        targetObject: "blocked_action",
+        requestedActionType: "shell_command"
+      },
+      {
+        requestIdPrefix: "preview-blocked",
+        cwd: "/tmp/solo-superman"
+      }
+    ).buildTurnStartRequest("thread_1");
+
+    expect(blockedTurnStartRequest.params.outputSchema).toBeDefined();
+    expect(blockedRequests.params.outputSchema).toMatchObject({
+      properties: {
+        payload: {
+          required: expect.arrayContaining(["blockedAction", "phase15bUpgradeHints"]),
           properties: {
             phase15bUpgradeHints: {
               properties: {

@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -61,6 +62,80 @@ function fixedPortEnv(env, name, fallback) {
 
 function generatedToken() {
   return randomBytes(32).toString("hex");
+}
+
+function listenOnce(host, port) {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    let settled = false;
+
+    const finish = (result) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      server.removeAllListeners();
+      resolve(result);
+    };
+
+    server.once("error", (error) => {
+      if (error && error.code === "EADDRINUSE") {
+        finish({
+          available: false,
+          reason: `${host}:${port} is already in use`
+        });
+        return;
+      }
+
+      reject(error);
+    });
+    server.listen(Number(port), host, () => {
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        finish({ available: true });
+      });
+    });
+  });
+}
+
+export async function assertProdBundleSmokePortsAvailable(config, options = {}) {
+  const listen = options.listen ?? listenOnce;
+  const checks = [
+    {
+      label: "sidecar",
+      host: config.sidecarBindHost,
+      port: config.sidecarPort,
+      publicUrl: config.sidecarBaseUrl,
+      overrideName: "SOLO_PROD_SMOKE_SIDECAR_PORT"
+    },
+    {
+      label: "web preview",
+      host: config.webBindHost,
+      port: config.webPort,
+      publicUrl: config.webBaseUrl,
+      overrideName: "SOLO_PROD_SMOKE_WEB_PORT"
+    }
+  ];
+
+  for (const check of checks) {
+    const result = await listen(check.host, check.port);
+
+    if (!result.available) {
+      throw new Error(
+        [
+          `verify-prod-bundle: ${check.label} smoke port conflict: ${result.reason}.`,
+          `The smoke needs ${check.publicUrl} before it starts managed child processes.`,
+          "Stop the existing local dev sidecar/web preview or rerun with a different fixed local port,",
+          `for example ${check.overrideName}=<free-port>.`
+        ].join(" ")
+      );
+    }
+  }
 }
 
 export function prodBundleSmokeLogPath(env = process.env) {
@@ -224,6 +299,7 @@ export async function cleanupProdBundleSmoke(processes, appDataDir, options = {}
 
 export async function runProdBundleSmoke() {
   const config = prodBundleSmokeConfig();
+  await assertProdBundleSmokePortsAvailable(config);
   const appDataDir = await mkdtemp(join(tmpdir(), "solo-superman-prod-smoke-"));
   const env = prodBundleSmokeEnvironment(config, appDataDir);
   const commands = prodBundleSmokeCommands(config, process.platform, process.env);

@@ -1,11 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { SessionId } from "@solo-superman/contracts";
 import {
   createSidecarClient,
+  isFounderBriefNotReadyError,
   SidecarClientError,
 } from "./sidecar-client";
 import { connection, jsonResponse } from "./sidecar-client.test-helpers";
 
 describe("sidecar client errors", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   it("resolves command status URLs on the discovered sidecar origin only", async () => {
     const seenRequests: [string, RequestInit | undefined][] = [];
     const client = createSidecarClient({
@@ -119,5 +126,52 @@ describe("sidecar client errors", () => {
         message: "Sidecar returned a non-JSON response."
       }
     });
+  });
+
+  it("treats missing optional Founder Brief as an expected informational response", async () => {
+    vi.stubGlobal("window", {});
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async () =>
+        jsonResponse(
+          {
+            ok: false,
+            error: {
+              code: "RESOURCE_NOT_FOUND",
+              message: "Founder Brief has not been prepared yet."
+            },
+            meta: {
+              requestId: "req_founder_missing",
+              schemaVersion: "solo-superman.contracts.v1"
+            }
+          },
+          404
+        )
+    });
+
+    let capturedError: unknown;
+    const request = client.getFounderBrief("sess_missing" as SessionId).catch((error: unknown) => {
+      capturedError = error;
+      throw error;
+    });
+
+    await expect(request).rejects.toBeInstanceOf(SidecarClientError);
+    expect(isFounderBriefNotReadyError(capturedError)).toBe(true);
+    expect(warn).not.toHaveBeenCalled();
+    expect(info.mock.calls).toEqual(
+      expect.arrayContaining([
+        [
+          "[solo-superman:sidecar-client:response]",
+          expect.objectContaining({
+            method: "GET",
+            path: "/api/v1/sessions/sess_missing/founder-brief",
+            status: 404,
+            expectedOptionalMiss: true
+          })
+        ]
+      ])
+    );
   });
 });

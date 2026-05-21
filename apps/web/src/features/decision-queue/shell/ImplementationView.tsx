@@ -56,6 +56,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
           <span>{runtimeActivity.runtimeStatus}</span>
         </div>
         <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatus.status}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
+        {runtimeStatus?.reason ? <p className="research-recovery">{runtimeStatus.reason}</p> : null}
         {statuses.length ? (
           <ul className="effect-list">
             {statuses.map((status) => (

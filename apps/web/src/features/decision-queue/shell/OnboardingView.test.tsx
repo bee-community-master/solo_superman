@@ -15,6 +15,8 @@ function codexRuntimeStatus(
     transport: "stdio",
     checkedAt: "2026-05-17T00:00:00.000Z",
     manualHandoffAvailable: true,
+    liveTurnExecutionEnabled: false,
+    executionMode: "manual_handoff",
     account: {
       status: "missing",
       loginCommand: "codex auth login",

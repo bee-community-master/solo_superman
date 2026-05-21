@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 import {
   BLOCKED_ACTION_TYPES,
@@ -52,6 +52,8 @@ export interface CodexRuntimeAdapterOptions {
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly accountReader?: () => Promise<CodexRuntimeAccountDto>;
   readonly loginLauncher?: () => Promise<CodexRuntimeLoginStartDto>;
+  readonly livePreviewCreator?: (input: CodexRuntimePreviewInput) => Promise<CodexPreviewOutputEnvelope>;
+  readonly processFactory?: CodexAppServerProcessFactory;
 }
 
 export interface CodexRuntimePreviewFixtureOptions {
@@ -74,6 +76,12 @@ export interface CodexStdioTurnRequestBundle {
   readonly buildTurnStartRequest: (threadId: string) => CodexClientRequestFor<"turn/start">;
 }
 
+export type CodexAppServerProcessFactory = (
+  command: string,
+  args: readonly string[],
+  options: { readonly env: NodeJS.ProcessEnv }
+) => ChildProcessWithoutNullStreams;
+
 export class CodexRuntimeUnavailableError extends Error {
   constructor(message: string) {
     super(message);
@@ -82,10 +90,13 @@ export class CodexRuntimeUnavailableError extends Error {
 }
 
 const CODEX_ACCOUNT_READ_TIMEOUT_MS = 5_000;
+const CODEX_PREVIEW_TURN_TIMEOUT_MS = 60_000;
 const CODEX_PROCESS_OUTPUT_CAPTURE_LIMIT = 2_000;
 const CODEX_LOGIN_COMMAND = "codex auth login" as const;
 const CODEX_LOGIN_STATUS_COMMAND = "codex login status" as const;
 const CODEX_LOGIN_COMMAND_ARGS = ["codex", "auth", "login"] as const;
+const CODEX_LIVE_TURNS_ENV = "SOLO_CODEX_APP_SERVER_LIVE_TURNS" as const;
+const CODEX_LIVE_TURN_TIMEOUT_ENV = "SOLO_CODEX_APP_SERVER_LIVE_TURN_TIMEOUT_MS" as const;
 const CODEX_WINDOWS_MODE_ENV = "SOLO_CODEX_WINDOWS_MODE" as const;
 const CODEX_LEGACY_COMMAND_MODE_ENV = "SOLO_CODEX_COMMAND_MODE" as const;
 const CODEX_WSL_DISTRO_ENV = "SOLO_SUPERMAN_CODEX_WSL_DISTRO" as const;
@@ -203,6 +214,49 @@ function codexSpawnEnv(env: Readonly<Record<string, string | undefined>>): NodeJ
   return Object.fromEntries(
     Object.entries(env).filter((entry): entry is [string, string] => typeof entry[1] === "string")
   );
+}
+
+function envFlagEnabled(env: Readonly<Record<string, string | undefined>>, name: string) {
+  return env[name] === "1";
+}
+
+function positiveIntegerEnvValue(
+  env: Readonly<Record<string, string | undefined>>,
+  name: string,
+  fallback: number
+) {
+  const value = env[name];
+
+  if (value === undefined || value.trim().length === 0) {
+    return fallback;
+  }
+
+  if (!/^\d+$/u.test(value)) {
+    throw new Error(`${name} must be a positive integer number of milliseconds.`);
+  }
+
+  const parsed = Number.parseInt(value, 10);
+
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive integer number of milliseconds.`);
+  }
+
+  return parsed;
+}
+
+function codexPreviewTurnTimeoutMs(env: Readonly<Record<string, string | undefined>>) {
+  return positiveIntegerEnvValue(env, CODEX_LIVE_TURN_TIMEOUT_ENV, CODEX_PREVIEW_TURN_TIMEOUT_MS);
+}
+
+function defaultCodexAppServerProcessFactory(
+  command: string,
+  args: readonly string[],
+  options: { readonly env: NodeJS.ProcessEnv }
+) {
+  return spawn(command, [...args], {
+    env: options.env,
+    stdio: ["pipe", "pipe", "pipe"]
+  });
 }
 
 function createLimitedTextCapture(limit = CODEX_PROCESS_OUTPUT_CAPTURE_LIMIT) {
@@ -490,14 +544,17 @@ export async function startCodexLoginInBackgroundTerminal(
   }
 }
 
-function responseErrorMessage(response: Readonly<Record<string, unknown>>) {
+function responseErrorMessage(
+  response: Readonly<Record<string, unknown>>,
+  fallback = "Codex app-server account/read failed."
+) {
   const error = response.error;
 
   if (isRecord(error) && typeof error.message === "string") {
     return error.message;
   }
 
-  return "Codex app-server account/read failed.";
+  return fallback;
 }
 
 async function readAccountBeforeLogin(accountReader: () => Promise<CodexRuntimeAccountDto>) {
@@ -839,43 +896,58 @@ function applyPolicyForTurnPurpose(turnPurpose: CodexTurnPurpose): CodexApplyPol
   return CODEX_APPLY_POLICY_BY_TURN_PURPOSE[turnPurpose];
 }
 
-function codexPreviewOutputJsonSchema(): CodexAppServerJsonValue {
+function codexPreviewPayloadJsonSchema(input: CodexRuntimePreviewInput): CodexAppServerJsonValue {
+  const blockedProperties = input.requestedActionType
+    ? {
+        blockedAction: {
+          type: "object",
+          required: ["actionType", "reason"],
+          additionalProperties: false,
+          properties: {
+            actionType: { type: "string", enum: [...BLOCKED_ACTION_TYPES] },
+            reason: { type: "string", minLength: 1 }
+          }
+        },
+        phase15bUpgradeHints: phase15bUpgradeHintsJsonSchema()
+      }
+    : {};
+
+  return {
+    type: "object",
+    required: [
+      "title",
+      "body",
+      "targetObject",
+      "sourceRefs",
+      ...(input.requestedActionType ? ["blockedAction", "phase15bUpgradeHints"] : [])
+    ],
+    additionalProperties: false,
+    properties: {
+      title: { type: "string", minLength: 1 },
+      body: { type: "string", minLength: 1 },
+      targetObject: { type: "string", minLength: 1 },
+      sourceRefs: {
+        type: "array",
+        minItems: 1,
+        items: { type: "string", minLength: 1 }
+      },
+      ...blockedProperties
+    }
+  };
+}
+
+function codexPreviewOutputJsonSchema(input: CodexRuntimePreviewInput): CodexAppServerJsonValue {
   return {
     type: "object",
     additionalProperties: false,
     required: ["schemaVersion", "turnPurpose", "artifactKind", "applyPolicy", "summary", "payload"],
     properties: {
-      schemaVersion: { const: CONTRACT_SCHEMA_VERSION },
-      turnPurpose: { enum: [...CODEX_TURN_PURPOSES] },
-      artifactKind: { enum: [...CODEX_ARTIFACT_KINDS] },
-      applyPolicy: { enum: [...CODEX_APPLY_POLICIES] },
+      schemaVersion: { type: "string", const: CONTRACT_SCHEMA_VERSION },
+      turnPurpose: { type: "string", enum: [...CODEX_TURN_PURPOSES] },
+      artifactKind: { type: "string", enum: [...CODEX_ARTIFACT_KINDS] },
+      applyPolicy: { type: "string", enum: [...CODEX_APPLY_POLICIES] },
       summary: { type: "string", minLength: 1 },
-      payload: {
-        type: "object",
-        required: ["title", "body", "targetObject", "sourceRefs"],
-        additionalProperties: true,
-        properties: {
-          title: { type: "string", minLength: 1 },
-          body: { type: "string", minLength: 1 },
-          targetObject: { type: "string", minLength: 1 },
-          sourceRefs: {
-            type: "array",
-            minItems: 1,
-            items: { type: "string", minLength: 1 }
-          },
-          blockedAction: {
-            type: "object",
-            required: ["actionType", "reason"],
-            additionalProperties: false,
-            properties: {
-              actionType: { enum: [...BLOCKED_ACTION_TYPES] },
-              reason: { type: "string", minLength: 1 },
-              suggestedSafeAlternative: { type: "string" }
-            }
-          },
-          phase15bUpgradeHints: phase15bUpgradeHintsJsonSchema()
-        }
-      }
+      payload: codexPreviewPayloadJsonSchema(input)
     }
   };
 }
@@ -918,7 +990,7 @@ function phase15bUpgradeHintsJsonSchema(): CodexAppServerJsonValue {
         additionalProperties: false,
         required: ["candidateActionType", "targetSurface", "nonExecutingSummary"],
         properties: {
-          candidateActionType: { enum: [...BLOCKED_ACTION_TYPES] },
+          candidateActionType: { type: "string", enum: [...BLOCKED_ACTION_TYPES] },
           targetSurface: { type: "string", minLength: 1 },
           nonExecutingSummary: { type: "string", minLength: 1 }
         }
@@ -931,10 +1003,10 @@ function phase15bUpgradeHintsJsonSchema(): CodexAppServerJsonValue {
           additionalProperties: false,
           required: ["approvalType", "reason", "scope", "requiredActor", "reconfirmRule"],
           properties: {
-            approvalType: { enum: [...PHASE15B_APPROVAL_TYPES] },
+            approvalType: { type: "string", enum: [...PHASE15B_APPROVAL_TYPES] },
             reason: { type: "string", minLength: 1 },
             scope: { type: "string", minLength: 1 },
-            requiredActor: { enum: [...PHASE15B_REQUIRED_ACTORS] },
+            requiredActor: { type: "string", enum: [...PHASE15B_REQUIRED_ACTORS] },
             reconfirmRule: { type: "string", minLength: 1 }
           }
         }
@@ -954,7 +1026,7 @@ function phase15bUpgradeHintsJsonSchema(): CodexAppServerJsonValue {
         properties: {
           isolatedWorktreeRequired: { type: "boolean" },
           browserSandboxRequired: { type: "boolean" },
-          networkMode: { enum: [...PHASE15B_NETWORK_MODES] },
+          networkMode: { type: "string", enum: [...PHASE15B_NETWORK_MODES] },
           commandAllowlist: stringArrayJsonSchema(),
           secretGrantBoundary: { type: "string", minLength: 1 },
           environmentPolicy: { type: "string", minLength: 1 },
@@ -967,7 +1039,6 @@ function phase15bUpgradeHintsJsonSchema(): CodexAppServerJsonValue {
         required: ["baseRef", "rollbackNote", "reversible", "cleanupExpectation"],
         properties: {
           baseRef: { type: "string", minLength: 1 },
-          diffRef: { type: "string", minLength: 1 },
           rollbackNote: { type: "string", minLength: 1 },
           reversible: { type: "boolean" },
           cleanupExpectation: { type: "string", minLength: 1 }
@@ -990,8 +1061,8 @@ function phase15bUpgradeHintsJsonSchema(): CodexAppServerJsonValue {
         additionalProperties: false,
         required: ["riskLevel", "blockedActionType", "blockReason", "userVisibleAction", "escalationTarget"],
         properties: {
-          riskLevel: { enum: [...PHASE15B_RISK_LEVELS] },
-          blockedActionType: { enum: [...BLOCKED_ACTION_TYPES] },
+          riskLevel: { type: "string", enum: [...PHASE15B_RISK_LEVELS] },
+          blockedActionType: { type: "string", enum: [...BLOCKED_ACTION_TYPES] },
           blockReason: { type: "string", minLength: 1 },
           userVisibleAction: { type: "string", minLength: 1 },
           escalationTarget: { type: "string", minLength: 1 }
@@ -1005,14 +1076,13 @@ function phase15bUpgradeHintsJsonSchema(): CodexAppServerJsonValue {
           additionalProperties: false,
           required: ["kind", "refId"],
           properties: {
-            kind: { enum: [...PHASE15B_SOURCE_REF_KINDS] },
-            refId: { type: "string", minLength: 1 },
-            label: { type: "string", minLength: 1 }
+            kind: { type: "string", enum: [...PHASE15B_SOURCE_REF_KINDS] },
+            refId: { type: "string", minLength: 1 }
           }
         }
       },
       createdAt: { type: "string", pattern: PHASE15B_ISO_UTC_TIMESTAMP_PATTERN },
-      schemaVersion: { const: PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION }
+      schemaVersion: { type: "string", const: PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION }
     }
   };
 }
@@ -1100,11 +1170,259 @@ export function buildCodexStdioTurnRequests(
             type: "readOnly",
             networkAccess: false
           },
-          outputSchema: codexPreviewOutputJsonSchema()
+          effort: "low",
+          outputSchema: codexPreviewOutputJsonSchema(input)
         }
       };
     }
   };
+}
+
+function resultThreadId(value: unknown) {
+  if (!isRecord(value) || !isRecord(value.thread) || typeof value.thread.id !== "string") {
+    throw new Error("Codex app-server thread/start returned an invalid thread id.");
+  }
+
+  return value.thread.id;
+}
+
+function resultTurnId(value: unknown) {
+  if (!isRecord(value) || !isRecord(value.turn) || typeof value.turn.id !== "string") {
+    throw new Error("Codex app-server turn/start returned an invalid turn id.");
+  }
+
+  return value.turn.id;
+}
+
+function textFromRawResponseItem(value: unknown) {
+  if (!isRecord(value) || value.type !== "message" || !Array.isArray(value.content)) {
+    return null;
+  }
+
+  const outputText = value.content
+    .filter((item): item is Readonly<Record<string, unknown>> => isRecord(item) && item.type === "output_text")
+    .map((item) => (typeof item.text === "string" ? item.text : ""))
+    .join("");
+
+  return outputText.trim().length > 0 ? outputText : null;
+}
+
+function textFromCompletedThreadItem(value: unknown) {
+  if (!isRecord(value) || value.type !== "agentMessage" || typeof value.text !== "string") {
+    return null;
+  }
+
+  return value.text.trim().length > 0 ? value.text : null;
+}
+
+function turnFailureMessage(value: unknown) {
+  if (!isRecord(value)) {
+    return "Codex live preview turn failed.";
+  }
+
+  const error = value.error;
+
+  if (isRecord(error) && typeof error.message === "string") {
+    return error.message;
+  }
+
+  return "Codex live preview turn failed.";
+}
+
+export async function createLiveCodexPreview(
+  input: CodexRuntimePreviewInput,
+  options: {
+    readonly env?: Readonly<Record<string, string | undefined>>;
+    readonly now?: () => string;
+    readonly processFactory?: CodexAppServerProcessFactory;
+  } = {}
+): Promise<CodexPreviewOutputEnvelope> {
+  const env = options.env ?? process.env;
+  const spawnPlan = codexAppServerSpawnPlan(env);
+  const processFactory = options.processFactory ?? defaultCodexAppServerProcessFactory;
+  const timeoutMs = codexPreviewTurnTimeoutMs(env);
+  const requestBundle = buildCodexStdioTurnRequests(input, { cwd: process.cwd() });
+  const child = processFactory(spawnPlan.command, [...spawnPlan.args], { env: codexSpawnEnv(env) });
+  const lineReader = createInterface({ input: child.stdout });
+  const stderr = createLimitedTextCapture();
+  const pendingResponses = new Map<
+    string,
+    {
+      readonly resolve: (value: unknown) => void;
+      readonly reject: (error: Error) => void;
+    }
+  >();
+  let threadId: string | null = null;
+  let turnId: string | null = null;
+  let outputDeltaText = "";
+  let completedMessageText: string | null = null;
+  let settled = false;
+
+  logCodexRuntimeDiagnostic("info", "live-preview-spawn", {
+    command: spawnPlan.command,
+    args: spawnPlan.args,
+    transport: spawnPlan.transport,
+    generatedSchemaVersion: spawnPlan.generatedSchemaVersion,
+    timeoutMs
+  });
+
+  function rejectPending(error: Error) {
+    for (const pending of pendingResponses.values()) {
+      pending.reject(error);
+    }
+    pendingResponses.clear();
+  }
+
+  function sendRequest(request: CodexAppServerClientRequest) {
+    return new Promise<unknown>((resolve, reject) => {
+      pendingResponses.set(String(request.id), { resolve, reject });
+      child.stdin.write(`${JSON.stringify(request)}\n`, (error) => {
+        if (error) {
+          pendingResponses.delete(String(request.id));
+          reject(error);
+        }
+      });
+    });
+  }
+
+  const completedTurn = new Promise<CodexPreviewOutputEnvelope>((resolve, reject) => {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    function finishWithError(error: Error) {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      rejectPending(error);
+      reject(error);
+    }
+
+    timeout = setTimeout(() => {
+      finishWithError(new Error(`Codex live preview did not finish within ${timeoutMs}ms.`));
+    }, timeoutMs);
+
+    child.stderr.on("data", (chunk) => {
+      stderr.append(chunk);
+    });
+    child.once("error", (error) => {
+      finishWithError(error);
+    });
+    child.once("exit", (code, signal) => {
+      if (settled) {
+        return;
+      }
+
+      const detail = stderr.trimmed() || signal || `exit ${code ?? "unknown"}`;
+      finishWithError(new Error(`Codex app-server exited before live preview completed: ${detail}`));
+    });
+    lineReader.on("line", (line) => {
+      let message: unknown;
+
+      try {
+        message = JSON.parse(line) as unknown;
+      } catch {
+        return;
+      }
+
+      if (!isRecord(message)) {
+        return;
+      }
+
+      if (typeof message.id === "string") {
+        const pending = pendingResponses.get(message.id);
+
+        if (!pending) {
+          return;
+        }
+
+        pendingResponses.delete(message.id);
+
+        if (Object.prototype.hasOwnProperty.call(message, "error")) {
+          pending.reject(new Error(responseErrorMessage(message, `Codex app-server request ${message.id} failed.`)));
+          return;
+        }
+
+        pending.resolve(message.result);
+        return;
+      }
+
+      if (typeof message.method !== "string" || !isRecord(message.params)) {
+        return;
+      }
+
+      const params = message.params;
+
+      if (threadId && params.threadId !== threadId) {
+        return;
+      }
+
+      const notificationTurnId =
+        typeof params.turnId === "string"
+          ? params.turnId
+          : isRecord(params.turn) && typeof params.turn.id === "string"
+            ? params.turn.id
+            : null;
+
+      if (turnId && notificationTurnId && notificationTurnId !== turnId) {
+        return;
+      }
+
+      if (message.method === "item/agentMessage/delta" && typeof params.delta === "string") {
+        outputDeltaText = `${outputDeltaText}${params.delta}`;
+        return;
+      }
+
+      if (message.method === "rawResponseItem/completed") {
+        completedMessageText = textFromRawResponseItem(params.item) ?? completedMessageText;
+        return;
+      }
+
+      if (message.method === "item/completed") {
+        completedMessageText = textFromCompletedThreadItem(params.item) ?? completedMessageText;
+        return;
+      }
+
+      if (message.method === "turn/completed" && isRecord(params.turn)) {
+        const turn = params.turn;
+
+        if (turn.status !== "completed") {
+          finishWithError(new Error(turnFailureMessage(turn)));
+          return;
+        }
+
+        try {
+          const output = parseCodexPreviewOutput(completedMessageText ?? outputDeltaText);
+
+          assertCodexPreviewOutputMatchesInput(input, output);
+          settled = true;
+          if (timeout) {
+            clearTimeout(timeout);
+          }
+          resolve(output);
+        } catch (error) {
+          finishWithError(error instanceof Error ? error : new Error(String(error)));
+        }
+      }
+    });
+  });
+  void completedTurn.catch(() => undefined);
+
+  try {
+    await sendRequest(requestBundle.initializeRequest);
+    threadId = resultThreadId(await sendRequest(requestBundle.threadStartRequest));
+    turnId = resultTurnId(await sendRequest(requestBundle.buildTurnStartRequest(threadId)));
+
+    return await completedTurn;
+  } finally {
+    lineReader.close();
+    if (!child.killed) {
+      child.kill();
+    }
+  }
 }
 
 function parseJsonObject(raw: string) {
@@ -1364,6 +1682,8 @@ function statusDto(input: {
   readonly status: CodexRuntimeStatusDto["status"];
   readonly checkedAt: string;
   readonly account: CodexRuntimeAccountDto;
+  readonly liveTurnExecutionEnabled: boolean;
+  readonly executionMode: CodexRuntimeStatusDto["executionMode"];
   readonly reason?: string;
 }): CodexRuntimeStatusDto {
   return {
@@ -1373,6 +1693,8 @@ function statusDto(input: {
     transport: CODEX_RUNTIME_TRANSPORT,
     checkedAt: input.checkedAt,
     manualHandoffAvailable: true,
+    liveTurnExecutionEnabled: input.liveTurnExecutionEnabled,
+    executionMode: input.executionMode,
     account: input.account,
     ...(input.reason ? { reason: input.reason } : {})
   };
@@ -1384,6 +1706,15 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
   const fixtureMode = options.fixtureMode ?? env.SOLO_CODEX_APP_SERVER_USE_FIXTURES === "1";
   const accountReader = options.accountReader ?? (() => readCodexAccountStatus(env));
   const loginLauncher = options.loginLauncher ?? (() => startCodexLoginInBackgroundTerminal(env, process.cwd(), now));
+  const livePreviewCreator =
+    options.livePreviewCreator ??
+    ((input: CodexRuntimePreviewInput) =>
+      createLiveCodexPreview(input, {
+        env,
+        now,
+        ...(options.processFactory ? { processFactory: options.processFactory } : {})
+      }));
+  const liveTurnExecutionEnabled = envFlagEnabled(env, CODEX_LIVE_TURNS_ENV);
 
   return {
     async getStatus(): Promise<CodexRuntimeStatusDto> {
@@ -1391,7 +1722,10 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
         return statusDto({
           status: "available",
           checkedAt: now(),
-          account: fixtureCodexAccountStatus()
+          account: fixtureCodexAccountStatus(),
+          liveTurnExecutionEnabled: false,
+          executionMode: "fixture",
+          reason: "Fixture mode simulates Codex preview execution."
         });
       }
 
@@ -1400,19 +1734,35 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
           status: "unavailable",
           checkedAt: now(),
           account: baseCodexAccountStatus("blocked", "SOLO_CODEX_APP_SERVER_DISABLED skips Codex account probing."),
+          liveTurnExecutionEnabled: false,
+          executionMode: "manual_handoff",
           reason: "SOLO_CODEX_APP_SERVER_DISABLED disables live app-server probing."
         });
       }
 
       const account = await accountReader();
+      const isAuthenticated = account.status === "authenticated";
+
+      if (liveTurnExecutionEnabled && isAuthenticated) {
+        return statusDto({
+          status: "available",
+          checkedAt: now(),
+          account,
+          liveTurnExecutionEnabled: true,
+          executionMode: "live",
+          reason: "Live Codex app-server turn execution is enabled for preview-only artifacts."
+        });
+      }
 
       return statusDto({
         status: "unavailable",
         checkedAt: now(),
         account,
+        liveTurnExecutionEnabled,
+        executionMode: "manual_handoff",
         reason:
-          account.status === "authenticated"
-            ? "Codex CLI login is available, but live turn execution is still disabled for Phase 1; manual handoff fallback is required."
+          isAuthenticated
+            ? `Codex CLI login is available, but set ${CODEX_LIVE_TURNS_ENV}=1 to enable preview-only live turn execution; manual handoff fallback is required until then.`
             : "Codex CLI login is required before backend question or research preview work can use the local Codex runtime."
       });
     },
@@ -1459,9 +1809,21 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
         return fixtureCodexPreviewOutput(input, { createdAt: now() });
       }
 
-      throw new CodexRuntimeUnavailableError(
-        "Live Codex app-server turn execution is not enabled; manual handoff fallback is required."
-      );
+      if (!liveTurnExecutionEnabled) {
+        throw new CodexRuntimeUnavailableError(
+          `Live Codex app-server turn execution is not enabled. Set ${CODEX_LIVE_TURNS_ENV}=1 to enable preview-only turns; manual handoff fallback is required.`
+        );
+      }
+
+      const account = await accountReader();
+
+      if (account.status !== "authenticated") {
+        throw new CodexRuntimeUnavailableError(
+          "Codex CLI login is required before live Codex app-server turn execution can start."
+        );
+      }
+
+      return livePreviewCreator(input);
     }
   };
 }

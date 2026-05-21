@@ -81,6 +81,9 @@ pnpm verify
 On Windows PowerShell, use `pnpm.cmd verify:prod-bundle` and `pnpm.cmd verify` so the Node/Corepack command shim runs even when local execution policy blocks `pnpm.ps1`.
 
 A production bundle smoke must cover `build_auto_local_smoke`, browser readiness, managed child processes stopped, temporary app data removed, and auto shutdown/kill evidence.
+Before it starts managed sidecar/web child processes, `pnpm verify:prod-bundle` probes the fixed smoke ports. If `127.0.0.1:43110` or the configured web preview port is already in use, stop the existing local process or rerun with `SOLO_PROD_SMOKE_SIDECAR_PORT=<free-port>` / `SOLO_PROD_SMOKE_WEB_PORT=<free-port>`.
+
+Live Codex app-server preview turns are disabled by default. Maintainers can opt in with `SOLO_CODEX_APP_SERVER_LIVE_TURNS=1` after `codex login status` reports an authenticated local Codex CLI. The app still does not ask for or store API keys, cookies, or ChatGPT web credentials.
 
 ## Local token and sidecar URL
 
@@ -129,7 +132,7 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 
 | Case | Symptom | Safe response |
 | --- | --- | --- |
-| Port conflict | Browser or sidecar port is already in use. | Choose a free alternate port; do not kill unknown processes. |
+| Port conflict | Browser or sidecar port is already in use. | Choose a free alternate port; do not kill unknown processes. For `pnpm verify:prod-bundle`, use `SOLO_PROD_SMOKE_SIDECAR_PORT=<free-port>` or `SOLO_PROD_SMOKE_WEB_PORT=<free-port>` after stopping or identifying the conflicting process. |
 | Token mismatch | API returns `401`. | Re-run `pnpm start:local` so frontend and sidecar share one token. |
 | CORS/origin | Browser request is blocked. | Confirm loopback URL and local sidecar base URL. |
 | Garbled Korean or UTF-8 output | Korean output or downloaded script text looks corrupted after running the README one-line command in Windows PowerShell. | Use the short README `scripts/win.ps1` launcher command. The launcher sets `[Console]::OutputEncoding`, `$OutputEncoding`, `chcp.com 65001`, TLS 1.2, UTF-8 download decoding, and BOM stripping before running the bootstrap. |

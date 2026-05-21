@@ -2967,6 +2967,8 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
     console.log(JSON.stringify({
       type: "sidecar-runtime-status",
       status: status.status,
+      executionMode: status.executionMode,
+      liveTurnExecutionEnabled: status.liveTurnExecutionEnabled,
       accountStatus: status.account.status,
       hasAccountEmail: Boolean(status.account.email),
       reason: status.account.reason ?? status.reason ?? null,

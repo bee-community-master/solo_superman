@@ -72,6 +72,8 @@ function unavailableRuntimeStatus(message: string): CodexRuntimeStatusDto {
     transport: CODEX_RUNTIME_TRANSPORT,
     checkedAt: new Date().toISOString(),
     manualHandoffAvailable: true,
+    liveTurnExecutionEnabled: false,
+    executionMode: "manual_handoff",
     account: {
       status: "unknown",
       loginCommand: "codex auth login",
