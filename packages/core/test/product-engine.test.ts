@@ -1129,6 +1129,9 @@ describe("PR-04 ProductEngine reducer", () => {
         }
       ]
     });
+    const deferredProjection = reduction.immediateProjection as DecisionQueueProjection;
+    expect(deferredProjection.active.map((item) => item.queueItemId)).not.toContain(queueItemId);
+    expect(deferredProjection.active).toHaveLength(5);
 
     const replayed = replayProductEngineEvents(
       projectId,
@@ -1143,6 +1146,7 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(replayed.openIssues.find((issue) => issue.queueItemId === queueItemId)?.status).toBe("deferred");
     expect(replayed.queueProjection.active.some((item) => item.queueItemId === queueItemId)).toBe(false);
+    expect(replayed.queueProjection.active).toHaveLength(5);
     expect(replayed.queueProjection.deferred).toContainEqual(
       expect.objectContaining({
         queueItemId,
@@ -1233,6 +1237,7 @@ describe("PR-04 ProductEngine reducer", () => {
         })
       ])
     });
+    expect((reduction.immediateProjection as DecisionQueueProjection).active).toHaveLength(5);
 
     const replayed = replayProductEngineEvents(
       projectId,
@@ -1247,6 +1252,7 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(replayed.openIssues.find((issue) => issue.queueItemId === queueItemId)?.status).toBe("resolved");
     expect(replayed.queueProjection.active.some((item) => item.queueItemId === queueItemId)).toBe(false);
+    expect(replayed.queueProjection.active).toHaveLength(5);
     expect(replayed.queueProjection.deferred.some((item) => item.queueItemId === queueItemId)).toBe(false);
   });
 
