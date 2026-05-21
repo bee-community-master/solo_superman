@@ -13,6 +13,7 @@ import type {
   ResearchRunControlProjection,
   SseEvent
 } from "@solo-superman/contracts";
+import { formatListWithFallback as commaList } from "./text-formatting";
 
 export type QueueSectionId = "active" | "next" | "blocked" | "deferred";
 
@@ -201,9 +202,6 @@ export function shouldRefetchQueueForSseNotification(
   );
 }
 
-function commaList(items: readonly string[], fallback: string) {
-  return items.length ? items.join(", ") : fallback;
-}
 
 function readableToken(value: string) {
   return value.replace(/[_-]+/gu, " ");

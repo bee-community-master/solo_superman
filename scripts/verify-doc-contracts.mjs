@@ -720,7 +720,7 @@ function checkContributorDocsSnippets() {
     "WSL install script quoting",
     "line 8: syntax error: unexpected end of file from 'if' command on line 6",
     "WSL wslpath Windows path escaping",
-    "wslpath: C:Users...AppDataLocalTemp...codex-wsl-install.sh",
+    "wslpath: C:Users...AppDataLocalTemp...codex-wsl-install-1234-20260521-143000.sh",
     "WSL nvm home detection",
     "/nvm.sh: No such file or directory",
     "WSL setup garbled output",

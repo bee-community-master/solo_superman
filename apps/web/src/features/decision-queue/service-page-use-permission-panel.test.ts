@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import {
   SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE,
   servicePageUsePermissionSummaryForStatus
@@ -9,6 +8,7 @@ import {
   ServicePageUsePermissionPanel,
   servicePageUsePermissionViewModel
 } from "./ServicePageUsePermissionPanel";
+import { renderEnglishMarkup } from "./test-rendering";
 
 describe("ServicePageUsePermissionPanel view model", () => {
   it("shows the service origin, allowed and blocked actions, login boundary, and artifact controls", () => {
@@ -45,7 +45,7 @@ describe("ServicePageUsePermissionPanel view model", () => {
 
   it("renders enabled artifact export/delete controls when retained refs are user-controllable", () => {
     const view = servicePageUsePermissionViewModel(SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE);
-    const markup = renderToStaticMarkup(
+    const markup = renderEnglishMarkup(
       createElement(ServicePageUsePermissionPanel, {
         permission: view,
         isBusy: false,

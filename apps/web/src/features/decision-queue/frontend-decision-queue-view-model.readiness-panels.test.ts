@@ -31,6 +31,7 @@ import {
 } from "./decision-queue-view-model";
 import { Phase15aOperationsPanel } from "./Phase15aOperationsPanel";
 import { Phase15bReadinessPanel } from "./Phase15bReadinessPanel";
+import { renderEnglishMarkup } from "./test-rendering";
 
 import { buildWebResearchRunRequest } from "./phase15a-research-run-request";
 
@@ -438,7 +439,7 @@ describe("Decision Queue view model readiness-panels", () => {
 
   it("renders the extracted Phase 1.5A operations panel controls and session gating", () => {
     const noop = () => undefined;
-    const markup = renderToStaticMarkup(
+    const markup = renderEnglishMarkup(
       createElement(Phase15aOperationsPanel, {
         hasActiveSession: false,
         isBusy: false,
@@ -468,7 +469,7 @@ describe("Decision Queue view model readiness-panels", () => {
   });
 
   it("renders Phase 1.5B readiness metadata on a non-executing handoff panel", () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderEnglishMarkup(
       createElement(Phase15bReadinessPanel, {
         hasActiveProject: true,
         isBusy: false,

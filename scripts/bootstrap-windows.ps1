@@ -22,6 +22,32 @@ function Initialize-Utf8Console {
 
 Initialize-Utf8Console
 
+function ConvertTo-PowerShellLiteral($Value) {
+  if ($null -eq $Value) {
+    return "''"
+  }
+
+  return "'" + ([string]$Value).Replace("'", "''") + "'"
+}
+
+function ConvertTo-BashSingleQuotedLiteral($Value) {
+  if ($null -eq $Value) {
+    return "''"
+  }
+
+  $singleQuote = [string][char]39
+  return $singleQuote + ([string]$Value).Replace($singleQuote, "$singleQuote\$singleQuote$singleQuote") + $singleQuote
+}
+
+function Add-BootstrapUrlOverrideToCommand($Command) {
+  if (-not $env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL) {
+    return $Command
+  }
+
+  $quotedBootstrapUrl = ConvertTo-PowerShellLiteral $env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL
+  return "`$env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL = $quotedBootstrapUrl; $Command"
+}
+
 $RepoUrl = if ($env:SOLO_SUPERMAN_REPO_URL) { $env:SOLO_SUPERMAN_REPO_URL } else { "https://github.com/bee-community-master/solo_superman.git" }
 $DefaultTargetDir = if ($env:SOLO_SUPERMAN_DIR) {
   $env:SOLO_SUPERMAN_DIR
@@ -35,7 +61,7 @@ $DefaultTargetDir = if ($env:SOLO_SUPERMAN_DIR) {
 $PnpmVersion = if ($env:SOLO_SUPERMAN_PNPM_VERSION) { $env:SOLO_SUPERMAN_PNPM_VERSION } else { "11.0.4" }
 $RunSmoke = if ($env:SOLO_SUPERMAN_RUN_SMOKE) { $env:SOLO_SUPERMAN_RUN_SMOKE } else { "1" }
 $StartLocal = if ($env:SOLO_SUPERMAN_START_LOCAL) { $env:SOLO_SUPERMAN_START_LOCAL } else { "1" }
-$BootstrapCommand = 'irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/win.ps1 | iex'
+$BootstrapCommand = Add-BootstrapUrlOverrideToCommand 'irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/win.ps1 | iex'
 $CodexDesktopAppUrl = if ($env:SOLO_SUPERMAN_CODEX_DESKTOP_URL) { $env:SOLO_SUPERMAN_CODEX_DESKTOP_URL } else { "https://openai.com/codex/" }
 $ShowCodexDesktopPrompt = if ($env:SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT) { $env:SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT } else { "1" }
 $CodexWindowsMode = if ($env:SOLO_SUPERMAN_CODEX_WINDOWS_MODE) { $env:SOLO_SUPERMAN_CODEX_WINDOWS_MODE.ToLowerInvariant() } elseif ($env:SOLO_CODEX_WINDOWS_MODE) { $env:SOLO_CODEX_WINDOWS_MODE.ToLowerInvariant() } else { "wsl" }
@@ -176,14 +202,6 @@ function Test-PortConflictError($Message) {
   return [string]$Message -match "EADDRINUSE|address already in use|strictPort|Port conflict|포트 충돌"
 }
 
-function ConvertTo-PowerShellLiteral($Value) {
-  if ($null -eq $Value) {
-    return "''"
-  }
-
-  return "'" + ([string]$Value).Replace("'", "''") + "'"
-}
-
 function Get-PowerShellExecutable {
   foreach ($name in @("pwsh", "powershell")) {
     $command = Get-Command $name -ErrorAction SilentlyContinue
@@ -217,6 +235,7 @@ function Restart-AsAdministrator {
     "SOLO_SUPERMAN_RUN_SMOKE",
     "SOLO_SUPERMAN_START_LOCAL",
     "SOLO_SUPERMAN_NO_PAUSE",
+    "SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL",
     "SOLO_SUPERMAN_CODEX_DESKTOP_URL",
     "SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT",
     "SOLO_SUPERMAN_CODEX_WINDOWS_MODE",
@@ -610,7 +629,7 @@ function Get-WslPath($WindowsPath) {
 function Invoke-WslScript($Script) {
   $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) "solo-superman"
   New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
-  $scriptPath = Join-Path $tempRoot "codex-wsl-install.sh"
+  $scriptPath = Join-Path $tempRoot "codex-wsl-install-$PID-$DiagnosticTimestamp.sh"
   Write-LfUtf8NoBomFile $scriptPath $Script
   $wslScriptPath = Get-WslPath $scriptPath
 
@@ -740,7 +759,8 @@ if ! npm install -g @openai/codex@latest; then
 fi
 codex --version
 '@
-  $installScript = $installScript.Replace("__NVM_INSTALL_URL__", $CodexNvmInstallUrl).Replace("__NODE_MAJOR__", $CodexWslNodeMajor)
+  $quotedNvmInstallUrl = ConvertTo-BashSingleQuotedLiteral $CodexNvmInstallUrl
+  $installScript = $installScript.Replace("__NVM_INSTALL_URL__", $quotedNvmInstallUrl).Replace("__NODE_MAJOR__", $CodexWslNodeMajor)
   Invoke-WslScript $installScript
   $env:SOLO_CODEX_WINDOWS_MODE = "wsl"
 }
@@ -902,13 +922,40 @@ function Get-OriginRemote($Path) {
   }
 }
 
+function Normalize-RepoRemotePath($Remote) {
+  if ([string]::IsNullOrWhiteSpace($Remote)) {
+    return $null
+  }
+
+  $normalized = ([string]$Remote).Trim().Replace("\", "/").TrimEnd("/")
+  foreach ($pattern in @(
+    "^https://github\.com/(?<owner>[^/]+)/(?<repo>[^/#?]+?)(?:\.git)?$",
+    "^git@github\.com:(?<owner>[^/]+)/(?<repo>[^/#?]+?)(?:\.git)?$",
+    "^ssh://git@github\.com/(?<owner>[^/]+)/(?<repo>[^/#?]+?)(?:\.git)?$"
+  )) {
+    if ($normalized -match $pattern) {
+      return "$($Matches.owner)/$($Matches.repo)"
+    }
+  }
+
+  return $null
+}
+
 function Test-ExpectedRepo($Path) {
   if (-not (Test-Path (Join-Path $Path ".git"))) {
     return $false
   }
 
   $remote = Get-OriginRemote $Path
-  return ($remote -eq $RepoUrl) -or ($remote -like "*bee-community-master/solo_superman*") -or ($remote -like "*bee-community-master/solo_superman.git*") -or ($remote -like "*HearingOffice/solo_superman*") -or ($remote -like "*HearingOffice/solo_superman.git*")
+  if ($remote -and [string]::Equals(([string]$remote).Trim().TrimEnd("/"), ([string]$RepoUrl).Trim().TrimEnd("/"), [System.StringComparison]::OrdinalIgnoreCase)) {
+    return $true
+  }
+
+  $remotePath = Normalize-RepoRemotePath $remote
+  return $remotePath -in @(
+    "bee-community-master/solo_superman",
+    "HearingOffice/solo_superman"
+  )
 }
 
 function Sync-OriginRemote($Path) {

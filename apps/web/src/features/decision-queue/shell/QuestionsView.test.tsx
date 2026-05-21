@@ -1,7 +1,6 @@
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { DecisionQueueProjection, ProjectionVersion, QueueItemId } from "@solo-superman/contracts";
-import { AppLanguageProvider } from "../../../shared/i18n/app-language";
+import { renderEnglishMarkup } from "../test-rendering";
 import { QuestionsView } from "./QuestionsView";
 import { emptyProjectionState } from "./decision-queue-shell-model";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
@@ -46,11 +45,7 @@ function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellCont
     ...controllerOverrides
   } satisfies Partial<DecisionQueueShellController>;
 
-  return renderToStaticMarkup(
-    <AppLanguageProvider initialLanguage="en">
-      <QuestionsView controller={controller as DecisionQueueShellController} />
-    </AppLanguageProvider>
-  );
+  return renderEnglishMarkup(<QuestionsView controller={controller as DecisionQueueShellController} />);
 }
 
 describe("QuestionsView", () => {

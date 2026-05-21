@@ -11,6 +11,29 @@ const windowsBlocks = [...runbook.matchAll(/```powershell\n([\s\S]*?)\n```/g)].m
 const publicRepoUrl = "https://github.com/bee-community-master/solo_superman.git";
 const publicRawBase = "https://raw.githubusercontent.com/bee-community-master/solo_superman/main";
 
+function extractExpectedRepoRemotePatterns() {
+  const start = windowsBootstrap.indexOf("function Normalize-RepoRemotePath");
+  const end = windowsBootstrap.indexOf("function Test-ExpectedRepo", start);
+  expect(start).toBeGreaterThanOrEqual(0);
+  expect(end).toBeGreaterThan(start);
+
+  const normalizeFunction = windowsBootstrap.slice(start, end);
+  const patternLiteral = /"(\^(?:https:\/\/github\\\.com\/|git@github\\\.com:|ssh:\/\/git@github\\\.com\/)[^"]+)"/gu;
+  return [...normalizeFunction.matchAll(patternLiteral)].map((match) => match[1]);
+}
+
+function normalizeRepoRemoteForTest(remote, patterns) {
+  const normalized = remote.trim().replaceAll("\\", "/").replace(/\/+$/u, "");
+  for (const pattern of patterns) {
+    const match = new RegExp(pattern, "iu").exec(normalized);
+    if (match?.groups) {
+      return `${match.groups.owner}/${match.groups.repo}`;
+    }
+  }
+
+  return null;
+}
+
 describe("#105 local install/run verification docs", () => {
   it("documents macOS and Windows command blocks side by side", () => {
     expect(runbook).toContain("| macOS shell | Windows PowerShell |");
@@ -134,6 +157,9 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain("function Invoke-ToolNoOutput");
     expect(windowsBootstrap).toContain("$nativeErrorActionPreference = $ErrorActionPreference");
     expect(windowsBootstrap).toContain("$ErrorActionPreference = \"Continue\"");
+    expect(windowsBootstrap).toContain("function ConvertTo-BashSingleQuotedLiteral");
+    expect(windowsBootstrap).toContain("$quotedNvmInstallUrl = ConvertTo-BashSingleQuotedLiteral $CodexNvmInstallUrl");
+    expect(windowsBootstrap).toContain('Replace("__NVM_INSTALL_URL__", $quotedNvmInstallUrl)');
     expect(windowsBootstrap).toContain("function Ensure-WindowsNativeRuntime");
     expect(windowsBootstrap).toContain("function Get-ProdSmokePortConflicts");
     expect(windowsBootstrap).toContain("function Invoke-ProdSmokeWithAlternatePorts");
@@ -156,6 +182,7 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain('"wslpath", "-a"');
     expect(windowsBootstrap).toContain("$wslpathInput");
     expect(windowsBootstrap).toContain("/mnt/<drive> fallback");
+    expect(windowsBootstrap).toContain('codex-wsl-install-$PID-$DiagnosticTimestamp.sh');
     expect(windowsBootstrap).toContain('Invoke-Tool "wsl" @("--", "bash", $wslScriptPath)');
     expect(windowsBootstrap).toContain("Invoke-WslScript $installScript");
     expect(windowsBootstrap).not.toContain("Invoke-WslBash $installScript");
@@ -221,7 +248,40 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain("Start-Process -FilePath $powershell");
     expect(windowsBootstrap).toContain("-Verb RunAs");
     expect(windowsBootstrap).toContain("-EncodedCommand");
+    expect(windowsBootstrap).toContain('"SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL"');
+    expect(windowsBootstrap).toContain("function Add-BootstrapUrlOverrideToCommand");
+    expect(windowsBootstrap).toContain('if (-not $env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL) {');
+    expect(windowsBootstrap).toContain(
+      "$quotedBootstrapUrl = ConvertTo-PowerShellLiteral $env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL"
+    );
+    expect(windowsBootstrap).toContain(
+      '$BootstrapCommand = Add-BootstrapUrlOverrideToCommand'
+    );
     expect(windowsBootstrap).toContain("Restart-AsAdministrator");
+    expect(windowsBootstrap).toContain("function Normalize-RepoRemotePath");
+    expect(windowsBootstrap).toContain("[System.StringComparison]::OrdinalIgnoreCase");
+    expect(windowsBootstrap).toContain('"bee-community-master/solo_superman"');
+    expect(windowsBootstrap).toContain('"HearingOffice/solo_superman"');
+    const repoRemotePatterns = extractExpectedRepoRemotePatterns();
+    expect(repoRemotePatterns).toEqual([
+      "^https://github\\.com/(?<owner>[^/]+)/(?<repo>[^/#?]+?)(?:\\.git)?$",
+      "^git@github\\.com:(?<owner>[^/]+)/(?<repo>[^/#?]+?)(?:\\.git)?$",
+      "^ssh://git@github\\.com/(?<owner>[^/]+)/(?<repo>[^/#?]+?)(?:\\.git)?$"
+    ]);
+    for (const remote of [
+      "https://github.com/bee-community-master/solo_superman.git",
+      "git@github.com:bee-community-master/solo_superman.git",
+      "ssh://git@github.com/bee-community-master/solo_superman.git"
+    ]) {
+      expect(normalizeRepoRemoteForTest(remote, repoRemotePatterns)).toBe("bee-community-master/solo_superman");
+    }
+    for (const remote of [
+      "https://evil.example/github.com/bee-community-master/solo_superman.git",
+      "file:///tmp/github.com/bee-community-master/solo_superman.git"
+    ]) {
+      expect(normalizeRepoRemoteForTest(remote, repoRemotePatterns)).toBeNull();
+    }
+    expect(windowsBootstrap).not.toContain('remote -like "*bee-community-master/solo_superman*"');
     expect(windowsBootstrap).toContain("function Get-DesktopPaths");
     expect(windowsBootstrap).toContain("function Remove-LegacyDesktopRunners");
     expect(windowsBootstrap).toContain("function New-DesktopRunner($TargetPath)");
@@ -279,7 +339,7 @@ describe("#105 local install/run verification docs", () => {
       "line 8: syntax error: unexpected end of file from 'if' command on line 6",
       "wsl -- bash <script>",
       "WSL wslpath Windows path escaping",
-      "wslpath: C:Users...AppDataLocalTemp...codex-wsl-install.sh",
+      "wslpath: C:Users...AppDataLocalTemp...codex-wsl-install-1234-20260521-143000.sh",
       "C:/...",
       "/mnt/c/...",
       "wsl --set-default-version 2",
