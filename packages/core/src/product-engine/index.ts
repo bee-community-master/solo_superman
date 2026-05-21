@@ -1495,7 +1495,7 @@ function queueItemProjectionFromIssue(
 
   return {
     queueItemId: issue.queueItemId,
-    title: plainUserFacingDecisionQueueText(issue.questionText ?? issue.summary),
+    title: issue.questionText ?? plainUserFacingDecisionQueueText(issue.summary),
     state,
     cardType: "question",
     ...(issue.sectionRef ? { sectionRef: issue.sectionRef } : {}),

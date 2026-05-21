@@ -339,6 +339,16 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(state.session.phase).toBe("question_loop");
   });
 
+  it("preserves onboarding wording while simplifying generated prompt language", () => {
+    const { state } = stateWithPersonalActiveQuestionBatch();
+    const activeTitles = state.queueProjection.active.map((item) => item.title).join("\n");
+
+    expect(activeTitles).toContain("A focused personal workflow helper");
+    expect(activeTitles).toContain("Help one user automate a repeated local workflow.");
+    expect(activeTitles).not.toContain("A focused personal 일 처리 흐름 helper");
+    expect(activeTitles).not.toContain("Help one user automate a repeated local 일 처리 흐름.");
+  });
+
   it("replays the start-project session shell projection from the event log", () => {
     const startProject = command("StartProject", 0, {
       rawIdea: "A replayable founder brief generator",
