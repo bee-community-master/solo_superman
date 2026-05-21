@@ -39,6 +39,7 @@ export function buildWebResearchRunRequest({
     allowlistId: allowlist.allowlistId,
     connectorId: allowlist.connectorIds[0] ?? WEB_PUBLIC_SEARCH_CONNECTOR_ID,
     sourceCategory: allowlist.sourceCategories[0] ?? "public_web",
+    adapterKind: "web_search_readonly",
     researchObjective: task.objective,
     productCategory: specTitle ?? "Founder workflow assistant",
     customerProblemHypothesis: "Founder needs public-safe evidence before execution preparation notes.",

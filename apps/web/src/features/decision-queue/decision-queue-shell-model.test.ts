@@ -9,6 +9,7 @@ import {
   emptyProjectionState,
   initialQueueStartBlocker,
   latestProjectionVersion,
+  researchRunProjectionFromResponse,
   type InitialQueueStartBlocker,
   type InitialQueueStartReadinessInput,
   type ProjectionVersionSnapshot
@@ -82,6 +83,38 @@ describe("decision queue shell model", () => {
     } satisfies ProjectionVersionSnapshot;
 
     expect(latestProjectionVersion(projections)).toBe(12);
+  });
+
+  it("keeps malformed research-run command projections as recoverable workflow errors", () => {
+    expect(() =>
+      researchRunProjectionFromResponse({
+        category: "accepted_with_projection",
+        commandId: "command_malformed_research",
+        correlationId: "correlation_malformed_research",
+        stateVersionBefore: 1,
+        stateVersionAfter: 2,
+        eventIds: [],
+        effectTaskIds: [],
+        immediateProjection: {
+          kind: "ResearchRunControlResult",
+          action: "start",
+          status: "started",
+          projectId: "proj_malformed_research",
+          recovery: {
+            refetchUrl: "/api/v1/projects/proj_malformed_research/research-runs",
+            sseEventNames: ["projection.updated"],
+            projectionHints: []
+          }
+        },
+        pendingEffectSummary: {
+          totalPending: 0,
+          byType: {},
+          visibleLabel: "No background tasks are pending."
+        },
+        projectionHints: [],
+        deterministicOutputs: []
+      } as never)
+    ).toThrow("ResearchRunControlProjection was not returned");
   });
 
   it("requires explicit ChatGPT direct-login acknowledgement before starting onboarding", () => {

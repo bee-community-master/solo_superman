@@ -251,7 +251,7 @@ const EN_COPY = {
     rationale: "Rationale",
     importResearchAriaPrefix: "Import research for",
     importResult: "Import result",
-    startReadOnlyRun: "Start read-only run",
+    startReadOnlyRun: "Start public web run",
     noResearchTasks: "No research tasks yet."
   },
   implementation: {
@@ -317,6 +317,7 @@ const EN_COPY = {
     researchRunCards: "Research run cards",
     run: "run",
     attempt: "attempt",
+    sourceRefs: "source refs",
     qualityGate: "quality check",
     terminal: "final state",
     recovery: "recovery",
@@ -634,7 +635,7 @@ const JA_COPY: typeof EN_COPY = {
     rationale: "根拠",
     importResearchAriaPrefix: "リサーチ取り込み",
     importResult: "結果を取り込む",
-    startReadOnlyRun: "読み取り専用実行を開始",
+    startReadOnlyRun: "公開Webリサーチを開始",
     noResearchTasks: "リサーチタスクはまだありません。"
   },
   implementation: {
@@ -700,6 +701,7 @@ const JA_COPY: typeof EN_COPY = {
     researchRunCards: "リサーチ実行カード",
     run: "run",
     attempt: "試行",
+    sourceRefs: "出典",
     qualityGate: "品質確認",
     terminal: "完了状態",
     recovery: "復旧",
@@ -1017,7 +1019,7 @@ const KO_COPY: typeof EN_COPY = {
     rationale: "근거",
     importResearchAriaPrefix: "리서치 가져오기",
     importResult: "결과 가져오기",
-    startReadOnlyRun: "읽기 전용 실행 시작",
+    startReadOnlyRun: "공개 웹 리서치 실행 시작",
     noResearchTasks: "아직 리서치 작업이 없습니다."
   },
   implementation: {
@@ -1083,6 +1085,7 @@ const KO_COPY: typeof EN_COPY = {
     researchRunCards: "리서치 실행 카드",
     run: "실행",
     attempt: "시도",
+    sourceRefs: "출처",
     qualityGate: "품질 확인",
     terminal: "종료 상태",
     recovery: "복구",

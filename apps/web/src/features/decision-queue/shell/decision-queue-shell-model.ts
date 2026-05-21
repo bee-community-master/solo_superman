@@ -249,7 +249,13 @@ export function emptyResearchOperationsState(): ResearchOperationsState {
 }
 
 export function researchRunProjectionFromResponse(response: CommandResponse<ResearchRunControlResult>) {
-  return requiredCommandProjection<ResearchRunControlResult>(response, "ResearchRunControlResult").projection;
+  const result = requiredCommandProjection<ResearchRunControlResult>(response, "ResearchRunControlResult");
+
+  if (!result.projection || result.projection.kind !== "ResearchRunControlProjection") {
+    throw new Error("ResearchRunControlProjection was not returned by the sidecar command.");
+  }
+
+  return result.projection;
 }
 
 export function isBusinessCriticQueueItem(item: DecisionQueueProjection["active"][number]) {

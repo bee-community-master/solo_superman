@@ -13,7 +13,8 @@ describe("chatGptDelegationViewModel", () => {
     expect(view).toMatchObject({
       status: "running",
       canRevoke: true,
-      runId: "chatgpt_delegation_ready_fixture"
+      runId: "chatgpt_delegation_ready_fixture",
+      visibleHandoffLabel: expect.stringContaining("사용자가 볼 수 있는")
     });
     expect(view.activityFeedRefs).toContain("research_task:research_task_chatgpt_ready");
     expect(view.artifactRefs).toEqual(expect.arrayContaining([
@@ -34,6 +35,7 @@ describe("chatGptDelegationViewModel", () => {
 
     expect(view.status).toBe("blocked");
     expect(view.canRevoke).toBe(false);
+    expect(view.visibleHandoffLabel).toContain("완전 headless");
     expect(view.fallbackLabel).toContain("manual_prompt_handoff");
     expect(view.fallbackReason).toContain("Policy risk blocks");
     expect(view.blockReasonItems.join("\n")).toContain("policy_risk_blocked");
@@ -46,6 +48,7 @@ describe("chatGptDelegationViewModel", () => {
 
     expect(view.status).toBe("not_started");
     expect(view.canRevoke).toBe(false);
+    expect(view.visibleHandoffLabel).toContain("사용자 소유 브라우저");
     expect(view.artifactRefs).toEqual([]);
     expect(view.artifactControlLabels).toEqual([]);
   });

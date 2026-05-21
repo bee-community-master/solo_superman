@@ -30,6 +30,7 @@ export interface BackgroundResearchAdapterCancelResult {
 
 export interface BackgroundResearchAdapterResultInput {
   readonly researchRun: ResearchRunProjection;
+  readonly disclosurePayload?: PublicSafeResearchDisclosurePayload;
 }
 
 export interface BackgroundResearchAdapterResult {

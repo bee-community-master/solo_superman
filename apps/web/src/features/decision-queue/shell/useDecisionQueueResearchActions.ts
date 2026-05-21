@@ -230,7 +230,7 @@ export function useDecisionQueueResearchActions({
 
     try {
       const response = await appendCommand(
-        "Start read-only research run",
+        "Start public web research run",
         await client.startResearchRun(
           projections.session.projectId,
           buildWebResearchRunRequest({
@@ -240,12 +240,24 @@ export function useDecisionQueueResearchActions({
           })
         )
       );
+      const runs = researchRunProjectionFromResponse(response);
+      const selectedRun = runs.selectedRun ?? runs.runs.find((run) => run.status === "running" || run.status === "queued");
 
       setResearchOperations((current) => ({
         ...current,
-        runs: researchRunProjectionFromResponse(response)
+        runs
       }));
-      await refreshResearchOperations(projections.session.projectId);
+
+      if (selectedRun && (selectedRun.status === "running" || selectedRun.status === "queued")) {
+        const refreshedRuns = await client.getResearchRunStatus(projections.session.projectId, selectedRun.researchRunId);
+
+        setResearchOperations((current) => ({
+          ...current,
+          runs: refreshedRuns
+        }));
+      } else {
+        await refreshResearchOperations(projections.session.projectId);
+      }
     } catch (error) {
       setWorkflowError(displayError(error));
     } finally {

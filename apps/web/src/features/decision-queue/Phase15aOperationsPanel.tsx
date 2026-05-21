@@ -38,6 +38,13 @@ function isRetryableResearchRun(status: ResearchRunStatus) {
   return status === "failed" || status === "stale" || status === "research_insufficient";
 }
 
+function researchRunProviderLabel(run: ResearchRunControlProjection["runs"][number], copy: ReturnType<typeof useDecisionQueueCopy>) {
+  const adapterKind = run.provider?.adapterKind ?? "adapter_unavailable";
+  const attempt = run.provider?.attempt ?? "?";
+
+  return `${copy.phase15a.run} ${run.researchRunId} · ${adapterKind} · ${copy.phase15a.attempt} ${attempt}`;
+}
+
 function exitGateStatusLabel(status: Phase15aOperationsViewModel["exitGate"]["status"], copy: ReturnType<typeof useDecisionQueueCopy>) {
   return status === "ready_for_1_5b" ? copy.phase15a.ready : copy.phase15a.needsReview;
 }
@@ -146,9 +153,8 @@ export function Phase15aOperationsPanel({
                 <article className="operations-card" key={run.researchRunId}>
                   <strong>{run.researchTaskId}</strong>
                   <span>{run.status}</span>
-                  <small>
-                    {copy.phase15a.run} {run.researchRunId} · {run.provider.adapterKind} · {copy.phase15a.attempt} {run.provider.attempt}
-                  </small>
+                  <small>{researchRunProviderLabel(run, copy)}</small>
+                  <small>{copy.phase15a.sourceRefs}: {run.sourceRefs?.length ?? 0}</small>
                   <small>{copy.phase15a.qualityGate}: {run.qualityGateStatus}</small>
                   {run.qualityGateReviewReason ? <small>{run.qualityGateReviewReason}</small> : null}
                   {run.terminalReason ? <small>{copy.phase15a.terminal}: {run.terminalReason}</small> : null}

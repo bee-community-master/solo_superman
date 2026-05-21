@@ -2517,6 +2517,70 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("mounts web_search_readonly research runs without falling back to fake results", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId } = await createProjectForTest(storageApp, "A web research adapter route test idea");
+      const allowlistId = "research_allowlist_web_route";
+
+      await createAllowlistForTest(storageApp, projectId, allowlistId);
+
+      const startRun = await storageApp.request(`/api/v1/projects/${projectId}/research-runs`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          researchRunId: "research_run_web_route",
+          researchTaskId: "research_task_web_route",
+          allowlistId,
+          connectorId: "public_search",
+          sourceCategory: "public_web",
+          adapterKind: "web_search_readonly",
+          researchObjective: "Find public onboarding proof through a browser search.",
+          productCategory: "Founder workflow assistant",
+          customerProblemHypothesis: "Early founders need safer validation research.",
+          contextHash: "ctx_research_run_web_route",
+          sourceRefs: ["queue_item_web_route"]
+        })
+      });
+      const startRunBody = await jsonBody(startRun);
+      const startRunData = startRunBody.data as Readonly<Record<string, unknown>>;
+      const startResult = startRunData.immediateProjection as Readonly<Record<string, unknown>>;
+
+      expect(startRun.status).toBe(200);
+      expect(startRunData).toMatchObject({
+        category: "accepted_with_projection",
+        deterministicOutputs: [
+          expect.objectContaining({
+            payload: expect.objectContaining({
+              commandType: "StartResearchRun",
+              providerExecution: "web_search_readonly",
+              externalMutationPerformed: false
+            })
+          })
+        ]
+      });
+      expect(startResult).toMatchObject({
+        kind: "ResearchRunControlResult",
+        status: "started",
+        researchRun: {
+          researchRunId: "research_run_web_route",
+          status: "running",
+          provider: {
+            adapterKind: "web_search_readonly",
+            providerRunId: "web_search_readonly_research_run_web_route",
+            attempt: 1
+          }
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("polls completed local fake provider runs into needs_review without accepting evidence", async () => {
     const { app: storageApp, storage } = await createMigratedStorageApp();
 
