@@ -12,7 +12,11 @@ import type {
 import { requiredCommandProjection } from "../../../shared/api/command-response-helpers";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
-import { buildWebResearchRunRequest, webPublicResearchAllowlistPolicy } from "../phase15a-research-run-request";
+import {
+  allowlistPermitsWebPublicResearch,
+  buildWebResearchRunRequest,
+  webPublicResearchAllowlistPolicy
+} from "../phase15a-research-run-request";
 import {
   displayError,
   latestProjectionVersion,
@@ -213,7 +217,9 @@ export function useDecisionQueueResearchActions({
     }
 
     const task = projections.research?.tasks.find((item) => item.researchTaskId === researchTaskId);
-    const allowlist = researchOperations.allowlists?.allowlists.find((item) => item.status === "active");
+    const allowlist = researchOperations.allowlists?.allowlists.find(
+      (item) => item.status === "active" && allowlistPermitsWebPublicResearch(item)
+    );
 
     if (!task) {
       setWorkflowError("Select a planned research task before starting a read-only research run.");
@@ -221,7 +227,7 @@ export function useDecisionQueueResearchActions({
     }
 
     if (!allowlist) {
-      setWorkflowError("Create or reactivate an active public-safe allowlist before starting a research run.");
+      setWorkflowError("Create or reactivate an active public web allowlist before starting a research run.");
       return;
     }
 

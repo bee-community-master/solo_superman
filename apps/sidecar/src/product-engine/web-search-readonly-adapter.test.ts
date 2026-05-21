@@ -83,6 +83,24 @@ describe("web_search_readonly background research adapter", () => {
         SOLO_RESEARCH_WEB_MAX_RESULTS: "token=secret"
       })
     ).toThrow("SOLO_RESEARCH_WEB_MAX_RESULTS");
+
+    expect(() =>
+      webSearchReadOnlyResearchAdapterOptionsFromEnv({
+        SOLO_RESEARCH_WEB_MAX_RESULTS: "99"
+      })
+    ).toThrow("at most 10");
+
+    expect(() =>
+      webSearchReadOnlyResearchAdapterOptionsFromEnv({
+        SOLO_RESEARCH_WEB_MIN_DELAY_MS: "1"
+      })
+    ).toThrow("at least 1000");
+
+    expect(() =>
+      webSearchReadOnlyResearchAdapterOptionsFromEnv({
+        SOLO_RESEARCH_WEB_MAX_DELAY_MS: "9000"
+      })
+    ).toThrow("at most 6000");
   });
 
   it("starts a queued public-web run without credential or write access", async () => {
@@ -157,6 +175,38 @@ describe("web_search_readonly background research adapter", () => {
 
     await expect(adapter.pollResult({ researchRun: runningRun, disclosurePayload })).rejects.toMatchObject({
       code: "captcha_or_antibot_required"
+    });
+  });
+
+  it("rejects localhost and private-network URLs from search results", async () => {
+    const adapter = createWebSearchReadOnlyResearchAdapter({
+      search: async (input) => [
+        {
+          title: "Local development service",
+          url: "http://127.0.0.1:43110/private",
+          snippet: "This should not be reachable through public web research.",
+          retrievedAt: input.now()
+        },
+        {
+          title: "Private network service",
+          url: "http://192.168.0.10/internal",
+          snippet: "This should not be reachable through public web research.",
+          retrievedAt: input.now()
+        }
+      ]
+    });
+    const runningRun = runFixture({
+      status: "running",
+      provider: {
+        ...runFixture().provider,
+        providerRunId: "web_search_readonly_research_run_web",
+        startedAt: "2026-05-05T00:01:00.000Z"
+      },
+      updatedAt: "2026-05-05T00:01:00.000Z"
+    });
+
+    await expect(adapter.pollResult({ researchRun: runningRun, disclosurePayload })).rejects.toMatchObject({
+      code: "no_public_results"
     });
   });
 

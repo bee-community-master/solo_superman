@@ -35,7 +35,7 @@ import { Phase15aOperationsPanel } from "./Phase15aOperationsPanel";
 import { Phase15bReadinessPanel } from "./Phase15bReadinessPanel";
 import { renderEnglishMarkup } from "./test-rendering";
 
-import { buildWebResearchRunRequest } from "./phase15a-research-run-request";
+import { allowlistPermitsWebPublicResearch, buildWebResearchRunRequest } from "./phase15a-research-run-request";
 
 const projectId = "proj_phase15a_ui" as ProjectId;
 const allowlistId = "research_allowlist_phase15a_ui" as ResearchAllowlistId;
@@ -448,12 +448,46 @@ describe("Decision Queue view model readiness-panels", () => {
 
     expect(request).toMatchObject({
       researchTaskId: selectedTaskId,
+      connectorId: "public_search",
+      sourceCategory: "public_web",
       adapterKind: "web_search_readonly",
       researchObjective: "Validate the second task source linkage.",
       productCategory: "Selected task product",
       sourceRefs: ["queue_item_selected"]
     });
     expect(request.contextHash).toContain(selectedTaskId);
+  });
+
+  it("keeps web research requests pinned to public web even when an allowlist has extra sources", () => {
+    const research = researchProjection(true);
+    const [task] = research.tasks;
+    const [baseAllowlist] = allowlistProjection().allowlists;
+
+    if (!task || !baseAllowlist) {
+      throw new Error("Phase 1.5A research request fixture is incomplete.");
+    }
+
+    const mixedAllowlist = {
+      ...baseAllowlist,
+      connectorIds: ["official_docs" as ResearchConnectorId, "public_search" as ResearchConnectorId],
+      sourceCategories: ["official_docs", "public_web"] as const
+    };
+    const request = buildWebResearchRunRequest({
+      allowlist: mixedAllowlist,
+      task
+    });
+
+    expect(allowlistPermitsWebPublicResearch(mixedAllowlist)).toBe(true);
+    expect(allowlistPermitsWebPublicResearch({
+      ...baseAllowlist,
+      connectorIds: ["official_docs" as ResearchConnectorId],
+      sourceCategories: ["official_docs"] as const
+    })).toBe(false);
+    expect(request).toMatchObject({
+      connectorId: "public_search",
+      sourceCategory: "public_web",
+      adapterKind: "web_search_readonly"
+    });
   });
 
   it("renders the extracted Phase 1.5A operations panel controls and session gating", () => {

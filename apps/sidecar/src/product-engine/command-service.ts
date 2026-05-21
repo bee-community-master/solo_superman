@@ -2897,6 +2897,20 @@ export function createProductEngineCommandService(
     return mountedResearchAdapterConfigBlocker(adapterKind);
   }
 
+  function mountedResearchRunAdapterBlocker(run: ResearchRunProjection) {
+    const adapterKind = run.provider.adapterKind;
+
+    if (!isMountedResearchAdapterKind(adapterKind)) {
+      return "Requested research adapter is not mounted in the local sidecar.";
+    }
+
+    if (adapterKind === "web_search_readonly" && run.sourceCategory !== "public_web") {
+      return "The web_search_readonly adapter only supports public_web read-only sources.";
+    }
+
+    return mountedResearchAdapterConfigBlocker(adapterKind);
+  }
+
   function contextHashFromPublicSafePayload(
     request: Pick<StartResearchRunRequest, "contextHash" | "sourceRefs">,
     publicSafePayload: PublicSafeResearchDisclosurePayload
@@ -3146,22 +3160,11 @@ export function createProductEngineCommandService(
       return run;
     }
 
-    let started: Awaited<ReturnType<BackgroundResearchRuntimeAdapter["start"]>>;
-
-    try {
-      const adapter = createMountedResearchAdapter(run.provider.adapterKind);
-
-      started = await adapter.start({
-        researchRun: run,
-        disclosurePayload: publicSafePayload
-      });
-    } catch (error) {
-      if (run.provider.adapterKind === "web_search_readonly") {
-        return markResearchRunProviderFailed(run, new Date().toISOString());
-      }
-
-      throw error;
-    }
+    const adapter = createMountedResearchAdapter(run.provider.adapterKind);
+    const started = await adapter.start({
+      researchRun: run,
+      disclosurePayload: publicSafePayload
+    });
     const updated = await createResearchRunRepository(storage.db).update({
       run: {
         ...run,
@@ -4331,6 +4334,24 @@ export function createProductEngineCommandService(
             "allowlist_or_context_blocked",
             disclosureLog ?? undefined,
             disclosurePayload,
+            undefined,
+            priorRun
+          );
+
+          return researchRunCommandResponse("RetryResearchRun", stateVersionBefore, result);
+        }
+
+        const retryAdapterBlocker = mountedResearchRunAdapterBlocker(priorRun);
+
+        if (retryAdapterBlocker) {
+          const result = await blockedResearchRunControlResult(
+            input.projectId,
+            "retry",
+            "blocked_precondition",
+            retryAdapterBlocker,
+            "adapter_unavailable",
+            disclosureLog ?? undefined,
+            publicSafePayload,
             undefined,
             priorRun
           );

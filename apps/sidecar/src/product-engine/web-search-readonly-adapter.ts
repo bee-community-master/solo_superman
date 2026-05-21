@@ -1,5 +1,6 @@
 /// <reference lib="dom" />
 
+import { isIP } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import {
@@ -24,6 +25,10 @@ const DEFAULT_FETCH_PAGES = 3;
 const DEFAULT_TIMEOUT_MILLIS = 15_000;
 const DEFAULT_MIN_DELAY_MILLIS = 1_000;
 const DEFAULT_MAX_DELAY_MILLIS = 6_000;
+const MAX_SEARCH_RESULTS = 10;
+const MAX_FETCH_PAGES = 5;
+const MAX_TIMEOUT_MILLIS = 30_000;
+const MAX_DELAY_MILLIS = DEFAULT_MAX_DELAY_MILLIS;
 const MAX_QUERY_CHARS = 220;
 const MAX_SNIPPET_CHARS = 700;
 const MAX_SUMMARY_CHARS = 4_000;
@@ -102,9 +107,16 @@ function clampPositiveInteger(value: number | undefined, fallback: number) {
   return value;
 }
 
+function clampIntegerRange(value: number | undefined, fallback: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, clampPositiveInteger(value, fallback)));
+}
+
 function boundedDelayRange(minDelayMillis: number | undefined, maxDelayMillis: number | undefined) {
-  const min = Math.max(0, clampPositiveInteger(minDelayMillis, DEFAULT_MIN_DELAY_MILLIS));
-  const max = Math.max(min, clampPositiveInteger(maxDelayMillis, DEFAULT_MAX_DELAY_MILLIS));
+  const min = clampIntegerRange(minDelayMillis, DEFAULT_MIN_DELAY_MILLIS, DEFAULT_MIN_DELAY_MILLIS, MAX_DELAY_MILLIS);
+  const max = Math.max(
+    min,
+    clampIntegerRange(maxDelayMillis, DEFAULT_MAX_DELAY_MILLIS, DEFAULT_MIN_DELAY_MILLIS, MAX_DELAY_MILLIS)
+  );
 
   return { min, max };
 }
@@ -137,6 +149,30 @@ export function webSearchReadOnlyResearchAdapterOptionsFromEnv(
   const timeoutMillis = optionalPositiveIntegerFromEnv(env, WEB_SEARCH_READONLY_ENV.timeoutMillis);
   const minDelayMillis = optionalPositiveIntegerFromEnv(env, WEB_SEARCH_READONLY_ENV.minDelayMillis);
   const maxDelayMillis = optionalPositiveIntegerFromEnv(env, WEB_SEARCH_READONLY_ENV.maxDelayMillis);
+
+  if (maxResults && maxResults > MAX_SEARCH_RESULTS) {
+    throw new Error(`${WEB_SEARCH_READONLY_ENV.maxResults} must be at most ${MAX_SEARCH_RESULTS} when set.`);
+  }
+
+  if (maxFetchedPages && maxFetchedPages > MAX_FETCH_PAGES) {
+    throw new Error(`${WEB_SEARCH_READONLY_ENV.maxFetchedPages} must be at most ${MAX_FETCH_PAGES} when set.`);
+  }
+
+  if (timeoutMillis && timeoutMillis > MAX_TIMEOUT_MILLIS) {
+    throw new Error(`${WEB_SEARCH_READONLY_ENV.timeoutMillis} must be at most ${MAX_TIMEOUT_MILLIS} when set.`);
+  }
+
+  if (minDelayMillis && minDelayMillis < DEFAULT_MIN_DELAY_MILLIS) {
+    throw new Error(`${WEB_SEARCH_READONLY_ENV.minDelayMillis} must be at least ${DEFAULT_MIN_DELAY_MILLIS} when set.`);
+  }
+
+  if (maxDelayMillis && maxDelayMillis > MAX_DELAY_MILLIS) {
+    throw new Error(`${WEB_SEARCH_READONLY_ENV.maxDelayMillis} must be at most ${MAX_DELAY_MILLIS} when set.`);
+  }
+
+  if (minDelayMillis && maxDelayMillis && maxDelayMillis < minDelayMillis) {
+    throw new Error(`${WEB_SEARCH_READONLY_ENV.maxDelayMillis} must be greater than or equal to ${WEB_SEARCH_READONLY_ENV.minDelayMillis}.`);
+  }
 
   return {
     ...(maxResults ? { maxResults } : {}),
@@ -225,6 +261,70 @@ function hasLoginRequiredText(value: string) {
   return /sign in|log in|required to continue|create an account|가입|로그인/iu.test(value);
 }
 
+function normalizedHostname(rawHostname: string) {
+  return rawHostname.replace(/^\[/u, "").replace(/\]$/u, "").replace(/\.$/u, "").toLowerCase();
+}
+
+function isPrivateIpv4(hostname: string) {
+  const parts = hostname.split(".").map((part) => Number.parseInt(part, 10));
+
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return false;
+  }
+
+  const [first = 0, second = 0] = parts;
+
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    first >= 224
+  );
+}
+
+function isPrivateIpv6(hostname: string) {
+  return (
+    hostname === "::" ||
+    hostname === "::1" ||
+    hostname.startsWith("fe80:") ||
+    hostname.startsWith("fc") ||
+    hostname.startsWith("fd")
+  );
+}
+
+function isPublicHttpUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const hostname = normalizedHostname(url.hostname);
+    const ipVersion = isIP(hostname);
+
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      return false;
+    }
+
+    if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local")) {
+      return false;
+    }
+
+    if (ipVersion === 4) {
+      return !isPrivateIpv4(hostname);
+    }
+
+    if (ipVersion === 6) {
+      return !isPrivateIpv6(hostname);
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function normalizeCandidateUrl(rawUrl: string) {
   try {
     const url = new URL(rawUrl, "https://duckduckgo.com");
@@ -236,7 +336,7 @@ function normalizeCandidateUrl(rawUrl: string) {
     const decodedBingUrl = bingEncodedUrl ? decodeBingRedirectUrl(bingEncodedUrl) : null;
     const candidate = decodedBingUrl ? new URL(decodedBingUrl, "https://www.bing.com") : uddg ? new URL(uddg) : url;
 
-    if (candidate.protocol !== "https:" && candidate.protocol !== "http:") {
+    if (!isPublicHttpUrl(candidate.toString())) {
       return null;
     }
 
@@ -254,6 +354,10 @@ function isSearchEngineUtilityUrl(value: string) {
   } catch {
     return true;
   }
+}
+
+function publicSourceResults(sources: readonly WebSearchReadOnlySourceResult[]) {
+  return sources.filter((source) => isPublicHttpUrl(source.url));
 }
 
 function decodeBingRedirectUrl(value: string) {
@@ -376,6 +480,7 @@ export async function runPlaywrightPublicWebSearch(
   try {
     browser = await chromium.launch({ headless: true });
     context = await browser.newContext({
+      javaScriptEnabled: false,
       locale: "en-US",
       userAgent:
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36 SoloSupermanReadOnlyResearch/1.0"
@@ -464,9 +569,12 @@ export function createWebSearchReadOnlyResearchAdapter(
 ): BackgroundResearchRuntimeAdapter {
   const now = options.now ?? defaultNow;
   const adapterVersion = options.adapterVersion ?? DEFAULT_ADAPTER_VERSION;
-  const maxResults = clampPositiveInteger(options.maxResults, DEFAULT_SEARCH_RESULTS);
-  const maxFetchedPages = Math.min(maxResults, clampPositiveInteger(options.maxFetchedPages, DEFAULT_FETCH_PAGES));
-  const timeoutMillis = clampPositiveInteger(options.timeoutMillis, DEFAULT_TIMEOUT_MILLIS);
+  const maxResults = clampIntegerRange(options.maxResults, DEFAULT_SEARCH_RESULTS, 1, MAX_SEARCH_RESULTS);
+  const maxFetchedPages = Math.min(
+    maxResults,
+    clampIntegerRange(options.maxFetchedPages, DEFAULT_FETCH_PAGES, 1, MAX_FETCH_PAGES)
+  );
+  const timeoutMillis = clampIntegerRange(options.timeoutMillis, DEFAULT_TIMEOUT_MILLIS, 1_000, MAX_TIMEOUT_MILLIS);
   const delayRange = boundedDelayRange(options.minDelayMillis, options.maxDelayMillis);
   const delayMillis = () => randomDelayMillis(delayRange.min, delayRange.max);
   const search = options.search ?? runPlaywrightPublicWebSearch;
@@ -497,14 +605,14 @@ export function createWebSearchReadOnlyResearchAdapter(
       assertWebSearchRun(run);
 
       const query = searchQueryFromDisclosure(input.disclosurePayload, run);
-      const sources = await search({
+      const sources = publicSourceResults(await search({
         query,
         maxResults,
         maxFetchedPages,
         timeoutMillis,
         delayMillis,
         now
-      });
+      }));
 
       if (sources.length === 0) {
         throw new WebSearchReadOnlyAdapterError(

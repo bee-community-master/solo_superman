@@ -2767,6 +2767,69 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("blocks web_search_readonly retry before creating a retry run when adapter configuration is invalid", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId } = await createProjectForTest(storageApp, "A web adapter retry config blocker test idea");
+      const allowlistId = "research_allowlist_web_retry_config";
+
+      await createAllowlistForTest(storageApp, projectId, allowlistId);
+
+      const startRun = await startWebResearchRunForTest(
+        storageApp,
+        projectId,
+        allowlistId,
+        "research_run_web_retry_config"
+      );
+
+      expect(startRun.status).toBe(200);
+
+      await withPatchedProcessEnv({ SOLO_RESEARCH_WEB_MAX_RESULTS: "token=secret" }, async () => {
+        const status = await storageApp.request(
+          `/api/v1/projects/${projectId}/research-runs/research_run_web_retry_config/status`,
+          { headers: authHeaders() }
+        );
+        const retry = await storageApp.request(
+          `/api/v1/projects/${projectId}/research-runs/research_run_web_retry_config/retry`,
+          {
+            method: "POST",
+            headers: {
+              ...authHeaders(),
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              researchRunId: "research_run_web_retry_config",
+              retryReason: "Retry after local adapter configuration is fixed.",
+              contextHash: "ctx_research_run_web_retry_config_retry"
+            })
+          }
+        );
+        const retryBody = await jsonBody(retry);
+        const retryData = retryBody.data as Readonly<Record<string, unknown>>;
+        const retryResult = retryData.immediateProjection as Readonly<Record<string, unknown>>;
+
+        expect(status.status).toBe(200);
+        expect(retry.status).toBe(200);
+        expect(retryResult).toMatchObject({
+          action: "retry",
+          status: "blocked_precondition",
+          researchRun: {
+            researchRunId: "research_run_web_retry_config",
+            status: "failed"
+          },
+          blocker: {
+            code: "adapter_unavailable",
+            reason: expect.stringContaining("SOLO_RESEARCH_WEB_MAX_RESULTS")
+          }
+        });
+        expect(JSON.stringify(retryBody)).not.toContain("token=secret");
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("polls completed local fake provider runs into needs_review without accepting evidence", async () => {
     const { app: storageApp, storage } = await createMigratedStorageApp();
 
