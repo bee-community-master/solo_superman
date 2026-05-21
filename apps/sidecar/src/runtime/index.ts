@@ -905,7 +905,8 @@ function codexPreviewPayloadJsonSchema(input: CodexRuntimePreviewInput): CodexAp
           additionalProperties: false,
           properties: {
             actionType: { type: "string", enum: [...BLOCKED_ACTION_TYPES] },
-            reason: { type: "string", minLength: 1 }
+            reason: { type: "string", minLength: 1 },
+            suggestedSafeAlternative: { type: "string", minLength: 1 }
           }
         },
         phase15bUpgradeHints: phase15bUpgradeHintsJsonSchema()
@@ -1039,6 +1040,7 @@ function phase15bUpgradeHintsJsonSchema(): CodexAppServerJsonValue {
         required: ["baseRef", "rollbackNote", "reversible", "cleanupExpectation"],
         properties: {
           baseRef: { type: "string", minLength: 1 },
+          diffRef: { type: "string", minLength: 1 },
           rollbackNote: { type: "string", minLength: 1 },
           reversible: { type: "boolean" },
           cleanupExpectation: { type: "string", minLength: 1 }
@@ -1077,7 +1079,8 @@ function phase15bUpgradeHintsJsonSchema(): CodexAppServerJsonValue {
           required: ["kind", "refId"],
           properties: {
             kind: { type: "string", enum: [...PHASE15B_SOURCE_REF_KINDS] },
-            refId: { type: "string", minLength: 1 }
+            refId: { type: "string", minLength: 1 },
+            label: { type: "string", minLength: 1 }
           }
         }
       },
