@@ -304,6 +304,7 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(visibleAnswerOptionCopy).not.toMatch(
       /\b(primary customer|Build Slice|MVP|workflow|GUI|CLI|planning-ready|tradeoff|proxy|scope creep|customer lock-in|paid intent|research_needed|high-impact gate|Spec section|completion gate|concierge|owner\/date|confidence|pivot|daemon)\b/iu
     );
+    expect(visibleAnswerOptionCopy).not.toMatch(/(?:작업 흐름|일 처리 흐름)[는가를와]/u);
     expect(state.queueProjection.active).toHaveLength(5);
     const visibleActiveQueueCopy = state.queueProjection.active
       .map((item) => [item.title, item.whyItMatters, item.decisionItUnlocks, item.nextValidationAction].filter(Boolean).join(" "))
@@ -347,6 +348,7 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(activeTitles).toContain("Help one user automate a repeated local workflow.");
     expect(activeTitles).not.toContain("A focused personal 일 처리 흐름 helper");
     expect(activeTitles).not.toContain("Help one user automate a repeated local 일 처리 흐름.");
+    expect(activeTitles).not.toMatch(/(?:작업 흐름|일 처리 흐름)[는가를와]/u);
   });
 
   it("replays the start-project session shell projection from the event log", () => {
