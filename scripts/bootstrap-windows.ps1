@@ -184,6 +184,15 @@ function ConvertTo-PowerShellLiteral($Value) {
   return "'" + ([string]$Value).Replace("'", "''") + "'"
 }
 
+function ConvertTo-BashSingleQuotedLiteral($Value) {
+  if ($null -eq $Value) {
+    return "''"
+  }
+
+  $singleQuote = [string][char]39
+  return $singleQuote + ([string]$Value).Replace($singleQuote, "$singleQuote\$singleQuote$singleQuote") + $singleQuote
+}
+
 function Get-PowerShellExecutable {
   foreach ($name in @("pwsh", "powershell")) {
     $command = Get-Command $name -ErrorAction SilentlyContinue
@@ -217,6 +226,7 @@ function Restart-AsAdministrator {
     "SOLO_SUPERMAN_RUN_SMOKE",
     "SOLO_SUPERMAN_START_LOCAL",
     "SOLO_SUPERMAN_NO_PAUSE",
+    "SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL",
     "SOLO_SUPERMAN_CODEX_DESKTOP_URL",
     "SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT",
     "SOLO_SUPERMAN_CODEX_WINDOWS_MODE",
@@ -610,7 +620,7 @@ function Get-WslPath($WindowsPath) {
 function Invoke-WslScript($Script) {
   $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) "solo-superman"
   New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
-  $scriptPath = Join-Path $tempRoot "codex-wsl-install.sh"
+  $scriptPath = Join-Path $tempRoot "codex-wsl-install-$PID-$DiagnosticTimestamp.sh"
   Write-LfUtf8NoBomFile $scriptPath $Script
   $wslScriptPath = Get-WslPath $scriptPath
 
@@ -740,7 +750,8 @@ if ! npm install -g @openai/codex@latest; then
 fi
 codex --version
 '@
-  $installScript = $installScript.Replace("__NVM_INSTALL_URL__", $CodexNvmInstallUrl).Replace("__NODE_MAJOR__", $CodexWslNodeMajor)
+  $quotedNvmInstallUrl = ConvertTo-BashSingleQuotedLiteral $CodexNvmInstallUrl
+  $installScript = $installScript.Replace("__NVM_INSTALL_URL__", $quotedNvmInstallUrl).Replace("__NODE_MAJOR__", $CodexWslNodeMajor)
   Invoke-WslScript $installScript
   $env:SOLO_CODEX_WINDOWS_MODE = "wsl"
 }
@@ -902,13 +913,34 @@ function Get-OriginRemote($Path) {
   }
 }
 
+function Normalize-RepoRemotePath($Remote) {
+  if ([string]::IsNullOrWhiteSpace($Remote)) {
+    return $null
+  }
+
+  $normalized = ([string]$Remote).Trim().Replace("\", "/").TrimEnd("/")
+  if ($normalized -match "github\.com[:/](?<owner>[^/]+)/(?<repo>[^/#?]+?)(?:\.git)?$") {
+    return "$($Matches.owner)/$($Matches.repo)"
+  }
+
+  return $null
+}
+
 function Test-ExpectedRepo($Path) {
   if (-not (Test-Path (Join-Path $Path ".git"))) {
     return $false
   }
 
   $remote = Get-OriginRemote $Path
-  return ($remote -eq $RepoUrl) -or ($remote -like "*bee-community-master/solo_superman*") -or ($remote -like "*bee-community-master/solo_superman.git*") -or ($remote -like "*HearingOffice/solo_superman*") -or ($remote -like "*HearingOffice/solo_superman.git*")
+  if ($remote -and [string]::Equals(([string]$remote).Trim().TrimEnd("/"), ([string]$RepoUrl).Trim().TrimEnd("/"), [System.StringComparison]::OrdinalIgnoreCase)) {
+    return $true
+  }
+
+  $remotePath = Normalize-RepoRemotePath $remote
+  return $remotePath -in @(
+    "bee-community-master/solo_superman",
+    "HearingOffice/solo_superman"
+  )
 }
 
 function Sync-OriginRemote($Path) {
