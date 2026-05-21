@@ -739,6 +739,101 @@ type AmbiguityIssueSeed = {
   readonly suggestedResearchTask?: string;
 };
 
+interface OnboardingQuestionContext {
+  readonly idea?: string;
+  readonly goal?: string;
+}
+
+const QUESTION_CONTEXT_MAX_CHARS = 72;
+
+const USER_FACING_QUESTION_TERM_REPLACEMENTS: readonly (readonly [RegExp, string])[] = [
+  [/가장\s+먼저\s+검증할\s+primary customer/giu, "가장 먼저 검증할 고객/사용자"],
+  [/첫\s+Build Slice/giu, "첫 구현 범위"],
+  [/\bprimary customer\b/giu, "핵심 고객/사용자"],
+  [/\bMVP\b/gu, "첫 버전"],
+  [/\bBuild Slice\b/giu, "구현 범위"],
+  [/\bretention proxy\b/giu, "반복해서 쓸 만하다는 신호"],
+  [/\bfounder\/team\b/giu, "만드는 사람/팀"],
+  [/\bfounder\b/giu, "만드는 사람"],
+  [/\bworkflow\b/giu, "일 처리 흐름"],
+  [/\bGUI\b/gu, "화면 UI"],
+  [/\bCLI\b/gu, "명령어 방식"],
+  [/\blocal data\b/giu, "내 컴퓨터의 데이터"],
+  [/\bsecret\b/giu, "비밀값/토큰"],
+  [/\bscope\b/giu, "범위"],
+  [/\breadiness\b/giu, "준비 상태"],
+  [/\bdecision\b/giu, "결정"]
+];
+
+function compactOnboardingContextText(value: string | undefined) {
+  const compacted = value?.replace(/\s+/gu, " ").trim();
+
+  if (!compacted) {
+    return undefined;
+  }
+
+  return compacted.length > QUESTION_CONTEXT_MAX_CHARS
+    ? `${compacted.slice(0, QUESTION_CONTEXT_MAX_CHARS - 1)}…`
+    : compacted;
+}
+
+function onboardingQuestionContextFromState(state: ProductEngineStateSnapshot): OnboardingQuestionContext {
+  const idea = compactOnboardingContextText(state.project.rawIdeaText);
+  const goal = compactOnboardingContextText(state.intake?.answer);
+
+  return {
+    ...(idea ? { idea } : {}),
+    ...(goal ? { goal } : {})
+  };
+}
+
+function plainUserFacingQuestionText(question: string) {
+  return USER_FACING_QUESTION_TERM_REPLACEMENTS.reduce(
+    (text, [pattern, replacement]) => text.replace(pattern, replacement),
+    question
+  );
+}
+
+function contextualQuestionText(seed: AmbiguityIssueSeed, context: OnboardingQuestionContext) {
+  const question = plainUserFacingQuestionText(seed.question);
+
+  if (context.idea && context.goal) {
+    return `아이디어 “${context.idea}”와 목표 “${context.goal}”에 맞춰, ${question}`;
+  }
+
+  if (context.idea) {
+    return `아이디어 “${context.idea}”에 맞춰, ${question}`;
+  }
+
+  if (context.goal) {
+    return `목표 “${context.goal}”에 맞춰, ${question}`;
+  }
+
+  return question;
+}
+
+function contextualSuggestedResearchTask(seed: AmbiguityIssueSeed, context: OnboardingQuestionContext) {
+  if (!seed.suggestedResearchTask) {
+    return undefined;
+  }
+
+  const task = plainUserFacingQuestionText(seed.suggestedResearchTask);
+
+  if (context.idea && context.goal) {
+    return `아이디어 “${context.idea}”와 목표 “${context.goal}” 기준으로 ${task}`;
+  }
+
+  if (context.idea) {
+    return `아이디어 “${context.idea}” 기준으로 ${task}`;
+  }
+
+  if (context.goal) {
+    return `목표 “${context.goal}” 기준으로 ${task}`;
+  }
+
+  return task;
+}
+
 const BUSINESS_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
   {
     sectionRef: "Target Customer",
@@ -1226,12 +1321,14 @@ function createAmbiguityIssues(
   sessionId: SessionId,
   specRef: string,
   mode: ProjectPurposeMode,
-  intensity?: BusinessCriticIntensity | null
+  intensity?: BusinessCriticIntensity | null,
+  context: OnboardingQuestionContext = {}
 ): readonly AmbiguityIssueSnapshot[] {
   const token = stableToken(`${sessionId}:${specRef}:${mode}:${intensity ?? "none"}`);
 
   return ambiguityIssueSeedsForMode(mode, intensity).map((seed, index) => {
     const businessCriticCategory = categoryForBusinessSeed(seed);
+    const suggestedResearchTask = contextualSuggestedResearchTask(seed, context);
 
     return {
       queueItemId: `queue_${token}_${index + 1}` as QueueItemId,
@@ -1255,11 +1352,11 @@ function createAmbiguityIssues(
       summary: seed.summary,
       whyItMatters: seed.whyItMatters,
       status: "open",
-      questionText: seed.question,
+      questionText: contextualQuestionText(seed, context),
       expectedAnswerType: seed.expectedAnswerType,
       answerOptions: answerOptionsForSeed(seed),
       decisionItUnlocks: seed.decisionItUnlocks,
-      ...(seed.suggestedResearchTask ? { suggestedResearchTask: seed.suggestedResearchTask } : {}),
+      ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
       repeatCount: 0,
       repeatLimit: seed.businessCriticPressureKind ? 2 : 3,
       possibleRoutes: seed.routes,
@@ -1499,35 +1596,6 @@ function hasDuplicateTopicKey(issues: readonly AmbiguityIssueSnapshot[]) {
   });
 }
 
-function queueProjectionWithAnsweredItem(
-  projection: DecisionQueueProjection,
-  queueItemId: QueueItemId,
-  version: ProjectionVersion,
-  generatedAt = projection.generatedAt ?? new Date(0).toISOString()
-): DecisionQueueProjection {
-  const markAnswered = (items: DecisionQueueProjection["active"]) =>
-    items.map((item) =>
-      item.queueItemId === queueItemId
-        ? {
-            ...item,
-            state: "answered" as const
-          }
-        : item
-    );
-
-  return refreshQueueProjectionMetadata(
-    {
-      ...projection,
-      active: markAnswered(projection.active),
-      next: markAnswered(projection.next),
-      blocked: markAnswered(projection.blocked),
-      deferred: markAnswered(projection.deferred)
-    },
-    version,
-    generatedAt
-  );
-}
-
 function queueProjectionWithoutItem(
   projection: DecisionQueueProjection,
   queueItemId: QueueItemId,
@@ -1581,6 +1649,68 @@ function queueProjectionWithDeferredItem(
     {
       ...withoutItem,
       deferred: [...withoutItem.deferred, item]
+    },
+    version,
+    generatedAt
+  );
+}
+
+function queueItemIdsInProjection(projection: DecisionQueueProjection) {
+  return new Set(
+    [
+      ...projection.active,
+      ...projection.next,
+      ...projection.blocked,
+      ...projection.deferred
+    ].map((item) => item.queueItemId)
+  );
+}
+
+function queueItemIsOpenQuestion(
+  item: QueueItemProjection,
+  openIssueById: ReadonlyMap<QueueItemId, AmbiguityIssueSnapshot>
+) {
+  return (item.cardType === undefined || item.cardType === "question") && openIssueById.has(item.queueItemId);
+}
+
+function queueProjectionWithRefilledActiveQuestions(
+  projection: DecisionQueueProjection,
+  issues: readonly AmbiguityIssueSnapshot[],
+  version: ProjectionVersion,
+  generatedAt = projection.generatedAt ?? new Date(0).toISOString()
+): DecisionQueueProjection {
+  const openIssues = issues.filter((issue) => issue.status === "open");
+  const openIssueById = new Map(openIssues.map((issue) => [issue.queueItemId, issue]));
+  const activeQuestionCount = projection.active.filter((item) => queueItemIsOpenQuestion(item, openIssueById)).length;
+  const slots = DEFAULT_QUESTION_BATCH_SIZE - activeQuestionCount;
+
+  if (slots <= 0 || openIssues.length === 0) {
+    return refreshQueueProjectionMetadata(projection, version, generatedAt);
+  }
+
+  const promotedFromNext = projection.next
+    .filter((item) => queueItemIsOpenQuestion(item, openIssueById))
+    .slice(0, slots)
+    .map((item) => ({
+      ...item,
+      state: "active" as const
+    }));
+  const promotedIds = new Set(promotedFromNext.map((item) => item.queueItemId));
+  const queuedIds = queueItemIdsInProjection(projection);
+  const fillerIssues = defaultQuestionBatchIssues(
+    openIssues.filter((issue) => !queuedIds.has(issue.queueItemId) && !promotedIds.has(issue.queueItemId))
+  ).slice(0, slots - promotedFromNext.length);
+  const fillerItems = fillerIssues.map((issue) => queueItemProjectionFromIssue(issue, "active"));
+
+  if (!promotedFromNext.length && !fillerItems.length) {
+    return refreshQueueProjectionMetadata(projection, version, generatedAt);
+  }
+
+  return refreshQueueProjectionMetadata(
+    {
+      ...projection,
+      active: [...projection.active, ...promotedFromNext, ...fillerItems],
+      next: projection.next.filter((item) => !promotedIds.has(item.queueItemId))
     },
     version,
     generatedAt
@@ -2453,9 +2583,13 @@ function reduceChangeBusinessCriticIntensity(
   );
   const hasAnalyzedAmbiguityIssueSet = state.openIssues.length > 0;
   const generatedPressureIssues = state.currentSpec.draftRef && hasAnalyzedAmbiguityIssueSet
-    ? createAmbiguityIssues(command.sessionId, state.currentSpec.draftRef, "business", requestedIntensity).filter(
-        isElevatedBusinessCriticIssue
-      )
+    ? createAmbiguityIssues(
+        command.sessionId,
+        state.currentSpec.draftRef,
+        "business",
+        requestedIntensity,
+        onboardingQuestionContextFromState(state)
+      ).filter(isElevatedBusinessCriticIssue)
     : [];
   const retainedOpenIssues = retainedIssuesForBusinessCriticIntensity(
     state.openIssues,
@@ -2679,7 +2813,8 @@ function reduceAnalyzeAmbiguity(command: ProductEngineCommand, state: ProductEng
     command.sessionId,
     state.currentSpec.draftRef,
     confirmedMode,
-    state.project.businessCriticIntensity
+    state.project.businessCriticIntensity,
+    onboardingQuestionContextFromState(state)
   );
   const event = eventDraft(command, "AmbiguityAnalyzed", {
     targetRef: typeof command.payload.targetRef === "string" ? command.payload.targetRef : state.currentSpec.draftRef,
@@ -2735,8 +2870,15 @@ function reduceActivateQuestionBatch(command: ProductEngineCommand, state: Produ
   }
   const candidateIssues = selectedIssues as readonly AmbiguityIssueSnapshot[];
 
-  if (candidateIssues.length < 3 || candidateIssues.length > 5) {
-    return reject("ActivateQuestionBatch requires 3 to 5 open ambiguity issues.");
+  const minimumBatchSize = openIssues.length >= 3 ? 3 : 1;
+
+  if (candidateIssues.length < minimumBatchSize || candidateIssues.length > DEFAULT_QUESTION_BATCH_SIZE) {
+    return reject(
+      openIssues.length >= 3
+        ? "ActivateQuestionBatch requires 3 to 5 open ambiguity issues."
+        : "ActivateQuestionBatch requires at least one remaining open ambiguity issue.",
+      "VALIDATION_FAILED"
+    );
   }
 
   if (hasDuplicateTopicKey(candidateIssues)) {
@@ -2901,7 +3043,7 @@ function reduceQueueItemResolution(
   const knownRiskPatch = hasKnownRiskPatch
     ? { knownRiskAccepted: true, nextValidationAction: nextValidationAction as string }
     : {};
-  const queueProjection = config.nextQueueProjection(
+  const projectionAfterResolution = config.nextQueueProjection(
     state.queueProjection,
     {
       ...existingItem,
@@ -2915,6 +3057,12 @@ function reduceQueueItemResolution(
     typedQueueItemId,
     config.issueStatus,
     knownRiskPatch
+  );
+  const queueProjection = queueProjectionWithRefilledActiveQuestions(
+    projectionAfterResolution,
+    nextOpenIssues,
+    projectionVersionFor(state),
+    command.issuedAt
   );
   const confidenceProjection = buildConfidenceCompletionProjection(
     {
@@ -3020,7 +3168,7 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
     return confirmedMode;
   }
 
-  const projection = queueProjectionWithAnsweredItem(
+  const projectionAfterAnsweredItem = queueProjectionWithoutItem(
     state.queueProjection,
     queueItemId as QueueItemId,
     (numericVersion(state.stateVersion) + 2) as ProjectionVersion,
@@ -3052,14 +3200,28 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
     impact,
     createdAt: command.issuedAt
   });
-  const queueProjection = queueProjectionWithResearchReviewItem(
-    projection,
+  const queueProjectionWithReview = queueProjectionWithResearchReviewItem(
+    projectionAfterAnsweredItem,
     researchTaskId,
     routeOutcome === "missing_con_evidence"
       ? `반대근거 탐색 필요: ${activeItem.title}`
       : `Research review: ${activeItem.title}`,
     routeOutcome === "missing_con_evidence" ? "blocked" : "next",
-    projection.version,
+    projectionAfterAnsweredItem.version,
+    command.issuedAt
+  );
+  const nextOpenIssues = state.openIssues.map((issue) =>
+    issue.queueItemId === queueItemId
+      ? {
+          ...issue,
+          status: "answered" as const
+        }
+      : issue
+  );
+  const queueProjection = queueProjectionWithRefilledActiveQuestions(
+    queueProjectionWithReview,
+    nextOpenIssues,
+    queueProjectionWithReview.version,
     command.issuedAt
   );
   const researchProjection = addResearchTaskToProjection(
@@ -3080,14 +3242,6 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
     sourceAnswerRef: answerRef,
     projection: researchProjection
   });
-  const nextOpenIssues = state.openIssues.map((issue) =>
-    issue.queueItemId === queueItemId
-      ? {
-          ...issue,
-          status: "answered" as const
-        }
-      : issue
-  );
   const nextSession = {
     ...state.session,
     phase: "research" as const

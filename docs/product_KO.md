@@ -28,7 +28,8 @@ Solo Superman은 초기 창업자의 막연한 아이디어를 제품 명세, �
 ## 세션 모델
 
 - Default session: 2~5 hour focused clarification loop.
-- Core surface: Decision Queue. 한 번에 3~5개의 우선순위 질문을 다룹니다.
+- Core surface: Decision Queue. 한 번에 3~5개의 우선순위 질문을 다루며, 질문은 generic startup prompt가 아니라 온보딩에서 입력한 아이디어와 목표에 맞게 생성되어야 합니다.
+- 온보딩에서는 공개·읽기 전용 리서치 소스를 허용할지도 함께 묻습니다. 안전한 기본값은 리서치를 나중에 설정하는 것입니다.
 - Output: Living Product Spec, Founder Brief, Build Slice Plan, Serve Checklist, Learning Loop Hook.
 - Stop feeling: “perfect certainty”가 아니라 “remaining risks를 알고 deliberate하게 시작할 수 있다.”
 
@@ -49,7 +50,8 @@ Business mode는 명시적인 `businessCriticIntensity`가 필요하며 no defau
 - Phase 1, Phase 2.5, tracker, PR number 같은 내부 용어는 일반 user UI에서 제외합니다.
 - Question AI는 날카로운 product coach처럼 질문 이유를 설명하고, assumption을 challenge하며, fatigue를 감지합니다.
 - 반복 질문은 topic key와 repeat limit로 수렴해야 하며, 앱은 사용자를 infinite question loop에 가두면 안 됩니다.
-- Risk UI는 데이터가 충분할 때 Confidence Map, five-axis radar, Top 3 Risk Cards를 보여줍니다.
+- 질문 새로고침과 다음 질문 불러오기 control은 화면에서 보이게 두고, 답변 또는 보류 후에는 다음 관련 질문이 자동 보충될 수 있어야 합니다.
+- Risk UI는 데이터가 충분할 때 Confidence Map, five-axis radar, Top 3 Risk Cards를 보여줍니다. 질문별 리스크 입력은 항상 노출하지 않고 선택형 추가 의견/리스크 펼쳐보기 안에 둡니다.
 
 ## 현재 배포 범위
 

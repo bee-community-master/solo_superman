@@ -239,6 +239,53 @@ describe("sidecar client commands", () => {
     });
   });
 
+  it("can request an explicit next question batch through the queue activation endpoint", async () => {
+    const seenRequests: [string, RequestInit | undefined][] = [];
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async (input, init) => {
+        seenRequests.push([input, init]);
+
+        return jsonResponse({
+          ok: true,
+          data: {
+            category: "accepted_with_projection",
+            commandId: "cmd_activate_queue",
+            correlationId: "corr_activate_queue",
+            stateVersionBefore: 5,
+            stateVersionAfter: 6,
+            queueProjection: {
+              kind: "DecisionQueueProjection",
+              version: 6,
+              active: [],
+              next: [],
+              blocked: [],
+              deferred: []
+            }
+          },
+          meta: {
+            requestId: "req_activate_queue",
+            schemaVersion: "solo-superman.contracts.v1"
+          }
+        });
+      }
+    });
+
+    await client.activateQuestionBatch("sess_test" as SessionId, 5 as StateVersion, [
+      "queue_item_2",
+      "queue_item_3"
+    ]);
+
+    const [url, init] = seenRequests[0]!;
+
+    expect(url).toBe("http://127.0.0.1:43110/api/v1/sessions/sess_test/queue/activate");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      expectedStateVersion: 5,
+      queueItemIds: ["queue_item_2", "queue_item_3"]
+    });
+  });
+
   it("defers and dismisses queue items through mounted queue item endpoints", async () => {
     const seenRequests: [string, RequestInit | undefined][] = [];
     const client = createSidecarClient({

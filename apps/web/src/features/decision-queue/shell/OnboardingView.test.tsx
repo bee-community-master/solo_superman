@@ -83,6 +83,9 @@ describe("OnboardingView", () => {
     expect(markup).toContain("I signed in to ChatGPT directly in this browser/profile.");
     expect(markup).toContain("Idea summary");
     expect(markup).toContain("Goal description");
+    expect(markup).toContain("Research permission");
+    expect(markup).toContain("Set up research later");
+    expect(markup).toContain("Allow read-only public web research");
     expect(markup.indexOf("Sign in to ChatGPT in your browser first")).toBeLessThan(
       markup.indexOf("Idea summary")
     );

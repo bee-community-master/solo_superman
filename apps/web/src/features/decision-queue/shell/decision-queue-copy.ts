@@ -131,6 +131,20 @@ const EN_COPY = {
     intakeAnswerPlaceholder: "Describe who this is for, what problem it solves, and what you want to decide in this session.",
     projectPurpose: "Project purpose",
     purposeHelp: "You choose the project purpose. Until you choose, the app will not lock business- or workflow-specific questions.",
+    initialResearchPermission: "Research permission",
+    initialResearchPermissionOptions: [
+      {
+        permission: "not_now" as const,
+        label: "Set up research later",
+        description: "Create questions now and keep public web research disabled until you enable it in the Research tab."
+      },
+      {
+        permission: "allow_public_web" as const,
+        label: "Allow read-only public web research",
+        description: "Enable the public-safe allowlist during onboarding so evidence tasks can use approved read-only sources."
+      }
+    ],
+    initialResearchPermissionHelp: "This only controls public, read-only research sources. It never grants write, credential, account, or paid-service access.",
     businessCriticIntensity: "Business review intensity",
     intensityReason: "Reason for this intensity",
     intensityReasonPlaceholder: "Note why this level of challenge fits the project.",
@@ -138,6 +152,8 @@ const EN_COPY = {
     running: "Running",
     createFirstBatch: "Create first questions",
     queue: "Queue",
+    refreshQuestionList: "Refresh question list",
+    loadNextQuestions: "Load next questions",
     nextValidation: "Next validation",
     suggestedAnswers: "Suggested answer choices",
     optionPro: "Pro",
@@ -147,6 +163,8 @@ const EN_COPY = {
     answerAriaPrefix: "Answer",
     submitAnswer: "Submit answer",
     nextValidationActionAriaPrefix: "Next validation action for",
+    additionalRiskDetails: "Add comment or risk",
+    additionalRiskHelp: "Optional: use this only when you want to keep the card as a known risk instead of answering it now.",
     knownRiskPlaceholder: "If you keep this as a known risk, write the next validation step.",
     carryAsKnownRisk: "Keep as a known risk",
     queueRecoveryFresh: "Questions are up to date. New local-service updates will refresh this list.",
@@ -479,6 +497,20 @@ const JA_COPY: typeof EN_COPY = {
     intakeAnswerPlaceholder: "誰のために、どの問題を解決し、このセッションで何を決めたいかを書いてください。",
     projectPurpose: "プロジェクト目的",
     purposeHelp: "プロジェクト目的は自分で選びます。選択するまで、事業向け・個人ワークフロー向けの質問は確定しません。",
+    initialResearchPermission: "リサーチ権限",
+    initialResearchPermissionOptions: [
+      {
+        permission: "not_now" as const,
+        label: "リサーチ設定は後で行う",
+        description: "今は質問だけ作成し、Research タブで有効化するまで公開 Web リサーチを無効のままにします。"
+      },
+      {
+        permission: "allow_public_web" as const,
+        label: "読み取り専用の公開 Web リサーチを許可",
+        description: "オンボーディング中に安全な allowlist を有効化し、承認済みの読み取り専用ソースを使えるようにします。"
+      }
+    ],
+    initialResearchPermissionHelp: "これは公開・読み取り専用リサーチソースだけの設定です。書き込み、認証情報、アカウント、有料サービスへのアクセスは許可しません。",
     businessCriticIntensity: "事業レビューの強さ",
     intensityReason: "この強さを選ぶ理由",
     intensityReasonPlaceholder: "この問い直しの強さが合う理由を書いてください。",
@@ -486,6 +518,8 @@ const JA_COPY: typeof EN_COPY = {
     running: "実行中",
     createFirstBatch: "最初の質問を作成",
     queue: "キュー",
+    refreshQuestionList: "質問リストを更新",
+    loadNextQuestions: "次の質問を読み込む",
     nextValidation: "次の検証",
     suggestedAnswers: "回答候補",
     optionPro: "長所",
@@ -495,6 +529,8 @@ const JA_COPY: typeof EN_COPY = {
     answerAriaPrefix: "回答",
     submitAnswer: "回答を送信",
     nextValidationActionAriaPrefix: "次の検証アクション",
+    additionalRiskDetails: "追加コメントまたはリスクを入力",
+    additionalRiskHelp: "任意: 今すぐ回答せず、既知リスクとして残す場合だけ使います。",
     knownRiskPlaceholder: "既知のリスクとして残す場合、次の検証ステップを書いてください。",
     carryAsKnownRisk: "既知のリスクとして残す",
     queueRecoveryFresh: "質問は最新です。ローカルサービスの更新が届くと、この一覧を更新します。",
@@ -827,6 +863,20 @@ const KO_COPY: typeof EN_COPY = {
     intakeAnswerPlaceholder: "누구를 위한 것인지, 어떤 문제를 풀고 싶은지, 이번 세션에서 무엇을 결정하고 싶은지 적어주세요.",
     projectPurpose: "프로젝트 목적",
     purposeHelp: "프로젝트 목적은 사용자가 직접 선택합니다. 선택 전에는 사업 검증용 질문이나 개인 워크플로용 질문을 확정하지 않습니다.",
+    initialResearchPermission: "리서치 권한",
+    initialResearchPermissionOptions: [
+      {
+        permission: "not_now" as const,
+        label: "리서치는 나중에 설정",
+        description: "지금은 질문만 만들고, Research 탭에서 켜기 전까지 공개 웹 리서치를 비활성화합니다."
+      },
+      {
+        permission: "allow_public_web" as const,
+        label: "읽기 전용 공개 웹 리서치 허용",
+        description: "온보딩 중 안전한 allowlist를 켜서 승인된 읽기 전용 공개 자료만 사용할 수 있게 합니다."
+      }
+    ],
+    initialResearchPermissionHelp: "이 설정은 공개·읽기 전용 리서치 소스만 허용합니다. 쓰기, 계정, credential, 유료 서비스 접근은 허용하지 않습니다.",
     businessCriticIntensity: "사업 리뷰 강도",
     intensityReason: "이 강도를 선택한 이유",
     intensityReasonPlaceholder: "이 정도로 되묻는 것이 프로젝트에 맞는 이유를 적어주세요.",
@@ -834,6 +884,8 @@ const KO_COPY: typeof EN_COPY = {
     running: "실행 중",
     createFirstBatch: "첫 질문 만들기",
     queue: "큐",
+    refreshQuestionList: "질문 목록 새로고침",
+    loadNextQuestions: "다음 질문 불러오기",
     nextValidation: "다음 검증",
     suggestedAnswers: "추천 답변 선택지",
     optionPro: "찬성",
@@ -843,6 +895,8 @@ const KO_COPY: typeof EN_COPY = {
     answerAriaPrefix: "답변",
     submitAnswer: "답변 제출",
     nextValidationActionAriaPrefix: "다음 검증 작업",
+    additionalRiskDetails: "추가 의견 또는 리스크 입력",
+    additionalRiskHelp: "선택 사항입니다. 지금 답하지 않고 알려진 리스크로 남길 때만 사용하세요.",
     knownRiskPlaceholder: "알려진 리스크로 남길 경우 다음 검증 작업을 적어주세요.",
     carryAsKnownRisk: "알려진 리스크로 남기기",
     queueRecoveryFresh: "질문 목록은 최신입니다. 로컬 서비스 업데이트가 오면 이 목록을 새로고침합니다.",

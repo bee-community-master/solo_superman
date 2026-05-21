@@ -245,9 +245,10 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
       });
     },
 
-    activateQuestionBatch(sessionId: SessionId, expectedStateVersion: StateVersion) {
+    activateQuestionBatch(sessionId: SessionId, expectedStateVersion: StateVersion, queueItemIds?: readonly string[]) {
       return postCommand<DecisionQueueProjection>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/queue/activate`, {
-        expectedStateVersion
+        expectedStateVersion,
+        ...(queueItemIds ? { queueItemIds } : {})
       });
     },
 

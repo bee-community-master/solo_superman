@@ -14,6 +14,7 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
     chatGptLoginAcknowledged,
     codexLoginStart,
     idea,
+    initialResearchPermission,
     initialBusinessCriticIntensityReason,
     intake,
     isBusy,
@@ -23,6 +24,7 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
     setBusinessCriticIntensity,
     setChatGptLoginAcknowledged,
     setIdea,
+    setInitialResearchPermission,
     setInitialBusinessCriticIntensityReason,
     setIntake,
     setProjectPurposeMode,
@@ -146,6 +148,27 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
               ))}
               <p className="mode-help">
                 {copy.questions.purposeHelp}
+              </p>
+            </fieldset>
+            <fieldset className="mode-fieldset">
+              <legend>{copy.questions.initialResearchPermission}</legend>
+              {copy.questions.initialResearchPermissionOptions.map((option) => (
+                <label className="mode-option" key={option.permission}>
+                  <input
+                    checked={initialResearchPermission === option.permission}
+                    name="initial-research-permission"
+                    onChange={() => setInitialResearchPermission(option.permission)}
+                    type="radio"
+                    value={option.permission}
+                  />
+                  <span>
+                    <strong>{option.label}</strong>
+                    <small>{option.description}</small>
+                  </span>
+                </label>
+              ))}
+              <p className="mode-help">
+                {copy.questions.initialResearchPermissionHelp}
               </p>
             </fieldset>
             {projectPurposeMode === "business" ? (

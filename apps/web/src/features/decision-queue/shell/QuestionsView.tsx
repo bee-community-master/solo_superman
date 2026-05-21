@@ -15,8 +15,10 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     carryQueueItemAsKnownRisk,
     isBusy,
     knownRiskDrafts,
+    loadNextQuestionBatch,
     projections,
     queueRecovery,
+    refreshQuestionList,
     sections,
     setAnswerDrafts,
     setKnownRiskDrafts,
@@ -29,6 +31,18 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
         <div className="panel-heading">
           <h2>{copy.questions.queue}</h2>
           <span>{copy.questions.queueRecoveryStatusLabels[queueRecovery.status]} · v{projections.queue?.version ?? 0}</span>
+        </div>
+        <div className="card-actions panel-actions">
+          <button type="button" disabled={isBusy || !projections.session} onClick={() => void refreshQuestionList()}>
+            {copy.questions.refreshQuestionList}
+          </button>
+          <button
+            type="button"
+            disabled={isBusy || !projections.session || Boolean(projections.queue?.active.length)}
+            onClick={() => void loadNextQuestionBatch()}
+          >
+            {copy.questions.loadNextQuestions}
+          </button>
         </div>
         <div className="queue-recovery">
           <p>{queueRecovery.label}</p>
@@ -125,7 +139,9 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                         </div>
                       ) : null}
                       {isBusinessCriticQueueItem(item) && item.state !== "deferred" ? (
-                        <div className="answer-box">
+                        <details className="answer-box risk-details">
+                          <summary>{copy.questions.additionalRiskDetails}</summary>
+                          <p className="mode-help">{copy.questions.additionalRiskHelp}</p>
                           <textarea
                             aria-label={`${copy.questions.nextValidationActionAriaPrefix} ${item.title}`}
                             value={knownRiskDrafts[item.queueItemId] ?? ""}
@@ -145,7 +161,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                           >
                             {copy.questions.carryAsKnownRisk}
                           </button>
-                        </div>
+                        </details>
                       ) : null}
                     </article>
                   ))}
