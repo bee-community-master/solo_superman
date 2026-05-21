@@ -3,6 +3,7 @@ import type {
   ServicePageUsePermissionRecord
 } from "@solo-superman/contracts";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
+import { formatListWithFallback } from "./text-formatting";
 
 export interface ServicePageUsePermissionViewModel {
   readonly status: string;
@@ -30,9 +31,6 @@ export interface ServicePageUsePermissionViewModel {
   readonly blockReasonItems: readonly string[];
 }
 
-function commaList(values: readonly string[]) {
-  return values.length ? values.join(", ") : "none";
-}
 
 function artifactRefsForPermission(permission: ServicePageUsePermissionRecord) {
   if (permission.artifactRetention.promptResultScreenshotLogRetention === "deleted_audit_metadata_only") {
@@ -88,9 +86,9 @@ export function servicePageUsePermissionViewModel(
     serviceLabel: `${permission.serviceName} (${permission.serviceOrigin})`,
     pageUrl: permission.pageUrl,
     purpose: permission.purpose,
-    allowedActionsLabel: commaList(permission.allowedActionClasses),
-    blockedActionsLabel: commaList(permission.blockedActionClasses),
-    dataCategoriesLabel: commaList(permission.dataCategories),
+    allowedActionsLabel: formatListWithFallback(permission.allowedActionClasses, "none"),
+    blockedActionsLabel: formatListWithFallback(permission.blockedActionClasses, "none"),
+    dataCategoriesLabel: formatListWithFallback(permission.dataCategories, "none"),
     approvalGranularityLabel: permission.approvalGranularity,
     approvalLabel: `${permission.approvalDecision} via ${permission.userApprovalRef}`,
     loginBoundaryLabel: permission.credentialEntryDelegated
