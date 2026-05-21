@@ -288,13 +288,7 @@ function isNonPublicIpv4Address(hostname: string) {
   );
 }
 
-function ipv4AddressFromMappedIpv6(hostname: string) {
-  if (!hostname.startsWith("::ffff:")) {
-    return null;
-  }
-
-  const suffix = hostname.slice("::ffff:".length);
-
+function ipv4AddressFromIpv6Suffix(suffix: string) {
   if (isIP(suffix) === 4) {
     return suffix;
   }
@@ -314,6 +308,18 @@ function ipv4AddressFromMappedIpv6(hostname: string) {
   return `${Math.floor(high / 256)}.${high % 256}.${Math.floor(low / 256)}.${low % 256}`;
 }
 
+function ipv4AddressFromEmbeddedIpv6(hostname: string) {
+  if (hostname.startsWith("::ffff:")) {
+    return ipv4AddressFromIpv6Suffix(hostname.slice("::ffff:".length));
+  }
+
+  if (hostname.startsWith("::")) {
+    return ipv4AddressFromIpv6Suffix(hostname.slice("::".length));
+  }
+
+  return null;
+}
+
 function firstIpv6Hextet(hostname: string) {
   const [first] = hostname.split(":");
 
@@ -325,7 +331,7 @@ function firstIpv6Hextet(hostname: string) {
 }
 
 function isNonPublicIpv6Address(hostname: string) {
-  const mappedIpv4 = ipv4AddressFromMappedIpv6(hostname);
+  const embeddedIpv4 = ipv4AddressFromEmbeddedIpv6(hostname);
   const first = firstIpv6Hextet(hostname);
   const isLinkLocal = first !== null && first >= 0xfe80 && first <= 0xfebf;
   const isUniqueLocal = first !== null && first >= 0xfc00 && first <= 0xfdff;
@@ -333,7 +339,7 @@ function isNonPublicIpv6Address(hostname: string) {
   const isDiscardOnly = first === 0x0100;
 
   return (
-    Boolean(mappedIpv4 && isNonPublicIpv4Address(mappedIpv4)) ||
+    Boolean(embeddedIpv4 && isNonPublicIpv4Address(embeddedIpv4)) ||
     hostname === "::" ||
     hostname === "::1" ||
     hostname.startsWith("2001:db8:") ||

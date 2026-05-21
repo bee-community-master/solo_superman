@@ -200,6 +200,12 @@ describe("web_search_readonly background research adapter", () => {
           retrievedAt: input.now()
         },
         {
+          title: "IPv4-compatible loopback service",
+          url: "http://[::127.0.0.1]/private",
+          snippet: "IPv4-compatible loopback must stay outside public web research.",
+          retrievedAt: input.now()
+        },
+        {
           title: "Documentation IPv6 service",
           url: "http://[2001:db8::1]/internal",
           snippet: "Documentation-only IPv6 ranges are not public fetch targets.",
