@@ -8,6 +8,7 @@ export interface ChatGptDelegationViewModel {
   readonly status: string;
   readonly summary: string;
   readonly explanation: string;
+  readonly visibleHandoffLabel: string;
   readonly nextAction: string;
   readonly canRevoke: boolean;
   readonly runId: string | null;
@@ -32,6 +33,28 @@ function artifactRefsForRun(run: ChatGptBrowserDelegationRun) {
   ];
 }
 
+function visibleHandoffLabelForRun(run: ChatGptBrowserDelegationRun) {
+  switch (run.status) {
+    case "waiting_for_approval":
+      return "사용자 승인 전에는 ChatGPT 브라우저 작업을 시작하지 않습니다.";
+    case "running":
+      return "사용자가 볼 수 있는 로컬 브라우저 작업만 허용되며 계정/쿠키/2FA는 저장하지 않습니다.";
+    case "waiting_for_user":
+      return "로그인, CAPTCHA, 사용량 제한, UI 변경은 사용자 직접 조치가 필요합니다.";
+    case "importing_result":
+      return "가져온 결과는 출처/불확실성/반대근거/신선도 게이트를 통과해야 합니다.";
+    case "completed":
+      return "결과 가져오기가 끝났지만 저장 자료는 사용자가 내보내거나 삭제할 수 있어야 합니다.";
+    case "blocked":
+    case "failed":
+      return "완전 headless ChatGPT Pro 자동화 대신 수동 프롬프트 전달 또는 공식 경로로 대체합니다.";
+    case "revoked":
+      return "사용자가 위임을 취소했으므로 더 이상 브라우저 작업을 계속할 수 없습니다.";
+    case "pending_preflight":
+      return "프롬프트/가림 처리/정책/세션 소유권 사전 점검을 먼저 기록합니다.";
+  }
+}
+
 export function chatGptDelegationViewModel(
   projection: ChatGptBrowserDelegationProjection | null
 ): ChatGptDelegationViewModel {
@@ -40,6 +63,7 @@ export function chatGptDelegationViewModel(
       status: "not_started",
       summary: "External AI workspace has not been prepared.",
       explanation: "No per-run local browser workspace has been recorded for this session.",
+      visibleHandoffLabel: "ChatGPT Pro/Deep Research는 사용자 소유 브라우저에서 보이는 위임으로만 준비합니다.",
       nextAction: "Plan a research task and prepare a safe browser handoff preview before using an external AI workspace.",
       canRevoke: false,
       runId: null,
@@ -68,6 +92,7 @@ export function chatGptDelegationViewModel(
     status: projection.currentStatus,
     summary: projection.summary,
     explanation: run.userVisibleExplanation,
+    visibleHandoffLabel: visibleHandoffLabelForRun(run),
     nextAction: run.nextAction,
     canRevoke: run.canRevoke,
     runId: run.runId,
@@ -109,6 +134,7 @@ export function ChatGptDelegationPanel({
       </div>
       <p>{delegation.summary}</p>
       <p className="research-recovery">{delegation.explanation}</p>
+      <p className="mode-summary">{delegation.visibleHandoffLabel}</p>
       <p className="mode-summary">{copy.permissions.nextAction}: {delegation.nextAction}</p>
       <div className="card-actions panel-actions">
         <button type="button" disabled={isBusy} onClick={onRefreshDelegation}>

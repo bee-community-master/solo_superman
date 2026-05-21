@@ -12,7 +12,9 @@ import type { Phase15aOperationsInput, Phase15aOperationsViewModel } from "./dec
 
 export function pendingEffectSummary(statuses: readonly StatusEndpointDto[]): PendingEffectSummaryDto {
   const byType = statuses.reduce<Record<string, number>>((summary, status) => {
-    for (const effect of status.effects) {
+    const effects = Array.isArray(status.effects) ? status.effects : [];
+
+    for (const effect of effects) {
       if (effect.status === "queued" || effect.status === "leased" || effect.status === "running") {
         summary[effect.effectType] = (summary[effect.effectType] ?? 0) + 1;
       }
@@ -32,7 +34,7 @@ export function pendingEffectSummary(statuses: readonly StatusEndpointDto[]): Pe
 export function runtimeActivityProjectionFromStatuses(
   statuses: readonly StatusEndpointDto[]
 ): RuntimeActivityProjection {
-  const effects = statuses.flatMap((status) => status.effects);
+  const effects = statuses.flatMap((status) => Array.isArray(status.effects) ? status.effects : []);
   const hasBlocked = statuses.some((status) => status.commandStatus === "blocked");
   const hasFailed = statuses.some((status) => status.commandStatus === "failed");
 

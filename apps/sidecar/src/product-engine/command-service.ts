@@ -136,7 +136,9 @@ import {
   createFakeReadOnlyResearchAdapter,
   buildPublicSafeResearchSummary,
   containsPrivateResearchContext,
-  redactPublicSafeResearchText
+  redactPublicSafeResearchText,
+  type BackgroundResearchAdapterResult,
+  type BackgroundResearchRuntimeAdapter
 } from "@solo-superman/core";
 import {
   CodexRuntimeUnavailableError,
@@ -154,6 +156,11 @@ import {
 import { applyFileDiff } from "./file-diff-adapter";
 import { buildPhase15bHintExport, buildPhase15bHintProjection } from "./phase15b-hint-projection";
 import { runShellCommand } from "./shell-command-adapter";
+import {
+  createWebSearchReadOnlyResearchAdapter,
+  webSearchReadOnlyResearchAdapterOptionsFromEnv,
+  webSearchReadOnlyAdapterFailureMessage
+} from "./web-search-readonly-adapter";
 import {
   autoImplementationRunId,
   defaultAutoImplementationWorkspaceRoot,
@@ -175,6 +182,8 @@ export class ProductEngineServiceError extends Error {
 }
 
 const LOCAL_FAKE_PROVIDER_RESULT_DELAY_MILLIS = 30_000;
+const MOUNTED_RESEARCH_ADAPTER_KINDS = ["local_fake_readonly", "web_search_readonly"] as const;
+type MountedResearchAdapterKind = (typeof MOUNTED_RESEARCH_ADAPTER_KINDS)[number];
 
 function sessionProjectPurposeModeFields(project: ProductEngineStateSnapshot["project"]) {
   return {
@@ -597,7 +606,10 @@ function researchRunCommandResponse(
           projectionKind: "ResearchRunProjection",
           sseEventHints: result.recovery.sseEventNames,
           productEngineReducerSideEffects: false,
-          providerExecution: result.status === "started" || result.status === "retry_started" ? "local_fake_readonly" : false,
+          providerExecution:
+            result.status === "started" || result.status === "retry_started"
+              ? result.researchRun?.provider.adapterKind ?? true
+              : false,
           externalMutationPerformed: false,
           ...(result.retryAfterSeconds ? { retryAfterSeconds: result.retryAfterSeconds } : {}),
           ...(result.priorFailure ? { priorFailure: result.priorFailure } : {}),
@@ -2613,7 +2625,7 @@ export function createProductEngineCommandService(
 
     for (const run of activeRuns) {
       if (run.status === "running") {
-        await cancelResearchRunWithLocalAdapter(run, reason);
+        await cancelResearchRunWithMountedAdapter(run, reason);
         continue;
       }
 
@@ -2654,7 +2666,7 @@ export function createProductEngineCommandService(
 
     for (const run of pausedRuns) {
       if (!allowlistPermitsResearchRun(allowlist, run)) {
-        await cancelResearchRunWithLocalAdapter(
+        await cancelResearchRunWithMountedAdapter(
           run,
           "Research allowlist was reactivated with policy that no longer permits this paused run; restart with fresh approval if needed."
         );
@@ -2685,7 +2697,7 @@ export function createProductEngineCommandService(
         );
       }
 
-      await startLocalFakeRunIfQueued(resumed, {
+      await startMountedResearchRunIfQueued(resumed, {
         researchObjective: disclosureLog?.researchObjective ?? resumed.researchTaskId,
         publicSafeSummary:
           disclosureLog?.publicSafeSummarySent ?? "Resumed allowlisted run uses the prior public-safe disclosure summary."
@@ -2706,7 +2718,7 @@ export function createProductEngineCommandService(
     );
 
     for (const run of activeRuns) {
-      await cancelResearchRunWithLocalAdapter(run, reason);
+      await cancelResearchRunWithMountedAdapter(run, reason);
     }
   }
 
@@ -2836,6 +2848,71 @@ export function createProductEngineCommandService(
 
   function isKnownResearchAdapterKind(value: string): value is NonNullable<StartResearchRunRequest["adapterKind"]> {
     return (BACKGROUND_RESEARCH_ADAPTER_KINDS as readonly string[]).includes(value);
+  }
+
+  function isMountedResearchAdapterKind(
+    value: NonNullable<StartResearchRunRequest["adapterKind"]>
+  ): value is MountedResearchAdapterKind {
+    return (MOUNTED_RESEARCH_ADAPTER_KINDS as readonly string[]).includes(value);
+  }
+
+  function createMountedResearchAdapter(adapterKind: MountedResearchAdapterKind): BackgroundResearchRuntimeAdapter {
+    return adapterKind === "web_search_readonly"
+      ? createWebSearchReadOnlyResearchAdapter(webSearchReadOnlyResearchAdapterOptionsFromEnv())
+      : createFakeReadOnlyResearchAdapter();
+  }
+
+  function mountedResearchSourceCategoryBlocker(
+    adapterKind: MountedResearchAdapterKind,
+    sourceCategory: ResearchSourceCategory | AutomaticResearchSourceCategory | undefined
+  ) {
+    return adapterKind === "web_search_readonly" && sourceCategory !== "public_web"
+      ? "The web_search_readonly adapter only supports public_web read-only sources."
+      : null;
+  }
+
+  function mountedResearchAdapterConfigBlocker(adapterKind: MountedResearchAdapterKind) {
+    if (adapterKind !== "web_search_readonly") {
+      return null;
+    }
+
+    try {
+      webSearchReadOnlyResearchAdapterOptionsFromEnv();
+
+      return null;
+    } catch (error) {
+      return `The web_search_readonly adapter is unavailable: ${webSearchReadOnlyAdapterFailureMessage(error)}`;
+    }
+  }
+
+  function mountedResearchAdapterBlocker(request: StartResearchRunRequest) {
+    const adapterKind = request.adapterKind;
+
+    if (!adapterKind) {
+      return null;
+    }
+
+    if (!isMountedResearchAdapterKind(adapterKind)) {
+      return "Requested adapter is not mounted in the local sidecar.";
+    }
+
+    return (
+      mountedResearchSourceCategoryBlocker(adapterKind, request.sourceCategory) ??
+      mountedResearchAdapterConfigBlocker(adapterKind)
+    );
+  }
+
+  function mountedResearchRunAdapterBlocker(run: ResearchRunProjection) {
+    const adapterKind = run.provider.adapterKind;
+
+    if (!isMountedResearchAdapterKind(adapterKind)) {
+      return "Requested research adapter is not mounted in the local sidecar.";
+    }
+
+    return (
+      mountedResearchSourceCategoryBlocker(adapterKind, run.sourceCategory) ??
+      mountedResearchAdapterConfigBlocker(adapterKind)
+    );
   }
 
   function contextHashFromPublicSafePayload(
@@ -3005,8 +3082,7 @@ export function createProductEngineCommandService(
     now: string
   ): ResearchRunProjection {
     const nextResearchRunId = request.researchRunId ?? researchRunId();
-    const adapter = createFakeReadOnlyResearchAdapter();
-    const adapterKind = request.adapterKind ?? adapter.adapterKind;
+    const adapterKind = request.adapterKind ?? "local_fake_readonly";
     const sourceCategory = automaticResearchSourceCategoryOrNull(request.sourceCategory);
 
     if (!sourceCategory) {
@@ -3016,15 +3092,30 @@ export function createProductEngineCommandService(
       );
     }
 
-    if (adapterKind !== "local_fake_readonly") {
+    if (!isMountedResearchAdapterKind(adapterKind)) {
       throw new ProductEngineServiceError(
         "COMMAND_PRECONDITION_FAILED",
-        "Only the local fake read-only research adapter is mounted for Phase 1.5A PR-05 run controls.",
+        "Requested research adapter is not mounted in the local sidecar.",
         {
           requestedAdapterKind: adapterKind
         }
       );
     }
+
+    const adapterSourceCategoryBlocker = mountedResearchSourceCategoryBlocker(adapterKind, sourceCategory);
+
+    if (adapterSourceCategoryBlocker) {
+      throw new ProductEngineServiceError(
+        "COMMAND_PRECONDITION_FAILED",
+        adapterSourceCategoryBlocker,
+        {
+          requestedAdapterKind: adapterKind,
+          sourceCategory
+        }
+      );
+    }
+
+    const adapter = createMountedResearchAdapter(adapterKind);
 
     return {
       kind: "ResearchRunProjection",
@@ -3067,15 +3158,15 @@ export function createProductEngineCommandService(
     });
   }
 
-  async function startLocalFakeRunIfQueued(
+  async function startMountedResearchRunIfQueued(
     run: ResearchRunProjection,
     publicSafePayload: PublicSafeResearchDisclosurePayload
   ) {
-    if (run.status !== "queued" || run.provider.providerRunId || run.provider.adapterKind !== "local_fake_readonly") {
+    if (run.status !== "queued" || run.provider.providerRunId || !isMountedResearchAdapterKind(run.provider.adapterKind)) {
       return run;
     }
 
-    const adapter = createFakeReadOnlyResearchAdapter();
+    const adapter = createMountedResearchAdapter(run.provider.adapterKind);
     const started = await adapter.start({
       researchRun: run,
       disclosurePayload: publicSafePayload
@@ -3113,11 +3204,15 @@ export function createProductEngineCommandService(
   function providerHasObservedResultWindow(run: ResearchRunProjection, now: string) {
     if (
       run.status !== "running" ||
-      run.provider.adapterKind !== "local_fake_readonly" ||
+      !isMountedResearchAdapterKind(run.provider.adapterKind) ||
       !run.provider.providerRunId ||
       !run.provider.startedAt
     ) {
       return false;
+    }
+
+    if (run.provider.adapterKind === "web_search_readonly") {
+      return true;
     }
 
     const elapsedMillis = isoTimestampMillis(now, "now") - isoTimestampMillis(run.provider.startedAt, "provider.startedAt");
@@ -3125,15 +3220,13 @@ export function createProductEngineCommandService(
     return elapsedMillis >= LOCAL_FAKE_PROVIDER_RESULT_DELAY_MILLIS;
   }
 
-  type LocalFakeProviderResult = Awaited<ReturnType<ReturnType<typeof createFakeReadOnlyResearchAdapter>["pollResult"]>>;
-
-  function limitationNotesFromProviderResult(providerResult: LocalFakeProviderResult) {
+  function limitationNotesFromProviderResult(providerResult: BackgroundResearchAdapterResult) {
     return providerResult.limitations.join(" ");
   }
 
   async function importProviderResultIntoResearchEvidence(
     run: ResearchRunProjection,
-    providerResult: LocalFakeProviderResult
+    providerResult: BackgroundResearchAdapterResult
   ) {
     const researchRepository = createResearchRepository(storage.db);
     const task = await researchRepository.getTask(run.researchTaskId);
@@ -3226,16 +3319,66 @@ export function createProductEngineCommandService(
     return (await createResearchRunRepository(storage.db).getById(run.projectId, run.researchRunId)) ?? run;
   }
 
-  async function pollLocalFakeRunResultIfReady(run: ResearchRunProjection) {
+  async function markResearchRunProviderFailed(run: ResearchRunProjection, failedAt: string) {
+    const repository = createResearchRunRepository(storage.db);
+    const updated = await repository.update({
+      run: {
+        ...run,
+        version: (Number(run.version) + 1) as ProjectionVersion,
+        status: "failed",
+        provider: {
+          ...run.provider,
+          completedAt: failedAt
+        },
+        terminalReason: "provider_failed",
+        qualityGateStatus: "not_evaluated",
+        updatedAt: failedAt
+      },
+      expectedVersion: run.version,
+      schemaVersion: CONTRACT_SCHEMA_VERSION
+    });
+
+    if (updated) {
+      return updated;
+    }
+
+    return (await repository.getById(run.projectId, run.researchRunId)) ?? run;
+  }
+
+  async function disclosurePayloadForRun(run: ResearchRunProjection): Promise<PublicSafeResearchDisclosurePayload> {
+    const disclosureLog = await findDisclosureLogForRun(run);
+
+    return {
+      researchObjective: disclosureLog?.researchObjective ?? run.researchTaskId,
+      publicSafeSummary:
+        disclosureLog?.publicSafeSummarySent ?? "Read-only provider result uses the prior public-safe disclosure summary."
+    };
+  }
+
+  async function pollMountedResearchRunResultIfReady(run: ResearchRunProjection) {
     const now = new Date().toISOString();
 
     if (!providerHasObservedResultWindow(run, now)) {
       return run;
     }
 
-    const providerResult = await createFakeReadOnlyResearchAdapter({ now: () => now }).pollResult({
-      researchRun: run
-    });
+    if (!isMountedResearchAdapterKind(run.provider.adapterKind)) {
+      return run;
+    }
+
+    let providerResult: BackgroundResearchAdapterResult;
+
+    try {
+      const adapter = createMountedResearchAdapter(run.provider.adapterKind);
+
+      providerResult = await adapter.pollResult({
+        researchRun: run,
+        disclosurePayload: await disclosurePayloadForRun(run)
+      });
+    } catch {
+      return markResearchRunProviderFailed(run, now);
+    }
+
     const repository = createResearchRunRepository(storage.db);
     const updated = await repository.update({
       run: {
@@ -3280,7 +3423,7 @@ export function createProductEngineCommandService(
     return run.status === "queued" || run.status === "running";
   }
 
-  async function cancelResearchRunWithLocalAdapter(run: ResearchRunProjection, reason: string) {
+  async function cancelResearchRunWithMountedAdapter(run: ResearchRunProjection, reason: string) {
     if (isTerminalResearchRunStatus(run.status)) {
       throw new ProductEngineServiceError("COMMAND_PRECONDITION_FAILED", "Terminal research runs cannot be cancelled.", {
         researchRunId: run.researchRunId,
@@ -3293,17 +3436,38 @@ export function createProductEngineCommandService(
     }
 
     const now = new Date().toISOString();
+    const fallbackCancellation = (): Awaited<ReturnType<BackgroundResearchRuntimeAdapter["cancel"]>> => {
+      if (run.status === "queued" || run.status === "paused") {
+        return {
+          status: "cancelled" as const,
+          completedAt: now,
+          reason
+        };
+      }
+
+      if (run.status === "running") {
+        return {
+          status: "cancel_requested" as const,
+          reason
+        };
+      }
+
+      throw new ProductEngineServiceError(
+        "COMMAND_PRECONDITION_FAILED",
+        `Research run status ${run.status} cannot be cancelled.`,
+        {
+          researchRunId: run.researchRunId,
+          status: run.status
+        }
+      );
+    };
     const cancellation =
       run.provider.adapterKind === "local_fake_readonly"
-        ? await createFakeReadOnlyResearchAdapter({ now: () => now }).cancel({
+        ? await createMountedResearchAdapter(run.provider.adapterKind).cancel({
             researchRun: run,
             reason
           })
-        : {
-            status: run.status === "queued" ? ("cancelled" as const) : ("cancel_requested" as const),
-            ...(run.status === "queued" ? { completedAt: now } : {}),
-            reason
-          };
+        : fallbackCancellation();
     const cancelled = cancellation.status === "cancelled";
     const updated = await createResearchRunRepository(storage.db).update({
       run: {
@@ -3862,7 +4026,7 @@ export function createProductEngineCommandService(
     async getResearchRunStatus(input: RunResearchRunStatusInput): Promise<ResearchRunStatusDto> {
       await requireProject(input.projectId);
 
-      const run = await pollLocalFakeRunResultIfReady(
+      const run = await pollMountedResearchRunResultIfReady(
         await findProjectResearchRun(input.projectId, input.researchRunId)
       );
       const projection = await listResearchRunProjection(input.projectId, run);
@@ -3933,10 +4097,7 @@ export function createProductEngineCommandService(
         }
 
         const staleBlocker = stalePolicyBlocker(input.request, now);
-        const adapterBlocker =
-          input.request.adapterKind && input.request.adapterKind !== "local_fake_readonly"
-            ? "Requested adapter is not mounted in Phase 1.5A PR-05."
-            : null;
+        const adapterBlocker = mountedResearchAdapterBlocker(input.request);
         const preconditionBlocker = staleBlocker ?? adapterBlocker;
 
         if (preconditionBlocker) {
@@ -3967,7 +4128,7 @@ export function createProductEngineCommandService(
         );
 
         if (existingRun) {
-          const started = await startLocalFakeRunIfQueued(existingRun, publicSafePayload);
+          const started = await startMountedResearchRunIfQueued(existingRun, publicSafePayload);
           const existingDisclosureLog = await findDisclosureLogForRun(started);
           const projection = await listResearchRunProjection(input.projectId, started);
           const recovery = researchRunRecoveryHint(input.projectId, started.researchRunId);
@@ -4038,7 +4199,7 @@ export function createProductEngineCommandService(
           );
         }
 
-        const started = await startLocalFakeRunIfQueued(created, publicSafePayload);
+        const started = await startMountedResearchRunIfQueued(created, publicSafePayload);
         const projection = await listResearchRunProjection(input.projectId, started);
         const recovery = researchRunRecoveryHint(input.projectId, started.researchRunId);
         const result = {
@@ -4080,7 +4241,7 @@ export function createProductEngineCommandService(
 
         const stateVersionBefore = await researchRunCollectionStateVersion(input.projectId);
         const current = await findProjectResearchRun(input.projectId, input.researchRunId);
-        const cancelled = await cancelResearchRunWithLocalAdapter(
+        const cancelled = await cancelResearchRunWithMountedAdapter(
           current,
           input.request.reason ?? "User requested cancellation for the read-only research run."
         );
@@ -4186,6 +4347,24 @@ export function createProductEngineCommandService(
           return researchRunCommandResponse("RetryResearchRun", stateVersionBefore, result);
         }
 
+        const retryAdapterBlocker = mountedResearchRunAdapterBlocker(priorRun);
+
+        if (retryAdapterBlocker) {
+          const result = await blockedResearchRunControlResult(
+            input.projectId,
+            "retry",
+            "blocked_precondition",
+            retryAdapterBlocker,
+            "adapter_unavailable",
+            disclosureLog ?? undefined,
+            publicSafePayload,
+            undefined,
+            priorRun
+          );
+
+          return researchRunCommandResponse("RetryResearchRun", stateVersionBefore, result);
+        }
+
         const maxAttempt = allowlist.rateBudgetPolicy.maxAutomaticRetriesPerRun + 1;
 
         if (priorRun.provider.attempt >= maxAttempt) {
@@ -4249,7 +4428,7 @@ export function createProductEngineCommandService(
           });
         }
 
-        const started = await startLocalFakeRunIfQueued(retryCandidate, publicSafePayload);
+        const started = await startMountedResearchRunIfQueued(retryCandidate, publicSafePayload);
         const projection = await listResearchRunProjection(input.projectId, started);
         const recovery = researchRunRecoveryHint(input.projectId, started.researchRunId);
         const retryStarted = isResearchRunStartInProgress(started);

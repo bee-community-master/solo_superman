@@ -26,14 +26,16 @@ import type {
 } from "@solo-superman/contracts";
 import {
   type Phase15aOperationsInput,
+  pendingEffectSummary,
   phase15aOperationsViewModel,
+  runtimeActivityProjectionFromStatuses,
   phase15bReadinessViewModel,
 } from "./decision-queue-view-model";
 import { Phase15aOperationsPanel } from "./Phase15aOperationsPanel";
 import { Phase15bReadinessPanel } from "./Phase15bReadinessPanel";
 import { renderEnglishMarkup } from "./test-rendering";
 
-import { buildWebResearchRunRequest } from "./phase15a-research-run-request";
+import { allowlistPermitsWebPublicResearch, buildWebResearchRunRequest } from "./phase15a-research-run-request";
 
 const projectId = "proj_phase15a_ui" as ProjectId;
 const allowlistId = "research_allowlist_phase15a_ui" as ResearchAllowlistId;
@@ -362,6 +364,22 @@ function phase15bHintProjection(): Phase15bUpgradeHintProjection {
 }
 
 describe("Decision Queue view model readiness-panels", () => {
+  it("keeps runtime status helpers from blank-screening on malformed status entries", () => {
+    const malformedStatus = {
+      commandId: "runtime_status_without_effects",
+      commandStatus: "succeeded"
+    } as unknown as Parameters<typeof pendingEffectSummary>[0][number];
+
+    expect(pendingEffectSummary([malformedStatus])).toMatchObject({
+      totalPending: 0,
+      byType: {}
+    });
+    expect(runtimeActivityProjectionFromStatuses([malformedStatus])).toMatchObject({
+      effects: [],
+      runtimeStatus: "scaffold_placeholder"
+    });
+  });
+
   it("summarizes Phase 1.5B readiness hints without execution-result copy", () => {
     const readiness = phase15bReadinessViewModel(phase15bHintProjection());
     const [record] = readiness.records;
@@ -430,11 +448,46 @@ describe("Decision Queue view model readiness-panels", () => {
 
     expect(request).toMatchObject({
       researchTaskId: selectedTaskId,
+      connectorId: "public_search",
+      sourceCategory: "public_web",
+      adapterKind: "web_search_readonly",
       researchObjective: "Validate the second task source linkage.",
       productCategory: "Selected task product",
       sourceRefs: ["queue_item_selected"]
     });
     expect(request.contextHash).toContain(selectedTaskId);
+  });
+
+  it("keeps web research requests pinned to public web even when an allowlist has extra sources", () => {
+    const research = researchProjection(true);
+    const [task] = research.tasks;
+    const [baseAllowlist] = allowlistProjection().allowlists;
+
+    if (!task || !baseAllowlist) {
+      throw new Error("Phase 1.5A research request fixture is incomplete.");
+    }
+
+    const mixedAllowlist = {
+      ...baseAllowlist,
+      connectorIds: ["official_docs" as ResearchConnectorId, "public_search" as ResearchConnectorId],
+      sourceCategories: ["official_docs", "public_web"] as const
+    };
+    const request = buildWebResearchRunRequest({
+      allowlist: mixedAllowlist,
+      task
+    });
+
+    expect(allowlistPermitsWebPublicResearch(mixedAllowlist)).toBe(true);
+    expect(allowlistPermitsWebPublicResearch({
+      ...baseAllowlist,
+      connectorIds: ["official_docs" as ResearchConnectorId],
+      sourceCategories: ["official_docs"] as const
+    })).toBe(false);
+    expect(request).toMatchObject({
+      connectorId: "public_search",
+      sourceCategory: "public_web",
+      adapterKind: "web_search_readonly"
+    });
   });
 
   it("renders the extracted Phase 1.5A operations panel controls and session gating", () => {
@@ -466,6 +519,40 @@ describe("Decision Queue view model readiness-panels", () => {
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Revoke</button>");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Refresh status</button>");
     expect(markup).toContain("quality check: pending_review");
+  });
+
+  it("renders research run cards without a blank screen when provider metadata is malformed", () => {
+    const noop = () => undefined;
+    const malformedRuns = {
+      ...runProjection(),
+      runs: runProjection().runs.map((run) => ({
+        ...run,
+        provider: undefined,
+        sourceRefs: undefined
+      })) as unknown as ResearchRunControlProjection["runs"]
+    };
+    const markup = renderEnglishMarkup(
+      createElement(Phase15aOperationsPanel, {
+        hasActiveSession: true,
+        isBusy: false,
+        operations: phase15aOperations(),
+        researchOperations: {
+          allowlists: allowlistProjection(),
+          disclosures: disclosureProjection(),
+          runs: malformedRuns
+        },
+        onCreateOrReactivateAllowlist: noop,
+        onRefreshOperations: noop,
+        onPauseAllowlist: noop,
+        onRevokeAllowlist: noop,
+        onRefreshResearchRunStatus: noop,
+        onCancelResearchRun: noop,
+        onRetryResearchRun: noop
+      })
+    );
+
+    expect(markup).toContain("adapter_unavailable");
+    expect(markup).toContain("source refs: 0");
   });
 
   it("renders Phase 1.5B readiness metadata on a non-executing handoff panel", () => {

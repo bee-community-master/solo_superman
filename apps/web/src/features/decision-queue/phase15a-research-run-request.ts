@@ -23,6 +23,13 @@ export function webPublicResearchAllowlistPolicy(approvedBy: string): WebPublicR
 type ResearchTaskProjection = ResearchEvidenceProjection["tasks"][number];
 type ResearchAllowlistProjection = ResearchAllowlistGovernanceProjection["allowlists"][number];
 
+export function allowlistPermitsWebPublicResearch(allowlist: ResearchAllowlistProjection) {
+  return (
+    allowlist.connectorIds.includes(WEB_PUBLIC_SEARCH_CONNECTOR_ID) &&
+    allowlist.sourceCategories.includes("public_web")
+  );
+}
+
 interface WebResearchRunRequestInput {
   readonly allowlist: ResearchAllowlistProjection;
   readonly specTitle?: string | undefined;
@@ -37,8 +44,9 @@ export function buildWebResearchRunRequest({
   return {
     researchTaskId: task.researchTaskId,
     allowlistId: allowlist.allowlistId,
-    connectorId: allowlist.connectorIds[0] ?? WEB_PUBLIC_SEARCH_CONNECTOR_ID,
-    sourceCategory: allowlist.sourceCategories[0] ?? "public_web",
+    connectorId: WEB_PUBLIC_SEARCH_CONNECTOR_ID,
+    sourceCategory: "public_web",
+    adapterKind: "web_search_readonly",
     researchObjective: task.objective,
     productCategory: specTitle ?? "Founder workflow assistant",
     customerProblemHypothesis: "Founder needs public-safe evidence before execution preparation notes.",
