@@ -183,6 +183,7 @@ export class ProductEngineServiceError extends Error {
 
 const LOCAL_FAKE_PROVIDER_RESULT_DELAY_MILLIS = 30_000;
 const MOUNTED_RESEARCH_ADAPTER_KINDS = ["local_fake_readonly", "web_search_readonly"] as const;
+type MountedResearchAdapterKind = (typeof MOUNTED_RESEARCH_ADAPTER_KINDS)[number];
 
 function sessionProjectPurposeModeFields(project: ProductEngineStateSnapshot["project"]) {
   return {
@@ -2851,21 +2852,26 @@ export function createProductEngineCommandService(
 
   function isMountedResearchAdapterKind(
     value: NonNullable<StartResearchRunRequest["adapterKind"]>
-  ): value is (typeof MOUNTED_RESEARCH_ADAPTER_KINDS)[number] {
+  ): value is MountedResearchAdapterKind {
     return (MOUNTED_RESEARCH_ADAPTER_KINDS as readonly string[]).includes(value);
   }
 
-  function createMountedResearchAdapter(
-    adapterKind: (typeof MOUNTED_RESEARCH_ADAPTER_KINDS)[number]
-  ): BackgroundResearchRuntimeAdapter {
+  function createMountedResearchAdapter(adapterKind: MountedResearchAdapterKind): BackgroundResearchRuntimeAdapter {
     return adapterKind === "web_search_readonly"
       ? createWebSearchReadOnlyResearchAdapter(webSearchReadOnlyResearchAdapterOptionsFromEnv())
       : createFakeReadOnlyResearchAdapter();
   }
 
-  function mountedResearchAdapterConfigBlocker(
-    adapterKind: (typeof MOUNTED_RESEARCH_ADAPTER_KINDS)[number]
+  function mountedResearchSourceCategoryBlocker(
+    adapterKind: MountedResearchAdapterKind,
+    sourceCategory: ResearchSourceCategory | AutomaticResearchSourceCategory | undefined
   ) {
+    return adapterKind === "web_search_readonly" && sourceCategory !== "public_web"
+      ? "The web_search_readonly adapter only supports public_web read-only sources."
+      : null;
+  }
+
+  function mountedResearchAdapterConfigBlocker(adapterKind: MountedResearchAdapterKind) {
     if (adapterKind !== "web_search_readonly") {
       return null;
     }
@@ -2890,11 +2896,10 @@ export function createProductEngineCommandService(
       return "Requested adapter is not mounted in the local sidecar.";
     }
 
-    if (adapterKind === "web_search_readonly" && request.sourceCategory !== "public_web") {
-      return "The web_search_readonly adapter only supports public_web read-only sources.";
-    }
-
-    return mountedResearchAdapterConfigBlocker(adapterKind);
+    return (
+      mountedResearchSourceCategoryBlocker(adapterKind, request.sourceCategory) ??
+      mountedResearchAdapterConfigBlocker(adapterKind)
+    );
   }
 
   function mountedResearchRunAdapterBlocker(run: ResearchRunProjection) {
@@ -2904,11 +2909,10 @@ export function createProductEngineCommandService(
       return "Requested research adapter is not mounted in the local sidecar.";
     }
 
-    if (adapterKind === "web_search_readonly" && run.sourceCategory !== "public_web") {
-      return "The web_search_readonly adapter only supports public_web read-only sources.";
-    }
-
-    return mountedResearchAdapterConfigBlocker(adapterKind);
+    return (
+      mountedResearchSourceCategoryBlocker(adapterKind, run.sourceCategory) ??
+      mountedResearchAdapterConfigBlocker(adapterKind)
+    );
   }
 
   function contextHashFromPublicSafePayload(
@@ -3098,10 +3102,12 @@ export function createProductEngineCommandService(
       );
     }
 
-    if (adapterKind === "web_search_readonly" && sourceCategory !== "public_web") {
+    const adapterSourceCategoryBlocker = mountedResearchSourceCategoryBlocker(adapterKind, sourceCategory);
+
+    if (adapterSourceCategoryBlocker) {
       throw new ProductEngineServiceError(
         "COMMAND_PRECONDITION_FAILED",
-        "The web_search_readonly adapter only supports public_web read-only sources.",
+        adapterSourceCategoryBlocker,
         {
           requestedAdapterKind: adapterKind,
           sourceCategory

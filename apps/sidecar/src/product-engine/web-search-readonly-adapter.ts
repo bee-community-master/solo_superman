@@ -503,6 +503,92 @@ async function closeBrowser(browser: Browser | null, context: BrowserContext | n
   await browser?.close().catch(() => undefined);
 }
 
+function searchUrlsForQuery(query: string) {
+  const encodedQuery = encodeURIComponent(query);
+
+  return [
+    `https://html.duckduckgo.com/html/?q=${encodedQuery}`,
+    `https://www.bing.com/search?q=${encodedQuery}`
+  ];
+}
+
+async function readSearchCandidates(page: Page, input: WebSearchReadOnlySearchInput) {
+  let lastSearchBlocker: WebSearchReadOnlyAdapterError | null = null;
+
+  for (const searchUrl of searchUrlsForQuery(input.query)) {
+    try {
+      await delay(input.delayMillis());
+      await page.goto(searchUrl, { waitUntil: "domcontentloaded", timeout: input.timeoutMillis });
+
+      const searchText = await pageText(page);
+
+      if (hasCaptchaOrAntiBotText(searchText)) {
+        lastSearchBlocker = new WebSearchReadOnlyAdapterError(
+          "captcha_or_antibot_required",
+          "Public web search was blocked by CAPTCHA or anti-bot verification; no bypass was attempted."
+        );
+        continue;
+      }
+
+      const candidates = await extractSearchCandidates(page, input.maxResults);
+
+      if (candidates.length > 0) {
+        return candidates;
+      }
+    } catch (error) {
+      lastSearchBlocker = error instanceof WebSearchReadOnlyAdapterError
+        ? error
+        : new WebSearchReadOnlyAdapterError(
+            "navigation_failed",
+            `Public search page could not be read: ${error instanceof Error ? error.message : String(error)}`
+          );
+    }
+  }
+
+  throw lastSearchBlocker ?? new WebSearchReadOnlyAdapterError(
+    "no_public_results",
+    "No public search results were readable from the browser search page."
+  );
+}
+
+async function publicFetchCandidates(candidates: readonly SearchCandidate[]) {
+  const publicCandidates: SearchCandidate[] = [];
+
+  for (const candidate of candidates) {
+    if (await isPublicFetchTargetUrl(candidate.url)) {
+      publicCandidates.push(candidate);
+    }
+  }
+
+  if (publicCandidates.length === 0) {
+    throw new WebSearchReadOnlyAdapterError(
+      "no_public_results",
+      "No public search results remained after excluding localhost, private-network, and DNS-private targets."
+    );
+  }
+
+  return publicCandidates;
+}
+
+async function fetchPublicCandidatePages(
+  page: Page,
+  candidates: readonly SearchCandidate[],
+  input: WebSearchReadOnlySearchInput
+) {
+  const sources: WebSearchReadOnlySourceResult[] = [];
+
+  for (const candidate of candidates.slice(0, input.maxFetchedPages)) {
+    await delay(input.delayMillis());
+    const fetched = await fetchCandidatePage(page, candidate, input.timeoutMillis, input.now);
+
+    if (fetched) {
+      sources.push(fetched);
+    }
+  }
+
+  return sources.length > 0 ? sources : candidates.map((candidate) => ({ ...candidate, retrievedAt: input.now() }));
+}
+
 export async function runPlaywrightPublicWebSearch(
   input: WebSearchReadOnlySearchInput
 ): Promise<readonly WebSearchReadOnlySourceResult[]> {
@@ -518,77 +604,10 @@ export async function runPlaywrightPublicWebSearch(
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36 SoloSupermanReadOnlyResearch/1.0"
     });
     const page = await context.newPage();
-    const searchUrls = [
-      `https://html.duckduckgo.com/html/?q=${encodeURIComponent(input.query)}`,
-      `https://www.bing.com/search?q=${encodeURIComponent(input.query)}`
-    ];
-    let candidates: readonly SearchCandidate[] = [];
-    let lastSearchBlocker: WebSearchReadOnlyAdapterError | null = null;
+    const candidates = await readSearchCandidates(page, input);
+    const publicCandidates = await publicFetchCandidates(candidates);
 
-    for (const searchUrl of searchUrls) {
-      try {
-        await delay(input.delayMillis());
-        await page.goto(searchUrl, { waitUntil: "domcontentloaded", timeout: input.timeoutMillis });
-
-        const searchText = await pageText(page);
-
-        if (hasCaptchaOrAntiBotText(searchText)) {
-          lastSearchBlocker = new WebSearchReadOnlyAdapterError(
-            "captcha_or_antibot_required",
-            "Public web search was blocked by CAPTCHA or anti-bot verification; no bypass was attempted."
-          );
-          continue;
-        }
-
-        candidates = await extractSearchCandidates(page, input.maxResults);
-
-        if (candidates.length > 0) {
-          break;
-        }
-      } catch (error) {
-        lastSearchBlocker = error instanceof WebSearchReadOnlyAdapterError
-          ? error
-          : new WebSearchReadOnlyAdapterError(
-              "navigation_failed",
-              `Public search page could not be read: ${error instanceof Error ? error.message : String(error)}`
-            );
-      }
-    }
-
-    if (candidates.length === 0) {
-      throw lastSearchBlocker ?? new WebSearchReadOnlyAdapterError(
-        "no_public_results",
-        "No public search results were readable from the browser search page."
-      );
-    }
-
-    const publicCandidates: SearchCandidate[] = [];
-
-    for (const candidate of candidates) {
-      if (await isPublicFetchTargetUrl(candidate.url)) {
-        publicCandidates.push(candidate);
-      }
-    }
-
-    if (publicCandidates.length === 0) {
-      throw new WebSearchReadOnlyAdapterError(
-        "no_public_results",
-        "No public search results remained after excluding localhost, private-network, and DNS-private targets."
-      );
-    }
-
-    const sources: WebSearchReadOnlySourceResult[] = [];
-
-    for (const candidate of publicCandidates.slice(0, input.maxFetchedPages)) {
-      await delay(input.delayMillis());
-      const fetched = await fetchCandidatePage(page, candidate, input.timeoutMillis, input.now);
-
-      if (fetched) {
-        sources.push(fetched);
-      }
-    }
-
-    return sources.length > 0 ? sources : publicCandidates.map((candidate) => ({ ...candidate, retrievedAt: input.now() }));
+    return fetchPublicCandidatePages(page, publicCandidates, input);
   } catch (error) {
     if (error instanceof WebSearchReadOnlyAdapterError) {
       throw error;
