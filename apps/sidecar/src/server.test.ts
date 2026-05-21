@@ -126,6 +126,33 @@ async function jsonBody(response: Response) {
   return (await response.json()) as JsonResponseBody;
 }
 
+async function withPatchedProcessEnv<T>(
+  values: Readonly<Record<string, string | undefined>>,
+  callback: () => Promise<T>
+) {
+  const previous = new Map(Object.keys(values).map((key) => [key, process.env[key]]));
+
+  for (const [key, value] of Object.entries(values)) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+
+  try {
+    return await callback();
+  } finally {
+    for (const [key, value] of previous) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
 interface RequestTestApp {
   request(path: string, init?: RequestInit): Response | Promise<Response>;
 }
@@ -557,6 +584,46 @@ async function createAllowlistForTest(
       approvedBy: "owner_research_run_route",
       ...overrides
     })
+  });
+}
+
+function webResearchRunRequestPayload(
+  researchRunId: string,
+  allowlistId: string,
+  overrides: Readonly<Record<string, unknown>> = {}
+) {
+  const suffix = researchRunId.replace(/^research_run_/, "");
+
+  return {
+    researchRunId,
+    researchTaskId: `research_task_${suffix}`,
+    allowlistId,
+    connectorId: "public_search",
+    sourceCategory: "public_web",
+    adapterKind: "web_search_readonly",
+    researchObjective: "Find public onboarding proof through a browser search.",
+    productCategory: "Founder workflow assistant",
+    customerProblemHypothesis: "Early founders need safer validation research.",
+    contextHash: `ctx_${researchRunId}`,
+    sourceRefs: [`queue_item_${suffix}`],
+    ...overrides
+  };
+}
+
+async function startWebResearchRunForTest(
+  storageApp: RequestTestApp,
+  projectId: string,
+  allowlistId: string,
+  researchRunId: string,
+  overrides: Readonly<Record<string, unknown>> = {}
+) {
+  return storageApp.request(`/api/v1/projects/${projectId}/research-runs`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(webResearchRunRequestPayload(researchRunId, allowlistId, overrides))
   });
 }
 
@@ -2526,26 +2593,12 @@ describe("PR-02 sidecar health shell", () => {
 
       await createAllowlistForTest(storageApp, projectId, allowlistId);
 
-      const startRun = await storageApp.request(`/api/v1/projects/${projectId}/research-runs`, {
-        method: "POST",
-        headers: {
-          ...authHeaders(),
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          researchRunId: "research_run_web_route",
-          researchTaskId: "research_task_web_route",
-          allowlistId,
-          connectorId: "public_search",
-          sourceCategory: "public_web",
-          adapterKind: "web_search_readonly",
-          researchObjective: "Find public onboarding proof through a browser search.",
-          productCategory: "Founder workflow assistant",
-          customerProblemHypothesis: "Early founders need safer validation research.",
-          contextHash: "ctx_research_run_web_route",
-          sourceRefs: ["queue_item_web_route"]
-        })
-      });
+      const startRun = await startWebResearchRunForTest(
+        storageApp,
+        projectId,
+        allowlistId,
+        "research_run_web_route"
+      );
       const startRunBody = await jsonBody(startRun);
       const startRunData = startRunBody.data as Readonly<Record<string, unknown>>;
       const startResult = startRunData.immediateProjection as Readonly<Record<string, unknown>>;
@@ -2575,6 +2628,139 @@ describe("PR-02 sidecar health shell", () => {
             attempt: 1
           }
         }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("blocks web_search_readonly starts when browser-search configuration is invalid", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId } = await createProjectForTest(storageApp, "A web adapter config blocker route test idea");
+      const allowlistId = "research_allowlist_web_config_blocked";
+
+      await createAllowlistForTest(storageApp, projectId, allowlistId);
+
+      await withPatchedProcessEnv({ SOLO_RESEARCH_WEB_MAX_RESULTS: "token=secret" }, async () => {
+        const startRun = await startWebResearchRunForTest(
+          storageApp,
+          projectId,
+          allowlistId,
+          "research_run_web_config_blocked"
+        );
+        const startRunBody = await jsonBody(startRun);
+        const startRunData = startRunBody.data as Readonly<Record<string, unknown>>;
+        const startResult = startRunData.immediateProjection as Readonly<Record<string, unknown>>;
+
+        expect(startRun.status).toBe(200);
+        expect(startResult).toMatchObject({
+          kind: "ResearchRunControlResult",
+          status: "blocked_precondition",
+          blocker: {
+            code: "adapter_unavailable",
+            reason: expect.stringContaining("SOLO_RESEARCH_WEB_MAX_RESULTS")
+          }
+        });
+        expect(JSON.stringify(startRunBody)).not.toContain("token=secret");
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("keeps web_search_readonly cancellation recoverable if adapter configuration later becomes invalid", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId } = await createProjectForTest(storageApp, "A web adapter cancellation route test idea");
+      const allowlistId = "research_allowlist_web_cancel_config";
+
+      await createAllowlistForTest(storageApp, projectId, allowlistId);
+
+      const startRun = await startWebResearchRunForTest(
+        storageApp,
+        projectId,
+        allowlistId,
+        "research_run_web_cancel_config"
+      );
+
+      expect(startRun.status).toBe(200);
+
+      await withPatchedProcessEnv({ SOLO_RESEARCH_WEB_MAX_RESULTS: "token=secret" }, async () => {
+        const cancel = await storageApp.request(
+          `/api/v1/projects/${projectId}/research-runs/research_run_web_cancel_config/cancel`,
+          {
+            method: "POST",
+            headers: {
+              ...authHeaders(),
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              researchRunId: "research_run_web_cancel_config",
+              reason: "User cancelled after provider start."
+            })
+          }
+        );
+        const cancelBody = await jsonBody(cancel);
+        const cancelData = cancelBody.data as Readonly<Record<string, unknown>>;
+        const cancelResult = cancelData.immediateProjection as Readonly<Record<string, unknown>>;
+
+        expect(cancel.status).toBe(200);
+        expect(cancelResult).toMatchObject({
+          action: "cancel",
+          status: "cancel_requested",
+          researchRun: {
+            researchRunId: "research_run_web_cancel_config",
+            status: "cancel_requested",
+            provider: {
+              adapterKind: "web_search_readonly",
+              providerRunId: "web_search_readonly_research_run_web_cancel_config"
+            }
+          }
+        });
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("marks web_search_readonly provider status polling failed instead of crashing on invalid configuration", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId } = await createProjectForTest(storageApp, "A web adapter status failure route test idea");
+      const allowlistId = "research_allowlist_web_status_config";
+
+      await createAllowlistForTest(storageApp, projectId, allowlistId);
+
+      const startRun = await startWebResearchRunForTest(
+        storageApp,
+        projectId,
+        allowlistId,
+        "research_run_web_status_config"
+      );
+
+      expect(startRun.status).toBe(200);
+
+      await withPatchedProcessEnv({ SOLO_RESEARCH_WEB_MAX_RESULTS: "token=secret" }, async () => {
+        const status = await storageApp.request(
+          `/api/v1/projects/${projectId}/research-runs/research_run_web_status_config/status`,
+          { headers: authHeaders() }
+        );
+        const statusBody = await jsonBody(status);
+
+        expect(status.status).toBe(200);
+        expect(statusBody.data).toMatchObject({
+          selectedRun: {
+            researchRunId: "research_run_web_status_config",
+            status: "failed",
+            terminalReason: "provider_failed",
+            qualityGateStatus: "not_evaluated"
+          }
+        });
+        expect(JSON.stringify(statusBody)).not.toContain("token=secret");
       });
     } finally {
       await storage.close();

@@ -2863,6 +2863,22 @@ export function createProductEngineCommandService(
       : createFakeReadOnlyResearchAdapter();
   }
 
+  function mountedResearchAdapterConfigBlocker(
+    adapterKind: (typeof MOUNTED_RESEARCH_ADAPTER_KINDS)[number]
+  ) {
+    if (adapterKind !== "web_search_readonly") {
+      return null;
+    }
+
+    try {
+      webSearchReadOnlyResearchAdapterOptionsFromEnv();
+
+      return null;
+    } catch (error) {
+      return `The web_search_readonly adapter is unavailable: ${webSearchReadOnlyAdapterFailureMessage(error)}`;
+    }
+  }
+
   function mountedResearchAdapterBlocker(request: StartResearchRunRequest) {
     const adapterKind = request.adapterKind;
 
@@ -2878,7 +2894,7 @@ export function createProductEngineCommandService(
       return "The web_search_readonly adapter only supports public_web read-only sources.";
     }
 
-    return null;
+    return mountedResearchAdapterConfigBlocker(adapterKind);
   }
 
   function contextHashFromPublicSafePayload(
@@ -3130,11 +3146,22 @@ export function createProductEngineCommandService(
       return run;
     }
 
-    const adapter = createMountedResearchAdapter(run.provider.adapterKind);
-    const started = await adapter.start({
-      researchRun: run,
-      disclosurePayload: publicSafePayload
-    });
+    let started: Awaited<ReturnType<BackgroundResearchRuntimeAdapter["start"]>>;
+
+    try {
+      const adapter = createMountedResearchAdapter(run.provider.adapterKind);
+
+      started = await adapter.start({
+        researchRun: run,
+        disclosurePayload: publicSafePayload
+      });
+    } catch (error) {
+      if (run.provider.adapterKind === "web_search_readonly") {
+        return markResearchRunProviderFailed(run, new Date().toISOString());
+      }
+
+      throw error;
+    }
     const updated = await createResearchRunRepository(storage.db).update({
       run: {
         ...run,
@@ -3283,8 +3310,7 @@ export function createProductEngineCommandService(
     return (await createResearchRunRepository(storage.db).getById(run.projectId, run.researchRunId)) ?? run;
   }
 
-  async function markResearchRunProviderFailed(run: ResearchRunProjection, error: unknown, failedAt: string) {
-    const message = webSearchReadOnlyAdapterFailureMessage(error);
+  async function markResearchRunProviderFailed(run: ResearchRunProjection, failedAt: string) {
     const repository = createResearchRunRepository(storage.db);
     const updated = await repository.update({
       run: {
@@ -3296,8 +3322,7 @@ export function createProductEngineCommandService(
           completedAt: failedAt
         },
         terminalReason: "provider_failed",
-        qualityGateStatus: "insufficient",
-        qualityGateReviewReason: `Read-only provider failed safely: ${message}`,
+        qualityGateStatus: "not_evaluated",
         updatedAt: failedAt
       },
       expectedVersion: run.version,
@@ -3332,16 +3357,17 @@ export function createProductEngineCommandService(
       return run;
     }
 
-    const adapter = createMountedResearchAdapter(run.provider.adapterKind);
     let providerResult: BackgroundResearchAdapterResult;
 
     try {
+      const adapter = createMountedResearchAdapter(run.provider.adapterKind);
+
       providerResult = await adapter.pollResult({
         researchRun: run,
         disclosurePayload: await disclosurePayloadForRun(run)
       });
-    } catch (error) {
-      return markResearchRunProviderFailed(run, error, now);
+    } catch {
+      return markResearchRunProviderFailed(run, now);
     }
 
     const repository = createResearchRunRepository(storage.db);
@@ -3401,17 +3427,38 @@ export function createProductEngineCommandService(
     }
 
     const now = new Date().toISOString();
+    const fallbackCancellation = (): Awaited<ReturnType<BackgroundResearchRuntimeAdapter["cancel"]>> => {
+      if (run.status === "queued" || run.status === "paused") {
+        return {
+          status: "cancelled" as const,
+          completedAt: now,
+          reason
+        };
+      }
+
+      if (run.status === "running") {
+        return {
+          status: "cancel_requested" as const,
+          reason
+        };
+      }
+
+      throw new ProductEngineServiceError(
+        "COMMAND_PRECONDITION_FAILED",
+        `Research run status ${run.status} cannot be cancelled.`,
+        {
+          researchRunId: run.researchRunId,
+          status: run.status
+        }
+      );
+    };
     const cancellation =
-      isMountedResearchAdapterKind(run.provider.adapterKind)
+      run.provider.adapterKind === "local_fake_readonly"
         ? await createMountedResearchAdapter(run.provider.adapterKind).cancel({
             researchRun: run,
             reason
           })
-        : {
-            status: run.status === "queued" ? ("cancelled" as const) : ("cancel_requested" as const),
-            ...(run.status === "queued" ? { completedAt: now } : {}),
-            reason
-          };
+        : fallbackCancellation();
     const cancelled = cancellation.status === "cancelled";
     const updated = await createResearchRunRepository(storage.db).update({
       run: {
