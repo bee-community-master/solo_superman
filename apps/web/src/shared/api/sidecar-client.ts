@@ -84,6 +84,7 @@ import {
 import {
   apiUrl,
   authHeaders,
+  diagnoseSidecarConnectionFromEnv,
   discoverSidecarConnection,
   jsonHeaders,
   parseSseEvents,
@@ -96,6 +97,7 @@ import {
 } from "./sidecar-transport";
 
 export {
+  diagnoseSidecarConnectionFromEnv,
   discoverSidecarConnection,
   parseSseEvents,
   sidecarConnectionFromEnv,
@@ -126,9 +128,59 @@ export type RevokeServicePageUsePermissionInput = RevokeServicePageUsePermission
 export type DeleteServicePageUsePermissionArtifactsInput = DeleteServicePageUsePermissionArtifactsRequest;
 export type RecordImplementationStepLedgerInput = RecordImplementationStepLedgerRequest;
 
+function shouldLogSidecarClientDiagnostics() {
+  return typeof window !== "undefined";
+}
+
+function nowMillis() {
+  return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+function logSidecarClientDiagnostic(level: "info" | "warn", event: string, details: Readonly<Record<string, unknown>>) {
+  if (!shouldLogSidecarClientDiagnostics()) {
+    return;
+  }
+
+  console[level](`[solo-superman:sidecar-client:${event}]`, details);
+}
+
 export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarClientOptions) {
   async function request<TData>(path: string, init: RequestInit = {}) {
-    return unwrapEnvelope<TData>(await fetchImpl(apiUrl(connection.baseUrl, path), init));
+    const method = init.method ?? "GET";
+    const url = apiUrl(connection.baseUrl, path);
+    const startedAt = nowMillis();
+
+    logSidecarClientDiagnostic("info", "request", {
+      method,
+      path,
+      baseUrl: connection.baseUrl,
+      mode: connection.mode
+    });
+
+    let response: Response;
+
+    try {
+      response = await fetchImpl(url, init);
+    } catch (error) {
+      logSidecarClientDiagnostic("warn", "network-error", {
+        method,
+        path,
+        baseUrl: connection.baseUrl,
+        elapsedMs: Math.round(nowMillis() - startedAt),
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw error;
+    }
+
+    logSidecarClientDiagnostic(response.ok ? "info" : "warn", "response", {
+      method,
+      path,
+      status: response.status,
+      requestId: response.headers.get("x-request-id") ?? null,
+      elapsedMs: Math.round(nowMillis() - startedAt)
+    });
+
+    return unwrapEnvelope<TData>(response);
   }
 
   async function postCommand<TProjection = unknown>(path: string, body: unknown) {

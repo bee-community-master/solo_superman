@@ -93,6 +93,21 @@ const CODEX_WSL_NODE_MAJOR_ENV = "SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR" as const;
 const DEFAULT_CODEX_WSL_DISTRO = "Ubuntu" as const;
 const DEFAULT_CODEX_WSL_NODE_MAJOR = "22" as const;
 
+function logCodexRuntimeDiagnostic(
+  level: "info" | "warn",
+  event: string,
+  details: Readonly<Record<string, unknown>> = {}
+) {
+  console[level](
+    JSON.stringify({
+      type: "codex-runtime-diagnostic",
+      event,
+      at: new Date().toISOString(),
+      ...details
+    })
+  );
+}
+
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -243,26 +258,41 @@ function codexCommandMode(
 
 function codexWslNvmSourceCommand(env: Readonly<Record<string, string | undefined>>) {
   const nodeMajor = codexWslNodeMajor(env);
+  const linuxPathOnlyBlock = [
+    "clean_path=",
+    "old_ifs=\\$IFS",
+    "IFS=:",
+    "for path_entry in \\$PATH; do case \"\\$path_entry\" in /mnt/?/*|/mnt/??/*) ;; *) clean_path=\"\\${clean_path:+\\$clean_path:}\\$path_entry\" ;; esac; done",
+    "IFS=\\$old_ifs",
+    "export PATH=\\$clean_path"
+  ].join("; ");
   const nvmSourceBlock = [
-    "if [ -s $NVM_DIR/nvm.sh ]; then . $NVM_DIR/nvm.sh",
+    "if [ -s \"\\$NVM_DIR/nvm.sh\" ]; then . \"\\$NVM_DIR/nvm.sh\"",
     `nvm use --silent ${nodeMajor} >/dev/null 2>&1 || true`,
     "hash -r",
     "fi"
   ].join("; ");
 
   return [
-    "wsl_home=${HOME:-$(getent passwd $(id -u) | cut -d: -f6 || true)}",
-    "export HOME=$wsl_home",
-    "export NVM_DIR=${NVM_DIR:-$HOME/.nvm}",
+    "wsl_home=\\$HOME",
+    "if [ -z \"\\$wsl_home\" ]; then wsl_home=\\$(getent passwd \\$(id -u) | cut -d: -f6 || true); fi",
+    "export HOME=\"\\$wsl_home\"",
+    "if [ -z \"\\$NVM_DIR\" ]; then NVM_DIR=\"\\$HOME/.nvm\"; fi",
+    "export NVM_DIR",
+    linuxPathOnlyBlock,
     nvmSourceBlock
   ].join("; ");
+}
+
+function codexWslPreflightCommand() {
+  return "if ! command -v codex >/dev/null 2>&1; then echo \"Solo Superman could not find the Linux Codex CLI inside WSL after filtering Windows PATH entries. Re-run the installer or install @openai/codex inside WSL.\" >&2; exit 127; fi";
 }
 
 export function codexWslShellCommand(
   args: readonly string[],
   env: Readonly<Record<string, string | undefined>> = process.env
 ) {
-  return `${codexWslNvmSourceCommand(env)}; exec ${["codex", ...args].map(shellQuote).join(" ")}`;
+  return `${codexWslNvmSourceCommand(env)}; ${codexWslPreflightCommand()}; exec ${["codex", ...args].map(shellQuote).join(" ")}`;
 }
 
 function codexWslSpawnArgs(
@@ -484,13 +514,23 @@ export async function readCodexAccountStatus(
   return await new Promise((resolve) => {
     let settled = false;
     const spawnPlan = codexAppServerSpawnPlan(env);
+    const startedAt = Date.now();
+
+    logCodexRuntimeDiagnostic("info", "account-read-spawn", {
+      command: spawnPlan.command,
+      args: spawnPlan.args,
+      transport: spawnPlan.transport,
+      generatedSchemaVersion: spawnPlan.generatedSchemaVersion,
+      timeoutMs: CODEX_ACCOUNT_READ_TIMEOUT_MS
+    });
+
     const child = spawn(spawnPlan.command, [...spawnPlan.args], {
       env: codexSpawnEnv(env),
       stdio: ["pipe", "pipe", "pipe"]
     });
     const stderr = createLimitedTextCapture();
     const lineReader = createInterface({ input: child.stdout });
-    const finish = (status: CodexRuntimeAccountDto) => {
+    const finish = (status: CodexRuntimeAccountDto, cause: string, details: Readonly<Record<string, unknown>> = {}) => {
       if (settled) {
         return;
       }
@@ -499,29 +539,51 @@ export async function readCodexAccountStatus(
       clearTimeout(timer);
       lineReader.close();
       child.kill();
+      logCodexRuntimeDiagnostic(status.status === "authenticated" || status.status === "missing" ? "info" : "warn", "account-read-finished", {
+        cause,
+        elapsedMs: Date.now() - startedAt,
+        accountStatus: status.status,
+        accountType: status.accountType ?? null,
+        hasEmail: Boolean(status.email),
+        hasPlanType: Boolean(status.planType),
+        reason: status.reason ?? null,
+        ...details
+      });
       resolve(status);
     };
     const timer = setTimeout(() => {
-      finish(baseCodexAccountStatus("unknown", "Timed out while checking Codex login status."));
+      finish(baseCodexAccountStatus("unknown", "Timed out while checking Codex login status."), "timeout");
     }, CODEX_ACCOUNT_READ_TIMEOUT_MS);
 
     child.stderr.on("data", (chunk) => {
       stderr.append(chunk);
     });
     child.stdin.on("error", (error) => {
-      finish(baseCodexAccountStatus("unknown", `Could not send account/read to Codex app-server: ${error.message}`));
+      finish(
+        baseCodexAccountStatus("unknown", `Could not send account/read to Codex app-server: ${error.message}`),
+        "stdin-error"
+      );
     });
     child.on("error", (error) => {
-      finish(baseCodexAccountStatus("unknown", `Could not start Codex app-server via ${spawnPlan.command}: ${error.message}`));
+      finish(
+        baseCodexAccountStatus("unknown", `Could not start Codex app-server via ${spawnPlan.command}: ${error.message}`),
+        "spawn-error"
+      );
     });
-    child.on("exit", () => {
+    child.on("exit", (code, signal) => {
       if (!settled) {
         const stderrText = stderr.trimmed();
         finish(
           baseCodexAccountStatus(
             "unknown",
             stderrText ? `Codex app-server exited before account status was available: ${stderrText}` : "Codex app-server exited before account status was available."
-          )
+          ),
+          "process-exit",
+          {
+            exitCode: code,
+            signal,
+            stderr: stderrText || null
+          }
         );
       }
     });
@@ -539,11 +601,11 @@ export async function readCodexAccountStatus(
       }
 
       if (Object.prototype.hasOwnProperty.call(response, "result")) {
-        finish(codexAccountStatusFromAccountReadResponse(response.result));
+        finish(codexAccountStatusFromAccountReadResponse(response.result), "account-read-result");
         return;
       }
 
-      finish(baseCodexAccountStatus("unknown", responseErrorMessage(response)));
+      finish(baseCodexAccountStatus("unknown", responseErrorMessage(response)), "account-read-error");
     });
 
     child.stdin.write(

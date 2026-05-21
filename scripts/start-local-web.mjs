@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { pathToFileURL } from "node:url";
@@ -221,6 +222,13 @@ async function startOnce(config) {
 
   try {
     console.log(`local web run: starting sidecar ${config.sidecarBaseUrl}`);
+    console.log(JSON.stringify({
+      type: "local-web-run-config",
+      host: config.host,
+      sidecarBaseUrl: config.sidecarBaseUrl,
+      webBaseUrl: config.webBaseUrl,
+      tokenBytes: Buffer.byteLength(config.localCapabilityToken)
+    }));
     const sidecar = spawnManagedProcess(commands.sidecar[0], commands.sidecar[1], { env });
     processes.push(sidecar);
     await waitForFetch(`${config.sidecarBaseUrl}/healthz`, {
@@ -229,7 +237,7 @@ async function startOnce(config) {
       timeoutMs: config.readyTimeoutMs,
       processes
     });
-    await waitForFetch(`${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH}`, {
+    const runtimeStatusProbe = await waitForFetch(`${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH}`, {
       expectedStatus: 200,
       headers: {
         Authorization: `Bearer ${config.localCapabilityToken}`
@@ -237,6 +245,20 @@ async function startOnce(config) {
       timeoutMs: config.readyTimeoutMs,
       processes
     });
+    try {
+      const runtimeStatusEnvelope = JSON.parse(runtimeStatusProbe.text);
+      const runtimeStatus = runtimeStatusEnvelope?.data;
+
+      console.log(JSON.stringify({
+        type: "local-web-run-runtime-status",
+        httpStatus: runtimeStatusProbe.response.status,
+        status: runtimeStatus?.status ?? null,
+        accountStatus: runtimeStatus?.account?.status ?? null,
+        reason: runtimeStatus?.account?.reason ?? runtimeStatus?.reason ?? null
+      }));
+    } catch {
+      console.warn("local web run: runtime status probe returned non-JSON body.");
+    }
     await waitForFetch(`${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH}`, {
       expectedStatus: 401,
       headers: {

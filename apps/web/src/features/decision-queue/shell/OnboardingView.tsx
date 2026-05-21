@@ -29,6 +29,10 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
     startCodexLogin
   } = controller;
   const codexAccount = controller.runtimeStatus?.account ?? null;
+  const codexStatusReason =
+    codexAccount?.reason ??
+    controller.runtimeStatus?.reason ??
+    (controller.connectionState.status === "unavailable" ? controller.connectionState.message : null);
 
   return (
     <div className="view-grid onboarding-view">
@@ -81,7 +85,7 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
                     {copy.questions.codexLoginCommandLabel}: <code>{codexAccount?.loginCommand ?? "codex auth login"}</code>
                   </p>
                 )}
-                {codexAccount?.reason ? <p className="research-recovery">{codexAccount.reason}</p> : null}
+                {codexStatusReason ? <p className="research-recovery">{codexStatusReason}</p> : null}
                 {codexLoginStart?.message ? <p className="research-recovery">{codexLoginStart.message}</p> : null}
               </div>
               <div className="card-actions panel-actions">
