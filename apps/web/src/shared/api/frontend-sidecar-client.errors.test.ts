@@ -13,6 +13,36 @@ describe("sidecar client errors", () => {
     vi.unstubAllGlobals();
   });
 
+  function mockBrowserDiagnostics() {
+    vi.stubGlobal("window", {});
+
+    return {
+      info: vi.spyOn(console, "info").mockImplementation(() => undefined),
+      warn: vi.spyOn(console, "warn").mockImplementation(() => undefined)
+    };
+  }
+
+  function founderBrief404Client(message: string) {
+    return createSidecarClient({
+      connection,
+      fetchImpl: async () =>
+        jsonResponse(
+          {
+            ok: false,
+            error: {
+              code: "RESOURCE_NOT_FOUND",
+              message
+            },
+            meta: {
+              requestId: "req_founder_brief_404",
+              schemaVersion: "solo-superman.contracts.v1"
+            }
+          },
+          404
+        )
+    });
+  }
+
   it("resolves command status URLs on the discovered sidecar origin only", async () => {
     const seenRequests: [string, RequestInit | undefined][] = [];
     const client = createSidecarClient({
@@ -129,27 +159,8 @@ describe("sidecar client errors", () => {
   });
 
   it("treats missing optional Founder Brief as an expected informational response", async () => {
-    vi.stubGlobal("window", {});
-    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const client = createSidecarClient({
-      connection,
-      fetchImpl: async () =>
-        jsonResponse(
-          {
-            ok: false,
-            error: {
-              code: "RESOURCE_NOT_FOUND",
-              message: "Founder Brief has not been prepared yet."
-            },
-            meta: {
-              requestId: "req_founder_missing",
-              schemaVersion: "solo-superman.contracts.v1"
-            }
-          },
-          404
-        )
-    });
+    const { info, warn } = mockBrowserDiagnostics();
+    const client = founderBrief404Client("Founder Brief has not been prepared yet.");
 
     let capturedError: unknown;
     const request = client.getFounderBrief("sess_missing" as SessionId).catch((error: unknown) => {
@@ -176,27 +187,8 @@ describe("sidecar client errors", () => {
   });
 
   it("keeps unexpected Founder Brief 404 responses visible as warnings", async () => {
-    vi.stubGlobal("window", {});
-    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const client = createSidecarClient({
-      connection,
-      fetchImpl: async () =>
-        jsonResponse(
-          {
-            ok: false,
-            error: {
-              code: "RESOURCE_NOT_FOUND",
-              message: "Session was not found."
-            },
-            meta: {
-              requestId: "req_session_missing",
-              schemaVersion: "solo-superman.contracts.v1"
-            }
-          },
-          404
-        )
-    });
+    const { info, warn } = mockBrowserDiagnostics();
+    const client = founderBrief404Client("Session was not found.");
 
     await expect(client.getFounderBrief("sess_missing" as SessionId)).rejects.toMatchObject({
       httpStatus: 404,
