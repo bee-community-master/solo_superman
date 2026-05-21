@@ -1,5 +1,6 @@
 /// <reference lib="dom" />
 
+import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
@@ -297,6 +298,21 @@ function isPrivateIpv6(hostname: string) {
   );
 }
 
+function isPublicIpAddress(value: string) {
+  const hostname = normalizedHostname(value);
+  const ipVersion = isIP(hostname);
+
+  if (ipVersion === 4) {
+    return !isPrivateIpv4(hostname);
+  }
+
+  if (ipVersion === 6) {
+    return !isPrivateIpv6(hostname);
+  }
+
+  return false;
+}
+
 function isPublicHttpUrl(value: string) {
   try {
     const url = new URL(value);
@@ -311,15 +327,31 @@ function isPublicHttpUrl(value: string) {
       return false;
     }
 
-    if (ipVersion === 4) {
-      return !isPrivateIpv4(hostname);
-    }
-
-    if (ipVersion === 6) {
-      return !isPrivateIpv6(hostname);
+    if (ipVersion) {
+      return isPublicIpAddress(hostname);
     }
 
     return true;
+  } catch {
+    return false;
+  }
+}
+
+async function isPublicFetchTargetUrl(value: string) {
+  if (!isPublicHttpUrl(value)) {
+    return false;
+  }
+
+  try {
+    const hostname = normalizedHostname(new URL(value).hostname);
+
+    if (isIP(hostname)) {
+      return isPublicIpAddress(hostname);
+    }
+
+    const addresses = await lookup(hostname, { all: true });
+
+    return addresses.length > 0 && addresses.every(({ address }) => isPublicIpAddress(address));
   } catch {
     return false;
   }
@@ -530,9 +562,24 @@ export async function runPlaywrightPublicWebSearch(
       );
     }
 
+    const publicCandidates: SearchCandidate[] = [];
+
+    for (const candidate of candidates) {
+      if (await isPublicFetchTargetUrl(candidate.url)) {
+        publicCandidates.push(candidate);
+      }
+    }
+
+    if (publicCandidates.length === 0) {
+      throw new WebSearchReadOnlyAdapterError(
+        "no_public_results",
+        "No public search results remained after excluding localhost, private-network, and DNS-private targets."
+      );
+    }
+
     const sources: WebSearchReadOnlySourceResult[] = [];
 
-    for (const candidate of candidates.slice(0, input.maxFetchedPages)) {
+    for (const candidate of publicCandidates.slice(0, input.maxFetchedPages)) {
       await delay(input.delayMillis());
       const fetched = await fetchCandidatePage(page, candidate, input.timeoutMillis, input.now);
 
@@ -541,7 +588,7 @@ export async function runPlaywrightPublicWebSearch(
       }
     }
 
-    return sources.length > 0 ? sources : candidates.map((candidate) => ({ ...candidate, retrievedAt: input.now() }));
+    return sources.length > 0 ? sources : publicCandidates.map((candidate) => ({ ...candidate, retrievedAt: input.now() }));
   } catch (error) {
     if (error instanceof WebSearchReadOnlyAdapterError) {
       throw error;
