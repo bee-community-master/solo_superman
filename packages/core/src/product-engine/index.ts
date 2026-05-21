@@ -203,9 +203,9 @@ import {
 import { sha256Hex } from "./deterministic-hash";
 import {
   answerOptionsForQuestion,
-  answerOptionsForSeed,
-  plainUserFacingDecisionQueueText
+  answerOptionsForSeed
 } from "./answer-options";
+import { plainUserFacingDecisionQueueText } from "./user-facing-text";
 import {
   acceptedReduction,
   eventDraft,
