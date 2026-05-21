@@ -1,18 +1,11 @@
-import { createElement, type ReactElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import { IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE } from "@solo-superman/contracts";
 import {
   ImplementationStepLedgerPanel,
   implementationStepLedgerViewModel
 } from "./ImplementationStepLedgerPanel";
-import { AppLanguageProvider } from "../../shared/i18n/app-language";
-
-function renderEnglish(element: ReactElement) {
-  return renderToStaticMarkup(
-    createElement(AppLanguageProvider, { initialLanguage: "en", children: element })
-  );
-}
+import { renderEnglishMarkup } from "./test-rendering";
 
 describe("ImplementationStepLedgerPanel view model", () => {
   it("shows commit, rollback, separate review records, tests, and progress report for a completed step", () => {
@@ -172,7 +165,7 @@ describe("ImplementationStepLedgerPanel view model", () => {
 
   it("renders the progress report and separate review labels", () => {
     const view = implementationStepLedgerViewModel(IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE);
-    const markup = renderEnglish(
+    const markup = renderEnglishMarkup(
       createElement(ImplementationStepLedgerPanel, {
         ledger: view,
         isBusy: false,

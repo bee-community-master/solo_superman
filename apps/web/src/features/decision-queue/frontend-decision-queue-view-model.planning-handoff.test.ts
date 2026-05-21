@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createElement, type ReactElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { createElement } from "react";
 import {
   PLANNING_HANDOFF_BLOCKER_PROJECTION_FIXTURE,
   PLANNING_HANDOFF_FINAL_PROJECTION_FIXTURE
@@ -14,13 +13,7 @@ import {
 } from "./decision-queue-view-model";
 
 import { PlanningHandoffPanel } from "./PlanningHandoffPanel";
-import { AppLanguageProvider } from "../../shared/i18n/app-language";
-
-function renderEnglish(element: ReactElement) {
-  return renderToStaticMarkup(
-    createElement(AppLanguageProvider, { initialLanguage: "en", children: element })
-  );
-}
+import { renderEnglishMarkup } from "./test-rendering";
 
 function handoffProjectionFixture(kind: "final" | "blocker"): PlanningHandoffProjection {
   return kind === "final"
@@ -49,7 +42,7 @@ describe("Decision Queue view model planning-handoff", () => {
   it("renders Planning-ready only for a final Planning Handoff artifact", () => {
     const handoff = planningHandoffViewModel(handoffProjectionFixture("final"));
     const copy = handoffCopy(handoff);
-    const markup = renderEnglish(
+    const markup = renderEnglishMarkup(
       createElement(PlanningHandoffPanel, {
         hasActiveSession: true,
         isBusy: false,
@@ -88,7 +81,7 @@ describe("Decision Queue view model planning-handoff", () => {
       summary: "Blocked lowercase planning-ready and planning_ready copy must remain a blocker report."
     });
     const copy = handoffCopy(handoff);
-    const markup = renderEnglish(
+    const markup = renderEnglishMarkup(
       createElement(PlanningHandoffPanel, {
         hasActiveSession: true,
         isBusy: false,
@@ -121,7 +114,7 @@ describe("Decision Queue view model planning-handoff", () => {
 
   it("keeps Planning Handoff empty state read-only until a final or blocker projection is loaded", () => {
     const handoff = planningHandoffViewModel(null);
-    const markup = renderEnglish(
+    const markup = renderEnglishMarkup(
       createElement(PlanningHandoffPanel, {
         hasActiveSession: false,
         isBusy: false,

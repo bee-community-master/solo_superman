@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createElement, type ReactElement } from "react";
+import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   BLOCKED_ACTION_TYPES,
@@ -31,15 +31,9 @@ import {
 } from "./decision-queue-view-model";
 import { Phase15aOperationsPanel } from "./Phase15aOperationsPanel";
 import { Phase15bReadinessPanel } from "./Phase15bReadinessPanel";
-import { AppLanguageProvider } from "../../shared/i18n/app-language";
+import { renderEnglishMarkup } from "./test-rendering";
 
 import { buildWebResearchRunRequest } from "./phase15a-research-run-request";
-
-function renderEnglish(element: ReactElement) {
-  return renderToStaticMarkup(
-    createElement(AppLanguageProvider, { initialLanguage: "en", children: element })
-  );
-}
 
 const projectId = "proj_phase15a_ui" as ProjectId;
 const allowlistId = "research_allowlist_phase15a_ui" as ResearchAllowlistId;
@@ -445,7 +439,7 @@ describe("Decision Queue view model readiness-panels", () => {
 
   it("renders the extracted Phase 1.5A operations panel controls and session gating", () => {
     const noop = () => undefined;
-    const markup = renderEnglish(
+    const markup = renderEnglishMarkup(
       createElement(Phase15aOperationsPanel, {
         hasActiveSession: false,
         isBusy: false,
@@ -475,7 +469,7 @@ describe("Decision Queue view model readiness-panels", () => {
   });
 
   it("renders Phase 1.5B readiness metadata on a non-executing handoff panel", () => {
-    const markup = renderEnglish(
+    const markup = renderEnglishMarkup(
       createElement(Phase15bReadinessPanel, {
         hasActiveProject: true,
         isBusy: false,

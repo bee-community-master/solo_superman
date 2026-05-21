@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createElement, type ReactElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { createElement } from "react";
 import {
   SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE,
   servicePageUsePermissionSummaryForStatus
@@ -9,13 +8,7 @@ import {
   ServicePageUsePermissionPanel,
   servicePageUsePermissionViewModel
 } from "./ServicePageUsePermissionPanel";
-import { AppLanguageProvider } from "../../shared/i18n/app-language";
-
-function renderEnglish(element: ReactElement) {
-  return renderToStaticMarkup(
-    createElement(AppLanguageProvider, { initialLanguage: "en", children: element })
-  );
-}
+import { renderEnglishMarkup } from "./test-rendering";
 
 describe("ServicePageUsePermissionPanel view model", () => {
   it("shows the service origin, allowed and blocked actions, login boundary, and artifact controls", () => {
@@ -52,7 +45,7 @@ describe("ServicePageUsePermissionPanel view model", () => {
 
   it("renders enabled artifact export/delete controls when retained refs are user-controllable", () => {
     const view = servicePageUsePermissionViewModel(SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE);
-    const markup = renderEnglish(
+    const markup = renderEnglishMarkup(
       createElement(ServicePageUsePermissionPanel, {
         permission: view,
         isBusy: false,

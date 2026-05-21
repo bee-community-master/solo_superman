@@ -22,6 +22,32 @@ function Initialize-Utf8Console {
 
 Initialize-Utf8Console
 
+function ConvertTo-PowerShellLiteral($Value) {
+  if ($null -eq $Value) {
+    return "''"
+  }
+
+  return "'" + ([string]$Value).Replace("'", "''") + "'"
+}
+
+function ConvertTo-BashSingleQuotedLiteral($Value) {
+  if ($null -eq $Value) {
+    return "''"
+  }
+
+  $singleQuote = [string][char]39
+  return $singleQuote + ([string]$Value).Replace($singleQuote, "$singleQuote\$singleQuote$singleQuote") + $singleQuote
+}
+
+function Add-BootstrapUrlOverrideToCommand($Command) {
+  if (-not $env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL) {
+    return $Command
+  }
+
+  $quotedBootstrapUrl = ConvertTo-PowerShellLiteral $env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL
+  return "`$env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL = $quotedBootstrapUrl; $Command"
+}
+
 $RepoUrl = if ($env:SOLO_SUPERMAN_REPO_URL) { $env:SOLO_SUPERMAN_REPO_URL } else { "https://github.com/bee-community-master/solo_superman.git" }
 $DefaultTargetDir = if ($env:SOLO_SUPERMAN_DIR) {
   $env:SOLO_SUPERMAN_DIR
@@ -35,7 +61,7 @@ $DefaultTargetDir = if ($env:SOLO_SUPERMAN_DIR) {
 $PnpmVersion = if ($env:SOLO_SUPERMAN_PNPM_VERSION) { $env:SOLO_SUPERMAN_PNPM_VERSION } else { "11.0.4" }
 $RunSmoke = if ($env:SOLO_SUPERMAN_RUN_SMOKE) { $env:SOLO_SUPERMAN_RUN_SMOKE } else { "1" }
 $StartLocal = if ($env:SOLO_SUPERMAN_START_LOCAL) { $env:SOLO_SUPERMAN_START_LOCAL } else { "1" }
-$BootstrapCommand = 'irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/win.ps1 | iex'
+$BootstrapCommand = Add-BootstrapUrlOverrideToCommand 'irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/win.ps1 | iex'
 $CodexDesktopAppUrl = if ($env:SOLO_SUPERMAN_CODEX_DESKTOP_URL) { $env:SOLO_SUPERMAN_CODEX_DESKTOP_URL } else { "https://openai.com/codex/" }
 $ShowCodexDesktopPrompt = if ($env:SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT) { $env:SOLO_SUPERMAN_SHOW_CODEX_DESKTOP_PROMPT } else { "1" }
 $CodexWindowsMode = if ($env:SOLO_SUPERMAN_CODEX_WINDOWS_MODE) { $env:SOLO_SUPERMAN_CODEX_WINDOWS_MODE.ToLowerInvariant() } elseif ($env:SOLO_CODEX_WINDOWS_MODE) { $env:SOLO_CODEX_WINDOWS_MODE.ToLowerInvariant() } else { "wsl" }
@@ -174,27 +200,6 @@ function Invoke-Pnpm([string[]]$Arguments) {
 
 function Test-PortConflictError($Message) {
   return [string]$Message -match "EADDRINUSE|address already in use|strictPort|Port conflict|포트 충돌"
-}
-
-function ConvertTo-PowerShellLiteral($Value) {
-  if ($null -eq $Value) {
-    return "''"
-  }
-
-  return "'" + ([string]$Value).Replace("'", "''") + "'"
-}
-
-if ($env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL) {
-  $BootstrapCommand = "`$env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL = $(ConvertTo-PowerShellLiteral $env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL); $BootstrapCommand"
-}
-
-function ConvertTo-BashSingleQuotedLiteral($Value) {
-  if ($null -eq $Value) {
-    return "''"
-  }
-
-  $singleQuote = [string][char]39
-  return $singleQuote + ([string]$Value).Replace($singleQuote, "$singleQuote\$singleQuote$singleQuote") + $singleQuote
 }
 
 function Get-PowerShellExecutable {

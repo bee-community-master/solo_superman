@@ -249,9 +249,13 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain("-Verb RunAs");
     expect(windowsBootstrap).toContain("-EncodedCommand");
     expect(windowsBootstrap).toContain('"SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL"');
-    expect(windowsBootstrap).toContain('if ($env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL) {');
+    expect(windowsBootstrap).toContain("function Add-BootstrapUrlOverrideToCommand");
+    expect(windowsBootstrap).toContain('if (-not $env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL) {');
     expect(windowsBootstrap).toContain(
-      'ConvertTo-PowerShellLiteral $env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL); $BootstrapCommand"'
+      "$quotedBootstrapUrl = ConvertTo-PowerShellLiteral $env:SOLO_SUPERMAN_WINDOWS_BOOTSTRAP_URL"
+    );
+    expect(windowsBootstrap).toContain(
+      '$BootstrapCommand = Add-BootstrapUrlOverrideToCommand'
     );
     expect(windowsBootstrap).toContain("Restart-AsAdministrator");
     expect(windowsBootstrap).toContain("function Normalize-RepoRemotePath");

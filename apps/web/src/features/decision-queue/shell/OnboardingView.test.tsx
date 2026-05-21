@@ -1,7 +1,6 @@
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { CodexRuntimeStatusDto } from "@solo-superman/contracts";
-import { AppLanguageProvider } from "../../../shared/i18n/app-language";
+import { renderEnglishMarkup } from "../test-rendering";
 import { OnboardingView } from "./OnboardingView";
 import { DEFAULT_IDEA, DEFAULT_INTAKE, emptyProjectionState } from "./decision-queue-shell-model";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
@@ -59,11 +58,7 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
     ...controllerOverrides
   } satisfies Partial<DecisionQueueShellController>;
 
-  return renderToStaticMarkup(
-    <AppLanguageProvider initialLanguage="en">
-      <OnboardingView controller={controller as DecisionQueueShellController} />
-    </AppLanguageProvider>
-  );
+  return renderEnglishMarkup(<OnboardingView controller={controller as DecisionQueueShellController} />);
 }
 
 describe("OnboardingView", () => {
