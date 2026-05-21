@@ -8,6 +8,7 @@ import {
   type Phase15bUpgradeHintProjection,
   type ProjectPurposeMode,
   type QueueItemId,
+  type ResearchAllowlistGovernanceProjection,
   type ResearchEvidenceProjection,
   type ResearchQueueTerminalOutcome,
   type ResearchTaskId,
@@ -21,12 +22,15 @@ import {
 } from "../../../shared/api/command-response-helpers";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
+import { webPublicResearchAllowlistPolicy } from "../phase15a-research-run-request";
 import {
   BUSINESS_CRITIC_INTENSITY_OPTIONS,
   INITIAL_QUEUE_START_BLOCKER_MESSAGES,
   displayError,
   emptyProjectionState,
   emptyResearchOperationsState,
+  WEB_PUBLIC_SAFE_ALLOWLIST_ID,
+  type InitialResearchPermission,
   initialQueueStartBlocker,
   latestProjectionVersion,
   PROJECT_PURPOSE_MODE_OPTIONS,
@@ -46,6 +50,7 @@ interface DecisionQueueSessionActionsProps {
   readonly client: SidecarClient | null;
   readonly connectionStatus: ConnectionState["status"];
   readonly idea: string;
+  readonly initialResearchPermission: InitialResearchPermission;
   readonly initialBusinessCriticIntensityReason: string;
   readonly intake: string;
   readonly isBusy: boolean;
@@ -77,6 +82,18 @@ interface DecisionQueueSessionActionsProps {
   readonly onInitialQueueCreated?: () => void;
 }
 
+const NEXT_QUESTION_BATCH_LIMIT = 5;
+
+export function nextQuestionBatchIdsForActivation(queue: DecisionQueueProjection | null | undefined) {
+  const queueItemIds =
+    queue?.next
+      .filter((item) => item.cardType === undefined || item.cardType === "question")
+      .slice(0, NEXT_QUESTION_BATCH_LIMIT)
+      .map((item) => item.queueItemId) ?? [];
+
+  return queueItemIds.length ? queueItemIds : undefined;
+}
+
 export function useDecisionQueueSessionActions({
   answerDrafts,
   appendCommand,
@@ -87,6 +104,7 @@ export function useDecisionQueueSessionActions({
   client,
   connectionStatus,
   idea,
+  initialResearchPermission,
   initialBusinessCriticIntensityReason,
   intake,
   isBusy,
@@ -113,6 +131,28 @@ export function useDecisionQueueSessionActions({
   setWorkflowError,
   onInitialQueueCreated
 }: DecisionQueueSessionActionsProps) {
+  const enableInitialResearchSources = useCallback(
+    async (activeClient: SidecarClient, projectId: ProjectId) => {
+      const response = await appendCommand(
+        "Enable onboarding research sources",
+        await activeClient.createResearchAllowlist(projectId, {
+          allowlistId: WEB_PUBLIC_SAFE_ALLOWLIST_ID,
+          ...webPublicResearchAllowlistPolicy("web_onboarding_founder")
+        })
+      );
+      const allowlists = requiredCommandProjection<ResearchAllowlistGovernanceProjection>(
+        response,
+        "ResearchAllowlistGovernanceProjection"
+      );
+
+      setResearchOperations((current) => ({
+        ...current,
+        allowlists
+      }));
+    },
+    [appendCommand, setResearchOperations]
+  );
+
   const runInitialQueueFlow = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -183,6 +223,9 @@ export function useDecisionQueueSessionActions({
           ...emptyProjectionState(),
           session,
         });
+        if (initialResearchPermission === "allow_public_web") {
+          await enableInitialResearchSources(client, session.projectId);
+        }
 
         const intakeResponse = await appendCommand(
           "Capture intake",
@@ -222,7 +265,9 @@ export function useDecisionQueueSessionActions({
       codexLoginAuthenticated,
       connectionStatus,
       initialBusinessCriticIntensityReason,
+      initialResearchPermission,
       client,
+      enableInitialResearchSources,
       idea,
       intake,
       isBusy,
@@ -379,6 +424,62 @@ export function useDecisionQueueSessionActions({
     [answerDrafts, appendCommand, client, projections, refetchQueueAfterSseNotification, refreshProjections]
   );
 
+  const refreshQuestionList = useCallback(async () => {
+    if (!projections.session) {
+      setWorkflowError("An active session is required before refreshing questions.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      await refreshProjections(projections.session.projectId, projections.session.sessionId);
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [projections.session, refreshProjections]);
+
+  const loadNextQuestionBatch = useCallback(async () => {
+    if (!client || !projections.session) {
+      setWorkflowError("An active session is required before loading the next question list.");
+      return;
+    }
+
+    if (projections.queue?.active.length) {
+      setWorkflowError("Answer or save the current questions before loading the next question list.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const response = await appendCommand(
+        "Load next questions",
+        await client.activateQuestionBatch(
+          projections.session.sessionId,
+          latestProjectionVersion(projections),
+          nextQuestionBatchIdsForActivation(projections.queue)
+        )
+      );
+      const queue = requiredCommandProjection<DecisionQueueProjection>(response, "DecisionQueueProjection");
+
+      setProjections((current) => ({
+        ...current,
+        queue
+      }));
+      await refreshProjections(projections.session.projectId, projections.session.sessionId);
+      await refetchQueueAfterSseNotification(projections.session.projectId, projections.session.sessionId, queue);
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [appendCommand, client, projections, refetchQueueAfterSseNotification, refreshProjections]);
+
   const carryQueueItemAsKnownRisk = useCallback(
     async (queueItemId: QueueItemId) => {
       if (!client || !projections.session) {
@@ -530,6 +631,8 @@ export function useDecisionQueueSessionActions({
     changeProjectPurposeMode,
     changeBusinessCriticIntensity,
     submitAnswer,
+    refreshQuestionList,
+    loadNextQuestionBatch,
     carryQueueItemAsKnownRisk,
     importResearchResult,
     resolveResearchCard

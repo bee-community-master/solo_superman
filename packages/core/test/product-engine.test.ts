@@ -293,7 +293,25 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(state.openIssues.map((issue) => issue.topicKey)).toEqual(
       expect.arrayContaining([...docsRequiredAmbiguityTopicKeys])
     );
+    expect(state.openIssues[0]?.questionText).toContain("A focused founder brief generator");
+    expect(state.openIssues[0]?.questionText).toContain("Help solo founders turn a rough idea");
+    expect(state.openIssues[0]?.questionText).not.toContain("primary customer");
+    expect(state.openIssues.map((issue) => issue.questionText).join("\n")).not.toMatch(/가장 먼저 검증할 가장|첫 첫/gu);
+    const visibleAnswerOptionCopy = state.openIssues
+      .flatMap((issue) => issue.answerOptions ?? [])
+      .map((option) => [option.label, option.value, option.pro, option.con].join(" "))
+      .join("\n");
+    expect(visibleAnswerOptionCopy).not.toMatch(
+      /\b(primary customer|Build Slice|MVP|workflow|GUI|CLI|planning-ready|tradeoff|proxy|scope creep|customer lock-in|paid intent|research_needed|high-impact gate|Spec section|completion gate|concierge|owner\/date|confidence|pivot|daemon)\b/iu
+    );
+    expect(visibleAnswerOptionCopy).not.toMatch(/(?:작업 흐름|일 처리 흐름)[는가를와]/u);
     expect(state.queueProjection.active).toHaveLength(5);
+    const visibleActiveQueueCopy = state.queueProjection.active
+      .map((item) => [item.title, item.whyItMatters, item.decisionItUnlocks, item.nextValidationAction].filter(Boolean).join(" "))
+      .join("\n");
+    expect(visibleActiveQueueCopy).not.toMatch(
+      /\b(primary customer|Build Slice|MVP|workflow|GUI|CLI|planning-ready|tradeoff|proxy|scope creep|customer lock-in|paid intent|research_needed|high-impact gate|Spec section|completion gate|concierge|owner\/date|confidence|pivot|daemon|Known Risk|Next Validation Action|legal\/ops\/security|price proxy|willingness-to-pay)\b/iu
+    );
     const activeIssueIds = new Set(state.queueProjection.active.map((item) => item.queueItemId));
     const activeIssues = state.openIssues.filter((issue) => activeIssueIds.has(issue.queueItemId));
     expect(activeIssues.every((issue) => issue.severity === "high")).toBe(true);
@@ -320,6 +338,17 @@ describe("PR-04 ProductEngine reducer", () => {
     );
     expect(state.queueProjection.next).toEqual([]);
     expect(state.session.phase).toBe("question_loop");
+  });
+
+  it("preserves onboarding wording while simplifying generated prompt language", () => {
+    const { state } = stateWithPersonalActiveQuestionBatch();
+    const activeTitles = state.queueProjection.active.map((item) => item.title).join("\n");
+
+    expect(activeTitles).toContain("A focused personal workflow helper");
+    expect(activeTitles).toContain("Help one user automate a repeated local workflow.");
+    expect(activeTitles).not.toContain("A focused personal 일 처리 흐름 helper");
+    expect(activeTitles).not.toContain("Help one user automate a repeated local 일 처리 흐름.");
+    expect(activeTitles).not.toMatch(/(?:작업 흐름|일 처리 흐름)[는가를와]/u);
   });
 
   it("replays the start-project session shell projection from the event log", () => {
@@ -1112,6 +1141,9 @@ describe("PR-04 ProductEngine reducer", () => {
         }
       ]
     });
+    const deferredProjection = reduction.immediateProjection as DecisionQueueProjection;
+    expect(deferredProjection.active.map((item) => item.queueItemId)).not.toContain(queueItemId);
+    expect(deferredProjection.active).toHaveLength(5);
 
     const replayed = replayProductEngineEvents(
       projectId,
@@ -1126,6 +1158,7 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(replayed.openIssues.find((issue) => issue.queueItemId === queueItemId)?.status).toBe("deferred");
     expect(replayed.queueProjection.active.some((item) => item.queueItemId === queueItemId)).toBe(false);
+    expect(replayed.queueProjection.active).toHaveLength(5);
     expect(replayed.queueProjection.deferred).toContainEqual(
       expect.objectContaining({
         queueItemId,
@@ -1216,6 +1249,7 @@ describe("PR-04 ProductEngine reducer", () => {
         })
       ])
     });
+    expect((reduction.immediateProjection as DecisionQueueProjection).active).toHaveLength(5);
 
     const replayed = replayProductEngineEvents(
       projectId,
@@ -1230,6 +1264,7 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(replayed.openIssues.find((issue) => issue.queueItemId === queueItemId)?.status).toBe("resolved");
     expect(replayed.queueProjection.active.some((item) => item.queueItemId === queueItemId)).toBe(false);
+    expect(replayed.queueProjection.active).toHaveLength(5);
     expect(replayed.queueProjection.deferred.some((item) => item.queueItemId === queueItemId)).toBe(false);
   });
 
@@ -1623,16 +1658,15 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(answer.immediateProjection).toMatchObject({
       kind: "DecisionQueueProjection",
       active: [
-        expect.objectContaining({
-          queueItemId: answeredQueueItemId,
-          state: "answered"
-        }),
         ...activeItemIds.slice(1).map((queueItemId) =>
           expect.objectContaining({
             queueItemId,
             state: "active"
           })
-        )
+        ),
+        expect.objectContaining({
+          state: "active"
+        })
       ],
       next: [
         expect.objectContaining({
@@ -1640,6 +1674,9 @@ describe("PR-04 ProductEngine reducer", () => {
         })
       ]
     });
+    expect((answer.immediateProjection as DecisionQueueProjection).active.map((item) => item.queueItemId)).not.toContain(
+      answeredQueueItemId
+    );
     expect(answer.nextState).toMatchObject({
       stateVersion: 7,
       session: {
@@ -1675,8 +1712,9 @@ describe("PR-04 ProductEngine reducer", () => {
       }
     ]);
 
-    expect(replayed.queueProjection.active.map((item) => item.queueItemId)).toEqual(activeItemIds);
-    expect(replayed.queueProjection.active[0]?.state).toBe("answered");
+    expect(replayed.queueProjection.active.map((item) => item.queueItemId)).not.toContain(answeredQueueItemId);
+    expect(replayed.queueProjection.active.every((item) => item.state === "active")).toBe(true);
+    expect(replayed.queueProjection.active).toHaveLength(5);
     expect(replayed.queueProjection.next).toHaveLength(1);
     expect(replayed.researchState.tasks).toHaveLength(1);
     expect(replayed.researchState.tasks[0]).toMatchObject({

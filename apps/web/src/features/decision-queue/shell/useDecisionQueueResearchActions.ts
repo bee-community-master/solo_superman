@@ -12,7 +12,7 @@ import type {
 import { requiredCommandProjection } from "../../../shared/api/command-response-helpers";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
-import { buildWebResearchRunRequest, WEB_PUBLIC_SEARCH_CONNECTOR_ID } from "../phase15a-research-run-request";
+import { buildWebResearchRunRequest, webPublicResearchAllowlistPolicy } from "../phase15a-research-run-request";
 import {
   displayError,
   latestProjectionVersion,
@@ -65,11 +65,7 @@ export function useDecisionQueueResearchActions({
         researchOperations.allowlists?.allowlists.some(
           (allowlist) => allowlist.allowlistId === WEB_PUBLIC_SAFE_ALLOWLIST_ID
         ) ?? false;
-      const policy = {
-        connectorIds: [WEB_PUBLIC_SEARCH_CONNECTOR_ID],
-        sourceCategories: ["public_web" as const],
-        approvedBy: "web_ui_founder"
-      };
+      const policy = webPublicResearchAllowlistPolicy("web_ui_founder");
       const response = await appendCommand(
         reusableAllowlist ? "Reactivate research allowlist" : "Create research allowlist",
         reusableAllowlist

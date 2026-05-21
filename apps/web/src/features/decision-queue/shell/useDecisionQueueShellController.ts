@@ -41,6 +41,7 @@ import {
   type CommandLogEntry,
   type ConnectionState,
   type DecisionQueuePageId,
+  type InitialResearchPermission,
   type PageHealth,
   type ProjectionState
 } from "./decision-queue-shell-model";
@@ -108,6 +109,7 @@ export function useDecisionQueueShellController() {
   const [idea, setIdea] = useState(DEFAULT_IDEA);
   const [intake, setIntake] = useState(DEFAULT_INTAKE);
   const [chatGptLoginAcknowledged, setChatGptLoginAcknowledged] = useState(false);
+  const [initialResearchPermission, setInitialResearchPermission] = useState<InitialResearchPermission>("not_now");
   const [projectPurposeMode, setProjectPurposeMode] = useState<ProjectPurposeMode | null>(null);
   const [purposeModeChangeReason, setPurposeModeChangeReason] = useState("");
   const [businessCriticIntensity, setBusinessCriticIntensity] = useState<BusinessCriticIntensity | null>(null);
@@ -268,6 +270,8 @@ export function useDecisionQueueShellController() {
     changeProjectPurposeMode,
     changeBusinessCriticIntensity,
     submitAnswer,
+    refreshQuestionList,
+    loadNextQuestionBatch,
     carryQueueItemAsKnownRisk,
     importResearchResult,
     resolveResearchCard
@@ -281,6 +285,7 @@ export function useDecisionQueueShellController() {
     client,
     connectionStatus: connectionState.status,
     idea,
+    initialResearchPermission,
     initialBusinessCriticIntensityReason,
     intake,
     isBusy,
@@ -573,6 +578,8 @@ export function useDecisionQueueShellController() {
     setIntake,
     chatGptLoginAcknowledged,
     setChatGptLoginAcknowledged,
+    initialResearchPermission,
+    setInitialResearchPermission,
     projectPurposeMode,
     setProjectPurposeMode,
     purposeModeChangeReason,
@@ -617,6 +624,8 @@ export function useDecisionQueueShellController() {
     changeProjectPurposeMode,
     changeBusinessCriticIntensity,
     submitAnswer,
+    refreshQuestionList,
+    loadNextQuestionBatch,
     carryQueueItemAsKnownRisk,
     importResearchResult,
     resolveResearchCard,

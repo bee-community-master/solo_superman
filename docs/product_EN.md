@@ -28,7 +28,8 @@ The app helps a founder move from idea fog to a concrete starting point:
 ## Session model
 
 - Default session: 2~5 hour focused clarification loop.
-- Core surface: Decision Queue with 3~5 prioritized questions at a time.
+- Core surface: Decision Queue with 3~5 prioritized questions at a time; questions must be grounded in the onboarding idea and goal rather than generic startup prompts.
+- Onboarding also asks whether to enable public-safe, read-only research sources. The safe default is to set up research later.
 - Output: Living Product Spec, Founder Brief, Build Slice Plan, Serve Checklist, Learning Loop Hook.
 - Stop feeling: not “perfect certainty,” but “I know the remaining risks and can start deliberately.”
 
@@ -49,7 +50,8 @@ Business mode also requires an explicit `businessCriticIntensity`; it has no def
 - Internal terms like Phase 1, Phase 2.5, tracker, or PR number stay out of normal user UI.
 - The question AI acts like a sharp product coach: it explains why it asks, challenges assumptions, and detects fatigue.
 - Repeated questions must converge through topic keys and repeat limits; the app must not trap users in an infinite question loop.
-- Risk UI should show Confidence Map, five-axis radar, and Top 3 Risk Cards when the data supports them.
+- Question refresh and next-list controls must be visible, while automatic refills can add the next relevant question after a card is answered or carried forward.
+- Risk UI should show Confidence Map, five-axis radar, and Top 3 Risk Cards when the data supports them; per-question risk entry stays collapsed under an optional add-comment/risk disclosure.
 
 ## Current release
 

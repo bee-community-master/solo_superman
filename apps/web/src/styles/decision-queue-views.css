@@ -298,6 +298,19 @@
   min-height: 82px;
 }
 
+.risk-details {
+  border: 1px dashed #c8ddd8;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.risk-details summary {
+  color: #405161;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
 .answer-choice-fieldset {
   border: 1px solid #d8ece8;
   border-radius: 10px;

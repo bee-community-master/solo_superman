@@ -6222,8 +6222,7 @@ describe("PR-02 sidecar health shell", () => {
         kind: "DecisionQueueProjection",
         active: expect.arrayContaining([
           expect.objectContaining({
-            queueItemId: firstQuestionId,
-            state: "answered"
+            state: "active"
           })
         ]),
         next: expect.arrayContaining([
@@ -6232,6 +6231,9 @@ describe("PR-02 sidecar health shell", () => {
           })
         ])
       });
+      expect(((answeredQueue.active ?? []) as readonly Readonly<Record<string, unknown>>[]).map((item) => item.queueItemId)).not.toContain(
+        firstQuestionId
+      );
 
       const research = await storageApp.request(`/api/v1/sessions/${sessionId}/research`, {
         headers: authHeaders()
@@ -6305,13 +6307,16 @@ describe("PR-02 sidecar health shell", () => {
         headers: authHeaders()
       });
       const refetchedQueueBody = await jsonBody(refetchedQueue);
+      const refetchedQueueData = refetchedQueueBody.data as Readonly<Record<string, unknown>>;
 
       expect(refetchedQueue.status).toBe(200);
-      expect(refetchedQueueBody.data).toMatchObject({
+      expect((refetchedQueueData.active as readonly Readonly<Record<string, unknown>>[]).map((item) => item.queueItemId)).not.toContain(
+        firstQuestionId
+      );
+      expect(refetchedQueueData).toMatchObject({
         active: expect.arrayContaining([
           expect.objectContaining({
-            queueItemId: firstQuestionId,
-            state: "answered"
+            state: "active"
           })
         ])
       });

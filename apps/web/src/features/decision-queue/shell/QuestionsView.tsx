@@ -1,10 +1,27 @@
 import { useState } from "react";
+import type { QueueItemProjection } from "@solo-superman/contracts";
 import { isBusinessCriticQueueItem } from "./decision-queue-shell-model";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface QuestionsViewProps {
   readonly controller: DecisionQueueShellController;
+}
+
+type DecisionQueueCopy = ReturnType<typeof useDecisionQueueCopy>;
+
+function businessCriticSummary(copy: DecisionQueueCopy, item: QueueItemProjection) {
+  return [
+    item.businessCriticCategory ? copy.questions.businessCriticCategoryLabels[item.businessCriticCategory] : undefined,
+    item.businessCriticPressureKind
+      ? copy.questions.businessCriticPressureKindLabels[item.businessCriticPressureKind]
+      : undefined,
+    item.businessCriticIntensity
+      ? copy.businessCriticIntensityOptions.find((option) => option.intensity === item.businessCriticIntensity)?.label
+      : undefined
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export function QuestionsView({ controller }: QuestionsViewProps) {
@@ -15,8 +32,10 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     carryQueueItemAsKnownRisk,
     isBusy,
     knownRiskDrafts,
+    loadNextQuestionBatch,
     projections,
     queueRecovery,
+    refreshQuestionList,
     sections,
     setAnswerDrafts,
     setKnownRiskDrafts,
@@ -29,6 +48,18 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
         <div className="panel-heading">
           <h2>{copy.questions.queue}</h2>
           <span>{copy.questions.queueRecoveryStatusLabels[queueRecovery.status]} · v{projections.queue?.version ?? 0}</span>
+        </div>
+        <div className="card-actions panel-actions">
+          <button type="button" disabled={isBusy || !projections.session} onClick={() => void refreshQuestionList()}>
+            {copy.questions.refreshQuestionList}
+          </button>
+          <button
+            type="button"
+            disabled={isBusy || !projections.session || Boolean(projections.queue?.active.length)}
+            onClick={() => void loadNextQuestionBatch()}
+          >
+            {copy.questions.loadNextQuestions}
+          </button>
         </div>
         <div className="queue-recovery">
           <p>{queueRecovery.label}</p>
@@ -52,9 +83,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                         <h4>{item.title}</h4>
                         {isBusinessCriticQueueItem(item) ? (
                           <p className="mode-summary">
-                            {[item.businessCriticCategory, item.businessCriticPressureKind, item.businessCriticIntensity]
-                              .filter(Boolean)
-                              .join(" · ")}
+                            {businessCriticSummary(copy, item)}
                           </p>
                         ) : null}
                         {item.nextValidationAction ? (
@@ -125,7 +154,9 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                         </div>
                       ) : null}
                       {isBusinessCriticQueueItem(item) && item.state !== "deferred" ? (
-                        <div className="answer-box">
+                        <details className="answer-box risk-details">
+                          <summary>{copy.questions.additionalRiskDetails}</summary>
+                          <p className="mode-help">{copy.questions.additionalRiskHelp}</p>
                           <textarea
                             aria-label={`${copy.questions.nextValidationActionAriaPrefix} ${item.title}`}
                             value={knownRiskDrafts[item.queueItemId] ?? ""}
@@ -145,7 +176,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                           >
                             {copy.questions.carryAsKnownRisk}
                           </button>
-                        </div>
+                        </details>
                       ) : null}
                     </article>
                   ))}

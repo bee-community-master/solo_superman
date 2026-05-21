@@ -26,9 +26,11 @@ function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellCont
     intake: "",
     isBusy: false,
     knownRiskDrafts: {},
+    loadNextQuestionBatch: vi.fn(),
     projectPurposeMode: null,
     projections: emptyProjectionState(),
     queueRecovery: DEFAULT_QUEUE_RECOVERY,
+    refreshQuestionList: vi.fn(),
     refreshRuntimeStatus: vi.fn(),
     runInitialQueueFlow: vi.fn(),
     sections: [],
@@ -91,6 +93,8 @@ describe("QuestionsView", () => {
 
     expect(markup).toContain("Up to date");
     expect(markup).toContain("Queue");
+    expect(markup).toContain("Refresh question list");
+    expect(markup).toContain("Load next questions");
     expect(markup).not.toContain("Idea summary");
     expect(markup).not.toContain("Goal description");
     expect(markup).toContain("Suggested answer choices");
@@ -100,6 +104,48 @@ describe("QuestionsView", () => {
     expect(markup.indexOf("Suggested answer choices")).toBeLessThan(
       markup.indexOf("Write a different answer if none fit")
     );
+  });
+
+  it("keeps known-risk entry folded behind an additional comment/risk disclosure", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 1 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_risk_1" as QueueItemId,
+          title: "What risk should stay visible?",
+          state: "active",
+          businessCriticCategory: "legal_ops_security",
+          businessCriticPressureKind: "core_assumption_challenge"
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+
+    const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        queue
+      },
+      sections: [
+        {
+          id: "active",
+          title: "Current questions",
+          emptyLabel: "No current questions.",
+          items: queue.active
+        }
+      ]
+    });
+
+    expect(markup).toContain("<details");
+    expect(markup).toContain("Add comment or risk");
+    expect(markup).toContain("Keep as a known risk");
+    expect(markup).toContain("Legal, operations, and security");
+    expect(markup).toContain("Core assumption check");
+    expect(markup).not.toContain("legal_ops_security");
+    expect(markup).not.toContain("core_assumption_challenge");
   });
 
 

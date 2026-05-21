@@ -2,12 +2,23 @@ import type {
   AmbiguityAnswerOption,
   AmbiguityExpectedAnswerType
 } from "@solo-superman/contracts";
+import { plainUserFacingDecisionQueueText } from "./user-facing-text";
 
 export type AnswerOptionSeed = {
   readonly topicKey: string | undefined;
   readonly expectedAnswerType: AmbiguityExpectedAnswerType;
   readonly answerOptions?: readonly AmbiguityAnswerOption[];
 };
+
+function plainUserFacingAnswerOption(option: AmbiguityAnswerOption): AmbiguityAnswerOption {
+  return {
+    ...option,
+    label: plainUserFacingDecisionQueueText(option.label),
+    value: plainUserFacingDecisionQueueText(option.value),
+    pro: plainUserFacingDecisionQueueText(option.pro),
+    con: plainUserFacingDecisionQueueText(option.con)
+  };
+}
 
 function answerOption(
   id: string,
@@ -16,7 +27,13 @@ function answerOption(
   pro: string,
   con: string
 ): AmbiguityAnswerOption {
-  return { id, label, value, pro, con };
+  return plainUserFacingAnswerOption({
+    id,
+    label,
+    value,
+    pro,
+    con
+  });
 }
 
 const GENERIC_ANSWER_OPTIONS_BY_TYPE = {
@@ -300,5 +317,5 @@ export function answerOptionsForQuestion(
 }
 
 export function answerOptionsForSeed(seed: AnswerOptionSeed) {
-  return seed.answerOptions ?? answerOptionsForQuestion(seed.topicKey, seed.expectedAnswerType);
+  return seed.answerOptions?.map(plainUserFacingAnswerOption) ?? answerOptionsForQuestion(seed.topicKey, seed.expectedAnswerType);
 }
