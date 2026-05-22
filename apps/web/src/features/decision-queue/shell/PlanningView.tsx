@@ -27,6 +27,7 @@ export function PlanningView({ controller }: PlanningViewProps) {
     setBusinessCriticIntensityChangeReason,
     setPurposeModeChangeReason
   } = controller;
+  const topRiskCards = confidence?.topRiskCards?.slice(0, 3) ?? [];
 
   return (
     <div className="view-grid planning-view">
@@ -163,12 +164,26 @@ export function PlanningView({ controller }: PlanningViewProps) {
         <button type="button" disabled={isBusy || !projections.session} onClick={() => void scoreCompleteness()}>
           {copy.planning.scoreCompleteness}
         </button>
-        {confidence?.topRisks.length ? (
-          <ul>
-            {confidence.topRisks.map((risk) => (
-              <li key={risk}>{risk}</li>
-            ))}
-          </ul>
+        {topRiskCards.length ? (
+          <section className="top-risk-card-stack" aria-label={copy.planning.topRiskCards}>
+            <h3>{copy.planning.topRiskCards}</h3>
+            <ol className="top-risk-card-list">
+              {topRiskCards.map((risk) => (
+                <li className={`top-risk-card severity-${risk.severity}`} key={risk.riskId}>
+                  <div className="top-risk-card-heading">
+                    <strong>{risk.title}</strong>
+                    <span>{copy.planning.riskSeverity}: {copy.planning.riskSeverityLabels[risk.severity]}</span>
+                  </div>
+                  <p aria-label={`${copy.planning.riskNextValidationAriaPrefix} ${risk.title}`}>
+                    {copy.planning.riskNextValidation}: {risk.nextValidationAction}
+                  </p>
+                  <small>
+                    {copy.planning.riskSourceRefs}: {risk.sourceRefs.length ? risk.sourceRefs.join(", ") : copy.planning.riskNoSourceRefs}
+                  </small>
+                </li>
+              ))}
+            </ol>
+          </section>
         ) : (
           <p className="empty-state">{copy.planning.noRiskProjection}</p>
         )}

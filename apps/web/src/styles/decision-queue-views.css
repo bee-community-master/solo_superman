@@ -466,6 +466,51 @@
   gap: 10px;
 }
 
+.top-risk-card-stack,
+.top-risk-card-list,
+.top-risk-card {
+  display: grid;
+  gap: 10px;
+}
+
+.top-risk-card-stack h3 {
+  margin: 0;
+  color: var(--solo-text);
+  font-size: 0.9rem;
+}
+
+.top-risk-card-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.top-risk-card {
+  border: 1px solid var(--solo-border);
+  border-left: 4px solid #d9b25f;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.top-risk-card.severity-high {
+  border-left-color: #d15d4f;
+}
+
+.top-risk-card.severity-low {
+  border-left-color: #6aa77b;
+}
+
+.top-risk-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.top-risk-card p {
+  margin: 0;
+}
+
 .operations-card strong,
 .activity-item strong {
   color: var(--solo-text);
