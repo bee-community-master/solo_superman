@@ -571,6 +571,64 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(completedView.canAdvanceWorkerStage).toBe(true);
   });
 
+  it("keeps worker controls scoped to the current auto implementation stage", () => {
+    const previousStageCompletedJob = workerJob({
+      status: "completed",
+      nextRequiredAction: "Advance the current auto implementation stage.",
+      evidenceRefs: ["implementation-step-ledger:initial_pr"]
+    });
+    const currentStagePlannedJob = workerJob({
+      jobId: "auto-worker-job:auto_run_demo:code_review_fix_1:job_planned",
+      stage: "code_review_fix_1",
+      issueId: "local-002",
+      issueTitle: "Feature code-review and fix pass",
+      issueRelativePath: "implementation-issues/002-code_review_fix_1.md",
+      executionPlan: {
+        issueDocumentPath: "implementation-issues/002-code_review_fix_1.md"
+      },
+      evidenceRefs: ["auto-worker-job:auto_run_demo:code_review_fix_1:job_planned"]
+    });
+    const projection = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        currentStage: "code_review_fix_1",
+        workerJobs: [previousStageCompletedJob, currentStagePlannedJob]
+      }
+    } as AutoImplementationRunProjection;
+    const view = autoImplementationRunViewModel(projection);
+
+    expect(view.latestWorkerJobId).toBe("auto-worker-job:auto_run_demo:code_review_fix_1:job_planned");
+    expect(view.latestWorkerJobLabel).toContain("planned for code_review_fix_1 (local-002)");
+    expect(view.latestWorkerPlan?.issueDocumentPath).toBe("implementation-issues/002-code_review_fix_1.md");
+    expect(view.canRunWorkerJob).toBe(true);
+    expect(view.canAdvanceWorkerStage).toBe(false);
+  });
+
+  it("does not expose stale previous-stage worker completion as current-stage advance", () => {
+    const projection = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        currentStage: "code_review_fix_1",
+        workerJobs: [
+          workerJob({
+            status: "completed",
+            nextRequiredAction: "Advance the current auto implementation stage.",
+            evidenceRefs: ["implementation-step-ledger:initial_pr"]
+          })
+        ]
+      }
+    } as AutoImplementationRunProjection;
+    const view = autoImplementationRunViewModel(projection);
+
+    expect(view.latestWorkerJobId).toBeNull();
+    expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
+    expect(view.latestWorkerPlan).toBeNull();
+    expect(view.canRunWorkerJob).toBe(false);
+    expect(view.canAdvanceWorkerStage).toBe(false);
+  });
+
   it("keeps legacy projections without workerJobs renderable", () => {
     const legacyLatestRun = { ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun! } as Record<string, unknown>;
 

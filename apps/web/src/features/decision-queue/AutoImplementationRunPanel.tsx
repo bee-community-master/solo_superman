@@ -10,6 +10,7 @@ import type {
   ImplementationStepLedgerProjection
 } from "@solo-superman/contracts";
 import { canCompleteAutoImplementationWorkerFromLedger } from "./auto-implementation-worker-completion-request";
+import { latestCurrentStageAutoImplementationWorkerJob } from "./auto-implementation-worker-job-selection";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
 interface AutoImplementationWorkerPlanView {
@@ -128,7 +129,6 @@ export function autoImplementationRunViewModel(
 
   const githubIssueMutation = run.issueManagement.githubIssueMutation;
   const githubIssueBlockedReason = githubIssueMutation.blockedReason ? ` · ${githubIssueMutation.blockedReason}` : "";
-  const workerJobs = Array.isArray((run as { readonly workerJobs?: unknown }).workerJobs) ? run.workerJobs : [];
   const pullRequestMutationState = (run as { readonly pullRequestMutations?: unknown }).pullRequestMutations;
   const pullRequestMutationRecords = pullRequestMutationState &&
     typeof pullRequestMutationState === "object" &&
@@ -140,7 +140,7 @@ export function autoImplementationRunViewModel(
     (pullRequestMutationState as { readonly latestRecord?: unknown }).latestRecord
     ? (pullRequestMutationState as { readonly latestRecord: AutoImplementationPullRequestMutationRecord }).latestRecord
     : pullRequestMutationRecords.at(-1) ?? null;
-  const latestWorkerJob = workerJobs.at(-1);
+  const latestWorkerJob = latestCurrentStageAutoImplementationWorkerJob(run);
   const currentStageRecord = run.stagePlan.find((stage) => stage.stage === run.currentStage) ?? null;
   const latestWorkerPlan = latestWorkerJob
     ? {

@@ -5,14 +5,7 @@ import type {
   ImplementationStepRecord,
   SessionId
 } from "@solo-superman/contracts";
-
-function latestCurrentStageWorkerJob(run: AutoImplementationRun) {
-  const workerJobs = Array.isArray((run as { readonly workerJobs?: unknown }).workerJobs)
-    ? run.workerJobs
-    : [];
-
-  return [...workerJobs].reverse().find((job) => job.stage === run.currentStage) ?? null;
-}
+import { latestCurrentStageAutoImplementationWorkerJob } from "./auto-implementation-worker-job-selection";
 
 function canBackendCompleteWorkerJob(job: AutoImplementationRun["workerJobs"][number]) {
   return job.status === "planned" ||
@@ -59,7 +52,7 @@ export function canCompleteAutoImplementationWorkerFromLedger(input: {
   readonly ledger: ImplementationStepLedgerProjection | null;
 }) {
   const { run } = input;
-  const workerJob = run ? latestCurrentStageWorkerJob(run) : null;
+  const workerJob = latestCurrentStageAutoImplementationWorkerJob(run);
 
   return Boolean(
     run &&
@@ -76,7 +69,7 @@ export function buildAutoImplementationWorkerCompletionRequest(input: {
   readonly ledger: ImplementationStepLedgerProjection | null;
 }): CompleteAutoImplementationWorkerJobRequest | null {
   const { ledger, run, sessionId } = input;
-  const workerJob = latestCurrentStageWorkerJob(run);
+  const workerJob = latestCurrentStageAutoImplementationWorkerJob(run);
   const implementationStepId = selectAutoImplementationWorkerCompletionStepId({ run, ledger });
 
   if (!workerJob || !implementationStepId || !canBackendCompleteWorkerJob(workerJob)) {

@@ -37,6 +37,7 @@ import {
   buildAutoImplementationWorkerAuthorityRequest,
   buildAutoImplementationWorkerJobRequest
 } from "../auto-implementation-worker-authority-request";
+import { latestCurrentStageAutoImplementationWorkerJob } from "../auto-implementation-worker-job-selection";
 import { chatGptDelegationViewModel } from "../ChatGptDelegationPanel";
 import { implementationStepLedgerViewModel } from "../ImplementationStepLedgerPanel";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
@@ -741,7 +742,7 @@ export function useDecisionQueueShellController() {
   const runAutoImplementationWorkerJob = useCallback(async () => {
     const sessionId = projections.session?.sessionId;
     const run = projections.autoImplementationRuns?.latestRun;
-    const workerJob = run?.workerJobs.at(-1);
+    const workerJob = latestCurrentStageAutoImplementationWorkerJob(run ?? null);
 
     if (!client || !sessionId || !run || !workerJob) {
       setWorkflowError("A planned local Codex worker job is required before running the worker.");
@@ -784,7 +785,7 @@ export function useDecisionQueueShellController() {
   const advanceAutoImplementationWorkerStage = useCallback(async () => {
     const sessionId = projections.session?.sessionId;
     const run = projections.autoImplementationRuns?.latestRun;
-    const workerJob = run?.workerJobs.at(-1);
+    const workerJob = latestCurrentStageAutoImplementationWorkerJob(run ?? null);
 
     if (!client || !sessionId || !run || !workerJob) {
       setWorkflowError("A completed local Codex worker job is required before advancing the worker stage.");
