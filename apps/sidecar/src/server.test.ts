@@ -8299,10 +8299,14 @@ describe("PR-02 sidecar health shell", () => {
 
       expect(tracker).toContain("Remote status: no_remote");
       expect(tracker).toContain("git remote add origin <github-repo-url>");
+      expect(tracker).toContain("ImplementationStepLedger evidence template");
+      expect(tracker).toContain("CodeReviewRecord.reviewScope");
       expect(tracker).toContain("Do not merge until the feature PR code review reaches two consecutive no-finding passes");
       expect(tracker).toContain("Update the PR body with scope, review streak evidence, test evidence");
       expect(firstIssue).toContain("## Acceptance");
       expect(firstIssue).toContain("## Required review gates");
+      expect(firstIssue).toContain("## ImplementationStepLedger evidence template");
+      expect(firstIssue).toContain("CleanCodeReviewRecord.reviewScope");
       expect(firstIssue).toContain("Create the smallest behavior-complete implementation for this issue slice.");
       expect(firstIssue).toContain("Review streak evidence is recorded before the next stage is marked complete.");
       expect(finalVerifyIssue).toContain("Audit missing tests against the issue acceptance criteria");
@@ -8314,6 +8318,7 @@ describe("PR-02 sidecar health shell", () => {
         remoteStatus: "no_remote",
         reviewProtocol: {
           deliveryGates: expect.arrayContaining([
+            expect.stringContaining("ImplementationStepLedger trackerDoc"),
             expect.stringContaining("two consecutive no-finding passes")
           ]),
           stageGates: expect.arrayContaining([

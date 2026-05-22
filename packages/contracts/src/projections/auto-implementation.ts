@@ -64,12 +64,23 @@ export const DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES = [
 
 export const AUTO_IMPLEMENTATION_DELIVERY_PROTOCOL = [
   "Keep each implementation slice tied to one local markdown issue or GitHub issue before opening the PR.",
+  "Record ImplementationStepLedger trackerDoc, stepDoc, commit/no-code, review, clean-code, test, blocker, and evidence refs before marking a stage complete.",
   "Do not merge until the feature PR code review reaches two consecutive no-finding passes after any fixes.",
   "Do not merge until the broader repo-level code review reaches two consecutive no-finding passes.",
   "Do not merge until the changed-code clean-code review reaches two consecutive no-finding passes.",
   "Do not merge until the repo-level clean-code review reaches two consecutive no-finding passes.",
   "Audit missing targeted tests, then run the full verification command before updating the PR body.",
   "Update the PR body with scope, review streak evidence, test evidence, remaining gaps, and merge readiness before merging."
+] as const;
+
+export const AUTO_IMPLEMENTATION_LEDGER_EVIDENCE_TEMPLATE = [
+  "trackerDoc: trackerId, title, goal, and sourceRefs must match the implementation tracker.",
+  "stepDoc: stepId, title, description, sourceRefs, and expectedChangeScope describe the single PR-sized slice.",
+  "stepCommitRecord or noCodeStepEvidence: record commitSha/diffRange/rollbackRef or the clean no-code baseline.",
+  "CodeReviewRecord.reviewScope: record two passed feature reviews and two passed repository reviews with findings=[].",
+  "CleanCodeReviewRecord.reviewScope: record two passed changed_code reviews and two passed repository reviews with simplifications evidence.",
+  "TestEvidenceRecord: record exact commands, outcome, pass/fail counts, verifiedCommitSha, notTestedGaps, and evidenceRefs.",
+  "blocker: if any required record is missing, write reason, missingEvidence, nextRequiredAction, and evidenceRefs instead of advancing."
 ] as const;
 
 export const AUTO_IMPLEMENTATION_STAGE_REVIEW_GATES = {
