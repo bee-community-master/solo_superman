@@ -247,12 +247,14 @@ describe("sidecar client planning-runtime", () => {
         diffRange: "1234567..abcdef1"
       },
       codeReviewRecord: {
-        reviewId: "review_code_demo",
+        reviewId: step.codeReviewRecord!.reviewId,
+        reviewScope: step.codeReviewRecord!.reviewScope,
         comparedFromCommitSha: "1234567",
         comparedToCommitSha: "abcdef1"
       },
       cleanCodeReviewRecord: {
-        reviewId: "review_clean_demo",
+        reviewId: step.cleanCodeReviewRecord!.reviewId,
+        reviewScope: step.cleanCodeReviewRecord!.reviewScope,
         comparedFromCommitSha: "1234567",
         comparedToCommitSha: "abcdef1"
       },

@@ -20,6 +20,14 @@ export type ImplementationStepStatus = (typeof IMPLEMENTATION_STEP_STATUSES)[num
 export const IMPLEMENTATION_REVIEW_VERDICTS = ["passed", "changes_requested", "blocked"] as const;
 export type ImplementationReviewVerdict = (typeof IMPLEMENTATION_REVIEW_VERDICTS)[number];
 
+export const IMPLEMENTATION_CODE_REVIEW_SCOPES = ["feature", "repository"] as const;
+export type ImplementationCodeReviewScope = (typeof IMPLEMENTATION_CODE_REVIEW_SCOPES)[number];
+
+export const IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES = ["changed_code", "repository"] as const;
+export type ImplementationCleanCodeReviewScope = (typeof IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES)[number];
+
+export const IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK = 2;
+
 export const IMPLEMENTATION_TEST_OUTCOMES = ["passed", "failed", "not_run"] as const;
 export type ImplementationTestOutcome = (typeof IMPLEMENTATION_TEST_OUTCOMES)[number];
 
@@ -62,6 +70,7 @@ export interface CodeReviewRecord {
   readonly stepId: string;
   readonly reviewId: string;
   readonly reviewer: string;
+  readonly reviewScope: ImplementationCodeReviewScope;
   readonly verdict: ImplementationReviewVerdict;
   readonly comparedFromCommitSha: string;
   readonly comparedToCommitSha: string;
@@ -73,6 +82,7 @@ export interface CleanCodeReviewRecord {
   readonly stepId: string;
   readonly reviewId: string;
   readonly reviewer: string;
+  readonly reviewScope: ImplementationCleanCodeReviewScope;
   readonly verdict: ImplementationReviewVerdict;
   readonly comparedFromCommitSha: string;
   readonly comparedToCommitSha: string;
@@ -100,6 +110,24 @@ export interface ImplementationStepBlocker {
   readonly evidenceRefs: readonly string[];
 }
 
+export interface CodeReviewStreakRecord {
+  readonly reviewScope: ImplementationCodeReviewScope;
+  readonly requiredNoFindingPasses: typeof IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK;
+  readonly currentNoFindingPasses: number;
+  readonly satisfied: boolean;
+  readonly latestReviewIds: readonly string[];
+  readonly missingEvidenceLabel: string;
+}
+
+export interface CleanCodeReviewStreakRecord {
+  readonly reviewScope: ImplementationCleanCodeReviewScope;
+  readonly requiredNoFindingPasses: typeof IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK;
+  readonly currentNoFindingPasses: number;
+  readonly satisfied: boolean;
+  readonly latestReviewIds: readonly string[];
+  readonly missingEvidenceLabel: string;
+}
+
 export interface ImplementationStepRecord {
   readonly stepDoc: ImplementationStepDoc;
   readonly status: ImplementationStepStatus;
@@ -111,6 +139,8 @@ export interface ImplementationStepRecord {
   readonly noCodeStepEvidence: NoCodeStepEvidence | null;
   readonly codeReviewRecord: CodeReviewRecord | null;
   readonly cleanCodeReviewRecord: CleanCodeReviewRecord | null;
+  readonly codeReviewStreaks: readonly CodeReviewStreakRecord[];
+  readonly cleanCodeReviewStreaks: readonly CleanCodeReviewStreakRecord[];
   readonly testEvidenceRecord: TestEvidenceRecord | null;
 }
 
@@ -239,6 +269,7 @@ function isCodeReviewRecord(value: unknown): value is CodeReviewRecord {
     isNonEmptyString(value.stepId) &&
     isNonEmptyString(value.reviewId) &&
     isNonEmptyString(value.reviewer) &&
+    isOneOf(value.reviewScope, IMPLEMENTATION_CODE_REVIEW_SCOPES) &&
     isOneOf(value.verdict, IMPLEMENTATION_REVIEW_VERDICTS) &&
     isNonEmptyString(value.comparedFromCommitSha) &&
     isCommitSha(value.comparedFromCommitSha) &&
@@ -254,6 +285,7 @@ function isCleanCodeReviewRecord(value: unknown): value is CleanCodeReviewRecord
     isNonEmptyString(value.stepId) &&
     isNonEmptyString(value.reviewId) &&
     isNonEmptyString(value.reviewer) &&
+    isOneOf(value.reviewScope, IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES) &&
     isOneOf(value.verdict, IMPLEMENTATION_REVIEW_VERDICTS) &&
     isNonEmptyString(value.comparedFromCommitSha) &&
     isCommitSha(value.comparedFromCommitSha) &&
@@ -292,6 +324,30 @@ function isBlocker(value: unknown): value is ImplementationStepBlocker {
     value.evidenceRefs.length > 0;
 }
 
+function isCodeReviewStreakRecord(value: unknown): value is CodeReviewStreakRecord {
+  return isRecord(value) &&
+    isOneOf(value.reviewScope, IMPLEMENTATION_CODE_REVIEW_SCOPES) &&
+    value.requiredNoFindingPasses === IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK &&
+    typeof value.currentNoFindingPasses === "number" &&
+    Number.isInteger(value.currentNoFindingPasses) &&
+    value.currentNoFindingPasses >= 0 &&
+    typeof value.satisfied === "boolean" &&
+    stringArray(value.latestReviewIds) &&
+    isNonEmptyString(value.missingEvidenceLabel);
+}
+
+function isCleanCodeReviewStreakRecord(value: unknown): value is CleanCodeReviewStreakRecord {
+  return isRecord(value) &&
+    isOneOf(value.reviewScope, IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES) &&
+    value.requiredNoFindingPasses === IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK &&
+    typeof value.currentNoFindingPasses === "number" &&
+    Number.isInteger(value.currentNoFindingPasses) &&
+    value.currentNoFindingPasses >= 0 &&
+    typeof value.satisfied === "boolean" &&
+    stringArray(value.latestReviewIds) &&
+    isNonEmptyString(value.missingEvidenceLabel);
+}
+
 function topLevelRecordStepId(value: unknown) {
   return isRecord(value) && typeof value.stepId === "string" ? value.stepId : null;
 }
@@ -315,6 +371,83 @@ function hasImplementationEvidence(step: ImplementationStepRecord) {
 
 function reviewPassed(record: CodeReviewRecord | CleanCodeReviewRecord | null) {
   return record?.verdict === "passed";
+}
+
+function codeReviewNoFindingPassed(record: CodeReviewRecord) {
+  return record.verdict === "passed" && record.findings.length === 0;
+}
+
+function cleanCodeReviewNoFindingPassed(record: CleanCodeReviewRecord) {
+  return record.verdict === "passed" && record.simplifications.length === 0;
+}
+
+function latestNoFindingReviewIds<TRecord extends { readonly reviewId: string }>(
+  records: readonly TRecord[],
+  noFindingPassed: (record: TRecord) => boolean
+) {
+  const reviewIds: string[] = [];
+
+  for (const record of [...records].reverse()) {
+    if (!noFindingPassed(record)) {
+      break;
+    }
+
+    reviewIds.unshift(record.reviewId);
+  }
+
+  return reviewIds.slice(-IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK);
+}
+
+function uniqueReviewRecordsById<TRecord extends { readonly reviewId: string }>(records: readonly TRecord[]) {
+  const byId = new Map<string, TRecord>();
+
+  for (const record of records) {
+    byId.set(record.reviewId, record);
+  }
+
+  return [...byId.values()];
+}
+
+export function implementationCodeReviewStreaks(
+  records: readonly CodeReviewRecord[]
+): readonly CodeReviewStreakRecord[] {
+  const uniqueRecords = uniqueReviewRecordsById(records);
+
+  return IMPLEMENTATION_CODE_REVIEW_SCOPES.map((reviewScope) => {
+    const scopedRecords = uniqueRecords.filter((record) => record.reviewScope === reviewScope);
+    const latestReviewIds = latestNoFindingReviewIds(scopedRecords, codeReviewNoFindingPassed);
+    const currentNoFindingPasses = latestReviewIds.length;
+
+    return {
+      reviewScope,
+      requiredNoFindingPasses: IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK,
+      currentNoFindingPasses,
+      satisfied: currentNoFindingPasses >= IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK,
+      latestReviewIds,
+      missingEvidenceLabel: `${reviewScope} code review requires ${IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK} consecutive no-finding passes`
+    };
+  });
+}
+
+export function implementationCleanCodeReviewStreaks(
+  records: readonly CleanCodeReviewRecord[]
+): readonly CleanCodeReviewStreakRecord[] {
+  const uniqueRecords = uniqueReviewRecordsById(records);
+
+  return IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES.map((reviewScope) => {
+    const scopedRecords = uniqueRecords.filter((record) => record.reviewScope === reviewScope);
+    const latestReviewIds = latestNoFindingReviewIds(scopedRecords, cleanCodeReviewNoFindingPassed);
+    const currentNoFindingPasses = latestReviewIds.length;
+
+    return {
+      reviewScope,
+      requiredNoFindingPasses: IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK,
+      currentNoFindingPasses,
+      satisfied: currentNoFindingPasses >= IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK,
+      latestReviewIds,
+      missingEvidenceLabel: `${reviewScope} clean-code review requires ${IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK} consecutive no-finding passes`
+    };
+  });
 }
 
 function testsPassed(record: TestEvidenceRecord | null) {
@@ -351,11 +484,11 @@ function completedEvidenceMissing(step: ImplementationStepRecord) {
   if (step.noCodeStepEvidence && (!step.noCodeStepEvidence.cleanTrackedState || step.noCodeStepEvidence.notTestedGaps.length > 0)) {
     missing.push("clean no-code evidence without Not-tested gaps");
   }
-  if (!reviewPassed(step.codeReviewRecord)) {
-    missing.push("passing CodeReviewRecord");
+  if (!reviewPassed(step.codeReviewRecord) || !step.codeReviewStreaks.every((streak) => streak.satisfied)) {
+    missing.push("two consecutive no-finding CodeReviewRecord passes for feature and repository scopes");
   }
-  if (!reviewPassed(step.cleanCodeReviewRecord)) {
-    missing.push("passing CleanCodeReviewRecord");
+  if (!reviewPassed(step.cleanCodeReviewRecord) || !step.cleanCodeReviewStreaks.every((streak) => streak.satisfied)) {
+    missing.push("two consecutive no-finding CleanCodeReviewRecord passes for changed-code and repository scopes");
   }
   if (!testsPassed(step.testEvidenceRecord)) {
     missing.push("passing TestEvidenceRecord without Not-tested gaps");
@@ -396,8 +529,14 @@ export function implementationStepLedgerProgressReport(projection: Implementatio
       const tests = step.testEvidenceRecord
         ? ` Tests: ${step.testEvidenceRecord.outcome} (${step.testEvidenceRecord.commands.join(" | ")}).`
         : " Tests: not recorded.";
+      const codeReviewStreaks = step.codeReviewStreaks
+        .map((streak) => `${streak.reviewScope} code ${streak.currentNoFindingPasses}/${streak.requiredNoFindingPasses}`)
+        .join(", ");
+      const cleanCodeReviewStreaks = step.cleanCodeReviewStreaks
+        .map((streak) => `${streak.reviewScope} clean ${streak.currentNoFindingPasses}/${streak.requiredNoFindingPasses}`)
+        .join(", ");
 
-      return `${index + 1}. ${step.stepDoc.title} — ${step.status}.${missing}${tests}`;
+      return `${index + 1}. ${step.stepDoc.title} — ${step.status}.${missing}${tests} Review streaks: ${codeReviewStreaks}; ${cleanCodeReviewStreaks}.`;
     }),
     ...projection.blockedSteps.map((blocker) =>
       `Blocked history: ${blocker.stepId} — ${blocker.reason} Missing: ${blocker.missingEvidence.join(", ")}. Next: ${blocker.nextRequiredAction}`
@@ -412,6 +551,13 @@ export function validateImplementationStepLedgerProjection(
 ): ImplementationStepLedgerProjection {
   const issues: string[] = [];
   const latestStep = projection.steps.at(-1);
+  const latestStepById = new Map<string, ImplementationStepRecord>();
+
+  for (const step of projection.steps) {
+    if (isStepDoc(step.stepDoc)) {
+      latestStepById.set(step.stepDoc.stepId, step);
+    }
+  }
 
   if (projection.kind !== "ImplementationStepLedgerProjection") {
     issues.push("kind must be ImplementationStepLedgerProjection");
@@ -478,6 +624,32 @@ export function validateImplementationStepLedgerProjection(
     }
     if (step.cleanCodeReviewRecord !== null && step.cleanCodeReviewRecord.stepId !== step.stepDoc.stepId) {
       issues.push("CleanCodeReviewRecord must match its ImplementationStepDoc stepId");
+    }
+    if (
+      !Array.isArray(step.codeReviewStreaks) ||
+      step.codeReviewStreaks.length !== IMPLEMENTATION_CODE_REVIEW_SCOPES.length ||
+      !step.codeReviewStreaks.every(isCodeReviewStreakRecord)
+    ) {
+      issues.push("codeReviewStreaks must cover feature and repository no-finding streaks");
+    }
+    if (
+      !Array.isArray(step.cleanCodeReviewStreaks) ||
+      step.cleanCodeReviewStreaks.length !== IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES.length ||
+      !step.cleanCodeReviewStreaks.every(isCleanCodeReviewStreakRecord)
+    ) {
+      issues.push("cleanCodeReviewStreaks must cover changed-code and repository no-finding streaks");
+    }
+    const expectedCodeStreaks = implementationCodeReviewStreaks(
+      projection.codeReviewRecords.filter((record) => record.stepId === step.stepDoc.stepId)
+    );
+    const expectedCleanCodeStreaks = implementationCleanCodeReviewStreaks(
+      projection.cleanCodeReviewRecords.filter((record) => record.stepId === step.stepDoc.stepId)
+    );
+    if (latestStepById.get(step.stepDoc.stepId) === step && JSON.stringify(step.codeReviewStreaks) !== JSON.stringify(expectedCodeStreaks)) {
+      issues.push("codeReviewStreaks must match recorded CodeReviewRecord history");
+    }
+    if (latestStepById.get(step.stepDoc.stepId) === step && JSON.stringify(step.cleanCodeReviewStreaks) !== JSON.stringify(expectedCleanCodeStreaks)) {
+      issues.push("cleanCodeReviewStreaks must match recorded CleanCodeReviewRecord history");
     }
     if (step.testEvidenceRecord !== null && !isTestEvidenceRecord(step.testEvidenceRecord)) {
       issues.push("TestEvidenceRecord must include commands, outcome, counts, Not-tested gaps, and evidence refs");
@@ -546,6 +718,100 @@ export function validateImplementationStepLedgerProjection(
   return projection;
 }
 
+const IMPLEMENTATION_STEP_LEDGER_FIXTURE_CODE_REVIEWS: readonly CodeReviewRecord[] = [
+  {
+    stepId: "step_demo",
+    reviewId: "review_code_feature_demo_1",
+    reviewer: "codex-code-reviewer",
+    reviewScope: "feature",
+    verdict: "passed",
+    comparedFromCommitSha: "1234567",
+    comparedToCommitSha: "abcdef1",
+    findings: [],
+    evidenceRefs: ["review:code:feature:1"]
+  },
+  {
+    stepId: "step_demo",
+    reviewId: "review_code_feature_demo_2",
+    reviewer: "codex-code-reviewer",
+    reviewScope: "feature",
+    verdict: "passed",
+    comparedFromCommitSha: "1234567",
+    comparedToCommitSha: "abcdef1",
+    findings: [],
+    evidenceRefs: ["review:code:feature:2"]
+  },
+  {
+    stepId: "step_demo",
+    reviewId: "review_code_repository_demo_1",
+    reviewer: "codex-repo-reviewer",
+    reviewScope: "repository",
+    verdict: "passed",
+    comparedFromCommitSha: "1234567",
+    comparedToCommitSha: "abcdef1",
+    findings: [],
+    evidenceRefs: ["review:code:repository:1"]
+  },
+  {
+    stepId: "step_demo",
+    reviewId: "review_code_repository_demo_2",
+    reviewer: "codex-repo-reviewer",
+    reviewScope: "repository",
+    verdict: "passed",
+    comparedFromCommitSha: "1234567",
+    comparedToCommitSha: "abcdef1",
+    findings: [],
+    evidenceRefs: ["review:code:repository:2"]
+  }
+];
+
+const IMPLEMENTATION_STEP_LEDGER_FIXTURE_CLEAN_CODE_REVIEWS: readonly CleanCodeReviewRecord[] = [
+  {
+    stepId: "step_demo",
+    reviewId: "review_clean_changed_demo_1",
+    reviewer: "codex-clean-code-reviewer",
+    reviewScope: "changed_code",
+    verdict: "passed",
+    comparedFromCommitSha: "1234567",
+    comparedToCommitSha: "abcdef1",
+    simplifications: [],
+    evidenceRefs: ["review:clean:changed:1"]
+  },
+  {
+    stepId: "step_demo",
+    reviewId: "review_clean_changed_demo_2",
+    reviewer: "codex-clean-code-reviewer",
+    reviewScope: "changed_code",
+    verdict: "passed",
+    comparedFromCommitSha: "1234567",
+    comparedToCommitSha: "abcdef1",
+    simplifications: [],
+    evidenceRefs: ["review:clean:changed:2"]
+  },
+  {
+    stepId: "step_demo",
+    reviewId: "review_clean_repository_demo_1",
+    reviewer: "codex-repo-clean-code-reviewer",
+    reviewScope: "repository",
+    verdict: "passed",
+    comparedFromCommitSha: "1234567",
+    comparedToCommitSha: "abcdef1",
+    simplifications: [],
+    evidenceRefs: ["review:clean:repository:1"]
+  },
+  {
+    stepId: "step_demo",
+    reviewId: "review_clean_repository_demo_2",
+    reviewer: "codex-repo-clean-code-reviewer",
+    reviewScope: "repository",
+    verdict: "passed",
+    comparedFromCommitSha: "1234567",
+    comparedToCommitSha: "abcdef1",
+    simplifications: [],
+    evidenceRefs: ["review:clean:repository:2"]
+  }
+];
+
 export const IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE: ImplementationStepLedgerProjection =
   validateImplementationStepLedgerProjection({
     kind: "ImplementationStepLedgerProjection",
@@ -582,26 +848,10 @@ export const IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE: ImplementationStepLedgerP
           evidenceRefs: ["commit:abcdef1"]
         },
         noCodeStepEvidence: null,
-        codeReviewRecord: {
-          stepId: "step_demo",
-          reviewId: "review_code_demo",
-          reviewer: "codex-code-reviewer",
-          verdict: "passed",
-          comparedFromCommitSha: "1234567",
-          comparedToCommitSha: "abcdef1",
-          findings: [],
-          evidenceRefs: ["review:code"]
-        },
-        cleanCodeReviewRecord: {
-          stepId: "step_demo",
-          reviewId: "review_clean_demo",
-          reviewer: "codex-clean-code-reviewer",
-          verdict: "passed",
-          comparedFromCommitSha: "1234567",
-          comparedToCommitSha: "abcdef1",
-          simplifications: ["reused existing projection pattern"],
-          evidenceRefs: ["review:clean"]
-        },
+        codeReviewRecord: IMPLEMENTATION_STEP_LEDGER_FIXTURE_CODE_REVIEWS.at(-1) ?? null,
+        cleanCodeReviewRecord: IMPLEMENTATION_STEP_LEDGER_FIXTURE_CLEAN_CODE_REVIEWS.at(-1) ?? null,
+        codeReviewStreaks: implementationCodeReviewStreaks(IMPLEMENTATION_STEP_LEDGER_FIXTURE_CODE_REVIEWS),
+        cleanCodeReviewStreaks: implementationCleanCodeReviewStreaks(IMPLEMENTATION_STEP_LEDGER_FIXTURE_CLEAN_CODE_REVIEWS),
         testEvidenceRecord: {
           stepId: "step_demo",
           testEvidenceId: "test_verify_demo",
@@ -627,30 +877,8 @@ export const IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE: ImplementationStepLedgerP
       }
     ],
     noCodeStepEvidenceRecords: [],
-    codeReviewRecords: [
-      {
-        stepId: "step_demo",
-        reviewId: "review_code_demo",
-        reviewer: "codex-code-reviewer",
-        verdict: "passed",
-        comparedFromCommitSha: "1234567",
-        comparedToCommitSha: "abcdef1",
-        findings: [],
-        evidenceRefs: ["review:code"]
-      }
-    ],
-    cleanCodeReviewRecords: [
-      {
-        stepId: "step_demo",
-        reviewId: "review_clean_demo",
-        reviewer: "codex-clean-code-reviewer",
-        verdict: "passed",
-        comparedFromCommitSha: "1234567",
-        comparedToCommitSha: "abcdef1",
-        simplifications: ["reused existing projection pattern"],
-        evidenceRefs: ["review:clean"]
-      }
-    ],
+    codeReviewRecords: IMPLEMENTATION_STEP_LEDGER_FIXTURE_CODE_REVIEWS,
+    cleanCodeReviewRecords: IMPLEMENTATION_STEP_LEDGER_FIXTURE_CLEAN_CODE_REVIEWS,
     testEvidenceRecords: [
       {
         stepId: "step_demo",

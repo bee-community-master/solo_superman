@@ -17,6 +17,8 @@ export interface ImplementationStepLedgerViewModel {
   readonly rollbackLabel: string;
   readonly codeReviewLabel: string;
   readonly cleanCodeReviewLabel: string;
+  readonly codeReviewStreakLabels: readonly string[];
+  readonly cleanCodeReviewStreakLabels: readonly string[];
   readonly testEvidenceLabel: string;
   readonly missingEvidenceItems: readonly string[];
   readonly blockerLabel: string | null;
@@ -34,7 +36,7 @@ function reviewLabel(
   kind: "Code review" | "Clean-code review"
 ) {
   return review
-    ? `${kind}: ${review.verdict} by ${review.reviewer} (${review.comparedFromCommitSha}..${review.comparedToCommitSha})`
+    ? `${kind}: ${review.reviewScope} ${review.verdict} by ${review.reviewer} (${review.comparedFromCommitSha}..${review.comparedToCommitSha})`
     : `${kind}: not recorded`;
 }
 
@@ -69,6 +71,8 @@ export function implementationStepLedgerViewModel(
       rollbackLabel: "Rollback/reference: not recorded",
       codeReviewLabel: "Code review: not recorded",
       cleanCodeReviewLabel: "Clean-code review: not recorded",
+      codeReviewStreakLabels: ["feature code review 0/2", "repository code review 0/2"],
+      cleanCodeReviewStreakLabels: ["changed_code clean-code review 0/2", "repository clean-code review 0/2"],
       testEvidenceLabel: "Tests: not recorded",
       missingEvidenceItems: ["StepCommitRecord", "CodeReviewRecord", "CleanCodeReviewRecord", "TestEvidenceRecord"],
       blockerLabel: "Cannot complete until implementation, review, clean-code review, and test evidence are recorded.",
@@ -95,6 +99,18 @@ export function implementationStepLedgerViewModel(
     rollbackLabel: commit ? `Rollback/reference: ${commit.rollbackRef}` : "Rollback/reference: not recorded",
     codeReviewLabel: reviewLabel(step.codeReviewRecord, "Code review"),
     cleanCodeReviewLabel: reviewLabel(step.cleanCodeReviewRecord, "Clean-code review"),
+    codeReviewStreakLabels: step.codeReviewStreaks.map(
+      (streak) =>
+        `${streak.reviewScope} code review ${streak.currentNoFindingPasses}/${streak.requiredNoFindingPasses}${
+          streak.satisfied ? " satisfied" : " missing"
+        }`
+    ),
+    cleanCodeReviewStreakLabels: step.cleanCodeReviewStreaks.map(
+      (streak) =>
+        `${streak.reviewScope} clean-code review ${streak.currentNoFindingPasses}/${streak.requiredNoFindingPasses}${
+          streak.satisfied ? " satisfied" : " missing"
+        }`
+    ),
     testEvidenceLabel: testLabel(step),
     missingEvidenceItems: step.missingEvidence,
     blockerLabel: blocker ? `${blocker.reason} Next: ${blocker.nextRequiredAction}` : null,
@@ -148,6 +164,12 @@ export function ImplementationStepLedgerPanel({
         <li>{ledger.rollbackLabel}</li>
         <li>{ledger.codeReviewLabel}</li>
         <li>{ledger.cleanCodeReviewLabel}</li>
+        {ledger.codeReviewStreakLabels.map((label) => (
+          <li key={label}>{label}</li>
+        ))}
+        {ledger.cleanCodeReviewStreakLabels.map((label) => (
+          <li key={label}>{label}</li>
+        ))}
         <li>{ledger.testEvidenceLabel}</li>
         {ledger.noCodeEvidenceLabel ? <li>{ledger.noCodeEvidenceLabel}</li> : null}
       </ul>
