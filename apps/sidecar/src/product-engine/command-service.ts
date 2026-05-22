@@ -164,6 +164,7 @@ import {
   assertCodexPreviewOutputMatchesInput,
   createCodexRuntimeAdapter,
   fixtureCodexPreviewOutput,
+  validateCodexWorkerExecutionOutput,
   type CodexRuntimeAdapter,
   type CodexRuntimePreviewInput,
   type CodexWorkerExecutionOutputEnvelope
@@ -4786,7 +4787,7 @@ export function createProductEngineCommandService(
       let output: CodexWorkerExecutionOutputEnvelope;
 
       try {
-        output = await codexRuntimeAdapter.executeWorker({
+        output = validateCodexWorkerExecutionOutput(await codexRuntimeAdapter.executeWorker({
           jobId: activeWorkerJob.jobId,
           runId: activeRun.runId,
           stage: activeWorkerJob.stage,
@@ -4797,7 +4798,7 @@ export function createProductEngineCommandService(
           requiredEvidence: activeWorkerJob.executionPlan.requiredEvidence,
           forbiddenActions: activeWorkerJob.executionPlan.forbiddenActions,
           sourceRefs: activeWorkerJob.executionPlan.sourceRefs
-        });
+        }));
       } catch (error) {
         const reason = error instanceof CodexRuntimeUnavailableError
           ? error.message

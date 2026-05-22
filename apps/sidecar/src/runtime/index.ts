@@ -1840,6 +1840,55 @@ function recordArray(value: unknown, fieldName: string) {
   return value as readonly Readonly<Record<string, unknown>>[];
 }
 
+const WORKER_OUTPUT_SECRET_VALUE_PATTERN =
+  /\b(?:sk-[A-Za-z0-9_-]{8,}|(?:api[_-]?key|access[_-]?token|auth[_-]?token|refresh[_-]?token|session[_-]?cookie|password|secret|npm[_-]?token|github[_-]?token)\s*[:=]\s*[^\s"',;]{6,})/iu;
+const WORKER_OUTPUT_EXTERNAL_MUTATION_REF_PATTERN =
+  /^(?:deploy:production|production-deploy|external-mutation:(?:performed|completed|executed)|final-submit:(?:performed|completed|executed)|account-action:(?:performed|completed|executed)|destructive-operation:(?:performed|completed|executed))/iu;
+const WORKER_OUTPUT_EXTERNAL_MUTATION_TEXT_PATTERN =
+  /\b(?:performed|executed|completed|ran)\b.{0,80}\b(?:production deploy|external mutation|final submit|account action|destructive operation)\b|\b(?:production deploy|external mutation|final submit|account action|destructive operation)\b.{0,80}\b(?:performed|executed|completed|ran)\b/iu;
+
+function collectWorkerOutputStrings(value: unknown, strings: string[] = []): readonly string[] {
+  if (typeof value === "string") {
+    strings.push(value);
+
+    return strings;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectWorkerOutputStrings(item, strings);
+    }
+
+    return strings;
+  }
+
+  if (isRecord(value)) {
+    for (const item of Object.values(value)) {
+      collectWorkerOutputStrings(item, strings);
+    }
+  }
+
+  return strings;
+}
+
+function assertCodexWorkerExecutionOutputSafety(output: CodexWorkerExecutionOutputEnvelope) {
+  const outputStrings = collectWorkerOutputStrings(output);
+
+  if (outputStrings.some((value) => WORKER_OUTPUT_SECRET_VALUE_PATTERN.test(value))) {
+    throw new Error("Codex worker execution output must not contain credential, token, session cookie, or secret-like values.");
+  }
+
+  if (
+    output.status === "completed" &&
+    outputStrings.some((value) =>
+      WORKER_OUTPUT_EXTERNAL_MUTATION_REF_PATTERN.test(value) ||
+      WORKER_OUTPUT_EXTERNAL_MUTATION_TEXT_PATTERN.test(value)
+    )
+  ) {
+    throw new Error("Completed Codex worker execution output must not claim external, production, final-submit, account, or destructive mutations.");
+  }
+}
+
 export function validateCodexWorkerExecutionOutput(value: unknown): CodexWorkerExecutionOutputEnvelope {
   if (!isRecord(value)) {
     throw new Error("Codex worker execution output must be an object.");
@@ -1876,7 +1925,7 @@ export function validateCodexWorkerExecutionOutput(value: unknown): CodexWorkerE
     throw new Error("Blocked Codex worker execution output must include blockedReason.");
   }
 
-  return {
+  const output: CodexWorkerExecutionOutputEnvelope = {
     schemaVersion: CONTRACT_SCHEMA_VERSION,
     jobId: value.jobId.trim(),
     status: value.status,
@@ -1891,6 +1940,10 @@ export function validateCodexWorkerExecutionOutput(value: unknown): CodexWorkerE
       ? { nextRequiredAction: value.nextRequiredAction.trim() }
       : {})
   };
+
+  assertCodexWorkerExecutionOutputSafety(output);
+
+  return output;
 }
 
 export function parseCodexWorkerExecutionOutput(raw: string): CodexWorkerExecutionOutputEnvelope {

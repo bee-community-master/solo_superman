@@ -868,4 +868,34 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       })
     ).toThrow("Completed Codex worker execution output must include ledgerTransitions");
   });
+
+  it("rejects worker output that leaks secret-like text or claims external production mutation", () => {
+    const input = codexWorkerInputFixture();
+    const safeOutput = fixtureCodexWorkerExecutionOutput(input);
+
+    expect(() =>
+      validateCodexWorkerExecutionOutput({
+        ...safeOutput,
+        summary: "Worker copied NPM_TOKEN=plain-secret-value into the report."
+      })
+    ).toThrow("must not contain credential, token, session cookie, or secret-like values");
+    expect(() =>
+      validateCodexWorkerExecutionOutput({
+        ...safeOutput,
+        evidenceRefs: ["deploy:production"]
+      })
+    ).toThrow("must not claim external, production, final-submit, account, or destructive mutations");
+    expect(() =>
+      validateCodexWorkerExecutionOutput({
+        ...safeOutput,
+        status: "blocked",
+        summary: "Worker refused the request.",
+        ledgerTransitions: [],
+        evidenceRefs: ["worker-blocked:external-production-mutation"],
+        blockedReason: "External production mutation remains blocked.",
+        missingEvidence: ["External production mutation approval"],
+        nextRequiredAction: "Keep the worker blocked until a future contract explicitly opens this action."
+      })
+    ).not.toThrow();
+  });
 });
