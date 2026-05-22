@@ -360,6 +360,12 @@ export function canOpenNewAutoImplementationPullRequest(run: AutoImplementationR
   return latestAutoImplementationPullRequestUrl(run) === null;
 }
 
+export function canCreateAutoImplementationGitHubIssues(run: AutoImplementationRun): boolean {
+  return run.issueManagement.githubIssueUrls.length === 0 &&
+    run.issueManagement.githubIssueMutation.createdIssueUrls.length === 0 &&
+    run.issueManagement.githubIssueMutation.status !== "applied";
+}
+
 export function hasAppliedAutoImplementationPullRequestMerge(run: AutoImplementationRun): boolean {
   const records = autoImplementationPullRequestMutationRecords(run);
   const latestRecord = run.pullRequestMutations.latestRecord;
