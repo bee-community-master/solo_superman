@@ -826,6 +826,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       const runAfterWorker = record(responseData(ranJob.body).latestRun);
       const runAfterWorkerJobs = records(runAfterWorker.workerJobs);
       const ledgerAfterWorker = await getJson(app, `/api/v1/sessions/${sessionId}/implementation-step-ledger`);
+      const expectedWorkerStepId = `auto-implementation-step:${runId}:initial_pr:local-001`;
       const advanced = await postAutoImplementationWorkerStageAdvanceForE2e(app, sessionId, runId, plannedJobId, {
         idempotencyKey: "worker-ui-e2e:advance",
         tickedAt: "2026-05-22T00:10:00.000Z",
@@ -850,7 +851,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           `auto-worker-ledger-import:${plannedJobId}:worker-ui-e2e:run:ledger-import`,
           `codex-worker:${plannedJobId}:fixture`,
           "codex-worker:fixture:completed",
-          "implementation-step-ledger:step_demo",
+          `implementation-step-ledger:${expectedWorkerStepId}`,
           "commit:abcdef1",
           "test:verify",
           `ui-worker-run:${plannedJobId}`
@@ -864,7 +865,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           expect.objectContaining({
             status: "completed",
             stepDoc: expect.objectContaining({
-              stepId: "step_demo"
+              stepId: expectedWorkerStepId
             })
           })
         ])
@@ -878,9 +879,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         stage: "initial_pr",
         status: "completed",
         ledgerEvidence: {
-          implementationStepId: "step_demo",
+          implementationStepId: expectedWorkerStepId,
           evidenceRefs: expect.arrayContaining([
-            "implementation-step-ledger:step_demo",
+            `implementation-step-ledger:${expectedWorkerStepId}`,
             "commit:abcdef1",
             "test:verify"
           ])

@@ -16,6 +16,7 @@ import {
   assertSafeResearchConnectorId,
   AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE,
   AUTO_IMPLEMENTATION_SCHEMA_VERSION,
+  AUTO_IMPLEMENTATION_STAGE_LABELS,
   AUTO_IMPLEMENTATION_STAGES,
   AUTO_IMPLEMENTATION_TICK_INTERVAL_MS,
   AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS,
@@ -70,6 +71,7 @@ import {
   type ExecutionAuthorityLedgerProjection,
   type ExecutionAuthorityPreflightResult,
   type ExecutionAuthorityRecord,
+  type ImplementationStepDoc,
   type ImplementationStepRecord,
   type ImplementationStepLedgerProjection,
   type FileDiffChangedFileDto,
@@ -118,6 +120,7 @@ import {
   type SchemaVersion,
   type SessionId,
   type SessionShellProjection,
+  type TrackerDoc,
   type ShellCommandExecutionResult,
   type ShellCommandRunSummaryDto,
   type StartResearchRunRequest,
@@ -166,6 +169,7 @@ import {
 import {
   CodexRuntimeUnavailableError,
   assertCodexPreviewOutputMatchesInput,
+  assertCodexWorkerExecutionOutputMatchesInput,
   createCodexRuntimeAdapter,
   fixtureCodexPreviewOutput,
   validateCodexWorkerExecutionOutput,
@@ -913,7 +917,7 @@ function completedImplementationStepIdFromWorkerJob(job: AutoImplementationWorke
   const stepIds = job.evidenceRefs
     .filter((ref) => ref.startsWith(stepEvidencePrefix))
     .map((ref) => ref.slice(stepEvidencePrefix.length))
-    .filter((ref) => ref.length > 0 && !ref.includes(":"));
+    .filter((ref) => ref.length > 0 && ref !== "tracker" && !ref.startsWith("tracker:"));
   const uniqueStepIds = [...new Set(stepIds)];
 
   if (uniqueStepIds.length !== 1) {
@@ -1123,6 +1127,54 @@ function autoImplementationWorkerPlan(input: {
       `auto-implementation-issue:${input.issue.issueId}`,
       `issue-doc:${input.issue.relativePath}`
     ]
+  };
+}
+
+function autoImplementationWorkerLedgerTrackerDoc(run: AutoImplementationRun): TrackerDoc {
+  return {
+    trackerId: `auto-implementation-tracker:${run.runId}`,
+    title: `${run.projectFolderName} implementation tracker`,
+    goal: "Complete the staged auto implementation protocol with review, clean-code, test, PR, and merge evidence.",
+    sourceRefs: [
+      `auto-implementation-run:${run.runId}`,
+      `tracker-doc:${run.issueManagement.trackerRelativePath}`
+    ]
+  };
+}
+
+function autoImplementationWorkerStepChangeScope(
+  stage: AutoImplementationRun["currentStage"]
+): ImplementationStepDoc["expectedChangeScope"] {
+  if (stage === "merge_main") {
+    return "no_op_review";
+  }
+
+  if (stage === "final_verify_pr_update") {
+    return "verification_only";
+  }
+
+  return "tracked_code_docs_config";
+}
+
+function autoImplementationWorkerLedgerStepDoc(input: {
+  readonly run: AutoImplementationRun;
+  readonly workerJob: AutoImplementationWorkerJob;
+}): ImplementationStepDoc {
+  const { run, workerJob } = input;
+
+  return {
+    stepId: `auto-implementation-step:${run.runId}:${workerJob.stage}:${workerJob.issueId}`,
+    title: workerJob.issueTitle,
+    description: `Execute ${AUTO_IMPLEMENTATION_STAGE_LABELS[workerJob.stage]} for ${workerJob.issueRelativePath}.`,
+    sourceRefs: uniqueAutoImplementationRefs([
+      `auto-implementation-run:${run.runId}`,
+      `auto-implementation-stage:${workerJob.stage}`,
+      `auto-implementation-worker-job:${workerJob.jobId}`,
+      `auto-implementation-issue:${workerJob.issueId}`,
+      `issue-doc:${workerJob.issueRelativePath}`,
+      ...workerJob.executionPlan.sourceRefs
+    ]),
+    expectedChangeScope: autoImplementationWorkerStepChangeScope(workerJob.stage)
   };
 }
 
@@ -4984,20 +5036,26 @@ export function createProductEngineCommandService(
       }
 
       let output: CodexWorkerExecutionOutputEnvelope;
+      const workerExecutionInput = {
+        jobId: activeWorkerJob.jobId,
+        runId: activeRun.runId,
+        stage: activeWorkerJob.stage,
+        workingDirectory: activeWorkerJob.executionPlan.workingDirectory,
+        issueDocumentPath: activeWorkerJob.executionPlan.issueDocumentPath,
+        executionAuthorityRef: activeWorkerJob.executionPlan.executionAuthorityRef ?? "",
+        allowedWriteScope: activeWorkerJob.executionPlan.allowedWriteScope,
+        requiredEvidence: activeWorkerJob.executionPlan.requiredEvidence,
+        forbiddenActions: activeWorkerJob.executionPlan.forbiddenActions,
+        sourceRefs: activeWorkerJob.executionPlan.sourceRefs,
+        ledgerTrackerDoc: autoImplementationWorkerLedgerTrackerDoc(activeRun),
+        ledgerStepDoc: autoImplementationWorkerLedgerStepDoc({
+          run: activeRun,
+          workerJob: activeWorkerJob
+        })
+      };
 
       try {
-        output = validateCodexWorkerExecutionOutput(await codexRuntimeAdapter.executeWorker({
-          jobId: activeWorkerJob.jobId,
-          runId: activeRun.runId,
-          stage: activeWorkerJob.stage,
-          workingDirectory: activeWorkerJob.executionPlan.workingDirectory,
-          issueDocumentPath: activeWorkerJob.executionPlan.issueDocumentPath,
-          executionAuthorityRef: activeWorkerJob.executionPlan.executionAuthorityRef ?? "",
-          allowedWriteScope: activeWorkerJob.executionPlan.allowedWriteScope,
-          requiredEvidence: activeWorkerJob.executionPlan.requiredEvidence,
-          forbiddenActions: activeWorkerJob.executionPlan.forbiddenActions,
-          sourceRefs: activeWorkerJob.executionPlan.sourceRefs
-        }));
+        output = validateCodexWorkerExecutionOutput(await codexRuntimeAdapter.executeWorker(workerExecutionInput));
       } catch (error) {
         const reason = error instanceof CodexRuntimeUnavailableError
           ? error.message
@@ -5015,15 +5073,17 @@ export function createProductEngineCommandService(
         }));
       }
 
-      if (output.jobId !== request.jobId) {
+      try {
+        assertCodexWorkerExecutionOutputMatchesInput(workerExecutionInput, output);
+      } catch (error) {
         return saveProjection(blockedProjection({
           missingEvidence: [AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.workerExecution],
-          blockedReason: "Local Codex worker output jobId did not match the requested worker job.",
+          blockedReason: `Local Codex worker output did not match the planned ledger contract: ${error instanceof Error ? error.message : String(error)}`,
           nextRequiredAction: autoImplementationWorkerNextRequiredAction([
             AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.workerExecution
           ]),
           evidenceRefs: [
-            "worker-blocked:codex-runtime",
+            "worker-blocked:ledger-contract",
             ...output.evidenceRefs
           ]
         }));

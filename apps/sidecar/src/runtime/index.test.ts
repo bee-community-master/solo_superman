@@ -11,6 +11,7 @@ import {
 } from "@solo-superman/contracts";
 import {
   assertCodexPreviewOutputMatchesInput,
+  assertCodexWorkerExecutionOutputMatchesInput,
   codexAppServerSpawnPlan,
   codexAccountStatusFromAccountReadResponse,
   codexWslShellCommand,
@@ -22,7 +23,8 @@ import {
   repairCodexJsonOutput,
   validateCodexWorkerExecutionOutput,
   validateCodexPreviewOutput,
-  windowsCodexLoginShellCommand
+  windowsCodexLoginShellCommand,
+  type CodexWorkerExecutionInput
 } from "./index";
 
 function codexRuntimeAccount(
@@ -92,7 +94,7 @@ function phase15bHintsFixture() {
   };
 }
 
-function codexWorkerInputFixture() {
+function codexWorkerInputFixture(): CodexWorkerExecutionInput {
   return {
     jobId: "auto-worker-job:auto_run_demo:initial_pr:worker-job",
     runId: "auto_run_demo",
@@ -103,7 +105,26 @@ function codexWorkerInputFixture() {
     allowedWriteScope: ["/tmp/solo-superman/worker-job-demo"],
     requiredEvidence: ["ImplementationStepLedger completed step"],
     forbiddenActions: ["No network writes", "No credential reads"],
-    sourceRefs: ["auto-implementation-run:auto_run_demo", "execution-authority:exec_auth_auto_worker_initial_pr"]
+    sourceRefs: ["auto-implementation-run:auto_run_demo", "execution-authority:exec_auth_auto_worker_initial_pr"],
+    ledgerTrackerDoc: {
+      trackerId: "auto-implementation-tracker:auto_run_demo",
+      title: "worker-job-demo implementation tracker",
+      goal: "Complete the staged auto implementation protocol with review, clean-code, test, PR, and merge evidence.",
+      sourceRefs: ["auto-implementation-run:auto_run_demo", "tracker-doc:implementation-tracker.md"]
+    },
+    ledgerStepDoc: {
+      stepId: "auto-implementation-step:auto_run_demo:initial_pr:local-001",
+      title: "Workspace repo bootstrap and initial implementation PR",
+      description: "Execute Initial implementation and PR creation for implementation-issues/001-initial_pr.md.",
+      sourceRefs: [
+        "auto-implementation-run:auto_run_demo",
+        "auto-implementation-stage:initial_pr",
+        "auto-implementation-worker-job:auto-worker-job:auto_run_demo:initial_pr:worker-job",
+        "auto-implementation-issue:local-001",
+        "issue-doc:implementation-issues/001-initial_pr.md"
+      ],
+      expectedChangeScope: "tracked_code_docs_config"
+    }
   };
 }
 
@@ -820,6 +841,14 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       type: "text",
       text: expect.stringContaining("executionAuthorityRef: exec_auth_auto_worker_initial_pr")
     });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining(`ledgerStepDoc: ${JSON.stringify(codexWorkerInputFixture().ledgerStepDoc)}`)
+    });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("Every ledgerTransitions item MUST copy ledgerTrackerDoc as trackerDoc")
+    });
     expect(turnStartRequest.params.outputSchema).toMatchObject({
       type: "object",
       required: expect.arrayContaining(["schemaVersion", "jobId", "status", "ledgerTransitions", "evidenceRefs"]),
@@ -850,9 +879,15 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       ])
     });
     expect(output.ledgerTransitions.at(-1)).toMatchObject({
+      trackerDoc: input.ledgerTrackerDoc,
+      stepDoc: input.ledgerStepDoc,
       targetStatus: "completed",
       evidenceRefs: ["codex-worker:fixture:completed"]
     });
+    expect(output.ledgerTransitions.at(-1)?.stepCommitRecord).toMatchObject({
+      stepId: input.ledgerStepDoc.stepId
+    });
+    expect(() => assertCodexWorkerExecutionOutputMatchesInput(input, output)).not.toThrow();
     expect(parseCodexWorkerExecutionOutput(`\`\`\`json\n${JSON.stringify(output)}\n\`\`\``)).toMatchObject({
       jobId: input.jobId,
       status: "completed"
@@ -867,6 +902,39 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         evidenceRefs: ["codex-worker:bad"]
       })
     ).toThrow("Completed Codex worker execution output must include ledgerTransitions");
+  });
+
+  it("rejects worker output that uses a different ledger doc contract", () => {
+    const input = codexWorkerInputFixture();
+    const output = fixtureCodexWorkerExecutionOutput(input);
+    const reorderedDocOutput = {
+      ...output,
+      ledgerTransitions: output.ledgerTransitions.map((transition) => ({
+        ...transition,
+        stepDoc: {
+          sourceRefs: input.ledgerStepDoc.sourceRefs,
+          expectedChangeScope: input.ledgerStepDoc.expectedChangeScope,
+          description: input.ledgerStepDoc.description,
+          title: input.ledgerStepDoc.title,
+          stepId: input.ledgerStepDoc.stepId
+        }
+      }))
+    };
+
+    expect(() => assertCodexWorkerExecutionOutputMatchesInput(input, reorderedDocOutput)).not.toThrow();
+
+    expect(() =>
+      assertCodexWorkerExecutionOutputMatchesInput(input, {
+        ...output,
+        ledgerTransitions: output.ledgerTransitions.map((transition) => ({
+          ...transition,
+          stepDoc: {
+            ...input.ledgerStepDoc,
+            stepId: "unexpected-step"
+          }
+        }))
+      })
+    ).toThrow("must use the planned ImplementationStepLedger stepDoc");
   });
 
   it("rejects worker output that leaks secret-like text or claims external production mutation", () => {

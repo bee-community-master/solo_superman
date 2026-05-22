@@ -33,8 +33,10 @@ import {
   type CodexPreviewOutputEnvelope,
   type CodexRuntimeStatusDto,
   type CodexTurnPurpose,
+  type ImplementationStepDoc,
   type Phase15bUpgradeHints,
-  type RecordImplementationStepLedgerPayload
+  type RecordImplementationStepLedgerPayload,
+  type TrackerDoc
 } from "@solo-superman/contracts";
 
 export const RUNTIME_ADAPTER_VERSION = "codex-app-server-preview-pr-07" as const;
@@ -60,6 +62,8 @@ export interface CodexWorkerExecutionInput {
   readonly requiredEvidence: readonly string[];
   readonly forbiddenActions: readonly string[];
   readonly sourceRefs: readonly string[];
+  readonly ledgerTrackerDoc: TrackerDoc;
+  readonly ledgerStepDoc: ImplementationStepDoc;
 }
 
 export interface CodexWorkerExecutionOutputEnvelope {
@@ -1251,7 +1255,10 @@ function codexWorkerPrompt(input: CodexWorkerExecutionInput) {
     `allowedWriteScope: ${JSON.stringify(input.allowedWriteScope)}`,
     `requiredEvidence: ${JSON.stringify(input.requiredEvidence)}`,
     `forbiddenActions: ${JSON.stringify(input.forbiddenActions)}`,
-    `sourceRefs: ${JSON.stringify(input.sourceRefs)}`
+    `sourceRefs: ${JSON.stringify(input.sourceRefs)}`,
+    `ledgerTrackerDoc: ${JSON.stringify(input.ledgerTrackerDoc)}`,
+    `ledgerStepDoc: ${JSON.stringify(input.ledgerStepDoc)}`,
+    "Every ledgerTransitions item MUST copy ledgerTrackerDoc as trackerDoc and ledgerStepDoc as stepDoc exactly."
   ].join("\n");
 }
 
@@ -1889,6 +1896,61 @@ function assertCodexWorkerExecutionOutputSafety(output: CodexWorkerExecutionOutp
   }
 }
 
+function sameWorkerStringArray(left: unknown, right: readonly string[]) {
+  return Array.isArray(left) &&
+    left.length === right.length &&
+    left.every((item, index) => item === right[index]);
+}
+
+function hasOnlyWorkerLedgerDocKeys(value: Readonly<Record<string, unknown>>, keys: readonly string[]) {
+  const valueKeys = Object.keys(value).sort();
+  const expectedKeys = [...keys].sort();
+
+  return valueKeys.length === expectedKeys.length &&
+    valueKeys.every((key, index) => key === expectedKeys[index]);
+}
+
+function sameWorkerTrackerDoc(value: unknown, expected: TrackerDoc) {
+  return isRecord(value) &&
+    hasOnlyWorkerLedgerDocKeys(value, ["trackerId", "title", "goal", "sourceRefs"]) &&
+    value.trackerId === expected.trackerId &&
+    value.title === expected.title &&
+    value.goal === expected.goal &&
+    sameWorkerStringArray(value.sourceRefs, expected.sourceRefs);
+}
+
+function sameWorkerStepDoc(value: unknown, expected: ImplementationStepDoc) {
+  return isRecord(value) &&
+    hasOnlyWorkerLedgerDocKeys(value, ["stepId", "title", "description", "sourceRefs", "expectedChangeScope"]) &&
+    value.stepId === expected.stepId &&
+    value.title === expected.title &&
+    value.description === expected.description &&
+    value.expectedChangeScope === expected.expectedChangeScope &&
+    sameWorkerStringArray(value.sourceRefs, expected.sourceRefs);
+}
+
+export function assertCodexWorkerExecutionOutputMatchesInput(
+  input: CodexWorkerExecutionInput,
+  output: CodexWorkerExecutionOutputEnvelope
+) {
+  if (output.jobId !== input.jobId) {
+    throw new Error("Codex worker execution output jobId must match the requested job.");
+  }
+
+  if (output.status !== "completed") {
+    return;
+  }
+
+  for (const [index, transition] of output.ledgerTransitions.entries()) {
+    if (!sameWorkerTrackerDoc(transition.trackerDoc, input.ledgerTrackerDoc)) {
+      throw new Error(`Codex worker ledger transition ${index + 1} must use the planned ImplementationStepLedger trackerDoc.`);
+    }
+    if (!sameWorkerStepDoc(transition.stepDoc, input.ledgerStepDoc)) {
+      throw new Error(`Codex worker ledger transition ${index + 1} must use the planned ImplementationStepLedger stepDoc.`);
+    }
+  }
+}
+
 export function validateCodexWorkerExecutionOutput(value: unknown): CodexWorkerExecutionOutputEnvelope {
   if (!isRecord(value)) {
     throw new Error("Codex worker execution output must be an object.");
@@ -1954,13 +2016,21 @@ export function parseCodexWorkerExecutionOutput(raw: string): CodexWorkerExecuti
   }
 }
 
-function fixtureCodexWorkerExecutionTransitions(): readonly RecordImplementationStepLedgerPayload[] {
-  const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
-  const stepCommitRecord = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.stepCommitRecords[0]!;
-  const testEvidenceRecord = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords[0]!;
+function fixtureCodexWorkerExecutionTransitions(input: CodexWorkerExecutionInput): readonly RecordImplementationStepLedgerPayload[] {
+  const fixtureStepCommitRecord = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.stepCommitRecords[0]!;
+  const fixtureTestEvidenceRecord = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords[0]!;
+  const stepCommitRecord = {
+    ...fixtureStepCommitRecord,
+    stepId: input.ledgerStepDoc.stepId
+  };
+  const testEvidenceRecord = {
+    ...fixtureTestEvidenceRecord,
+    stepId: input.ledgerStepDoc.stepId,
+    verifiedCommitSha: stepCommitRecord.commitSha
+  };
   const baseTransition = {
-    trackerDoc: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.trackerDoc,
-    stepDoc: step.stepDoc
+    trackerDoc: input.ledgerTrackerDoc,
+    stepDoc: input.ledgerStepDoc
   };
 
   return [
@@ -1972,13 +2042,19 @@ function fixtureCodexWorkerExecutionTransitions(): readonly RecordImplementation
       ...baseTransition,
       targetStatus: "review_required" as const,
       stepCommitRecord,
-      codeReviewRecord
+      codeReviewRecord: {
+        ...codeReviewRecord,
+        stepId: input.ledgerStepDoc.stepId
+      }
     })),
     ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.cleanCodeReviewRecords.map((cleanCodeReviewRecord) => ({
       ...baseTransition,
       targetStatus: "clean_code_review_required" as const,
       stepCommitRecord,
-      cleanCodeReviewRecord
+      cleanCodeReviewRecord: {
+        ...cleanCodeReviewRecord,
+        stepId: input.ledgerStepDoc.stepId
+      }
     })),
     { ...baseTransition, targetStatus: "tests_required", stepCommitRecord },
     {
@@ -1997,7 +2073,7 @@ export function fixtureCodexWorkerExecutionOutput(input: CodexWorkerExecutionInp
     jobId: input.jobId,
     status: "completed",
     summary: `Fixture local Codex worker completed ${input.stage}.`,
-    ledgerTransitions: fixtureCodexWorkerExecutionTransitions(),
+    ledgerTransitions: fixtureCodexWorkerExecutionTransitions(input),
     evidenceRefs: [
       `codex-worker:${input.jobId}:fixture`,
       "codex-worker:fixture:completed"
@@ -2174,9 +2250,7 @@ export async function createLiveCodexWorkerExecution(
         try {
           const output = parseCodexWorkerExecutionOutput(completedMessageText ?? outputDeltaText);
 
-          if (output.jobId !== input.jobId) {
-            throw new Error("Codex worker execution output jobId must match the requested job.");
-          }
+          assertCodexWorkerExecutionOutputMatchesInput(input, output);
 
           settled = true;
           if (timeout) {
