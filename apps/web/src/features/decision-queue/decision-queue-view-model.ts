@@ -24,6 +24,8 @@ export interface QueueSectionViewModel {
   readonly items: DecisionQueueProjection[QueueSectionId];
 }
 
+type QueueSectionItem = DecisionQueueProjection[QueueSectionId][number];
+
 export type DecisionQueueRecoveryUiStatus = "idle" | "pending_refetch" | "recovering" | "recovered_by_refetch" | "stale";
 
 export interface DecisionQueueRecoveryViewModel {
@@ -207,34 +209,32 @@ export function decisionQueueRecoveryViewModel(queue: DecisionQueueProjection | 
   };
 }
 
-function queueItemIsQuestionDebt(item: DecisionQueueProjection[QueueSectionId][number]) {
+function queueItemIsQuestionDebt(item: QueueSectionItem) {
   return item.cardType === undefined || item.cardType === "question" || item.cardType === "follow_up_question";
 }
 
-function countQuestionDebtItems(items: DecisionQueueProjection[QueueSectionId]) {
+function queueSectionItems(queue: DecisionQueueProjection): readonly QueueSectionItem[] {
+  return [...queue.active, ...queue.next, ...queue.blocked, ...queue.deferred];
+}
+
+function countQuestionDebtItems(items: readonly QueueSectionItem[]) {
   return items.filter(queueItemIsQuestionDebt).length;
 }
 
+function countFollowUpQuestionItems(items: readonly QueueSectionItem[]) {
+  return items.filter((item) => item.cardType === "follow_up_question").length;
+}
+
 export function questionProgressViewModel(queue: DecisionQueueProjection | null): QuestionProgressViewModel {
-  const fallbackVisibleQuestionDebtCount = queue
-    ? countQuestionDebtItems(queue.active) +
-      countQuestionDebtItems(queue.next) +
-      countQuestionDebtItems(queue.blocked) +
-      countQuestionDebtItems(queue.deferred)
-    : 0;
+  const allQueueItems = queue ? queueSectionItems(queue) : [];
+  const fallbackVisibleQuestionDebtCount = countQuestionDebtItems(allQueueItems);
 
   return {
     generatedQuestionCount: queue?.progress?.generatedQuestionCount ?? fallbackVisibleQuestionDebtCount,
     openQuestionCount: queue?.progress?.openQuestionCount ?? fallbackVisibleQuestionDebtCount,
     answeredQuestionCount: queue?.progress?.answeredQuestionCount ?? 0,
     terminalQuestionCount: queue?.progress?.terminalQuestionCount ?? 0,
-    followUpQuestionCount:
-      queue?.progress?.followUpQuestionCount ??
-      (queue
-        ? [...queue.active, ...queue.next, ...queue.blocked, ...queue.deferred].filter(
-            (item) => item.cardType === "follow_up_question"
-          ).length
-        : 0),
+    followUpQuestionCount: queue?.progress?.followUpQuestionCount ?? countFollowUpQuestionItems(allQueueItems),
     followUpOpenQuestionCount: queue?.progress?.followUpOpenQuestionCount ?? 0,
     topicCoverageCount: queue?.progress?.topicCoverageCount ?? fallbackVisibleQuestionDebtCount,
     openTopicCoverageCount: queue?.progress?.openTopicCoverageCount ?? fallbackVisibleQuestionDebtCount,
