@@ -28,19 +28,31 @@ export function PlanningView({ controller }: PlanningViewProps) {
     setPurposeModeChangeReason
   } = controller;
   const topRiskCards = confidence?.topRiskCards?.slice(0, 3) ?? [];
+  const scoreBreakdownItems = confidence
+    ? [
+        ["sectionCompleteness", confidence.scoreBreakdown.sectionCompleteness],
+        ["questionDebtResolution", confidence.scoreBreakdown.questionDebtResolution],
+        ["evidenceQuality", confidence.scoreBreakdown.evidenceQuality],
+        ["decisionApproval", confidence.scoreBreakdown.decisionApproval],
+        ["consistencyAndConflict", confidence.scoreBreakdown.consistencyAndConflict]
+      ] as const
+    : [];
   const skippedCommercializationAxes = [
     projections.queue?.skippedCommercializationAxes,
     confidence?.skippedCommercializationAxes,
     projections.founderBrief?.skippedCommercializationAxes,
     projections.planningHandoff?.finalArtifact?.scopeSnapshot.skippedCommercializationAxes
   ].find((axes) => (axes?.length ?? 0) > 0) ?? [];
+  const sessionStatusLabel = projections.session
+    ? copy.planning.sessionStatusLabels[projections.session.phase]
+    : copy.planning.sessionStatusLabels.none;
 
   return (
     <div className="view-grid planning-view">
       <section className="panel spec-panel">
         <div className="panel-heading">
           <h2>{copy.planning.spec}</h2>
-          <span>{projections.session?.phase ?? "none"}</span>
+          <span>{sessionStatusLabel}</span>
         </div>
         {projections.spec?.title ? (
           <div className="spec-outline">
@@ -181,6 +193,40 @@ export function PlanningView({ controller }: PlanningViewProps) {
         <button type="button" disabled={isBusy || !projections.session} onClick={() => void scoreCompleteness()}>
           {copy.planning.scoreCompleteness}
         </button>
+        {confidence ? (
+          <section className="confidence-map" aria-label={copy.planning.confidenceMap}>
+            <div className="confidence-map-heading">
+              <h3>{copy.planning.confidenceMap}</h3>
+              <span className={`candidate-status status-${confidence.completionCandidate.status}`}>
+                {copy.planning.completionCandidateStatusLabels[confidence.completionCandidate.status]}
+              </span>
+            </div>
+            <p>{copy.planning.confidenceMapHelp}</p>
+            <dl className="confidence-breakdown">
+              {scoreBreakdownItems.map(([key, value]) => (
+                <div key={key}>
+                  <dt>{copy.planning.scoreBreakdownLabels[key]}</dt>
+                  <dd>{value}%</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="completion-candidate-summary">
+              <strong>{copy.planning.completionCandidate}: {confidence.completionCandidate.summary}</strong>
+              {confidence.completionCandidate.gateFailures.length ? (
+                <div className="confidence-gate-failures">
+                  <span>{copy.planning.confidenceGateFailures}</span>
+                  <ul className="effect-list" aria-label={copy.planning.confidenceGateFailures}>
+                    {confidence.completionCandidate.gateFailures.map((failure) => (
+                      <li key={failure}>{failure}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p>{copy.planning.confidenceGatesReady}</p>
+              )}
+            </div>
+          </section>
+        ) : null}
         {topRiskCards.length ? (
           <section className="top-risk-card-stack" aria-label={copy.planning.topRiskCards}>
             <h3>{copy.planning.topRiskCards}</h3>
