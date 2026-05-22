@@ -215,6 +215,8 @@ const EN_COPY = {
     customAnswerPlaceholder: "If the choices do not match your situation, write your own answer here.",
     answerAriaPrefix: "Answer",
     submitAnswer: "Submit answer",
+    submitDraftedAnswers: (count: number) =>
+      count > 0 ? `Submit ${count} drafted answers` : "Submit drafted answers",
     nextValidationActionAriaPrefix: "Next validation action for",
     additionalRiskDetails: "Add comment or risk",
     additionalRiskHelp: "Optional: use this only when you want to keep the card as a known risk instead of answering it now.",
@@ -770,6 +772,8 @@ const JA_COPY: typeof EN_COPY = {
     customAnswerPlaceholder: "候補が状況に合わない場合は、ここに自分の回答を書いてください。",
     answerAriaPrefix: "回答",
     submitAnswer: "回答を送信",
+    submitDraftedAnswers: (count: number) =>
+      count > 0 ? `下書き回答 ${count}件を送信` : "下書き回答を送信",
     nextValidationActionAriaPrefix: "次の検証アクション",
     additionalRiskDetails: "追加コメントまたはリスクを入力",
     additionalRiskHelp: "任意: 今すぐ回答せず、既知リスクとして残す場合だけ使います。",
@@ -1325,6 +1329,8 @@ const KO_COPY: typeof EN_COPY = {
     customAnswerPlaceholder: "선택지가 상황에 맞지 않으면 여기에 직접 답변을 작성하세요.",
     answerAriaPrefix: "답변",
     submitAnswer: "답변 제출",
+    submitDraftedAnswers: (count: number) =>
+      count > 0 ? `작성한 답변 ${count}개 제출` : "작성한 답변 제출",
     nextValidationActionAriaPrefix: "다음 검증 작업",
     additionalRiskDetails: "추가 의견 또는 리스크 입력",
     additionalRiskHelp: "선택 사항입니다. 지금 답하지 않고 알려진 리스크로 남길 때만 사용하세요.",

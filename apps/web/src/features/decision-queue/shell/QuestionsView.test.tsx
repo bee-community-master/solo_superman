@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import type { DecisionQueueProjection, ProjectionVersion, QueueItemId } from "@solo-superman/contracts";
+import type {
+  DecisionQueueProjection,
+  ProjectionVersion,
+  ProjectId,
+  QueueItemId,
+  SessionId
+} from "@solo-superman/contracts";
 import { renderEnglishMarkup } from "../test-rendering";
 import { QuestionsView } from "./QuestionsView";
 import { emptyProjectionState } from "./decision-queue-shell-model";
@@ -62,6 +68,7 @@ function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellCont
     setProjectPurposeMode: vi.fn(),
     startCodexLogin: vi.fn(),
     submitAnswer: vi.fn(),
+    submitDraftedActiveAnswers: vi.fn(),
     ...controllerOverrides
   } satisfies Partial<DecisionQueueShellController>;
 
@@ -123,6 +130,70 @@ describe("QuestionsView", () => {
     expect(markup.indexOf("Suggested answer choices")).toBeLessThan(
       markup.indexOf("Write a different answer if none fit")
     );
+  });
+
+  it("renders a bounded current-batch submit action for drafted active answers", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 1 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_batch_answered" as QueueItemId,
+          title: "Which buyer should be validated first?",
+          state: "active",
+          cardType: "question"
+        },
+        {
+          queueItemId: "queue_batch_follow_up" as QueueItemId,
+          title: "What evidence would close the risk?",
+          state: "active",
+          cardType: "follow_up_question"
+        },
+        {
+          queueItemId: "queue_batch_review" as QueueItemId,
+          title: "Review research evidence",
+          state: "active",
+          cardType: "research_review"
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+
+    const markup = renderQuestionsView({
+      answerDrafts: {
+        queue_batch_answered: "Validate solo founders first.",
+        queue_batch_follow_up: "Use five interviews to close the risk.",
+        queue_batch_review: "This should not count as an answer draft."
+      },
+      projections: {
+        ...emptyProjectionState(),
+        session: {
+          kind: "SessionShellProjection",
+          projectId: "proj_batch" as ProjectId,
+          sessionId: "sess_batch" as SessionId,
+          version: 1 as ProjectionVersion,
+          phase: "spec",
+          projectPurposeMode: "business",
+          projectPurposeModeSelectionStatus: "confirmed",
+          projectPurposeModeLabel: "Business validation",
+          projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+        },
+        queue
+      },
+      sections: [
+        {
+          id: "active",
+          title: "Current questions",
+          emptyLabel: "No current questions.",
+          items: queue.active
+        }
+      ]
+    });
+
+    expect(markup).toContain("Submit 2 drafted answers");
+    expect(markup).not.toContain("Submit 3 drafted answers");
   });
 
   it("renders question coaching context so founders know why a card is being asked", () => {

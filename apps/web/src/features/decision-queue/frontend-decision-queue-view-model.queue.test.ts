@@ -15,6 +15,7 @@ import type {
 } from "@solo-superman/contracts";
 import {
   decisionQueueRecoveryViewModel,
+  draftedActiveQuestionAnswerIds,
   pendingEffectSummary,
   questionFatigueViewModel,
   questionProgressViewModel,
@@ -23,8 +24,64 @@ import {
   shouldRefetchQueueForSseNotification
 } from "./decision-queue-view-model";
 
-
 describe("Decision Queue view model queue", () => {
+  it("selects only active answerable question cards with non-empty drafted answers", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 7 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_active_question" as QueueItemId,
+          title: "Active question",
+          state: "active",
+          cardType: "question"
+        },
+        {
+          queueItemId: "queue_active_follow_up" as QueueItemId,
+          title: "Active follow-up",
+          state: "active",
+          cardType: "follow_up_question"
+        },
+        {
+          queueItemId: "queue_active_empty" as QueueItemId,
+          title: "Active empty draft",
+          state: "active",
+          cardType: "question"
+        },
+        {
+          queueItemId: "queue_research_review" as QueueItemId,
+          title: "Research review",
+          state: "active",
+          cardType: "research_review"
+        }
+      ],
+      next: [
+        {
+          queueItemId: "queue_next_question" as QueueItemId,
+          title: "Next question",
+          state: "next",
+          cardType: "question"
+        }
+      ],
+      blocked: [],
+      deferred: []
+    };
+
+    expect(
+      draftedActiveQuestionAnswerIds(queue, {
+        queue_active_question: "Validate solo founders first.",
+        queue_active_follow_up: "  Follow-up answer with whitespace.  ",
+        queue_active_empty: "   ",
+        queue_research_review: "Do not submit review cards through answer batch.",
+        queue_next_question: "Do not submit hidden next debt."
+      })
+    ).toEqual(["queue_active_question", "queue_active_follow_up"]);
+  });
+
+  it("returns no drafted active answer ids when no queue is loaded", () => {
+    expect(draftedActiveQuestionAnswerIds(null, { queue_active_question: "answer" })).toEqual([]);
+  });
+
   it("keeps active batch items separate from queued-next items", () => {
     const queue: DecisionQueueProjection = {
       kind: "DecisionQueueProjection",

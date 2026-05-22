@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { QueueItemProjection } from "@solo-superman/contracts";
-import { questionFatigueViewModel } from "../decision-queue-view-model";
+import { draftedActiveQuestionAnswerIds, questionFatigueViewModel } from "../decision-queue-view-model";
 import { isBusinessCriticQueueItem } from "./decision-queue-shell-model";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
@@ -49,10 +49,12 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     sections,
     setAnswerDrafts,
     setKnownRiskDrafts,
-    submitAnswer
+    submitAnswer,
+    submitDraftedActiveAnswers
   } = controller;
   const completionPercent = boundedPercent(questionProgress.completionPercent);
   const questionFatigue = questionFatigueViewModel(questionProgress);
+  const draftedActiveAnswerCount = draftedActiveQuestionAnswerIds(projections.queue, answerDrafts).length;
 
   return (
     <div className="view-grid questions-view">
@@ -71,6 +73,13 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
             onClick={() => void loadNextQuestionBatch()}
           >
             {copy.questions.loadNextQuestions}
+          </button>
+          <button
+            type="button"
+            disabled={isBusy || !projections.session || draftedActiveAnswerCount === 0}
+            onClick={() => void submitDraftedActiveAnswers()}
+          >
+            {copy.questions.submitDraftedAnswers(draftedActiveAnswerCount)}
           </button>
         </div>
         <div className="queue-recovery">
