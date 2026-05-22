@@ -303,6 +303,14 @@ describe("sidecar client planning-runtime", () => {
       idempotencyKey: "auto-impl-worker-client-test",
       executionAuthorityRef: "exec_auth_auto_worker_initial_pr"
     });
+    const completedWorkerJob = await client.completeAutoImplementationWorkerJob({
+      sessionId: "sess_auto_impl" as SessionId,
+      runId: "auto_run_demo",
+      jobId: "auto-worker-job:auto_run_demo:initial_pr:auto-impl-worker-client-test",
+      idempotencyKey: "auto-impl-worker-complete-client-test",
+      implementationStepId: "step_demo",
+      evidenceRefs: ["worker-job:complete"]
+    });
     const advanced = await client.recordAutoImplementationStage({
       sessionId: "sess_auto_impl" as SessionId,
       runId: "auto_run_demo",
@@ -316,6 +324,7 @@ describe("sidecar client planning-runtime", () => {
 
     expect(created.kind).toBe("AutoImplementationRunProjection");
     expect(workerJob.kind).toBe("AutoImplementationRunProjection");
+    expect(completedWorkerJob.kind).toBe("AutoImplementationRunProjection");
     expect(advanced.kind).toBe("AutoImplementationRunProjection");
     expect(projection?.kind).toBe("AutoImplementationRunProjection");
     expect(seenRequests[0]).toMatchObject([
@@ -345,17 +354,29 @@ describe("sidecar client planning-runtime", () => {
       executionAuthorityRef: "exec_auth_auto_worker_initial_pr"
     });
     expect(seenRequests[2]).toMatchObject([
-      "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs/auto_run_demo/stages/initial_pr",
+      "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs/auto_run_demo/worker-jobs/auto-worker-job%3Aauto_run_demo%3Ainitial_pr%3Aauto-impl-worker-client-test/complete",
       expect.objectContaining({ method: "POST" })
     ]);
     expect(JSON.parse(String(seenRequests[2]?.[1]?.body))).toMatchObject({
+      sessionId: "sess_auto_impl",
+      runId: "auto_run_demo",
+      jobId: "auto-worker-job:auto_run_demo:initial_pr:auto-impl-worker-client-test",
+      idempotencyKey: "auto-impl-worker-complete-client-test",
+      implementationStepId: "step_demo",
+      evidenceRefs: ["worker-job:complete"]
+    });
+    expect(seenRequests[3]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs/auto_run_demo/stages/initial_pr",
+      expect.objectContaining({ method: "POST" })
+    ]);
+    expect(JSON.parse(String(seenRequests[3]?.[1]?.body))).toMatchObject({
       sessionId: "sess_auto_impl",
       runId: "auto_run_demo",
       stage: "initial_pr",
       action: "start",
       idempotencyKey: "auto-impl-stage-client-test"
     });
-    expect(seenRequests[3]).toMatchObject([
+    expect(seenRequests[4]).toMatchObject([
       "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs",
       expect.objectContaining({ method: "GET" })
     ]);

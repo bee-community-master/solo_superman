@@ -43,7 +43,7 @@ export const AUTO_IMPLEMENTATION_STAGE_STATUSES = [
 ] as const;
 
 export const AUTO_IMPLEMENTATION_STAGE_ACTIONS = ["tick", "start", "pause", "block", "complete"] as const;
-export const AUTO_IMPLEMENTATION_WORKER_JOB_STATUSES = ["planned", "blocked"] as const;
+export const AUTO_IMPLEMENTATION_WORKER_JOB_STATUSES = ["planned", "blocked", "completed"] as const;
 export const AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE = "local_sandboxed_codex" as const;
 
 export const AUTO_IMPLEMENTATION_REMOTE_STATUSES = [
@@ -381,6 +381,15 @@ export interface CreateAutoImplementationWorkerJobRequest {
   readonly runId: string;
   readonly idempotencyKey: string;
   readonly executionAuthorityRef?: string;
+}
+
+export interface CompleteAutoImplementationWorkerJobRequest {
+  readonly sessionId: SessionId;
+  readonly runId: string;
+  readonly jobId: string;
+  readonly idempotencyKey: string;
+  readonly implementationStepId: string;
+  readonly evidenceRefs?: readonly string[];
 }
 
 export class AutoImplementationRunValidationError extends Error {
