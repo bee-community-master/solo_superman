@@ -156,6 +156,7 @@ describe("PlanningView", () => {
     expect(markup).toContain("65%");
     expect(markup).toContain("not ready");
     expect(markup).toContain("Completion candidate: More risk validation is needed.");
+    expect(markup).toContain("Readiness gate blockers");
     expect(markup).toContain("Top risks remain open.");
   });
 

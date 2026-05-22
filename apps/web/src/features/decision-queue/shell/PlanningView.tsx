@@ -210,11 +210,14 @@ export function PlanningView({ controller }: PlanningViewProps) {
             <div className="completion-candidate-summary">
               <strong>{copy.planning.completionCandidate}: {confidence.completionCandidate.summary}</strong>
               {confidence.completionCandidate.gateFailures.length ? (
-                <ul className="effect-list" aria-label={copy.planning.confidenceGateFailures}>
-                  {confidence.completionCandidate.gateFailures.map((failure) => (
-                    <li key={failure}>{failure}</li>
-                  ))}
-                </ul>
+                <div className="confidence-gate-failures">
+                  <span>{copy.planning.confidenceGateFailures}</span>
+                  <ul className="effect-list" aria-label={copy.planning.confidenceGateFailures}>
+                    {confidence.completionCandidate.gateFailures.map((failure) => (
+                      <li key={failure}>{failure}</li>
+                    ))}
+                  </ul>
+                </div>
               ) : (
                 <p>{copy.planning.confidenceGatesReady}</p>
               )}
