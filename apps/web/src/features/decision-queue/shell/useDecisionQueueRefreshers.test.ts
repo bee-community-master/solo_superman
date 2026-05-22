@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ProjectId, SessionId } from "@solo-superman/contracts";
-import type { SidecarClient } from "../../../shared/api/sidecar-client";
-import { loadRefreshableDecisionQueueProjections } from "./useDecisionQueueRefreshers";
+import {
+  loadRefreshableDecisionQueueProjections,
+  type RefreshableDecisionQueueClient
+} from "./useDecisionQueueRefreshers";
 
 describe("decision queue refreshers", () => {
   it("does not probe the optional Founder Brief endpoint during broad projection refresh", async () => {
@@ -21,7 +23,7 @@ describe("decision queue refreshers", () => {
       getServicePageUsePermission: vi.fn(async () => ({ kind: "ServicePageUsePermissionProjection", version: 9 })),
       getImplementationStepLedger: vi.fn(async () => ({ kind: "ImplementationStepLedgerProjection", version: 10 })),
       getAutoImplementationRuns: vi.fn(async () => ({ kind: "AutoImplementationRunProjection", version: 11 }))
-    } as unknown as SidecarClient;
+    } satisfies RefreshableDecisionQueueClient & { readonly getFounderBrief: typeof getFounderBrief };
 
     const refreshed = await loadRefreshableDecisionQueueProjections(
       client,
