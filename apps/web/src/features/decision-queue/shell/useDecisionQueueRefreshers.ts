@@ -5,7 +5,7 @@ import type {
   ProjectId,
   SessionShellProjection
 } from "@solo-superman/contracts";
-import { isFounderBriefNotReadyError, type SidecarClient } from "../../../shared/api/sidecar-client";
+import { type SidecarClient } from "../../../shared/api/sidecar-client";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
 import { shouldRefetchQueueForSseNotification } from "../decision-queue-view-model";
 import type { ProjectionState } from "./decision-queue-shell-model";
@@ -17,16 +17,50 @@ interface DecisionQueueRefreshersProps {
   readonly setResearchOperations: Dispatch<SetStateAction<ResearchOperationsState>>;
 }
 
-async function optionalFounderBrief(client: SidecarClient, sessionId: SessionShellProjection["sessionId"]) {
-  try {
-    return await client.getFounderBrief(sessionId);
-  } catch (error) {
-    if (isFounderBriefNotReadyError(error)) {
-      return null;
-    }
+export async function loadRefreshableDecisionQueueProjections(
+  client: SidecarClient,
+  projectId: ProjectId,
+  sessionId: SessionShellProjection["sessionId"]
+): Promise<Omit<ProjectionState, "founderBrief">> {
+  const [
+    session,
+    spec,
+    queue,
+    research,
+    activity,
+    confidence,
+    planningHandoff,
+    chatGptDelegation,
+    servicePageUsePermission,
+    implementationStepLedger,
+    autoImplementationRuns
+  ] = await Promise.all([
+    client.getSession(projectId, sessionId),
+    client.getSpec(sessionId),
+    client.getQueue(sessionId),
+    client.getResearch(sessionId),
+    client.getActivity(sessionId),
+    client.getCompleteness(sessionId),
+    client.getPlanningHandoff(sessionId),
+    client.getChatGptBrowserDelegation(sessionId),
+    client.getServicePageUsePermission(sessionId),
+    client.getImplementationStepLedger(sessionId),
+    client.getAutoImplementationRuns(sessionId)
+  ]);
 
-    throw error;
-  }
+  return {
+    session,
+    spec,
+    queue,
+    research,
+    activity,
+    confidence,
+    planningHandoff,
+    chatGptDelegation,
+    servicePageUsePermission,
+    implementationStepLedger,
+    autoImplementationRuns
+  };
 }
 
 export function useDecisionQueueRefreshers({
@@ -153,48 +187,12 @@ export function useDecisionQueueRefreshers({
         return;
       }
 
-      const [
-        session,
-        spec,
-        queue,
-        research,
-        activity,
-        confidence,
-        founderBrief,
-        planningHandoff,
-        chatGptDelegation,
-        servicePageUsePermission,
-        implementationStepLedger,
-        autoImplementationRuns
-      ] = await Promise.all([
-        client.getSession(projectId, sessionId),
-        client.getSpec(sessionId),
-        client.getQueue(sessionId),
-        client.getResearch(sessionId),
-        client.getActivity(sessionId),
-        client.getCompleteness(sessionId),
-        optionalFounderBrief(client, sessionId),
-        client.getPlanningHandoff(sessionId),
-        client.getChatGptBrowserDelegation(sessionId),
-        client.getServicePageUsePermission(sessionId),
-        client.getImplementationStepLedger(sessionId),
-        client.getAutoImplementationRuns(sessionId)
-      ]);
+      const refreshed = await loadRefreshableDecisionQueueProjections(client, projectId, sessionId);
 
-      setProjections({
-        session,
-        spec,
-        queue,
-        research,
-        activity,
-        confidence,
-        founderBrief,
-        planningHandoff,
-        chatGptDelegation,
-        servicePageUsePermission,
-        implementationStepLedger,
-        autoImplementationRuns
-      });
+      setProjections((current) => ({
+        ...current,
+        ...refreshed
+      }));
       await Promise.all([refreshResearchOperations(projectId), refreshPhase15bReadiness(projectId)]);
     },
     [client, refreshPhase15bReadiness, refreshResearchOperations, setProjections]
