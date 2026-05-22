@@ -35,6 +35,7 @@ const COMMAND_TIMEOUT_MS = 10_000;
 export const DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME = "solo-superman-project";
 const DEFAULT_PROJECT_FOLDER_NAME = DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME;
 const PLANNING_HANDOFF_IMPLEMENTATION_PLAN_RELATIVE_PATH = "planning-handoff-implementation-plan.md";
+const AUTO_IMPLEMENTATION_RUN_MANIFEST_RELATIVE_PATH = ".solo-superman/auto-implementation-run.json";
 const WORKSPACE_BOOTSTRAP_COMMIT_MESSAGE = "Bootstrap Solo Superman implementation workspace";
 
 export interface PrepareAutoImplementationWorkspaceInput {
@@ -1097,7 +1098,7 @@ export async function prepareAutoImplementationWorkspaceRun(
     })
   );
 
-  const manifestRelativePath = ".solo-superman/auto-implementation-run.json";
+  const manifestRelativePath = AUTO_IMPLEMENTATION_RUN_MANIFEST_RELATIVE_PATH;
   const workspaceBootstrapRef = workspaceBootstrapTagRef(input.runId);
   const run: AutoImplementationRun = {
     runId: input.runId,
@@ -1138,7 +1139,7 @@ export async function prepareAutoImplementationWorkspaceRun(
     ]
   };
 
-  await writeIfChanged(workspaceRoot, resolve(generatedRepoPath, manifestRelativePath), `${JSON.stringify(run, null, 2)}\n`);
+  await writeAutoImplementationRunManifest({ workspaceRoot, run });
 
   const generatedWorkspaceRelativePaths = [
     ...(planningPlanRelativePath ? [planningPlanRelativePath] : []),
@@ -1154,4 +1155,26 @@ export async function prepareAutoImplementationWorkspaceRun(
   await ensureWorkspaceBootstrapTag(generatedRepoPath, input.runId);
 
   return run;
+}
+
+export async function writeAutoImplementationRunManifest(input: {
+  readonly workspaceRoot: string;
+  readonly run: AutoImplementationRun;
+}) {
+  const resolvedWorkspaceRoot = resolve(input.workspaceRoot);
+  const resolvedGeneratedRepoPath = resolve(input.run.generatedRepoPath);
+  const manifestRelativePath = AUTO_IMPLEMENTATION_RUN_MANIFEST_RELATIVE_PATH;
+
+  if (
+    !isInsideDirectory(resolvedWorkspaceRoot, resolvedGeneratedRepoPath) ||
+    resolvedGeneratedRepoPath === resolvedWorkspaceRoot
+  ) {
+    throw new Error("Generated repo path must stay inside the configured workspace root.");
+  }
+
+  await writeIfChanged(
+    resolvedWorkspaceRoot,
+    resolve(resolvedGeneratedRepoPath, manifestRelativePath),
+    `${JSON.stringify(input.run, null, 2)}\n`
+  );
 }

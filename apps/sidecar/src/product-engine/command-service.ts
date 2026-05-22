@@ -208,6 +208,7 @@ import {
   ghAutoImplementationPullRequestMutationAdapter,
   prepareAutoImplementationWorkspaceRun,
   sanitizeProjectFolderName,
+  writeAutoImplementationRunManifest,
   type AutoImplementationGitHubIssueMutationAdapter,
   type AutoImplementationPullRequestMutationAdapter,
   type AutoImplementationRemoteStatusProvider
@@ -2523,6 +2524,42 @@ export function createProductEngineCommandService(
   const autoImplementationGitHubIssueMutationAdapter = options.autoImplementationGitHubIssueMutationAdapter;
   const autoImplementationPullRequestMutationAdapter =
     options.autoImplementationPullRequestMutationAdapter ?? ghAutoImplementationPullRequestMutationAdapter;
+
+  async function synchronizeAutoImplementationRunManifest(run: AutoImplementationRun) {
+    try {
+      await writeAutoImplementationRunManifest({
+        workspaceRoot: autoImplementationWorkspaceRoot,
+        run
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown manifest synchronization failure.";
+
+      throw new ProductEngineServiceError(
+        "VALIDATION_FAILED",
+        "Auto implementation manifest could not be synchronized safely.",
+        { runId: run.runId, message }
+      );
+    }
+  }
+
+  async function saveAutoImplementationRunProjection(input: {
+    readonly projectionRepository: ReturnType<typeof createProjectionRepository>;
+    readonly projectId: ProjectId;
+    readonly sessionId: SessionId;
+    readonly projection: AutoImplementationRunProjection;
+    readonly latestRun: AutoImplementationRun;
+    readonly updatedAt: string;
+  }) {
+    await synchronizeAutoImplementationRunManifest(input.latestRun);
+
+    return input.projectionRepository.save({
+      projectId: input.projectId,
+      sessionId: input.sessionId,
+      projection: input.projection,
+      schemaVersion: CONTRACT_SCHEMA_VERSION,
+      updatedAt: input.updatedAt
+    });
+  }
 
   function assertSupportedReductionPersistence(reduction: ProductEngineReduction) {
     const nextStateVersion = reduction.nextState.stateVersion;
@@ -4974,11 +5011,12 @@ export function createProductEngineCommandService(
       summary: `Auto implementation stage ${request.stage} is ${nextStageStatus}; current stage is ${updatedRun.currentStage}.`
     });
 
-    return projectionRepository.save({
+    return saveAutoImplementationRunProjection({
+      projectionRepository,
       projectId: session.projectId,
       sessionId: request.sessionId,
       projection,
-      schemaVersion: CONTRACT_SCHEMA_VERSION,
+      latestRun: updatedRun,
       updatedAt: recordedAt
     });
   }
@@ -5172,11 +5210,12 @@ export function createProductEngineCommandService(
       summary: `Auto implementation worker ledger import ${importedJob.status} for ${importedJob.stage}.`
     });
 
-    return projectionRepository.save({
+    return saveAutoImplementationRunProjection({
+      projectionRepository,
       projectId: session.projectId,
       sessionId: request.sessionId,
       projection,
-      schemaVersion: CONTRACT_SCHEMA_VERSION,
+      latestRun: updatedRun,
       updatedAt: now
     });
   }
@@ -5313,11 +5352,19 @@ export function createProductEngineCommandService(
       }
 
       async function saveProjection(projection: AutoImplementationRunProjection) {
-        return projectionRepository.save({
+        if (!projection.latestRun) {
+          throw new ProductEngineServiceError(
+            "VALIDATION_FAILED",
+            "Auto implementation worker execution must save a projection with a latest run."
+          );
+        }
+
+        return saveAutoImplementationRunProjection({
+          projectionRepository,
           projectId: activeSession.projectId,
           sessionId: request.sessionId,
           projection,
-          schemaVersion: CONTRACT_SCHEMA_VERSION,
+          latestRun: projection.latestRun,
           updatedAt: now
         });
       }
@@ -6530,11 +6577,12 @@ export function createProductEngineCommandService(
         schemaVersion: AUTO_IMPLEMENTATION_SCHEMA_VERSION
       });
 
-      return projectionRepository.save({
+      return saveAutoImplementationRunProjection({
+        projectionRepository,
         projectId: session.projectId,
         sessionId: request.sessionId,
         projection,
-        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        latestRun: run,
         updatedAt: now
       });
     },
@@ -6632,11 +6680,12 @@ export function createProductEngineCommandService(
         summary: `Auto implementation worker job ${workerJob.status} for ${workerJob.stage}.`
       });
 
-      return projectionRepository.save({
+      return saveAutoImplementationRunProjection({
+        projectionRepository,
         projectId: session.projectId,
         sessionId: request.sessionId,
         projection,
-        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        latestRun: updatedRun,
         updatedAt: now
       });
     },
@@ -6775,11 +6824,12 @@ export function createProductEngineCommandService(
         summary: `Auto implementation worker job ${completedJob.status} for ${completedJob.stage}.`
       });
 
-      return projectionRepository.save({
+      return saveAutoImplementationRunProjection({
+        projectionRepository,
         projectId: session.projectId,
         sessionId: request.sessionId,
         projection,
-        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        latestRun: updatedRun,
         updatedAt: now
       });
     },
@@ -6974,11 +7024,12 @@ export function createProductEngineCommandService(
         summary: `Auto implementation PR mutation ${record.status} for ${request.action}.`
       });
 
-      return projectionRepository.save({
+      return saveAutoImplementationRunProjection({
+        projectionRepository,
         projectId: session.projectId,
         sessionId: request.sessionId,
         projection,
-        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        latestRun: updatedRun,
         updatedAt: now
       });
     },
