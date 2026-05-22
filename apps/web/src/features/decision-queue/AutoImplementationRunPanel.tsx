@@ -66,7 +66,8 @@ export function autoImplementationRunViewModel(
 
   const githubIssueMutation = run.issueManagement.githubIssueMutation;
   const githubIssueBlockedReason = githubIssueMutation.blockedReason ? ` · ${githubIssueMutation.blockedReason}` : "";
-  const latestWorkerJob = run.workerJobs.at(-1);
+  const workerJobs = Array.isArray((run as { readonly workerJobs?: unknown }).workerJobs) ? run.workerJobs : [];
+  const latestWorkerJob = workerJobs.at(-1);
 
   return {
     status: run.status,

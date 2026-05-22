@@ -89,6 +89,21 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerJobNextAction).toContain("ExecutionAuthorityRecord");
   });
 
+  it("keeps legacy projections without workerJobs renderable", () => {
+    const legacyLatestRun = { ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun! } as Record<string, unknown>;
+
+    delete legacyLatestRun.workerJobs;
+    const projection = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: legacyLatestRun,
+      runs: [legacyLatestRun]
+    } as unknown as AutoImplementationRunProjection;
+    const view = autoImplementationRunViewModel(projection);
+
+    expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
+    expect(view.latestWorkerJobNextAction).toContain("bounded local worker job");
+  });
+
   it("renders the remote warning and local issue documents", () => {
     const view = autoImplementationRunViewModel(AUTO_IMPLEMENTATION_RUN_READY_FIXTURE);
     const markup = renderEnglishMarkup(

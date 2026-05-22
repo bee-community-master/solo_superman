@@ -491,7 +491,8 @@ function isWorkerExecutionPlan(value: unknown): value is AutoImplementationWorke
     value.executionMode === AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE &&
     isNonEmptyString(value.workingDirectory) &&
     isNonEmptyString(value.issueDocumentPath) &&
-    (value.executionAuthorityRef === null || isNonEmptyString(value.executionAuthorityRef)) &&
+    (value.executionAuthorityRef === null ||
+      (isNonEmptyString(value.executionAuthorityRef) && value.executionAuthorityRef.startsWith("exec_auth_"))) &&
     isStringArray(value.allowedWriteScope) &&
     value.allowedWriteScope.length > 0 &&
     isStringArray(value.requiredEvidence) &&
@@ -514,7 +515,9 @@ function isWorkerJob(value: unknown): value is AutoImplementationWorkerJob {
     isWorkerExecutionPlan(value.executionPlan) &&
     (value.blockedReason === null || isNonEmptyString(value.blockedReason)) &&
     isStringArray(value.missingEvidence) &&
-    (value.status === "blocked" ? value.missingEvidence.length > 0 && value.blockedReason !== null : value.blockedReason === null) &&
+    (value.status === "blocked"
+      ? value.missingEvidence.length > 0 && value.blockedReason !== null
+      : value.missingEvidence.length === 0 && value.blockedReason === null) &&
     isNonEmptyString(value.nextRequiredAction) &&
     isNonEmptyString(value.createdAt) &&
     isNonEmptyString(value.updatedAt) &&
@@ -714,16 +717,24 @@ function hasConsistentRemoteIssueState(
 }
 
 function hasValidWorkerJobs(value: Readonly<Record<string, unknown>>) {
-  if (!isNonEmptyString(value.runId) || !isIssueManagement(value.issueManagement) || !Array.isArray(value.workerJobs)) {
+  if (
+    !isNonEmptyString(value.runId) ||
+    !isNonEmptyString(value.generatedRepoPath) ||
+    !isIssueManagement(value.issueManagement) ||
+    !Array.isArray(value.workerJobs)
+  ) {
     return false;
   }
 
   const runId = value.runId;
+  const generatedRepoPath = value.generatedRepoPath;
   const issueDocs = value.issueManagement.issueDocs;
 
   return value.workerJobs.every((job) =>
     isWorkerJob(job) &&
     job.runId === runId &&
+    job.executionPlan.workingDirectory === generatedRepoPath &&
+    job.executionPlan.issueDocumentPath === job.issueRelativePath &&
     issueDocs.some((issue) =>
       issue.issueId === job.issueId &&
       issue.stage === job.stage &&

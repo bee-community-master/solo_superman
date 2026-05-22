@@ -683,6 +683,125 @@ function autoImplementationWorkerJobId(request: CreateAutoImplementationWorkerJo
   return `auto-worker-job:${request.runId}:${stage}:${request.idempotencyKey}`;
 }
 
+function assertAutoImplementationWorkerExecutionAuthorityRef(executionAuthorityRef: string | undefined) {
+  if (executionAuthorityRef && !executionAuthorityRef.startsWith("exec_auth_")) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "executionAuthorityRef must reference an ExecutionAuthorityRecord id.",
+      { expectedPrefix: "exec_auth_" }
+    );
+  }
+}
+
+const AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE = {
+  authority: "ExecutionAuthorityRecord",
+  readyAuthority: "ExecutionAuthorityRecord.ready_for_execution",
+  fileDiffAuthority: "ExecutionAuthorityRecord.file_diff_action",
+  generatedWorkspaceScope: "ExecutionAuthorityRecord.generated_workspace_scope",
+  noSecretValues: "ExecutionAuthorityRecord.no_secret_values"
+} as const;
+
+function normalizeLegacyAutoImplementationRunWorkerJobs(run: AutoImplementationRun): AutoImplementationRun {
+  const workerJobs = (run as { readonly workerJobs?: unknown }).workerJobs;
+
+  return Array.isArray(workerJobs) ? run : { ...run, workerJobs: [] };
+}
+
+function normalizeLegacyAutoImplementationProjectionWorkerJobs(
+  projection: AutoImplementationRunProjection
+): AutoImplementationRunProjection {
+  const runs = projection.runs.map(normalizeLegacyAutoImplementationRunWorkerJobs);
+  const latestRun = projection.latestRun
+    ? runs.find((run) => run.runId === projection.latestRun?.runId) ??
+      normalizeLegacyAutoImplementationRunWorkerJobs(projection.latestRun)
+    : null;
+
+  return {
+    ...projection,
+    latestRun,
+    runs
+  };
+}
+
+function autoImplementationWorkerMissingEvidence(input: {
+  readonly executionAuthorityRef: string | null;
+  readonly authorityProjection: ExecutionAuthorityLedgerProjection | null;
+  readonly run: AutoImplementationRun;
+}) {
+  if (!input.executionAuthorityRef || !input.authorityProjection) {
+    return [AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.authority];
+  }
+
+  if (input.authorityProjection.currentStatus !== "ready_for_execution") {
+    return [AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.readyAuthority];
+  }
+
+  const record = input.authorityProjection.latestRecord;
+  const missingEvidence: string[] = [];
+
+  if (record.actionClass !== "file_diff") {
+    missingEvidence.push(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.fileDiffAuthority);
+  }
+
+  if (record.requestedScope.workspaceRef !== input.run.generatedRepoPath) {
+    missingEvidence.push(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.generatedWorkspaceScope);
+  }
+
+  if (record.sandboxBoundary.secretPolicy !== "no_secret_values") {
+    missingEvidence.push(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.noSecretValues);
+  }
+
+  return missingEvidence;
+}
+
+function autoImplementationWorkerBlockedReason(missingEvidence: readonly string[]) {
+  if (missingEvidence.includes(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.authority)) {
+    return "Local Codex worker execution requires an explicit ExecutionAuthorityRecord boundary before the job can start.";
+  }
+
+  if (missingEvidence.includes(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.readyAuthority)) {
+    return "Local Codex worker execution requires a ready_for_execution ExecutionAuthorityRecord before the job can start.";
+  }
+
+  if (missingEvidence.includes(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.generatedWorkspaceScope)) {
+    return "Local Codex worker execution requires an ExecutionAuthorityRecord scoped to this generated workspace.";
+  }
+
+  if (missingEvidence.includes(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.fileDiffAuthority)) {
+    return "Local Codex worker execution requires a file_diff ExecutionAuthorityRecord for generated workspace edits.";
+  }
+
+  if (missingEvidence.includes(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.noSecretValues)) {
+    return "Local Codex worker execution requires an ExecutionAuthorityRecord with no_secret_values secret policy.";
+  }
+
+  return null;
+}
+
+function autoImplementationWorkerNextRequiredAction(missingEvidence: readonly string[]) {
+  if (missingEvidence.includes(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.authority)) {
+    return "Create or attach an ExecutionAuthorityRecord scoped to the generated workspace before starting this local Codex worker job.";
+  }
+
+  if (missingEvidence.includes(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.readyAuthority)) {
+    return "Approve and validate the attached ExecutionAuthorityRecord until it is ready_for_execution before starting this local Codex worker job.";
+  }
+
+  if (missingEvidence.includes(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.generatedWorkspaceScope)) {
+    return "Attach an ExecutionAuthorityRecord whose requestedScope.workspaceRef matches this generated workspace before starting the local worker job.";
+  }
+
+  if (missingEvidence.includes(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.fileDiffAuthority)) {
+    return "Attach a file_diff ExecutionAuthorityRecord for generated workspace edits before starting the local worker job.";
+  }
+
+  if (missingEvidence.includes(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.noSecretValues)) {
+    return "Attach an ExecutionAuthorityRecord that forbids secret values before starting the local worker job.";
+  }
+
+  return "Run the local Codex worker inside the bounded plan, then import ImplementationStepLedger evidence before advancing the stage.";
+}
+
 function autoImplementationWorkerPlan(input: {
   readonly run: AutoImplementationRun;
   readonly issue: AutoImplementationRun["issueManagement"]["issueDocs"][number];
@@ -705,6 +824,7 @@ function autoImplementationWorkerPlan(input: {
       "two no-finding feature and repository code-review passes",
       "two no-finding changed-code and repository clean-code passes",
       "passing targeted and full test evidence",
+      "ledger evidence refs imported into the stage gate",
       "visible blocker evidence when the worker cannot complete"
     ],
     forbiddenActions: [
@@ -727,15 +847,18 @@ function autoImplementationWorkerJob(input: {
   readonly request: CreateAutoImplementationWorkerJobRequest;
   readonly run: AutoImplementationRun;
   readonly issue: AutoImplementationRun["issueManagement"]["issueDocs"][number];
+  readonly authorityProjection: ExecutionAuthorityLedgerProjection | null;
   readonly now: string;
 }): AutoImplementationWorkerJob {
   const executionAuthorityRef = input.request.executionAuthorityRef ?? null;
-  const status = executionAuthorityRef ? "planned" as const : "blocked" as const;
+  const missingEvidence = autoImplementationWorkerMissingEvidence({
+    executionAuthorityRef,
+    authorityProjection: input.authorityProjection,
+    run: input.run
+  });
+  const status = missingEvidence.length ? "blocked" as const : "planned" as const;
   const jobId = autoImplementationWorkerJobId(input.request, input.issue.stage);
-  const missingEvidence = executionAuthorityRef ? [] : ["ExecutionAuthorityRecord"];
-  const blockedReason = executionAuthorityRef
-    ? null
-    : "Local Codex worker execution requires an explicit ExecutionAuthorityRecord boundary before the job can start.";
+  const blockedReason = autoImplementationWorkerBlockedReason(missingEvidence);
 
   return {
     jobId,
@@ -752,16 +875,15 @@ function autoImplementationWorkerJob(input: {
     }),
     blockedReason,
     missingEvidence,
-    nextRequiredAction: executionAuthorityRef
-      ? "Run the local Codex worker inside the bounded plan, then import ImplementationStepLedger evidence before advancing the stage."
-      : "Create or attach an ExecutionAuthorityRecord scoped to the generated workspace before starting this local Codex worker job.",
+    nextRequiredAction: autoImplementationWorkerNextRequiredAction(missingEvidence),
     createdAt: input.now,
     updatedAt: input.now,
     evidenceRefs: uniqueAutoImplementationRefs([
       jobId,
       `worker-plan:${input.run.runId}:${input.issue.stage}`,
       `issue-doc:${input.issue.relativePath}`,
-      ...(executionAuthorityRef ? [`execution-authority:${executionAuthorityRef}`] : ["worker-blocked:missing-execution-authority"])
+      ...(executionAuthorityRef ? [`execution-authority:${executionAuthorityRef}`] : []),
+      ...(missingEvidence.length ? [`worker-blocked:${missingEvidence.join("+")}`] : [])
     ])
   };
 }
@@ -5080,10 +5202,11 @@ export function createProductEngineCommandService(
       }
 
       const projectionRepository = createProjectionRepository(storage.db);
-      const existingProjection = await projectionRepository.get<AutoImplementationRunProjection>(
+      const persistedProjection = await projectionRepository.get<AutoImplementationRunProjection>(
         request.sessionId,
         "AutoImplementationRunProjection"
       );
+      const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(persistedProjection) : null;
       const runId = autoImplementationRunId(request.sessionId, request.idempotencyKey);
 
       if (existingProjection?.runs.some((run) => run.runId === runId)) {
@@ -5134,6 +5257,8 @@ export function createProductEngineCommandService(
     async createAutoImplementationWorkerJob(
       request: CreateAutoImplementationWorkerJobRequest
     ): Promise<AutoImplementationRunProjection> {
+      assertAutoImplementationWorkerExecutionAuthorityRef(request.executionAuthorityRef);
+
       const session = await createProjectRepository(storage.db).getSession(request.sessionId);
 
       if (!session) {
@@ -5143,10 +5268,11 @@ export function createProductEngineCommandService(
       }
 
       const projectionRepository = createProjectionRepository(storage.db);
-      const existingProjection = await projectionRepository.get<AutoImplementationRunProjection>(
+      const persistedProjection = await projectionRepository.get<AutoImplementationRunProjection>(
         request.sessionId,
         "AutoImplementationRunProjection"
       );
+      const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(persistedProjection) : null;
 
       if (!existingProjection) {
         throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run projection was not found.", {
@@ -5182,7 +5308,19 @@ export function createProductEngineCommandService(
       }
 
       const now = new Date().toISOString();
-      const workerJob = autoImplementationWorkerJob({ request, run, issue, now });
+      const authorityProjection = request.executionAuthorityRef
+        ? await createExecutionAuthorityRepository(storage.db).getById(request.executionAuthorityRef)
+        : null;
+
+      if (authorityProjection && authorityProjection.sessionId !== request.sessionId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "executionAuthorityRef must belong to the request session.", {
+          executionAuthorityRef: request.executionAuthorityRef,
+          routeSessionId: request.sessionId,
+          authoritySessionId: authorityProjection.sessionId
+        });
+      }
+
+      const workerJob = autoImplementationWorkerJob({ request, run, issue, authorityProjection, now });
       const updatedRun: AutoImplementationRun = {
         ...run,
         status: workerJob.status === "blocked" ? "blocked" : "running",
@@ -5222,10 +5360,11 @@ export function createProductEngineCommandService(
       }
 
       const projectionRepository = createProjectionRepository(storage.db);
-      const existingProjection = await projectionRepository.get<AutoImplementationRunProjection>(
+      const persistedProjection = await projectionRepository.get<AutoImplementationRunProjection>(
         request.sessionId,
         "AutoImplementationRunProjection"
       );
+      const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(persistedProjection) : null;
 
       if (!existingProjection) {
         throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run projection was not found.", {
@@ -5399,10 +5538,12 @@ export function createProductEngineCommandService(
         });
       }
 
-      return createProjectionRepository(storage.db).get<AutoImplementationRunProjection>(
+      const projection = await createProjectionRepository(storage.db).get<AutoImplementationRunProjection>(
         sessionIdValue,
         "AutoImplementationRunProjection"
       );
+
+      return projection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(projection) : null;
     },
 
     async validateExecutionAuthorityPreflight(

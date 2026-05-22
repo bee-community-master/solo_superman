@@ -301,7 +301,7 @@ describe("sidecar client planning-runtime", () => {
       sessionId: "sess_auto_impl" as SessionId,
       runId: "auto_run_demo",
       idempotencyKey: "auto-impl-worker-client-test",
-      executionAuthorityRef: "authority_auto_worker_initial_pr"
+      executionAuthorityRef: "exec_auth_auto_worker_initial_pr"
     });
     const advanced = await client.recordAutoImplementationStage({
       sessionId: "sess_auto_impl" as SessionId,
@@ -342,7 +342,7 @@ describe("sidecar client planning-runtime", () => {
       sessionId: "sess_auto_impl",
       runId: "auto_run_demo",
       idempotencyKey: "auto-impl-worker-client-test",
-      executionAuthorityRef: "authority_auto_worker_initial_pr"
+      executionAuthorityRef: "exec_auth_auto_worker_initial_pr"
     });
     expect(seenRequests[2]).toMatchObject([
       "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs/auto_run_demo/stages/initial_pr",
