@@ -9,9 +9,35 @@ import type {
   StatusEndpointDto
 } from "@solo-superman/contracts";
 import type { Phase15aOperationsInput, Phase15aOperationsViewModel } from "./decision-queue-view-model";
-import type { DecisionQueueCopy } from "./shell/decision-queue-copy";
 
-type Phase15aOperationsCopy = DecisionQueueCopy["phase15a"];
+export interface Phase15aOperationsCopy {
+  readonly blockers: {
+    readonly noActiveAllowlist: string;
+    readonly noAllowlistRefetch: string;
+    readonly noDisclosureRefetch: string;
+    readonly noRunsRefetch: string;
+    readonly noRunSse: string;
+    readonly noQualityGate: string;
+    readonly reviewCardRemaining: (title: string) => string;
+  };
+  readonly allowlistPolicyLoaded: (
+    status: string,
+    connectors: string,
+    sourceCategories: string,
+    contextMode: string,
+    concurrentRuns: number,
+    runsPerSession: number,
+    logRequired: boolean
+  ) => string;
+  readonly noAllowlistPolicyLoaded: string;
+  readonly disclosureActivityLoaded: (logCount: number, latestStatus: string) => string;
+  readonly noDisclosureActivity: string;
+  readonly runRecoveryLoaded: (runCount: number, attentionCount: number, refetchUrl: string) => string;
+  readonly noRunStatus: string;
+  readonly qualityGatePending: string;
+  readonly exitGateBlocked: string;
+  readonly exitGateReady: string;
+}
 
 export function pendingEffectSummary(statuses: readonly StatusEndpointDto[]): PendingEffectSummaryDto {
   const byType = statuses.reduce<Record<string, number>>((summary, status) => {
