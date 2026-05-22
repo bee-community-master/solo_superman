@@ -269,6 +269,22 @@ const EN_COPY = {
     pending: "pending",
     scoreCompleteness: "Score completeness",
     noRiskProjection: "No risk summary yet.",
+    confidenceMap: "Confidence Map",
+    confidenceMapHelp: "Shows the score drivers and readiness gates behind the current Planning score.",
+    scoreBreakdownLabels: {
+      sectionCompleteness: "Spec sections",
+      questionDebtResolution: "Question debt",
+      evidenceQuality: "Evidence quality",
+      decisionApproval: "Decision approval",
+      consistencyAndConflict: "Consistency"
+    },
+    completionCandidate: "Completion candidate",
+    completionCandidateStatusLabels: {
+      candidate: "candidate",
+      not_ready: "not ready"
+    },
+    confidenceGateFailures: "Readiness gate blockers",
+    confidenceGatesReady: "All readiness gates are passing.",
     topRiskCards: "Top 3 Risk Cards",
     riskSeverity: "Severity",
     riskSeverityLabels: { low: "low", medium: "medium", high: "high" },
@@ -727,6 +743,22 @@ const JA_COPY: typeof EN_COPY = {
     pending: "保留中",
     scoreCompleteness: "完成度を採点",
     noRiskProjection: "リスク予測はまだありません。",
+    confidenceMap: "信頼度マップ",
+    confidenceMapHelp: "現在の Planning スコアの根拠になるスコア要因と準備ゲートを表示します。",
+    scoreBreakdownLabels: {
+      sectionCompleteness: "仕様セクション",
+      questionDebtResolution: "質問負債",
+      evidenceQuality: "証拠品質",
+      decisionApproval: "意思決定承認",
+      consistencyAndConflict: "一貫性"
+    },
+    completionCandidate: "完成候補",
+    completionCandidateStatusLabels: {
+      candidate: "候補",
+      not_ready: "未準備"
+    },
+    confidenceGateFailures: "準備ゲートのブロッカー",
+    confidenceGatesReady: "すべての準備ゲートを通過しています。",
     topRiskCards: "上位3つのリスクカード",
     riskSeverity: "深刻度",
     riskSeverityLabels: { low: "低", medium: "中", high: "高" },
@@ -1185,6 +1217,22 @@ const KO_COPY: typeof EN_COPY = {
     pending: "대기 중",
     scoreCompleteness: "완성도 채점",
     noRiskProjection: "아직 리스크 예측이 없습니다.",
+    confidenceMap: "신뢰도 맵",
+    confidenceMapHelp: "현재 Planning 점수의 근거가 되는 점수 요인과 준비 게이트를 보여줍니다.",
+    scoreBreakdownLabels: {
+      sectionCompleteness: "스펙 섹션",
+      questionDebtResolution: "질문 부채",
+      evidenceQuality: "증거 품질",
+      decisionApproval: "의사결정 승인",
+      consistencyAndConflict: "일관성"
+    },
+    completionCandidate: "완성 후보",
+    completionCandidateStatusLabels: {
+      candidate: "후보",
+      not_ready: "준비 안 됨"
+    },
+    confidenceGateFailures: "준비 게이트 차단 항목",
+    confidenceGatesReady: "모든 준비 게이트를 통과했습니다.",
     topRiskCards: "상위 3개 리스크 카드",
     riskSeverity: "심각도",
     riskSeverityLabels: { low: "낮음", medium: "중간", high: "높음" },

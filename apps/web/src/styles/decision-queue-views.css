@@ -466,6 +466,7 @@
   gap: 10px;
 }
 
+.confidence-map,
 .top-risk-card-stack,
 .top-risk-card-list,
 .top-risk-card {
@@ -473,10 +474,75 @@
   gap: 10px;
 }
 
+.confidence-map {
+  border: 1px solid #d8e5f0;
+  border-radius: 10px;
+  background: #f8fbff;
+  margin-top: 13px;
+  padding: 12px;
+}
+
+.confidence-map p,
+.completion-candidate-summary p {
+  margin: 0;
+}
+
+.confidence-map-heading h3,
 .top-risk-card-stack h3 {
   margin: 0;
   color: var(--solo-text);
   font-size: 0.9rem;
+}
+
+.confidence-map-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.candidate-status {
+  border-radius: 999px;
+  background: #e7eef8;
+  color: var(--solo-text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.candidate-status.status-candidate {
+  background: #dff3e4;
+}
+
+.confidence-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.confidence-breakdown div {
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.confidence-breakdown dt {
+  color: var(--solo-muted);
+  font-size: 0.72rem;
+}
+
+.confidence-breakdown dd {
+  margin: 3px 0 0;
+  color: var(--solo-text);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.completion-candidate-summary {
+  display: grid;
+  gap: 7px;
 }
 
 .top-risk-card-list {

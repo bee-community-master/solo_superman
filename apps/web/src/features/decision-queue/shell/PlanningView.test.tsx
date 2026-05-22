@@ -137,6 +137,48 @@ describe("PlanningView", () => {
     expect(markup).not.toContain("Pricing signal is stale");
   });
 
+  it("renders the Confidence Map with score drivers and blocked completion gates", () => {
+    const markup = renderPlanningView({
+      confidence: confidenceWithRiskCards()
+    });
+
+    expect(markup).toContain("Confidence Map");
+    expect(markup).toContain("Shows the score drivers and readiness gates");
+    expect(markup).toContain("Spec sections");
+    expect(markup).toContain("60%");
+    expect(markup).toContain("Question debt");
+    expect(markup).toContain("40%");
+    expect(markup).toContain("Evidence quality");
+    expect(markup).toContain("50%");
+    expect(markup).toContain("Decision approval");
+    expect(markup).toContain("70%");
+    expect(markup).toContain("Consistency");
+    expect(markup).toContain("65%");
+    expect(markup).toContain("not ready");
+    expect(markup).toContain("Completion candidate: More risk validation is needed.");
+    expect(markup).toContain("Top risks remain open.");
+  });
+
+  it("shows a ready Confidence Map message when completion gates pass", () => {
+    const confidence = confidenceWithRiskCards();
+    const markup = renderPlanningView({
+      confidence: {
+        ...confidence,
+        completionCandidate: {
+          ...confidence.completionCandidate,
+          status: "candidate",
+          summary: "Planning handoff can be reviewed.",
+          gateFailures: []
+        }
+      }
+    });
+
+    expect(markup).toContain("candidate");
+    expect(markup).toContain("Completion candidate: Planning handoff can be reviewed.");
+    expect(markup).toContain("All readiness gates are passing.");
+    expect(markup).not.toContain("Top risks remain open.");
+  });
+
   it("keeps the no-risk fallback when scored risk cards are absent", () => {
     const markup = renderPlanningView({
       confidence: {
