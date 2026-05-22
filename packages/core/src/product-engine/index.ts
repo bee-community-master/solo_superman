@@ -592,6 +592,18 @@ function countQuestionDebtItems(items: readonly QueueItemProjection[]) {
   return items.filter(queueItemIsQuestionDebt).length;
 }
 
+function progressTopicKey(issue: AmbiguityIssueSnapshot) {
+  return issue.topicKey ?? issue.sectionRef ?? issue.queueItemId;
+}
+
+function progressTopicCount(issues: readonly AmbiguityIssueSnapshot[]) {
+  return new Set(issues.map(progressTopicKey)).size;
+}
+
+function remainingFollowUpBudget(issue: AmbiguityIssueSnapshot) {
+  return Math.max(0, (issue.repeatLimit ?? DEFAULT_FOLLOW_UP_QUESTION_LIMIT) - (issue.repeatCount ?? 0));
+}
+
 function queueQuestionProgressFromIssues(
   issues: readonly AmbiguityIssueSnapshot[],
   projection: DecisionQueueProjection
@@ -603,6 +615,7 @@ function queueQuestionProgressFromIssues(
   const resolvedQuestionCount = issues.filter((issue) => issue.status === "resolved").length;
   const terminalQuestionCount = answeredQuestionCount + deferredQuestionCount + resolvedQuestionCount;
   const followUpIssues = issues.filter((issue) => (issue.repeatCount ?? 0) > 0);
+  const openIssues = issues.filter((issue) => issue.status === "open");
   const activeQuestionCount = countQuestionDebtItems(projection.active);
   const upcomingQuestionCount = countQuestionDebtItems(projection.next);
   const blockedQuestionCount = countQuestionDebtItems(projection.blocked);
@@ -621,6 +634,9 @@ function queueQuestionProgressFromIssues(
     terminalQuestionCount,
     followUpQuestionCount: followUpIssues.length,
     followUpOpenQuestionCount: followUpIssues.filter((issue) => issue.status === "open").length,
+    topicCoverageCount: progressTopicCount(issues),
+    openTopicCoverageCount: progressTopicCount(openIssues),
+    followUpBudgetRemainingCount: openIssues.reduce((total, issue) => total + remainingFollowUpBudget(issue), 0),
     visibleQuestionDebtCount,
     activeQuestionCount,
     upcomingQuestionCount,
@@ -738,6 +754,9 @@ function emptyQueueProjection(
       terminalQuestionCount: 0,
       followUpQuestionCount: 0,
       followUpOpenQuestionCount: 0,
+      topicCoverageCount: 0,
+      openTopicCoverageCount: 0,
+      followUpBudgetRemainingCount: 0,
       visibleQuestionDebtCount: 0,
       activeQuestionCount: 0,
       upcomingQuestionCount: 0,

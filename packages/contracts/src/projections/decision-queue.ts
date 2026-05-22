@@ -59,6 +59,9 @@ export interface DecisionQueueProgressProjection {
   readonly terminalQuestionCount: number;
   readonly followUpQuestionCount: number;
   readonly followUpOpenQuestionCount: number;
+  readonly topicCoverageCount: number;
+  readonly openTopicCoverageCount: number;
+  readonly followUpBudgetRemainingCount: number;
   readonly visibleQuestionDebtCount: number;
   readonly activeQuestionCount: number;
   readonly upcomingQuestionCount: number;

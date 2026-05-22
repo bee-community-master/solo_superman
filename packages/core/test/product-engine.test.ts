@@ -341,6 +341,9 @@ describe("PR-04 ProductEngine reducer", () => {
       generatedQuestionCount: 15,
       openQuestionCount: 15,
       answeredQuestionCount: 0,
+      topicCoverageCount: 15,
+      openTopicCoverageCount: 15,
+      followUpBudgetRemainingCount: 120,
       visibleQuestionDebtCount: 5,
       activeQuestionCount: 5,
       completionPercent: 0
@@ -1787,6 +1790,9 @@ describe("PR-04 ProductEngine reducer", () => {
       terminalQuestionCount: 1,
       followUpQuestionCount: 1,
       followUpOpenQuestionCount: 1,
+      topicCoverageCount: 16,
+      openTopicCoverageCount: 15,
+      followUpBudgetRemainingCount: 119,
       visibleQuestionDebtCount: 5,
       completionPercent: 6
     });
@@ -1821,6 +1827,9 @@ describe("PR-04 ProductEngine reducer", () => {
       openQuestionCount: 15,
       answeredQuestionCount: 1,
       followUpQuestionCount: 1,
+      topicCoverageCount: 16,
+      openTopicCoverageCount: 15,
+      followUpBudgetRemainingCount: 119,
       completionPercent: 6
     });
     expect(replayed.openIssues).toEqual(

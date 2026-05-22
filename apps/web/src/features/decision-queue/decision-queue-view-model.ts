@@ -41,6 +41,9 @@ export interface QuestionProgressViewModel {
   readonly terminalQuestionCount: number;
   readonly followUpQuestionCount: number;
   readonly followUpOpenQuestionCount: number;
+  readonly topicCoverageCount: number;
+  readonly openTopicCoverageCount: number;
+  readonly followUpBudgetRemainingCount: number;
   readonly visibleQuestionDebtCount: number;
   readonly activeQuestionCount: number;
   readonly upcomingQuestionCount: number;
@@ -233,6 +236,9 @@ export function questionProgressViewModel(queue: DecisionQueueProjection | null)
           ).length
         : 0),
     followUpOpenQuestionCount: queue?.progress?.followUpOpenQuestionCount ?? 0,
+    topicCoverageCount: queue?.progress?.topicCoverageCount ?? fallbackVisibleQuestionDebtCount,
+    openTopicCoverageCount: queue?.progress?.openTopicCoverageCount ?? fallbackVisibleQuestionDebtCount,
+    followUpBudgetRemainingCount: queue?.progress?.followUpBudgetRemainingCount ?? 0,
     visibleQuestionDebtCount: queue?.progress?.visibleQuestionDebtCount ?? fallbackVisibleQuestionDebtCount,
     activeQuestionCount: queue?.progress?.activeQuestionCount ?? (queue ? countQuestionDebtItems(queue.active) : 0),
     upcomingQuestionCount: queue?.progress?.upcomingQuestionCount ?? (queue ? countQuestionDebtItems(queue.next) : 0),
