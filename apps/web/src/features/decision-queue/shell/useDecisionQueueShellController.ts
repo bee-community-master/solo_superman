@@ -22,6 +22,7 @@ import {
   phase15bReadinessViewModel,
   planningHandoffViewModel,
   pendingEffectSummary,
+  questionProgressViewModel,
   queueSections,
   runtimeActivityProjectionFromStatuses
 } from "../decision-queue-view-model";
@@ -394,6 +395,7 @@ export function useDecisionQueueShellController() {
       activeBatchLabel: copy.questions.queueActiveBatchMissing
     };
   }, [copy, projections.queue]);
+  const questionProgress = useMemo(() => questionProgressViewModel(projections.queue), [projections.queue]);
   const pendingSummary = useMemo(() => pendingEffectSummary(statuses), [statuses]);
   const runtimeActivity = useMemo(
     () => projections.activity ?? runtimeActivityProjectionFromStatuses(statuses),
@@ -649,6 +651,7 @@ export function useDecisionQueueShellController() {
     createAutoImplementationRun,
     sections,
     queueRecovery,
+    questionProgress,
     pendingSummary,
     runtimeActivity,
     confidence,

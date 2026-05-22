@@ -50,6 +50,22 @@ export interface DecisionQueueRecoveryProjection {
   readonly staleReason?: string;
 }
 
+export interface DecisionQueueProgressProjection {
+  readonly generatedQuestionCount: number;
+  readonly openQuestionCount: number;
+  readonly answeredQuestionCount: number;
+  readonly deferredQuestionCount: number;
+  readonly resolvedQuestionCount: number;
+  readonly terminalQuestionCount: number;
+  readonly followUpQuestionCount: number;
+  readonly followUpOpenQuestionCount: number;
+  readonly visibleQuestionDebtCount: number;
+  readonly activeQuestionCount: number;
+  readonly upcomingQuestionCount: number;
+  readonly blockedQuestionCount: number;
+  readonly completionPercent: number;
+}
+
 export interface QueueItemProjection {
   readonly queueItemId: QueueItemId;
   readonly title: string;
@@ -96,6 +112,7 @@ export interface DecisionQueueProjection {
   readonly businessCriticIntensityEffect?: string;
   readonly businessCriticPressureSummary?: string;
   readonly activeBatch?: DecisionQueueActiveBatchProjection;
+  readonly progress?: DecisionQueueProgressProjection;
   readonly recovery?: DecisionQueueRecoveryProjection;
   readonly active: readonly QueueItemProjection[];
   readonly next: readonly QueueItemProjection[];

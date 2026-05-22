@@ -337,6 +337,14 @@ describe("PR-04 ProductEngine reducer", () => {
       ])
     );
     expect(state.queueProjection.next).toEqual([]);
+    expect(state.queueProjection.progress).toMatchObject({
+      generatedQuestionCount: 15,
+      openQuestionCount: 15,
+      answeredQuestionCount: 0,
+      visibleQuestionDebtCount: 5,
+      activeQuestionCount: 5,
+      completionPercent: 0
+    });
     expect(state.session.phase).toBe("question_loop");
   });
 
@@ -1049,8 +1057,12 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(reduction.nextState).toMatchObject({
       queueProjection: {
         projectPurposeMode: "personal",
-        modeEffectSummary: expect.stringContaining("workflow")
+        modeEffectSummary: expect.stringContaining("workflow"),
+        progress: state.queueProjection.progress
       }
+    });
+    expect(reduction.events[0].payload.queueProjection).toMatchObject({
+      progress: state.queueProjection.progress
     });
 
     const replayed = replayProductEngineEvents(
@@ -1082,7 +1094,8 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(replayed.queueProjection).toMatchObject({
       projectPurposeMode: "personal",
       projectPurposeModeSelectionStatus: "confirmed",
-      skippedCommercializationAxes: expect.arrayContaining(["market_size", "willingness_to_pay"])
+      skippedCommercializationAxes: expect.arrayContaining(["market_size", "willingness_to_pay"]),
+      progress: state.queueProjection.progress
     });
     expect(replayed.queueProjection.activeBatch?.stabilityPolicy).toBe(
       "preserve_active_batch_until_terminal_or_explicit_reactivation"
@@ -1767,6 +1780,16 @@ describe("PR-04 ProductEngine reducer", () => {
       followUpRepeatCount: 1,
       followUpRepeatLimit: 8
     });
+    expect((answer.immediateProjection as DecisionQueueProjection).progress).toMatchObject({
+      generatedQuestionCount: 16,
+      openQuestionCount: 15,
+      answeredQuestionCount: 1,
+      terminalQuestionCount: 1,
+      followUpQuestionCount: 1,
+      followUpOpenQuestionCount: 1,
+      visibleQuestionDebtCount: 5,
+      completionPercent: 6
+    });
 
     const replayed = replayProductEngineEvents(projectId, sessionId, [
       ...persistedEvents.map((eventDraft, index) => ({
@@ -1793,6 +1816,13 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(replayed.queueProjection.active.every((item) => item.state === "active")).toBe(true);
     expect(replayed.queueProjection.active).toHaveLength(5);
     expect(replayed.queueProjection.next).toHaveLength(1);
+    expect(replayed.queueProjection.progress).toMatchObject({
+      generatedQuestionCount: 16,
+      openQuestionCount: 15,
+      answeredQuestionCount: 1,
+      followUpQuestionCount: 1,
+      completionPercent: 6
+    });
     expect(replayed.openIssues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

@@ -6361,7 +6361,14 @@ describe("PR-02 sidecar health shell", () => {
         }
       });
       expect(queueProjection).toMatchObject({
-        kind: "DecisionQueueProjection"
+        kind: "DecisionQueueProjection",
+        progress: {
+          generatedQuestionCount: 15,
+          openQuestionCount: 15,
+          answeredQuestionCount: 0,
+          visibleQuestionDebtCount: 5,
+          completionPercent: 0
+        }
       });
       expect(activeItems).toHaveLength(5);
       expect(activeItems[0]).toMatchObject({
@@ -6533,6 +6540,13 @@ describe("PR-02 sidecar health shell", () => {
       expect(answerData.statusUrl).toEqual(expect.any(String));
       expect(answeredQueue).toMatchObject({
         kind: "DecisionQueueProjection",
+        progress: {
+          generatedQuestionCount: 16,
+          openQuestionCount: 15,
+          answeredQuestionCount: 1,
+          followUpQuestionCount: 1,
+          completionPercent: 6
+        },
         active: expect.arrayContaining([
           expect.objectContaining({
             state: "active"

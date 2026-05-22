@@ -255,6 +255,72 @@
   font-size: 0.72rem;
 }
 
+.question-progress {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d8ece8;
+  border-radius: 10px;
+  background: #f6fbf9;
+  margin-bottom: 15px;
+  padding: 12px;
+}
+
+.question-progress h3,
+.question-progress p {
+  margin: 0;
+}
+
+.question-progress h3 {
+  color: var(--solo-text);
+  font-size: 0.88rem;
+}
+
+.question-progress p {
+  color: var(--solo-muted);
+  font-size: 0.76rem;
+}
+
+.question-progress-track {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: #dfeeea;
+}
+
+.question-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--solo-accent);
+}
+
+.question-progress-metrics {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  margin: 0;
+}
+
+.question-progress-metrics div {
+  border: 1px solid var(--solo-soft-border);
+  border-radius: 9px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.question-progress-metrics dt {
+  color: var(--solo-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.question-progress-metrics dd {
+  margin: 2px 0 0;
+  color: var(--solo-text);
+  font-size: 1rem;
+  font-weight: 860;
+}
+
 .queue-sections {
   display: grid;
   gap: 14px;
