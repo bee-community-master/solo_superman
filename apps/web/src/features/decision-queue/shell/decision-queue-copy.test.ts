@@ -61,5 +61,7 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerPlanExecutionAuthority).toBe("実行権限");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerPlanAllowedWriteScope).toBe("허용된 쓰기 범위");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.missingExecutionAuthority).toContain("ExecutionAuthorityRecord");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.recordPullRequestOpenDryRun).toBe("Record PR open dry-run");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.recordPullRequestOpenDryRun).toContain("PR 생성");
   });
 });

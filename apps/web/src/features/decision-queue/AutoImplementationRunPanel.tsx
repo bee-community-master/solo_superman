@@ -186,6 +186,7 @@ interface AutoImplementationRunPanelProps {
   readonly isBusy: boolean;
   readonly onCreateRun: () => void;
   readonly onPlanWorkerJob: () => void;
+  readonly onRecordPullRequestOpenDryRun: () => void;
   readonly onRecordPullRequestDryRun: () => void;
   readonly onRunWorkerJob: () => void;
   readonly onAdvanceWorkerStage: () => void;
@@ -197,6 +198,7 @@ export function AutoImplementationRunPanel({
   isBusy,
   onCreateRun,
   onPlanWorkerJob,
+  onRecordPullRequestOpenDryRun,
   onRecordPullRequestDryRun,
   onRunWorkerJob,
   onAdvanceWorkerStage,
@@ -223,6 +225,13 @@ export function AutoImplementationRunPanel({
         </button>
         <button type="button" disabled={isBusy || !run.canPlanWorkerJob} onClick={onPlanWorkerJob}>
           {copy.autoImplementation.planWorkerJob}
+        </button>
+        <button
+          type="button"
+          disabled={isBusy || !run.canRecordPullRequestDryRun}
+          onClick={onRecordPullRequestOpenDryRun}
+        >
+          {copy.autoImplementation.recordPullRequestOpenDryRun}
         </button>
         <button
           type="button"
