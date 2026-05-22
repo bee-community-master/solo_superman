@@ -9,6 +9,7 @@ import {
   buildAutoImplementationPullRequestDryRunRequest,
   buildAutoImplementationPullRequestMergeApprovedRequest,
   buildAutoImplementationPullRequestMergeDryRunRequest,
+  buildAutoImplementationPullRequestOpenApprovedRequest,
   buildAutoImplementationPullRequestOpenDryRunRequest
 } from "./auto-implementation-pr-mutation-request";
 
@@ -155,6 +156,60 @@ describe("buildAutoImplementationPullRequestDryRunRequest", () => {
       "A PR URL is already recorded; use the PR body dry-run to refresh the existing PR evidence."
     );
     expect(request.knownGaps).not.toContain("Remote status is connected; mutation stays blocked until connected.");
+  });
+
+  it("builds an approved PR open request with explicit approval and verifier evidence", () => {
+    const run = {
+      ...readyRun(),
+      remoteStatus: "connected" as const
+    };
+    const request = buildAutoImplementationPullRequestOpenApprovedRequest({
+      sessionId: "demo-session" as SessionId,
+      run,
+      approvedAt: "2026-05-22T00:00:00.000Z"
+    });
+
+    expect(request).toMatchObject({
+      sessionId: "demo-session",
+      runId: run.runId,
+      action: "open_pr",
+      requestMode: "approved",
+      pullRequestTitle: `Auto implementation ${run.projectFolderName}`,
+      issueLinks: ["local-001", "local-002", "local-003", "local-004", "local-005", "local-006", "local-007"],
+      verificationCommands: ["pnpm verify"],
+      approval: {
+        approvedBy: "local_operator",
+        approvedAt: "2026-05-22T00:00:00.000Z",
+        actionClass: "github_pr_mutation",
+        approvalGranularity: "per_action",
+        remoteStatusAtApproval: "connected",
+        rollbackPlan: expect.stringContaining("Close the generated pull request"),
+        evidenceRefs: [
+          `local-operator-click:github-pr-mutation:open_pr:${run.runId}:${run.currentStage}`
+        ]
+      },
+      verifierEvidenceRefs: [`verifier:pr-open-approved:${run.runId}:${run.currentStage}`]
+    });
+    expect(request.pullRequestUrl).toBeUndefined();
+    expect(request.bodyEvidenceRefs).toBeUndefined();
+    expect(request.mergeEvidenceRefs).toBeUndefined();
+    expect(request.knownGaps).toEqual([]);
+    expect(request.rollbackNotes).toContain("gh pr create");
+  });
+
+  it("keeps approved PR open duplicate gaps visible when a PR URL already exists", () => {
+    const run = withPrUrl(readyRun());
+    const request = buildAutoImplementationPullRequestOpenApprovedRequest({
+      sessionId: "demo-session" as SessionId,
+      run,
+      approvedAt: "2026-05-22T00:01:00.000Z"
+    });
+
+    expect(request.pullRequestUrl).toBeUndefined();
+    expect(request.approval).toBeDefined();
+    expect(request.knownGaps).toContain(
+      "A PR URL is already recorded; approved PR open is blocked in the UI to avoid duplicate pull requests."
+    );
   });
 
   it("builds a read-only merge PR dry-run with visible readiness gaps", () => {

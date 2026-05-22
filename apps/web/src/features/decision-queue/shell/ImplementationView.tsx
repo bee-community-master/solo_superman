@@ -18,6 +18,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     isBusy,
     pendingSummary,
     planAutoImplementationWorkerJob,
+    applyAutoImplementationPullRequestOpen,
     applyAutoImplementationPullRequestBodyUpdate,
     applyAutoImplementationPullRequestMerge,
     projections,
@@ -46,6 +47,9 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         }}
         onRecordPullRequestOpenDryRun={() => {
           void recordAutoImplementationPullRequestOpenDryRun();
+        }}
+        onApplyPullRequestOpen={() => {
+          void applyAutoImplementationPullRequestOpen();
         }}
         onRecordPullRequestDryRun={() => {
           void recordAutoImplementationPullRequestDryRun();

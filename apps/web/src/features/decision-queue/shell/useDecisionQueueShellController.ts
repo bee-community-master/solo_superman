@@ -20,6 +20,7 @@ import {
   buildAutoImplementationPullRequestDryRunRequest,
   buildAutoImplementationPullRequestMergeApprovedRequest,
   buildAutoImplementationPullRequestMergeDryRunRequest,
+  buildAutoImplementationPullRequestOpenApprovedRequest,
   buildAutoImplementationPullRequestOpenDryRunRequest
 } from "../auto-implementation-pr-mutation-request";
 import {
@@ -707,6 +708,21 @@ export function useDecisionQueueShellController() {
     [recordAutoImplementationPullRequestMutationAction]
   );
 
+  const applyAutoImplementationPullRequestOpen = useCallback(
+    () => recordAutoImplementationPullRequestMutationAction({
+      buildRequest: ({ run, sessionId }) =>
+        buildAutoImplementationPullRequestOpenApprovedRequest({
+          run,
+          sessionId,
+          approvedAt: new Date().toISOString()
+        }),
+      missingRunMessage: "An active auto implementation workspace run is required before applying an approved PR open.",
+      logIdPrefix: "auto-implementation-pr-open-approved",
+      label: "Apply approved PR open"
+    }),
+    [recordAutoImplementationPullRequestMutationAction]
+  );
+
   const recordAutoImplementationPullRequestDryRun = useCallback(
     () => recordAutoImplementationPullRequestMutationAction({
       buildRequest: buildAutoImplementationPullRequestDryRunRequest,
@@ -924,6 +940,7 @@ export function useDecisionQueueShellController() {
     createAutoImplementationRun,
     planAutoImplementationWorkerJob,
     recordAutoImplementationPullRequestOpenDryRun,
+    applyAutoImplementationPullRequestOpen,
     recordAutoImplementationPullRequestDryRun,
     recordAutoImplementationPullRequestMergeDryRun,
     applyAutoImplementationPullRequestBodyUpdate,

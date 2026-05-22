@@ -9911,6 +9911,89 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("applies approved GitHub PR creation through the injected adapter", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const mutationInputs: unknown[] = [];
+    const adapter: AutoImplementationPullRequestMutationAdapter = {
+      async mutate(input) {
+        mutationInputs.push(input);
+        expect(input).toMatchObject({
+          projectDir: join(workspaceRoot, "approved-pr-open"),
+          action: "open_pr",
+          pullRequestTitle: "Initial implementation PR",
+          pullRequestUrl: null
+        });
+        expect(input.bodyMarkdown).toContain("### Issue links");
+        expect(input.bodyMarkdown).toContain("### Verification commands");
+        expect(input.bodyMarkdown).toContain("`pnpm verify`");
+
+        return {
+          pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/126",
+          auditEvidenceRefs: ["github-pr-mutation:mock-adapter:pr-opened"],
+          mergeEvidenceRefs: []
+        };
+      }
+    };
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot,
+      autoImplementationRemoteStatusProvider: async () => "connected",
+      autoImplementationPullRequestMutationAdapter: adapter
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "An approved GitHub PR open test");
+      const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:pr-open-approved",
+        projectName: "Approved PR Open"
+      });
+      const runId = String(latestAutoImplementationRunFromBody(await jsonBody(created)).runId);
+      const response = await postAutoImplementationPullRequestMutationForTest(storageApp, sessionId, runId, {
+        action: "open_pr",
+        requestMode: "approved",
+        idempotencyKey: "pr-mutation:approved:open-pr",
+        pullRequestTitle: "Initial implementation PR",
+        issueLinks: ["https://github.com/bee-community-master/generated-demo/issues/101"],
+        implementationScope: "Open the initial generated implementation PR after dry-run and verifier evidence.",
+        reviewStreakRefs: [],
+        verificationCommands: ["pnpm verify"],
+        rollbackNotes: "Close the generated PR if the approved open action targets the wrong scope.",
+        approval: {
+          approvalId: "approval_pr_open",
+          approvedBy: "local_operator",
+          approvedAt: "2026-05-05T00:00:00.000Z",
+          actionClass: "github_pr_mutation",
+          approvalGranularity: "per_action",
+          remoteStatusAtApproval: "connected",
+          rollbackPlan: "Close the generated pull request if the approved PR open action is wrong.",
+          evidenceRefs: ["approval:pr-open"]
+        },
+        verifierEvidenceRefs: ["verifier:pr-open-ready"]
+      });
+      const latestRun = latestAutoImplementationRunFromBody(await jsonBody(response));
+      const pullRequestMutations = latestRun.pullRequestMutations as Readonly<Record<string, unknown>>;
+
+      expect(response.status).toBe(200);
+      expect(mutationInputs).toHaveLength(1);
+      expect(pullRequestMutations).toMatchObject({
+        latestRecord: {
+          action: "open_pr",
+          requestMode: "approved",
+          status: "applied",
+          mutatesGitHub: true,
+          pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/126",
+          verifierEvidenceRefs: ["verifier:pr-open-ready"],
+          auditEvidenceRefs: expect.arrayContaining([
+            "approval:pr-open",
+            "github-pr-mutation:applied",
+            "github-pr-mutation:mock-adapter:pr-opened"
+          ])
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("blocks GitHub PR merges until final verification and current PR body evidence are recorded", async () => {
     const workspaceRoot = await makeTempAppDataDir();
     const mutationInputs: unknown[] = [];
