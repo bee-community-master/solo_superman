@@ -110,7 +110,15 @@ import {
   type ValidateExecutionAuthorityPreflightRequest
 } from "@solo-superman/contracts";
 import type { MigrationStatus, SoloStorage } from "@solo-superman/db";
-import { createProductEngineCommandService, ProductEngineServiceError } from "./product-engine/command-service";
+import {
+  createProductEngineCommandService,
+  ProductEngineServiceError,
+  type ProductEngineCommandServiceOptions
+} from "./product-engine/command-service";
+import type {
+  AutoImplementationGitHubIssueMutationAdapter,
+  AutoImplementationRemoteStatusProvider
+} from "./product-engine/auto-implementation-workspace";
 import { unmountedProductApiRoutePlaceholders } from "./routes/catalog";
 import { createCodexRuntimeAdapter, type CodexRuntimeAdapter } from "./runtime";
 
@@ -120,6 +128,8 @@ export interface CreateSidecarAppOptions {
   readonly storage?: SoloStorage | null;
   readonly codexRuntimeAdapter?: CodexRuntimeAdapter;
   readonly autoImplementationWorkspaceRoot?: string;
+  readonly autoImplementationRemoteStatusProvider?: AutoImplementationRemoteStatusProvider;
+  readonly autoImplementationGitHubIssueMutationAdapter?: AutoImplementationGitHubIssueMutationAdapter;
 }
 
 const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "localhost"]);
@@ -2782,9 +2792,17 @@ function executeBrowserActionRequestFromBody(body: Readonly<Record<string, unkno
 export function createSidecarApp(options: CreateSidecarAppOptions) {
   const { localCapabilityToken, migrationStatus = defaultMigrationStatus(), storage = null } = options;
   const codexRuntimeAdapter = options.codexRuntimeAdapter ?? createCodexRuntimeAdapter();
-  const commandServiceOptions = options.autoImplementationWorkspaceRoot
-    ? { autoImplementationWorkspaceRoot: options.autoImplementationWorkspaceRoot }
-    : {};
+  const commandServiceOptions: ProductEngineCommandServiceOptions = {
+    ...(options.autoImplementationWorkspaceRoot
+      ? { autoImplementationWorkspaceRoot: options.autoImplementationWorkspaceRoot }
+      : {}),
+    ...(options.autoImplementationRemoteStatusProvider
+      ? { autoImplementationRemoteStatusProvider: options.autoImplementationRemoteStatusProvider }
+      : {}),
+    ...(options.autoImplementationGitHubIssueMutationAdapter
+      ? { autoImplementationGitHubIssueMutationAdapter: options.autoImplementationGitHubIssueMutationAdapter }
+      : {})
+  };
   const commandService = storage
     ? createProductEngineCommandService(storage, codexRuntimeAdapter, commandServiceOptions)
     : null;

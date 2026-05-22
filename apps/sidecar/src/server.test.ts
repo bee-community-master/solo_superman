@@ -13,6 +13,7 @@ import {
   IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
   IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION,
   PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION,
+  type AutoImplementationRemoteStatus,
   type AutoImplementationRunProjection,
   type CommandId,
   type BrowserActionPreviewDto,
@@ -46,6 +47,10 @@ import {
   localDatabaseUrlFromAppDataDir
 } from "@solo-superman/db";
 import { createProductEngineCommandService } from "./product-engine/command-service";
+import type {
+  AutoImplementationGitHubIssueMutationAdapter,
+  AutoImplementationRemoteStatusProvider
+} from "./product-engine/auto-implementation-workspace";
 import { hashBrowserActionPreview } from "./product-engine/browser-action-adapter";
 import { hashFileDiffPreview } from "./product-engine/file-diff-adapter";
 import { hashShellCommandPreview } from "./product-engine/shell-command-adapter";
@@ -82,7 +87,11 @@ async function makeTempAppDataDir() {
 
 async function createMigratedStorageApp(
   codexRuntimeAdapter = fixtureCodexRuntimeAdapter,
-  options: { readonly autoImplementationWorkspaceRoot?: string } = {}
+  options: {
+    readonly autoImplementationWorkspaceRoot?: string;
+    readonly autoImplementationRemoteStatusProvider?: AutoImplementationRemoteStatusProvider;
+    readonly autoImplementationGitHubIssueMutationAdapter?: AutoImplementationGitHubIssueMutationAdapter;
+  } = {}
 ) {
   const appDataDir = await makeTempAppDataDir();
   const storage = await createSoloStorage({ url: localDatabaseUrlFromAppDataDir(appDataDir) });
@@ -100,6 +109,12 @@ async function createMigratedStorageApp(
     codexRuntimeAdapter,
     ...(options.autoImplementationWorkspaceRoot
       ? { autoImplementationWorkspaceRoot: options.autoImplementationWorkspaceRoot }
+      : {}),
+    ...(options.autoImplementationRemoteStatusProvider
+      ? { autoImplementationRemoteStatusProvider: options.autoImplementationRemoteStatusProvider }
+      : {}),
+    ...(options.autoImplementationGitHubIssueMutationAdapter
+      ? { autoImplementationGitHubIssueMutationAdapter: options.autoImplementationGitHubIssueMutationAdapter }
       : {})
   };
 
@@ -9529,6 +9544,196 @@ describe("PR-02 sidecar health shell", () => {
         join(workspaceRoot, "dry-run-without-remote", "implementation-issues", "001-initial_pr.md"),
         "utf8"
       )).resolves.toContain("## Acceptance");
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("applies approved GitHub issue creation through the injected mutation adapter", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const issueCreateInputs: unknown[] = [];
+    const issueAdapter: AutoImplementationGitHubIssueMutationAdapter = {
+      async createIssues(input) {
+        issueCreateInputs.push(input);
+
+        expect(input.projectDir).toBe(join(workspaceRoot, "approved-github-issues"));
+        expect(input.plans).toHaveLength(7);
+        await expect(readFile(input.plans[0]!.bodyFilePath, "utf8")).resolves.toContain("## Acceptance");
+
+        return {
+          createdIssueUrls: input.plans.map((_, index) =>
+            `https://github.com/bee-community-master/generated-demo/issues/${index + 101}`
+          ),
+          auditEvidenceRefs: ["github-issue-mutation:mock-adapter:created"]
+        };
+      }
+    };
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot,
+      autoImplementationRemoteStatusProvider: async () => "connected",
+      autoImplementationGitHubIssueMutationAdapter: issueAdapter
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "An approved GitHub issue mutation test");
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:github-issue-approved",
+        projectName: "Approved GitHub Issues",
+        githubIssueCreation: {
+          mode: "approved",
+          approval: {
+            approvalId: "approval_github_issue_create",
+            approvedBy: "local_operator",
+            approvedAt: "2026-05-05T00:00:00.000Z",
+            actionClass: "github_issue_create",
+            approvalGranularity: "per_action",
+            remoteStatusAtApproval: "connected",
+            rollbackPlan: "Close any generated GitHub issues if the run is cancelled.",
+            evidenceRefs: ["approval:github-issue-create"]
+          },
+          verifierEvidenceRefs: ["verifier:github-issue-create-ready"]
+        }
+      });
+      const body = await jsonBody(response);
+      const latestRun = latestAutoImplementationRunFromBody(body);
+      const issueManagement = latestRun.issueManagement as Readonly<Record<string, unknown>>;
+      const githubIssueMutation = issueManagement.githubIssueMutation as Readonly<Record<string, unknown>>;
+      const tracker = await readFile(join(workspaceRoot, "approved-github-issues", "implementation-tracker.md"), "utf8");
+
+      expect(response.status).toBe(200);
+      expect(issueCreateInputs).toHaveLength(1);
+      expect(latestRun).toMatchObject({
+        remoteStatus: "connected"
+      });
+      expect(issueManagement).toMatchObject({
+        mode: "github_ready",
+        githubIssueUrls: [
+          "https://github.com/bee-community-master/generated-demo/issues/101",
+          "https://github.com/bee-community-master/generated-demo/issues/102",
+          "https://github.com/bee-community-master/generated-demo/issues/103",
+          "https://github.com/bee-community-master/generated-demo/issues/104",
+          "https://github.com/bee-community-master/generated-demo/issues/105",
+          "https://github.com/bee-community-master/generated-demo/issues/106",
+          "https://github.com/bee-community-master/generated-demo/issues/107"
+        ],
+        githubIssueMutation: {
+          status: "applied",
+          mutatesGitHub: true,
+          blockedReason: null,
+          createdIssueUrls: [
+            "https://github.com/bee-community-master/generated-demo/issues/101",
+            "https://github.com/bee-community-master/generated-demo/issues/102",
+            "https://github.com/bee-community-master/generated-demo/issues/103",
+            "https://github.com/bee-community-master/generated-demo/issues/104",
+            "https://github.com/bee-community-master/generated-demo/issues/105",
+            "https://github.com/bee-community-master/generated-demo/issues/106",
+            "https://github.com/bee-community-master/generated-demo/issues/107"
+          ],
+          verifierEvidenceRefs: ["verifier:github-issue-create-ready"]
+        }
+      });
+      expect(githubIssueMutation.auditEvidenceRefs as readonly string[]).toEqual(
+        expect.arrayContaining([
+          "github-issue-mutation:approved_ready",
+          "github-issue-mutation:applied",
+          "github-issue-mutation:mock-adapter:created",
+          "approval:github-issue-create"
+        ])
+      );
+      expect(tracker).toContain("- Status: applied");
+      expect(tracker).toContain("Created GitHub issue URLs: https://github.com/bee-community-master/generated-demo/issues/101");
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("keeps connected GitHub issue dry-runs read-only and refuses blocked remote states", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    let remoteStatus: AutoImplementationRemoteStatus = "connected";
+    let mutationAttempts = 0;
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot,
+      autoImplementationRemoteStatusProvider: async () => remoteStatus,
+      autoImplementationGitHubIssueMutationAdapter: {
+        async createIssues() {
+          mutationAttempts += 1;
+          throw new Error("Mutation adapter must not run for dry-run or blocked remote states.");
+        }
+      }
+    });
+
+    try {
+      const { sessionId: dryRunSessionId } = await createProjectForTest(
+        storageApp,
+        "A connected GitHub issue dry-run test"
+      );
+      const dryRun = await postAutoImplementationRunForTest(storageApp, dryRunSessionId, {
+        idempotencyKey: "auto-implementation-route:github-issue-dry-run-connected",
+        projectName: "Connected Dry Run",
+        githubIssueCreation: {
+          mode: "dry_run"
+        }
+      });
+      const dryRunIssueManagement = latestAutoImplementationRunFromBody(await jsonBody(dryRun)).issueManagement as
+        Readonly<Record<string, unknown>>;
+
+      expect(dryRun.status).toBe(200);
+      expect(dryRunIssueManagement).toMatchObject({
+        mode: "github_ready",
+        githubIssueUrls: [],
+        githubIssueMutation: {
+          status: "dry_run_ready",
+          mutatesGitHub: false,
+          createdIssueUrls: [],
+          auditEvidenceRefs: ["github-issue-mutation:dry_run_ready"]
+        }
+      });
+      expect(mutationAttempts).toBe(0);
+
+      for (const blockedRemoteStatus of ["not_authenticated", "permission_denied", "offline", "unsupported_remote"] as const) {
+        remoteStatus = blockedRemoteStatus;
+        const { sessionId } = await createProjectForTest(
+          storageApp,
+          `A blocked GitHub issue mutation test for ${blockedRemoteStatus}`
+        );
+        const blocked = await postAutoImplementationRunForTest(storageApp, sessionId, {
+          idempotencyKey: `auto-implementation-route:github-issue-blocked:${blockedRemoteStatus}`,
+          projectName: `Blocked ${blockedRemoteStatus}`,
+          githubIssueCreation: {
+            mode: "approved",
+            approval: {
+              approvalId: `approval_${blockedRemoteStatus}`,
+              approvedBy: "local_operator",
+              approvedAt: "2026-05-05T00:00:00.000Z",
+              actionClass: "github_issue_create",
+              approvalGranularity: "per_action",
+              remoteStatusAtApproval: "connected",
+              rollbackPlan: "Close any generated GitHub issues if mutation unexpectedly occurs.",
+              evidenceRefs: [`approval:${blockedRemoteStatus}`]
+            },
+            verifierEvidenceRefs: [`verifier:${blockedRemoteStatus}`]
+          }
+        });
+        const issueManagement = latestAutoImplementationRunFromBody(await jsonBody(blocked)).issueManagement as
+          Readonly<Record<string, unknown>>;
+
+        expect(blocked.status).toBe(200);
+        expect(issueManagement).toMatchObject({
+          mode: "markdown_fallback",
+          githubIssueUrls: [],
+          githubIssueMutation: {
+            status: "blocked",
+            mutatesGitHub: false,
+            approval: null,
+            blockedReason: `GitHub issue creation requires remote status connected; current status is ${blockedRemoteStatus}.`,
+            createdIssueUrls: [],
+            auditEvidenceRefs: [`github-issue-mutation:blocked:${blockedRemoteStatus}`],
+            verifierEvidenceRefs: []
+          }
+        });
+      }
+
+      expect(mutationAttempts).toBe(0);
     } finally {
       await storage.close();
     }
