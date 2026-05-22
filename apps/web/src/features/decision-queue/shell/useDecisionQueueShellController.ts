@@ -24,6 +24,7 @@ import {
   buildAutoImplementationStageLifecycleRequest,
   buildAutoImplementationStageTickRequest
 } from "../auto-implementation-stage-request";
+import { buildAutoImplementationWorkerCompletionRequest } from "../auto-implementation-worker-completion-request";
 import {
   buildAutoImplementationPullRequestBodyApprovedRequest,
   buildAutoImplementationPullRequestDryRunRequest,
@@ -468,8 +469,8 @@ export function useDecisionQueueShellController() {
     [projections.implementationStepLedger]
   );
   const autoImplementationRunView = useMemo(
-    () => autoImplementationRunViewModel(projections.autoImplementationRuns),
-    [projections.autoImplementationRuns]
+    () => autoImplementationRunViewModel(projections.autoImplementationRuns, projections.implementationStepLedger),
+    [projections.autoImplementationRuns, projections.implementationStepLedger]
   );
   const createAutoImplementationRun = useCallback(async () => {
     if (!client || !projections.session) {
@@ -688,6 +689,54 @@ export function useDecisionQueueShellController() {
     }),
     [recordAutoImplementationStageLifecycleAction]
   );
+
+  const completeAutoImplementationWorkerJobFromLedger = useCallback(async () => {
+    const sessionId = projections.session?.sessionId;
+    const run = projections.autoImplementationRuns?.latestRun;
+
+    if (!client || !sessionId || !run) {
+      setWorkflowError("An active auto implementation workspace run is required before completing a worker from ledger evidence.");
+      return;
+    }
+
+    const request = buildAutoImplementationWorkerCompletionRequest({
+      sessionId,
+      run,
+      ledger: projections.implementationStepLedger
+    });
+
+    if (!request) {
+      setWorkflowError("A planned or ledger-blocked current-stage worker and a completed ImplementationStepLedger step are required before completing the worker.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const autoImplementationRuns = await client.completeAutoImplementationWorkerJob(request);
+      const implementationStepLedger = await client.getImplementationStepLedger(sessionId);
+
+      setProjections((current) => ({
+        ...current,
+        autoImplementationRuns,
+        implementationStepLedger
+      }));
+      setCommandLog((current) => [
+        {
+          id: `auto-implementation-worker-complete:${request.jobId}:${Date.now()}`,
+          label: "Complete worker from ledger",
+          createdAt: new Date().toISOString(),
+          message: autoImplementationRuns.summary
+        },
+        ...current
+      ].slice(0, COMMAND_LOG_LIMIT));
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [client, projections]);
 
   const runAutoImplementationWorkerJob = useCallback(async () => {
     const sessionId = projections.session?.sessionId;
@@ -1138,6 +1187,7 @@ export function useDecisionQueueShellController() {
     startAutoImplementationStage,
     pauseAutoImplementationStage,
     blockAutoImplementationStage,
+    completeAutoImplementationWorkerJobFromLedger,
     recordAutoImplementationGitHubIssueDryRun,
     applyAutoImplementationGitHubIssueCreation,
     recordAutoImplementationPullRequestOpenDryRun,

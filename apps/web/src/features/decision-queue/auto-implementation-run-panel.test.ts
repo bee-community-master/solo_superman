@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import {
   AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+  IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
   type AutoImplementationRun,
   type AutoImplementationRunProjection
 } from "@solo-superman/contracts";
@@ -102,6 +103,7 @@ function renderPanelMarkup(run: ReturnType<typeof autoImplementationRunViewModel
       onStartStage: () => undefined,
       onPauseStage: () => undefined,
       onBlockStage: () => undefined,
+      onCompleteWorkerJob: () => undefined,
       onRecordGitHubIssueDryRun: () => undefined,
       onApplyGitHubIssueCreation: () => undefined,
       onRecordPullRequestOpenDryRun: () => undefined,
@@ -139,6 +141,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.canStartStage).toBe(true);
     expect(view.canPauseStage).toBe(false);
     expect(view.canBlockStage).toBe(true);
+    expect(view.canCompleteWorkerJob).toBe(false);
     expect(view.canRecordGitHubIssueDryRun).toBe(true);
     expect(view.canApplyGitHubIssueCreation).toBe(false);
     expect(view.canRecordPullRequestDryRun).toBe(true);
@@ -181,6 +184,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.canStartStage).toBe(false);
     expect(view.canPauseStage).toBe(false);
     expect(view.canBlockStage).toBe(false);
+    expect(view.canCompleteWorkerJob).toBe(false);
     expect(view.canRecordGitHubIssueDryRun).toBe(false);
     expect(view.canApplyGitHubIssueCreation).toBe(false);
     expect(view.canRecordPullRequestDryRun).toBe(false);
@@ -352,6 +356,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.canStartStage).toBe(false);
     expect(view.canPauseStage).toBe(false);
     expect(view.canBlockStage).toBe(false);
+    expect(view.canCompleteWorkerJob).toBe(false);
   });
 
   it("gates current-stage start, pause, and block actions from stage status", () => {
@@ -499,7 +504,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.canRunWorkerJob).toBe(false);
   });
 
-  it("enables run and advance controls from the latest local worker status", () => {
+  it("enables run, ledger completion, and advance controls from the latest local worker status", () => {
     const plannedWorkerJob = workerJob();
     const projection = {
       ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
@@ -509,6 +514,7 @@ describe("AutoImplementationRunPanel view model", () => {
       }
     } as AutoImplementationRunProjection;
     const plannedView = autoImplementationRunViewModel(projection);
+    const ledgerReadyView = autoImplementationRunViewModel(projection, IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE);
     const completedView = autoImplementationRunViewModel({
       ...projection,
       latestRun: {
@@ -528,9 +534,12 @@ describe("AutoImplementationRunPanel view model", () => {
     } as AutoImplementationRunProjection);
 
     expect(plannedView.canRunWorkerJob).toBe(true);
+    expect(plannedView.canCompleteWorkerJob).toBe(false);
+    expect(ledgerReadyView.canCompleteWorkerJob).toBe(true);
     expect(plannedView.canAdvanceWorkerStage).toBe(false);
     expect(plannedView.latestWorkerPlan?.executionAuthorityRef).toBe("exec_auth_auto_worker_initial_pr");
     expect(completedView.canRunWorkerJob).toBe(false);
+    expect(completedView.canCompleteWorkerJob).toBe(false);
     expect(completedView.canAdvanceWorkerStage).toBe(true);
   });
 
@@ -656,6 +665,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("Start current stage");
     expect(markup).toContain("Pause current stage");
     expect(markup).toContain("Block current stage");
+    expect(markup).toContain("Complete worker from ledger");
     expect(markup).toContain("Record GitHub issue dry-run");
     expect(markup).toContain("Apply approved GitHub issues");
     expect(markup).toContain("Record PR open dry-run");
