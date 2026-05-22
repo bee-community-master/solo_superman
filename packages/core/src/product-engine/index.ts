@@ -1753,7 +1753,11 @@ function queueItemIsOpenQuestion(
   item: QueueItemProjection,
   openIssueById: ReadonlyMap<QueueItemId, AmbiguityIssueSnapshot>
 ) {
-  return (item.cardType === undefined || item.cardType === "question") && openIssueById.has(item.queueItemId);
+  return (
+    item.cardType === undefined ||
+    item.cardType === "question" ||
+    item.cardType === "follow_up_question"
+  ) && openIssueById.has(item.queueItemId);
 }
 
 function queueProjectionWithRefilledActiveQuestions(
@@ -1930,6 +1934,153 @@ function createFollowUpIssueForAnswer(input: {
         : ["question", "research_needed", "spec_update_candidate"],
     sourceRef: `${sourceQuestion.sourceRef ?? sourceTopicKey}:follow_up:${nextRepeatCount}`
   };
+}
+
+function createResearchFollowUpIssueForAdditionalQuestion(input: {
+  readonly sessionId: SessionId;
+  readonly sourceQuestion: AmbiguityIssueSnapshot | undefined;
+  readonly researchTask: ResearchTaskProjection;
+  readonly evidenceMatrix: EvidenceMatrixProjection;
+  readonly question: string;
+  readonly index: number;
+  readonly existingResearchFollowUpCount: number;
+}): AmbiguityIssueSnapshot | null {
+  const {
+    evidenceMatrix,
+    existingResearchFollowUpCount,
+    index,
+    question,
+    researchTask,
+    sessionId,
+    sourceQuestion
+  } = input;
+  const repeatLimit = sourceQuestion?.repeatLimit ?? DEFAULT_FOLLOW_UP_QUESTION_LIMIT;
+  const repeatCount = (sourceQuestion?.repeatCount ?? 0) + existingResearchFollowUpCount + index + 1;
+
+  if (repeatCount > repeatLimit) {
+    return null;
+  }
+
+  const sourceTopicKey =
+    sourceQuestion?.businessCriticRepeatGroup ??
+    sourceQuestion?.topicKey ??
+    researchTask.sourceQueueItemId ??
+    researchTask.researchTaskId;
+  const questionToken = stableToken(
+    `${sessionId}:${researchTask.researchTaskId}:${evidenceMatrix.evidenceMatrixId}:${index}:${question}`
+  );
+  const isConEvidenceGap =
+    evidenceMatrix.balanceStatus === "missing_con_evidence" ||
+    evidenceMatrix.balanceStatus === "needs_con_evidence" ||
+    evidenceMatrix.balanceStatus === "blocked_by_con_evidence";
+
+  return {
+    queueItemId: `queue_research_followup_${questionToken}` as QueueItemId,
+    ...(sourceQuestion?.sectionRef ? { sectionRef: sourceQuestion.sectionRef } : {}),
+    topicKey: `${sourceTopicKey}_research_follow_up_${repeatCount}_${questionToken}`,
+    ...(sourceQuestion?.purposeModeAxis ? { purposeModeAxis: sourceQuestion.purposeModeAxis } : {}),
+    ...(sourceQuestion?.purposeModeEffect ? { purposeModeEffect: sourceQuestion.purposeModeEffect } : {}),
+    ...(sourceQuestion?.businessCriticCategory
+      ? { businessCriticCategory: sourceQuestion.businessCriticCategory }
+      : researchTask.businessCriticCategory
+        ? { businessCriticCategory: researchTask.businessCriticCategory }
+        : {}),
+    ...(sourceQuestion?.businessCriticIntensityMinimum
+      ? { businessCriticIntensityMinimum: sourceQuestion.businessCriticIntensityMinimum }
+      : researchTask.businessCriticIntensity
+        ? { businessCriticIntensityMinimum: researchTask.businessCriticIntensity }
+        : {}),
+    ...(sourceQuestion?.businessCriticPressureKind
+      ? { businessCriticPressureKind: sourceQuestion.businessCriticPressureKind }
+      : {}),
+    ...(sourceQuestion?.businessCriticRepeatGroup
+      ? { businessCriticRepeatGroup: sourceQuestion.businessCriticRepeatGroup }
+      : {}),
+    uncertaintyType: isConEvidenceGap ? "missing_con_evidence" : "unsupported",
+    severity: researchTask.impact,
+    summary: `리서치가 생성한 후속 질문: ${compactAnswerExcerpt(question)}`,
+    whyItMatters:
+      "백그라운드/브라우저 리서치가 발견한 근거 공백을 사용자가 답변 가능한 질문으로 되돌려야 아이디어 구체화 루프가 계속됩니다.",
+    status: "open",
+    questionText: question,
+    expectedAnswerType: "evidence",
+    decisionItUnlocks: `리서치 결과 “${compactAnswerExcerpt(researchTask.objective)}”를 스펙, 근거, 구현 범위 판단으로 연결합니다.`,
+    suggestedResearchTask: isConEvidenceGap
+      ? `추가 질문 “${compactAnswerExcerpt(question)}”에 답할 반대근거와 한계를 우선 확인합니다.`
+      : `추가 질문 “${compactAnswerExcerpt(question)}”에 답할 공개 근거와 사용자 신호를 확인합니다.`,
+    repeatCount,
+    repeatLimit,
+    possibleRoutes: isConEvidenceGap
+      ? ["question", "missing_con_evidence", "research_needed"]
+      : ["question", "research_needed", "spec_update_candidate"],
+    sourceRef: `research:${researchTask.researchTaskId}:${evidenceMatrix.evidenceMatrixId}:additional_question:${index + 1}`
+  };
+}
+
+function createResearchFollowUpIssuesForAdditionalQuestions(input: {
+  readonly sessionId: SessionId;
+  readonly openIssues: readonly AmbiguityIssueSnapshot[];
+  readonly researchTask: ResearchTaskProjection;
+  readonly evidenceMatrix: EvidenceMatrixProjection;
+}): readonly AmbiguityIssueSnapshot[] {
+  const sourceQuestion = input.researchTask.sourceQueueItemId
+    ? input.openIssues.find((issue) => issue.queueItemId === input.researchTask.sourceQueueItemId)
+    : undefined;
+  const researchFollowUpSourcePrefix = `research:${input.researchTask.researchTaskId}:`;
+  const existingResearchFollowUpCount = input.openIssues.filter(
+    (issue) =>
+      issue.queueItemId.startsWith("queue_research_followup_") &&
+      issue.sourceRef?.startsWith(researchFollowUpSourcePrefix)
+  ).length;
+
+  return input.evidenceMatrix.additionalQuestions
+    .map((question, index) =>
+      createResearchFollowUpIssueForAdditionalQuestion({
+        sessionId: input.sessionId,
+        sourceQuestion,
+        researchTask: input.researchTask,
+        evidenceMatrix: input.evidenceMatrix,
+        question,
+        index,
+        existingResearchFollowUpCount
+      })
+    )
+    .filter((issue): issue is AmbiguityIssueSnapshot => Boolean(issue));
+}
+
+function appendUniqueOpenIssues(
+  openIssues: readonly AmbiguityIssueSnapshot[],
+  newIssues: readonly AmbiguityIssueSnapshot[]
+): readonly AmbiguityIssueSnapshot[] {
+  const existingIds = new Set(openIssues.map((issue) => issue.queueItemId));
+  const uniqueNewIssues = newIssues.filter((issue) => !existingIds.has(issue.queueItemId));
+
+  return uniqueNewIssues.length ? [...openIssues, ...uniqueNewIssues] : openIssues;
+}
+
+function queueProjectionWithVisibleResearchFollowUps(
+  projection: DecisionQueueProjection,
+  openIssues: readonly AmbiguityIssueSnapshot[],
+  researchFollowUpIssues: readonly AmbiguityIssueSnapshot[],
+  version: ProjectionVersion,
+  generatedAt: string
+): DecisionQueueProjection {
+  const existingQueueItemIds = queueItemIdsInProjection(projection);
+  const followUpItems = researchFollowUpIssues
+    .filter((issue) => issue.status === "open" && !existingQueueItemIds.has(issue.queueItemId))
+    .map((issue) => queueItemProjectionFromIssue(issue, "next"));
+  const projectionWithVisibleFollowUps = followUpItems.length
+    ? refreshQueueProjectionMetadata(
+        {
+          ...projection,
+          next: [...projection.next, ...followUpItems]
+        },
+        version,
+        generatedAt
+      )
+    : projection;
+
+  return queueProjectionWithRefilledActiveQuestions(projectionWithVisibleFollowUps, openIssues, version, generatedAt);
 }
 
 function queueItemRequiresKnownRiskDeferral(item: QueueItemProjection) {
@@ -3807,7 +3958,7 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
     projectionVersionFor(state)
   );
   const researchCard = researchProjection.reviewCards.find((card) => card.researchTaskId === researchTask.researchTaskId);
-  const queueProjection = researchCard
+  const queueProjectionWithReviewCard = researchCard
     ? queueProjectionWithResearchCard(
         state.queueProjection,
         researchCard,
@@ -3823,9 +3974,24 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
         researchProjection.version,
         command.issuedAt
       );
+  const researchFollowUpIssues = createResearchFollowUpIssuesForAdditionalQuestions({
+    sessionId: command.sessionId,
+    openIssues: state.openIssues,
+    researchTask,
+    evidenceMatrix
+  });
+  const nextOpenIssues = appendUniqueOpenIssues(state.openIssues, researchFollowUpIssues);
+  const queueProjection = queueProjectionWithVisibleResearchFollowUps(
+    queueProjectionWithReviewCard,
+    nextOpenIssues,
+    researchFollowUpIssues,
+    researchProjection.version,
+    command.issuedAt
+  );
   const confidenceProjection = buildConfidenceCompletionProjection(
     {
       ...state,
+      openIssues: nextOpenIssues,
       researchState: researchProjection,
       queueProjection
     },
@@ -3838,6 +4004,12 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
     evidencePack,
     projection: researchProjection,
     queueProjection,
+    ...(researchFollowUpIssues.length
+      ? {
+          researchFollowUpIssues,
+          researchFollowUpQueueItemIds: researchFollowUpIssues.map((issue) => issue.queueItemId)
+        }
+      : {}),
     confidenceProjection
   });
 
@@ -3846,6 +4018,7 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
     state,
     event,
     {
+      openIssues: nextOpenIssues,
       researchState: researchProjection,
       queueProjection,
       completeness: confidenceProjection
@@ -9864,10 +10037,14 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
       const researchProjection = projectionPayload(event.payload, state.researchState);
       const queueProjection = queueProjectionPayload(event.payload) ?? state.queueProjection;
       const confidenceProjection = confidenceProjectionPayload(event.payload) ?? state.completeness;
+      const researchFollowUpIssues = Array.isArray(event.payload.researchFollowUpIssues)
+        ? (event.payload.researchFollowUpIssues as readonly AmbiguityIssueSnapshot[])
+        : [];
 
       return {
         ...state,
         stateVersion: nextStateVersion,
+        openIssues: appendUniqueOpenIssues(state.openIssues, researchFollowUpIssues),
         researchState: researchProjection,
         queueProjection,
         completeness: confidenceProjection
