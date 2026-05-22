@@ -597,6 +597,71 @@ function autoImplementationRunStatusForAction(
   }
 }
 
+const AUTO_IMPLEMENTATION_RUN_SOURCE_PREFIX = "auto-implementation-run:";
+
+function autoImplementationRunSourceRunId(sourcePlanningRef: string | undefined) {
+  return sourcePlanningRef?.startsWith(AUTO_IMPLEMENTATION_RUN_SOURCE_PREFIX)
+    ? sourcePlanningRef.slice(AUTO_IMPLEMENTATION_RUN_SOURCE_PREFIX.length)
+    : null;
+}
+
+async function autoImplementationRequestWithValidatedSource(
+  request: CreateAutoImplementationRunRequest,
+  existingProjection: AutoImplementationRunProjection | null,
+  planningHandoffRepository: ReturnType<typeof createPlanningHandoffRepository>
+): Promise<CreateAutoImplementationRunRequest> {
+  const sourceRunId = autoImplementationRunSourceRunId(request.sourcePlanningRef);
+
+  if (sourceRunId !== null) {
+    if (!sourceRunId || !existingProjection?.runs.some((run) => run.runId === sourceRunId)) {
+      throw new ProductEngineServiceError(
+        "COMMAND_PRECONDITION_FAILED",
+        "Auto implementation run-derived requests require an existing source run.",
+        {
+          sourcePlanningRef: request.sourcePlanningRef,
+          sourceRunId,
+          sessionId: request.sessionId
+        }
+      );
+    }
+
+    return request;
+  }
+
+  const planningHandoff = await planningHandoffRepository.getLatestForSession(request.sessionId);
+
+  if (planningHandoff?.currentStatus !== "planning_ready") {
+    throw new ProductEngineServiceError(
+      "COMMAND_PRECONDITION_FAILED",
+      "Auto implementation workspace creation requires a planning_ready Planning Handoff.",
+      {
+        sessionId: request.sessionId,
+        currentPlanningHandoffStatus: planningHandoff?.currentStatus ?? "missing",
+        requiredStatus: "planning_ready"
+      }
+    );
+  }
+
+  const requiredSourcePlanningRef = planningHandoff.finalArtifact.artifactId;
+
+  if (request.sourcePlanningRef && request.sourcePlanningRef !== requiredSourcePlanningRef) {
+    throw new ProductEngineServiceError(
+      "COMMAND_PRECONDITION_FAILED",
+      "Auto implementation workspace sourcePlanningRef must match the latest planning_ready final artifact.",
+      {
+        sessionId: request.sessionId,
+        sourcePlanningRef: request.sourcePlanningRef,
+        requiredSourcePlanningRef
+      }
+    );
+  }
+
+  return {
+    ...request,
+    sourcePlanningRef: requiredSourcePlanningRef
+  };
+}
+
 function validatedLedgerForAutoImplementationStage(
   ledger: ImplementationStepLedgerProjection | null
 ): ImplementationStepLedgerProjection | null {
@@ -6296,9 +6361,17 @@ export function createProductEngineCommandService(
         return existingProjection;
       }
 
-      if (request.githubIssueCreation?.mode === "approved" && existingProjection) {
+      const sourceValidatedRequest = await autoImplementationRequestWithValidatedSource(
+        request,
+        existingProjection,
+        createPlanningHandoffRepository(storage.db)
+      );
+
+      if (sourceValidatedRequest.githubIssueCreation?.mode === "approved" && existingProjection) {
         const requestedProjectFolderName = sanitizeProjectFolderName(
-          request.projectFolderName ?? request.projectName ?? DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME
+          sourceValidatedRequest.projectFolderName ??
+            sourceValidatedRequest.projectName ??
+            DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME
         );
         const hasExistingGitHubIssuesForWorkspace = existingProjection.runs.some((run) =>
           run.projectFolderName === requestedProjectFolderName &&
@@ -6317,7 +6390,7 @@ export function createProductEngineCommandService(
         run = await prepareAutoImplementationWorkspaceRun({
           sessionId: request.sessionId,
           runId,
-          request,
+          request: sourceValidatedRequest,
           workspaceRoot: autoImplementationWorkspaceRoot,
           now,
           ...(autoImplementationRemoteStatusProvider ? { remoteStatusProvider: autoImplementationRemoteStatusProvider } : {}),

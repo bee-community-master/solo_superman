@@ -84,6 +84,7 @@ const fixtureCodexRuntimeAdapter = createCodexRuntimeAdapter({
   now: () => "2026-05-05T00:00:00.000Z",
   env: {}
 });
+const storageByTestApp = new WeakMap<object, Awaited<ReturnType<typeof createSoloStorage>>>();
 
 async function makeTempAppDataDir() {
   const tempDir = await mkdtemp(join(tmpdir(), "solo-superman-sidecar-test-"));
@@ -130,9 +131,13 @@ async function createMigratedStorageApp(
       : {})
   };
 
+  const migratedApp = createSidecarApp(appOptions);
+
+  storageByTestApp.set(migratedApp, storage);
+
   return {
     storage,
-    app: createSidecarApp(appOptions)
+    app: migratedApp
   };
 }
 
@@ -193,8 +198,16 @@ interface RequestTestApp {
 async function postAutoImplementationRunForTest(
   storageApp: RequestTestApp,
   sessionId: string,
-  payload: Readonly<Record<string, unknown>>
+  payload: Readonly<Record<string, unknown>>,
+  options: { readonly seedPlanningReady?: boolean } = {}
 ) {
+  // Auto implementation is a post-planning capability; tests using this helper
+  // seed a real planning-ready handoff unless they explicitly opt out.
+  const sourcePlanningRef = payload.sourcePlanningRef ??
+    (options.seedPlanningReady === false
+      ? undefined
+      : await ensurePlanningReadyForAutoImplementationTest(storageApp, sessionId));
+
   return Promise.resolve(storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
     method: "POST",
     headers: {
@@ -203,6 +216,7 @@ async function postAutoImplementationRunForTest(
     },
     body: JSON.stringify({
       sessionId,
+      ...(sourcePlanningRef ? { sourcePlanningRef } : {}),
       ...payload
     })
   }));
@@ -716,13 +730,20 @@ async function createExecutionAuthorityForTest(
   idSuffix: string,
   overrides: Readonly<Record<string, unknown>> = {}
 ) {
+  const storage = storageByTestApp.get(storageApp);
+  const defaultExpectedStateVersion = storage
+    ? (await createEventRepository(storage.db).listForSession(sessionId as SessionId)).length
+    : 1;
   const response = await storageApp.request(`/api/v1/sessions/${sessionId}/execution-authority`, {
     method: "POST",
     headers: {
       ...authHeaders(),
       "Content-Type": "application/json"
     },
-    body: JSON.stringify(executionAuthorityRequestFixture(sessionId, idSuffix, overrides))
+    body: JSON.stringify(executionAuthorityRequestFixture(sessionId, idSuffix, {
+      expectedStateVersion: defaultExpectedStateVersion,
+      ...overrides
+    }))
   });
   const body = await jsonBody(response);
   const data = body.data as Readonly<Record<string, unknown>>;
@@ -1152,6 +1173,57 @@ async function seedPlanningReadyState(
       }
     }
   });
+}
+
+async function ensurePlanningReadyForAutoImplementationTest(storageApp: RequestTestApp, sessionId: string) {
+  const existing = await storageApp.request(`/api/v1/sessions/${sessionId}/planning-handoff`, {
+    headers: authHeaders()
+  });
+  const existingBody = await jsonBody(existing);
+  const existingProjection = existingBody.data as Readonly<Record<string, unknown>> | null;
+
+  if (existingProjection?.currentStatus === "planning_ready") {
+    return ((existingProjection.finalArtifact as Readonly<Record<string, unknown>>).artifactId as string);
+  }
+
+  const storage = storageByTestApp.get(storageApp);
+
+  if (!storage) {
+    throw new Error("Planning-ready auto implementation test setup requires a migrated storage app.");
+  }
+
+  const eventRepository = createEventRepository(storage.db);
+  const eventsBeforeSeed = await eventRepository.listForSession(sessionId as SessionId);
+  const projectId = eventsBeforeSeed[0]?.projectId;
+
+  if (!projectId) {
+    throw new Error(`Cannot seed planning-ready state for unknown session ${sessionId}.`);
+  }
+
+  await seedPlanningReadyState(storage, projectId, sessionId);
+
+  const expectedStateVersion = (await eventRepository.listForSession(sessionId as SessionId)).length;
+  const created = await storageApp.request(`/api/v1/sessions/${sessionId}/planning-handoff`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      sessionId,
+      expectedStateVersion,
+      sourceRefs: planningReadySourceRefs(sessionId)
+    })
+  });
+  const createdBody = await jsonBody(created);
+  const createdData = createdBody.data as Readonly<Record<string, unknown>>;
+  const immediateProjection = createdData.immediateProjection as Readonly<Record<string, unknown>> | undefined;
+
+  if (created.status !== 200 || immediateProjection?.currentStatus !== "planning_ready") {
+    throw new Error(`Failed to seed planning-ready handoff for auto implementation test session ${sessionId}.`);
+  }
+
+  return ((immediateProjection.finalArtifact as Readonly<Record<string, unknown>>).artifactId as string);
 }
 
 describe("PR-02 sidecar health shell", () => {
@@ -8551,6 +8623,54 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("rejects auto implementation workspace creation before planning-ready handoff", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "A premature auto implementation workspace should stay blocked"
+      );
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:blocked-before-planning-ready",
+        projectName: "Premature Workspace"
+      }, { seedPlanningReady: false });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(400);
+      expect(body.error).toMatchObject({
+        code: "COMMAND_PRECONDITION_FAILED",
+        message: "Auto implementation workspace creation requires a planning_ready Planning Handoff.",
+        details: {
+          currentPlanningHandoffStatus: "missing",
+          requiredStatus: "planning_ready"
+        }
+      });
+
+      await ensurePlanningReadyForAutoImplementationTest(storageApp, sessionId);
+      const mismatchedSource = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:mismatched-planning-source",
+        projectName: "Mismatched Planning Source",
+        sourcePlanningRef: "planning_handoff_wrong_artifact"
+      });
+      const mismatchedBody = await jsonBody(mismatchedSource);
+
+      expect(mismatchedSource.status).toBe(400);
+      expect(mismatchedBody.error).toMatchObject({
+        code: "COMMAND_PRECONDITION_FAILED",
+        message: "Auto implementation workspace sourcePlanningRef must match the latest planning_ready final artifact.",
+        details: {
+          sourcePlanningRef: "planning_handoff_wrong_artifact"
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("creates a workspace/<project> git repo with markdown fallback issues for auto implementation runs", async () => {
     const workspaceRoot = await makeTempAppDataDir();
     const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
@@ -8562,7 +8682,6 @@ describe("PR-02 sidecar health shell", () => {
       const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
         idempotencyKey: "auto-implementation-route:test",
         projectName: "Demo Workspace App",
-        sourcePlanningRef: "planning_handoff_ready_demo",
         trackerGoal: "Build the planned demo workspace app through reviewed PR-sized stages."
       });
       const body = await jsonBody(response);
@@ -8820,10 +8939,7 @@ describe("PR-02 sidecar health shell", () => {
       const { recordId: wrongScopeAuthorityId } = await createExecutionAuthorityForTest(
         storageApp,
         sessionId,
-        "auto_worker_wrong_scope",
-        {
-          expectedStateVersion: 2
-        }
+        "auto_worker_wrong_scope"
       );
       const wrongScopeJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
         idempotencyKey: "worker-job:wrong-scope-authority",
@@ -8847,7 +8963,6 @@ describe("PR-02 sidecar health shell", () => {
         sessionId,
         "auto_worker_wrong_action",
         {
-          expectedStateVersion: 3,
           actionClass: "shell_command",
           requestedScope: {
             workspaceRef: join(workspaceRoot, "worker-job-demo"),
@@ -8887,7 +9002,6 @@ describe("PR-02 sidecar health shell", () => {
         sessionId,
         "auto_worker_initial_pr",
         {
-          expectedStateVersion: 4,
           requestedScope: {
             workspaceRef: join(workspaceRoot, "worker-job-demo"),
             filePathGlobs: ["**/*"]
