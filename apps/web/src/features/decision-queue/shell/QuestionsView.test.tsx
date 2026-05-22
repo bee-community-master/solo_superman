@@ -20,6 +20,9 @@ const DEFAULT_QUESTION_PROGRESS = {
   terminalQuestionCount: 0,
   followUpQuestionCount: 0,
   followUpOpenQuestionCount: 0,
+  topicCoverageCount: 0,
+  openTopicCoverageCount: 0,
+  followUpBudgetRemainingCount: 0,
   visibleQuestionDebtCount: 0,
   activeQuestionCount: 0,
   upcomingQuestionCount: 0,
@@ -173,6 +176,9 @@ describe("QuestionsView", () => {
         terminalQuestionCount: 5,
         followUpQuestionCount: 8,
         followUpOpenQuestionCount: 7,
+        topicCoverageCount: 12,
+        openTopicCoverageCount: 9,
+        followUpBudgetRemainingCount: 40,
         visibleQuestionDebtCount: 6,
         activeQuestionCount: 5,
         upcomingQuestionCount: 1,
@@ -187,11 +193,17 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Visible now");
     expect(markup).toContain("Answered");
     expect(markup).toContain("Follow-ups");
+    expect(markup).toContain("Topics covered");
+    expect(markup).toContain("Open topics");
+    expect(markup).toContain("Follow-up budget");
     expect(markup).toContain("Blocked");
     expect(markup).toContain("<dd>23</dd>");
     expect(markup).toContain("<dd>18</dd>");
     expect(markup).toContain("<dd>6</dd>");
     expect(markup).toContain("<dd>8</dd>");
+    expect(markup).toContain("<dd>12</dd>");
+    expect(markup).toContain("<dd>9</dd>");
+    expect(markup).toContain("<dd>40</dd>");
   });
 
   it("renders research-generated additional questions on research-updated queue cards", () => {

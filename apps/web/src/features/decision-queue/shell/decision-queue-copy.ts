@@ -167,6 +167,9 @@ const EN_COPY = {
     questionProgressVisible: "Visible now",
     questionProgressAnswered: "Answered",
     questionProgressFollowUps: "Follow-ups",
+    questionProgressTopics: "Topics covered",
+    questionProgressOpenTopics: "Open topics",
+    questionProgressFollowUpBudget: "Follow-up budget",
     questionProgressBlocked: "Blocked",
     researchAdditionalQuestions: "Research-generated questions",
     businessCriticCategoryLabels: {
@@ -564,6 +567,9 @@ const JA_COPY: typeof EN_COPY = {
     questionProgressVisible: "表示中",
     questionProgressAnswered: "回答済み",
     questionProgressFollowUps: "追加質問",
+    questionProgressTopics: "対象トピック",
+    questionProgressOpenTopics: "未解決トピック",
+    questionProgressFollowUpBudget: "追加質問枠",
     questionProgressBlocked: "ブロック中",
     researchAdditionalQuestions: "リサーチ生成の質問",
     businessCriticCategoryLabels: {
@@ -961,6 +967,9 @@ const KO_COPY: typeof EN_COPY = {
     questionProgressVisible: "지금 보이는 질문",
     questionProgressAnswered: "답변됨",
     questionProgressFollowUps: "후속 질문",
+    questionProgressTopics: "다룬 주제",
+    questionProgressOpenTopics: "남은 주제",
+    questionProgressFollowUpBudget: "후속 질문 여유",
     questionProgressBlocked: "막힘",
     researchAdditionalQuestions: "리서치가 생성한 질문",
     businessCriticCategoryLabels: {
