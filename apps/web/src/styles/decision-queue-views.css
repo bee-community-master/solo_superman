@@ -283,6 +283,34 @@
   font-size: 0.72rem;
 }
 
+.question-fatigue-checkpoint {
+  display: grid;
+  gap: 7px;
+  border: 1px solid #eadcc5;
+  border-radius: 10px;
+  background: #fffaf2;
+  margin-top: 12px;
+  padding: 12px;
+}
+
+.question-fatigue-checkpoint.level-break_recommended {
+  border-color: #efc0b7;
+  background: #fff7f5;
+}
+
+.question-fatigue-checkpoint strong {
+  color: var(--solo-text);
+  font-size: 0.84rem;
+}
+
+.question-fatigue-checkpoint p,
+.question-fatigue-checkpoint small {
+  margin: 0;
+  color: var(--solo-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
 .queue-recovery {
   display: grid;
   gap: 4px;

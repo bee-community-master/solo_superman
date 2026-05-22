@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { QueueItemProjection } from "@solo-superman/contracts";
+import { questionFatigueViewModel } from "../decision-queue-view-model";
 import { isBusinessCriticQueueItem } from "./decision-queue-shell-model";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
@@ -51,6 +52,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     submitAnswer
   } = controller;
   const completionPercent = boundedPercent(questionProgress.completionPercent);
+  const questionFatigue = questionFatigueViewModel(questionProgress);
 
   return (
     <div className="view-grid questions-view">
@@ -130,6 +132,25 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
             </div>
           </dl>
         </section>
+        {questionFatigue.shouldShow ? (
+          <section
+            className={`question-fatigue-checkpoint level-${questionFatigue.level}`}
+            aria-label={copy.questions.questionFatigueStatusLabels[questionFatigue.level]}
+          >
+            <strong>{copy.questions.questionFatigueStatusLabels[questionFatigue.level]}</strong>
+            <p>
+              {copy.questions.questionFatigueSummary(
+                questionFatigue.openQuestionCount,
+                questionFatigue.generatedQuestionCount,
+                questionFatigue.completionPercent
+              )}
+            </p>
+            <p>{copy.questions.questionFatigueHelp}</p>
+            <small>
+              {copy.questions.questionFatigueFollowUpBudget(questionFatigue.followUpBudgetRemainingCount)}
+            </small>
+          </section>
+        ) : null}
         <div className="queue-sections">
           {sections.map((section) => (
             <section className="queue-section" key={section.id}>

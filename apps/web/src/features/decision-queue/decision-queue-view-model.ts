@@ -53,6 +53,27 @@ export interface QuestionProgressViewModel {
   readonly completionPercent: number;
 }
 
+export type QuestionFatigueLevel = "checkpoint" | "break_recommended";
+
+export interface QuestionFatigueViewModel {
+  readonly shouldShow: boolean;
+  readonly level: QuestionFatigueLevel;
+  readonly generatedQuestionCount: number;
+  readonly openQuestionCount: number;
+  readonly completionPercent: number;
+  readonly followUpBudgetRemainingCount: number;
+}
+
+const QUESTION_FATIGUE_MIN_GENERATED = 20;
+const QUESTION_FATIGUE_MIN_OPEN = 12;
+const QUESTION_FATIGUE_MIN_VISIBLE = 6;
+const QUESTION_FATIGUE_MIN_FOLLOW_UP_OPEN = 6;
+const QUESTION_FATIGUE_MIN_FOLLOW_UP_BUDGET = 30;
+const QUESTION_FATIGUE_MAX_COMPLETION = 40;
+const QUESTION_FATIGUE_BREAK_GENERATED = 50;
+const QUESTION_FATIGUE_BREAK_OPEN = 30;
+const QUESTION_FATIGUE_BREAK_FOLLOW_UP_BUDGET = 60;
+
 export type Phase15aExitGateStatus = "ready_for_1_5b" | "blocked_for_1_5b";
 
 export interface Phase15aOperationsInput {
@@ -244,6 +265,34 @@ export function questionProgressViewModel(queue: DecisionQueueProjection | null)
     upcomingQuestionCount: queue?.progress?.upcomingQuestionCount ?? (queue ? countQuestionDebtItems(queue.next) : 0),
     blockedQuestionCount: queue?.progress?.blockedQuestionCount ?? (queue ? countQuestionDebtItems(queue.blocked) : 0),
     completionPercent: queue?.progress?.completionPercent ?? 0
+  };
+}
+
+export function questionFatigueViewModel(progress: QuestionProgressViewModel): QuestionFatigueViewModel {
+  const completionPercent = Math.min(100, Math.max(0, progress.completionPercent));
+  const hasLongSessionSignals =
+    progress.generatedQuestionCount >= QUESTION_FATIGUE_MIN_GENERATED ||
+    progress.followUpBudgetRemainingCount >= QUESTION_FATIGUE_MIN_FOLLOW_UP_BUDGET;
+  const hasHighOpenDebt =
+    progress.openQuestionCount >= QUESTION_FATIGUE_MIN_OPEN ||
+    progress.visibleQuestionDebtCount >= QUESTION_FATIGUE_MIN_VISIBLE ||
+    progress.followUpOpenQuestionCount >= QUESTION_FATIGUE_MIN_FOLLOW_UP_OPEN;
+  const shouldShow =
+    hasLongSessionSignals &&
+    hasHighOpenDebt &&
+    completionPercent < QUESTION_FATIGUE_MAX_COMPLETION;
+  const breakRecommended =
+    progress.generatedQuestionCount >= QUESTION_FATIGUE_BREAK_GENERATED ||
+    progress.openQuestionCount >= QUESTION_FATIGUE_BREAK_OPEN ||
+    progress.followUpBudgetRemainingCount >= QUESTION_FATIGUE_BREAK_FOLLOW_UP_BUDGET;
+
+  return {
+    shouldShow,
+    level: shouldShow && breakRecommended ? "break_recommended" : "checkpoint",
+    generatedQuestionCount: progress.generatedQuestionCount,
+    openQuestionCount: progress.openQuestionCount,
+    completionPercent,
+    followUpBudgetRemainingCount: progress.followUpBudgetRemainingCount
   };
 }
 

@@ -179,6 +179,14 @@ const EN_COPY = {
     questionProgressOpenTopics: "Open topics",
     questionProgressFollowUpBudget: "Follow-up budget",
     questionProgressBlocked: "Blocked",
+    questionFatigueStatusLabels: {
+      checkpoint: "Fatigue checkpoint",
+      break_recommended: "Break recommended"
+    },
+    questionFatigueSummary: (open: number, generated: number, percent: number) =>
+      `${open} open questions remain after ${percent}% handled across ${generated} generated questions.`,
+    questionFatigueHelp: "Answer only the current batch, carry uncertain assumptions as known risks, or pause before loading more.",
+    questionFatigueFollowUpBudget: (count: number) => `${count} follow-up slots remain; use them deliberately.`,
     researchAdditionalQuestions: "Research-generated questions",
     businessCriticCategoryLabels: {
       customer_pain: "Customer pain",
@@ -671,6 +679,14 @@ const JA_COPY: typeof EN_COPY = {
     questionProgressOpenTopics: "未解決トピック",
     questionProgressFollowUpBudget: "追加質問枠",
     questionProgressBlocked: "ブロック中",
+    questionFatigueStatusLabels: {
+      checkpoint: "疲労チェックポイント",
+      break_recommended: "休憩を推奨"
+    },
+    questionFatigueSummary: (open: number, generated: number, percent: number) =>
+      `${generated}件の生成済み質問のうち${percent}%を処理済みで、未解決が${open}件残っています。`,
+    questionFatigueHelp: "今の質問セットだけに答える、弱い仮説を既知リスクとして残す、または次を読み込む前に一度止めることができます。",
+    questionFatigueFollowUpBudget: (count: number) => `追加質問枠は${count}件残っています。意図的に使ってください。`,
     researchAdditionalQuestions: "リサーチ生成の質問",
     businessCriticCategoryLabels: {
       customer_pain: "顧客の痛み",
@@ -1163,6 +1179,14 @@ const KO_COPY: typeof EN_COPY = {
     questionProgressOpenTopics: "남은 주제",
     questionProgressFollowUpBudget: "후속 질문 여유",
     questionProgressBlocked: "막힘",
+    questionFatigueStatusLabels: {
+      checkpoint: "피로 체크포인트",
+      break_recommended: "잠시 쉬기 권장"
+    },
+    questionFatigueSummary: (open: number, generated: number, percent: number) =>
+      `생성된 질문 ${generated}개 중 ${percent}%를 처리했고, 아직 ${open}개가 남아 있습니다.`,
+    questionFatigueHelp: "현재 질문 묶음만 답하거나, 불확실한 가정은 알려진 리스크로 남기거나, 더 불러오기 전에 잠시 멈출 수 있습니다.",
+    questionFatigueFollowUpBudget: (count: number) => `후속 질문 여유가 ${count}개 남았습니다. 의도적으로 사용하세요.`,
     researchAdditionalQuestions: "리서치가 생성한 질문",
     businessCriticCategoryLabels: {
       customer_pain: "고객 문제",
