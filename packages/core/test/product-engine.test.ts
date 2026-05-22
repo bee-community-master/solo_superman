@@ -258,7 +258,7 @@ describe("PR-04 ProductEngine reducer", () => {
           ]),
           possibleRoutes: expect.arrayContaining(["question", "decision_candidate"]),
           repeatCount: 0,
-          repeatLimit: 3
+          repeatLimit: 8
         }),
         expect.objectContaining({
           sectionRef: "Target Customer",
@@ -1623,6 +1623,47 @@ describe("PR-04 ProductEngine reducer", () => {
       }, 6),
       state
     );
+    const sourceIssue = state.openIssues.find((issue) => issue.queueItemId === answeredQueueItemId);
+    const firstActiveItem = state.queueProjection.active[0];
+
+    if (!sourceIssue || !firstActiveItem) {
+      throw new Error("Expected the setup state to contain an active source question.");
+    }
+
+    const visibleFollowUpAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: answeredQueueItemId,
+        answer: "Narrow the first proof around founder teams with repeated manual planning pain."
+      }, 7),
+      {
+        ...state,
+        openIssues: [sourceIssue],
+        queueProjection: {
+          ...state.queueProjection,
+          active: [firstActiveItem],
+          next: [],
+          blocked: [],
+          deferred: []
+        }
+      }
+    );
+    const sensitiveFollowUpAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: answeredQueueItemId,
+        answer: "Use api_key=sk-secret-answer-value only as a fake local note."
+      }, 7),
+      {
+        ...state,
+        openIssues: [sourceIssue],
+        queueProjection: {
+          ...state.queueProjection,
+          active: [firstActiveItem],
+          next: [],
+          blocked: [],
+          deferred: []
+        }
+      }
+    );
     const answer = reduceProductEngineCommand(
       command("SubmitAnswer", 5, {
         queueItemId: answeredQueueItemId,
@@ -1643,6 +1684,24 @@ describe("PR-04 ProductEngine reducer", () => {
         code: "COMMAND_PRECONDITION_FAILED"
       }
     });
+    expect(visibleFollowUpAnswer.accepted).toBe(true);
+    expect(visibleFollowUpAnswer.immediateProjection).toMatchObject({
+      kind: "DecisionQueueProjection",
+      active: [
+        expect.objectContaining({
+          cardType: "follow_up_question",
+          state: "active",
+          title: expect.stringContaining("founder teams with repeated manual planning pain")
+        })
+      ],
+      next: [
+        expect.objectContaining({
+          state: "next"
+        })
+      ]
+    });
+    expect(JSON.stringify(sensitiveFollowUpAnswer.immediateProjection)).toContain("[민감한 값 숨김]");
+    expect(JSON.stringify(sensitiveFollowUpAnswer.immediateProjection)).not.toContain("sk-secret-answer-value");
     expect(answer.accepted).toBe(true);
     expect(answer.effectPlan).toMatchObject([
       {
@@ -1690,6 +1749,24 @@ describe("PR-04 ProductEngine reducer", () => {
         }
       }
     });
+    expect(answer.nextState.openIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "open",
+          topicKey: expect.stringContaining("_follow_up_1"),
+          repeatCount: 1,
+          repeatLimit: 8,
+          expectedAnswerType: "text",
+          questionText: expect.stringContaining("paid founder urgency"),
+          possibleRoutes: expect.arrayContaining(["question", "research_needed"])
+        })
+      ])
+    );
+    expect(answer.events[0]?.payload).toMatchObject({
+      followUpQueueItemId: expect.stringMatching(/^queue_followup_/),
+      followUpRepeatCount: 1,
+      followUpRepeatLimit: 8
+    });
 
     const replayed = replayProductEngineEvents(projectId, sessionId, [
       ...persistedEvents.map((eventDraft, index) => ({
@@ -1716,6 +1793,15 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(replayed.queueProjection.active.every((item) => item.state === "active")).toBe(true);
     expect(replayed.queueProjection.active).toHaveLength(5);
     expect(replayed.queueProjection.next).toHaveLength(1);
+    expect(replayed.openIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          topicKey: expect.stringContaining("_follow_up_1"),
+          repeatCount: 1,
+          status: "open"
+        })
+      ])
+    );
     expect(replayed.researchState.tasks).toHaveLength(1);
     expect(replayed.researchState.tasks[0]).toMatchObject({
       projectPurposeMode: "business",
