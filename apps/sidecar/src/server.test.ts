@@ -8291,13 +8291,23 @@ describe("PR-02 sidecar health shell", () => {
 
       const tracker = await readFile(join(projectDir, "implementation-tracker.md"), "utf8");
       const firstIssue = await readFile(join(projectDir, "implementation-issues", "001-initial_pr.md"), "utf8");
+      const finalVerifyIssue = await readFile(join(projectDir, "implementation-issues", "006-final_verify_pr_update.md"), "utf8");
+      const mergeIssue = await readFile(join(projectDir, "implementation-issues", "007-merge_main.md"), "utf8");
       const manifest = JSON.parse(await readFile(join(projectDir, ".solo-superman", "auto-implementation-run.json"), "utf8")) as
         Readonly<Record<string, unknown>>;
       const gitHead = await readFile(join(projectDir, ".git", "HEAD"), "utf8");
 
       expect(tracker).toContain("Remote status: no_remote");
       expect(tracker).toContain("git remote add origin <github-repo-url>");
+      expect(tracker).toContain("Do not merge until the feature PR code review reaches two consecutive no-finding passes");
+      expect(tracker).toContain("Update the PR body with scope, review streak evidence, test evidence");
       expect(firstIssue).toContain("## Acceptance");
+      expect(firstIssue).toContain("## Required review gates");
+      expect(firstIssue).toContain("Create the smallest behavior-complete implementation for this issue slice.");
+      expect(firstIssue).toContain("Review streak evidence is recorded before the next stage is marked complete.");
+      expect(finalVerifyIssue).toContain("Audit missing tests against the issue acceptance criteria");
+      expect(finalVerifyIssue).toContain("Update the PR description with scope, review streaks, exact verification commands");
+      expect(mergeIssue).toContain("Sync main after merge and rerun the full verification command on main.");
       expect(manifest).toMatchObject({
         runId: latestRun.runId,
         projectFolderName: "demo-workspace-app",
