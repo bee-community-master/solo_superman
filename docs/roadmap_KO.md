@@ -12,7 +12,7 @@ Roadmap은 contributor map이며 user-facing UI vocabulary가 아닙니다. code
 | Research and evidence | Allowlisted read-only research, evidence matrix, pro/con/uncertainty, skeptical search. | Research-updated Queue with residual risks and research-generated follow-up questions explicitly listed instead of hidden. |
 | Planning handoff | Build Slice Plan, Serve Checklist, Learning Loop Hook, blocker report when not ready. | Planning-ready artifact or explicit blocker artifact. |
 | Controlled execution | ExecutionAuthorityRecord ledger plus `file_diff`, `shell_command`, `browser_action` adapters. | Approved and blocked dry-runs with evidence and rollback refs. |
-| Full-vision backlog | business/personal mode, business critic intensity, ChatGPT local browser delegation, service page-use permission, implementation step ledger. | Contributors can implement tracked work without inventing new safety defaults. |
+| Full-vision backlog | business/personal mode, business critic intensity, ChatGPT local browser delegation, service page-use permission, implementation step ledger, workspace auto implementation run bootstrap. | Contributors can implement tracked work without inventing new safety defaults. |
 
 ## 단계 이력 요약
 
@@ -22,11 +22,13 @@ Roadmap은 contributor map이며 user-facing UI vocabulary가 아닙니다. code
 - Phase 2: Planning Handoff. Evidence와 risk gate를 통과할 때만 final PlanningHandoffArtifact를 만들고, 그렇지 않으면 blocker report를 만듭니다.
 - Phase 2.5: Browser Automation Preview. Research quality와 delegation risk를 비교하는 no-execution 단계이며, submit/write/deploy/mutate, credential 저장, account sharing, DTO/API/storage preflight 구현을 허용하지 않습니다.
 - Phase 3: Controlled Execution. MVP action class는 common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action` 순서로만 열립니다.
-- Post-Phase3: Full-vision backlog. purpose mode, critic intensity, local ChatGPT browser delegation, external service permission, implementation step ledger, cross-platform install/run verification을 추가합니다.
+- Post-Phase3: Full-vision backlog. purpose mode, critic intensity, local ChatGPT browser delegation, external service permission, implementation step ledger, workspace auto implementation run bootstrap, cross-platform install/run verification을 추가합니다.
 
 ## Auto implementation workspace / 자동 구현 작업공간
 
 Planning이 충분히 상세해지면 Solo Superman은 `workspace/<project>` 아래에 독립 generated-program repo를 준비할 수 있습니다. 첫 화면은 local git repo, `implementation-tracker.md`, 7개의 markdown fallback issue document, `.solo-superman/auto-implementation-run.json`을 만듭니다. 생성된 문서에는 tracker/step doc, commit 또는 no-code evidence, scoped code-review 및 clean-code-review streak, test evidence, blocker, evidence ref를 위한 `ImplementationStepLedger` evidence template가 포함됩니다. GitHub remote나 login이 없으면 issue/PR automation이 성공한 것처럼 보이지 않고, visible remote warning과 connection guide를 유지한 채 local work를 계속합니다.
+
+GitHub issue mutation은 markdown generation과 별도의 contract gate를 통과해야 합니다. `githubIssueCreation`은 no mutation, dry-run readiness check, approved readiness check를 요청할 수 있지만, external write에는 여전히 connected remote status, per-action approval evidence, rollback plan, audit refs, verifier coverage가 필요합니다. Blocked remote state에서는 `githubIssueUrls`를 비우고 local markdown issue path를 source of truth로 유지합니다.
 
 ## 이슈 이력
 

@@ -48,3 +48,5 @@ A permission record must include service origin, purpose, allowed action classes
 ## Auto implementation workspace / 자동 구현 작업공간
 
 Generated programs live in independent local git repos under `workspace/<project>`, not inside product source files. The workspace bootstrap may create local tracker/issue markdown files and a manifest, but it must not create remote GitHub issues, open PRs, merge branches, deploy, or store credentials unless a later explicit remote-runner contract and user-owned authentication boundary allow that action. Missing remote or `gh` login is represented as a visible local fallback with connection commands.
+
+Markdown-ready output is not permission to mutate GitHub. A GitHub issue creation request must carry an explicit `githubIssueCreation` mode, pass a connected GitHub remote/login check, and record per-action approval, rollback, audit, and verifier evidence before any external write can occur. Remote states such as `no_remote`, `not_authenticated`, `permission_denied`, `offline`, or `unsupported_remote` keep `githubIssueUrls` empty and expose a blocked mutation contract while local markdown issue paths remain visible.

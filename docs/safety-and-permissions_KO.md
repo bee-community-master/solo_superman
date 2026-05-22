@@ -44,3 +44,9 @@ Action은 bounded source, preview, approval, rollback, evidence metadata를 가�
 Vercel, Supabase, Stripe, GitHub, domain/DNS, app stores 같은 SaaS page에는 account delegation이 아니라 purpose-limited ServicePageUsePermission style permission을 사용해야 합니다.
 
 Permission record는 service origin, purpose, allowed action classes, blocked action classes, visible data categories, approval granularity, revoke state, audit refs, evidence refs를 포함해야 합니다. Draft filling과 final submit은 다른 permission입니다. final submit은 production-mutation contract가 생기기 전까지 blocked입니다.
+
+## Auto implementation workspace / 자동 구현 작업공간
+
+Generated program은 product source file 안이 아니라 `workspace/<project>` 아래의 독립 local git repo에 생성됩니다. Workspace bootstrap은 local tracker/issue markdown file과 manifest를 만들 수 있지만, later explicit remote-runner contract와 user-owned authentication boundary가 허용하기 전에는 remote GitHub issue 생성, PR 열기, branch merge, deploy, credential 저장을 수행하면 안 됩니다. Remote나 `gh` login이 없으면 visible local fallback과 connection command로 표현합니다.
+
+Markdown-ready output은 GitHub mutation permission이 아닙니다. GitHub issue creation request는 명시적 `githubIssueCreation` mode, connected GitHub remote/login check, per-action approval, rollback, audit, verifier evidence를 갖춰야 external write를 할 수 있습니다. `no_remote`, `not_authenticated`, `permission_denied`, `offline`, `unsupported_remote` 같은 remote state에서는 `githubIssueUrls`를 비워 두고 blocked mutation contract를 보여 주며 local markdown issue path를 계속 표시해야 합니다.
