@@ -1,17 +1,19 @@
-import type {
-  AutoImplementationGitHubIssuePlan,
-  AutoImplementationIssueDocument,
-  AutoImplementationPullRequestMutationRecord,
-  AutoImplementationRunProjection,
-  AutoImplementationStageReviewGate,
-  AutoImplementationStageRecord,
-  AutoImplementationWorkerExecutionPlan,
-  AutoImplementationWorkerJob,
-  ImplementationStepLedgerProjection
+import {
+  type AutoImplementationGitHubIssuePlan,
+  type AutoImplementationIssueDocument,
+  type AutoImplementationPullRequestMutationRecord,
+  type AutoImplementationRunProjection,
+  type AutoImplementationStageReviewGate,
+  type AutoImplementationStageRecord,
+  type AutoImplementationWorkerExecutionPlan,
+  type AutoImplementationWorkerJob,
+  type ImplementationStepLedgerProjection
 } from "@solo-superman/contracts";
 import { canCompleteAutoImplementationWorkerFromLedger } from "./auto-implementation-worker-completion-request";
 import {
+  canPlanCurrentStageAutoImplementationWorkerJob,
   canImportAutoImplementationWorkerLedger,
+  canRunAutoImplementationWorkerJob,
   latestCurrentStageAutoImplementationWorkerJob
 } from "./auto-implementation-worker-job-selection";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
@@ -164,12 +166,7 @@ export function autoImplementationRunViewModel(
         evidenceRefs: latestWorkerJob.evidenceRefs
       }
     : null;
-  const canRunWorkerJob = latestWorkerJob?.status === "planned" ||
-    (
-      latestWorkerJob?.status === "blocked" &&
-      latestWorkerJob.missingEvidence.length === 1 &&
-      latestWorkerJob.missingEvidence[0] === "Local Codex worker execution"
-    );
+  const canRunWorkerJob = canRunAutoImplementationWorkerJob(latestWorkerJob);
   const hasReadyPullRequestDryRun = (action: AutoImplementationPullRequestMutationRecord["action"]) =>
     pullRequestMutationRecords.some((record) =>
       record.action === action &&
@@ -209,7 +206,7 @@ export function autoImplementationRunViewModel(
     latestWorkerJobId: latestWorkerJob?.jobId ?? null,
     latestWorkerJobStatus: latestWorkerJob?.status ?? "not_planned",
     latestWorkerPlan,
-    canPlanWorkerJob: run.status !== "completed",
+    canPlanWorkerJob: canPlanCurrentStageAutoImplementationWorkerJob(run),
     canRecordStageTick: run.status !== "completed",
     canStartStage: run.status !== "completed" &&
       currentStageRecord !== null &&

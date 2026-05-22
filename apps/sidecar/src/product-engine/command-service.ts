@@ -19,8 +19,13 @@ import {
   AUTO_IMPLEMENTATION_STAGES,
   AUTO_IMPLEMENTATION_TICK_INTERVAL_MS,
   AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
+  AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE,
   AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS,
   AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY,
+  canCompleteAutoImplementationWorkerJob,
+  canImportAutoImplementationWorkerLedger,
+  canPlanCurrentStageAutoImplementationWorkerJob,
+  canRunAutoImplementationWorkerJob,
   autoImplementationWorkerExpectedChangeScope,
   autoImplementationWorkerLedgerStepDescription,
   validateAutoImplementationRunProjection,
@@ -715,17 +720,6 @@ function assertAutoImplementationWorkerExecutionAuthorityRef(executionAuthorityR
   }
 }
 
-const AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE = {
-  authority: "ExecutionAuthorityRecord",
-  readyAuthority: "ExecutionAuthorityRecord.ready_for_execution",
-  fileDiffAuthority: "ExecutionAuthorityRecord.file_diff_action",
-  generatedWorkspaceScope: "ExecutionAuthorityRecord.generated_workspace_scope",
-  noSecretValues: "ExecutionAuthorityRecord.no_secret_values",
-  completedLedgerStep: "ImplementationStepLedger completed step",
-  ledgerImport: "ImplementationStepLedger import",
-  workerExecution: "Local Codex worker execution"
-} as const;
-
 function autoImplementationWorkerCompletionRef(request: CompleteAutoImplementationWorkerJobRequest) {
   return `auto-worker-job-complete:${request.jobId}:${request.idempotencyKey}`;
 }
@@ -995,28 +989,6 @@ function autoImplementationWorkerLedgerImportMismatch(
   }
 
   return null;
-}
-
-function isAutoImplementationWorkerLedgerImportCandidate(job: AutoImplementationWorkerJob) {
-  return job.status === "planned" ||
-    (
-      job.status === "blocked" &&
-      job.missingEvidence.length === 1 &&
-      (
-        job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.completedLedgerStep ||
-        job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.ledgerImport ||
-        job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.workerExecution
-      )
-    );
-}
-
-function isAutoImplementationWorkerExecutionCandidate(job: AutoImplementationWorkerJob) {
-  return job.status === "planned" ||
-    (
-      job.status === "blocked" &&
-      job.missingEvidence.length === 1 &&
-      job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.workerExecution
-    );
 }
 
 function normalizeLegacyAutoImplementationWorkerJob(
@@ -1322,16 +1294,6 @@ function autoImplementationWorkerJob(input: {
       ...(missingEvidence.length ? [`worker-blocked:${missingEvidence.join("+")}`] : [])
     ])
   };
-}
-
-function canCompleteAutoImplementationWorkerJob(job: AutoImplementationWorkerJob) {
-  return job.status === "planned" ||
-    job.status === "completed" ||
-    (
-      job.status === "blocked" &&
-      job.missingEvidence.length === 1 &&
-      job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.completedLedgerStep
-    );
 }
 
 function autoImplementationStageTickRecord(input: {
@@ -4841,7 +4803,7 @@ export function createProductEngineCommandService(
       return existingProjection;
     }
 
-    if (!isAutoImplementationWorkerLedgerImportCandidate(workerJob)) {
+    if (!canImportAutoImplementationWorkerLedger(workerJob)) {
       throw new ProductEngineServiceError(
         "VALIDATION_FAILED",
         "Only planned worker jobs or ledger-blocked worker jobs can import ImplementationStepLedger evidence."
@@ -5047,7 +5009,7 @@ export function createProductEngineCommandService(
         return existingProjection;
       }
 
-      if (!isAutoImplementationWorkerExecutionCandidate(workerJob)) {
+      if (!canRunAutoImplementationWorkerJob(workerJob)) {
         throw new ProductEngineServiceError(
           "VALIDATION_FAILED",
           "Only planned worker jobs or execution-blocked worker jobs can run a local Codex worker."
@@ -6377,6 +6339,14 @@ export function createProductEngineCommandService(
         throw new ProductEngineServiceError(
           "VALIDATION_FAILED",
           "Auto implementation worker jobs require a current-stage issue document."
+        );
+      }
+
+      if (!canPlanCurrentStageAutoImplementationWorkerJob(run)) {
+        throw new ProductEngineServiceError(
+          "VALIDATION_FAILED",
+          "The current auto implementation stage already has a usable local Codex worker job; run, import, complete, or advance it before planning another worker job.",
+          { runId: run.runId, currentStage: run.currentStage }
         );
       }
 

@@ -38,7 +38,10 @@ import {
   buildAutoImplementationWorkerAuthorityRequest,
   buildAutoImplementationWorkerJobRequest
 } from "../auto-implementation-worker-authority-request";
-import { latestCurrentStageAutoImplementationWorkerJob } from "../auto-implementation-worker-job-selection";
+import {
+  canPlanCurrentStageAutoImplementationWorkerJob,
+  latestCurrentStageAutoImplementationWorkerJob
+} from "../auto-implementation-worker-job-selection";
 import { chatGptDelegationViewModel } from "../ChatGptDelegationPanel";
 import { implementationStepLedgerViewModel } from "../ImplementationStepLedgerPanel";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
@@ -524,6 +527,11 @@ export function useDecisionQueueShellController() {
 
     if (!client || !sessionId || !run) {
       setWorkflowError("An active auto implementation workspace run is required before planning a local worker job.");
+      return;
+    }
+
+    if (!canPlanCurrentStageAutoImplementationWorkerJob(run)) {
+      setWorkflowError("Continue the latest current-stage worker with run, import, complete, or advance before planning another local worker job.");
       return;
     }
 

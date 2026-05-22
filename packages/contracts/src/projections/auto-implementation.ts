@@ -51,6 +51,16 @@ export const AUTO_IMPLEMENTATION_STAGE_STATUSES = [
 
 export const AUTO_IMPLEMENTATION_STAGE_ACTIONS = ["tick", "start", "pause", "block", "complete"] as const;
 export const AUTO_IMPLEMENTATION_WORKER_JOB_STATUSES = ["planned", "blocked", "completed"] as const;
+export const AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE = {
+  authority: "ExecutionAuthorityRecord",
+  readyAuthority: "ExecutionAuthorityRecord.ready_for_execution",
+  fileDiffAuthority: "ExecutionAuthorityRecord.file_diff_action",
+  generatedWorkspaceScope: "ExecutionAuthorityRecord.generated_workspace_scope",
+  noSecretValues: "ExecutionAuthorityRecord.no_secret_values",
+  completedLedgerStep: "ImplementationStepLedger completed step",
+  ledgerImport: "ImplementationStepLedger import",
+  workerExecution: "Local Codex worker execution"
+} as const;
 export const AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE = "local_sandboxed_codex" as const;
 export const AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL =
   "Complete the staged auto implementation protocol with review, clean-code, test, PR, and merge evidence.";
@@ -420,6 +430,69 @@ export interface AutoImplementationRunProjection {
   readonly summary: string;
   readonly refetchUrl: string;
   readonly schemaVersion: SchemaVersion;
+}
+
+function autoImplementationWorkerJobs(run: AutoImplementationRun): readonly AutoImplementationWorkerJob[] {
+  return Array.isArray((run as { readonly workerJobs?: unknown }).workerJobs)
+    ? run.workerJobs
+    : [];
+}
+
+export function latestCurrentStageAutoImplementationWorkerJob(
+  run: AutoImplementationRun | null
+): AutoImplementationWorkerJob | null {
+  if (!run) {
+    return null;
+  }
+
+  return [...autoImplementationWorkerJobs(run)].reverse().find((job) => job.stage === run.currentStage) ?? null;
+}
+
+export function canImportAutoImplementationWorkerLedger(job: AutoImplementationWorkerJob | null): boolean {
+  return job?.status === "planned" ||
+    (
+      job?.status === "blocked" &&
+      job.missingEvidence.length === 1 &&
+      (
+        job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.completedLedgerStep ||
+        job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.ledgerImport ||
+        job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.workerExecution
+      )
+    );
+}
+
+export function canRunAutoImplementationWorkerJob(job: AutoImplementationWorkerJob | null): boolean {
+  return job?.status === "planned" ||
+    (
+      job?.status === "blocked" &&
+      job.missingEvidence.length === 1 &&
+      job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.workerExecution
+    );
+}
+
+export function canCompleteAutoImplementationWorkerJob(job: AutoImplementationWorkerJob | null): boolean {
+  return job?.status === "planned" ||
+    (
+      job?.status === "blocked" &&
+      job.missingEvidence.length === 1 &&
+      job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.completedLedgerStep
+    );
+}
+
+export function canPlanCurrentStageAutoImplementationWorkerJob(run: AutoImplementationRun | null): boolean {
+  if (!run || run.status === "completed") {
+    return false;
+  }
+
+  const latestWorkerJob = latestCurrentStageAutoImplementationWorkerJob(run);
+
+  return !latestWorkerJob ||
+    (
+      latestWorkerJob.status === "blocked" &&
+      !canImportAutoImplementationWorkerLedger(latestWorkerJob) &&
+      !canRunAutoImplementationWorkerJob(latestWorkerJob) &&
+      !canCompleteAutoImplementationWorkerJob(latestWorkerJob)
+    );
 }
 
 export interface CreateAutoImplementationRunRequest {
