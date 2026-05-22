@@ -4,6 +4,9 @@ import { cors } from "hono/cors";
 import {
   CONTRACT_SCHEMA_VERSION,
   AUTOMATIC_RESEARCH_SOURCE_CATEGORIES,
+  AUTO_IMPLEMENTATION_GITHUB_ISSUE_ACTION_CLASS,
+  AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_GRANULARITY,
+  AUTO_IMPLEMENTATION_GITHUB_ISSUE_REQUEST_MODES,
   AUTO_IMPLEMENTATION_STAGES,
   BLOCKED_ACTION_TYPES,
   CODEX_TURN_PURPOSES,
@@ -57,6 +60,7 @@ import {
   type ExecuteBrowserActionRequest,
   type ExecuteFileDiffRequest,
   type ExecuteShellCommandRequest,
+  type AutoImplementationGitHubIssueApproval,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
   MANUAL_RESEARCH_SOURCE_CATEGORIES,
   type CreatePlanningHandoffRequest,
@@ -2044,8 +2048,140 @@ const AUTO_IMPLEMENTATION_RUN_REQUEST_BODY_KEYS = [
   "sourcePlanningRef",
   "trackerTitle",
   "trackerGoal",
-  "issueTitles"
+  "issueTitles",
+  "githubIssueCreation"
 ] as const satisfies readonly (keyof CreateAutoImplementationRunRequest)[];
+
+const AUTO_IMPLEMENTATION_GITHUB_ISSUE_CREATION_KEYS = [
+  "mode",
+  "approval",
+  "verifierEvidenceRefs"
+] as const satisfies readonly (keyof NonNullable<CreateAutoImplementationRunRequest["githubIssueCreation"]>)[];
+
+const AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_KEYS = [
+  "approvalId",
+  "approvedBy",
+  "approvedAt",
+  "actionClass",
+  "approvalGranularity",
+  "remoteStatusAtApproval",
+  "rollbackPlan",
+  "evidenceRefs"
+] as const satisfies readonly (keyof AutoImplementationGitHubIssueApproval)[];
+
+function optionalGithubIssueApprovalFromBody(
+  value: unknown,
+  fieldName: string
+): AutoImplementationGitHubIssueApproval | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const approval = requiredJsonObjectFromBody(value, fieldName);
+
+  assertAllowedRecordKeys(
+    approval,
+    AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_KEYS,
+    fieldName
+  );
+
+  const approvedAt = isoTimestampFromBody(approval.approvedAt, `${fieldName}.approvedAt`);
+  const actionClass = stringFromBody(approval.actionClass, `${fieldName}.actionClass`);
+  const approvalGranularity = stringFromBody(approval.approvalGranularity, `${fieldName}.approvalGranularity`);
+  const remoteStatusAtApproval = stringFromBody(
+    approval.remoteStatusAtApproval,
+    `${fieldName}.remoteStatusAtApproval`
+  );
+  const evidenceRefs = optionalStringArrayFromBody(approval.evidenceRefs, `${fieldName}.evidenceRefs`);
+
+  if (actionClass !== AUTO_IMPLEMENTATION_GITHUB_ISSUE_ACTION_CLASS) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      `${fieldName}.actionClass must be ${AUTO_IMPLEMENTATION_GITHUB_ISSUE_ACTION_CLASS}.`
+    );
+  }
+
+  if (approvalGranularity !== AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_GRANULARITY) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      `${fieldName}.approvalGranularity must be ${AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_GRANULARITY}.`
+    );
+  }
+
+  if (remoteStatusAtApproval !== "connected") {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      `${fieldName}.remoteStatusAtApproval must be connected.`
+    );
+  }
+
+  if (!evidenceRefs?.length) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      `${fieldName}.evidenceRefs must include at least one approval evidence reference.`
+    );
+  }
+
+  return {
+    approvalId: stringFromBody(approval.approvalId, `${fieldName}.approvalId`),
+    approvedBy: stringFromBody(approval.approvedBy, `${fieldName}.approvedBy`),
+    approvedAt,
+    actionClass: AUTO_IMPLEMENTATION_GITHUB_ISSUE_ACTION_CLASS,
+    approvalGranularity: AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_GRANULARITY,
+    remoteStatusAtApproval: "connected",
+    rollbackPlan: stringFromBody(approval.rollbackPlan, `${fieldName}.rollbackPlan`),
+    evidenceRefs
+  };
+}
+
+function optionalGithubIssueCreationFromBody(
+  value: unknown
+): CreateAutoImplementationRunRequest["githubIssueCreation"] | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const creation = requiredJsonObjectFromBody(value, "githubIssueCreation");
+
+  assertAllowedRecordKeys(
+    creation,
+    AUTO_IMPLEMENTATION_GITHUB_ISSUE_CREATION_KEYS,
+    "githubIssueCreation"
+  );
+
+  const mode = stringFromBody(creation.mode, "githubIssueCreation.mode");
+
+  if (!AUTO_IMPLEMENTATION_GITHUB_ISSUE_REQUEST_MODES.includes(
+    mode as NonNullable<CreateAutoImplementationRunRequest["githubIssueCreation"]>["mode"]
+  )) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "githubIssueCreation.mode must be not_requested, dry_run, or approved."
+    );
+  }
+
+  const approval = optionalGithubIssueApprovalFromBody(
+    creation.approval,
+    "githubIssueCreation.approval"
+  );
+  const verifierEvidenceRefs = optionalStringArrayFromBody(
+    creation.verifierEvidenceRefs,
+    "githubIssueCreation.verifierEvidenceRefs"
+  );
+
+  if (mode === "approved" && !verifierEvidenceRefs?.length) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "githubIssueCreation.verifierEvidenceRefs must include at least one verifier evidence reference for approved mode."
+    );
+  }
+
+  return {
+    mode: mode as NonNullable<CreateAutoImplementationRunRequest["githubIssueCreation"]>["mode"],
+    ...(approval ? { approval } : {}),
+    ...(verifierEvidenceRefs ? { verifierEvidenceRefs } : {})
+  };
+}
 
 function createAutoImplementationRunRequestFromBody(
   routeSessionId: SessionId,
@@ -2079,6 +2215,7 @@ function createAutoImplementationRunRequestFromBody(
   const sourcePlanningRef = optionalStringFromBody(body.sourcePlanningRef, "sourcePlanningRef");
   const trackerTitle = optionalStringFromBody(body.trackerTitle, "trackerTitle");
   const trackerGoal = optionalStringFromBody(body.trackerGoal, "trackerGoal");
+  const githubIssueCreation = optionalGithubIssueCreationFromBody(body.githubIssueCreation);
 
   return {
     sessionId: routeSessionId,
@@ -2088,7 +2225,8 @@ function createAutoImplementationRunRequestFromBody(
     ...(sourcePlanningRef ? { sourcePlanningRef } : {}),
     ...(trackerTitle ? { trackerTitle } : {}),
     ...(trackerGoal ? { trackerGoal } : {}),
-    ...(issueTitles ? { issueTitles } : {})
+    ...(issueTitles ? { issueTitles } : {}),
+    ...(githubIssueCreation ? { githubIssueCreation } : {})
   };
 }
 

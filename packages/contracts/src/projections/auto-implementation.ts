@@ -51,6 +51,16 @@ export const AUTO_IMPLEMENTATION_REMOTE_STATUSES = [
 ] as const;
 
 export const AUTO_IMPLEMENTATION_ISSUE_MODES = ["github_ready", "markdown_fallback"] as const;
+export const AUTO_IMPLEMENTATION_GITHUB_ISSUE_REQUEST_MODES = ["not_requested", "dry_run", "approved"] as const;
+export const AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUSES = [
+  "not_requested",
+  "blocked",
+  "dry_run_ready",
+  "approved_ready",
+  "applied"
+] as const;
+export const AUTO_IMPLEMENTATION_GITHUB_ISSUE_ACTION_CLASS = "github_issue_create" as const;
+export const AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_GRANULARITY = "per_action" as const;
 
 export const DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES = [
   "Workspace repo bootstrap and initial implementation PR",
@@ -151,6 +161,9 @@ export type AutoImplementationRunStatus = (typeof AUTO_IMPLEMENTATION_RUN_STATUS
 export type AutoImplementationStageStatus = (typeof AUTO_IMPLEMENTATION_STAGE_STATUSES)[number];
 export type AutoImplementationRemoteStatus = (typeof AUTO_IMPLEMENTATION_REMOTE_STATUSES)[number];
 export type AutoImplementationIssueMode = (typeof AUTO_IMPLEMENTATION_ISSUE_MODES)[number];
+export type AutoImplementationGitHubIssueRequestMode = (typeof AUTO_IMPLEMENTATION_GITHUB_ISSUE_REQUEST_MODES)[number];
+export type AutoImplementationGitHubIssueMutationStatus =
+  (typeof AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUSES)[number];
 
 export interface AutoImplementationStageRecord {
   readonly stage: AutoImplementationStage;
@@ -176,11 +189,43 @@ export interface AutoImplementationIssueDocument {
   readonly status: "open" | "completed" | "blocked";
 }
 
+export interface AutoImplementationGitHubIssuePlan {
+  readonly issueId: string;
+  readonly title: string;
+  readonly bodyMarkdownPath: string;
+  readonly sourceStage: AutoImplementationStage;
+}
+
+export interface AutoImplementationGitHubIssueApproval {
+  readonly approvalId: string;
+  readonly approvedBy: string;
+  readonly approvedAt: string;
+  readonly actionClass: typeof AUTO_IMPLEMENTATION_GITHUB_ISSUE_ACTION_CLASS;
+  readonly approvalGranularity: typeof AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_GRANULARITY;
+  readonly remoteStatusAtApproval: "connected";
+  readonly rollbackPlan: string;
+  readonly evidenceRefs: readonly string[];
+}
+
+export interface AutoImplementationGitHubIssueMutationContract {
+  readonly status: AutoImplementationGitHubIssueMutationStatus;
+  readonly requiredRemoteStatus: "connected";
+  readonly mutatesGitHub: boolean;
+  readonly perActionApprovalRequired: true;
+  readonly approval: AutoImplementationGitHubIssueApproval | null;
+  readonly blockedReason: string | null;
+  readonly plannedIssues: readonly AutoImplementationGitHubIssuePlan[];
+  readonly createdIssueUrls: readonly string[];
+  readonly auditEvidenceRefs: readonly string[];
+  readonly verifierEvidenceRefs: readonly string[];
+}
+
 export interface AutoImplementationIssueManagement {
   readonly mode: AutoImplementationIssueMode;
   readonly trackerRelativePath: string;
   readonly issueDocs: readonly AutoImplementationIssueDocument[];
   readonly githubIssueUrls: readonly string[];
+  readonly githubIssueMutation: AutoImplementationGitHubIssueMutationContract;
   readonly warning: string | null;
 }
 
@@ -243,6 +288,11 @@ export interface CreateAutoImplementationRunRequest {
   readonly trackerTitle?: string;
   readonly trackerGoal?: string;
   readonly issueTitles?: readonly string[];
+  readonly githubIssueCreation?: {
+    readonly mode: AutoImplementationGitHubIssueRequestMode;
+    readonly approval?: AutoImplementationGitHubIssueApproval;
+    readonly verifierEvidenceRefs?: readonly string[];
+  };
 }
 
 export class AutoImplementationRunValidationError extends Error {
@@ -313,6 +363,41 @@ function isIssueDoc(value: unknown): value is AutoImplementationIssueDocument {
     isOneOf(value.status, ["open", "completed", "blocked"] as const);
 }
 
+function isGitHubIssuePlan(value: unknown): value is AutoImplementationGitHubIssuePlan {
+  return isRecord(value) &&
+    isNonEmptyString(value.issueId) &&
+    isNonEmptyString(value.title) &&
+    isNonEmptyString(value.bodyMarkdownPath) &&
+    isOneOf(value.sourceStage, AUTO_IMPLEMENTATION_STAGES);
+}
+
+function isGitHubIssueApproval(value: unknown): value is AutoImplementationGitHubIssueApproval {
+  return isRecord(value) &&
+    isNonEmptyString(value.approvalId) &&
+    isNonEmptyString(value.approvedBy) &&
+    isNonEmptyString(value.approvedAt) &&
+    value.actionClass === AUTO_IMPLEMENTATION_GITHUB_ISSUE_ACTION_CLASS &&
+    value.approvalGranularity === AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_GRANULARITY &&
+    value.remoteStatusAtApproval === "connected" &&
+    isNonEmptyString(value.rollbackPlan) &&
+    isStringArray(value.evidenceRefs);
+}
+
+function isGitHubIssueMutationContract(value: unknown): value is AutoImplementationGitHubIssueMutationContract {
+  return isRecord(value) &&
+    isOneOf(value.status, AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUSES) &&
+    value.requiredRemoteStatus === "connected" &&
+    typeof value.mutatesGitHub === "boolean" &&
+    value.perActionApprovalRequired === true &&
+    (value.approval === null || isGitHubIssueApproval(value.approval)) &&
+    (value.blockedReason === null || isNonEmptyString(value.blockedReason)) &&
+    Array.isArray(value.plannedIssues) &&
+    value.plannedIssues.every(isGitHubIssuePlan) &&
+    isStringArray(value.createdIssueUrls) &&
+    isStringArray(value.auditEvidenceRefs) &&
+    isStringArray(value.verifierEvidenceRefs);
+}
+
 function isIssueManagement(value: unknown): value is AutoImplementationIssueManagement {
   return isRecord(value) &&
     isOneOf(value.mode, AUTO_IMPLEMENTATION_ISSUE_MODES) &&
@@ -320,6 +405,7 @@ function isIssueManagement(value: unknown): value is AutoImplementationIssueMana
     Array.isArray(value.issueDocs) &&
     value.issueDocs.every(isIssueDoc) &&
     isStringArray(value.githubIssueUrls) &&
+    isGitHubIssueMutationContract(value.githubIssueMutation) &&
     (value.warning === null || isNonEmptyString(value.warning));
 }
 
@@ -340,6 +426,27 @@ function hasCanonicalIssueDocs(issueDocs: readonly AutoImplementationIssueDocume
 
 function arraysMatch(left: readonly string[], right: readonly string[]) {
   return left.length === right.length && left.every((item, index) => item === right[index]);
+}
+
+function mutationPlansMatchIssueDocs(
+  plans: readonly AutoImplementationGitHubIssuePlan[],
+  issueDocs: readonly AutoImplementationIssueDocument[]
+) {
+  return plans.length === issueDocs.length &&
+    plans.every((plan, index) => {
+      const issue = issueDocs[index];
+
+      if (!issue) {
+        return false;
+      }
+
+      return (
+        plan.issueId === issue.issueId &&
+        plan.title === issue.title &&
+        plan.bodyMarkdownPath === issue.relativePath &&
+        plan.sourceStage === issue.stage
+      );
+    });
 }
 
 function isStageReviewGate(value: unknown): value is AutoImplementationStageReviewGate {
@@ -369,10 +476,35 @@ function hasConsistentRemoteIssueState(
   remoteGuide: AutoImplementationRemoteGuide
 ) {
   const expectedIssueMode = remoteStatus === "connected" ? "github_ready" : "markdown_fallback";
+  const mutation = issueManagement.githubIssueMutation;
+  const nonAppliedMutationHasNoCreatedUrls = mutation.status === "applied" || mutation.createdIssueUrls.length === 0;
+  const mutationUrlsMatchIssueUrls = arraysMatch(mutation.createdIssueUrls, issueManagement.githubIssueUrls);
+  const blockedMutationHasReason = mutation.status !== "blocked" || Boolean(mutation.blockedReason);
+  const nonConnectedCannotBeReady =
+    remoteStatus === "connected" ||
+    (mutation.status !== "dry_run_ready" && mutation.status !== "approved_ready" && mutation.status !== "applied");
+  const approvalMatchesStatus =
+    (mutation.status === "approved_ready" || mutation.status === "applied")
+      ? mutation.approval !== null
+      : mutation.approval === null;
+  const mutationFlagMatchesStatus = mutation.mutatesGitHub === (mutation.status === "applied");
+  const mutationPlansMatch = mutationPlansMatchIssueDocs(mutation.plannedIssues, issueManagement.issueDocs);
+  const verifierEvidenceMatchesStatus =
+    (mutation.status === "approved_ready" || mutation.status === "applied")
+      ? mutation.verifierEvidenceRefs.length > 0
+      : mutation.verifierEvidenceRefs.length === 0;
 
   return remoteGuide.status === remoteStatus &&
     issueManagement.mode === expectedIssueMode &&
-    issueManagement.warning === remoteGuide.warning;
+    issueManagement.warning === remoteGuide.warning &&
+    nonAppliedMutationHasNoCreatedUrls &&
+    mutationUrlsMatchIssueUrls &&
+    blockedMutationHasReason &&
+    nonConnectedCannotBeReady &&
+    approvalMatchesStatus &&
+    mutationFlagMatchesStatus &&
+    mutationPlansMatch &&
+    verifierEvidenceMatchesStatus;
 }
 
 function isRun(value: unknown): value is AutoImplementationRun {
@@ -442,6 +574,27 @@ export function validateAutoImplementationRunProjection(
   return projection;
 }
 
+const AUTO_IMPLEMENTATION_RUN_READY_ISSUE_DOCS: readonly AutoImplementationIssueDocument[] = AUTO_IMPLEMENTATION_STAGES.map(
+  (stage, index) => ({
+    issueId: `local-${String(index + 1).padStart(3, "0")}`,
+    title: DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES[index]!,
+    relativePath: `implementation-issues/${String(index + 1).padStart(3, "0")}-${stage}.md`,
+    stage,
+    status: "open" as const
+  })
+);
+
+function githubIssuePlansForIssueDocs(
+  issueDocs: readonly AutoImplementationIssueDocument[]
+): readonly AutoImplementationGitHubIssuePlan[] {
+  return issueDocs.map((issue) => ({
+    issueId: issue.issueId,
+    title: issue.title,
+    bodyMarkdownPath: issue.relativePath,
+    sourceStage: issue.stage
+  }));
+}
+
 const AUTO_IMPLEMENTATION_RUN_READY_FIXTURE_RUN: AutoImplementationRun = {
   runId: "auto_run_demo",
   projectFolderName: "demo-project",
@@ -463,14 +616,20 @@ const AUTO_IMPLEMENTATION_RUN_READY_FIXTURE_RUN: AutoImplementationRun = {
   issueManagement: {
     mode: "markdown_fallback",
     trackerRelativePath: "implementation-tracker.md",
-    issueDocs: AUTO_IMPLEMENTATION_STAGES.map((stage, index) => ({
-      issueId: `local-${String(index + 1).padStart(3, "0")}`,
-      title: DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES[index]!,
-      relativePath: `implementation-issues/${String(index + 1).padStart(3, "0")}-${stage}.md`,
-      stage,
-      status: "open"
-    })),
+    issueDocs: AUTO_IMPLEMENTATION_RUN_READY_ISSUE_DOCS,
     githubIssueUrls: [],
+    githubIssueMutation: {
+      status: "not_requested",
+      requiredRemoteStatus: "connected",
+      mutatesGitHub: false,
+      perActionApprovalRequired: true,
+      approval: null,
+      blockedReason: null,
+      plannedIssues: githubIssuePlansForIssueDocs(AUTO_IMPLEMENTATION_RUN_READY_ISSUE_DOCS),
+      createdIssueUrls: [],
+      auditEvidenceRefs: ["github-issue-mutation:not_requested"],
+      verifierEvidenceRefs: []
+    },
     warning: "Remote is not connected; local markdown issues are the source of truth."
   },
   remoteGuide: {

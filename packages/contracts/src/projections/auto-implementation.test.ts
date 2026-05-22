@@ -54,6 +54,24 @@ describe("AutoImplementationRunProjection contract", () => {
       status: "ready"
     });
     expect(readyRun.issueManagement.mode).toBe("markdown_fallback");
+    expect(readyRun.issueManagement.githubIssueUrls).toEqual([]);
+    expect(readyRun.issueManagement.githubIssueMutation).toMatchObject({
+      status: "not_requested",
+      requiredRemoteStatus: "connected",
+      mutatesGitHub: false,
+      perActionApprovalRequired: true,
+      approval: null,
+      blockedReason: null,
+      createdIssueUrls: [],
+      auditEvidenceRefs: ["github-issue-mutation:not_requested"],
+      verifierEvidenceRefs: []
+    });
+    expect(readyRun.issueManagement.githubIssueMutation.plannedIssues).toHaveLength(AUTO_IMPLEMENTATION_STAGES.length);
+    expect(readyRun.issueManagement.githubIssueMutation.plannedIssues[0]).toMatchObject({
+      issueId: "local-001",
+      bodyMarkdownPath: "implementation-issues/001-initial_pr.md",
+      sourceStage: "initial_pr"
+    });
     expect(readyRun.reviewProtocol.deliveryGates).toEqual(
       expect.arrayContaining([
         expect.stringContaining("two consecutive no-finding passes")
@@ -137,6 +155,50 @@ describe("AutoImplementationRunProjection contract", () => {
         status: "connected",
         warning: null,
         commands: []
+      }
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects projections when the GitHub issue mutation contract implies external writes without matching issue URLs", () => {
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      issueManagement: {
+        ...readyRun.issueManagement,
+        githubIssueMutation: {
+          ...readyRun.issueManagement.githubIssueMutation,
+          status: "applied",
+          mutatesGitHub: true,
+          approval: {
+            approvalId: "approval_123",
+            approvedBy: "local_operator",
+            approvedAt: "2026-05-05T00:00:00.000Z",
+            actionClass: "github_issue_create",
+            approvalGranularity: "per_action",
+            remoteStatusAtApproval: "connected",
+            rollbackPlan: "Close created issues and keep local markdown as source of truth.",
+            evidenceRefs: ["approval:github_issue_create:123"]
+          },
+          createdIssueUrls: ["https://github.com/bee-community-master/demo/issues/1"],
+          verifierEvidenceRefs: ["verifier:github_issue_create:ready"]
+        }
+      }
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects projections when disconnected remotes are marked ready for GitHub issue mutation", () => {
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      issueManagement: {
+        ...readyRun.issueManagement,
+        githubIssueMutation: {
+          ...readyRun.issueManagement.githubIssueMutation,
+          status: "dry_run_ready",
+          auditEvidenceRefs: ["github-issue-mutation:dry_run_ready"]
+        }
       }
     });
 

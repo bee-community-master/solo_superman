@@ -1,4 +1,5 @@
 import type {
+  AutoImplementationGitHubIssuePlan,
   AutoImplementationIssueDocument,
   AutoImplementationRunProjection,
   AutoImplementationStageReviewGate,
@@ -16,6 +17,9 @@ export interface AutoImplementationRunViewModel {
   readonly remoteWarning: string | null;
   readonly remoteCommands: readonly string[];
   readonly remoteNextAction: string;
+  readonly githubIssueMutationLabel: string;
+  readonly githubIssuePlans: readonly AutoImplementationGitHubIssuePlan[];
+  readonly githubCreatedIssueUrls: readonly string[];
   readonly stages: readonly AutoImplementationStageRecord[];
   readonly issueDocs: readonly AutoImplementationIssueDocument[];
   readonly deliveryGates: readonly string[];
@@ -44,6 +48,9 @@ export function autoImplementationRunViewModel(
       remoteWarning: "Start a run to create a local git repo, markdown fallback issues, and remote connection guidance.",
       remoteCommands: [],
       remoteNextAction: "Create the workspace run after the planning handoff is detailed enough.",
+      githubIssueMutationLabel: "GitHub issue mutation: not requested",
+      githubIssuePlans: [],
+      githubCreatedIssueUrls: [],
       stages: [],
       issueDocs: [],
       deliveryGates: [],
@@ -52,6 +59,9 @@ export function autoImplementationRunViewModel(
       hasRun: false
     };
   }
+
+  const githubIssueMutation = run.issueManagement.githubIssueMutation;
+  const githubIssueBlockedReason = githubIssueMutation.blockedReason ? ` · ${githubIssueMutation.blockedReason}` : "";
 
   return {
     status: run.status,
@@ -63,6 +73,9 @@ export function autoImplementationRunViewModel(
     remoteWarning: run.remoteGuide.warning,
     remoteCommands: run.remoteGuide.commands,
     remoteNextAction: run.remoteGuide.nextAction,
+    githubIssueMutationLabel: `GitHub issue mutation: ${githubIssueMutation.status}${githubIssueBlockedReason}`,
+    githubIssuePlans: githubIssueMutation.plannedIssues,
+    githubCreatedIssueUrls: run.issueManagement.githubIssueUrls,
     stages: run.stagePlan,
     issueDocs: run.issueManagement.issueDocs,
     deliveryGates: run.reviewProtocol.deliveryGates,
@@ -156,6 +169,29 @@ export function AutoImplementationRunPanel({
         </ul>
       ) : (
         <p className="empty-state">{copy.autoImplementation.noIssueDocs}</p>
+      )}
+
+      <h3>{copy.autoImplementation.githubIssueMutation}</h3>
+      <p>{run.githubIssueMutationLabel}</p>
+      {run.githubIssuePlans.length ? (
+        <ul>
+          {run.githubIssuePlans.map((issue) => (
+            <li key={issue.issueId}>
+              {issue.issueId}: {issue.title} ({issue.bodyMarkdownPath})
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="empty-state">{copy.autoImplementation.noGithubIssuePlans}</p>
+      )}
+      {run.githubCreatedIssueUrls.length ? (
+        <ul>
+          {run.githubCreatedIssueUrls.map((url) => (
+            <li key={url}>{url}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="empty-state">{copy.autoImplementation.noGithubIssueUrls}</p>
       )}
 
       <h3>{copy.autoImplementation.remoteGuide}</h3>

@@ -7,6 +7,8 @@ import {
   AUTO_IMPLEMENTATION_SCHEMA_VERSION,
   AUTO_IMPLEMENTATION_DELIVERY_PROTOCOL,
   AUTO_IMPLEMENTATION_LEDGER_EVIDENCE_TEMPLATE,
+  AUTO_IMPLEMENTATION_GITHUB_ISSUE_ACTION_CLASS,
+  AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_GRANULARITY,
   AUTO_IMPLEMENTATION_STAGE_LABELS,
   AUTO_IMPLEMENTATION_STAGE_REVIEW_GATES,
   AUTO_IMPLEMENTATION_STAGES,
@@ -15,6 +17,8 @@ import {
   defaultAutoImplementationReviewProtocol,
   isAutoImplementationReservedProjectFolderName,
   type AutoImplementationIssueDocument,
+  type AutoImplementationGitHubIssueMutationContract,
+  type AutoImplementationGitHubIssuePlan,
   type AutoImplementationRemoteGuide,
   type AutoImplementationRemoteStatus,
   type AutoImplementationRun,
@@ -339,6 +343,125 @@ function markdownFileName(index: number, stage: AutoImplementationStage) {
   return `${String(index + 1).padStart(3, "0")}-${stage}.md`;
 }
 
+function githubIssuePlansForIssueDocs(
+  issueDocs: readonly AutoImplementationIssueDocument[]
+): readonly AutoImplementationGitHubIssuePlan[] {
+  return issueDocs.map((issue) => ({
+    issueId: issue.issueId,
+    title: issue.title,
+    bodyMarkdownPath: issue.relativePath,
+    sourceStage: issue.stage
+  }));
+}
+
+function requestedGithubIssueCreationMode(request: CreateAutoImplementationRunRequest) {
+  return request.githubIssueCreation?.mode ?? "not_requested";
+}
+
+function githubIssueMutationContract(input: {
+  readonly remoteStatus: AutoImplementationRemoteStatus;
+  readonly issueDocs: readonly AutoImplementationIssueDocument[];
+  readonly request: CreateAutoImplementationRunRequest;
+}): AutoImplementationGitHubIssueMutationContract {
+  const mode = requestedGithubIssueCreationMode(input.request);
+  const plannedIssues = githubIssuePlansForIssueDocs(input.issueDocs);
+
+  if (mode === "not_requested") {
+    return {
+      status: "not_requested",
+      requiredRemoteStatus: "connected",
+      mutatesGitHub: false,
+      perActionApprovalRequired: true,
+      approval: null,
+      blockedReason: null,
+      plannedIssues,
+      createdIssueUrls: [],
+      auditEvidenceRefs: ["github-issue-mutation:not_requested"],
+      verifierEvidenceRefs: []
+    };
+  }
+
+  if (input.remoteStatus !== "connected") {
+    return {
+      status: "blocked",
+      requiredRemoteStatus: "connected",
+      mutatesGitHub: false,
+      perActionApprovalRequired: true,
+      approval: null,
+      blockedReason: `GitHub issue creation requires remote status connected; current status is ${input.remoteStatus}.`,
+      plannedIssues,
+      createdIssueUrls: [],
+      auditEvidenceRefs: [`github-issue-mutation:blocked:${input.remoteStatus}`],
+      verifierEvidenceRefs: []
+    };
+  }
+
+  if (mode === "dry_run") {
+    return {
+      status: "dry_run_ready",
+      requiredRemoteStatus: "connected",
+      mutatesGitHub: false,
+      perActionApprovalRequired: true,
+      approval: null,
+      blockedReason: null,
+      plannedIssues,
+      createdIssueUrls: [],
+      auditEvidenceRefs: ["github-issue-mutation:dry_run_ready"],
+      verifierEvidenceRefs: []
+    };
+  }
+
+  const approval = input.request.githubIssueCreation?.approval;
+  const verifierEvidenceRefs = input.request.githubIssueCreation?.verifierEvidenceRefs ?? [];
+
+  if (!approval) {
+    return {
+      status: "blocked",
+      requiredRemoteStatus: "connected",
+      mutatesGitHub: false,
+      perActionApprovalRequired: true,
+      approval: null,
+      blockedReason: "GitHub issue creation requires explicit per-action approval evidence before mutation.",
+      plannedIssues,
+      createdIssueUrls: [],
+      auditEvidenceRefs: ["github-issue-mutation:blocked:missing_approval"],
+      verifierEvidenceRefs: []
+    };
+  }
+
+  if (!verifierEvidenceRefs.length) {
+    return {
+      status: "blocked",
+      requiredRemoteStatus: "connected",
+      mutatesGitHub: false,
+      perActionApprovalRequired: true,
+      approval: null,
+      blockedReason: "GitHub issue creation requires verifier evidence before mutation.",
+      plannedIssues,
+      createdIssueUrls: [],
+      auditEvidenceRefs: ["github-issue-mutation:blocked:missing_verifier_evidence"],
+      verifierEvidenceRefs: []
+    };
+  }
+
+  return {
+    status: "approved_ready",
+    requiredRemoteStatus: "connected",
+    mutatesGitHub: false,
+    perActionApprovalRequired: true,
+    approval,
+    blockedReason: null,
+    plannedIssues,
+    createdIssueUrls: [],
+    auditEvidenceRefs: [
+      "github-issue-mutation:approved_ready",
+      `${AUTO_IMPLEMENTATION_GITHUB_ISSUE_ACTION_CLASS}:${AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_GRANULARITY}`,
+      ...approval.evidenceRefs
+    ],
+    verifierEvidenceRefs
+  };
+}
+
 function trackerMarkdown(input: {
   readonly title: string;
   readonly goal: string;
@@ -347,6 +470,7 @@ function trackerMarkdown(input: {
   readonly sourcePlanningRef: string;
   readonly issueDocs: readonly AutoImplementationIssueDocument[];
   readonly remoteGuide: AutoImplementationRemoteGuide;
+  readonly githubIssueMutation: AutoImplementationGitHubIssueMutationContract;
 }) {
   return [
     `# ${input.title}`,
@@ -361,6 +485,26 @@ function trackerMarkdown(input: {
     "## Local issue sequence",
     "",
     ...input.issueDocs.map((issue) => `- [ ] ${issue.issueId} ${issue.title} (${issue.relativePath})`),
+    "",
+    "## GitHub issue mutation contract",
+    "",
+    `- Status: ${input.githubIssueMutation.status}`,
+    `- Mutates GitHub: ${input.githubIssueMutation.mutatesGitHub ? "yes" : "no"}`,
+    `- Required remote status: ${input.githubIssueMutation.requiredRemoteStatus}`,
+    `- Per-action approval required: ${input.githubIssueMutation.perActionApprovalRequired ? "yes" : "no"}`,
+    input.githubIssueMutation.blockedReason
+      ? `- Blocked reason: ${input.githubIssueMutation.blockedReason}`
+      : "- Blocked reason: none",
+    input.githubIssueMutation.createdIssueUrls.length
+      ? `- Created GitHub issue URLs: ${input.githubIssueMutation.createdIssueUrls.join(", ")}`
+      : "- Created GitHub issue URLs: none",
+    input.githubIssueMutation.verifierEvidenceRefs.length
+      ? `- Verifier evidence refs: ${input.githubIssueMutation.verifierEvidenceRefs.join(", ")}`
+      : "- Verifier evidence refs: none",
+    "",
+    ...input.githubIssueMutation.plannedIssues.map((issue) =>
+      `- [ ] ${issue.issueId} ${issue.title} (${issue.bodyMarkdownPath})`
+    ),
     "",
     "## Delivery protocol",
     "",
@@ -505,6 +649,11 @@ export async function prepareAutoImplementationWorkspaceRun(
     status: "open" as const
   }));
   const issueMode = status === "connected" ? "github_ready" as const : "markdown_fallback" as const;
+  const githubIssueMutation = githubIssueMutationContract({
+    remoteStatus: status,
+    issueDocs,
+    request: input.request
+  });
   const trackerRelativePath = "implementation-tracker.md";
 
   await writeIfChanged(
@@ -517,7 +666,8 @@ export async function prepareAutoImplementationWorkspaceRun(
       projectFolderName,
       sourcePlanningRef,
       issueDocs,
-      remoteGuide: guide
+      remoteGuide: guide,
+      githubIssueMutation
     })
   );
 
@@ -546,6 +696,7 @@ export async function prepareAutoImplementationWorkspaceRun(
       trackerRelativePath,
       issueDocs,
       githubIssueUrls: [],
+      githubIssueMutation,
       warning: guide.warning
     },
     remoteGuide: guide,

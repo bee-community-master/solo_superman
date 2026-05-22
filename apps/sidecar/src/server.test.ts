@@ -8280,8 +8280,21 @@ describe("PR-02 sidecar health shell", () => {
       expect(stagePlan).toHaveLength(7);
       expect(issueManagement).toMatchObject({
         mode: "markdown_fallback",
-        trackerRelativePath: "implementation-tracker.md"
+        trackerRelativePath: "implementation-tracker.md",
+        githubIssueUrls: [],
+        githubIssueMutation: {
+          status: "not_requested",
+          requiredRemoteStatus: "connected",
+          mutatesGitHub: false,
+          perActionApprovalRequired: true,
+          approval: null,
+          blockedReason: null,
+          createdIssueUrls: [],
+          auditEvidenceRefs: ["github-issue-mutation:not_requested"],
+          verifierEvidenceRefs: []
+        }
       });
+      expect((issueManagement.githubIssueMutation as Readonly<Record<string, unknown>>).plannedIssues).toHaveLength(7);
       expect(issueDocs).toHaveLength(7);
       expect(issueDocs[0]).toMatchObject({
         issueId: "local-001",
@@ -8299,6 +8312,10 @@ describe("PR-02 sidecar health shell", () => {
 
       expect(tracker).toContain("Remote status: no_remote");
       expect(tracker).toContain("git remote add origin <github-repo-url>");
+      expect(tracker).toContain("GitHub issue mutation contract");
+      expect(tracker).toContain("Status: not_requested");
+      expect(tracker).toContain("Created GitHub issue URLs: none");
+      expect(tracker).toContain("Verifier evidence refs: none");
       expect(tracker).toContain("ImplementationStepLedger evidence template");
       expect(tracker).toContain("CodeReviewRecord.reviewScope");
       expect(tracker).toContain("Do not merge until the feature PR code review reaches two consecutive no-finding passes");
@@ -8316,6 +8333,19 @@ describe("PR-02 sidecar health shell", () => {
         runId: latestRun.runId,
         projectFolderName: "demo-workspace-app",
         remoteStatus: "no_remote",
+        issueManagement: {
+          githubIssueMutation: {
+            status: "not_requested",
+            mutatesGitHub: false,
+            plannedIssues: expect.arrayContaining([
+              expect.objectContaining({
+                issueId: "local-001",
+                bodyMarkdownPath: "implementation-issues/001-initial_pr.md",
+                sourceStage: "initial_pr"
+              })
+            ])
+          }
+        },
         reviewProtocol: {
           deliveryGates: expect.arrayContaining([
             expect.stringContaining("ImplementationStepLedger trackerDoc"),
@@ -8344,6 +8374,54 @@ describe("PR-02 sidecar health shell", () => {
         version: 1
       });
       expect(replayProjection.runs as readonly unknown[]).toHaveLength(1);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("blocks GitHub issue creation dry runs when remote state is not connected while keeping markdown issues", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A dry-run GitHub issue request without a remote");
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:github-issue-dry-run-blocked",
+        projectName: "Dry Run Without Remote",
+        githubIssueCreation: {
+          mode: "dry_run"
+        }
+      });
+      const body = await jsonBody(response);
+      const latestRun = latestAutoImplementationRunFromBody(body);
+      const issueManagement = latestRun.issueManagement as Readonly<Record<string, unknown>>;
+
+      expect(response.status).toBe(200);
+      expect(latestRun).toMatchObject({
+        remoteStatus: "no_remote"
+      });
+      expect(issueManagement).toMatchObject({
+        mode: "markdown_fallback",
+        githubIssueUrls: [],
+        githubIssueMutation: {
+          status: "blocked",
+          requiredRemoteStatus: "connected",
+          mutatesGitHub: false,
+          perActionApprovalRequired: true,
+          approval: null,
+          blockedReason: "GitHub issue creation requires remote status connected; current status is no_remote.",
+          createdIssueUrls: [],
+          auditEvidenceRefs: ["github-issue-mutation:blocked:no_remote"],
+          verifierEvidenceRefs: []
+        }
+      });
+      expect(issueManagement.issueDocs as readonly unknown[]).toHaveLength(7);
+      await expect(readFile(
+        join(workspaceRoot, "dry-run-without-remote", "implementation-issues", "001-initial_pr.md"),
+        "utf8"
+      )).resolves.toContain("## Acceptance");
     } finally {
       await storage.close();
     }
@@ -8574,6 +8652,47 @@ describe("PR-02 sidecar health shell", () => {
         issueTitles: ["1", "2", "3", "4", "5", "6", "7", "8"]
       });
       const tooManyTitlesBody = await jsonBody(tooManyTitles);
+      const invalidGithubIssueMode = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:bad-github-issue-mode",
+        githubIssueCreation: {
+          mode: "apply_now"
+        }
+      });
+      const invalidGithubIssueModeBody = await jsonBody(invalidGithubIssueMode);
+      const invalidGithubIssueApproval = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:bad-github-issue-approval",
+        githubIssueCreation: {
+          mode: "approved",
+          approval: {
+            approvalId: "approval_bad",
+            approvedBy: "local_operator",
+            approvedAt: "not-an-iso-timestamp",
+            actionClass: "github_issue_create",
+            approvalGranularity: "per_action",
+            remoteStatusAtApproval: "connected",
+            rollbackPlan: "Close any created issues.",
+            evidenceRefs: ["approval:bad"]
+          }
+        }
+      });
+      const invalidGithubIssueApprovalBody = await jsonBody(invalidGithubIssueApproval);
+      const missingGithubIssueVerifier = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:missing-github-issue-verifier",
+        githubIssueCreation: {
+          mode: "approved",
+          approval: {
+            approvalId: "approval_missing_verifier",
+            approvedBy: "local_operator",
+            approvedAt: "2026-05-05T00:00:00.000Z",
+            actionClass: "github_issue_create",
+            approvalGranularity: "per_action",
+            remoteStatusAtApproval: "connected",
+            rollbackPlan: "Close any created issues.",
+            evidenceRefs: ["approval:missing-verifier"]
+          }
+        }
+      });
+      const missingGithubIssueVerifierBody = await jsonBody(missingGithubIssueVerifier);
 
       expect(unsupported.status).toBe(400);
       expect(unsupportedBody.error).toMatchObject({
@@ -8583,6 +8702,21 @@ describe("PR-02 sidecar health shell", () => {
       expect(tooManyTitlesBody.error).toMatchObject({
         code: "VALIDATION_FAILED",
         message: "issueTitles must include at most 7 values."
+      });
+      expect(invalidGithubIssueMode.status).toBe(400);
+      expect(invalidGithubIssueModeBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "githubIssueCreation.mode must be not_requested, dry_run, or approved."
+      });
+      expect(invalidGithubIssueApproval.status).toBe(400);
+      expect(invalidGithubIssueApprovalBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "githubIssueCreation.approval.approvedAt must be an ISO timestamp."
+      });
+      expect(missingGithubIssueVerifier.status).toBe(400);
+      expect(missingGithubIssueVerifierBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "githubIssueCreation.verifierEvidenceRefs must include at least one verifier evidence reference for approved mode."
       });
     } finally {
       await storage.close();

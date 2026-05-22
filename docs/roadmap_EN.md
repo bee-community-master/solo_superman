@@ -28,6 +28,8 @@ The roadmap is a contributor map, not a user-facing UI vocabulary. It mixes code
 
 When planning is detailed enough, Solo Superman may prepare an independent generated-program repo under `workspace/<project>`. The first mounted surface creates a local git repo, `implementation-tracker.md`, seven markdown fallback issue documents, and `.solo-superman/auto-implementation-run.json`. Those generated docs include an `ImplementationStepLedger` evidence template for tracker/step docs, commit or no-code evidence, scoped code-review and clean-code-review streaks, test evidence, blockers, and evidence refs. If a GitHub remote or login is missing, local work continues with a visible remote warning and connection guide instead of pretending issue/PR automation succeeded.
 
+GitHub issue mutation is contract-gated separately from markdown generation. `githubIssueCreation` can request no mutation, a dry-run readiness check, or an approved readiness check; any external write still requires connected remote status, per-action approval evidence, rollback plan, audit refs, and verifier coverage. Blocked remote states keep `githubIssueUrls` empty and preserve local markdown issue paths as the source of truth.
+
 ## Tracker history
 
 - #86, #87, and #88 established the web/local migration and Phase 3 controlled execution prerequisite gates.
