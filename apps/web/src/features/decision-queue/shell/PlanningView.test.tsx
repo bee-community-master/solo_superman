@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   ConfidenceCompletionProjection,
   DecisionQueueProjection,
+  ProjectId,
   ProjectionVersion,
-  SessionId
+  SessionId,
+  SessionShellProjection
 } from "@solo-superman/contracts";
 import {
   phase15bReadinessViewModel,
@@ -96,6 +98,18 @@ function queueWithSkippedAxes(skippedCommercializationAxes: readonly string[]): 
   };
 }
 
+function sessionWithPhase(phase: SessionShellProjection["phase"]): SessionShellProjection {
+  return {
+    kind: "SessionShellProjection",
+    projectId: "project_planning_status" as ProjectId,
+    sessionId: "sess_planning_status" as SessionId,
+    version: 5 as ProjectionVersion,
+    phase,
+    projectPurposeModeLabel: "not selected",
+    projectPurposeModeEffect: ""
+  };
+}
+
 function renderPlanningView(controllerOverrides: Partial<DecisionQueueShellController> = {}) {
   const controller = {
     businessCriticIntensityChangeReason: "",
@@ -158,6 +172,18 @@ describe("PlanningView", () => {
     expect(markup).toContain("Completion candidate: More risk validation is needed.");
     expect(markup).toContain("Readiness gate blockers");
     expect(markup).toContain("Top risks remain open.");
+  });
+
+  it("shows journey status labels instead of raw internal session phases", () => {
+    const markup = renderPlanningView({
+      projections: {
+        ...emptyProjectionState(),
+        session: sessionWithPhase("validation")
+      }
+    });
+
+    expect(markup).toContain("Research in progress");
+    expect(markup).not.toContain(">validation<");
   });
 
   it("shows a ready Confidence Map message when completion gates pass", () => {

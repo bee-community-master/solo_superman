@@ -43,13 +43,16 @@ export function PlanningView({ controller }: PlanningViewProps) {
     projections.founderBrief?.skippedCommercializationAxes,
     projections.planningHandoff?.finalArtifact?.scopeSnapshot.skippedCommercializationAxes
   ].find((axes) => (axes?.length ?? 0) > 0) ?? [];
+  const sessionStatusLabel = projections.session
+    ? copy.planning.sessionStatusLabels[projections.session.phase]
+    : copy.planning.sessionStatusLabels.none;
 
   return (
     <div className="view-grid planning-view">
       <section className="panel spec-panel">
         <div className="panel-heading">
           <h2>{copy.planning.spec}</h2>
-          <span>{projections.session?.phase ?? "none"}</span>
+          <span>{sessionStatusLabel}</span>
         </div>
         {projections.spec?.title ? (
           <div className="spec-outline">

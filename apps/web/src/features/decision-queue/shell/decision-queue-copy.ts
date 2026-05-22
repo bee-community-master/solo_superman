@@ -240,6 +240,14 @@ const EN_COPY = {
   },
   planning: {
     spec: "Product spec",
+    sessionStatusLabels: {
+      none: "Not started",
+      scaffold: "Not started",
+      intake: "Questions in progress",
+      spec: "Spec-ready",
+      validation: "Research in progress",
+      complete: "Waiting for safe execution"
+    },
     noSpecDraft: "No product spec draft yet.",
     sessionVersion: "Session version",
     specSections: "Spec sections",
@@ -714,6 +722,14 @@ const JA_COPY: typeof EN_COPY = {
   },
   planning: {
     spec: "プロダクト仕様",
+    sessionStatusLabels: {
+      none: "未開始",
+      scaffold: "未開始",
+      intake: "質問進行中",
+      spec: "Spec-ready",
+      validation: "Research in progress",
+      complete: "安全な実行待ち"
+    },
     noSpecDraft: "仕様ドラフトはまだありません。",
     sessionVersion: "セッションバージョン",
     specSections: "仕様セクション",
@@ -1188,6 +1204,14 @@ const KO_COPY: typeof EN_COPY = {
   },
   planning: {
     spec: "제품 설명서",
+    sessionStatusLabels: {
+      none: "시작 전",
+      scaffold: "시작 전",
+      intake: "질문 진행 중",
+      spec: "Spec-ready",
+      validation: "Research in progress",
+      complete: "안전한 실행 대기"
+    },
     noSpecDraft: "아직 제품 설명서 초안이 없습니다.",
     sessionVersion: "세션 버전",
     specSections: "제품 설명서 섹션",
