@@ -252,6 +252,68 @@ async function postAutoImplementationWorkerJobCompletionForTest(
   ));
 }
 
+async function postAutoImplementationWorkerLedgerImportForTest(
+  storageApp: RequestTestApp,
+  sessionId: string,
+  runId: string,
+  jobId: string,
+  payload: Readonly<Record<string, unknown>>
+) {
+  return Promise.resolve(storageApp.request(
+    `/api/v1/sessions/${sessionId}/auto-implementation-runs/${runId}/worker-jobs/${encodeURIComponent(jobId)}/ledger-import`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        sessionId,
+        runId,
+        jobId,
+        ...payload
+      })
+    }
+  ));
+}
+
+function implementationStepLedgerImportTransitionsForTest() {
+  const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
+  const stepCommitRecord = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.stepCommitRecords[0]!;
+  const testEvidenceRecord = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords[0]!;
+  const baseTransition = {
+    trackerDoc: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.trackerDoc,
+    stepDoc: step.stepDoc
+  };
+
+  return [
+    { ...baseTransition, targetStatus: "ready" },
+    { ...baseTransition, targetStatus: "implementing", startedEvidenceRefs: ["worker:started"] },
+    { ...baseTransition, targetStatus: "committed", stepCommitRecord },
+    { ...baseTransition, targetStatus: "review_required", stepCommitRecord },
+    ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.codeReviewRecords.map((codeReviewRecord) => ({
+      ...baseTransition,
+      targetStatus: "review_required",
+      stepCommitRecord,
+      codeReviewRecord
+    })),
+    ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.cleanCodeReviewRecords.map((cleanCodeReviewRecord) => ({
+      ...baseTransition,
+      targetStatus: "clean_code_review_required",
+      stepCommitRecord,
+      cleanCodeReviewRecord
+    })),
+    { ...baseTransition, targetStatus: "tests_required", stepCommitRecord },
+    {
+      ...baseTransition,
+      targetStatus: "completed",
+      stepCommitRecord,
+      testEvidenceRecord,
+      evidenceRefs: ["worker-ledger-import:completed"]
+    }
+  ];
+}
+
 function jsonDataRecord(body: JsonResponseBody) {
   return body.data as Readonly<Record<string, unknown>>;
 }
@@ -8762,6 +8824,163 @@ describe("PR-02 sidecar health shell", () => {
           "commit:abcdef1",
           "test:verify",
           "worker-job:complete"
+        ])
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("imports local worker ledger transitions through the existing ledger reducer without advancing stages", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "An auto implementation worker ledger import test"
+      );
+      const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:worker-ledger-import",
+        projectName: "Worker Ledger Import Demo"
+      });
+      const runId = String(latestAutoImplementationRunFromBody(await jsonBody(created)).runId);
+      const { recordId: authorityRecordId } = await createExecutionAuthorityForTest(
+        storageApp,
+        sessionId,
+        "auto_worker_ledger_import",
+        {
+          requestedScope: {
+            workspaceRef: join(workspaceRoot, "worker-ledger-import-demo"),
+            filePathGlobs: ["**/*"]
+          }
+        }
+      );
+      const plannedJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:ledger-import",
+        executionAuthorityRef: authorityRecordId
+      });
+      const plannedJobs = latestAutoImplementationRunFromBody(await jsonBody(plannedJobResponse)).workerJobs as
+        readonly Readonly<Record<string, unknown>>[];
+      const plannedJobId = String(plannedJobs.at(-1)!.jobId);
+      const importResponse = await postAutoImplementationWorkerLedgerImportForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-ledger-import:completed",
+          ledgerTransitions: implementationStepLedgerImportTransitionsForTest(),
+          evidenceRefs: ["worker-ledger-import:stdout"]
+        }
+      );
+      const importRun = latestAutoImplementationRunFromBody(await jsonBody(importResponse));
+      const importedJobs = importRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+      const importedStages = importRun.stagePlan as readonly Readonly<Record<string, unknown>>[];
+      const ledgerResponse = await storageApp.request(`/api/v1/sessions/${sessionId}/implementation-step-ledger`, {
+        headers: authHeaders()
+      });
+      const ledger = jsonDataRecord(await jsonBody(ledgerResponse));
+
+      expect(importResponse.status).toBe(200);
+      expect(importRun).toMatchObject({
+        status: "running",
+        currentStage: "initial_pr"
+      });
+      expect(importedStages[0]).toMatchObject({
+        stage: "initial_pr",
+        status: "ready",
+        ledgerEvidence: null
+      });
+      expect(importedJobs.at(-1)).toMatchObject({
+        status: "completed",
+        missingEvidence: [],
+        blockedReason: null,
+        nextRequiredAction: expect.stringContaining("existing stage endpoint"),
+        evidenceRefs: expect.arrayContaining([
+          `auto-worker-ledger-import:${plannedJobId}:worker-ledger-import:completed`,
+          "implementation-step-ledger:step_demo",
+          "commit:abcdef1",
+          "test:verify",
+          "worker-ledger-import:completed",
+          "worker-ledger-import:stdout"
+        ])
+      });
+      expect(ledgerResponse.status).toBe(200);
+      expect(ledger).toMatchObject({
+        kind: "ImplementationStepLedgerProjection",
+        currentStatus: "completed",
+        summary: expect.stringContaining("completed")
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("keeps worker jobs visibly blocked when imported ledger transitions are incomplete", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "An auto implementation incomplete worker ledger import test"
+      );
+      const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:worker-ledger-import-incomplete",
+        projectName: "Worker Ledger Import Incomplete Demo"
+      });
+      const runId = String(latestAutoImplementationRunFromBody(await jsonBody(created)).runId);
+      const { recordId: authorityRecordId } = await createExecutionAuthorityForTest(
+        storageApp,
+        sessionId,
+        "auto_worker_ledger_import_incomplete",
+        {
+          requestedScope: {
+            workspaceRef: join(workspaceRoot, "worker-ledger-import-incomplete-demo"),
+            filePathGlobs: ["**/*"]
+          }
+        }
+      );
+      const plannedJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:ledger-import-incomplete",
+        executionAuthorityRef: authorityRecordId
+      });
+      const plannedJobs = latestAutoImplementationRunFromBody(await jsonBody(plannedJobResponse)).workerJobs as
+        readonly Readonly<Record<string, unknown>>[];
+      const plannedJobId = String(plannedJobs.at(-1)!.jobId);
+      const importResponse = await postAutoImplementationWorkerLedgerImportForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-ledger-import:incomplete",
+          ledgerTransitions: implementationStepLedgerImportTransitionsForTest().slice(0, 1),
+          evidenceRefs: ["worker-ledger-import:partial"]
+        }
+      );
+      const importRun = latestAutoImplementationRunFromBody(await jsonBody(importResponse));
+      const importedJobs = importRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(importResponse.status).toBe(200);
+      expect(importRun).toMatchObject({
+        status: "blocked",
+        currentStage: "initial_pr"
+      });
+      expect(importedJobs.at(-1)).toMatchObject({
+        status: "blocked",
+        missingEvidence: ["ImplementationStepLedger import"],
+        blockedReason: expect.stringContaining("completed ImplementationStepLedger transition"),
+        nextRequiredAction: expect.stringContaining("Retry the worker ledger import"),
+        evidenceRefs: expect.arrayContaining([
+          `auto-worker-ledger-import:${plannedJobId}:worker-ledger-import:incomplete`,
+          "worker-blocked:ledger-import",
+          "worker-ledger-import:partial"
         ])
       });
     } finally {

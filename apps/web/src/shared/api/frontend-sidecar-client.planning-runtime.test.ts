@@ -311,6 +311,23 @@ describe("sidecar client planning-runtime", () => {
       implementationStepId: "step_demo",
       evidenceRefs: ["worker-job:complete"]
     });
+    const importedWorkerLedger = await client.importAutoImplementationWorkerLedger({
+      sessionId: "sess_auto_impl" as SessionId,
+      runId: "auto_run_demo",
+      jobId: "auto-worker-job:auto_run_demo:initial_pr:auto-impl-worker-client-test",
+      idempotencyKey: "auto-impl-worker-ledger-import-client-test",
+      ledgerTransitions: [
+        {
+          trackerDoc: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.trackerDoc,
+          stepDoc: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!.stepDoc,
+          targetStatus: "completed",
+          stepCommitRecord: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.stepCommitRecords[0]!,
+          testEvidenceRecord: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords[0]!,
+          evidenceRefs: ["worker-ledger-import:client"]
+        }
+      ],
+      evidenceRefs: ["worker-ledger-import:client-stdout"]
+    });
     const advanced = await client.recordAutoImplementationStage({
       sessionId: "sess_auto_impl" as SessionId,
       runId: "auto_run_demo",
@@ -325,6 +342,7 @@ describe("sidecar client planning-runtime", () => {
     expect(created.kind).toBe("AutoImplementationRunProjection");
     expect(workerJob.kind).toBe("AutoImplementationRunProjection");
     expect(completedWorkerJob.kind).toBe("AutoImplementationRunProjection");
+    expect(importedWorkerLedger.kind).toBe("AutoImplementationRunProjection");
     expect(advanced.kind).toBe("AutoImplementationRunProjection");
     expect(projection?.kind).toBe("AutoImplementationRunProjection");
     expect(seenRequests[0]).toMatchObject([
@@ -366,17 +384,34 @@ describe("sidecar client planning-runtime", () => {
       evidenceRefs: ["worker-job:complete"]
     });
     expect(seenRequests[3]).toMatchObject([
-      "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs/auto_run_demo/stages/initial_pr",
+      "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs/auto_run_demo/worker-jobs/auto-worker-job%3Aauto_run_demo%3Ainitial_pr%3Aauto-impl-worker-client-test/ledger-import",
       expect.objectContaining({ method: "POST" })
     ]);
     expect(JSON.parse(String(seenRequests[3]?.[1]?.body))).toMatchObject({
+      sessionId: "sess_auto_impl",
+      runId: "auto_run_demo",
+      jobId: "auto-worker-job:auto_run_demo:initial_pr:auto-impl-worker-client-test",
+      idempotencyKey: "auto-impl-worker-ledger-import-client-test",
+      ledgerTransitions: expect.arrayContaining([
+        expect.objectContaining({
+          targetStatus: "completed",
+          evidenceRefs: ["worker-ledger-import:client"]
+        })
+      ]),
+      evidenceRefs: ["worker-ledger-import:client-stdout"]
+    });
+    expect(seenRequests[4]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs/auto_run_demo/stages/initial_pr",
+      expect.objectContaining({ method: "POST" })
+    ]);
+    expect(JSON.parse(String(seenRequests[4]?.[1]?.body))).toMatchObject({
       sessionId: "sess_auto_impl",
       runId: "auto_run_demo",
       stage: "initial_pr",
       action: "start",
       idempotencyKey: "auto-impl-stage-client-test"
     });
-    expect(seenRequests[4]).toMatchObject([
+    expect(seenRequests[5]).toMatchObject([
       "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs",
       expect.objectContaining({ method: "GET" })
     ]);
