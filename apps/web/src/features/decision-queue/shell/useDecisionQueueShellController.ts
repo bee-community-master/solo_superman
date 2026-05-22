@@ -3,17 +3,22 @@ import {
   CODEX_APP_SERVER_GENERATED_VERSION,
   CODEX_RUNTIME_ADAPTER_VERSION,
   CODEX_RUNTIME_TRANSPORT,
+  type AutoImplementationRun,
   type BusinessCriticIntensity,
   type CodexRuntimeLoginStartDto,
   type CodexRuntimeStatusDto,
   type ExecutionAuthorityLedgerProjection,
   type Phase15bUpgradeHintProjection,
   type ProjectPurposeMode,
+  type RecordAutoImplementationPullRequestMutationRequest,
+  type SessionId,
   type StatusEndpointDto
 } from "@solo-superman/contracts";
 import { autoImplementationRunViewModel } from "../AutoImplementationRunPanel";
 import {
+  buildAutoImplementationPullRequestBodyApprovedRequest,
   buildAutoImplementationPullRequestDryRunRequest,
+  buildAutoImplementationPullRequestMergeApprovedRequest,
   buildAutoImplementationPullRequestMergeDryRunRequest,
   buildAutoImplementationPullRequestOpenDryRunRequest
 } from "../auto-implementation-pr-mutation-request";
@@ -645,8 +650,13 @@ export function useDecisionQueueShellController() {
     }
   }, [client, projections]);
 
-  const recordAutoImplementationPullRequestDryRunAction = useCallback(async (input: {
-    readonly buildRequest: typeof buildAutoImplementationPullRequestDryRunRequest;
+  const recordAutoImplementationPullRequestMutationAction = useCallback(async (input: {
+    readonly buildRequest: (
+      requestInput: {
+        readonly sessionId: SessionId;
+        readonly run: AutoImplementationRun;
+      }
+    ) => RecordAutoImplementationPullRequestMutationRequest;
     readonly missingRunMessage: string;
     readonly logIdPrefix: string;
     readonly label: string;
@@ -688,33 +698,63 @@ export function useDecisionQueueShellController() {
   }, [client, projections]);
 
   const recordAutoImplementationPullRequestOpenDryRun = useCallback(
-    () => recordAutoImplementationPullRequestDryRunAction({
+    () => recordAutoImplementationPullRequestMutationAction({
       buildRequest: buildAutoImplementationPullRequestOpenDryRunRequest,
       missingRunMessage: "An active auto implementation workspace run is required before recording a PR open dry-run.",
       logIdPrefix: "auto-implementation-pr-open-dry-run",
       label: "Record PR open dry-run"
     }),
-    [recordAutoImplementationPullRequestDryRunAction]
+    [recordAutoImplementationPullRequestMutationAction]
   );
 
   const recordAutoImplementationPullRequestDryRun = useCallback(
-    () => recordAutoImplementationPullRequestDryRunAction({
+    () => recordAutoImplementationPullRequestMutationAction({
       buildRequest: buildAutoImplementationPullRequestDryRunRequest,
       missingRunMessage: "An active auto implementation workspace run is required before recording a PR body dry-run.",
       logIdPrefix: "auto-implementation-pr-dry-run",
       label: "Record PR body dry-run"
     }),
-    [recordAutoImplementationPullRequestDryRunAction]
+    [recordAutoImplementationPullRequestMutationAction]
   );
 
   const recordAutoImplementationPullRequestMergeDryRun = useCallback(
-    () => recordAutoImplementationPullRequestDryRunAction({
+    () => recordAutoImplementationPullRequestMutationAction({
       buildRequest: buildAutoImplementationPullRequestMergeDryRunRequest,
       missingRunMessage: "An active auto implementation workspace run is required before recording a PR merge dry-run.",
       logIdPrefix: "auto-implementation-pr-merge-dry-run",
       label: "Record PR merge dry-run"
     }),
-    [recordAutoImplementationPullRequestDryRunAction]
+    [recordAutoImplementationPullRequestMutationAction]
+  );
+
+  const applyAutoImplementationPullRequestBodyUpdate = useCallback(
+    () => recordAutoImplementationPullRequestMutationAction({
+      buildRequest: ({ run, sessionId }) =>
+        buildAutoImplementationPullRequestBodyApprovedRequest({
+          run,
+          sessionId,
+          approvedAt: new Date().toISOString()
+        }),
+      missingRunMessage: "An active auto implementation workspace run is required before applying an approved PR body update.",
+      logIdPrefix: "auto-implementation-pr-body-approved",
+      label: "Apply approved PR body update"
+    }),
+    [recordAutoImplementationPullRequestMutationAction]
+  );
+
+  const applyAutoImplementationPullRequestMerge = useCallback(
+    () => recordAutoImplementationPullRequestMutationAction({
+      buildRequest: ({ run, sessionId }) =>
+        buildAutoImplementationPullRequestMergeApprovedRequest({
+          run,
+          sessionId,
+          approvedAt: new Date().toISOString()
+        }),
+      missingRunMessage: "An active auto implementation workspace run is required before applying an approved PR merge.",
+      logIdPrefix: "auto-implementation-pr-merge-approved",
+      label: "Apply approved PR merge"
+    }),
+    [recordAutoImplementationPullRequestMutationAction]
   );
 
   const planningRadarAxesView = useMemo(
@@ -886,6 +926,8 @@ export function useDecisionQueueShellController() {
     recordAutoImplementationPullRequestOpenDryRun,
     recordAutoImplementationPullRequestDryRun,
     recordAutoImplementationPullRequestMergeDryRun,
+    applyAutoImplementationPullRequestBodyUpdate,
+    applyAutoImplementationPullRequestMerge,
     runAutoImplementationWorkerJob,
     advanceAutoImplementationWorkerStage,
     sections,

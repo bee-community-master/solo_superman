@@ -5,7 +5,9 @@ import {
   type SessionId
 } from "@solo-superman/contracts";
 import {
+  buildAutoImplementationPullRequestBodyApprovedRequest,
   buildAutoImplementationPullRequestDryRunRequest,
+  buildAutoImplementationPullRequestMergeApprovedRequest,
   buildAutoImplementationPullRequestMergeDryRunRequest,
   buildAutoImplementationPullRequestOpenDryRunRequest
 } from "./auto-implementation-pr-mutation-request";
@@ -197,6 +199,88 @@ describe("buildAutoImplementationPullRequestDryRunRequest", () => {
     expect(request.knownGaps).not.toContain("No current PR body evidence has been recorded yet.");
     expect(request.knownGaps).not.toContain(
       "final_verify_pr_update has not recorded completed merge-readiness ledger evidence yet."
+    );
+  });
+
+  it("builds an approved PR body update request with explicit approval and verifier evidence", () => {
+    const run = withPrBodyAndFinalVerification(readyRun());
+    const request = buildAutoImplementationPullRequestBodyApprovedRequest({
+      sessionId: "demo-session" as SessionId,
+      run,
+      approvedAt: "2026-05-22T00:00:00.000Z"
+    });
+
+    expect(request).toMatchObject({
+      sessionId: "demo-session",
+      runId: run.runId,
+      action: "update_pr_body",
+      requestMode: "approved",
+      pullRequestUrl: "https://github.com/bee-community-master/demo/pull/1",
+      bodyEvidenceRefs: ["pr-body:current-evidence"],
+      approval: {
+        approvedBy: "local_operator",
+        approvedAt: "2026-05-22T00:00:00.000Z",
+        actionClass: "github_pr_mutation",
+        approvalGranularity: "per_action",
+        remoteStatusAtApproval: "connected",
+        evidenceRefs: [
+          `local-operator-click:github-pr-mutation:update_pr_body:${run.runId}:${run.currentStage}`
+        ]
+      },
+      verifierEvidenceRefs: [`verifier:pr-body-approved:${run.runId}:${run.currentStage}`]
+    });
+    expect(request.knownGaps).toEqual([]);
+    expect(request.rollbackNotes).toContain("may mutate GitHub");
+  });
+
+  it("builds an approved PR merge request with final verification and current body evidence", () => {
+    const run = withPrBodyAndFinalVerification(readyRun());
+    const request = buildAutoImplementationPullRequestMergeApprovedRequest({
+      sessionId: "demo-session" as SessionId,
+      run,
+      approvedAt: "2026-05-22T00:05:00.000Z"
+    });
+
+    expect(request).toMatchObject({
+      sessionId: "demo-session",
+      runId: run.runId,
+      action: "merge_pr",
+      requestMode: "approved",
+      pullRequestUrl: "https://github.com/bee-community-master/demo/pull/1",
+      bodyEvidenceRefs: ["pr-body:current-evidence"],
+      mergeEvidenceRefs: ["implementation-step-ledger:step_final_verify", "test:pnpm-verify"],
+      approval: {
+        approvedBy: "local_operator",
+        approvedAt: "2026-05-22T00:05:00.000Z",
+        actionClass: "github_pr_mutation",
+        approvalGranularity: "per_action",
+        remoteStatusAtApproval: "connected",
+        evidenceRefs: [
+          `local-operator-click:github-pr-mutation:merge_pr:${run.runId}:${run.currentStage}`
+        ]
+      },
+      verifierEvidenceRefs: [`verifier:pr-merge-approved:${run.runId}:${run.currentStage}`]
+    });
+    expect(request.knownGaps).toEqual([]);
+    expect(request.rollbackNotes).toContain("gh pr merge");
+  });
+
+  it("keeps approved merge gaps visible when readiness evidence is missing", () => {
+    const run = withPrUrl(readyRun());
+    const request = buildAutoImplementationPullRequestMergeApprovedRequest({
+      sessionId: "demo-session" as SessionId,
+      run,
+      approvedAt: "2026-05-22T00:10:00.000Z"
+    });
+
+    expect(request.bodyEvidenceRefs).toBeUndefined();
+    expect(request.mergeEvidenceRefs).toBeUndefined();
+    expect(request.approval).toBeDefined();
+    expect(request.knownGaps).toEqual(
+      expect.arrayContaining([
+        "final_verify_pr_update has not recorded completed merge-readiness ledger evidence yet.",
+        "No current PR body evidence has been recorded yet."
+      ])
     );
   });
 
