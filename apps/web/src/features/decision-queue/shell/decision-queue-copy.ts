@@ -13,6 +13,10 @@ function joinVisibleParts(parts: readonly (string | null)[]) {
   return parts.filter((part): part is string => Boolean(part)).join(" · ");
 }
 
+function commercializationAxisLabel(axis: string, labels: Readonly<Record<string, string>>) {
+  return labels[axis] ?? axis.replaceAll("_", " ");
+}
+
 const EN_COPY = {
   pageMeta: {
     onboarding: {
@@ -244,6 +248,16 @@ const EN_COPY = {
     businessCritic: "Business review",
     notSelected: "not selected",
     notApplicable: "not applicable",
+    skippedCommercializationAxes: "Skipped commercialization axes",
+    skippedCommercializationAxesHelp: "Personal mode keeps these business/investor checks visible, but excludes them from required completion gates.",
+    commercializationAxisLabel: (axis: string) =>
+      commercializationAxisLabel(axis, {
+        market_size: "Market size",
+        investor_narrative: "Investor narrative",
+        willingness_to_pay: "Willingness to pay",
+        acquisition_channel: "Acquisition channel",
+        competition_pressure: "Competition pressure"
+      }),
     businessCriticChangeReason: "Business review change reason",
     businessCriticChangeReasonPlaceholder: "Record why the business validation intensity is changing.",
     changeTo: (label: string) => `Change to ${label}`,
@@ -692,6 +706,16 @@ const JA_COPY: typeof EN_COPY = {
     businessCritic: "事業レビュー",
     notSelected: "未選択",
     notApplicable: "対象外",
+    skippedCommercializationAxes: "除外した事業化チェック",
+    skippedCommercializationAxesHelp: "Personal mode では、これらの事業/投資家向けチェックを見える状態に保ちながら、必須の完成度ゲートからは外します。",
+    commercializationAxisLabel: (axis: string) =>
+      commercializationAxisLabel(axis, {
+        market_size: "市場規模",
+        investor_narrative: "投資家向けストーリー",
+        willingness_to_pay: "支払い意向",
+        acquisition_channel: "獲得チャネル",
+        competition_pressure: "競合圧力"
+      }),
     businessCriticChangeReason: "事業批判強度の変更理由",
     businessCriticChangeReasonPlaceholder: "事業検証強度を変える理由を記録します。",
     changeTo: (label: string) => `${label}に変更`,
@@ -1140,6 +1164,16 @@ const KO_COPY: typeof EN_COPY = {
     businessCritic: "사업 리뷰",
     notSelected: "미선택",
     notApplicable: "해당 없음",
+    skippedCommercializationAxes: "제외된 사업화 검토 축",
+    skippedCommercializationAxesHelp: "Personal mode에서는 이 사업/투자자 검토 축을 계속 보이게 두되, 필수 완성도 게이트에서는 제외합니다.",
+    commercializationAxisLabel: (axis: string) =>
+      commercializationAxisLabel(axis, {
+        market_size: "시장 규모",
+        investor_narrative: "투자자 내러티브",
+        willingness_to_pay: "유료 의향",
+        acquisition_channel: "고객 유입 채널",
+        competition_pressure: "경쟁 압력"
+      }),
     businessCriticChangeReason: "사업 리뷰 강도 변경 이유",
     businessCriticChangeReasonPlaceholder: "비즈니스 검증 강도를 바꾸는 이유를 기록하세요.",
     changeTo: (label: string) => `${label}(으)로 변경`,

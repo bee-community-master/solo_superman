@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ConfidenceCompletionProjection, ProjectionVersion, SessionId } from "@solo-superman/contracts";
+import type {
+  ConfidenceCompletionProjection,
+  DecisionQueueProjection,
+  ProjectionVersion,
+  SessionId
+} from "@solo-superman/contracts";
 import {
   phase15bReadinessViewModel,
   planningHandoffViewModel
@@ -76,6 +81,21 @@ function confidenceWithRiskCards(): ConfidenceCompletionProjection {
   };
 }
 
+function queueWithSkippedAxes(skippedCommercializationAxes: readonly string[]): DecisionQueueProjection {
+  return {
+    kind: "DecisionQueueProjection",
+    version: 3 as ProjectionVersion,
+    projectPurposeMode: "personal",
+    projectPurposeModeSelectionStatus: "confirmed",
+    modeEffectSummary: "Personal workflow checks are prioritized.",
+    skippedCommercializationAxes,
+    active: [],
+    next: [],
+    blocked: [],
+    deferred: []
+  };
+}
+
 function renderPlanningView(controllerOverrides: Partial<DecisionQueueShellController> = {}) {
   const controller = {
     businessCriticIntensityChangeReason: "",
@@ -128,5 +148,54 @@ describe("PlanningView", () => {
 
     expect(markup).toContain("No risk summary yet.");
     expect(markup).not.toContain("Top 3 Risk Cards");
+  });
+
+  it("shows personal-mode skipped commercialization axes with user-facing labels", () => {
+    const markup = renderPlanningView({
+      projections: {
+        ...emptyProjectionState(),
+        queue: queueWithSkippedAxes([
+          "market_size",
+          "investor_narrative",
+          "willingness_to_pay",
+          "acquisition_channel"
+        ])
+      }
+    });
+
+    expect(markup).toContain("Skipped commercialization axes");
+    expect(markup).toContain("Personal mode keeps these business/investor checks visible");
+    expect(markup).toContain("Market size");
+    expect(markup).toContain("Investor narrative");
+    expect(markup).toContain("Willingness to pay");
+    expect(markup).toContain("Acquisition channel");
+    expect(markup).not.toContain("market_size");
+  });
+
+  it("does not show skipped commercialization axes when none are supplied", () => {
+    const markup = renderPlanningView({
+      projections: {
+        ...emptyProjectionState(),
+        queue: queueWithSkippedAxes([])
+      }
+    });
+
+    expect(markup).not.toContain("Skipped commercialization axes");
+  });
+
+  it("falls back to confidence skipped-axis metadata when the queue has no skipped axes", () => {
+    const markup = renderPlanningView({
+      confidence: {
+        ...confidenceWithRiskCards(),
+        skippedCommercializationAxes: ["competition_pressure"]
+      },
+      projections: {
+        ...emptyProjectionState(),
+        queue: queueWithSkippedAxes([])
+      }
+    });
+
+    expect(markup).toContain("Skipped commercialization axes");
+    expect(markup).toContain("Competition pressure");
   });
 });

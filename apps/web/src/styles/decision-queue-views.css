@@ -559,6 +559,20 @@
   padding: 12px;
 }
 
+.skipped-commercialization-axes {
+  display: grid;
+  gap: 7px;
+  border: 1px solid #eadcc5;
+  border-radius: 10px;
+  background: #fffaf2;
+  margin-top: 13px;
+  padding: 12px;
+}
+
+.skipped-commercialization-axes p {
+  margin: 0;
+}
+
 .score {
   display: grid;
   place-items: center;

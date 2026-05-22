@@ -28,6 +28,12 @@ export function PlanningView({ controller }: PlanningViewProps) {
     setPurposeModeChangeReason
   } = controller;
   const topRiskCards = confidence?.topRiskCards?.slice(0, 3) ?? [];
+  const skippedCommercializationAxes = [
+    projections.queue?.skippedCommercializationAxes,
+    confidence?.skippedCommercializationAxes,
+    projections.founderBrief?.skippedCommercializationAxes,
+    projections.planningHandoff?.finalArtifact?.scopeSnapshot.skippedCommercializationAxes
+  ].find((axes) => (axes?.length ?? 0) > 0) ?? [];
 
   return (
     <div className="view-grid planning-view">
@@ -77,6 +83,17 @@ export function PlanningView({ controller }: PlanningViewProps) {
         ) : null}
         {projections.session?.businessCriticIntensityEffect ? (
           <p className="mode-summary">{projections.session.businessCriticIntensityEffect}</p>
+        ) : null}
+        {skippedCommercializationAxes.length ? (
+          <div className="skipped-commercialization-axes" aria-label={copy.planning.skippedCommercializationAxes}>
+            <strong>{copy.planning.skippedCommercializationAxes}</strong>
+            <p>{copy.planning.skippedCommercializationAxesHelp}</p>
+            <ul className="effect-list">
+              {skippedCommercializationAxes.map((axis) => (
+                <li key={axis}>{copy.planning.commercializationAxisLabel(axis)}</li>
+              ))}
+            </ul>
+          </div>
         ) : null}
         {projections.session?.projectPurposeMode === "business" ? (
           <div className="mode-change-panel">
