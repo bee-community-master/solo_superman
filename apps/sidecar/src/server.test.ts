@@ -8738,6 +8738,25 @@ describe("PR-02 sidecar health shell", () => {
       const manifest = JSON.parse(await readFile(join(projectDir, ".solo-superman", "auto-implementation-run.json"), "utf8")) as
         Readonly<Record<string, unknown>>;
       const gitHead = await readFile(join(projectDir, ".git", "HEAD"), "utf8");
+      const gitStatus = execFileSync("git", ["status", "--short"], { cwd: projectDir, encoding: "utf8" });
+      const bootstrapEvidenceRef = (latestRun.evidenceRefs as readonly string[]).find((ref) =>
+        ref.startsWith("git:workspace-bootstrap-ref:")
+      );
+      expect(bootstrapEvidenceRef).toBe(`git:workspace-bootstrap-ref:refs/tags/solo-superman/bootstrap/${latestRun.runId}`);
+      const bootstrapTagRef = bootstrapEvidenceRef!.replace("git:workspace-bootstrap-ref:", "");
+      const bootstrapCommitMessage = execFileSync("git", ["log", "--format=%s", "-n", "1", bootstrapTagRef], {
+        cwd: projectDir,
+        encoding: "utf8"
+      }).trim();
+      const bootstrapTagSha = execFileSync("git", ["rev-parse", "--verify", bootstrapTagRef], {
+        cwd: projectDir,
+        encoding: "utf8"
+      }).trim();
+      const headCommitSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: projectDir, encoding: "utf8" }).trim();
+      const commitCountBeforeReplay = execFileSync("git", ["rev-list", "--count", "HEAD"], {
+        cwd: projectDir,
+        encoding: "utf8"
+      }).trim();
 
       expect(tracker).toContain("Remote status: no_remote");
       expect(tracker).toContain("Planning Handoff implementation plan");
@@ -8774,6 +8793,7 @@ describe("PR-02 sidecar health shell", () => {
         projectFolderName: "demo-workspace-app",
         remoteStatus: "no_remote",
         evidenceRefs: expect.arrayContaining([
+          bootstrapEvidenceRef,
           "planning-handoff-plan:planning-handoff-implementation-plan.md"
         ]),
         issueManagement: {
@@ -8805,6 +8825,9 @@ describe("PR-02 sidecar health shell", () => {
         }
       });
       expect(gitHead).toContain("refs/heads/main");
+      expect(gitStatus).toBe("");
+      expect(bootstrapCommitMessage).toBe("Bootstrap Solo Superman implementation workspace");
+      expect(bootstrapTagSha).toBe(headCommitSha);
 
       const replay = await postAutoImplementationRunForTest(storageApp, sessionId, {
         idempotencyKey: "auto-implementation-route:test",
@@ -8817,6 +8840,9 @@ describe("PR-02 sidecar health shell", () => {
         version: 1
       });
       expect(replayProjection.runs as readonly unknown[]).toHaveLength(1);
+      expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: projectDir, encoding: "utf8" }).trim())
+        .toBe(commitCountBeforeReplay);
+      expect(execFileSync("git", ["status", "--short"], { cwd: projectDir, encoding: "utf8" })).toBe("");
     } finally {
       await storage.close();
     }
@@ -11058,6 +11084,8 @@ describe("PR-02 sidecar health shell", () => {
       cwd: projectDir,
       stdio: "ignore"
     });
+    await writeFile(join(projectDir, "operator-notes.md"), "operator-owned draft\n");
+    execFileSync("git", ["add", "operator-notes.md"], { cwd: projectDir, stdio: "ignore" });
 
     const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
       autoImplementationWorkspaceRoot: workspaceRoot
@@ -11073,6 +11101,24 @@ describe("PR-02 sidecar health shell", () => {
       const latestRun = latestAutoImplementationRunFromBody(body);
       const issueManagement = latestRun.issueManagement as Readonly<Record<string, unknown>>;
       const tracker = await readFile(join(projectDir, "implementation-tracker.md"), "utf8");
+      const generatedPathStatus = execFileSync(
+        "git",
+        [
+          "status",
+          "--short",
+          "--",
+          "planning-handoff-implementation-plan.md",
+          "implementation-tracker.md",
+          "implementation-issues",
+          ".solo-superman"
+        ],
+        { cwd: projectDir, encoding: "utf8" }
+      );
+      const workspaceStatus = execFileSync("git", ["status", "--short"], { cwd: projectDir, encoding: "utf8" });
+      const committedPaths = execFileSync("git", ["ls-tree", "-r", "--name-only", "HEAD"], {
+        cwd: projectDir,
+        encoding: "utf8"
+      });
 
       expect(response.status).toBe(200);
       expect(latestRun).toMatchObject({
@@ -11084,6 +11130,9 @@ describe("PR-02 sidecar health shell", () => {
       });
       expect(tracker).toContain("Remote status: unsupported_remote");
       expect(tracker).toContain("git remote set-url origin <github-repo-url>");
+      expect(generatedPathStatus).toBe("");
+      expect(workspaceStatus).toContain("A  operator-notes.md");
+      expect(committedPaths).not.toContain("operator-notes.md");
     } finally {
       await storage.close();
     }

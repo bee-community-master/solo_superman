@@ -34,6 +34,7 @@ const COMMAND_TIMEOUT_MS = 10_000;
 export const DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME = "solo-superman-project";
 const DEFAULT_PROJECT_FOLDER_NAME = DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME;
 const PLANNING_HANDOFF_IMPLEMENTATION_PLAN_RELATIVE_PATH = "planning-handoff-implementation-plan.md";
+const WORKSPACE_BOOTSTRAP_COMMIT_MESSAGE = "Bootstrap Solo Superman implementation workspace";
 
 export interface PrepareAutoImplementationWorkspaceInput {
   readonly sessionId: SessionId;
@@ -267,6 +268,73 @@ async function ensureGitRepo(projectDir: string) {
   }
 
   return "git:init:main";
+}
+
+async function commitGeneratedWorkspacePaths(
+  projectDir: string,
+  relativePaths: readonly string[],
+  message: string
+) {
+  const paths = [...new Set(relativePaths.filter(Boolean))];
+
+  if (!paths.length) {
+    return null;
+  }
+
+  const status = await git(projectDir, ["status", "--porcelain", "--", ...paths]);
+
+  if (!status) {
+    return null;
+  }
+
+  await git(projectDir, ["add", "--", ...paths]);
+
+  const stagedDiff = await safeGit(projectDir, ["diff", "--cached", "--quiet", "--", ...paths]);
+
+  if (stagedDiff.ok) {
+    return null;
+  }
+
+  await git(projectDir, [
+    "-c",
+    "user.name=Solo Superman",
+    "-c",
+    "user.email=solo-superman@localhost",
+    "commit",
+    "-m",
+    message,
+    "--",
+    ...paths
+  ]);
+
+  return git(projectDir, ["rev-parse", "HEAD"]);
+}
+
+function workspaceBootstrapTagName(runId: string) {
+  return `solo-superman/bootstrap/${runId}`;
+}
+
+function workspaceBootstrapTagRef(runId: string) {
+  return `refs/tags/${workspaceBootstrapTagName(runId)}`;
+}
+
+async function ensureWorkspaceBootstrapTag(projectDir: string, runId: string) {
+  const tagName = workspaceBootstrapTagName(runId);
+  const tagRef = workspaceBootstrapTagRef(runId);
+  const head = await git(projectDir, ["rev-parse", "HEAD"]);
+  const existing = await safeGit(projectDir, ["rev-parse", "--verify", tagRef]);
+
+  if (existing.ok) {
+    if (existing.stdout !== head) {
+      throw new Error("Auto implementation workspace bootstrap tag already points to a different commit.");
+    }
+
+    return tagRef;
+  }
+
+  await git(projectDir, ["tag", tagName, "HEAD"]);
+
+  return tagRef;
 }
 
 function addMilliseconds(isoDate: string, durationMs: number) {
@@ -1021,6 +1089,7 @@ export async function prepareAutoImplementationWorkspaceRun(
   );
 
   const manifestRelativePath = ".solo-superman/auto-implementation-run.json";
+  const workspaceBootstrapRef = workspaceBootstrapTagRef(input.runId);
   const run: AutoImplementationRun = {
     runId: input.runId,
     projectFolderName,
@@ -1055,11 +1124,25 @@ export async function prepareAutoImplementationWorkspaceRun(
       `issues:${issueMode}`,
       ...(planningPlanRelativePath ? [`planning-handoff-plan:${planningPlanRelativePath}`] : []),
       `manifest:${manifestRelativePath}`,
+      `git:workspace-bootstrap-ref:${workspaceBootstrapRef}`,
       `schema:${AUTO_IMPLEMENTATION_SCHEMA_VERSION}`
     ]
   };
 
   await writeIfChanged(workspaceRoot, resolve(generatedRepoPath, manifestRelativePath), `${JSON.stringify(run, null, 2)}\n`);
+
+  const generatedWorkspaceRelativePaths = [
+    ...(planningPlanRelativePath ? [planningPlanRelativePath] : []),
+    trackerRelativePath,
+    ...issueDocs.map((issue) => issue.relativePath),
+    manifestRelativePath
+  ];
+  await commitGeneratedWorkspacePaths(
+    generatedRepoPath,
+    generatedWorkspaceRelativePaths,
+    WORKSPACE_BOOTSTRAP_COMMIT_MESSAGE
+  );
+  await ensureWorkspaceBootstrapTag(generatedRepoPath, input.runId);
 
   return run;
 }
