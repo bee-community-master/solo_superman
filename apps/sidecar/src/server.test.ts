@@ -25,6 +25,7 @@ import {
   type ProjectId,
   type ProjectionVersion,
   type QueueItemId,
+  type RecordImplementationStepLedgerPayload,
   type ResearchAllowlistId,
   type ResearchConnectorId,
   type ResearchDisclosureLogId,
@@ -363,6 +364,47 @@ function implementationStepLedgerImportTransitionsForTest() {
       evidenceRefs: ["worker-ledger-import:completed"]
     }
   ];
+}
+
+async function createRunnableAutoImplementationWorkerJobForTest(input: {
+  readonly storageApp: ReturnType<typeof createSidecarApp>;
+  readonly workspaceRoot: string;
+  readonly idea: string;
+  readonly runIdempotencyKey: string;
+  readonly projectName: string;
+  readonly projectFolderName: string;
+  readonly authorityIdSuffix: string;
+  readonly workerJobIdempotencyKey: string;
+}) {
+  const { sessionId } = await createProjectForTest(input.storageApp, input.idea);
+  const created = await postAutoImplementationRunForTest(input.storageApp, sessionId, {
+    idempotencyKey: input.runIdempotencyKey,
+    projectName: input.projectName
+  });
+  const runId = String(latestAutoImplementationRunFromBody(await jsonBody(created)).runId);
+  const { recordId: authorityRecordId } = await createExecutionAuthorityForTest(
+    input.storageApp,
+    sessionId,
+    input.authorityIdSuffix,
+    {
+      requestedScope: {
+        workspaceRef: join(input.workspaceRoot, input.projectFolderName),
+        filePathGlobs: ["**/*"]
+      }
+    }
+  );
+  const plannedJobResponse = await postAutoImplementationWorkerJobForTest(input.storageApp, sessionId, runId, {
+    idempotencyKey: input.workerJobIdempotencyKey,
+    executionAuthorityRef: authorityRecordId
+  });
+  const plannedJobs = latestAutoImplementationRunFromBody(await jsonBody(plannedJobResponse)).workerJobs as
+    readonly Readonly<Record<string, unknown>>[];
+
+  return {
+    sessionId,
+    runId,
+    plannedJobId: String(plannedJobs.at(-1)!.jobId)
+  };
 }
 
 function jsonDataRecord(body: JsonResponseBody) {
@@ -8923,7 +8965,7 @@ describe("PR-02 sidecar health shell", () => {
         plannedJobId,
         {
           idempotencyKey: "worker-ledger-import:completed",
-          ledgerTransitions: implementationStepLedgerImportTransitionsForTest(),
+          ledgerTransitions: implementationStepLedgerImportTransitionsForTest() as readonly RecordImplementationStepLedgerPayload[],
           evidenceRefs: ["worker-ledger-import:stdout"]
         }
       );
@@ -9167,6 +9209,131 @@ describe("PR-02 sidecar health shell", () => {
           "worker-blocked:codex-runtime"
         ])
       });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("blocks local worker output that contains credential or secret-like text before it can be stored", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const secretLikeValue = "NPM_TOKEN=plain-secret-value";
+    const unsafeSecretAdapter = {
+      ...fixtureCodexRuntimeAdapter,
+      async executeWorker(input: Parameters<CodexRuntimeAdapter["executeWorker"]>[0]) {
+        return {
+          schemaVersion: CONTRACT_SCHEMA_VERSION,
+          jobId: input.jobId,
+          status: "completed",
+          summary: `Worker leaked ${secretLikeValue} in its output.`,
+          ledgerTransitions: implementationStepLedgerImportTransitionsForTest() as readonly RecordImplementationStepLedgerPayload[],
+          evidenceRefs: ["codex-worker:unsafe-secret-output"]
+        };
+      }
+    } satisfies CodexRuntimeAdapter;
+    const { app: storageApp, storage } = await createMigratedStorageApp(unsafeSecretAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId, runId, plannedJobId } = await createRunnableAutoImplementationWorkerJobForTest({
+        storageApp,
+        workspaceRoot,
+        idea: "An auto implementation worker secret guard test",
+        runIdempotencyKey: "auto-implementation-route:worker-run-secret-guard",
+        projectName: "Worker Run Secret Guard Demo",
+        projectFolderName: "worker-run-secret-guard-demo",
+        authorityIdSuffix: "auto_worker_run_secret_guard",
+        workerJobIdempotencyKey: "worker-job:run-secret-guard"
+      });
+      const runResponse = await postAutoImplementationWorkerRunForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-run:secret-guard"
+        }
+      );
+      const runBody = await jsonBody(runResponse);
+      const runProjection = latestAutoImplementationRunFromBody(runBody);
+      const runJobs = runProjection.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(runResponse.status).toBe(200);
+      expect(JSON.stringify(runBody)).not.toContain(secretLikeValue);
+      expect(runProjection).toMatchObject({
+        status: "blocked"
+      });
+      expect(runJobs.at(-1)).toMatchObject({
+        status: "blocked",
+        missingEvidence: ["Local Codex worker execution"],
+        blockedReason: expect.stringContaining("must not contain credential"),
+        nextRequiredAction: expect.stringContaining("Retry the local Codex worker run"),
+        evidenceRefs: expect.arrayContaining([
+          `auto-worker-run:${plannedJobId}:worker-run:secret-guard`,
+          "worker-blocked:codex-runtime"
+        ])
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("blocks completed worker output that claims external production mutation evidence", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const unsafeMutationAdapter = {
+      ...fixtureCodexRuntimeAdapter,
+      async executeWorker(input: Parameters<CodexRuntimeAdapter["executeWorker"]>[0]) {
+        return {
+          schemaVersion: CONTRACT_SCHEMA_VERSION,
+          jobId: input.jobId,
+          status: "completed",
+          summary: "Worker reports that a production deploy completed.",
+          ledgerTransitions: implementationStepLedgerImportTransitionsForTest() as readonly RecordImplementationStepLedgerPayload[],
+          evidenceRefs: ["deploy:production"]
+        };
+      }
+    } satisfies CodexRuntimeAdapter;
+    const { app: storageApp, storage } = await createMigratedStorageApp(unsafeMutationAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId, runId, plannedJobId } = await createRunnableAutoImplementationWorkerJobForTest({
+        storageApp,
+        workspaceRoot,
+        idea: "An auto implementation worker external mutation guard test",
+        runIdempotencyKey: "auto-implementation-route:worker-run-external-guard",
+        projectName: "Worker Run External Guard Demo",
+        projectFolderName: "worker-run-external-guard-demo",
+        authorityIdSuffix: "auto_worker_run_external_guard",
+        workerJobIdempotencyKey: "worker-job:run-external-guard"
+      });
+      const runResponse = await postAutoImplementationWorkerRunForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-run:external-guard"
+        }
+      );
+      const runProjection = latestAutoImplementationRunFromBody(await jsonBody(runResponse));
+      const runJobs = runProjection.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(runResponse.status).toBe(200);
+      expect(runProjection).toMatchObject({
+        status: "blocked"
+      });
+      expect(runJobs.at(-1)).toMatchObject({
+        status: "blocked",
+        missingEvidence: ["Local Codex worker execution"],
+        blockedReason: expect.stringContaining("must not claim external"),
+        evidenceRefs: expect.arrayContaining([
+          `auto-worker-run:${plannedJobId}:worker-run:external-guard`,
+          "worker-blocked:codex-runtime"
+        ])
+      });
+      expect(runJobs.at(-1)?.evidenceRefs).not.toEqual(expect.arrayContaining(["deploy:production"]));
     } finally {
       await storage.close();
     }
