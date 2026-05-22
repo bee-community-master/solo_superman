@@ -54,6 +54,8 @@ import {
   IMPLEMENTATION_REVIEW_VERDICTS,
   IMPLEMENTATION_CODE_REVIEW_SCOPES,
   IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES,
+  IMPLEMENTATION_CODE_REVIEW_STREAK_MISSING_EVIDENCE,
+  IMPLEMENTATION_CLEAN_CODE_REVIEW_STREAK_MISSING_EVIDENCE,
   IMPLEMENTATION_TEST_OUTCOMES,
   implementationCodeReviewStreaks,
   implementationCleanCodeReviewStreaks,
@@ -8236,13 +8238,13 @@ function implementationStepRequiredEvidence(input: {
     missing.push("clean NoCodeStepEvidence without Not-tested gaps");
   }
   if (input.codeReviewRecord?.verdict !== "passed" || !input.codeReviewStreaks.every((streak) => streak.satisfied)) {
-    missing.push("two consecutive no-finding CodeReviewRecord passes for feature and repository scopes");
+    missing.push(IMPLEMENTATION_CODE_REVIEW_STREAK_MISSING_EVIDENCE);
   }
   if (
     input.cleanCodeReviewRecord?.verdict !== "passed" ||
     !input.cleanCodeReviewStreaks.every((streak) => streak.satisfied)
   ) {
-    missing.push("two consecutive no-finding CleanCodeReviewRecord passes for changed-code and repository scopes");
+    missing.push(IMPLEMENTATION_CLEAN_CODE_REVIEW_STREAK_MISSING_EVIDENCE);
   }
   if (!implementationTestEvidencePassed(input.testEvidenceRecord)) {
     missing.push("passing TestEvidenceRecord without failed tests or Not-tested gaps");
@@ -8303,7 +8305,7 @@ function implementationStepStageEvidence(input: {
     missing.push("clean NoCodeStepEvidence without Not-tested gaps");
   }
   if (needsCodeReview && (input.codeReviewRecord?.verdict !== "passed" || !input.codeReviewStreaks.every((streak) => streak.satisfied))) {
-    missing.push("two consecutive no-finding CodeReviewRecord passes for feature and repository scopes");
+    missing.push(IMPLEMENTATION_CODE_REVIEW_STREAK_MISSING_EVIDENCE);
   }
   if (
     needsCleanCodeReview &&
@@ -8312,7 +8314,7 @@ function implementationStepStageEvidence(input: {
       !input.cleanCodeReviewStreaks.every((streak) => streak.satisfied)
     )
   ) {
-    missing.push("two consecutive no-finding CleanCodeReviewRecord passes for changed-code and repository scopes");
+    missing.push(IMPLEMENTATION_CLEAN_CODE_REVIEW_STREAK_MISSING_EVIDENCE);
   }
   if (needsTests && !implementationTestEvidencePassed(input.testEvidenceRecord)) {
     missing.push("passing TestEvidenceRecord without failed tests or Not-tested gaps");

@@ -27,6 +27,10 @@ export const IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES = ["changed_code", "reposit
 export type ImplementationCleanCodeReviewScope = (typeof IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES)[number];
 
 export const IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK = 2;
+export const IMPLEMENTATION_CODE_REVIEW_STREAK_MISSING_EVIDENCE =
+  "two consecutive no-finding CodeReviewRecord passes for feature and repository scopes";
+export const IMPLEMENTATION_CLEAN_CODE_REVIEW_STREAK_MISSING_EVIDENCE =
+  "two consecutive no-finding CleanCodeReviewRecord passes for changed-code and repository scopes";
 
 export const IMPLEMENTATION_TEST_OUTCOMES = ["passed", "failed", "not_run"] as const;
 export type ImplementationTestOutcome = (typeof IMPLEMENTATION_TEST_OUTCOMES)[number];
@@ -501,10 +505,10 @@ function completedEvidenceMissing(step: ImplementationStepRecord) {
     missing.push("clean no-code evidence without Not-tested gaps");
   }
   if (!reviewPassed(step.codeReviewRecord) || !step.codeReviewStreaks.every((streak) => streak.satisfied)) {
-    missing.push("two consecutive no-finding CodeReviewRecord passes for feature and repository scopes");
+    missing.push(IMPLEMENTATION_CODE_REVIEW_STREAK_MISSING_EVIDENCE);
   }
   if (!reviewPassed(step.cleanCodeReviewRecord) || !step.cleanCodeReviewStreaks.every((streak) => streak.satisfied)) {
-    missing.push("two consecutive no-finding CleanCodeReviewRecord passes for changed-code and repository scopes");
+    missing.push(IMPLEMENTATION_CLEAN_CODE_REVIEW_STREAK_MISSING_EVIDENCE);
   }
   if (!testsPassed(step.testEvidenceRecord)) {
     missing.push("passing TestEvidenceRecord without Not-tested gaps");
