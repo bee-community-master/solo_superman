@@ -3,6 +3,7 @@ import {
   CODEX_APP_SERVER_GENERATED_VERSION,
   CODEX_RUNTIME_ADAPTER_VERSION,
   CODEX_RUNTIME_TRANSPORT,
+  canOpenNewAutoImplementationPullRequest,
   type AutoImplementationRun,
   type BusinessCriticIntensity,
   type CodexRuntimeLoginStartDto,
@@ -967,12 +968,19 @@ export function useDecisionQueueShellController() {
     readonly missingRunMessage: string;
     readonly logIdPrefix: string;
     readonly label: string;
+    readonly canSubmit?: (run: AutoImplementationRun) => boolean;
+    readonly blockedMessage?: string;
   }) => {
     const sessionId = projections.session?.sessionId;
     const run = projections.autoImplementationRuns?.latestRun;
 
     if (!client || !sessionId || !run) {
       setWorkflowError(input.missingRunMessage);
+      return;
+    }
+
+    if (input.canSubmit && !input.canSubmit(run)) {
+      setWorkflowError(input.blockedMessage ?? "This auto implementation PR mutation is not available for the current run state.");
       return;
     }
 
@@ -1024,7 +1032,9 @@ export function useDecisionQueueShellController() {
         }),
       missingRunMessage: "An active auto implementation workspace run is required before applying an approved PR open.",
       logIdPrefix: "auto-implementation-pr-open-approved",
-      label: "Apply approved PR open"
+      label: "Apply approved PR open",
+      canSubmit: canOpenNewAutoImplementationPullRequest,
+      blockedMessage: "A pull request URL is already recorded; update or merge the existing PR instead of opening another one."
     }),
     [recordAutoImplementationPullRequestMutationAction]
   );

@@ -10302,6 +10302,31 @@ describe("PR-02 sidecar health shell", () => {
       });
       const latestRun = latestAutoImplementationRunFromBody(await jsonBody(response));
       const pullRequestMutations = latestRun.pullRequestMutations as Readonly<Record<string, unknown>>;
+      const duplicateOpenResponse = await postAutoImplementationPullRequestMutationForTest(storageApp, sessionId, runId, {
+        action: "open_pr",
+        requestMode: "approved",
+        idempotencyKey: "pr-mutation:approved:duplicate-open-pr",
+        pullRequestTitle: "Duplicate initial implementation PR",
+        issueLinks: ["https://github.com/bee-community-master/generated-demo/issues/101"],
+        implementationScope: "Attempt a duplicate generated implementation PR open after the first PR URL was recorded.",
+        reviewStreakRefs: [],
+        verificationCommands: ["pnpm verify"],
+        rollbackNotes: "Close the generated PR if the approved open action targets the wrong scope.",
+        approval: {
+          approvalId: "approval_pr_open_duplicate",
+          approvedBy: "local_operator",
+          approvedAt: "2026-05-05T00:01:00.000Z",
+          actionClass: "github_pr_mutation",
+          approvalGranularity: "per_action",
+          remoteStatusAtApproval: "connected",
+          rollbackPlan: "Close the generated pull request if the approved PR open action is wrong.",
+          evidenceRefs: ["approval:pr-open:duplicate"]
+        },
+        verifierEvidenceRefs: ["verifier:pr-open-duplicate-ready"]
+      });
+      const duplicateOpenRun = latestAutoImplementationRunFromBody(await jsonBody(duplicateOpenResponse));
+      const duplicateOpenRecord = (duplicateOpenRun.pullRequestMutations as Readonly<Record<string, unknown>>)
+        .latestRecord as Readonly<Record<string, unknown>>;
 
       expect(response.status).toBe(200);
       expect(mutationInputs).toHaveLength(1);
@@ -10319,6 +10344,16 @@ describe("PR-02 sidecar health shell", () => {
             "github-pr-mutation:mock-adapter:pr-opened"
           ])
         }
+      });
+      expect(duplicateOpenResponse.status).toBe(200);
+      expect(mutationInputs).toHaveLength(1);
+      expect(duplicateOpenRecord).toMatchObject({
+        action: "open_pr",
+        requestMode: "approved",
+        status: "blocked",
+        mutatesGitHub: false,
+        pullRequestUrl: null,
+        blockedReason: "GitHub PR open is blocked because a pull request URL is already recorded for this auto implementation run."
       });
     } finally {
       await storage.close();
