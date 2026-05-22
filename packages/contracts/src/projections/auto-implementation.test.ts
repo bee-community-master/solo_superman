@@ -29,6 +29,12 @@ function requiredFixtureItem<TItem>(items: readonly TItem[], index: number, labe
 }
 
 const readyRun = readyFixtureRun();
+const connectedRemoteGuide = {
+  status: "connected",
+  warning: null,
+  commands: [],
+  nextAction: "Remote issue, PR, and merge automation can run when the later runner stage is enabled."
+} as const;
 
 function projectionWithLatestRun(run: AutoImplementationRun): AutoImplementationRunProjection {
   return {
@@ -42,6 +48,52 @@ function expectInvalidProjection(projection: unknown) {
   expect(() => validateAutoImplementationRunProjection(projection as AutoImplementationRunProjection)).toThrow(
     AutoImplementationRunValidationError
   );
+}
+
+function githubIssueApproval(evidenceRefs: readonly string[]) {
+  return {
+    approvalId: "approval_github_issue_create",
+    approvedBy: "local_operator",
+    approvedAt: "2026-05-05T00:00:00.000Z",
+    actionClass: "github_issue_create",
+    approvalGranularity: "per_action",
+    remoteStatusAtApproval: "connected",
+    rollbackPlan: "Close created issues and keep local markdown as source of truth.",
+    evidenceRefs
+  } as const;
+}
+
+function projectionWithAppliedGitHubIssueMutation(input: {
+  readonly createdIssueUrls?: readonly string[];
+  readonly githubIssueUrls?: readonly string[];
+  readonly auditEvidenceRefs?: readonly string[];
+  readonly blockedReason?: string | null;
+} = {}) {
+  const createdIssueUrls = input.createdIssueUrls ?? readyRun.issueManagement.issueDocs.map(
+    (_issue, index) => `https://github.com/bee-community-master/demo/issues/${index + 1}`
+  );
+
+  return projectionWithLatestRun({
+    ...readyRun,
+    remoteStatus: "connected",
+    remoteGuide: connectedRemoteGuide,
+    issueManagement: {
+      ...readyRun.issueManagement,
+      mode: "github_ready",
+      warning: null,
+      githubIssueUrls: input.githubIssueUrls ?? createdIssueUrls,
+      githubIssueMutation: {
+        ...readyRun.issueManagement.githubIssueMutation,
+        status: "applied",
+        mutatesGitHub: true,
+        approval: githubIssueApproval(["approval:github_issue_create:applied"]),
+        blockedReason: input.blockedReason ?? null,
+        createdIssueUrls,
+        auditEvidenceRefs: input.auditEvidenceRefs ?? ["github-issue-mutation:applied"],
+        verifierEvidenceRefs: ["verifier:github_issue_create:ready"]
+      }
+    }
+  });
 }
 
 describe("AutoImplementationRunProjection contract", () => {
@@ -265,12 +317,7 @@ describe("AutoImplementationRunProjection contract", () => {
     const invalid = projectionWithLatestRun({
       ...readyRun,
       remoteStatus: "connected",
-      remoteGuide: {
-        status: "connected",
-        warning: null,
-        commands: [],
-        nextAction: "Remote issue, PR, and merge automation can run when the later runner stage is enabled."
-      },
+      remoteGuide: connectedRemoteGuide,
       issueManagement: {
         ...readyRun.issueManagement,
         mode: "github_ready",
@@ -297,41 +344,75 @@ describe("AutoImplementationRunProjection contract", () => {
     expectInvalidProjection(invalid);
   });
 
+  it("accepts applied GitHub issue mutation contracts with approval, audit, verifier, and created URL evidence", () => {
+    const valid = projectionWithAppliedGitHubIssueMutation();
+
+    expect(validateAutoImplementationRunProjection(valid)).toBe(valid);
+  });
+
   it("rejects applied GitHub issue mutation contracts with non-GitHub issue URLs", () => {
     const invalidIssueUrls = ["https://example.com/not-a-github-issue"];
-    const invalid = projectionWithLatestRun({
-      ...readyRun,
-      remoteStatus: "connected",
-      remoteGuide: {
-        status: "connected",
-        warning: null,
-        commands: [],
-        nextAction: "Remote issue, PR, and merge automation can run when the later runner stage is enabled."
-      },
-      issueManagement: {
-        ...readyRun.issueManagement,
-        mode: "github_ready",
-        warning: null,
-        githubIssueUrls: invalidIssueUrls,
-        githubIssueMutation: {
-          ...readyRun.issueManagement.githubIssueMutation,
-          status: "applied",
-          mutatesGitHub: true,
-          approval: {
-            approvalId: "approval_with_invalid_url",
-            approvedBy: "local_operator",
-            approvedAt: "2026-05-05T00:00:00.000Z",
-            actionClass: "github_issue_create",
-            approvalGranularity: "per_action",
-            remoteStatusAtApproval: "connected",
-            rollbackPlan: "Close created issues and keep local markdown as source of truth.",
-            evidenceRefs: ["approval:github_issue_create:invalid-url"]
-          },
-          createdIssueUrls: invalidIssueUrls,
-          auditEvidenceRefs: ["github-issue-mutation:applied"],
-          verifierEvidenceRefs: ["verifier:github_issue_create:ready"]
-        }
-      }
+    const invalid = projectionWithAppliedGitHubIssueMutation({
+      createdIssueUrls: invalidIssueUrls,
+      githubIssueUrls: invalidIssueUrls
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects applied GitHub issue mutation contracts with non-canonical URL whitespace", () => {
+    const invalidIssueUrls = readyRun.issueManagement.issueDocs.map(
+      (_issue, index) => ` https://github.com/bee-community-master/demo/issues/${index + 1}`
+    );
+    const invalid = projectionWithAppliedGitHubIssueMutation({
+      createdIssueUrls: invalidIssueUrls,
+      githubIssueUrls: invalidIssueUrls
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects applied GitHub issue mutation contracts without created URL evidence", () => {
+    const invalid = projectionWithAppliedGitHubIssueMutation({
+      createdIssueUrls: [],
+      githubIssueUrls: []
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects partially applied GitHub issue mutation contracts", () => {
+    const invalid = projectionWithAppliedGitHubIssueMutation({
+      createdIssueUrls: ["https://github.com/bee-community-master/demo/issues/1"],
+      githubIssueUrls: ["https://github.com/bee-community-master/demo/issues/1"]
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects applied GitHub issue mutation contracts with duplicate created URLs", () => {
+    const duplicateIssueUrls = readyRun.issueManagement.issueDocs.map(
+      () => "https://github.com/bee-community-master/demo/issues/1"
+    );
+    const invalid = projectionWithAppliedGitHubIssueMutation({
+      createdIssueUrls: duplicateIssueUrls,
+      githubIssueUrls: duplicateIssueUrls
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects GitHub issue mutation contracts without audit evidence refs", () => {
+    const invalid = projectionWithAppliedGitHubIssueMutation({
+      auditEvidenceRefs: []
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects non-blocked GitHub issue mutation contracts that still carry blocker reasons", () => {
+    const invalid = projectionWithAppliedGitHubIssueMutation({
+      blockedReason: "Stale blocker text should not remain after mutation is applied."
     });
 
     expectInvalidProjection(invalid);

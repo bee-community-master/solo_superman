@@ -18,6 +18,8 @@ import {
   AUTO_IMPLEMENTATION_STAGES,
   AUTO_IMPLEMENTATION_TICK_INTERVAL_MS,
   validateAutoImplementationRunProjection,
+  ImplementationStepLedgerValidationError,
+  validateImplementationStepLedgerProjection,
   isTerminalResearchRunStatus,
   type ApiErrorCode,
   type AutoImplementationStageLedgerEvidence,
@@ -557,6 +559,28 @@ function autoImplementationRunStatusForAction(
       return "blocked";
     case "tick":
       return currentStatus;
+  }
+}
+
+function validatedLedgerForAutoImplementationStage(
+  ledger: ImplementationStepLedgerProjection | null
+): ImplementationStepLedgerProjection | null {
+  if (!ledger) {
+    return null;
+  }
+
+  try {
+    return validateImplementationStepLedgerProjection(ledger);
+  } catch (error) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "Auto implementation stage completion requires a valid ImplementationStepLedger projection.",
+      {
+        issues: error instanceof ImplementationStepLedgerValidationError
+          ? error.issues
+          : [error instanceof Error ? error.message : String(error)]
+      }
+    );
   }
 }
 
@@ -5095,9 +5119,11 @@ export function createProductEngineCommandService(
       const nextTickAt = addMilliseconds(recordedAt, AUTO_IMPLEMENTATION_TICK_INTERVAL_MS);
       const requestEvidenceRefs = request.evidenceRefs ?? [];
       const ledger = request.action === "complete"
-        ? await projectionRepository.get<ImplementationStepLedgerProjection>(
-          request.sessionId,
-          "ImplementationStepLedgerProjection"
+        ? validatedLedgerForAutoImplementationStage(
+          await projectionRepository.get<ImplementationStepLedgerProjection>(
+            request.sessionId,
+            "ImplementationStepLedgerProjection"
+          )
         )
         : null;
       const ledgerStep = request.action === "complete"

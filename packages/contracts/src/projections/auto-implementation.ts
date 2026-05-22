@@ -465,8 +465,14 @@ function isGitHubIssuePlan(value: unknown): value is AutoImplementationGitHubIss
 }
 
 function isGitHubIssueUrl(value: unknown): value is string {
-  return isNonEmptyString(value) &&
-    /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/issues\/[1-9]\d*\/?$/iu.test(value.trim());
+  if (!isNonEmptyString(value)) {
+    return false;
+  }
+
+  const trimmed = value.trim();
+
+  return value === trimmed &&
+    /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/issues\/[1-9]\d*\/?$/iu.test(trimmed);
 }
 
 function isGitHubIssueApproval(value: unknown): value is AutoImplementationGitHubIssueApproval {
@@ -495,6 +501,7 @@ function isGitHubIssueMutationContract(value: unknown): value is AutoImplementat
     Array.isArray(value.createdIssueUrls) &&
     value.createdIssueUrls.every(isGitHubIssueUrl) &&
     isStringArray(value.auditEvidenceRefs) &&
+    value.auditEvidenceRefs.length > 0 &&
     isStringArray(value.verifierEvidenceRefs);
 }
 
@@ -539,6 +546,10 @@ function hasCanonicalIssueDocs(issueDocs: readonly AutoImplementationIssueDocume
 
 function arraysMatch(left: readonly string[], right: readonly string[]) {
   return left.length === right.length && left.every((item, index) => item === right[index]);
+}
+
+function hasUniqueStrings(values: readonly string[]) {
+  return new Set(values).size === values.length;
 }
 
 function mutationPlansMatchIssueDocs(
@@ -592,7 +603,12 @@ function hasConsistentRemoteIssueState(
   const mutation = issueManagement.githubIssueMutation;
   const nonAppliedMutationHasNoCreatedUrls = mutation.status === "applied" || mutation.createdIssueUrls.length === 0;
   const mutationUrlsMatchIssueUrls = arraysMatch(mutation.createdIssueUrls, issueManagement.githubIssueUrls);
-  const blockedMutationHasReason = mutation.status !== "blocked" || Boolean(mutation.blockedReason);
+  const mutationUrlsAreUnique = hasUniqueStrings(mutation.createdIssueUrls) && hasUniqueStrings(issueManagement.githubIssueUrls);
+  const appliedMutationCreatedAllPlannedIssues =
+    mutation.status !== "applied" || mutation.createdIssueUrls.length === mutation.plannedIssues.length;
+  const blockedReasonMatchesStatus = mutation.status === "blocked"
+    ? Boolean(mutation.blockedReason)
+    : mutation.blockedReason === null;
   const nonConnectedCannotBeReady =
     remoteStatus === "connected" ||
     (mutation.status !== "dry_run_ready" && mutation.status !== "approved_ready" && mutation.status !== "applied");
@@ -612,7 +628,9 @@ function hasConsistentRemoteIssueState(
     issueManagement.warning === remoteGuide.warning &&
     nonAppliedMutationHasNoCreatedUrls &&
     mutationUrlsMatchIssueUrls &&
-    blockedMutationHasReason &&
+    mutationUrlsAreUnique &&
+    appliedMutationCreatedAllPlannedIssues &&
+    blockedReasonMatchesStatus &&
     nonConnectedCannotBeReady &&
     approvalMatchesStatus &&
     mutationFlagMatchesStatus &&

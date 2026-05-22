@@ -8490,6 +8490,51 @@ describe("PR-02 sidecar health shell", () => {
         projection: {
           ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
           sessionId: sessionId as SessionId,
+          steps: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps.map((step, index) => index === 0
+            ? {
+                ...step,
+                testEvidenceRecord: {
+                  ...step.testEvidenceRecord!,
+                  passedTestCount: 0
+                }
+              }
+            : step),
+          testEvidenceRecords: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords.map((record, index) =>
+            index === 0
+              ? {
+                  ...record,
+                  passedTestCount: 0
+                }
+              : record
+          ),
+          refetchUrl: `/api/v1/sessions/${sessionId}/implementation-step-ledger`,
+          schemaVersion: IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION
+        },
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        updatedAt: "2026-05-20T00:05:30.000Z"
+      });
+
+      const invalidLedger = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "initial_pr", {
+        idempotencyKey: "auto-stage:complete:invalid-ledger",
+        action: "complete",
+        implementationStepId: "step_demo",
+        tickedAt: "2026-05-20T00:06:00.000Z",
+        evidenceRefs: ["stage:initial_pr:complete-attempt"]
+      });
+      const invalidLedgerBody = await jsonBody(invalidLedger);
+
+      expect(invalidLedger.status).toBe(400);
+      expect(invalidLedgerBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Auto implementation stage completion requires a valid ImplementationStepLedger projection."
+      });
+
+      await createProjectionRepository(storage.db).save({
+        projectId: projectId as ProjectId,
+        sessionId: sessionId as SessionId,
+        projection: {
+          ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+          sessionId: sessionId as SessionId,
           refetchUrl: `/api/v1/sessions/${sessionId}/implementation-step-ledger`,
           schemaVersion: IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION
         },
