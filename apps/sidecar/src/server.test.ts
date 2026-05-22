@@ -203,6 +203,29 @@ async function postAutoImplementationStageForTest(
   ));
 }
 
+async function postAutoImplementationWorkerJobForTest(
+  storageApp: RequestTestApp,
+  sessionId: string,
+  runId: string,
+  payload: Readonly<Record<string, unknown>>
+) {
+  return Promise.resolve(storageApp.request(
+    `/api/v1/sessions/${sessionId}/auto-implementation-runs/${runId}/worker-jobs`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        sessionId,
+        runId,
+        ...payload
+      })
+    }
+  ));
+}
+
 function jsonDataRecord(body: JsonResponseBody) {
   return body.data as Readonly<Record<string, unknown>>;
 }
@@ -8402,6 +8425,92 @@ describe("PR-02 sidecar health shell", () => {
         version: 1
       });
       expect(replayProjection.runs as readonly unknown[]).toHaveLength(1);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("creates bounded local Codex worker jobs for the current auto implementation issue document", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "An auto implementation local worker job test");
+      const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:worker-job",
+        projectName: "Worker Job Demo"
+      });
+      const runId = String(latestAutoImplementationRunFromBody(await jsonBody(created)).runId);
+      const blockedJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:missing-authority"
+      });
+      const blockedJobRun = latestAutoImplementationRunFromBody(await jsonBody(blockedJobResponse));
+      const blockedJobs = blockedJobRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(blockedJobResponse.status).toBe(200);
+      expect(blockedJobRun).toMatchObject({
+        status: "blocked",
+        currentStage: "initial_pr"
+      });
+      expect(blockedJobs).toHaveLength(1);
+      expect(blockedJobs[0]).toMatchObject({
+        runId,
+        stage: "initial_pr",
+        issueId: "local-001",
+        issueRelativePath: "implementation-issues/001-initial_pr.md",
+        status: "blocked",
+        blockedReason: expect.stringContaining("ExecutionAuthorityRecord"),
+        missingEvidence: ["ExecutionAuthorityRecord"],
+        executionPlan: {
+          executionMode: "local_sandboxed_codex",
+          workingDirectory: join(workspaceRoot, "worker-job-demo"),
+          issueDocumentPath: "implementation-issues/001-initial_pr.md",
+          executionAuthorityRef: null,
+          forbiddenActions: expect.arrayContaining([
+            expect.stringContaining("credential"),
+            expect.stringContaining("production deploy")
+          ]),
+          requiredEvidence: expect.arrayContaining([
+            expect.stringContaining("ImplementationStepLedger")
+          ])
+        }
+      });
+
+      const replay = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:missing-authority"
+      });
+      const replayRun = latestAutoImplementationRunFromBody(await jsonBody(replay));
+
+      expect(replay.status).toBe(200);
+      expect(replayRun.workerJobs as readonly unknown[]).toHaveLength(1);
+
+      const plannedJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:with-authority",
+        executionAuthorityRef: "authority_auto_worker_initial_pr"
+      });
+      const plannedJobRun = latestAutoImplementationRunFromBody(await jsonBody(plannedJobResponse));
+      const plannedJobs = plannedJobRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(plannedJobResponse.status).toBe(200);
+      expect(plannedJobRun).toMatchObject({
+        status: "running",
+        currentStage: "initial_pr"
+      });
+      expect(plannedJobs).toHaveLength(2);
+      expect(plannedJobs[1]).toMatchObject({
+        status: "planned",
+        missingEvidence: [],
+        blockedReason: null,
+        nextRequiredAction: expect.stringContaining("ImplementationStepLedger evidence"),
+        executionPlan: {
+          executionAuthorityRef: "authority_auto_worker_initial_pr"
+        },
+        evidenceRefs: expect.arrayContaining([
+          "execution-authority:authority_auto_worker_initial_pr"
+        ])
+      });
     } finally {
       await storage.close();
     }

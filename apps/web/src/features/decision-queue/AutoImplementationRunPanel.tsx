@@ -25,6 +25,8 @@ export interface AutoImplementationRunViewModel {
   readonly deliveryGates: readonly string[];
   readonly stageReviewGates: readonly AutoImplementationStageReviewGate[];
   readonly evidenceRefs: readonly string[];
+  readonly latestWorkerJobLabel: string;
+  readonly latestWorkerJobNextAction: string;
   readonly hasRun: boolean;
 }
 
@@ -56,12 +58,15 @@ export function autoImplementationRunViewModel(
       deliveryGates: [],
       stageReviewGates: [],
       evidenceRefs: [],
+      latestWorkerJobLabel: "Local Codex worker: not planned",
+      latestWorkerJobNextAction: "Create a workspace run before planning a local Codex worker.",
       hasRun: false
     };
   }
 
   const githubIssueMutation = run.issueManagement.githubIssueMutation;
   const githubIssueBlockedReason = githubIssueMutation.blockedReason ? ` · ${githubIssueMutation.blockedReason}` : "";
+  const latestWorkerJob = run.workerJobs.at(-1);
 
   return {
     status: run.status,
@@ -81,6 +86,11 @@ export function autoImplementationRunViewModel(
     deliveryGates: run.reviewProtocol.deliveryGates,
     stageReviewGates: run.reviewProtocol.stageGates,
     evidenceRefs: run.evidenceRefs,
+    latestWorkerJobLabel: latestWorkerJob
+      ? `Local Codex worker: ${latestWorkerJob.status} for ${latestWorkerJob.stage} (${latestWorkerJob.issueId})`
+      : "Local Codex worker: not planned",
+    latestWorkerJobNextAction: latestWorkerJob?.nextRequiredAction ??
+      "Create a bounded local worker job after the current stage issue document is ready.",
     hasRun: true
   };
 }
@@ -110,6 +120,8 @@ export function AutoImplementationRunPanel({
       <p className="research-recovery">{run.workspaceLabel}</p>
       <p className="mode-summary">{run.remoteLabel} · {run.issueModeLabel}</p>
       <p className="mode-summary">{run.nextTickLabel}</p>
+      <p className="mode-summary">{run.latestWorkerJobLabel}</p>
+      <p className="research-recovery">{run.latestWorkerJobNextAction}</p>
       <div className="card-actions panel-actions">
         <button type="button" disabled={isBusy} onClick={onCreateRun}>
           {run.hasRun ? copy.autoImplementation.reprepare : copy.autoImplementation.create}

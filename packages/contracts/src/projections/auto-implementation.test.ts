@@ -139,6 +139,77 @@ describe("AutoImplementationRunProjection contract", () => {
     expect(readyRun.remoteGuide.commands).toContain("gh auth login");
   });
 
+  it("accepts current-stage worker jobs that carry a bounded local Codex execution plan", () => {
+    const valid = projectionWithLatestRun({
+      ...readyRun,
+      status: "blocked",
+      workerJobs: [
+        {
+          jobId: "auto-worker-job:auto_run_demo:initial_pr:job_1",
+          runId: readyRun.runId,
+          stage: "initial_pr",
+          issueId: "local-001",
+          issueTitle: "Workspace repo bootstrap and initial implementation PR",
+          issueRelativePath: "implementation-issues/001-initial_pr.md",
+          status: "blocked",
+          executionPlan: {
+            executionMode: "local_sandboxed_codex",
+            workingDirectory: readyRun.generatedRepoPath,
+            issueDocumentPath: "implementation-issues/001-initial_pr.md",
+            executionAuthorityRef: null,
+            allowedWriteScope: [".", "implementation-issues/001-initial_pr.md"],
+            requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
+            forbiddenActions: ["credential, token, session cookie, or secret storage"],
+            sourceRefs: ["auto-implementation-run:auto_run_demo", "auto-implementation-stage:initial_pr"]
+          },
+          blockedReason: "ExecutionAuthorityRecord is missing.",
+          missingEvidence: ["ExecutionAuthorityRecord"],
+          nextRequiredAction: "Create a bounded ExecutionAuthorityRecord before local worker execution.",
+          createdAt: "2026-05-19T00:01:00.000Z",
+          updatedAt: "2026-05-19T00:01:00.000Z",
+          evidenceRefs: ["auto-worker-job:auto_run_demo:initial_pr:job_1"]
+        }
+      ]
+    });
+
+    expect(validateAutoImplementationRunProjection(valid)).toBe(valid);
+  });
+
+  it("rejects worker jobs that are not tied to a canonical issue document", () => {
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      workerJobs: [
+        {
+          jobId: "auto-worker-job:auto_run_demo:unknown:job_1",
+          runId: readyRun.runId,
+          stage: "initial_pr",
+          issueId: "local-999",
+          issueTitle: "Not a planned issue",
+          issueRelativePath: "implementation-issues/999-unknown.md",
+          status: "planned",
+          executionPlan: {
+            executionMode: "local_sandboxed_codex",
+            workingDirectory: readyRun.generatedRepoPath,
+            issueDocumentPath: "implementation-issues/999-unknown.md",
+            executionAuthorityRef: "authority_1",
+            allowedWriteScope: ["."],
+            requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
+            forbiddenActions: ["production deploy"],
+            sourceRefs: ["auto-implementation-run:auto_run_demo"]
+          },
+          blockedReason: null,
+          missingEvidence: [],
+          nextRequiredAction: "Run the bounded worker.",
+          createdAt: "2026-05-19T00:01:00.000Z",
+          updatedAt: "2026-05-19T00:01:00.000Z",
+          evidenceRefs: ["auto-worker-job:auto_run_demo:unknown:job_1"]
+        }
+      ]
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
   it("rejects generated repo folders outside the safe slug shape", () => {
     const invalid = projectionWithLatestRun({
       ...readyRun,

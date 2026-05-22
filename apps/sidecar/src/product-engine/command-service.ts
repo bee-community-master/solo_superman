@@ -14,6 +14,7 @@ import {
   ResearchAllowlistValidationError,
   ResearchRunValidationError,
   assertSafeResearchConnectorId,
+  AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE,
   AUTO_IMPLEMENTATION_SCHEMA_VERSION,
   AUTO_IMPLEMENTATION_STAGES,
   AUTO_IMPLEMENTATION_TICK_INTERVAL_MS,
@@ -28,7 +29,9 @@ import {
   type AutoImplementationRun,
   type AutoImplementationRunStatus,
   type AutoImplementationRunProjection,
+  type AutoImplementationWorkerJob,
   type CreateAutoImplementationRunRequest,
+  type CreateAutoImplementationWorkerJobRequest,
   type AutomaticResearchSourceCategory,
   type BlockedActionType,
   type CommandId,
@@ -672,6 +675,93 @@ function autoImplementationStageLedgerEvidence(
       ...cleanCodeReviewStreakRefs,
       ...testEvidenceRefs,
       ...blockerEvidenceRefs
+    ])
+  };
+}
+
+function autoImplementationWorkerJobId(request: CreateAutoImplementationWorkerJobRequest, stage: AutoImplementationRun["currentStage"]) {
+  return `auto-worker-job:${request.runId}:${stage}:${request.idempotencyKey}`;
+}
+
+function autoImplementationWorkerPlan(input: {
+  readonly run: AutoImplementationRun;
+  readonly issue: AutoImplementationRun["issueManagement"]["issueDocs"][number];
+  readonly executionAuthorityRef: string | null;
+}) {
+  return {
+    executionMode: AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE,
+    workingDirectory: input.run.generatedRepoPath,
+    issueDocumentPath: input.issue.relativePath,
+    executionAuthorityRef: input.executionAuthorityRef,
+    allowedWriteScope: [
+      ".",
+      input.issue.relativePath,
+      ".solo-superman/auto-implementation-run.json",
+      "implementation-tracker.md"
+    ],
+    requiredEvidence: [
+      "ImplementationStepLedger trackerDoc and stepDoc",
+      "commit or no-code evidence",
+      "two no-finding feature and repository code-review passes",
+      "two no-finding changed-code and repository clean-code passes",
+      "passing targeted and full test evidence",
+      "visible blocker evidence when the worker cannot complete"
+    ],
+    forbiddenActions: [
+      "credential, token, session cookie, or secret storage",
+      "network writes outside an explicit future contract",
+      "production deploy, final-submit, or external service mutation",
+      "account, billing, or permission changes",
+      "destructive filesystem writes outside the generated workspace repo"
+    ],
+    sourceRefs: [
+      `auto-implementation-run:${input.run.runId}`,
+      `auto-implementation-stage:${input.issue.stage}`,
+      `auto-implementation-issue:${input.issue.issueId}`,
+      `issue-doc:${input.issue.relativePath}`
+    ]
+  };
+}
+
+function autoImplementationWorkerJob(input: {
+  readonly request: CreateAutoImplementationWorkerJobRequest;
+  readonly run: AutoImplementationRun;
+  readonly issue: AutoImplementationRun["issueManagement"]["issueDocs"][number];
+  readonly now: string;
+}): AutoImplementationWorkerJob {
+  const executionAuthorityRef = input.request.executionAuthorityRef ?? null;
+  const status = executionAuthorityRef ? "planned" as const : "blocked" as const;
+  const jobId = autoImplementationWorkerJobId(input.request, input.issue.stage);
+  const missingEvidence = executionAuthorityRef ? [] : ["ExecutionAuthorityRecord"];
+  const blockedReason = executionAuthorityRef
+    ? null
+    : "Local Codex worker execution requires an explicit ExecutionAuthorityRecord boundary before the job can start.";
+
+  return {
+    jobId,
+    runId: input.run.runId,
+    stage: input.issue.stage,
+    issueId: input.issue.issueId,
+    issueTitle: input.issue.title,
+    issueRelativePath: input.issue.relativePath,
+    status,
+    executionPlan: autoImplementationWorkerPlan({
+      run: input.run,
+      issue: input.issue,
+      executionAuthorityRef
+    }),
+    blockedReason,
+    missingEvidence,
+    nextRequiredAction: executionAuthorityRef
+      ? "Run the local Codex worker inside the bounded plan, then import ImplementationStepLedger evidence before advancing the stage."
+      : "Create or attach an ExecutionAuthorityRecord scoped to the generated workspace before starting this local Codex worker job.",
+    createdAt: input.now,
+    updatedAt: input.now,
+    evidenceRefs: uniqueAutoImplementationRefs([
+      jobId,
+      `worker-plan:${input.run.runId}:${input.issue.stage}`,
+      `issue-doc:${input.issue.relativePath}`,
+      ...(executionAuthorityRef ? [`execution-authority:${executionAuthorityRef}`] : ["worker-blocked:missing-execution-authority"])
     ])
   };
 }
@@ -5030,6 +5120,85 @@ export function createProductEngineCommandService(
         summary: `Auto implementation workspace is ready for ${run.projectFolderName}; remote status is ${run.remoteStatus}.`,
         refetchUrl: `/api/v1/sessions/${request.sessionId}/auto-implementation-runs`,
         schemaVersion: AUTO_IMPLEMENTATION_SCHEMA_VERSION
+      });
+
+      return projectionRepository.save({
+        projectId: session.projectId,
+        sessionId: request.sessionId,
+        projection,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        updatedAt: now
+      });
+    },
+
+    async createAutoImplementationWorkerJob(
+      request: CreateAutoImplementationWorkerJobRequest
+    ): Promise<AutoImplementationRunProjection> {
+      const session = await createProjectRepository(storage.db).getSession(request.sessionId);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: request.sessionId
+        });
+      }
+
+      const projectionRepository = createProjectionRepository(storage.db);
+      const existingProjection = await projectionRepository.get<AutoImplementationRunProjection>(
+        request.sessionId,
+        "AutoImplementationRunProjection"
+      );
+
+      if (!existingProjection) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run projection was not found.", {
+          sessionId: request.sessionId
+        });
+      }
+
+      const run = existingProjection.runs.find((candidate) => candidate.runId === request.runId);
+
+      if (!run) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run was not found.", {
+          runId: request.runId
+        });
+      }
+
+      const jobId = autoImplementationWorkerJobId(request, run.currentStage);
+
+      if (run.workerJobs.some((job) => job.jobId === jobId)) {
+        return existingProjection;
+      }
+
+      if (run.status === "completed") {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "Completed auto implementation runs cannot create worker jobs.");
+      }
+
+      const issue = run.issueManagement.issueDocs.find((candidate) => candidate.stage === run.currentStage);
+
+      if (!issue) {
+        throw new ProductEngineServiceError(
+          "VALIDATION_FAILED",
+          "Auto implementation worker jobs require a current-stage issue document."
+        );
+      }
+
+      const now = new Date().toISOString();
+      const workerJob = autoImplementationWorkerJob({ request, run, issue, now });
+      const updatedRun: AutoImplementationRun = {
+        ...run,
+        status: workerJob.status === "blocked" ? "blocked" : "running",
+        workerJobs: [...run.workerJobs, workerJob],
+        updatedAt: now,
+        evidenceRefs: uniqueAutoImplementationRefs([...run.evidenceRefs, ...workerJob.evidenceRefs])
+      };
+      const runs = existingProjection.runs.map((candidate) =>
+        candidate.runId === request.runId ? updatedRun : candidate
+      );
+      const projection = validateAutoImplementationRunProjection({
+        ...existingProjection,
+        version: (existingProjection.version + 1) as ProjectionVersion,
+        latestRun: updatedRun,
+        runs,
+        summary: `Auto implementation worker job ${workerJob.status} for ${workerJob.stage}.`
       });
 
       return projectionRepository.save({
