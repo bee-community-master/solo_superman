@@ -19,7 +19,8 @@ export type CompletionGateId =
   | "evidence_balance"
   | "research_queue_cards"
   | "required_decisions"
-  | "blocking_incidents";
+  | "blocking_incidents"
+  | "implementation_closeout";
 
 export interface ConfidenceAxisScore {
   readonly axisId: ConfidenceAxisId;
