@@ -120,11 +120,15 @@ function workerJob(overrides: WorkerJobOverrides = {}): AutoImplementationRun["w
   };
 }
 
-function renderPanelMarkup(run: ReturnType<typeof autoImplementationRunViewModel>) {
+function renderPanelMarkup(
+  run: ReturnType<typeof autoImplementationRunViewModel>,
+  options: { readonly canCreateRun?: boolean } = {}
+) {
   return renderEnglishMarkup(
     createElement(AutoImplementationRunPanel, {
       run,
       isBusy: false,
+      canCreateRun: options.canCreateRun ?? true,
       onCreateRun: () => undefined,
       onPlanWorkerJob: () => undefined,
       onRecordStageTick: () => undefined,
@@ -222,6 +226,15 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.canApplyPullRequestOpen).toBe(false);
     expect(view.canApplyPullRequestBodyUpdate).toBe(false);
     expect(view.canApplyPullRequestMerge).toBe(false);
+  });
+
+  it("keeps workspace creation disabled until planning handoff is ready", () => {
+    const view = autoImplementationRunViewModel(null);
+    const blockedMarkup = renderPanelMarkup(view, { canCreateRun: false });
+    const readyMarkup = renderPanelMarkup(view, { canCreateRun: true });
+
+    expect(blockedMarkup).toContain('<button type="button" disabled="">Create workspace run</button>');
+    expect(readyMarkup).toContain('<button type="button">Create workspace run</button>');
   });
 
   it("shows the latest GitHub PR mutation evidence and history count", () => {
