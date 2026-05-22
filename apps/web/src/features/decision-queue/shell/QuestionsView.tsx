@@ -149,6 +149,22 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                             {businessCriticSummary(copy, item)}
                           </p>
                         ) : null}
+                        {item.whyItMatters || item.decisionItUnlocks ? (
+                          <dl className="question-coaching-context">
+                            {item.whyItMatters ? (
+                              <div>
+                                <dt>{copy.questions.whyItMatters}</dt>
+                                <dd>{item.whyItMatters}</dd>
+                              </div>
+                            ) : null}
+                            {item.decisionItUnlocks ? (
+                              <div>
+                                <dt>{copy.questions.decisionItUnlocks}</dt>
+                                <dd>{item.decisionItUnlocks}</dd>
+                              </div>
+                            ) : null}
+                          </dl>
+                        ) : null}
                         {item.nextValidationAction ? (
                           <p className="research-recovery">{copy.questions.nextValidation}: {item.nextValidationAction}</p>
                         ) : null}

@@ -197,6 +197,8 @@ const EN_COPY = {
       core_assumption_challenge: "Core assumption check",
       investor_pressure_pass: "Investor-style stress test"
     } satisfies Record<BusinessCriticPressureKind, string>,
+    whyItMatters: "Why this matters",
+    decisionItUnlocks: "Decision it unlocks",
     nextValidation: "Next validation",
     suggestedAnswers: "Suggested answer choices",
     optionPro: "Pro",
@@ -679,6 +681,8 @@ const JA_COPY: typeof EN_COPY = {
       core_assumption_challenge: "核心仮説の確認",
       investor_pressure_pass: "投資審査目線の検証"
     },
+    whyItMatters: "なぜ重要か",
+    decisionItUnlocks: "解放される判断",
     nextValidation: "次の検証",
     suggestedAnswers: "回答候補",
     optionPro: "長所",
@@ -1161,6 +1165,8 @@ const KO_COPY: typeof EN_COPY = {
       core_assumption_challenge: "핵심 가설 점검",
       investor_pressure_pass: "투자심사식 검증"
     },
+    whyItMatters: "왜 중요한가",
+    decisionItUnlocks: "결정되는 판단",
     nextValidation: "다음 검증",
     suggestedAnswers: "추천 답변 선택지",
     optionPro: "찬성",

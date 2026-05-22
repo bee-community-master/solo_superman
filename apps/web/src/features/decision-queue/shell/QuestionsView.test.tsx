@@ -125,6 +125,47 @@ describe("QuestionsView", () => {
     );
   });
 
+  it("renders question coaching context so founders know why a card is being asked", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 1 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_coaching_1" as QueueItemId,
+          title: "Which workflow breaks most often today?",
+          state: "active",
+          whyItMatters: "If the painful workflow is unclear, the first build slice can solve the wrong job.",
+          decisionItUnlocks: "Locks the first workflow slice and the success metric."
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+
+    const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        queue
+      },
+      sections: [
+        {
+          id: "active",
+          title: "Current questions",
+          emptyLabel: "No current questions.",
+          items: queue.active
+        }
+      ]
+    });
+
+    expect(markup).toContain("Why this matters");
+    expect(markup).toContain("If the painful workflow is unclear");
+    expect(markup).toContain("Decision it unlocks");
+    expect(markup).toContain("Locks the first workflow slice");
+    expect(markup).not.toContain("whyItMatters");
+    expect(markup).not.toContain("decisionItUnlocks");
+  });
+
   it("keeps known-risk entry folded behind an additional comment/risk disclosure", () => {
     const queue: DecisionQueueProjection = {
       kind: "DecisionQueueProjection",
