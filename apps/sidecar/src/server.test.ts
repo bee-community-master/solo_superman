@@ -55,7 +55,12 @@ import type {
 import { hashBrowserActionPreview } from "./product-engine/browser-action-adapter";
 import { hashFileDiffPreview } from "./product-engine/file-diff-adapter";
 import { hashShellCommandPreview } from "./product-engine/shell-command-adapter";
-import { CodexRuntimeUnavailableError, createCodexRuntimeAdapter, fixtureCodexPreviewOutput } from "./runtime";
+import {
+  CodexRuntimeUnavailableError,
+  createCodexRuntimeAdapter,
+  fixtureCodexPreviewOutput,
+  fixtureCodexWorkerExecutionOutput
+} from "./runtime";
 import type { CodexRuntimeAdapter } from "./runtime";
 import { createSidecarApp } from "./server";
 
@@ -9147,6 +9152,7 @@ describe("PR-02 sidecar health shell", () => {
         headers: authHeaders()
       });
       const ledger = jsonDataRecord(await jsonBody(ledgerResponse));
+      const expectedWorkerStepId = `auto-implementation-step:${runId}:initial_pr:local-001`;
 
       expect(runResponse.status).toBe(200);
       expect(runProjection).toMatchObject({
@@ -9168,7 +9174,7 @@ describe("PR-02 sidecar health shell", () => {
           `auto-worker-ledger-import:${plannedJobId}:worker-run:fixture:ledger-import`,
           `codex-worker:${plannedJobId}:fixture`,
           "codex-worker:fixture:completed",
-          "implementation-step-ledger:step_demo",
+          `implementation-step-ledger:${expectedWorkerStepId}`,
           "commit:abcdef1",
           "test:verify",
           "worker-run:route-request"
@@ -9178,7 +9184,88 @@ describe("PR-02 sidecar health shell", () => {
       expect(ledger).toMatchObject({
         kind: "ImplementationStepLedgerProjection",
         currentStatus: "completed",
-        summary: expect.stringContaining("completed")
+        summary: expect.stringContaining("completed"),
+        trackerDoc: {
+          trackerId: `auto-implementation-tracker:${runId}`
+        },
+        steps: expect.arrayContaining([
+          expect.objectContaining({
+            stepDoc: expect.objectContaining({
+              stepId: expectedWorkerStepId,
+              sourceRefs: expect.arrayContaining([
+                `auto-implementation-worker-job:${plannedJobId}`,
+                "issue-doc:implementation-issues/001-initial_pr.md"
+              ])
+            })
+          })
+        ])
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("keeps worker jobs visibly blocked when completed worker ledger docs do not match the planned docs", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const mismatchedLedgerAdapter = {
+      ...fixtureCodexRuntimeAdapter,
+      async executeWorker(input: Parameters<CodexRuntimeAdapter["executeWorker"]>[0]) {
+        const output = fixtureCodexWorkerExecutionOutput(input);
+
+        return {
+          ...output,
+          ledgerTransitions: output.ledgerTransitions.map((transition) => ({
+            ...transition,
+            stepDoc: {
+              ...input.ledgerStepDoc,
+              stepId: "unexpected-worker-ledger-step"
+            }
+          })),
+          evidenceRefs: [...output.evidenceRefs, "codex-worker:mismatched-ledger-doc"]
+        };
+      }
+    } satisfies CodexRuntimeAdapter;
+    const { app: storageApp, storage } = await createMigratedStorageApp(mismatchedLedgerAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId, runId, plannedJobId } = await createRunnableAutoImplementationWorkerJobForTest({
+        storageApp,
+        workspaceRoot,
+        idea: "An auto implementation worker ledger doc mismatch guard test",
+        runIdempotencyKey: "auto-implementation-route:worker-run-ledger-doc-guard",
+        projectName: "Worker Run Ledger Doc Guard Demo",
+        projectFolderName: "worker-run-ledger-doc-guard-demo",
+        authorityIdSuffix: "auto_worker_run_ledger_doc_guard",
+        workerJobIdempotencyKey: "worker-job:run-ledger-doc-guard"
+      });
+      const runResponse = await postAutoImplementationWorkerRunForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-run:ledger-doc-guard"
+        }
+      );
+      const runProjection = latestAutoImplementationRunFromBody(await jsonBody(runResponse));
+      const runJobs = runProjection.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(runResponse.status).toBe(200);
+      expect(runProjection).toMatchObject({
+        status: "blocked",
+        currentStage: "initial_pr"
+      });
+      expect(runJobs.at(-1)).toMatchObject({
+        status: "blocked",
+        missingEvidence: ["Local Codex worker execution"],
+        blockedReason: expect.stringContaining("planned ledger contract"),
+        evidenceRefs: expect.arrayContaining([
+          `auto-worker-run:${plannedJobId}:worker-run:ledger-doc-guard`,
+          "worker-blocked:ledger-contract",
+          "codex-worker:mismatched-ledger-doc"
+        ])
       });
     } finally {
       await storage.close();
