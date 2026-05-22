@@ -52,6 +52,7 @@ Business mode also requires an explicit `businessCriticIntensity`; it has no def
 - Repeated questions must converge through topic keys and repeat limits; the app must not trap users in an infinite question loop.
 - Long clarification sessions must show question progress with generated, answered, follow-up, topic coverage, and remaining follow-up budget counts.
 - Question refresh and next-list controls must be visible, while automatic refills can add the next relevant question after a card is answered or carried forward.
+- Long sessions may submit all drafted answers in the current active batch, but the action remains bounded to visible question/follow-up cards and still uses the normal per-answer research loop.
 - Research-generated additional questions must re-enter the Decision Queue as answerable follow-up debt, not remain hidden as evidence-card notes only.
 - Risk UI should show Confidence Map, five-axis radar, and Top 3 Risk Cards when the data supports them; per-question risk entry stays collapsed under an optional add-comment/risk disclosure.
 

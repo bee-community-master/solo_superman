@@ -234,6 +234,22 @@ function queueItemIsQuestionDebt(item: QueueSectionItem) {
   return item.cardType === undefined || item.cardType === "question" || item.cardType === "follow_up_question";
 }
 
+function isAnswerableActiveQuestionCard(item: DecisionQueueProjection["active"][number]) {
+  return item.state === "active" && queueItemIsQuestionDebt(item);
+}
+
+export function draftedActiveQuestionAnswerIds(
+  queue: DecisionQueueProjection | null | undefined,
+  answerDrafts: Readonly<Record<string, string>>
+) {
+  return (
+    queue?.active
+      .filter(isAnswerableActiveQuestionCard)
+      .filter((item) => answerDrafts[item.queueItemId]?.trim())
+      .map((item) => item.queueItemId) ?? []
+  );
+}
+
 function queueSectionItems(queue: DecisionQueueProjection): readonly QueueSectionItem[] {
   return [...queue.active, ...queue.next, ...queue.blocked, ...queue.deferred];
 }

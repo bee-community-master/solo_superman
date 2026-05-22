@@ -22,6 +22,7 @@ import {
 } from "../../../shared/api/command-response-helpers";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
+import { draftedActiveQuestionAnswerIds } from "../decision-queue-view-model";
 import { webPublicResearchAllowlistPolicy } from "../phase15a-research-run-request";
 import {
   BUSINESS_CRITIC_INTENSITY_OPTIONS,
@@ -83,6 +84,16 @@ interface DecisionQueueSessionActionsProps {
 }
 
 const NEXT_QUESTION_BATCH_LIMIT = 5;
+
+function answerDraftsWithClearedItems(
+  current: Record<string, string>,
+  queueItemIds: readonly QueueItemId[]
+) {
+  return {
+    ...current,
+    ...Object.fromEntries(queueItemIds.map((queueItemId) => [queueItemId, ""]))
+  };
+}
 
 export function nextQuestionBatchIdsForActivation(queue: DecisionQueueProjection | null | undefined) {
   const queueItemIds =
@@ -424,6 +435,83 @@ export function useDecisionQueueSessionActions({
     [answerDrafts, appendCommand, client, projections, refetchQueueAfterSseNotification, refreshProjections]
   );
 
+  const submitDraftedActiveAnswers = useCallback(async () => {
+    if (!client || !projections.session) {
+      setWorkflowError("An active session is required before submitting drafted answers.");
+      return;
+    }
+
+    const queueItemIds = draftedActiveQuestionAnswerIds(projections.queue, answerDrafts);
+
+    if (!queueItemIds.length) {
+      setWorkflowError("Write at least one active question answer before submitting drafted answers.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    const submittedQueueItemIds: QueueItemId[] = [];
+
+    try {
+      let expectedStateVersion = latestCommandBackedProjectionVersion(projections);
+      let latestQueue: DecisionQueueProjection | null = projections.queue;
+
+      for (const queueItemId of queueItemIds) {
+        const answer = answerDrafts[queueItemId]?.trim();
+
+        if (!answer) {
+          continue;
+        }
+
+        const response = await appendCommand(
+          "Submit drafted answer",
+          await client.submitAnswer({
+            sessionId: projections.session.sessionId,
+            queueItemId,
+            expectedStateVersion,
+            answer
+          })
+        );
+
+        expectedStateVersion = commandResponseVersion(response);
+        latestQueue = requiredCommandProjection<DecisionQueueProjection>(response, "DecisionQueueProjection");
+        submittedQueueItemIds.push(queueItemId);
+      }
+
+      setAnswerDrafts((current) => answerDraftsWithClearedItems(current, submittedQueueItemIds));
+
+      if (latestQueue) {
+        setProjections((current) => ({
+          ...current,
+          queue: latestQueue
+        }));
+      }
+
+      await refreshProjections(projections.session.projectId, projections.session.sessionId);
+
+      if (latestQueue) {
+        await refetchQueueAfterSseNotification(projections.session.projectId, projections.session.sessionId, latestQueue);
+      }
+    } catch (error) {
+      if (submittedQueueItemIds.length) {
+        setAnswerDrafts((current) => answerDraftsWithClearedItems(current, submittedQueueItemIds));
+        try {
+          await refreshProjections(projections.session.projectId, projections.session.sessionId);
+        } catch {
+          // Keep the original answer submission error visible.
+        }
+      }
+
+      const partialFailureNote = submittedQueueItemIds.length
+        ? " Some drafted answers were submitted before the failure; the queue was refreshed."
+        : "";
+      setWorkflowError(`${displayError(error)}${partialFailureNote}`);
+    } finally {
+      setIsBusy(false);
+    }
+  }, [answerDrafts, appendCommand, client, projections, refetchQueueAfterSseNotification, refreshProjections]);
+
   const refreshQuestionList = useCallback(async () => {
     if (!projections.session) {
       setWorkflowError("An active session is required before refreshing questions.");
@@ -631,6 +719,7 @@ export function useDecisionQueueSessionActions({
     changeProjectPurposeMode,
     changeBusinessCriticIntensity,
     submitAnswer,
+    submitDraftedActiveAnswers,
     refreshQuestionList,
     loadNextQuestionBatch,
     carryQueueItemAsKnownRisk,
