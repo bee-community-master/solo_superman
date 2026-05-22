@@ -126,6 +126,9 @@ export function AutoImplementationRunPanel({
             <li key={stage.stage}>
               {stage.label}: {stage.status}
               {stage.nextScheduledAt ? ` · ${stage.nextScheduledAt}` : ""}
+              {stage.tickRecords.length ? ` · ticks ${stage.tickRecords.length}` : ""}
+              {stage.ledgerEvidence ? ` · ledger ${stage.ledgerEvidence.implementationStepId}` : ""}
+              {stage.blocker ? ` · blocked: ${stage.blocker.reason}` : ""}
             </li>
           ))}
         </ol>

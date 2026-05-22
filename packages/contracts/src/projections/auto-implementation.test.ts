@@ -134,6 +134,36 @@ describe("AutoImplementationRunProjection contract", () => {
     expectInvalidProjection(invalid);
   });
 
+  it("rejects completed stages that do not include implementation ledger evidence", () => {
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      stagePlan: readyRun.stagePlan.map((stage, index) => index === 0
+        ? {
+          ...stage,
+          status: "completed",
+          evidenceRefs: ["stage:complete:initial_pr"]
+        }
+        : stage)
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects blocked stages that do not preserve a visible blocker", () => {
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      stagePlan: readyRun.stagePlan.map((stage, index) => index === 0
+        ? {
+          ...stage,
+          status: "blocked",
+          evidenceRefs: ["stage:block:initial_pr"]
+        }
+        : stage)
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
   it("rejects projections when review gates do not cover the canonical delivery protocol", () => {
     const invalid = projectionWithLatestRun({
       ...readyRun,

@@ -620,7 +620,8 @@ describe("API route catalog", () => {
 
     expect(POST_PHASE3_PR07_AUTO_IMPLEMENTATION_ROUTE_IDS).toEqual([
       "createAutoImplementationRun",
-      "getAutoImplementationRuns"
+      "getAutoImplementationRuns",
+      "recordAutoImplementationStage"
     ]);
     expect(POST_PHASE3_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual([
       ...POST_PHASE3_PR06_MOUNTED_PRODUCT_API_ROUTE_IDS,
@@ -636,6 +637,12 @@ describe("API route catalog", () => {
     expect(routeById.get("getAutoImplementationRuns")).toMatchObject({
       method: "GET",
       path: "/api/v1/sessions/:sessionId/auto-implementation-runs",
+      commandType: "none",
+      implementedInPr01: false
+    });
+    expect(routeById.get("recordAutoImplementationStage")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/stages/:stage",
       commandType: "none",
       implementedInPr01: false
     });

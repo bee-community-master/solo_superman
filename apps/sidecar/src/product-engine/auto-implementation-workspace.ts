@@ -335,7 +335,10 @@ function stagePlan(nextTickAt: string) {
     status: index === 0 ? "ready" as const : "pending" as const,
     sequenceOrder: index + 1,
     nextScheduledAt: index === 0 ? nextTickAt : null,
-    evidenceRefs: []
+    evidenceRefs: [],
+    tickRecords: [],
+    ledgerEvidence: null,
+    blocker: null
   }));
 }
 

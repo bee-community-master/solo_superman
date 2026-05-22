@@ -10,6 +10,8 @@ import {
   CANONICAL_INITIAL_SPEC_SECTIONS,
   CONTRACT_SCHEMA_VERSION,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+  IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION,
   PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION,
   type CommandId,
   type BrowserActionPreviewDto,
@@ -36,6 +38,7 @@ import {
   applyMigrations,
   createEventRepository,
   createPhase15bUpgradeHintRepository,
+  createProjectionRepository,
   createResearchRunRepository,
   createSoloStorage,
   localDatabaseUrlFromAppDataDir
@@ -173,6 +176,31 @@ async function postAutoImplementationRunForTest(
       ...payload
     })
   }));
+}
+
+async function postAutoImplementationStageForTest(
+  storageApp: RequestTestApp,
+  sessionId: string,
+  runId: string,
+  stage: string,
+  payload: Readonly<Record<string, unknown>>
+) {
+  return Promise.resolve(storageApp.request(
+    `/api/v1/sessions/${sessionId}/auto-implementation-runs/${runId}/stages/${stage}`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        sessionId,
+        runId,
+        stage,
+        ...payload
+      })
+    }
+  ));
 }
 
 function jsonDataRecord(body: JsonResponseBody) {
@@ -8422,6 +8450,187 @@ describe("PR-02 sidecar health shell", () => {
         join(workspaceRoot, "dry-run-without-remote", "implementation-issues", "001-initial_pr.md"),
         "utf8"
       )).resolves.toContain("## Acceptance");
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("advances auto implementation stages only after completed implementation ledger evidence", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { projectId, sessionId } = await createProjectForTest(storageApp, "An auto implementation stage runner test");
+      const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:stage-runner",
+        projectName: "Stage Runner App"
+      });
+      const createdRun = latestAutoImplementationRunFromBody(await jsonBody(created));
+      const runId = createdRun.runId as string;
+      const missingLedger = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "initial_pr", {
+        idempotencyKey: "auto-stage:complete:missing-ledger",
+        action: "complete",
+        implementationStepId: "step_demo",
+        tickedAt: "2026-05-20T00:05:00.000Z",
+        evidenceRefs: ["stage:initial_pr:complete-attempt"]
+      });
+      const missingLedgerBody = await jsonBody(missingLedger);
+
+      expect(missingLedger.status).toBe(400);
+      expect(missingLedgerBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Auto implementation stage completion requires an ImplementationStepLedger projection."
+      });
+
+      await createProjectionRepository(storage.db).save({
+        projectId: projectId as ProjectId,
+        sessionId: sessionId as SessionId,
+        projection: {
+          ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+          sessionId: sessionId as SessionId,
+          refetchUrl: `/api/v1/sessions/${sessionId}/implementation-step-ledger`,
+          schemaVersion: IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION
+        },
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        updatedAt: "2026-05-20T00:05:00.000Z"
+      });
+
+      const started = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "initial_pr", {
+        idempotencyKey: "auto-stage:start:initial-pr",
+        action: "start",
+        tickedAt: "2026-05-20T00:10:00.000Z",
+        evidenceRefs: ["stage:initial_pr:start"]
+      });
+      const startedRun = latestAutoImplementationRunFromBody(await jsonBody(started));
+      const startedStage = (startedRun.stagePlan as readonly Readonly<Record<string, unknown>>[])[0]!;
+
+      expect(started.status).toBe(200);
+      expect(startedRun).toMatchObject({
+        status: "running",
+        currentStage: "initial_pr",
+        nextTickAt: "2026-05-20T00:15:00.000Z"
+      });
+      expect(startedStage).toMatchObject({
+        status: "running",
+        tickRecords: [
+          expect.objectContaining({
+            action: "start",
+            status: "running",
+            recordedAt: "2026-05-20T00:10:00.000Z"
+          })
+        ]
+      });
+
+      const completed = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "initial_pr", {
+        idempotencyKey: "auto-stage:complete:initial-pr",
+        action: "complete",
+        implementationStepId: "step_demo",
+        tickedAt: "2026-05-20T00:15:00.000Z",
+        evidenceRefs: ["stage:initial_pr:complete"]
+      });
+      const completedProjection = jsonDataRecord(await jsonBody(completed));
+      const completedRun = completedProjection.latestRun as Readonly<Record<string, unknown>>;
+      const completedStages = completedRun.stagePlan as readonly Readonly<Record<string, unknown>>[];
+      const completedInitial = completedStages[0]!;
+      const nextStage = completedStages[1]!;
+      const replay = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "initial_pr", {
+        idempotencyKey: "auto-stage:complete:initial-pr",
+        action: "complete",
+        implementationStepId: "step_demo",
+        tickedAt: "2026-05-20T00:15:00.000Z",
+        evidenceRefs: ["stage:initial_pr:complete"]
+      });
+      const replayProjection = jsonDataRecord(await jsonBody(replay));
+
+      expect(completed.status).toBe(200);
+      expect(completedRun).toMatchObject({
+        status: "running",
+        currentStage: "code_review_fix_1",
+        nextTickAt: "2026-05-20T00:20:00.000Z"
+      });
+      expect(completedInitial).toMatchObject({
+        status: "completed",
+        ledgerEvidence: {
+          implementationStepId: "step_demo",
+          trackerDocRef: "implementation-step-ledger:tracker:tracker_demo",
+          stepDocRef: "implementation-step-ledger:step:step_demo",
+          implementationEvidenceRefs: ["commit:abcdef1"],
+          testEvidenceRefs: ["test:verify"]
+        }
+      });
+      expect((completedInitial.ledgerEvidence as Readonly<Record<string, unknown>>).codeReviewStreakRefs as readonly unknown[])
+        .toHaveLength(4);
+      expect((completedInitial.ledgerEvidence as Readonly<Record<string, unknown>>).cleanCodeReviewStreakRefs as readonly unknown[])
+        .toHaveLength(4);
+      expect(nextStage).toMatchObject({
+        stage: "code_review_fix_1",
+        status: "ready",
+        tickRecords: [
+          expect.objectContaining({
+            action: "tick",
+            status: "ready",
+            recordedAt: "2026-05-20T00:15:00.000Z"
+          })
+        ]
+      });
+      expect(replay.status).toBe(200);
+      expect(replayProjection.version).toBe(completedProjection.version);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("records visible blockers for auto implementation stage ticks", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "An auto implementation stage blocker test");
+      const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:stage-blocker",
+        projectName: "Stage Blocker App"
+      });
+      const createdRun = latestAutoImplementationRunFromBody(await jsonBody(created));
+      const runId = createdRun.runId as string;
+      const blocked = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "initial_pr", {
+        idempotencyKey: "auto-stage:block:initial-pr",
+        action: "block",
+        tickedAt: "2026-05-20T00:05:00.000Z",
+        evidenceRefs: ["stage:initial_pr:block"],
+        blocker: {
+          stage: "initial_pr",
+          reason: "ImplementationStepLedger evidence is missing.",
+          missingEvidence: ["ImplementationStepLedger completed step"],
+          nextRequiredAction: "Record the implementation ledger step before completing the stage.",
+          evidenceRefs: ["blocker:initial_pr:ledger-missing"]
+        }
+      });
+      const blockedRun = latestAutoImplementationRunFromBody(await jsonBody(blocked));
+      const blockedStage = (blockedRun.stagePlan as readonly Readonly<Record<string, unknown>>[])[0]!;
+
+      expect(blocked.status).toBe(200);
+      expect(blockedRun).toMatchObject({
+        status: "blocked",
+        currentStage: "initial_pr",
+        nextTickAt: "2026-05-20T00:10:00.000Z"
+      });
+      expect(blockedStage).toMatchObject({
+        status: "blocked",
+        blocker: {
+          reason: "ImplementationStepLedger evidence is missing.",
+          missingEvidence: ["ImplementationStepLedger completed step"]
+        },
+        tickRecords: [
+          expect.objectContaining({
+            action: "block",
+            status: "blocked"
+          })
+        ]
+      });
     } finally {
       await storage.close();
     }
