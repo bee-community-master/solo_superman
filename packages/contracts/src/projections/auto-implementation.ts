@@ -402,6 +402,15 @@ export interface ImportAutoImplementationWorkerLedgerRequest {
   readonly evidenceRefs?: readonly string[];
 }
 
+export interface AdvanceAutoImplementationWorkerStageRequest {
+  readonly sessionId: SessionId;
+  readonly runId: string;
+  readonly jobId: string;
+  readonly idempotencyKey: string;
+  readonly evidenceRefs?: readonly string[];
+  readonly tickedAt?: string;
+}
+
 export class AutoImplementationRunValidationError extends Error {
   constructor(readonly issues: readonly string[]) {
     super(`Invalid AutoImplementationRunProjection: ${issues.join("; ")}`);
