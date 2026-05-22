@@ -959,8 +959,56 @@ function completedStageLedgerEvidenceRefs(
   );
 }
 
+function completedStageReviewStreakRefs(run: AutoImplementationRun) {
+  return uniqueAutoImplementationRefs(
+    run.stagePlan
+      .filter((stage) => stage.status === "completed")
+      .flatMap((stage) => [
+        ...(stage.ledgerEvidence?.codeReviewStreakRefs ?? []),
+        ...(stage.ledgerEvidence?.cleanCodeReviewStreakRefs ?? [])
+      ])
+  );
+}
+
 function evidenceLines(values: readonly string[], emptyLabel: string) {
   return values.length ? values.map((value) => `- ${value}`) : [`- ${emptyLabel}`];
+}
+
+const PR_BODY_CODE_REVIEW_EVIDENCE_GROUPS = [
+  {
+    heading: "feature",
+    refPrefix: "code-review:feature:",
+    emptyLabel: "no feature code-review streak evidence recorded"
+  },
+  {
+    heading: "repository",
+    refPrefix: "code-review:repository:",
+    emptyLabel: "no repository code-review streak evidence recorded"
+  }
+] as const;
+
+const PR_BODY_CLEAN_CODE_REVIEW_EVIDENCE_GROUPS = [
+  {
+    heading: "changed_code",
+    refPrefix: "clean-code-review:changed_code:",
+    emptyLabel: "no changed_code clean-code review streak evidence recorded"
+  },
+  {
+    heading: "repository",
+    refPrefix: "clean-code-review:repository:",
+    emptyLabel: "no repository clean-code review streak evidence recorded"
+  }
+] as const;
+
+function scopedReviewEvidenceLines(input: {
+  readonly refs: readonly string[];
+  readonly groups: typeof PR_BODY_CODE_REVIEW_EVIDENCE_GROUPS | typeof PR_BODY_CLEAN_CODE_REVIEW_EVIDENCE_GROUPS;
+}) {
+  return input.groups.flatMap((group) => [
+    `#### ${group.heading}`,
+    ...evidenceLines(input.refs.filter((ref) => ref.startsWith(group.refPrefix)), group.emptyLabel),
+    ""
+  ]);
 }
 
 function pullRequestBodyMarkdown(input: {
@@ -969,6 +1017,10 @@ function pullRequestBodyMarkdown(input: {
 }) {
   const implementationEvidenceRefs = completedStageLedgerEvidenceRefs(input.run, "implementationEvidenceRefs");
   const testEvidenceRefs = completedStageLedgerEvidenceRefs(input.run, "testEvidenceRefs");
+  const reviewStreakRefs = uniqueAutoImplementationRefs([
+    ...input.request.reviewStreakRefs,
+    ...completedStageReviewStreakRefs(input.run)
+  ]);
 
   return [
     `## ${input.request.pullRequestTitle ?? "Auto implementation PR"}`,
@@ -979,10 +1031,16 @@ function pullRequestBodyMarkdown(input: {
     "### Implementation scope",
     input.request.implementationScope,
     "",
-    "### Review streak evidence",
-    ...(input.request.reviewStreakRefs.length
-      ? input.request.reviewStreakRefs.map((ref) => `- ${ref}`)
-      : ["- none recorded"]),
+    "### Code review streak evidence",
+    ...scopedReviewEvidenceLines({
+      refs: reviewStreakRefs,
+      groups: PR_BODY_CODE_REVIEW_EVIDENCE_GROUPS
+    }),
+    "### Clean-code review streak evidence",
+    ...scopedReviewEvidenceLines({
+      refs: reviewStreakRefs,
+      groups: PR_BODY_CLEAN_CODE_REVIEW_EVIDENCE_GROUPS
+    }),
     "",
     "### Implementation evidence",
     ...evidenceLines(implementationEvidenceRefs, "no completed stage implementation evidence recorded"),
