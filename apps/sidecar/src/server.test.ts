@@ -10454,12 +10454,79 @@ describe("PR-02 sidecar health shell", () => {
     });
 
     try {
-      const { sessionId } = await createProjectForTest(storageApp, "An approved GitHub PR open test");
+      const { projectId, sessionId } = await createProjectForTest(storageApp, "An approved GitHub PR open test");
       const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
         idempotencyKey: "auto-implementation-route:pr-open-approved",
         projectName: "Approved PR Open"
       });
       const runId = String(latestAutoImplementationRunFromBody(await jsonBody(created)).runId);
+      const blockedBeforeInitialStage = await postAutoImplementationPullRequestMutationForTest(
+        storageApp,
+        sessionId,
+        runId,
+        {
+          action: "open_pr",
+          requestMode: "approved",
+          idempotencyKey: "pr-mutation:approved:open-pr-before-initial-stage",
+          pullRequestTitle: "Initial implementation PR",
+          issueLinks: ["https://github.com/bee-community-master/generated-demo/issues/101"],
+          implementationScope: "Attempt to open the generated implementation PR before the initial stage is done.",
+          reviewStreakRefs: [],
+          verificationCommands: ["pnpm verify"],
+          rollbackNotes: "Close the generated PR if the approved open action targets the wrong scope.",
+          approval: {
+            approvalId: "approval_pr_open_before_initial_stage",
+            approvedBy: "local_operator",
+            approvedAt: "2026-05-05T00:00:00.000Z",
+            actionClass: "github_pr_mutation",
+            approvalGranularity: "per_action",
+            remoteStatusAtApproval: "connected",
+            rollbackPlan: "Close the generated pull request if the approved PR open action is wrong.",
+            evidenceRefs: ["approval:pr-open:before-initial-stage"]
+          },
+          verifierEvidenceRefs: ["verifier:pr-open-before-initial-stage-ready"]
+        }
+      );
+      const blockedBeforeInitialStageRun = latestAutoImplementationRunFromBody(await jsonBody(blockedBeforeInitialStage));
+      const blockedBeforeInitialStageRecord = (blockedBeforeInitialStageRun.pullRequestMutations as
+        Readonly<Record<string, unknown>>).latestRecord as Readonly<Record<string, unknown>>;
+
+      expect(blockedBeforeInitialStage.status).toBe(200);
+      expect(mutationInputs).toHaveLength(0);
+      expect(blockedBeforeInitialStageRecord).toMatchObject({
+        action: "open_pr",
+        requestMode: "approved",
+        status: "blocked",
+        mutatesGitHub: false,
+        pullRequestUrl: null,
+        blockedReason: "GitHub PR open is blocked until initial_pr has completed validated implementation ledger evidence."
+      });
+
+      await createProjectionRepository(storage.db).save({
+        projectId: projectId as ProjectId,
+        sessionId: sessionId as SessionId,
+        projection: {
+          ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+          sessionId: sessionId as SessionId,
+          refetchUrl: `/api/v1/sessions/${sessionId}/implementation-step-ledger`,
+          schemaVersion: IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION
+        },
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        updatedAt: "2026-05-05T00:00:00.000Z"
+      });
+      const startedInitialStage = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "initial_pr", {
+        idempotencyKey: "auto-stage:start:pr-open-initial",
+        action: "start",
+        tickedAt: "2026-05-05T00:00:00.000Z",
+        evidenceRefs: ["stage:initial_pr:start:pr-open"]
+      });
+      const completedInitialStage = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "initial_pr", {
+        idempotencyKey: "auto-stage:complete:pr-open-initial",
+        action: "complete",
+        implementationStepId: "step_demo",
+        tickedAt: "2026-05-05T00:05:00.000Z",
+        evidenceRefs: ["stage:initial_pr:complete:pr-open"]
+      });
       const response = await postAutoImplementationPullRequestMutationForTest(storageApp, sessionId, runId, {
         action: "open_pr",
         requestMode: "approved",
@@ -10510,6 +10577,8 @@ describe("PR-02 sidecar health shell", () => {
       const duplicateOpenRecord = (duplicateOpenRun.pullRequestMutations as Readonly<Record<string, unknown>>)
         .latestRecord as Readonly<Record<string, unknown>>;
 
+      expect(startedInitialStage.status).toBe(200);
+      expect(completedInitialStage.status).toBe(200);
       expect(response.status).toBe(200);
       expect(mutationInputs).toHaveLength(1);
       expect(pullRequestMutations).toMatchObject({

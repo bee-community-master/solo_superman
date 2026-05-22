@@ -58,6 +58,34 @@ function withPrUrl(run: AutoImplementationRun): AutoImplementationRun {
   };
 }
 
+function withInitialPrStageCompleted(run: AutoImplementationRun): AutoImplementationRun {
+  const ledgerEvidence = {
+    implementationStepId: "step_initial_pr",
+    trackerDocRef: "implementation-step-ledger:tracker:tracker_demo",
+    stepDocRef: "implementation-step-ledger:step:step_initial_pr",
+    implementationEvidenceRefs: ["commit:initial-pr"],
+    codeReviewStreakRefs: ["code-review:feature:clean-2", "code-review:repository:clean-2"],
+    cleanCodeReviewStreakRefs: ["clean-code-review:changed_code:clean-2", "clean-code-review:repository:clean-2"],
+    testEvidenceRefs: ["test:initial-pr"],
+    blockerEvidenceRefs: [],
+    evidenceRefs: ["implementation-step-ledger:step_initial_pr", "test:initial-pr"]
+  };
+
+  return {
+    ...run,
+    stagePlan: run.stagePlan.map((stage) =>
+      stage.stage === "initial_pr"
+        ? {
+            ...stage,
+            status: "completed",
+            ledgerEvidence,
+            evidenceRefs: [...stage.evidenceRefs, ...ledgerEvidence.evidenceRefs]
+          }
+        : stage
+    )
+  };
+}
+
 function withPrBodyAndFinalVerification(run: AutoImplementationRun): AutoImplementationRun {
   const bodyRecord = {
     mutationId: "auto-pr-mutation:auto_run_demo:update_pr_body:body_1",
@@ -139,6 +167,7 @@ describe("buildAutoImplementationPullRequestDryRunRequest", () => {
     expect(request.knownGaps).toEqual(
       expect.arrayContaining([
         "Remote status is no_remote; mutation stays blocked until connected.",
+        "initial_pr has not recorded completed implementation ledger evidence yet.",
         expect.stringContaining("open-PR dry-run readiness only")
       ])
     );
@@ -158,7 +187,7 @@ describe("buildAutoImplementationPullRequestDryRunRequest", () => {
     expect(request.knownGaps).not.toContain("Remote status is connected; mutation stays blocked until connected.");
   });
 
-  it("builds an approved PR open request with explicit approval and verifier evidence", () => {
+  it("keeps initial implementation evidence visible in approved PR open gaps", () => {
     const run = {
       ...readyRun(),
       remoteStatus: "connected" as const
@@ -193,8 +222,26 @@ describe("buildAutoImplementationPullRequestDryRunRequest", () => {
     expect(request.pullRequestUrl).toBeUndefined();
     expect(request.bodyEvidenceRefs).toBeUndefined();
     expect(request.mergeEvidenceRefs).toBeUndefined();
-    expect(request.knownGaps).toEqual([]);
+    expect(request.knownGaps).toEqual([
+      "initial_pr has not recorded completed implementation ledger evidence yet."
+    ]);
     expect(request.rollbackNotes).toContain("gh pr create");
+  });
+
+  it("clears approved PR open evidence gaps after initial_pr stage completion", () => {
+    const run = withInitialPrStageCompleted({
+      ...readyRun(),
+      remoteStatus: "connected" as const
+    });
+    const request = buildAutoImplementationPullRequestOpenApprovedRequest({
+      sessionId: "demo-session" as SessionId,
+      run,
+      approvedAt: "2026-05-22T00:00:00.000Z"
+    });
+
+    expect(request.knownGaps).toEqual([]);
+    expect(request.approval).toBeDefined();
+    expect(request.verifierEvidenceRefs).toEqual([`verifier:pr-open-approved:${run.runId}:${run.currentStage}`]);
   });
 
   it("keeps approved PR open duplicate gaps visible when a PR URL already exists", () => {
