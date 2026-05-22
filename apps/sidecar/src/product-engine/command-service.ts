@@ -30,6 +30,7 @@ import {
   type AutoImplementationRunStatus,
   type AutoImplementationRunProjection,
   type AutoImplementationWorkerJob,
+  type AdvanceAutoImplementationWorkerStageRequest,
   type CompleteAutoImplementationWorkerJobRequest,
   type CreateAutoImplementationRunRequest,
   type CreateAutoImplementationWorkerJobRequest,
@@ -713,6 +714,29 @@ function autoImplementationWorkerCompletionRef(request: CompleteAutoImplementati
 
 function autoImplementationWorkerLedgerImportRef(request: ImportAutoImplementationWorkerLedgerRequest) {
   return `auto-worker-ledger-import:${request.jobId}:${request.idempotencyKey}`;
+}
+
+function autoImplementationWorkerStageAdvanceRef(request: AdvanceAutoImplementationWorkerStageRequest) {
+  return `auto-worker-stage-advance:${request.jobId}:${request.idempotencyKey}`;
+}
+
+function completedImplementationStepIdFromWorkerJob(job: AutoImplementationWorkerJob) {
+  const stepEvidencePrefix = "implementation-step-ledger:";
+  const stepIds = job.evidenceRefs
+    .filter((ref) => ref.startsWith(stepEvidencePrefix))
+    .map((ref) => ref.slice(stepEvidencePrefix.length))
+    .filter((ref) => ref.length > 0 && !ref.includes(":"));
+  const uniqueStepIds = [...new Set(stepIds)];
+
+  if (uniqueStepIds.length !== 1) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "Completed auto implementation worker jobs must reference exactly one completed ImplementationStepLedger step.",
+      { implementationStepIds: uniqueStepIds }
+    );
+  }
+
+  return uniqueStepIds[0]!;
 }
 
 function autoImplementationWorkerLedgerImportCommandKey(input: {
@@ -4215,6 +4239,187 @@ export function createProductEngineCommandService(
     return saved;
   }
 
+  async function recordAutoImplementationStageProjection(
+    request: RecordAutoImplementationStageRequest
+  ): Promise<AutoImplementationRunProjection> {
+    const session = await createProjectRepository(storage.db).getSession(request.sessionId);
+
+    if (!session) {
+      throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+        sessionId: request.sessionId
+      });
+    }
+
+    const projectionRepository = createProjectionRepository(storage.db);
+    const persistedProjection = await projectionRepository.get<AutoImplementationRunProjection>(
+      request.sessionId,
+      "AutoImplementationRunProjection"
+    );
+    const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(persistedProjection) : null;
+
+    if (!existingProjection) {
+      throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run projection was not found.", {
+        sessionId: request.sessionId
+      });
+    }
+
+    const run = existingProjection.runs.find((candidate) => candidate.runId === request.runId);
+
+    if (!run) {
+      throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run was not found.", {
+        runId: request.runId
+      });
+    }
+
+    const actionRef = autoImplementationStageActionRef(request);
+
+    if (run.evidenceRefs.includes(actionRef)) {
+      return existingProjection;
+    }
+
+    if (run.status === "completed" && request.action !== "tick") {
+      throw new ProductEngineServiceError("VALIDATION_FAILED", "Completed auto implementation runs cannot be advanced.");
+    }
+
+    if (run.currentStage !== request.stage) {
+      throw new ProductEngineServiceError(
+        "VALIDATION_FAILED",
+        "Auto implementation stages must advance in the canonical sequence.",
+        { currentStage: run.currentStage, requestedStage: request.stage }
+      );
+    }
+
+    if (request.action === "block" && !request.blocker) {
+      throw new ProductEngineServiceError("VALIDATION_FAILED", "blocker is required when blocking an auto implementation stage.");
+    }
+
+    const stageIndex = run.stagePlan.findIndex((stage) => stage.stage === request.stage);
+    const currentStage = run.stagePlan[stageIndex];
+
+    if (!currentStage) {
+      throw new ProductEngineServiceError("VALIDATION_FAILED", "Requested auto implementation stage is not in the run plan.");
+    }
+
+    if (
+      request.action === "complete" &&
+      request.implementationStepId &&
+      run.stagePlan.some((stage) =>
+        stage.stage !== request.stage &&
+        stage.ledgerEvidence?.implementationStepId === request.implementationStepId
+      )
+    ) {
+      throw new ProductEngineServiceError(
+        "VALIDATION_FAILED",
+        "Auto implementation stage completion requires an implementation step that has not completed another stage."
+      );
+    }
+
+    const recordedAt = request.tickedAt ?? new Date().toISOString();
+    const nextTickAt = addMilliseconds(recordedAt, AUTO_IMPLEMENTATION_TICK_INTERVAL_MS);
+    const requestEvidenceRefs = request.evidenceRefs ?? [];
+    const ledger = request.action === "complete"
+      ? validatedLedgerForAutoImplementationStage(
+        await projectionRepository.get<ImplementationStepLedgerProjection>(
+          request.sessionId,
+          "ImplementationStepLedgerProjection"
+        )
+      )
+      : null;
+    const ledgerStep = request.action === "complete"
+      ? completedLedgerStepForAutoImplementationStage(ledger, request.implementationStepId)
+      : null;
+    const ledgerEvidence = ledger && ledgerStep ? autoImplementationStageLedgerEvidence(ledger, ledgerStep) : null;
+    const nextStageStatus = autoImplementationStageStatusForAction(request.action, currentStage.status);
+    const stageEvidenceRefs = uniqueAutoImplementationRefs([
+      ...currentStage.evidenceRefs,
+      actionRef,
+      ...requestEvidenceRefs,
+      ...(ledgerEvidence?.evidenceRefs ?? []),
+      ...(request.blocker?.evidenceRefs ?? [])
+    ]);
+    const tick = autoImplementationStageTickRecord({
+      request,
+      status: nextStageStatus,
+      recordedAt,
+      nextTickAt,
+      evidenceRefs: uniqueAutoImplementationRefs([actionRef, ...requestEvidenceRefs])
+    });
+    const updatedStage: AutoImplementationStageRecord = {
+      ...currentStage,
+      status: nextStageStatus,
+      nextScheduledAt: nextTickAt,
+      evidenceRefs: stageEvidenceRefs,
+      tickRecords: [...currentStage.tickRecords, tick],
+      ledgerEvidence: request.action === "complete" ? ledgerEvidence : currentStage.ledgerEvidence,
+      blocker: request.action === "block"
+        ? request.blocker ?? null
+        : (nextStageStatus === "blocked" ? currentStage.blocker : null)
+    };
+    const isFinalStageComplete =
+      request.action === "complete" && request.stage === AUTO_IMPLEMENTATION_STAGES.at(-1);
+    const stagePlan = run.stagePlan.map((stage, index) => {
+      if (index === stageIndex) {
+        return updatedStage;
+      }
+
+      if (request.action === "complete" && index === stageIndex + 1) {
+        const readyRef = `auto-stage-ready:${request.runId}:${stage.stage}:${request.idempotencyKey}`;
+        const readyTick = autoImplementationStageTickRecord({
+          request: {
+            ...request,
+            stage: stage.stage,
+            action: "tick"
+          },
+          status: "ready",
+          recordedAt,
+          nextTickAt,
+          evidenceRefs: [readyRef]
+        });
+
+        return {
+          ...stage,
+          status: "ready" as const,
+          nextScheduledAt: nextTickAt,
+          evidenceRefs: uniqueAutoImplementationRefs([...stage.evidenceRefs, readyRef]),
+          tickRecords: [...stage.tickRecords, readyTick]
+        };
+      }
+
+      return stage;
+    });
+    const nextStage = request.action === "complete" && !isFinalStageComplete
+      ? stagePlan[stageIndex + 1]?.stage ?? request.stage
+      : request.stage;
+    const runStatus = autoImplementationRunStatusForAction(request.action, Boolean(isFinalStageComplete), run.status);
+    const updatedRun: AutoImplementationRun = {
+      ...run,
+      currentStage: nextStage,
+      status: runStatus,
+      nextTickAt,
+      stagePlan,
+      updatedAt: recordedAt,
+      evidenceRefs: uniqueAutoImplementationRefs([...run.evidenceRefs, actionRef, ...stageEvidenceRefs])
+    };
+    const runs = existingProjection.runs.map((candidate) =>
+      candidate.runId === request.runId ? updatedRun : candidate
+    );
+    const projection = validateAutoImplementationRunProjection({
+      ...existingProjection,
+      version: (existingProjection.version + 1) as ProjectionVersion,
+      latestRun: updatedRun,
+      runs,
+      summary: `Auto implementation stage ${request.stage} is ${nextStageStatus}; current stage is ${updatedRun.currentStage}.`
+    });
+
+    return projectionRepository.save({
+      projectId: session.projectId,
+      sessionId: request.sessionId,
+      projection,
+      schemaVersion: CONTRACT_SCHEMA_VERSION,
+      updatedAt: recordedAt
+    });
+  }
+
   return {
     async startProject(input: StartProjectRequest): Promise<CommandResponse> {
       const nextProjectId = projectId();
@@ -5732,8 +5937,8 @@ export function createProductEngineCommandService(
       });
     },
 
-    async recordAutoImplementationStage(
-      request: RecordAutoImplementationStageRequest
+    async advanceAutoImplementationWorkerStage(
+      request: AdvanceAutoImplementationWorkerStageRequest
     ): Promise<AutoImplementationRunProjection> {
       const session = await createProjectRepository(storage.db).getSession(request.sessionId);
 
@@ -5764,153 +5969,51 @@ export function createProductEngineCommandService(
         });
       }
 
-      const actionRef = autoImplementationStageActionRef(request);
+      const workerJob = run.workerJobs.find((job) => job.jobId === request.jobId);
 
-      if (run.evidenceRefs.includes(actionRef)) {
-        return existingProjection;
+      if (!workerJob) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation worker job was not found.", {
+          jobId: request.jobId
+        });
       }
 
-      if (run.status === "completed" && request.action !== "tick") {
-        throw new ProductEngineServiceError("VALIDATION_FAILED", "Completed auto implementation runs cannot be advanced.");
-      }
-
-      if (run.currentStage !== request.stage) {
+      if (workerJob.status !== "completed") {
         throw new ProductEngineServiceError(
           "VALIDATION_FAILED",
-          "Auto implementation stages must advance in the canonical sequence.",
-          { currentStage: run.currentStage, requestedStage: request.stage }
+          "Only completed auto implementation worker jobs can advance their stage."
         );
       }
 
-      if (request.action === "block" && !request.blocker) {
-        throw new ProductEngineServiceError("VALIDATION_FAILED", "blocker is required when blocking an auto implementation stage.");
-      }
-
-      const stageIndex = run.stagePlan.findIndex((stage) => stage.stage === request.stage);
-      const currentStage = run.stagePlan[stageIndex];
-
-      if (!currentStage) {
-        throw new ProductEngineServiceError("VALIDATION_FAILED", "Requested auto implementation stage is not in the run plan.");
-      }
-
-      if (
-        request.action === "complete" &&
-        request.implementationStepId &&
-        run.stagePlan.some((stage) =>
-          stage.stage !== request.stage &&
-          stage.ledgerEvidence?.implementationStepId === request.implementationStepId
-        )
-      ) {
+      if (run.currentStage !== workerJob.stage) {
         throw new ProductEngineServiceError(
           "VALIDATION_FAILED",
-          "Auto implementation stage completion requires an implementation step that has not completed another stage."
+          "Completed worker jobs can only advance the current auto implementation stage.",
+          { currentStage: run.currentStage, workerStage: workerJob.stage }
         );
       }
 
-      const recordedAt = request.tickedAt ?? new Date().toISOString();
-      const nextTickAt = addMilliseconds(recordedAt, AUTO_IMPLEMENTATION_TICK_INTERVAL_MS);
-      const requestEvidenceRefs = request.evidenceRefs ?? [];
-      const ledger = request.action === "complete"
-        ? validatedLedgerForAutoImplementationStage(
-          await projectionRepository.get<ImplementationStepLedgerProjection>(
-            request.sessionId,
-            "ImplementationStepLedgerProjection"
-          )
-        )
-        : null;
-      const ledgerStep = request.action === "complete"
-        ? completedLedgerStepForAutoImplementationStage(ledger, request.implementationStepId)
-        : null;
-      const ledgerEvidence = ledger && ledgerStep ? autoImplementationStageLedgerEvidence(ledger, ledgerStep) : null;
-      const nextStageStatus = autoImplementationStageStatusForAction(request.action, currentStage.status);
-      const stageEvidenceRefs = uniqueAutoImplementationRefs([
-        ...currentStage.evidenceRefs,
-        actionRef,
-        ...requestEvidenceRefs,
-        ...(ledgerEvidence?.evidenceRefs ?? []),
-        ...(request.blocker?.evidenceRefs ?? [])
-      ]);
-      const tick = autoImplementationStageTickRecord({
-        request,
-        status: nextStageStatus,
-        recordedAt,
-        nextTickAt,
-        evidenceRefs: uniqueAutoImplementationRefs([actionRef, ...requestEvidenceRefs])
-      });
-      const updatedStage: AutoImplementationStageRecord = {
-        ...currentStage,
-        status: nextStageStatus,
-        nextScheduledAt: nextTickAt,
-        evidenceRefs: stageEvidenceRefs,
-        tickRecords: [...currentStage.tickRecords, tick],
-        ledgerEvidence: request.action === "complete" ? ledgerEvidence : currentStage.ledgerEvidence,
-        blocker: request.action === "block"
-          ? request.blocker ?? null
-          : (nextStageStatus === "blocked" ? currentStage.blocker : null)
-      };
-      const isFinalStageComplete =
-        request.action === "complete" && request.stage === AUTO_IMPLEMENTATION_STAGES.at(-1);
-      const stagePlan = run.stagePlan.map((stage, index) => {
-        if (index === stageIndex) {
-          return updatedStage;
-        }
+      const implementationStepId = completedImplementationStepIdFromWorkerJob(workerJob);
 
-        if (request.action === "complete" && index === stageIndex + 1) {
-          const readyRef = `auto-stage-ready:${request.runId}:${stage.stage}:${request.idempotencyKey}`;
-          const readyTick = autoImplementationStageTickRecord({
-            request: {
-              ...request,
-              stage: stage.stage,
-              action: "tick"
-            },
-            status: "ready",
-            recordedAt,
-            nextTickAt,
-            evidenceRefs: [readyRef]
-          });
-
-          return {
-            ...stage,
-            status: "ready" as const,
-            nextScheduledAt: nextTickAt,
-            evidenceRefs: uniqueAutoImplementationRefs([...stage.evidenceRefs, readyRef]),
-            tickRecords: [...stage.tickRecords, readyTick]
-          };
-        }
-
-        return stage;
-      });
-      const nextStage = request.action === "complete" && !isFinalStageComplete
-        ? stagePlan[stageIndex + 1]?.stage ?? request.stage
-        : request.stage;
-      const runStatus = autoImplementationRunStatusForAction(request.action, Boolean(isFinalStageComplete), run.status);
-      const updatedRun: AutoImplementationRun = {
-        ...run,
-        currentStage: nextStage,
-        status: runStatus,
-        nextTickAt,
-        stagePlan,
-        updatedAt: recordedAt,
-        evidenceRefs: uniqueAutoImplementationRefs([...run.evidenceRefs, actionRef, ...stageEvidenceRefs])
-      };
-      const runs = existingProjection.runs.map((candidate) =>
-        candidate.runId === request.runId ? updatedRun : candidate
-      );
-      const projection = validateAutoImplementationRunProjection({
-        ...existingProjection,
-        version: (existingProjection.version + 1) as ProjectionVersion,
-        latestRun: updatedRun,
-        runs,
-        summary: `Auto implementation stage ${request.stage} is ${nextStageStatus}; current stage is ${updatedRun.currentStage}.`
-      });
-
-      return projectionRepository.save({
-        projectId: session.projectId,
+      return recordAutoImplementationStageProjection({
         sessionId: request.sessionId,
-        projection,
-        schemaVersion: CONTRACT_SCHEMA_VERSION,
-        updatedAt: recordedAt
+        runId: request.runId,
+        stage: workerJob.stage,
+        action: "complete",
+        idempotencyKey: request.idempotencyKey,
+        implementationStepId,
+        evidenceRefs: uniqueAutoImplementationRefs([
+          autoImplementationWorkerStageAdvanceRef(request),
+          ...workerJob.evidenceRefs,
+          ...(request.evidenceRefs ?? [])
+        ]),
+        ...(request.tickedAt ? { tickedAt: request.tickedAt } : {})
       });
+    },
+
+    async recordAutoImplementationStage(
+      request: RecordAutoImplementationStageRequest
+    ): Promise<AutoImplementationRunProjection> {
+      return recordAutoImplementationStageProjection(request);
     },
 
     async getAutoImplementationRuns(sessionIdValue: SessionId): Promise<AutoImplementationRunProjection | null> {

@@ -277,6 +277,31 @@ async function postAutoImplementationWorkerLedgerImportForTest(
   ));
 }
 
+async function postAutoImplementationWorkerStageAdvanceForTest(
+  storageApp: RequestTestApp,
+  sessionId: string,
+  runId: string,
+  jobId: string,
+  payload: Readonly<Record<string, unknown>>
+) {
+  return Promise.resolve(storageApp.request(
+    `/api/v1/sessions/${sessionId}/auto-implementation-runs/${runId}/worker-jobs/${encodeURIComponent(jobId)}/advance-stage`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        sessionId,
+        runId,
+        jobId,
+        ...payload
+      })
+    }
+  ));
+}
+
 function implementationStepLedgerImportTransitionsForTest() {
   const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
   const stepCommitRecord = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.stepCommitRecords[0]!;
@@ -8914,6 +8939,47 @@ describe("PR-02 sidecar health shell", () => {
         currentStatus: "completed",
         summary: expect.stringContaining("completed")
       });
+
+      const advancedFromWorkerResponse = await postAutoImplementationWorkerStageAdvanceForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-stage-advance:completed-ledger",
+          tickedAt: "2026-05-20T00:10:00.000Z",
+          evidenceRefs: ["worker-stage-advance:completed"]
+        }
+      );
+      const advancedFromWorkerRun = latestAutoImplementationRunFromBody(await jsonBody(advancedFromWorkerResponse));
+      const advancedStages = advancedFromWorkerRun.stagePlan as readonly Readonly<Record<string, unknown>>[];
+
+      expect(advancedFromWorkerResponse.status).toBe(200);
+      expect(advancedFromWorkerRun).toMatchObject({
+        status: "running",
+        currentStage: "code_review_fix_1"
+      });
+      expect(advancedStages[0]).toMatchObject({
+        stage: "initial_pr",
+        status: "completed",
+        ledgerEvidence: {
+          implementationStepId: "step_demo",
+          evidenceRefs: expect.arrayContaining([
+            "implementation-step-ledger:step_demo",
+            "commit:abcdef1",
+            "test:verify"
+          ])
+        },
+        evidenceRefs: expect.arrayContaining([
+          `auto-worker-stage-advance:${plannedJobId}:worker-stage-advance:completed-ledger`,
+          "worker-stage-advance:completed",
+          "worker-ledger-import:completed"
+        ])
+      });
+      expect(advancedStages[1]).toMatchObject({
+        stage: "code_review_fix_1",
+        status: "ready"
+      });
     } finally {
       await storage.close();
     }
@@ -8982,6 +9048,23 @@ describe("PR-02 sidecar health shell", () => {
           "worker-blocked:ledger-import",
           "worker-ledger-import:partial"
         ])
+      });
+
+      const advanceBlockedJob = await postAutoImplementationWorkerStageAdvanceForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-stage-advance:blocked-ledger-import"
+        }
+      );
+      const advanceBlockedJobBody = await jsonBody(advanceBlockedJob);
+
+      expect(advanceBlockedJob.status).toBe(400);
+      expect(advanceBlockedJobBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Only completed auto implementation worker jobs can advance their stage."
       });
     } finally {
       await storage.close();

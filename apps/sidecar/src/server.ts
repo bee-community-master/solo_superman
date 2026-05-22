@@ -45,6 +45,7 @@ import {
   type CommandId,
   type CommandResponse,
   type CancelResearchRunRequest,
+  type AdvanceAutoImplementationWorkerStageRequest,
   type CompleteAutoImplementationWorkerJobRequest,
   type CreateAutoImplementationRunRequest,
   type CreateAutoImplementationWorkerJobRequest,
@@ -2275,6 +2276,15 @@ const AUTO_IMPLEMENTATION_WORKER_LEDGER_IMPORT_REQUEST_BODY_KEYS = [
   "evidenceRefs"
 ] as const satisfies readonly (keyof ImportAutoImplementationWorkerLedgerRequest)[];
 
+const AUTO_IMPLEMENTATION_WORKER_STAGE_ADVANCE_REQUEST_BODY_KEYS = [
+  "sessionId",
+  "runId",
+  "jobId",
+  "idempotencyKey",
+  "evidenceRefs",
+  "tickedAt"
+] as const satisfies readonly (keyof AdvanceAutoImplementationWorkerStageRequest)[];
+
 const AUTO_IMPLEMENTATION_STAGE_BLOCKER_KEYS = [
   "stage",
   "reason",
@@ -2542,6 +2552,38 @@ function importAutoImplementationWorkerLedgerRequestFromBody(
     idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
     ledgerTransitions: body.ledgerTransitions as unknown as ImportAutoImplementationWorkerLedgerRequest["ledgerTransitions"],
     ...(evidenceRefs ? { evidenceRefs } : {})
+  };
+}
+
+function advanceAutoImplementationWorkerStageRequestFromBody(
+  routeSessionId: SessionId,
+  routeRunId: string,
+  routeJobId: string,
+  body: Readonly<Record<string, unknown>>
+): AdvanceAutoImplementationWorkerStageRequest {
+  assertAllowedRecordKeys(
+    body,
+    AUTO_IMPLEMENTATION_WORKER_STAGE_ADVANCE_REQUEST_BODY_KEYS,
+    "auto implementation worker stage advance request body"
+  );
+  routeScopedWorkerJobBody(
+    routeSessionId,
+    routeRunId,
+    routeJobId,
+    body,
+    "auto implementation worker stage advance request body"
+  );
+
+  const evidenceRefs = optionalStringArrayFromBody(body.evidenceRefs, "evidenceRefs");
+  const tickedAt = optionalStringFromBody(body.tickedAt, "tickedAt");
+
+  return {
+    sessionId: routeSessionId,
+    runId: routeRunId,
+    jobId: routeJobId,
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    ...(evidenceRefs ? { evidenceRefs } : {}),
+    ...(tickedAt ? { tickedAt } : {})
   };
 }
 
@@ -3843,6 +3885,22 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       );
 
       return service.importAutoImplementationWorkerLedger(request);
+    })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/advance-stage", async (context) =>
+    withProductEngine(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const routeRunId = context.req.param("runId");
+      const routeJobId = context.req.param("jobId");
+      const request = advanceAutoImplementationWorkerStageRequestFromBody(
+        routeSessionId,
+        routeRunId,
+        routeJobId,
+        await jsonBody(context)
+      );
+
+      return service.advanceAutoImplementationWorkerStage(request);
     })
   );
 

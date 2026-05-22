@@ -615,6 +615,14 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "advanceAutoImplementationWorkerStage",
+    clientName: "advanceAutoImplementationWorkerStage",
+    method: "POST",
+    path: "/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/advance-stage",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
     routeId: "recordAutoImplementationStage",
     clientName: "recordAutoImplementationStage",
     method: "POST",
@@ -887,6 +895,7 @@ export const POST_PHASE3_PR07_AUTO_IMPLEMENTATION_ROUTE_IDS = [
   "createAutoImplementationWorkerJob",
   "completeAutoImplementationWorkerJob",
   "importAutoImplementationWorkerLedger",
+  "advanceAutoImplementationWorkerStage",
   "recordAutoImplementationStage"
 ] as const satisfies readonly ApiRouteId[];
 

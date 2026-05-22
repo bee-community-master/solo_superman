@@ -13,6 +13,7 @@ import type {
   ServicePageUsePermissionProjection,
   CreateAutoImplementationRunRequest,
   CreateAutoImplementationWorkerJobRequest,
+  AdvanceAutoImplementationWorkerStageRequest,
   CompleteAutoImplementationWorkerJobRequest,
   ImportAutoImplementationWorkerLedgerRequest,
   CreateManualHandoffRequest,
@@ -73,6 +74,7 @@ import {
   autoImplementationWorkerJobPath,
   autoImplementationWorkerJobCompletePath,
   autoImplementationWorkerLedgerImportPath,
+  autoImplementationWorkerStageAdvancePath,
   implementationStepLedgerPath,
   phase15bUpgradeHintCollectionPath,
   phase15bUpgradeHintExportPath,
@@ -133,6 +135,7 @@ export type CreateAutoImplementationRunInput = CreateAutoImplementationRunReques
 export type CreateAutoImplementationWorkerJobInput = CreateAutoImplementationWorkerJobRequest;
 export type CompleteAutoImplementationWorkerJobInput = CompleteAutoImplementationWorkerJobRequest;
 export type ImportAutoImplementationWorkerLedgerInput = ImportAutoImplementationWorkerLedgerRequest;
+export type AdvanceAutoImplementationWorkerStageInput = AdvanceAutoImplementationWorkerStageRequest;
 export type RecordAutoImplementationStageInput = RecordAutoImplementationStageRequest;
 export type CreateChatGptBrowserDelegationRunInput = CreateChatGptBrowserDelegationRunRequest;
 export type RevokeChatGptBrowserDelegationRunInput = RevokeChatGptBrowserDelegationRunRequest;
@@ -556,6 +559,13 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
     importAutoImplementationWorkerLedger(input: ImportAutoImplementationWorkerLedgerInput) {
       return postProjection<AutoImplementationRunProjection>(
         autoImplementationWorkerLedgerImportPath(input.sessionId, input.runId, input.jobId),
+        input
+      );
+    },
+
+    advanceAutoImplementationWorkerStage(input: AdvanceAutoImplementationWorkerStageInput) {
+      return postProjection<AutoImplementationRunProjection>(
+        autoImplementationWorkerStageAdvancePath(input.sessionId, input.runId, input.jobId),
         input
       );
     },

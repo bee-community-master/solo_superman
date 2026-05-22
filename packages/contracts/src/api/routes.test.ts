@@ -624,6 +624,7 @@ describe("API route catalog", () => {
       "createAutoImplementationWorkerJob",
       "completeAutoImplementationWorkerJob",
       "importAutoImplementationWorkerLedger",
+      "advanceAutoImplementationWorkerStage",
       "recordAutoImplementationStage"
     ]);
     expect(POST_PHASE3_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual([
@@ -658,6 +659,12 @@ describe("API route catalog", () => {
     expect(routeById.get("importAutoImplementationWorkerLedger")).toMatchObject({
       method: "POST",
       path: "/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/ledger-import",
+      commandType: "none",
+      implementedInPr01: false
+    });
+    expect(routeById.get("advanceAutoImplementationWorkerStage")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/advance-stage",
       commandType: "none",
       implementedInPr01: false
     });
