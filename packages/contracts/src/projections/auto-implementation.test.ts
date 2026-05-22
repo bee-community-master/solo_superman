@@ -175,6 +175,45 @@ describe("AutoImplementationRunProjection contract", () => {
     expect(validateAutoImplementationRunProjection(valid)).toBe(valid);
   });
 
+  it("accepts completed worker jobs only after missing evidence is cleared", () => {
+    const valid = projectionWithLatestRun({
+      ...readyRun,
+      status: "running",
+      workerJobs: [
+        {
+          jobId: "auto-worker-job:auto_run_demo:initial_pr:job_1",
+          runId: readyRun.runId,
+          stage: "initial_pr",
+          issueId: "local-001",
+          issueTitle: "Workspace repo bootstrap and initial implementation PR",
+          issueRelativePath: "implementation-issues/001-initial_pr.md",
+          status: "completed",
+          executionPlan: {
+            executionMode: "local_sandboxed_codex",
+            workingDirectory: readyRun.generatedRepoPath,
+            issueDocumentPath: "implementation-issues/001-initial_pr.md",
+            executionAuthorityRef: "exec_auth_1",
+            allowedWriteScope: [".", "implementation-issues/001-initial_pr.md"],
+            requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
+            forbiddenActions: ["production deploy"],
+            sourceRefs: ["auto-implementation-run:auto_run_demo", "auto-implementation-stage:initial_pr"]
+          },
+          blockedReason: null,
+          missingEvidence: [],
+          nextRequiredAction: "Advance the stage through the existing stage endpoint.",
+          createdAt: "2026-05-19T00:01:00.000Z",
+          updatedAt: "2026-05-19T00:02:00.000Z",
+          evidenceRefs: [
+            "auto-worker-job:auto_run_demo:initial_pr:job_1",
+            "implementation-step-ledger:step_demo"
+          ]
+        }
+      ]
+    });
+
+    expect(validateAutoImplementationRunProjection(valid)).toBe(valid);
+  });
+
   it("rejects worker jobs that are not tied to a canonical issue document", () => {
     const invalid = projectionWithLatestRun({
       ...readyRun,

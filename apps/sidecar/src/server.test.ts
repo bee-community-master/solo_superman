@@ -227,6 +227,31 @@ async function postAutoImplementationWorkerJobForTest(
   ));
 }
 
+async function postAutoImplementationWorkerJobCompletionForTest(
+  storageApp: RequestTestApp,
+  sessionId: string,
+  runId: string,
+  jobId: string,
+  payload: Readonly<Record<string, unknown>>
+) {
+  return Promise.resolve(storageApp.request(
+    `/api/v1/sessions/${sessionId}/auto-implementation-runs/${runId}/worker-jobs/${encodeURIComponent(jobId)}/complete`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        sessionId,
+        runId,
+        jobId,
+        ...payload
+      })
+    }
+  ));
+}
+
 function jsonDataRecord(body: JsonResponseBody) {
   return body.data as Readonly<Record<string, unknown>>;
 }
@@ -8438,7 +8463,10 @@ describe("PR-02 sidecar health shell", () => {
     });
 
     try {
-      const { sessionId } = await createProjectForTest(storageApp, "An auto implementation local worker job test");
+      const { projectId, sessionId } = await createProjectForTest(
+        storageApp,
+        "An auto implementation local worker job test"
+      );
       const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
         idempotencyKey: "auto-implementation-route:worker-job",
         projectName: "Worker Job Demo"
@@ -8657,6 +8685,83 @@ describe("PR-02 sidecar health shell", () => {
         },
         evidenceRefs: expect.arrayContaining([
           `execution-authority:${authorityRecordId}`
+        ])
+      });
+
+      const plannedJobId = String(plannedJobs[5]!.jobId);
+      const missingLedgerCompletion = await postAutoImplementationWorkerJobCompletionForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-job-complete:missing-ledger",
+          implementationStepId: "step_demo",
+          evidenceRefs: ["worker-job:complete-attempt"]
+        }
+      );
+      const missingLedgerCompletionRun = latestAutoImplementationRunFromBody(await jsonBody(missingLedgerCompletion));
+      const missingLedgerCompletionJobs = missingLedgerCompletionRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(missingLedgerCompletion.status).toBe(200);
+      expect(missingLedgerCompletionRun).toMatchObject({
+        status: "blocked",
+        currentStage: "initial_pr"
+      });
+      expect(missingLedgerCompletionJobs.at(-1)).toMatchObject({
+        status: "blocked",
+        missingEvidence: ["ImplementationStepLedger completed step"],
+        nextRequiredAction: expect.stringContaining("ImplementationStepLedger")
+      });
+
+      await createProjectionRepository(storage.db).save({
+        projectId: projectId as ProjectId,
+        sessionId: sessionId as SessionId,
+        projection: {
+          ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+          sessionId: sessionId as SessionId,
+          refetchUrl: `/api/v1/sessions/${sessionId}/implementation-step-ledger`,
+          schemaVersion: IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION
+        },
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        updatedAt: "2026-05-20T00:05:00.000Z"
+      });
+
+      const completedWorkerJobResponse = await postAutoImplementationWorkerJobCompletionForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-job-complete:with-ledger",
+          implementationStepId: "step_demo",
+          evidenceRefs: ["worker-job:complete"]
+        }
+      );
+      const completedWorkerJobRun = latestAutoImplementationRunFromBody(await jsonBody(completedWorkerJobResponse));
+      const completedWorkerJobs = completedWorkerJobRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+      const completedWorkerStages = completedWorkerJobRun.stagePlan as readonly Readonly<Record<string, unknown>>[];
+
+      expect(completedWorkerJobResponse.status).toBe(200);
+      expect(completedWorkerJobRun).toMatchObject({
+        status: "running",
+        currentStage: "initial_pr"
+      });
+      expect(completedWorkerStages[0]).toMatchObject({
+        stage: "initial_pr",
+        status: "ready",
+        ledgerEvidence: null
+      });
+      expect(completedWorkerJobs.at(-1)).toMatchObject({
+        status: "completed",
+        missingEvidence: [],
+        blockedReason: null,
+        nextRequiredAction: expect.stringContaining("existing stage endpoint"),
+        evidenceRefs: expect.arrayContaining([
+          "implementation-step-ledger:step_demo",
+          "commit:abcdef1",
+          "test:verify",
+          "worker-job:complete"
         ])
       });
     } finally {

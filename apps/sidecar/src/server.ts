@@ -45,6 +45,7 @@ import {
   type CommandId,
   type CommandResponse,
   type CancelResearchRunRequest,
+  type CompleteAutoImplementationWorkerJobRequest,
   type CreateAutoImplementationRunRequest,
   type CreateAutoImplementationWorkerJobRequest,
   type CreateExecutionAuthorityPayload,
@@ -2255,6 +2256,15 @@ const AUTO_IMPLEMENTATION_WORKER_JOB_REQUEST_BODY_KEYS = [
   "executionAuthorityRef"
 ] as const satisfies readonly (keyof CreateAutoImplementationWorkerJobRequest)[];
 
+const AUTO_IMPLEMENTATION_WORKER_JOB_COMPLETION_REQUEST_BODY_KEYS = [
+  "sessionId",
+  "runId",
+  "jobId",
+  "idempotencyKey",
+  "implementationStepId",
+  "evidenceRefs"
+] as const satisfies readonly (keyof CompleteAutoImplementationWorkerJobRequest)[];
+
 const AUTO_IMPLEMENTATION_STAGE_BLOCKER_KEYS = [
   "stage",
   "reason",
@@ -2409,6 +2419,57 @@ function createAutoImplementationWorkerJobRequestFromBody(
     runId: routeRunId,
     idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
     ...(executionAuthorityRef ? { executionAuthorityRef } : {})
+  };
+}
+
+function completeAutoImplementationWorkerJobRequestFromBody(
+  routeSessionId: SessionId,
+  routeRunId: string,
+  routeJobId: string,
+  body: Readonly<Record<string, unknown>>
+): CompleteAutoImplementationWorkerJobRequest {
+  assertAllowedRecordKeys(
+    body,
+    AUTO_IMPLEMENTATION_WORKER_JOB_COMPLETION_REQUEST_BODY_KEYS,
+    "auto implementation worker job completion request body"
+  );
+
+  const bodySessionId = optionalStringFromBody(body.sessionId, "sessionId") as SessionId | undefined;
+
+  if (bodySessionId && bodySessionId !== routeSessionId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId must match route sessionId.", {
+      routeSessionId,
+      bodySessionId
+    });
+  }
+
+  const bodyRunId = optionalStringFromBody(body.runId, "runId");
+
+  if (bodyRunId && bodyRunId !== routeRunId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "runId must match route runId.", {
+      routeRunId,
+      bodyRunId
+    });
+  }
+
+  const bodyJobId = optionalStringFromBody(body.jobId, "jobId");
+
+  if (bodyJobId && bodyJobId !== routeJobId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "jobId must match route jobId.", {
+      routeJobId,
+      bodyJobId
+    });
+  }
+
+  const evidenceRefs = optionalStringArrayFromBody(body.evidenceRefs, "evidenceRefs");
+
+  return {
+    sessionId: routeSessionId,
+    runId: routeRunId,
+    jobId: routeJobId,
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    implementationStepId: stringFromBody(body.implementationStepId, "implementationStepId"),
+    ...(evidenceRefs ? { evidenceRefs } : {})
   };
 }
 
@@ -3678,6 +3739,22 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       );
 
       return service.createAutoImplementationWorkerJob(request);
+    })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/complete", async (context) =>
+    withProductEngine(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const routeRunId = context.req.param("runId");
+      const routeJobId = context.req.param("jobId");
+      const request = completeAutoImplementationWorkerJobRequestFromBody(
+        routeSessionId,
+        routeRunId,
+        routeJobId,
+        await jsonBody(context)
+      );
+
+      return service.completeAutoImplementationWorkerJob(request);
     })
   );
 
