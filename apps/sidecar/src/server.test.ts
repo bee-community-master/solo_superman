@@ -8764,6 +8764,12 @@ describe("PR-02 sidecar health shell", () => {
           expect(markdown).toContain(reviewEvidenceSlot);
         }
       };
+      expect(tracker).toContain("<!-- solo-superman:auto-implementation-run-state:start -->");
+      expect(tracker).toContain("## Auto implementation run state");
+      expect(tracker).toContain("- Run status: pending");
+      expect(tracker).toContain("- Current stage: initial_pr");
+      expect(tracker).toContain("- Latest worker job: none");
+      expect(tracker).toContain("- Latest PR mutation: none");
       const manifest = JSON.parse(await readFile(join(projectDir, ".solo-superman", "auto-implementation-run.json"), "utf8")) as
         Readonly<Record<string, unknown>>;
       const gitHead = await readFile(join(projectDir, ".git", "HEAD"), "utf8");
@@ -9193,6 +9199,10 @@ describe("PR-02 sidecar health shell", () => {
       const completedWorkerJobRun = latestAutoImplementationRunFromBody(await jsonBody(completedWorkerJobResponse));
       const completedWorkerJobs = completedWorkerJobRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
       const completedWorkerStages = completedWorkerJobRun.stagePlan as readonly Readonly<Record<string, unknown>>[];
+      const completedWorkerTracker = await readFile(
+        join(workspaceRoot, "worker-job-demo", "implementation-tracker.md"),
+        "utf8"
+      );
 
       expect(completedWorkerJobResponse.status).toBe(200);
       expect(completedWorkerJobRun).toMatchObject({
@@ -9216,6 +9226,11 @@ describe("PR-02 sidecar health shell", () => {
           "worker-job:complete"
         ])
       });
+      expect(completedWorkerTracker).toContain(`- Latest worker job: ${plannedJobId} (completed)`);
+      expect(completedWorkerTracker).toContain("- Stage: initial_pr");
+      expect(completedWorkerTracker).toContain("- Issue: local-001 Workspace repo bootstrap and initial implementation PR");
+      expect(completedWorkerTracker).toContain("- Missing evidence: none");
+      expect(completedWorkerTracker).toContain("- Blocked reason: none");
     } finally {
       await storage.close();
     }
@@ -10353,6 +10368,7 @@ describe("PR-02 sidecar health shell", () => {
         await readFile(join(workspaceRoot, "connected-pr-dry-run", ".solo-superman", "auto-implementation-run.json"), "utf8")
       ) as Readonly<Record<string, unknown>>;
       const manifestPullRequestMutations = manifest.pullRequestMutations as Readonly<Record<string, unknown>>;
+      const tracker = await readFile(join(workspaceRoot, "connected-pr-dry-run", "implementation-tracker.md"), "utf8");
 
       expect(response.status).toBe(200);
       expect(mutationAttempts).toBe(0);
@@ -10380,6 +10396,10 @@ describe("PR-02 sidecar health shell", () => {
           bodyEvidenceRefs: ["pr-body:current-evidence"]
         }
       });
+      expect(tracker).toContain("- Latest PR mutation: update_pr_body (dry_run_ready)");
+      expect(tracker).toContain("- Request mode: dry_run");
+      expect(tracker).toContain("- Pull request URL: https://github.com/bee-community-master/generated-demo/pull/123");
+      expect(tracker).toContain("- Body evidence refs: pr-body:current-evidence");
       expect(pullRequestMutations.records as readonly unknown[]).toHaveLength(1);
     } finally {
       await storage.close();
@@ -11033,6 +11053,7 @@ describe("PR-02 sidecar health shell", () => {
       const syncedManifest = JSON.parse(
         await readFile(join(workspaceRoot, "stage-runner-app", ".solo-superman", "auto-implementation-run.json"), "utf8")
       ) as Readonly<Record<string, unknown>>;
+      const syncedTracker = await readFile(join(workspaceRoot, "stage-runner-app", "implementation-tracker.md"), "utf8");
       const syncedManifestStages = syncedManifest.stagePlan as readonly Readonly<Record<string, unknown>>[];
       const replay = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "initial_pr", {
         idempotencyKey: "auto-stage:complete:initial-pr",
@@ -11080,6 +11101,13 @@ describe("PR-02 sidecar health shell", () => {
           testEvidenceRefs: ["test:verify"]
         }
       });
+      expect(syncedTracker).toContain("- Run status: running");
+      expect(syncedTracker).toContain("- Current stage: code_review_fix_1");
+      expect(syncedTracker).toContain("- 1. initial_pr (Initial implementation and PR creation)");
+      expect(syncedTracker).toContain("  - Status: completed");
+      expect(syncedTracker).toContain("  - Ledger step: step_demo");
+      expect(syncedTracker).toContain("  - Implementation evidence refs: commit:abcdef1");
+      expect(syncedTracker).toContain("  - Test evidence refs: test:verify");
       expect(completedInitial).toMatchObject({
         status: "completed",
         ledgerEvidence: {

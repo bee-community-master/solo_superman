@@ -209,6 +209,7 @@ import {
   prepareAutoImplementationWorkspaceRun,
   sanitizeProjectFolderName,
   writeAutoImplementationRunManifest,
+  writeAutoImplementationRunTrackerState,
   type AutoImplementationGitHubIssueMutationAdapter,
   type AutoImplementationPullRequestMutationAdapter,
   type AutoImplementationRemoteStatusProvider
@@ -2525,18 +2526,22 @@ export function createProductEngineCommandService(
   const autoImplementationPullRequestMutationAdapter =
     options.autoImplementationPullRequestMutationAdapter ?? ghAutoImplementationPullRequestMutationAdapter;
 
-  async function synchronizeAutoImplementationRunManifest(run: AutoImplementationRun) {
+  async function synchronizeAutoImplementationRunWorkspaceState(run: AutoImplementationRun) {
     try {
       await writeAutoImplementationRunManifest({
         workspaceRoot: autoImplementationWorkspaceRoot,
         run
       });
+      await writeAutoImplementationRunTrackerState({
+        workspaceRoot: autoImplementationWorkspaceRoot,
+        run
+      });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown manifest synchronization failure.";
+      const message = error instanceof Error ? error.message : "Unknown workspace-state synchronization failure.";
 
       throw new ProductEngineServiceError(
         "VALIDATION_FAILED",
-        "Auto implementation manifest could not be synchronized safely.",
+        "Auto implementation workspace state could not be synchronized safely.",
         { runId: run.runId, message }
       );
     }
@@ -2550,7 +2555,7 @@ export function createProductEngineCommandService(
     readonly latestRun: AutoImplementationRun;
     readonly updatedAt: string;
   }) {
-    await synchronizeAutoImplementationRunManifest(input.latestRun);
+    await synchronizeAutoImplementationRunWorkspaceState(input.latestRun);
 
     return input.projectionRepository.save({
       projectId: input.projectId,
