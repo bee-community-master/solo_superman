@@ -30,6 +30,14 @@ export function allowlistPermitsWebPublicResearch(allowlist: ResearchAllowlistPr
   );
 }
 
+export function activeWebPublicResearchAllowlist(
+  allowlists: ResearchAllowlistGovernanceProjection | null | undefined
+) {
+  return allowlists?.allowlists.find(
+    (allowlist) => allowlist.status === "active" && allowlistPermitsWebPublicResearch(allowlist)
+  ) ?? null;
+}
+
 interface WebResearchRunRequestInput {
   readonly allowlist: ResearchAllowlistProjection;
   readonly specTitle?: string | undefined;

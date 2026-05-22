@@ -9,7 +9,7 @@ The roadmap is a contributor map, not a user-facing UI vocabulary. It mixes code
 | Capability band | Contributor meaning | Exit evidence |
 | --- | --- | --- |
 | Product foundation | Product brief, PRD, UX doctrine, Living Product Spec, Decision Queue. | New contributor can explain the Founder OS loop. |
-| Research and evidence | Allowlisted read-only research, evidence matrix, pro/con/uncertainty, skeptical search. | Research-updated Queue with residual risks and research-generated follow-up questions explicitly listed instead of hidden. |
+| Research and evidence | Allowlisted read-only research, bounded batch start for ready public-web tasks, evidence matrix, pro/con/uncertainty, skeptical search. | Research-updated Queue with residual risks and research-generated follow-up questions explicitly listed instead of hidden. |
 | Planning handoff | Build Slice Plan, Serve Checklist, Learning Loop Hook, blocker report when not ready. | Planning-ready artifact or explicit blocker artifact. |
 | Controlled execution | ExecutionAuthorityRecord ledger plus `file_diff`, `shell_command`, `browser_action` adapters. | Approved and blocked dry-runs with evidence and rollback refs. |
 | Full-vision backlog | business/personal mode, business critic intensity, ChatGPT local browser delegation, service page-use permission, implementation step ledger, workspace auto implementation run bootstrap. | Contributors can implement tracked work without inventing new safety defaults. |
@@ -41,7 +41,7 @@ The controlled runner advances stages only through 5-minute tick records. Comple
 - #86, #87, and #88 established the web/local migration and Phase 3 controlled execution prerequisite gates.
 - #91 became the unified tracker for Phase 3 and Post-Phase3 work.
 - #92, #93, #94, #95, #96, and #97 covered Phase 3 ledger, approval/API security, `file_diff`, `shell_command`, `browser_action`, and closeout hardening.
-- #99, #100, #101, #102, #103, #104, #105, #106, #108, #110, #112, #114, #116, #118, #120, #122, and #124 exposed stage tick/lifecycle controls, manual worker completion, planned worker ledger-doc binding, exact planned worker ledger docs inside bounded worker plans, manual ledger-import binding to those planned docs, current-stage worker control scoping, operator UI/manual recovery for worker ledger imports, current-stage worker replan guards, duplicate PR-open guards, duplicate PR-merge guards, duplicate GitHub issue-creation guards, stage-completion tick-cadence guards, and current-batch drafted answer submission for long clarification sessions.
+- #99, #100, #101, #102, #103, #104, #105, #106, #108, #110, #112, #114, #116, #118, #120, #122, #124, and #126 exposed stage tick/lifecycle controls, manual worker completion, planned worker ledger-doc binding, exact planned worker ledger docs inside bounded worker plans, manual ledger-import binding to those planned docs, current-stage worker control scoping, operator UI/manual recovery for worker ledger imports, current-stage worker replan guards, duplicate PR-open guards, duplicate PR-merge guards, duplicate GitHub issue-creation guards, stage-completion tick-cadence guards, current-batch drafted answer submission for long clarification sessions, and bounded batch start for ready public-web research tasks.
 - #98 was the temporary standalone Post-Phase3 tracker and is a closed absorbed reference only.
 
 ## Transition rule

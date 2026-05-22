@@ -20,6 +20,7 @@ import type {
 import {
   type Phase15aOperationsInput,
   phase15aOperationsViewModel,
+  startableReadOnlyResearchTaskIds,
 } from "./decision-queue-view-model";
 import { DECISION_QUEUE_COPY } from "./shell/decision-queue-copy";
 
@@ -336,6 +337,55 @@ describe("Decision Queue view model phase15a", () => {
       status: "blocked_for_1_5b",
       blockers: ["리서치 소스 상태를 다시 불러오는 경로가 보이지 않습니다."]
     });
+  });
+
+  it("selects only planned public-web research tasks within the active concurrency budget", () => {
+    const [allowlist] = allowlistProjection().allowlists;
+    const [baseTask] = researchProjection(false).tasks;
+    const [baseRun] = runProjection().runs;
+    const plannedTaskIds = [
+      "research_task_batch_ready_1",
+      "research_task_batch_ready_2",
+      "research_task_batch_over_budget"
+    ] as const;
+
+    if (!allowlist || !baseTask || !baseRun) {
+      throw new Error("Phase 1.5A research batch fixture is incomplete.");
+    }
+
+    const research = {
+      ...researchProjection(false),
+      taskIds: plannedTaskIds.map((taskId) => taskId as ResearchTaskId),
+      tasks: [
+        ...plannedTaskIds.map((taskId) => ({
+          ...baseTask,
+          researchTaskId: taskId as ResearchTaskId,
+          status: "planned" as const,
+          objective: `Validate public evidence for ${taskId}.`
+        })),
+        {
+          ...baseTask,
+          researchTaskId: "research_task_needs_review" as ResearchTaskId,
+          status: "needs_review" as const,
+          objective: "This task is already in review."
+        }
+      ]
+    };
+    const runs = {
+      ...runProjection("accepted"),
+      runs: [
+        {
+          ...baseRun,
+          researchTaskId: "research_task_already_running" as ResearchTaskId,
+          status: "running" as const,
+          qualityGateStatus: "not_evaluated" as const
+        }
+      ]
+    };
+
+    expect(startableReadOnlyResearchTaskIds({ research, runs, allowlist })).toEqual([
+      "research_task_batch_ready_1"
+    ]);
   });
 
   it("localizes Research operations dynamic labels for Japanese users", () => {
