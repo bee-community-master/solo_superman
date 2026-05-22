@@ -51,6 +51,7 @@ Business mode는 명시적인 `businessCriticIntensity`가 필요하며 no defau
 - Question AI는 날카로운 product coach처럼 질문 이유를 설명하고, assumption을 challenge하며, fatigue를 감지합니다.
 - 반복 질문은 topic key와 repeat limit로 수렴해야 하며, 앱은 사용자를 infinite question loop에 가두면 안 됩니다.
 - 질문 새로고침과 다음 질문 불러오기 control은 화면에서 보이게 두고, 답변 또는 보류 후에는 다음 관련 질문이 자동 보충될 수 있어야 합니다.
+- 리서치가 생성한 추가 질문은 evidence card note에만 숨기지 말고 답변 가능한 후속 질문 debt로 Decision Queue에 다시 들어와야 합니다.
 - Risk UI는 데이터가 충분할 때 Confidence Map, five-axis radar, Top 3 Risk Cards를 보여줍니다. 질문별 리스크 입력은 항상 노출하지 않고 선택형 추가 의견/리스크 펼쳐보기 안에 둡니다.
 
 ## 현재 배포 범위

@@ -1949,14 +1949,42 @@ describe("PR-04 ProductEngine reducer", () => {
           expect.stringContaining("missing_con_evidence")
         ]
       },
+      openIssues: [
+        expect.objectContaining({
+          queueItemId: expect.stringMatching(/^queue_research_followup_/),
+          status: "open",
+          uncertaintyType: "missing_con_evidence",
+          expectedAnswerType: "evidence",
+          repeatCount: 1,
+          repeatLimit: 8,
+          questionText: expect.stringContaining("What evidence would resolve Validate paid founder urgency?"),
+          possibleRoutes: expect.arrayContaining(["question", "missing_con_evidence", "research_needed"]),
+          sourceRef: expect.stringContaining(`research:${researchTaskId}:`)
+        })
+      ],
       queueProjection: {
+        active: [
+          expect.objectContaining({
+            cardType: "follow_up_question",
+            title: expect.stringContaining("What evidence would resolve Validate paid founder urgency?"),
+            state: "active"
+          })
+        ],
         blocked: [
           expect.objectContaining({
             additionalQuestions: [
               expect.stringContaining("What evidence would resolve Validate paid founder urgency?")
             ]
           })
-        ]
+        ],
+        progress: expect.objectContaining({
+          generatedQuestionCount: 1,
+          openQuestionCount: 1,
+          followUpQuestionCount: 1,
+          followUpOpenQuestionCount: 1,
+          visibleQuestionDebtCount: 1,
+          completionPercent: 0
+        })
       },
       completeness: {
         kind: "ConfidenceCompletionProjection",
@@ -1969,6 +1997,48 @@ describe("PR-04 ProductEngine reducer", () => {
         ])
       }
     });
+    expect(synthesized.events[0]?.payload).toMatchObject({
+      researchFollowUpQueueItemIds: [expect.stringMatching(/^queue_research_followup_/)]
+    });
+
+    const replayedSynthesized = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_research_plan_replay",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:00.000Z"
+      },
+      {
+        ...imported.events[0],
+        eventId: "evt_research_import_replay",
+        sequence: 2,
+        occurredAt: "2026-05-05T00:00:01.000Z"
+      },
+      {
+        ...synthesized.events[0],
+        eventId: "evt_research_synthesized_replay",
+        sequence: 3,
+        occurredAt: "2026-05-05T00:00:02.000Z"
+      }
+    ]);
+
+    expect(replayedSynthesized.openIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          queueItemId: expect.stringMatching(/^queue_research_followup_/),
+          status: "open",
+          questionText: expect.stringContaining("What evidence would resolve Validate paid founder urgency?")
+        })
+      ])
+    );
+    expect(replayedSynthesized.queueProjection.active).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          cardType: "follow_up_question",
+          title: expect.stringContaining("What evidence would resolve Validate paid founder urgency?")
+        })
+      ])
+    );
   });
 
   it("persists a decision-linked Evidence Pack and keeps unknown quality gates in review", () => {
