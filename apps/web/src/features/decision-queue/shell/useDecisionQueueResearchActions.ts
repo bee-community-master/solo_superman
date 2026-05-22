@@ -302,7 +302,6 @@ export function useDecisionQueueResearchActions({
       setIsBusy(false);
     }
   }, [
-    appendCommand,
     client,
     projections.research,
     projections.session,
@@ -368,7 +367,6 @@ export function useDecisionQueueResearchActions({
       setIsBusy(false);
     }
   }, [
-    appendCommand,
     client,
     projections.research,
     projections.session,
