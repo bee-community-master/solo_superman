@@ -10,6 +10,7 @@ import type {
   ChangeBusinessCriticIntensityRequest,
   ChangeProjectPurposeModeRequest,
   ChatGptBrowserDelegationProjection,
+  CreateExecutionAuthorityRequest,
   ServicePageUsePermissionProjection,
   CreateAutoImplementationRunRequest,
   CreateAutoImplementationWorkerJobRequest,
@@ -27,6 +28,7 @@ import type {
   DecisionQueueProjection,
   DeferQueueItemRequest,
   DismissQueueItemRequest,
+  ExecutionAuthorityLedgerProjection,
   FounderBriefProjection,
   ImportResearchResultRequest,
   ImplementationStepLedgerProjection,
@@ -79,6 +81,7 @@ import {
   autoImplementationWorkerJobRunPath,
   autoImplementationWorkerLedgerImportPath,
   autoImplementationWorkerStageAdvancePath,
+  executionAuthorityPath,
   implementationStepLedgerPath,
   phase15bUpgradeHintCollectionPath,
   phase15bUpgradeHintExportPath,
@@ -135,6 +138,7 @@ export type CancelResearchRunInput = CancelResearchRunRequest;
 export type RetryResearchRunInput = RetryResearchRunRequest;
 export type ResolveResearchQueueCardInput = ResolveResearchQueueCardRequest;
 export type CreatePlanningHandoffInput = CreatePlanningHandoffRequest;
+export type CreateExecutionAuthorityInput = CreateExecutionAuthorityRequest;
 export type CreateAutoImplementationRunInput = CreateAutoImplementationRunRequest;
 export type CreateAutoImplementationWorkerJobInput = CreateAutoImplementationWorkerJobRequest;
 export type RecordAutoImplementationPullRequestMutationInput = RecordAutoImplementationPullRequestMutationRequest;
@@ -497,6 +501,14 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     getPlanningHandoff(sessionId: SessionId) {
       return getProjection<PlanningHandoffProjection | null>(planningHandoffPath(sessionId));
+    },
+
+    createExecutionAuthority(input: CreateExecutionAuthorityInput) {
+      return postCommand<ExecutionAuthorityLedgerProjection>(executionAuthorityPath(input.sessionId), input);
+    },
+
+    getExecutionAuthority(sessionId: SessionId) {
+      return getProjection<ExecutionAuthorityLedgerProjection | null>(executionAuthorityPath(sessionId));
     },
 
     createChatGptBrowserDelegationRun(input: CreateChatGptBrowserDelegationRunInput) {

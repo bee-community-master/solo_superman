@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
   IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+  PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE,
   type ProjectId,
   type RuntimeArtifactId,
   type SessionId,
@@ -164,6 +165,127 @@ describe("sidecar client planning-runtime", () => {
     });
     expect(seenRequests[1]).toMatchObject([
       "http://127.0.0.1:43110/api/v1/sessions/sess_handoff/planning-handoff",
+      expect.objectContaining({ method: "GET" })
+    ]);
+  });
+
+  it("posts and reads execution authority records for generated workspace workers", async () => {
+    const seenRequests: [string, RequestInit | undefined][] = [];
+    const client = createSidecarClient({
+      connection,
+      fetchImpl: async (input, init) => {
+        seenRequests.push([input, init]);
+
+        const projection = {
+          ...PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE,
+          sessionId: "sess_authority",
+          version: 8,
+          refetchUrl: "/api/v1/sessions/sess_authority/execution-authority"
+        };
+
+        return jsonResponse({
+          ok: true,
+          data: String(init?.method ?? "GET") === "POST"
+            ? {
+                category: "accepted_with_projection",
+                commandId: "cmd_authority",
+                correlationId: "corr_authority",
+                stateVersionBefore: 7,
+                stateVersionAfter: 8,
+                eventIds: ["evt_authority"],
+                effectTaskIds: [],
+                immediateProjection: projection
+              }
+            : projection,
+          meta: {
+            requestId: "req_authority",
+            schemaVersion: "solo-superman.contracts.v1"
+          }
+        });
+      }
+    });
+
+    const commandResponse = await client.createExecutionAuthority({
+      sessionId: "sess_authority" as SessionId,
+      expectedStateVersion: 7 as StateVersion,
+      idempotencyKey: "auto-worker-authority:sess_authority:auto_run_demo:initial_pr:local-001",
+      sourcePlanningHandoffRef: "planning_handoff_ready_demo",
+      boundedAgentOutput: {
+        outputId: "bounded_output_auto_worker_initial_pr",
+        sourceRefs: ["auto-implementation-run:auto_run_demo"],
+        intendedDecisionImpact: "Approve a bounded local worker file-diff action.",
+        proposedActionPreviewRefs: ["auto-worker-authority-preview:auto_run_demo:initial_pr:local-001"],
+        requiredApprovals: ["local-operator-click:auto-worker-authority"],
+        evidenceRefs: ["auto-worker-authority:auto_run_demo:initial_pr"],
+        failureMode: "ready_for_preview",
+        noExecutionPolicy: "controlled_execution_required"
+      },
+      actionClass: "file_diff",
+      previewArtifactRef: "auto-worker-authority-preview:auto_run_demo:initial_pr:local-001",
+      previewArtifactHash: "auto_worker_authority_preview_auto_run_demo_initial_pr_local_001",
+      reviewedPreviewArtifactHash: "auto_worker_authority_preview_auto_run_demo_initial_pr_local_001",
+      requestedScope: {
+        workspaceRef: "/repo/workspace/demo-project",
+        filePathGlobs: ["**/*"]
+      },
+      approvalDecision: "approved",
+      approver: {
+        actorId: "local_operator",
+        actorType: "local_operator",
+        approvedAt: "2026-05-23T00:00:00.000Z",
+        decidedAt: "2026-05-23T00:00:00.000Z"
+      },
+      sandboxBoundary: {
+        mode: "workspace_patch",
+        networkPolicy: "blocked",
+        secretPolicy: "no_secret_values"
+      },
+      rollbackReference: {
+        kind: "git_diff_reverse",
+        ref: "rollback:auto-worker-authority:auto_run_demo:initial_pr"
+      },
+      evidenceRefs: ["auto-worker-authority:auto_run_demo:initial_pr"],
+      auditRefs: ["audit:auto-worker-authority:auto_run_demo:initial_pr"],
+      preconditionChecks: {
+        planningSourceExists: true,
+        previewArtifactExists: true,
+        previewHashMatches: true,
+        rollbackAvailable: true,
+        credentialValueRequired: false,
+        sandboxEnforced: true
+      }
+    });
+    const projection = await client.getExecutionAuthority("sess_authority" as SessionId);
+
+    expect(commandResponse.immediateProjection?.kind).toBe("ExecutionAuthorityLedgerProjection");
+    expect(projection?.kind).toBe("ExecutionAuthorityLedgerProjection");
+    expect(seenRequests[0]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/sessions/sess_authority/execution-authority",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-token",
+          "Content-Type": "application/json"
+        })
+      })
+    ]);
+    expect(JSON.parse(String(seenRequests[0]?.[1]?.body))).toMatchObject({
+      sessionId: "sess_authority",
+      expectedStateVersion: 7,
+      actionClass: "file_diff",
+      approvalDecision: "approved",
+      requestedScope: {
+        workspaceRef: "/repo/workspace/demo-project",
+        filePathGlobs: ["**/*"]
+      },
+      sandboxBoundary: {
+        mode: "workspace_patch",
+        networkPolicy: "blocked",
+        secretPolicy: "no_secret_values"
+      }
+    });
+    expect(seenRequests[1]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/sessions/sess_authority/execution-authority",
       expect.objectContaining({ method: "GET" })
     ]);
   });

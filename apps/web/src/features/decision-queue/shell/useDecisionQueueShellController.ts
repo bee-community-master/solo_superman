@@ -6,12 +6,17 @@ import {
   type BusinessCriticIntensity,
   type CodexRuntimeLoginStartDto,
   type CodexRuntimeStatusDto,
+  type ExecutionAuthorityLedgerProjection,
   type Phase15bUpgradeHintProjection,
   type ProjectPurposeMode,
   type StatusEndpointDto
 } from "@solo-superman/contracts";
 import { autoImplementationRunViewModel } from "../AutoImplementationRunPanel";
 import { buildAutoImplementationPullRequestDryRunRequest } from "../auto-implementation-pr-mutation-request";
+import {
+  buildAutoImplementationWorkerAuthorityRequest,
+  buildAutoImplementationWorkerJobRequest
+} from "../auto-implementation-worker-authority-request";
 import { chatGptDelegationViewModel } from "../ChatGptDelegationPanel";
 import { implementationStepLedgerViewModel } from "../ImplementationStepLedgerPanel";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
@@ -32,6 +37,7 @@ import {
   discoverSidecarConnection,
   type SidecarClient
 } from "../../../shared/api/sidecar-client";
+import { requiredCommandProjection } from "../../../shared/api/command-response-helpers";
 import {
   DEFAULT_IDEA,
   DEFAULT_INTAKE,
@@ -40,6 +46,7 @@ import {
   displayError,
   emptyProjectionState,
   emptyResearchOperationsState,
+  latestCommandBackedProjectionVersion,
   type CommandLogEntry,
   type ConnectionState,
   type DecisionQueuePageId,
@@ -501,10 +508,33 @@ export function useDecisionQueueShellController() {
     setWorkflowError(null);
 
     try {
+      const hasReadyPlanningHandoff = projections.planningHandoff?.currentStatus === "planning_ready";
+      const sourcePlanningRef = hasReadyPlanningHandoff
+        ? projections.planningHandoff.finalArtifact.artifactId
+        : projections.planningHandoff?.blockerArtifact.artifactId ?? `auto-implementation-run:${run.runId}`;
+      const authorityResponse = await appendCommand(
+        "Approve local worker authority",
+        await client.createExecutionAuthority(
+          buildAutoImplementationWorkerAuthorityRequest({
+            sessionId,
+            expectedStateVersion: latestCommandBackedProjectionVersion(projections),
+            run,
+            sourcePlanningRef,
+            planningSourceExists: hasReadyPlanningHandoff,
+            approvedAt: new Date().toISOString()
+          })
+        )
+      );
+      const executionAuthority = requiredCommandProjection<ExecutionAuthorityLedgerProjection>(
+        authorityResponse,
+        "ExecutionAuthorityLedgerProjection"
+      );
       const autoImplementationRuns = await client.createAutoImplementationWorkerJob({
-        sessionId,
-        runId: run.runId,
-        idempotencyKey: `auto-implementation-worker:${sessionId}:${run.runId}:${run.currentStage}:${run.workerJobs.length + 1}`
+        ...buildAutoImplementationWorkerJobRequest({
+          sessionId,
+          run,
+          executionAuthorityRef: executionAuthority.latestRecord.recordId
+        })
       });
 
       setProjections((current) => ({
@@ -514,7 +544,7 @@ export function useDecisionQueueShellController() {
       setCommandLog((current) => [
         {
           id: `auto-implementation-worker:${autoImplementationRuns.latestRun?.runId ?? run.runId}:${Date.now()}`,
-          label: "Plan local Codex worker job",
+          label: "Plan authorized local Codex worker job",
           createdAt: new Date().toISOString(),
           message: autoImplementationRuns.summary
         },
@@ -525,7 +555,7 @@ export function useDecisionQueueShellController() {
     } finally {
       setIsBusy(false);
     }
-  }, [client, projections]);
+  }, [appendCommand, client, projections]);
   const runAutoImplementationWorkerJob = useCallback(async () => {
     const sessionId = projections.session?.sessionId;
     const run = projections.autoImplementationRuns?.latestRun;

@@ -19,7 +19,7 @@ import {
 } from "../phase15a-research-run-request";
 import {
   displayError,
-  latestProjectionVersion,
+  latestCommandBackedProjectionVersion,
   researchRunProjectionFromResponse,
   WEB_PUBLIC_SAFE_ALLOWLIST_ID,
   type AppendCommand,
@@ -189,7 +189,7 @@ export function useDecisionQueueResearchActions({
         "Plan public-safe research task",
         await client.planResearch({
           sessionId: projections.session.sessionId,
-          expectedStateVersion: latestProjectionVersion(projections),
+          expectedStateVersion: latestCommandBackedProjectionVersion(projections),
           objective: "Validate public onboarding evidence and quality-gate readiness for the research loop.",
           sourceQueueItemId: "phase15a_operations_acceptance" as QueueItemId,
           routeOutcome: "research_needed",

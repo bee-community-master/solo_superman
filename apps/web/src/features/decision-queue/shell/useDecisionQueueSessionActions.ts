@@ -32,7 +32,7 @@ import {
   WEB_PUBLIC_SAFE_ALLOWLIST_ID,
   type InitialResearchPermission,
   initialQueueStartBlocker,
-  latestProjectionVersion,
+  latestCommandBackedProjectionVersion,
   PROJECT_PURPOSE_MODE_OPTIONS,
   type AppendCommand,
   type CommandLogEntry,
@@ -303,7 +303,7 @@ export function useDecisionQueueSessionActions({
           "Change project purpose mode",
           await client.changeProjectPurposeMode({
             sessionId: projections.session.sessionId,
-            expectedStateVersion: latestProjectionVersion(projections),
+            expectedStateVersion: latestCommandBackedProjectionVersion(projections),
             projectPurposeMode: nextMode,
             suggestedProjectPurposeMode: nextMode,
             reason
@@ -352,7 +352,7 @@ export function useDecisionQueueSessionActions({
           "Change business critic intensity",
           await client.changeBusinessCriticIntensity({
             sessionId: projections.session.sessionId,
-            expectedStateVersion: latestProjectionVersion(projections),
+            expectedStateVersion: latestCommandBackedProjectionVersion(projections),
             businessCriticIntensity: nextIntensity,
             businessCriticIntensityConfirmation: "user_confirmed",
             reason
@@ -399,7 +399,7 @@ export function useDecisionQueueSessionActions({
           await client.submitAnswer({
             sessionId: projections.session.sessionId,
             queueItemId,
-            expectedStateVersion: latestProjectionVersion(projections),
+            expectedStateVersion: latestCommandBackedProjectionVersion(projections),
             answer
           })
         );
@@ -461,7 +461,7 @@ export function useDecisionQueueSessionActions({
         "Load next questions",
         await client.activateQuestionBatch(
           projections.session.sessionId,
-          latestProjectionVersion(projections),
+          latestCommandBackedProjectionVersion(projections),
           nextQuestionBatchIdsForActivation(projections.queue)
         )
       );
@@ -503,7 +503,7 @@ export function useDecisionQueueSessionActions({
           await client.deferQueueItem({
             sessionId: projections.session.sessionId,
             queueItemId,
-            expectedStateVersion: latestProjectionVersion(projections),
+            expectedStateVersion: latestCommandBackedProjectionVersion(projections),
             reason: "사용자가 business critic item을 Known Risk로 이관했습니다.",
             riskDisposition: "known_risk_next_validation_action",
             nextValidationAction
@@ -553,7 +553,7 @@ export function useDecisionQueueSessionActions({
           await client.importResearchResult({
             sessionId: projections.session.sessionId,
             researchTaskId,
-            expectedStateVersion: latestProjectionVersion(projections),
+            expectedStateVersion: latestCommandBackedProjectionVersion(projections),
             result,
             sourceTitle: "Manual desk research",
             limitationNotes: "Manual import from founder-provided source."
@@ -604,7 +604,7 @@ export function useDecisionQueueSessionActions({
           await client.resolveResearchQueueCard({
             sessionId: projections.session.sessionId,
             cardId,
-            expectedStateVersion: latestProjectionVersion(projections),
+            expectedStateVersion: latestCommandBackedProjectionVersion(projections),
             outcome,
             ...(rationale ? { rationale } : {})
           })
