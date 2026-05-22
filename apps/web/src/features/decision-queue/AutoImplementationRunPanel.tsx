@@ -6,8 +6,10 @@ import type {
   AutoImplementationStageReviewGate,
   AutoImplementationStageRecord,
   AutoImplementationWorkerExecutionPlan,
-  AutoImplementationWorkerJob
+  AutoImplementationWorkerJob,
+  ImplementationStepLedgerProjection
 } from "@solo-superman/contracts";
+import { canCompleteAutoImplementationWorkerFromLedger } from "./auto-implementation-worker-completion-request";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
 interface AutoImplementationWorkerPlanView {
@@ -55,6 +57,7 @@ export interface AutoImplementationRunViewModel {
   readonly canStartStage: boolean;
   readonly canPauseStage: boolean;
   readonly canBlockStage: boolean;
+  readonly canCompleteWorkerJob: boolean;
   readonly canRecordGitHubIssueDryRun: boolean;
   readonly canApplyGitHubIssueCreation: boolean;
   readonly canRecordPullRequestDryRun: boolean;
@@ -71,7 +74,8 @@ function latestRun(projection: AutoImplementationRunProjection | null) {
 }
 
 export function autoImplementationRunViewModel(
-  projection: AutoImplementationRunProjection | null
+  projection: AutoImplementationRunProjection | null,
+  implementationStepLedger: ImplementationStepLedgerProjection | null = null
 ): AutoImplementationRunViewModel {
   const run = latestRun(projection);
 
@@ -107,6 +111,7 @@ export function autoImplementationRunViewModel(
       canStartStage: false,
       canPauseStage: false,
       canBlockStage: false,
+      canCompleteWorkerJob: false,
       canRecordGitHubIssueDryRun: false,
       canApplyGitHubIssueCreation: false,
       canRecordPullRequestDryRun: false,
@@ -206,6 +211,10 @@ export function autoImplementationRunViewModel(
       currentStageRecord !== null &&
       currentStageRecord?.status !== "blocked" &&
       currentStageRecord?.status !== "completed",
+    canCompleteWorkerJob: canCompleteAutoImplementationWorkerFromLedger({
+      run,
+      ledger: implementationStepLedger
+    }),
     canRecordGitHubIssueDryRun: run.status !== "completed" &&
       run.issueManagement.githubIssueUrls.length === 0 &&
       (githubIssueMutation.status === "not_requested" || githubIssueMutation.status === "blocked"),
@@ -237,6 +246,7 @@ interface AutoImplementationRunPanelProps {
   readonly onStartStage: () => void;
   readonly onPauseStage: () => void;
   readonly onBlockStage: () => void;
+  readonly onCompleteWorkerJob: () => void;
   readonly onRecordGitHubIssueDryRun: () => void;
   readonly onApplyGitHubIssueCreation: () => void;
   readonly onRecordPullRequestOpenDryRun: () => void;
@@ -259,6 +269,7 @@ export function AutoImplementationRunPanel({
   onStartStage,
   onPauseStage,
   onBlockStage,
+  onCompleteWorkerJob,
   onRecordGitHubIssueDryRun,
   onApplyGitHubIssueCreation,
   onRecordPullRequestOpenDryRun,
@@ -304,6 +315,9 @@ export function AutoImplementationRunPanel({
         </button>
         <button type="button" disabled={isBusy || !run.canBlockStage} onClick={onBlockStage}>
           {copy.autoImplementation.blockStage}
+        </button>
+        <button type="button" disabled={isBusy || !run.canCompleteWorkerJob} onClick={onCompleteWorkerJob}>
+          {copy.autoImplementation.completeWorkerJob}
         </button>
         <button
           type="button"

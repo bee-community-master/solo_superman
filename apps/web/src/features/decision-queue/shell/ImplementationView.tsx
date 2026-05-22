@@ -14,6 +14,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     autoImplementationRunView,
     advanceAutoImplementationWorkerStage,
     blockAutoImplementationStage,
+    completeAutoImplementationWorkerJobFromLedger,
     createAutoImplementationRun,
     implementationStepLedgerView,
     isBusy,
@@ -62,6 +63,9 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         }}
         onBlockStage={() => {
           void blockAutoImplementationStage();
+        }}
+        onCompleteWorkerJob={() => {
+          void completeAutoImplementationWorkerJobFromLedger();
         }}
         onRecordGitHubIssueDryRun={() => {
           void recordAutoImplementationGitHubIssueDryRun();
