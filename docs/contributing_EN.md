@@ -24,7 +24,7 @@ The local app opens a browser screen through the local web frontend and local No
 | Unit tests | `pnpm test` |
 | E2E smoke | `pnpm smoke:e2e` |
 | Docs contract | `pnpm verify:docs` |
-| Full gate | `pnpm verify` |
+| Full gate (typecheck, lint, tests, docs contract, production bundle smoke) | `pnpm verify` |
 
 ## Repository map
 
@@ -44,7 +44,7 @@ The local app opens a browser screen through the local web frontend and local No
 2. Read the relevant onboarding docs before editing code.
 3. Make the smallest focused, reviewable change that solves the issue without widening unrelated behavior.
 4. Update `docs/reference_KO.md` and `docs/reference_EN.md` if enum, DTO, route, or public contract values changed.
-5. Run targeted tests first, then `pnpm verify` when the change is broader.
+5. Run targeted tests first, then `pnpm verify` before final PR closeout; it includes the production bundle/local smoke gate.
 6. Open a draft PR with evidence: what changed, what was tested, and known gaps.
 
 ## PR checklist
