@@ -327,6 +327,30 @@ export function useDecisionQueueShellController() {
   });
 
   const {
+    createOrReactivateAllowlist,
+    pauseAllowlist,
+    revokeAllowlist,
+    planPhase15aResearchTask,
+    startReadOnlyResearchRun,
+    startReadyReadOnlyResearchRunsAfterAnswer,
+    startReadyReadOnlyResearchRuns,
+    refreshResearchRunStatus,
+    cancelResearchRun,
+    retryResearchRun
+  } = useDecisionQueueResearchActions({
+    appendCommand,
+    client,
+    projections,
+    refreshProjections,
+    refreshResearchOperations,
+    researchOperations,
+    setIsBusy,
+    setProjections,
+    setResearchOperations,
+    setWorkflowError
+  });
+
+  const {
     runInitialQueueFlow,
     changeProjectPurposeMode,
     changeBusinessCriticIntensity,
@@ -372,30 +396,8 @@ export function useDecisionQueueShellController() {
     setResearchOperations,
     setStatuses,
     setWorkflowError,
+    startReadyReadOnlyResearchRunsAfterAnswer,
     onInitialQueueCreated: () => setActivePage("questions")
-  });
-
-  const {
-    createOrReactivateAllowlist,
-    pauseAllowlist,
-    revokeAllowlist,
-    planPhase15aResearchTask,
-    startReadOnlyResearchRun,
-    startReadyReadOnlyResearchRuns,
-    refreshResearchRunStatus,
-    cancelResearchRun,
-    retryResearchRun
-  } = useDecisionQueueResearchActions({
-    appendCommand,
-    client,
-    projections,
-    refreshProjections,
-    refreshResearchOperations,
-    researchOperations,
-    setIsBusy,
-    setProjections,
-    setResearchOperations,
-    setWorkflowError
   });
 
   const {

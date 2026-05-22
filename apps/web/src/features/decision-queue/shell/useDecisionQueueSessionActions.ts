@@ -80,6 +80,7 @@ interface DecisionQueueSessionActionsProps {
   readonly setResearchOperations: Dispatch<SetStateAction<ResearchOperationsState>>;
   readonly setStatuses: Dispatch<SetStateAction<readonly StatusEndpointDto[]>>;
   readonly setWorkflowError: Dispatch<SetStateAction<string | null>>;
+  readonly startReadyReadOnlyResearchRunsAfterAnswer?: () => Promise<void>;
   readonly onInitialQueueCreated?: () => void;
 }
 
@@ -140,6 +141,7 @@ export function useDecisionQueueSessionActions({
   setResearchOperations,
   setStatuses,
   setWorkflowError,
+  startReadyReadOnlyResearchRunsAfterAnswer,
   onInitialQueueCreated
 }: DecisionQueueSessionActionsProps) {
   const enableInitialResearchSources = useCallback(
@@ -426,13 +428,22 @@ export function useDecisionQueueSessionActions({
         }));
         await refreshProjections(projections.session.projectId, projections.session.sessionId);
         await refetchQueueAfterSseNotification(projections.session.projectId, projections.session.sessionId, queue);
+        await startReadyReadOnlyResearchRunsAfterAnswer?.();
       } catch (error) {
         setWorkflowError(displayError(error));
       } finally {
         setIsBusy(false);
       }
     },
-    [answerDrafts, appendCommand, client, projections, refetchQueueAfterSseNotification, refreshProjections]
+    [
+      answerDrafts,
+      appendCommand,
+      client,
+      projections,
+      refetchQueueAfterSseNotification,
+      refreshProjections,
+      startReadyReadOnlyResearchRunsAfterAnswer
+    ]
   );
 
   const submitDraftedActiveAnswers = useCallback(async () => {
@@ -493,6 +504,8 @@ export function useDecisionQueueSessionActions({
       if (latestQueue) {
         await refetchQueueAfterSseNotification(projections.session.projectId, projections.session.sessionId, latestQueue);
       }
+
+      await startReadyReadOnlyResearchRunsAfterAnswer?.();
     } catch (error) {
       let refreshedAfterPartialFailure = false;
 
@@ -515,7 +528,15 @@ export function useDecisionQueueSessionActions({
     } finally {
       setIsBusy(false);
     }
-  }, [answerDrafts, appendCommand, client, projections, refetchQueueAfterSseNotification, refreshProjections]);
+  }, [
+    answerDrafts,
+    appendCommand,
+    client,
+    projections,
+    refetchQueueAfterSseNotification,
+    refreshProjections,
+    startReadyReadOnlyResearchRunsAfterAnswer
+  ]);
 
   const refreshQuestionList = useCallback(async () => {
     if (!projections.session) {
