@@ -7,6 +7,10 @@ import {
   AUTO_IMPLEMENTATION_GITHUB_ISSUE_ACTION_CLASS,
   AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_GRANULARITY,
   AUTO_IMPLEMENTATION_GITHUB_ISSUE_REQUEST_MODES,
+  AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS,
+  AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY,
+  AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_ACTIONS,
+  AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_REQUEST_MODES,
   AUTO_IMPLEMENTATION_STAGE_ACTIONS,
   AUTO_IMPLEMENTATION_STAGES,
   BLOCKED_ACTION_TYPES,
@@ -51,6 +55,7 @@ import {
   type CreateAutoImplementationWorkerJobRequest,
   type ImportAutoImplementationWorkerLedgerRequest,
   type RunAutoImplementationWorkerJobRequest,
+  type RecordAutoImplementationPullRequestMutationRequest,
   type CreateExecutionAuthorityPayload,
   type CreateExecutionAuthorityRequest,
   type CreateChatGptBrowserDelegationRunPayload,
@@ -68,6 +73,7 @@ import {
   type ExecuteFileDiffRequest,
   type ExecuteShellCommandRequest,
   type AutoImplementationGitHubIssueApproval,
+  type AutoImplementationPullRequestMutationApproval,
   type AutoImplementationStage,
   type AutoImplementationStageAction,
   type AutoImplementationStageBlocker,
@@ -117,6 +123,7 @@ import {
 } from "./product-engine/command-service";
 import type {
   AutoImplementationGitHubIssueMutationAdapter,
+  AutoImplementationPullRequestMutationAdapter,
   AutoImplementationRemoteStatusProvider
 } from "./product-engine/auto-implementation-workspace";
 import { unmountedProductApiRoutePlaceholders } from "./routes/catalog";
@@ -130,6 +137,7 @@ export interface CreateSidecarAppOptions {
   readonly autoImplementationWorkspaceRoot?: string;
   readonly autoImplementationRemoteStatusProvider?: AutoImplementationRemoteStatusProvider;
   readonly autoImplementationGitHubIssueMutationAdapter?: AutoImplementationGitHubIssueMutationAdapter;
+  readonly autoImplementationPullRequestMutationAdapter?: AutoImplementationPullRequestMutationAdapter;
 }
 
 const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "localhost"]);
@@ -2203,6 +2211,184 @@ function optionalGithubIssueCreationFromBody(
   };
 }
 
+const AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_REQUEST_BODY_KEYS = [
+  "sessionId",
+  "runId",
+  "action",
+  "requestMode",
+  "idempotencyKey",
+  "pullRequestUrl",
+  "pullRequestTitle",
+  "issueLinks",
+  "implementationScope",
+  "reviewStreakRefs",
+  "verificationCommands",
+  "knownGaps",
+  "rollbackNotes",
+  "mergeEvidenceRefs",
+  "bodyEvidenceRefs",
+  "approval",
+  "verifierEvidenceRefs"
+] as const satisfies readonly (keyof RecordAutoImplementationPullRequestMutationRequest)[];
+
+const AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_APPROVAL_KEYS = [
+  "approvalId",
+  "approvedBy",
+  "approvedAt",
+  "actionClass",
+  "approvalGranularity",
+  "remoteStatusAtApproval",
+  "rollbackPlan",
+  "evidenceRefs"
+] as const satisfies readonly (keyof AutoImplementationPullRequestMutationApproval)[];
+
+function optionalPullRequestMutationApprovalFromBody(
+  value: unknown,
+  fieldName: string
+): AutoImplementationPullRequestMutationApproval | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const approval = requiredJsonObjectFromBody(value, fieldName);
+
+  assertAllowedRecordKeys(
+    approval,
+    AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_APPROVAL_KEYS,
+    fieldName
+  );
+
+  const approvedAt = isoTimestampFromBody(approval.approvedAt, `${fieldName}.approvedAt`);
+  const actionClass = stringFromBody(approval.actionClass, `${fieldName}.actionClass`);
+  const approvalGranularity = stringFromBody(approval.approvalGranularity, `${fieldName}.approvalGranularity`);
+  const remoteStatusAtApproval = stringFromBody(
+    approval.remoteStatusAtApproval,
+    `${fieldName}.remoteStatusAtApproval`
+  );
+  const evidenceRefs = optionalStringArrayFromBody(approval.evidenceRefs, `${fieldName}.evidenceRefs`);
+
+  if (actionClass !== AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      `${fieldName}.actionClass must be ${AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS}.`
+    );
+  }
+
+  if (approvalGranularity !== AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      `${fieldName}.approvalGranularity must be ${AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY}.`
+    );
+  }
+
+  if (remoteStatusAtApproval !== "connected") {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      `${fieldName}.remoteStatusAtApproval must be connected.`
+    );
+  }
+
+  if (!evidenceRefs?.length) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      `${fieldName}.evidenceRefs must include at least one approval evidence reference.`
+    );
+  }
+
+  return {
+    approvalId: stringFromBody(approval.approvalId, `${fieldName}.approvalId`),
+    approvedBy: stringFromBody(approval.approvedBy, `${fieldName}.approvedBy`),
+    approvedAt,
+    actionClass: AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS,
+    approvalGranularity: AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY,
+    remoteStatusAtApproval: "connected",
+    rollbackPlan: stringFromBody(approval.rollbackPlan, `${fieldName}.rollbackPlan`),
+    evidenceRefs
+  };
+}
+
+function recordAutoImplementationPullRequestMutationRequestFromBody(
+  routeSessionId: SessionId,
+  routeRunId: string,
+  body: Readonly<Record<string, unknown>>
+): RecordAutoImplementationPullRequestMutationRequest {
+  assertAllowedRecordKeys(
+    body,
+    AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_REQUEST_BODY_KEYS,
+    "auto implementation pull request mutation request body"
+  );
+  const bodySessionId = optionalStringFromBody(body.sessionId, "sessionId") as SessionId | undefined;
+  const bodyRunId = optionalStringFromBody(body.runId, "runId");
+
+  if (bodySessionId && bodySessionId !== routeSessionId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId must match route sessionId.", {
+      routeSessionId,
+      bodySessionId
+    });
+  }
+
+  if (bodyRunId && bodyRunId !== routeRunId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "runId must match route runId.", {
+      routeRunId,
+      bodyRunId
+    });
+  }
+
+  const action = stringFromBody(body.action, "action");
+  const requestMode = stringFromBody(body.requestMode, "requestMode");
+
+  if (!AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_ACTIONS.includes(
+    action as RecordAutoImplementationPullRequestMutationRequest["action"]
+  )) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "action must be open_pr, update_pr_body, or merge_pr."
+    );
+  }
+
+  if (!AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_REQUEST_MODES.includes(
+    requestMode as RecordAutoImplementationPullRequestMutationRequest["requestMode"]
+  )) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "requestMode must be dry_run or approved."
+    );
+  }
+
+  const approval = optionalPullRequestMutationApprovalFromBody(
+    body.approval,
+    "approval"
+  );
+  const knownGaps = optionalStringArrayFromBody(body.knownGaps, "knownGaps");
+  const mergeEvidenceRefs = optionalStringArrayFromBody(body.mergeEvidenceRefs, "mergeEvidenceRefs");
+  const bodyEvidenceRefs = optionalStringArrayFromBody(body.bodyEvidenceRefs, "bodyEvidenceRefs");
+  const verifierEvidenceRefs = optionalStringArrayFromBody(body.verifierEvidenceRefs, "verifierEvidenceRefs");
+
+  return {
+    sessionId: routeSessionId,
+    runId: routeRunId,
+    action: action as RecordAutoImplementationPullRequestMutationRequest["action"],
+    requestMode: requestMode as RecordAutoImplementationPullRequestMutationRequest["requestMode"],
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    ...(body.pullRequestUrl !== undefined
+      ? { pullRequestUrl: stringFromBody(body.pullRequestUrl, "pullRequestUrl") }
+      : {}),
+    ...(body.pullRequestTitle !== undefined
+      ? { pullRequestTitle: stringFromBody(body.pullRequestTitle, "pullRequestTitle") }
+      : {}),
+    issueLinks: requiredStringArrayFromBody(body.issueLinks, "issueLinks"),
+    implementationScope: stringFromBody(body.implementationScope, "implementationScope"),
+    reviewStreakRefs: stringArrayFromBody(body.reviewStreakRefs, "reviewStreakRefs"),
+    verificationCommands: requiredStringArrayFromBody(body.verificationCommands, "verificationCommands"),
+    ...(knownGaps ? { knownGaps } : {}),
+    rollbackNotes: stringFromBody(body.rollbackNotes, "rollbackNotes"),
+    ...(mergeEvidenceRefs ? { mergeEvidenceRefs } : {}),
+    ...(bodyEvidenceRefs ? { bodyEvidenceRefs } : {}),
+    ...(approval ? { approval } : {}),
+    ...(verifierEvidenceRefs ? { verifierEvidenceRefs } : {})
+  };
+}
+
 function createAutoImplementationRunRequestFromBody(
   routeSessionId: SessionId,
   body: Readonly<Record<string, unknown>>
@@ -2801,6 +2987,9 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       : {}),
     ...(options.autoImplementationGitHubIssueMutationAdapter
       ? { autoImplementationGitHubIssueMutationAdapter: options.autoImplementationGitHubIssueMutationAdapter }
+      : {}),
+    ...(options.autoImplementationPullRequestMutationAdapter
+      ? { autoImplementationPullRequestMutationAdapter: options.autoImplementationPullRequestMutationAdapter }
       : {})
   };
   const commandService = storage
@@ -3897,6 +4086,20 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
     withProductEngine(context, (service) =>
       service.getAutoImplementationRuns(context.req.param("sessionId") as SessionId)
     )
+  );
+
+  app.post("/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/pr-mutations", async (context) =>
+    withProductEngine(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const routeRunId = context.req.param("runId");
+      const request = recordAutoImplementationPullRequestMutationRequestFromBody(
+        routeSessionId,
+        routeRunId,
+        await jsonBody(context)
+      );
+
+      return service.recordAutoImplementationPullRequestMutation(request);
+    })
   );
 
   app.post("/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs", async (context) =>

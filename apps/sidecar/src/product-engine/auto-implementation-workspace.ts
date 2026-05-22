@@ -21,6 +21,7 @@ import {
   type AutoImplementationGitHubIssuePlan,
   type AutoImplementationRemoteGuide,
   type AutoImplementationRemoteStatus,
+  type AutoImplementationPullRequestMutationAction,
   type AutoImplementationRun,
   type AutoImplementationStage,
   type CreateAutoImplementationRunRequest,
@@ -59,6 +60,26 @@ export interface AutoImplementationGitHubIssueMutationAdapter {
   readonly createIssues: (
     input: AutoImplementationGitHubIssueMutationInput
   ) => Promise<AutoImplementationGitHubIssueMutationResult>;
+}
+
+export interface AutoImplementationPullRequestMutationInput {
+  readonly projectDir: string;
+  readonly action: AutoImplementationPullRequestMutationAction;
+  readonly pullRequestTitle: string;
+  readonly pullRequestUrl: string | null;
+  readonly bodyMarkdown: string;
+}
+
+export interface AutoImplementationPullRequestMutationResult {
+  readonly pullRequestUrl: string;
+  readonly auditEvidenceRefs: readonly string[];
+  readonly mergeEvidenceRefs: readonly string[];
+}
+
+export interface AutoImplementationPullRequestMutationAdapter {
+  readonly mutate: (
+    input: AutoImplementationPullRequestMutationInput
+  ) => Promise<AutoImplementationPullRequestMutationResult>;
 }
 
 function shortHash(value: string) {
@@ -385,6 +406,68 @@ export const ghAutoImplementationGitHubIssueMutationAdapter: AutoImplementationG
         `github-issue-mutation:approval:${input.approval.approvalId}`,
         ...input.verifierEvidenceRefs
       ]
+    };
+  }
+};
+
+export const ghAutoImplementationPullRequestMutationAdapter: AutoImplementationPullRequestMutationAdapter = {
+  async mutate(input) {
+    if (input.action === "open_pr") {
+      const { stdout } = await execFileAsync(
+        "gh",
+        ["pr", "create", "--title", input.pullRequestTitle, "--body", input.bodyMarkdown],
+        {
+          cwd: input.projectDir,
+          encoding: "utf8",
+          maxBuffer: 1024 * 1024,
+          timeout: COMMAND_TIMEOUT_MS
+        }
+      );
+      const pullRequestUrl = stdout.trim().split(/\s+/u).find((part) =>
+        /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/pull\/[1-9]\d*\/?$/iu.test(part)
+      );
+
+      if (!pullRequestUrl) {
+        throw new Error("gh pr create did not return a GitHub pull request URL.");
+      }
+
+      return {
+        pullRequestUrl,
+        auditEvidenceRefs: ["github-pr-mutation:gh:pr-create"],
+        mergeEvidenceRefs: []
+      };
+    }
+
+    if (!input.pullRequestUrl) {
+      throw new Error("pullRequestUrl is required for this GitHub pull request mutation.");
+    }
+
+    if (input.action === "update_pr_body") {
+      await execFileAsync("gh", ["pr", "edit", input.pullRequestUrl, "--body", input.bodyMarkdown], {
+        cwd: input.projectDir,
+        encoding: "utf8",
+        maxBuffer: 1024 * 1024,
+        timeout: COMMAND_TIMEOUT_MS
+      });
+
+      return {
+        pullRequestUrl: input.pullRequestUrl,
+        auditEvidenceRefs: ["github-pr-mutation:gh:pr-edit"],
+        mergeEvidenceRefs: []
+      };
+    }
+
+    await execFileAsync("gh", ["pr", "merge", input.pullRequestUrl, "--merge"], {
+      cwd: input.projectDir,
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024,
+      timeout: COMMAND_TIMEOUT_MS
+    });
+
+    return {
+      pullRequestUrl: input.pullRequestUrl,
+      auditEvidenceRefs: ["github-pr-mutation:gh:pr-merge"],
+      mergeEvidenceRefs: ["github-pr-mutation:merge:completed"]
     };
   }
 };
@@ -807,6 +890,10 @@ export async function prepareAutoImplementationWorkspaceRun(
     },
     remoteGuide: guide,
     reviewProtocol: defaultAutoImplementationReviewProtocol(),
+    pullRequestMutations: {
+      records: [],
+      latestRecord: null
+    },
     workerJobs: [],
     createdAt: input.now,
     updatedAt: input.now,

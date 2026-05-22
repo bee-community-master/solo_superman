@@ -18,6 +18,8 @@ import {
   AUTO_IMPLEMENTATION_SCHEMA_VERSION,
   AUTO_IMPLEMENTATION_STAGES,
   AUTO_IMPLEMENTATION_TICK_INTERVAL_MS,
+  AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS,
+  AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY,
   validateAutoImplementationRunProjection,
   ImplementationStepLedgerValidationError,
   validateImplementationStepLedgerProjection,
@@ -29,6 +31,7 @@ import {
   type AutoImplementationRun,
   type AutoImplementationRunStatus,
   type AutoImplementationRunProjection,
+  type AutoImplementationPullRequestMutationRecord,
   type AutoImplementationWorkerJob,
   type AdvanceAutoImplementationWorkerStageRequest,
   type CompleteAutoImplementationWorkerJobRequest,
@@ -36,6 +39,7 @@ import {
   type CreateAutoImplementationWorkerJobRequest,
   type ImportAutoImplementationWorkerLedgerRequest,
   type RunAutoImplementationWorkerJobRequest,
+  type RecordAutoImplementationPullRequestMutationRequest,
   type RecordImplementationStepLedgerPayload,
   type AutomaticResearchSourceCategory,
   type BlockedActionType,
@@ -185,8 +189,10 @@ import {
 import {
   autoImplementationRunId,
   defaultAutoImplementationWorkspaceRoot,
+  ghAutoImplementationPullRequestMutationAdapter,
   prepareAutoImplementationWorkspaceRun,
   type AutoImplementationGitHubIssueMutationAdapter,
+  type AutoImplementationPullRequestMutationAdapter,
   type AutoImplementationRemoteStatusProvider
 } from "./auto-implementation-workspace";
 
@@ -730,6 +736,178 @@ function autoImplementationWorkerStageAdvanceRef(request: AdvanceAutoImplementat
   return `auto-worker-stage-advance:${request.jobId}:${request.idempotencyKey}`;
 }
 
+function autoImplementationPullRequestMutationId(request: RecordAutoImplementationPullRequestMutationRequest) {
+  return `auto-pr-mutation:${request.runId}:${request.action}:${request.idempotencyKey}`;
+}
+
+function autoImplementationPullRequestMutationRef(request: RecordAutoImplementationPullRequestMutationRequest) {
+  return `auto-pr-mutation:${request.action}:${request.idempotencyKey}`;
+}
+
+function isGitHubPullRequestUrl(value: string) {
+  return /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/pull\/[1-9]\d*\/?$/iu.test(value.trim());
+}
+
+function finalVerifyStageCompleted(run: AutoImplementationRun) {
+  return run.stagePlan.some((stage) =>
+    stage.stage === "final_verify_pr_update" &&
+    stage.status === "completed" &&
+    stage.ledgerEvidence !== null
+  );
+}
+
+function pullRequestMutationBlockedReason(input: {
+  readonly request: RecordAutoImplementationPullRequestMutationRequest;
+  readonly run: AutoImplementationRun;
+}) {
+  if (input.run.remoteStatus !== "connected") {
+    return `GitHub PR mutation requires remote status connected; current status is ${input.run.remoteStatus}.`;
+  }
+
+  if (input.request.requestMode === "approved" && !input.request.approval) {
+    return "GitHub PR mutation requires explicit per-action approval evidence before mutation.";
+  }
+
+  if (input.request.requestMode === "approved" && !(input.request.verifierEvidenceRefs ?? []).length) {
+    return "GitHub PR mutation requires verifier evidence before mutation.";
+  }
+
+  if (
+    input.request.approval &&
+    (
+      input.request.approval.actionClass !== AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS ||
+      input.request.approval.approvalGranularity !== AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY ||
+      input.request.approval.remoteStatusAtApproval !== "connected" ||
+      !input.request.approval.evidenceRefs.length
+    )
+  ) {
+    return "GitHub PR mutation approval must be per-action approval for connected GitHub PR mutation.";
+  }
+
+  if (input.request.action !== "open_pr" && !input.request.pullRequestUrl) {
+    return "GitHub PR body update and merge mutations require an existing pullRequestUrl.";
+  }
+
+  if (input.request.pullRequestUrl && !isGitHubPullRequestUrl(input.request.pullRequestUrl)) {
+    return "GitHub PR mutation requires a canonical GitHub pull request URL.";
+  }
+
+  if (input.request.action === "update_pr_body" && !(input.request.bodyEvidenceRefs ?? []).length) {
+    return "GitHub PR body update requires body evidence refs proving the PR description is current.";
+  }
+
+  if (input.request.action === "merge_pr" && !finalVerifyStageCompleted(input.run)) {
+    return "GitHub PR merge is blocked until final_verify_pr_update has completed validated final verification evidence.";
+  }
+
+  if (input.request.action === "merge_pr" && !(input.request.bodyEvidenceRefs ?? []).length) {
+    return "GitHub PR merge is blocked until the PR body contains current evidence.";
+  }
+
+  if (input.request.action === "merge_pr" && !(input.request.mergeEvidenceRefs ?? []).length) {
+    return "GitHub PR merge requires merge readiness evidence refs.";
+  }
+
+  return null;
+}
+
+function pullRequestBodyMarkdown(input: {
+  readonly request: RecordAutoImplementationPullRequestMutationRequest;
+  readonly run: AutoImplementationRun;
+}) {
+  return [
+    `## ${input.request.pullRequestTitle ?? "Auto implementation PR"}`,
+    "",
+    "### Issue links",
+    ...input.request.issueLinks.map((link) => `- ${link}`),
+    "",
+    "### Implementation scope",
+    input.request.implementationScope,
+    "",
+    "### Review streak evidence",
+    ...(input.request.reviewStreakRefs.length
+      ? input.request.reviewStreakRefs.map((ref) => `- ${ref}`)
+      : ["- none recorded"]),
+    "",
+    "### Verification commands",
+    ...input.request.verificationCommands.map((command) => `- \`${command}\``),
+    "",
+    "### Known gaps",
+    ...((input.request.knownGaps ?? []).length
+      ? (input.request.knownGaps ?? []).map((gap) => `- ${gap}`)
+      : ["- none"]),
+    "",
+    "### Rollback notes",
+    input.request.rollbackNotes,
+    "",
+    "### Merge evidence",
+    ...((input.request.mergeEvidenceRefs ?? []).length
+      ? (input.request.mergeEvidenceRefs ?? []).map((ref) => `- ${ref}`)
+      : ["- not ready"]),
+    "",
+    "### Body evidence",
+    ...((input.request.bodyEvidenceRefs ?? []).length
+      ? (input.request.bodyEvidenceRefs ?? []).map((ref) => `- ${ref}`)
+      : ["- not recorded"]),
+    "",
+    `Auto implementation run: ${input.run.runId}`,
+    `Current stage: ${input.run.currentStage}`,
+    ""
+  ].join("\n");
+}
+
+function buildPullRequestMutationRecord(input: {
+  readonly request: RecordAutoImplementationPullRequestMutationRequest;
+  readonly run: AutoImplementationRun;
+  readonly now: string;
+  readonly status: AutoImplementationPullRequestMutationRecord["status"];
+  readonly pullRequestUrl: string | null;
+  readonly blockedReason: string | null;
+  readonly adapterAuditEvidenceRefs?: readonly string[];
+  readonly adapterMergeEvidenceRefs?: readonly string[];
+}): AutoImplementationPullRequestMutationRecord {
+  const requestRef = autoImplementationPullRequestMutationRef(input.request);
+  const approvalEvidenceRefs = input.request.approval?.evidenceRefs ?? [];
+
+  return {
+    mutationId: autoImplementationPullRequestMutationId(input.request),
+    action: input.request.action,
+    requestMode: input.request.requestMode,
+    status: input.status,
+    requiredRemoteStatus: "connected",
+    mutatesGitHub: input.status === "applied",
+    pullRequestUrl: input.pullRequestUrl,
+    issueLinks: input.request.issueLinks,
+    implementationScope: input.request.implementationScope,
+    reviewStreakRefs: input.request.reviewStreakRefs,
+    verificationCommands: input.request.verificationCommands,
+    knownGaps: input.request.knownGaps ?? [],
+    rollbackNotes: input.request.rollbackNotes,
+    mergeEvidenceRefs: uniqueAutoImplementationRefs([
+      ...(input.request.mergeEvidenceRefs ?? []),
+      ...(input.adapterMergeEvidenceRefs ?? [])
+    ]),
+    bodyEvidenceRefs: input.request.bodyEvidenceRefs ?? [],
+    approval: input.status === "blocked" || input.request.requestMode === "dry_run"
+      ? null
+      : input.request.approval ?? null,
+    blockedReason: input.blockedReason,
+    auditEvidenceRefs: uniqueAutoImplementationRefs([
+      requestRef,
+      input.status === "applied"
+        ? "github-pr-mutation:applied"
+        : input.status === "dry_run_ready"
+          ? "github-pr-mutation:dry_run_ready"
+          : "github-pr-mutation:blocked",
+      ...approvalEvidenceRefs,
+      ...(input.adapterAuditEvidenceRefs ?? [])
+    ]),
+    verifierEvidenceRefs: input.status === "blocked" ? [] : input.request.verifierEvidenceRefs ?? [],
+    createdAt: input.now,
+    updatedAt: input.now
+  };
+}
+
 function completedImplementationStepIdFromWorkerJob(job: AutoImplementationWorkerJob) {
   const stepEvidencePrefix = "implementation-step-ledger:";
   const stepIds = job.evidenceRefs
@@ -778,19 +956,31 @@ function isAutoImplementationWorkerExecutionCandidate(job: AutoImplementationWor
     );
 }
 
-function normalizeLegacyAutoImplementationRunWorkerJobs(run: AutoImplementationRun): AutoImplementationRun {
+function normalizeLegacyAutoImplementationRun(run: AutoImplementationRun): AutoImplementationRun {
   const workerJobs = (run as { readonly workerJobs?: unknown }).workerJobs;
+  const pullRequestMutations = (run as { readonly pullRequestMutations?: unknown }).pullRequestMutations;
 
-  return Array.isArray(workerJobs) ? run : { ...run, workerJobs: [] };
+  return {
+    ...run,
+    workerJobs: Array.isArray(workerJobs) ? run.workerJobs : [],
+    pullRequestMutations: pullRequestMutations &&
+      typeof pullRequestMutations === "object" &&
+      Array.isArray((pullRequestMutations as { readonly records?: unknown }).records)
+      ? run.pullRequestMutations
+      : {
+          records: [],
+          latestRecord: null
+        }
+  };
 }
 
-function normalizeLegacyAutoImplementationProjectionWorkerJobs(
+function normalizeLegacyAutoImplementationProjection(
   projection: AutoImplementationRunProjection
 ): AutoImplementationRunProjection {
-  const runs = projection.runs.map(normalizeLegacyAutoImplementationRunWorkerJobs);
+  const runs = projection.runs.map(normalizeLegacyAutoImplementationRun);
   const latestRun = projection.latestRun
     ? runs.find((run) => run.runId === projection.latestRun?.runId) ??
-      normalizeLegacyAutoImplementationRunWorkerJobs(projection.latestRun)
+      normalizeLegacyAutoImplementationRun(projection.latestRun)
     : null;
 
   return {
@@ -1983,6 +2173,7 @@ export interface ProductEngineCommandServiceOptions {
   readonly autoImplementationWorkspaceRoot?: string;
   readonly autoImplementationRemoteStatusProvider?: AutoImplementationRemoteStatusProvider;
   readonly autoImplementationGitHubIssueMutationAdapter?: AutoImplementationGitHubIssueMutationAdapter;
+  readonly autoImplementationPullRequestMutationAdapter?: AutoImplementationPullRequestMutationAdapter;
 }
 
 export function createProductEngineCommandService(
@@ -1994,6 +2185,8 @@ export function createProductEngineCommandService(
   const autoImplementationWorkspaceRoot = options.autoImplementationWorkspaceRoot ?? defaultAutoImplementationWorkspaceRoot();
   const autoImplementationRemoteStatusProvider = options.autoImplementationRemoteStatusProvider;
   const autoImplementationGitHubIssueMutationAdapter = options.autoImplementationGitHubIssueMutationAdapter;
+  const autoImplementationPullRequestMutationAdapter =
+    options.autoImplementationPullRequestMutationAdapter ?? ghAutoImplementationPullRequestMutationAdapter;
 
   function assertSupportedReductionPersistence(reduction: ProductEngineReduction) {
     const nextStateVersion = reduction.nextState.stateVersion;
@@ -4286,7 +4479,7 @@ export function createProductEngineCommandService(
       request.sessionId,
       "AutoImplementationRunProjection"
     );
-    const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(persistedProjection) : null;
+    const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjection(persistedProjection) : null;
 
     if (!existingProjection) {
       throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run projection was not found.", {
@@ -4467,7 +4660,7 @@ export function createProductEngineCommandService(
       request.sessionId,
       "AutoImplementationRunProjection"
     );
-    const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(persistedProjection) : null;
+    const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjection(persistedProjection) : null;
 
     if (!existingProjection) {
       throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run projection was not found.", {
@@ -4662,7 +4855,7 @@ export function createProductEngineCommandService(
         request.sessionId,
         "AutoImplementationRunProjection"
       );
-      const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(persistedProjection) : null;
+      const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjection(persistedProjection) : null;
 
       if (!existingProjection) {
         throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run projection was not found.", {
@@ -5913,7 +6106,7 @@ export function createProductEngineCommandService(
         request.sessionId,
         "AutoImplementationRunProjection"
       );
-      const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(persistedProjection) : null;
+      const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjection(persistedProjection) : null;
       const runId = autoImplementationRunId(request.sessionId, request.idempotencyKey);
 
       if (existingProjection?.runs.some((run) => run.runId === runId)) {
@@ -5983,7 +6176,7 @@ export function createProductEngineCommandService(
         request.sessionId,
         "AutoImplementationRunProjection"
       );
-      const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(persistedProjection) : null;
+      const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjection(persistedProjection) : null;
 
       if (!existingProjection) {
         throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run projection was not found.", {
@@ -6075,7 +6268,7 @@ export function createProductEngineCommandService(
         request.sessionId,
         "AutoImplementationRunProjection"
       );
-      const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(persistedProjection) : null;
+      const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjection(persistedProjection) : null;
 
       if (!existingProjection) {
         throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run projection was not found.", {
@@ -6230,7 +6423,7 @@ export function createProductEngineCommandService(
         request.sessionId,
         "AutoImplementationRunProjection"
       );
-      const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(persistedProjection) : null;
+      const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjection(persistedProjection) : null;
 
       if (!existingProjection) {
         throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run projection was not found.", {
@@ -6287,6 +6480,120 @@ export function createProductEngineCommandService(
       });
     },
 
+    async recordAutoImplementationPullRequestMutation(
+      request: RecordAutoImplementationPullRequestMutationRequest
+    ): Promise<AutoImplementationRunProjection> {
+      const session = await createProjectRepository(storage.db).getSession(request.sessionId);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: request.sessionId
+        });
+      }
+
+      const projectionRepository = createProjectionRepository(storage.db);
+      const persistedProjection = await projectionRepository.get<AutoImplementationRunProjection>(
+        request.sessionId,
+        "AutoImplementationRunProjection"
+      );
+      const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjection(persistedProjection) : null;
+
+      if (!existingProjection) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run projection was not found.", {
+          sessionId: request.sessionId
+        });
+      }
+
+      const run = existingProjection.runs.find((candidate) => candidate.runId === request.runId);
+
+      if (!run) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run was not found.", {
+          runId: request.runId
+        });
+      }
+
+      const existingRecord = run.pullRequestMutations.records.find(
+        (record) => record.mutationId === autoImplementationPullRequestMutationId(request)
+      );
+
+      if (existingRecord) {
+        return existingProjection;
+      }
+
+      const now = new Date().toISOString();
+      const blockedReason = pullRequestMutationBlockedReason({ request, run });
+      let record: AutoImplementationPullRequestMutationRecord;
+
+      if (blockedReason) {
+        record = buildPullRequestMutationRecord({
+          request,
+          run,
+          now,
+          status: "blocked",
+          pullRequestUrl: request.pullRequestUrl ?? null,
+          blockedReason
+        });
+      } else if (request.requestMode === "dry_run") {
+        record = buildPullRequestMutationRecord({
+          request,
+          run,
+          now,
+          status: "dry_run_ready",
+          pullRequestUrl: request.pullRequestUrl ?? null,
+          blockedReason: null
+        });
+      } else {
+        const mutationResult = await autoImplementationPullRequestMutationAdapter.mutate({
+          projectDir: run.generatedRepoPath,
+          action: request.action,
+          pullRequestTitle: request.pullRequestTitle ?? `Auto implementation ${run.projectFolderName}`,
+          pullRequestUrl: request.pullRequestUrl ?? null,
+          bodyMarkdown: pullRequestBodyMarkdown({ request, run })
+        });
+
+        record = buildPullRequestMutationRecord({
+          request,
+          run,
+          now,
+          status: "applied",
+          pullRequestUrl: mutationResult.pullRequestUrl,
+          blockedReason: null,
+          adapterAuditEvidenceRefs: mutationResult.auditEvidenceRefs,
+          adapterMergeEvidenceRefs: mutationResult.mergeEvidenceRefs
+        });
+      }
+
+      const pullRequestMutations = {
+        records: [...run.pullRequestMutations.records, record],
+        latestRecord: record
+      };
+      const updatedRun: AutoImplementationRun = {
+        ...run,
+        status: record.status === "blocked" ? "blocked" : run.status,
+        pullRequestMutations,
+        updatedAt: now,
+        evidenceRefs: uniqueAutoImplementationRefs([...run.evidenceRefs, ...record.auditEvidenceRefs])
+      };
+      const runs = existingProjection.runs.map((candidate) =>
+        candidate.runId === request.runId ? updatedRun : candidate
+      );
+      const projection = validateAutoImplementationRunProjection({
+        ...existingProjection,
+        version: (existingProjection.version + 1) as ProjectionVersion,
+        latestRun: updatedRun,
+        runs,
+        summary: `Auto implementation PR mutation ${record.status} for ${request.action}.`
+      });
+
+      return projectionRepository.save({
+        projectId: session.projectId,
+        sessionId: request.sessionId,
+        projection,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        updatedAt: now
+      });
+    },
+
     async recordAutoImplementationStage(
       request: RecordAutoImplementationStageRequest
     ): Promise<AutoImplementationRunProjection> {
@@ -6307,7 +6614,7 @@ export function createProductEngineCommandService(
         "AutoImplementationRunProjection"
       );
 
-      return projection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(projection) : null;
+      return projection ? normalizeLegacyAutoImplementationProjection(projection) : null;
     },
 
     async validateExecutionAuthorityPreflight(

@@ -352,6 +352,21 @@ describe("sidecar client planning-runtime", () => {
       tickedAt: "2026-05-20T00:00:00.000Z",
       evidenceRefs: ["stage:start"]
     });
+    const pullRequestMutation = await client.recordAutoImplementationPullRequestMutation({
+      sessionId: "sess_auto_impl" as SessionId,
+      runId: "auto_run_demo",
+      action: "update_pr_body",
+      requestMode: "dry_run",
+      idempotencyKey: "auto-impl-pr-mutation-client-test",
+      pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/123",
+      issueLinks: ["https://github.com/bee-community-master/generated-demo/issues/101"],
+      implementationScope: "Update the generated PR body with current review and verification evidence.",
+      reviewStreakRefs: ["code-review:changed:clean-1", "code-review:changed:clean-2"],
+      verificationCommands: ["pnpm verify"],
+      knownGaps: ["Live gh mutation remains dry-run in this client fixture."],
+      rollbackNotes: "Restore the previous PR body if the mutation is reverted.",
+      bodyEvidenceRefs: ["pr-body:current-evidence"]
+    });
     const projection = await client.getAutoImplementationRuns("sess_auto_impl" as SessionId);
 
     expect(created.kind).toBe("AutoImplementationRunProjection");
@@ -361,6 +376,7 @@ describe("sidecar client planning-runtime", () => {
     expect(ranWorkerJob.kind).toBe("AutoImplementationRunProjection");
     expect(advancedFromWorker.kind).toBe("AutoImplementationRunProjection");
     expect(advanced.kind).toBe("AutoImplementationRunProjection");
+    expect(pullRequestMutation.kind).toBe("AutoImplementationRunProjection");
     expect(projection?.kind).toBe("AutoImplementationRunProjection");
     expect(seenRequests[0]).toMatchObject([
       "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs",
@@ -452,6 +468,21 @@ describe("sidecar client planning-runtime", () => {
       idempotencyKey: "auto-impl-stage-client-test"
     });
     expect(seenRequests[7]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs/auto_run_demo/pr-mutations",
+      expect.objectContaining({ method: "POST" })
+    ]);
+    expect(JSON.parse(String(seenRequests[7]?.[1]?.body))).toMatchObject({
+      sessionId: "sess_auto_impl",
+      runId: "auto_run_demo",
+      action: "update_pr_body",
+      requestMode: "dry_run",
+      idempotencyKey: "auto-impl-pr-mutation-client-test",
+      pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/123",
+      issueLinks: ["https://github.com/bee-community-master/generated-demo/issues/101"],
+      verificationCommands: ["pnpm verify"],
+      bodyEvidenceRefs: ["pr-body:current-evidence"]
+    });
+    expect(seenRequests[8]).toMatchObject([
       "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs",
       expect.objectContaining({ method: "GET" })
     ]);
