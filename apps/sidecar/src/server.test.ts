@@ -10716,6 +10716,15 @@ describe("PR-02 sidecar health shell", () => {
         ]
       });
 
+      const prematureComplete = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "initial_pr", {
+        idempotencyKey: "auto-stage:complete:premature-cadence",
+        action: "complete",
+        implementationStepId: "step_demo",
+        tickedAt: "2026-05-20T00:12:00.000Z",
+        evidenceRefs: ["stage:initial_pr:complete-before-tick-due"]
+      });
+      const prematureCompleteBody = await jsonBody(prematureComplete);
+
       const completed = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "initial_pr", {
         idempotencyKey: "auto-stage:complete:initial-pr",
         action: "complete",
@@ -10810,6 +10819,16 @@ describe("PR-02 sidecar health shell", () => {
       expect(reusedLedgerStepBody.error).toMatchObject({
         code: "VALIDATION_FAILED",
         message: "Auto implementation stage completion requires an implementation step that has not completed another stage."
+      });
+      expect(prematureComplete.status).toBe(400);
+      expect(prematureCompleteBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Auto implementation stage completion cannot happen before the current 5-minute tick is due.",
+        details: {
+          stage: "initial_pr",
+          recordedAt: "2026-05-20T00:12:00.000Z",
+          nextScheduledAt: "2026-05-20T00:15:00.000Z"
+        }
       });
     } finally {
       await storage.close();

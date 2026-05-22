@@ -672,6 +672,34 @@ function completedLedgerStepForAutoImplementationStage(
   return step;
 }
 
+function assertAutoImplementationStageCompletionDoesNotPrecedeScheduledTick(
+  stage: AutoImplementationStageRecord,
+  recordedAt: string
+) {
+  if (stage.tickRecords.length === 0) {
+    return;
+  }
+
+  if (!stage.nextScheduledAt) {
+    return;
+  }
+
+  const recordedAtMs = Date.parse(recordedAt);
+  const nextScheduledAtMs = Date.parse(stage.nextScheduledAt);
+
+  if (!Number.isNaN(recordedAtMs) && !Number.isNaN(nextScheduledAtMs) && recordedAtMs < nextScheduledAtMs) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "Auto implementation stage completion cannot happen before the current 5-minute tick is due.",
+      {
+        stage: stage.stage,
+        recordedAt,
+        nextScheduledAt: stage.nextScheduledAt
+      }
+    );
+  }
+}
+
 function autoImplementationStageLedgerEvidence(
   ledger: ImplementationStepLedgerProjection,
   step: ImplementationStepRecord
@@ -4688,6 +4716,9 @@ export function createProductEngineCommandService(
     const ledgerStep = request.action === "complete"
       ? completedLedgerStepForAutoImplementationStage(ledger, request.implementationStepId)
       : null;
+    if (request.action === "complete") {
+      assertAutoImplementationStageCompletionDoesNotPrecedeScheduledTick(currentStage, recordedAt);
+    }
     const ledgerEvidence = ledger && ledgerStep ? autoImplementationStageLedgerEvidence(ledger, ledgerStep) : null;
     const nextStageStatus = autoImplementationStageStatusForAction(request.action, currentStage.status);
     const stageEvidenceRefs = uniqueAutoImplementationRefs([
