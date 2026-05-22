@@ -10001,6 +10001,32 @@ describe("PR-02 sidecar health shell", () => {
       );
       expect(tracker).toContain("- Status: applied");
       expect(tracker).toContain("Created GitHub issue URLs: https://github.com/bee-community-master/generated-demo/issues/101");
+
+      const duplicateResponse = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:github-issue-approved-duplicate",
+        projectName: "Approved GitHub Issues",
+        githubIssueCreation: {
+          mode: "approved",
+          approval: {
+            approvalId: "approval_github_issue_create_duplicate",
+            approvedBy: "local_operator",
+            approvedAt: "2026-05-05T00:01:00.000Z",
+            actionClass: "github_issue_create",
+            approvalGranularity: "per_action",
+            remoteStatusAtApproval: "connected",
+            rollbackPlan: "Close duplicate generated GitHub issues if a stale request creates them.",
+            evidenceRefs: ["approval:github-issue-create:duplicate"]
+          },
+          verifierEvidenceRefs: ["verifier:github-issue-create-duplicate-ready"]
+        }
+      });
+      const duplicateRun = latestAutoImplementationRunFromBody(await jsonBody(duplicateResponse));
+      const duplicateIssueManagement = duplicateRun.issueManagement as Readonly<Record<string, unknown>>;
+
+      expect(duplicateResponse.status).toBe(200);
+      expect(issueCreateInputs).toHaveLength(1);
+      expect(duplicateRun.runId).toBe(latestRun.runId);
+      expect(duplicateIssueManagement.githubIssueUrls).toEqual(issueManagement.githubIssueUrls);
     } finally {
       await storage.close();
     }

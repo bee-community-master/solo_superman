@@ -407,6 +407,34 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(appliedView.canApplyGitHubIssueCreation).toBe(false);
   });
 
+  it("keeps approved GitHub issue creation disabled after issue URLs are recorded", () => {
+    const issueDryRunReady = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.issueManagement.githubIssueMutation,
+      status: "dry_run_ready" as const,
+      blockedReason: null,
+      auditEvidenceRefs: ["github-issue-mutation:dry_run_ready"]
+    };
+    const appliedUrls = ["https://github.com/bee-community-master/demo/issues/1"];
+    const view = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        issueManagement: {
+          ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.issueManagement,
+          githubIssueUrls: appliedUrls,
+          githubIssueMutation: {
+            ...issueDryRunReady,
+            status: "applied" as const,
+            mutatesGitHub: true,
+            createdIssueUrls: appliedUrls
+          }
+        }
+      }
+    } as AutoImplementationRunProjection);
+
+    expect(view.canApplyGitHubIssueCreation).toBe(false);
+  });
+
   it("keeps stage tick recording disabled after the run is completed", () => {
     const view = autoImplementationRunViewModel({
       ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,

@@ -8,6 +8,7 @@ import {
   AutoImplementationRunValidationError,
   autoImplementationWorkerExpectedChangeScope,
   autoImplementationWorkerLedgerStepDescription,
+  canCreateAutoImplementationGitHubIssues,
   canMergeAutoImplementationPullRequest,
   canOpenNewAutoImplementationPullRequest,
   hasAppliedAutoImplementationPullRequestMerge,
@@ -702,6 +703,28 @@ describe("AutoImplementationRunProjection contract", () => {
     });
 
     expect(validateAutoImplementationRunProjection(valid)).toBe(valid);
+  });
+
+  it("detects whether an auto implementation run can create GitHub issues", () => {
+    const appliedMutation = {
+      ...readyRun.issueManagement.githubIssueMutation,
+      status: "applied" as const,
+      mutatesGitHub: true,
+      createdIssueUrls: readyRun.issueManagement.githubIssueMutation.plannedIssues.map((_, index) =>
+        `https://github.com/bee-community-master/demo/issues/${index + 1}`
+      )
+    };
+    const runWithCreatedIssues = {
+      ...readyRun,
+      issueManagement: {
+        ...readyRun.issueManagement,
+        githubIssueUrls: appliedMutation.createdIssueUrls,
+        githubIssueMutation: appliedMutation
+      }
+    };
+
+    expect(canCreateAutoImplementationGitHubIssues(readyRun)).toBe(true);
+    expect(canCreateAutoImplementationGitHubIssues(runWithCreatedIssues)).toBe(false);
   });
 
   it("detects whether an auto implementation run can open a new pull request", () => {

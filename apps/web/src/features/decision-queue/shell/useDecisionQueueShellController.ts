@@ -3,6 +3,7 @@ import {
   CODEX_APP_SERVER_GENERATED_VERSION,
   CODEX_RUNTIME_ADAPTER_VERSION,
   CODEX_RUNTIME_TRANSPORT,
+  canCreateAutoImplementationGitHubIssues,
   canMergeAutoImplementationPullRequest,
   canOpenNewAutoImplementationPullRequest,
   type AutoImplementationRun,
@@ -897,12 +898,19 @@ export function useDecisionQueueShellController() {
     readonly missingRunMessage: string;
     readonly logIdPrefix: string;
     readonly label: string;
+    readonly canSubmit?: (run: AutoImplementationRun) => boolean;
+    readonly blockedMessage?: string;
   }) => {
     const sessionId = projections.session?.sessionId;
     const run = projections.autoImplementationRuns?.latestRun;
 
     if (!client || !sessionId || !run) {
       setWorkflowError(input.missingRunMessage);
+      return;
+    }
+
+    if (input.canSubmit && !input.canSubmit(run)) {
+      setWorkflowError(input.blockedMessage ?? "This auto implementation GitHub issue mutation is not available for the current run state.");
       return;
     }
 
@@ -954,7 +962,9 @@ export function useDecisionQueueShellController() {
         }),
       missingRunMessage: "An active auto implementation workspace run is required before applying approved GitHub issue creation.",
       logIdPrefix: "auto-implementation-github-issue-approved",
-      label: "Apply approved GitHub issues"
+      label: "Apply approved GitHub issues",
+      canSubmit: canCreateAutoImplementationGitHubIssues,
+      blockedMessage: "GitHub issue URLs are already recorded; continue with the existing generated issues instead of creating duplicates."
     }),
     [recordAutoImplementationGitHubIssueMutationRun]
   );

@@ -30,7 +30,8 @@ import {
 
 const execFileAsync = promisify(execFile);
 const COMMAND_TIMEOUT_MS = 10_000;
-const DEFAULT_PROJECT_FOLDER_NAME = "solo-superman-project";
+export const DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME = "solo-superman-project";
+const DEFAULT_PROJECT_FOLDER_NAME = DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME;
 
 export interface PrepareAutoImplementationWorkspaceInput {
   readonly sessionId: SessionId;

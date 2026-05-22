@@ -23,6 +23,7 @@ import {
   AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS,
   AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY,
   canCompleteAutoImplementationWorkerJob,
+  canCreateAutoImplementationGitHubIssues,
   canImportAutoImplementationWorkerLedger,
   canMergeAutoImplementationPullRequest,
   canOpenNewAutoImplementationPullRequest,
@@ -200,10 +201,12 @@ import {
   webSearchReadOnlyAdapterFailureMessage
 } from "./web-search-readonly-adapter";
 import {
+  DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME,
   autoImplementationRunId,
   defaultAutoImplementationWorkspaceRoot,
   ghAutoImplementationPullRequestMutationAdapter,
   prepareAutoImplementationWorkspaceRun,
+  sanitizeProjectFolderName,
   type AutoImplementationGitHubIssueMutationAdapter,
   type AutoImplementationPullRequestMutationAdapter,
   type AutoImplementationRemoteStatusProvider
@@ -6260,6 +6263,20 @@ export function createProductEngineCommandService(
 
       if (existingProjection?.runs.some((run) => run.runId === runId)) {
         return existingProjection;
+      }
+
+      if (request.githubIssueCreation?.mode === "approved" && existingProjection) {
+        const requestedProjectFolderName = sanitizeProjectFolderName(
+          request.projectFolderName ?? request.projectName ?? DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME
+        );
+        const hasExistingGitHubIssuesForWorkspace = existingProjection.runs.some((run) =>
+          run.projectFolderName === requestedProjectFolderName &&
+          !canCreateAutoImplementationGitHubIssues(run)
+        );
+
+        if (hasExistingGitHubIssuesForWorkspace) {
+          return existingProjection;
+        }
       }
 
       const now = new Date().toISOString();

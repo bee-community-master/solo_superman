@@ -1,4 +1,5 @@
 import {
+  canCreateAutoImplementationGitHubIssues,
   canImportAutoImplementationWorkerLedger,
   canMergeAutoImplementationPullRequest,
   canOpenNewAutoImplementationPullRequest,
@@ -222,11 +223,11 @@ export function autoImplementationRunViewModel(
     }),
     canImportWorkerLedger: canImportAutoImplementationWorkerLedger(latestWorkerJob),
     canRecordGitHubIssueDryRun: run.status !== "completed" &&
-      run.issueManagement.githubIssueUrls.length === 0 &&
+      canCreateAutoImplementationGitHubIssues(run) &&
       (githubIssueMutation.status === "not_requested" || githubIssueMutation.status === "blocked"),
     canApplyGitHubIssueCreation: run.status !== "completed" &&
       githubIssueMutation.status === "dry_run_ready" &&
-      run.issueManagement.githubIssueUrls.length === 0,
+      canCreateAutoImplementationGitHubIssues(run),
     canRecordPullRequestDryRun: run.status !== "completed",
     canApplyPullRequestOpen: run.status !== "completed" &&
       hasReadyPullRequestDryRun("open_pr") &&
