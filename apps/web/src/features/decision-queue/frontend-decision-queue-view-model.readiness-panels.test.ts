@@ -33,6 +33,7 @@ import {
 } from "./decision-queue-view-model";
 import { Phase15aOperationsPanel } from "./Phase15aOperationsPanel";
 import { Phase15bReadinessPanel } from "./Phase15bReadinessPanel";
+import { DECISION_QUEUE_COPY } from "./shell/decision-queue-copy";
 import { renderEnglishMarkup } from "./test-rendering";
 
 import { allowlistPermitsWebPublicResearch, buildWebResearchRunRequest } from "./phase15a-research-run-request";
@@ -250,13 +251,16 @@ function researchProjection(blocksPlanning = true): ResearchEvidenceProjection {
 }
 
 function phase15aOperations(overrides: Partial<Phase15aOperationsInput> = {}) {
-  return phase15aOperationsViewModel({
-    allowlists: allowlistProjection(),
-    disclosures: disclosureProjection(),
-    runs: runProjection(),
-    research: researchProjection(true),
-    ...overrides
-  });
+  return phase15aOperationsViewModel(
+    {
+      allowlists: allowlistProjection(),
+      disclosures: disclosureProjection(),
+      runs: runProjection(),
+      research: researchProjection(true),
+      ...overrides
+    },
+    DECISION_QUEUE_COPY.en.phase15a
+  );
 }
 
 function phase15bHintProjection(): Phase15bUpgradeHintProjection {

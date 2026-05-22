@@ -21,6 +21,7 @@ import {
   type Phase15aOperationsInput,
   phase15aOperationsViewModel,
 } from "./decision-queue-view-model";
+import { DECISION_QUEUE_COPY } from "./shell/decision-queue-copy";
 
 const projectId = "proj_phase15a_ui" as ProjectId;
 const allowlistId = "research_allowlist_phase15a_ui" as ResearchAllowlistId;
@@ -235,13 +236,16 @@ function researchProjection(blocksPlanning = true): ResearchEvidenceProjection {
 }
 
 function phase15aOperations(overrides: Partial<Phase15aOperationsInput> = {}) {
-  return phase15aOperationsViewModel({
-    allowlists: allowlistProjection(),
-    disclosures: disclosureProjection(),
-    runs: runProjection(),
-    research: researchProjection(true),
-    ...overrides
-  });
+  return phase15aOperationsViewModel(
+    {
+      allowlists: allowlistProjection(),
+      disclosures: disclosureProjection(),
+      runs: runProjection(),
+      research: researchProjection(true),
+      ...overrides
+    },
+    DECISION_QUEUE_COPY.ko.phase15a
+  );
 }
 
 describe("Decision Queue view model phase15a", () => {
@@ -249,7 +253,7 @@ describe("Decision Queue view model phase15a", () => {
     const operations = phase15aOperations();
 
     expect(operations.allowlistPolicyLabel).toContain("public_search");
-    expect(operations.allowlistPolicyLabel).toContain("2 concurrent / 12 per session");
+    expect(operations.allowlistPolicyLabel).toContain("2 동시 / 세션당 12");
     expect(operations.disclosureActivityLabel).toContain("automatic_payload_ready");
     expect(operations.runRecoveryLabel).toContain("/api/v1/projects/proj_phase15a_ui/research-runs");
     expect(operations.qualityGateLabel).toContain("needs_review");
@@ -332,6 +336,32 @@ describe("Decision Queue view model phase15a", () => {
       status: "blocked_for_1_5b",
       blockers: ["리서치 소스 상태를 다시 불러오는 경로가 보이지 않습니다."]
     });
+  });
+
+  it("localizes Research operations dynamic labels for Japanese users", () => {
+    const operations = phase15aOperationsViewModel(
+      {
+        allowlists: {
+          ...allowlistProjection(),
+          refetchUrl: ""
+        },
+        disclosures: disclosureProjection(),
+        runs: runProjection("accepted"),
+        research: researchProjection(false)
+      },
+      DECISION_QUEUE_COPY.ja.phase15a
+    );
+
+    expect(operations.allowlistPolicyLabel).toContain("セッションあたり 12");
+    expect(operations.disclosureActivityLabel).toContain("リサーチ利用ログ");
+    expect(operations.runRecoveryLabel).toContain("再読み込み");
+    expect(operations.exitGate).toMatchObject({
+      status: "blocked_for_1_5b",
+      blockers: ["リサーチソース状態の再読み込み経路がまだ見えていません。"]
+    });
+    expect(operations.exitGate.label).toContain("リサーチ確認はまだ完了していません");
+    expect(operations.exitGate.label).not.toContain("리서치");
+    expect(operations.runRecoveryLabel).not.toContain("need review or recovery");
   });
 
 });

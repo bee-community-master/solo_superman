@@ -9,6 +9,10 @@ import type { DecisionQueuePageId } from "./decision-queue-shell-model";
 
 export const DECISION_QUEUE_PAGE_ORDER = ["onboarding", "questions", "research", "planning", "implementation", "permissions"] as const satisfies readonly DecisionQueuePageId[];
 
+function joinVisibleParts(parts: readonly (string | null)[]) {
+  return parts.filter((part): part is string => Boolean(part)).join(" · ");
+}
+
 const EN_COPY = {
   pageMeta: {
     onboarding: {
@@ -355,7 +359,42 @@ const EN_COPY = {
     cancel: "Cancel",
     retry: "Retry",
     noResearchRuns: "No research runs loaded yet.",
-    qualityGateDisplay: "Quality check display"
+    qualityGateDisplay: "Quality check display",
+    blockers: {
+      noActiveAllowlist: "No public-safe research source is active yet.",
+      noAllowlistRefetch: "The research source refresh path is not visible yet.",
+      noDisclosureRefetch: "The research-use log refresh path is not visible yet.",
+      noRunsRefetch: "The research run status refresh path is not visible yet.",
+      noRunSse: "Research status update notifications are missing.",
+      noQualityGate: "Evidence quality review results are not visible yet.",
+      reviewCardRemaining: (title: string) => `Research card still needs review: ${title}`
+    },
+    allowlistPolicyLoaded: (
+      status: string,
+      connectors: string,
+      sourceCategories: string,
+      contextMode: string,
+      concurrentRuns: number,
+      runsPerSession: number,
+      logRequired: boolean
+    ) =>
+      joinVisibleParts([
+        `${status} · ${connectors}`,
+        sourceCategories,
+        contextMode,
+        `${concurrentRuns} concurrent / ${runsPerSession} per session`,
+        logRequired ? "activity log required" : null
+      ]),
+    noAllowlistPolicyLoaded: "No research source settings loaded.",
+    disclosureActivityLoaded: (logCount: number, latestStatus: string) =>
+      `${logCount} research-use log(s); latest ${latestStatus}`,
+    noDisclosureActivity: "No disclosure activity loaded.",
+    runRecoveryLoaded: (runCount: number, attentionCount: number, refetchUrl: string) =>
+      `${runCount} run(s); ${attentionCount} need review or recovery; refresh ${refetchUrl}`,
+    noRunStatus: "No research run status loaded.",
+    qualityGatePending: "Quality check has not produced a visible result.",
+    exitGateBlocked: "Research review is not finished yet. Check the remaining items and recovery paths first.",
+    exitGateReady: "Research results and recovery paths are ready. You can move to execution-readiness review."
   },
   phase15b: {
     rows: {
@@ -768,7 +807,42 @@ const JA_COPY: typeof EN_COPY = {
     cancel: "キャンセル",
     retry: "再試行",
     noResearchRuns: "リサーチ実行はまだ読み込まれていません。",
-    qualityGateDisplay: "Quality gate 表示"
+    qualityGateDisplay: "Quality gate 表示",
+    blockers: {
+      noActiveAllowlist: "公開してよいリサーチソースはまだ有効化されていません。",
+      noAllowlistRefetch: "リサーチソース状態の再読み込み経路がまだ見えていません。",
+      noDisclosureRefetch: "リサーチ利用ログの再読み込み経路がまだ見えていません。",
+      noRunsRefetch: "リサーチ実行状態の再読み込み経路がまだ見えていません。",
+      noRunSse: "リサーチ状態更新の通知経路がありません。",
+      noQualityGate: "根拠品質レビュー結果がまだ見えていません。",
+      reviewCardRemaining: (title: string) => `リサーチカードの確認が残っています: ${title}`
+    },
+    allowlistPolicyLoaded: (
+      status: string,
+      connectors: string,
+      sourceCategories: string,
+      contextMode: string,
+      concurrentRuns: number,
+      runsPerSession: number,
+      logRequired: boolean
+    ) =>
+      joinVisibleParts([
+        `${status} · ${connectors}`,
+        sourceCategories,
+        contextMode,
+        `${concurrentRuns} 同時 / セッションあたり ${runsPerSession}`,
+        logRequired ? "活動ログが必要" : null
+      ]),
+    noAllowlistPolicyLoaded: "リサーチソース設定は読み込まれていません。",
+    disclosureActivityLoaded: (logCount: number, latestStatus: string) =>
+      `${logCount} 件のリサーチ利用ログ · 最新 ${latestStatus}`,
+    noDisclosureActivity: "リサーチ利用ログはまだ読み込まれていません。",
+    runRecoveryLoaded: (runCount: number, attentionCount: number, refetchUrl: string) =>
+      `${runCount} 件の実行 · ${attentionCount} 件は確認または復旧が必要 · 再読み込み ${refetchUrl}`,
+    noRunStatus: "リサーチ実行状態はまだ読み込まれていません。",
+    qualityGatePending: "品質確認はまだ表示できる結果を生成していません。",
+    exitGateBlocked: "リサーチ確認はまだ完了していません。残り項目と復旧経路を先に確認してください。",
+    exitGateReady: "リサーチ結果と復旧経路が準備できました。実行準備レビューへ進めます。"
   },
   phase15b: {
     rows: {
@@ -1181,7 +1255,42 @@ const KO_COPY: typeof EN_COPY = {
     cancel: "취소",
     retry: "재시도",
     noResearchRuns: "아직 리서치 실행이 로드되지 않았습니다.",
-    qualityGateDisplay: "품질 게이트 표시"
+    qualityGateDisplay: "품질 게이트 표시",
+    blockers: {
+      noActiveAllowlist: "안전한 공개 리서치 소스가 아직 활성화되지 않았습니다.",
+      noAllowlistRefetch: "리서치 소스 상태를 다시 불러오는 경로가 보이지 않습니다.",
+      noDisclosureRefetch: "리서치 사용 내역을 다시 불러오는 경로가 보이지 않습니다.",
+      noRunsRefetch: "리서치 실행 상태를 다시 불러오는 경로가 보이지 않습니다.",
+      noRunSse: "리서치 상태 업데이트 알림 경로가 빠져 있습니다.",
+      noQualityGate: "근거 품질 검토 결과가 아직 보이지 않습니다.",
+      reviewCardRemaining: (title: string) => `다음 리서치 카드 검토가 남아 있습니다: ${title}`
+    },
+    allowlistPolicyLoaded: (
+      status: string,
+      connectors: string,
+      sourceCategories: string,
+      contextMode: string,
+      concurrentRuns: number,
+      runsPerSession: number,
+      logRequired: boolean
+    ) =>
+      joinVisibleParts([
+        `${status} · ${connectors}`,
+        sourceCategories,
+        contextMode,
+        `${concurrentRuns} 동시 / 세션당 ${runsPerSession}`,
+        logRequired ? "활동 기록 필요" : null
+      ]),
+    noAllowlistPolicyLoaded: "리서치 소스 설정이 로드되지 않았습니다.",
+    disclosureActivityLoaded: (logCount: number, latestStatus: string) =>
+      `리서치 사용 기록 ${logCount}개 · 최신 ${latestStatus}`,
+    noDisclosureActivity: "리서치 사용 기록이 아직 로드되지 않았습니다.",
+    runRecoveryLoaded: (runCount: number, attentionCount: number, refetchUrl: string) =>
+      `실행 ${runCount}개 · 검토 또는 복구 필요 ${attentionCount}개 · 새로고침 ${refetchUrl}`,
+    noRunStatus: "리서치 실행 상태가 아직 로드되지 않았습니다.",
+    qualityGatePending: "품질 확인이 아직 표시 가능한 결과를 만들지 않았습니다.",
+    exitGateBlocked: "리서치 검토가 아직 끝나지 않았습니다. 남은 항목과 복구 경로를 먼저 확인하세요.",
+    exitGateReady: "리서치 결과와 복구 경로가 준비됐습니다. 실행 준비 검토로 넘어갈 수 있습니다."
   },
   phase15b: {
     rows: {
