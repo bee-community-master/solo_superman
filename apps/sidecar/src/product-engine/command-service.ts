@@ -185,7 +185,9 @@ import {
 import {
   autoImplementationRunId,
   defaultAutoImplementationWorkspaceRoot,
-  prepareAutoImplementationWorkspaceRun
+  prepareAutoImplementationWorkspaceRun,
+  type AutoImplementationGitHubIssueMutationAdapter,
+  type AutoImplementationRemoteStatusProvider
 } from "./auto-implementation-workspace";
 
 export class ProductEngineServiceError extends Error {
@@ -1979,6 +1981,8 @@ function decisionQueueProjectionFromEvents(events: readonly ProductEngineEvent[]
 
 export interface ProductEngineCommandServiceOptions {
   readonly autoImplementationWorkspaceRoot?: string;
+  readonly autoImplementationRemoteStatusProvider?: AutoImplementationRemoteStatusProvider;
+  readonly autoImplementationGitHubIssueMutationAdapter?: AutoImplementationGitHubIssueMutationAdapter;
 }
 
 export function createProductEngineCommandService(
@@ -1988,6 +1992,8 @@ export function createProductEngineCommandService(
 ) {
   const sessionCommandQueues = new Map<SessionId, Promise<void>>();
   const autoImplementationWorkspaceRoot = options.autoImplementationWorkspaceRoot ?? defaultAutoImplementationWorkspaceRoot();
+  const autoImplementationRemoteStatusProvider = options.autoImplementationRemoteStatusProvider;
+  const autoImplementationGitHubIssueMutationAdapter = options.autoImplementationGitHubIssueMutationAdapter;
 
   function assertSupportedReductionPersistence(reduction: ProductEngineReduction) {
     const nextStateVersion = reduction.nextState.stateVersion;
@@ -5923,7 +5929,11 @@ export function createProductEngineCommandService(
           runId,
           request,
           workspaceRoot: autoImplementationWorkspaceRoot,
-          now
+          now,
+          ...(autoImplementationRemoteStatusProvider ? { remoteStatusProvider: autoImplementationRemoteStatusProvider } : {}),
+          ...(autoImplementationGitHubIssueMutationAdapter
+            ? { githubIssueMutationAdapter: autoImplementationGitHubIssueMutationAdapter }
+            : {})
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown workspace preparation failure.";

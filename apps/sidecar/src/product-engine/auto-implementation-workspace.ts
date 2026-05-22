@@ -37,6 +37,28 @@ export interface PrepareAutoImplementationWorkspaceInput {
   readonly request: CreateAutoImplementationRunRequest;
   readonly workspaceRoot: string;
   readonly now: string;
+  readonly remoteStatusProvider?: AutoImplementationRemoteStatusProvider;
+  readonly githubIssueMutationAdapter?: AutoImplementationGitHubIssueMutationAdapter;
+}
+
+export type AutoImplementationRemoteStatusProvider = (projectDir: string) => Promise<AutoImplementationRemoteStatus>;
+
+export interface AutoImplementationGitHubIssueMutationInput {
+  readonly projectDir: string;
+  readonly plans: readonly (AutoImplementationGitHubIssuePlan & { readonly bodyFilePath: string })[];
+  readonly approval: NonNullable<AutoImplementationGitHubIssueMutationContract["approval"]>;
+  readonly verifierEvidenceRefs: readonly string[];
+}
+
+export interface AutoImplementationGitHubIssueMutationResult {
+  readonly createdIssueUrls: readonly string[];
+  readonly auditEvidenceRefs: readonly string[];
+}
+
+export interface AutoImplementationGitHubIssueMutationAdapter {
+  readonly createIssues: (
+    input: AutoImplementationGitHubIssueMutationInput
+  ) => Promise<AutoImplementationGitHubIssueMutationResult>;
 }
 
 function shortHash(value: string) {
@@ -328,6 +350,45 @@ async function remoteStatus(projectDir: string): Promise<AutoImplementationRemot
     : "offline";
 }
 
+export const defaultAutoImplementationRemoteStatusProvider: AutoImplementationRemoteStatusProvider = remoteStatus;
+
+export const ghAutoImplementationGitHubIssueMutationAdapter: AutoImplementationGitHubIssueMutationAdapter = {
+  async createIssues(input) {
+    const createdIssueUrls: string[] = [];
+
+    for (const plan of input.plans) {
+      const { stdout } = await execFileAsync(
+        "gh",
+        ["issue", "create", "--title", plan.title, "--body-file", plan.bodyFilePath],
+        {
+          cwd: input.projectDir,
+          encoding: "utf8",
+          maxBuffer: 1024 * 1024,
+          timeout: COMMAND_TIMEOUT_MS
+        }
+      );
+      const createdIssueUrl = stdout.trim().split(/\s+/u).find((part) =>
+        /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/issues\/[1-9]\d*\/?$/iu.test(part)
+      );
+
+      if (!createdIssueUrl) {
+        throw new Error("gh issue create did not return a GitHub issue URL.");
+      }
+
+      createdIssueUrls.push(createdIssueUrl);
+    }
+
+    return {
+      createdIssueUrls,
+      auditEvidenceRefs: [
+        "github-issue-mutation:gh:issue-create",
+        `github-issue-mutation:approval:${input.approval.approvalId}`,
+        ...input.verifierEvidenceRefs
+      ]
+    };
+  }
+};
+
 function stagePlan(nextTickAt: string) {
   return AUTO_IMPLEMENTATION_STAGES.map((stage, index) => ({
     stage,
@@ -462,6 +523,28 @@ function githubIssueMutationContract(input: {
       ...approval.evidenceRefs
     ],
     verifierEvidenceRefs
+  };
+}
+
+function appliedGithubIssueMutationContract(input: {
+  readonly approvedContract: AutoImplementationGitHubIssueMutationContract;
+  readonly createdIssueUrls: readonly string[];
+  readonly auditEvidenceRefs: readonly string[];
+}): AutoImplementationGitHubIssueMutationContract {
+  if (input.approvedContract.status !== "approved_ready" || !input.approvedContract.approval) {
+    throw new Error("GitHub issue mutation can only be applied from an approved_ready contract.");
+  }
+
+  return {
+    ...input.approvedContract,
+    status: "applied",
+    mutatesGitHub: true,
+    createdIssueUrls: input.createdIssueUrls,
+    auditEvidenceRefs: [
+      ...input.approvedContract.auditEvidenceRefs,
+      "github-issue-mutation:applied",
+      ...input.auditEvidenceRefs
+    ]
   };
 }
 
@@ -637,7 +720,9 @@ export async function prepareAutoImplementationWorkspaceRun(
 
   await ensureRealDirectoryWithin(workspaceRoot, generatedRepoPath);
   const gitEvidence = await ensureGitRepo(generatedRepoPath);
-  const status = await remoteStatus(generatedRepoPath);
+  const statusProvider = input.remoteStatusProvider ?? defaultAutoImplementationRemoteStatusProvider;
+  const githubIssueAdapter = input.githubIssueMutationAdapter ?? ghAutoImplementationGitHubIssueMutationAdapter;
+  const status = await statusProvider(generatedRepoPath);
   const guide = remoteGuide(status);
   const nextTickAt = addMilliseconds(input.now, AUTO_IMPLEMENTATION_TICK_INTERVAL_MS);
   const sourcePlanningRef = input.request.sourcePlanningRef ?? `session:${input.sessionId}`;
@@ -652,12 +737,38 @@ export async function prepareAutoImplementationWorkspaceRun(
     status: "open" as const
   }));
   const issueMode = status === "connected" ? "github_ready" as const : "markdown_fallback" as const;
-  const githubIssueMutation = githubIssueMutationContract({
+  let githubIssueMutation = githubIssueMutationContract({
     remoteStatus: status,
     issueDocs,
     request: input.request
   });
   const trackerRelativePath = "implementation-tracker.md";
+
+  await Promise.all(issueDocs.map((issue) =>
+    writeIfChanged(
+      workspaceRoot,
+      resolve(generatedRepoPath, issue.relativePath.split("/").join(sep)),
+      issueMarkdown({ issue, trackerTitle, goal: trackerGoal, sourcePlanningRef })
+    )
+  ));
+
+  if (githubIssueMutation.status === "approved_ready" && githubIssueMutation.approval) {
+    const issueMutationResult = await githubIssueAdapter.createIssues({
+      projectDir: generatedRepoPath,
+      plans: githubIssueMutation.plannedIssues.map((plan) => ({
+        ...plan,
+        bodyFilePath: resolve(generatedRepoPath, plan.bodyMarkdownPath.split("/").join(sep))
+      })),
+      approval: githubIssueMutation.approval,
+      verifierEvidenceRefs: githubIssueMutation.verifierEvidenceRefs
+    });
+
+    githubIssueMutation = appliedGithubIssueMutationContract({
+      approvedContract: githubIssueMutation,
+      createdIssueUrls: issueMutationResult.createdIssueUrls,
+      auditEvidenceRefs: issueMutationResult.auditEvidenceRefs
+    });
+  }
 
   await writeIfChanged(
     workspaceRoot,
@@ -673,14 +784,6 @@ export async function prepareAutoImplementationWorkspaceRun(
       githubIssueMutation
     })
   );
-
-  await Promise.all(issueDocs.map((issue) =>
-    writeIfChanged(
-      workspaceRoot,
-      resolve(generatedRepoPath, issue.relativePath.split("/").join(sep)),
-      issueMarkdown({ issue, trackerTitle, goal: trackerGoal, sourcePlanningRef })
-    )
-  ));
 
   const manifestRelativePath = ".solo-superman/auto-implementation-run.json";
   const run: AutoImplementationRun = {
@@ -698,7 +801,7 @@ export async function prepareAutoImplementationWorkspaceRun(
       mode: issueMode,
       trackerRelativePath,
       issueDocs,
-      githubIssueUrls: [],
+      githubIssueUrls: githubIssueMutation.createdIssueUrls,
       githubIssueMutation,
       warning: guide.warning
     },
