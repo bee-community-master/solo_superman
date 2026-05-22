@@ -93,6 +93,7 @@ import {
   type Phase15bUpgradeHintExportDto,
   type Phase15bUpgradeHintProjection,
   type Phase25ResearchComparisonProjection,
+  type PlanningHandoffArtifactDto,
   type PlanningHandoffProjection,
   type PrepareResearchDisclosureRequest,
   type ProjectApplicationCommandType,
@@ -609,7 +610,10 @@ async function autoImplementationRequestWithValidatedSource(
   request: CreateAutoImplementationRunRequest,
   existingProjection: AutoImplementationRunProjection | null,
   planningHandoffRepository: ReturnType<typeof createPlanningHandoffRepository>
-): Promise<CreateAutoImplementationRunRequest> {
+): Promise<{
+  readonly request: CreateAutoImplementationRunRequest;
+  readonly planningHandoffArtifact?: PlanningHandoffArtifactDto;
+}> {
   const sourceRunId = autoImplementationRunSourceRunId(request.sourcePlanningRef);
 
   if (sourceRunId !== null) {
@@ -625,7 +629,7 @@ async function autoImplementationRequestWithValidatedSource(
       );
     }
 
-    return request;
+    return { request };
   }
 
   const planningHandoff = await planningHandoffRepository.getLatestForSession(request.sessionId);
@@ -657,8 +661,11 @@ async function autoImplementationRequestWithValidatedSource(
   }
 
   return {
-    ...request,
-    sourcePlanningRef: requiredSourcePlanningRef
+    request: {
+      ...request,
+      sourcePlanningRef: requiredSourcePlanningRef
+    },
+    planningHandoffArtifact: planningHandoff.finalArtifact
   };
 }
 
@@ -1274,11 +1281,13 @@ function autoImplementationWorkerPlan(input: {
   readonly executionAuthorityRef: string | null;
   readonly jobId: string;
 }) {
+  const planningPlanEvidenceRef = input.run.evidenceRefs.find((ref) => ref.startsWith("planning-handoff-plan:"));
   const sourceRefs = [
     `auto-implementation-run:${input.run.runId}`,
     `auto-implementation-stage:${input.issue.stage}`,
     `auto-implementation-issue:${input.issue.issueId}`,
-    `issue-doc:${input.issue.relativePath}`
+    `issue-doc:${input.issue.relativePath}`,
+    ...(planningPlanEvidenceRef ? [planningPlanEvidenceRef] : [])
   ];
 
   return {
@@ -6361,11 +6370,12 @@ export function createProductEngineCommandService(
         return existingProjection;
       }
 
-      const sourceValidatedRequest = await autoImplementationRequestWithValidatedSource(
+      const sourceValidation = await autoImplementationRequestWithValidatedSource(
         request,
         existingProjection,
         createPlanningHandoffRepository(storage.db)
       );
+      const sourceValidatedRequest = sourceValidation.request;
 
       if (sourceValidatedRequest.githubIssueCreation?.mode === "approved" && existingProjection) {
         const requestedProjectFolderName = sanitizeProjectFolderName(
@@ -6391,6 +6401,9 @@ export function createProductEngineCommandService(
           sessionId: request.sessionId,
           runId,
           request: sourceValidatedRequest,
+          ...(sourceValidation.planningHandoffArtifact
+            ? { planningHandoffArtifact: sourceValidation.planningHandoffArtifact }
+            : {}),
           workspaceRoot: autoImplementationWorkspaceRoot,
           now,
           ...(autoImplementationRemoteStatusProvider ? { remoteStatusProvider: autoImplementationRemoteStatusProvider } : {}),
