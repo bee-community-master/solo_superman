@@ -335,6 +335,63 @@ function markdownFileName(index: number, stage: AutoImplementationStage) {
   return `${String(index + 1).padStart(3, "0")}-${stage}.md`;
 }
 
+const AUTO_IMPLEMENTATION_DELIVERY_PROTOCOL = [
+  "Keep each implementation slice tied to one local markdown issue or GitHub issue before opening the PR.",
+  "Do not merge until the feature PR code review reaches two consecutive no-finding passes after any fixes.",
+  "Do not merge until the broader repo-level code review reaches two consecutive no-finding passes.",
+  "Do not merge until the changed-code clean-code review reaches two consecutive no-finding passes.",
+  "Do not merge until the repo-level clean-code review reaches two consecutive no-finding passes.",
+  "Audit missing targeted tests, then run the full verification command before updating the PR body.",
+  "Update the PR body with scope, review streak evidence, test evidence, remaining gaps, and merge readiness before merging."
+] as const;
+
+function stageSpecificReviewGates(stage: AutoImplementationStage) {
+  switch (stage) {
+    case "initial_pr":
+      return [
+        "Create the smallest behavior-complete implementation for this issue slice.",
+        "Open or prepare the PR with the issue link, acceptance criteria, rollback notes, and targeted test plan.",
+        "Record the first targeted test evidence before requesting review."
+      ];
+    case "code_review_fix_1":
+      return [
+        "Run feature-scope code review and fix every actionable finding.",
+        "Repeat review until two consecutive feature-scope passes report no findings.",
+        "Record both clean pass timestamps or reviewer refs in the PR body."
+      ];
+    case "code_review_fix_2":
+      return [
+        "Run repo-wide code review beyond the touched feature.",
+        "Fix any cross-repo consistency, architecture, or safety findings.",
+        "Repeat repo-wide review until two consecutive passes report no findings."
+      ];
+    case "clean_code_fix_1":
+      return [
+        "Run changed-code clean-code review for naming, boundaries, duplication, dead paths, and test shape.",
+        "Prefer deletion, existing utilities, and simpler boundaries over new abstractions.",
+        "Repeat clean-code review until two consecutive changed-code passes report no findings."
+      ];
+    case "clean_code_fix_2":
+      return [
+        "Run repo-level clean-code review for adjacent slop, stale abstractions, and consistency drift.",
+        "Fix only findings that are necessary for this implementation slice or split follow-up issues.",
+        "Repeat repo-level clean-code review until two consecutive passes report no findings."
+      ];
+    case "final_verify_pr_update":
+      return [
+        "Audit missing tests against the issue acceptance criteria and add targeted coverage where gaps remain.",
+        "Run targeted tests first, then the full final verification command.",
+        "Update the PR description with scope, review streaks, exact verification commands, and known gaps."
+      ];
+    case "merge_main":
+      return [
+        "Verify the PR is mergeable and its body contains final review/test evidence.",
+        "Merge only after the final verification evidence is fresh.",
+        "Sync main after merge and rerun the full verification command on main."
+      ];
+  }
+}
+
 function trackerMarkdown(input: {
   readonly title: string;
   readonly goal: string;
@@ -357,6 +414,10 @@ function trackerMarkdown(input: {
     "## Local issue sequence",
     "",
     ...input.issueDocs.map((issue) => `- [ ] ${issue.issueId} ${issue.title} (${issue.relativePath})`),
+    "",
+    "## Delivery protocol",
+    "",
+    ...AUTO_IMPLEMENTATION_DELIVERY_PROTOCOL.map((gate) => `- [ ] ${gate}`),
     "",
     "## Remote connection guide",
     "",
@@ -387,6 +448,15 @@ function issueMarkdown(input: {
     "- The stage leaves durable git, review, test, or blocker evidence.",
     "- Any missing remote connection remains visible instead of blocking local work.",
     "- No credential, token, session cookie, production deploy, or external final-submit action is stored or executed.",
+    "- Review streak evidence is recorded before the next stage is marked complete.",
+    "",
+    "## Required review gates",
+    "",
+    ...AUTO_IMPLEMENTATION_DELIVERY_PROTOCOL.map((gate) => `- [ ] ${gate}`),
+    "",
+    "## Stage-specific checklist",
+    "",
+    ...stageSpecificReviewGates(input.issue.stage).map((gate) => `- [ ] ${gate}`),
     "",
     "## Verification",
     "",
