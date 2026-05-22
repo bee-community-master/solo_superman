@@ -62,9 +62,13 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerPlanAllowedWriteScope).toBe("허용된 쓰기 범위");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.missingExecutionAuthority).toContain("ExecutionAuthorityRecord");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.recordStageTick).toBe("Record current stage tick");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.startStage).toBe("Start current stage");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.pauseStage).toBe("Pause current stage");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.blockStage).toBe("Block current stage");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.recordPullRequestOpenDryRun).toBe("Record PR open dry-run");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.recordPullRequestOpenDryRun).toContain("PR 생성");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.recordStageTick).toContain("현재 단계");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.blockStage).toContain("차단");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.recordGitHubIssueDryRun).toBe("Record GitHub issue dry-run");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.applyGitHubIssueCreation).toContain("승인된 GitHub issue");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.applyPullRequestOpen).toBe("Apply approved PR open");

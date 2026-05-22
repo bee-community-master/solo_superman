@@ -20,7 +20,10 @@ import {
   buildAutoImplementationGitHubIssueApprovedRequest,
   buildAutoImplementationGitHubIssueDryRunRequest
 } from "../auto-implementation-github-issue-request";
-import { buildAutoImplementationStageTickRequest } from "../auto-implementation-stage-request";
+import {
+  buildAutoImplementationStageLifecycleRequest,
+  buildAutoImplementationStageTickRequest
+} from "../auto-implementation-stage-request";
 import {
   buildAutoImplementationPullRequestBodyApprovedRequest,
   buildAutoImplementationPullRequestDryRunRequest,
@@ -613,6 +616,79 @@ export function useDecisionQueueShellController() {
     }
   }, [client, projections]);
 
+  const recordAutoImplementationStageLifecycleAction = useCallback(async (input: {
+    readonly action: "start" | "pause" | "block";
+    readonly label: string;
+    readonly missingRunMessage: string;
+  }) => {
+    const sessionId = projections.session?.sessionId;
+    const run = projections.autoImplementationRuns?.latestRun;
+
+    if (!client || !sessionId || !run) {
+      setWorkflowError(input.missingRunMessage);
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const autoImplementationRuns = await client.recordAutoImplementationStage(
+        buildAutoImplementationStageLifecycleRequest({
+          sessionId,
+          run,
+          action: input.action,
+          tickedAt: new Date().toISOString()
+        })
+      );
+
+      setProjections((current) => ({
+        ...current,
+        autoImplementationRuns
+      }));
+      setCommandLog((current) => [
+        {
+          id: `auto-implementation-stage-${input.action}:${run.runId}:${run.currentStage}:${Date.now()}`,
+          label: input.label,
+          createdAt: new Date().toISOString(),
+          message: autoImplementationRuns.summary
+        },
+        ...current
+      ].slice(0, COMMAND_LOG_LIMIT));
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [client, projections]);
+
+  const startAutoImplementationStage = useCallback(
+    () => recordAutoImplementationStageLifecycleAction({
+      action: "start",
+      label: "Start auto implementation stage",
+      missingRunMessage: "An active auto implementation workspace run is required before starting a stage."
+    }),
+    [recordAutoImplementationStageLifecycleAction]
+  );
+
+  const pauseAutoImplementationStage = useCallback(
+    () => recordAutoImplementationStageLifecycleAction({
+      action: "pause",
+      label: "Pause auto implementation stage",
+      missingRunMessage: "An active auto implementation workspace run is required before pausing a stage."
+    }),
+    [recordAutoImplementationStageLifecycleAction]
+  );
+
+  const blockAutoImplementationStage = useCallback(
+    () => recordAutoImplementationStageLifecycleAction({
+      action: "block",
+      label: "Block auto implementation stage",
+      missingRunMessage: "An active auto implementation workspace run is required before blocking a stage."
+    }),
+    [recordAutoImplementationStageLifecycleAction]
+  );
+
   const runAutoImplementationWorkerJob = useCallback(async () => {
     const sessionId = projections.session?.sessionId;
     const run = projections.autoImplementationRuns?.latestRun;
@@ -1059,6 +1135,9 @@ export function useDecisionQueueShellController() {
     createAutoImplementationRun,
     planAutoImplementationWorkerJob,
     recordAutoImplementationStageTick,
+    startAutoImplementationStage,
+    pauseAutoImplementationStage,
+    blockAutoImplementationStage,
     recordAutoImplementationGitHubIssueDryRun,
     applyAutoImplementationGitHubIssueCreation,
     recordAutoImplementationPullRequestOpenDryRun,
