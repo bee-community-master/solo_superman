@@ -58,8 +58,10 @@ import {
   pendingEffectSummary,
   questionProgressViewModel,
   queueSections,
-  runtimeActivityProjectionFromStatuses
+  runtimeActivityProjectionFromStatuses,
+  startableReadOnlyResearchTaskIds
 } from "../decision-queue-view-model";
+import { activeWebPublicResearchAllowlist } from "../phase15a-research-run-request";
 import {
   createSidecarClient,
   discoverSidecarConnection,
@@ -360,6 +362,7 @@ export function useDecisionQueueShellController() {
     revokeAllowlist,
     planPhase15aResearchTask,
     startReadOnlyResearchRun,
+    startReadyReadOnlyResearchRuns,
     refreshResearchRunStatus,
     cancelResearchRun,
     retryResearchRun
@@ -1125,8 +1128,13 @@ export function useDecisionQueueShellController() {
     intake,
     isBusy
   });
-  const hasActiveResearchAllowlist =
-    researchOperations.allowlists?.allowlists.some((allowlist) => allowlist.status === "active") ?? false;
+  const activeResearchAllowlist = activeWebPublicResearchAllowlist(researchOperations.allowlists);
+  const hasActiveResearchAllowlist = Boolean(activeResearchAllowlist);
+  const readyReadOnlyResearchTaskIds = startableReadOnlyResearchTaskIds({
+    research: projections.research,
+    runs: researchOperations.runs,
+    allowlist: activeResearchAllowlist
+  });
 
   const activeQueueCount = sections.find((section) => section.id === "active")?.items.length ?? 0;
   const nextQueueCount = sections.find((section) => section.id === "next")?.items.length ?? 0;
@@ -1260,6 +1268,7 @@ export function useDecisionQueueShellController() {
     revokeAllowlist,
     planPhase15aResearchTask,
     startReadOnlyResearchRun,
+    startReadyReadOnlyResearchRuns,
     refreshResearchRunStatus,
     cancelResearchRun,
     retryResearchRun,
@@ -1307,6 +1316,7 @@ export function useDecisionQueueShellController() {
     planningReadinessLabel,
     canStart,
     hasActiveResearchAllowlist,
+    readyReadOnlyResearchTaskIds,
     activeQueueCount,
     nextQueueCount,
     blockedQueueCount,

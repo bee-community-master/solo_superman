@@ -18,6 +18,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
     phase15aOperations,
     planPhase15aResearchTask,
     projections,
+    readyReadOnlyResearchTaskIds,
     refreshResearchOperations,
     refreshResearchRunStatus,
     researchDrafts,
@@ -26,8 +27,10 @@ export function ResearchView({ controller }: ResearchViewProps) {
     retryResearchRun,
     revokeAllowlist,
     setResearchDrafts,
-    startReadOnlyResearchRun
+    startReadOnlyResearchRun,
+    startReadyReadOnlyResearchRuns
   } = controller;
+  const readyReadOnlyResearchTaskIdSet = new Set(readyReadOnlyResearchTaskIds);
 
   return (
     <div className="view-grid research-view">
@@ -40,12 +43,20 @@ export function ResearchView({ controller }: ResearchViewProps) {
           <button type="button" disabled={isBusy || !projections.session} onClick={() => void planPhase15aResearchTask()}>
             {copy.research.planResearchTask}
           </button>
+          <button
+            type="button"
+            disabled={isBusy || !hasActiveResearchAllowlist || readyReadOnlyResearchTaskIds.length === 0}
+            onClick={() => void startReadyReadOnlyResearchRuns()}
+          >
+            {copy.research.startReadyReadOnlyRuns(readyReadOnlyResearchTaskIds.length)}
+          </button>
         </div>
         {projections.research?.tasks.length ? (
           <div className="research-list">
             {projections.research.tasks.map((task) => {
               const card = projections.research?.reviewCards.find((item) => item.researchTaskId === task.researchTaskId);
               const canImportResearch = task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true;
+              const canStartReadOnlyRun = readyReadOnlyResearchTaskIdSet.has(task.researchTaskId);
 
               return (
                 <article className="research-card" key={task.researchTaskId}>
@@ -94,7 +105,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
                   <div className="card-actions">
                     <button
                       type="button"
-                      disabled={isBusy || !hasActiveResearchAllowlist}
+                      disabled={isBusy || !hasActiveResearchAllowlist || !canStartReadOnlyRun}
                       onClick={() => void startReadOnlyResearchRun(task.researchTaskId)}
                     >
                       {copy.research.startReadOnlyRun}

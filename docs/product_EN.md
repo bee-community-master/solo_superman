@@ -54,6 +54,7 @@ Business mode also requires an explicit `businessCriticIntensity`; it has no def
 - Question refresh and next-list controls must be visible, while automatic refills can add the next relevant question after a card is answered or carried forward.
 - Long sessions may submit all drafted answers in the current active batch, but the action remains bounded to visible question/follow-up cards and still uses the normal per-answer research loop.
 - Research-generated additional questions must re-enter the Decision Queue as answerable follow-up debt, not remain hidden as evidence-card notes only.
+- The Research tab can start currently ready planned public-web research tasks as a bounded batch, respecting the active allowlist and concurrency budget while keeping each run on the existing per-task read-only research path.
 - Risk UI should show Confidence Map, five-axis radar, and Top 3 Risk Cards when the data supports them; per-question risk entry stays collapsed under an optional add-comment/risk disclosure.
 
 ## Current release

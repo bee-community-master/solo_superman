@@ -1,17 +1,19 @@
-import type {
-  DecisionQueueProjection,
-  Phase15bUpgradeHintApiRecord,
-  Phase15bUpgradeHintProjection,
-  PlanningHandoffArtifactDto,
-  PlanningHandoffBlockerArtifactDto,
-  PlanningHandoffProjection,
-  PlanningHandoffResidualRiskDto,
-  PlanningHandoffSourceRefDto,
-  ResearchAllowlistGovernanceProjection,
-  ResearchDisclosureLogProjection,
-  ResearchEvidenceProjection,
-  ResearchRunControlProjection,
-  SseEvent
+import {
+  isTerminalResearchRunStatus,
+  type DecisionQueueProjection,
+  type Phase15bUpgradeHintApiRecord,
+  type Phase15bUpgradeHintProjection,
+  type PlanningHandoffArtifactDto,
+  type PlanningHandoffBlockerArtifactDto,
+  type PlanningHandoffProjection,
+  type PlanningHandoffResidualRiskDto,
+  type PlanningHandoffSourceRefDto,
+  type ResearchAllowlistGovernanceProjection,
+  type ResearchDisclosureLogProjection,
+  type ResearchEvidenceProjection,
+  type ResearchRunControlProjection,
+  type ResearchTaskId,
+  type SseEvent
 } from "@solo-superman/contracts";
 import { formatListWithFallback as commaList } from "./text-formatting";
 
@@ -25,6 +27,7 @@ export interface QueueSectionViewModel {
 }
 
 type QueueSectionItem = DecisionQueueProjection[QueueSectionId][number];
+type ResearchAllowlistProjection = ResearchAllowlistGovernanceProjection["allowlists"][number];
 
 export type DecisionQueueRecoveryUiStatus = "idle" | "pending_refetch" | "recovering" | "recovered_by_refetch" | "stale";
 
@@ -248,6 +251,37 @@ export function draftedActiveQuestionAnswerIds(
       .filter((item) => answerDrafts[item.queueItemId]?.trim())
       .map((item) => item.queueItemId) ?? []
   );
+}
+
+export function startableReadOnlyResearchTaskIds({
+  research,
+  runs,
+  allowlist
+}: {
+  readonly research: ResearchEvidenceProjection | null | undefined;
+  readonly runs: ResearchRunControlProjection | null | undefined;
+  readonly allowlist: ResearchAllowlistProjection | null | undefined;
+}): readonly ResearchTaskId[] {
+  if (!research || !allowlist) {
+    return [];
+  }
+
+  const nonTerminalRuns = runs?.runs.filter((run) => !isTerminalResearchRunStatus(run.status)) ?? [];
+  const taskIdsWithActiveRuns = new Set(nonTerminalRuns.map((run) => run.researchTaskId));
+  const availableConcurrency = Math.max(
+    0,
+    allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject - nonTerminalRuns.length
+  );
+
+  if (availableConcurrency === 0) {
+    return [];
+  }
+
+  return research.tasks
+    .filter((task) => task.status === "planned")
+    .filter((task) => !taskIdsWithActiveRuns.has(task.researchTaskId))
+    .slice(0, availableConcurrency)
+    .map((task) => task.researchTaskId);
 }
 
 function queueSectionItems(queue: DecisionQueueProjection): readonly QueueSectionItem[] {

@@ -334,6 +334,12 @@ const EN_COPY = {
     importResearchAriaPrefix: "Import research for",
     importResult: "Import result",
     startReadOnlyRun: "Start public web run",
+    startReadyReadOnlyRuns: (count: number) =>
+      count === 0
+        ? "No ready public web runs"
+        : count === 1
+          ? "Start 1 ready public web run"
+          : `Start ${count} ready public web runs`,
     additionalQuestions: "Research-generated follow-up questions",
     noResearchTasks: "No research tasks yet."
   },
@@ -891,6 +897,8 @@ const JA_COPY: typeof EN_COPY = {
     importResearchAriaPrefix: "リサーチ取り込み",
     importResult: "結果を取り込む",
     startReadOnlyRun: "公開Webリサーチを開始",
+    startReadyReadOnlyRuns: (count: number) =>
+      count === 0 ? "開始できる公開Webリサーチはありません" : `準備済み公開Webリサーチを${count}件開始`,
     additionalQuestions: "リサーチが生成した追加質問",
     noResearchTasks: "リサーチタスクはまだありません。"
   },
@@ -1448,6 +1456,8 @@ const KO_COPY: typeof EN_COPY = {
     importResearchAriaPrefix: "리서치 가져오기",
     importResult: "결과 가져오기",
     startReadOnlyRun: "공개 웹 리서치 실행 시작",
+    startReadyReadOnlyRuns: (count: number) =>
+      count === 0 ? "시작할 준비가 된 공개 웹 리서치 없음" : `준비된 공개 웹 리서치 ${count}개 시작`,
     additionalQuestions: "리서치가 생성한 후속 질문",
     noResearchTasks: "아직 리서치 작업이 없습니다."
   },

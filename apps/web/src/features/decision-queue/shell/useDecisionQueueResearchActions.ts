@@ -12,8 +12,9 @@ import type {
 import { requiredCommandProjection } from "../../../shared/api/command-response-helpers";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
+import { startableReadOnlyResearchTaskIds } from "../decision-queue-view-model";
 import {
-  allowlistPermitsWebPublicResearch,
+  activeWebPublicResearchAllowlist,
   buildWebResearchRunRequest,
   webPublicResearchAllowlistPolicy
 } from "../phase15a-research-run-request";
@@ -38,6 +39,9 @@ interface DecisionQueueResearchActionsProps {
   readonly setResearchOperations: Dispatch<SetStateAction<ResearchOperationsState>>;
   readonly setWorkflowError: Dispatch<SetStateAction<string | null>>;
 }
+
+type ResearchAllowlistProjection = ResearchAllowlistGovernanceProjection["allowlists"][number];
+type ResearchTaskProjection = ResearchEvidenceProjection["tasks"][number];
 
 export function useDecisionQueueResearchActions({
   appendCommand,
@@ -210,35 +214,26 @@ export function useDecisionQueueResearchActions({
     }
   }, [appendCommand, client, projections, refreshProjections]);
 
-  const startReadOnlyResearchRun = useCallback(async (researchTaskId: ResearchTaskId) => {
-    if (!client || !projections.session) {
-      setWorkflowError("An active project is required before starting a research run.");
-      return;
-    }
+  const startReadOnlyResearchRunForTask = useCallback(
+    async ({
+      allowlist,
+      label,
+      projectId,
+      task
+    }: {
+      readonly allowlist: ResearchAllowlistProjection;
+      readonly label: string;
+      readonly projectId: ProjectId;
+      readonly task: ResearchTaskProjection;
+    }) => {
+      if (!client) {
+        throw new Error("A sidecar connection is required before starting a research run.");
+      }
 
-    const task = projections.research?.tasks.find((item) => item.researchTaskId === researchTaskId);
-    const allowlist = researchOperations.allowlists?.allowlists.find(
-      (item) => item.status === "active" && allowlistPermitsWebPublicResearch(item)
-    );
-
-    if (!task) {
-      setWorkflowError("Select a planned research task before starting a read-only research run.");
-      return;
-    }
-
-    if (!allowlist) {
-      setWorkflowError("Create or reactivate an active public web allowlist before starting a research run.");
-      return;
-    }
-
-    setIsBusy(true);
-    setWorkflowError(null);
-
-    try {
       const response = await appendCommand(
-        "Start public web research run",
+        label,
         await client.startResearchRun(
-          projections.session.projectId,
+          projectId,
           buildWebResearchRunRequest({
             allowlist,
             specTitle: projections.spec?.title,
@@ -255,28 +250,130 @@ export function useDecisionQueueResearchActions({
       }));
 
       if (selectedRun && (selectedRun.status === "running" || selectedRun.status === "queued")) {
-        const refreshedRuns = await client.getResearchRunStatus(projections.session.projectId, selectedRun.researchRunId);
+        const refreshedRuns = await client.getResearchRunStatus(projectId, selectedRun.researchRunId);
 
         setResearchOperations((current) => ({
           ...current,
           runs: refreshedRuns
         }));
-      } else {
-        await refreshResearchOperations(projections.session.projectId);
       }
+    },
+    [appendCommand, client, projections.spec, setResearchOperations]
+  );
+
+  const startReadOnlyResearchRun = useCallback(async (researchTaskId: ResearchTaskId) => {
+    if (!client || !projections.session) {
+      setWorkflowError("An active project is required before starting a research run.");
+      return;
+    }
+
+    const task = projections.research?.tasks.find((item) => item.researchTaskId === researchTaskId);
+    const allowlist = activeWebPublicResearchAllowlist(researchOperations.allowlists);
+
+    if (!task) {
+      setWorkflowError("Select a planned research task before starting a read-only research run.");
+      return;
+    }
+
+    if (task.status !== "planned") {
+      setWorkflowError("Only planned research tasks can start a new read-only research run.");
+      return;
+    }
+
+    if (!allowlist) {
+      setWorkflowError("Create or reactivate an active public web allowlist before starting a research run.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      await startReadOnlyResearchRunForTask({
+        allowlist,
+        label: "Start public web research run",
+        projectId: projections.session.projectId,
+        task
+      });
+      await refreshResearchOperations(projections.session.projectId);
     } catch (error) {
       setWorkflowError(displayError(error));
     } finally {
       setIsBusy(false);
     }
   }, [
-    appendCommand,
     client,
     projections.research,
     projections.session,
-    projections.spec,
     refreshResearchOperations,
-    researchOperations.allowlists
+    researchOperations.allowlists,
+    startReadOnlyResearchRunForTask
+  ]);
+
+  const startReadyReadOnlyResearchRuns = useCallback(async () => {
+    if (!client || !projections.session) {
+      setWorkflowError("An active project is required before starting ready research runs.");
+      return;
+    }
+
+    const allowlist = activeWebPublicResearchAllowlist(researchOperations.allowlists);
+
+    if (!allowlist) {
+      setWorkflowError("Create or reactivate an active public web allowlist before starting research runs.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const projectId = projections.session.projectId;
+      const latestRuns = await client.listResearchRuns(projectId);
+      const taskIds = startableReadOnlyResearchTaskIds({
+        research: projections.research,
+        runs: latestRuns,
+        allowlist
+      });
+
+      setResearchOperations((current) => ({
+        ...current,
+        runs: latestRuns
+      }));
+
+      if (!taskIds.length) {
+        setWorkflowError("No planned public web research tasks are ready within the active allowlist concurrency budget.");
+        return;
+      }
+
+      for (const [index, researchTaskId] of taskIds.entries()) {
+        const task = projections.research?.tasks.find((item) => item.researchTaskId === researchTaskId);
+
+        if (!task) {
+          continue;
+        }
+
+        await startReadOnlyResearchRunForTask({
+          allowlist,
+          label: `Start public web research run ${index + 1}/${taskIds.length}`,
+          projectId,
+          task
+        });
+      }
+
+      await refreshResearchOperations(projectId);
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [
+    client,
+    projections.research,
+    projections.session,
+    refreshResearchOperations,
+    researchOperations.allowlists,
+    setResearchOperations,
+    startReadOnlyResearchRunForTask
   ]);
 
   const refreshResearchRunStatus = useCallback(
@@ -374,6 +471,7 @@ export function useDecisionQueueResearchActions({
     revokeAllowlist,
     planPhase15aResearchTask,
     startReadOnlyResearchRun,
+    startReadyReadOnlyResearchRuns,
     refreshResearchRunStatus,
     cancelResearchRun,
     retryResearchRun
