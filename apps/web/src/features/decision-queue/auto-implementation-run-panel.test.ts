@@ -18,6 +18,16 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.stages).toHaveLength(7);
     expect(view.stages[0]!.status).toBe("ready");
     expect(view.issueDocs[0]!.relativePath).toContain("implementation-issues/001-initial_pr.md");
+    expect(view.deliveryGates).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("two consecutive no-finding passes")
+      ])
+    );
+    expect(view.stageReviewGates.find((stage) => stage.stage === "merge_main")?.gates).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("rerun the full verification command on main")
+      ])
+    );
     expect(view.remoteWarning).toContain("Remote is not connected");
     expect(view.remoteCommands).toContain("git remote add origin <github-repo-url>");
   });
@@ -44,6 +54,9 @@ describe("AutoImplementationRunPanel view model", () => {
 
     expect(markup).toContain("Auto implementation workspace");
     expect(markup).toContain("Initial implementation and PR creation");
+    expect(markup).toContain("Review and merge protocol");
+    expect(markup).toContain("Do not merge until the feature PR code review reaches two consecutive no-finding passes");
+    expect(markup).toContain("Sync main after merge and rerun the full verification command on main.");
     expect(markup).toContain("implementation-issues/001-initial_pr.md");
     expect(markup).toContain("git remote add origin");
   });

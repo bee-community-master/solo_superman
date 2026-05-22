@@ -54,6 +54,16 @@ describe("AutoImplementationRunProjection contract", () => {
       status: "ready"
     });
     expect(readyRun.issueManagement.mode).toBe("markdown_fallback");
+    expect(readyRun.reviewProtocol.deliveryGates).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("two consecutive no-finding passes")
+      ])
+    );
+    expect(readyRun.reviewProtocol.stageGates.find((gate) => gate.stage === "merge_main")?.gates).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("rerun the full verification command on main")
+      ])
+    );
     expect(readyRun.remoteGuide.commands).toContain("gh auth login");
   });
 
@@ -100,6 +110,18 @@ describe("AutoImplementationRunProjection contract", () => {
       issueManagement: {
         ...readyRun.issueManagement,
         issueDocs: outOfOrderIssueDocs
+      }
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects projections when review gates do not cover the canonical delivery protocol", () => {
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      reviewProtocol: {
+        ...readyRun.reviewProtocol,
+        deliveryGates: readyRun.reviewProtocol.deliveryGates.slice(1)
       }
     });
 
