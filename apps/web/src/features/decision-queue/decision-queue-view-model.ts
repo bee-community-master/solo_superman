@@ -288,7 +288,7 @@ export function questionFatigueViewModel(progress: QuestionProgressViewModel): Q
 
   return {
     shouldShow,
-    level: breakRecommended ? "break_recommended" : "checkpoint",
+    level: shouldShow && breakRecommended ? "break_recommended" : "checkpoint",
     generatedQuestionCount: progress.generatedQuestionCount,
     openQuestionCount: progress.openQuestionCount,
     completionPercent,

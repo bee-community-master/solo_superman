@@ -254,6 +254,33 @@ describe("Decision Queue view model queue", () => {
     });
   });
 
+  it("recommends a break for extreme question debt while completion stays low", () => {
+    expect(
+      questionFatigueViewModel({
+        generatedQuestionCount: 64,
+        openQuestionCount: 34,
+        answeredQuestionCount: 12,
+        terminalQuestionCount: 14,
+        followUpQuestionCount: 24,
+        followUpOpenQuestionCount: 16,
+        topicCoverageCount: 20,
+        openTopicCoverageCount: 14,
+        followUpBudgetRemainingCount: 72,
+        visibleQuestionDebtCount: 9,
+        activeQuestionCount: 5,
+        upcomingQuestionCount: 3,
+        blockedQuestionCount: 1,
+        completionPercent: 22
+      })
+    ).toMatchObject({
+      shouldShow: true,
+      level: "break_recommended",
+      generatedQuestionCount: 64,
+      openQuestionCount: 34,
+      followUpBudgetRemainingCount: 72
+    });
+  });
+
   it("summarizes pending effects without inventing product state", () => {
     const statuses: readonly StatusEndpointDto[] = [
       {
