@@ -7,6 +7,7 @@ import {
   type BusinessCriticIntensity,
   type CodexRuntimeLoginStartDto,
   type CodexRuntimeStatusDto,
+  type CreateAutoImplementationRunRequest,
   type ExecutionAuthorityLedgerProjection,
   type Phase15bUpgradeHintProjection,
   type ProjectPurposeMode,
@@ -15,6 +16,10 @@ import {
   type StatusEndpointDto
 } from "@solo-superman/contracts";
 import { autoImplementationRunViewModel } from "../AutoImplementationRunPanel";
+import {
+  buildAutoImplementationGitHubIssueApprovedRequest,
+  buildAutoImplementationGitHubIssueDryRunRequest
+} from "../auto-implementation-github-issue-request";
 import {
   buildAutoImplementationPullRequestBodyApprovedRequest,
   buildAutoImplementationPullRequestDryRunRequest,
@@ -651,6 +656,78 @@ export function useDecisionQueueShellController() {
     }
   }, [client, projections]);
 
+  const recordAutoImplementationGitHubIssueMutationRun = useCallback(async (input: {
+    readonly buildRequest: (
+      requestInput: {
+        readonly sessionId: SessionId;
+        readonly run: AutoImplementationRun;
+      }
+    ) => CreateAutoImplementationRunRequest;
+    readonly missingRunMessage: string;
+    readonly logIdPrefix: string;
+    readonly label: string;
+  }) => {
+    const sessionId = projections.session?.sessionId;
+    const run = projections.autoImplementationRuns?.latestRun;
+
+    if (!client || !sessionId || !run) {
+      setWorkflowError(input.missingRunMessage);
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const autoImplementationRuns = await client.createAutoImplementationRun(
+        input.buildRequest({ sessionId, run })
+      );
+
+      setProjections((current) => ({
+        ...current,
+        autoImplementationRuns
+      }));
+      setCommandLog((current) => [
+        {
+          id: `${input.logIdPrefix}:${run.runId}:${Date.now()}`,
+          label: input.label,
+          createdAt: new Date().toISOString(),
+          message: autoImplementationRuns.summary
+        },
+        ...current
+      ].slice(0, COMMAND_LOG_LIMIT));
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [client, projections]);
+
+  const recordAutoImplementationGitHubIssueDryRun = useCallback(
+    () => recordAutoImplementationGitHubIssueMutationRun({
+      buildRequest: buildAutoImplementationGitHubIssueDryRunRequest,
+      missingRunMessage: "An active auto implementation workspace run is required before recording a GitHub issue dry-run.",
+      logIdPrefix: "auto-implementation-github-issue-dry-run",
+      label: "Record GitHub issue dry-run"
+    }),
+    [recordAutoImplementationGitHubIssueMutationRun]
+  );
+
+  const applyAutoImplementationGitHubIssueCreation = useCallback(
+    () => recordAutoImplementationGitHubIssueMutationRun({
+      buildRequest: ({ run, sessionId }) =>
+        buildAutoImplementationGitHubIssueApprovedRequest({
+          run,
+          sessionId,
+          approvedAt: new Date().toISOString()
+        }),
+      missingRunMessage: "An active auto implementation workspace run is required before applying approved GitHub issue creation.",
+      logIdPrefix: "auto-implementation-github-issue-approved",
+      label: "Apply approved GitHub issues"
+    }),
+    [recordAutoImplementationGitHubIssueMutationRun]
+  );
+
   const recordAutoImplementationPullRequestMutationAction = useCallback(async (input: {
     readonly buildRequest: (
       requestInput: {
@@ -939,6 +1016,8 @@ export function useDecisionQueueShellController() {
     deleteServicePageArtifacts,
     createAutoImplementationRun,
     planAutoImplementationWorkerJob,
+    recordAutoImplementationGitHubIssueDryRun,
+    applyAutoImplementationGitHubIssueCreation,
     recordAutoImplementationPullRequestOpenDryRun,
     applyAutoImplementationPullRequestOpen,
     recordAutoImplementationPullRequestDryRun,
