@@ -1,11 +1,53 @@
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { AUTO_IMPLEMENTATION_RUN_READY_FIXTURE, type AutoImplementationRunProjection } from "@solo-superman/contracts";
+import {
+  AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+  type AutoImplementationRun,
+  type AutoImplementationRunProjection
+} from "@solo-superman/contracts";
 import {
   AutoImplementationRunPanel,
   autoImplementationRunViewModel
 } from "./AutoImplementationRunPanel";
 import { renderEnglishMarkup } from "./test-rendering";
+
+function prMutationRecord(
+  overrides: Partial<AutoImplementationRun["pullRequestMutations"]["records"][number]> = {}
+): AutoImplementationRun["pullRequestMutations"]["records"][number] {
+  return {
+    mutationId: "auto-pr-mutation:auto_run_demo:update_pr_body:update_1",
+    action: "update_pr_body",
+    requestMode: "approved",
+    status: "applied",
+    requiredRemoteStatus: "connected",
+    mutatesGitHub: true,
+    pullRequestUrl: "https://github.com/bee-community-master/demo/pull/1",
+    issueLinks: ["local-001", "https://github.com/bee-community-master/demo/issues/1"],
+    implementationScope: "Update the generated PR body with current review and verification evidence.",
+    reviewStreakRefs: ["code-review:feature:clean-1", "code-review:repo:clean-2"],
+    verificationCommands: ["pnpm verify"],
+    knownGaps: ["Live browser screenshot not captured."],
+    rollbackNotes: "Use gh pr edit to restore the previous PR body.",
+    mergeEvidenceRefs: ["github-pr-mutation:merge:completed"],
+    bodyEvidenceRefs: ["pr-body:current-evidence"],
+    approval: {
+      approvalId: "approval_github_pr_mutation",
+      approvedBy: "local_operator",
+      approvedAt: "2026-05-05T00:00:00.000Z",
+      actionClass: "github_pr_mutation",
+      approvalGranularity: "per_action",
+      remoteStatusAtApproval: "connected",
+      rollbackPlan: "Restore the previous PR body or revert the merge commit.",
+      evidenceRefs: ["approval:github_pr_mutation:update_body"]
+    },
+    blockedReason: null,
+    auditEvidenceRefs: ["github-pr-mutation:applied"],
+    verifierEvidenceRefs: ["verifier:github_pr_mutation:ready"],
+    createdAt: "2026-05-05T00:00:00.000Z",
+    updatedAt: "2026-05-05T00:00:00.000Z",
+    ...overrides
+  };
+}
 
 describe("AutoImplementationRunPanel view model", () => {
   it("shows workspace, five-minute stages, markdown issues, and remote guide", () => {
@@ -18,6 +60,9 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.githubIssueMutationLabel).toContain("not_requested");
     expect(view.githubIssuePlans[0]!.bodyMarkdownPath).toContain("implementation-issues/001-initial_pr.md");
     expect(view.githubCreatedIssueUrls).toEqual([]);
+    expect(view.pullRequestMutationLabel).toBe("GitHub PR mutation: no records");
+    expect(view.pullRequestMutationHistoryCount).toBe(0);
+    expect(view.latestPullRequestMutation).toBeNull();
     expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
     expect(view.latestWorkerJobNextAction).toContain("current stage issue document");
     expect(view.canPlanWorkerJob).toBe(true);
@@ -48,8 +93,77 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.workspaceLabel).toContain("workspace/<project>");
     expect(view.remoteNextAction).toContain("planning handoff");
     expect(view.githubIssueMutationLabel).toContain("not requested");
+    expect(view.pullRequestMutationLabel).toContain("no records");
+    expect(view.latestPullRequestMutation).toBeNull();
     expect(view.latestWorkerJobLabel).toContain("not planned");
     expect(view.canPlanWorkerJob).toBe(false);
+  });
+
+  it("shows the latest GitHub PR mutation evidence and history count", () => {
+    const record = prMutationRecord();
+    const projection = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        pullRequestMutations: {
+          records: [
+            prMutationRecord({
+              mutationId: "auto-pr-mutation:auto_run_demo:open_pr:open_1",
+              action: "open_pr",
+              status: "dry_run_ready",
+              requestMode: "dry_run",
+              mutatesGitHub: false,
+              pullRequestUrl: null,
+              bodyEvidenceRefs: [],
+              mergeEvidenceRefs: [],
+              blockedReason: null
+            }),
+            record
+          ],
+          latestRecord: record
+        }
+      }
+    } as AutoImplementationRunProjection;
+    const view = autoImplementationRunViewModel(projection);
+
+    expect(view.pullRequestMutationLabel).toBe("GitHub PR mutation: update_pr_body applied");
+    expect(view.pullRequestMutationHistoryCount).toBe(2);
+    expect(view.latestPullRequestMutation).toMatchObject({
+      action: "update_pr_body",
+      status: "applied",
+      pullRequestUrl: "https://github.com/bee-community-master/demo/pull/1"
+    });
+  });
+
+
+  it("uses the projection latestRecord when the mutation state carries one", () => {
+    const openRecord = prMutationRecord({
+      mutationId: "auto-pr-mutation:auto_run_demo:open_pr:open_1",
+      action: "open_pr",
+      status: "dry_run_ready",
+      requestMode: "dry_run",
+      mutatesGitHub: false,
+      pullRequestUrl: null,
+      bodyEvidenceRefs: [],
+      mergeEvidenceRefs: [],
+      blockedReason: null
+    });
+    const updateRecord = prMutationRecord();
+    const view = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        pullRequestMutations: {
+          records: [updateRecord, openRecord],
+          latestRecord: updateRecord
+        }
+      }
+    } as AutoImplementationRunProjection);
+
+    expect(view.pullRequestMutationLabel).toBe("GitHub PR mutation: update_pr_body applied");
+    expect(view.latestPullRequestMutation).toMatchObject({
+      mutationId: "auto-pr-mutation:auto_run_demo:update_pr_body:update_1"
+    });
   });
 
   it("shows the latest local worker blocker when a bounded Codex job exists", () => {
@@ -157,6 +271,7 @@ describe("AutoImplementationRunPanel view model", () => {
     const legacyLatestRun = { ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun! } as Record<string, unknown>;
 
     delete legacyLatestRun.workerJobs;
+    delete legacyLatestRun.pullRequestMutations;
     const projection = {
       ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
       latestRun: legacyLatestRun,
@@ -165,7 +280,48 @@ describe("AutoImplementationRunPanel view model", () => {
     const view = autoImplementationRunViewModel(projection);
 
     expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
+    expect(view.pullRequestMutationLabel).toBe("GitHub PR mutation: no records");
+    expect(view.latestPullRequestMutation).toBeNull();
     expect(view.latestWorkerJobNextAction).toContain("bounded local worker job");
+  });
+
+  it("renders the latest GitHub PR mutation evidence", () => {
+    const record = prMutationRecord();
+    const view = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        pullRequestMutations: {
+          records: [record],
+          latestRecord: record
+        }
+      }
+    } as AutoImplementationRunProjection);
+    const markup = renderEnglishMarkup(
+      createElement(AutoImplementationRunPanel, {
+        run: view,
+        isBusy: false,
+        onCreateRun: () => undefined,
+        onPlanWorkerJob: () => undefined,
+        onRunWorkerJob: () => undefined,
+        onAdvanceWorkerStage: () => undefined,
+        onRefreshRun: () => undefined
+      })
+    );
+
+    expect(markup).toContain("GitHub PR mutation evidence");
+    expect(markup).toContain("GitHub PR mutation: update_pr_body applied");
+    expect(markup).toContain("1 PR mutation record(s) captured.");
+    expect(markup).toContain("https://github.com/bee-community-master/demo/pull/1");
+    expect(markup).toContain("Update the generated PR body with current review and verification evidence.");
+    expect(markup).toContain("code-review:feature:clean-1");
+    expect(markup).toContain("pnpm verify");
+    expect(markup).toContain("approval:github_pr_mutation:update_body");
+    expect(markup).toContain("Restore the previous PR body or revert the merge commit.");
+    expect(markup).toContain("pr-body:current-evidence");
+    expect(markup).toContain("github-pr-mutation:merge:completed");
+    expect(markup).toContain("verifier:github_pr_mutation:ready");
+    expect(markup).toContain("Use gh pr edit to restore the previous PR body.");
   });
 
   it("renders the remote warning and local issue documents", () => {
@@ -190,6 +346,9 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("implementation-issues/001-initial_pr.md");
     expect(markup).toContain("GitHub issue mutation contract");
     expect(markup).toContain("GitHub issue mutation: not_requested");
+    expect(markup).toContain("GitHub PR mutation evidence");
+    expect(markup).toContain("GitHub PR mutation: no records");
+    expect(markup).toContain("No GitHub PR mutation records yet");
     expect(markup).toContain("Local Codex worker: not planned");
     expect(markup).toContain("Plan worker job");
     expect(markup).toContain("Run worker job");
