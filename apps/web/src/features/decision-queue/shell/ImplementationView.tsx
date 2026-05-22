@@ -18,6 +18,8 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     isBusy,
     pendingSummary,
     planAutoImplementationWorkerJob,
+    applyAutoImplementationPullRequestBodyUpdate,
+    applyAutoImplementationPullRequestMerge,
     projections,
     recordAutoImplementationPullRequestOpenDryRun,
     recordAutoImplementationPullRequestDryRun,
@@ -50,6 +52,12 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         }}
         onRecordPullRequestMergeDryRun={() => {
           void recordAutoImplementationPullRequestMergeDryRun();
+        }}
+        onApplyPullRequestBodyUpdate={() => {
+          void applyAutoImplementationPullRequestBodyUpdate();
+        }}
+        onApplyPullRequestMerge={() => {
+          void applyAutoImplementationPullRequestMerge();
         }}
         onRunWorkerJob={() => {
           void runAutoImplementationWorkerJob();

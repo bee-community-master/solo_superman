@@ -52,6 +52,8 @@ export interface AutoImplementationRunViewModel {
   readonly latestWorkerPlan: AutoImplementationWorkerPlanView | null;
   readonly canPlanWorkerJob: boolean;
   readonly canRecordPullRequestDryRun: boolean;
+  readonly canApplyPullRequestBodyUpdate: boolean;
+  readonly canApplyPullRequestMerge: boolean;
   readonly canRunWorkerJob: boolean;
   readonly canAdvanceWorkerStage: boolean;
   readonly hasRun: boolean;
@@ -95,6 +97,8 @@ export function autoImplementationRunViewModel(
       latestWorkerPlan: null,
       canPlanWorkerJob: false,
       canRecordPullRequestDryRun: false,
+      canApplyPullRequestBodyUpdate: false,
+      canApplyPullRequestMerge: false,
       canRunWorkerJob: false,
       canAdvanceWorkerStage: false,
       hasRun: false
@@ -137,6 +141,12 @@ export function autoImplementationRunViewModel(
       latestWorkerJob.missingEvidence.length === 1 &&
       latestWorkerJob.missingEvidence[0] === "Local Codex worker execution"
     );
+  const hasReadyPullRequestDryRun = (action: AutoImplementationPullRequestMutationRecord["action"]) =>
+    pullRequestMutationRecords.some((record) =>
+      record.action === action &&
+      record.requestMode === "dry_run" &&
+      record.status === "dry_run_ready"
+    );
 
   return {
     status: run.status,
@@ -171,6 +181,8 @@ export function autoImplementationRunViewModel(
     latestWorkerPlan,
     canPlanWorkerJob: run.status !== "completed",
     canRecordPullRequestDryRun: run.status !== "completed",
+    canApplyPullRequestBodyUpdate: run.status !== "completed" && hasReadyPullRequestDryRun("update_pr_body"),
+    canApplyPullRequestMerge: run.status !== "completed" && hasReadyPullRequestDryRun("merge_pr"),
     canRunWorkerJob,
     canAdvanceWorkerStage: latestWorkerJob?.status === "completed",
     hasRun: true
@@ -189,6 +201,8 @@ interface AutoImplementationRunPanelProps {
   readonly onRecordPullRequestOpenDryRun: () => void;
   readonly onRecordPullRequestDryRun: () => void;
   readonly onRecordPullRequestMergeDryRun: () => void;
+  readonly onApplyPullRequestBodyUpdate: () => void;
+  readonly onApplyPullRequestMerge: () => void;
   readonly onRunWorkerJob: () => void;
   readonly onAdvanceWorkerStage: () => void;
   readonly onRefreshRun: () => void;
@@ -202,6 +216,8 @@ export function AutoImplementationRunPanel({
   onRecordPullRequestOpenDryRun,
   onRecordPullRequestDryRun,
   onRecordPullRequestMergeDryRun,
+  onApplyPullRequestBodyUpdate,
+  onApplyPullRequestMerge,
   onRunWorkerJob,
   onAdvanceWorkerStage,
   onRefreshRun
@@ -248,6 +264,20 @@ export function AutoImplementationRunPanel({
           onClick={onRecordPullRequestMergeDryRun}
         >
           {copy.autoImplementation.recordPullRequestMergeDryRun}
+        </button>
+        <button
+          type="button"
+          disabled={isBusy || !run.canApplyPullRequestBodyUpdate}
+          onClick={onApplyPullRequestBodyUpdate}
+        >
+          {copy.autoImplementation.applyPullRequestBodyUpdate}
+        </button>
+        <button
+          type="button"
+          disabled={isBusy || !run.canApplyPullRequestMerge}
+          onClick={onApplyPullRequestMerge}
+        >
+          {copy.autoImplementation.applyPullRequestMerge}
         </button>
         <button type="button" disabled={isBusy || !run.canRunWorkerJob} onClick={onRunWorkerJob}>
           {copy.autoImplementation.runWorkerJob}

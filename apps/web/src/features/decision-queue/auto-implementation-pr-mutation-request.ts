@@ -70,12 +70,61 @@ function knownGapsForMergeDryRun(
   ].filter((gap): gap is string => gap !== null);
 }
 
+function knownGapsForApprovedBodyUpdate(
+  run: AutoImplementationRun,
+  pullRequestUrl: string | undefined,
+  bodyEvidenceRefs: readonly string[]
+) {
+  return [
+    run.remoteStatus === "connected" ? null : `Remote status is ${run.remoteStatus}; mutation stays blocked until connected.`,
+    pullRequestUrl ? null : "No GitHub PR URL has been recorded yet.",
+    bodyEvidenceRefs.length ? null : "No current PR body evidence has been recorded yet."
+  ].filter((gap): gap is string => gap !== null);
+}
+
+function knownGapsForApprovedMerge(
+  run: AutoImplementationRun,
+  pullRequestUrl: string | undefined,
+  bodyEvidenceRefs: readonly string[],
+  mergeEvidenceRefs: readonly string[]
+) {
+  return [
+    run.remoteStatus === "connected" ? null : `Remote status is ${run.remoteStatus}; mutation stays blocked until connected.`,
+    pullRequestUrl ? null : "No GitHub PR URL has been recorded yet.",
+    mergeEvidenceRefs.length
+      ? null
+      : "final_verify_pr_update has not recorded completed merge-readiness ledger evidence yet.",
+    bodyEvidenceRefs.length ? null : "No current PR body evidence has been recorded yet."
+  ].filter((gap): gap is string => gap !== null);
+}
+
 function pullRequestTitle(run: AutoImplementationRun) {
   return `Auto implementation ${run.projectFolderName}`;
 }
 
 function currentStageBodyEvidenceRef(run: AutoImplementationRun) {
   return `pr-body:dry-run:${run.runId}:${run.currentStage}`;
+}
+
+function approvedPullRequestMutationApproval(input: {
+  readonly run: AutoImplementationRun;
+  readonly action: "update_pr_body" | "merge_pr";
+  readonly approvedAt: string;
+}) {
+  const actionSlug = input.action === "update_pr_body" ? "pr_body_update" : "pr_merge";
+
+  return {
+    approvalId: `approval_${actionSlug}_${input.run.runId}_${input.run.currentStage}_${input.run.pullRequestMutations.records.length}`,
+    approvedBy: "local_operator",
+    approvedAt: input.approvedAt,
+    actionClass: "github_pr_mutation",
+    approvalGranularity: "per_action",
+    remoteStatusAtApproval: "connected",
+    rollbackPlan: input.action === "update_pr_body"
+      ? "Restore the previous PR body with gh pr edit if the approved body update is wrong."
+      : "Revert the merge commit or reopen the PR if post-merge verification fails.",
+    evidenceRefs: [`local-operator-click:github-pr-mutation:${input.action}:${input.run.runId}:${input.run.currentStage}`]
+  } as const;
 }
 
 export function buildAutoImplementationPullRequestOpenDryRunRequest(input: {
@@ -127,6 +176,66 @@ export function buildAutoImplementationPullRequestMergeDryRunRequest(input: {
     ...(mergeEvidenceRefs.length ? { mergeEvidenceRefs } : {}),
     ...(bodyEvidenceRefs.length ? { bodyEvidenceRefs } : {}),
     verifierEvidenceRefs: [`verifier:pr-merge-dry-run:${run.runId}:${run.currentStage}`]
+  };
+}
+
+export function buildAutoImplementationPullRequestBodyApprovedRequest(input: {
+  readonly sessionId: SessionId;
+  readonly run: AutoImplementationRun;
+  readonly approvedAt: string;
+}): RecordAutoImplementationPullRequestMutationRequest {
+  const { approvedAt, run, sessionId } = input;
+  const pullRequestUrl = latestPullRequestUrl(run);
+  const bodyEvidenceRefs = latestPullRequestBodyEvidenceRefs(run);
+
+  return {
+    sessionId,
+    runId: run.runId,
+    action: "update_pr_body",
+    requestMode: "approved",
+    idempotencyKey: `pr-body-approved:${run.currentStage}:${run.pullRequestMutations.records.length}:${run.updatedAt}`,
+    ...(pullRequestUrl ? { pullRequestUrl } : {}),
+    pullRequestTitle: pullRequestTitle(run),
+    issueLinks: issueLinksForRun(run),
+    implementationScope: `Apply approved PR body update for ${run.currentStage} using ${run.issueManagement.trackerRelativePath}.`,
+    reviewStreakRefs: reviewStreakRefsForRun(run),
+    verificationCommands: ["pnpm verify"],
+    knownGaps: knownGapsForApprovedBodyUpdate(run, pullRequestUrl, bodyEvidenceRefs),
+    rollbackNotes: "Approved PR body update may mutate GitHub through gh pr edit when all reducer gates pass.",
+    ...(bodyEvidenceRefs.length ? { bodyEvidenceRefs } : {}),
+    approval: approvedPullRequestMutationApproval({ run, action: "update_pr_body", approvedAt }),
+    verifierEvidenceRefs: [`verifier:pr-body-approved:${run.runId}:${run.currentStage}`]
+  };
+}
+
+export function buildAutoImplementationPullRequestMergeApprovedRequest(input: {
+  readonly sessionId: SessionId;
+  readonly run: AutoImplementationRun;
+  readonly approvedAt: string;
+}): RecordAutoImplementationPullRequestMutationRequest {
+  const { approvedAt, run, sessionId } = input;
+  const pullRequestUrl = latestPullRequestUrl(run);
+  const bodyEvidenceRefs = latestPullRequestBodyEvidenceRefs(run);
+  const mergeEvidenceRefs = finalVerificationMergeEvidenceRefs(run);
+
+  return {
+    sessionId,
+    runId: run.runId,
+    action: "merge_pr",
+    requestMode: "approved",
+    idempotencyKey: `pr-merge-approved:${run.currentStage}:${run.pullRequestMutations.records.length}:${run.updatedAt}`,
+    ...(pullRequestUrl ? { pullRequestUrl } : {}),
+    pullRequestTitle: pullRequestTitle(run),
+    issueLinks: issueLinksForRun(run),
+    implementationScope: `Apply approved PR merge for ${run.currentStage} using ${run.issueManagement.trackerRelativePath}.`,
+    reviewStreakRefs: reviewStreakRefsForRun(run),
+    verificationCommands: ["pnpm verify"],
+    knownGaps: knownGapsForApprovedMerge(run, pullRequestUrl, bodyEvidenceRefs, mergeEvidenceRefs),
+    rollbackNotes: "Approved PR merge may mutate GitHub through gh pr merge when final verification and PR body gates pass.",
+    ...(mergeEvidenceRefs.length ? { mergeEvidenceRefs } : {}),
+    ...(bodyEvidenceRefs.length ? { bodyEvidenceRefs } : {}),
+    approval: approvedPullRequestMutationApproval({ run, action: "merge_pr", approvedAt }),
+    verifierEvidenceRefs: [`verifier:pr-merge-approved:${run.runId}:${run.currentStage}`]
   };
 }
 
