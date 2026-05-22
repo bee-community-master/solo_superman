@@ -388,6 +388,55 @@ describe("Decision Queue view model phase15a", () => {
     ]);
   });
 
+  it("skips planned research tasks that already have an active run", () => {
+    const [baseAllowlist] = allowlistProjection().allowlists;
+    const [baseTask] = researchProjection(false).tasks;
+    const [baseRun] = runProjection().runs;
+
+    if (!baseAllowlist || !baseTask || !baseRun) {
+      throw new Error("Phase 1.5A active-run exclusion fixture is incomplete.");
+    }
+
+    const allowlist = {
+      ...baseAllowlist,
+      rateBudgetPolicy: {
+        ...baseAllowlist.rateBudgetPolicy,
+        maxConcurrentRunsPerProject: 3
+      }
+    };
+    const readyTaskIds = [
+      "research_task_active_exclusion_1",
+      "research_task_active_exclusion_2",
+      "research_task_active_exclusion_3"
+    ] as const;
+    const research = {
+      ...researchProjection(false),
+      taskIds: readyTaskIds.map((taskId) => taskId as ResearchTaskId),
+      tasks: readyTaskIds.map((taskId) => ({
+        ...baseTask,
+        researchTaskId: taskId as ResearchTaskId,
+        status: "planned" as const,
+        objective: `Validate active-run exclusion for ${taskId}.`
+      }))
+    };
+    const runs = {
+      ...runProjection(),
+      runs: [
+        {
+          ...baseRun,
+          researchTaskId: "research_task_active_exclusion_2" as ResearchTaskId,
+          status: "running" as const,
+          qualityGateStatus: "not_evaluated" as const
+        }
+      ]
+    };
+
+    expect(startableReadOnlyResearchTaskIds({ research, runs, allowlist })).toEqual([
+      "research_task_active_exclusion_1",
+      "research_task_active_exclusion_3"
+    ]);
+  });
+
   it("localizes Research operations dynamic labels for Japanese users", () => {
     const operations = phase15aOperationsViewModel(
       {
