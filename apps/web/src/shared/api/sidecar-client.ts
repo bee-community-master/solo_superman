@@ -16,6 +16,7 @@ import type {
   AdvanceAutoImplementationWorkerStageRequest,
   CompleteAutoImplementationWorkerJobRequest,
   ImportAutoImplementationWorkerLedgerRequest,
+  RunAutoImplementationWorkerJobRequest,
   CreateManualHandoffRequest,
   CreateChatGptBrowserDelegationRunRequest,
   CreateServicePageUsePermissionRequest,
@@ -73,6 +74,7 @@ import {
   autoImplementationRunPath,
   autoImplementationWorkerJobPath,
   autoImplementationWorkerJobCompletePath,
+  autoImplementationWorkerJobRunPath,
   autoImplementationWorkerLedgerImportPath,
   autoImplementationWorkerStageAdvancePath,
   implementationStepLedgerPath,
@@ -135,6 +137,7 @@ export type CreateAutoImplementationRunInput = CreateAutoImplementationRunReques
 export type CreateAutoImplementationWorkerJobInput = CreateAutoImplementationWorkerJobRequest;
 export type CompleteAutoImplementationWorkerJobInput = CompleteAutoImplementationWorkerJobRequest;
 export type ImportAutoImplementationWorkerLedgerInput = ImportAutoImplementationWorkerLedgerRequest;
+export type RunAutoImplementationWorkerJobInput = RunAutoImplementationWorkerJobRequest;
 export type AdvanceAutoImplementationWorkerStageInput = AdvanceAutoImplementationWorkerStageRequest;
 export type RecordAutoImplementationStageInput = RecordAutoImplementationStageRequest;
 export type CreateChatGptBrowserDelegationRunInput = CreateChatGptBrowserDelegationRunRequest;
@@ -559,6 +562,13 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
     importAutoImplementationWorkerLedger(input: ImportAutoImplementationWorkerLedgerInput) {
       return postProjection<AutoImplementationRunProjection>(
         autoImplementationWorkerLedgerImportPath(input.sessionId, input.runId, input.jobId),
+        input
+      );
+    },
+
+    runAutoImplementationWorkerJob(input: RunAutoImplementationWorkerJobInput) {
+      return postProjection<AutoImplementationRunProjection>(
+        autoImplementationWorkerJobRunPath(input.sessionId, input.runId, input.jobId),
         input
       );
     },

@@ -624,6 +624,7 @@ describe("API route catalog", () => {
       "createAutoImplementationWorkerJob",
       "completeAutoImplementationWorkerJob",
       "importAutoImplementationWorkerLedger",
+      "runAutoImplementationWorkerJob",
       "advanceAutoImplementationWorkerStage",
       "recordAutoImplementationStage"
     ]);
@@ -659,6 +660,12 @@ describe("API route catalog", () => {
     expect(routeById.get("importAutoImplementationWorkerLedger")).toMatchObject({
       method: "POST",
       path: "/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/ledger-import",
+      commandType: "none",
+      implementedInPr01: false
+    });
+    expect(routeById.get("runAutoImplementationWorkerJob")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/run",
       commandType: "none",
       implementedInPr01: false
     });

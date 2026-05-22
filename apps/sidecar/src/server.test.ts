@@ -49,6 +49,7 @@ import { hashBrowserActionPreview } from "./product-engine/browser-action-adapte
 import { hashFileDiffPreview } from "./product-engine/file-diff-adapter";
 import { hashShellCommandPreview } from "./product-engine/shell-command-adapter";
 import { CodexRuntimeUnavailableError, createCodexRuntimeAdapter, fixtureCodexPreviewOutput } from "./runtime";
+import type { CodexRuntimeAdapter } from "./runtime";
 import { createSidecarApp } from "./server";
 
 const localCapabilityToken = "test-local-capability-token";
@@ -261,6 +262,31 @@ async function postAutoImplementationWorkerLedgerImportForTest(
 ) {
   return Promise.resolve(storageApp.request(
     `/api/v1/sessions/${sessionId}/auto-implementation-runs/${runId}/worker-jobs/${encodeURIComponent(jobId)}/ledger-import`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        sessionId,
+        runId,
+        jobId,
+        ...payload
+      })
+    }
+  ));
+}
+
+async function postAutoImplementationWorkerRunForTest(
+  storageApp: RequestTestApp,
+  sessionId: string,
+  runId: string,
+  jobId: string,
+  payload: Readonly<Record<string, unknown>>
+) {
+  return Promise.resolve(storageApp.request(
+    `/api/v1/sessions/${sessionId}/auto-implementation-runs/${runId}/worker-jobs/${encodeURIComponent(jobId)}/run`,
     {
       method: "POST",
       headers: {
@@ -8979,6 +9005,167 @@ describe("PR-02 sidecar health shell", () => {
       expect(advancedStages[1]).toMatchObject({
         stage: "code_review_fix_1",
         status: "ready"
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("runs planned local Codex worker jobs and imports returned ledger evidence", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "An auto implementation worker run bridge test"
+      );
+      const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:worker-run",
+        projectName: "Worker Run Demo"
+      });
+      const runId = String(latestAutoImplementationRunFromBody(await jsonBody(created)).runId);
+      const { recordId: authorityRecordId } = await createExecutionAuthorityForTest(
+        storageApp,
+        sessionId,
+        "auto_worker_run",
+        {
+          requestedScope: {
+            workspaceRef: join(workspaceRoot, "worker-run-demo"),
+            filePathGlobs: ["**/*"]
+          }
+        }
+      );
+      const plannedJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:run",
+        executionAuthorityRef: authorityRecordId
+      });
+      const plannedJobs = latestAutoImplementationRunFromBody(await jsonBody(plannedJobResponse)).workerJobs as
+        readonly Readonly<Record<string, unknown>>[];
+      const plannedJobId = String(plannedJobs.at(-1)!.jobId);
+      const runResponse = await postAutoImplementationWorkerRunForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-run:fixture",
+          evidenceRefs: ["worker-run:route-request"]
+        }
+      );
+      const runProjection = latestAutoImplementationRunFromBody(await jsonBody(runResponse));
+      const runJobs = runProjection.workerJobs as readonly Readonly<Record<string, unknown>>[];
+      const runStages = runProjection.stagePlan as readonly Readonly<Record<string, unknown>>[];
+      const ledgerResponse = await storageApp.request(`/api/v1/sessions/${sessionId}/implementation-step-ledger`, {
+        headers: authHeaders()
+      });
+      const ledger = jsonDataRecord(await jsonBody(ledgerResponse));
+
+      expect(runResponse.status).toBe(200);
+      expect(runProjection).toMatchObject({
+        status: "running",
+        currentStage: "initial_pr"
+      });
+      expect(runStages[0]).toMatchObject({
+        stage: "initial_pr",
+        status: "ready",
+        ledgerEvidence: null
+      });
+      expect(runJobs.at(-1)).toMatchObject({
+        status: "completed",
+        missingEvidence: [],
+        blockedReason: null,
+        nextRequiredAction: expect.stringContaining("existing stage endpoint"),
+        evidenceRefs: expect.arrayContaining([
+          `auto-worker-run:${plannedJobId}:worker-run:fixture`,
+          `auto-worker-ledger-import:${plannedJobId}:worker-run:fixture:ledger-import`,
+          `codex-worker:${plannedJobId}:fixture`,
+          "codex-worker:fixture:completed",
+          "implementation-step-ledger:step_demo",
+          "commit:abcdef1",
+          "test:verify",
+          "worker-run:route-request"
+        ])
+      });
+      expect(ledgerResponse.status).toBe(200);
+      expect(ledger).toMatchObject({
+        kind: "ImplementationStepLedgerProjection",
+        currentStatus: "completed",
+        summary: expect.stringContaining("completed")
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("keeps worker jobs visibly blocked when local Codex runtime execution is unavailable", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const unavailableAdapter = {
+      ...fixtureCodexRuntimeAdapter,
+      async executeWorker() {
+        throw new CodexRuntimeUnavailableError("Synthetic local Codex worker unavailable.");
+      }
+    } satisfies CodexRuntimeAdapter;
+    const { app: storageApp, storage } = await createMigratedStorageApp(unavailableAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "An auto implementation worker unavailable run bridge test"
+      );
+      const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:worker-run-unavailable",
+        projectName: "Worker Run Unavailable Demo"
+      });
+      const runId = String(latestAutoImplementationRunFromBody(await jsonBody(created)).runId);
+      const { recordId: authorityRecordId } = await createExecutionAuthorityForTest(
+        storageApp,
+        sessionId,
+        "auto_worker_run_unavailable",
+        {
+          requestedScope: {
+            workspaceRef: join(workspaceRoot, "worker-run-unavailable-demo"),
+            filePathGlobs: ["**/*"]
+          }
+        }
+      );
+      const plannedJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:run-unavailable",
+        executionAuthorityRef: authorityRecordId
+      });
+      const plannedJobs = latestAutoImplementationRunFromBody(await jsonBody(plannedJobResponse)).workerJobs as
+        readonly Readonly<Record<string, unknown>>[];
+      const plannedJobId = String(plannedJobs.at(-1)!.jobId);
+      const runResponse = await postAutoImplementationWorkerRunForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-run:unavailable"
+        }
+      );
+      const runProjection = latestAutoImplementationRunFromBody(await jsonBody(runResponse));
+      const runJobs = runProjection.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(runResponse.status).toBe(200);
+      expect(runProjection).toMatchObject({
+        status: "blocked",
+        currentStage: "initial_pr"
+      });
+      expect(runJobs.at(-1)).toMatchObject({
+        status: "blocked",
+        missingEvidence: ["Local Codex worker execution"],
+        blockedReason: "Synthetic local Codex worker unavailable.",
+        nextRequiredAction: expect.stringContaining("Retry the local Codex worker run"),
+        evidenceRefs: expect.arrayContaining([
+          `auto-worker-run:${plannedJobId}:worker-run:unavailable`,
+          "worker-blocked:codex-runtime"
+        ])
       });
     } finally {
       await storage.close();
