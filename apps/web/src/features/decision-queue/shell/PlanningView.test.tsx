@@ -154,7 +154,12 @@ describe("PlanningView", () => {
     const markup = renderPlanningView({
       projections: {
         ...emptyProjectionState(),
-        queue: queueWithSkippedAxes(["market_size", "investor_narrative", "acquisition_channel"])
+        queue: queueWithSkippedAxes([
+          "market_size",
+          "investor_narrative",
+          "willingness_to_pay",
+          "acquisition_channel"
+        ])
       }
     });
 
@@ -162,6 +167,7 @@ describe("PlanningView", () => {
     expect(markup).toContain("Personal mode keeps these business/investor checks visible");
     expect(markup).toContain("Market size");
     expect(markup).toContain("Investor narrative");
+    expect(markup).toContain("Willingness to pay");
     expect(markup).toContain("Acquisition channel");
     expect(markup).not.toContain("market_size");
   });
