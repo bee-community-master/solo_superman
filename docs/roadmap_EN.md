@@ -41,7 +41,7 @@ The controlled runner advances stages only through 5-minute tick records. Comple
 - #86, #87, and #88 established the web/local migration and Phase 3 controlled execution prerequisite gates.
 - #91 became the unified tracker for Phase 3 and Post-Phase3 work.
 - #92, #93, #94, #95, #96, and #97 covered Phase 3 ledger, approval/API security, `file_diff`, `shell_command`, `browser_action`, and closeout hardening.
-- #99, #100, #101, #102, #103, #104, #105, #106, #108, #110, #112, #114, #116, #118, and #120 exposed stage tick/lifecycle controls, manual worker completion, planned worker ledger-doc binding, exact planned worker ledger docs inside bounded worker plans, manual ledger-import binding to those planned docs, current-stage worker control scoping, operator UI/manual recovery for worker ledger imports, current-stage worker replan guards, duplicate PR-open guards, duplicate PR-merge guards, and duplicate GitHub issue-creation guards.
+- #99, #100, #101, #102, #103, #104, #105, #106, #108, #110, #112, #114, #116, #118, #120, and #122 exposed stage tick/lifecycle controls, manual worker completion, planned worker ledger-doc binding, exact planned worker ledger docs inside bounded worker plans, manual ledger-import binding to those planned docs, current-stage worker control scoping, operator UI/manual recovery for worker ledger imports, current-stage worker replan guards, duplicate PR-open guards, duplicate PR-merge guards, duplicate GitHub issue-creation guards, and stage-completion tick-cadence guards.
 - #98 was the temporary standalone Post-Phase3 tracker and is a closed absorbed reference only.
 
 ## Transition rule

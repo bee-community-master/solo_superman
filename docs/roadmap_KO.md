@@ -41,7 +41,7 @@ Controlled runner는 5분 tick record로만 stage를 advance합니다. Stage com
 - #86, #87, #88은 web/local migration과 Phase 3 controlled execution prerequisite gate를 세웠습니다.
 - #91은 Phase 3와 Post-Phase3 work의 unified tracker가 되었습니다.
 - #92, #93, #94, #95, #96, #97은 Phase 3 ledger, approval/API security, `file_diff`, `shell_command`, `browser_action`, closeout hardening을 다뤘습니다.
-- #99, #100, #101, #102, #103, #104, #105, #106, #108, #110, #112, #114, #116, #118, #120은 stage tick/lifecycle control, manual worker completion, planned worker ledger-doc binding, exact planned worker ledger doc의 bounded worker plan 저장/표시, manual ledger import의 planned doc binding, current-stage worker control scoping, worker ledger import의 operator UI/manual recovery, current-stage worker replan guard, duplicate PR-open guard, duplicate PR-merge guard, duplicate GitHub issue-creation guard를 노출했습니다.
+- #99, #100, #101, #102, #103, #104, #105, #106, #108, #110, #112, #114, #116, #118, #120, #122는 stage tick/lifecycle control, manual worker completion, planned worker ledger-doc binding, exact planned worker ledger doc의 bounded worker plan 저장/표시, manual ledger import의 planned doc binding, current-stage worker control scoping, worker ledger import의 operator UI/manual recovery, current-stage worker replan guard, duplicate PR-open guard, duplicate PR-merge guard, duplicate GitHub issue-creation guard, stage-completion tick-cadence guard를 노출했습니다.
 - #98은 임시 standalone Post-Phase3 tracker였고, 지금은 closed absorbed reference only입니다.
 
 ## 전환 규칙
