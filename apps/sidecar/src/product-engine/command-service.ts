@@ -16,11 +16,13 @@ import {
   assertSafeResearchConnectorId,
   AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE,
   AUTO_IMPLEMENTATION_SCHEMA_VERSION,
-  AUTO_IMPLEMENTATION_STAGE_LABELS,
   AUTO_IMPLEMENTATION_STAGES,
   AUTO_IMPLEMENTATION_TICK_INTERVAL_MS,
+  AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
   AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS,
   AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY,
+  autoImplementationWorkerExpectedChangeScope,
+  autoImplementationWorkerLedgerStepDescription,
   validateAutoImplementationRunProjection,
   ImplementationStepLedgerValidationError,
   validateImplementationStepLedgerProjection,
@@ -960,13 +962,47 @@ function isAutoImplementationWorkerExecutionCandidate(job: AutoImplementationWor
     );
 }
 
+function normalizeLegacyAutoImplementationWorkerJob(
+  run: AutoImplementationRun,
+  job: AutoImplementationWorkerJob
+): AutoImplementationWorkerJob {
+  const plan = job.executionPlan as AutoImplementationWorkerJob["executionPlan"] & {
+    readonly ledgerTrackerDoc?: TrackerDoc;
+    readonly ledgerStepDoc?: ImplementationStepDoc;
+  };
+
+  if (plan.ledgerTrackerDoc && plan.ledgerStepDoc) {
+    return job;
+  }
+
+  return {
+    ...job,
+    executionPlan: {
+      ...plan,
+      ledgerTrackerDoc: plan.ledgerTrackerDoc ?? autoImplementationWorkerLedgerTrackerDoc(run),
+      ledgerStepDoc: plan.ledgerStepDoc ?? autoImplementationWorkerLedgerStepDoc({
+        run,
+        stage: job.stage,
+        issueId: job.issueId,
+        issueTitle: job.issueTitle,
+        issueRelativePath: job.issueRelativePath,
+        jobId: job.jobId,
+        sourceRefs: plan.sourceRefs
+      })
+    }
+  };
+}
+
 function normalizeLegacyAutoImplementationRun(run: AutoImplementationRun): AutoImplementationRun {
   const workerJobs = (run as { readonly workerJobs?: unknown }).workerJobs;
   const pullRequestMutations = (run as { readonly pullRequestMutations?: unknown }).pullRequestMutations;
+  const normalizedWorkerJobs = Array.isArray(workerJobs)
+    ? run.workerJobs.map((job) => normalizeLegacyAutoImplementationWorkerJob(run, job))
+    : [];
 
   return {
     ...run,
-    workerJobs: Array.isArray(workerJobs) ? run.workerJobs : [],
+    workerJobs: normalizedWorkerJobs,
     pullRequestMutations: pullRequestMutations &&
       typeof pullRequestMutations === "object" &&
       Array.isArray((pullRequestMutations as { readonly records?: unknown }).records)
@@ -1093,12 +1129,30 @@ function autoImplementationWorkerPlan(input: {
   readonly run: AutoImplementationRun;
   readonly issue: AutoImplementationRun["issueManagement"]["issueDocs"][number];
   readonly executionAuthorityRef: string | null;
+  readonly jobId: string;
 }) {
+  const sourceRefs = [
+    `auto-implementation-run:${input.run.runId}`,
+    `auto-implementation-stage:${input.issue.stage}`,
+    `auto-implementation-issue:${input.issue.issueId}`,
+    `issue-doc:${input.issue.relativePath}`
+  ];
+
   return {
     executionMode: AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE,
     workingDirectory: input.run.generatedRepoPath,
     issueDocumentPath: input.issue.relativePath,
     executionAuthorityRef: input.executionAuthorityRef,
+    ledgerTrackerDoc: autoImplementationWorkerLedgerTrackerDoc(input.run),
+    ledgerStepDoc: autoImplementationWorkerLedgerStepDoc({
+      run: input.run,
+      stage: input.issue.stage,
+      issueId: input.issue.issueId,
+      issueTitle: input.issue.title,
+      issueRelativePath: input.issue.relativePath,
+      jobId: input.jobId,
+      sourceRefs
+    }),
     allowedWriteScope: [
       ".",
       input.issue.relativePath,
@@ -1121,12 +1175,7 @@ function autoImplementationWorkerPlan(input: {
       "account, billing, or permission changes",
       "destructive filesystem writes outside the generated workspace repo"
     ],
-    sourceRefs: [
-      `auto-implementation-run:${input.run.runId}`,
-      `auto-implementation-stage:${input.issue.stage}`,
-      `auto-implementation-issue:${input.issue.issueId}`,
-      `issue-doc:${input.issue.relativePath}`
-    ]
+    sourceRefs
   };
 }
 
@@ -1134,7 +1183,7 @@ function autoImplementationWorkerLedgerTrackerDoc(run: AutoImplementationRun): T
   return {
     trackerId: `auto-implementation-tracker:${run.runId}`,
     title: `${run.projectFolderName} implementation tracker`,
-    goal: "Complete the staged auto implementation protocol with review, clean-code, test, PR, and merge evidence.",
+    goal: AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
     sourceRefs: [
       `auto-implementation-run:${run.runId}`,
       `tracker-doc:${run.issueManagement.trackerRelativePath}`
@@ -1142,39 +1191,33 @@ function autoImplementationWorkerLedgerTrackerDoc(run: AutoImplementationRun): T
   };
 }
 
-function autoImplementationWorkerStepChangeScope(
-  stage: AutoImplementationRun["currentStage"]
-): ImplementationStepDoc["expectedChangeScope"] {
-  if (stage === "merge_main") {
-    return "no_op_review";
-  }
-
-  if (stage === "final_verify_pr_update") {
-    return "verification_only";
-  }
-
-  return "tracked_code_docs_config";
-}
-
 function autoImplementationWorkerLedgerStepDoc(input: {
   readonly run: AutoImplementationRun;
-  readonly workerJob: AutoImplementationWorkerJob;
+  readonly stage: AutoImplementationRun["currentStage"];
+  readonly issueId: string;
+  readonly issueTitle: string;
+  readonly issueRelativePath: string;
+  readonly jobId: string;
+  readonly sourceRefs: readonly string[];
 }): ImplementationStepDoc {
-  const { run, workerJob } = input;
+  const { run } = input;
 
   return {
-    stepId: `auto-implementation-step:${run.runId}:${workerJob.stage}:${workerJob.issueId}`,
-    title: workerJob.issueTitle,
-    description: `Execute ${AUTO_IMPLEMENTATION_STAGE_LABELS[workerJob.stage]} for ${workerJob.issueRelativePath}.`,
+    stepId: `auto-implementation-step:${run.runId}:${input.stage}:${input.issueId}`,
+    title: input.issueTitle,
+    description: autoImplementationWorkerLedgerStepDescription({
+      stage: input.stage,
+      issueRelativePath: input.issueRelativePath
+    }),
     sourceRefs: uniqueAutoImplementationRefs([
       `auto-implementation-run:${run.runId}`,
-      `auto-implementation-stage:${workerJob.stage}`,
-      `auto-implementation-worker-job:${workerJob.jobId}`,
-      `auto-implementation-issue:${workerJob.issueId}`,
-      `issue-doc:${workerJob.issueRelativePath}`,
-      ...workerJob.executionPlan.sourceRefs
+      `auto-implementation-stage:${input.stage}`,
+      `auto-implementation-worker-job:${input.jobId}`,
+      `auto-implementation-issue:${input.issueId}`,
+      `issue-doc:${input.issueRelativePath}`,
+      ...input.sourceRefs
     ]),
-    expectedChangeScope: autoImplementationWorkerStepChangeScope(workerJob.stage)
+    expectedChangeScope: autoImplementationWorkerExpectedChangeScope(input.stage)
   };
 }
 
@@ -1206,7 +1249,8 @@ function autoImplementationWorkerJob(input: {
     executionPlan: autoImplementationWorkerPlan({
       run: input.run,
       issue: input.issue,
-      executionAuthorityRef
+      executionAuthorityRef,
+      jobId
     }),
     blockedReason,
     missingEvidence,
@@ -5047,11 +5091,8 @@ export function createProductEngineCommandService(
         requiredEvidence: activeWorkerJob.executionPlan.requiredEvidence,
         forbiddenActions: activeWorkerJob.executionPlan.forbiddenActions,
         sourceRefs: activeWorkerJob.executionPlan.sourceRefs,
-        ledgerTrackerDoc: autoImplementationWorkerLedgerTrackerDoc(activeRun),
-        ledgerStepDoc: autoImplementationWorkerLedgerStepDoc({
-          run: activeRun,
-          workerJob: activeWorkerJob
-        })
+        ledgerTrackerDoc: activeWorkerJob.executionPlan.ledgerTrackerDoc,
+        ledgerStepDoc: activeWorkerJob.executionPlan.ledgerStepDoc
       };
 
       try {

@@ -17,6 +17,8 @@ interface AutoImplementationWorkerPlanView {
   readonly workingDirectory: string;
   readonly issueDocumentPath: string;
   readonly executionAuthorityRef: string | null;
+  readonly ledgerTrackerDoc: AutoImplementationWorkerExecutionPlan["ledgerTrackerDoc"];
+  readonly ledgerStepDoc: AutoImplementationWorkerExecutionPlan["ledgerStepDoc"];
   readonly allowedWriteScope: readonly string[];
   readonly requiredEvidence: readonly string[];
   readonly forbiddenActions: readonly string[];
@@ -146,6 +148,8 @@ export function autoImplementationRunViewModel(
         workingDirectory: latestWorkerJob.executionPlan.workingDirectory,
         issueDocumentPath: latestWorkerJob.executionPlan.issueDocumentPath,
         executionAuthorityRef: latestWorkerJob.executionPlan.executionAuthorityRef,
+        ledgerTrackerDoc: latestWorkerJob.executionPlan.ledgerTrackerDoc,
+        ledgerStepDoc: latestWorkerJob.executionPlan.ledgerStepDoc,
         allowedWriteScope: latestWorkerJob.executionPlan.allowedWriteScope,
         requiredEvidence: latestWorkerJob.executionPlan.requiredEvidence,
         forbiddenActions: latestWorkerJob.executionPlan.forbiddenActions,
@@ -406,6 +410,25 @@ export function AutoImplementationRunPanel({
               <div>
                 <dt>{copy.autoImplementation.workerPlanExecutionAuthority}</dt>
                 <dd>{run.latestWorkerPlan.executionAuthorityRef ?? copy.autoImplementation.missingExecutionAuthority}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerPlanLedgerTrackerDoc}</dt>
+                <dd>
+                  {run.latestWorkerPlan.ledgerTrackerDoc.trackerId}: {run.latestWorkerPlan.ledgerTrackerDoc.title}
+                </dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerPlanLedgerStepDoc}</dt>
+                <dd>
+                  {run.latestWorkerPlan.ledgerStepDoc.stepId}: {run.latestWorkerPlan.ledgerStepDoc.title} ({run.latestWorkerPlan.ledgerStepDoc.expectedChangeScope})
+                </dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerPlanLedgerDocSourceRefs}</dt>
+                <dd>{inlineList([
+                  ...run.latestWorkerPlan.ledgerTrackerDoc.sourceRefs,
+                  ...run.latestWorkerPlan.ledgerStepDoc.sourceRefs
+                ], copy.autoImplementation.none)}</dd>
               </div>
               <div>
                 <dt>{copy.autoImplementation.workerPlanAllowedWriteScope}</dt>
