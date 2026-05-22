@@ -24,6 +24,14 @@ function businessCriticSummary(copy: DecisionQueueCopy, item: QueueItemProjectio
     .join(" · ");
 }
 
+function boundedPercent(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.min(100, Math.max(0, value));
+}
+
 export function QuestionsView({ controller }: QuestionsViewProps) {
   const copy = useDecisionQueueCopy();
   const [selectedAnswerOptionIds, setSelectedAnswerOptionIds] = useState<Record<string, string>>({});
@@ -42,6 +50,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     setKnownRiskDrafts,
     submitAnswer
   } = controller;
+  const completionPercent = boundedPercent(questionProgress.completionPercent);
 
   return (
     <div className="view-grid questions-view">
@@ -75,12 +84,12 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
               {copy.questions.questionProgressSummary(
                 questionProgress.terminalQuestionCount,
                 questionProgress.generatedQuestionCount,
-                questionProgress.completionPercent
+                completionPercent
               )}
             </p>
           </div>
           <div className="question-progress-track" aria-hidden="true">
-            <span style={{ width: `${Math.min(100, questionProgress.completionPercent)}%` }} />
+            <span style={{ width: `${completionPercent}%` }} />
           </div>
           <dl className="question-progress-metrics">
             <div>

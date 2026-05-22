@@ -18,6 +18,8 @@ import {
   AUTO_IMPLEMENTATION_STAGES,
   AUTO_IMPLEMENTATION_TICK_INTERVAL_MS,
   validateAutoImplementationRunProjection,
+  ImplementationStepLedgerValidationError,
+  validateImplementationStepLedgerProjection,
   isTerminalResearchRunStatus,
   type ApiErrorCode,
   type AutoImplementationStageLedgerEvidence,
@@ -517,7 +519,7 @@ function uniqueAutoImplementationRefs(values: readonly string[]) {
 }
 
 function autoImplementationStageActionRef(request: RecordAutoImplementationStageRequest) {
-  return `auto-stage-action:${request.idempotencyKey}`;
+  return `auto-stage-action:${request.runId}:${request.stage}:${request.action}:${request.idempotencyKey}`;
 }
 
 function autoImplementationStageStatusForAction(
@@ -557,6 +559,28 @@ function autoImplementationRunStatusForAction(
       return "blocked";
     case "tick":
       return currentStatus;
+  }
+}
+
+function validatedLedgerForAutoImplementationStage(
+  ledger: ImplementationStepLedgerProjection | null
+): ImplementationStepLedgerProjection | null {
+  if (!ledger) {
+    return null;
+  }
+
+  try {
+    return validateImplementationStepLedgerProjection(ledger);
+  } catch (error) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "Auto implementation stage completion requires a valid ImplementationStepLedger projection.",
+      {
+        issues: error instanceof ImplementationStepLedgerValidationError
+          ? error.issues
+          : [error instanceof Error ? error.message : String(error)]
+      }
+    );
   }
 }
 
@@ -5077,13 +5101,29 @@ export function createProductEngineCommandService(
         throw new ProductEngineServiceError("VALIDATION_FAILED", "Requested auto implementation stage is not in the run plan.");
       }
 
+      if (
+        request.action === "complete" &&
+        request.implementationStepId &&
+        run.stagePlan.some((stage) =>
+          stage.stage !== request.stage &&
+          stage.ledgerEvidence?.implementationStepId === request.implementationStepId
+        )
+      ) {
+        throw new ProductEngineServiceError(
+          "VALIDATION_FAILED",
+          "Auto implementation stage completion requires an implementation step that has not completed another stage."
+        );
+      }
+
       const recordedAt = request.tickedAt ?? new Date().toISOString();
       const nextTickAt = addMilliseconds(recordedAt, AUTO_IMPLEMENTATION_TICK_INTERVAL_MS);
       const requestEvidenceRefs = request.evidenceRefs ?? [];
       const ledger = request.action === "complete"
-        ? await projectionRepository.get<ImplementationStepLedgerProjection>(
-          request.sessionId,
-          "ImplementationStepLedgerProjection"
+        ? validatedLedgerForAutoImplementationStage(
+          await projectionRepository.get<ImplementationStepLedgerProjection>(
+            request.sessionId,
+            "ImplementationStepLedgerProjection"
+          )
         )
         : null;
       const ledgerStep = request.action === "complete"
@@ -5124,7 +5164,7 @@ export function createProductEngineCommandService(
         }
 
         if (request.action === "complete" && index === stageIndex + 1) {
-          const readyRef = `auto-stage-ready:${request.idempotencyKey}`;
+          const readyRef = `auto-stage-ready:${request.runId}:${stage.stage}:${request.idempotencyKey}`;
           const readyTick = autoImplementationStageTickRecord({
             request: {
               ...request,

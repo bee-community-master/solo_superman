@@ -2048,6 +2048,58 @@ describe("PR-04 ProductEngine reducer", () => {
         })
       ])
     );
+
+    const synthesizedState = {
+      ...importedState,
+      ...synthesized.nextState
+    } as ProductEngineStateSnapshot;
+    const originalResearchFollowUpId = synthesizedState.queueProjection.active.find(
+      (item) => item.cardType === "follow_up_question"
+    )?.queueItemId;
+
+    expect(originalResearchFollowUpId).toBeDefined();
+
+    const stateAfterClosedResearchFollowUp = {
+      ...synthesizedState,
+      openIssues: synthesizedState.openIssues.map((issue) =>
+        issue.queueItemId === originalResearchFollowUpId
+          ? {
+              ...issue,
+              status: "answered" as const
+            }
+          : issue
+      ),
+      queueProjection: {
+        ...synthesizedState.queueProjection,
+        active: synthesizedState.queueProjection.active.filter((item) => item.queueItemId !== originalResearchFollowUpId),
+        next: synthesizedState.queueProjection.next.filter((item) => item.queueItemId !== originalResearchFollowUpId),
+        blocked: synthesizedState.queueProjection.blocked.filter((item) => item.queueItemId !== originalResearchFollowUpId),
+        deferred: synthesizedState.queueProjection.deferred.filter((item) => item.queueItemId !== originalResearchFollowUpId)
+      }
+    } as ProductEngineStateSnapshot;
+    const resynthesized = reduceProductEngineCommand(
+      effectExecutorCommand("SynthesizeEvidence", stateAfterClosedResearchFollowUp.stateVersion, { researchResultId }, 4),
+      stateAfterClosedResearchFollowUp
+    );
+    const resynthesizedQueue = resynthesized.nextState.queueProjection as DecisionQueueProjection;
+    const resynthesizedQueueIds = [
+      ...resynthesizedQueue.active,
+      ...resynthesizedQueue.next,
+      ...resynthesizedQueue.blocked,
+      ...resynthesizedQueue.deferred
+    ].map((item) => item.queueItemId);
+
+    expect(resynthesized.accepted).toBe(true);
+    expect(resynthesizedQueueIds).not.toContain(originalResearchFollowUpId);
+    expect(resynthesized.nextState.openIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          queueItemId: originalResearchFollowUpId,
+          status: "answered"
+        })
+      ])
+    );
+    expect(resynthesized.events[0]?.payload).not.toHaveProperty("researchFollowUpQueueItemIds");
   });
 
   it("persists a decision-linked Evidence Pack and keeps unknown quality gates in review", () => {

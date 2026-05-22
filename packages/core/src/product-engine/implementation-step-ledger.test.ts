@@ -554,6 +554,52 @@ describe("RecordImplementationStepLedger reducer", () => {
     expect(projection.steps[0]!.missingEvidence).toContain("passing TestEvidenceRecord without failed tests or Not-tested gaps");
   });
 
+  it("rejects malformed no-code state and fractional test counts before ledger projection", () => {
+    const malformedNoCode = reduceProductEngineCommand(
+      command(fullPayload({
+        stepDoc: {
+          stepId: "step_no_code_malformed",
+          title: "Malformed no-code evidence",
+          description: "Reject string booleans instead of treating them as dirty tracked state.",
+          sourceRefs: ["issue:104"],
+          expectedChangeScope: "verification_only"
+        },
+        stepCommitRecord: undefined,
+        noCodeStepEvidence: {
+          stepId: "step_no_code_malformed",
+          baselineCommitSha: "1234567",
+          cleanTrackedState: "true",
+          intendedTrackedDiff: "none",
+          noCodeReason: "Malformed cleanTrackedState must not be coerced.",
+          commandEvidenceRefs: ["git:status"],
+          notTestedGaps: []
+        }
+      })),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+    const fractionalTests = reduceProductEngineCommand(
+      command(fullPayload({
+        testEvidenceRecord: {
+          stepId: "step_contracts",
+          testEvidenceId: "test_step_contracts_fractional",
+          commands: ["pnpm test"],
+          outcome: "passed",
+          verifiedCommitSha: "abcdef1",
+          passedTestCount: 1.5,
+          failedTestCount: 0,
+          notTestedGaps: [],
+          evidenceRefs: ["test:fractional"]
+        }
+      })),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(malformedNoCode.accepted).toBe(false);
+    expect(malformedNoCode.rejectionReason?.message).toContain("evidence records are invalid");
+    expect(fractionalTests.accepted).toBe(false);
+    expect(fractionalTests.rejectionReason?.message).toContain("evidence records are invalid");
+  });
+
   it("rejects credential or token shaped ledger payload values without echoing them into a projection", () => {
     const tokenShapedValue = "access_token=redacted_test_value_1234567890";
     const reduction = reduceProductEngineCommand(

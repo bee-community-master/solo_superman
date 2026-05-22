@@ -464,6 +464,17 @@ function isGitHubIssuePlan(value: unknown): value is AutoImplementationGitHubIss
     isOneOf(value.sourceStage, AUTO_IMPLEMENTATION_STAGES);
 }
 
+function isGitHubIssueUrl(value: unknown): value is string {
+  if (!isNonEmptyString(value)) {
+    return false;
+  }
+
+  const trimmed = value.trim();
+
+  return value === trimmed &&
+    /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/issues\/[1-9]\d*\/?$/iu.test(trimmed);
+}
+
 function isGitHubIssueApproval(value: unknown): value is AutoImplementationGitHubIssueApproval {
   return isRecord(value) &&
     isNonEmptyString(value.approvalId) &&
@@ -473,7 +484,8 @@ function isGitHubIssueApproval(value: unknown): value is AutoImplementationGitHu
     value.approvalGranularity === AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_GRANULARITY &&
     value.remoteStatusAtApproval === "connected" &&
     isNonEmptyString(value.rollbackPlan) &&
-    isStringArray(value.evidenceRefs);
+    isStringArray(value.evidenceRefs) &&
+    value.evidenceRefs.length > 0;
 }
 
 function isGitHubIssueMutationContract(value: unknown): value is AutoImplementationGitHubIssueMutationContract {
@@ -486,8 +498,10 @@ function isGitHubIssueMutationContract(value: unknown): value is AutoImplementat
     (value.blockedReason === null || isNonEmptyString(value.blockedReason)) &&
     Array.isArray(value.plannedIssues) &&
     value.plannedIssues.every(isGitHubIssuePlan) &&
-    isStringArray(value.createdIssueUrls) &&
+    Array.isArray(value.createdIssueUrls) &&
+    value.createdIssueUrls.every(isGitHubIssueUrl) &&
     isStringArray(value.auditEvidenceRefs) &&
+    value.auditEvidenceRefs.length > 0 &&
     isStringArray(value.verifierEvidenceRefs);
 }
 
@@ -497,7 +511,8 @@ function isIssueManagement(value: unknown): value is AutoImplementationIssueMana
     isNonEmptyString(value.trackerRelativePath) &&
     Array.isArray(value.issueDocs) &&
     value.issueDocs.every(isIssueDoc) &&
-    isStringArray(value.githubIssueUrls) &&
+    Array.isArray(value.githubIssueUrls) &&
+    value.githubIssueUrls.every(isGitHubIssueUrl) &&
     isGitHubIssueMutationContract(value.githubIssueMutation) &&
     (value.warning === null || isNonEmptyString(value.warning));
 }
@@ -531,6 +546,10 @@ function hasCanonicalIssueDocs(issueDocs: readonly AutoImplementationIssueDocume
 
 function arraysMatch(left: readonly string[], right: readonly string[]) {
   return left.length === right.length && left.every((item, index) => item === right[index]);
+}
+
+function hasUniqueStrings(values: readonly string[]) {
+  return new Set(values).size === values.length;
 }
 
 function mutationPlansMatchIssueDocs(
@@ -572,7 +591,7 @@ function isReviewProtocol(value: unknown): value is AutoImplementationReviewProt
   return isStringArray(value.deliveryGates) &&
     arraysMatch(value.deliveryGates, AUTO_IMPLEMENTATION_DELIVERY_PROTOCOL) &&
     stageGates.length === AUTO_IMPLEMENTATION_STAGES.length &&
-    stageGates.every((record, index) => record.stage === AUTO_IMPLEMENTATION_STAGES[index] && isStageReviewGate(record));
+    stageGates.every((record, index) => isStageReviewGate(record) && record.stage === AUTO_IMPLEMENTATION_STAGES[index]);
 }
 
 function hasConsistentRemoteIssueState(
@@ -584,7 +603,12 @@ function hasConsistentRemoteIssueState(
   const mutation = issueManagement.githubIssueMutation;
   const nonAppliedMutationHasNoCreatedUrls = mutation.status === "applied" || mutation.createdIssueUrls.length === 0;
   const mutationUrlsMatchIssueUrls = arraysMatch(mutation.createdIssueUrls, issueManagement.githubIssueUrls);
-  const blockedMutationHasReason = mutation.status !== "blocked" || Boolean(mutation.blockedReason);
+  const mutationUrlsAreUnique = hasUniqueStrings(mutation.createdIssueUrls) && hasUniqueStrings(issueManagement.githubIssueUrls);
+  const appliedMutationCreatedAllPlannedIssues =
+    mutation.status !== "applied" || mutation.createdIssueUrls.length === mutation.plannedIssues.length;
+  const blockedReasonMatchesStatus = mutation.status === "blocked"
+    ? Boolean(mutation.blockedReason)
+    : mutation.blockedReason === null;
   const nonConnectedCannotBeReady =
     remoteStatus === "connected" ||
     (mutation.status !== "dry_run_ready" && mutation.status !== "approved_ready" && mutation.status !== "applied");
@@ -604,7 +628,9 @@ function hasConsistentRemoteIssueState(
     issueManagement.warning === remoteGuide.warning &&
     nonAppliedMutationHasNoCreatedUrls &&
     mutationUrlsMatchIssueUrls &&
-    blockedMutationHasReason &&
+    mutationUrlsAreUnique &&
+    appliedMutationCreatedAllPlannedIssues &&
+    blockedReasonMatchesStatus &&
     nonConnectedCannotBeReady &&
     approvalMatchesStatus &&
     mutationFlagMatchesStatus &&

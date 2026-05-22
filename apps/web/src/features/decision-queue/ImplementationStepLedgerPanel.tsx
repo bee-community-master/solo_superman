@@ -1,6 +1,11 @@
-import type {
-  ImplementationStepLedgerProjection,
-  ImplementationStepRecord
+import {
+  IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES,
+  IMPLEMENTATION_CODE_REVIEW_SCOPES,
+  IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK,
+  type CleanCodeReviewStreakRecord,
+  type CodeReviewStreakRecord,
+  type ImplementationStepLedgerProjection,
+  type ImplementationStepRecord
 } from "@solo-superman/contracts";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
@@ -52,6 +57,50 @@ function testLabel(step: ImplementationStepRecord | null) {
   return `Tests: ${test.outcome} (${test.commands.join(" | ")}), passed=${test.passedTestCount}, failed=${test.failedTestCount}${notTested}`;
 }
 
+function reviewStreakLabel(
+  reviewScope: string,
+  reviewKind: "code review" | "clean-code review",
+  currentNoFindingPasses: number,
+  requiredNoFindingPasses: number,
+  satisfied?: boolean
+) {
+  const status = satisfied === undefined ? "" : satisfied ? " satisfied" : " missing";
+
+  return `${reviewScope} ${reviewKind} ${currentNoFindingPasses}/${requiredNoFindingPasses}${status}`;
+}
+
+function emptyCodeReviewStreakLabels() {
+  return IMPLEMENTATION_CODE_REVIEW_SCOPES.map((reviewScope) =>
+    reviewStreakLabel(reviewScope, "code review", 0, IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK)
+  );
+}
+
+function emptyCleanCodeReviewStreakLabels() {
+  return IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES.map((reviewScope) =>
+    reviewStreakLabel(reviewScope, "clean-code review", 0, IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK)
+  );
+}
+
+function codeReviewStreakLabel(streak: CodeReviewStreakRecord) {
+  return reviewStreakLabel(
+    streak.reviewScope,
+    "code review",
+    streak.currentNoFindingPasses,
+    streak.requiredNoFindingPasses,
+    streak.satisfied
+  );
+}
+
+function cleanCodeReviewStreakLabel(streak: CleanCodeReviewStreakRecord) {
+  return reviewStreakLabel(
+    streak.reviewScope,
+    "clean-code review",
+    streak.currentNoFindingPasses,
+    streak.requiredNoFindingPasses,
+    streak.satisfied
+  );
+}
+
 export function implementationStepLedgerViewModel(
   projection: ImplementationStepLedgerProjection | null
 ): ImplementationStepLedgerViewModel {
@@ -71,8 +120,8 @@ export function implementationStepLedgerViewModel(
       rollbackLabel: "Rollback/reference: not recorded",
       codeReviewLabel: "Code review: not recorded",
       cleanCodeReviewLabel: "Clean-code review: not recorded",
-      codeReviewStreakLabels: ["feature code review 0/2", "repository code review 0/2"],
-      cleanCodeReviewStreakLabels: ["changed_code clean-code review 0/2", "repository clean-code review 0/2"],
+      codeReviewStreakLabels: emptyCodeReviewStreakLabels(),
+      cleanCodeReviewStreakLabels: emptyCleanCodeReviewStreakLabels(),
       testEvidenceLabel: "Tests: not recorded",
       missingEvidenceItems: ["StepCommitRecord", "CodeReviewRecord", "CleanCodeReviewRecord", "TestEvidenceRecord"],
       blockerLabel: "Cannot complete until implementation, review, clean-code review, and test evidence are recorded.",
@@ -99,18 +148,8 @@ export function implementationStepLedgerViewModel(
     rollbackLabel: commit ? `Rollback/reference: ${commit.rollbackRef}` : "Rollback/reference: not recorded",
     codeReviewLabel: reviewLabel(step.codeReviewRecord, "Code review"),
     cleanCodeReviewLabel: reviewLabel(step.cleanCodeReviewRecord, "Clean-code review"),
-    codeReviewStreakLabels: step.codeReviewStreaks.map(
-      (streak) =>
-        `${streak.reviewScope} code review ${streak.currentNoFindingPasses}/${streak.requiredNoFindingPasses}${
-          streak.satisfied ? " satisfied" : " missing"
-        }`
-    ),
-    cleanCodeReviewStreakLabels: step.cleanCodeReviewStreaks.map(
-      (streak) =>
-        `${streak.reviewScope} clean-code review ${streak.currentNoFindingPasses}/${streak.requiredNoFindingPasses}${
-          streak.satisfied ? " satisfied" : " missing"
-        }`
-    ),
+    codeReviewStreakLabels: step.codeReviewStreaks.map(codeReviewStreakLabel),
+    cleanCodeReviewStreakLabels: step.cleanCodeReviewStreaks.map(cleanCodeReviewStreakLabel),
     testEvidenceLabel: testLabel(step),
     missingEvidenceItems: step.missingEvidence,
     blockerLabel: blocker ? `${blocker.reason} Next: ${blocker.nextRequiredAction}` : null,

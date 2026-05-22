@@ -206,6 +206,21 @@ describe("QuestionsView", () => {
     expect(markup).toContain("<dd>40</dd>");
   });
 
+  it("clamps displayed question progress percentages to the visible 0 to 100 range", () => {
+    const markup = renderQuestionsView({
+      questionProgress: {
+        ...DEFAULT_QUESTION_PROGRESS,
+        generatedQuestionCount: 23,
+        terminalQuestionCount: 25,
+        completionPercent: 140
+      }
+    });
+
+    expect(markup).toContain("25/23 generated questions handled · 100%");
+    expect(markup).toContain('style="width:100%"');
+    expect(markup).not.toContain("140%");
+  });
+
   it("renders research-generated additional questions on research-updated queue cards", () => {
     const markup = renderQuestionsView({
       sections: [

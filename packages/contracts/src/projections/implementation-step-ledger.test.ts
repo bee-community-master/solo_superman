@@ -204,6 +204,30 @@ describe("ImplementationStepLedgerProjection contract", () => {
     expect(() => validateImplementationStepLedgerProjection(invalid)).toThrow(ImplementationStepLedgerValidationError);
   });
 
+  it("rejects non-integer test evidence counts", () => {
+    const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
+    const invalid = {
+      ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+      steps: [
+        {
+          ...step,
+          testEvidenceRecord: {
+            ...step.testEvidenceRecord!,
+            passedTestCount: 1.5
+          }
+        }
+      ],
+      testEvidenceRecords: [
+        {
+          ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords[0]!,
+          passedTestCount: 1.5
+        }
+      ]
+    } as ImplementationStepLedgerProjection;
+
+    expect(() => validateImplementationStepLedgerProjection(invalid)).toThrow(ImplementationStepLedgerValidationError);
+  });
+
   it("keeps failed tests and Not-tested gaps visible as blocked rather than completed", () => {
     const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
     const blocked = {

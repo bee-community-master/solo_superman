@@ -17,11 +17,49 @@ interface DecisionQueueRefreshersProps {
   readonly setResearchOperations: Dispatch<SetStateAction<ResearchOperationsState>>;
 }
 
-export async function loadRefreshableDecisionQueueProjections(
+export interface RefreshableDecisionQueueClient {
+  getSession(projectId: ProjectId, sessionId: SessionShellProjection["sessionId"]): Promise<unknown>;
+  getSpec(sessionId: SessionShellProjection["sessionId"]): Promise<unknown>;
+  getQueue(sessionId: SessionShellProjection["sessionId"]): Promise<unknown>;
+  getResearch(sessionId: SessionShellProjection["sessionId"]): Promise<unknown>;
+  getActivity(sessionId: SessionShellProjection["sessionId"]): Promise<unknown>;
+  getCompleteness(sessionId: SessionShellProjection["sessionId"]): Promise<unknown>;
+  getPlanningHandoff(sessionId: SessionShellProjection["sessionId"]): Promise<unknown>;
+  getChatGptBrowserDelegation(sessionId: SessionShellProjection["sessionId"]): Promise<unknown>;
+  getServicePageUsePermission(sessionId: SessionShellProjection["sessionId"]): Promise<unknown>;
+  getImplementationStepLedger(sessionId: SessionShellProjection["sessionId"]): Promise<unknown>;
+  getAutoImplementationRuns(sessionId: SessionShellProjection["sessionId"]): Promise<unknown>;
+}
+
+type LoadedRefreshableDecisionQueueProjections<TClient extends RefreshableDecisionQueueClient> = {
+  readonly session: Awaited<ReturnType<TClient["getSession"]>>;
+  readonly spec: Awaited<ReturnType<TClient["getSpec"]>>;
+  readonly queue: Awaited<ReturnType<TClient["getQueue"]>>;
+  readonly research: Awaited<ReturnType<TClient["getResearch"]>>;
+  readonly activity: Awaited<ReturnType<TClient["getActivity"]>>;
+  readonly confidence: Awaited<ReturnType<TClient["getCompleteness"]>>;
+  readonly planningHandoff: Awaited<ReturnType<TClient["getPlanningHandoff"]>>;
+  readonly chatGptDelegation: Awaited<ReturnType<TClient["getChatGptBrowserDelegation"]>>;
+  readonly servicePageUsePermission: Awaited<ReturnType<TClient["getServicePageUsePermission"]>>;
+  readonly implementationStepLedger: Awaited<ReturnType<TClient["getImplementationStepLedger"]>>;
+  readonly autoImplementationRuns: Awaited<ReturnType<TClient["getAutoImplementationRuns"]>>;
+};
+
+export function loadRefreshableDecisionQueueProjections(
   client: SidecarClient,
   projectId: ProjectId,
   sessionId: SessionShellProjection["sessionId"]
-): Promise<Omit<ProjectionState, "founderBrief">> {
+): Promise<Omit<ProjectionState, "founderBrief">>;
+export function loadRefreshableDecisionQueueProjections<TClient extends RefreshableDecisionQueueClient>(
+  client: TClient,
+  projectId: ProjectId,
+  sessionId: SessionShellProjection["sessionId"]
+): Promise<LoadedRefreshableDecisionQueueProjections<TClient>>;
+export async function loadRefreshableDecisionQueueProjections(
+  client: RefreshableDecisionQueueClient,
+  projectId: ProjectId,
+  sessionId: SessionShellProjection["sessionId"]
+): Promise<LoadedRefreshableDecisionQueueProjections<RefreshableDecisionQueueClient>> {
   const [
     session,
     spec,
