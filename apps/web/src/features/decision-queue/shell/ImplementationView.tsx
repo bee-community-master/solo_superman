@@ -12,14 +12,17 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
   const {
     commandLog,
     autoImplementationRunView,
+    advanceAutoImplementationWorkerStage,
     createAutoImplementationRun,
     implementationStepLedgerView,
     isBusy,
     pendingSummary,
+    planAutoImplementationWorkerJob,
     projections,
     refreshCommandStatus,
     refreshAutoImplementationRuns,
     refreshImplementationStepLedger,
+    runAutoImplementationWorkerJob,
     runtimeActivity,
     runtimeStatus,
     statuses
@@ -32,6 +35,15 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         isBusy={isBusy}
         onCreateRun={() => {
           void createAutoImplementationRun();
+        }}
+        onPlanWorkerJob={() => {
+          void planAutoImplementationWorkerJob();
+        }}
+        onRunWorkerJob={() => {
+          void runAutoImplementationWorkerJob();
+        }}
+        onAdvanceWorkerStage={() => {
+          void advanceAutoImplementationWorkerStage();
         }}
         onRefreshRun={() => {
           if (projections.session) {

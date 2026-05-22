@@ -20,6 +20,9 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.githubCreatedIssueUrls).toEqual([]);
     expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
     expect(view.latestWorkerJobNextAction).toContain("current stage issue document");
+    expect(view.canPlanWorkerJob).toBe(true);
+    expect(view.canRunWorkerJob).toBe(false);
+    expect(view.canAdvanceWorkerStage).toBe(false);
     expect(view.stages).toHaveLength(7);
     expect(view.stages[0]!.status).toBe("ready");
     expect(view.issueDocs[0]!.relativePath).toContain("implementation-issues/001-initial_pr.md");
@@ -46,6 +49,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.remoteNextAction).toContain("planning handoff");
     expect(view.githubIssueMutationLabel).toContain("not requested");
     expect(view.latestWorkerJobLabel).toContain("not planned");
+    expect(view.canPlanWorkerJob).toBe(false);
   });
 
   it("shows the latest local worker blocker when a bounded Codex job exists", () => {
@@ -87,6 +91,66 @@ describe("AutoImplementationRunPanel view model", () => {
 
     expect(view.latestWorkerJobLabel).toContain("blocked for initial_pr (local-001)");
     expect(view.latestWorkerJobNextAction).toContain("ExecutionAuthorityRecord");
+    expect(view.latestWorkerJobId).toBe("auto-worker-job:auto_run_demo:initial_pr:job_1");
+    expect(view.canRunWorkerJob).toBe(false);
+  });
+
+  it("enables run and advance controls from the latest local worker status", () => {
+    const plannedWorkerJob = {
+      jobId: "auto-worker-job:auto_run_demo:initial_pr:job_planned",
+      runId: "auto_run_demo",
+      stage: "initial_pr",
+      issueId: "local-001",
+      issueTitle: "Workspace repo bootstrap and initial implementation PR",
+      issueRelativePath: "implementation-issues/001-initial_pr.md",
+      status: "planned",
+      executionPlan: {
+        executionMode: "local_sandboxed_codex",
+        workingDirectory: "/repo/workspace/demo-project",
+        issueDocumentPath: "implementation-issues/001-initial_pr.md",
+        executionAuthorityRef: "exec_auth_auto_worker_initial_pr",
+        allowedWriteScope: ["."],
+        requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
+        forbiddenActions: ["credential storage"],
+        sourceRefs: ["auto-implementation-run:auto_run_demo"]
+      },
+      blockedReason: null,
+      missingEvidence: [],
+      nextRequiredAction: "Run the local Codex worker.",
+      createdAt: "2026-05-19T00:01:00.000Z",
+      updatedAt: "2026-05-19T00:01:00.000Z",
+      evidenceRefs: ["auto-worker-job:auto_run_demo:initial_pr:job_planned"]
+    } as const;
+    const projection = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        workerJobs: [plannedWorkerJob]
+      }
+    } as AutoImplementationRunProjection;
+    const plannedView = autoImplementationRunViewModel(projection);
+    const completedView = autoImplementationRunViewModel({
+      ...projection,
+      latestRun: {
+        ...projection.latestRun!,
+        workerJobs: [
+          {
+            ...plannedWorkerJob,
+            status: "completed",
+            nextRequiredAction: "Advance the current auto implementation stage.",
+            evidenceRefs: [
+              ...plannedWorkerJob.evidenceRefs,
+              "implementation-step-ledger:step_demo"
+            ]
+          }
+        ]
+      }
+    } as AutoImplementationRunProjection);
+
+    expect(plannedView.canRunWorkerJob).toBe(true);
+    expect(plannedView.canAdvanceWorkerStage).toBe(false);
+    expect(completedView.canRunWorkerJob).toBe(false);
+    expect(completedView.canAdvanceWorkerStage).toBe(true);
   });
 
   it("keeps legacy projections without workerJobs renderable", () => {
@@ -111,6 +175,9 @@ describe("AutoImplementationRunPanel view model", () => {
         run: view,
         isBusy: false,
         onCreateRun: () => undefined,
+        onPlanWorkerJob: () => undefined,
+        onRunWorkerJob: () => undefined,
+        onAdvanceWorkerStage: () => undefined,
         onRefreshRun: () => undefined
       })
     );
@@ -124,6 +191,9 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("GitHub issue mutation contract");
     expect(markup).toContain("GitHub issue mutation: not_requested");
     expect(markup).toContain("Local Codex worker: not planned");
+    expect(markup).toContain("Plan worker job");
+    expect(markup).toContain("Run worker job");
+    expect(markup).toContain("Advance worker stage");
     expect(markup).toContain("local markdown issue paths remain the source of truth");
     expect(markup).toContain("git remote add origin");
   });

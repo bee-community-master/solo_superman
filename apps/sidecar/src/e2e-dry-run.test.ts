@@ -76,7 +76,7 @@ async function makeTempAppDataDir() {
   return tempDir;
 }
 
-async function createMigratedStorageApp() {
+async function createMigratedStorageApp(options: { readonly autoImplementationWorkspaceRoot?: string } = {}) {
   const appDataDir = await makeTempAppDataDir();
   const storage = await createSoloStorage({ url: localDatabaseUrlFromAppDataDir(appDataDir) });
   const migrationStatus = await applyMigrations(storage);
@@ -92,7 +92,10 @@ async function createMigratedStorageApp() {
       localCapabilityToken,
       migrationStatus,
       storage,
-      codexRuntimeAdapter: fixtureCodexRuntimeAdapter
+      codexRuntimeAdapter: fixtureCodexRuntimeAdapter,
+      ...(options.autoImplementationWorkspaceRoot
+        ? { autoImplementationWorkspaceRoot: options.autoImplementationWorkspaceRoot }
+        : {})
     })
   };
 }
@@ -136,6 +139,87 @@ async function getJson(app: ReturnType<typeof createSidecarApp>, path: string) {
     response,
     body: await jsonBody(response)
   };
+}
+
+async function createProjectForE2e(app: ReturnType<typeof createSidecarApp>, rawIdea: string) {
+  const start = await postJson(app, "/api/v1/projects", {
+    rawIdea,
+    localPrivacyMode: "local_only",
+    projectPurposeMode: "business",
+    projectPurposeModeConfirmation: "user_confirmed",
+    businessCriticIntensity: "balanced",
+    businessCriticIntensityConfirmation: "user_confirmed"
+  });
+  const startData = responseData(start.body);
+
+  expect(start.response.status, JSON.stringify(start.body)).toBe(200);
+
+  return {
+    sessionId: sessionIdFromStart(startData),
+    projectId: projectIdFromStart(startData)
+  };
+}
+
+async function postAutoImplementationRunForE2e(
+  app: ReturnType<typeof createSidecarApp>,
+  sessionId: string,
+  payload: Readonly<Record<string, unknown>>
+) {
+  return postJson(app, `/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
+    sessionId,
+    ...payload
+  });
+}
+
+async function postAutoImplementationWorkerJobForE2e(
+  app: ReturnType<typeof createSidecarApp>,
+  sessionId: string,
+  runId: string,
+  payload: Readonly<Record<string, unknown>>
+) {
+  return postJson(app, `/api/v1/sessions/${sessionId}/auto-implementation-runs/${runId}/worker-jobs`, {
+    sessionId,
+    runId,
+    ...payload
+  });
+}
+
+async function postAutoImplementationWorkerRunForE2e(
+  app: ReturnType<typeof createSidecarApp>,
+  sessionId: string,
+  runId: string,
+  jobId: string,
+  payload: Readonly<Record<string, unknown>>
+) {
+  return postJson(
+    app,
+    `/api/v1/sessions/${sessionId}/auto-implementation-runs/${runId}/worker-jobs/${encodeURIComponent(jobId)}/run`,
+    {
+      sessionId,
+      runId,
+      jobId,
+      ...payload
+    }
+  );
+}
+
+async function postAutoImplementationWorkerStageAdvanceForE2e(
+  app: ReturnType<typeof createSidecarApp>,
+  sessionId: string,
+  runId: string,
+  jobId: string,
+  payload: Readonly<Record<string, unknown>>
+) {
+  return postJson(
+    app,
+    `/api/v1/sessions/${sessionId}/auto-implementation-runs/${runId}/worker-jobs/${encodeURIComponent(jobId)}/advance-stage`,
+    {
+      sessionId,
+      runId,
+      jobId,
+      ...payload
+    }
+  );
 }
 
 function record(value: unknown) {
@@ -702,6 +786,118 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         "blanket approval blocked"
       ])
     );
+  });
+
+  it("completes one auto implementation issue slice through the worker run and stage-advance route path", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app, storage } = await createMigratedStorageApp({
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForE2e(
+        app,
+        "A dry-run issue slice should complete through the local worker runner."
+      );
+      const createdRun = await postAutoImplementationRunForE2e(app, sessionId, {
+        idempotencyKey: "auto-implementation-e2e:worker-ui-run",
+        projectName: "Worker UI E2E Demo"
+      });
+      const createdRunProjection = responseData(createdRun.body);
+      const latestRun = record(createdRunProjection.latestRun);
+      const runId = stringField(latestRun, "runId");
+      const authority = await createExecutionAuthorityForE2e(app, sessionId, "worker_ui_e2e", {
+        requestedScope: {
+          workspaceRef: join(workspaceRoot, "worker-ui-e2e-demo"),
+          filePathGlobs: ["**/*"]
+        }
+      });
+      const plannedJob = await postAutoImplementationWorkerJobForE2e(app, sessionId, runId, {
+        idempotencyKey: "worker-ui-e2e:plan",
+        executionAuthorityRef: authority.recordId
+      });
+      const plannedRun = record(responseData(plannedJob.body).latestRun);
+      const plannedJobs = records(plannedRun.workerJobs);
+      const plannedJobId = stringField(plannedJobs.at(-1)!, "jobId");
+      const ranJob = await postAutoImplementationWorkerRunForE2e(app, sessionId, runId, plannedJobId, {
+        idempotencyKey: "worker-ui-e2e:run",
+        evidenceRefs: [`ui-worker-run:${plannedJobId}`]
+      });
+      const runAfterWorker = record(responseData(ranJob.body).latestRun);
+      const runAfterWorkerJobs = records(runAfterWorker.workerJobs);
+      const ledgerAfterWorker = await getJson(app, `/api/v1/sessions/${sessionId}/implementation-step-ledger`);
+      const advanced = await postAutoImplementationWorkerStageAdvanceForE2e(app, sessionId, runId, plannedJobId, {
+        idempotencyKey: "worker-ui-e2e:advance",
+        tickedAt: "2026-05-22T00:10:00.000Z",
+        evidenceRefs: [`ui-worker-stage-advance:${plannedJobId}`]
+      });
+      const advancedRun = record(responseData(advanced.body).latestRun);
+      const advancedStages = records(advancedRun.stagePlan);
+
+      expect(createdRun.response.status, JSON.stringify(createdRun.body)).toBe(200);
+      expect(plannedJob.response.status, JSON.stringify(plannedJob.body)).toBe(200);
+      expect(ranJob.response.status, JSON.stringify(ranJob.body)).toBe(200);
+      expect(runAfterWorker).toMatchObject({
+        status: "running",
+        currentStage: "initial_pr"
+      });
+      expect(runAfterWorkerJobs.at(-1)).toMatchObject({
+        status: "completed",
+        missingEvidence: [],
+        blockedReason: null,
+        evidenceRefs: expect.arrayContaining([
+          `auto-worker-run:${plannedJobId}:worker-ui-e2e:run`,
+          `auto-worker-ledger-import:${plannedJobId}:worker-ui-e2e:run:ledger-import`,
+          `codex-worker:${plannedJobId}:fixture`,
+          "codex-worker:fixture:completed",
+          "implementation-step-ledger:step_demo",
+          "commit:abcdef1",
+          "test:verify",
+          `ui-worker-run:${plannedJobId}`
+        ])
+      });
+      expect(ledgerAfterWorker.response.status, JSON.stringify(ledgerAfterWorker.body)).toBe(200);
+      expect(responseData(ledgerAfterWorker.body)).toMatchObject({
+        kind: "ImplementationStepLedgerProjection",
+        currentStatus: "completed",
+        steps: expect.arrayContaining([
+          expect.objectContaining({
+            status: "completed",
+            stepDoc: expect.objectContaining({
+              stepId: "step_demo"
+            })
+          })
+        ])
+      });
+      expect(advanced.response.status, JSON.stringify(advanced.body)).toBe(200);
+      expect(advancedRun).toMatchObject({
+        status: "running",
+        currentStage: "code_review_fix_1"
+      });
+      expect(advancedStages[0]).toMatchObject({
+        stage: "initial_pr",
+        status: "completed",
+        ledgerEvidence: {
+          implementationStepId: "step_demo",
+          evidenceRefs: expect.arrayContaining([
+            "implementation-step-ledger:step_demo",
+            "commit:abcdef1",
+            "test:verify"
+          ])
+        },
+        evidenceRefs: expect.arrayContaining([
+          `auto-worker-stage-advance:${plannedJobId}:worker-ui-e2e:advance`,
+          `ui-worker-stage-advance:${plannedJobId}`,
+          "codex-worker:fixture:completed"
+        ])
+      });
+      expect(advancedStages[1]).toMatchObject({
+        stage: "code_review_fix_1",
+        status: "ready"
+      });
+    } finally {
+      await storage.close();
+    }
   });
 
   it("runs a business critic dry-run sample for each explicit intensity", async () => {
