@@ -21,6 +21,7 @@ import {
   type DecisionEvidencePackId,
   type EventId,
   type EvidenceItemId,
+  type ImplementationStepDoc,
   type Phase15bUpgradeHints,
   type PlanningHandoffSourceRefDto,
   type ProjectId,
@@ -35,7 +36,8 @@ import {
   type ResearchRunId,
   type ResearchTaskId,
   type RuntimeArtifactId,
-  type SessionId
+  type SessionId,
+  type TrackerDoc
 } from "@solo-superman/contracts";
 import {
   applyMigrations,
@@ -377,13 +379,25 @@ async function postAutoImplementationWorkerStageAdvanceForTest(
   ));
 }
 
-function implementationStepLedgerImportTransitionsForTest() {
+function implementationStepLedgerImportTransitionsForTest(input: {
+  readonly trackerDoc?: TrackerDoc;
+  readonly stepDoc?: ImplementationStepDoc;
+} = {}) {
   const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
-  const stepCommitRecord = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.stepCommitRecords[0]!;
-  const testEvidenceRecord = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords[0]!;
+  const trackerDoc = input.trackerDoc ?? IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.trackerDoc;
+  const stepDoc = input.stepDoc ?? step.stepDoc;
+  const stepId = stepDoc.stepId;
+  const stepCommitRecord = {
+    ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.stepCommitRecords[0]!,
+    stepId
+  };
+  const testEvidenceRecord = {
+    ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords[0]!,
+    stepId
+  };
   const baseTransition = {
-    trackerDoc: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.trackerDoc,
-    stepDoc: step.stepDoc
+    trackerDoc,
+    stepDoc
   };
 
   return [
@@ -395,13 +409,19 @@ function implementationStepLedgerImportTransitionsForTest() {
       ...baseTransition,
       targetStatus: "review_required",
       stepCommitRecord,
-      codeReviewRecord
+      codeReviewRecord: {
+        ...codeReviewRecord,
+        stepId
+      }
     })),
     ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.cleanCodeReviewRecords.map((cleanCodeReviewRecord) => ({
       ...baseTransition,
       targetStatus: "clean_code_review_required",
       stepCommitRecord,
-      cleanCodeReviewRecord
+      cleanCodeReviewRecord: {
+        ...cleanCodeReviewRecord,
+        stepId
+      }
     })),
     { ...baseTransition, targetStatus: "tests_required", stepCommitRecord },
     {
@@ -412,6 +432,15 @@ function implementationStepLedgerImportTransitionsForTest() {
       evidenceRefs: ["worker-ledger-import:completed"]
     }
   ];
+}
+
+function workerPlanLedgerDocsForTest(job: Readonly<Record<string, unknown>>) {
+  const executionPlan = job.executionPlan as Readonly<Record<string, unknown>>;
+
+  return {
+    trackerDoc: executionPlan.ledgerTrackerDoc as TrackerDoc,
+    stepDoc: executionPlan.ledgerStepDoc as ImplementationStepDoc
+  };
 }
 
 async function createRunnableAutoImplementationWorkerJobForTest(input: {
@@ -9027,7 +9056,9 @@ describe("PR-02 sidecar health shell", () => {
         plannedJobId,
         {
           idempotencyKey: "worker-ledger-import:completed",
-          ledgerTransitions: implementationStepLedgerImportTransitionsForTest() as readonly RecordImplementationStepLedgerPayload[],
+          ledgerTransitions: implementationStepLedgerImportTransitionsForTest(
+            workerPlanLedgerDocsForTest(plannedJobs.at(-1)!)
+          ) as readonly RecordImplementationStepLedgerPayload[],
           evidenceRefs: ["worker-ledger-import:stdout"]
         }
       );
@@ -9038,6 +9069,7 @@ describe("PR-02 sidecar health shell", () => {
         headers: authHeaders()
       });
       const ledger = jsonDataRecord(await jsonBody(ledgerResponse));
+      const expectedWorkerStepId = `auto-implementation-step:${runId}:initial_pr:local-001`;
 
       expect(importResponse.status).toBe(200);
       expect(importRun).toMatchObject({
@@ -9056,7 +9088,7 @@ describe("PR-02 sidecar health shell", () => {
         nextRequiredAction: expect.stringContaining("existing stage endpoint"),
         evidenceRefs: expect.arrayContaining([
           `auto-worker-ledger-import:${plannedJobId}:worker-ledger-import:completed`,
-          "implementation-step-ledger:step_demo",
+          `implementation-step-ledger:${expectedWorkerStepId}`,
           "commit:abcdef1",
           "test:verify",
           "worker-ledger-import:completed",
@@ -9093,9 +9125,9 @@ describe("PR-02 sidecar health shell", () => {
         stage: "initial_pr",
         status: "completed",
         ledgerEvidence: {
-          implementationStepId: "step_demo",
+          implementationStepId: expectedWorkerStepId,
           evidenceRefs: expect.arrayContaining([
-            "implementation-step-ledger:step_demo",
+            `implementation-step-ledger:${expectedWorkerStepId}`,
             "commit:abcdef1",
             "test:verify"
           ])
@@ -9109,6 +9141,58 @@ describe("PR-02 sidecar health shell", () => {
       expect(advancedStages[1]).toMatchObject({
         stage: "code_review_fix_1",
         status: "ready"
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("keeps manual worker ledger imports bound to the planned ledger docs", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId, runId, plannedJobId } = await createRunnableAutoImplementationWorkerJobForTest({
+        storageApp,
+        workspaceRoot,
+        idea: "An auto implementation manual ledger import planned-doc binding test",
+        runIdempotencyKey: "auto-implementation-route:manual-ledger-import-binding",
+        projectName: "Manual Ledger Import Binding Demo",
+        projectFolderName: "manual-ledger-import-binding-demo",
+        authorityIdSuffix: "auto_worker_manual_ledger_import_binding",
+        workerJobIdempotencyKey: "worker-job:manual-ledger-import-binding"
+      });
+      const importResponse = await postAutoImplementationWorkerLedgerImportForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-ledger-import:mismatched-docs",
+          ledgerTransitions: implementationStepLedgerImportTransitionsForTest() as readonly RecordImplementationStepLedgerPayload[],
+          evidenceRefs: ["worker-ledger-import:mismatched-docs"]
+        }
+      );
+      const importRun = latestAutoImplementationRunFromBody(await jsonBody(importResponse));
+      const importedJobs = importRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(importResponse.status).toBe(200);
+      expect(importRun).toMatchObject({
+        status: "blocked",
+        currentStage: "initial_pr"
+      });
+      expect(importedJobs.at(-1)).toMatchObject({
+        status: "blocked",
+        missingEvidence: ["ImplementationStepLedger import"],
+        blockedReason: expect.stringContaining("planned worker ledger docs"),
+        nextRequiredAction: expect.stringContaining("Retry the worker ledger import"),
+        evidenceRefs: expect.arrayContaining([
+          `auto-worker-ledger-import:${plannedJobId}:worker-ledger-import:mismatched-docs`,
+          "worker-blocked:ledger-import",
+          "worker-ledger-import:mismatched-docs"
+        ])
       });
     } finally {
       await storage.close();
@@ -9369,7 +9453,10 @@ describe("PR-02 sidecar health shell", () => {
           jobId: input.jobId,
           status: "completed",
           summary: `Worker leaked ${secretLikeValue} in its output.`,
-          ledgerTransitions: implementationStepLedgerImportTransitionsForTest() as readonly RecordImplementationStepLedgerPayload[],
+          ledgerTransitions: implementationStepLedgerImportTransitionsForTest({
+            trackerDoc: input.ledgerTrackerDoc,
+            stepDoc: input.ledgerStepDoc
+          }) as readonly RecordImplementationStepLedgerPayload[],
           evidenceRefs: ["codex-worker:unsafe-secret-output"]
         };
       }
@@ -9432,7 +9519,10 @@ describe("PR-02 sidecar health shell", () => {
           jobId: input.jobId,
           status: "completed",
           summary: "Worker reports that a production deploy completed.",
-          ledgerTransitions: implementationStepLedgerImportTransitionsForTest() as readonly RecordImplementationStepLedgerPayload[],
+          ledgerTransitions: implementationStepLedgerImportTransitionsForTest({
+            trackerDoc: input.ledgerTrackerDoc,
+            stepDoc: input.ledgerStepDoc
+          }) as readonly RecordImplementationStepLedgerPayload[],
           evidenceRefs: ["deploy:production"]
         };
       }
@@ -9524,7 +9614,9 @@ describe("PR-02 sidecar health shell", () => {
         plannedJobId,
         {
           idempotencyKey: "worker-ledger-import:incomplete",
-          ledgerTransitions: implementationStepLedgerImportTransitionsForTest().slice(0, 1),
+          ledgerTransitions: implementationStepLedgerImportTransitionsForTest(
+            workerPlanLedgerDocsForTest(plannedJobs.at(-1)!)
+          ).slice(0, 1),
           evidenceRefs: ["worker-ledger-import:partial"]
         }
       );

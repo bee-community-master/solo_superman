@@ -941,6 +941,62 @@ function autoImplementationWorkerLedgerImportCommandKey(input: {
   return `${input.request.idempotencyKey}:ledger:${input.index + 1}:${input.transition.stepDoc.stepId}:${input.transition.targetStatus}`;
 }
 
+function isAutoImplementationWorkerLedgerRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function sameAutoImplementationWorkerLedgerStringArray(left: unknown, right: readonly string[]) {
+  return Array.isArray(left) &&
+    left.length === right.length &&
+    left.every((value, index) => value === right[index]);
+}
+
+function sameAutoImplementationWorkerLedgerTrackerDoc(left: unknown, right: TrackerDoc) {
+  if (!isAutoImplementationWorkerLedgerRecord(left)) {
+    return false;
+  }
+
+  return left.trackerId === right.trackerId &&
+    left.title === right.title &&
+    left.goal === right.goal &&
+    sameAutoImplementationWorkerLedgerStringArray(left.sourceRefs, right.sourceRefs);
+}
+
+function sameAutoImplementationWorkerLedgerStepDoc(left: unknown, right: ImplementationStepDoc) {
+  if (!isAutoImplementationWorkerLedgerRecord(left)) {
+    return false;
+  }
+
+  return left.stepId === right.stepId &&
+    left.title === right.title &&
+    left.description === right.description &&
+    left.expectedChangeScope === right.expectedChangeScope &&
+    sameAutoImplementationWorkerLedgerStringArray(left.sourceRefs, right.sourceRefs);
+}
+
+function autoImplementationWorkerLedgerImportMismatch(
+  workerJob: AutoImplementationWorkerJob,
+  transitions: readonly RecordImplementationStepLedgerPayload[]
+) {
+  for (const [index, transition] of transitions.entries()) {
+    if (!sameAutoImplementationWorkerLedgerTrackerDoc(
+      transition.trackerDoc,
+      workerJob.executionPlan.ledgerTrackerDoc
+    )) {
+      return `ledger transition ${index + 1} trackerDoc must match the worker execution plan`;
+    }
+
+    if (!sameAutoImplementationWorkerLedgerStepDoc(
+      transition.stepDoc,
+      workerJob.executionPlan.ledgerStepDoc
+    )) {
+      return `ledger transition ${index + 1} stepDoc must match the worker execution plan`;
+    }
+  }
+
+  return null;
+}
+
 function isAutoImplementationWorkerLedgerImportCandidate(job: AutoImplementationWorkerJob) {
   return job.status === "planned" ||
     (
@@ -4803,32 +4859,43 @@ export function createProductEngineCommandService(
     const importRef = autoImplementationWorkerLedgerImportRef(request);
     let importedJob: AutoImplementationWorkerJob;
     let importFailure: ProductEngineServiceError | null = null;
+    const ledgerDocMismatch = autoImplementationWorkerLedgerImportMismatch(workerJob, request.ledgerTransitions);
 
-    for (const [index, transition] of request.ledgerTransitions.entries()) {
-      const state = await stateForSession(session.projectId, request.sessionId);
-      const { command, events } = await commandForExistingSession(
-        {
-          sessionId: request.sessionId,
-          commandType: "RecordImplementationStepLedger",
-          expectedStateVersion: state.stateVersion,
-          idempotencyKey: autoImplementationWorkerLedgerImportCommandKey({ request, transition, index }),
-          payload: transition as unknown as Readonly<Record<string, unknown>>
-        },
-        "product_engine"
+    if (ledgerDocMismatch) {
+      importFailure = new ProductEngineServiceError(
+        "VALIDATION_FAILED",
+        `Auto implementation worker ledger import must use the planned worker ledger docs: ${ledgerDocMismatch}.`,
+        { mismatch: ledgerDocMismatch }
       );
-      const response = await runCommand(command, events);
+    }
 
-      if (response.category === "rejected" || response.category === "blocked") {
-        importFailure = new ProductEngineServiceError(
-          "VALIDATION_FAILED",
-          "Auto implementation worker ledger import was rejected by ImplementationStepLedger validation.",
+    if (!importFailure) {
+      for (const [index, transition] of request.ledgerTransitions.entries()) {
+        const state = await stateForSession(session.projectId, request.sessionId);
+        const { command, events } = await commandForExistingSession(
           {
-            category: response.category,
-            code: response.error?.code,
-            message: response.error?.message
-          }
+            sessionId: request.sessionId,
+            commandType: "RecordImplementationStepLedger",
+            expectedStateVersion: state.stateVersion,
+            idempotencyKey: autoImplementationWorkerLedgerImportCommandKey({ request, transition, index }),
+            payload: transition as unknown as Readonly<Record<string, unknown>>
+          },
+          "product_engine"
         );
-        break;
+        const response = await runCommand(command, events);
+
+        if (response.category === "rejected" || response.category === "blocked") {
+          importFailure = new ProductEngineServiceError(
+            "VALIDATION_FAILED",
+            "Auto implementation worker ledger import was rejected by ImplementationStepLedger validation.",
+            {
+              category: response.category,
+              code: response.error?.code,
+              message: response.error?.message
+            }
+          );
+          break;
+        }
       }
     }
 
