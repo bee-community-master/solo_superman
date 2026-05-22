@@ -8,6 +8,7 @@ import {
   displayError,
   emptyProjectionState,
   initialQueueStartBlocker,
+  latestCommandBackedProjectionVersion,
   latestProjectionVersion,
   researchRunProjectionFromResponse,
   type InitialQueueStartBlocker,
@@ -83,6 +84,17 @@ describe("decision queue shell model", () => {
     } satisfies ProjectionVersionSnapshot;
 
     expect(latestProjectionVersion(projections)).toBe(12);
+  });
+
+  it("excludes projection-only auto implementation runs from command expected-state versions", () => {
+    const projections = {
+      ...emptyProjectionState(),
+      session: { version: 4 },
+      planningHandoff: { version: 5 },
+      autoImplementationRuns: { version: 99 }
+    } satisfies ProjectionVersionSnapshot;
+
+    expect(latestCommandBackedProjectionVersion(projections)).toBe(5);
   });
 
   it("keeps malformed research-run command projections as recoverable workflow errors", () => {

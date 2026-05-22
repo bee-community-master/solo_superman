@@ -223,6 +223,13 @@ export function latestProjectionVersion(projections: ProjectionVersionSnapshot) 
   ) as StateVersion;
 }
 
+export function latestCommandBackedProjectionVersion(projections: ProjectionVersionSnapshot) {
+  return latestProjectionVersion({
+    ...projections,
+    autoImplementationRuns: null
+  });
+}
+
 export function emptyProjectionState(): ProjectionState {
   return {
     session: null,

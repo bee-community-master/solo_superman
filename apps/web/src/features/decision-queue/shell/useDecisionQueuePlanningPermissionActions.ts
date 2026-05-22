@@ -18,7 +18,7 @@ import { buildPlanningHandoffRequest } from "../phase2-planning-handoff-request"
 import {
   COMMAND_LOG_LIMIT,
   displayError,
-  latestProjectionVersion,
+  latestCommandBackedProjectionVersion,
   type AppendCommand,
   type CommandLogEntry,
   type ProjectionState
@@ -65,7 +65,7 @@ export function useDecisionQueuePlanningPermissionActions({
         "Score completeness",
         await client.scoreCompleteness({
           sessionId: projections.session.sessionId,
-          expectedStateVersion: latestProjectionVersion(projections)
+          expectedStateVersion: latestCommandBackedProjectionVersion(projections)
         })
       );
       const confidence = requiredCommandProjection<ConfidenceCompletionProjection>(
@@ -106,7 +106,7 @@ export function useDecisionQueuePlanningPermissionActions({
         "Prepare Founder Brief",
         await client.prepareFounderBriefExport({
           sessionId: projections.session.sessionId,
-          expectedStateVersion: latestProjectionVersion(projections),
+          expectedStateVersion: latestCommandBackedProjectionVersion(projections),
           requestedFormat: "markdown"
         })
       );
@@ -141,7 +141,7 @@ export function useDecisionQueuePlanningPermissionActions({
         confidence: projections.confidence,
         founderBrief: projections.founderBrief,
         phase15bReadiness,
-        expectedStateVersion: latestProjectionVersion(projections)
+        expectedStateVersion: latestCommandBackedProjectionVersion(projections)
       });
       const response = await appendCommand("Run Planning Handoff gate", await client.createPlanningHandoff(request));
       const planningHandoff = requiredCommandProjection<PlanningHandoffProjection>(response, "PlanningHandoffProjection");
@@ -169,7 +169,7 @@ export function useDecisionQueuePlanningPermissionActions({
       setWorkflowError(null);
 
       try {
-        const expectedStateVersion = latestProjectionVersion(projections);
+        const expectedStateVersion = latestCommandBackedProjectionVersion(projections);
         const response = await appendCommand(
           "Revoke external AI workspace",
           await client.revokeChatGptBrowserDelegationRun({
@@ -211,7 +211,7 @@ export function useDecisionQueuePlanningPermissionActions({
       setWorkflowError(null);
 
       try {
-        const expectedStateVersion = latestProjectionVersion(projections);
+        const expectedStateVersion = latestCommandBackedProjectionVersion(projections);
         const response = await appendCommand(
           "Revoke service page-use permission",
           await client.revokeServicePageUsePermission({
@@ -314,7 +314,7 @@ export function useDecisionQueuePlanningPermissionActions({
       setWorkflowError(null);
 
       try {
-        const expectedStateVersion = latestProjectionVersion(projections);
+        const expectedStateVersion = latestCommandBackedProjectionVersion(projections);
         const response = await appendCommand(
           "Delete service page-use artifact refs",
           await client.deleteServicePageUsePermissionArtifacts({
