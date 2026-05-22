@@ -16,6 +16,7 @@ import type {
   AdvanceAutoImplementationWorkerStageRequest,
   CompleteAutoImplementationWorkerJobRequest,
   ImportAutoImplementationWorkerLedgerRequest,
+  RecordAutoImplementationPullRequestMutationRequest,
   RunAutoImplementationWorkerJobRequest,
   CreateManualHandoffRequest,
   CreateChatGptBrowserDelegationRunRequest,
@@ -70,6 +71,7 @@ import type {
 import {
   chatGptBrowserDelegationPath,
   chatGptBrowserDelegationRunRevokePath,
+  autoImplementationPullRequestMutationPath,
   autoImplementationStagePath,
   autoImplementationRunPath,
   autoImplementationWorkerJobPath,
@@ -135,6 +137,7 @@ export type ResolveResearchQueueCardInput = ResolveResearchQueueCardRequest;
 export type CreatePlanningHandoffInput = CreatePlanningHandoffRequest;
 export type CreateAutoImplementationRunInput = CreateAutoImplementationRunRequest;
 export type CreateAutoImplementationWorkerJobInput = CreateAutoImplementationWorkerJobRequest;
+export type RecordAutoImplementationPullRequestMutationInput = RecordAutoImplementationPullRequestMutationRequest;
 export type CompleteAutoImplementationWorkerJobInput = CompleteAutoImplementationWorkerJobRequest;
 export type ImportAutoImplementationWorkerLedgerInput = ImportAutoImplementationWorkerLedgerRequest;
 export type RunAutoImplementationWorkerJobInput = RunAutoImplementationWorkerJobRequest;
@@ -548,6 +551,13 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
     createAutoImplementationWorkerJob(input: CreateAutoImplementationWorkerJobInput) {
       return postProjection<AutoImplementationRunProjection>(
         autoImplementationWorkerJobPath(input.sessionId, input.runId),
+        input
+      );
+    },
+
+    recordAutoImplementationPullRequestMutation(input: RecordAutoImplementationPullRequestMutationInput) {
+      return postProjection<AutoImplementationRunProjection>(
+        autoImplementationPullRequestMutationPath(input.sessionId, input.runId),
         input
       );
     },

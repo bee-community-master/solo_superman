@@ -67,6 +67,22 @@ export const AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUSES = [
 ] as const;
 export const AUTO_IMPLEMENTATION_GITHUB_ISSUE_ACTION_CLASS = "github_issue_create" as const;
 export const AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_GRANULARITY = "per_action" as const;
+export const AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_ACTIONS = [
+  "open_pr",
+  "update_pr_body",
+  "merge_pr"
+] as const;
+export const AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_REQUEST_MODES = [
+  "dry_run",
+  "approved"
+] as const;
+export const AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_STATUSES = [
+  "blocked",
+  "dry_run_ready",
+  "applied"
+] as const;
+export const AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS = "github_pr_mutation" as const;
+export const AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY = "per_action" as const;
 
 export const DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES = [
   "Workspace repo bootstrap and initial implementation PR",
@@ -172,6 +188,12 @@ export type AutoImplementationIssueMode = (typeof AUTO_IMPLEMENTATION_ISSUE_MODE
 export type AutoImplementationGitHubIssueRequestMode = (typeof AUTO_IMPLEMENTATION_GITHUB_ISSUE_REQUEST_MODES)[number];
 export type AutoImplementationGitHubIssueMutationStatus =
   (typeof AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUSES)[number];
+export type AutoImplementationPullRequestMutationAction =
+  (typeof AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_ACTIONS)[number];
+export type AutoImplementationPullRequestMutationRequestMode =
+  (typeof AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_REQUEST_MODES)[number];
+export type AutoImplementationPullRequestMutationStatus =
+  (typeof AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_STATUSES)[number];
 
 export interface AutoImplementationStageRecord {
   readonly stage: AutoImplementationStage;
@@ -261,6 +283,46 @@ export interface AutoImplementationGitHubIssueMutationContract {
   readonly verifierEvidenceRefs: readonly string[];
 }
 
+export interface AutoImplementationPullRequestMutationApproval {
+  readonly approvalId: string;
+  readonly approvedBy: string;
+  readonly approvedAt: string;
+  readonly actionClass: typeof AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS;
+  readonly approvalGranularity: typeof AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY;
+  readonly remoteStatusAtApproval: "connected";
+  readonly rollbackPlan: string;
+  readonly evidenceRefs: readonly string[];
+}
+
+export interface AutoImplementationPullRequestMutationRecord {
+  readonly mutationId: string;
+  readonly action: AutoImplementationPullRequestMutationAction;
+  readonly requestMode: AutoImplementationPullRequestMutationRequestMode;
+  readonly status: AutoImplementationPullRequestMutationStatus;
+  readonly requiredRemoteStatus: "connected";
+  readonly mutatesGitHub: boolean;
+  readonly pullRequestUrl: string | null;
+  readonly issueLinks: readonly string[];
+  readonly implementationScope: string;
+  readonly reviewStreakRefs: readonly string[];
+  readonly verificationCommands: readonly string[];
+  readonly knownGaps: readonly string[];
+  readonly rollbackNotes: string;
+  readonly mergeEvidenceRefs: readonly string[];
+  readonly bodyEvidenceRefs: readonly string[];
+  readonly approval: AutoImplementationPullRequestMutationApproval | null;
+  readonly blockedReason: string | null;
+  readonly auditEvidenceRefs: readonly string[];
+  readonly verifierEvidenceRefs: readonly string[];
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface AutoImplementationPullRequestMutationState {
+  readonly records: readonly AutoImplementationPullRequestMutationRecord[];
+  readonly latestRecord: AutoImplementationPullRequestMutationRecord | null;
+}
+
 export interface AutoImplementationIssueManagement {
   readonly mode: AutoImplementationIssueMode;
   readonly trackerRelativePath: string;
@@ -332,6 +394,7 @@ export interface AutoImplementationRun {
   readonly issueManagement: AutoImplementationIssueManagement;
   readonly remoteGuide: AutoImplementationRemoteGuide;
   readonly reviewProtocol: AutoImplementationReviewProtocol;
+  readonly pullRequestMutations: AutoImplementationPullRequestMutationState;
   readonly workerJobs: readonly AutoImplementationWorkerJob[];
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -375,6 +438,26 @@ export interface RecordAutoImplementationStageRequest {
   readonly blocker?: AutoImplementationStageBlocker;
   readonly evidenceRefs?: readonly string[];
   readonly tickedAt?: string;
+}
+
+export interface RecordAutoImplementationPullRequestMutationRequest {
+  readonly sessionId: SessionId;
+  readonly runId: string;
+  readonly action: AutoImplementationPullRequestMutationAction;
+  readonly requestMode: AutoImplementationPullRequestMutationRequestMode;
+  readonly idempotencyKey: string;
+  readonly pullRequestUrl?: string;
+  readonly pullRequestTitle?: string;
+  readonly issueLinks: readonly string[];
+  readonly implementationScope: string;
+  readonly reviewStreakRefs: readonly string[];
+  readonly verificationCommands: readonly string[];
+  readonly knownGaps?: readonly string[];
+  readonly rollbackNotes: string;
+  readonly mergeEvidenceRefs?: readonly string[];
+  readonly bodyEvidenceRefs?: readonly string[];
+  readonly approval?: AutoImplementationPullRequestMutationApproval;
+  readonly verifierEvidenceRefs?: readonly string[];
 }
 
 export interface CreateAutoImplementationWorkerJobRequest {
@@ -589,6 +672,21 @@ function isGitHubIssueUrl(value: unknown): value is string {
     /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/issues\/[1-9]\d*\/?$/iu.test(trimmed);
 }
 
+function isGitHubPullRequestUrl(value: unknown): value is string {
+  if (!isNonEmptyString(value)) {
+    return false;
+  }
+
+  const trimmed = value.trim();
+
+  return value === trimmed &&
+    /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/pull\/[1-9]\d*\/?$/iu.test(trimmed);
+}
+
+function isPullRequestMutationIssueLink(value: string) {
+  return isGitHubIssueUrl(value as unknown) || value.startsWith("local-");
+}
+
 function isGitHubIssueApproval(value: unknown): value is AutoImplementationGitHubIssueApproval {
   return isRecord(value) &&
     isNonEmptyString(value.approvalId) &&
@@ -600,6 +698,87 @@ function isGitHubIssueApproval(value: unknown): value is AutoImplementationGitHu
     isNonEmptyString(value.rollbackPlan) &&
     isStringArray(value.evidenceRefs) &&
     value.evidenceRefs.length > 0;
+}
+
+function isPullRequestMutationApproval(value: unknown): value is AutoImplementationPullRequestMutationApproval {
+  return isRecord(value) &&
+    isNonEmptyString(value.approvalId) &&
+    isNonEmptyString(value.approvedBy) &&
+    isNonEmptyString(value.approvedAt) &&
+    value.actionClass === AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS &&
+    value.approvalGranularity === AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY &&
+    value.remoteStatusAtApproval === "connected" &&
+    isNonEmptyString(value.rollbackPlan) &&
+    isStringArray(value.evidenceRefs) &&
+    value.evidenceRefs.length > 0;
+}
+
+function isPullRequestMutationRecord(value: unknown): value is AutoImplementationPullRequestMutationRecord {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const issueLinks = isStringArray(value.issueLinks) ? value.issueLinks : null;
+  const mergeEvidenceRefs = isStringArray(value.mergeEvidenceRefs) ? value.mergeEvidenceRefs : null;
+  const bodyEvidenceRefs = isStringArray(value.bodyEvidenceRefs) ? value.bodyEvidenceRefs : null;
+  const appliedRequiresPullRequestUrl = value.status !== "applied" ||
+    isGitHubPullRequestUrl(value.pullRequestUrl);
+  const nonAppliedCanOmitPullRequestUrl = value.pullRequestUrl === null ||
+    isGitHubPullRequestUrl(value.pullRequestUrl);
+  const statusMatchesMutationFlag = value.mutatesGitHub === (value.status === "applied");
+  const approvalMatchesMode = value.requestMode === "approved"
+    ? value.approval === null || isPullRequestMutationApproval(value.approval)
+    : value.approval === null;
+  const appliedBodyUpdateHasEvidence = value.status !== "applied" ||
+    value.action !== "update_pr_body" ||
+    Boolean(bodyEvidenceRefs?.length);
+  const appliedMergeHasReadinessEvidence = value.status !== "applied" ||
+    value.action !== "merge_pr" ||
+    (Boolean(bodyEvidenceRefs?.length) && Boolean(mergeEvidenceRefs?.length));
+
+  return isNonEmptyString(value.mutationId) &&
+    isOneOf(value.action, AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_ACTIONS) &&
+    isOneOf(value.requestMode, AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_REQUEST_MODES) &&
+    isOneOf(value.status, AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_STATUSES) &&
+    value.requiredRemoteStatus === "connected" &&
+    statusMatchesMutationFlag &&
+    appliedRequiresPullRequestUrl &&
+    nonAppliedCanOmitPullRequestUrl &&
+    issueLinks !== null &&
+    issueLinks.length > 0 &&
+    issueLinks.every(isPullRequestMutationIssueLink) &&
+    isNonEmptyString(value.implementationScope) &&
+    isStringArray(value.reviewStreakRefs) &&
+    isStringArray(value.verificationCommands) &&
+    value.verificationCommands.length > 0 &&
+    isStringArray(value.knownGaps) &&
+    isNonEmptyString(value.rollbackNotes) &&
+    mergeEvidenceRefs !== null &&
+    bodyEvidenceRefs !== null &&
+    appliedBodyUpdateHasEvidence &&
+    appliedMergeHasReadinessEvidence &&
+    approvalMatchesMode &&
+    (value.blockedReason === null || isNonEmptyString(value.blockedReason)) &&
+    (value.status === "blocked" ? value.blockedReason !== null : value.blockedReason === null) &&
+    isStringArray(value.auditEvidenceRefs) &&
+    value.auditEvidenceRefs.length > 0 &&
+    isStringArray(value.verifierEvidenceRefs) &&
+    (value.requestMode === "approved" ? value.verifierEvidenceRefs.length > 0 || value.status === "blocked" : true) &&
+    isNonEmptyString(value.createdAt) &&
+    isNonEmptyString(value.updatedAt);
+}
+
+function isPullRequestMutationState(value: unknown): value is AutoImplementationPullRequestMutationState {
+  return isRecord(value) &&
+    Array.isArray(value.records) &&
+    value.records.every(isPullRequestMutationRecord) &&
+    (value.latestRecord === null || isPullRequestMutationRecord(value.latestRecord)) &&
+    (
+      value.latestRecord === null
+        ? value.records.length === 0
+        : value.records.length > 0 &&
+          value.records.at(-1)?.mutationId === value.latestRecord.mutationId
+    );
 }
 
 function isGitHubIssueMutationContract(value: unknown): value is AutoImplementationGitHubIssueMutationContract {
@@ -802,6 +981,7 @@ function isRun(value: unknown): value is AutoImplementationRun {
     isRemoteGuide(value.remoteGuide) &&
     hasConsistentRemoteIssueState(value.remoteStatus, value.issueManagement, value.remoteGuide) &&
     isReviewProtocol(value.reviewProtocol) &&
+    isPullRequestMutationState(value.pullRequestMutations) &&
     hasValidWorkerJobs(value) &&
     isNonEmptyString(value.createdAt) &&
     isNonEmptyString(value.updatedAt) &&
@@ -917,6 +1097,10 @@ const AUTO_IMPLEMENTATION_RUN_READY_FIXTURE_RUN: AutoImplementationRun = {
     nextAction: "Connect a GitHub remote when remote issue/PR automation is desired."
   },
   reviewProtocol: defaultAutoImplementationReviewProtocol(),
+  pullRequestMutations: {
+    records: [],
+    latestRecord: null
+  },
   workerJobs: [],
   createdAt: "2026-05-19T00:00:00.000Z",
   updatedAt: "2026-05-19T00:00:00.000Z",

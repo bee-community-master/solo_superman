@@ -49,6 +49,7 @@ import {
 import { createProductEngineCommandService } from "./product-engine/command-service";
 import type {
   AutoImplementationGitHubIssueMutationAdapter,
+  AutoImplementationPullRequestMutationAdapter,
   AutoImplementationRemoteStatusProvider
 } from "./product-engine/auto-implementation-workspace";
 import { hashBrowserActionPreview } from "./product-engine/browser-action-adapter";
@@ -91,6 +92,7 @@ async function createMigratedStorageApp(
     readonly autoImplementationWorkspaceRoot?: string;
     readonly autoImplementationRemoteStatusProvider?: AutoImplementationRemoteStatusProvider;
     readonly autoImplementationGitHubIssueMutationAdapter?: AutoImplementationGitHubIssueMutationAdapter;
+    readonly autoImplementationPullRequestMutationAdapter?: AutoImplementationPullRequestMutationAdapter;
   } = {}
 ) {
   const appDataDir = await makeTempAppDataDir();
@@ -115,6 +117,9 @@ async function createMigratedStorageApp(
       : {}),
     ...(options.autoImplementationGitHubIssueMutationAdapter
       ? { autoImplementationGitHubIssueMutationAdapter: options.autoImplementationGitHubIssueMutationAdapter }
+      : {}),
+    ...(options.autoImplementationPullRequestMutationAdapter
+      ? { autoImplementationPullRequestMutationAdapter: options.autoImplementationPullRequestMutationAdapter }
       : {})
   };
 
@@ -194,6 +199,29 @@ async function postAutoImplementationRunForTest(
       ...payload
     })
   }));
+}
+
+async function postAutoImplementationPullRequestMutationForTest(
+  storageApp: RequestTestApp,
+  sessionId: string,
+  runId: string,
+  payload: Readonly<Record<string, unknown>>
+) {
+  return Promise.resolve(storageApp.request(
+    `/api/v1/sessions/${sessionId}/auto-implementation-runs/${runId}/pr-mutations`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        sessionId,
+        runId,
+        ...payload
+      })
+    }
+  ));
 }
 
 async function postAutoImplementationStageForTest(
@@ -9734,6 +9762,347 @@ describe("PR-02 sidecar health shell", () => {
       }
 
       expect(mutationAttempts).toBe(0);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("records connected GitHub PR body update dry-runs without adapter mutation", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    let mutationAttempts = 0;
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot,
+      autoImplementationRemoteStatusProvider: async () => "connected",
+      autoImplementationPullRequestMutationAdapter: {
+        async mutate() {
+          mutationAttempts += 1;
+          throw new Error("PR mutation adapter must not run for dry-run requests.");
+        }
+      }
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "A connected GitHub PR dry-run test");
+      const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:pr-mutation-dry-run",
+        projectName: "Connected PR Dry Run"
+      });
+      const runId = String(latestAutoImplementationRunFromBody(await jsonBody(created)).runId);
+      const response = await postAutoImplementationPullRequestMutationForTest(storageApp, sessionId, runId, {
+        action: "update_pr_body",
+        requestMode: "dry_run",
+        idempotencyKey: "pr-mutation:dry-run:update-body",
+        pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/123",
+        issueLinks: ["local-001", "https://github.com/bee-community-master/generated-demo/issues/101"],
+        implementationScope: "Refresh the generated implementation PR body with current review and test evidence.",
+        reviewStreakRefs: ["code-review:changed:clean-1", "code-review:changed:clean-2"],
+        verificationCommands: ["pnpm test apps/sidecar/src/server.test.ts", "pnpm verify"],
+        knownGaps: ["Live gh PR mutation remains unexecuted in this dry-run."],
+        rollbackNotes: "Restore the previous PR body if this body update is reverted.",
+        bodyEvidenceRefs: ["pr-body:current-evidence"]
+      });
+      const latestRun = latestAutoImplementationRunFromBody(await jsonBody(response));
+      const pullRequestMutations = latestRun.pullRequestMutations as Readonly<Record<string, unknown>>;
+
+      expect(response.status).toBe(200);
+      expect(mutationAttempts).toBe(0);
+      expect(pullRequestMutations).toMatchObject({
+        latestRecord: {
+          action: "update_pr_body",
+          requestMode: "dry_run",
+          status: "dry_run_ready",
+          mutatesGitHub: false,
+          pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/123",
+          issueLinks: ["local-001", "https://github.com/bee-community-master/generated-demo/issues/101"],
+          bodyEvidenceRefs: ["pr-body:current-evidence"],
+          auditEvidenceRefs: expect.arrayContaining([
+            "auto-pr-mutation:update_pr_body:pr-mutation:dry-run:update-body",
+            "github-pr-mutation:dry_run_ready"
+          ])
+        }
+      });
+      expect(pullRequestMutations.records as readonly unknown[]).toHaveLength(1);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("applies approved GitHub PR body updates through the injected adapter", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const mutationInputs: unknown[] = [];
+    const adapter: AutoImplementationPullRequestMutationAdapter = {
+      async mutate(input) {
+        mutationInputs.push(input);
+        expect(input).toMatchObject({
+          projectDir: join(workspaceRoot, "approved-pr-body-update"),
+          action: "update_pr_body",
+          pullRequestTitle: "Evidence refresh PR",
+          pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/124"
+        });
+        expect(input.bodyMarkdown).toContain("### Verification commands");
+        expect(input.bodyMarkdown).toContain("`pnpm verify`");
+
+        return {
+          pullRequestUrl: input.pullRequestUrl ?? "https://github.com/bee-community-master/generated-demo/pull/124",
+          auditEvidenceRefs: ["github-pr-mutation:mock-adapter:body-updated"],
+          mergeEvidenceRefs: []
+        };
+      }
+    };
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot,
+      autoImplementationRemoteStatusProvider: async () => "connected",
+      autoImplementationPullRequestMutationAdapter: adapter
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "An approved GitHub PR mutation test");
+      const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:pr-mutation-approved",
+        projectName: "Approved PR Body Update"
+      });
+      const runId = String(latestAutoImplementationRunFromBody(await jsonBody(created)).runId);
+      const response = await postAutoImplementationPullRequestMutationForTest(storageApp, sessionId, runId, {
+        action: "update_pr_body",
+        requestMode: "approved",
+        idempotencyKey: "pr-mutation:approved:update-body",
+        pullRequestTitle: "Evidence refresh PR",
+        pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/124",
+        issueLinks: ["https://github.com/bee-community-master/generated-demo/issues/101"],
+        implementationScope: "Apply the PR body evidence refresh after review and verifier approval.",
+        reviewStreakRefs: ["code-review:feature:clean-1", "code-review:repository:clean-2"],
+        verificationCommands: ["pnpm verify"],
+        rollbackNotes: "Use gh pr edit with the previous body captured in audit logs.",
+        bodyEvidenceRefs: ["pr-body:current-evidence"],
+        approval: {
+          approvalId: "approval_pr_body_update",
+          approvedBy: "local_operator",
+          approvedAt: "2026-05-05T00:00:00.000Z",
+          actionClass: "github_pr_mutation",
+          approvalGranularity: "per_action",
+          remoteStatusAtApproval: "connected",
+          rollbackPlan: "Reapply the previous PR body if the generated body is wrong.",
+          evidenceRefs: ["approval:pr-body-update"]
+        },
+        verifierEvidenceRefs: ["verifier:pr-body-update-ready"]
+      });
+      const latestRun = latestAutoImplementationRunFromBody(await jsonBody(response));
+      const pullRequestMutations = latestRun.pullRequestMutations as Readonly<Record<string, unknown>>;
+
+      expect(response.status).toBe(200);
+      expect(mutationInputs).toHaveLength(1);
+      expect(pullRequestMutations).toMatchObject({
+        latestRecord: {
+          action: "update_pr_body",
+          requestMode: "approved",
+          status: "applied",
+          mutatesGitHub: true,
+          pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/124",
+          verifierEvidenceRefs: ["verifier:pr-body-update-ready"],
+          auditEvidenceRefs: expect.arrayContaining([
+            "approval:pr-body-update",
+            "github-pr-mutation:applied",
+            "github-pr-mutation:mock-adapter:body-updated"
+          ])
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("blocks GitHub PR merges until final verification and current PR body evidence are recorded", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const mutationInputs: unknown[] = [];
+    const adapter: AutoImplementationPullRequestMutationAdapter = {
+      async mutate(input) {
+        mutationInputs.push(input);
+        expect(input).toMatchObject({
+          action: "merge_pr",
+          pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/125"
+        });
+
+        return {
+          pullRequestUrl: input.pullRequestUrl ?? "https://github.com/bee-community-master/generated-demo/pull/125",
+          auditEvidenceRefs: ["github-pr-mutation:mock-adapter:merged"],
+          mergeEvidenceRefs: ["github-pr-mutation:mock-adapter:merge-completed"]
+        };
+      }
+    };
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot,
+      autoImplementationRemoteStatusProvider: async () => "connected",
+      autoImplementationPullRequestMutationAdapter: adapter
+    });
+
+    function approval(approvalId: string) {
+      return {
+        approvalId,
+        approvedBy: "local_operator",
+        approvedAt: "2026-05-05T00:00:00.000Z",
+        actionClass: "github_pr_mutation",
+        approvalGranularity: "per_action",
+        remoteStatusAtApproval: "connected",
+        rollbackPlan: "Reopen or revert the merge commit if readiness evidence is wrong.",
+        evidenceRefs: [`approval:${approvalId}`]
+      };
+    }
+
+    function mergeRequest(idempotencyKey: string, overrides: Readonly<Record<string, unknown>> = {}) {
+      return {
+        action: "merge_pr",
+        requestMode: "approved",
+        idempotencyKey,
+        pullRequestTitle: "Merge-ready implementation PR",
+        pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/125",
+        issueLinks: ["https://github.com/bee-community-master/generated-demo/issues/101"],
+        implementationScope: "Merge only after final verifier evidence and current PR body evidence are present.",
+        reviewStreakRefs: ["code-review:feature:clean-1", "clean-code-review:repository:clean-2"],
+        verificationCommands: ["pnpm verify"],
+        rollbackNotes: "Revert the merge commit if post-merge verification fails.",
+        mergeEvidenceRefs: ["merge-ready:checks-green"],
+        approval: approval(idempotencyKey.replaceAll(":", "_")),
+        verifierEvidenceRefs: [`verifier:${idempotencyKey}`],
+        ...overrides
+      };
+    }
+
+    function completedStageLedgerEvidence(stage: string) {
+      return {
+        implementationStepId: `step_${stage}`,
+        trackerDocRef: "implementation-step-ledger:tracker:tracker_demo",
+        stepDocRef: `implementation-step-ledger:step:step_${stage}`,
+        implementationEvidenceRefs: [`commit:${stage}:abcdef1`],
+        codeReviewStreakRefs: [`code-review:${stage}:1`, `code-review:${stage}:2`],
+        cleanCodeReviewStreakRefs: [`clean-code-review:${stage}:1`, `clean-code-review:${stage}:2`],
+        testEvidenceRefs: [`test:${stage}:verify`],
+        blockerEvidenceRefs: [],
+        evidenceRefs: [`implementation-step-ledger:step_${stage}`, `test:${stage}:verify`]
+      };
+    }
+
+    try {
+      const { projectId, sessionId } = await createProjectForTest(storageApp, "A guarded GitHub PR merge test");
+      const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:pr-merge-gate",
+        projectName: "Guarded PR Merge"
+      });
+      const createdRun = latestAutoImplementationRunFromBody(await jsonBody(created));
+      const runId = String(createdRun.runId);
+      const blockedBeforeFinalVerify = await postAutoImplementationPullRequestMutationForTest(
+        storageApp,
+        sessionId,
+        runId,
+        mergeRequest("pr-mutation:merge:blocked-final", {
+          bodyEvidenceRefs: ["pr-body:current-evidence"]
+        })
+      );
+      const blockedBeforeFinalVerifyRun = latestAutoImplementationRunFromBody(await jsonBody(blockedBeforeFinalVerify));
+      const blockedBeforeFinalVerifyRecord = (blockedBeforeFinalVerifyRun.pullRequestMutations as
+        Readonly<Record<string, unknown>>).latestRecord as Readonly<Record<string, unknown>>;
+      const blockedProjection = jsonDataRecord(await jsonBody(await storageApp.request(
+        `/api/v1/sessions/${sessionId}/auto-implementation-runs`,
+        { headers: authHeaders() }
+      ))) as unknown as AutoImplementationRunProjection;
+      const blockedRun = blockedProjection.latestRun!;
+      const readyStagePlan = blockedRun.stagePlan.map((stage) => {
+        if (stage.stage === "merge_main") {
+          return {
+            ...stage,
+            status: "ready" as const,
+            nextScheduledAt: "2026-05-20T00:45:00.000Z",
+            evidenceRefs: [...stage.evidenceRefs, "auto-stage-ready:merge_main:fixture"],
+            ledgerEvidence: null,
+            blocker: null
+          };
+        }
+
+        return {
+          ...stage,
+          status: "completed" as const,
+          nextScheduledAt: "2026-05-20T00:45:00.000Z",
+          evidenceRefs: [...stage.evidenceRefs, `stage:${stage.stage}:completed`],
+          ledgerEvidence: completedStageLedgerEvidence(stage.stage),
+          blocker: null
+        };
+      });
+      const readyRun = {
+        ...blockedRun,
+        currentStage: "merge_main" as const,
+        status: "running" as const,
+        nextTickAt: "2026-05-20T00:45:00.000Z",
+        stagePlan: readyStagePlan,
+        updatedAt: "2026-05-20T00:40:00.000Z"
+      };
+      const readyProjection = {
+        ...blockedProjection,
+        version: (Number(blockedProjection.version) + 1) as ProjectionVersion,
+        latestRun: readyRun,
+        runs: blockedProjection.runs.map((run) => run.runId === runId ? readyRun : run),
+        summary: "Auto implementation final verification is ready for PR merge testing."
+      };
+
+      await createProjectionRepository(storage.db).save({
+        projectId: projectId as ProjectId,
+        sessionId: sessionId as SessionId,
+        projection: readyProjection,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        updatedAt: "2026-05-20T00:40:00.000Z"
+      });
+
+      const blockedMissingBody = await postAutoImplementationPullRequestMutationForTest(
+        storageApp,
+        sessionId,
+        runId,
+        mergeRequest("pr-mutation:merge:blocked-body", {
+          bodyEvidenceRefs: []
+        })
+      );
+      const blockedMissingBodyRun = latestAutoImplementationRunFromBody(await jsonBody(blockedMissingBody));
+      const blockedMissingBodyRecord = (blockedMissingBodyRun.pullRequestMutations as
+        Readonly<Record<string, unknown>>).latestRecord as Readonly<Record<string, unknown>>;
+      const applied = await postAutoImplementationPullRequestMutationForTest(storageApp, sessionId, runId, mergeRequest(
+        "pr-mutation:merge:applied",
+        {
+          bodyEvidenceRefs: ["pr-body:current-evidence"]
+        }
+      ));
+      const appliedRun = latestAutoImplementationRunFromBody(await jsonBody(applied));
+      const appliedRecord = (appliedRun.pullRequestMutations as Readonly<Record<string, unknown>>).latestRecord as
+        Readonly<Record<string, unknown>>;
+
+      expect(blockedBeforeFinalVerify.status).toBe(200);
+      expect(blockedBeforeFinalVerifyRecord).toMatchObject({
+        action: "merge_pr",
+        status: "blocked",
+        mutatesGitHub: false,
+        blockedReason: "GitHub PR merge is blocked until final_verify_pr_update has completed validated final verification evidence."
+      });
+      expect(blockedMissingBody.status).toBe(200);
+      expect(blockedMissingBodyRecord).toMatchObject({
+        action: "merge_pr",
+        status: "blocked",
+        mutatesGitHub: false,
+        blockedReason: "GitHub PR merge is blocked until the PR body contains current evidence."
+      });
+      expect(applied.status).toBe(200);
+      expect(mutationInputs).toHaveLength(1);
+      expect(appliedRecord).toMatchObject({
+        action: "merge_pr",
+        requestMode: "approved",
+        status: "applied",
+        mutatesGitHub: true,
+        pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/125",
+        bodyEvidenceRefs: ["pr-body:current-evidence"],
+        mergeEvidenceRefs: expect.arrayContaining([
+          "merge-ready:checks-green",
+          "github-pr-mutation:mock-adapter:merge-completed"
+        ]),
+        auditEvidenceRefs: expect.arrayContaining([
+          "github-pr-mutation:applied",
+          "github-pr-mutation:mock-adapter:merged"
+        ])
+      });
     } finally {
       await storage.close();
     }

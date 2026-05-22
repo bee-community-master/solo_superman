@@ -63,6 +63,46 @@ function githubIssueApproval(evidenceRefs: readonly string[]) {
   } as const;
 }
 
+function githubPullRequestApproval(evidenceRefs: readonly string[]) {
+  return {
+    approvalId: "approval_github_pr_mutation",
+    approvedBy: "local_operator",
+    approvedAt: "2026-05-05T00:00:00.000Z",
+    actionClass: "github_pr_mutation",
+    approvalGranularity: "per_action",
+    remoteStatusAtApproval: "connected",
+    rollbackPlan: "Restore the previous PR body or revert the merge commit.",
+    evidenceRefs
+  } as const;
+}
+
+function pullRequestMutationRecord(overrides: Readonly<Record<string, unknown>> = {}) {
+  return {
+    mutationId: "auto-pr-mutation:auto_run_demo:update_pr_body:update_1",
+    action: "update_pr_body",
+    requestMode: "approved",
+    status: "applied",
+    requiredRemoteStatus: "connected",
+    mutatesGitHub: true,
+    pullRequestUrl: "https://github.com/bee-community-master/demo/pull/1",
+    issueLinks: ["local-001", "https://github.com/bee-community-master/demo/issues/1"],
+    implementationScope: "Update the generated PR body with current review and verification evidence.",
+    reviewStreakRefs: ["code-review:feature:clean-1", "code-review:feature:clean-2"],
+    verificationCommands: ["pnpm verify"],
+    knownGaps: [],
+    rollbackNotes: "Use gh pr edit to restore the previous PR body.",
+    mergeEvidenceRefs: [],
+    bodyEvidenceRefs: ["pr-body:current-evidence"],
+    approval: githubPullRequestApproval(["approval:github_pr_mutation:update_body"]),
+    blockedReason: null,
+    auditEvidenceRefs: ["github-pr-mutation:applied"],
+    verifierEvidenceRefs: ["verifier:github_pr_mutation:ready"],
+    createdAt: "2026-05-05T00:00:00.000Z",
+    updatedAt: "2026-05-05T00:00:00.000Z",
+    ...overrides
+  } as AutoImplementationRun["pullRequestMutations"]["records"][number];
+}
+
 function projectionWithAppliedGitHubIssueMutation(input: {
   readonly createdIssueUrls?: readonly string[];
   readonly githubIssueUrls?: readonly string[];
@@ -137,6 +177,10 @@ describe("AutoImplementationRunProjection contract", () => {
       ])
     );
     expect(readyRun.remoteGuide.commands).toContain("gh auth login");
+    expect(readyRun.pullRequestMutations).toEqual({
+      records: [],
+      latestRecord: null
+    });
   });
 
   it("accepts current-stage worker jobs that carry a bounded local Codex execution plan", () => {
@@ -585,6 +629,69 @@ describe("AutoImplementationRunProjection contract", () => {
   it("rejects GitHub issue mutation contracts without audit evidence refs", () => {
     const invalid = projectionWithAppliedGitHubIssueMutation({
       auditEvidenceRefs: []
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("accepts GitHub PR mutation records with approval, body evidence, and verifier refs", () => {
+    const record = pullRequestMutationRecord();
+    const valid = projectionWithLatestRun({
+      ...readyRun,
+      pullRequestMutations: {
+        records: [record],
+        latestRecord: record
+      }
+    });
+
+    expect(validateAutoImplementationRunProjection(valid)).toBe(valid);
+  });
+
+  it("rejects applied GitHub PR body updates without current body evidence refs", () => {
+    const record = pullRequestMutationRecord({
+      bodyEvidenceRefs: []
+    });
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      pullRequestMutations: {
+        records: [record],
+        latestRecord: record
+      }
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects applied GitHub PR merges without merge readiness evidence refs", () => {
+    const record = pullRequestMutationRecord({
+      mutationId: "auto-pr-mutation:auto_run_demo:merge_pr:merge_1",
+      action: "merge_pr",
+      mergeEvidenceRefs: []
+    });
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      pullRequestMutations: {
+        records: [record],
+        latestRecord: record
+      }
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects GitHub PR mutation state when latestRecord does not match the last record", () => {
+    const firstRecord = pullRequestMutationRecord({
+      mutationId: "auto-pr-mutation:auto_run_demo:update_pr_body:update_1"
+    });
+    const lastRecord = pullRequestMutationRecord({
+      mutationId: "auto-pr-mutation:auto_run_demo:update_pr_body:update_2"
+    });
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      pullRequestMutations: {
+        records: [firstRecord, lastRecord],
+        latestRecord: firstRecord
+      }
     });
 
     expectInvalidProjection(invalid);

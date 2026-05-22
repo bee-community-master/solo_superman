@@ -368,6 +368,7 @@ Route definitions are source-owned by `packages/contracts/src/api/routes.ts`. Th
 | `GET /api/v1/sessions/:sessionId/implementation-step-ledger` | `getImplementationStepLedger` | `none` | - |
 | `POST /api/v1/sessions/:sessionId/auto-implementation-runs` | `createAutoImplementationRun` | `none` | - |
 | `GET /api/v1/sessions/:sessionId/auto-implementation-runs` | `getAutoImplementationRuns` | `none` | - |
+| `POST /api/v1/sessions/:sessionId/auto-implementation-runs/:runId/pr-mutations` | `recordAutoImplementationPullRequestMutation` | `none` | - |
 | `POST /api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs` | `createAutoImplementationWorkerJob` | `none` | - |
 | `POST /api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/complete` | `completeAutoImplementationWorkerJob` | `none` | - |
 | `POST /api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/ledger-import` | `importAutoImplementationWorkerLedger` | `none` | - |

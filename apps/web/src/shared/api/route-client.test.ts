@@ -285,6 +285,11 @@ describe("PR-09 web route client catalog", () => {
       path: "/api/v1/sessions/:sessionId/auto-implementation-runs",
       implementation: "mounted_post_phase3_pr_07"
     });
+    expect(findWebRouteClientPlaceholder("recordAutoImplementationPullRequestMutation")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/pr-mutations",
+      implementation: "mounted_post_phase3_pr_07"
+    });
     expect(findWebRouteClientPlaceholder("createAutoImplementationWorkerJob")).toMatchObject({
       method: "POST",
       path: "/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs",

@@ -74,6 +74,10 @@ export function autoImplementationWorkerJobPath(sessionId: SessionId, runId: str
   return `${autoImplementationRunPath(sessionId)}/${encodeURIComponent(runId)}/worker-jobs`;
 }
 
+export function autoImplementationPullRequestMutationPath(sessionId: SessionId, runId: string) {
+  return `${autoImplementationRunPath(sessionId)}/${encodeURIComponent(runId)}/pr-mutations`;
+}
+
 export function autoImplementationWorkerJobCompletePath(sessionId: SessionId, runId: string, jobId: string) {
   return `${autoImplementationWorkerJobPath(sessionId, runId)}/${encodeURIComponent(jobId)}/complete`;
 }
