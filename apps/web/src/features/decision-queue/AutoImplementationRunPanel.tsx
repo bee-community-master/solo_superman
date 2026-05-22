@@ -1,6 +1,7 @@
 import type {
   AutoImplementationGitHubIssuePlan,
   AutoImplementationIssueDocument,
+  AutoImplementationPullRequestMutationRecord,
   AutoImplementationRunProjection,
   AutoImplementationStageReviewGate,
   AutoImplementationStageRecord,
@@ -21,6 +22,9 @@ export interface AutoImplementationRunViewModel {
   readonly githubIssueMutationLabel: string;
   readonly githubIssuePlans: readonly AutoImplementationGitHubIssuePlan[];
   readonly githubCreatedIssueUrls: readonly string[];
+  readonly pullRequestMutationLabel: string;
+  readonly pullRequestMutationHistoryCount: number;
+  readonly latestPullRequestMutation: AutoImplementationPullRequestMutationRecord | null;
   readonly stages: readonly AutoImplementationStageRecord[];
   readonly issueDocs: readonly AutoImplementationIssueDocument[];
   readonly deliveryGates: readonly string[];
@@ -59,6 +63,9 @@ export function autoImplementationRunViewModel(
       githubIssueMutationLabel: "GitHub issue mutation: not requested",
       githubIssuePlans: [],
       githubCreatedIssueUrls: [],
+      pullRequestMutationLabel: "GitHub PR mutation: no records",
+      pullRequestMutationHistoryCount: 0,
+      latestPullRequestMutation: null,
       stages: [],
       issueDocs: [],
       deliveryGates: [],
@@ -78,6 +85,13 @@ export function autoImplementationRunViewModel(
   const githubIssueMutation = run.issueManagement.githubIssueMutation;
   const githubIssueBlockedReason = githubIssueMutation.blockedReason ? ` · ${githubIssueMutation.blockedReason}` : "";
   const workerJobs = Array.isArray((run as { readonly workerJobs?: unknown }).workerJobs) ? run.workerJobs : [];
+  const pullRequestMutationState = (run as { readonly pullRequestMutations?: unknown }).pullRequestMutations;
+  const pullRequestMutationRecords = pullRequestMutationState &&
+    typeof pullRequestMutationState === "object" &&
+    Array.isArray((pullRequestMutationState as { readonly records?: unknown }).records)
+    ? (pullRequestMutationState as { readonly records: readonly AutoImplementationPullRequestMutationRecord[] }).records
+    : [];
+  const latestPullRequestMutation = pullRequestMutationRecords.at(-1) ?? null;
   const latestWorkerJob = workerJobs.at(-1);
   const canRunWorkerJob = latestWorkerJob?.status === "planned" ||
     (
@@ -99,6 +113,11 @@ export function autoImplementationRunViewModel(
     githubIssueMutationLabel: `GitHub issue mutation: ${githubIssueMutation.status}${githubIssueBlockedReason}`,
     githubIssuePlans: githubIssueMutation.plannedIssues,
     githubCreatedIssueUrls: run.issueManagement.githubIssueUrls,
+    pullRequestMutationLabel: latestPullRequestMutation
+      ? `GitHub PR mutation: ${latestPullRequestMutation.action} ${latestPullRequestMutation.status}`
+      : "GitHub PR mutation: no records",
+    pullRequestMutationHistoryCount: pullRequestMutationRecords.length,
+    latestPullRequestMutation,
     stages: run.stagePlan,
     issueDocs: run.issueManagement.issueDocs,
     deliveryGates: run.reviewProtocol.deliveryGates,
@@ -116,6 +135,10 @@ export function autoImplementationRunViewModel(
     canAdvanceWorkerStage: latestWorkerJob?.status === "completed",
     hasRun: true
   };
+}
+
+function inlineList(items: readonly string[], fallback: string) {
+  return items.length ? items.join(", ") : fallback;
 }
 
 interface AutoImplementationRunPanelProps {
@@ -138,6 +161,7 @@ export function AutoImplementationRunPanel({
   onRefreshRun
 }: AutoImplementationRunPanelProps) {
   const copy = useDecisionQueueCopy();
+  const latestPullRequestMutation = run.latestPullRequestMutation;
 
   return (
     <section className="panel auto-implementation-run-panel">
@@ -245,6 +269,76 @@ export function AutoImplementationRunPanel({
         </ul>
       ) : (
         <p className="empty-state">{copy.autoImplementation.noGithubIssueUrls}</p>
+      )}
+
+      <h3>{copy.autoImplementation.githubPullRequestMutation}</h3>
+      <p>{run.pullRequestMutationLabel}</p>
+      <p className="mode-summary">{copy.autoImplementation.pullRequestMutationHistory(run.pullRequestMutationHistoryCount)}</p>
+      {latestPullRequestMutation ? (
+        <article className="operations-card">
+          <dl className="readiness-grid">
+            <div>
+              <dt>{copy.autoImplementation.prMutationRequestMode}</dt>
+              <dd>{latestPullRequestMutation.requestMode}</dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.prMutationMutatesGitHub}</dt>
+              <dd>
+                {latestPullRequestMutation.mutatesGitHub
+                  ? copy.autoImplementation.yes
+                  : copy.autoImplementation.no}
+              </dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.prMutationPullRequest}</dt>
+              <dd>{latestPullRequestMutation.pullRequestUrl ?? copy.autoImplementation.noPullRequestUrl}</dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.prMutationBlockedReason}</dt>
+              <dd>{latestPullRequestMutation.blockedReason ?? copy.autoImplementation.notBlocked}</dd>
+            </div>
+          </dl>
+          <p>{latestPullRequestMutation.implementationScope}</p>
+          <p className="mode-summary">
+            {copy.autoImplementation.prMutationRollbackNotes}: {latestPullRequestMutation.rollbackNotes}
+          </p>
+          <dl className="readiness-grid">
+            <div>
+              <dt>{copy.autoImplementation.prMutationIssueLinks}</dt>
+              <dd>{inlineList(latestPullRequestMutation.issueLinks, copy.autoImplementation.none)}</dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.prMutationReviewStreaks}</dt>
+              <dd>{inlineList(latestPullRequestMutation.reviewStreakRefs, copy.autoImplementation.none)}</dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.prMutationVerificationCommands}</dt>
+              <dd>{inlineList(latestPullRequestMutation.verificationCommands, copy.autoImplementation.none)}</dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.prMutationKnownGaps}</dt>
+              <dd>{inlineList(latestPullRequestMutation.knownGaps, copy.autoImplementation.none)}</dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.prMutationBodyEvidence}</dt>
+              <dd>{inlineList(latestPullRequestMutation.bodyEvidenceRefs, copy.autoImplementation.none)}</dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.prMutationMergeEvidence}</dt>
+              <dd>{inlineList(latestPullRequestMutation.mergeEvidenceRefs, copy.autoImplementation.none)}</dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.prMutationVerifierEvidence}</dt>
+              <dd>{inlineList(latestPullRequestMutation.verifierEvidenceRefs, copy.autoImplementation.none)}</dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.prMutationAuditEvidence}</dt>
+              <dd>{inlineList(latestPullRequestMutation.auditEvidenceRefs, copy.autoImplementation.none)}</dd>
+            </div>
+          </dl>
+        </article>
+      ) : (
+        <p className="empty-state">{copy.autoImplementation.noGithubPullRequestMutations}</p>
       )}
 
       <h3>{copy.autoImplementation.remoteGuide}</h3>
