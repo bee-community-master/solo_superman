@@ -24,6 +24,10 @@ Roadmap은 contributor map이며 user-facing UI vocabulary가 아닙니다. code
 - Phase 3: Controlled Execution. MVP action class는 common ledger/authority -> `file_diff` -> `shell_command` -> `browser_action` 순서로만 열립니다.
 - Post-Phase3: Full-vision backlog. purpose mode, critic intensity, local ChatGPT browser delegation, external service permission, implementation step ledger, cross-platform install/run verification을 추가합니다.
 
+## Auto implementation workspace / 자동 구현 작업공간
+
+Planning이 충분히 상세해지면 Solo Superman은 `workspace/<project>` 아래에 독립 generated-program repo를 준비할 수 있습니다. 첫 화면은 local git repo, `implementation-tracker.md`, 7개의 markdown fallback issue document, `.solo-superman/auto-implementation-run.json`을 만듭니다. 생성된 문서에는 tracker/step doc, commit 또는 no-code evidence, scoped code-review 및 clean-code-review streak, test evidence, blocker, evidence ref를 위한 `ImplementationStepLedger` evidence template가 포함됩니다. GitHub remote나 login이 없으면 issue/PR automation이 성공한 것처럼 보이지 않고, visible remote warning과 connection guide를 유지한 채 local work를 계속합니다.
+
 ## 이슈 이력
 
 - #86, #87, #88은 web/local migration과 Phase 3 controlled execution prerequisite gate를 세웠습니다.
