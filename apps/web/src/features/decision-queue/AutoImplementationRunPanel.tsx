@@ -91,7 +91,11 @@ export function autoImplementationRunViewModel(
     Array.isArray((pullRequestMutationState as { readonly records?: unknown }).records)
     ? (pullRequestMutationState as { readonly records: readonly AutoImplementationPullRequestMutationRecord[] }).records
     : [];
-  const latestPullRequestMutation = pullRequestMutationRecords.at(-1) ?? null;
+  const latestPullRequestMutation = pullRequestMutationState &&
+    typeof pullRequestMutationState === "object" &&
+    (pullRequestMutationState as { readonly latestRecord?: unknown }).latestRecord
+    ? (pullRequestMutationState as { readonly latestRecord: AutoImplementationPullRequestMutationRecord }).latestRecord
+    : pullRequestMutationRecords.at(-1) ?? null;
   const latestWorkerJob = workerJobs.at(-1);
   const canRunWorkerJob = latestWorkerJob?.status === "planned" ||
     (
@@ -318,6 +322,18 @@ export function AutoImplementationRunPanel({
             <div>
               <dt>{copy.autoImplementation.prMutationKnownGaps}</dt>
               <dd>{inlineList(latestPullRequestMutation.knownGaps, copy.autoImplementation.none)}</dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.prMutationApprovalEvidence}</dt>
+              <dd>
+                {latestPullRequestMutation.approval
+                  ? inlineList(latestPullRequestMutation.approval.evidenceRefs, copy.autoImplementation.none)
+                  : copy.autoImplementation.none}
+              </dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.prMutationApprovalRollback}</dt>
+              <dd>{latestPullRequestMutation.approval?.rollbackPlan ?? copy.autoImplementation.none}</dd>
             </div>
             <div>
               <dt>{copy.autoImplementation.prMutationBodyEvidence}</dt>

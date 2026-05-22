@@ -135,6 +135,37 @@ describe("AutoImplementationRunPanel view model", () => {
     });
   });
 
+
+  it("uses the projection latestRecord when the mutation state carries one", () => {
+    const openRecord = prMutationRecord({
+      mutationId: "auto-pr-mutation:auto_run_demo:open_pr:open_1",
+      action: "open_pr",
+      status: "dry_run_ready",
+      requestMode: "dry_run",
+      mutatesGitHub: false,
+      pullRequestUrl: null,
+      bodyEvidenceRefs: [],
+      mergeEvidenceRefs: [],
+      blockedReason: null
+    });
+    const updateRecord = prMutationRecord();
+    const view = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        pullRequestMutations: {
+          records: [updateRecord, openRecord],
+          latestRecord: updateRecord
+        }
+      }
+    } as AutoImplementationRunProjection);
+
+    expect(view.pullRequestMutationLabel).toBe("GitHub PR mutation: update_pr_body applied");
+    expect(view.latestPullRequestMutation).toMatchObject({
+      mutationId: "auto-pr-mutation:auto_run_demo:update_pr_body:update_1"
+    });
+  });
+
   it("shows the latest local worker blocker when a bounded Codex job exists", () => {
     const projection = {
       ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
@@ -285,6 +316,8 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("Update the generated PR body with current review and verification evidence.");
     expect(markup).toContain("code-review:feature:clean-1");
     expect(markup).toContain("pnpm verify");
+    expect(markup).toContain("approval:github_pr_mutation:update_body");
+    expect(markup).toContain("Restore the previous PR body or revert the merge commit.");
     expect(markup).toContain("pr-body:current-evidence");
     expect(markup).toContain("github-pr-mutation:merge:completed");
     expect(markup).toContain("verifier:github_pr_mutation:ready");
