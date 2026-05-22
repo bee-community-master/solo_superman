@@ -224,7 +224,7 @@ function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
-function isTrackerDoc(value: unknown): value is TrackerDoc {
+export function isImplementationStepLedgerTrackerDoc(value: unknown): value is TrackerDoc {
   return isRecord(value) &&
     isNonEmptyString(value.trackerId) &&
     isNonEmptyString(value.title) &&
@@ -233,7 +233,7 @@ function isTrackerDoc(value: unknown): value is TrackerDoc {
     value.sourceRefs.length > 0;
 }
 
-function isStepDoc(value: unknown): value is ImplementationStepDoc {
+export function isImplementationStepLedgerStepDoc(value: unknown): value is ImplementationStepDoc {
   return isRecord(value) &&
     isNonEmptyString(value.stepId) &&
     isNonEmptyString(value.title) &&
@@ -574,7 +574,7 @@ export function validateImplementationStepLedgerProjection(
   const latestStepById = new Map<string, ImplementationStepRecord>();
 
   for (const step of projection.steps) {
-    if (isStepDoc(step.stepDoc)) {
+    if (isImplementationStepLedgerStepDoc(step.stepDoc)) {
       latestStepById.set(step.stepDoc.stepId, step);
     }
   }
@@ -582,7 +582,7 @@ export function validateImplementationStepLedgerProjection(
   if (projection.kind !== "ImplementationStepLedgerProjection") {
     issues.push("kind must be ImplementationStepLedgerProjection");
   }
-  if (!isTrackerDoc(projection.trackerDoc)) {
+  if (!isImplementationStepLedgerTrackerDoc(projection.trackerDoc)) {
     issues.push("trackerDoc must include title, goal, and source refs");
   }
   if (!projection.steps.length || !latestStep) {
@@ -602,7 +602,7 @@ export function validateImplementationStepLedgerProjection(
   }
 
   for (const step of projection.steps) {
-    if (!isStepDoc(step.stepDoc)) {
+    if (!isImplementationStepLedgerStepDoc(step.stepDoc)) {
       issues.push("stepDoc must be a valid ImplementationStepDoc");
       continue;
     }
@@ -710,7 +710,7 @@ export function validateImplementationStepLedgerProjection(
     }
   }
 
-  const validSteps = projection.steps.filter((step) => isStepDoc(step.stepDoc));
+  const validSteps = projection.steps.filter((step) => isImplementationStepLedgerStepDoc(step.stepDoc));
   const stepIds = new Set(validSteps.map((step) => step.stepDoc.stepId));
   const stepDocsById = new Map<string, ImplementationStepDoc>();
 

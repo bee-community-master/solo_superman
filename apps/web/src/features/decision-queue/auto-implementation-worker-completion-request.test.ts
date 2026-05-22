@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+  AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
   IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+  autoImplementationWorkerExpectedChangeScope,
+  autoImplementationWorkerLedgerStepDescription,
   type AutoImplementationRun,
   type ImplementationStepLedgerProjection,
   type SessionId
@@ -41,6 +44,31 @@ function plannedWorkerRun(): AutoImplementationRun {
           workingDirectory: run.generatedRepoPath,
           issueDocumentPath: "implementation-issues/001-initial_pr.md",
           executionAuthorityRef: "exec_auth_auto_worker_initial_pr",
+          ledgerTrackerDoc: {
+            trackerId: `auto-implementation-tracker:${run.runId}`,
+            title: "demo-project implementation tracker",
+            goal: AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
+            sourceRefs: [
+              `auto-implementation-run:${run.runId}`,
+              "tracker-doc:implementation-tracker.md"
+            ]
+          },
+          ledgerStepDoc: {
+            stepId: `auto-implementation-step:${run.runId}:${run.currentStage}:local-001`,
+            title: "Workspace repo bootstrap and initial implementation PR",
+            description: autoImplementationWorkerLedgerStepDescription({
+              stage: run.currentStage,
+              issueRelativePath: "implementation-issues/001-initial_pr.md"
+            }),
+            sourceRefs: [
+              `auto-implementation-run:${run.runId}`,
+              `auto-implementation-stage:${run.currentStage}`,
+              "auto-implementation-worker-job:auto_run_demo:initial_pr:planned",
+              "auto-implementation-issue:local-001",
+              "issue-doc:implementation-issues/001-initial_pr.md"
+            ],
+            expectedChangeScope: autoImplementationWorkerExpectedChangeScope(run.currentStage)
+          },
           allowedWriteScope: ["."],
           requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
           forbiddenActions: ["credential storage"],

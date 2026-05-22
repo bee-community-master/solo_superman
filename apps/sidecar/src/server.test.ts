@@ -8884,7 +8884,21 @@ describe("PR-02 sidecar health shell", () => {
         blockedReason: null,
         nextRequiredAction: expect.stringContaining("ImplementationStepLedger evidence"),
         executionPlan: {
-          executionAuthorityRef: authorityRecordId
+          executionAuthorityRef: authorityRecordId,
+          ledgerTrackerDoc: {
+            trackerId: `auto-implementation-tracker:${runId}`,
+            sourceRefs: expect.arrayContaining([
+              `auto-implementation-run:${runId}`,
+              "tracker-doc:implementation-tracker.md"
+            ])
+          },
+          ledgerStepDoc: {
+            stepId: `auto-implementation-step:${runId}:initial_pr:local-001`,
+            sourceRefs: expect.arrayContaining([
+              `auto-implementation-worker-job:${String(plannedJobs[5]!.jobId)}`,
+              "issue-doc:implementation-issues/001-initial_pr.md"
+            ])
+          }
         },
         evidenceRefs: expect.arrayContaining([
           `execution-authority:${authorityRecordId}`
@@ -9603,13 +9617,59 @@ describe("PR-02 sidecar health shell", () => {
       const workerJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
         idempotencyKey: "worker-job:legacy-missing-authority"
       });
-      const workerJobRun = latestAutoImplementationRunFromBody(await jsonBody(workerJobResponse));
+      const workerJobBody = await jsonBody(workerJobResponse);
+      const workerJobRun = latestAutoImplementationRunFromBody(workerJobBody);
 
       expect(workerJobResponse.status).toBe(200);
       expect(workerJobRun.workerJobs as readonly unknown[]).toHaveLength(1);
       expect(workerJobRun).toMatchObject({
         status: "blocked",
         currentStage: "initial_pr"
+      });
+
+      const workerJobProjection = jsonDataRecord(workerJobBody) as unknown as AutoImplementationRunProjection;
+      const legacyWorkerPlanRuns = workerJobProjection.runs.map((run) => ({
+        ...run,
+        workerJobs: run.workerJobs.map((job) => {
+          const executionPlan = { ...job.executionPlan } as Record<string, unknown>;
+
+          delete executionPlan.ledgerTrackerDoc;
+          delete executionPlan.ledgerStepDoc;
+
+          return {
+            ...job,
+            executionPlan
+          };
+        })
+      }));
+      const legacyWorkerPlanProjection = {
+        ...workerJobProjection,
+        latestRun: legacyWorkerPlanRuns.at(-1) ?? null,
+        runs: legacyWorkerPlanRuns
+      } as unknown as AutoImplementationRunProjection;
+
+      await createProjectionRepository(storage.db).save({
+        projectId: projectId as ProjectId,
+        sessionId: sessionId as SessionId,
+        projection: legacyWorkerPlanProjection,
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      const normalizedWorkerPlanResponse = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
+        headers: authHeaders()
+      });
+      const normalizedWorkerPlanRun = latestAutoImplementationRunFromBody(await jsonBody(normalizedWorkerPlanResponse));
+      const normalizedWorkerJobs = normalizedWorkerPlanRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+      const normalizedWorkerJob = normalizedWorkerJobs.at(-1);
+
+      expect(normalizedWorkerPlanResponse.status).toBe(200);
+      expect(normalizedWorkerJob?.executionPlan as Readonly<Record<string, unknown>> | undefined).toMatchObject({
+        ledgerTrackerDoc: {
+          trackerId: `auto-implementation-tracker:${runId}`
+        },
+        ledgerStepDoc: {
+          stepId: `auto-implementation-step:${runId}:initial_pr:local-001`
+        }
       });
     } finally {
       await storage.close();

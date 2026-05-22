@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+  AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
+  autoImplementationWorkerExpectedChangeScope,
+  autoImplementationWorkerLedgerStepDescription,
   type AutoImplementationRun,
   type SessionId
 } from "@solo-superman/contracts";
@@ -88,6 +91,31 @@ describe("auto implementation stage requests", () => {
             workingDirectory: baseRun.generatedRepoPath,
             issueDocumentPath: "implementation-issues/001-initial_pr.md",
             executionAuthorityRef: "exec_auth_auto_worker_initial_pr",
+            ledgerTrackerDoc: {
+              trackerId: `auto-implementation-tracker:${baseRun.runId}`,
+              title: "demo-project implementation tracker",
+              goal: AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
+              sourceRefs: [
+                `auto-implementation-run:${baseRun.runId}`,
+                "tracker-doc:implementation-tracker.md"
+              ]
+            },
+            ledgerStepDoc: {
+              stepId: `auto-implementation-step:${baseRun.runId}:${baseRun.currentStage}:local-001`,
+              title: "Workspace repo bootstrap and initial implementation PR",
+              description: autoImplementationWorkerLedgerStepDescription({
+                stage: baseRun.currentStage,
+                issueRelativePath: "implementation-issues/001-initial_pr.md"
+              }),
+              sourceRefs: [
+                `auto-implementation-run:${baseRun.runId}`,
+                `auto-implementation-stage:${baseRun.currentStage}`,
+                "auto-implementation-worker-job:auto_run_demo:initial_pr:blocked",
+                "auto-implementation-issue:local-001",
+                "issue-doc:implementation-issues/001-initial_pr.md"
+              ],
+              expectedChangeScope: autoImplementationWorkerExpectedChangeScope(baseRun.currentStage)
+            },
             allowedWriteScope: ["."],
             requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
             forbiddenActions: ["credential storage"],

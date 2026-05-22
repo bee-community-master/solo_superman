@@ -1,5 +1,11 @@
 import type { ProjectionVersion, SchemaVersion, SessionId } from "../ids";
-import type { RecordImplementationStepLedgerPayload } from "./implementation-step-ledger";
+import {
+  isImplementationStepLedgerStepDoc,
+  isImplementationStepLedgerTrackerDoc,
+  type ImplementationStepDoc,
+  type RecordImplementationStepLedgerPayload,
+  type TrackerDoc
+} from "./implementation-step-ledger";
 
 export const AUTO_IMPLEMENTATION_SCHEMA_VERSION = "solo-superman.auto-implementation.v1" as SchemaVersion;
 export const AUTO_IMPLEMENTATION_TICK_INTERVAL_MS = 5 * 60 * 1000;
@@ -46,6 +52,8 @@ export const AUTO_IMPLEMENTATION_STAGE_STATUSES = [
 export const AUTO_IMPLEMENTATION_STAGE_ACTIONS = ["tick", "start", "pause", "block", "complete"] as const;
 export const AUTO_IMPLEMENTATION_WORKER_JOB_STATUSES = ["planned", "blocked", "completed"] as const;
 export const AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE = "local_sandboxed_codex" as const;
+export const AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL =
+  "Complete the staged auto implementation protocol with review, clean-code, test, PR, and merge evidence.";
 
 export const AUTO_IMPLEMENTATION_REMOTE_STATUSES = [
   "connected",
@@ -357,6 +365,8 @@ export interface AutoImplementationWorkerExecutionPlan {
   readonly workingDirectory: string;
   readonly issueDocumentPath: string;
   readonly executionAuthorityRef: string | null;
+  readonly ledgerTrackerDoc: TrackerDoc;
+  readonly ledgerStepDoc: ImplementationStepDoc;
   readonly allowedWriteScope: readonly string[];
   readonly requiredEvidence: readonly string[];
   readonly forbiddenActions: readonly string[];
@@ -612,6 +622,8 @@ function isWorkerExecutionPlan(value: unknown): value is AutoImplementationWorke
     isNonEmptyString(value.issueDocumentPath) &&
     (value.executionAuthorityRef === null ||
       (isNonEmptyString(value.executionAuthorityRef) && value.executionAuthorityRef.startsWith("exec_auth_"))) &&
+    isImplementationStepLedgerTrackerDoc(value.ledgerTrackerDoc) &&
+    isImplementationStepLedgerStepDoc(value.ledgerStepDoc) &&
     isStringArray(value.allowedWriteScope) &&
     value.allowedWriteScope.length > 0 &&
     isStringArray(value.requiredEvidence) &&
@@ -845,6 +857,54 @@ function hasUniqueStrings(values: readonly string[]) {
   return new Set(values).size === values.length;
 }
 
+export function autoImplementationWorkerExpectedChangeScope(
+  stage: AutoImplementationStage
+): ImplementationStepDoc["expectedChangeScope"] {
+  if (stage === "merge_main") {
+    return "no_op_review";
+  }
+
+  if (stage === "final_verify_pr_update") {
+    return "verification_only";
+  }
+
+  return "tracked_code_docs_config";
+}
+
+export function autoImplementationWorkerLedgerStepDescription(input: {
+  readonly stage: AutoImplementationStage;
+  readonly issueRelativePath: string;
+}) {
+  return `Execute ${AUTO_IMPLEMENTATION_STAGE_LABELS[input.stage]} for ${input.issueRelativePath}.`;
+}
+
+function workerPlanLedgerDocsMatchJob(input: {
+  readonly runId: string;
+  readonly projectFolderName: string;
+  readonly trackerRelativePath: string;
+  readonly job: AutoImplementationWorkerJob;
+}) {
+  const { job } = input;
+
+  return job.executionPlan.ledgerTrackerDoc.trackerId === `auto-implementation-tracker:${input.runId}` &&
+    job.executionPlan.ledgerTrackerDoc.title === `${input.projectFolderName} implementation tracker` &&
+    job.executionPlan.ledgerTrackerDoc.goal === AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL &&
+    job.executionPlan.ledgerTrackerDoc.sourceRefs.includes(`auto-implementation-run:${input.runId}`) &&
+    job.executionPlan.ledgerTrackerDoc.sourceRefs.includes(`tracker-doc:${input.trackerRelativePath}`) &&
+    job.executionPlan.ledgerStepDoc.stepId === `auto-implementation-step:${input.runId}:${job.stage}:${job.issueId}` &&
+    job.executionPlan.ledgerStepDoc.title === job.issueTitle &&
+    job.executionPlan.ledgerStepDoc.description === autoImplementationWorkerLedgerStepDescription({
+      stage: job.stage,
+      issueRelativePath: job.issueRelativePath
+    }) &&
+    job.executionPlan.ledgerStepDoc.expectedChangeScope === autoImplementationWorkerExpectedChangeScope(job.stage) &&
+    job.executionPlan.ledgerStepDoc.sourceRefs.includes(`auto-implementation-run:${input.runId}`) &&
+    job.executionPlan.ledgerStepDoc.sourceRefs.includes(`auto-implementation-stage:${job.stage}`) &&
+    job.executionPlan.ledgerStepDoc.sourceRefs.includes(`auto-implementation-worker-job:${job.jobId}`) &&
+    job.executionPlan.ledgerStepDoc.sourceRefs.includes(`auto-implementation-issue:${job.issueId}`) &&
+    job.executionPlan.ledgerStepDoc.sourceRefs.includes(`issue-doc:${job.issueRelativePath}`);
+}
+
 function mutationPlansMatchIssueDocs(
   plans: readonly AutoImplementationGitHubIssuePlan[],
   issueDocs: readonly AutoImplementationIssueDocument[]
@@ -932,10 +992,13 @@ function hasConsistentRemoteIssueState(
 }
 
 function hasValidWorkerJobs(value: Readonly<Record<string, unknown>>) {
+  const issueManagement = value.issueManagement;
+
   if (
     !isNonEmptyString(value.runId) ||
     !isNonEmptyString(value.generatedRepoPath) ||
-    !isIssueManagement(value.issueManagement) ||
+    !isNonEmptyString(value.projectFolderName) ||
+    !isIssueManagement(issueManagement) ||
     !Array.isArray(value.workerJobs)
   ) {
     return false;
@@ -943,13 +1006,20 @@ function hasValidWorkerJobs(value: Readonly<Record<string, unknown>>) {
 
   const runId = value.runId;
   const generatedRepoPath = value.generatedRepoPath;
-  const issueDocs = value.issueManagement.issueDocs;
+  const projectFolderName = value.projectFolderName;
+  const issueDocs = issueManagement.issueDocs;
 
   return value.workerJobs.every((job) =>
     isWorkerJob(job) &&
     job.runId === runId &&
     job.executionPlan.workingDirectory === generatedRepoPath &&
     job.executionPlan.issueDocumentPath === job.issueRelativePath &&
+    workerPlanLedgerDocsMatchJob({
+      runId,
+      projectFolderName,
+      trackerRelativePath: issueManagement.trackerRelativePath,
+      job
+    }) &&
     issueDocs.some((issue) =>
       issue.issueId === job.issueId &&
       issue.stage === job.stage &&

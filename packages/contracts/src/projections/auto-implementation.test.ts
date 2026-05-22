@@ -4,7 +4,10 @@ import {
   AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
   AUTO_IMPLEMENTATION_STAGE_LABELS,
   AUTO_IMPLEMENTATION_STAGES,
+  AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
   AutoImplementationRunValidationError,
+  autoImplementationWorkerExpectedChangeScope,
+  autoImplementationWorkerLedgerStepDescription,
   validateAutoImplementationRunProjection
 } from "./auto-implementation";
 
@@ -103,6 +106,56 @@ function pullRequestMutationRecord(overrides: Readonly<Record<string, unknown>> 
   } as AutoImplementationRun["pullRequestMutations"]["records"][number];
 }
 
+function workerExecutionPlan(input: {
+  readonly jobId?: string;
+  readonly stage?: AutoImplementationRun["currentStage"];
+  readonly issueId?: string;
+  readonly issueTitle?: string;
+  readonly issueRelativePath?: string;
+  readonly executionAuthorityRef?: string | null;
+  readonly overrides?: Partial<AutoImplementationRun["workerJobs"][number]["executionPlan"]>;
+} = {}): AutoImplementationRun["workerJobs"][number]["executionPlan"] {
+  const stage = input.stage ?? "initial_pr";
+  const issueId = input.issueId ?? "local-001";
+  const issueTitle = input.issueTitle ?? "Workspace repo bootstrap and initial implementation PR";
+  const issueRelativePath = input.issueRelativePath ?? "implementation-issues/001-initial_pr.md";
+  const jobId = input.jobId ?? "auto-worker-job:auto_run_demo:initial_pr:job_1";
+
+  return {
+    executionMode: "local_sandboxed_codex",
+    workingDirectory: readyRun.generatedRepoPath,
+    issueDocumentPath: issueRelativePath,
+    executionAuthorityRef: input.executionAuthorityRef === undefined ? "exec_auth_1" : input.executionAuthorityRef,
+    ledgerTrackerDoc: {
+      trackerId: "auto-implementation-tracker:auto_run_demo",
+      title: "demo-project implementation tracker",
+      goal: AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
+      sourceRefs: [
+        "auto-implementation-run:auto_run_demo",
+        "tracker-doc:implementation-tracker.md"
+      ]
+    },
+    ledgerStepDoc: {
+      stepId: `auto-implementation-step:auto_run_demo:${stage}:${issueId}`,
+      title: issueTitle,
+      description: autoImplementationWorkerLedgerStepDescription({ stage, issueRelativePath }),
+      sourceRefs: [
+        "auto-implementation-run:auto_run_demo",
+        `auto-implementation-stage:${stage}`,
+        `auto-implementation-worker-job:${jobId}`,
+        `auto-implementation-issue:${issueId}`,
+        `issue-doc:${issueRelativePath}`
+      ],
+      expectedChangeScope: autoImplementationWorkerExpectedChangeScope(stage)
+    },
+    allowedWriteScope: [".", issueRelativePath],
+    requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
+    forbiddenActions: ["production deploy"],
+    sourceRefs: ["auto-implementation-run:auto_run_demo", `auto-implementation-stage:${stage}`],
+    ...input.overrides
+  };
+}
+
 function projectionWithAppliedGitHubIssueMutation(input: {
   readonly createdIssueUrls?: readonly string[];
   readonly githubIssueUrls?: readonly string[];
@@ -196,16 +249,12 @@ describe("AutoImplementationRunProjection contract", () => {
           issueTitle: "Workspace repo bootstrap and initial implementation PR",
           issueRelativePath: "implementation-issues/001-initial_pr.md",
           status: "blocked",
-          executionPlan: {
-            executionMode: "local_sandboxed_codex",
-            workingDirectory: readyRun.generatedRepoPath,
-            issueDocumentPath: "implementation-issues/001-initial_pr.md",
+          executionPlan: workerExecutionPlan({
             executionAuthorityRef: null,
-            allowedWriteScope: [".", "implementation-issues/001-initial_pr.md"],
-            requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
-            forbiddenActions: ["credential, token, session cookie, or secret storage"],
-            sourceRefs: ["auto-implementation-run:auto_run_demo", "auto-implementation-stage:initial_pr"]
-          },
+            overrides: {
+              forbiddenActions: ["credential, token, session cookie, or secret storage"]
+            }
+          }),
           blockedReason: "ExecutionAuthorityRecord is missing.",
           missingEvidence: ["ExecutionAuthorityRecord"],
           nextRequiredAction: "Create a bounded ExecutionAuthorityRecord before local worker execution.",
@@ -217,6 +266,36 @@ describe("AutoImplementationRunProjection contract", () => {
     });
 
     expect(validateAutoImplementationRunProjection(valid)).toBe(valid);
+  });
+
+  it("rejects worker execution plans that omit the exact planned ledger docs", () => {
+    const executionPlanWithoutLedgerDocs = { ...workerExecutionPlan() } as Record<string, unknown>;
+
+    delete executionPlanWithoutLedgerDocs.ledgerTrackerDoc;
+    delete executionPlanWithoutLedgerDocs.ledgerStepDoc;
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      workerJobs: [
+        {
+          jobId: "auto-worker-job:auto_run_demo:initial_pr:job_1",
+          runId: readyRun.runId,
+          stage: "initial_pr",
+          issueId: "local-001",
+          issueTitle: "Workspace repo bootstrap and initial implementation PR",
+          issueRelativePath: "implementation-issues/001-initial_pr.md",
+          status: "planned",
+          executionPlan: executionPlanWithoutLedgerDocs,
+          blockedReason: null,
+          missingEvidence: [],
+          nextRequiredAction: "Run the bounded worker.",
+          createdAt: "2026-05-19T00:01:00.000Z",
+          updatedAt: "2026-05-19T00:01:00.000Z",
+          evidenceRefs: ["auto-worker-job:auto_run_demo:initial_pr:job_1"]
+        }
+      ]
+    } as unknown as AutoImplementationRun);
+
+    expectInvalidProjection(invalid);
   });
 
   it("accepts completed worker jobs only after missing evidence is cleared", () => {
@@ -232,16 +311,7 @@ describe("AutoImplementationRunProjection contract", () => {
           issueTitle: "Workspace repo bootstrap and initial implementation PR",
           issueRelativePath: "implementation-issues/001-initial_pr.md",
           status: "completed",
-          executionPlan: {
-            executionMode: "local_sandboxed_codex",
-            workingDirectory: readyRun.generatedRepoPath,
-            issueDocumentPath: "implementation-issues/001-initial_pr.md",
-            executionAuthorityRef: "exec_auth_1",
-            allowedWriteScope: [".", "implementation-issues/001-initial_pr.md"],
-            requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
-            forbiddenActions: ["production deploy"],
-            sourceRefs: ["auto-implementation-run:auto_run_demo", "auto-implementation-stage:initial_pr"]
-          },
+          executionPlan: workerExecutionPlan(),
           blockedReason: null,
           missingEvidence: [],
           nextRequiredAction: "Advance the stage through the existing stage endpoint.",
@@ -270,16 +340,12 @@ describe("AutoImplementationRunProjection contract", () => {
           issueTitle: "Not a planned issue",
           issueRelativePath: "implementation-issues/999-unknown.md",
           status: "planned",
-          executionPlan: {
-            executionMode: "local_sandboxed_codex",
-            workingDirectory: readyRun.generatedRepoPath,
-            issueDocumentPath: "implementation-issues/999-unknown.md",
-            executionAuthorityRef: "exec_auth_1",
-            allowedWriteScope: ["."],
-            requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
-            forbiddenActions: ["production deploy"],
-            sourceRefs: ["auto-implementation-run:auto_run_demo"]
-          },
+          executionPlan: workerExecutionPlan({
+            jobId: "auto-worker-job:auto_run_demo:unknown:job_1",
+            issueId: "local-999",
+            issueTitle: "Not a planned issue",
+            issueRelativePath: "implementation-issues/999-unknown.md"
+          }),
           blockedReason: null,
           missingEvidence: [],
           nextRequiredAction: "Run the bounded worker.",
@@ -305,16 +371,7 @@ describe("AutoImplementationRunProjection contract", () => {
           issueTitle: "Workspace repo bootstrap and initial implementation PR",
           issueRelativePath: "implementation-issues/001-initial_pr.md",
           status: "planned",
-          executionPlan: {
-            executionMode: "local_sandboxed_codex",
-            workingDirectory: readyRun.generatedRepoPath,
-            issueDocumentPath: "implementation-issues/001-initial_pr.md",
-            executionAuthorityRef: "exec_auth_1",
-            allowedWriteScope: ["."],
-            requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
-            forbiddenActions: ["production deploy"],
-            sourceRefs: ["auto-implementation-run:auto_run_demo"]
-          },
+          executionPlan: workerExecutionPlan(),
           blockedReason: null,
           missingEvidence: ["ExecutionAuthorityRecord"],
           nextRequiredAction: "Run the bounded worker.",
@@ -340,16 +397,12 @@ describe("AutoImplementationRunProjection contract", () => {
           issueTitle: "Workspace repo bootstrap and initial implementation PR",
           issueRelativePath: "implementation-issues/001-initial_pr.md",
           status: "planned",
-          executionPlan: {
-            executionMode: "local_sandboxed_codex",
-            workingDirectory: "/repo/workspace/other-project",
-            issueDocumentPath: "implementation-issues/002_review_feature.md",
-            executionAuthorityRef: "exec_auth_1",
-            allowedWriteScope: ["."],
-            requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
-            forbiddenActions: ["production deploy"],
-            sourceRefs: ["auto-implementation-run:auto_run_demo"]
-          },
+          executionPlan: workerExecutionPlan({
+            overrides: {
+              workingDirectory: "/repo/workspace/other-project",
+              issueDocumentPath: "implementation-issues/002_review_feature.md"
+            }
+          }),
           blockedReason: null,
           missingEvidence: [],
           nextRequiredAction: "Run the bounded worker.",

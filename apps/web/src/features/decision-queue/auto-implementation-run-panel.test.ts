@@ -2,7 +2,10 @@ import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import {
   AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+  AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
   IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+  autoImplementationWorkerExpectedChangeScope,
+  autoImplementationWorkerLedgerStepDescription,
   type AutoImplementationRun,
   type AutoImplementationRunProjection
 } from "@solo-superman/contracts";
@@ -69,6 +72,31 @@ function workerJob(overrides: WorkerJobOverrides = {}): AutoImplementationRun["w
       workingDirectory: "/repo/workspace/demo-project",
       issueDocumentPath: "implementation-issues/001-initial_pr.md",
       executionAuthorityRef: "exec_auth_auto_worker_initial_pr",
+      ledgerTrackerDoc: {
+        trackerId: "auto-implementation-tracker:auto_run_demo",
+        title: "demo-project implementation tracker",
+        goal: AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
+        sourceRefs: [
+          "auto-implementation-run:auto_run_demo",
+          "tracker-doc:implementation-tracker.md"
+        ]
+      },
+      ledgerStepDoc: {
+        stepId: "auto-implementation-step:auto_run_demo:initial_pr:local-001",
+        title: "Workspace repo bootstrap and initial implementation PR",
+        description: autoImplementationWorkerLedgerStepDescription({
+          stage: "initial_pr",
+          issueRelativePath: "implementation-issues/001-initial_pr.md"
+        }),
+        sourceRefs: [
+          "auto-implementation-run:auto_run_demo",
+          "auto-implementation-stage:initial_pr",
+          "auto-implementation-worker-job:auto_run_demo:initial_pr:job_planned",
+          "auto-implementation-issue:local-001",
+          "issue-doc:implementation-issues/001-initial_pr.md"
+        ],
+        expectedChangeScope: autoImplementationWorkerExpectedChangeScope("initial_pr")
+      },
       allowedWriteScope: ["."],
       requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
       forbiddenActions: ["credential storage"],
@@ -577,6 +605,11 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("/repo/workspace/demo-project");
     expect(markup).toContain("implementation-issues/001-initial_pr.md");
     expect(markup).toContain("exec_auth_auto_worker_initial_pr");
+    expect(markup).toContain("Ledger tracker doc");
+    expect(markup).toContain("auto-implementation-tracker:auto_run_demo");
+    expect(markup).toContain("Ledger step doc");
+    expect(markup).toContain("auto-implementation-step:auto_run_demo:initial_pr:local-001");
+    expect(markup).toContain("tracked_code_docs_config");
     expect(markup).toContain("Allowed write scope");
     expect(markup).toContain("ImplementationStepLedger trackerDoc and stepDoc");
     expect(markup).toContain("credential storage");
