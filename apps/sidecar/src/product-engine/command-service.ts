@@ -861,6 +861,14 @@ function finalVerifyStageCompleted(run: AutoImplementationRun) {
   );
 }
 
+function initialImplementationStageCompleted(run: AutoImplementationRun) {
+  return run.stagePlan.some((stage) =>
+    stage.stage === "initial_pr" &&
+    stage.status === "completed" &&
+    stage.ledgerEvidence !== null
+  );
+}
+
 function pullRequestMutationBlockedReason(input: {
   readonly request: RecordAutoImplementationPullRequestMutationRequest;
   readonly run: AutoImplementationRun;
@@ -903,6 +911,14 @@ function pullRequestMutationBlockedReason(input: {
     !canOpenNewAutoImplementationPullRequest(input.run)
   ) {
     return "GitHub PR open is blocked because a pull request URL is already recorded for this auto implementation run.";
+  }
+
+  if (
+    input.request.action === "open_pr" &&
+    input.request.requestMode === "approved" &&
+    !initialImplementationStageCompleted(input.run)
+  ) {
+    return "GitHub PR open is blocked until initial_pr has completed validated implementation ledger evidence.";
   }
 
   if (input.request.action === "update_pr_body" && !(input.request.bodyEvidenceRefs ?? []).length) {

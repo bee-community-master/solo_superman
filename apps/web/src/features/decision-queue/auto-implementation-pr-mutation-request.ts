@@ -21,6 +21,14 @@ function finalVerificationMergeEvidenceRefs(run: AutoImplementationRun) {
     ?.ledgerEvidence?.evidenceRefs ?? [];
 }
 
+function initialImplementationStageCompleted(run: AutoImplementationRun) {
+  return run.stagePlan.some((stage) =>
+    stage.stage === "initial_pr" &&
+    stage.status === "completed" &&
+    stage.ledgerEvidence !== null
+  );
+}
+
 function issueLinksForRun(run: AutoImplementationRun) {
   return run.issueManagement.githubIssueUrls.length
     ? run.issueManagement.githubIssueUrls
@@ -45,6 +53,9 @@ function knownGapsForDryRun(run: AutoImplementationRun, pullRequestUrl: string |
 function knownGapsForOpenDryRun(run: AutoImplementationRun) {
   return [
     run.remoteStatus === "connected" ? null : `Remote status is ${run.remoteStatus}; mutation stays blocked until connected.`,
+    initialImplementationStageCompleted(run)
+      ? null
+      : "initial_pr has not recorded completed implementation ledger evidence yet.",
     run.pullRequestMutations.records.some((record) => record.pullRequestUrl)
       ? "A PR URL is already recorded; use the PR body dry-run to refresh the existing PR evidence."
       : null,
@@ -55,6 +66,9 @@ function knownGapsForOpenDryRun(run: AutoImplementationRun) {
 function knownGapsForApprovedOpen(run: AutoImplementationRun, pullRequestUrl: string | undefined) {
   return [
     run.remoteStatus === "connected" ? null : `Remote status is ${run.remoteStatus}; mutation stays blocked until connected.`,
+    initialImplementationStageCompleted(run)
+      ? null
+      : "initial_pr has not recorded completed implementation ledger evidence yet.",
     pullRequestUrl
       ? "A PR URL is already recorded; approved PR open is blocked in the UI to avoid duplicate pull requests."
       : null
