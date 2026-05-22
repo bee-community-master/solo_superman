@@ -16,6 +16,7 @@ import type {
 import {
   decisionQueueRecoveryViewModel,
   pendingEffectSummary,
+  questionProgressViewModel,
   queueSections,
   runtimeActivityProjectionFromStatuses,
   shouldRefetchQueueForSseNotification
@@ -155,6 +156,60 @@ describe("Decision Queue view model queue", () => {
       cardType: "decision_approval",
       blocksPlanning: true,
       availableOutcomes: expect.arrayContaining(["approved", "deferred"])
+    });
+  });
+
+  it("summarizes generated, answered, follow-up, and visible question debt", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 9 as ProjectionVersion,
+      progress: {
+        generatedQuestionCount: 23,
+        openQuestionCount: 18,
+        answeredQuestionCount: 4,
+        deferredQuestionCount: 1,
+        resolvedQuestionCount: 0,
+        terminalQuestionCount: 5,
+        followUpQuestionCount: 8,
+        followUpOpenQuestionCount: 7,
+        visibleQuestionDebtCount: 6,
+        activeQuestionCount: 5,
+        upcomingQuestionCount: 1,
+        blockedQuestionCount: 0,
+        completionPercent: 22
+      },
+      active: [
+        {
+          queueItemId: "queue_active_1" as QueueItemId,
+          title: "What decision is next?",
+          state: "active",
+          cardType: "question"
+        }
+      ],
+      next: [
+        {
+          queueItemId: "research_review_task_1" as QueueItemId,
+          title: "Research review",
+          state: "next",
+          cardType: "research_review"
+        }
+      ],
+      blocked: [],
+      deferred: []
+    };
+
+    expect(questionProgressViewModel(queue)).toMatchObject({
+      generatedQuestionCount: 23,
+      openQuestionCount: 18,
+      answeredQuestionCount: 4,
+      terminalQuestionCount: 5,
+      followUpQuestionCount: 8,
+      followUpOpenQuestionCount: 7,
+      visibleQuestionDebtCount: 6,
+      activeQuestionCount: 5,
+      upcomingQuestionCount: 1,
+      blockedQuestionCount: 0,
+      completionPercent: 22
     });
   });
 

@@ -13,6 +13,20 @@ const DEFAULT_QUEUE_RECOVERY = {
   activeBatchLabel: "Current question details are not loaded yet."
 } as const;
 
+const DEFAULT_QUESTION_PROGRESS = {
+  generatedQuestionCount: 0,
+  openQuestionCount: 0,
+  answeredQuestionCount: 0,
+  terminalQuestionCount: 0,
+  followUpQuestionCount: 0,
+  followUpOpenQuestionCount: 0,
+  visibleQuestionDebtCount: 0,
+  activeQuestionCount: 0,
+  upcomingQuestionCount: 0,
+  blockedQuestionCount: 0,
+  completionPercent: 0
+} as const;
+
 function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellController> = {}) {
   const controller = {
     answerDrafts: {},
@@ -29,6 +43,7 @@ function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellCont
     loadNextQuestionBatch: vi.fn(),
     projectPurposeMode: null,
     projections: emptyProjectionState(),
+    questionProgress: DEFAULT_QUESTION_PROGRESS,
     queueRecovery: DEFAULT_QUEUE_RECOVERY,
     refreshQuestionList: vi.fn(),
     refreshRuntimeStatus: vi.fn(),
@@ -93,6 +108,7 @@ describe("QuestionsView", () => {
 
     expect(markup).toContain("Up to date");
     expect(markup).toContain("Queue");
+    expect(markup).toContain("Question progress");
     expect(markup).toContain("Refresh question list");
     expect(markup).toContain("Load next questions");
     expect(markup).not.toContain("Idea summary");
@@ -146,6 +162,36 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Core assumption check");
     expect(markup).not.toContain("legal_ops_security");
     expect(markup).not.toContain("core_assumption_challenge");
+  });
+
+  it("renders question debt progress so long sessions show generated, answered, follow-up, and visible counts", () => {
+    const markup = renderQuestionsView({
+      questionProgress: {
+        generatedQuestionCount: 23,
+        openQuestionCount: 18,
+        answeredQuestionCount: 4,
+        terminalQuestionCount: 5,
+        followUpQuestionCount: 8,
+        followUpOpenQuestionCount: 7,
+        visibleQuestionDebtCount: 6,
+        activeQuestionCount: 5,
+        upcomingQuestionCount: 1,
+        blockedQuestionCount: 0,
+        completionPercent: 22
+      }
+    });
+
+    expect(markup).toContain("5/23 generated questions handled · 22%");
+    expect(markup).toContain("Generated");
+    expect(markup).toContain("Open debt");
+    expect(markup).toContain("Visible now");
+    expect(markup).toContain("Answered");
+    expect(markup).toContain("Follow-ups");
+    expect(markup).toContain("Blocked");
+    expect(markup).toContain("<dd>23</dd>");
+    expect(markup).toContain("<dd>18</dd>");
+    expect(markup).toContain("<dd>6</dd>");
+    expect(markup).toContain("<dd>8</dd>");
   });
 
 

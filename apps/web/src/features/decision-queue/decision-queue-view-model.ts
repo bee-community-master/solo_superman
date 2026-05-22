@@ -34,6 +34,20 @@ export interface DecisionQueueRecoveryViewModel {
   readonly activeBatchLabel: string;
 }
 
+export interface QuestionProgressViewModel {
+  readonly generatedQuestionCount: number;
+  readonly openQuestionCount: number;
+  readonly answeredQuestionCount: number;
+  readonly terminalQuestionCount: number;
+  readonly followUpQuestionCount: number;
+  readonly followUpOpenQuestionCount: number;
+  readonly visibleQuestionDebtCount: number;
+  readonly activeQuestionCount: number;
+  readonly upcomingQuestionCount: number;
+  readonly blockedQuestionCount: number;
+  readonly completionPercent: number;
+}
+
 export type Phase15aExitGateStatus = "ready_for_1_5b" | "blocked_for_1_5b";
 
 export interface Phase15aOperationsInput {
@@ -187,6 +201,43 @@ export function decisionQueueRecoveryViewModel(queue: DecisionQueueProjection | 
     activeBatchLabel: queue?.activeBatch
       ? `${currentRoundLabel} selected for this round.`
       : "Current question details are not loaded yet."
+  };
+}
+
+function queueItemIsQuestionDebt(item: DecisionQueueProjection[QueueSectionId][number]) {
+  return item.cardType === undefined || item.cardType === "question" || item.cardType === "follow_up_question";
+}
+
+function countQuestionDebtItems(items: DecisionQueueProjection[QueueSectionId]) {
+  return items.filter(queueItemIsQuestionDebt).length;
+}
+
+export function questionProgressViewModel(queue: DecisionQueueProjection | null): QuestionProgressViewModel {
+  const fallbackVisibleQuestionDebtCount = queue
+    ? countQuestionDebtItems(queue.active) +
+      countQuestionDebtItems(queue.next) +
+      countQuestionDebtItems(queue.blocked) +
+      countQuestionDebtItems(queue.deferred)
+    : 0;
+
+  return {
+    generatedQuestionCount: queue?.progress?.generatedQuestionCount ?? fallbackVisibleQuestionDebtCount,
+    openQuestionCount: queue?.progress?.openQuestionCount ?? fallbackVisibleQuestionDebtCount,
+    answeredQuestionCount: queue?.progress?.answeredQuestionCount ?? 0,
+    terminalQuestionCount: queue?.progress?.terminalQuestionCount ?? 0,
+    followUpQuestionCount:
+      queue?.progress?.followUpQuestionCount ??
+      (queue
+        ? [...queue.active, ...queue.next, ...queue.blocked, ...queue.deferred].filter(
+            (item) => item.cardType === "follow_up_question"
+          ).length
+        : 0),
+    followUpOpenQuestionCount: queue?.progress?.followUpOpenQuestionCount ?? 0,
+    visibleQuestionDebtCount: queue?.progress?.visibleQuestionDebtCount ?? fallbackVisibleQuestionDebtCount,
+    activeQuestionCount: queue?.progress?.activeQuestionCount ?? (queue ? countQuestionDebtItems(queue.active) : 0),
+    upcomingQuestionCount: queue?.progress?.upcomingQuestionCount ?? (queue ? countQuestionDebtItems(queue.next) : 0),
+    blockedQuestionCount: queue?.progress?.blockedQuestionCount ?? (queue ? countQuestionDebtItems(queue.blocked) : 0),
+    completionPercent: queue?.progress?.completionPercent ?? 0
   };
 }
 

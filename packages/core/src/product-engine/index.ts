@@ -72,6 +72,7 @@ import {
   type CodexTurnPurpose,
   type ConfidenceCompletionProjection,
   type DecisionId,
+  type DecisionQueueProgressProjection,
   type QueueItemProjection,
   type RecordImplementationStepLedgerPayload,
   type DecisionQueueProjection,
@@ -579,6 +580,63 @@ function activeBatchProjection(
   };
 }
 
+function queueItemIsQuestionDebt(item: QueueItemProjection) {
+  return item.cardType === undefined || item.cardType === "question" || item.cardType === "follow_up_question";
+}
+
+function countQuestionDebtItems(items: readonly QueueItemProjection[]) {
+  return items.filter(queueItemIsQuestionDebt).length;
+}
+
+function queueQuestionProgressFromIssues(
+  issues: readonly AmbiguityIssueSnapshot[],
+  projection: DecisionQueueProjection
+): DecisionQueueProgressProjection {
+  const generatedQuestionCount = issues.length;
+  const openQuestionCount = issues.filter((issue) => issue.status === "open").length;
+  const answeredQuestionCount = issues.filter((issue) => issue.status === "answered").length;
+  const deferredQuestionCount = issues.filter((issue) => issue.status === "deferred").length;
+  const resolvedQuestionCount = issues.filter((issue) => issue.status === "resolved").length;
+  const terminalQuestionCount = answeredQuestionCount + deferredQuestionCount + resolvedQuestionCount;
+  const followUpIssues = issues.filter((issue) => (issue.repeatCount ?? 0) > 0);
+  const activeQuestionCount = countQuestionDebtItems(projection.active);
+  const upcomingQuestionCount = countQuestionDebtItems(projection.next);
+  const blockedQuestionCount = countQuestionDebtItems(projection.blocked);
+  const visibleQuestionDebtCount =
+    activeQuestionCount +
+    upcomingQuestionCount +
+    blockedQuestionCount +
+    countQuestionDebtItems(projection.deferred);
+
+  return {
+    generatedQuestionCount,
+    openQuestionCount,
+    answeredQuestionCount,
+    deferredQuestionCount,
+    resolvedQuestionCount,
+    terminalQuestionCount,
+    followUpQuestionCount: followUpIssues.length,
+    followUpOpenQuestionCount: followUpIssues.filter((issue) => issue.status === "open").length,
+    visibleQuestionDebtCount,
+    activeQuestionCount,
+    upcomingQuestionCount,
+    blockedQuestionCount,
+    completionPercent: generatedQuestionCount
+      ? Math.round((terminalQuestionCount / generatedQuestionCount) * 100)
+      : 0
+  };
+}
+
+function queueProjectionWithQuestionProgress(
+  projection: DecisionQueueProjection,
+  issues: readonly AmbiguityIssueSnapshot[]
+): DecisionQueueProjection {
+  return {
+    ...projection,
+    progress: queueQuestionProgressFromIssues(issues, projection)
+  };
+}
+
 export function decisionQueueProjectionWithRecovery(
   projection: DecisionQueueProjection,
   sessionId: SessionId,
@@ -620,6 +678,7 @@ export function decisionQueueProjectionWithRecovery(
       ? { businessCriticPressureSummary: projection.businessCriticPressureSummary }
       : {}),
     ...(activeBatch ? { activeBatch } : {}),
+    ...(projection.progress ? { progress: projection.progress } : {}),
     active: projection.active,
     next: projection.next,
     blocked: projection.blocked,
@@ -666,6 +725,21 @@ function emptyQueueProjection(
   const projection: DecisionQueueProjection = {
     kind: "DecisionQueueProjection",
     version,
+    progress: {
+      generatedQuestionCount: 0,
+      openQuestionCount: 0,
+      answeredQuestionCount: 0,
+      deferredQuestionCount: 0,
+      resolvedQuestionCount: 0,
+      terminalQuestionCount: 0,
+      followUpQuestionCount: 0,
+      followUpOpenQuestionCount: 0,
+      visibleQuestionDebtCount: 0,
+      activeQuestionCount: 0,
+      upcomingQuestionCount: 0,
+      blockedQuestionCount: 0,
+      completionPercent: 0
+    },
     active: [],
     next: [],
     blocked: [],
@@ -1445,17 +1519,18 @@ function queueProjectionFromIssues(
   intensity?: BusinessCriticIntensity | null
 ): DecisionQueueProjection {
   const queuedNextIssues = businessCriticQueuedNextIssues(issues, activeIssues, intensity);
+  const projection = {
+    kind: "DecisionQueueProjection",
+    version,
+    ...queueProjectionPurposeMetadata(mode, intensity),
+    active: activeIssues.map((issue) => queueItemProjectionFromIssue(issue, "active")),
+    next: queuedNextIssues.map((issue) => queueItemProjectionFromIssue(issue, "next")),
+    blocked: [],
+    deferred: []
+  } satisfies DecisionQueueProjection;
 
   return decisionQueueProjectionWithRecovery(
-    {
-      kind: "DecisionQueueProjection",
-      version,
-      ...queueProjectionPurposeMetadata(mode, intensity),
-      active: activeIssues.map((issue) => queueItemProjectionFromIssue(issue, "active")),
-      next: queuedNextIssues.map((issue) => queueItemProjectionFromIssue(issue, "next")),
-      blocked: [],
-      deferred: []
-    },
+    queueProjectionWithQuestionProgress(projection, issues),
     sessionId,
     generatedAt
   );
@@ -1475,6 +1550,7 @@ function queueProjectionWithPurposeMetadata(
       version,
       ...queueProjectionPurposeMetadata(mode, intensity),
       ...(projection.activeBatch ? { activeBatch: projection.activeBatch } : {}),
+      ...(projection.progress ? { progress: projection.progress } : {}),
       active: projection.active,
       next: projection.next,
       blocked: projection.blocked,
@@ -1692,7 +1768,7 @@ function queueProjectionWithRefilledActiveQuestions(
   const slots = DEFAULT_QUESTION_BATCH_SIZE - activeQuestionCount;
 
   if (slots <= 0 || openIssues.length === 0) {
-    return refreshQueueProjectionMetadata(projection, version, generatedAt);
+    return refreshQueueProjectionMetadata(queueProjectionWithQuestionProgress(projection, issues), version, generatedAt);
   }
 
   const promotedFromNext = projection.next
@@ -1710,15 +1786,18 @@ function queueProjectionWithRefilledActiveQuestions(
   const fillerItems = fillerIssues.map((issue) => queueItemProjectionFromIssue(issue, "active"));
 
   if (!promotedFromNext.length && !fillerItems.length) {
-    return refreshQueueProjectionMetadata(projection, version, generatedAt);
+    return refreshQueueProjectionMetadata(queueProjectionWithQuestionProgress(projection, issues), version, generatedAt);
   }
 
   return refreshQueueProjectionMetadata(
-    {
-      ...projection,
-      active: [...projection.active, ...promotedFromNext, ...fillerItems],
-      next: projection.next.filter((item) => !promotedIds.has(item.queueItemId))
-    },
+    queueProjectionWithQuestionProgress(
+      {
+        ...projection,
+        active: [...projection.active, ...promotedFromNext, ...fillerItems],
+        next: projection.next.filter((item) => !promotedIds.has(item.queueItemId))
+      },
+      issues
+    ),
     version,
     generatedAt
   );
@@ -2743,7 +2822,7 @@ function reduceChangeBusinessCriticIntensity(
     ...queueWithMetadata.deferred
   ].map((item) => item.queueItemId));
   const pressureQueueItemsToAppend = pressureQueueItems.filter((item) => !existingQueueItemIds.has(item.queueItemId));
-  const queueProjection = pressureQueueItemsToAppend.length
+  const queueProjectionWithoutProgress = pressureQueueItemsToAppend.length
     ? refreshQueueProjectionMetadata(
         {
           ...queueWithMetadata,
@@ -2753,6 +2832,11 @@ function reduceChangeBusinessCriticIntensity(
         command.issuedAt
       )
     : queueWithMetadata;
+  const queueProjection = refreshQueueProjectionMetadata(
+    queueProjectionWithQuestionProgress(queueProjectionWithoutProgress, nextOpenIssues),
+    version,
+    command.issuedAt
+  );
   const confidenceProjection = buildConfidenceCompletionProjection(
     {
       ...state,

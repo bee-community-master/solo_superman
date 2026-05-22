@@ -34,6 +34,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     knownRiskDrafts,
     loadNextQuestionBatch,
     projections,
+    questionProgress,
     queueRecovery,
     refreshQuestionList,
     sections,
@@ -67,6 +68,47 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
           <small>{queueRecovery.refetchLabel}</small>
           <small>{queueRecovery.sseLabel}</small>
         </div>
+        <section className="question-progress" aria-label={copy.questions.questionProgressTitle}>
+          <div>
+            <h3>{copy.questions.questionProgressTitle}</h3>
+            <p>
+              {copy.questions.questionProgressSummary(
+                questionProgress.terminalQuestionCount,
+                questionProgress.generatedQuestionCount,
+                questionProgress.completionPercent
+              )}
+            </p>
+          </div>
+          <div className="question-progress-track" aria-hidden="true">
+            <span style={{ width: `${Math.min(100, questionProgress.completionPercent)}%` }} />
+          </div>
+          <dl className="question-progress-metrics">
+            <div>
+              <dt>{copy.questions.questionProgressGenerated}</dt>
+              <dd>{questionProgress.generatedQuestionCount}</dd>
+            </div>
+            <div>
+              <dt>{copy.questions.questionProgressOpen}</dt>
+              <dd>{questionProgress.openQuestionCount}</dd>
+            </div>
+            <div>
+              <dt>{copy.questions.questionProgressVisible}</dt>
+              <dd>{questionProgress.visibleQuestionDebtCount}</dd>
+            </div>
+            <div>
+              <dt>{copy.questions.questionProgressAnswered}</dt>
+              <dd>{questionProgress.answeredQuestionCount}</dd>
+            </div>
+            <div>
+              <dt>{copy.questions.questionProgressFollowUps}</dt>
+              <dd>{questionProgress.followUpQuestionCount}</dd>
+            </div>
+            <div>
+              <dt>{copy.questions.questionProgressBlocked}</dt>
+              <dd>{questionProgress.blockedQuestionCount}</dd>
+            </div>
+          </dl>
+        </section>
         <div className="queue-sections">
           {sections.map((section) => (
             <section className="queue-section" key={section.id}>

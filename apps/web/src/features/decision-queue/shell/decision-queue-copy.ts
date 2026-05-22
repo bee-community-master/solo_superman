@@ -159,6 +159,15 @@ const EN_COPY = {
     queue: "Queue",
     refreshQuestionList: "Refresh question list",
     loadNextQuestions: "Load next questions",
+    questionProgressTitle: "Question progress",
+    questionProgressSummary: (handled: number, generated: number, percent: number) =>
+      `${handled}/${generated} generated questions handled · ${percent}%`,
+    questionProgressGenerated: "Generated",
+    questionProgressOpen: "Open debt",
+    questionProgressVisible: "Visible now",
+    questionProgressAnswered: "Answered",
+    questionProgressFollowUps: "Follow-ups",
+    questionProgressBlocked: "Blocked",
     businessCriticCategoryLabels: {
       customer_pain: "Customer pain",
       paid_intent: "Willingness to pay",
@@ -543,6 +552,15 @@ const JA_COPY: typeof EN_COPY = {
     queue: "キュー",
     refreshQuestionList: "質問リストを更新",
     loadNextQuestions: "次の質問を読み込む",
+    questionProgressTitle: "質問の進捗",
+    questionProgressSummary: (handled: number, generated: number, percent: number) =>
+      `生成済み質問 ${generated}件中 ${handled}件処理 · ${percent}%`,
+    questionProgressGenerated: "生成済み",
+    questionProgressOpen: "残り質問",
+    questionProgressVisible: "表示中",
+    questionProgressAnswered: "回答済み",
+    questionProgressFollowUps: "追加質問",
+    questionProgressBlocked: "ブロック中",
     businessCriticCategoryLabels: {
       customer_pain: "顧客の痛み",
       paid_intent: "支払い意向",
@@ -927,6 +945,15 @@ const KO_COPY: typeof EN_COPY = {
     queue: "큐",
     refreshQuestionList: "질문 목록 새로고침",
     loadNextQuestions: "다음 질문 불러오기",
+    questionProgressTitle: "질문 진행률",
+    questionProgressSummary: (handled: number, generated: number, percent: number) =>
+      `생성된 질문 ${generated}개 중 ${handled}개 처리 · ${percent}%`,
+    questionProgressGenerated: "생성됨",
+    questionProgressOpen: "남은 질문",
+    questionProgressVisible: "지금 보이는 질문",
+    questionProgressAnswered: "답변됨",
+    questionProgressFollowUps: "후속 질문",
+    questionProgressBlocked: "막힘",
     businessCriticCategoryLabels: {
       customer_pain: "고객 문제",
       paid_intent: "유료 의향",
