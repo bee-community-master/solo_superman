@@ -233,6 +233,14 @@ const EN_COPY = {
       recovered_by_refetch: "Questions refreshed after a live update.",
       stale: "Questions may be out of date. Refresh before using them as the source of truth."
     },
+    queueItemStateLabels: {
+      active: "Current",
+      next: "Up next",
+      blocked: "Blocked",
+      deferred: "Known risk",
+      answered: "Answered",
+      resolved: "Resolved"
+    },
     queueSections: {
       active: { title: "Current questions", emptyLabel: "No current questions." },
       next: { title: "Up next", emptyLabel: "No upcoming questions." },
@@ -717,6 +725,14 @@ const JA_COPY: typeof EN_COPY = {
       recovered_by_refetch: "ライブ更新の後に質問を更新しました。",
       stale: "質問が古い可能性があります。判断材料にする前に更新してください。"
     },
+    queueItemStateLabels: {
+      active: "現在",
+      next: "次の候補",
+      blocked: "ブロック中",
+      deferred: "既知のリスク",
+      answered: "回答済み",
+      resolved: "解決済み"
+    },
     queueSections: {
       active: { title: "現在の質問", emptyLabel: "現在の質問はありません。" },
       next: { title: "次に確認", emptyLabel: "次に確認する質問はありません。" },
@@ -1200,6 +1216,14 @@ const KO_COPY: typeof EN_COPY = {
       recovering: "실시간 업데이트 또는 재연결 후 질문을 새로고침하고 있습니다.",
       recovered_by_refetch: "실시간 업데이트 후 질문을 새로고침했습니다.",
       stale: "질문이 오래되었을 수 있습니다. 판단 근거로 쓰기 전에 새로고침하세요."
+    },
+    queueItemStateLabels: {
+      active: "현재",
+      next: "다음 후보",
+      blocked: "막힘",
+      deferred: "알려진 리스크",
+      answered: "답변됨",
+      resolved: "해결됨"
     },
     queueSections: {
       active: { title: "현재 질문", emptyLabel: "현재 질문이 없습니다." },

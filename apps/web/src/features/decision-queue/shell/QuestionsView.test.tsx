@@ -162,6 +162,8 @@ describe("QuestionsView", () => {
     expect(markup).toContain("If the painful workflow is unclear");
     expect(markup).toContain("Decision this unlocks");
     expect(markup).toContain("Locks the first workflow slice");
+    expect(markup).toContain("Current");
+    expect(markup).not.toContain(">active<");
     expect(markup).not.toContain("whyItMatters");
     expect(markup).not.toContain("decisionItUnlocks");
   });
@@ -286,6 +288,8 @@ describe("QuestionsView", () => {
 
     expect(markup).toContain("Research-generated questions");
     expect(markup).toContain("What evidence would resolve Validate paid founder urgency?");
+    expect(markup).toContain("Blocked");
+    expect(markup).not.toContain(">blocked<");
   });
 
 

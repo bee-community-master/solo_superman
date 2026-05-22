@@ -142,7 +142,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                   {section.items.map((item) => (
                     <article className={`queue-card ${item.state}`} key={item.queueItemId}>
                       <div>
-                        <span>{item.state}</span>
+                        <span>{copy.questions.queueItemStateLabels[item.state]}</span>
                         <h4>{item.title}</h4>
                         {isBusinessCriticQueueItem(item) ? (
                           <p className="mode-summary">
