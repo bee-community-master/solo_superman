@@ -6,6 +6,7 @@ import {
 } from "@solo-superman/contracts";
 import {
   buildAutoImplementationPullRequestDryRunRequest,
+  buildAutoImplementationPullRequestMergeDryRunRequest,
   buildAutoImplementationPullRequestOpenDryRunRequest
 } from "./auto-implementation-pr-mutation-request";
 
@@ -54,6 +55,62 @@ function withPrUrl(run: AutoImplementationRun): AutoImplementationRun {
   };
 }
 
+function withPrBodyAndFinalVerification(run: AutoImplementationRun): AutoImplementationRun {
+  const bodyRecord = {
+    mutationId: "auto-pr-mutation:auto_run_demo:update_pr_body:body_1",
+    action: "update_pr_body",
+    requestMode: "dry_run",
+    status: "dry_run_ready",
+    requiredRemoteStatus: "connected",
+    mutatesGitHub: false,
+    pullRequestUrl: "https://github.com/bee-community-master/demo/pull/1",
+    issueLinks: ["local-001"],
+    implementationScope: "Update PR body dry-run.",
+    reviewStreakRefs: ["code-review:feature:clean-2"],
+    verificationCommands: ["pnpm verify"],
+    knownGaps: [],
+    rollbackNotes: "Dry-run only.",
+    mergeEvidenceRefs: [],
+    bodyEvidenceRefs: ["pr-body:current-evidence"],
+    approval: null,
+    blockedReason: null,
+    auditEvidenceRefs: ["auto-pr-mutation:update_pr_body:body_1", "github-pr-mutation:dry_run_ready"],
+    verifierEvidenceRefs: ["verifier:pr-body-dry-run:auto_run_demo:initial_pr"],
+    createdAt: "2026-05-05T00:00:00.000Z",
+    updatedAt: "2026-05-05T00:00:00.000Z"
+  } as AutoImplementationRun["pullRequestMutations"]["records"][number];
+  const ledgerEvidence = {
+    implementationStepId: "step_final_verify",
+    trackerDocRef: "implementation-step-ledger:tracker:tracker_demo",
+    stepDocRef: "implementation-step-ledger:step:step_final_verify",
+    implementationEvidenceRefs: ["commit:final-verify"],
+    codeReviewStreakRefs: ["code-review:feature:clean-2", "code-review:repository:clean-2"],
+    cleanCodeReviewStreakRefs: ["clean-code-review:changed_code:clean-2", "clean-code-review:repository:clean-2"],
+    testEvidenceRefs: ["test:pnpm-verify"],
+    blockerEvidenceRefs: [],
+    evidenceRefs: ["implementation-step-ledger:step_final_verify", "test:pnpm-verify"]
+  };
+
+  return {
+    ...run,
+    remoteStatus: "connected",
+    stagePlan: run.stagePlan.map((stage) =>
+      stage.stage === "final_verify_pr_update"
+        ? {
+            ...stage,
+            status: "completed",
+            ledgerEvidence,
+            evidenceRefs: [...stage.evidenceRefs, ...ledgerEvidence.evidenceRefs]
+          }
+        : stage
+    ),
+    pullRequestMutations: {
+      records: [bodyRecord],
+      latestRecord: bodyRecord
+    }
+  };
+}
+
 describe("buildAutoImplementationPullRequestDryRunRequest", () => {
   it("builds a read-only open PR dry-run before any PR URL exists", () => {
     const run = readyRun();
@@ -96,6 +153,51 @@ describe("buildAutoImplementationPullRequestDryRunRequest", () => {
       "A PR URL is already recorded; use the PR body dry-run to refresh the existing PR evidence."
     );
     expect(request.knownGaps).not.toContain("Remote status is connected; mutation stays blocked until connected.");
+  });
+
+  it("builds a read-only merge PR dry-run with visible readiness gaps", () => {
+    const run = withPrUrl(readyRun());
+    const request = buildAutoImplementationPullRequestMergeDryRunRequest({
+      sessionId: "demo-session" as SessionId,
+      run
+    });
+
+    expect(request).toMatchObject({
+      sessionId: "demo-session",
+      runId: run.runId,
+      action: "merge_pr",
+      requestMode: "dry_run",
+      pullRequestUrl: "https://github.com/bee-community-master/demo/pull/1",
+      pullRequestTitle: `Auto implementation ${run.projectFolderName}`,
+      verificationCommands: ["pnpm verify"],
+      verifierEvidenceRefs: [`verifier:pr-merge-dry-run:${run.runId}:${run.currentStage}`]
+    });
+    expect(request.approval).toBeUndefined();
+    expect(request.bodyEvidenceRefs).toBeUndefined();
+    expect(request.mergeEvidenceRefs).toBeUndefined();
+    expect(request.knownGaps).toEqual(
+      expect.arrayContaining([
+        "final_verify_pr_update has not recorded completed merge-readiness ledger evidence yet.",
+        "No current PR body evidence has been recorded yet.",
+        expect.stringContaining("merge dry-run readiness only")
+      ])
+    );
+  });
+
+  it("carries current PR body and final verification evidence into merge dry-runs", () => {
+    const run = withPrBodyAndFinalVerification(readyRun());
+    const request = buildAutoImplementationPullRequestMergeDryRunRequest({
+      sessionId: "demo-session" as SessionId,
+      run
+    });
+
+    expect(request.pullRequestUrl).toBe("https://github.com/bee-community-master/demo/pull/1");
+    expect(request.bodyEvidenceRefs).toEqual(["pr-body:current-evidence"]);
+    expect(request.mergeEvidenceRefs).toEqual(["implementation-step-ledger:step_final_verify", "test:pnpm-verify"]);
+    expect(request.knownGaps).not.toContain("No current PR body evidence has been recorded yet.");
+    expect(request.knownGaps).not.toContain(
+      "final_verify_pr_update has not recorded completed merge-readiness ledger evidence yet."
+    );
   });
 
   it("builds a read-only PR body update dry-run with visible blocked gaps when remote or PR URL is missing", () => {

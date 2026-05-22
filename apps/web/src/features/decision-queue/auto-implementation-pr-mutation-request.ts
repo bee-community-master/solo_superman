@@ -10,6 +10,18 @@ function latestPullRequestUrl(run: AutoImplementationRun): string | undefined {
     undefined;
 }
 
+function latestPullRequestBodyEvidenceRefs(run: AutoImplementationRun) {
+  return [...run.pullRequestMutations.records]
+    .reverse()
+    .find((record) => record.bodyEvidenceRefs.length > 0)
+    ?.bodyEvidenceRefs ?? [];
+}
+
+function finalVerificationMergeEvidenceRefs(run: AutoImplementationRun) {
+  return run.stagePlan.find((stage) => stage.stage === "final_verify_pr_update" && stage.status === "completed")
+    ?.ledgerEvidence?.evidenceRefs ?? [];
+}
+
 function issueLinksForRun(run: AutoImplementationRun) {
   return run.issueManagement.githubIssueUrls.length
     ? run.issueManagement.githubIssueUrls
@@ -41,6 +53,23 @@ function knownGapsForOpenDryRun(run: AutoImplementationRun) {
   ].filter((gap): gap is string => gap !== null);
 }
 
+function knownGapsForMergeDryRun(
+  run: AutoImplementationRun,
+  pullRequestUrl: string | undefined,
+  bodyEvidenceRefs: readonly string[],
+  mergeEvidenceRefs: readonly string[]
+) {
+  return [
+    run.remoteStatus === "connected" ? null : `Remote status is ${run.remoteStatus}; mutation stays blocked until connected.`,
+    pullRequestUrl ? null : "No GitHub PR URL has been recorded yet.",
+    mergeEvidenceRefs.length
+      ? null
+      : "final_verify_pr_update has not recorded completed merge-readiness ledger evidence yet.",
+    bodyEvidenceRefs.length ? null : "No current PR body evidence has been recorded yet.",
+    "This UI action records merge dry-run readiness only; approved GitHub mutation still requires explicit approval evidence."
+  ].filter((gap): gap is string => gap !== null);
+}
+
 function pullRequestTitle(run: AutoImplementationRun) {
   return `Auto implementation ${run.projectFolderName}`;
 }
@@ -69,6 +98,35 @@ export function buildAutoImplementationPullRequestOpenDryRunRequest(input: {
     knownGaps: knownGapsForOpenDryRun(run),
     rollbackNotes: "Dry-run only; no GitHub PR is opened. Supersede this record after approved PR creation evidence is captured.",
     verifierEvidenceRefs: [`verifier:pr-open-dry-run:${run.runId}:${run.currentStage}`]
+  };
+}
+
+export function buildAutoImplementationPullRequestMergeDryRunRequest(input: {
+  readonly sessionId: SessionId;
+  readonly run: AutoImplementationRun;
+}): RecordAutoImplementationPullRequestMutationRequest {
+  const { run, sessionId } = input;
+  const pullRequestUrl = latestPullRequestUrl(run);
+  const bodyEvidenceRefs = latestPullRequestBodyEvidenceRefs(run);
+  const mergeEvidenceRefs = finalVerificationMergeEvidenceRefs(run);
+
+  return {
+    sessionId,
+    runId: run.runId,
+    action: "merge_pr",
+    requestMode: "dry_run",
+    idempotencyKey: `pr-merge-dry-run:${run.currentStage}:${run.pullRequestMutations.records.length}:${run.updatedAt}`,
+    ...(pullRequestUrl ? { pullRequestUrl } : {}),
+    pullRequestTitle: pullRequestTitle(run),
+    issueLinks: issueLinksForRun(run),
+    implementationScope: `Dry-run PR merge readiness for ${run.currentStage} using ${run.issueManagement.trackerRelativePath}.`,
+    reviewStreakRefs: reviewStreakRefsForRun(run),
+    verificationCommands: ["pnpm verify"],
+    knownGaps: knownGapsForMergeDryRun(run, pullRequestUrl, bodyEvidenceRefs, mergeEvidenceRefs),
+    rollbackNotes: "Dry-run only; no GitHub merge is attempted. Supersede this record after approved merge readiness evidence is captured.",
+    ...(mergeEvidenceRefs.length ? { mergeEvidenceRefs } : {}),
+    ...(bodyEvidenceRefs.length ? { bodyEvidenceRefs } : {}),
+    verifierEvidenceRefs: [`verifier:pr-merge-dry-run:${run.runId}:${run.currentStage}`]
   };
 }
 

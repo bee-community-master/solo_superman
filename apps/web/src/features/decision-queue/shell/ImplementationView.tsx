@@ -21,6 +21,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     projections,
     recordAutoImplementationPullRequestOpenDryRun,
     recordAutoImplementationPullRequestDryRun,
+    recordAutoImplementationPullRequestMergeDryRun,
     refreshCommandStatus,
     refreshAutoImplementationRuns,
     refreshImplementationStepLedger,
@@ -46,6 +47,9 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         }}
         onRecordPullRequestDryRun={() => {
           void recordAutoImplementationPullRequestDryRun();
+        }}
+        onRecordPullRequestMergeDryRun={() => {
+          void recordAutoImplementationPullRequestMergeDryRun();
         }}
         onRunWorkerJob={() => {
           void runAutoImplementationWorkerJob();

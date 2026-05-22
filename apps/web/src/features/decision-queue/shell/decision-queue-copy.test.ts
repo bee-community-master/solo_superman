@@ -63,5 +63,7 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.autoImplementation.missingExecutionAuthority).toContain("ExecutionAuthorityRecord");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.recordPullRequestOpenDryRun).toBe("Record PR open dry-run");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.recordPullRequestOpenDryRun).toContain("PR 생성");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.recordPullRequestMergeDryRun).toBe("Record PR merge dry-run");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.recordPullRequestMergeDryRun).toContain("PR merge");
   });
 });
