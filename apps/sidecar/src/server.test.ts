@@ -9442,6 +9442,81 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("recovers runtime-blocked worker jobs through manual ledger import", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const unavailableAdapter = {
+      ...fixtureCodexRuntimeAdapter,
+      async executeWorker() {
+        throw new CodexRuntimeUnavailableError("Synthetic local Codex worker unavailable before manual import.");
+      }
+    } satisfies CodexRuntimeAdapter;
+    const { app: storageApp, storage } = await createMigratedStorageApp(unavailableAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId, runId, plannedJobId } = await createRunnableAutoImplementationWorkerJobForTest({
+        storageApp,
+        workspaceRoot,
+        idea: "An auto implementation manual worker import recovery test",
+        runIdempotencyKey: "auto-implementation-route:worker-run-manual-import-recovery",
+        projectName: "Worker Manual Import Recovery Demo",
+        projectFolderName: "worker-manual-import-recovery-demo",
+        authorityIdSuffix: "auto_worker_manual_import_recovery",
+        workerJobIdempotencyKey: "worker-job:manual-import-recovery"
+      });
+      const runResponse = await postAutoImplementationWorkerRunForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-run:manual-import-recovery"
+        }
+      );
+      const blockedRun = latestAutoImplementationRunFromBody(await jsonBody(runResponse));
+      const blockedJobs = blockedRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+      const importResponse = await postAutoImplementationWorkerLedgerImportForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-ledger-import:manual-recovery",
+          ledgerTransitions: implementationStepLedgerImportTransitionsForTest(
+            workerPlanLedgerDocsForTest(blockedJobs.at(-1)!)
+          ) as readonly RecordImplementationStepLedgerPayload[],
+          evidenceRefs: ["worker-ledger-import:manual-recovery"]
+        }
+      );
+      const importedRun = latestAutoImplementationRunFromBody(await jsonBody(importResponse));
+      const importedJobs = importedRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(runResponse.status).toBe(200);
+      expect(blockedJobs.at(-1)).toMatchObject({
+        status: "blocked",
+        missingEvidence: ["Local Codex worker execution"]
+      });
+      expect(importResponse.status).toBe(200);
+      expect(importedRun).toMatchObject({
+        status: "running",
+        currentStage: "initial_pr"
+      });
+      expect(importedJobs.at(-1)).toMatchObject({
+        status: "completed",
+        missingEvidence: [],
+        blockedReason: null,
+        nextRequiredAction: expect.stringContaining("existing stage endpoint"),
+        evidenceRefs: expect.arrayContaining([
+          `auto-worker-ledger-import:${plannedJobId}:worker-ledger-import:manual-recovery`,
+          "worker-ledger-import:manual-recovery"
+        ])
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("blocks local worker output that contains credential or secret-like text before it can be stored", async () => {
     const workspaceRoot = await makeTempAppDataDir();
     const secretLikeValue = "NPM_TOKEN=plain-secret-value";
