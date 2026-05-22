@@ -18,6 +18,8 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     isBusy,
     pendingSummary,
     planAutoImplementationWorkerJob,
+    recordAutoImplementationGitHubIssueDryRun,
+    applyAutoImplementationGitHubIssueCreation,
     applyAutoImplementationPullRequestOpen,
     applyAutoImplementationPullRequestBodyUpdate,
     applyAutoImplementationPullRequestMerge,
@@ -44,6 +46,12 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         }}
         onPlanWorkerJob={() => {
           void planAutoImplementationWorkerJob();
+        }}
+        onRecordGitHubIssueDryRun={() => {
+          void recordAutoImplementationGitHubIssueDryRun();
+        }}
+        onApplyGitHubIssueCreation={() => {
+          void applyAutoImplementationGitHubIssueCreation();
         }}
         onRecordPullRequestOpenDryRun={() => {
           void recordAutoImplementationPullRequestOpenDryRun();

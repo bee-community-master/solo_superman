@@ -51,6 +51,8 @@ export interface AutoImplementationRunViewModel {
   readonly latestWorkerJobStatus: AutoImplementationWorkerJob["status"] | "not_planned";
   readonly latestWorkerPlan: AutoImplementationWorkerPlanView | null;
   readonly canPlanWorkerJob: boolean;
+  readonly canRecordGitHubIssueDryRun: boolean;
+  readonly canApplyGitHubIssueCreation: boolean;
   readonly canRecordPullRequestDryRun: boolean;
   readonly canApplyPullRequestOpen: boolean;
   readonly canApplyPullRequestBodyUpdate: boolean;
@@ -97,6 +99,8 @@ export function autoImplementationRunViewModel(
       latestWorkerJobStatus: "not_planned",
       latestWorkerPlan: null,
       canPlanWorkerJob: false,
+      canRecordGitHubIssueDryRun: false,
+      canApplyGitHubIssueCreation: false,
       canRecordPullRequestDryRun: false,
       canApplyPullRequestOpen: false,
       canApplyPullRequestBodyUpdate: false,
@@ -183,6 +187,12 @@ export function autoImplementationRunViewModel(
     latestWorkerJobStatus: latestWorkerJob?.status ?? "not_planned",
     latestWorkerPlan,
     canPlanWorkerJob: run.status !== "completed",
+    canRecordGitHubIssueDryRun: run.status !== "completed" &&
+      run.issueManagement.githubIssueUrls.length === 0 &&
+      (githubIssueMutation.status === "not_requested" || githubIssueMutation.status === "blocked"),
+    canApplyGitHubIssueCreation: run.status !== "completed" &&
+      githubIssueMutation.status === "dry_run_ready" &&
+      run.issueManagement.githubIssueUrls.length === 0,
     canRecordPullRequestDryRun: run.status !== "completed",
     canApplyPullRequestOpen: run.status !== "completed" &&
       hasReadyPullRequestDryRun("open_pr") &&
@@ -204,6 +214,8 @@ interface AutoImplementationRunPanelProps {
   readonly isBusy: boolean;
   readonly onCreateRun: () => void;
   readonly onPlanWorkerJob: () => void;
+  readonly onRecordGitHubIssueDryRun: () => void;
+  readonly onApplyGitHubIssueCreation: () => void;
   readonly onRecordPullRequestOpenDryRun: () => void;
   readonly onRecordPullRequestDryRun: () => void;
   readonly onRecordPullRequestMergeDryRun: () => void;
@@ -220,6 +232,8 @@ export function AutoImplementationRunPanel({
   isBusy,
   onCreateRun,
   onPlanWorkerJob,
+  onRecordGitHubIssueDryRun,
+  onApplyGitHubIssueCreation,
   onRecordPullRequestOpenDryRun,
   onRecordPullRequestDryRun,
   onRecordPullRequestMergeDryRun,
@@ -251,6 +265,20 @@ export function AutoImplementationRunPanel({
         </button>
         <button type="button" disabled={isBusy || !run.canPlanWorkerJob} onClick={onPlanWorkerJob}>
           {copy.autoImplementation.planWorkerJob}
+        </button>
+        <button
+          type="button"
+          disabled={isBusy || !run.canRecordGitHubIssueDryRun}
+          onClick={onRecordGitHubIssueDryRun}
+        >
+          {copy.autoImplementation.recordGitHubIssueDryRun}
+        </button>
+        <button
+          type="button"
+          disabled={isBusy || !run.canApplyGitHubIssueCreation}
+          onClick={onApplyGitHubIssueCreation}
+        >
+          {copy.autoImplementation.applyGitHubIssueCreation}
         </button>
         <button
           type="button"

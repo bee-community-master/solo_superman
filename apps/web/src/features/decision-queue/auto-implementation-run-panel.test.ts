@@ -98,6 +98,8 @@ function renderPanelMarkup(run: ReturnType<typeof autoImplementationRunViewModel
       isBusy: false,
       onCreateRun: () => undefined,
       onPlanWorkerJob: () => undefined,
+      onRecordGitHubIssueDryRun: () => undefined,
+      onApplyGitHubIssueCreation: () => undefined,
       onRecordPullRequestOpenDryRun: () => undefined,
       onRecordPullRequestDryRun: () => undefined,
       onRecordPullRequestMergeDryRun: () => undefined,
@@ -129,6 +131,8 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerJobNextAction).toContain("current stage issue document");
     expect(view.latestWorkerPlan).toBeNull();
     expect(view.canPlanWorkerJob).toBe(true);
+    expect(view.canRecordGitHubIssueDryRun).toBe(true);
+    expect(view.canApplyGitHubIssueCreation).toBe(false);
     expect(view.canRecordPullRequestDryRun).toBe(true);
     expect(view.canApplyPullRequestOpen).toBe(false);
     expect(view.canApplyPullRequestBodyUpdate).toBe(false);
@@ -165,6 +169,8 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerJobLabel).toContain("not planned");
     expect(view.latestWorkerPlan).toBeNull();
     expect(view.canPlanWorkerJob).toBe(false);
+    expect(view.canRecordGitHubIssueDryRun).toBe(false);
+    expect(view.canApplyGitHubIssueCreation).toBe(false);
     expect(view.canRecordPullRequestDryRun).toBe(false);
     expect(view.canApplyPullRequestOpen).toBe(false);
     expect(view.canApplyPullRequestBodyUpdate).toBe(false);
@@ -279,6 +285,46 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(mergeReadyView.canApplyPullRequestOpen).toBe(false);
     expect(mergeReadyView.canApplyPullRequestBodyUpdate).toBe(true);
     expect(mergeReadyView.canApplyPullRequestMerge).toBe(true);
+  });
+
+  it("enables approved GitHub issue creation only after issue dry-run readiness", () => {
+    const issueDryRunReady = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.issueManagement.githubIssueMutation,
+      status: "dry_run_ready" as const,
+      blockedReason: null,
+      auditEvidenceRefs: ["github-issue-mutation:dry_run_ready"]
+    };
+    const dryRunView = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        issueManagement: {
+          ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.issueManagement,
+          githubIssueMutation: issueDryRunReady
+        }
+      }
+    } as AutoImplementationRunProjection);
+    const appliedView = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        issueManagement: {
+          ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.issueManagement,
+          githubIssueUrls: ["https://github.com/bee-community-master/demo/issues/1"],
+          githubIssueMutation: {
+            ...issueDryRunReady,
+            status: "applied" as const,
+            mutatesGitHub: true,
+            createdIssueUrls: ["https://github.com/bee-community-master/demo/issues/1"]
+          }
+        }
+      }
+    } as AutoImplementationRunProjection);
+
+    expect(dryRunView.canRecordGitHubIssueDryRun).toBe(false);
+    expect(dryRunView.canApplyGitHubIssueCreation).toBe(true);
+    expect(appliedView.canRecordGitHubIssueDryRun).toBe(false);
+    expect(appliedView.canApplyGitHubIssueCreation).toBe(false);
   });
 
   it("keeps approved PR open disabled after any PR URL has been recorded", () => {
@@ -535,6 +581,8 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("No GitHub PR mutation records yet");
     expect(markup).toContain("Local Codex worker: not planned");
     expect(markup).toContain("Approve worker authority + plan job");
+    expect(markup).toContain("Record GitHub issue dry-run");
+    expect(markup).toContain("Apply approved GitHub issues");
     expect(markup).toContain("Record PR open dry-run");
     expect(markup).toContain("Apply approved PR open");
     expect(markup).toContain("Record PR body dry-run");
