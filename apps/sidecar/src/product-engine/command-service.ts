@@ -948,10 +948,28 @@ function pullRequestMutationBlockedReason(input: {
   return null;
 }
 
+function completedStageLedgerEvidenceRefs(
+  run: AutoImplementationRun,
+  evidenceKind: "implementationEvidenceRefs" | "testEvidenceRefs"
+) {
+  return uniqueAutoImplementationRefs(
+    run.stagePlan
+      .filter((stage) => stage.status === "completed")
+      .flatMap((stage) => stage.ledgerEvidence?.[evidenceKind] ?? [])
+  );
+}
+
+function evidenceLines(values: readonly string[], emptyLabel: string) {
+  return values.length ? values.map((value) => `- ${value}`) : [`- ${emptyLabel}`];
+}
+
 function pullRequestBodyMarkdown(input: {
   readonly request: RecordAutoImplementationPullRequestMutationRequest;
   readonly run: AutoImplementationRun;
 }) {
+  const implementationEvidenceRefs = completedStageLedgerEvidenceRefs(input.run, "implementationEvidenceRefs");
+  const testEvidenceRefs = completedStageLedgerEvidenceRefs(input.run, "testEvidenceRefs");
+
   return [
     `## ${input.request.pullRequestTitle ?? "Auto implementation PR"}`,
     "",
@@ -965,6 +983,12 @@ function pullRequestBodyMarkdown(input: {
     ...(input.request.reviewStreakRefs.length
       ? input.request.reviewStreakRefs.map((ref) => `- ${ref}`)
       : ["- none recorded"]),
+    "",
+    "### Implementation evidence",
+    ...evidenceLines(implementationEvidenceRefs, "no completed stage implementation evidence recorded"),
+    "",
+    "### Test evidence",
+    ...evidenceLines(testEvidenceRefs, "no completed stage test evidence recorded"),
     "",
     "### Verification commands",
     ...input.request.verificationCommands.map((command) => `- \`${command}\``),

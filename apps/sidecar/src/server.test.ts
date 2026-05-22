@@ -10354,6 +10354,10 @@ describe("PR-02 sidecar health shell", () => {
         });
         expect(input.bodyMarkdown).toContain("### Verification commands");
         expect(input.bodyMarkdown).toContain("`pnpm verify`");
+        expect(input.bodyMarkdown).toContain("### Implementation evidence");
+        expect(input.bodyMarkdown).toContain("- no completed stage implementation evidence recorded");
+        expect(input.bodyMarkdown).toContain("### Test evidence");
+        expect(input.bodyMarkdown).toContain("- no completed stage test evidence recorded");
 
         return {
           pullRequestUrl: input.pullRequestUrl ?? "https://github.com/bee-community-master/generated-demo/pull/124",
@@ -10438,6 +10442,10 @@ describe("PR-02 sidecar health shell", () => {
         });
         expect(input.bodyMarkdown).toContain("### Issue links");
         expect(input.bodyMarkdown).toContain("### Verification commands");
+        expect(input.bodyMarkdown).toContain("### Implementation evidence");
+        expect(input.bodyMarkdown).toContain("- commit:abcdef1");
+        expect(input.bodyMarkdown).toContain("### Test evidence");
+        expect(input.bodyMarkdown).toContain("- test:verify");
         expect(input.bodyMarkdown).toContain("`pnpm verify`");
 
         return {
