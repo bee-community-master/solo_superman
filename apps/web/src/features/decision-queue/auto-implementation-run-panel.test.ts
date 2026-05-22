@@ -334,6 +334,39 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(mergeReadyView.canApplyPullRequestMerge).toBe(true);
   });
 
+  it("keeps approved PR merge disabled after a merge has already been recorded", () => {
+    const mergeDryRun = prMutationRecord({
+      mutationId: "auto-pr-mutation:auto_run_demo:merge_pr:dry_run_1",
+      action: "merge_pr",
+      requestMode: "dry_run",
+      status: "dry_run_ready",
+      mutatesGitHub: false,
+      approval: null,
+      auditEvidenceRefs: ["github-pr-mutation:dry_run_ready"]
+    });
+    const mergeApplied = prMutationRecord({
+      mutationId: "auto-pr-mutation:auto_run_demo:merge_pr:applied_1",
+      action: "merge_pr",
+      requestMode: "approved",
+      status: "applied",
+      mutatesGitHub: true,
+      auditEvidenceRefs: ["github-pr-mutation:applied"],
+      mergeEvidenceRefs: ["github-pr-mutation:merge-completed"]
+    });
+    const view = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        pullRequestMutations: {
+          records: [mergeDryRun, mergeApplied],
+          latestRecord: mergeApplied
+        }
+      }
+    } as AutoImplementationRunProjection);
+
+    expect(view.canApplyPullRequestMerge).toBe(false);
+  });
+
   it("enables approved GitHub issue creation only after issue dry-run readiness", () => {
     const issueDryRunReady = {
       ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.issueManagement.githubIssueMutation,

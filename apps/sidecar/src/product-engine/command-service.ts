@@ -24,6 +24,7 @@ import {
   AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY,
   canCompleteAutoImplementationWorkerJob,
   canImportAutoImplementationWorkerLedger,
+  canMergeAutoImplementationPullRequest,
   canOpenNewAutoImplementationPullRequest,
   canPlanCurrentStageAutoImplementationWorkerJob,
   canRunAutoImplementationWorkerJob,
@@ -803,6 +804,14 @@ function pullRequestMutationBlockedReason(input: {
 
   if (input.request.action === "update_pr_body" && !(input.request.bodyEvidenceRefs ?? []).length) {
     return "GitHub PR body update requires body evidence refs proving the PR description is current.";
+  }
+
+  if (
+    input.request.action === "merge_pr" &&
+    input.request.requestMode === "approved" &&
+    !canMergeAutoImplementationPullRequest(input.run)
+  ) {
+    return "GitHub PR merge is blocked because a pull request merge is already recorded for this auto implementation run.";
   }
 
   if (input.request.action === "merge_pr" && !finalVerifyStageCompleted(input.run)) {

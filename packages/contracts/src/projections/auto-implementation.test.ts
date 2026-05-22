@@ -8,7 +8,9 @@ import {
   AutoImplementationRunValidationError,
   autoImplementationWorkerExpectedChangeScope,
   autoImplementationWorkerLedgerStepDescription,
+  canMergeAutoImplementationPullRequest,
   canOpenNewAutoImplementationPullRequest,
+  hasAppliedAutoImplementationPullRequestMerge,
   latestAutoImplementationPullRequestUrl,
   validateAutoImplementationRunProjection
 } from "./auto-implementation";
@@ -716,6 +718,53 @@ describe("AutoImplementationRunProjection contract", () => {
     expect(canOpenNewAutoImplementationPullRequest(readyRun)).toBe(true);
     expect(latestAutoImplementationPullRequestUrl(runWithPrUrl)).toBe("https://github.com/bee-community-master/demo/pull/1");
     expect(canOpenNewAutoImplementationPullRequest(runWithPrUrl)).toBe(false);
+  });
+
+  it("detects whether an auto implementation run can merge a pull request", () => {
+    const mergeDryRun = pullRequestMutationRecord({
+      mutationId: "auto-pr-mutation:auto_run_demo:merge_pr:dry_run_1",
+      action: "merge_pr",
+      requestMode: "dry_run",
+      status: "dry_run_ready",
+      mutatesGitHub: false
+    });
+    const mergeApplied = pullRequestMutationRecord({
+      mutationId: "auto-pr-mutation:auto_run_demo:merge_pr:applied_1",
+      action: "merge_pr",
+      requestMode: "approved",
+      status: "applied",
+      mutatesGitHub: true
+    });
+    const runWithMergeDryRun = {
+      ...readyRun,
+      pullRequestMutations: {
+        records: [mergeDryRun],
+        latestRecord: mergeDryRun
+      }
+    };
+    const runWithAppliedMerge = {
+      ...readyRun,
+      pullRequestMutations: {
+        records: [mergeDryRun, mergeApplied],
+        latestRecord: mergeApplied
+      }
+    };
+    const runWithLatestAppliedMerge = {
+      ...readyRun,
+      pullRequestMutations: {
+        records: [],
+        latestRecord: mergeApplied
+      }
+    };
+
+    expect(hasAppliedAutoImplementationPullRequestMerge(readyRun)).toBe(false);
+    expect(canMergeAutoImplementationPullRequest(readyRun)).toBe(true);
+    expect(hasAppliedAutoImplementationPullRequestMerge(runWithMergeDryRun)).toBe(false);
+    expect(canMergeAutoImplementationPullRequest(runWithMergeDryRun)).toBe(true);
+    expect(hasAppliedAutoImplementationPullRequestMerge(runWithAppliedMerge)).toBe(true);
+    expect(canMergeAutoImplementationPullRequest(runWithAppliedMerge)).toBe(false);
+    expect(hasAppliedAutoImplementationPullRequestMerge(runWithLatestAppliedMerge)).toBe(true);
+    expect(canMergeAutoImplementationPullRequest(runWithLatestAppliedMerge)).toBe(false);
   });
 
   it("rejects applied GitHub PR body updates without current body evidence refs", () => {
