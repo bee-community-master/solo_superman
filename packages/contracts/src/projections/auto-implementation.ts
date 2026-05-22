@@ -133,6 +133,13 @@ export const AUTO_IMPLEMENTATION_LEDGER_EVIDENCE_TEMPLATE = [
   "blocker: if any required record is missing, write reason, missingEvidence, nextRequiredAction, and evidenceRefs instead of advancing."
 ] as const;
 
+export const AUTO_IMPLEMENTATION_REVIEW_EVIDENCE_CHECKLIST = [
+  "Feature code review: record two consecutive no-finding passes for the current PR-sized feature slice.",
+  "Repository code review: record two consecutive no-finding passes beyond the touched feature area.",
+  "Changed-code clean-code review: record two consecutive no-finding passes for naming, boundaries, duplication, dead paths, and test shape.",
+  "Repository clean-code review: record two consecutive no-finding passes for adjacent slop, stale abstractions, and consistency drift."
+] as const;
+
 export const AUTO_IMPLEMENTATION_STAGE_REVIEW_GATES = {
   initial_pr: [
     "Create the smallest behavior-complete implementation for this issue slice.",

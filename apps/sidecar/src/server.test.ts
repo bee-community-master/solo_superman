@@ -8732,9 +8732,38 @@ describe("PR-02 sidecar health shell", () => {
 
       const tracker = await readFile(join(projectDir, "implementation-tracker.md"), "utf8");
       const planningPlan = await readFile(join(projectDir, "planning-handoff-implementation-plan.md"), "utf8");
-      const firstIssue = await readFile(join(projectDir, "implementation-issues", "001-initial_pr.md"), "utf8");
-      const finalVerifyIssue = await readFile(join(projectDir, "implementation-issues", "006-final_verify_pr_update.md"), "utf8");
-      const mergeIssue = await readFile(join(projectDir, "implementation-issues", "007-merge_main.md"), "utf8");
+      const issueMarkdownByPath = new Map(
+        await Promise.all(
+          issueDocs.map(async (issueDoc) => {
+            if (typeof issueDoc.relativePath !== "string") {
+              throw new Error("Generated issue docs must record a relativePath.");
+            }
+            return [issueDoc.relativePath, await readFile(join(projectDir, issueDoc.relativePath), "utf8")] as const;
+          })
+        )
+      );
+      const getIssueMarkdown = (relativePath: string) => {
+        const issueMarkdown = issueMarkdownByPath.get(relativePath);
+        if (issueMarkdown === undefined) {
+          throw new Error(`Missing generated issue markdown: ${relativePath}`);
+        }
+        return issueMarkdown;
+      };
+      const firstIssue = getIssueMarkdown("implementation-issues/001-initial_pr.md");
+      const finalVerifyIssue = getIssueMarkdown("implementation-issues/006-final_verify_pr_update.md");
+      const mergeIssue = getIssueMarkdown("implementation-issues/007-merge_main.md");
+      const expectedReviewEvidenceSlots = [
+        "Feature code review: record two consecutive no-finding passes",
+        "Repository code review: record two consecutive no-finding passes",
+        "Changed-code clean-code review: record two consecutive no-finding passes",
+        "Repository clean-code review: record two consecutive no-finding passes"
+      ] as const;
+      const expectScopeSpecificReviewEvidenceSlots = (markdown: string) => {
+        expect(markdown).toContain("## Scope-specific review evidence slots");
+        for (const reviewEvidenceSlot of expectedReviewEvidenceSlots) {
+          expect(markdown).toContain(reviewEvidenceSlot);
+        }
+      };
       const manifest = JSON.parse(await readFile(join(projectDir, ".solo-superman", "auto-implementation-run.json"), "utf8")) as
         Readonly<Record<string, unknown>>;
       const gitHead = await readFile(join(projectDir, ".git", "HEAD"), "utf8");
@@ -8768,6 +8797,7 @@ describe("PR-02 sidecar health shell", () => {
       expect(tracker).toContain("Verifier evidence refs: none");
       expect(tracker).toContain("ImplementationStepLedger evidence template");
       expect(tracker).toContain("CodeReviewRecord.reviewScope");
+      expectScopeSpecificReviewEvidenceSlots(tracker);
       expect(tracker).toContain("Do not merge until the feature PR code review reaches two consecutive no-finding passes");
       expect(tracker).toContain("Update the PR body with scope, review streak evidence, test evidence");
       expect(planningPlan).toContain("# Planning Handoff implementation plan");
@@ -8777,6 +8807,9 @@ describe("PR-02 sidecar health shell", () => {
       expect(planningPlan).toContain("API ready SpecVersion");
       expect(planningPlan).toContain("Research-updated queue queue_api_ready terminal outcome is approved.");
       expect(planningPlan).toContain("Spec/Evidence/Queue sources drive task");
+      for (const issueMarkdown of issueMarkdownByPath.values()) {
+        expectScopeSpecificReviewEvidenceSlots(issueMarkdown);
+      }
       expect(firstIssue).toContain("## Acceptance");
       expect(firstIssue).toContain("Planning Handoff implementation plan: planning-handoff-implementation-plan.md");
       expect(firstIssue).toContain("## Planning source");
