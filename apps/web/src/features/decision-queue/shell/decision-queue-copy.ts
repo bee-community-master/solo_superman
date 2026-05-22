@@ -197,6 +197,8 @@ const EN_COPY = {
       core_assumption_challenge: "Core assumption check",
       investor_pressure_pass: "Investor-style stress test"
     } satisfies Record<BusinessCriticPressureKind, string>,
+    whyItMatters: "Why this matters",
+    decisionItUnlocks: "Decision this unlocks",
     nextValidation: "Next validation",
     suggestedAnswers: "Suggested answer choices",
     optionPro: "Pro",
@@ -230,6 +232,14 @@ const EN_COPY = {
       recovering: "Questions are refreshing after a live update or reconnect.",
       recovered_by_refetch: "Questions refreshed after a live update.",
       stale: "Questions may be out of date. Refresh before using them as the source of truth."
+    },
+    queueItemStateLabels: {
+      active: "Current",
+      next: "Up next",
+      blocked: "Blocked",
+      deferred: "Known risk",
+      answered: "Answered",
+      resolved: "Resolved"
     },
     queueSections: {
       active: { title: "Current questions", emptyLabel: "No current questions." },
@@ -679,6 +689,8 @@ const JA_COPY: typeof EN_COPY = {
       core_assumption_challenge: "核心仮説の確認",
       investor_pressure_pass: "投資審査目線の検証"
     },
+    whyItMatters: "なぜ重要か",
+    decisionItUnlocks: "この回答で決まる判断",
     nextValidation: "次の検証",
     suggestedAnswers: "回答候補",
     optionPro: "長所",
@@ -712,6 +724,14 @@ const JA_COPY: typeof EN_COPY = {
       recovering: "ライブ更新または再接続の後、質問を更新しています。",
       recovered_by_refetch: "ライブ更新の後に質問を更新しました。",
       stale: "質問が古い可能性があります。判断材料にする前に更新してください。"
+    },
+    queueItemStateLabels: {
+      active: "現在",
+      next: "次の候補",
+      blocked: "ブロック中",
+      deferred: "既知のリスク",
+      answered: "回答済み",
+      resolved: "解決済み"
     },
     queueSections: {
       active: { title: "現在の質問", emptyLabel: "現在の質問はありません。" },
@@ -1161,6 +1181,8 @@ const KO_COPY: typeof EN_COPY = {
       core_assumption_challenge: "핵심 가설 점검",
       investor_pressure_pass: "투자심사식 검증"
     },
+    whyItMatters: "왜 중요한가",
+    decisionItUnlocks: "이 답으로 정해지는 판단",
     nextValidation: "다음 검증",
     suggestedAnswers: "추천 답변 선택지",
     optionPro: "찬성",
@@ -1194,6 +1216,14 @@ const KO_COPY: typeof EN_COPY = {
       recovering: "실시간 업데이트 또는 재연결 후 질문을 새로고침하고 있습니다.",
       recovered_by_refetch: "실시간 업데이트 후 질문을 새로고침했습니다.",
       stale: "질문이 오래되었을 수 있습니다. 판단 근거로 쓰기 전에 새로고침하세요."
+    },
+    queueItemStateLabels: {
+      active: "현재",
+      next: "다음 후보",
+      blocked: "막힘",
+      deferred: "알려진 리스크",
+      answered: "답변됨",
+      resolved: "해결됨"
     },
     queueSections: {
       active: { title: "현재 질문", emptyLabel: "현재 질문이 없습니다." },
