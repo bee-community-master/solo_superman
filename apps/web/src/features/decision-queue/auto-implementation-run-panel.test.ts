@@ -66,6 +66,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
     expect(view.latestWorkerJobNextAction).toContain("current stage issue document");
     expect(view.canPlanWorkerJob).toBe(true);
+    expect(view.canRecordPullRequestDryRun).toBe(true);
     expect(view.canRunWorkerJob).toBe(false);
     expect(view.canAdvanceWorkerStage).toBe(false);
     expect(view.stages).toHaveLength(7);
@@ -97,6 +98,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestPullRequestMutation).toBeNull();
     expect(view.latestWorkerJobLabel).toContain("not planned");
     expect(view.canPlanWorkerJob).toBe(false);
+    expect(view.canRecordPullRequestDryRun).toBe(false);
   });
 
   it("shows the latest GitHub PR mutation evidence and history count", () => {
@@ -303,6 +305,7 @@ describe("AutoImplementationRunPanel view model", () => {
         isBusy: false,
         onCreateRun: () => undefined,
         onPlanWorkerJob: () => undefined,
+        onRecordPullRequestDryRun: () => undefined,
         onRunWorkerJob: () => undefined,
         onAdvanceWorkerStage: () => undefined,
         onRefreshRun: () => undefined
@@ -332,6 +335,7 @@ describe("AutoImplementationRunPanel view model", () => {
         isBusy: false,
         onCreateRun: () => undefined,
         onPlanWorkerJob: () => undefined,
+        onRecordPullRequestDryRun: () => undefined,
         onRunWorkerJob: () => undefined,
         onAdvanceWorkerStage: () => undefined,
         onRefreshRun: () => undefined
@@ -351,6 +355,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("No GitHub PR mutation records yet");
     expect(markup).toContain("Local Codex worker: not planned");
     expect(markup).toContain("Plan worker job");
+    expect(markup).toContain("Record PR body dry-run");
     expect(markup).toContain("Run worker job");
     expect(markup).toContain("Advance worker stage");
     expect(markup).toContain("local markdown issue paths remain the source of truth");

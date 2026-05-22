@@ -11,6 +11,7 @@ import {
   type StatusEndpointDto
 } from "@solo-superman/contracts";
 import { autoImplementationRunViewModel } from "../AutoImplementationRunPanel";
+import { buildAutoImplementationPullRequestDryRunRequest } from "../auto-implementation-pr-mutation-request";
 import { chatGptDelegationViewModel } from "../ChatGptDelegationPanel";
 import { implementationStepLedgerViewModel } from "../ImplementationStepLedgerPanel";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
@@ -609,6 +610,44 @@ export function useDecisionQueueShellController() {
       setIsBusy(false);
     }
   }, [client, projections]);
+
+  const recordAutoImplementationPullRequestDryRun = useCallback(async () => {
+    const sessionId = projections.session?.sessionId;
+    const run = projections.autoImplementationRuns?.latestRun;
+
+    if (!client || !sessionId || !run) {
+      setWorkflowError("An active auto implementation workspace run is required before recording a PR body dry-run.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const autoImplementationRuns = await client.recordAutoImplementationPullRequestMutation(
+        buildAutoImplementationPullRequestDryRunRequest({ sessionId, run })
+      );
+
+      setProjections((current) => ({
+        ...current,
+        autoImplementationRuns
+      }));
+      setCommandLog((current) => [
+        {
+          id: `auto-implementation-pr-dry-run:${run.runId}:${Date.now()}`,
+          label: "Record PR body dry-run",
+          createdAt: new Date().toISOString(),
+          message: autoImplementationRuns.summary
+        },
+        ...current
+      ].slice(0, COMMAND_LOG_LIMIT));
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [client, projections]);
+
   const planningRadarAxesView = useMemo(
     () =>
       planningRadarAxes(confidence).map((axis) => ({
@@ -775,6 +814,7 @@ export function useDecisionQueueShellController() {
     deleteServicePageArtifacts,
     createAutoImplementationRun,
     planAutoImplementationWorkerJob,
+    recordAutoImplementationPullRequestDryRun,
     runAutoImplementationWorkerJob,
     advanceAutoImplementationWorkerStage,
     sections,
