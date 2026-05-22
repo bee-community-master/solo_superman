@@ -51,6 +51,7 @@ export interface AutoImplementationRunViewModel {
   readonly latestWorkerJobStatus: AutoImplementationWorkerJob["status"] | "not_planned";
   readonly latestWorkerPlan: AutoImplementationWorkerPlanView | null;
   readonly canPlanWorkerJob: boolean;
+  readonly canRecordStageTick: boolean;
   readonly canRecordGitHubIssueDryRun: boolean;
   readonly canApplyGitHubIssueCreation: boolean;
   readonly canRecordPullRequestDryRun: boolean;
@@ -99,6 +100,7 @@ export function autoImplementationRunViewModel(
       latestWorkerJobStatus: "not_planned",
       latestWorkerPlan: null,
       canPlanWorkerJob: false,
+      canRecordStageTick: false,
       canRecordGitHubIssueDryRun: false,
       canApplyGitHubIssueCreation: false,
       canRecordPullRequestDryRun: false,
@@ -187,6 +189,7 @@ export function autoImplementationRunViewModel(
     latestWorkerJobStatus: latestWorkerJob?.status ?? "not_planned",
     latestWorkerPlan,
     canPlanWorkerJob: run.status !== "completed",
+    canRecordStageTick: run.status !== "completed",
     canRecordGitHubIssueDryRun: run.status !== "completed" &&
       run.issueManagement.githubIssueUrls.length === 0 &&
       (githubIssueMutation.status === "not_requested" || githubIssueMutation.status === "blocked"),
@@ -214,6 +217,7 @@ interface AutoImplementationRunPanelProps {
   readonly isBusy: boolean;
   readonly onCreateRun: () => void;
   readonly onPlanWorkerJob: () => void;
+  readonly onRecordStageTick: () => void;
   readonly onRecordGitHubIssueDryRun: () => void;
   readonly onApplyGitHubIssueCreation: () => void;
   readonly onRecordPullRequestOpenDryRun: () => void;
@@ -232,6 +236,7 @@ export function AutoImplementationRunPanel({
   isBusy,
   onCreateRun,
   onPlanWorkerJob,
+  onRecordStageTick,
   onRecordGitHubIssueDryRun,
   onApplyGitHubIssueCreation,
   onRecordPullRequestOpenDryRun,
@@ -265,6 +270,9 @@ export function AutoImplementationRunPanel({
         </button>
         <button type="button" disabled={isBusy || !run.canPlanWorkerJob} onClick={onPlanWorkerJob}>
           {copy.autoImplementation.planWorkerJob}
+        </button>
+        <button type="button" disabled={isBusy || !run.canRecordStageTick} onClick={onRecordStageTick}>
+          {copy.autoImplementation.recordStageTick}
         </button>
         <button
           type="button"

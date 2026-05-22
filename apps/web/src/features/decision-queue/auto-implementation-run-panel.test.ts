@@ -98,6 +98,7 @@ function renderPanelMarkup(run: ReturnType<typeof autoImplementationRunViewModel
       isBusy: false,
       onCreateRun: () => undefined,
       onPlanWorkerJob: () => undefined,
+      onRecordStageTick: () => undefined,
       onRecordGitHubIssueDryRun: () => undefined,
       onApplyGitHubIssueCreation: () => undefined,
       onRecordPullRequestOpenDryRun: () => undefined,
@@ -131,6 +132,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerJobNextAction).toContain("current stage issue document");
     expect(view.latestWorkerPlan).toBeNull();
     expect(view.canPlanWorkerJob).toBe(true);
+    expect(view.canRecordStageTick).toBe(true);
     expect(view.canRecordGitHubIssueDryRun).toBe(true);
     expect(view.canApplyGitHubIssueCreation).toBe(false);
     expect(view.canRecordPullRequestDryRun).toBe(true);
@@ -169,6 +171,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerJobLabel).toContain("not planned");
     expect(view.latestWorkerPlan).toBeNull();
     expect(view.canPlanWorkerJob).toBe(false);
+    expect(view.canRecordStageTick).toBe(false);
     expect(view.canRecordGitHubIssueDryRun).toBe(false);
     expect(view.canApplyGitHubIssueCreation).toBe(false);
     expect(view.canRecordPullRequestDryRun).toBe(false);
@@ -325,6 +328,18 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(dryRunView.canApplyGitHubIssueCreation).toBe(true);
     expect(appliedView.canRecordGitHubIssueDryRun).toBe(false);
     expect(appliedView.canApplyGitHubIssueCreation).toBe(false);
+  });
+
+  it("keeps stage tick recording disabled after the run is completed", () => {
+    const view = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        status: "completed"
+      }
+    } as AutoImplementationRunProjection);
+
+    expect(view.canRecordStageTick).toBe(false);
   });
 
   it("keeps approved PR open disabled after any PR URL has been recorded", () => {
@@ -581,6 +596,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("No GitHub PR mutation records yet");
     expect(markup).toContain("Local Codex worker: not planned");
     expect(markup).toContain("Approve worker authority + plan job");
+    expect(markup).toContain("Record current stage tick");
     expect(markup).toContain("Record GitHub issue dry-run");
     expect(markup).toContain("Apply approved GitHub issues");
     expect(markup).toContain("Record PR open dry-run");
