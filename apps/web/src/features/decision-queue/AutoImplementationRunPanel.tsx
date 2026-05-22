@@ -1,4 +1,9 @@
 import {
+  canImportAutoImplementationWorkerLedger,
+  canOpenNewAutoImplementationPullRequest,
+  canPlanCurrentStageAutoImplementationWorkerJob,
+  canRunAutoImplementationWorkerJob,
+  latestCurrentStageAutoImplementationWorkerJob,
   type AutoImplementationGitHubIssuePlan,
   type AutoImplementationIssueDocument,
   type AutoImplementationPullRequestMutationRecord,
@@ -10,12 +15,6 @@ import {
   type ImplementationStepLedgerProjection
 } from "@solo-superman/contracts";
 import { canCompleteAutoImplementationWorkerFromLedger } from "./auto-implementation-worker-completion-request";
-import {
-  canPlanCurrentStageAutoImplementationWorkerJob,
-  canImportAutoImplementationWorkerLedger,
-  canRunAutoImplementationWorkerJob,
-  latestCurrentStageAutoImplementationWorkerJob
-} from "./auto-implementation-worker-job-selection";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
 interface AutoImplementationWorkerPlanView {
@@ -173,7 +172,6 @@ export function autoImplementationRunViewModel(
       record.requestMode === "dry_run" &&
       record.status === "dry_run_ready"
     );
-  const hasRecordedPullRequestUrl = pullRequestMutationRecords.some((record) => Boolean(record.pullRequestUrl));
 
   return {
     status: run.status,
@@ -231,7 +229,7 @@ export function autoImplementationRunViewModel(
     canRecordPullRequestDryRun: run.status !== "completed",
     canApplyPullRequestOpen: run.status !== "completed" &&
       hasReadyPullRequestDryRun("open_pr") &&
-      !hasRecordedPullRequestUrl,
+      canOpenNewAutoImplementationPullRequest(run),
     canApplyPullRequestBodyUpdate: run.status !== "completed" && hasReadyPullRequestDryRun("update_pr_body"),
     canApplyPullRequestMerge: run.status !== "completed" && hasReadyPullRequestDryRun("merge_pr"),
     canRunWorkerJob,

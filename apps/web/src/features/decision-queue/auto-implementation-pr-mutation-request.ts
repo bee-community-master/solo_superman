@@ -1,13 +1,12 @@
-import type {
-  AutoImplementationRun,
-  RecordAutoImplementationPullRequestMutationRequest,
-  SessionId
+import {
+  latestAutoImplementationPullRequestUrl,
+  type AutoImplementationRun,
+  type RecordAutoImplementationPullRequestMutationRequest,
+  type SessionId
 } from "@solo-superman/contracts";
 
-function latestPullRequestUrl(run: AutoImplementationRun): string | undefined {
-  return run.pullRequestMutations.latestRecord?.pullRequestUrl ??
-    [...run.pullRequestMutations.records].reverse().find((record) => record.pullRequestUrl)?.pullRequestUrl ??
-    undefined;
+function optionalLatestPullRequestUrl(run: AutoImplementationRun): string | undefined {
+  return latestAutoImplementationPullRequestUrl(run) ?? undefined;
 }
 
 function latestPullRequestBodyEvidenceRefs(run: AutoImplementationRun) {
@@ -170,7 +169,7 @@ export function buildAutoImplementationPullRequestMergeDryRunRequest(input: {
   readonly run: AutoImplementationRun;
 }): RecordAutoImplementationPullRequestMutationRequest {
   const { run, sessionId } = input;
-  const pullRequestUrl = latestPullRequestUrl(run);
+  const pullRequestUrl = optionalLatestPullRequestUrl(run);
   const bodyEvidenceRefs = latestPullRequestBodyEvidenceRefs(run);
   const mergeEvidenceRefs = finalVerificationMergeEvidenceRefs(run);
 
@@ -200,7 +199,7 @@ export function buildAutoImplementationPullRequestOpenApprovedRequest(input: {
   readonly approvedAt: string;
 }): RecordAutoImplementationPullRequestMutationRequest {
   const { approvedAt, run, sessionId } = input;
-  const pullRequestUrl = latestPullRequestUrl(run);
+  const pullRequestUrl = optionalLatestPullRequestUrl(run);
 
   return {
     sessionId,
@@ -226,7 +225,7 @@ export function buildAutoImplementationPullRequestBodyApprovedRequest(input: {
   readonly approvedAt: string;
 }): RecordAutoImplementationPullRequestMutationRequest {
   const { approvedAt, run, sessionId } = input;
-  const pullRequestUrl = latestPullRequestUrl(run);
+  const pullRequestUrl = optionalLatestPullRequestUrl(run);
   const bodyEvidenceRefs = latestPullRequestBodyEvidenceRefs(run);
 
   return {
@@ -255,7 +254,7 @@ export function buildAutoImplementationPullRequestMergeApprovedRequest(input: {
   readonly approvedAt: string;
 }): RecordAutoImplementationPullRequestMutationRequest {
   const { approvedAt, run, sessionId } = input;
-  const pullRequestUrl = latestPullRequestUrl(run);
+  const pullRequestUrl = optionalLatestPullRequestUrl(run);
   const bodyEvidenceRefs = latestPullRequestBodyEvidenceRefs(run);
   const mergeEvidenceRefs = finalVerificationMergeEvidenceRefs(run);
 
@@ -285,7 +284,7 @@ export function buildAutoImplementationPullRequestDryRunRequest(input: {
   readonly run: AutoImplementationRun;
 }): RecordAutoImplementationPullRequestMutationRequest {
   const { run, sessionId } = input;
-  const pullRequestUrl = latestPullRequestUrl(run);
+  const pullRequestUrl = optionalLatestPullRequestUrl(run);
   const bodyEvidenceRef = currentStageBodyEvidenceRef(run);
 
   return {

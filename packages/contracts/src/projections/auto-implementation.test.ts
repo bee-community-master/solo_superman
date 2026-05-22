@@ -8,6 +8,8 @@ import {
   AutoImplementationRunValidationError,
   autoImplementationWorkerExpectedChangeScope,
   autoImplementationWorkerLedgerStepDescription,
+  canOpenNewAutoImplementationPullRequest,
+  latestAutoImplementationPullRequestUrl,
   validateAutoImplementationRunProjection
 } from "./auto-implementation";
 
@@ -698,6 +700,22 @@ describe("AutoImplementationRunProjection contract", () => {
     });
 
     expect(validateAutoImplementationRunProjection(valid)).toBe(valid);
+  });
+
+  it("detects whether an auto implementation run can open a new pull request", () => {
+    const record = pullRequestMutationRecord();
+    const runWithPrUrl = {
+      ...readyRun,
+      pullRequestMutations: {
+        records: [record],
+        latestRecord: record
+      }
+    };
+
+    expect(latestAutoImplementationPullRequestUrl(readyRun)).toBeNull();
+    expect(canOpenNewAutoImplementationPullRequest(readyRun)).toBe(true);
+    expect(latestAutoImplementationPullRequestUrl(runWithPrUrl)).toBe("https://github.com/bee-community-master/demo/pull/1");
+    expect(canOpenNewAutoImplementationPullRequest(runWithPrUrl)).toBe(false);
   });
 
   it("rejects applied GitHub PR body updates without current body evidence refs", () => {

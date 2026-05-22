@@ -341,6 +341,25 @@ export interface AutoImplementationPullRequestMutationState {
   readonly latestRecord: AutoImplementationPullRequestMutationRecord | null;
 }
 
+function autoImplementationPullRequestMutationRecords(
+  run: AutoImplementationRun
+): readonly AutoImplementationPullRequestMutationRecord[] {
+  return Array.isArray((run as { readonly pullRequestMutations?: { readonly records?: unknown } }).pullRequestMutations?.records)
+    ? run.pullRequestMutations.records
+    : [];
+}
+
+export function latestAutoImplementationPullRequestUrl(run: AutoImplementationRun): string | null {
+  return run.pullRequestMutations.latestRecord?.pullRequestUrl ??
+    [...autoImplementationPullRequestMutationRecords(run)].reverse().find((record) => record.pullRequestUrl)
+      ?.pullRequestUrl ??
+    null;
+}
+
+export function canOpenNewAutoImplementationPullRequest(run: AutoImplementationRun): boolean {
+  return latestAutoImplementationPullRequestUrl(run) === null;
+}
+
 export interface AutoImplementationIssueManagement {
   readonly mode: AutoImplementationIssueMode;
   readonly trackerRelativePath: string;

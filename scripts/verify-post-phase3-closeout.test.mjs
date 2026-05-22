@@ -9,7 +9,7 @@ const docVerifier = readFileSync("scripts/verify-doc-contracts.mjs", "utf8");
 
 describe("simplified contributor docs preserve Post-Phase3 decisions", () => {
   it("lists every canonical tracker issue and keeps #98 absorbed-only", () => {
-    for (const issue of [91, 92, 93, 94, 95, 96, 97, 99, 100, 101, 102, 103, 104, 105, 106, 108, 110, 112, 114]) {
+    for (const issue of [91, 92, 93, 94, 95, 96, 97, 99, 100, 101, 102, 103, 104, 105, 106, 108, 110, 112, 114, 116]) {
       expect(roadmap).toContain(`#${issue}`);
     }
 

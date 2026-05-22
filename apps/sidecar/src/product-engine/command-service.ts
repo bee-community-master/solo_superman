@@ -24,6 +24,7 @@ import {
   AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY,
   canCompleteAutoImplementationWorkerJob,
   canImportAutoImplementationWorkerLedger,
+  canOpenNewAutoImplementationPullRequest,
   canPlanCurrentStageAutoImplementationWorkerJob,
   canRunAutoImplementationWorkerJob,
   autoImplementationWorkerExpectedChangeScope,
@@ -790,6 +791,14 @@ function pullRequestMutationBlockedReason(input: {
 
   if (input.request.pullRequestUrl && !isGitHubPullRequestUrl(input.request.pullRequestUrl)) {
     return "GitHub PR mutation requires a canonical GitHub pull request URL.";
+  }
+
+  if (
+    input.request.action === "open_pr" &&
+    input.request.requestMode === "approved" &&
+    !canOpenNewAutoImplementationPullRequest(input.run)
+  ) {
+    return "GitHub PR open is blocked because a pull request URL is already recorded for this auto implementation run.";
   }
 
   if (input.request.action === "update_pr_body" && !(input.request.bodyEvidenceRefs ?? []).length) {
