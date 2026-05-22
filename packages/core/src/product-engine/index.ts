@@ -52,7 +52,11 @@ import {
   IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION,
   IMPLEMENTATION_STEP_STATUSES,
   IMPLEMENTATION_REVIEW_VERDICTS,
+  IMPLEMENTATION_CODE_REVIEW_SCOPES,
+  IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES,
   IMPLEMENTATION_TEST_OUTCOMES,
+  implementationCodeReviewStreaks,
+  implementationCleanCodeReviewStreaks,
   implementationStepLedgerProgressReport,
   validateImplementationStepLedgerProjection,
   validatePhase25ResearchComparisonReport,
@@ -8021,13 +8025,26 @@ function codeReviewRecordFromValue(value: unknown, stepId: string): CodeReviewRe
   const recordStepId = requiredString(record?.stepId);
   const reviewId = requiredString(record?.reviewId);
   const reviewer = requiredString(record?.reviewer);
+  const reviewScope = requiredString(record?.reviewScope);
   const verdict = implementationReviewVerdictFromValue(record?.verdict);
   const comparedFromCommitSha = requiredString(record?.comparedFromCommitSha);
   const comparedToCommitSha = requiredString(record?.comparedToCommitSha);
   const findings = stringArrayFromRecord(record?.findings, true);
   const evidenceRefs = stringArrayFromRecord(record?.evidenceRefs);
 
-  if (!recordStepId || recordStepId !== stepId || !reviewId || !reviewer || !verdict || !comparedFromCommitSha || !comparedToCommitSha || findings === null || !evidenceRefs?.length) {
+  if (
+    !recordStepId ||
+    recordStepId !== stepId ||
+    !reviewId ||
+    !reviewer ||
+    !reviewScope ||
+    !IMPLEMENTATION_CODE_REVIEW_SCOPES.includes(reviewScope as CodeReviewRecord["reviewScope"]) ||
+    !verdict ||
+    !comparedFromCommitSha ||
+    !comparedToCommitSha ||
+    findings === null ||
+    !evidenceRefs?.length
+  ) {
     return null;
   }
 
@@ -8035,6 +8052,7 @@ function codeReviewRecordFromValue(value: unknown, stepId: string): CodeReviewRe
     stepId,
     reviewId,
     reviewer,
+    reviewScope: reviewScope as CodeReviewRecord["reviewScope"],
     verdict,
     comparedFromCommitSha,
     comparedToCommitSha,
@@ -8052,13 +8070,26 @@ function cleanCodeReviewRecordFromValue(value: unknown, stepId: string): CleanCo
   const recordStepId = requiredString(record?.stepId);
   const reviewId = requiredString(record?.reviewId);
   const reviewer = requiredString(record?.reviewer);
+  const reviewScope = requiredString(record?.reviewScope);
   const verdict = implementationReviewVerdictFromValue(record?.verdict);
   const comparedFromCommitSha = requiredString(record?.comparedFromCommitSha);
   const comparedToCommitSha = requiredString(record?.comparedToCommitSha);
   const simplifications = stringArrayFromRecord(record?.simplifications, true);
   const evidenceRefs = stringArrayFromRecord(record?.evidenceRefs);
 
-  if (!recordStepId || recordStepId !== stepId || !reviewId || !reviewer || !verdict || !comparedFromCommitSha || !comparedToCommitSha || simplifications === null || !evidenceRefs?.length) {
+  if (
+    !recordStepId ||
+    recordStepId !== stepId ||
+    !reviewId ||
+    !reviewer ||
+    !reviewScope ||
+    !IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES.includes(reviewScope as CleanCodeReviewRecord["reviewScope"]) ||
+    !verdict ||
+    !comparedFromCommitSha ||
+    !comparedToCommitSha ||
+    simplifications === null ||
+    !evidenceRefs?.length
+  ) {
     return null;
   }
 
@@ -8066,6 +8097,7 @@ function cleanCodeReviewRecordFromValue(value: unknown, stepId: string): CleanCo
     stepId,
     reviewId,
     reviewer,
+    reviewScope: reviewScope as CleanCodeReviewRecord["reviewScope"],
     verdict,
     comparedFromCommitSha,
     comparedToCommitSha,
@@ -8138,6 +8170,8 @@ function implementationStepRequiredEvidence(input: {
   readonly noCodeStepEvidence: NoCodeStepEvidence | null;
   readonly codeReviewRecord: CodeReviewRecord | null;
   readonly cleanCodeReviewRecord: CleanCodeReviewRecord | null;
+  readonly codeReviewStreaks: ReturnType<typeof implementationCodeReviewStreaks>;
+  readonly cleanCodeReviewStreaks: ReturnType<typeof implementationCleanCodeReviewStreaks>;
   readonly testEvidenceRecord: TestEvidenceRecord | null;
 }) {
   const missing: string[] = [];
@@ -8152,11 +8186,14 @@ function implementationStepRequiredEvidence(input: {
   if (input.noCodeStepEvidence && (!input.noCodeStepEvidence.cleanTrackedState || input.noCodeStepEvidence.notTestedGaps.length > 0)) {
     missing.push("clean NoCodeStepEvidence without Not-tested gaps");
   }
-  if (input.codeReviewRecord?.verdict !== "passed") {
-    missing.push("passing CodeReviewRecord");
+  if (input.codeReviewRecord?.verdict !== "passed" || !input.codeReviewStreaks.every((streak) => streak.satisfied)) {
+    missing.push("two consecutive no-finding CodeReviewRecord passes for feature and repository scopes");
   }
-  if (input.cleanCodeReviewRecord?.verdict !== "passed") {
-    missing.push("passing CleanCodeReviewRecord");
+  if (
+    input.cleanCodeReviewRecord?.verdict !== "passed" ||
+    !input.cleanCodeReviewStreaks.every((streak) => streak.satisfied)
+  ) {
+    missing.push("two consecutive no-finding CleanCodeReviewRecord passes for changed-code and repository scopes");
   }
   if (!implementationTestEvidencePassed(input.testEvidenceRecord)) {
     missing.push("passing TestEvidenceRecord without failed tests or Not-tested gaps");
@@ -8187,6 +8224,8 @@ function implementationStepStageEvidence(input: {
   readonly noCodeStepEvidence: NoCodeStepEvidence | null;
   readonly codeReviewRecord: CodeReviewRecord | null;
   readonly cleanCodeReviewRecord: CleanCodeReviewRecord | null;
+  readonly codeReviewStreaks: ReturnType<typeof implementationCodeReviewStreaks>;
+  readonly cleanCodeReviewStreaks: ReturnType<typeof implementationCleanCodeReviewStreaks>;
   readonly testEvidenceRecord: TestEvidenceRecord | null;
 }) {
   const missing: string[] = [];
@@ -8214,11 +8253,17 @@ function implementationStepStageEvidence(input: {
   if (input.noCodeStepEvidence && (!input.noCodeStepEvidence.cleanTrackedState || input.noCodeStepEvidence.notTestedGaps.length > 0)) {
     missing.push("clean NoCodeStepEvidence without Not-tested gaps");
   }
-  if (needsCodeReview && input.codeReviewRecord?.verdict !== "passed") {
-    missing.push("passing CodeReviewRecord");
+  if (needsCodeReview && (input.codeReviewRecord?.verdict !== "passed" || !input.codeReviewStreaks.every((streak) => streak.satisfied))) {
+    missing.push("two consecutive no-finding CodeReviewRecord passes for feature and repository scopes");
   }
-  if (needsCleanCodeReview && input.cleanCodeReviewRecord?.verdict !== "passed") {
-    missing.push("passing CleanCodeReviewRecord");
+  if (
+    needsCleanCodeReview &&
+    (
+      input.cleanCodeReviewRecord?.verdict !== "passed" ||
+      !input.cleanCodeReviewStreaks.every((streak) => streak.satisfied)
+    )
+  ) {
+    missing.push("two consecutive no-finding CleanCodeReviewRecord passes for changed-code and repository scopes");
   }
   if (needsTests && !implementationTestEvidencePassed(input.testEvidenceRecord)) {
     missing.push("passing TestEvidenceRecord without failed tests or Not-tested gaps");
@@ -8346,6 +8391,18 @@ function implementationStepLedgerSummaryForStatus(status: ImplementationStepStat
   }
 }
 
+function uniqueImplementationReviewRecordsById<TRecord extends { readonly reviewId: string }>(
+  records: readonly TRecord[]
+) {
+  const byId = new Map<string, TRecord>();
+
+  for (const record of records) {
+    byId.set(record.reviewId, record);
+  }
+
+  return [...byId.values()];
+}
+
 function implementationStepLedgerProjectionFromSteps(
   command: ProductEngineCommand,
   state: ProductEngineStateSnapshot,
@@ -8362,8 +8419,12 @@ function implementationStepLedgerProjectionFromSteps(
     steps,
     stepCommitRecords: steps.flatMap((step) => step.stepCommitRecord ? [step.stepCommitRecord] : []),
     noCodeStepEvidenceRecords: steps.flatMap((step) => step.noCodeStepEvidence ? [step.noCodeStepEvidence] : []),
-    codeReviewRecords: steps.flatMap((step) => step.codeReviewRecord ? [step.codeReviewRecord] : []),
-    cleanCodeReviewRecords: steps.flatMap((step) => step.cleanCodeReviewRecord ? [step.cleanCodeReviewRecord] : []),
+    codeReviewRecords: uniqueImplementationReviewRecordsById(
+      steps.flatMap((step) => step.codeReviewRecord ? [step.codeReviewRecord] : [])
+    ),
+    cleanCodeReviewRecords: uniqueImplementationReviewRecordsById(
+      steps.flatMap((step) => step.cleanCodeReviewRecord ? [step.cleanCodeReviewRecord] : [])
+    ),
     testEvidenceRecords: steps.flatMap((step) => step.testEvidenceRecord ? [step.testEvidenceRecord] : []),
     blockedSteps: steps.flatMap((step) => step.blocker ? [step.blocker] : []),
     progressReport: "",
@@ -8416,6 +8477,22 @@ function reduceRecordImplementationStepLedger(
 
   const existingSteps = state.implementationStepLedger?.steps ?? [];
   const existingStepForId = existingSteps.find((step) => step.stepDoc.stepId === stepDoc.stepId) ?? null;
+  const existingCodeReviewRecords = existingSteps.flatMap((step) =>
+    step.codeReviewRecord?.stepId === stepDoc.stepId ? [step.codeReviewRecord] : []
+  );
+  const existingCleanCodeReviewRecords = existingSteps.flatMap((step) =>
+    step.cleanCodeReviewRecord?.stepId === stepDoc.stepId ? [step.cleanCodeReviewRecord] : []
+  );
+  const nextCodeReviewRecords = codeReviewRecord
+    ? [...existingCodeReviewRecords, codeReviewRecord]
+    : existingCodeReviewRecords;
+  const nextCleanCodeReviewRecords = cleanCodeReviewRecord
+    ? [...existingCleanCodeReviewRecords, cleanCodeReviewRecord]
+    : existingCleanCodeReviewRecords;
+  const codeReviewStreaks = implementationCodeReviewStreaks(nextCodeReviewRecords);
+  const cleanCodeReviewStreaks = implementationCleanCodeReviewStreaks(nextCleanCodeReviewRecords);
+  const latestCodeReviewRecord = codeReviewRecord ?? nextCodeReviewRecords.at(-1) ?? null;
+  const latestCleanCodeReviewRecord = cleanCodeReviewRecord ?? nextCleanCodeReviewRecords.at(-1) ?? null;
 
   if (state.implementationStepLedger && !sameTrackerDoc(state.implementationStepLedger.trackerDoc, trackerDoc)) {
     return reject("RecordImplementationStepLedger trackerDoc must match the existing ledger trackerDoc.", "VALIDATION_FAILED");
@@ -8431,8 +8508,10 @@ function reduceRecordImplementationStepLedger(
     stepDoc,
     stepCommitRecord: stepCommitRecord ?? null,
     noCodeStepEvidence: noCodeStepEvidence ?? null,
-    codeReviewRecord: codeReviewRecord ?? null,
-    cleanCodeReviewRecord: cleanCodeReviewRecord ?? null,
+    codeReviewRecord: latestCodeReviewRecord,
+    cleanCodeReviewRecord: latestCleanCodeReviewRecord,
+    codeReviewStreaks,
+    cleanCodeReviewStreaks,
     testEvidenceRecord: testEvidenceRecord ?? null
   });
   const missingStageEvidence = implementationStepStageEvidence({
@@ -8441,8 +8520,10 @@ function reduceRecordImplementationStepLedger(
     startedEvidenceRefs,
     stepCommitRecord: stepCommitRecord ?? null,
     noCodeStepEvidence: noCodeStepEvidence ?? null,
-    codeReviewRecord: codeReviewRecord ?? null,
-    cleanCodeReviewRecord: cleanCodeReviewRecord ?? null,
+    codeReviewRecord: latestCodeReviewRecord,
+    cleanCodeReviewRecord: latestCleanCodeReviewRecord,
+    codeReviewStreaks,
+    cleanCodeReviewStreaks,
     testEvidenceRecord: testEvidenceRecord ?? null
   });
   const missingLinearEvidence = implementationStepLinearMissingEvidence({
@@ -8454,8 +8535,8 @@ function reduceRecordImplementationStepLedger(
     missingRequiredEvidence,
     missingStageEvidence: uniqueStringRefs([...missingStageEvidence, ...missingLinearEvidence]),
     blocker: explicitBlocker ?? null,
-    codeReviewRecord: codeReviewRecord ?? null,
-    cleanCodeReviewRecord: cleanCodeReviewRecord ?? null,
+    codeReviewRecord: latestCodeReviewRecord,
+    cleanCodeReviewRecord: latestCleanCodeReviewRecord,
     testEvidenceRecord: testEvidenceRecord ?? null
   });
   const visibleMissingEvidence = status === "completed" ? [] : uniqueStringRefs([
@@ -8481,16 +8562,18 @@ function reduceRecordImplementationStepLedger(
       ...evidenceRefs,
       ...(stepCommitRecord?.evidenceRefs ?? []),
       ...(noCodeStepEvidence?.commandEvidenceRefs ?? []),
-      ...(codeReviewRecord?.evidenceRefs ?? []),
-      ...(cleanCodeReviewRecord?.evidenceRefs ?? []),
+      ...nextCodeReviewRecords.flatMap((record) => record.evidenceRefs),
+      ...nextCleanCodeReviewRecords.flatMap((record) => record.evidenceRefs),
       ...(testEvidenceRecord?.evidenceRefs ?? []),
       ...(blocker?.evidenceRefs ?? [])
     ]),
     updatedAt: command.issuedAt,
     stepCommitRecord: stepCommitRecord ?? null,
     noCodeStepEvidence: noCodeStepEvidence ?? null,
-    codeReviewRecord: codeReviewRecord ?? null,
-    cleanCodeReviewRecord: cleanCodeReviewRecord ?? null,
+    codeReviewRecord: latestCodeReviewRecord,
+    cleanCodeReviewRecord: latestCleanCodeReviewRecord,
+    codeReviewStreaks,
+    cleanCodeReviewStreaks,
     testEvidenceRecord: testEvidenceRecord ?? null
   };
   let projection: ImplementationStepLedgerProjection;

@@ -64,8 +64,9 @@ function fullPayload(overrides: ProductEngineCommand["payload"] = {}): ProductEn
     },
     codeReviewRecord: {
       stepId: "step_contracts",
-      reviewId: "review_code_step_contracts",
+      reviewId: "review_code_repository_step_contracts_2",
       reviewer: "codex-code-reviewer",
+      reviewScope: "repository",
       verdict: "passed",
       comparedFromCommitSha: "1234567",
       comparedToCommitSha: "abcdef1",
@@ -74,12 +75,13 @@ function fullPayload(overrides: ProductEngineCommand["payload"] = {}): ProductEn
     },
     cleanCodeReviewRecord: {
       stepId: "step_contracts",
-      reviewId: "review_clean_step_contracts",
+      reviewId: "review_clean_repository_step_contracts_2",
       reviewer: "codex-clean-code-reviewer",
+      reviewScope: "repository",
       verdict: "passed",
       comparedFromCommitSha: "1234567",
       comparedToCommitSha: "abcdef1",
-      simplifications: ["kept the projection contract flat and explicit"],
+      simplifications: [],
       evidenceRefs: ["review:clean:step_contracts"]
     },
     testEvidenceRecord: {
@@ -95,6 +97,127 @@ function fullPayload(overrides: ProductEngineCommand["payload"] = {}): ProductEn
     },
     evidenceRefs: ["issue:104", "ledger:step_contracts"],
     ...overrides
+  };
+}
+
+function basePayloadWithoutEvidence(payload: ProductEngineCommand["payload"]) {
+  const basePayload: Record<string, unknown> = { ...payload };
+
+  delete basePayload.codeReviewRecord;
+  delete basePayload.cleanCodeReviewRecord;
+  delete basePayload.testEvidenceRecord;
+
+  return basePayload;
+}
+
+function codeReviewRecord(
+  reviewId: string,
+  reviewScope: "feature" | "repository",
+  stepId = "step_contracts",
+  comparedFromCommitSha = "1234567",
+  comparedToCommitSha = "abcdef1"
+) {
+  return {
+    stepId,
+    reviewId,
+    reviewer: reviewScope === "feature" ? "codex-code-reviewer" : "codex-repo-reviewer",
+    reviewScope,
+    verdict: "passed",
+    comparedFromCommitSha,
+    comparedToCommitSha,
+    findings: [],
+    evidenceRefs: [`review:code:${reviewScope}:${reviewId}`]
+  } as const;
+}
+
+function cleanCodeReviewRecord(
+  reviewId: string,
+  reviewScope: "changed_code" | "repository",
+  stepId = "step_contracts",
+  comparedFromCommitSha = "1234567",
+  comparedToCommitSha = "abcdef1"
+) {
+  return {
+    stepId,
+    reviewId,
+    reviewer: reviewScope === "changed_code" ? "codex-clean-code-reviewer" : "codex-repo-clean-code-reviewer",
+    reviewScope,
+    verdict: "passed",
+    comparedFromCommitSha,
+    comparedToCommitSha,
+    simplifications: [],
+    evidenceRefs: [`review:clean:${reviewScope}:${reviewId}`]
+  } as const;
+}
+
+function stepIdFromPayload(payload: ProductEngineCommand["payload"]) {
+  const stepDoc = payload.stepDoc as { readonly stepId?: string } | undefined;
+
+  return stepDoc?.stepId ?? "step_contracts";
+}
+
+function reviewBoundsFromPayload(payload: ProductEngineCommand["payload"]) {
+  const stepCommitRecord = payload.stepCommitRecord as
+    | { readonly previousCommitSha?: string; readonly commitSha?: string }
+    | undefined;
+  const noCodeStepEvidence = payload.noCodeStepEvidence as { readonly baselineCommitSha?: string } | undefined;
+
+  if (stepCommitRecord?.previousCommitSha && stepCommitRecord.commitSha) {
+    return {
+      comparedFromCommitSha: stepCommitRecord.previousCommitSha,
+      comparedToCommitSha: stepCommitRecord.commitSha
+    };
+  }
+
+  return {
+    comparedFromCommitSha: noCodeStepEvidence?.baselineCommitSha ?? "1234567",
+    comparedToCommitSha: noCodeStepEvidence?.baselineCommitSha ?? "abcdef1"
+  };
+}
+
+function payloadForStreakStatus(
+  payload: ProductEngineCommand["payload"],
+  status: ImplementationStepStatus,
+  index: number
+) {
+  const basePayload = basePayloadWithoutEvidence(payload);
+  const stepId = stepIdFromPayload(payload);
+  const { comparedFromCommitSha, comparedToCommitSha } = reviewBoundsFromPayload(payload);
+
+  if (status === "review_required") {
+    const reviewRecords = [
+      codeReviewRecord(`review_code_feature_${stepId}_1`, "feature", stepId, comparedFromCommitSha, comparedToCommitSha),
+      codeReviewRecord(`review_code_feature_${stepId}_2`, "feature", stepId, comparedFromCommitSha, comparedToCommitSha),
+      codeReviewRecord(`review_code_repository_${stepId}_1`, "repository", stepId, comparedFromCommitSha, comparedToCommitSha),
+      codeReviewRecord(`review_code_repository_${stepId}_2`, "repository", stepId, comparedFromCommitSha, comparedToCommitSha)
+    ];
+
+    return {
+      ...basePayload,
+      targetStatus: status,
+      codeReviewRecord: reviewRecords[index] ?? reviewRecords.at(-1)
+    };
+  }
+
+  if (status === "clean_code_review_required") {
+    const reviewRecords = [
+      cleanCodeReviewRecord(`review_clean_changed_${stepId}_1`, "changed_code", stepId, comparedFromCommitSha, comparedToCommitSha),
+      cleanCodeReviewRecord(`review_clean_changed_${stepId}_2`, "changed_code", stepId, comparedFromCommitSha, comparedToCommitSha),
+      cleanCodeReviewRecord(`review_clean_repository_${stepId}_1`, "repository", stepId, comparedFromCommitSha, comparedToCommitSha),
+      cleanCodeReviewRecord(`review_clean_repository_${stepId}_2`, "repository", stepId, comparedFromCommitSha, comparedToCommitSha)
+    ];
+
+    return {
+      ...basePayload,
+      targetStatus: status,
+      cleanCodeReviewRecord: reviewRecords[index] ?? reviewRecords.at(-1)
+    };
+  }
+
+  return {
+    ...basePayload,
+    targetStatus: status,
+    ...(status === "completed" ? { testEvidenceRecord: payload.testEvidenceRecord } : {})
   };
 }
 
@@ -115,6 +238,12 @@ function projectionFromSequence(
     "implementing",
     "committed",
     "review_required",
+    "review_required",
+    "review_required",
+    "review_required",
+    "clean_code_review_required",
+    "clean_code_review_required",
+    "clean_code_review_required",
     "clean_code_review_required",
     "tests_required",
     "completed"
@@ -122,10 +251,18 @@ function projectionFromSequence(
 ) {
   let state: ProductEngineStateSnapshot = createInitialProductEngineState(projectId, sessionId);
   let projection: ImplementationStepLedgerProjection | undefined;
+  let codeReviewIndex = 0;
+  let cleanCodeReviewIndex = 0;
 
   for (const status of statuses) {
+    const repeatedStatusIndex =
+      status === "review_required"
+        ? codeReviewIndex++
+        : status === "clean_code_review_required"
+          ? cleanCodeReviewIndex++
+          : 0;
     const reduction = reduceProductEngineCommand(
-      command({ ...payload, targetStatus: status }, state.stateVersion),
+      command(payloadForStreakStatus(payload, status, repeatedStatusIndex), state.stateVersion),
       state
     );
 
@@ -160,13 +297,23 @@ describe("RecordImplementationStepLedger reducer", () => {
         rollbackRef: "rollback:git-revert:abcdef1"
       },
       codeReviewRecord: {
-        reviewId: "review_code_step_contracts",
+        reviewId: "review_code_repository_step_contracts_2",
+        reviewScope: "repository",
         verdict: "passed"
       },
       cleanCodeReviewRecord: {
-        reviewId: "review_clean_step_contracts",
+        reviewId: "review_clean_repository_step_contracts_2",
+        reviewScope: "repository",
         verdict: "passed"
       },
+      codeReviewStreaks: [
+        expect.objectContaining({ reviewScope: "feature", currentNoFindingPasses: 2, satisfied: true }),
+        expect.objectContaining({ reviewScope: "repository", currentNoFindingPasses: 2, satisfied: true })
+      ],
+      cleanCodeReviewStreaks: [
+        expect.objectContaining({ reviewScope: "changed_code", currentNoFindingPasses: 2, satisfied: true }),
+        expect.objectContaining({ reviewScope: "repository", currentNoFindingPasses: 2, satisfied: true })
+      ],
       testEvidenceRecord: {
         outcome: "passed",
         failedTestCount: 0
@@ -204,7 +351,8 @@ describe("RecordImplementationStepLedger reducer", () => {
     expect(projection.currentStatus).toBe("blocked");
     expect(projection.steps[0]!.missingEvidence).toEqual(
       expect.arrayContaining([
-        "passing CleanCodeReviewRecord",
+        "two consecutive no-finding CodeReviewRecord passes for feature and repository scopes",
+        "two consecutive no-finding CleanCodeReviewRecord passes for changed-code and repository scopes",
         "passing TestEvidenceRecord without failed tests or Not-tested gaps"
       ])
     );
@@ -214,12 +362,13 @@ describe("RecordImplementationStepLedger reducer", () => {
     const payload = fullPayload({
       cleanCodeReviewRecord: {
         stepId: "step_contracts",
-        reviewId: "review_code_step_contracts",
+        reviewId: "review_code_repository_step_contracts_2",
         reviewer: "codex-clean-code-reviewer",
+        reviewScope: "repository",
         verdict: "passed",
         comparedFromCommitSha: "1234567",
         comparedToCommitSha: "abcdef1",
-        simplifications: ["reused the same review id"],
+        simplifications: [],
         evidenceRefs: ["review:clean:step_contracts"]
       }
     });
@@ -239,6 +388,7 @@ describe("RecordImplementationStepLedger reducer", () => {
           stepId: "step_contracts",
           reviewId: "review_code_wrong_commit",
           reviewer: "codex-code-reviewer",
+          reviewScope: "feature",
           verdict: "passed",
           comparedFromCommitSha: "1234567",
           comparedToCommitSha: "7654321",
@@ -444,6 +594,7 @@ describe("RecordImplementationStepLedger reducer", () => {
         stepId: "step_no_code",
         reviewId: "review_code_step_no_code",
         reviewer: "codex-code-reviewer",
+        reviewScope: "feature",
         verdict: "passed",
         comparedFromCommitSha: "1234567",
         comparedToCommitSha: "1234567",
@@ -454,6 +605,7 @@ describe("RecordImplementationStepLedger reducer", () => {
         stepId: "step_no_code",
         reviewId: "review_clean_step_no_code",
         reviewer: "codex-clean-code-reviewer",
+        reviewScope: "changed_code",
         verdict: "passed",
         comparedFromCommitSha: "1234567",
         comparedToCommitSha: "1234567",
@@ -506,6 +658,7 @@ describe("RecordImplementationStepLedger reducer", () => {
         stepId: "step_no_code_dirty",
         reviewId: "review_code_step_no_code_dirty",
         reviewer: "codex-code-reviewer",
+        reviewScope: "feature",
         verdict: "passed",
         comparedFromCommitSha: "1234567",
         comparedToCommitSha: "1234567",
@@ -516,6 +669,7 @@ describe("RecordImplementationStepLedger reducer", () => {
         stepId: "step_no_code_dirty",
         reviewId: "review_clean_step_no_code_dirty",
         reviewer: "codex-clean-code-reviewer",
+        reviewScope: "changed_code",
         verdict: "passed",
         comparedFromCommitSha: "1234567",
         comparedToCommitSha: "1234567",

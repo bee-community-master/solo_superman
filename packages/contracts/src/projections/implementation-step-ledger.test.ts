@@ -3,6 +3,8 @@ import type { ImplementationStepLedgerProjection } from "./implementation-step-l
 import {
   IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
   ImplementationStepLedgerValidationError,
+  implementationCleanCodeReviewStreaks,
+  implementationCodeReviewStreaks,
   validateImplementationStepLedgerProjection
 } from "./implementation-step-ledger";
 
@@ -25,6 +27,28 @@ describe("ImplementationStepLedgerProjection contract", () => {
         }
       ],
       stepCommitRecords: []
+    } as ImplementationStepLedgerProjection;
+
+    expect(() => validateImplementationStepLedgerProjection(invalid)).toThrow(ImplementationStepLedgerValidationError);
+  });
+
+  it("rejects completed steps without two consecutive no-finding review passes per scope", () => {
+    const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
+    const codeReviewRecords = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.codeReviewRecords.slice(0, 1);
+    const cleanCodeReviewRecords = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.cleanCodeReviewRecords.slice(0, 1);
+    const invalid = {
+      ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+      steps: [
+        {
+          ...step,
+          codeReviewRecord: codeReviewRecords.at(-1)!,
+          cleanCodeReviewRecord: cleanCodeReviewRecords.at(-1)!,
+          codeReviewStreaks: implementationCodeReviewStreaks(codeReviewRecords),
+          cleanCodeReviewStreaks: implementationCleanCodeReviewStreaks(cleanCodeReviewRecords)
+        }
+      ],
+      codeReviewRecords,
+      cleanCodeReviewRecords
     } as ImplementationStepLedgerProjection;
 
     expect(() => validateImplementationStepLedgerProjection(invalid)).toThrow(ImplementationStepLedgerValidationError);
@@ -252,6 +276,18 @@ describe("ImplementationStepLedgerProjection contract", () => {
 
   it("accepts no-code verification-only completion with baseline commit and clean tracked state", () => {
     const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
+    const noCodeReviewBounds = {
+      comparedFromCommitSha: "1234567",
+      comparedToCommitSha: "1234567"
+    };
+    const noCodeCodeReviewRecords = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.codeReviewRecords.map((record) => ({
+      ...record,
+      ...noCodeReviewBounds
+    }));
+    const noCodeCleanCodeReviewRecords = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.cleanCodeReviewRecords.map((record) => ({
+      ...record,
+      ...noCodeReviewBounds
+    }));
     const noCode = {
       ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
       steps: [
@@ -273,14 +309,14 @@ describe("ImplementationStepLedgerProjection contract", () => {
           },
           codeReviewRecord: {
             ...step.codeReviewRecord!,
-            comparedFromCommitSha: "1234567",
-            comparedToCommitSha: "1234567"
+            ...noCodeReviewBounds
           },
           cleanCodeReviewRecord: {
             ...step.cleanCodeReviewRecord!,
-            comparedFromCommitSha: "1234567",
-            comparedToCommitSha: "1234567"
+            ...noCodeReviewBounds
           },
+          codeReviewStreaks: implementationCodeReviewStreaks(noCodeCodeReviewRecords),
+          cleanCodeReviewStreaks: implementationCleanCodeReviewStreaks(noCodeCleanCodeReviewRecords),
           testEvidenceRecord: {
             ...step.testEvidenceRecord!,
             verifiedCommitSha: "1234567"
@@ -299,20 +335,8 @@ describe("ImplementationStepLedgerProjection contract", () => {
           notTestedGaps: []
         }
       ],
-      codeReviewRecords: [
-        {
-          ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.codeReviewRecords[0]!,
-          comparedFromCommitSha: "1234567",
-          comparedToCommitSha: "1234567"
-        }
-      ],
-      cleanCodeReviewRecords: [
-        {
-          ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.cleanCodeReviewRecords[0]!,
-          comparedFromCommitSha: "1234567",
-          comparedToCommitSha: "1234567"
-        }
-      ],
+      codeReviewRecords: noCodeCodeReviewRecords,
+      cleanCodeReviewRecords: noCodeCleanCodeReviewRecords,
       testEvidenceRecords: [
         {
           ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords[0]!,

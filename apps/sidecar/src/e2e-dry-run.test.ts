@@ -2247,6 +2247,34 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           idempotencyKey: `post-phase3:implementation-ledger:${stepId}:${targetStatus}:${expectedStateVersion}`
         });
       };
+      const completedCodeReviewRecord = (
+        reviewScope: "feature" | "repository",
+        pass: number
+      ) => ({
+        stepId: "step_e2e_complete",
+        reviewId: `review_code_e2e_complete_${reviewScope}_${pass}`,
+        reviewer: reviewScope === "feature" ? "codex-feature-code-reviewer" : "codex-repo-code-reviewer",
+        reviewScope,
+        verdict: "passed",
+        comparedFromCommitSha: "1234567",
+        comparedToCommitSha: "abcdef1",
+        findings: [],
+        evidenceRefs: [`review:code:e2e:${reviewScope}:${pass}`]
+      });
+      const completedCleanCodeReviewRecord = (
+        reviewScope: "changed_code" | "repository",
+        pass: number
+      ) => ({
+        stepId: "step_e2e_complete",
+        reviewId: `review_clean_e2e_complete_${reviewScope}_${pass}`,
+        reviewer: reviewScope === "changed_code" ? "codex-changed-code-clean-reviewer" : "codex-repo-clean-reviewer",
+        reviewScope,
+        verdict: "passed",
+        comparedFromCommitSha: "1234567",
+        comparedToCommitSha: "abcdef1",
+        simplifications: [],
+        evidenceRefs: [`review:clean:e2e:${reviewScope}:${pass}`]
+      });
       const completedLedgerPayload = {
         sessionId,
         trackerDoc,
@@ -2258,7 +2286,6 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           sourceRefs: ["issue:104", "e2e:implementation-step-ledger"],
           expectedChangeScope: "tracked_code_docs_config"
         },
-        targetStatus: "completed",
         stepCommitRecord: {
           stepId: "step_e2e_complete",
           commitSha: "abcdef1",
@@ -2267,26 +2294,6 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           changedFiles: ["packages/contracts/src/projections/implementation-step-ledger.ts"],
           rollbackRef: "rollback:git-revert:abcdef1",
           evidenceRefs: ["commit:abcdef1"]
-        },
-        codeReviewRecord: {
-          stepId: "step_e2e_complete",
-          reviewId: "review_code_e2e_complete",
-          reviewer: "codex-code-reviewer",
-          verdict: "passed",
-          comparedFromCommitSha: "1234567",
-          comparedToCommitSha: "abcdef1",
-          findings: [],
-          evidenceRefs: ["review:code:e2e"]
-        },
-        cleanCodeReviewRecord: {
-          stepId: "step_e2e_complete",
-          reviewId: "review_clean_e2e_complete",
-          reviewer: "codex-clean-code-reviewer",
-          verdict: "passed",
-          comparedFromCommitSha: "1234567",
-          comparedToCommitSha: "abcdef1",
-          simplifications: ["kept route payload mapping explicit"],
-          evidenceRefs: ["review:clean:e2e"]
         },
         testEvidenceRecord: {
           stepId: "step_e2e_complete",
@@ -2301,21 +2308,30 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         },
         evidenceRefs: ["ledger:e2e:complete"]
       };
+      const completedLedgerTransitions = [
+        { targetStatus: "ready" },
+        { targetStatus: "implementing" },
+        { targetStatus: "committed" },
+        { targetStatus: "review_required", codeReviewRecord: completedCodeReviewRecord("feature", 1) },
+        { targetStatus: "review_required", codeReviewRecord: completedCodeReviewRecord("feature", 2) },
+        { targetStatus: "review_required", codeReviewRecord: completedCodeReviewRecord("repository", 1) },
+        { targetStatus: "review_required", codeReviewRecord: completedCodeReviewRecord("repository", 2) },
+        { targetStatus: "clean_code_review_required", cleanCodeReviewRecord: completedCleanCodeReviewRecord("changed_code", 1) },
+        { targetStatus: "clean_code_review_required", cleanCodeReviewRecord: completedCleanCodeReviewRecord("changed_code", 2) },
+        { targetStatus: "clean_code_review_required", cleanCodeReviewRecord: completedCleanCodeReviewRecord("repository", 1) },
+        { targetStatus: "clean_code_review_required", cleanCodeReviewRecord: completedCleanCodeReviewRecord("repository", 2) },
+        { targetStatus: "tests_required" },
+        { targetStatus: "completed" }
+      ];
       let completedLedger: Awaited<ReturnType<typeof postJson>> | null = null;
 
-      for (const targetStatus of [
-        "ready",
-        "implementing",
-        "committed",
-        "review_required",
-        "clean_code_review_required",
-        "tests_required",
-        "completed"
-      ]) {
+      for (const transitionPayload of completedLedgerTransitions) {
         completedLedger = await recordLedger({
           ...completedLedgerPayload,
-          targetStatus
+          ...transitionPayload
         });
+
+        expect(completedLedger.response.status, JSON.stringify(completedLedger.body)).toBe(200);
       }
 
       expect(completedLedger?.response.status, JSON.stringify(completedLedger?.body)).toBe(200);
@@ -2325,15 +2341,51 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           kind: "ImplementationStepLedgerProjection",
           currentStatus: "completed",
           stepCommitRecords: expect.arrayContaining([expect.objectContaining({ commitSha: "abcdef1" })]),
-          codeReviewRecords: expect.arrayContaining([expect.objectContaining({ reviewId: "review_code_e2e_complete" })]),
+          codeReviewRecords: expect.arrayContaining([
+            expect.objectContaining({ reviewId: "review_code_e2e_complete_feature_1", reviewScope: "feature" }),
+            expect.objectContaining({ reviewId: "review_code_e2e_complete_feature_2", reviewScope: "feature" }),
+            expect.objectContaining({ reviewId: "review_code_e2e_complete_repository_1", reviewScope: "repository" }),
+            expect.objectContaining({ reviewId: "review_code_e2e_complete_repository_2", reviewScope: "repository" })
+          ]),
           cleanCodeReviewRecords: expect.arrayContaining([
-            expect.objectContaining({ reviewId: "review_clean_e2e_complete" })
+            expect.objectContaining({ reviewId: "review_clean_e2e_complete_changed_code_1", reviewScope: "changed_code" }),
+            expect.objectContaining({ reviewId: "review_clean_e2e_complete_changed_code_2", reviewScope: "changed_code" }),
+            expect.objectContaining({ reviewId: "review_clean_e2e_complete_repository_1", reviewScope: "repository" }),
+            expect.objectContaining({ reviewId: "review_clean_e2e_complete_repository_2", reviewScope: "repository" })
           ]),
           testEvidenceRecords: expect.arrayContaining([expect.objectContaining({ outcome: "passed" })]),
           progressReport: expect.stringContaining("Record complete implementation step")
         }
       });
 
+      const blockedCodeReviewRecord = (
+        reviewScope: "feature" | "repository",
+        pass: number
+      ) => ({
+        stepId: "step_e2e_blocked",
+        reviewId: `review_code_e2e_blocked_${reviewScope}_${pass}`,
+        reviewer: reviewScope === "feature" ? "codex-feature-code-reviewer" : "codex-repo-code-reviewer",
+        reviewScope,
+        verdict: "passed",
+        comparedFromCommitSha: "abcdef1",
+        comparedToCommitSha: "bcdef12",
+        findings: [],
+        evidenceRefs: [`review:code:e2e-blocked:${reviewScope}:${pass}`]
+      });
+      const blockedCleanCodeReviewRecord = (
+        reviewScope: "changed_code" | "repository",
+        pass: number
+      ) => ({
+        stepId: "step_e2e_blocked",
+        reviewId: `review_clean_e2e_blocked_${reviewScope}_${pass}`,
+        reviewer: reviewScope === "changed_code" ? "codex-changed-code-clean-reviewer" : "codex-repo-clean-reviewer",
+        reviewScope,
+        verdict: "passed",
+        comparedFromCommitSha: "abcdef1",
+        comparedToCommitSha: "bcdef12",
+        simplifications: [],
+        evidenceRefs: [`review:clean:e2e-blocked:${reviewScope}:${pass}`]
+      });
       const blockedLedgerBasePayload = {
         trackerDoc,
         startedEvidenceRefs: ["started:step_e2e_blocked"],
@@ -2353,40 +2405,27 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           rollbackRef: "rollback:git-revert:bcdef12",
           evidenceRefs: ["commit:bcdef12"]
         },
-        codeReviewRecord: {
-          stepId: "step_e2e_blocked",
-          reviewId: "review_code_e2e_blocked",
-          reviewer: "codex-code-reviewer",
-          verdict: "passed",
-          comparedFromCommitSha: "abcdef1",
-          comparedToCommitSha: "bcdef12",
-          findings: [],
-          evidenceRefs: ["review:code:e2e-blocked"]
-        },
-        cleanCodeReviewRecord: {
-          stepId: "step_e2e_blocked",
-          reviewId: "review_clean_e2e_blocked",
-          reviewer: "codex-clean-code-reviewer",
-          verdict: "passed",
-          comparedFromCommitSha: "abcdef1",
-          comparedToCommitSha: "bcdef12",
-          simplifications: [],
-          evidenceRefs: ["review:clean:e2e-blocked"]
-        },
         evidenceRefs: ["ledger:e2e:blocked"]
       };
+      const blockedLedgerTransitions = [
+        { targetStatus: "ready" },
+        { targetStatus: "implementing" },
+        { targetStatus: "committed" },
+        { targetStatus: "review_required", codeReviewRecord: blockedCodeReviewRecord("feature", 1) },
+        { targetStatus: "review_required", codeReviewRecord: blockedCodeReviewRecord("feature", 2) },
+        { targetStatus: "review_required", codeReviewRecord: blockedCodeReviewRecord("repository", 1) },
+        { targetStatus: "review_required", codeReviewRecord: blockedCodeReviewRecord("repository", 2) },
+        { targetStatus: "clean_code_review_required", cleanCodeReviewRecord: blockedCleanCodeReviewRecord("changed_code", 1) },
+        { targetStatus: "clean_code_review_required", cleanCodeReviewRecord: blockedCleanCodeReviewRecord("changed_code", 2) },
+        { targetStatus: "clean_code_review_required", cleanCodeReviewRecord: blockedCleanCodeReviewRecord("repository", 1) },
+        { targetStatus: "clean_code_review_required", cleanCodeReviewRecord: blockedCleanCodeReviewRecord("repository", 2) },
+        { targetStatus: "tests_required" }
+      ];
 
-      for (const targetStatus of [
-        "ready",
-        "implementing",
-        "committed",
-        "review_required",
-        "clean_code_review_required",
-        "tests_required"
-      ]) {
+      for (const transitionPayload of blockedLedgerTransitions) {
         const transition = await recordLedger({
           ...blockedLedgerBasePayload,
-          targetStatus
+          ...transitionPayload
         });
 
         expect(transition.response.status, JSON.stringify(transition.body)).toBe(200);

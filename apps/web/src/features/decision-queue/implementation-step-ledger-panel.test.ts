@@ -18,8 +18,8 @@ describe("ImplementationStepLedgerPanel view model", () => {
     expect(view.previousCommitLabel).toContain("1234567");
     expect(view.diffRangeLabel).toContain("1234567..abcdef1");
     expect(view.rollbackLabel).toContain("rollback:git-revert:abcdef1");
-    expect(view.codeReviewLabel).toContain("Code review: passed");
-    expect(view.cleanCodeReviewLabel).toContain("Clean-code review: passed");
+    expect(view.codeReviewLabel).toContain("Code review: repository passed");
+    expect(view.cleanCodeReviewLabel).toContain("Clean-code review: repository passed");
     expect(view.testEvidenceLabel).toContain("Tests: passed");
     expect(view.missingEvidenceItems).toEqual([]);
   });
@@ -174,8 +174,10 @@ describe("ImplementationStepLedgerPanel view model", () => {
     );
 
     expect(markup).toContain("Implementation log");
-    expect(markup).toContain("Code review: passed");
-    expect(markup).toContain("Clean-code review: passed");
+    expect(markup).toContain("Code review: repository passed");
+    expect(markup).toContain("Clean-code review: repository passed");
+    expect(markup).toContain("feature code review 2/2 satisfied");
+    expect(markup).toContain("changed_code clean-code review 2/2 satisfied");
     expect(markup).toContain("Rollback/reference: rollback:git-revert:abcdef1");
     expect(markup).toContain("Tracker: Demo implementation tracker");
   });
