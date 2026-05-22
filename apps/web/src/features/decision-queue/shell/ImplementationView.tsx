@@ -13,12 +13,15 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     commandLog,
     autoImplementationRunView,
     advanceAutoImplementationWorkerStage,
+    blockAutoImplementationStage,
     createAutoImplementationRun,
     implementationStepLedgerView,
     isBusy,
     pendingSummary,
+    pauseAutoImplementationStage,
     planAutoImplementationWorkerJob,
     recordAutoImplementationStageTick,
+    startAutoImplementationStage,
     recordAutoImplementationGitHubIssueDryRun,
     applyAutoImplementationGitHubIssueCreation,
     applyAutoImplementationPullRequestOpen,
@@ -50,6 +53,15 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         }}
         onRecordStageTick={() => {
           void recordAutoImplementationStageTick();
+        }}
+        onStartStage={() => {
+          void startAutoImplementationStage();
+        }}
+        onPauseStage={() => {
+          void pauseAutoImplementationStage();
+        }}
+        onBlockStage={() => {
+          void blockAutoImplementationStage();
         }}
         onRecordGitHubIssueDryRun={() => {
           void recordAutoImplementationGitHubIssueDryRun();

@@ -99,6 +99,9 @@ function renderPanelMarkup(run: ReturnType<typeof autoImplementationRunViewModel
       onCreateRun: () => undefined,
       onPlanWorkerJob: () => undefined,
       onRecordStageTick: () => undefined,
+      onStartStage: () => undefined,
+      onPauseStage: () => undefined,
+      onBlockStage: () => undefined,
       onRecordGitHubIssueDryRun: () => undefined,
       onApplyGitHubIssueCreation: () => undefined,
       onRecordPullRequestOpenDryRun: () => undefined,
@@ -133,6 +136,9 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerPlan).toBeNull();
     expect(view.canPlanWorkerJob).toBe(true);
     expect(view.canRecordStageTick).toBe(true);
+    expect(view.canStartStage).toBe(true);
+    expect(view.canPauseStage).toBe(false);
+    expect(view.canBlockStage).toBe(true);
     expect(view.canRecordGitHubIssueDryRun).toBe(true);
     expect(view.canApplyGitHubIssueCreation).toBe(false);
     expect(view.canRecordPullRequestDryRun).toBe(true);
@@ -172,6 +178,9 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerPlan).toBeNull();
     expect(view.canPlanWorkerJob).toBe(false);
     expect(view.canRecordStageTick).toBe(false);
+    expect(view.canStartStage).toBe(false);
+    expect(view.canPauseStage).toBe(false);
+    expect(view.canBlockStage).toBe(false);
     expect(view.canRecordGitHubIssueDryRun).toBe(false);
     expect(view.canApplyGitHubIssueCreation).toBe(false);
     expect(view.canRecordPullRequestDryRun).toBe(false);
@@ -340,6 +349,53 @@ describe("AutoImplementationRunPanel view model", () => {
     } as AutoImplementationRunProjection);
 
     expect(view.canRecordStageTick).toBe(false);
+    expect(view.canStartStage).toBe(false);
+    expect(view.canPauseStage).toBe(false);
+    expect(view.canBlockStage).toBe(false);
+  });
+
+  it("gates current-stage start, pause, and block actions from stage status", () => {
+    const runningProjection = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        status: "running",
+        stagePlan: AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.stagePlan.map((stage, index) =>
+          index === 0 ? { ...stage, status: "running" as const } : stage
+        )
+      }
+    } as AutoImplementationRunProjection;
+    const blockedProjection = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        status: "blocked",
+        stagePlan: AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.stagePlan.map((stage, index) =>
+          index === 0
+            ? {
+                ...stage,
+                status: "blocked" as const,
+                blocker: {
+                  stage: "initial_pr" as const,
+                  reason: "Worker ledger evidence is missing.",
+                  missingEvidence: ["ImplementationStepLedger import"],
+                  nextRequiredAction: "Retry the worker ledger import.",
+                  evidenceRefs: ["worker-blocked:ledger-import"]
+                }
+              }
+            : stage
+        )
+      }
+    } as AutoImplementationRunProjection;
+    const runningView = autoImplementationRunViewModel(runningProjection);
+    const blockedView = autoImplementationRunViewModel(blockedProjection);
+
+    expect(runningView.canStartStage).toBe(false);
+    expect(runningView.canPauseStage).toBe(true);
+    expect(runningView.canBlockStage).toBe(true);
+    expect(blockedView.canStartStage).toBe(true);
+    expect(blockedView.canPauseStage).toBe(false);
+    expect(blockedView.canBlockStage).toBe(false);
   });
 
   it("keeps approved PR open disabled after any PR URL has been recorded", () => {
@@ -597,6 +653,9 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("Local Codex worker: not planned");
     expect(markup).toContain("Approve worker authority + plan job");
     expect(markup).toContain("Record current stage tick");
+    expect(markup).toContain("Start current stage");
+    expect(markup).toContain("Pause current stage");
+    expect(markup).toContain("Block current stage");
     expect(markup).toContain("Record GitHub issue dry-run");
     expect(markup).toContain("Apply approved GitHub issues");
     expect(markup).toContain("Record PR open dry-run");

@@ -52,6 +52,9 @@ export interface AutoImplementationRunViewModel {
   readonly latestWorkerPlan: AutoImplementationWorkerPlanView | null;
   readonly canPlanWorkerJob: boolean;
   readonly canRecordStageTick: boolean;
+  readonly canStartStage: boolean;
+  readonly canPauseStage: boolean;
+  readonly canBlockStage: boolean;
   readonly canRecordGitHubIssueDryRun: boolean;
   readonly canApplyGitHubIssueCreation: boolean;
   readonly canRecordPullRequestDryRun: boolean;
@@ -101,6 +104,9 @@ export function autoImplementationRunViewModel(
       latestWorkerPlan: null,
       canPlanWorkerJob: false,
       canRecordStageTick: false,
+      canStartStage: false,
+      canPauseStage: false,
+      canBlockStage: false,
       canRecordGitHubIssueDryRun: false,
       canApplyGitHubIssueCreation: false,
       canRecordPullRequestDryRun: false,
@@ -128,6 +134,7 @@ export function autoImplementationRunViewModel(
     ? (pullRequestMutationState as { readonly latestRecord: AutoImplementationPullRequestMutationRecord }).latestRecord
     : pullRequestMutationRecords.at(-1) ?? null;
   const latestWorkerJob = workerJobs.at(-1);
+  const currentStageRecord = run.stagePlan.find((stage) => stage.stage === run.currentStage) ?? null;
   const latestWorkerPlan = latestWorkerJob
     ? {
         executionMode: latestWorkerJob.executionPlan.executionMode,
@@ -190,6 +197,15 @@ export function autoImplementationRunViewModel(
     latestWorkerPlan,
     canPlanWorkerJob: run.status !== "completed",
     canRecordStageTick: run.status !== "completed",
+    canStartStage: run.status !== "completed" &&
+      currentStageRecord !== null &&
+      currentStageRecord?.status !== "running" &&
+      currentStageRecord?.status !== "completed",
+    canPauseStage: run.status !== "completed" && currentStageRecord?.status === "running",
+    canBlockStage: run.status !== "completed" &&
+      currentStageRecord !== null &&
+      currentStageRecord?.status !== "blocked" &&
+      currentStageRecord?.status !== "completed",
     canRecordGitHubIssueDryRun: run.status !== "completed" &&
       run.issueManagement.githubIssueUrls.length === 0 &&
       (githubIssueMutation.status === "not_requested" || githubIssueMutation.status === "blocked"),
@@ -218,6 +234,9 @@ interface AutoImplementationRunPanelProps {
   readonly onCreateRun: () => void;
   readonly onPlanWorkerJob: () => void;
   readonly onRecordStageTick: () => void;
+  readonly onStartStage: () => void;
+  readonly onPauseStage: () => void;
+  readonly onBlockStage: () => void;
   readonly onRecordGitHubIssueDryRun: () => void;
   readonly onApplyGitHubIssueCreation: () => void;
   readonly onRecordPullRequestOpenDryRun: () => void;
@@ -237,6 +256,9 @@ export function AutoImplementationRunPanel({
   onCreateRun,
   onPlanWorkerJob,
   onRecordStageTick,
+  onStartStage,
+  onPauseStage,
+  onBlockStage,
   onRecordGitHubIssueDryRun,
   onApplyGitHubIssueCreation,
   onRecordPullRequestOpenDryRun,
@@ -273,6 +295,15 @@ export function AutoImplementationRunPanel({
         </button>
         <button type="button" disabled={isBusy || !run.canRecordStageTick} onClick={onRecordStageTick}>
           {copy.autoImplementation.recordStageTick}
+        </button>
+        <button type="button" disabled={isBusy || !run.canStartStage} onClick={onStartStage}>
+          {copy.autoImplementation.startStage}
+        </button>
+        <button type="button" disabled={isBusy || !run.canPauseStage} onClick={onPauseStage}>
+          {copy.autoImplementation.pauseStage}
+        </button>
+        <button type="button" disabled={isBusy || !run.canBlockStage} onClick={onBlockStage}>
+          {copy.autoImplementation.blockStage}
         </button>
         <button
           type="button"
