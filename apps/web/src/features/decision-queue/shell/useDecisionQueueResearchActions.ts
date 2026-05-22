@@ -60,6 +60,13 @@ export function useDecisionQueueResearchActions({
   setResearchOperations,
   setWorkflowError
 }: DecisionQueueResearchActionsProps) {
+  const refreshResearchEvidenceSurfaces = useCallback(
+    async (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"]) => {
+      await refreshProjections(projectId, sessionId);
+    },
+    [refreshProjections]
+  );
+
   const createOrReactivateAllowlist = useCallback(async () => {
     if (!client || !projections.session) {
       setWorkflowError("An active project is required before changing research allowlists.");
@@ -300,7 +307,7 @@ export function useDecisionQueueResearchActions({
         projectId: projections.session.projectId,
         task
       });
-      await refreshResearchOperations(projections.session.projectId);
+      await refreshResearchEvidenceSurfaces(projections.session.projectId, projections.session.sessionId);
     } catch (error) {
       setWorkflowError(displayError(error));
     } finally {
@@ -310,7 +317,7 @@ export function useDecisionQueueResearchActions({
     client,
     projections.research,
     projections.session,
-    refreshResearchOperations,
+    refreshResearchEvidenceSurfaces,
     researchOperations.allowlists,
     startReadOnlyResearchRunForTask
   ]);
@@ -396,7 +403,7 @@ export function useDecisionQueueResearchActions({
         });
       }
 
-      await refreshResearchOperations(projectId);
+      await refreshResearchEvidenceSurfaces(projectId, projections.session.sessionId);
     } catch (error) {
       setWorkflowError(displayError(error));
     } finally {
@@ -406,7 +413,7 @@ export function useDecisionQueueResearchActions({
     client,
     projections.research,
     projections.session,
-    refreshResearchOperations,
+    refreshResearchEvidenceSurfaces,
     researchOperations.allowlists,
     setResearchOperations,
     startReadyReadOnlyResearchRunsForPlan
@@ -459,14 +466,14 @@ export function useDecisionQueueResearchActions({
         research: latestResearch,
         taskIds: plan.taskIds
       });
-      await refreshResearchOperations(projectId);
+      await refreshResearchEvidenceSurfaces(projectId, sessionId);
     } catch (error) {
       setWorkflowError(`Answer submitted, but automatic public web research start failed: ${displayError(error)}`);
     }
   }, [
     client,
     projections.session,
-    refreshResearchOperations,
+    refreshResearchEvidenceSurfaces,
     setProjections,
     setResearchOperations,
     setWorkflowError,
@@ -489,11 +496,12 @@ export function useDecisionQueueResearchActions({
           ...current,
           runs
         }));
+        await refreshProjections(projections.session.projectId, projections.session.sessionId);
       } catch (error) {
         setWorkflowError(displayError(error));
       }
     },
-    [client, projections.session]
+    [client, projections.session, refreshProjections]
   );
 
   const cancelResearchRun = useCallback(
