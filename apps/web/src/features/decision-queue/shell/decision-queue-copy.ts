@@ -198,7 +198,7 @@ const EN_COPY = {
       investor_pressure_pass: "Investor-style stress test"
     } satisfies Record<BusinessCriticPressureKind, string>,
     whyItMatters: "Why this matters",
-    decisionItUnlocks: "Decision it unlocks",
+    decisionItUnlocks: "Decision this unlocks",
     nextValidation: "Next validation",
     suggestedAnswers: "Suggested answer choices",
     optionPro: "Pro",
@@ -682,7 +682,7 @@ const JA_COPY: typeof EN_COPY = {
       investor_pressure_pass: "投資審査目線の検証"
     },
     whyItMatters: "なぜ重要か",
-    decisionItUnlocks: "解放される判断",
+    decisionItUnlocks: "この回答で決まる判断",
     nextValidation: "次の検証",
     suggestedAnswers: "回答候補",
     optionPro: "長所",
@@ -1166,7 +1166,7 @@ const KO_COPY: typeof EN_COPY = {
       investor_pressure_pass: "투자심사식 검증"
     },
     whyItMatters: "왜 중요한가",
-    decisionItUnlocks: "결정되는 판단",
+    decisionItUnlocks: "이 답으로 정해지는 판단",
     nextValidation: "다음 검증",
     suggestedAnswers: "추천 답변 선택지",
     optionPro: "찬성",

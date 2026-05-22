@@ -160,7 +160,7 @@ describe("QuestionsView", () => {
 
     expect(markup).toContain("Why this matters");
     expect(markup).toContain("If the painful workflow is unclear");
-    expect(markup).toContain("Decision it unlocks");
+    expect(markup).toContain("Decision this unlocks");
     expect(markup).toContain("Locks the first workflow slice");
     expect(markup).not.toContain("whyItMatters");
     expect(markup).not.toContain("decisionItUnlocks");
