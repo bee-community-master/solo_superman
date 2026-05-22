@@ -233,7 +233,7 @@ export function decisionQueueRecoveryViewModel(queue: DecisionQueueProjection | 
   };
 }
 
-function queueItemIsQuestionDebt(item: QueueSectionItem) {
+export function queueItemIsQuestionDebt(item: QueueSectionItem) {
   return item.cardType === undefined || item.cardType === "question" || item.cardType === "follow_up_question";
 }
 
