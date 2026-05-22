@@ -263,6 +263,7 @@ function reviewCardForEvidencePack(
       ...(specSectionRef ? [specSectionRef] : []),
       ...(pack.knownRisk ? [pack.knownRisk] : [])
     ]),
+    ...(matrix?.additionalQuestions.length ? { additionalQuestions: matrix.additionalQuestions } : {}),
     availableOutcomes: outcomeMetadata.availableOutcomes,
     suggestedOutcome: outcomeMetadata.suggestedOutcome,
     blocksPlanning: task.impact === "high",

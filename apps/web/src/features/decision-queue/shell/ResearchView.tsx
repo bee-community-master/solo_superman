@@ -62,6 +62,16 @@ export function ResearchView({ controller }: ResearchViewProps) {
                     ) : null}
                     {card?.terminalRationale ? <p className="research-recovery">{copy.research.rationale}: {card.terminalRationale}</p> : null}
                     {card?.recoveryActions.length ? <p className="research-recovery">{card.recoveryActions.join(" / ")}</p> : null}
+                    {card?.additionalQuestions?.length ? (
+                      <div className="research-additional-questions">
+                        <p>{copy.research.additionalQuestions}</p>
+                        <ul>
+                          {card.additionalQuestions.map((question) => (
+                            <li key={question}>{question}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                   </div>
                   {canImportResearch ? (
                     <div className="answer-box">

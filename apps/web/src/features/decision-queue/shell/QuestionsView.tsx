@@ -131,6 +131,16 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                         {item.nextValidationAction ? (
                           <p className="research-recovery">{copy.questions.nextValidation}: {item.nextValidationAction}</p>
                         ) : null}
+                        {item.additionalQuestions?.length ? (
+                          <div className="research-additional-questions">
+                            <p>{copy.questions.researchAdditionalQuestions}</p>
+                            <ul>
+                              {item.additionalQuestions.map((question) => (
+                                <li key={question}>{question}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
                       </div>
                       {section.id === "active" && item.state === "active" ? (
                         <div className="answer-box">

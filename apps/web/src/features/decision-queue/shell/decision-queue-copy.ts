@@ -168,6 +168,7 @@ const EN_COPY = {
     questionProgressAnswered: "Answered",
     questionProgressFollowUps: "Follow-ups",
     questionProgressBlocked: "Blocked",
+    researchAdditionalQuestions: "Research-generated questions",
     businessCriticCategoryLabels: {
       customer_pain: "Customer pain",
       paid_intent: "Willingness to pay",
@@ -261,6 +262,7 @@ const EN_COPY = {
     importResearchAriaPrefix: "Import research for",
     importResult: "Import result",
     startReadOnlyRun: "Start public web run",
+    additionalQuestions: "Research-generated follow-up questions",
     noResearchTasks: "No research tasks yet."
   },
   implementation: {
@@ -561,6 +563,7 @@ const JA_COPY: typeof EN_COPY = {
     questionProgressAnswered: "回答済み",
     questionProgressFollowUps: "追加質問",
     questionProgressBlocked: "ブロック中",
+    researchAdditionalQuestions: "リサーチ生成の質問",
     businessCriticCategoryLabels: {
       customer_pain: "顧客の痛み",
       paid_intent: "支払い意向",
@@ -654,6 +657,7 @@ const JA_COPY: typeof EN_COPY = {
     importResearchAriaPrefix: "リサーチ取り込み",
     importResult: "結果を取り込む",
     startReadOnlyRun: "公開Webリサーチを開始",
+    additionalQuestions: "リサーチが生成した追加質問",
     noResearchTasks: "リサーチタスクはまだありません。"
   },
   implementation: {
@@ -954,6 +958,7 @@ const KO_COPY: typeof EN_COPY = {
     questionProgressAnswered: "답변됨",
     questionProgressFollowUps: "후속 질문",
     questionProgressBlocked: "막힘",
+    researchAdditionalQuestions: "리서치가 생성한 질문",
     businessCriticCategoryLabels: {
       customer_pain: "고객 문제",
       paid_intent: "유료 의향",
@@ -1047,6 +1052,7 @@ const KO_COPY: typeof EN_COPY = {
     importResearchAriaPrefix: "리서치 가져오기",
     importResult: "결과 가져오기",
     startReadOnlyRun: "공개 웹 리서치 실행 시작",
+    additionalQuestions: "리서치가 생성한 후속 질문",
     noResearchTasks: "아직 리서치 작업이 없습니다."
   },
   implementation: {

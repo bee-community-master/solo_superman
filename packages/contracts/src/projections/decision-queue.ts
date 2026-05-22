@@ -88,6 +88,7 @@ export interface QueueItemProjection {
   readonly possibleRoutes?: readonly AmbiguityPossibleRoute[];
   readonly researchTaskId?: ResearchTaskId;
   readonly evidencePackId?: DecisionEvidencePackId;
+  readonly additionalQuestions?: readonly string[];
   readonly blocksPlanning?: boolean;
   readonly availableOutcomes?: readonly QueueTerminalOutcome[];
   readonly terminalOutcome?: QueueTerminalOutcome;
