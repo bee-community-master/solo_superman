@@ -22,7 +22,7 @@ import {
 } from "../../../shared/api/command-response-helpers";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
-import { draftedActiveQuestionAnswerIds } from "../decision-queue-view-model";
+import { draftedActiveQuestionAnswerIds, queueItemIsQuestionDebt } from "../decision-queue-view-model";
 import { webPublicResearchAllowlistPolicy } from "../phase15a-research-run-request";
 import {
   BUSINESS_CRITIC_INTENSITY_OPTIONS,
@@ -98,7 +98,7 @@ function answerDraftsWithClearedItems(
 export function nextQuestionBatchIdsForActivation(queue: DecisionQueueProjection | null | undefined) {
   const queueItemIds =
     queue?.next
-      .filter((item) => item.cardType === undefined || item.cardType === "question")
+      .filter(queueItemIsQuestionDebt)
       .slice(0, NEXT_QUESTION_BATCH_LIMIT)
       .map((item) => item.queueItemId) ?? [];
 

@@ -8,7 +8,7 @@ import type {
 import { nextQuestionBatchIdsForActivation } from "./useDecisionQueueSessionActions";
 
 describe("nextQuestionBatchIdsForActivation", () => {
-  it("uses queued next question ids while ignoring non-question review cards", () => {
+  it("uses queued next question ids and research follow-ups while ignoring non-question review cards", () => {
     const queue: DecisionQueueProjection = {
       kind: "DecisionQueueProjection",
       version: 5 as ProjectionVersion,
@@ -28,6 +28,12 @@ describe("nextQuestionBatchIdsForActivation", () => {
           researchTaskId: "research_task_review" as ResearchTaskId
         },
         {
+          queueItemId: "queue_research_follow_up" as QueueItemId,
+          title: "Research follow-up question",
+          state: "next",
+          cardType: "follow_up_question"
+        },
+        {
           queueItemId: "queue_legacy_question" as QueueItemId,
           title: "Legacy queued question",
           state: "next"
@@ -39,6 +45,7 @@ describe("nextQuestionBatchIdsForActivation", () => {
 
     expect(nextQuestionBatchIdsForActivation(queue)).toEqual([
       "queue_question_1",
+      "queue_research_follow_up",
       "queue_legacy_question"
     ]);
   });
