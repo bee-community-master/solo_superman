@@ -20,6 +20,7 @@ import {
   buildAutoImplementationGitHubIssueApprovedRequest,
   buildAutoImplementationGitHubIssueDryRunRequest
 } from "../auto-implementation-github-issue-request";
+import { buildAutoImplementationStageTickRequest } from "../auto-implementation-stage-request";
 import {
   buildAutoImplementationPullRequestBodyApprovedRequest,
   buildAutoImplementationPullRequestDryRunRequest,
@@ -571,6 +572,47 @@ export function useDecisionQueueShellController() {
       setIsBusy(false);
     }
   }, [appendCommand, client, projections]);
+  const recordAutoImplementationStageTick = useCallback(async () => {
+    const sessionId = projections.session?.sessionId;
+    const run = projections.autoImplementationRuns?.latestRun;
+
+    if (!client || !sessionId || !run) {
+      setWorkflowError("An active auto implementation workspace run is required before recording a stage tick.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const autoImplementationRuns = await client.recordAutoImplementationStage(
+        buildAutoImplementationStageTickRequest({
+          sessionId,
+          run,
+          tickedAt: new Date().toISOString()
+        })
+      );
+
+      setProjections((current) => ({
+        ...current,
+        autoImplementationRuns
+      }));
+      setCommandLog((current) => [
+        {
+          id: `auto-implementation-stage-tick:${run.runId}:${run.currentStage}:${Date.now()}`,
+          label: "Record auto implementation stage tick",
+          createdAt: new Date().toISOString(),
+          message: autoImplementationRuns.summary
+        },
+        ...current
+      ].slice(0, COMMAND_LOG_LIMIT));
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [client, projections]);
+
   const runAutoImplementationWorkerJob = useCallback(async () => {
     const sessionId = projections.session?.sessionId;
     const run = projections.autoImplementationRuns?.latestRun;
@@ -1016,6 +1058,7 @@ export function useDecisionQueueShellController() {
     deleteServicePageArtifacts,
     createAutoImplementationRun,
     planAutoImplementationWorkerJob,
+    recordAutoImplementationStageTick,
     recordAutoImplementationGitHubIssueDryRun,
     applyAutoImplementationGitHubIssueCreation,
     recordAutoImplementationPullRequestOpenDryRun,
