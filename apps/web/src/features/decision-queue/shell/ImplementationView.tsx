@@ -14,6 +14,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     autoImplementationRunView,
     advanceAutoImplementationWorkerStage,
     blockAutoImplementationStage,
+    canCreateAutoImplementationRun,
     completeAutoImplementationWorkerJobFromLedger,
     createAutoImplementationRun,
     implementationStepLedgerView,
@@ -49,6 +50,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
       <AutoImplementationRunPanel
         run={autoImplementationRunView}
         isBusy={isBusy}
+        canCreateRun={canCreateAutoImplementationRun}
         onCreateRun={() => {
           void createAutoImplementationRun();
         }}

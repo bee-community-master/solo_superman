@@ -143,6 +143,25 @@ async function getRuntimeStatusBestEffort(activeClient: SidecarClient, fallback:
   }
 }
 
+type PlanningHandoffProjectionState = NonNullable<ProjectionState["planningHandoff"]>;
+type PlanningReadyHandoffProjection = Extract<PlanningHandoffProjectionState, { readonly currentStatus: "planning_ready" }>;
+
+function planningHandoffIsReady(
+  planningHandoff: ProjectionState["planningHandoff"]
+): planningHandoff is PlanningReadyHandoffProjection {
+  return planningHandoff?.currentStatus === "planning_ready";
+}
+
+export function autoImplementationWorkspaceCreateBlocker(planningHandoff: ProjectionState["planningHandoff"]) {
+  if (planningHandoffIsReady(planningHandoff)) {
+    return null;
+  }
+
+  return planningHandoff
+    ? "Planning handoff must be planning_ready before creating or reprovisioning an auto implementation workspace."
+    : "Run the planning handoff gate and reach planning_ready before creating an auto implementation workspace.";
+}
+
 export function useDecisionQueueShellController() {
   const copy = useDecisionQueueCopy();
   const [connectionState, setConnectionState] = useState<ConnectionState>({ status: "connecting" });
@@ -485,9 +504,17 @@ export function useDecisionQueueShellController() {
     () => autoImplementationRunViewModel(projections.autoImplementationRuns, projections.implementationStepLedger),
     [projections.autoImplementationRuns, projections.implementationStepLedger]
   );
+  const canCreateAutoImplementationRun = planningHandoffIsReady(projections.planningHandoff);
   const createAutoImplementationRun = useCallback(async () => {
     if (!client || !projections.session) {
       setWorkflowError("An active session is required before creating an auto implementation workspace.");
+      return;
+    }
+
+    const planningHandoff = projections.planningHandoff;
+
+    if (!planningHandoffIsReady(planningHandoff)) {
+      setWorkflowError(autoImplementationWorkspaceCreateBlocker(planningHandoff));
       return;
     }
 
@@ -495,10 +522,7 @@ export function useDecisionQueueShellController() {
     setWorkflowError(null);
 
     try {
-      const sourcePlanningRef =
-        projections.planningHandoff?.currentStatus === "planning_ready"
-          ? projections.planningHandoff.finalArtifact.artifactId
-          : projections.planningHandoff?.blockerArtifact.artifactId ?? `session:${projections.session.sessionId}`;
+      const sourcePlanningRef = planningHandoff.finalArtifact.artifactId;
       const projectName = projections.spec?.title ?? `solo-superman-${projections.session.sessionId}`;
       const autoImplementationRuns = await client.createAutoImplementationRun({
         sessionId: projections.session.sessionId,
@@ -1310,6 +1334,7 @@ export function useDecisionQueueShellController() {
     servicePageUsePermissionView,
     implementationStepLedgerView,
     autoImplementationRunView,
+    canCreateAutoImplementationRun,
     planningRadarAxesView,
     planningRadarPolygonPoints,
     planningCompletenessScore,

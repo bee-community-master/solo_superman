@@ -249,6 +249,7 @@ function inlineList(items: readonly string[], fallback: string) {
 interface AutoImplementationRunPanelProps {
   readonly run: AutoImplementationRunViewModel;
   readonly isBusy: boolean;
+  readonly canCreateRun: boolean;
   readonly onCreateRun: () => void;
   readonly onPlanWorkerJob: () => void;
   readonly onRecordStageTick: () => void;
@@ -275,6 +276,7 @@ interface AutoImplementationRunPanelProps {
 export function AutoImplementationRunPanel({
   run,
   isBusy,
+  canCreateRun,
   onCreateRun,
   onPlanWorkerJob,
   onRecordStageTick,
@@ -313,7 +315,7 @@ export function AutoImplementationRunPanel({
       <p className="mode-summary">{run.latestWorkerJobLabel}</p>
       <p className="research-recovery">{run.latestWorkerJobNextAction}</p>
       <div className="card-actions panel-actions">
-        <button type="button" disabled={isBusy} onClick={onCreateRun}>
+        <button type="button" disabled={isBusy || !canCreateRun} onClick={onCreateRun}>
           {run.hasRun ? copy.autoImplementation.reprepare : copy.autoImplementation.create}
         </button>
         <button type="button" disabled={isBusy || !run.canPlanWorkerJob} onClick={onPlanWorkerJob}>
