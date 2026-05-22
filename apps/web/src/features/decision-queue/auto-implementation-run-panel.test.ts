@@ -98,6 +98,7 @@ function renderPanelMarkup(run: ReturnType<typeof autoImplementationRunViewModel
       isBusy: false,
       onCreateRun: () => undefined,
       onPlanWorkerJob: () => undefined,
+      onRecordPullRequestOpenDryRun: () => undefined,
       onRecordPullRequestDryRun: () => undefined,
       onRunWorkerJob: () => undefined,
       onAdvanceWorkerStage: () => undefined,
@@ -417,6 +418,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("No GitHub PR mutation records yet");
     expect(markup).toContain("Local Codex worker: not planned");
     expect(markup).toContain("Approve worker authority + plan job");
+    expect(markup).toContain("Record PR open dry-run");
     expect(markup).toContain("Record PR body dry-run");
     expect(markup).toContain("Run worker job");
     expect(markup).toContain("Advance worker stage");

@@ -12,7 +12,10 @@ import {
   type StatusEndpointDto
 } from "@solo-superman/contracts";
 import { autoImplementationRunViewModel } from "../AutoImplementationRunPanel";
-import { buildAutoImplementationPullRequestDryRunRequest } from "../auto-implementation-pr-mutation-request";
+import {
+  buildAutoImplementationPullRequestDryRunRequest,
+  buildAutoImplementationPullRequestOpenDryRunRequest
+} from "../auto-implementation-pr-mutation-request";
 import {
   buildAutoImplementationWorkerAuthorityRequest,
   buildAutoImplementationWorkerJobRequest
@@ -641,12 +644,17 @@ export function useDecisionQueueShellController() {
     }
   }, [client, projections]);
 
-  const recordAutoImplementationPullRequestDryRun = useCallback(async () => {
+  const recordAutoImplementationPullRequestDryRunAction = useCallback(async (input: {
+    readonly buildRequest: typeof buildAutoImplementationPullRequestDryRunRequest;
+    readonly missingRunMessage: string;
+    readonly logIdPrefix: string;
+    readonly label: string;
+  }) => {
     const sessionId = projections.session?.sessionId;
     const run = projections.autoImplementationRuns?.latestRun;
 
     if (!client || !sessionId || !run) {
-      setWorkflowError("An active auto implementation workspace run is required before recording a PR body dry-run.");
+      setWorkflowError(input.missingRunMessage);
       return;
     }
 
@@ -655,7 +663,7 @@ export function useDecisionQueueShellController() {
 
     try {
       const autoImplementationRuns = await client.recordAutoImplementationPullRequestMutation(
-        buildAutoImplementationPullRequestDryRunRequest({ sessionId, run })
+        input.buildRequest({ sessionId, run })
       );
 
       setProjections((current) => ({
@@ -664,8 +672,8 @@ export function useDecisionQueueShellController() {
       }));
       setCommandLog((current) => [
         {
-          id: `auto-implementation-pr-dry-run:${run.runId}:${Date.now()}`,
-          label: "Record PR body dry-run",
+          id: `${input.logIdPrefix}:${run.runId}:${Date.now()}`,
+          label: input.label,
           createdAt: new Date().toISOString(),
           message: autoImplementationRuns.summary
         },
@@ -677,6 +685,26 @@ export function useDecisionQueueShellController() {
       setIsBusy(false);
     }
   }, [client, projections]);
+
+  const recordAutoImplementationPullRequestOpenDryRun = useCallback(
+    () => recordAutoImplementationPullRequestDryRunAction({
+      buildRequest: buildAutoImplementationPullRequestOpenDryRunRequest,
+      missingRunMessage: "An active auto implementation workspace run is required before recording a PR open dry-run.",
+      logIdPrefix: "auto-implementation-pr-open-dry-run",
+      label: "Record PR open dry-run"
+    }),
+    [recordAutoImplementationPullRequestDryRunAction]
+  );
+
+  const recordAutoImplementationPullRequestDryRun = useCallback(
+    () => recordAutoImplementationPullRequestDryRunAction({
+      buildRequest: buildAutoImplementationPullRequestDryRunRequest,
+      missingRunMessage: "An active auto implementation workspace run is required before recording a PR body dry-run.",
+      logIdPrefix: "auto-implementation-pr-dry-run",
+      label: "Record PR body dry-run"
+    }),
+    [recordAutoImplementationPullRequestDryRunAction]
+  );
 
   const planningRadarAxesView = useMemo(
     () =>
@@ -844,6 +872,7 @@ export function useDecisionQueueShellController() {
     deleteServicePageArtifacts,
     createAutoImplementationRun,
     planAutoImplementationWorkerJob,
+    recordAutoImplementationPullRequestOpenDryRun,
     recordAutoImplementationPullRequestDryRun,
     runAutoImplementationWorkerJob,
     advanceAutoImplementationWorkerStage,

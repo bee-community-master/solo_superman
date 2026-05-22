@@ -4,7 +4,10 @@ import {
   type AutoImplementationRun,
   type SessionId
 } from "@solo-superman/contracts";
-import { buildAutoImplementationPullRequestDryRunRequest } from "./auto-implementation-pr-mutation-request";
+import {
+  buildAutoImplementationPullRequestDryRunRequest,
+  buildAutoImplementationPullRequestOpenDryRunRequest
+} from "./auto-implementation-pr-mutation-request";
 
 function readyRun() {
   const run = AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun;
@@ -52,6 +55,49 @@ function withPrUrl(run: AutoImplementationRun): AutoImplementationRun {
 }
 
 describe("buildAutoImplementationPullRequestDryRunRequest", () => {
+  it("builds a read-only open PR dry-run before any PR URL exists", () => {
+    const run = readyRun();
+    const request = buildAutoImplementationPullRequestOpenDryRunRequest({
+      sessionId: "demo-session" as SessionId,
+      run
+    });
+
+    expect(request).toMatchObject({
+      sessionId: "demo-session",
+      runId: run.runId,
+      action: "open_pr",
+      requestMode: "dry_run",
+      pullRequestTitle: `Auto implementation ${run.projectFolderName}`,
+      issueLinks: ["local-001", "local-002", "local-003", "local-004", "local-005", "local-006", "local-007"],
+      implementationScope: `Dry-run PR creation for ${run.currentStage} using implementation-tracker.md.`,
+      verificationCommands: ["pnpm verify"],
+      verifierEvidenceRefs: [`verifier:pr-open-dry-run:${run.runId}:${run.currentStage}`]
+    });
+    expect(request.pullRequestUrl).toBeUndefined();
+    expect(request.bodyEvidenceRefs).toBeUndefined();
+    expect(request.approval).toBeUndefined();
+    expect(request.knownGaps).toEqual(
+      expect.arrayContaining([
+        "Remote status is no_remote; mutation stays blocked until connected.",
+        expect.stringContaining("open-PR dry-run readiness only")
+      ])
+    );
+  });
+
+  it("keeps an existing PR URL as a visible open-dry-run gap instead of targeting it", () => {
+    const run = withPrUrl(readyRun());
+    const request = buildAutoImplementationPullRequestOpenDryRunRequest({
+      sessionId: "demo-session" as SessionId,
+      run
+    });
+
+    expect(request.pullRequestUrl).toBeUndefined();
+    expect(request.knownGaps).toContain(
+      "A PR URL is already recorded; use the PR body dry-run to refresh the existing PR evidence."
+    );
+    expect(request.knownGaps).not.toContain("Remote status is connected; mutation stays blocked until connected.");
+  });
+
   it("builds a read-only PR body update dry-run with visible blocked gaps when remote or PR URL is missing", () => {
     const run = readyRun();
     const request = buildAutoImplementationPullRequestDryRunRequest({

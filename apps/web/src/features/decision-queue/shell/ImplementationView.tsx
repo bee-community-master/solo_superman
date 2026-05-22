@@ -19,6 +19,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     pendingSummary,
     planAutoImplementationWorkerJob,
     projections,
+    recordAutoImplementationPullRequestOpenDryRun,
     recordAutoImplementationPullRequestDryRun,
     refreshCommandStatus,
     refreshAutoImplementationRuns,
@@ -39,6 +40,9 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         }}
         onPlanWorkerJob={() => {
           void planAutoImplementationWorkerJob();
+        }}
+        onRecordPullRequestOpenDryRun={() => {
+          void recordAutoImplementationPullRequestOpenDryRun();
         }}
         onRecordPullRequestDryRun={() => {
           void recordAutoImplementationPullRequestDryRun();
