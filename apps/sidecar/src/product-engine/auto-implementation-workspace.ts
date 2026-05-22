@@ -704,6 +704,7 @@ export async function prepareAutoImplementationWorkspaceRun(
     },
     remoteGuide: guide,
     reviewProtocol: defaultAutoImplementationReviewProtocol(),
+    workerJobs: [],
     createdAt: input.now,
     updatedAt: input.now,
     evidenceRefs: [

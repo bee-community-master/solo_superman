@@ -13,6 +13,7 @@ import {
   IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
   IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION,
   PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION,
+  type AutoImplementationRunProjection,
   type CommandId,
   type BrowserActionPreviewDto,
   type CorrelationId,
@@ -197,6 +198,29 @@ async function postAutoImplementationStageForTest(
         sessionId,
         runId,
         stage,
+        ...payload
+      })
+    }
+  ));
+}
+
+async function postAutoImplementationWorkerJobForTest(
+  storageApp: RequestTestApp,
+  sessionId: string,
+  runId: string,
+  payload: Readonly<Record<string, unknown>>
+) {
+  return Promise.resolve(storageApp.request(
+    `/api/v1/sessions/${sessionId}/auto-implementation-runs/${runId}/worker-jobs`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        sessionId,
+        runId,
         ...payload
       })
     }
@@ -8402,6 +8426,300 @@ describe("PR-02 sidecar health shell", () => {
         version: 1
       });
       expect(replayProjection.runs as readonly unknown[]).toHaveLength(1);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("creates bounded local Codex worker jobs for the current auto implementation issue document", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "An auto implementation local worker job test");
+      const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:worker-job",
+        projectName: "Worker Job Demo"
+      });
+      const runId = String(latestAutoImplementationRunFromBody(await jsonBody(created)).runId);
+      const blockedJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:missing-authority"
+      });
+      const blockedJobRun = latestAutoImplementationRunFromBody(await jsonBody(blockedJobResponse));
+      const blockedJobs = blockedJobRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(blockedJobResponse.status).toBe(200);
+      expect(blockedJobRun).toMatchObject({
+        status: "blocked",
+        currentStage: "initial_pr"
+      });
+      expect(blockedJobs).toHaveLength(1);
+      expect(blockedJobs[0]).toMatchObject({
+        runId,
+        stage: "initial_pr",
+        issueId: "local-001",
+        issueRelativePath: "implementation-issues/001-initial_pr.md",
+        status: "blocked",
+        blockedReason: expect.stringContaining("ExecutionAuthorityRecord"),
+        missingEvidence: ["ExecutionAuthorityRecord"],
+        executionPlan: {
+          executionMode: "local_sandboxed_codex",
+          workingDirectory: join(workspaceRoot, "worker-job-demo"),
+          issueDocumentPath: "implementation-issues/001-initial_pr.md",
+          executionAuthorityRef: null,
+          forbiddenActions: expect.arrayContaining([
+            expect.stringContaining("credential"),
+            expect.stringContaining("production deploy")
+          ]),
+          requiredEvidence: expect.arrayContaining([
+            expect.stringContaining("ImplementationStepLedger"),
+            expect.stringContaining("evidence refs")
+          ])
+        }
+      });
+
+      const replay = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:missing-authority"
+      });
+      const replayRun = latestAutoImplementationRunFromBody(await jsonBody(replay));
+
+      expect(replay.status).toBe(200);
+      expect(replayRun.workerJobs as readonly unknown[]).toHaveLength(1);
+
+      const invalidAuthorityRefResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:invalid-authority-ref",
+        executionAuthorityRef: "not_an_execution_authority_record"
+      });
+      const invalidAuthorityRefBody = await jsonBody(invalidAuthorityRefResponse);
+
+      expect(invalidAuthorityRefResponse.status).toBe(400);
+      expect(invalidAuthorityRefBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "executionAuthorityRef must reference an ExecutionAuthorityRecord id.",
+        details: {
+          expectedPrefix: "exec_auth_"
+        }
+      });
+
+      const fakeAuthorityResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:fake-authority",
+        executionAuthorityRef: "exec_auth_missing_auto_worker_initial_pr"
+      });
+      const fakeAuthorityRun = latestAutoImplementationRunFromBody(await jsonBody(fakeAuthorityResponse));
+      const fakeAuthorityJobs = fakeAuthorityRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(fakeAuthorityResponse.status).toBe(200);
+      expect(fakeAuthorityRun).toMatchObject({
+        status: "blocked"
+      });
+      expect(fakeAuthorityJobs.at(-1)).toMatchObject({
+        status: "blocked",
+        missingEvidence: ["ExecutionAuthorityRecord"],
+        executionPlan: {
+          executionAuthorityRef: "exec_auth_missing_auto_worker_initial_pr"
+        },
+        nextRequiredAction: expect.stringContaining("ExecutionAuthorityRecord")
+      });
+
+      const { recordId: previewOnlyAuthorityId } = await createExecutionAuthorityForTest(
+        storageApp,
+        sessionId,
+        "auto_worker_preview_only",
+        {
+          actionClass: "external_mutation_preview_only",
+          requestedScope: {
+            browserTargetRef: "browser_target_auto_worker_preview_only"
+          },
+          sandboxBoundary: {
+            mode: "browser_preview_session",
+            networkPolicy: "blocked",
+            secretPolicy: "no_secret_values"
+          },
+          rollbackReference: undefined
+        }
+      );
+      const previewOnlyJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:preview-only-authority",
+        executionAuthorityRef: previewOnlyAuthorityId
+      });
+      const previewOnlyJobRun = latestAutoImplementationRunFromBody(await jsonBody(previewOnlyJobResponse));
+      const previewOnlyJobs = previewOnlyJobRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(previewOnlyJobResponse.status).toBe(200);
+      expect(previewOnlyJobs.at(-1)).toMatchObject({
+        status: "blocked",
+        missingEvidence: ["ExecutionAuthorityRecord.ready_for_execution"],
+        blockedReason: expect.stringContaining("ready_for_execution"),
+        executionPlan: {
+          executionAuthorityRef: previewOnlyAuthorityId
+        }
+      });
+
+      const { recordId: wrongScopeAuthorityId } = await createExecutionAuthorityForTest(
+        storageApp,
+        sessionId,
+        "auto_worker_wrong_scope",
+        {
+          expectedStateVersion: 2
+        }
+      );
+      const wrongScopeJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:wrong-scope-authority",
+        executionAuthorityRef: wrongScopeAuthorityId
+      });
+      const wrongScopeJobRun = latestAutoImplementationRunFromBody(await jsonBody(wrongScopeJobResponse));
+      const wrongScopeJobs = wrongScopeJobRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(wrongScopeJobResponse.status).toBe(200);
+      expect(wrongScopeJobs.at(-1)).toMatchObject({
+        status: "blocked",
+        missingEvidence: ["ExecutionAuthorityRecord.generated_workspace_scope"],
+        blockedReason: expect.stringContaining("generated workspace"),
+        executionPlan: {
+          executionAuthorityRef: wrongScopeAuthorityId
+        }
+      });
+
+      const { recordId: wrongActionAuthorityId } = await createExecutionAuthorityForTest(
+        storageApp,
+        sessionId,
+        "auto_worker_wrong_action",
+        {
+          expectedStateVersion: 3,
+          actionClass: "shell_command",
+          requestedScope: {
+            workspaceRef: join(workspaceRoot, "worker-job-demo"),
+            commandAllowlistRef: "allowlist:auto-worker",
+            maxDurationMs: 300_000
+          },
+          sandboxBoundary: {
+            mode: "command_sandbox",
+            networkPolicy: "blocked",
+            secretPolicy: "no_secret_values"
+          },
+          rollbackReference: {
+            kind: "command_compensating_action",
+            ref: "rollback_auto_worker_shell"
+          }
+        }
+      );
+      const wrongActionJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:wrong-action-authority",
+        executionAuthorityRef: wrongActionAuthorityId
+      });
+      const wrongActionJobRun = latestAutoImplementationRunFromBody(await jsonBody(wrongActionJobResponse));
+      const wrongActionJobs = wrongActionJobRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(wrongActionJobResponse.status).toBe(200);
+      expect(wrongActionJobs.at(-1)).toMatchObject({
+        status: "blocked",
+        missingEvidence: ["ExecutionAuthorityRecord.file_diff_action"],
+        blockedReason: expect.stringContaining("file_diff"),
+        executionPlan: {
+          executionAuthorityRef: wrongActionAuthorityId
+        }
+      });
+
+      const { recordId: authorityRecordId } = await createExecutionAuthorityForTest(
+        storageApp,
+        sessionId,
+        "auto_worker_initial_pr",
+        {
+          expectedStateVersion: 4,
+          requestedScope: {
+            workspaceRef: join(workspaceRoot, "worker-job-demo"),
+            filePathGlobs: ["**/*"]
+          }
+        }
+      );
+      const plannedJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:with-authority",
+        executionAuthorityRef: authorityRecordId
+      });
+      const plannedJobRun = latestAutoImplementationRunFromBody(await jsonBody(plannedJobResponse));
+      const plannedJobs = plannedJobRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(plannedJobResponse.status).toBe(200);
+      expect(plannedJobRun).toMatchObject({
+        status: "running",
+        currentStage: "initial_pr"
+      });
+      expect(plannedJobs).toHaveLength(6);
+      expect(plannedJobs[5]).toMatchObject({
+        status: "planned",
+        missingEvidence: [],
+        blockedReason: null,
+        nextRequiredAction: expect.stringContaining("ImplementationStepLedger evidence"),
+        executionPlan: {
+          executionAuthorityRef: authorityRecordId
+        },
+        evidenceRefs: expect.arrayContaining([
+          `execution-authority:${authorityRecordId}`
+        ])
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("normalizes legacy auto implementation projections before worker job reads and writes", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { projectId, sessionId } = await createProjectForTest(
+        storageApp,
+        "An auto implementation legacy worker job migration test"
+      );
+      const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:legacy-worker-job",
+        projectName: "Legacy Worker Job Demo"
+      });
+      const projection = jsonDataRecord(await jsonBody(created)) as unknown as AutoImplementationRunProjection;
+      const legacyRuns = projection.runs.map((run) => {
+        const legacyRun = { ...run } as Record<string, unknown>;
+
+        delete legacyRun.workerJobs;
+
+        return legacyRun;
+      });
+      const legacyProjection = {
+        ...projection,
+        latestRun: legacyRuns.at(-1) ?? null,
+        runs: legacyRuns
+      } as unknown as AutoImplementationRunProjection;
+
+      await createProjectionRepository(storage.db).save({
+        projectId: projectId as ProjectId,
+        sessionId: sessionId as SessionId,
+        projection: legacyProjection,
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      const fetched = await storageApp.request(`/api/v1/sessions/${sessionId}/auto-implementation-runs`, {
+        headers: authHeaders()
+      });
+      const fetchedRun = latestAutoImplementationRunFromBody(await jsonBody(fetched));
+
+      expect(fetched.status).toBe(200);
+      expect(fetchedRun.workerJobs).toEqual([]);
+
+      const runId = String(fetchedRun.runId);
+      const workerJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
+        idempotencyKey: "worker-job:legacy-missing-authority"
+      });
+      const workerJobRun = latestAutoImplementationRunFromBody(await jsonBody(workerJobResponse));
+
+      expect(workerJobResponse.status).toBe(200);
+      expect(workerJobRun.workerJobs as readonly unknown[]).toHaveLength(1);
+      expect(workerJobRun).toMatchObject({
+        status: "blocked",
+        currentStage: "initial_pr"
+      });
     } finally {
       await storage.close();
     }

@@ -43,6 +43,8 @@ export const AUTO_IMPLEMENTATION_STAGE_STATUSES = [
 ] as const;
 
 export const AUTO_IMPLEMENTATION_STAGE_ACTIONS = ["tick", "start", "pause", "block", "complete"] as const;
+export const AUTO_IMPLEMENTATION_WORKER_JOB_STATUSES = ["planned", "blocked"] as const;
+export const AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE = "local_sandboxed_codex" as const;
 
 export const AUTO_IMPLEMENTATION_REMOTE_STATUSES = [
   "connected",
@@ -163,6 +165,7 @@ export type AutoImplementationStage = (typeof AUTO_IMPLEMENTATION_STAGES)[number
 export type AutoImplementationRunStatus = (typeof AUTO_IMPLEMENTATION_RUN_STATUSES)[number];
 export type AutoImplementationStageStatus = (typeof AUTO_IMPLEMENTATION_STAGE_STATUSES)[number];
 export type AutoImplementationStageAction = (typeof AUTO_IMPLEMENTATION_STAGE_ACTIONS)[number];
+export type AutoImplementationWorkerJobStatus = (typeof AUTO_IMPLEMENTATION_WORKER_JOB_STATUSES)[number];
 export type AutoImplementationRemoteStatus = (typeof AUTO_IMPLEMENTATION_REMOTE_STATUSES)[number];
 export type AutoImplementationIssueMode = (typeof AUTO_IMPLEMENTATION_ISSUE_MODES)[number];
 export type AutoImplementationGitHubIssueRequestMode = (typeof AUTO_IMPLEMENTATION_GITHUB_ISSUE_REQUEST_MODES)[number];
@@ -286,6 +289,34 @@ export function defaultAutoImplementationReviewProtocol(): AutoImplementationRev
   };
 }
 
+export interface AutoImplementationWorkerExecutionPlan {
+  readonly executionMode: typeof AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE;
+  readonly workingDirectory: string;
+  readonly issueDocumentPath: string;
+  readonly executionAuthorityRef: string | null;
+  readonly allowedWriteScope: readonly string[];
+  readonly requiredEvidence: readonly string[];
+  readonly forbiddenActions: readonly string[];
+  readonly sourceRefs: readonly string[];
+}
+
+export interface AutoImplementationWorkerJob {
+  readonly jobId: string;
+  readonly runId: string;
+  readonly stage: AutoImplementationStage;
+  readonly issueId: string;
+  readonly issueTitle: string;
+  readonly issueRelativePath: string;
+  readonly status: AutoImplementationWorkerJobStatus;
+  readonly executionPlan: AutoImplementationWorkerExecutionPlan;
+  readonly blockedReason: string | null;
+  readonly missingEvidence: readonly string[];
+  readonly nextRequiredAction: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly evidenceRefs: readonly string[];
+}
+
 export interface AutoImplementationRun {
   readonly runId: string;
   readonly projectFolderName: string;
@@ -300,6 +331,7 @@ export interface AutoImplementationRun {
   readonly issueManagement: AutoImplementationIssueManagement;
   readonly remoteGuide: AutoImplementationRemoteGuide;
   readonly reviewProtocol: AutoImplementationReviewProtocol;
+  readonly workerJobs: readonly AutoImplementationWorkerJob[];
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly evidenceRefs: readonly string[];
@@ -342,6 +374,13 @@ export interface RecordAutoImplementationStageRequest {
   readonly blocker?: AutoImplementationStageBlocker;
   readonly evidenceRefs?: readonly string[];
   readonly tickedAt?: string;
+}
+
+export interface CreateAutoImplementationWorkerJobRequest {
+  readonly sessionId: SessionId;
+  readonly runId: string;
+  readonly idempotencyKey: string;
+  readonly executionAuthorityRef?: string;
 }
 
 export class AutoImplementationRunValidationError extends Error {
@@ -443,6 +482,45 @@ function isStageLedgerEvidence(value: unknown): value is AutoImplementationStage
     isStringArray(value.testEvidenceRefs) &&
     value.testEvidenceRefs.length > 0 &&
     isStringArray(value.blockerEvidenceRefs) &&
+    isStringArray(value.evidenceRefs) &&
+    value.evidenceRefs.length > 0;
+}
+
+function isWorkerExecutionPlan(value: unknown): value is AutoImplementationWorkerExecutionPlan {
+  return isRecord(value) &&
+    value.executionMode === AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE &&
+    isNonEmptyString(value.workingDirectory) &&
+    isNonEmptyString(value.issueDocumentPath) &&
+    (value.executionAuthorityRef === null ||
+      (isNonEmptyString(value.executionAuthorityRef) && value.executionAuthorityRef.startsWith("exec_auth_"))) &&
+    isStringArray(value.allowedWriteScope) &&
+    value.allowedWriteScope.length > 0 &&
+    isStringArray(value.requiredEvidence) &&
+    value.requiredEvidence.length > 0 &&
+    isStringArray(value.forbiddenActions) &&
+    value.forbiddenActions.length > 0 &&
+    isStringArray(value.sourceRefs) &&
+    value.sourceRefs.length > 0;
+}
+
+function isWorkerJob(value: unknown): value is AutoImplementationWorkerJob {
+  return isRecord(value) &&
+    isNonEmptyString(value.jobId) &&
+    isNonEmptyString(value.runId) &&
+    isOneOf(value.stage, AUTO_IMPLEMENTATION_STAGES) &&
+    isNonEmptyString(value.issueId) &&
+    isNonEmptyString(value.issueTitle) &&
+    isNonEmptyString(value.issueRelativePath) &&
+    isOneOf(value.status, AUTO_IMPLEMENTATION_WORKER_JOB_STATUSES) &&
+    isWorkerExecutionPlan(value.executionPlan) &&
+    (value.blockedReason === null || isNonEmptyString(value.blockedReason)) &&
+    isStringArray(value.missingEvidence) &&
+    (value.status === "blocked"
+      ? value.missingEvidence.length > 0 && value.blockedReason !== null
+      : value.missingEvidence.length === 0 && value.blockedReason === null) &&
+    isNonEmptyString(value.nextRequiredAction) &&
+    isNonEmptyString(value.createdAt) &&
+    isNonEmptyString(value.updatedAt) &&
     isStringArray(value.evidenceRefs) &&
     value.evidenceRefs.length > 0;
 }
@@ -638,6 +716,34 @@ function hasConsistentRemoteIssueState(
     verifierEvidenceMatchesStatus;
 }
 
+function hasValidWorkerJobs(value: Readonly<Record<string, unknown>>) {
+  if (
+    !isNonEmptyString(value.runId) ||
+    !isNonEmptyString(value.generatedRepoPath) ||
+    !isIssueManagement(value.issueManagement) ||
+    !Array.isArray(value.workerJobs)
+  ) {
+    return false;
+  }
+
+  const runId = value.runId;
+  const generatedRepoPath = value.generatedRepoPath;
+  const issueDocs = value.issueManagement.issueDocs;
+
+  return value.workerJobs.every((job) =>
+    isWorkerJob(job) &&
+    job.runId === runId &&
+    job.executionPlan.workingDirectory === generatedRepoPath &&
+    job.executionPlan.issueDocumentPath === job.issueRelativePath &&
+    issueDocs.some((issue) =>
+      issue.issueId === job.issueId &&
+      issue.stage === job.stage &&
+      issue.relativePath === job.issueRelativePath &&
+      issue.title === job.issueTitle
+    )
+  );
+}
+
 function isRun(value: unknown): value is AutoImplementationRun {
   return isRecord(value) &&
     isNonEmptyString(value.runId) &&
@@ -660,6 +766,7 @@ function isRun(value: unknown): value is AutoImplementationRun {
     isRemoteGuide(value.remoteGuide) &&
     hasConsistentRemoteIssueState(value.remoteStatus, value.issueManagement, value.remoteGuide) &&
     isReviewProtocol(value.reviewProtocol) &&
+    hasValidWorkerJobs(value) &&
     isNonEmptyString(value.createdAt) &&
     isNonEmptyString(value.updatedAt) &&
     isStringArray(value.evidenceRefs) &&
@@ -774,6 +881,7 @@ const AUTO_IMPLEMENTATION_RUN_READY_FIXTURE_RUN: AutoImplementationRun = {
     nextAction: "Connect a GitHub remote when remote issue/PR automation is desired."
   },
   reviewProtocol: defaultAutoImplementationReviewProtocol(),
+  workerJobs: [],
   createdAt: "2026-05-19T00:00:00.000Z",
   updatedAt: "2026-05-19T00:00:00.000Z",
   evidenceRefs: ["workspace:demo-project", "git:init:main", "issues:markdown_fallback"]

@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { AUTO_IMPLEMENTATION_RUN_READY_FIXTURE } from "@solo-superman/contracts";
+import { AUTO_IMPLEMENTATION_RUN_READY_FIXTURE, type AutoImplementationRunProjection } from "@solo-superman/contracts";
 import {
   AutoImplementationRunPanel,
   autoImplementationRunViewModel
@@ -18,6 +18,8 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.githubIssueMutationLabel).toContain("not_requested");
     expect(view.githubIssuePlans[0]!.bodyMarkdownPath).toContain("implementation-issues/001-initial_pr.md");
     expect(view.githubCreatedIssueUrls).toEqual([]);
+    expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
+    expect(view.latestWorkerJobNextAction).toContain("current stage issue document");
     expect(view.stages).toHaveLength(7);
     expect(view.stages[0]!.status).toBe("ready");
     expect(view.issueDocs[0]!.relativePath).toContain("implementation-issues/001-initial_pr.md");
@@ -43,6 +45,63 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.workspaceLabel).toContain("workspace/<project>");
     expect(view.remoteNextAction).toContain("planning handoff");
     expect(view.githubIssueMutationLabel).toContain("not requested");
+    expect(view.latestWorkerJobLabel).toContain("not planned");
+  });
+
+  it("shows the latest local worker blocker when a bounded Codex job exists", () => {
+    const projection = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        status: "blocked",
+        workerJobs: [
+          {
+            jobId: "auto-worker-job:auto_run_demo:initial_pr:job_1",
+            runId: "auto_run_demo",
+            stage: "initial_pr",
+            issueId: "local-001",
+            issueTitle: "Workspace repo bootstrap and initial implementation PR",
+            issueRelativePath: "implementation-issues/001-initial_pr.md",
+            status: "blocked",
+            executionPlan: {
+              executionMode: "local_sandboxed_codex",
+              workingDirectory: "/repo/workspace/demo-project",
+              issueDocumentPath: "implementation-issues/001-initial_pr.md",
+              executionAuthorityRef: null,
+              allowedWriteScope: ["."],
+              requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
+              forbiddenActions: ["credential storage"],
+              sourceRefs: ["auto-implementation-run:auto_run_demo"]
+            },
+            blockedReason: "ExecutionAuthorityRecord is missing.",
+            missingEvidence: ["ExecutionAuthorityRecord"],
+            nextRequiredAction: "Create a bounded ExecutionAuthorityRecord before local worker execution.",
+            createdAt: "2026-05-19T00:01:00.000Z",
+            updatedAt: "2026-05-19T00:01:00.000Z",
+            evidenceRefs: ["auto-worker-job:auto_run_demo:initial_pr:job_1"]
+          }
+        ]
+      }
+    } as AutoImplementationRunProjection;
+    const view = autoImplementationRunViewModel(projection);
+
+    expect(view.latestWorkerJobLabel).toContain("blocked for initial_pr (local-001)");
+    expect(view.latestWorkerJobNextAction).toContain("ExecutionAuthorityRecord");
+  });
+
+  it("keeps legacy projections without workerJobs renderable", () => {
+    const legacyLatestRun = { ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun! } as Record<string, unknown>;
+
+    delete legacyLatestRun.workerJobs;
+    const projection = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: legacyLatestRun,
+      runs: [legacyLatestRun]
+    } as unknown as AutoImplementationRunProjection;
+    const view = autoImplementationRunViewModel(projection);
+
+    expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
+    expect(view.latestWorkerJobNextAction).toContain("bounded local worker job");
   });
 
   it("renders the remote warning and local issue documents", () => {
@@ -64,6 +123,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("implementation-issues/001-initial_pr.md");
     expect(markup).toContain("GitHub issue mutation contract");
     expect(markup).toContain("GitHub issue mutation: not_requested");
+    expect(markup).toContain("Local Codex worker: not planned");
     expect(markup).toContain("local markdown issue paths remain the source of truth");
     expect(markup).toContain("git remote add origin");
   });

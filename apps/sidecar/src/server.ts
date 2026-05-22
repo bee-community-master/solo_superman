@@ -46,6 +46,7 @@ import {
   type CommandResponse,
   type CancelResearchRunRequest,
   type CreateAutoImplementationRunRequest,
+  type CreateAutoImplementationWorkerJobRequest,
   type CreateExecutionAuthorityPayload,
   type CreateExecutionAuthorityRequest,
   type CreateChatGptBrowserDelegationRunPayload,
@@ -2247,6 +2248,13 @@ const AUTO_IMPLEMENTATION_STAGE_REQUEST_BODY_KEYS = [
   "tickedAt"
 ] as const satisfies readonly (keyof RecordAutoImplementationStageRequest)[];
 
+const AUTO_IMPLEMENTATION_WORKER_JOB_REQUEST_BODY_KEYS = [
+  "sessionId",
+  "runId",
+  "idempotencyKey",
+  "executionAuthorityRef"
+] as const satisfies readonly (keyof CreateAutoImplementationWorkerJobRequest)[];
+
 const AUTO_IMPLEMENTATION_STAGE_BLOCKER_KEYS = [
   "stage",
   "reason",
@@ -2362,6 +2370,45 @@ function recordAutoImplementationStageRequestFromBody(
     ...(blocker ? { blocker } : {}),
     ...(evidenceRefs ? { evidenceRefs } : {}),
     ...(tickedAt ? { tickedAt } : {})
+  };
+}
+
+function createAutoImplementationWorkerJobRequestFromBody(
+  routeSessionId: SessionId,
+  routeRunId: string,
+  body: Readonly<Record<string, unknown>>
+): CreateAutoImplementationWorkerJobRequest {
+  assertAllowedRecordKeys(
+    body,
+    AUTO_IMPLEMENTATION_WORKER_JOB_REQUEST_BODY_KEYS,
+    "auto implementation worker job request body"
+  );
+
+  const bodySessionId = optionalStringFromBody(body.sessionId, "sessionId") as SessionId | undefined;
+
+  if (bodySessionId && bodySessionId !== routeSessionId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId must match route sessionId.", {
+      routeSessionId,
+      bodySessionId
+    });
+  }
+
+  const bodyRunId = optionalStringFromBody(body.runId, "runId");
+
+  if (bodyRunId && bodyRunId !== routeRunId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "runId must match route runId.", {
+      routeRunId,
+      bodyRunId
+    });
+  }
+
+  const executionAuthorityRef = optionalStringFromBody(body.executionAuthorityRef, "executionAuthorityRef");
+
+  return {
+    sessionId: routeSessionId,
+    runId: routeRunId,
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    ...(executionAuthorityRef ? { executionAuthorityRef } : {})
   };
 }
 
@@ -3618,6 +3665,20 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
     withProductEngine(context, (service) =>
       service.getAutoImplementationRuns(context.req.param("sessionId") as SessionId)
     )
+  );
+
+  app.post("/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs", async (context) =>
+    withProductEngine(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const routeRunId = context.req.param("runId");
+      const request = createAutoImplementationWorkerJobRequestFromBody(
+        routeSessionId,
+        routeRunId,
+        await jsonBody(context)
+      );
+
+      return service.createAutoImplementationWorkerJob(request);
+    })
   );
 
   app.post("/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/stages/:stage", async (context) =>

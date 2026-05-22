@@ -70,6 +70,10 @@ export function autoImplementationRunPath(sessionId: SessionId) {
   return `/api/v1/sessions/${encodeURIComponent(sessionId)}/auto-implementation-runs`;
 }
 
+export function autoImplementationWorkerJobPath(sessionId: SessionId, runId: string) {
+  return `${autoImplementationRunPath(sessionId)}/${encodeURIComponent(runId)}/worker-jobs`;
+}
+
 export function autoImplementationStagePath(sessionId: SessionId, runId: string, stage: AutoImplementationStage) {
   return `${autoImplementationRunPath(sessionId)}/${encodeURIComponent(runId)}/stages/${encodeURIComponent(stage)}`;
 }
