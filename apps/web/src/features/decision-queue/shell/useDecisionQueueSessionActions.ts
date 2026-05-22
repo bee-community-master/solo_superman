@@ -494,17 +494,22 @@ export function useDecisionQueueSessionActions({
         await refetchQueueAfterSseNotification(projections.session.projectId, projections.session.sessionId, latestQueue);
       }
     } catch (error) {
+      let refreshedAfterPartialFailure = false;
+
       if (submittedQueueItemIds.length) {
         setAnswerDrafts((current) => answerDraftsWithClearedItems(current, submittedQueueItemIds));
         try {
           await refreshProjections(projections.session.projectId, projections.session.sessionId);
+          refreshedAfterPartialFailure = true;
         } catch {
           // Keep the original answer submission error visible.
         }
       }
 
       const partialFailureNote = submittedQueueItemIds.length
-        ? " Some drafted answers were submitted before the failure; the queue was refreshed."
+        ? refreshedAfterPartialFailure
+          ? " Some drafted answers were submitted before the failure; the queue was refreshed."
+          : " Some drafted answers were submitted before the failure; refresh the queue before continuing."
         : "";
       setWorkflowError(`${displayError(error)}${partialFailureNote}`);
     } finally {
