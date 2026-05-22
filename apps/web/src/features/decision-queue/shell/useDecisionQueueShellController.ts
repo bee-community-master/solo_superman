@@ -25,6 +25,7 @@ import {
   buildAutoImplementationStageTickRequest
 } from "../auto-implementation-stage-request";
 import { buildAutoImplementationWorkerCompletionRequest } from "../auto-implementation-worker-completion-request";
+import { buildAutoImplementationWorkerLedgerImportRequest } from "../auto-implementation-worker-ledger-import-request";
 import {
   buildAutoImplementationPullRequestBodyApprovedRequest,
   buildAutoImplementationPullRequestDryRunRequest,
@@ -150,6 +151,7 @@ export function useDecisionQueueShellController() {
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
   const [knownRiskDrafts, setKnownRiskDrafts] = useState<Record<string, string>>({});
   const [researchDrafts, setResearchDrafts] = useState<Record<string, string>>({});
+  const [workerLedgerImportDraft, setWorkerLedgerImportDraft] = useState("");
   const [projections, setProjections] = useState<ProjectionState>(emptyProjectionState);
   const [researchOperations, setResearchOperations] = useState<ResearchOperationsState>(emptyResearchOperationsState);
   const [phase15bReadiness, setPhase15bReadiness] = useState<Phase15bUpgradeHintProjection | null>(null);
@@ -782,6 +784,57 @@ export function useDecisionQueueShellController() {
       setIsBusy(false);
     }
   }, [client, projections]);
+
+  const importAutoImplementationWorkerLedgerFromDraft = useCallback(async () => {
+    const sessionId = projections.session?.sessionId;
+    const run = projections.autoImplementationRuns?.latestRun;
+
+    if (!client || !sessionId || !run) {
+      setWorkflowError("An active auto implementation workspace run is required before importing worker ledger evidence.");
+      return;
+    }
+
+    const { error, request } = buildAutoImplementationWorkerLedgerImportRequest({
+      sessionId,
+      run,
+      draft: workerLedgerImportDraft,
+      importedAt: new Date().toISOString()
+    });
+
+    if (!request) {
+      setWorkflowError(error ?? "Worker ledger import request could not be prepared.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const autoImplementationRuns = await client.importAutoImplementationWorkerLedger(request);
+      const implementationStepLedger = await client.getImplementationStepLedger(sessionId);
+
+      setWorkerLedgerImportDraft("");
+      setProjections((current) => ({
+        ...current,
+        autoImplementationRuns,
+        implementationStepLedger
+      }));
+      setCommandLog((current) => [
+        {
+          id: `auto-implementation-worker-ledger-import:${request.jobId}:${Date.now()}`,
+          label: "Import worker ledger evidence",
+          createdAt: new Date().toISOString(),
+          message: autoImplementationRuns.summary
+        },
+        ...current
+      ].slice(0, COMMAND_LOG_LIMIT));
+    } catch (caughtError) {
+      setWorkflowError(displayError(caughtError));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [client, projections, workerLedgerImportDraft]);
+
   const advanceAutoImplementationWorkerStage = useCallback(async () => {
     const sessionId = projections.session?.sessionId;
     const run = projections.autoImplementationRuns?.latestRun;
@@ -1134,6 +1187,8 @@ export function useDecisionQueueShellController() {
     setKnownRiskDrafts,
     researchDrafts,
     setResearchDrafts,
+    workerLedgerImportDraft,
+    setWorkerLedgerImportDraft,
     projections,
     researchOperations,
     phase15bReadiness,
@@ -1189,6 +1244,7 @@ export function useDecisionQueueShellController() {
     pauseAutoImplementationStage,
     blockAutoImplementationStage,
     completeAutoImplementationWorkerJobFromLedger,
+    importAutoImplementationWorkerLedgerFromDraft,
     recordAutoImplementationGitHubIssueDryRun,
     applyAutoImplementationGitHubIssueCreation,
     recordAutoImplementationPullRequestOpenDryRun,

@@ -10,7 +10,10 @@ import type {
   ImplementationStepLedgerProjection
 } from "@solo-superman/contracts";
 import { canCompleteAutoImplementationWorkerFromLedger } from "./auto-implementation-worker-completion-request";
-import { latestCurrentStageAutoImplementationWorkerJob } from "./auto-implementation-worker-job-selection";
+import {
+  canImportAutoImplementationWorkerLedger,
+  latestCurrentStageAutoImplementationWorkerJob
+} from "./auto-implementation-worker-job-selection";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
 interface AutoImplementationWorkerPlanView {
@@ -61,6 +64,7 @@ export interface AutoImplementationRunViewModel {
   readonly canPauseStage: boolean;
   readonly canBlockStage: boolean;
   readonly canCompleteWorkerJob: boolean;
+  readonly canImportWorkerLedger: boolean;
   readonly canRecordGitHubIssueDryRun: boolean;
   readonly canApplyGitHubIssueCreation: boolean;
   readonly canRecordPullRequestDryRun: boolean;
@@ -115,6 +119,7 @@ export function autoImplementationRunViewModel(
       canPauseStage: false,
       canBlockStage: false,
       canCompleteWorkerJob: false,
+      canImportWorkerLedger: false,
       canRecordGitHubIssueDryRun: false,
       canApplyGitHubIssueCreation: false,
       canRecordPullRequestDryRun: false,
@@ -219,6 +224,7 @@ export function autoImplementationRunViewModel(
       run,
       ledger: implementationStepLedger
     }),
+    canImportWorkerLedger: canImportAutoImplementationWorkerLedger(latestWorkerJob),
     canRecordGitHubIssueDryRun: run.status !== "completed" &&
       run.issueManagement.githubIssueUrls.length === 0 &&
       (githubIssueMutation.status === "not_requested" || githubIssueMutation.status === "blocked"),
@@ -251,6 +257,9 @@ interface AutoImplementationRunPanelProps {
   readonly onPauseStage: () => void;
   readonly onBlockStage: () => void;
   readonly onCompleteWorkerJob: () => void;
+  readonly workerLedgerImportDraft: string;
+  readonly onWorkerLedgerImportDraftChange: (value: string) => void;
+  readonly onImportWorkerLedger: () => void;
   readonly onRecordGitHubIssueDryRun: () => void;
   readonly onApplyGitHubIssueCreation: () => void;
   readonly onRecordPullRequestOpenDryRun: () => void;
@@ -274,6 +283,9 @@ export function AutoImplementationRunPanel({
   onPauseStage,
   onBlockStage,
   onCompleteWorkerJob,
+  workerLedgerImportDraft,
+  onWorkerLedgerImportDraftChange,
+  onImportWorkerLedger,
   onRecordGitHubIssueDryRun,
   onApplyGitHubIssueCreation,
   onRecordPullRequestOpenDryRun,
@@ -322,6 +334,9 @@ export function AutoImplementationRunPanel({
         </button>
         <button type="button" disabled={isBusy || !run.canCompleteWorkerJob} onClick={onCompleteWorkerJob}>
           {copy.autoImplementation.completeWorkerJob}
+        </button>
+        <button type="button" disabled={isBusy || !run.canImportWorkerLedger} onClick={onImportWorkerLedger}>
+          {copy.autoImplementation.importWorkerLedger}
         </button>
         <button
           type="button"
@@ -389,6 +404,18 @@ export function AutoImplementationRunPanel({
           {copy.autoImplementation.refresh}
         </button>
       </div>
+      {run.latestWorkerJobId ? (
+        <label className="answer-box">
+          <span>{copy.autoImplementation.workerLedgerImport}</span>
+          <textarea
+            aria-label={copy.autoImplementation.workerLedgerImport}
+            disabled={isBusy || !run.canImportWorkerLedger}
+            onChange={(event) => onWorkerLedgerImportDraftChange(event.target.value)}
+            placeholder={copy.autoImplementation.workerLedgerImportPlaceholder}
+            value={workerLedgerImportDraft}
+          />
+        </label>
+      ) : null}
 
       {run.latestWorkerPlan ? (
         <>

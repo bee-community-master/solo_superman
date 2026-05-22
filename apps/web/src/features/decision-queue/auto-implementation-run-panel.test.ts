@@ -132,6 +132,9 @@ function renderPanelMarkup(run: ReturnType<typeof autoImplementationRunViewModel
       onPauseStage: () => undefined,
       onBlockStage: () => undefined,
       onCompleteWorkerJob: () => undefined,
+      workerLedgerImportDraft: "",
+      onWorkerLedgerImportDraftChange: () => undefined,
+      onImportWorkerLedger: () => undefined,
       onRecordGitHubIssueDryRun: () => undefined,
       onApplyGitHubIssueCreation: () => undefined,
       onRecordPullRequestOpenDryRun: () => undefined,
@@ -530,6 +533,7 @@ describe("AutoImplementationRunPanel view model", () => {
       evidenceRefs: ["auto-worker-job:auto_run_demo:initial_pr:job_1"]
     });
     expect(view.canRunWorkerJob).toBe(false);
+    expect(view.canImportWorkerLedger).toBe(false);
   });
 
   it("enables run, ledger completion, and advance controls from the latest local worker status", () => {
@@ -562,11 +566,13 @@ describe("AutoImplementationRunPanel view model", () => {
     } as AutoImplementationRunProjection);
 
     expect(plannedView.canRunWorkerJob).toBe(true);
+    expect(plannedView.canImportWorkerLedger).toBe(true);
     expect(plannedView.canCompleteWorkerJob).toBe(false);
     expect(ledgerReadyView.canCompleteWorkerJob).toBe(true);
     expect(plannedView.canAdvanceWorkerStage).toBe(false);
     expect(plannedView.latestWorkerPlan?.executionAuthorityRef).toBe("exec_auth_auto_worker_initial_pr");
     expect(completedView.canRunWorkerJob).toBe(false);
+    expect(completedView.canImportWorkerLedger).toBe(false);
     expect(completedView.canCompleteWorkerJob).toBe(false);
     expect(completedView.canAdvanceWorkerStage).toBe(true);
   });
@@ -626,7 +632,29 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
     expect(view.latestWorkerPlan).toBeNull();
     expect(view.canRunWorkerJob).toBe(false);
+    expect(view.canImportWorkerLedger).toBe(false);
     expect(view.canAdvanceWorkerStage).toBe(false);
+  });
+
+  it("allows manual ledger import for current-stage worker execution blockers", () => {
+    const projection = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        workerJobs: [
+          workerJob({
+            status: "blocked",
+            missingEvidence: ["Local Codex worker execution"],
+            blockedReason: "Live Codex worker output was unavailable.",
+            nextRequiredAction: "Import a completed worker ledger envelope."
+          })
+        ]
+      }
+    } as AutoImplementationRunProjection;
+    const view = autoImplementationRunViewModel(projection);
+
+    expect(view.canImportWorkerLedger).toBe(true);
+    expect(view.canRunWorkerJob).toBe(true);
   });
 
   it("keeps legacy projections without workerJobs renderable", () => {
@@ -659,6 +687,7 @@ describe("AutoImplementationRunPanel view model", () => {
     const markup = renderPanelMarkup(view);
 
     expect(markup).toContain("Local worker bounded plan");
+    expect(markup).toContain("Worker ledger import JSON");
     expect(markup).toContain("local_sandboxed_codex");
     expect(markup).toContain("/repo/workspace/demo-project");
     expect(markup).toContain("implementation-issues/001-initial_pr.md");
@@ -757,6 +786,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("Pause current stage");
     expect(markup).toContain("Block current stage");
     expect(markup).toContain("Complete worker from ledger");
+    expect(markup).toContain("Import worker ledger");
     expect(markup).toContain("Record GitHub issue dry-run");
     expect(markup).toContain("Apply approved GitHub issues");
     expect(markup).toContain("Record PR open dry-run");

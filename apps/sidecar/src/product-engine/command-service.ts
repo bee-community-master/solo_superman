@@ -1004,7 +1004,8 @@ function isAutoImplementationWorkerLedgerImportCandidate(job: AutoImplementation
       job.missingEvidence.length === 1 &&
       (
         job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.completedLedgerStep ||
-        job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.ledgerImport
+        job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.ledgerImport ||
+        job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.workerExecution
       )
     );
 }

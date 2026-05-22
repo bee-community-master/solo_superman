@@ -17,6 +17,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     completeAutoImplementationWorkerJobFromLedger,
     createAutoImplementationRun,
     implementationStepLedgerView,
+    importAutoImplementationWorkerLedgerFromDraft,
     isBusy,
     pendingSummary,
     pauseAutoImplementationStage,
@@ -38,7 +39,9 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     runAutoImplementationWorkerJob,
     runtimeActivity,
     runtimeStatus,
-    statuses
+    statuses,
+    workerLedgerImportDraft,
+    setWorkerLedgerImportDraft
   } = controller;
 
   return (
@@ -66,6 +69,11 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         }}
         onCompleteWorkerJob={() => {
           void completeAutoImplementationWorkerJobFromLedger();
+        }}
+        workerLedgerImportDraft={workerLedgerImportDraft}
+        onWorkerLedgerImportDraftChange={setWorkerLedgerImportDraft}
+        onImportWorkerLedger={() => {
+          void importAutoImplementationWorkerLedgerFromDraft();
         }}
         onRecordGitHubIssueDryRun={() => {
           void recordAutoImplementationGitHubIssueDryRun();
