@@ -10349,6 +10349,10 @@ describe("PR-02 sidecar health shell", () => {
       });
       const latestRun = latestAutoImplementationRunFromBody(await jsonBody(response));
       const pullRequestMutations = latestRun.pullRequestMutations as Readonly<Record<string, unknown>>;
+      const manifest = JSON.parse(
+        await readFile(join(workspaceRoot, "connected-pr-dry-run", ".solo-superman", "auto-implementation-run.json"), "utf8")
+      ) as Readonly<Record<string, unknown>>;
+      const manifestPullRequestMutations = manifest.pullRequestMutations as Readonly<Record<string, unknown>>;
 
       expect(response.status).toBe(200);
       expect(mutationAttempts).toBe(0);
@@ -10365,6 +10369,15 @@ describe("PR-02 sidecar health shell", () => {
             "auto-pr-mutation:update_pr_body:pr-mutation:dry-run:update-body",
             "github-pr-mutation:dry_run_ready"
           ])
+        }
+      });
+      expect(manifestPullRequestMutations).toMatchObject({
+        latestRecord: {
+          action: "update_pr_body",
+          requestMode: "dry_run",
+          status: "dry_run_ready",
+          pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/123",
+          bodyEvidenceRefs: ["pr-body:current-evidence"]
         }
       });
       expect(pullRequestMutations.records as readonly unknown[]).toHaveLength(1);
@@ -11017,6 +11030,10 @@ describe("PR-02 sidecar health shell", () => {
       const completedStages = completedRun.stagePlan as readonly Readonly<Record<string, unknown>>[];
       const completedInitial = completedStages[0]!;
       const nextStage = completedStages[1]!;
+      const syncedManifest = JSON.parse(
+        await readFile(join(workspaceRoot, "stage-runner-app", ".solo-superman", "auto-implementation-run.json"), "utf8")
+      ) as Readonly<Record<string, unknown>>;
+      const syncedManifestStages = syncedManifest.stagePlan as readonly Readonly<Record<string, unknown>>[];
       const replay = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "initial_pr", {
         idempotencyKey: "auto-stage:complete:initial-pr",
         action: "complete",
@@ -11047,6 +11064,21 @@ describe("PR-02 sidecar health shell", () => {
         status: "running",
         currentStage: "code_review_fix_1",
         nextTickAt: "2026-05-20T00:20:00.000Z"
+      });
+      expect(syncedManifest).toMatchObject({
+        runId,
+        status: "running",
+        currentStage: "code_review_fix_1",
+        updatedAt: "2026-05-20T00:15:00.000Z"
+      });
+      expect(syncedManifestStages[0]).toMatchObject({
+        stage: "initial_pr",
+        status: "completed",
+        ledgerEvidence: {
+          implementationStepId: "step_demo",
+          implementationEvidenceRefs: ["commit:abcdef1"],
+          testEvidenceRefs: ["test:verify"]
+        }
       });
       expect(completedInitial).toMatchObject({
         status: "completed",
