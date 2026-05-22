@@ -26,7 +26,7 @@ export interface QueueSectionViewModel {
   readonly items: DecisionQueueProjection[QueueSectionId];
 }
 
-type QueueSectionItem = DecisionQueueProjection[QueueSectionId][number];
+export type QueueSectionItem = DecisionQueueProjection[QueueSectionId][number];
 type ResearchAllowlistProjection = ResearchAllowlistGovernanceProjection["allowlists"][number];
 
 export type DecisionQueueRecoveryUiStatus = "idle" | "pending_refetch" | "recovering" | "recovered_by_refetch" | "stale";
