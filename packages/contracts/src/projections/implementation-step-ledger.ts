@@ -410,14 +410,27 @@ function uniqueReviewRecordsById<TRecord extends { readonly reviewId: string }>(
   return [...byId.values()];
 }
 
-export function implementationCodeReviewStreaks(
-  records: readonly CodeReviewRecord[]
-): readonly CodeReviewStreakRecord[] {
+function reviewStreaksForScopes<
+  TScope extends string,
+  TRecord extends { readonly reviewId: string; readonly reviewScope: TScope }
+>(
+  records: readonly TRecord[],
+  reviewScopes: readonly TScope[],
+  noFindingPassed: (record: TRecord) => boolean,
+  reviewLabel: string
+): readonly {
+  readonly reviewScope: TScope;
+  readonly requiredNoFindingPasses: typeof IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK;
+  readonly currentNoFindingPasses: number;
+  readonly satisfied: boolean;
+  readonly latestReviewIds: readonly string[];
+  readonly missingEvidenceLabel: string;
+}[] {
   const uniqueRecords = uniqueReviewRecordsById(records);
 
-  return IMPLEMENTATION_CODE_REVIEW_SCOPES.map((reviewScope) => {
+  return reviewScopes.map((reviewScope) => {
     const scopedRecords = uniqueRecords.filter((record) => record.reviewScope === reviewScope);
-    const latestReviewIds = latestNoFindingReviewIds(scopedRecords, codeReviewNoFindingPassed);
+    const latestReviewIds = latestNoFindingReviewIds(scopedRecords, noFindingPassed);
     const currentNoFindingPasses = latestReviewIds.length;
 
     return {
@@ -426,30 +439,31 @@ export function implementationCodeReviewStreaks(
       currentNoFindingPasses,
       satisfied: currentNoFindingPasses >= IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK,
       latestReviewIds,
-      missingEvidenceLabel: `${reviewScope} code review requires ${IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK} consecutive no-finding passes`
+      missingEvidenceLabel: `${reviewScope} ${reviewLabel} requires ${IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK} consecutive no-finding passes`
     };
   });
+}
+
+export function implementationCodeReviewStreaks(
+  records: readonly CodeReviewRecord[]
+): readonly CodeReviewStreakRecord[] {
+  return reviewStreaksForScopes(
+    records,
+    IMPLEMENTATION_CODE_REVIEW_SCOPES,
+    codeReviewNoFindingPassed,
+    "code review"
+  );
 }
 
 export function implementationCleanCodeReviewStreaks(
   records: readonly CleanCodeReviewRecord[]
 ): readonly CleanCodeReviewStreakRecord[] {
-  const uniqueRecords = uniqueReviewRecordsById(records);
-
-  return IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES.map((reviewScope) => {
-    const scopedRecords = uniqueRecords.filter((record) => record.reviewScope === reviewScope);
-    const latestReviewIds = latestNoFindingReviewIds(scopedRecords, cleanCodeReviewNoFindingPassed);
-    const currentNoFindingPasses = latestReviewIds.length;
-
-    return {
-      reviewScope,
-      requiredNoFindingPasses: IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK,
-      currentNoFindingPasses,
-      satisfied: currentNoFindingPasses >= IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK,
-      latestReviewIds,
-      missingEvidenceLabel: `${reviewScope} clean-code review requires ${IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK} consecutive no-finding passes`
-    };
-  });
+  return reviewStreaksForScopes(
+    records,
+    IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES,
+    cleanCodeReviewNoFindingPassed,
+    "clean-code review"
+  );
 }
 
 function testsPassed(record: TestEvidenceRecord | null) {
