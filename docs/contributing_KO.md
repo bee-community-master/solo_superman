@@ -24,7 +24,7 @@ pnpm start:local
 | Unit tests | `pnpm test` |
 | E2E smoke | `pnpm smoke:e2e` |
 | Docs contract | `pnpm verify:docs` |
-| Full gate | `pnpm verify` |
+| Full gate (typecheck, lint, tests, docs contract, production bundle smoke) | `pnpm verify` |
 
 ## 레포 구조
 
@@ -44,7 +44,7 @@ pnpm start:local
 2. 코드를 수정하기 전에 관련 온보딩 문서를 읽습니다.
 3. unrelated behavior를 넓히지 않고 issue를 해결하는 가장 작은 reviewable change를 만듭니다.
 4. enum, DTO, route, public contract value가 바뀌면 `docs/reference_KO.md`와 `docs/reference_EN.md`를 함께 갱신합니다.
-5. 먼저 targeted tests를 실행하고, 변경 범위가 넓으면 `pnpm verify`를 실행합니다.
+5. 먼저 targeted tests를 실행하고, 최종 PR closeout 전에는 `pnpm verify`를 실행합니다. 이 명령은 production bundle/local smoke gate까지 포함합니다.
 6. draft PR에는 changed scope, tested evidence, known gaps를 적습니다.
 
 ## PR 체크리스트
