@@ -7,6 +7,7 @@ import {
   AUTO_IMPLEMENTATION_GITHUB_ISSUE_ACTION_CLASS,
   AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_GRANULARITY,
   AUTO_IMPLEMENTATION_GITHUB_ISSUE_REQUEST_MODES,
+  AUTO_IMPLEMENTATION_STAGE_ACTIONS,
   AUTO_IMPLEMENTATION_STAGES,
   BLOCKED_ACTION_TYPES,
   CODEX_TURN_PURPOSES,
@@ -52,6 +53,7 @@ import {
   type CreateServicePageUsePermissionPayload,
   type CreateServicePageUsePermissionRequest,
   type DeleteServicePageUsePermissionArtifactsRequest,
+  type RecordAutoImplementationStageRequest,
   type RecordImplementationStepLedgerPayload,
   type RecordImplementationStepLedgerRequest,
   type RevokeChatGptBrowserDelegationRunRequest,
@@ -61,6 +63,9 @@ import {
   type ExecuteFileDiffRequest,
   type ExecuteShellCommandRequest,
   type AutoImplementationGitHubIssueApproval,
+  type AutoImplementationStage,
+  type AutoImplementationStageAction,
+  type AutoImplementationStageBlocker,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
   MANUAL_RESEARCH_SOURCE_CATEGORIES,
   type CreatePlanningHandoffRequest,
@@ -2230,6 +2235,136 @@ function createAutoImplementationRunRequestFromBody(
   };
 }
 
+const AUTO_IMPLEMENTATION_STAGE_REQUEST_BODY_KEYS = [
+  "sessionId",
+  "runId",
+  "stage",
+  "action",
+  "idempotencyKey",
+  "implementationStepId",
+  "blocker",
+  "evidenceRefs",
+  "tickedAt"
+] as const satisfies readonly (keyof RecordAutoImplementationStageRequest)[];
+
+const AUTO_IMPLEMENTATION_STAGE_BLOCKER_KEYS = [
+  "stage",
+  "reason",
+  "missingEvidence",
+  "nextRequiredAction",
+  "evidenceRefs"
+] as const satisfies readonly (keyof AutoImplementationStageBlocker)[];
+
+function autoImplementationStageFromValue(value: unknown, fieldName: string): AutoImplementationStage {
+  const stage = stringFromBody(value, fieldName);
+
+  if (!AUTO_IMPLEMENTATION_STAGES.includes(stage as AutoImplementationStage)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be a canonical auto implementation stage.`);
+  }
+
+  return stage as AutoImplementationStage;
+}
+
+function autoImplementationStageActionFromValue(value: unknown): AutoImplementationStageAction {
+  const action = stringFromBody(value, "action");
+
+  if (!AUTO_IMPLEMENTATION_STAGE_ACTIONS.includes(action as AutoImplementationStageAction)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "action must be tick, start, pause, block, or complete.");
+  }
+
+  return action as AutoImplementationStageAction;
+}
+
+function nonEmptyStringArrayFromBody(value: unknown, fieldName: string) {
+  const strings = optionalStringArrayFromBody(value, fieldName);
+
+  if (!strings?.length) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must include at least one value.`);
+  }
+
+  return strings;
+}
+
+function optionalAutoImplementationStageBlockerFromBody(
+  value: unknown,
+  routeStage: AutoImplementationStage
+): AutoImplementationStageBlocker | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const blocker = requiredJsonObjectFromBody(value, "blocker");
+
+  assertAllowedRecordKeys(blocker, AUTO_IMPLEMENTATION_STAGE_BLOCKER_KEYS, "blocker");
+
+  const stage = autoImplementationStageFromValue(blocker.stage, "blocker.stage");
+
+  if (stage !== routeStage) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "blocker.stage must match the route stage.");
+  }
+
+  return {
+    stage,
+    reason: stringFromBody(blocker.reason, "blocker.reason"),
+    missingEvidence: nonEmptyStringArrayFromBody(blocker.missingEvidence, "blocker.missingEvidence"),
+    nextRequiredAction: stringFromBody(blocker.nextRequiredAction, "blocker.nextRequiredAction"),
+    evidenceRefs: nonEmptyStringArrayFromBody(blocker.evidenceRefs, "blocker.evidenceRefs")
+  };
+}
+
+function recordAutoImplementationStageRequestFromBody(
+  routeSessionId: SessionId,
+  routeRunId: string,
+  routeStage: AutoImplementationStage,
+  body: Readonly<Record<string, unknown>>
+): RecordAutoImplementationStageRequest {
+  assertAllowedRecordKeys(
+    body,
+    AUTO_IMPLEMENTATION_STAGE_REQUEST_BODY_KEYS,
+    "auto implementation stage request body"
+  );
+
+  const bodySessionId = optionalStringFromBody(body.sessionId, "sessionId") as SessionId | undefined;
+  const bodyRunId = optionalStringFromBody(body.runId, "runId");
+  const bodyStage = body.stage === undefined ? undefined : autoImplementationStageFromValue(body.stage, "stage");
+
+  if (bodySessionId && bodySessionId !== routeSessionId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId must match route sessionId.", {
+      routeSessionId,
+      bodySessionId
+    });
+  }
+  if (bodyRunId && bodyRunId !== routeRunId) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "runId must match route runId.", {
+      routeRunId,
+      bodyRunId
+    });
+  }
+  if (bodyStage && bodyStage !== routeStage) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "stage must match route stage.", {
+      routeStage,
+      bodyStage
+    });
+  }
+
+  const tickedAt = optionalIsoTimestampFromBody(body.tickedAt, "tickedAt");
+  const implementationStepId = optionalStringFromBody(body.implementationStepId, "implementationStepId");
+  const evidenceRefs = optionalStringArrayFromBody(body.evidenceRefs, "evidenceRefs");
+  const blocker = optionalAutoImplementationStageBlockerFromBody(body.blocker, routeStage);
+
+  return {
+    sessionId: routeSessionId,
+    runId: routeRunId,
+    stage: routeStage,
+    action: autoImplementationStageActionFromValue(body.action),
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    ...(implementationStepId ? { implementationStepId } : {}),
+    ...(blocker ? { blocker } : {}),
+    ...(evidenceRefs ? { evidenceRefs } : {}),
+    ...(tickedAt ? { tickedAt } : {})
+  };
+}
+
 interface ExecutionAdapterBaseRequest {
   readonly sessionId: SessionId;
   readonly idempotencyKey: string;
@@ -3483,6 +3618,22 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
     withProductEngine(context, (service) =>
       service.getAutoImplementationRuns(context.req.param("sessionId") as SessionId)
     )
+  );
+
+  app.post("/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/stages/:stage", async (context) =>
+    withProductEngine(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const routeRunId = context.req.param("runId");
+      const routeStage = autoImplementationStageFromValue(context.req.param("stage"), "route stage");
+      const request = recordAutoImplementationStageRequestFromBody(
+        routeSessionId,
+        routeRunId,
+        routeStage,
+        await jsonBody(context)
+      );
+
+      return service.recordAutoImplementationStage(request);
+    })
   );
 
   app.post("/api/v1/execution-authorities/:authorityRecordId/preflight", async (context) =>

@@ -15,10 +15,16 @@ import {
   ResearchRunValidationError,
   assertSafeResearchConnectorId,
   AUTO_IMPLEMENTATION_SCHEMA_VERSION,
+  AUTO_IMPLEMENTATION_STAGES,
+  AUTO_IMPLEMENTATION_TICK_INTERVAL_MS,
   validateAutoImplementationRunProjection,
   isTerminalResearchRunStatus,
   type ApiErrorCode,
+  type AutoImplementationStageLedgerEvidence,
+  type AutoImplementationStageRecord,
+  type AutoImplementationStageStatus,
   type AutoImplementationRun,
+  type AutoImplementationRunStatus,
   type AutoImplementationRunProjection,
   type CreateAutoImplementationRunRequest,
   type AutomaticResearchSourceCategory,
@@ -49,6 +55,7 @@ import {
   type ExecutionAuthorityLedgerProjection,
   type ExecutionAuthorityPreflightResult,
   type ExecutionAuthorityRecord,
+  type ImplementationStepRecord,
   type ImplementationStepLedgerProjection,
   type FileDiffChangedFileDto,
   type FileDiffExecutionResult,
@@ -103,6 +110,7 @@ import {
   type StateVersion,
   type StatusEndpointDto,
   type RetryResearchRunRequest,
+  type RecordAutoImplementationStageRequest,
   type UpdateResearchAllowlistRequest,
   type ValidateExecutionAuthorityPreflightRequest
 } from "@solo-superman/contracts";
@@ -498,6 +506,168 @@ function disclosureCommandResponse(
       }
     ]
   };
+}
+
+function addMilliseconds(isoDate: string, durationMs: number) {
+  return new Date(Date.parse(isoDate) + durationMs).toISOString();
+}
+
+function uniqueAutoImplementationRefs(values: readonly string[]) {
+  return [...new Set(values.filter((value) => value.trim().length > 0))];
+}
+
+function autoImplementationStageActionRef(request: RecordAutoImplementationStageRequest) {
+  return `auto-stage-action:${request.idempotencyKey}`;
+}
+
+function autoImplementationStageStatusForAction(
+  action: RecordAutoImplementationStageRequest["action"],
+  currentStatus: AutoImplementationStageStatus
+): AutoImplementationStageStatus {
+  switch (action) {
+    case "start":
+      return "running";
+    case "pause":
+      return "paused";
+    case "block":
+      return "blocked";
+    case "complete":
+      return "completed";
+    case "tick":
+      return currentStatus;
+  }
+}
+
+function autoImplementationRunStatusForAction(
+  action: RecordAutoImplementationStageRequest["action"],
+  isFinalStageComplete: boolean,
+  currentStatus: AutoImplementationRunStatus
+): AutoImplementationRunStatus {
+  if (isFinalStageComplete) {
+    return "completed";
+  }
+
+  switch (action) {
+    case "start":
+    case "complete":
+      return "running";
+    case "pause":
+      return "paused";
+    case "block":
+      return "blocked";
+    case "tick":
+      return currentStatus;
+  }
+}
+
+function completedLedgerStepForAutoImplementationStage(
+  ledger: ImplementationStepLedgerProjection | null,
+  implementationStepId: string | undefined
+): ImplementationStepRecord {
+  if (!ledger) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "Auto implementation stage completion requires an ImplementationStepLedger projection."
+    );
+  }
+
+  if (!implementationStepId) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "implementationStepId is required when completing an auto implementation stage."
+    );
+  }
+
+  const step = [...ledger.steps].reverse().find((candidate) => candidate.stepDoc.stepId === implementationStepId);
+
+  if (!step || step.status !== "completed" || step.missingEvidence.length > 0 || step.blocker) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "Auto implementation stage completion requires a completed ImplementationStepLedger step without blockers."
+    );
+  }
+
+  const missingEvidence: string[] = [];
+
+  if (!step.stepCommitRecord && !step.noCodeStepEvidence) {
+    missingEvidence.push("StepCommitRecord or NoCodeStepEvidence");
+  }
+  if (!step.codeReviewStreaks.every((streak) => streak.satisfied)) {
+    missingEvidence.push("two consecutive no-finding code-review passes for feature and repository scopes");
+  }
+  if (!step.cleanCodeReviewStreaks.every((streak) => streak.satisfied)) {
+    missingEvidence.push("two consecutive no-finding clean-code-review passes for changed_code and repository scopes");
+  }
+  if (!step.testEvidenceRecord || step.testEvidenceRecord.outcome !== "passed" || step.testEvidenceRecord.failedTestCount !== 0 || step.testEvidenceRecord.notTestedGaps.length > 0) {
+    missingEvidence.push("passing TestEvidenceRecord without failed tests or Not-tested gaps");
+  }
+
+  if (missingEvidence.length) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "Auto implementation stage completion requires complete ledger evidence.",
+      { missingEvidence }
+    );
+  }
+
+  return step;
+}
+
+function autoImplementationStageLedgerEvidence(
+  ledger: ImplementationStepLedgerProjection,
+  step: ImplementationStepRecord
+): AutoImplementationStageLedgerEvidence {
+  const implementationEvidenceRefs = step.stepCommitRecord?.evidenceRefs ??
+    step.noCodeStepEvidence?.commandEvidenceRefs ??
+    [];
+  const codeReviewStreakRefs = step.codeReviewStreaks.flatMap((streak) =>
+    streak.latestReviewIds.map((reviewId) => `code-review:${streak.reviewScope}:${reviewId}`)
+  );
+  const cleanCodeReviewStreakRefs = step.cleanCodeReviewStreaks.flatMap((streak) =>
+    streak.latestReviewIds.map((reviewId) => `clean-code-review:${streak.reviewScope}:${reviewId}`)
+  );
+  const testEvidenceRefs = step.testEvidenceRecord?.evidenceRefs ?? [];
+  const blockerEvidenceRefs = ledger.blockedSteps
+    .filter((blocker) => blocker.stepId === step.stepDoc.stepId)
+    .flatMap((blocker) => blocker.evidenceRefs);
+
+  return {
+    implementationStepId: step.stepDoc.stepId,
+    trackerDocRef: `implementation-step-ledger:tracker:${ledger.trackerDoc.trackerId}`,
+    stepDocRef: `implementation-step-ledger:step:${step.stepDoc.stepId}`,
+    implementationEvidenceRefs,
+    codeReviewStreakRefs,
+    cleanCodeReviewStreakRefs,
+    testEvidenceRefs,
+    blockerEvidenceRefs,
+    evidenceRefs: uniqueAutoImplementationRefs([
+      `implementation-step-ledger:${step.stepDoc.stepId}`,
+      ...step.evidenceRefs,
+      ...implementationEvidenceRefs,
+      ...codeReviewStreakRefs,
+      ...cleanCodeReviewStreakRefs,
+      ...testEvidenceRefs,
+      ...blockerEvidenceRefs
+    ])
+  };
+}
+
+function autoImplementationStageTickRecord(input: {
+  readonly request: RecordAutoImplementationStageRequest;
+  readonly status: AutoImplementationStageStatus;
+  readonly recordedAt: string;
+  readonly nextTickAt: string;
+  readonly evidenceRefs: readonly string[];
+}) {
+  return {
+    tickId: `auto-stage-tick:${input.request.runId}:${input.request.stage}:${input.request.action}:${input.request.idempotencyKey}`,
+    stage: input.request.stage,
+    action: input.request.action,
+    status: input.status,
+    recordedAt: input.recordedAt,
+    nextTickAt: input.nextTickAt,
+    evidenceRefs: input.evidenceRefs
+  } satisfies AutoImplementationStageRecord["tickRecords"][number];
 }
 
 function researchRunId() {
@@ -4844,6 +5014,170 @@ export function createProductEngineCommandService(
         projection,
         schemaVersion: CONTRACT_SCHEMA_VERSION,
         updatedAt: now
+      });
+    },
+
+    async recordAutoImplementationStage(
+      request: RecordAutoImplementationStageRequest
+    ): Promise<AutoImplementationRunProjection> {
+      const session = await createProjectRepository(storage.db).getSession(request.sessionId);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: request.sessionId
+        });
+      }
+
+      const projectionRepository = createProjectionRepository(storage.db);
+      const existingProjection = await projectionRepository.get<AutoImplementationRunProjection>(
+        request.sessionId,
+        "AutoImplementationRunProjection"
+      );
+
+      if (!existingProjection) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run projection was not found.", {
+          sessionId: request.sessionId
+        });
+      }
+
+      const run = existingProjection.runs.find((candidate) => candidate.runId === request.runId);
+
+      if (!run) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run was not found.", {
+          runId: request.runId
+        });
+      }
+
+      const actionRef = autoImplementationStageActionRef(request);
+
+      if (run.evidenceRefs.includes(actionRef)) {
+        return existingProjection;
+      }
+
+      if (run.status === "completed" && request.action !== "tick") {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "Completed auto implementation runs cannot be advanced.");
+      }
+
+      if (run.currentStage !== request.stage) {
+        throw new ProductEngineServiceError(
+          "VALIDATION_FAILED",
+          "Auto implementation stages must advance in the canonical sequence.",
+          { currentStage: run.currentStage, requestedStage: request.stage }
+        );
+      }
+
+      if (request.action === "block" && !request.blocker) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "blocker is required when blocking an auto implementation stage.");
+      }
+
+      const stageIndex = run.stagePlan.findIndex((stage) => stage.stage === request.stage);
+      const currentStage = run.stagePlan[stageIndex];
+
+      if (!currentStage) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "Requested auto implementation stage is not in the run plan.");
+      }
+
+      const recordedAt = request.tickedAt ?? new Date().toISOString();
+      const nextTickAt = addMilliseconds(recordedAt, AUTO_IMPLEMENTATION_TICK_INTERVAL_MS);
+      const requestEvidenceRefs = request.evidenceRefs ?? [];
+      const ledger = request.action === "complete"
+        ? await projectionRepository.get<ImplementationStepLedgerProjection>(
+          request.sessionId,
+          "ImplementationStepLedgerProjection"
+        )
+        : null;
+      const ledgerStep = request.action === "complete"
+        ? completedLedgerStepForAutoImplementationStage(ledger, request.implementationStepId)
+        : null;
+      const ledgerEvidence = ledger && ledgerStep ? autoImplementationStageLedgerEvidence(ledger, ledgerStep) : null;
+      const nextStageStatus = autoImplementationStageStatusForAction(request.action, currentStage.status);
+      const stageEvidenceRefs = uniqueAutoImplementationRefs([
+        ...currentStage.evidenceRefs,
+        actionRef,
+        ...requestEvidenceRefs,
+        ...(ledgerEvidence?.evidenceRefs ?? []),
+        ...(request.blocker?.evidenceRefs ?? [])
+      ]);
+      const tick = autoImplementationStageTickRecord({
+        request,
+        status: nextStageStatus,
+        recordedAt,
+        nextTickAt,
+        evidenceRefs: uniqueAutoImplementationRefs([actionRef, ...requestEvidenceRefs])
+      });
+      const updatedStage: AutoImplementationStageRecord = {
+        ...currentStage,
+        status: nextStageStatus,
+        nextScheduledAt: nextTickAt,
+        evidenceRefs: stageEvidenceRefs,
+        tickRecords: [...currentStage.tickRecords, tick],
+        ledgerEvidence: request.action === "complete" ? ledgerEvidence : currentStage.ledgerEvidence,
+        blocker: request.action === "block"
+          ? request.blocker ?? null
+          : (nextStageStatus === "blocked" ? currentStage.blocker : null)
+      };
+      const isFinalStageComplete =
+        request.action === "complete" && request.stage === AUTO_IMPLEMENTATION_STAGES.at(-1);
+      const stagePlan = run.stagePlan.map((stage, index) => {
+        if (index === stageIndex) {
+          return updatedStage;
+        }
+
+        if (request.action === "complete" && index === stageIndex + 1) {
+          const readyRef = `auto-stage-ready:${request.idempotencyKey}`;
+          const readyTick = autoImplementationStageTickRecord({
+            request: {
+              ...request,
+              stage: stage.stage,
+              action: "tick"
+            },
+            status: "ready",
+            recordedAt,
+            nextTickAt,
+            evidenceRefs: [readyRef]
+          });
+
+          return {
+            ...stage,
+            status: "ready" as const,
+            nextScheduledAt: nextTickAt,
+            evidenceRefs: uniqueAutoImplementationRefs([...stage.evidenceRefs, readyRef]),
+            tickRecords: [...stage.tickRecords, readyTick]
+          };
+        }
+
+        return stage;
+      });
+      const nextStage = request.action === "complete" && !isFinalStageComplete
+        ? stagePlan[stageIndex + 1]?.stage ?? request.stage
+        : request.stage;
+      const runStatus = autoImplementationRunStatusForAction(request.action, Boolean(isFinalStageComplete), run.status);
+      const updatedRun: AutoImplementationRun = {
+        ...run,
+        currentStage: nextStage,
+        status: runStatus,
+        nextTickAt,
+        stagePlan,
+        updatedAt: recordedAt,
+        evidenceRefs: uniqueAutoImplementationRefs([...run.evidenceRefs, actionRef, ...stageEvidenceRefs])
+      };
+      const runs = existingProjection.runs.map((candidate) =>
+        candidate.runId === request.runId ? updatedRun : candidate
+      );
+      const projection = validateAutoImplementationRunProjection({
+        ...existingProjection,
+        version: (existingProjection.version + 1) as ProjectionVersion,
+        latestRun: updatedRun,
+        runs,
+        summary: `Auto implementation stage ${request.stage} is ${nextStageStatus}; current stage is ${updatedRun.currentStage}.`
+      });
+
+      return projectionRepository.save({
+        projectId: session.projectId,
+        sessionId: request.sessionId,
+        projection,
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        updatedAt: recordedAt
       });
     },
 

@@ -34,6 +34,7 @@ import type {
   ProjectId,
   QueueItemId,
   RecordImplementationStepLedgerRequest,
+  RecordAutoImplementationStageRequest,
   CancelResearchRunRequest,
   ResearchAllowlistGovernanceProjection,
   ResearchAllowlistId,
@@ -64,6 +65,7 @@ import type {
 import {
   chatGptBrowserDelegationPath,
   chatGptBrowserDelegationRunRevokePath,
+  autoImplementationStagePath,
   autoImplementationRunPath,
   implementationStepLedgerPath,
   phase15bUpgradeHintCollectionPath,
@@ -122,6 +124,7 @@ export type RetryResearchRunInput = RetryResearchRunRequest;
 export type ResolveResearchQueueCardInput = ResolveResearchQueueCardRequest;
 export type CreatePlanningHandoffInput = CreatePlanningHandoffRequest;
 export type CreateAutoImplementationRunInput = CreateAutoImplementationRunRequest;
+export type RecordAutoImplementationStageInput = RecordAutoImplementationStageRequest;
 export type CreateChatGptBrowserDelegationRunInput = CreateChatGptBrowserDelegationRunRequest;
 export type RevokeChatGptBrowserDelegationRunInput = RevokeChatGptBrowserDelegationRunRequest;
 export type CreateServicePageUsePermissionInput = CreateServicePageUsePermissionRequest;
@@ -525,6 +528,13 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
 
     createAutoImplementationRun(input: CreateAutoImplementationRunInput) {
       return postProjection<AutoImplementationRunProjection>(autoImplementationRunPath(input.sessionId), input);
+    },
+
+    recordAutoImplementationStage(input: RecordAutoImplementationStageInput) {
+      return postProjection<AutoImplementationRunProjection>(
+        autoImplementationStagePath(input.sessionId, input.runId, input.stage),
+        input
+      );
     },
 
     getAutoImplementationRuns(sessionId: SessionId) {

@@ -591,6 +591,14 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "recordAutoImplementationStage",
+    clientName: "recordAutoImplementationStage",
+    method: "POST",
+    path: "/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/stages/:stage",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
     routeId: "getCommandStatus",
     clientName: "getCommandStatus",
     method: "GET",
@@ -851,7 +859,8 @@ export const POST_PHASE3_PR06_MOUNTED_PRODUCT_API_ROUTE_IDS = [
 
 export const POST_PHASE3_PR07_AUTO_IMPLEMENTATION_ROUTE_IDS = [
   "createAutoImplementationRun",
-  "getAutoImplementationRuns"
+  "getAutoImplementationRuns",
+  "recordAutoImplementationStage"
 ] as const satisfies readonly ApiRouteId[];
 
 export const POST_PHASE3_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS = [

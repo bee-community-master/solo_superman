@@ -369,6 +369,7 @@ Route definitions are source-owned by `packages/contracts/src/api/routes.ts`. Th
 | `GET /api/v1/sessions/:sessionId/implementation-step-ledger` | `getImplementationStepLedger` | `none` | - |
 | `POST /api/v1/sessions/:sessionId/auto-implementation-runs` | `createAutoImplementationRun` | `none` | - |
 | `GET /api/v1/sessions/:sessionId/auto-implementation-runs` | `getAutoImplementationRuns` | `none` | - |
+| `POST /api/v1/sessions/:sessionId/auto-implementation-runs/:runId/stages/:stage` | `recordAutoImplementationStage` | `none` | - |
 | `GET /api/v1/commands/:commandId/status` | `getCommandStatus` | `none` | - |
 | `GET /api/v1/events/stream` | `subscribeEventStream` | `none` | sessionId |
 | `GET /api/v1/sessions/:sessionId/activity` | `getActivity` | `none` | - |

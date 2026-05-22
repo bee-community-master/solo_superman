@@ -30,6 +30,8 @@ Planning이 충분히 상세해지면 Solo Superman은 `workspace/<project>` 아
 
 GitHub issue mutation은 markdown generation과 별도의 contract gate를 통과해야 합니다. `githubIssueCreation`은 no mutation, dry-run readiness check, approved readiness check를 요청할 수 있지만, external write에는 여전히 connected remote status, per-action approval evidence, rollback plan, audit refs, verifier coverage가 필요합니다. Blocked remote state에서는 `githubIssueUrls`를 비우고 local markdown issue path를 source of truth로 유지합니다.
 
+Controlled runner는 5분 tick record로만 stage를 advance합니다. Stage completion에는 completed `ImplementationStepLedger` step이 필요하며 tracker/step doc, commit 또는 no-code evidence, feature와 repository scope 각각 2회 연속 no-finding code-review, changed-code와 repository scope 각각 2회 연속 clean-code review, passing test evidence, visible blocker history를 포함해야 합니다. Production/external final-submit action은 future explicit contract 없이는 계속 blocked입니다.
+
 ## 이슈 이력
 
 - #86, #87, #88은 web/local migration과 Phase 3 controlled execution prerequisite gate를 세웠습니다.

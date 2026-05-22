@@ -36,10 +36,13 @@ export const AUTO_IMPLEMENTATION_STAGE_STATUSES = [
   "pending",
   "ready",
   "running",
+  "paused",
   "completed",
   "blocked",
   "failed"
 ] as const;
+
+export const AUTO_IMPLEMENTATION_STAGE_ACTIONS = ["tick", "start", "pause", "block", "complete"] as const;
 
 export const AUTO_IMPLEMENTATION_REMOTE_STATUSES = [
   "connected",
@@ -159,6 +162,7 @@ export const AUTO_IMPLEMENTATION_RESERVED_PROJECT_FOLDER_NAMES = [
 export type AutoImplementationStage = (typeof AUTO_IMPLEMENTATION_STAGES)[number];
 export type AutoImplementationRunStatus = (typeof AUTO_IMPLEMENTATION_RUN_STATUSES)[number];
 export type AutoImplementationStageStatus = (typeof AUTO_IMPLEMENTATION_STAGE_STATUSES)[number];
+export type AutoImplementationStageAction = (typeof AUTO_IMPLEMENTATION_STAGE_ACTIONS)[number];
 export type AutoImplementationRemoteStatus = (typeof AUTO_IMPLEMENTATION_REMOTE_STATUSES)[number];
 export type AutoImplementationIssueMode = (typeof AUTO_IMPLEMENTATION_ISSUE_MODES)[number];
 export type AutoImplementationGitHubIssueRequestMode = (typeof AUTO_IMPLEMENTATION_GITHUB_ISSUE_REQUEST_MODES)[number];
@@ -171,6 +175,39 @@ export interface AutoImplementationStageRecord {
   readonly status: AutoImplementationStageStatus;
   readonly sequenceOrder: number;
   readonly nextScheduledAt: string | null;
+  readonly evidenceRefs: readonly string[];
+  readonly tickRecords: readonly AutoImplementationStageTickRecord[];
+  readonly ledgerEvidence: AutoImplementationStageLedgerEvidence | null;
+  readonly blocker: AutoImplementationStageBlocker | null;
+}
+
+export interface AutoImplementationStageTickRecord {
+  readonly tickId: string;
+  readonly stage: AutoImplementationStage;
+  readonly action: AutoImplementationStageAction;
+  readonly status: AutoImplementationStageStatus;
+  readonly recordedAt: string;
+  readonly nextTickAt: string;
+  readonly evidenceRefs: readonly string[];
+}
+
+export interface AutoImplementationStageBlocker {
+  readonly stage: AutoImplementationStage;
+  readonly reason: string;
+  readonly missingEvidence: readonly string[];
+  readonly nextRequiredAction: string;
+  readonly evidenceRefs: readonly string[];
+}
+
+export interface AutoImplementationStageLedgerEvidence {
+  readonly implementationStepId: string;
+  readonly trackerDocRef: string;
+  readonly stepDocRef: string;
+  readonly implementationEvidenceRefs: readonly string[];
+  readonly codeReviewStreakRefs: readonly string[];
+  readonly cleanCodeReviewStreakRefs: readonly string[];
+  readonly testEvidenceRefs: readonly string[];
+  readonly blockerEvidenceRefs: readonly string[];
   readonly evidenceRefs: readonly string[];
 }
 
@@ -295,6 +332,18 @@ export interface CreateAutoImplementationRunRequest {
   };
 }
 
+export interface RecordAutoImplementationStageRequest {
+  readonly sessionId: SessionId;
+  readonly runId: string;
+  readonly stage: AutoImplementationStage;
+  readonly action: AutoImplementationStageAction;
+  readonly idempotencyKey: string;
+  readonly implementationStepId?: string;
+  readonly blocker?: AutoImplementationStageBlocker;
+  readonly evidenceRefs?: readonly string[];
+  readonly tickedAt?: string;
+}
+
 export class AutoImplementationRunValidationError extends Error {
   constructor(readonly issues: readonly string[]) {
     super(`Invalid AutoImplementationRunProjection: ${issues.join("; ")}`);
@@ -343,7 +392,11 @@ function isStageRecord(value: unknown): value is AutoImplementationStageRecord {
     Number.isInteger(value.sequenceOrder) &&
     value.sequenceOrder >= 1 &&
     (value.nextScheduledAt === null || isNonEmptyString(value.nextScheduledAt)) &&
-    isStringArray(value.evidenceRefs);
+    isStringArray(value.evidenceRefs) &&
+    Array.isArray(value.tickRecords) &&
+    value.tickRecords.every((record) => isStageTickRecord(record) && record.stage === value.stage) &&
+    (value.ledgerEvidence === null || isStageLedgerEvidence(value.ledgerEvidence)) &&
+    (value.blocker === null || (isStageBlocker(value.blocker) && value.blocker.stage === value.stage));
 }
 
 function isRemoteGuide(value: unknown): value is AutoImplementationRemoteGuide {
@@ -352,6 +405,46 @@ function isRemoteGuide(value: unknown): value is AutoImplementationRemoteGuide {
     (value.warning === null || isNonEmptyString(value.warning)) &&
     isStringArray(value.commands) &&
     isNonEmptyString(value.nextAction);
+}
+
+function isStageTickRecord(value: unknown): value is AutoImplementationStageTickRecord {
+  return isRecord(value) &&
+    isNonEmptyString(value.tickId) &&
+    isOneOf(value.stage, AUTO_IMPLEMENTATION_STAGES) &&
+    isOneOf(value.action, AUTO_IMPLEMENTATION_STAGE_ACTIONS) &&
+    isOneOf(value.status, AUTO_IMPLEMENTATION_STAGE_STATUSES) &&
+    isNonEmptyString(value.recordedAt) &&
+    isNonEmptyString(value.nextTickAt) &&
+    isStringArray(value.evidenceRefs);
+}
+
+function isStageBlocker(value: unknown): value is AutoImplementationStageBlocker {
+  return isRecord(value) &&
+    isOneOf(value.stage, AUTO_IMPLEMENTATION_STAGES) &&
+    isNonEmptyString(value.reason) &&
+    isStringArray(value.missingEvidence) &&
+    value.missingEvidence.length > 0 &&
+    isNonEmptyString(value.nextRequiredAction) &&
+    isStringArray(value.evidenceRefs) &&
+    value.evidenceRefs.length > 0;
+}
+
+function isStageLedgerEvidence(value: unknown): value is AutoImplementationStageLedgerEvidence {
+  return isRecord(value) &&
+    isNonEmptyString(value.implementationStepId) &&
+    isNonEmptyString(value.trackerDocRef) &&
+    isNonEmptyString(value.stepDocRef) &&
+    isStringArray(value.implementationEvidenceRefs) &&
+    value.implementationEvidenceRefs.length > 0 &&
+    isStringArray(value.codeReviewStreakRefs) &&
+    value.codeReviewStreakRefs.length >= 2 &&
+    isStringArray(value.cleanCodeReviewStreakRefs) &&
+    value.cleanCodeReviewStreakRefs.length >= 2 &&
+    isStringArray(value.testEvidenceRefs) &&
+    value.testEvidenceRefs.length > 0 &&
+    isStringArray(value.blockerEvidenceRefs) &&
+    isStringArray(value.evidenceRefs) &&
+    value.evidenceRefs.length > 0;
 }
 
 function isIssueDoc(value: unknown): value is AutoImplementationIssueDocument {
@@ -417,6 +510,18 @@ function hasCanonicalStagePlan(stagePlan: readonly AutoImplementationStageRecord
       record.sequenceOrder === index + 1 &&
       record.label === AUTO_IMPLEMENTATION_STAGE_LABELS[record.stage];
   });
+}
+
+function stageRecordStateConsistent(record: AutoImplementationStageRecord) {
+  if (record.status === "completed") {
+    return record.ledgerEvidence !== null && record.blocker === null;
+  }
+
+  if (record.status === "blocked") {
+    return record.blocker !== null && record.ledgerEvidence === null;
+  }
+
+  return record.ledgerEvidence === null;
 }
 
 function hasCanonicalIssueDocs(issueDocs: readonly AutoImplementationIssueDocument[]) {
@@ -522,6 +627,7 @@ function isRun(value: unknown): value is AutoImplementationRun {
     Array.isArray(value.stagePlan) &&
     value.stagePlan.length === AUTO_IMPLEMENTATION_STAGES.length &&
     value.stagePlan.every(isStageRecord) &&
+    value.stagePlan.every(stageRecordStateConsistent) &&
     hasCanonicalStagePlan(value.stagePlan) &&
     isIssueManagement(value.issueManagement) &&
     hasCanonicalIssueDocs(value.issueManagement.issueDocs) &&
@@ -611,7 +717,10 @@ const AUTO_IMPLEMENTATION_RUN_READY_FIXTURE_RUN: AutoImplementationRun = {
     status: index === 0 ? "ready" : "pending",
     sequenceOrder: index + 1,
     nextScheduledAt: index === 0 ? "2026-05-19T00:05:00.000Z" : null,
-    evidenceRefs: []
+    evidenceRefs: [],
+    tickRecords: [],
+    ledgerEvidence: null,
+    blocker: null
   })),
   issueManagement: {
     mode: "markdown_fallback",

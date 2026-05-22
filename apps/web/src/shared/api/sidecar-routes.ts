@@ -1,4 +1,10 @@
-import type { ProjectId, ResearchAllowlistId, ResearchRunId, SessionId } from "@solo-superman/contracts";
+import type {
+  AutoImplementationStage,
+  ProjectId,
+  ResearchAllowlistId,
+  ResearchRunId,
+  SessionId
+} from "@solo-superman/contracts";
 
 export function researchAllowlistCollectionPath(projectId: ProjectId) {
   return `/api/v1/projects/${encodeURIComponent(projectId)}/research-allowlists`;
@@ -62,6 +68,10 @@ export function implementationStepLedgerPath(sessionId: SessionId) {
 
 export function autoImplementationRunPath(sessionId: SessionId) {
   return `/api/v1/sessions/${encodeURIComponent(sessionId)}/auto-implementation-runs`;
+}
+
+export function autoImplementationStagePath(sessionId: SessionId, runId: string, stage: AutoImplementationStage) {
+  return `${autoImplementationRunPath(sessionId)}/${encodeURIComponent(runId)}/stages/${encodeURIComponent(stage)}`;
 }
 
 export function sessionEventStreamPath(sessionId: SessionId) {

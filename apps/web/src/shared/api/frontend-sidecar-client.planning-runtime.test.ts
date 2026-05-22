@@ -297,9 +297,19 @@ describe("sidecar client planning-runtime", () => {
       projectName: "Demo Workspace App",
       sourcePlanningRef: "planning_handoff_ready_demo"
     });
+    const advanced = await client.recordAutoImplementationStage({
+      sessionId: "sess_auto_impl" as SessionId,
+      runId: "auto_run_demo",
+      stage: "initial_pr",
+      action: "start",
+      idempotencyKey: "auto-impl-stage-client-test",
+      tickedAt: "2026-05-20T00:00:00.000Z",
+      evidenceRefs: ["stage:start"]
+    });
     const projection = await client.getAutoImplementationRuns("sess_auto_impl" as SessionId);
 
     expect(created.kind).toBe("AutoImplementationRunProjection");
+    expect(advanced.kind).toBe("AutoImplementationRunProjection");
     expect(projection?.kind).toBe("AutoImplementationRunProjection");
     expect(seenRequests[0]).toMatchObject([
       "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs",
@@ -318,6 +328,17 @@ describe("sidecar client planning-runtime", () => {
       sourcePlanningRef: "planning_handoff_ready_demo"
     });
     expect(seenRequests[1]).toMatchObject([
+      "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs/auto_run_demo/stages/initial_pr",
+      expect.objectContaining({ method: "POST" })
+    ]);
+    expect(JSON.parse(String(seenRequests[1]?.[1]?.body))).toMatchObject({
+      sessionId: "sess_auto_impl",
+      runId: "auto_run_demo",
+      stage: "initial_pr",
+      action: "start",
+      idempotencyKey: "auto-impl-stage-client-test"
+    });
+    expect(seenRequests[2]).toMatchObject([
       "http://127.0.0.1:43110/api/v1/sessions/sess_auto_impl/auto-implementation-runs",
       expect.objectContaining({ method: "GET" })
     ]);
