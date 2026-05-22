@@ -240,6 +240,10 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Open topics");
     expect(markup).toContain("Follow-up budget");
     expect(markup).toContain("Blocked");
+    expect(markup).toContain("Fatigue checkpoint");
+    expect(markup).toContain("18 open questions remain after 22% handled across 23 generated questions.");
+    expect(markup).toContain("Answer only the current batch");
+    expect(markup).toContain("40 follow-up slots remain; use them deliberately.");
     expect(markup).toContain("<dd>23</dd>");
     expect(markup).toContain("<dd>18</dd>");
     expect(markup).toContain("<dd>6</dd>");

@@ -16,6 +16,7 @@ import type {
 import {
   decisionQueueRecoveryViewModel,
   pendingEffectSummary,
+  questionFatigueViewModel,
   questionProgressViewModel,
   queueSections,
   runtimeActivityProjectionFromStatuses,
@@ -201,7 +202,9 @@ describe("Decision Queue view model queue", () => {
       deferred: []
     };
 
-    expect(questionProgressViewModel(queue)).toMatchObject({
+    const progress = questionProgressViewModel(queue);
+
+    expect(progress).toMatchObject({
       generatedQuestionCount: 23,
       openQuestionCount: 18,
       answeredQuestionCount: 4,
@@ -216,6 +219,38 @@ describe("Decision Queue view model queue", () => {
       upcomingQuestionCount: 1,
       blockedQuestionCount: 0,
       completionPercent: 22
+    });
+    expect(questionFatigueViewModel(progress)).toMatchObject({
+      shouldShow: true,
+      level: "checkpoint",
+      generatedQuestionCount: 23,
+      openQuestionCount: 18,
+      completionPercent: 22,
+      followUpBudgetRemainingCount: 40
+    });
+  });
+
+  it("keeps the fatigue checkpoint hidden for short or mostly handled sessions", () => {
+    expect(
+      questionFatigueViewModel({
+        generatedQuestionCount: 8,
+        openQuestionCount: 3,
+        answeredQuestionCount: 5,
+        terminalQuestionCount: 5,
+        followUpQuestionCount: 1,
+        followUpOpenQuestionCount: 1,
+        topicCoverageCount: 5,
+        openTopicCoverageCount: 2,
+        followUpBudgetRemainingCount: 4,
+        visibleQuestionDebtCount: 3,
+        activeQuestionCount: 3,
+        upcomingQuestionCount: 0,
+        blockedQuestionCount: 0,
+        completionPercent: 62
+      })
+    ).toMatchObject({
+      shouldShow: false,
+      level: "checkpoint"
     });
   });
 
