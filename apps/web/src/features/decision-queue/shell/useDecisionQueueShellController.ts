@@ -14,6 +14,7 @@ import {
 import { autoImplementationRunViewModel } from "../AutoImplementationRunPanel";
 import {
   buildAutoImplementationPullRequestDryRunRequest,
+  buildAutoImplementationPullRequestMergeDryRunRequest,
   buildAutoImplementationPullRequestOpenDryRunRequest
 } from "../auto-implementation-pr-mutation-request";
 import {
@@ -706,6 +707,16 @@ export function useDecisionQueueShellController() {
     [recordAutoImplementationPullRequestDryRunAction]
   );
 
+  const recordAutoImplementationPullRequestMergeDryRun = useCallback(
+    () => recordAutoImplementationPullRequestDryRunAction({
+      buildRequest: buildAutoImplementationPullRequestMergeDryRunRequest,
+      missingRunMessage: "An active auto implementation workspace run is required before recording a PR merge dry-run.",
+      logIdPrefix: "auto-implementation-pr-merge-dry-run",
+      label: "Record PR merge dry-run"
+    }),
+    [recordAutoImplementationPullRequestDryRunAction]
+  );
+
   const planningRadarAxesView = useMemo(
     () =>
       planningRadarAxes(confidence).map((axis) => ({
@@ -874,6 +885,7 @@ export function useDecisionQueueShellController() {
     planAutoImplementationWorkerJob,
     recordAutoImplementationPullRequestOpenDryRun,
     recordAutoImplementationPullRequestDryRun,
+    recordAutoImplementationPullRequestMergeDryRun,
     runAutoImplementationWorkerJob,
     advanceAutoImplementationWorkerStage,
     sections,

@@ -100,6 +100,7 @@ function renderPanelMarkup(run: ReturnType<typeof autoImplementationRunViewModel
       onPlanWorkerJob: () => undefined,
       onRecordPullRequestOpenDryRun: () => undefined,
       onRecordPullRequestDryRun: () => undefined,
+      onRecordPullRequestMergeDryRun: () => undefined,
       onRunWorkerJob: () => undefined,
       onAdvanceWorkerStage: () => undefined,
       onRefreshRun: () => undefined
@@ -420,6 +421,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("Approve worker authority + plan job");
     expect(markup).toContain("Record PR open dry-run");
     expect(markup).toContain("Record PR body dry-run");
+    expect(markup).toContain("Record PR merge dry-run");
     expect(markup).toContain("Run worker job");
     expect(markup).toContain("Advance worker stage");
     expect(markup).toContain("local markdown issue paths remain the source of truth");
