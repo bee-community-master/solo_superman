@@ -194,5 +194,31 @@ describe("QuestionsView", () => {
     expect(markup).toContain("<dd>8</dd>");
   });
 
+  it("renders research-generated additional questions on research-updated queue cards", () => {
+    const markup = renderQuestionsView({
+      sections: [
+        {
+          id: "blocked",
+          title: "Needs attention",
+          emptyLabel: "No blocked items.",
+          items: [
+            {
+              queueItemId: "research_review_follow_up" as QueueItemId,
+              title: "Evidence still insufficient: Validate paid founder urgency",
+              state: "blocked",
+              cardType: "follow_up_question",
+              additionalQuestions: [
+                "What evidence would resolve Validate paid founder urgency?"
+              ]
+            }
+          ]
+        }
+      ]
+    });
+
+    expect(markup).toContain("Research-generated questions");
+    expect(markup).toContain("What evidence would resolve Validate paid founder urgency?");
+  });
+
 
 });

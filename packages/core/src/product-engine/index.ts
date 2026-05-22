@@ -2288,6 +2288,7 @@ function researchCardQueueMetadata(
     cardType: card.cardType,
     researchTaskId: card.researchTaskId,
     ...(card.evidencePackId ? { evidencePackId: card.evidencePackId } : {}),
+    ...(card.additionalQuestions?.length ? { additionalQuestions: card.additionalQuestions } : {}),
     blocksPlanning: overrides.blocksPlanning ?? card.blocksPlanning,
     availableOutcomes: card.availableOutcomes,
     ...(terminalOutcome ? { terminalOutcome } : {}),

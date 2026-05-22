@@ -241,6 +241,7 @@ function reviewCardForMatrix(
     reviewReason: primaryGateReviewReason(pack) ?? pack.implicationScope,
     retainedSourceRef: sourceRetainedRef(result),
     retainedSourceRefs: sourceRefs,
+    ...(matrix.additionalQuestions.length ? { additionalQuestions: matrix.additionalQuestions } : {}),
     availableOutcomes: outcomeMetadata.availableOutcomes,
     suggestedOutcome: outcomeMetadata.suggestedOutcome,
     blocksPlanning: task.impact === "high",

@@ -164,6 +164,7 @@ export interface ResearchReviewCardProjection {
   readonly reviewReason?: string;
   readonly retainedSourceRef?: string;
   readonly retainedSourceRefs?: readonly string[];
+  readonly additionalQuestions?: readonly string[];
   readonly availableOutcomes: readonly ResearchQueueTerminalOutcome[];
   readonly suggestedOutcome?: ResearchQueueTerminalOutcome;
   readonly terminalOutcome?: ResearchQueueTerminalOutcome;

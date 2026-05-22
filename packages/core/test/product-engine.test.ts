@@ -1932,11 +1932,30 @@ describe("PR-04 ProductEngine reducer", () => {
         evidenceMatrices: [
           expect.objectContaining({
             balanceStatus: "missing_con_evidence",
-            decisionBlocked: true
+            decisionBlocked: true,
+            additionalQuestions: [
+              expect.stringContaining("What evidence would resolve Validate paid founder urgency?")
+            ]
+          })
+        ],
+        reviewCards: [
+          expect.objectContaining({
+            additionalQuestions: [
+              expect.stringContaining("What evidence would resolve Validate paid founder urgency?")
+            ]
           })
         ],
         knownRisks: [
           expect.stringContaining("missing_con_evidence")
+        ]
+      },
+      queueProjection: {
+        blocked: [
+          expect.objectContaining({
+            additionalQuestions: [
+              expect.stringContaining("What evidence would resolve Validate paid founder urgency?")
+            ]
+          })
         ]
       },
       completeness: {
