@@ -3,6 +3,7 @@ import {
   CODEX_APP_SERVER_GENERATED_VERSION,
   CODEX_RUNTIME_ADAPTER_VERSION,
   CODEX_RUNTIME_TRANSPORT,
+  canMergeAutoImplementationPullRequest,
   canOpenNewAutoImplementationPullRequest,
   type AutoImplementationRun,
   type BusinessCriticIntensity,
@@ -1084,7 +1085,9 @@ export function useDecisionQueueShellController() {
         }),
       missingRunMessage: "An active auto implementation workspace run is required before applying an approved PR merge.",
       logIdPrefix: "auto-implementation-pr-merge-approved",
-      label: "Apply approved PR merge"
+      label: "Apply approved PR merge",
+      canSubmit: canMergeAutoImplementationPullRequest,
+      blockedMessage: "A pull request merge is already recorded; do not merge the same auto implementation PR again."
     }),
     [recordAutoImplementationPullRequestMutationAction]
   );

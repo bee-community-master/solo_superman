@@ -1,5 +1,6 @@
 import {
   canImportAutoImplementationWorkerLedger,
+  canMergeAutoImplementationPullRequest,
   canOpenNewAutoImplementationPullRequest,
   canPlanCurrentStageAutoImplementationWorkerJob,
   canRunAutoImplementationWorkerJob,
@@ -231,7 +232,9 @@ export function autoImplementationRunViewModel(
       hasReadyPullRequestDryRun("open_pr") &&
       canOpenNewAutoImplementationPullRequest(run),
     canApplyPullRequestBodyUpdate: run.status !== "completed" && hasReadyPullRequestDryRun("update_pr_body"),
-    canApplyPullRequestMerge: run.status !== "completed" && hasReadyPullRequestDryRun("merge_pr"),
+    canApplyPullRequestMerge: run.status !== "completed" &&
+      hasReadyPullRequestDryRun("merge_pr") &&
+      canMergeAutoImplementationPullRequest(run),
     canRunWorkerJob,
     canAdvanceWorkerStage: latestWorkerJob?.status === "completed",
     hasRun: true

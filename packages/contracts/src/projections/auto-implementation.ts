@@ -360,6 +360,25 @@ export function canOpenNewAutoImplementationPullRequest(run: AutoImplementationR
   return latestAutoImplementationPullRequestUrl(run) === null;
 }
 
+export function hasAppliedAutoImplementationPullRequestMerge(run: AutoImplementationRun): boolean {
+  const records = autoImplementationPullRequestMutationRecords(run);
+  const latestRecord = run.pullRequestMutations.latestRecord;
+  const recordsToScan = latestRecord && !records.some((record) => record.mutationId === latestRecord.mutationId)
+    ? [...records, latestRecord]
+    : records;
+
+  return recordsToScan.some((record) =>
+    record.action === "merge_pr" &&
+    record.requestMode === "approved" &&
+    record.status === "applied" &&
+    record.mutatesGitHub
+  );
+}
+
+export function canMergeAutoImplementationPullRequest(run: AutoImplementationRun): boolean {
+  return !hasAppliedAutoImplementationPullRequestMerge(run);
+}
+
 export interface AutoImplementationIssueManagement {
   readonly mode: AutoImplementationIssueMode;
   readonly trackerRelativePath: string;

@@ -10519,6 +10519,16 @@ describe("PR-02 sidecar health shell", () => {
       const appliedRun = latestAutoImplementationRunFromBody(await jsonBody(applied));
       const appliedRecord = (appliedRun.pullRequestMutations as Readonly<Record<string, unknown>>).latestRecord as
         Readonly<Record<string, unknown>>;
+      const duplicateMerge = await postAutoImplementationPullRequestMutationForTest(storageApp, sessionId, runId, mergeRequest(
+        "pr-mutation:merge:duplicate-applied",
+        {
+          bodyEvidenceRefs: ["pr-body:current-evidence"],
+          mergeEvidenceRefs: ["merge-ready:duplicate-checks-green"]
+        }
+      ));
+      const duplicateMergeRun = latestAutoImplementationRunFromBody(await jsonBody(duplicateMerge));
+      const duplicateMergeRecord = (duplicateMergeRun.pullRequestMutations as Readonly<Record<string, unknown>>).latestRecord as
+        Readonly<Record<string, unknown>>;
 
       expect(blockedBeforeFinalVerify.status).toBe(200);
       expect(blockedBeforeFinalVerifyRecord).toMatchObject({
@@ -10551,6 +10561,16 @@ describe("PR-02 sidecar health shell", () => {
           "github-pr-mutation:applied",
           "github-pr-mutation:mock-adapter:merged"
         ])
+      });
+      expect(duplicateMerge.status).toBe(200);
+      expect(mutationInputs).toHaveLength(1);
+      expect(duplicateMergeRecord).toMatchObject({
+        action: "merge_pr",
+        requestMode: "approved",
+        status: "blocked",
+        mutatesGitHub: false,
+        pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/125",
+        blockedReason: "GitHub PR merge is blocked because a pull request merge is already recorded for this auto implementation run."
       });
     } finally {
       await storage.close();
