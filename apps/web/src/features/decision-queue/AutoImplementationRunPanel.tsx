@@ -1,6 +1,7 @@
 import type {
   AutoImplementationIssueDocument,
   AutoImplementationRunProjection,
+  AutoImplementationStageReviewGate,
   AutoImplementationStageRecord
 } from "@solo-superman/contracts";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
@@ -17,6 +18,8 @@ export interface AutoImplementationRunViewModel {
   readonly remoteNextAction: string;
   readonly stages: readonly AutoImplementationStageRecord[];
   readonly issueDocs: readonly AutoImplementationIssueDocument[];
+  readonly deliveryGates: readonly string[];
+  readonly stageReviewGates: readonly AutoImplementationStageReviewGate[];
   readonly evidenceRefs: readonly string[];
   readonly hasRun: boolean;
 }
@@ -43,6 +46,8 @@ export function autoImplementationRunViewModel(
       remoteNextAction: "Create the workspace run after the planning handoff is detailed enough.",
       stages: [],
       issueDocs: [],
+      deliveryGates: [],
+      stageReviewGates: [],
       evidenceRefs: [],
       hasRun: false
     };
@@ -60,6 +65,8 @@ export function autoImplementationRunViewModel(
     remoteNextAction: run.remoteGuide.nextAction,
     stages: run.stagePlan,
     issueDocs: run.issueManagement.issueDocs,
+    deliveryGates: run.reviewProtocol.deliveryGates,
+    stageReviewGates: run.reviewProtocol.stageGates,
     evidenceRefs: run.evidenceRefs,
     hasRun: true
   };
@@ -112,6 +119,31 @@ export function AutoImplementationRunPanel({
       ) : (
         <p className="empty-state">{copy.autoImplementation.noStages}</p>
       )}
+
+      <h3>{copy.autoImplementation.reviewProtocol}</h3>
+      {run.deliveryGates.length ? (
+        <ul>
+          {run.deliveryGates.map((gate) => (
+            <li key={gate}>{gate}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="empty-state">{copy.autoImplementation.noReviewGates}</p>
+      )}
+      {run.stageReviewGates.length ? (
+        <div className="auto-implementation-stage-gates">
+          {run.stageReviewGates.map((stageGate) => (
+            <article className="operations-card" key={stageGate.stage}>
+              <strong>{stageGate.stage}</strong>
+              <ul>
+                {stageGate.gates.map((gate) => (
+                  <li key={gate}>{gate}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      ) : null}
 
       <h3>{copy.autoImplementation.issueDocs}</h3>
       {run.issueDocs.length ? (

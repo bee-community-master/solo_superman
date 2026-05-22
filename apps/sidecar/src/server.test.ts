@@ -8311,7 +8311,20 @@ describe("PR-02 sidecar health shell", () => {
       expect(manifest).toMatchObject({
         runId: latestRun.runId,
         projectFolderName: "demo-workspace-app",
-        remoteStatus: "no_remote"
+        remoteStatus: "no_remote",
+        reviewProtocol: {
+          deliveryGates: expect.arrayContaining([
+            expect.stringContaining("two consecutive no-finding passes")
+          ]),
+          stageGates: expect.arrayContaining([
+            expect.objectContaining({
+              stage: "final_verify_pr_update",
+              gates: expect.arrayContaining([
+                expect.stringContaining("Update the PR description")
+              ])
+            })
+          ])
+        }
       });
       expect(gitHead).toContain("refs/heads/main");
 

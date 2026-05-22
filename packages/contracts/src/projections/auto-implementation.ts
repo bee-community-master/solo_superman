@@ -62,6 +62,54 @@ export const DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES = [
   "Merge verified PR to main"
 ] as const;
 
+export const AUTO_IMPLEMENTATION_DELIVERY_PROTOCOL = [
+  "Keep each implementation slice tied to one local markdown issue or GitHub issue before opening the PR.",
+  "Do not merge until the feature PR code review reaches two consecutive no-finding passes after any fixes.",
+  "Do not merge until the broader repo-level code review reaches two consecutive no-finding passes.",
+  "Do not merge until the changed-code clean-code review reaches two consecutive no-finding passes.",
+  "Do not merge until the repo-level clean-code review reaches two consecutive no-finding passes.",
+  "Audit missing targeted tests, then run the full verification command before updating the PR body.",
+  "Update the PR body with scope, review streak evidence, test evidence, remaining gaps, and merge readiness before merging."
+] as const;
+
+export const AUTO_IMPLEMENTATION_STAGE_REVIEW_GATES = {
+  initial_pr: [
+    "Create the smallest behavior-complete implementation for this issue slice.",
+    "Open or prepare the PR with the issue link, acceptance criteria, rollback notes, and targeted test plan.",
+    "Record the first targeted test evidence before requesting review."
+  ],
+  code_review_fix_1: [
+    "Run feature-scope code review and fix every actionable finding.",
+    "Repeat review until two consecutive feature-scope passes report no findings.",
+    "Record both clean pass timestamps or reviewer refs in the PR body."
+  ],
+  code_review_fix_2: [
+    "Run repo-wide code review beyond the touched feature.",
+    "Fix any cross-repo consistency, architecture, or safety findings.",
+    "Repeat repo-wide review until two consecutive passes report no findings."
+  ],
+  clean_code_fix_1: [
+    "Run changed-code clean-code review for naming, boundaries, duplication, dead paths, and test shape.",
+    "Prefer deletion, existing utilities, and simpler boundaries over new abstractions.",
+    "Repeat clean-code review until two consecutive changed-code passes report no findings."
+  ],
+  clean_code_fix_2: [
+    "Run repo-level clean-code review for adjacent slop, stale abstractions, and consistency drift.",
+    "Fix only findings that are necessary for this implementation slice or split follow-up issues.",
+    "Repeat repo-level clean-code review until two consecutive passes report no findings."
+  ],
+  final_verify_pr_update: [
+    "Audit missing tests against the issue acceptance criteria and add targeted coverage where gaps remain.",
+    "Run targeted tests first, then the full final verification command.",
+    "Update the PR description with scope, review streaks, exact verification commands, and known gaps."
+  ],
+  merge_main: [
+    "Verify the PR is mergeable and its body contains final review/test evidence.",
+    "Merge only after the final verification evidence is fresh.",
+    "Sync main after merge and rerun the full verification command on main."
+  ]
+} as const satisfies Record<AutoImplementationStage, readonly string[]>;
+
 export const AUTO_IMPLEMENTATION_RESERVED_PROJECT_FOLDER_NAMES = [
   "con",
   "prn",
@@ -125,6 +173,26 @@ export interface AutoImplementationIssueManagement {
   readonly warning: string | null;
 }
 
+export interface AutoImplementationStageReviewGate {
+  readonly stage: AutoImplementationStage;
+  readonly gates: readonly string[];
+}
+
+export interface AutoImplementationReviewProtocol {
+  readonly deliveryGates: readonly string[];
+  readonly stageGates: readonly AutoImplementationStageReviewGate[];
+}
+
+export function defaultAutoImplementationReviewProtocol(): AutoImplementationReviewProtocol {
+  return {
+    deliveryGates: AUTO_IMPLEMENTATION_DELIVERY_PROTOCOL,
+    stageGates: AUTO_IMPLEMENTATION_STAGES.map((stage) => ({
+      stage,
+      gates: AUTO_IMPLEMENTATION_STAGE_REVIEW_GATES[stage]
+    }))
+  };
+}
+
 export interface AutoImplementationRun {
   readonly runId: string;
   readonly projectFolderName: string;
@@ -138,6 +206,7 @@ export interface AutoImplementationRun {
   readonly stagePlan: readonly AutoImplementationStageRecord[];
   readonly issueManagement: AutoImplementationIssueManagement;
   readonly remoteGuide: AutoImplementationRemoteGuide;
+  readonly reviewProtocol: AutoImplementationReviewProtocol;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly evidenceRefs: readonly string[];
@@ -258,6 +327,31 @@ function hasCanonicalIssueDocs(issueDocs: readonly AutoImplementationIssueDocume
     issueDocs.every((issue, index) => issue.stage === AUTO_IMPLEMENTATION_STAGES[index]);
 }
 
+function arraysMatch(left: readonly string[], right: readonly string[]) {
+  return left.length === right.length && left.every((item, index) => item === right[index]);
+}
+
+function isStageReviewGate(value: unknown): value is AutoImplementationStageReviewGate {
+  return isRecord(value) &&
+    isOneOf(value.stage, AUTO_IMPLEMENTATION_STAGES) &&
+    Array.isArray(value.gates) &&
+    isStringArray(value.gates) &&
+    arraysMatch(value.gates, AUTO_IMPLEMENTATION_STAGE_REVIEW_GATES[value.stage]);
+}
+
+function isReviewProtocol(value: unknown): value is AutoImplementationReviewProtocol {
+  if (!isRecord(value) || !Array.isArray(value.deliveryGates) || !Array.isArray(value.stageGates)) {
+    return false;
+  }
+
+  const stageGates = value.stageGates as readonly AutoImplementationStageReviewGate[];
+
+  return isStringArray(value.deliveryGates) &&
+    arraysMatch(value.deliveryGates, AUTO_IMPLEMENTATION_DELIVERY_PROTOCOL) &&
+    stageGates.length === AUTO_IMPLEMENTATION_STAGES.length &&
+    stageGates.every((record, index) => record.stage === AUTO_IMPLEMENTATION_STAGES[index] && isStageReviewGate(record));
+}
+
 function hasConsistentRemoteIssueState(
   remoteStatus: AutoImplementationRemoteStatus,
   issueManagement: AutoImplementationIssueManagement,
@@ -290,6 +384,7 @@ function isRun(value: unknown): value is AutoImplementationRun {
     hasCanonicalIssueDocs(value.issueManagement.issueDocs) &&
     isRemoteGuide(value.remoteGuide) &&
     hasConsistentRemoteIssueState(value.remoteStatus, value.issueManagement, value.remoteGuide) &&
+    isReviewProtocol(value.reviewProtocol) &&
     isNonEmptyString(value.createdAt) &&
     isNonEmptyString(value.updatedAt) &&
     isStringArray(value.evidenceRefs) &&
@@ -373,6 +468,7 @@ const AUTO_IMPLEMENTATION_RUN_READY_FIXTURE_RUN: AutoImplementationRun = {
     commands: ["git remote add origin <github-repo-url>", "git push -u origin main", "gh auth login"],
     nextAction: "Connect a GitHub remote when remote issue/PR automation is desired."
   },
+  reviewProtocol: defaultAutoImplementationReviewProtocol(),
   createdAt: "2026-05-19T00:00:00.000Z",
   updatedAt: "2026-05-19T00:00:00.000Z",
   evidenceRefs: ["workspace:demo-project", "git:init:main", "issues:markdown_fallback"]
