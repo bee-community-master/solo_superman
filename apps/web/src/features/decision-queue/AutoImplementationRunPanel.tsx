@@ -35,6 +35,7 @@ export interface AutoImplementationRunViewModel {
   readonly latestWorkerJobId: string | null;
   readonly latestWorkerJobStatus: AutoImplementationWorkerJob["status"] | "not_planned";
   readonly canPlanWorkerJob: boolean;
+  readonly canRecordPullRequestDryRun: boolean;
   readonly canRunWorkerJob: boolean;
   readonly canAdvanceWorkerStage: boolean;
   readonly hasRun: boolean;
@@ -76,6 +77,7 @@ export function autoImplementationRunViewModel(
       latestWorkerJobId: null,
       latestWorkerJobStatus: "not_planned",
       canPlanWorkerJob: false,
+      canRecordPullRequestDryRun: false,
       canRunWorkerJob: false,
       canAdvanceWorkerStage: false,
       hasRun: false
@@ -135,6 +137,7 @@ export function autoImplementationRunViewModel(
     latestWorkerJobId: latestWorkerJob?.jobId ?? null,
     latestWorkerJobStatus: latestWorkerJob?.status ?? "not_planned",
     canPlanWorkerJob: run.status !== "completed",
+    canRecordPullRequestDryRun: run.status !== "completed",
     canRunWorkerJob,
     canAdvanceWorkerStage: latestWorkerJob?.status === "completed",
     hasRun: true
@@ -150,6 +153,7 @@ interface AutoImplementationRunPanelProps {
   readonly isBusy: boolean;
   readonly onCreateRun: () => void;
   readonly onPlanWorkerJob: () => void;
+  readonly onRecordPullRequestDryRun: () => void;
   readonly onRunWorkerJob: () => void;
   readonly onAdvanceWorkerStage: () => void;
   readonly onRefreshRun: () => void;
@@ -160,6 +164,7 @@ export function AutoImplementationRunPanel({
   isBusy,
   onCreateRun,
   onPlanWorkerJob,
+  onRecordPullRequestDryRun,
   onRunWorkerJob,
   onAdvanceWorkerStage,
   onRefreshRun
@@ -185,6 +190,13 @@ export function AutoImplementationRunPanel({
         </button>
         <button type="button" disabled={isBusy || !run.canPlanWorkerJob} onClick={onPlanWorkerJob}>
           {copy.autoImplementation.planWorkerJob}
+        </button>
+        <button
+          type="button"
+          disabled={isBusy || !run.canRecordPullRequestDryRun}
+          onClick={onRecordPullRequestDryRun}
+        >
+          {copy.autoImplementation.recordPullRequestDryRun}
         </button>
         <button type="button" disabled={isBusy || !run.canRunWorkerJob} onClick={onRunWorkerJob}>
           {copy.autoImplementation.runWorkerJob}
