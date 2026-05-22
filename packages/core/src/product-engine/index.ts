@@ -58,6 +58,7 @@ import {
   validatePhase25ResearchComparisonReport,
   type ActiveBatchSafeProjection,
   type AmbiguityAnswerOption,
+  type AmbiguityExpectedAnswerType,
   type AmbiguityIssueSnapshot,
   type BusinessCriticalQuestionCategory,
   type BusinessCriticIntensity,
@@ -271,6 +272,28 @@ const EMPTY_RUNTIME_PROJECTION: RuntimeActivityProjection = {
 };
 
 const DEFAULT_QUESTION_BATCH_SIZE = 5;
+const DEFAULT_FOLLOW_UP_QUESTION_LIMIT = 8;
+const BUSINESS_CRITIC_FOLLOW_UP_QUESTION_LIMIT = 6;
+const ANSWER_EXCERPT_MAX_CHARS = 96;
+const ANSWER_EXCERPT_REDACTED_VALUE = "[민감한 값 숨김]";
+
+const ANSWER_EXCERPT_SENSITIVE_VALUE_PATTERNS = [
+  /(?:api[_-]?key|client[_-]?secret|password|secret|token|credential)\s*[=:]\s*["']?[^\s,"']{4,}/giu,
+  /\b(?:bearer|sk-[A-Za-z0-9_-]{8,})[A-Za-z0-9._~+/=-]*/giu,
+  /https?:\/\/\S*(?:api[_-]?key|password|secret|token|credential)=\S*/giu
+] as const;
+
+const FOLLOW_UP_QUESTION_TEMPLATES = [
+  "방금 답한 “{answer}”를 실제 판단 기준으로 바꾸려면, 누가 어떤 상황에서 이 답이 맞다고 확인할 수 있나요?",
+  "“{answer}”라는 답에서 가장 약한 가정은 무엇이고, 반대 사례가 나오면 무엇을 바꿀 건가요?",
+  "이 답을 첫 구현 범위에 반영하면 반드시 넣을 것과 의도적으로 뺄 것은 무엇인가요?",
+  "이 답이 맞는지 공개 정보나 사용자 행동으로 확인하려면 어떤 근거를 찾아야 하나요?",
+  "이 답을 기준으로 다음 결정을 내리기 전에 아직 애매한 단어, 숫자, 대상은 무엇인가요?",
+  "이 답이 틀렸을 때 가장 빨리 드러나는 실패 신호는 무엇이고, 그때의 다음 행동은 무엇인가요?",
+  "이 답을 한 문장 제품 약속으로 바꾸면 무엇이며, 사용자가 그 약속을 믿지 않을 이유는 무엇인가요?",
+  "이 답을 실제 제작 순서로 옮기면 첫 1주일 안에 끝내야 할 가장 작은 검증/구현 조각은 무엇인가요?"
+] as const;
+
 const AMBIGUITY_SEVERITY_PRIORITY = {
   high: 0,
   medium: 1,
@@ -1336,7 +1359,9 @@ function createAmbiguityIssues(
       decisionItUnlocks: seed.decisionItUnlocks,
       ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
       repeatCount: 0,
-      repeatLimit: seed.businessCriticPressureKind ? 2 : 3,
+      repeatLimit: seed.businessCriticPressureKind
+        ? BUSINESS_CRITIC_FOLLOW_UP_QUESTION_LIMIT
+        : DEFAULT_FOLLOW_UP_QUESTION_LIMIT,
       possibleRoutes: seed.routes,
       sourceRef: seed.topicKey
     };
@@ -1497,7 +1522,7 @@ function queueItemProjectionFromIssue(
     queueItemId: issue.queueItemId,
     title: issue.questionText ?? plainUserFacingDecisionQueueText(issue.summary),
     state,
-    cardType: "question",
+    cardType: (issue.repeatCount ?? 0) > 0 ? "follow_up_question" : "question",
     ...(issue.sectionRef ? { sectionRef: issue.sectionRef } : {}),
     ...(issue.topicKey ? { topicKey: issue.topicKey } : {}),
     ...(issue.purposeModeAxis ? { purposeModeAxis: issue.purposeModeAxis } : {}),
@@ -1711,6 +1736,121 @@ function queueItemFromProjection(
       ...projection.deferred
     ].find((item) => item.queueItemId === queueItemId) ?? null
   );
+}
+
+function compactAnswerExcerpt(answer: string) {
+  const compacted = ANSWER_EXCERPT_SENSITIVE_VALUE_PATTERNS.reduce(
+    (current, pattern) => current.replace(pattern, ANSWER_EXCERPT_REDACTED_VALUE),
+    answer.replace(/\s+/gu, " ").trim()
+  );
+
+  return compacted.length > ANSWER_EXCERPT_MAX_CHARS
+    ? `${compacted.slice(0, ANSWER_EXCERPT_MAX_CHARS - 1)}…`
+    : compacted;
+}
+
+function followUpExpectedAnswerType(
+  routeOutcome: ResearchRouteOutcome,
+  nextRepeatCount: number
+): AmbiguityExpectedAnswerType {
+  if (routeOutcome === "missing_con_evidence") {
+    return "evidence";
+  }
+
+  const sequence: readonly AmbiguityExpectedAnswerType[] = ["text", "evidence", "experiment", "rank"];
+
+  return sequence[(nextRepeatCount - 1) % sequence.length] ?? "text";
+}
+
+function followUpQuestionText(answer: string, nextRepeatCount: number) {
+  const template =
+    FOLLOW_UP_QUESTION_TEMPLATES[(nextRepeatCount - 1) % FOLLOW_UP_QUESTION_TEMPLATES.length] ??
+    "방금 답한 “{answer}”를 더 구체화하려면 어떤 기준과 반례를 확인해야 하나요?";
+
+  return template.replace("{answer}", compactAnswerExcerpt(answer));
+}
+
+function followUpSuggestedResearchTask(
+  sourceQuestion: AmbiguityIssueSnapshot,
+  answer: string,
+  routeOutcome: ResearchRouteOutcome
+) {
+  if (routeOutcome === "missing_con_evidence") {
+    return `답변 “${compactAnswerExcerpt(answer)}”를 반박하거나 약하게 만드는 공개 근거를 우선 찾습니다.`;
+  }
+
+  if (!sourceQuestion.suggestedResearchTask) {
+    return undefined;
+  }
+
+  return `답변 “${compactAnswerExcerpt(answer)}” 기준으로 ${plainUserFacingDecisionQueueText(sourceQuestion.suggestedResearchTask)}`;
+}
+
+function createFollowUpIssueForAnswer(input: {
+  readonly sessionId: SessionId;
+  readonly sourceQuestion: AmbiguityIssueSnapshot | undefined;
+  readonly answer: string;
+  readonly answerRef: string;
+  readonly routeOutcome: ResearchRouteOutcome;
+  readonly impact: ResearchImpact;
+}): AmbiguityIssueSnapshot | null {
+  const { answer, answerRef, impact, routeOutcome, sessionId, sourceQuestion } = input;
+
+  if (!sourceQuestion || sourceQuestion.status !== "open") {
+    return null;
+  }
+
+  const currentRepeatCount = sourceQuestion.repeatCount ?? 0;
+  const repeatLimit = sourceQuestion.repeatLimit ?? DEFAULT_FOLLOW_UP_QUESTION_LIMIT;
+  const nextRepeatCount = currentRepeatCount + 1;
+
+  if (nextRepeatCount > repeatLimit) {
+    return null;
+  }
+
+  const sourceTopicKey = sourceQuestion.businessCriticRepeatGroup ?? sourceQuestion.topicKey ?? sourceQuestion.queueItemId;
+  const followUpTopicKey = `${sourceTopicKey}_follow_up_${nextRepeatCount}`;
+  const followUpId = `queue_followup_${stableToken(`${sessionId}:${sourceQuestion.queueItemId}:${answerRef}:${nextRepeatCount}`)}` as QueueItemId;
+  const suggestedResearchTask = followUpSuggestedResearchTask(sourceQuestion, answer, routeOutcome);
+  const severity =
+    sourceQuestion.severity === "high" || impact === "high"
+      ? "high"
+      : sourceQuestion.severity === "medium" || impact === "medium"
+        ? "medium"
+        : "low";
+
+  return {
+    queueItemId: followUpId,
+    ...(sourceQuestion.sectionRef ? { sectionRef: sourceQuestion.sectionRef } : {}),
+    topicKey: followUpTopicKey,
+    ...(sourceQuestion.purposeModeAxis ? { purposeModeAxis: sourceQuestion.purposeModeAxis } : {}),
+    ...(sourceQuestion.purposeModeEffect ? { purposeModeEffect: sourceQuestion.purposeModeEffect } : {}),
+    ...(sourceQuestion.businessCriticCategory ? { businessCriticCategory: sourceQuestion.businessCriticCategory } : {}),
+    ...(sourceQuestion.businessCriticIntensityMinimum
+      ? { businessCriticIntensityMinimum: sourceQuestion.businessCriticIntensityMinimum }
+      : {}),
+    ...(sourceQuestion.businessCriticPressureKind ? { businessCriticPressureKind: sourceQuestion.businessCriticPressureKind } : {}),
+    ...(sourceQuestion.businessCriticRepeatGroup ? { businessCriticRepeatGroup: sourceQuestion.businessCriticRepeatGroup } : {}),
+    uncertaintyType: routeOutcome === "missing_con_evidence" ? "missing_con_evidence" : "decision_required",
+    severity,
+    summary: `이전 답변을 더 구체화해야 함: ${sourceQuestion.summary}`,
+    whyItMatters:
+      "답변이 다음 질문, 리서치, 구현 범위로 이어지려면 판단 기준과 반례를 더 좁혀야 합니다.",
+    status: "open",
+    questionText: followUpQuestionText(answer, nextRepeatCount),
+    expectedAnswerType: followUpExpectedAnswerType(routeOutcome, nextRepeatCount),
+    decisionItUnlocks:
+      sourceQuestion.decisionItUnlocks ??
+      "이전 답변을 스펙, 근거, 첫 구현 범위 판단으로 연결합니다.",
+    ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
+    repeatCount: nextRepeatCount,
+    repeatLimit,
+    possibleRoutes:
+      routeOutcome === "missing_con_evidence"
+        ? ["question", "missing_con_evidence", "research_needed"]
+        : ["question", "research_needed", "spec_update_candidate"],
+    sourceRef: `${sourceQuestion.sourceRef ?? sourceTopicKey}:follow_up:${nextRepeatCount}`
+  };
 }
 
 function queueItemRequiresKnownRiskDeferral(item: QueueItemProjection) {
@@ -3200,9 +3340,18 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
         }
       : issue
   );
+  const followUpIssue = createFollowUpIssueForAnswer({
+    sessionId: command.sessionId,
+    sourceQuestion,
+    answer,
+    answerRef,
+    routeOutcome,
+    impact
+  });
+  const nextIssues = followUpIssue ? [...nextOpenIssues, followUpIssue] : nextOpenIssues;
   const queueProjection = queueProjectionWithRefilledActiveQuestions(
     queueProjectionWithReview,
-    nextOpenIssues,
+    nextIssues,
     queueProjectionWithReview.version,
     command.issuedAt
   );
@@ -3217,6 +3366,14 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
     answer,
     answerRouteOutcome: routeOutcome,
     researchTaskId,
+    ...(followUpIssue
+      ? {
+          followUpIssue,
+          followUpQueueItemId: followUpIssue.queueItemId,
+          followUpRepeatCount: followUpIssue.repeatCount,
+          followUpRepeatLimit: followUpIssue.repeatLimit
+        }
+      : {}),
     projection: queueProjection
   });
   const researchEvent = eventDraft(command, "ResearchPlanned", {
@@ -3231,7 +3388,7 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
   const confidenceProjection = buildConfidenceCompletionProjection(
     {
       ...state,
-      openIssues: nextOpenIssues,
+      openIssues: nextIssues,
       queueProjection,
       researchState: researchProjection,
       session: nextSession
@@ -3251,7 +3408,7 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
     state,
     [event, researchEventWithConfidence],
     {
-      openIssues: nextOpenIssues,
+      openIssues: nextIssues,
       queueProjection,
       researchState: researchProjection,
       completeness: confidenceProjection,
@@ -3265,7 +3422,8 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
           queueItemId,
           answer,
           answerRouteOutcome: routeOutcome,
-          researchTaskId
+          researchTaskId,
+          ...(followUpIssue ? { followUpQueueItemId: followUpIssue.queueItemId } : {})
         }
       },
       ...completenessDeterministicOutputs(command, confidenceProjection)
@@ -9393,20 +9551,26 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
     case "AnswerSubmitted": {
       const projection = projectionPayload(event.payload, state.queueProjection);
       const queueItemId = typeof event.payload.queueItemId === "string" ? event.payload.queueItemId : null;
+      const followUpIssue = objectPayload<AmbiguityIssueSnapshot>(event.payload, "followUpIssue");
+      const openIssues = queueItemId
+        ? state.openIssues.map((issue) =>
+            issue.queueItemId === queueItemId
+              ? {
+                  ...issue,
+                  status: "answered" as const
+                }
+              : issue
+          )
+        : state.openIssues;
+      const openIssuesWithFollowUp =
+        followUpIssue && !openIssues.some((issue) => issue.queueItemId === followUpIssue.queueItemId)
+          ? [...openIssues, followUpIssue]
+          : openIssues;
 
       return {
         ...state,
         stateVersion: nextStateVersion,
-        openIssues: queueItemId
-          ? state.openIssues.map((issue) =>
-              issue.queueItemId === queueItemId
-                ? {
-                    ...issue,
-                    status: "answered" as const
-                  }
-                : issue
-            )
-          : state.openIssues,
+        openIssues: openIssuesWithFollowUp,
         queueProjection: projection
       };
     }
