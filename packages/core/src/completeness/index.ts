@@ -298,6 +298,55 @@ function researchCardRiskTitle(
   return `Research-updated ${card.cardType} card blocks Planning-ready: ${card.title}${outcome}${terminalReason}`;
 }
 
+function latestImplementationStep(state: ProductEngineStateSnapshot) {
+  return state.implementationStepLedger?.steps.at(-1) ?? null;
+}
+
+function implementationLedgerBlocksCompletion(state: ProductEngineStateSnapshot) {
+  const ledger = state.implementationStepLedger;
+  const latestStep = latestImplementationStep(state);
+
+  return Boolean(ledger && (ledger.currentStatus !== "completed" || latestStep?.status !== "completed"));
+}
+
+function implementationLedgerBlockingReason(state: ProductEngineStateSnapshot) {
+  const ledger = state.implementationStepLedger;
+  const latestStep = latestImplementationStep(state);
+
+  if (!ledger) {
+    return null;
+  }
+
+  if (latestStep?.blocker) {
+    return `Implementation step ledger is blocked: ${latestStep.blocker.reason}`;
+  }
+
+  if (latestStep && latestStep.status !== "completed") {
+    return `Implementation step ledger latest step ${latestStep.stepDoc.stepId} is ${latestStep.status}.`;
+  }
+
+  return `Implementation step ledger is ${ledger.currentStatus}.`;
+}
+
+function implementationLedgerRiskCard(state: ProductEngineStateSnapshot): TopRiskCardProjection {
+  const ledger = state.implementationStepLedger;
+  const latestStep = latestImplementationStep(state);
+  const blocker = latestStep?.blocker ?? null;
+
+  return {
+    riskId: "risk_implementation_step_ledger",
+    title: implementationLedgerBlockingReason(state) ?? "Implementation step ledger closeout is incomplete.",
+    severity: blocker || latestStep?.status === "blocked" ? "high" : "medium",
+    sourceRefs: [
+      ...(ledger ? [`implementation_step_ledger:${ledger.sessionId}:${ledger.version}`] : []),
+      ...(latestStep ? [latestStep.stepDoc.stepId] : [])
+    ],
+    nextValidationAction:
+      blocker?.nextRequiredAction ??
+      "Complete the implementation step ledger with commit, review streak, clean-code review, and passing test evidence."
+  };
+}
+
 function evidenceQualityScore(state: ProductEngineStateSnapshot) {
   return clampScore(average(state.researchState.evidenceMatrices.map(matrixQualityScore), 0));
 }
@@ -319,8 +368,19 @@ function consistencyScore(state: ProductEngineStateSnapshot) {
   const blockingResearchCards = state.researchState.reviewCards.filter(researchCardBlocksCompletion).length;
   const blockedRuntime = state.runtimeState.runtimeArtifacts.filter((artifact) => artifact.status === "blocked").length;
   const failedEffects = state.runtimeState.effects.filter((effect) => effect.status === "failed" || effect.status === "blocked").length;
+  const incompleteImplementationCloseout = implementationLedgerBlocksCompletion(state) ? 1 : 0;
 
-  return clampScore(100 - Math.min(100, blockingMatrices * 25 + blockingResearchCards * 20 + blockedRuntime * 20 + failedEffects * 20));
+  return clampScore(
+    100 -
+      Math.min(
+        100,
+        blockingMatrices * 25 +
+          blockingResearchCards * 20 +
+          blockedRuntime * 20 +
+          failedEffects * 20 +
+          incompleteImplementationCloseout * 25
+      )
+  );
 }
 
 function readinessLabel(score: number, gatesPassed: boolean): ReadinessLabel {
@@ -406,10 +466,18 @@ function riskCards(state: ProductEngineStateSnapshot, fallbackActions: readonly 
       sourceRefs: [artifact.artifactId, ...artifact.sourceRefs],
       nextValidationAction: artifact.blockedAction?.suggestedSafeAlternative ?? "Use a manual handoff or safe preview path."
     }));
+  const implementationRisks = implementationLedgerBlocksCompletion(state)
+    ? [implementationLedgerRiskCard(state)]
+    : [];
 
-  return [...matrixRisks, ...researchCardRisks, ...openQuestionRisks, ...knownBusinessRisks, ...runtimeRisks].sort(
-    (left, right) => RISK_SEVERITY_RANK[left.severity] - RISK_SEVERITY_RANK[right.severity]
-  );
+  return [
+    ...matrixRisks,
+    ...researchCardRisks,
+    ...openQuestionRisks,
+    ...knownBusinessRisks,
+    ...runtimeRisks,
+    ...implementationRisks
+  ].sort((left, right) => RISK_SEVERITY_RANK[left.severity] - RISK_SEVERITY_RANK[right.severity]);
 }
 
 function acceptedRiskDecisionRisks(state: ProductEngineStateSnapshot) {
@@ -504,6 +572,9 @@ function gateStatuses(
     state.runtimeState.runtimeArtifacts.filter((artifact) => artifact.status === "blocked").length +
     state.runtimeState.effects.filter((effect) => effect.status === "failed" || effect.status === "blocked").length;
   const criticGate = businessCriticPressureGate(state);
+  const implementationCloseoutBlockingReason = implementationLedgerBlocksCompletion(state)
+    ? implementationLedgerBlockingReason(state)
+    : null;
 
   return [
     ...(criticGate ? [criticGate] : []),
@@ -559,6 +630,14 @@ function gateStatuses(
       label: "No unresolved blocking runtime or operation incident is hidden",
       passed: blockingIncidents === 0,
       ...(blockingIncidents === 0 ? {} : { blockingReason: `${blockingIncidents} blocking incident(s) remain.` })
+    },
+    {
+      gateId: "implementation_closeout",
+      label: "No started implementation step ledger is blocked or incomplete",
+      passed: implementationCloseoutBlockingReason === null,
+      ...(implementationCloseoutBlockingReason === null
+        ? {}
+        : { blockingReason: implementationCloseoutBlockingReason })
     }
   ];
 }

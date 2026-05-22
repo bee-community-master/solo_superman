@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CONTRACT_SCHEMA_VERSION,
+  IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
   type CommandId,
   type ConfidenceCompletionProjection,
   type CorrelationId,
@@ -676,6 +677,89 @@ describe("PR-08 completeness scoring", () => {
       "completeness_snapshot",
       "confidence_map"
     ]);
+  });
+
+  it("blocks completion when an implementation step ledger has started but is not closed out", () => {
+    const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
+    const blockedImplementationStep = {
+      ...step,
+      status: "blocked" as const,
+      missingEvidence: ["passing TestEvidenceRecord without failed tests or Not-tested gaps"],
+      blocker: {
+        stepId: step.stepDoc.stepId,
+        reason: "Implementation verification is not clean yet.",
+        missingEvidence: ["passing TestEvidenceRecord without failed tests or Not-tested gaps"],
+        nextRequiredAction: "Fix implementation tests and record passing evidence.",
+        evidenceRefs: ["test:failed"]
+      }
+    };
+    const projection = buildConfidenceCompletionProjection(
+      {
+        ...completeState(),
+        implementationStepLedger: {
+          ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+          currentStatus: "blocked",
+          summary: "Implementation step ledger is blocked by missing or failed evidence.",
+          steps: [blockedImplementationStep],
+          blockedSteps: [blockedImplementationStep.blocker],
+          progressReport:
+            "Tracker: Demo implementation tracker\n1. Create deterministic ledger — blocked. Missing: passing TestEvidenceRecord without failed tests or Not-tested gaps."
+        }
+      },
+      13 as ProjectionVersion
+    );
+
+    expect(projection.completionCandidate.status).toBe("not_ready");
+    expect(projection.gates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gateId: "implementation_closeout",
+          passed: false,
+          blockingReason: "Implementation step ledger is blocked: Implementation verification is not clean yet."
+        })
+      ])
+    );
+    expect(projection.topRiskCards).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          riskId: "risk_implementation_step_ledger",
+          severity: "high",
+          nextValidationAction: "Fix implementation tests and record passing evidence."
+        })
+      ])
+    );
+    expect(projection.topRisks).toEqual(
+      expect.arrayContaining([
+        "Implementation step ledger is blocked: Implementation verification is not clean yet."
+      ])
+    );
+  });
+
+  it("allows completion when a started implementation step ledger is closed out", () => {
+    const projection = buildConfidenceCompletionProjection(
+      {
+        ...completeState(),
+        implementationStepLedger: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE
+      },
+      13 as ProjectionVersion
+    );
+
+    expect(projection.completionCandidate.status).toBe("candidate");
+    expect(projection.gates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gateId: "implementation_closeout",
+          passed: true
+        })
+      ])
+    );
+    expect(projection.topRiskCards).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          riskId: "risk_implementation_step_ledger"
+        })
+      ])
+    );
   });
 
   it("updates and replays completeness after a decision is resolved", () => {
