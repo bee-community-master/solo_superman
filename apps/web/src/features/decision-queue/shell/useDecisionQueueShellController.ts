@@ -484,6 +484,128 @@ export function useDecisionQueueShellController() {
       setIsBusy(false);
     }
   }, [client, projections]);
+  const planAutoImplementationWorkerJob = useCallback(async () => {
+    const sessionId = projections.session?.sessionId;
+    const run = projections.autoImplementationRuns?.latestRun;
+
+    if (!client || !sessionId || !run) {
+      setWorkflowError("An active auto implementation workspace run is required before planning a local worker job.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const autoImplementationRuns = await client.createAutoImplementationWorkerJob({
+        sessionId,
+        runId: run.runId,
+        idempotencyKey: `auto-implementation-worker:${sessionId}:${run.runId}:${run.currentStage}:${run.workerJobs.length + 1}`
+      });
+
+      setProjections((current) => ({
+        ...current,
+        autoImplementationRuns
+      }));
+      setCommandLog((current) => [
+        {
+          id: `auto-implementation-worker:${autoImplementationRuns.latestRun?.runId ?? run.runId}:${Date.now()}`,
+          label: "Plan local Codex worker job",
+          createdAt: new Date().toISOString(),
+          message: autoImplementationRuns.summary
+        },
+        ...current
+      ].slice(0, COMMAND_LOG_LIMIT));
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [client, projections]);
+  const runAutoImplementationWorkerJob = useCallback(async () => {
+    const sessionId = projections.session?.sessionId;
+    const run = projections.autoImplementationRuns?.latestRun;
+    const workerJob = run?.workerJobs.at(-1);
+
+    if (!client || !sessionId || !run || !workerJob) {
+      setWorkflowError("A planned local Codex worker job is required before running the worker.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const autoImplementationRuns = await client.runAutoImplementationWorkerJob({
+        sessionId,
+        runId: run.runId,
+        jobId: workerJob.jobId,
+        idempotencyKey: `auto-implementation-worker-run:${sessionId}:${workerJob.jobId}:${workerJob.updatedAt}`,
+        evidenceRefs: [`ui-worker-run:${workerJob.jobId}`]
+      });
+      const implementationStepLedger = await client.getImplementationStepLedger(sessionId);
+
+      setProjections((current) => ({
+        ...current,
+        autoImplementationRuns,
+        implementationStepLedger
+      }));
+      setCommandLog((current) => [
+        {
+          id: `auto-implementation-worker-run:${workerJob.jobId}:${Date.now()}`,
+          label: "Run local Codex worker job",
+          createdAt: new Date().toISOString(),
+          message: autoImplementationRuns.summary
+        },
+        ...current
+      ].slice(0, COMMAND_LOG_LIMIT));
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [client, projections]);
+  const advanceAutoImplementationWorkerStage = useCallback(async () => {
+    const sessionId = projections.session?.sessionId;
+    const run = projections.autoImplementationRuns?.latestRun;
+    const workerJob = run?.workerJobs.at(-1);
+
+    if (!client || !sessionId || !run || !workerJob) {
+      setWorkflowError("A completed local Codex worker job is required before advancing the worker stage.");
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const autoImplementationRuns = await client.advanceAutoImplementationWorkerStage({
+        sessionId,
+        runId: run.runId,
+        jobId: workerJob.jobId,
+        idempotencyKey: `auto-implementation-worker-stage:${sessionId}:${workerJob.jobId}:${workerJob.updatedAt}`,
+        evidenceRefs: [`ui-worker-stage-advance:${workerJob.jobId}`]
+      });
+
+      setProjections((current) => ({
+        ...current,
+        autoImplementationRuns
+      }));
+      setCommandLog((current) => [
+        {
+          id: `auto-implementation-worker-stage:${workerJob.jobId}:${Date.now()}`,
+          label: "Advance worker stage",
+          createdAt: new Date().toISOString(),
+          message: autoImplementationRuns.summary
+        },
+        ...current
+      ].slice(0, COMMAND_LOG_LIMIT));
+    } catch (error) {
+      setWorkflowError(displayError(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [client, projections]);
   const planningRadarAxesView = useMemo(
     () =>
       planningRadarAxes(confidence).map((axis) => ({
@@ -649,6 +771,9 @@ export function useDecisionQueueShellController() {
     exportServicePageArtifacts,
     deleteServicePageArtifacts,
     createAutoImplementationRun,
+    planAutoImplementationWorkerJob,
+    runAutoImplementationWorkerJob,
+    advanceAutoImplementationWorkerStage,
     sections,
     queueRecovery,
     questionProgress,

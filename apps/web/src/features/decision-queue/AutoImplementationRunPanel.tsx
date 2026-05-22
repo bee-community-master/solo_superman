@@ -3,7 +3,8 @@ import type {
   AutoImplementationIssueDocument,
   AutoImplementationRunProjection,
   AutoImplementationStageReviewGate,
-  AutoImplementationStageRecord
+  AutoImplementationStageRecord,
+  AutoImplementationWorkerJob
 } from "@solo-superman/contracts";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
@@ -27,6 +28,11 @@ export interface AutoImplementationRunViewModel {
   readonly evidenceRefs: readonly string[];
   readonly latestWorkerJobLabel: string;
   readonly latestWorkerJobNextAction: string;
+  readonly latestWorkerJobId: string | null;
+  readonly latestWorkerJobStatus: AutoImplementationWorkerJob["status"] | "not_planned";
+  readonly canPlanWorkerJob: boolean;
+  readonly canRunWorkerJob: boolean;
+  readonly canAdvanceWorkerStage: boolean;
   readonly hasRun: boolean;
 }
 
@@ -60,6 +66,11 @@ export function autoImplementationRunViewModel(
       evidenceRefs: [],
       latestWorkerJobLabel: "Local Codex worker: not planned",
       latestWorkerJobNextAction: "Create a workspace run before planning a local Codex worker.",
+      latestWorkerJobId: null,
+      latestWorkerJobStatus: "not_planned",
+      canPlanWorkerJob: false,
+      canRunWorkerJob: false,
+      canAdvanceWorkerStage: false,
       hasRun: false
     };
   }
@@ -68,6 +79,12 @@ export function autoImplementationRunViewModel(
   const githubIssueBlockedReason = githubIssueMutation.blockedReason ? ` · ${githubIssueMutation.blockedReason}` : "";
   const workerJobs = Array.isArray((run as { readonly workerJobs?: unknown }).workerJobs) ? run.workerJobs : [];
   const latestWorkerJob = workerJobs.at(-1);
+  const canRunWorkerJob = latestWorkerJob?.status === "planned" ||
+    (
+      latestWorkerJob?.status === "blocked" &&
+      latestWorkerJob.missingEvidence.length === 1 &&
+      latestWorkerJob.missingEvidence[0] === "Local Codex worker execution"
+    );
 
   return {
     status: run.status,
@@ -92,6 +109,11 @@ export function autoImplementationRunViewModel(
       : "Local Codex worker: not planned",
     latestWorkerJobNextAction: latestWorkerJob?.nextRequiredAction ??
       "Create a bounded local worker job after the current stage issue document is ready.",
+    latestWorkerJobId: latestWorkerJob?.jobId ?? null,
+    latestWorkerJobStatus: latestWorkerJob?.status ?? "not_planned",
+    canPlanWorkerJob: run.status !== "completed",
+    canRunWorkerJob,
+    canAdvanceWorkerStage: latestWorkerJob?.status === "completed",
     hasRun: true
   };
 }
@@ -100,6 +122,9 @@ interface AutoImplementationRunPanelProps {
   readonly run: AutoImplementationRunViewModel;
   readonly isBusy: boolean;
   readonly onCreateRun: () => void;
+  readonly onPlanWorkerJob: () => void;
+  readonly onRunWorkerJob: () => void;
+  readonly onAdvanceWorkerStage: () => void;
   readonly onRefreshRun: () => void;
 }
 
@@ -107,6 +132,9 @@ export function AutoImplementationRunPanel({
   run,
   isBusy,
   onCreateRun,
+  onPlanWorkerJob,
+  onRunWorkerJob,
+  onAdvanceWorkerStage,
   onRefreshRun
 }: AutoImplementationRunPanelProps) {
   const copy = useDecisionQueueCopy();
@@ -126,6 +154,15 @@ export function AutoImplementationRunPanel({
       <div className="card-actions panel-actions">
         <button type="button" disabled={isBusy} onClick={onCreateRun}>
           {run.hasRun ? copy.autoImplementation.reprepare : copy.autoImplementation.create}
+        </button>
+        <button type="button" disabled={isBusy || !run.canPlanWorkerJob} onClick={onPlanWorkerJob}>
+          {copy.autoImplementation.planWorkerJob}
+        </button>
+        <button type="button" disabled={isBusy || !run.canRunWorkerJob} onClick={onRunWorkerJob}>
+          {copy.autoImplementation.runWorkerJob}
+        </button>
+        <button type="button" disabled={isBusy || !run.canAdvanceWorkerStage} onClick={onAdvanceWorkerStage}>
+          {copy.autoImplementation.advanceWorkerStage}
         </button>
         <button type="button" disabled={isBusy} onClick={onRefreshRun}>
           {copy.autoImplementation.refresh}
