@@ -101,6 +101,7 @@ function renderPanelMarkup(run: ReturnType<typeof autoImplementationRunViewModel
       onRecordPullRequestOpenDryRun: () => undefined,
       onRecordPullRequestDryRun: () => undefined,
       onRecordPullRequestMergeDryRun: () => undefined,
+      onApplyPullRequestOpen: () => undefined,
       onApplyPullRequestBodyUpdate: () => undefined,
       onApplyPullRequestMerge: () => undefined,
       onRunWorkerJob: () => undefined,
@@ -129,6 +130,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerPlan).toBeNull();
     expect(view.canPlanWorkerJob).toBe(true);
     expect(view.canRecordPullRequestDryRun).toBe(true);
+    expect(view.canApplyPullRequestOpen).toBe(false);
     expect(view.canApplyPullRequestBodyUpdate).toBe(false);
     expect(view.canApplyPullRequestMerge).toBe(false);
     expect(view.canRunWorkerJob).toBe(false);
@@ -164,6 +166,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerPlan).toBeNull();
     expect(view.canPlanWorkerJob).toBe(false);
     expect(view.canRecordPullRequestDryRun).toBe(false);
+    expect(view.canApplyPullRequestOpen).toBe(false);
     expect(view.canApplyPullRequestBodyUpdate).toBe(false);
     expect(view.canApplyPullRequestMerge).toBe(false);
   });
@@ -205,6 +208,18 @@ describe("AutoImplementationRunPanel view model", () => {
   });
 
   it("enables approved PR actions only after their matching dry-run is ready", () => {
+    const openDryRun = prMutationRecord({
+      mutationId: "auto-pr-mutation:auto_run_demo:open_pr:dry_run_1",
+      action: "open_pr",
+      requestMode: "dry_run",
+      status: "dry_run_ready",
+      mutatesGitHub: false,
+      pullRequestUrl: null,
+      bodyEvidenceRefs: [],
+      mergeEvidenceRefs: [],
+      approval: null,
+      auditEvidenceRefs: ["github-pr-mutation:dry_run_ready"]
+    });
     const bodyDryRun = prMutationRecord({
       mutationId: "auto-pr-mutation:auto_run_demo:update_pr_body:dry_run_1",
       action: "update_pr_body",
@@ -224,12 +239,22 @@ describe("AutoImplementationRunPanel view model", () => {
       approval: null,
       auditEvidenceRefs: ["github-pr-mutation:dry_run_ready"]
     });
+    const openReadyView = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        pullRequestMutations: {
+          records: [openDryRun],
+          latestRecord: openDryRun
+        }
+      }
+    } as AutoImplementationRunProjection);
     const bodyReadyView = autoImplementationRunViewModel({
       ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
       latestRun: {
         ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
         pullRequestMutations: {
-          records: [bodyDryRun],
+          records: [openDryRun, bodyDryRun],
           latestRecord: bodyDryRun
         }
       }
@@ -239,16 +264,54 @@ describe("AutoImplementationRunPanel view model", () => {
       latestRun: {
         ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
         pullRequestMutations: {
-          records: [bodyDryRun, mergeDryRun],
+          records: [openDryRun, bodyDryRun, mergeDryRun],
           latestRecord: mergeDryRun
         }
       }
     } as AutoImplementationRunProjection);
 
+    expect(openReadyView.canApplyPullRequestOpen).toBe(true);
+    expect(openReadyView.canApplyPullRequestBodyUpdate).toBe(false);
+    expect(openReadyView.canApplyPullRequestMerge).toBe(false);
+    expect(bodyReadyView.canApplyPullRequestOpen).toBe(false);
     expect(bodyReadyView.canApplyPullRequestBodyUpdate).toBe(true);
     expect(bodyReadyView.canApplyPullRequestMerge).toBe(false);
+    expect(mergeReadyView.canApplyPullRequestOpen).toBe(false);
     expect(mergeReadyView.canApplyPullRequestBodyUpdate).toBe(true);
     expect(mergeReadyView.canApplyPullRequestMerge).toBe(true);
+  });
+
+  it("keeps approved PR open disabled after any PR URL has been recorded", () => {
+    const openDryRun = prMutationRecord({
+      mutationId: "auto-pr-mutation:auto_run_demo:open_pr:dry_run_1",
+      action: "open_pr",
+      requestMode: "dry_run",
+      status: "dry_run_ready",
+      mutatesGitHub: false,
+      pullRequestUrl: null,
+      bodyEvidenceRefs: [],
+      mergeEvidenceRefs: [],
+      approval: null
+    });
+    const openApplied = prMutationRecord({
+      mutationId: "auto-pr-mutation:auto_run_demo:open_pr:applied_1",
+      action: "open_pr",
+      status: "applied",
+      requestMode: "approved",
+      pullRequestUrl: "https://github.com/bee-community-master/demo/pull/1"
+    });
+    const view = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        pullRequestMutations: {
+          records: [openDryRun, openApplied],
+          latestRecord: openApplied
+        }
+      }
+    } as AutoImplementationRunProjection);
+
+    expect(view.canApplyPullRequestOpen).toBe(false);
   });
 
 
@@ -473,6 +536,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("Local Codex worker: not planned");
     expect(markup).toContain("Approve worker authority + plan job");
     expect(markup).toContain("Record PR open dry-run");
+    expect(markup).toContain("Apply approved PR open");
     expect(markup).toContain("Record PR body dry-run");
     expect(markup).toContain("Record PR merge dry-run");
     expect(markup).toContain("Apply approved PR body update");

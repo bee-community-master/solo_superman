@@ -52,6 +52,7 @@ export interface AutoImplementationRunViewModel {
   readonly latestWorkerPlan: AutoImplementationWorkerPlanView | null;
   readonly canPlanWorkerJob: boolean;
   readonly canRecordPullRequestDryRun: boolean;
+  readonly canApplyPullRequestOpen: boolean;
   readonly canApplyPullRequestBodyUpdate: boolean;
   readonly canApplyPullRequestMerge: boolean;
   readonly canRunWorkerJob: boolean;
@@ -97,6 +98,7 @@ export function autoImplementationRunViewModel(
       latestWorkerPlan: null,
       canPlanWorkerJob: false,
       canRecordPullRequestDryRun: false,
+      canApplyPullRequestOpen: false,
       canApplyPullRequestBodyUpdate: false,
       canApplyPullRequestMerge: false,
       canRunWorkerJob: false,
@@ -147,6 +149,7 @@ export function autoImplementationRunViewModel(
       record.requestMode === "dry_run" &&
       record.status === "dry_run_ready"
     );
+  const hasRecordedPullRequestUrl = pullRequestMutationRecords.some((record) => Boolean(record.pullRequestUrl));
 
   return {
     status: run.status,
@@ -181,6 +184,9 @@ export function autoImplementationRunViewModel(
     latestWorkerPlan,
     canPlanWorkerJob: run.status !== "completed",
     canRecordPullRequestDryRun: run.status !== "completed",
+    canApplyPullRequestOpen: run.status !== "completed" &&
+      hasReadyPullRequestDryRun("open_pr") &&
+      !hasRecordedPullRequestUrl,
     canApplyPullRequestBodyUpdate: run.status !== "completed" && hasReadyPullRequestDryRun("update_pr_body"),
     canApplyPullRequestMerge: run.status !== "completed" && hasReadyPullRequestDryRun("merge_pr"),
     canRunWorkerJob,
@@ -201,6 +207,7 @@ interface AutoImplementationRunPanelProps {
   readonly onRecordPullRequestOpenDryRun: () => void;
   readonly onRecordPullRequestDryRun: () => void;
   readonly onRecordPullRequestMergeDryRun: () => void;
+  readonly onApplyPullRequestOpen: () => void;
   readonly onApplyPullRequestBodyUpdate: () => void;
   readonly onApplyPullRequestMerge: () => void;
   readonly onRunWorkerJob: () => void;
@@ -216,6 +223,7 @@ export function AutoImplementationRunPanel({
   onRecordPullRequestOpenDryRun,
   onRecordPullRequestDryRun,
   onRecordPullRequestMergeDryRun,
+  onApplyPullRequestOpen,
   onApplyPullRequestBodyUpdate,
   onApplyPullRequestMerge,
   onRunWorkerJob,
@@ -250,6 +258,13 @@ export function AutoImplementationRunPanel({
           onClick={onRecordPullRequestOpenDryRun}
         >
           {copy.autoImplementation.recordPullRequestOpenDryRun}
+        </button>
+        <button
+          type="button"
+          disabled={isBusy || !run.canApplyPullRequestOpen}
+          onClick={onApplyPullRequestOpen}
+        >
+          {copy.autoImplementation.applyPullRequestOpen}
         </button>
         <button
           type="button"

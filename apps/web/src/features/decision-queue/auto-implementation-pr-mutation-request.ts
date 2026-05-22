@@ -53,6 +53,15 @@ function knownGapsForOpenDryRun(run: AutoImplementationRun) {
   ].filter((gap): gap is string => gap !== null);
 }
 
+function knownGapsForApprovedOpen(run: AutoImplementationRun, pullRequestUrl: string | undefined) {
+  return [
+    run.remoteStatus === "connected" ? null : `Remote status is ${run.remoteStatus}; mutation stays blocked until connected.`,
+    pullRequestUrl
+      ? "A PR URL is already recorded; approved PR open is blocked in the UI to avoid duplicate pull requests."
+      : null
+  ].filter((gap): gap is string => gap !== null);
+}
+
 function knownGapsForMergeDryRun(
   run: AutoImplementationRun,
   pullRequestUrl: string | undefined,
@@ -108,10 +117,14 @@ function currentStageBodyEvidenceRef(run: AutoImplementationRun) {
 
 function approvedPullRequestMutationApproval(input: {
   readonly run: AutoImplementationRun;
-  readonly action: "update_pr_body" | "merge_pr";
+  readonly action: "open_pr" | "update_pr_body" | "merge_pr";
   readonly approvedAt: string;
 }) {
-  const actionSlug = input.action === "update_pr_body" ? "pr_body_update" : "pr_merge";
+  const actionSlug = input.action === "open_pr"
+    ? "pr_open"
+    : input.action === "update_pr_body"
+      ? "pr_body_update"
+      : "pr_merge";
 
   return {
     approvalId: `approval_${actionSlug}_${input.run.runId}_${input.run.currentStage}_${input.run.pullRequestMutations.records.length}`,
@@ -120,9 +133,11 @@ function approvedPullRequestMutationApproval(input: {
     actionClass: "github_pr_mutation",
     approvalGranularity: "per_action",
     remoteStatusAtApproval: "connected",
-    rollbackPlan: input.action === "update_pr_body"
-      ? "Restore the previous PR body with gh pr edit if the approved body update is wrong."
-      : "Revert the merge commit or reopen the PR if post-merge verification fails.",
+    rollbackPlan: input.action === "open_pr"
+      ? "Close the generated pull request if the approved PR open action targets the wrong scope."
+      : input.action === "update_pr_body"
+        ? "Restore the previous PR body with gh pr edit if the approved body update is wrong."
+        : "Revert the merge commit or reopen the PR if post-merge verification fails.",
     evidenceRefs: [`local-operator-click:github-pr-mutation:${input.action}:${input.run.runId}:${input.run.currentStage}`]
   } as const;
 }
@@ -176,6 +191,32 @@ export function buildAutoImplementationPullRequestMergeDryRunRequest(input: {
     ...(mergeEvidenceRefs.length ? { mergeEvidenceRefs } : {}),
     ...(bodyEvidenceRefs.length ? { bodyEvidenceRefs } : {}),
     verifierEvidenceRefs: [`verifier:pr-merge-dry-run:${run.runId}:${run.currentStage}`]
+  };
+}
+
+export function buildAutoImplementationPullRequestOpenApprovedRequest(input: {
+  readonly sessionId: SessionId;
+  readonly run: AutoImplementationRun;
+  readonly approvedAt: string;
+}): RecordAutoImplementationPullRequestMutationRequest {
+  const { approvedAt, run, sessionId } = input;
+  const pullRequestUrl = latestPullRequestUrl(run);
+
+  return {
+    sessionId,
+    runId: run.runId,
+    action: "open_pr",
+    requestMode: "approved",
+    idempotencyKey: `pr-open-approved:${run.currentStage}:${run.pullRequestMutations.records.length}:${run.updatedAt}`,
+    pullRequestTitle: pullRequestTitle(run),
+    issueLinks: issueLinksForRun(run),
+    implementationScope: `Apply approved PR creation for ${run.currentStage} using ${run.issueManagement.trackerRelativePath}.`,
+    reviewStreakRefs: reviewStreakRefsForRun(run),
+    verificationCommands: ["pnpm verify"],
+    knownGaps: knownGapsForApprovedOpen(run, pullRequestUrl),
+    rollbackNotes: "Approved PR open may mutate GitHub through gh pr create when all reducer gates pass.",
+    approval: approvedPullRequestMutationApproval({ run, action: "open_pr", approvedAt }),
+    verifierEvidenceRefs: [`verifier:pr-open-approved:${run.runId}:${run.currentStage}`]
   };
 }
 
