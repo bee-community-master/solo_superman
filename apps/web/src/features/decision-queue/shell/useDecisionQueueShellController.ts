@@ -409,13 +409,16 @@ export function useDecisionQueueShellController() {
   );
   const phase15aOperations = useMemo(
     () =>
-      phase15aOperationsViewModel({
-        allowlists: researchOperations.allowlists,
-        disclosures: researchOperations.disclosures,
-        runs: researchOperations.runs,
-        research: projections.research
-      }),
-    [projections.research, researchOperations]
+      phase15aOperationsViewModel(
+        {
+          allowlists: researchOperations.allowlists,
+          disclosures: researchOperations.disclosures,
+          runs: researchOperations.runs,
+          research: projections.research
+        },
+        copy.phase15a
+      ),
+    [copy.phase15a, projections.research, researchOperations]
   );
   const phase15bReadinessView = useMemo(
     () => phase15bReadinessViewModel(phase15bReadiness),
