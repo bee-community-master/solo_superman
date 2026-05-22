@@ -607,6 +607,14 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "importAutoImplementationWorkerLedger",
+    clientName: "importAutoImplementationWorkerLedger",
+    method: "POST",
+    path: "/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/ledger-import",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
     routeId: "recordAutoImplementationStage",
     clientName: "recordAutoImplementationStage",
     method: "POST",
@@ -878,6 +886,7 @@ export const POST_PHASE3_PR07_AUTO_IMPLEMENTATION_ROUTE_IDS = [
   "getAutoImplementationRuns",
   "createAutoImplementationWorkerJob",
   "completeAutoImplementationWorkerJob",
+  "importAutoImplementationWorkerLedger",
   "recordAutoImplementationStage"
 ] as const satisfies readonly ApiRouteId[];
 

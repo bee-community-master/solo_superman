@@ -295,6 +295,11 @@ describe("PR-09 web route client catalog", () => {
       path: "/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/complete",
       implementation: "mounted_post_phase3_pr_07"
     });
+    expect(findWebRouteClientPlaceholder("importAutoImplementationWorkerLedger")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/ledger-import",
+      implementation: "mounted_post_phase3_pr_07"
+    });
     expect(findWebRouteClientPlaceholder("recordAutoImplementationStage")).toMatchObject({
       method: "POST",
       path: "/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/stages/:stage",

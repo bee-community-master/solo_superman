@@ -48,6 +48,7 @@ import {
   type CompleteAutoImplementationWorkerJobRequest,
   type CreateAutoImplementationRunRequest,
   type CreateAutoImplementationWorkerJobRequest,
+  type ImportAutoImplementationWorkerLedgerRequest,
   type CreateExecutionAuthorityPayload,
   type CreateExecutionAuthorityRequest,
   type CreateChatGptBrowserDelegationRunPayload,
@@ -2265,6 +2266,15 @@ const AUTO_IMPLEMENTATION_WORKER_JOB_COMPLETION_REQUEST_BODY_KEYS = [
   "evidenceRefs"
 ] as const satisfies readonly (keyof CompleteAutoImplementationWorkerJobRequest)[];
 
+const AUTO_IMPLEMENTATION_WORKER_LEDGER_IMPORT_REQUEST_BODY_KEYS = [
+  "sessionId",
+  "runId",
+  "jobId",
+  "idempotencyKey",
+  "ledgerTransitions",
+  "evidenceRefs"
+] as const satisfies readonly (keyof ImportAutoImplementationWorkerLedgerRequest)[];
+
 const AUTO_IMPLEMENTATION_STAGE_BLOCKER_KEYS = [
   "stage",
   "reason",
@@ -2434,6 +2444,33 @@ function completeAutoImplementationWorkerJobRequestFromBody(
     "auto implementation worker job completion request body"
   );
 
+  routeScopedWorkerJobBody(
+    routeSessionId,
+    routeRunId,
+    routeJobId,
+    body,
+    "auto implementation worker job completion request body"
+  );
+
+  const evidenceRefs = optionalStringArrayFromBody(body.evidenceRefs, "evidenceRefs");
+
+  return {
+    sessionId: routeSessionId,
+    runId: routeRunId,
+    jobId: routeJobId,
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
+    implementationStepId: stringFromBody(body.implementationStepId, "implementationStepId"),
+    ...(evidenceRefs ? { evidenceRefs } : {})
+  };
+}
+
+function routeScopedWorkerJobBody(
+  routeSessionId: SessionId,
+  routeRunId: string,
+  routeJobId: string,
+  body: Readonly<Record<string, unknown>>,
+  bodyLabel: string
+) {
   const bodySessionId = optionalStringFromBody(body.sessionId, "sessionId") as SessionId | undefined;
 
   if (bodySessionId && bodySessionId !== routeSessionId) {
@@ -2457,8 +2494,43 @@ function completeAutoImplementationWorkerJobRequestFromBody(
   if (bodyJobId && bodyJobId !== routeJobId) {
     throw new ProductEngineServiceError("VALIDATION_FAILED", "jobId must match route jobId.", {
       routeJobId,
-      bodyJobId
+      bodyJobId,
+      bodyLabel
     });
+  }
+}
+
+function importAutoImplementationWorkerLedgerRequestFromBody(
+  routeSessionId: SessionId,
+  routeRunId: string,
+  routeJobId: string,
+  body: Readonly<Record<string, unknown>>
+): ImportAutoImplementationWorkerLedgerRequest {
+  assertAllowedRecordKeys(
+    body,
+    AUTO_IMPLEMENTATION_WORKER_LEDGER_IMPORT_REQUEST_BODY_KEYS,
+    "auto implementation worker ledger import request body"
+  );
+  routeScopedWorkerJobBody(
+    routeSessionId,
+    routeRunId,
+    routeJobId,
+    body,
+    "auto implementation worker ledger import request body"
+  );
+
+  if (!Array.isArray(body.ledgerTransitions) || body.ledgerTransitions.length === 0) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "ledgerTransitions must include at least one implementation ledger transition."
+    );
+  }
+
+  if (body.ledgerTransitions.some((transition) => !transition || typeof transition !== "object" || Array.isArray(transition))) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "ledgerTransitions must contain object payloads."
+    );
   }
 
   const evidenceRefs = optionalStringArrayFromBody(body.evidenceRefs, "evidenceRefs");
@@ -2468,7 +2540,7 @@ function completeAutoImplementationWorkerJobRequestFromBody(
     runId: routeRunId,
     jobId: routeJobId,
     idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
-    implementationStepId: stringFromBody(body.implementationStepId, "implementationStepId"),
+    ledgerTransitions: body.ledgerTransitions as unknown as ImportAutoImplementationWorkerLedgerRequest["ledgerTransitions"],
     ...(evidenceRefs ? { evidenceRefs } : {})
   };
 }
@@ -3755,6 +3827,22 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       );
 
       return service.completeAutoImplementationWorkerJob(request);
+    })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/ledger-import", async (context) =>
+    withProductEngine(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const routeRunId = context.req.param("runId");
+      const routeJobId = context.req.param("jobId");
+      const request = importAutoImplementationWorkerLedgerRequestFromBody(
+        routeSessionId,
+        routeRunId,
+        routeJobId,
+        await jsonBody(context)
+      );
+
+      return service.importAutoImplementationWorkerLedger(request);
     })
   );
 

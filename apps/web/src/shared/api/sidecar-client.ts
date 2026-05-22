@@ -14,6 +14,7 @@ import type {
   CreateAutoImplementationRunRequest,
   CreateAutoImplementationWorkerJobRequest,
   CompleteAutoImplementationWorkerJobRequest,
+  ImportAutoImplementationWorkerLedgerRequest,
   CreateManualHandoffRequest,
   CreateChatGptBrowserDelegationRunRequest,
   CreateServicePageUsePermissionRequest,
@@ -71,6 +72,7 @@ import {
   autoImplementationRunPath,
   autoImplementationWorkerJobPath,
   autoImplementationWorkerJobCompletePath,
+  autoImplementationWorkerLedgerImportPath,
   implementationStepLedgerPath,
   phase15bUpgradeHintCollectionPath,
   phase15bUpgradeHintExportPath,
@@ -130,6 +132,7 @@ export type CreatePlanningHandoffInput = CreatePlanningHandoffRequest;
 export type CreateAutoImplementationRunInput = CreateAutoImplementationRunRequest;
 export type CreateAutoImplementationWorkerJobInput = CreateAutoImplementationWorkerJobRequest;
 export type CompleteAutoImplementationWorkerJobInput = CompleteAutoImplementationWorkerJobRequest;
+export type ImportAutoImplementationWorkerLedgerInput = ImportAutoImplementationWorkerLedgerRequest;
 export type RecordAutoImplementationStageInput = RecordAutoImplementationStageRequest;
 export type CreateChatGptBrowserDelegationRunInput = CreateChatGptBrowserDelegationRunRequest;
 export type RevokeChatGptBrowserDelegationRunInput = RevokeChatGptBrowserDelegationRunRequest;
@@ -546,6 +549,13 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
     completeAutoImplementationWorkerJob(input: CompleteAutoImplementationWorkerJobInput) {
       return postProjection<AutoImplementationRunProjection>(
         autoImplementationWorkerJobCompletePath(input.sessionId, input.runId, input.jobId),
+        input
+      );
+    },
+
+    importAutoImplementationWorkerLedger(input: ImportAutoImplementationWorkerLedgerInput) {
+      return postProjection<AutoImplementationRunProjection>(
+        autoImplementationWorkerLedgerImportPath(input.sessionId, input.runId, input.jobId),
         input
       );
     },

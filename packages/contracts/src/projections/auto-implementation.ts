@@ -1,4 +1,5 @@
 import type { ProjectionVersion, SchemaVersion, SessionId } from "../ids";
+import type { RecordImplementationStepLedgerPayload } from "./implementation-step-ledger";
 
 export const AUTO_IMPLEMENTATION_SCHEMA_VERSION = "solo-superman.auto-implementation.v1" as SchemaVersion;
 export const AUTO_IMPLEMENTATION_TICK_INTERVAL_MS = 5 * 60 * 1000;
@@ -389,6 +390,15 @@ export interface CompleteAutoImplementationWorkerJobRequest {
   readonly jobId: string;
   readonly idempotencyKey: string;
   readonly implementationStepId: string;
+  readonly evidenceRefs?: readonly string[];
+}
+
+export interface ImportAutoImplementationWorkerLedgerRequest {
+  readonly sessionId: SessionId;
+  readonly runId: string;
+  readonly jobId: string;
+  readonly idempotencyKey: string;
+  readonly ledgerTransitions: readonly RecordImplementationStepLedgerPayload[];
   readonly evidenceRefs?: readonly string[];
 }
 
