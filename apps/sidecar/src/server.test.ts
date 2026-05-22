@@ -10352,12 +10352,20 @@ describe("PR-02 sidecar health shell", () => {
           pullRequestTitle: "Evidence refresh PR",
           pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/124"
         });
-        expect(input.bodyMarkdown).toContain("### Verification commands");
-        expect(input.bodyMarkdown).toContain("`pnpm verify`");
+        expect(input.bodyMarkdown).toContain("### Code review streak evidence");
+        expect(input.bodyMarkdown).toContain("#### feature");
+        expect(input.bodyMarkdown).toContain("- code-review:feature:clean-1");
+        expect(input.bodyMarkdown).toContain("#### repository");
+        expect(input.bodyMarkdown).toContain("- code-review:repository:clean-2");
+        expect(input.bodyMarkdown).toContain("### Clean-code review streak evidence");
+        expect(input.bodyMarkdown).toContain("- no changed_code clean-code review streak evidence recorded");
+        expect(input.bodyMarkdown).toContain("- no repository clean-code review streak evidence recorded");
         expect(input.bodyMarkdown).toContain("### Implementation evidence");
         expect(input.bodyMarkdown).toContain("- no completed stage implementation evidence recorded");
         expect(input.bodyMarkdown).toContain("### Test evidence");
         expect(input.bodyMarkdown).toContain("- no completed stage test evidence recorded");
+        expect(input.bodyMarkdown).toContain("### Verification commands");
+        expect(input.bodyMarkdown).toContain("`pnpm verify`");
 
         return {
           pullRequestUrl: input.pullRequestUrl ?? "https://github.com/bee-community-master/generated-demo/pull/124",
@@ -10441,6 +10449,12 @@ describe("PR-02 sidecar health shell", () => {
           pullRequestUrl: null
         });
         expect(input.bodyMarkdown).toContain("### Issue links");
+        expect(input.bodyMarkdown).toContain("### Code review streak evidence");
+        expect(input.bodyMarkdown).toContain("- code-review:feature:review_code_feature_demo_2");
+        expect(input.bodyMarkdown).toContain("- code-review:repository:review_code_repository_demo_2");
+        expect(input.bodyMarkdown).toContain("### Clean-code review streak evidence");
+        expect(input.bodyMarkdown).toContain("- clean-code-review:changed_code:review_clean_changed_demo_2");
+        expect(input.bodyMarkdown).toContain("- clean-code-review:repository:review_clean_repository_demo_2");
         expect(input.bodyMarkdown).toContain("### Verification commands");
         expect(input.bodyMarkdown).toContain("### Implementation evidence");
         expect(input.bodyMarkdown).toContain("- commit:abcdef1");
