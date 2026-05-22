@@ -662,6 +662,32 @@ async function seedPlanningReadyState(
   });
 }
 
+async function createPlanningReadyHandoffForE2e(
+  app: ReturnType<typeof createSidecarApp>,
+  storage: Awaited<ReturnType<typeof createMigratedStorageApp>>["storage"],
+  projectId: string,
+  sessionId: string
+) {
+  await seedPlanningReadyState(storage, projectId, sessionId);
+
+  const expectedStateVersion = (await createEventRepository(storage.db).listForSession(sessionId as SessionId)).length;
+  const planningHandoff = await postJson(app, `/api/v1/sessions/${sessionId}/planning-handoff`, {
+    sessionId,
+    expectedStateVersion,
+    sourceRefs: planningReadySourceRefs(sessionId)
+  });
+
+  expect(planningHandoff.response.status, JSON.stringify(planningHandoff.body)).toBe(200);
+
+  const planningHandoffData = responseData(planningHandoff.body);
+  const projection = record(planningHandoffData.immediateProjection);
+  const finalArtifact = record(projection.finalArtifact);
+
+  expect(projection.currentStatus).toBe("planning_ready");
+
+  return stringField(finalArtifact, "artifactId");
+}
+
 describe("PR-09 end-to-end dry-run hardening", () => {
   it("maps the docs-to-runtime acceptance checklist to executable evidence", () => {
     expect(PHASE1_E2E_ACCEPTANCE_CHECKLIST.map((item) => item.criterion)).toEqual([
@@ -795,18 +821,24 @@ describe("PR-09 end-to-end dry-run hardening", () => {
     });
 
     try {
-      const { sessionId } = await createProjectForE2e(
+      const { projectId, sessionId } = await createProjectForE2e(
         app,
         "A dry-run issue slice should complete through the local worker runner."
       );
+      const sourcePlanningRef = await createPlanningReadyHandoffForE2e(app, storage, projectId, sessionId);
       const createdRun = await postAutoImplementationRunForE2e(app, sessionId, {
         idempotencyKey: "auto-implementation-e2e:worker-ui-run",
-        projectName: "Worker UI E2E Demo"
+        projectName: "Worker UI E2E Demo",
+        sourcePlanningRef
       });
       const createdRunProjection = responseData(createdRun.body);
       const latestRun = record(createdRunProjection.latestRun);
       const runId = stringField(latestRun, "runId");
+      const authorityExpectedStateVersion = (await createEventRepository(storage.db).listForSession(
+        sessionId as SessionId
+      )).length;
       const authority = await createExecutionAuthorityForE2e(app, sessionId, "worker_ui_e2e", {
+        expectedStateVersion: authorityExpectedStateVersion,
         requestedScope: {
           workspaceRef: join(workspaceRoot, "worker-ui-e2e-demo"),
           filePathGlobs: ["**/*"]
