@@ -49,6 +49,63 @@ function prMutationRecord(
   };
 }
 
+type WorkerJobOverrides = Partial<Omit<AutoImplementationRun["workerJobs"][number], "executionPlan">> & {
+  readonly executionPlan?: Partial<AutoImplementationRun["workerJobs"][number]["executionPlan"]>;
+};
+
+function workerJob(overrides: WorkerJobOverrides = {}): AutoImplementationRun["workerJobs"][number] {
+  const { executionPlan, ...jobOverrides } = overrides;
+  const base: AutoImplementationRun["workerJobs"][number] = {
+    jobId: "auto-worker-job:auto_run_demo:initial_pr:job_planned",
+    runId: "auto_run_demo",
+    stage: "initial_pr",
+    issueId: "local-001",
+    issueTitle: "Workspace repo bootstrap and initial implementation PR",
+    issueRelativePath: "implementation-issues/001-initial_pr.md",
+    status: "planned",
+    executionPlan: {
+      executionMode: "local_sandboxed_codex",
+      workingDirectory: "/repo/workspace/demo-project",
+      issueDocumentPath: "implementation-issues/001-initial_pr.md",
+      executionAuthorityRef: "exec_auth_auto_worker_initial_pr",
+      allowedWriteScope: ["."],
+      requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
+      forbiddenActions: ["credential storage"],
+      sourceRefs: ["auto-implementation-run:auto_run_demo"]
+    },
+    blockedReason: null,
+    missingEvidence: [],
+    nextRequiredAction: "Run the local Codex worker.",
+    createdAt: "2026-05-19T00:01:00.000Z",
+    updatedAt: "2026-05-19T00:01:00.000Z",
+    evidenceRefs: ["auto-worker-job:auto_run_demo:initial_pr:job_planned"]
+  };
+
+  return {
+    ...base,
+    ...jobOverrides,
+    executionPlan: {
+      ...base.executionPlan,
+      ...executionPlan
+    }
+  };
+}
+
+function renderPanelMarkup(run: ReturnType<typeof autoImplementationRunViewModel>) {
+  return renderEnglishMarkup(
+    createElement(AutoImplementationRunPanel, {
+      run,
+      isBusy: false,
+      onCreateRun: () => undefined,
+      onPlanWorkerJob: () => undefined,
+      onRecordPullRequestDryRun: () => undefined,
+      onRunWorkerJob: () => undefined,
+      onAdvanceWorkerStage: () => undefined,
+      onRefreshRun: () => undefined
+    })
+  );
+}
+
 describe("AutoImplementationRunPanel view model", () => {
   it("shows workspace, five-minute stages, markdown issues, and remote guide", () => {
     const view = autoImplementationRunViewModel(AUTO_IMPLEMENTATION_RUN_READY_FIXTURE);
@@ -65,6 +122,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestPullRequestMutation).toBeNull();
     expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
     expect(view.latestWorkerJobNextAction).toContain("current stage issue document");
+    expect(view.latestWorkerPlan).toBeNull();
     expect(view.canPlanWorkerJob).toBe(true);
     expect(view.canRecordPullRequestDryRun).toBe(true);
     expect(view.canRunWorkerJob).toBe(false);
@@ -97,6 +155,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.pullRequestMutationLabel).toContain("no records");
     expect(view.latestPullRequestMutation).toBeNull();
     expect(view.latestWorkerJobLabel).toContain("not planned");
+    expect(view.latestWorkerPlan).toBeNull();
     expect(view.canPlanWorkerJob).toBe(false);
     expect(view.canRecordPullRequestDryRun).toBe(false);
   });
@@ -175,31 +234,17 @@ describe("AutoImplementationRunPanel view model", () => {
         ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
         status: "blocked",
         workerJobs: [
-          {
+          workerJob({
             jobId: "auto-worker-job:auto_run_demo:initial_pr:job_1",
-            runId: "auto_run_demo",
-            stage: "initial_pr",
-            issueId: "local-001",
-            issueTitle: "Workspace repo bootstrap and initial implementation PR",
-            issueRelativePath: "implementation-issues/001-initial_pr.md",
             status: "blocked",
             executionPlan: {
-              executionMode: "local_sandboxed_codex",
-              workingDirectory: "/repo/workspace/demo-project",
-              issueDocumentPath: "implementation-issues/001-initial_pr.md",
               executionAuthorityRef: null,
-              allowedWriteScope: ["."],
-              requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
-              forbiddenActions: ["credential storage"],
-              sourceRefs: ["auto-implementation-run:auto_run_demo"]
             },
             blockedReason: "ExecutionAuthorityRecord is missing.",
             missingEvidence: ["ExecutionAuthorityRecord"],
             nextRequiredAction: "Create a bounded ExecutionAuthorityRecord before local worker execution.",
-            createdAt: "2026-05-19T00:01:00.000Z",
-            updatedAt: "2026-05-19T00:01:00.000Z",
             evidenceRefs: ["auto-worker-job:auto_run_demo:initial_pr:job_1"]
-          }
+          })
         ]
       }
     } as AutoImplementationRunProjection;
@@ -208,35 +253,19 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerJobLabel).toContain("blocked for initial_pr (local-001)");
     expect(view.latestWorkerJobNextAction).toContain("ExecutionAuthorityRecord");
     expect(view.latestWorkerJobId).toBe("auto-worker-job:auto_run_demo:initial_pr:job_1");
+    expect(view.latestWorkerPlan).toMatchObject({
+      workingDirectory: "/repo/workspace/demo-project",
+      issueDocumentPath: "implementation-issues/001-initial_pr.md",
+      executionAuthorityRef: null,
+      blockedReason: "ExecutionAuthorityRecord is missing.",
+      missingEvidence: ["ExecutionAuthorityRecord"],
+      evidenceRefs: ["auto-worker-job:auto_run_demo:initial_pr:job_1"]
+    });
     expect(view.canRunWorkerJob).toBe(false);
   });
 
   it("enables run and advance controls from the latest local worker status", () => {
-    const plannedWorkerJob = {
-      jobId: "auto-worker-job:auto_run_demo:initial_pr:job_planned",
-      runId: "auto_run_demo",
-      stage: "initial_pr",
-      issueId: "local-001",
-      issueTitle: "Workspace repo bootstrap and initial implementation PR",
-      issueRelativePath: "implementation-issues/001-initial_pr.md",
-      status: "planned",
-      executionPlan: {
-        executionMode: "local_sandboxed_codex",
-        workingDirectory: "/repo/workspace/demo-project",
-        issueDocumentPath: "implementation-issues/001-initial_pr.md",
-        executionAuthorityRef: "exec_auth_auto_worker_initial_pr",
-        allowedWriteScope: ["."],
-        requiredEvidence: ["ImplementationStepLedger trackerDoc and stepDoc"],
-        forbiddenActions: ["credential storage"],
-        sourceRefs: ["auto-implementation-run:auto_run_demo"]
-      },
-      blockedReason: null,
-      missingEvidence: [],
-      nextRequiredAction: "Run the local Codex worker.",
-      createdAt: "2026-05-19T00:01:00.000Z",
-      updatedAt: "2026-05-19T00:01:00.000Z",
-      evidenceRefs: ["auto-worker-job:auto_run_demo:initial_pr:job_planned"]
-    } as const;
+    const plannedWorkerJob = workerJob();
     const projection = {
       ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
       latestRun: {
@@ -265,6 +294,7 @@ describe("AutoImplementationRunPanel view model", () => {
 
     expect(plannedView.canRunWorkerJob).toBe(true);
     expect(plannedView.canAdvanceWorkerStage).toBe(false);
+    expect(plannedView.latestWorkerPlan?.executionAuthorityRef).toBe("exec_auth_auto_worker_initial_pr");
     expect(completedView.canRunWorkerJob).toBe(false);
     expect(completedView.canAdvanceWorkerStage).toBe(true);
   });
@@ -284,7 +314,61 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
     expect(view.pullRequestMutationLabel).toBe("GitHub PR mutation: no records");
     expect(view.latestPullRequestMutation).toBeNull();
+    expect(view.latestWorkerPlan).toBeNull();
     expect(view.latestWorkerJobNextAction).toContain("bounded local worker job");
+  });
+
+  it("renders the latest local worker bounded plan details", () => {
+    const view = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        workerJobs: [workerJob()]
+      }
+    } as AutoImplementationRunProjection);
+    const markup = renderPanelMarkup(view);
+
+    expect(markup).toContain("Local worker bounded plan");
+    expect(markup).toContain("local_sandboxed_codex");
+    expect(markup).toContain("/repo/workspace/demo-project");
+    expect(markup).toContain("implementation-issues/001-initial_pr.md");
+    expect(markup).toContain("exec_auth_auto_worker_initial_pr");
+    expect(markup).toContain("Allowed write scope");
+    expect(markup).toContain("ImplementationStepLedger trackerDoc and stepDoc");
+    expect(markup).toContain("credential storage");
+    expect(markup).toContain("auto-implementation-run:auto_run_demo");
+    expect(markup).toContain("auto-worker-job:auto_run_demo:initial_pr:job_planned");
+  });
+
+  it("renders missing authority and blocker details for blocked worker plans", () => {
+    const view = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        workerJobs: [
+          workerJob({
+            status: "blocked",
+            executionPlan: { executionAuthorityRef: null },
+            blockedReason: "ExecutionAuthorityRecord is missing.",
+            missingEvidence: ["ExecutionAuthorityRecord"],
+            nextRequiredAction: "Create a bounded ExecutionAuthorityRecord before local worker execution."
+          })
+        ]
+      }
+    } as AutoImplementationRunProjection);
+    const markup = renderPanelMarkup(view);
+
+    expect(markup).toContain("Missing ExecutionAuthorityRecord");
+    expect(markup).toContain("ExecutionAuthorityRecord is missing.");
+    expect(markup).toContain("Missing evidence");
+    expect(markup).toContain("ExecutionAuthorityRecord");
+  });
+
+  it("keeps the worker plan section hidden until a local worker job exists", () => {
+    const view = autoImplementationRunViewModel(AUTO_IMPLEMENTATION_RUN_READY_FIXTURE);
+    const markup = renderPanelMarkup(view);
+
+    expect(markup).not.toContain("Local worker bounded plan");
   });
 
   it("renders the latest GitHub PR mutation evidence", () => {
@@ -299,18 +383,7 @@ describe("AutoImplementationRunPanel view model", () => {
         }
       }
     } as AutoImplementationRunProjection);
-    const markup = renderEnglishMarkup(
-      createElement(AutoImplementationRunPanel, {
-        run: view,
-        isBusy: false,
-        onCreateRun: () => undefined,
-        onPlanWorkerJob: () => undefined,
-        onRecordPullRequestDryRun: () => undefined,
-        onRunWorkerJob: () => undefined,
-        onAdvanceWorkerStage: () => undefined,
-        onRefreshRun: () => undefined
-      })
-    );
+    const markup = renderPanelMarkup(view);
 
     expect(markup).toContain("GitHub PR mutation evidence");
     expect(markup).toContain("GitHub PR mutation: update_pr_body applied");
@@ -329,18 +402,7 @@ describe("AutoImplementationRunPanel view model", () => {
 
   it("renders the remote warning and local issue documents", () => {
     const view = autoImplementationRunViewModel(AUTO_IMPLEMENTATION_RUN_READY_FIXTURE);
-    const markup = renderEnglishMarkup(
-      createElement(AutoImplementationRunPanel, {
-        run: view,
-        isBusy: false,
-        onCreateRun: () => undefined,
-        onPlanWorkerJob: () => undefined,
-        onRecordPullRequestDryRun: () => undefined,
-        onRunWorkerJob: () => undefined,
-        onAdvanceWorkerStage: () => undefined,
-        onRefreshRun: () => undefined
-      })
-    );
+    const markup = renderPanelMarkup(view);
 
     expect(markup).toContain("Auto implementation workspace");
     expect(markup).toContain("Initial implementation and PR creation");

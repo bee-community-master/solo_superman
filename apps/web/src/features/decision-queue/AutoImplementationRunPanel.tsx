@@ -5,9 +5,24 @@ import type {
   AutoImplementationRunProjection,
   AutoImplementationStageReviewGate,
   AutoImplementationStageRecord,
+  AutoImplementationWorkerExecutionPlan,
   AutoImplementationWorkerJob
 } from "@solo-superman/contracts";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
+
+interface AutoImplementationWorkerPlanView {
+  readonly executionMode: AutoImplementationWorkerExecutionPlan["executionMode"];
+  readonly workingDirectory: string;
+  readonly issueDocumentPath: string;
+  readonly executionAuthorityRef: string | null;
+  readonly allowedWriteScope: readonly string[];
+  readonly requiredEvidence: readonly string[];
+  readonly forbiddenActions: readonly string[];
+  readonly sourceRefs: readonly string[];
+  readonly blockedReason: string | null;
+  readonly missingEvidence: readonly string[];
+  readonly evidenceRefs: readonly string[];
+}
 
 export interface AutoImplementationRunViewModel {
   readonly status: string;
@@ -34,6 +49,7 @@ export interface AutoImplementationRunViewModel {
   readonly latestWorkerJobNextAction: string;
   readonly latestWorkerJobId: string | null;
   readonly latestWorkerJobStatus: AutoImplementationWorkerJob["status"] | "not_planned";
+  readonly latestWorkerPlan: AutoImplementationWorkerPlanView | null;
   readonly canPlanWorkerJob: boolean;
   readonly canRecordPullRequestDryRun: boolean;
   readonly canRunWorkerJob: boolean;
@@ -76,6 +92,7 @@ export function autoImplementationRunViewModel(
       latestWorkerJobNextAction: "Create a workspace run before planning a local Codex worker.",
       latestWorkerJobId: null,
       latestWorkerJobStatus: "not_planned",
+      latestWorkerPlan: null,
       canPlanWorkerJob: false,
       canRecordPullRequestDryRun: false,
       canRunWorkerJob: false,
@@ -99,6 +116,21 @@ export function autoImplementationRunViewModel(
     ? (pullRequestMutationState as { readonly latestRecord: AutoImplementationPullRequestMutationRecord }).latestRecord
     : pullRequestMutationRecords.at(-1) ?? null;
   const latestWorkerJob = workerJobs.at(-1);
+  const latestWorkerPlan = latestWorkerJob
+    ? {
+        executionMode: latestWorkerJob.executionPlan.executionMode,
+        workingDirectory: latestWorkerJob.executionPlan.workingDirectory,
+        issueDocumentPath: latestWorkerJob.executionPlan.issueDocumentPath,
+        executionAuthorityRef: latestWorkerJob.executionPlan.executionAuthorityRef,
+        allowedWriteScope: latestWorkerJob.executionPlan.allowedWriteScope,
+        requiredEvidence: latestWorkerJob.executionPlan.requiredEvidence,
+        forbiddenActions: latestWorkerJob.executionPlan.forbiddenActions,
+        sourceRefs: latestWorkerJob.executionPlan.sourceRefs,
+        blockedReason: latestWorkerJob.blockedReason,
+        missingEvidence: latestWorkerJob.missingEvidence,
+        evidenceRefs: latestWorkerJob.evidenceRefs
+      }
+    : null;
   const canRunWorkerJob = latestWorkerJob?.status === "planned" ||
     (
       latestWorkerJob?.status === "blocked" &&
@@ -136,6 +168,7 @@ export function autoImplementationRunViewModel(
       "Create a bounded local worker job after the current stage issue document is ready.",
     latestWorkerJobId: latestWorkerJob?.jobId ?? null,
     latestWorkerJobStatus: latestWorkerJob?.status ?? "not_planned",
+    latestWorkerPlan,
     canPlanWorkerJob: run.status !== "completed",
     canRecordPullRequestDryRun: run.status !== "completed",
     canRunWorkerJob,
@@ -208,6 +241,60 @@ export function AutoImplementationRunPanel({
           {copy.autoImplementation.refresh}
         </button>
       </div>
+
+      {run.latestWorkerPlan ? (
+        <>
+          <h3>{copy.autoImplementation.workerPlan}</h3>
+          <article className="operations-card">
+            <dl className="readiness-grid">
+              <div>
+                <dt>{copy.autoImplementation.workerPlanExecutionMode}</dt>
+                <dd>{run.latestWorkerPlan.executionMode}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerPlanWorkingDirectory}</dt>
+                <dd>{run.latestWorkerPlan.workingDirectory}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerPlanIssueDocument}</dt>
+                <dd>{run.latestWorkerPlan.issueDocumentPath}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerPlanExecutionAuthority}</dt>
+                <dd>{run.latestWorkerPlan.executionAuthorityRef ?? copy.autoImplementation.missingExecutionAuthority}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerPlanAllowedWriteScope}</dt>
+                <dd>{inlineList(run.latestWorkerPlan.allowedWriteScope, copy.autoImplementation.none)}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerPlanRequiredEvidence}</dt>
+                <dd>{inlineList(run.latestWorkerPlan.requiredEvidence, copy.autoImplementation.none)}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerPlanForbiddenActions}</dt>
+                <dd>{inlineList(run.latestWorkerPlan.forbiddenActions, copy.autoImplementation.none)}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerPlanSourceRefs}</dt>
+                <dd>{inlineList(run.latestWorkerPlan.sourceRefs, copy.autoImplementation.none)}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerPlanBlocker}</dt>
+                <dd>{run.latestWorkerPlan.blockedReason ?? copy.autoImplementation.notBlocked}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerPlanMissingEvidence}</dt>
+                <dd>{inlineList(run.latestWorkerPlan.missingEvidence, copy.autoImplementation.none)}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerPlanEvidenceRefs}</dt>
+                <dd>{inlineList(run.latestWorkerPlan.evidenceRefs, copy.autoImplementation.none)}</dd>
+              </div>
+            </dl>
+          </article>
+        </>
+      ) : null}
 
       <h3>{copy.autoImplementation.stagePlan}</h3>
       {run.stages.length ? (
