@@ -8731,6 +8731,7 @@ describe("PR-02 sidecar health shell", () => {
       });
 
       const tracker = await readFile(join(projectDir, "implementation-tracker.md"), "utf8");
+      const planningPlan = await readFile(join(projectDir, "planning-handoff-implementation-plan.md"), "utf8");
       const firstIssue = await readFile(join(projectDir, "implementation-issues", "001-initial_pr.md"), "utf8");
       const finalVerifyIssue = await readFile(join(projectDir, "implementation-issues", "006-final_verify_pr_update.md"), "utf8");
       const mergeIssue = await readFile(join(projectDir, "implementation-issues", "007-merge_main.md"), "utf8");
@@ -8739,6 +8740,8 @@ describe("PR-02 sidecar health shell", () => {
       const gitHead = await readFile(join(projectDir, ".git", "HEAD"), "utf8");
 
       expect(tracker).toContain("Remote status: no_remote");
+      expect(tracker).toContain("Planning Handoff implementation plan");
+      expect(tracker).toContain("[planning-handoff-implementation-plan.md](planning-handoff-implementation-plan.md)");
       expect(tracker).toContain("git remote add origin <github-repo-url>");
       expect(tracker).toContain("GitHub issue mutation contract");
       expect(tracker).toContain("Status: not_requested");
@@ -8748,7 +8751,16 @@ describe("PR-02 sidecar health shell", () => {
       expect(tracker).toContain("CodeReviewRecord.reviewScope");
       expect(tracker).toContain("Do not merge until the feature PR code review reaches two consecutive no-finding passes");
       expect(tracker).toContain("Update the PR body with scope, review streak evidence, test evidence");
+      expect(planningPlan).toContain("# Planning Handoff implementation plan");
+      expect(planningPlan).toContain("## Build slice plan");
+      expect(planningPlan).toContain("## Source-driven task breakdown");
+      expect(planningPlan).toContain("## PR/issue plan");
+      expect(planningPlan).toContain("API ready SpecVersion");
+      expect(planningPlan).toContain("Research-updated queue queue_api_ready terminal outcome is approved.");
+      expect(planningPlan).toContain("Spec/Evidence/Queue sources drive task");
       expect(firstIssue).toContain("## Acceptance");
+      expect(firstIssue).toContain("Planning Handoff implementation plan: planning-handoff-implementation-plan.md");
+      expect(firstIssue).toContain("## Planning source");
       expect(firstIssue).toContain("## Required review gates");
       expect(firstIssue).toContain("## ImplementationStepLedger evidence template");
       expect(firstIssue).toContain("CleanCodeReviewRecord.reviewScope");
@@ -8761,6 +8773,9 @@ describe("PR-02 sidecar health shell", () => {
         runId: latestRun.runId,
         projectFolderName: "demo-workspace-app",
         remoteStatus: "no_remote",
+        evidenceRefs: expect.arrayContaining([
+          "planning-handoff-plan:planning-handoff-implementation-plan.md"
+        ]),
         issueManagement: {
           githubIssueMutation: {
             status: "not_requested",
@@ -9039,7 +9054,8 @@ describe("PR-02 sidecar health shell", () => {
             stepId: `auto-implementation-step:${runId}:initial_pr:local-001`,
             sourceRefs: expect.arrayContaining([
               `auto-implementation-worker-job:${String(plannedJobs[5]!.jobId)}`,
-              "issue-doc:implementation-issues/001-initial_pr.md"
+              "issue-doc:implementation-issues/001-initial_pr.md",
+              "planning-handoff-plan:planning-handoff-implementation-plan.md"
             ])
           }
         },

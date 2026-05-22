@@ -25,6 +25,7 @@ import {
   type AutoImplementationRun,
   type AutoImplementationStage,
   type CreateAutoImplementationRunRequest,
+  type PlanningHandoffArtifactDto,
   type SessionId
 } from "@solo-superman/contracts";
 
@@ -32,11 +33,13 @@ const execFileAsync = promisify(execFile);
 const COMMAND_TIMEOUT_MS = 10_000;
 export const DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME = "solo-superman-project";
 const DEFAULT_PROJECT_FOLDER_NAME = DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME;
+const PLANNING_HANDOFF_IMPLEMENTATION_PLAN_RELATIVE_PATH = "planning-handoff-implementation-plan.md";
 
 export interface PrepareAutoImplementationWorkspaceInput {
   readonly sessionId: SessionId;
   readonly runId: string;
   readonly request: CreateAutoImplementationRunRequest;
+  readonly planningHandoffArtifact?: PlanningHandoffArtifactDto;
   readonly workspaceRoot: string;
   readonly now: string;
   readonly remoteStatusProvider?: AutoImplementationRemoteStatusProvider;
@@ -632,12 +635,127 @@ function appliedGithubIssueMutationContract(input: {
   };
 }
 
+function markdownList(values: readonly string[], emptyLabel = "none") {
+  return values.length ? values.map((value) => `- ${value}`) : [`- ${emptyLabel}`];
+}
+
+function planningSourceRefLabel(sourceRef: PlanningHandoffArtifactDto["sourceRefs"][number]) {
+  const staleLabel = sourceRef.stale ? "stale" : "current";
+  const requiredLabel = sourceRef.required ? "required" : "optional";
+  const label = sourceRef.sourceLabel ? ` — ${sourceRef.sourceLabel}` : "";
+
+  return `${sourceRef.sourceType}:${sourceRef.sourceId} (${requiredLabel}, ${staleLabel})${label}`;
+}
+
+function planningHandoffImplementationPlanMarkdown(artifact: PlanningHandoffArtifactDto) {
+  return [
+    "# Planning Handoff implementation plan",
+    "",
+    `- Artifact: ${artifact.artifactId}`,
+    `- Status: ${artifact.status}`,
+    `- Created at: ${artifact.createdAt}`,
+    `- Created by: ${artifact.createdBy}`,
+    `- Summary: ${artifact.handoffSummary}`,
+    "",
+    "## Source refs",
+    "",
+    ...artifact.sourceRefs.map((sourceRef) => `- ${planningSourceRefLabel(sourceRef)}`),
+    "",
+    "## Build slice plan",
+    "",
+    `- Slice goal: ${artifact.buildSlicePlan.sliceGoal}`,
+    `- Validation metric: ${artifact.buildSlicePlan.validationMetric}`,
+    "",
+    "### Included capabilities",
+    "",
+    ...markdownList(artifact.buildSlicePlan.includedCapabilities),
+    "",
+    "### Non-goals",
+    "",
+    ...markdownList(artifact.buildSlicePlan.nonGoals),
+    "",
+    "### Acceptance criteria",
+    "",
+    ...markdownList(artifact.buildSlicePlan.acceptanceCriteria),
+    "",
+    "### Smoke tests",
+    "",
+    ...markdownList(artifact.buildSlicePlan.smokeTests),
+    "",
+    "### Residual risks",
+    "",
+    ...markdownList(artifact.buildSlicePlan.residualRisks),
+    "",
+    "## Source-driven task breakdown",
+    "",
+    ...artifact.taskBreakdown.flatMap((task, index) => [
+      `### ${index + 1}. ${task.title}`,
+      "",
+      `- Task id: ${task.taskId}`,
+      `- Owner: ${task.ownerRole}`,
+      `- Intent: ${task.intent}`,
+      `- Depends on: ${task.dependsOn.length ? task.dependsOn.join(", ") : "none"}`,
+      `- Risk refs: ${task.riskRefs.length ? task.riskRefs.join(", ") : "none"}`,
+      "",
+      "#### Source refs",
+      "",
+      ...task.sourceRefs.map((sourceRef) => `- ${planningSourceRefLabel(sourceRef)}`),
+      "",
+      "#### Acceptance evidence",
+      "",
+      ...markdownList(task.acceptanceEvidence),
+      "",
+      "#### Non-goals",
+      "",
+      ...markdownList(task.nonGoals),
+      ""
+    ]),
+    "## PR/issue plan",
+    "",
+    ...artifact.prIssuePlan.flatMap((plan, index) => [
+      `### ${index + 1}. ${plan.summary}`,
+      "",
+      `- Sequence id: ${plan.sequenceId}`,
+      `- Included task ids: ${plan.includedTaskIds.join(", ")}`,
+      `- Blocked by: ${plan.blockedBy.length ? plan.blockedBy.join(", ") : "none"}`,
+      `- Phase boundary: ${plan.phaseBoundary}`,
+      "",
+      "#### Entry prerequisites",
+      "",
+      ...markdownList(plan.entryPrerequisites),
+      "",
+      "#### Exit evidence",
+      "",
+      ...markdownList(plan.exitEvidence),
+      ""
+    ]),
+    "## Readiness checklist",
+    "",
+    `- Sandbox boundary: ${artifact.readinessChecklist.sandboxBoundary}`,
+    `- Rollback reference: ${artifact.readinessChecklist.rollbackReference}`,
+    "",
+    "### Required approvals",
+    "",
+    ...markdownList(artifact.readinessChecklist.requiredApprovals),
+    "",
+    "### Expected evidence",
+    "",
+    ...markdownList(artifact.readinessChecklist.expectedEvidence),
+    "",
+    "## No-execution policy",
+    "",
+    artifact.noExecutionPolicy,
+    ""
+  ].join("\n");
+}
+
 function trackerMarkdown(input: {
   readonly title: string;
   readonly goal: string;
   readonly runId: string;
   readonly projectFolderName: string;
   readonly sourcePlanningRef: string;
+  readonly planningPlanRelativePath: string | null;
   readonly issueDocs: readonly AutoImplementationIssueDocument[];
   readonly remoteGuide: AutoImplementationRemoteGuide;
   readonly githubIssueMutation: AutoImplementationGitHubIssueMutationContract;
@@ -651,6 +769,13 @@ function trackerMarkdown(input: {
     `- Source planning ref: ${input.sourcePlanningRef}`,
     `- Remote status: ${input.remoteGuide.status}`,
     input.remoteGuide.warning ? `- Remote warning: ${input.remoteGuide.warning}` : "- Remote warning: none",
+    "",
+    "## Planning Handoff implementation plan",
+    "",
+    input.planningPlanRelativePath
+      ? `- Source-driven plan: [${input.planningPlanRelativePath}](${input.planningPlanRelativePath})`
+      : "- Source-driven plan: not available for this run-derived follow-up request.",
+    "- The Planning Handoff plan defines the product tasks and PR/issue breakdown; the local issue sequence below records the delivery, review, verification, and merge gates for the selected slice.",
     "",
     "## Local issue sequence",
     "",
@@ -698,6 +823,7 @@ function issueMarkdown(input: {
   readonly trackerTitle: string;
   readonly goal: string;
   readonly sourcePlanningRef: string;
+  readonly planningPlanRelativePath: string | null;
 }) {
   return [
     `# ${input.issue.title}`,
@@ -707,6 +833,16 @@ function issueMarkdown(input: {
     `- Tracker: ${input.trackerTitle}`,
     `- Goal: ${input.goal}`,
     `- Source planning ref: ${input.sourcePlanningRef}`,
+    input.planningPlanRelativePath
+      ? `- Planning Handoff implementation plan: ${input.planningPlanRelativePath}`
+      : "- Planning Handoff implementation plan: not available for this run-derived follow-up request.",
+    "",
+    "## Planning source",
+    "",
+    input.planningPlanRelativePath
+      ? `Use \`${input.planningPlanRelativePath}\` as the source-driven task/PR issue plan for this implementation slice.`
+      : "Use the existing auto implementation run and tracker state as the source for this follow-up operation.",
+    "This local issue is the delivery/review gate for the slice, not a replacement for the planning-derived task list.",
     "",
     "## Acceptance",
     "",
@@ -813,6 +949,12 @@ export async function prepareAutoImplementationWorkspaceRun(
   const trackerTitle = input.request.trackerTitle ?? "Solo Superman auto implementation tracker";
   const trackerGoal = input.request.trackerGoal ?? "Move the planning handoff into a reviewed local program repo.";
   const issueTitles = input.request.issueTitles?.length ? input.request.issueTitles : DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES;
+  const existingPlanningPlanStat = await lstatOrNull(
+    resolve(generatedRepoPath, PLANNING_HANDOFF_IMPLEMENTATION_PLAN_RELATIVE_PATH)
+  );
+  const planningPlanRelativePath = input.planningHandoffArtifact || existingPlanningPlanStat?.isFile()
+    ? PLANNING_HANDOFF_IMPLEMENTATION_PLAN_RELATIVE_PATH
+    : null;
   const issueDocs = AUTO_IMPLEMENTATION_STAGES.map((stage, index) => ({
     issueId: `local-${String(index + 1).padStart(3, "0")}`,
     title: issueTitles[index] ?? DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES[index]!,
@@ -832,9 +974,17 @@ export async function prepareAutoImplementationWorkspaceRun(
     writeIfChanged(
       workspaceRoot,
       resolve(generatedRepoPath, issue.relativePath.split("/").join(sep)),
-      issueMarkdown({ issue, trackerTitle, goal: trackerGoal, sourcePlanningRef })
+      issueMarkdown({ issue, trackerTitle, goal: trackerGoal, sourcePlanningRef, planningPlanRelativePath })
     )
   ));
+
+  if (input.planningHandoffArtifact && planningPlanRelativePath) {
+    await writeIfChanged(
+      workspaceRoot,
+      resolve(generatedRepoPath, planningPlanRelativePath.split("/").join(sep)),
+      planningHandoffImplementationPlanMarkdown(input.planningHandoffArtifact)
+    );
+  }
 
   if (githubIssueMutation.status === "approved_ready" && githubIssueMutation.approval) {
     const issueMutationResult = await githubIssueAdapter.createIssues({
@@ -863,6 +1013,7 @@ export async function prepareAutoImplementationWorkspaceRun(
       runId: input.runId,
       projectFolderName,
       sourcePlanningRef,
+      planningPlanRelativePath,
       issueDocs,
       remoteGuide: guide,
       githubIssueMutation
@@ -902,6 +1053,7 @@ export async function prepareAutoImplementationWorkspaceRun(
       `workspace:${projectFolderName}`,
       gitEvidence,
       `issues:${issueMode}`,
+      ...(planningPlanRelativePath ? [`planning-handoff-plan:${planningPlanRelativePath}`] : []),
       `manifest:${manifestRelativePath}`,
       `schema:${AUTO_IMPLEMENTATION_SCHEMA_VERSION}`
     ]
