@@ -464,6 +464,11 @@ function isGitHubIssuePlan(value: unknown): value is AutoImplementationGitHubIss
     isOneOf(value.sourceStage, AUTO_IMPLEMENTATION_STAGES);
 }
 
+function isGitHubIssueUrl(value: unknown): value is string {
+  return isNonEmptyString(value) &&
+    /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/issues\/[1-9]\d*\/?$/iu.test(value.trim());
+}
+
 function isGitHubIssueApproval(value: unknown): value is AutoImplementationGitHubIssueApproval {
   return isRecord(value) &&
     isNonEmptyString(value.approvalId) &&
@@ -473,7 +478,8 @@ function isGitHubIssueApproval(value: unknown): value is AutoImplementationGitHu
     value.approvalGranularity === AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_GRANULARITY &&
     value.remoteStatusAtApproval === "connected" &&
     isNonEmptyString(value.rollbackPlan) &&
-    isStringArray(value.evidenceRefs);
+    isStringArray(value.evidenceRefs) &&
+    value.evidenceRefs.length > 0;
 }
 
 function isGitHubIssueMutationContract(value: unknown): value is AutoImplementationGitHubIssueMutationContract {
@@ -486,7 +492,8 @@ function isGitHubIssueMutationContract(value: unknown): value is AutoImplementat
     (value.blockedReason === null || isNonEmptyString(value.blockedReason)) &&
     Array.isArray(value.plannedIssues) &&
     value.plannedIssues.every(isGitHubIssuePlan) &&
-    isStringArray(value.createdIssueUrls) &&
+    Array.isArray(value.createdIssueUrls) &&
+    value.createdIssueUrls.every(isGitHubIssueUrl) &&
     isStringArray(value.auditEvidenceRefs) &&
     isStringArray(value.verifierEvidenceRefs);
 }
@@ -497,7 +504,8 @@ function isIssueManagement(value: unknown): value is AutoImplementationIssueMana
     isNonEmptyString(value.trackerRelativePath) &&
     Array.isArray(value.issueDocs) &&
     value.issueDocs.every(isIssueDoc) &&
-    isStringArray(value.githubIssueUrls) &&
+    Array.isArray(value.githubIssueUrls) &&
+    value.githubIssueUrls.every(isGitHubIssueUrl) &&
     isGitHubIssueMutationContract(value.githubIssueMutation) &&
     (value.warning === null || isNonEmptyString(value.warning));
 }
@@ -572,7 +580,7 @@ function isReviewProtocol(value: unknown): value is AutoImplementationReviewProt
   return isStringArray(value.deliveryGates) &&
     arraysMatch(value.deliveryGates, AUTO_IMPLEMENTATION_DELIVERY_PROTOCOL) &&
     stageGates.length === AUTO_IMPLEMENTATION_STAGES.length &&
-    stageGates.every((record, index) => record.stage === AUTO_IMPLEMENTATION_STAGES[index] && isStageReviewGate(record));
+    stageGates.every((record, index) => isStageReviewGate(record) && record.stage === AUTO_IMPLEMENTATION_STAGES[index]);
 }
 
 function hasConsistentRemoteIssueState(

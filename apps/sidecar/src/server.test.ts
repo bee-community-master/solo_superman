@@ -8543,6 +8543,22 @@ describe("PR-02 sidecar health shell", () => {
         evidenceRefs: ["stage:initial_pr:complete"]
       });
       const replayProjection = jsonDataRecord(await jsonBody(replay));
+      const sameKeyNextStage = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "code_review_fix_1", {
+        idempotencyKey: "auto-stage:complete:initial-pr",
+        action: "start",
+        tickedAt: "2026-05-20T00:20:00.000Z",
+        evidenceRefs: ["stage:code_review_fix_1:start"]
+      });
+      const sameKeyNextStageRun = latestAutoImplementationRunFromBody(await jsonBody(sameKeyNextStage));
+      const sameKeyNextStageStages = sameKeyNextStageRun.stagePlan as readonly Readonly<Record<string, unknown>>[];
+      const reusedLedgerStep = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "code_review_fix_1", {
+        idempotencyKey: "auto-stage:complete:reused-step",
+        action: "complete",
+        implementationStepId: "step_demo",
+        tickedAt: "2026-05-20T00:25:00.000Z",
+        evidenceRefs: ["stage:code_review_fix_1:complete"]
+      });
+      const reusedLedgerStepBody = await jsonBody(reusedLedgerStep);
 
       expect(completed.status).toBe(200);
       expect(completedRun).toMatchObject({
@@ -8577,6 +8593,31 @@ describe("PR-02 sidecar health shell", () => {
       });
       expect(replay.status).toBe(200);
       expect(replayProjection.version).toBe(completedProjection.version);
+      expect(sameKeyNextStage.status).toBe(200);
+      expect(sameKeyNextStageRun).toMatchObject({
+        status: "running",
+        currentStage: "code_review_fix_1",
+        nextTickAt: "2026-05-20T00:25:00.000Z"
+      });
+      expect(sameKeyNextStageStages[1]).toMatchObject({
+        stage: "code_review_fix_1",
+        status: "running",
+        tickRecords: [
+          expect.objectContaining({
+            action: "tick",
+            status: "ready"
+          }),
+          expect.objectContaining({
+            action: "start",
+            status: "running"
+          })
+        ]
+      });
+      expect(reusedLedgerStep.status).toBe(400);
+      expect(reusedLedgerStepBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Auto implementation stage completion requires an implementation step that has not completed another stage."
+      });
     } finally {
       await storage.close();
     }

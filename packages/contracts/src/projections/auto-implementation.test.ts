@@ -38,8 +38,10 @@ function projectionWithLatestRun(run: AutoImplementationRun): AutoImplementation
   } as AutoImplementationRunProjection;
 }
 
-function expectInvalidProjection(projection: AutoImplementationRunProjection) {
-  expect(() => validateAutoImplementationRunProjection(projection)).toThrow(AutoImplementationRunValidationError);
+function expectInvalidProjection(projection: unknown) {
+  expect(() => validateAutoImplementationRunProjection(projection as AutoImplementationRunProjection)).toThrow(
+    AutoImplementationRunValidationError
+  );
 }
 
 describe("AutoImplementationRunProjection contract", () => {
@@ -176,6 +178,30 @@ describe("AutoImplementationRunProjection contract", () => {
     expectInvalidProjection(invalid);
   });
 
+  it("rejects malformed review gate entries without crashing validation", () => {
+    const invalid = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...readyRun,
+        reviewProtocol: {
+          ...readyRun.reviewProtocol,
+          stageGates: [null, ...readyRun.reviewProtocol.stageGates.slice(1)]
+        }
+      },
+      runs: [
+        {
+          ...readyRun,
+          reviewProtocol: {
+            ...readyRun.reviewProtocol,
+            stageGates: [null, ...readyRun.reviewProtocol.stageGates.slice(1)]
+          }
+        }
+      ]
+    };
+
+    expectInvalidProjection(invalid);
+  });
+
   it("rejects projections when remote status, guide, and issue mode drift apart", () => {
     const invalid = projectionWithLatestRun({
       ...readyRun,
@@ -228,6 +254,82 @@ describe("AutoImplementationRunProjection contract", () => {
           ...readyRun.issueManagement.githubIssueMutation,
           status: "dry_run_ready",
           auditEvidenceRefs: ["github-issue-mutation:dry_run_ready"]
+        }
+      }
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects approved GitHub issue mutation contracts without approval evidence refs", () => {
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      remoteStatus: "connected",
+      remoteGuide: {
+        status: "connected",
+        warning: null,
+        commands: [],
+        nextAction: "Remote issue, PR, and merge automation can run when the later runner stage is enabled."
+      },
+      issueManagement: {
+        ...readyRun.issueManagement,
+        mode: "github_ready",
+        warning: null,
+        githubIssueMutation: {
+          ...readyRun.issueManagement.githubIssueMutation,
+          status: "approved_ready",
+          approval: {
+            approvalId: "approval_without_evidence",
+            approvedBy: "local_operator",
+            approvedAt: "2026-05-05T00:00:00.000Z",
+            actionClass: "github_issue_create",
+            approvalGranularity: "per_action",
+            remoteStatusAtApproval: "connected",
+            rollbackPlan: "Close created issues and keep local markdown as source of truth.",
+            evidenceRefs: []
+          },
+          auditEvidenceRefs: ["github-issue-mutation:approved_ready"],
+          verifierEvidenceRefs: ["verifier:github_issue_create:ready"]
+        }
+      }
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects applied GitHub issue mutation contracts with non-GitHub issue URLs", () => {
+    const invalidIssueUrls = ["https://example.com/not-a-github-issue"];
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      remoteStatus: "connected",
+      remoteGuide: {
+        status: "connected",
+        warning: null,
+        commands: [],
+        nextAction: "Remote issue, PR, and merge automation can run when the later runner stage is enabled."
+      },
+      issueManagement: {
+        ...readyRun.issueManagement,
+        mode: "github_ready",
+        warning: null,
+        githubIssueUrls: invalidIssueUrls,
+        githubIssueMutation: {
+          ...readyRun.issueManagement.githubIssueMutation,
+          status: "applied",
+          mutatesGitHub: true,
+          approval: {
+            approvalId: "approval_with_invalid_url",
+            approvedBy: "local_operator",
+            approvedAt: "2026-05-05T00:00:00.000Z",
+            actionClass: "github_issue_create",
+            approvalGranularity: "per_action",
+            remoteStatusAtApproval: "connected",
+            rollbackPlan: "Close created issues and keep local markdown as source of truth.",
+            evidenceRefs: ["approval:github_issue_create:invalid-url"]
+          },
+          createdIssueUrls: invalidIssueUrls,
+          auditEvidenceRefs: ["github-issue-mutation:applied"],
+          verifierEvidenceRefs: ["verifier:github_issue_create:ready"]
         }
       }
     });

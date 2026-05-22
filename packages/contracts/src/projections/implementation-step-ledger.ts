@@ -216,6 +216,10 @@ function isCommitSha(value: string) {
   return /^[a-f0-9]{7,64}$/iu.test(value);
 }
 
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
 function isTrackerDoc(value: unknown): value is TrackerDoc {
   return isRecord(value) &&
     isNonEmptyString(value.trackerId) &&
@@ -304,10 +308,8 @@ function isTestEvidenceRecord(value: unknown): value is TestEvidenceRecord {
     value.commands.length > 0 &&
     isOneOf(value.outcome, IMPLEMENTATION_TEST_OUTCOMES) &&
     (value.verifiedCommitSha === undefined || (isNonEmptyString(value.verifiedCommitSha) && isCommitSha(value.verifiedCommitSha))) &&
-    typeof value.passedTestCount === "number" &&
-    value.passedTestCount >= 0 &&
-    typeof value.failedTestCount === "number" &&
-    value.failedTestCount >= 0 &&
+    isNonNegativeInteger(value.passedTestCount) &&
+    isNonNegativeInteger(value.failedTestCount) &&
     stringArray(value.notTestedGaps) &&
     stringArray(value.evidenceRefs) &&
     value.evidenceRefs.length > 0;

@@ -2055,8 +2055,28 @@ function createResearchFollowUpIssuesForAdditionalQuestions(input: {
       issue.queueItemId.startsWith("queue_research_followup_") &&
       issue.sourceRef?.startsWith(researchFollowUpSourcePrefix)
   ).length;
+  const existingResearchFollowUpQuestions = new Set(
+    input.openIssues
+      .flatMap((issue) =>
+        issue.queueItemId.startsWith("queue_research_followup_") &&
+        issue.sourceRef?.startsWith(researchFollowUpSourcePrefix) &&
+        issue.questionText
+          ? [issue.questionText.trim().toLowerCase()]
+          : []
+      )
+  );
+  const newAdditionalQuestions = input.evidenceMatrix.additionalQuestions.filter((question) => {
+    const normalizedQuestion = question.trim().toLowerCase();
 
-  return input.evidenceMatrix.additionalQuestions
+    if (existingResearchFollowUpQuestions.has(normalizedQuestion)) {
+      return false;
+    }
+
+    existingResearchFollowUpQuestions.add(normalizedQuestion);
+    return true;
+  });
+
+  return newAdditionalQuestions
     .map((question, index) =>
       createResearchFollowUpIssueForAdditionalQuestion({
         sessionId: input.sessionId,
@@ -4003,11 +4023,14 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
     researchTask,
     evidenceMatrix
   });
+  const newResearchFollowUpIssues = researchFollowUpIssues.filter((issue) =>
+    !state.openIssues.some((existingIssue) => existingIssue.queueItemId === issue.queueItemId)
+  );
   const nextOpenIssues = appendUniqueOpenIssues(state.openIssues, researchFollowUpIssues);
   const queueProjection = queueProjectionWithVisibleResearchFollowUps(
     queueProjectionWithReviewCard,
     nextOpenIssues,
-    researchFollowUpIssues,
+    newResearchFollowUpIssues,
     researchProjection.version,
     command.issuedAt
   );
@@ -4027,10 +4050,10 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
     evidencePack,
     projection: researchProjection,
     queueProjection,
-    ...(researchFollowUpIssues.length
+    ...(newResearchFollowUpIssues.length
       ? {
-          researchFollowUpIssues,
-          researchFollowUpQueueItemIds: researchFollowUpIssues.map((issue) => issue.queueItemId)
+          researchFollowUpIssues: newResearchFollowUpIssues,
+          researchFollowUpQueueItemIds: newResearchFollowUpIssues.map((issue) => issue.queueItemId)
         }
       : {}),
     confidenceProjection
@@ -8007,6 +8030,7 @@ function noCodeStepEvidenceFromValue(value: unknown, stepId: string): NoCodeStep
   const record = recordFromUnknown(value);
   const recordStepId = requiredString(record?.stepId);
   const baselineCommitSha = requiredString(record?.baselineCommitSha);
+  const cleanTrackedState = typeof record?.cleanTrackedState === "boolean" ? record.cleanTrackedState : null;
   const noCodeReason = requiredString(record?.noCodeReason);
   const commandEvidenceRefs = stringArrayFromRecord(record?.commandEvidenceRefs);
   const notTestedGaps = stringArrayFromRecord(record?.notTestedGaps, true);
@@ -8015,7 +8039,7 @@ function noCodeStepEvidenceFromValue(value: unknown, stepId: string): NoCodeStep
     !recordStepId ||
     recordStepId !== stepId ||
     !baselineCommitSha ||
-    record?.cleanTrackedState === undefined ||
+    cleanTrackedState === null ||
     record?.intendedTrackedDiff !== "none" ||
     !noCodeReason ||
     !commandEvidenceRefs?.length ||
@@ -8027,7 +8051,7 @@ function noCodeStepEvidenceFromValue(value: unknown, stepId: string): NoCodeStep
   return {
     stepId,
     baselineCommitSha,
-    cleanTrackedState: record.cleanTrackedState === true,
+    cleanTrackedState,
     intendedTrackedDiff: "none",
     noCodeReason,
     commandEvidenceRefs,
@@ -8136,8 +8160,14 @@ function testEvidenceRecordFromValue(value: unknown, stepId: string): TestEviden
   const commands = stringArrayFromRecord(record?.commands);
   const outcome = implementationTestOutcomeFromValue(record?.outcome);
   const verifiedCommitSha = record?.verifiedCommitSha === undefined ? undefined : requiredString(record.verifiedCommitSha);
-  const passedTestCount = typeof record?.passedTestCount === "number" ? record.passedTestCount : null;
-  const failedTestCount = typeof record?.failedTestCount === "number" ? record.failedTestCount : null;
+  const passedTestCount =
+    typeof record?.passedTestCount === "number" && Number.isInteger(record.passedTestCount) && record.passedTestCount >= 0
+      ? record.passedTestCount
+      : null;
+  const failedTestCount =
+    typeof record?.failedTestCount === "number" && Number.isInteger(record.failedTestCount) && record.failedTestCount >= 0
+      ? record.failedTestCount
+      : null;
   const notTestedGaps = stringArrayFromRecord(record?.notTestedGaps, true);
   const evidenceRefs = stringArrayFromRecord(record?.evidenceRefs);
 
