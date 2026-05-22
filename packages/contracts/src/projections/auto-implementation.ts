@@ -411,6 +411,14 @@ export interface AdvanceAutoImplementationWorkerStageRequest {
   readonly tickedAt?: string;
 }
 
+export interface RunAutoImplementationWorkerJobRequest {
+  readonly sessionId: SessionId;
+  readonly runId: string;
+  readonly jobId: string;
+  readonly idempotencyKey: string;
+  readonly evidenceRefs?: readonly string[];
+}
+
 export class AutoImplementationRunValidationError extends Error {
   constructor(readonly issues: readonly string[]) {
     super(`Invalid AutoImplementationRunProjection: ${issues.join("; ")}`);

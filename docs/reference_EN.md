@@ -371,6 +371,7 @@ Route definitions are source-owned by `packages/contracts/src/api/routes.ts`. Th
 | `POST /api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs` | `createAutoImplementationWorkerJob` | `none` | - |
 | `POST /api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/complete` | `completeAutoImplementationWorkerJob` | `none` | - |
 | `POST /api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/ledger-import` | `importAutoImplementationWorkerLedger` | `none` | - |
+| `POST /api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/run` | `runAutoImplementationWorkerJob` | `none` | - |
 | `POST /api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/advance-stage` | `advanceAutoImplementationWorkerStage` | `none` | - |
 | `POST /api/v1/sessions/:sessionId/auto-implementation-runs/:runId/stages/:stage` | `recordAutoImplementationStage` | `none` | - |
 | `GET /api/v1/commands/:commandId/status` | `getCommandStatus` | `none` | - |

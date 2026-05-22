@@ -15,9 +15,12 @@ import {
   codexAccountStatusFromAccountReadResponse,
   codexWslShellCommand,
   createCodexRuntimeAdapter,
+  fixtureCodexWorkerExecutionOutput,
   fixtureCodexPreviewOutput,
+  parseCodexWorkerExecutionOutput,
   parseCodexPreviewOutput,
   repairCodexJsonOutput,
+  validateCodexWorkerExecutionOutput,
   validateCodexPreviewOutput,
   windowsCodexLoginShellCommand
 } from "./index";
@@ -86,6 +89,21 @@ function phase15bHintsFixture() {
     ],
     createdAt: "2026-05-06T00:00:00.000Z",
     schemaVersion: PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION
+  };
+}
+
+function codexWorkerInputFixture() {
+  return {
+    jobId: "auto-worker-job:auto_run_demo:initial_pr:worker-job",
+    runId: "auto_run_demo",
+    stage: "initial_pr" as const,
+    workingDirectory: "/tmp/solo-superman/worker-job-demo",
+    issueDocumentPath: "implementation-issues/001-initial_pr.md",
+    executionAuthorityRef: "exec_auth_auto_worker_initial_pr",
+    allowedWriteScope: ["/tmp/solo-superman/worker-job-demo"],
+    requiredEvidence: ["ImplementationStepLedger completed step"],
+    forbiddenActions: ["No network writes", "No credential reads"],
+    sourceRefs: ["auto-implementation-run:auto_run_demo", "execution-authority:exec_auth_auto_worker_initial_pr"]
   };
 }
 
@@ -757,5 +775,97 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         }
       }
     });
+  });
+
+  it("builds bounded workspace-write stdio requests for local worker execution", () => {
+    const adapter = createCodexRuntimeAdapter({
+      fixtureMode: true,
+      env: {}
+    });
+    const requests = adapter.buildWorkerTurnRequests(
+      codexWorkerInputFixture(),
+      {
+        requestIdPrefix: "worker-1",
+        cwd: "/tmp/solo-superman/worker-job-demo"
+      }
+    );
+    const turnStartRequest = requests.buildTurnStartRequest("thread_worker_1");
+
+    expect(requests.threadStartRequest).toMatchObject({
+      method: "thread/start",
+      params: {
+        approvalPolicy: "never",
+        sandbox: "workspace-write",
+        serviceName: "solo-superman-auto-worker",
+        ephemeral: true
+      }
+    });
+    expect(turnStartRequest).toMatchObject({
+      method: "turn/start",
+      id: "worker-1:turn-start",
+      params: {
+        threadId: "thread_worker_1",
+        approvalPolicy: "never",
+        sandboxPolicy: {
+          type: "workspaceWrite",
+          writableRoots: ["/tmp/solo-superman/worker-job-demo"],
+          networkAccess: false,
+          excludeTmpdirEnvVar: true,
+          excludeSlashTmp: true
+        },
+        effort: "high"
+      }
+    });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("executionAuthorityRef: exec_auth_auto_worker_initial_pr")
+    });
+    expect(turnStartRequest.params.outputSchema).toMatchObject({
+      type: "object",
+      required: expect.arrayContaining(["schemaVersion", "jobId", "status", "ledgerTransitions", "evidenceRefs"]),
+      properties: {
+        status: {
+          enum: ["completed", "blocked"]
+        }
+      }
+    });
+  });
+
+  it("validates worker execution fixture output with completed ledger evidence", async () => {
+    const input = codexWorkerInputFixture();
+    const adapter = createCodexRuntimeAdapter({
+      fixtureMode: true,
+      env: {}
+    });
+    const output = await adapter.executeWorker(input);
+
+    expect(output).toEqual(fixtureCodexWorkerExecutionOutput(input));
+    expect(validateCodexWorkerExecutionOutput(output)).toMatchObject({
+      schemaVersion: CONTRACT_SCHEMA_VERSION,
+      jobId: input.jobId,
+      status: "completed",
+      evidenceRefs: expect.arrayContaining([
+        `codex-worker:${input.jobId}:fixture`,
+        "codex-worker:fixture:completed"
+      ])
+    });
+    expect(output.ledgerTransitions.at(-1)).toMatchObject({
+      targetStatus: "completed",
+      evidenceRefs: ["codex-worker:fixture:completed"]
+    });
+    expect(parseCodexWorkerExecutionOutput(`\`\`\`json\n${JSON.stringify(output)}\n\`\`\``)).toMatchObject({
+      jobId: input.jobId,
+      status: "completed"
+    });
+    expect(() =>
+      validateCodexWorkerExecutionOutput({
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        jobId: input.jobId,
+        status: "completed",
+        summary: "Missing ledger transitions",
+        ledgerTransitions: [],
+        evidenceRefs: ["codex-worker:bad"]
+      })
+    ).toThrow("Completed Codex worker execution output must include ledgerTransitions");
   });
 });

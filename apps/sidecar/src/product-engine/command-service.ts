@@ -35,6 +35,7 @@ import {
   type CreateAutoImplementationRunRequest,
   type CreateAutoImplementationWorkerJobRequest,
   type ImportAutoImplementationWorkerLedgerRequest,
+  type RunAutoImplementationWorkerJobRequest,
   type RecordImplementationStepLedgerPayload,
   type AutomaticResearchSourceCategory,
   type BlockedActionType,
@@ -164,7 +165,8 @@ import {
   createCodexRuntimeAdapter,
   fixtureCodexPreviewOutput,
   type CodexRuntimeAdapter,
-  type CodexRuntimePreviewInput
+  type CodexRuntimePreviewInput,
+  type CodexWorkerExecutionOutputEnvelope
 } from "../runtime";
 import {
   browserActionTargetFromUrl,
@@ -705,7 +707,8 @@ const AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE = {
   generatedWorkspaceScope: "ExecutionAuthorityRecord.generated_workspace_scope",
   noSecretValues: "ExecutionAuthorityRecord.no_secret_values",
   completedLedgerStep: "ImplementationStepLedger completed step",
-  ledgerImport: "ImplementationStepLedger import"
+  ledgerImport: "ImplementationStepLedger import",
+  workerExecution: "Local Codex worker execution"
 } as const;
 
 function autoImplementationWorkerCompletionRef(request: CompleteAutoImplementationWorkerJobRequest) {
@@ -714,6 +717,10 @@ function autoImplementationWorkerCompletionRef(request: CompleteAutoImplementati
 
 function autoImplementationWorkerLedgerImportRef(request: ImportAutoImplementationWorkerLedgerRequest) {
   return `auto-worker-ledger-import:${request.jobId}:${request.idempotencyKey}`;
+}
+
+function autoImplementationWorkerRunRef(request: RunAutoImplementationWorkerJobRequest) {
+  return `auto-worker-run:${request.jobId}:${request.idempotencyKey}`;
 }
 
 function autoImplementationWorkerStageAdvanceRef(request: AdvanceAutoImplementationWorkerStageRequest) {
@@ -756,6 +763,15 @@ function isAutoImplementationWorkerLedgerImportCandidate(job: AutoImplementation
         job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.completedLedgerStep ||
         job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.ledgerImport
       )
+    );
+}
+
+function isAutoImplementationWorkerExecutionCandidate(job: AutoImplementationWorkerJob) {
+  return job.status === "planned" ||
+    (
+      job.status === "blocked" &&
+      job.missingEvidence.length === 1 &&
+      job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.workerExecution
     );
 }
 
@@ -837,6 +853,10 @@ function autoImplementationWorkerBlockedReason(missingEvidence: readonly string[
     return "Local Codex worker ledger import must pass the existing ImplementationStepLedger reducer and validation gates.";
   }
 
+  if (missingEvidence.includes(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.workerExecution)) {
+    return "Local Codex worker execution must produce a completed ImplementationStepLedger evidence envelope before the job can advance.";
+  }
+
   return null;
 }
 
@@ -863,6 +883,10 @@ function autoImplementationWorkerNextRequiredAction(missingEvidence: readonly st
 
   if (missingEvidence.includes(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.ledgerImport)) {
     return "Retry the worker ledger import with valid ImplementationStepLedger transition payloads before advancing the stage.";
+  }
+
+  if (missingEvidence.includes(AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.workerExecution)) {
+    return "Retry the local Codex worker run after Codex runtime availability, worker output, and ledger evidence are fixed.";
   }
 
   return "Run the local Codex worker inside the bounded plan, then import ImplementationStepLedger evidence before advancing the stage.";
@@ -4420,6 +4444,425 @@ export function createProductEngineCommandService(
     });
   }
 
+  async function importAutoImplementationWorkerLedgerProjectionWithinSessionLock(
+    request: ImportAutoImplementationWorkerLedgerRequest
+  ): Promise<AutoImplementationRunProjection> {
+    const session = await createProjectRepository(storage.db).getSession(request.sessionId);
+
+    if (!session) {
+      throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+        sessionId: request.sessionId
+      });
+    }
+
+    const projectionRepository = createProjectionRepository(storage.db);
+    const persistedProjection = await projectionRepository.get<AutoImplementationRunProjection>(
+      request.sessionId,
+      "AutoImplementationRunProjection"
+    );
+    const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(persistedProjection) : null;
+
+    if (!existingProjection) {
+      throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run projection was not found.", {
+        sessionId: request.sessionId
+      });
+    }
+
+    const run = existingProjection.runs.find((candidate) => candidate.runId === request.runId);
+
+    if (!run) {
+      throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run was not found.", {
+        runId: request.runId
+      });
+    }
+
+    const workerJob = run.workerJobs.find((job) => job.jobId === request.jobId);
+
+    if (!workerJob) {
+      throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation worker job was not found.", {
+        jobId: request.jobId
+      });
+    }
+
+    if (workerJob.status === "completed") {
+      return existingProjection;
+    }
+
+    if (!isAutoImplementationWorkerLedgerImportCandidate(workerJob)) {
+      throw new ProductEngineServiceError(
+        "VALIDATION_FAILED",
+        "Only planned worker jobs or ledger-blocked worker jobs can import ImplementationStepLedger evidence."
+      );
+    }
+
+    if (run.currentStage !== workerJob.stage) {
+      throw new ProductEngineServiceError(
+        "VALIDATION_FAILED",
+        "Auto implementation worker ledger imports can only target the current stage.",
+        { currentStage: run.currentStage, workerStage: workerJob.stage }
+      );
+    }
+
+    const now = new Date().toISOString();
+    const importRef = autoImplementationWorkerLedgerImportRef(request);
+    let importedJob: AutoImplementationWorkerJob;
+    let importFailure: ProductEngineServiceError | null = null;
+
+    for (const [index, transition] of request.ledgerTransitions.entries()) {
+      const state = await stateForSession(session.projectId, request.sessionId);
+      const { command, events } = await commandForExistingSession(
+        {
+          sessionId: request.sessionId,
+          commandType: "RecordImplementationStepLedger",
+          expectedStateVersion: state.stateVersion,
+          idempotencyKey: autoImplementationWorkerLedgerImportCommandKey({ request, transition, index }),
+          payload: transition as unknown as Readonly<Record<string, unknown>>
+        },
+        "product_engine"
+      );
+      const response = await runCommand(command, events);
+
+      if (response.category === "rejected" || response.category === "blocked") {
+        importFailure = new ProductEngineServiceError(
+          "VALIDATION_FAILED",
+          "Auto implementation worker ledger import was rejected by ImplementationStepLedger validation.",
+          {
+            category: response.category,
+            code: response.error?.code,
+            message: response.error?.message
+          }
+        );
+        break;
+      }
+    }
+
+    const completedTransition = [...request.ledgerTransitions]
+      .reverse()
+      .find((transition) => transition.targetStatus === "completed");
+
+    try {
+      if (importFailure) {
+        throw importFailure;
+      }
+
+      if (!completedTransition) {
+        throw new ProductEngineServiceError(
+          "VALIDATION_FAILED",
+          "Auto implementation worker ledger import requires a completed ImplementationStepLedger transition."
+        );
+      }
+
+      const ledger = validatedLedgerForAutoImplementationStage(
+        await projectionRepository.get<ImplementationStepLedgerProjection>(
+          request.sessionId,
+          "ImplementationStepLedgerProjection"
+        )
+      );
+
+      if (!ledger) {
+        throw new ProductEngineServiceError(
+          "VALIDATION_FAILED",
+          "Auto implementation worker ledger import requires an ImplementationStepLedger projection."
+        );
+      }
+
+      const ledgerStep = completedLedgerStepForAutoImplementationStage(ledger, completedTransition.stepDoc.stepId);
+      const ledgerEvidence = autoImplementationStageLedgerEvidence(ledger, ledgerStep);
+
+      importedJob = {
+        ...workerJob,
+        status: "completed",
+        blockedReason: null,
+        missingEvidence: [],
+        nextRequiredAction: "Advance the current auto implementation stage through the existing stage endpoint with the imported ImplementationStepLedger evidence.",
+        updatedAt: now,
+        evidenceRefs: uniqueAutoImplementationRefs([
+          ...workerJob.evidenceRefs,
+          importRef,
+          ...ledgerEvidence.evidenceRefs,
+          ...(request.evidenceRefs ?? [])
+        ])
+      };
+    } catch (error) {
+      if (!(error instanceof ProductEngineServiceError)) {
+        throw error;
+      }
+
+      importedJob = {
+        ...workerJob,
+        status: "blocked",
+        blockedReason: error.message,
+        missingEvidence: [AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.ledgerImport],
+        nextRequiredAction: "Retry the worker ledger import with valid completed ImplementationStepLedger evidence before advancing the stage.",
+        updatedAt: now,
+        evidenceRefs: uniqueAutoImplementationRefs([
+          ...workerJob.evidenceRefs,
+          importRef,
+          "worker-blocked:ledger-import",
+          ...(request.evidenceRefs ?? [])
+        ])
+      };
+    }
+
+    const updatedRun: AutoImplementationRun = {
+      ...run,
+      status: importedJob.status === "blocked" ? "blocked" : "running",
+      workerJobs: run.workerJobs.map((job) => job.jobId === request.jobId ? importedJob : job),
+      updatedAt: now,
+      evidenceRefs: uniqueAutoImplementationRefs([...run.evidenceRefs, ...importedJob.evidenceRefs])
+    };
+    const runs = existingProjection.runs.map((candidate) =>
+      candidate.runId === request.runId ? updatedRun : candidate
+    );
+    const projection = validateAutoImplementationRunProjection({
+      ...existingProjection,
+      version: (existingProjection.version + 1) as ProjectionVersion,
+      latestRun: updatedRun,
+      runs,
+      summary: `Auto implementation worker ledger import ${importedJob.status} for ${importedJob.stage}.`
+    });
+
+    return projectionRepository.save({
+      projectId: session.projectId,
+      sessionId: request.sessionId,
+      projection,
+      schemaVersion: CONTRACT_SCHEMA_VERSION,
+      updatedAt: now
+    });
+  }
+  async function importAutoImplementationWorkerLedgerProjection(
+    request: ImportAutoImplementationWorkerLedgerRequest
+  ): Promise<AutoImplementationRunProjection> {
+    return runSessionCommandSerialized(request.sessionId, () =>
+      importAutoImplementationWorkerLedgerProjectionWithinSessionLock(request)
+    );
+  }
+
+  async function runAutoImplementationWorkerJobProjection(
+    request: RunAutoImplementationWorkerJobRequest
+  ): Promise<AutoImplementationRunProjection> {
+    return runSessionCommandSerialized(request.sessionId, async () => {
+      const session = await createProjectRepository(storage.db).getSession(request.sessionId);
+
+      if (!session) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
+          sessionId: request.sessionId
+        });
+      }
+
+      const projectionRepository = createProjectionRepository(storage.db);
+      const persistedProjection = await projectionRepository.get<AutoImplementationRunProjection>(
+        request.sessionId,
+        "AutoImplementationRunProjection"
+      );
+      const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(persistedProjection) : null;
+
+      if (!existingProjection) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run projection was not found.", {
+          sessionId: request.sessionId
+        });
+      }
+
+      const run = existingProjection.runs.find((candidate) => candidate.runId === request.runId);
+
+      if (!run) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run was not found.", {
+          runId: request.runId
+        });
+      }
+
+      const workerJob = run.workerJobs.find((job) => job.jobId === request.jobId);
+
+      if (!workerJob) {
+        throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation worker job was not found.", {
+          jobId: request.jobId
+        });
+      }
+
+      if (workerJob.status === "completed") {
+        return existingProjection;
+      }
+
+      if (!isAutoImplementationWorkerExecutionCandidate(workerJob)) {
+        throw new ProductEngineServiceError(
+          "VALIDATION_FAILED",
+          "Only planned worker jobs or execution-blocked worker jobs can run a local Codex worker."
+        );
+      }
+
+      if (run.currentStage !== workerJob.stage) {
+        throw new ProductEngineServiceError(
+          "VALIDATION_FAILED",
+          "Auto implementation worker jobs can only run for the current stage.",
+          { currentStage: run.currentStage, workerStage: workerJob.stage }
+        );
+      }
+
+      const activeSession = session;
+      const activeProjection = existingProjection;
+      const activeRun = run;
+      const activeWorkerJob = workerJob;
+      const now = new Date().toISOString();
+      const runRef = autoImplementationWorkerRunRef(request);
+      const authorityProjection = activeWorkerJob.executionPlan.executionAuthorityRef
+        ? await createExecutionAuthorityRepository(storage.db).getById(activeWorkerJob.executionPlan.executionAuthorityRef)
+        : null;
+
+      if (authorityProjection && authorityProjection.sessionId !== request.sessionId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "executionAuthorityRef must belong to the request session.", {
+          executionAuthorityRef: activeWorkerJob.executionPlan.executionAuthorityRef,
+          routeSessionId: request.sessionId,
+          authoritySessionId: authorityProjection.sessionId
+        });
+      }
+
+      const authorityMissingEvidence = autoImplementationWorkerMissingEvidence({
+        executionAuthorityRef: activeWorkerJob.executionPlan.executionAuthorityRef,
+        authorityProjection,
+        run: activeRun
+      });
+
+      function blockedProjection(input: {
+        readonly missingEvidence: readonly string[];
+        readonly blockedReason: string;
+        readonly nextRequiredAction: string;
+        readonly evidenceRefs?: readonly string[];
+      }) {
+        const blockedJob: AutoImplementationWorkerJob = {
+          ...activeWorkerJob,
+          status: "blocked",
+          blockedReason: input.blockedReason,
+          missingEvidence: input.missingEvidence,
+          nextRequiredAction: input.nextRequiredAction,
+          updatedAt: now,
+          evidenceRefs: uniqueAutoImplementationRefs([
+            ...activeWorkerJob.evidenceRefs,
+            runRef,
+            ...(input.evidenceRefs ?? []),
+            ...(request.evidenceRefs ?? [])
+          ])
+        };
+        const updatedRun: AutoImplementationRun = {
+          ...activeRun,
+          status: "blocked",
+          workerJobs: activeRun.workerJobs.map((job) => job.jobId === request.jobId ? blockedJob : job),
+          updatedAt: now,
+          evidenceRefs: uniqueAutoImplementationRefs([...activeRun.evidenceRefs, ...blockedJob.evidenceRefs])
+        };
+        const runs = activeProjection.runs.map((candidate) =>
+          candidate.runId === request.runId ? updatedRun : candidate
+        );
+
+        return validateAutoImplementationRunProjection({
+          ...activeProjection,
+          version: (activeProjection.version + 1) as ProjectionVersion,
+          latestRun: updatedRun,
+          runs,
+          summary: `Auto implementation worker execution blocked for ${activeWorkerJob.stage}.`
+        });
+      }
+
+      async function saveProjection(projection: AutoImplementationRunProjection) {
+        return projectionRepository.save({
+          projectId: activeSession.projectId,
+          sessionId: request.sessionId,
+          projection,
+          schemaVersion: CONTRACT_SCHEMA_VERSION,
+          updatedAt: now
+        });
+      }
+
+      if (authorityMissingEvidence.length > 0) {
+        return saveProjection(blockedProjection({
+          missingEvidence: authorityMissingEvidence,
+          blockedReason:
+            autoImplementationWorkerBlockedReason(authorityMissingEvidence) ??
+            "Local Codex worker execution requires a ready bounded execution authority.",
+          nextRequiredAction: autoImplementationWorkerNextRequiredAction(authorityMissingEvidence),
+          evidenceRefs: ["worker-blocked:execution-authority"]
+        }));
+      }
+
+      let output: CodexWorkerExecutionOutputEnvelope;
+
+      try {
+        output = await codexRuntimeAdapter.executeWorker({
+          jobId: activeWorkerJob.jobId,
+          runId: activeRun.runId,
+          stage: activeWorkerJob.stage,
+          workingDirectory: activeWorkerJob.executionPlan.workingDirectory,
+          issueDocumentPath: activeWorkerJob.executionPlan.issueDocumentPath,
+          executionAuthorityRef: activeWorkerJob.executionPlan.executionAuthorityRef ?? "",
+          allowedWriteScope: activeWorkerJob.executionPlan.allowedWriteScope,
+          requiredEvidence: activeWorkerJob.executionPlan.requiredEvidence,
+          forbiddenActions: activeWorkerJob.executionPlan.forbiddenActions,
+          sourceRefs: activeWorkerJob.executionPlan.sourceRefs
+        });
+      } catch (error) {
+        const reason = error instanceof CodexRuntimeUnavailableError
+          ? error.message
+          : error instanceof Error
+            ? `Local Codex worker execution failed before importable ledger evidence was produced: ${error.message}`
+            : "Local Codex worker execution failed before importable ledger evidence was produced.";
+
+        return saveProjection(blockedProjection({
+          missingEvidence: [AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.workerExecution],
+          blockedReason: reason,
+          nextRequiredAction: autoImplementationWorkerNextRequiredAction([
+            AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.workerExecution
+          ]),
+          evidenceRefs: ["worker-blocked:codex-runtime"]
+        }));
+      }
+
+      if (output.jobId !== request.jobId) {
+        return saveProjection(blockedProjection({
+          missingEvidence: [AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.workerExecution],
+          blockedReason: "Local Codex worker output jobId did not match the requested worker job.",
+          nextRequiredAction: autoImplementationWorkerNextRequiredAction([
+            AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.workerExecution
+          ]),
+          evidenceRefs: [
+            "worker-blocked:codex-runtime",
+            ...output.evidenceRefs
+          ]
+        }));
+      }
+
+      if (output.status === "blocked") {
+        const missingEvidence = output.missingEvidence?.length
+          ? output.missingEvidence
+          : [AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.workerExecution];
+
+        return saveProjection(blockedProjection({
+          missingEvidence,
+          blockedReason:
+            output.blockedReason ??
+            autoImplementationWorkerBlockedReason(missingEvidence) ??
+            "Local Codex worker execution was blocked before completed ledger evidence could be imported.",
+          nextRequiredAction: output.nextRequiredAction ?? autoImplementationWorkerNextRequiredAction(missingEvidence),
+          evidenceRefs: [
+            "worker-blocked:codex-runtime",
+            ...output.evidenceRefs
+          ]
+        }));
+      }
+
+      return importAutoImplementationWorkerLedgerProjectionWithinSessionLock({
+        sessionId: request.sessionId,
+        runId: request.runId,
+        jobId: request.jobId,
+        idempotencyKey: `${request.idempotencyKey}:ledger-import`,
+        ledgerTransitions: output.ledgerTransitions,
+        evidenceRefs: uniqueAutoImplementationRefs([
+          runRef,
+          ...output.evidenceRefs,
+          ...(request.evidenceRefs ?? [])
+        ])
+      });
+    });
+  }
+
   return {
     async startProject(input: StartProjectRequest): Promise<CommandResponse> {
       const nextProjectId = projectId();
@@ -5751,190 +6194,13 @@ export function createProductEngineCommandService(
     async importAutoImplementationWorkerLedger(
       request: ImportAutoImplementationWorkerLedgerRequest
     ): Promise<AutoImplementationRunProjection> {
-      return runSessionCommandSerialized(request.sessionId, async () => {
-        const session = await createProjectRepository(storage.db).getSession(request.sessionId);
+      return importAutoImplementationWorkerLedgerProjection(request);
+    },
 
-        if (!session) {
-          throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Session was not found.", {
-            sessionId: request.sessionId
-          });
-        }
-
-        const projectionRepository = createProjectionRepository(storage.db);
-        const persistedProjection = await projectionRepository.get<AutoImplementationRunProjection>(
-          request.sessionId,
-          "AutoImplementationRunProjection"
-        );
-        const existingProjection = persistedProjection ? normalizeLegacyAutoImplementationProjectionWorkerJobs(persistedProjection) : null;
-
-        if (!existingProjection) {
-          throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run projection was not found.", {
-            sessionId: request.sessionId
-          });
-        }
-
-        const run = existingProjection.runs.find((candidate) => candidate.runId === request.runId);
-
-        if (!run) {
-          throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation run was not found.", {
-            runId: request.runId
-          });
-        }
-
-        const workerJob = run.workerJobs.find((job) => job.jobId === request.jobId);
-
-        if (!workerJob) {
-          throw new ProductEngineServiceError("RESOURCE_NOT_FOUND", "Auto implementation worker job was not found.", {
-            jobId: request.jobId
-          });
-        }
-
-        if (workerJob.status === "completed") {
-          return existingProjection;
-        }
-
-        if (!isAutoImplementationWorkerLedgerImportCandidate(workerJob)) {
-          throw new ProductEngineServiceError(
-            "VALIDATION_FAILED",
-            "Only planned worker jobs or ledger-blocked worker jobs can import ImplementationStepLedger evidence."
-          );
-        }
-
-        if (run.currentStage !== workerJob.stage) {
-          throw new ProductEngineServiceError(
-            "VALIDATION_FAILED",
-            "Auto implementation worker ledger imports can only target the current stage.",
-            { currentStage: run.currentStage, workerStage: workerJob.stage }
-          );
-        }
-
-        const now = new Date().toISOString();
-        const importRef = autoImplementationWorkerLedgerImportRef(request);
-        let importedJob: AutoImplementationWorkerJob;
-        let importFailure: ProductEngineServiceError | null = null;
-
-        for (const [index, transition] of request.ledgerTransitions.entries()) {
-          const state = await stateForSession(session.projectId, request.sessionId);
-          const { command, events } = await commandForExistingSession(
-            {
-              sessionId: request.sessionId,
-              commandType: "RecordImplementationStepLedger",
-              expectedStateVersion: state.stateVersion,
-              idempotencyKey: autoImplementationWorkerLedgerImportCommandKey({ request, transition, index }),
-              payload: transition as unknown as Readonly<Record<string, unknown>>
-            },
-            "product_engine"
-          );
-          const response = await runCommand(command, events);
-
-          if (response.category === "rejected" || response.category === "blocked") {
-            importFailure = new ProductEngineServiceError(
-              "VALIDATION_FAILED",
-              "Auto implementation worker ledger import was rejected by ImplementationStepLedger validation.",
-              {
-                category: response.category,
-                code: response.error?.code,
-                message: response.error?.message
-              }
-            );
-            break;
-          }
-        }
-
-        const completedTransition = [...request.ledgerTransitions]
-          .reverse()
-          .find((transition) => transition.targetStatus === "completed");
-
-        try {
-          if (importFailure) {
-            throw importFailure;
-          }
-
-          if (!completedTransition) {
-            throw new ProductEngineServiceError(
-              "VALIDATION_FAILED",
-              "Auto implementation worker ledger import requires a completed ImplementationStepLedger transition."
-            );
-          }
-
-          const ledger = validatedLedgerForAutoImplementationStage(
-            await projectionRepository.get<ImplementationStepLedgerProjection>(
-              request.sessionId,
-              "ImplementationStepLedgerProjection"
-            )
-          );
-
-          if (!ledger) {
-            throw new ProductEngineServiceError(
-              "VALIDATION_FAILED",
-              "Auto implementation worker ledger import requires an ImplementationStepLedger projection."
-            );
-          }
-
-          const ledgerStep = completedLedgerStepForAutoImplementationStage(ledger, completedTransition.stepDoc.stepId);
-          const ledgerEvidence = autoImplementationStageLedgerEvidence(ledger, ledgerStep);
-
-          importedJob = {
-            ...workerJob,
-            status: "completed",
-            blockedReason: null,
-            missingEvidence: [],
-            nextRequiredAction: "Advance the current auto implementation stage through the existing stage endpoint with the imported ImplementationStepLedger evidence.",
-            updatedAt: now,
-            evidenceRefs: uniqueAutoImplementationRefs([
-              ...workerJob.evidenceRefs,
-              importRef,
-              ...ledgerEvidence.evidenceRefs,
-              ...(request.evidenceRefs ?? [])
-            ])
-          };
-        } catch (error) {
-          if (!(error instanceof ProductEngineServiceError)) {
-            throw error;
-          }
-
-          importedJob = {
-            ...workerJob,
-            status: "blocked",
-            blockedReason: error.message,
-            missingEvidence: [AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.ledgerImport],
-            nextRequiredAction: "Retry the worker ledger import with valid completed ImplementationStepLedger evidence before advancing the stage.",
-            updatedAt: now,
-            evidenceRefs: uniqueAutoImplementationRefs([
-              ...workerJob.evidenceRefs,
-              importRef,
-              "worker-blocked:ledger-import",
-              ...(request.evidenceRefs ?? [])
-            ])
-          };
-        }
-
-        const updatedRun: AutoImplementationRun = {
-          ...run,
-          status: importedJob.status === "blocked" ? "blocked" : "running",
-          workerJobs: run.workerJobs.map((job) => job.jobId === request.jobId ? importedJob : job),
-          updatedAt: now,
-          evidenceRefs: uniqueAutoImplementationRefs([...run.evidenceRefs, ...importedJob.evidenceRefs])
-        };
-        const runs = existingProjection.runs.map((candidate) =>
-          candidate.runId === request.runId ? updatedRun : candidate
-        );
-        const projection = validateAutoImplementationRunProjection({
-          ...existingProjection,
-          version: (existingProjection.version + 1) as ProjectionVersion,
-          latestRun: updatedRun,
-          runs,
-          summary: `Auto implementation worker ledger import ${importedJob.status} for ${importedJob.stage}.`
-        });
-
-        return projectionRepository.save({
-          projectId: session.projectId,
-          sessionId: request.sessionId,
-          projection,
-          schemaVersion: CONTRACT_SCHEMA_VERSION,
-          updatedAt: now
-        });
-      });
+    async runAutoImplementationWorkerJob(
+      request: RunAutoImplementationWorkerJobRequest
+    ): Promise<AutoImplementationRunProjection> {
+      return runAutoImplementationWorkerJobProjection(request);
     },
 
     async advanceAutoImplementationWorkerStage(

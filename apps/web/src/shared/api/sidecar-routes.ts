@@ -82,6 +82,10 @@ export function autoImplementationWorkerLedgerImportPath(sessionId: SessionId, r
   return `${autoImplementationWorkerJobPath(sessionId, runId)}/${encodeURIComponent(jobId)}/ledger-import`;
 }
 
+export function autoImplementationWorkerJobRunPath(sessionId: SessionId, runId: string, jobId: string) {
+  return `${autoImplementationWorkerJobPath(sessionId, runId)}/${encodeURIComponent(jobId)}/run`;
+}
+
 export function autoImplementationWorkerStageAdvancePath(sessionId: SessionId, runId: string, jobId: string) {
   return `${autoImplementationWorkerJobPath(sessionId, runId)}/${encodeURIComponent(jobId)}/advance-stage`;
 }

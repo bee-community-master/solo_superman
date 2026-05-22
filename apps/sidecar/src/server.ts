@@ -50,6 +50,7 @@ import {
   type CreateAutoImplementationRunRequest,
   type CreateAutoImplementationWorkerJobRequest,
   type ImportAutoImplementationWorkerLedgerRequest,
+  type RunAutoImplementationWorkerJobRequest,
   type CreateExecutionAuthorityPayload,
   type CreateExecutionAuthorityRequest,
   type CreateChatGptBrowserDelegationRunPayload,
@@ -2276,6 +2277,14 @@ const AUTO_IMPLEMENTATION_WORKER_LEDGER_IMPORT_REQUEST_BODY_KEYS = [
   "evidenceRefs"
 ] as const satisfies readonly (keyof ImportAutoImplementationWorkerLedgerRequest)[];
 
+const AUTO_IMPLEMENTATION_WORKER_RUN_REQUEST_BODY_KEYS = [
+  "sessionId",
+  "runId",
+  "jobId",
+  "idempotencyKey",
+  "evidenceRefs"
+] as const satisfies readonly (keyof RunAutoImplementationWorkerJobRequest)[];
+
 const AUTO_IMPLEMENTATION_WORKER_STAGE_ADVANCE_REQUEST_BODY_KEYS = [
   "sessionId",
   "runId",
@@ -2551,6 +2560,36 @@ function importAutoImplementationWorkerLedgerRequestFromBody(
     jobId: routeJobId,
     idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
     ledgerTransitions: body.ledgerTransitions as unknown as ImportAutoImplementationWorkerLedgerRequest["ledgerTransitions"],
+    ...(evidenceRefs ? { evidenceRefs } : {})
+  };
+}
+
+function runAutoImplementationWorkerJobRequestFromBody(
+  routeSessionId: SessionId,
+  routeRunId: string,
+  routeJobId: string,
+  body: Readonly<Record<string, unknown>>
+): RunAutoImplementationWorkerJobRequest {
+  assertAllowedRecordKeys(
+    body,
+    AUTO_IMPLEMENTATION_WORKER_RUN_REQUEST_BODY_KEYS,
+    "auto implementation worker run request body"
+  );
+  routeScopedWorkerJobBody(
+    routeSessionId,
+    routeRunId,
+    routeJobId,
+    body,
+    "auto implementation worker run request body"
+  );
+
+  const evidenceRefs = optionalStringArrayFromBody(body.evidenceRefs, "evidenceRefs");
+
+  return {
+    sessionId: routeSessionId,
+    runId: routeRunId,
+    jobId: routeJobId,
+    idempotencyKey: stringFromBody(body.idempotencyKey, "idempotencyKey"),
     ...(evidenceRefs ? { evidenceRefs } : {})
   };
 }
@@ -3885,6 +3924,22 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       );
 
       return service.importAutoImplementationWorkerLedger(request);
+    })
+  );
+
+  app.post("/api/v1/sessions/:sessionId/auto-implementation-runs/:runId/worker-jobs/:jobId/run", async (context) =>
+    withProductEngine(context, async (service) => {
+      const routeSessionId = context.req.param("sessionId") as SessionId;
+      const routeRunId = context.req.param("runId");
+      const routeJobId = context.req.param("jobId");
+      const request = runAutoImplementationWorkerJobRequestFromBody(
+        routeSessionId,
+        routeRunId,
+        routeJobId,
+        await jsonBody(context)
+      );
+
+      return service.runAutoImplementationWorkerJob(request);
     })
   );
 

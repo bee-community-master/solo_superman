@@ -11,6 +11,7 @@ import {
   CODEX_RUNTIME_TRANSPORT,
   CODEX_TURN_PURPOSES,
   CONTRACT_SCHEMA_VERSION,
+  IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
   PHASE15B_APPROVAL_TYPES,
   PHASE15B_ISO_UTC_TIMESTAMP_PATTERN,
   PHASE15B_NETWORK_MODES,
@@ -21,6 +22,7 @@ import {
   assertPhase15bUpgradeHintsMatchBlockedAction,
   isPhase15bHintArtifactKind,
   validatePhase15bUpgradeHints,
+  type AutoImplementationStage,
   type BlockedActionType,
   type CodexApplyPolicy,
   type CodexAppServerClientRequest,
@@ -31,7 +33,8 @@ import {
   type CodexPreviewOutputEnvelope,
   type CodexRuntimeStatusDto,
   type CodexTurnPurpose,
-  type Phase15bUpgradeHints
+  type Phase15bUpgradeHints,
+  type RecordImplementationStepLedgerPayload
 } from "@solo-superman/contracts";
 
 export const RUNTIME_ADAPTER_VERSION = "codex-app-server-preview-pr-07" as const;
@@ -46,6 +49,31 @@ export interface CodexRuntimePreviewInput {
   readonly requestedActionReason?: string;
 }
 
+export interface CodexWorkerExecutionInput {
+  readonly jobId: string;
+  readonly runId: string;
+  readonly stage: AutoImplementationStage;
+  readonly workingDirectory: string;
+  readonly issueDocumentPath: string;
+  readonly executionAuthorityRef: string;
+  readonly allowedWriteScope: readonly string[];
+  readonly requiredEvidence: readonly string[];
+  readonly forbiddenActions: readonly string[];
+  readonly sourceRefs: readonly string[];
+}
+
+export interface CodexWorkerExecutionOutputEnvelope {
+  readonly schemaVersion: typeof CONTRACT_SCHEMA_VERSION;
+  readonly jobId: string;
+  readonly status: "completed" | "blocked";
+  readonly summary: string;
+  readonly ledgerTransitions: readonly RecordImplementationStepLedgerPayload[];
+  readonly evidenceRefs: readonly string[];
+  readonly blockedReason?: string;
+  readonly missingEvidence?: readonly string[];
+  readonly nextRequiredAction?: string;
+}
+
 export interface CodexRuntimeAdapterOptions {
   readonly now?: () => string;
   readonly fixtureMode?: boolean;
@@ -53,6 +81,7 @@ export interface CodexRuntimeAdapterOptions {
   readonly accountReader?: () => Promise<CodexRuntimeAccountDto>;
   readonly loginLauncher?: () => Promise<CodexRuntimeLoginStartDto>;
   readonly livePreviewCreator?: (input: CodexRuntimePreviewInput) => Promise<CodexPreviewOutputEnvelope>;
+  readonly liveWorkerExecutor?: (input: CodexWorkerExecutionInput) => Promise<CodexWorkerExecutionOutputEnvelope>;
   readonly processFactory?: CodexAppServerProcessFactory;
 }
 
@@ -1181,6 +1210,123 @@ export function buildCodexStdioTurnRequests(
   };
 }
 
+
+function codexWorkerOutputJsonSchema(): CodexAppServerJsonValue {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["schemaVersion", "jobId", "status", "summary", "ledgerTransitions", "evidenceRefs"],
+    properties: {
+      schemaVersion: { type: "string", const: CONTRACT_SCHEMA_VERSION },
+      jobId: { type: "string", minLength: 1 },
+      status: { type: "string", enum: ["completed", "blocked"] },
+      summary: { type: "string", minLength: 1 },
+      ledgerTransitions: {
+        type: "array",
+        items: { type: "object" }
+      },
+      evidenceRefs: stringArrayJsonSchema(),
+      blockedReason: { type: "string", minLength: 1 },
+      missingEvidence: stringArrayJsonSchema(),
+      nextRequiredAction: { type: "string", minLength: 1 }
+    }
+  };
+}
+
+function codexWorkerPrompt(input: CodexWorkerExecutionInput) {
+  return [
+    "Execute one Solo Superman auto-implementation worker job in the local generated workspace.",
+    "Stay inside the allowed workspace write scope. Do not request credentials, read secret values, perform network writes, deploy, submit to production, or mutate external accounts.",
+    "Implement the issue slice if it is safe, run local verification, perform the required code-review and clean-code review loops, and return ImplementationStepLedger transitions as JSON.",
+    "If any required evidence cannot be produced safely, return status blocked with missingEvidence and nextRequiredAction.",
+    "Return exactly one JSON object matching the provided output schema.",
+    "",
+    `schemaVersion: ${CONTRACT_SCHEMA_VERSION}`,
+    `jobId: ${input.jobId}`,
+    `runId: ${input.runId}`,
+    `stage: ${input.stage}`,
+    `workingDirectory: ${input.workingDirectory}`,
+    `issueDocumentPath: ${input.issueDocumentPath}`,
+    `executionAuthorityRef: ${input.executionAuthorityRef}`,
+    `allowedWriteScope: ${JSON.stringify(input.allowedWriteScope)}`,
+    `requiredEvidence: ${JSON.stringify(input.requiredEvidence)}`,
+    `forbiddenActions: ${JSON.stringify(input.forbiddenActions)}`,
+    `sourceRefs: ${JSON.stringify(input.sourceRefs)}`
+  ].join("\n");
+}
+
+export function buildCodexWorkerTurnRequests(
+  input: CodexWorkerExecutionInput,
+  options: CodexStdioTurnRequestOptions = {}
+): CodexStdioTurnRequestBundle {
+  const requestIdPrefix = options.requestIdPrefix ?? `codex-worker-${input.jobId}`;
+  const cwd = options.cwd ?? input.workingDirectory;
+
+  return {
+    initializeRequest: {
+      method: "initialize",
+      id: `${requestIdPrefix}:initialize`,
+      params: {
+        clientInfo: {
+          name: "solo-superman-sidecar",
+          title: "Solo Superman Sidecar",
+          version: RUNTIME_ADAPTER_VERSION
+        },
+        capabilities: {
+          experimentalApi: true,
+          optOutNotificationMethods: null
+        }
+      }
+    },
+    threadStartRequest: {
+      method: "thread/start",
+      id: `${requestIdPrefix}:thread-start`,
+      params: {
+        cwd,
+        approvalPolicy: "never",
+        approvalsReviewer: "user",
+        sandbox: "workspace-write",
+        config: null,
+        serviceName: "solo-superman-auto-worker",
+        baseInstructions:
+          "You are a local sandboxed Codex worker for Solo Superman auto implementation. You may edit only the generated workspace and must return ledger evidence.",
+        developerInstructions:
+          "Never request or store secrets. Never perform external writes, production deploys, account actions, or destructive operations. Return JSON only.",
+        ephemeral: true,
+        sessionStartSource: "clear"
+      }
+    },
+    buildTurnStartRequest(threadId: string) {
+      return {
+        method: "turn/start",
+        id: `${requestIdPrefix}:turn-start`,
+        params: {
+          threadId,
+          input: [
+            {
+              type: "text",
+              text: codexWorkerPrompt(input),
+              text_elements: []
+            }
+          ],
+          cwd,
+          approvalPolicy: "never",
+          approvalsReviewer: "user",
+          sandboxPolicy: {
+            type: "workspaceWrite",
+            writableRoots: [input.workingDirectory],
+            networkAccess: false,
+            excludeTmpdirEnvVar: true,
+            excludeSlashTmp: true
+          },
+          effort: "high",
+          outputSchema: codexWorkerOutputJsonSchema()
+        }
+      };
+    }
+  };
+}
+
 function resultThreadId(value: unknown) {
   if (!isRecord(value) || !isRecord(value.thread) || typeof value.thread.id !== "string") {
     throw new Error("Codex app-server thread/start returned an invalid thread id.");
@@ -1681,6 +1827,331 @@ export function fixtureCodexPreviewOutput(
   };
 }
 
+
+function isWorkerOutputStatus(value: unknown): value is CodexWorkerExecutionOutputEnvelope["status"] {
+  return value === "completed" || value === "blocked";
+}
+
+function recordArray(value: unknown, fieldName: string) {
+  if (!Array.isArray(value) || value.some((item) => !isRecord(item))) {
+    throw new Error(`${fieldName} must be an array of objects.`);
+  }
+
+  return value as readonly Readonly<Record<string, unknown>>[];
+}
+
+export function validateCodexWorkerExecutionOutput(value: unknown): CodexWorkerExecutionOutputEnvelope {
+  if (!isRecord(value)) {
+    throw new Error("Codex worker execution output must be an object.");
+  }
+
+  if (value.schemaVersion !== CONTRACT_SCHEMA_VERSION) {
+    throw new Error("Codex worker execution output schemaVersion does not match the internal contract.");
+  }
+
+  if (typeof value.jobId !== "string" || value.jobId.trim().length === 0) {
+    throw new Error("Codex worker execution output jobId is required.");
+  }
+
+  if (!isWorkerOutputStatus(value.status)) {
+    throw new Error("Codex worker execution output status must be completed or blocked.");
+  }
+
+  if (typeof value.summary !== "string" || value.summary.trim().length === 0) {
+    throw new Error("Codex worker execution output summary is required.");
+  }
+
+  const ledgerTransitions = recordArray(value.ledgerTransitions, "ledgerTransitions") as unknown as
+    readonly RecordImplementationStepLedgerPayload[];
+  const evidenceRefs = stringArray(value.evidenceRefs, "evidenceRefs");
+  const missingEvidence = value.missingEvidence === undefined
+    ? undefined
+    : stringArray(value.missingEvidence, "missingEvidence");
+
+  if (value.status === "completed" && ledgerTransitions.length === 0) {
+    throw new Error("Completed Codex worker execution output must include ledgerTransitions.");
+  }
+
+  if (value.status === "blocked" && typeof value.blockedReason !== "string") {
+    throw new Error("Blocked Codex worker execution output must include blockedReason.");
+  }
+
+  return {
+    schemaVersion: CONTRACT_SCHEMA_VERSION,
+    jobId: value.jobId.trim(),
+    status: value.status,
+    summary: value.summary.trim(),
+    ledgerTransitions,
+    evidenceRefs,
+    ...(typeof value.blockedReason === "string" && value.blockedReason.trim().length > 0
+      ? { blockedReason: value.blockedReason.trim() }
+      : {}),
+    ...(missingEvidence ? { missingEvidence } : {}),
+    ...(typeof value.nextRequiredAction === "string" && value.nextRequiredAction.trim().length > 0
+      ? { nextRequiredAction: value.nextRequiredAction.trim() }
+      : {})
+  };
+}
+
+export function parseCodexWorkerExecutionOutput(raw: string): CodexWorkerExecutionOutputEnvelope {
+  try {
+    return validateCodexWorkerExecutionOutput(parseJsonObject(raw));
+  } catch {
+    return validateCodexWorkerExecutionOutput(parseJsonObject(repairCodexJsonOutput(raw)));
+  }
+}
+
+function fixtureCodexWorkerExecutionTransitions(): readonly RecordImplementationStepLedgerPayload[] {
+  const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
+  const stepCommitRecord = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.stepCommitRecords[0]!;
+  const testEvidenceRecord = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords[0]!;
+  const baseTransition = {
+    trackerDoc: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.trackerDoc,
+    stepDoc: step.stepDoc
+  };
+
+  return [
+    { ...baseTransition, targetStatus: "ready" },
+    { ...baseTransition, targetStatus: "implementing", startedEvidenceRefs: ["codex-worker:fixture:started"] },
+    { ...baseTransition, targetStatus: "committed", stepCommitRecord },
+    { ...baseTransition, targetStatus: "review_required", stepCommitRecord },
+    ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.codeReviewRecords.map((codeReviewRecord) => ({
+      ...baseTransition,
+      targetStatus: "review_required" as const,
+      stepCommitRecord,
+      codeReviewRecord
+    })),
+    ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.cleanCodeReviewRecords.map((cleanCodeReviewRecord) => ({
+      ...baseTransition,
+      targetStatus: "clean_code_review_required" as const,
+      stepCommitRecord,
+      cleanCodeReviewRecord
+    })),
+    { ...baseTransition, targetStatus: "tests_required", stepCommitRecord },
+    {
+      ...baseTransition,
+      targetStatus: "completed",
+      stepCommitRecord,
+      testEvidenceRecord,
+      evidenceRefs: ["codex-worker:fixture:completed"]
+    }
+  ];
+}
+
+export function fixtureCodexWorkerExecutionOutput(input: CodexWorkerExecutionInput): CodexWorkerExecutionOutputEnvelope {
+  return {
+    schemaVersion: CONTRACT_SCHEMA_VERSION,
+    jobId: input.jobId,
+    status: "completed",
+    summary: `Fixture local Codex worker completed ${input.stage}.`,
+    ledgerTransitions: fixtureCodexWorkerExecutionTransitions(),
+    evidenceRefs: [
+      `codex-worker:${input.jobId}:fixture`,
+      "codex-worker:fixture:completed"
+    ]
+  };
+}
+
+export async function createLiveCodexWorkerExecution(
+  input: CodexWorkerExecutionInput,
+  options: {
+    readonly env?: Readonly<Record<string, string | undefined>>;
+    readonly processFactory?: CodexAppServerProcessFactory;
+  } = {}
+): Promise<CodexWorkerExecutionOutputEnvelope> {
+  const env = options.env ?? process.env;
+  const spawnPlan = codexAppServerSpawnPlan(env);
+  const processFactory = options.processFactory ?? defaultCodexAppServerProcessFactory;
+  const timeoutMs = codexPreviewTurnTimeoutMs(env);
+  const requestBundle = buildCodexWorkerTurnRequests(input, { cwd: input.workingDirectory });
+  const child = processFactory(spawnPlan.command, [...spawnPlan.args], { env: codexSpawnEnv(env) });
+  const lineReader = createInterface({ input: child.stdout });
+  const stderr = createLimitedTextCapture();
+  const pendingResponses = new Map<
+    string,
+    {
+      readonly resolve: (value: unknown) => void;
+      readonly reject: (error: Error) => void;
+    }
+  >();
+  let threadId: string | null = null;
+  let turnId: string | null = null;
+  let outputDeltaText = "";
+  let completedMessageText: string | null = null;
+  let settled = false;
+
+  logCodexRuntimeDiagnostic("info", "worker-spawn", {
+    command: spawnPlan.command,
+    args: spawnPlan.args,
+    transport: spawnPlan.transport,
+    generatedSchemaVersion: spawnPlan.generatedSchemaVersion,
+    timeoutMs,
+    jobId: input.jobId,
+    workingDirectory: input.workingDirectory
+  });
+
+  function rejectPending(error: Error) {
+    for (const pending of pendingResponses.values()) {
+      pending.reject(error);
+    }
+    pendingResponses.clear();
+  }
+
+  function sendRequest(request: CodexAppServerClientRequest) {
+    return new Promise<unknown>((resolve, reject) => {
+      pendingResponses.set(String(request.id), { resolve, reject });
+      child.stdin.write(`${JSON.stringify(request)}\n`, (error) => {
+        if (error) {
+          pendingResponses.delete(String(request.id));
+          reject(error);
+        }
+      });
+    });
+  }
+
+  const completedTurn = new Promise<CodexWorkerExecutionOutputEnvelope>((resolve, reject) => {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    function finishWithError(error: Error) {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      rejectPending(error);
+      reject(error);
+    }
+
+    timeout = setTimeout(() => {
+      finishWithError(new Error(`Codex worker execution did not finish within ${timeoutMs}ms.`));
+    }, timeoutMs);
+
+    child.stderr.on("data", (chunk) => {
+      stderr.append(chunk);
+    });
+    child.once("error", (error) => {
+      finishWithError(error);
+    });
+    child.once("exit", (code, signal) => {
+      if (settled) {
+        return;
+      }
+
+      const detail = stderr.trimmed() || signal || `exit ${code ?? "unknown"}`;
+      finishWithError(new Error(`Codex app-server exited before worker execution completed: ${detail}`));
+    });
+    lineReader.on("line", (line) => {
+      let message: unknown;
+
+      try {
+        message = JSON.parse(line) as unknown;
+      } catch {
+        return;
+      }
+
+      if (!isRecord(message)) {
+        return;
+      }
+
+      if (typeof message.id === "string") {
+        const pending = pendingResponses.get(message.id);
+
+        if (!pending) {
+          return;
+        }
+
+        pendingResponses.delete(message.id);
+
+        if (Object.prototype.hasOwnProperty.call(message, "error")) {
+          pending.reject(new Error(responseErrorMessage(message, `Codex app-server request ${message.id} failed.`)));
+          return;
+        }
+
+        pending.resolve(message.result);
+        return;
+      }
+
+      if (typeof message.method !== "string" || !isRecord(message.params)) {
+        return;
+      }
+
+      const params = message.params;
+
+      if (threadId && params.threadId !== threadId) {
+        return;
+      }
+
+      const notificationTurnId =
+        typeof params.turnId === "string"
+          ? params.turnId
+          : isRecord(params.turn) && typeof params.turn.id === "string"
+            ? params.turn.id
+            : null;
+
+      if (turnId && notificationTurnId && notificationTurnId !== turnId) {
+        return;
+      }
+
+      if (message.method === "item/agentMessage/delta" && typeof params.delta === "string") {
+        outputDeltaText = `${outputDeltaText}${params.delta}`;
+        return;
+      }
+
+      if (message.method === "rawResponseItem/completed") {
+        completedMessageText = textFromRawResponseItem(params.item) ?? completedMessageText;
+        return;
+      }
+
+      if (message.method === "item/completed") {
+        completedMessageText = textFromCompletedThreadItem(params.item) ?? completedMessageText;
+        return;
+      }
+
+      if (message.method === "turn/completed" && isRecord(params.turn)) {
+        const turn = params.turn;
+
+        if (turn.status !== "completed") {
+          finishWithError(new Error(turnFailureMessage(turn)));
+          return;
+        }
+
+        try {
+          const output = parseCodexWorkerExecutionOutput(completedMessageText ?? outputDeltaText);
+
+          if (output.jobId !== input.jobId) {
+            throw new Error("Codex worker execution output jobId must match the requested job.");
+          }
+
+          settled = true;
+          if (timeout) {
+            clearTimeout(timeout);
+          }
+          resolve(output);
+        } catch (error) {
+          finishWithError(error instanceof Error ? error : new Error(String(error)));
+        }
+      }
+    });
+  });
+  void completedTurn.catch(() => undefined);
+
+  try {
+    await sendRequest(requestBundle.initializeRequest);
+    threadId = resultThreadId(await sendRequest(requestBundle.threadStartRequest));
+    turnId = resultTurnId(await sendRequest(requestBundle.buildTurnStartRequest(threadId)));
+
+    return await completedTurn;
+  } finally {
+    lineReader.close();
+    if (!child.killed) {
+      child.kill();
+    }
+  }
+}
+
 function statusDto(input: {
   readonly status: CodexRuntimeStatusDto["status"];
   readonly checkedAt: string;
@@ -1715,6 +2186,13 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
       createLiveCodexPreview(input, {
         env,
         now,
+        ...(options.processFactory ? { processFactory: options.processFactory } : {})
+      }));
+  const liveWorkerExecutor =
+    options.liveWorkerExecutor ??
+    ((input: CodexWorkerExecutionInput) =>
+      createLiveCodexWorkerExecution(input, {
+        env,
         ...(options.processFactory ? { processFactory: options.processFactory } : {})
       }));
   const liveTurnExecutionEnabled = envFlagEnabled(env, CODEX_LIVE_TURNS_ENV);
@@ -1807,6 +2285,10 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
       return buildCodexStdioTurnRequests(input, requestOptions);
     },
 
+    buildWorkerTurnRequests(input: CodexWorkerExecutionInput, requestOptions?: CodexStdioTurnRequestOptions) {
+      return buildCodexWorkerTurnRequests(input, requestOptions);
+    },
+
     async createPreview(input: CodexRuntimePreviewInput): Promise<CodexPreviewOutputEnvelope> {
       if (fixtureMode) {
         return fixtureCodexPreviewOutput(input, { createdAt: now() });
@@ -1827,6 +2309,28 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
       }
 
       return livePreviewCreator(input);
+    },
+
+    async executeWorker(input: CodexWorkerExecutionInput): Promise<CodexWorkerExecutionOutputEnvelope> {
+      if (fixtureMode) {
+        return fixtureCodexWorkerExecutionOutput(input);
+      }
+
+      if (!liveTurnExecutionEnabled) {
+        throw new CodexRuntimeUnavailableError(
+          `Live Codex app-server worker execution is not enabled. Set ${CODEX_LIVE_TURNS_ENV}=1 to enable bounded local worker turns; the worker job remains blocked until runtime evidence is available.`
+        );
+      }
+
+      const account = await accountReader();
+
+      if (account.status !== "authenticated") {
+        throw new CodexRuntimeUnavailableError(
+          "Codex CLI login is required before live Codex worker execution can start."
+        );
+      }
+
+      return liveWorkerExecutor(input);
     }
   };
 }
