@@ -85,6 +85,10 @@ interface DecisionQueueSessionActionsProps {
 
 const NEXT_QUESTION_BATCH_LIMIT = 5;
 
+function queueItemIsActivatableQuestion(item: DecisionQueueProjection["next"][number]) {
+  return item.cardType === undefined || item.cardType === "question" || item.cardType === "follow_up_question";
+}
+
 function answerDraftsWithClearedItems(
   current: Record<string, string>,
   queueItemIds: readonly QueueItemId[]
@@ -98,7 +102,7 @@ function answerDraftsWithClearedItems(
 export function nextQuestionBatchIdsForActivation(queue: DecisionQueueProjection | null | undefined) {
   const queueItemIds =
     queue?.next
-      .filter((item) => item.cardType === undefined || item.cardType === "question")
+      .filter(queueItemIsActivatableQuestion)
       .slice(0, NEXT_QUESTION_BATCH_LIMIT)
       .map((item) => item.queueItemId) ?? [];
 
