@@ -532,6 +532,7 @@ describe("AutoImplementationRunPanel view model", () => {
       missingEvidence: ["ExecutionAuthorityRecord"],
       evidenceRefs: ["auto-worker-job:auto_run_demo:initial_pr:job_1"]
     });
+    expect(view.canPlanWorkerJob).toBe(true);
     expect(view.canRunWorkerJob).toBe(false);
     expect(view.canImportWorkerLedger).toBe(false);
   });
@@ -566,11 +567,13 @@ describe("AutoImplementationRunPanel view model", () => {
     } as AutoImplementationRunProjection);
 
     expect(plannedView.canRunWorkerJob).toBe(true);
+    expect(plannedView.canPlanWorkerJob).toBe(false);
     expect(plannedView.canImportWorkerLedger).toBe(true);
     expect(plannedView.canCompleteWorkerJob).toBe(false);
     expect(ledgerReadyView.canCompleteWorkerJob).toBe(true);
     expect(plannedView.canAdvanceWorkerStage).toBe(false);
     expect(plannedView.latestWorkerPlan?.executionAuthorityRef).toBe("exec_auth_auto_worker_initial_pr");
+    expect(completedView.canPlanWorkerJob).toBe(false);
     expect(completedView.canRunWorkerJob).toBe(false);
     expect(completedView.canImportWorkerLedger).toBe(false);
     expect(completedView.canCompleteWorkerJob).toBe(false);
@@ -607,6 +610,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerJobId).toBe("auto-worker-job:auto_run_demo:code_review_fix_1:job_planned");
     expect(view.latestWorkerJobLabel).toContain("planned for code_review_fix_1 (local-002)");
     expect(view.latestWorkerPlan?.issueDocumentPath).toBe("implementation-issues/002-code_review_fix_1.md");
+    expect(view.canPlanWorkerJob).toBe(false);
     expect(view.canRunWorkerJob).toBe(true);
     expect(view.canAdvanceWorkerStage).toBe(false);
   });
@@ -631,6 +635,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerJobId).toBeNull();
     expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
     expect(view.latestWorkerPlan).toBeNull();
+    expect(view.canPlanWorkerJob).toBe(true);
     expect(view.canRunWorkerJob).toBe(false);
     expect(view.canImportWorkerLedger).toBe(false);
     expect(view.canAdvanceWorkerStage).toBe(false);
@@ -653,6 +658,7 @@ describe("AutoImplementationRunPanel view model", () => {
     } as AutoImplementationRunProjection;
     const view = autoImplementationRunViewModel(projection);
 
+    expect(view.canPlanWorkerJob).toBe(false);
     expect(view.canImportWorkerLedger).toBe(true);
     expect(view.canRunWorkerJob).toBe(true);
   });

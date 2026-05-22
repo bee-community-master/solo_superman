@@ -8934,6 +8934,23 @@ describe("PR-02 sidecar health shell", () => {
         ])
       });
 
+      const duplicateCurrentStageJobResponse = await postAutoImplementationWorkerJobForTest(
+        storageApp,
+        sessionId,
+        runId,
+        {
+          idempotencyKey: "worker-job:duplicate-current-stage",
+          executionAuthorityRef: authorityRecordId
+        }
+      );
+      const duplicateCurrentStageJobBody = await jsonBody(duplicateCurrentStageJobResponse);
+
+      expect(duplicateCurrentStageJobResponse.status).toBe(400);
+      expect(duplicateCurrentStageJobBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: expect.stringContaining("already has a usable local Codex worker job")
+      });
+
       const plannedJobId = String(plannedJobs[5]!.jobId);
       const missingLedgerCompletion = await postAutoImplementationWorkerJobCompletionForTest(
         storageApp,

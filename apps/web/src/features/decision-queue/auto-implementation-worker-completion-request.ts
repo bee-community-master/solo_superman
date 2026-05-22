@@ -1,9 +1,10 @@
-import type {
-  AutoImplementationRun,
-  CompleteAutoImplementationWorkerJobRequest,
-  ImplementationStepLedgerProjection,
-  ImplementationStepRecord,
-  SessionId
+import {
+  AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE,
+  type AutoImplementationRun,
+  type CompleteAutoImplementationWorkerJobRequest,
+  type ImplementationStepLedgerProjection,
+  type ImplementationStepRecord,
+  type SessionId
 } from "@solo-superman/contracts";
 import { latestCurrentStageAutoImplementationWorkerJob } from "./auto-implementation-worker-job-selection";
 
@@ -12,7 +13,7 @@ function canBackendCompleteWorkerJob(job: AutoImplementationRun["workerJobs"][nu
     (
       job.status === "blocked" &&
       job.missingEvidence.length === 1 &&
-      job.missingEvidence[0] === "ImplementationStepLedger completed step"
+      job.missingEvidence[0] === AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE.completedLedgerStep
     );
 }
 
