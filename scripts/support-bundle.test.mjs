@@ -51,6 +51,15 @@ function fakeCommandRunner(command, args) {
       blockers: [],
       checked: ["blocked packaged update rollback posture is allowed only with explicit blockers"]
     })],
+    [`${process.execPath} scripts/verify-packaged-update-rollback-dry-run.mjs`, JSON.stringify({
+      schemaVersion: "solo-superman-packaged-update-rollback-dry-run.v1",
+      status: "passed",
+      mode: "credential-free-fixture",
+      upstreamDeviceEvidenceIssue: "https://github.com/bee-community-master/solo_superman/issues/267",
+      finalVersion: "0.1.0",
+      issues: [],
+      checked: ["dry-run remains credential-free and does not replace signed package or device evidence for #267"]
+    })],
     [`${process.execPath} scripts/verify-signed-package-preflight.mjs`, JSON.stringify({
       status: "passed",
       contractPath: "docs/signed-package-preflight.example.json",
@@ -98,6 +107,7 @@ function fakeCommandRunner(command, args) {
           verifyReleaseChannel: "node scripts/verify-release-channel.mjs",
           verifyWindowsRealDevice: "node scripts/verify-windows-real-device.mjs",
           verifyPackagedUpdateRollback: "node scripts/verify-packaged-update-rollback.mjs",
+          verifyPackagedUpdateRollbackDryRun: "node scripts/verify-packaged-update-rollback-dry-run.mjs",
           verifySignedPackagePreflight: "node scripts/verify-signed-package-preflight.mjs",
           verifySignedPackageRelease: "node scripts/verify-signed-package-release.mjs",
           verifyReleaseReadiness: "node scripts/verify-release-readiness.mjs",
@@ -144,11 +154,13 @@ describe("support diagnostics bundle", () => {
     expect(bundle.package.scripts.supportBundle).toBe("node scripts/support-bundle.mjs");
     expect(bundle.package.scripts.verifyReleaseReadiness).toBe("node scripts/verify-release-readiness.mjs");
     expect(bundle.package.scripts.verifyProductCapabilityReadiness).toBe("node scripts/verify-product-capability-readiness.mjs");
+    expect(bundle.package.scripts.verifyPackagedUpdateRollbackDryRun).toBe("node scripts/verify-packaged-update-rollback-dry-run.mjs");
     expect(bundle.package.scripts.releaseEvidenceChecklist).toBe("node scripts/release-evidence-checklist.mjs");
     expect(bundle.recommendedChecks).toContain("pnpm verify:product-capability-readiness");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-channel");
     expect(bundle.recommendedChecks).toContain("pnpm verify:windows-real-device");
     expect(bundle.recommendedChecks).toContain("pnpm verify:packaged-update-rollback");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:packaged-update-rollback:dry-run");
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-preflight");
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-release");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-readiness");
@@ -182,6 +194,15 @@ describe("support diagnostics bundle", () => {
       rollbackStatus: "blocked",
       packagedUpdateRollbackReady: false,
       blockedDeviceRuns: ["macos-packaged-update-rollback", "windows-packaged-update-rollback"]
+    });
+    expect(bundle.releaseDiagnostics.packagedUpdateRollbackDryRun).toMatchObject({
+      command: "pnpm verify:packaged-update-rollback:dry-run",
+      captureStatus: "ok",
+      evidenceStatus: "passed",
+      mode: "credential-free-fixture",
+      upstreamDeviceEvidenceIssue: "https://github.com/bee-community-master/solo_superman/issues/267",
+      finalVersion: "0.1.0",
+      issues: []
     });
     expect(bundle.releaseDiagnostics.signedPackagePreflight).toMatchObject({
       command: "pnpm verify:signed-package-preflight",

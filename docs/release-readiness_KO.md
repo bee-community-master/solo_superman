@@ -54,7 +54,8 @@ pnpm verify:release-readiness -- --require-ready
 
 ## 운영 규칙
 
-- `pnpm verify`는 기본 `pnpm verify:windows-real-device`, `pnpm verify:packaged-update-rollback`, `pnpm verify:signed-package-release`, `pnpm verify:release-readiness`를 포함합니다. 따라서 PR은 general release blocker를 지우지 않은 상태로도 credential-free validation을 통과할 수 있지만, blocker가 숨겨진 broad release claim은 통과할 수 없습니다.
+- `pnpm verify`는 기본 `pnpm verify:windows-real-device`, `pnpm verify:packaged-update-rollback`, `pnpm verify:packaged-update-rollback:dry-run`, `pnpm verify:signed-package-release`, `pnpm verify:release-readiness`를 포함합니다. 따라서 PR은 general release blocker를 지우지 않은 상태로도 credential-free validation을 통과할 수 있지만, blocker가 숨겨진 broad release claim은 통과할 수 없습니다.
+- `pnpm verify:packaged-update-rollback:dry-run`은 fixture update/rollback boundary를 검증하는 로컬 안전망이며, #267의 signed package/device evidence를 대체하지 않습니다.
 - release PR이 broad/general release로 상태를 바꾸려면 먼저 #266 signed package credential evidence, #267 packaged updater rollback evidence, #259 Windows/device evidence가 실제로 준비되어야 합니다.
 - Windows 실기기 검증에서 발견되는 blocker는 #259에만 묻어두지 말고 별도 fix issue/PR로 분리합니다.
 - Support bundle, PR body, release manifest에는 secret 값을 넣지 않고 redacted evidence ref만 남깁니다.

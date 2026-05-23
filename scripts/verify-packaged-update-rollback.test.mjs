@@ -19,6 +19,7 @@ function blockedContract(overrides = {}) {
       credentialFree: [
         "pnpm verify:release-channel",
         "pnpm verify:packaged-update-rollback",
+        "pnpm verify:packaged-update-rollback:dry-run",
         "pnpm verify:release-readiness",
         "pnpm verify"
       ],
@@ -178,6 +179,7 @@ describe("packaged update rollback verification", () => {
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:packaged-update-rollback",
+      "$.requiredVerificationCommands.credentialFree: must include pnpm verify:packaged-update-rollback:dry-run",
       "$.requiredVerificationCommands.deviceEvidence: must be a string list with at least 1 item(s)",
       "$.requiredVerificationCommands.deviceEvidence: must include pnpm verify:packaged-update-rollback -- --require-device-evidence"
     ]));

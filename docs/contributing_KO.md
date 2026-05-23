@@ -60,7 +60,7 @@ pnpm start:local
 - File, shell, browser, credential, external-production action은 여전히 explicit authority boundary를 요구합니다.
 - 새 route/DTO/enum value는 `docs/reference_KO.md`와 `docs/reference_EN.md`에 반영되고 `pnpm verify:docs`를 통과합니다.
 - Packaged update channel 변경은 `docs/release-channel_KO.md`, `docs/release-channel_EN.md`, `docs/release-update-channel.example.json`, `pnpm verify:release-channel`을 함께 갱신합니다.
-- Packaged update rollback evidence 변경은 `docs/packaged-update-rollback_KO.md`, `docs/packaged-update-rollback_EN.md`, `docs/packaged-update-rollback.example.json`, `pnpm verify:packaged-update-rollback`을 함께 갱신합니다.
+- Packaged update rollback evidence 변경은 `docs/packaged-update-rollback_KO.md`, `docs/packaged-update-rollback_EN.md`, `docs/packaged-update-rollback.example.json`, `pnpm verify:packaged-update-rollback`, `pnpm verify:packaged-update-rollback:dry-run`을 함께 갱신합니다.
 - Windows real-device evidence 변경은 `docs/windows-real-device_KO.md`, `docs/windows-real-device_EN.md`, `docs/windows-real-device.example.json`, `pnpm verify:windows-real-device`를 함께 갱신합니다.
 - Signed package planning 변경은 `docs/signed-packages_KO.md`, `docs/signed-packages_EN.md`, `docs/signed-package-preflight.example.json`, `pnpm verify:signed-package-preflight`를 함께 갱신합니다.
 - Signed package release evidence 변경은 `docs/signed-package-release_KO.md`, `docs/signed-package-release_EN.md`, `docs/signed-package-release.example.json`, `pnpm verify:signed-package-release`를 함께 갱신합니다.

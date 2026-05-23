@@ -20,6 +20,7 @@ const REQUIRED_DEVICE_CHECKS = new Set([
 const REQUIRED_CREDENTIAL_FREE_COMMANDS = new Set([
   "pnpm verify:release-channel",
   "pnpm verify:packaged-update-rollback",
+  "pnpm verify:packaged-update-rollback:dry-run",
   "pnpm verify:release-readiness",
   "pnpm verify"
 ]);
