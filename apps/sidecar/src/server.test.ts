@@ -11111,6 +11111,7 @@ describe("PR-02 sidecar health shell", () => {
         expect(input.bodyMarkdown).toContain("- no completed stage missing-test audit evidence recorded");
         expect(input.bodyMarkdown).toContain("### Verification commands");
         expect(input.bodyMarkdown).toContain("`pnpm verify`");
+        expect(input.bodyMarkdown).toContain("- `` pnpm test --grep `canonical link` ``");
 
         return {
           pullRequestUrl: input.pullRequestUrl ?? "https://github.com/bee-community-master/generated-demo/pull/124",
@@ -11141,7 +11142,7 @@ describe("PR-02 sidecar health shell", () => {
         issueLinks: ["https://github.com/bee-community-master/generated-demo/issues/101"],
         implementationScope: "Apply the PR body evidence refresh after review and verifier approval.",
         reviewStreakRefs: ["code-review:feature:clean-1", "code-review:repository:clean-2"],
-        verificationCommands: ["pnpm verify"],
+        verificationCommands: ["pnpm verify", "pnpm test --grep `canonical link`"],
         rollbackNotes: "Use gh pr edit with the previous body captured in audit logs.",
         bodyEvidenceRefs: ["pr-body:current-evidence"],
         approval: {
