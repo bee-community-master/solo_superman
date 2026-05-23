@@ -11096,6 +11096,13 @@ describe("PR-02 sidecar health shell", () => {
         expect(input.bodyMarkdown).toContain(
           "- local-007: Merge verified PR to main (implementation-issues/007-merge_main.md; stage: merge_main; GitHub issue: none)"
         );
+        expect(input.bodyMarkdown).toContain("### Review gate summary");
+        expect(input.bodyMarkdown).toContain("#### Code review");
+        expect(input.bodyMarkdown).toContain("- feature: missing (1/2 no-finding code-review refs recorded)");
+        expect(input.bodyMarkdown).toContain("- repository: missing (1/2 no-finding code-review refs recorded)");
+        expect(input.bodyMarkdown).toContain("#### Clean-code review");
+        expect(input.bodyMarkdown).toContain("- changed_code: missing (0/2 no-finding clean-code review refs recorded)");
+        expect(input.bodyMarkdown).toContain("- repository: missing (0/2 no-finding clean-code review refs recorded)");
         expect(input.bodyMarkdown).toContain("#### feature");
         expect(input.bodyMarkdown).toContain("- code-review:feature:clean-1");
         expect(input.bodyMarkdown).toContain("#### repository");
@@ -11216,6 +11223,11 @@ describe("PR-02 sidecar health shell", () => {
           "- local-007: Merge verified PR to main (implementation-issues/007-merge_main.md; stage: merge_main; GitHub issue: https://github.com/bee-community-master/generated-demo/issues/207)"
         );
         expect(input.bodyMarkdown).toContain("### Code review streak evidence");
+        expect(input.bodyMarkdown).toContain("### Review gate summary");
+        expect(input.bodyMarkdown).toContain("- feature: satisfied (2/2 no-finding code-review refs recorded)");
+        expect(input.bodyMarkdown).toContain("- repository: satisfied (2/2 no-finding code-review refs recorded)");
+        expect(input.bodyMarkdown).toContain("- changed_code: satisfied (2/2 no-finding clean-code review refs recorded)");
+        expect(input.bodyMarkdown).toContain("- repository: satisfied (2/2 no-finding clean-code review refs recorded)");
         expect(input.bodyMarkdown).toContain("- code-review:feature:review_code_feature_demo_2");
         expect(input.bodyMarkdown).toContain("- code-review:repository:review_code_repository_demo_2");
         expect(input.bodyMarkdown).toContain("### Clean-code review streak evidence");
