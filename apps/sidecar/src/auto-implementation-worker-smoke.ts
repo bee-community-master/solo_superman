@@ -4,22 +4,23 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
-  CONTRACT_SCHEMA_VERSION,
-  type CodexRuntimeStatusDto,
-  type CommandId,
-  type CorrelationId,
-  type EventId,
-  type PlanningHandoffSourceRefDto,
-  type ProjectId,
-  type ProjectionVersion,
-  type SessionId
+  type CodexRuntimeStatusDto
 } from "@solo-superman/contracts";
+import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
 import {
-  applyMigrations,
-  createEventRepository,
-  createSoloStorage,
-  localDatabaseUrlFromAppDataDir
-} from "@solo-superman/db";
+  createSmokePlanningHandoff,
+  createSmokeProject,
+  getJson,
+  lastRecord,
+  objectAt,
+  postJson,
+  sessionEventCount,
+  stringAt,
+  type AutoImplementationSmokePlanningFixture,
+  type JsonRecord,
+  type SmokeSidecarApp,
+  type SmokeStorage
+} from "./auto-implementation-smoke-fixtures";
 import { createCodexRuntimeAdapter, type CodexRuntimeAdapter } from "./runtime";
 import { createSidecarApp } from "./server";
 
@@ -30,17 +31,20 @@ export const AUTO_IMPLEMENTATION_WORKER_SMOKE = "auto_implementation_worker_job"
 const FIXTURE_NOW = "2026-05-23T00:00:00.000Z";
 const PROJECT_FOLDER_NAME = "worker-job-smoke-demo";
 const REQUIRED_LIVE_GATE_BLOCKER = `${LIVE_TURNS_ENV}=1 is required before live worker-job execution can be verified`;
-const PLANNING_READY_SPEC_VERSION_REF = "spec_version_worker_job_smoke_ready";
-const PLANNING_READY_RESEARCH_TASK_ID = "research_task_worker_job_smoke_ready";
-const PLANNING_READY_RESEARCH_RESULT_ID = "research_result_worker_job_smoke_ready";
-const PLANNING_READY_EVIDENCE_ITEM_ID = "evidence_item_worker_job_smoke_ready";
-const PLANNING_READY_EVIDENCE_PACK_ID = "evidence_pack_worker_job_smoke_ready";
-const PLANNING_READY_QUEUE_ITEM_ID = "queue_item_worker_job_smoke_ready";
-const PLANNING_READY_PROJECTION_VERSION = 3 as ProjectionVersion;
+const PLANNING_FIXTURE: AutoImplementationSmokePlanningFixture = {
+  idPrefix: "worker_job_smoke",
+  sourceLabelPrefix: "Worker smoke Planning Handoff",
+  specTitle: "Worker smoke Planning Handoff ready spec",
+  taskObjective: "Validate worker-job smoke Planning Handoff evidence.",
+  resultSummary: "Accepted evidence supports a worker-job smoke run.",
+  claim: "The worker smoke can exercise a bounded local implementation slice.",
+  decisionContext: "Worker smoke Planning Handoff",
+  completionSummary: "Spec and research are ready for Planning Handoff.",
+  nextBuildSliceSummary: "Next build slice can be planned."
+};
 
 type SmokeMode = "fixture" | "live";
 type SmokeStatus = "blocked" | "passed";
-type JsonRecord = Readonly<Record<string, unknown>>;
 
 export interface AutoImplementationWorkerGateEvidence {
   readonly status: "ready" | "blocked";
@@ -86,8 +90,8 @@ export interface AutoImplementationWorkerSmokeOptions {
 }
 
 interface WorkerScenario {
-  readonly storageApp: ReturnType<typeof createSidecarApp>;
-  readonly storage: Awaited<ReturnType<typeof createSoloStorage>>;
+  readonly storageApp: SmokeSidecarApp;
+  readonly storage: SmokeStorage;
   readonly codexRuntimeAdapter: CodexRuntimeAdapter;
   readonly workspaceRoot: string;
 }
@@ -111,6 +115,19 @@ interface WorkerExecutionResult {
   readonly workerJobAfterRun: JsonRecord;
   readonly ledger: JsonRecord;
   readonly advancedRun?: JsonRecord;
+}
+
+interface PreparedWorkerRun {
+  readonly sessionId: string;
+  readonly runId: string;
+  readonly generatedRepoPath: string;
+}
+
+interface PlannedWorkerJobContext {
+  readonly jobId: string;
+  readonly stageBefore: string;
+  readonly issueRelativePath: string;
+  readonly implementationStepId: string;
 }
 
 function envFlagEnabled(env: Readonly<Record<string, string | undefined>>, key: string) {
@@ -161,98 +178,6 @@ export function autoImplementationWorkerGateEvidence(
   };
 }
 
-function authHeaders(token: string) {
-  return {
-    Authorization: `Bearer ${token}`
-  };
-}
-
-async function jsonEnvelope(response: Response, label: string) {
-  const body = (await response.json()) as JsonRecord;
-
-  if (response.status < 200 || response.status >= 300) {
-    throw new Error(`${label} failed with HTTP ${response.status}: ${JSON.stringify(body)}`);
-  }
-
-  return body;
-}
-
-async function postJson(
-  app: ReturnType<typeof createSidecarApp>,
-  path: string,
-  localCapabilityToken: string,
-  body: Readonly<Record<string, unknown>>
-) {
-  const response = await app.request(path, {
-    method: "POST",
-    headers: {
-      ...authHeaders(localCapabilityToken),
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
-
-  const data = dataRecord(await jsonEnvelope(response, path), path);
-
-  if (data.category === "rejected") {
-    throw new Error(`${path} rejected: ${JSON.stringify(data.error ?? data)}`);
-  }
-
-  return data;
-}
-
-async function getJson(app: ReturnType<typeof createSidecarApp>, path: string, localCapabilityToken: string) {
-  const response = await app.request(path, {
-    headers: authHeaders(localCapabilityToken)
-  });
-
-  return dataRecord(await jsonEnvelope(response, path), path);
-}
-
-function dataRecord(body: JsonRecord, label: string) {
-  if (!body.ok || typeof body.data !== "object" || body.data === null) {
-    throw new Error(`${label} did not return an ok data envelope.`);
-  }
-
-  return body.data as JsonRecord;
-}
-
-function objectAt(value: unknown, label: string) {
-  if (typeof value !== "object" || value === null) {
-    throw new Error(`${label} must be an object; received ${JSON.stringify(value)}.`);
-  }
-
-  return value as JsonRecord;
-}
-
-function recordArray(value: unknown, label: string) {
-  if (!Array.isArray(value) || value.some((item) => typeof item !== "object" || item === null)) {
-    throw new Error(`${label} must be an array of objects.`);
-  }
-
-  return value as readonly JsonRecord[];
-}
-
-function lastRecord(value: unknown, label: string) {
-  const records = recordArray(value, label);
-  const last = records.at(-1);
-
-  if (!last) {
-    throw new Error(`${label} must not be empty.`);
-  }
-
-  return last;
-}
-
-function stringAt(value: unknown, label: string) {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`${label} must be a non-empty string.`);
-  }
-
-  return value;
-}
-
-
 function runtimePublicStatus(status: CodexRuntimeStatusDto) {
   return {
     status: status.status,
@@ -286,301 +211,6 @@ function runtimeStatusBlockers(mode: SmokeMode, status: CodexRuntimeStatusDto) {
   }
 
   return blockers;
-}
-
-function planningReadySourceRefs(sessionId: string): readonly PlanningHandoffSourceRefDto[] {
-  return [
-    {
-      sourceType: "spec_version",
-      sourceId: PLANNING_READY_SPEC_VERSION_REF,
-      sourceLabel: "Worker smoke ready SpecVersion",
-      required: true,
-      stale: false
-    },
-    {
-      sourceType: "completion_candidate",
-      sourceId: `completion_candidate:${sessionId}:${PLANNING_READY_PROJECTION_VERSION}`,
-      sourceLabel: "Worker smoke completion candidate",
-      required: true,
-      stale: false
-    },
-    {
-      sourceType: "decision_linked_evidence_pack",
-      sourceId: PLANNING_READY_EVIDENCE_PACK_ID,
-      sourceLabel: "Worker smoke Evidence Pack",
-      required: true,
-      stale: false
-    },
-    {
-      sourceType: "research_updated_queue_item",
-      sourceId: PLANNING_READY_QUEUE_ITEM_ID,
-      sourceLabel: "Worker smoke research queue card",
-      required: true,
-      stale: false
-    }
-  ];
-}
-
-async function seedPlanningReadyState(
-  storage: Awaited<ReturnType<typeof createSoloStorage>>,
-  projectId: string,
-  sessionId: string
-) {
-  const eventRepository = createEventRepository(storage.db);
-  const correlationId = `corr_worker_job_smoke_${sessionId}` as CorrelationId;
-
-  await eventRepository.append({
-    eventId: `evt_worker_job_smoke_spec_${sessionId}` as EventId,
-    eventType: "SpecVersionCreated",
-    projectId: projectId as ProjectId,
-    sessionId: sessionId as SessionId,
-    sourceCommandId: `cmd_worker_job_smoke_spec_${sessionId}` as CommandId,
-    correlationId,
-    causationId: null,
-    schemaVersion: CONTRACT_SCHEMA_VERSION,
-    occurredAt: "2026-05-23T00:01:00.000Z",
-    payload: {
-      versionRef: PLANNING_READY_SPEC_VERSION_REF,
-      title: "Worker smoke Planning Handoff ready spec",
-      sections: ["Problem", "Customer", "Value", "Validation"]
-    }
-  });
-
-  await eventRepository.append({
-    eventId: `evt_worker_job_smoke_evidence_${sessionId}` as EventId,
-    eventType: "EvidenceSynthesized",
-    projectId: projectId as ProjectId,
-    sessionId: sessionId as SessionId,
-    sourceCommandId: `cmd_worker_job_smoke_evidence_${sessionId}` as CommandId,
-    correlationId,
-    causationId: null,
-    schemaVersion: CONTRACT_SCHEMA_VERSION,
-    occurredAt: "2026-05-23T00:02:00.000Z",
-    payload: planningReadyEvidencePayload(sessionId)
-  });
-}
-
-function planningReadyEvidencePayload(sessionId: string) {
-  return {
-    projection: planningReadyResearchProjection(sessionId),
-    queueProjection: planningReadyQueueProjection(),
-    confidenceProjection: planningReadyConfidenceProjection()
-  };
-}
-
-function planningReadyResearchProjection(sessionId: string) {
-  return {
-    kind: "ResearchEvidenceProjection",
-    version: PLANNING_READY_PROJECTION_VERSION,
-    taskIds: [PLANNING_READY_RESEARCH_TASK_ID],
-    tasks: [planningReadyTask(sessionId)],
-    results: [planningReadyResult()],
-    evidenceMatrices: [planningReadyEvidenceMatrix()],
-    evidencePacks: [planningReadyEvidencePack()],
-    reviewCards: [planningReadyReviewCard()],
-    knownRisks: [],
-    nextValidationActions: [],
-    proConBalanceStatus: "balanced"
-  };
-}
-
-function planningReadyQueueProjection() {
-  return {
-    kind: "DecisionQueueProjection",
-    version: PLANNING_READY_PROJECTION_VERSION,
-    active: [],
-    next: [],
-    blocked: [],
-    deferred: [planningReadyDeferredQueueItem()]
-  };
-}
-
-function planningReadyConfidenceProjection() {
-  return {
-    kind: "ConfidenceCompletionProjection",
-    version: PLANNING_READY_PROJECTION_VERSION,
-    compositeScore: 92,
-    readinessLabel: "spec_ready",
-    gates: [planningReadyConfidenceGate()],
-    topRisks: [],
-    topRiskCards: [],
-    nextBestActions: ["Create Planning Handoff."],
-    completionCandidate: planningReadyCompletionCandidate()
-  };
-}
-
-function planningReadyConfidenceGate() {
-  return {
-    gateId: "research_queue_cards",
-    label: "Research-updated Queue cards terminal",
-    passed: true
-  };
-}
-
-function planningReadyCompletionCandidate() {
-  return {
-    status: "candidate",
-    summary: "Spec and research are ready for Planning Handoff.",
-    gateFailures: [],
-    ifStopNowArtifact: {
-      title: "Planning Handoff candidate",
-      summary: "Next build slice can be planned.",
-      knownRisks: [],
-      nextValidationActions: []
-    }
-  };
-}
-
-function planningReadyTask(sessionId: string) {
-  return {
-    researchTaskId: PLANNING_READY_RESEARCH_TASK_ID,
-    sessionId: sessionId as SessionId,
-    objective: "Validate worker-job smoke Planning Handoff evidence.",
-    routeOutcome: "research_needed",
-    impact: "high",
-    status: "evidence_ready",
-    createdAt: "2026-05-23T00:01:30.000Z"
-  };
-}
-
-function planningReadyResult() {
-  return {
-    researchResultId: PLANNING_READY_RESEARCH_RESULT_ID,
-    researchTaskId: PLANNING_READY_RESEARCH_TASK_ID,
-    resultSummary: "Accepted evidence supports a worker-job smoke run.",
-    sourceReliability: "high",
-    claim: "The worker smoke can exercise a bounded local implementation slice.",
-    decisionContext: "Worker smoke Planning Handoff",
-    importedAt: "2026-05-23T00:01:45.000Z"
-  };
-}
-
-function planningReadyEvidenceMatrix() {
-  return {
-    evidenceMatrixId: "evidence_matrix_worker_job_smoke_ready",
-    researchTaskId: PLANNING_READY_RESEARCH_TASK_ID,
-    researchResultId: PLANNING_READY_RESEARCH_RESULT_ID,
-    synthesisVersion: 1,
-    proEvidence: [
-      {
-        evidenceItemId: PLANNING_READY_EVIDENCE_ITEM_ID,
-        kind: "pro",
-        summary: "Worker smoke fixture has accepted evidence."
-      }
-    ],
-    conEvidence: [],
-    uncertainties: [],
-    additionalQuestions: [],
-    balanceStatus: "balanced",
-    decisionBlocked: false
-  };
-}
-
-function planningReadyEvidencePack() {
-  return {
-    evidencePackId: PLANNING_READY_EVIDENCE_PACK_ID,
-    researchTaskId: PLANNING_READY_RESEARCH_TASK_ID,
-    researchResultId: PLANNING_READY_RESEARCH_RESULT_ID,
-    claim: "The worker smoke can exercise a bounded local implementation slice.",
-    decisionContext: "Worker smoke Planning Handoff",
-    sourceReliability: "high",
-    retrievedAt: "2026-05-23T00:01:50.000Z",
-    gateStatus: "accepted",
-    gateChecks: [
-      {
-        code: "source_metadata",
-        status: "passed",
-        reason: "Source metadata is present."
-      }
-    ],
-    proEvidenceItemIds: [PLANNING_READY_EVIDENCE_ITEM_ID],
-    conEvidenceItemIds: [],
-    uncertaintyItemIds: [],
-    limitationRefs: [],
-    implicationScope: "Worker smoke Planning Handoff",
-    createdAt: "2026-05-23T00:01:55.000Z"
-  };
-}
-
-function planningReadyReviewCard() {
-  return {
-    cardId: PLANNING_READY_QUEUE_ITEM_ID,
-    researchTaskId: PLANNING_READY_RESEARCH_TASK_ID,
-    evidencePackId: PLANNING_READY_EVIDENCE_PACK_ID,
-    cardType: "research_review",
-    title: "Worker smoke Planning Handoff evidence",
-    state: "resolved",
-    impact: "high",
-    gateStatus: "accepted",
-    availableOutcomes: ["approved", "revised", "risk_accepted", "research_insufficient"],
-    terminalOutcome: "approved",
-    blocksPlanning: true,
-    recoveryActions: ["approve_evidence"]
-  };
-}
-
-function planningReadyDeferredQueueItem() {
-  return {
-    queueItemId: PLANNING_READY_QUEUE_ITEM_ID,
-    title: "Worker smoke Planning Handoff evidence",
-    state: "resolved",
-    cardType: "research_review",
-    researchTaskId: PLANNING_READY_RESEARCH_TASK_ID,
-    evidencePackId: PLANNING_READY_EVIDENCE_PACK_ID,
-    blocksPlanning: true,
-    availableOutcomes: ["approved", "revised", "risk_accepted", "research_insufficient"],
-    terminalOutcome: "approved"
-  };
-}
-
-async function createProject(app: ReturnType<typeof createSidecarApp>, localCapabilityToken: string) {
-  const data = await postJson(app, "/api/v1/projects", localCapabilityToken, {
-    rawIdea: "A worker-job smoke idea that should become a bounded local implementation slice.",
-    localPrivacyMode: "local_only",
-    projectPurposeMode: "business",
-    projectPurposeModeConfirmation: "user_confirmed",
-    businessCriticIntensity: "balanced",
-    businessCriticIntensityConfirmation: "user_confirmed"
-  });
-  const projection = objectAt(data.immediateProjection, "project immediateProjection");
-
-  return {
-    projectId: stringAt(projection.projectId, "projectId"),
-    sessionId: stringAt(projection.sessionId, "sessionId")
-  };
-}
-
-async function createPlanningHandoff(input: {
-  readonly scenario: WorkerScenario;
-  readonly localCapabilityToken: string;
-  readonly projectId: string;
-  readonly sessionId: string;
-}) {
-  await seedPlanningReadyState(input.scenario.storage, input.projectId, input.sessionId);
-
-  const expectedStateVersion = await sessionEventCount(input.scenario.storage, input.sessionId);
-  const data = await postJson(
-    input.scenario.storageApp,
-    `/api/v1/sessions/${input.sessionId}/planning-handoff`,
-    input.localCapabilityToken,
-    {
-      sessionId: input.sessionId,
-      expectedStateVersion,
-      sourceRefs: planningReadySourceRefs(input.sessionId)
-    }
-  );
-  const projection = objectAt(data.immediateProjection, "planning handoff projection");
-  const finalArtifact = objectAt(projection.finalArtifact, "planning handoff finalArtifact");
-
-  if (projection.currentStatus !== "planning_ready") {
-    throw new Error(`planning handoff must be planning_ready; received ${JSON.stringify(projection.currentStatus)}`);
-  }
-
-  return stringAt(finalArtifact.artifactId, "planning handoff artifactId");
-}
-
-async function sessionEventCount(storage: Awaited<ReturnType<typeof createSoloStorage>>, sessionId: string) {
-  return (await createEventRepository(storage.db).listForSession(sessionId as SessionId)).length;
 }
 
 async function createAutoImplementationRun(input: {
@@ -774,52 +404,95 @@ async function advanceWorkerStage(input: {
   return latestRunFromProjection(data, "advanced worker stage");
 }
 
-async function executeWorkerFlow(scenario: WorkerScenario, localCapabilityToken: string): Promise<WorkerExecutionResult> {
-  const { projectId, sessionId } = await createProject(scenario.storageApp, localCapabilityToken);
-  const sourcePlanningRef = await createPlanningHandoff({ scenario, localCapabilityToken, projectId, sessionId });
+async function prepareWorkerRun(scenario: WorkerScenario, localCapabilityToken: string): Promise<PreparedWorkerRun> {
+  const { projectId, sessionId } = await createSmokeProject({
+    app: scenario.storageApp,
+    localCapabilityToken,
+    rawIdea: "A worker-job smoke idea that should become a bounded local implementation slice."
+  });
+  const sourcePlanningRef = await createSmokePlanningHandoff({
+    app: scenario.storageApp,
+    storage: scenario.storage,
+    localCapabilityToken,
+    projectId,
+    sessionId,
+    fixture: PLANNING_FIXTURE
+  });
   const createdRun = await createAutoImplementationRun({ scenario, localCapabilityToken, sessionId, sourcePlanningRef });
   const runId = stringAt(createdRun.runId, "auto implementation runId");
   const generatedRepoPath = stringAt(createdRun.generatedRepoPath, "auto implementation generatedRepoPath");
+
+  return { sessionId, runId, generatedRepoPath };
+}
+
+async function planWorkerJob(input: {
+  readonly scenario: WorkerScenario;
+  readonly localCapabilityToken: string;
+  readonly preparedRun: PreparedWorkerRun;
+}): Promise<PlannedWorkerJobContext> {
   const executionAuthorityRef = await createExecutionAuthority({
-    scenario,
-    localCapabilityToken,
-    sessionId,
-    generatedRepoPath
+    scenario: input.scenario,
+    localCapabilityToken: input.localCapabilityToken,
+    sessionId: input.preparedRun.sessionId,
+    generatedRepoPath: input.preparedRun.generatedRepoPath
   });
-  const planned = await createWorkerJob({ scenario, localCapabilityToken, sessionId, runId, executionAuthorityRef });
+  const planned = await createWorkerJob({
+    scenario: input.scenario,
+    localCapabilityToken: input.localCapabilityToken,
+    sessionId: input.preparedRun.sessionId,
+    runId: input.preparedRun.runId,
+    executionAuthorityRef
+  });
   const jobId = stringAt(planned.workerJob.jobId, "worker jobId");
   const stageBefore = stringAt(planned.workerJob.stage, "worker job stage");
   const issueRelativePath = stringAt(planned.workerJob.issueRelativePath, "worker issueRelativePath");
   const executionPlan = objectAt(planned.workerJob.executionPlan, "worker executionPlan");
   const ledgerStepDoc = objectAt(executionPlan.ledgerStepDoc, "worker executionPlan.ledgerStepDoc");
   const implementationStepId = stringAt(ledgerStepDoc.stepId, "worker ledgerStepDoc.stepId");
-  const ran = await runWorkerJob({ scenario, localCapabilityToken, sessionId, runId, jobId });
+
+  return { jobId, stageBefore, issueRelativePath, implementationStepId };
+}
+
+async function executeWorkerFlow(scenario: WorkerScenario, localCapabilityToken: string): Promise<WorkerExecutionResult> {
+  const preparedRun = await prepareWorkerRun(scenario, localCapabilityToken);
+  const plannedJob = await planWorkerJob({ scenario, localCapabilityToken, preparedRun });
+  const ran = await runWorkerJob({
+    scenario,
+    localCapabilityToken,
+    sessionId: preparedRun.sessionId,
+    runId: preparedRun.runId,
+    jobId: plannedJob.jobId
+  });
 
   if (ran.workerJob.status !== "completed") {
     return {
-      runId,
-      jobId,
-      stageBefore,
-      issueRelativePath,
-      implementationStepId,
+      runId: preparedRun.runId,
+      ...plannedJob,
       runAfterWorker: ran.latestRun,
       workerJobAfterRun: ran.workerJob,
       ledger: { currentStatus: "missing" }
     };
   }
 
-  const ledger = await getJson(scenario.storageApp, `/api/v1/sessions/${sessionId}/implementation-step-ledger`, localCapabilityToken);
+  const ledger = await getJson(
+    scenario.storageApp,
+    `/api/v1/sessions/${preparedRun.sessionId}/implementation-step-ledger`,
+    localCapabilityToken
+  );
 
   return {
-    runId,
-    jobId,
-    stageBefore,
-    issueRelativePath,
-    implementationStepId,
+    runId: preparedRun.runId,
+    ...plannedJob,
     runAfterWorker: ran.latestRun,
     workerJobAfterRun: ran.workerJob,
     ledger,
-    advancedRun: await advanceWorkerStage({ scenario, localCapabilityToken, sessionId, runId, jobId })
+    advancedRun: await advanceWorkerStage({
+      scenario,
+      localCapabilityToken,
+      sessionId: preparedRun.sessionId,
+      runId: preparedRun.runId,
+      jobId: plannedJob.jobId
+    })
   };
 }
 
