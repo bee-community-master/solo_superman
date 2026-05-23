@@ -170,7 +170,9 @@ describe("#105 local install/run verification docs", () => {
   it("documents the release evidence checklist for external release gates", () => {
     expect(packageJson).toContain('"release:evidence-checklist": "node scripts/release-evidence-checklist.mjs"');
     expect(readme).toContain("`pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json`");
+    expect(readme).toContain("`pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md`");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json`");
+    expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md`");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("## Release evidence checklist");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("## Release evidence checklist");
   });

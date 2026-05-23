@@ -15,6 +15,7 @@ export const DEFAULT_RELEASE_EVIDENCE_CONTRACT_PATHS = {
 
 const TOKEN_LIKE_PATTERN = /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9_-]{20,}|bearer\s+[A-Za-z0-9._~+/-]{20,})\b/iu;
 const SECRET_QUERY_KEY_PATTERN = /(?:token|secret|password|pass|api[_-]?key|credential|auth|session)/iu;
+const OUTPUT_FORMATS = new Set(["json", "markdown"]);
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -220,6 +221,135 @@ export function buildReleaseEvidenceChecklist(contracts, options = {}) {
   };
 }
 
+function checklistSummary(checklistItems) {
+  const blockedItems = checklistItems.filter((item) => item.status === "blocked");
+
+  return {
+    totalItems: checklistItems.length,
+    blockedItems: blockedItems.length,
+    readyItems: checklistItems.filter((item) => item.status === "passed").length,
+    blockerIssueNumbers: uniqueStrings(blockedItems
+      .map((item) => item.blockerIssueNumber)
+      .filter((item) => item !== null && item !== undefined)
+      .map(String))
+  };
+}
+
+export function filterReleaseEvidenceChecklistByIssue(checklist, issueNumber) {
+  if (issueNumber === undefined) {
+    return checklist;
+  }
+
+  const checklistItems = checklist.checklistItems.filter((item) => item.blockerIssueNumber === issueNumber);
+  const blockedItems = checklistItems.filter((item) => item.status === "blocked");
+  const issues = checklistItems.length === 0
+    ? [...checklist.issues, `No release evidence checklist items matched issue #${issueNumber}.`]
+    : checklist.issues;
+
+  return {
+    ...checklist,
+    status: blockedItems.length > 0 || issues.length > 0 ? "blocked" : "ready",
+    openBlockerIssues: uniqueStrings(blockedItems.map((item) => item.blockerIssue)),
+    checklistItems,
+    issues,
+    summary: {
+      ...checklistSummary(checklistItems),
+      filterIssueNumber: String(issueNumber)
+    }
+  };
+}
+
+function checkboxList(items, formatter = (item) => item) {
+  return items.length ? items.map((item) => `- [ ] ${formatter(item)}`) : ["- _None specified._"];
+}
+
+function bulletList(items, formatter = (item) => item) {
+  return items.length ? items.map((item) => `- ${formatter(item)}`) : ["- _None specified._"];
+}
+
+function markdownValue(value) {
+  return value === undefined || value === null || value === "" ? "_not specified_" : String(value);
+}
+
+function renderChecklistItemMarkdown(item) {
+  const lines = [
+    `### ${item.itemId}`,
+    "",
+    `- Source contract: \`${item.sourceContract}\``,
+    `- Gate: \`${item.gateId}\``,
+    `- Status: \`${item.status}\``,
+    `- Scope: ${markdownValue(item.scope)}`,
+    `- Required for: ${markdownValue(item.requiredFor)}`,
+    `- Blocker issue: ${item.blockerIssue ? `[${item.blockerIssueNumber ?? item.blockerIssue}](${item.blockerIssue})` : "_not specified_"}`,
+    "",
+    "**Blocker**",
+    "",
+    item.blocker ? `> ${item.blocker}` : "_No blocker text supplied._",
+    "",
+    "**Required checks**",
+    "",
+    ...checkboxList(item.requiredChecks, (check) => `\`${check}\``),
+    "",
+    "**Required evidence**",
+    "",
+    ...checkboxList(item.requiredEvidence),
+    "",
+    "**Unblock criteria**",
+    "",
+    ...checkboxList(item.unblockCriteria),
+    "",
+    "**Evidence references**",
+    "",
+    ...bulletList(item.evidenceRefs)
+  ];
+
+  return lines.join("\n");
+}
+
+export function renderReleaseEvidenceChecklistMarkdown(checklist) {
+  const lines = [
+    "# Solo Superman release evidence checklist",
+    "",
+    `- Schema version: \`${checklist.schemaVersion}\``,
+    `- Generated at: \`${checklist.generatedAt}\``,
+    `- Checklist status: \`${checklist.status}\``,
+    `- Total items: ${checklist.summary.totalItems}`,
+    `- Blocked items: ${checklist.summary.blockedItems}`,
+    `- Filtered issue: ${checklist.summary.filterIssueNumber ? `#${checklist.summary.filterIssueNumber}` : "_none_"}`,
+    "",
+    "## Open blocker issues",
+    "",
+    ...bulletList(checklist.openBlockerIssues),
+    "",
+    "## Checklist issues",
+    "",
+    ...bulletList(checklist.issues),
+    "",
+    "## Ready-release verification commands",
+    "",
+    ...checkboxList(checklist.readyReleaseCommands, (command) => `\`${command}\``),
+    "",
+    "## Evidence items",
+    ""
+  ];
+
+  if (checklist.checklistItems.length === 0) {
+    lines.push("_No evidence items matched this filter._");
+    lines.push("");
+  } else {
+    lines.push(...checklist.checklistItems.map(renderChecklistItemMarkdown).flatMap((section) => [section, ""]));
+  }
+
+  lines.push(
+    "## Privacy boundary",
+    "",
+    "- [ ] Evidence refs are redacted before they are attached to GitHub issues or release PRs.",
+    "- [ ] No token, cookie, credential value, URL userinfo, secret-like query parameter, file contents, or full environment dump is included."
+  );
+
+  return `${lines.join("\n").trimEnd()}\n`;
+}
+
 async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
@@ -233,6 +363,8 @@ export async function loadReleaseEvidenceContracts(paths = DEFAULT_RELEASE_EVIDE
 
 export function parseReleaseEvidenceChecklistArgs(argv = process.argv.slice(2), env = process.env) {
   let outputPath = env.SOLO_RELEASE_EVIDENCE_CHECKLIST_PATH;
+  let format = env.SOLO_RELEASE_EVIDENCE_CHECKLIST_FORMAT ?? "json";
+  let issueNumber;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -246,6 +378,22 @@ export function parseReleaseEvidenceChecklistArgs(argv = process.argv.slice(2), 
       index += 1;
     } else if (arg.startsWith("--output=")) {
       outputPath = arg.slice("--output=".length);
+    } else if (arg === "--format") {
+      if (!argv[index + 1]) {
+        throw new Error(`${arg} requires a value.`);
+      }
+      format = argv[index + 1];
+      index += 1;
+    } else if (arg.startsWith("--format=")) {
+      format = arg.slice("--format=".length);
+    } else if (arg === "--issue") {
+      if (!argv[index + 1]) {
+        throw new Error(`${arg} requires an issue number.`);
+      }
+      issueNumber = Number(argv[index + 1]);
+      index += 1;
+    } else if (arg.startsWith("--issue=")) {
+      issueNumber = Number(arg.slice("--issue=".length));
     } else if (arg === "--help" || arg === "-h") {
       return { help: true };
     } else {
@@ -253,29 +401,47 @@ export function parseReleaseEvidenceChecklistArgs(argv = process.argv.slice(2), 
     }
   }
 
-  return { outputPath: outputPath ? resolve(outputPath) : undefined };
+  if (!OUTPUT_FORMATS.has(format)) {
+    throw new Error(`--format must be one of: ${[...OUTPUT_FORMATS].join(", ")}`);
+  }
+
+  if (issueNumber !== undefined && (!Number.isInteger(issueNumber) || issueNumber <= 0)) {
+    throw new Error("--issue requires a positive integer issue number.");
+  }
+
+  return {
+    outputPath: outputPath ? resolve(outputPath) : undefined,
+    format,
+    issueNumber
+  };
 }
 
-async function writeChecklist(outputPath, checklist) {
+async function writeChecklist(outputPath, content) {
   await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, `${JSON.stringify(checklist, null, 2)}\n`, "utf8");
+  await writeFile(outputPath, content, "utf8");
 }
 
 export async function runReleaseEvidenceChecklistCli(argv = process.argv.slice(2), options = {}) {
   const parsed = parseReleaseEvidenceChecklistArgs(argv, options.env ?? process.env);
   if (parsed.help) {
-    console.log("Usage: pnpm release:evidence-checklist [--output <path>]");
+    console.log("Usage: pnpm release:evidence-checklist [--format json|markdown] [--issue <number>] [--output <path>]");
     return { status: "help" };
   }
 
   const contracts = options.contracts ?? await loadReleaseEvidenceContracts(options.contractPaths, options);
-  const checklist = buildReleaseEvidenceChecklist(contracts, options);
+  const fullChecklist = buildReleaseEvidenceChecklist(contracts, options);
+  const checklist = filterReleaseEvidenceChecklistByIssue(fullChecklist, parsed.issueNumber);
+  const content = parsed.format === "markdown"
+    ? renderReleaseEvidenceChecklistMarkdown(checklist)
+    : `${JSON.stringify(checklist, null, 2)}\n`;
 
   if (parsed.outputPath) {
-    await writeChecklist(parsed.outputPath, checklist);
+    await writeChecklist(parsed.outputPath, content);
     console.log(JSON.stringify({
       status: checklist.issues.length === 0 ? "passed" : "blocked",
       checklistPath: parsed.outputPath,
+      format: parsed.format,
+      issueNumber: parsed.issueNumber,
       schemaVersion: checklist.schemaVersion,
       checklistStatus: checklist.status,
       blockedItems: checklist.summary.blockedItems,
@@ -283,7 +449,7 @@ export async function runReleaseEvidenceChecklistCli(argv = process.argv.slice(2
       issues: checklist.issues
     }, null, 2));
   } else {
-    console.log(JSON.stringify(checklist, null, 2));
+    process.stdout.write(content);
   }
 
   return checklist;

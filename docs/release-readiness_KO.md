@@ -28,7 +28,13 @@ pnpm verify:release-readiness
 pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json
 ```
 
-Checklist는 `release-readiness`, Windows 실기기, signed package release, packaged update rollback, signed package preflight 계약에서 blocked gate/run, required checks, required evidence, unblock criteria, ready-release command를 한 JSON envelope로 묶습니다. 이 명령은 계약 파일만 읽고 credential 값, browser cookie, token, file contents, full environment dump를 수집하지 않습니다.
+특정 blocker issue에 바로 붙일 Markdown checklist가 필요하면 `--format markdown`과 `--issue`를 함께 사용합니다.
+
+```sh
+pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md
+```
+
+Checklist는 `release-readiness`, Windows 실기기, signed package release, packaged update rollback, signed package preflight 계약에서 blocked gate/run, required checks, required evidence, unblock criteria, ready-release command를 묶습니다. 이 명령은 계약 파일만 읽고 credential 값, browser cookie, token, file contents, full environment dump를 수집하지 않습니다.
 
 ## 일반 공개 준비 모드
 

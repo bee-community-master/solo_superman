@@ -28,6 +28,12 @@ When an external device/signing lab is collecting #259/#266/#267 evidence, gener
 pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json
 ```
 
+To create Markdown that can be pasted into a specific blocker issue, combine `--format markdown` and `--issue`:
+
+```sh
+pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md
+```
+
 The checklist combines blocked gates/runs, required checks, required evidence, unblock criteria, and ready-release commands from the release-readiness, Windows real-device, signed package release, packaged update rollback, and signed package preflight contracts. It reads only public contract files and does not capture credential values, browser cookies, tokens, file contents, or full environment dumps.
 
 ## General release mode
