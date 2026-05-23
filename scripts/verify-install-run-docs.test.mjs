@@ -183,18 +183,28 @@ describe("#105 local install/run verification docs", () => {
 
   it("documents the release evidence checklist for external release gates", () => {
     expect(packageJson).toContain('"release:evidence-checklist": "node scripts/release-evidence-checklist.mjs"');
+    expect(packageJson).toContain('"verify:release-evidence-template": "node scripts/verify-release-evidence-template.mjs"');
     expect(readme).toContain("`pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json`");
     expect(readme).toContain("`pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md`");
     expect(readme).toContain("`pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
+    expect(readme).toContain("`pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json`");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json`");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md`");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
+    expect(englishReadme).toContain("`pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json`");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("## Release evidence checklist");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("--format template --issue 266");
+    expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("verify:release-evidence-template -- --input");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("## Release evidence checklist");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("--format template --issue 266");
+    expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("verify:release-evidence-template -- --input");
     expect(contributingDoc).toContain("`pnpm release:evidence-checklist -- --format markdown --issue <number>` / `pnpm release:evidence-checklist -- --format template --issue <number>`");
     expect(englishContributingDoc).toContain("`pnpm release:evidence-checklist -- --format markdown --issue <number>` / `pnpm release:evidence-checklist -- --format template --issue <number>`");
+    expect(contributingDoc).toContain("`pnpm verify:release-evidence-template -- --input <filled-template.json>`");
+    expect(englishContributingDoc).toContain("`pnpm verify:release-evidence-template -- --input <filled-template.json>`");
+    expect(runbook).toContain("pnpm verify:release-evidence-template -- --input");
+    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("pnpm verify:release-evidence-template -- --input");
+    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("pnpm.cmd verify:release-evidence-template");
   });
 
   it("installs Codex CLI on Windows and prompts for the optional Codex desktop app", () => {

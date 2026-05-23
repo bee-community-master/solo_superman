@@ -105,6 +105,15 @@ function fakeCommandRunner(command, args) {
       blockedGates: ["signed-packages", "packaged-update-rollback", "windows-real-device"],
       blockers: [],
       checked: ["blocked broad-release posture is allowed only with explicit blockers"]
+    })],
+    [`${process.execPath} scripts/verify-release-evidence-template.mjs`, JSON.stringify({
+      status: "passed",
+      schemaVersion: "solo-superman-release-evidence-template-validation.v1",
+      mode: "credential-free-fixture",
+      filterIssueNumber: "266",
+      itemCount: 4,
+      issues: [],
+      checked: ["filled template is secret-free"]
     })]
   ]);
 
@@ -130,6 +139,7 @@ function fakeCommandRunner(command, args) {
           verifySignedPackageRelease: "node scripts/verify-signed-package-release.mjs",
           verifySignedPackageReleaseDryRun: "node scripts/verify-signed-package-release-dry-run.mjs",
           verifyReleaseReadiness: "node scripts/verify-release-readiness.mjs",
+          verifyReleaseEvidenceTemplate: "node scripts/verify-release-evidence-template.mjs",
           supportBundle: "node scripts/support-bundle.mjs",
           releaseEvidenceChecklist: "node scripts/release-evidence-checklist.mjs"
         }
@@ -176,6 +186,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.package.scripts.verifyWindowsInstallerDryRun).toBe("node scripts/verify-windows-installer-dry-run.mjs");
     expect(bundle.package.scripts.verifyPackagedUpdateRollbackDryRun).toBe("node scripts/verify-packaged-update-rollback-dry-run.mjs");
     expect(bundle.package.scripts.verifySignedPackageReleaseDryRun).toBe("node scripts/verify-signed-package-release-dry-run.mjs");
+    expect(bundle.package.scripts.verifyReleaseEvidenceTemplate).toBe("node scripts/verify-release-evidence-template.mjs");
     expect(bundle.package.scripts.releaseEvidenceChecklist).toBe("node scripts/release-evidence-checklist.mjs");
     expect(bundle.recommendedChecks).toContain("pnpm verify:product-capability-readiness");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-channel");
@@ -187,6 +198,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-release");
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-release:dry-run");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-readiness");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:release-evidence-template");
     expect(bundle.recommendedChecks).toContain("pnpm release:evidence-checklist");
     expect(bundle.releaseDiagnostics.productCapabilityReadiness).toMatchObject({
       command: "pnpm verify:product-capability-readiness",
@@ -269,6 +281,15 @@ describe("support diagnostics bundle", () => {
       readinessStatus: "blocked",
       broadReleaseReady: false,
       blockedGates: ["signed-packages", "packaged-update-rollback", "windows-real-device"]
+    });
+    expect(bundle.releaseDiagnostics.releaseEvidenceTemplate).toMatchObject({
+      command: "pnpm verify:release-evidence-template",
+      captureStatus: "ok",
+      evidenceStatus: "passed",
+      mode: "credential-free-fixture",
+      filterIssueNumber: "266",
+      itemCount: 4,
+      issues: []
     });
     expect(serialized).not.toContain("secret-token");
     expect(serialized).not.toContain("sk-secret");

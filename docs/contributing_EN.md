@@ -32,6 +32,7 @@ The local app opens a browser screen through the local web frontend and local No
 | Signed package release evidence dry-run | `pnpm verify:signed-package-release:dry-run` |
 | General release readiness gate | `pnpm verify:release-readiness` |
 | Release evidence checklist/template | `pnpm release:evidence-checklist -- --format markdown --issue <number>` / `pnpm release:evidence-checklist -- --format template --issue <number>` |
+| Filled release evidence template verifier | `pnpm verify:release-evidence-template -- --input <filled-template.json>` |
 | Full gate (typecheck, lint, tests, docs/release/readiness/package contracts, production bundle smoke) | `pnpm verify` |
 
 ## Repository map

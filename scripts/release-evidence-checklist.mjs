@@ -5,6 +5,7 @@ import { URL } from "node:url";
 
 export const RELEASE_EVIDENCE_CHECKLIST_SCHEMA_VERSION = "solo-superman-release-evidence-checklist.v1";
 export const RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION = "solo-superman-release-evidence-template.v1";
+export const RELEASE_EVIDENCE_TEMPLATE_VALIDATION_SCHEMA_VERSION = "solo-superman-release-evidence-template-validation.v1";
 
 export const DEFAULT_RELEASE_EVIDENCE_CONTRACT_PATHS = {
   releaseReadiness: "docs/release-readiness.example.json",
@@ -30,33 +31,34 @@ function uniqueStrings(values) {
   return [...new Set(values.filter((value) => typeof value === "string" && value.trim().length > 0))];
 }
 
-function urlIssueForRef(ref, path) {
+function urlIssuesForRef(ref, path) {
   if (!/^https?:\/\//iu.test(ref)) {
-    return null;
+    return [];
   }
 
   let url;
   try {
     url = new URL(ref);
   } catch {
-    return `${path} must be a valid URL evidence ref`;
+    return [`${path} must be a valid URL evidence ref`];
   }
 
+  const issues = [];
   if (url.protocol !== "https:") {
-    return `${path} must use https for URL evidence refs`;
+    issues.push(`${path} must use https for URL evidence refs`);
   }
 
   if (url.username || url.password) {
-    return `${path} must not include URL userinfo credentials`;
+    issues.push(`${path} must not include URL userinfo credentials`);
   }
 
   for (const key of url.searchParams.keys()) {
     if (SECRET_QUERY_KEY_PATTERN.test(key)) {
-      return `${path} must not include secret-like query parameter ${JSON.stringify(key)}`;
+      issues.push(`${path} must not include secret-like query parameter ${JSON.stringify(key)}`);
     }
   }
 
-  return null;
+  return issues;
 }
 
 function validateSecretFreeStrings(value, path = "$", issues = []) {
@@ -64,10 +66,7 @@ function validateSecretFreeStrings(value, path = "$", issues = []) {
     if (TOKEN_LIKE_PATTERN.test(value)) {
       issues.push(`${path} must not contain token-shaped secret values`);
     }
-    const urlIssue = urlIssueForRef(value, path);
-    if (urlIssue) {
-      issues.push(urlIssue);
-    }
+    issues.push(...urlIssuesForRef(value, path));
     return issues;
   }
 
@@ -377,6 +376,207 @@ export function buildReleaseEvidenceTemplate(checklist) {
   return {
     ...template,
     issues
+  };
+}
+
+function isPlaceholder(value) {
+  return typeof value === "string" && /^<[^>]+>$/u.test(value.trim());
+}
+
+function requireFilledString(value, path, issues) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    issues.push(`${path} must be a non-empty string.`);
+    return;
+  }
+
+  if (isPlaceholder(value)) {
+    issues.push(`${path} must replace template placeholder ${JSON.stringify(value)}.`);
+  }
+}
+
+function requireFilledStringList(value, path, issues) {
+  if (!Array.isArray(value) || value.length === 0) {
+    issues.push(`${path} must be a non-empty array.`);
+    return;
+  }
+
+  value.forEach((item, index) => requireFilledString(item, `${path}[${index}]`, issues));
+}
+
+function validateTemplateResultEntries(entries, path, issues, expectedRequirements, requirementKey) {
+  if (!Array.isArray(entries)) {
+    issues.push(`${path} must be an array.`);
+    return;
+  }
+
+  const actualRequirements = entries
+    .filter(isRecord)
+    .map((entry) => entry[requirementKey])
+    .filter((value) => typeof value === "string");
+  const missingRequirements = expectedRequirements.filter((requirement) => !actualRequirements.includes(requirement));
+  for (const requirement of missingRequirements) {
+    issues.push(`${path} is missing required ${requirementKey} ${JSON.stringify(requirement)}.`);
+  }
+
+  entries.forEach((entry, index) => {
+    const entryPath = `${path}[${index}]`;
+    if (!isRecord(entry)) {
+      issues.push(`${entryPath} must be an object.`);
+      return;
+    }
+
+    requireFilledString(entry[requirementKey], `${entryPath}.${requirementKey}`, issues);
+    if (entry.status !== "passed") {
+      issues.push(`${entryPath}.status must be "passed" after evidence is collected.`);
+    }
+    requireFilledStringList(entry.evidenceRefs, `${entryPath}.evidenceRefs`, issues);
+    requireFilledString(entry.notes, `${entryPath}.notes`, issues);
+  });
+}
+
+function checklistItemsById(checklist) {
+  return new Map((checklist?.checklistItems ?? []).map((item) => [item.itemId, item]));
+}
+
+function validateTemplateItem(item, index, issues, expectedItem) {
+  const path = `$.items[${index}]`;
+  if (!isRecord(item)) {
+    issues.push(`${path} must be an object.`);
+    return;
+  }
+
+  requireFilledString(item.itemId, `${path}.itemId`, issues);
+  if (item.expectedFinalStatus !== "passed") {
+    issues.push(`${path}.expectedFinalStatus must be "passed".`);
+  }
+  if (expectedItem && item.blockerIssue !== expectedItem.blockerIssue) {
+    issues.push(`${path}.blockerIssue must match source checklist blocker issue.`);
+  }
+
+  validateTemplateResultEntries(item.requiredChecks, `${path}.requiredChecks`, issues, expectedItem?.requiredChecks ?? [], "id");
+  validateTemplateResultEntries(item.requiredEvidence, `${path}.requiredEvidence`, issues, expectedItem?.requiredEvidence ?? [], "requirement");
+  validateTemplateResultEntries(item.unblockCriteria, `${path}.unblockCriteria`, issues, expectedItem?.unblockCriteria ?? [], "requirement");
+
+  if (!isRecord(item.verification)) {
+    issues.push(`${path}.verification must be an object.`);
+    return;
+  }
+
+  requireFilledString(item.verification.verifiedAt, `${path}.verification.verifiedAt`, issues);
+  if (typeof item.verification.verifiedAt === "string" && !isPlaceholder(item.verification.verifiedAt) && Number.isNaN(Date.parse(item.verification.verifiedAt))) {
+    issues.push(`${path}.verification.verifiedAt must be an ISO timestamp.`);
+  }
+  requireFilledStringList(item.verification.verifiedBy, `${path}.verification.verifiedBy`, issues);
+  if (item.verification.redactionConfirmed !== true) {
+    issues.push(`${path}.verification.redactionConfirmed must be true.`);
+  }
+  requireFilledStringList(item.verification.readyReleaseCommandsRun, `${path}.verification.readyReleaseCommandsRun`, issues);
+}
+
+export function validateReleaseEvidenceTemplate(template, options = {}) {
+  const issues = [];
+  const expectedChecklist = options.expectedChecklist;
+
+  if (!isRecord(template)) {
+    return {
+      schemaVersion: RELEASE_EVIDENCE_TEMPLATE_VALIDATION_SCHEMA_VERSION,
+      status: "blocked",
+      issues: ["$ must be a release evidence template object."],
+      checked: ["filled release evidence template structure"]
+    };
+  }
+
+  if (template.schemaVersion !== RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION) {
+    issues.push(`$.schemaVersion must be ${JSON.stringify(RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION)}.`);
+  }
+  if (template.sourceChecklistSchemaVersion !== RELEASE_EVIDENCE_CHECKLIST_SCHEMA_VERSION) {
+    issues.push(`$.sourceChecklistSchemaVersion must be ${JSON.stringify(RELEASE_EVIDENCE_CHECKLIST_SCHEMA_VERSION)}.`);
+  }
+  if (template.templateStatus !== "ready") {
+    issues.push('$.templateStatus must be "ready" after evidence is collected.');
+  }
+  if (expectedChecklist?.summary?.filterIssueNumber && template.filterIssueNumber !== expectedChecklist.summary.filterIssueNumber) {
+    issues.push("$.filterIssueNumber must match the expected checklist issue filter.");
+  }
+  if (template.summary?.pendingItems !== 0) {
+    issues.push("$.summary.pendingItems must be 0 after evidence is collected.");
+  }
+
+  if (!Array.isArray(template.items) || template.items.length === 0) {
+    issues.push("$.items must be a non-empty array.");
+  } else {
+    const expectedItems = checklistItemsById(expectedChecklist);
+    const expectedItemIds = [...expectedItems.keys()];
+    const actualItemIds = template.items.filter(isRecord).map((item) => item.itemId).filter((itemId) => typeof itemId === "string");
+    for (const expectedItemId of expectedItemIds) {
+      if (!actualItemIds.includes(expectedItemId)) {
+        issues.push(`$.items is missing source checklist item ${JSON.stringify(expectedItemId)}.`);
+      }
+    }
+    if (typeof template.summary?.totalItems === "number" && template.summary.totalItems !== template.items.length) {
+      issues.push("$.summary.totalItems must match the number of template items.");
+    }
+    template.items.forEach((item, index) => validateTemplateItem(item, index, issues, expectedItems.get(item?.itemId)));
+  }
+
+  const finalIssues = uniqueStrings([...issues, ...validateSecretFreeStrings(template)]);
+
+  return {
+    schemaVersion: RELEASE_EVIDENCE_TEMPLATE_VALIDATION_SCHEMA_VERSION,
+    status: finalIssues.length === 0 ? "passed" : "blocked",
+    templateSchemaVersion: template.schemaVersion,
+    filterIssueNumber: template.filterIssueNumber,
+    itemCount: Array.isArray(template.items) ? template.items.length : 0,
+    issues: finalIssues,
+    checked: [
+      "filled release evidence template schema",
+      "all required checks, evidence, and unblock criteria are passed",
+      "placeholder fields are replaced with redacted evidence refs and notes",
+      "operator verification metadata and redaction confirmation are present",
+      "filled template is secret-free"
+    ]
+  };
+}
+
+export function buildFilledReleaseEvidenceTemplateFixture(template, options = {}) {
+  const verifiedAt = options.now?.toISOString?.() ?? new Date("2026-05-24T00:00:00.000Z").toISOString();
+  const fixtureRef = (itemId, fieldId) => `urn:solo-superman-fixture-evidence:${itemId}:${fieldId}`;
+
+  return {
+    ...template,
+    templateStatus: "ready",
+    items: template.items.map((item) => ({
+      ...item,
+      requiredChecks: item.requiredChecks.map((check) => ({
+        ...check,
+        status: "passed",
+        evidenceRefs: [fixtureRef(item.itemId, `check-${check.id}`)],
+        notes: `Credential-free fixture evidence confirms ${check.id}.`
+      })),
+      requiredEvidence: item.requiredEvidence.map((evidence) => ({
+        ...evidence,
+        status: "passed",
+        evidenceRefs: [fixtureRef(item.itemId, evidence.id)],
+        notes: `Credential-free fixture evidence confirms ${evidence.requirement}.`
+      })),
+      unblockCriteria: item.unblockCriteria.map((criterion) => ({
+        ...criterion,
+        status: "passed",
+        evidenceRefs: [fixtureRef(item.itemId, criterion.id)],
+        notes: `Credential-free fixture evidence confirms ${criterion.requirement}.`
+      })),
+      verification: {
+        verifiedAt,
+        verifiedBy: ["solo-superman-fixture-release-lab"],
+        redactionConfirmed: true,
+        readyReleaseCommandsRun: template.readyReleaseCommands.slice(0, 1)
+      }
+    })),
+    summary: {
+      ...template.summary,
+      pendingItems: 0
+    },
+    issues: []
   };
 }
 

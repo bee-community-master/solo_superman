@@ -27,6 +27,7 @@ const PACKAGE_METADATA_SCRIPT = [
   "verifySignedPackageRelease:scripts['verify:signed-package-release'],",
   "verifySignedPackageReleaseDryRun:scripts['verify:signed-package-release:dry-run'],",
   "verifyReleaseReadiness:scripts['verify:release-readiness'],",
+  "verifyReleaseEvidenceTemplate:scripts['verify:release-evidence-template'],",
   "supportBundle:scripts['support:bundle'],",
   "releaseEvidenceChecklist:scripts['release:evidence-checklist']",
   "}}))"
@@ -71,6 +72,10 @@ const SUPPORT_DIAGNOSTIC_COMMANDS = {
   releaseReadiness: {
     command: "pnpm verify:release-readiness",
     args: ["scripts/verify-release-readiness.mjs"]
+  },
+  releaseEvidenceTemplate: {
+    command: "pnpm verify:release-evidence-template",
+    args: ["scripts/verify-release-evidence-template.mjs"]
   }
 };
 const SUPPORT_ENV_ALLOWLIST = [
@@ -352,6 +357,15 @@ function compactSupportDiagnostic(name, result) {
         blockedGates: stringList(parsed.blockedGates),
         blockers: stringList(parsed.blockers)
       };
+    case "releaseEvidenceTemplate":
+      return {
+        ...summary,
+        schemaVersion: typeof parsed.schemaVersion === "string" ? parsed.schemaVersion : null,
+        mode: typeof parsed.mode === "string" ? parsed.mode : null,
+        filterIssueNumber: typeof parsed.filterIssueNumber === "string" ? parsed.filterIssueNumber : null,
+        itemCount: typeof parsed.itemCount === "number" ? parsed.itemCount : null,
+        issues: stringList(parsed.issues)
+      };
     default:
       return {
         ...summary,
@@ -453,6 +467,7 @@ export async function createSupportBundle(options = {}) {
       "pnpm verify:signed-package-release",
       "pnpm verify:signed-package-release:dry-run",
       "pnpm verify:release-readiness",
+      "pnpm verify:release-evidence-template",
       "pnpm release:evidence-checklist",
       "pnpm verify",
       "pnpm support:bundle"

@@ -1,18 +1,22 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import {
   RELEASE_EVIDENCE_CHECKLIST_SCHEMA_VERSION,
   RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION,
+  RELEASE_EVIDENCE_TEMPLATE_VALIDATION_SCHEMA_VERSION,
+  buildFilledReleaseEvidenceTemplateFixture,
   buildReleaseEvidenceChecklist,
   buildReleaseEvidenceTemplate,
   filterReleaseEvidenceChecklistByIssue,
   loadReleaseEvidenceContracts,
   parseReleaseEvidenceChecklistArgs,
   renderReleaseEvidenceChecklistMarkdown,
-  runReleaseEvidenceChecklistCli
+  runReleaseEvidenceChecklistCli,
+  validateReleaseEvidenceTemplate
 } from "./release-evidence-checklist.mjs";
+import { runReleaseEvidenceTemplateVerifierCli } from "./verify-release-evidence-template.mjs";
 
 function minimalContracts(overrides = {}) {
   return {
@@ -179,6 +183,66 @@ describe("release evidence checklist", () => {
     expect(JSON.stringify(template)).not.toContain("ghp_");
   });
 
+  it("validates filled release evidence templates without accepting placeholders", async () => {
+    const checklist = buildReleaseEvidenceChecklist(await loadReleaseEvidenceContracts(), {
+      now: new Date("2026-05-24T00:00:00.000Z")
+    });
+    const issue266Checklist = filterReleaseEvidenceChecklistByIssue(checklist, 266);
+    const template = buildReleaseEvidenceTemplate(issue266Checklist);
+    const pendingValidation = validateReleaseEvidenceTemplate(template, { expectedChecklist: issue266Checklist });
+
+    expect(pendingValidation).toMatchObject({
+      schemaVersion: RELEASE_EVIDENCE_TEMPLATE_VALIDATION_SCHEMA_VERSION,
+      status: "blocked",
+      filterIssueNumber: "266",
+      itemCount: 4
+    });
+    expect(pendingValidation.issues).toEqual(expect.arrayContaining([
+      expect.stringContaining('$.templateStatus must be "ready"'),
+      expect.stringContaining("$.summary.pendingItems must be 0"),
+      expect.stringContaining("must replace template placeholder"),
+      expect.stringContaining("redactionConfirmed must be true")
+    ]));
+
+    const filledTemplate = buildFilledReleaseEvidenceTemplateFixture(template, {
+      now: new Date("2026-05-24T01:02:03.000Z")
+    });
+    const validation = validateReleaseEvidenceTemplate(filledTemplate, { expectedChecklist: issue266Checklist });
+
+    expect(filledTemplate).toMatchObject({
+      templateStatus: "ready",
+      summary: { totalItems: 4, pendingItems: 0, filterIssueNumber: "266" }
+    });
+    expect(validation).toMatchObject({
+      schemaVersion: RELEASE_EVIDENCE_TEMPLATE_VALIDATION_SCHEMA_VERSION,
+      status: "passed",
+      filterIssueNumber: "266",
+      itemCount: 4,
+      issues: []
+    });
+  });
+
+  it("rejects filled release evidence templates that contain secret-shaped evidence", async () => {
+    const checklist = buildReleaseEvidenceChecklist(await loadReleaseEvidenceContracts(), {
+      now: new Date("2026-05-24T00:00:00.000Z")
+    });
+    const issue266Checklist = filterReleaseEvidenceChecklistByIssue(checklist, 266);
+    const filledTemplate = buildFilledReleaseEvidenceTemplateFixture(buildReleaseEvidenceTemplate(issue266Checklist));
+
+    filledTemplate.items[0].requiredEvidence[0].evidenceRefs = [
+      "https://user:secret@example.com/release-log?token=ghp_abcdefghijklmnopqrstuvwxyz1234567890"
+    ];
+
+    const validation = validateReleaseEvidenceTemplate(filledTemplate, { expectedChecklist: issue266Checklist });
+
+    expect(validation.status).toBe("blocked");
+    expect(validation.issues).toEqual(expect.arrayContaining([
+      expect.stringContaining("must not include URL userinfo credentials"),
+      expect.stringContaining("must not include secret-like query parameter"),
+      expect.stringContaining("must not contain token-shaped secret values")
+    ]));
+  });
+
   it("flags secret-like evidence refs instead of emitting a clean checklist", () => {
     const checklist = buildReleaseEvidenceChecklist(minimalContracts({
       releaseReadiness: {
@@ -317,6 +381,35 @@ describe("release evidence checklist", () => {
         id: "release_manifest_signature_verify",
         status: "pending"
       });
+
+      const filledTemplatePath = join(dir, "filled-template.json");
+      const filledTemplate = buildFilledReleaseEvidenceTemplateFixture(template);
+      await writeFile(filledTemplatePath, `${JSON.stringify(filledTemplate, null, 2)}\n`, "utf8");
+
+      const validation = await runReleaseEvidenceTemplateVerifierCli(["--input", filledTemplatePath, "--issue", "266"], {
+        contracts: minimalContracts({
+          releaseReadiness: {
+            schemaVersion: "solo-superman-release-readiness.v1",
+            appId: "solo-superman",
+            broadReleaseStatus: "blocked",
+            requiredVerificationCommands: {
+              credentialFree: ["pnpm verify:release-readiness"],
+              readyRelease: ["pnpm verify:release-readiness -- --require-ready"]
+            },
+            releaseGates: [
+              {
+                id: "signed-packages",
+                status: "blocked",
+                blockerIssue: "https://github.com/bee-community-master/solo_superman/issues/266",
+                requiredChecks: ["release_manifest_signature_verify"],
+                requiredEvidence: ["redacted signing evidence"],
+                unblockCriteria: ["attach redacted evidence"]
+              }
+            ]
+          }
+        })
+      });
+      expect(validation.status).toBe("passed");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
