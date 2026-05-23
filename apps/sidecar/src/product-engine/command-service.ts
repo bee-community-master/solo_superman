@@ -738,6 +738,9 @@ function completedLedgerStepForAutoImplementationStage(
   if (!step.testEvidenceRecord || step.testEvidenceRecord.outcome !== "passed" || step.testEvidenceRecord.failedTestCount !== 0 || step.testEvidenceRecord.notTestedGaps.length > 0) {
     missingEvidence.push("passing TestEvidenceRecord without failed tests or Not-tested gaps");
   }
+  if (!step.missingTestAuditRecord || step.missingTestAuditRecord.missingTestGaps.length > 0) {
+    missingEvidence.push("MissingTestAuditRecord without missing targeted-test gaps");
+  }
 
   if (missingEvidence.length) {
     throw new ProductEngineServiceError(
@@ -791,6 +794,10 @@ function autoImplementationStageLedgerEvidence(
   const cleanCodeReviewStreakRefs = step.cleanCodeReviewStreaks.flatMap((streak) =>
     streak.latestReviewIds.map((reviewId) => `clean-code-review:${streak.reviewScope}:${reviewId}`)
   );
+  const missingTestAuditRefs = [
+    ...(step.missingTestAuditRecord?.evidenceRefs ?? []),
+    ...(step.missingTestAuditRecord?.coverageEvidenceRefs ?? [])
+  ];
   const testEvidenceRefs = step.testEvidenceRecord?.evidenceRefs ?? [];
   const blockerEvidenceRefs = ledger.blockedSteps
     .filter((blocker) => blocker.stepId === step.stepDoc.stepId)
@@ -803,6 +810,7 @@ function autoImplementationStageLedgerEvidence(
     implementationEvidenceRefs,
     codeReviewStreakRefs,
     cleanCodeReviewStreakRefs,
+    missingTestAuditRefs,
     testEvidenceRefs,
     blockerEvidenceRefs,
     evidenceRefs: uniqueAutoImplementationRefs([
@@ -811,6 +819,7 @@ function autoImplementationStageLedgerEvidence(
       ...implementationEvidenceRefs,
       ...codeReviewStreakRefs,
       ...cleanCodeReviewStreakRefs,
+      ...missingTestAuditRefs,
       ...testEvidenceRefs,
       ...blockerEvidenceRefs
     ])
@@ -956,7 +965,7 @@ function pullRequestMutationBlockedReason(input: {
 
 function completedStageLedgerEvidenceRefs(
   run: AutoImplementationRun,
-  evidenceKind: "implementationEvidenceRefs" | "testEvidenceRefs"
+  evidenceKind: "implementationEvidenceRefs" | "missingTestAuditRefs" | "testEvidenceRefs"
 ) {
   return uniqueAutoImplementationRefs(
     run.stagePlan
@@ -1032,6 +1041,7 @@ function pullRequestBodyMarkdown(input: {
   readonly run: AutoImplementationRun;
 }) {
   const implementationEvidenceRefs = completedStageLedgerEvidenceRefs(input.run, "implementationEvidenceRefs");
+  const missingTestAuditRefs = completedStageLedgerEvidenceRefs(input.run, "missingTestAuditRefs");
   const testEvidenceRefs = completedStageLedgerEvidenceRefs(input.run, "testEvidenceRefs");
   const reviewStreakRefs = uniqueAutoImplementationRefs([
     ...input.request.reviewStreakRefs,
@@ -1066,6 +1076,9 @@ function pullRequestBodyMarkdown(input: {
     "",
     "### Test evidence",
     ...evidenceLines(testEvidenceRefs, "no completed stage test evidence recorded"),
+    "",
+    "### Missing-test audit evidence",
+    ...evidenceLines(missingTestAuditRefs, "no completed stage missing-test audit evidence recorded"),
     "",
     "### Verification commands",
     ...input.request.verificationCommands.map((command) => `- \`${command}\``),

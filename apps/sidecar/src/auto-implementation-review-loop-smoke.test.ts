@@ -25,12 +25,14 @@ describe("auto implementation review-loop smoke", () => {
       expect(stage.stageStatusAfter).toBe("completed");
       expect(stage.codeReviewSatisfiedScopes).toEqual(expect.arrayContaining(["feature", "repository"]));
       expect(stage.cleanCodeReviewSatisfiedScopes).toEqual(expect.arrayContaining(["changed_code", "repository"]));
+      expect(stage.missingTestAuditGapCount).toBe(0);
       expect(stage.testOutcome).toBe("passed");
     }
     expect(evidence.checked).toEqual(
       expect.arrayContaining([
         "ImplementationStepLedger completed with two no-finding code-review passes per feature/repository scope for every stage",
         "ImplementationStepLedger completed with two no-finding clean-code passes per changed-code/repository scope for every stage",
+        "missing-test audit evidence recorded with zero gaps for every stage",
         "run reached completed status at merge_main without real GitHub writes"
       ])
     );

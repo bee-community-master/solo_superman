@@ -66,9 +66,10 @@ function withInitialPrStageCompleted(run: AutoImplementationRun): AutoImplementa
     implementationEvidenceRefs: ["commit:initial-pr"],
     codeReviewStreakRefs: ["code-review:feature:clean-2", "code-review:repository:clean-2"],
     cleanCodeReviewStreakRefs: ["clean-code-review:changed_code:clean-2", "clean-code-review:repository:clean-2"],
+    missingTestAuditRefs: ["missing-test-audit:initial-pr"],
     testEvidenceRefs: ["test:initial-pr"],
     blockerEvidenceRefs: [],
-    evidenceRefs: ["implementation-step-ledger:step_initial_pr", "test:initial-pr"]
+    evidenceRefs: ["implementation-step-ledger:step_initial_pr", "missing-test-audit:initial-pr", "test:initial-pr"]
   };
 
   return {
@@ -117,9 +118,10 @@ function withPrBodyAndFinalVerification(run: AutoImplementationRun): AutoImpleme
     implementationEvidenceRefs: ["commit:final-verify"],
     codeReviewStreakRefs: ["code-review:feature:clean-2", "code-review:repository:clean-2"],
     cleanCodeReviewStreakRefs: ["clean-code-review:changed_code:clean-2", "clean-code-review:repository:clean-2"],
+    missingTestAuditRefs: ["missing-test-audit:final"],
     testEvidenceRefs: ["test:pnpm-verify"],
     blockerEvidenceRefs: [],
-    evidenceRefs: ["implementation-step-ledger:step_final_verify", "test:pnpm-verify"]
+    evidenceRefs: ["implementation-step-ledger:step_final_verify", "missing-test-audit:final", "test:pnpm-verify"]
   };
 
   return {
@@ -297,7 +299,11 @@ describe("buildAutoImplementationPullRequestDryRunRequest", () => {
 
     expect(request.pullRequestUrl).toBe("https://github.com/bee-community-master/demo/pull/1");
     expect(request.bodyEvidenceRefs).toEqual(["pr-body:current-evidence"]);
-    expect(request.mergeEvidenceRefs).toEqual(["implementation-step-ledger:step_final_verify", "test:pnpm-verify"]);
+    expect(request.mergeEvidenceRefs).toEqual([
+      "implementation-step-ledger:step_final_verify",
+      "missing-test-audit:final",
+      "test:pnpm-verify"
+    ]);
     expect(request.knownGaps).not.toContain("No current PR body evidence has been recorded yet.");
     expect(request.knownGaps).not.toContain(
       "final_verify_pr_update has not recorded completed merge-readiness ledger evidence yet."
@@ -350,7 +356,11 @@ describe("buildAutoImplementationPullRequestDryRunRequest", () => {
       requestMode: "approved",
       pullRequestUrl: "https://github.com/bee-community-master/demo/pull/1",
       bodyEvidenceRefs: ["pr-body:current-evidence"],
-      mergeEvidenceRefs: ["implementation-step-ledger:step_final_verify", "test:pnpm-verify"],
+      mergeEvidenceRefs: [
+        "implementation-step-ledger:step_final_verify",
+        "missing-test-audit:final",
+        "test:pnpm-verify"
+      ],
       approval: {
         approvedBy: "local_operator",
         approvedAt: "2026-05-22T00:05:00.000Z",

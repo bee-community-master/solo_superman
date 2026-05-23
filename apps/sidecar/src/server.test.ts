@@ -408,6 +408,10 @@ function implementationStepLedgerImportTransitionsForTest(input: {
     ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords[0]!,
     stepId
   };
+  const missingTestAuditRecord = {
+    ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.missingTestAuditRecords[0]!,
+    stepId
+  };
   const baseTransition = {
     trackerDoc,
     stepDoc
@@ -441,6 +445,7 @@ function implementationStepLedgerImportTransitionsForTest(input: {
       ...baseTransition,
       targetStatus: "completed",
       stepCommitRecord,
+      missingTestAuditRecord,
       testEvidenceRecord,
       evidenceRefs: ["worker-ledger-import:completed"]
     }
@@ -8821,7 +8826,7 @@ describe("PR-02 sidecar health shell", () => {
       expect(tracker).toContain("CodeReviewRecord.reviewScope");
       expectScopeSpecificReviewEvidenceSlots(tracker);
       expect(tracker).toContain("Do not merge until the feature PR code review reaches two consecutive no-finding passes");
-      expect(tracker).toContain("Update the PR body with scope, review streak evidence, test evidence");
+      expect(tracker).toContain("Update the PR body with scope, review streak evidence, missing-test audit evidence, test evidence");
       expect(planningPlan).toContain("# Planning Handoff implementation plan");
       expect(planningPlan).toContain("## Build slice plan");
       expect(planningPlan).toContain("## Source-driven task breakdown");
@@ -10536,6 +10541,8 @@ describe("PR-02 sidecar health shell", () => {
         expect(input.bodyMarkdown).toContain("- no completed stage implementation evidence recorded");
         expect(input.bodyMarkdown).toContain("### Test evidence");
         expect(input.bodyMarkdown).toContain("- no completed stage test evidence recorded");
+        expect(input.bodyMarkdown).toContain("### Missing-test audit evidence");
+        expect(input.bodyMarkdown).toContain("- no completed stage missing-test audit evidence recorded");
         expect(input.bodyMarkdown).toContain("### Verification commands");
         expect(input.bodyMarkdown).toContain("`pnpm verify`");
 
@@ -10652,6 +10659,8 @@ describe("PR-02 sidecar health shell", () => {
         expect(input.bodyMarkdown).toContain("- commit:abcdef1");
         expect(input.bodyMarkdown).toContain("### Test evidence");
         expect(input.bodyMarkdown).toContain("- test:verify");
+        expect(input.bodyMarkdown).toContain("### Missing-test audit evidence");
+        expect(input.bodyMarkdown).toContain("- missing-test-audit:demo");
         expect(input.bodyMarkdown).toContain("`pnpm verify`");
 
         return {
@@ -10904,9 +10913,14 @@ describe("PR-02 sidecar health shell", () => {
         implementationEvidenceRefs: [`commit:${stage}:abcdef1`],
         codeReviewStreakRefs: [`code-review:${stage}:1`, `code-review:${stage}:2`],
         cleanCodeReviewStreakRefs: [`clean-code-review:${stage}:1`, `clean-code-review:${stage}:2`],
+        missingTestAuditRefs: [`missing-test-audit:${stage}:coverage`],
         testEvidenceRefs: [`test:${stage}:verify`],
         blockerEvidenceRefs: [],
-        evidenceRefs: [`implementation-step-ledger:step_${stage}`, `test:${stage}:verify`]
+        evidenceRefs: [
+          `implementation-step-ledger:step_${stage}`,
+          `missing-test-audit:${stage}:coverage`,
+          `test:${stage}:verify`
+        ]
       };
     }
 
@@ -11247,6 +11261,7 @@ describe("PR-02 sidecar health shell", () => {
         ledgerEvidence: {
           implementationStepId: "step_demo",
           implementationEvidenceRefs: ["commit:abcdef1"],
+          missingTestAuditRefs: ["missing-test-audit:demo", "test:verify"],
           testEvidenceRefs: ["test:verify"]
         }
       });
@@ -11281,12 +11296,14 @@ describe("PR-02 sidecar health shell", () => {
       expect(syncedTracker).toContain("  - Status: completed");
       expect(syncedTracker).toContain("  - Ledger step: step_demo");
       expect(syncedTracker).toContain("  - Implementation evidence refs: commit:abcdef1");
+      expect(syncedTracker).toContain("  - Missing-test audit refs: missing-test-audit:demo, test:verify");
       expect(syncedTracker).toContain("  - Test evidence refs: test:verify");
       expect(syncedIssue).toContain("- Issue status: completed");
       expect(syncedIssue).toContain("- Stage status: completed");
       expect(syncedIssue).toContain("- Issue status summary: 1 completed / 0 blocked / 6 open / 7 total");
       expect(syncedIssue).toContain("- Ledger step: step_demo");
       expect(syncedIssue).toContain("- Implementation evidence refs: commit:abcdef1");
+      expect(syncedIssue).toContain("- Missing-test audit refs: missing-test-audit:demo, test:verify");
       expect(syncedIssue).toContain("- Test evidence refs: test:verify");
       expect(syncedIssue).toContain("- Stage evidence refs:");
       expect(syncedIssue).toContain("stage:initial_pr:start");
@@ -11299,6 +11316,7 @@ describe("PR-02 sidecar health shell", () => {
           trackerDocRef: "implementation-step-ledger:tracker:tracker_demo",
           stepDocRef: "implementation-step-ledger:step:step_demo",
           implementationEvidenceRefs: ["commit:abcdef1"],
+          missingTestAuditRefs: ["missing-test-audit:demo", "test:verify"],
           testEvidenceRefs: ["test:verify"]
         }
       });

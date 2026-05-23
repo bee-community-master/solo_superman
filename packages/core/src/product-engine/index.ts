@@ -106,6 +106,7 @@ import {
   type ImplementationStepLedgerProjection,
   type ImplementationStepRecord,
   type ImplementationStepStatus,
+  type MissingTestAuditRecord,
   type FounderBriefProjection,
   type LivingSpecProjection,
   type NoCodeStepEvidence,
@@ -7923,6 +7924,7 @@ const IMPLEMENTATION_STEP_LEDGER_ALLOWED_PAYLOAD_KEYS = [
   "noCodeStepEvidence",
   "codeReviewRecord",
   "cleanCodeReviewRecord",
+  "missingTestAuditRecord",
   "testEvidenceRecord",
   "blocker",
   "evidenceRefs"
@@ -8240,6 +8242,41 @@ function testEvidenceRecordFromValue(value: unknown, stepId: string): TestEviden
   };
 }
 
+function missingTestAuditRecordFromValue(value: unknown, stepId: string): MissingTestAuditRecord | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const record = recordFromUnknown(value);
+  const recordStepId = requiredString(record?.stepId);
+  const auditId = requiredString(record?.auditId);
+  const auditedCriteriaRefs = stringArrayFromRecord(record?.auditedCriteriaRefs);
+  const coverageEvidenceRefs = stringArrayFromRecord(record?.coverageEvidenceRefs);
+  const missingTestGaps = stringArrayFromRecord(record?.missingTestGaps, true);
+  const evidenceRefs = stringArrayFromRecord(record?.evidenceRefs);
+
+  if (
+    !recordStepId ||
+    recordStepId !== stepId ||
+    !auditId ||
+    !auditedCriteriaRefs?.length ||
+    !coverageEvidenceRefs?.length ||
+    missingTestGaps === null ||
+    !evidenceRefs?.length
+  ) {
+    return null;
+  }
+
+  return {
+    stepId,
+    auditId,
+    auditedCriteriaRefs,
+    coverageEvidenceRefs,
+    missingTestGaps,
+    evidenceRefs
+  };
+}
+
 function implementationStepBlockerFromValue(value: unknown, stepId: string): ImplementationStepBlocker | null | undefined {
   if (value === undefined) {
     return undefined;
@@ -8273,6 +8310,7 @@ function implementationStepRequiredEvidence(input: {
   readonly cleanCodeReviewRecord: CleanCodeReviewRecord | null;
   readonly codeReviewStreaks: ReturnType<typeof implementationCodeReviewStreaks>;
   readonly cleanCodeReviewStreaks: ReturnType<typeof implementationCleanCodeReviewStreaks>;
+  readonly missingTestAuditRecord: MissingTestAuditRecord | null;
   readonly testEvidenceRecord: TestEvidenceRecord | null;
 }) {
   const missing: string[] = [];
@@ -8299,6 +8337,9 @@ function implementationStepRequiredEvidence(input: {
   if (!implementationTestEvidencePassed(input.testEvidenceRecord)) {
     missing.push("passing TestEvidenceRecord without failed tests or Not-tested gaps");
   }
+  if (!implementationMissingTestAuditPassed(input.missingTestAuditRecord)) {
+    missing.push("MissingTestAuditRecord without missing targeted-test gaps");
+  }
 
   return uniqueStringRefs(missing);
 }
@@ -8317,6 +8358,14 @@ function implementationTestEvidenceHasFailureOrGap(record: TestEvidenceRecord | 
   return Boolean(record && (record.outcome === "failed" || record.failedTestCount > 0 || record.notTestedGaps.length > 0));
 }
 
+function implementationMissingTestAuditPassed(record: MissingTestAuditRecord | null) {
+  return Boolean(record && record.missingTestGaps.length === 0);
+}
+
+function implementationMissingTestAuditHasGap(record: MissingTestAuditRecord | null) {
+  return Boolean(record && record.missingTestGaps.length > 0);
+}
+
 function implementationStepStageEvidence(input: {
   readonly targetStatus: ImplementationStepStatus;
   readonly stepDoc: ImplementationStepDoc;
@@ -8327,6 +8376,7 @@ function implementationStepStageEvidence(input: {
   readonly cleanCodeReviewRecord: CleanCodeReviewRecord | null;
   readonly codeReviewStreaks: ReturnType<typeof implementationCodeReviewStreaks>;
   readonly cleanCodeReviewStreaks: ReturnType<typeof implementationCleanCodeReviewStreaks>;
+  readonly missingTestAuditRecord: MissingTestAuditRecord | null;
   readonly testEvidenceRecord: TestEvidenceRecord | null;
 }) {
   const missing: string[] = [];
@@ -8368,6 +8418,9 @@ function implementationStepStageEvidence(input: {
   }
   if (needsTests && !implementationTestEvidencePassed(input.testEvidenceRecord)) {
     missing.push("passing TestEvidenceRecord without failed tests or Not-tested gaps");
+  }
+  if (needsTests && !implementationMissingTestAuditPassed(input.missingTestAuditRecord)) {
+    missing.push("MissingTestAuditRecord without missing targeted-test gaps");
   }
 
   return uniqueStringRefs(missing);
@@ -8428,9 +8481,10 @@ function implementationStepStatus(input: {
   readonly blocker: ImplementationStepBlocker | null;
   readonly codeReviewRecord: CodeReviewRecord | null;
   readonly cleanCodeReviewRecord: CleanCodeReviewRecord | null;
+  readonly missingTestAuditRecord: MissingTestAuditRecord | null;
   readonly testEvidenceRecord: TestEvidenceRecord | null;
 }): ImplementationStepStatus {
-  if (input.blocker || input.codeReviewRecord?.verdict === "changes_requested" || input.codeReviewRecord?.verdict === "blocked" || input.cleanCodeReviewRecord?.verdict === "changes_requested" || input.cleanCodeReviewRecord?.verdict === "blocked" || implementationTestEvidenceHasFailureOrGap(input.testEvidenceRecord)) {
+  if (input.blocker || input.codeReviewRecord?.verdict === "changes_requested" || input.codeReviewRecord?.verdict === "blocked" || input.cleanCodeReviewRecord?.verdict === "changes_requested" || input.cleanCodeReviewRecord?.verdict === "blocked" || implementationTestEvidenceHasFailureOrGap(input.testEvidenceRecord) || implementationMissingTestAuditHasGap(input.missingTestAuditRecord)) {
     return "blocked";
   }
 
@@ -8462,7 +8516,7 @@ function implementationStepBlocker(input: {
 
   return {
     stepId: input.stepId,
-    reason: "Implementation step cannot complete until required commit, review, clean-code review, and test evidence is present and passing.",
+    reason: "Implementation step cannot complete until required commit, review, clean-code review, missing-test audit, and test evidence is present and passing.",
     missingEvidence: input.missingRequiredEvidence.length ? input.missingRequiredEvidence : ["passing implementation step evidence"],
     nextRequiredAction: "Record the missing evidence or leave the step visible as blocked/Not-tested.",
     evidenceRefs: [`implementation-step-ledger:blocker:${input.commandId}`]
@@ -8526,6 +8580,7 @@ function implementationStepLedgerProjectionFromSteps(
     cleanCodeReviewRecords: uniqueImplementationReviewRecordsById(
       steps.flatMap((step) => step.cleanCodeReviewRecord ? [step.cleanCodeReviewRecord] : [])
     ),
+    missingTestAuditRecords: steps.flatMap((step) => step.missingTestAuditRecord ? [step.missingTestAuditRecord] : []),
     testEvidenceRecords: steps.flatMap((step) => step.testEvidenceRecord ? [step.testEvidenceRecord] : []),
     blockedSteps: steps.flatMap((step) => step.blocker ? [step.blocker] : []),
     progressReport: "",
@@ -8569,10 +8624,11 @@ function reduceRecordImplementationStepLedger(
   const noCodeStepEvidence = noCodeStepEvidenceFromValue(payload.noCodeStepEvidence, stepDoc.stepId);
   const codeReviewRecord = codeReviewRecordFromValue(payload.codeReviewRecord, stepDoc.stepId);
   const cleanCodeReviewRecord = cleanCodeReviewRecordFromValue(payload.cleanCodeReviewRecord, stepDoc.stepId);
+  const missingTestAuditRecord = missingTestAuditRecordFromValue(payload.missingTestAuditRecord, stepDoc.stepId);
   const testEvidenceRecord = testEvidenceRecordFromValue(payload.testEvidenceRecord, stepDoc.stepId);
   const explicitBlocker = implementationStepBlockerFromValue(payload.blocker, stepDoc.stepId);
 
-  if ([stepCommitRecord, noCodeStepEvidence, codeReviewRecord, cleanCodeReviewRecord, testEvidenceRecord, explicitBlocker].some((record) => record === null)) {
+  if ([stepCommitRecord, noCodeStepEvidence, codeReviewRecord, cleanCodeReviewRecord, missingTestAuditRecord, testEvidenceRecord, explicitBlocker].some((record) => record === null)) {
     return reject("RecordImplementationStepLedger evidence records are invalid or do not match the step id.", "VALIDATION_FAILED");
   }
 
@@ -8613,6 +8669,7 @@ function reduceRecordImplementationStepLedger(
     cleanCodeReviewRecord: latestCleanCodeReviewRecord,
     codeReviewStreaks,
     cleanCodeReviewStreaks,
+    missingTestAuditRecord: missingTestAuditRecord ?? null,
     testEvidenceRecord: testEvidenceRecord ?? null
   });
   const missingStageEvidence = implementationStepStageEvidence({
@@ -8625,6 +8682,7 @@ function reduceRecordImplementationStepLedger(
     cleanCodeReviewRecord: latestCleanCodeReviewRecord,
     codeReviewStreaks,
     cleanCodeReviewStreaks,
+    missingTestAuditRecord: missingTestAuditRecord ?? null,
     testEvidenceRecord: testEvidenceRecord ?? null
   });
   const missingLinearEvidence = implementationStepLinearMissingEvidence({
@@ -8638,6 +8696,7 @@ function reduceRecordImplementationStepLedger(
     blocker: explicitBlocker ?? null,
     codeReviewRecord: latestCodeReviewRecord,
     cleanCodeReviewRecord: latestCleanCodeReviewRecord,
+    missingTestAuditRecord: missingTestAuditRecord ?? null,
     testEvidenceRecord: testEvidenceRecord ?? null
   });
   const visibleMissingEvidence = status === "completed" ? [] : uniqueStringRefs([
@@ -8665,6 +8724,8 @@ function reduceRecordImplementationStepLedger(
       ...(noCodeStepEvidence?.commandEvidenceRefs ?? []),
       ...nextCodeReviewRecords.flatMap((record) => record.evidenceRefs),
       ...nextCleanCodeReviewRecords.flatMap((record) => record.evidenceRefs),
+      ...(missingTestAuditRecord?.evidenceRefs ?? []),
+      ...(missingTestAuditRecord?.coverageEvidenceRefs ?? []),
       ...(testEvidenceRecord?.evidenceRefs ?? []),
       ...(blocker?.evidenceRefs ?? [])
     ]),
@@ -8675,6 +8736,7 @@ function reduceRecordImplementationStepLedger(
     cleanCodeReviewRecord: latestCleanCodeReviewRecord,
     codeReviewStreaks,
     cleanCodeReviewStreaks,
+    missingTestAuditRecord: missingTestAuditRecord ?? null,
     testEvidenceRecord: testEvidenceRecord ?? null
   };
   let projection: ImplementationStepLedgerProjection;

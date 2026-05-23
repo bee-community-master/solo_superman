@@ -20,6 +20,8 @@ describe("ImplementationStepLedgerPanel view model", () => {
     expect(view.rollbackLabel).toContain("rollback:git-revert:abcdef1");
     expect(view.codeReviewLabel).toContain("Code review: repository passed");
     expect(view.cleanCodeReviewLabel).toContain("Clean-code review: repository passed");
+    expect(view.missingTestAuditLabel).toContain("Missing-test audit: missing_test_audit_demo");
+    expect(view.missingTestAuditLabel).toContain("gaps=0");
     expect(view.testEvidenceLabel).toContain("Tests: passed");
     expect(view.missingEvidenceItems).toEqual([]);
   });
@@ -31,6 +33,7 @@ describe("ImplementationStepLedgerPanel view model", () => {
     expect(view.commitLabel).toContain("not recorded");
     expect(view.codeReviewLabel).toContain("not recorded");
     expect(view.cleanCodeReviewLabel).toContain("not recorded");
+    expect(view.missingTestAuditLabel).toContain("not recorded");
     expect(view.testEvidenceLabel).toContain("not recorded");
     expect(view.missingEvidenceItems).toContain("StepCommitRecord");
     expect(view.blockerLabel).toContain("Cannot complete");
@@ -178,6 +181,7 @@ describe("ImplementationStepLedgerPanel view model", () => {
     expect(markup).toContain("Clean-code review: repository passed");
     expect(markup).toContain("feature code review 2/2 satisfied");
     expect(markup).toContain("changed_code clean-code review 2/2 satisfied");
+    expect(markup).toContain("Missing-test audit: missing_test_audit_demo");
     expect(markup).toContain("Rollback/reference: rollback:git-revert:abcdef1");
     expect(markup).toContain("Tracker: Demo implementation tracker");
   });
