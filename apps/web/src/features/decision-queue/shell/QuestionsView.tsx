@@ -33,6 +33,28 @@ function boundedPercent(value: number) {
   return Math.min(100, Math.max(0, value));
 }
 
+function researchFollowUpSourceTrace(item: QueueItemProjection) {
+  return item.cardType === "follow_up_question" && item.sourceRef?.startsWith("research:")
+    ? item.sourceRef
+    : null;
+}
+
+function ResearchFollowUpSourceTrace({
+  copy,
+  item
+}: {
+  readonly copy: DecisionQueueCopy;
+  readonly item: QueueItemProjection;
+}) {
+  const sourceTrace = researchFollowUpSourceTrace(item);
+
+  return sourceTrace ? (
+    <p className="research-source-trace">
+      {copy.questions.researchFollowUpSourceTrace}: <code>{sourceTrace}</code>
+    </p>
+  ) : null;
+}
+
 export function QuestionsView({ controller }: QuestionsViewProps) {
   const copy = useDecisionQueueCopy();
   const [selectedAnswerOptionIds, setSelectedAnswerOptionIds] = useState<Record<string, string>>({});
@@ -202,6 +224,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                         {item.nextValidationAction ? (
                           <p className="research-recovery">{copy.questions.nextValidation}: {item.nextValidationAction}</p>
                         ) : null}
+                        <ResearchFollowUpSourceTrace copy={copy} item={item} />
                         {item.additionalQuestions?.length ? (
                           <div className="research-additional-questions">
                             <p>{copy.questions.researchAdditionalQuestions}</p>

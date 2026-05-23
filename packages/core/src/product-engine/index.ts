@@ -1644,7 +1644,8 @@ function queueItemProjectionFromIssue(
       : {}),
     ...(issue.expectedAnswerType ? { expectedAnswerType: issue.expectedAnswerType } : {}),
     ...(answerOptions ? { answerOptions } : {}),
-    ...(issue.possibleRoutes ? { possibleRoutes: issue.possibleRoutes } : {})
+    ...(issue.possibleRoutes ? { possibleRoutes: issue.possibleRoutes } : {}),
+    ...(issue.sourceRef ? { sourceRef: issue.sourceRef } : {})
   };
 }
 

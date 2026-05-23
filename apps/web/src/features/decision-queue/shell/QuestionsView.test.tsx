@@ -354,6 +354,7 @@ describe("QuestionsView", () => {
               title: "Evidence still insufficient: Validate paid founder urgency",
               state: "blocked",
               cardType: "follow_up_question",
+              sourceRef: "research:research_task_demo:evidence_matrix_demo:additional_question:1",
               additionalQuestions: [
                 "What evidence would resolve Validate paid founder urgency?"
               ]
@@ -365,6 +366,8 @@ describe("QuestionsView", () => {
 
     expect(markup).toContain("Research-generated questions");
     expect(markup).toContain("What evidence would resolve Validate paid founder urgency?");
+    expect(markup).toContain("Source trace");
+    expect(markup).toContain("research:research_task_demo:evidence_matrix_demo:additional_question:1");
     expect(markup).toContain("Blocked");
     expect(markup).not.toContain(">blocked<");
   });
