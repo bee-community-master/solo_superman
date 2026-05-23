@@ -30,6 +30,7 @@ const PROVIDER_TOKEN_PATTERN =
   /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})\b/u;
 const BEARER_TOKEN_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/-]{10,}/u;
 const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
+const URL_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//u;
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -68,7 +69,7 @@ function validateNoSecretStrings(contract, issues) {
 }
 
 function validateHttpsUrlIfPresent(value, path, issues) {
-  if (typeof value !== "string" || !/^https?:\/\//iu.test(value)) {
+  if (typeof value !== "string" || !URL_SCHEME_PATTERN.test(value)) {
     return;
   }
 

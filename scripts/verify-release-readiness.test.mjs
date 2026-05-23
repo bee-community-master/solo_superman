@@ -122,6 +122,18 @@ describe("release readiness verification", () => {
     expect(result.issues).toContain("$.releaseGates: ready broad release must pass windows-real-device");
   });
 
+  it("rejects non-HTTPS URL evidence refs instead of silently treating them as local refs", () => {
+    const contract = blockedContract({
+      releaseGates: blockedContract().releaseGates.map((gate) =>
+        gate.id === "signed-packages" ? { ...gate, evidenceRefs: ["ftp://example.com/signing-evidence.json"] } : gate
+      )
+    });
+    const result = validateReleaseReadinessContract(contract);
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toContain("$.releaseGates[0].evidenceRefs[0]: must use https when using URL evidence refs");
+  });
+
   it("requires both credential-free and ready-release command lists", () => {
     const contract = blockedContract({
       requiredVerificationCommands: {
