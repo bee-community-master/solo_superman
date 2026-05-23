@@ -58,7 +58,7 @@ export function useDecisionQueueResearchActions({
   setResearchOperations,
   setWorkflowError
 }: DecisionQueueResearchActionsProps) {
-  const { researchActionErrors, researchActionReasons } = copy.research;
+  const { researchActionErrors, researchActionLabels, researchActionReasons } = copy.research;
 
   const refreshResearchEvidenceSurfaces = useCallback(
     async (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"]) => {
@@ -87,7 +87,7 @@ export function useDecisionQueueResearchActions({
         ) ?? false;
       const policy = webPublicResearchAllowlistPolicy("web_ui_founder");
       const response = await appendCommand(
-        reusableAllowlist ? "Reactivate research allowlist" : "Create research allowlist",
+        reusableAllowlist ? researchActionLabels.reactivateAllowlist : researchActionLabels.createAllowlist,
         reusableAllowlist
           ? await client.updateResearchAllowlist(projectId, reusableAllowlist.allowlistId, {
               ...policy,
@@ -134,7 +134,7 @@ export function useDecisionQueueResearchActions({
 
       try {
         const response = await appendCommand(
-          "Pause research allowlist",
+          researchActionLabels.pauseAllowlist,
           await client.pauseResearchAllowlist(
             projections.session.projectId,
             allowlistId,
@@ -172,7 +172,7 @@ export function useDecisionQueueResearchActions({
 
       try {
         const response = await appendCommand(
-          "Revoke research allowlist",
+          researchActionLabels.revokeAllowlist,
           await client.revokeResearchAllowlist(
             projections.session.projectId,
             allowlistId,
@@ -209,7 +209,7 @@ export function useDecisionQueueResearchActions({
 
     try {
       const response = await appendCommand(
-        "Plan public-safe research task",
+        researchActionLabels.planPublicSafeResearchTask,
         await client.planResearch({
           sessionId: projections.session.sessionId,
           expectedStateVersion: latestCommandBackedProjectionVersion(projections),
@@ -310,7 +310,7 @@ export function useDecisionQueueResearchActions({
     try {
       await startReadOnlyResearchRunForTask({
         allowlist,
-        label: "Start public web research run",
+        label: researchActionLabels.startPublicWebResearchRun,
         projectId: projections.session.projectId,
         task
       });
@@ -404,7 +404,7 @@ export function useDecisionQueueResearchActions({
       if (plan.status === "start" && projections.research) {
         await startReadyReadOnlyResearchRunsForPlan({
           allowlist,
-          labelPrefix: "Start public web research run",
+          labelPrefix: researchActionLabels.startPublicWebResearchRun,
           projectId,
           research: projections.research,
           taskIds: plan.taskIds
@@ -470,7 +470,7 @@ export function useDecisionQueueResearchActions({
 
       await startReadyReadOnlyResearchRunsForPlan({
         allowlist,
-        labelPrefix: "Start background public web research run",
+        labelPrefix: researchActionLabels.startBackgroundPublicWebResearchRun,
         projectId,
         research: latestResearch,
         taskIds: plan.taskIds
@@ -526,7 +526,7 @@ export function useDecisionQueueResearchActions({
 
       try {
         const response = await appendCommand(
-          "Cancel research run",
+          researchActionLabels.cancelRun,
           await client.cancelResearchRun(projections.session.projectId, researchRunId, {
             reason: researchActionReasons.cancelRun
           })
@@ -558,7 +558,7 @@ export function useDecisionQueueResearchActions({
 
       try {
         const response = await appendCommand(
-          "Retry research run",
+          researchActionLabels.retryRun,
           await client.retryResearchRun(projections.session.projectId, researchRunId, {
             retryReason: researchActionReasons.retryRun,
             contextHash: `${researchRunId}_web_retry`

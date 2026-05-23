@@ -44,6 +44,11 @@ describe("decision queue language copy", () => {
       "セッション"
     );
     expect(DECISION_QUEUE_COPY.ko.questions.sessionActionErrors.answerTextRequired).toContain("답변");
+    expect(DECISION_QUEUE_COPY.en.questions.sessionActionLabels.createProject).not.toMatch(/[가-힣]/u);
+    expect(DECISION_QUEUE_COPY.ja.questions.sessionActionLabels.resolveResearchCard("revised")).toContain(
+      "リサーチカード"
+    );
+    expect(DECISION_QUEUE_COPY.ko.questions.sessionActionLabels.loadNextQuestions).toContain("다음 질문");
     expect(
       DECISION_QUEUE_COPY.en.questions.sessionActionReasons.projectPurposeConfirmed("Business validation")
     ).not.toMatch(/[가-힣]/u);
@@ -74,6 +79,9 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.research.researchActionErrors.backgroundStartAfterAnswerFailed("boom")).toContain(
       "자동 공개 웹 리서치"
     );
+    expect(DECISION_QUEUE_COPY.en.research.researchActionLabels.startPublicWebResearchRun).not.toMatch(/[가-힣]/u);
+    expect(DECISION_QUEUE_COPY.ja.research.researchActionLabels.cancelRun).toContain("リサーチ");
+    expect(DECISION_QUEUE_COPY.ko.research.researchActionLabels.retryRun).toContain("재시도");
     expect(DECISION_QUEUE_COPY.ko.research.researchActionReasons.cancelRun).toContain("취소");
     expect(DECISION_QUEUE_COPY.ko.questions.refreshQuestionList).toBe("질문 목록 새로고침");
     expect(DECISION_QUEUE_COPY.ko.questions.loadNextQuestions).toBe("다음 질문 불러오기");
@@ -125,10 +133,13 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ja.handoff.planningActionErrors.activeSessionRequiredPlanningHandoff).toContain(
       "セッション"
     );
+    expect(DECISION_QUEUE_COPY.ko.handoff.planningActionLabels.runPlanningHandoffGate).toContain("계획 인계");
     expect(DECISION_QUEUE_COPY.ko.handoff.title).toBe("계획 인계");
     expect(DECISION_QUEUE_COPY.ko.permissions.permissionActionErrors.activeSessionRequiredRevokeWorkspace).toContain(
       "활성 세션"
     );
+    expect(DECISION_QUEUE_COPY.ja.permissions.permissionActionLabels.exportArtifactRefs).toContain("サービスページ");
+    expect(DECISION_QUEUE_COPY.ko.permissions.permissionActionLabels.deleteServicePageArtifacts).toContain("삭제");
     expect(DECISION_QUEUE_COPY.en.permissions.permissionActionReasons.exportArtifactRefsNote).toContain("2FA");
     expect(
       DECISION_QUEUE_COPY.ko.permissions.permissionActionReasons.exportArtifactRefsLogMessage(3, "perm_1")
@@ -159,6 +170,7 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.autoImplementation.workerRuntimeAdapterVersion).toBe("Runtime adapter");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeGeneratedSchemaVersion).toBe("生成schema version");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerRuntimeTransport).toBe("Transport");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.approveLocalWorkerAuthority).toContain("권한 승인");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.missingExecutionAuthority).toContain("ExecutionAuthorityRecord");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.recordStageTick).toBe("Record current stage tick");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.startStage).toBe("Start current stage");
