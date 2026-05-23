@@ -272,6 +272,28 @@ describe("release evidence checklist", () => {
     });
   });
 
+  it("validates filled fixture templates for every release blocker issue by default", async () => {
+    const validation = await runReleaseEvidenceTemplateVerifierCli([], {
+      contracts: await loadReleaseEvidenceContracts(),
+      now: new Date("2026-05-24T00:00:00.000Z")
+    });
+
+    expect(validation).toMatchObject({
+      schemaVersion: RELEASE_EVIDENCE_TEMPLATE_VALIDATION_SCHEMA_VERSION,
+      status: "passed",
+      mode: "credential-free-fixture",
+      filterIssueNumber: "all",
+      issueNumbers: [259, 266, 267],
+      itemCount: 9,
+      issues: []
+    });
+    expect(validation.templateValidations).toEqual([
+      expect.objectContaining({ issueNumber: 259, status: "passed", filterIssueNumber: "259", itemCount: 2 }),
+      expect.objectContaining({ issueNumber: 266, status: "passed", filterIssueNumber: "266", itemCount: 4 }),
+      expect.objectContaining({ issueNumber: 267, status: "passed", filterIssueNumber: "267", itemCount: 3 })
+    ]);
+  });
+
   it("rejects filled release evidence templates that contain secret-shaped evidence", async () => {
     const checklist = buildReleaseEvidenceChecklist(await loadReleaseEvidenceContracts(), {
       now: new Date("2026-05-24T00:00:00.000Z")

@@ -366,6 +366,9 @@ function compactSupportDiagnostic(name, result) {
         schemaVersion: typeof parsed.schemaVersion === "string" ? parsed.schemaVersion : null,
         mode: typeof parsed.mode === "string" ? parsed.mode : null,
         filterIssueNumber: typeof parsed.filterIssueNumber === "string" ? parsed.filterIssueNumber : null,
+        issueNumbers: Array.isArray(parsed.issueNumbers)
+          ? parsed.issueNumbers.map((issueNumber) => String(issueNumber))
+          : [],
         itemCount: typeof parsed.itemCount === "number" ? parsed.itemCount : null,
         issues: stringList(parsed.issues)
       };

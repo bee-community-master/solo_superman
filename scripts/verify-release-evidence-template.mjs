@@ -7,6 +7,7 @@ import {
   buildReleaseEvidenceTemplate,
   filterReleaseEvidenceChecklistByIssue,
   loadReleaseEvidenceContracts,
+  RELEASE_EVIDENCE_TEMPLATE_VALIDATION_SCHEMA_VERSION,
   validateReleaseEvidenceTemplate
 } from "./release-evidence-checklist.mjs";
 
@@ -62,18 +63,82 @@ function issueNumberFromTemplate(template) {
   return Number.isInteger(issueNumber) && issueNumber > 0 ? issueNumber : undefined;
 }
 
+function releaseBlockerIssueNumbers(checklist) {
+  return [...new Set(
+    (checklist.summary?.blockerIssueNumbers ?? [])
+      .map((issueNumber) => Number(issueNumber))
+      .filter((issueNumber) => Number.isInteger(issueNumber) && issueNumber > 0)
+      .sort((left, right) => left - right)
+  )];
+}
+
+function validateFixtureForIssue(fullChecklist, issueNumber, options) {
+  const expectedChecklist = filterReleaseEvidenceChecklistByIssue(fullChecklist, issueNumber);
+  const template = buildFilledReleaseEvidenceTemplateFixture(buildReleaseEvidenceTemplate(expectedChecklist), options);
+  const validation = validateReleaseEvidenceTemplate(template, { expectedChecklist });
+
+  return {
+    ...validation,
+    issueNumber
+  };
+}
+
+function aggregateFixtureValidations(validations) {
+  const statusIssues = validations
+    .filter((validation) => validation.status !== "passed")
+    .map((validation) => `#${validation.issueNumber}: template validation status is ${validation.status}`);
+  const issues = validations.flatMap((validation) =>
+    validation.issues.map((issue) => `#${validation.issueNumber}: ${issue}`)
+  );
+  const finalIssues = [...statusIssues, ...issues];
+
+  return {
+    schemaVersion: RELEASE_EVIDENCE_TEMPLATE_VALIDATION_SCHEMA_VERSION,
+    status: finalIssues.length === 0 ? "passed" : "blocked",
+    mode: "credential-free-fixture",
+    filterIssueNumber: "all",
+    issueNumbers: validations.map((validation) => validation.issueNumber),
+    itemCount: validations.reduce((total, validation) => total + validation.itemCount, 0),
+    templateValidations: validations.map((validation) => ({
+      issueNumber: validation.issueNumber,
+      status: validation.status,
+      filterIssueNumber: validation.filterIssueNumber,
+      itemCount: validation.itemCount,
+      issues: validation.issues
+    })),
+    issues: finalIssues,
+    checked: [
+      "filled release evidence templates for every blocked release issue",
+      "all required checks, evidence, and unblock criteria are passed per issue",
+      "placeholder fields are replaced with redacted evidence refs and notes per issue",
+      "operator verification metadata, redaction confirmation, and ready-release command coverage are present per issue",
+      "filled templates are secret-free"
+    ]
+  };
+}
+
 export async function runReleaseEvidenceTemplateVerifierCli(argv = process.argv.slice(2), options = {}) {
   const parsed = parseReleaseEvidenceTemplateVerifierArgs(argv, options.env ?? process.env);
   if (parsed.help) {
-    console.log("Usage: pnpm verify:release-evidence-template [--input <filled-template.json>] [--issue <number>]");
+    console.log("Usage: pnpm verify:release-evidence-template [--input <filled-template.json> | --issue <number>]");
+    console.log("Default: validate credential-free fixture templates for every blocked release issue.");
     return { status: "help" };
   }
 
   const contracts = options.contracts ?? await loadReleaseEvidenceContracts(options.contractPaths, options);
   const fullChecklist = buildReleaseEvidenceChecklist(contracts, options);
+  if (!parsed.inputPath && !parsed.issueNumber) {
+    const validations = releaseBlockerIssueNumbers(fullChecklist)
+      .map((issueNumber) => validateFixtureForIssue(fullChecklist, issueNumber, options));
+    const aggregateValidation = aggregateFixtureValidations(validations);
+
+    console.log(JSON.stringify(aggregateValidation, null, 2));
+    return aggregateValidation;
+  }
+
   const template = parsed.inputPath
     ? await readTemplate(parsed.inputPath)
-    : buildFilledReleaseEvidenceTemplateFixture(buildReleaseEvidenceTemplate(filterReleaseEvidenceChecklistByIssue(fullChecklist, parsed.issueNumber ?? 266)), options);
+    : buildFilledReleaseEvidenceTemplateFixture(buildReleaseEvidenceTemplate(filterReleaseEvidenceChecklistByIssue(fullChecklist, parsed.issueNumber)), options);
   const issueNumber = parsed.issueNumber ?? issueNumberFromTemplate(template);
   const expectedChecklist = issueNumber
     ? filterReleaseEvidenceChecklistByIssue(fullChecklist, issueNumber)
