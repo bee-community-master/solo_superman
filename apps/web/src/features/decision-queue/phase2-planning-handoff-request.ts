@@ -72,6 +72,30 @@ function isResearchUpdatedQueueItem(item: QueueItemProjection) {
   );
 }
 
+function researchUpdatedQueueItemSourceRefs(item: QueueItemProjection): readonly PlanningHandoffSourceRefDto[] {
+  const refs: PlanningHandoffSourceRefDto[] = [
+    {
+      sourceType: "research_updated_queue_item",
+      sourceId: item.queueItemId,
+      sourceLabel: item.title,
+      required: true,
+      stale: false
+    }
+  ];
+
+  if (item.sourceRef && item.sourceRef !== item.queueItemId) {
+    refs.push({
+      sourceType: "research_updated_queue_item",
+      sourceId: item.sourceRef,
+      sourceLabel: `${item.title} source trace`,
+      required: true,
+      stale: false
+    });
+  }
+
+  return refs;
+}
+
 function specSourceRef(session: SessionShellProjection, spec: LivingSpecProjection | null): PlanningHandoffSourceRefDto | null {
   return spec
     ? {
@@ -130,13 +154,7 @@ function researchQueueSourceRefs(
 ): readonly PlanningHandoffSourceRefDto[] {
   const queueRefs = allQueueItems(queue)
     .filter(isResearchUpdatedQueueItem)
-    .map((item) => ({
-      sourceType: "research_updated_queue_item" as const,
-      sourceId: item.queueItemId,
-      sourceLabel: item.title,
-      required: true,
-      stale: false
-    }));
+    .flatMap(researchUpdatedQueueItemSourceRefs);
   const reviewCardRefs =
     research?.reviewCards.map((card) => ({
       sourceType: "research_updated_queue_item" as const,
