@@ -8782,7 +8782,10 @@ describe("PR-02 sidecar health shell", () => {
       expect(firstIssue).toContain("- Issue status: open");
       expect(firstIssue).toContain("- Stage status: ready");
       expect(firstIssue).toContain("- Issue status summary: 0 completed / 0 blocked / 7 open / 7 total");
+      expect(firstIssue).toContain("- Stage evidence refs: none");
+      expect(firstIssue).toContain("- Stage blocker evidence refs: none");
       expect(firstIssue).toContain("- Latest stage worker job: none");
+      expect(firstIssue).toContain("- Latest stage worker evidence refs: none");
       const manifest = JSON.parse(await readFile(join(projectDir, ".solo-superman", "auto-implementation-run.json"), "utf8")) as
         Readonly<Record<string, unknown>>;
       const gitHead = await readFile(join(projectDir, ".git", "HEAD"), "utf8");
@@ -8990,6 +8993,7 @@ describe("PR-02 sidecar health shell", () => {
       expect(blockedWorkerIssue).toContain("- Issue status summary: 0 completed / 1 blocked / 6 open / 7 total");
       expect(blockedWorkerIssue).toContain(`- Latest stage worker job: ${String(blockedJobs[0]!.jobId)} (blocked)`);
       expect(blockedWorkerIssue).toContain("- Latest stage worker missing evidence: ExecutionAuthorityRecord");
+      expect(blockedWorkerIssue).toContain(`- Latest stage worker evidence refs: ${String(blockedJobs[0]!.jobId)}`);
 
       const replay = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
         idempotencyKey: "worker-job:missing-authority"
@@ -9289,6 +9293,7 @@ describe("PR-02 sidecar health shell", () => {
       expect(completedWorkerTracker).toContain("- Blocked reason: none");
       expect(completedWorkerIssue).toContain(`- Latest stage worker job: ${plannedJobId} (completed)`);
       expect(completedWorkerIssue).toContain("- Latest stage worker missing evidence: none");
+      expect(completedWorkerIssue).toContain(`- Latest stage worker evidence refs: ${plannedJobId}`);
       expect(completedWorkerIssue).toContain("- Required next action: Advance the current auto implementation stage through the existing stage endpoint with the validated ImplementationStepLedger evidence.");
     } finally {
       await storage.close();
@@ -11217,6 +11222,10 @@ describe("PR-02 sidecar health shell", () => {
       expect(syncedIssue).toContain("- Ledger step: step_demo");
       expect(syncedIssue).toContain("- Implementation evidence refs: commit:abcdef1");
       expect(syncedIssue).toContain("- Test evidence refs: test:verify");
+      expect(syncedIssue).toContain("- Stage evidence refs:");
+      expect(syncedIssue).toContain("stage:initial_pr:start");
+      expect(syncedIssue).toContain("stage:initial_pr:complete");
+      expect(syncedIssue).toContain("- Stage blocker evidence refs: none");
       expect(completedInitial).toMatchObject({
         status: "completed",
         ledgerEvidence: {
@@ -11313,6 +11322,10 @@ describe("PR-02 sidecar health shell", () => {
       });
       const blockedRun = latestAutoImplementationRunFromBody(await jsonBody(blocked));
       const blockedStage = (blockedRun.stagePlan as readonly Readonly<Record<string, unknown>>[])[0]!;
+      const blockedIssue = await readFile(
+        join(workspaceRoot, "stage-blocker-app", "implementation-issues", "001-initial_pr.md"),
+        "utf8"
+      );
 
       expect(blocked.status).toBe(200);
       expect(blockedRun).toMatchObject({
@@ -11333,6 +11346,11 @@ describe("PR-02 sidecar health shell", () => {
           })
         ]
       });
+      expect(blockedIssue).toContain("- Issue status: blocked");
+      expect(blockedIssue).toContain("- Stage blocker: ImplementationStepLedger evidence is missing.");
+      expect(blockedIssue).toContain("- Stage blocker evidence refs: blocker:initial_pr:ledger-missing");
+      expect(blockedIssue).toContain("- Stage evidence refs:");
+      expect(blockedIssue).toContain("stage:initial_pr:block");
     } finally {
       await storage.close();
     }

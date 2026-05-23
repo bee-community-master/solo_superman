@@ -828,9 +828,12 @@ function autoImplementationIssueStateMarkdown(run: AutoImplementationRun, issue:
     `- Code review streak refs: ${inlineMarkdownList(stage?.ledgerEvidence?.codeReviewStreakRefs ?? [])}`,
     `- Clean-code review streak refs: ${inlineMarkdownList(stage?.ledgerEvidence?.cleanCodeReviewStreakRefs ?? [])}`,
     `- Test evidence refs: ${inlineMarkdownList(stage?.ledgerEvidence?.testEvidenceRefs ?? [])}`,
+    `- Stage evidence refs: ${inlineMarkdownList(stage?.evidenceRefs ?? [])}`,
     `- Stage blocker: ${markdownLineValue(stage?.blocker?.reason)}`,
+    `- Stage blocker evidence refs: ${inlineMarkdownList(stage?.blocker?.evidenceRefs ?? [])}`,
     `- Latest stage worker job: ${latestWorkerJob ? `${latestWorkerJob.jobId} (${latestWorkerJob.status})` : "none"}`,
     `- Latest stage worker missing evidence: ${inlineMarkdownList(latestWorkerJob?.missingEvidence ?? [])}`,
+    `- Latest stage worker evidence refs: ${inlineMarkdownList(latestWorkerJob?.evidenceRefs ?? [])}`,
     `- Required next action: ${autoImplementationIssueNextAction({ stage, latestWorkerJob })}`,
     AUTO_IMPLEMENTATION_ISSUE_STATE_END
   ].join("\n");
