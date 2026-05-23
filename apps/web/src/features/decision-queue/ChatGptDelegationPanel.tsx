@@ -33,6 +33,107 @@ export interface ChatGptDelegationViewModel {
   readonly retentionLabel: string;
 }
 
+type ChatGptDelegationRunStatus = ChatGptBrowserDelegationRun["status"];
+
+export interface ChatGptDelegationViewModelCopy {
+  readonly visibleHandoffLabels: Readonly<Record<ChatGptDelegationRunStatus, string>>;
+  readonly notStarted: {
+    readonly summary: string;
+    readonly explanation: string;
+    readonly visibleHandoffLabel: string;
+    readonly nextAction: string;
+    readonly retentionLabel: string;
+  };
+  readonly dataDisclosure: {
+    readonly disclosurePreview: (ref: string) => string;
+    readonly promptContextSummary: (ref: string) => string;
+    readonly redactedPromptPreview: (ref: string) => string;
+    readonly excludedSensitiveFields: (value: string) => string;
+    readonly redactionPreviewShown: (value: string) => string;
+    readonly userCanEditPromptBeforeRun: (value: string) => string;
+    readonly none: string;
+    readonly yes: string;
+    readonly no: string;
+  };
+  readonly resultImportGate: {
+    readonly notEvaluated: string;
+    readonly sourceProvenance: (status: string, refs: string) => string;
+    readonly noSourceRefs: string;
+    readonly uncertainty: (status: string, refs: string) => string;
+    readonly noUncertaintyRefs: string;
+    readonly conEvidence: (status: string, refs: string) => string;
+    readonly noConEvidenceRefs: string;
+    readonly staleRisk: (status: string, refs: string) => string;
+    readonly noStaleRiskRefs: string;
+    readonly importRationale: (rationale: string) => string;
+  };
+  readonly artifactControls: {
+    readonly exportRetained: string;
+    readonly deleteRetained: string;
+  };
+  readonly missingBrowserActionAuthority: string;
+  readonly noResultImport: string;
+  readonly retentionWithControls: string;
+  readonly retentionUnavailable: string;
+}
+
+const DEFAULT_CHATGPT_DELEGATION_VIEW_MODEL_COPY: ChatGptDelegationViewModelCopy = {
+  visibleHandoffLabels: {
+    waiting_for_approval: "ChatGPT browser work does not start before user approval.",
+    running:
+      "Only visible local browser work is allowed; Solo Superman does not store accounts, cookies, or 2FA.",
+    waiting_for_user: "Login, CAPTCHA, usage limits, or UI changes require direct user action.",
+    importing_result: "Imported results must pass provenance, uncertainty, con-evidence, and freshness gates.",
+    completed: "Result import is complete, but retained artifacts must remain exportable or deletable by the user.",
+    blocked:
+      "Use manual prompt handoff or official paths instead of fully headless ChatGPT Pro automation.",
+    failed:
+      "Use manual prompt handoff or official paths instead of fully headless ChatGPT Pro automation.",
+    revoked: "The user revoked this delegation, so browser work cannot continue.",
+    pending_preflight: "Record prompt, redaction, policy, and session-ownership preflight checks first."
+  },
+  notStarted: {
+    summary: "External AI workspace has not been prepared.",
+    explanation: "No per-run local browser workspace has been recorded for this session.",
+    visibleHandoffLabel: "ChatGPT Pro/Deep Research is prepared only as visible delegation in a user-owned browser.",
+    nextAction:
+      "Plan a research task and prepare a safe browser handoff preview before using an external AI workspace.",
+    retentionLabel: "No prompt/result/screenshot/log artifacts are stored yet."
+  },
+  dataDisclosure: {
+    disclosurePreview: (ref: string) => `Disclosure preview: ${ref}`,
+    promptContextSummary: (ref: string) => `Prompt context summary: ${ref}`,
+    redactedPromptPreview: (ref: string) => `Redacted prompt preview: ${ref}`,
+    excludedSensitiveFields: (value: string) => `Excluded sensitive fields: ${value}`,
+    redactionPreviewShown: (value: string) => `Redaction preview shown: ${value}`,
+    userCanEditPromptBeforeRun: (value: string) => `User can edit prompt before run: ${value}`,
+    none: "none",
+    yes: "yes",
+    no: "no"
+  },
+  resultImportGate: {
+    notEvaluated: "No result import gate has been evaluated yet.",
+    sourceProvenance: (status: string, refs: string) => `Source provenance: ${status} (${refs})`,
+    noSourceRefs: "no source refs",
+    uncertainty: (status: string, refs: string) => `Uncertainty: ${status} (${refs})`,
+    noUncertaintyRefs: "no uncertainty refs",
+    conEvidence: (status: string, refs: string) => `Con evidence: ${status} (${refs})`,
+    noConEvidenceRefs: "no con evidence refs",
+    staleRisk: (status: string, refs: string) => `Stale risk: ${status} (${refs})`,
+    noStaleRiskRefs: "no stale risk refs",
+    importRationale: (rationale: string) => `Import rationale: ${rationale}`
+  },
+  artifactControls: {
+    exportRetained: "Export retained prompt/result/screenshot/log artifact refs",
+    deleteRetained: "Delete retained artifacts while leaving audit metadata only"
+  },
+  missingBrowserActionAuthority: "missing browser action authority",
+  noResultImport: "No result import has been captured yet.",
+  retentionWithControls:
+    "Prompt/result/screenshot/log artifacts are retained by default with export/delete controls; deleting artifacts leaves audit metadata only.",
+  retentionUnavailable: "Artifact retention controls are unavailable for this run."
+};
+
 function artifactRefsForRun(run: ChatGptBrowserDelegationRun) {
   return [
     `prompt:${run.promptPreviewRef}`,
@@ -49,67 +150,68 @@ function verdictLabel(
   return `${verdict.verdict}: ${verdict.rationale}`;
 }
 
-function dataDisclosureItemsForRun(run: ChatGptBrowserDelegationRun) {
+function dataDisclosureItemsForRun(run: ChatGptBrowserDelegationRun, copy: ChatGptDelegationViewModelCopy) {
   const preview = run.dataDisclosurePreview;
 
   return [
-    `Disclosure preview: ${preview.disclosurePreviewRef}`,
-    `Prompt context summary: ${preview.promptContextSummaryRef}`,
-    `Redacted prompt preview: ${preview.redactedPromptPreviewRef}`,
-    `Excluded sensitive fields: ${formatListWithFallback(preview.excludedSensitiveFieldKinds, "none")}`,
-    `Redaction preview shown: ${preview.redactionPreviewShown ? "yes" : "no"}`,
-    `User can edit prompt before run: ${preview.userCanEditPromptBeforeRun ? "yes" : "no"}`
+    copy.dataDisclosure.disclosurePreview(preview.disclosurePreviewRef),
+    copy.dataDisclosure.promptContextSummary(preview.promptContextSummaryRef),
+    copy.dataDisclosure.redactedPromptPreview(preview.redactedPromptPreviewRef),
+    copy.dataDisclosure.excludedSensitiveFields(
+      formatListWithFallback(preview.excludedSensitiveFieldKinds, copy.dataDisclosure.none)
+    ),
+    copy.dataDisclosure.redactionPreviewShown(
+      preview.redactionPreviewShown ? copy.dataDisclosure.yes : copy.dataDisclosure.no
+    ),
+    copy.dataDisclosure.userCanEditPromptBeforeRun(
+      preview.userCanEditPromptBeforeRun ? copy.dataDisclosure.yes : copy.dataDisclosure.no
+    )
   ];
 }
 
-function resultImportGateItemsForRun(run: ChatGptBrowserDelegationRun) {
+function resultImportGateItemsForRun(run: ChatGptBrowserDelegationRun, copy: ChatGptDelegationViewModelCopy) {
   const gate = run.resultImportGate;
 
   if (!gate) {
-    return ["No result import gate has been evaluated yet."];
+    return [copy.resultImportGate.notEvaluated];
   }
 
   return [
-    `Source provenance: ${gate.sourceProvenanceStatus} (${formatListWithFallback(gate.sourceRefs, "no source refs")})`,
-    `Uncertainty: ${gate.uncertaintyStatus} (${formatListWithFallback(gate.uncertaintyRefs, "no uncertainty refs")})`,
-    `Con evidence: ${gate.conEvidenceStatus} (${formatListWithFallback(gate.conEvidenceRefs, "no con evidence refs")})`,
-    `Stale risk: ${gate.staleRiskStatus} (${formatListWithFallback(gate.staleRiskRefs, "no stale risk refs")})`,
-    `Import rationale: ${gate.importRationale}`
+    copy.resultImportGate.sourceProvenance(
+      gate.sourceProvenanceStatus,
+      formatListWithFallback(gate.sourceRefs, copy.resultImportGate.noSourceRefs)
+    ),
+    copy.resultImportGate.uncertainty(
+      gate.uncertaintyStatus,
+      formatListWithFallback(gate.uncertaintyRefs, copy.resultImportGate.noUncertaintyRefs)
+    ),
+    copy.resultImportGate.conEvidence(
+      gate.conEvidenceStatus,
+      formatListWithFallback(gate.conEvidenceRefs, copy.resultImportGate.noConEvidenceRefs)
+    ),
+    copy.resultImportGate.staleRisk(
+      gate.staleRiskStatus,
+      formatListWithFallback(gate.staleRiskRefs, copy.resultImportGate.noStaleRiskRefs)
+    ),
+    copy.resultImportGate.importRationale(gate.importRationale)
   ];
 }
 
-function visibleHandoffLabelForRun(run: ChatGptBrowserDelegationRun) {
-  switch (run.status) {
-    case "waiting_for_approval":
-      return "사용자 승인 전에는 ChatGPT 브라우저 작업을 시작하지 않습니다.";
-    case "running":
-      return "사용자가 볼 수 있는 로컬 브라우저 작업만 허용되며 계정/쿠키/2FA는 저장하지 않습니다.";
-    case "waiting_for_user":
-      return "로그인, CAPTCHA, 사용량 제한, UI 변경은 사용자 직접 조치가 필요합니다.";
-    case "importing_result":
-      return "가져온 결과는 출처/불확실성/반대근거/신선도 게이트를 통과해야 합니다.";
-    case "completed":
-      return "결과 가져오기가 끝났지만 저장 자료는 사용자가 내보내거나 삭제할 수 있어야 합니다.";
-    case "blocked":
-    case "failed":
-      return "완전 headless ChatGPT Pro 자동화 대신 수동 프롬프트 전달 또는 공식 경로로 대체합니다.";
-    case "revoked":
-      return "사용자가 위임을 취소했으므로 더 이상 브라우저 작업을 계속할 수 없습니다.";
-    case "pending_preflight":
-      return "프롬프트/가림 처리/정책/세션 소유권 사전 점검을 먼저 기록합니다.";
-  }
+function visibleHandoffLabelForRun(run: ChatGptBrowserDelegationRun, copy: ChatGptDelegationViewModelCopy) {
+  return copy.visibleHandoffLabels[run.status];
 }
 
 export function chatGptDelegationViewModel(
-  projection: ChatGptBrowserDelegationProjection | null
+  projection: ChatGptBrowserDelegationProjection | null,
+  copy: ChatGptDelegationViewModelCopy = DEFAULT_CHATGPT_DELEGATION_VIEW_MODEL_COPY
 ): ChatGptDelegationViewModel {
   if (!projection) {
     return {
       status: "not_started",
-      summary: "External AI workspace has not been prepared.",
-      explanation: "No per-run local browser workspace has been recorded for this session.",
-      visibleHandoffLabel: "ChatGPT Pro/Deep Research는 사용자 소유 브라우저에서 보이는 위임으로만 준비합니다.",
-      nextAction: "Plan a research task and prepare a safe browser handoff preview before using an external AI workspace.",
+      summary: copy.notStarted.summary,
+      explanation: copy.notStarted.explanation,
+      visibleHandoffLabel: copy.notStarted.visibleHandoffLabel,
+      nextAction: copy.notStarted.nextAction,
       dataDisclosureItems: [],
       policyRiskVerdictLabel: null,
       policyRiskEvidenceRefs: [],
@@ -129,34 +231,31 @@ export function chatGptDelegationViewModel(
       fallbackLabel: null,
       fallbackReason: null,
       blockReasonItems: [],
-      retentionLabel: "No prompt/result/screenshot/log artifacts are stored yet."
+      retentionLabel: copy.notStarted.retentionLabel
     };
   }
 
   const run = projection.latestRun;
   const artifactRefs = artifactRefsForRun(run);
   const artifactControlLabels = run.redactionSummary.userExportDeleteControls
-    ? [
-        "Export retained prompt/result/screenshot/log artifact refs",
-        "Delete retained artifacts while leaving audit metadata only"
-      ]
+    ? [copy.artifactControls.exportRetained, copy.artifactControls.deleteRetained]
     : [];
 
   return {
     status: projection.currentStatus,
     summary: projection.summary,
     explanation: run.userVisibleExplanation,
-    visibleHandoffLabel: visibleHandoffLabelForRun(run),
+    visibleHandoffLabel: visibleHandoffLabelForRun(run, copy),
     nextAction: run.nextAction,
-    dataDisclosureItems: dataDisclosureItemsForRun(run),
+    dataDisclosureItems: dataDisclosureItemsForRun(run, copy),
     policyRiskVerdictLabel: verdictLabel(run.policyRiskVerdict),
     policyRiskEvidenceRefs: run.policyRiskVerdict.evidenceRefs,
     sessionOwnershipVerdictLabel: verdictLabel(run.sessionOwnershipVerdict),
     sessionOwnershipEvidenceRefs: run.sessionOwnershipVerdict.evidenceRefs,
     approvalDecisionLabel: run.approvalDecision,
-    browserActionAuthorityLabel: run.browserActionAuthorityRef ?? "missing browser action authority",
-    resultImportLabel: run.resultImportRef ?? "No result import has been captured yet.",
-    resultImportGateItems: resultImportGateItemsForRun(run),
+    browserActionAuthorityLabel: run.browserActionAuthorityRef ?? copy.missingBrowserActionAuthority,
+    resultImportLabel: run.resultImportRef ?? copy.noResultImport,
+    resultImportGateItems: resultImportGateItemsForRun(run, copy),
     canRevoke: run.canRevoke,
     runId: run.runId,
     activityFeedRefs: run.activityFeedRefs,
@@ -167,9 +266,7 @@ export function chatGptDelegationViewModel(
     fallbackLabel: run.fallbackApplied ? `${run.fallbackApplied.lane}: ${run.fallbackApplied.userAction}` : null,
     fallbackReason: run.fallbackApplied?.reason ?? null,
     blockReasonItems: run.blockReasons.map((reason) => `${reason.code}: ${reason.message}`),
-    retentionLabel: run.redactionSummary.userExportDeleteControls
-      ? "Prompt/result/screenshot/log artifacts are retained by default with export/delete controls; deleting artifacts leaves audit metadata only."
-      : "Artifact retention controls are unavailable for this run."
+    retentionLabel: run.redactionSummary.userExportDeleteControls ? copy.retentionWithControls : copy.retentionUnavailable
   };
 }
 
@@ -283,7 +380,7 @@ export function ChatGptDelegationPanel({
               key={label}
               type="button"
               disabled
-              title="This PR exposes the artifact control surface and retained refs; artifact content export/delete execution remains separate from revoke."
+              title={copy.permissions.artifactControlTitle}
             >
               {label}
             </button>

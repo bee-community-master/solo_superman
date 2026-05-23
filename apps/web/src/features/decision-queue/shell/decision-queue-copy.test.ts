@@ -88,6 +88,18 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.phase15b.viewModel.noExecutionUnloaded).toContain("credentials");
     expect(DECISION_QUEUE_COPY.ja.phase15b.viewModel.noExecutionUnloaded).toContain("認証情報");
     expect(DECISION_QUEUE_COPY.ko.phase15b.viewModel.noExecutionUnloaded).toContain("인증 정보");
+    expect(DECISION_QUEUE_COPY.en.permissions.chatGptDelegationViewModel.visibleHandoffLabels.running).toContain(
+      "visible local browser"
+    );
+    expect(DECISION_QUEUE_COPY.ja.permissions.chatGptDelegationViewModel.visibleHandoffLabels.running).toContain(
+      "ローカルブラウザ"
+    );
+    expect(DECISION_QUEUE_COPY.ko.permissions.chatGptDelegationViewModel.visibleHandoffLabels.running).toContain(
+      "로컬 브라우저"
+    );
+    expect(DECISION_QUEUE_COPY.en.permissions.artifactControlTitle).toContain("artifact control surface");
+    expect(DECISION_QUEUE_COPY.ja.permissions.artifactControlTitle).toContain("資料コントロール");
+    expect(DECISION_QUEUE_COPY.ko.permissions.artifactControlTitle).toContain("자료 제어");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.workerRuntimeAdapterVersion).toBe("Runtime adapter");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeGeneratedSchemaVersion).toBe("生成schema version");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerRuntimeTransport).toBe("Transport");
