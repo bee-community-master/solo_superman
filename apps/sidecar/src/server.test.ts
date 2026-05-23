@@ -8709,6 +8709,12 @@ describe("PR-02 sidecar health shell", () => {
       expect(issueManagement).toMatchObject({
         mode: "markdown_fallback",
         trackerRelativePath: "implementation-tracker.md",
+        issueStatusSummary: {
+          total: 7,
+          open: 7,
+          completed: 0,
+          blocked: 0
+        },
         githubIssueUrls: [],
         githubIssueMutation: {
           status: "not_requested",
@@ -8768,12 +8774,14 @@ describe("PR-02 sidecar health shell", () => {
       expect(tracker).toContain("## Auto implementation run state");
       expect(tracker).toContain("- Run status: pending");
       expect(tracker).toContain("- Current stage: initial_pr");
+      expect(tracker).toContain("- Issue status summary: 0 completed / 0 blocked / 7 open / 7 total");
       expect(tracker).toContain("- Latest worker job: none");
       expect(tracker).toContain("- Latest PR mutation: none");
       expect(firstIssue).toContain("<!-- solo-superman:auto-implementation-issue-state:start -->");
       expect(firstIssue).toContain("## Auto implementation issue state");
       expect(firstIssue).toContain("- Issue status: open");
       expect(firstIssue).toContain("- Stage status: ready");
+      expect(firstIssue).toContain("- Issue status summary: 0 completed / 0 blocked / 7 open / 7 total");
       expect(firstIssue).toContain("- Latest stage worker job: none");
       const manifest = JSON.parse(await readFile(join(projectDir, ".solo-superman", "auto-implementation-run.json"), "utf8")) as
         Readonly<Record<string, unknown>>;
@@ -8958,11 +8966,28 @@ describe("PR-02 sidecar health shell", () => {
         issueId: "local-001",
         status: "blocked"
       });
+      expect(blockedJobRun.issueManagement).toMatchObject({
+        issueStatusSummary: {
+          total: 7,
+          open: 6,
+          completed: 0,
+          blocked: 1
+        }
+      });
       expect(blockedManifestIssueDocs[0]).toMatchObject({
         issueId: "local-001",
         status: "blocked"
       });
+      expect(blockedManifest.issueManagement).toMatchObject({
+        issueStatusSummary: {
+          total: 7,
+          open: 6,
+          completed: 0,
+          blocked: 1
+        }
+      });
       expect(blockedWorkerIssue).toContain("- Issue status: blocked");
+      expect(blockedWorkerIssue).toContain("- Issue status summary: 0 completed / 1 blocked / 6 open / 7 total");
       expect(blockedWorkerIssue).toContain(`- Latest stage worker job: ${String(blockedJobs[0]!.jobId)} (blocked)`);
       expect(blockedWorkerIssue).toContain("- Latest stage worker missing evidence: ExecutionAuthorityRecord");
 
@@ -10009,8 +10034,11 @@ describe("PR-02 sidecar health shell", () => {
       const projection = jsonDataRecord(await jsonBody(created)) as unknown as AutoImplementationRunProjection;
       const legacyRuns = projection.runs.map((run) => {
         const legacyRun = { ...run } as Record<string, unknown>;
+        const issueManagement = { ...(legacyRun.issueManagement as Record<string, unknown>) };
 
         delete legacyRun.workerJobs;
+        delete issueManagement.issueStatusSummary;
+        legacyRun.issueManagement = issueManagement;
 
         return legacyRun;
       });
@@ -10034,6 +10062,14 @@ describe("PR-02 sidecar health shell", () => {
 
       expect(fetched.status).toBe(200);
       expect(fetchedRun.workerJobs).toEqual([]);
+      expect(fetchedRun.issueManagement).toMatchObject({
+        issueStatusSummary: {
+          total: 7,
+          open: 7,
+          completed: 0,
+          blocked: 0
+        }
+      });
 
       const runId = String(fetchedRun.runId);
       const workerJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
@@ -11151,8 +11187,25 @@ describe("PR-02 sidecar health shell", () => {
         issueId: "local-001",
         status: "completed"
       });
+      expect(completedRun.issueManagement).toMatchObject({
+        issueStatusSummary: {
+          total: 7,
+          open: 6,
+          completed: 1,
+          blocked: 0
+        }
+      });
+      expect(syncedManifest.issueManagement).toMatchObject({
+        issueStatusSummary: {
+          total: 7,
+          open: 6,
+          completed: 1,
+          blocked: 0
+        }
+      });
       expect(syncedTracker).toContain("- Run status: running");
       expect(syncedTracker).toContain("- Current stage: code_review_fix_1");
+      expect(syncedTracker).toContain("- Issue status summary: 1 completed / 0 blocked / 6 open / 7 total");
       expect(syncedTracker).toContain("- 1. initial_pr (Initial implementation and PR creation)");
       expect(syncedTracker).toContain("  - Status: completed");
       expect(syncedTracker).toContain("  - Ledger step: step_demo");
@@ -11160,6 +11213,7 @@ describe("PR-02 sidecar health shell", () => {
       expect(syncedTracker).toContain("  - Test evidence refs: test:verify");
       expect(syncedIssue).toContain("- Issue status: completed");
       expect(syncedIssue).toContain("- Stage status: completed");
+      expect(syncedIssue).toContain("- Issue status summary: 1 completed / 0 blocked / 6 open / 7 total");
       expect(syncedIssue).toContain("- Ledger step: step_demo");
       expect(syncedIssue).toContain("- Implementation evidence refs: commit:abcdef1");
       expect(syncedIssue).toContain("- Test evidence refs: test:verify");
