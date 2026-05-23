@@ -26,6 +26,7 @@ describe("auto implementation PR mutation smoke", () => {
         adapterActions: ["open_pr", "update_pr_body", "merge_pr"],
         bodyMarkdownChecks: [
           "open body includes issue traceability",
+          "open body includes issue document status summary",
           "open body includes stage status summary",
           "open body includes review gate summary",
           "open body includes evidence gate summary",

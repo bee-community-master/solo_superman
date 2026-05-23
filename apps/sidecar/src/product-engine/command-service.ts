@@ -1089,6 +1089,33 @@ function pullRequestIssueTraceabilityLines(run: AutoImplementationRun) {
     : ["- no generated issue documents recorded"];
 }
 
+function pullRequestIssueDocumentStatusSummaryLines(run: AutoImplementationRun) {
+  const issueDocs = run.issueManagement.issueDocs;
+  const completedIssueDocs = issueDocs.filter((issue) => issue.status === "completed");
+  const blockedIssueDocs = issueDocs.filter((issue) => issue.status === "blocked");
+  const openIssueDocs = issueDocs.filter((issue) => issue.status !== "completed" && issue.status !== "blocked");
+
+  if (issueDocs.length === 0) {
+    return [
+      "- Total issue docs: 0",
+      "- no generated issue documents recorded"
+    ];
+  }
+
+  return [
+    `- Total issue docs: ${issueDocs.length}`,
+    `- Completed issue docs: ${completedIssueDocs.length}/${issueDocs.length}`,
+    `- Blocked issue docs: ${blockedIssueDocs.length}`,
+    `- Open issue docs: ${openIssueDocs.length}`,
+    "",
+    ...issueDocs.map((issue) => {
+      const githubIssueUrl = autoImplementationGitHubIssueUrlForIssue(run, issue) ?? "none";
+
+      return `- ${issue.issueId}: ${issue.status}; stage: ${issue.stage}; GitHub issue: ${githubIssueUrl}`;
+    })
+  ];
+}
+
 function pullRequestStageStatusSummaryLines(run: AutoImplementationRun) {
   const completedStages = run.stagePlan.filter((stage) => stage.status === "completed");
   const blockedStages = run.stagePlan.filter((stage) => stage.status === "blocked");
@@ -1153,6 +1180,9 @@ function pullRequestBodyMarkdown(input: {
     "",
     "### Issue traceability",
     ...pullRequestIssueTraceabilityLines(input.run),
+    "",
+    "### Issue document status summary",
+    ...pullRequestIssueDocumentStatusSummaryLines(input.run),
     "",
     "### Stage status summary",
     ...pullRequestStageStatusSummaryLines(input.run),

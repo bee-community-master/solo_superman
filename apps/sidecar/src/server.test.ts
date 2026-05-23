@@ -11096,6 +11096,13 @@ describe("PR-02 sidecar health shell", () => {
         expect(input.bodyMarkdown).toContain(
           "- local-007: Merge verified PR to main (implementation-issues/007-merge_main.md; stage: merge_main; GitHub issue: none)"
         );
+        expect(input.bodyMarkdown).toContain("### Issue document status summary");
+        expect(input.bodyMarkdown).toContain("- Total issue docs: 7");
+        expect(input.bodyMarkdown).toContain("- Completed issue docs: 0/7");
+        expect(input.bodyMarkdown).toContain("- Blocked issue docs: 0");
+        expect(input.bodyMarkdown).toContain("- Open issue docs: 7");
+        expect(input.bodyMarkdown).toContain("- local-001: open; stage: initial_pr; GitHub issue: none");
+        expect(input.bodyMarkdown).toContain("- local-007: open; stage: merge_main; GitHub issue: none");
         expect(input.bodyMarkdown).toContain("### Stage status summary");
         expect(input.bodyMarkdown).toContain("- Current stage: initial_pr");
         expect(input.bodyMarkdown).toContain("- Completed stages: 0/7");
@@ -11233,6 +11240,17 @@ describe("PR-02 sidecar health shell", () => {
         );
         expect(input.bodyMarkdown).toContain(
           "- local-007: Merge verified PR to main (implementation-issues/007-merge_main.md; stage: merge_main; GitHub issue: https://github.com/bee-community-master/generated-demo/issues/207)"
+        );
+        expect(input.bodyMarkdown).toContain("### Issue document status summary");
+        expect(input.bodyMarkdown).toContain("- Total issue docs: 7");
+        expect(input.bodyMarkdown).toContain("- Completed issue docs: 1/7");
+        expect(input.bodyMarkdown).toContain("- Blocked issue docs: 0");
+        expect(input.bodyMarkdown).toContain("- Open issue docs: 6");
+        expect(input.bodyMarkdown).toContain(
+          "- local-001: completed; stage: initial_pr; GitHub issue: https://github.com/bee-community-master/generated-demo/issues/201"
+        );
+        expect(input.bodyMarkdown).toContain(
+          "- local-007: open; stage: merge_main; GitHub issue: https://github.com/bee-community-master/generated-demo/issues/207"
         );
         expect(input.bodyMarkdown).toContain("### Stage status summary");
         expect(input.bodyMarkdown).toContain("- Completed stages: 1/7");
