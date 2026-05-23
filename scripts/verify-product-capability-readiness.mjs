@@ -367,7 +367,7 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
-function evidenceForEvaluation(evaluation, options) {
+export function evidenceForEvaluation(evaluation, options) {
   return {
     status: evaluation.ok ? "passed" : "blocked",
     schemaVersion: PRODUCT_CAPABILITY_READINESS_SCHEMA_VERSION,
@@ -380,6 +380,7 @@ function evidenceForEvaluation(evaluation, options) {
       "product capability readiness contract schema",
       "required idea, clarification, research, browser/service, planning, auto-implementation, and release-guardrail capability ids",
       "required credential-free product verification commands",
+      "required capability behavior snippets, including generated PR body summary coverage",
       "secret-free product capability evidence strings",
       options.requireCodeBacked
         ? "all technical-preview core capabilities must be code_backed"
