@@ -3,6 +3,9 @@ import type {
   DecisionQueueProjection,
   Phase15bUpgradeHintProjection,
   ProjectId,
+  ResearchAllowlistGovernanceProjection,
+  ResearchDisclosureLogProjection,
+  ResearchRunControlProjection,
   SessionShellProjection
 } from "@solo-superman/contracts";
 import { type SidecarClient } from "../../../shared/api/sidecar-client";
@@ -31,6 +34,12 @@ export interface RefreshableDecisionQueueClient {
   getAutoImplementationRuns(sessionId: SessionShellProjection["sessionId"]): Promise<unknown>;
 }
 
+export interface ResearchOperationsRefreshClient {
+  listResearchAllowlists(projectId: ProjectId): Promise<ResearchAllowlistGovernanceProjection>;
+  listResearchDisclosures(projectId: ProjectId): Promise<ResearchDisclosureLogProjection>;
+  listResearchRuns(projectId: ProjectId): Promise<ResearchRunControlProjection>;
+}
+
 type LoadedRefreshableDecisionQueueProjections<TClient extends RefreshableDecisionQueueClient> = {
   readonly session: Awaited<ReturnType<TClient["getSession"]>>;
   readonly spec: Awaited<ReturnType<TClient["getSpec"]>>;
@@ -44,6 +53,23 @@ type LoadedRefreshableDecisionQueueProjections<TClient extends RefreshableDecisi
   readonly implementationStepLedger: Awaited<ReturnType<TClient["getImplementationStepLedger"]>>;
   readonly autoImplementationRuns: Awaited<ReturnType<TClient["getAutoImplementationRuns"]>>;
 };
+
+export async function loadResearchOperations(
+  client: ResearchOperationsRefreshClient,
+  projectId: ProjectId
+): Promise<ResearchOperationsState> {
+  const [allowlists, disclosures, runs] = await Promise.all([
+    client.listResearchAllowlists(projectId),
+    client.listResearchDisclosures(projectId),
+    client.listResearchRuns(projectId)
+  ]);
+
+  return {
+    allowlists,
+    disclosures,
+    runs
+  };
+}
 
 export function loadRefreshableDecisionQueueProjections(
   client: SidecarClient,
@@ -101,6 +127,38 @@ export async function loadRefreshableDecisionQueueProjections(
   };
 }
 
+export function loadResearchSettledDecisionQueueRefresh(
+  client: SidecarClient,
+  projectId: ProjectId,
+  sessionId: SessionShellProjection["sessionId"]
+): Promise<{
+  readonly projections: Omit<ProjectionState, "founderBrief">;
+  readonly researchOperations: ResearchOperationsState;
+}>;
+export function loadResearchSettledDecisionQueueRefresh<
+  TClient extends RefreshableDecisionQueueClient & ResearchOperationsRefreshClient
+>(
+  client: TClient,
+  projectId: ProjectId,
+  sessionId: SessionShellProjection["sessionId"]
+): Promise<{
+  readonly projections: LoadedRefreshableDecisionQueueProjections<TClient>;
+  readonly researchOperations: ResearchOperationsState;
+}>;
+export async function loadResearchSettledDecisionQueueRefresh(
+  client: RefreshableDecisionQueueClient & ResearchOperationsRefreshClient,
+  projectId: ProjectId,
+  sessionId: SessionShellProjection["sessionId"]
+) {
+  const researchOperations = await loadResearchOperations(client, projectId);
+  const projections = await loadRefreshableDecisionQueueProjections(client, projectId, sessionId);
+
+  return {
+    projections,
+    researchOperations
+  };
+}
+
 export function useDecisionQueueRefreshers({
   client,
   setPhase15bReadiness,
@@ -113,17 +171,7 @@ export function useDecisionQueueRefreshers({
         return;
       }
 
-      const [allowlists, disclosures, runs] = await Promise.all([
-        client.listResearchAllowlists(projectId),
-        client.listResearchDisclosures(projectId),
-        client.listResearchRuns(projectId)
-      ]);
-
-      setResearchOperations({
-        allowlists,
-        disclosures,
-        runs
-      });
+      setResearchOperations(await loadResearchOperations(client, projectId));
     },
     [client, setResearchOperations]
   );
@@ -225,15 +273,20 @@ export function useDecisionQueueRefreshers({
         return;
       }
 
-      const refreshed = await loadRefreshableDecisionQueueProjections(client, projectId, sessionId);
+      const { projections: refreshed, researchOperations } = await loadResearchSettledDecisionQueueRefresh(
+        client,
+        projectId,
+        sessionId
+      );
 
+      setResearchOperations(researchOperations);
       setProjections((current) => ({
         ...current,
         ...refreshed
       }));
-      await Promise.all([refreshResearchOperations(projectId), refreshPhase15bReadiness(projectId)]);
+      await refreshPhase15bReadiness(projectId);
     },
-    [client, refreshPhase15bReadiness, refreshResearchOperations, setProjections]
+    [client, refreshPhase15bReadiness, setProjections, setResearchOperations]
   );
 
   const refetchQueueAfterSseNotification = useCallback(
