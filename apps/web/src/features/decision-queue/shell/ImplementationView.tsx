@@ -35,6 +35,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     recordAutoImplementationPullRequestDryRun,
     recordAutoImplementationPullRequestMergeDryRun,
     refreshCommandStatus,
+    refreshRuntimeStatus,
     refreshAutoImplementationRuns,
     refreshImplementationStepLedger,
     runAutoImplementationWorkerJob,
@@ -128,6 +129,11 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         <div className="panel-heading">
           <h2>{copy.implementation.runtimeEvidence}</h2>
           <span>{runtimeActivity.runtimeStatus}</span>
+        </div>
+        <div className="card-actions panel-actions">
+          <button type="button" disabled={isBusy} onClick={() => void refreshRuntimeStatus()}>
+            {copy.implementation.refreshRuntimeStatus}
+          </button>
         </div>
         <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatus.status}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
         {runtimeStatus?.reason ? <p className="research-recovery">{runtimeStatus.reason}</p> : null}
