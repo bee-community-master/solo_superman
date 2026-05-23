@@ -1,4 +1,5 @@
 import type { ProjectionVersion, SchemaVersion, SessionId } from "../ids";
+import { isProjectionRecord as isRecord } from "./validation-helpers";
 
 export const SERVICE_PAGE_USE_PERMISSION_SCHEMA_VERSION =
   "solo-superman.service-page-use-permission.v1" as SchemaVersion;
@@ -212,10 +213,6 @@ export class ServicePageUsePermissionValidationError extends Error {
     super(`Invalid ServicePageUsePermissionProjection: ${issues.join("; ")}`);
     this.name = "ServicePageUsePermissionValidationError";
   }
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function isNonEmptyString(value: unknown): value is string {

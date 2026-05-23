@@ -1,4 +1,5 @@
 import type { ProjectionVersion, SchemaVersion, SessionId } from "../ids";
+import { isProjectionRecord as isRecord } from "./validation-helpers";
 
 export const PHASE25_RESEARCH_COMPARISON_SCHEMA_VERSION =
   "solo-superman.phase25-research-quality-comparison.v1" as SchemaVersion;
@@ -195,10 +196,6 @@ export class Phase25ResearchComparisonValidationError extends Error {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function nonEmptyStringArray(value: readonly string[] | undefined) {

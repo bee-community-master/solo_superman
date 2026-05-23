@@ -1,4 +1,5 @@
 import type { ProjectionVersion, SchemaVersion, SessionId } from "../ids";
+import { isProjectionRecord as isRecord } from "./validation-helpers";
 
 export const IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION =
   "solo-superman.implementation-step-ledger.v1" as SchemaVersion;
@@ -186,10 +187,6 @@ export class ImplementationStepLedgerValidationError extends Error {
     super(`Invalid ImplementationStepLedgerProjection: ${issues.join("; ")}`);
     this.name = "ImplementationStepLedgerValidationError";
   }
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function isNonEmptyString(value: unknown): value is string {

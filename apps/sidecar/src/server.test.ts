@@ -3,8 +3,7 @@ import { execFileSync } from "node:child_process";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach } from "vitest";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   API_ROUTE_CATALOG,
   CANONICAL_INITIAL_SPEC_SECTIONS,

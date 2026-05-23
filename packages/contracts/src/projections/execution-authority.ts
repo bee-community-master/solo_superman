@@ -1,4 +1,5 @@
 import type { ProjectionVersion, SchemaVersion, SessionId } from "../ids";
+import { isProjectionRecord as isRecord } from "./validation-helpers";
 import {
   SERVICE_PAGE_USE_PERMISSION_ACTION_CLASSES,
   type ServicePageUseActionClass
@@ -378,10 +379,6 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isStringArray(value: readonly string[] | undefined) {
   return Array.isArray(value) && value.every(isNonEmptyString);
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 const EXECUTION_AUTHORITY_ISO_TIMESTAMP_PATTERN =

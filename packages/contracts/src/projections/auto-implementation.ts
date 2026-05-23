@@ -6,6 +6,7 @@ import {
   type RecordImplementationStepLedgerPayload,
   type TrackerDoc
 } from "./implementation-step-ledger";
+import { isProjectionRecord as isRecord } from "./validation-helpers";
 
 export const AUTO_IMPLEMENTATION_SCHEMA_VERSION = "solo-superman.auto-implementation.v1" as SchemaVersion;
 export const AUTO_IMPLEMENTATION_TICK_INTERVAL_MS = 5 * 60 * 1000;
@@ -747,10 +748,6 @@ export class AutoImplementationRunValidationError extends Error {
     super(`Invalid AutoImplementationRunProjection: ${issues.join("; ")}`);
     this.name = "AutoImplementationRunValidationError";
   }
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function isNonEmptyString(value: unknown): value is string {
