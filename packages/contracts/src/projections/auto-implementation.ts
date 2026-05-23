@@ -949,8 +949,15 @@ function isGitHubPullRequestUrl(value: unknown): value is string {
     /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/pull\/[1-9]\d*\/?$/iu.test(trimmed);
 }
 
-function isPullRequestMutationIssueLink(value: string) {
-  return isGitHubIssueUrl(value as unknown) || value.startsWith("local-");
+export function isAutoImplementationPullRequestIssueLink(value: unknown): value is string {
+  if (!isNonEmptyString(value)) {
+    return false;
+  }
+
+  const trimmed = value.trim();
+  const isCanonicalLocalIssueId = value === trimmed && /^local-\d{3}$/u.test(trimmed);
+
+  return isGitHubIssueUrl(value) || isCanonicalLocalIssueId;
 }
 
 function isGitHubIssueApproval(value: unknown): value is AutoImplementationGitHubIssueApproval {
@@ -1012,7 +1019,7 @@ function isPullRequestMutationRecord(value: unknown): value is AutoImplementatio
     nonAppliedCanOmitPullRequestUrl &&
     issueLinks !== null &&
     issueLinks.length > 0 &&
-    issueLinks.every(isPullRequestMutationIssueLink) &&
+    issueLinks.every(isAutoImplementationPullRequestIssueLink) &&
     isNonEmptyString(value.implementationScope) &&
     isStringArray(value.reviewStreakRefs) &&
     isStringArray(value.verificationCommands) &&

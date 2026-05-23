@@ -36,6 +36,7 @@ import {
   IMPLEMENTATION_STEP_STATUSES,
   BUSINESS_CRITIC_INTENSITIES,
   PROJECT_PURPOSE_MODES,
+  isAutoImplementationPullRequestIssueLink,
   isExecutionAuthorityIsoTimestamp,
   isChatGptBrowserDelegationApprovalDecision,
   isChatGptBrowserDelegationStatus,
@@ -2313,6 +2314,20 @@ function optionalPullRequestMutationApprovalFromBody(
   };
 }
 
+function requiredPullRequestIssueLinksFromBody(value: unknown, fieldName: string) {
+  const issueLinks = requiredStringArrayFromBody(value, fieldName);
+  const hasInvalidIssueLink = issueLinks.some((issueLink) => !isAutoImplementationPullRequestIssueLink(issueLink));
+
+  if (hasInvalidIssueLink) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      `${fieldName} must include only canonical local issue ids like local-001 or canonical GitHub issue URLs.`
+    );
+  }
+
+  return issueLinks;
+}
+
 function recordAutoImplementationPullRequestMutationRequestFromBody(
   routeSessionId: SessionId,
   routeRunId: string,
@@ -2382,7 +2397,7 @@ function recordAutoImplementationPullRequestMutationRequestFromBody(
     ...(body.pullRequestTitle !== undefined
       ? { pullRequestTitle: stringFromBody(body.pullRequestTitle, "pullRequestTitle") }
       : {}),
-    issueLinks: requiredStringArrayFromBody(body.issueLinks, "issueLinks"),
+    issueLinks: requiredPullRequestIssueLinksFromBody(body.issueLinks, "issueLinks"),
     implementationScope: stringFromBody(body.implementationScope, "implementationScope"),
     reviewStreakRefs: stringArrayFromBody(body.reviewStreakRefs, "reviewStreakRefs"),
     verificationCommands: requiredStringArrayFromBody(body.verificationCommands, "verificationCommands"),

@@ -10952,6 +10952,52 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("rejects non-canonical local GitHub PR issue links before recording a mutation", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    let mutationAttempts = 0;
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot,
+      autoImplementationRemoteStatusProvider: async () => "connected",
+      autoImplementationPullRequestMutationAdapter: {
+        async mutate() {
+          mutationAttempts += 1;
+          throw new Error("PR mutation adapter must not run for invalid issueLinks.");
+        }
+      }
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(storageApp, "An invalid PR issue link test");
+      const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: "auto-implementation-route:pr-mutation-invalid-link",
+        projectName: "Invalid PR Issue Link"
+      });
+      const runId = String(latestAutoImplementationRunFromBody(await jsonBody(created)).runId);
+      const response = await postAutoImplementationPullRequestMutationForTest(storageApp, sessionId, runId, {
+        action: "update_pr_body",
+        requestMode: "dry_run",
+        idempotencyKey: "pr-mutation:dry-run:invalid-issue-link",
+        pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/123",
+        issueLinks: ["local-001\n### injected heading"],
+        implementationScope: "Attempt to inject markdown through a local issue link.",
+        reviewStreakRefs: ["code-review:changed:clean-1", "code-review:changed:clean-2"],
+        verificationCommands: ["pnpm verify"],
+        rollbackNotes: "Dry-run should fail before any PR mutation evidence is recorded.",
+        bodyEvidenceRefs: ["pr-body:current-evidence"]
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(400);
+      expect(body.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "issueLinks must include only canonical local issue ids like local-001 or canonical GitHub issue URLs."
+      });
+      expect(mutationAttempts).toBe(0);
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("records connected GitHub PR body update dry-runs without adapter mutation", async () => {
     const workspaceRoot = await makeTempAppDataDir();
     let mutationAttempts = 0;
