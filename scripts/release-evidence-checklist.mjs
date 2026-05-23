@@ -678,6 +678,46 @@ export function renderReleaseEvidenceChecklistMarkdown(checklist) {
   return `${lines.join("\n").trimEnd()}\n`;
 }
 
+export function renderReleaseEvidenceIssueCommentMarkdown(checklist) {
+  const issueNumber = checklist.summary.filterIssueNumber;
+  const issueLabel = issueNumber ? `#${issueNumber}` : "the release blocker issue";
+  const templatePath = issueNumber ? `issue-${issueNumber}-template.json` : "release-evidence-template.json";
+  const verifyCommand = issueNumber
+    ? `pnpm verify:release-evidence-template -- --input <filled-template.json> --issue ${issueNumber}`
+    : "pnpm verify:release-evidence-template -- --input <filled-template.json>";
+  const lines = [
+    `# Release evidence update for ${issueLabel}`,
+    "",
+    "Use this comment body when the release lab has collected the required redacted evidence.",
+    "",
+    "## Release lab workflow",
+    "",
+    `- [ ] Fill \`${templatePath}\` with redacted evidence refs, public metadata, checksums, sizes, signature refs, and sanitized log summaries only.`,
+    `- [ ] Run \`${verifyCommand}\` and paste the sanitized validation summary below.`,
+    "- [ ] Confirm no credential values, tokens, cookies, URL userinfo, secret-like query parameters, raw file contents, or full environment dumps are included.",
+    "",
+    "## Validation summary",
+    "",
+    "- Template validation command: _paste sanitized command output summary here_",
+    "- Release lab operator / CI run: _redacted operator or run id_",
+    "- Verified at: _UTC timestamp_",
+    "",
+    "## Evidence checklist",
+    "",
+    ...checklist.checklistItems.flatMap((item) => [renderChecklistItemMarkdown(item), ""]),
+    "## Privacy boundary",
+    "",
+    "- [ ] Evidence refs are redacted before they are attached to GitHub issues or release PRs.",
+    "- [ ] No token, cookie, credential value, URL userinfo, secret-like query parameter, file contents, or full environment dump is included."
+  ];
+
+  if (checklist.checklistItems.length === 0) {
+    lines.splice(lines.indexOf("## Evidence checklist") + 2, 0, "_No evidence items matched this issue filter._", "");
+  }
+
+  return `${lines.join("\n").trimEnd()}\n`;
+}
+
 function jsonContent(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
@@ -756,6 +796,12 @@ function renderReleaseEvidenceBundleReadme(manifest) {
       .filter((file) => file.issueNumber === undefined)
       .map((file) => `- \`${file.path}\` (${file.kind})`),
     "",
+    "## GitHub issue comments",
+    "",
+    ...manifest.files
+      .filter((file) => file.kind === "issue-comment-markdown")
+      .map((file) => `- #${file.issueNumber}: \`${file.path}\` — paste only after the filled template passes validation.`),
+    "",
     "## Ready-release verification commands",
     "",
     ...checkboxList(manifest.readyReleaseCommands, (command) => `\`${command}\``),
@@ -794,6 +840,10 @@ export function buildReleaseEvidenceBundle(checklist) {
     addFile(
       bundleFileEntry("issue-template-json", `${issuePrefix}-template.json`, issueTemplate, { format: "json", issueNumber }),
       jsonContent(issueTemplate)
+    );
+    addFile(
+      bundleFileEntry("issue-comment-markdown", `${issuePrefix}-comment.md`, issueChecklist, { format: "markdown", issueNumber }),
+      renderReleaseEvidenceIssueCommentMarkdown(issueChecklist)
     );
   }
 

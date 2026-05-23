@@ -14,6 +14,7 @@ import {
   loadReleaseEvidenceContracts,
   parseReleaseEvidenceChecklistArgs,
   renderReleaseEvidenceChecklistMarkdown,
+  renderReleaseEvidenceIssueCommentMarkdown,
   runReleaseEvidenceChecklistCli,
   validateReleaseEvidenceTemplate
 } from "./release-evidence-checklist.mjs";
@@ -149,6 +150,24 @@ describe("release evidence checklist", () => {
     expect(renderReleaseEvidenceChecklistMarkdown(unknownIssueChecklist)).toContain(
       "- No release evidence checklist items matched issue #999."
     );
+  });
+
+  it("renders issue-ready release evidence comments with validation instructions", async () => {
+    const checklist = buildReleaseEvidenceChecklist(await loadReleaseEvidenceContracts(), {
+      now: new Date("2026-05-24T00:00:00.000Z")
+    });
+    const issue267Checklist = filterReleaseEvidenceChecklistByIssue(checklist, 267);
+    const comment = renderReleaseEvidenceIssueCommentMarkdown(issue267Checklist);
+
+    expect(comment).toContain("# Release evidence update for #267");
+    expect(comment).toContain("`issue-267-template.json`");
+    expect(comment).toContain(
+      "`pnpm verify:release-evidence-template -- --input <filled-template.json> --issue 267`"
+    );
+    expect(comment).toContain("### macos-packaged-update-rollback");
+    expect(comment).toContain("### windows-packaged-update-rollback");
+    expect(comment).not.toContain("macos-signed-package-release");
+    expect(comment).not.toContain("ghp_");
   });
 
   it("builds redacted evidence templates for issue-filtered release blocker work", async () => {
@@ -570,10 +589,13 @@ describe("release evidence checklist", () => {
         "release-evidence-template.json",
         "issue-259-checklist.md",
         "issue-259-template.json",
+        "issue-259-comment.md",
         "issue-266-checklist.md",
         "issue-266-template.json",
+        "issue-266-comment.md",
         "issue-267-checklist.md",
-        "issue-267-template.json"
+        "issue-267-template.json",
+        "issue-267-comment.md"
       ]));
 
       const manifest = JSON.parse(await readFile(join(bundleDir, "manifest.json"), "utf8"));
@@ -595,8 +617,12 @@ describe("release evidence checklist", () => {
         filterIssueNumber: "266",
         summary: { totalItems: 4, pendingItems: 4 }
       });
+      const issue266Comment = await readFile(join(bundleDir, "issue-266-comment.md"), "utf8");
+      expect(issue266Comment).toContain("# Release evidence update for #266");
+      expect(issue266Comment).toContain("pnpm verify:release-evidence-template -- --input <filled-template.json> --issue 266");
       const readme = await readFile(join(bundleDir, "README.md"), "utf8");
       expect(readme).toContain("#259");
+      expect(readme).toContain("issue-259-comment.md");
       expect(readme).toContain("pnpm verify:release-evidence-template -- --input <filled-template.json>");
     } finally {
       await rm(dir, { recursive: true, force: true });
