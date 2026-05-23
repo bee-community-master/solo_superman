@@ -16,6 +16,7 @@ import {
   canMergeAutoImplementationPullRequest,
   canOpenNewAutoImplementationPullRequest,
   hasAppliedAutoImplementationPullRequestMerge,
+  isAutoImplementationPullRequestIssueLink,
   latestAutoImplementationPullRequestUrl,
   validateAutoImplementationRunProjection
 } from "./auto-implementation";
@@ -803,6 +804,26 @@ describe("AutoImplementationRunProjection contract", () => {
     });
 
     expect(validateAutoImplementationRunProjection(valid)).toBe(valid);
+  });
+
+  it("accepts only canonical generated local issue ids or GitHub issue URLs in PR mutation issue links", () => {
+    expect(isAutoImplementationPullRequestIssueLink("local-001")).toBe(true);
+    expect(isAutoImplementationPullRequestIssueLink("https://github.com/bee-community-master/demo/issues/1")).toBe(true);
+    expect(isAutoImplementationPullRequestIssueLink("local-1")).toBe(false);
+    expect(isAutoImplementationPullRequestIssueLink("local-001\n### injected heading")).toBe(false);
+
+    const record = pullRequestMutationRecord({
+      issueLinks: ["local-001\n### injected heading"]
+    });
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      pullRequestMutations: {
+        records: [record],
+        latestRecord: record
+      }
+    });
+
+    expectInvalidProjection(invalid);
   });
 
   it("detects whether an auto implementation run can create GitHub issues", () => {
