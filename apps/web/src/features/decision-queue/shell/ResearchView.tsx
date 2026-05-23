@@ -1,9 +1,16 @@
+import type { ResearchReviewCardProjection } from "@solo-superman/contracts";
 import { Phase15aOperationsPanel } from "../Phase15aOperationsPanel";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface ResearchViewProps {
   readonly controller: DecisionQueueShellController;
+}
+
+function retainedSourceRefsForResearchCard(card: ResearchReviewCardProjection) {
+  const sourceRefs = [card.retainedSourceRef, ...(card.retainedSourceRefs ?? [])];
+
+  return [...new Set(sourceRefs.filter((ref): ref is string => Boolean(ref)))];
 }
 
 export function ResearchView({ controller }: ResearchViewProps) {
@@ -57,6 +64,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
               const card = projections.research?.reviewCards.find((item) => item.researchTaskId === task.researchTaskId);
               const canImportResearch = task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true;
               const canStartReadOnlyRun = readyReadOnlyResearchTaskIdSet.has(task.researchTaskId);
+              const retainedSourceRefs = card ? retainedSourceRefsForResearchCard(card) : [];
 
               return (
                 <article className="research-card" key={task.researchTaskId}>
@@ -79,6 +87,16 @@ export function ResearchView({ controller }: ResearchViewProps) {
                         <ul>
                           {card.additionalQuestions.map((question) => (
                             <li key={question}>{question}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {retainedSourceRefs.length ? (
+                      <div className="research-card-source-trace">
+                        <p>{copy.research.sourceTrace}</p>
+                        <ul>
+                          {retainedSourceRefs.map((sourceRef) => (
+                            <li key={sourceRef}>{sourceRef}</li>
                           ))}
                         </ul>
                       </div>

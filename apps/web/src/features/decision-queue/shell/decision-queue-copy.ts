@@ -345,6 +345,7 @@ const EN_COPY = {
           ? "Start 1 ready public web run"
           : `Start ${count} ready public web runs`,
     additionalQuestions: "Research-generated follow-up questions",
+    sourceTrace: "Source trace",
     noResearchTasks: "No research tasks yet."
   },
   implementation: {
@@ -908,6 +909,7 @@ const JA_COPY: typeof EN_COPY = {
     startReadyReadOnlyRuns: (count: number) =>
       count === 0 ? "開始できる公開Webリサーチはありません" : `準備済み公開Webリサーチを${count}件開始`,
     additionalQuestions: "リサーチが生成した追加質問",
+    sourceTrace: "参照元トレース",
     noResearchTasks: "リサーチタスクはまだありません。"
   },
   implementation: {
@@ -1471,6 +1473,7 @@ const KO_COPY: typeof EN_COPY = {
     startReadyReadOnlyRuns: (count: number) =>
       count === 0 ? "시작할 준비가 된 공개 웹 리서치 없음" : `준비된 공개 웹 리서치 ${count}개 시작`,
     additionalQuestions: "리서치가 생성한 후속 질문",
+    sourceTrace: "출처 추적",
     noResearchTasks: "아직 리서치 작업이 없습니다."
   },
   implementation: {
