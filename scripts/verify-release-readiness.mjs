@@ -38,6 +38,7 @@ const REQUIRED_CREDENTIAL_FREE_COMMANDS = new Set([
   "pnpm verify:prod-bundle",
   "pnpm verify:release-channel",
   "pnpm verify:windows-real-device",
+  "pnpm verify:windows-installer:dry-run",
   "pnpm verify:packaged-update-rollback",
   "pnpm verify:packaged-update-rollback:dry-run",
   "pnpm verify:signed-package-preflight",

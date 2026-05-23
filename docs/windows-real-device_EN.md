@@ -2,17 +2,19 @@
 
 Language: [한국어](windows-real-device_KO.md) | English
 
-This document defines the `solo-superman-windows-real-device.v1` evidence contract proving that the README one-line PowerShell installer reaches the local first screen on a clean Windows 11 device or VM. The current repo/local environment is macOS, so it does not run the real Windows install. Instead, `pnpm verify:windows-real-device` validates the expected #259 Windows device evidence structure and keeps the blocker explicit.
+This document defines the `solo-superman-windows-real-device.v1` evidence contract proving that the README one-line PowerShell installer reaches the local first screen on a clean Windows 11 device or VM. The current repo/local environment is macOS, so it does not run the real Windows install. Instead, `pnpm verify:windows-real-device` validates the expected #259 Windows device evidence structure and keeps the blocker explicit. `pnpm verify:windows-installer:dry-run` statically checks the PowerShell launcher/bootstrap/docs without executing them so installer-path drift is caught, but it does not replace real Windows device evidence.
 
 ## Contract file
 
 - Windows evidence contract: [`windows-real-device.example.json`](windows-real-device.example.json) plus `pnpm verify:windows-real-device` verify the device evidence gate from one-line installer to first-screen arrival.
+- Installer dry-run: `pnpm verify:windows-installer:dry-run` credential-free checks that UAC, Node/Git/Corepack/pnpm, WSL/Ubuntu/Codex CLI, Visual C++ runtime, desktop shortcut, safe rerun update, prod-smoke log, and support-bundle guidance markers remain present.
 - Release readiness: [`release-readiness_EN.md`](release-readiness_EN.md) plus `pnpm verify:release-readiness` keep Windows evidence grouped with the signed package and packaged update rollback broad-release blockers.
 
 ## Default verification
 
 ```sh
 pnpm verify:windows-real-device
+pnpm verify:windows-installer:dry-run
 ```
 
 The default mode is a credential-free contract check. The current example uses `windowsVerificationStatus=blocked`; it passes only when the #259 blocker issue and required evidence remain explicit.

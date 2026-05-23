@@ -9,6 +9,7 @@
       "pnpm verify:prod-bundle",
       "pnpm verify:release-channel",
       "pnpm verify:windows-real-device",
+      "pnpm verify:windows-installer:dry-run",
       "pnpm verify:packaged-update-rollback",
       "pnpm verify:packaged-update-rollback:dry-run",
       "pnpm verify:signed-package-preflight",
@@ -88,7 +89,8 @@
         "docs/troubleshooting_EN.md#manual-windows-powershell-checklist",
         "docs/windows-real-device_KO.md",
         "docs/windows-real-device_EN.md",
-        "docs/windows-real-device.example.json"
+        "docs/windows-real-device.example.json",
+        "scripts/verify-windows-installer-dry-run.mjs"
       ],
       "requiredEvidence": [
         "Clean Windows 11 one-line install reaches the local first screen",

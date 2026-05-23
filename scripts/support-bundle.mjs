@@ -20,6 +20,7 @@ const PACKAGE_METADATA_SCRIPT = [
   "verifyProductCapabilityReadiness:scripts['verify:product-capability-readiness'],",
   "verifyReleaseChannel:scripts['verify:release-channel'],",
   "verifyWindowsRealDevice:scripts['verify:windows-real-device'],",
+  "verifyWindowsInstallerDryRun:scripts['verify:windows-installer:dry-run'],",
   "verifyPackagedUpdateRollback:scripts['verify:packaged-update-rollback'],",
   "verifyPackagedUpdateRollbackDryRun:scripts['verify:packaged-update-rollback:dry-run'],",
   "verifySignedPackagePreflight:scripts['verify:signed-package-preflight'],",
@@ -41,6 +42,10 @@ const SUPPORT_DIAGNOSTIC_COMMANDS = {
   windowsRealDevice: {
     command: "pnpm verify:windows-real-device",
     args: ["scripts/verify-windows-real-device.mjs"]
+  },
+  windowsInstallerDryRun: {
+    command: "pnpm verify:windows-installer:dry-run",
+    args: ["scripts/verify-windows-installer-dry-run.mjs"]
   },
   packagedUpdateRollback: {
     command: "pnpm verify:packaged-update-rollback",
@@ -263,6 +268,16 @@ function compactSupportDiagnostic(name, result) {
         blockedDeviceRuns: stringList(parsed.blockedDeviceRuns),
         blockers: stringList(parsed.blockers)
       };
+    case "windowsInstallerDryRun":
+      return {
+        ...summary,
+        schemaVersion: typeof parsed.schemaVersion === "string" ? parsed.schemaVersion : null,
+        mode: typeof parsed.mode === "string" ? parsed.mode : null,
+        upstreamDeviceEvidenceIssue: typeof parsed.upstreamDeviceEvidenceIssue === "string"
+          ? parsed.upstreamDeviceEvidenceIssue
+          : null,
+        issues: stringList(parsed.issues)
+      };
     case "packagedUpdateRollback":
       return {
         ...summary,
@@ -406,6 +421,7 @@ export async function createSupportBundle(options = {}) {
       "pnpm verify:product-capability-readiness",
       "pnpm verify:release-channel",
       "pnpm verify:windows-real-device",
+      "pnpm verify:windows-installer:dry-run",
       "pnpm verify:packaged-update-rollback",
       "pnpm verify:packaged-update-rollback:dry-run",
       "pnpm verify:signed-package-preflight",

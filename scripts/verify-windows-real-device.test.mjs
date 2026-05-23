@@ -18,6 +18,7 @@ function blockedContract(overrides = {}) {
       credentialFree: [
         "pnpm verify:prod-bundle",
         "pnpm verify:windows-real-device",
+        "pnpm verify:windows-installer:dry-run",
         "pnpm verify:release-readiness",
         "pnpm verify"
       ],
@@ -155,6 +156,7 @@ describe("Windows real-device verification", () => {
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:windows-real-device",
+      "$.requiredVerificationCommands.credentialFree: must include pnpm verify:windows-installer:dry-run",
       "$.requiredVerificationCommands.deviceEvidence: must be a string list with at least 1 item(s)",
       "$.requiredVerificationCommands.deviceEvidence: must include pnpm verify:windows-real-device -- --require-device-evidence"
     ]));

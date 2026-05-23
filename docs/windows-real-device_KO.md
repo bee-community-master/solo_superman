@@ -2,17 +2,19 @@
 
 언어: 한국어 | [English](windows-real-device_EN.md)
 
-이 문서는 깨끗한 Windows 11 기기/VM에서 README의 한 줄 PowerShell 설치 명령이 로컬 첫 화면까지 도달해야 한다는 `solo-superman-windows-real-device.v1` evidence 계약입니다. 현재 repo/local 환경은 macOS이므로 실제 Windows 설치를 수행하지 않습니다. 대신 `pnpm verify:windows-real-device`가 #259에 묶인 Windows device evidence 구조와 남은 blocker를 검증합니다.
+이 문서는 깨끗한 Windows 11 기기/VM에서 README의 한 줄 PowerShell 설치 명령이 로컬 첫 화면까지 도달해야 한다는 `solo-superman-windows-real-device.v1` evidence 계약입니다. 현재 repo/local 환경은 macOS이므로 실제 Windows 설치를 수행하지 않습니다. 대신 `pnpm verify:windows-real-device`가 #259에 묶인 Windows device evidence 구조와 남은 blocker를 검증합니다. `pnpm verify:windows-installer:dry-run`은 PowerShell launcher/bootstrap/docs를 실행하지 않고 정적으로 검사해 installer path drift를 잡지만 실제 Windows device evidence를 대체하지 않습니다.
 
 ## 계약 파일
 
 - Windows evidence contract: [`windows-real-device.example.json`](windows-real-device.example.json)와 `pnpm verify:windows-real-device`가 one-line installer부터 first-screen arrival까지의 device evidence gate를 검증합니다.
+- Installer dry-run: `pnpm verify:windows-installer:dry-run`이 UAC, Node/Git/Corepack/pnpm, WSL/Ubuntu/Codex CLI, Visual C++ runtime, desktop shortcut, safe rerun update, prod-smoke log, support bundle 안내 marker가 유지되는지 credential-free로 검증합니다.
 - Release readiness: [`release-readiness_KO.md`](release-readiness_KO.md)와 `pnpm verify:release-readiness`가 Windows evidence를 signed package, packaged update rollback gate와 함께 broad release blocker로 유지합니다.
 
 ## 기본 검증
 
 ```sh
 pnpm verify:windows-real-device
+pnpm verify:windows-installer:dry-run
 ```
 
 기본 모드는 credential-free contract check입니다. 현재 예시는 `windowsVerificationStatus=blocked`이며, #259 blocker issue와 required evidence가 명시되어 있으면 통과합니다.
