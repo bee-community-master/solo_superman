@@ -68,8 +68,12 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerPlanAllowedWriteScope).toBe("허용된 쓰기 범위");
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeAdapterVersion).toBe("Runtime adapter");
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeEvidenceDetails).toBe("Runtime evidence details");
+    expect(DECISION_QUEUE_COPY.en.implementation.runtimeExecutionMode).toBe("Execution mode");
+    expect(DECISION_QUEUE_COPY.en.implementation.runtimeLiveTurnStates.disabled).toBe("disabled");
     expect(DECISION_QUEUE_COPY.ja.implementation.runtimeGeneratedSchemaVersion).toBe("生成schema version");
+    expect(DECISION_QUEUE_COPY.ja.implementation.runtimeManualHandoffStates.available).toBe("利用可能");
     expect(DECISION_QUEUE_COPY.ko.implementation.runtimeTransport).toBe("Transport");
+    expect(DECISION_QUEUE_COPY.ko.implementation.runtimeManualHandoff).toBe("수동 인계");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.workerRuntimeAdapterVersion).toBe("Runtime adapter");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeGeneratedSchemaVersion).toBe("生成schema version");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerRuntimeTransport).toBe("Transport");

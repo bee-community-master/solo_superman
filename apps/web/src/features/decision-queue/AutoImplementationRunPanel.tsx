@@ -22,6 +22,10 @@ import {
   type ImplementationStepLedgerProjection
 } from "@solo-superman/contracts";
 import { canCompleteAutoImplementationWorkerFromLedger } from "./auto-implementation-worker-completion-request";
+import {
+  codexRuntimeEvidenceView,
+  type CodexRuntimeEvidenceView
+} from "./codex-runtime-status-view";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
 type AutoImplementationWorkerRuntimeNextAction =
@@ -32,20 +36,7 @@ type AutoImplementationWorkerRuntimeNextAction =
   | "enableLiveTurns"
   | "resolveBlocker";
 
-type AutoImplementationRuntimeAvailability = "available" | "unavailable" | "unknown";
-type AutoImplementationLiveTurnState = "enabled" | "disabled" | "unknown";
-
-interface AutoImplementationWorkerRuntimeView {
-  readonly statusLabel: string;
-  readonly executionModeLabel: string;
-  readonly accountLabel: string;
-  readonly checkedAtLabel: string | null;
-  readonly adapterVersionLabel: string | null;
-  readonly generatedSchemaVersionLabel: string | null;
-  readonly transportLabel: string | null;
-  readonly liveTurnsState: AutoImplementationLiveTurnState;
-  readonly manualHandoffState: AutoImplementationRuntimeAvailability;
-  readonly reasonLabel: string | null;
+interface AutoImplementationWorkerRuntimeView extends CodexRuntimeEvidenceView {
   readonly nextActionKey: AutoImplementationWorkerRuntimeNextAction;
 }
 
@@ -126,17 +117,6 @@ function latestRun(projection: AutoImplementationRunProjection | null) {
   return projection?.latestRun ?? null;
 }
 
-function codexWorkerAccountLabel(runtimeStatus: CodexRuntimeStatusDto | null) {
-  if (!runtimeStatus) {
-    return "unknown";
-  }
-
-  const account = runtimeStatus.account;
-  const details = [account.accountType, account.planType].filter(Boolean).join(" / ");
-
-  return details ? `${account.status} (${details})` : account.status;
-}
-
 function codexWorkerRuntimeNextActionKey(
   runtimeStatus: CodexRuntimeStatusDto | null
 ): AutoImplementationWorkerRuntimeNextAction {
@@ -167,18 +147,7 @@ function autoImplementationWorkerRuntimeView(
   runtimeStatus: CodexRuntimeStatusDto | null
 ): AutoImplementationWorkerRuntimeView {
   return {
-    statusLabel: runtimeStatus?.status ?? "unknown",
-    executionModeLabel: runtimeStatus?.executionMode ?? "unknown",
-    accountLabel: codexWorkerAccountLabel(runtimeStatus),
-    checkedAtLabel: runtimeStatus?.checkedAt ?? null,
-    adapterVersionLabel: runtimeStatus?.adapterVersion ?? null,
-    generatedSchemaVersionLabel: runtimeStatus?.generatedSchemaVersion ?? null,
-    transportLabel: runtimeStatus?.transport ?? null,
-    liveTurnsState: runtimeStatus ? (runtimeStatus.liveTurnExecutionEnabled ? "enabled" : "disabled") : "unknown",
-    manualHandoffState: runtimeStatus
-      ? (runtimeStatus.manualHandoffAvailable ? "available" : "unavailable")
-      : "unknown",
-    reasonLabel: runtimeStatus?.reason ?? runtimeStatus?.account.reason ?? null,
+    ...codexRuntimeEvidenceView(runtimeStatus),
     nextActionKey: codexWorkerRuntimeNextActionKey(runtimeStatus)
   };
 }

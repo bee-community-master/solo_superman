@@ -97,6 +97,14 @@ describe("ImplementationView", () => {
     expect(markup).toContain("codex-cli-0.128.0");
     expect(markup).toContain("Transport");
     expect(markup).toContain("stdio");
+    expect(markup).toContain("Execution mode");
+    expect(markup).toContain("manual_handoff");
+    expect(markup).toContain("Codex account");
+    expect(markup).toContain("authenticated (chatgpt / plus)");
+    expect(markup).toContain("Live turns");
+    expect(markup).toContain("disabled");
+    expect(markup).toContain("Manual handoff");
+    expect(markup).toContain("available");
   });
 
   it("disables the runtime status refresh action while another local action is running", () => {
@@ -137,8 +145,12 @@ describe("ImplementationView", () => {
     expect(markup).toContain("stdio");
     expect(markup).toContain("Execution mode");
     expect(markup).toContain("live");
+    expect(markup).toContain("Codex account");
+    expect(markup).toContain("authenticated (chatgpt / plus)");
     expect(markup).toContain("Live turns");
     expect(markup).toContain("enabled");
+    expect(markup).toContain("Manual handoff");
+    expect(markup).toContain("available");
     expect(markup).toContain("Tool available. No background tasks are pending.");
   });
 });
