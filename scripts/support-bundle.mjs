@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { spawn } from "node:child_process";
+import { tokenLikePattern } from "./secret-patterns.mjs";
 
 export const SUPPORT_BUNDLE_SCHEMA_VERSION = "solo-superman-support-bundle.v1";
 
@@ -101,7 +102,7 @@ const SUPPORT_ENV_ALLOWLIST = [
 const SENSITIVE_NAME_PATTERN = /(?:TOKEN|SECRET|PASSWORD|PASS|API[_-]?KEY|CREDENTIAL|COOKIE|AUTH|SESSION|PRIVATE|SSH|NPM_CONFIG__AUTH|GITHUB_TOKEN|OPENAI_API_KEY)/iu;
 const QUERY_SECRET_PATTERN = /([?&][^=\s]*(?:token|secret|password|pass|api[_-]?key|credential|auth|session)[^=\s]*=)[^&\s]*/giu;
 const BASIC_AUTH_URL_PATTERN = /\b(https?:\/\/)([^\s/@:]+):([^\s/@]+)@/giu;
-const TOKEN_LIKE_PATTERN = /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9_-]{20,})\b/gu;
+const TOKEN_LIKE_PATTERN = tokenLikePattern("giu");
 
 function truncate(value, limit = OUTPUT_LIMIT) {
   const text = String(value ?? "");
@@ -109,10 +110,12 @@ function truncate(value, limit = OUTPUT_LIMIT) {
 }
 
 export function redactSupportText(value) {
-  return truncate(value)
+  const redacted = String(value ?? "")
     .replace(BASIC_AUTH_URL_PATTERN, "$1<redacted>@")
     .replace(QUERY_SECRET_PATTERN, "$1<redacted>")
     .replace(TOKEN_LIKE_PATTERN, "<redacted>");
+
+  return truncate(redacted);
 }
 
 function homeRelativePath(value, home = homedir()) {

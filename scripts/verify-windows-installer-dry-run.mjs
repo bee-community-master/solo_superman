@@ -2,6 +2,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { tokenLikePattern } from "./secret-patterns.mjs";
 
 export const WINDOWS_INSTALLER_DRY_RUN_SCHEMA_VERSION = "solo-superman-windows-installer-dry-run.v1";
 
@@ -14,7 +15,7 @@ export const DEFAULT_WINDOWS_INSTALLER_DRY_RUN_PATHS = {
   englishTroubleshooting: "docs/troubleshooting_EN.md"
 };
 
-const TOKEN_LIKE_PATTERN = /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9_-]{20,}|Bearer\s+[A-Za-z0-9._~+/-]{20,})\b/u;
+const TOKEN_LIKE_PATTERN = tokenLikePattern("iu");
 
 const REQUIRED_MARKERS = [
   {

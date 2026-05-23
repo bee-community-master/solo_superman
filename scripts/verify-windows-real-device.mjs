@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL, URL } from "node:url";
+import { tokenLikePattern } from "./secret-patterns.mjs";
 
 export const WINDOWS_REAL_DEVICE_SCHEMA_VERSION = "solo-superman-windows-real-device.v1";
 export const DEFAULT_WINDOWS_REAL_DEVICE_PATH = "docs/windows-real-device.example.json";
@@ -35,9 +36,7 @@ const REQUIRED_BLOCKER_ISSUE = "https://github.com/bee-community-master/solo_sup
 const ALLOWED_VERIFICATION_STATUSES = new Set(["blocked", "ready"]);
 const ALLOWED_DEVICE_RUN_STATUSES = new Set(["blocked", "passed"]);
 const SECRET_QUERY_NAME_PATTERN = /(?:token|secret|password|pass|api[_-]?key|credential|auth|session)/iu;
-const PROVIDER_TOKEN_PATTERN =
-  /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})\b/u;
-const BEARER_TOKEN_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/-]{10,}/u;
+const TOKEN_LIKE_PATTERN = tokenLikePattern("iu");
 const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 const URL_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//u;
 
@@ -71,7 +70,7 @@ function collectStrings(value, path = "$", strings = []) {
 
 function validateNoSecretStrings(contract, issues) {
   for (const { path, value } of collectStrings(contract)) {
-    if (PROVIDER_TOKEN_PATTERN.test(value) || BEARER_TOKEN_PATTERN.test(value)) {
+    if (TOKEN_LIKE_PATTERN.test(value)) {
       addIssue(issues, path, "must not contain token-shaped values");
     }
   }

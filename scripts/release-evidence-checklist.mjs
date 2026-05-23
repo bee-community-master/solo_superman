@@ -2,6 +2,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { URL } from "node:url";
+import { tokenLikePattern } from "./secret-patterns.mjs";
 
 export const RELEASE_EVIDENCE_CHECKLIST_SCHEMA_VERSION = "solo-superman-release-evidence-checklist.v1";
 export const RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION = "solo-superman-release-evidence-template.v1";
@@ -15,7 +16,7 @@ export const DEFAULT_RELEASE_EVIDENCE_CONTRACT_PATHS = {
   packagedUpdateRollback: "docs/packaged-update-rollback.example.json"
 };
 
-const TOKEN_LIKE_PATTERN = /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9_-]{20,}|bearer\s+[A-Za-z0-9._~+/-]{20,})\b/iu;
+const TOKEN_LIKE_PATTERN = tokenLikePattern("iu");
 const SECRET_QUERY_KEY_PATTERN = /(?:token|secret|password|pass|api[_-]?key|credential|auth|session)/iu;
 const OUTPUT_FORMATS = new Set(["json", "markdown", "template"]);
 

@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL, URL } from "node:url";
+import { tokenLikePattern } from "./secret-patterns.mjs";
 
 export const RELEASE_READINESS_SCHEMA_VERSION = "solo-superman-release-readiness.v1";
 export const DEFAULT_RELEASE_READINESS_PATH = "docs/release-readiness.example.json";
@@ -58,9 +59,7 @@ const ALLOWED_PUBLIC_POSTURES = new Set(["technical-preview", "limited-beta", "g
 const ALLOWED_READINESS_STATUSES = new Set(["blocked", "ready"]);
 const ALLOWED_GATE_STATUSES = new Set(["blocked", "passed"]);
 const SECRET_QUERY_NAME_PATTERN = /(?:token|secret|password|pass|api[_-]?key|credential|auth|session)/iu;
-const PROVIDER_TOKEN_PATTERN =
-  /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})\b/u;
-const BEARER_TOKEN_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/-]{10,}/u;
+const TOKEN_LIKE_PATTERN = tokenLikePattern("iu");
 const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 const URL_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//u;
 
@@ -94,7 +93,7 @@ function collectStrings(value, path = "$", strings = []) {
 
 function validateNoSecretStrings(contract, issues) {
   for (const { path, value } of collectStrings(contract)) {
-    if (PROVIDER_TOKEN_PATTERN.test(value) || BEARER_TOKEN_PATTERN.test(value)) {
+    if (TOKEN_LIKE_PATTERN.test(value)) {
       addIssue(issues, path, "must not contain token-shaped values");
     }
   }
