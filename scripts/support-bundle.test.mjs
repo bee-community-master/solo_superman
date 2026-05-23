@@ -142,7 +142,8 @@ function fakeCommandRunner(command, args) {
           verifyReleaseReadiness: "node scripts/verify-release-readiness.mjs",
           verifyReleaseEvidenceTemplate: "node scripts/verify-release-evidence-template.mjs",
           supportBundle: "node scripts/support-bundle.mjs",
-          releaseEvidenceChecklist: "node scripts/release-evidence-checklist.mjs"
+          releaseEvidenceChecklist: "node scripts/release-evidence-checklist.mjs",
+          releaseEvidenceBundle: "node scripts/release-evidence-checklist.mjs --bundle-dir"
         }
       }),
       stderr: ""
@@ -220,6 +221,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.package.scripts.verifySignedPackageReleaseDryRun).toBe("node scripts/verify-signed-package-release-dry-run.mjs");
     expect(bundle.package.scripts.verifyReleaseEvidenceTemplate).toBe("node scripts/verify-release-evidence-template.mjs");
     expect(bundle.package.scripts.releaseEvidenceChecklist).toBe("node scripts/release-evidence-checklist.mjs");
+    expect(bundle.package.scripts.releaseEvidenceBundle).toBe("node scripts/release-evidence-checklist.mjs --bundle-dir");
     expect(bundle.recommendedChecks).toContain("pnpm verify:product-capability-readiness");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-channel");
     expect(bundle.recommendedChecks).toContain("pnpm verify:windows-real-device");
@@ -232,6 +234,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-readiness");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-evidence-template");
     expect(bundle.recommendedChecks).toContain("pnpm release:evidence-checklist");
+    expect(bundle.recommendedChecks).toContain("pnpm release:evidence-bundle -- <bundle-dir>");
     expect(bundle.releaseDiagnostics.productCapabilityReadiness).toMatchObject({
       command: "pnpm verify:product-capability-readiness",
       captureStatus: "ok",

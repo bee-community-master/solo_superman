@@ -44,6 +44,7 @@
     "support:bundle": "node scripts/support-bundle.mjs",
     "verify:product-capability-readiness": "node scripts/verify-product-capability-readiness.mjs",
     "release:evidence-checklist": "node scripts/release-evidence-checklist.mjs",
+    "release:evidence-bundle": "node scripts/release-evidence-checklist.mjs --bundle-dir",
     "verify:release-evidence-template": "node scripts/verify-release-evidence-template.mjs",
     "verify:packaged-update-rollback:dry-run": "node scripts/verify-packaged-update-rollback-dry-run.mjs",
     "verify:windows-installer:dry-run": "node scripts/verify-windows-installer-dry-run.mjs",

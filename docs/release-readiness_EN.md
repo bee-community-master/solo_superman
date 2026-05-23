@@ -34,6 +34,12 @@ To create Markdown that can be pasted into a specific blocker issue, combine `--
 pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md
 ```
 
+When the release lab needs the full #259/#266/#267 work set at once, use the bundle command. It writes the full checklist/template, issue-specific Markdown checklists, issue-specific JSON templates, a manifest, and a README into one directory.
+
+```sh
+pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle
+```
+
 Use `--format template` to generate a JSON template that a release lab operator can fill with redacted evidence refs.
 
 ```sh

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import {
   RELEASE_EVIDENCE_CHECKLIST_SCHEMA_VERSION,
+  RELEASE_EVIDENCE_BUNDLE_SCHEMA_VERSION,
   RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION,
   RELEASE_EVIDENCE_TEMPLATE_VALIDATION_SCHEMA_VERSION,
   buildFilledReleaseEvidenceTemplateFixture,
@@ -399,26 +400,37 @@ describe("release evidence checklist", () => {
       expect(parseReleaseEvidenceChecklistArgs(["--output", outputPath], {})).toEqual({
         outputPath,
         format: "json",
-        issueNumber: undefined
+        issueNumber: undefined,
+        bundleDir: undefined
       });
       expect(parseReleaseEvidenceChecklistArgs(["--", "--output", outputPath], {})).toEqual({
         outputPath,
         format: "json",
-        issueNumber: undefined
+        issueNumber: undefined,
+        bundleDir: undefined
       });
       expect(parseReleaseEvidenceChecklistArgs([`--output=${outputPath}`], {})).toEqual({
         outputPath,
         format: "json",
-        issueNumber: undefined
+        issueNumber: undefined,
+        bundleDir: undefined
       });
       expect(parseReleaseEvidenceChecklistArgs(["--format", "markdown", "--issue", "266"], {})).toEqual({
         outputPath: undefined,
         format: "markdown",
-        issueNumber: 266
+        issueNumber: 266,
+        bundleDir: undefined
+      });
+      expect(parseReleaseEvidenceChecklistArgs(["--bundle-dir", "--", dir], {})).toMatchObject({
+        outputPath: undefined,
+        format: "json",
+        issueNumber: undefined,
+        bundleDir: dir
       });
       expect(() => parseReleaseEvidenceChecklistArgs(["--output"], {})).toThrow("--output requires a path value");
       expect(() => parseReleaseEvidenceChecklistArgs(["--format", "yaml"], {})).toThrow("--format must be one of");
       expect(() => parseReleaseEvidenceChecklistArgs(["--issue", "abc"], {})).toThrow("--issue requires a positive integer");
+      expect(() => parseReleaseEvidenceChecklistArgs(["--bundle-dir", dir, "--issue", "266"], {})).toThrow("--bundle-dir cannot be combined with --issue");
 
       await runReleaseEvidenceChecklistCli(["--output", outputPath], {
         contracts: minimalContracts(),
@@ -527,6 +539,65 @@ describe("release evidence checklist", () => {
         })
       });
       expect(validation.status).toBe("passed");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("writes a release evidence lab bundle for every blocker issue", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "solo-release-evidence-bundle-test-"));
+    try {
+      const bundleDir = join(dir, "bundle");
+      const bundle = await runReleaseEvidenceChecklistCli(["--bundle-dir", bundleDir], {
+        contracts: await loadReleaseEvidenceContracts(),
+        now: new Date("2026-05-24T00:00:00.000Z")
+      });
+
+      expect(bundle).toMatchObject({
+        schemaVersion: RELEASE_EVIDENCE_BUNDLE_SCHEMA_VERSION,
+        status: "passed",
+        checklistStatus: "blocked",
+        bundleDir,
+        issueNumbers: [259, 266, 267],
+        summary: { totalItems: 9, blockedItems: 9 },
+        issues: []
+      });
+      expect(bundle.files.map((file) => file.path)).toEqual(expect.arrayContaining([
+        "README.md",
+        "manifest.json",
+        "release-evidence-checklist.json",
+        "release-evidence-checklist.md",
+        "release-evidence-template.json",
+        "issue-259-checklist.md",
+        "issue-259-template.json",
+        "issue-266-checklist.md",
+        "issue-266-template.json",
+        "issue-267-checklist.md",
+        "issue-267-template.json"
+      ]));
+
+      const manifest = JSON.parse(await readFile(join(bundleDir, "manifest.json"), "utf8"));
+      expect(manifest).toMatchObject({
+        schemaVersion: RELEASE_EVIDENCE_BUNDLE_SCHEMA_VERSION,
+        issueNumbers: [259, 266, 267],
+        checklistStatus: "blocked",
+        summary: { totalItems: 9 }
+      });
+      const fullTemplate = JSON.parse(await readFile(join(bundleDir, "release-evidence-template.json"), "utf8"));
+      expect(fullTemplate.filterIssueNumber).toBeUndefined();
+      expect(fullTemplate).toMatchObject({
+        schemaVersion: RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION,
+        summary: { totalItems: 9, pendingItems: 9 }
+      });
+      const issue266Template = JSON.parse(await readFile(join(bundleDir, "issue-266-template.json"), "utf8"));
+      expect(issue266Template).toMatchObject({
+        schemaVersion: RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION,
+        filterIssueNumber: "266",
+        summary: { totalItems: 4, pendingItems: 4 }
+      });
+      const readme = await readFile(join(bundleDir, "README.md"), "utf8");
+      expect(readme).toContain("#259");
+      expect(readme).toContain("pnpm verify:release-evidence-template -- --input <filled-template.json>");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

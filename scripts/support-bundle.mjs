@@ -30,7 +30,8 @@ const PACKAGE_METADATA_SCRIPT = [
   "verifyReleaseReadiness:scripts['verify:release-readiness'],",
   "verifyReleaseEvidenceTemplate:scripts['verify:release-evidence-template'],",
   "supportBundle:scripts['support:bundle'],",
-  "releaseEvidenceChecklist:scripts['release:evidence-checklist']",
+  "releaseEvidenceChecklist:scripts['release:evidence-checklist'],",
+  "releaseEvidenceBundle:scripts['release:evidence-bundle']",
   "}}))"
 ].join("");
 const SUPPORT_DIAGNOSTIC_COMMANDS = {
@@ -475,6 +476,7 @@ export async function createSupportBundle(options = {}) {
       "pnpm verify:release-readiness",
       "pnpm verify:release-evidence-template",
       "pnpm release:evidence-checklist",
+      "pnpm release:evidence-bundle -- <bundle-dir>",
       "pnpm verify",
       "pnpm support:bundle"
     ],
