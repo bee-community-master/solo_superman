@@ -17,7 +17,7 @@
     "db:migrate": "pnpm --filter @solo-superman/db db:migrate",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint . --max-warnings=0",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --passWithNoTests --no-file-parallelism",
     "smoke:e2e": "vitest run e2e --passWithNoTests",
     "verify:prod-bundle": "node scripts/verify-prod-bundle.mjs",
     "verify:codex-live-runtime": "node scripts/verify-codex-live-runtime.mjs",

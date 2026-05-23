@@ -960,7 +960,7 @@ async function createAllowlistForTest(
   allowlistId: string,
   overrides: Readonly<Record<string, unknown>> = {}
 ) {
-  return storageApp.request(`/api/v1/projects/${projectId}/research-allowlists`, {
+  const response = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists`, {
     method: "POST",
     headers: {
       ...authHeaders(),
@@ -974,6 +974,12 @@ async function createAllowlistForTest(
       ...overrides
     })
   });
+  const body = await jsonBody(response);
+
+  expect(response.status).toBe(200);
+  expect(body.data).toBeTruthy();
+
+  return { body, response };
 }
 
 function webResearchRunRequestPayload(
@@ -1496,8 +1502,10 @@ describe("PR-02 sidecar health shell", () => {
         "X-Request-Id": "req_command_status"
       }
     });
+    const body = await jsonBody(response);
 
     expect(response.status).toBe(503);
+    expect(body.error?.code).toBe("EFFECT_STATUS_UNAVAILABLE");
     expect(response.headers.get("x-request-id")).toBe("req_command_status");
     expect(response.headers.get("access-control-expose-headers")).toContain("x-request-id");
   });
@@ -1511,7 +1519,11 @@ describe("PR-02 sidecar health shell", () => {
         "Access-Control-Request-Headers": "Authorization"
       }
     });
+    const body = await jsonBody(response);
 
+    expect(response.status).toBe(403);
+    expect(body.error?.code).toBe("AUTH_REQUIRED");
+    expect(body.error?.details?.policy).toBe("explicit_local_cors_allowlist");
     expect(response.headers.get("access-control-allow-origin")).toBeNull();
   });
 
@@ -1524,7 +1536,11 @@ describe("PR-02 sidecar health shell", () => {
         "Access-Control-Request-Headers": "Authorization"
       }
     });
+    const body = await jsonBody(response);
 
+    expect(response.status).toBe(403);
+    expect(body.error?.code).toBe("AUTH_REQUIRED");
+    expect(body.error?.details?.policy).toBe("explicit_local_cors_allowlist");
     expect(response.headers.get("access-control-allow-origin")).toBeNull();
   });
 
@@ -1537,7 +1553,11 @@ describe("PR-02 sidecar health shell", () => {
         "Access-Control-Request-Headers": "Authorization"
       }
     });
+    const body = await jsonBody(response);
 
+    expect(response.status).toBe(403);
+    expect(body.error?.code).toBe("AUTH_REQUIRED");
+    expect(body.error?.details?.policy).toBe("explicit_local_cors_allowlist");
     expect(response.headers.get("access-control-allow-origin")).toBeNull();
   });
 
@@ -1546,10 +1566,8 @@ describe("PR-02 sidecar health shell", () => {
       method: "POST",
       headers: {
         ...authHeaders(),
-        Origin: "https://example.com",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({})
+        Origin: "https://example.com"
+      }
     });
     const body = await jsonBody(response);
 
@@ -1666,14 +1684,6 @@ describe("PR-02 sidecar health shell", () => {
   it("keeps product command routes unavailable until migrated storage is mounted", async () => {
     const response = await app.request("/api/v1/projects", {
       method: "POST",
-      body: JSON.stringify({
-        rawIdea: "Storage unavailable",
-        localPrivacyMode: "local_only",
-        projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed",
-        businessCriticIntensity: "balanced",
-        businessCriticIntensityConfirmation: "user_confirmed"
-      }),
       headers: authHeaders()
     });
     const body = await jsonBody(response);
@@ -2336,8 +2346,10 @@ describe("PR-02 sidecar health shell", () => {
           reason: "Pause should preserve queued run recovery."
         })
       });
+      const pauseBody = await jsonBody(pause);
 
       expect(pause.status).toBe(200);
+      expect(pauseBody.data).toBeTruthy();
       await expect(repository.getById(projectId as ProjectId, "research_run_pause_queued" as ResearchRunId)).resolves.toMatchObject({
         status: "paused",
         qualityGateStatus: "not_evaluated"
@@ -2349,7 +2361,7 @@ describe("PR-02 sidecar health shell", () => {
         qualityGateStatus: "not_evaluated"
       });
 
-      await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists/${allowlistId}`, {
+      const reactivate = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists/${allowlistId}`, {
         method: "POST",
         headers: {
           ...authHeaders(),
@@ -2361,6 +2373,10 @@ describe("PR-02 sidecar health shell", () => {
           approvedBy: "owner_run_recovery_reactivation"
         })
       });
+      const reactivateBody = await jsonBody(reactivate);
+
+      expect(reactivate.status).toBe(200);
+      expect(reactivateBody.data).toBeTruthy();
       await expect(repository.getById(projectId as ProjectId, "research_run_pause_queued" as ResearchRunId)).resolves.toMatchObject({
         status: "running",
         provider: {
@@ -2391,9 +2407,11 @@ describe("PR-02 sidecar health shell", () => {
       const runList = await storageApp.request(`/api/v1/projects/${projectId}/research-runs`, {
         headers: authHeaders()
       });
+      const revokeBody = await jsonBody(revoke);
       const runListBody = await jsonBody(runList);
 
       expect(revoke.status).toBe(200);
+      expect(revokeBody.data).toBeTruthy();
       expect(runList.status).toBe(200);
       expect(runListBody.data).toMatchObject({
         recovery: {
@@ -2440,8 +2458,10 @@ describe("PR-02 sidecar health shell", () => {
           reason: "Pause before narrowing the allowlist policy."
         })
       });
+      const pauseBody = await jsonBody(pause);
 
       expect(pause.status).toBe(200);
+      expect(pauseBody.data).toBeTruthy();
       await expect(repository.getById(projectId as ProjectId, "research_run_policy_narrowed" as ResearchRunId)).resolves.toMatchObject({
         status: "paused",
         provider: expect.not.objectContaining({
@@ -2462,8 +2482,10 @@ describe("PR-02 sidecar health shell", () => {
           approvedBy: "owner_policy_narrowed_reactivation"
         })
       });
+      const reactivateBody = await jsonBody(reactivate);
 
       expect(reactivate.status).toBe(200);
+      expect(reactivateBody.data).toBeTruthy();
       await expect(repository.getById(projectId as ProjectId, "research_run_policy_narrowed" as ResearchRunId)).resolves.toMatchObject({
         status: "cancelled",
         terminalReason: "cancelled_by_user",
@@ -2621,18 +2643,8 @@ describe("PR-02 sidecar health shell", () => {
       const projectId = sessionProjection.projectId as string;
       const allowlistId = "research_allowlist_disclosure_route";
 
-      await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists`, {
-        method: "POST",
-        headers: {
-          ...authHeaders(),
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          allowlistId,
-          connectorIds: ["public_search"],
-          sourceCategories: ["public_web"],
-          approvedBy: "owner_disclosure_route"
-        })
+      await createAllowlistForTest(storageApp, projectId, allowlistId, {
+        approvedBy: "owner_disclosure_route"
       });
 
       const disclosure = await storageApp.request(`/api/v1/projects/${projectId}/research-disclosures`, {
@@ -3125,8 +3137,10 @@ describe("PR-02 sidecar health shell", () => {
         allowlistId,
         "research_run_web_cancel_config"
       );
+      const startRunBody = await jsonBody(startRun);
 
       expect(startRun.status).toBe(200);
+      expect(startRunBody.data).toBeTruthy();
 
       await withPatchedProcessEnv({ SOLO_RESEARCH_WEB_MAX_RESULTS: "token=secret" }, async () => {
         const cancel = await storageApp.request(
@@ -3181,8 +3195,10 @@ describe("PR-02 sidecar health shell", () => {
         allowlistId,
         "research_run_web_status_config"
       );
+      const startRunBody = await jsonBody(startRun);
 
       expect(startRun.status).toBe(200);
+      expect(startRunBody.data).toBeTruthy();
 
       await withPatchedProcessEnv({ SOLO_RESEARCH_WEB_MAX_RESULTS: "token=secret" }, async () => {
         const status = await storageApp.request(
@@ -3222,8 +3238,10 @@ describe("PR-02 sidecar health shell", () => {
         allowlistId,
         "research_run_web_retry_config"
       );
+      const startRunBody = await jsonBody(startRun);
 
       expect(startRun.status).toBe(200);
+      expect(startRunBody.data).toBeTruthy();
 
       await withPatchedProcessEnv({ SOLO_RESEARCH_WEB_MAX_RESULTS: "token=secret" }, async () => {
         const status = await storageApp.request(
@@ -3245,11 +3263,13 @@ describe("PR-02 sidecar health shell", () => {
             })
           }
         );
+        const statusBody = await jsonBody(status);
         const retryBody = await jsonBody(retry);
         const retryData = retryBody.data as Readonly<Record<string, unknown>>;
         const retryResult = retryData.immediateProjection as Readonly<Record<string, unknown>>;
 
         expect(status.status).toBe(200);
+        expect(statusBody.data).toBeTruthy();
         expect(retry.status).toBe(200);
         expect(retryResult).toMatchObject({
           action: "retry",
@@ -3496,8 +3516,10 @@ describe("PR-02 sidecar health shell", () => {
           sourceRefs: ["queue_quality_gate_route"]
         })
       });
+      const startRunBody = await jsonBody(startRun);
 
       expect(startRun.status).toBe(200);
+      expect(startRunBody.data).toBeTruthy();
 
       const importResult = await storageApp.request(`/api/v1/research-tasks/${researchTaskId}/results`, {
         method: "POST",
@@ -3519,8 +3541,10 @@ describe("PR-02 sidecar health shell", () => {
           questionRef: "queue_quality_gate_route"
         })
       });
+      const importResultBody = await jsonBody(importResult);
 
       expect(importResult.status).toBe(200);
+      expect(importResultBody.data).toBeTruthy();
 
       const executorResults = await createProductEngineCommandService(storage).runPendingResearchEvidenceEffects();
 
@@ -3617,8 +3641,10 @@ describe("PR-02 sidecar health shell", () => {
           limitationNotes: "No counter-evidence source was found."
         })
       });
+      const importResultBody = await jsonBody(importResult);
 
       expect(importResult.status).toBe(200);
+      expect(importResultBody.data).toBeTruthy();
       expect(await createProductEngineCommandService(storage).runPendingResearchEvidenceEffects()).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -4108,7 +4134,7 @@ describe("PR-02 sidecar health shell", () => {
       });
 
       await createAllowlistForTest(storageApp, projectId, "research_allowlist_paused_run");
-      await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists/research_allowlist_paused_run/pause`, {
+      const pause = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists/research_allowlist_paused_run/pause`, {
         method: "POST",
         headers: {
           ...authHeaders(),
@@ -4118,6 +4144,10 @@ describe("PR-02 sidecar health shell", () => {
           reason: "Pause before automatic run start."
         })
       });
+      const pauseBody = await jsonBody(pause);
+
+      expect(pause.status).toBe(200);
+      expect(pauseBody.data).toBeTruthy();
 
       const paused = await postStart(projectId, { allowlistId: "research_allowlist_paused_run" });
       const pausedBody = await jsonBody(paused);
@@ -6423,8 +6453,10 @@ describe("PR-02 sidecar health shell", () => {
           approvedBy: "owner_route_test"
         })
       });
+      const createBody = await jsonBody(create);
 
       expect(create.status).toBe(200);
+      expect(createBody.data).toBeTruthy();
 
       const duplicateCreate = await storageApp.request(`/api/v1/projects/${projectId}/research-allowlists`, {
         method: "POST",
@@ -6561,8 +6593,10 @@ describe("PR-02 sidecar health shell", () => {
           body: JSON.stringify({})
         }
       );
+      const revokeBody = await jsonBody(revoke);
 
       expect(revoke.status).toBe(200);
+      expect(revokeBody.data).toBeTruthy();
 
       const updateAfterRevoke = await storageApp.request(
         `/api/v1/projects/${projectId}/research-allowlists/research_allowlist_policy_approval`,
@@ -7737,6 +7771,7 @@ describe("PR-02 sidecar health shell", () => {
           answer: "Help founders produce a stop-now brief with explicit risks."
         })
       });
+      const intakeBody = await jsonBody(intake);
       const draft = await storageApp.request(`/api/v1/sessions/${sessionId}/spec/initial`, {
         method: "POST",
         headers: {
@@ -7747,6 +7782,7 @@ describe("PR-02 sidecar health shell", () => {
           expectedStateVersion: 2
         })
       });
+      const draftBody = await jsonBody(draft);
       const score = await storageApp.request(`/api/v1/sessions/${sessionId}/completeness/score`, {
         method: "POST",
         headers: {
@@ -7793,6 +7829,7 @@ describe("PR-02 sidecar health shell", () => {
       const fetchedFounderBrief = await storageApp.request(`/api/v1/sessions/${sessionId}/founder-brief`, {
         headers: authHeaders()
       });
+      const fetchedFounderBriefBody = await jsonBody(fetchedFounderBrief);
       const fileWrite = await storageApp.request(`/api/v1/sessions/${sessionId}/founder-brief/export`, {
         method: "POST",
         headers: {
@@ -7848,7 +7885,9 @@ describe("PR-02 sidecar health shell", () => {
       const unsupportedFormatData = unsupportedFormatBody.data as Readonly<Record<string, unknown>>;
 
       expect(intake.status).toBe(200);
+      expect(intakeBody.data).toBeTruthy();
       expect(draft.status).toBe(200);
+      expect(draftBody.data).toBeTruthy();
       expect(score.status).toBe(200);
       expect(scoreData).toMatchObject({
         category: "accepted_with_projection",
@@ -7891,6 +7930,7 @@ describe("PR-02 sidecar health shell", () => {
         }
       });
       expect(fetchedFounderBrief.status).toBe(200);
+      expect(fetchedFounderBriefBody.data).toBeTruthy();
       expect(fileWrite.status).toBe(200);
       expect(fileWriteData).toMatchObject({
         category: "rejected",
@@ -10866,6 +10906,8 @@ describe("PR-02 sidecar health shell", () => {
         tickedAt: "2026-05-05T00:05:00.000Z",
         evidenceRefs: ["stage:initial_pr:complete:pr-open"]
       });
+      const startedInitialStageBody = await jsonBody(startedInitialStage);
+      const completedInitialStageBody = await jsonBody(completedInitialStage);
       const response = await postAutoImplementationPullRequestMutationForTest(storageApp, sessionId, runId, {
         action: "open_pr",
         requestMode: "approved",
@@ -10917,7 +10959,9 @@ describe("PR-02 sidecar health shell", () => {
         .latestRecord as Readonly<Record<string, unknown>>;
 
       expect(startedInitialStage.status).toBe(200);
+      expect(startedInitialStageBody.data).toBeTruthy();
       expect(completedInitialStage.status).toBe(200);
+      expect(completedInitialStageBody.data).toBeTruthy();
       expect(response.status).toBe(200);
       expect(mutationInputs).toHaveLength(1);
       expect(pullRequestMutations).toMatchObject({

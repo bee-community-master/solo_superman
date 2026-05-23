@@ -14,6 +14,7 @@ describe("local HTTP helpers", () => {
     });
 
     expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe("ok");
     expect(capturedSignal).toBeInstanceOf(globalThis.AbortSignal);
     expect(capturedSignal.aborted).toBe(false);
   });
