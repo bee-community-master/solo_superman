@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   ProjectId,
   ProjectionVersion,
+  QueueItemId,
   ResearchEvidenceProjection,
   ResearchTaskId,
   SessionId
@@ -119,8 +120,59 @@ describe("ResearchView", () => {
 
     expect(markup).toContain("Start 2 ready public web runs");
     expect(markup).not.toContain("Start 3 ready public web runs");
+    expect(markup).not.toContain("Source trace");
     expect(markup).toContain("Validate public evidence path 1.");
     expect(markup).toContain("Validate public evidence path 2.");
     expect(markup).toContain("Review already returned evidence.");
+  });
+
+  it("renders deduped retained source traces with research-generated follow-up questions", () => {
+    const research = researchProjection();
+    const markup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        session: {
+          kind: "SessionShellProjection",
+          projectId: "proj_research_batch" as ProjectId,
+          sessionId: "sess_research_batch" as SessionId,
+          version: 1 as ProjectionVersion,
+          phase: "spec",
+          projectPurposeMode: "business",
+          projectPurposeModeSelectionStatus: "confirmed",
+          projectPurposeModeLabel: "Business validation",
+          projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+        },
+        research: {
+          ...research,
+          reviewCards: [
+            {
+              cardId: "research_reviewed_card" as QueueItemId,
+              researchTaskId: "research_task_reviewed" as ResearchTaskId,
+              cardType: "follow_up_question",
+              title: "Evidence raised a follow-up question",
+              state: "ready_for_review",
+              impact: "medium",
+              retainedSourceRef: "https://example.com/source-report",
+              retainedSourceRefs: [
+                "https://example.com/source-report",
+                "research_run_public_web_1",
+                "question:pricing-evidence"
+              ],
+              additionalQuestions: ["Which proof narrows the pricing risk?"],
+              availableOutcomes: ["approved", "risk_accepted"],
+              blocksPlanning: false,
+              recoveryActions: []
+            }
+          ]
+        }
+      }
+    });
+
+    expect(markup).toContain("Research-generated follow-up questions");
+    expect(markup).toContain("Which proof narrows the pricing risk?");
+    expect(markup).toContain("Source trace");
+    expect(markup).toContain("research_run_public_web_1");
+    expect(markup).toContain("question:pricing-evidence");
+    expect(markup.split("https://example.com/source-report")).toHaveLength(2);
   });
 });
