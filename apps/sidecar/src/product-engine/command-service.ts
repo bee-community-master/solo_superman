@@ -29,6 +29,7 @@ import {
   canOpenNewAutoImplementationPullRequest,
   canPlanCurrentStageAutoImplementationWorkerJob,
   canRunAutoImplementationWorkerJob,
+  autoImplementationGitHubIssueUrlForIssue,
   autoImplementationRunWithSynchronizedIssueDocs,
   autoImplementationWorkerExpectedChangeScope,
   autoImplementationWorkerLedgerStepDescription,
@@ -1015,6 +1016,16 @@ function scopedReviewEvidenceLines(input: {
   ]);
 }
 
+function pullRequestIssueTraceabilityLines(run: AutoImplementationRun) {
+  return run.issueManagement.issueDocs.length
+    ? run.issueManagement.issueDocs.map((issue) => {
+      const githubIssueUrl = autoImplementationGitHubIssueUrlForIssue(run, issue) ?? "none";
+
+      return `- ${issue.issueId}: ${issue.title} (${issue.relativePath}; stage: ${issue.stage}; GitHub issue: ${githubIssueUrl})`;
+    })
+    : ["- no generated issue documents recorded"];
+}
+
 function pullRequestBodyMarkdown(input: {
   readonly request: RecordAutoImplementationPullRequestMutationRequest;
   readonly run: AutoImplementationRun;
@@ -1031,6 +1042,9 @@ function pullRequestBodyMarkdown(input: {
     "",
     "### Issue links",
     ...input.request.issueLinks.map((link) => `- ${link}`),
+    "",
+    "### Issue traceability",
+    ...pullRequestIssueTraceabilityLines(input.run),
     "",
     "### Implementation scope",
     input.request.implementationScope,
