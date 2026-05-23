@@ -185,29 +185,38 @@ describe("#105 local install/run verification docs", () => {
 
   it("documents the release evidence checklist for external release gates", () => {
     expect(packageJson).toContain('"release:evidence-checklist": "node scripts/release-evidence-checklist.mjs"');
+    expect(packageJson).toContain('"release:evidence-bundle": "node scripts/release-evidence-checklist.mjs --bundle-dir"');
     expect(packageJson).toContain('"verify:release-evidence-template": "node scripts/verify-release-evidence-template.mjs"');
     expect(readme).toContain("`pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json`");
     expect(readme).toContain("`pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md`");
+    expect(readme).toContain("`pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle`");
     expect(readme).toContain("`pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
     expect(readme).toContain("`pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json`");
     expect(readme).toContain("required ready-release command 실행 기록");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json`");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md`");
+    expect(englishReadme).toContain("`pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle`");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
     expect(englishReadme).toContain("`pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json`");
     expect(englishReadme).toContain("required ready-release command records");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("## Release evidence checklist");
+    expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("release:evidence-bundle");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("--format template --issue 266");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("verify:release-evidence-template -- --input");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("모든 ready-release command 실행 기록");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("## Release evidence checklist");
+    expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("release:evidence-bundle");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("--format template --issue 266");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("verify:release-evidence-template -- --input");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("records every ready-release command");
     expect(runbook).toContain("모든 ready-release command 실행 기록");
+    expect(runbook).toContain("pnpm release:evidence-bundle");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("every ready-release command is recorded");
+    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("pnpm release:evidence-bundle");
     expect(contributingDoc).toContain("`pnpm release:evidence-checklist -- --format markdown --issue <number>` / `pnpm release:evidence-checklist -- --format template --issue <number>`");
     expect(englishContributingDoc).toContain("`pnpm release:evidence-checklist -- --format markdown --issue <number>` / `pnpm release:evidence-checklist -- --format template --issue <number>`");
+    expect(contributingDoc).toContain("`pnpm release:evidence-bundle -- <bundle-dir>`");
+    expect(englishContributingDoc).toContain("`pnpm release:evidence-bundle -- <bundle-dir>`");
     expect(contributingDoc).toContain("`pnpm verify:release-evidence-template -- --input <filled-template.json>`");
     expect(englishContributingDoc).toContain("`pnpm verify:release-evidence-template -- --input <filled-template.json>`");
     expect(runbook).toContain("pnpm verify:release-evidence-template -- --input");

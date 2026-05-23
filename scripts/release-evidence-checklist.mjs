@@ -7,6 +7,7 @@ import { tokenLikePattern } from "./secret-patterns.mjs";
 export const RELEASE_EVIDENCE_CHECKLIST_SCHEMA_VERSION = "solo-superman-release-evidence-checklist.v1";
 export const RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION = "solo-superman-release-evidence-template.v1";
 export const RELEASE_EVIDENCE_TEMPLATE_VALIDATION_SCHEMA_VERSION = "solo-superman-release-evidence-template-validation.v1";
+export const RELEASE_EVIDENCE_BUNDLE_SCHEMA_VERSION = "solo-superman-release-evidence-bundle.v1";
 
 export const DEFAULT_RELEASE_EVIDENCE_CONTRACT_PATHS = {
   releaseReadiness: "docs/release-readiness.example.json",
@@ -19,6 +20,11 @@ export const DEFAULT_RELEASE_EVIDENCE_CONTRACT_PATHS = {
 const TOKEN_LIKE_PATTERN = tokenLikePattern("iu");
 const SECRET_QUERY_KEY_PATTERN = /(?:token|secret|password|pass|api[_-]?key|credential|auth|session)/iu;
 const OUTPUT_FORMATS = new Set(["json", "markdown", "template"]);
+const BUNDLE_FULL_CHECKLIST_JSON_PATH = "release-evidence-checklist.json";
+const BUNDLE_FULL_CHECKLIST_MARKDOWN_PATH = "release-evidence-checklist.md";
+const BUNDLE_FULL_TEMPLATE_PATH = "release-evidence-template.json";
+const BUNDLE_MANIFEST_PATH = "manifest.json";
+const BUNDLE_README_PATH = "README.md";
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -672,6 +678,189 @@ export function renderReleaseEvidenceChecklistMarkdown(checklist) {
   return `${lines.join("\n").trimEnd()}\n`;
 }
 
+function jsonContent(value) {
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function bundleIssueNumbers(checklist) {
+  const issueNumbers = checklist.summary?.blockerIssueNumbers?.length
+    ? checklist.summary.blockerIssueNumbers
+    : checklist.checklistItems
+      .map((item) => item.blockerIssueNumber)
+      .filter((issueNumber) => issueNumber !== null && issueNumber !== undefined);
+
+  return uniqueStrings(issueNumbers.map(String))
+    .map(Number)
+    .filter((issueNumber) => Number.isInteger(issueNumber) && issueNumber > 0)
+    .sort((left, right) => left - right);
+}
+
+function bundleFileEntry(kind, relativePath, payload, metadata = {}) {
+  return {
+    kind,
+    path: relativePath,
+    schemaVersion: typeof payload?.schemaVersion === "string" ? payload.schemaVersion : undefined,
+    checklistStatus: typeof payload?.status === "string" ? payload.status : undefined,
+    templateStatus: typeof payload?.templateStatus === "string" ? payload.templateStatus : undefined,
+    issueNumber: metadata.issueNumber,
+    itemCount: typeof payload?.summary?.totalItems === "number" ? payload.summary.totalItems : metadata.itemCount,
+    format: metadata.format
+  };
+}
+
+function bundleManifestFileEntry(file) {
+  return {
+    kind: file.kind,
+    path: file.path,
+    schemaVersion: file.schemaVersion,
+    checklistStatus: file.checklistStatus,
+    templateStatus: file.templateStatus,
+    issueNumber: file.issueNumber,
+    itemCount: file.itemCount,
+    format: file.format
+  };
+}
+
+function renderReleaseEvidenceBundleReadme(manifest) {
+  const issueLines = manifest.issueNumbers.length
+    ? manifest.issueNumbers.map((issueNumber) => {
+      const issueFiles = manifest.files
+        .filter((file) => file.issueNumber === issueNumber)
+        .map((file) => `  - \`${file.path}\` (${file.kind})`);
+
+      return [`- #${issueNumber}`, ...issueFiles].join("\n");
+    })
+    : ["- _No blocker issues were found._"];
+
+  return `${[
+    "# Solo Superman release evidence bundle",
+    "",
+    `Generated at: \`${manifest.generatedAt}\``,
+    `Bundle status: \`${manifest.status}\``,
+    `Checklist status: \`${manifest.checklistStatus}\``,
+    "",
+    "## How to use",
+    "",
+    "1. Pick the issue-specific template for the release lab run you are executing.",
+    "2. Replace placeholders only with redacted evidence refs, public metadata, checksums, sizes, signature refs, and sanitized log summaries.",
+    "3. Keep credential values, tokens, cookies, URL userinfo, secret-like query parameters, and full environment dumps out of every file.",
+    "4. Validate the filled template with `pnpm verify:release-evidence-template -- --input <filled-template.json>` before attaching evidence to GitHub.",
+    "",
+    "## Included issue files",
+    "",
+    ...issueLines,
+    "",
+    "## Full-bundle files",
+    "",
+    ...manifest.files
+      .filter((file) => file.issueNumber === undefined)
+      .map((file) => `- \`${file.path}\` (${file.kind})`),
+    "",
+    "## Ready-release verification commands",
+    "",
+    ...checkboxList(manifest.readyReleaseCommands, (command) => `\`${command}\``),
+    "",
+    "## Privacy boundary",
+    "",
+    "- [ ] Evidence refs are redacted before they are attached to GitHub issues or release PRs.",
+    "- [ ] No token, cookie, credential value, URL userinfo, secret-like query parameter, file contents, or full environment dump is included."
+  ].join("\n").trimEnd()}\n`;
+}
+
+export function buildReleaseEvidenceBundle(checklist) {
+  const files = [];
+  const fullTemplate = buildReleaseEvidenceTemplate(checklist);
+  const addFile = (entry, content) => {
+    files.push({ ...entry, content });
+  };
+
+  addFile(bundleFileEntry("full-checklist-json", BUNDLE_FULL_CHECKLIST_JSON_PATH, checklist, { format: "json" }), jsonContent(checklist));
+  addFile(
+    bundleFileEntry("full-checklist-markdown", BUNDLE_FULL_CHECKLIST_MARKDOWN_PATH, checklist, { format: "markdown" }),
+    renderReleaseEvidenceChecklistMarkdown(checklist)
+  );
+  addFile(bundleFileEntry("full-template-json", BUNDLE_FULL_TEMPLATE_PATH, fullTemplate, { format: "json" }), jsonContent(fullTemplate));
+
+  const issueNumbers = bundleIssueNumbers(checklist);
+  for (const issueNumber of issueNumbers) {
+    const issueChecklist = filterReleaseEvidenceChecklistByIssue(checklist, issueNumber);
+    const issueTemplate = buildReleaseEvidenceTemplate(issueChecklist);
+    const issuePrefix = `issue-${issueNumber}`;
+
+    addFile(
+      bundleFileEntry("issue-checklist-markdown", `${issuePrefix}-checklist.md`, issueChecklist, { format: "markdown", issueNumber }),
+      renderReleaseEvidenceChecklistMarkdown(issueChecklist)
+    );
+    addFile(
+      bundleFileEntry("issue-template-json", `${issuePrefix}-template.json`, issueTemplate, { format: "json", issueNumber }),
+      jsonContent(issueTemplate)
+    );
+  }
+
+  const manifestFiles = [
+    ...files.map(bundleManifestFileEntry),
+    {
+      kind: "bundle-readme",
+      path: BUNDLE_README_PATH,
+      format: "markdown"
+    },
+    {
+      kind: "bundle-manifest",
+      path: BUNDLE_MANIFEST_PATH,
+      schemaVersion: RELEASE_EVIDENCE_BUNDLE_SCHEMA_VERSION,
+      format: "json"
+    }
+  ];
+  const manifestBase = {
+    schemaVersion: RELEASE_EVIDENCE_BUNDLE_SCHEMA_VERSION,
+    generatedAt: checklist.generatedAt,
+    status: "passed",
+    checklistStatus: checklist.status,
+    issueNumbers,
+    summary: checklist.summary,
+    openBlockerIssues: checklist.openBlockerIssues,
+    readyReleaseCommands: checklist.readyReleaseCommands,
+    credentialFreeCommands: checklist.credentialFreeCommands,
+    privacy: {
+      credentialFree: true,
+      evidenceRefsMustBeRedacted: true,
+      secretPolicy: "Bundle generation reads only public contract files and writes placeholders for redacted release lab evidence."
+    },
+    files: manifestFiles,
+    issues: []
+  };
+  const issues = uniqueStrings([...checklist.issues, ...validateSecretFreeStrings(manifestBase)]);
+  const manifest = {
+    ...manifestBase,
+    status: issues.length === 0 ? "passed" : "blocked",
+    issues
+  };
+
+  files.push({
+    kind: "bundle-readme",
+    path: BUNDLE_README_PATH,
+    format: "markdown",
+    content: renderReleaseEvidenceBundleReadme(manifest)
+  });
+  files.push({
+    kind: "bundle-manifest",
+    path: BUNDLE_MANIFEST_PATH,
+    schemaVersion: RELEASE_EVIDENCE_BUNDLE_SCHEMA_VERSION,
+    format: "json",
+    content: jsonContent(manifest)
+  });
+
+  return { manifest, files };
+}
+
+async function writeReleaseEvidenceBundle(bundleDir, bundle) {
+  await Promise.all(bundle.files.map(async (file) => {
+    const outputPath = resolve(bundleDir, file.path);
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, file.content, "utf8");
+  }));
+}
+
 async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
@@ -687,6 +876,8 @@ export function parseReleaseEvidenceChecklistArgs(argv = process.argv.slice(2), 
   let outputPath = env.SOLO_RELEASE_EVIDENCE_CHECKLIST_PATH;
   let format = env.SOLO_RELEASE_EVIDENCE_CHECKLIST_FORMAT ?? "json";
   let issueNumber;
+  let bundleDir = env.SOLO_RELEASE_EVIDENCE_BUNDLE_DIR;
+  let explicitFormat = false;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -705,9 +896,11 @@ export function parseReleaseEvidenceChecklistArgs(argv = process.argv.slice(2), 
         throw new Error(`${arg} requires a value.`);
       }
       format = argv[index + 1];
+      explicitFormat = true;
       index += 1;
     } else if (arg.startsWith("--format=")) {
       format = arg.slice("--format=".length);
+      explicitFormat = true;
     } else if (arg === "--issue") {
       if (!argv[index + 1]) {
         throw new Error(`${arg} requires an issue number.`);
@@ -716,6 +909,15 @@ export function parseReleaseEvidenceChecklistArgs(argv = process.argv.slice(2), 
       index += 1;
     } else if (arg.startsWith("--issue=")) {
       issueNumber = Number(arg.slice("--issue=".length));
+    } else if (arg === "--bundle-dir") {
+      const valueIndex = argv[index + 1] === "--" ? index + 2 : index + 1;
+      if (!argv[valueIndex]) {
+        throw new Error(`${arg} requires a path value.`);
+      }
+      bundleDir = argv[valueIndex];
+      index = valueIndex;
+    } else if (arg.startsWith("--bundle-dir=")) {
+      bundleDir = arg.slice("--bundle-dir=".length);
     } else if (arg === "--help" || arg === "-h") {
       return { help: true };
     } else {
@@ -731,10 +933,21 @@ export function parseReleaseEvidenceChecklistArgs(argv = process.argv.slice(2), 
     throw new Error("--issue requires a positive integer issue number.");
   }
 
+  if (bundleDir && outputPath) {
+    throw new Error("--bundle-dir cannot be combined with --output.");
+  }
+  if (bundleDir && explicitFormat) {
+    throw new Error("--bundle-dir cannot be combined with --format.");
+  }
+  if (bundleDir && issueNumber !== undefined) {
+    throw new Error("--bundle-dir cannot be combined with --issue; the bundle always includes every blocker issue.");
+  }
+
   return {
     outputPath: outputPath ? resolve(outputPath) : undefined,
     format,
-    issueNumber
+    issueNumber,
+    bundleDir: bundleDir ? resolve(bundleDir) : undefined
   };
 }
 
@@ -746,12 +959,23 @@ async function writeChecklist(outputPath, content) {
 export async function runReleaseEvidenceChecklistCli(argv = process.argv.slice(2), options = {}) {
   const parsed = parseReleaseEvidenceChecklistArgs(argv, options.env ?? process.env);
   if (parsed.help) {
-    console.log("Usage: pnpm release:evidence-checklist [--format json|markdown|template] [--issue <number>] [--output <path>]");
+    console.log("Usage: pnpm release:evidence-checklist [--format json|markdown|template] [--issue <number>] [--output <path>] [--bundle-dir <path>]");
     return { status: "help" };
   }
 
   const contracts = options.contracts ?? await loadReleaseEvidenceContracts(options.contractPaths, options);
   const fullChecklist = buildReleaseEvidenceChecklist(contracts, options);
+  if (parsed.bundleDir) {
+    const bundle = buildReleaseEvidenceBundle(fullChecklist);
+    await writeReleaseEvidenceBundle(parsed.bundleDir, bundle);
+    const summary = {
+      ...bundle.manifest,
+      bundleDir: parsed.bundleDir
+    };
+    console.log(JSON.stringify(summary, null, 2));
+    return summary;
+  }
+
   const checklist = filterReleaseEvidenceChecklistByIssue(fullChecklist, parsed.issueNumber);
   const payload = parsed.format === "template" ? buildReleaseEvidenceTemplate(checklist) : checklist;
   const content = parsed.format === "markdown"
