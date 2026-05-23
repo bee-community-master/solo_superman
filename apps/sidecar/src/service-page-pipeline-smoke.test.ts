@@ -5,7 +5,7 @@ describe("service page-use pipeline smoke", () => {
   it("proves credential-free service page permission, browser action, artifact delete, revoke, and final-submit gates", async () => {
     const evidence = await runServicePagePipelineSmoke();
 
-    expect(evidence).toMatchObject({
+    expect(evidence, JSON.stringify(evidence, null, 2)).toMatchObject({
       status: "passed",
       smoke: SERVICE_PAGE_PIPELINE_SMOKE,
       mode: "fixture",
