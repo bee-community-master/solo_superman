@@ -4,7 +4,7 @@
 
 ## 배포 상태
 
-Solo Superman은 현재 제한 베타 형태의 technical preview입니다. 목표는 비개발자도 안전한 one-line installer로 local web screen에 도달하게 하고, 위험한 action은 reviewable 상태로 유지하는 것입니다. Packaged app update channel은 [`release-channel_KO.md`](release-channel_KO.md)의 manifest/signature/checksum/retry/rollback 계약으로만 정의되어 있으며, 실제 자동 업데이트 적용은 signed package와 device rollback 검증 이후로 남아 있습니다.
+Solo Superman은 현재 제한 베타 형태의 technical preview입니다. 목표는 비개발자도 안전한 one-line installer로 local web screen에 도달하게 하고, 위험한 action은 reviewable 상태로 유지하는 것입니다. Signed package는 [`signed-packages_KO.md`](signed-packages_KO.md)의 credential-free preflight로만 계획되어 있으며 실제 signing/notarization credential은 아직 없습니다. Packaged app update channel은 [`release-channel_KO.md`](release-channel_KO.md)의 manifest/signature/checksum/retry/rollback 계약으로만 정의되어 있으며, 실제 자동 업데이트 적용은 signed package와 device rollback 검증 이후로 남아 있습니다.
 
 ## 한 줄 설치
 
@@ -76,12 +76,15 @@ Set-Location "$HOME\solo_superman"; pnpm.cmd start:local
 ```sh
 pnpm verify:prod-bundle
 pnpm verify:release-channel
+pnpm verify:signed-package-preflight
 pnpm verify
 ```
 
-Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 Node/Corepack command shim이 실행되도록 `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify`를 사용합니다.
+Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 Node/Corepack command shim이 실행되도록 `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:signed-package-preflight`, `pnpm.cmd verify`를 사용합니다.
 
 `pnpm verify:release-channel`은 `docs/release-update-channel.example.json`을 검사해 manifest signature, artifact checksum/signature, user consent/deferral, retry, rollback, credential/user-data preservation이 모두 선언되어 있는지 확인합니다. 이 명령은 release channel 계약 검증이며, signed package 설치나 실제 업데이트 적용을 수행하지 않습니다.
+
+`pnpm verify:signed-package-preflight`는 `docs/signed-package-preflight.example.json`을 검사해 macOS/Windows package 후보, signing credential group, credential-free dry-run command, actual signing hard gate가 분리되어 있는지 확인합니다. 기본 실행은 signing secret 없이 통과하되 `credentialGateStatus=blocked`와 `missingCredentialGroups`로 실제 signing이 왜 막혔는지 보여줍니다. 실제 release 환경에서는 `pnpm verify:signed-package-preflight -- --require-credentials`를 사용하며, 이 모드는 필요한 signing env가 빠지면 실패해야 합니다.
 
 ## 오류 리포트용 support bundle
 

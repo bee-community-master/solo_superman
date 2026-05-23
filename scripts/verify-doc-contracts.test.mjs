@@ -214,6 +214,7 @@ describe("doc contract verification helpers", () => {
     expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/safety-and-permissions_KO.md");
     expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/decisions_KO.md");
     expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/release-channel_KO.md");
+    expect(WEB_REALIGNMENT_SCAN_PATHS).toContain("docs/signed-packages_KO.md");
   });
 
   it("flags active desktop/native residue in web-local source paths", () => {

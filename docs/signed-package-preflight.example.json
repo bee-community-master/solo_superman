@@ -1,0 +1,85 @@
+{
+  "schemaVersion": "solo-superman-signed-package-preflight.v1",
+  "appId": "solo-superman",
+  "releaseRepositoryUrl": "https://github.com/bee-community-master/solo_superman",
+  "releaseChannelContract": "docs/release-channel_KO.md",
+  "releaseChannelManifest": "docs/release-update-channel.example.json",
+  "packageCandidates": [
+    {
+      "platform": "macos",
+      "packageKinds": ["macos-dmg", "macos-pkg"],
+      "signingKinds": ["apple-developer-id-application", "apple-developer-id-installer", "apple-notarytool"],
+      "dryRunEvidence": "Local build and release-channel manifest verification can run without Apple credentials. Actual signing requires Developer ID certificate material and notarytool credentials."
+    },
+    {
+      "platform": "windows",
+      "packageKinds": ["windows-msi", "windows-exe"],
+      "signingKinds": ["windows-authenticode"],
+      "dryRunEvidence": "Local build and release-channel manifest verification can run without Windows code-signing credentials. Actual signing requires Authenticode certificate material and timestamping."
+    }
+  ],
+  "credentialGroups": [
+    {
+      "id": "macos-developer-id",
+      "purpose": "Sign and notarize macOS DMG/PKG packages without storing Apple credentials in docs or logs.",
+      "requiredEnv": [
+        "APPLE_DEVELOPER_ID_CERTIFICATE_P12_BASE64",
+        "APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD",
+        "APPLE_NOTARYTOOL_APPLE_ID",
+        "APPLE_NOTARYTOOL_TEAM_ID",
+        "APPLE_NOTARYTOOL_PASSWORD"
+      ]
+    },
+    {
+      "id": "windows-authenticode",
+      "purpose": "Sign Windows MSI/EXE packages and timestamp signatures without storing certificate material in docs or logs.",
+      "requiredEnv": [
+        "WINDOWS_CODESIGN_CERTIFICATE_PFX_BASE64",
+        "WINDOWS_CODESIGN_CERTIFICATE_PASSWORD",
+        "WINDOWS_CODESIGN_TIMESTAMP_URL"
+      ]
+    },
+    {
+      "id": "release-manifest-signing",
+      "purpose": "Sign release update manifests after artifacts are signed and checksummed.",
+      "requiredEnv": [
+        "SOLO_RELEASE_MANIFEST_PRIVATE_KEY_REF",
+        "SOLO_RELEASE_MANIFEST_PUBLIC_KEY_ID"
+      ]
+    }
+  ],
+  "localDryRunCommands": [
+    "pnpm build",
+    "pnpm verify:prod-bundle",
+    "pnpm verify:release-channel",
+    "pnpm verify:signed-package-preflight"
+  ],
+  "hardGates": [
+    {
+      "id": "macos-developer-id-signing",
+      "requiresCredentialGroup": "macos-developer-id",
+      "evidence": "Signed macOS artifact verifies with codesign/pkgutil/spctl before upload."
+    },
+    {
+      "id": "macos-notarization-stapling",
+      "requiresCredentialGroup": "macos-developer-id",
+      "evidence": "notarytool submission succeeds and notarization ticket is stapled before release."
+    },
+    {
+      "id": "windows-authenticode-signing",
+      "requiresCredentialGroup": "windows-authenticode",
+      "evidence": "Windows MSI/EXE Authenticode signature and timestamp verify before upload."
+    },
+    {
+      "id": "release-manifest-signing",
+      "requiresCredentialGroup": "release-manifest-signing",
+      "evidence": "Release update manifest is signed after artifact SHA-256 digests and signature refs are final."
+    },
+    {
+      "id": "device-install-update-rollback-verification",
+      "requiresCredentialGroup": "external-device-evidence",
+      "evidence": "macOS and Windows devices install, update, defer, retry, and rollback without touching local user data or credentials."
+    }
+  ],
+  "credentialBoundary": "Signing certificates, private keys, Apple notarytool passwords, Windows certificate passwords, and manifest private keys must live only in local secret stores or CI secret managers. Docs, PR bodies, support bundles, logs, and release manifests may contain only key identifiers, public certificate metadata, signature refs, checksums, and redacted evidence."
+}

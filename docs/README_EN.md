@@ -18,12 +18,14 @@ This `docs/` folder is optimized for contributor onboarding and code-backed cont
 | Review decisions and rejected alternatives | [`decisions_EN.md`](decisions_EN.md) |
 | Check DTO/API/route/verifier contracts | [`reference_EN.md`](reference_EN.md) |
 | Review packaged release update channel contracts | [`release-channel_EN.md`](release-channel_EN.md) |
+| Review signed macOS/Windows package preflight | [`signed-packages_EN.md`](signed-packages_EN.md) |
 | Troubleshoot install and local run | [`troubleshooting_EN.md`](troubleshooting_EN.md) |
 
 ## Current posture
 
 - Release channel: limited-beta-style technical preview.
 - Packaged update channel: [`release-channel_EN.md`](release-channel_EN.md) locks only the manifest/signature/checksum/retry/rollback contract; a real packaged updater waits for signed macOS/Windows packages.
+- Signed packages: [`signed-packages_EN.md`](signed-packages_EN.md) and `pnpm verify:signed-package-preflight` lock the credential-free preflight and missing signing credential gate.
 - Runtime shape: local-first web app + local Node/Hono service.
 - Default topology: Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db.
 - Storage: local embedded libSQL with Drizzle; remote sync config does not enable remote storage today and remains inert until a later explicit sync contract exists.
@@ -49,5 +51,6 @@ The old numbered planning docs acted as an implementation contract ledger, with 
 - `decisions_EN.md` for durable decisions and rejected alternatives.
 - `reference_EN.md` for code-backed contract values checked by the verifier.
 - `release-channel_EN.md` for packaged update channel manifests and safety gates.
+- `signed-packages_EN.md` for signed installer package candidates and signing credential gates.
 
 Use git history if an audit needs the full original closeout prose. The active contributor contract is this simplified docs set.
