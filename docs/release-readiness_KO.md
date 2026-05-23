@@ -34,7 +34,7 @@ pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-che
 pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md
 ```
 
-GitHub issue에 붙일 comment 본문만 필요하면 `--format comment`와 `--issue`를 함께 사용합니다.
+GitHub issue에 붙일 comment 본문만 필요하면 `--format comment`와 `--issue`를 함께 사용합니다. 이 형식은 evidence item이 있는 blocker issue 번호만 허용하므로 잘못된 번호는 빈 comment를 만들기 전에 실패합니다.
 
 ```sh
 pnpm release:evidence-checklist -- --format comment --issue 267 --output ./issue-267-release-evidence-comment.md

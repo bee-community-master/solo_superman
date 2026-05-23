@@ -1039,6 +1039,23 @@ function renderReleaseEvidenceChecklistOutput(checklist, format) {
   };
 }
 
+function assertCommentChecklistHasEvidenceItems(checklist, fullChecklist) {
+  if (checklist.checklistItems.length > 0) {
+    return;
+  }
+
+  const issueNumber = checklist.summary.filterIssueNumber;
+  const availableIssueLabels = fullChecklist.summary.blockerIssueNumbers
+    .map(Number)
+    .filter((issue) => Number.isInteger(issue) && issue > 0)
+    .sort((left, right) => left - right)
+    .map((issue) => `#${issue}`);
+  const availableIssues = availableIssueLabels.length > 0
+    ? ` Available blocker issues: ${availableIssueLabels.join(", ")}.`
+    : "";
+  throw new Error(`--format comment matched no release evidence checklist items for issue #${issueNumber}.${availableIssues}`);
+}
+
 export async function runReleaseEvidenceChecklistCli(argv = process.argv.slice(2), options = {}) {
   const parsed = parseReleaseEvidenceChecklistArgs(argv, options.env ?? process.env);
   if (parsed.help) {
@@ -1060,6 +1077,9 @@ export async function runReleaseEvidenceChecklistCli(argv = process.argv.slice(2
   }
 
   const checklist = filterReleaseEvidenceChecklistByIssue(fullChecklist, parsed.issueNumber);
+  if (parsed.format === "comment") {
+    assertCommentChecklistHasEvidenceItems(checklist, fullChecklist);
+  }
   const { payload, content } = renderReleaseEvidenceChecklistOutput(checklist, parsed.format);
 
   if (parsed.outputPath) {

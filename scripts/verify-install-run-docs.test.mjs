@@ -190,6 +190,7 @@ describe("#105 local install/run verification docs", () => {
     expect(readme).toContain("`pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json`");
     expect(readme).toContain("`pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md`");
     expect(readme).toContain("`pnpm release:evidence-checklist -- --format comment --issue 267 --output ./issue-267-release-evidence-comment.md`");
+    expect(readme).toContain("`comment` 형식은 evidence item이 없는 잘못된 이슈 번호에서 실패합니다");
     expect(readme).toContain("`pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle`");
     expect(readme).toContain("`pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
     expect(readme).toContain("`pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json`");
@@ -197,6 +198,7 @@ describe("#105 local install/run verification docs", () => {
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json`");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md`");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format comment --issue 267 --output ./issue-267-release-evidence-comment.md`");
+    expect(englishReadme).toContain("The `comment` format fails for mistyped issue numbers that have no evidence items");
     expect(englishReadme).toContain("`pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle`");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
     expect(englishReadme).toContain("`pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json`");
@@ -204,12 +206,14 @@ describe("#105 local install/run verification docs", () => {
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("## Release evidence checklist");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("release:evidence-bundle");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("--format comment --issue 267");
+    expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("빈 comment를 만들기 전에 실패합니다");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("--format template --issue 266");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("verify:release-evidence-template -- --input");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("모든 ready-release command 실행 기록");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("## Release evidence checklist");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("release:evidence-bundle");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("--format comment --issue 267");
+    expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("fails before an empty comment is written");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("--format template --issue 266");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("verify:release-evidence-template -- --input");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("records every ready-release command");

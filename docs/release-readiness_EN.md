@@ -34,7 +34,7 @@ To create Markdown that can be pasted into a specific blocker issue, combine `--
 pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md
 ```
 
-To generate only the GitHub issue comment body, combine `--format comment` and `--issue`:
+To generate only the GitHub issue comment body, combine `--format comment` and `--issue`. This format only accepts blocker issue numbers with evidence items, so a mistyped issue fails before an empty comment is written:
 
 ```sh
 pnpm release:evidence-checklist -- --format comment --issue 267 --output ./issue-267-release-evidence-comment.md
