@@ -295,6 +295,23 @@ function startCodexLiveRuntimeDiagnostics(config, commands, diagnostics, logPath
   diagnostics.step(`commands=${JSON.stringify(Object.fromEntries(Object.entries(commands).map(([name, [command, args]]) => [name, commandLabel(command, args)])))}`);
 }
 
+async function cleanupCodexLiveRuntimeSmoke(processes, appDataDir, diagnostics, logPath) {
+  diagnostics.step(`cleanup start: processes=${processes.length} appDataDir=${appDataDir}`);
+
+  try {
+    await cleanupManagedSmoke(processes, appDataDir, "verify-codex-live-runtime");
+    diagnostics.step("cleanup completed");
+  } catch (error) {
+    diagnostics.error(error);
+    console.error(`verify-codex-live-runtime: diagnostic log retained at ${logPath}`);
+    await Promise.reject(error);
+  }
+
+  if (processes.length > 0) {
+    console.log(`verify-codex-live-runtime: stopped ${processes.length} managed process(es) and removed temporary app data`);
+  }
+}
+
 export async function runCodexLiveRuntimeVerification() {
   const gateEvidence = liveRuntimeVerificationGateEvidence(process.env);
 
@@ -324,18 +341,7 @@ export async function runCodexLiveRuntimeVerification() {
     console.error(`verify-codex-live-runtime: diagnostic log retained at ${logPath}`);
     throw error;
   } finally {
-    diagnostics.step(`cleanup start: processes=${processes.length} appDataDir=${appDataDir}`);
-    try {
-      await cleanupManagedSmoke(processes, appDataDir, "verify-codex-live-runtime");
-      diagnostics.step("cleanup completed");
-    } catch (error) {
-      diagnostics.error(error);
-      console.error(`verify-codex-live-runtime: diagnostic log retained at ${logPath}`);
-      await Promise.reject(error);
-    }
-    if (processes.length > 0) {
-      console.log(`verify-codex-live-runtime: stopped ${processes.length} managed process(es) and removed temporary app data`);
-    }
+    await cleanupCodexLiveRuntimeSmoke(processes, appDataDir, diagnostics, logPath);
   }
 }
 
