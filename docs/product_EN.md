@@ -50,7 +50,7 @@ Business mode also requires an explicit `businessCriticIntensity`; it has no def
 - Internal terms like Phase 1, Phase 2.5, tracker, or PR number stay out of normal user UI.
 - The question AI acts like a sharp product coach: it explains why it asks, challenges assumptions, and detects fatigue.
 - Repeated questions must converge through topic keys and repeat limits; the app must not trap users in an infinite question loop.
-- Long clarification sessions must show question progress with generated, answered, follow-up, topic coverage, and remaining follow-up budget counts.
+- Long clarification sessions must show question progress with generated, answered, total follow-up, open follow-up, topic coverage, and remaining follow-up budget counts.
 - Question refresh and next-list controls must be visible, while automatic refills can add the next relevant question after a card is answered or carried forward.
 - Long sessions may submit all drafted answers in the current active batch, but the action remains bounded to visible question/follow-up cards and still uses the normal per-answer research loop; when an approved public-web allowlist is active, successful answer submission may quietly start ready read-only research runs through the same bounded task/run path.
 - Research-generated additional questions must re-enter the Decision Queue as answerable follow-up debt, not remain hidden as evidence-card notes only; run-status polling that ingests provider evidence must refresh the Queue and Research surfaces that expose that debt.
