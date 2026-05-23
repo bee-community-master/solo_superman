@@ -3753,6 +3753,14 @@ export function createProductEngineCommandService(
     );
   }
 
+  async function pollReadyProjectResearchRuns(projectIdValue: ProjectId) {
+    const runs = await listProjectResearchRuns(projectIdValue);
+
+    for (const run of runs) {
+      await pollMountedResearchRunResultIfReady(run);
+    }
+  }
+
   async function readPhase15bHintCollection(projectIdValue: ProjectId) {
     const repository = createPhase15bUpgradeHintRepository(storage.db);
 
@@ -5866,6 +5874,7 @@ export function createProductEngineCommandService(
 
     async listResearchRuns(projectIdValue: ProjectId): Promise<ResearchRunControlProjection> {
       await requireProject(projectIdValue);
+      await pollReadyProjectResearchRuns(projectIdValue);
 
       return listResearchRunProjection(projectIdValue);
     },
