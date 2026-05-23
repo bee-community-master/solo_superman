@@ -258,7 +258,7 @@ describe("PR-04 ProductEngine reducer", () => {
           ]),
           possibleRoutes: expect.arrayContaining(["question", "decision_candidate"]),
           repeatCount: 0,
-          repeatLimit: 8
+          repeatLimit: 16
         }),
         expect.objectContaining({
           sectionRef: "Target Customer",
@@ -343,7 +343,7 @@ describe("PR-04 ProductEngine reducer", () => {
       answeredQuestionCount: 0,
       topicCoverageCount: 15,
       openTopicCoverageCount: 15,
-      followUpBudgetRemainingCount: 120,
+      followUpBudgetRemainingCount: 240,
       visibleQuestionDebtCount: 5,
       activeQuestionCount: 5,
       completionPercent: 0
@@ -1771,7 +1771,7 @@ describe("PR-04 ProductEngine reducer", () => {
           status: "open",
           topicKey: expect.stringContaining("_follow_up_1"),
           repeatCount: 1,
-          repeatLimit: 8,
+          repeatLimit: 16,
           expectedAnswerType: "text",
           questionText: expect.stringContaining("paid founder urgency"),
           possibleRoutes: expect.arrayContaining(["question", "research_needed"])
@@ -1781,7 +1781,7 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(answer.events[0]?.payload).toMatchObject({
       followUpQueueItemId: expect.stringMatching(/^queue_followup_/),
       followUpRepeatCount: 1,
-      followUpRepeatLimit: 8
+      followUpRepeatLimit: 16
     });
     expect((answer.immediateProjection as DecisionQueueProjection).progress).toMatchObject({
       generatedQuestionCount: 16,
@@ -1792,7 +1792,7 @@ describe("PR-04 ProductEngine reducer", () => {
       followUpOpenQuestionCount: 1,
       topicCoverageCount: 16,
       openTopicCoverageCount: 15,
-      followUpBudgetRemainingCount: 119,
+      followUpBudgetRemainingCount: 239,
       visibleQuestionDebtCount: 5,
       completionPercent: 6
     });
@@ -1829,7 +1829,7 @@ describe("PR-04 ProductEngine reducer", () => {
       followUpQuestionCount: 1,
       topicCoverageCount: 16,
       openTopicCoverageCount: 15,
-      followUpBudgetRemainingCount: 119,
+      followUpBudgetRemainingCount: 239,
       completionPercent: 6
     });
     expect(replayed.openIssues).toEqual(
@@ -1965,7 +1965,7 @@ describe("PR-04 ProductEngine reducer", () => {
           uncertaintyType: "missing_con_evidence",
           expectedAnswerType: "evidence",
           repeatCount: 1,
-          repeatLimit: 8,
+          repeatLimit: 16,
           questionText: expect.stringContaining("What evidence would resolve Validate paid founder urgency?"),
           possibleRoutes: expect.arrayContaining(["question", "missing_con_evidence", "research_needed"]),
           sourceRef: expect.stringContaining(`research:${researchTaskId}:`)
