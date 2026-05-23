@@ -8,7 +8,8 @@ import {
   ChatGptDelegationPanel,
   chatGptDelegationViewModel
 } from "./ChatGptDelegationPanel";
-import { renderEnglishMarkup } from "./test-rendering";
+import { DECISION_QUEUE_COPY } from "./shell/decision-queue-copy";
+import { renderEnglishMarkup, renderMarkup } from "./test-rendering";
 
 describe("chatGptDelegationViewModel", () => {
   it("surfaces running state, revoke control, artifacts, and ResearchTask activity links", () => {
@@ -19,7 +20,7 @@ describe("chatGptDelegationViewModel", () => {
       status: "running",
       canRevoke: true,
       runId: "chatgpt_delegation_ready_fixture",
-      visibleHandoffLabel: expect.stringContaining("사용자가 볼 수 있는")
+      visibleHandoffLabel: expect.stringContaining("visible local browser")
     });
     expect(view.activityFeedRefs).toContain("research_task:research_task_chatgpt_ready");
     expect(view.artifactRefs).toEqual(expect.arrayContaining([
@@ -50,7 +51,7 @@ describe("chatGptDelegationViewModel", () => {
 
     expect(view.status).toBe("blocked");
     expect(view.canRevoke).toBe(false);
-    expect(view.visibleHandoffLabel).toContain("완전 headless");
+    expect(view.visibleHandoffLabel).toContain("fully headless");
     expect(view.fallbackLabel).toContain("manual_prompt_handoff");
     expect(view.fallbackReason).toContain("Policy risk blocks");
     expect(view.blockReasonItems.join("\n")).toContain("policy_risk_blocked");
@@ -66,7 +67,7 @@ describe("chatGptDelegationViewModel", () => {
 
     expect(view.status).toBe("not_started");
     expect(view.canRevoke).toBe(false);
-    expect(view.visibleHandoffLabel).toContain("사용자 소유 브라우저");
+    expect(view.visibleHandoffLabel).toContain("user-owned browser");
     expect(view.artifactRefs).toEqual([]);
     expect(view.artifactControlLabels).toEqual([]);
     expect(view.dataDisclosureItems).toEqual([]);
@@ -104,6 +105,31 @@ describe("chatGptDelegationViewModel", () => {
     expect(readyMarkup).toContain("Result import: No result import has been captured yet.");
     expect(readyMarkup).toContain("Result import gate");
     expect(readyMarkup).toContain("No result import gate has been evaluated yet.");
+    expect(readyMarkup).not.toMatch(/[가-힣]/u);
     expect(emptyMarkup).not.toContain("ChatGPT delegation safety");
+  });
+
+  it("renders Korean ChatGPT delegation view-model copy in the Korean shell", () => {
+    const view = chatGptDelegationViewModel(
+      CHATGPT_BROWSER_DELEGATION_READY_PROJECTION_FIXTURE,
+      DECISION_QUEUE_COPY.ko.permissions.chatGptDelegationViewModel
+    );
+    const markup = renderMarkup(
+      createElement(ChatGptDelegationPanel, {
+        delegation: view,
+        isBusy: false,
+        onRefreshDelegation: () => undefined,
+        onRevokeDelegation: () => undefined
+      }),
+      "ko"
+    );
+
+    expect(view.visibleHandoffLabel).toContain("사용자가 볼 수 있는");
+    expect(view.dataDisclosureItems.join("\n")).toContain("제외된 민감 필드");
+    expect(view.resultImportGateItems).toContain("결과 가져오기 게이트가 아직 평가되지 않았습니다.");
+    expect(view.artifactControlLabels.join("\n")).toContain("보관된 prompt/result/screenshot/log");
+    expect(markup).toContain("ChatGPT 위임 안전 확인");
+    expect(markup).toContain("결과 가져오기: 아직 결과 가져오기가 기록되지 않았습니다.");
+    expect(markup).not.toContain("ChatGPT delegation safety");
   });
 });

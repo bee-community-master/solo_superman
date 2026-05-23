@@ -5,6 +5,7 @@ import type {
   ProjectPurposeMode
 } from "@solo-superman/contracts";
 import { useAppLanguage } from "../../../shared/i18n/app-language";
+import type { ChatGptDelegationViewModelCopy } from "../ChatGptDelegationPanel";
 import type { Phase15bReadinessViewModelCopy } from "../decision-queue-view-model";
 import type { DecisionQueuePageId } from "./decision-queue-shell-model";
 
@@ -664,6 +665,64 @@ const EN_COPY = {
     fallback: "Fallback",
     fallbackReason: "Fallback reason",
     chatGptDelegationSafety: "ChatGPT delegation safety",
+    chatGptDelegationViewModel: {
+      visibleHandoffLabels: {
+        waiting_for_approval: "ChatGPT browser work does not start before user approval.",
+        running:
+          "Only visible local browser work is allowed; Solo Superman does not store accounts, cookies, or 2FA.",
+        waiting_for_user: "Login, CAPTCHA, usage limits, or UI changes require direct user action.",
+        importing_result: "Imported results must pass provenance, uncertainty, con-evidence, and freshness gates.",
+        completed:
+          "Result import is complete, but retained artifacts must remain exportable or deletable by the user.",
+        blocked:
+          "Use manual prompt handoff or official paths instead of fully headless ChatGPT Pro automation.",
+        failed:
+          "Use manual prompt handoff or official paths instead of fully headless ChatGPT Pro automation.",
+        revoked: "The user revoked this delegation, so browser work cannot continue.",
+        pending_preflight: "Record prompt, redaction, policy, and session-ownership preflight checks first."
+      },
+      notStarted: {
+        summary: "External AI workspace has not been prepared.",
+        explanation: "No per-run local browser workspace has been recorded for this session.",
+        visibleHandoffLabel:
+          "ChatGPT Pro/Deep Research is prepared only as visible delegation in a user-owned browser.",
+        nextAction:
+          "Plan a research task and prepare a safe browser handoff preview before using an external AI workspace.",
+        retentionLabel: "No prompt/result/screenshot/log artifacts are stored yet."
+      },
+      dataDisclosure: {
+        disclosurePreview: (ref: string) => `Disclosure preview: ${ref}`,
+        promptContextSummary: (ref: string) => `Prompt context summary: ${ref}`,
+        redactedPromptPreview: (ref: string) => `Redacted prompt preview: ${ref}`,
+        excludedSensitiveFields: (value: string) => `Excluded sensitive fields: ${value}`,
+        redactionPreviewShown: (value: string) => `Redaction preview shown: ${value}`,
+        userCanEditPromptBeforeRun: (value: string) => `User can edit prompt before run: ${value}`,
+        none: "none",
+        yes: "yes",
+        no: "no"
+      },
+      resultImportGate: {
+        notEvaluated: "No result import gate has been evaluated yet.",
+        sourceProvenance: (status: string, refs: string) => `Source provenance: ${status} (${refs})`,
+        noSourceRefs: "no source refs",
+        uncertainty: (status: string, refs: string) => `Uncertainty: ${status} (${refs})`,
+        noUncertaintyRefs: "no uncertainty refs",
+        conEvidence: (status: string, refs: string) => `Con evidence: ${status} (${refs})`,
+        noConEvidenceRefs: "no con evidence refs",
+        staleRisk: (status: string, refs: string) => `Stale risk: ${status} (${refs})`,
+        noStaleRiskRefs: "no stale risk refs",
+        importRationale: (rationale: string) => `Import rationale: ${rationale}`
+      },
+      artifactControls: {
+        exportRetained: "Export retained prompt/result/screenshot/log artifact refs",
+        deleteRetained: "Delete retained artifacts while leaving audit metadata only"
+      },
+      missingBrowserActionAuthority: "missing browser action authority",
+      noResultImport: "No result import has been captured yet.",
+      retentionWithControls:
+        "Prompt/result/screenshot/log artifacts are retained by default with export/delete controls; deleting artifacts leaves audit metadata only.",
+      retentionUnavailable: "Artifact retention controls are unavailable for this run."
+    } satisfies ChatGptDelegationViewModelCopy,
     dataDisclosurePreview: "Data disclosure preview",
     policyRiskVerdict: "Policy risk verdict",
     sessionOwnershipVerdict: "Session ownership verdict",
@@ -674,6 +733,8 @@ const EN_COPY = {
     resultImport: "Result import",
     resultImportGate: "Result import gate",
     storedArtifacts: "Saved artifacts",
+    artifactControlTitle:
+      "This PR exposes the artifact control surface and retained refs; artifact content export/delete execution remains separate from revoke.",
     redactionPreview: "Redaction preview",
     noRetainedArtifactRefs: "No saved artifact references.",
     activityFeedLinks: "Activity feed links",
@@ -1354,6 +1415,64 @@ const JA_COPY: typeof EN_COPY = {
     fallback: "フォールバック",
     fallbackReason: "フォールバック理由",
     chatGptDelegationSafety: "ChatGPT委任の安全確認",
+    chatGptDelegationViewModel: {
+      visibleHandoffLabels: {
+        waiting_for_approval: "ユーザー承認の前にChatGPTブラウザ作業は開始しません。",
+        running:
+          "ユーザーに見えるローカルブラウザ作業だけを許可し、アカウント、Cookie、2FAは保存しません。",
+        waiting_for_user: "ログイン、CAPTCHA、利用制限、UI変更はユーザーの直接操作が必要です。",
+        importing_result: "取り込んだ結果は出典、不確実性、反証、鮮度ゲートを通過する必要があります。",
+        completed:
+          "結果の取り込みは完了しましたが、保持された資料はユーザーがエクスポートまたは削除できる必要があります。",
+        blocked:
+          "完全なheadless ChatGPT Pro自動化ではなく、手動プロンプト引き継ぎまたは公式経路を使います。",
+        failed:
+          "完全なheadless ChatGPT Pro自動化ではなく、手動プロンプト引き継ぎまたは公式経路を使います。",
+        revoked: "ユーザーが委任を取り消したため、ブラウザ作業は続行できません。",
+        pending_preflight: "先にプロンプト、マスキング、ポリシー、セッション所有確認の事前チェックを記録します。"
+      },
+      notStarted: {
+        summary: "外部AI作業スペースはまだ準備されていません。",
+        explanation: "このセッションでは実行ごとのローカルブラウザ作業スペースがまだ記録されていません。",
+        visibleHandoffLabel:
+          "ChatGPT Pro/Deep Researchは、ユーザー所有ブラウザで見える委任としてのみ準備します。",
+        nextAction:
+          "外部AI作業スペースを使う前に、リサーチタスクを計画し、安全なブラウザ引き継ぎプレビューを準備してください。",
+        retentionLabel: "プロンプト/結果/スクリーンショット/ログ資料はまだ保存されていません。"
+      },
+      dataDisclosure: {
+        disclosurePreview: (ref: string) => `開示プレビュー: ${ref}`,
+        promptContextSummary: (ref: string) => `プロンプト文脈要約: ${ref}`,
+        redactedPromptPreview: (ref: string) => `マスキング済みプロンプトプレビュー: ${ref}`,
+        excludedSensitiveFields: (value: string) => `除外した機微フィールド: ${value}`,
+        redactionPreviewShown: (value: string) => `マスキングプレビュー表示: ${value}`,
+        userCanEditPromptBeforeRun: (value: string) => `実行前にユーザーがプロンプトを編集可能: ${value}`,
+        none: "なし",
+        yes: "はい",
+        no: "いいえ"
+      },
+      resultImportGate: {
+        notEvaluated: "結果取り込みゲートはまだ評価されていません。",
+        sourceProvenance: (status: string, refs: string) => `出典来歴: ${status} (${refs})`,
+        noSourceRefs: "出典参照なし",
+        uncertainty: (status: string, refs: string) => `不確実性: ${status} (${refs})`,
+        noUncertaintyRefs: "不確実性参照なし",
+        conEvidence: (status: string, refs: string) => `反証: ${status} (${refs})`,
+        noConEvidenceRefs: "反証参照なし",
+        staleRisk: (status: string, refs: string) => `鮮度リスク: ${status} (${refs})`,
+        noStaleRiskRefs: "鮮度リスク参照なし",
+        importRationale: (rationale: string) => `取り込み理由: ${rationale}`
+      },
+      artifactControls: {
+        exportRetained: "保持されたプロンプト/結果/スクリーンショット/ログ資料参照をエクスポート",
+        deleteRetained: "監査メタデータだけを残して保持資料を削除"
+      },
+      missingBrowserActionAuthority: "ブラウザ操作権限がありません",
+      noResultImport: "結果取り込みはまだ記録されていません。",
+      retentionWithControls:
+        "プロンプト/結果/スクリーンショット/ログ資料は標準で保持され、エクスポート/削除できます。削除後は監査メタデータのみ残ります。",
+      retentionUnavailable: "この実行では資料保持コントロールを利用できません。"
+    },
     dataDisclosurePreview: "データ開示プレビュー",
     policyRiskVerdict: "ポリシーリスク判定",
     sessionOwnershipVerdict: "セッション所有判定",
@@ -1364,6 +1483,8 @@ const JA_COPY: typeof EN_COPY = {
     resultImport: "結果取り込み",
     resultImportGate: "結果取り込みゲート",
     storedArtifacts: "保存済み資料",
+    artifactControlTitle:
+      "このPRは資料コントロール面と保持参照を表示します。資料本文のエクスポート/削除実行は取り消しとは別です。",
     redactionPreview: "非表示化プレビュー",
     noRetainedArtifactRefs: "保存済み資料の参照はありません。",
     activityFeedLinks: "活動フィードリンク",
@@ -2042,6 +2163,58 @@ const KO_COPY: typeof EN_COPY = {
     fallback: "대체 경로",
     fallbackReason: "대체 사유",
     chatGptDelegationSafety: "ChatGPT 위임 안전 확인",
+    chatGptDelegationViewModel: {
+      visibleHandoffLabels: {
+        waiting_for_approval: "사용자 승인 전에는 ChatGPT 브라우저 작업을 시작하지 않습니다.",
+        running: "사용자가 볼 수 있는 로컬 브라우저 작업만 허용되며 계정/쿠키/2FA는 저장하지 않습니다.",
+        waiting_for_user: "로그인, CAPTCHA, 사용량 제한, UI 변경은 사용자 직접 조치가 필요합니다.",
+        importing_result: "가져온 결과는 출처/불확실성/반대근거/신선도 게이트를 통과해야 합니다.",
+        completed: "결과 가져오기가 끝났지만 저장 자료는 사용자가 내보내거나 삭제할 수 있어야 합니다.",
+        blocked: "완전 headless ChatGPT Pro 자동화 대신 수동 프롬프트 전달 또는 공식 경로로 대체합니다.",
+        failed: "완전 headless ChatGPT Pro 자동화 대신 수동 프롬프트 전달 또는 공식 경로로 대체합니다.",
+        revoked: "사용자가 위임을 취소했으므로 더 이상 브라우저 작업을 계속할 수 없습니다.",
+        pending_preflight: "프롬프트/가림 처리/정책/세션 소유권 사전 점검을 먼저 기록합니다."
+      },
+      notStarted: {
+        summary: "외부 AI 작업공간이 아직 준비되지 않았습니다.",
+        explanation: "이 세션에는 실행별 로컬 브라우저 작업공간이 아직 기록되지 않았습니다.",
+        visibleHandoffLabel: "ChatGPT Pro/Deep Research는 사용자 소유 브라우저에서 보이는 위임으로만 준비합니다.",
+        nextAction: "외부 AI 작업공간을 사용하기 전에 리서치 작업을 계획하고 안전한 브라우저 인계 preview를 준비하세요.",
+        retentionLabel: "아직 prompt/result/screenshot/log 자료가 저장되지 않았습니다."
+      },
+      dataDisclosure: {
+        disclosurePreview: (ref: string) => `공개 미리보기: ${ref}`,
+        promptContextSummary: (ref: string) => `프롬프트 문맥 요약: ${ref}`,
+        redactedPromptPreview: (ref: string) => `가림 처리된 프롬프트 미리보기: ${ref}`,
+        excludedSensitiveFields: (value: string) => `제외된 민감 필드: ${value}`,
+        redactionPreviewShown: (value: string) => `가림 처리 미리보기 표시: ${value}`,
+        userCanEditPromptBeforeRun: (value: string) => `실행 전 사용자 프롬프트 수정 가능: ${value}`,
+        none: "없음",
+        yes: "예",
+        no: "아니오"
+      },
+      resultImportGate: {
+        notEvaluated: "결과 가져오기 게이트가 아직 평가되지 않았습니다.",
+        sourceProvenance: (status: string, refs: string) => `출처 이력: ${status} (${refs})`,
+        noSourceRefs: "출처 참조 없음",
+        uncertainty: (status: string, refs: string) => `불확실성: ${status} (${refs})`,
+        noUncertaintyRefs: "불확실성 참조 없음",
+        conEvidence: (status: string, refs: string) => `반대 근거: ${status} (${refs})`,
+        noConEvidenceRefs: "반대 근거 참조 없음",
+        staleRisk: (status: string, refs: string) => `신선도 리스크: ${status} (${refs})`,
+        noStaleRiskRefs: "신선도 리스크 참조 없음",
+        importRationale: (rationale: string) => `가져오기 근거: ${rationale}`
+      },
+      artifactControls: {
+        exportRetained: "보관된 prompt/result/screenshot/log 자료 참조 내보내기",
+        deleteRetained: "감사 metadata만 남기고 보관 자료 삭제"
+      },
+      missingBrowserActionAuthority: "브라우저 작업 권한 없음",
+      noResultImport: "아직 결과 가져오기가 기록되지 않았습니다.",
+      retentionWithControls:
+        "prompt/result/screenshot/log 자료는 기본적으로 보관되며 내보내기/삭제 제어를 제공합니다. 삭제하면 감사 metadata만 남습니다.",
+      retentionUnavailable: "이 실행에서는 자료 보관 제어를 사용할 수 없습니다."
+    },
     dataDisclosurePreview: "데이터 공개 미리보기",
     policyRiskVerdict: "정책 리스크 판정",
     sessionOwnershipVerdict: "세션 소유권 판정",
@@ -2052,6 +2225,8 @@ const KO_COPY: typeof EN_COPY = {
     resultImport: "결과 가져오기",
     resultImportGate: "결과 가져오기 게이트",
     storedArtifacts: "저장된 자료",
+    artifactControlTitle:
+      "이 PR은 자료 제어 화면과 보관 참조를 노출합니다. 자료 본문 내보내기/삭제 실행은 위임 취소와 별도입니다.",
     redactionPreview: "가림 처리 미리보기",
     noRetainedArtifactRefs: "저장된 자료 참조가 없습니다.",
     activityFeedLinks: "활동 기록 링크",

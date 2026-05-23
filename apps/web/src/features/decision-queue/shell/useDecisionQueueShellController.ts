@@ -499,8 +499,8 @@ export function useDecisionQueueShellController() {
     [projections.planningHandoff]
   );
   const chatGptDelegationView = useMemo(
-    () => chatGptDelegationViewModel(projections.chatGptDelegation),
-    [projections.chatGptDelegation]
+    () => chatGptDelegationViewModel(projections.chatGptDelegation, copy.permissions.chatGptDelegationViewModel),
+    [copy.permissions.chatGptDelegationViewModel, projections.chatGptDelegation]
   );
   const servicePageUsePermissionView = useMemo(
     () => servicePageUsePermissionViewModel(projections.servicePageUsePermission),
