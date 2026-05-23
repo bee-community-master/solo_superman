@@ -8847,7 +8847,9 @@ describe("PR-02 sidecar health shell", () => {
       expect(firstIssue).toContain("Review streak evidence is recorded before the next stage is marked complete.");
       expect(finalVerifyIssue).toContain("Audit missing tests against the issue acceptance criteria");
       expect(finalVerifyIssue).toContain("Update the PR description with scope, review streaks, exact verification commands");
-      expect(mergeIssue).toContain("Sync main after merge and rerun the full verification command on main.");
+      expect(mergeIssue).toContain(
+        "Sync main after merge and rerun the full verification command on main with post-merge verification evidence."
+      );
       expect(manifest).toMatchObject({
         runId: latestRun.runId,
         projectFolderName: "demo-workspace-app",
@@ -11034,6 +11036,58 @@ describe("PR-02 sidecar health shell", () => {
       const appliedRun = latestAutoImplementationRunFromBody(await jsonBody(applied));
       const appliedRecord = (appliedRun.pullRequestMutations as Readonly<Record<string, unknown>>).latestRecord as
         Readonly<Record<string, unknown>>;
+      const staleMergeMainVerification = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "merge_main", {
+        idempotencyKey: "auto-stage:complete:merge-main-before-post-merge-verify",
+        action: "complete",
+        implementationStepId: "step_demo",
+        tickedAt: "2026-05-20T00:50:00.000Z",
+        evidenceRefs: ["stage:merge_main:complete-before-post-merge-verify"]
+      });
+      const staleMergeMainVerificationBody = await jsonBody(staleMergeMainVerification);
+      const postMergeVerifyRef = "post-merge-verify:merge_main:pnpm-verify";
+
+      await createProjectionRepository(storage.db).save({
+        projectId: projectId as ProjectId,
+        sessionId: sessionId as SessionId,
+        projection: {
+          ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+          sessionId: sessionId as SessionId,
+          steps: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps.map((step, index) => index === 0
+            ? {
+                ...step,
+                evidenceRefs: [...step.evidenceRefs, postMergeVerifyRef],
+                testEvidenceRecord: {
+                  ...step.testEvidenceRecord!,
+                  evidenceRefs: [...step.testEvidenceRecord!.evidenceRefs, postMergeVerifyRef]
+                },
+                missingTestAuditRecord: {
+                  ...step.missingTestAuditRecord!,
+                  coverageEvidenceRefs: [...step.missingTestAuditRecord!.coverageEvidenceRefs, postMergeVerifyRef]
+                }
+              }
+            : step),
+          testEvidenceRecords: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords.map((record, index) =>
+            index === 0
+              ? {
+                  ...record,
+                  evidenceRefs: [...record.evidenceRefs, postMergeVerifyRef]
+                }
+              : record
+          ),
+          missingTestAuditRecords: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.missingTestAuditRecords.map((record, index) =>
+            index === 0
+              ? {
+                  ...record,
+                  coverageEvidenceRefs: [...record.coverageEvidenceRefs, postMergeVerifyRef]
+                }
+              : record
+          ),
+          refetchUrl: `/api/v1/sessions/${sessionId}/implementation-step-ledger`,
+          schemaVersion: IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION
+        },
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        updatedAt: "2026-05-20T00:49:00.000Z"
+      });
       const completedMergeMain = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "merge_main", {
         idempotencyKey: "auto-stage:complete:merge-main-after-applied-merge",
         action: "complete",
@@ -11089,6 +11143,14 @@ describe("PR-02 sidecar health shell", () => {
           "github-pr-mutation:applied",
           "github-pr-mutation:mock-adapter:merged"
         ])
+      });
+      expect(staleMergeMainVerification.status).toBe(400);
+      expect(staleMergeMainVerificationBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Auto implementation stage completion requires complete ledger evidence.",
+        details: {
+          missingEvidence: ["post-merge verification evidence ref for merge_main"]
+        }
       });
       expect(completedMergeMain.status).toBe(200);
       expect(completedMergeMainRun).toMatchObject({
