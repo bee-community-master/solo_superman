@@ -8780,6 +8780,7 @@ describe("PR-02 sidecar health shell", () => {
       expect(firstIssue).toContain("<!-- solo-superman:auto-implementation-issue-state:start -->");
       expect(firstIssue).toContain("## Auto implementation issue state");
       expect(firstIssue).toContain("- Issue status: open");
+      expect(firstIssue).toContain("- GitHub issue URL: none");
       expect(firstIssue).toContain("- Stage status: ready");
       expect(firstIssue).toContain("- Issue status summary: 0 completed / 0 blocked / 7 open / 7 total");
       expect(firstIssue).toContain("- Stage evidence refs: none");
@@ -10237,6 +10238,10 @@ describe("PR-02 sidecar health shell", () => {
       const issueManagement = latestRun.issueManagement as Readonly<Record<string, unknown>>;
       const githubIssueMutation = issueManagement.githubIssueMutation as Readonly<Record<string, unknown>>;
       const tracker = await readFile(join(workspaceRoot, "approved-github-issues", "implementation-tracker.md"), "utf8");
+      const firstIssue = await readFile(
+        join(workspaceRoot, "approved-github-issues", "implementation-issues", "001-initial_pr.md"),
+        "utf8"
+      );
 
       expect(response.status).toBe(200);
       expect(issueCreateInputs).toHaveLength(1);
@@ -10280,6 +10285,7 @@ describe("PR-02 sidecar health shell", () => {
       );
       expect(tracker).toContain("- Status: applied");
       expect(tracker).toContain("Created GitHub issue URLs: https://github.com/bee-community-master/generated-demo/issues/101");
+      expect(firstIssue).toContain("- GitHub issue URL: https://github.com/bee-community-master/generated-demo/issues/101");
 
       const duplicateResponse = await postAutoImplementationRunForTest(storageApp, sessionId, {
         idempotencyKey: "auto-implementation-route:github-issue-approved-duplicate",
