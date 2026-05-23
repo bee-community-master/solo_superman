@@ -20,11 +20,13 @@ function blockedContract(overrides = {}) {
         "pnpm verify:windows-real-device",
         "pnpm verify:packaged-update-rollback",
         "pnpm verify:signed-package-preflight",
+        "pnpm verify:signed-package-release",
         "pnpm verify:release-readiness",
         "pnpm verify"
       ],
       readyRelease: [
         "pnpm verify:signed-package-preflight -- --require-credentials",
+        "pnpm verify:signed-package-release -- --require-release-evidence",
         "pnpm verify:windows-real-device -- --require-device-evidence",
         "pnpm verify:packaged-update-rollback -- --require-device-evidence",
         "pnpm verify:release-readiness -- --require-ready"
@@ -37,7 +39,7 @@ function blockedContract(overrides = {}) {
         requiredFor: "general-release",
         blocker: "Signing credentials and notarization evidence are not present.",
         blockerIssue: "https://github.com/bee-community-master/solo_superman/issues/266",
-        evidenceRefs: ["docs/signed-packages_KO.md", "docs/signed-package-preflight.example.json"],
+        evidenceRefs: ["docs/signed-packages_KO.md", "docs/signed-package-release.example.json"],
         requiredEvidence: ["macOS Developer ID signing", "Windows Authenticode timestamp verification"],
         unblockCriteria: ["Run credential-required signed package preflight in release environment"]
       },
@@ -164,8 +166,10 @@ describe("release readiness verification", () => {
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:prod-bundle",
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:windows-real-device",
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:packaged-update-rollback",
+      "$.requiredVerificationCommands.credentialFree: must include pnpm verify:signed-package-release",
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:release-readiness",
       "$.requiredVerificationCommands.readyRelease: must be a string list with at least 1 item(s)",
+      "$.requiredVerificationCommands.readyRelease: must include pnpm verify:signed-package-release -- --require-release-evidence",
       "$.requiredVerificationCommands.readyRelease: must include pnpm verify:windows-real-device -- --require-device-evidence",
       "$.requiredVerificationCommands.readyRelease: must include pnpm verify:packaged-update-rollback -- --require-device-evidence",
       "$.requiredVerificationCommands.readyRelease: must include pnpm verify:release-readiness -- --require-ready"

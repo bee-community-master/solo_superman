@@ -21,6 +21,7 @@ const PACKAGE_METADATA_SCRIPT = [
   "verifyWindowsRealDevice:scripts['verify:windows-real-device'],",
   "verifyPackagedUpdateRollback:scripts['verify:packaged-update-rollback'],",
   "verifySignedPackagePreflight:scripts['verify:signed-package-preflight'],",
+  "verifySignedPackageRelease:scripts['verify:signed-package-release'],",
   "verifyReleaseReadiness:scripts['verify:release-readiness'],",
   "supportBundle:scripts['support:bundle']",
   "}}))"
@@ -41,6 +42,10 @@ const RELEASE_DIAGNOSTIC_COMMANDS = {
   signedPackagePreflight: {
     command: "pnpm verify:signed-package-preflight",
     args: ["scripts/verify-signed-package-preflight.mjs"]
+  },
+  signedPackageRelease: {
+    command: "pnpm verify:signed-package-release",
+    args: ["scripts/verify-signed-package-release.mjs"]
   },
   releaseReadiness: {
     command: "pnpm verify:release-readiness",
@@ -255,6 +260,16 @@ function compactReleaseDiagnostic(name, result) {
         missingCredentialGroups: compactMissingCredentialGroups(parsed.missingCredentialGroups),
         issues: stringList(parsed.issues)
       };
+    case "signedPackageRelease":
+      return {
+        ...summary,
+        releaseEvidenceStatus: typeof parsed.releaseEvidenceStatus === "string"
+          ? parsed.releaseEvidenceStatus
+          : "unknown",
+        signedPackageReleaseReady: parsed.signedPackageReleaseReady === true,
+        blockedEvidenceRuns: stringList(parsed.blockedEvidenceRuns),
+        blockers: stringList(parsed.blockers)
+      };
     case "releaseReadiness":
       return {
         ...summary,
@@ -360,6 +375,7 @@ export async function createSupportBundle(options = {}) {
       "pnpm verify:windows-real-device",
       "pnpm verify:packaged-update-rollback",
       "pnpm verify:signed-package-preflight",
+      "pnpm verify:signed-package-release",
       "pnpm verify:release-readiness",
       "pnpm verify",
       "pnpm support:bundle"

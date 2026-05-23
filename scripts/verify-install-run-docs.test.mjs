@@ -16,6 +16,8 @@ const windowsRealDeviceDoc = readFileSync("docs/windows-real-device_KO.md", "utf
 const windowsRealDeviceExample = readFileSync("docs/windows-real-device.example.json", "utf8");
 const signedPackagesDoc = readFileSync("docs/signed-packages_KO.md", "utf8");
 const signedPackagePreflightExample = readFileSync("docs/signed-package-preflight.example.json", "utf8");
+const signedPackageReleaseDoc = readFileSync("docs/signed-package-release_KO.md", "utf8");
+const signedPackageReleaseExample = readFileSync("docs/signed-package-release.example.json", "utf8");
 const windowsBlocks = [...runbook.matchAll(/```powershell\n([\s\S]*?)\n```/g)].map((match) => match[1]);
 const publicRepoUrl = "https://github.com/bee-community-master/solo_superman.git";
 const publicRawBase = "https://raw.githubusercontent.com/bee-community-master/solo_superman/main";
@@ -82,6 +84,8 @@ describe("#105 local install/run verification docs", () => {
     expect(readme).toContain("`pnpm verify:windows-real-device`");
     expect(readme).toContain("서명된 설치 패키지 preflight");
     expect(readme).toContain("`pnpm verify:signed-package-preflight`");
+    expect(readme).toContain("서명된 패키지 release evidence 계약");
+    expect(readme).toContain("`pnpm verify:signed-package-release`");
     expect(releaseChannelDoc).toContain("Git checkout technical preview");
     expect(releaseChannelDoc).toContain("Packaged app release");
     expect(releaseChannelDoc).toContain("서명된 manifest, artifact checksum, artifact signature");
@@ -94,6 +98,8 @@ describe("#105 local install/run verification docs", () => {
     expect(signedPackagesDoc).toContain("windows-msi");
     expect(signedPackagesDoc).toContain("credential-free default preflight");
     expect(signedPackagePreflightExample).toContain('"schemaVersion": "solo-superman-signed-package-preflight.v1"');
+    expect(signedPackageReleaseDoc).toContain("release_manifest_signature_verify");
+    expect(signedPackageReleaseExample).toContain('"schemaVersion": "solo-superman-signed-package-release.v1"');
     expect(englishReadme).toContain("Language: [한국어](README.md) | English");
     expect(englishReadme).toContain(`irm ${publicRawBase}/scripts/win.ps1 | iex`);
     expect(englishReadme).toContain("tiny Windows launcher");
@@ -109,6 +115,8 @@ describe("#105 local install/run verification docs", () => {
     expect(englishReadme).toContain("`pnpm verify:windows-real-device`");
     expect(englishReadme).toContain("Signed installer package preflight");
     expect(englishReadme).toContain("`pnpm verify:signed-package-preflight`");
+    expect(englishReadme).toContain("Signed package release evidence contract");
+    expect(englishReadme).toContain("`pnpm verify:signed-package-release`");
     expect(windowsLauncher).toContain(`${publicRawBase}/scripts/bootstrap-windows.ps1`);
     expect(windowsLauncher).toContain("[Console]::OutputEncoding");
     expect(windowsLauncher).toContain("[Net.ServicePointManager]::SecurityProtocol");

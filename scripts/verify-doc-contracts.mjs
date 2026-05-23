@@ -18,6 +18,7 @@ export const CONTRIBUTOR_DOC_PATHS = [
   "docs/packaged-update-rollback_KO.md",
   "docs/windows-real-device_KO.md",
   "docs/signed-packages_KO.md",
+  "docs/signed-package-release_KO.md",
   "docs/release-readiness_KO.md",
   "docs/troubleshooting_KO.md"
 ];
@@ -37,6 +38,7 @@ const CONTRIBUTOR_DOC_SLUGS = [
   "packaged-update-rollback",
   "windows-real-device",
   "signed-packages",
+  "signed-package-release",
   "release-readiness",
   "troubleshooting"
 ];
@@ -731,10 +733,22 @@ function checkContributorDocsSnippets() {
     "secret"
   ]);
 
+  requireSnippets("signed package release doc missing evidence contract", docs["docs/signed-package-release_KO.md"], [
+    "solo-superman-signed-package-release.v1",
+    "pnpm verify:signed-package-release",
+    "--require-release-evidence",
+    "macos_notarization_status",
+    "windows_authenticode_verify",
+    "release_manifest_signature_verify",
+    "#266",
+    "secret"
+  ]);
+
   requireSnippets("release readiness doc missing broad release gates", docs["docs/release-readiness_KO.md"], [
     "solo-superman-release-readiness.v1",
     "pnpm verify:windows-real-device",
     "pnpm verify:packaged-update-rollback",
+    "pnpm verify:signed-package-release",
     "pnpm verify:release-readiness",
     "--require-ready",
     "signed-packages",

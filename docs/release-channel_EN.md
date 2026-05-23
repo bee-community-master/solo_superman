@@ -54,8 +54,9 @@ This channel contract is a prerequisite safety guard for a future packaged updat
 1. macOS/Windows signed package format decisions.
 2. Developer ID/notarization or Windows Authenticode signing credential operations.
 3. Release hosting, manifest signing key rotation, and revoked-release handling.
-4. Windows real-device or VM verification from one-line install through first-screen arrival strong enough for `pnpm verify:windows-real-device -- --require-device-evidence` from [`windows-real-device_EN.md`](windows-real-device_EN.md).
-5. macOS/Windows real install, update, and rollback device verification strong enough for `pnpm verify:packaged-update-rollback -- --require-device-evidence` from [`packaged-update-rollback_EN.md`](packaged-update-rollback_EN.md).
-6. Passing the `pnpm verify:release-readiness -- --require-ready` gate from [`release-readiness_EN.md`](release-readiness_EN.md).
+4. macOS/Windows signing and release manifest evidence strong enough for `pnpm verify:signed-package-release -- --require-release-evidence` from [`signed-package-release_EN.md`](signed-package-release_EN.md).
+5. Windows real-device or VM verification from one-line install through first-screen arrival strong enough for `pnpm verify:windows-real-device -- --require-device-evidence` from [`windows-real-device_EN.md`](windows-real-device_EN.md).
+6. macOS/Windows real install, update, and rollback device verification strong enough for `pnpm verify:packaged-update-rollback -- --require-device-evidence` from [`packaged-update-rollback_EN.md`](packaged-update-rollback_EN.md).
+7. Passing the `pnpm verify:release-readiness -- --require-ready` gate from [`release-readiness_EN.md`](release-readiness_EN.md).
 
 Until those conditions are met, the README one-line installer rerun safe fast-forward path remains the only current update path.
