@@ -120,7 +120,8 @@ function aggregateFixtureValidations(validations) {
 export async function runReleaseEvidenceTemplateVerifierCli(argv = process.argv.slice(2), options = {}) {
   const parsed = parseReleaseEvidenceTemplateVerifierArgs(argv, options.env ?? process.env);
   if (parsed.help) {
-    console.log("Usage: pnpm verify:release-evidence-template [--input <filled-template.json>] [--issue <number>]");
+    console.log("Usage: pnpm verify:release-evidence-template [--input <filled-template.json> | --issue <number>]");
+    console.log("Default: validate credential-free fixture templates for every blocked release issue.");
     return { status: "help" };
   }
 
