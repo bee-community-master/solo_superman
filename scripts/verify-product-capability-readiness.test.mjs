@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PRODUCT_CAPABILITY_READINESS_SCHEMA_VERSION,
+  evidenceForEvaluation,
   evaluateProductCapabilityReadiness,
   parseProductCapabilityReadinessArgs,
   validateProductCapabilityReadinessContract
@@ -97,6 +98,16 @@ describe("product capability readiness verification", () => {
       blockedCapabilities: [],
       blockers: []
     });
+  });
+
+  it("reports behavior snippet verification in readiness evidence", () => {
+    const evidence = evidenceForEvaluation(evaluateProductCapabilityReadiness(codeBackedContract()), {
+      requireCodeBacked: false
+    });
+
+    expect(evidence.checked).toContain(
+      "required capability behavior snippets, including generated PR body summary coverage"
+    );
   });
 
   it("fails when a required capability is omitted", () => {
