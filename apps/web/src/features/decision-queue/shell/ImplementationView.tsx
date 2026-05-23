@@ -1,5 +1,6 @@
 import { AutoImplementationRunPanel } from "../AutoImplementationRunPanel";
 import { ImplementationStepLedgerPanel } from "../ImplementationStepLedgerPanel";
+import { codexRuntimeEvidenceView } from "../codex-runtime-status-view";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
@@ -45,12 +46,23 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     workerLedgerImportDraft,
     setWorkerLedgerImportDraft
   } = controller;
+  const runtimeEvidence = codexRuntimeEvidenceView(runtimeStatus);
   const runtimeEvidenceItems = runtimeStatus
     ? [
-        [copy.implementation.runtimeCheckedAt, runtimeStatus.checkedAt],
-        [copy.implementation.runtimeAdapterVersion, runtimeStatus.adapterVersion],
-        [copy.implementation.runtimeGeneratedSchemaVersion, runtimeStatus.generatedSchemaVersion],
-        [copy.implementation.runtimeTransport, runtimeStatus.transport]
+        [copy.implementation.runtimeCheckedAt, runtimeEvidence.checkedAtLabel],
+        [copy.implementation.runtimeAdapterVersion, runtimeEvidence.adapterVersionLabel],
+        [copy.implementation.runtimeGeneratedSchemaVersion, runtimeEvidence.generatedSchemaVersionLabel],
+        [copy.implementation.runtimeTransport, runtimeEvidence.transportLabel],
+        [copy.implementation.runtimeExecutionMode, runtimeEvidence.executionModeLabel],
+        [copy.implementation.runtimeAccount, runtimeEvidence.accountLabel],
+        [
+          copy.implementation.runtimeLiveTurns,
+          copy.implementation.runtimeLiveTurnStates[runtimeEvidence.liveTurnsState]
+        ],
+        [
+          copy.implementation.runtimeManualHandoff,
+          copy.implementation.runtimeManualHandoffStates[runtimeEvidence.manualHandoffState]
+        ]
       ]
     : [];
 
@@ -149,7 +161,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             {runtimeEvidenceItems.map(([label, value]) => (
               <div key={label}>
                 <dt>{label}</dt>
-                <dd>{value}</dd>
+                <dd>{value ?? copy.implementation.unknown}</dd>
               </div>
             ))}
           </dl>

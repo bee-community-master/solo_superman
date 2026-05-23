@@ -391,6 +391,21 @@ const EN_COPY = {
     runtimeAdapterVersion: "Runtime adapter",
     runtimeGeneratedSchemaVersion: "Generated schema version",
     runtimeTransport: "Transport",
+    runtimeExecutionMode: "Execution mode",
+    runtimeAccount: "Codex account",
+    runtimeLiveTurns: "Live turns",
+    runtimeManualHandoff: "Manual handoff",
+    runtimeLiveTurnStates: {
+      enabled: "enabled",
+      disabled: "disabled",
+      unknown: "unknown"
+    },
+    runtimeManualHandoffStates: {
+      available: "available",
+      unavailable: "unavailable",
+      unknown: "unknown"
+    },
+    unknown: "unknown",
     noActivity: "No activity yet."
   },
   autoImplementation: {
@@ -1030,6 +1045,21 @@ const JA_COPY: typeof EN_COPY = {
     runtimeAdapterVersion: "Runtime adapter",
     runtimeGeneratedSchemaVersion: "生成schema version",
     runtimeTransport: "Transport",
+    runtimeExecutionMode: "実行モード",
+    runtimeAccount: "Codexアカウント",
+    runtimeLiveTurns: "Live turns",
+    runtimeManualHandoff: "手動引き継ぎ",
+    runtimeLiveTurnStates: {
+      enabled: "有効",
+      disabled: "無効",
+      unknown: "不明"
+    },
+    runtimeManualHandoffStates: {
+      available: "利用可能",
+      unavailable: "利用不可",
+      unknown: "不明"
+    },
+    unknown: "不明",
     noActivity: "活動はまだありません。"
   },
   autoImplementation: {
@@ -1669,6 +1699,21 @@ const KO_COPY: typeof EN_COPY = {
     runtimeAdapterVersion: "Runtime adapter",
     runtimeGeneratedSchemaVersion: "생성 schema version",
     runtimeTransport: "Transport",
+    runtimeExecutionMode: "실행 모드",
+    runtimeAccount: "Codex 계정",
+    runtimeLiveTurns: "Live turns",
+    runtimeManualHandoff: "수동 인계",
+    runtimeLiveTurnStates: {
+      enabled: "활성",
+      disabled: "비활성",
+      unknown: "알 수 없음"
+    },
+    runtimeManualHandoffStates: {
+      available: "가능",
+      unavailable: "불가",
+      unknown: "알 수 없음"
+    },
+    unknown: "알 수 없음",
     noActivity: "아직 활동이 없습니다."
   },
   autoImplementation: {
