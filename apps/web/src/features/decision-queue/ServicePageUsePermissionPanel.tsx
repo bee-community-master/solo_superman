@@ -31,6 +31,23 @@ export interface ServicePageUsePermissionViewModel {
   readonly blockReasonItems: readonly string[];
 }
 
+const FINAL_SUBMIT_BLOCKED_LABEL =
+  "Final submit remains blocked until a later explicit production-mutation contract validates the confirmation card and ExecutionAuthorityRecord linkage.";
+
+function formatFinalSubmitBoundaryLabel(permission: ServicePageUsePermissionRecord) {
+  if (!permission.finalSubmitBoundary.requested) {
+    return `Fill-draft/preview and final submit stay separate; ${FINAL_SUBMIT_BLOCKED_LABEL}`;
+  }
+
+  const confirmationCardRef = permission.finalSubmitBoundary.confirmationCardRef ?? "missing";
+  const executionAuthorityRef = permission.finalSubmitBoundary.executionAuthorityRef ?? "missing";
+
+  return [
+    `Final submit requested with confirmation=${confirmationCardRef} and authority=${executionAuthorityRef}.`,
+    FINAL_SUBMIT_BLOCKED_LABEL,
+    `production mutation performed=${permission.finalSubmitBoundary.productionMutationPerformed}.`
+  ].join(" ");
+}
 
 function artifactRefsForPermission(permission: ServicePageUsePermissionRecord) {
   if (permission.artifactRetention.promptResultScreenshotLogRetention === "deleted_audit_metadata_only") {
@@ -63,7 +80,7 @@ export function servicePageUsePermissionViewModel(
       approvalGranularityLabel: "not set",
       approvalLabel: "No user approval ref has been recorded.",
       loginBoundaryLabel: "User-owned login is required before any page-use permission.",
-      finalSubmitBoundaryLabel: "Final submit requires a separate confirmation card and ExecutionAuthorityRecord.",
+      finalSubmitBoundaryLabel: FINAL_SUBMIT_BLOCKED_LABEL,
       explanation: "Create a purpose-limited service page-use permission before using an external service page.",
       nextAction: "Show service origin, purpose, data categories, allowed/blocked actions, and redaction preview.",
       canRevoke: false,
@@ -94,9 +111,7 @@ export function servicePageUsePermissionViewModel(
     loginBoundaryLabel: permission.credentialEntryDelegated
       ? "Credential entry is delegated — blocked by contract."
       : "User logs in directly; credentials, cookies, sessions, 2FA, API keys, and secrets are never stored.",
-    finalSubmitBoundaryLabel: permission.finalSubmitBoundary.requested
-      ? `Final submit requested with confirmation=${permission.finalSubmitBoundary.confirmationCardRef ?? "missing"} and authority=${permission.finalSubmitBoundary.executionAuthorityRef ?? "missing"}; production mutation performed=${permission.finalSubmitBoundary.productionMutationPerformed}.`
-      : "Fill-draft/preview and final submit stay separate; final submit requires confirmation + ExecutionAuthorityRecord.",
+    finalSubmitBoundaryLabel: formatFinalSubmitBoundaryLabel(permission),
     explanation: permission.userVisibleExplanation,
     nextAction: permission.nextAction,
     canRevoke: permission.canRevoke,

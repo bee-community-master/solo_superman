@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import {
   SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE,
-  servicePageUsePermissionSummaryForStatus
+  servicePageUsePermissionSummaryForStatus,
+  type ServicePageUsePermissionProjection
 } from "@solo-superman/contracts";
 import {
   ServicePageUsePermissionPanel,
@@ -25,7 +26,8 @@ describe("ServicePageUsePermissionPanel view model", () => {
     expect(view.dataCategoriesLabel).toContain("user_provided_project_context");
     expect(view.approvalLabel).toContain("user_approval_service_page_vercel");
     expect(view.loginBoundaryLabel).toContain("User logs in directly");
-    expect(view.finalSubmitBoundaryLabel).toContain("final submit requires confirmation");
+    expect(view.finalSubmitBoundaryLabel).toContain("Final submit remains blocked");
+    expect(view.finalSubmitBoundaryLabel).toContain("production-mutation contract");
     expect(view.exportControlLabel).toContain("Export retained");
     expect(view.deleteControlLabel).toContain("Delete retained artifacts while leaving audit metadata only");
     expect(view.activityFeedRefs).toContain("setup_step:vercel-deploy-settings");
@@ -39,8 +41,43 @@ describe("ServicePageUsePermissionPanel view model", () => {
     expect(view.canRevoke).toBe(false);
     expect(view.pageUrl).toContain("No page URL");
     expect(view.loginBoundaryLabel).toContain("User-owned login");
-    expect(view.finalSubmitBoundaryLabel).toContain("separate confirmation card");
+    expect(view.finalSubmitBoundaryLabel).toContain("Final submit remains blocked");
+    expect(view.finalSubmitBoundaryLabel).toContain("production-mutation contract");
     expect(view.blockedActionsLabel).toContain("credential/session/secret custody");
+  });
+
+  it("keeps requested final submit visibly blocked even with confirmation and authority refs", () => {
+    const requestedProjection: ServicePageUsePermissionProjection = {
+      ...SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE,
+      currentStatus: "blocked",
+      latestPermission: {
+        ...SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE.latestPermission,
+        status: "blocked",
+        finalSubmitBoundary: {
+          requested: true,
+          confirmationCardRef: "confirmation_card_fake",
+          executionAuthorityRef: "execution_authority_fake",
+          productionMutationPerformed: false
+        },
+        blockReasons: [
+          {
+            code: "final_submit_requires_confirmation_and_authority",
+            message:
+              "Final submit remains blocked until a later explicit production-mutation contract validates the confirmation card and ExecutionAuthorityRecord linkage.",
+            evidenceRefs: ["service-page:final-submit-request"]
+          }
+        ]
+      }
+    };
+    const view = servicePageUsePermissionViewModel(requestedProjection);
+
+    expect(view.finalSubmitBoundaryLabel).toContain("confirmation=confirmation_card_fake");
+    expect(view.finalSubmitBoundaryLabel).toContain("authority=execution_authority_fake");
+    expect(view.finalSubmitBoundaryLabel).toContain("Final submit remains blocked");
+    expect(view.finalSubmitBoundaryLabel).toContain("production mutation performed=false");
+    expect(view.blockReasonItems).toContain(
+      "final_submit_requires_confirmation_and_authority: Final submit remains blocked until a later explicit production-mutation contract validates the confirmation card and ExecutionAuthorityRecord linkage."
+    );
   });
 
   it("renders enabled artifact export/delete controls when retained refs are user-controllable", () => {
