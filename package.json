@@ -26,11 +26,12 @@
     "verify:pr-mutation": "tsx apps/sidecar/src/auto-implementation-pr-mutation-smoke.ts",
     "verify:auto-implementation-pipeline": "tsx apps/sidecar/src/auto-implementation-pipeline-smoke.ts",
     "verify:docs": "node scripts/verify-doc-contracts.mjs",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs && pnpm verify:prod-bundle && pnpm verify:clarification-pipeline && pnpm verify:research-pipeline && pnpm verify:auto-implementation-pipeline",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs && pnpm verify:prod-bundle && pnpm verify:clarification-pipeline && pnpm verify:research-pipeline && pnpm verify:auto-implementation-review-loop && pnpm verify:auto-implementation-pipeline",
     "dev:web": "pnpm --filter @solo-superman/web dev",
     "start:local": "node scripts/start-local-web.mjs",
     "verify:research-pipeline": "tsx apps/sidecar/src/research-pipeline-smoke.ts",
-    "verify:clarification-pipeline": "tsx apps/sidecar/src/clarification-pipeline-smoke.ts"
+    "verify:clarification-pipeline": "tsx apps/sidecar/src/clarification-pipeline-smoke.ts",
+    "verify:auto-implementation-review-loop": "tsx apps/sidecar/src/auto-implementation-review-loop-smoke.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
