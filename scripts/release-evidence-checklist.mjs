@@ -19,7 +19,7 @@ export const DEFAULT_RELEASE_EVIDENCE_CONTRACT_PATHS = {
 
 const TOKEN_LIKE_PATTERN = tokenLikePattern("iu");
 const SECRET_QUERY_KEY_PATTERN = /(?:token|secret|password|pass|api[_-]?key|credential|auth|session)/iu;
-const OUTPUT_FORMATS = new Set(["json", "markdown", "template"]);
+const OUTPUT_FORMATS = new Set(["json", "markdown", "template", "comment"]);
 const BUNDLE_FULL_CHECKLIST_JSON_PATH = "release-evidence-checklist.json";
 const BUNDLE_FULL_CHECKLIST_MARKDOWN_PATH = "release-evidence-checklist.md";
 const BUNDLE_FULL_TEMPLATE_PATH = "release-evidence-template.json";
@@ -983,6 +983,10 @@ export function parseReleaseEvidenceChecklistArgs(argv = process.argv.slice(2), 
     throw new Error("--issue requires a positive integer issue number.");
   }
 
+  if (format === "comment" && issueNumber === undefined) {
+    throw new Error("--format comment requires --issue <number> so the generated GitHub comment targets one blocker issue.");
+  }
+
   if (bundleDir && outputPath) {
     throw new Error("--bundle-dir cannot be combined with --output.");
   }
@@ -1006,10 +1010,39 @@ async function writeChecklist(outputPath, content) {
   await writeFile(outputPath, content, "utf8");
 }
 
+function renderReleaseEvidenceChecklistOutput(checklist, format) {
+  if (format === "template") {
+    const payload = buildReleaseEvidenceTemplate(checklist);
+    return {
+      payload,
+      content: jsonContent(payload)
+    };
+  }
+
+  if (format === "markdown") {
+    return {
+      payload: checklist,
+      content: renderReleaseEvidenceChecklistMarkdown(checklist)
+    };
+  }
+
+  if (format === "comment") {
+    return {
+      payload: checklist,
+      content: renderReleaseEvidenceIssueCommentMarkdown(checklist)
+    };
+  }
+
+  return {
+    payload: checklist,
+    content: jsonContent(checklist)
+  };
+}
+
 export async function runReleaseEvidenceChecklistCli(argv = process.argv.slice(2), options = {}) {
   const parsed = parseReleaseEvidenceChecklistArgs(argv, options.env ?? process.env);
   if (parsed.help) {
-    console.log("Usage: pnpm release:evidence-checklist [--format json|markdown|template] [--issue <number>] [--output <path>] [--bundle-dir <path>]");
+    console.log("Usage: pnpm release:evidence-checklist [--format json|markdown|template|comment] [--issue <number>] [--output <path>] [--bundle-dir <path>]");
     return { status: "help" };
   }
 
@@ -1027,10 +1060,7 @@ export async function runReleaseEvidenceChecklistCli(argv = process.argv.slice(2
   }
 
   const checklist = filterReleaseEvidenceChecklistByIssue(fullChecklist, parsed.issueNumber);
-  const payload = parsed.format === "template" ? buildReleaseEvidenceTemplate(checklist) : checklist;
-  const content = parsed.format === "markdown"
-    ? renderReleaseEvidenceChecklistMarkdown(checklist)
-    : `${JSON.stringify(payload, null, 2)}\n`;
+  const { payload, content } = renderReleaseEvidenceChecklistOutput(checklist, parsed.format);
 
   if (parsed.outputPath) {
     await writeChecklist(parsed.outputPath, content);
