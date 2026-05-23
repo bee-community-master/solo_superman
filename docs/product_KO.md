@@ -57,7 +57,7 @@ Business mode는 명시적인 `businessCriticIntensity`가 필요하며 no defau
 - Research review card는 공개 근거, run, source question이 card를 만든 경우 retained source trace를 보여줘야 하며, 사용자가 리서치 생성 후속 질문을 처리하기 전에 provenance를 확인할 수 있어야 합니다.
 - Research tab의 evidence matrix는 pro evidence, con evidence, uncertainty, missing counter-evidence reason, known risk, matrix-generated follow-up question을 함께 보여줘야 하며, Planning-ready 전에 skeptical-search gap이 숨겨지지 않아야 합니다.
 - Research tab은 현재 준비된 planned public-web 리서치 작업을 bounded batch로 시작할 수 있으며, active allowlist와 concurrency budget을 지키고 각 실행은 기존 per-task read-only research path를 그대로 사용해야 합니다.
-- Risk UI는 데이터가 충분할 때 Confidence Map, five-axis radar, Top 3 Risk Cards를 보여줍니다. 질문별 리스크 입력은 항상 노출하지 않고 선택형 추가 의견/리스크 펼쳐보기 안에 둡니다.
+- Risk UI는 데이터가 충분할 때 Confidence Map, next-best validation/build-readiness action, five-axis radar, Top 3 Risk Cards를 보여줍니다. 질문별 리스크 입력은 항상 노출하지 않고 선택형 추가 의견/리스크 펼쳐보기 안에 둡니다.
 
 ## 현재 배포 범위
 

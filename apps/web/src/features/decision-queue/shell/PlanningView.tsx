@@ -28,6 +28,7 @@ export function PlanningView({ controller }: PlanningViewProps) {
     setPurposeModeChangeReason
   } = controller;
   const topRiskCards = confidence?.topRiskCards?.slice(0, 3) ?? [];
+  const nextBestActions = confidence?.nextBestActions ?? [];
   const scoreBreakdownItems = confidence
     ? [
         ["sectionCompleteness", confidence.scoreBreakdown.sectionCompleteness],
@@ -225,6 +226,16 @@ export function PlanningView({ controller }: PlanningViewProps) {
                 <p>{copy.planning.confidenceGatesReady}</p>
               )}
             </div>
+            {nextBestActions.length ? (
+              <div className="confidence-next-actions">
+                <strong>{copy.planning.nextBestActions}</strong>
+                <ul className="effect-list" aria-label={copy.planning.nextBestActions}>
+                  {nextBestActions.map((action) => (
+                    <li key={action}>{action}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </section>
         ) : null}
         {topRiskCards.length ? (

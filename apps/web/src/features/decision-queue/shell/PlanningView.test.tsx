@@ -68,7 +68,10 @@ function confidenceWithRiskCards(): ConfidenceCompletionProjection {
         nextValidationAction: "Refresh willingness-to-pay evidence before Planning-ready."
       }
     ],
-    nextBestActions: ["Validate the top risks before creating a Planning-ready handoff."],
+    nextBestActions: [
+      "Validate the top risks before creating a Planning-ready handoff.",
+      "Prepare a Build Slice Plan after the unresolved gates are closed."
+    ],
     completionCandidate: {
       status: "not_ready",
       summary: "More risk validation is needed.",
@@ -172,6 +175,9 @@ describe("PlanningView", () => {
     expect(markup).toContain("Completion candidate: More risk validation is needed.");
     expect(markup).toContain("Readiness gate blockers");
     expect(markup).toContain("Top risks remain open.");
+    expect(markup).toContain("Next best actions");
+    expect(markup).toContain("Validate the top risks before creating a Planning-ready handoff.");
+    expect(markup).toContain("Prepare a Build Slice Plan after the unresolved gates are closed.");
   });
 
   it("shows journey status labels instead of raw internal session phases", () => {
@@ -184,6 +190,7 @@ describe("PlanningView", () => {
 
     expect(markup).toContain("Research in progress");
     expect(markup).not.toContain(">validation<");
+    expect(markup).not.toContain("Next best actions");
   });
 
   it("shows a ready Confidence Map message when completion gates pass", () => {
@@ -211,12 +218,14 @@ describe("PlanningView", () => {
       confidence: {
         ...confidenceWithRiskCards(),
         topRisks: [],
-        topRiskCards: []
+        topRiskCards: [],
+        nextBestActions: []
       }
     });
 
     expect(markup).toContain("No risk summary yet.");
     expect(markup).not.toContain("Top 3 Risk Cards");
+    expect(markup).not.toContain("Next best actions");
   });
 
   it("shows personal-mode skipped commercialization axes with user-facing labels", () => {
