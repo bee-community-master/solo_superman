@@ -245,6 +245,31 @@ describe("release evidence checklist", () => {
         expect.stringContaining("$.readyReleaseCommands must include required ready-release command from source checklist")
       ])
     });
+
+    const extraItemTemplate = cloneJson(filledTemplate);
+    extraItemTemplate.items.push({
+      ...cloneJson(filledTemplate.items[0]),
+      itemId: "unexpected-release-evidence-item"
+    });
+    extraItemTemplate.summary.totalItems = extraItemTemplate.items.length;
+
+    expect(validateReleaseEvidenceTemplate(extraItemTemplate, { expectedChecklist: issue266Checklist })).toMatchObject({
+      status: "blocked",
+      issues: expect.arrayContaining([
+        expect.stringContaining("$.items must not include unexpected source checklist item")
+      ])
+    });
+
+    const duplicateItemTemplate = cloneJson(filledTemplate);
+    duplicateItemTemplate.items.push(cloneJson(filledTemplate.items[0]));
+    duplicateItemTemplate.summary.totalItems = duplicateItemTemplate.items.length;
+
+    expect(validateReleaseEvidenceTemplate(duplicateItemTemplate, { expectedChecklist: issue266Checklist })).toMatchObject({
+      status: "blocked",
+      issues: expect.arrayContaining([
+        expect.stringContaining("$.items must not repeat source checklist item")
+      ])
+    });
   });
 
   it("rejects filled release evidence templates that contain secret-shaped evidence", async () => {

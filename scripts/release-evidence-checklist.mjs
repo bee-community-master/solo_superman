@@ -538,9 +538,20 @@ export function validateReleaseEvidenceTemplate(template, options = {}) {
     const expectedItems = checklistItemsById(expectedChecklist);
     const expectedItemIds = [...expectedItems.keys()];
     const actualItemIds = template.items.filter(isRecord).map((item) => item.itemId).filter((itemId) => typeof itemId === "string");
+    const seenActualItemIds = new Set();
     for (const expectedItemId of expectedItemIds) {
       if (!actualItemIds.includes(expectedItemId)) {
         issues.push(`$.items is missing source checklist item ${JSON.stringify(expectedItemId)}.`);
+      }
+    }
+    for (const actualItemId of actualItemIds) {
+      if (seenActualItemIds.has(actualItemId)) {
+        issues.push(`$.items must not repeat source checklist item ${JSON.stringify(actualItemId)}.`);
+      }
+      seenActualItemIds.add(actualItemId);
+
+      if (expectedChecklist && !expectedItems.has(actualItemId)) {
+        issues.push(`$.items must not include unexpected source checklist item ${JSON.stringify(actualItemId)}.`);
       }
     }
     if (typeof template.summary?.totalItems === "number" && template.summary.totalItems !== template.items.length) {
