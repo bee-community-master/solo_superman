@@ -34,6 +34,12 @@ To create Markdown that can be pasted into a specific blocker issue, combine `--
 pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md
 ```
 
+To generate only the GitHub issue comment body, combine `--format comment` and `--issue`:
+
+```sh
+pnpm release:evidence-checklist -- --format comment --issue 267 --output ./issue-267-release-evidence-comment.md
+```
+
 When the release lab needs the full #259/#266/#267 work set at once, use the bundle command. It writes the full checklist/template, issue-specific Markdown checklists, issue-specific JSON templates, a manifest, and a README into one directory.
 
 ```sh

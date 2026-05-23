@@ -34,6 +34,12 @@ pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-che
 pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md
 ```
 
+GitHub issue에 붙일 comment 본문만 필요하면 `--format comment`와 `--issue`를 함께 사용합니다.
+
+```sh
+pnpm release:evidence-checklist -- --format comment --issue 267 --output ./issue-267-release-evidence-comment.md
+```
+
 Release lab이 #259/#266/#267 전체 작업 세트를 한 번에 준비해야 하면 bundle 명령을 사용합니다. 이 명령은 full checklist/template, issue별 Markdown checklist, issue별 JSON template, manifest, README를 같은 디렉터리에 씁니다.
 
 ```sh

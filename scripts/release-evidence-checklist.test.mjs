@@ -440,6 +440,12 @@ describe("release evidence checklist", () => {
         issueNumber: 266,
         bundleDir: undefined
       });
+      expect(parseReleaseEvidenceChecklistArgs(["--format", "comment", "--issue", "267"], {})).toEqual({
+        outputPath: undefined,
+        format: "comment",
+        issueNumber: 267,
+        bundleDir: undefined
+      });
       expect(parseReleaseEvidenceChecklistArgs(["--bundle-dir", "--", dir], {})).toMatchObject({
         outputPath: undefined,
         format: "json",
@@ -448,6 +454,9 @@ describe("release evidence checklist", () => {
       });
       expect(() => parseReleaseEvidenceChecklistArgs(["--output"], {})).toThrow("--output requires a path value");
       expect(() => parseReleaseEvidenceChecklistArgs(["--format", "yaml"], {})).toThrow("--format must be one of");
+      expect(() => parseReleaseEvidenceChecklistArgs(["--format", "comment"], {})).toThrow(
+        "--format comment requires --issue"
+      );
       expect(() => parseReleaseEvidenceChecklistArgs(["--issue", "abc"], {})).toThrow("--issue requires a positive integer");
       expect(() => parseReleaseEvidenceChecklistArgs(["--bundle-dir", dir, "--issue", "266"], {})).toThrow("--bundle-dir cannot be combined with --issue");
 
@@ -492,6 +501,38 @@ describe("release evidence checklist", () => {
       expect(markdown).toContain("- Filtered issue: #266");
       expect(markdown).toContain("- [ ] `release_manifest_signature_verify`");
       expect(markdown).toContain("- [ ] redacted signing evidence");
+
+      await runReleaseEvidenceChecklistCli(["--format", "comment", "--issue", "266", "--output", outputPath], {
+        contracts: minimalContracts({
+          releaseReadiness: {
+            schemaVersion: "solo-superman-release-readiness.v1",
+            appId: "solo-superman",
+            broadReleaseStatus: "blocked",
+            requiredVerificationCommands: {
+              credentialFree: ["pnpm verify:release-readiness"],
+              readyRelease: ["pnpm verify:release-readiness -- --require-ready"]
+            },
+            releaseGates: [
+              {
+                id: "signed-packages",
+                status: "blocked",
+                blockerIssue: "https://github.com/bee-community-master/solo_superman/issues/266",
+                requiredChecks: ["release_manifest_signature_verify"],
+                requiredEvidence: ["redacted signing evidence"],
+                unblockCriteria: ["attach redacted evidence"]
+              }
+            ]
+          }
+        }),
+        now: new Date("2026-05-24T00:00:00.000Z")
+      });
+
+      const comment = await readFile(outputPath, "utf8");
+      expect(comment).toContain("# Release evidence update for #266");
+      expect(comment).toContain("`issue-266-template.json`");
+      expect(comment).toContain("pnpm verify:release-evidence-template -- --input <filled-template.json> --issue 266");
+      expect(comment).toContain("### signed-packages");
+      expect(comment).not.toContain("ghp_");
 
       await runReleaseEvidenceChecklistCli(["--format", "template", "--issue", "266", "--output", outputPath], {
         contracts: minimalContracts({
