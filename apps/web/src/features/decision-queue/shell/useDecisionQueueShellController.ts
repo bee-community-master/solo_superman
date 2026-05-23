@@ -162,6 +162,10 @@ export function autoImplementationWorkspaceCreateBlocker(planningHandoff: Projec
     : "Run the planning handoff gate and reach planning_ready before creating an auto implementation workspace.";
 }
 
+export function autoImplementationWorkspaceCreateFailureMessage(error: unknown) {
+  return `Auto implementation workspace creation failed: ${displayError(error)}`;
+}
+
 export function useDecisionQueueShellController() {
   const copy = useDecisionQueueCopy();
   const [connectionState, setConnectionState] = useState<ConnectionState>({ status: "connecting" });
@@ -553,7 +557,7 @@ export function useDecisionQueueShellController() {
         ...current
       ].slice(0, COMMAND_LOG_LIMIT));
     } catch (error) {
-      setWorkflowError(displayError(error));
+      setWorkflowError(autoImplementationWorkspaceCreateFailureMessage(error));
     } finally {
       setIsBusy(false);
     }
