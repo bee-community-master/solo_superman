@@ -189,6 +189,9 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.stages).toHaveLength(7);
     expect(view.stages[0]!.status).toBe("ready");
     expect(view.issueDocs[0]!.relativePath).toContain("implementation-issues/001-initial_pr.md");
+    expect(renderPanelMarkup(view)).toContain(
+      "local-001: Workspace repo bootstrap and initial implementation PR — stage initial_pr / status open (implementation-issues/001-initial_pr.md)"
+    );
     expect(view.deliveryGates).toEqual(
       expect.arrayContaining([
         expect.stringContaining("two consecutive no-finding passes")
@@ -239,7 +242,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(readyMarkup).toContain('<button type="button">Create workspace run</button>');
   });
 
-  it("renders the synchronized issue status summary from the run", () => {
+  it("renders synchronized issue status details from the run", () => {
     const view = autoImplementationRunViewModel({
       ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
       latestRun: {
@@ -247,21 +250,31 @@ describe("AutoImplementationRunPanel view model", () => {
         issueManagement: {
           ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.issueManagement,
           issueDocs: AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.issueManagement.issueDocs.map((issue, index) =>
-            index === 0 ? { ...issue, status: "completed" as const } : issue
+            index === 0
+              ? { ...issue, status: "completed" as const }
+              : index === 1
+                ? { ...issue, status: "blocked" as const }
+                : issue
           ),
           issueStatusSummary: {
             total: 7,
-            open: 6,
+            open: 5,
             completed: 1,
-            blocked: 0
+            blocked: 1
           }
         }
       }
     } as AutoImplementationRunProjection);
     const markup = renderPanelMarkup(view);
 
-    expect(view.issueStatusSummaryLabel).toBe("Issue status summary: 1 completed / 0 blocked / 6 open / 7 total");
-    expect(markup).toContain("Issue status summary: 1 completed / 0 blocked / 6 open / 7 total");
+    expect(view.issueStatusSummaryLabel).toBe("Issue status summary: 1 completed / 1 blocked / 5 open / 7 total");
+    expect(markup).toContain("Issue status summary: 1 completed / 1 blocked / 5 open / 7 total");
+    expect(markup).toContain(
+      "local-001: Workspace repo bootstrap and initial implementation PR — stage initial_pr / status completed (implementation-issues/001-initial_pr.md)"
+    );
+    expect(markup).toContain(
+      "local-002: PR code review and fix pass 1 — stage code_review_fix_1 / status blocked (implementation-issues/002-code_review_fix_1.md)"
+    );
   });
 
   it("shows the latest GitHub PR mutation evidence and history count", () => {
