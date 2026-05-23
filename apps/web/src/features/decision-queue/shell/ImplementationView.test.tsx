@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CodexRuntimeStatusDto, StatusEndpointDto } from "@solo-superman/contracts";
 import {
-  autoImplementationRunViewModel,
-  type AutoImplementationRunViewModel
+  AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+  type CodexRuntimeStatusDto,
+  type StatusEndpointDto
+} from "@solo-superman/contracts";
+import {
+  autoImplementationRunViewModel
 } from "../AutoImplementationRunPanel";
 import { implementationStepLedgerViewModel } from "../ImplementationStepLedgerPanel";
 import {
@@ -32,28 +35,6 @@ function codexRuntimeStatus(overrides: Partial<CodexRuntimeStatusDto> = {}): Cod
       planType: "plus"
     },
     ...overrides
-  };
-}
-
-function autoImplementationRunWithRuntimeReadiness(): AutoImplementationRunViewModel {
-  return {
-    ...autoImplementationRunViewModel(null),
-    status: "ready",
-    summary: "Auto implementation workspace is ready for the current stage.",
-    workspaceLabel: "Workspace: workspace/demo-project",
-    latestWorkerJobLabel: "Local Codex worker: planned for initial_pr (local-001)",
-    latestWorkerJobNextAction: "Run the local worker or import its ledger evidence.",
-    workerRuntimeReadiness: {
-      statusLabel: "available",
-      executionModeLabel: "live",
-      accountLabel: "authenticated (chatgpt / plus)",
-      liveTurnsState: "enabled",
-      manualHandoffState: "available",
-      reasonLabel: "Live Codex app-server turn execution is enabled for preview-only artifacts.",
-      nextActionKey: "liveReady"
-    },
-    canRunWorkerJob: true,
-    hasRun: true
   };
 }
 
@@ -121,14 +102,19 @@ describe("ImplementationView", () => {
   });
 
   it("keeps worker runtime readiness visible beside the refreshed runtime status", () => {
+    const runtimeStatus = codexRuntimeStatus({
+      status: "available",
+      liveTurnExecutionEnabled: true,
+      executionMode: "live",
+      reason: "Live Codex app-server turn execution is enabled for preview-only artifacts."
+    });
     const markup = renderImplementationView({
-      autoImplementationRunView: autoImplementationRunWithRuntimeReadiness(),
-      runtimeStatus: codexRuntimeStatus({
-        status: "available",
-        liveTurnExecutionEnabled: true,
-        executionMode: "live",
-        reason: "Live Codex app-server turn execution is enabled for preview-only artifacts."
-      })
+      autoImplementationRunView: autoImplementationRunViewModel(
+        AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+        null,
+        runtimeStatus
+      ),
+      runtimeStatus
     });
 
     expect(markup).toContain("Worker runtime readiness");
