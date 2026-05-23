@@ -125,6 +125,7 @@ describe("PR-08 founder-brief projection", () => {
         noCodeStepEvidenceRecords: [],
         codeReviewRecords: [],
         cleanCodeReviewRecords: [],
+        missingTestAuditRecords: [],
         testEvidenceRecords: [
           {
             stepId: "step_impl",

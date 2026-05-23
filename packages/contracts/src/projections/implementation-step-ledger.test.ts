@@ -204,6 +204,30 @@ describe("ImplementationStepLedgerProjection contract", () => {
     expect(() => validateImplementationStepLedgerProjection(invalid)).toThrow(ImplementationStepLedgerValidationError);
   });
 
+  it("rejects completed steps without a clean missing-test audit", () => {
+    const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
+    const invalid = {
+      ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+      steps: [
+        {
+          ...step,
+          missingTestAuditRecord: {
+            ...step.missingTestAuditRecord!,
+            missingTestGaps: ["Acceptance criterion for retry UI has no targeted test."]
+          }
+        }
+      ],
+      missingTestAuditRecords: [
+        {
+          ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.missingTestAuditRecords[0]!,
+          missingTestGaps: ["Acceptance criterion for retry UI has no targeted test."]
+        }
+      ]
+    } as ImplementationStepLedgerProjection;
+
+    expect(() => validateImplementationStepLedgerProjection(invalid)).toThrow(ImplementationStepLedgerValidationError);
+  });
+
   it("rejects non-integer test evidence counts", () => {
     const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
     const invalid = {

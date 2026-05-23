@@ -325,6 +325,7 @@ describe("AutoImplementationRunProjection contract", () => {
               implementationEvidenceRefs: ["commit:abcdef1"],
               codeReviewStreakRefs: ["code-review:feature:clean-1", "code-review:feature:clean-2"],
               cleanCodeReviewStreakRefs: ["clean-code:changed:clean-1", "clean-code:changed:clean-2"],
+              missingTestAuditRefs: ["missing-test-audit:verify"],
               testEvidenceRefs: ["test:verify"],
               blockerEvidenceRefs: [],
               evidenceRefs: ["implementation-step-ledger:step_demo"]

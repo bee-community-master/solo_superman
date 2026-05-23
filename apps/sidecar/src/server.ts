@@ -1966,6 +1966,7 @@ const IMPLEMENTATION_STEP_LEDGER_REQUEST_BODY_KEYS = [
   "noCodeStepEvidence",
   "codeReviewRecord",
   "cleanCodeReviewRecord",
+  "missingTestAuditRecord",
   "testEvidenceRecord",
   "blocker",
   "evidenceRefs"
@@ -2022,6 +2023,9 @@ function implementationStepLedgerRequestFromBody(
   const cleanCodeReviewRecord = optionalJsonRecordFromBody(body.cleanCodeReviewRecord, "cleanCodeReviewRecord") as
     | RecordImplementationStepLedgerRequest["cleanCodeReviewRecord"]
     | undefined;
+  const missingTestAuditRecord = optionalJsonRecordFromBody(body.missingTestAuditRecord, "missingTestAuditRecord") as
+    | RecordImplementationStepLedgerRequest["missingTestAuditRecord"]
+    | undefined;
   const testEvidenceRecord = optionalJsonRecordFromBody(body.testEvidenceRecord, "testEvidenceRecord") as
     | RecordImplementationStepLedgerRequest["testEvidenceRecord"]
     | undefined;
@@ -2041,6 +2045,7 @@ function implementationStepLedgerRequestFromBody(
     ...(noCodeStepEvidence !== undefined ? { noCodeStepEvidence } : {}),
     ...(codeReviewRecord !== undefined ? { codeReviewRecord } : {}),
     ...(cleanCodeReviewRecord !== undefined ? { cleanCodeReviewRecord } : {}),
+    ...(missingTestAuditRecord !== undefined ? { missingTestAuditRecord } : {}),
     ...(testEvidenceRecord !== undefined ? { testEvidenceRecord } : {}),
     ...(blocker !== undefined ? { blocker } : {}),
     ...(evidenceRefs ? { evidenceRefs } : {})
@@ -2059,6 +2064,7 @@ function implementationStepLedgerPayloadFromRequest(
     ...(request.noCodeStepEvidence ? { noCodeStepEvidence: request.noCodeStepEvidence } : {}),
     ...(request.codeReviewRecord ? { codeReviewRecord: request.codeReviewRecord } : {}),
     ...(request.cleanCodeReviewRecord ? { cleanCodeReviewRecord: request.cleanCodeReviewRecord } : {}),
+    ...(request.missingTestAuditRecord ? { missingTestAuditRecord: request.missingTestAuditRecord } : {}),
     ...(request.testEvidenceRecord ? { testEvidenceRecord: request.testEvidenceRecord } : {}),
     ...(request.blocker ? { blocker: request.blocker } : {}),
     ...(request.evidenceRefs ? { evidenceRefs: request.evidenceRefs } : {})

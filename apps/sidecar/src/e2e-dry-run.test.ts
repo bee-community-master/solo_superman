@@ -2535,6 +2535,14 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           notTestedGaps: [],
           evidenceRefs: ["test:e2e"]
         },
+        missingTestAuditRecord: {
+          stepId: "step_e2e_complete",
+          auditId: "missing_test_audit_e2e_complete",
+          auditedCriteriaRefs: ["issue:104:acceptance"],
+          coverageEvidenceRefs: ["test:e2e"],
+          missingTestGaps: [],
+          evidenceRefs: ["missing-test-audit:e2e"]
+        },
         evidenceRefs: ["ledger:e2e:complete"]
       };
       const completedLedgerTransitions = [

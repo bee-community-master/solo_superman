@@ -2018,6 +2018,7 @@ export function parseCodexWorkerExecutionOutput(raw: string): CodexWorkerExecuti
 
 function fixtureCodexWorkerExecutionTransitions(input: CodexWorkerExecutionInput): readonly RecordImplementationStepLedgerPayload[] {
   const fixtureStepCommitRecord = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.stepCommitRecords[0]!;
+  const fixtureMissingTestAuditRecord = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.missingTestAuditRecords[0]!;
   const fixtureTestEvidenceRecord = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords[0]!;
   const stepCommitRecord = {
     ...fixtureStepCommitRecord,
@@ -2027,6 +2028,10 @@ function fixtureCodexWorkerExecutionTransitions(input: CodexWorkerExecutionInput
     ...fixtureTestEvidenceRecord,
     stepId: input.ledgerStepDoc.stepId,
     verifiedCommitSha: stepCommitRecord.commitSha
+  };
+  const missingTestAuditRecord = {
+    ...fixtureMissingTestAuditRecord,
+    stepId: input.ledgerStepDoc.stepId
   };
   const baseTransition = {
     trackerDoc: input.ledgerTrackerDoc,
@@ -2061,6 +2066,7 @@ function fixtureCodexWorkerExecutionTransitions(input: CodexWorkerExecutionInput
       ...baseTransition,
       targetStatus: "completed",
       stepCommitRecord,
+      missingTestAuditRecord,
       testEvidenceRecord,
       evidenceRefs: ["codex-worker:fixture:completed"]
     }

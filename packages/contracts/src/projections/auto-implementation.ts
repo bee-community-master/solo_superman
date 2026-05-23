@@ -121,7 +121,7 @@ export const AUTO_IMPLEMENTATION_DELIVERY_PROTOCOL = [
   "Do not merge until the changed-code clean-code review reaches two consecutive no-finding passes.",
   "Do not merge until the repo-level clean-code review reaches two consecutive no-finding passes.",
   "Audit missing targeted tests, then run the full verification command before updating the PR body.",
-  "Update the PR body with scope, review streak evidence, test evidence, remaining gaps, and merge readiness before merging."
+  "Update the PR body with scope, review streak evidence, missing-test audit evidence, test evidence, remaining gaps, and merge readiness before merging."
 ] as const;
 
 export const AUTO_IMPLEMENTATION_LEDGER_EVIDENCE_TEMPLATE = [
@@ -130,6 +130,7 @@ export const AUTO_IMPLEMENTATION_LEDGER_EVIDENCE_TEMPLATE = [
   "stepCommitRecord or noCodeStepEvidence: record commitSha/diffRange/rollbackRef or the clean no-code baseline.",
   "CodeReviewRecord.reviewScope: record two passed feature reviews and two passed repository reviews with findings=[].",
   "CleanCodeReviewRecord.reviewScope: record two passed changed_code reviews and two passed repository reviews with simplifications evidence.",
+  "MissingTestAuditRecord: audit acceptance criteria against targeted coverage and record no missing targeted-test gaps.",
   "TestEvidenceRecord: record exact commands, outcome, pass/fail counts, verifiedCommitSha, notTestedGaps, and evidenceRefs.",
   "blocker: if any required record is missing, write reason, missingEvidence, nextRequiredAction, and evidenceRefs instead of advancing."
 ] as const;
@@ -258,6 +259,7 @@ export interface AutoImplementationStageLedgerEvidence {
   readonly implementationEvidenceRefs: readonly string[];
   readonly codeReviewStreakRefs: readonly string[];
   readonly cleanCodeReviewStreakRefs: readonly string[];
+  readonly missingTestAuditRefs: readonly string[];
   readonly testEvidenceRefs: readonly string[];
   readonly blockerEvidenceRefs: readonly string[];
   readonly evidenceRefs: readonly string[];
@@ -835,6 +837,8 @@ function isStageLedgerEvidence(value: unknown): value is AutoImplementationStage
     value.codeReviewStreakRefs.length >= 2 &&
     isStringArray(value.cleanCodeReviewStreakRefs) &&
     value.cleanCodeReviewStreakRefs.length >= 2 &&
+    isStringArray(value.missingTestAuditRefs) &&
+    value.missingTestAuditRefs.length > 0 &&
     isStringArray(value.testEvidenceRefs) &&
     value.testEvidenceRefs.length > 0 &&
     isStringArray(value.blockerEvidenceRefs) &&

@@ -24,6 +24,7 @@ export interface ImplementationStepLedgerViewModel {
   readonly cleanCodeReviewLabel: string;
   readonly codeReviewStreakLabels: readonly string[];
   readonly cleanCodeReviewStreakLabels: readonly string[];
+  readonly missingTestAuditLabel: string;
   readonly testEvidenceLabel: string;
   readonly missingEvidenceItems: readonly string[];
   readonly blockerLabel: string | null;
@@ -55,6 +56,18 @@ function testLabel(step: ImplementationStepRecord | null) {
   const notTested = test.notTestedGaps.length ? `; Not-tested: ${test.notTestedGaps.join(", ")}` : "";
 
   return `Tests: ${test.outcome} (${test.commands.join(" | ")}), passed=${test.passedTestCount}, failed=${test.failedTestCount}${notTested}`;
+}
+
+function missingTestAuditLabel(step: ImplementationStepRecord | null) {
+  const audit = step?.missingTestAuditRecord;
+
+  if (!audit) {
+    return "Missing-test audit: not recorded";
+  }
+
+  const gaps = audit.missingTestGaps.length ? `; gaps=${audit.missingTestGaps.join(", ")}` : "; gaps=0";
+
+  return `Missing-test audit: ${audit.auditId}; criteria=${audit.auditedCriteriaRefs.length}; coverage=${audit.coverageEvidenceRefs.join(", ")}${gaps}`;
 }
 
 function reviewStreakLabel(
@@ -122,9 +135,10 @@ export function implementationStepLedgerViewModel(
       cleanCodeReviewLabel: "Clean-code review: not recorded",
       codeReviewStreakLabels: emptyCodeReviewStreakLabels(),
       cleanCodeReviewStreakLabels: emptyCleanCodeReviewStreakLabels(),
+      missingTestAuditLabel: "Missing-test audit: not recorded",
       testEvidenceLabel: "Tests: not recorded",
-      missingEvidenceItems: ["StepCommitRecord", "CodeReviewRecord", "CleanCodeReviewRecord", "TestEvidenceRecord"],
-      blockerLabel: "Cannot complete until implementation, review, clean-code review, and test evidence are recorded.",
+      missingEvidenceItems: ["StepCommitRecord", "CodeReviewRecord", "CleanCodeReviewRecord", "MissingTestAuditRecord", "TestEvidenceRecord"],
+      blockerLabel: "Cannot complete until implementation, review, clean-code review, missing-test audit, and test evidence are recorded.",
       nextAction: "Record the implementation step ledger after the local step commit and evidence gates are available.",
       evidenceRefs: [],
       noCodeEvidenceLabel: null
@@ -150,6 +164,7 @@ export function implementationStepLedgerViewModel(
     cleanCodeReviewLabel: reviewLabel(step.cleanCodeReviewRecord, "Clean-code review"),
     codeReviewStreakLabels: step.codeReviewStreaks.map(codeReviewStreakLabel),
     cleanCodeReviewStreakLabels: step.cleanCodeReviewStreaks.map(cleanCodeReviewStreakLabel),
+    missingTestAuditLabel: missingTestAuditLabel(step),
     testEvidenceLabel: testLabel(step),
     missingEvidenceItems: step.missingEvidence,
     blockerLabel: blocker ? `${blocker.reason} Next: ${blocker.nextRequiredAction}` : null,
@@ -209,6 +224,7 @@ export function ImplementationStepLedgerPanel({
         {ledger.cleanCodeReviewStreakLabels.map((label) => (
           <li key={label}>{label}</li>
         ))}
+        <li>{ledger.missingTestAuditLabel}</li>
         <li>{ledger.testEvidenceLabel}</li>
         {ledger.noCodeEvidenceLabel ? <li>{ledger.noCodeEvidenceLabel}</li> : null}
       </ul>

@@ -53,6 +53,7 @@ type StageEvidence = {
   readonly currentStageAfter: string;
   readonly codeReviewSatisfiedScopes: readonly string[];
   readonly cleanCodeReviewSatisfiedScopes: readonly string[];
+  readonly missingTestAuditGapCount: number;
   readonly testOutcome: string;
 };
 
@@ -240,6 +241,14 @@ function stageTransitions(input: {
     notTestedGaps: [],
     evidenceRefs: [`test:${input.stage}:verify`]
   };
+  const missingTestAuditRecord = {
+    stepId: step.stepId,
+    auditId: `missing-test-audit-${input.stage}`,
+    auditedCriteriaRefs: [`issue:${input.stage}:acceptance`],
+    coverageEvidenceRefs: [`test:${input.stage}:verify`],
+    missingTestGaps: [],
+    evidenceRefs: [`missing-test-audit:${input.stage}:coverage`]
+  };
 
   return [
     { ...base, targetStatus: "ready" },
@@ -280,6 +289,7 @@ function stageTransitions(input: {
       ...base,
       targetStatus: "completed",
       stepCommitRecord,
+      missingTestAuditRecord,
       testEvidenceRecord,
       evidenceRefs: [`review-loop-smoke:${input.stage}:completed`]
     }
@@ -427,10 +437,23 @@ function stageRecord(run: JsonRecord, stage: AutoImplementationStage) {
   return recordArray(run.stagePlan, `${stage} stagePlan`).find((record) => record.stage === stage) ?? null;
 }
 
+function stringArrayAt(value: unknown, label: string) {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new Error(`${label} must be an array of strings.`);
+  }
+
+  return value as readonly string[];
+}
+
 function stageEvidence(result: StageResult): StageEvidence {
   const step = objectAt(stepForStage(result), `${result.stage} completed ledger step`);
   const stageAfter = objectAt(stageRecord(result.advancedRun, result.stage), `${result.stage} stage after advance`);
   const testEvidence = objectAt(step.testEvidenceRecord, `${result.stage} testEvidenceRecord`);
+  const missingTestAudit = objectAt(step.missingTestAuditRecord, `${result.stage} missingTestAuditRecord`);
+  const missingTestGaps = stringArrayAt(
+    missingTestAudit.missingTestGaps,
+    `${result.stage} missingTestAuditRecord.missingTestGaps`
+  );
 
   return {
     stage: result.stage,
@@ -441,6 +464,7 @@ function stageEvidence(result: StageResult): StageEvidence {
     currentStageAfter: stringAt(result.advancedRun.currentStage, `${result.stage} currentStage after advance`),
     codeReviewSatisfiedScopes: satisfiedScopes(step.codeReviewStreaks, `${result.stage} codeReviewStreaks`),
     cleanCodeReviewSatisfiedScopes: satisfiedScopes(step.cleanCodeReviewStreaks, `${result.stage} cleanCodeReviewStreaks`),
+    missingTestAuditGapCount: missingTestGaps.length,
     testOutcome: stringAt(testEvidence.outcome, `${result.stage} test outcome`)
   };
 }
@@ -476,6 +500,9 @@ function resultBlockers(result: ReviewLoopResult) {
     if (evidence.testOutcome !== "passed") {
       blockers.push(`${evidence.stage} test evidence must pass; received ${JSON.stringify(evidence.testOutcome)}`);
     }
+    if (evidence.missingTestAuditGapCount !== 0) {
+      blockers.push(`${evidence.stage} missing-test audit must have zero gaps; received ${evidence.missingTestAuditGapCount}`);
+    }
   }
 
   if (result.finalRun.status !== "completed") {
@@ -509,6 +536,7 @@ function checkedEvidence() {
     "auto implementation workspace run created",
     "ImplementationStepLedger completed with two no-finding code-review passes per feature/repository scope for every stage",
     "ImplementationStepLedger completed with two no-finding clean-code passes per changed-code/repository scope for every stage",
+    "missing-test audit evidence recorded with zero gaps for every stage",
     "passing test evidence recorded for every stage",
     "each canonical stage completed through the existing stage endpoint",
     "run reached completed status at merge_main without real GitHub writes"

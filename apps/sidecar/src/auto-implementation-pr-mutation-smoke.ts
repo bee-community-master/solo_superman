@@ -254,9 +254,14 @@ function completedStageLedgerEvidence(stage: AutoImplementationStage): AutoImple
     implementationEvidenceRefs: [`commit:${stage}:abcdef1`],
     codeReviewStreakRefs: [`code-review:${stage}:1`, `code-review:${stage}:2`],
     cleanCodeReviewStreakRefs: [`clean-code-review:${stage}:1`, `clean-code-review:${stage}:2`],
+    missingTestAuditRefs: [`missing-test-audit:${stage}:coverage`],
     testEvidenceRefs: [`test:${stage}:verify`],
     blockerEvidenceRefs: [],
-    evidenceRefs: [`implementation-step-ledger:${stage}`, `test:${stage}:verify`]
+    evidenceRefs: [
+      `implementation-step-ledger:${stage}`,
+      `missing-test-audit:${stage}:coverage`,
+      `test:${stage}:verify`
+    ]
   };
 }
 
@@ -585,6 +590,10 @@ function appendAdapterBlockers(result: PrMutationFlowResult, blockers: string[])
     blockers.push("Generated open PR body did not include implementation evidence.");
   }
 
+  if (!includesMarkdown(openInput, "### Missing-test audit evidence")) {
+    blockers.push("Generated open PR body did not include missing-test audit evidence.");
+  }
+
   if (!includesMarkdown(updateInput, "### Verification commands")) {
     blockers.push("Generated PR body update did not include verification commands.");
   }
@@ -615,6 +624,7 @@ function prMutationEvidence(result: PrMutationFlowResult) {
     bodyMarkdownChecks: [
       "open body includes issue traceability",
       "open body includes implementation evidence",
+      "open body includes missing-test audit evidence",
       "update body includes verification commands"
     ]
   };

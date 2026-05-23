@@ -48,6 +48,7 @@ import type {
   ImplementationStepBlocker,
   ImplementationStepDoc,
   ImplementationStepStatus,
+  MissingTestAuditRecord,
   NoCodeStepEvidence,
   StepCommitRecord,
   TestEvidenceRecord,
@@ -472,6 +473,7 @@ export interface RecordImplementationStepLedgerRequest extends ScaffoldRequestPl
   readonly noCodeStepEvidence?: NoCodeStepEvidence;
   readonly codeReviewRecord?: CodeReviewRecord;
   readonly cleanCodeReviewRecord?: CleanCodeReviewRecord;
+  readonly missingTestAuditRecord?: MissingTestAuditRecord;
   readonly testEvidenceRecord?: TestEvidenceRecord;
   readonly blocker?: ImplementationStepBlocker;
   readonly evidenceRefs?: readonly string[];

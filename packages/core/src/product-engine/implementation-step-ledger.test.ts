@@ -95,6 +95,14 @@ function fullPayload(overrides: ProductEngineCommand["payload"] = {}): ProductEn
       notTestedGaps: [],
       evidenceRefs: ["test:step_contracts"]
     },
+    missingTestAuditRecord: {
+      stepId: "step_contracts",
+      auditId: "missing_test_audit_step_contracts",
+      auditedCriteriaRefs: ["issue:104:acceptance"],
+      coverageEvidenceRefs: ["test:step_contracts"],
+      missingTestGaps: [],
+      evidenceRefs: ["missing-test-audit:step_contracts"]
+    },
     evidenceRefs: ["issue:104", "ledger:step_contracts"],
     ...overrides
   };
@@ -217,7 +225,12 @@ function payloadForStreakStatus(
   return {
     ...basePayload,
     targetStatus: status,
-    ...(status === "completed" ? { testEvidenceRecord: payload.testEvidenceRecord } : {})
+    ...(status === "completed"
+      ? {
+          missingTestAuditRecord: payload.missingTestAuditRecord,
+          testEvidenceRecord: payload.testEvidenceRecord
+        }
+      : {})
   };
 }
 
@@ -314,6 +327,10 @@ describe("RecordImplementationStepLedger reducer", () => {
         expect.objectContaining({ reviewScope: "changed_code", currentNoFindingPasses: 2, satisfied: true }),
         expect.objectContaining({ reviewScope: "repository", currentNoFindingPasses: 2, satisfied: true })
       ],
+      missingTestAuditRecord: {
+        auditId: "missing_test_audit_step_contracts",
+        missingTestGaps: []
+      },
       testEvidenceRecord: {
         outcome: "passed",
         failedTestCount: 0
@@ -516,6 +533,22 @@ describe("RecordImplementationStepLedger reducer", () => {
     expect(projection.steps[0]!.missingEvidence).toContain("passing TestEvidenceRecord without failed tests or Not-tested gaps");
   });
 
+  it("blocks completion when the missing-test audit finds uncovered acceptance criteria", () => {
+    const projection = projectionFromSequence(fullPayload({
+      missingTestAuditRecord: {
+        stepId: "step_contracts",
+        auditId: "missing_test_audit_step_contracts_gap",
+        auditedCriteriaRefs: ["issue:104:acceptance"],
+        coverageEvidenceRefs: ["test:step_contracts"],
+        missingTestGaps: ["Acceptance criterion for rollback notes lacks a targeted assertion."],
+        evidenceRefs: ["missing-test-audit:gap"]
+      }
+    }));
+
+    expect(projection.currentStatus).toBe("blocked");
+    expect(projection.steps.at(-1)!.missingEvidence).toContain("MissingTestAuditRecord without missing targeted-test gaps");
+  });
+
   it("blocks inconsistent test evidence that reports passed outcome with failed tests", () => {
     const projection = projectionFrom(fullPayload({
       testEvidenceRecord: {
@@ -668,6 +701,14 @@ describe("RecordImplementationStepLedger reducer", () => {
         failedTestCount: 0,
         notTestedGaps: [],
         evidenceRefs: ["test:verify"]
+      },
+      missingTestAuditRecord: {
+        stepId: "step_no_code",
+        auditId: "missing_test_audit_step_no_code",
+        auditedCriteriaRefs: ["issue:104:verification"],
+        coverageEvidenceRefs: ["test:verify"],
+        missingTestGaps: [],
+        evidenceRefs: ["missing-test-audit:step_no_code"]
       }
     });
     const projection = projectionFromSequence(payload);
@@ -732,6 +773,14 @@ describe("RecordImplementationStepLedger reducer", () => {
         failedTestCount: 0,
         notTestedGaps: [],
         evidenceRefs: ["test:dirty"]
+      },
+      missingTestAuditRecord: {
+        stepId: "step_no_code_dirty",
+        auditId: "missing_test_audit_step_no_code_dirty",
+        auditedCriteriaRefs: ["issue:104:verification"],
+        coverageEvidenceRefs: ["test:dirty"],
+        missingTestGaps: [],
+        evidenceRefs: ["missing-test-audit:dirty"]
       }
     }));
 

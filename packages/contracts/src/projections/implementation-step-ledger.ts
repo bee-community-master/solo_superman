@@ -107,6 +107,15 @@ export interface TestEvidenceRecord {
   readonly evidenceRefs: readonly string[];
 }
 
+export interface MissingTestAuditRecord {
+  readonly stepId: string;
+  readonly auditId: string;
+  readonly auditedCriteriaRefs: readonly string[];
+  readonly coverageEvidenceRefs: readonly string[];
+  readonly missingTestGaps: readonly string[];
+  readonly evidenceRefs: readonly string[];
+}
+
 export interface ImplementationStepBlocker {
   readonly stepId: string;
   readonly reason: string;
@@ -146,6 +155,7 @@ export interface ImplementationStepRecord {
   readonly cleanCodeReviewRecord: CleanCodeReviewRecord | null;
   readonly codeReviewStreaks: readonly CodeReviewStreakRecord[];
   readonly cleanCodeReviewStreaks: readonly CleanCodeReviewStreakRecord[];
+  readonly missingTestAuditRecord: MissingTestAuditRecord | null;
   readonly testEvidenceRecord: TestEvidenceRecord | null;
 }
 
@@ -160,6 +170,7 @@ export interface ImplementationStepLedgerProjection {
   readonly noCodeStepEvidenceRecords: readonly NoCodeStepEvidence[];
   readonly codeReviewRecords: readonly CodeReviewRecord[];
   readonly cleanCodeReviewRecords: readonly CleanCodeReviewRecord[];
+  readonly missingTestAuditRecords: readonly MissingTestAuditRecord[];
   readonly testEvidenceRecords: readonly TestEvidenceRecord[];
   readonly blockedSteps: readonly ImplementationStepBlocker[];
   readonly progressReport: string;
@@ -177,6 +188,7 @@ export interface RecordImplementationStepLedgerPayload {
   readonly noCodeStepEvidence?: NoCodeStepEvidence;
   readonly codeReviewRecord?: CodeReviewRecord;
   readonly cleanCodeReviewRecord?: CleanCodeReviewRecord;
+  readonly missingTestAuditRecord?: MissingTestAuditRecord;
   readonly testEvidenceRecord?: TestEvidenceRecord;
   readonly blocker?: ImplementationStepBlocker;
   readonly evidenceRefs?: readonly string[];
@@ -312,6 +324,19 @@ function isTestEvidenceRecord(value: unknown): value is TestEvidenceRecord {
     isNonNegativeInteger(value.passedTestCount) &&
     isNonNegativeInteger(value.failedTestCount) &&
     stringArray(value.notTestedGaps) &&
+    stringArray(value.evidenceRefs) &&
+    value.evidenceRefs.length > 0;
+}
+
+function isMissingTestAuditRecord(value: unknown): value is MissingTestAuditRecord {
+  return isRecord(value) &&
+    isNonEmptyString(value.stepId) &&
+    isNonEmptyString(value.auditId) &&
+    stringArray(value.auditedCriteriaRefs) &&
+    value.auditedCriteriaRefs.length > 0 &&
+    stringArray(value.coverageEvidenceRefs) &&
+    value.coverageEvidenceRefs.length > 0 &&
+    stringArray(value.missingTestGaps) &&
     stringArray(value.evidenceRefs) &&
     value.evidenceRefs.length > 0;
 }
@@ -471,6 +496,10 @@ function testsPassed(record: TestEvidenceRecord | null) {
   return Boolean(record && record.outcome === "passed" && record.passedTestCount > 0 && record.failedTestCount === 0 && record.notTestedGaps.length === 0);
 }
 
+function missingTestAuditPassed(record: MissingTestAuditRecord | null) {
+  return Boolean(record && record.missingTestGaps.length === 0);
+}
+
 function reviewMatchesStepBounds(
   review: CodeReviewRecord | CleanCodeReviewRecord | null,
   step: ImplementationStepRecord
@@ -510,6 +539,9 @@ function completedEvidenceMissing(step: ImplementationStepRecord) {
   if (!testsPassed(step.testEvidenceRecord)) {
     missing.push("passing TestEvidenceRecord without Not-tested gaps");
   }
+  if (!missingTestAuditPassed(step.missingTestAuditRecord)) {
+    missing.push("MissingTestAuditRecord without missing targeted-test gaps");
+  }
 
   return missing;
 }
@@ -546,6 +578,9 @@ export function implementationStepLedgerProgressReport(projection: Implementatio
       const tests = step.testEvidenceRecord
         ? ` Tests: ${step.testEvidenceRecord.outcome} (${step.testEvidenceRecord.commands.join(" | ")}).`
         : " Tests: not recorded.";
+      const missingTestAudit = step.missingTestAuditRecord
+        ? ` Missing-test audit gaps: ${step.missingTestAuditRecord.missingTestGaps.length}.`
+        : " Missing-test audit: not recorded.";
       const codeReviewStreaks = step.codeReviewStreaks
         .map((streak) => `${streak.reviewScope} code ${streak.currentNoFindingPasses}/${streak.requiredNoFindingPasses}`)
         .join(", ");
@@ -553,7 +588,7 @@ export function implementationStepLedgerProgressReport(projection: Implementatio
         .map((streak) => `${streak.reviewScope} clean ${streak.currentNoFindingPasses}/${streak.requiredNoFindingPasses}`)
         .join(", ");
 
-      return `${index + 1}. ${step.stepDoc.title} — ${step.status}.${missing}${tests} Review streaks: ${codeReviewStreaks}; ${cleanCodeReviewStreaks}.`;
+      return `${index + 1}. ${step.stepDoc.title} — ${step.status}.${missing}${tests}${missingTestAudit} Review streaks: ${codeReviewStreaks}; ${cleanCodeReviewStreaks}.`;
     }),
     ...projection.blockedSteps.map((blocker) =>
       `Blocked history: ${blocker.stepId} — ${blocker.reason} Missing: ${blocker.missingEvidence.join(", ")}. Next: ${blocker.nextRequiredAction}`
@@ -602,6 +637,11 @@ export function validateImplementationStepLedgerProjection(
     if (!isImplementationStepLedgerStepDoc(step.stepDoc)) {
       issues.push("stepDoc must be a valid ImplementationStepDoc");
       continue;
+    }
+    const missingTestAuditRecord = step.missingTestAuditRecord ?? null;
+
+    if (!("missingTestAuditRecord" in step)) {
+      issues.push("MissingTestAuditRecord must be recorded or explicitly null");
     }
     if (!isOneOf(step.status, IMPLEMENTATION_STEP_STATUSES)) {
       issues.push("step status must be valid");
@@ -674,6 +714,12 @@ export function validateImplementationStepLedgerProjection(
     if (step.testEvidenceRecord !== null && step.testEvidenceRecord.stepId !== step.stepDoc.stepId) {
       issues.push("TestEvidenceRecord must match its ImplementationStepDoc stepId");
     }
+    if (missingTestAuditRecord !== null && !isMissingTestAuditRecord(missingTestAuditRecord)) {
+      issues.push("MissingTestAuditRecord must include audited criteria refs, coverage evidence refs, missing test gaps, and evidence refs");
+    }
+    if (missingTestAuditRecord !== null && missingTestAuditRecord.stepId !== step.stepDoc.stepId) {
+      issues.push("MissingTestAuditRecord must match its ImplementationStepDoc stepId");
+    }
     if (step.testEvidenceRecord && step.stepCommitRecord && step.testEvidenceRecord.verifiedCommitSha !== step.stepCommitRecord.commitSha) {
       issues.push("TestEvidenceRecord verifiedCommitSha must match StepCommitRecord commitSha");
     }
@@ -710,6 +756,13 @@ export function validateImplementationStepLedgerProjection(
   const validSteps = projection.steps.filter((step) => isImplementationStepLedgerStepDoc(step.stepDoc));
   const stepIds = new Set(validSteps.map((step) => step.stepDoc.stepId));
   const stepDocsById = new Map<string, ImplementationStepDoc>();
+  const missingTestAuditRecords = Array.isArray(projection.missingTestAuditRecords)
+    ? projection.missingTestAuditRecords
+    : [];
+
+  if (!Array.isArray(projection.missingTestAuditRecords)) {
+    issues.push("missingTestAuditRecords must be an array");
+  }
 
   for (const step of validSteps) {
     const existingDoc = stepDocsById.get(step.stepDoc.stepId);
@@ -724,6 +777,7 @@ export function validateImplementationStepLedgerProjection(
     ...topLevelStepRecordIssues(projection.noCodeStepEvidenceRecords, isNoCodeStepEvidence, stepIds, "noCodeStepEvidenceRecords must point to known steps"),
     ...topLevelStepRecordIssues(projection.codeReviewRecords, isCodeReviewRecord, stepIds, "codeReviewRecords must point to known steps"),
     ...topLevelStepRecordIssues(projection.cleanCodeReviewRecords, isCleanCodeReviewRecord, stepIds, "cleanCodeReviewRecords must point to known steps"),
+    ...topLevelStepRecordIssues(missingTestAuditRecords, isMissingTestAuditRecord, stepIds, "missingTestAuditRecords must point to known steps"),
     ...topLevelStepRecordIssues(projection.testEvidenceRecords, isTestEvidenceRecord, stepIds, "testEvidenceRecords must point to known steps"),
     ...topLevelStepRecordIssues(projection.blockedSteps, isBlocker, stepIds, "blockedSteps must point to known steps")
   );
@@ -829,6 +883,15 @@ const IMPLEMENTATION_STEP_LEDGER_FIXTURE_CLEAN_CODE_REVIEWS: readonly CleanCodeR
   }
 ];
 
+const IMPLEMENTATION_STEP_LEDGER_FIXTURE_MISSING_TEST_AUDIT: MissingTestAuditRecord = {
+  stepId: "step_demo",
+  auditId: "missing_test_audit_demo",
+  auditedCriteriaRefs: ["issue:104:acceptance"],
+  coverageEvidenceRefs: ["test:verify"],
+  missingTestGaps: [],
+  evidenceRefs: ["missing-test-audit:demo"]
+};
+
 export const IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE: ImplementationStepLedgerProjection =
   validateImplementationStepLedgerProjection({
     kind: "ImplementationStepLedgerProjection",
@@ -853,7 +916,7 @@ export const IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE: ImplementationStepLedgerP
         status: "completed",
         missingEvidence: [],
         blocker: null,
-        evidenceRefs: ["commit:abcdef1", "review:code", "review:clean", "test:verify"],
+        evidenceRefs: ["commit:abcdef1", "review:code", "review:clean", "test:verify", "missing-test-audit:demo"],
         updatedAt: "2026-05-13T00:00:00.000Z",
         stepCommitRecord: {
           stepId: "step_demo",
@@ -869,6 +932,7 @@ export const IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE: ImplementationStepLedgerP
         cleanCodeReviewRecord: IMPLEMENTATION_STEP_LEDGER_FIXTURE_CLEAN_CODE_REVIEWS.at(-1) ?? null,
         codeReviewStreaks: implementationCodeReviewStreaks(IMPLEMENTATION_STEP_LEDGER_FIXTURE_CODE_REVIEWS),
         cleanCodeReviewStreaks: implementationCleanCodeReviewStreaks(IMPLEMENTATION_STEP_LEDGER_FIXTURE_CLEAN_CODE_REVIEWS),
+        missingTestAuditRecord: IMPLEMENTATION_STEP_LEDGER_FIXTURE_MISSING_TEST_AUDIT,
         testEvidenceRecord: {
           stepId: "step_demo",
           testEvidenceId: "test_verify_demo",
@@ -896,6 +960,7 @@ export const IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE: ImplementationStepLedgerP
     noCodeStepEvidenceRecords: [],
     codeReviewRecords: IMPLEMENTATION_STEP_LEDGER_FIXTURE_CODE_REVIEWS,
     cleanCodeReviewRecords: IMPLEMENTATION_STEP_LEDGER_FIXTURE_CLEAN_CODE_REVIEWS,
+    missingTestAuditRecords: [IMPLEMENTATION_STEP_LEDGER_FIXTURE_MISSING_TEST_AUDIT],
     testEvidenceRecords: [
       {
         stepId: "step_demo",
@@ -913,7 +978,7 @@ export const IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE: ImplementationStepLedgerP
     progressReport: [
       "Tracker: Demo implementation tracker",
       "Summary: Implementation step is completed with commit/review/test evidence.",
-      "1. Create deterministic ledger — completed. Tests: passed (pnpm verify)."
+      "1. Create deterministic ledger — completed. Tests: passed (pnpm verify). Missing-test audit gaps: 0."
     ].join("\n"),
     summary: implementationStepSummaryForStatus("completed"),
     refetchUrl: "/api/v1/sessions/demo-session/implementation-step-ledger",

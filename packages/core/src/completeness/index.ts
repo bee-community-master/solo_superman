@@ -837,6 +837,11 @@ export function buildFounderBriefProjection(
           record.outcome !== "passed" || record.failedTestCount > 0 || record.notTestedGaps.length > 0
             ? [`Implementation tests not clean for ${record.stepId}: ${record.outcome}; failed=${record.failedTestCount}; Not-tested=${record.notTestedGaps.join(", ") || "none"}`]
             : []
+        ),
+        ...(state.implementationStepLedger.missingTestAuditRecords ?? []).flatMap((record) =>
+          record.missingTestGaps.length > 0
+            ? [`Implementation missing-test audit gaps for ${record.stepId}: ${record.missingTestGaps.join(", ")}`]
+            : []
         )
       ]
     : [];

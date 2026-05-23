@@ -742,6 +742,7 @@ function autoImplementationStageStateMarkdown(stage: AutoImplementationRun["stag
     `  - Implementation evidence refs: ${inlineMarkdownList(stage.ledgerEvidence?.implementationEvidenceRefs ?? [])}`,
     `  - Code review streak refs: ${inlineMarkdownList(stage.ledgerEvidence?.codeReviewStreakRefs ?? [])}`,
     `  - Clean-code review streak refs: ${inlineMarkdownList(stage.ledgerEvidence?.cleanCodeReviewStreakRefs ?? [])}`,
+    `  - Missing-test audit refs: ${inlineMarkdownList(stage.ledgerEvidence?.missingTestAuditRefs ?? [])}`,
     `  - Test evidence refs: ${inlineMarkdownList(stage.ledgerEvidence?.testEvidenceRefs ?? [])}`,
     `  - Blocker: ${markdownLineValue(stage.blocker?.reason)}`
   ];
@@ -829,6 +830,7 @@ function autoImplementationIssueStateMarkdown(run: AutoImplementationRun, issue:
     `- Implementation evidence refs: ${inlineMarkdownList(stage?.ledgerEvidence?.implementationEvidenceRefs ?? [])}`,
     `- Code review streak refs: ${inlineMarkdownList(stage?.ledgerEvidence?.codeReviewStreakRefs ?? [])}`,
     `- Clean-code review streak refs: ${inlineMarkdownList(stage?.ledgerEvidence?.cleanCodeReviewStreakRefs ?? [])}`,
+    `- Missing-test audit refs: ${inlineMarkdownList(stage?.ledgerEvidence?.missingTestAuditRefs ?? [])}`,
     `- Test evidence refs: ${inlineMarkdownList(stage?.ledgerEvidence?.testEvidenceRefs ?? [])}`,
     `- Stage evidence refs: ${inlineMarkdownList(stage?.evidenceRefs ?? [])}`,
     `- Stage blocker: ${markdownLineValue(stage?.blocker?.reason)}`,
