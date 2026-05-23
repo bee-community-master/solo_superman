@@ -4,7 +4,7 @@ Language: [한국어](troubleshooting_KO.md) | English
 
 ## Release posture
 
-Solo Superman is currently a limited-beta-style technical preview. The goal is to let a non-developer reach the local web screen through a safe one-line installer, while keeping risky actions reviewable. Signed packages are only planned through the credential-free preflight in [`signed-packages_EN.md`](signed-packages_EN.md); real signing/notarization credentials are not present yet. The packaged app update channel is defined only by the manifest/signature/checksum/retry/rollback contract in [`release-channel_EN.md`](release-channel_EN.md); real automatic update application remains deferred until signed packages and device rollback verification exist.
+Solo Superman is currently a limited-beta-style technical preview. The goal is to let a non-developer reach the local web screen through a safe one-line installer, while keeping risky actions reviewable. Signed packages are only planned through the credential-free preflight in [`signed-packages_EN.md`](signed-packages_EN.md); real signing/notarization credentials are not present yet. The packaged app update channel is defined only by the manifest/signature/checksum/retry/rollback contract in [`release-channel_EN.md`](release-channel_EN.md) and the device rollback evidence contract in [`packaged-update-rollback_EN.md`](packaged-update-rollback_EN.md); real automatic update application remains deferred until signed packages and device rollback verification exist.
 
 ## One-line install
 
@@ -76,14 +76,17 @@ Contributors can run:
 ```sh
 pnpm verify:prod-bundle
 pnpm verify:release-channel
+pnpm verify:packaged-update-rollback
 pnpm verify:signed-package-preflight
 pnpm verify:release-readiness
 pnpm verify
 ```
 
-On Windows PowerShell, use `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:signed-package-preflight`, `pnpm.cmd verify:release-readiness`, and `pnpm.cmd verify` so the Node/Corepack command shim runs even when local execution policy blocks `pnpm.ps1`.
+On Windows PowerShell, use `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:packaged-update-rollback`, `pnpm.cmd verify:signed-package-preflight`, `pnpm.cmd verify:release-readiness`, and `pnpm.cmd verify` so the Node/Corepack command shim runs even when local execution policy blocks `pnpm.ps1`.
 
 `pnpm verify:release-channel` checks `docs/release-update-channel.example.json` for manifest signature, artifact checksum/signature, user consent/deferral, retry, rollback, and credential/user-data preservation declarations. It verifies the release channel contract; it does not install signed packages or apply real updates.
+
+`pnpm verify:packaged-update-rollback` checks `docs/packaged-update-rollback.example.json` for macOS/Windows device rollback evidence gates, install/update/defer/retry/rollback/launch checks, and local data/credential preservation requirements tied to #267. The default run passes without real device evidence and reports remaining work through `rollbackStatus=blocked` and `blockedDeviceRuns`. In a real release environment, use `pnpm verify:packaged-update-rollback -- --require-device-evidence`; that mode must fail until both macOS and Windows device runs are passed.
 
 `pnpm verify:signed-package-preflight` checks `docs/signed-package-preflight.example.json` for macOS/Windows package candidates, signing credential groups, credential-free dry-run commands, and actual signing hard gates. The default run passes without signing secrets and reports why real signing is still blocked through `credentialGateStatus=blocked` and `missingCredentialGroups`. In a real release environment, use `pnpm verify:signed-package-preflight -- --require-credentials`; that mode must fail when required signing env values are missing.
 
@@ -98,7 +101,7 @@ pnpm support:bundle
 pnpm support:bundle -- --output ./solo-superman-support-bundle.json
 ```
 
-On Windows PowerShell, use `pnpm.cmd support:bundle` or `pnpm.cmd support:bundle -- --output .\solo-superman-support-bundle.json`. The bundle includes OS/Node/pnpm/Codex versions, git branch/head/status, repo remote, package scripts, allowlisted environment values, and credential-free release diagnostics summaries for `verify:release-channel`, `verify:signed-package-preflight`, and `verify:release-readiness` only. Release diagnostics preserve status, blocked gates, missing credential group ids, and env names rather than secret values. It excludes full environment dumps, file contents, browser cookies, OpenAI/GitHub tokens, and ChatGPT web credentials; URL credentials and token/secret/password/API-key shaped values are redacted. Attach the JSON as-is and do not add secrets manually.
+On Windows PowerShell, use `pnpm.cmd support:bundle` or `pnpm.cmd support:bundle -- --output .\solo-superman-support-bundle.json`. The bundle includes OS/Node/pnpm/Codex versions, git branch/head/status, repo remote, package scripts, allowlisted environment values, and credential-free release diagnostics summaries for `verify:release-channel`, `verify:packaged-update-rollback`, `verify:signed-package-preflight`, and `verify:release-readiness` only. Release diagnostics preserve status, blocked gates, missing credential group ids, and env names rather than secret values. It excludes full environment dumps, file contents, browser cookies, OpenAI/GitHub tokens, and ChatGPT web credentials; URL credentials and token/secret/password/API-key shaped values are redacted. Attach the JSON as-is and do not add secrets manually.
 
 A production bundle smoke must cover `build_auto_local_smoke`, browser readiness, managed child processes stopped, temporary app data removed, and auto shutdown/kill evidence.
 Before it starts managed sidecar/web child processes, `pnpm verify:prod-bundle` probes the fixed smoke ports. If `127.0.0.1:43110` or the configured web preview port is already in use, stop the existing local process or rerun with `SOLO_PROD_SMOKE_SIDECAR_PORT=<free-port>` / `SOLO_PROD_SMOKE_WEB_PORT=<free-port>`.

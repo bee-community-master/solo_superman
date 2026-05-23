@@ -2,7 +2,7 @@
 
 Language: [한국어](release-channel_KO.md) | English
 
-This document separates the one-line installer's git-checkout rerun update path from a later packaged-app automatic update path. The product is still a technical preview; this document and `pnpm verify:release-channel` lock the **update channel contract and verification example**. A real packaged updater must wait until signed macOS/Windows installer packages and release signing credentials exist.
+This document separates the one-line installer's git-checkout rerun update path from a later packaged-app automatic update path. The product is still a technical preview; this document and `pnpm verify:release-channel` lock the **update channel contract and verification example**. A real packaged updater must wait until signed macOS/Windows installer packages, release signing credentials, and device rollback evidence that passes `pnpm verify:packaged-update-rollback -- --require-device-evidence` exist.
 
 ## Channel split
 
@@ -54,7 +54,7 @@ This channel contract is a prerequisite safety guard for a future packaged updat
 1. macOS/Windows signed package format decisions.
 2. Developer ID/notarization or Windows Authenticode signing credential operations.
 3. Release hosting, manifest signing key rotation, and revoked-release handling.
-4. macOS/Windows real install, update, and rollback device verification.
+4. macOS/Windows real install, update, and rollback device verification strong enough for `pnpm verify:packaged-update-rollback -- --require-device-evidence` from [`packaged-update-rollback_EN.md`](packaged-update-rollback_EN.md).
 5. Passing the `pnpm verify:release-readiness -- --require-ready` gate from [`release-readiness_EN.md`](release-readiness_EN.md).
 
 Until those conditions are met, the README one-line installer rerun safe fast-forward path remains the only current update path.

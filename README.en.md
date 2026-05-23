@@ -52,9 +52,10 @@ Reaching the local first screen and running the default local path do not requir
 
 - Current recommended public channel: limited-beta-style technical preview
 - Suitable users: users who are comfortable installing a local app, or who can follow guidance to run one terminal command
-- Local diagnostics bundle for error reports: after a failure, run `pnpm support:bundle` to print the path to a credential-free JSON support bundle. It captures OS/Node/pnpm/git state and allowlisted environment values only; it does not collect tokens, secrets, cookies, credentials, or file contents.
+- Local diagnostics bundle for error reports: after a failure, run `pnpm support:bundle` to print the path to a credential-free JSON support bundle. It captures OS/Node/pnpm/git state, release diagnostics summaries, and allowlisted environment values only; it does not collect tokens, secrets, cookies, credentials, or file contents.
 - Signed installer package preflight: [`docs/signed-packages_EN.md`](docs/signed-packages_EN.md) and `pnpm verify:signed-package-preflight` verify macOS/Windows package candidates, signing credential gates, and the split between local dry-runs and actual signing gates.
 - Packaged app update channel contract: [`docs/release-channel_EN.md`](docs/release-channel_EN.md) and `pnpm verify:release-channel` verify manifest signature, artifact checksum/signature, user deferral, retry, rollback, and credential/user-data preservation requirements.
+- Packaged update rollback evidence contract: [`docs/packaged-update-rollback_EN.md`](docs/packaged-update-rollback_EN.md) and `pnpm verify:packaged-update-rollback` keep macOS/Windows device rollback evidence tied to #267.
 - General release readiness gate: [`docs/release-readiness_EN.md`](docs/release-readiness_EN.md) and `pnpm verify:release-readiness` verify that broad/general release remains blocked until signed package, packaged updater rollback, and Windows real-device evidence are ready.
 - Remaining general-release work: create and verify macOS/Windows installer packages with real signing/notarization credentials, real packaged-app updater implementation/device rollback verification, and Windows real-device verification
 

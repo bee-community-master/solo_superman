@@ -25,6 +25,14 @@ function fakeCommandRunner(command, args) {
       issues: [],
       checked: ["release URLs are HTTPS and credential-free"]
     })],
+    [`${process.execPath} scripts/verify-packaged-update-rollback.mjs`, JSON.stringify({
+      status: "passed",
+      rollbackStatus: "blocked",
+      packagedUpdateRollbackReady: false,
+      blockedDeviceRuns: ["macos-packaged-update-rollback", "windows-packaged-update-rollback"],
+      blockers: [],
+      checked: ["blocked packaged update rollback posture is allowed only with explicit blockers"]
+    })],
     [`${process.execPath} scripts/verify-signed-package-preflight.mjs`, JSON.stringify({
       status: "passed",
       contractPath: "docs/signed-package-preflight.example.json",
@@ -61,6 +69,7 @@ function fakeCommandRunner(command, args) {
           verify: "pnpm typecheck && pnpm lint",
           verifyProdBundle: "node scripts/verify-prod-bundle.mjs",
           verifyReleaseChannel: "node scripts/verify-release-channel.mjs",
+          verifyPackagedUpdateRollback: "node scripts/verify-packaged-update-rollback.mjs",
           verifySignedPackagePreflight: "node scripts/verify-signed-package-preflight.mjs",
           verifyReleaseReadiness: "node scripts/verify-release-readiness.mjs",
           supportBundle: "node scripts/support-bundle.mjs"
@@ -105,6 +114,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.package.scripts.supportBundle).toBe("node scripts/support-bundle.mjs");
     expect(bundle.package.scripts.verifyReleaseReadiness).toBe("node scripts/verify-release-readiness.mjs");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-channel");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:packaged-update-rollback");
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-preflight");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-readiness");
     expect(bundle.releaseDiagnostics.releaseChannel).toMatchObject({
@@ -112,6 +122,14 @@ describe("support diagnostics bundle", () => {
       captureStatus: "ok",
       evidenceStatus: "passed",
       manifestPath: "docs/release-update-channel.example.json"
+    });
+    expect(bundle.releaseDiagnostics.packagedUpdateRollback).toMatchObject({
+      command: "pnpm verify:packaged-update-rollback",
+      captureStatus: "ok",
+      evidenceStatus: "passed",
+      rollbackStatus: "blocked",
+      packagedUpdateRollbackReady: false,
+      blockedDeviceRuns: ["macos-packaged-update-rollback", "windows-packaged-update-rollback"]
     });
     expect(bundle.releaseDiagnostics.signedPackagePreflight).toMatchObject({
       command: "pnpm verify:signed-package-preflight",

@@ -8,6 +8,7 @@ This document plans the signed package path needed after the one-line installer 
 
 - Current distribution: README one-line installer technical preview.
 - Release channel contract: [`release-channel_EN.md`](release-channel_EN.md) plus `pnpm verify:release-channel` verify manifest/signature/checksum/retry/rollback/user-data/credential preservation.
+- Packaged update rollback evidence: [`packaged-update-rollback_EN.md`](packaged-update-rollback_EN.md) plus `pnpm verify:packaged-update-rollback` verify the device rollback evidence gate.
 - Signed package preflight: [`signed-package-preflight.example.json`](signed-package-preflight.example.json) plus `pnpm verify:signed-package-preflight` verify macOS/Windows signing candidates and credential gates.
 - Actual signing/notarization: blocked until required certificates, accounts, and secrets exist.
 
@@ -44,7 +45,7 @@ In a real signing environment, run the credential-required gate separately. This
 pnpm verify:signed-package-preflight -- --require-credentials
 ```
 
-`pnpm verify` includes the credential-free default preflight and `pnpm verify:release-readiness`, so local contributors can catch both release planning contract drift and general-release blocker drift without signing secrets.
+`pnpm verify` includes the credential-free default preflight, `pnpm verify:packaged-update-rollback`, and `pnpm verify:release-readiness`, so local contributors can catch both release planning contract drift and general-release blocker drift without signing secrets.
 
 ## Real release gate
 
@@ -55,6 +56,6 @@ A real signed package PR or release job must carry all of this evidence:
 3. The release update manifest contains final artifact SHA-256, package size, and signature refs, then passes manifest signature verification.
 4. macOS/Windows devices verify install, update deferral, retry, rollback, and launch behavior.
 5. Rollback changes only packaged app binaries and release metadata; it does not touch local DBs, generated workspaces, support bundles, or credentials.
-6. `pnpm verify:release-readiness -- --require-ready` confirms that signed package, packaged updater rollback, and Windows real-device gates are all passed.
+6. `pnpm verify:packaged-update-rollback -- --require-device-evidence` and `pnpm verify:release-readiness -- --require-ready` confirm that signed package, packaged updater rollback, and Windows real-device gates are all passed.
 
 Without those gates, the project must not claim broad-release signed packages or packaged automatic updates are complete.

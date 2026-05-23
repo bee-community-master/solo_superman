@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "solo-superman-packaged-update-rollback.v1",
+  "appId": "solo-superman",
+  "rollbackStatus": "blocked",
+  "summary": "Packaged automatic updates remain blocked until signed macOS and Windows packages have device install, update, retry, rollback, launch, and preservation evidence.",
+  "releaseChannelContract": "docs/release-channel_KO.md",
+  "releaseUpdateManifest": "docs/release-update-channel.example.json",
+  "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/267",
+  "requiredVerificationCommands": {
+    "credentialFree": [
+      "pnpm verify:release-channel",
+      "pnpm verify:packaged-update-rollback",
+      "pnpm verify:release-readiness",
+      "pnpm verify"
+    ],
+    "deviceEvidence": [
+      "pnpm verify:packaged-update-rollback -- --require-device-evidence",
+      "pnpm verify:release-readiness -- --require-ready"
+    ]
+  },
+  "preservationRequirements": [
+    "Rollback may replace only packaged app binaries and release metadata.",
+    "Rollback must preserve local databases.",
+    "Rollback must preserve generated workspaces and operator files.",
+    "Rollback must preserve support bundles.",
+    "Rollback must not read, rewrite, or delete Codex/OpenAI/GitHub credentials, browser cookies, local capability tokens, or environment secrets."
+  ],
+  "deviceRuns": [
+    {
+      "id": "macos-packaged-update-rollback",
+      "platform": "macos",
+      "status": "blocked",
+      "requiredFor": "general-release",
+      "blocker": "Signed macOS package artifacts and device update/rollback evidence are not available in the credential-free local environment.",
+      "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/267",
+      "evidenceRefs": [
+        "docs/release-channel_KO.md",
+        "docs/release-update-channel.example.json"
+      ],
+      "requiredChecks": [
+        "install_signed_package",
+        "apply_update",
+        "defer_update",
+        "retry_failed_update",
+        "rollback_after_failed_launch",
+        "launch_after_rollback",
+        "preserve_user_data",
+        "preserve_credentials"
+      ],
+      "requiredEvidence": [
+        "macOS signed package install reaches local first screen",
+        "update prompt supports user consent and deferral",
+        "failed update can retry without deleting the existing installation",
+        "rollback after failed launch restores previous app binary/release metadata",
+        "local DB, generated workspace, support bundle, operator files, and credentials are preserved"
+      ],
+      "unblockCriteria": [
+        "Attach redacted macOS install/update/retry/rollback/launch evidence to #267",
+        "Keep pnpm verify:release-channel passing with final signed macOS artifact metadata"
+      ]
+    },
+    {
+      "id": "windows-packaged-update-rollback",
+      "platform": "windows",
+      "status": "blocked",
+      "requiredFor": "general-release",
+      "blocker": "Signed Windows package artifacts and device update/rollback evidence are not available in the credential-free local environment.",
+      "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/267",
+      "evidenceRefs": [
+        "docs/release-channel_KO.md",
+        "docs/release-update-channel.example.json",
+        "https://github.com/bee-community-master/solo_superman/issues/259"
+      ],
+      "requiredChecks": [
+        "install_signed_package",
+        "apply_update",
+        "defer_update",
+        "retry_failed_update",
+        "rollback_after_failed_launch",
+        "launch_after_rollback",
+        "preserve_user_data",
+        "preserve_credentials"
+      ],
+      "requiredEvidence": [
+        "Windows signed package install reaches local first screen",
+        "update prompt supports user consent and deferral",
+        "failed update can retry without deleting the existing installation",
+        "rollback after failed launch restores previous app binary/release metadata",
+        "local DB, generated workspace, support bundle, operator files, and credentials are preserved"
+      ],
+      "unblockCriteria": [
+        "Attach redacted Windows install/update/retry/rollback/launch evidence to #267",
+        "Keep pnpm verify:release-channel passing with final signed Windows artifact metadata"
+      ]
+    }
+  ]
+}

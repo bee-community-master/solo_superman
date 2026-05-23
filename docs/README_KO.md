@@ -18,6 +18,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 질문, 리서치
 | 과거 결정과 rejected alternatives | [`decisions_KO.md`](decisions_KO.md) |
 | DTO/API/route/verifier contract | [`reference_KO.md`](reference_KO.md) |
 | 패키지 release update channel 계약 | [`release-channel_KO.md`](release-channel_KO.md) |
+| 패키지 업데이트 rollback evidence 계약 | [`packaged-update-rollback_KO.md`](packaged-update-rollback_KO.md) |
 | 서명된 macOS/Windows package preflight | [`signed-packages_KO.md`](signed-packages_KO.md) |
 | 일반 공개 준비도 gate | [`release-readiness_KO.md`](release-readiness_KO.md) |
 | 설치/실행 문제 해결 | [`troubleshooting_KO.md`](troubleshooting_KO.md) |
@@ -26,6 +27,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 질문, 리서치
 
 - Release channel: 제한 베타 형태의 technical preview.
 - Packaged update channel: [`release-channel_KO.md`](release-channel_KO.md)의 manifest/signature/checksum/retry/rollback 계약만 고정되어 있으며, 실제 packaged updater는 signed macOS/Windows package 이후에만 켭니다.
+- Packaged update rollback evidence: [`packaged-update-rollback_KO.md`](packaged-update-rollback_KO.md)와 `pnpm verify:packaged-update-rollback`이 macOS/Windows device rollback evidence gate를 #267에 묶어 둡니다.
 - Signed packages: [`signed-packages_KO.md`](signed-packages_KO.md)와 `pnpm verify:signed-package-preflight`가 credential-free preflight와 missing signing credential gate를 고정합니다.
 - General release readiness: [`release-readiness_KO.md`](release-readiness_KO.md)와 `pnpm verify:release-readiness`가 signed package, packaged updater rollback, Windows real-device gate가 준비되기 전까지 broad release를 blocked로 유지합니다.
 - Runtime shape: local-first web app + local Node/Hono service.
@@ -53,6 +55,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 질문, 리서치
 - `decisions_KO.md`: durable decisions와 rejected alternatives.
 - `reference_KO.md`: verifier가 검사하는 code-backed contract value.
 - `release-channel_KO.md`: packaged update channel의 manifest와 safety gate.
+- `packaged-update-rollback_KO.md`: packaged update rollback device evidence contract.
 - `signed-packages_KO.md`: signed installer package 후보와 signing credential gate.
 - `release-readiness_KO.md`: broad/general release blocker와 ready-release gate.
 

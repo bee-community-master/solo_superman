@@ -4,7 +4,7 @@
 
 ## 배포 상태
 
-Solo Superman은 현재 제한 베타 형태의 technical preview입니다. 목표는 비개발자도 안전한 one-line installer로 local web screen에 도달하게 하고, 위험한 action은 reviewable 상태로 유지하는 것입니다. Signed package는 [`signed-packages_KO.md`](signed-packages_KO.md)의 credential-free preflight로만 계획되어 있으며 실제 signing/notarization credential은 아직 없습니다. Packaged app update channel은 [`release-channel_KO.md`](release-channel_KO.md)의 manifest/signature/checksum/retry/rollback 계약으로만 정의되어 있으며, 실제 자동 업데이트 적용은 signed package와 device rollback 검증 이후로 남아 있습니다.
+Solo Superman은 현재 제한 베타 형태의 technical preview입니다. 목표는 비개발자도 안전한 one-line installer로 local web screen에 도달하게 하고, 위험한 action은 reviewable 상태로 유지하는 것입니다. Signed package는 [`signed-packages_KO.md`](signed-packages_KO.md)의 credential-free preflight로만 계획되어 있으며 실제 signing/notarization credential은 아직 없습니다. Packaged app update channel은 [`release-channel_KO.md`](release-channel_KO.md)의 manifest/signature/checksum/retry/rollback 계약과 [`packaged-update-rollback_KO.md`](packaged-update-rollback_KO.md)의 device rollback evidence 계약으로만 정의되어 있으며, 실제 자동 업데이트 적용은 signed package와 device rollback 검증 이후로 남아 있습니다.
 
 ## 한 줄 설치
 
@@ -76,14 +76,17 @@ Set-Location "$HOME\solo_superman"; pnpm.cmd start:local
 ```sh
 pnpm verify:prod-bundle
 pnpm verify:release-channel
+pnpm verify:packaged-update-rollback
 pnpm verify:signed-package-preflight
 pnpm verify:release-readiness
 pnpm verify
 ```
 
-Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 Node/Corepack command shim이 실행되도록 `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:signed-package-preflight`, `pnpm.cmd verify:release-readiness`, `pnpm.cmd verify`를 사용합니다.
+Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 Node/Corepack command shim이 실행되도록 `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:packaged-update-rollback`, `pnpm.cmd verify:signed-package-preflight`, `pnpm.cmd verify:release-readiness`, `pnpm.cmd verify`를 사용합니다.
 
 `pnpm verify:release-channel`은 `docs/release-update-channel.example.json`을 검사해 manifest signature, artifact checksum/signature, user consent/deferral, retry, rollback, credential/user-data preservation이 모두 선언되어 있는지 확인합니다. 이 명령은 release channel 계약 검증이며, signed package 설치나 실제 업데이트 적용을 수행하지 않습니다.
+
+`pnpm verify:packaged-update-rollback`은 `docs/packaged-update-rollback.example.json`을 검사해 macOS/Windows device rollback evidence gate, install/update/defer/retry/rollback/launch check, local data/credential preservation requirement가 #267에 묶여 있는지 확인합니다. 기본 실행은 실제 device evidence 없이 통과하되 `rollbackStatus=blocked`와 `blockedDeviceRuns`로 무엇이 남았는지 보여줍니다. 실제 release 환경에서는 `pnpm verify:packaged-update-rollback -- --require-device-evidence`를 사용하며, 이 모드는 macOS/Windows device run이 모두 passed가 아니면 실패해야 합니다.
 
 `pnpm verify:signed-package-preflight`는 `docs/signed-package-preflight.example.json`을 검사해 macOS/Windows package 후보, signing credential group, credential-free dry-run command, actual signing hard gate가 분리되어 있는지 확인합니다. 기본 실행은 signing secret 없이 통과하되 `credentialGateStatus=blocked`와 `missingCredentialGroups`로 실제 signing이 왜 막혔는지 보여줍니다. 실제 release 환경에서는 `pnpm verify:signed-package-preflight -- --require-credentials`를 사용하며, 이 모드는 필요한 signing env가 빠지면 실패해야 합니다.
 
@@ -98,7 +101,7 @@ pnpm support:bundle
 pnpm support:bundle -- --output ./solo-superman-support-bundle.json
 ```
 
-Windows PowerShell에서는 `pnpm.cmd support:bundle` 또는 `pnpm.cmd support:bundle -- --output .\solo-superman-support-bundle.json`을 사용합니다. Bundle은 OS/Node/pnpm/Codex version, git branch/head/status, repo remote, package script, allowlisted environment, 그리고 `verify:release-channel`/`verify:signed-package-preflight`/`verify:release-readiness`의 credential-free release diagnostics summary만 포함합니다. Release diagnostics는 status, blocked gate, missing credential group id와 env name처럼 값이 아닌 이름만 보존합니다. Full environment dump, file contents, browser cookies, OpenAI/GitHub token, ChatGPT web credential은 수집하지 않으며 URL credential, token/secret/password/API-key shaped value는 redacted로 남깁니다. 실패 리포트에 이 JSON을 첨부하되, 수동으로 secret을 추가하지 마세요.
+Windows PowerShell에서는 `pnpm.cmd support:bundle` 또는 `pnpm.cmd support:bundle -- --output .\solo-superman-support-bundle.json`을 사용합니다. Bundle은 OS/Node/pnpm/Codex version, git branch/head/status, repo remote, package script, allowlisted environment, 그리고 `verify:release-channel`/`verify:packaged-update-rollback`/`verify:signed-package-preflight`/`verify:release-readiness`의 credential-free release diagnostics summary만 포함합니다. Release diagnostics는 status, blocked gate, missing credential group id와 env name처럼 값이 아닌 이름만 보존합니다. Full environment dump, file contents, browser cookies, OpenAI/GitHub token, ChatGPT web credential은 수집하지 않으며 URL credential, token/secret/password/API-key shaped value는 redacted로 남깁니다. 실패 리포트에 이 JSON을 첨부하되, 수동으로 secret을 추가하지 마세요.
 
 Production bundle smoke는 `build_auto_local_smoke`, browser readiness, managed child processes stopped, temporary app data removed, auto shutdown/kill evidence를 포함해야 합니다.
 `pnpm verify:prod-bundle`은 managed sidecar/web child process를 시작하기 전에 fixed smoke port를 먼저 확인합니다. `127.0.0.1:43110` 또는 설정된 web preview port가 이미 사용 중이면 기존 local process를 중지하거나 `SOLO_PROD_SMOKE_SIDECAR_PORT=<free-port>` / `SOLO_PROD_SMOKE_WEB_PORT=<free-port>`로 다시 실행합니다.

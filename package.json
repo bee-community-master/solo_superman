@@ -29,7 +29,7 @@
     "verify:release-channel": "node scripts/verify-release-channel.mjs",
     "verify:signed-package-preflight": "node scripts/verify-signed-package-preflight.mjs",
     "verify:release-readiness": "node scripts/verify-release-readiness.mjs",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs && pnpm verify:release-channel && pnpm verify:signed-package-preflight && pnpm verify:release-readiness && pnpm verify:prod-bundle && pnpm verify:clarification-pipeline && pnpm verify:clarification-volume && pnpm verify:research-pipeline && pnpm verify:browser-delegation-pipeline && pnpm verify:service-page-pipeline && pnpm verify:auto-implementation-pipeline",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs && pnpm verify:release-channel && pnpm verify:packaged-update-rollback && pnpm verify:signed-package-preflight && pnpm verify:release-readiness && pnpm verify:prod-bundle && pnpm verify:clarification-pipeline && pnpm verify:clarification-volume && pnpm verify:research-pipeline && pnpm verify:browser-delegation-pipeline && pnpm verify:service-page-pipeline && pnpm verify:auto-implementation-pipeline",
     "dev:web": "pnpm --filter @solo-superman/web dev",
     "start:local": "node scripts/start-local-web.mjs",
     "verify:research-pipeline": "tsx apps/sidecar/src/research-pipeline-smoke.ts",
@@ -38,7 +38,8 @@
     "verify:browser-delegation-pipeline": "tsx apps/sidecar/src/browser-delegation-pipeline-smoke.ts",
     "verify:service-page-pipeline": "tsx apps/sidecar/src/service-page-pipeline-smoke.ts",
     "verify:clarification-volume": "tsx apps/sidecar/src/clarification-volume-smoke.ts",
-    "support:bundle": "node scripts/support-bundle.mjs"
+    "support:bundle": "node scripts/support-bundle.mjs",
+    "verify:packaged-update-rollback": "node scripts/verify-packaged-update-rollback.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

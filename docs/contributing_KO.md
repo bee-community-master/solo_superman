@@ -25,6 +25,7 @@ pnpm start:local
 | E2E smoke | `pnpm smoke:e2e` |
 | Docs contract | `pnpm verify:docs` |
 | Release channel manifest contract | `pnpm verify:release-channel` |
+| Packaged update rollback evidence contract | `pnpm verify:packaged-update-rollback` |
 | Signed package credential-free preflight | `pnpm verify:signed-package-preflight` |
 | General release readiness gate | `pnpm verify:release-readiness` |
 | Full gate (typecheck, lint, tests, docs/release/readiness/package contracts, production bundle smoke) | `pnpm verify` |
@@ -57,6 +58,7 @@ pnpm start:local
 - File, shell, browser, credential, external-production action은 여전히 explicit authority boundary를 요구합니다.
 - 새 route/DTO/enum value는 `docs/reference_KO.md`와 `docs/reference_EN.md`에 반영되고 `pnpm verify:docs`를 통과합니다.
 - Packaged update channel 변경은 `docs/release-channel_KO.md`, `docs/release-channel_EN.md`, `docs/release-update-channel.example.json`, `pnpm verify:release-channel`을 함께 갱신합니다.
+- Packaged update rollback evidence 변경은 `docs/packaged-update-rollback_KO.md`, `docs/packaged-update-rollback_EN.md`, `docs/packaged-update-rollback.example.json`, `pnpm verify:packaged-update-rollback`을 함께 갱신합니다.
 - Signed package planning 변경은 `docs/signed-packages_KO.md`, `docs/signed-packages_EN.md`, `docs/signed-package-preflight.example.json`, `pnpm verify:signed-package-preflight`를 함께 갱신합니다.
 - General release readiness 변경은 `docs/release-readiness_KO.md`, `docs/release-readiness_EN.md`, `docs/release-readiness.example.json`, `pnpm verify:release-readiness`를 함께 갱신합니다.
 - README는 end-user short entrypoint로 남고, 기여자/문제 해결 세부 내용은 `docs/` 아래에 둡니다.
