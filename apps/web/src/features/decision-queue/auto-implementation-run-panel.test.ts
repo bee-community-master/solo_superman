@@ -316,7 +316,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("2026-05-23T00:00:00.000Z");
     expect(markup).toContain("Runtime adapter");
     expect(markup).toContain("codex-app-server-preview-v1");
-    expect(markup).toContain("Generated schema");
+    expect(markup).toContain("Generated schema version");
     expect(markup).toContain("codex-cli-0.128.0");
     expect(markup).toContain("Transport");
     expect(markup).toContain("stdio");
