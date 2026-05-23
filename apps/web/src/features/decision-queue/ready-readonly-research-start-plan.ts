@@ -7,6 +7,7 @@ import type {
 import { startableReadOnlyResearchTaskIds } from "./decision-queue-view-model";
 
 type ResearchAllowlistProjection = ResearchAllowlistGovernanceProjection["allowlists"][number];
+export type ReadyReadOnlyResearchRunStartBlockerReason = "missing_allowlist" | "no_ready_tasks";
 
 export type ReadyReadOnlyResearchRunStartPlan =
   | {
@@ -15,11 +16,12 @@ export type ReadyReadOnlyResearchRunStartPlan =
     }
   | {
       readonly status: "blocked";
+      readonly reason: ReadyReadOnlyResearchRunStartBlockerReason;
       readonly message: string;
     }
   | {
       readonly status: "noop";
-      readonly reason: "missing_allowlist" | "no_ready_tasks";
+      readonly reason: ReadyReadOnlyResearchRunStartBlockerReason;
     };
 
 interface ReadyReadOnlyResearchRunStartPlanInput {
@@ -33,7 +35,7 @@ interface ReadyReadOnlyResearchRunStartPlanInput {
 
 function blockedOrNoop(
   quietNoop: boolean,
-  reason: "missing_allowlist" | "no_ready_tasks",
+  reason: ReadyReadOnlyResearchRunStartBlockerReason,
   message: string
 ): ReadyReadOnlyResearchRunStartPlan {
   return quietNoop
@@ -43,6 +45,7 @@ function blockedOrNoop(
       }
     : {
         status: "blocked",
+        reason,
         message
       };
 }

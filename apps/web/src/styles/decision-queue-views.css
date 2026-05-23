@@ -273,6 +273,44 @@
   padding-left: 10px;
 }
 
+.research-batch-plan {
+  border: 1px solid #d8ece8;
+  border-radius: 10px;
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+}
+
+.research-batch-plan-start {
+  background: #f6fbf9;
+  border-color: #b2dad7;
+}
+
+.research-batch-plan-blocked {
+  background: #fff8ed;
+  border-color: #f0d4a6;
+}
+
+.research-batch-plan p,
+.research-batch-plan ul {
+  margin: 0;
+}
+
+.research-batch-plan ul {
+  color: var(--solo-muted);
+  display: grid;
+  font-size: 0.72rem;
+  gap: 4px;
+  padding-left: 18px;
+}
+
+.research-batch-plan-title {
+  color: var(--solo-text);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
 .research-additional-questions p {
   margin: 0 0 4px;
   color: var(--solo-text);

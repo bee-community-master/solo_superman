@@ -58,10 +58,10 @@ import {
   pendingEffectSummary,
   questionProgressViewModel,
   queueSections,
-  runtimeActivityProjectionFromStatuses,
-  startableReadOnlyResearchTaskIds
+  runtimeActivityProjectionFromStatuses
 } from "../decision-queue-view-model";
 import { activeWebPublicResearchAllowlist } from "../phase15a-research-run-request";
+import { readyReadOnlyResearchRunStartPlan } from "../ready-readonly-research-start-plan";
 import {
   createSidecarClient,
   discoverSidecarConnection,
@@ -89,7 +89,11 @@ import { planningRadarAxes } from "./planning-radar-model";
 import { useCommandLogActions } from "./useCommandLogActions";
 import { useDecisionQueuePlanningPermissionActions } from "./useDecisionQueuePlanningPermissionActions";
 import { useDecisionQueueRefreshers } from "./useDecisionQueueRefreshers";
-import { useDecisionQueueResearchActions } from "./useDecisionQueueResearchActions";
+import {
+  MISSING_READY_RESEARCH_ALLOWLIST_MESSAGE,
+  NO_READY_RESEARCH_TASKS_MESSAGE,
+  useDecisionQueueResearchActions
+} from "./useDecisionQueueResearchActions";
 import { useDecisionQueueSessionActions } from "./useDecisionQueueSessionActions";
 
 function unavailableCodexLoginStart(message: string): CodexRuntimeLoginStartDto {
@@ -1164,11 +1168,16 @@ export function useDecisionQueueShellController() {
   });
   const activeResearchAllowlist = activeWebPublicResearchAllowlist(researchOperations.allowlists);
   const hasActiveResearchAllowlist = Boolean(activeResearchAllowlist);
-  const readyReadOnlyResearchTaskIds = startableReadOnlyResearchTaskIds({
+  const readyReadOnlyResearchStartPlan = readyReadOnlyResearchRunStartPlan({
     research: projections.research,
     runs: researchOperations.runs,
-    allowlist: activeResearchAllowlist
+    allowlist: activeResearchAllowlist,
+    missingAllowlistMessage: MISSING_READY_RESEARCH_ALLOWLIST_MESSAGE,
+    noReadyTasksMessage: NO_READY_RESEARCH_TASKS_MESSAGE,
+    quietNoop: false
   });
+  const readyReadOnlyResearchTaskIds =
+    readyReadOnlyResearchStartPlan.status === "start" ? readyReadOnlyResearchStartPlan.taskIds : [];
 
   const activeQueueCount = sections.find((section) => section.id === "active")?.items.length ?? 0;
   const nextQueueCount = sections.find((section) => section.id === "next")?.items.length ?? 0;
@@ -1351,6 +1360,7 @@ export function useDecisionQueueShellController() {
     planningReadinessLabel,
     canStart,
     hasActiveResearchAllowlist,
+    readyReadOnlyResearchStartPlan,
     readyReadOnlyResearchTaskIds,
     activeQueueCount,
     nextQueueCount,
