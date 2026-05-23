@@ -875,6 +875,76 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(completedView.canAdvanceWorkerStage).toBe(true);
   });
 
+  it("keeps merge_main worker advance disabled until applied PR merge evidence exists", () => {
+    const mergeMainWorkerJob = workerJob({
+      jobId: "auto-worker-job:auto_run_demo:merge_main:job_completed",
+      stage: "merge_main",
+      issueId: "local-007",
+      issueTitle: "Merge verified PR to main",
+      issueRelativePath: "implementation-issues/007-merge_main.md",
+      status: "completed",
+      nextRequiredAction: "Advance the merge_main stage after the applied PR merge is recorded.",
+      evidenceRefs: ["implementation-step-ledger:merge_main"],
+      executionPlan: {
+        issueDocumentPath: "implementation-issues/007-merge_main.md",
+        ledgerStepDoc: {
+          stepId: "auto-implementation-step:auto_run_demo:merge_main:local-007",
+          title: "Merge verified PR to main",
+          description: autoImplementationWorkerLedgerStepDescription({
+            stage: "merge_main",
+            issueRelativePath: "implementation-issues/007-merge_main.md"
+          }),
+          sourceRefs: [
+            "auto-implementation-run:auto_run_demo",
+            "auto-implementation-stage:merge_main",
+            "auto-implementation-worker-job:auto_run_demo:merge_main:job_completed",
+            "auto-implementation-issue:local-007",
+            "issue-doc:implementation-issues/007-merge_main.md"
+          ],
+          expectedChangeScope: autoImplementationWorkerExpectedChangeScope("merge_main")
+        }
+      }
+    });
+    const mergeMainRun = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+      currentStage: "merge_main" as const,
+      workerJobs: [mergeMainWorkerJob],
+      stagePlan: AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.stagePlan.map((stage) =>
+        stage.stage === "merge_main"
+          ? { ...stage, status: "ready" as const }
+          : { ...stage, status: "completed" as const }
+      ),
+      pullRequestMutations: {
+        records: [],
+        latestRecord: null
+      }
+    };
+    const appliedMerge = prMutationRecord({
+      mutationId: "auto-pr-mutation:auto_run_demo:merge_pr:applied_1",
+      action: "merge_pr",
+      requestMode: "approved",
+      status: "applied",
+      mutatesGitHub: true
+    });
+    const withoutMergeEvidenceView = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: mergeMainRun
+    } as AutoImplementationRunProjection);
+    const withMergeEvidenceView = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...mergeMainRun,
+        pullRequestMutations: {
+          records: [appliedMerge],
+          latestRecord: appliedMerge
+        }
+      }
+    } as AutoImplementationRunProjection);
+
+    expect(withoutMergeEvidenceView.canAdvanceWorkerStage).toBe(false);
+    expect(withMergeEvidenceView.canAdvanceWorkerStage).toBe(true);
+  });
+
   it("keeps worker controls scoped to the current auto implementation stage", () => {
     const previousStageCompletedJob = workerJob({
       status: "completed",
