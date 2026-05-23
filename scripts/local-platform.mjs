@@ -31,6 +31,14 @@ export function normalizeBindHost(value, name, env = process.env, platform = pro
   return normalizeLoopbackHost(value, name);
 }
 
+export function loopbackHostEnv(env, name, fallback) {
+  return normalizeLoopbackHost(envValue(env, name, fallback), name);
+}
+
+export function bindHostEnv(env, name, fallback, platform = process.platform) {
+  return normalizeBindHost(envValue(env, name, fallback), name, env, platform);
+}
+
 function isPnpmExecPath(value, env) {
   if (!value) {
     return false;

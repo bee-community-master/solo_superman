@@ -83,7 +83,7 @@ Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 No
 Production bundle smoke는 `build_auto_local_smoke`, browser readiness, managed child processes stopped, temporary app data removed, auto shutdown/kill evidence를 포함해야 합니다.
 `pnpm verify:prod-bundle`은 managed sidecar/web child process를 시작하기 전에 fixed smoke port를 먼저 확인합니다. `127.0.0.1:43110` 또는 설정된 web preview port가 이미 사용 중이면 기존 local process를 중지하거나 `SOLO_PROD_SMOKE_SIDECAR_PORT=<free-port>` / `SOLO_PROD_SMOKE_WEB_PORT=<free-port>`로 다시 실행합니다.
 
-Live Codex app-server preview turn은 기본 비활성입니다. Maintainer는 `codex login status`가 local Codex CLI 인증 상태를 보고한 뒤 `SOLO_CODEX_APP_SERVER_LIVE_TURNS=1`로 opt-in할 수 있습니다. App은 이 경우에도 API key, cookie, ChatGPT web credential을 요청하거나 저장하지 않습니다.
+Live Codex app-server preview turn은 기본 비활성입니다. Maintainer는 `codex login status`가 local Codex CLI 인증 상태를 보고한 뒤 `SOLO_CODEX_APP_SERVER_LIVE_TURNS=1`로 opt-in할 수 있습니다. 로컬 환경이 실제 live preview-only turn 준비 상태인지 증명하려면 macOS/Linux에서는 `SOLO_VERIFY_CODEX_LIVE_RUNTIME=1 SOLO_CODEX_APP_SERVER_LIVE_TURNS=1 pnpm verify:codex-live-runtime`, Windows PowerShell에서는 `$env:SOLO_VERIFY_CODEX_LIVE_RUNTIME="1"; $env:SOLO_CODEX_APP_SERVER_LIVE_TURNS="1"; pnpm.cmd verify:codex-live-runtime`을 실행합니다. 이 명령은 per-run token과 임시 app data로 local sidecar만 띄운 뒤 `/api/v1/runtime/status`를 읽고, runtime이 `status=available`, `executionMode=live`, `liveTurnExecutionEnabled=true`, authenticated Codex account를 모두 보고할 때만 통과합니다. Opt-in 없이 `pnpm verify:codex-live-runtime`만 실행하면 live readiness를 검증한 것처럼 보이지 않도록 `skipped` evidence를 출력합니다. App은 이 경우에도 API key, cookie, ChatGPT web credential을 요청하거나 저장하지 않습니다.
 
 ## 로컬 토큰과 sidecar URL
 
