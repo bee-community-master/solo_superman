@@ -88,10 +88,15 @@ describe("ImplementationView", () => {
     expect(markup).toContain("Execution records");
     expect(markup).toContain('<button type="button">Refresh runtime status</button>');
     expect(markup).toContain("Tool unavailable. No background tasks are pending.");
-    expect(markup).toContain("Runtime checked at: 2026-05-23T00:00:00.000Z");
-    expect(markup).toContain("Runtime adapter: codex-app-server-preview-v1");
-    expect(markup).toContain("Generated schema version: codex-cli-0.128.0");
-    expect(markup).toContain("Transport: stdio");
+    expect(markup).toContain('aria-label="Runtime evidence details"');
+    expect(markup).toContain("Runtime checked at");
+    expect(markup).toContain("2026-05-23T00:00:00.000Z");
+    expect(markup).toContain("Runtime adapter");
+    expect(markup).toContain("codex-app-server-preview-v1");
+    expect(markup).toContain("Generated schema version");
+    expect(markup).toContain("codex-cli-0.128.0");
+    expect(markup).toContain("Transport");
+    expect(markup).toContain("stdio");
   });
 
   it("disables the runtime status refresh action while another local action is running", () => {
