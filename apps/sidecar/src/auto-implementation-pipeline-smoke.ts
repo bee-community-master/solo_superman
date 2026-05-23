@@ -17,6 +17,11 @@ import {
   runAutoImplementationPrMutationSmoke,
   type AutoImplementationPrMutationSmokeEvidence
 } from "./auto-implementation-pr-mutation-smoke";
+import {
+  AUTO_IMPLEMENTATION_REVIEW_LOOP_SMOKE,
+  runAutoImplementationReviewLoopSmoke,
+  type AutoImplementationReviewLoopSmokeEvidence
+} from "./auto-implementation-review-loop-smoke";
 
 export const AUTO_IMPLEMENTATION_PIPELINE_SMOKE = "auto_implementation_pipeline" as const;
 
@@ -25,7 +30,8 @@ type SmokeRunner<T> = () => Promise<T>;
 type SmokeEvidence =
   | RuntimePreviewTurnSmokeEvidence
   | AutoImplementationWorkerSmokeEvidence
-  | AutoImplementationPrMutationSmokeEvidence;
+  | AutoImplementationPrMutationSmokeEvidence
+  | AutoImplementationReviewLoopSmokeEvidence;
 
 export interface AutoImplementationPipelineSmokeEvidence {
   readonly status: SmokeStatus;
@@ -35,6 +41,7 @@ export interface AutoImplementationPipelineSmokeEvidence {
     readonly runtimePreviewTurn: RuntimePreviewTurnSmokeEvidence;
     readonly workerJob: AutoImplementationWorkerSmokeEvidence;
     readonly prMutation: AutoImplementationPrMutationSmokeEvidence;
+    readonly reviewLoop: AutoImplementationReviewLoopSmokeEvidence;
   };
   readonly reason?: string;
   readonly blockers?: readonly string[];
@@ -46,6 +53,7 @@ export interface AutoImplementationPipelineSmokeOptions {
   readonly runRuntimePreviewTurn?: SmokeRunner<RuntimePreviewTurnSmokeEvidence>;
   readonly runWorkerJob?: SmokeRunner<AutoImplementationWorkerSmokeEvidence>;
   readonly runPrMutation?: SmokeRunner<AutoImplementationPrMutationSmokeEvidence>;
+  readonly runReviewLoop?: SmokeRunner<AutoImplementationReviewLoopSmokeEvidence>;
 }
 
 export function credentialFreePipelineSmokeEnv(
@@ -72,16 +80,18 @@ function pipelineBlockers(stages: AutoImplementationPipelineSmokeEvidence["stage
   return [
     stageBlocker("runtime-preview-turn", stages.runtimePreviewTurn),
     stageBlocker("worker-job", stages.workerJob),
-    stageBlocker("pr-mutation", stages.prMutation)
+    stageBlocker("pr-mutation", stages.prMutation),
+    stageBlocker("review-loop", stages.reviewLoop)
   ].filter((blocker): blocker is string => Boolean(blocker));
 }
 
 function checkedEvidence(stages: AutoImplementationPipelineSmokeEvidence["stages"]) {
   return [
-    "credential-free aggregate smoke forced fixture mode for preview and worker checks",
+    "credential-free aggregate smoke forced fixture mode for preview, worker, PR, and review-loop checks",
     ...stages.runtimePreviewTurn.checked.map((item) => `runtime-preview-turn: ${item}`),
     ...stages.workerJob.checked.map((item) => `worker-job: ${item}`),
-    ...stages.prMutation.checked.map((item) => `pr-mutation: ${item}`)
+    ...stages.prMutation.checked.map((item) => `pr-mutation: ${item}`),
+    ...stages.reviewLoop.checked.map((item) => `review-loop: ${item}`)
   ];
 }
 
@@ -140,6 +150,23 @@ async function runPrMutationStage(
   }
 }
 
+async function runReviewLoopStage(
+  runner: SmokeRunner<AutoImplementationReviewLoopSmokeEvidence>
+): Promise<AutoImplementationReviewLoopSmokeEvidence> {
+  try {
+    return await runner();
+  } catch (error: unknown) {
+    return {
+      status: "blocked",
+      smoke: AUTO_IMPLEMENTATION_REVIEW_LOOP_SMOKE,
+      mode: "fixture",
+      reason: "Review-loop smoke failed before it could return evidence.",
+      blockers: [errorMessage(error)],
+      checked: ["review-loop runner failed before evidence could be collected"]
+    };
+  }
+}
+
 export async function runAutoImplementationPipelineSmoke(
   options: AutoImplementationPipelineSmokeOptions = {}
 ): Promise<AutoImplementationPipelineSmokeEvidence> {
@@ -149,10 +176,14 @@ export async function runAutoImplementationPipelineSmoke(
   );
   const workerJob = await runWorkerJobStage(options.runWorkerJob ?? (() => runAutoImplementationWorkerSmoke({ env })));
   const prMutation = await runPrMutationStage(options.runPrMutation ?? (() => runAutoImplementationPrMutationSmoke()));
+  const reviewLoop = await runReviewLoopStage(
+    options.runReviewLoop ?? (() => runAutoImplementationReviewLoopSmoke())
+  );
   const stages = {
     runtimePreviewTurn,
     workerJob,
-    prMutation
+    prMutation,
+    reviewLoop
   };
   const blockers = pipelineBlockers(stages);
   const checked = checkedEvidence(stages);
