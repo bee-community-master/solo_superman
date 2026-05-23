@@ -10993,6 +10993,19 @@ describe("PR-02 sidecar health shell", () => {
         updatedAt: "2026-05-20T00:40:00.000Z"
       });
 
+      await createProjectionRepository(storage.db).save({
+        projectId: projectId as ProjectId,
+        sessionId: sessionId as SessionId,
+        projection: {
+          ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+          sessionId: sessionId as SessionId,
+          refetchUrl: `/api/v1/sessions/${sessionId}/implementation-step-ledger`,
+          schemaVersion: IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION
+        },
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        updatedAt: "2026-05-20T00:44:00.000Z"
+      });
+
       const blockedMissingBody = await postAutoImplementationPullRequestMutationForTest(
         storageApp,
         sessionId,
@@ -11004,6 +11017,14 @@ describe("PR-02 sidecar health shell", () => {
       const blockedMissingBodyRun = latestAutoImplementationRunFromBody(await jsonBody(blockedMissingBody));
       const blockedMissingBodyRecord = (blockedMissingBodyRun.pullRequestMutations as
         Readonly<Record<string, unknown>>).latestRecord as Readonly<Record<string, unknown>>;
+      const blockedMergeMainComplete = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "merge_main", {
+        idempotencyKey: "auto-stage:complete:merge-main-before-applied-merge",
+        action: "complete",
+        implementationStepId: "step_demo",
+        tickedAt: "2026-05-20T00:50:00.000Z",
+        evidenceRefs: ["stage:merge_main:complete-before-applied-merge"]
+      });
+      const blockedMergeMainCompleteBody = await jsonBody(blockedMergeMainComplete);
       const applied = await postAutoImplementationPullRequestMutationForTest(storageApp, sessionId, runId, mergeRequest(
         "pr-mutation:merge:applied",
         {
@@ -11013,6 +11034,14 @@ describe("PR-02 sidecar health shell", () => {
       const appliedRun = latestAutoImplementationRunFromBody(await jsonBody(applied));
       const appliedRecord = (appliedRun.pullRequestMutations as Readonly<Record<string, unknown>>).latestRecord as
         Readonly<Record<string, unknown>>;
+      const completedMergeMain = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "merge_main", {
+        idempotencyKey: "auto-stage:complete:merge-main-after-applied-merge",
+        action: "complete",
+        implementationStepId: "step_demo",
+        tickedAt: "2026-05-20T00:50:00.000Z",
+        evidenceRefs: ["stage:merge_main:complete-after-applied-merge"]
+      });
+      const completedMergeMainRun = latestAutoImplementationRunFromBody(await jsonBody(completedMergeMain));
       const duplicateMerge = await postAutoImplementationPullRequestMutationForTest(storageApp, sessionId, runId, mergeRequest(
         "pr-mutation:merge:duplicate-applied",
         {
@@ -11038,6 +11067,11 @@ describe("PR-02 sidecar health shell", () => {
         mutatesGitHub: false,
         blockedReason: "GitHub PR merge is blocked until the PR body contains current evidence."
       });
+      expect(blockedMergeMainComplete.status).toBe(400);
+      expect(blockedMergeMainCompleteBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "Auto implementation merge_main completion requires an applied GitHub PR merge mutation record."
+      });
       expect(applied.status).toBe(200);
       expect(mutationInputs).toHaveLength(1);
       expect(appliedRecord).toMatchObject({
@@ -11055,6 +11089,11 @@ describe("PR-02 sidecar health shell", () => {
           "github-pr-mutation:applied",
           "github-pr-mutation:mock-adapter:merged"
         ])
+      });
+      expect(completedMergeMain.status).toBe(200);
+      expect(completedMergeMainRun).toMatchObject({
+        status: "completed",
+        currentStage: "merge_main"
       });
       expect(duplicateMerge.status).toBe(200);
       expect(mutationInputs).toHaveLength(1);

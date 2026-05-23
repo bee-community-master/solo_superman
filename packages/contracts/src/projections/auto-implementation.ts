@@ -175,7 +175,7 @@ export const AUTO_IMPLEMENTATION_STAGE_REVIEW_GATES = {
   ],
   merge_main: [
     "Verify the PR is mergeable and its body contains final review/test evidence.",
-    "Merge only after the final verification evidence is fresh.",
+    "Merge only after the final verification evidence is fresh and record the applied PR merge mutation.",
     "Sync main after merge and rerun the full verification command on main."
   ]
 } as const satisfies Record<AutoImplementationStage, readonly string[]>;
