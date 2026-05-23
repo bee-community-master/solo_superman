@@ -1,4 +1,5 @@
 import {
+  AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX,
   canCreateAutoImplementationGitHubIssues,
   canImportAutoImplementationWorkerLedger,
   canMergeAutoImplementationPullRequest,
@@ -20,7 +21,8 @@ import {
   type AutoImplementationWorkerExecutionPlan,
   type AutoImplementationWorkerJob,
   type CodexRuntimeStatusDto,
-  type ImplementationStepLedgerProjection
+  type ImplementationStepLedgerProjection,
+  type ImplementationStepRecord
 } from "@solo-superman/contracts";
 import { canCompleteAutoImplementationWorkerFromLedger } from "./auto-implementation-worker-completion-request";
 import {
@@ -232,6 +234,40 @@ function issueRowEvidenceRefs(
   return stage?.evidenceRefs ?? [];
 }
 
+function completedLedgerStepMatchesCurrentStage(
+  step: ImplementationStepRecord,
+  run: AutoImplementationRun,
+  workerJob: AutoImplementationWorkerJob
+) {
+  return step.status === "completed" &&
+    step.missingEvidence.length === 0 &&
+    step.blocker === null &&
+    step.stepDoc.stepId === workerJob.executionPlan.ledgerStepDoc.stepId &&
+    step.stepDoc.sourceRefs.includes(`auto-implementation-stage:${run.currentStage}`);
+}
+
+function hasRequiredWorkerAdvanceLedgerEvidence(input: {
+  readonly run: AutoImplementationRun;
+  readonly ledger: ImplementationStepLedgerProjection | null;
+  readonly workerJob: AutoImplementationWorkerJob;
+}) {
+  const { ledger, run, workerJob } = input;
+
+  if (run.currentStage !== "merge_main") {
+    return true;
+  }
+
+  const stageStep = [...(ledger?.steps ?? [])].reverse().find((step) =>
+    completedLedgerStepMatchesCurrentStage(step, run, workerJob)
+  );
+
+  return Boolean(
+    stageStep?.testEvidenceRecord?.evidenceRefs.some((ref) =>
+      ref.startsWith(AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX)
+    )
+  );
+}
+
 function autoImplementationIssueRowView(
   run: AutoImplementationRun,
   issue: AutoImplementationIssueDocument
@@ -339,6 +375,13 @@ export function autoImplementationRunViewModel(
       }
     : null;
   const canRunWorkerJob = canRunAutoImplementationWorkerJob(latestWorkerJob);
+  const canAdvanceWorkerStage = latestWorkerJob?.status === "completed" &&
+    hasRequiredWorkerAdvanceLedgerEvidence({
+      run,
+      ledger: implementationStepLedger,
+      workerJob: latestWorkerJob
+    }) &&
+    (run.currentStage !== "merge_main" || hasAppliedAutoImplementationPullRequestMerge(run));
   const hasReadyPullRequestDryRun = (action: AutoImplementationPullRequestMutationRecord["action"]) =>
     pullRequestMutationRecords.some((record) =>
       record.action === action &&
@@ -411,8 +454,7 @@ export function autoImplementationRunViewModel(
       hasReadyPullRequestDryRun("merge_pr") &&
       canMergeAutoImplementationPullRequest(run),
     canRunWorkerJob,
-    canAdvanceWorkerStage: latestWorkerJob?.status === "completed" &&
-      (run.currentStage !== "merge_main" || hasAppliedAutoImplementationPullRequestMerge(run)),
+    canAdvanceWorkerStage,
     hasRun: true
   };
 }

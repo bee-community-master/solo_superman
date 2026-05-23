@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import {
+  AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX,
   AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
   AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
   IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
@@ -8,7 +9,8 @@ import {
   autoImplementationWorkerLedgerStepDescription,
   type AutoImplementationRun,
   type AutoImplementationRunProjection,
-  type CodexRuntimeStatusDto
+  type CodexRuntimeStatusDto,
+  type ImplementationStepLedgerProjection
 } from "@solo-superman/contracts";
 import {
   AutoImplementationRunPanel,
@@ -180,6 +182,37 @@ function renderPanelMarkup(
       onRefreshRun: () => undefined
     })
   );
+}
+
+function ledgerForWorkerJob(
+  worker: AutoImplementationRun["workerJobs"][number],
+  testEvidenceRefs: readonly string[]
+): ImplementationStepLedgerProjection {
+  const baseStep = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
+  const baseTestEvidence = baseStep.testEvidenceRecord!;
+  const stepId = worker.executionPlan.ledgerStepDoc.stepId;
+
+  return {
+    ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+    steps: [
+      {
+        ...baseStep,
+        stepDoc: worker.executionPlan.ledgerStepDoc,
+        testEvidenceRecord: {
+          ...baseTestEvidence,
+          stepId,
+          evidenceRefs: testEvidenceRefs
+        }
+      }
+    ],
+    testEvidenceRecords: [
+      {
+        ...baseTestEvidence,
+        stepId,
+        evidenceRefs: testEvidenceRefs
+      }
+    ]
+  } as ImplementationStepLedgerProjection;
 }
 
 describe("AutoImplementationRunPanel view model", () => {
@@ -875,7 +908,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(completedView.canAdvanceWorkerStage).toBe(true);
   });
 
-  it("keeps merge_main worker advance disabled until applied PR merge evidence exists", () => {
+  it("keeps merge_main worker advance disabled until applied PR merge and post-merge verification evidence exist", () => {
     const mergeMainWorkerJob = workerJob({
       jobId: "auto-worker-job:auto_run_demo:merge_main:job_completed",
       stage: "merge_main",
@@ -930,7 +963,7 @@ describe("AutoImplementationRunPanel view model", () => {
       ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
       latestRun: mergeMainRun
     } as AutoImplementationRunProjection);
-    const withMergeEvidenceView = autoImplementationRunViewModel({
+    const withMergeEvidenceButNoLedgerView = autoImplementationRunViewModel({
       ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
       latestRun: {
         ...mergeMainRun,
@@ -940,9 +973,33 @@ describe("AutoImplementationRunPanel view model", () => {
         }
       }
     } as AutoImplementationRunProjection);
+    const withMergeEvidenceButMissingPostMergeView = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...mergeMainRun,
+        pullRequestMutations: {
+          records: [appliedMerge],
+          latestRecord: appliedMerge
+        }
+      }
+    } as AutoImplementationRunProjection, ledgerForWorkerJob(mergeMainWorkerJob, ["test:pnpm-verify"]));
+    const withPostMergeEvidenceView = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...mergeMainRun,
+        pullRequestMutations: {
+          records: [appliedMerge],
+          latestRecord: appliedMerge
+        }
+      }
+    } as AutoImplementationRunProjection, ledgerForWorkerJob(mergeMainWorkerJob, [
+      `${AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX}merge_main:pnpm-verify`
+    ]));
 
     expect(withoutMergeEvidenceView.canAdvanceWorkerStage).toBe(false);
-    expect(withMergeEvidenceView.canAdvanceWorkerStage).toBe(true);
+    expect(withMergeEvidenceButNoLedgerView.canAdvanceWorkerStage).toBe(false);
+    expect(withMergeEvidenceButMissingPostMergeView.canAdvanceWorkerStage).toBe(false);
+    expect(withPostMergeEvidenceView.canAdvanceWorkerStage).toBe(true);
   });
 
   it("keeps worker controls scoped to the current auto implementation stage", () => {

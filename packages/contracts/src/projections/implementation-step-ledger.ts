@@ -36,6 +36,8 @@ export const IMPLEMENTATION_CLEAN_CODE_REVIEW_STREAK_MISSING_EVIDENCE =
 export const IMPLEMENTATION_TEST_OUTCOMES = ["passed", "failed", "not_run"] as const;
 export type ImplementationTestOutcome = (typeof IMPLEMENTATION_TEST_OUTCOMES)[number];
 
+export const AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX = "post-merge-verify:";
+
 export interface TrackerDoc {
   readonly trackerId: string;
   readonly title: string;
