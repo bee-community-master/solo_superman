@@ -191,7 +191,9 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.issueDocs[0]!.relativePath).toContain("implementation-issues/001-initial_pr.md");
     expect(view.issueRows[0]).toMatchObject({
       latestWorkerJobLabel: "latest worker none",
-      nextActionLabel: "Work this issue through the delivery protocol, review streaks, and test evidence checklist."
+      nextActionLabel: "Work this issue through the delivery protocol, review streaks, and test evidence checklist.",
+      missingEvidenceLabel: "none",
+      evidenceRefsLabel: "none"
     });
     expect(renderPanelMarkup(view)).toContain(
       "local-001: Workspace repo bootstrap and initial implementation PR — stage initial_pr / status open (implementation-issues/001-initial_pr.md)"
@@ -258,6 +260,7 @@ describe("AutoImplementationRunPanel view model", () => {
       blockedReason: "ExecutionAuthorityRecord is missing.",
       missingEvidence: ["ExecutionAuthorityRecord"],
       nextRequiredAction: "Create a bounded ExecutionAuthorityRecord before local worker execution.",
+      evidenceRefs: ["auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked"],
       executionPlan: {
         issueDocumentPath: "implementation-issues/002-code_review_fix_1.md"
       }
@@ -267,7 +270,21 @@ describe("AutoImplementationRunPanel view model", () => {
       latestRun: {
         ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
         stagePlan: AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.stagePlan.map((stage, index) =>
-          index === 0 ? { ...stage, status: "completed" as const } : stage
+          index === 0
+            ? { ...stage, status: "completed" as const }
+            : index === 2
+              ? {
+                  ...stage,
+                  status: "blocked" as const,
+                  blocker: {
+                    stage: "code_review_fix_2" as const,
+                    reason: "Repository review evidence is missing.",
+                    missingEvidence: ["Repository code-review pass 2"],
+                    nextRequiredAction: "Record the second repository code-review clean pass.",
+                    evidenceRefs: ["stage-blocker:repository-review"]
+                  }
+                }
+              : stage
         ),
         workerJobs: [blockedWorker],
         issueManagement: {
@@ -277,39 +294,61 @@ describe("AutoImplementationRunPanel view model", () => {
               ? { ...issue, status: "completed" as const }
               : index === 1
                 ? { ...issue, status: "blocked" as const }
+                : index === 2
+                  ? { ...issue, status: "blocked" as const }
                 : issue
           ),
           issueStatusSummary: {
             total: 7,
-            open: 5,
+            open: 4,
             completed: 1,
-            blocked: 1
+            blocked: 2
           }
         }
       }
     } as AutoImplementationRunProjection);
     const markup = renderPanelMarkup(view);
 
-    expect(view.issueStatusSummaryLabel).toBe("Issue status summary: 1 completed / 1 blocked / 5 open / 7 total");
+    expect(view.issueStatusSummaryLabel).toBe("Issue status summary: 1 completed / 2 blocked / 4 open / 7 total");
     expect(view.issueRows[0]).toMatchObject({
       latestWorkerJobLabel: "latest worker none",
-      nextActionLabel: "Use the completed stage ledger evidence before advancing the next PR slice."
+      nextActionLabel: "Use the completed stage ledger evidence before advancing the next PR slice.",
+      missingEvidenceLabel: "none",
+      evidenceRefsLabel: "none"
     });
     expect(view.issueRows[1]).toMatchObject({
       latestWorkerJobLabel: "latest worker auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (blocked)",
       blockerLabel: "worker blocker: ExecutionAuthorityRecord is missing.",
-      nextActionLabel: "Create a bounded ExecutionAuthorityRecord before local worker execution."
+      nextActionLabel: "Create a bounded ExecutionAuthorityRecord before local worker execution.",
+      missingEvidenceLabel: "ExecutionAuthorityRecord",
+      evidenceRefsLabel: "auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked"
     });
-    expect(markup).toContain("Issue status summary: 1 completed / 1 blocked / 5 open / 7 total");
+    expect(view.issueRows[2]).toMatchObject({
+      latestWorkerJobLabel: "latest worker none",
+      blockerLabel: "stage blocker: Repository review evidence is missing.",
+      nextActionLabel: "Record the second repository code-review clean pass.",
+      missingEvidenceLabel: "Repository code-review pass 2",
+      evidenceRefsLabel: "stage-blocker:repository-review"
+    });
+    expect(markup).toContain("Issue status summary: 1 completed / 2 blocked / 4 open / 7 total");
     expect(markup).toContain(
       "local-001: Workspace repo bootstrap and initial implementation PR — stage initial_pr / status completed (implementation-issues/001-initial_pr.md)"
     );
     expect(markup).toContain(
       "local-002: PR code review and fix pass 1 — stage code_review_fix_1 / status blocked (implementation-issues/002-code_review_fix_1.md)"
     );
+    expect(markup).toContain(
+      "local-003: PR code review and fix pass 2 — stage code_review_fix_2 / status blocked (implementation-issues/003-code_review_fix_2.md)"
+    );
     expect(markup).toContain("latest worker auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (blocked)");
     expect(markup).toContain("next: Create a bounded ExecutionAuthorityRecord before local worker execution.");
+    expect(markup).toContain("missing: ExecutionAuthorityRecord");
+    expect(markup).toContain("evidence: auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked");
     expect(markup).toContain("worker blocker: ExecutionAuthorityRecord is missing.");
+    expect(markup).toContain("next: Record the second repository code-review clean pass.");
+    expect(markup).toContain("missing: Repository code-review pass 2");
+    expect(markup).toContain("evidence: stage-blocker:repository-review");
+    expect(markup).toContain("stage blocker: Repository review evidence is missing.");
   });
 
   it("shows the latest GitHub PR mutation evidence and history count", () => {
