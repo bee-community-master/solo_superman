@@ -18,6 +18,7 @@ const PACKAGE_METADATA_SCRIPT = [
   "verify:scripts.verify,",
   "verifyProdBundle:scripts['verify:prod-bundle'],",
   "verifyReleaseChannel:scripts['verify:release-channel'],",
+  "verifyWindowsRealDevice:scripts['verify:windows-real-device'],",
   "verifyPackagedUpdateRollback:scripts['verify:packaged-update-rollback'],",
   "verifySignedPackagePreflight:scripts['verify:signed-package-preflight'],",
   "verifyReleaseReadiness:scripts['verify:release-readiness'],",
@@ -28,6 +29,10 @@ const RELEASE_DIAGNOSTIC_COMMANDS = {
   releaseChannel: {
     command: "pnpm verify:release-channel",
     args: ["scripts/verify-release-channel.mjs"]
+  },
+  windowsRealDevice: {
+    command: "pnpm verify:windows-real-device",
+    args: ["scripts/verify-windows-real-device.mjs"]
   },
   packagedUpdateRollback: {
     command: "pnpm verify:packaged-update-rollback",
@@ -222,6 +227,16 @@ function compactReleaseDiagnostic(name, result) {
         manifestPath: typeof parsed.manifestPath === "string" ? parsed.manifestPath : null,
         issues: stringList(parsed.issues)
       };
+    case "windowsRealDevice":
+      return {
+        ...summary,
+        windowsVerificationStatus: typeof parsed.windowsVerificationStatus === "string"
+          ? parsed.windowsVerificationStatus
+          : "unknown",
+        windowsRealDeviceReady: parsed.windowsRealDeviceReady === true,
+        blockedDeviceRuns: stringList(parsed.blockedDeviceRuns),
+        blockers: stringList(parsed.blockers)
+      };
     case "packagedUpdateRollback":
       return {
         ...summary,
@@ -342,6 +357,7 @@ export async function createSupportBundle(options = {}) {
     recommendedChecks: [
       "pnpm verify:prod-bundle",
       "pnpm verify:release-channel",
+      "pnpm verify:windows-real-device",
       "pnpm verify:packaged-update-rollback",
       "pnpm verify:signed-package-preflight",
       "pnpm verify:release-readiness",

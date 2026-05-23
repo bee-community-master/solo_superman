@@ -56,6 +56,7 @@ Set-Location "$HOME\solo_superman"; pnpm.cmd start:local
 - 서명된 설치 패키지 preflight: [`docs/signed-packages_KO.md`](docs/signed-packages_KO.md)와 `pnpm verify:signed-package-preflight`가 macOS/Windows package 후보, signing credential gate, local dry-run과 actual signing gate 분리를 검증합니다.
 - 패키지 앱 업데이트 채널 계약: [`docs/release-channel_KO.md`](docs/release-channel_KO.md)와 `pnpm verify:release-channel`이 manifest 서명, artifact checksum/signature, 사용자 보류, 재시도, rollback, credential/user-data 보존 조건을 검증합니다.
 - 패키지 업데이트 rollback evidence 계약: [`docs/packaged-update-rollback_KO.md`](docs/packaged-update-rollback_KO.md)와 `pnpm verify:packaged-update-rollback`이 macOS/Windows device rollback evidence gate를 #267에 묶어 둡니다.
+- Windows 실기기 설치 evidence 계약: [`docs/windows-real-device_KO.md`](docs/windows-real-device_KO.md)와 `pnpm verify:windows-real-device`가 한 줄 설치부터 첫 화면 도달까지의 evidence gate를 #259에 묶어 둡니다.
 - 일반 공개 준비도 게이트: [`docs/release-readiness_KO.md`](docs/release-readiness_KO.md)와 `pnpm verify:release-readiness`가 signed package, packaged updater rollback, Windows 실기기 evidence가 준비되기 전까지 broad/general release 상태가 blocked임을 검증합니다.
 - 아직 남은 일반 배포 과제: 실제 signing/notarization credential으로 macOS/Windows 설치 패키지 생성 및 검증, 실제 패키지 앱 updater 구현/실기기 rollback 검증, Windows 실기기 검증
 

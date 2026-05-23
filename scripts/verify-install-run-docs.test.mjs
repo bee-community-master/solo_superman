@@ -12,6 +12,8 @@ const releaseChannelDoc = readFileSync("docs/release-channel_KO.md", "utf8");
 const releaseChannelExample = readFileSync("docs/release-update-channel.example.json", "utf8");
 const packagedUpdateRollbackDoc = readFileSync("docs/packaged-update-rollback_KO.md", "utf8");
 const packagedUpdateRollbackExample = readFileSync("docs/packaged-update-rollback.example.json", "utf8");
+const windowsRealDeviceDoc = readFileSync("docs/windows-real-device_KO.md", "utf8");
+const windowsRealDeviceExample = readFileSync("docs/windows-real-device.example.json", "utf8");
 const signedPackagesDoc = readFileSync("docs/signed-packages_KO.md", "utf8");
 const signedPackagePreflightExample = readFileSync("docs/signed-package-preflight.example.json", "utf8");
 const windowsBlocks = [...runbook.matchAll(/```powershell\n([\s\S]*?)\n```/g)].map((match) => match[1]);
@@ -76,6 +78,8 @@ describe("#105 local install/run verification docs", () => {
     expect(readme).toContain("`pnpm verify:release-channel`");
     expect(readme).toContain("패키지 업데이트 rollback evidence 계약");
     expect(readme).toContain("`pnpm verify:packaged-update-rollback`");
+    expect(readme).toContain("Windows 실기기 설치 evidence 계약");
+    expect(readme).toContain("`pnpm verify:windows-real-device`");
     expect(readme).toContain("서명된 설치 패키지 preflight");
     expect(readme).toContain("`pnpm verify:signed-package-preflight`");
     expect(releaseChannelDoc).toContain("Git checkout technical preview");
@@ -84,6 +88,8 @@ describe("#105 local install/run verification docs", () => {
     expect(releaseChannelExample).toContain('"schemaVersion": "solo-superman-release-update-manifest.v1"');
     expect(packagedUpdateRollbackDoc).toContain("rollback_after_failed_launch");
     expect(packagedUpdateRollbackExample).toContain('"schemaVersion": "solo-superman-packaged-update-rollback.v1"');
+    expect(windowsRealDeviceDoc).toContain("run_administrator_powershell_one_line_installer");
+    expect(windowsRealDeviceExample).toContain('"schemaVersion": "solo-superman-windows-real-device.v1"');
     expect(signedPackagesDoc).toContain("macos-dmg");
     expect(signedPackagesDoc).toContain("windows-msi");
     expect(signedPackagesDoc).toContain("credential-free default preflight");
@@ -99,6 +105,8 @@ describe("#105 local install/run verification docs", () => {
     expect(englishReadme).toContain("`pnpm verify:release-channel`");
     expect(englishReadme).toContain("Packaged update rollback evidence contract");
     expect(englishReadme).toContain("`pnpm verify:packaged-update-rollback`");
+    expect(englishReadme).toContain("Windows real-device install evidence contract");
+    expect(englishReadme).toContain("`pnpm verify:windows-real-device`");
     expect(englishReadme).toContain("Signed installer package preflight");
     expect(englishReadme).toContain("`pnpm verify:signed-package-preflight`");
     expect(windowsLauncher).toContain(`${publicRawBase}/scripts/bootstrap-windows.ps1`);

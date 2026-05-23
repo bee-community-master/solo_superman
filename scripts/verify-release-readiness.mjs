@@ -37,6 +37,7 @@ const REQUIRED_BLOCKER_ISSUES_BY_GATE = new Map([
 const REQUIRED_CREDENTIAL_FREE_COMMANDS = new Set([
   "pnpm verify:prod-bundle",
   "pnpm verify:release-channel",
+  "pnpm verify:windows-real-device",
   "pnpm verify:packaged-update-rollback",
   "pnpm verify:signed-package-preflight",
   "pnpm verify:release-readiness",
@@ -44,6 +45,7 @@ const REQUIRED_CREDENTIAL_FREE_COMMANDS = new Set([
 ]);
 const REQUIRED_READY_COMMANDS = new Set([
   "pnpm verify:signed-package-preflight -- --require-credentials",
+  "pnpm verify:windows-real-device -- --require-device-evidence",
   "pnpm verify:packaged-update-rollback -- --require-device-evidence",
   "pnpm verify:release-readiness -- --require-ready"
 ]);

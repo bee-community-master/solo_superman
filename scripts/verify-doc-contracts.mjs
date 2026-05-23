@@ -16,6 +16,7 @@ export const CONTRIBUTOR_DOC_PATHS = [
   "docs/reference_KO.md",
   "docs/release-channel_KO.md",
   "docs/packaged-update-rollback_KO.md",
+  "docs/windows-real-device_KO.md",
   "docs/signed-packages_KO.md",
   "docs/release-readiness_KO.md",
   "docs/troubleshooting_KO.md"
@@ -34,6 +35,7 @@ const CONTRIBUTOR_DOC_SLUGS = [
   "reference",
   "release-channel",
   "packaged-update-rollback",
+  "windows-real-device",
   "signed-packages",
   "release-readiness",
   "troubleshooting"
@@ -718,8 +720,20 @@ function checkContributorDocsSnippets() {
     "secret"
   ]);
 
+  requireSnippets("Windows real-device doc missing evidence contract", docs["docs/windows-real-device_KO.md"], [
+    "solo-superman-windows-real-device.v1",
+    "pnpm verify:windows-real-device",
+    "--require-device-evidence",
+    "run_administrator_powershell_one_line_installer",
+    "reach_first_screen",
+    "generate_support_bundle",
+    "#259",
+    "secret"
+  ]);
+
   requireSnippets("release readiness doc missing broad release gates", docs["docs/release-readiness_KO.md"], [
     "solo-superman-release-readiness.v1",
+    "pnpm verify:windows-real-device",
     "pnpm verify:packaged-update-rollback",
     "pnpm verify:release-readiness",
     "--require-ready",
