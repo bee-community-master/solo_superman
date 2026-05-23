@@ -297,17 +297,22 @@
   font-size: 0.72rem;
 }
 
+.research-validation-summary,
+.research-evidence-packs,
 .research-evidence-matrices {
   display: grid;
   gap: 10px;
   margin-top: 14px;
 }
 
+.research-evidence-pack-list,
 .research-evidence-matrix-list {
   display: grid;
   gap: 10px;
 }
 
+.research-validation-summary,
+.research-evidence-pack,
 .research-evidence-matrix {
   border: 1px solid var(--solo-soft-border);
   border-radius: 10px;

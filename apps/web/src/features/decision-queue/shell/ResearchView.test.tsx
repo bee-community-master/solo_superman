@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type {
+  DecisionEvidencePackId,
+  DecisionEvidencePackProjection,
   EvidenceItemId,
   ProjectId,
   ProjectionVersion,
@@ -68,6 +70,46 @@ function researchProjection(): ResearchEvidenceProjection {
     knownRisks: [],
     nextValidationActions: [],
     proConBalanceStatus: "unknown"
+  };
+}
+
+type EvidencePackOverrides = Partial<Omit<DecisionEvidencePackProjection, "sourceTitle" | "sourceUrl">> & {
+  readonly sourceTitle?: string | undefined;
+  readonly sourceUrl?: string | undefined;
+};
+
+function evidencePackProjection(overrides: EvidencePackOverrides = {}): DecisionEvidencePackProjection {
+  const { sourceTitle: overriddenSourceTitle, sourceUrl: overriddenSourceUrl, ...packOverrides } = overrides;
+  const sourceTitle = "sourceTitle" in overrides ? overriddenSourceTitle : "Founder interview pricing notes";
+  const sourceUrl = "sourceUrl" in overrides ? overriddenSourceUrl : "https://example.com/pricing-notes";
+
+  return {
+    evidencePackId: "evidence_pack_pricing" as DecisionEvidencePackId,
+    researchTaskId: "research_task_reviewed" as ResearchTaskId,
+    researchResultId: "research_result_pricing" as ResearchResultId,
+    claim: "Pricing willingness has source-backed support.",
+    decisionContext: "Decide whether to continue the paid founder interview workflow.",
+    sourceReliability: "high",
+    retrievedAt: "2026-05-22T00:00:00.000Z",
+    gateStatus: "accepted",
+    gateChecks: [
+      {
+        code: "source_reliability",
+        status: "passed",
+        reason: "The retained source is specific to the target founder workflow."
+      }
+    ],
+    proEvidenceItemIds: ["evidence_pro_pricing" as EvidenceItemId],
+    conEvidenceItemIds: [],
+    uncertaintyItemIds: ["evidence_uncertainty_pricing" as EvidenceItemId],
+    limitationRefs: ["limitation:small-sample"],
+    implicationScope: "Planning-ready pricing confidence",
+    knownRisk: "Counter-evidence has not been gathered yet.",
+    nextValidationAction: "Search for founder tools with low conversion despite interview demand.",
+    createdAt: "2026-05-22T00:00:00.000Z",
+    ...(sourceTitle === undefined ? {} : { sourceTitle }),
+    ...(sourceUrl === undefined ? {} : { sourceUrl }),
+    ...packOverrides
   };
 }
 
@@ -234,5 +276,66 @@ describe("ResearchView", () => {
     expect(markup).toContain("Known risk");
     expect(markup).toContain("Pricing evidence remains one-sided.");
     expect(markup).toContain("Which source disproves pricing urgency?");
+  });
+
+  it("renders evidence packs with research-level risks and validation actions", () => {
+    const research = researchProjection();
+    const markup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        research: {
+          ...research,
+          knownRisks: ["Pricing evidence is still biased toward founder interviews."],
+          nextValidationActions: ["Run a skeptical pricing search before Planning-ready."],
+          evidencePacks: [evidencePackProjection()]
+        }
+      }
+    });
+
+    expect(markup).toContain("Validation summary");
+    expect(markup).toContain("Known risks");
+    expect(markup).toContain("Pricing evidence is still biased toward founder interviews.");
+    expect(markup).toContain("Next validation actions");
+    expect(markup).toContain("Run a skeptical pricing search before Planning-ready.");
+    expect(markup).toContain("Evidence packs");
+    expect(markup).toContain("Pricing willingness has source-backed support.");
+    expect(markup).toContain("Gate status");
+    expect(markup).toContain("accepted");
+    expect(markup).toContain("Source reliability");
+    expect(markup).toContain("high");
+    expect(markup).toContain("Decision context");
+    expect(markup).toContain("Decide whether to continue the paid founder interview workflow.");
+    expect(markup).toContain("Founder interview pricing notes");
+    expect(markup).toContain('href="https://example.com/pricing-notes"');
+    expect(markup).toContain("https://example.com/pricing-notes");
+    expect(markup).toContain("Gate checks");
+    expect(markup).toContain("source_reliability");
+    expect(markup).toContain("The retained source is specific to the target founder workflow.");
+    expect(markup).toContain("Counter-evidence has not been gathered yet.");
+    expect(markup).toContain("Search for founder tools with low conversion despite interview demand.");
+    expect(markup).toContain("Limitations");
+    expect(markup).toContain("limitation:small-sample");
+  });
+
+  it("renders unsafe evidence pack source URLs as text instead of links", () => {
+    const research = researchProjection();
+    const markup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        research: {
+          ...research,
+          evidencePacks: [
+            evidencePackProjection({
+              evidencePackId: "evidence_pack_unsafe_source" as DecisionEvidencePackId,
+              sourceTitle: undefined,
+              sourceUrl: "javascript:alert(1)"
+            })
+          ]
+        }
+      }
+    });
+
+    expect(markup).toContain("javascript:alert(1)");
+    expect(markup).not.toContain('href="javascript:alert(1)"');
   });
 });
