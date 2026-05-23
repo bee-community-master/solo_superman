@@ -2,11 +2,11 @@
 
 언어: 한국어 | [English](signed-package-release_EN.md)
 
-이 문서는 macOS Developer ID/notarization, Windows Authenticode/timestamp, release manifest signing evidence가 실제 general release 전에 준비되어야 한다는 `solo-superman-signed-package-release.v1` 계약입니다. 현재 repo/local 환경에는 signing credential과 final signed artifacts가 없으므로 실제 signing을 수행하지 않습니다. 대신 `pnpm verify:signed-package-release`가 #266에 묶인 release evidence 구조와 남은 blocker를 검증합니다.
+이 문서는 macOS Developer ID/notarization, Windows Authenticode/timestamp, release manifest signing evidence가 실제 general release 전에 준비되어야 한다는 `solo-superman-signed-package-release.v1` 계약입니다. 현재 repo/local 환경에는 signing credential과 final signed artifacts가 없으므로 실제 signing을 수행하지 않습니다. 대신 `pnpm verify:signed-package-release`가 #266에 묶인 release evidence 구조와 남은 blocker를 검증하고, `pnpm verify:signed-package-release:dry-run`이 fixture artifact/manifest evidence shape drift를 credential-free로 잡습니다.
 
 ## 계약 파일
 
-- Release evidence contract: [`signed-package-release.example.json`](signed-package-release.example.json)와 `pnpm verify:signed-package-release`가 macOS/Windows signing 및 release manifest evidence gate를 검증합니다.
+- Release evidence contract: [`signed-package-release.example.json`](signed-package-release.example.json), `pnpm verify:signed-package-release`, `pnpm verify:signed-package-release:dry-run`이 macOS/Windows signing 및 release manifest evidence gate와 fixture evidence shape를 검증합니다.
 - Credential preflight: [`signed-packages_KO.md`](signed-packages_KO.md), [`signed-package-preflight.example.json`](signed-package-preflight.example.json), `pnpm verify:signed-package-preflight`가 signing credential group과 local dry-run/actual signing gate 분리를 검증합니다.
 - Release readiness: [`release-readiness_KO.md`](release-readiness_KO.md)와 `pnpm verify:release-readiness`가 signed package evidence를 Windows real-device 및 packaged update rollback gate와 함께 broad release blocker로 유지합니다.
 
@@ -17,6 +17,14 @@ pnpm verify:signed-package-release
 ```
 
 기본 모드는 credential-free contract check입니다. 현재 예시는 `releaseEvidenceStatus=blocked`이며, #266 blocker issue와 required evidence가 명시되어 있으면 통과합니다.
+
+## Credential-free release evidence dry-run
+
+```sh
+pnpm verify:signed-package-release:dry-run
+```
+
+이 dry-run은 실제 signing을 수행하지 않고 macOS/Windows fixture artifact의 checksum, size, signature ref, 공개 certificate metadata와 release manifest signature ref shape를 검증합니다. #293의 local guard이며 #266의 실제 signing/notarization/Authenticode/manifest evidence를 대체하지 않습니다.
 
 ## 실제 release evidence 모드
 
@@ -34,6 +42,7 @@ pnpm verify:signed-package-release -- --require-release-evidence
 
 ## 운영 규칙
 
+- `pnpm verify:signed-package-release:dry-run`은 fixture evidence shape drift를 잡는 로컬 안전망이며, #266의 실제 release evidence를 대체하지 않습니다.
 - #266을 닫으려면 `pnpm verify:signed-package-preflight -- --require-credentials`, `pnpm verify:signed-package-release -- --require-release-evidence`, `pnpm verify:release-readiness -- --require-ready`를 통과할 수 있는 redacted release evidence가 필요합니다.
 - Signing certificate, private key, Apple notarytool password, Windows certificate password, manifest private key는 local secret store나 CI secret manager 밖으로 나오면 안 됩니다.
 - evidence ref는 HTTPS URL 또는 repo-relative 문서 anchor여야 하며 secret, token, cookie, credential 값을 포함하면 안 됩니다.

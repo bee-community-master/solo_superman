@@ -52,7 +52,8 @@
     "pnpm build",
     "pnpm verify:prod-bundle",
     "pnpm verify:release-channel",
-    "pnpm verify:signed-package-preflight"
+    "pnpm verify:signed-package-preflight",
+    "pnpm verify:signed-package-release:dry-run"
   ],
   "hardGates": [
     {

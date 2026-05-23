@@ -88,6 +88,7 @@ describe("signed package preflight verification", () => {
         "$.localDryRunCommands: must include pnpm verify:prod-bundle",
         "$.localDryRunCommands: must include pnpm verify:release-channel",
         "$.localDryRunCommands: must include pnpm verify:signed-package-preflight",
+        "$.localDryRunCommands: must include pnpm verify:signed-package-release:dry-run",
         "$.hardGates[0].requiresCredentialGroup: must reference a declared credential group or external-device-evidence",
         "$.hardGates: must include macos-notarization-stapling",
         "$.hardGates: must include windows-authenticode-signing"

@@ -29,6 +29,7 @@ The local app opens a browser screen through the local web frontend and local No
 | Windows real-device evidence contract | `pnpm verify:windows-real-device` |
 | Signed package credential-free preflight | `pnpm verify:signed-package-preflight` |
 | Signed package release evidence contract | `pnpm verify:signed-package-release` |
+| Signed package release evidence dry-run | `pnpm verify:signed-package-release:dry-run` |
 | General release readiness gate | `pnpm verify:release-readiness` |
 | Full gate (typecheck, lint, tests, docs/release/readiness/package contracts, production bundle smoke) | `pnpm verify` |
 
@@ -63,6 +64,6 @@ The local app opens a browser screen through the local web frontend and local No
 - Packaged update rollback evidence changes update `docs/packaged-update-rollback_KO.md`, `docs/packaged-update-rollback_EN.md`, `docs/packaged-update-rollback.example.json`, `pnpm verify:packaged-update-rollback`, and `pnpm verify:packaged-update-rollback:dry-run` together.
 - Windows real-device evidence changes update `docs/windows-real-device_KO.md`, `docs/windows-real-device_EN.md`, `docs/windows-real-device.example.json`, `pnpm verify:windows-real-device`, and `pnpm verify:windows-installer:dry-run` together.
 - Signed package planning changes update `docs/signed-packages_KO.md`, `docs/signed-packages_EN.md`, `docs/signed-package-preflight.example.json`, and `pnpm verify:signed-package-preflight` together.
-- Signed package release evidence changes update `docs/signed-package-release_KO.md`, `docs/signed-package-release_EN.md`, `docs/signed-package-release.example.json`, and `pnpm verify:signed-package-release` together.
+- Signed package release evidence changes update `docs/signed-package-release_KO.md`, `docs/signed-package-release_EN.md`, `docs/signed-package-release.example.json`, `pnpm verify:signed-package-release`, and `pnpm verify:signed-package-release:dry-run` together.
 - General release readiness changes update `docs/release-readiness_KO.md`, `docs/release-readiness_EN.md`, `docs/release-readiness.example.json`, and `pnpm verify:release-readiness` together.
 - README remains end-user short; detailed contributor or troubleshooting content lives under `docs/`.

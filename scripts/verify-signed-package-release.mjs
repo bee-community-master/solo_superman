@@ -42,6 +42,7 @@ const REQUIRED_CHECKS_BY_SCOPE = new Map([
 const REQUIRED_CREDENTIAL_FREE_COMMANDS = new Set([
   "pnpm verify:signed-package-preflight",
   "pnpm verify:signed-package-release",
+  "pnpm verify:signed-package-release:dry-run",
   "pnpm verify:release-readiness",
   "pnpm verify"
 ]);

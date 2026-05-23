@@ -60,6 +60,7 @@ function blockedContract(overrides = {}) {
       credentialFree: [
         "pnpm verify:signed-package-preflight",
         "pnpm verify:signed-package-release",
+        "pnpm verify:signed-package-release:dry-run",
         "pnpm verify:release-readiness",
         "pnpm verify"
       ],
@@ -181,6 +182,7 @@ describe("signed package release verification", () => {
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:signed-package-release",
+      "$.requiredVerificationCommands.credentialFree: must include pnpm verify:signed-package-release:dry-run",
       "$.requiredVerificationCommands.releaseEvidence: must be a string list with at least 1 item(s)",
       "$.requiredVerificationCommands.releaseEvidence: must include pnpm verify:signed-package-release -- --require-release-evidence"
     ]));
