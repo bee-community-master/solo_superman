@@ -4,6 +4,10 @@ export interface SmokeRequestApp {
   request(path: string, init?: RequestInit): Response | Promise<Response>;
 }
 
+function isJsonRecord(value: unknown): value is JsonRecord {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 export function authHeaders(token: string) {
   return {
     Authorization: `Bearer ${token}`
@@ -21,11 +25,11 @@ export async function jsonEnvelope(response: Response, label: string) {
 }
 
 export function dataRecord(body: JsonRecord, label: string) {
-  if (!body.ok || typeof body.data !== "object" || body.data === null) {
+  if (body.ok !== true || !isJsonRecord(body.data)) {
     throw new Error(`${label} did not return an ok data envelope.`);
   }
 
-  return body.data as JsonRecord;
+  return body.data;
 }
 
 export async function postJson(
@@ -60,16 +64,16 @@ export async function getJson(app: SmokeRequestApp, path: string, localCapabilit
 }
 
 export function objectAt(value: unknown, label: string) {
-  if (typeof value !== "object" || value === null) {
-    throw new Error(`${label} must be an object; received ${JSON.stringify(value)}.`);
+  if (!isJsonRecord(value)) {
+    throw new Error(`${label} must be a record object; received ${JSON.stringify(value)}.`);
   }
 
-  return value as JsonRecord;
+  return value;
 }
 
 export function recordArray(value: unknown, label: string) {
-  if (!Array.isArray(value) || value.some((item) => typeof item !== "object" || item === null)) {
-    throw new Error(`${label} must be an array of objects.`);
+  if (!Array.isArray(value) || value.some((item) => !isJsonRecord(item))) {
+    throw new Error(`${label} must be an array of record objects.`);
   }
 
   return value as readonly JsonRecord[];

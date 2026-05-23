@@ -9,11 +9,10 @@ import { createProductEngineCommandService } from "./product-engine/command-serv
 import { createCodexRuntimeAdapter, type CodexRuntimeAdapter } from "./runtime";
 import { createSidecarApp } from "./server";
 import {
-  authHeaders,
-  dataRecord,
   firstRecord,
-  jsonEnvelope,
+  getJson,
   objectAt,
+  postJson,
   stringAt,
   type JsonRecord
 } from "./smoke-helpers";
@@ -189,22 +188,14 @@ function blockedRuntimeEvidence(input: PreviewScenarioInput, status: CodexRuntim
 }
 
 async function createProject(storageApp: ReturnType<typeof createSidecarApp>, localCapabilityToken: string) {
-  const response = await storageApp.request("/api/v1/projects", {
-    method: "POST",
-    headers: {
-      ...authHeaders(localCapabilityToken),
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      rawIdea: "A runtime preview turn smoke idea",
-      localPrivacyMode: "local_only",
-      projectPurposeMode: "business",
-      projectPurposeModeConfirmation: "user_confirmed",
-      businessCriticIntensity: "balanced",
-      businessCriticIntensityConfirmation: "user_confirmed"
-    })
+  const data = await postJson(storageApp, "/api/v1/projects", localCapabilityToken, {
+    rawIdea: "A runtime preview turn smoke idea",
+    localPrivacyMode: "local_only",
+    projectPurposeMode: "business",
+    projectPurposeModeConfirmation: "user_confirmed",
+    businessCriticIntensity: "balanced",
+    businessCriticIntensityConfirmation: "user_confirmed"
   });
-  const data = dataRecord(await jsonEnvelope(response, "create project"), "create project");
   const projection = objectAt(data.immediateProjection, "create project immediateProjection");
 
   return stringAt(projection.sessionId, "create project sessionId");
@@ -215,23 +206,15 @@ async function queuePreviewTurn(
   localCapabilityToken: string,
   sessionId: string
 ) {
-  const response = await storageApp.request("/api/v1/runtime/codex/preview", {
-    method: "POST",
-    headers: {
-      ...authHeaders(localCapabilityToken),
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      sessionId,
-      expectedStateVersion: 1,
-      turnPurpose: PREVIEW_TURN_PURPOSE,
-      contextHash: PREVIEW_CONTEXT_HASH,
-      prompt: "Preview a bounded implementation plan without executing file, shell, browser, or network actions.",
-      sourceRefs: ["runtime-preview-turn-smoke"],
-      targetObject: "PlanningNote"
-    })
+  const data = await postJson(storageApp, "/api/v1/runtime/codex/preview", localCapabilityToken, {
+    sessionId,
+    expectedStateVersion: 1,
+    turnPurpose: PREVIEW_TURN_PURPOSE,
+    contextHash: PREVIEW_CONTEXT_HASH,
+    prompt: "Preview a bounded implementation plan without executing file, shell, browser, or network actions.",
+    sourceRefs: ["runtime-preview-turn-smoke"],
+    targetObject: "PlanningNote"
   });
-  const data = dataRecord(await jsonEnvelope(response, "queue runtime preview"), "queue runtime preview");
   const pendingEffectSummary = objectAt(data.pendingEffectSummary, "queue runtime preview pendingEffectSummary");
   const byType = objectAt(pendingEffectSummary.byType, "queue runtime preview pendingEffectSummary.byType");
 
@@ -247,11 +230,7 @@ async function completedCommandStatus(
   localCapabilityToken: string,
   statusUrl: string
 ) {
-  const response = await storageApp.request(statusUrl, {
-    headers: authHeaders(localCapabilityToken)
-  });
-
-  return dataRecord(await jsonEnvelope(response, "runtime preview command status"), "runtime preview command status");
+  return getJson(storageApp, statusUrl, localCapabilityToken);
 }
 
 async function runtimeActivity(
@@ -259,11 +238,11 @@ async function runtimeActivity(
   localCapabilityToken: string,
   sessionId: string
 ) {
-  const response = await storageApp.request(`/api/v1/sessions/${sessionId}/activity`, {
-    headers: authHeaders(localCapabilityToken)
-  });
-
-  return dataRecord(await jsonEnvelope(response, "runtime activity"), "runtime activity") as unknown as RuntimeActivityProjection;
+  return getJson(
+    storageApp,
+    `/api/v1/sessions/${sessionId}/activity`,
+    localCapabilityToken
+  ) as unknown as RuntimeActivityProjection;
 }
 
 function blockersFromPreviewResult(input: {

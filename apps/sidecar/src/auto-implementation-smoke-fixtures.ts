@@ -15,18 +15,7 @@ import {
   postJson,
   stringAt
 } from "./smoke-helpers";
-export {
-  authHeaders,
-  dataRecord,
-  getJson,
-  jsonEnvelope,
-  lastRecord,
-  objectAt,
-  postJson,
-  recordArray,
-  stringAt,
-  type JsonRecord
-} from "./smoke-helpers";
+export * from "./smoke-helpers";
 
 export type SmokeSidecarApp = ReturnType<typeof createSidecarApp>;
 export type SmokeStorage = Awaited<ReturnType<typeof createSoloStorage>>;
