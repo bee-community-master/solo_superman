@@ -3,6 +3,7 @@ import { expectTypeOf } from "vitest";
 import {
   SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES,
   SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE,
+  servicePageUsePermissionRefHasForbiddenCustodyContent,
   servicePageUsePermissionSummaryForStatus,
   validateServicePageUsePermissionProjection,
   type CreateServicePageUsePermissionPayload,
@@ -127,6 +128,15 @@ describe("Service page-use permission projection contract", () => {
         latestPermission: unsafePermission
       })
     ).toThrow(/refs must not contain credential.*secret-bearing values/iu);
+  });
+
+  it("does not treat opaque generated refs as one-time-code custody", () => {
+    expect(servicePageUsePermissionRefHasForbiddenCustodyContent("audit:cmd_abc2fadef")).toBe(false);
+    expect(servicePageUsePermissionRefHasForbiddenCustodyContent("audit:cmd_abcmfadef")).toBe(false);
+    expect(servicePageUsePermissionRefHasForbiddenCustodyContent("audit:cmd_abcotpdef")).toBe(false);
+    expect(servicePageUsePermissionRefHasForbiddenCustodyContent("audit:cmd_abctotpdef")).toBe(false);
+    expect(servicePageUsePermissionRefHasForbiddenCustodyContent("audit:service-page:2fa-code")).toBe(true);
+    expect(servicePageUsePermissionRefHasForbiddenCustodyContent("audit:service-page:otp=123456")).toBe(true);
   });
 
   it("rejects credential-bearing URL userinfo before projection persistence", () => {

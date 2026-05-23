@@ -233,12 +233,15 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-const SERVICE_PAGE_REF_FORBIDDEN_CONTENT_PATTERN =
-  /(?:password|passwd|secret|bearer|cookie|session[_-]?cookie|2fa|mfa|otp|totp|api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|auth[_-]?token|payment[_-]?token|financial[_-]?token|privacy[_-]?token|sk-|xox[baprs]-|gh[pousr]_|github_pat_)/iu;
+const SERVICE_PAGE_REF_FORBIDDEN_LABEL_PATTERN =
+  /(?:^|[^a-z0-9])(?:password|passwd|secret|bearer|cookie|session[_-]?cookie|2fa|mfa|otp|totp|api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|auth[_-]?token|payment[_-]?token|financial[_-]?token|privacy[_-]?token)(?:$|[^a-z0-9])/iu;
+const SERVICE_PAGE_REF_FORBIDDEN_TOKEN_PATTERN =
+  /\b(?:sk-[A-Za-z0-9_-]{16,}|xox[baprs]-[A-Za-z0-9-]{10,}|(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]{20,})\b/u;
 
 export function servicePageUsePermissionRefHasForbiddenCustodyContent(value: string) {
   return (
-    SERVICE_PAGE_REF_FORBIDDEN_CONTENT_PATTERN.test(value) ||
+    SERVICE_PAGE_REF_FORBIDDEN_LABEL_PATTERN.test(value) ||
+    SERVICE_PAGE_REF_FORBIDDEN_TOKEN_PATTERN.test(value) ||
     /\bBearer\s+[A-Za-z0-9._~+/-]{10,}/u.test(value)
   );
 }
