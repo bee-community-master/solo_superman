@@ -385,6 +385,7 @@ const EN_COPY = {
     activity: "Activity",
     pending: "pending",
     refreshStatus: "Refresh status",
+    refreshRuntimeStatus: "Refresh runtime status",
     noActivity: "No activity yet."
   },
   autoImplementation: {
@@ -1014,6 +1015,7 @@ const JA_COPY: typeof EN_COPY = {
     activity: "活動",
     pending: "保留中",
     refreshStatus: "ステータス更新",
+    refreshRuntimeStatus: "Runtime状態を更新",
     noActivity: "活動はまだありません。"
   },
   autoImplementation: {
@@ -1643,6 +1645,7 @@ const KO_COPY: typeof EN_COPY = {
     activity: "활동",
     pending: "대기 중",
     refreshStatus: "상태 새로고침",
+    refreshRuntimeStatus: "Runtime 상태 새로고침",
     noActivity: "아직 활동이 없습니다."
   },
   autoImplementation: {
