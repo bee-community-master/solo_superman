@@ -33,6 +33,7 @@ const QUEUE_ITEM_ID = "queue_ready" as QueueItemId;
 const RESEARCH_TASK_ID = "research_task_ready" as ResearchTaskId;
 const RESEARCH_RESULT_ID = "research_result_ready" as ResearchResultId;
 const EVIDENCE_PACK_ID = "evidence_pack_ready" as DecisionEvidencePackId;
+const FOLLOW_UP_SOURCE_REF = `research:${RESEARCH_TASK_ID}:evidence_matrix_ready:additional_question:1`;
 const PHASE15B_HINT_ARTIFACT_ID = "runtime_artifact_phase15b_handoff" as RuntimeArtifactId;
 
 function readySourceRefs(
@@ -163,6 +164,16 @@ function phase15bHintSourceRef(): PlanningHandoffSourceRefDto {
     sourceId: PHASE15B_HINT_ARTIFACT_ID,
     sourceLabel: "Phase 1.5B readiness hint",
     required: false,
+    stale: false
+  };
+}
+
+function followUpSourceRef(): PlanningHandoffSourceRefDto {
+  return {
+    sourceType: "research_updated_queue_item",
+    sourceId: FOLLOW_UP_SOURCE_REF,
+    sourceLabel: "Research-generated follow-up source trace",
+    required: true,
     stale: false
   };
 }
@@ -421,6 +432,24 @@ function withoutTerminalOutcome<T extends { terminalOutcome?: unknown }>(value: 
   return copy;
 }
 
+function researchFollowUpQueueItem(state: ProductEngineStateSnapshot) {
+  return {
+    ...state.queueProjection.deferred[0]!,
+    title: "Research-generated follow-up question",
+    cardType: "follow_up_question" as const,
+    sourceRef: FOLLOW_UP_SOURCE_REF
+  };
+}
+
+function researchFollowUpReviewCard(state: ProductEngineStateSnapshot) {
+  return {
+    ...state.researchState.reviewCards[0]!,
+    title: "Research-generated follow-up question",
+    cardType: "follow_up_question" as const,
+    additionalQuestions: ["Which exact implementation constraint came from the research uncertainty?"]
+  };
+}
+
 interface ResearchInsufficientQueueOutcomeOptions {
   readonly title: string;
   readonly decisionContext: string;
@@ -570,6 +599,48 @@ describe("Phase 2 Planning Handoff ProductEngine gate", () => {
     );
     expect(finalArtifact.buildSlicePlan.acceptanceCriteria).toEqual(
       expect.arrayContaining([expect.stringContaining("Spec/Evidence/Queue sources drive task")])
+    );
+  });
+
+  it("carries research-generated follow-up source traces into final build-slice evidence", () => {
+    const state = baseReadyState();
+    const followUpRef = followUpSourceRef();
+    const reduction = reduceProductEngineCommand(
+      planningHandoffCommand({
+        sourceRefs: [...readySourceRefs(), followUpRef]
+      }),
+      {
+        ...state,
+        queueProjection: {
+          ...state.queueProjection,
+          deferred: [researchFollowUpQueueItem(state)]
+        },
+        researchState: {
+          ...state.researchState,
+          reviewCards: [researchFollowUpReviewCard(state)]
+        }
+      }
+    );
+    const projection = reduction.immediateProjection as PlanningHandoffProjection;
+
+    if (projection.currentStatus !== "planning_ready") {
+      throw new Error("Expected a final Planning Handoff projection.");
+    }
+
+    expect(projection.finalArtifact.gateVerdict.terminalOutcomeSummary[0]?.sourceRefs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ sourceId: QUEUE_ITEM_ID }),
+        expect.objectContaining({ sourceId: FOLLOW_UP_SOURCE_REF })
+      ])
+    );
+    expect(projection.finalArtifact.taskBreakdown[1]?.sourceRefs).toEqual(
+      expect.arrayContaining([expect.objectContaining({ sourceId: FOLLOW_UP_SOURCE_REF })])
+    );
+    expect(projection.finalArtifact.prIssuePlan[1]?.entryPrerequisites).toEqual(
+      expect.arrayContaining([expect.stringContaining(FOLLOW_UP_SOURCE_REF)])
+    );
+    expect(projection.finalArtifact.buildSlicePlan.sourceRefs).toEqual(
+      expect.arrayContaining([expect.objectContaining({ sourceId: FOLLOW_UP_SOURCE_REF })])
     );
   });
 
@@ -879,6 +950,37 @@ describe("Phase 2 Planning Handoff ProductEngine gate", () => {
     });
   });
 
+  it("does not accept follow-up provenance unless it is attached to a research-updated queue item", () => {
+    const plainQuestionQueueItemId = "queue_plain_follow_up_source" as QueueItemId;
+    const state = baseReadyState();
+    const reduction = reduceProductEngineCommand(
+      planningHandoffCommand({
+        sourceRefs: [...readySourceRefs(), followUpSourceRef()]
+      }),
+      {
+        ...state,
+        queueProjection: {
+          ...state.queueProjection,
+          active: [
+            ...state.queueProjection.active,
+            {
+              queueItemId: plainQuestionQueueItemId,
+              title: "Plain intake question with a research-looking sourceRef",
+              state: "active",
+              cardType: "question",
+              sourceRef: FOLLOW_UP_SOURCE_REF
+            }
+          ]
+        }
+      }
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "source_trace_incomplete"
+    });
+  });
+
   it("does not accept a non-accepted Evidence Pack as the decision-linked evidence source", () => {
     const state = baseReadyState();
     const reduction = reduceProductEngineCommand(
@@ -931,6 +1033,44 @@ describe("Phase 2 Planning Handoff ProductEngine gate", () => {
       currentStatus: "queue_review_incomplete",
       blockerArtifact: {
         requiredUserActions: expect.arrayContaining(["research_more"])
+      }
+    });
+  });
+
+  it("keeps research-generated follow-up source traces on queue-review blockers", () => {
+    const state = baseReadyState();
+    const followUpRef = followUpSourceRef();
+    const queueItemWithoutOutcome = withoutTerminalOutcome(researchFollowUpQueueItem(state));
+    const cardWithoutOutcome = withoutTerminalOutcome(researchFollowUpReviewCard(state));
+    const reduction = reduceProductEngineCommand(
+      planningHandoffCommand({
+        sourceRefs: [...readySourceRefs(), followUpRef]
+      }),
+      {
+        ...state,
+        queueProjection: {
+          ...state.queueProjection,
+          deferred: [queueItemWithoutOutcome]
+        },
+        researchState: {
+          ...state.researchState,
+          reviewCards: [cardWithoutOutcome]
+        }
+      }
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "queue_review_incomplete",
+      blockerArtifact: {
+        blockers: [
+          expect.objectContaining({
+            sourceRefs: expect.arrayContaining([
+              expect.objectContaining({ sourceId: QUEUE_ITEM_ID }),
+              expect.objectContaining({ sourceId: FOLLOW_UP_SOURCE_REF })
+            ])
+          })
+        ]
       }
     });
   });

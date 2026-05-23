@@ -4933,6 +4933,24 @@ function sourceRefMatches(sourceRef: PlanningHandoffSourceRefDto, sourceType: Pl
   return sourceRef.sourceType === sourceType && sourceRef.sourceId === sourceId;
 }
 
+function uniquePlanningHandoffSourceRefs(
+  sourceRefs: readonly PlanningHandoffSourceRefDto[]
+): readonly PlanningHandoffSourceRefDto[] {
+  const seen = new Set<string>();
+  const uniqueRefs: PlanningHandoffSourceRefDto[] = [];
+
+  for (const sourceRef of sourceRefs) {
+    const key = `${sourceRef.sourceType}:${sourceRef.sourceId}`;
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueRefs.push(sourceRef);
+    }
+  }
+
+  return uniqueRefs;
+}
+
 function evidencePackHasMatrix(
   state: ProductEngineStateSnapshot,
   pack: ProductEngineStateSnapshot["researchState"]["evidencePacks"][number]
@@ -4997,8 +5015,9 @@ function planningHandoffSourceExists(
     case "research_updated_queue_item":
       return (
         allQueueItems(state.queueProjection).some(
-          (item) => item.queueItemId === sourceRef.sourceId && isResearchUpdatedQueueItem(item)
-        ) || state.researchState.reviewCards.some((card) => card.cardId === sourceRef.sourceId)
+          (item) =>
+            isResearchUpdatedQueueItem(item) && researchUpdatedQueueItemMatchesSourceId(item, sourceRef.sourceId)
+        ) || state.researchState.reviewCards.some((card) => researchReviewCardMatchesSourceId(card, sourceRef.sourceId))
       );
     case "decision":
       return state.decisions.some((decision) => decision.decisionId === sourceRef.sourceId);
@@ -5250,8 +5269,10 @@ function sourceRefForStateSourceId(
   }
 
   if (
-    allQueueItems(state.queueProjection).some((item) => item.queueItemId === sourceId) ||
-    state.researchState.reviewCards.some((card) => card.cardId === sourceId)
+    allQueueItems(state.queueProjection).some(
+      (item) => isResearchUpdatedQueueItem(item) && researchUpdatedQueueItemMatchesSourceId(item, sourceId)
+    ) ||
+    state.researchState.reviewCards.some((card) => researchReviewCardMatchesSourceId(card, sourceId))
   ) {
     return {
       ...base,
@@ -5304,20 +5325,48 @@ function hasRiskAcceptanceLinkedTo(
   return riskAcceptanceDecisionIds(state, sourceRefs).some((decisionId) => linkableSourceIdSet.has(decisionId));
 }
 
-function sourceRefForQueueItem(
-  sourceRefs: readonly PlanningHandoffSourceRefDto[],
-  queueItemId: string,
-  title: string
+function researchUpdatedQueueItemMatchesSourceId(item: QueueItemProjection, sourceId: string) {
+  return item.queueItemId === sourceId || item.sourceRef === sourceId;
+}
+
+function researchReviewCardMatchesSourceId(card: ResearchReviewCardProjection, sourceId: string) {
+  return card.cardId === sourceId;
+}
+
+function sourceRefForResearchUpdatedQueueItemSourceId(
+  item: QueueItemProjection,
+  sourceId: string
 ): PlanningHandoffSourceRefDto {
-  return (
-    sourceRefs.find((sourceRef) => sourceRefMatches(sourceRef, "research_updated_queue_item", queueItemId)) ?? {
-      sourceType: "research_updated_queue_item",
-      sourceId: queueItemId,
-      sourceLabel: title,
-      required: true,
-      stale: false
-    }
+  return {
+    sourceType: "research_updated_queue_item",
+    sourceId,
+    sourceLabel: sourceId === item.sourceRef ? `${item.title} source trace` : item.title,
+    required: true,
+    stale: false
+  };
+}
+
+function sourceRefsForQueueItem(
+  sourceRefs: readonly PlanningHandoffSourceRefDto[],
+  item: QueueItemProjection
+): readonly PlanningHandoffSourceRefDto[] {
+  const sourceIds = uniqueStrings(
+    [item.queueItemId, item.sourceRef].filter((sourceId): sourceId is string => Boolean(sourceId))
   );
+  const matchingSourceRefs = sourceRefs.filter(
+    (sourceRef) =>
+      sourceRef.sourceType === "research_updated_queue_item" && sourceIds.includes(sourceRef.sourceId)
+  );
+  const fallbackSourceRefs = sourceIds
+    .filter(
+      (sourceId) =>
+        !matchingSourceRefs.some((sourceRef) =>
+          sourceRefMatches(sourceRef, "research_updated_queue_item", sourceId)
+        )
+    )
+    .map((sourceId) => sourceRefForResearchUpdatedQueueItemSourceId(item, sourceId));
+
+  return uniquePlanningHandoffSourceRefs([...matchingSourceRefs, ...fallbackSourceRefs]);
 }
 
 function sourceTraceBlockers(
@@ -5527,7 +5576,7 @@ function queueOutcomeSummary(
         }
       : {}),
     riskAccepted,
-    sourceRefs: [sourceRefForQueueItem(sourceRefs, item.queueItemId, item.title)]
+    sourceRefs: sourceRefsForQueueItem(sourceRefs, item)
   };
 }
 
@@ -5544,7 +5593,7 @@ function queueReviewIncompleteBlockers(
       queueItemId: item.queueItemId,
       whyFatal: "High-impact research-updated queue cards need an explicit terminal outcome before final handoff.",
       requiredNextAction: "research_more" as const,
-      sourceRefs: [sourceRefForQueueItem(sourceRefs, item.queueItemId, item.title)]
+      sourceRefs: sourceRefsForQueueItem(sourceRefs, item)
     }));
 }
 

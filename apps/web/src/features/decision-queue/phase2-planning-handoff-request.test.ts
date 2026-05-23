@@ -25,6 +25,7 @@ const RESEARCH_TASK_ID = "research_task_web" as ResearchTaskId;
 const RESEARCH_RESULT_ID = "research_result_web" as ResearchResultId;
 const EVIDENCE_PACK_ID = "evidence_pack_web" as DecisionEvidencePackId;
 const QUEUE_ITEM_ID = "queue_web_handoff" as QueueItemId;
+const FOLLOW_UP_SOURCE_REF = `research:${RESEARCH_TASK_ID}:evidence_matrix_web:additional_question:1`;
 
 function sessionFixture(): SessionShellProjection {
   return {
@@ -103,11 +104,12 @@ function queueFixture(): DecisionQueueProjection {
     deferred: [
       {
         queueItemId: QUEUE_ITEM_ID,
-        title: "Accepted research queue card",
+        title: "Accepted research follow-up question",
         state: "resolved",
-        cardType: "research_review",
+        cardType: "follow_up_question",
         researchTaskId: RESEARCH_TASK_ID,
         evidencePackId: EVIDENCE_PACK_ID,
+        sourceRef: FOLLOW_UP_SOURCE_REF,
         blocksPlanning: true,
         terminalOutcome: "approved"
       }
@@ -167,8 +169,8 @@ function researchFixture(): ResearchEvidenceProjection {
         cardId: QUEUE_ITEM_ID,
         researchTaskId: RESEARCH_TASK_ID,
         evidencePackId: EVIDENCE_PACK_ID,
-        cardType: "research_review",
-        title: "Accepted research queue card",
+        cardType: "follow_up_question",
+        title: "Accepted research follow-up question",
         state: "resolved",
         impact: "high",
         gateStatus: "accepted",
@@ -328,6 +330,7 @@ describe("web Planning Handoff request builder", () => {
         expect.objectContaining({ sourceType: "founder_brief", sourceId: `founder_brief:${SESSION_ID}:18` }),
         expect.objectContaining({ sourceType: "decision_linked_evidence_pack", sourceId: "evidence_pack_web" }),
         expect.objectContaining({ sourceType: "research_updated_queue_item", sourceId: QUEUE_ITEM_ID }),
+        expect.objectContaining({ sourceType: "research_updated_queue_item", sourceId: FOLLOW_UP_SOURCE_REF }),
         expect.objectContaining({ sourceType: "known_risk", sourceId: "risk_web_verification" }),
         expect.objectContaining({ sourceType: "phase15b_hint", sourceId: "runtime_artifact_web_phase15b" })
       ])
