@@ -13,6 +13,10 @@ import {
   AUTO_IMPLEMENTATION_PR_MUTATION_SMOKE,
   type AutoImplementationPrMutationSmokeEvidence
 } from "./auto-implementation-pr-mutation-smoke";
+import {
+  AUTO_IMPLEMENTATION_REVIEW_LOOP_SMOKE,
+  type AutoImplementationReviewLoopSmokeEvidence
+} from "./auto-implementation-review-loop-smoke";
 
 function previewEvidence(status: RuntimePreviewTurnSmokeEvidence["status"] = "passed"): RuntimePreviewTurnSmokeEvidence {
   return {
@@ -46,21 +50,35 @@ function prMutationEvidence(
   };
 }
 
+function reviewLoopEvidence(
+  status: AutoImplementationReviewLoopSmokeEvidence["status"] = "passed"
+): AutoImplementationReviewLoopSmokeEvidence {
+  return {
+    status,
+    smoke: AUTO_IMPLEMENTATION_REVIEW_LOOP_SMOKE,
+    mode: "fixture",
+    ...(status === "blocked" ? { reason: "review blocker" } : {}),
+    checked: ["review checked"]
+  };
+}
+
 describe("auto implementation pipeline smoke", () => {
-  it("passes only after preview, worker, and PR mutation fixture smokes all pass", async () => {
+  it("passes only after preview, worker, PR mutation, and review-loop fixture smokes all pass", async () => {
     const evidence = await runAutoImplementationPipelineSmoke({
       runRuntimePreviewTurn: async () => previewEvidence(),
       runWorkerJob: async () => workerEvidence(),
-      runPrMutation: async () => prMutationEvidence()
+      runPrMutation: async () => prMutationEvidence(),
+      runReviewLoop: async () => reviewLoopEvidence()
     });
 
     expect(evidence.status).toBe("passed");
     expect(evidence.smoke).toBe(AUTO_IMPLEMENTATION_PIPELINE_SMOKE);
     expect(evidence.checked).toEqual([
-      "credential-free aggregate smoke forced fixture mode for preview and worker checks",
+      "credential-free aggregate smoke forced fixture mode for preview, worker, PR, and review-loop checks",
       "runtime-preview-turn: preview checked",
       "worker-job: worker checked",
-      "pr-mutation: pr checked"
+      "pr-mutation: pr checked",
+      "review-loop: review checked"
     ]);
   });
 
@@ -68,7 +86,8 @@ describe("auto implementation pipeline smoke", () => {
     const evidence = await runAutoImplementationPipelineSmoke({
       runRuntimePreviewTurn: async () => previewEvidence(),
       runWorkerJob: async () => workerEvidence("blocked"),
-      runPrMutation: async () => prMutationEvidence()
+      runPrMutation: async () => prMutationEvidence(),
+      runReviewLoop: async () => reviewLoopEvidence()
     });
 
     expect(evidence.status).toBe("blocked");
@@ -82,7 +101,8 @@ describe("auto implementation pipeline smoke", () => {
       runWorkerJob: async () => {
         throw new Error("worker runner failed");
       },
-      runPrMutation: async () => prMutationEvidence()
+      runPrMutation: async () => prMutationEvidence(),
+      runReviewLoop: async () => reviewLoopEvidence()
     });
 
     expect(evidence.status).toBe("blocked");
@@ -94,6 +114,18 @@ describe("auto implementation pipeline smoke", () => {
     expect(evidence.blockers).toEqual([
       "worker-job smoke reported blocked: Worker-job smoke failed before it could return evidence."
     ]);
+  });
+
+  it("blocks the aggregate smoke when the review loop blocks", async () => {
+    const evidence = await runAutoImplementationPipelineSmoke({
+      runRuntimePreviewTurn: async () => previewEvidence(),
+      runWorkerJob: async () => workerEvidence(),
+      runPrMutation: async () => prMutationEvidence(),
+      runReviewLoop: async () => reviewLoopEvidence("blocked")
+    });
+
+    expect(evidence.status).toBe("blocked");
+    expect(evidence.blockers).toEqual(["review-loop smoke reported blocked: review blocker"]);
   });
 
   it("strips live-runtime opt-in flags so the aggregate smoke stays credential-free by default", () => {
