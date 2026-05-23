@@ -31,6 +31,7 @@ pnpm start:local
 | Signed package release evidence contract | `pnpm verify:signed-package-release` |
 | Signed package release evidence dry-run | `pnpm verify:signed-package-release:dry-run` |
 | General release readiness gate | `pnpm verify:release-readiness` |
+| Release evidence checklist/template | `pnpm release:evidence-checklist -- --format markdown --issue <number>` / `pnpm release:evidence-checklist -- --format template --issue <number>` |
 | Full gate (typecheck, lint, tests, docs/release/readiness/package contracts, production bundle smoke) | `pnpm verify` |
 
 ## 레포 구조
@@ -65,5 +66,5 @@ pnpm start:local
 - Windows real-device evidence 변경은 `docs/windows-real-device_KO.md`, `docs/windows-real-device_EN.md`, `docs/windows-real-device.example.json`, `pnpm verify:windows-real-device`, `pnpm verify:windows-installer:dry-run`을 함께 갱신합니다.
 - Signed package planning 변경은 `docs/signed-packages_KO.md`, `docs/signed-packages_EN.md`, `docs/signed-package-preflight.example.json`, `pnpm verify:signed-package-preflight`를 함께 갱신합니다.
 - Signed package release evidence 변경은 `docs/signed-package-release_KO.md`, `docs/signed-package-release_EN.md`, `docs/signed-package-release.example.json`, `pnpm verify:signed-package-release`, `pnpm verify:signed-package-release:dry-run`을 함께 갱신합니다.
-- General release readiness 변경은 `docs/release-readiness_KO.md`, `docs/release-readiness_EN.md`, `docs/release-readiness.example.json`, `pnpm verify:release-readiness`를 함께 갱신합니다.
+- General release readiness 변경은 `docs/release-readiness_KO.md`, `docs/release-readiness_EN.md`, `docs/release-readiness.example.json`, `pnpm verify:release-readiness`, `pnpm release:evidence-checklist`를 함께 갱신합니다.
 - README는 end-user short entrypoint로 남고, 기여자/문제 해결 세부 내용은 `docs/` 아래에 둡니다.

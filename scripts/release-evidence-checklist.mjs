@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { URL } from "node:url";
 
 export const RELEASE_EVIDENCE_CHECKLIST_SCHEMA_VERSION = "solo-superman-release-evidence-checklist.v1";
+export const RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION = "solo-superman-release-evidence-template.v1";
 
 export const DEFAULT_RELEASE_EVIDENCE_CONTRACT_PATHS = {
   releaseReadiness: "docs/release-readiness.example.json",
@@ -15,7 +16,7 @@ export const DEFAULT_RELEASE_EVIDENCE_CONTRACT_PATHS = {
 
 const TOKEN_LIKE_PATTERN = /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9_-]{20,}|bearer\s+[A-Za-z0-9._~+/-]{20,})\b/iu;
 const SECRET_QUERY_KEY_PATTERN = /(?:token|secret|password|pass|api[_-]?key|credential|auth|session)/iu;
-const OUTPUT_FORMATS = new Set(["json", "markdown"]);
+const OUTPUT_FORMATS = new Set(["json", "markdown", "template"]);
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -306,6 +307,79 @@ function renderChecklistItemMarkdown(item) {
   return lines.join("\n");
 }
 
+function templateEvidenceFields(items, fieldName) {
+  return items.map((item, index) => ({
+    id: `${fieldName}-${String(index + 1).padStart(2, "0")}`,
+    requirement: item,
+    status: "pending",
+    evidenceRefs: ["<redacted evidence ref>"],
+    notes: "<redacted notes or lab log summary>"
+  }));
+}
+
+function templateCheckResults(items) {
+  return items.map((item) => ({
+    id: item,
+    status: "pending",
+    evidenceRefs: ["<redacted evidence ref>"],
+    notes: "<redacted command output summary>"
+  }));
+}
+
+function templateItem(item) {
+  return {
+    sourceContract: item.sourceContract,
+    gateId: item.gateId,
+    itemId: item.itemId,
+    blockerIssue: item.blockerIssue,
+    expectedFinalStatus: "passed",
+    currentStatus: item.status,
+    scope: item.scope,
+    requiredFor: item.requiredFor,
+    blocker: item.blocker,
+    requiredChecks: templateCheckResults(item.requiredChecks),
+    requiredEvidence: templateEvidenceFields(item.requiredEvidence, "evidence"),
+    unblockCriteria: templateEvidenceFields(item.unblockCriteria, "unblock"),
+    existingEvidenceRefs: item.evidenceRefs,
+    verification: {
+      verifiedAt: "<UTC ISO timestamp>",
+      verifiedBy: ["<release lab operator or CI run id>"],
+      redactionConfirmed: false,
+      readyReleaseCommandsRun: []
+    }
+  };
+}
+
+export function buildReleaseEvidenceTemplate(checklist) {
+  const template = {
+    schemaVersion: RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION,
+    generatedAt: checklist.generatedAt,
+    sourceChecklistSchemaVersion: checklist.schemaVersion,
+    templateStatus: "pending",
+    filterIssueNumber: checklist.summary.filterIssueNumber,
+    openBlockerIssues: checklist.openBlockerIssues,
+    privacy: {
+      credentialFree: true,
+      secretPolicy: "Fill placeholders only with redacted evidence refs, public metadata, checksums, sizes, signatures, and sanitized log summaries.",
+      prohibited: ["credential values", "tokens", "cookies", "URL userinfo", "secret-like query parameters", "full environment dumps"]
+    },
+    readyReleaseCommands: checklist.readyReleaseCommands,
+    credentialFreeCommands: checklist.credentialFreeCommands,
+    items: checklist.checklistItems.map(templateItem),
+    summary: {
+      totalItems: checklist.checklistItems.length,
+      pendingItems: checklist.checklistItems.length,
+      filterIssueNumber: checklist.summary.filterIssueNumber
+    }
+  };
+  const issues = uniqueStrings([...checklist.issues, ...validateSecretFreeStrings(template)]);
+
+  return {
+    ...template,
+    issues
+  };
+}
+
 export function renderReleaseEvidenceChecklistMarkdown(checklist) {
   const lines = [
     "# Solo Superman release evidence checklist",
@@ -424,40 +498,42 @@ async function writeChecklist(outputPath, content) {
 export async function runReleaseEvidenceChecklistCli(argv = process.argv.slice(2), options = {}) {
   const parsed = parseReleaseEvidenceChecklistArgs(argv, options.env ?? process.env);
   if (parsed.help) {
-    console.log("Usage: pnpm release:evidence-checklist [--format json|markdown] [--issue <number>] [--output <path>]");
+    console.log("Usage: pnpm release:evidence-checklist [--format json|markdown|template] [--issue <number>] [--output <path>]");
     return { status: "help" };
   }
 
   const contracts = options.contracts ?? await loadReleaseEvidenceContracts(options.contractPaths, options);
   const fullChecklist = buildReleaseEvidenceChecklist(contracts, options);
   const checklist = filterReleaseEvidenceChecklistByIssue(fullChecklist, parsed.issueNumber);
+  const payload = parsed.format === "template" ? buildReleaseEvidenceTemplate(checklist) : checklist;
   const content = parsed.format === "markdown"
     ? renderReleaseEvidenceChecklistMarkdown(checklist)
-    : `${JSON.stringify(checklist, null, 2)}\n`;
+    : `${JSON.stringify(payload, null, 2)}\n`;
 
   if (parsed.outputPath) {
     await writeChecklist(parsed.outputPath, content);
     console.log(JSON.stringify({
-      status: checklist.issues.length === 0 ? "passed" : "blocked",
+      status: payload.issues.length === 0 ? "passed" : "blocked",
       checklistPath: parsed.outputPath,
       format: parsed.format,
       issueNumber: parsed.issueNumber,
-      schemaVersion: checklist.schemaVersion,
+      schemaVersion: payload.schemaVersion,
       checklistStatus: checklist.status,
+      templateStatus: payload.templateStatus,
       blockedItems: checklist.summary.blockedItems,
       openBlockerIssues: checklist.openBlockerIssues,
-      issues: checklist.issues
+      issues: payload.issues
     }, null, 2));
   } else {
     process.stdout.write(content);
   }
 
-  return checklist;
+  return payload;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runReleaseEvidenceChecklistCli().then((checklist) => {
-    if (Array.isArray(checklist.issues) && checklist.issues.length > 0) {
+  runReleaseEvidenceChecklistCli().then((payload) => {
+    if (Array.isArray(payload.issues) && payload.issues.length > 0) {
       process.exitCode = 1;
     }
   }).catch((error) => {

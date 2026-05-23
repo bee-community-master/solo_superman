@@ -86,6 +86,8 @@ pnpm verify:release-readiness
 pnpm verify
 ```
 
+When collecting external release evidence, run `pnpm release:evidence-checklist -- --format markdown --issue 259` for an issue-ready checklist, and `pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json` for a JSON template that can be filled with redacted evidence refs. The template creates `pending` placeholders only; it does not replace real device/signing-lab evidence.
+
 On Windows PowerShell, use `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:product-capability-readiness`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:windows-real-device`, `pnpm.cmd verify:packaged-update-rollback`, `pnpm.cmd verify:signed-package-preflight`, `pnpm.cmd verify:signed-package-release`, `pnpm.cmd verify:signed-package-release:dry-run`, `pnpm.cmd verify:release-readiness`, and `pnpm.cmd verify` so the Node/Corepack command shim runs even when local execution policy blocks `pnpm.ps1`.
 
 `pnpm verify:product-capability-readiness` validates [`product-capability-readiness_EN.md`](product-capability-readiness_EN.md) and [`product-capability-readiness.example.json`](product-capability-readiness.example.json), ensuring questions/clarification volume, read-only research, Planning-ready gates, browser/service boundaries, the auto implementation review loop, and technical-preview release guardrails each have code-backed verifiers and source refs. `--require-code-backed` must pass only when every core capability is `code_backed`; broad release blockers remain in the separate release-readiness contract.

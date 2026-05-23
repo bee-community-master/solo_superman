@@ -34,6 +34,14 @@ To create Markdown that can be pasted into a specific blocker issue, combine `--
 pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md
 ```
 
+Use `--format template` to generate a JSON template that a release lab operator can fill with redacted evidence refs.
+
+```sh
+pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json
+```
+
+The template preserves each required check/evidence/unblock criterion as a `pending` placeholder, but it does not replace the real #259/#266/#267 evidence.
+
 The checklist combines blocked gates/runs, required checks, required evidence, unblock criteria, and ready-release commands from the release-readiness, Windows real-device, signed package release, packaged update rollback, and signed package preflight contracts. It reads only public contract files and does not capture credential values, browser cookies, tokens, file contents, or full environment dumps.
 
 ## General release mode
