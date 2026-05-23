@@ -378,6 +378,7 @@ export function useDecisionQueueShellController() {
     codexLoginAuthenticated: runtimeStatus?.account?.status === "authenticated",
     client,
     connectionStatus: connectionState.status,
+    copy,
     idea,
     initialResearchPermission,
     initialBusinessCriticIntensityReason,

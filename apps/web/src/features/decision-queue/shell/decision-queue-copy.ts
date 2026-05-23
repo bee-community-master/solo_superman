@@ -7,7 +7,7 @@ import type {
 import { useAppLanguage } from "../../../shared/i18n/app-language";
 import type { ChatGptDelegationViewModelCopy } from "../ChatGptDelegationPanel";
 import type { Phase15bReadinessViewModelCopy } from "../decision-queue-view-model";
-import type { DecisionQueuePageId } from "./decision-queue-shell-model";
+import type { DecisionQueuePageId, InitialQueueStartBlocker } from "./decision-queue-shell-model";
 
 export const DECISION_QUEUE_PAGE_ORDER = ["onboarding", "questions", "research", "planning", "implementation", "permissions"] as const satisfies readonly DecisionQueuePageId[];
 
@@ -120,6 +120,18 @@ const EN_COPY = {
       "For business validation, choose how strongly the app should challenge the idea.",
       "Research and implementation prep start as reviewable notes; risky actions never run automatically."
     ],
+    initialQueueStartBlockers: {
+      busy: "The first question batch is already being created.",
+      chatgpt_login: "Confirm that you signed in to ChatGPT directly before starting.",
+      codex_login:
+        "Local Codex CLI login must be confirmed before backend questions or research prep can start.",
+      sidecar_connection: "Local service is not connected.",
+      project_purpose: "Choose either business validation or personal workflow build before starting.",
+      business_critic_intensity:
+        "Choose a business review intensity before the business-validation queue can be confirmed.",
+      idea: "Enter an idea summary before starting.",
+      intake: "Enter the goal description before starting."
+    } satisfies Record<InitialQueueStartBlocker, string>,
     chatGptLoginAria: "ChatGPT direct login gate",
     chatGptLoginTitle: "Sign in to ChatGPT in your browser first",
     chatGptLoginDescription: "Open ChatGPT in this browser profile and sign in yourself before creating the first question batch.",
@@ -874,6 +886,17 @@ const JA_COPY: typeof EN_COPY = {
       "事業検証の場合は、どの程度厳しく問い直すかを自分で選びます。",
       "リサーチと実装準備はまず確認できるノートとして残し、危険な操作は自動実行しません。"
     ],
+    initialQueueStartBlockers: {
+      busy: "最初の質問セットはすでに作成中です。",
+      chatgpt_login: "開始前にChatGPTへ直接ログインしたことを確認してください。",
+      codex_login:
+        "バックエンド質問またはリサーチ準備を始める前に、ローカルCodex CLIログインを確認する必要があります。",
+      sidecar_connection: "ローカルサービスが接続されていません。",
+      project_purpose: "開始前に事業検証または個人ワークフロー構築のどちらかを選んでください。",
+      business_critic_intensity: "事業検証キューを確定する前に、事業レビュー強度を選んでください。",
+      idea: "開始前にアイデア概要を入力してください。",
+      intake: "開始前に目標の説明を入力してください。"
+    },
     chatGptLoginAria: "ChatGPT直接ログイン確認",
     chatGptLoginTitle: "先にブラウザでChatGPTにログイン",
     chatGptLoginDescription: "最初の質問セットを作成する前に、このブラウザプロファイルでChatGPTを開き、自分でログインします。",
@@ -1624,6 +1647,18 @@ const KO_COPY: typeof EN_COPY = {
       "사업 검증이라면 어느 정도 강하게 되물을지 직접 선택합니다.",
       "리서치와 구현 준비는 먼저 검토 가능한 노트로 남기며, 위험한 작업은 자동 실행하지 않습니다."
     ],
+    initialQueueStartBlockers: {
+      busy: "첫 질문 묶음을 이미 생성 중입니다.",
+      chatgpt_login: "시작 전에 ChatGPT에 직접 로그인했다는 확인이 필요합니다.",
+      codex_login:
+        "backend 질문 또는 리서치 준비를 시작하기 전에 로컬 Codex CLI 로그인이 확인되어야 합니다.",
+      sidecar_connection: "로컬 서비스가 연결되어 있지 않습니다.",
+      project_purpose:
+        "시작 전에 프로젝트 목적을 비즈니스 검증 또는 개인 워크플로 만들기 중 하나로 선택해야 합니다.",
+      business_critic_intensity: "비즈니스 검증 큐를 확정하려면 먼저 사업 리뷰 강도를 선택해야 합니다.",
+      idea: "시작 전에 아이디어 요약을 입력해야 합니다.",
+      intake: "시작 전에 목표에 대한 서술을 입력해야 합니다."
+    },
     chatGptLoginAria: "ChatGPT 직접 로그인 확인",
     chatGptLoginTitle: "먼저 브라우저에서 ChatGPT에 로그인",
     chatGptLoginDescription: "첫 질문 묶음을 만들기 전에 이 브라우저 프로필에서 ChatGPT를 열고 직접 로그인하세요.",
