@@ -386,7 +386,11 @@ const EN_COPY = {
     pending: "pending",
     refreshStatus: "Refresh status",
     refreshRuntimeStatus: "Refresh runtime status",
+    runtimeEvidenceDetails: "Runtime evidence details",
     runtimeCheckedAt: "Runtime checked at",
+    runtimeAdapterVersion: "Runtime adapter",
+    runtimeGeneratedSchemaVersion: "Generated schema version",
+    runtimeTransport: "Transport",
     noActivity: "No activity yet."
   },
   autoImplementation: {
@@ -419,6 +423,9 @@ const EN_COPY = {
     workerRuntimeExecutionMode: "Execution mode",
     workerRuntimeAccount: "Codex account",
     workerRuntimeCheckedAt: "Checked at",
+    workerRuntimeAdapterVersion: "Runtime adapter",
+    workerRuntimeGeneratedSchemaVersion: "Generated schema version",
+    workerRuntimeTransport: "Transport",
     workerRuntimeLiveTurns: "Live turns",
     workerRuntimeManualHandoff: "Manual handoff",
     workerRuntimeLiveTurnStates: {
@@ -1018,7 +1025,11 @@ const JA_COPY: typeof EN_COPY = {
     pending: "保留中",
     refreshStatus: "ステータス更新",
     refreshRuntimeStatus: "Runtime状態を更新",
+    runtimeEvidenceDetails: "Runtime evidence details",
     runtimeCheckedAt: "Runtime確認時刻",
+    runtimeAdapterVersion: "Runtime adapter",
+    runtimeGeneratedSchemaVersion: "生成schema version",
+    runtimeTransport: "Transport",
     noActivity: "活動はまだありません。"
   },
   autoImplementation: {
@@ -1051,6 +1062,9 @@ const JA_COPY: typeof EN_COPY = {
     workerRuntimeExecutionMode: "実行モード",
     workerRuntimeAccount: "Codexアカウント",
     workerRuntimeCheckedAt: "確認時刻",
+    workerRuntimeAdapterVersion: "Runtime adapter",
+    workerRuntimeGeneratedSchemaVersion: "生成schema version",
+    workerRuntimeTransport: "Transport",
     workerRuntimeLiveTurns: "Live turns",
     workerRuntimeManualHandoff: "手動引き継ぎ",
     workerRuntimeLiveTurnStates: {
@@ -1650,7 +1664,11 @@ const KO_COPY: typeof EN_COPY = {
     pending: "대기 중",
     refreshStatus: "상태 새로고침",
     refreshRuntimeStatus: "Runtime 상태 새로고침",
+    runtimeEvidenceDetails: "Runtime evidence details",
     runtimeCheckedAt: "Runtime 확인 시각",
+    runtimeAdapterVersion: "Runtime adapter",
+    runtimeGeneratedSchemaVersion: "생성 schema version",
+    runtimeTransport: "Transport",
     noActivity: "아직 활동이 없습니다."
   },
   autoImplementation: {
@@ -1683,6 +1701,9 @@ const KO_COPY: typeof EN_COPY = {
     workerRuntimeExecutionMode: "실행 모드",
     workerRuntimeAccount: "Codex 계정",
     workerRuntimeCheckedAt: "확인 시각",
+    workerRuntimeAdapterVersion: "Runtime adapter",
+    workerRuntimeGeneratedSchemaVersion: "생성 schema version",
+    workerRuntimeTransport: "Transport",
     workerRuntimeLiveTurns: "Live turns",
     workerRuntimeManualHandoff: "수동 인계",
     workerRuntimeLiveTurnStates: {

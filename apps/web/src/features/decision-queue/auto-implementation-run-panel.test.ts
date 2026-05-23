@@ -298,6 +298,9 @@ describe("AutoImplementationRunPanel view model", () => {
       executionModeLabel: "manual_handoff",
       accountLabel: "authenticated (chatgpt / plus)",
       checkedAtLabel: "2026-05-23T00:00:00.000Z",
+      adapterVersionLabel: "codex-app-server-preview-v1",
+      generatedSchemaVersionLabel: "codex-cli-0.128.0",
+      transportLabel: "stdio",
       liveTurnsState: "disabled",
       manualHandoffState: "available"
     });
@@ -311,6 +314,12 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("authenticated (chatgpt / plus)");
     expect(markup).toContain("Checked at");
     expect(markup).toContain("2026-05-23T00:00:00.000Z");
+    expect(markup).toContain("Runtime adapter");
+    expect(markup).toContain("codex-app-server-preview-v1");
+    expect(markup).toContain("Generated schema version");
+    expect(markup).toContain("codex-cli-0.128.0");
+    expect(markup).toContain("Transport");
+    expect(markup).toContain("stdio");
     expect(markup).toContain("Live turns");
     expect(markup).toContain("disabled");
     expect(markup).toContain("Manual handoff");
@@ -335,6 +344,9 @@ describe("AutoImplementationRunPanel view model", () => {
       statusLabel: "available",
       executionModeLabel: "live",
       checkedAtLabel: "2026-05-23T00:00:00.000Z",
+      adapterVersionLabel: "codex-app-server-preview-v1",
+      generatedSchemaVersionLabel: "codex-cli-0.128.0",
+      transportLabel: "stdio",
       liveTurnsState: "enabled",
       manualHandoffState: "available"
     });

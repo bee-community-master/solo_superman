@@ -45,6 +45,14 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     workerLedgerImportDraft,
     setWorkerLedgerImportDraft
   } = controller;
+  const runtimeEvidenceItems = runtimeStatus
+    ? [
+        [copy.implementation.runtimeCheckedAt, runtimeStatus.checkedAt],
+        [copy.implementation.runtimeAdapterVersion, runtimeStatus.adapterVersion],
+        [copy.implementation.runtimeGeneratedSchemaVersion, runtimeStatus.generatedSchemaVersion],
+        [copy.implementation.runtimeTransport, runtimeStatus.transport]
+      ]
+    : [];
 
   return (
     <div className="view-grid implementation-view">
@@ -137,7 +145,14 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         </div>
         <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatus.status}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
         {runtimeStatus ? (
-          <p className="mode-summary">{copy.implementation.runtimeCheckedAt}: {runtimeStatus.checkedAt}</p>
+          <dl className="readiness-grid" aria-label={copy.implementation.runtimeEvidenceDetails}>
+            {runtimeEvidenceItems.map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
         ) : null}
         {runtimeStatus?.reason ? <p className="research-recovery">{runtimeStatus.reason}</p> : null}
         {statuses.length ? (

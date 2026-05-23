@@ -59,7 +59,7 @@ Business mode는 명시적인 `businessCriticIntensity`가 필요하며 no defau
 - Research tab은 현재 준비된 planned public-web 리서치 작업을 bounded batch로 시작할 수 있으며, active allowlist와 concurrency budget을 지키고 각 실행은 기존 per-task read-only research path를 그대로 사용해야 합니다.
 - Risk UI는 데이터가 충분할 때 Confidence Map, if-stop-now risk/action, next-best validation/build-readiness action, five-axis radar, Top 3 Risk Cards를 보여줍니다. Founder Brief의 risk/action 배열은 prose section 안에만 묻히지 않고 first-class list로 유지해야 합니다. 질문별 리스크 입력은 항상 노출하지 않고 선택형 추가 의견/리스크 펼쳐보기 안에 둡니다.
 - ChatGPT local browser delegation은 external AI workspace를 visible handoff로 사용하기 전에 data disclosure preview, 제외된 민감 필드, policy/session-ownership verdict, approval/authority ref, result-import gate를 보여줘야 합니다.
-- Auto implementation worker control은 local worker job 실행 전에 Codex runtime 준비 상태, checked-at evidence, execution mode, account status, live-turn flag, manual handoff 가능 여부, ledger-import fallback을 보여줘야 하며, Implementation runtime panel은 사용자가 구현 flow를 떠나지 않고 이 runtime 상태를 새로고침하고 확인 시각을 볼 수 있어야 합니다.
+- Auto implementation worker control은 local worker job 실행 전에 Codex runtime 준비 상태, checked-at evidence, adapter/schema/transport evidence, execution mode, account status, live-turn flag, manual handoff 가능 여부, ledger-import fallback을 보여줘야 하며, Implementation runtime panel은 사용자가 구현 flow를 떠나지 않고 이 runtime 상태를 새로고침하고 같은 runtime evidence를 볼 수 있어야 합니다.
 
 ## 현재 배포 범위
 
