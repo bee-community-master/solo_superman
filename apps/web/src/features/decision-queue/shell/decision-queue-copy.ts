@@ -739,7 +739,12 @@ const EN_COPY = {
     title: "Planning Handoff",
     sourceRefs: "Source references",
     runGate: "Run planning handoff check",
-    refresh: "Refresh handoff"
+    refresh: "Refresh handoff",
+    planningActionErrors: {
+      activeSessionRequiredScoreCompleteness: "An active session is required before scoring completeness.",
+      activeSessionRequiredFounderBrief: "An active session is required before preparing a Founder Brief.",
+      activeSessionRequiredPlanningHandoff: "An active session is required before running the Planning Handoff gate."
+    }
   },
   permissions: {
     externalAiWorkspace: "External AI workspace",
@@ -748,6 +753,26 @@ const EN_COPY = {
     revokeWorkspace: "Revoke workspace",
     fallback: "Fallback",
     fallbackReason: "Fallback reason",
+    permissionActionErrors: {
+      activeSessionRequiredRevokeWorkspace: "An active session is required before revoking an external AI workspace.",
+      activeSessionRequiredRevokeServicePage: "An active session is required before revoking service page-use permission.",
+      artifactExportPermissionMismatch:
+        "The latest service page-use permission no longer matches this artifact export request.",
+      artifactExportBrowserRequired: "Artifact ref export requires a browser document context.",
+      activeSessionRequiredDeleteServicePageArtifacts:
+        "An active session is required before deleting service page-use artifact refs.",
+      artifactDeletePermissionMismatch:
+        "The latest service page-use permission no longer matches this artifact delete request."
+    },
+    permissionActionReasons: {
+      revokeWorkspace: "Revoked from the external AI workspace panel.",
+      revokeServicePagePermission: "Revoked from the service page-use permission panel.",
+      deleteServicePageArtifacts: "User deleted retained service page-use artifact refs from the permission panel.",
+      exportArtifactRefsNote:
+        "Exports retained artifact references only; credentials, cookies, sessions, 2FA codes, API keys, and raw secret values are never stored or exported.",
+      exportArtifactRefsLogMessage: (refCount: number, permissionId: string) =>
+        `exported_refs_only: ${refCount} retained refs for ${permissionId}; audit metadata preserved.`
+    },
     chatGptDelegationSafety: "ChatGPT delegation safety",
     chatGptDelegationViewModel: {
       visibleHandoffLabels: {
@@ -1568,7 +1593,12 @@ const JA_COPY: typeof EN_COPY = {
     title: "計画引き継ぎ",
     sourceRefs: "参照元",
     runGate: "計画引き継ぎチェックを実行",
-    refresh: "引き継ぎを更新"
+    refresh: "引き継ぎを更新",
+    planningActionErrors: {
+      activeSessionRequiredScoreCompleteness: "完成度を採点するにはアクティブなセッションが必要です。",
+      activeSessionRequiredFounderBrief: "Founder Briefを準備するにはアクティブなセッションが必要です。",
+      activeSessionRequiredPlanningHandoff: "計画引き継ぎゲートを実行するにはアクティブなセッションが必要です。"
+    }
   },
   permissions: {
     externalAiWorkspace: "外部AI作業スペース",
@@ -1577,6 +1607,26 @@ const JA_COPY: typeof EN_COPY = {
     revokeWorkspace: "作業スペース権限を取り消す",
     fallback: "フォールバック",
     fallbackReason: "フォールバック理由",
+    permissionActionErrors: {
+      activeSessionRequiredRevokeWorkspace: "外部AI作業スペースを取り消すにはアクティブなセッションが必要です。",
+      activeSessionRequiredRevokeServicePage:
+        "サービスページ利用権限を取り消すにはアクティブなセッションが必要です。",
+      artifactExportPermissionMismatch:
+        "最新のサービスページ利用権限は、この資料エクスポート要求と一致しません。",
+      artifactExportBrowserRequired: "資料参照のエクスポートにはブラウザdocumentコンテキストが必要です。",
+      activeSessionRequiredDeleteServicePageArtifacts:
+        "サービスページ利用資料の参照を削除するにはアクティブなセッションが必要です。",
+      artifactDeletePermissionMismatch: "最新のサービスページ利用権限は、この資料削除要求と一致しません。"
+    },
+    permissionActionReasons: {
+      revokeWorkspace: "外部AI作業スペースパネルから取り消しました。",
+      revokeServicePagePermission: "サービスページ利用権限パネルから取り消しました。",
+      deleteServicePageArtifacts: "ユーザーがサービスページ利用権限パネルから保持資料参照を削除しました。",
+      exportArtifactRefsNote:
+        "保持された資料参照だけをエクスポートします。認証情報、Cookie、セッション、2FAコード、API key、生のsecret値は保存またはエクスポートしません。",
+      exportArtifactRefsLogMessage: (refCount: number, permissionId: string) =>
+        `exported_refs_only: ${permissionId} の保持資料参照 ${refCount} 件をエクスポートし、監査メタデータを保持しました。`
+    },
     chatGptDelegationSafety: "ChatGPT委任の安全確認",
     chatGptDelegationViewModel: {
       visibleHandoffLabels: {
@@ -2395,7 +2445,12 @@ const KO_COPY: typeof EN_COPY = {
     title: "계획 인계",
     sourceRefs: "참조 출처",
     runGate: "계획 인계 확인 실행",
-    refresh: "핸드오프 새로고침"
+    refresh: "핸드오프 새로고침",
+    planningActionErrors: {
+      activeSessionRequiredScoreCompleteness: "완성도를 채점하려면 활성 세션이 필요합니다.",
+      activeSessionRequiredFounderBrief: "Founder Brief를 준비하려면 활성 세션이 필요합니다.",
+      activeSessionRequiredPlanningHandoff: "계획 인계 게이트를 실행하려면 활성 세션이 필요합니다."
+    }
   },
   permissions: {
     externalAiWorkspace: "외부 AI 작업공간",
@@ -2404,6 +2459,26 @@ const KO_COPY: typeof EN_COPY = {
     revokeWorkspace: "작업공간 권한 취소",
     fallback: "대체 경로",
     fallbackReason: "대체 사유",
+    permissionActionErrors: {
+      activeSessionRequiredRevokeWorkspace: "외부 AI 작업공간을 취소하려면 활성 세션이 필요합니다.",
+      activeSessionRequiredRevokeServicePage: "서비스 페이지 사용 권한을 취소하려면 활성 세션이 필요합니다.",
+      artifactExportPermissionMismatch:
+        "최신 서비스 페이지 사용 권한이 이 자료 내보내기 요청과 더 이상 일치하지 않습니다.",
+      artifactExportBrowserRequired: "자료 참조를 내보내려면 브라우저 document 컨텍스트가 필요합니다.",
+      activeSessionRequiredDeleteServicePageArtifacts:
+        "서비스 페이지 사용 자료 참조를 삭제하려면 활성 세션이 필요합니다.",
+      artifactDeletePermissionMismatch:
+        "최신 서비스 페이지 사용 권한이 이 자료 삭제 요청과 더 이상 일치하지 않습니다."
+    },
+    permissionActionReasons: {
+      revokeWorkspace: "외부 AI 작업공간 패널에서 취소했습니다.",
+      revokeServicePagePermission: "서비스 페이지 사용 권한 패널에서 취소했습니다.",
+      deleteServicePageArtifacts: "사용자가 서비스 페이지 사용 권한 패널에서 보관된 자료 참조를 삭제했습니다.",
+      exportArtifactRefsNote:
+        "보관된 자료 참조만 내보냅니다. credentials, cookies, sessions, 2FA codes, API keys, raw secret 값은 저장하거나 내보내지 않습니다.",
+      exportArtifactRefsLogMessage: (refCount: number, permissionId: string) =>
+        `exported_refs_only: ${permissionId}의 보관 자료 참조 ${refCount}개를 내보냈고 audit metadata는 보존했습니다.`
+    },
     chatGptDelegationSafety: "ChatGPT 위임 안전 확인",
     chatGptDelegationViewModel: {
       visibleHandoffLabels: {

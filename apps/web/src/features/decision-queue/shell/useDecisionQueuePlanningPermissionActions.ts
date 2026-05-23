@@ -23,10 +23,12 @@ import {
   type CommandLogEntry,
   type ProjectionState
 } from "./decision-queue-shell-model";
+import type { DecisionQueueCopy } from "./decision-queue-copy";
 
 interface DecisionQueuePlanningPermissionActionsProps {
   readonly appendCommand: AppendCommand;
   readonly client: SidecarClient | null;
+  readonly copy: DecisionQueueCopy;
   readonly phase15bReadiness: Phase15bUpgradeHintProjection | null;
   readonly projections: ProjectionState;
   readonly refreshChatGptDelegation: (sessionId: SessionShellProjection["sessionId"]) => Promise<void>;
@@ -41,6 +43,7 @@ interface DecisionQueuePlanningPermissionActionsProps {
 export function useDecisionQueuePlanningPermissionActions({
   appendCommand,
   client,
+  copy,
   phase15bReadiness,
   projections,
   refreshChatGptDelegation,
@@ -51,9 +54,12 @@ export function useDecisionQueuePlanningPermissionActions({
   setProjections,
   setWorkflowError
 }: DecisionQueuePlanningPermissionActionsProps) {
+  const { planningActionErrors } = copy.handoff;
+  const { permissionActionErrors, permissionActionReasons } = copy.permissions;
+
   const scoreCompleteness = useCallback(async () => {
     if (!client || !projections.session) {
-      setWorkflowError("An active session is required before scoring completeness.");
+      setWorkflowError(planningActionErrors.activeSessionRequiredScoreCompleteness);
       return;
     }
 
@@ -90,11 +96,11 @@ export function useDecisionQueuePlanningPermissionActions({
     } finally {
       setIsBusy(false);
     }
-  }, [appendCommand, client, projections]);
+  }, [appendCommand, client, planningActionErrors, projections]);
 
   const prepareFounderBrief = useCallback(async () => {
     if (!client || !projections.session) {
-      setWorkflowError("An active session is required before preparing a Founder Brief.");
+      setWorkflowError(planningActionErrors.activeSessionRequiredFounderBrief);
       return;
     }
 
@@ -121,11 +127,11 @@ export function useDecisionQueuePlanningPermissionActions({
     } finally {
       setIsBusy(false);
     }
-  }, [appendCommand, client, projections]);
+  }, [appendCommand, client, planningActionErrors, projections]);
 
   const runPlanningHandoffGate = useCallback(async () => {
     if (!client || !projections.session) {
-      setWorkflowError("An active session is required before running the Planning Handoff gate.");
+      setWorkflowError(planningActionErrors.activeSessionRequiredPlanningHandoff);
       return;
     }
 
@@ -156,12 +162,12 @@ export function useDecisionQueuePlanningPermissionActions({
     } finally {
       setIsBusy(false);
     }
-  }, [appendCommand, client, phase15bReadiness, projections, refreshProjections]);
+  }, [appendCommand, client, phase15bReadiness, planningActionErrors, projections, refreshProjections]);
 
   const revokeChatGptDelegation = useCallback(
     async (runId: string) => {
       if (!client || !projections.session) {
-        setWorkflowError("An active session is required before revoking an external AI workspace.");
+        setWorkflowError(permissionActionErrors.activeSessionRequiredRevokeWorkspace);
         return;
       }
 
@@ -177,7 +183,7 @@ export function useDecisionQueuePlanningPermissionActions({
             expectedStateVersion,
             idempotencyKey: `chatgpt-delegation:revoke:${runId}:${expectedStateVersion}`,
             runId,
-            reason: "Revoked from the external AI workspace panel.",
+            reason: permissionActionReasons.revokeWorkspace,
             auditRefs: [`audit:chatgpt-browser-delegation:web-revoke:${runId}`]
           })
         );
@@ -197,13 +203,13 @@ export function useDecisionQueuePlanningPermissionActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections, refreshChatGptDelegation]
+    [appendCommand, client, permissionActionErrors, permissionActionReasons, projections, refreshChatGptDelegation]
   );
 
   const revokeServicePageUsePermission = useCallback(
     async (permissionId: string) => {
       if (!client || !projections.session) {
-        setWorkflowError("An active session is required before revoking service page-use permission.");
+        setWorkflowError(permissionActionErrors.activeSessionRequiredRevokeServicePage);
         return;
       }
 
@@ -219,7 +225,7 @@ export function useDecisionQueuePlanningPermissionActions({
             expectedStateVersion,
             idempotencyKey: `service-page-permission:revoke:${permissionId}:${expectedStateVersion}`,
             permissionId,
-            reason: "Revoked from the service page-use permission panel.",
+            reason: permissionActionReasons.revokeServicePagePermission,
             auditRefs: [`audit:service-page-use-permission:web-revoke:${permissionId}`]
           })
         );
@@ -239,7 +245,7 @@ export function useDecisionQueuePlanningPermissionActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections, refreshServicePageUsePermission]
+    [appendCommand, client, permissionActionErrors, permissionActionReasons, projections, refreshServicePageUsePermission]
   );
 
   const exportServicePageArtifacts = useCallback(
@@ -248,12 +254,12 @@ export function useDecisionQueuePlanningPermissionActions({
       const permission = projection?.latestPermission;
 
       if (!permission || permission.permissionId !== permissionId) {
-        setWorkflowError("The latest service page-use permission no longer matches this artifact export request.");
+        setWorkflowError(permissionActionErrors.artifactExportPermissionMismatch);
         return;
       }
 
       if (typeof document === "undefined" || typeof URL === "undefined") {
-        setWorkflowError("Artifact ref export requires a browser document context.");
+        setWorkflowError(permissionActionErrors.artifactExportBrowserRequired);
         return;
       }
 
@@ -269,7 +275,7 @@ export function useDecisionQueuePlanningPermissionActions({
         redactionPreviewRef: permission.artifactRetention.redactionPreviewRef,
         artifactRefs: view.artifactRefs,
         auditEvidenceRefs: permission.auditLog.flatMap((entry) => entry.evidenceRefs),
-        note: "Exports retained artifact references only; credentials, cookies, sessions, 2FA codes, API keys, and raw secret values are never stored or exported."
+        note: permissionActionReasons.exportArtifactRefsNote
       };
       const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -287,18 +293,18 @@ export function useDecisionQueuePlanningPermissionActions({
           id: `service-page-permission:export:artifacts:${permissionId}:${Date.now()}`,
           label: "Export service page-use artifact refs",
           createdAt: exportedAt,
-          message: `exported_refs_only: ${view.artifactRefs.length} retained refs for ${permissionId}; audit metadata preserved.`
+          message: permissionActionReasons.exportArtifactRefsLogMessage(view.artifactRefs.length, permissionId)
         },
         ...previous
       ].slice(0, COMMAND_LOG_LIMIT));
     },
-    [projections.servicePageUsePermission]
+    [permissionActionErrors, permissionActionReasons, projections.servicePageUsePermission]
   );
 
   const deleteServicePageArtifacts = useCallback(
     async (permissionId: string) => {
       if (!client || !projections.session) {
-        setWorkflowError("An active session is required before deleting service page-use artifact refs.");
+        setWorkflowError(permissionActionErrors.activeSessionRequiredDeleteServicePageArtifacts);
         return;
       }
 
@@ -306,7 +312,7 @@ export function useDecisionQueuePlanningPermissionActions({
       const permission = projection?.latestPermission;
 
       if (!permission || permission.permissionId !== permissionId) {
-        setWorkflowError("The latest service page-use permission no longer matches this artifact delete request.");
+        setWorkflowError(permissionActionErrors.artifactDeletePermissionMismatch);
         return;
       }
 
@@ -322,7 +328,7 @@ export function useDecisionQueuePlanningPermissionActions({
             expectedStateVersion,
             idempotencyKey: `service-page-permission:delete-artifacts:${permissionId}:${expectedStateVersion}`,
             permissionId,
-            reason: "User deleted retained service page-use artifact refs from the permission panel.",
+            reason: permissionActionReasons.deleteServicePageArtifacts,
             auditRefs: [`audit:service-page-use-permission:web-delete-artifacts:${permissionId}`]
           })
         );
@@ -342,7 +348,7 @@ export function useDecisionQueuePlanningPermissionActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections, refreshServicePageUsePermission]
+    [appendCommand, client, permissionActionErrors, permissionActionReasons, projections, refreshServicePageUsePermission]
   );
 
 

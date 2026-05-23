@@ -417,6 +417,7 @@ export function useDecisionQueueShellController() {
   } = useDecisionQueuePlanningPermissionActions({
     appendCommand,
     client,
+    copy,
     phase15bReadiness,
     projections,
     refreshChatGptDelegation,

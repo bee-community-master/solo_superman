@@ -106,8 +106,21 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.implementation.runtimeTransport).toBe("Transport");
     expect(DECISION_QUEUE_COPY.ko.implementation.runtimeManualHandoff).toBe("수동 인계");
     expect(DECISION_QUEUE_COPY.en.handoff.title).toBe("Planning Handoff");
+    expect(DECISION_QUEUE_COPY.en.handoff.planningActionErrors.activeSessionRequiredScoreCompleteness).not.toMatch(
+      /[가-힣]/u
+    );
     expect(DECISION_QUEUE_COPY.ja.handoff.title).toBe("計画引き継ぎ");
+    expect(DECISION_QUEUE_COPY.ja.handoff.planningActionErrors.activeSessionRequiredPlanningHandoff).toContain(
+      "セッション"
+    );
     expect(DECISION_QUEUE_COPY.ko.handoff.title).toBe("계획 인계");
+    expect(DECISION_QUEUE_COPY.ko.permissions.permissionActionErrors.activeSessionRequiredRevokeWorkspace).toContain(
+      "활성 세션"
+    );
+    expect(DECISION_QUEUE_COPY.en.permissions.permissionActionReasons.exportArtifactRefsNote).toContain("2FA");
+    expect(
+      DECISION_QUEUE_COPY.ko.permissions.permissionActionReasons.exportArtifactRefsLogMessage(3, "perm_1")
+    ).toContain("3개");
     expect(DECISION_QUEUE_COPY.en.phase15b.viewModel.statusVisible).toBe("Execution readiness notes visible");
     expect(DECISION_QUEUE_COPY.ja.phase15b.viewModel.statusVisible).toBe("実行準備ノートあり");
     expect(DECISION_QUEUE_COPY.ko.phase15b.viewModel.statusVisible).toBe("실행 준비 노트 있음");
