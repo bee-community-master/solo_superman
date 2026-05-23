@@ -4,9 +4,7 @@ import {
   type CodexRuntimeStatusDto,
   type StatusEndpointDto
 } from "@solo-superman/contracts";
-import {
-  autoImplementationRunViewModel
-} from "../AutoImplementationRunPanel";
+import { autoImplementationRunViewModel } from "../AutoImplementationRunPanel";
 import { implementationStepLedgerViewModel } from "../ImplementationStepLedgerPanel";
 import {
   pendingEffectSummary,
