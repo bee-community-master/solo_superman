@@ -404,6 +404,19 @@ function requireFilledStringList(value, path, issues) {
   value.forEach((item, index) => requireFilledString(item, `${path}[${index}]`, issues));
 }
 
+function requireStringListIncludesAll(value, path, issues, requiredValues, label) {
+  if (!requiredValues.length) {
+    return;
+  }
+
+  const actualValues = stringList(value);
+  for (const requiredValue of requiredValues) {
+    if (!actualValues.includes(requiredValue)) {
+      issues.push(`${path} must include required ${label} ${JSON.stringify(requiredValue)}.`);
+    }
+  }
+}
+
 function validateTemplateResultEntries(entries, path, issues, expectedRequirements, requirementKey) {
   if (!Array.isArray(entries)) {
     issues.push(`${path} must be an array.`);
@@ -439,7 +452,7 @@ function checklistItemsById(checklist) {
   return new Map((checklist?.checklistItems ?? []).map((item) => [item.itemId, item]));
 }
 
-function validateTemplateItem(item, index, issues, expectedItem) {
+function validateTemplateItem(item, index, issues, expectedItem, requiredReadyReleaseCommands) {
   const path = `$.items[${index}]`;
   if (!isRecord(item)) {
     issues.push(`${path} must be an object.`);
@@ -472,6 +485,13 @@ function validateTemplateItem(item, index, issues, expectedItem) {
     issues.push(`${path}.verification.redactionConfirmed must be true.`);
   }
   requireFilledStringList(item.verification.readyReleaseCommandsRun, `${path}.verification.readyReleaseCommandsRun`, issues);
+  requireStringListIncludesAll(
+    item.verification.readyReleaseCommandsRun,
+    `${path}.verification.readyReleaseCommandsRun`,
+    issues,
+    requiredReadyReleaseCommands,
+    "ready-release command"
+  );
 }
 
 export function validateReleaseEvidenceTemplate(template, options = {}) {
@@ -503,6 +523,15 @@ export function validateReleaseEvidenceTemplate(template, options = {}) {
     issues.push("$.summary.pendingItems must be 0 after evidence is collected.");
   }
 
+  const expectedReadyReleaseCommands = stringList(expectedChecklist?.readyReleaseCommands);
+  requireStringListIncludesAll(
+    template.readyReleaseCommands,
+    "$.readyReleaseCommands",
+    issues,
+    expectedReadyReleaseCommands,
+    "ready-release command from source checklist"
+  );
+
   if (!Array.isArray(template.items) || template.items.length === 0) {
     issues.push("$.items must be a non-empty array.");
   } else {
@@ -517,7 +546,14 @@ export function validateReleaseEvidenceTemplate(template, options = {}) {
     if (typeof template.summary?.totalItems === "number" && template.summary.totalItems !== template.items.length) {
       issues.push("$.summary.totalItems must match the number of template items.");
     }
-    template.items.forEach((item, index) => validateTemplateItem(item, index, issues, expectedItems.get(item?.itemId)));
+    const requiredReadyReleaseCommands = stringList(template.readyReleaseCommands);
+    template.items.forEach((item, index) => validateTemplateItem(
+      item,
+      index,
+      issues,
+      expectedItems.get(item?.itemId),
+      requiredReadyReleaseCommands
+    ));
   }
 
   const finalIssues = uniqueStrings([...issues, ...validateSecretFreeStrings(template)]);
@@ -533,7 +569,7 @@ export function validateReleaseEvidenceTemplate(template, options = {}) {
       "filled release evidence template schema",
       "all required checks, evidence, and unblock criteria are passed",
       "placeholder fields are replaced with redacted evidence refs and notes",
-      "operator verification metadata and redaction confirmation are present",
+      "operator verification metadata, redaction confirmation, and ready-release command coverage are present",
       "filled template is secret-free"
     ]
   };
@@ -570,7 +606,7 @@ export function buildFilledReleaseEvidenceTemplateFixture(template, options = {}
         verifiedAt,
         verifiedBy: ["solo-superman-fixture-release-lab"],
         redactionConfirmed: true,
-        readyReleaseCommandsRun: template.readyReleaseCommands.slice(0, 1)
+        readyReleaseCommandsRun: [...template.readyReleaseCommands]
       }
     })),
     summary: {
