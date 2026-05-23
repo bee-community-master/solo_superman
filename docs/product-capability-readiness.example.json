@@ -110,6 +110,7 @@
       "checkedBehaviors": [
         "ChatGPT/browser delegation keeps disclosure preview, approval, evidence refs, and revoke controls visible.",
         "Service-page permissions require user-present login, action echo, artifact cleanup, and revoke checks.",
+        "approved public-read browser actions accept only HTTPS public DNS targets while loopback-only remains required for service-page/local preview flows.",
         "Loopback-only browser smokes prove boundaries without ChatGPT credentials or external network access.",
         "Final submit remains blocked until production-mutation contract evidence passes.",
         "The production-mutation contract keeps final submit separated from fill-draft/preview actions and forbids credential, payment, legal, medical, financial, privacy, DNS, or account-deletion mutations."

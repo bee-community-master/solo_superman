@@ -389,9 +389,45 @@ describe("Phase 3 ExecutionAuthority ledger contract", () => {
       expect.arrayContaining([
         "browser_action authority requires browserTargetRef requestedScope",
         "browser_action authority requires browser_preview_session sandbox mode",
-        "browser_action authority requires loopback_only network policy",
         "browser_action authority requires browser_state_reset rollback kind"
       ])
+    );
+  });
+
+  it("allows approved public-read browser action authorities without opening service page writes", () => {
+    const publicReadBrowser = {
+      ...PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE.latestRecord,
+      actionClass: "browser_action",
+      requestedScope: {
+        browserTargetRef: "browser_target:https://research.example.com",
+        maxDurationMs: 1000
+      },
+      sandboxBoundary: {
+        mode: "browser_preview_session",
+        networkPolicy: "approved_public_read",
+        secretPolicy: "no_secret_values"
+      },
+      rollbackReference: {
+        kind: "browser_state_reset",
+        ref: "rollback_public_read_browser"
+      }
+    } satisfies ExecutionAuthorityRecord;
+
+    expect(executionAuthorityRecordValidationIssues(publicReadBrowser)).toEqual([]);
+
+    const servicePagePublicRead = {
+      ...publicReadBrowser,
+      requestedScope: {
+        ...publicReadBrowser.requestedScope,
+        servicePagePermissionId: "service_page_permission_123",
+        servicePageActionClass: "read",
+        serviceOrigin: "https://service.example.com",
+        servicePageUrl: "https://service.example.com/settings"
+      }
+    } satisfies ExecutionAuthorityRecord;
+
+    expect(executionAuthorityRecordValidationIssues(servicePagePublicRead)).toContain(
+      "service page-use browser_action authority requires loopback_only network policy"
     );
   });
 

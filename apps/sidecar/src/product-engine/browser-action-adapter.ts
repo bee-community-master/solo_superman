@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isIP } from "node:net";
 import type {
   BrowserActionExecutionResult,
   BrowserActionPreviewDto,
@@ -29,6 +30,7 @@ export interface BrowserActionApplyOutput {
 }
 
 const LOOPBACK_BROWSER_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const PUBLIC_READ_BLOCKED_HOST_SUFFIXES = [".local", ".localhost", ".lan", ".home", ".internal", ".invalid"] as const;
 const DEFAULT_BROWSER_ACTION_TIMEOUT_MS = 30_000;
 const FETCH_LOG_SUMMARY_MAX_CHARS = 2_000;
 
@@ -94,22 +96,51 @@ function browserActionResult(input: {
   };
 }
 
-function normalizedLoopbackHostname(hostname: string) {
+function normalizedHostname(hostname: string) {
   return hostname.replace(/^\[(.*)\]$/u, "$1").toLowerCase();
 }
 
+function isLoopbackHostname(hostname: string) {
+  const normalized = normalizedHostname(hostname);
+
+  return LOOPBACK_BROWSER_HOSTS.has(hostname) || LOOPBACK_BROWSER_HOSTS.has(normalized);
+}
+
+function isPublicReadHostname(hostname: string) {
+  const normalized = normalizedHostname(hostname);
+
+  if (isLoopbackHostname(normalized) || isIP(normalized) !== 0) {
+    return false;
+  }
+
+  if (!normalized.includes(".")) {
+    return false;
+  }
+
+  return !PUBLIC_READ_BLOCKED_HOST_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
+}
+
+function portForUrl(url: URL) {
+  if (url.port) {
+    return Number.parseInt(url.port, 10);
+  }
+
+  return url.protocol === "https:" ? 443 : 80;
+}
+
 export function browserActionTargetFromUrl(
-  rawTargetUrl: string
+  rawTargetUrl: string,
+  networkPolicy: ExecutionAuthorityRecord["sandboxBoundary"]["networkPolicy"] = "loopback_only"
 ): BrowserActionTargetDto | ExecutionAuthorityBlockReasonDto {
   let url: URL;
 
   try {
     url = new URL(rawTargetUrl);
   } catch {
-    return blockReason("sandbox_failure", "browser_action targetUrl must be an absolute loopback HTTP URL.");
+    return blockReason("sandbox_failure", "browser_action targetUrl must be an absolute URL.");
   }
 
-  const normalizedHostname = normalizedLoopbackHostname(url.hostname);
+  const normalized = normalizedHostname(url.hostname);
 
   if (containsExecutionAuthoritySecretValueLeak(rawTargetUrl)) {
     return blockReason(
@@ -117,10 +148,6 @@ export function browserActionTargetFromUrl(
       "browser_action targetUrl must not contain credential, token, or secret-like values.",
       ["browser_action:credential_target_url"]
     );
-  }
-
-  if (url.protocol !== "http:") {
-    return blockReason("sandbox_failure", "browser_action MVP only allows loopback HTTP targets.");
   }
 
   if (url.username || url.password) {
@@ -131,23 +158,49 @@ export function browserActionTargetFromUrl(
     );
   }
 
-  if (!LOOPBACK_BROWSER_HOSTS.has(url.hostname) && !LOOPBACK_BROWSER_HOSTS.has(normalizedHostname)) {
+  if (networkPolicy === "blocked") {
     return blockReason(
       "sandbox_failure",
-      "browser_action MVP target policy allows only localhost, 127.0.0.1, or ::1 targets.",
-      [`browser_action:blocked_target:${url.hostname}`]
+      "browser_action target policy is blocked by the authority network policy.",
+      ["browser_action:network_policy_blocked"]
     );
   }
 
-  if (!url.port) {
-    return blockReason(
-      "sandbox_failure",
-      "browser_action targetUrl must include an explicit local web or sidecar port.",
-      ["browser_action:missing_explicit_port"]
-    );
+  if (networkPolicy === "approved_public_read") {
+    if (url.protocol !== "https:") {
+      return blockReason("sandbox_failure", "approved_public_read browser_action targets must use HTTPS.");
+    }
+
+    if (!isPublicReadHostname(url.hostname)) {
+      return blockReason(
+        "sandbox_failure",
+        "approved_public_read browser_action targets must use public DNS hostnames, not loopback, LAN, private, local, or IP literal targets.",
+        [`browser_action:blocked_public_read_target:${normalized}`]
+      );
+    }
+  } else {
+    if (url.protocol !== "http:") {
+      return blockReason("sandbox_failure", "loopback_only browser_action targets must use loopback HTTP URLs.");
+    }
+
+    if (!isLoopbackHostname(url.hostname)) {
+      return blockReason(
+        "sandbox_failure",
+        "loopback_only browser_action target policy allows only localhost, 127.0.0.1, or ::1 targets.",
+        [`browser_action:blocked_target:${url.hostname}`]
+      );
+    }
+
+    if (!url.port) {
+      return blockReason(
+        "sandbox_failure",
+        "loopback_only browser_action targetUrl must include an explicit local web or sidecar port.",
+        ["browser_action:missing_explicit_port"]
+      );
+    }
   }
 
-  const port = Number.parseInt(url.port, 10);
+  const port = portForUrl(url);
 
   if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
     return blockReason("sandbox_failure", "browser_action targetUrl port must be a valid TCP port.");
@@ -156,7 +209,7 @@ export function browserActionTargetFromUrl(
   return {
     url: url.toString(),
     origin: url.origin,
-    hostname: normalizedHostname,
+    hostname: normalized,
     port
   };
 }
@@ -372,7 +425,7 @@ export async function runBrowserAction(input: BrowserActionApplyInput): Promise<
     });
   }
 
-  const target = browserActionTargetFromUrl(input.targetUrl);
+  const target = browserActionTargetFromUrl(input.targetUrl, input.record.sandboxBoundary.networkPolicy);
 
   if ("code" in target) {
     return browserActionResult({

@@ -25,7 +25,7 @@ Action은 bounded source, preview, approval, rollback, evidence metadata를 가�
 - Executable action에는 execution 전 `rollbackReference`가 필수입니다. Preview-only artifact는 execution이 아니므로 rollback evidence가 필요하지 않습니다.
 - `file_diff`는 기본 rollback으로 `git_diff_reverse`를 사용합니다.
 - `shell_command`는 command allowlist, timeout class, stdout/stderr evidence, no credential prompt가 필요합니다.
-- `browser_action`은 MVP에서 loopback-only local targets만 허용합니다. LAN/private IP targets와 cloud preview URLs는 later explicit contract가 허용하기 전까지 blocked입니다.
+- `browser_action`은 service-page 및 local preview work에는 loopback-only local target을 사용합니다. Approved public-read browser action은 HTTPS public DNS target만 허용하며, LAN/private/IP-literal/local target, credential-bearing URL, external mutation은 계속 blocked입니다.
 
 ## 기본 차단
 

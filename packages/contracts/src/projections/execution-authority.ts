@@ -736,8 +736,18 @@ function actionClassBoundaryValidationIssues(record: ExecutionAuthorityRecord): 
         issues.push("browser_action authority requires browser_preview_session sandbox mode");
       }
 
-      if (record.sandboxBoundary.networkPolicy !== "loopback_only") {
-        issues.push("browser_action authority requires loopback_only network policy");
+      if (
+        record.sandboxBoundary.networkPolicy !== "loopback_only" &&
+        record.sandboxBoundary.networkPolicy !== "approved_public_read"
+      ) {
+        issues.push("browser_action authority requires loopback_only or approved_public_read network policy");
+      }
+
+      if (
+        record.requestedScope.servicePagePermissionId &&
+        record.sandboxBoundary.networkPolicy !== "loopback_only"
+      ) {
+        issues.push("service page-use browser_action authority requires loopback_only network policy");
       }
 
       if (rollbackKind && rollbackKind !== "browser_state_reset") {

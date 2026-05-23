@@ -74,6 +74,7 @@ function codeBackedContract(overrides = {}) {
         checkedBehaviors: [
           "ChatGPT/browser delegation keeps disclosure preview, approval, evidence refs, and revoke controls visible.",
           "Service-page permissions require user-present login, action echo, artifact cleanup, and revoke checks.",
+          "approved public-read browser actions accept only HTTPS public DNS targets while loopback-only remains required for service-page/local preview flows.",
           "Final submit remains blocked until production-mutation contract evidence passes.",
           "The production-mutation contract keeps final submit separate from fill-draft and preview actions."
         ]
@@ -115,7 +116,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including final-submit production-mutation contract coverage and generated PR body summary coverage"
+      "required capability behavior snippets, including approved public-read browser targets, final-submit production-mutation contract coverage, and generated PR body summary coverage"
     );
   });
 
@@ -155,7 +156,7 @@ describe("product capability readiness verification", () => {
           ? {
               ...capability,
               checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
-                !behavior.includes("production-mutation contract")
+                !behavior.includes("production-mutation contract") && !behavior.includes("approved public-read")
               )
             }
           : capability
@@ -165,6 +166,7 @@ describe("product capability readiness verification", () => {
 
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
+      "$.capabilities[3].checkedBehaviors: must mention approved public-read",
       "$.capabilities[3].checkedBehaviors: must mention production-mutation contract",
       "$.capabilities[3].checkedBehaviors: must mention final submit"
     ]));
