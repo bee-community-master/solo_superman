@@ -93,6 +93,8 @@ Live Codex app-server preview turns are disabled by default. Maintainers can opt
 
 `pnpm verify:auto-implementation-pipeline` is the credential-free aggregate smoke for the preview-turn, worker-job, and generated PR mutation smokes. It does not require live Codex flags; in fixture mode it sequentially verifies `codex_runtime_preview_effect` creation/execution, bounded worker-job ledger import plus stage advancement, and generated PR open/body-update/merge guards. If any child smoke reports `blocked`, the aggregate smoke reports `blocked` too. Real GitHub writes and production/external final-submit actions remain outside this scope.
 
+`pnpm verify:research-pipeline` is the credential-free research pipeline smoke. It creates temporary app data and a local sidecar, creates a public-web allowlist, starts a read-only research run, then verifies source-traced result import plus either pending `research_evidence_effect` drain or already-created synthesis. It passes only when the Research projection exposes an evidence matrix/evidence pack/review card and the Decision Queue exposes research-generated follow-up question debt. `pnpm verify` runs this smoke together with the auto-implementation aggregate smoke so the default local verification covers both research and implementation critical paths.
+
 ## Local token and sidecar URL
 
 The local service uses a per-run local capability token. In normal `pnpm start:local` or installer runs, the launcher creates one fresh token and passes it to both the browser build and sidecar. The browser build receives `VITE_SOLO_LOCAL_CAPABILITY_TOKEN` and `VITE_SOLO_SIDECAR_BASE_URL`. The sidecar uses `SOLO_LOCAL_CAPABILITY_TOKEN`. A token mismatch fails visibly with `401`.
