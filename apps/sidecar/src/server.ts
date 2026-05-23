@@ -2810,7 +2810,7 @@ function advanceAutoImplementationWorkerStageRequestFromBody(
   );
 
   const evidenceRefs = optionalStringArrayFromBody(body.evidenceRefs, "evidenceRefs");
-  const tickedAt = optionalStringFromBody(body.tickedAt, "tickedAt");
+  const tickedAt = optionalIsoTimestampFromBody(body.tickedAt, "tickedAt");
 
   return {
     sessionId: routeSessionId,

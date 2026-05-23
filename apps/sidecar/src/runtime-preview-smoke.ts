@@ -8,6 +8,15 @@ import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } fr
 import { createProductEngineCommandService } from "./product-engine/command-service";
 import { createCodexRuntimeAdapter, type CodexRuntimeAdapter } from "./runtime";
 import { createSidecarApp } from "./server";
+import {
+  authHeaders,
+  dataRecord,
+  firstRecord,
+  jsonEnvelope,
+  objectAt,
+  stringAt,
+  type JsonRecord
+} from "./smoke-helpers";
 
 export const LIVE_PREVIEW_TURN_VERIFY_ENV = "SOLO_VERIFY_CODEX_LIVE_PREVIEW_TURN" as const;
 export const LIVE_TURNS_ENV = "SOLO_CODEX_APP_SERVER_LIVE_TURNS" as const;
@@ -20,7 +29,6 @@ const REQUIRED_LIVE_GATE_BLOCKER = `${LIVE_TURNS_ENV}=1 is required before live 
 
 type SmokeMode = "fixture" | "live";
 type SmokeStatus = "blocked" | "passed";
-type JsonRecord = Readonly<Record<string, unknown>>;
 
 export interface RuntimePreviewTurnGateEvidence {
   readonly status: "ready" | "blocked";
@@ -131,54 +139,6 @@ export function runtimePreviewTurnGateEvidence(
       `${LIVE_TURNS_ENV}=1 enables preview-only live turns`
     ]
   };
-}
-
-function authHeaders(token: string) {
-  return {
-    Authorization: `Bearer ${token}`
-  };
-}
-
-async function jsonEnvelope(response: Response, label: string) {
-  const body = (await response.json()) as JsonRecord;
-
-  if (response.status < 200 || response.status >= 300) {
-    throw new Error(`${label} failed with HTTP ${response.status}: ${JSON.stringify(body)}`);
-  }
-
-  return body;
-}
-
-function dataRecord(body: JsonRecord, label: string) {
-  if (!body.ok || typeof body.data !== "object" || body.data === null) {
-    throw new Error(`${label} did not return an ok data envelope.`);
-  }
-
-  return body.data as JsonRecord;
-}
-
-function objectAt(value: unknown, label: string) {
-  if (typeof value !== "object" || value === null) {
-    throw new Error(`${label} must be an object.`);
-  }
-
-  return value as JsonRecord;
-}
-
-function stringAt(value: unknown, label: string) {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`${label} must be a non-empty string.`);
-  }
-
-  return value;
-}
-
-function firstRecord(value: unknown, label: string) {
-  if (!Array.isArray(value) || typeof value[0] !== "object" || value[0] === null) {
-    throw new Error(`${label} must include at least one object.`);
-  }
-
-  return value[0] as JsonRecord;
 }
 
 function runtimePublicStatus(status: CodexRuntimeStatusDto) {

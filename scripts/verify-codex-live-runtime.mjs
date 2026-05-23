@@ -304,7 +304,7 @@ async function cleanupCodexLiveRuntimeSmoke(processes, appDataDir, diagnostics, 
   } catch (error) {
     diagnostics.error(error);
     console.error(`verify-codex-live-runtime: diagnostic log retained at ${logPath}`);
-    await Promise.reject(error);
+    throw error;
   }
 
   if (processes.length > 0) {

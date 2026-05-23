@@ -265,7 +265,7 @@ async function cleanupProdBundleSmokeRun(processes, appDataDir, diagnostics, log
   } catch (error) {
     diagnostics.error(error);
     console.error(`verify-prod-bundle: diagnostic log retained at ${logPath}`);
-    await Promise.reject(error);
+    throw error;
   }
 
   if (processes.length > 0) {

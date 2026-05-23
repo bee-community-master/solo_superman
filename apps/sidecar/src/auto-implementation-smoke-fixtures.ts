@@ -10,8 +10,24 @@ import {
 } from "@solo-superman/contracts";
 import { createEventRepository, type createSoloStorage } from "@solo-superman/db";
 import type { createSidecarApp } from "./server";
+import {
+  objectAt,
+  postJson,
+  stringAt
+} from "./smoke-helpers";
+export {
+  authHeaders,
+  dataRecord,
+  getJson,
+  jsonEnvelope,
+  lastRecord,
+  objectAt,
+  postJson,
+  recordArray,
+  stringAt,
+  type JsonRecord
+} from "./smoke-helpers";
 
-export type JsonRecord = Readonly<Record<string, unknown>>;
 export type SmokeSidecarApp = ReturnType<typeof createSidecarApp>;
 export type SmokeStorage = Awaited<ReturnType<typeof createSoloStorage>>;
 
@@ -28,96 +44,6 @@ export interface AutoImplementationSmokePlanningFixture {
 }
 
 const PLANNING_READY_PROJECTION_VERSION = 3 as ProjectionVersion;
-
-export function authHeaders(token: string) {
-  return {
-    Authorization: `Bearer ${token}`
-  };
-}
-
-export async function jsonEnvelope(response: Response, label: string) {
-  const body = (await response.json()) as JsonRecord;
-
-  if (response.status < 200 || response.status >= 300) {
-    throw new Error(`${label} failed with HTTP ${response.status}: ${JSON.stringify(body)}`);
-  }
-
-  return body;
-}
-
-export function dataRecord(body: JsonRecord, label: string) {
-  if (!body.ok || typeof body.data !== "object" || body.data === null) {
-    throw new Error(`${label} did not return an ok data envelope.`);
-  }
-
-  return body.data as JsonRecord;
-}
-
-export async function postJson(
-  app: SmokeSidecarApp,
-  path: string,
-  localCapabilityToken: string,
-  body: Readonly<Record<string, unknown>>
-) {
-  const response = await app.request(path, {
-    method: "POST",
-    headers: {
-      ...authHeaders(localCapabilityToken),
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
-  const data = dataRecord(await jsonEnvelope(response, path), path);
-
-  if (data.category === "rejected") {
-    throw new Error(`${path} rejected: ${JSON.stringify(data.error ?? data)}`);
-  }
-
-  return data;
-}
-
-export async function getJson(app: SmokeSidecarApp, path: string, localCapabilityToken: string) {
-  const response = await app.request(path, {
-    headers: authHeaders(localCapabilityToken)
-  });
-
-  return dataRecord(await jsonEnvelope(response, path), path);
-}
-
-export function objectAt(value: unknown, label: string) {
-  if (typeof value !== "object" || value === null) {
-    throw new Error(`${label} must be an object; received ${JSON.stringify(value)}.`);
-  }
-
-  return value as JsonRecord;
-}
-
-export function recordArray(value: unknown, label: string) {
-  if (!Array.isArray(value) || value.some((item) => typeof item !== "object" || item === null)) {
-    throw new Error(`${label} must be an array of objects.`);
-  }
-
-  return value as readonly JsonRecord[];
-}
-
-export function lastRecord(value: unknown, label: string) {
-  const records = recordArray(value, label);
-  const last = records.at(-1);
-
-  if (!last) {
-    throw new Error(`${label} must not be empty.`);
-  }
-
-  return last;
-}
-
-export function stringAt(value: unknown, label: string) {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`${label} must be a non-empty string.`);
-  }
-
-  return value;
-}
 
 export async function sessionEventCount(storage: SmokeStorage, sessionId: string) {
   return (await createEventRepository(storage.db).listForSession(sessionId as SessionId)).length;
