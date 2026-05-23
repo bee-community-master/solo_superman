@@ -5,6 +5,7 @@ import type {
   ProjectPurposeMode
 } from "@solo-superman/contracts";
 import { useAppLanguage } from "../../../shared/i18n/app-language";
+import type { Phase15bReadinessViewModelCopy } from "../decision-queue-view-model";
 import type { DecisionQueuePageId } from "./decision-queue-shell-model";
 
 export const DECISION_QUEUE_PAGE_ORDER = ["onboarding", "questions", "research", "planning", "implementation", "permissions"] as const satisfies readonly DecisionQueuePageId[];
@@ -622,7 +623,32 @@ const EN_COPY = {
     },
     title: "Execution readiness notes",
     refresh: "Refresh readiness",
-    safeExecutionNote: "Safe execution note"
+    safeExecutionNote: "Safe execution note",
+    viewModel: {
+      terms: {
+        phase15a: "Research readiness",
+        phase15b: "Execution readiness",
+        readinessPreviewHandoffMetadata: "execution readiness notes",
+        blockedActionArtifact: "Blocked action review artifact",
+        chatGptDelegation: "External AI workspace",
+        chatGptWebAutomation: "External AI workspace automation"
+      },
+      statusVisible: "Execution readiness notes visible",
+      statusPending: "Execution readiness pending",
+      summaryVisible: (recordCount: number) =>
+        `${recordCount} execution readiness note${recordCount === 1 ? "" : "s"} shown for planning and safety review.`,
+      summaryEmpty: "No execution readiness notes are available to show yet.",
+      actualWorkNotExecuted: "Actual work has not been executed",
+      noExecutionUnloaded:
+        "Execution readiness notes have not loaded yet. Actual work has not been executed and credentials have not been stored.",
+      reviewNoteOnly: "Review note only; actual work has not been executed",
+      delegationState: (value: string) => `delegation state ${value}`,
+      credentialState: (value: string) => `credential state ${value}`,
+      exportLoaded: (url: string) => `Execution readiness export: ${url}`,
+      exportMissing: "Execution readiness export has not loaded yet.",
+      loadedEmpty: "This project has no execution readiness notes to show yet.",
+      unloadedEmpty: "Execution readiness notes have not loaded yet."
+    } satisfies Phase15bReadinessViewModelCopy
   },
   handoff: {
     title: "Planning Handoff",
@@ -1287,7 +1313,32 @@ const JA_COPY: typeof EN_COPY = {
     },
     title: "実行準備ノート",
     refresh: "実行準備を更新",
-    safeExecutionNote: "安全実行ノート"
+    safeExecutionNote: "安全実行ノート",
+    viewModel: {
+      terms: {
+        phase15a: "リサーチ準備",
+        phase15b: "実行準備",
+        readinessPreviewHandoffMetadata: "実行準備ノート",
+        blockedActionArtifact: "ブロック操作の確認資料",
+        chatGptDelegation: "外部AI作業スペース",
+        chatGptWebAutomation: "外部AI作業スペース自動化"
+      },
+      statusVisible: "実行準備ノートあり",
+      statusPending: "実行準備待ち",
+      summaryVisible: (recordCount: number) =>
+        `${recordCount} 件の実行準備ノートを計画と安全確認のために表示します。`,
+      summaryEmpty: "表示できる実行準備ノートはまだありません。",
+      actualWorkNotExecuted: "実際の作業は実行していません",
+      noExecutionUnloaded:
+        "実行準備ノートはまだ読み込まれていません。実際の作業は実行しておらず、認証情報も保存していません。",
+      reviewNoteOnly: "確認ノートのみ保存済み; 実際の作業は実行していません",
+      delegationState: (value: string) => `委任状態 ${value}`,
+      credentialState: (value: string) => `認証情報 ${value}`,
+      exportLoaded: (url: string) => `実行準備エクスポート情報: ${url}`,
+      exportMissing: "実行準備エクスポート情報はまだ読み込まれていません。",
+      loadedEmpty: "このプロジェクトで表示できる実行準備ノートはまだありません。",
+      unloadedEmpty: "実行準備ノートはまだ読み込まれていません。"
+    }
   },
   handoff: {
     title: "計画引き継ぎ",
@@ -1950,7 +2001,32 @@ const KO_COPY: typeof EN_COPY = {
     },
     title: "실행 준비 노트",
     refresh: "준비 상태 새로고침",
-    safeExecutionNote: "안전 실행 노트"
+    safeExecutionNote: "안전 실행 노트",
+    viewModel: {
+      terms: {
+        phase15a: "리서치 준비",
+        phase15b: "실행 준비",
+        readinessPreviewHandoffMetadata: "실행 준비 노트",
+        blockedActionArtifact: "차단 작업 검토 자료",
+        chatGptDelegation: "외부 AI 작업공간",
+        chatGptWebAutomation: "외부 AI 작업공간 자동화"
+      },
+      statusVisible: "실행 준비 노트 있음",
+      statusPending: "실행 준비 대기",
+      summaryVisible: (recordCount: number) =>
+        `${recordCount}개 실행 준비 노트가 계획 및 안전 검토용으로 표시됩니다.`,
+      summaryEmpty: "아직 표시할 실행 준비 노트가 없습니다.",
+      actualWorkNotExecuted: "실제 작업은 실행하지 않음",
+      noExecutionUnloaded:
+        "실행 준비 노트가 아직 없습니다. 실제 작업은 실행하지 않았고 인증 정보도 저장하지 않았습니다.",
+      reviewNoteOnly: "검토 노트만 저장됨; 실제 작업은 실행하지 않음",
+      delegationState: (value: string) => `위임 상태 ${value}`,
+      credentialState: (value: string) => `인증 정보 ${value}`,
+      exportLoaded: (url: string) => `실행 준비 내보내기 정보: ${url}`,
+      exportMissing: "실행 준비 내보내기 정보가 아직 로드되지 않았습니다.",
+      loadedEmpty: "이 프로젝트에 표시할 실행 준비 노트가 아직 없습니다.",
+      unloadedEmpty: "실행 준비 노트가 아직 로드되지 않았습니다."
+    }
   },
   handoff: {
     title: "계획 인계",

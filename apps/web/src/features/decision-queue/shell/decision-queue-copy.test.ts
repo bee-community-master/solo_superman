@@ -77,6 +77,17 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.handoff.title).toBe("Planning Handoff");
     expect(DECISION_QUEUE_COPY.ja.handoff.title).toBe("計画引き継ぎ");
     expect(DECISION_QUEUE_COPY.ko.handoff.title).toBe("계획 인계");
+    expect(DECISION_QUEUE_COPY.en.phase15b.viewModel.statusVisible).toBe("Execution readiness notes visible");
+    expect(DECISION_QUEUE_COPY.ja.phase15b.viewModel.statusVisible).toBe("実行準備ノートあり");
+    expect(DECISION_QUEUE_COPY.ko.phase15b.viewModel.statusVisible).toBe("실행 준비 노트 있음");
+    expect(DECISION_QUEUE_COPY.en.phase15b.viewModel.summaryVisible(2)).toContain(
+      "2 execution readiness notes"
+    );
+    expect(DECISION_QUEUE_COPY.ja.phase15b.viewModel.summaryVisible(2)).toContain("2 件の実行準備ノート");
+    expect(DECISION_QUEUE_COPY.ko.phase15b.viewModel.summaryVisible(2)).toContain("2개 실행 준비 노트");
+    expect(DECISION_QUEUE_COPY.en.phase15b.viewModel.noExecutionUnloaded).toContain("credentials");
+    expect(DECISION_QUEUE_COPY.ja.phase15b.viewModel.noExecutionUnloaded).toContain("認証情報");
+    expect(DECISION_QUEUE_COPY.ko.phase15b.viewModel.noExecutionUnloaded).toContain("인증 정보");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.workerRuntimeAdapterVersion).toBe("Runtime adapter");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeGeneratedSchemaVersion).toBe("生成schema version");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerRuntimeTransport).toBe("Transport");

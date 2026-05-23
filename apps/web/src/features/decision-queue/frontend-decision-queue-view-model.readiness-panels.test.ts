@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import {
   BLOCKED_ACTION_TYPES,
 } from "@solo-superman/contracts";
@@ -34,7 +33,7 @@ import {
 import { Phase15aOperationsPanel } from "./Phase15aOperationsPanel";
 import { Phase15bReadinessPanel } from "./Phase15bReadinessPanel";
 import { DECISION_QUEUE_COPY } from "./shell/decision-queue-copy";
-import { renderEnglishMarkup } from "./test-rendering";
+import { renderEnglishMarkup, renderMarkup } from "./test-rendering";
 
 import { allowlistPermitsWebPublicResearch, buildWebResearchRunRequest } from "./phase15a-research-run-request";
 
@@ -390,11 +389,11 @@ describe("Decision Queue view model readiness-panels", () => {
 
     expect(readiness).toMatchObject({
       status: "metadata_visible",
-      statusLabel: "실행 준비 노트 있음",
-      label: expect.stringContaining("실행 준비 노트"),
-      noExecutionLabel: expect.stringContaining("실제 작업은 실행하지 않음"),
+      statusLabel: "Execution readiness notes visible",
+      label: expect.stringContaining("execution readiness note"),
+      noExecutionLabel: expect.stringContaining("Actual work has not been executed"),
       exportLabel: expect.stringContaining("/phase15b-upgrade-hints/export"),
-      emptyLabel: expect.stringContaining("실행 준비 노트")
+      emptyLabel: expect.stringContaining("execution readiness notes")
     });
     expect(record).toMatchObject({
       surfaceLabel: expect.stringContaining("Planning handoff checklist"),
@@ -402,7 +401,7 @@ describe("Decision Queue view model readiness-panels", () => {
       sandboxLabel: expect.stringContaining("isolated worktree required"),
       rollbackLabel: expect.stringContaining("origin/main"),
       evidenceLabel: expect.stringContaining("pnpm verify"),
-      riskLabel: expect.stringContaining("실행 준비"),
+      riskLabel: expect.stringContaining("Execution readiness"),
       sourceRefLabel: expect.stringContaining("blocked action:runtime_artifact_phase15b_ui")
     });
 
@@ -423,7 +422,9 @@ describe("Decision Queue view model readiness-panels", () => {
       ])
     ].join(" ");
 
-    expect(renderedCopy).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
+    expect(renderedCopy).not.toMatch(/[가-힣]/u);
+    expect(renderedCopy).not.toMatch(/\b(succeeded|applied)\b/iu);
+    expect(renderedCopy).not.toContain("executed successfully");
     expect(renderedCopy).not.toContain("metadata_only_no_execution");
     expect(renderedCopy).not.toContain("readiness_preview_handoff_metadata");
   });
@@ -570,7 +571,7 @@ describe("Decision Queue view model readiness-panels", () => {
     );
 
     expect(markup).toContain("Execution readiness notes");
-    expect(markup).toContain("실행 준비 노트 있음");
+    expect(markup).toContain("Execution readiness notes visible");
     expect(markup).toContain("Safe execution note");
     expect(markup).toContain("Approval:");
     expect(markup).toContain("Execution isolation:");
@@ -578,10 +579,31 @@ describe("Decision Queue view model readiness-panels", () => {
     expect(markup).toContain("Evidence:");
     expect(markup).toContain("Blocked risk:");
     expect(markup).toContain("Source:");
-    expect(markup).toContain("실제 작업은 실행하지 않음");
-    expect(markup).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
+    expect(markup).toContain("Actual work has not been executed");
+    expect(markup).not.toMatch(/[가-힣]/u);
+    expect(markup).not.toMatch(/\b(succeeded|applied)\b/iu);
+    expect(markup).not.toContain("executed successfully");
     expect(markup).not.toContain("metadata_visible");
     expect(markup).not.toContain("metadata_only_no_execution");
+    expect(markup).not.toContain("readiness_preview_handoff_metadata");
+  });
+
+  it("renders Phase 1.5B readiness metadata with Korean view-model copy in the Korean shell", () => {
+    const markup = renderMarkup(
+      createElement(Phase15bReadinessPanel, {
+        hasActiveProject: true,
+        isBusy: false,
+        readiness: phase15bReadinessViewModel(phase15bHintProjection(), DECISION_QUEUE_COPY.ko.phase15b.viewModel),
+        onRefreshReadiness: () => undefined
+      }),
+      "ko"
+    );
+
+    expect(markup).toContain("실행 준비 노트");
+    expect(markup).toContain("실행 준비 노트 있음");
+    expect(markup).toContain("실제 작업은 실행하지 않음");
+    expect(markup).toContain("승인:");
+    expect(markup).not.toContain("Execution readiness notes visible");
     expect(markup).not.toContain("readiness_preview_handoff_metadata");
   });
 
@@ -624,7 +646,7 @@ describe("Decision Queue view model readiness-panels", () => {
         }
       }))
     });
-    const markup = renderToStaticMarkup(
+    const markup = renderEnglishMarkup(
       createElement(Phase15bReadinessPanel, {
         hasActiveProject: true,
         isBusy: false,
@@ -634,12 +656,12 @@ describe("Decision Queue view model readiness-panels", () => {
     );
 
     expect(readiness.records).toHaveLength(BLOCKED_ACTION_TYPES.length);
-    expect(markup).toContain(`${BLOCKED_ACTION_TYPES.length}개 실행 준비 노트`);
+    expect(markup).toContain(`${BLOCKED_ACTION_TYPES.length} execution readiness notes`);
 
     for (const actionType of BLOCKED_ACTION_TYPES) {
       const readableActionType =
         actionType === "chatgpt_web_automation"
-          ? "외부 AI 작업공간 자동화"
+          ? "External AI workspace automation"
           : actionType.replace(/[_-]+/gu, " ");
 
       expect(markup).toContain(`${readableActionType} readiness`);
@@ -647,8 +669,10 @@ describe("Decision Queue view model readiness-panels", () => {
       expect(markup).toContain(`runtime_artifact_phase15b_${actionType}:${actionType}`);
     }
 
-    expect(markup).toContain("실제 작업은 실행하지 않음");
-    expect(markup).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
+    expect(markup).toContain("Actual work has not been executed");
+    expect(markup).not.toMatch(/[가-힣]/u);
+    expect(markup).not.toMatch(/\b(succeeded|applied)\b/iu);
+    expect(markup).not.toContain("executed successfully");
     expect(markup).not.toContain("metadata_only_no_execution");
     expect(markup).not.toContain("readiness_preview_handoff_metadata");
   });
@@ -656,9 +680,9 @@ describe("Decision Queue view model readiness-panels", () => {
   it("distinguishes unloaded readiness metadata from loaded empty records", () => {
     expect(phase15bReadinessViewModel(null)).toMatchObject({
       status: "empty",
-      statusLabel: "실행 준비 대기",
-      emptyLabel: "실행 준비 노트가 아직 로드되지 않았습니다.",
-      exportLabel: "실행 준비 내보내기 정보가 아직 로드되지 않았습니다."
+      statusLabel: "Execution readiness pending",
+      emptyLabel: "Execution readiness notes have not loaded yet.",
+      exportLabel: "Execution readiness export has not loaded yet."
     });
 
     expect(
@@ -668,8 +692,8 @@ describe("Decision Queue view model readiness-panels", () => {
       })
     ).toMatchObject({
       status: "empty",
-      statusLabel: "실행 준비 대기",
-      emptyLabel: "이 프로젝트에 표시할 실행 준비 노트가 아직 없습니다.",
+      statusLabel: "Execution readiness pending",
+      emptyLabel: "This project has no execution readiness notes to show yet.",
       exportLabel: expect.stringContaining("/phase15b-upgrade-hints/export")
     });
   });

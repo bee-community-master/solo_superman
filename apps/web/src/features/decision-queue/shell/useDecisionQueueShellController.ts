@@ -491,8 +491,8 @@ export function useDecisionQueueShellController() {
     [copy.phase15a, projections.research, researchOperations]
   );
   const phase15bReadinessView = useMemo(
-    () => phase15bReadinessViewModel(phase15bReadiness),
-    [phase15bReadiness]
+    () => phase15bReadinessViewModel(phase15bReadiness, copy.phase15b.viewModel),
+    [copy.phase15b.viewModel, phase15bReadiness]
   );
   const planningHandoffView = useMemo(
     () => planningHandoffViewModel(projections.planningHandoff),
