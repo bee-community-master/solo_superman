@@ -46,6 +46,12 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.questions.initialResearchPermission).toBe("리서치 권한");
     expect(DECISION_QUEUE_COPY.ko.questions.refreshQuestionList).toBe("질문 목록 새로고침");
     expect(DECISION_QUEUE_COPY.ko.questions.loadNextQuestions).toBe("다음 질문 불러오기");
+    expect(DECISION_QUEUE_COPY.en.questions.questionProgressActive).toBe("Active now");
+    expect(DECISION_QUEUE_COPY.ja.questions.questionProgressActive).toBe("回答中");
+    expect(DECISION_QUEUE_COPY.ko.questions.questionProgressActive).toBe("지금 답할 질문");
+    expect(DECISION_QUEUE_COPY.en.questions.questionProgressUpcoming).toBe("Upcoming next");
+    expect(DECISION_QUEUE_COPY.ja.questions.questionProgressUpcoming).toBe("次の質問");
+    expect(DECISION_QUEUE_COPY.ko.questions.questionProgressUpcoming).toBe("다음 질문");
     expect(DECISION_QUEUE_COPY.en.questions.queueRecoveryStatusLabels.pending_refetch).toBe("Refresh pending");
     expect(DECISION_QUEUE_COPY.ja.questions.queueRecoveryStatusLabels.pending_refetch).toBe("更新待ち");
     expect(DECISION_QUEUE_COPY.ko.questions.queueRecoveryStatusLabels.pending_refetch).toBe("새로고침 대기");

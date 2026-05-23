@@ -138,6 +138,14 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
               <dd>{questionProgress.visibleQuestionDebtCount}</dd>
             </div>
             <div>
+              <dt>{copy.questions.questionProgressActive}</dt>
+              <dd>{questionProgress.activeQuestionCount}</dd>
+            </div>
+            <div>
+              <dt>{copy.questions.questionProgressUpcoming}</dt>
+              <dd>{questionProgress.upcomingQuestionCount}</dd>
+            </div>
+            <div>
               <dt>{copy.questions.questionProgressAnswered}</dt>
               <dd>{questionProgress.answeredQuestionCount}</dd>
             </div>
