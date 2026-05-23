@@ -142,6 +142,13 @@ function renderResearchView(controllerOverrides: Partial<DecisionQueueShellContr
       "research_task_ready_batch_1" as ResearchTaskId,
       "research_task_ready_batch_2" as ResearchTaskId
     ],
+    readyReadOnlyResearchStartPlan: {
+      status: "start" as const,
+      taskIds: [
+        "research_task_ready_batch_1" as ResearchTaskId,
+        "research_task_ready_batch_2" as ResearchTaskId
+      ]
+    },
     refreshResearchOperations: vi.fn(),
     refreshResearchRunStatus: vi.fn(),
     researchDrafts: {},
@@ -163,12 +170,49 @@ describe("ResearchView", () => {
     const markup = renderResearchView();
 
     expect(markup).toContain("Start 2 ready public web runs");
+    expect(markup).toContain("Ready public web batch plan");
+    expect(markup).toContain("2 planned read-only research tasks will start within the active allowlist budget.");
+    expect(markup).toContain("Task IDs queued for this batch");
+    expect(markup).toContain("research_task_ready_batch_1");
+    expect(markup).toContain("research_task_ready_batch_2");
     expect(markup).not.toContain("Start 3 ready public web runs");
     expect(markup).not.toContain("Source trace");
     expect(markup).not.toContain("Evidence matrix");
     expect(markup).toContain("Validate public evidence path 1.");
     expect(markup).toContain("Validate public evidence path 2.");
     expect(markup).toContain("Review already returned evidence.");
+  });
+
+  it("renders the blocked ready-batch reason when the active allowlist is missing", () => {
+    const markup = renderResearchView({
+      hasActiveResearchAllowlist: false,
+      readyReadOnlyResearchTaskIds: [],
+      readyReadOnlyResearchStartPlan: {
+        status: "blocked",
+        reason: "missing_allowlist",
+        message: "Create or reactivate an active public web allowlist before starting research runs."
+      }
+    });
+
+    expect(markup).toContain("No ready public web runs");
+    expect(markup).toContain("Ready public web batch plan");
+    expect(markup).toContain("Create or reactivate an active public web allowlist before starting the ready batch.");
+    expect(markup).not.toContain("Task IDs queued for this batch");
+  });
+
+  it("renders the blocked ready-batch reason when no task fits the current budget", () => {
+    const markup = renderResearchView({
+      readyReadOnlyResearchTaskIds: [],
+      readyReadOnlyResearchStartPlan: {
+        status: "blocked",
+        reason: "no_ready_tasks",
+        message: "No planned public web research tasks are ready within the active allowlist concurrency budget."
+      }
+    });
+
+    expect(markup).toContain("No ready public web runs");
+    expect(markup).toContain("No planned public web tasks are ready within the active allowlist concurrency budget.");
+    expect(markup).not.toContain("Task IDs queued for this batch");
   });
 
   it("renders deduped retained source traces with research-generated follow-up questions", () => {

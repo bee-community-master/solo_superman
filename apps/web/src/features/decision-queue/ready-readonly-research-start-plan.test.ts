@@ -195,6 +195,7 @@ describe("readyReadOnlyResearchRunStartPlan", () => {
       })
     ).toEqual({
       status: "blocked",
+      reason: "missing_allowlist",
       message: blockerMessages.missingAllowlistMessage
     });
 
@@ -208,6 +209,7 @@ describe("readyReadOnlyResearchRunStartPlan", () => {
       })
     ).toEqual({
       status: "blocked",
+      reason: "no_ready_tasks",
       message: blockerMessages.noReadyTasksMessage
     });
   });
@@ -269,6 +271,7 @@ describe("readyReadOnlyResearchRunStartPlan", () => {
       })
     ).toEqual({
       status: "blocked",
+      reason: "no_ready_tasks",
       message: blockerMessages.noReadyTasksMessage
     });
   });

@@ -43,9 +43,9 @@ interface DecisionQueueResearchActionsProps {
 type ResearchAllowlistProjection = ResearchAllowlistGovernanceProjection["allowlists"][number];
 type ResearchTaskProjection = ResearchEvidenceProjection["tasks"][number];
 
-const MISSING_READY_RESEARCH_ALLOWLIST_MESSAGE =
+export const MISSING_READY_RESEARCH_ALLOWLIST_MESSAGE =
   "Create or reactivate an active public web allowlist before starting research runs.";
-const NO_READY_RESEARCH_TASKS_MESSAGE =
+export const NO_READY_RESEARCH_TASKS_MESSAGE =
   "No planned public web research tasks are ready within the active allowlist concurrency budget.";
 
 export function useDecisionQueueResearchActions({

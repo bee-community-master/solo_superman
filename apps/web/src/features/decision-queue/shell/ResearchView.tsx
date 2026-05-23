@@ -5,6 +5,7 @@ import type {
   ResearchReviewCardProjection
 } from "@solo-superman/contracts";
 import { Phase15aOperationsPanel } from "../Phase15aOperationsPanel";
+import type { ReadyReadOnlyResearchRunStartPlan } from "../ready-readonly-research-start-plan";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
@@ -40,6 +41,37 @@ function TextList({ items }: { readonly items: readonly string[] }) {
         <li key={`${index}:${item}`}>{item}</li>
       ))}
     </ul>
+  );
+}
+
+function ReadyReadOnlyResearchStartPlan({
+  copy,
+  plan
+}: {
+  readonly copy: DecisionQueueCopy;
+  readonly plan: ReadyReadOnlyResearchRunStartPlan;
+}) {
+  const isReady = plan.status === "start";
+  const summary = isReady
+    ? copy.research.readyReadOnlyRunsPlanReady(plan.taskIds.length)
+    : copy.research.readyReadOnlyRunsPlanBlocked[plan.reason];
+  const toneClassName = isReady ? "research-batch-plan-start" : "research-batch-plan-blocked";
+
+  return (
+    <aside className={`research-batch-plan ${toneClassName}`} aria-live="polite">
+      <p className="research-batch-plan-title">{copy.research.readyReadOnlyRunsPlanTitle}</p>
+      <p>{summary}</p>
+      {isReady ? (
+        <div>
+          <p>{copy.research.readyReadOnlyRunsPlanTaskIds}</p>
+          <ul>
+            {plan.taskIds.map((taskId) => (
+              <li key={taskId}>{taskId}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </aside>
   );
 }
 
@@ -301,6 +333,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
     revokeAllowlist,
     setResearchDrafts,
     startReadOnlyResearchRun,
+    readyReadOnlyResearchStartPlan,
     startReadyReadOnlyResearchRuns
   } = controller;
   const research = projections.research;
@@ -328,6 +361,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
             {copy.research.startReadyReadOnlyRuns(readyReadOnlyResearchTaskIds.length)}
           </button>
         </div>
+        <ReadyReadOnlyResearchStartPlan copy={copy} plan={readyReadOnlyResearchStartPlan} />
         {research?.tasks.length ? (
           <div className="research-list">
             {research.tasks.map((task) => {

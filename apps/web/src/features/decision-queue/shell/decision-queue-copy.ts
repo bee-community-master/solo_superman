@@ -351,6 +351,16 @@ const EN_COPY = {
         : count === 1
           ? "Start 1 ready public web run"
           : `Start ${count} ready public web runs`,
+    readyReadOnlyRunsPlanTitle: "Ready public web batch plan",
+    readyReadOnlyRunsPlanReady: (count: number) =>
+      count === 1
+        ? "1 planned read-only research task will start within the active allowlist budget."
+        : `${count} planned read-only research tasks will start within the active allowlist budget.`,
+    readyReadOnlyRunsPlanBlocked: {
+      missing_allowlist: "Create or reactivate an active public web allowlist before starting the ready batch.",
+      no_ready_tasks: "No planned public web tasks are ready within the active allowlist concurrency budget."
+    },
+    readyReadOnlyRunsPlanTaskIds: "Task IDs queued for this batch",
     validationSummary: "Validation summary",
     knownRisks: "Known risks",
     nextValidationAction: "Next validation action",
@@ -1005,6 +1015,16 @@ const JA_COPY: typeof EN_COPY = {
     startReadOnlyRun: "公開Webリサーチを開始",
     startReadyReadOnlyRuns: (count: number) =>
       count === 0 ? "開始できる公開Webリサーチはありません" : `準備済み公開Webリサーチを${count}件開始`,
+    readyReadOnlyRunsPlanTitle: "準備済み公開Webバッチ計画",
+    readyReadOnlyRunsPlanReady: (count: number) =>
+      count === 1
+        ? "読み取り専用リサーチタスク1件を active allowlist の予算内で開始します。"
+        : `読み取り専用リサーチタスク${count}件を active allowlist の予算内で開始します。`,
+    readyReadOnlyRunsPlanBlocked: {
+      missing_allowlist: "準備済みバッチを開始する前に active public web allowlist を作成または再有効化してください。",
+      no_ready_tasks: "active allowlist の concurrency budget 内で開始できる planned public-web task はありません。"
+    },
+    readyReadOnlyRunsPlanTaskIds: "このバッチで開始する task ID",
     validationSummary: "検証サマリー",
     knownRisks: "既知のリスク",
     nextValidationAction: "次の検証アクション",
@@ -1659,6 +1679,14 @@ const KO_COPY: typeof EN_COPY = {
     startReadOnlyRun: "공개 웹 리서치 실행 시작",
     startReadyReadOnlyRuns: (count: number) =>
       count === 0 ? "시작할 준비가 된 공개 웹 리서치 없음" : `준비된 공개 웹 리서치 ${count}개 시작`,
+    readyReadOnlyRunsPlanTitle: "준비된 공개 웹 배치 계획",
+    readyReadOnlyRunsPlanReady: (count: number) =>
+      `읽기 전용 리서치 작업 ${count}개가 active allowlist 예산 안에서 시작됩니다.`,
+    readyReadOnlyRunsPlanBlocked: {
+      missing_allowlist: "준비된 배치를 시작하기 전에 active public web allowlist를 만들거나 다시 활성화하세요.",
+      no_ready_tasks: "active allowlist concurrency budget 안에서 시작할 수 있는 planned public-web task가 없습니다."
+    },
+    readyReadOnlyRunsPlanTaskIds: "이번 배치에서 시작할 작업 ID",
     validationSummary: "검증 요약",
     knownRisks: "알려진 리스크",
     nextValidationAction: "다음 검증 액션",
