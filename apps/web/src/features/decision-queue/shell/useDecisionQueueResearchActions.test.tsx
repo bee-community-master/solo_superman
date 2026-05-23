@@ -8,6 +8,7 @@ import type {
   SessionId
 } from "@solo-superman/contracts";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
+import { DECISION_QUEUE_COPY } from "./decision-queue-copy";
 import { emptyProjectionState, emptyResearchOperationsState } from "./decision-queue-shell-model";
 import { useDecisionQueueResearchActions } from "./useDecisionQueueResearchActions";
 
@@ -53,6 +54,7 @@ function captureResearchActions(overrides: Partial<Parameters<typeof useDecision
     client: {
       getResearchRunStatus: vi.fn(async () => researchRunProjection())
     } as unknown as SidecarClient,
+    copy: DECISION_QUEUE_COPY.en,
     projections: {
       ...emptyProjectionState(),
       session: {

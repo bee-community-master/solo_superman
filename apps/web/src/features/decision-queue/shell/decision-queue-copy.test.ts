@@ -64,6 +64,17 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.questions.intakeAnswer).toBe("목표에 대한 서술");
     expect(DECISION_QUEUE_COPY.en.questions.initialResearchPermission).toBe("Research permission");
     expect(DECISION_QUEUE_COPY.ko.questions.initialResearchPermission).toBe("리서치 권한");
+    expect(DECISION_QUEUE_COPY.en.research.researchActionErrors.readyRunsMissingAllowlist).toContain("allowlist");
+    expect(DECISION_QUEUE_COPY.en.research.researchActionErrors.activeProjectRequiredStartRun).not.toMatch(
+      /[가-힣]/u
+    );
+    expect(DECISION_QUEUE_COPY.ja.research.researchActionErrors.plannedTaskRequiredStartRun).toContain(
+      "リサーチ"
+    );
+    expect(DECISION_QUEUE_COPY.ko.research.researchActionErrors.backgroundStartAfterAnswerFailed("boom")).toContain(
+      "자동 공개 웹 리서치"
+    );
+    expect(DECISION_QUEUE_COPY.ko.research.researchActionReasons.cancelRun).toContain("취소");
     expect(DECISION_QUEUE_COPY.ko.questions.refreshQuestionList).toBe("질문 목록 새로고침");
     expect(DECISION_QUEUE_COPY.ko.questions.loadNextQuestions).toBe("다음 질문 불러오기");
     expect(DECISION_QUEUE_COPY.en.questions.questionProgressActive).toBe("Active now");
