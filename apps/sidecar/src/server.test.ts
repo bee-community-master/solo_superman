@@ -10500,6 +10500,13 @@ describe("PR-02 sidecar health shell", () => {
           pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/124"
         });
         expect(input.bodyMarkdown).toContain("### Code review streak evidence");
+        expect(input.bodyMarkdown).toContain("### Issue traceability");
+        expect(input.bodyMarkdown).toContain(
+          "- local-001: Workspace repo bootstrap and initial implementation PR (implementation-issues/001-initial_pr.md; stage: initial_pr; GitHub issue: none)"
+        );
+        expect(input.bodyMarkdown).toContain(
+          "- local-007: Merge verified PR to main (implementation-issues/007-merge_main.md; stage: merge_main; GitHub issue: none)"
+        );
         expect(input.bodyMarkdown).toContain("#### feature");
         expect(input.bodyMarkdown).toContain("- code-review:feature:clean-1");
         expect(input.bodyMarkdown).toContain("#### repository");
@@ -10585,6 +10592,19 @@ describe("PR-02 sidecar health shell", () => {
 
   it("applies approved GitHub PR creation through the injected adapter", async () => {
     const workspaceRoot = await makeTempAppDataDir();
+    const issueAdapter: AutoImplementationGitHubIssueMutationAdapter = {
+      async createIssues(input) {
+        expect(input.projectDir).toBe(join(workspaceRoot, "approved-pr-open"));
+        expect(input.plans).toHaveLength(7);
+
+        return {
+          createdIssueUrls: input.plans.map((_, index) =>
+            `https://github.com/bee-community-master/generated-demo/issues/${index + 201}`
+          ),
+          auditEvidenceRefs: ["github-issue-mutation:mock-adapter:created-for-pr-body"]
+        };
+      }
+    };
     const mutationInputs: unknown[] = [];
     const adapter: AutoImplementationPullRequestMutationAdapter = {
       async mutate(input) {
@@ -10596,6 +10616,13 @@ describe("PR-02 sidecar health shell", () => {
           pullRequestUrl: null
         });
         expect(input.bodyMarkdown).toContain("### Issue links");
+        expect(input.bodyMarkdown).toContain("### Issue traceability");
+        expect(input.bodyMarkdown).toContain(
+          "- local-001: Workspace repo bootstrap and initial implementation PR (implementation-issues/001-initial_pr.md; stage: initial_pr; GitHub issue: https://github.com/bee-community-master/generated-demo/issues/201)"
+        );
+        expect(input.bodyMarkdown).toContain(
+          "- local-007: Merge verified PR to main (implementation-issues/007-merge_main.md; stage: merge_main; GitHub issue: https://github.com/bee-community-master/generated-demo/issues/207)"
+        );
         expect(input.bodyMarkdown).toContain("### Code review streak evidence");
         expect(input.bodyMarkdown).toContain("- code-review:feature:review_code_feature_demo_2");
         expect(input.bodyMarkdown).toContain("- code-review:repository:review_code_repository_demo_2");
@@ -10619,6 +10646,7 @@ describe("PR-02 sidecar health shell", () => {
     const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
       autoImplementationWorkspaceRoot: workspaceRoot,
       autoImplementationRemoteStatusProvider: async () => "connected",
+      autoImplementationGitHubIssueMutationAdapter: issueAdapter,
       autoImplementationPullRequestMutationAdapter: adapter
     });
 
@@ -10626,7 +10654,21 @@ describe("PR-02 sidecar health shell", () => {
       const { projectId, sessionId } = await createProjectForTest(storageApp, "An approved GitHub PR open test");
       const created = await postAutoImplementationRunForTest(storageApp, sessionId, {
         idempotencyKey: "auto-implementation-route:pr-open-approved",
-        projectName: "Approved PR Open"
+        projectName: "Approved PR Open",
+        githubIssueCreation: {
+          mode: "approved",
+          approval: {
+            approvalId: "approval_github_issue_create_for_pr_body",
+            approvedBy: "local_operator",
+            approvedAt: "2026-05-05T00:00:00.000Z",
+            actionClass: "github_issue_create",
+            approvalGranularity: "per_action",
+            remoteStatusAtApproval: "connected",
+            rollbackPlan: "Close any generated GitHub issues if the run is cancelled.",
+            evidenceRefs: ["approval:github-issue-create:pr-body"]
+          },
+          verifierEvidenceRefs: ["verifier:github-issue-create-pr-body-ready"]
+        }
       });
       const runId = String(latestAutoImplementationRunFromBody(await jsonBody(created)).runId);
       const blockedBeforeInitialStage = await postAutoImplementationPullRequestMutationForTest(
