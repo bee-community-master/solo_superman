@@ -546,6 +546,52 @@ export function canPlanCurrentStageAutoImplementationWorkerJob(run: AutoImplemen
     );
 }
 
+export function latestAutoImplementationWorkerJobForIssue(
+  run: AutoImplementationRun,
+  issue: AutoImplementationIssueDocument
+): AutoImplementationWorkerJob | null {
+  return [...autoImplementationWorkerJobs(run)]
+    .reverse()
+    .find((job) => job.stage === issue.stage && job.issueId === issue.issueId) ?? null;
+}
+
+export function autoImplementationIssueDocumentStatus(
+  run: AutoImplementationRun,
+  issue: AutoImplementationIssueDocument
+): AutoImplementationIssueDocument["status"] {
+  const stage = run.stagePlan.find((candidate) => candidate.stage === issue.stage) ?? null;
+  const latestWorkerJob = latestAutoImplementationWorkerJobForIssue(run, issue);
+
+  if (stage?.status === "completed") {
+    return "completed";
+  }
+
+  if (stage?.status === "blocked" || stage?.status === "failed" || latestWorkerJob?.status === "blocked") {
+    return "blocked";
+  }
+
+  return "open";
+}
+
+export function autoImplementationRunWithSynchronizedIssueDocs(run: AutoImplementationRun): AutoImplementationRun {
+  const issueDocs = run.issueManagement.issueDocs.map((issue) => ({
+    ...issue,
+    status: autoImplementationIssueDocumentStatus(run, issue)
+  }));
+
+  if (issueDocs.every((issue, index) => issue.status === run.issueManagement.issueDocs[index]?.status)) {
+    return run;
+  }
+
+  return {
+    ...run,
+    issueManagement: {
+      ...run.issueManagement,
+      issueDocs
+    }
+  };
+}
+
 export interface CreateAutoImplementationRunRequest {
   readonly sessionId: SessionId;
   readonly idempotencyKey: string;
