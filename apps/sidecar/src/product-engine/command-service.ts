@@ -1160,6 +1160,43 @@ function pullRequestEvidenceGateSummaryLines(input: {
   ];
 }
 
+function pullRequestMissingTestAuditSummaryLines(run: AutoImplementationRun) {
+  const completedStages = run.stagePlan.filter((stage) => stage.status === "completed");
+  const zeroGapCompletedAudits = completedStages.filter((stage) =>
+    (stage.ledgerEvidence?.missingTestAuditRefs.length ?? 0) > 0
+  );
+  const blockedStages = run.stagePlan.filter((stage) => stage.status === "blocked");
+  const pendingStages = run.stagePlan.filter((stage) => stage.status !== "completed" && stage.status !== "blocked");
+
+  return [
+    `- Completed stage audits: ${zeroGapCompletedAudits.length}/${run.stagePlan.length}`,
+    `- Zero-gap completed audits: ${zeroGapCompletedAudits.length}/${completedStages.length}`,
+    `- Blocked stage audits: ${blockedStages.length}`,
+    `- Pending stage audits: ${pendingStages.length}`,
+    "",
+    ...run.stagePlan.map((stage) => {
+      const ledgerEvidenceLabel = stage.ledgerEvidence
+        ? `ledger evidence: ${stage.ledgerEvidence.implementationStepId}`
+        : "ledger evidence: none";
+      const missingTestAuditRefCount = stage.ledgerEvidence?.missingTestAuditRefs.length ?? 0;
+
+      if (stage.status === "completed") {
+        const auditStatusLabel = missingTestAuditRefCount > 0
+          ? "passed (0 missing targeted-test gaps)"
+          : "missing audit refs";
+
+        return `- ${stage.stage}: ${auditStatusLabel}; refs: ${missingTestAuditRefCount}; ${ledgerEvidenceLabel}`;
+      }
+
+      if (stage.status === "blocked") {
+        return `- ${stage.stage}: blocked; refs: ${missingTestAuditRefCount}; ${ledgerEvidenceLabel}`;
+      }
+
+      return `- ${stage.stage}: pending; refs: ${missingTestAuditRefCount}; ${ledgerEvidenceLabel}`;
+    })
+  ];
+}
+
 function pullRequestBodyMarkdown(input: {
   readonly request: RecordAutoImplementationPullRequestMutationRequest;
   readonly run: AutoImplementationRun;
@@ -1214,6 +1251,9 @@ function pullRequestBodyMarkdown(input: {
       bodyEvidenceRefs: input.request.bodyEvidenceRefs ?? [],
       mergeEvidenceRefs: input.request.mergeEvidenceRefs ?? []
     }),
+    "",
+    "### Missing-test audit summary",
+    ...pullRequestMissingTestAuditSummaryLines(input.run),
     "",
     "### Code review streak evidence",
     ...scopedReviewEvidenceLines({
