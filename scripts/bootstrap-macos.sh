@@ -152,6 +152,61 @@ sync_origin_remote() {
   fi
 }
 
+safe_update_existing_checkout() {
+  local dir="$1"
+  local status
+  local current_branch
+  local default_branch
+  local remote_ref
+  local head_sha
+  local remote_sha
+
+  status="$(git -C "$dir" status --porcelain 2>/dev/null || true)"
+  if [ -n "$status" ]; then
+    warn "기존 checkout에 local 변경/untracked 파일이 있어 자동 업데이트를 건너뜁니다. 사용자 파일을 덮어쓰지 않고 계속 진행합니다."
+    return 0
+  fi
+
+  current_branch="$(git -C "$dir" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  if [ -z "$current_branch" ]; then
+    warn "기존 checkout이 detached HEAD 상태라 자동 업데이트를 건너뜁니다."
+    return 0
+  fi
+
+  default_branch="$(git -C "$dir" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##' || true)"
+  if [ -z "$default_branch" ]; then
+    default_branch="main"
+  fi
+  remote_ref="origin/$default_branch"
+
+  if [ "$current_branch" != "$default_branch" ]; then
+    warn "현재 branch가 $current_branch 이라 자동 업데이트를 건너뜁니다. 기본 branch($default_branch)는 원격에서만 확인했습니다."
+    return 0
+  fi
+
+  if ! git -C "$dir" rev-parse --verify --quiet "$remote_ref" >/dev/null; then
+    warn "$remote_ref ref를 확인하지 못해 자동 업데이트를 건너뜁니다."
+    return 0
+  fi
+
+  if ! git -C "$dir" merge-base --is-ancestor HEAD "$remote_ref"; then
+    warn "기존 checkout이 $remote_ref 와 diverged 상태라 자동 업데이트를 건너뜁니다. 사용자 변경을 덮어쓰지 않습니다."
+    return 0
+  fi
+
+  head_sha="$(git -C "$dir" rev-parse --short HEAD)"
+  remote_sha="$(git -C "$dir" rev-parse --short "$remote_ref")"
+  if [ "$head_sha" = "$remote_sha" ]; then
+    info "checkout already up to date: $remote_ref@$remote_sha"
+    return 0
+  fi
+
+  info "safe fast-forward update: $head_sha -> $remote_sha"
+  if ! git -C "$dir" merge --ff-only "$remote_ref"; then
+    warn "safe fast-forward update가 실패해 기존 checkout으로 계속 진행합니다."
+  fi
+}
+
 choose_target_dir() {
   local base="$DEFAULT_TARGET_DIR"
   local candidate
@@ -250,7 +305,11 @@ TARGET_PATH="$(absolute_target_path "$TARGET_DIR")"
 if is_expected_repo "$TARGET_PATH"; then
   info "기존 checkout 사용: $TARGET_PATH"
   sync_origin_remote "$TARGET_PATH"
-  git -C "$TARGET_PATH" fetch origin || warn "원격 업데이트 확인에 실패했지만 기존 checkout으로 계속 진행합니다."
+  if git -C "$TARGET_PATH" fetch --prune origin; then
+    safe_update_existing_checkout "$TARGET_PATH"
+  else
+    warn "원격 업데이트 확인에 실패했지만 기존 checkout으로 계속 진행합니다."
+  fi
 else
   info "repo clone: $REPO_URL -> $TARGET_PATH"
   git clone "$REPO_URL" "$TARGET_PATH"
