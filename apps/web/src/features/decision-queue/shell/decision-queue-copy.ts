@@ -2,7 +2,8 @@ import type {
   BusinessCriticalQuestionCategory,
   BusinessCriticIntensity,
   BusinessCriticPressureKind,
-  ProjectPurposeMode
+  ProjectPurposeMode,
+  ResearchQueueTerminalOutcome
 } from "@solo-superman/contracts";
 import { useAppLanguage } from "../../../shared/i18n/app-language";
 import type { ChatGptDelegationViewModelCopy } from "../ChatGptDelegationPanel";
@@ -132,6 +133,48 @@ const EN_COPY = {
       idea: "Enter an idea summary before starting.",
       intake: "Enter the goal description before starting."
     } satisfies Record<InitialQueueStartBlocker, string>,
+    sessionActionErrors: {
+      activeSessionRequiredProjectPurpose: "An active session is required before changing the project purpose mode.",
+      projectPurposeAlreadySelected: "Project purpose mode is already set to the selected value.",
+      activeSessionRequiredBusinessCriticIntensity:
+        "An active session is required before changing the business critic intensity.",
+      businessCriticIntensityBusinessOnly:
+        "Business review intensity can only be changed for business-validation projects.",
+      activeSessionRequiredSubmitAnswer: "An active session is required before submitting an answer.",
+      answerTextRequired: "Answer text is required.",
+      activeSessionRequiredDraftedAnswers: "An active session is required before submitting drafted answers.",
+      draftedAnswersRequired: "Write at least one active question answer before submitting drafted answers.",
+      draftedAnswersPartialFailureRefreshed:
+        " Some drafted answers were submitted before the failure; the queue was refreshed.",
+      draftedAnswersPartialFailureRefreshRequired:
+        " Some drafted answers were submitted before the failure; refresh the queue before continuing.",
+      activeSessionRequiredRefreshQuestions: "An active session is required before refreshing questions.",
+      activeSessionRequiredLoadNextQuestions:
+        "An active session is required before loading the next question list.",
+      answerCurrentBeforeLoadNextQuestions:
+        "Answer or save the current questions before loading the next question list.",
+      activeSessionRequiredKnownRisk: "An active session is required before carrying a queue item as a Known Risk.",
+      knownRiskNextValidationActionRequired:
+        "Next Validation Action is required to carry a business critic item as a Known Risk.",
+      activeSessionRequiredImportResearch: "An active session is required before importing research.",
+      researchResultTextRequired: "Research result text is required.",
+      activeSessionRequiredResolveResearchCard: "An active session is required before resolving a research card."
+    },
+    sessionActionReasons: {
+      projectPurposeConfirmed: (label: string) => `${label} was confirmed by the user before starting.`,
+      businessCriticIntensityConfirmed: (label: string) =>
+        `${label} was confirmed by the user before starting.`,
+      projectPurposeChanged: (label: string) => `User changed the project purpose to ${label}.`,
+      businessCriticIntensityChanged: (label: string) =>
+        `User changed the business review intensity to ${label}.`,
+      businessCriticKnownRiskDeferred: "User carried the business critic item as a Known Risk.",
+      manualResearchSourceTitle: "Manual desk research",
+      manualResearchLimitationNotes: "Manual import from founder-provided source.",
+      researchCardOutcomeRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
+        `${outcome} from Research card: ${title}`,
+      researchCardResolvedRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
+        `Resolved as ${outcome}: ${title}`
+    },
     chatGptLoginAria: "ChatGPT direct login gate",
     chatGptLoginTitle: "Sign in to ChatGPT in your browser first",
     chatGptLoginDescription: "Open ChatGPT in this browser profile and sign in yourself before creating the first question batch.",
@@ -897,6 +940,45 @@ const JA_COPY: typeof EN_COPY = {
       idea: "開始前にアイデア概要を入力してください。",
       intake: "開始前に目標の説明を入力してください。"
     },
+    sessionActionErrors: {
+      activeSessionRequiredProjectPurpose: "プロジェクト目的を変更するにはアクティブなセッションが必要です。",
+      projectPurposeAlreadySelected: "プロジェクト目的はすでに選択した値に設定されています。",
+      activeSessionRequiredBusinessCriticIntensity:
+        "事業レビュー強度を変更するにはアクティブなセッションが必要です。",
+      businessCriticIntensityBusinessOnly: "事業レビュー強度は、事業検証プロジェクトでのみ変更できます。",
+      activeSessionRequiredSubmitAnswer: "回答を送信するにはアクティブなセッションが必要です。",
+      answerTextRequired: "回答テキストが必要です。",
+      activeSessionRequiredDraftedAnswers: "下書き回答を送信するにはアクティブなセッションが必要です。",
+      draftedAnswersRequired: "下書き回答を送信する前に、少なくとも1つのアクティブな質問に回答してください。",
+      draftedAnswersPartialFailureRefreshed:
+        " 失敗前に一部の下書き回答が送信され、キューは更新されました。",
+      draftedAnswersPartialFailureRefreshRequired:
+        " 失敗前に一部の下書き回答が送信されました。続行する前にキューを更新してください。",
+      activeSessionRequiredRefreshQuestions: "質問を更新するにはアクティブなセッションが必要です。",
+      activeSessionRequiredLoadNextQuestions: "次の質問リストを読み込むにはアクティブなセッションが必要です。",
+      answerCurrentBeforeLoadNextQuestions:
+        "次の質問リストを読み込む前に、現在の質問に回答するか保存してください。",
+      activeSessionRequiredKnownRisk: "キュー項目をKnown Riskに移すにはアクティブなセッションが必要です。",
+      knownRiskNextValidationActionRequired:
+        "business critic項目をKnown Riskに移すには、次の検証アクションが必要です。",
+      activeSessionRequiredImportResearch: "リサーチを取り込むにはアクティブなセッションが必要です。",
+      researchResultTextRequired: "リサーチ結果テキストが必要です。",
+      activeSessionRequiredResolveResearchCard: "リサーチカードを解決するにはアクティブなセッションが必要です。"
+    },
+    sessionActionReasons: {
+      projectPurposeConfirmed: (label: string) => `${label}を開始前にユーザーが確認しました。`,
+      businessCriticIntensityConfirmed: (label: string) => `${label}を開始前にユーザーが確認しました。`,
+      projectPurposeChanged: (label: string) => `ユーザーがプロジェクト目的を${label}に変更しました。`,
+      businessCriticIntensityChanged: (label: string) =>
+        `ユーザーが事業レビュー強度を${label}に変更しました。`,
+      businessCriticKnownRiskDeferred: "ユーザーがbusiness critic項目をKnown Riskに移しました。",
+      manualResearchSourceTitle: "手動デスクリサーチ",
+      manualResearchLimitationNotes: "創業者が提供した情報源からの手動取り込みです。",
+      researchCardOutcomeRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
+        `リサーチカード「${title}」を${outcome}として処理しました。`,
+      researchCardResolvedRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
+        `リサーチカード「${title}」を${outcome}として解決しました。`
+    },
     chatGptLoginAria: "ChatGPT直接ログイン確認",
     chatGptLoginTitle: "先にブラウザでChatGPTにログイン",
     chatGptLoginDescription: "最初の質問セットを作成する前に、このブラウザプロファイルでChatGPTを開き、自分でログインします。",
@@ -1658,6 +1740,44 @@ const KO_COPY: typeof EN_COPY = {
       business_critic_intensity: "비즈니스 검증 큐를 확정하려면 먼저 사업 리뷰 강도를 선택해야 합니다.",
       idea: "시작 전에 아이디어 요약을 입력해야 합니다.",
       intake: "시작 전에 목표에 대한 서술을 입력해야 합니다."
+    },
+    sessionActionErrors: {
+      activeSessionRequiredProjectPurpose: "프로젝트 목적을 변경하려면 활성 세션이 필요합니다.",
+      projectPurposeAlreadySelected: "프로젝트 목적이 이미 선택한 값으로 설정되어 있습니다.",
+      activeSessionRequiredBusinessCriticIntensity: "사업 리뷰 강도를 변경하려면 활성 세션이 필요합니다.",
+      businessCriticIntensityBusinessOnly: "사업 리뷰 강도는 비즈니스 검증 프로젝트에서만 변경할 수 있습니다.",
+      activeSessionRequiredSubmitAnswer: "답변을 제출하려면 활성 세션이 필요합니다.",
+      answerTextRequired: "답변 내용을 입력해야 합니다.",
+      activeSessionRequiredDraftedAnswers: "작성한 답변을 제출하려면 활성 세션이 필요합니다.",
+      draftedAnswersRequired: "작성한 답변을 제출하기 전에 현재 질문 답변을 하나 이상 입력해야 합니다.",
+      draftedAnswersPartialFailureRefreshed: " 실패 전에 일부 작성 답변이 제출되었고 큐를 새로고침했습니다.",
+      draftedAnswersPartialFailureRefreshRequired:
+        " 실패 전에 일부 작성 답변이 제출되었습니다. 계속하기 전에 큐를 새로고침하세요.",
+      activeSessionRequiredRefreshQuestions: "질문을 새로고침하려면 활성 세션이 필요합니다.",
+      activeSessionRequiredLoadNextQuestions: "다음 질문 목록을 불러오려면 활성 세션이 필요합니다.",
+      answerCurrentBeforeLoadNextQuestions:
+        "다음 질문 목록을 불러오기 전에 현재 질문에 답하거나 저장해야 합니다.",
+      activeSessionRequiredKnownRisk: "큐 항목을 Known Risk로 이관하려면 활성 세션이 필요합니다.",
+      knownRiskNextValidationActionRequired:
+        "business critic 항목을 Known Risk로 이관하려면 다음 검증 액션이 필요합니다.",
+      activeSessionRequiredImportResearch: "리서치를 가져오려면 활성 세션이 필요합니다.",
+      researchResultTextRequired: "리서치 결과 내용을 입력해야 합니다.",
+      activeSessionRequiredResolveResearchCard: "리서치 카드를 해결하려면 활성 세션이 필요합니다."
+    },
+    sessionActionReasons: {
+      projectPurposeConfirmed: (label: string) => `${label}을(를) 사용자가 시작 전에 확인했습니다.`,
+      businessCriticIntensityConfirmed: (label: string) =>
+        `${label}을(를) 사용자가 시작 전에 확인했습니다.`,
+      projectPurposeChanged: (label: string) => `사용자가 프로젝트 목적을 ${label}으로 변경했습니다.`,
+      businessCriticIntensityChanged: (label: string) =>
+        `사용자가 사업 리뷰 강도를 ${label}으로 변경했습니다.`,
+      businessCriticKnownRiskDeferred: "사용자가 business critic 항목을 Known Risk로 이관했습니다.",
+      manualResearchSourceTitle: "수동 데스크 리서치",
+      manualResearchLimitationNotes: "창업자가 제공한 출처에서 수동으로 가져왔습니다.",
+      researchCardOutcomeRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
+        `리서치 카드 '${title}'을(를) ${outcome} 처리했습니다.`,
+      researchCardResolvedRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
+        `리서치 카드 '${title}'을(를) ${outcome}로 해결했습니다.`
     },
     chatGptLoginAria: "ChatGPT 직접 로그인 확인",
     chatGptLoginTitle: "먼저 브라우저에서 ChatGPT에 로그인",
