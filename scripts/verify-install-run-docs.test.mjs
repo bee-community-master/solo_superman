@@ -177,6 +177,8 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("## 오류 리포트용 support bundle");
     expect(runbook).toContain("pnpm support:bundle -- --output ./solo-superman-support-bundle.json");
     expect(runbook).toContain("pnpm.cmd support:bundle");
+    expect(runbook).toContain("verify:release-readiness`/`verify:release-evidence-template`의 credential-free product/release diagnostics summary");
+    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("`verify:release-readiness`, and `verify:release-evidence-template` only");
     expect(runbook).toContain("Full environment dump, file contents, browser cookies");
     expect(runbook).toContain("OpenAI/GitHub token, ChatGPT web credential은 수집하지 않으며");
   });
