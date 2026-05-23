@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "solo-superman-production-mutation-contract.v1",
+  "appId": "solo-superman",
+  "contractStatus": "defined_final_submit_blocked",
+  "productionMutationPerformed": false,
+  "summary": "Final-submit and external-production mutations remain blocked until explicit evidence proves the confirmation card, ExecutionAuthorityRecord linkage, redaction, approval, rollback, audit, and no-secret boundaries.",
+  "finalSubmitGate": {
+    "id": "service-page-final-submit",
+    "status": "blocked_until_ready_evidence",
+    "allowedActionClass": "final_submit_request",
+    "requiresUserPresentLogin": true,
+    "requiresPerActionApproval": true,
+    "requiresSeparateConfirmation": true,
+    "productionMutationPerformed": false,
+    "blockedActionClasses": [
+      "credential_entry",
+      "secret_storage",
+      "unattended_login",
+      "payment_submit",
+      "legal_submit",
+      "medical_submit",
+      "financial_submit",
+      "privacy_submit",
+      "production_deploy",
+      "dns_cutover",
+      "account_deletion"
+    ]
+  },
+  "requiredEvidence": {
+    "confirmationCard": [
+      "service_origin",
+      "exact_action_summary",
+      "redacted_form_diff",
+      "irreversible_effect_notice",
+      "fresh_user_final_confirmation"
+    ],
+    "executionAuthorityRecord": [
+      "ready_status",
+      "browser_action_scope",
+      "approved_service_origin_only",
+      "rollback_ref",
+      "no_secret_values"
+    ],
+    "redactionAndConsent": [
+      "redaction_preview_ref",
+      "visible_data_categories",
+      "forbidden_credential_session_token_values",
+      "user_present_login_confirmation"
+    ],
+    "auditAndRollback": [
+      "idempotency_key",
+      "pre_mutation_snapshot_ref",
+      "rollback_plan_ref",
+      "activity_feed_ref",
+      "audit_ref"
+    ]
+  },
+  "requiredVerificationCommands": {
+    "credentialFree": [
+      "pnpm verify:production-mutation-contract",
+      "pnpm verify:service-page-pipeline"
+    ],
+    "ready": [
+      "pnpm verify:production-mutation-contract -- --require-ready",
+      "pnpm verify:service-page-pipeline"
+    ]
+  },
+  "checkedBehaviors": [
+    "Final submit stays blocked by default even when confirmation and authority refs are present.",
+    "The contract defines exactly which evidence can eventually unlock a service-page final-submit readiness gate.",
+    "No credential, session, token, payment, legal, medical, financial, privacy, DNS, or account-deletion action can be bundled into final-submit readiness.",
+    "Production mutation performed remains false in credential-free verification."
+  ]
+}

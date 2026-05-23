@@ -44,6 +44,7 @@ function codeBackedContract(overrides = {}) {
         "pnpm verify:research-pipeline",
         "pnpm verify:browser-delegation-pipeline",
         "pnpm verify:service-page-pipeline",
+        "pnpm verify:production-mutation-contract",
         "pnpm verify:auto-implementation-pipeline",
         "pnpm verify:product-capability-readiness",
         "pnpm verify"
@@ -67,8 +68,16 @@ function codeBackedContract(overrides = {}) {
       ]),
       codeBackedCapability("browser-service-boundary", [
         "pnpm verify:browser-delegation-pipeline",
-        "pnpm verify:service-page-pipeline"
-      ]),
+        "pnpm verify:service-page-pipeline",
+        "pnpm verify:production-mutation-contract"
+      ], {
+        checkedBehaviors: [
+          "ChatGPT/browser delegation keeps disclosure preview, approval, evidence refs, and revoke controls visible.",
+          "Service-page permissions require user-present login, action echo, artifact cleanup, and revoke checks.",
+          "Final submit remains blocked until production-mutation contract evidence passes.",
+          "The production-mutation contract keeps final submit separate from fill-draft and preview actions."
+        ]
+      }),
       codeBackedCapability("auto-implementation-review-loop", [
         "pnpm verify:runtime-preview-turn",
         "pnpm verify:worker-job",
@@ -106,7 +115,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including generated PR body summary coverage"
+      "required capability behavior snippets, including final-submit production-mutation contract coverage and generated PR body summary coverage"
     );
   });
 
@@ -136,6 +145,28 @@ describe("product capability readiness verification", () => {
       "$.capabilities[4].verificationCommands: must include pnpm verify:worker-job",
       "$.capabilities[4].verificationCommands: must include pnpm verify:pr-mutation",
       "$.capabilities[4].verificationCommands: must include pnpm verify:auto-implementation-review-loop"
+    ]));
+  });
+
+  it("requires browser/service readiness to name final-submit production-mutation coverage", () => {
+    const contract = codeBackedContract({
+      capabilities: codeBackedContract().capabilities.map((capability) =>
+        capability.id === "browser-service-boundary"
+          ? {
+              ...capability,
+              checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
+                !behavior.includes("production-mutation contract")
+              )
+            }
+          : capability
+      )
+    });
+    const result = validateProductCapabilityReadinessContract(contract);
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual(expect.arrayContaining([
+      "$.capabilities[3].checkedBehaviors: must mention production-mutation contract",
+      "$.capabilities[3].checkedBehaviors: must mention final submit"
     ]));
   });
 
@@ -213,6 +244,7 @@ describe("product capability readiness verification", () => {
       "$.requiredVerificationCommands.defaultSuite: must include pnpm verify:prod-bundle",
       "$.requiredVerificationCommands.defaultSuite: must include pnpm verify:research-pipeline",
       "$.requiredVerificationCommands.defaultSuite: must include pnpm verify:auto-implementation-pipeline",
+      "$.requiredVerificationCommands.defaultSuite: must include pnpm verify:production-mutation-contract",
       "$.requiredVerificationCommands.defaultSuite: must include pnpm verify:product-capability-readiness"
     ]));
   });

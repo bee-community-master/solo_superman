@@ -13,6 +13,7 @@
       "pnpm verify:research-pipeline",
       "pnpm verify:browser-delegation-pipeline",
       "pnpm verify:service-page-pipeline",
+      "pnpm verify:production-mutation-contract",
       "pnpm verify:auto-implementation-pipeline",
       "pnpm verify:product-capability-readiness",
       "pnpm verify"
@@ -22,7 +23,8 @@
       "pnpm verify:worker-job",
       "pnpm verify:pr-mutation",
       "pnpm verify:auto-implementation-review-loop",
-      "pnpm verify:release-readiness"
+      "pnpm verify:release-readiness",
+      "pnpm verify:production-mutation-contract -- --require-ready"
     ]
   },
   "capabilities": [
@@ -97,17 +99,20 @@
         "docs/safety-and-permissions_KO.md",
         "apps/sidecar/src/browser-delegation-pipeline-smoke.ts",
         "apps/sidecar/src/service-page-pipeline-smoke.ts",
-        "packages/contracts/src/projections/service-page-use-permission.ts"
+        "packages/contracts/src/projections/service-page-use-permission.ts",
+        "docs/production-mutation-contract.example.json"
       ],
       "verificationCommands": [
         "pnpm verify:browser-delegation-pipeline",
-        "pnpm verify:service-page-pipeline"
+        "pnpm verify:service-page-pipeline",
+        "pnpm verify:production-mutation-contract"
       ],
       "checkedBehaviors": [
         "ChatGPT/browser delegation keeps disclosure preview, approval, evidence refs, and revoke controls visible.",
         "Service-page permissions require user-present login, action echo, artifact cleanup, and revoke checks.",
         "Loopback-only browser smokes prove boundaries without ChatGPT credentials or external network access.",
-        "Final submit remains blocked until a future production-mutation contract exists."
+        "Final submit remains blocked until production-mutation contract evidence passes.",
+        "The production-mutation contract keeps final submit separated from fill-draft/preview actions and forbids credential, payment, legal, medical, financial, privacy, DNS, or account-deletion mutations."
       ]
     },
     {

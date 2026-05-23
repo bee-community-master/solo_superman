@@ -65,7 +65,7 @@ export const SERVICE_PAGE_USE_PERMISSION_STATUSES = [
 export type ServicePageUsePermissionStatus = (typeof SERVICE_PAGE_USE_PERMISSION_STATUSES)[number];
 
 export const SERVICE_PAGE_FINAL_SUBMIT_BLOCKED_CONTRACT_LABEL =
-  "Final submit remains blocked until a later explicit production-mutation contract validates the confirmation card and ExecutionAuthorityRecord linkage.";
+  "Final submit remains blocked until production-mutation contract evidence passes confirmation-card, ExecutionAuthorityRecord, redaction, approval, rollback, audit, and no-secret checks.";
 
 export const SERVICE_PAGE_BLOCKED_NEXT_ACTION =
   "Fix the visible permission boundary, redaction preview, or blocked final-submit contract before using the service page.";
