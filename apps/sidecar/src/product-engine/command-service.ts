@@ -1110,6 +1110,29 @@ function pullRequestStageStatusSummaryLines(run: AutoImplementationRun) {
   ];
 }
 
+function evidenceGateSummaryLine(label: string, refs: readonly string[]) {
+  const refCount = uniqueAutoImplementationRefs(refs).length;
+  const statusLabel = refCount > 0 ? "present" : "missing";
+
+  return `- ${label}: ${statusLabel} (${refCount} refs)`;
+}
+
+function pullRequestEvidenceGateSummaryLines(input: {
+  readonly implementationEvidenceRefs: readonly string[];
+  readonly testEvidenceRefs: readonly string[];
+  readonly missingTestAuditRefs: readonly string[];
+  readonly bodyEvidenceRefs: readonly string[];
+  readonly mergeEvidenceRefs: readonly string[];
+}) {
+  return [
+    evidenceGateSummaryLine("implementation evidence", input.implementationEvidenceRefs),
+    evidenceGateSummaryLine("test evidence", input.testEvidenceRefs),
+    evidenceGateSummaryLine("missing-test audit evidence", input.missingTestAuditRefs),
+    evidenceGateSummaryLine("PR body evidence", input.bodyEvidenceRefs),
+    evidenceGateSummaryLine("merge evidence", input.mergeEvidenceRefs)
+  ];
+}
+
 function pullRequestBodyMarkdown(input: {
   readonly request: RecordAutoImplementationPullRequestMutationRequest;
   readonly run: AutoImplementationRun;
@@ -1151,6 +1174,15 @@ function pullRequestBodyMarkdown(input: {
       refs: reviewStreakRefs,
       groups: PR_BODY_CLEAN_CODE_REVIEW_EVIDENCE_GROUPS,
       reviewLabel: "clean-code review"
+    }),
+    "",
+    "### Evidence gate summary",
+    ...pullRequestEvidenceGateSummaryLines({
+      implementationEvidenceRefs,
+      testEvidenceRefs,
+      missingTestAuditRefs,
+      bodyEvidenceRefs: input.request.bodyEvidenceRefs ?? [],
+      mergeEvidenceRefs: input.request.mergeEvidenceRefs ?? []
     }),
     "",
     "### Code review streak evidence",

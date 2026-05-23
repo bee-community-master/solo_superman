@@ -28,6 +28,7 @@ describe("auto implementation PR mutation smoke", () => {
           "open body includes issue traceability",
           "open body includes stage status summary",
           "open body includes review gate summary",
+          "open body includes evidence gate summary",
           "open body includes implementation evidence",
           "open body includes missing-test audit evidence",
           "update body includes verification commands"

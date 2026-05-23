@@ -11109,6 +11109,12 @@ describe("PR-02 sidecar health shell", () => {
         expect(input.bodyMarkdown).toContain("#### Clean-code review");
         expect(input.bodyMarkdown).toContain("- changed_code: missing (0/2 no-finding clean-code review refs recorded)");
         expect(input.bodyMarkdown).toContain("- repository: missing (0/2 no-finding clean-code review refs recorded)");
+        expect(input.bodyMarkdown).toContain("### Evidence gate summary");
+        expect(input.bodyMarkdown).toContain("- implementation evidence: missing (0 refs)");
+        expect(input.bodyMarkdown).toContain("- test evidence: missing (0 refs)");
+        expect(input.bodyMarkdown).toContain("- missing-test audit evidence: missing (0 refs)");
+        expect(input.bodyMarkdown).toContain("- PR body evidence: present (1 refs)");
+        expect(input.bodyMarkdown).toContain("- merge evidence: missing (0 refs)");
         expect(input.bodyMarkdown).toContain("#### feature");
         expect(input.bodyMarkdown).toContain("- code-review:feature:clean-1");
         expect(input.bodyMarkdown).toContain("#### repository");
@@ -11237,6 +11243,12 @@ describe("PR-02 sidecar health shell", () => {
         expect(input.bodyMarkdown).toContain("- repository: satisfied (2/2 no-finding code-review refs recorded)");
         expect(input.bodyMarkdown).toContain("- changed_code: satisfied (2/2 no-finding clean-code review refs recorded)");
         expect(input.bodyMarkdown).toContain("- repository: satisfied (2/2 no-finding clean-code review refs recorded)");
+        expect(input.bodyMarkdown).toContain("### Evidence gate summary");
+        expect(input.bodyMarkdown).toContain("- implementation evidence: present (1 refs)");
+        expect(input.bodyMarkdown).toContain("- test evidence: present (1 refs)");
+        expect(input.bodyMarkdown).toContain("- missing-test audit evidence: present (2 refs)");
+        expect(input.bodyMarkdown).toContain("- PR body evidence: missing (0 refs)");
+        expect(input.bodyMarkdown).toContain("- merge evidence: missing (0 refs)");
         expect(input.bodyMarkdown).toContain("- code-review:feature:review_code_feature_demo_2");
         expect(input.bodyMarkdown).toContain("- code-review:repository:review_code_repository_demo_2");
         expect(input.bodyMarkdown).toContain("### Clean-code review streak evidence");
