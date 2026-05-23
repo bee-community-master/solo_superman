@@ -52,6 +52,7 @@ Set-Location "$HOME\solo_superman"; pnpm.cmd start:local
 
 - 현재 권장 공개 방식: 제한 베타 형태의 테크니컬 프리뷰
 - 적합한 사용자: 로컬 앱 설치에 익숙하거나 안내를 보며 터미널 한 줄 명령을 실행할 수 있는 사용자
-- 아직 남은 일반 배포 과제: 서명된 macOS/Windows 설치 패키지, 자동 업데이트, 오류 리포트, Windows 실기기 검증
+- 오류 리포트용 로컬 진단 번들: 실패 상황에서 `pnpm support:bundle`을 실행하면 credential-free JSON support bundle 경로가 출력됩니다. 이 번들은 OS/Node/pnpm/git 상태와 allowlisted environment만 담고 token, secret, cookie, credential, file contents는 수집하지 않습니다.
+- 아직 남은 일반 배포 과제: 서명된 macOS/Windows 설치 패키지, 자동 업데이트, Windows 실기기 검증
 
 참고: Windows PowerShell 설치 경로는 문서화되어 있지만, 넓은 공개 전에는 실제 Windows 기기에서 한 줄 설치부터 첫 화면 도달까지 별도 검증이 필요합니다.

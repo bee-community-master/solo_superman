@@ -108,6 +108,19 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("Refresh Codex login status");
   });
 
+  it("documents credential-free support bundles for error reports", () => {
+    expect(packageJson).toContain('"support:bundle": "node scripts/support-bundle.mjs"');
+    expect(readme).toContain("오류 리포트용 로컬 진단 번들");
+    expect(readme).toContain("`pnpm support:bundle`");
+    expect(englishReadme).toContain("Local diagnostics bundle for error reports");
+    expect(englishReadme).toContain("`pnpm support:bundle`");
+    expect(runbook).toContain("## 오류 리포트용 support bundle");
+    expect(runbook).toContain("pnpm support:bundle -- --output ./solo-superman-support-bundle.json");
+    expect(runbook).toContain("pnpm.cmd support:bundle");
+    expect(runbook).toContain("Full environment dump, file contents, browser cookies");
+    expect(runbook).toContain("OpenAI/GitHub token, ChatGPT web credential은 수집하지 않으며");
+  });
+
   it("installs Codex CLI on Windows and prompts for the optional Codex desktop app", () => {
     expect(readme).toContain("Corepack/pnpm, Windows native runtime, Codex CLI");
     expect(readme).toContain("Codex CLI는 안정성을 위해 WSL(Ubuntu) 안에 설치");

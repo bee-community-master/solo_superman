@@ -52,6 +52,7 @@ Reaching the local first screen and running the default local path do not requir
 
 - Current recommended public channel: limited-beta-style technical preview
 - Suitable users: users who are comfortable installing a local app, or who can follow guidance to run one terminal command
-- Remaining general-release work: signed macOS/Windows installer packages, automatic updates, error reporting, and Windows real-device verification
+- Local diagnostics bundle for error reports: after a failure, run `pnpm support:bundle` to print the path to a credential-free JSON support bundle. It captures OS/Node/pnpm/git state and allowlisted environment values only; it does not collect tokens, secrets, cookies, credentials, or file contents.
+- Remaining general-release work: signed macOS/Windows installer packages, automatic updates, and Windows real-device verification
 
 Note: the Windows PowerShell install path is documented, but before broad public release it still needs a separate real Windows device verification pass from one-line install through first-screen arrival.
