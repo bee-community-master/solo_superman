@@ -2,7 +2,7 @@
 
 언어: 한국어 | [English](release-channel_EN.md)
 
-이 문서는 one-line installer의 git checkout 재실행 업데이트와 나중의 패키지 앱 자동 업데이트를 분리합니다. 현재 제품은 technical preview이며, 이 문서와 `pnpm verify:release-channel`은 **업데이트 채널 계약과 검증 예시**를 고정합니다. 실제 패키지 앱 updater를 켜려면 signed macOS/Windows installer package와 배포 signing credential이 먼저 준비되어야 합니다.
+이 문서는 one-line installer의 git checkout 재실행 업데이트와 나중의 패키지 앱 자동 업데이트를 분리합니다. 현재 제품은 technical preview이며, 이 문서와 `pnpm verify:release-channel`은 **업데이트 채널 계약과 검증 예시**를 고정합니다. 실제 패키지 앱 updater를 켜려면 signed macOS/Windows installer package, 배포 signing credential, 그리고 `pnpm verify:packaged-update-rollback -- --require-device-evidence`가 통과하는 device rollback evidence가 먼저 준비되어야 합니다.
 
 ## 채널 구분
 
@@ -54,7 +54,7 @@ pnpm verify:release-channel
 1. macOS/Windows signed package format 결정.
 2. Developer ID/notarization 또는 Windows Authenticode signing credential 운영 절차.
 3. Release hosting, manifest signing key rotation, revoked-release 처리 절차.
-4. macOS/Windows 실제 설치·업데이트·rollback device verification.
+4. [`packaged-update-rollback_KO.md`](packaged-update-rollback_KO.md)의 `pnpm verify:packaged-update-rollback -- --require-device-evidence`가 통과할 수 있는 macOS/Windows 실제 설치·업데이트·rollback device verification.
 5. [`release-readiness_KO.md`](release-readiness_KO.md)의 `pnpm verify:release-readiness -- --require-ready` gate 통과.
 
 이 조건이 충족되기 전에는 README의 one-line installer rerun safe fast-forward path만 current update path로 유지합니다.

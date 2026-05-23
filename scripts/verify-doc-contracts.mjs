@@ -15,6 +15,7 @@ export const CONTRIBUTOR_DOC_PATHS = [
   "docs/decisions_KO.md",
   "docs/reference_KO.md",
   "docs/release-channel_KO.md",
+  "docs/packaged-update-rollback_KO.md",
   "docs/signed-packages_KO.md",
   "docs/release-readiness_KO.md",
   "docs/troubleshooting_KO.md"
@@ -32,6 +33,7 @@ const CONTRIBUTOR_DOC_SLUGS = [
   "decisions",
   "reference",
   "release-channel",
+  "packaged-update-rollback",
   "signed-packages",
   "release-readiness",
   "troubleshooting"
@@ -705,8 +707,20 @@ function checkContributorDocsSnippets() {
     "README remains short"
   ]);
 
+  requireSnippets("packaged update rollback doc missing evidence contract", docs["docs/packaged-update-rollback_KO.md"], [
+    "solo-superman-packaged-update-rollback.v1",
+    "pnpm verify:packaged-update-rollback",
+    "--require-device-evidence",
+    "install_signed_package",
+    "rollback_after_failed_launch",
+    "preserve_credentials",
+    "#267",
+    "secret"
+  ]);
+
   requireSnippets("release readiness doc missing broad release gates", docs["docs/release-readiness_KO.md"], [
     "solo-superman-release-readiness.v1",
+    "pnpm verify:packaged-update-rollback",
     "pnpm verify:release-readiness",
     "--require-ready",
     "signed-packages",

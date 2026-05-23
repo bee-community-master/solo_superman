@@ -18,6 +18,7 @@ const PACKAGE_METADATA_SCRIPT = [
   "verify:scripts.verify,",
   "verifyProdBundle:scripts['verify:prod-bundle'],",
   "verifyReleaseChannel:scripts['verify:release-channel'],",
+  "verifyPackagedUpdateRollback:scripts['verify:packaged-update-rollback'],",
   "verifySignedPackagePreflight:scripts['verify:signed-package-preflight'],",
   "verifyReleaseReadiness:scripts['verify:release-readiness'],",
   "supportBundle:scripts['support:bundle']",
@@ -27,6 +28,10 @@ const RELEASE_DIAGNOSTIC_COMMANDS = {
   releaseChannel: {
     command: "pnpm verify:release-channel",
     args: ["scripts/verify-release-channel.mjs"]
+  },
+  packagedUpdateRollback: {
+    command: "pnpm verify:packaged-update-rollback",
+    args: ["scripts/verify-packaged-update-rollback.mjs"]
   },
   signedPackagePreflight: {
     command: "pnpm verify:signed-package-preflight",
@@ -217,6 +222,14 @@ function compactReleaseDiagnostic(name, result) {
         manifestPath: typeof parsed.manifestPath === "string" ? parsed.manifestPath : null,
         issues: stringList(parsed.issues)
       };
+    case "packagedUpdateRollback":
+      return {
+        ...summary,
+        rollbackStatus: typeof parsed.rollbackStatus === "string" ? parsed.rollbackStatus : "unknown",
+        packagedUpdateRollbackReady: parsed.packagedUpdateRollbackReady === true,
+        blockedDeviceRuns: stringList(parsed.blockedDeviceRuns),
+        blockers: stringList(parsed.blockers)
+      };
     case "signedPackagePreflight":
       return {
         ...summary,
@@ -329,6 +342,7 @@ export async function createSupportBundle(options = {}) {
     recommendedChecks: [
       "pnpm verify:prod-bundle",
       "pnpm verify:release-channel",
+      "pnpm verify:packaged-update-rollback",
       "pnpm verify:signed-package-preflight",
       "pnpm verify:release-readiness",
       "pnpm verify",

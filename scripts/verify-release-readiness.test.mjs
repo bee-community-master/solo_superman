@@ -17,12 +17,14 @@ function blockedContract(overrides = {}) {
       credentialFree: [
         "pnpm verify:prod-bundle",
         "pnpm verify:release-channel",
+        "pnpm verify:packaged-update-rollback",
         "pnpm verify:signed-package-preflight",
         "pnpm verify:release-readiness",
         "pnpm verify"
       ],
       readyRelease: [
         "pnpm verify:signed-package-preflight -- --require-credentials",
+        "pnpm verify:packaged-update-rollback -- --require-device-evidence",
         "pnpm verify:release-readiness -- --require-ready"
       ]
     },
@@ -158,8 +160,10 @@ describe("release readiness verification", () => {
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:prod-bundle",
+      "$.requiredVerificationCommands.credentialFree: must include pnpm verify:packaged-update-rollback",
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:release-readiness",
       "$.requiredVerificationCommands.readyRelease: must be a string list with at least 1 item(s)",
+      "$.requiredVerificationCommands.readyRelease: must include pnpm verify:packaged-update-rollback -- --require-device-evidence",
       "$.requiredVerificationCommands.readyRelease: must include pnpm verify:release-readiness -- --require-ready"
     ]));
   });
