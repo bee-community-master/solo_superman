@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const runbook = readFileSync("docs/troubleshooting_KO.md", "utf8");
 const readme = readFileSync("README.md", "utf8");
 const englishReadme = readFileSync("README.en.md", "utf8");
+const packageJson = readFileSync("package.json", "utf8");
 const windowsBootstrap = readFileSync("scripts/bootstrap-windows.ps1", "utf8");
 const windowsLauncher = readFileSync("scripts/win.ps1", "utf8");
 const macosBootstrap = readFileSync("scripts/bootstrap-macos.sh", "utf8");
@@ -85,7 +86,7 @@ describe("#105 local install/run verification docs", () => {
 
 
   it("keeps bootstrap Node requirements aligned with package engines", () => {
-    expect(readFileSync("package.json", "utf8")).toContain('"node": ">=24.0.0"');
+    expect(packageJson).toContain('"node": ">=24.0.0"');
     expect(macosBootstrap).toContain("MIN_NODE_MAJOR=24");
     expect(windowsBootstrap).toContain("$MinNodeMajor = 24");
     expect(windowsBootstrap).toContain("function Upgrade-WingetPackage");

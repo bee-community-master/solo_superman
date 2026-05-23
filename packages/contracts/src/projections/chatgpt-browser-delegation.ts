@@ -1,5 +1,6 @@
 import type { ProjectionVersion, ResearchResultId, ResearchTaskId, SchemaVersion, SessionId } from "../ids";
 import { containsExecutionAuthoritySecretValueLeak, isExecutionAuthorityIsoTimestamp } from "./execution-authority";
+import { isProjectionRecord as isRecord } from "./validation-helpers";
 
 export const CHATGPT_BROWSER_DELEGATION_SCHEMA_VERSION =
   "solo-superman.post-phase3-chatgpt-browser-delegation.v1" as SchemaVersion;
@@ -251,10 +252,6 @@ export class ChatGptBrowserDelegationValidationError extends Error {
     this.name = "ChatGptBrowserDelegationValidationError";
     this.issues = issues;
   }
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function isNonEmptyString(value: unknown): value is string {
