@@ -21,6 +21,7 @@ This `docs/` folder is optimized for contributor onboarding and code-backed cont
 | Review packaged update rollback evidence | [`packaged-update-rollback_EN.md`](packaged-update-rollback_EN.md) |
 | Review Windows real-device install evidence | [`windows-real-device_EN.md`](windows-real-device_EN.md) |
 | Review signed macOS/Windows package preflight | [`signed-packages_EN.md`](signed-packages_EN.md) |
+| Review signed package release evidence | [`signed-package-release_EN.md`](signed-package-release_EN.md) |
 | Review general release readiness gates | [`release-readiness_EN.md`](release-readiness_EN.md) |
 | Troubleshoot install and local run | [`troubleshooting_EN.md`](troubleshooting_EN.md) |
 
@@ -31,6 +32,7 @@ This `docs/` folder is optimized for contributor onboarding and code-backed cont
 - Packaged update rollback evidence: [`packaged-update-rollback_EN.md`](packaged-update-rollback_EN.md) and `pnpm verify:packaged-update-rollback` keep macOS/Windows device rollback evidence tied to #267.
 - Windows real-device evidence: [`windows-real-device_EN.md`](windows-real-device_EN.md) and `pnpm verify:windows-real-device` keep Windows one-line install evidence tied to #259.
 - Signed packages: [`signed-packages_EN.md`](signed-packages_EN.md) and `pnpm verify:signed-package-preflight` lock the credential-free preflight and missing signing credential gate.
+- Signed package release evidence: [`signed-package-release_EN.md`](signed-package-release_EN.md) and `pnpm verify:signed-package-release` keep actual signing/notarization/timestamp/manifest evidence tied to #266.
 - General release readiness: [`release-readiness_EN.md`](release-readiness_EN.md) and `pnpm verify:release-readiness` keep broad release blocked until signed package, packaged updater rollback, and Windows real-device gates are ready.
 - Runtime shape: local-first web app + local Node/Hono service.
 - Default topology: Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db.
@@ -60,6 +62,7 @@ The old numbered planning docs acted as an implementation contract ledger, with 
 - `packaged-update-rollback_EN.md` for packaged update rollback device evidence contracts.
 - `windows-real-device_EN.md` for Windows one-line install device evidence contracts.
 - `signed-packages_EN.md` for signed installer package candidates and signing credential gates.
+- `signed-package-release_EN.md` for signed package release evidence contracts.
 - `release-readiness_EN.md` for broad/general release blockers and ready-release gates.
 
 Use git history if an audit needs the full original closeout prose. The active contributor contract is this simplified docs set.

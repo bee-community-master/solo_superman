@@ -40,11 +40,13 @@ const REQUIRED_CREDENTIAL_FREE_COMMANDS = new Set([
   "pnpm verify:windows-real-device",
   "pnpm verify:packaged-update-rollback",
   "pnpm verify:signed-package-preflight",
+  "pnpm verify:signed-package-release",
   "pnpm verify:release-readiness",
   "pnpm verify"
 ]);
 const REQUIRED_READY_COMMANDS = new Set([
   "pnpm verify:signed-package-preflight -- --require-credentials",
+  "pnpm verify:signed-package-release -- --require-release-evidence",
   "pnpm verify:windows-real-device -- --require-device-evidence",
   "pnpm verify:packaged-update-rollback -- --require-device-evidence",
   "pnpm verify:release-readiness -- --require-ready"

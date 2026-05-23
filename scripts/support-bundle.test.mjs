@@ -52,6 +52,14 @@ function fakeCommandRunner(command, args) {
       issues: [],
       checked: ["signing credential groups are named without exposing values"]
     })],
+    [`${process.execPath} scripts/verify-signed-package-release.mjs`, JSON.stringify({
+      status: "passed",
+      releaseEvidenceStatus: "blocked",
+      signedPackageReleaseReady: false,
+      blockedEvidenceRuns: ["macos-signed-package-release", "windows-signed-package-release", "release-manifest-signing"],
+      blockers: [],
+      checked: ["blocked signed package release posture is allowed only with explicit blockers"]
+    })],
     [`${process.execPath} scripts/verify-release-readiness.mjs`, JSON.stringify({
       status: "passed",
       schemaVersion: "solo-superman-release-readiness.v1",
@@ -80,6 +88,7 @@ function fakeCommandRunner(command, args) {
           verifyWindowsRealDevice: "node scripts/verify-windows-real-device.mjs",
           verifyPackagedUpdateRollback: "node scripts/verify-packaged-update-rollback.mjs",
           verifySignedPackagePreflight: "node scripts/verify-signed-package-preflight.mjs",
+          verifySignedPackageRelease: "node scripts/verify-signed-package-release.mjs",
           verifyReleaseReadiness: "node scripts/verify-release-readiness.mjs",
           supportBundle: "node scripts/support-bundle.mjs"
         }
@@ -126,6 +135,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.recommendedChecks).toContain("pnpm verify:windows-real-device");
     expect(bundle.recommendedChecks).toContain("pnpm verify:packaged-update-rollback");
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-preflight");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-release");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-readiness");
     expect(bundle.releaseDiagnostics.releaseChannel).toMatchObject({
       command: "pnpm verify:release-channel",
@@ -158,6 +168,14 @@ describe("support diagnostics bundle", () => {
         { id: "macos-developer-id", status: "missing", missingEnv: ["APPLE_ID"] },
         { id: "windows-authenticode", status: "missing", missingEnv: ["WINDOWS_CERT_PASSWORD"] }
       ]
+    });
+    expect(bundle.releaseDiagnostics.signedPackageRelease).toMatchObject({
+      command: "pnpm verify:signed-package-release",
+      captureStatus: "ok",
+      evidenceStatus: "passed",
+      releaseEvidenceStatus: "blocked",
+      signedPackageReleaseReady: false,
+      blockedEvidenceRuns: ["macos-signed-package-release", "windows-signed-package-release", "release-manifest-signing"]
     });
     expect(bundle.releaseDiagnostics.releaseReadiness).toMatchObject({
       command: "pnpm verify:release-readiness",

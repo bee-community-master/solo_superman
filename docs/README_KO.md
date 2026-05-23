@@ -21,6 +21,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 질문, 리서치
 | 패키지 업데이트 rollback evidence 계약 | [`packaged-update-rollback_KO.md`](packaged-update-rollback_KO.md) |
 | Windows 실기기 설치 evidence 계약 | [`windows-real-device_KO.md`](windows-real-device_KO.md) |
 | 서명된 macOS/Windows package preflight | [`signed-packages_KO.md`](signed-packages_KO.md) |
+| 서명된 package release evidence 계약 | [`signed-package-release_KO.md`](signed-package-release_KO.md) |
 | 일반 공개 준비도 gate | [`release-readiness_KO.md`](release-readiness_KO.md) |
 | 설치/실행 문제 해결 | [`troubleshooting_KO.md`](troubleshooting_KO.md) |
 
@@ -31,6 +32,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 질문, 리서치
 - Packaged update rollback evidence: [`packaged-update-rollback_KO.md`](packaged-update-rollback_KO.md)와 `pnpm verify:packaged-update-rollback`이 macOS/Windows device rollback evidence gate를 #267에 묶어 둡니다.
 - Windows real-device evidence: [`windows-real-device_KO.md`](windows-real-device_KO.md)와 `pnpm verify:windows-real-device`가 Windows 한 줄 설치 evidence gate를 #259에 묶어 둡니다.
 - Signed packages: [`signed-packages_KO.md`](signed-packages_KO.md)와 `pnpm verify:signed-package-preflight`가 credential-free preflight와 missing signing credential gate를 고정합니다.
+- Signed package release evidence: [`signed-package-release_KO.md`](signed-package-release_KO.md)와 `pnpm verify:signed-package-release`가 실제 signing/notarization/timestamp/manifest evidence gate를 #266에 묶어 둡니다.
 - General release readiness: [`release-readiness_KO.md`](release-readiness_KO.md)와 `pnpm verify:release-readiness`가 signed package, packaged updater rollback, Windows real-device gate가 준비되기 전까지 broad release를 blocked로 유지합니다.
 - Runtime shape: local-first web app + local Node/Hono service.
 - Default topology: Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db.
@@ -60,6 +62,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 질문, 리서치
 - `packaged-update-rollback_KO.md`: packaged update rollback device evidence contract.
 - `windows-real-device_KO.md`: Windows one-line install device evidence contract.
 - `signed-packages_KO.md`: signed installer package 후보와 signing credential gate.
+- `signed-package-release_KO.md`: signed package release evidence contract.
 - `release-readiness_KO.md`: broad/general release blocker와 ready-release gate.
 
 원본 closeout prose가 필요한 audit은 git history를 사용합니다. 현재 기여자 계약의 기준은 이 단순화된 docs 세트입니다.
