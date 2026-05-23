@@ -19,14 +19,56 @@ function fakeCommandRunner(command, args) {
     ["git remote get-url origin", "https://user:ghp_abcdefghijklmnopqrstuvwxyz@github.com/bee-community-master/solo_superman.git?token=secret-value"],
     ["pnpm --version", "11.0.4"],
     ["codex --version", "codex 0.128.0"],
-    [`${process.execPath} -e const p=require('./package.json'); console.log(JSON.stringify({name:p.name,version:p.version,packageManager:p.packageManager,engines:p.engines,scripts:{startLocal:p.scripts?.['start:local'],verify:p.scripts?.verify,verifyProdBundle:p.scripts?.['verify:prod-bundle'],supportBundle:p.scripts?.['support:bundle']}}))`, JSON.stringify({
-      name: "solo-superman-workspace",
-      version: "0.1.0",
-      packageManager: "pnpm@11.0.4",
-      engines: { node: ">=24.0.0" },
-      scripts: { startLocal: "node scripts/start-local-web.mjs", supportBundle: "node scripts/support-bundle.mjs" }
+    [`${process.execPath} scripts/verify-release-channel.mjs`, JSON.stringify({
+      status: "passed",
+      manifestPath: "docs/release-update-channel.example.json",
+      issues: [],
+      checked: ["release URLs are HTTPS and credential-free"]
+    })],
+    [`${process.execPath} scripts/verify-signed-package-preflight.mjs`, JSON.stringify({
+      status: "passed",
+      contractPath: "docs/signed-package-preflight.example.json",
+      credentialGateStatus: "blocked",
+      missingCredentialGroups: [
+        { id: "macos-developer-id", status: "missing", requiredEnv: ["APPLE_ID"], missingEnv: ["APPLE_ID"] },
+        { id: "windows-authenticode", status: "missing", requiredEnv: ["WINDOWS_CERT_PASSWORD"], missingEnv: ["WINDOWS_CERT_PASSWORD"] }
+      ],
+      issues: [],
+      checked: ["signing credential groups are named without exposing values"]
+    })],
+    [`${process.execPath} scripts/verify-release-readiness.mjs`, JSON.stringify({
+      status: "passed",
+      schemaVersion: "solo-superman-release-readiness.v1",
+      mode: "contract",
+      readinessStatus: "blocked",
+      broadReleaseReady: false,
+      blockedGates: ["signed-packages", "packaged-update-rollback", "windows-real-device"],
+      blockers: [],
+      checked: ["blocked broad-release posture is allowed only with explicit blockers"]
     })]
   ]);
+
+  if (command === process.execPath && args[0] === "-e") {
+    return Promise.resolve({
+      status: "ok",
+      stdout: JSON.stringify({
+        name: "solo-superman-workspace",
+        version: "0.1.0",
+        packageManager: "pnpm@11.0.4",
+        engines: { node: ">=24.0.0" },
+        scripts: {
+          startLocal: "node scripts/start-local-web.mjs",
+          verify: "pnpm typecheck && pnpm lint",
+          verifyProdBundle: "node scripts/verify-prod-bundle.mjs",
+          verifyReleaseChannel: "node scripts/verify-release-channel.mjs",
+          verifySignedPackagePreflight: "node scripts/verify-signed-package-preflight.mjs",
+          verifyReleaseReadiness: "node scripts/verify-release-readiness.mjs",
+          supportBundle: "node scripts/support-bundle.mjs"
+        }
+      }),
+      stderr: ""
+    });
+  }
 
   return Promise.resolve({
     status: outputs.has(key) ? "ok" : "unavailable",
@@ -61,6 +103,34 @@ describe("support diagnostics bundle", () => {
     expect(bundle.repo.remoteOrigin).toBe("https://<redacted>@github.com/bee-community-master/solo_superman.git?token=<redacted>");
     expect(bundle.env).toEqual({ CI: "true", SOLO_CODEX_WINDOWS_MODE: "wsl" });
     expect(bundle.package.scripts.supportBundle).toBe("node scripts/support-bundle.mjs");
+    expect(bundle.package.scripts.verifyReleaseReadiness).toBe("node scripts/verify-release-readiness.mjs");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:release-channel");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-preflight");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:release-readiness");
+    expect(bundle.releaseDiagnostics.releaseChannel).toMatchObject({
+      command: "pnpm verify:release-channel",
+      captureStatus: "ok",
+      evidenceStatus: "passed",
+      manifestPath: "docs/release-update-channel.example.json"
+    });
+    expect(bundle.releaseDiagnostics.signedPackagePreflight).toMatchObject({
+      command: "pnpm verify:signed-package-preflight",
+      captureStatus: "ok",
+      evidenceStatus: "passed",
+      credentialGateStatus: "blocked",
+      missingCredentialGroups: [
+        { id: "macos-developer-id", status: "missing", missingEnv: ["APPLE_ID"] },
+        { id: "windows-authenticode", status: "missing", missingEnv: ["WINDOWS_CERT_PASSWORD"] }
+      ]
+    });
+    expect(bundle.releaseDiagnostics.releaseReadiness).toMatchObject({
+      command: "pnpm verify:release-readiness",
+      captureStatus: "ok",
+      evidenceStatus: "passed",
+      readinessStatus: "blocked",
+      broadReleaseReady: false,
+      blockedGates: ["signed-packages", "packaged-update-rollback", "windows-real-device"]
+    });
     expect(serialized).not.toContain("secret-token");
     expect(serialized).not.toContain("sk-secret");
     expect(serialized).not.toContain("ghp_abcdefghijklmnopqrstuvwxyz");

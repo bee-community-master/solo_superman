@@ -52,7 +52,7 @@ Set-Location "$HOME\solo_superman"; pnpm.cmd start:local
 
 - 현재 권장 공개 방식: 제한 베타 형태의 테크니컬 프리뷰
 - 적합한 사용자: 로컬 앱 설치에 익숙하거나 안내를 보며 터미널 한 줄 명령을 실행할 수 있는 사용자
-- 오류 리포트용 로컬 진단 번들: 실패 상황에서 `pnpm support:bundle`을 실행하면 credential-free JSON support bundle 경로가 출력됩니다. 이 번들은 OS/Node/pnpm/git 상태와 allowlisted environment만 담고 token, secret, cookie, credential, file contents는 수집하지 않습니다.
+- 오류 리포트용 로컬 진단 번들: 실패 상황에서 `pnpm support:bundle`을 실행하면 credential-free JSON support bundle 경로가 출력됩니다. 이 번들은 OS/Node/pnpm/git 상태, release diagnostics summary, allowlisted environment만 담고 token, secret, cookie, credential, file contents는 수집하지 않습니다.
 - 서명된 설치 패키지 preflight: [`docs/signed-packages_KO.md`](docs/signed-packages_KO.md)와 `pnpm verify:signed-package-preflight`가 macOS/Windows package 후보, signing credential gate, local dry-run과 actual signing gate 분리를 검증합니다.
 - 패키지 앱 업데이트 채널 계약: [`docs/release-channel_KO.md`](docs/release-channel_KO.md)와 `pnpm verify:release-channel`이 manifest 서명, artifact checksum/signature, 사용자 보류, 재시도, rollback, credential/user-data 보존 조건을 검증합니다.
 - 일반 공개 준비도 게이트: [`docs/release-readiness_KO.md`](docs/release-readiness_KO.md)와 `pnpm verify:release-readiness`가 signed package, packaged updater rollback, Windows 실기기 evidence가 준비되기 전까지 broad/general release 상태가 blocked임을 검증합니다.
