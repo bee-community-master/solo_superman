@@ -101,15 +101,18 @@ describe("CreateServicePageUsePermission reducer", () => {
     });
     expect(reduction.immediateProjection).toMatchObject({
       kind: "ServicePageUsePermissionProjection",
-          currentStatus: "granted",
-          latestPermission: expect.objectContaining({
-            serviceOrigin: "https://vercel.com",
-            pageUrl: "https://vercel.com/new",
-            allowedActionClasses: ["read", "preview"],
-            userApprovalRef: "user_approval:service-page:vercel",
-            credentialEntryDelegated: false,
+      currentStatus: "granted",
+      latestPermission: expect.objectContaining({
+        serviceOrigin: "https://vercel.com",
+        pageUrl: "https://vercel.com/new",
+        allowedActionClasses: ["read", "preview"],
+        userApprovalRef: "user_approval:service-page:vercel",
+        credentialEntryDelegated: false,
         userPresentLoginRequired: true,
-        canRevoke: true
+        canRevoke: true,
+        nextAction: expect.stringMatching(
+          /Request fill-draft per-action approval separately.*Final submit remains blocked/u
+        )
       })
     });
     expect(reduction.effectPlan).toEqual([]);
@@ -201,7 +204,8 @@ describe("CreateServicePageUsePermission reducer", () => {
         },
         blockReasons: expect.arrayContaining([
           expect.objectContaining({ code: "final_submit_requires_confirmation_and_authority" })
-        ])
+        ]),
+        nextAction: expect.stringContaining("blocked final-submit contract")
       }
     });
   });
@@ -230,7 +234,8 @@ describe("CreateServicePageUsePermission reducer", () => {
         },
         blockReasons: expect.arrayContaining([
           expect.objectContaining({ code: "final_submit_requires_confirmation_and_authority" })
-        ])
+        ]),
+        nextAction: expect.stringContaining("blocked final-submit contract")
       }
     });
   });

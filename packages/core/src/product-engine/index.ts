@@ -24,6 +24,8 @@ import {
   SERVICE_PAGE_USE_PERMISSION_ACTION_CLASSES,
   SERVICE_PAGE_USE_PERMISSION_APPROVAL_GRANULARITIES,
   SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES,
+  SERVICE_PAGE_BLOCKED_NEXT_ACTION,
+  SERVICE_PAGE_FINAL_SUBMIT_BLOCKED_CONTRACT_LABEL,
   SERVICE_PAGE_USE_PERMISSION_DATA_CATEGORIES,
   SERVICE_PAGE_USE_PERMISSION_SCHEMA_VERSION,
   PROJECT_PURPOSE_MODES,
@@ -46,6 +48,7 @@ import {
   validateExecutionAuthorityLedgerProjection,
   validateServicePageUsePermissionProjection,
   servicePageUsePermissionIsRevokableStatus,
+  servicePageGrantedNextAction,
   servicePageUsePermissionRefHasForbiddenCustodyContent,
   servicePageUsePermissionStringHasUrlCredentials,
   servicePageUsePermissionSummaryForStatus,
@@ -7198,11 +7201,14 @@ function servicePageVisibleState(input: {
   function defaultNextAction() {
     switch (input.status) {
       case "granted":
-        return `Use ${input.serviceName} only for the listed read/preview page actions; request fill-draft or final submit separately.`;
+        return servicePageGrantedNextAction(input.serviceName);
       case "blocked":
-        return "Fix the visible permission boundary, redaction preview, or final-submit confirmation before using the service page.";
+        return SERVICE_PAGE_BLOCKED_NEXT_ACTION;
       case "final_submit_requested":
-        return "Show the final confirmation card and verify the linked ExecutionAuthorityRecord before any submit action.";
+        return [
+          SERVICE_PAGE_FINAL_SUBMIT_BLOCKED_CONTRACT_LABEL,
+          "Keep the final confirmation card and linked ExecutionAuthorityRecord as evidence only until that contract exists."
+        ].join(" ");
       case "revoked":
         return "Create a new service page-use permission before any further page action.";
     }
