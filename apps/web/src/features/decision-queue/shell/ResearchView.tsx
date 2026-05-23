@@ -1,4 +1,5 @@
 import type {
+  DecisionEvidencePackProjection,
   EvidenceItemProjection,
   EvidenceMatrixProjection,
   ResearchReviewCardProjection
@@ -18,6 +19,29 @@ function retainedSourceRefsForResearchCard(card: ResearchReviewCardProjection) {
 }
 
 type DecisionQueueCopy = ReturnType<typeof useDecisionQueueCopy>;
+
+function safeExternalUrl(value: string | undefined) {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function TextList({ items }: { readonly items: readonly string[] }) {
+  return (
+    <ul>
+      {items.map((item, index) => (
+        <li key={`${index}:${item}`}>{item}</li>
+      ))}
+    </ul>
+  );
+}
 
 function EvidenceItems({
   copy,
@@ -43,6 +67,166 @@ function EvidenceItems({
         )}
       </dd>
     </div>
+  );
+}
+
+function EvidencePackSource({
+  copy,
+  pack
+}: {
+  readonly copy: DecisionQueueCopy;
+  readonly pack: DecisionEvidencePackProjection;
+}) {
+  const sourceLabel = pack.sourceTitle ?? pack.sourceUrl ?? copy.research.unknown;
+  const sourceUrl = safeExternalUrl(pack.sourceUrl);
+
+  return (
+    <div>
+      <dt>{copy.research.evidencePackSource}</dt>
+      <dd>
+        {sourceUrl ? (
+          <a href={sourceUrl} rel="noreferrer" target="_blank">
+            {sourceLabel}
+          </a>
+        ) : (
+          sourceLabel
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function EvidencePackGateChecks({
+  copy,
+  pack
+}: {
+  readonly copy: DecisionQueueCopy;
+  readonly pack: DecisionEvidencePackProjection;
+}) {
+  return (
+    <div>
+      <dt>{copy.research.gateChecks}</dt>
+      <dd>
+        {pack.gateChecks.length ? (
+          <ul>
+            {pack.gateChecks.map((check) => (
+              <li key={`${check.code}:${check.status}:${check.reason}`}>
+                {check.code}: {check.status} — {check.reason}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          copy.research.noGateChecks
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function EvidencePackCard({
+  copy,
+  pack
+}: {
+  readonly copy: DecisionQueueCopy;
+  readonly pack: DecisionEvidencePackProjection;
+}) {
+  return (
+    <article className="research-evidence-pack">
+      <div className="research-evidence-matrix-heading">
+        <strong>{pack.claim}</strong>
+        <span>{copy.research.gateStatus}: {pack.gateStatus}</span>
+        <span>{copy.research.sourceReliability}: {pack.sourceReliability}</span>
+      </div>
+      <dl className="research-evidence-grid">
+        <div>
+          <dt>{copy.research.decisionContext}</dt>
+          <dd>{pack.decisionContext}</dd>
+        </div>
+        <EvidencePackSource copy={copy} pack={pack} />
+        <EvidencePackGateChecks copy={copy} pack={pack} />
+        {pack.knownRisk ? (
+          <div>
+            <dt>{copy.research.knownRisk}</dt>
+            <dd>{pack.knownRisk}</dd>
+          </div>
+        ) : null}
+        {pack.nextValidationAction ? (
+          <div>
+            <dt>{copy.research.nextValidationAction}</dt>
+            <dd>{pack.nextValidationAction}</dd>
+          </div>
+        ) : null}
+        {pack.limitationRefs.length ? (
+          <div>
+            <dt>{copy.research.limitationRefs}</dt>
+            <dd>
+              <TextList items={pack.limitationRefs} />
+            </dd>
+          </div>
+        ) : null}
+      </dl>
+    </article>
+  );
+}
+
+function ResearchValidationSummary({
+  copy,
+  knownRisks,
+  nextValidationActions
+}: {
+  readonly copy: DecisionQueueCopy;
+  readonly knownRisks: readonly string[];
+  readonly nextValidationActions: readonly string[];
+}) {
+  if (!knownRisks.length && !nextValidationActions.length) {
+    return null;
+  }
+
+  return (
+    <section className="research-validation-summary" aria-label={copy.research.validationSummary}>
+      <h3>{copy.research.validationSummary}</h3>
+      <dl className="research-evidence-grid">
+        {knownRisks.length ? (
+          <div>
+            <dt>{copy.research.knownRisks}</dt>
+            <dd>
+              <TextList items={knownRisks} />
+            </dd>
+          </div>
+        ) : null}
+        {nextValidationActions.length ? (
+          <div>
+            <dt>{copy.research.nextValidationActions}</dt>
+            <dd>
+              <TextList items={nextValidationActions} />
+            </dd>
+          </div>
+        ) : null}
+      </dl>
+    </section>
+  );
+}
+
+function EvidencePacksSection({
+  copy,
+  evidencePacks
+}: {
+  readonly copy: DecisionQueueCopy;
+  readonly evidencePacks: readonly DecisionEvidencePackProjection[];
+}) {
+  if (!evidencePacks.length) {
+    return null;
+  }
+
+  return (
+    <section className="research-evidence-packs" aria-label={copy.research.evidencePacks}>
+      <h3>{copy.research.evidencePacks}</h3>
+      <div className="research-evidence-pack-list">
+        {evidencePacks.map((pack) => (
+          <EvidencePackCard copy={copy} key={pack.evidencePackId} pack={pack} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -119,6 +303,10 @@ export function ResearchView({ controller }: ResearchViewProps) {
     startReadOnlyResearchRun,
     startReadyReadOnlyResearchRuns
   } = controller;
+  const research = projections.research;
+  const evidencePacks = research?.evidencePacks ?? [];
+  const knownRisks = research?.knownRisks ?? [];
+  const nextValidationActions = research?.nextValidationActions ?? [];
   const readyReadOnlyResearchTaskIdSet = new Set(readyReadOnlyResearchTaskIds);
 
   return (
@@ -126,7 +314,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
       <section className="panel research-main-panel">
         <div className="panel-heading">
           <h2>{copy.research.research}</h2>
-          <span>{projections.research?.proConBalanceStatus ?? copy.research.unknown}</span>
+          <span>{research?.proConBalanceStatus ?? copy.research.unknown}</span>
         </div>
         <div className="card-actions panel-actions">
           <button type="button" disabled={isBusy || !projections.session} onClick={() => void planPhase15aResearchTask()}>
@@ -140,10 +328,10 @@ export function ResearchView({ controller }: ResearchViewProps) {
             {copy.research.startReadyReadOnlyRuns(readyReadOnlyResearchTaskIds.length)}
           </button>
         </div>
-        {projections.research?.tasks.length ? (
+        {research?.tasks.length ? (
           <div className="research-list">
-            {projections.research.tasks.map((task) => {
-              const card = projections.research?.reviewCards.find((item) => item.researchTaskId === task.researchTaskId);
+            {research.tasks.map((task) => {
+              const card = research.reviewCards.find((item) => item.researchTaskId === task.researchTaskId);
               const canImportResearch = task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true;
               const canStartReadOnlyRun = readyReadOnlyResearchTaskIdSet.has(task.researchTaskId);
               const retainedSourceRefs = card ? retainedSourceRefsForResearchCard(card) : [];
@@ -232,11 +420,13 @@ export function ResearchView({ controller }: ResearchViewProps) {
         ) : (
           <p className="empty-state">{copy.research.noResearchTasks}</p>
         )}
-        {projections.research?.evidenceMatrices.length ? (
+        <ResearchValidationSummary copy={copy} knownRisks={knownRisks} nextValidationActions={nextValidationActions} />
+        <EvidencePacksSection copy={copy} evidencePacks={evidencePacks} />
+        {research?.evidenceMatrices.length ? (
           <section className="research-evidence-matrices" aria-label={copy.research.evidenceMatrix}>
             <h3>{copy.research.evidenceMatrix}</h3>
             <div className="research-evidence-matrix-list">
-              {projections.research.evidenceMatrices.map((matrix) => (
+              {research.evidenceMatrices.map((matrix) => (
                 <EvidenceMatrixCard copy={copy} key={matrix.evidenceMatrixId} matrix={matrix} />
               ))}
             </div>
