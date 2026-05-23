@@ -54,7 +54,8 @@ pnpm verify:release-channel
 1. macOS/Windows signed package format 결정.
 2. Developer ID/notarization 또는 Windows Authenticode signing credential 운영 절차.
 3. Release hosting, manifest signing key rotation, revoked-release 처리 절차.
-4. [`packaged-update-rollback_KO.md`](packaged-update-rollback_KO.md)의 `pnpm verify:packaged-update-rollback -- --require-device-evidence`가 통과할 수 있는 macOS/Windows 실제 설치·업데이트·rollback device verification.
-5. [`release-readiness_KO.md`](release-readiness_KO.md)의 `pnpm verify:release-readiness -- --require-ready` gate 통과.
+4. [`windows-real-device_KO.md`](windows-real-device_KO.md)의 `pnpm verify:windows-real-device -- --require-device-evidence`가 통과할 수 있는 Windows 한 줄 설치부터 첫 화면 도달까지의 실기기/VM verification.
+5. [`packaged-update-rollback_KO.md`](packaged-update-rollback_KO.md)의 `pnpm verify:packaged-update-rollback -- --require-device-evidence`가 통과할 수 있는 macOS/Windows 실제 설치·업데이트·rollback device verification.
+6. [`release-readiness_KO.md`](release-readiness_KO.md)의 `pnpm verify:release-readiness -- --require-ready` gate 통과.
 
 이 조건이 충족되기 전에는 README의 one-line installer rerun safe fast-forward path만 current update path로 유지합니다.

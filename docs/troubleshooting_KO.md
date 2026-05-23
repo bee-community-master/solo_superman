@@ -76,15 +76,18 @@ Set-Location "$HOME\solo_superman"; pnpm.cmd start:local
 ```sh
 pnpm verify:prod-bundle
 pnpm verify:release-channel
+pnpm verify:windows-real-device
 pnpm verify:packaged-update-rollback
 pnpm verify:signed-package-preflight
 pnpm verify:release-readiness
 pnpm verify
 ```
 
-Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 Node/Corepack command shim이 실행되도록 `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:packaged-update-rollback`, `pnpm.cmd verify:signed-package-preflight`, `pnpm.cmd verify:release-readiness`, `pnpm.cmd verify`를 사용합니다.
+Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 Node/Corepack command shim이 실행되도록 `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:windows-real-device`, `pnpm.cmd verify:packaged-update-rollback`, `pnpm.cmd verify:signed-package-preflight`, `pnpm.cmd verify:release-readiness`, `pnpm.cmd verify`를 사용합니다.
 
 `pnpm verify:release-channel`은 `docs/release-update-channel.example.json`을 검사해 manifest signature, artifact checksum/signature, user consent/deferral, retry, rollback, credential/user-data preservation이 모두 선언되어 있는지 확인합니다. 이 명령은 release channel 계약 검증이며, signed package 설치나 실제 업데이트 적용을 수행하지 않습니다.
+
+`pnpm verify:windows-real-device`는 `docs/windows-real-device.example.json`을 검사해 clean Windows 11 device/VM의 한 줄 PowerShell 설치, UAC, Node/Git/Corepack/pnpm, WSL/Ubuntu, Codex CLI, Visual C++ runtime, desktop shortcut, rerun safe update, support bundle, bootstrap/prod-smoke log evidence가 #259에 묶여 있는지 확인합니다. 기본 실행은 실제 Windows evidence 없이 통과하되 `windowsVerificationStatus=blocked`와 `blockedDeviceRuns`로 무엇이 남았는지 보여줍니다. 실제 release 환경에서는 `pnpm verify:windows-real-device -- --require-device-evidence`를 사용하며, 이 모드는 Windows device run이 passed가 아니면 실패해야 합니다.
 
 `pnpm verify:packaged-update-rollback`은 `docs/packaged-update-rollback.example.json`을 검사해 macOS/Windows device rollback evidence gate, install/update/defer/retry/rollback/launch check, local data/credential preservation requirement가 #267에 묶여 있는지 확인합니다. 기본 실행은 실제 device evidence 없이 통과하되 `rollbackStatus=blocked`와 `blockedDeviceRuns`로 무엇이 남았는지 보여줍니다. 실제 release 환경에서는 `pnpm verify:packaged-update-rollback -- --require-device-evidence`를 사용하며, 이 모드는 macOS/Windows device run이 모두 passed가 아니면 실패해야 합니다.
 
@@ -101,7 +104,7 @@ pnpm support:bundle
 pnpm support:bundle -- --output ./solo-superman-support-bundle.json
 ```
 
-Windows PowerShell에서는 `pnpm.cmd support:bundle` 또는 `pnpm.cmd support:bundle -- --output .\solo-superman-support-bundle.json`을 사용합니다. Bundle은 OS/Node/pnpm/Codex version, git branch/head/status, repo remote, package script, allowlisted environment, 그리고 `verify:release-channel`/`verify:packaged-update-rollback`/`verify:signed-package-preflight`/`verify:release-readiness`의 credential-free release diagnostics summary만 포함합니다. Release diagnostics는 status, blocked gate, missing credential group id와 env name처럼 값이 아닌 이름만 보존합니다. Full environment dump, file contents, browser cookies, OpenAI/GitHub token, ChatGPT web credential은 수집하지 않으며 URL credential, token/secret/password/API-key shaped value는 redacted로 남깁니다. 실패 리포트에 이 JSON을 첨부하되, 수동으로 secret을 추가하지 마세요.
+Windows PowerShell에서는 `pnpm.cmd support:bundle` 또는 `pnpm.cmd support:bundle -- --output .\solo-superman-support-bundle.json`을 사용합니다. Bundle은 OS/Node/pnpm/Codex version, git branch/head/status, repo remote, package script, allowlisted environment, 그리고 `verify:release-channel`/`verify:windows-real-device`/`verify:packaged-update-rollback`/`verify:signed-package-preflight`/`verify:release-readiness`의 credential-free release diagnostics summary만 포함합니다. Release diagnostics는 status, blocked gate, missing credential group id와 env name처럼 값이 아닌 이름만 보존합니다. Full environment dump, file contents, browser cookies, OpenAI/GitHub token, ChatGPT web credential은 수집하지 않으며 URL credential, token/secret/password/API-key shaped value는 redacted로 남깁니다. 실패 리포트에 이 JSON을 첨부하되, 수동으로 secret을 추가하지 마세요.
 
 Production bundle smoke는 `build_auto_local_smoke`, browser readiness, managed child processes stopped, temporary app data removed, auto shutdown/kill evidence를 포함해야 합니다.
 `pnpm verify:prod-bundle`은 managed sidecar/web child process를 시작하기 전에 fixed smoke port를 먼저 확인합니다. `127.0.0.1:43110` 또는 설정된 web preview port가 이미 사용 중이면 기존 local process를 중지하거나 `SOLO_PROD_SMOKE_SIDECAR_PORT=<free-port>` / `SOLO_PROD_SMOKE_WEB_PORT=<free-port>`로 다시 실행합니다.

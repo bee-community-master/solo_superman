@@ -26,6 +26,7 @@ The local app opens a browser screen through the local web frontend and local No
 | Docs contract | `pnpm verify:docs` |
 | Release channel manifest contract | `pnpm verify:release-channel` |
 | Packaged update rollback evidence contract | `pnpm verify:packaged-update-rollback` |
+| Windows real-device evidence contract | `pnpm verify:windows-real-device` |
 | Signed package credential-free preflight | `pnpm verify:signed-package-preflight` |
 | General release readiness gate | `pnpm verify:release-readiness` |
 | Full gate (typecheck, lint, tests, docs/release/readiness/package contracts, production bundle smoke) | `pnpm verify` |
@@ -59,6 +60,7 @@ The local app opens a browser screen through the local web frontend and local No
 - New route/DTO/enum values are reflected in `docs/reference_KO.md` and `docs/reference_EN.md` and pass `pnpm verify:docs`.
 - Packaged update channel changes update `docs/release-channel_KO.md`, `docs/release-channel_EN.md`, `docs/release-update-channel.example.json`, and `pnpm verify:release-channel` together.
 - Packaged update rollback evidence changes update `docs/packaged-update-rollback_KO.md`, `docs/packaged-update-rollback_EN.md`, `docs/packaged-update-rollback.example.json`, and `pnpm verify:packaged-update-rollback` together.
+- Windows real-device evidence changes update `docs/windows-real-device_KO.md`, `docs/windows-real-device_EN.md`, `docs/windows-real-device.example.json`, and `pnpm verify:windows-real-device` together.
 - Signed package planning changes update `docs/signed-packages_KO.md`, `docs/signed-packages_EN.md`, `docs/signed-package-preflight.example.json`, and `pnpm verify:signed-package-preflight` together.
 - General release readiness changes update `docs/release-readiness_KO.md`, `docs/release-readiness_EN.md`, `docs/release-readiness.example.json`, and `pnpm verify:release-readiness` together.
 - README remains end-user short; detailed contributor or troubleshooting content lives under `docs/`.

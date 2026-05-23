@@ -25,6 +25,14 @@ function fakeCommandRunner(command, args) {
       issues: [],
       checked: ["release URLs are HTTPS and credential-free"]
     })],
+    [`${process.execPath} scripts/verify-windows-real-device.mjs`, JSON.stringify({
+      status: "passed",
+      windowsVerificationStatus: "blocked",
+      windowsRealDeviceReady: false,
+      blockedDeviceRuns: ["windows-one-line-install-first-screen"],
+      blockers: [],
+      checked: ["blocked Windows real-device posture is allowed only with explicit blockers"]
+    })],
     [`${process.execPath} scripts/verify-packaged-update-rollback.mjs`, JSON.stringify({
       status: "passed",
       rollbackStatus: "blocked",
@@ -69,6 +77,7 @@ function fakeCommandRunner(command, args) {
           verify: "pnpm typecheck && pnpm lint",
           verifyProdBundle: "node scripts/verify-prod-bundle.mjs",
           verifyReleaseChannel: "node scripts/verify-release-channel.mjs",
+          verifyWindowsRealDevice: "node scripts/verify-windows-real-device.mjs",
           verifyPackagedUpdateRollback: "node scripts/verify-packaged-update-rollback.mjs",
           verifySignedPackagePreflight: "node scripts/verify-signed-package-preflight.mjs",
           verifyReleaseReadiness: "node scripts/verify-release-readiness.mjs",
@@ -114,6 +123,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.package.scripts.supportBundle).toBe("node scripts/support-bundle.mjs");
     expect(bundle.package.scripts.verifyReleaseReadiness).toBe("node scripts/verify-release-readiness.mjs");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-channel");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:windows-real-device");
     expect(bundle.recommendedChecks).toContain("pnpm verify:packaged-update-rollback");
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-preflight");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-readiness");
@@ -122,6 +132,14 @@ describe("support diagnostics bundle", () => {
       captureStatus: "ok",
       evidenceStatus: "passed",
       manifestPath: "docs/release-update-channel.example.json"
+    });
+    expect(bundle.releaseDiagnostics.windowsRealDevice).toMatchObject({
+      command: "pnpm verify:windows-real-device",
+      captureStatus: "ok",
+      evidenceStatus: "passed",
+      windowsVerificationStatus: "blocked",
+      windowsRealDeviceReady: false,
+      blockedDeviceRuns: ["windows-one-line-install-first-screen"]
     });
     expect(bundle.releaseDiagnostics.packagedUpdateRollback).toMatchObject({
       command: "pnpm verify:packaged-update-rollback",

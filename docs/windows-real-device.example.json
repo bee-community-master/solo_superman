@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "solo-superman-windows-real-device.v1",
+  "appId": "solo-superman",
+  "windowsVerificationStatus": "blocked",
+  "summary": "Windows real-device verification remains blocked until a clean Windows 11 device or VM proves one-line install through first-screen arrival.",
+  "releaseReadinessContract": "docs/release-readiness_KO.md",
+  "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/259",
+  "requiredVerificationCommands": {
+    "credentialFree": [
+      "pnpm verify:prod-bundle",
+      "pnpm verify:windows-real-device",
+      "pnpm verify:release-readiness",
+      "pnpm verify"
+    ],
+    "deviceEvidence": [
+      "pnpm verify:windows-real-device -- --require-device-evidence",
+      "pnpm verify:release-readiness -- --require-ready"
+    ]
+  },
+  "privacyRequirements": [
+    "Evidence references must be redacted before they are attached to a GitHub issue or release PR.",
+    "Support bundles must not include tokens, cookies, credentials, browser session data, or file contents.",
+    "Failure evidence may include support bundle summaries, bootstrap logs, prod-smoke logs, screenshots, and command transcripts only after credential redaction."
+  ],
+  "deviceRuns": [
+    {
+      "id": "windows-one-line-install-first-screen",
+      "platform": "windows",
+      "status": "blocked",
+      "requiredFor": "general-release",
+      "blocker": "Clean Windows 11 device or VM evidence is missing.",
+      "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/259",
+      "evidenceRefs": [
+        "README.md#설치방법",
+        "README.en.md#installation",
+        "docs/troubleshooting_KO.md#manual-windows-powershell-checklist",
+        "docs/troubleshooting_EN.md#manual-windows-powershell-checklist",
+        "https://github.com/bee-community-master/solo_superman/issues/259"
+      ],
+      "requiredChecks": [
+        "run_administrator_powershell_one_line_installer",
+        "handle_uac_elevation",
+        "install_or_reuse_node_git_corepack_pnpm",
+        "install_or_verify_wsl_ubuntu",
+        "install_or_reuse_codex_cli_in_wsl",
+        "verify_visual_cpp_runtime",
+        "create_desktop_shortcut",
+        "reach_first_screen",
+        "rerun_installer_safe_update",
+        "generate_support_bundle",
+        "collect_bootstrap_and_prod_smoke_logs"
+      ],
+      "requiredEvidence": [
+        "Clean Windows 11 one-line installer command reaches the local first screen.",
+        "UAC elevation, Node/Git/Corepack/pnpm, WSL/Ubuntu, Codex CLI, Visual C++ runtime, desktop shortcut, rerun, and safe update paths match README and troubleshooting docs.",
+        "Failure path includes redacted support bundle and bootstrap/prod-smoke logs when any prerequisite blocks first-screen arrival."
+      ],
+      "unblockCriteria": [
+        "Attach redacted Windows device or VM evidence to #259.",
+        "Split any discovered blocker into a separate fix issue/PR before changing this run to passed.",
+        "Run pnpm verify:windows-real-device -- --require-device-evidence and pnpm verify:release-readiness -- --require-ready with the final evidence contract."
+      ]
+    }
+  ]
+}

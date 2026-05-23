@@ -17,6 +17,7 @@ function blockedContract(overrides = {}) {
       credentialFree: [
         "pnpm verify:prod-bundle",
         "pnpm verify:release-channel",
+        "pnpm verify:windows-real-device",
         "pnpm verify:packaged-update-rollback",
         "pnpm verify:signed-package-preflight",
         "pnpm verify:release-readiness",
@@ -24,6 +25,7 @@ function blockedContract(overrides = {}) {
       ],
       readyRelease: [
         "pnpm verify:signed-package-preflight -- --require-credentials",
+        "pnpm verify:windows-real-device -- --require-device-evidence",
         "pnpm verify:packaged-update-rollback -- --require-device-evidence",
         "pnpm verify:release-readiness -- --require-ready"
       ]
@@ -55,7 +57,7 @@ function blockedContract(overrides = {}) {
         requiredFor: "general-release",
         blocker: "Windows real-device one-line installer verification is tracked separately.",
         blockerIssue: "https://github.com/bee-community-master/solo_superman/issues/259",
-        evidenceRefs: ["docs/troubleshooting_KO.md#manual-windows-powershell-checklist"],
+        evidenceRefs: ["docs/windows-real-device_KO.md", "docs/windows-real-device.example.json"],
         requiredEvidence: ["Clean Windows 11 one-line install through first-screen arrival"],
         unblockCriteria: ["Attach support bundle and first-screen evidence to issue #259"]
       }
@@ -160,9 +162,11 @@ describe("release readiness verification", () => {
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:prod-bundle",
+      "$.requiredVerificationCommands.credentialFree: must include pnpm verify:windows-real-device",
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:packaged-update-rollback",
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:release-readiness",
       "$.requiredVerificationCommands.readyRelease: must be a string list with at least 1 item(s)",
+      "$.requiredVerificationCommands.readyRelease: must include pnpm verify:windows-real-device -- --require-device-evidence",
       "$.requiredVerificationCommands.readyRelease: must include pnpm verify:packaged-update-rollback -- --require-device-evidence",
       "$.requiredVerificationCommands.readyRelease: must include pnpm verify:release-readiness -- --require-ready"
     ]));

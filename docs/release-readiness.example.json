@@ -8,6 +8,7 @@
     "credentialFree": [
       "pnpm verify:prod-bundle",
       "pnpm verify:release-channel",
+      "pnpm verify:windows-real-device",
       "pnpm verify:packaged-update-rollback",
       "pnpm verify:signed-package-preflight",
       "pnpm verify:release-readiness",
@@ -15,6 +16,7 @@
     ],
     "readyRelease": [
       "pnpm verify:signed-package-preflight -- --require-credentials",
+      "pnpm verify:windows-real-device -- --require-device-evidence",
       "pnpm verify:packaged-update-rollback -- --require-device-evidence",
       "pnpm verify:release-readiness -- --require-ready"
     ]
@@ -75,7 +77,10 @@
         "README.md#설치방법",
         "README.en.md#installation",
         "docs/troubleshooting_KO.md#manual-windows-powershell-checklist",
-        "docs/troubleshooting_EN.md#manual-windows-powershell-checklist"
+        "docs/troubleshooting_EN.md#manual-windows-powershell-checklist",
+        "docs/windows-real-device_KO.md",
+        "docs/windows-real-device_EN.md",
+        "docs/windows-real-device.example.json"
       ],
       "requiredEvidence": [
         "Clean Windows 11 one-line install reaches the local first screen",
@@ -84,7 +89,8 @@
       ],
       "unblockCriteria": [
         "Complete issue #259 with real Windows device or VM evidence",
-        "Split any discovered blocker into a fix issue/PR before changing broad release status"
+        "Split any discovered blocker into a fix issue/PR before changing broad release status",
+        "Run pnpm verify:windows-real-device -- --require-device-evidence with redacted Windows device or VM evidence"
       ]
     }
   ]

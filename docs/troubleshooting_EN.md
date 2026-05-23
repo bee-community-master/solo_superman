@@ -76,15 +76,18 @@ Contributors can run:
 ```sh
 pnpm verify:prod-bundle
 pnpm verify:release-channel
+pnpm verify:windows-real-device
 pnpm verify:packaged-update-rollback
 pnpm verify:signed-package-preflight
 pnpm verify:release-readiness
 pnpm verify
 ```
 
-On Windows PowerShell, use `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:packaged-update-rollback`, `pnpm.cmd verify:signed-package-preflight`, `pnpm.cmd verify:release-readiness`, and `pnpm.cmd verify` so the Node/Corepack command shim runs even when local execution policy blocks `pnpm.ps1`.
+On Windows PowerShell, use `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:windows-real-device`, `pnpm.cmd verify:packaged-update-rollback`, `pnpm.cmd verify:signed-package-preflight`, `pnpm.cmd verify:release-readiness`, and `pnpm.cmd verify` so the Node/Corepack command shim runs even when local execution policy blocks `pnpm.ps1`.
 
 `pnpm verify:release-channel` checks `docs/release-update-channel.example.json` for manifest signature, artifact checksum/signature, user consent/deferral, retry, rollback, and credential/user-data preservation declarations. It verifies the release channel contract; it does not install signed packages or apply real updates.
+
+`pnpm verify:windows-real-device` checks `docs/windows-real-device.example.json` for clean Windows 11 device/VM evidence covering the one-line PowerShell installer, UAC, Node/Git/Corepack/pnpm, WSL/Ubuntu, Codex CLI, Visual C++ runtime, desktop shortcut, rerun safe update, support bundle, and bootstrap/prod-smoke logs tied to #259. The default run passes without real Windows evidence and reports remaining work through `windowsVerificationStatus=blocked` and `blockedDeviceRuns`. In a real release environment, use `pnpm verify:windows-real-device -- --require-device-evidence`; that mode must fail until the Windows device run is passed.
 
 `pnpm verify:packaged-update-rollback` checks `docs/packaged-update-rollback.example.json` for macOS/Windows device rollback evidence gates, install/update/defer/retry/rollback/launch checks, and local data/credential preservation requirements tied to #267. The default run passes without real device evidence and reports remaining work through `rollbackStatus=blocked` and `blockedDeviceRuns`. In a real release environment, use `pnpm verify:packaged-update-rollback -- --require-device-evidence`; that mode must fail until both macOS and Windows device runs are passed.
 
@@ -101,7 +104,7 @@ pnpm support:bundle
 pnpm support:bundle -- --output ./solo-superman-support-bundle.json
 ```
 
-On Windows PowerShell, use `pnpm.cmd support:bundle` or `pnpm.cmd support:bundle -- --output .\solo-superman-support-bundle.json`. The bundle includes OS/Node/pnpm/Codex versions, git branch/head/status, repo remote, package scripts, allowlisted environment values, and credential-free release diagnostics summaries for `verify:release-channel`, `verify:packaged-update-rollback`, `verify:signed-package-preflight`, and `verify:release-readiness` only. Release diagnostics preserve status, blocked gates, missing credential group ids, and env names rather than secret values. It excludes full environment dumps, file contents, browser cookies, OpenAI/GitHub tokens, and ChatGPT web credentials; URL credentials and token/secret/password/API-key shaped values are redacted. Attach the JSON as-is and do not add secrets manually.
+On Windows PowerShell, use `pnpm.cmd support:bundle` or `pnpm.cmd support:bundle -- --output .\solo-superman-support-bundle.json`. The bundle includes OS/Node/pnpm/Codex versions, git branch/head/status, repo remote, package scripts, allowlisted environment values, and credential-free release diagnostics summaries for `verify:release-channel`, `verify:windows-real-device`, `verify:packaged-update-rollback`, `verify:signed-package-preflight`, and `verify:release-readiness` only. Release diagnostics preserve status, blocked gates, missing credential group ids, and env names rather than secret values. It excludes full environment dumps, file contents, browser cookies, OpenAI/GitHub tokens, and ChatGPT web credentials; URL credentials and token/secret/password/API-key shaped values are redacted. Attach the JSON as-is and do not add secrets manually.
 
 A production bundle smoke must cover `build_auto_local_smoke`, browser readiness, managed child processes stopped, temporary app data removed, and auto shutdown/kill evidence.
 Before it starts managed sidecar/web child processes, `pnpm verify:prod-bundle` probes the fixed smoke ports. If `127.0.0.1:43110` or the configured web preview port is already in use, stop the existing local process or rerun with `SOLO_PROD_SMOKE_SIDECAR_PORT=<free-port>` / `SOLO_PROD_SMOKE_WEB_PORT=<free-port>`.
