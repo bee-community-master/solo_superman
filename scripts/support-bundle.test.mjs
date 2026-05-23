@@ -110,10 +110,11 @@ function fakeCommandRunner(command, args) {
       status: "passed",
       schemaVersion: "solo-superman-release-evidence-template-validation.v1",
       mode: "credential-free-fixture",
-      filterIssueNumber: "266",
-      itemCount: 4,
+      filterIssueNumber: "all",
+      issueNumbers: [259, 266, 267],
+      itemCount: 9,
       issues: [],
-      checked: ["filled template is secret-free"]
+      checked: ["filled release evidence templates for every blocked release issue"]
     })]
   ]);
 
@@ -318,8 +319,9 @@ describe("support diagnostics bundle", () => {
       captureStatus: "ok",
       evidenceStatus: "passed",
       mode: "credential-free-fixture",
-      filterIssueNumber: "266",
-      itemCount: 4,
+      filterIssueNumber: "all",
+      issueNumbers: ["259", "266", "267"],
+      itemCount: 9,
       issues: []
     });
     expect(serialized).not.toContain("secret-token");
