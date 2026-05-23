@@ -8913,6 +8913,13 @@ describe("PR-02 sidecar health shell", () => {
       });
       const blockedJobRun = latestAutoImplementationRunFromBody(await jsonBody(blockedJobResponse));
       const blockedJobs = blockedJobRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+      const blockedIssueDocs = (blockedJobRun.issueManagement as Readonly<Record<string, unknown>>)
+        .issueDocs as readonly Readonly<Record<string, unknown>>[];
+      const blockedManifest = JSON.parse(
+        await readFile(join(workspaceRoot, "worker-job-demo", ".solo-superman", "auto-implementation-run.json"), "utf8")
+      ) as Readonly<Record<string, unknown>>;
+      const blockedManifestIssueDocs = ((blockedManifest.issueManagement as Readonly<Record<string, unknown>>)
+        .issueDocs ?? []) as readonly Readonly<Record<string, unknown>>[];
       const blockedWorkerIssue = await readFile(
         join(workspaceRoot, "worker-job-demo", "implementation-issues", "001-initial_pr.md"),
         "utf8"
@@ -8946,6 +8953,14 @@ describe("PR-02 sidecar health shell", () => {
             expect.stringContaining("evidence refs")
           ])
         }
+      });
+      expect(blockedIssueDocs[0]).toMatchObject({
+        issueId: "local-001",
+        status: "blocked"
+      });
+      expect(blockedManifestIssueDocs[0]).toMatchObject({
+        issueId: "local-001",
+        status: "blocked"
       });
       expect(blockedWorkerIssue).toContain("- Issue status: blocked");
       expect(blockedWorkerIssue).toContain(`- Latest stage worker job: ${String(blockedJobs[0]!.jobId)} (blocked)`);
@@ -11067,11 +11082,15 @@ describe("PR-02 sidecar health shell", () => {
       const completedProjection = jsonDataRecord(await jsonBody(completed));
       const completedRun = completedProjection.latestRun as Readonly<Record<string, unknown>>;
       const completedStages = completedRun.stagePlan as readonly Readonly<Record<string, unknown>>[];
+      const completedIssueDocs = (completedRun.issueManagement as Readonly<Record<string, unknown>>)
+        .issueDocs as readonly Readonly<Record<string, unknown>>[];
       const completedInitial = completedStages[0]!;
       const nextStage = completedStages[1]!;
       const syncedManifest = JSON.parse(
         await readFile(join(workspaceRoot, "stage-runner-app", ".solo-superman", "auto-implementation-run.json"), "utf8")
       ) as Readonly<Record<string, unknown>>;
+      const syncedManifestIssueDocs = ((syncedManifest.issueManagement as Readonly<Record<string, unknown>>)
+        .issueDocs ?? []) as readonly Readonly<Record<string, unknown>>[];
       const syncedTracker = await readFile(join(workspaceRoot, "stage-runner-app", "implementation-tracker.md"), "utf8");
       const syncedIssue = await readFile(
         join(workspaceRoot, "stage-runner-app", "implementation-issues", "001-initial_pr.md"),
@@ -11123,6 +11142,14 @@ describe("PR-02 sidecar health shell", () => {
           implementationEvidenceRefs: ["commit:abcdef1"],
           testEvidenceRefs: ["test:verify"]
         }
+      });
+      expect(completedIssueDocs[0]).toMatchObject({
+        issueId: "local-001",
+        status: "completed"
+      });
+      expect(syncedManifestIssueDocs[0]).toMatchObject({
+        issueId: "local-001",
+        status: "completed"
       });
       expect(syncedTracker).toContain("- Run status: running");
       expect(syncedTracker).toContain("- Current stage: code_review_fix_1");

@@ -29,6 +29,7 @@ import {
   canOpenNewAutoImplementationPullRequest,
   canPlanCurrentStageAutoImplementationWorkerJob,
   canRunAutoImplementationWorkerJob,
+  autoImplementationRunWithSynchronizedIssueDocs,
   autoImplementationWorkerExpectedChangeScope,
   autoImplementationWorkerLedgerStepDescription,
   validateAutoImplementationRunProjection,
@@ -1251,7 +1252,7 @@ function normalizeLegacyAutoImplementationRun(run: AutoImplementationRun): AutoI
     ? run.workerJobs.map((job) => normalizeLegacyAutoImplementationWorkerJob(run, job))
     : [];
 
-  return {
+  return autoImplementationRunWithSynchronizedIssueDocs({
     ...run,
     workerJobs: normalizedWorkerJobs,
     pullRequestMutations: pullRequestMutations &&
@@ -1262,7 +1263,7 @@ function normalizeLegacyAutoImplementationRun(run: AutoImplementationRun): AutoI
           records: [],
           latestRecord: null
         }
-  };
+  });
 }
 
 function normalizeLegacyAutoImplementationProjection(
@@ -2560,12 +2561,19 @@ export function createProductEngineCommandService(
     readonly latestRun: AutoImplementationRun;
     readonly updatedAt: string;
   }) {
-    await synchronizeAutoImplementationRunWorkspaceState(input.latestRun);
+    const latestRun = autoImplementationRunWithSynchronizedIssueDocs(input.latestRun);
+    const projection = validateAutoImplementationRunProjection({
+      ...input.projection,
+      latestRun,
+      runs: input.projection.runs.map((run) => run.runId === latestRun.runId ? latestRun : run)
+    });
+
+    await synchronizeAutoImplementationRunWorkspaceState(latestRun);
 
     return input.projectionRepository.save({
       projectId: input.projectId,
       sessionId: input.sessionId,
-      projection: input.projection,
+      projection,
       schemaVersion: CONTRACT_SCHEMA_VERSION,
       updatedAt: input.updatedAt
     });

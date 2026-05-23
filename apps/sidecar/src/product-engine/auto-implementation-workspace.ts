@@ -15,6 +15,8 @@ import {
   AUTO_IMPLEMENTATION_STAGES,
   AUTO_IMPLEMENTATION_TICK_INTERVAL_MS,
   DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES,
+  autoImplementationIssueDocumentStatus,
+  latestAutoImplementationWorkerJobForIssue,
   defaultAutoImplementationReviewProtocol,
   isAutoImplementationReservedProjectFolderName,
   type AutoImplementationIssueDocument,
@@ -779,31 +781,6 @@ function autoImplementationStageRecordForIssue(run: AutoImplementationRun, issue
   return run.stagePlan.find((stage) => stage.stage === issue.stage) ?? null;
 }
 
-function derivedAutoImplementationIssueStatus(
-  issue: AutoImplementationIssueDocument,
-  stage: AutoImplementationRun["stagePlan"][number] | null,
-  latestWorkerJob: AutoImplementationRun["workerJobs"][number] | null
-): AutoImplementationIssueDocument["status"] {
-  if (stage?.status === "completed") {
-    return "completed";
-  }
-
-  if (stage?.status === "blocked" || stage?.status === "failed" || latestWorkerJob?.status === "blocked") {
-    return "blocked";
-  }
-
-  return issue.status;
-}
-
-function latestAutoImplementationWorkerJobForIssue(
-  run: AutoImplementationRun,
-  issue: AutoImplementationIssueDocument
-) {
-  return [...run.workerJobs]
-    .reverse()
-    .find((job) => job.stage === issue.stage && job.issueId === issue.issueId) ?? null;
-}
-
 function autoImplementationIssueNextAction(input: {
   readonly stage: AutoImplementationRun["stagePlan"][number] | null;
   readonly latestWorkerJob: AutoImplementationRun["workerJobs"][number] | null;
@@ -835,7 +812,7 @@ function autoImplementationIssueStateMarkdown(run: AutoImplementationRun, issue:
     "",
     `- Run status: ${run.status}`,
     `- Current run stage: ${run.currentStage}`,
-    `- Issue status: ${derivedAutoImplementationIssueStatus(issue, stage, latestWorkerJob)}`,
+    `- Issue status: ${autoImplementationIssueDocumentStatus(run, issue)}`,
     `- Stage status: ${stage?.status ?? "missing"}`,
     `- Updated at: ${run.updatedAt}`,
     `- Next tick at: ${run.nextTickAt}`,

@@ -6,6 +6,8 @@ import {
   AUTO_IMPLEMENTATION_STAGES,
   AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
   AutoImplementationRunValidationError,
+  autoImplementationIssueDocumentStatus,
+  autoImplementationRunWithSynchronizedIssueDocs,
   autoImplementationWorkerExpectedChangeScope,
   autoImplementationWorkerLedgerStepDescription,
   canCreateAutoImplementationGitHubIssues,
@@ -271,6 +273,72 @@ describe("AutoImplementationRunProjection contract", () => {
     });
 
     expect(validateAutoImplementationRunProjection(valid)).toBe(valid);
+  });
+
+  it("derives issue document status from stage and worker state", () => {
+    const issue = requiredFixtureItem(readyRun.issueManagement.issueDocs, 0, "issue doc");
+    const blockedWorkerJob: AutoImplementationRun["workerJobs"][number] = {
+      jobId: "auto-worker-job:auto_run_demo:initial_pr:blocked_1",
+      runId: readyRun.runId,
+      stage: "initial_pr",
+      issueId: issue.issueId,
+      issueTitle: issue.title,
+      issueRelativePath: issue.relativePath,
+      status: "blocked",
+      executionPlan: workerExecutionPlan(),
+      blockedReason: "ExecutionAuthorityRecord is missing.",
+      missingEvidence: ["ExecutionAuthorityRecord"],
+      nextRequiredAction: "Create a bounded ExecutionAuthorityRecord before local worker execution.",
+      createdAt: "2026-05-19T00:01:00.000Z",
+      updatedAt: "2026-05-19T00:01:00.000Z",
+      evidenceRefs: ["auto-worker-job:auto_run_demo:initial_pr:blocked_1"]
+    };
+    const plannedWorkerJob: AutoImplementationRun["workerJobs"][number] = {
+      ...blockedWorkerJob,
+      jobId: "auto-worker-job:auto_run_demo:initial_pr:planned_2",
+      status: "planned",
+      blockedReason: null,
+      missingEvidence: [],
+      nextRequiredAction: "Run the bounded worker.",
+      updatedAt: "2026-05-19T00:02:00.000Z"
+    };
+    const blockedWorkerRun: AutoImplementationRun = {
+      ...readyRun,
+      workerJobs: [blockedWorkerJob]
+    };
+    const retryableRun: AutoImplementationRun = {
+      ...readyRun,
+      workerJobs: [blockedWorkerJob, plannedWorkerJob]
+    };
+    const completedRun: AutoImplementationRun = {
+      ...readyRun,
+      stagePlan: readyRun.stagePlan.map((stage, index) => index === 0
+        ? {
+            ...stage,
+            status: "completed" as const,
+            ledgerEvidence: {
+              implementationStepId: "step_demo",
+              trackerDocRef: "implementation-step-ledger:tracker:tracker_demo",
+              stepDocRef: "implementation-step-ledger:step:step_demo",
+              implementationEvidenceRefs: ["commit:abcdef1"],
+              codeReviewStreakRefs: ["code-review:feature:clean-1", "code-review:feature:clean-2"],
+              cleanCodeReviewStreakRefs: ["clean-code:changed:clean-1", "clean-code:changed:clean-2"],
+              testEvidenceRefs: ["test:verify"],
+              blockerEvidenceRefs: [],
+              evidenceRefs: ["implementation-step-ledger:step_demo"]
+            },
+            blocker: null
+          }
+        : stage)
+    };
+
+    expect(autoImplementationIssueDocumentStatus(blockedWorkerRun, issue)).toBe("blocked");
+    expect(autoImplementationRunWithSynchronizedIssueDocs(blockedWorkerRun).issueManagement.issueDocs[0]).toMatchObject({
+      issueId: issue.issueId,
+      status: "blocked"
+    });
+    expect(autoImplementationIssueDocumentStatus(retryableRun, issue)).toBe("open");
+    expect(autoImplementationIssueDocumentStatus(completedRun, issue)).toBe("completed");
   });
 
   it("rejects worker execution plans that omit the exact planned ledger docs", () => {
