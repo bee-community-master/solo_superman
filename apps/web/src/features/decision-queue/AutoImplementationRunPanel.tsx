@@ -5,6 +5,7 @@ import {
   canOpenNewAutoImplementationPullRequest,
   canPlanCurrentStageAutoImplementationWorkerJob,
   canRunAutoImplementationWorkerJob,
+  hasAppliedAutoImplementationPullRequestMerge,
   autoImplementationGitHubIssueUrlForIssue,
   latestAutoImplementationWorkerJobForIssue,
   latestCurrentStageAutoImplementationWorkerJob,
@@ -410,7 +411,8 @@ export function autoImplementationRunViewModel(
       hasReadyPullRequestDryRun("merge_pr") &&
       canMergeAutoImplementationPullRequest(run),
     canRunWorkerJob,
-    canAdvanceWorkerStage: latestWorkerJob?.status === "completed",
+    canAdvanceWorkerStage: latestWorkerJob?.status === "completed" &&
+      (run.currentStage !== "merge_main" || hasAppliedAutoImplementationPullRequestMerge(run)),
     hasRun: true
   };
 }
