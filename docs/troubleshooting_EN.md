@@ -4,7 +4,7 @@ Language: [한국어](troubleshooting_KO.md) | English
 
 ## Release posture
 
-Solo Superman is currently a limited-beta-style technical preview. The goal is to let a non-developer reach the local web screen through a safe one-line installer, while keeping risky actions reviewable.
+Solo Superman is currently a limited-beta-style technical preview. The goal is to let a non-developer reach the local web screen through a safe one-line installer, while keeping risky actions reviewable. The packaged app update channel is defined only by the manifest/signature/checksum/retry/rollback contract in [`release-channel_EN.md`](release-channel_EN.md); real automatic update application remains deferred until signed packages and device rollback verification exist.
 
 ## One-line install
 
@@ -12,7 +12,7 @@ Solo Superman is currently a limited-beta-style technical preview. The goal is t
 | --- | --- |
 | `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-macos.sh)"` | `irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/win.ps1 \| iex` |
 
-The Windows one-line command runs only the short `scripts/win.ps1` launcher. The launcher sets UTF-8 console output, TLS 1.2, UTF-8 script download decoding, and BOM stripping before running the full bootstrap, including on Windows PowerShell 5.1. The installer checks Node.js 24+, Git, Corepack/pnpm, Codex CLI, dependency install, local run readiness, and browser opening. On Windows it keeps app execution on Windows Node/pnpm, but installs and runs Codex CLI inside WSL by default with `SOLO_CODEX_WINDOWS_MODE=wsl` because that path is more stable for Codex/Codex CLI on affected Windows machines. When an existing Codex CLI passes `codex --version`, the installer reuses it even if npm global install reports `EEXIST` or `already exists`. It also opens a Codex Desktop App guidance window for users who want vibe coding or multiple parallel agents after Solo Superman setup. It should not overwrite an existing folder or kill an unrelated process to claim a port. If the existing install folder is a clean checkout, the installer runs `git fetch --prune origin` and attempts a safe fast-forward update to `origin/main`; when local changes, untracked files, detached HEAD, another branch, or a diverged branch are present, it skips the update instead of overwriting user files.
+The Windows one-line command runs only the short `scripts/win.ps1` launcher. The launcher sets UTF-8 console output, TLS 1.2, UTF-8 script download decoding, and BOM stripping before running the full bootstrap, including on Windows PowerShell 5.1. The installer checks Node.js 24+, Git, Corepack/pnpm, Codex CLI, dependency install, local run readiness, and browser opening. On Windows it keeps app execution on Windows Node/pnpm, but installs and runs Codex CLI inside WSL by default with `SOLO_CODEX_WINDOWS_MODE=wsl` because that path is more stable for Codex/Codex CLI on affected Windows machines. When an existing Codex CLI passes `codex --version`, the installer reuses it even if npm global install reports `EEXIST` or `already exists`. It also opens a Codex Desktop App guidance window for users who want vibe coding or multiple parallel agents after Solo Superman setup. It should not overwrite an existing folder or kill an unrelated process to claim a port. If the existing install folder is a clean checkout, the installer runs `git fetch --prune origin` and attempts a safe fast-forward update to `origin/main`; when local changes, untracked files, detached HEAD, another branch, or a diverged branch are present, it skips the update instead of overwriting user files. This path is not a packaged app automatic update and does not migrate or clean up local data or credentials.
 
 ## Manual prerequisites
 
@@ -75,10 +75,13 @@ Contributors can run:
 
 ```sh
 pnpm verify:prod-bundle
+pnpm verify:release-channel
 pnpm verify
 ```
 
-On Windows PowerShell, use `pnpm.cmd verify:prod-bundle` and `pnpm.cmd verify` so the Node/Corepack command shim runs even when local execution policy blocks `pnpm.ps1`.
+On Windows PowerShell, use `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, and `pnpm.cmd verify` so the Node/Corepack command shim runs even when local execution policy blocks `pnpm.ps1`.
+
+`pnpm verify:release-channel` checks `docs/release-update-channel.example.json` for manifest signature, artifact checksum/signature, user consent/deferral, retry, rollback, and credential/user-data preservation declarations. It verifies the release channel contract; it does not install signed packages or apply real updates.
 
 ## Support bundle for error reports
 

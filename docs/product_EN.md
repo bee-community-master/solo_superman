@@ -63,4 +63,4 @@ Business mode also requires an explicit `businessCriticIntensity`; it has no def
 
 ## Current release
 
-The current public posture is a limited-beta-style technical preview. It proves the local web install/run path and keeps dangerous actions reviewable. It is not yet a broad consumer-grade installer with signed macOS/Windows packages, automatic updates, telemetry, or Windows real-device certification.
+The current public posture is a limited-beta-style technical preview. It proves the local web install/run path and keeps dangerous actions reviewable. The packaged update channel currently locks only the manifest/signature/checksum/retry/rollback verification contract in `docs/release-channel_EN.md`; real automatic update application remains deferred until signed macOS/Windows installer packages and device rollback verification exist. It is not yet a broad consumer-grade installer with signed macOS/Windows packages, automatic updates, telemetry, or Windows real-device certification.

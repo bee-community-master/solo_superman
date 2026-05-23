@@ -24,7 +24,8 @@ The local app opens a browser screen through the local web frontend and local No
 | Unit tests | `pnpm test` |
 | E2E smoke | `pnpm smoke:e2e` |
 | Docs contract | `pnpm verify:docs` |
-| Full gate (typecheck, lint, tests, docs contract, production bundle smoke) | `pnpm verify` |
+| Release channel manifest contract | `pnpm verify:release-channel` |
+| Full gate (typecheck, lint, tests, docs/release contracts, production bundle smoke) | `pnpm verify` |
 
 ## Repository map
 
@@ -35,7 +36,7 @@ The local app opens a browser screen through the local web frontend and local No
 | `packages/contracts` | Public DTOs, command/event/envelope types, API route catalog, SSE contracts. |
 | `packages/core` | ProductEngine reducer, Spec/Research/Completeness logic, deterministic projections. |
 | `packages/db` | Local embedded libSQL/Drizzle schema and repositories. |
-| `scripts` | Local run, bundle smoke, docs contract verification. |
+| `scripts` | Local run, bundle smoke, docs/release contract verification. |
 | `docs` | Contributor onboarding and code-backed reference contracts. |
 
 ## Contribution workflow
@@ -44,7 +45,7 @@ The local app opens a browser screen through the local web frontend and local No
 2. Read the relevant onboarding docs before editing code.
 3. Make the smallest focused, reviewable change that solves the issue without widening unrelated behavior.
 4. Update `docs/reference_KO.md` and `docs/reference_EN.md` if enum, DTO, route, or public contract values changed.
-5. Run targeted tests first, then `pnpm verify` before final PR closeout; it includes the production bundle/local smoke gate.
+5. Run targeted tests first, then `pnpm verify` before final PR closeout; it includes the docs/release contracts and production bundle/local smoke gate.
 6. Open a draft PR with evidence: what changed, what was tested, and known gaps.
 
 ## PR checklist
@@ -53,4 +54,5 @@ The local app opens a browser screen through the local web frontend and local No
 - Local-first assumptions remain true: no hosted SaaS default and no browser-only DB rewrite.
 - File, shell, browser, credential, or external-production actions still require explicit authority boundaries.
 - New route/DTO/enum values are reflected in `docs/reference_KO.md` and `docs/reference_EN.md` and pass `pnpm verify:docs`.
+- Packaged update channel changes update `docs/release-channel_KO.md`, `docs/release-channel_EN.md`, `docs/release-update-channel.example.json`, and `pnpm verify:release-channel` together.
 - README remains end-user short; detailed contributor or troubleshooting content lives under `docs/`.

@@ -14,6 +14,7 @@ export const CONTRIBUTOR_DOC_PATHS = [
   "docs/roadmap_KO.md",
   "docs/decisions_KO.md",
   "docs/reference_KO.md",
+  "docs/release-channel_KO.md",
   "docs/troubleshooting_KO.md"
 ];
 
@@ -28,6 +29,7 @@ const CONTRIBUTOR_DOC_SLUGS = [
   "roadmap",
   "decisions",
   "reference",
+  "release-channel",
   "troubleshooting"
 ];
 

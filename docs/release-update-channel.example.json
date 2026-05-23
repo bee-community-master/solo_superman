@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "solo-superman-release-update-manifest.v1",
+  "appId": "solo-superman",
+  "channel": "preview",
+  "version": "0.1.0",
+  "releasedAt": "2026-05-23T00:00:00Z",
+  "releaseNotesUrl": "https://github.com/bee-community-master/solo_superman/releases/tag/v0.1.0",
+  "updatePolicy": {
+    "requiresUserConsent": true,
+    "allowsUserDeferral": true,
+    "verifiesManifestSignature": true,
+    "verifiesArtifactChecksum": true,
+    "verifiesArtifactSignature": true,
+    "preservesUserData": true,
+    "preservesCredentials": true,
+    "supportsRetry": true,
+    "supportsRollback": true,
+    "failureMode": "If any download, signature, checksum, install, or launch verification fails, keep the currently installed app version active and show a retry/rollback-safe error without changing local user data.",
+    "rollbackBoundary": "Rollback may replace only packaged app binaries and release metadata; it must not delete or rewrite local databases, generated workspaces, support bundles, or operator files.",
+    "credentialBoundary": "The updater must not read, copy, upload, rewrite, or delete Codex/OpenAI/GitHub credentials, browser cookies, local capability tokens, or environment secrets."
+  },
+  "manifestSignature": {
+    "kind": "ed25519",
+    "publicKeyId": "solo-superman-release-preview-2026-05",
+    "signatureRef": "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/solo-superman-release-update-manifest.v1.json.sig"
+  },
+  "artifacts": [
+    {
+      "platform": "macos-arm64",
+      "packageKind": "macos-dmg",
+      "url": "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/solo-superman-0.1.0-macos-arm64.dmg",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sizeBytes": 125829120,
+      "signature": {
+        "kind": "apple-codesign-notarization",
+        "publicKeyId": "developer-id-application-preview-2026-05",
+        "signatureRef": "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/solo-superman-0.1.0-macos-arm64.dmg.notarization.json"
+      }
+    },
+    {
+      "platform": "macos-x64",
+      "packageKind": "macos-dmg",
+      "url": "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/solo-superman-0.1.0-macos-x64.dmg",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sizeBytes": 130023424,
+      "signature": {
+        "kind": "apple-codesign-notarization",
+        "publicKeyId": "developer-id-application-preview-2026-05",
+        "signatureRef": "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/solo-superman-0.1.0-macos-x64.dmg.notarization.json"
+      }
+    },
+    {
+      "platform": "windows-x64",
+      "packageKind": "windows-msi",
+      "url": "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/solo-superman-0.1.0-windows-x64.msi",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "sizeBytes": 146800640,
+      "signature": {
+        "kind": "windows-authenticode",
+        "publicKeyId": "authenticode-preview-2026-05",
+        "signatureRef": "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/solo-superman-0.1.0-windows-x64.msi.authenticode.json"
+      }
+    }
+  ]
+}
