@@ -43,6 +43,8 @@ export interface AutoImplementationIssueRowView {
   readonly latestWorkerJobLabel: string;
   readonly blockerLabel: string | null;
   readonly nextActionLabel: string;
+  readonly missingEvidenceLabel: string;
+  readonly evidenceRefsLabel: string;
 }
 
 export interface AutoImplementationRunViewModel {
@@ -148,6 +150,32 @@ function latestIssueWorkerJobLabel(latestWorkerJob: AutoImplementationWorkerJob 
   return latestWorkerJob ? `latest worker ${latestWorkerJob.jobId} (${latestWorkerJob.status})` : "latest worker none";
 }
 
+function issueRowMissingEvidence(
+  stage: AutoImplementationStageRecord | null,
+  latestWorkerJob: AutoImplementationWorkerJob | null
+) {
+  if (latestWorkerJob?.missingEvidence.length) {
+    return latestWorkerJob.missingEvidence;
+  }
+
+  return stage?.blocker?.missingEvidence ?? [];
+}
+
+function issueRowEvidenceRefs(
+  stage: AutoImplementationStageRecord | null,
+  latestWorkerJob: AutoImplementationWorkerJob | null
+) {
+  if (latestWorkerJob?.evidenceRefs.length) {
+    return latestWorkerJob.evidenceRefs;
+  }
+
+  if (stage?.blocker?.evidenceRefs.length) {
+    return stage.blocker.evidenceRefs;
+  }
+
+  return stage?.evidenceRefs ?? [];
+}
+
 function autoImplementationIssueRowView(
   run: AutoImplementationRun,
   issue: AutoImplementationIssueDocument
@@ -159,7 +187,9 @@ function autoImplementationIssueRowView(
     issue,
     latestWorkerJobLabel: latestIssueWorkerJobLabel(latestWorkerJob),
     blockerLabel: issueRowBlockerLabel({ stage, latestWorkerJob }),
-    nextActionLabel: issueRowNextAction({ stage, latestWorkerJob })
+    nextActionLabel: issueRowNextAction({ stage, latestWorkerJob }),
+    missingEvidenceLabel: inlineList(issueRowMissingEvidence(stage, latestWorkerJob), "none"),
+    evidenceRefsLabel: inlineList(issueRowEvidenceRefs(stage, latestWorkerJob), "none")
   };
 }
 
@@ -628,6 +658,10 @@ export function AutoImplementationRunPanel({
               {row.latestWorkerJobLabel}
               {" · "}
               next: {row.nextActionLabel}
+              {" · "}
+              missing: {row.missingEvidenceLabel}
+              {" · "}
+              evidence: {row.evidenceRefsLabel}
               {row.blockerLabel ? ` · ${row.blockerLabel}` : ""}
             </li>
           ))}
