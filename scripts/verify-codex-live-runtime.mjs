@@ -166,51 +166,68 @@ export async function assertCodexLiveRuntimeSmokePortAvailable(config, options =
   ], "verify-codex-live-runtime", options);
 }
 
-export function evaluateCodexLiveRuntimeStatus(envelope) {
-  const status = envelope && typeof envelope === "object" && envelope.ok === true && envelope.data && typeof envelope.data === "object"
+function runtimeStatusFromEnvelope(envelope) {
+  return envelope && typeof envelope === "object" && envelope.ok === true && envelope.data && typeof envelope.data === "object"
     ? envelope.data
     : null;
+}
+
+function liveRuntimeStatusBlockers(status) {
   const blockers = [];
 
   if (!status) {
     blockers.push("runtime status response must be an ok=true envelope with data");
-  } else {
-    if (status.status !== "available") {
-      blockers.push(`runtime status must be available; received ${JSON.stringify(status.status)}`);
-    }
-
-    if (status.executionMode !== "live") {
-      blockers.push(`executionMode must be live; received ${JSON.stringify(status.executionMode)}`);
-    }
-
-    if (status.liveTurnExecutionEnabled !== true) {
-      blockers.push("liveTurnExecutionEnabled must be true");
-    }
-
-    if (!status.account || status.account.status !== "authenticated") {
-      blockers.push(`account.status must be authenticated; received ${JSON.stringify(status.account?.status ?? null)}`);
-    }
+    return blockers;
   }
+
+  if (status.status !== "available") {
+    blockers.push(`runtime status must be available; received ${JSON.stringify(status.status)}`);
+  }
+
+  if (status.executionMode !== "live") {
+    blockers.push(`executionMode must be live; received ${JSON.stringify(status.executionMode)}`);
+  }
+
+  if (status.liveTurnExecutionEnabled !== true) {
+    blockers.push("liveTurnExecutionEnabled must be true");
+  }
+
+  if (!status.account || status.account.status !== "authenticated") {
+    blockers.push(`account.status must be authenticated; received ${JSON.stringify(status.account?.status ?? null)}`);
+  }
+
+  return blockers;
+}
+
+function publicRuntimeStatus(status) {
+  if (!status) {
+    return null;
+  }
+
+  return {
+    status: status.status,
+    executionMode: status.executionMode,
+    liveTurnExecutionEnabled: status.liveTurnExecutionEnabled,
+    manualHandoffAvailable: status.manualHandoffAvailable,
+    checkedAt: status.checkedAt,
+    adapterVersion: status.adapterVersion,
+    generatedSchemaVersion: status.generatedSchemaVersion,
+    transport: status.transport,
+    accountStatus: status.account?.status ?? null,
+    accountType: status.account?.accountType ?? null,
+    hasAccountEmail: Boolean(status.account?.email),
+    reason: status.reason ?? status.account?.reason ?? null
+  };
+}
+
+export function evaluateCodexLiveRuntimeStatus(envelope) {
+  const status = runtimeStatusFromEnvelope(envelope);
+  const blockers = liveRuntimeStatusBlockers(status);
 
   return {
     status: blockers.length === 0 ? "passed" : "blocked",
     smoke: "codex_live_runtime_readiness",
-    runtime: status
-      ? {
-          status: status.status,
-          executionMode: status.executionMode,
-          liveTurnExecutionEnabled: status.liveTurnExecutionEnabled,
-          manualHandoffAvailable: status.manualHandoffAvailable,
-          checkedAt: status.checkedAt,
-          adapterVersion: status.adapterVersion,
-          generatedSchemaVersion: status.generatedSchemaVersion,
-          transport: status.transport,
-          accountStatus: status.account?.status ?? null,
-          accountType: status.account?.accountType ?? null,
-          hasAccountEmail: Boolean(status.account?.email),
-          reason: status.reason ?? status.account?.reason ?? null
-        }
-      : null,
+    runtime: publicRuntimeStatus(status),
     checked: [
       "authenticated local API responded",
       "runtime status is available",
@@ -220,6 +237,62 @@ export function evaluateCodexLiveRuntimeStatus(envelope) {
     ],
     blockers
   };
+}
+
+async function fetchCodexLiveRuntimeStatus(config, processes, diagnostics) {
+  diagnostics.step(`fetch wait: ${config.sidecarBaseUrl}${LIVE_RUNTIME_STATUS_PATH} expected=200 auth=local-token timeoutMs=${config.timeoutMs}`);
+
+  const runtimeStatus = await waitForFetch(`${config.sidecarBaseUrl}${LIVE_RUNTIME_STATUS_PATH}`, {
+    expectedStatus: 200,
+    headers: {
+      Authorization: `Bearer ${config.localCapabilityToken}`
+    },
+    timeoutMs: config.timeoutMs,
+    processes
+  });
+  diagnostics.step("fetch passed: authenticated runtime status");
+
+  return JSON.parse(runtimeStatus.text);
+}
+
+async function startCodexLiveRuntimeSidecar(config, commands, env, processes, diagnostics) {
+  console.log(`verify-codex-live-runtime: starting sidecar ${config.sidecarBaseUrl}`);
+  diagnostics.step(`managed process start: ${commandLabel(commands.sidecar[0], commands.sidecar[1])}`);
+  const sidecar = spawnManagedProcess(commands.sidecar[0], commands.sidecar[1], { env, onOutput: diagnostics.output });
+  processes.push(sidecar);
+
+  diagnostics.step(`fetch wait: ${config.sidecarBaseUrl}/healthz expected=200 includes=solo-superman-sidecar timeoutMs=${config.timeoutMs}`);
+  await waitForFetch(`${config.sidecarBaseUrl}/healthz`, {
+    expectedStatus: 200,
+    textIncludes: "solo-superman-sidecar",
+    timeoutMs: config.timeoutMs,
+    processes
+  });
+  diagnostics.step("fetch passed: sidecar health");
+}
+
+async function runCodexLiveRuntimeSmoke(config, commands, env, processes, diagnostics, logPath) {
+  startCodexLiveRuntimeDiagnostics(config, commands, diagnostics, logPath);
+  await startCodexLiveRuntimeSidecar(config, commands, env, processes, diagnostics);
+  const envelope = await fetchCodexLiveRuntimeStatus(config, processes, diagnostics);
+  const evidence = evaluateCodexLiveRuntimeStatus(envelope);
+  diagnostics.step(`evidence=${JSON.stringify(evidence)}`);
+
+  if (evidence.status !== "passed") {
+    console.error(JSON.stringify(evidence));
+    throw new Error(`Codex live runtime readiness blocked: ${evidence.blockers.join("; ")}`);
+  }
+
+  console.log(JSON.stringify(evidence));
+}
+
+function startCodexLiveRuntimeDiagnostics(config, commands, diagnostics, logPath) {
+  console.log(`verify-codex-live-runtime: diagnostic log ${logPath}`);
+  diagnostics.step(`cwd=${process.cwd()}`);
+  diagnostics.step(`node=${process.version} platform=${process.platform} arch=${process.arch}`);
+  diagnostics.step(`env=${JSON.stringify(diagnosticEnvSnapshot(process.env, DIAGNOSTIC_ENV_NAMES))}`);
+  diagnostics.step(`config=${JSON.stringify(redactConfigSecrets(config))}`);
+  diagnostics.step(`commands=${JSON.stringify(Object.fromEntries(Object.entries(commands).map(([name, [command, args]]) => [name, commandLabel(command, args)])))}`);
 }
 
 export async function runCodexLiveRuntimeVerification() {
@@ -245,47 +318,7 @@ export async function runCodexLiveRuntimeVerification() {
   const processes = [];
 
   try {
-    console.log(`verify-codex-live-runtime: diagnostic log ${logPath}`);
-    diagnostics.step(`cwd=${process.cwd()}`);
-    diagnostics.step(`node=${process.version} platform=${process.platform} arch=${process.arch}`);
-    diagnostics.step(`env=${JSON.stringify(diagnosticEnvSnapshot(process.env, DIAGNOSTIC_ENV_NAMES))}`);
-    diagnostics.step(`config=${JSON.stringify(redactConfigSecrets(config))}`);
-    diagnostics.step(`commands=${JSON.stringify(Object.fromEntries(Object.entries(commands).map(([name, [command, args]]) => [name, commandLabel(command, args)])))}`);
-
-    console.log(`verify-codex-live-runtime: starting sidecar ${config.sidecarBaseUrl}`);
-    diagnostics.step(`managed process start: ${commandLabel(commands.sidecar[0], commands.sidecar[1])}`);
-    const sidecar = spawnManagedProcess(commands.sidecar[0], commands.sidecar[1], { env, onOutput: diagnostics.output });
-    processes.push(sidecar);
-
-    diagnostics.step(`fetch wait: ${config.sidecarBaseUrl}/healthz expected=200 includes=solo-superman-sidecar timeoutMs=${config.timeoutMs}`);
-    await waitForFetch(`${config.sidecarBaseUrl}/healthz`, {
-      expectedStatus: 200,
-      textIncludes: "solo-superman-sidecar",
-      timeoutMs: config.timeoutMs,
-      processes
-    });
-    diagnostics.step("fetch passed: sidecar health");
-
-    diagnostics.step(`fetch wait: ${config.sidecarBaseUrl}${LIVE_RUNTIME_STATUS_PATH} expected=200 auth=local-token timeoutMs=${config.timeoutMs}`);
-    const runtimeStatus = await waitForFetch(`${config.sidecarBaseUrl}${LIVE_RUNTIME_STATUS_PATH}`, {
-      expectedStatus: 200,
-      headers: {
-        Authorization: `Bearer ${config.localCapabilityToken}`
-      },
-      timeoutMs: config.timeoutMs,
-      processes
-    });
-    diagnostics.step("fetch passed: authenticated runtime status");
-
-    const evidence = evaluateCodexLiveRuntimeStatus(JSON.parse(runtimeStatus.text));
-    diagnostics.step(`evidence=${JSON.stringify(evidence)}`);
-
-    if (evidence.status !== "passed") {
-      console.error(JSON.stringify(evidence));
-      throw new Error(`Codex live runtime readiness blocked: ${evidence.blockers.join("; ")}`);
-    }
-
-    console.log(JSON.stringify(evidence));
+    await runCodexLiveRuntimeSmoke(config, commands, env, processes, diagnostics, logPath);
   } catch (error) {
     diagnostics.error(error);
     console.error(`verify-codex-live-runtime: diagnostic log retained at ${logPath}`);
