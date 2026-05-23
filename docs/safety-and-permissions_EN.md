@@ -25,7 +25,7 @@ Required rules:
 - For executable actions, `rollbackReference` is mandatory before execution; preview-only artifacts are not execution and do not need rollback evidence.
 - `file_diff` uses `git_diff_reverse` by default for rollback.
 - `shell_command` needs command allowlist, timeout class, stdout/stderr evidence, and no credential prompt.
-- `browser_action` needs loopback-only local targets for the MVP; LAN/private IP targets and cloud preview URLs stay blocked unless a later explicit contract permits them.
+- `browser_action` uses loopback-only local targets for service-page and local preview work. Approved public-read browser actions may use HTTPS public DNS targets only; LAN/private/IP-literal/local targets, credential-bearing URLs, and external mutations stay blocked.
 
 ## Blocked by default
 

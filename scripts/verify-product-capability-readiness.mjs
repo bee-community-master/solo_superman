@@ -36,6 +36,7 @@ const REQUIRED_CAPABILITY_BEHAVIOR_SNIPPETS = new Map([
   [
     "browser-service-boundary",
     [
+      "approved public-read",
       "production-mutation contract",
       "final submit"
     ]
@@ -395,7 +396,7 @@ export function evidenceForEvaluation(evaluation, options) {
       "product capability readiness contract schema",
       "required idea, clarification, research, browser/service, planning, auto-implementation, and release-guardrail capability ids",
       "required credential-free product verification commands",
-      "required capability behavior snippets, including final-submit production-mutation contract coverage and generated PR body summary coverage",
+      "required capability behavior snippets, including approved public-read browser targets, final-submit production-mutation contract coverage, and generated PR body summary coverage",
       "secret-free product capability evidence strings",
       options.requireCodeBacked
         ? "all technical-preview core capabilities must be code_backed"
