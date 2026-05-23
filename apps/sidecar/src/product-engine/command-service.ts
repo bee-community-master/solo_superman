@@ -1017,6 +1017,14 @@ function evidenceLines(values: readonly string[], emptyLabel: string) {
   return values.length ? values.map((value) => `- ${value}`) : [`- ${emptyLabel}`];
 }
 
+function markdownInlineCode(value: string) {
+  const longestBacktickRun = Math.max(0, ...[...value.matchAll(/`+/gu)].map((match) => match[0].length));
+  const fence = "`".repeat(longestBacktickRun + 1);
+  const needsPadding = value.startsWith("`") || value.endsWith("`");
+
+  return `${fence}${needsPadding ? " " : ""}${value}${needsPadding ? " " : ""}${fence}`;
+}
+
 const PR_BODY_CODE_REVIEW_EVIDENCE_GROUPS = [
   {
     heading: "feature",
@@ -1109,7 +1117,7 @@ function pullRequestBodyMarkdown(input: {
     ...evidenceLines(missingTestAuditRefs, "no completed stage missing-test audit evidence recorded"),
     "",
     "### Verification commands",
-    ...input.request.verificationCommands.map((command) => `- \`${command}\``),
+    ...input.request.verificationCommands.map((command) => `- ${markdownInlineCode(command)}`),
     "",
     "### Known gaps",
     ...((input.request.knownGaps ?? []).length
