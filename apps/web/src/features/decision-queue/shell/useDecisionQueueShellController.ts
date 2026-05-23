@@ -1233,12 +1233,8 @@ export function useDecisionQueueShellController() {
   );
 
   const planningRadarAxesView = useMemo(
-    () =>
-      planningRadarAxes(confidence).map((axis) => ({
-        ...axis,
-        label: copy.rightRail.radarAxes[axis.axisId as keyof typeof copy.rightRail.radarAxes] ?? axis.label
-      })),
-    [confidence, copy]
+    () => planningRadarAxes(confidence, copy.rightRail.radarAxes),
+    [confidence, copy.rightRail.radarAxes]
   );
   const planningRadarPolygonPoints = planningRadarAxesView.map((axis) => axis.point).join(" ");
   const planningCompletenessScore = confidence?.compositeScore ?? 0;
