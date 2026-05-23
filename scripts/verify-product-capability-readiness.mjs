@@ -25,6 +25,18 @@ const REQUIRED_CAPABILITY_COMMANDS = new Map([
   ["technical-preview-release-guardrails", ["pnpm verify:prod-bundle", "pnpm verify:release-readiness"]]
 ]);
 const REQUIRED_CAPABILITY_IDS = new Set(REQUIRED_CAPABILITY_COMMANDS.keys());
+const REQUIRED_CAPABILITY_BEHAVIOR_SNIPPETS = new Map([
+  [
+    "auto-implementation-review-loop",
+    [
+      "Generated PR body",
+      "issue document status summary",
+      "stage status summary",
+      "review/evidence gate summary",
+      "missing-test audit summary"
+    ]
+  ]
+]);
 const REQUIRED_DEFAULT_COMMANDS = new Set([
   "pnpm verify:prod-bundle",
   "pnpm verify:clarification-pipeline",
@@ -134,6 +146,19 @@ function validateRequiredCommands(value, path, requiredCommands, issues) {
   return commands;
 }
 
+function validateRequiredBehaviorSnippets(value, path, requiredSnippets, issues) {
+  if (!Array.isArray(value)) {
+    return;
+  }
+
+  const behaviorText = value.filter((item) => typeof item === "string").join("\n");
+  for (const snippet of requiredSnippets) {
+    if (!behaviorText.includes(snippet)) {
+      addIssue(issues, path, `must mention ${snippet}`);
+    }
+  }
+}
+
 function validateRequiredVerificationCommands(commands, issues) {
   if (!isRecord(commands)) {
     addIssue(issues, "$.requiredVerificationCommands", "must be an object");
@@ -167,6 +192,12 @@ function validateCapability(capability, path, issues) {
 
   validateStringList(capability.evidenceRefs, `${path}.evidenceRefs`, issues, { minItems: 2 });
   validateStringList(capability.checkedBehaviors, `${path}.checkedBehaviors`, issues, { minItems: 2 });
+  validateRequiredBehaviorSnippets(
+    capability.checkedBehaviors,
+    `${path}.checkedBehaviors`,
+    REQUIRED_CAPABILITY_BEHAVIOR_SNIPPETS.get(capability.id) ?? [],
+    issues
+  );
   const verificationCommands = validateStringList(capability.verificationCommands, `${path}.verificationCommands`, issues);
 
   const requiredCommands = REQUIRED_CAPABILITY_COMMANDS.get(capability.id) ?? [];

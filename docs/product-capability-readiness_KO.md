@@ -25,7 +25,7 @@ pnpm verify:product-capability-readiness -- --require-code-backed
 | `research-evidence-loop` | `pnpm verify:research-pipeline` |
 | `planning-readiness-gates` | clarification/research evidence가 Planning-ready gate에 연결되는지 검증 |
 | `browser-service-boundary` | `pnpm verify:browser-delegation-pipeline`, `pnpm verify:service-page-pipeline` |
-| `auto-implementation-review-loop` | runtime preview, worker job, PR mutation, review-loop, aggregate pipeline smoke |
+| `auto-implementation-review-loop` | runtime preview, worker job, PR mutation body summary, review-loop, aggregate pipeline smoke |
 | `technical-preview-release-guardrails` | `pnpm verify:prod-bundle`, `pnpm verify:release-readiness` |
 
 ## 계약 규칙
