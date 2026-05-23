@@ -1089,6 +1089,27 @@ function pullRequestIssueTraceabilityLines(run: AutoImplementationRun) {
     : ["- no generated issue documents recorded"];
 }
 
+function pullRequestStageStatusSummaryLines(run: AutoImplementationRun) {
+  const completedStages = run.stagePlan.filter((stage) => stage.status === "completed");
+  const blockedStages = run.stagePlan.filter((stage) => stage.status === "blocked");
+  const openStages = run.stagePlan.filter((stage) => stage.status !== "completed" && stage.status !== "blocked");
+
+  return [
+    `- Current stage: ${run.currentStage}`,
+    `- Completed stages: ${completedStages.length}/${run.stagePlan.length}`,
+    `- Blocked stages: ${blockedStages.length}`,
+    `- Open stages: ${openStages.length}`,
+    "",
+    ...run.stagePlan.map((stage) => {
+      const ledgerEvidenceLabel = stage.ledgerEvidence
+        ? `ledger evidence: ${stage.ledgerEvidence.implementationStepId}`
+        : "ledger evidence: none";
+
+      return `- ${stage.stage}: ${stage.status}; ${ledgerEvidenceLabel}`;
+    })
+  ];
+}
+
 function pullRequestBodyMarkdown(input: {
   readonly request: RecordAutoImplementationPullRequestMutationRequest;
   readonly run: AutoImplementationRun;
@@ -1109,6 +1130,9 @@ function pullRequestBodyMarkdown(input: {
     "",
     "### Issue traceability",
     ...pullRequestIssueTraceabilityLines(input.run),
+    "",
+    "### Stage status summary",
+    ...pullRequestStageStatusSummaryLines(input.run),
     "",
     "### Implementation scope",
     input.request.implementationScope,
