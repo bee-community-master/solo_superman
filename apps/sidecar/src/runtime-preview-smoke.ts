@@ -69,6 +69,22 @@ interface PreviewScenario {
   readonly codexRuntimeAdapter: CodexRuntimeAdapter;
 }
 
+interface PreviewExecutionResult {
+  readonly sessionId: string;
+  readonly executorResult: JsonRecord;
+  readonly commandStatus: JsonRecord;
+  readonly artifact: JsonRecord;
+}
+
+interface PreviewScenarioInput {
+  readonly mode: SmokeMode;
+  readonly gateChecked: readonly string[];
+  readonly appDataDir: string;
+  readonly localCapabilityToken: string;
+  readonly env: Readonly<Record<string, string | undefined>>;
+  readonly runtimeAdapter?: CodexRuntimeAdapter;
+}
+
 function envFlagEnabled(env: Readonly<Record<string, string | undefined>>, key: string) {
   return env[key] === "1";
 }
@@ -200,6 +216,18 @@ function runtimeStatusBlockers(mode: SmokeMode, status: CodexRuntimeStatusDto) {
   return blockers;
 }
 
+function blockedRuntimeEvidence(input: PreviewScenarioInput, status: CodexRuntimeStatusDto, blockers: readonly string[]) {
+  return {
+    status: "blocked" as const,
+    smoke: RUNTIME_PREVIEW_TURN_SMOKE,
+    mode: input.mode,
+    runtime: runtimePublicStatus(status),
+    reason: "Runtime status is not ready for the requested preview-turn smoke mode.",
+    blockers,
+    checked: [...input.gateChecked, "runtime status read before queuing a preview effect"]
+  };
+}
+
 async function createProject(storageApp: ReturnType<typeof createSidecarApp>, localCapabilityToken: string) {
   const response = await storageApp.request("/api/v1/projects", {
     method: "POST",
@@ -321,6 +349,60 @@ function blockersFromPreviewResult(input: {
   return blockers;
 }
 
+function previewEvidence(input: PreviewExecutionResult) {
+  return {
+    sessionId: input.sessionId,
+    commandStatus: stringAt(input.commandStatus.commandStatus, "runtime preview commandStatus"),
+    effectStatus: stringAt(input.executorResult.status, "runtime preview effect status"),
+    artifactKind: stringAt(input.artifact.kind, "runtime preview artifact kind"),
+    artifactStatus: stringAt(input.artifact.status, "runtime preview artifact status"),
+    artifactSource: stringAt(input.artifact.source, "runtime preview artifact source"),
+    applyPolicy: stringAt(input.artifact.applyPolicy, "runtime preview artifact applyPolicy")
+  };
+}
+
+function blockedPreviewEvidence(
+  input: PreviewScenarioInput,
+  status: CodexRuntimeStatusDto,
+  result: PreviewExecutionResult,
+  blockers: readonly string[]
+) {
+  return {
+    status: "blocked" as const,
+    smoke: RUNTIME_PREVIEW_TURN_SMOKE,
+    mode: input.mode,
+    runtime: runtimePublicStatus(status),
+    preview: previewEvidence(result),
+    reason: "Runtime preview turn did not produce a directly usable preview artifact.",
+    blockers,
+    checked: [
+      ...input.gateChecked,
+      "runtime status available before preview",
+      "preview route queued one codex_runtime_preview_effect",
+      "pending preview effect executor ran",
+      "runtime activity artifact was inspected"
+    ]
+  };
+}
+
+function passedPreviewEvidence(input: PreviewScenarioInput, status: CodexRuntimeStatusDto, result: PreviewExecutionResult) {
+  return {
+    status: "passed" as const,
+    smoke: RUNTIME_PREVIEW_TURN_SMOKE,
+    mode: input.mode,
+    runtime: runtimePublicStatus(status),
+    preview: previewEvidence(result),
+    checked: [
+      ...input.gateChecked,
+      "runtime status available before preview",
+      "preview route queued one codex_runtime_preview_effect",
+      "pending preview effect executor ran",
+      "runtime command reached complete status",
+      "runtime activity contains preview_ready ImplementationPlanPreviewArtifact"
+    ]
+  };
+}
+
 async function createPreviewScenario(
   appDataDir: string,
   localCapabilityToken: string,
@@ -354,14 +436,28 @@ async function createPreviewScenario(
   };
 }
 
-async function runPreviewScenario(input: {
-  readonly mode: SmokeMode;
-  readonly gateChecked: readonly string[];
-  readonly appDataDir: string;
-  readonly localCapabilityToken: string;
-  readonly env: Readonly<Record<string, string | undefined>>;
-  readonly runtimeAdapter?: CodexRuntimeAdapter;
-}) {
+async function executePreviewTurn(
+  scenario: PreviewScenario,
+  localCapabilityToken: string
+): Promise<PreviewExecutionResult> {
+  const sessionId = await createProject(scenario.storageApp, localCapabilityToken);
+  const statusUrl = await queuePreviewTurn(scenario.storageApp, localCapabilityToken, sessionId);
+  const executorResults = await createProductEngineCommandService(
+    scenario.storage,
+    scenario.codexRuntimeAdapter
+  ).runPendingCodexRuntimePreviewEffects();
+  const commandStatus = await completedCommandStatus(scenario.storageApp, localCapabilityToken, statusUrl);
+  const activity = await runtimeActivity(scenario.storageApp, localCapabilityToken, sessionId);
+
+  return {
+    sessionId,
+    executorResult: firstRecord(executorResults, "runtime preview effect executor results"),
+    commandStatus,
+    artifact: firstRecord(activity.runtimeArtifacts, "runtime activity artifacts")
+  };
+}
+
+async function runPreviewScenario(input: PreviewScenarioInput) {
   const scenario = await createPreviewScenario(
     input.appDataDir,
     input.localCapabilityToken,
@@ -375,77 +471,22 @@ async function runPreviewScenario(input: {
     const runtimeBlockers = runtimeStatusBlockers(input.mode, status);
 
     if (runtimeBlockers.length > 0) {
-      return {
-        status: "blocked" as const,
-        smoke: RUNTIME_PREVIEW_TURN_SMOKE,
-        mode: input.mode,
-        runtime: runtimePublicStatus(status),
-        reason: "Runtime status is not ready for the requested preview-turn smoke mode.",
-        blockers: runtimeBlockers,
-        checked: [...input.gateChecked, "runtime status read before queuing a preview effect"]
-      };
+      return blockedRuntimeEvidence(input, status, runtimeBlockers);
     }
 
-    const sessionId = await createProject(scenario.storageApp, input.localCapabilityToken);
-    const statusUrl = await queuePreviewTurn(scenario.storageApp, input.localCapabilityToken, sessionId);
-    const executorResults = await createProductEngineCommandService(
-      scenario.storage,
-      scenario.codexRuntimeAdapter
-    ).runPendingCodexRuntimePreviewEffects();
-    const executorResult = firstRecord(executorResults, "runtime preview effect executor results");
-    const commandStatus = await completedCommandStatus(scenario.storageApp, input.localCapabilityToken, statusUrl);
-    const activity = await runtimeActivity(scenario.storageApp, input.localCapabilityToken, sessionId);
-    const artifact = firstRecord(activity.runtimeArtifacts, "runtime activity artifacts");
+    const previewResult = await executePreviewTurn(scenario, input.localCapabilityToken);
     const previewBlockers = blockersFromPreviewResult({
       mode: input.mode,
-      executorResult,
-      commandStatus,
-      artifact
+      executorResult: previewResult.executorResult,
+      commandStatus: previewResult.commandStatus,
+      artifact: previewResult.artifact
     });
-    const preview = {
-      sessionId,
-      commandStatus: stringAt(commandStatus.commandStatus, "runtime preview commandStatus"),
-      effectStatus: stringAt(executorResult.status, "runtime preview effect status"),
-      artifactKind: stringAt(artifact.kind, "runtime preview artifact kind"),
-      artifactStatus: stringAt(artifact.status, "runtime preview artifact status"),
-      artifactSource: stringAt(artifact.source, "runtime preview artifact source"),
-      applyPolicy: stringAt(artifact.applyPolicy, "runtime preview artifact applyPolicy")
-    };
 
     if (previewBlockers.length > 0) {
-      return {
-        status: "blocked" as const,
-        smoke: RUNTIME_PREVIEW_TURN_SMOKE,
-        mode: input.mode,
-        runtime: runtimePublicStatus(status),
-        preview,
-        reason: "Runtime preview turn did not produce a directly usable preview artifact.",
-        blockers: previewBlockers,
-        checked: [
-          ...input.gateChecked,
-          "runtime status available before preview",
-          "preview route queued one codex_runtime_preview_effect",
-          "pending preview effect executor ran",
-          "runtime activity artifact was inspected"
-        ]
-      };
+      return blockedPreviewEvidence(input, status, previewResult, previewBlockers);
     }
 
-    return {
-      status: "passed" as const,
-      smoke: RUNTIME_PREVIEW_TURN_SMOKE,
-      mode: input.mode,
-      runtime: runtimePublicStatus(status),
-      preview,
-      checked: [
-        ...input.gateChecked,
-        "runtime status available before preview",
-        "preview route queued one codex_runtime_preview_effect",
-        "pending preview effect executor ran",
-        "runtime command reached complete status",
-        "runtime activity contains preview_ready ImplementationPlanPreviewArtifact"
-      ]
-    };
+    return passedPreviewEvidence(input, status, previewResult);
   } finally {
     await scenario.storage.close();
   }
