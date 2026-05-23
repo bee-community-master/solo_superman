@@ -69,6 +69,7 @@ import {
   type BrowserActionTargetDto,
   type ChatGptBrowserDelegationProjection,
   type CodexTurnPurpose,
+  type CodexRuntimeSource,
   type ConfidenceCompletionProjection,
   type DecisionQueueProjection,
   type DecisionEvidencePackProjection,
@@ -3337,6 +3338,16 @@ export function createProductEngineCommandService(
     }
   }
 
+  async function codexRuntimeSourceForPreview(input: CodexRuntimePreviewInput): Promise<CodexRuntimeSource> {
+    if (input.requestedActionType) {
+      return "protocol_fixture";
+    }
+
+    const status = await codexRuntimeAdapter.getStatus();
+
+    return status.executionMode === "live" ? "codex_app_server" : "protocol_fixture";
+  }
+
   async function runCodexRuntimePreviewEffect(effect: EffectTaskRecord) {
     const effectRepository = createEffectTaskRepository(storage.db);
     const attemptCount = effect.attemptCount + 1;
@@ -3360,6 +3371,7 @@ export function createProductEngineCommandService(
 
       const previewInput = codexPreviewInputFromRequest(request);
       const issuedAt = new Date().toISOString();
+      const previewSource = await codexRuntimeSourceForPreview(previewInput);
       const previewOutput = previewInput.requestedActionType
         ? fixtureCodexPreviewOutput(previewInput, { createdAt: issuedAt })
         : await codexRuntimeAdapter.createPreview(previewInput);
@@ -3377,7 +3389,7 @@ export function createProductEngineCommandService(
         correlationId: effect.correlationId,
         schemaVersion: CONTRACT_SCHEMA_VERSION,
         payload: {
-          source: "protocol_fixture",
+          source: previewSource,
           sourceEffectTaskId: effect.effectTaskId,
           runtimeAdapterVersion: CODEX_RUNTIME_ADAPTER_VERSION,
           turnPurpose: previewOutput.turnPurpose,
