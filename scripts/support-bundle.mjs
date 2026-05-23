@@ -8,6 +8,35 @@ export const SUPPORT_BUNDLE_SCHEMA_VERSION = "solo-superman-support-bundle.v1";
 
 const DEFAULT_TIMEOUT_MS = 3_000;
 const OUTPUT_LIMIT = 4_000;
+const PACKAGE_METADATA_SCRIPT = [
+  "const p=require('./package.json');",
+  "const scripts=p.scripts??{};",
+  "console.log(JSON.stringify({",
+  "name:p.name,version:p.version,packageManager:p.packageManager,engines:p.engines,",
+  "scripts:{",
+  "startLocal:scripts['start:local'],",
+  "verify:scripts.verify,",
+  "verifyProdBundle:scripts['verify:prod-bundle'],",
+  "verifyReleaseChannel:scripts['verify:release-channel'],",
+  "verifySignedPackagePreflight:scripts['verify:signed-package-preflight'],",
+  "verifyReleaseReadiness:scripts['verify:release-readiness'],",
+  "supportBundle:scripts['support:bundle']",
+  "}}))"
+].join("");
+const RELEASE_DIAGNOSTIC_COMMANDS = {
+  releaseChannel: {
+    command: "pnpm verify:release-channel",
+    args: ["scripts/verify-release-channel.mjs"]
+  },
+  signedPackagePreflight: {
+    command: "pnpm verify:signed-package-preflight",
+    args: ["scripts/verify-signed-package-preflight.mjs"]
+  },
+  releaseReadiness: {
+    command: "pnpm verify:release-readiness",
+    args: ["scripts/verify-release-readiness.mjs"]
+  }
+};
 const SUPPORT_ENV_ALLOWLIST = [
   "CI",
   "SHELL",
@@ -139,10 +168,99 @@ function parseJsonObject(text) {
   }
 }
 
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function stringList(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+
+function compactMissingCredentialGroups(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(isRecord).map((group) => ({
+    id: typeof group.id === "string" ? group.id : null,
+    status: typeof group.status === "string" ? group.status : null,
+    missingEnv: stringList(group.missingEnv)
+  }));
+}
+
+function compactReleaseDiagnostic(name, result) {
+  const diagnostic = RELEASE_DIAGNOSTIC_COMMANDS[name];
+  const parsed = parseJsonObject(result.stdout);
+  const base = {
+    command: diagnostic?.command ?? name,
+    captureStatus: result.status
+  };
+
+  if (!parsed) {
+    return {
+      ...base,
+      evidenceStatus: "unavailable",
+      error: result.error ?? result.stderr ?? "diagnostic output was not valid JSON"
+    };
+  }
+
+  const summary = {
+    ...base,
+    evidenceStatus: typeof parsed.status === "string" ? parsed.status : "unknown",
+    checked: stringList(parsed.checked)
+  };
+
+  switch (name) {
+    case "releaseChannel":
+      return {
+        ...summary,
+        manifestPath: typeof parsed.manifestPath === "string" ? parsed.manifestPath : null,
+        issues: stringList(parsed.issues)
+      };
+    case "signedPackagePreflight":
+      return {
+        ...summary,
+        contractPath: typeof parsed.contractPath === "string" ? parsed.contractPath : null,
+        credentialGateStatus: typeof parsed.credentialGateStatus === "string"
+          ? parsed.credentialGateStatus
+          : "unknown",
+        missingCredentialGroups: compactMissingCredentialGroups(parsed.missingCredentialGroups),
+        issues: stringList(parsed.issues)
+      };
+    case "releaseReadiness":
+      return {
+        ...summary,
+        schemaVersion: typeof parsed.schemaVersion === "string" ? parsed.schemaVersion : null,
+        mode: typeof parsed.mode === "string" ? parsed.mode : null,
+        readinessStatus: typeof parsed.readinessStatus === "string" ? parsed.readinessStatus : "unknown",
+        broadReleaseReady: parsed.broadReleaseReady === true,
+        blockedGates: stringList(parsed.blockedGates),
+        blockers: stringList(parsed.blockers)
+      };
+    default:
+      return {
+        ...summary,
+        evidenceStatus: "unknown-diagnostic"
+      };
+  }
+}
+
+async function readReleaseDiagnostics(commandRunner, options) {
+  const entries = Object.entries(RELEASE_DIAGNOSTIC_COMMANDS);
+  const diagnostics = await Promise.all(entries.map(async ([name, diagnostic]) => {
+    const result = await runCapture(commandRunner, process.execPath, diagnostic.args, options);
+    return [name, compactReleaseDiagnostic(name, result)];
+  }));
+
+  return Object.fromEntries(diagnostics);
+}
+
 async function readPackageMetadata(commandRunner, options) {
-  const packageResult = await runCapture(commandRunner, process.execPath, ["-e", "const p=require('./package.json'); console.log(JSON.stringify({name:p.name,version:p.version,packageManager:p.packageManager,engines:p.engines,scripts:{startLocal:p.scripts?.['start:local'],verify:p.scripts?.verify,verifyProdBundle:p.scripts?.['verify:prod-bundle'],supportBundle:p.scripts?.['support:bundle']}}))"], options);
+  const packageResult = await runCapture(commandRunner, process.execPath, ["-e", PACKAGE_METADATA_SCRIPT], options);
   return parseJsonObject(packageResult.stdout) ?? {
-    error: packageResult.status === "ok" ? "package metadata output was not valid JSON" : packageResult.error ?? packageResult.stderr ?? "package metadata unavailable"
+    error: packageResult.status === "ok"
+      ? "package metadata output was not valid JSON"
+      : packageResult.error ?? packageResult.stderr ?? "package metadata unavailable"
   };
 }
 
@@ -151,14 +269,24 @@ export async function createSupportBundle(options = {}) {
   const env = options.env ?? process.env;
   const commandRunner = options.commandRunner ?? spawnCommand;
   const commandOptions = { cwd, env, timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS };
-  const [gitBranch, gitHead, gitStatus, gitRemote, pnpmVersion, codexVersion, packageMetadata] = await Promise.all([
+  const [
+    gitBranch,
+    gitHead,
+    gitStatus,
+    gitRemote,
+    pnpmVersion,
+    codexVersion,
+    packageMetadata,
+    releaseDiagnostics
+  ] = await Promise.all([
     runCapture(commandRunner, "git", ["branch", "--show-current"], commandOptions),
     runCapture(commandRunner, "git", ["rev-parse", "--short", "HEAD"], commandOptions),
     runCapture(commandRunner, "git", ["status", "--short", "--branch"], commandOptions),
     runCapture(commandRunner, "git", ["remote", "get-url", "origin"], commandOptions),
     runCapture(commandRunner, "pnpm", ["--version"], commandOptions),
     runCapture(commandRunner, "codex", ["--version"], commandOptions),
-    readPackageMetadata(commandRunner, commandOptions)
+    readPackageMetadata(commandRunner, commandOptions),
+    readReleaseDiagnostics(commandRunner, commandOptions)
   ]);
 
   return {
@@ -196,9 +324,13 @@ export async function createSupportBundle(options = {}) {
       }
     },
     package: packageMetadata,
+    releaseDiagnostics,
     env: safeEnvSnapshot(env),
     recommendedChecks: [
       "pnpm verify:prod-bundle",
+      "pnpm verify:release-channel",
+      "pnpm verify:signed-package-preflight",
+      "pnpm verify:release-readiness",
       "pnpm verify",
       "pnpm support:bundle"
     ],
@@ -258,6 +390,7 @@ export async function runSupportBundleCli(argv = process.argv.slice(2), options 
       "collected credential-free runtime and repository diagnostics",
       "captured only allowlisted environment values",
       "redacted token/secret-shaped values",
+      "captured credential-free release diagnostics",
       "wrote JSON support bundle"
     ]
   };
