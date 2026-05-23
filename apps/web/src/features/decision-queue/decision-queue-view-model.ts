@@ -125,6 +125,30 @@ export interface Phase15bReadinessViewModel {
   readonly records: readonly Phase15bReadinessRecordViewModel[];
 }
 
+export interface Phase15bReadinessViewModelCopy {
+  readonly terms: {
+    readonly phase15a: string;
+    readonly phase15b: string;
+    readonly readinessPreviewHandoffMetadata: string;
+    readonly blockedActionArtifact: string;
+    readonly chatGptDelegation: string;
+    readonly chatGptWebAutomation: string;
+  };
+  readonly statusVisible: string;
+  readonly statusPending: string;
+  readonly summaryVisible: (recordCount: number) => string;
+  readonly summaryEmpty: string;
+  readonly actualWorkNotExecuted: string;
+  readonly noExecutionUnloaded: string;
+  readonly reviewNoteOnly: string;
+  readonly delegationState: (value: string) => string;
+  readonly credentialState: (value: string) => string;
+  readonly exportLoaded: (url: string) => string;
+  readonly exportMissing: string;
+  readonly loadedEmpty: string;
+  readonly unloadedEmpty: string;
+}
+
 export type PlanningHandoffUiStatus = "empty" | "final" | "blocked";
 
 export interface PlanningHandoffDetailGroup {
@@ -392,18 +416,69 @@ function userFacingCopy(value: string) {
     .replace(/chatgpt web automation/gu, "외부 AI 작업공간 자동화");
 }
 
-function readableUserToken(value: string) {
-  return userFacingCopy(readableToken(value));
-}
-
-function readableArtifactKind(value: string) {
-  return readableUserToken(value.replace(/([a-z])([A-Z])/gu, "$1 $2"));
-}
-
 function readinessDetails(parts: readonly (string | null | undefined)[]) {
   return parts
     .filter((part): part is string => Boolean(part))
     .map(userFacingCopy)
+    .join(READINESS_DETAIL_SEPARATOR);
+}
+
+const DEFAULT_PHASE15B_READINESS_COPY: Phase15bReadinessViewModelCopy = {
+  terms: {
+    phase15a: "Research readiness",
+    phase15b: "Execution readiness",
+    readinessPreviewHandoffMetadata: "execution readiness notes",
+    blockedActionArtifact: "Blocked action review artifact",
+    chatGptDelegation: "External AI workspace",
+    chatGptWebAutomation: "External AI workspace automation"
+  },
+  statusVisible: "Execution readiness notes visible",
+  statusPending: "Execution readiness pending",
+  summaryVisible: (recordCount: number) =>
+    `${recordCount} execution readiness note${recordCount === 1 ? "" : "s"} shown for planning and safety review.`,
+  summaryEmpty: "No execution readiness notes are available to show yet.",
+  actualWorkNotExecuted: "Actual work has not been executed",
+  noExecutionUnloaded:
+    "Execution readiness notes have not loaded yet. Actual work has not been executed and credentials have not been stored.",
+  reviewNoteOnly: "Review note only; actual work has not been executed",
+  delegationState: (value: string) => `delegation state ${value}`,
+  credentialState: (value: string) => `credential state ${value}`,
+  exportLoaded: (url: string) => `Execution readiness export: ${url}`,
+  exportMissing: "Execution readiness export has not loaded yet.",
+  loadedEmpty: "This project has no execution readiness notes to show yet.",
+  unloadedEmpty: "Execution readiness notes have not loaded yet."
+};
+
+function phase15bUserFacingCopy(value: string, copy: Phase15bReadinessViewModelCopy) {
+  return value
+    .replace(/Phase 1\.5A/gu, copy.terms.phase15a)
+    .replace(/Phase 1\.5B/gu, copy.terms.phase15b)
+    .replace(/\b1\.5A\b/gu, copy.terms.phase15a)
+    .replace(/\b1\.5B\b/gu, copy.terms.phase15b)
+    .replace(/readiness preview handoff metadata/gu, copy.terms.readinessPreviewHandoffMetadata)
+    .replace(/readiness\/preview\/handoff metadata/gu, copy.terms.readinessPreviewHandoffMetadata)
+    .replace(/Blocked Action Artifact/gu, copy.terms.blockedActionArtifact)
+    .replace(/ChatGPT Pro local browser delegation/gu, copy.terms.chatGptDelegation)
+    .replace(/ChatGPT browser delegation/gu, copy.terms.chatGptDelegation)
+    .replace(/ChatGPT delegation/gu, copy.terms.chatGptDelegation)
+    .replace(/chatgpt web automation/gu, copy.terms.chatGptWebAutomation);
+}
+
+function readablePhase15bUserToken(value: string, copy: Phase15bReadinessViewModelCopy) {
+  return phase15bUserFacingCopy(readableToken(value), copy);
+}
+
+function readablePhase15bArtifactKind(value: string, copy: Phase15bReadinessViewModelCopy) {
+  return readablePhase15bUserToken(value.replace(/([a-z])([A-Z])/gu, "$1 $2"), copy);
+}
+
+function phase15bReadinessDetails(
+  parts: readonly (string | null | undefined)[],
+  copy: Phase15bReadinessViewModelCopy
+) {
+  return parts
+    .filter((part): part is string => Boolean(part))
+    .map((part) => phase15bUserFacingCopy(part, copy))
     .join(READINESS_DETAIL_SEPARATOR);
 }
 
@@ -496,17 +571,21 @@ function gateVerdictLabel(
   ]);
 }
 
-function readinessRecordViewModel(record: Phase15bUpgradeHintApiRecord): Phase15bReadinessRecordViewModel {
+function readinessRecordViewModel(
+  record: Phase15bUpgradeHintApiRecord,
+  copy: Phase15bReadinessViewModelCopy
+): Phase15bReadinessRecordViewModel {
   const { hints } = record;
-  const approvalLabel = readinessDetails(
+  const approvalLabel = phase15bReadinessDetails(
     hints.approvalRequirements.map((requirement) => {
       const approvalType = readableToken(requirement.approvalType);
       const requiredActor = readableToken(requirement.requiredActor);
 
       return `${approvalType} by ${requiredActor}: ${requirement.reason} (${requirement.scope}; ${requirement.reconfirmRule})`;
-    })
+    }),
+    copy
   );
-  const sandboxLabel = readinessDetails([
+  const sandboxLabel = phase15bReadinessDetails([
     hints.sandboxRequirements.isolatedWorktreeRequired ? "isolated worktree required" : "isolated worktree not required",
     hints.sandboxRequirements.browserSandboxRequired ? "browser sandbox required" : "browser sandbox not required",
     `network ${readableToken(hints.sandboxRequirements.networkMode)}`,
@@ -514,41 +593,42 @@ function readinessRecordViewModel(record: Phase15bUpgradeHintApiRecord): Phase15
     `secrets ${hints.sandboxRequirements.secretGrantBoundary}`,
     hints.sandboxRequirements.logCaptureRequired ? "log capture required" : "log capture not required",
     hints.sandboxRequirements.environmentPolicy
-  ]);
-  const rollbackLabel = readinessDetails([
+  ], copy);
+  const rollbackLabel = phase15bReadinessDetails([
     `base ${hints.rollbackReference.baseRef}`,
     hints.rollbackReference.diffRef ? `diff ${hints.rollbackReference.diffRef}` : null,
     hints.rollbackReference.reversible ? "reversible" : "not reversible",
     hints.rollbackReference.rollbackNote,
     `cleanup ${hints.rollbackReference.cleanupExpectation}`
-  ]);
-  const evidenceLabel = readinessDetails([
+  ], copy);
+  const evidenceLabel = phase15bReadinessDetails([
     `tests ${commaList(hints.expectedEvidence.tests, "none")}`,
     `smoke ${commaList(hints.expectedEvidence.smokeChecks, "none")}`,
     `artifacts ${commaList(hints.expectedEvidence.artifactPaths, "none")}`,
     `manual ${commaList(hints.expectedEvidence.manualInspection, "none")}`,
     `logs ${commaList(hints.expectedEvidence.expectedLogs, "none")}`
-  ]);
-  const riskLabel = readinessDetails([
-    `${readableToken(hints.riskNormalization.blockedActionType)} risk ${hints.riskNormalization.riskLevel}`,
+  ], copy);
+  const riskLabel = phase15bReadinessDetails([
+    `${readablePhase15bUserToken(hints.riskNormalization.blockedActionType, copy)} risk ${hints.riskNormalization.riskLevel}`,
     hints.riskNormalization.blockReason,
     `user handoff ${hints.riskNormalization.userVisibleAction}`,
     `escalate ${hints.riskNormalization.escalationTarget}`
-  ]);
-  const statusLabel = readinessDetails([
-    readableArtifactKind(record.artifactKind),
-    readableUserToken(record.metadataLabel),
-    "검토 노트만 저장됨; 실제 작업은 실행하지 않음",
-    `위임 상태 ${readableUserToken(record.noExecution.delegationState)}`
-  ]);
+  ], copy);
+  const statusLabel = phase15bReadinessDetails([
+    readablePhase15bArtifactKind(record.artifactKind, copy),
+    readablePhase15bUserToken(record.metadataLabel, copy),
+    copy.reviewNoteOnly,
+    copy.delegationState(readablePhase15bUserToken(record.noExecution.delegationState, copy))
+  ], copy);
 
   return {
     hintId: record.hintId,
-    surfaceLabel: userFacingCopy(
-      `${readableUserToken(hints.executionIntent.candidateActionType)} readiness for ${hints.executionIntent.targetSurface}`
+    surfaceLabel: phase15bUserFacingCopy(
+      `${readablePhase15bUserToken(hints.executionIntent.candidateActionType, copy)} readiness for ${hints.executionIntent.targetSurface}`,
+      copy
     ),
     statusLabel,
-    previewSummary: userFacingCopy(hints.executionIntent.nonExecutingSummary),
+    previewSummary: phase15bUserFacingCopy(hints.executionIntent.nonExecutingSummary, copy),
     approvalLabel,
     sandboxLabel,
     rollbackLabel,
@@ -562,31 +642,26 @@ function readinessRecordViewModel(record: Phase15bUpgradeHintApiRecord): Phase15
 }
 
 export function phase15bReadinessViewModel(
-  projection: Phase15bUpgradeHintProjection | null
+  projection: Phase15bUpgradeHintProjection | null,
+  copy: Phase15bReadinessViewModelCopy = DEFAULT_PHASE15B_READINESS_COPY
 ): Phase15bReadinessViewModel {
-  const records = projection?.records.map(readinessRecordViewModel) ?? [];
+  const records = projection?.records.map((record) => readinessRecordViewModel(record, copy)) ?? [];
   const noExecutionLabel = projection
     ? [
-        readableUserToken(projection.metadataLabel),
-        "실제 작업은 실행하지 않음",
-        `위임 상태 ${readableUserToken(projection.noExecution.delegationState)}`,
-        `인증 정보 ${readableUserToken(projection.noExecution.credentialValueState)}`
+        readablePhase15bUserToken(projection.metadataLabel, copy),
+        copy.actualWorkNotExecuted,
+        copy.delegationState(readablePhase15bUserToken(projection.noExecution.delegationState, copy)),
+        copy.credentialState(readablePhase15bUserToken(projection.noExecution.credentialValueState, copy))
       ].join("; ") + "."
-    : "실행 준비 노트가 아직 없습니다. 실제 작업은 실행하지 않았고 인증 정보도 저장하지 않았습니다.";
+    : copy.noExecutionUnloaded;
 
   return {
     status: records.length ? "metadata_visible" : "empty",
-    statusLabel: records.length ? "실행 준비 노트 있음" : "실행 준비 대기",
-    label: records.length
-      ? `${records.length}개 실행 준비 노트가 계획 및 안전 검토용으로 표시됩니다.`
-      : "아직 표시할 실행 준비 노트가 없습니다.",
+    statusLabel: records.length ? copy.statusVisible : copy.statusPending,
+    label: records.length ? copy.summaryVisible(records.length) : copy.summaryEmpty,
     noExecutionLabel,
-    exportLabel: projection?.exportUrl
-      ? `실행 준비 내보내기 정보: ${projection.exportUrl}`
-      : "실행 준비 내보내기 정보가 아직 로드되지 않았습니다.",
-    emptyLabel: projection
-      ? "이 프로젝트에 표시할 실행 준비 노트가 아직 없습니다."
-      : "실행 준비 노트가 아직 로드되지 않았습니다.",
+    exportLabel: projection?.exportUrl ? copy.exportLoaded(projection.exportUrl) : copy.exportMissing,
+    emptyLabel: projection ? copy.loadedEmpty : copy.unloadedEmpty,
     records
   };
 }
