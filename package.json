@@ -26,14 +26,15 @@
     "verify:pr-mutation": "tsx apps/sidecar/src/auto-implementation-pr-mutation-smoke.ts",
     "verify:auto-implementation-pipeline": "tsx apps/sidecar/src/auto-implementation-pipeline-smoke.ts",
     "verify:docs": "node scripts/verify-doc-contracts.mjs",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs && pnpm verify:prod-bundle && pnpm verify:clarification-pipeline && pnpm verify:research-pipeline && pnpm verify:browser-delegation-pipeline && pnpm verify:service-page-pipeline && pnpm verify:auto-implementation-review-loop && pnpm verify:auto-implementation-pipeline",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs && pnpm verify:prod-bundle && pnpm verify:clarification-pipeline && pnpm verify:clarification-volume && pnpm verify:research-pipeline && pnpm verify:browser-delegation-pipeline && pnpm verify:service-page-pipeline && pnpm verify:auto-implementation-review-loop && pnpm verify:auto-implementation-pipeline",
     "dev:web": "pnpm --filter @solo-superman/web dev",
     "start:local": "node scripts/start-local-web.mjs",
     "verify:research-pipeline": "tsx apps/sidecar/src/research-pipeline-smoke.ts",
     "verify:clarification-pipeline": "tsx apps/sidecar/src/clarification-pipeline-smoke.ts",
     "verify:auto-implementation-review-loop": "tsx apps/sidecar/src/auto-implementation-review-loop-smoke.ts",
     "verify:browser-delegation-pipeline": "tsx apps/sidecar/src/browser-delegation-pipeline-smoke.ts",
-    "verify:service-page-pipeline": "tsx apps/sidecar/src/service-page-pipeline-smoke.ts"
+    "verify:service-page-pipeline": "tsx apps/sidecar/src/service-page-pipeline-smoke.ts",
+    "verify:clarification-volume": "tsx apps/sidecar/src/clarification-volume-smoke.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
