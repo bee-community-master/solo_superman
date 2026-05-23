@@ -18,10 +18,32 @@ import {
   type AutoImplementationStageRecord,
   type AutoImplementationWorkerExecutionPlan,
   type AutoImplementationWorkerJob,
+  type CodexRuntimeStatusDto,
   type ImplementationStepLedgerProjection
 } from "@solo-superman/contracts";
 import { canCompleteAutoImplementationWorkerFromLedger } from "./auto-implementation-worker-completion-request";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
+
+type AutoImplementationWorkerRuntimeNextAction =
+  | "refreshRuntime"
+  | "liveReady"
+  | "fixture"
+  | "codexLogin"
+  | "enableLiveTurns"
+  | "resolveBlocker";
+
+type AutoImplementationRuntimeAvailability = "available" | "unavailable" | "unknown";
+type AutoImplementationLiveTurnState = "enabled" | "disabled" | "unknown";
+
+interface AutoImplementationWorkerRuntimeView {
+  readonly statusLabel: string;
+  readonly executionModeLabel: string;
+  readonly accountLabel: string;
+  readonly liveTurnsState: AutoImplementationLiveTurnState;
+  readonly manualHandoffState: AutoImplementationRuntimeAvailability;
+  readonly reasonLabel: string | null;
+  readonly nextActionKey: AutoImplementationWorkerRuntimeNextAction;
+}
 
 interface AutoImplementationWorkerPlanView {
   readonly executionMode: AutoImplementationWorkerExecutionPlan["executionMode"];
@@ -76,6 +98,7 @@ export interface AutoImplementationRunViewModel {
   readonly latestWorkerJobNextAction: string;
   readonly latestWorkerJobId: string | null;
   readonly latestWorkerJobStatus: AutoImplementationWorkerJob["status"] | "not_planned";
+  readonly workerRuntimeReadiness: AutoImplementationWorkerRuntimeView | null;
   readonly latestWorkerPlan: AutoImplementationWorkerPlanView | null;
   readonly canPlanWorkerJob: boolean;
   readonly canRecordStageTick: boolean;
@@ -97,6 +120,59 @@ export interface AutoImplementationRunViewModel {
 
 function latestRun(projection: AutoImplementationRunProjection | null) {
   return projection?.latestRun ?? null;
+}
+
+function codexWorkerAccountLabel(runtimeStatus: CodexRuntimeStatusDto | null) {
+  if (!runtimeStatus) {
+    return "unknown";
+  }
+
+  const account = runtimeStatus.account;
+  const details = [account.accountType, account.planType].filter(Boolean).join(" / ");
+
+  return details ? `${account.status} (${details})` : account.status;
+}
+
+function codexWorkerRuntimeNextActionKey(
+  runtimeStatus: CodexRuntimeStatusDto | null
+): AutoImplementationWorkerRuntimeNextAction {
+  if (!runtimeStatus) {
+    return "refreshRuntime";
+  }
+
+  if (runtimeStatus.status === "available" && runtimeStatus.executionMode === "live" && runtimeStatus.liveTurnExecutionEnabled) {
+    return "liveReady";
+  }
+
+  if (runtimeStatus.executionMode === "fixture") {
+    return "fixture";
+  }
+
+  if (runtimeStatus.account.status !== "authenticated") {
+    return "codexLogin";
+  }
+
+  if (runtimeStatus.executionMode === "manual_handoff" || !runtimeStatus.liveTurnExecutionEnabled) {
+    return "enableLiveTurns";
+  }
+
+  return "resolveBlocker";
+}
+
+function autoImplementationWorkerRuntimeView(
+  runtimeStatus: CodexRuntimeStatusDto | null
+): AutoImplementationWorkerRuntimeView {
+  return {
+    statusLabel: runtimeStatus?.status ?? "unknown",
+    executionModeLabel: runtimeStatus?.executionMode ?? "unknown",
+    accountLabel: codexWorkerAccountLabel(runtimeStatus),
+    liveTurnsState: runtimeStatus ? (runtimeStatus.liveTurnExecutionEnabled ? "enabled" : "disabled") : "unknown",
+    manualHandoffState: runtimeStatus
+      ? (runtimeStatus.manualHandoffAvailable ? "available" : "unavailable")
+      : "unknown",
+    reasonLabel: runtimeStatus?.reason ?? runtimeStatus?.account.reason ?? null,
+    nextActionKey: codexWorkerRuntimeNextActionKey(runtimeStatus)
+  };
 }
 
 function formatIssueStatusSummaryLabel(summary: AutoImplementationIssueStatusSummary | null) {
@@ -198,7 +274,8 @@ function autoImplementationIssueRowView(
 
 export function autoImplementationRunViewModel(
   projection: AutoImplementationRunProjection | null,
-  implementationStepLedger: ImplementationStepLedgerProjection | null = null
+  implementationStepLedger: ImplementationStepLedgerProjection | null = null,
+  runtimeStatus: CodexRuntimeStatusDto | null = null
 ): AutoImplementationRunViewModel {
   const run = latestRun(projection);
 
@@ -230,6 +307,7 @@ export function autoImplementationRunViewModel(
       latestWorkerJobNextAction: "Create a workspace run before planning a local Codex worker.",
       latestWorkerJobId: null,
       latestWorkerJobStatus: "not_planned",
+      workerRuntimeReadiness: null,
       latestWorkerPlan: null,
       canPlanWorkerJob: false,
       canRecordStageTick: false,
@@ -322,6 +400,7 @@ export function autoImplementationRunViewModel(
       "Create a bounded local worker job after the current stage issue document is ready.",
     latestWorkerJobId: latestWorkerJob?.jobId ?? null,
     latestWorkerJobStatus: latestWorkerJob?.status ?? "not_planned",
+    workerRuntimeReadiness: autoImplementationWorkerRuntimeView(runtimeStatus),
     latestWorkerPlan,
     canPlanWorkerJob: canPlanCurrentStageAutoImplementationWorkerJob(run),
     canRecordStageTick: run.status !== "completed",
@@ -418,6 +497,15 @@ export function AutoImplementationRunPanel({
 }: AutoImplementationRunPanelProps) {
   const copy = useDecisionQueueCopy();
   const latestPullRequestMutation = run.latestPullRequestMutation;
+  const workerRuntimeNextAction = run.workerRuntimeReadiness
+    ? copy.autoImplementation.workerRuntimeNextActions[run.workerRuntimeReadiness.nextActionKey]
+    : null;
+  const workerRuntimeLiveTurns = run.workerRuntimeReadiness
+    ? copy.autoImplementation.workerRuntimeLiveTurnStates[run.workerRuntimeReadiness.liveTurnsState]
+    : null;
+  const workerRuntimeManualHandoff = run.workerRuntimeReadiness
+    ? copy.autoImplementation.workerRuntimeManualHandoffStates[run.workerRuntimeReadiness.manualHandoffState]
+    : null;
 
   return (
     <section className="panel auto-implementation-run-panel">
@@ -432,6 +520,42 @@ export function AutoImplementationRunPanel({
       <p className="mode-summary">{run.nextTickLabel}</p>
       <p className="mode-summary">{run.latestWorkerJobLabel}</p>
       <p className="research-recovery">{run.latestWorkerJobNextAction}</p>
+      {run.workerRuntimeReadiness ? (
+        <article className="operations-card" aria-label={copy.autoImplementation.workerRuntimeReadiness}>
+          <h3>{copy.autoImplementation.workerRuntimeReadiness}</h3>
+          <dl className="readiness-grid">
+            <div>
+              <dt>{copy.autoImplementation.workerRuntimeStatus}</dt>
+              <dd>{run.workerRuntimeReadiness.statusLabel}</dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.workerRuntimeExecutionMode}</dt>
+              <dd>{run.workerRuntimeReadiness.executionModeLabel}</dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.workerRuntimeAccount}</dt>
+              <dd>{run.workerRuntimeReadiness.accountLabel}</dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.workerRuntimeLiveTurns}</dt>
+              <dd>{workerRuntimeLiveTurns}</dd>
+            </div>
+            <div>
+              <dt>{copy.autoImplementation.workerRuntimeManualHandoff}</dt>
+              <dd>{workerRuntimeManualHandoff}</dd>
+            </div>
+            {run.workerRuntimeReadiness.reasonLabel ? (
+              <div>
+                <dt>{copy.autoImplementation.workerRuntimeReason}</dt>
+                <dd>{run.workerRuntimeReadiness.reasonLabel}</dd>
+              </div>
+            ) : null}
+          </dl>
+          <p className="mode-summary">
+            {copy.autoImplementation.workerRuntimeNextAction}: {workerRuntimeNextAction}
+          </p>
+        </article>
+      ) : null}
       <div className="card-actions panel-actions">
         <button type="button" disabled={isBusy || !canCreateRun} onClick={onCreateRun}>
           {run.hasRun ? copy.autoImplementation.reprepare : copy.autoImplementation.create}

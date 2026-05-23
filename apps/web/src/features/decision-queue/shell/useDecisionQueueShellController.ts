@@ -503,8 +503,12 @@ export function useDecisionQueueShellController() {
     [projections.implementationStepLedger]
   );
   const autoImplementationRunView = useMemo(
-    () => autoImplementationRunViewModel(projections.autoImplementationRuns, projections.implementationStepLedger),
-    [projections.autoImplementationRuns, projections.implementationStepLedger]
+    () => autoImplementationRunViewModel(
+      projections.autoImplementationRuns,
+      projections.implementationStepLedger,
+      runtimeStatus
+    ),
+    [projections.autoImplementationRuns, projections.implementationStepLedger, runtimeStatus]
   );
   const canCreateAutoImplementationRun = planningHandoffIsReady(projections.planningHandoff);
   const createAutoImplementationRun = useCallback(async () => {

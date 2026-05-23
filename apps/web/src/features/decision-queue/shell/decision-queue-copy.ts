@@ -412,6 +412,32 @@ const EN_COPY = {
     advanceWorkerStage: "Advance worker stage",
     refresh: "Refresh workspace run",
     workerPlan: "Local worker bounded plan",
+    workerRuntimeReadiness: "Worker runtime readiness",
+    workerRuntimeStatus: "Runtime status",
+    workerRuntimeExecutionMode: "Execution mode",
+    workerRuntimeAccount: "Codex account",
+    workerRuntimeLiveTurns: "Live turns",
+    workerRuntimeManualHandoff: "Manual handoff",
+    workerRuntimeLiveTurnStates: {
+      enabled: "enabled",
+      disabled: "disabled",
+      unknown: "unknown"
+    },
+    workerRuntimeManualHandoffStates: {
+      available: "available",
+      unavailable: "unavailable",
+      unknown: "unknown"
+    },
+    workerRuntimeReason: "Runtime reason",
+    workerRuntimeNextAction: "Worker runtime next action",
+    workerRuntimeNextActions: {
+      refreshRuntime: "Refresh Codex runtime status before running a local worker; manual worker ledger import remains the fallback once a worker job exists.",
+      liveReady: "Live local Codex worker execution is available; run only after the bounded authority and worker job are planned, then keep ledger import available for blocked output.",
+      fixture: "Fixture runtime can simulate worker execution; production work still needs live local execution or manual ledger import evidence.",
+      codexLogin: "Run Codex login, refresh runtime status, or complete the bounded worker manually and import its ledger evidence.",
+      enableLiveTurns: "Set SOLO_CODEX_APP_SERVER_LIVE_TURNS=1 and restart the local sidecar to attempt live worker execution, or complete the bounded worker manually and import its ledger evidence.",
+      resolveBlocker: "Resolve the Codex runtime blocker, then rerun the worker or import a completed worker ledger envelope."
+    },
     workerPlanExecutionMode: "Execution mode",
     workerPlanWorkingDirectory: "Working directory",
     workerPlanIssueDocument: "Issue document",
@@ -1015,6 +1041,32 @@ const JA_COPY: typeof EN_COPY = {
     advanceWorkerStage: "Worker stageを進める",
     refresh: "ワークスペース実行を更新",
     workerPlan: "ローカルworkerの境界付き計画",
+    workerRuntimeReadiness: "Worker実行環境の準備状態",
+    workerRuntimeStatus: "Runtime状態",
+    workerRuntimeExecutionMode: "実行モード",
+    workerRuntimeAccount: "Codexアカウント",
+    workerRuntimeLiveTurns: "Live turns",
+    workerRuntimeManualHandoff: "手動引き継ぎ",
+    workerRuntimeLiveTurnStates: {
+      enabled: "有効",
+      disabled: "無効",
+      unknown: "不明"
+    },
+    workerRuntimeManualHandoffStates: {
+      available: "利用可能",
+      unavailable: "利用不可",
+      unknown: "不明"
+    },
+    workerRuntimeReason: "Runtime理由",
+    workerRuntimeNextAction: "Worker runtimeの次アクション",
+    workerRuntimeNextActions: {
+      refreshRuntime: "ローカルworker実行前にCodex runtime状態を更新します。worker job作成後は手動worker ledger importがfallbackです。",
+      liveReady: "Live local Codex worker executionを利用できます。境界付き権限とworker jobを計画してから実行し、出力がblockedの場合はledger importを残します。",
+      fixture: "Fixture runtimeはworker実行をシミュレートできます。本番作業にはlive local実行またはmanual ledger import evidenceが必要です。",
+      codexLogin: "Codex loginを実行し、runtime状態を更新するか、境界付きworkerを手動で完了してledger evidenceをimportします。",
+      enableLiveTurns: "SOLO_CODEX_APP_SERVER_LIVE_TURNS=1を設定してlocal sidecarを再起動するか、境界付きworkerを手動で完了してledger evidenceをimportします。",
+      resolveBlocker: "Codex runtime blockerを解消してworkerを再実行するか、完了済みworker ledger envelopeをimportします。"
+    },
     workerPlanExecutionMode: "実行モード",
     workerPlanWorkingDirectory: "作業ディレクトリ",
     workerPlanIssueDocument: "Issue文書",
@@ -1618,6 +1670,32 @@ const KO_COPY: typeof EN_COPY = {
     advanceWorkerStage: "Worker stage 진행",
     refresh: "작업공간 실행 새로고침",
     workerPlan: "로컬 worker 경계 계획",
+    workerRuntimeReadiness: "Worker runtime 준비 상태",
+    workerRuntimeStatus: "Runtime 상태",
+    workerRuntimeExecutionMode: "실행 모드",
+    workerRuntimeAccount: "Codex 계정",
+    workerRuntimeLiveTurns: "Live turns",
+    workerRuntimeManualHandoff: "수동 인계",
+    workerRuntimeLiveTurnStates: {
+      enabled: "활성",
+      disabled: "비활성",
+      unknown: "알 수 없음"
+    },
+    workerRuntimeManualHandoffStates: {
+      available: "가능",
+      unavailable: "불가",
+      unknown: "알 수 없음"
+    },
+    workerRuntimeReason: "Runtime 사유",
+    workerRuntimeNextAction: "Worker runtime 다음 작업",
+    workerRuntimeNextActions: {
+      refreshRuntime: "local worker 실행 전에 Codex runtime 상태를 새로고침하세요. worker job이 있으면 수동 worker ledger import가 fallback입니다.",
+      liveReady: "Live local Codex worker 실행을 사용할 수 있습니다. 경계 권한과 worker job을 계획한 뒤 실행하고, 출력이 blocked이면 ledger import를 유지하세요.",
+      fixture: "Fixture runtime은 worker 실행을 시뮬레이션할 수 있습니다. 실제 작업에는 live local 실행 또는 manual ledger import evidence가 필요합니다.",
+      codexLogin: "Codex login을 실행하고 runtime 상태를 새로고침하거나, 경계가 정해진 worker를 수동 완료한 뒤 ledger evidence를 가져오세요.",
+      enableLiveTurns: "SOLO_CODEX_APP_SERVER_LIVE_TURNS=1을 설정하고 local sidecar를 재시작하거나, 경계가 정해진 worker를 수동 완료한 뒤 ledger evidence를 가져오세요.",
+      resolveBlocker: "Codex runtime blocker를 해소한 뒤 worker를 다시 실행하거나 완료된 worker ledger envelope을 가져오세요."
+    },
     workerPlanExecutionMode: "실행 모드",
     workerPlanWorkingDirectory: "작업 디렉터리",
     workerPlanIssueDocument: "이슈 문서",

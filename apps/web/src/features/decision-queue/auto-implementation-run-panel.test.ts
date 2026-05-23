@@ -7,13 +7,41 @@ import {
   autoImplementationWorkerExpectedChangeScope,
   autoImplementationWorkerLedgerStepDescription,
   type AutoImplementationRun,
-  type AutoImplementationRunProjection
+  type AutoImplementationRunProjection,
+  type CodexRuntimeStatusDto
 } from "@solo-superman/contracts";
 import {
   AutoImplementationRunPanel,
   autoImplementationRunViewModel
 } from "./AutoImplementationRunPanel";
 import { renderEnglishMarkup } from "./test-rendering";
+
+function codexRuntimeStatus(
+  overrides: Partial<Omit<CodexRuntimeStatusDto, "account">> & {
+    readonly account?: Partial<CodexRuntimeStatusDto["account"]>;
+  } = {}
+): CodexRuntimeStatusDto {
+  return {
+    status: "unavailable",
+    adapterVersion: "codex-app-server-preview-v1",
+    generatedSchemaVersion: "codex-cli-0.128.0",
+    transport: "stdio",
+    checkedAt: "2026-05-23T00:00:00.000Z",
+    manualHandoffAvailable: true,
+    liveTurnExecutionEnabled: false,
+    executionMode: "manual_handoff",
+    reason: "Codex CLI login is available, but set SOLO_CODEX_APP_SERVER_LIVE_TURNS=1 to enable preview-only live turn execution; manual handoff fallback is required until then.",
+    ...overrides,
+    account: {
+      status: "authenticated",
+      loginCommand: "codex auth login",
+      loginStatusCommand: "codex login status",
+      accountType: "chatgpt",
+      planType: "plus",
+      ...overrides.account
+    }
+  };
+}
 
 function prMutationRecord(
   overrides: Partial<AutoImplementationRun["pullRequestMutations"]["records"][number]> = {}
@@ -225,6 +253,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestPullRequestMutation).toBeNull();
     expect(view.latestWorkerJobLabel).toContain("not planned");
     expect(view.latestWorkerPlan).toBeNull();
+    expect(view.workerRuntimeReadiness).toBeNull();
     expect(view.issueRows).toEqual([]);
     expect(view.canPlanWorkerJob).toBe(false);
     expect(view.canRecordStageTick).toBe(false);
@@ -247,6 +276,65 @@ describe("AutoImplementationRunPanel view model", () => {
 
     expect(blockedMarkup).toContain('<button type="button" disabled="">Create workspace run</button>');
     expect(readyMarkup).toContain('<button type="button">Create workspace run</button>');
+    expect(blockedMarkup).not.toContain("Worker runtime readiness");
+  });
+
+  it("surfaces manual handoff runtime readiness beside worker controls", () => {
+    const view = autoImplementationRunViewModel(
+      {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+        latestRun: {
+          ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+          workerJobs: [workerJob()]
+        }
+      } as AutoImplementationRunProjection,
+      null,
+      codexRuntimeStatus()
+    );
+    const markup = renderPanelMarkup(view);
+
+    expect(view.workerRuntimeReadiness).toMatchObject({
+      statusLabel: "unavailable",
+      executionModeLabel: "manual_handoff",
+      accountLabel: "authenticated (chatgpt / plus)",
+      liveTurnsState: "disabled",
+      manualHandoffState: "available"
+    });
+    expect(view.workerRuntimeReadiness?.nextActionKey).toBe("enableLiveTurns");
+    expect(markup).toContain("Worker runtime readiness");
+    expect(markup).toContain("Runtime status");
+    expect(markup).toContain("unavailable");
+    expect(markup).toContain("Execution mode");
+    expect(markup).toContain("manual_handoff");
+    expect(markup).toContain("Codex account");
+    expect(markup).toContain("authenticated (chatgpt / plus)");
+    expect(markup).toContain("Live turns");
+    expect(markup).toContain("disabled");
+    expect(markup).toContain("Manual handoff");
+    expect(markup).toContain("available");
+    expect(markup).toContain("SOLO_CODEX_APP_SERVER_LIVE_TURNS=1");
+    expect(markup).toContain("import its ledger evidence");
+  });
+
+  it("shows live worker execution readiness when Codex runtime is enabled", () => {
+    const view = autoImplementationRunViewModel(
+      AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      null,
+      codexRuntimeStatus({
+        status: "available",
+        liveTurnExecutionEnabled: true,
+        executionMode: "live",
+        reason: "Live Codex app-server turn execution is enabled for preview-only artifacts."
+      })
+    );
+
+    expect(view.workerRuntimeReadiness).toMatchObject({
+      statusLabel: "available",
+      executionModeLabel: "live",
+      liveTurnsState: "enabled",
+      manualHandoffState: "available"
+    });
+    expect(view.workerRuntimeReadiness?.nextActionKey).toBe("liveReady");
   });
 
   it("renders synchronized issue status details from the run", () => {
