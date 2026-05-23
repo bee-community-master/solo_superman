@@ -26,7 +26,8 @@ pnpm start:local
 | Docs contract | `pnpm verify:docs` |
 | Release channel manifest contract | `pnpm verify:release-channel` |
 | Signed package credential-free preflight | `pnpm verify:signed-package-preflight` |
-| Full gate (typecheck, lint, tests, docs/release/package contracts, production bundle smoke) | `pnpm verify` |
+| General release readiness gate | `pnpm verify:release-readiness` |
+| Full gate (typecheck, lint, tests, docs/release/readiness/package contracts, production bundle smoke) | `pnpm verify` |
 
 ## 레포 구조
 
@@ -46,7 +47,7 @@ pnpm start:local
 2. 코드를 수정하기 전에 관련 온보딩 문서를 읽습니다.
 3. unrelated behavior를 넓히지 않고 issue를 해결하는 가장 작은 reviewable change를 만듭니다.
 4. enum, DTO, route, public contract value가 바뀌면 `docs/reference_KO.md`와 `docs/reference_EN.md`를 함께 갱신합니다.
-5. 먼저 targeted tests를 실행하고, 최종 PR closeout 전에는 `pnpm verify`를 실행합니다. 이 명령은 docs/release/package contract와 production bundle/local smoke gate까지 포함합니다.
+5. 먼저 targeted tests를 실행하고, 최종 PR closeout 전에는 `pnpm verify`를 실행합니다. 이 명령은 docs/release/readiness/package contract와 production bundle/local smoke gate까지 포함합니다.
 6. draft PR에는 changed scope, tested evidence, known gaps를 적습니다.
 
 ## PR 체크리스트
@@ -57,4 +58,5 @@ pnpm start:local
 - 새 route/DTO/enum value는 `docs/reference_KO.md`와 `docs/reference_EN.md`에 반영되고 `pnpm verify:docs`를 통과합니다.
 - Packaged update channel 변경은 `docs/release-channel_KO.md`, `docs/release-channel_EN.md`, `docs/release-update-channel.example.json`, `pnpm verify:release-channel`을 함께 갱신합니다.
 - Signed package planning 변경은 `docs/signed-packages_KO.md`, `docs/signed-packages_EN.md`, `docs/signed-package-preflight.example.json`, `pnpm verify:signed-package-preflight`를 함께 갱신합니다.
+- General release readiness 변경은 `docs/release-readiness_KO.md`, `docs/release-readiness_EN.md`, `docs/release-readiness.example.json`, `pnpm verify:release-readiness`를 함께 갱신합니다.
 - README는 end-user short entrypoint로 남고, 기여자/문제 해결 세부 내용은 `docs/` 아래에 둡니다.

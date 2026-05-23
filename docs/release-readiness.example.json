@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "solo-superman-release-readiness.v1",
+  "appId": "solo-superman",
+  "publicPosture": "technical-preview",
+  "broadReleaseStatus": "blocked",
+  "summary": "Solo Superman is safe to verify as a limited technical preview, but general release remains blocked until signed packages, packaged update rollback evidence, and Windows real-device verification are complete.",
+  "requiredVerificationCommands": {
+    "credentialFree": [
+      "pnpm verify:prod-bundle",
+      "pnpm verify:release-channel",
+      "pnpm verify:signed-package-preflight",
+      "pnpm verify:release-readiness",
+      "pnpm verify"
+    ],
+    "readyRelease": [
+      "pnpm verify:signed-package-preflight -- --require-credentials",
+      "pnpm verify:release-readiness -- --require-ready"
+    ]
+  },
+  "releaseGates": [
+    {
+      "id": "signed-packages",
+      "status": "blocked",
+      "requiredFor": "general-release",
+      "blocker": "Apple Developer ID/notarization and Windows Authenticode credentials are not present in the local credential-free environment.",
+      "evidenceRefs": [
+        "docs/signed-packages_KO.md",
+        "docs/signed-packages_EN.md",
+        "docs/signed-package-preflight.example.json"
+      ],
+      "requiredEvidence": [
+        "macOS DMG/PKG codesign verification, notarization status, and stapling evidence",
+        "Windows MSI/EXE Authenticode signature and timestamp verification",
+        "release manifest signature produced after final artifact checksum/signature refs are known"
+      ],
+      "unblockCriteria": [
+        "Run pnpm verify:signed-package-preflight -- --require-credentials in a release environment with signing credential refs",
+        "Attach redacted signing, notarization, and timestamp verification evidence to the release PR"
+      ]
+    },
+    {
+      "id": "packaged-update-rollback",
+      "status": "blocked",
+      "requiredFor": "general-release",
+      "blocker": "The packaged app updater is only defined by the manifest/signature/checksum/retry/rollback contract; device rollback verification is not complete.",
+      "evidenceRefs": [
+        "docs/release-channel_KO.md",
+        "docs/release-channel_EN.md",
+        "docs/release-update-channel.example.json"
+      ],
+      "requiredEvidence": [
+        "macOS and Windows install/update/defer/retry/rollback runs on signed packages",
+        "launch verification after update and after rollback",
+        "proof that rollback changes only app binary/release metadata and preserves local data, generated workspaces, support bundles, and credentials"
+      ],
+      "unblockCriteria": [
+        "Record device evidence for install, update, retry, rollback, and launch verification",
+        "Keep pnpm verify:release-channel passing with final signed artifact metadata"
+      ]
+    },
+    {
+      "id": "windows-real-device",
+      "status": "blocked",
+      "requiredFor": "general-release",
+      "blocker": "The Windows PowerShell path is documented but still needs clean Windows 11 device or VM verification from one-line install through first-screen arrival.",
+      "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/259",
+      "evidenceRefs": [
+        "README.md#설치방법",
+        "README.en.md#installation",
+        "docs/troubleshooting_KO.md#manual-windows-powershell-checklist",
+        "docs/troubleshooting_EN.md#manual-windows-powershell-checklist"
+      ],
+      "requiredEvidence": [
+        "Clean Windows 11 one-line install reaches the local first screen",
+        "UAC, Node/Git/Corepack/pnpm, WSL/Ubuntu/Codex CLI, Visual C++ runtime, desktop shortcut, rerun, and safe update paths match the docs",
+        "support bundle and bootstrap/prod-smoke log evidence are attached for any failure path"
+      ],
+      "unblockCriteria": [
+        "Complete issue #259 with real Windows device or VM evidence",
+        "Split any discovered blocker into a fix issue/PR before changing broad release status"
+      ]
+    }
+  ]
+}

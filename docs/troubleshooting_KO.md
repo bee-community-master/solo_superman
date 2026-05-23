@@ -77,14 +77,17 @@ Set-Location "$HOME\solo_superman"; pnpm.cmd start:local
 pnpm verify:prod-bundle
 pnpm verify:release-channel
 pnpm verify:signed-package-preflight
+pnpm verify:release-readiness
 pnpm verify
 ```
 
-Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 Node/Corepack command shim이 실행되도록 `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:signed-package-preflight`, `pnpm.cmd verify`를 사용합니다.
+Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 Node/Corepack command shim이 실행되도록 `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:signed-package-preflight`, `pnpm.cmd verify:release-readiness`, `pnpm.cmd verify`를 사용합니다.
 
 `pnpm verify:release-channel`은 `docs/release-update-channel.example.json`을 검사해 manifest signature, artifact checksum/signature, user consent/deferral, retry, rollback, credential/user-data preservation이 모두 선언되어 있는지 확인합니다. 이 명령은 release channel 계약 검증이며, signed package 설치나 실제 업데이트 적용을 수행하지 않습니다.
 
 `pnpm verify:signed-package-preflight`는 `docs/signed-package-preflight.example.json`을 검사해 macOS/Windows package 후보, signing credential group, credential-free dry-run command, actual signing hard gate가 분리되어 있는지 확인합니다. 기본 실행은 signing secret 없이 통과하되 `credentialGateStatus=blocked`와 `missingCredentialGroups`로 실제 signing이 왜 막혔는지 보여줍니다. 실제 release 환경에서는 `pnpm verify:signed-package-preflight -- --require-credentials`를 사용하며, 이 모드는 필요한 signing env가 빠지면 실패해야 합니다.
+
+`pnpm verify:release-readiness`는 [`release-readiness_KO.md`](release-readiness_KO.md)와 [`release-readiness.example.json`](release-readiness.example.json)을 검사해 signed package, packaged updater rollback, Windows 실기기 검증 gate가 general release 전까지 명시적으로 blocked인지 확인합니다. 실제 일반 공개 직전에는 `pnpm verify:release-readiness -- --require-ready`를 실행하며, 현재 technical preview 계약은 #259 Windows evidence와 signing/updater evidence가 없으므로 이 모드에서 실패해야 합니다.
 
 ## 오류 리포트용 support bundle
 

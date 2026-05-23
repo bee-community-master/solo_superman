@@ -77,14 +77,17 @@ Contributors can run:
 pnpm verify:prod-bundle
 pnpm verify:release-channel
 pnpm verify:signed-package-preflight
+pnpm verify:release-readiness
 pnpm verify
 ```
 
-On Windows PowerShell, use `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:signed-package-preflight`, and `pnpm.cmd verify` so the Node/Corepack command shim runs even when local execution policy blocks `pnpm.ps1`.
+On Windows PowerShell, use `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:signed-package-preflight`, `pnpm.cmd verify:release-readiness`, and `pnpm.cmd verify` so the Node/Corepack command shim runs even when local execution policy blocks `pnpm.ps1`.
 
 `pnpm verify:release-channel` checks `docs/release-update-channel.example.json` for manifest signature, artifact checksum/signature, user consent/deferral, retry, rollback, and credential/user-data preservation declarations. It verifies the release channel contract; it does not install signed packages or apply real updates.
 
 `pnpm verify:signed-package-preflight` checks `docs/signed-package-preflight.example.json` for macOS/Windows package candidates, signing credential groups, credential-free dry-run commands, and actual signing hard gates. The default run passes without signing secrets and reports why real signing is still blocked through `credentialGateStatus=blocked` and `missingCredentialGroups`. In a real release environment, use `pnpm verify:signed-package-preflight -- --require-credentials`; that mode must fail when required signing env values are missing.
+
+`pnpm verify:release-readiness` validates [`release-readiness_EN.md`](release-readiness_EN.md) and [`release-readiness.example.json`](release-readiness.example.json) so the signed package, packaged updater rollback, and Windows real-device gates remain explicitly blocked before general release. Immediately before a real general release, run `pnpm verify:release-readiness -- --require-ready`; the current technical-preview contract must fail that mode until #259 Windows evidence and signing/updater evidence exist.
 
 ## Support bundle for error reports
 

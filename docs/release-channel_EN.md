@@ -55,5 +55,6 @@ This channel contract is a prerequisite safety guard for a future packaged updat
 2. Developer ID/notarization or Windows Authenticode signing credential operations.
 3. Release hosting, manifest signing key rotation, and revoked-release handling.
 4. macOS/Windows real install, update, and rollback device verification.
+5. Passing the `pnpm verify:release-readiness -- --require-ready` gate from [`release-readiness_EN.md`](release-readiness_EN.md).
 
 Until those conditions are met, the README one-line installer rerun safe fast-forward path remains the only current update path.

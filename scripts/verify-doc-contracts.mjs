@@ -16,6 +16,7 @@ export const CONTRIBUTOR_DOC_PATHS = [
   "docs/reference_KO.md",
   "docs/release-channel_KO.md",
   "docs/signed-packages_KO.md",
+  "docs/release-readiness_KO.md",
   "docs/troubleshooting_KO.md"
 ];
 
@@ -32,6 +33,7 @@ const CONTRIBUTOR_DOC_SLUGS = [
   "reference",
   "release-channel",
   "signed-packages",
+  "release-readiness",
   "troubleshooting"
 ];
 
@@ -701,6 +703,17 @@ function checkContributorDocsSnippets() {
     "Browser-only DB rewrite",
     "ExecutionAuthorityRecord gate",
     "README remains short"
+  ]);
+
+  requireSnippets("release readiness doc missing broad release gates", docs["docs/release-readiness_KO.md"], [
+    "solo-superman-release-readiness.v1",
+    "pnpm verify:release-readiness",
+    "--require-ready",
+    "signed-packages",
+    "packaged-update-rollback",
+    "windows-real-device",
+    "#259",
+    "secret"
   ]);
 
   requireSnippets("troubleshooting doc missing install/run contract", docs["docs/troubleshooting_KO.md"], [

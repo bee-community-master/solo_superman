@@ -44,7 +44,7 @@ pnpm verify:signed-package-preflight
 pnpm verify:signed-package-preflight -- --require-credentials
 ```
 
-`pnpm verify`는 credential-free default preflight를 포함하므로 local 개발자는 signing secret 없이도 release planning contract drift를 잡을 수 있습니다.
+`pnpm verify`는 credential-free default preflight와 `pnpm verify:release-readiness`를 포함하므로 local 개발자는 signing secret 없이도 release planning contract drift와 general release blocker drift를 잡을 수 있습니다.
 
 ## 실제 release gate
 
@@ -55,5 +55,6 @@ pnpm verify:signed-package-preflight -- --require-credentials
 3. Release update manifest가 artifact SHA-256, package size, signature ref를 최종값으로 담고 manifest signature를 통과합니다.
 4. macOS/Windows device에서 install, update defer, retry, rollback, launch verification을 수행합니다.
 5. Rollback은 packaged app binary와 release metadata만 바꾸며 local DB, generated workspace, support bundle, credential을 건드리지 않습니다.
+6. `pnpm verify:release-readiness -- --require-ready`가 signed package, packaged updater rollback, Windows 실기기 gate를 모두 passed로 확인합니다.
 
 위 gate가 없으면 넓은 공개용 signed package나 packaged automatic update를 완료로 주장하지 않습니다.
