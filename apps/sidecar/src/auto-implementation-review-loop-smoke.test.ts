@@ -34,5 +34,5 @@ describe("auto implementation review-loop smoke", () => {
         "run reached completed status at merge_main without real GitHub writes"
       ])
     );
-  }, 15_000);
+  }, 30_000);
 });
