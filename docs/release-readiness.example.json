@@ -10,6 +10,7 @@
       "pnpm verify:release-channel",
       "pnpm verify:windows-real-device",
       "pnpm verify:packaged-update-rollback",
+      "pnpm verify:packaged-update-rollback:dry-run",
       "pnpm verify:signed-package-preflight",
       "pnpm verify:signed-package-release",
       "pnpm verify:release-readiness",
@@ -53,14 +54,15 @@
       "id": "packaged-update-rollback",
       "status": "blocked",
       "requiredFor": "general-release",
-      "blocker": "The packaged app updater is only defined by the manifest/signature/checksum/retry/rollback contract; device rollback verification is not complete.",
+      "blocker": "The packaged app updater has manifest/signature/checksum/retry/rollback contract and credential-free fixture dry-run coverage, but signed package device rollback verification is not complete.",
       "evidenceRefs": [
         "docs/release-channel_KO.md",
         "docs/release-channel_EN.md",
         "docs/release-update-channel.example.json",
         "docs/packaged-update-rollback_KO.md",
         "docs/packaged-update-rollback_EN.md",
-        "docs/packaged-update-rollback.example.json"
+        "docs/packaged-update-rollback.example.json",
+        "scripts/verify-packaged-update-rollback-dry-run.mjs"
       ],
       "requiredEvidence": [
         "macOS and Windows install/update/defer/retry/rollback runs on signed packages",

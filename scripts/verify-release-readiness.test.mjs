@@ -19,6 +19,7 @@ function blockedContract(overrides = {}) {
         "pnpm verify:release-channel",
         "pnpm verify:windows-real-device",
         "pnpm verify:packaged-update-rollback",
+        "pnpm verify:packaged-update-rollback:dry-run",
         "pnpm verify:signed-package-preflight",
         "pnpm verify:signed-package-release",
         "pnpm verify:release-readiness",

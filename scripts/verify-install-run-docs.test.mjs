@@ -80,6 +80,7 @@ describe("#105 local install/run verification docs", () => {
     expect(readme).toContain("`pnpm verify:release-channel`");
     expect(readme).toContain("패키지 업데이트 rollback evidence 계약");
     expect(readme).toContain("`pnpm verify:packaged-update-rollback`");
+    expect(readme).toContain("`pnpm verify:packaged-update-rollback:dry-run`");
     expect(readme).toContain("Windows 실기기 설치 evidence 계약");
     expect(readme).toContain("`pnpm verify:windows-real-device`");
     expect(readme).toContain("서명된 설치 패키지 preflight");
@@ -91,7 +92,9 @@ describe("#105 local install/run verification docs", () => {
     expect(releaseChannelDoc).toContain("서명된 manifest, artifact checksum, artifact signature");
     expect(releaseChannelExample).toContain('"schemaVersion": "solo-superman-release-update-manifest.v1"');
     expect(packagedUpdateRollbackDoc).toContain("rollback_after_failed_launch");
+    expect(packagedUpdateRollbackDoc).toContain("pnpm verify:packaged-update-rollback:dry-run");
     expect(packagedUpdateRollbackExample).toContain('"schemaVersion": "solo-superman-packaged-update-rollback.v1"');
+    expect(packagedUpdateRollbackExample).toContain('"pnpm verify:packaged-update-rollback:dry-run"');
     expect(windowsRealDeviceDoc).toContain("run_administrator_powershell_one_line_installer");
     expect(windowsRealDeviceExample).toContain('"schemaVersion": "solo-superman-windows-real-device.v1"');
     expect(signedPackagesDoc).toContain("macos-dmg");
@@ -111,6 +114,7 @@ describe("#105 local install/run verification docs", () => {
     expect(englishReadme).toContain("`pnpm verify:release-channel`");
     expect(englishReadme).toContain("Packaged update rollback evidence contract");
     expect(englishReadme).toContain("`pnpm verify:packaged-update-rollback`");
+    expect(englishReadme).toContain("`pnpm verify:packaged-update-rollback:dry-run`");
     expect(englishReadme).toContain("Windows real-device install evidence contract");
     expect(englishReadme).toContain("`pnpm verify:windows-real-device`");
     expect(englishReadme).toContain("Signed installer package preflight");

@@ -10,6 +10,7 @@
     "credentialFree": [
       "pnpm verify:release-channel",
       "pnpm verify:packaged-update-rollback",
+      "pnpm verify:packaged-update-rollback:dry-run",
       "pnpm verify:release-readiness",
       "pnpm verify"
     ],
