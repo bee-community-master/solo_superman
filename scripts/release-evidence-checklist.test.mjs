@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
@@ -533,6 +533,33 @@ describe("release evidence checklist", () => {
       expect(comment).toContain("pnpm verify:release-evidence-template -- --input <filled-template.json> --issue 266");
       expect(comment).toContain("### signed-packages");
       expect(comment).not.toContain("ghp_");
+
+      const emptyCommentPath = join(dir, "empty-comment.md");
+      await expect(runReleaseEvidenceChecklistCli(["--format", "comment", "--issue", "999", "--output", emptyCommentPath], {
+        contracts: minimalContracts({
+          releaseReadiness: {
+            schemaVersion: "solo-superman-release-readiness.v1",
+            appId: "solo-superman",
+            broadReleaseStatus: "blocked",
+            requiredVerificationCommands: {
+              credentialFree: ["pnpm verify:release-readiness"],
+              readyRelease: ["pnpm verify:release-readiness -- --require-ready"]
+            },
+            releaseGates: [
+              {
+                id: "signed-packages",
+                status: "blocked",
+                blockerIssue: "https://github.com/bee-community-master/solo_superman/issues/266",
+                requiredChecks: ["release_manifest_signature_verify"],
+                requiredEvidence: ["redacted signing evidence"],
+                unblockCriteria: ["attach redacted evidence"]
+              }
+            ]
+          }
+        }),
+        now: new Date("2026-05-24T00:00:00.000Z")
+      })).rejects.toThrow("--format comment matched no release evidence checklist items for issue #999");
+      await expect(access(emptyCommentPath)).rejects.toThrow();
 
       await runReleaseEvidenceChecklistCli(["--format", "template", "--issue", "266", "--output", outputPath], {
         contracts: minimalContracts({
