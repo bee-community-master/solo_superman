@@ -43,6 +43,14 @@ function fakeCommandRunner(command, args) {
       blockers: [],
       checked: ["blocked Windows real-device posture is allowed only with explicit blockers"]
     })],
+    [`${process.execPath} scripts/verify-windows-installer-dry-run.mjs`, JSON.stringify({
+      schemaVersion: "solo-superman-windows-installer-dry-run.v1",
+      status: "passed",
+      mode: "credential-free-static-dry-run",
+      upstreamDeviceEvidenceIssue: "https://github.com/bee-community-master/solo_superman/issues/259",
+      issues: [],
+      checked: ["dry-run stays credential-free and does not replace real Windows device evidence for #259"]
+    })],
     [`${process.execPath} scripts/verify-packaged-update-rollback.mjs`, JSON.stringify({
       status: "passed",
       rollbackStatus: "blocked",
@@ -106,6 +114,7 @@ function fakeCommandRunner(command, args) {
           verifyProductCapabilityReadiness: "node scripts/verify-product-capability-readiness.mjs",
           verifyReleaseChannel: "node scripts/verify-release-channel.mjs",
           verifyWindowsRealDevice: "node scripts/verify-windows-real-device.mjs",
+          verifyWindowsInstallerDryRun: "node scripts/verify-windows-installer-dry-run.mjs",
           verifyPackagedUpdateRollback: "node scripts/verify-packaged-update-rollback.mjs",
           verifyPackagedUpdateRollbackDryRun: "node scripts/verify-packaged-update-rollback-dry-run.mjs",
           verifySignedPackagePreflight: "node scripts/verify-signed-package-preflight.mjs",
@@ -154,11 +163,13 @@ describe("support diagnostics bundle", () => {
     expect(bundle.package.scripts.supportBundle).toBe("node scripts/support-bundle.mjs");
     expect(bundle.package.scripts.verifyReleaseReadiness).toBe("node scripts/verify-release-readiness.mjs");
     expect(bundle.package.scripts.verifyProductCapabilityReadiness).toBe("node scripts/verify-product-capability-readiness.mjs");
+    expect(bundle.package.scripts.verifyWindowsInstallerDryRun).toBe("node scripts/verify-windows-installer-dry-run.mjs");
     expect(bundle.package.scripts.verifyPackagedUpdateRollbackDryRun).toBe("node scripts/verify-packaged-update-rollback-dry-run.mjs");
     expect(bundle.package.scripts.releaseEvidenceChecklist).toBe("node scripts/release-evidence-checklist.mjs");
     expect(bundle.recommendedChecks).toContain("pnpm verify:product-capability-readiness");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-channel");
     expect(bundle.recommendedChecks).toContain("pnpm verify:windows-real-device");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:windows-installer:dry-run");
     expect(bundle.recommendedChecks).toContain("pnpm verify:packaged-update-rollback");
     expect(bundle.recommendedChecks).toContain("pnpm verify:packaged-update-rollback:dry-run");
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-preflight");
@@ -186,6 +197,14 @@ describe("support diagnostics bundle", () => {
       windowsVerificationStatus: "blocked",
       windowsRealDeviceReady: false,
       blockedDeviceRuns: ["windows-one-line-install-first-screen"]
+    });
+    expect(bundle.releaseDiagnostics.windowsInstallerDryRun).toMatchObject({
+      command: "pnpm verify:windows-installer:dry-run",
+      captureStatus: "ok",
+      evidenceStatus: "passed",
+      mode: "credential-free-static-dry-run",
+      upstreamDeviceEvidenceIssue: "https://github.com/bee-community-master/solo_superman/issues/259",
+      issues: []
     });
     expect(bundle.releaseDiagnostics.packagedUpdateRollback).toMatchObject({
       command: "pnpm verify:packaged-update-rollback",

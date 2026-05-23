@@ -23,6 +23,7 @@ const REQUIRED_DEVICE_CHECKS = new Set([
 const REQUIRED_CREDENTIAL_FREE_COMMANDS = new Set([
   "pnpm verify:prod-bundle",
   "pnpm verify:windows-real-device",
+  "pnpm verify:windows-installer:dry-run",
   "pnpm verify:release-readiness",
   "pnpm verify"
 ]);

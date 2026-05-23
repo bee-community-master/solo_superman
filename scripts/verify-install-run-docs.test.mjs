@@ -83,6 +83,7 @@ describe("#105 local install/run verification docs", () => {
     expect(readme).toContain("`pnpm verify:packaged-update-rollback:dry-run`");
     expect(readme).toContain("Windows 실기기 설치 evidence 계약");
     expect(readme).toContain("`pnpm verify:windows-real-device`");
+    expect(readme).toContain("`pnpm verify:windows-installer:dry-run`");
     expect(readme).toContain("서명된 설치 패키지 preflight");
     expect(readme).toContain("`pnpm verify:signed-package-preflight`");
     expect(readme).toContain("서명된 패키지 release evidence 계약");
@@ -96,7 +97,9 @@ describe("#105 local install/run verification docs", () => {
     expect(packagedUpdateRollbackExample).toContain('"schemaVersion": "solo-superman-packaged-update-rollback.v1"');
     expect(packagedUpdateRollbackExample).toContain('"pnpm verify:packaged-update-rollback:dry-run"');
     expect(windowsRealDeviceDoc).toContain("run_administrator_powershell_one_line_installer");
+    expect(windowsRealDeviceDoc).toContain("pnpm verify:windows-installer:dry-run");
     expect(windowsRealDeviceExample).toContain('"schemaVersion": "solo-superman-windows-real-device.v1"');
+    expect(windowsRealDeviceExample).toContain('"pnpm verify:windows-installer:dry-run"');
     expect(signedPackagesDoc).toContain("macos-dmg");
     expect(signedPackagesDoc).toContain("windows-msi");
     expect(signedPackagesDoc).toContain("credential-free default preflight");
@@ -117,6 +120,7 @@ describe("#105 local install/run verification docs", () => {
     expect(englishReadme).toContain("`pnpm verify:packaged-update-rollback:dry-run`");
     expect(englishReadme).toContain("Windows real-device install evidence contract");
     expect(englishReadme).toContain("`pnpm verify:windows-real-device`");
+    expect(englishReadme).toContain("`pnpm verify:windows-installer:dry-run`");
     expect(englishReadme).toContain("Signed installer package preflight");
     expect(englishReadme).toContain("`pnpm verify:signed-package-preflight`");
     expect(englishReadme).toContain("Signed package release evidence contract");

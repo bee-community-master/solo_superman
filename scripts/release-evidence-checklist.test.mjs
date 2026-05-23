@@ -98,6 +98,7 @@ describe("release evidence checklist", () => {
       "release-manifest-signing"
     ]);
     expect(checklist.credentialFreeCommands).toContain("pnpm verify:packaged-update-rollback:dry-run");
+    expect(checklist.credentialFreeCommands).toContain("pnpm verify:windows-installer:dry-run");
     expect(checklist.checklistItems).toEqual(expect.arrayContaining([
       expect.objectContaining({ itemId: "windows-one-line-install-first-screen", gateId: "windows-real-device" }),
       expect.objectContaining({ itemId: "macos-signed-package-release", gateId: "signed-packages" }),

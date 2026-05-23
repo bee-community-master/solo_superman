@@ -54,7 +54,8 @@ The current example contract is expected to fail in this mode because broad rele
 
 ## Operating rules
 
-- `pnpm verify` includes the default `pnpm verify:windows-real-device`, `pnpm verify:packaged-update-rollback`, `pnpm verify:packaged-update-rollback:dry-run`, `pnpm verify:signed-package-release`, and `pnpm verify:release-readiness`. PRs can pass credential-free validation while general release remains blocked, but they cannot hide or remove the broad-release blockers.
+- `pnpm verify` includes the default `pnpm verify:windows-real-device`, `pnpm verify:windows-installer:dry-run`, `pnpm verify:packaged-update-rollback`, `pnpm verify:packaged-update-rollback:dry-run`, `pnpm verify:signed-package-release`, and `pnpm verify:release-readiness`. PRs can pass credential-free validation while general release remains blocked, but they cannot hide or remove the broad-release blockers.
+- `pnpm verify:windows-installer:dry-run` is a local safety net for PowerShell installer-path drift; it does not replace the real Windows device evidence required by #259.
 - `pnpm verify:packaged-update-rollback:dry-run` is a local safety net for fixture update/rollback boundaries; it does not replace the signed package/device evidence required by #267.
 - A release PR may switch the readiness contract to broad/general release only after #266 signed package credential evidence, #267 packaged updater rollback evidence, and #259 Windows/device evidence are actually available.
 - Any blocker found during Windows real-device verification should become a separate fix issue/PR instead of being buried inside #259.
