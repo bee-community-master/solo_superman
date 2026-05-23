@@ -7,6 +7,7 @@ import {
   AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
   AutoImplementationRunValidationError,
   autoImplementationIssueDocumentStatus,
+  autoImplementationIssueStatusSummary,
   autoImplementationRunWithSynchronizedIssueDocs,
   autoImplementationWorkerExpectedChangeScope,
   autoImplementationWorkerLedgerStepDescription,
@@ -333,12 +334,26 @@ describe("AutoImplementationRunProjection contract", () => {
     };
 
     expect(autoImplementationIssueDocumentStatus(blockedWorkerRun, issue)).toBe("blocked");
-    expect(autoImplementationRunWithSynchronizedIssueDocs(blockedWorkerRun).issueManagement.issueDocs[0]).toMatchObject({
+    const synchronizedBlockedRun = autoImplementationRunWithSynchronizedIssueDocs(blockedWorkerRun);
+    expect(synchronizedBlockedRun.issueManagement.issueDocs[0]).toMatchObject({
       issueId: issue.issueId,
       status: "blocked"
     });
+    expect(synchronizedBlockedRun.issueManagement.issueStatusSummary).toEqual({
+      total: 7,
+      open: 6,
+      completed: 0,
+      blocked: 1
+    });
     expect(autoImplementationIssueDocumentStatus(retryableRun, issue)).toBe("open");
     expect(autoImplementationIssueDocumentStatus(completedRun, issue)).toBe("completed");
+    expect(autoImplementationIssueStatusSummary(autoImplementationRunWithSynchronizedIssueDocs(completedRun).issueManagement.issueDocs))
+      .toMatchObject({
+        total: 7,
+        open: 6,
+        completed: 1,
+        blocked: 0
+      });
   });
 
   it("rejects worker execution plans that omit the exact planned ledger docs", () => {

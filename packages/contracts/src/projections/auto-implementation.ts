@@ -277,6 +277,13 @@ export interface AutoImplementationIssueDocument {
   readonly status: "open" | "completed" | "blocked";
 }
 
+export interface AutoImplementationIssueStatusSummary {
+  readonly total: number;
+  readonly open: number;
+  readonly completed: number;
+  readonly blocked: number;
+}
+
 export interface AutoImplementationGitHubIssuePlan {
   readonly issueId: string;
   readonly title: string;
@@ -396,6 +403,7 @@ export interface AutoImplementationIssueManagement {
   readonly mode: AutoImplementationIssueMode;
   readonly trackerRelativePath: string;
   readonly issueDocs: readonly AutoImplementationIssueDocument[];
+  readonly issueStatusSummary: AutoImplementationIssueStatusSummary;
   readonly githubIssueUrls: readonly string[];
   readonly githubIssueMutation: AutoImplementationGitHubIssueMutationContract;
   readonly warning: string | null;
@@ -573,13 +581,47 @@ export function autoImplementationIssueDocumentStatus(
   return "open";
 }
 
+export function autoImplementationIssueStatusSummary(
+  issueDocs: readonly AutoImplementationIssueDocument[]
+): AutoImplementationIssueStatusSummary {
+  return issueDocs.reduce<AutoImplementationIssueStatusSummary>((summary, issue) => ({
+    total: summary.total + 1,
+    open: summary.open + (issue.status === "open" ? 1 : 0),
+    completed: summary.completed + (issue.status === "completed" ? 1 : 0),
+    blocked: summary.blocked + (issue.status === "blocked" ? 1 : 0)
+  }), {
+    total: 0,
+    open: 0,
+    completed: 0,
+    blocked: 0
+  });
+}
+
+function sameAutoImplementationIssueStatusSummary(
+  left: AutoImplementationIssueStatusSummary,
+  right: AutoImplementationIssueStatusSummary | undefined
+) {
+  if (!right) {
+    return false;
+  }
+
+  return left.total === right.total &&
+    left.open === right.open &&
+    left.completed === right.completed &&
+    left.blocked === right.blocked;
+}
+
 export function autoImplementationRunWithSynchronizedIssueDocs(run: AutoImplementationRun): AutoImplementationRun {
   const issueDocs = run.issueManagement.issueDocs.map((issue) => ({
     ...issue,
     status: autoImplementationIssueDocumentStatus(run, issue)
   }));
+  const issueStatusSummary = autoImplementationIssueStatusSummary(issueDocs);
 
-  if (issueDocs.every((issue, index) => issue.status === run.issueManagement.issueDocs[index]?.status)) {
+  if (
+    issueDocs.every((issue, index) => issue.status === run.issueManagement.issueDocs[index]?.status) &&
+    sameAutoImplementationIssueStatusSummary(issueStatusSummary, run.issueManagement.issueStatusSummary)
+  ) {
     return run;
   }
 
@@ -587,7 +629,8 @@ export function autoImplementationRunWithSynchronizedIssueDocs(run: AutoImplemen
     ...run,
     issueManagement: {
       ...run.issueManagement,
-      issueDocs
+      issueDocs,
+      issueStatusSummary
     }
   };
 }
@@ -835,6 +878,29 @@ function isIssueDoc(value: unknown): value is AutoImplementationIssueDocument {
     isOneOf(value.status, ["open", "completed", "blocked"] as const);
 }
 
+function isIssueStatusSummary(value: unknown): value is AutoImplementationIssueStatusSummary {
+  if (
+    !isRecord(value) ||
+    !Number.isInteger(value.total) ||
+    !Number.isInteger(value.open) ||
+    !Number.isInteger(value.completed) ||
+    !Number.isInteger(value.blocked)
+  ) {
+    return false;
+  }
+
+  const total = value.total as number;
+  const open = value.open as number;
+  const completed = value.completed as number;
+  const blocked = value.blocked as number;
+
+  return total >= 0 &&
+    open >= 0 &&
+    completed >= 0 &&
+    blocked >= 0 &&
+    open + completed + blocked === total;
+}
+
 function isGitHubIssuePlan(value: unknown): value is AutoImplementationGitHubIssuePlan {
   return isRecord(value) &&
     isNonEmptyString(value.issueId) &&
@@ -986,6 +1052,8 @@ function isIssueManagement(value: unknown): value is AutoImplementationIssueMana
     isNonEmptyString(value.trackerRelativePath) &&
     Array.isArray(value.issueDocs) &&
     value.issueDocs.every(isIssueDoc) &&
+    isIssueStatusSummary(value.issueStatusSummary) &&
+    sameAutoImplementationIssueStatusSummary(value.issueStatusSummary, autoImplementationIssueStatusSummary(value.issueDocs)) &&
     Array.isArray(value.githubIssueUrls) &&
     value.githubIssueUrls.every(isGitHubIssueUrl) &&
     isGitHubIssueMutationContract(value.githubIssueMutation) &&
@@ -1315,6 +1383,7 @@ const AUTO_IMPLEMENTATION_RUN_READY_FIXTURE_RUN: AutoImplementationRun = {
     mode: "markdown_fallback",
     trackerRelativePath: "implementation-tracker.md",
     issueDocs: AUTO_IMPLEMENTATION_RUN_READY_ISSUE_DOCS,
+    issueStatusSummary: autoImplementationIssueStatusSummary(AUTO_IMPLEMENTATION_RUN_READY_ISSUE_DOCS),
     githubIssueUrls: [],
     githubIssueMutation: {
       status: "not_requested",

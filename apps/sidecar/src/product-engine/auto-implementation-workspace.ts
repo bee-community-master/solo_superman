@@ -16,10 +16,12 @@ import {
   AUTO_IMPLEMENTATION_TICK_INTERVAL_MS,
   DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES,
   autoImplementationIssueDocumentStatus,
+  autoImplementationIssueStatusSummary,
   latestAutoImplementationWorkerJobForIssue,
   defaultAutoImplementationReviewProtocol,
   isAutoImplementationReservedProjectFolderName,
   type AutoImplementationIssueDocument,
+  type AutoImplementationIssueStatusSummary,
   type AutoImplementationGitHubIssueMutationContract,
   type AutoImplementationGitHubIssuePlan,
   type AutoImplementationRemoteGuide,
@@ -759,6 +761,10 @@ function latestAutoImplementationWorkerJobMarkdown(job: AutoImplementationRun["w
   ];
 }
 
+function autoImplementationIssueStatusSummaryMarkdown(summary: AutoImplementationIssueStatusSummary) {
+  return `${summary.completed} completed / ${summary.blocked} blocked / ${summary.open} open / ${summary.total} total`;
+}
+
 function latestAutoImplementationPullRequestMutationMarkdown(
   mutation: AutoImplementationRun["pullRequestMutations"]["latestRecord"]
 ) {
@@ -816,6 +822,7 @@ function autoImplementationIssueStateMarkdown(run: AutoImplementationRun, issue:
     `- Stage status: ${stage?.status ?? "missing"}`,
     `- Updated at: ${run.updatedAt}`,
     `- Next tick at: ${run.nextTickAt}`,
+    `- Issue status summary: ${autoImplementationIssueStatusSummaryMarkdown(run.issueManagement.issueStatusSummary)}`,
     `- Ledger step: ${markdownLineValue(stage?.ledgerEvidence?.implementationStepId)}`,
     `- Implementation evidence refs: ${inlineMarkdownList(stage?.ledgerEvidence?.implementationEvidenceRefs ?? [])}`,
     `- Code review streak refs: ${inlineMarkdownList(stage?.ledgerEvidence?.codeReviewStreakRefs ?? [])}`,
@@ -846,6 +853,7 @@ function autoImplementationRunStateMarkdown(run: AutoImplementationRun) {
     `- Updated at: ${run.updatedAt}`,
     `- Next tick at: ${run.nextTickAt}`,
     `- Remote status: ${run.remoteStatus}`,
+    `- Issue status summary: ${autoImplementationIssueStatusSummaryMarkdown(run.issueManagement.issueStatusSummary)}`,
     "",
     "### Stage plan",
     "",
@@ -1270,6 +1278,7 @@ export async function prepareAutoImplementationWorkspaceRun(
       mode: issueMode,
       trackerRelativePath,
       issueDocs,
+      issueStatusSummary: autoImplementationIssueStatusSummary(issueDocs),
       githubIssueUrls: githubIssueMutation.createdIssueUrls,
       githubIssueMutation,
       warning: guide.warning
