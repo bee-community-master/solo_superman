@@ -64,6 +64,20 @@ export const SERVICE_PAGE_USE_PERMISSION_STATUSES = [
 
 export type ServicePageUsePermissionStatus = (typeof SERVICE_PAGE_USE_PERMISSION_STATUSES)[number];
 
+export const SERVICE_PAGE_FINAL_SUBMIT_BLOCKED_CONTRACT_LABEL =
+  "Final submit remains blocked until a later explicit production-mutation contract validates the confirmation card and ExecutionAuthorityRecord linkage.";
+
+export const SERVICE_PAGE_BLOCKED_NEXT_ACTION =
+  "Fix the visible permission boundary, redaction preview, or blocked final-submit contract before using the service page.";
+
+export function servicePageGrantedNextAction(serviceName: string) {
+  return [
+    `Use ${serviceName} only for the listed read/preview page actions.`,
+    "Request fill-draft per-action approval separately.",
+    SERVICE_PAGE_FINAL_SUBMIT_BLOCKED_CONTRACT_LABEL
+  ].join(" ");
+}
+
 export const SERVICE_PAGE_USE_PERMISSION_BLOCK_CODES = [
   "invalid_service_origin",
   "invalid_page_url",
@@ -517,7 +531,7 @@ export const SERVICE_PAGE_USE_PERMISSION_READY_FIXTURE: ServicePageUsePermission
   userApprovalRef: "user_approval_service_page_vercel",
   status: "granted",
   userVisibleExplanation: servicePageUsePermissionSummaryForStatus("granted"),
-  nextAction: "Keep the service page visible; approve fill-draft or final-submit actions separately.",
+  nextAction: servicePageGrantedNextAction("Vercel"),
   userPresentLoginRequired: true,
   credentialEntryDelegated: false,
   fillDraftRequiresPerActionApproval: true,

@@ -1,6 +1,7 @@
-import type {
-  ServicePageUsePermissionProjection,
-  ServicePageUsePermissionRecord
+import {
+  SERVICE_PAGE_FINAL_SUBMIT_BLOCKED_CONTRACT_LABEL,
+  type ServicePageUsePermissionProjection,
+  type ServicePageUsePermissionRecord
 } from "@solo-superman/contracts";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 import { formatListWithFallback } from "./text-formatting";
@@ -31,12 +32,9 @@ export interface ServicePageUsePermissionViewModel {
   readonly blockReasonItems: readonly string[];
 }
 
-const FINAL_SUBMIT_BLOCKED_LABEL =
-  "Final submit remains blocked until a later explicit production-mutation contract validates the confirmation card and ExecutionAuthorityRecord linkage.";
-
 function formatFinalSubmitBoundaryLabel(permission: ServicePageUsePermissionRecord) {
   if (!permission.finalSubmitBoundary.requested) {
-    return `Fill-draft/preview and final submit stay separate; ${FINAL_SUBMIT_BLOCKED_LABEL}`;
+    return `Fill-draft/preview and final submit stay separate; ${SERVICE_PAGE_FINAL_SUBMIT_BLOCKED_CONTRACT_LABEL}`;
   }
 
   const confirmationCardRef = permission.finalSubmitBoundary.confirmationCardRef ?? "missing";
@@ -44,7 +42,7 @@ function formatFinalSubmitBoundaryLabel(permission: ServicePageUsePermissionReco
 
   return [
     `Final submit requested with confirmation=${confirmationCardRef} and authority=${executionAuthorityRef}.`,
-    FINAL_SUBMIT_BLOCKED_LABEL,
+    SERVICE_PAGE_FINAL_SUBMIT_BLOCKED_CONTRACT_LABEL,
     `production mutation performed=${permission.finalSubmitBoundary.productionMutationPerformed}.`
   ].join(" ");
 }
@@ -80,7 +78,7 @@ export function servicePageUsePermissionViewModel(
       approvalGranularityLabel: "not set",
       approvalLabel: "No user approval ref has been recorded.",
       loginBoundaryLabel: "User-owned login is required before any page-use permission.",
-      finalSubmitBoundaryLabel: FINAL_SUBMIT_BLOCKED_LABEL,
+      finalSubmitBoundaryLabel: SERVICE_PAGE_FINAL_SUBMIT_BLOCKED_CONTRACT_LABEL,
       explanation: "Create a purpose-limited service page-use permission before using an external service page.",
       nextAction: "Show service origin, purpose, data categories, allowed/blocked actions, and redaction preview.",
       canRevoke: false,

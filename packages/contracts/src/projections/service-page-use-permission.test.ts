@@ -56,6 +56,8 @@ describe("Service page-use permission projection contract", () => {
     expect(projection.latestPermission.artifactRetention.promptResultScreenshotLogRetention).toBe(
       "default_evidence_refs_only"
     );
+    expect(projection.latestPermission.nextAction).toContain("Request fill-draft per-action approval separately");
+    expect(projection.latestPermission.nextAction).toContain("Final submit remains blocked");
     expect(projection.latestPermission.finalSubmitBoundary.productionMutationPerformed).toBe(false);
   });
 
