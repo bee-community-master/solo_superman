@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
 import {
   CHATGPT_BROWSER_DELEGATION_FALLBACK_PROJECTION_FIXTURE,
   CHATGPT_BROWSER_DELEGATION_READY_PROJECTION_FIXTURE
 } from "@solo-superman/contracts";
-import { chatGptDelegationViewModel } from "./ChatGptDelegationPanel";
+import {
+  ChatGptDelegationPanel,
+  chatGptDelegationViewModel
+} from "./ChatGptDelegationPanel";
+import { renderEnglishMarkup } from "./test-rendering";
 
 describe("chatGptDelegationViewModel", () => {
   it("surfaces running state, revoke control, artifacts, and ResearchTask activity links", () => {
@@ -24,6 +29,16 @@ describe("chatGptDelegationViewModel", () => {
       "log:browser_action:log:chatgpt-ready"
     ]));
     expect(view.redactionPreviewRef).toBe("redaction_preview_chatgpt_ready");
+    expect(view.dataDisclosureItems.join("\n")).toContain("disclosure_preview_chatgpt_ready");
+    expect(view.dataDisclosureItems.join("\n")).toContain("Excluded sensitive fields");
+    expect(view.policyRiskVerdictLabel).toContain("pass");
+    expect(view.policyRiskEvidenceRefs).toContain("policy:chatgpt-pro:per-run");
+    expect(view.sessionOwnershipVerdictLabel).toContain("User confirms they signed into the local browser profile directly");
+    expect(view.sessionOwnershipEvidenceRefs).toContain("session:owner-confirmed");
+    expect(view.approvalDecisionLabel).toBe("approved");
+    expect(view.browserActionAuthorityLabel).toBe("exec_auth_chatgpt_ready");
+    expect(view.resultImportLabel).toContain("No result import");
+    expect(view.resultImportGateItems).toContain("No result import gate has been evaluated yet.");
     expect(artifactControlText).toContain("Export retained");
     expect(artifactControlText).toContain("Delete retained");
     expect(view.auditItems.join("\n")).toContain("DelegationRunApproved");
@@ -39,6 +54,9 @@ describe("chatGptDelegationViewModel", () => {
     expect(view.fallbackLabel).toContain("manual_prompt_handoff");
     expect(view.fallbackReason).toContain("Policy risk blocks");
     expect(view.blockReasonItems.join("\n")).toContain("policy_risk_blocked");
+    expect(view.policyRiskVerdictLabel).toContain("block");
+    expect(view.policyRiskEvidenceRefs).toContain("policy:blocked:unattended-queue");
+    expect(view.browserActionAuthorityLabel).toContain("missing browser action authority");
     expect(view.nextAction).toContain("Known Risk");
     expect(view.auditItems.join("\n")).toContain("DelegationFallbackApplied");
   });
@@ -51,5 +69,41 @@ describe("chatGptDelegationViewModel", () => {
     expect(view.visibleHandoffLabel).toContain("사용자 소유 브라우저");
     expect(view.artifactRefs).toEqual([]);
     expect(view.artifactControlLabels).toEqual([]);
+    expect(view.dataDisclosureItems).toEqual([]);
+    expect(view.policyRiskVerdictLabel).toBeNull();
+  });
+
+  it("renders safety verdict and disclosure details only after a delegation run exists", () => {
+    const view = chatGptDelegationViewModel(CHATGPT_BROWSER_DELEGATION_READY_PROJECTION_FIXTURE);
+    const readyMarkup = renderEnglishMarkup(
+      createElement(ChatGptDelegationPanel, {
+        delegation: view,
+        isBusy: false,
+        onRefreshDelegation: () => undefined,
+        onRevokeDelegation: () => undefined
+      })
+    );
+    const emptyMarkup = renderEnglishMarkup(
+      createElement(ChatGptDelegationPanel, {
+        delegation: chatGptDelegationViewModel(null),
+        isBusy: false,
+        onRefreshDelegation: () => undefined,
+        onRevokeDelegation: () => undefined
+      })
+    );
+
+    expect(readyMarkup).toContain("ChatGPT delegation safety");
+    expect(readyMarkup).toContain("Data disclosure preview");
+    expect(readyMarkup).toContain("Prompt context summary: context_summary_chatgpt_ready");
+    expect(readyMarkup).toContain("Policy risk verdict");
+    expect(readyMarkup).toContain("policy:chatgpt-pro:per-run");
+    expect(readyMarkup).toContain("Session ownership verdict");
+    expect(readyMarkup).toContain("session:owner-confirmed");
+    expect(readyMarkup).toContain("Approval decision: approved");
+    expect(readyMarkup).toContain("Browser action authority: exec_auth_chatgpt_ready");
+    expect(readyMarkup).toContain("Result import: No result import has been captured yet.");
+    expect(readyMarkup).toContain("Result import gate");
+    expect(readyMarkup).toContain("No result import gate has been evaluated yet.");
+    expect(emptyMarkup).not.toContain("ChatGPT delegation safety");
   });
 });

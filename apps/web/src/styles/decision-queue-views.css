@@ -297,6 +297,34 @@
   font-size: 0.72rem;
 }
 
+.chatgpt-delegation-safety {
+  border-left: 3px solid #d8e5f0;
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-left: 10px;
+}
+
+.chatgpt-delegation-safety h3 {
+  margin: 0;
+  color: var(--solo-text);
+  font-size: 0.82rem;
+}
+
+.chatgpt-delegation-safety strong {
+  color: var(--solo-text);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.chatgpt-delegation-safety p,
+.chatgpt-delegation-safety ul {
+  margin: 0;
+  color: var(--solo-muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
 .research-validation-summary,
 .research-evidence-packs,
 .research-evidence-matrices {

@@ -58,6 +58,7 @@ Business mode also requires an explicit `businessCriticIntensity`; it has no def
 - Research tab evidence matrices and evidence packs must show pro evidence, con evidence, uncertainties, missing counter-evidence reasons, known risks, next validation actions, source reliability, and quality gate checks together so skeptical-search gaps stay visible before Planning-ready.
 - The Research tab can still start currently ready planned public-web research tasks as a bounded batch, respecting the active allowlist and concurrency budget while keeping each run on the existing per-task read-only research path.
 - Risk UI should show Confidence Map, if-stop-now risks/actions, next-best validation/build-readiness actions, five-axis radar, and Top 3 Risk Cards when the data supports them; Founder Brief risk/action arrays must remain first-class lists instead of only being embedded in prose sections. Per-question risk entry stays collapsed under an optional add-comment/risk disclosure.
+- ChatGPT local browser delegation must show data disclosure previews, excluded sensitive fields, policy/session-ownership verdicts, approval/authority refs, and result-import gates before treating an external AI workspace as safe enough for visible handoff.
 
 ## Current release
 
