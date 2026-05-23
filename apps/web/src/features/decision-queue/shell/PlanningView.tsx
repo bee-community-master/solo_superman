@@ -1,3 +1,4 @@
+import type { IfStopNowArtifactProjection } from "@solo-superman/contracts";
 import { Phase15bReadinessPanel } from "../Phase15bReadinessPanel";
 import { PlanningHandoffPanel } from "../PlanningHandoffPanel";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
@@ -5,6 +6,77 @@ import type { DecisionQueueShellController } from "./useDecisionQueueShellContro
 
 interface PlanningViewProps {
   readonly controller: DecisionQueueShellController;
+}
+
+type DecisionQueueCopy = ReturnType<typeof useDecisionQueueCopy>;
+
+function PlanningTextList({ ariaLabel, items }: { readonly ariaLabel?: string; readonly items: readonly string[] }) {
+  return (
+    <ul aria-label={ariaLabel} className="effect-list">
+      {items.map((item, index) => (
+        <li key={`${index}:${item}`}>{item}</li>
+      ))}
+    </ul>
+  );
+}
+
+function IfStopNowArtifactCard({
+  artifact,
+  copy
+}: {
+  readonly artifact: IfStopNowArtifactProjection;
+  readonly copy: DecisionQueueCopy;
+}) {
+  return (
+    <section className="if-stop-now-artifact" aria-label={copy.planning.ifStopNowArtifact}>
+      <h4>{artifact.title || copy.planning.ifStopNowArtifact}</h4>
+      <p>{artifact.summary}</p>
+      {artifact.knownRisks.length ? (
+        <div>
+          <strong>{copy.planning.ifStopNowKnownRisks}</strong>
+          <PlanningTextList ariaLabel={copy.planning.ifStopNowKnownRisks} items={artifact.knownRisks} />
+        </div>
+      ) : null}
+      {artifact.nextValidationActions.length ? (
+        <div>
+          <strong>{copy.planning.ifStopNowNextValidationActions}</strong>
+          <PlanningTextList ariaLabel={copy.planning.ifStopNowNextValidationActions} items={artifact.nextValidationActions} />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function FounderBriefRiskActions({
+  copy,
+  knownRisks,
+  nextValidationActions
+}: {
+  readonly copy: DecisionQueueCopy;
+  readonly knownRisks: readonly string[];
+  readonly nextValidationActions: readonly string[];
+}) {
+  if (!knownRisks.length && !nextValidationActions.length) {
+    return null;
+  }
+
+  return (
+    <section className="founder-brief-risk-actions" aria-label={copy.planning.founderBriefRiskActions}>
+      <h3>{copy.planning.founderBriefRiskActions}</h3>
+      {knownRisks.length ? (
+        <div>
+          <strong>{copy.planning.founderBriefKnownRisks}</strong>
+          <PlanningTextList ariaLabel={copy.planning.founderBriefKnownRisks} items={knownRisks} />
+        </div>
+      ) : null}
+      {nextValidationActions.length ? (
+        <div>
+          <strong>{copy.planning.founderBriefNextValidationActions}</strong>
+          <PlanningTextList ariaLabel={copy.planning.founderBriefNextValidationActions} items={nextValidationActions} />
+        </div>
+      ) : null}
+    </section>
+  );
 }
 
 export function PlanningView({ controller }: PlanningViewProps) {
@@ -229,13 +301,10 @@ export function PlanningView({ controller }: PlanningViewProps) {
             {nextBestActions.length ? (
               <div className="confidence-next-actions">
                 <strong>{copy.planning.nextBestActions}</strong>
-                <ul className="effect-list" aria-label={copy.planning.nextBestActions}>
-                  {nextBestActions.map((action) => (
-                    <li key={action}>{action}</li>
-                  ))}
-                </ul>
+                <PlanningTextList ariaLabel={copy.planning.nextBestActions} items={nextBestActions} />
               </div>
             ) : null}
+            <IfStopNowArtifactCard artifact={confidence.completionCandidate.ifStopNowArtifact} copy={copy} />
           </section>
         ) : null}
         {topRiskCards.length ? (
@@ -279,6 +348,11 @@ export function PlanningView({ controller }: PlanningViewProps) {
                 <p>{section.body}</p>
               </section>
             ))}
+            <FounderBriefRiskActions
+              copy={copy}
+              knownRisks={projections.founderBrief.knownRisks}
+              nextValidationActions={projections.founderBrief.nextValidationActions}
+            />
           </div>
         ) : (
           <p className="empty-state">{copy.planning.noFounderBrief}</p>
