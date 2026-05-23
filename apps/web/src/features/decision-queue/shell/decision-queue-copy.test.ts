@@ -74,6 +74,9 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ja.implementation.runtimeManualHandoffStates.available).toBe("利用可能");
     expect(DECISION_QUEUE_COPY.ko.implementation.runtimeTransport).toBe("Transport");
     expect(DECISION_QUEUE_COPY.ko.implementation.runtimeManualHandoff).toBe("수동 인계");
+    expect(DECISION_QUEUE_COPY.en.handoff.title).toBe("Planning Handoff");
+    expect(DECISION_QUEUE_COPY.ja.handoff.title).toBe("計画引き継ぎ");
+    expect(DECISION_QUEUE_COPY.ko.handoff.title).toBe("계획 인계");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.workerRuntimeAdapterVersion).toBe("Runtime adapter");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeGeneratedSchemaVersion).toBe("生成schema version");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerRuntimeTransport).toBe("Transport");

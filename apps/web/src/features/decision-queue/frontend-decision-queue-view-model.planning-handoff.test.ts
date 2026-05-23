@@ -13,7 +13,7 @@ import {
 } from "./decision-queue-view-model";
 
 import { PlanningHandoffPanel } from "./PlanningHandoffPanel";
-import { renderEnglishMarkup } from "./test-rendering";
+import { renderEnglishMarkup, renderMarkup } from "./test-rendering";
 
 function handoffProjectionFixture(kind: "final" | "blocker"): PlanningHandoffProjection {
   return kind === "final"
@@ -73,6 +73,22 @@ describe("Decision Queue view model planning-handoff", () => {
     expect(markup).toContain("Source references:");
     expect(markup).not.toMatch(/\b(executed|succeeded|applied)\b/iu);
     expect(markup).not.toContain("no_file_shell_browser_deploy_or_external_mutation");
+  });
+
+  it("uses localized copy for the Planning Handoff panel title", () => {
+    const handoff = planningHandoffViewModel(handoffProjectionFixture("final"));
+    const markup = renderMarkup(
+      createElement(PlanningHandoffPanel, {
+        hasActiveSession: true,
+        isBusy: false,
+        handoff,
+        onRunHandoffGate: () => undefined,
+        onRefreshHandoff: () => undefined
+      }),
+      "ko"
+    );
+
+    expect(markup).toContain("<h2>계획 인계</h2>");
   });
 
   it("keeps blocker Planning Handoff copy mutually exclusive from the final label", () => {

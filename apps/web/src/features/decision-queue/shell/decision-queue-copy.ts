@@ -625,6 +625,7 @@ const EN_COPY = {
     safeExecutionNote: "Safe execution note"
   },
   handoff: {
+    title: "Planning Handoff",
     sourceRefs: "Source references",
     runGate: "Run planning handoff check",
     refresh: "Refresh handoff"
@@ -1289,6 +1290,7 @@ const JA_COPY: typeof EN_COPY = {
     safeExecutionNote: "安全実行ノート"
   },
   handoff: {
+    title: "計画引き継ぎ",
     sourceRefs: "参照元",
     runGate: "計画引き継ぎチェックを実行",
     refresh: "引き継ぎを更新"
@@ -1951,6 +1953,7 @@ const KO_COPY: typeof EN_COPY = {
     safeExecutionNote: "안전 실행 노트"
   },
   handoff: {
+    title: "계획 인계",
     sourceRefs: "참조 출처",
     runGate: "계획 인계 확인 실행",
     refresh: "핸드오프 새로고침"
