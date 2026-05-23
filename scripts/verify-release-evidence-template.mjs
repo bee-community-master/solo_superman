@@ -117,11 +117,23 @@ function aggregateFixtureValidations(validations) {
   };
 }
 
+function expectedChecklistForTemplate(fullChecklist, parsedIssueNumber, template) {
+  const issueNumber = parsedIssueNumber ?? issueNumberFromTemplate(template);
+
+  return {
+    issueNumber,
+    expectedChecklist: issueNumber
+      ? filterReleaseEvidenceChecklistByIssue(fullChecklist, issueNumber)
+      : fullChecklist
+  };
+}
+
 export async function runReleaseEvidenceTemplateVerifierCli(argv = process.argv.slice(2), options = {}) {
   const parsed = parseReleaseEvidenceTemplateVerifierArgs(argv, options.env ?? process.env);
   if (parsed.help) {
     console.log("Usage: pnpm verify:release-evidence-template [--input <filled-template.json> | --issue <number>]");
     console.log("Default: validate credential-free fixture templates for every blocked release issue.");
+    console.log("Input templates without filterIssueNumber are validated against every source checklist item.");
     return { status: "help" };
   }
 
@@ -139,10 +151,7 @@ export async function runReleaseEvidenceTemplateVerifierCli(argv = process.argv.
   const template = parsed.inputPath
     ? await readTemplate(parsed.inputPath)
     : buildFilledReleaseEvidenceTemplateFixture(buildReleaseEvidenceTemplate(filterReleaseEvidenceChecklistByIssue(fullChecklist, parsed.issueNumber)), options);
-  const issueNumber = parsed.issueNumber ?? issueNumberFromTemplate(template);
-  const expectedChecklist = issueNumber
-    ? filterReleaseEvidenceChecklistByIssue(fullChecklist, issueNumber)
-    : undefined;
+  const { expectedChecklist, issueNumber } = expectedChecklistForTemplate(fullChecklist, parsed.issueNumber, template);
   const validation = validateReleaseEvidenceTemplate(template, { expectedChecklist });
 
   console.log(JSON.stringify({

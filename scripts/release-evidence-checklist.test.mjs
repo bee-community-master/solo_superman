@@ -294,6 +294,51 @@ describe("release evidence checklist", () => {
     ]);
   });
 
+  it("validates full input templates against every source checklist item", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "solo-release-evidence-full-template-test-"));
+    try {
+      const contracts = await loadReleaseEvidenceContracts();
+      const fullChecklist = buildReleaseEvidenceChecklist(contracts, {
+        now: new Date("2026-05-24T00:00:00.000Z")
+      });
+      const fullTemplate = buildFilledReleaseEvidenceTemplateFixture(buildReleaseEvidenceTemplate(fullChecklist));
+      const fullTemplatePath = join(dir, "filled-full-template.json");
+      await writeFile(fullTemplatePath, `${JSON.stringify(fullTemplate, null, 2)}\n`, "utf8");
+
+      const validation = await runReleaseEvidenceTemplateVerifierCli(["--input", fullTemplatePath], {
+        contracts,
+        now: new Date("2026-05-24T00:00:00.000Z")
+      });
+
+      expect(validation).toMatchObject({
+        status: "passed",
+        filterIssueNumber: undefined,
+        itemCount: 9,
+        issues: []
+      });
+
+      const missingItemTemplate = cloneJson(fullTemplate);
+      missingItemTemplate.items = missingItemTemplate.items.slice(1);
+      missingItemTemplate.summary.totalItems = missingItemTemplate.items.length;
+      const missingItemPath = join(dir, "missing-item-template.json");
+      await writeFile(missingItemPath, `${JSON.stringify(missingItemTemplate, null, 2)}\n`, "utf8");
+
+      const missingItemValidation = await runReleaseEvidenceTemplateVerifierCli(["--input", missingItemPath], {
+        contracts,
+        now: new Date("2026-05-24T00:00:00.000Z")
+      });
+
+      expect(missingItemValidation).toMatchObject({
+        status: "blocked",
+        issues: expect.arrayContaining([
+          expect.stringContaining("$.items is missing source checklist item")
+        ])
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("rejects filled release evidence templates that contain secret-shaped evidence", async () => {
     const checklist = buildReleaseEvidenceChecklist(await loadReleaseEvidenceContracts(), {
       now: new Date("2026-05-24T00:00:00.000Z")
