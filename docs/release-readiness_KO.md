@@ -32,13 +32,13 @@ pnpm verify:release-readiness -- --require-ready
 
 | Gate | 현재 상태 | 필요 evidence |
 | --- | --- | --- |
-| `signed-packages` | blocked | macOS Developer ID/notarization, Windows Authenticode signing/timestamp, release manifest signing evidence |
-| `packaged-update-rollback` | blocked | signed package install/update/defer/retry/rollback device evidence and launch verification |
+| `signed-packages` | blocked | [#266](https://github.com/bee-community-master/solo_superman/issues/266) macOS Developer ID/notarization, Windows Authenticode signing/timestamp, release manifest signing evidence |
+| `packaged-update-rollback` | blocked | [#267](https://github.com/bee-community-master/solo_superman/issues/267) signed package install/update/defer/retry/rollback device evidence and launch verification |
 | `windows-real-device` | blocked | [#259](https://github.com/bee-community-master/solo_superman/issues/259) clean Windows 11 one-line install부터 first-screen arrival까지의 실기기/VM evidence |
 
 ## 운영 규칙
 
 - `pnpm verify`는 기본 `pnpm verify:release-readiness`를 포함합니다. 따라서 PR은 general release blocker를 지우지 않은 상태로도 credential-free validation을 통과할 수 있지만, blocker가 숨겨진 broad release claim은 통과할 수 없습니다.
-- release PR이 broad/general release로 상태를 바꾸려면 먼저 signed package credential gate와 Windows/device evidence가 실제로 준비되어야 합니다.
+- release PR이 broad/general release로 상태를 바꾸려면 먼저 #266 signed package credential evidence, #267 packaged updater rollback evidence, #259 Windows/device evidence가 실제로 준비되어야 합니다.
 - Windows 실기기 검증에서 발견되는 blocker는 #259에만 묻어두지 말고 별도 fix issue/PR로 분리합니다.
 - Support bundle, PR body, release manifest에는 secret 값을 넣지 않고 redacted evidence ref만 남깁니다.

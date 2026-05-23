@@ -11,6 +11,29 @@ const REQUIRED_RELEASE_GATES = new Set([
   "packaged-update-rollback",
   "windows-real-device"
 ]);
+const REQUIRED_BLOCKER_ISSUES_BY_GATE = new Map([
+  [
+    "signed-packages",
+    {
+      url: "https://github.com/bee-community-master/solo_superman/issues/266",
+      label: "the tracked signed package release evidence issue #266"
+    }
+  ],
+  [
+    "packaged-update-rollback",
+    {
+      url: "https://github.com/bee-community-master/solo_superman/issues/267",
+      label: "the tracked packaged updater rollback verification issue #267"
+    }
+  ],
+  [
+    "windows-real-device",
+    {
+      url: "https://github.com/bee-community-master/solo_superman/issues/259",
+      label: "the tracked Windows real-device verification issue #259"
+    }
+  ]
+]);
 const REQUIRED_CREDENTIAL_FREE_COMMANDS = new Set([
   "pnpm verify:prod-bundle",
   "pnpm verify:release-channel",
@@ -162,14 +185,20 @@ function validateReleaseGate(gate, path, issues) {
   validateStringList(gate.requiredEvidence, `${path}.requiredEvidence`, issues);
   validateStringList(gate.unblockCriteria, `${path}.unblockCriteria`, issues);
 
-  if (gate.id === "windows-real-device" && gate.blockerIssue !== "https://github.com/bee-community-master/solo_superman/issues/259") {
-    addIssue(issues, `${path}.blockerIssue`, "must link the tracked Windows real-device verification issue #259");
-  }
-  validateHttpsUrlIfPresent(gate.blockerIssue, `${path}.blockerIssue`, issues);
-
   if (gate.status === "blocked") {
     if (typeof gate.blocker !== "string" || gate.blocker.trim().length === 0) {
       addIssue(issues, `${path}.blocker`, "must describe why this gate is blocked");
+    }
+    if (typeof gate.blockerIssue !== "string" || gate.blockerIssue.trim().length === 0) {
+      addIssue(issues, `${path}.blockerIssue`, "must link a GitHub issue while this gate is blocked");
+    }
+  }
+
+  if (gate.blockerIssue !== undefined) {
+    validateHttpsUrlIfPresent(gate.blockerIssue, `${path}.blockerIssue`, issues);
+    const requiredBlocker = REQUIRED_BLOCKER_ISSUES_BY_GATE.get(gate.id);
+    if (requiredBlocker && gate.blockerIssue !== requiredBlocker.url) {
+      addIssue(issues, `${path}.blockerIssue`, `must link ${requiredBlocker.label}`);
     }
   }
 
