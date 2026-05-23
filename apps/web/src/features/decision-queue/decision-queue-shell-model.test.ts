@@ -3,7 +3,6 @@ import { SidecarClientError } from "../../shared/api/sidecar-client";
 import {
   DEFAULT_IDEA,
   DEFAULT_INTAKE,
-  INITIAL_QUEUE_START_BLOCKER_MESSAGES,
   canStartInitialQueueFlow,
   displayError,
   emptyProjectionState,
@@ -133,13 +132,11 @@ describe("decision queue shell model", () => {
     expect(canStartInitialQueueFlow(READY_INITIAL_QUEUE_START_INPUT)).toBe(true);
     expect(canStartInitialQueueFlow(readyStartInput({ chatGptLoginAcknowledged: false }))).toBe(false);
     expectStartBlocker({ chatGptLoginAcknowledged: false }, "chatgpt_login");
-    expect(INITIAL_QUEUE_START_BLOCKER_MESSAGES.chatgpt_login).toContain("ChatGPT");
   });
 
   it("requires backend-visible Codex CLI login before starting onboarding", () => {
     expect(canStartInitialQueueFlow(readyStartInput({ codexLoginAuthenticated: false }))).toBe(false);
     expectStartBlocker({ codexLoginAuthenticated: false }, "codex_login");
-    expect(INITIAL_QUEUE_START_BLOCKER_MESSAGES.codex_login).toContain("Codex");
   });
 
   it("keeps the business critic intensity gate after ChatGPT login is acknowledged", () => {

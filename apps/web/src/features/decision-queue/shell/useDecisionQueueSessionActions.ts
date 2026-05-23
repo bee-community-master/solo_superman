@@ -26,7 +26,6 @@ import { draftedActiveQuestionAnswerIds, queueItemIsQuestionDebt } from "../deci
 import { webPublicResearchAllowlistPolicy } from "../phase15a-research-run-request";
 import {
   BUSINESS_CRITIC_INTENSITY_OPTIONS,
-  INITIAL_QUEUE_START_BLOCKER_MESSAGES,
   displayError,
   emptyProjectionState,
   emptyResearchOperationsState,
@@ -40,6 +39,7 @@ import {
   type ConnectionState,
   type ProjectionState
 } from "./decision-queue-shell-model";
+import type { DecisionQueueCopy } from "./decision-queue-copy";
 
 interface DecisionQueueSessionActionsProps {
   readonly answerDrafts: Record<string, string>;
@@ -50,6 +50,7 @@ interface DecisionQueueSessionActionsProps {
   readonly codexLoginAuthenticated: boolean;
   readonly client: SidecarClient | null;
   readonly connectionStatus: ConnectionState["status"];
+  readonly copy: DecisionQueueCopy;
   readonly idea: string;
   readonly initialResearchPermission: InitialResearchPermission;
   readonly initialBusinessCriticIntensityReason: string;
@@ -115,6 +116,7 @@ export function useDecisionQueueSessionActions({
   codexLoginAuthenticated,
   client,
   connectionStatus,
+  copy,
   idea,
   initialResearchPermission,
   initialBusinessCriticIntensityReason,
@@ -183,22 +185,22 @@ export function useDecisionQueueSessionActions({
       });
 
       if (startBlocker) {
-        setWorkflowError(INITIAL_QUEUE_START_BLOCKER_MESSAGES[startBlocker]);
+        setWorkflowError(copy.questions.initialQueueStartBlockers[startBlocker]);
         return;
       }
 
       if (!client) {
-        setWorkflowError(INITIAL_QUEUE_START_BLOCKER_MESSAGES.sidecar_connection);
+        setWorkflowError(copy.questions.initialQueueStartBlockers.sidecar_connection);
         return;
       }
 
       if (!projectPurposeMode) {
-        setWorkflowError(INITIAL_QUEUE_START_BLOCKER_MESSAGES.project_purpose);
+        setWorkflowError(copy.questions.initialQueueStartBlockers.project_purpose);
         return;
       }
 
       if (projectPurposeMode === "business" && !businessCriticIntensity) {
-        setWorkflowError(INITIAL_QUEUE_START_BLOCKER_MESSAGES.business_critic_intensity);
+        setWorkflowError(copy.questions.initialQueueStartBlockers.business_critic_intensity);
         return;
       }
 
@@ -277,6 +279,7 @@ export function useDecisionQueueSessionActions({
       chatGptLoginAcknowledged,
       codexLoginAuthenticated,
       connectionStatus,
+      copy.questions.initialQueueStartBlockers,
       initialBusinessCriticIntensityReason,
       initialResearchPermission,
       client,
