@@ -20,6 +20,7 @@ import {
   type DecisionEvidencePackId,
   type EventId,
   type EvidenceItemId,
+  type ImplementationStepLedgerProjection,
   type ImplementationStepDoc,
   type Phase15bUpgradeHints,
   type PlanningHandoffSourceRefDto,
@@ -458,6 +459,60 @@ function workerPlanLedgerDocsForTest(job: Readonly<Record<string, unknown>>) {
   return {
     trackerDoc: executionPlan.ledgerTrackerDoc as TrackerDoc,
     stepDoc: executionPlan.ledgerStepDoc as ImplementationStepDoc
+  };
+}
+
+function implementationStepLedgerProjectionForWorkerPlanForTest(input: {
+  readonly job: Readonly<Record<string, unknown>>;
+  readonly sessionId: string;
+  readonly refetchUrl: string;
+}): ImplementationStepLedgerProjection {
+  const { stepDoc, trackerDoc } = workerPlanLedgerDocsForTest(input.job);
+  const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
+  const stepId = stepDoc.stepId;
+  const stepCommitRecord = {
+    ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.stepCommitRecords[0]!,
+    stepId
+  };
+  const codeReviewRecords = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.codeReviewRecords.map((record) => ({
+    ...record,
+    stepId
+  }));
+  const cleanCodeReviewRecords = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.cleanCodeReviewRecords.map((record) => ({
+    ...record,
+    stepId
+  }));
+  const missingTestAuditRecord = {
+    ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.missingTestAuditRecords[0]!,
+    stepId
+  };
+  const testEvidenceRecord = {
+    ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords[0]!,
+    stepId
+  };
+
+  return {
+    ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+    sessionId: input.sessionId as SessionId,
+    trackerDoc,
+    steps: [
+      {
+        ...step,
+        stepDoc,
+        stepCommitRecord,
+        codeReviewRecord: codeReviewRecords.at(-1)!,
+        cleanCodeReviewRecord: cleanCodeReviewRecords.at(-1)!,
+        missingTestAuditRecord,
+        testEvidenceRecord
+      }
+    ],
+    stepCommitRecords: [stepCommitRecord],
+    codeReviewRecords,
+    cleanCodeReviewRecords,
+    missingTestAuditRecords: [missingTestAuditRecord],
+    testEvidenceRecords: [testEvidenceRecord],
+    refetchUrl: input.refetchUrl,
+    schemaVersion: IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION
   };
 }
 
@@ -9210,6 +9265,7 @@ describe("PR-02 sidecar health shell", () => {
       });
 
       const plannedJobId = String(plannedJobs[5]!.jobId);
+      const plannedWorkerStepId = workerPlanLedgerDocsForTest(plannedJobs[5]!).stepDoc.stepId;
       const missingLedgerCompletion = await postAutoImplementationWorkerJobCompletionForTest(
         storageApp,
         sessionId,
@@ -9248,6 +9304,49 @@ describe("PR-02 sidecar health shell", () => {
         updatedAt: "2026-05-20T00:05:00.000Z"
       });
 
+      const mismatchedLedgerCompletionResponse = await postAutoImplementationWorkerJobCompletionForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-job-complete:mismatched-ledger-docs",
+          implementationStepId: "step_demo",
+          evidenceRefs: ["worker-job:complete-mismatched-ledger-docs"]
+        }
+      );
+      const mismatchedLedgerCompletionRun = latestAutoImplementationRunFromBody(
+        await jsonBody(mismatchedLedgerCompletionResponse)
+      );
+      const mismatchedLedgerCompletionJobs = mismatchedLedgerCompletionRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+
+      expect(mismatchedLedgerCompletionResponse.status).toBe(200);
+      expect(mismatchedLedgerCompletionRun).toMatchObject({
+        status: "blocked",
+        currentStage: "initial_pr"
+      });
+      expect(mismatchedLedgerCompletionJobs.at(-1)).toMatchObject({
+        status: "blocked",
+        missingEvidence: ["ImplementationStepLedger completed step"],
+        blockedReason: expect.stringContaining("planned worker ledger docs"),
+        evidenceRefs: expect.arrayContaining([
+          "worker-blocked:missing-implementation-ledger",
+          "worker-job:complete-mismatched-ledger-docs"
+        ])
+      });
+
+      await createProjectionRepository(storage.db).save({
+        projectId: projectId as ProjectId,
+        sessionId: sessionId as SessionId,
+        projection: implementationStepLedgerProjectionForWorkerPlanForTest({
+          job: plannedJobs[5]!,
+          sessionId,
+          refetchUrl: `/api/v1/sessions/${sessionId}/implementation-step-ledger`
+        }),
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        updatedAt: "2026-05-20T00:06:00.000Z"
+      });
+
       const completedWorkerJobResponse = await postAutoImplementationWorkerJobCompletionForTest(
         storageApp,
         sessionId,
@@ -9255,7 +9354,7 @@ describe("PR-02 sidecar health shell", () => {
         plannedJobId,
         {
           idempotencyKey: "worker-job-complete:with-ledger",
-          implementationStepId: "step_demo",
+          implementationStepId: plannedWorkerStepId,
           evidenceRefs: ["worker-job:complete"]
         }
       );
@@ -9287,7 +9386,7 @@ describe("PR-02 sidecar health shell", () => {
         blockedReason: null,
         nextRequiredAction: expect.stringContaining("existing stage endpoint"),
         evidenceRefs: expect.arrayContaining([
-          "implementation-step-ledger:step_demo",
+          `implementation-step-ledger:${plannedWorkerStepId}`,
           "commit:abcdef1",
           "test:verify",
           "worker-job:complete"

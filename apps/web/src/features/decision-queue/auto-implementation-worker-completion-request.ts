@@ -25,8 +25,29 @@ function completedLedgerSteps(ledger: ImplementationStepLedgerProjection | null)
   );
 }
 
-function stepMatchesCurrentStage(step: ImplementationStepRecord, run: AutoImplementationRun) {
-  return step.stepDoc.sourceRefs.includes(`auto-implementation-stage:${run.currentStage}`);
+function sameStringArray(left: readonly string[], right: readonly string[]) {
+  return left.length === right.length &&
+    left.every((value, index) => value === right[index]);
+}
+
+function stepMatchesPlannedWorkerLedgerDocs(input: {
+  readonly ledger: ImplementationStepLedgerProjection;
+  readonly step: ImplementationStepRecord;
+  readonly workerJob: AutoImplementationRun["workerJobs"][number];
+}) {
+  const { ledger, step, workerJob } = input;
+  const plannedTrackerDoc = workerJob.executionPlan.ledgerTrackerDoc;
+  const plannedStepDoc = workerJob.executionPlan.ledgerStepDoc;
+
+  return ledger.trackerDoc.trackerId === plannedTrackerDoc.trackerId &&
+    ledger.trackerDoc.title === plannedTrackerDoc.title &&
+    ledger.trackerDoc.goal === plannedTrackerDoc.goal &&
+    sameStringArray(ledger.trackerDoc.sourceRefs, plannedTrackerDoc.sourceRefs) &&
+    step.stepDoc.stepId === plannedStepDoc.stepId &&
+    step.stepDoc.title === plannedStepDoc.title &&
+    step.stepDoc.description === plannedStepDoc.description &&
+    step.stepDoc.expectedChangeScope === plannedStepDoc.expectedChangeScope &&
+    sameStringArray(step.stepDoc.sourceRefs, plannedStepDoc.sourceRefs);
 }
 
 export function selectAutoImplementationWorkerCompletionStepId(input: {
@@ -34,18 +55,18 @@ export function selectAutoImplementationWorkerCompletionStepId(input: {
   readonly ledger: ImplementationStepLedgerProjection | null;
 }) {
   const { ledger, run } = input;
+  const workerJob = latestCurrentStageAutoImplementationWorkerJob(run);
 
-  if (!run) {
+  if (!ledger || !run || !workerJob) {
     return null;
   }
 
   const completedSteps = completedLedgerSteps(ledger);
-  const stageMatchedStep = [...completedSteps].reverse().find((step) =>
-    stepMatchesCurrentStage(step, run)
+  const plannedStep = [...completedSteps].reverse().find((step) =>
+    stepMatchesPlannedWorkerLedgerDocs({ ledger, step, workerJob })
   );
-  const selectedStep = stageMatchedStep ?? completedSteps.at(-1) ?? null;
 
-  return selectedStep?.stepDoc.stepId ?? null;
+  return plannedStep?.stepDoc.stepId ?? null;
 }
 
 export function canCompleteAutoImplementationWorkerFromLedger(input: {

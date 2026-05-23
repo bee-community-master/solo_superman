@@ -1270,6 +1270,34 @@ function autoImplementationWorkerLedgerImportMismatch(
   return null;
 }
 
+function assertAutoImplementationWorkerCompletionLedgerMatchesPlan(input: {
+  readonly ledger: ImplementationStepLedgerProjection;
+  readonly ledgerStep: ImplementationStepRecord;
+  readonly workerJob: AutoImplementationWorkerJob;
+}) {
+  const { ledger, ledgerStep, workerJob } = input;
+
+  if (
+    !sameAutoImplementationWorkerLedgerTrackerDoc(
+      ledger.trackerDoc,
+      workerJob.executionPlan.ledgerTrackerDoc
+    ) ||
+    !sameAutoImplementationWorkerLedgerStepDoc(
+      ledgerStep.stepDoc,
+      workerJob.executionPlan.ledgerStepDoc
+    )
+  ) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "Auto implementation worker completion requires completed ledger evidence matching the planned worker ledger docs.",
+      {
+        implementationStepId: ledgerStep.stepDoc.stepId,
+        plannedImplementationStepId: workerJob.executionPlan.ledgerStepDoc.stepId
+      }
+    );
+  }
+}
+
 function normalizeLegacyAutoImplementationWorkerJob(
   run: AutoImplementationRun,
   job: AutoImplementationWorkerJob
@@ -6864,6 +6892,7 @@ export function createProductEngineCommandService(
           request.implementationStepId,
           workerJob.stage
         );
+        assertAutoImplementationWorkerCompletionLedgerMatchesPlan({ ledger, ledgerStep, workerJob });
         const ledgerEvidence = autoImplementationStageLedgerEvidence(ledger, ledgerStep);
 
         completedJob = {
@@ -6997,6 +7026,26 @@ export function createProductEngineCommandService(
       }
 
       const implementationStepId = completedImplementationStepIdFromWorkerJob(workerJob);
+      const ledger = validatedLedgerForAutoImplementationStage(
+        await projectionRepository.get<ImplementationStepLedgerProjection>(
+          request.sessionId,
+          "ImplementationStepLedgerProjection"
+        )
+      );
+
+      if (!ledger) {
+        throw new ProductEngineServiceError(
+          "VALIDATION_FAILED",
+          "Auto implementation worker stage advance requires an ImplementationStepLedger projection."
+        );
+      }
+
+      const ledgerStep = completedLedgerStepForAutoImplementationStage(
+        ledger,
+        implementationStepId,
+        workerJob.stage
+      );
+      assertAutoImplementationWorkerCompletionLedgerMatchesPlan({ ledger, ledgerStep, workerJob });
 
       return recordAutoImplementationStageProjection({
         sessionId: request.sessionId,

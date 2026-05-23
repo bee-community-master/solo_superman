@@ -194,6 +194,7 @@ function ledgerForWorkerJob(
 
   return {
     ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+    trackerDoc: worker.executionPlan.ledgerTrackerDoc,
     steps: [
       {
         ...baseStep,
@@ -875,7 +876,10 @@ describe("AutoImplementationRunPanel view model", () => {
       }
     } as AutoImplementationRunProjection;
     const plannedView = autoImplementationRunViewModel(projection);
-    const ledgerReadyView = autoImplementationRunViewModel(projection, IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE);
+    const ledgerReadyView = autoImplementationRunViewModel(
+      projection,
+      ledgerForWorkerJob(plannedWorkerJob, ["test:verify"])
+    );
     const completedView = autoImplementationRunViewModel({
       ...projection,
       latestRun: {

@@ -85,11 +85,13 @@ function plannedWorkerRun(): AutoImplementationRun {
   };
 }
 
-function stageMatchedLedger(): ImplementationStepLedgerProjection {
+function ledgerWithPlannedWorkerStep(run: AutoImplementationRun): ImplementationStepLedgerProjection {
   const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
+  const workerJob = run.workerJobs[0]!;
 
   return {
     ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
+    trackerDoc: workerJob.executionPlan.ledgerTrackerDoc,
     steps: [
       {
         ...step,
@@ -101,29 +103,27 @@ function stageMatchedLedger(): ImplementationStepLedgerProjection {
       },
       {
         ...step,
-        stepDoc: {
-          ...step.stepDoc,
-          stepId: "step_initial_pr",
-          sourceRefs: ["auto-implementation-stage:initial_pr"]
-        }
+        stepDoc: workerJob.executionPlan.ledgerStepDoc
       }
     ]
   } as ImplementationStepLedgerProjection;
 }
 
 describe("auto implementation worker completion requests", () => {
-  it("selects a completed ledger step matching the current auto implementation stage first", () => {
+  it("selects only a completed ledger step matching the planned worker ledger docs", () => {
+    const run = plannedWorkerRun();
+
     expect(selectAutoImplementationWorkerCompletionStepId({
-      run: plannedWorkerRun(),
-      ledger: stageMatchedLedger()
-    })).toBe("step_initial_pr");
+      run,
+      ledger: ledgerWithPlannedWorkerStep(run)
+    })).toBe("auto-implementation-step:auto_run_demo:initial_pr:local-001");
   });
 
-  it("falls back to the latest completed ledger step when no stage source ref matches", () => {
+  it("does not fall back to unrelated completed ledger steps when planned docs do not match", () => {
     expect(selectAutoImplementationWorkerCompletionStepId({
       run: plannedWorkerRun(),
       ledger: IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE
-    })).toBe("step_demo");
+    })).toBeNull();
   });
 
   it("builds a worker completion request from the latest current-stage worker and selected ledger step", () => {
@@ -131,18 +131,20 @@ describe("auto implementation worker completion requests", () => {
     const request = buildAutoImplementationWorkerCompletionRequest({
       sessionId: "demo-session" as SessionId,
       run,
-      ledger: stageMatchedLedger()
+      ledger: ledgerWithPlannedWorkerStep(run)
     });
 
     expect(request).toMatchObject({
       sessionId: "demo-session",
       runId: run.runId,
       jobId: "auto-worker-job:auto_run_demo:initial_pr:planned",
-      implementationStepId: "step_initial_pr",
-      evidenceRefs: ["ui-worker-complete-from-ledger:auto-worker-job:auto_run_demo:initial_pr:planned:step_initial_pr"]
+      implementationStepId: "auto-implementation-step:auto_run_demo:initial_pr:local-001",
+      evidenceRefs: [
+        "ui-worker-complete-from-ledger:auto-worker-job:auto_run_demo:initial_pr:planned:auto-implementation-step:auto_run_demo:initial_pr:local-001"
+      ]
     });
     expect(request?.idempotencyKey).toContain("auto-implementation-worker-complete");
-    expect(request?.idempotencyKey).toContain("step_initial_pr");
+    expect(request?.idempotencyKey).toContain("auto-implementation-step:auto_run_demo:initial_pr:local-001");
   });
 
   it("keeps completion disabled without a completable worker or completed ledger step", () => {
