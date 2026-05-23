@@ -109,7 +109,7 @@ export function codexLiveRuntimeSmokeLogPath(env = process.env) {
   );
 }
 
-export function codexLiveRuntimeSmokeConfig(env = process.env, platform = process.platform) {
+export function codexLiveRuntimeSmokeConfig(env = process.env, platform = process.platform, options = {}) {
   const defaultBindHost = defaultLocalBindHost(env, platform);
   const sidecarHost = loopbackHostEnv(env, "SOLO_CODEX_LIVE_RUNTIME_SMOKE_SIDECAR_HOST", DEFAULT_SIDECAR_HOST);
   const sidecarBindHost = bindHostEnv(
@@ -119,7 +119,7 @@ export function codexLiveRuntimeSmokeConfig(env = process.env, platform = proces
     platform
   );
   const sidecarPort = fixedLocalPortEnv(env, "SOLO_CODEX_LIVE_RUNTIME_SMOKE_SIDECAR_PORT", DEFAULT_SIDECAR_PORT);
-  const localCapabilityToken = envValue(env, "SOLO_LOCAL_CAPABILITY_TOKEN", generatedToken());
+  const localCapabilityToken = options.localCapabilityToken ?? generatedToken();
   const sidecarBaseUrl = formatHttpOrigin(sidecarHost, sidecarPort);
 
   return {

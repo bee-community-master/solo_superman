@@ -54,11 +54,11 @@ describe("verify-codex-live-runtime smoke plan", () => {
 
   it("keeps live runtime smoke local-only with an isolated token and app data dir", () => {
     const config = codexLiveRuntimeSmokeConfig({
-      SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token",
       SOLO_CODEX_LIVE_RUNTIME_SMOKE_SIDECAR_PORT: "43121",
+      SOLO_LOCAL_CAPABILITY_TOKEN: "must-not-be-reused",
       [LIVE_RUNTIME_VERIFY_ENV]: "1",
       [LIVE_TURNS_ENV]: "1"
-    });
+    }, "linux", { localCapabilityToken: "per-run-token" });
     const env = codexLiveRuntimeSmokeEnvironment(config, "/tmp/solo-live-runtime-smoke", {
       [LIVE_RUNTIME_VERIFY_ENV]: "1",
       [LIVE_TURNS_ENV]: "1"
@@ -68,13 +68,14 @@ describe("verify-codex-live-runtime smoke plan", () => {
     expect(config.sidecarBindHost).toBe("127.0.0.1");
     expect(env).toMatchObject({
       CI: "true",
-      SOLO_LOCAL_CAPABILITY_TOKEN: "shared-local-token",
+      SOLO_LOCAL_CAPABILITY_TOKEN: "per-run-token",
       SOLO_SIDECAR_HOST: "127.0.0.1",
       SOLO_SIDECAR_PORT: "43121",
       SOLO_APP_DATA_DIR: "/tmp/solo-live-runtime-smoke",
       [LIVE_RUNTIME_VERIFY_ENV]: "1",
       [LIVE_TURNS_ENV]: "1"
     });
+    expect(config.localCapabilityToken).toBe("per-run-token");
   });
 
   it("uses the package manager sidecar start command and pnpm.cmd on Windows", () => {
