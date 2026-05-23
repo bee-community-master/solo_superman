@@ -22,6 +22,7 @@
     "verify:prod-bundle": "node scripts/verify-prod-bundle.mjs",
     "verify:codex-live-runtime": "node scripts/verify-codex-live-runtime.mjs",
     "verify:runtime-preview-turn": "tsx apps/sidecar/src/runtime-preview-smoke.ts",
+    "verify:worker-job": "tsx apps/sidecar/src/auto-implementation-worker-smoke.ts",
     "verify:docs": "node scripts/verify-doc-contracts.mjs",
     "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs && pnpm verify:prod-bundle",
     "dev:web": "pnpm --filter @solo-superman/web dev",
