@@ -255,13 +255,16 @@ function stageTransitions(input: {
     passedTestCount: 1,
     failedTestCount: 0,
     notTestedGaps: [],
-    evidenceRefs: [`test:${input.stage}:verify`]
+    evidenceRefs: [
+      `test:${input.stage}:verify`,
+      ...(input.stage === "merge_main" ? [`post-merge-verify:${input.stage}:pnpm-verify`] : [])
+    ]
   };
   const missingTestAuditRecord = {
     stepId: step.stepId,
     auditId: `missing-test-audit-${input.stage}`,
     auditedCriteriaRefs: [`issue:${input.stage}:acceptance`],
-    coverageEvidenceRefs: [`test:${input.stage}:verify`],
+    coverageEvidenceRefs: testEvidenceRecord.evidenceRefs,
     missingTestGaps: [],
     evidenceRefs: [`missing-test-audit:${input.stage}:coverage`]
   };
@@ -611,7 +614,7 @@ function checkedEvidence() {
     "ImplementationStepLedger completed with two no-finding clean-code passes per changed-code/repository scope for every stage",
     "missing-test audit evidence recorded with zero gaps for every stage",
     "passing test evidence recorded for every stage",
-    "fixture PR merge mutation recorded before merge_main completion",
+    "fixture PR merge mutation and post-merge verification evidence recorded before merge_main completion",
     "each canonical stage completed through the existing stage endpoint",
     "run reached completed status at merge_main without real GitHub writes"
   ];

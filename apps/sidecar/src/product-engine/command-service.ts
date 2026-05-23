@@ -39,6 +39,7 @@ import {
   validateImplementationStepLedgerProjection,
   isTerminalResearchRunStatus,
   type ApiErrorCode,
+  type AutoImplementationStage,
   type AutoImplementationStageLedgerEvidence,
   type AutoImplementationStageRecord,
   type AutoImplementationStageStatus,
@@ -235,6 +236,7 @@ export class ProductEngineServiceError extends Error {
 }
 
 const LOCAL_FAKE_PROVIDER_RESULT_DELAY_MILLIS = 30_000;
+const AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX = "post-merge-verify:";
 const MOUNTED_RESEARCH_ADAPTER_KINDS = ["local_fake_readonly", "web_search_readonly"] as const;
 type MountedResearchAdapterKind = (typeof MOUNTED_RESEARCH_ADAPTER_KINDS)[number];
 
@@ -700,7 +702,8 @@ function validatedLedgerForAutoImplementationStage(
 
 function completedLedgerStepForAutoImplementationStage(
   ledger: ImplementationStepLedgerProjection | null,
-  implementationStepId: string | undefined
+  implementationStepId: string | undefined,
+  stage: AutoImplementationStage
 ): ImplementationStepRecord {
   if (!ledger) {
     throw new ProductEngineServiceError(
@@ -741,6 +744,14 @@ function completedLedgerStepForAutoImplementationStage(
   }
   if (!step.missingTestAuditRecord || step.missingTestAuditRecord.missingTestGaps.length > 0) {
     missingEvidence.push("MissingTestAuditRecord without missing targeted-test gaps");
+  }
+  if (
+    stage === "merge_main" &&
+    !step.testEvidenceRecord?.evidenceRefs.some((ref) =>
+      ref.startsWith(AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX)
+    )
+  ) {
+    missingEvidence.push("post-merge verification evidence ref for merge_main");
   }
 
   if (missingEvidence.length) {
@@ -4999,7 +5010,7 @@ export function createProductEngineCommandService(
       )
       : null;
     const ledgerStep = request.action === "complete"
-      ? completedLedgerStepForAutoImplementationStage(ledger, request.implementationStepId)
+      ? completedLedgerStepForAutoImplementationStage(ledger, request.implementationStepId, request.stage)
       : null;
     if (request.action === "complete") {
       assertAutoImplementationStageCompletionDoesNotPrecedeScheduledTick(currentStage, recordedAt);
@@ -5230,7 +5241,11 @@ export function createProductEngineCommandService(
         );
       }
 
-      const ledgerStep = completedLedgerStepForAutoImplementationStage(ledger, completedTransition.stepDoc.stepId);
+      const ledgerStep = completedLedgerStepForAutoImplementationStage(
+        ledger,
+        completedTransition.stepDoc.stepId,
+        workerJob.stage
+      );
       const ledgerEvidence = autoImplementationStageLedgerEvidence(ledger, ledgerStep);
 
       importedJob = {
@@ -6844,7 +6859,11 @@ export function createProductEngineCommandService(
           );
         }
 
-        const ledgerStep = completedLedgerStepForAutoImplementationStage(ledger, request.implementationStepId);
+        const ledgerStep = completedLedgerStepForAutoImplementationStage(
+          ledger,
+          request.implementationStepId,
+          workerJob.stage
+        );
         const ledgerEvidence = autoImplementationStageLedgerEvidence(ledger, ledgerStep);
 
         completedJob = {

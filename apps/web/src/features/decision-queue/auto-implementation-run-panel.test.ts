@@ -1143,7 +1143,9 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("Initial implementation and PR creation");
     expect(markup).toContain("Review and merge protocol");
     expect(markup).toContain("Do not merge until the feature PR code review reaches two consecutive no-finding passes");
-    expect(markup).toContain("Sync main after merge and rerun the full verification command on main.");
+    expect(markup).toContain(
+      "Sync main after merge and rerun the full verification command on main with post-merge verification evidence."
+    );
     expect(markup).toContain("implementation-issues/001-initial_pr.md");
     expect(markup).toContain("GitHub issue: none");
     expect(markup).toContain("GitHub issue mutation contract");
