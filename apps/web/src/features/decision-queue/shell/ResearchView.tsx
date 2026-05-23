@@ -1,4 +1,8 @@
-import type { ResearchReviewCardProjection } from "@solo-superman/contracts";
+import type {
+  EvidenceItemProjection,
+  EvidenceMatrixProjection,
+  ResearchReviewCardProjection
+} from "@solo-superman/contracts";
 import { Phase15aOperationsPanel } from "../Phase15aOperationsPanel";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
@@ -11,6 +15,84 @@ function retainedSourceRefsForResearchCard(card: ResearchReviewCardProjection) {
   const sourceRefs = [card.retainedSourceRef, ...(card.retainedSourceRefs ?? [])];
 
   return [...new Set(sourceRefs.filter((ref): ref is string => Boolean(ref)))];
+}
+
+type DecisionQueueCopy = ReturnType<typeof useDecisionQueueCopy>;
+
+function EvidenceItems({
+  copy,
+  items,
+  label
+}: {
+  readonly copy: DecisionQueueCopy;
+  readonly items: readonly EvidenceItemProjection[];
+  readonly label: string;
+}) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>
+        {items.length ? (
+          <ul>
+            {items.map((item) => (
+              <li key={item.evidenceItemId}>{item.summary}</li>
+            ))}
+          </ul>
+        ) : (
+          copy.research.noEvidenceItems
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function EvidenceMatrixCard({
+  copy,
+  matrix
+}: {
+  readonly copy: DecisionQueueCopy;
+  readonly matrix: EvidenceMatrixProjection;
+}) {
+  return (
+    <article className="research-evidence-matrix">
+      <div className="research-evidence-matrix-heading">
+        <strong>{matrix.evidenceMatrixId}</strong>
+        <span>
+          {copy.research.balanceStatus}: {matrix.balanceStatus}
+        </span>
+        <span>{matrix.decisionBlocked ? copy.research.decisionBlocked : copy.research.decisionReady}</span>
+      </div>
+      <dl className="research-evidence-grid">
+        <EvidenceItems copy={copy} items={matrix.proEvidence} label={copy.research.proEvidence} />
+        <EvidenceItems copy={copy} items={matrix.conEvidence} label={copy.research.conEvidence} />
+        <EvidenceItems copy={copy} items={matrix.uncertainties} label={copy.research.uncertainties} />
+        {matrix.missingConEvidenceReason ? (
+          <div>
+            <dt>{copy.research.missingConEvidenceReason}</dt>
+            <dd>{matrix.missingConEvidenceReason}</dd>
+          </div>
+        ) : null}
+        {matrix.knownRisk ? (
+          <div>
+            <dt>{copy.research.knownRisk}</dt>
+            <dd>{matrix.knownRisk}</dd>
+          </div>
+        ) : null}
+        {matrix.additionalQuestions.length ? (
+          <div>
+            <dt>{copy.research.additionalQuestions}</dt>
+            <dd>
+              <ul>
+                {matrix.additionalQuestions.map((question) => (
+                  <li key={question}>{question}</li>
+                ))}
+              </ul>
+            </dd>
+          </div>
+        ) : null}
+      </dl>
+    </article>
+  );
 }
 
 export function ResearchView({ controller }: ResearchViewProps) {
@@ -150,6 +232,16 @@ export function ResearchView({ controller }: ResearchViewProps) {
         ) : (
           <p className="empty-state">{copy.research.noResearchTasks}</p>
         )}
+        {projections.research?.evidenceMatrices.length ? (
+          <section className="research-evidence-matrices" aria-label={copy.research.evidenceMatrix}>
+            <h3>{copy.research.evidenceMatrix}</h3>
+            <div className="research-evidence-matrix-list">
+              {projections.research.evidenceMatrices.map((matrix) => (
+                <EvidenceMatrixCard copy={copy} key={matrix.evidenceMatrixId} matrix={matrix} />
+              ))}
+            </div>
+          </section>
+        ) : null}
       </section>
 
       <Phase15aOperationsPanel

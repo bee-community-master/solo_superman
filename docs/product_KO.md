@@ -55,6 +55,7 @@ Business mode는 명시적인 `businessCriticIntensity`가 필요하며 no defau
 - 긴 session에서는 현재 활성 질문 묶음에 작성된 답변들을 한 번에 제출할 수 있지만, 이 action은 보이는 질문/후속 질문 card로만 제한되고 기존 답변별 research loop를 그대로 사용해야 합니다.
 - 리서치가 생성한 추가 질문은 evidence card note에만 숨기지 말고 답변 가능하고 source trace가 남는 후속 질문 debt로 Decision Queue에 다시 들어와야 하며, Planning Handoff의 build-slice evidence도 같은 research follow-up provenance를 이어받아야 합니다.
 - Research review card는 공개 근거, run, source question이 card를 만든 경우 retained source trace를 보여줘야 하며, 사용자가 리서치 생성 후속 질문을 처리하기 전에 provenance를 확인할 수 있어야 합니다.
+- Research tab의 evidence matrix는 pro evidence, con evidence, uncertainty, missing counter-evidence reason, known risk, matrix-generated follow-up question을 함께 보여줘야 하며, Planning-ready 전에 skeptical-search gap이 숨겨지지 않아야 합니다.
 - Research tab은 현재 준비된 planned public-web 리서치 작업을 bounded batch로 시작할 수 있으며, active allowlist와 concurrency budget을 지키고 각 실행은 기존 per-task read-only research path를 그대로 사용해야 합니다.
 - Risk UI는 데이터가 충분할 때 Confidence Map, five-axis radar, Top 3 Risk Cards를 보여줍니다. 질문별 리스크 입력은 항상 노출하지 않고 선택형 추가 의견/리스크 펼쳐보기 안에 둡니다.
 

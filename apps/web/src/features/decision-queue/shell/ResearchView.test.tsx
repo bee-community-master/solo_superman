@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type {
+  EvidenceItemId,
   ProjectId,
   ProjectionVersion,
   QueueItemId,
   ResearchEvidenceProjection,
+  ResearchResultId,
   ResearchTaskId,
   SessionId
 } from "@solo-superman/contracts";
@@ -121,6 +123,7 @@ describe("ResearchView", () => {
     expect(markup).toContain("Start 2 ready public web runs");
     expect(markup).not.toContain("Start 3 ready public web runs");
     expect(markup).not.toContain("Source trace");
+    expect(markup).not.toContain("Evidence matrix");
     expect(markup).toContain("Validate public evidence path 1.");
     expect(markup).toContain("Validate public evidence path 2.");
     expect(markup).toContain("Review already returned evidence.");
@@ -174,5 +177,62 @@ describe("ResearchView", () => {
     expect(markup).toContain("research_run_public_web_1");
     expect(markup).toContain("question:pricing-evidence");
     expect(markup.split("https://example.com/source-report")).toHaveLength(2);
+  });
+
+  it("renders evidence matrices with pro, con, uncertainty, blocker, and follow-up details", () => {
+    const research = researchProjection();
+    const markup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        research: {
+          ...research,
+          evidenceMatrices: [
+            {
+              evidenceMatrixId: "matrix_pricing_counter_evidence",
+              researchTaskId: "research_task_reviewed" as ResearchTaskId,
+              researchResultId: "research_result_pricing" as ResearchResultId,
+              synthesisVersion: 1,
+              proEvidence: [
+                {
+                  evidenceItemId: "evidence_pro_pricing" as EvidenceItemId,
+                  kind: "pro",
+                  summary: "Founders report willingness to pay for painful interview prep."
+                }
+              ],
+              conEvidence: [],
+              uncertainties: [
+                {
+                  evidenceItemId: "evidence_uncertainty_pricing" as EvidenceItemId,
+                  kind: "uncertainty",
+                  summary: "Counter-evidence still needs a narrower skeptical pricing search."
+                }
+              ],
+              additionalQuestions: ["Which source disproves pricing urgency?"],
+              balanceStatus: "missing_con_evidence",
+              decisionBlocked: true,
+              missingConEvidenceReason: "No credible counter-evidence source was retained.",
+              knownRisk: "Pricing evidence remains one-sided."
+            }
+          ]
+        }
+      }
+    });
+
+    expect(markup).toContain("Evidence matrix");
+    expect(markup).toContain("matrix_pricing_counter_evidence");
+    expect(markup).toContain("Balance status");
+    expect(markup).toContain("missing_con_evidence");
+    expect(markup).toContain("Planning blocked");
+    expect(markup).toContain("Pro evidence");
+    expect(markup).toContain("Founders report willingness to pay");
+    expect(markup).toContain("Con evidence");
+    expect(markup).toContain("No evidence items");
+    expect(markup).toContain("Uncertainties");
+    expect(markup).toContain("Counter-evidence still needs");
+    expect(markup).toContain("Missing con-evidence reason");
+    expect(markup).toContain("No credible counter-evidence source was retained.");
+    expect(markup).toContain("Known risk");
+    expect(markup).toContain("Pricing evidence remains one-sided.");
+    expect(markup).toContain("Which source disproves pricing urgency?");
   });
 });

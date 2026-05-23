@@ -344,6 +344,16 @@ const EN_COPY = {
         : count === 1
           ? "Start 1 ready public web run"
           : `Start ${count} ready public web runs`,
+    evidenceMatrix: "Evidence matrix",
+    balanceStatus: "Balance status",
+    decisionBlocked: "Planning blocked",
+    decisionReady: "Planning not blocked",
+    proEvidence: "Pro evidence",
+    conEvidence: "Con evidence",
+    uncertainties: "Uncertainties",
+    missingConEvidenceReason: "Missing con-evidence reason",
+    knownRisk: "Known risk",
+    noEvidenceItems: "No evidence items",
     additionalQuestions: "Research-generated follow-up questions",
     sourceTrace: "Source trace",
     noResearchTasks: "No research tasks yet."
@@ -908,6 +918,16 @@ const JA_COPY: typeof EN_COPY = {
     startReadOnlyRun: "公開Webリサーチを開始",
     startReadyReadOnlyRuns: (count: number) =>
       count === 0 ? "開始できる公開Webリサーチはありません" : `準備済み公開Webリサーチを${count}件開始`,
+    evidenceMatrix: "エビデンスマトリクス",
+    balanceStatus: "バランス状態",
+    decisionBlocked: "Planningブロック中",
+    decisionReady: "Planningブロックなし",
+    proEvidence: "賛成エビデンス",
+    conEvidence: "反証エビデンス",
+    uncertainties: "不確実性",
+    missingConEvidenceReason: "反証不足の理由",
+    knownRisk: "既知のリスク",
+    noEvidenceItems: "エビデンス項目なし",
     additionalQuestions: "リサーチが生成した追加質問",
     sourceTrace: "参照元トレース",
     noResearchTasks: "リサーチタスクはまだありません。"
@@ -1472,6 +1492,16 @@ const KO_COPY: typeof EN_COPY = {
     startReadOnlyRun: "공개 웹 리서치 실행 시작",
     startReadyReadOnlyRuns: (count: number) =>
       count === 0 ? "시작할 준비가 된 공개 웹 리서치 없음" : `준비된 공개 웹 리서치 ${count}개 시작`,
+    evidenceMatrix: "근거 매트릭스",
+    balanceStatus: "균형 상태",
+    decisionBlocked: "Planning 차단됨",
+    decisionReady: "Planning 차단 없음",
+    proEvidence: "찬성 근거",
+    conEvidence: "반대 근거",
+    uncertainties: "불확실성",
+    missingConEvidenceReason: "반대 근거 부족 이유",
+    knownRisk: "알려진 리스크",
+    noEvidenceItems: "근거 항목 없음",
     additionalQuestions: "리서치가 생성한 후속 질문",
     sourceTrace: "출처 추적",
     noResearchTasks: "아직 리서치 작업이 없습니다."

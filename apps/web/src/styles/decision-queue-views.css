@@ -297,6 +297,71 @@
   font-size: 0.72rem;
 }
 
+.research-evidence-matrices {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.research-evidence-matrix-list {
+  display: grid;
+  gap: 10px;
+}
+
+.research-evidence-matrix {
+  border: 1px solid var(--solo-soft-border);
+  border-radius: 10px;
+  background: #fbfffe;
+  padding: 10px;
+}
+
+.research-evidence-matrix-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.research-evidence-matrix-heading span {
+  border: 1px solid #d8ece8;
+  border-radius: 999px;
+  color: var(--solo-muted);
+  font-size: 0.72rem;
+  padding: 2px 7px;
+}
+
+.research-evidence-grid {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.research-evidence-grid > div {
+  display: grid;
+  gap: 4px;
+}
+
+.research-evidence-grid dt {
+  color: var(--solo-text);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.research-evidence-grid dd {
+  color: var(--solo-muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.research-evidence-grid ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+}
+
 .question-fatigue-checkpoint {
   display: grid;
   gap: 7px;
