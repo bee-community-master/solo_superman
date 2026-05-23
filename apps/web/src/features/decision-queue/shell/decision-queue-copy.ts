@@ -160,6 +160,22 @@ const EN_COPY = {
       researchResultTextRequired: "Research result text is required.",
       activeSessionRequiredResolveResearchCard: "An active session is required before resolving a research card."
     },
+    sessionActionLabels: {
+      enableOnboardingResearchSources: "Enable onboarding research sources",
+      createProject: "Create project",
+      captureIntake: "Capture intake",
+      draftInitialSpec: "Draft initial spec",
+      analyzeAmbiguity: "Analyze ambiguity",
+      activateQuestionBatch: "Activate question batch",
+      changeProjectPurposeMode: "Change project purpose mode",
+      changeBusinessCriticIntensity: "Change business critic intensity",
+      submitAnswer: "Submit answer",
+      submitDraftedAnswer: "Submit drafted answer",
+      loadNextQuestions: "Load next questions",
+      carryAsKnownRisk: "Carry as Known Risk",
+      importResearchResult: "Import research result",
+      resolveResearchCard: (outcome: ResearchQueueTerminalOutcome) => `Resolve research card: ${outcome}`
+    },
     sessionActionReasons: {
       projectPurposeConfirmed: (label: string) => `${label} was confirmed by the user before starting.`,
       businessCriticIntensityConfirmed: (label: string) =>
@@ -438,6 +454,17 @@ const EN_COPY = {
       activeProjectRequiredCancelRun: "An active project is required before cancelling a research run.",
       activeProjectRequiredRetryRun: "An active project is required before retrying a research run."
     },
+    researchActionLabels: {
+      createAllowlist: "Create research allowlist",
+      reactivateAllowlist: "Reactivate research allowlist",
+      pauseAllowlist: "Pause research allowlist",
+      revokeAllowlist: "Revoke research allowlist",
+      planPublicSafeResearchTask: "Plan public-safe research task",
+      startPublicWebResearchRun: "Start public web research run",
+      startBackgroundPublicWebResearchRun: "Start background public web research run",
+      cancelRun: "Cancel research run",
+      retryRun: "Retry research run"
+    },
     researchActionReasons: {
       pauseAllowlist: "Paused from the research operations screen.",
       revokeAllowlist: "Revoked from the research operations screen.",
@@ -528,6 +555,7 @@ const EN_COPY = {
     runWorkerJob: "Run worker job",
     advanceWorkerStage: "Advance worker stage",
     refresh: "Refresh workspace run",
+    approveLocalWorkerAuthority: "Approve local worker authority",
     actionErrors: {
       activeSessionRequiredCreateWorkspace:
         "An active session is required before creating an auto implementation workspace.",
@@ -800,6 +828,11 @@ const EN_COPY = {
       activeSessionRequiredScoreCompleteness: "An active session is required before scoring completeness.",
       activeSessionRequiredFounderBrief: "An active session is required before preparing a Founder Brief.",
       activeSessionRequiredPlanningHandoff: "An active session is required before running the Planning Handoff gate."
+    },
+    planningActionLabels: {
+      scoreCompleteness: "Score completeness",
+      prepareFounderBrief: "Prepare Founder Brief",
+      runPlanningHandoffGate: "Run Planning Handoff gate"
     }
   },
   permissions: {
@@ -819,6 +852,12 @@ const EN_COPY = {
         "An active session is required before deleting service page-use artifact refs.",
       artifactDeletePermissionMismatch:
         "The latest service page-use permission no longer matches this artifact delete request."
+    },
+    permissionActionLabels: {
+      revokeWorkspace: "Revoke external AI workspace",
+      revokeServicePagePermission: "Revoke service page-use permission",
+      exportArtifactRefs: "Export service page-use artifact refs",
+      deleteServicePageArtifacts: "Delete service page-use artifact refs"
     },
     permissionActionReasons: {
       revokeWorkspace: "Revoked from the external AI workspace panel.",
@@ -1074,6 +1113,22 @@ const JA_COPY: typeof EN_COPY = {
       activeSessionRequiredImportResearch: "リサーチを取り込むにはアクティブなセッションが必要です。",
       researchResultTextRequired: "リサーチ結果テキストが必要です。",
       activeSessionRequiredResolveResearchCard: "リサーチカードを解決するにはアクティブなセッションが必要です。"
+    },
+    sessionActionLabels: {
+      enableOnboardingResearchSources: "オンボーディング用リサーチソースを有効化",
+      createProject: "プロジェクトを作成",
+      captureIntake: "入力内容を記録",
+      draftInitialSpec: "初期仕様を下書き",
+      analyzeAmbiguity: "曖昧さを分析",
+      activateQuestionBatch: "質問バッチを有効化",
+      changeProjectPurposeMode: "プロジェクト目的を変更",
+      changeBusinessCriticIntensity: "事業レビュー強度を変更",
+      submitAnswer: "回答を送信",
+      submitDraftedAnswer: "下書き回答を送信",
+      loadNextQuestions: "次の質問を読み込み",
+      carryAsKnownRisk: "Known Riskとして残す",
+      importResearchResult: "リサーチ結果を取り込み",
+      resolveResearchCard: (outcome: ResearchQueueTerminalOutcome) => `リサーチカードを解決: ${outcome}`
     },
     sessionActionReasons: {
       projectPurposeConfirmed: (label: string) => `${label}を開始前にユーザーが確認しました。`,
@@ -1349,6 +1404,17 @@ const JA_COPY: typeof EN_COPY = {
       activeProjectRequiredCancelRun: "リサーチ実行をキャンセルするにはアクティブなプロジェクトが必要です。",
       activeProjectRequiredRetryRun: "リサーチ実行を再試行するにはアクティブなプロジェクトが必要です。"
     },
+    researchActionLabels: {
+      createAllowlist: "リサーチallowlistを作成",
+      reactivateAllowlist: "リサーチallowlistを再有効化",
+      pauseAllowlist: "リサーチallowlistを一時停止",
+      revokeAllowlist: "リサーチallowlistを取り消し",
+      planPublicSafeResearchTask: "公開安全リサーチtaskを計画",
+      startPublicWebResearchRun: "公開Webリサーチrunを開始",
+      startBackgroundPublicWebResearchRun: "バックグラウンド公開Webリサーチrunを開始",
+      cancelRun: "リサーチrunをキャンセル",
+      retryRun: "リサーチrunを再試行"
+    },
     researchActionReasons: {
       pauseAllowlist: "リサーチ運用画面から一時停止しました。",
       revokeAllowlist: "リサーチ運用画面から取り消しました。",
@@ -1438,6 +1504,7 @@ const JA_COPY: typeof EN_COPY = {
     runWorkerJob: "Worker jobを実行",
     advanceWorkerStage: "Worker stageを進める",
     refresh: "ワークスペース実行を更新",
+    approveLocalWorkerAuthority: "ローカルworker権限を承認",
     actionErrors: {
       activeSessionRequiredCreateWorkspace: "自動実装ワークスペースを作成するにはアクティブなセッションが必要です。",
       planningHandoffMustBeReady:
@@ -1701,6 +1768,11 @@ const JA_COPY: typeof EN_COPY = {
       activeSessionRequiredScoreCompleteness: "完成度を採点するにはアクティブなセッションが必要です。",
       activeSessionRequiredFounderBrief: "Founder Briefを準備するにはアクティブなセッションが必要です。",
       activeSessionRequiredPlanningHandoff: "計画引き継ぎゲートを実行するにはアクティブなセッションが必要です。"
+    },
+    planningActionLabels: {
+      scoreCompleteness: "完成度を採点",
+      prepareFounderBrief: "Founder Briefを準備",
+      runPlanningHandoffGate: "計画引き継ぎゲートを実行"
     }
   },
   permissions: {
@@ -1720,6 +1792,12 @@ const JA_COPY: typeof EN_COPY = {
       activeSessionRequiredDeleteServicePageArtifacts:
         "サービスページ利用資料の参照を削除するにはアクティブなセッションが必要です。",
       artifactDeletePermissionMismatch: "最新のサービスページ利用権限は、この資料削除要求と一致しません。"
+    },
+    permissionActionLabels: {
+      revokeWorkspace: "外部AIワークスペースを取り消し",
+      revokeServicePagePermission: "サービスページ利用権限を取り消し",
+      exportArtifactRefs: "サービスページ利用artifact参照をexport",
+      deleteServicePageArtifacts: "サービスページ利用artifact参照を削除"
     },
     permissionActionReasons: {
       revokeWorkspace: "外部AI作業スペースパネルから取り消しました。",
@@ -1974,6 +2052,22 @@ const KO_COPY: typeof EN_COPY = {
       activeSessionRequiredImportResearch: "리서치를 가져오려면 활성 세션이 필요합니다.",
       researchResultTextRequired: "리서치 결과 내용을 입력해야 합니다.",
       activeSessionRequiredResolveResearchCard: "리서치 카드를 해결하려면 활성 세션이 필요합니다."
+    },
+    sessionActionLabels: {
+      enableOnboardingResearchSources: "온보딩 리서치 소스 활성화",
+      createProject: "프로젝트 생성",
+      captureIntake: "입력 내용 기록",
+      draftInitialSpec: "초기 설명서 초안 작성",
+      analyzeAmbiguity: "모호성 분석",
+      activateQuestionBatch: "질문 묶음 활성화",
+      changeProjectPurposeMode: "프로젝트 목적 변경",
+      changeBusinessCriticIntensity: "사업 리뷰 강도 변경",
+      submitAnswer: "답변 제출",
+      submitDraftedAnswer: "작성한 답변 제출",
+      loadNextQuestions: "다음 질문 불러오기",
+      carryAsKnownRisk: "Known Risk로 이관",
+      importResearchResult: "리서치 결과 가져오기",
+      resolveResearchCard: (outcome: ResearchQueueTerminalOutcome) => `리서치 카드 해결: ${outcome}`
     },
     sessionActionReasons: {
       projectPurposeConfirmed: (label: string) => `${label}을(를) 사용자가 시작 전에 확인했습니다.`,
@@ -2248,6 +2342,17 @@ const KO_COPY: typeof EN_COPY = {
       activeProjectRequiredCancelRun: "리서치 실행을 취소하려면 활성 프로젝트가 필요합니다.",
       activeProjectRequiredRetryRun: "리서치 실행을 다시 시도하려면 활성 프로젝트가 필요합니다."
     },
+    researchActionLabels: {
+      createAllowlist: "리서치 allowlist 생성",
+      reactivateAllowlist: "리서치 allowlist 재활성화",
+      pauseAllowlist: "리서치 allowlist 일시정지",
+      revokeAllowlist: "리서치 allowlist 취소",
+      planPublicSafeResearchTask: "공개 안전 리서치 task 계획",
+      startPublicWebResearchRun: "공개 웹 리서치 run 시작",
+      startBackgroundPublicWebResearchRun: "백그라운드 공개 웹 리서치 run 시작",
+      cancelRun: "리서치 run 취소",
+      retryRun: "리서치 run 재시도"
+    },
     researchActionReasons: {
       pauseAllowlist: "리서치 운영 화면에서 일시 중지했습니다.",
       revokeAllowlist: "리서치 운영 화면에서 철회했습니다.",
@@ -2337,6 +2442,7 @@ const KO_COPY: typeof EN_COPY = {
     runWorkerJob: "Worker job 실행",
     advanceWorkerStage: "Worker stage 진행",
     refresh: "작업공간 실행 새로고침",
+    approveLocalWorkerAuthority: "로컬 worker 권한 승인",
     actionErrors: {
       activeSessionRequiredCreateWorkspace: "자동 구현 작업공간을 만들려면 활성 세션이 필요합니다.",
       planningHandoffMustBeReady:
@@ -2600,6 +2706,11 @@ const KO_COPY: typeof EN_COPY = {
       activeSessionRequiredScoreCompleteness: "완성도를 채점하려면 활성 세션이 필요합니다.",
       activeSessionRequiredFounderBrief: "Founder Brief를 준비하려면 활성 세션이 필요합니다.",
       activeSessionRequiredPlanningHandoff: "계획 인계 게이트를 실행하려면 활성 세션이 필요합니다."
+    },
+    planningActionLabels: {
+      scoreCompleteness: "완성도 채점",
+      prepareFounderBrief: "Founder Brief 준비",
+      runPlanningHandoffGate: "계획 인계 게이트 실행"
     }
   },
   permissions: {
@@ -2619,6 +2730,12 @@ const KO_COPY: typeof EN_COPY = {
         "서비스 페이지 사용 자료 참조를 삭제하려면 활성 세션이 필요합니다.",
       artifactDeletePermissionMismatch:
         "최신 서비스 페이지 사용 권한이 이 자료 삭제 요청과 더 이상 일치하지 않습니다."
+    },
+    permissionActionLabels: {
+      revokeWorkspace: "외부 AI 작업공간 취소",
+      revokeServicePagePermission: "서비스 페이지 사용 권한 취소",
+      exportArtifactRefs: "서비스 페이지 사용 artifact 참조 내보내기",
+      deleteServicePageArtifacts: "서비스 페이지 사용 artifact 참조 삭제"
     },
     permissionActionReasons: {
       revokeWorkspace: "외부 AI 작업공간 패널에서 취소했습니다.",

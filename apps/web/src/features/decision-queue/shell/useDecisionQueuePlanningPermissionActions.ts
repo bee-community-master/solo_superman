@@ -54,8 +54,8 @@ export function useDecisionQueuePlanningPermissionActions({
   setProjections,
   setWorkflowError
 }: DecisionQueuePlanningPermissionActionsProps) {
-  const { planningActionErrors } = copy.handoff;
-  const { permissionActionErrors, permissionActionReasons } = copy.permissions;
+  const { planningActionErrors, planningActionLabels } = copy.handoff;
+  const { permissionActionErrors, permissionActionLabels, permissionActionReasons } = copy.permissions;
 
   const scoreCompleteness = useCallback(async () => {
     if (!client || !projections.session) {
@@ -68,7 +68,7 @@ export function useDecisionQueuePlanningPermissionActions({
 
     try {
       const response = await appendCommand(
-        "Score completeness",
+        planningActionLabels.scoreCompleteness,
         await client.scoreCompleteness({
           sessionId: projections.session.sessionId,
           expectedStateVersion: latestCommandBackedProjectionVersion(projections)
@@ -109,7 +109,7 @@ export function useDecisionQueuePlanningPermissionActions({
 
     try {
       const response = await appendCommand(
-        "Prepare Founder Brief",
+        planningActionLabels.prepareFounderBrief,
         await client.prepareFounderBriefExport({
           sessionId: projections.session.sessionId,
           expectedStateVersion: latestCommandBackedProjectionVersion(projections),
@@ -149,7 +149,7 @@ export function useDecisionQueuePlanningPermissionActions({
         phase15bReadiness,
         expectedStateVersion: latestCommandBackedProjectionVersion(projections)
       });
-      const response = await appendCommand("Run Planning Handoff gate", await client.createPlanningHandoff(request));
+      const response = await appendCommand(planningActionLabels.runPlanningHandoffGate, await client.createPlanningHandoff(request));
       const planningHandoff = requiredCommandProjection<PlanningHandoffProjection>(response, "PlanningHandoffProjection");
 
       setProjections((current) => ({
@@ -177,7 +177,7 @@ export function useDecisionQueuePlanningPermissionActions({
       try {
         const expectedStateVersion = latestCommandBackedProjectionVersion(projections);
         const response = await appendCommand(
-          "Revoke external AI workspace",
+          permissionActionLabels.revokeWorkspace,
           await client.revokeChatGptBrowserDelegationRun({
             sessionId: projections.session.sessionId,
             expectedStateVersion,
@@ -219,7 +219,7 @@ export function useDecisionQueuePlanningPermissionActions({
       try {
         const expectedStateVersion = latestCommandBackedProjectionVersion(projections);
         const response = await appendCommand(
-          "Revoke service page-use permission",
+          permissionActionLabels.revokeServicePagePermission,
           await client.revokeServicePageUsePermission({
             sessionId: projections.session.sessionId,
             expectedStateVersion,
@@ -291,7 +291,7 @@ export function useDecisionQueuePlanningPermissionActions({
       setCommandLog((previous) => [
         {
           id: `service-page-permission:export:artifacts:${permissionId}:${Date.now()}`,
-          label: "Export service page-use artifact refs",
+          label: permissionActionLabels.exportArtifactRefs,
           createdAt: exportedAt,
           message: permissionActionReasons.exportArtifactRefsLogMessage(view.artifactRefs.length, permissionId)
         },
@@ -322,7 +322,7 @@ export function useDecisionQueuePlanningPermissionActions({
       try {
         const expectedStateVersion = latestCommandBackedProjectionVersion(projections);
         const response = await appendCommand(
-          "Delete service page-use artifact refs",
+          permissionActionLabels.deleteServicePageArtifacts,
           await client.deleteServicePageUsePermissionArtifacts({
             sessionId: projections.session.sessionId,
             expectedStateVersion,

@@ -142,12 +142,12 @@ export function useDecisionQueueSessionActions({
   startReadyReadOnlyResearchRunsAfterAnswer,
   onInitialQueueCreated
 }: DecisionQueueSessionActionsProps) {
-  const { initialQueueStartBlockers, sessionActionErrors, sessionActionReasons } = copy.questions;
+  const { initialQueueStartBlockers, sessionActionErrors, sessionActionLabels, sessionActionReasons } = copy.questions;
 
   const enableInitialResearchSources = useCallback(
     async (activeClient: SidecarClient, projectId: ProjectId) => {
       const response = await appendCommand(
-        "Enable onboarding research sources",
+        sessionActionLabels.enableOnboardingResearchSources,
         await activeClient.createResearchAllowlist(projectId, {
           allowlistId: WEB_PUBLIC_SAFE_ALLOWLIST_ID,
           ...webPublicResearchAllowlistPolicy("web_onboarding_founder")
@@ -219,7 +219,7 @@ export function useDecisionQueueSessionActions({
             businessCriticIntensity)
           : null;
         const start = await appendCommand(
-          "Create project",
+          sessionActionLabels.createProject,
           await client.createProject({
             rawIdea: idea,
             localPrivacyMode: "local_only",
@@ -249,19 +249,19 @@ export function useDecisionQueueSessionActions({
         }
 
         const intakeResponse = await appendCommand(
-          "Capture intake",
+          sessionActionLabels.captureIntake,
           await client.captureIntake(session.sessionId, commandResponseVersion(start), intake)
         );
         const draftResponse = await appendCommand(
-          "Draft initial spec",
+          sessionActionLabels.draftInitialSpec,
           await client.draftInitialSpec(session.sessionId, commandResponseVersion(intakeResponse))
         );
         const analyzeResponse = await appendCommand(
-          "Analyze ambiguity",
+          sessionActionLabels.analyzeAmbiguity,
           await client.analyzeAmbiguity(session.sessionId, commandResponseVersion(draftResponse), "current_spec")
         );
         const activateResponse = await appendCommand(
-          "Activate question batch",
+          sessionActionLabels.activateQuestionBatch,
           await client.activateQuestionBatch(session.sessionId, commandResponseVersion(analyzeResponse))
         );
         const queue = requiredCommandProjection<DecisionQueueProjection>(activateResponse, "DecisionQueueProjection");
@@ -325,7 +325,7 @@ export function useDecisionQueueSessionActions({
 
       try {
         const response = await appendCommand(
-          "Change project purpose mode",
+          sessionActionLabels.changeProjectPurposeMode,
           await client.changeProjectPurposeMode({
             sessionId: projections.session.sessionId,
             expectedStateVersion: latestCommandBackedProjectionVersion(projections),
@@ -383,7 +383,7 @@ export function useDecisionQueueSessionActions({
 
       try {
         const response = await appendCommand(
-          "Change business critic intensity",
+          sessionActionLabels.changeBusinessCriticIntensity,
           await client.changeBusinessCriticIntensity({
             sessionId: projections.session.sessionId,
             expectedStateVersion: latestCommandBackedProjectionVersion(projections),
@@ -438,7 +438,7 @@ export function useDecisionQueueSessionActions({
 
       try {
         const response = await appendCommand(
-          "Submit answer",
+          sessionActionLabels.submitAnswer,
           await client.submitAnswer({
             sessionId: projections.session.sessionId,
             queueItemId,
@@ -507,7 +507,7 @@ export function useDecisionQueueSessionActions({
         }
 
         const response = await appendCommand(
-          "Submit drafted answer",
+          sessionActionLabels.submitDraftedAnswer,
           await client.submitAnswer({
             sessionId: projections.session.sessionId,
             queueItemId,
@@ -604,7 +604,7 @@ export function useDecisionQueueSessionActions({
 
     try {
       const response = await appendCommand(
-        "Load next questions",
+        sessionActionLabels.loadNextQuestions,
         await client.activateQuestionBatch(
           projections.session.sessionId,
           latestCommandBackedProjectionVersion(projections),
@@ -645,7 +645,7 @@ export function useDecisionQueueSessionActions({
 
       try {
         const response = await appendCommand(
-          "Carry as Known Risk",
+          sessionActionLabels.carryAsKnownRisk,
           await client.deferQueueItem({
             sessionId: projections.session.sessionId,
             queueItemId,
@@ -704,7 +704,7 @@ export function useDecisionQueueSessionActions({
 
       try {
         const response = await appendCommand(
-          "Import research result",
+          sessionActionLabels.importResearchResult,
           await client.importResearchResult({
             sessionId: projections.session.sessionId,
             researchTaskId,
@@ -755,7 +755,7 @@ export function useDecisionQueueSessionActions({
 
       try {
         const response = await appendCommand(
-          `Resolve research card: ${outcome}`,
+          sessionActionLabels.resolveResearchCard(outcome),
           await client.resolveResearchQueueCard({
             sessionId: projections.session.sessionId,
             cardId,

@@ -596,7 +596,7 @@ export function useDecisionQueueShellController() {
         ? projections.planningHandoff.finalArtifact.artifactId
         : projections.planningHandoff?.blockerArtifact.artifactId ?? `auto-implementation-run:${run.runId}`;
       const authorityResponse = await appendCommand(
-        "Approve local worker authority",
+        autoImplementationCopy.approveLocalWorkerAuthority,
         await client.createExecutionAuthority(
           buildAutoImplementationWorkerAuthorityRequest({
             sessionId,
