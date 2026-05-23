@@ -6,6 +6,7 @@ import {
   AUTO_IMPLEMENTATION_STAGES,
   AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
   AutoImplementationRunValidationError,
+  autoImplementationGitHubIssueUrlForIssue,
   autoImplementationIssueDocumentStatus,
   autoImplementationIssueStatusSummary,
   autoImplementationRunWithSynchronizedIssueDocs,
@@ -354,6 +355,21 @@ describe("AutoImplementationRunProjection contract", () => {
         completed: 1,
         blocked: 0
       });
+  });
+
+  it("maps applied GitHub issue URLs back to their local issue documents", () => {
+    const projection = projectionWithAppliedGitHubIssueMutation();
+    const run = projection.latestRun!;
+    const firstIssue = requiredFixtureItem(run.issueManagement.issueDocs, 0, "issue doc");
+    const secondIssue = requiredFixtureItem(run.issueManagement.issueDocs, 1, "issue doc");
+
+    expect(autoImplementationGitHubIssueUrlForIssue(run, firstIssue)).toBe(
+      "https://github.com/bee-community-master/demo/issues/1"
+    );
+    expect(autoImplementationGitHubIssueUrlForIssue(run, secondIssue)).toBe(
+      "https://github.com/bee-community-master/demo/issues/2"
+    );
+    expect(autoImplementationGitHubIssueUrlForIssue(readyRun, firstIssue)).toBeNull();
   });
 
   it("rejects worker execution plans that omit the exact planned ledger docs", () => {

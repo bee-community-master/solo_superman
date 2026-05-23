@@ -530,8 +530,11 @@ describe("AutoImplementationRunPanel view model", () => {
 
     expect(dryRunView.canRecordGitHubIssueDryRun).toBe(false);
     expect(dryRunView.canApplyGitHubIssueCreation).toBe(true);
+    expect(dryRunView.issueRows[0]?.githubIssueUrlLabel).toBe("none");
     expect(appliedView.canRecordGitHubIssueDryRun).toBe(false);
     expect(appliedView.canApplyGitHubIssueCreation).toBe(false);
+    expect(appliedView.issueRows[0]?.githubIssueUrlLabel).toBe("https://github.com/bee-community-master/demo/issues/1");
+    expect(renderPanelMarkup(appliedView)).toContain("GitHub issue: https://github.com/bee-community-master/demo/issues/1");
   });
 
   it("keeps approved GitHub issue creation disabled after issue URLs are recorded", () => {
@@ -968,6 +971,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("Do not merge until the feature PR code review reaches two consecutive no-finding passes");
     expect(markup).toContain("Sync main after merge and rerun the full verification command on main.");
     expect(markup).toContain("implementation-issues/001-initial_pr.md");
+    expect(markup).toContain("GitHub issue: none");
     expect(markup).toContain("GitHub issue mutation contract");
     expect(markup).toContain("GitHub issue mutation: not_requested");
     expect(markup).toContain("GitHub PR mutation evidence");

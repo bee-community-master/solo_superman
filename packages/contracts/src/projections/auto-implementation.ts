@@ -563,6 +563,23 @@ export function latestAutoImplementationWorkerJobForIssue(
     .find((job) => job.stage === issue.stage && job.issueId === issue.issueId) ?? null;
 }
 
+export function autoImplementationGitHubIssueUrlForIssue(
+  run: AutoImplementationRun,
+  issue: AutoImplementationIssueDocument
+): string | null {
+  const issueIndex = run.issueManagement.githubIssueMutation.plannedIssues.findIndex((plan) =>
+    plan.issueId === issue.issueId && plan.bodyMarkdownPath === issue.relativePath
+  );
+
+  if (issueIndex < 0) {
+    return null;
+  }
+
+  return run.issueManagement.githubIssueUrls[issueIndex] ??
+    run.issueManagement.githubIssueMutation.createdIssueUrls[issueIndex] ??
+    null;
+}
+
 export function autoImplementationIssueDocumentStatus(
   run: AutoImplementationRun,
   issue: AutoImplementationIssueDocument

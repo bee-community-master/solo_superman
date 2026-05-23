@@ -5,6 +5,7 @@ import {
   canOpenNewAutoImplementationPullRequest,
   canPlanCurrentStageAutoImplementationWorkerJob,
   canRunAutoImplementationWorkerJob,
+  autoImplementationGitHubIssueUrlForIssue,
   latestAutoImplementationWorkerJobForIssue,
   latestCurrentStageAutoImplementationWorkerJob,
   type AutoImplementationGitHubIssuePlan,
@@ -40,6 +41,7 @@ interface AutoImplementationWorkerPlanView {
 
 export interface AutoImplementationIssueRowView {
   readonly issue: AutoImplementationIssueDocument;
+  readonly githubIssueUrlLabel: string;
   readonly latestWorkerJobLabel: string;
   readonly blockerLabel: string | null;
   readonly nextActionLabel: string;
@@ -185,6 +187,7 @@ function autoImplementationIssueRowView(
 
   return {
     issue,
+    githubIssueUrlLabel: autoImplementationGitHubIssueUrlForIssue(run, issue) ?? "none",
     latestWorkerJobLabel: latestIssueWorkerJobLabel(latestWorkerJob),
     blockerLabel: issueRowBlockerLabel({ stage, latestWorkerJob }),
     nextActionLabel: issueRowNextAction({ stage, latestWorkerJob }),
@@ -654,6 +657,8 @@ export function AutoImplementationRunPanel({
           {run.issueRows.map((row) => (
             <li key={row.issue.issueId}>
               {row.issue.issueId}: {row.issue.title} — stage {row.issue.stage} / status {row.issue.status} ({row.issue.relativePath})
+              {" · "}
+              GitHub issue: {row.githubIssueUrlLabel}
               {" · "}
               {row.latestWorkerJobLabel}
               {" · "}
