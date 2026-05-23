@@ -966,6 +966,91 @@ function Sync-OriginRemote($Path) {
   }
 }
 
+function Get-GitFirstLine($Path, [string[]]$Arguments) {
+  try {
+    $git = Get-ToolPath "git"
+    $gitArguments = @("-C", $Path) + $Arguments
+    $output = & $git @gitArguments 2>$null
+    if ($LASTEXITCODE -ne 0) {
+      return $null
+    }
+
+    $line = $output | Select-Object -First 1
+    if ($null -eq $line) {
+      return $null
+    }
+
+    return ([string]$line).Trim()
+  } catch {
+    return $null
+  }
+}
+
+function Test-GitCommand($Path, [string[]]$Arguments) {
+  try {
+    $git = Get-ToolPath "git"
+    $gitArguments = @("-C", $Path) + $Arguments
+    & $git @gitArguments > $null 2> $null
+    return $LASTEXITCODE -eq 0
+  } catch {
+    return $false
+  }
+}
+
+function Get-CheckoutDefaultBranch($Path) {
+  $originHead = Get-GitFirstLine $Path @("symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")
+  if ($originHead -and $originHead.StartsWith("origin/")) {
+    return $originHead.Substring("origin/".Length)
+  }
+
+  return "main"
+}
+
+function Update-ExistingCheckoutSafely($Path) {
+  $status = Get-GitFirstLine $Path @("status", "--porcelain")
+  if ($status) {
+    Write-Warn "기존 checkout에 local 변경/untracked 파일이 있어 자동 업데이트를 건너뜁니다. 사용자 파일을 덮어쓰지 않고 계속 진행합니다."
+    return
+  }
+
+  $currentBranch = Get-GitFirstLine $Path @("symbolic-ref", "--quiet", "--short", "HEAD")
+  if (-not $currentBranch) {
+    Write-Warn "기존 checkout이 detached HEAD 상태라 자동 업데이트를 건너뜁니다."
+    return
+  }
+
+  $defaultBranch = Get-CheckoutDefaultBranch $Path
+  $remoteRef = "origin/$defaultBranch"
+  if ($currentBranch -ne $defaultBranch) {
+    Write-Warn "현재 branch가 $currentBranch 이라 자동 업데이트를 건너뜁니다. 기본 branch($defaultBranch)는 원격에서만 확인했습니다."
+    return
+  }
+
+  if (-not (Test-GitCommand $Path @("rev-parse", "--verify", "--quiet", $remoteRef))) {
+    Write-Warn "$remoteRef ref를 확인하지 못해 자동 업데이트를 건너뜁니다."
+    return
+  }
+
+  if (-not (Test-GitCommand $Path @("merge-base", "--is-ancestor", "HEAD", $remoteRef))) {
+    Write-Warn "기존 checkout이 $remoteRef 와 diverged 상태라 자동 업데이트를 건너뜁니다. 사용자 변경을 덮어쓰지 않습니다."
+    return
+  }
+
+  $headSha = Get-GitFirstLine $Path @("rev-parse", "--short", "HEAD")
+  $remoteSha = Get-GitFirstLine $Path @("rev-parse", "--short", $remoteRef)
+  if ($headSha -and $remoteSha -and ($headSha -eq $remoteSha)) {
+    Write-Step "checkout already up to date: $remoteRef@$remoteSha"
+    return
+  }
+
+  Write-Step "safe fast-forward update: $headSha -> $remoteSha"
+  try {
+    Invoke-Tool "git" @("-C", $Path, "merge", "--ff-only", $remoteRef)
+  } catch {
+    Write-Warn "safe fast-forward update가 실패해 기존 checkout으로 계속 진행합니다. $($_.Exception.Message)"
+  }
+}
+
 function Resolve-InstallTarget {
   $base = $DefaultTargetDir
   if ((Test-ExpectedRepo $base) -or (-not (Test-Path $base))) {
@@ -1368,7 +1453,8 @@ if (Test-ExpectedRepo $TargetPath) {
   Write-Step "기존 checkout 사용: $TargetPath"
   Sync-OriginRemote $TargetPath
   try {
-    Invoke-Tool "git" @("-C", $TargetPath, "fetch", "origin")
+    Invoke-Tool "git" @("-C", $TargetPath, "fetch", "--prune", "origin")
+    Update-ExistingCheckoutSafely $TargetPath
   } catch {
     Write-Warn "원격 업데이트 확인에 실패했지만 기존 checkout으로 계속 진행합니다. $($_.Exception.Message)"
   }
