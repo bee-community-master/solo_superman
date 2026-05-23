@@ -211,4 +211,65 @@ describe("readyReadOnlyResearchRunStartPlan", () => {
       message: blockerMessages.noReadyTasksMessage
     });
   });
+
+  it("uses the shared session run budget guard before planning a run start", () => {
+    const [baseTask] = researchProjection().tasks;
+    const [baseRun] = runProjection("accepted").runs;
+    const consumedTaskId = "research_task_auto_start_budget_consumed" as ResearchTaskId;
+
+    if (!baseTask || !baseRun) {
+      throw new Error("Auto-start session budget fixture is incomplete.");
+    }
+
+    const baseAllowlist = activeAllowlist();
+    const allowlist = {
+      ...baseAllowlist,
+      rateBudgetPolicy: {
+        ...baseAllowlist.rateBudgetPolicy,
+        maxRunsPerSession: 1
+      }
+    };
+    const research = {
+      ...researchProjection(),
+      taskIds: [consumedTaskId, readyTaskId],
+      tasks: [
+        {
+          ...baseTask,
+          researchTaskId: consumedTaskId,
+          status: "needs_review" as const
+        },
+        baseTask
+      ]
+    };
+    const researchRunId = "research_run_auto_start_budget_consumed" as ResearchRunId;
+    const runs = {
+      ...runProjection("accepted"),
+      runs: [
+        {
+          ...baseRun,
+          researchRunId,
+          researchTaskId: consumedTaskId,
+          provider: {
+            ...baseRun.provider,
+            researchRunId,
+            researchTaskId: consumedTaskId,
+            idempotencyKey: "research-run:auto-start-budget-consumed"
+          }
+        }
+      ]
+    };
+
+    expect(
+      readyReadOnlyResearchRunStartPlan({
+        ...blockerMessages,
+        allowlist,
+        quietNoop: false,
+        research,
+        runs
+      })
+    ).toEqual({
+      status: "blocked",
+      message: blockerMessages.noReadyTasksMessage
+    });
+  });
 });

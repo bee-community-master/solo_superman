@@ -176,6 +176,36 @@ function runProjection(status: "needs_review" | "accepted" = "needs_review"): Re
   };
 }
 
+type ResearchRunProjectionItem = ResearchRunControlProjection["runs"][number];
+
+function researchRunForTask(
+  baseRun: ResearchRunProjectionItem,
+  {
+    researchRunId,
+    researchTaskId,
+    runAllowlistId = baseRun.allowlistId
+  }: {
+    readonly researchRunId: ResearchRunId;
+    readonly researchTaskId: ResearchTaskId;
+    readonly runAllowlistId?: ResearchAllowlistId;
+  }
+): ResearchRunProjectionItem {
+  return {
+    ...baseRun,
+    researchRunId,
+    researchTaskId,
+    allowlistId: runAllowlistId,
+    provider: {
+      ...baseRun.provider,
+      researchRunId,
+      researchTaskId,
+      providerRunId: `fake_readonly_${researchRunId}`,
+      idempotencyKey: `research-run:v1:${researchRunId}`
+    },
+    disclosureLogId: `research_disclosure_${researchRunId}` as ResearchDisclosureLogId
+  };
+}
+
 function researchProjection(blocksPlanning = true): ResearchEvidenceProjection {
   return {
     kind: "ResearchEvidenceProjection",
@@ -385,6 +415,127 @@ describe("Decision Queue view model phase15a", () => {
 
     expect(startableReadOnlyResearchTaskIds({ research, runs, allowlist })).toEqual([
       "research_task_batch_ready_1"
+    ]);
+  });
+
+  it("stops planned research tasks when the allowlist session run budget is exhausted", () => {
+    const [baseAllowlist] = allowlistProjection().allowlists;
+    const [baseTask] = researchProjection(false).tasks;
+    const [baseRun] = runProjection("accepted").runs;
+
+    if (!baseAllowlist || !baseTask || !baseRun) {
+      throw new Error("Phase 1.5A session budget fixture is incomplete.");
+    }
+
+    const allowlist = {
+      ...baseAllowlist,
+      rateBudgetPolicy: {
+        ...baseAllowlist.rateBudgetPolicy,
+        maxConcurrentRunsPerProject: 3,
+        maxRunsPerSession: 2
+      }
+    };
+    const consumedTaskIds = [
+      "research_task_session_budget_consumed_1",
+      "research_task_session_budget_consumed_2"
+    ] as const;
+    const plannedTaskIds = [
+      "research_task_session_budget_ready_1",
+      "research_task_session_budget_ready_2"
+    ] as const;
+    const research = {
+      ...researchProjection(false),
+      taskIds: [...consumedTaskIds, ...plannedTaskIds].map((taskId) => taskId as ResearchTaskId),
+      tasks: [
+        ...consumedTaskIds.map((taskId) => ({
+          ...baseTask,
+          researchTaskId: taskId as ResearchTaskId,
+          status: "needs_review" as const,
+          objective: `Review existing run for ${taskId}.`
+        })),
+        ...plannedTaskIds.map((taskId) => ({
+          ...baseTask,
+          researchTaskId: taskId as ResearchTaskId,
+          status: "planned" as const,
+          objective: `Validate session budget for ${taskId}.`
+        }))
+      ]
+    };
+    const runs = {
+      ...runProjection("accepted"),
+      runs: consumedTaskIds.map((taskId, index) =>
+        researchRunForTask(baseRun, {
+          researchRunId: `research_run_session_budget_consumed_${index + 1}` as ResearchRunId,
+          researchTaskId: taskId as ResearchTaskId
+        })
+      )
+    };
+
+    expect(startableReadOnlyResearchTaskIds({ research, runs, allowlist })).toEqual([]);
+  });
+
+  it("does not spend the active allowlist session budget on other sessions or allowlists", () => {
+    const [baseAllowlist] = allowlistProjection().allowlists;
+    const [baseTask] = researchProjection(false).tasks;
+    const [baseRun] = runProjection("accepted").runs;
+
+    if (!baseAllowlist || !baseTask || !baseRun) {
+      throw new Error("Phase 1.5A scoped session budget fixture is incomplete.");
+    }
+
+    const allowlist = {
+      ...baseAllowlist,
+      rateBudgetPolicy: {
+        ...baseAllowlist.rateBudgetPolicy,
+        maxConcurrentRunsPerProject: 3,
+        maxRunsPerSession: 2
+      }
+    };
+    const currentAllowlistConsumedTaskId = "research_task_session_budget_current" as ResearchTaskId;
+    const otherAllowlistConsumedTaskId = "research_task_session_budget_other_allowlist" as ResearchTaskId;
+    const plannedTaskIds = [
+      "research_task_session_budget_scope_ready_1",
+      "research_task_session_budget_scope_ready_2"
+    ] as const;
+    const research = {
+      ...researchProjection(false),
+      taskIds: [currentAllowlistConsumedTaskId, otherAllowlistConsumedTaskId, ...plannedTaskIds].map(
+        (taskId) => taskId as ResearchTaskId
+      ),
+      tasks: [
+        currentAllowlistConsumedTaskId,
+        otherAllowlistConsumedTaskId,
+        ...plannedTaskIds.map((taskId) => taskId as ResearchTaskId)
+      ].map((taskId) => ({
+        ...baseTask,
+        researchTaskId: taskId,
+        status: plannedTaskIds.includes(taskId as (typeof plannedTaskIds)[number])
+          ? ("planned" as const)
+          : ("needs_review" as const),
+        objective: `Validate scoped session budget for ${taskId}.`
+      }))
+    };
+    const runs = {
+      ...runProjection("accepted"),
+      runs: [
+        researchRunForTask(baseRun, {
+          researchRunId: "research_run_session_budget_current" as ResearchRunId,
+          researchTaskId: currentAllowlistConsumedTaskId
+        }),
+        researchRunForTask(baseRun, {
+          researchRunId: "research_run_session_budget_other_session" as ResearchRunId,
+          researchTaskId: "research_task_session_budget_other_session" as ResearchTaskId
+        }),
+        researchRunForTask(baseRun, {
+          researchRunId: "research_run_session_budget_other_allowlist" as ResearchRunId,
+          researchTaskId: otherAllowlistConsumedTaskId,
+          runAllowlistId: "research_allowlist_phase15a_other" as ResearchAllowlistId
+        })
+      ]
+    };
+
+    expect(startableReadOnlyResearchTaskIds({ research, runs, allowlist })).toEqual([
+      "research_task_session_budget_scope_ready_1"
     ]);
   });
 
