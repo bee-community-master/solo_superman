@@ -89,11 +89,7 @@ import { planningRadarAxes } from "./planning-radar-model";
 import { useCommandLogActions } from "./useCommandLogActions";
 import { useDecisionQueuePlanningPermissionActions } from "./useDecisionQueuePlanningPermissionActions";
 import { useDecisionQueueRefreshers } from "./useDecisionQueueRefreshers";
-import {
-  MISSING_READY_RESEARCH_ALLOWLIST_MESSAGE,
-  NO_READY_RESEARCH_TASKS_MESSAGE,
-  useDecisionQueueResearchActions
-} from "./useDecisionQueueResearchActions";
+import { useDecisionQueueResearchActions } from "./useDecisionQueueResearchActions";
 import { useDecisionQueueSessionActions } from "./useDecisionQueueSessionActions";
 
 function unavailableCodexLoginStart(message: string): CodexRuntimeLoginStartDto {
@@ -348,6 +344,7 @@ export function useDecisionQueueShellController() {
   } = useDecisionQueueResearchActions({
     appendCommand,
     client,
+    copy,
     projections,
     refreshProjections,
     refreshResearchOperations,
@@ -1173,8 +1170,8 @@ export function useDecisionQueueShellController() {
     research: projections.research,
     runs: researchOperations.runs,
     allowlist: activeResearchAllowlist,
-    missingAllowlistMessage: MISSING_READY_RESEARCH_ALLOWLIST_MESSAGE,
-    noReadyTasksMessage: NO_READY_RESEARCH_TASKS_MESSAGE,
+    missingAllowlistMessage: copy.research.researchActionErrors.readyRunsMissingAllowlist,
+    noReadyTasksMessage: copy.research.researchActionErrors.readyRunsNoReadyTasks,
     quietNoop: false
   });
   const readyReadOnlyResearchTaskIds =

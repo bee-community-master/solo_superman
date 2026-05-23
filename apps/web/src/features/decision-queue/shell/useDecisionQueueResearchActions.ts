@@ -26,10 +26,12 @@ import {
   type AppendCommand,
   type ProjectionState
 } from "./decision-queue-shell-model";
+import type { DecisionQueueCopy } from "./decision-queue-copy";
 
 interface DecisionQueueResearchActionsProps {
   readonly appendCommand: AppendCommand;
   readonly client: SidecarClient | null;
+  readonly copy: DecisionQueueCopy;
   readonly projections: ProjectionState;
   readonly refreshProjections: (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"]) => Promise<void>;
   readonly refreshResearchOperations: (projectId: ProjectId) => Promise<void>;
@@ -43,14 +45,10 @@ interface DecisionQueueResearchActionsProps {
 type ResearchAllowlistProjection = ResearchAllowlistGovernanceProjection["allowlists"][number];
 type ResearchTaskProjection = ResearchEvidenceProjection["tasks"][number];
 
-export const MISSING_READY_RESEARCH_ALLOWLIST_MESSAGE =
-  "Create or reactivate an active public web allowlist before starting research runs.";
-export const NO_READY_RESEARCH_TASKS_MESSAGE =
-  "No planned public web research tasks are ready within the active allowlist concurrency budget.";
-
 export function useDecisionQueueResearchActions({
   appendCommand,
   client,
+  copy,
   projections,
   refreshProjections,
   refreshResearchOperations,
@@ -60,6 +58,8 @@ export function useDecisionQueueResearchActions({
   setResearchOperations,
   setWorkflowError
 }: DecisionQueueResearchActionsProps) {
+  const { researchActionErrors, researchActionReasons } = copy.research;
+
   const refreshResearchEvidenceSurfaces = useCallback(
     async (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"]) => {
       await refreshProjections(projectId, sessionId);
@@ -69,7 +69,7 @@ export function useDecisionQueueResearchActions({
 
   const createOrReactivateAllowlist = useCallback(async () => {
     if (!client || !projections.session) {
-      setWorkflowError("An active project is required before changing research allowlists.");
+      setWorkflowError(researchActionErrors.activeProjectRequiredAllowlistChange);
       return;
     }
 
@@ -113,12 +113,19 @@ export function useDecisionQueueResearchActions({
     } finally {
       setIsBusy(false);
     }
-  }, [appendCommand, client, projections.session, refreshResearchOperations, researchOperations.allowlists]);
+  }, [
+    appendCommand,
+    client,
+    projections.session,
+    refreshResearchOperations,
+    researchActionErrors,
+    researchOperations.allowlists
+  ]);
 
   const pauseAllowlist = useCallback(
     async (allowlistId: ResearchAllowlistId) => {
       if (!client || !projections.session) {
-        setWorkflowError("An active project is required before pausing a research allowlist.");
+        setWorkflowError(researchActionErrors.activeProjectRequiredPauseAllowlist);
         return;
       }
 
@@ -131,7 +138,7 @@ export function useDecisionQueueResearchActions({
           await client.pauseResearchAllowlist(
             projections.session.projectId,
             allowlistId,
-            "Paused from the research operations screen."
+            researchActionReasons.pauseAllowlist
           )
         );
         const allowlists = requiredCommandProjection<ResearchAllowlistGovernanceProjection>(
@@ -150,13 +157,13 @@ export function useDecisionQueueResearchActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections.session, refreshResearchOperations]
+    [appendCommand, client, projections.session, refreshResearchOperations, researchActionErrors, researchActionReasons]
   );
 
   const revokeAllowlist = useCallback(
     async (allowlistId: ResearchAllowlistId) => {
       if (!client || !projections.session) {
-        setWorkflowError("An active project is required before revoking a research allowlist.");
+        setWorkflowError(researchActionErrors.activeProjectRequiredRevokeAllowlist);
         return;
       }
 
@@ -169,7 +176,7 @@ export function useDecisionQueueResearchActions({
           await client.revokeResearchAllowlist(
             projections.session.projectId,
             allowlistId,
-            "Revoked from the research operations screen."
+            researchActionReasons.revokeAllowlist
           )
         );
         const allowlists = requiredCommandProjection<ResearchAllowlistGovernanceProjection>(
@@ -188,12 +195,12 @@ export function useDecisionQueueResearchActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections.session, refreshResearchOperations]
+    [appendCommand, client, projections.session, refreshResearchOperations, researchActionErrors, researchActionReasons]
   );
 
   const planPhase15aResearchTask = useCallback(async () => {
     if (!client || !projections.session) {
-      setWorkflowError("An active session is required before planning public-safe research.");
+      setWorkflowError(researchActionErrors.activeSessionRequiredPlanResearch);
       return;
     }
 
@@ -206,7 +213,7 @@ export function useDecisionQueueResearchActions({
         await client.planResearch({
           sessionId: projections.session.sessionId,
           expectedStateVersion: latestCommandBackedProjectionVersion(projections),
-          objective: "Validate public onboarding evidence and quality-gate readiness for the research loop.",
+          objective: researchActionReasons.planPublicSafeObjective,
           sourceQueueItemId: "phase15a_operations_acceptance" as QueueItemId,
           routeOutcome: "research_needed",
           impact: "high"
@@ -224,7 +231,7 @@ export function useDecisionQueueResearchActions({
     } finally {
       setIsBusy(false);
     }
-  }, [appendCommand, client, projections, refreshProjections]);
+  }, [appendCommand, client, projections, refreshProjections, researchActionErrors, researchActionReasons]);
 
   const startReadOnlyResearchRunForTask = useCallback(
     async ({
@@ -239,7 +246,7 @@ export function useDecisionQueueResearchActions({
       readonly task: ResearchTaskProjection;
     }) => {
       if (!client) {
-        throw new Error("A sidecar connection is required before starting a research run.");
+        throw new Error(researchActionErrors.sidecarConnectionRequiredStartRun);
       }
 
       const response = await appendCommand(
@@ -270,12 +277,12 @@ export function useDecisionQueueResearchActions({
         }));
       }
     },
-    [appendCommand, client, projections.spec, setResearchOperations]
+    [appendCommand, client, projections.spec, researchActionErrors, setResearchOperations]
   );
 
   const startReadOnlyResearchRun = useCallback(async (researchTaskId: ResearchTaskId) => {
     if (!client || !projections.session) {
-      setWorkflowError("An active project is required before starting a research run.");
+      setWorkflowError(researchActionErrors.activeProjectRequiredStartRun);
       return;
     }
 
@@ -283,17 +290,17 @@ export function useDecisionQueueResearchActions({
     const allowlist = activeWebPublicResearchAllowlist(researchOperations.allowlists);
 
     if (!task) {
-      setWorkflowError("Select a planned research task before starting a read-only research run.");
+      setWorkflowError(researchActionErrors.plannedTaskRequiredStartRun);
       return;
     }
 
     if (task.status !== "planned") {
-      setWorkflowError("Only planned research tasks can start a new read-only research run.");
+      setWorkflowError(researchActionErrors.plannedTaskStatusRequiredStartRun);
       return;
     }
 
     if (!allowlist) {
-      setWorkflowError("Create or reactivate an active public web allowlist before starting a research run.");
+      setWorkflowError(researchActionErrors.activeAllowlistRequiredStartRun);
       return;
     }
 
@@ -319,6 +326,7 @@ export function useDecisionQueueResearchActions({
     projections.session,
     refreshResearchEvidenceSurfaces,
     researchOperations.allowlists,
+    researchActionErrors,
     startReadOnlyResearchRunForTask
   ]);
 
@@ -356,14 +364,14 @@ export function useDecisionQueueResearchActions({
 
   const startReadyReadOnlyResearchRuns = useCallback(async () => {
     if (!client || !projections.session) {
-      setWorkflowError("An active project is required before starting ready research runs.");
+      setWorkflowError(researchActionErrors.activeProjectRequiredReadyRuns);
       return;
     }
 
     const allowlist = activeWebPublicResearchAllowlist(researchOperations.allowlists);
 
     if (!allowlist) {
-      setWorkflowError(MISSING_READY_RESEARCH_ALLOWLIST_MESSAGE);
+      setWorkflowError(researchActionErrors.readyRunsMissingAllowlist);
       return;
     }
 
@@ -378,8 +386,8 @@ export function useDecisionQueueResearchActions({
         research: projections.research,
         runs: latestRuns,
         allowlist,
-        missingAllowlistMessage: MISSING_READY_RESEARCH_ALLOWLIST_MESSAGE,
-        noReadyTasksMessage: NO_READY_RESEARCH_TASKS_MESSAGE,
+        missingAllowlistMessage: researchActionErrors.readyRunsMissingAllowlist,
+        noReadyTasksMessage: researchActionErrors.readyRunsNoReadyTasks,
         quietNoop: false
       });
 
@@ -415,6 +423,7 @@ export function useDecisionQueueResearchActions({
     projections.session,
     refreshResearchEvidenceSurfaces,
     researchOperations.allowlists,
+    researchActionErrors,
     setResearchOperations,
     startReadyReadOnlyResearchRunsForPlan
   ]);
@@ -436,8 +445,8 @@ export function useDecisionQueueResearchActions({
         research: latestResearch,
         runs: latestRuns,
         allowlist,
-        missingAllowlistMessage: MISSING_READY_RESEARCH_ALLOWLIST_MESSAGE,
-        noReadyTasksMessage: NO_READY_RESEARCH_TASKS_MESSAGE,
+        missingAllowlistMessage: researchActionErrors.readyRunsMissingAllowlist,
+        noReadyTasksMessage: researchActionErrors.readyRunsNoReadyTasks,
         quietNoop: true
       });
 
@@ -468,12 +477,13 @@ export function useDecisionQueueResearchActions({
       });
       await refreshResearchEvidenceSurfaces(projectId, sessionId);
     } catch (error) {
-      setWorkflowError(`Answer submitted, but automatic public web research start failed: ${displayError(error)}`);
+      setWorkflowError(researchActionErrors.backgroundStartAfterAnswerFailed(displayError(error)));
     }
   }, [
     client,
     projections.session,
     refreshResearchEvidenceSurfaces,
+    researchActionErrors,
     setProjections,
     setResearchOperations,
     setWorkflowError,
@@ -483,7 +493,7 @@ export function useDecisionQueueResearchActions({
   const refreshResearchRunStatus = useCallback(
     async (researchRunId: ResearchRunId) => {
       if (!client || !projections.session) {
-        setWorkflowError("An active project is required before refreshing research run status.");
+        setWorkflowError(researchActionErrors.activeProjectRequiredRefreshRunStatus);
         return;
       }
 
@@ -501,13 +511,13 @@ export function useDecisionQueueResearchActions({
         setWorkflowError(displayError(error));
       }
     },
-    [client, projections.session, refreshProjections]
+    [client, projections.session, refreshProjections, researchActionErrors]
   );
 
   const cancelResearchRun = useCallback(
     async (researchRunId: ResearchRunId) => {
       if (!client || !projections.session) {
-        setWorkflowError("An active project is required before cancelling a research run.");
+        setWorkflowError(researchActionErrors.activeProjectRequiredCancelRun);
         return;
       }
 
@@ -518,7 +528,7 @@ export function useDecisionQueueResearchActions({
         const response = await appendCommand(
           "Cancel research run",
           await client.cancelResearchRun(projections.session.projectId, researchRunId, {
-            reason: "Cancelled from the research operations screen."
+            reason: researchActionReasons.cancelRun
           })
         );
 
@@ -533,13 +543,13 @@ export function useDecisionQueueResearchActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections.session, refreshResearchOperations]
+    [appendCommand, client, projections.session, refreshResearchOperations, researchActionErrors, researchActionReasons]
   );
 
   const retryResearchRun = useCallback(
     async (researchRunId: ResearchRunId) => {
       if (!client || !projections.session) {
-        setWorkflowError("An active project is required before retrying a research run.");
+        setWorkflowError(researchActionErrors.activeProjectRequiredRetryRun);
         return;
       }
 
@@ -550,7 +560,7 @@ export function useDecisionQueueResearchActions({
         const response = await appendCommand(
           "Retry research run",
           await client.retryResearchRun(projections.session.projectId, researchRunId, {
-            retryReason: "Manual retry from the research operations screen.",
+            retryReason: researchActionReasons.retryRun,
             contextHash: `${researchRunId}_web_retry`
           })
         );
@@ -566,7 +576,7 @@ export function useDecisionQueueResearchActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections.session, refreshResearchOperations]
+    [appendCommand, client, projections.session, refreshResearchOperations, researchActionErrors, researchActionReasons]
   );
 
 

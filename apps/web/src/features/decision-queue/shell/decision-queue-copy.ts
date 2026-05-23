@@ -417,6 +417,35 @@ const EN_COPY = {
       missing_allowlist: "Create or reactivate an active public web allowlist before starting the ready batch.",
       no_ready_tasks: "No planned public web tasks are ready within the active allowlist concurrency budget."
     },
+    researchActionErrors: {
+      activeProjectRequiredAllowlistChange: "An active project is required before changing research allowlists.",
+      activeProjectRequiredPauseAllowlist: "An active project is required before pausing a research allowlist.",
+      activeProjectRequiredRevokeAllowlist: "An active project is required before revoking a research allowlist.",
+      activeSessionRequiredPlanResearch: "An active session is required before planning public-safe research.",
+      sidecarConnectionRequiredStartRun: "A sidecar connection is required before starting a research run.",
+      activeProjectRequiredStartRun: "An active project is required before starting a research run.",
+      plannedTaskRequiredStartRun: "Select a planned research task before starting a read-only research run.",
+      plannedTaskStatusRequiredStartRun: "Only planned research tasks can start a new read-only research run.",
+      activeAllowlistRequiredStartRun:
+        "Create or reactivate an active public web allowlist before starting a research run.",
+      activeProjectRequiredReadyRuns: "An active project is required before starting ready research runs.",
+      readyRunsMissingAllowlist:
+        "Create or reactivate an active public web allowlist before starting research runs.",
+      readyRunsNoReadyTasks: "No planned public web research tasks are ready within the active allowlist concurrency budget.",
+      backgroundStartAfterAnswerFailed: (error: string) =>
+        `Answer submitted, but automatic public web research start failed: ${error}`,
+      activeProjectRequiredRefreshRunStatus: "An active project is required before refreshing research run status.",
+      activeProjectRequiredCancelRun: "An active project is required before cancelling a research run.",
+      activeProjectRequiredRetryRun: "An active project is required before retrying a research run."
+    },
+    researchActionReasons: {
+      pauseAllowlist: "Paused from the research operations screen.",
+      revokeAllowlist: "Revoked from the research operations screen.",
+      planPublicSafeObjective:
+        "Validate public onboarding evidence and quality-gate readiness for the research loop.",
+      cancelRun: "Cancelled from the research operations screen.",
+      retryRun: "Manual retry from the research operations screen."
+    },
     readyReadOnlyRunsPlanTaskIds: "Task IDs queued for this batch",
     validationSummary: "Validation summary",
     knownRisks: "Known risks",
@@ -1217,6 +1246,35 @@ const JA_COPY: typeof EN_COPY = {
       missing_allowlist: "準備済みバッチを開始する前に active public web allowlist を作成または再有効化してください。",
       no_ready_tasks: "active allowlist の concurrency budget 内で開始できる planned public-web task はありません。"
     },
+    researchActionErrors: {
+      activeProjectRequiredAllowlistChange: "リサーチallowlistを変更するにはアクティブなプロジェクトが必要です。",
+      activeProjectRequiredPauseAllowlist: "リサーチallowlistを一時停止するにはアクティブなプロジェクトが必要です。",
+      activeProjectRequiredRevokeAllowlist: "リサーチallowlistを取り消すにはアクティブなプロジェクトが必要です。",
+      activeSessionRequiredPlanResearch: "public-safeリサーチを計画するにはアクティブなセッションが必要です。",
+      sidecarConnectionRequiredStartRun: "リサーチ実行を開始するにはsidecar接続が必要です。",
+      activeProjectRequiredStartRun: "リサーチ実行を開始するにはアクティブなプロジェクトが必要です。",
+      plannedTaskRequiredStartRun: "読み取り専用リサーチ実行を始める前に、計画済みリサーチタスクを選択してください。",
+      plannedTaskStatusRequiredStartRun: "新しい読み取り専用リサーチ実行を開始できるのは計画済みタスクだけです。",
+      activeAllowlistRequiredStartRun:
+        "リサーチ実行を始める前に active public web allowlist を作成または再有効化してください。",
+      activeProjectRequiredReadyRuns: "準備済みリサーチ実行を始めるにはアクティブなプロジェクトが必要です。",
+      readyRunsMissingAllowlist:
+        "リサーチ実行を始める前に active public web allowlist を作成または再有効化してください。",
+      readyRunsNoReadyTasks:
+        "active allowlist の concurrency budget 内で開始できる planned public web research task はありません。",
+      backgroundStartAfterAnswerFailed: (error: string) =>
+        `回答は送信されましたが、自動public webリサーチ開始に失敗しました: ${error}`,
+      activeProjectRequiredRefreshRunStatus: "リサーチ実行状態を更新するにはアクティブなプロジェクトが必要です。",
+      activeProjectRequiredCancelRun: "リサーチ実行をキャンセルするにはアクティブなプロジェクトが必要です。",
+      activeProjectRequiredRetryRun: "リサーチ実行を再試行するにはアクティブなプロジェクトが必要です。"
+    },
+    researchActionReasons: {
+      pauseAllowlist: "リサーチ運用画面から一時停止しました。",
+      revokeAllowlist: "リサーチ運用画面から取り消しました。",
+      planPublicSafeObjective: "リサーチループの公開オンボーディング根拠と品質ゲート準備を検証します。",
+      cancelRun: "リサーチ運用画面からキャンセルしました。",
+      retryRun: "リサーチ運用画面から手動で再試行しました。"
+    },
     readyReadOnlyRunsPlanTaskIds: "このバッチで開始する task ID",
     validationSummary: "検証サマリー",
     knownRisks: "既知のリスク",
@@ -2014,6 +2072,35 @@ const KO_COPY: typeof EN_COPY = {
     readyReadOnlyRunsPlanBlocked: {
       missing_allowlist: "준비된 배치를 시작하기 전에 active public web allowlist를 만들거나 다시 활성화하세요.",
       no_ready_tasks: "active allowlist concurrency budget 안에서 시작할 수 있는 planned public-web task가 없습니다."
+    },
+    researchActionErrors: {
+      activeProjectRequiredAllowlistChange: "리서치 allowlist를 변경하려면 활성 프로젝트가 필요합니다.",
+      activeProjectRequiredPauseAllowlist: "리서치 allowlist를 일시 중지하려면 활성 프로젝트가 필요합니다.",
+      activeProjectRequiredRevokeAllowlist: "리서치 allowlist를 철회하려면 활성 프로젝트가 필요합니다.",
+      activeSessionRequiredPlanResearch: "public-safe 리서치를 계획하려면 활성 세션이 필요합니다.",
+      sidecarConnectionRequiredStartRun: "리서치 실행을 시작하려면 sidecar 연결이 필요합니다.",
+      activeProjectRequiredStartRun: "리서치 실행을 시작하려면 활성 프로젝트가 필요합니다.",
+      plannedTaskRequiredStartRun: "읽기 전용 리서치 실행을 시작하기 전에 planned 리서치 작업을 선택하세요.",
+      plannedTaskStatusRequiredStartRun: "planned 리서치 작업만 새 읽기 전용 리서치 실행을 시작할 수 있습니다.",
+      activeAllowlistRequiredStartRun:
+        "리서치 실행을 시작하기 전에 active public web allowlist를 만들거나 다시 활성화하세요.",
+      activeProjectRequiredReadyRuns: "준비된 리서치 실행을 시작하려면 활성 프로젝트가 필요합니다.",
+      readyRunsMissingAllowlist:
+        "리서치 실행을 시작하기 전에 active public web allowlist를 만들거나 다시 활성화하세요.",
+      readyRunsNoReadyTasks:
+        "active allowlist concurrency budget 안에서 시작할 수 있는 planned public web research task가 없습니다.",
+      backgroundStartAfterAnswerFailed: (error: string) =>
+        `답변은 제출되었지만 자동 공개 웹 리서치 시작에 실패했습니다: ${error}`,
+      activeProjectRequiredRefreshRunStatus: "리서치 실행 상태를 새로고침하려면 활성 프로젝트가 필요합니다.",
+      activeProjectRequiredCancelRun: "리서치 실행을 취소하려면 활성 프로젝트가 필요합니다.",
+      activeProjectRequiredRetryRun: "리서치 실행을 다시 시도하려면 활성 프로젝트가 필요합니다."
+    },
+    researchActionReasons: {
+      pauseAllowlist: "리서치 운영 화면에서 일시 중지했습니다.",
+      revokeAllowlist: "리서치 운영 화면에서 철회했습니다.",
+      planPublicSafeObjective: "리서치 루프의 공개 온보딩 근거와 품질 게이트 준비 상태를 검증합니다.",
+      cancelRun: "리서치 운영 화면에서 취소했습니다.",
+      retryRun: "리서치 운영 화면에서 수동으로 다시 시도했습니다."
     },
     readyReadOnlyRunsPlanTaskIds: "이번 배치에서 시작할 작업 ID",
     validationSummary: "검증 요약",
