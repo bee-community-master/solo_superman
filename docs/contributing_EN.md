@@ -26,7 +26,8 @@ The local app opens a browser screen through the local web frontend and local No
 | Docs contract | `pnpm verify:docs` |
 | Release channel manifest contract | `pnpm verify:release-channel` |
 | Signed package credential-free preflight | `pnpm verify:signed-package-preflight` |
-| Full gate (typecheck, lint, tests, docs/release/package contracts, production bundle smoke) | `pnpm verify` |
+| General release readiness gate | `pnpm verify:release-readiness` |
+| Full gate (typecheck, lint, tests, docs/release/readiness/package contracts, production bundle smoke) | `pnpm verify` |
 
 ## Repository map
 
@@ -46,7 +47,7 @@ The local app opens a browser screen through the local web frontend and local No
 2. Read the relevant onboarding docs before editing code.
 3. Make the smallest focused, reviewable change that solves the issue without widening unrelated behavior.
 4. Update `docs/reference_KO.md` and `docs/reference_EN.md` if enum, DTO, route, or public contract values changed.
-5. Run targeted tests first, then `pnpm verify` before final PR closeout; it includes the docs/release/package contracts and production bundle/local smoke gate.
+5. Run targeted tests first, then `pnpm verify` before final PR closeout; it includes the docs/release/readiness/package contracts and production bundle/local smoke gate.
 6. Open a draft PR with evidence: what changed, what was tested, and known gaps.
 
 ## PR checklist
@@ -57,4 +58,5 @@ The local app opens a browser screen through the local web frontend and local No
 - New route/DTO/enum values are reflected in `docs/reference_KO.md` and `docs/reference_EN.md` and pass `pnpm verify:docs`.
 - Packaged update channel changes update `docs/release-channel_KO.md`, `docs/release-channel_EN.md`, `docs/release-update-channel.example.json`, and `pnpm verify:release-channel` together.
 - Signed package planning changes update `docs/signed-packages_KO.md`, `docs/signed-packages_EN.md`, `docs/signed-package-preflight.example.json`, and `pnpm verify:signed-package-preflight` together.
+- General release readiness changes update `docs/release-readiness_KO.md`, `docs/release-readiness_EN.md`, `docs/release-readiness.example.json`, and `pnpm verify:release-readiness` together.
 - README remains end-user short; detailed contributor or troubleshooting content lives under `docs/`.
