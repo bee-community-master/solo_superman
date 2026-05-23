@@ -8,6 +8,7 @@ import {
   latestCurrentStageAutoImplementationWorkerJob,
   type AutoImplementationGitHubIssuePlan,
   type AutoImplementationIssueDocument,
+  type AutoImplementationIssueStatusSummary,
   type AutoImplementationPullRequestMutationRecord,
   type AutoImplementationRunProjection,
   type AutoImplementationStageReviewGate,
@@ -42,6 +43,7 @@ export interface AutoImplementationRunViewModel {
   readonly remoteLabel: string;
   readonly nextTickLabel: string;
   readonly issueModeLabel: string;
+  readonly issueStatusSummaryLabel: string;
   readonly remoteWarning: string | null;
   readonly remoteCommands: readonly string[];
   readonly remoteNextAction: string;
@@ -83,6 +85,14 @@ function latestRun(projection: AutoImplementationRunProjection | null) {
   return projection?.latestRun ?? null;
 }
 
+function formatIssueStatusSummaryLabel(summary: AutoImplementationIssueStatusSummary | null) {
+  if (!summary) {
+    return "Issue status summary: no issue documents";
+  }
+
+  return `Issue status summary: ${summary.completed} completed / ${summary.blocked} blocked / ${summary.open} open / ${summary.total} total`;
+}
+
 export function autoImplementationRunViewModel(
   projection: AutoImplementationRunProjection | null,
   implementationStepLedger: ImplementationStepLedgerProjection | null = null
@@ -97,6 +107,7 @@ export function autoImplementationRunViewModel(
       remoteLabel: "Remote: not checked",
       nextTickLabel: "Next 5-minute tick: not scheduled",
       issueModeLabel: "Issue mode: not selected",
+      issueStatusSummaryLabel: formatIssueStatusSummaryLabel(null),
       remoteWarning: "Start a run to create a local git repo, markdown fallback issues, and remote connection guidance.",
       remoteCommands: [],
       remoteNextAction: "Create the workspace run after the planning handoff is detailed enough.",
@@ -182,6 +193,7 @@ export function autoImplementationRunViewModel(
     remoteLabel: `Remote: ${run.remoteStatus}`,
     nextTickLabel: `Next 5-minute tick: ${run.nextTickAt}`,
     issueModeLabel: `Issue mode: ${run.issueManagement.mode}`,
+    issueStatusSummaryLabel: formatIssueStatusSummaryLabel(run.issueManagement.issueStatusSummary),
     remoteWarning: run.remoteGuide.warning,
     remoteCommands: run.remoteGuide.commands,
     remoteNextAction: run.remoteGuide.nextAction,
@@ -311,6 +323,7 @@ export function AutoImplementationRunPanel({
       <p>{run.summary}</p>
       <p className="research-recovery">{run.workspaceLabel}</p>
       <p className="mode-summary">{run.remoteLabel} · {run.issueModeLabel}</p>
+      <p className="mode-summary">{run.issueStatusSummaryLabel}</p>
       <p className="mode-summary">{run.nextTickLabel}</p>
       <p className="mode-summary">{run.latestWorkerJobLabel}</p>
       <p className="research-recovery">{run.latestWorkerJobNextAction}</p>

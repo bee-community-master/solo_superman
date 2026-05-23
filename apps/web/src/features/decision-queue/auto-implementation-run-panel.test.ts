@@ -162,6 +162,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.workspaceLabel).toContain("/repo/workspace/demo-project");
     expect(view.nextTickLabel).toContain("2026-05-19T00:05:00.000Z");
     expect(view.issueModeLabel).toContain("markdown_fallback");
+    expect(view.issueStatusSummaryLabel).toBe("Issue status summary: 0 completed / 0 blocked / 7 open / 7 total");
     expect(view.githubIssueMutationLabel).toContain("not_requested");
     expect(view.githubIssuePlans[0]!.bodyMarkdownPath).toContain("implementation-issues/001-initial_pr.md");
     expect(view.githubCreatedIssueUrls).toEqual([]);
@@ -209,6 +210,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.hasRun).toBe(false);
     expect(view.workspaceLabel).toContain("workspace/<project>");
     expect(view.remoteNextAction).toContain("planning handoff");
+    expect(view.issueStatusSummaryLabel).toBe("Issue status summary: no issue documents");
     expect(view.githubIssueMutationLabel).toContain("not requested");
     expect(view.pullRequestMutationLabel).toContain("no records");
     expect(view.latestPullRequestMutation).toBeNull();
@@ -235,6 +237,31 @@ describe("AutoImplementationRunPanel view model", () => {
 
     expect(blockedMarkup).toContain('<button type="button" disabled="">Create workspace run</button>');
     expect(readyMarkup).toContain('<button type="button">Create workspace run</button>');
+  });
+
+  it("renders the synchronized issue status summary from the run", () => {
+    const view = autoImplementationRunViewModel({
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        issueManagement: {
+          ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.issueManagement,
+          issueDocs: AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.issueManagement.issueDocs.map((issue, index) =>
+            index === 0 ? { ...issue, status: "completed" as const } : issue
+          ),
+          issueStatusSummary: {
+            total: 7,
+            open: 6,
+            completed: 1,
+            blocked: 0
+          }
+        }
+      }
+    } as AutoImplementationRunProjection);
+    const markup = renderPanelMarkup(view);
+
+    expect(view.issueStatusSummaryLabel).toBe("Issue status summary: 1 completed / 0 blocked / 6 open / 7 total");
+    expect(markup).toContain("Issue status summary: 1 completed / 0 blocked / 6 open / 7 total");
   });
 
   it("shows the latest GitHub PR mutation evidence and history count", () => {
