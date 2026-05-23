@@ -11,7 +11,7 @@ import {
   runtimePreviewTurnGateEvidence,
   runRuntimePreviewTurnSmoke
 } from "./runtime-preview-smoke";
-import { CodexRuntimeUnavailableError, createCodexRuntimeAdapter } from "./runtime";
+import { CodexRuntimeUnavailableError, createCodexRuntimeAdapter, fixtureCodexPreviewOutput } from "./runtime";
 
 function liveReadyStatus(): CodexRuntimeStatusDto {
   return {
@@ -93,6 +93,39 @@ describe("runtime preview turn smoke", () => {
     ).toMatchObject({
       status: "ready",
       mode: "live"
+    });
+  });
+
+  it("passes live preview-turn mode only when the effect persists a Codex app-server artifact", async () => {
+    const livePreviewAdapter = {
+      ...createCodexRuntimeAdapter({ fixtureMode: true, env: {} }),
+      async getStatus() {
+        return liveReadyStatus();
+      },
+      async createPreview(input: Parameters<ReturnType<typeof createCodexRuntimeAdapter>["createPreview"]>[0]) {
+        return fixtureCodexPreviewOutput(input, { createdAt: "2026-05-23T00:00:00.000Z" });
+      }
+    };
+
+    const evidence = await runRuntimePreviewTurnSmoke({
+      env: {
+        [LIVE_PREVIEW_TURN_VERIFY_ENV]: "1",
+        [LIVE_TURNS_ENV]: "1"
+      },
+      runtimeAdapter: livePreviewAdapter
+    });
+
+    expect(evidence).toMatchObject({
+      status: "passed",
+      mode: "live",
+      preview: {
+        commandStatus: "complete",
+        effectStatus: "succeeded",
+        artifactKind: "ImplementationPlanPreviewArtifact",
+        artifactStatus: "preview_ready",
+        artifactSource: "codex_app_server",
+        applyPolicy: "note_only"
+      }
     });
   });
 
