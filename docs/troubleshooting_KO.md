@@ -91,6 +91,8 @@ Live Codex app-server preview turn은 기본 비활성입니다. Maintainer는 `
 
 `pnpm verify:pr-mutation`은 generated PR mutation smoke입니다. 기본값은 항상 fixture이며 `gh`를 호출하지 않습니다. 대신 임시 app data와 임시 generated-workspace root를 만들고, planning-ready handoff와 connected fixture remote status의 auto-implementation run을 만든 뒤, approved `open_pr`이 `initial_pr` ledger evidence 전에는 막히는지, 해당 evidence 이후 fixture PR open이 적용되는지, current body evidence와 generated body markdown이 있는 fixture `update_pr_body`가 적용되는지, `final_verify_pr_update` 전에는 `merge_pr`이 막히는지, current PR body evidence가 없으면 merge가 막히는지, merge readiness evidence가 있으면 fixture merge가 적용되는지, 첫 merge 이후 duplicate merge가 막히는지를 검증합니다. 실제 GitHub PR write는 계속 explicit approved mutation contract 뒤에 있으며 default verification 범위 밖입니다.
 
+`pnpm verify:auto-implementation-pipeline`은 preview-turn, worker-job, generated PR mutation smoke를 한 번에 묶는 credential-free aggregate smoke입니다. 이 명령은 live Codex flag를 강제로 요구하지 않고 fixture mode에서 `codex_runtime_preview_effect` 생성/실행, bounded worker job의 ledger import 및 stage advance, generated PR open/body-update/merge guard를 순차 검증하며, 하위 smoke 중 하나라도 `blocked`이면 aggregate 결과도 `blocked`로 보고합니다. 실제 GitHub write와 production/external final-submit action은 계속 범위 밖입니다.
+
 ## 로컬 토큰과 sidecar URL
 
 Local service는 per-run local capability token을 사용합니다. 일반 `pnpm start:local` 또는 installer run에서 launcher는 fresh token 하나를 만들어 browser build와 sidecar 모두에 전달합니다. Browser build는 `VITE_SOLO_LOCAL_CAPABILITY_TOKEN`과 `VITE_SOLO_SIDECAR_BASE_URL`을 받습니다. Sidecar는 `SOLO_LOCAL_CAPABILITY_TOKEN`을 사용합니다. token mismatch fails visibly with `401`.
