@@ -40,6 +40,9 @@ interface AutoImplementationWorkerRuntimeView {
   readonly executionModeLabel: string;
   readonly accountLabel: string;
   readonly checkedAtLabel: string | null;
+  readonly adapterVersionLabel: string | null;
+  readonly generatedSchemaVersionLabel: string | null;
+  readonly transportLabel: string | null;
   readonly liveTurnsState: AutoImplementationLiveTurnState;
   readonly manualHandoffState: AutoImplementationRuntimeAvailability;
   readonly reasonLabel: string | null;
@@ -168,6 +171,9 @@ function autoImplementationWorkerRuntimeView(
     executionModeLabel: runtimeStatus?.executionMode ?? "unknown",
     accountLabel: codexWorkerAccountLabel(runtimeStatus),
     checkedAtLabel: runtimeStatus?.checkedAt ?? null,
+    adapterVersionLabel: runtimeStatus?.adapterVersion ?? null,
+    generatedSchemaVersionLabel: runtimeStatus?.generatedSchemaVersion ?? null,
+    transportLabel: runtimeStatus?.transport ?? null,
     liveTurnsState: runtimeStatus ? (runtimeStatus.liveTurnExecutionEnabled ? "enabled" : "disabled") : "unknown",
     manualHandoffState: runtimeStatus
       ? (runtimeStatus.manualHandoffAvailable ? "available" : "unavailable")
@@ -542,6 +548,24 @@ export function AutoImplementationRunPanel({
               <div>
                 <dt>{copy.autoImplementation.workerRuntimeCheckedAt}</dt>
                 <dd>{run.workerRuntimeReadiness.checkedAtLabel}</dd>
+              </div>
+            ) : null}
+            {run.workerRuntimeReadiness.adapterVersionLabel ? (
+              <div>
+                <dt>{copy.autoImplementation.workerRuntimeAdapterVersion}</dt>
+                <dd>{run.workerRuntimeReadiness.adapterVersionLabel}</dd>
+              </div>
+            ) : null}
+            {run.workerRuntimeReadiness.generatedSchemaVersionLabel ? (
+              <div>
+                <dt>{copy.autoImplementation.workerRuntimeGeneratedSchemaVersion}</dt>
+                <dd>{run.workerRuntimeReadiness.generatedSchemaVersionLabel}</dd>
+              </div>
+            ) : null}
+            {run.workerRuntimeReadiness.transportLabel ? (
+              <div>
+                <dt>{copy.autoImplementation.workerRuntimeTransport}</dt>
+                <dd>{run.workerRuntimeReadiness.transportLabel}</dd>
               </div>
             ) : null}
             <div>

@@ -137,7 +137,12 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         </div>
         <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatus.status}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
         {runtimeStatus ? (
-          <p className="mode-summary">{copy.implementation.runtimeCheckedAt}: {runtimeStatus.checkedAt}</p>
+          <>
+            <p className="mode-summary">{copy.implementation.runtimeCheckedAt}: {runtimeStatus.checkedAt}</p>
+            <p className="mode-summary">{copy.implementation.runtimeAdapterVersion}: {runtimeStatus.adapterVersion}</p>
+            <p className="mode-summary">{copy.implementation.runtimeGeneratedSchemaVersion}: {runtimeStatus.generatedSchemaVersion}</p>
+            <p className="mode-summary">{copy.implementation.runtimeTransport}: {runtimeStatus.transport}</p>
+          </>
         ) : null}
         {runtimeStatus?.reason ? <p className="research-recovery">{runtimeStatus.reason}</p> : null}
         {statuses.length ? (
