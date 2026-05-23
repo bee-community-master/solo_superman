@@ -84,7 +84,7 @@ import {
   type PageHealth,
   type ProjectionState
 } from "./decision-queue-shell-model";
-import { useDecisionQueueCopy } from "./decision-queue-copy";
+import { useDecisionQueueCopy, type DecisionQueueCopy } from "./decision-queue-copy";
 import { planningRadarAxes } from "./planning-radar-model";
 import { useCommandLogActions } from "./useCommandLogActions";
 import { useDecisionQueuePlanningPermissionActions } from "./useDecisionQueuePlanningPermissionActions";
@@ -152,18 +152,24 @@ function planningHandoffIsReady(
   return planningHandoff?.currentStatus === "planning_ready";
 }
 
-export function autoImplementationWorkspaceCreateBlocker(planningHandoff: ProjectionState["planningHandoff"]) {
+type AutoImplementationActionErrors = DecisionQueueCopy["autoImplementation"]["actionErrors"];
+
+export function autoImplementationWorkspaceCreateBlocker(
+  planningHandoff: ProjectionState["planningHandoff"],
+  actionErrors: Pick<AutoImplementationActionErrors, "planningHandoffMustBeReady" | "planningHandoffRequired">
+) {
   if (planningHandoffIsReady(planningHandoff)) {
     return null;
   }
 
-  return planningHandoff
-    ? "Planning handoff must be planning_ready before creating or reprovisioning an auto implementation workspace."
-    : "Run the planning handoff gate and reach planning_ready before creating an auto implementation workspace.";
+  return planningHandoff ? actionErrors.planningHandoffMustBeReady : actionErrors.planningHandoffRequired;
 }
 
-export function autoImplementationWorkspaceCreateFailureMessage(error: unknown) {
-  return `Auto implementation workspace creation failed: ${displayError(error)}`;
+export function autoImplementationWorkspaceCreateFailureMessage(
+  error: unknown,
+  actionErrors: Pick<AutoImplementationActionErrors, "workspaceCreationFailed">
+) {
+  return actionErrors.workspaceCreationFailed(displayError(error));
 }
 
 export function useDecisionQueueShellController() {
@@ -517,17 +523,19 @@ export function useDecisionQueueShellController() {
     ),
     [projections.autoImplementationRuns, projections.implementationStepLedger, runtimeStatus]
   );
+  const autoImplementationCopy = copy.autoImplementation;
+  const autoImplementationActionErrors = autoImplementationCopy.actionErrors;
   const canCreateAutoImplementationRun = planningHandoffIsReady(projections.planningHandoff);
   const createAutoImplementationRun = useCallback(async () => {
     if (!client || !projections.session) {
-      setWorkflowError("An active session is required before creating an auto implementation workspace.");
+      setWorkflowError(autoImplementationActionErrors.activeSessionRequiredCreateWorkspace);
       return;
     }
 
     const planningHandoff = projections.planningHandoff;
 
     if (!planningHandoffIsReady(planningHandoff)) {
-      setWorkflowError(autoImplementationWorkspaceCreateBlocker(planningHandoff));
+      setWorkflowError(autoImplementationWorkspaceCreateBlocker(planningHandoff, autoImplementationActionErrors));
       return;
     }
 
@@ -553,29 +561,29 @@ export function useDecisionQueueShellController() {
       setCommandLog((current) => [
         {
           id: `auto-implementation:${autoImplementationRuns.latestRun?.runId ?? Date.now()}`,
-          label: "Create auto implementation workspace",
+          label: autoImplementationCopy.create,
           createdAt: new Date().toISOString(),
           message: autoImplementationRuns.summary
         },
         ...current
       ].slice(0, COMMAND_LOG_LIMIT));
     } catch (error) {
-      setWorkflowError(autoImplementationWorkspaceCreateFailureMessage(error));
+      setWorkflowError(autoImplementationWorkspaceCreateFailureMessage(error, autoImplementationActionErrors));
     } finally {
       setIsBusy(false);
     }
-  }, [client, projections]);
+  }, [autoImplementationActionErrors, autoImplementationCopy.create, client, projections]);
   const planAutoImplementationWorkerJob = useCallback(async () => {
     const sessionId = projections.session?.sessionId;
     const run = projections.autoImplementationRuns?.latestRun;
 
     if (!client || !sessionId || !run) {
-      setWorkflowError("An active auto implementation workspace run is required before planning a local worker job.");
+      setWorkflowError(autoImplementationActionErrors.activeRunRequiredPlanWorker);
       return;
     }
 
     if (!canPlanCurrentStageAutoImplementationWorkerJob(run)) {
-      setWorkflowError("Continue the latest current-stage worker with run, import, complete, or advance before planning another local worker job.");
+      setWorkflowError(autoImplementationActionErrors.currentStageWorkerMustContinue);
       return;
     }
 
@@ -619,7 +627,7 @@ export function useDecisionQueueShellController() {
       setCommandLog((current) => [
         {
           id: `auto-implementation-worker:${autoImplementationRuns.latestRun?.runId ?? run.runId}:${Date.now()}`,
-          label: "Plan authorized local Codex worker job",
+          label: autoImplementationCopy.planWorkerJob,
           createdAt: new Date().toISOString(),
           message: autoImplementationRuns.summary
         },
@@ -630,13 +638,19 @@ export function useDecisionQueueShellController() {
     } finally {
       setIsBusy(false);
     }
-  }, [appendCommand, client, projections]);
+  }, [
+    appendCommand,
+    autoImplementationActionErrors,
+    autoImplementationCopy.planWorkerJob,
+    client,
+    projections
+  ]);
   const recordAutoImplementationStageTick = useCallback(async () => {
     const sessionId = projections.session?.sessionId;
     const run = projections.autoImplementationRuns?.latestRun;
 
     if (!client || !sessionId || !run) {
-      setWorkflowError("An active auto implementation workspace run is required before recording a stage tick.");
+      setWorkflowError(autoImplementationActionErrors.activeRunRequiredStageTick);
       return;
     }
 
@@ -659,7 +673,7 @@ export function useDecisionQueueShellController() {
       setCommandLog((current) => [
         {
           id: `auto-implementation-stage-tick:${run.runId}:${run.currentStage}:${Date.now()}`,
-          label: "Record auto implementation stage tick",
+          label: autoImplementationCopy.recordStageTick,
           createdAt: new Date().toISOString(),
           message: autoImplementationRuns.summary
         },
@@ -670,7 +684,12 @@ export function useDecisionQueueShellController() {
     } finally {
       setIsBusy(false);
     }
-  }, [client, projections]);
+  }, [
+    autoImplementationActionErrors.activeRunRequiredStageTick,
+    autoImplementationCopy.recordStageTick,
+    client,
+    projections
+  ]);
 
   const recordAutoImplementationStageLifecycleAction = useCallback(async (input: {
     readonly action: "start" | "pause" | "block";
@@ -721,28 +740,40 @@ export function useDecisionQueueShellController() {
   const startAutoImplementationStage = useCallback(
     () => recordAutoImplementationStageLifecycleAction({
       action: "start",
-      label: "Start auto implementation stage",
-      missingRunMessage: "An active auto implementation workspace run is required before starting a stage."
+      label: autoImplementationCopy.startStage,
+      missingRunMessage: autoImplementationActionErrors.activeRunRequiredStartStage
     }),
-    [recordAutoImplementationStageLifecycleAction]
+    [
+      autoImplementationActionErrors.activeRunRequiredStartStage,
+      autoImplementationCopy.startStage,
+      recordAutoImplementationStageLifecycleAction
+    ]
   );
 
   const pauseAutoImplementationStage = useCallback(
     () => recordAutoImplementationStageLifecycleAction({
       action: "pause",
-      label: "Pause auto implementation stage",
-      missingRunMessage: "An active auto implementation workspace run is required before pausing a stage."
+      label: autoImplementationCopy.pauseStage,
+      missingRunMessage: autoImplementationActionErrors.activeRunRequiredPauseStage
     }),
-    [recordAutoImplementationStageLifecycleAction]
+    [
+      autoImplementationActionErrors.activeRunRequiredPauseStage,
+      autoImplementationCopy.pauseStage,
+      recordAutoImplementationStageLifecycleAction
+    ]
   );
 
   const blockAutoImplementationStage = useCallback(
     () => recordAutoImplementationStageLifecycleAction({
       action: "block",
-      label: "Block auto implementation stage",
-      missingRunMessage: "An active auto implementation workspace run is required before blocking a stage."
+      label: autoImplementationCopy.blockStage,
+      missingRunMessage: autoImplementationActionErrors.activeRunRequiredBlockStage
     }),
-    [recordAutoImplementationStageLifecycleAction]
+    [
+      autoImplementationActionErrors.activeRunRequiredBlockStage,
+      autoImplementationCopy.blockStage,
+      recordAutoImplementationStageLifecycleAction
+    ]
   );
 
   const completeAutoImplementationWorkerJobFromLedger = useCallback(async () => {
@@ -750,7 +781,7 @@ export function useDecisionQueueShellController() {
     const run = projections.autoImplementationRuns?.latestRun;
 
     if (!client || !sessionId || !run) {
-      setWorkflowError("An active auto implementation workspace run is required before completing a worker from ledger evidence.");
+      setWorkflowError(autoImplementationActionErrors.activeRunRequiredCompleteWorker);
       return;
     }
 
@@ -761,7 +792,7 @@ export function useDecisionQueueShellController() {
     });
 
     if (!request) {
-      setWorkflowError("A planned or ledger-blocked current-stage worker and a completed ImplementationStepLedger step are required before completing the worker.");
+      setWorkflowError(autoImplementationActionErrors.completedLedgerRequiredCompleteWorker);
       return;
     }
 
@@ -780,7 +811,7 @@ export function useDecisionQueueShellController() {
       setCommandLog((current) => [
         {
           id: `auto-implementation-worker-complete:${request.jobId}:${Date.now()}`,
-          label: "Complete worker from ledger",
+          label: autoImplementationCopy.completeWorkerJob,
           createdAt: new Date().toISOString(),
           message: autoImplementationRuns.summary
         },
@@ -791,7 +822,13 @@ export function useDecisionQueueShellController() {
     } finally {
       setIsBusy(false);
     }
-  }, [client, projections]);
+  }, [
+    autoImplementationActionErrors.activeRunRequiredCompleteWorker,
+    autoImplementationActionErrors.completedLedgerRequiredCompleteWorker,
+    autoImplementationCopy.completeWorkerJob,
+    client,
+    projections
+  ]);
 
   const runAutoImplementationWorkerJob = useCallback(async () => {
     const sessionId = projections.session?.sessionId;
@@ -799,7 +836,7 @@ export function useDecisionQueueShellController() {
     const workerJob = latestCurrentStageAutoImplementationWorkerJob(run ?? null);
 
     if (!client || !sessionId || !run || !workerJob) {
-      setWorkflowError("A planned local Codex worker job is required before running the worker.");
+      setWorkflowError(autoImplementationActionErrors.plannedWorkerRequiredRunWorker);
       return;
     }
 
@@ -824,7 +861,7 @@ export function useDecisionQueueShellController() {
       setCommandLog((current) => [
         {
           id: `auto-implementation-worker-run:${workerJob.jobId}:${Date.now()}`,
-          label: "Run local Codex worker job",
+          label: autoImplementationCopy.runWorkerJob,
           createdAt: new Date().toISOString(),
           message: autoImplementationRuns.summary
         },
@@ -835,14 +872,19 @@ export function useDecisionQueueShellController() {
     } finally {
       setIsBusy(false);
     }
-  }, [client, projections]);
+  }, [
+    autoImplementationActionErrors.plannedWorkerRequiredRunWorker,
+    autoImplementationCopy.runWorkerJob,
+    client,
+    projections
+  ]);
 
   const importAutoImplementationWorkerLedgerFromDraft = useCallback(async () => {
     const sessionId = projections.session?.sessionId;
     const run = projections.autoImplementationRuns?.latestRun;
 
     if (!client || !sessionId || !run) {
-      setWorkflowError("An active auto implementation workspace run is required before importing worker ledger evidence.");
+      setWorkflowError(autoImplementationActionErrors.activeRunRequiredImportWorkerLedger);
       return;
     }
 
@@ -854,7 +896,7 @@ export function useDecisionQueueShellController() {
     });
 
     if (!request) {
-      setWorkflowError(error ?? "Worker ledger import request could not be prepared.");
+      setWorkflowError(error ?? autoImplementationActionErrors.workerLedgerImportPrepareFailed);
       return;
     }
 
@@ -874,7 +916,7 @@ export function useDecisionQueueShellController() {
       setCommandLog((current) => [
         {
           id: `auto-implementation-worker-ledger-import:${request.jobId}:${Date.now()}`,
-          label: "Import worker ledger evidence",
+          label: autoImplementationCopy.importWorkerLedger,
           createdAt: new Date().toISOString(),
           message: autoImplementationRuns.summary
         },
@@ -885,7 +927,14 @@ export function useDecisionQueueShellController() {
     } finally {
       setIsBusy(false);
     }
-  }, [client, projections, workerLedgerImportDraft]);
+  }, [
+    autoImplementationActionErrors.activeRunRequiredImportWorkerLedger,
+    autoImplementationActionErrors.workerLedgerImportPrepareFailed,
+    autoImplementationCopy.importWorkerLedger,
+    client,
+    projections,
+    workerLedgerImportDraft
+  ]);
 
   const advanceAutoImplementationWorkerStage = useCallback(async () => {
     const sessionId = projections.session?.sessionId;
@@ -893,7 +942,7 @@ export function useDecisionQueueShellController() {
     const workerJob = latestCurrentStageAutoImplementationWorkerJob(run ?? null);
 
     if (!client || !sessionId || !run || !workerJob) {
-      setWorkflowError("A completed local Codex worker job is required before advancing the worker stage.");
+      setWorkflowError(autoImplementationActionErrors.completedWorkerRequiredAdvanceStage);
       return;
     }
 
@@ -916,7 +965,7 @@ export function useDecisionQueueShellController() {
       setCommandLog((current) => [
         {
           id: `auto-implementation-worker-stage:${workerJob.jobId}:${Date.now()}`,
-          label: "Advance worker stage",
+          label: autoImplementationCopy.advanceWorkerStage,
           createdAt: new Date().toISOString(),
           message: autoImplementationRuns.summary
         },
@@ -927,7 +976,12 @@ export function useDecisionQueueShellController() {
     } finally {
       setIsBusy(false);
     }
-  }, [client, projections]);
+  }, [
+    autoImplementationActionErrors.completedWorkerRequiredAdvanceStage,
+    autoImplementationCopy.advanceWorkerStage,
+    client,
+    projections
+  ]);
 
   const recordAutoImplementationGitHubIssueMutationRun = useCallback(async (input: {
     readonly buildRequest: (
@@ -951,7 +1005,7 @@ export function useDecisionQueueShellController() {
     }
 
     if (input.canSubmit && !input.canSubmit(run)) {
-      setWorkflowError(input.blockedMessage ?? "This auto implementation GitHub issue mutation is not available for the current run state.");
+      setWorkflowError(input.blockedMessage ?? autoImplementationActionErrors.githubIssueMutationUnavailable);
       return;
     }
 
@@ -981,16 +1035,20 @@ export function useDecisionQueueShellController() {
     } finally {
       setIsBusy(false);
     }
-  }, [client, projections]);
+  }, [autoImplementationActionErrors.githubIssueMutationUnavailable, client, projections]);
 
   const recordAutoImplementationGitHubIssueDryRun = useCallback(
     () => recordAutoImplementationGitHubIssueMutationRun({
       buildRequest: buildAutoImplementationGitHubIssueDryRunRequest,
-      missingRunMessage: "An active auto implementation workspace run is required before recording a GitHub issue dry-run.",
+      missingRunMessage: autoImplementationActionErrors.activeRunRequiredRecordGitHubIssueDryRun,
       logIdPrefix: "auto-implementation-github-issue-dry-run",
-      label: "Record GitHub issue dry-run"
+      label: autoImplementationCopy.recordGitHubIssueDryRun
     }),
-    [recordAutoImplementationGitHubIssueMutationRun]
+    [
+      autoImplementationActionErrors.activeRunRequiredRecordGitHubIssueDryRun,
+      autoImplementationCopy.recordGitHubIssueDryRun,
+      recordAutoImplementationGitHubIssueMutationRun
+    ]
   );
 
   const applyAutoImplementationGitHubIssueCreation = useCallback(
@@ -1001,13 +1059,18 @@ export function useDecisionQueueShellController() {
           sessionId,
           approvedAt: new Date().toISOString()
         }),
-      missingRunMessage: "An active auto implementation workspace run is required before applying approved GitHub issue creation.",
+      missingRunMessage: autoImplementationActionErrors.activeRunRequiredApplyGitHubIssueCreation,
       logIdPrefix: "auto-implementation-github-issue-approved",
-      label: "Apply approved GitHub issues",
+      label: autoImplementationCopy.applyGitHubIssueCreation,
       canSubmit: canCreateAutoImplementationGitHubIssues,
-      blockedMessage: "GitHub issue URLs are already recorded; continue with the existing generated issues instead of creating duplicates."
+      blockedMessage: autoImplementationActionErrors.githubIssueAlreadyRecorded
     }),
-    [recordAutoImplementationGitHubIssueMutationRun]
+    [
+      autoImplementationActionErrors.activeRunRequiredApplyGitHubIssueCreation,
+      autoImplementationActionErrors.githubIssueAlreadyRecorded,
+      autoImplementationCopy.applyGitHubIssueCreation,
+      recordAutoImplementationGitHubIssueMutationRun
+    ]
   );
 
   const recordAutoImplementationPullRequestMutationAction = useCallback(async (input: {
@@ -1032,7 +1095,7 @@ export function useDecisionQueueShellController() {
     }
 
     if (input.canSubmit && !input.canSubmit(run)) {
-      setWorkflowError(input.blockedMessage ?? "This auto implementation PR mutation is not available for the current run state.");
+      setWorkflowError(input.blockedMessage ?? autoImplementationActionErrors.pullRequestMutationUnavailable);
       return;
     }
 
@@ -1062,16 +1125,20 @@ export function useDecisionQueueShellController() {
     } finally {
       setIsBusy(false);
     }
-  }, [client, projections]);
+  }, [autoImplementationActionErrors.pullRequestMutationUnavailable, client, projections]);
 
   const recordAutoImplementationPullRequestOpenDryRun = useCallback(
     () => recordAutoImplementationPullRequestMutationAction({
       buildRequest: buildAutoImplementationPullRequestOpenDryRunRequest,
-      missingRunMessage: "An active auto implementation workspace run is required before recording a PR open dry-run.",
+      missingRunMessage: autoImplementationActionErrors.activeRunRequiredRecordPullRequestOpenDryRun,
       logIdPrefix: "auto-implementation-pr-open-dry-run",
-      label: "Record PR open dry-run"
+      label: autoImplementationCopy.recordPullRequestOpenDryRun
     }),
-    [recordAutoImplementationPullRequestMutationAction]
+    [
+      autoImplementationActionErrors.activeRunRequiredRecordPullRequestOpenDryRun,
+      autoImplementationCopy.recordPullRequestOpenDryRun,
+      recordAutoImplementationPullRequestMutationAction
+    ]
   );
 
   const applyAutoImplementationPullRequestOpen = useCallback(
@@ -1082,33 +1149,46 @@ export function useDecisionQueueShellController() {
           sessionId,
           approvedAt: new Date().toISOString()
         }),
-      missingRunMessage: "An active auto implementation workspace run is required before applying an approved PR open.",
+      missingRunMessage: autoImplementationActionErrors.activeRunRequiredApplyPullRequestOpen,
       logIdPrefix: "auto-implementation-pr-open-approved",
-      label: "Apply approved PR open",
+      label: autoImplementationCopy.applyPullRequestOpen,
       canSubmit: canOpenNewAutoImplementationPullRequest,
-      blockedMessage: "A pull request URL is already recorded; update or merge the existing PR instead of opening another one."
+      blockedMessage: autoImplementationActionErrors.pullRequestAlreadyRecorded
     }),
-    [recordAutoImplementationPullRequestMutationAction]
+    [
+      autoImplementationActionErrors.activeRunRequiredApplyPullRequestOpen,
+      autoImplementationActionErrors.pullRequestAlreadyRecorded,
+      autoImplementationCopy.applyPullRequestOpen,
+      recordAutoImplementationPullRequestMutationAction
+    ]
   );
 
   const recordAutoImplementationPullRequestDryRun = useCallback(
     () => recordAutoImplementationPullRequestMutationAction({
       buildRequest: buildAutoImplementationPullRequestDryRunRequest,
-      missingRunMessage: "An active auto implementation workspace run is required before recording a PR body dry-run.",
+      missingRunMessage: autoImplementationActionErrors.activeRunRequiredRecordPullRequestDryRun,
       logIdPrefix: "auto-implementation-pr-dry-run",
-      label: "Record PR body dry-run"
+      label: autoImplementationCopy.recordPullRequestDryRun
     }),
-    [recordAutoImplementationPullRequestMutationAction]
+    [
+      autoImplementationActionErrors.activeRunRequiredRecordPullRequestDryRun,
+      autoImplementationCopy.recordPullRequestDryRun,
+      recordAutoImplementationPullRequestMutationAction
+    ]
   );
 
   const recordAutoImplementationPullRequestMergeDryRun = useCallback(
     () => recordAutoImplementationPullRequestMutationAction({
       buildRequest: buildAutoImplementationPullRequestMergeDryRunRequest,
-      missingRunMessage: "An active auto implementation workspace run is required before recording a PR merge dry-run.",
+      missingRunMessage: autoImplementationActionErrors.activeRunRequiredRecordPullRequestMergeDryRun,
       logIdPrefix: "auto-implementation-pr-merge-dry-run",
-      label: "Record PR merge dry-run"
+      label: autoImplementationCopy.recordPullRequestMergeDryRun
     }),
-    [recordAutoImplementationPullRequestMutationAction]
+    [
+      autoImplementationActionErrors.activeRunRequiredRecordPullRequestMergeDryRun,
+      autoImplementationCopy.recordPullRequestMergeDryRun,
+      recordAutoImplementationPullRequestMutationAction
+    ]
   );
 
   const applyAutoImplementationPullRequestBodyUpdate = useCallback(
@@ -1119,11 +1199,15 @@ export function useDecisionQueueShellController() {
           sessionId,
           approvedAt: new Date().toISOString()
         }),
-      missingRunMessage: "An active auto implementation workspace run is required before applying an approved PR body update.",
+      missingRunMessage: autoImplementationActionErrors.activeRunRequiredApplyPullRequestBodyUpdate,
       logIdPrefix: "auto-implementation-pr-body-approved",
-      label: "Apply approved PR body update"
+      label: autoImplementationCopy.applyPullRequestBodyUpdate
     }),
-    [recordAutoImplementationPullRequestMutationAction]
+    [
+      autoImplementationActionErrors.activeRunRequiredApplyPullRequestBodyUpdate,
+      autoImplementationCopy.applyPullRequestBodyUpdate,
+      recordAutoImplementationPullRequestMutationAction
+    ]
   );
 
   const applyAutoImplementationPullRequestMerge = useCallback(
@@ -1134,13 +1218,18 @@ export function useDecisionQueueShellController() {
           sessionId,
           approvedAt: new Date().toISOString()
         }),
-      missingRunMessage: "An active auto implementation workspace run is required before applying an approved PR merge.",
+      missingRunMessage: autoImplementationActionErrors.activeRunRequiredApplyPullRequestMerge,
       logIdPrefix: "auto-implementation-pr-merge-approved",
-      label: "Apply approved PR merge",
+      label: autoImplementationCopy.applyPullRequestMerge,
       canSubmit: canMergeAutoImplementationPullRequest,
-      blockedMessage: "A pull request merge is already recorded; do not merge the same auto implementation PR again."
+      blockedMessage: autoImplementationActionErrors.pullRequestMergeAlreadyRecorded
     }),
-    [recordAutoImplementationPullRequestMutationAction]
+    [
+      autoImplementationActionErrors.activeRunRequiredApplyPullRequestMerge,
+      autoImplementationActionErrors.pullRequestMergeAlreadyRecorded,
+      autoImplementationCopy.applyPullRequestMerge,
+      recordAutoImplementationPullRequestMutationAction
+    ]
   );
 
   const planningRadarAxesView = useMemo(

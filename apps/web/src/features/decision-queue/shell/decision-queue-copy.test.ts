@@ -97,6 +97,18 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.autoImplementation.workerPlan).toBe("Local worker bounded plan");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerPlanExecutionAuthority).toBe("実行権限");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerPlanAllowedWriteScope).toBe("허용된 쓰기 범위");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.actionErrors.activeRunRequiredPlanWorker).not.toMatch(
+      /[가-힣]/u
+    );
+    expect(DECISION_QUEUE_COPY.ja.autoImplementation.actionErrors.activeRunRequiredStartStage).toContain(
+      "ワークスペース"
+    );
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.actionErrors.workspaceCreationFailed("boom")).toContain(
+      "자동 구현 작업공간"
+    );
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.actionErrors.pullRequestMergeAlreadyRecorded).toContain(
+      "다시 merge하지"
+    );
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeAdapterVersion).toBe("Runtime adapter");
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeEvidenceDetails).toBe("Runtime evidence details");
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeExecutionMode).toBe("Execution mode");
