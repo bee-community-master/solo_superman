@@ -18,6 +18,15 @@ function codeBackedCapability(id, verificationCommands, overrides = {}) {
   };
 }
 
+function autoImplementationCheckedBehaviors() {
+  return [
+    "Runtime preview requests produce bounded preview artifacts without applying file, shell, browser, or network actions.",
+    "Worker jobs keep planned ledger docs, authority refs, sandbox boundaries, and manual recovery evidence visible.",
+    "Generated PR body includes issue document status summary, stage status summary, review/evidence gate summary, and missing-test audit summary coverage.",
+    "Every canonical auto-implementation stage can carry code-review, clean-code, missing-test audit, and test evidence before completion."
+  ];
+}
+
 function codeBackedContract(overrides = {}) {
   return {
     schemaVersion: PRODUCT_CAPABILITY_READINESS_SCHEMA_VERSION,
@@ -65,7 +74,9 @@ function codeBackedContract(overrides = {}) {
         "pnpm verify:pr-mutation",
         "pnpm verify:auto-implementation-review-loop",
         "pnpm verify:auto-implementation-pipeline"
-      ]),
+      ], {
+        checkedBehaviors: autoImplementationCheckedBehaviors()
+      }),
       codeBackedCapability("technical-preview-release-guardrails", [
         "pnpm verify:prod-bundle",
         "pnpm verify:release-readiness"
@@ -114,6 +125,29 @@ describe("product capability readiness verification", () => {
       "$.capabilities[4].verificationCommands: must include pnpm verify:worker-job",
       "$.capabilities[4].verificationCommands: must include pnpm verify:pr-mutation",
       "$.capabilities[4].verificationCommands: must include pnpm verify:auto-implementation-review-loop"
+    ]));
+  });
+
+  it("requires auto-implementation readiness to name generated PR body summary coverage", () => {
+    const contract = codeBackedContract({
+      capabilities: codeBackedContract().capabilities.map((capability) =>
+        capability.id === "auto-implementation-review-loop"
+          ? {
+              ...capability,
+              checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
+                !behavior.startsWith("Generated PR body")
+              )
+            }
+          : capability
+      )
+    });
+    const result = validateProductCapabilityReadinessContract(contract);
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual(expect.arrayContaining([
+      "$.capabilities[4].checkedBehaviors: must mention Generated PR body",
+      "$.capabilities[4].checkedBehaviors: must mention issue document status summary",
+      "$.capabilities[4].checkedBehaviors: must mention missing-test audit summary"
     ]));
   });
 
