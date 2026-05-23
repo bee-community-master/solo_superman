@@ -136,6 +136,9 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
           </button>
         </div>
         <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatus.status}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
+        {runtimeStatus ? (
+          <p className="mode-summary">{copy.implementation.runtimeCheckedAt}: {runtimeStatus.checkedAt}</p>
+        ) : null}
         {runtimeStatus?.reason ? <p className="research-recovery">{runtimeStatus.reason}</p> : null}
         {statuses.length ? (
           <ul className="effect-list">
