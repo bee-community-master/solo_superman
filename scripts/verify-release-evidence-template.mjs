@@ -84,13 +84,17 @@ function validateFixtureForIssue(fullChecklist, issueNumber, options) {
 }
 
 function aggregateFixtureValidations(validations) {
+  const statusIssues = validations
+    .filter((validation) => validation.status !== "passed")
+    .map((validation) => `#${validation.issueNumber}: template validation status is ${validation.status}`);
   const issues = validations.flatMap((validation) =>
     validation.issues.map((issue) => `#${validation.issueNumber}: ${issue}`)
   );
+  const finalIssues = [...statusIssues, ...issues];
 
   return {
     schemaVersion: RELEASE_EVIDENCE_TEMPLATE_VALIDATION_SCHEMA_VERSION,
-    status: issues.length === 0 ? "passed" : "blocked",
+    status: finalIssues.length === 0 ? "passed" : "blocked",
     mode: "credential-free-fixture",
     filterIssueNumber: "all",
     issueNumbers: validations.map((validation) => validation.issueNumber),
@@ -102,7 +106,7 @@ function aggregateFixtureValidations(validations) {
       itemCount: validation.itemCount,
       issues: validation.issues
     })),
-    issues,
+    issues: finalIssues,
     checked: [
       "filled release evidence templates for every blocked release issue",
       "all required checks, evidence, and unblock criteria are passed per issue",
