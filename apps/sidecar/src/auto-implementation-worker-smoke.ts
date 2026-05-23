@@ -362,53 +362,71 @@ async function seedPlanningReadyState(
 
 function planningReadyEvidencePayload(sessionId: string) {
   return {
-    projection: {
-      kind: "ResearchEvidenceProjection",
-      version: PLANNING_READY_PROJECTION_VERSION,
-      taskIds: [PLANNING_READY_RESEARCH_TASK_ID],
-      tasks: [planningReadyTask(sessionId)],
-      results: [planningReadyResult()],
-      evidenceMatrices: [planningReadyEvidenceMatrix()],
-      evidencePacks: [planningReadyEvidencePack()],
-      reviewCards: [planningReadyReviewCard()],
+    projection: planningReadyResearchProjection(sessionId),
+    queueProjection: planningReadyQueueProjection(),
+    confidenceProjection: planningReadyConfidenceProjection()
+  };
+}
+
+function planningReadyResearchProjection(sessionId: string) {
+  return {
+    kind: "ResearchEvidenceProjection",
+    version: PLANNING_READY_PROJECTION_VERSION,
+    taskIds: [PLANNING_READY_RESEARCH_TASK_ID],
+    tasks: [planningReadyTask(sessionId)],
+    results: [planningReadyResult()],
+    evidenceMatrices: [planningReadyEvidenceMatrix()],
+    evidencePacks: [planningReadyEvidencePack()],
+    reviewCards: [planningReadyReviewCard()],
+    knownRisks: [],
+    nextValidationActions: [],
+    proConBalanceStatus: "balanced"
+  };
+}
+
+function planningReadyQueueProjection() {
+  return {
+    kind: "DecisionQueueProjection",
+    version: PLANNING_READY_PROJECTION_VERSION,
+    active: [],
+    next: [],
+    blocked: [],
+    deferred: [planningReadyDeferredQueueItem()]
+  };
+}
+
+function planningReadyConfidenceProjection() {
+  return {
+    kind: "ConfidenceCompletionProjection",
+    version: PLANNING_READY_PROJECTION_VERSION,
+    compositeScore: 92,
+    readinessLabel: "spec_ready",
+    gates: [planningReadyConfidenceGate()],
+    topRisks: [],
+    topRiskCards: [],
+    nextBestActions: ["Create Planning Handoff."],
+    completionCandidate: planningReadyCompletionCandidate()
+  };
+}
+
+function planningReadyConfidenceGate() {
+  return {
+    gateId: "research_queue_cards",
+    label: "Research-updated Queue cards terminal",
+    passed: true
+  };
+}
+
+function planningReadyCompletionCandidate() {
+  return {
+    status: "candidate",
+    summary: "Spec and research are ready for Planning Handoff.",
+    gateFailures: [],
+    ifStopNowArtifact: {
+      title: "Planning Handoff candidate",
+      summary: "Next build slice can be planned.",
       knownRisks: [],
-      nextValidationActions: [],
-      proConBalanceStatus: "balanced"
-    },
-    queueProjection: {
-      kind: "DecisionQueueProjection",
-      version: PLANNING_READY_PROJECTION_VERSION,
-      active: [],
-      next: [],
-      blocked: [],
-      deferred: [planningReadyDeferredQueueItem()]
-    },
-    confidenceProjection: {
-      kind: "ConfidenceCompletionProjection",
-      version: PLANNING_READY_PROJECTION_VERSION,
-      compositeScore: 92,
-      readinessLabel: "spec_ready",
-      gates: [
-        {
-          gateId: "research_queue_cards",
-          label: "Research-updated Queue cards terminal",
-          passed: true
-        }
-      ],
-      topRisks: [],
-      topRiskCards: [],
-      nextBestActions: ["Create Planning Handoff."],
-      completionCandidate: {
-        status: "candidate",
-        summary: "Spec and research are ready for Planning Handoff.",
-        gateFailures: [],
-        ifStopNowArtifact: {
-          title: "Planning Handoff candidate",
-          summary: "Next build slice can be planned.",
-          knownRisks: [],
-          nextValidationActions: []
-        }
-      }
+      nextValidationActions: []
     }
   };
 }
@@ -616,16 +634,7 @@ function executionAuthorityRequest(sessionId: string, expectedStateVersion: numb
     expectedStateVersion,
     idempotencyKey: "worker-job-smoke:execution-authority",
     sourcePlanningHandoffRef: "worker-job-smoke-planning-handoff",
-    boundedAgentOutput: {
-      outputId: "bounded_output_worker_job_smoke",
-      sourceRefs: ["worker-job-smoke-planning-handoff"],
-      intendedDecisionImpact: "Validate a bounded local worker job smoke run.",
-      proposedActionPreviewRefs: ["worker_job_smoke_preview"],
-      requiredApprovals: ["worker_job_smoke_approval"],
-      evidenceRefs: ["worker_job_smoke_evidence"],
-      failureMode: "ready_for_preview",
-      noExecutionPolicy: "controlled_execution_required"
-    },
+    boundedAgentOutput: executionAuthorityBoundedOutput(),
     actionClass: "file_diff",
     previewArtifactRef: "worker_job_smoke_preview",
     previewArtifactHash: "sha256:worker-job-smoke",
@@ -635,31 +644,56 @@ function executionAuthorityRequest(sessionId: string, expectedStateVersion: numb
       filePathGlobs: ["**/*"]
     },
     approvalDecision: "approved",
-    approver: {
-      actorId: "worker_job_smoke_owner",
-      actorType: "user",
-      approvedAt: "2026-05-23T00:03:00.000Z",
-      decidedAt: "2026-05-23T00:03:00.000Z"
-    },
-    sandboxBoundary: {
-      mode: "workspace_patch",
-      networkPolicy: "blocked",
-      secretPolicy: "no_secret_values"
-    },
+    approver: executionAuthorityApprover(),
+    sandboxBoundary: executionAuthoritySandboxBoundary(),
     rollbackReference: {
       kind: "git_diff_reverse",
       ref: "worker_job_smoke_rollback"
     },
     evidenceRefs: ["worker_job_smoke_authority_evidence"],
     auditRefs: ["worker_job_smoke_authority_audit"],
-    preconditionChecks: {
-      planningSourceExists: true,
-      previewArtifactExists: true,
-      previewHashMatches: true,
-      rollbackAvailable: true,
-      credentialValueRequired: false,
-      sandboxEnforced: true
-    }
+    preconditionChecks: executionAuthorityPreconditionChecks()
+  };
+}
+
+function executionAuthorityBoundedOutput() {
+  return {
+    outputId: "bounded_output_worker_job_smoke",
+    sourceRefs: ["worker-job-smoke-planning-handoff"],
+    intendedDecisionImpact: "Validate a bounded local worker job smoke run.",
+    proposedActionPreviewRefs: ["worker_job_smoke_preview"],
+    requiredApprovals: ["worker_job_smoke_approval"],
+    evidenceRefs: ["worker_job_smoke_evidence"],
+    failureMode: "ready_for_preview",
+    noExecutionPolicy: "controlled_execution_required"
+  };
+}
+
+function executionAuthorityApprover() {
+  return {
+    actorId: "worker_job_smoke_owner",
+    actorType: "user",
+    approvedAt: "2026-05-23T00:03:00.000Z",
+    decidedAt: "2026-05-23T00:03:00.000Z"
+  };
+}
+
+function executionAuthoritySandboxBoundary() {
+  return {
+    mode: "workspace_patch",
+    networkPolicy: "blocked",
+    secretPolicy: "no_secret_values"
+  };
+}
+
+function executionAuthorityPreconditionChecks() {
+  return {
+    planningSourceExists: true,
+    previewArtifactExists: true,
+    previewHashMatches: true,
+    rollbackAvailable: true,
+    credentialValueRequired: false,
+    sandboxEnforced: true
   };
 }
 
