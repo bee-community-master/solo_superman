@@ -261,7 +261,9 @@ function stringField(record: Readonly<Record<string, unknown>>, field: string) {
 }
 
 function responseData(body: JsonResponseBody) {
-  return record(body.data);
+  expect(body.data, JSON.stringify(body)).toEqual(expect.any(Object));
+
+  return body.data as Readonly<Record<string, unknown>>;
 }
 
 function stateVersionAfter(data: Readonly<Record<string, unknown>>) {
@@ -1765,8 +1767,8 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         projectPurposeModeConfirmation: "user_confirmed"
       });
       const sessionId = sessionIdFromStart(responseData(start.body));
-      let expectedStateVersion = 1;
-      const nextExpectedStateVersion = () => expectedStateVersion++;
+      const currentExpectedStateVersion = async () =>
+        (await createEventRepository(storage.db).listForSession(sessionId as SessionId)).length as StateVersion;
       const safeBrowserAction = {
         kind: "navigate_and_capture",
         visibleAction: true,
@@ -1794,7 +1796,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           sessionId,
           idSuffix,
           {
-            expectedStateVersion: nextExpectedStateVersion(),
+            expectedStateVersion: await currentExpectedStateVersion(),
             actionClass: "browser_action",
             previewArtifactHash: browserHash,
             reviewedPreviewArtifactHash: browserHash,
@@ -1902,7 +1904,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
 
       const readPreview = await postJson(app, `/api/v1/sessions/${sessionId}/service-page-use-permissions`, {
         ...servicePermissionBase,
-        expectedStateVersion: nextExpectedStateVersion(),
+        expectedStateVersion: await currentExpectedStateVersion(),
         idempotencyKey: "post-phase3:service-page:read-preview",
         allowedActionClasses: ["read", "preview"],
         approvalGranularity: "per_page"
@@ -2082,7 +2084,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         `/api/v1/sessions/${sessionId}/service-page-use-permissions/${readPreviewPermissionId}/artifacts/delete`,
         {
           sessionId,
-          expectedStateVersion: nextExpectedStateVersion(),
+          expectedStateVersion: await currentExpectedStateVersion(),
           idempotencyKey: "post-phase3:service-page:artifacts-delete",
           permissionId: readPreviewPermissionId,
           reason: "User deleted retained service page-use artifact refs during the dry-run.",
@@ -2129,7 +2131,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         `/api/v1/sessions/${sessionId}/service-page-use-permissions/${readPreviewPermissionId}/revoke`,
         {
           sessionId,
-          expectedStateVersion: nextExpectedStateVersion(),
+          expectedStateVersion: await currentExpectedStateVersion(),
           idempotencyKey: "post-phase3:service-page:revoked",
           permissionId: readPreviewPermissionId,
           reason: "User stopped the mocked Vercel page-use permission during the dry-run.",
@@ -2187,7 +2189,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
 
       const fillDraft = await postJson(app, `/api/v1/sessions/${sessionId}/service-page-use-permissions`, {
         ...servicePermissionBase,
-        expectedStateVersion: nextExpectedStateVersion(),
+        expectedStateVersion: await currentExpectedStateVersion(),
         idempotencyKey: "post-phase3:service-page:fill-draft",
         purpose: "Fill a draft deployment settings form while the user stays present and can stop automation.",
         allowedActionClasses: ["fill_draft"],
@@ -2238,7 +2240,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
 
       const finalSubmitBlocked = await postJson(app, `/api/v1/sessions/${sessionId}/service-page-use-permissions`, {
         ...servicePermissionBase,
-        expectedStateVersion: nextExpectedStateVersion(),
+        expectedStateVersion: await currentExpectedStateVersion(),
         idempotencyKey: "post-phase3:service-page:final-submit-blocked",
         purpose: "Request final submit for a deployment settings form without a validated production-mutation contract.",
         allowedActionClasses: ["final_submit_request"],
