@@ -20,6 +20,16 @@ pnpm verify:release-readiness
 - URL evidence ref는 HTTPS여야 하며 userinfo credential이나 secret-like query parameter를 포함하면 안 됩니다.
 - token-shaped 문자열(`ghp_`, `github_pat_`, `sk-`, `npm_`, bearer token 등)은 release readiness evidence 어디에도 들어갈 수 없습니다.
 
+## Release evidence checklist
+
+외부 device/signing lab에서 #259/#266/#267 evidence를 모을 때는 분산된 계약 파일을 수동으로 대조하지 않고 아래 credential-free checklist를 먼저 생성합니다.
+
+```sh
+pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json
+```
+
+Checklist는 `release-readiness`, Windows 실기기, signed package release, packaged update rollback, signed package preflight 계약에서 blocked gate/run, required checks, required evidence, unblock criteria, ready-release command를 한 JSON envelope로 묶습니다. 이 명령은 계약 파일만 읽고 credential 값, browser cookie, token, file contents, full environment dump를 수집하지 않습니다.
+
 ## 일반 공개 준비 모드
 
 실제 일반 공개 직전에는 아래 명령을 별도로 실행합니다.

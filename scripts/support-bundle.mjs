@@ -24,7 +24,8 @@ const PACKAGE_METADATA_SCRIPT = [
   "verifySignedPackagePreflight:scripts['verify:signed-package-preflight'],",
   "verifySignedPackageRelease:scripts['verify:signed-package-release'],",
   "verifyReleaseReadiness:scripts['verify:release-readiness'],",
-  "supportBundle:scripts['support:bundle']",
+  "supportBundle:scripts['support:bundle'],",
+  "releaseEvidenceChecklist:scripts['release:evidence-checklist']",
   "}}))"
 ].join("");
 const SUPPORT_DIAGNOSTIC_COMMANDS = {
@@ -393,6 +394,7 @@ export async function createSupportBundle(options = {}) {
       "pnpm verify:signed-package-preflight",
       "pnpm verify:signed-package-release",
       "pnpm verify:release-readiness",
+      "pnpm release:evidence-checklist",
       "pnpm verify",
       "pnpm support:bundle"
     ],
