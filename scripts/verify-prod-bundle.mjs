@@ -1,14 +1,13 @@
 import { randomBytes } from "node:crypto";
-import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
-import { createServer } from "node:net";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { envValue, positiveIntegerEnv } from "./local-env.mjs";
+import { envValue, fixedLocalPortEnv, positiveIntegerEnv } from "./local-env.mjs";
 import { waitForFetch } from "./local-http.mjs";
-import { defaultLocalBindHost, normalizeBindHost, normalizeLoopbackHost, packageManagerSpawn } from "./local-platform.mjs";
-import { commandLabel, spawnManagedProcess, stopManagedProcess } from "./local-processes.mjs";
+import { bindHostEnv, defaultLocalBindHost, loopbackHostEnv, packageManagerSpawn } from "./local-platform.mjs";
+import { commandLabel, spawnManagedProcess } from "./local-processes.mjs";
+import { assertSmokePortsAvailable, cleanupManagedSmoke, createDiagnosticLogger, diagnosticEnvSnapshot, redactConfigSecrets } from "./local-smoke.mjs";
 import { formatHttpOrigin } from "./local-url.mjs";
 
 const DEFAULT_SIDECAR_HOST = "127.0.0.1";
@@ -36,79 +35,11 @@ const DIAGNOSTIC_ENV_NAMES = [
   "WSLENV"
 ];
 
-function loopbackHostEnv(env, name, fallback) {
-  return normalizeLoopbackHost(envValue(env, name, fallback), name);
-}
-
-function bindHostEnv(env, name, fallback, platform = process.platform) {
-  return normalizeBindHost(envValue(env, name, fallback), name, env, platform);
-}
-
-function fixedPortEnv(env, name, fallback) {
-  const value = envValue(env, name, fallback);
-
-  if (!/^\d+$/.test(value)) {
-    throw new Error(`${name} must be a numeric fixed local port: ${value}`);
-  }
-
-  const parsed = Number.parseInt(value, 10);
-
-  if (Number.isNaN(parsed) || parsed <= 0 || parsed > 65535) {
-    throw new Error(`${name} must be a fixed local port between 1 and 65535: ${value}`);
-  }
-
-  return String(parsed);
-}
-
 function generatedToken() {
   return randomBytes(32).toString("hex");
 }
 
-function listenOnce(host, port) {
-  return new Promise((resolve, reject) => {
-    const server = createServer();
-    let settled = false;
-
-    const finish = (result) => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      server.removeAllListeners();
-      resolve(result);
-    };
-
-    server.once("error", (error) => {
-      if (error && error.code === "EADDRINUSE") {
-        finish({
-          available: false,
-          reason: `${host}:${port} is already in use`
-        });
-        return;
-      }
-
-      reject(error);
-    });
-    server.listen(Number(port), host, () => {
-      server.close((error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-
-        finish({ available: true });
-      });
-    });
-  });
-}
-
-function usesSameSmokePort(left, right) {
-  return left.port === right.port;
-}
-
 export async function assertProdBundleSmokePortsAvailable(config, options = {}) {
-  const listen = options.listen ?? listenOnce;
   const checks = [
     {
       label: "sidecar",
@@ -126,81 +57,11 @@ export async function assertProdBundleSmokePortsAvailable(config, options = {}) 
     }
   ];
 
-  for (const [index, check] of checks.entries()) {
-    const conflictingCheck = checks.slice(index + 1).find((candidate) => usesSameSmokePort(check, candidate));
-
-    if (conflictingCheck) {
-      throw new Error(
-        [
-          `verify-prod-bundle: ${check.label} and ${conflictingCheck.label} smoke ports conflict before startup:`,
-          `${check.host}:${check.port} overlaps ${conflictingCheck.host}:${conflictingCheck.port}.`,
-          "Use distinct fixed local ports,",
-          "for example SOLO_PROD_SMOKE_SIDECAR_PORT=<free-port> and SOLO_PROD_SMOKE_WEB_PORT=<another-free-port>."
-        ].join(" ")
-      );
-    }
-  }
-
-  for (const check of checks) {
-    const result = await listen(check.host, check.port);
-
-    if (!result.available) {
-      throw new Error(
-        [
-          `verify-prod-bundle: ${check.label} smoke port conflict: ${result.reason}.`,
-          `The smoke needs ${check.publicUrl} before it starts managed child processes.`,
-          "Stop the existing local dev sidecar/web preview or rerun with a different fixed local port,",
-          `for example ${check.overrideName}=<free-port>.`
-        ].join(" ")
-      );
-    }
-  }
+  await assertSmokePortsAvailable(checks, "verify-prod-bundle", options);
 }
 
 export function prodBundleSmokeLogPath(env = process.env) {
   return envValue(env, "SOLO_PROD_SMOKE_LOG_PATH", join(tmpdir(), `solo-superman-prod-bundle-smoke-${process.pid}.log`));
-}
-
-function diagnosticEnvSnapshot(env) {
-  return Object.fromEntries(DIAGNOSTIC_ENV_NAMES
-    .filter((name) => env[name] !== undefined)
-    .map((name) => [name, env[name]]));
-}
-
-function publicSmokeConfig(config) {
-  return {
-    ...config,
-    localCapabilityToken: "<redacted>"
-  };
-}
-
-function createDiagnosticLogger(logPath) {
-  try {
-    mkdirSync(dirname(logPath), { recursive: true });
-    writeFileSync(logPath, `verify-prod-bundle diagnostic log\nstartedAt=${new Date().toISOString()}\n`, "utf8");
-  } catch (error) {
-    console.warn(`verify-prod-bundle: could not initialize diagnostic log ${logPath}: ${error instanceof Error ? error.message : error}`);
-  }
-
-  const write = (message) => {
-    try {
-      appendFileSync(logPath, `[${new Date().toISOString()}] ${message}\n`, "utf8");
-    } catch {
-      // Diagnostics must never mask the original smoke failure.
-    }
-  };
-
-  return {
-    output({ label, stream, stopping, text }) {
-      write(`${label} ${stream}${stopping ? " during cleanup" : ""}: ${text.replace(/\r?\n$/u, "")}`);
-    },
-    step(message) {
-      write(message);
-    },
-    error(error) {
-      write(`ERROR: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
-    }
-  };
 }
 
 export function pnpmCommand(platform = process.platform, env = process.env) {
@@ -216,7 +77,7 @@ export function prodBundleSmokeConfig(env = process.env, platform = process.plat
     defaultBindHost === "0.0.0.0" ? defaultBindHost : sidecarHost,
     platform
   );
-  const sidecarPort = fixedPortEnv(env, "SOLO_PROD_SMOKE_SIDECAR_PORT", DEFAULT_SIDECAR_PORT);
+  const sidecarPort = fixedLocalPortEnv(env, "SOLO_PROD_SMOKE_SIDECAR_PORT", DEFAULT_SIDECAR_PORT);
   const webHost = loopbackHostEnv(env, "SOLO_PROD_SMOKE_WEB_HOST", DEFAULT_WEB_HOST);
   const webBindHost = bindHostEnv(
     env,
@@ -224,7 +85,7 @@ export function prodBundleSmokeConfig(env = process.env, platform = process.plat
     defaultBindHost === "0.0.0.0" ? defaultBindHost : webHost,
     platform
   );
-  const webPort = fixedPortEnv(env, "SOLO_PROD_SMOKE_WEB_PORT", DEFAULT_WEB_PORT);
+  const webPort = fixedLocalPortEnv(env, "SOLO_PROD_SMOKE_WEB_PORT", DEFAULT_WEB_PORT);
   const localCapabilityToken = envValue(env, "SOLO_LOCAL_CAPABILITY_TOKEN", generatedToken());
   const sidecarBaseUrl = formatHttpOrigin(sidecarHost, sidecarPort);
   const webBaseUrl = formatHttpOrigin(webHost, webPort);
@@ -294,25 +155,121 @@ function runCommand(command, args, options = {}) {
 }
 
 export async function cleanupProdBundleSmoke(processes, appDataDir, options = {}) {
-  const stopProcess = options.stopProcess ?? stopManagedProcess;
-  const removeAppDataDir = options.remove ?? rm;
-  const cleanupFailures = [];
-  const stopResults = await Promise.allSettled([...processes].reverse().map(stopProcess));
+  await cleanupManagedSmoke(processes, appDataDir, "verify-prod-bundle", options);
+}
 
-  for (const result of stopResults) {
-    if (result.status === "rejected") {
-      cleanupFailures.push(result.reason);
-    }
-  }
+function prodBundlePassedEvidence(config) {
+  return {
+    status: "passed",
+    smoke: "build_auto_local_smoke",
+    sidecarBaseUrl: config.sidecarBaseUrl,
+    webBaseUrl: config.webBaseUrl,
+    checked: [
+      "production build completed",
+      "sidecar health responded",
+      "authenticated local API responded",
+      "token mismatch returned 401",
+      "production web preview responded",
+      "managed child processes stopped",
+      "temporary app data removed"
+    ]
+  };
+}
+
+function startProdBundleDiagnostics(config, commands, diagnostics, logPath) {
+  console.log(`verify-prod-bundle: diagnostic log ${logPath}`);
+  diagnostics.step(`cwd=${process.cwd()}`);
+  diagnostics.step(`node=${process.version} platform=${process.platform} arch=${process.arch}`);
+  diagnostics.step(`env=${JSON.stringify(diagnosticEnvSnapshot(process.env, DIAGNOSTIC_ENV_NAMES))}`);
+  diagnostics.step(`config=${JSON.stringify(redactConfigSecrets(config))}`);
+  diagnostics.step(`commands=${JSON.stringify(Object.fromEntries(Object.entries(commands).map(([name, [command, args]]) => [name, commandLabel(command, args)])))}`);
+}
+
+async function buildProdBundle(config, commands, env, diagnostics) {
+  console.log(`verify-prod-bundle: building web production bundle for ${config.sidecarBaseUrl}`);
+  await runCommand(commands.build[0], commands.build[1], { env, diagnostics, onOutput: diagnostics.output });
+}
+
+async function startProdBundleSidecar(config, commands, env, processes, diagnostics) {
+  console.log(`verify-prod-bundle: starting sidecar ${config.sidecarBaseUrl}`);
+  diagnostics.step(`managed process start: ${commandLabel(commands.sidecar[0], commands.sidecar[1])}`);
+  const sidecar = spawnManagedProcess(commands.sidecar[0], commands.sidecar[1], { env, onOutput: diagnostics.output });
+  processes.push(sidecar);
+
+  diagnostics.step(`fetch wait: ${config.sidecarBaseUrl}/healthz expected=200 includes=solo-superman-sidecar timeoutMs=${config.timeoutMs}`);
+  await waitForFetch(`${config.sidecarBaseUrl}/healthz`, {
+    expectedStatus: 200,
+    textIncludes: "solo-superman-sidecar",
+    timeoutMs: config.timeoutMs,
+    processes
+  });
+  diagnostics.step("fetch passed: sidecar health");
+}
+
+async function verifyProdBundleRuntimeStatus(config, processes, diagnostics) {
+  diagnostics.step(`fetch wait: ${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH} expected=200 auth=local-token timeoutMs=${config.timeoutMs}`);
+  await waitForFetch(`${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH}`, {
+    expectedStatus: 200,
+    headers: {
+      Authorization: `Bearer ${config.localCapabilityToken}`
+    },
+    timeoutMs: config.timeoutMs,
+    processes
+  });
+  diagnostics.step("fetch passed: authenticated runtime status");
+
+  diagnostics.step(`fetch wait: ${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH} expected=401 auth=wrong-token timeoutMs=${config.timeoutMs}`);
+  await waitForFetch(`${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH}`, {
+    expectedStatus: 401,
+    headers: {
+      Authorization: `Bearer ${WRONG_TOKEN}`
+    },
+    timeoutMs: config.timeoutMs,
+    processes
+  });
+  diagnostics.step("fetch passed: token mismatch returned 401");
+}
+
+async function startProdBundleWebPreview(config, commands, env, processes, diagnostics) {
+  console.log(`verify-prod-bundle: starting web preview ${config.webBaseUrl}`);
+  diagnostics.step(`managed process start: ${commandLabel(commands.webPreview[0], commands.webPreview[1])}`);
+  const webPreview = spawnManagedProcess(commands.webPreview[0], commands.webPreview[1], { env, onOutput: diagnostics.output });
+  processes.push(webPreview);
+
+  diagnostics.step(`fetch wait: ${config.webBaseUrl} expected=200 includes=Solo Superman timeoutMs=${config.timeoutMs}`);
+  await waitForFetch(config.webBaseUrl, {
+    expectedStatus: 200,
+    textIncludes: "Solo Superman",
+    timeoutMs: config.timeoutMs,
+    processes
+  });
+  diagnostics.step("fetch passed: production web preview");
+}
+
+async function runProdBundleSmokeSteps(config, commands, env, processes, diagnostics, logPath) {
+  startProdBundleDiagnostics(config, commands, diagnostics, logPath);
+  await buildProdBundle(config, commands, env, diagnostics);
+  await startProdBundleSidecar(config, commands, env, processes, diagnostics);
+  await verifyProdBundleRuntimeStatus(config, processes, diagnostics);
+  await startProdBundleWebPreview(config, commands, env, processes, diagnostics);
+
+  return prodBundlePassedEvidence(config);
+}
+
+async function cleanupProdBundleSmokeRun(processes, appDataDir, diagnostics, logPath) {
+  diagnostics.step(`cleanup start: processes=${processes.length} appDataDir=${appDataDir}`);
 
   try {
-    await removeAppDataDir(appDataDir, { recursive: true, force: true });
+    await cleanupProdBundleSmoke(processes, appDataDir);
+    diagnostics.step("cleanup completed");
   } catch (error) {
-    cleanupFailures.push(error);
+    diagnostics.error(error);
+    console.error(`verify-prod-bundle: diagnostic log retained at ${logPath}`);
+    await Promise.reject(error);
   }
 
-  if (cleanupFailures.length > 0) {
-    throw new AggregateError(cleanupFailures, "verify-prod-bundle cleanup failed");
+  if (processes.length > 0) {
+    console.log(`verify-prod-bundle: stopped ${processes.length} managed process(es) and removed temporary app data`);
   }
 }
 
@@ -323,99 +280,18 @@ export async function runProdBundleSmoke() {
   const env = prodBundleSmokeEnvironment(config, appDataDir);
   const commands = prodBundleSmokeCommands(config, process.platform, process.env);
   const logPath = prodBundleSmokeLogPath(process.env);
-  const diagnostics = createDiagnosticLogger(logPath);
+  const diagnostics = createDiagnosticLogger("verify-prod-bundle", logPath);
   const processes = [];
   let passedEvidence;
 
   try {
-    console.log(`verify-prod-bundle: diagnostic log ${logPath}`);
-    diagnostics.step(`cwd=${process.cwd()}`);
-    diagnostics.step(`node=${process.version} platform=${process.platform} arch=${process.arch}`);
-    diagnostics.step(`env=${JSON.stringify(diagnosticEnvSnapshot(process.env))}`);
-    diagnostics.step(`config=${JSON.stringify(publicSmokeConfig(config))}`);
-    diagnostics.step(`commands=${JSON.stringify(Object.fromEntries(Object.entries(commands).map(([name, [command, args]]) => [name, commandLabel(command, args)])))}`);
-
-    console.log(`verify-prod-bundle: building web production bundle for ${config.sidecarBaseUrl}`);
-    await runCommand(commands.build[0], commands.build[1], { env, diagnostics, onOutput: diagnostics.output });
-
-    console.log(`verify-prod-bundle: starting sidecar ${config.sidecarBaseUrl}`);
-    diagnostics.step(`managed process start: ${commandLabel(commands.sidecar[0], commands.sidecar[1])}`);
-    const sidecar = spawnManagedProcess(commands.sidecar[0], commands.sidecar[1], { env, onOutput: diagnostics.output });
-    processes.push(sidecar);
-    diagnostics.step(`fetch wait: ${config.sidecarBaseUrl}/healthz expected=200 includes=solo-superman-sidecar timeoutMs=${config.timeoutMs}`);
-    await waitForFetch(`${config.sidecarBaseUrl}/healthz`, {
-      expectedStatus: 200,
-      textIncludes: "solo-superman-sidecar",
-      timeoutMs: config.timeoutMs,
-      processes
-    });
-    diagnostics.step("fetch passed: sidecar health");
-    diagnostics.step(`fetch wait: ${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH} expected=200 auth=local-token timeoutMs=${config.timeoutMs}`);
-    await waitForFetch(`${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH}`, {
-      expectedStatus: 200,
-      headers: {
-        Authorization: `Bearer ${config.localCapabilityToken}`
-      },
-      timeoutMs: config.timeoutMs,
-      processes
-    });
-    diagnostics.step("fetch passed: authenticated runtime status");
-    diagnostics.step(`fetch wait: ${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH} expected=401 auth=wrong-token timeoutMs=${config.timeoutMs}`);
-    await waitForFetch(`${config.sidecarBaseUrl}${RUNTIME_STATUS_PATH}`, {
-      expectedStatus: 401,
-      headers: {
-        Authorization: `Bearer ${WRONG_TOKEN}`
-      },
-      timeoutMs: config.timeoutMs,
-      processes
-    });
-    diagnostics.step("fetch passed: token mismatch returned 401");
-
-    console.log(`verify-prod-bundle: starting web preview ${config.webBaseUrl}`);
-    diagnostics.step(`managed process start: ${commandLabel(commands.webPreview[0], commands.webPreview[1])}`);
-    const webPreview = spawnManagedProcess(commands.webPreview[0], commands.webPreview[1], { env, onOutput: diagnostics.output });
-    processes.push(webPreview);
-    diagnostics.step(`fetch wait: ${config.webBaseUrl} expected=200 includes=Solo Superman timeoutMs=${config.timeoutMs}`);
-    await waitForFetch(config.webBaseUrl, {
-      expectedStatus: 200,
-      textIncludes: "Solo Superman",
-      timeoutMs: config.timeoutMs,
-      processes
-    });
-    diagnostics.step("fetch passed: production web preview");
-
-    passedEvidence = {
-      status: "passed",
-      smoke: "build_auto_local_smoke",
-      sidecarBaseUrl: config.sidecarBaseUrl,
-      webBaseUrl: config.webBaseUrl,
-      checked: [
-        "production build completed",
-        "sidecar health responded",
-        "authenticated local API responded",
-        "token mismatch returned 401",
-        "production web preview responded",
-        "managed child processes stopped",
-        "temporary app data removed"
-      ]
-    };
+    passedEvidence = await runProdBundleSmokeSteps(config, commands, env, processes, diagnostics, logPath);
   } catch (error) {
     diagnostics.error(error);
     console.error(`verify-prod-bundle: diagnostic log retained at ${logPath}`);
     throw error;
   } finally {
-    diagnostics.step(`cleanup start: processes=${processes.length} appDataDir=${appDataDir}`);
-    try {
-      await cleanupProdBundleSmoke(processes, appDataDir);
-      diagnostics.step("cleanup completed");
-    } catch (error) {
-      diagnostics.error(error);
-      console.error(`verify-prod-bundle: diagnostic log retained at ${logPath}`);
-      await Promise.reject(error);
-    }
-    if (processes.length > 0) {
-      console.log(`verify-prod-bundle: stopped ${processes.length} managed process(es) and removed temporary app data`);
-    }
+    await cleanupProdBundleSmokeRun(processes, appDataDir, diagnostics, logPath);
   }
 
   if (passedEvidence) {

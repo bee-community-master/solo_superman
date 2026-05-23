@@ -13,3 +13,19 @@ export function positiveIntegerEnv(env, name, fallback, description = "positive 
 
   return Number.parseInt(value, 10);
 }
+
+export function fixedLocalPortEnv(env, name, fallback) {
+  const value = envValue(env, name, fallback);
+
+  if (!/^\d+$/.test(value)) {
+    throw new Error(`${name} must be a numeric fixed local port: ${value}`);
+  }
+
+  const parsed = Number.parseInt(value, 10);
+
+  if (Number.isNaN(parsed) || parsed <= 0 || parsed > 65535) {
+    throw new Error(`${name} must be a fixed local port between 1 and 65535: ${value}`);
+  }
+
+  return String(parsed);
+}

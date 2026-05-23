@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   defaultLocalBindHost,
+  bindHostEnv,
   isWslEnvironment,
+  loopbackHostEnv,
   normalizeBindHost,
   packageManagerCommand,
   packageManagerSpawn,
@@ -20,6 +22,12 @@ describe("local platform helpers", () => {
   it("allows wildcard bind only inside WSL", () => {
     expect(normalizeBindHost("0.0.0.0", "SOLO_LOCAL_RUN_BIND_HOST", { WSL_DISTRO_NAME: "Ubuntu" }, "linux")).toBe("0.0.0.0");
     expect(() => normalizeBindHost("0.0.0.0", "SOLO_LOCAL_RUN_BIND_HOST", {}, "darwin")).toThrow("only when running inside WSL");
+  });
+
+  it("reads loopback and bind hosts from env with existing local host validation", () => {
+    expect(loopbackHostEnv({ SOLO_HOST: "[::1]" }, "SOLO_HOST", "127.0.0.1")).toBe("::1");
+    expect(loopbackHostEnv({}, "SOLO_HOST", "127.0.0.1")).toBe("127.0.0.1");
+    expect(bindHostEnv({ SOLO_BIND_HOST: "0.0.0.0", WSL_DISTRO_NAME: "Ubuntu" }, "SOLO_BIND_HOST", "127.0.0.1", "linux")).toBe("0.0.0.0");
   });
 
   it("uses the active pnpm entrypoint before falling back to bare pnpm", () => {
