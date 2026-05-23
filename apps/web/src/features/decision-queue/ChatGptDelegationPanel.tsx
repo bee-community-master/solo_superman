@@ -3,6 +3,7 @@ import type {
   ChatGptBrowserDelegationRun
 } from "@solo-superman/contracts";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
+import { formatListWithFallback } from "./text-formatting";
 
 export interface ChatGptDelegationViewModel {
   readonly status: string;
@@ -10,6 +11,15 @@ export interface ChatGptDelegationViewModel {
   readonly explanation: string;
   readonly visibleHandoffLabel: string;
   readonly nextAction: string;
+  readonly dataDisclosureItems: readonly string[];
+  readonly policyRiskVerdictLabel: string | null;
+  readonly policyRiskEvidenceRefs: readonly string[];
+  readonly sessionOwnershipVerdictLabel: string | null;
+  readonly sessionOwnershipEvidenceRefs: readonly string[];
+  readonly approvalDecisionLabel: string | null;
+  readonly browserActionAuthorityLabel: string | null;
+  readonly resultImportLabel: string | null;
+  readonly resultImportGateItems: readonly string[];
   readonly canRevoke: boolean;
   readonly runId: string | null;
   readonly activityFeedRefs: readonly string[];
@@ -30,6 +40,41 @@ function artifactRefsForRun(run: ChatGptBrowserDelegationRun) {
     ...run.screenshotRefs.map((ref) => `screenshot:${ref}`),
     ...run.logRefs.map((ref) => `log:${ref}`),
     ...(run.resultImportRef ? [`result:${run.resultImportRef}`] : [])
+  ];
+}
+
+function verdictLabel(
+  verdict: ChatGptBrowserDelegationRun["policyRiskVerdict"] | ChatGptBrowserDelegationRun["sessionOwnershipVerdict"]
+) {
+  return `${verdict.verdict}: ${verdict.rationale}`;
+}
+
+function dataDisclosureItemsForRun(run: ChatGptBrowserDelegationRun) {
+  const preview = run.dataDisclosurePreview;
+
+  return [
+    `Disclosure preview: ${preview.disclosurePreviewRef}`,
+    `Prompt context summary: ${preview.promptContextSummaryRef}`,
+    `Redacted prompt preview: ${preview.redactedPromptPreviewRef}`,
+    `Excluded sensitive fields: ${formatListWithFallback(preview.excludedSensitiveFieldKinds, "none")}`,
+    `Redaction preview shown: ${preview.redactionPreviewShown ? "yes" : "no"}`,
+    `User can edit prompt before run: ${preview.userCanEditPromptBeforeRun ? "yes" : "no"}`
+  ];
+}
+
+function resultImportGateItemsForRun(run: ChatGptBrowserDelegationRun) {
+  const gate = run.resultImportGate;
+
+  if (!gate) {
+    return ["No result import gate has been evaluated yet."];
+  }
+
+  return [
+    `Source provenance: ${gate.sourceProvenanceStatus} (${formatListWithFallback(gate.sourceRefs, "no source refs")})`,
+    `Uncertainty: ${gate.uncertaintyStatus} (${formatListWithFallback(gate.uncertaintyRefs, "no uncertainty refs")})`,
+    `Con evidence: ${gate.conEvidenceStatus} (${formatListWithFallback(gate.conEvidenceRefs, "no con evidence refs")})`,
+    `Stale risk: ${gate.staleRiskStatus} (${formatListWithFallback(gate.staleRiskRefs, "no stale risk refs")})`,
+    `Import rationale: ${gate.importRationale}`
   ];
 }
 
@@ -65,6 +110,15 @@ export function chatGptDelegationViewModel(
       explanation: "No per-run local browser workspace has been recorded for this session.",
       visibleHandoffLabel: "ChatGPT Pro/Deep Research는 사용자 소유 브라우저에서 보이는 위임으로만 준비합니다.",
       nextAction: "Plan a research task and prepare a safe browser handoff preview before using an external AI workspace.",
+      dataDisclosureItems: [],
+      policyRiskVerdictLabel: null,
+      policyRiskEvidenceRefs: [],
+      sessionOwnershipVerdictLabel: null,
+      sessionOwnershipEvidenceRefs: [],
+      approvalDecisionLabel: null,
+      browserActionAuthorityLabel: null,
+      resultImportLabel: null,
+      resultImportGateItems: [],
       canRevoke: false,
       runId: null,
       activityFeedRefs: [],
@@ -94,6 +148,15 @@ export function chatGptDelegationViewModel(
     explanation: run.userVisibleExplanation,
     visibleHandoffLabel: visibleHandoffLabelForRun(run),
     nextAction: run.nextAction,
+    dataDisclosureItems: dataDisclosureItemsForRun(run),
+    policyRiskVerdictLabel: verdictLabel(run.policyRiskVerdict),
+    policyRiskEvidenceRefs: run.policyRiskVerdict.evidenceRefs,
+    sessionOwnershipVerdictLabel: verdictLabel(run.sessionOwnershipVerdict),
+    sessionOwnershipEvidenceRefs: run.sessionOwnershipVerdict.evidenceRefs,
+    approvalDecisionLabel: run.approvalDecision,
+    browserActionAuthorityLabel: run.browserActionAuthorityRef ?? "missing browser action authority",
+    resultImportLabel: run.resultImportRef ?? "No result import has been captured yet.",
+    resultImportGateItems: resultImportGateItemsForRun(run),
     canRevoke: run.canRevoke,
     runId: run.runId,
     activityFeedRefs: run.activityFeedRefs,
@@ -125,6 +188,15 @@ export function ChatGptDelegationPanel({
 }: ChatGptDelegationPanelProps) {
   const copy = useDecisionQueueCopy();
   const revokableRunId = delegation.canRevoke ? delegation.runId : null;
+  const hasSafetyDetails = Boolean(
+    delegation.dataDisclosureItems.length ||
+      delegation.policyRiskVerdictLabel ||
+      delegation.sessionOwnershipVerdictLabel ||
+      delegation.approvalDecisionLabel ||
+      delegation.browserActionAuthorityLabel ||
+      delegation.resultImportLabel ||
+      delegation.resultImportGateItems.length
+  );
 
   return (
     <section className="panel chatgpt-delegation-panel">
@@ -154,6 +226,50 @@ export function ChatGptDelegationPanel({
             <li key={item}>{item}</li>
           ))}
         </ul>
+      ) : null}
+      {hasSafetyDetails ? (
+        <section className="chatgpt-delegation-safety" aria-label={copy.permissions.chatGptDelegationSafety}>
+          <h3>{copy.permissions.chatGptDelegationSafety}</h3>
+          {delegation.dataDisclosureItems.length ? (
+            <>
+              <strong>{copy.permissions.dataDisclosurePreview}</strong>
+              <ul>
+                {delegation.dataDisclosureItems.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+          {delegation.policyRiskVerdictLabel ? (
+            <div>
+              <strong>{copy.permissions.policyRiskVerdict}</strong>
+              <p>{delegation.policyRiskVerdictLabel}</p>
+              <p>{copy.permissions.evidenceRefs}: {formatListWithFallback(delegation.policyRiskEvidenceRefs, copy.permissions.noEvidenceRefs)}</p>
+            </div>
+          ) : null}
+          {delegation.sessionOwnershipVerdictLabel ? (
+            <div>
+              <strong>{copy.permissions.sessionOwnershipVerdict}</strong>
+              <p>{delegation.sessionOwnershipVerdictLabel}</p>
+              <p>{copy.permissions.evidenceRefs}: {formatListWithFallback(delegation.sessionOwnershipEvidenceRefs, copy.permissions.noEvidenceRefs)}</p>
+            </div>
+          ) : null}
+          {delegation.approvalDecisionLabel ? <p>{copy.permissions.approvalDecision}: {delegation.approvalDecisionLabel}</p> : null}
+          {delegation.browserActionAuthorityLabel ? (
+            <p>{copy.permissions.browserActionAuthority}: {delegation.browserActionAuthorityLabel}</p>
+          ) : null}
+          {delegation.resultImportLabel ? <p>{copy.permissions.resultImport}: {delegation.resultImportLabel}</p> : null}
+          {delegation.resultImportGateItems.length ? (
+            <>
+              <strong>{copy.permissions.resultImportGate}</strong>
+              <ul>
+                {delegation.resultImportGateItems.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+        </section>
       ) : null}
       <h3>{copy.permissions.storedArtifacts}</h3>
       <p className="mode-summary">{delegation.retentionLabel}</p>
