@@ -30,6 +30,12 @@ describe("packaged update rollback dry-run", () => {
       preserve_user_data: true,
       preserve_credentials: true
     });
+    expect(evidence.updatePlan).toMatchObject({
+      status: "ready",
+      targetPlatform: "macos-arm64",
+      artifact: { signatureKind: "apple-codesign-notarization" }
+    });
+    expect(evidence.credentialSnapshotMode).toBe("metadata_only_no_read");
     expect(evidence.protectedPaths).toEqual(expect.arrayContaining([
       "data/local.db",
       "workspace/generated-project/README.md",

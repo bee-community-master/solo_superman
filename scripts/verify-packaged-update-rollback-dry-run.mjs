@@ -1,24 +1,22 @@
 #!/usr/bin/env node
-import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import {
+  APP_PATHS,
+  DEFAULT_UPDATE_PROTECTED_PATH_POLICIES,
+  applyPackagedUpdate,
+  buildPackagedUpdatePlan,
+  createFixtureInstall,
+  createFixtureReleaseManifest,
+  deferPackagedUpdate,
+  launchInstalledRelease,
+  readInstalledRelease
+} from "./packaged-update-runtime.mjs";
 
 export const PACKAGED_UPDATE_ROLLBACK_DRY_RUN_SCHEMA_VERSION = "solo-superman-packaged-update-rollback-dry-run.v1";
 
-const APP_PATHS = {
-  binary: "app/bin/solo-superman",
-  releaseMetadata: "app/release-metadata.json",
-  updateState: "app/update-state.json"
-};
-const PROTECTED_PATHS = [
-  "data/local.db",
-  "workspace/generated-project/README.md",
-  "support/solo-support-bundle.json",
-  "operator-files/release-notes.md",
-  "credentials/codex-cli-login-ref.txt"
-];
 const REQUIRED_CHECKS = [
   "install_signed_package",
   "apply_update",
@@ -29,166 +27,76 @@ const REQUIRED_CHECKS = [
   "preserve_user_data",
   "preserve_credentials"
 ];
+const PROTECTED_PATHS = DEFAULT_UPDATE_PROTECTED_PATH_POLICIES.map((policy) => policy.relativePath);
 
-function sha256(value) {
-  return createHash("sha256").update(value).digest("hex");
-}
-
-function absolutePath(root, relativePath) {
-  return resolve(root, relativePath);
-}
-
-async function writeText(root, relativePath, value) {
-  const target = absolutePath(root, relativePath);
-  await mkdir(dirname(target), { recursive: true });
-  await writeFile(target, value, "utf8");
-}
-
-async function writeJson(root, relativePath, value) {
-  await writeText(root, relativePath, `${JSON.stringify(value, null, 2)}\n`);
-}
-
-async function readText(root, relativePath) {
-  return await readFile(absolutePath(root, relativePath), "utf8");
-}
-
-async function readJson(root, relativePath) {
-  return JSON.parse(await readText(root, relativePath));
-}
-
-async function snapshotFiles(root, relativePaths) {
-  const entries = await Promise.all(relativePaths.map(async (relativePath) => {
-    const content = await readFile(absolutePath(root, relativePath));
-    return [relativePath, { sha256: sha256(content), sizeBytes: content.byteLength }];
-  }));
-
-  return Object.fromEntries(entries);
-}
-
-function compareSnapshots(before, after) {
-  return Object.keys(before).filter((relativePath) => {
-    const previous = before[relativePath];
-    const current = after[relativePath];
-    return !current || previous.sha256 !== current.sha256 || previous.sizeBytes !== current.sizeBytes;
-  });
-}
-
-function releaseDescriptor(version) {
-  return {
-    version,
-    appId: "solo-superman",
-    packageKind: "fixture-package",
-    signedArtifactRef: `fixture://solo-superman/${version}`
-  };
-}
-
-async function writeInstalledRelease(root, release) {
-  await writeText(root, APP_PATHS.binary, `solo-superman fixture binary ${release.version}\n`);
-  await writeJson(root, APP_PATHS.releaseMetadata, release);
-}
-
-async function readInstalledRelease(root) {
-  return await readJson(root, APP_PATHS.releaseMetadata);
-}
-
-async function createFixtureInstall(root) {
-  await writeInstalledRelease(root, releaseDescriptor("0.1.0"));
-  await writeJson(root, APP_PATHS.updateState, { status: "idle", activeVersion: "0.1.0" });
-  await writeText(root, "data/local.db", "fixture local database\n");
-  await writeText(root, "workspace/generated-project/README.md", "# Generated project fixture\n");
-  await writeJson(root, "support/solo-support-bundle.json", { fixture: true, credentialFree: true });
-  await writeText(root, "operator-files/release-notes.md", "operator-owned release notes\n");
-  await writeText(root, "credentials/codex-cli-login-ref.txt", "fixture credential reference only; no real credential value\n");
-}
-
-async function deferUpdate(root, candidateRelease) {
-  const current = await readInstalledRelease(root);
-  await writeJson(root, APP_PATHS.updateState, {
-    status: "deferred",
-    activeVersion: current.version,
-    candidateVersion: candidateRelease.version
-  });
-
-  return (await readInstalledRelease(root)).version === current.version;
-}
-
-async function applyUpdate(root, candidateRelease, options = {}) {
-  const previousRelease = await readInstalledRelease(root);
-  if (options.failBeforeWrite) {
-    await writeJson(root, APP_PATHS.updateState, {
-      status: "failed_before_write",
-      activeVersion: previousRelease.version,
-      candidateVersion: candidateRelease.version,
-      reason: "fixture checksum failure before install write"
-    });
-    return { applied: false, previousRelease };
-  }
-
-  await writeInstalledRelease(root, candidateRelease);
-  await writeJson(root, APP_PATHS.updateState, {
-    status: "applied",
-    previousVersion: previousRelease.version,
-    activeVersion: candidateRelease.version
-  });
-
-  return { applied: true, previousRelease };
-}
-
-async function launchInstalledRelease(root) {
-  const release = await readInstalledRelease(root);
-  const binary = await readText(root, APP_PATHS.binary);
-
-  return {
-    ok: binary.includes(release.version),
-    version: release.version
-  };
-}
-
-async function rollbackToRelease(root, release, reason) {
-  await writeInstalledRelease(root, release);
-  await writeJson(root, APP_PATHS.updateState, {
-    status: "rolled_back",
-    activeVersion: release.version,
-    reason
-  });
+function uniqueStrings(values) {
+  return [...new Set(values)];
 }
 
 async function runScenario(root) {
   await createFixtureInstall(root);
-  const protectedBefore = await snapshotFiles(root, PROTECTED_PATHS);
   const initialLaunch = await launchInstalledRelease(root);
-  const candidateRelease = releaseDescriptor("0.1.1");
-  const deferredWithoutChangingVersion = await deferUpdate(root, candidateRelease);
-  const failedAttempt = await applyUpdate(root, candidateRelease, { failBeforeWrite: true });
+  const candidateVersion = "0.1.1";
+  const manifest = createFixtureReleaseManifest(candidateVersion);
+  const plan = buildPackagedUpdatePlan({
+    manifest,
+    targetPlatform: "macos-arm64",
+    installedRelease: await readInstalledRelease(root)
+  });
+
+  if (plan.status !== "ready") {
+    throw new Error(`fixture update plan was not ready: ${plan.issues.join("; ")}`);
+  }
+
+  const deferred = await deferPackagedUpdate(root, plan);
+  const failedAttempt = await applyPackagedUpdate(root, plan, {
+    failBeforeWrite: true,
+    failureReason: "fixture checksum failure before install write"
+  });
   const versionAfterFailedAttempt = (await readInstalledRelease(root)).version;
-  const retry = await applyUpdate(root, candidateRelease);
-  const versionAfterRetry = (await readInstalledRelease(root)).version;
-  const launchAfterUpdate = { ok: false, version: candidateRelease.version, reason: "fixture launch verification failure" };
-
-  await rollbackToRelease(root, retry.previousRelease, launchAfterUpdate.reason);
-
-  const launchAfterRollback = await launchInstalledRelease(root);
-  const protectedAfter = await snapshotFiles(root, PROTECTED_PATHS);
-  const changedProtectedPaths = compareSnapshots(protectedBefore, protectedAfter);
+  const rollbackAttempt = await applyPackagedUpdate(root, plan, {
+    launchVerifier: async () => ({
+      ok: false,
+      version: candidateVersion,
+      reason: "fixture launch verification failure"
+    })
+  });
   const finalRelease = await readInstalledRelease(root);
+  const launchAfterRollback = await launchInstalledRelease(root);
+  const changedProtectedPaths = uniqueStrings([
+    ...failedAttempt.changedProtectedPaths,
+    ...rollbackAttempt.changedProtectedPaths
+  ]);
+  const credentialSnapshot = rollbackAttempt.protectedSnapshots.before.find((entry) =>
+    entry.relativePath === "credentials/codex-cli-login-ref.txt"
+  );
   const checks = {
     install_signed_package: initialLaunch.ok && initialLaunch.version === "0.1.0",
-    apply_update: retry.applied === true && versionAfterRetry === candidateRelease.version,
-    defer_update: deferredWithoutChangingVersion === true,
-    retry_failed_update: failedAttempt.applied === false && versionAfterFailedAttempt === "0.1.0" && versionAfterRetry === candidateRelease.version,
-    rollback_after_failed_launch: launchAfterUpdate.ok === false && finalRelease.version === retry.previousRelease.version,
+    apply_update: rollbackAttempt.applied === true && rollbackAttempt.candidateRelease.version === candidateVersion,
+    defer_update: deferred.status === "deferred" && deferred.activeVersion === "0.1.0",
+    retry_failed_update: failedAttempt.applied === false && versionAfterFailedAttempt === "0.1.0" && rollbackAttempt.applied === true,
+    rollback_after_failed_launch: rollbackAttempt.rollbackApplied === true && finalRelease.version === rollbackAttempt.previousRelease.version,
     launch_after_rollback: launchAfterRollback.ok === true && launchAfterRollback.version === "0.1.0",
     preserve_user_data: changedProtectedPaths.filter((path) => path !== "credentials/codex-cli-login-ref.txt").length === 0,
     preserve_credentials: !changedProtectedPaths.includes("credentials/codex-cli-login-ref.txt")
+      && credentialSnapshot?.snapshotMode === "metadata_only_no_read"
+      && credentialSnapshot?.contentRead === false
   };
 
   return {
     initialVersion: "0.1.0",
-    candidateVersion: candidateRelease.version,
+    candidateVersion,
     finalVersion: finalRelease.version,
+    updatePlan: {
+      status: plan.status,
+      targetPlatform: plan.targetPlatform,
+      artifact: plan.artifact,
+      manifestSignatureRef: plan.manifestSignatureRef
+    },
     checks,
     changedProtectedPaths,
     protectedPaths: PROTECTED_PATHS,
+    credentialSnapshotMode: credentialSnapshot?.snapshotMode ?? "missing",
     updaterTouchedPaths: Object.values(APP_PATHS)
   };
 }
@@ -210,8 +118,10 @@ function evidenceForScenario(scenario, rootMode) {
     initialVersion: scenario.initialVersion,
     candidateVersion: scenario.candidateVersion,
     finalVersion: scenario.finalVersion,
+    updatePlan: scenario.updatePlan,
     checks: scenario.checks,
     protectedPaths: scenario.protectedPaths,
+    credentialSnapshotMode: scenario.credentialSnapshotMode,
     updaterTouchedPaths: scenario.updaterTouchedPaths,
     issues,
     checked: [
@@ -222,6 +132,7 @@ function evidenceForScenario(scenario, rootMode) {
       "failed launch rolls back to the previous app binary and release metadata",
       "launch after rollback succeeds",
       "local DB, generated workspace, support bundle, operator files, and credential refs are preserved",
+      "credential ref snapshots use metadata-only no-read mode",
       "dry-run remains credential-free and does not replace signed package or device evidence for #267"
     ]
   };
