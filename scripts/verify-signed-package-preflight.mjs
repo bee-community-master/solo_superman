@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath, URL } from "node:url";
+import { tokenLikePattern } from "./secret-patterns.mjs";
 
 export const SIGNED_PACKAGE_PREFLIGHT_SCHEMA_VERSION = "solo-superman-signed-package-preflight.v1";
 export const DEFAULT_SIGNED_PACKAGE_PREFLIGHT_PATH = "docs/signed-package-preflight.example.json";
@@ -29,9 +30,7 @@ const REQUIRED_HARD_GATES = new Set([
   "device-install-update-rollback-verification"
 ]);
 const SECRET_QUERY_NAME_PATTERN = /(?:token|secret|password|pass|api[_-]?key|credential|auth|session)/iu;
-const PROVIDER_TOKEN_PATTERN =
-  /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})\b/u;
-const BEARER_TOKEN_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/-]{10,}/u;
+const TOKEN_LIKE_PATTERN = tokenLikePattern("iu");
 const ENV_NAME_PATTERN = /^[A-Z][A-Z0-9_]+$/u;
 
 function isRecord(value) {
@@ -91,7 +90,7 @@ function collectStrings(value, path = "$", strings = []) {
 
 function validateNoSecretStrings(contract, issues) {
   for (const { path, value } of collectStrings(contract)) {
-    if (PROVIDER_TOKEN_PATTERN.test(value) || BEARER_TOKEN_PATTERN.test(value)) {
+    if (TOKEN_LIKE_PATTERN.test(value)) {
       addIssue(issues, path, "must not contain token-shaped values");
     }
   }

@@ -157,8 +157,39 @@ function fakeCommandRunner(command, args) {
 
 describe("support diagnostics bundle", () => {
   it("redacts URL credentials, query secrets, and known token shapes", () => {
-    expect(redactSupportText("https://user:ghp_abcdefghijklmnopqrstuvwxyz@github.com/org/repo.git?token=secret-value sk-test_abcdefghijklmnopqrstuv"))
-      .toBe("https://<redacted>@github.com/org/repo.git?token=<redacted> <redacted>");
+    const sample = [
+      "https://user:ghp_abcdefghijklmnopqrstuvwxyz@github.com/org/repo.git?token=secret-value",
+      "sk-test_abcdefghijklmnopqrstuv",
+      "github_pat_abcdefghijklmnopqrstuv",
+      "xoxb-abcdefghijklmnopqrstuv",
+      "Bearer abcdefghijklmnopqrstuv"
+    ].join(" ");
+
+    expect(redactSupportText(sample)).toBe([
+      "https://<redacted>@github.com/org/repo.git?token=<redacted>",
+      "<redacted>",
+      "<redacted>",
+      "<redacted>",
+      "<redacted>"
+    ].join(" "));
+  });
+
+  it("redacts token-like values before truncating support output", () => {
+    const tokenCases = [
+      { marker: "ghp_", value: `ghp_${"a".repeat(30)}` },
+      { marker: "github_pat_", value: `github_pat_${"b".repeat(30)}` },
+      { marker: "sk-", value: `sk-${"c".repeat(30)}` },
+      { marker: "npm_", value: `npm_${"d".repeat(30)}` },
+      { marker: "xoxb-", value: `xoxb-${"e".repeat(30)}` },
+      { marker: "Bearer ", value: `Bearer ${"f".repeat(30)}` }
+    ];
+
+    for (const token of tokenCases) {
+      const redacted = redactSupportText(`${"x".repeat(3995)} ${token.value}`);
+
+      expect(redacted).not.toContain(token.marker);
+      expect(redacted).not.toContain(token.value.slice(-20));
+    }
   });
 
   it("captures credential-free support evidence without dumping secret environment values", async () => {

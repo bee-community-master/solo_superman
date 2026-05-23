@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath, URL } from "node:url";
+import { tokenLikePattern } from "./secret-patterns.mjs";
 
 export const RELEASE_UPDATE_MANIFEST_SCHEMA_VERSION = "solo-superman-release-update-manifest.v1";
 export const DEFAULT_RELEASE_UPDATE_MANIFEST_PATH = "docs/release-update-channel.example.json";
@@ -27,9 +28,7 @@ const REQUIRED_UPDATE_POLICY_FLAGS = [
   "supportsRollback"
 ];
 const SECRET_QUERY_NAME_PATTERN = /(?:token|secret|password|pass|api[_-]?key|credential|auth|session)/iu;
-const PROVIDER_TOKEN_PATTERN =
-  /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})\b/u;
-const BEARER_TOKEN_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/-]{10,}/u;
+const TOKEN_LIKE_PATTERN = tokenLikePattern("iu");
 const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
@@ -95,7 +94,7 @@ function collectStrings(value, path = "$", strings = []) {
 
 function validateNoSecretStrings(manifest, issues) {
   for (const { path, value } of collectStrings(manifest)) {
-    if (PROVIDER_TOKEN_PATTERN.test(value) || BEARER_TOKEN_PATTERN.test(value)) {
+    if (TOKEN_LIKE_PATTERN.test(value)) {
       addIssue(issues, path, "must not contain token-shaped values");
     }
   }
