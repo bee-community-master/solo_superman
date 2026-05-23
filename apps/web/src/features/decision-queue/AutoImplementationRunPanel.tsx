@@ -5,11 +5,13 @@ import {
   canOpenNewAutoImplementationPullRequest,
   canPlanCurrentStageAutoImplementationWorkerJob,
   canRunAutoImplementationWorkerJob,
+  latestAutoImplementationWorkerJobForIssue,
   latestCurrentStageAutoImplementationWorkerJob,
   type AutoImplementationGitHubIssuePlan,
   type AutoImplementationIssueDocument,
   type AutoImplementationIssueStatusSummary,
   type AutoImplementationPullRequestMutationRecord,
+  type AutoImplementationRun,
   type AutoImplementationRunProjection,
   type AutoImplementationStageReviewGate,
   type AutoImplementationStageRecord,
@@ -36,6 +38,13 @@ interface AutoImplementationWorkerPlanView {
   readonly evidenceRefs: readonly string[];
 }
 
+export interface AutoImplementationIssueRowView {
+  readonly issue: AutoImplementationIssueDocument;
+  readonly latestWorkerJobLabel: string;
+  readonly blockerLabel: string | null;
+  readonly nextActionLabel: string;
+}
+
 export interface AutoImplementationRunViewModel {
   readonly status: string;
   readonly summary: string;
@@ -55,6 +64,7 @@ export interface AutoImplementationRunViewModel {
   readonly latestPullRequestMutation: AutoImplementationPullRequestMutationRecord | null;
   readonly stages: readonly AutoImplementationStageRecord[];
   readonly issueDocs: readonly AutoImplementationIssueDocument[];
+  readonly issueRows: readonly AutoImplementationIssueRowView[];
   readonly deliveryGates: readonly string[];
   readonly stageReviewGates: readonly AutoImplementationStageReviewGate[];
   readonly evidenceRefs: readonly string[];
@@ -93,6 +103,66 @@ function formatIssueStatusSummaryLabel(summary: AutoImplementationIssueStatusSum
   return `Issue status summary: ${summary.completed} completed / ${summary.blocked} blocked / ${summary.open} open / ${summary.total} total`;
 }
 
+function autoImplementationStageRecordForIssue(
+  run: AutoImplementationRun,
+  issue: AutoImplementationIssueDocument
+) {
+  return run.stagePlan.find((stage) => stage.stage === issue.stage) ?? null;
+}
+
+function issueRowNextAction(input: {
+  readonly stage: AutoImplementationStageRecord | null;
+  readonly latestWorkerJob: AutoImplementationWorkerJob | null;
+}) {
+  if (input.latestWorkerJob?.nextRequiredAction) {
+    return input.latestWorkerJob.nextRequiredAction;
+  }
+
+  if (input.stage?.blocker?.nextRequiredAction) {
+    return input.stage.blocker.nextRequiredAction;
+  }
+
+  if (input.stage?.status === "completed") {
+    return "Use the completed stage ledger evidence before advancing the next PR slice.";
+  }
+
+  return "Work this issue through the delivery protocol, review streaks, and test evidence checklist.";
+}
+
+function issueRowBlockerLabel(input: {
+  readonly stage: AutoImplementationStageRecord | null;
+  readonly latestWorkerJob: AutoImplementationWorkerJob | null;
+}) {
+  if (input.latestWorkerJob?.blockedReason) {
+    return `worker blocker: ${input.latestWorkerJob.blockedReason}`;
+  }
+
+  if (input.stage?.blocker?.reason) {
+    return `stage blocker: ${input.stage.blocker.reason}`;
+  }
+
+  return null;
+}
+
+function latestIssueWorkerJobLabel(latestWorkerJob: AutoImplementationWorkerJob | null) {
+  return latestWorkerJob ? `latest worker ${latestWorkerJob.jobId} (${latestWorkerJob.status})` : "latest worker none";
+}
+
+function autoImplementationIssueRowView(
+  run: AutoImplementationRun,
+  issue: AutoImplementationIssueDocument
+): AutoImplementationIssueRowView {
+  const stage = autoImplementationStageRecordForIssue(run, issue);
+  const latestWorkerJob = latestAutoImplementationWorkerJobForIssue(run, issue);
+
+  return {
+    issue,
+    latestWorkerJobLabel: latestIssueWorkerJobLabel(latestWorkerJob),
+    blockerLabel: issueRowBlockerLabel({ stage, latestWorkerJob }),
+    nextActionLabel: issueRowNextAction({ stage, latestWorkerJob })
+  };
+}
+
 export function autoImplementationRunViewModel(
   projection: AutoImplementationRunProjection | null,
   implementationStepLedger: ImplementationStepLedgerProjection | null = null
@@ -119,6 +189,7 @@ export function autoImplementationRunViewModel(
       latestPullRequestMutation: null,
       stages: [],
       issueDocs: [],
+      issueRows: [],
       deliveryGates: [],
       stageReviewGates: [],
       evidenceRefs: [],
@@ -207,6 +278,7 @@ export function autoImplementationRunViewModel(
     latestPullRequestMutation,
     stages: run.stagePlan,
     issueDocs: run.issueManagement.issueDocs,
+    issueRows: run.issueManagement.issueDocs.map((issue) => autoImplementationIssueRowView(run, issue)),
     deliveryGates: run.reviewProtocol.deliveryGates,
     stageReviewGates: run.reviewProtocol.stageGates,
     evidenceRefs: run.evidenceRefs,
@@ -547,11 +619,16 @@ export function AutoImplementationRunPanel({
       ) : null}
 
       <h3>{copy.autoImplementation.issueDocs}</h3>
-      {run.issueDocs.length ? (
+      {run.issueRows.length ? (
         <ul>
-          {run.issueDocs.map((issue) => (
-            <li key={issue.issueId}>
-              {issue.issueId}: {issue.title} — stage {issue.stage} / status {issue.status} ({issue.relativePath})
+          {run.issueRows.map((row) => (
+            <li key={row.issue.issueId}>
+              {row.issue.issueId}: {row.issue.title} — stage {row.issue.stage} / status {row.issue.status} ({row.issue.relativePath})
+              {" · "}
+              {row.latestWorkerJobLabel}
+              {" · "}
+              next: {row.nextActionLabel}
+              {row.blockerLabel ? ` · ${row.blockerLabel}` : ""}
             </li>
           ))}
         </ul>

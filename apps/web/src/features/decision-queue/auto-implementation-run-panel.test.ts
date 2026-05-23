@@ -189,6 +189,10 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.stages).toHaveLength(7);
     expect(view.stages[0]!.status).toBe("ready");
     expect(view.issueDocs[0]!.relativePath).toContain("implementation-issues/001-initial_pr.md");
+    expect(view.issueRows[0]).toMatchObject({
+      latestWorkerJobLabel: "latest worker none",
+      nextActionLabel: "Work this issue through the delivery protocol, review streaks, and test evidence checklist."
+    });
     expect(renderPanelMarkup(view)).toContain(
       "local-001: Workspace repo bootstrap and initial implementation PR — stage initial_pr / status open (implementation-issues/001-initial_pr.md)"
     );
@@ -219,6 +223,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestPullRequestMutation).toBeNull();
     expect(view.latestWorkerJobLabel).toContain("not planned");
     expect(view.latestWorkerPlan).toBeNull();
+    expect(view.issueRows).toEqual([]);
     expect(view.canPlanWorkerJob).toBe(false);
     expect(view.canRecordStageTick).toBe(false);
     expect(view.canStartStage).toBe(false);
@@ -243,10 +248,28 @@ describe("AutoImplementationRunPanel view model", () => {
   });
 
   it("renders synchronized issue status details from the run", () => {
+    const blockedWorker = workerJob({
+      jobId: "auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked",
+      stage: "code_review_fix_1",
+      issueId: "local-002",
+      issueTitle: "PR code review and fix pass 1",
+      issueRelativePath: "implementation-issues/002-code_review_fix_1.md",
+      status: "blocked",
+      blockedReason: "ExecutionAuthorityRecord is missing.",
+      missingEvidence: ["ExecutionAuthorityRecord"],
+      nextRequiredAction: "Create a bounded ExecutionAuthorityRecord before local worker execution.",
+      executionPlan: {
+        issueDocumentPath: "implementation-issues/002-code_review_fix_1.md"
+      }
+    });
     const view = autoImplementationRunViewModel({
       ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
       latestRun: {
         ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        stagePlan: AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.stagePlan.map((stage, index) =>
+          index === 0 ? { ...stage, status: "completed" as const } : stage
+        ),
+        workerJobs: [blockedWorker],
         issueManagement: {
           ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.issueManagement,
           issueDocs: AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.issueManagement.issueDocs.map((issue, index) =>
@@ -268,6 +291,15 @@ describe("AutoImplementationRunPanel view model", () => {
     const markup = renderPanelMarkup(view);
 
     expect(view.issueStatusSummaryLabel).toBe("Issue status summary: 1 completed / 1 blocked / 5 open / 7 total");
+    expect(view.issueRows[0]).toMatchObject({
+      latestWorkerJobLabel: "latest worker none",
+      nextActionLabel: "Use the completed stage ledger evidence before advancing the next PR slice."
+    });
+    expect(view.issueRows[1]).toMatchObject({
+      latestWorkerJobLabel: "latest worker auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (blocked)",
+      blockerLabel: "worker blocker: ExecutionAuthorityRecord is missing.",
+      nextActionLabel: "Create a bounded ExecutionAuthorityRecord before local worker execution."
+    });
     expect(markup).toContain("Issue status summary: 1 completed / 1 blocked / 5 open / 7 total");
     expect(markup).toContain(
       "local-001: Workspace repo bootstrap and initial implementation PR — stage initial_pr / status completed (implementation-issues/001-initial_pr.md)"
@@ -275,6 +307,9 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain(
       "local-002: PR code review and fix pass 1 — stage code_review_fix_1 / status blocked (implementation-issues/002-code_review_fix_1.md)"
     );
+    expect(markup).toContain("latest worker auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (blocked)");
+    expect(markup).toContain("next: Create a bounded ExecutionAuthorityRecord before local worker execution.");
+    expect(markup).toContain("worker blocker: ExecutionAuthorityRecord is missing.");
   });
 
   it("shows the latest GitHub PR mutation evidence and history count", () => {
