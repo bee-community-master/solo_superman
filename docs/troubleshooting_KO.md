@@ -75,6 +75,7 @@ Set-Location "$HOME\solo_superman"; pnpm.cmd start:local
 
 ```sh
 pnpm verify:prod-bundle
+pnpm verify:product-capability-readiness
 pnpm verify:release-channel
 pnpm verify:windows-real-device
 pnpm verify:packaged-update-rollback
@@ -84,7 +85,9 @@ pnpm verify:release-readiness
 pnpm verify
 ```
 
-Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 Node/Corepack command shim이 실행되도록 `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:windows-real-device`, `pnpm.cmd verify:packaged-update-rollback`, `pnpm.cmd verify:signed-package-preflight`, `pnpm.cmd verify:signed-package-release`, `pnpm.cmd verify:release-readiness`, `pnpm.cmd verify`를 사용합니다.
+Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 Node/Corepack command shim이 실행되도록 `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:product-capability-readiness`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:windows-real-device`, `pnpm.cmd verify:packaged-update-rollback`, `pnpm.cmd verify:signed-package-preflight`, `pnpm.cmd verify:signed-package-release`, `pnpm.cmd verify:release-readiness`, `pnpm.cmd verify`를 사용합니다.
+
+`pnpm verify:product-capability-readiness`는 [`product-capability-readiness_KO.md`](product-capability-readiness_KO.md)와 [`product-capability-readiness.example.json`](product-capability-readiness.example.json)을 검사해 질문/clarification volume, read-only research, Planning-ready gate, browser/service boundary, auto implementation review loop, technical-preview release guardrail이 code-backed verifier와 source ref를 갖는지 확인합니다. `--require-code-backed` 모드는 모든 core capability가 `code_backed`일 때만 통과해야 하며, broad release blocker는 `release-readiness` 계약으로 분리합니다.
 
 `pnpm verify:release-channel`은 `docs/release-update-channel.example.json`을 검사해 manifest signature, artifact checksum/signature, user consent/deferral, retry, rollback, credential/user-data preservation이 모두 선언되어 있는지 확인합니다. 이 명령은 release channel 계약 검증이며, signed package 설치나 실제 업데이트 적용을 수행하지 않습니다.
 
@@ -107,7 +110,7 @@ pnpm support:bundle
 pnpm support:bundle -- --output ./solo-superman-support-bundle.json
 ```
 
-Windows PowerShell에서는 `pnpm.cmd support:bundle` 또는 `pnpm.cmd support:bundle -- --output .\solo-superman-support-bundle.json`을 사용합니다. Bundle은 OS/Node/pnpm/Codex version, git branch/head/status, repo remote, package script, allowlisted environment, 그리고 `verify:release-channel`/`verify:windows-real-device`/`verify:packaged-update-rollback`/`verify:signed-package-preflight`/`verify:signed-package-release`/`verify:release-readiness`의 credential-free release diagnostics summary만 포함합니다. Release diagnostics는 status, blocked gate, missing credential group id와 env name처럼 값이 아닌 이름만 보존합니다. Full environment dump, file contents, browser cookies, OpenAI/GitHub token, ChatGPT web credential은 수집하지 않으며 URL credential, token/secret/password/API-key shaped value는 redacted로 남깁니다. 실패 리포트에 이 JSON을 첨부하되, 수동으로 secret을 추가하지 마세요.
+Windows PowerShell에서는 `pnpm.cmd support:bundle` 또는 `pnpm.cmd support:bundle -- --output .\solo-superman-support-bundle.json`을 사용합니다. Bundle은 OS/Node/pnpm/Codex version, git branch/head/status, repo remote, package script, allowlisted environment, 그리고 `verify:product-capability-readiness`/`verify:release-channel`/`verify:windows-real-device`/`verify:packaged-update-rollback`/`verify:signed-package-preflight`/`verify:signed-package-release`/`verify:release-readiness`의 credential-free product/release diagnostics summary만 포함합니다. Product/release diagnostics는 status, blocked capability/gate, missing credential group id와 env name처럼 값이 아닌 이름만 보존합니다. Full environment dump, file contents, browser cookies, OpenAI/GitHub token, ChatGPT web credential은 수집하지 않으며 URL credential, token/secret/password/API-key shaped value는 redacted로 남깁니다. 실패 리포트에 이 JSON을 첨부하되, 수동으로 secret을 추가하지 마세요.
 
 Production bundle smoke는 `build_auto_local_smoke`, browser readiness, managed child processes stopped, temporary app data removed, auto shutdown/kill evidence를 포함해야 합니다.
 `pnpm verify:prod-bundle`은 managed sidecar/web child process를 시작하기 전에 fixed smoke port를 먼저 확인합니다. `127.0.0.1:43110` 또는 설정된 web preview port가 이미 사용 중이면 기존 local process를 중지하거나 `SOLO_PROD_SMOKE_SIDECAR_PORT=<free-port>` / `SOLO_PROD_SMOKE_WEB_PORT=<free-port>`로 다시 실행합니다.
@@ -132,7 +135,7 @@ Live Codex app-server preview turn은 기본 비활성입니다. Maintainer는 `
 
 `pnpm verify:service-page-pipeline`은 credential-free service page-use pipeline smoke입니다. 임시 app data와 local sidecar를 만들고 loopback mock setup page를 띄운 뒤, matching permission 전 service-scoped browser action 차단, read/preview permission grant, permission/action echo 요구, retained artifact ref의 audit-metadata-only 삭제, revoke 이후 browser action 차단, per-action fill-draft permission, production-mutation contract 없는 final submit 차단을 검증합니다. 실제 service account, browser profile, credential/session/token custody, production deploy, final-submit execution, 외부 네트워크 접근은 이 smoke 범위 밖입니다.
 
-`pnpm verify:research-pipeline`은 credential-free research pipeline smoke입니다. 임시 app data와 local sidecar를 만들고 public-web allowlist를 생성한 뒤 read-only research run을 시작하며, source trace가 있는 result import와 pending `research_evidence_effect` drain 또는 이미 생성된 synthesis를 확인합니다. 통과하려면 Research projection에 evidence matrix/evidence pack/review card가 보이고 Decision Queue에 research-generated follow-up question debt가 노출되어야 합니다. `pnpm verify`는 clarification pipeline, clarification volume, research, browser delegation, service page-use, auto-implementation aggregate smoke를 함께 실행하며, auto-implementation aggregate가 runtime preview, worker job, PR mutation, missing-test audit ref를 포함한 review-loop evidence를 포함하므로 review-loop smoke를 중복 실행하지 않고 기본 로컬 검증에서 질문/리서치/구현 critical path와 staged review protocol을 모두 확인합니다.
+`pnpm verify:research-pipeline`은 credential-free research pipeline smoke입니다. 임시 app data와 local sidecar를 만들고 public-web allowlist를 생성한 뒤 read-only research run을 시작하며, source trace가 있는 result import와 pending `research_evidence_effect` drain 또는 이미 생성된 synthesis를 확인합니다. 통과하려면 Research projection에 evidence matrix/evidence pack/review card가 보이고 Decision Queue에 research-generated follow-up question debt가 노출되어야 합니다. `pnpm verify`는 product capability readiness, clarification pipeline, clarification volume, research, browser delegation, service page-use, auto-implementation aggregate smoke를 함께 실행하며, auto-implementation aggregate가 runtime preview, worker job, PR mutation, missing-test audit ref를 포함한 review-loop evidence를 포함하므로 review-loop smoke를 중복 실행하지 않고 기본 로컬 검증에서 질문/리서치/구현 critical path와 staged review protocol을 모두 확인합니다.
 
 ## 로컬 토큰과 sidecar URL
 

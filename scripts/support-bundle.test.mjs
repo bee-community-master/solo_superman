@@ -19,6 +19,16 @@ function fakeCommandRunner(command, args) {
     ["git remote get-url origin", "https://user:ghp_abcdefghijklmnopqrstuvwxyz@github.com/bee-community-master/solo_superman.git?token=secret-value"],
     ["pnpm --version", "11.0.4"],
     ["codex --version", "codex 0.128.0"],
+    [`${process.execPath} scripts/verify-product-capability-readiness.mjs`, JSON.stringify({
+      status: "passed",
+      schemaVersion: "solo-superman-product-capability-readiness.v1",
+      mode: "contract",
+      coreProductStatus: "code_backed",
+      coreProductCodeBacked: true,
+      blockedCapabilities: [],
+      blockers: [],
+      checked: ["all technical-preview core capabilities are code-backed"]
+    })],
     [`${process.execPath} scripts/verify-release-channel.mjs`, JSON.stringify({
       status: "passed",
       manifestPath: "docs/release-update-channel.example.json",
@@ -84,6 +94,7 @@ function fakeCommandRunner(command, args) {
           startLocal: "node scripts/start-local-web.mjs",
           verify: "pnpm typecheck && pnpm lint",
           verifyProdBundle: "node scripts/verify-prod-bundle.mjs",
+          verifyProductCapabilityReadiness: "node scripts/verify-product-capability-readiness.mjs",
           verifyReleaseChannel: "node scripts/verify-release-channel.mjs",
           verifyWindowsRealDevice: "node scripts/verify-windows-real-device.mjs",
           verifyPackagedUpdateRollback: "node scripts/verify-packaged-update-rollback.mjs",
@@ -131,12 +142,22 @@ describe("support diagnostics bundle", () => {
     expect(bundle.env).toEqual({ CI: "true", SOLO_CODEX_WINDOWS_MODE: "wsl" });
     expect(bundle.package.scripts.supportBundle).toBe("node scripts/support-bundle.mjs");
     expect(bundle.package.scripts.verifyReleaseReadiness).toBe("node scripts/verify-release-readiness.mjs");
+    expect(bundle.package.scripts.verifyProductCapabilityReadiness).toBe("node scripts/verify-product-capability-readiness.mjs");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:product-capability-readiness");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-channel");
     expect(bundle.recommendedChecks).toContain("pnpm verify:windows-real-device");
     expect(bundle.recommendedChecks).toContain("pnpm verify:packaged-update-rollback");
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-preflight");
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-release");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-readiness");
+    expect(bundle.releaseDiagnostics.productCapabilityReadiness).toMatchObject({
+      command: "pnpm verify:product-capability-readiness",
+      captureStatus: "ok",
+      evidenceStatus: "passed",
+      coreProductStatus: "code_backed",
+      coreProductCodeBacked: true,
+      blockedCapabilities: []
+    });
     expect(bundle.releaseDiagnostics.releaseChannel).toMatchObject({
       command: "pnpm verify:release-channel",
       captureStatus: "ok",
