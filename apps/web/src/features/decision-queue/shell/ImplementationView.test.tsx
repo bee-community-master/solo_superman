@@ -88,6 +88,7 @@ describe("ImplementationView", () => {
     expect(markup).toContain("Execution records");
     expect(markup).toContain('<button type="button">Refresh runtime status</button>');
     expect(markup).toContain("Tool unavailable. No background tasks are pending.");
+    expect(markup).toContain("Runtime checked at: 2026-05-23T00:00:00.000Z");
   });
 
   it("disables the runtime status refresh action while another local action is running", () => {
@@ -118,6 +119,8 @@ describe("ImplementationView", () => {
     expect(markup).toContain("Worker runtime readiness");
     expect(markup).toContain("Runtime status");
     expect(markup).toContain("available");
+    expect(markup).toContain("Checked at");
+    expect(markup).toContain("2026-05-23T00:00:00.000Z");
     expect(markup).toContain("Execution mode");
     expect(markup).toContain("live");
     expect(markup).toContain("Live turns");

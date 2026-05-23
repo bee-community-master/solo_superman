@@ -39,6 +39,7 @@ interface AutoImplementationWorkerRuntimeView {
   readonly statusLabel: string;
   readonly executionModeLabel: string;
   readonly accountLabel: string;
+  readonly checkedAtLabel: string | null;
   readonly liveTurnsState: AutoImplementationLiveTurnState;
   readonly manualHandoffState: AutoImplementationRuntimeAvailability;
   readonly reasonLabel: string | null;
@@ -166,6 +167,7 @@ function autoImplementationWorkerRuntimeView(
     statusLabel: runtimeStatus?.status ?? "unknown",
     executionModeLabel: runtimeStatus?.executionMode ?? "unknown",
     accountLabel: codexWorkerAccountLabel(runtimeStatus),
+    checkedAtLabel: runtimeStatus?.checkedAt ?? null,
     liveTurnsState: runtimeStatus ? (runtimeStatus.liveTurnExecutionEnabled ? "enabled" : "disabled") : "unknown",
     manualHandoffState: runtimeStatus
       ? (runtimeStatus.manualHandoffAvailable ? "available" : "unavailable")
@@ -536,6 +538,12 @@ export function AutoImplementationRunPanel({
               <dt>{copy.autoImplementation.workerRuntimeAccount}</dt>
               <dd>{run.workerRuntimeReadiness.accountLabel}</dd>
             </div>
+            {run.workerRuntimeReadiness.checkedAtLabel ? (
+              <div>
+                <dt>{copy.autoImplementation.workerRuntimeCheckedAt}</dt>
+                <dd>{run.workerRuntimeReadiness.checkedAtLabel}</dd>
+              </div>
+            ) : null}
             <div>
               <dt>{copy.autoImplementation.workerRuntimeLiveTurns}</dt>
               <dd>{workerRuntimeLiveTurns}</dd>

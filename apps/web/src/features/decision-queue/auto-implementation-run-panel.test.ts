@@ -297,6 +297,7 @@ describe("AutoImplementationRunPanel view model", () => {
       statusLabel: "unavailable",
       executionModeLabel: "manual_handoff",
       accountLabel: "authenticated (chatgpt / plus)",
+      checkedAtLabel: "2026-05-23T00:00:00.000Z",
       liveTurnsState: "disabled",
       manualHandoffState: "available"
     });
@@ -308,6 +309,8 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("manual_handoff");
     expect(markup).toContain("Codex account");
     expect(markup).toContain("authenticated (chatgpt / plus)");
+    expect(markup).toContain("Checked at");
+    expect(markup).toContain("2026-05-23T00:00:00.000Z");
     expect(markup).toContain("Live turns");
     expect(markup).toContain("disabled");
     expect(markup).toContain("Manual handoff");
@@ -331,6 +334,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.workerRuntimeReadiness).toMatchObject({
       statusLabel: "available",
       executionModeLabel: "live",
+      checkedAtLabel: "2026-05-23T00:00:00.000Z",
       liveTurnsState: "enabled",
       manualHandoffState: "available"
     });
