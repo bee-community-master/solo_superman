@@ -124,6 +124,10 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
               <dd>{questionProgress.followUpQuestionCount}</dd>
             </div>
             <div>
+              <dt>{copy.questions.questionProgressOpenFollowUps}</dt>
+              <dd>{questionProgress.followUpOpenQuestionCount}</dd>
+            </div>
+            <div>
               <dt>{copy.questions.questionProgressTopics}</dt>
               <dd>{questionProgress.topicCoverageCount}</dd>
             </div>
