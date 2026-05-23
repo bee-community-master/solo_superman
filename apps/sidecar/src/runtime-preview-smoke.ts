@@ -8,6 +8,14 @@ import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } fr
 import { createProductEngineCommandService } from "./product-engine/command-service";
 import { createCodexRuntimeAdapter, type CodexRuntimeAdapter } from "./runtime";
 import { createSidecarApp } from "./server";
+import {
+  firstRecord,
+  getJson,
+  objectAt,
+  postJson,
+  stringAt,
+  type JsonRecord
+} from "./smoke-helpers";
 
 export const LIVE_PREVIEW_TURN_VERIFY_ENV = "SOLO_VERIFY_CODEX_LIVE_PREVIEW_TURN" as const;
 export const LIVE_TURNS_ENV = "SOLO_CODEX_APP_SERVER_LIVE_TURNS" as const;
@@ -20,7 +28,6 @@ const REQUIRED_LIVE_GATE_BLOCKER = `${LIVE_TURNS_ENV}=1 is required before live 
 
 type SmokeMode = "fixture" | "live";
 type SmokeStatus = "blocked" | "passed";
-type JsonRecord = Readonly<Record<string, unknown>>;
 
 export interface RuntimePreviewTurnGateEvidence {
   readonly status: "ready" | "blocked";
@@ -133,54 +140,6 @@ export function runtimePreviewTurnGateEvidence(
   };
 }
 
-function authHeaders(token: string) {
-  return {
-    Authorization: `Bearer ${token}`
-  };
-}
-
-async function jsonEnvelope(response: Response, label: string) {
-  const body = (await response.json()) as JsonRecord;
-
-  if (response.status < 200 || response.status >= 300) {
-    throw new Error(`${label} failed with HTTP ${response.status}: ${JSON.stringify(body)}`);
-  }
-
-  return body;
-}
-
-function dataRecord(body: JsonRecord, label: string) {
-  if (!body.ok || typeof body.data !== "object" || body.data === null) {
-    throw new Error(`${label} did not return an ok data envelope.`);
-  }
-
-  return body.data as JsonRecord;
-}
-
-function objectAt(value: unknown, label: string) {
-  if (typeof value !== "object" || value === null) {
-    throw new Error(`${label} must be an object.`);
-  }
-
-  return value as JsonRecord;
-}
-
-function stringAt(value: unknown, label: string) {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`${label} must be a non-empty string.`);
-  }
-
-  return value;
-}
-
-function firstRecord(value: unknown, label: string) {
-  if (!Array.isArray(value) || typeof value[0] !== "object" || value[0] === null) {
-    throw new Error(`${label} must include at least one object.`);
-  }
-
-  return value[0] as JsonRecord;
-}
-
 function runtimePublicStatus(status: CodexRuntimeStatusDto) {
   return {
     status: status.status,
@@ -229,22 +188,14 @@ function blockedRuntimeEvidence(input: PreviewScenarioInput, status: CodexRuntim
 }
 
 async function createProject(storageApp: ReturnType<typeof createSidecarApp>, localCapabilityToken: string) {
-  const response = await storageApp.request("/api/v1/projects", {
-    method: "POST",
-    headers: {
-      ...authHeaders(localCapabilityToken),
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      rawIdea: "A runtime preview turn smoke idea",
-      localPrivacyMode: "local_only",
-      projectPurposeMode: "business",
-      projectPurposeModeConfirmation: "user_confirmed",
-      businessCriticIntensity: "balanced",
-      businessCriticIntensityConfirmation: "user_confirmed"
-    })
+  const data = await postJson(storageApp, "/api/v1/projects", localCapabilityToken, {
+    rawIdea: "A runtime preview turn smoke idea",
+    localPrivacyMode: "local_only",
+    projectPurposeMode: "business",
+    projectPurposeModeConfirmation: "user_confirmed",
+    businessCriticIntensity: "balanced",
+    businessCriticIntensityConfirmation: "user_confirmed"
   });
-  const data = dataRecord(await jsonEnvelope(response, "create project"), "create project");
   const projection = objectAt(data.immediateProjection, "create project immediateProjection");
 
   return stringAt(projection.sessionId, "create project sessionId");
@@ -255,23 +206,15 @@ async function queuePreviewTurn(
   localCapabilityToken: string,
   sessionId: string
 ) {
-  const response = await storageApp.request("/api/v1/runtime/codex/preview", {
-    method: "POST",
-    headers: {
-      ...authHeaders(localCapabilityToken),
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      sessionId,
-      expectedStateVersion: 1,
-      turnPurpose: PREVIEW_TURN_PURPOSE,
-      contextHash: PREVIEW_CONTEXT_HASH,
-      prompt: "Preview a bounded implementation plan without executing file, shell, browser, or network actions.",
-      sourceRefs: ["runtime-preview-turn-smoke"],
-      targetObject: "PlanningNote"
-    })
+  const data = await postJson(storageApp, "/api/v1/runtime/codex/preview", localCapabilityToken, {
+    sessionId,
+    expectedStateVersion: 1,
+    turnPurpose: PREVIEW_TURN_PURPOSE,
+    contextHash: PREVIEW_CONTEXT_HASH,
+    prompt: "Preview a bounded implementation plan without executing file, shell, browser, or network actions.",
+    sourceRefs: ["runtime-preview-turn-smoke"],
+    targetObject: "PlanningNote"
   });
-  const data = dataRecord(await jsonEnvelope(response, "queue runtime preview"), "queue runtime preview");
   const pendingEffectSummary = objectAt(data.pendingEffectSummary, "queue runtime preview pendingEffectSummary");
   const byType = objectAt(pendingEffectSummary.byType, "queue runtime preview pendingEffectSummary.byType");
 
@@ -287,11 +230,7 @@ async function completedCommandStatus(
   localCapabilityToken: string,
   statusUrl: string
 ) {
-  const response = await storageApp.request(statusUrl, {
-    headers: authHeaders(localCapabilityToken)
-  });
-
-  return dataRecord(await jsonEnvelope(response, "runtime preview command status"), "runtime preview command status");
+  return getJson(storageApp, statusUrl, localCapabilityToken);
 }
 
 async function runtimeActivity(
@@ -299,11 +238,11 @@ async function runtimeActivity(
   localCapabilityToken: string,
   sessionId: string
 ) {
-  const response = await storageApp.request(`/api/v1/sessions/${sessionId}/activity`, {
-    headers: authHeaders(localCapabilityToken)
-  });
-
-  return dataRecord(await jsonEnvelope(response, "runtime activity"), "runtime activity") as unknown as RuntimeActivityProjection;
+  return getJson(
+    storageApp,
+    `/api/v1/sessions/${sessionId}/activity`,
+    localCapabilityToken
+  ) as unknown as RuntimeActivityProjection;
 }
 
 function blockersFromPreviewResult(input: {

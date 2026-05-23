@@ -9388,6 +9388,25 @@ describe("PR-02 sidecar health shell", () => {
         summary: expect.stringContaining("completed")
       });
 
+      const invalidTickResponse = await postAutoImplementationWorkerStageAdvanceForTest(
+        storageApp,
+        sessionId,
+        runId,
+        plannedJobId,
+        {
+          idempotencyKey: "worker-stage-advance:invalid-tick",
+          tickedAt: "not-an-iso-date",
+          evidenceRefs: ["worker-stage-advance:invalid-tick"]
+        }
+      );
+      const invalidTickBody = await jsonBody(invalidTickResponse);
+
+      expect(invalidTickResponse.status).toBe(400);
+      expect(invalidTickBody.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message: "tickedAt must be an ISO timestamp."
+      });
+
       const advancedFromWorkerResponse = await postAutoImplementationWorkerStageAdvanceForTest(
         storageApp,
         sessionId,
