@@ -1,7 +1,5 @@
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback } from "react";
 import {
-  BUSINESS_CRITIC_INTENSITY_LABELS,
-  PROJECT_PURPOSE_MODE_LABELS,
   type BusinessCriticIntensity,
   type DecisionQueueProjection,
   type ProjectId,
@@ -25,7 +23,6 @@ import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
 import { draftedActiveQuestionAnswerIds, queueItemIsQuestionDebt } from "../decision-queue-view-model";
 import { webPublicResearchAllowlistPolicy } from "../phase15a-research-run-request";
 import {
-  BUSINESS_CRITIC_INTENSITY_OPTIONS,
   displayError,
   emptyProjectionState,
   emptyResearchOperationsState,
@@ -33,7 +30,6 @@ import {
   type InitialResearchPermission,
   initialQueueStartBlocker,
   latestCommandBackedProjectionVersion,
-  PROJECT_PURPOSE_MODE_OPTIONS,
   type AppendCommand,
   type CommandLogEntry,
   type ConnectionState,
@@ -146,6 +142,8 @@ export function useDecisionQueueSessionActions({
   startReadyReadOnlyResearchRunsAfterAnswer,
   onInitialQueueCreated
 }: DecisionQueueSessionActionsProps) {
+  const { initialQueueStartBlockers, sessionActionErrors, sessionActionReasons } = copy.questions;
+
   const enableInitialResearchSources = useCallback(
     async (activeClient: SidecarClient, projectId: ProjectId) => {
       const response = await appendCommand(
@@ -185,22 +183,22 @@ export function useDecisionQueueSessionActions({
       });
 
       if (startBlocker) {
-        setWorkflowError(copy.questions.initialQueueStartBlockers[startBlocker]);
+        setWorkflowError(initialQueueStartBlockers[startBlocker]);
         return;
       }
 
       if (!client) {
-        setWorkflowError(copy.questions.initialQueueStartBlockers.sidecar_connection);
+        setWorkflowError(initialQueueStartBlockers.sidecar_connection);
         return;
       }
 
       if (!projectPurposeMode) {
-        setWorkflowError(copy.questions.initialQueueStartBlockers.project_purpose);
+        setWorkflowError(initialQueueStartBlockers.project_purpose);
         return;
       }
 
       if (projectPurposeMode === "business" && !businessCriticIntensity) {
-        setWorkflowError(copy.questions.initialQueueStartBlockers.business_critic_intensity);
+        setWorkflowError(initialQueueStartBlockers.business_critic_intensity);
         return;
       }
 
@@ -214,6 +212,12 @@ export function useDecisionQueueSessionActions({
       setPhase15bReadiness(null);
 
       try {
+        const projectPurposeLabel =
+          copy.projectPurposeModeOptions.find((option) => option.mode === projectPurposeMode)?.label ?? projectPurposeMode;
+        const businessCriticIntensityLabel = businessCriticIntensity
+          ? (copy.businessCriticIntensityOptions.find((option) => option.intensity === businessCriticIntensity)?.label ??
+            businessCriticIntensity)
+          : null;
         const start = await appendCommand(
           "Create project",
           await client.createProject({
@@ -221,14 +225,16 @@ export function useDecisionQueueSessionActions({
             localPrivacyMode: "local_only",
             projectPurposeMode,
             projectPurposeModeConfirmation: "user_confirmed",
-            projectPurposeModeReason: `${PROJECT_PURPOSE_MODE_LABELS[projectPurposeMode]}으로 사용자가 시작 전에 확인했습니다.`,
+            projectPurposeModeReason: sessionActionReasons.projectPurposeConfirmed(projectPurposeLabel),
             ...(projectPurposeMode === "business" && businessCriticIntensity
               ? {
                   businessCriticIntensity,
                   businessCriticIntensityConfirmation: "user_confirmed" as const,
                   businessCriticIntensityReason:
                     initialBusinessCriticIntensityReason.trim() ||
-                    `${BUSINESS_CRITIC_INTENSITY_LABELS[businessCriticIntensity]}으로 사용자가 시작 전에 확인했습니다.`
+                    sessionActionReasons.businessCriticIntensityConfirmed(
+                      businessCriticIntensityLabel ?? businessCriticIntensity
+                    )
                 }
               : {})
           })
@@ -279,7 +285,9 @@ export function useDecisionQueueSessionActions({
       chatGptLoginAcknowledged,
       codexLoginAuthenticated,
       connectionStatus,
-      copy.questions.initialQueueStartBlockers,
+      copy.businessCriticIntensityOptions,
+      copy.projectPurposeModeOptions,
+      initialQueueStartBlockers,
       initialBusinessCriticIntensityReason,
       initialResearchPermission,
       client,
@@ -290,6 +298,7 @@ export function useDecisionQueueSessionActions({
       projectPurposeMode,
       refetchQueueAfterSseNotification,
       refreshProjections,
+      sessionActionReasons,
       onInitialQueueCreated
     ]
   );
@@ -297,19 +306,19 @@ export function useDecisionQueueSessionActions({
   const changeProjectPurposeMode = useCallback(
     async (nextMode: ProjectPurposeMode) => {
       if (!client || !projections.session) {
-        setWorkflowError("An active session is required before changing the project purpose mode.");
+        setWorkflowError(sessionActionErrors.activeSessionRequiredProjectPurpose);
         return;
       }
 
       if (nextMode === projections.session.projectPurposeMode) {
-        setWorkflowError("Project purpose mode is already set to the selected value.");
+        setWorkflowError(sessionActionErrors.projectPurposeAlreadySelected);
         return;
       }
 
-      const selectedOption = PROJECT_PURPOSE_MODE_OPTIONS.find((option) => option.mode === nextMode);
+      const selectedOption = copy.projectPurposeModeOptions.find((option) => option.mode === nextMode);
       const reason =
         purposeModeChangeReason.trim() ||
-        `사용자가 프로젝트 목적을 ${selectedOption?.label ?? nextMode}으로 변경했습니다.`;
+        sessionActionReasons.projectPurposeChanged(selectedOption?.label ?? nextMode);
 
       setIsBusy(true);
       setWorkflowError(null);
@@ -340,25 +349,34 @@ export function useDecisionQueueSessionActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections, purposeModeChangeReason, refreshProjections]
+    [
+      appendCommand,
+      client,
+      copy.projectPurposeModeOptions,
+      projections,
+      purposeModeChangeReason,
+      refreshProjections,
+      sessionActionErrors,
+      sessionActionReasons
+    ]
   );
 
   const changeBusinessCriticIntensity = useCallback(
     async (nextIntensity: BusinessCriticIntensity) => {
       if (!client || !projections.session) {
-        setWorkflowError("An active session is required before changing the business critic intensity.");
+        setWorkflowError(sessionActionErrors.activeSessionRequiredBusinessCriticIntensity);
         return;
       }
 
       if (projections.session.projectPurposeMode !== "business") {
-        setWorkflowError("상업성 검증 강도는 사업화 검증 중심 프로젝트에서만 변경할 수 있습니다.");
+        setWorkflowError(sessionActionErrors.businessCriticIntensityBusinessOnly);
         return;
       }
 
-      const selectedOption = BUSINESS_CRITIC_INTENSITY_OPTIONS.find((option) => option.intensity === nextIntensity);
+      const selectedOption = copy.businessCriticIntensityOptions.find((option) => option.intensity === nextIntensity);
       const reason =
         businessCriticIntensityChangeReason.trim() ||
-        `사용자가 상업성 검증 강도를 ${selectedOption?.label ?? nextIntensity}으로 변경했습니다.`;
+        sessionActionReasons.businessCriticIntensityChanged(selectedOption?.label ?? nextIntensity);
 
       setIsBusy(true);
       setWorkflowError(null);
@@ -389,20 +407,29 @@ export function useDecisionQueueSessionActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, businessCriticIntensityChangeReason, client, projections, refreshProjections]
+    [
+      appendCommand,
+      businessCriticIntensityChangeReason,
+      client,
+      copy.businessCriticIntensityOptions,
+      projections,
+      refreshProjections,
+      sessionActionErrors,
+      sessionActionReasons
+    ]
   );
 
   const submitAnswer = useCallback(
     async (queueItemId: QueueItemId) => {
       if (!client || !projections.session) {
-        setWorkflowError("An active session is required before submitting an answer.");
+        setWorkflowError(sessionActionErrors.activeSessionRequiredSubmitAnswer);
         return;
       }
 
       const answer = answerDrafts[queueItemId]?.trim();
 
       if (!answer) {
-        setWorkflowError("Answer text is required.");
+        setWorkflowError(sessionActionErrors.answerTextRequired);
         return;
       }
 
@@ -445,20 +472,21 @@ export function useDecisionQueueSessionActions({
       projections,
       refetchQueueAfterSseNotification,
       refreshProjections,
+      sessionActionErrors,
       startReadyReadOnlyResearchRunsAfterAnswer
     ]
   );
 
   const submitDraftedActiveAnswers = useCallback(async () => {
     if (!client || !projections.session) {
-      setWorkflowError("An active session is required before submitting drafted answers.");
+      setWorkflowError(sessionActionErrors.activeSessionRequiredDraftedAnswers);
       return;
     }
 
     const queueItemIds = draftedActiveQuestionAnswerIds(projections.queue, answerDrafts);
 
     if (!queueItemIds.length) {
-      setWorkflowError("Write at least one active question answer before submitting drafted answers.");
+      setWorkflowError(sessionActionErrors.draftedAnswersRequired);
       return;
     }
 
@@ -524,8 +552,8 @@ export function useDecisionQueueSessionActions({
 
       const partialFailureNote = submittedQueueItemIds.length
         ? refreshedAfterPartialFailure
-          ? " Some drafted answers were submitted before the failure; the queue was refreshed."
-          : " Some drafted answers were submitted before the failure; refresh the queue before continuing."
+          ? sessionActionErrors.draftedAnswersPartialFailureRefreshed
+          : sessionActionErrors.draftedAnswersPartialFailureRefreshRequired
         : "";
       setWorkflowError(`${displayError(error)}${partialFailureNote}`);
     } finally {
@@ -538,12 +566,13 @@ export function useDecisionQueueSessionActions({
     projections,
     refetchQueueAfterSseNotification,
     refreshProjections,
+    sessionActionErrors,
     startReadyReadOnlyResearchRunsAfterAnswer
   ]);
 
   const refreshQuestionList = useCallback(async () => {
     if (!projections.session) {
-      setWorkflowError("An active session is required before refreshing questions.");
+      setWorkflowError(sessionActionErrors.activeSessionRequiredRefreshQuestions);
       return;
     }
 
@@ -557,16 +586,16 @@ export function useDecisionQueueSessionActions({
     } finally {
       setIsBusy(false);
     }
-  }, [projections.session, refreshProjections]);
+  }, [projections.session, refreshProjections, sessionActionErrors]);
 
   const loadNextQuestionBatch = useCallback(async () => {
     if (!client || !projections.session) {
-      setWorkflowError("An active session is required before loading the next question list.");
+      setWorkflowError(sessionActionErrors.activeSessionRequiredLoadNextQuestions);
       return;
     }
 
     if (projections.queue?.active.length) {
-      setWorkflowError("Answer or save the current questions before loading the next question list.");
+      setWorkflowError(sessionActionErrors.answerCurrentBeforeLoadNextQuestions);
       return;
     }
 
@@ -595,19 +624,19 @@ export function useDecisionQueueSessionActions({
     } finally {
       setIsBusy(false);
     }
-  }, [appendCommand, client, projections, refetchQueueAfterSseNotification, refreshProjections]);
+  }, [appendCommand, client, projections, refetchQueueAfterSseNotification, refreshProjections, sessionActionErrors]);
 
   const carryQueueItemAsKnownRisk = useCallback(
     async (queueItemId: QueueItemId) => {
       if (!client || !projections.session) {
-        setWorkflowError("An active session is required before carrying a queue item as a Known Risk.");
+        setWorkflowError(sessionActionErrors.activeSessionRequiredKnownRisk);
         return;
       }
 
       const nextValidationAction = knownRiskDrafts[queueItemId]?.trim();
 
       if (!nextValidationAction) {
-        setWorkflowError("Next Validation Action is required to carry a business critic item as a Known Risk.");
+        setWorkflowError(sessionActionErrors.knownRiskNextValidationActionRequired);
         return;
       }
 
@@ -621,7 +650,7 @@ export function useDecisionQueueSessionActions({
             sessionId: projections.session.sessionId,
             queueItemId,
             expectedStateVersion: latestCommandBackedProjectionVersion(projections),
-            reason: "사용자가 business critic item을 Known Risk로 이관했습니다.",
+            reason: sessionActionReasons.businessCriticKnownRiskDeferred,
             riskDisposition: "known_risk_next_validation_action",
             nextValidationAction
           })
@@ -644,20 +673,29 @@ export function useDecisionQueueSessionActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, knownRiskDrafts, projections, refetchQueueAfterSseNotification, refreshProjections]
+    [
+      appendCommand,
+      client,
+      knownRiskDrafts,
+      projections,
+      refetchQueueAfterSseNotification,
+      refreshProjections,
+      sessionActionErrors,
+      sessionActionReasons
+    ]
   );
 
   const importResearchResult = useCallback(
     async (researchTaskId: ResearchTaskId) => {
       if (!client || !projections.session) {
-        setWorkflowError("An active session is required before importing research.");
+        setWorkflowError(sessionActionErrors.activeSessionRequiredImportResearch);
         return;
       }
 
       const result = researchDrafts[researchTaskId]?.trim();
 
       if (!result) {
-        setWorkflowError("Research result text is required.");
+        setWorkflowError(sessionActionErrors.researchResultTextRequired);
         return;
       }
 
@@ -672,8 +710,8 @@ export function useDecisionQueueSessionActions({
             researchTaskId,
             expectedStateVersion: latestCommandBackedProjectionVersion(projections),
             result,
-            sourceTitle: "Manual desk research",
-            limitationNotes: "Manual import from founder-provided source."
+            sourceTitle: sessionActionReasons.manualResearchSourceTitle,
+            limitationNotes: sessionActionReasons.manualResearchLimitationNotes
           })
         );
         const research = optionalCommandProjection<ResearchEvidenceProjection>(response, "ResearchEvidenceProjection");
@@ -695,21 +733,21 @@ export function useDecisionQueueSessionActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections, refreshProjections, researchDrafts]
+    [appendCommand, client, projections, refreshProjections, researchDrafts, sessionActionErrors, sessionActionReasons]
   );
 
   const resolveResearchCard = useCallback(
     async (cardId: QueueItemId, outcome: ResearchQueueTerminalOutcome, title: string) => {
       if (!client || !projections.session) {
-        setWorkflowError("An active session is required before resolving a research card.");
+        setWorkflowError(sessionActionErrors.activeSessionRequiredResolveResearchCard);
         return;
       }
 
       const needsRationale = outcome === "deferred" || outcome === "risk_accepted";
       const rationale = needsRationale
-        ? `${outcome} from Research card: ${title}`
+        ? sessionActionReasons.researchCardOutcomeRationale(outcome, title)
         : outcome === "revised" || outcome === "research_insufficient"
-          ? `Resolved as ${outcome}: ${title}`
+          ? sessionActionReasons.researchCardResolvedRationale(outcome, title)
           : undefined;
 
       setIsBusy(true);
@@ -739,7 +777,7 @@ export function useDecisionQueueSessionActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections, refreshProjections]
+    [appendCommand, client, projections, refreshProjections, sessionActionErrors, sessionActionReasons]
   );
 
 

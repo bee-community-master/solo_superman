@@ -1,6 +1,4 @@
 import {
-  BUSINESS_CRITIC_INTENSITY_LABELS,
-  PROJECT_PURPOSE_MODE_LABELS,
   type AutoImplementationRunProjection,
   type BusinessCriticIntensity,
   type ChatGptBrowserDelegationProjection,
@@ -64,37 +62,6 @@ export interface ProjectionState {
 
 export const DEFAULT_IDEA = "";
 export const DEFAULT_INTAKE = "";
-
-export const PROJECT_PURPOSE_MODE_OPTIONS = [
-  {
-    mode: "business" as ProjectPurposeMode,
-    label: PROJECT_PURPOSE_MODE_LABELS.business,
-    description: "고객, 문제 강도, 유료 의향, 경쟁, 채널, 법무/운영 리스크를 검증합니다."
-  },
-  {
-    mode: "personal" as ProjectPurposeMode,
-    label: PROJECT_PURPOSE_MODE_LABELS.personal,
-    description: "시장/투자자 narrative 대신 개인 workflow, GUI, 구현 가능성, local data/security를 검증합니다."
-  }
-] as const;
-
-export const BUSINESS_CRITIC_INTENSITY_OPTIONS = [
-  {
-    intensity: "balanced" as BusinessCriticIntensity,
-    label: BUSINESS_CRITIC_INTENSITY_LABELS.balanced,
-    description: "주요 decision group마다 최소 1개의 반대/비판 질문을 유지합니다."
-  },
-  {
-    intensity: "strong" as BusinessCriticIntensity,
-    label: BUSINESS_CRITIC_INTENSITY_LABELS.strong,
-    description: "high-impact business gap이 있으면 핵심 가설 반박 질문을 queued_next로 유지합니다."
-  },
-  {
-    intensity: "investor_grade" as BusinessCriticIntensity,
-    label: BUSINESS_CRITIC_INTENSITY_LABELS.investor_grade,
-    description: "가격, 채널, retention proxy, 법무/운영, 시장 타이밍, founder advantage를 압박 검증합니다."
-  }
-] as const;
 
 export const WEB_PUBLIC_SAFE_ALLOWLIST_ID = "research_allowlist_web_public_safe" as ResearchAllowlistId;
 

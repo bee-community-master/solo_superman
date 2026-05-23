@@ -37,6 +37,22 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.questions.initialQueueStartBlockers.project_purpose).not.toMatch(/[가-힣]/u);
     expect(DECISION_QUEUE_COPY.ja.questions.initialQueueStartBlockers.codex_login).toContain("Codex CLI");
     expect(DECISION_QUEUE_COPY.ko.questions.initialQueueStartBlockers.idea).toContain("아이디어 요약");
+    expect(DECISION_QUEUE_COPY.en.questions.sessionActionErrors.businessCriticIntensityBusinessOnly).not.toMatch(
+      /[가-힣]/u
+    );
+    expect(DECISION_QUEUE_COPY.ja.questions.sessionActionErrors.activeSessionRequiredSubmitAnswer).toContain(
+      "セッション"
+    );
+    expect(DECISION_QUEUE_COPY.ko.questions.sessionActionErrors.answerTextRequired).toContain("답변");
+    expect(
+      DECISION_QUEUE_COPY.en.questions.sessionActionReasons.projectPurposeConfirmed("Business validation")
+    ).not.toMatch(/[가-힣]/u);
+    expect(
+      DECISION_QUEUE_COPY.ja.questions.sessionActionReasons.businessCriticIntensityChanged("強い事業レビュー")
+    ).toContain("強い事業レビュー");
+    expect(
+      DECISION_QUEUE_COPY.ko.questions.sessionActionReasons.businessCriticKnownRiskDeferred
+    ).toContain("Known Risk");
     expect(DECISION_QUEUE_COPY.en.layout.sidecarUnavailableRecovery).toContain("pnpm start:local");
     expect(DECISION_QUEUE_COPY.ja.layout.sidecarUnavailableRecovery).toContain("pnpm start:local");
     expect(DECISION_QUEUE_COPY.ko.layout.sidecarUnavailableRecovery).toContain("pnpm start:local");
