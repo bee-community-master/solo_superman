@@ -5,8 +5,10 @@ import { describe, expect, it } from "vitest";
 import {
   RELEASE_EVIDENCE_CHECKLIST_SCHEMA_VERSION,
   buildReleaseEvidenceChecklist,
+  filterReleaseEvidenceChecklistByIssue,
   loadReleaseEvidenceContracts,
   parseReleaseEvidenceChecklistArgs,
+  renderReleaseEvidenceChecklistMarkdown,
   runReleaseEvidenceChecklistCli
 } from "./release-evidence-checklist.mjs";
 
@@ -103,6 +105,38 @@ describe("release evidence checklist", () => {
     expect(checklist.issues).toEqual([]);
   });
 
+  it("renders issue-filtered markdown checklists for release blocker issues", async () => {
+    const checklist = buildReleaseEvidenceChecklist(await loadReleaseEvidenceContracts(), {
+      now: new Date("2026-05-24T00:00:00.000Z")
+    });
+    const issue259Checklist = filterReleaseEvidenceChecklistByIssue(checklist, 259);
+    const markdown = renderReleaseEvidenceChecklistMarkdown(issue259Checklist);
+
+    expect(issue259Checklist.summary).toMatchObject({
+      totalItems: 2,
+      blockedItems: 2,
+      filterIssueNumber: "259"
+    });
+    expect(markdown).toContain("# Solo Superman release evidence checklist");
+    expect(markdown).toContain("- Filtered issue: #259");
+    expect(markdown).toContain("### windows-real-device");
+    expect(markdown).toContain("### windows-one-line-install-first-screen");
+    expect(markdown).toContain("- [ ] `run_administrator_powershell_one_line_installer`");
+    expect(markdown).toContain("- [ ] `pnpm verify:windows-real-device -- --require-device-evidence`");
+    expect(markdown).not.toContain("macos-signed-package-release");
+    expect(markdown).not.toContain("windows-packaged-update-rollback");
+
+    const unknownIssueChecklist = filterReleaseEvidenceChecklistByIssue(checklist, 999);
+    expect(unknownIssueChecklist).toMatchObject({
+      status: "blocked",
+      checklistItems: [],
+      issues: ["No release evidence checklist items matched issue #999."]
+    });
+    expect(renderReleaseEvidenceChecklistMarkdown(unknownIssueChecklist)).toContain(
+      "- No release evidence checklist items matched issue #999."
+    );
+  });
+
   it("flags secret-like evidence refs instead of emitting a clean checklist", () => {
     const checklist = buildReleaseEvidenceChecklist(minimalContracts({
       releaseReadiness: {
@@ -139,10 +173,29 @@ describe("release evidence checklist", () => {
     try {
       const outputPath = join(dir, "checklist.json");
 
-      expect(parseReleaseEvidenceChecklistArgs(["--output", outputPath], {})).toEqual({ outputPath });
-      expect(parseReleaseEvidenceChecklistArgs(["--", "--output", outputPath], {})).toEqual({ outputPath });
-      expect(parseReleaseEvidenceChecklistArgs([`--output=${outputPath}`], {})).toEqual({ outputPath });
+      expect(parseReleaseEvidenceChecklistArgs(["--output", outputPath], {})).toEqual({
+        outputPath,
+        format: "json",
+        issueNumber: undefined
+      });
+      expect(parseReleaseEvidenceChecklistArgs(["--", "--output", outputPath], {})).toEqual({
+        outputPath,
+        format: "json",
+        issueNumber: undefined
+      });
+      expect(parseReleaseEvidenceChecklistArgs([`--output=${outputPath}`], {})).toEqual({
+        outputPath,
+        format: "json",
+        issueNumber: undefined
+      });
+      expect(parseReleaseEvidenceChecklistArgs(["--format", "markdown", "--issue", "266"], {})).toEqual({
+        outputPath: undefined,
+        format: "markdown",
+        issueNumber: 266
+      });
       expect(() => parseReleaseEvidenceChecklistArgs(["--output"], {})).toThrow("--output requires a path value");
+      expect(() => parseReleaseEvidenceChecklistArgs(["--format", "yaml"], {})).toThrow("--format must be one of");
+      expect(() => parseReleaseEvidenceChecklistArgs(["--issue", "abc"], {})).toThrow("--issue requires a positive integer");
 
       await runReleaseEvidenceChecklistCli(["--output", outputPath], {
         contracts: minimalContracts(),
@@ -155,6 +208,36 @@ describe("release evidence checklist", () => {
         generatedAt: "2026-05-24T00:00:00.000Z",
         status: "ready"
       });
+
+      await runReleaseEvidenceChecklistCli(["--format", "markdown", "--issue", "266", "--output", outputPath], {
+        contracts: minimalContracts({
+          releaseReadiness: {
+            schemaVersion: "solo-superman-release-readiness.v1",
+            appId: "solo-superman",
+            broadReleaseStatus: "blocked",
+            requiredVerificationCommands: {
+              credentialFree: ["pnpm verify:release-readiness"],
+              readyRelease: ["pnpm verify:release-readiness -- --require-ready"]
+            },
+            releaseGates: [
+              {
+                id: "signed-packages",
+                status: "blocked",
+                blockerIssue: "https://github.com/bee-community-master/solo_superman/issues/266",
+                requiredChecks: ["release_manifest_signature_verify"],
+                requiredEvidence: ["redacted signing evidence"],
+                unblockCriteria: ["attach redacted evidence"]
+              }
+            ]
+          }
+        }),
+        now: new Date("2026-05-24T00:00:00.000Z")
+      });
+
+      const markdown = await readFile(outputPath, "utf8");
+      expect(markdown).toContain("- Filtered issue: #266");
+      expect(markdown).toContain("- [ ] `release_manifest_signature_verify`");
+      expect(markdown).toContain("- [ ] redacted signing evidence");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
