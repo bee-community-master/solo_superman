@@ -8770,6 +8770,11 @@ describe("PR-02 sidecar health shell", () => {
       expect(tracker).toContain("- Current stage: initial_pr");
       expect(tracker).toContain("- Latest worker job: none");
       expect(tracker).toContain("- Latest PR mutation: none");
+      expect(firstIssue).toContain("<!-- solo-superman:auto-implementation-issue-state:start -->");
+      expect(firstIssue).toContain("## Auto implementation issue state");
+      expect(firstIssue).toContain("- Issue status: open");
+      expect(firstIssue).toContain("- Stage status: ready");
+      expect(firstIssue).toContain("- Latest stage worker job: none");
       const manifest = JSON.parse(await readFile(join(projectDir, ".solo-superman", "auto-implementation-run.json"), "utf8")) as
         Readonly<Record<string, unknown>>;
       const gitHead = await readFile(join(projectDir, ".git", "HEAD"), "utf8");
@@ -8908,6 +8913,10 @@ describe("PR-02 sidecar health shell", () => {
       });
       const blockedJobRun = latestAutoImplementationRunFromBody(await jsonBody(blockedJobResponse));
       const blockedJobs = blockedJobRun.workerJobs as readonly Readonly<Record<string, unknown>>[];
+      const blockedWorkerIssue = await readFile(
+        join(workspaceRoot, "worker-job-demo", "implementation-issues", "001-initial_pr.md"),
+        "utf8"
+      );
 
       expect(blockedJobResponse.status).toBe(200);
       expect(blockedJobRun).toMatchObject({
@@ -8938,6 +8947,9 @@ describe("PR-02 sidecar health shell", () => {
           ])
         }
       });
+      expect(blockedWorkerIssue).toContain("- Issue status: blocked");
+      expect(blockedWorkerIssue).toContain(`- Latest stage worker job: ${String(blockedJobs[0]!.jobId)} (blocked)`);
+      expect(blockedWorkerIssue).toContain("- Latest stage worker missing evidence: ExecutionAuthorityRecord");
 
       const replay = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
         idempotencyKey: "worker-job:missing-authority"
@@ -9203,6 +9215,10 @@ describe("PR-02 sidecar health shell", () => {
         join(workspaceRoot, "worker-job-demo", "implementation-tracker.md"),
         "utf8"
       );
+      const completedWorkerIssue = await readFile(
+        join(workspaceRoot, "worker-job-demo", "implementation-issues", "001-initial_pr.md"),
+        "utf8"
+      );
 
       expect(completedWorkerJobResponse.status).toBe(200);
       expect(completedWorkerJobRun).toMatchObject({
@@ -9231,6 +9247,9 @@ describe("PR-02 sidecar health shell", () => {
       expect(completedWorkerTracker).toContain("- Issue: local-001 Workspace repo bootstrap and initial implementation PR");
       expect(completedWorkerTracker).toContain("- Missing evidence: none");
       expect(completedWorkerTracker).toContain("- Blocked reason: none");
+      expect(completedWorkerIssue).toContain(`- Latest stage worker job: ${plannedJobId} (completed)`);
+      expect(completedWorkerIssue).toContain("- Latest stage worker missing evidence: none");
+      expect(completedWorkerIssue).toContain("- Required next action: Advance the current auto implementation stage through the existing stage endpoint with the validated ImplementationStepLedger evidence.");
     } finally {
       await storage.close();
     }
@@ -11054,6 +11073,10 @@ describe("PR-02 sidecar health shell", () => {
         await readFile(join(workspaceRoot, "stage-runner-app", ".solo-superman", "auto-implementation-run.json"), "utf8")
       ) as Readonly<Record<string, unknown>>;
       const syncedTracker = await readFile(join(workspaceRoot, "stage-runner-app", "implementation-tracker.md"), "utf8");
+      const syncedIssue = await readFile(
+        join(workspaceRoot, "stage-runner-app", "implementation-issues", "001-initial_pr.md"),
+        "utf8"
+      );
       const syncedManifestStages = syncedManifest.stagePlan as readonly Readonly<Record<string, unknown>>[];
       const replay = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "initial_pr", {
         idempotencyKey: "auto-stage:complete:initial-pr",
@@ -11108,6 +11131,11 @@ describe("PR-02 sidecar health shell", () => {
       expect(syncedTracker).toContain("  - Ledger step: step_demo");
       expect(syncedTracker).toContain("  - Implementation evidence refs: commit:abcdef1");
       expect(syncedTracker).toContain("  - Test evidence refs: test:verify");
+      expect(syncedIssue).toContain("- Issue status: completed");
+      expect(syncedIssue).toContain("- Stage status: completed");
+      expect(syncedIssue).toContain("- Ledger step: step_demo");
+      expect(syncedIssue).toContain("- Implementation evidence refs: commit:abcdef1");
+      expect(syncedIssue).toContain("- Test evidence refs: test:verify");
       expect(completedInitial).toMatchObject({
         status: "completed",
         ledgerEvidence: {

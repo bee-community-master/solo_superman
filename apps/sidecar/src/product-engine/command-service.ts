@@ -208,6 +208,7 @@ import {
   ghAutoImplementationPullRequestMutationAdapter,
   prepareAutoImplementationWorkspaceRun,
   sanitizeProjectFolderName,
+  writeAutoImplementationIssueDocumentsState,
   writeAutoImplementationRunManifest,
   writeAutoImplementationRunTrackerState,
   type AutoImplementationGitHubIssueMutationAdapter,
@@ -2533,6 +2534,10 @@ export function createProductEngineCommandService(
         run
       });
       await writeAutoImplementationRunTrackerState({
+        workspaceRoot: autoImplementationWorkspaceRoot,
+        run
+      });
+      await writeAutoImplementationIssueDocumentsState({
         workspaceRoot: autoImplementationWorkspaceRoot,
         run
       });
