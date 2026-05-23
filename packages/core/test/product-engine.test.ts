@@ -1976,7 +1976,8 @@ describe("PR-04 ProductEngine reducer", () => {
           expect.objectContaining({
             cardType: "follow_up_question",
             title: expect.stringContaining("What evidence would resolve Validate paid founder urgency?"),
-            state: "active"
+            state: "active",
+            sourceRef: expect.stringContaining(`research:${researchTaskId}:`)
           })
         ],
         blocked: [
@@ -2044,7 +2045,8 @@ describe("PR-04 ProductEngine reducer", () => {
       expect.arrayContaining([
         expect.objectContaining({
           cardType: "follow_up_question",
-          title: expect.stringContaining("What evidence would resolve Validate paid founder urgency?")
+          title: expect.stringContaining("What evidence would resolve Validate paid founder urgency?"),
+          sourceRef: expect.stringContaining(`research:${researchTaskId}:`)
         })
       ])
     );

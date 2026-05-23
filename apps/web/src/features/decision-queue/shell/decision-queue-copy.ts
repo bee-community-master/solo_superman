@@ -189,6 +189,7 @@ const EN_COPY = {
     questionFatigueHelp: "Answer only the current batch, carry uncertain assumptions as known risks, or pause before loading more.",
     questionFatigueFollowUpBudget: (count: number) => `${count} follow-up slots remain; use them deliberately.`,
     researchAdditionalQuestions: "Research-generated questions",
+    researchFollowUpSourceTrace: "Source trace",
     businessCriticCategoryLabels: {
       customer_pain: "Customer pain",
       paid_intent: "Willingness to pay",
@@ -753,6 +754,7 @@ const JA_COPY: typeof EN_COPY = {
     questionFatigueHelp: "今の質問セットだけに答える、弱い仮説を既知リスクとして残す、または次を読み込む前に一度止めることができます。",
     questionFatigueFollowUpBudget: (count: number) => `追加質問枠は${count}件残っています。意図的に使ってください。`,
     researchAdditionalQuestions: "リサーチ生成の質問",
+    researchFollowUpSourceTrace: "ソーストレース",
     businessCriticCategoryLabels: {
       customer_pain: "顧客の痛み",
       paid_intent: "支払い意向",
@@ -1313,6 +1315,7 @@ const KO_COPY: typeof EN_COPY = {
     questionFatigueHelp: "현재 질문 묶음만 답하거나, 불확실한 가정은 알려진 리스크로 남기거나, 더 불러오기 전에 잠시 멈출 수 있습니다.",
     questionFatigueFollowUpBudget: (count: number) => `후속 질문 여유가 ${count}개 남았습니다. 의도적으로 사용하세요.`,
     researchAdditionalQuestions: "리서치가 생성한 질문",
+    researchFollowUpSourceTrace: "소스 추적",
     businessCriticCategoryLabels: {
       customer_pain: "고객 문제",
       paid_intent: "유료 의향",
