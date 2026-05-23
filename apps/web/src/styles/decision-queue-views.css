@@ -605,6 +605,8 @@
 }
 
 .confidence-map,
+.if-stop-now-artifact,
+.founder-brief-risk-actions,
 .top-risk-card-stack,
 .top-risk-card-list,
 .top-risk-card {
@@ -696,16 +698,32 @@
   padding-left: 10px;
 }
 
+.if-stop-now-artifact,
+.founder-brief-risk-actions {
+  border-left: 3px solid #d8e5f0;
+  margin-top: 10px;
+  padding-left: 10px;
+}
+
 .confidence-gate-failures span {
   color: var(--solo-muted);
   font-size: 0.76rem;
   font-weight: 700;
 }
 
-.confidence-next-actions strong {
+.confidence-next-actions strong,
+.if-stop-now-artifact strong,
+.founder-brief-risk-actions strong {
   color: var(--solo-text);
   font-size: 0.76rem;
   font-weight: 800;
+}
+
+.if-stop-now-artifact h4,
+.founder-brief-risk-actions h3 {
+  margin: 0;
+  color: var(--solo-text);
+  font-size: 0.8rem;
 }
 
 .top-risk-card-list {

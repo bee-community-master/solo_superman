@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   ConfidenceCompletionProjection,
   DecisionQueueProjection,
+  FounderBriefProjection,
   ProjectId,
   ProjectionVersion,
   SessionId,
@@ -101,6 +102,43 @@ function queueWithSkippedAxes(skippedCommercializationAxes: readonly string[]): 
   };
 }
 
+function founderBriefProjection(): FounderBriefProjection {
+  return {
+    kind: "FounderBriefProjection",
+    sessionId: "sess_founder_brief" as SessionId,
+    version: 4 as ProjectionVersion,
+    projectPurposeMode: "business",
+    projectPurposeModeLabel: "Business validation",
+    projectPurposeModeNarrative: "Business validation keeps commercial risks explicit.",
+    skippedCommercializationAxes: [],
+    exportReady: false,
+    problemCustomerValue: "Founder teams need traceable build readiness.",
+    topDecisions: ["Target founder interview workflows first."],
+    knownRisks: ["Founder Brief risk still needs an explicit owner."],
+    nextValidationActions: ["Assign the Founder Brief risk to the next validation sprint."],
+    briefSections: [
+      {
+        sectionId: "problem_customer_value",
+        title: "Problem / Customer / Value",
+        body: "Founder teams need traceable build readiness."
+      }
+    ],
+    ifStopNowArtifact: {
+      title: "If stop now",
+      summary: "Ship only with explicit risk carry-forward.",
+      knownRisks: ["Founder Brief risk still needs an explicit owner."],
+      nextValidationActions: ["Assign the Founder Brief risk to the next validation sprint."]
+    },
+    exportMetadata: {
+      format: "markdown",
+      filename: "founder-brief.md",
+      preparedAt: "2026-05-23T00:00:00.000Z",
+      writePolicy: "metadata_only_no_file_write",
+      blockedSideEffects: []
+    }
+  };
+}
+
 function sessionWithPhase(phase: SessionShellProjection["phase"]): SessionShellProjection {
   return {
     kind: "SessionShellProjection",
@@ -178,6 +216,12 @@ describe("PlanningView", () => {
     expect(markup).toContain("Next best actions");
     expect(markup).toContain("Validate the top risks before creating a Planning-ready handoff.");
     expect(markup).toContain("Prepare a Build Slice Plan after the unresolved gates are closed.");
+    expect(markup).toContain("If stop now");
+    expect(markup).toContain("Carry top risks forward explicitly.");
+    expect(markup).toContain("If-stop-now known risks");
+    expect(markup).toContain("Customer urgency still unproven.");
+    expect(markup).toContain("If-stop-now next validation actions");
+    expect(markup).toContain("Interview target users.");
   });
 
   it("shows journey status labels instead of raw internal session phases", () => {
@@ -226,6 +270,39 @@ describe("PlanningView", () => {
     expect(markup).toContain("No risk summary yet.");
     expect(markup).not.toContain("Top 3 Risk Cards");
     expect(markup).not.toContain("Next best actions");
+  });
+
+  it("renders Founder Brief risk and validation actions as first-class lists", () => {
+    const markup = renderPlanningView({
+      projections: {
+        ...emptyProjectionState(),
+        founderBrief: founderBriefProjection()
+      }
+    });
+
+    expect(markup).toContain("Founder Brief risk actions");
+    expect(markup).toContain("Founder Brief known risks");
+    expect(markup).toContain("Founder Brief risk still needs an explicit owner.");
+    expect(markup).toContain("Founder Brief next validation actions");
+    expect(markup).toContain("Assign the Founder Brief risk to the next validation sprint.");
+    expect(markup).toContain("Problem / Customer / Value");
+  });
+
+  it("keeps Founder Brief risk-action lists hidden when no direct risks or actions exist", () => {
+    const founderBrief = founderBriefProjection();
+    const markup = renderPlanningView({
+      projections: {
+        ...emptyProjectionState(),
+        founderBrief: {
+          ...founderBrief,
+          knownRisks: [],
+          nextValidationActions: []
+        }
+      }
+    });
+
+    expect(markup).toContain("Problem / Customer / Value");
+    expect(markup).not.toContain("Founder Brief risk actions");
   });
 
   it("shows personal-mode skipped commercialization axes with user-facing labels", () => {
