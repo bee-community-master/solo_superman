@@ -63,7 +63,7 @@ describe("ServicePageUsePermissionPanel view model", () => {
           {
             code: "final_submit_requires_confirmation_and_authority",
             message:
-              "Final submit remains blocked until a later explicit production-mutation contract validates the confirmation card and ExecutionAuthorityRecord linkage.",
+              "Final submit remains blocked until production-mutation contract evidence passes confirmation-card, ExecutionAuthorityRecord, redaction, approval, rollback, audit, and no-secret checks.",
             evidenceRefs: ["service-page:final-submit-request"]
           }
         ]
@@ -76,7 +76,7 @@ describe("ServicePageUsePermissionPanel view model", () => {
     expect(view.finalSubmitBoundaryLabel).toContain("Final submit remains blocked");
     expect(view.finalSubmitBoundaryLabel).toContain("production mutation performed=false");
     expect(view.blockReasonItems).toContain(
-      "final_submit_requires_confirmation_and_authority: Final submit remains blocked until a later explicit production-mutation contract validates the confirmation card and ExecutionAuthorityRecord linkage."
+      "final_submit_requires_confirmation_and_authority: Final submit remains blocked until production-mutation contract evidence passes confirmation-card, ExecutionAuthorityRecord, redaction, approval, rollback, audit, and no-secret checks."
     );
   });
 

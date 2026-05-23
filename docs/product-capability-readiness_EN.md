@@ -24,7 +24,7 @@ Default mode validates [`product-capability-readiness.example.json`](product-cap
 | `idea-clarification-loop` | `pnpm verify:clarification-pipeline`, `pnpm verify:clarification-volume` |
 | `research-evidence-loop` | `pnpm verify:research-pipeline` |
 | `planning-readiness-gates` | clarification/research evidence connected to the Planning-ready gate |
-| `browser-service-boundary` | `pnpm verify:browser-delegation-pipeline`, `pnpm verify:service-page-pipeline` |
+| `browser-service-boundary` | `pnpm verify:browser-delegation-pipeline`, `pnpm verify:service-page-pipeline`, `pnpm verify:production-mutation-contract` |
 | `auto-implementation-review-loop` | runtime preview, worker job, PR mutation body summaries, review-loop, and aggregate pipeline smokes |
 | `technical-preview-release-guardrails` | `pnpm verify:prod-bundle`, `pnpm verify:release-readiness` |
 

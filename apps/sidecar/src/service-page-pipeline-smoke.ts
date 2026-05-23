@@ -528,7 +528,7 @@ async function executeServicePageFlow(
       localCapabilityToken,
       sessionId: project.sessionId,
       idempotencyKey: "service-page-smoke:final-submit-blocked",
-      purpose: "Request final submit for setup without a validated production-mutation contract.",
+      purpose: "Request final submit for setup without passing production-mutation contract evidence.",
       allowedActionClasses: ["final_submit_request"],
       approvalGranularity: "per_action",
       finalSubmitRequested: true
@@ -651,7 +651,7 @@ function flowBlockers(result: ServicePageFlowResult) {
   }
 
   if (finalSubmitProjection.currentStatus !== "blocked") {
-    blockers.push("final submit permission must remain blocked without a production-mutation contract.");
+    blockers.push("final submit permission must remain blocked without passing production-mutation contract evidence.");
   }
 
   if (!blockReasonsInclude(finalSubmitPermission.blockReasons, "final_submit_requires_confirmation_and_authority")) {
@@ -709,7 +709,7 @@ function passedEvidence(result: ServicePageFlowResult): ServicePagePipelineSmoke
       "artifact delete switches retained refs to audit-metadata-only",
       "revoke blocks later browser actions with service_page_permission_revoked",
       "fill_draft action completes only with per-action permission",
-      "final-submit request remains blocked without a production-mutation contract"
+      "final-submit request remains blocked without passing production-mutation contract evidence"
     ]
   };
 }

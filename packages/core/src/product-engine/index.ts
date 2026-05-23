@@ -7158,7 +7158,7 @@ function servicePageUsePermissionBlockReasons(input: {
   ) {
     reasons.push(servicePageBlockReason(
       "final_submit_requires_confirmation_and_authority",
-      "Final submit remains blocked until a later explicit production-mutation contract validates the confirmation card and ExecutionAuthorityRecord linkage.",
+      "Final submit remains blocked until production-mutation contract evidence passes confirmation-card, ExecutionAuthorityRecord, redaction, approval, rollback, audit, and no-secret checks.",
       input.evidenceRefs
     ));
   }

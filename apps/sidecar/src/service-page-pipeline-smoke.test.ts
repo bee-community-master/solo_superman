@@ -31,7 +31,7 @@ describe("service page-use pipeline smoke", () => {
         "service page browser action blocks before matching permission exists",
         "scoped browser action requires permission/action echo and loopback no-secret boundary",
         "artifact delete switches retained refs to audit-metadata-only",
-        "final-submit request remains blocked without a production-mutation contract"
+        "final-submit request remains blocked without passing production-mutation contract evidence"
       ])
     );
   });

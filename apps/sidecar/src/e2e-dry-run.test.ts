@@ -2242,7 +2242,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         ...servicePermissionBase,
         expectedStateVersion: await currentExpectedStateVersion(),
         idempotencyKey: "post-phase3:service-page:final-submit-blocked",
-        purpose: "Request final submit for a deployment settings form without a validated production-mutation contract.",
+        purpose: "Request final submit for a deployment settings form without passing production-mutation contract evidence.",
         allowedActionClasses: ["final_submit_request"],
         approvalGranularity: "per_action",
         finalSubmitRequested: true,

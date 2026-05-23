@@ -11,7 +11,14 @@ const REQUIRED_CAPABILITY_COMMANDS = new Map([
   ["idea-clarification-loop", ["pnpm verify:clarification-pipeline", "pnpm verify:clarification-volume"]],
   ["research-evidence-loop", ["pnpm verify:research-pipeline"]],
   ["planning-readiness-gates", ["pnpm verify:clarification-pipeline", "pnpm verify:research-pipeline"]],
-  ["browser-service-boundary", ["pnpm verify:browser-delegation-pipeline", "pnpm verify:service-page-pipeline"]],
+  [
+    "browser-service-boundary",
+    [
+      "pnpm verify:browser-delegation-pipeline",
+      "pnpm verify:service-page-pipeline",
+      "pnpm verify:production-mutation-contract"
+    ]
+  ],
   [
     "auto-implementation-review-loop",
     [
@@ -26,6 +33,13 @@ const REQUIRED_CAPABILITY_COMMANDS = new Map([
 ]);
 const REQUIRED_CAPABILITY_IDS = new Set(REQUIRED_CAPABILITY_COMMANDS.keys());
 const REQUIRED_CAPABILITY_BEHAVIOR_SNIPPETS = new Map([
+  [
+    "browser-service-boundary",
+    [
+      "production-mutation contract",
+      "final submit"
+    ]
+  ],
   [
     "auto-implementation-review-loop",
     [
@@ -44,6 +58,7 @@ const REQUIRED_DEFAULT_COMMANDS = new Set([
   "pnpm verify:research-pipeline",
   "pnpm verify:browser-delegation-pipeline",
   "pnpm verify:service-page-pipeline",
+  "pnpm verify:production-mutation-contract",
   "pnpm verify:auto-implementation-pipeline",
   "pnpm verify:product-capability-readiness",
   "pnpm verify"
@@ -380,7 +395,7 @@ export function evidenceForEvaluation(evaluation, options) {
       "product capability readiness contract schema",
       "required idea, clarification, research, browser/service, planning, auto-implementation, and release-guardrail capability ids",
       "required credential-free product verification commands",
-      "required capability behavior snippets, including generated PR body summary coverage",
+      "required capability behavior snippets, including final-submit production-mutation contract coverage and generated PR body summary coverage",
       "secret-free product capability evidence strings",
       options.requireCodeBacked
         ? "all technical-preview core capabilities must be code_backed"
