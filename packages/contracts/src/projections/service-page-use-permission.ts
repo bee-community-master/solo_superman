@@ -386,7 +386,7 @@ export function servicePageUsePermissionSummaryForStatus(status: ServicePageUseP
     case "blocked":
       return "Service page-use permission is blocked until the visible safety boundary is fixed.";
     case "final_submit_requested":
-      return "Final submit has been requested but remains gated by confirmation and execution authority.";
+      return SERVICE_PAGE_FINAL_SUBMIT_BLOCKED_CONTRACT_LABEL;
     case "revoked":
       return "Service page-use permission was revoked; further page-use actions are blocked.";
   }

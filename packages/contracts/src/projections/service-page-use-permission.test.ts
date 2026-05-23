@@ -3,6 +3,7 @@ import { expectTypeOf } from "vitest";
 import {
   SERVICE_PAGE_USE_PERMISSION_BLOCKED_ACTION_CLASSES,
   SERVICE_PAGE_USE_PERMISSION_READY_PROJECTION_FIXTURE,
+  servicePageUsePermissionSummaryForStatus,
   validateServicePageUsePermissionProjection,
   type CreateServicePageUsePermissionPayload,
   type DeleteServicePageUsePermissionArtifactsPayload,
@@ -59,6 +60,13 @@ describe("Service page-use permission projection contract", () => {
     expect(projection.latestPermission.nextAction).toContain("Request fill-draft per-action approval separately");
     expect(projection.latestPermission.nextAction).toContain("Final submit remains blocked");
     expect(projection.latestPermission.finalSubmitBoundary.productionMutationPerformed).toBe(false);
+  });
+
+  it("keeps final-submit requested summary tied to the production-mutation contract", () => {
+    const summary = servicePageUsePermissionSummaryForStatus("final_submit_requested");
+
+    expect(summary).toContain("production-mutation contract");
+    expect(summary).toContain("Final submit remains blocked");
   });
 
   it("validates projections after JSON persistence/API round-trip", () => {
