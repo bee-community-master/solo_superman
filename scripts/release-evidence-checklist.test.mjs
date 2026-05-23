@@ -18,6 +18,10 @@ import {
 } from "./release-evidence-checklist.mjs";
 import { runReleaseEvidenceTemplateVerifierCli } from "./verify-release-evidence-template.mjs";
 
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 function minimalContracts(overrides = {}) {
   return {
     releaseReadiness: {
@@ -213,12 +217,33 @@ describe("release evidence checklist", () => {
       templateStatus: "ready",
       summary: { totalItems: 4, pendingItems: 0, filterIssueNumber: "266" }
     });
+    expect(filledTemplate.items[0].verification.readyReleaseCommandsRun).toEqual(template.readyReleaseCommands);
     expect(validation).toMatchObject({
       schemaVersion: RELEASE_EVIDENCE_TEMPLATE_VALIDATION_SCHEMA_VERSION,
       status: "passed",
       filterIssueNumber: "266",
       itemCount: 4,
       issues: []
+    });
+
+    const missingCommandTemplate = cloneJson(filledTemplate);
+    missingCommandTemplate.items[0].verification.readyReleaseCommandsRun = template.readyReleaseCommands.slice(0, -1);
+
+    expect(validateReleaseEvidenceTemplate(missingCommandTemplate, { expectedChecklist: issue266Checklist })).toMatchObject({
+      status: "blocked",
+      issues: expect.arrayContaining([
+        expect.stringContaining("verification.readyReleaseCommandsRun must include required ready-release command")
+      ])
+    });
+
+    const driftedTopLevelTemplate = cloneJson(filledTemplate);
+    driftedTopLevelTemplate.readyReleaseCommands = template.readyReleaseCommands.slice(0, -1);
+
+    expect(validateReleaseEvidenceTemplate(driftedTopLevelTemplate, { expectedChecklist: issue266Checklist })).toMatchObject({
+      status: "blocked",
+      issues: expect.arrayContaining([
+        expect.stringContaining("$.readyReleaseCommands must include required ready-release command from source checklist")
+      ])
     });
   });
 

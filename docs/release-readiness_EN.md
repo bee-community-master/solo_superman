@@ -40,7 +40,7 @@ Use `--format template` to generate a JSON template that a release lab operator 
 pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json
 ```
 
-The template preserves each required check/evidence/unblock criterion as a `pending` placeholder, but it does not replace the real #259/#266/#267 evidence. After the release lab fills placeholders with redacted evidence refs and sanitized notes, validate that the bundle is `ready`, `passed`, and secret-free:
+The template preserves each required check/evidence/unblock criterion as a `pending` placeholder, but it does not replace the real #259/#266/#267 evidence. After the release lab fills placeholders with redacted evidence refs and sanitized notes, validate that the bundle is `ready`, `passed`, secret-free, and records every ready-release command:
 
 ```sh
 pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json
