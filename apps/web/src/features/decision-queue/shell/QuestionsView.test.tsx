@@ -281,7 +281,7 @@ describe("QuestionsView", () => {
     expect(markup).not.toContain("core_assumption_challenge");
   });
 
-  it("renders question debt progress so long sessions show generated, answered, follow-up, open follow-up, and visible counts", () => {
+  it("renders question debt progress so long sessions show generated, active, upcoming, follow-up, and visible counts", () => {
     const markup = renderQuestionsView({
       questionProgress: {
         generatedQuestionCount: 23,
@@ -305,6 +305,8 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Generated");
     expect(markup).toContain("Open debt");
     expect(markup).toContain("Visible now");
+    expect(markup).toContain("Active now");
+    expect(markup).toContain("Upcoming next");
     expect(markup).toContain("Answered");
     expect(markup).toContain("Follow-ups");
     expect(markup).toContain("Open follow-ups");
@@ -319,6 +321,8 @@ describe("QuestionsView", () => {
     expect(markup).toContain("<dd>23</dd>");
     expect(markup).toContain("<dd>18</dd>");
     expect(markup).toContain("<dd>6</dd>");
+    expect(markup).toContain("<dd>5</dd>");
+    expect(markup).toContain("<dd>1</dd>");
     expect(markup).toContain("<dd>8</dd>");
     expect(markup).toContain("<dd>7</dd>");
     expect(markup).toContain("<dd>12</dd>");
