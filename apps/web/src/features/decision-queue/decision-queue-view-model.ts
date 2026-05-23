@@ -268,19 +268,33 @@ export function startableReadOnlyResearchTaskIds({
 
   const nonTerminalRuns = runs?.runs.filter((run) => !isTerminalResearchRunStatus(run.status)) ?? [];
   const taskIdsWithActiveRuns = new Set(nonTerminalRuns.map((run) => run.researchTaskId));
+  const currentSessionResearchTaskIds = new Set([
+    ...research.taskIds,
+    ...research.tasks.map((task) => task.researchTaskId)
+  ]);
+  const currentSessionAllowlistRunCount =
+    runs?.runs.filter(
+      (run) =>
+        currentSessionResearchTaskIds.has(run.researchTaskId) && run.allowlistId === allowlist.allowlistId
+    ).length ?? 0;
   const availableConcurrency = Math.max(
     0,
     allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject - nonTerminalRuns.length
   );
+  const availableSessionRuns = Math.max(
+    0,
+    allowlist.rateBudgetPolicy.maxRunsPerSession - currentSessionAllowlistRunCount
+  );
+  const availableRunSlots = Math.min(availableConcurrency, availableSessionRuns);
 
-  if (availableConcurrency === 0) {
+  if (availableRunSlots === 0) {
     return [];
   }
 
   return research.tasks
     .filter((task) => task.status === "planned")
     .filter((task) => !taskIdsWithActiveRuns.has(task.researchTaskId))
-    .slice(0, availableConcurrency)
+    .slice(0, availableRunSlots)
     .map((task) => task.researchTaskId);
 }
 
