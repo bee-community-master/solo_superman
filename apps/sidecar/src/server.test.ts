@@ -11122,6 +11122,12 @@ describe("PR-02 sidecar health shell", () => {
         expect(input.bodyMarkdown).toContain("- missing-test audit evidence: missing (0 refs)");
         expect(input.bodyMarkdown).toContain("- PR body evidence: present (1 refs)");
         expect(input.bodyMarkdown).toContain("- merge evidence: missing (0 refs)");
+        expect(input.bodyMarkdown).toContain("### Missing-test audit summary");
+        expect(input.bodyMarkdown).toContain("- Completed stage audits: 0/7");
+        expect(input.bodyMarkdown).toContain("- Zero-gap completed audits: 0/0");
+        expect(input.bodyMarkdown).toContain("- Pending stage audits: 7");
+        expect(input.bodyMarkdown).toContain("- initial_pr: pending; refs: 0; ledger evidence: none");
+        expect(input.bodyMarkdown).toContain("- merge_main: pending; refs: 0; ledger evidence: none");
         expect(input.bodyMarkdown).toContain("#### feature");
         expect(input.bodyMarkdown).toContain("- code-review:feature:clean-1");
         expect(input.bodyMarkdown).toContain("#### repository");
@@ -11267,6 +11273,12 @@ describe("PR-02 sidecar health shell", () => {
         expect(input.bodyMarkdown).toContain("- missing-test audit evidence: present (2 refs)");
         expect(input.bodyMarkdown).toContain("- PR body evidence: missing (0 refs)");
         expect(input.bodyMarkdown).toContain("- merge evidence: missing (0 refs)");
+        expect(input.bodyMarkdown).toContain("### Missing-test audit summary");
+        expect(input.bodyMarkdown).toContain("- Completed stage audits: 1/7");
+        expect(input.bodyMarkdown).toContain("- Zero-gap completed audits: 1/1");
+        expect(input.bodyMarkdown).toContain("- Pending stage audits: 6");
+        expect(input.bodyMarkdown).toContain("- initial_pr: passed (0 missing targeted-test gaps); refs: 2; ledger evidence: step_demo");
+        expect(input.bodyMarkdown).toContain("- merge_main: pending; refs: 0; ledger evidence: none");
         expect(input.bodyMarkdown).toContain("- code-review:feature:review_code_feature_demo_2");
         expect(input.bodyMarkdown).toContain("- code-review:repository:review_code_repository_demo_2");
         expect(input.bodyMarkdown).toContain("### Clean-code review streak evidence");
