@@ -4,7 +4,7 @@
 
 ## 배포 상태
 
-Solo Superman은 현재 제한 베타 형태의 technical preview입니다. 목표는 비개발자도 안전한 one-line installer로 local web screen에 도달하게 하고, 위험한 action은 reviewable 상태로 유지하는 것입니다.
+Solo Superman은 현재 제한 베타 형태의 technical preview입니다. 목표는 비개발자도 안전한 one-line installer로 local web screen에 도달하게 하고, 위험한 action은 reviewable 상태로 유지하는 것입니다. Packaged app update channel은 [`release-channel_KO.md`](release-channel_KO.md)의 manifest/signature/checksum/retry/rollback 계약으로만 정의되어 있으며, 실제 자동 업데이트 적용은 signed package와 device rollback 검증 이후로 남아 있습니다.
 
 ## 한 줄 설치
 
@@ -12,7 +12,7 @@ Solo Superman은 현재 제한 베타 형태의 technical preview입니다. 목�
 | --- | --- |
 | `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/bootstrap-macos.sh)"` | `irm https://raw.githubusercontent.com/bee-community-master/solo_superman/main/scripts/win.ps1 \| iex` |
 
-Windows 한 줄 명령은 짧은 `scripts/win.ps1` launcher만 실행합니다. Launcher는 Windows PowerShell 5.1에서도 UTF-8 console output, TLS 1.2, UTF-8 script download decoding, BOM 제거를 먼저 설정한 뒤 full bootstrap을 실행합니다. Installer는 Node.js 24+, Git, Corepack/pnpm, Codex CLI, dependency install, local run readiness, browser opening을 확인합니다. Windows에서는 app 실행용 Node/pnpm은 Windows에 두되 Codex CLI는 기본적으로 WSL 안에 설치하고 `SOLO_CODEX_WINDOWS_MODE=wsl`로 실행합니다. 영향을 받는 Windows 기기에서는 이 경로가 Codex/Codex CLI에 더 안정적이기 때문입니다. 이미 설치된 Codex CLI가 `codex --version`으로 검증되면 npm global install이 `EEXIST` 또는 `already exists`를 출력해도 해당 명령을 재사용합니다. Solo Superman setup 이후 바이브 코딩이나 여러 agent 병렬 작업을 원하는 사용자를 위해 Codex Desktop App 안내 창도 엽니다. 기존 폴더를 덮어쓰거나 관련 없는 프로세스를 종료해 포트를 차지하지 않아야 합니다. 기존 설치 폴더가 clean checkout이면 installer는 `git fetch --prune origin` 뒤 `origin/main`으로 safe fast-forward update를 시도하고, local 변경/untracked 파일, detached HEAD, 다른 branch, diverged branch가 있으면 사용자 파일을 덮어쓰지 않도록 update를 건너뜁니다.
+Windows 한 줄 명령은 짧은 `scripts/win.ps1` launcher만 실행합니다. Launcher는 Windows PowerShell 5.1에서도 UTF-8 console output, TLS 1.2, UTF-8 script download decoding, BOM 제거를 먼저 설정한 뒤 full bootstrap을 실행합니다. Installer는 Node.js 24+, Git, Corepack/pnpm, Codex CLI, dependency install, local run readiness, browser opening을 확인합니다. Windows에서는 app 실행용 Node/pnpm은 Windows에 두되 Codex CLI는 기본적으로 WSL 안에 설치하고 `SOLO_CODEX_WINDOWS_MODE=wsl`로 실행합니다. 영향을 받는 Windows 기기에서는 이 경로가 Codex/Codex CLI에 더 안정적이기 때문입니다. 이미 설치된 Codex CLI가 `codex --version`으로 검증되면 npm global install이 `EEXIST` 또는 `already exists`를 출력해도 해당 명령을 재사용합니다. Solo Superman setup 이후 바이브 코딩이나 여러 agent 병렬 작업을 원하는 사용자를 위해 Codex Desktop App 안내 창도 엽니다. 기존 폴더를 덮어쓰거나 관련 없는 프로세스를 종료해 포트를 차지하지 않아야 합니다. 기존 설치 폴더가 clean checkout이면 installer는 `git fetch --prune origin` 뒤 `origin/main`으로 safe fast-forward update를 시도하고, local 변경/untracked 파일, detached HEAD, 다른 branch, diverged branch가 있으면 사용자 파일을 덮어쓰지 않도록 update를 건너뜁니다. 이 경로는 packaged app automatic update가 아니므로 local data와 credential을 마이그레이션/정리하지 않습니다.
 
 ## 수동 준비
 
@@ -75,10 +75,13 @@ Set-Location "$HOME\solo_superman"; pnpm.cmd start:local
 
 ```sh
 pnpm verify:prod-bundle
+pnpm verify:release-channel
 pnpm verify
 ```
 
-Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 Node/Corepack command shim이 실행되도록 `pnpm.cmd verify:prod-bundle`과 `pnpm.cmd verify`를 사용합니다.
+Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 Node/Corepack command shim이 실행되도록 `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify`를 사용합니다.
+
+`pnpm verify:release-channel`은 `docs/release-update-channel.example.json`을 검사해 manifest signature, artifact checksum/signature, user consent/deferral, retry, rollback, credential/user-data preservation이 모두 선언되어 있는지 확인합니다. 이 명령은 release channel 계약 검증이며, signed package 설치나 실제 업데이트 적용을 수행하지 않습니다.
 
 ## 오류 리포트용 support bundle
 

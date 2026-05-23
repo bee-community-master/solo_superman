@@ -63,4 +63,4 @@ Business mode는 명시적인 `businessCriticIntensity`가 필요하며 no defau
 
 ## 현재 배포 범위
 
-현재 public posture는 제한 베타 형태의 technical preview입니다. local web install/run path를 증명하고 위험한 행동을 reviewable 상태로 유지합니다. 아직 signed macOS/Windows installer package, automatic update, telemetry, Windows real-device certification을 갖춘 broad consumer-grade installer는 아닙니다.
+현재 public posture는 제한 베타 형태의 technical preview입니다. local web install/run path를 증명하고 위험한 행동을 reviewable 상태로 유지합니다. Packaged update channel은 `docs/release-channel_KO.md`의 manifest/signature/checksum/retry/rollback 검증 계약만 고정되어 있으며, 실제 automatic update 적용은 signed macOS/Windows installer package와 device rollback verification 이후로 남아 있습니다. 아직 signed macOS/Windows installer package, automatic update, telemetry, Windows real-device certification을 갖춘 broad consumer-grade installer는 아닙니다.

@@ -17,11 +17,13 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 질문, 리서치
 | 현재 roadmap과 단계별 의미 | [`roadmap_KO.md`](roadmap_KO.md) |
 | 과거 결정과 rejected alternatives | [`decisions_KO.md`](decisions_KO.md) |
 | DTO/API/route/verifier contract | [`reference_KO.md`](reference_KO.md) |
+| 패키지 release update channel 계약 | [`release-channel_KO.md`](release-channel_KO.md) |
 | 설치/실행 문제 해결 | [`troubleshooting_KO.md`](troubleshooting_KO.md) |
 
 ## 현재 상태
 
 - Release channel: 제한 베타 형태의 technical preview.
+- Packaged update channel: [`release-channel_KO.md`](release-channel_KO.md)의 manifest/signature/checksum/retry/rollback 계약만 고정되어 있으며, 실제 packaged updater는 signed macOS/Windows package 이후에만 켭니다.
 - Runtime shape: local-first web app + local Node/Hono service.
 - Default topology: Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db.
 - Storage: local embedded libSQL + Drizzle. Remote sync config는 오늘 기준 remote storage를 켜지 않으며, later explicit sync contract가 생기기 전까지 inert 상태입니다.
@@ -46,5 +48,6 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 질문, 리서치
 - `roadmap_KO.md`: phase/capability history.
 - `decisions_KO.md`: durable decisions와 rejected alternatives.
 - `reference_KO.md`: verifier가 검사하는 code-backed contract value.
+- `release-channel_KO.md`: packaged update channel의 manifest와 safety gate.
 
 원본 closeout prose가 필요한 audit은 git history를 사용합니다. 현재 기여자 계약의 기준은 이 단순화된 docs 세트입니다.
