@@ -3382,6 +3382,114 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("polls ready mounted research runs during project-level run refresh", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId, sessionId } = await createProjectForTest(
+        storageApp,
+        "A project-level research refresh test idea"
+      );
+      const allowlistId = "research_allowlist_project_list_poll";
+      const researchTaskId = await planResearchTaskForTest(storageApp, {
+        sessionId,
+        expectedStateVersion: 1,
+        objective: "Validate project-level research run refresh ingestion.",
+        sourceQueueItemId: "queue_project_list_poll"
+      });
+      const repository = createResearchRunRepository(storage.db);
+      const providerRun = phase15aRecoveryRunFixture(
+        projectId,
+        allowlistId,
+        "research_run_project_list_poll",
+        "running"
+      );
+
+      await createAllowlistForTest(storageApp, projectId, allowlistId);
+      await repository.create({
+        run: {
+          ...providerRun,
+          researchTaskId,
+          provider: {
+            ...providerRun.provider,
+            researchTaskId
+          },
+          sourceRefs: ["queue_project_list_poll"]
+        },
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      const list = await storageApp.request(`/api/v1/projects/${projectId}/research-runs`, {
+        headers: authHeaders()
+      });
+      const listBody = await jsonBody(list);
+
+      expect(list.status).toBe(200);
+      expect(listBody.data).toMatchObject({
+        runs: [
+          expect.objectContaining({
+            researchRunId: "research_run_project_list_poll",
+            status: "research_insufficient",
+            qualityGateStatus: "insufficient",
+            terminalReason: "quality_gate_insufficient"
+          })
+        ]
+      });
+
+      const research = await storageApp.request(`/api/v1/sessions/${sessionId}/research`, {
+        headers: authHeaders()
+      });
+      const researchBody = await jsonBody(research);
+
+      expect(research.status).toBe(200);
+      expect(researchBody.data).toMatchObject({
+        results: [
+          expect.objectContaining({
+            researchRunId: "research_run_project_list_poll"
+          })
+        ],
+        evidencePacks: [
+          expect.objectContaining({
+            researchRunId: "research_run_project_list_poll",
+            gateStatus: "research_insufficient"
+          })
+        ]
+      });
+
+      const queue = await storageApp.request(`/api/v1/sessions/${sessionId}/queue`, {
+        headers: authHeaders()
+      });
+      const queueBody = await jsonBody(queue);
+
+      expect(queue.status).toBe(200);
+      expect(queueBody.data).toMatchObject({
+        blocked: [
+          expect.objectContaining({
+            researchTaskId,
+            blocksPlanning: true
+          })
+        ]
+      });
+
+      const repeatedList = await storageApp.request(`/api/v1/projects/${projectId}/research-runs`, {
+        headers: authHeaders()
+      });
+      const repeatedListBody = await jsonBody(repeatedList);
+
+      expect(repeatedList.status).toBe(200);
+      expect(repeatedListBody.data).toMatchObject({
+        runs: [
+          expect.objectContaining({
+            researchRunId: "research_run_project_list_poll",
+            status: "research_insufficient"
+          })
+        ]
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("ingests completed provider results into Evidence Pack and Research-updated Queue", async () => {
     const { app: storageApp, storage } = await createMigratedStorageApp();
 
