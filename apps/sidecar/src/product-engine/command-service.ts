@@ -4182,13 +4182,33 @@ export function createProductEngineCommandService(
     return null;
   }
 
-  async function rateBudgetBlocker(projectIdValue: ProjectId, allowlist: ResearchAllowlistProjection) {
-    const activeRuns = (await listProjectResearchRuns(projectIdValue)).filter(
-      (run) => !isTerminalResearchRunStatus(run.status)
-    );
+  async function rateBudgetBlocker(
+    projectIdValue: ProjectId,
+    allowlist: ResearchAllowlistProjection,
+    researchTaskId: ResearchTaskId
+  ) {
+    const projectRuns = await listProjectResearchRuns(projectIdValue);
+    const activeRuns = projectRuns.filter((run) => !isTerminalResearchRunStatus(run.status));
 
-    return activeRuns.length >= allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject
-      ? `Project already has ${activeRuns.length} non-terminal research run(s), meeting the allowlist concurrency budget.`
+    if (activeRuns.length >= allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject) {
+      return `Project already has ${activeRuns.length} non-terminal research run(s), meeting the allowlist concurrency budget.`;
+    }
+
+    const researchRepository = createResearchRepository(storage.db);
+    const researchTask = await researchRepository.getTask(researchTaskId);
+
+    if (!researchTask) {
+      return null;
+    }
+
+    const sessionResearch = await researchRepository.getProjection(researchTask.sessionId);
+    const sessionTaskIds = new Set(sessionResearch.taskIds);
+    const sessionAllowlistRunCount = projectRuns.filter(
+      (run) => run.allowlistId === allowlist.allowlistId && sessionTaskIds.has(run.researchTaskId)
+    ).length;
+
+    return sessionAllowlistRunCount >= allowlist.rateBudgetPolicy.maxRunsPerSession
+      ? `Session already has ${sessionAllowlistRunCount} research run(s) for this allowlist, meeting the per-session run budget.`
       : null;
   }
 
@@ -5979,7 +5999,7 @@ export function createProductEngineCommandService(
           return researchRunCommandResponse("StartResearchRun", stateVersionBefore, result);
         }
 
-        const budgetBlocker = await rateBudgetBlocker(input.projectId, allowlist);
+        const budgetBlocker = await rateBudgetBlocker(input.projectId, allowlist, input.request.researchTaskId);
 
         if (budgetBlocker) {
           const disclosureLog = await persistResearchRunDisclosureLog(
@@ -6225,7 +6245,7 @@ export function createProductEngineCommandService(
         let retryCandidate = existingRetry;
 
         if (!retryCandidate) {
-          const budgetBlocker = await rateBudgetBlocker(input.projectId, allowlist);
+          const budgetBlocker = await rateBudgetBlocker(input.projectId, allowlist, retryRun.researchTaskId);
 
           if (budgetBlocker) {
             const result = await blockedResearchRunControlResult(

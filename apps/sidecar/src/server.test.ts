@@ -982,6 +982,39 @@ async function createAllowlistForTest(
   return { body, response };
 }
 
+async function planResearchTaskForTest(
+  storageApp: RequestTestApp,
+  input: {
+    readonly sessionId: string;
+    readonly expectedStateVersion: number;
+    readonly objective: string;
+    readonly sourceQueueItemId: string;
+  }
+) {
+  const response = await storageApp.request(`/api/v1/sessions/${input.sessionId}/research-tasks`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      expectedStateVersion: input.expectedStateVersion,
+      objective: input.objective,
+      sourceQueueItemId: input.sourceQueueItemId,
+      routeOutcome: "research_needed",
+      impact: "high"
+    })
+  });
+  const body = await jsonBody(response);
+  const data = body.data as Readonly<Record<string, unknown>>;
+  const projection = data.immediateProjection as Readonly<Record<string, unknown>>;
+  const taskIds = projection.taskIds as readonly ResearchTaskId[];
+
+  expect(response.status).toBe(200);
+
+  return taskIds.at(-1) as ResearchTaskId;
+}
+
 function webResearchRunRequestPayload(
   researchRunId: string,
   allowlistId: string,
@@ -3839,6 +3872,244 @@ describe("PR-02 sidecar health shell", () => {
 
       expect(runRows.rows).toHaveLength(1);
       expect(disclosureRows.rows).toHaveLength(2);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("enforces the active allowlist session run budget in the sidecar start API", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId, sessionId } = await createProjectForTest(
+        storageApp,
+        "A backend research session budget test idea"
+      );
+      const allowlistId = "research_allowlist_backend_session_budget";
+
+      await createAllowlistForTest(storageApp, projectId, allowlistId, {
+        rateBudgetPolicy: {
+          maxConcurrentRunsPerProject: 1,
+          maxRunsPerSession: 1,
+          maxAutomaticRetriesPerRun: 2,
+          runTimeoutSeconds: 600,
+          retryBackoffSeconds: [30, 120]
+        }
+      });
+
+      const firstTaskId = await planResearchTaskForTest(storageApp, {
+        sessionId,
+        expectedStateVersion: 1,
+        objective: "Find first public evidence before the session budget is spent.",
+        sourceQueueItemId: "queue_backend_session_budget_first"
+      });
+      const secondTaskId = await planResearchTaskForTest(storageApp, {
+        sessionId,
+        expectedStateVersion: 2,
+        objective: "Find second public evidence after the session budget is spent.",
+        sourceQueueItemId: "queue_backend_session_budget_second"
+      });
+
+      const firstStart = await startWebResearchRunForTest(
+        storageApp,
+        projectId,
+        allowlistId,
+        "research_run_backend_session_budget_first",
+        {
+          researchTaskId: firstTaskId,
+          contextHash: "ctx_backend_session_budget_first",
+          sourceRefs: ["queue_backend_session_budget_first"]
+        }
+      );
+      const firstStartBody = await jsonBody(firstStart);
+      const firstStartData = firstStartBody.data as Readonly<Record<string, unknown>>;
+      const firstStartProjection = firstStartData.immediateProjection as Readonly<Record<string, unknown>>;
+      const firstRun = firstStartProjection.researchRun as ResearchRunProjection;
+      const completedAt = timestampAfterProviderStart(firstRun);
+      const savedTerminalRun = await createResearchRunRepository(storage.db).update({
+        run: {
+          ...firstRun,
+          version: (Number(firstRun.version) + 1) as ProjectionVersion,
+          status: "failed",
+          provider: {
+            ...firstRun.provider,
+            completedAt
+          },
+          terminalReason: "provider_failed",
+          updatedAt: completedAt
+        },
+        expectedVersion: firstRun.version,
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      expect(firstStart.status).toBe(200);
+      expect(savedTerminalRun).toMatchObject({
+        researchRunId: "research_run_backend_session_budget_first",
+        status: "failed"
+      });
+
+      const overBudgetStart = await startWebResearchRunForTest(
+        storageApp,
+        projectId,
+        allowlistId,
+        "research_run_backend_session_budget_second",
+        {
+          researchTaskId: secondTaskId,
+          contextHash: "ctx_backend_session_budget_second",
+          sourceRefs: ["queue_backend_session_budget_second"]
+        }
+      );
+      const overBudgetBody = await jsonBody(overBudgetStart);
+
+      expect(overBudgetStart.status).toBe(200);
+      expect(overBudgetBody.data).toMatchObject({
+        category: "blocked",
+        immediateProjection: {
+          status: "blocked_precondition",
+          blocker: {
+            code: "rate_budget_exhausted",
+            reason: expect.stringContaining("per-session run budget")
+          }
+        }
+      });
+
+      const overBudgetRetry = await storageApp.request(
+        `/api/v1/projects/${projectId}/research-runs/${firstRun.researchRunId}/retry`,
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            researchRunId: firstRun.researchRunId,
+            retryReason: "Retry should also respect the spent session run budget.",
+            contextHash: "ctx_backend_session_budget_retry"
+          })
+        }
+      );
+      const overBudgetRetryBody = await jsonBody(overBudgetRetry);
+
+      expect(overBudgetRetry.status).toBe(200);
+      expect(overBudgetRetryBody.data).toMatchObject({
+        category: "blocked",
+        immediateProjection: {
+          action: "retry",
+          status: "blocked_precondition",
+          blocker: {
+            code: "rate_budget_exhausted",
+            reason: expect.stringContaining("per-session run budget")
+          }
+        }
+      });
+
+      const runRows = await storage.client.execute("SELECT id FROM research_runs");
+
+      expect(runRows.rows).toHaveLength(1);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("does not spend a sidecar session run budget on another allowlist", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { projectId, sessionId } = await createProjectForTest(
+        storageApp,
+        "A backend allowlist-scoped session budget test idea"
+      );
+      const activeAllowlistId = "research_allowlist_backend_session_budget_active";
+      const otherAllowlistId = "research_allowlist_backend_session_budget_other";
+      const rateBudgetPolicy = {
+        maxConcurrentRunsPerProject: 1,
+        maxRunsPerSession: 1,
+        maxAutomaticRetriesPerRun: 2,
+        runTimeoutSeconds: 600,
+        retryBackoffSeconds: [30, 120]
+      };
+
+      await createAllowlistForTest(storageApp, projectId, activeAllowlistId, { rateBudgetPolicy });
+      await createAllowlistForTest(storageApp, projectId, otherAllowlistId, { rateBudgetPolicy });
+
+      const otherAllowlistTaskId = await planResearchTaskForTest(storageApp, {
+        sessionId,
+        expectedStateVersion: 1,
+        objective: "Find public evidence under another allowlist.",
+        sourceQueueItemId: "queue_backend_session_budget_other_allowlist"
+      });
+      const activeAllowlistTaskId = await planResearchTaskForTest(storageApp, {
+        sessionId,
+        expectedStateVersion: 2,
+        objective: "Find public evidence under the active allowlist.",
+        sourceQueueItemId: "queue_backend_session_budget_active_allowlist"
+      });
+      const otherAllowlistStart = await startWebResearchRunForTest(
+        storageApp,
+        projectId,
+        otherAllowlistId,
+        "research_run_backend_session_budget_other_allowlist",
+        {
+          researchTaskId: otherAllowlistTaskId,
+          contextHash: "ctx_backend_session_budget_other_allowlist",
+          sourceRefs: ["queue_backend_session_budget_other_allowlist"]
+        }
+      );
+      const otherAllowlistStartBody = await jsonBody(otherAllowlistStart);
+      const otherAllowlistStartData = otherAllowlistStartBody.data as Readonly<Record<string, unknown>>;
+      const otherAllowlistProjection = otherAllowlistStartData.immediateProjection as Readonly<Record<string, unknown>>;
+      const otherAllowlistRun = otherAllowlistProjection.researchRun as ResearchRunProjection;
+      const completedAt = timestampAfterProviderStart(otherAllowlistRun);
+      const savedOtherAllowlistRun = await createResearchRunRepository(storage.db).update({
+        run: {
+          ...otherAllowlistRun,
+          version: (Number(otherAllowlistRun.version) + 1) as ProjectionVersion,
+          status: "failed",
+          provider: {
+            ...otherAllowlistRun.provider,
+            completedAt
+          },
+          terminalReason: "provider_failed",
+          updatedAt: completedAt
+        },
+        expectedVersion: otherAllowlistRun.version,
+        schemaVersion: CONTRACT_SCHEMA_VERSION
+      });
+
+      expect(otherAllowlistStart.status).toBe(200);
+      expect(savedOtherAllowlistRun).toMatchObject({
+        allowlistId: otherAllowlistId,
+        status: "failed"
+      });
+
+      const activeAllowlistStart = await startWebResearchRunForTest(
+        storageApp,
+        projectId,
+        activeAllowlistId,
+        "research_run_backend_session_budget_active_allowlist",
+        {
+          researchTaskId: activeAllowlistTaskId,
+          contextHash: "ctx_backend_session_budget_active_allowlist",
+          sourceRefs: ["queue_backend_session_budget_active_allowlist"]
+        }
+      );
+      const activeAllowlistStartBody = await jsonBody(activeAllowlistStart);
+
+      expect(activeAllowlistStart.status).toBe(200);
+      expect(activeAllowlistStartBody.data).toMatchObject({
+        category: "accepted_with_projection",
+        immediateProjection: {
+          status: "started",
+          researchRun: {
+            allowlistId: activeAllowlistId,
+            status: "running"
+          }
+        }
+      });
+
+      const runRows = await storage.client.execute("SELECT id FROM research_runs");
+
+      expect(runRows.rows).toHaveLength(2);
     } finally {
       await storage.close();
     }
