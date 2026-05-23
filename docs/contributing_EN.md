@@ -31,6 +31,7 @@ The local app opens a browser screen through the local web frontend and local No
 | Signed package release evidence contract | `pnpm verify:signed-package-release` |
 | Signed package release evidence dry-run | `pnpm verify:signed-package-release:dry-run` |
 | General release readiness gate | `pnpm verify:release-readiness` |
+| Release evidence checklist/template | `pnpm release:evidence-checklist -- --format markdown --issue <number>` / `pnpm release:evidence-checklist -- --format template --issue <number>` |
 | Full gate (typecheck, lint, tests, docs/release/readiness/package contracts, production bundle smoke) | `pnpm verify` |
 
 ## Repository map
@@ -65,5 +66,5 @@ The local app opens a browser screen through the local web frontend and local No
 - Windows real-device evidence changes update `docs/windows-real-device_KO.md`, `docs/windows-real-device_EN.md`, `docs/windows-real-device.example.json`, `pnpm verify:windows-real-device`, and `pnpm verify:windows-installer:dry-run` together.
 - Signed package planning changes update `docs/signed-packages_KO.md`, `docs/signed-packages_EN.md`, `docs/signed-package-preflight.example.json`, and `pnpm verify:signed-package-preflight` together.
 - Signed package release evidence changes update `docs/signed-package-release_KO.md`, `docs/signed-package-release_EN.md`, `docs/signed-package-release.example.json`, `pnpm verify:signed-package-release`, and `pnpm verify:signed-package-release:dry-run` together.
-- General release readiness changes update `docs/release-readiness_KO.md`, `docs/release-readiness_EN.md`, `docs/release-readiness.example.json`, and `pnpm verify:release-readiness` together.
+- General release readiness changes update `docs/release-readiness_KO.md`, `docs/release-readiness_EN.md`, `docs/release-readiness.example.json`, `pnpm verify:release-readiness`, and `pnpm release:evidence-checklist` together.
 - README remains end-user short; detailed contributor or troubleshooting content lives under `docs/`.

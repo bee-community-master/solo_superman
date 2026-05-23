@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import {
   RELEASE_EVIDENCE_CHECKLIST_SCHEMA_VERSION,
+  RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION,
   buildReleaseEvidenceChecklist,
+  buildReleaseEvidenceTemplate,
   filterReleaseEvidenceChecklistByIssue,
   loadReleaseEvidenceContracts,
   parseReleaseEvidenceChecklistArgs,
@@ -140,6 +142,43 @@ describe("release evidence checklist", () => {
     );
   });
 
+  it("builds redacted evidence templates for issue-filtered release blocker work", async () => {
+    const checklist = buildReleaseEvidenceChecklist(await loadReleaseEvidenceContracts(), {
+      now: new Date("2026-05-24T00:00:00.000Z")
+    });
+    const issue266Checklist = filterReleaseEvidenceChecklistByIssue(checklist, 266);
+    const template = buildReleaseEvidenceTemplate(issue266Checklist);
+
+    expect(template).toMatchObject({
+      schemaVersion: RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION,
+      generatedAt: "2026-05-24T00:00:00.000Z",
+      sourceChecklistSchemaVersion: RELEASE_EVIDENCE_CHECKLIST_SCHEMA_VERSION,
+      templateStatus: "pending",
+      filterIssueNumber: "266",
+      openBlockerIssues: ["https://github.com/bee-community-master/solo_superman/issues/266"],
+      summary: { totalItems: 4, pendingItems: 4, filterIssueNumber: "266" },
+      issues: []
+    });
+    expect(template.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        itemId: "macos-signed-package-release",
+        expectedFinalStatus: "passed",
+        currentStatus: "blocked",
+        requiredChecks: expect.arrayContaining([
+          expect.objectContaining({ id: "macos_codesign_verify", status: "pending" })
+        ]),
+        verification: expect.objectContaining({
+          verifiedAt: "<UTC ISO timestamp>",
+          redactionConfirmed: false,
+          readyReleaseCommandsRun: []
+        })
+      }),
+      expect.objectContaining({ itemId: "release-manifest-signing" })
+    ]));
+    expect(JSON.stringify(template)).toContain("<redacted evidence ref>");
+    expect(JSON.stringify(template)).not.toContain("ghp_");
+  });
+
   it("flags secret-like evidence refs instead of emitting a clean checklist", () => {
     const checklist = buildReleaseEvidenceChecklist(minimalContracts({
       releaseReadiness: {
@@ -241,6 +280,43 @@ describe("release evidence checklist", () => {
       expect(markdown).toContain("- Filtered issue: #266");
       expect(markdown).toContain("- [ ] `release_manifest_signature_verify`");
       expect(markdown).toContain("- [ ] redacted signing evidence");
+
+      await runReleaseEvidenceChecklistCli(["--format", "template", "--issue", "266", "--output", outputPath], {
+        contracts: minimalContracts({
+          releaseReadiness: {
+            schemaVersion: "solo-superman-release-readiness.v1",
+            appId: "solo-superman",
+            broadReleaseStatus: "blocked",
+            requiredVerificationCommands: {
+              credentialFree: ["pnpm verify:release-readiness"],
+              readyRelease: ["pnpm verify:release-readiness -- --require-ready"]
+            },
+            releaseGates: [
+              {
+                id: "signed-packages",
+                status: "blocked",
+                blockerIssue: "https://github.com/bee-community-master/solo_superman/issues/266",
+                requiredChecks: ["release_manifest_signature_verify"],
+                requiredEvidence: ["redacted signing evidence"],
+                unblockCriteria: ["attach redacted evidence"]
+              }
+            ]
+          }
+        }),
+        now: new Date("2026-05-24T00:00:00.000Z")
+      });
+
+      const template = JSON.parse(await readFile(outputPath, "utf8"));
+      expect(template).toMatchObject({
+        schemaVersion: RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION,
+        filterIssueNumber: "266",
+        templateStatus: "pending",
+        summary: { totalItems: 1, pendingItems: 1 }
+      });
+      expect(template.items[0].requiredChecks[0]).toMatchObject({
+        id: "release_manifest_signature_verify",
+        status: "pending"
+      });
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

@@ -18,6 +18,8 @@ const signedPackagesDoc = readFileSync("docs/signed-packages_KO.md", "utf8");
 const signedPackagePreflightExample = readFileSync("docs/signed-package-preflight.example.json", "utf8");
 const signedPackageReleaseDoc = readFileSync("docs/signed-package-release_KO.md", "utf8");
 const signedPackageReleaseExample = readFileSync("docs/signed-package-release.example.json", "utf8");
+const contributingDoc = readFileSync("docs/contributing_KO.md", "utf8");
+const englishContributingDoc = readFileSync("docs/contributing_EN.md", "utf8");
 const windowsBlocks = [...runbook.matchAll(/```powershell\n([\s\S]*?)\n```/g)].map((match) => match[1]);
 const publicRepoUrl = "https://github.com/bee-community-master/solo_superman.git";
 const publicRawBase = "https://raw.githubusercontent.com/bee-community-master/solo_superman/main";
@@ -143,7 +145,6 @@ describe("#105 local install/run verification docs", () => {
     expect(macosBootstrap).toContain(publicRepoUrl);
   });
 
-
   it("keeps bootstrap Node requirements aligned with package engines", () => {
     expect(packageJson).toContain('"node": ">=24.0.0"');
     expect(macosBootstrap).toContain("MIN_NODE_MAJOR=24");
@@ -184,10 +185,16 @@ describe("#105 local install/run verification docs", () => {
     expect(packageJson).toContain('"release:evidence-checklist": "node scripts/release-evidence-checklist.mjs"');
     expect(readme).toContain("`pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json`");
     expect(readme).toContain("`pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md`");
+    expect(readme).toContain("`pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json`");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md`");
+    expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("## Release evidence checklist");
+    expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("--format template --issue 266");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("## Release evidence checklist");
+    expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("--format template --issue 266");
+    expect(contributingDoc).toContain("`pnpm release:evidence-checklist -- --format markdown --issue <number>` / `pnpm release:evidence-checklist -- --format template --issue <number>`");
+    expect(englishContributingDoc).toContain("`pnpm release:evidence-checklist -- --format markdown --issue <number>` / `pnpm release:evidence-checklist -- --format template --issue <number>`");
   });
 
   it("installs Codex CLI on Windows and prompts for the optional Codex desktop app", () => {
