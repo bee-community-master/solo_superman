@@ -80,6 +80,17 @@ pnpm verify
 
 Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 Node/Corepack command shim이 실행되도록 `pnpm.cmd verify:prod-bundle`과 `pnpm.cmd verify`를 사용합니다.
 
+## 오류 리포트용 support bundle
+
+설치나 로컬 실행이 실패하면 아래 명령으로 maintainer에게 전달할 수 있는 credential-free JSON bundle을 생성합니다. 기본 출력은 임시 디렉터리이며, 명령 stdout에 실제 파일 경로가 표시됩니다.
+
+```sh
+pnpm support:bundle
+pnpm support:bundle -- --output ./solo-superman-support-bundle.json
+```
+
+Windows PowerShell에서는 `pnpm.cmd support:bundle` 또는 `pnpm.cmd support:bundle -- --output .\solo-superman-support-bundle.json`을 사용합니다. Bundle은 OS/Node/pnpm/Codex version, git branch/head/status, repo remote, package script, allowlisted environment만 포함합니다. Full environment dump, file contents, browser cookies, OpenAI/GitHub token, ChatGPT web credential은 수집하지 않으며 URL credential, token/secret/password/API-key shaped value는 redacted로 남깁니다. 실패 리포트에 이 JSON을 첨부하되, 수동으로 secret을 추가하지 마세요.
+
 Production bundle smoke는 `build_auto_local_smoke`, browser readiness, managed child processes stopped, temporary app data removed, auto shutdown/kill evidence를 포함해야 합니다.
 `pnpm verify:prod-bundle`은 managed sidecar/web child process를 시작하기 전에 fixed smoke port를 먼저 확인합니다. `127.0.0.1:43110` 또는 설정된 web preview port가 이미 사용 중이면 기존 local process를 중지하거나 `SOLO_PROD_SMOKE_SIDECAR_PORT=<free-port>` / `SOLO_PROD_SMOKE_WEB_PORT=<free-port>`로 다시 실행합니다.
 

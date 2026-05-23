@@ -80,6 +80,17 @@ pnpm verify
 
 On Windows PowerShell, use `pnpm.cmd verify:prod-bundle` and `pnpm.cmd verify` so the Node/Corepack command shim runs even when local execution policy blocks `pnpm.ps1`.
 
+## Support bundle for error reports
+
+If install or local startup fails, generate a credential-free JSON bundle that can be attached to an error report. The default output path is in the temporary directory, and the command prints the exact path on stdout.
+
+```sh
+pnpm support:bundle
+pnpm support:bundle -- --output ./solo-superman-support-bundle.json
+```
+
+On Windows PowerShell, use `pnpm.cmd support:bundle` or `pnpm.cmd support:bundle -- --output .\solo-superman-support-bundle.json`. The bundle includes OS/Node/pnpm/Codex versions, git branch/head/status, repo remote, package scripts, and allowlisted environment values only. It excludes full environment dumps, file contents, browser cookies, OpenAI/GitHub tokens, and ChatGPT web credentials; URL credentials and token/secret/password/API-key shaped values are redacted. Attach the JSON as-is and do not add secrets manually.
+
 A production bundle smoke must cover `build_auto_local_smoke`, browser readiness, managed child processes stopped, temporary app data removed, and auto shutdown/kill evidence.
 Before it starts managed sidecar/web child processes, `pnpm verify:prod-bundle` probes the fixed smoke ports. If `127.0.0.1:43110` or the configured web preview port is already in use, stop the existing local process or rerun with `SOLO_PROD_SMOKE_SIDECAR_PORT=<free-port>` / `SOLO_PROD_SMOKE_WEB_PORT=<free-port>`.
 
@@ -177,4 +188,4 @@ $env:VITE_SOLO_SIDECAR_BASE_URL = "http://127.0.0.1:43110"
 
 ## Install/run docs contract
 
-The docs verifier checks this troubleshooting guide for macOS/Windows command coverage, local token defaults, Codex login labels, manual browser smoke, cleanup evidence, and required troubleshooting cases.
+The docs verifier checks this troubleshooting guide for macOS/Windows command coverage, local token defaults, Codex login labels, support bundle guidance, manual browser smoke, cleanup evidence, and required troubleshooting cases.

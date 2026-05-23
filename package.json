@@ -34,7 +34,8 @@
     "verify:auto-implementation-review-loop": "tsx apps/sidecar/src/auto-implementation-review-loop-smoke.ts",
     "verify:browser-delegation-pipeline": "tsx apps/sidecar/src/browser-delegation-pipeline-smoke.ts",
     "verify:service-page-pipeline": "tsx apps/sidecar/src/service-page-pipeline-smoke.ts",
-    "verify:clarification-volume": "tsx apps/sidecar/src/clarification-volume-smoke.ts"
+    "verify:clarification-volume": "tsx apps/sidecar/src/clarification-volume-smoke.ts",
+    "support:bundle": "node scripts/support-bundle.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
