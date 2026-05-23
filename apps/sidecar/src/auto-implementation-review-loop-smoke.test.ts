@@ -33,6 +33,7 @@ describe("auto implementation review-loop smoke", () => {
         "ImplementationStepLedger completed with two no-finding code-review passes per feature/repository scope for every stage",
         "ImplementationStepLedger completed with two no-finding clean-code passes per changed-code/repository scope for every stage",
         "missing-test audit evidence recorded with zero gaps for every stage",
+        "fixture PR merge mutation recorded before merge_main completion",
         "run reached completed status at merge_main without real GitHub writes"
       ])
     );

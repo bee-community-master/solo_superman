@@ -29,6 +29,7 @@ import {
   canOpenNewAutoImplementationPullRequest,
   canPlanCurrentStageAutoImplementationWorkerJob,
   canRunAutoImplementationWorkerJob,
+  hasAppliedAutoImplementationPullRequestMerge,
   autoImplementationGitHubIssueUrlForIssue,
   autoImplementationRunWithSynchronizedIssueDocs,
   autoImplementationWorkerExpectedChangeScope,
@@ -777,6 +778,22 @@ function assertAutoImplementationStageCompletionDoesNotPrecedeScheduledTick(
         recordedAt,
         nextScheduledAt: stage.nextScheduledAt
       }
+    );
+  }
+}
+
+function assertMergeMainCompletionHasAppliedPullRequestMerge(
+  run: AutoImplementationRun,
+  request: RecordAutoImplementationStageRequest
+) {
+  if (
+    request.action === "complete" &&
+    request.stage === "merge_main" &&
+    !hasAppliedAutoImplementationPullRequestMerge(run)
+  ) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "Auto implementation merge_main completion requires an applied GitHub PR merge mutation record."
     );
   }
 }
@@ -4967,6 +4984,8 @@ export function createProductEngineCommandService(
         "Auto implementation stage completion requires an implementation step that has not completed another stage."
       );
     }
+
+    assertMergeMainCompletionHasAppliedPullRequestMerge(run, request);
 
     const recordedAt = request.tickedAt ?? new Date().toISOString();
     const nextTickAt = addMilliseconds(recordedAt, AUTO_IMPLEMENTATION_TICK_INTERVAL_MS);

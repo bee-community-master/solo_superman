@@ -25,11 +25,13 @@ import {
   type SmokeSidecarApp,
   type SmokeStorage
 } from "./auto-implementation-smoke-fixtures";
+import type { AutoImplementationPullRequestMutationAdapter } from "./product-engine/auto-implementation-workspace";
 import { createSidecarApp } from "./server";
 
 export const AUTO_IMPLEMENTATION_REVIEW_LOOP_SMOKE = "auto_implementation_review_loop" as const;
 
 const PROJECT_FOLDER_NAME = "review-loop-smoke-demo";
+const FIXTURE_PR_URL = "https://github.com/bee-community-master/generated-demo/pull/233";
 const PLANNING_FIXTURE: AutoImplementationSmokePlanningFixture = {
   idPrefix: "review_loop_smoke",
   sourceLabelPrefix: "Review loop smoke Planning Handoff",
@@ -109,6 +111,20 @@ function latestRunFromProjection(projection: JsonRecord, label: string) {
 
 function stageTickAt(index: number) {
   return new Date(Date.UTC(2026, 4, 23, 0, 10 + index * 10, 0, 0)).toISOString();
+}
+
+function fixturePrMergeMutationAdapter(): AutoImplementationPullRequestMutationAdapter {
+  return {
+    async mutate(input) {
+      return {
+        pullRequestUrl: input.pullRequestUrl ?? FIXTURE_PR_URL,
+        auditEvidenceRefs: [`github-pr-mutation:review-loop-fixture:${input.action}`],
+        mergeEvidenceRefs: input.action === "merge_pr"
+          ? ["github-pr-mutation:review-loop-fixture:merge-completed"]
+          : []
+      };
+    }
+  };
 }
 
 async function createAutoImplementationRun(input: {
@@ -374,6 +390,48 @@ async function completeStage(input: {
   return latestRunFromProjection(data, `${input.stage} completed stage`);
 }
 
+async function recordAppliedMergeMutation(input: {
+  readonly scenario: ReviewLoopScenario;
+  readonly localCapabilityToken: string;
+  readonly preparedRun: PreparedRun;
+}) {
+  const data = await postJson(
+    input.scenario.storageApp,
+    `/api/v1/sessions/${input.preparedRun.sessionId}/auto-implementation-runs/${input.preparedRun.runId}/pr-mutations`,
+    input.localCapabilityToken,
+    {
+      sessionId: input.preparedRun.sessionId,
+      runId: input.preparedRun.runId,
+      action: "merge_pr",
+      requestMode: "approved",
+      idempotencyKey: "review-loop-smoke:pr-merge:approved",
+      pullRequestTitle: "Review-loop smoke generated implementation PR",
+      pullRequestUrl: FIXTURE_PR_URL,
+      issueLinks: ["https://github.com/bee-community-master/generated-demo/issues/233"],
+      implementationScope: "Fixture merge proves merge_main cannot complete before an applied PR merge record exists.",
+      reviewStreakRefs: [],
+      verificationCommands: ["pnpm verify"],
+      knownGaps: [],
+      rollbackNotes: "Reopen or revert the fixture merge if post-merge verification evidence fails.",
+      mergeEvidenceRefs: ["merge-ready:review-loop-fixture"],
+      bodyEvidenceRefs: ["pr-body:review-loop-current-evidence"],
+      approval: {
+        approvalId: "approval_review_loop_fixture_merge",
+        approvedBy: "fixture_operator",
+        approvedAt: "2026-05-23T01:05:00.000Z",
+        actionClass: "github_pr_mutation",
+        approvalGranularity: "per_action",
+        remoteStatusAtApproval: "connected",
+        rollbackPlan: "Reopen or revert the fixture merge if post-merge verification evidence fails.",
+        evidenceRefs: ["approval:review-loop-fixture-merge"]
+      },
+      verifierEvidenceRefs: ["verifier:review-loop-fixture-merge-ready"]
+    }
+  );
+
+  return latestRunFromProjection(data, "review-loop fixture PR merge");
+}
+
 async function executeStage(input: {
   readonly scenario: ReviewLoopScenario;
   readonly localCapabilityToken: string;
@@ -381,6 +439,10 @@ async function executeStage(input: {
   readonly stage: AutoImplementationStage;
   readonly stageIndex: number;
 }): Promise<StageResult> {
+  if (input.stage === "merge_main") {
+    await recordAppliedMergeMutation(input);
+  }
+
   const ledger = await recordCompletedLedger(input);
   const implementationStepId = stepDoc(input.preparedRun.runId, input.stage, input.stageIndex).stepId;
   const advancedRun = await completeStage({
@@ -513,6 +575,17 @@ function resultBlockers(result: ReviewLoopResult) {
     blockers.push(`final currentStage must remain merge_main; received ${JSON.stringify(result.finalRun.currentStage)}`);
   }
 
+  const pullRequestMutationState = result.finalRun.pullRequestMutations as JsonRecord | undefined;
+  const latestPullRequestMutation = pullRequestMutationState?.latestRecord as JsonRecord | null | undefined;
+
+  if (
+    !latestPullRequestMutation ||
+    latestPullRequestMutation.action !== "merge_pr" ||
+    latestPullRequestMutation.status !== "applied"
+  ) {
+    blockers.push("merge_main completion must retain an applied PR merge mutation record.");
+  }
+
   return blockers;
 }
 
@@ -538,6 +611,7 @@ function checkedEvidence() {
     "ImplementationStepLedger completed with two no-finding clean-code passes per changed-code/repository scope for every stage",
     "missing-test audit evidence recorded with zero gaps for every stage",
     "passing test evidence recorded for every stage",
+    "fixture PR merge mutation recorded before merge_main completion",
     "each canonical stage completed through the existing stage endpoint",
     "run reached completed status at merge_main without real GitHub writes"
   ];
@@ -593,7 +667,9 @@ async function createScenario(appDataDir: string, localCapabilityToken: string):
       localCapabilityToken,
       migrationStatus,
       storage,
-      autoImplementationWorkspaceRoot: join(appDataDir, "review-loop-workspaces")
+      autoImplementationWorkspaceRoot: join(appDataDir, "review-loop-workspaces"),
+      autoImplementationRemoteStatusProvider: async () => "connected",
+      autoImplementationPullRequestMutationAdapter: fixturePrMergeMutationAdapter()
     })
   };
 }
