@@ -586,6 +586,14 @@ function appendAdapterBlockers(result: PrMutationFlowResult, blockers: string[])
     blockers.push("Generated open PR body did not include issue traceability.");
   }
 
+  if (!includesMarkdown(openInput, "### Stage status summary")) {
+    blockers.push("Generated open PR body did not include stage status summary.");
+  }
+
+  if (!includesMarkdown(openInput, "- Completed stages: 1/7")) {
+    blockers.push("Generated open PR body did not include completed stage count.");
+  }
+
   if (!includesMarkdown(openInput, "### Review gate summary")) {
     blockers.push("Generated open PR body did not include review gate summary.");
   }
@@ -635,6 +643,7 @@ function prMutationEvidence(result: PrMutationFlowResult) {
     adapterActions: result.mutationInputs.map((input) => input.action),
     bodyMarkdownChecks: [
       "open body includes issue traceability",
+      "open body includes stage status summary",
       "open body includes review gate summary",
       "open body includes implementation evidence",
       "open body includes missing-test audit evidence",

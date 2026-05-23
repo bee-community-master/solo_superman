@@ -11096,6 +11096,12 @@ describe("PR-02 sidecar health shell", () => {
         expect(input.bodyMarkdown).toContain(
           "- local-007: Merge verified PR to main (implementation-issues/007-merge_main.md; stage: merge_main; GitHub issue: none)"
         );
+        expect(input.bodyMarkdown).toContain("### Stage status summary");
+        expect(input.bodyMarkdown).toContain("- Current stage: initial_pr");
+        expect(input.bodyMarkdown).toContain("- Completed stages: 0/7");
+        expect(input.bodyMarkdown).toContain("- Open stages: 7");
+        expect(input.bodyMarkdown).toContain("- initial_pr: ready; ledger evidence: none");
+        expect(input.bodyMarkdown).toContain("- merge_main: pending; ledger evidence: none");
         expect(input.bodyMarkdown).toContain("### Review gate summary");
         expect(input.bodyMarkdown).toContain("#### Code review");
         expect(input.bodyMarkdown).toContain("- feature: missing (1/2 no-finding code-review refs recorded)");
@@ -11222,6 +11228,9 @@ describe("PR-02 sidecar health shell", () => {
         expect(input.bodyMarkdown).toContain(
           "- local-007: Merge verified PR to main (implementation-issues/007-merge_main.md; stage: merge_main; GitHub issue: https://github.com/bee-community-master/generated-demo/issues/207)"
         );
+        expect(input.bodyMarkdown).toContain("### Stage status summary");
+        expect(input.bodyMarkdown).toContain("- Completed stages: 1/7");
+        expect(input.bodyMarkdown).toContain("- initial_pr: completed; ledger evidence: step_demo");
         expect(input.bodyMarkdown).toContain("### Code review streak evidence");
         expect(input.bodyMarkdown).toContain("### Review gate summary");
         expect(input.bodyMarkdown).toContain("- feature: satisfied (2/2 no-finding code-review refs recorded)");
