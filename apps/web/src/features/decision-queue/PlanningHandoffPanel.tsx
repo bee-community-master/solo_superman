@@ -35,7 +35,7 @@ export function PlanningHandoffPanel({
   return (
     <section className="panel">
       <div className="panel-heading">
-        <h2>Planning Handoff</h2>
+        <h2>{copy.handoff.title}</h2>
         <span>{handoff.statusLabel}</span>
       </div>
       <p className="operations-summary">{handoff.label}</p>
