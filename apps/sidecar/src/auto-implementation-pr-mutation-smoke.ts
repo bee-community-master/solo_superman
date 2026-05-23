@@ -586,6 +586,18 @@ function appendAdapterBlockers(result: PrMutationFlowResult, blockers: string[])
     blockers.push("Generated open PR body did not include issue traceability.");
   }
 
+  if (!includesMarkdown(openInput, "### Review gate summary")) {
+    blockers.push("Generated open PR body did not include review gate summary.");
+  }
+
+  if (!includesMarkdown(openInput, "- feature: satisfied (2/2 no-finding code-review refs recorded)")) {
+    blockers.push("Generated open PR body did not include satisfied feature code-review gate summary.");
+  }
+
+  if (!includesMarkdown(openInput, "- changed_code: satisfied (2/2 no-finding clean-code review refs recorded)")) {
+    blockers.push("Generated open PR body did not include satisfied changed_code clean-code gate summary.");
+  }
+
   if (!includesMarkdown(openInput, "### Implementation evidence")) {
     blockers.push("Generated open PR body did not include implementation evidence.");
   }
@@ -623,6 +635,7 @@ function prMutationEvidence(result: PrMutationFlowResult) {
     adapterActions: result.mutationInputs.map((input) => input.action),
     bodyMarkdownChecks: [
       "open body includes issue traceability",
+      "open body includes review gate summary",
       "open body includes implementation evidence",
       "open body includes missing-test audit evidence",
       "update body includes verification commands"

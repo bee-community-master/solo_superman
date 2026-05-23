@@ -23,6 +23,7 @@ import {
   AUTO_IMPLEMENTATION_WORKER_MISSING_EVIDENCE,
   AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS,
   AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY,
+  IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK,
   canCompleteAutoImplementationWorkerJob,
   canCreateAutoImplementationGitHubIssues,
   canImportAutoImplementationWorkerLedger,
@@ -1062,6 +1063,22 @@ function scopedReviewEvidenceLines(input: {
   ]);
 }
 
+function reviewGateSummaryLines(input: {
+  readonly refs: readonly string[];
+  readonly groups: typeof PR_BODY_CODE_REVIEW_EVIDENCE_GROUPS | typeof PR_BODY_CLEAN_CODE_REVIEW_EVIDENCE_GROUPS;
+  readonly reviewLabel: string;
+}) {
+  return input.groups.map((group) => {
+    const refCount = uniqueAutoImplementationRefs(
+      input.refs.filter((ref) => ref.startsWith(group.refPrefix))
+    ).length;
+    const recordedPasses = Math.min(refCount, IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK);
+    const statusLabel = refCount >= IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK ? "satisfied" : "missing";
+
+    return `- ${group.heading}: ${statusLabel} (${recordedPasses}/${IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK} no-finding ${input.reviewLabel} refs recorded)`;
+  });
+}
+
 function pullRequestIssueTraceabilityLines(run: AutoImplementationRun) {
   return run.issueManagement.issueDocs.length
     ? run.issueManagement.issueDocs.map((issue) => {
@@ -1095,6 +1112,22 @@ function pullRequestBodyMarkdown(input: {
     "",
     "### Implementation scope",
     input.request.implementationScope,
+    "",
+    "### Review gate summary",
+    "",
+    "#### Code review",
+    ...reviewGateSummaryLines({
+      refs: reviewStreakRefs,
+      groups: PR_BODY_CODE_REVIEW_EVIDENCE_GROUPS,
+      reviewLabel: "code-review"
+    }),
+    "",
+    "#### Clean-code review",
+    ...reviewGateSummaryLines({
+      refs: reviewStreakRefs,
+      groups: PR_BODY_CLEAN_CODE_REVIEW_EVIDENCE_GROUPS,
+      reviewLabel: "clean-code review"
+    }),
     "",
     "### Code review streak evidence",
     ...scopedReviewEvidenceLines({
