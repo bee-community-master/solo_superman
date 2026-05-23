@@ -53,7 +53,8 @@ Set-Location "$HOME\solo_superman"; pnpm.cmd start:local
 - 현재 권장 공개 방식: 제한 베타 형태의 테크니컬 프리뷰
 - 적합한 사용자: 로컬 앱 설치에 익숙하거나 안내를 보며 터미널 한 줄 명령을 실행할 수 있는 사용자
 - 오류 리포트용 로컬 진단 번들: 실패 상황에서 `pnpm support:bundle`을 실행하면 credential-free JSON support bundle 경로가 출력됩니다. 이 번들은 OS/Node/pnpm/git 상태와 allowlisted environment만 담고 token, secret, cookie, credential, file contents는 수집하지 않습니다.
+- 서명된 설치 패키지 preflight: [`docs/signed-packages_KO.md`](docs/signed-packages_KO.md)와 `pnpm verify:signed-package-preflight`가 macOS/Windows package 후보, signing credential gate, local dry-run과 actual signing gate 분리를 검증합니다.
 - 패키지 앱 업데이트 채널 계약: [`docs/release-channel_KO.md`](docs/release-channel_KO.md)와 `pnpm verify:release-channel`이 manifest 서명, artifact checksum/signature, 사용자 보류, 재시도, rollback, credential/user-data 보존 조건을 검증합니다.
-- 아직 남은 일반 배포 과제: 서명된 macOS/Windows 설치 패키지, 실제 패키지 앱 updater 구현/실기기 rollback 검증, Windows 실기기 검증
+- 아직 남은 일반 배포 과제: 실제 signing/notarization credential으로 macOS/Windows 설치 패키지 생성 및 검증, 실제 패키지 앱 updater 구현/실기기 rollback 검증, Windows 실기기 검증
 
 참고: Windows PowerShell 설치 경로는 문서화되어 있지만, 넓은 공개 전에는 실제 Windows 기기에서 한 줄 설치부터 첫 화면 도달까지 별도 검증이 필요합니다.

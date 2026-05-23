@@ -15,6 +15,7 @@ export const CONTRIBUTOR_DOC_PATHS = [
   "docs/decisions_KO.md",
   "docs/reference_KO.md",
   "docs/release-channel_KO.md",
+  "docs/signed-packages_KO.md",
   "docs/troubleshooting_KO.md"
 ];
 
@@ -30,6 +31,7 @@ const CONTRIBUTOR_DOC_SLUGS = [
   "decisions",
   "reference",
   "release-channel",
+  "signed-packages",
   "troubleshooting"
 ];
 

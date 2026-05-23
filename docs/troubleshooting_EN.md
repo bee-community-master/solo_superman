@@ -4,7 +4,7 @@ Language: [한국어](troubleshooting_KO.md) | English
 
 ## Release posture
 
-Solo Superman is currently a limited-beta-style technical preview. The goal is to let a non-developer reach the local web screen through a safe one-line installer, while keeping risky actions reviewable. The packaged app update channel is defined only by the manifest/signature/checksum/retry/rollback contract in [`release-channel_EN.md`](release-channel_EN.md); real automatic update application remains deferred until signed packages and device rollback verification exist.
+Solo Superman is currently a limited-beta-style technical preview. The goal is to let a non-developer reach the local web screen through a safe one-line installer, while keeping risky actions reviewable. Signed packages are only planned through the credential-free preflight in [`signed-packages_EN.md`](signed-packages_EN.md); real signing/notarization credentials are not present yet. The packaged app update channel is defined only by the manifest/signature/checksum/retry/rollback contract in [`release-channel_EN.md`](release-channel_EN.md); real automatic update application remains deferred until signed packages and device rollback verification exist.
 
 ## One-line install
 
@@ -76,12 +76,15 @@ Contributors can run:
 ```sh
 pnpm verify:prod-bundle
 pnpm verify:release-channel
+pnpm verify:signed-package-preflight
 pnpm verify
 ```
 
-On Windows PowerShell, use `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, and `pnpm.cmd verify` so the Node/Corepack command shim runs even when local execution policy blocks `pnpm.ps1`.
+On Windows PowerShell, use `pnpm.cmd verify:prod-bundle`, `pnpm.cmd verify:release-channel`, `pnpm.cmd verify:signed-package-preflight`, and `pnpm.cmd verify` so the Node/Corepack command shim runs even when local execution policy blocks `pnpm.ps1`.
 
 `pnpm verify:release-channel` checks `docs/release-update-channel.example.json` for manifest signature, artifact checksum/signature, user consent/deferral, retry, rollback, and credential/user-data preservation declarations. It verifies the release channel contract; it does not install signed packages or apply real updates.
+
+`pnpm verify:signed-package-preflight` checks `docs/signed-package-preflight.example.json` for macOS/Windows package candidates, signing credential groups, credential-free dry-run commands, and actual signing hard gates. The default run passes without signing secrets and reports why real signing is still blocked through `credentialGateStatus=blocked` and `missingCredentialGroups`. In a real release environment, use `pnpm verify:signed-package-preflight -- --require-credentials`; that mode must fail when required signing env values are missing.
 
 ## Support bundle for error reports
 

@@ -53,7 +53,8 @@ Reaching the local first screen and running the default local path do not requir
 - Current recommended public channel: limited-beta-style technical preview
 - Suitable users: users who are comfortable installing a local app, or who can follow guidance to run one terminal command
 - Local diagnostics bundle for error reports: after a failure, run `pnpm support:bundle` to print the path to a credential-free JSON support bundle. It captures OS/Node/pnpm/git state and allowlisted environment values only; it does not collect tokens, secrets, cookies, credentials, or file contents.
+- Signed installer package preflight: [`docs/signed-packages_EN.md`](docs/signed-packages_EN.md) and `pnpm verify:signed-package-preflight` verify macOS/Windows package candidates, signing credential gates, and the split between local dry-runs and actual signing gates.
 - Packaged app update channel contract: [`docs/release-channel_EN.md`](docs/release-channel_EN.md) and `pnpm verify:release-channel` verify manifest signature, artifact checksum/signature, user deferral, retry, rollback, and credential/user-data preservation requirements.
-- Remaining general-release work: signed macOS/Windows installer packages, real packaged-app updater implementation/device rollback verification, and Windows real-device verification
+- Remaining general-release work: create and verify macOS/Windows installer packages with real signing/notarization credentials, real packaged-app updater implementation/device rollback verification, and Windows real-device verification
 
 Note: the Windows PowerShell install path is documented, but before broad public release it still needs a separate real Windows device verification pass from one-line install through first-screen arrival.

@@ -1,0 +1,59 @@
+# Signed macOS/Windows Installer Package Plan
+
+Language: [한국어](signed-packages_KO.md) | English
+
+This document plans the signed package path needed after the one-line installer technical preview. The current repo/local environment does not contain Apple Developer ID, notarization account, or Windows code-signing certificate material, so it does not perform real signing. Instead, `pnpm verify:signed-package-preflight` verifies the credential-free dry-run contract and reports exactly why the signing gate is still blocked.
+
+## Current state
+
+- Current distribution: README one-line installer technical preview.
+- Release channel contract: [`release-channel_EN.md`](release-channel_EN.md) plus `pnpm verify:release-channel` verify manifest/signature/checksum/retry/rollback/user-data/credential preservation.
+- Signed package preflight: [`signed-package-preflight.example.json`](signed-package-preflight.example.json) plus `pnpm verify:signed-package-preflight` verify macOS/Windows signing candidates and credential gates.
+- Actual signing/notarization: blocked until required certificates, accounts, and secrets exist.
+
+## Packaging candidates
+
+| Platform | Candidate package | Required signing/notarization | Available in local dry-run |
+| --- | --- | --- | --- |
+| macOS | `macos-dmg`, `macos-pkg` | Developer ID Application/Installer certificate, Apple notarization, stapling | `pnpm build`, `pnpm verify:prod-bundle`, release channel manifest verification, signed-package preflight contract verification |
+| Windows | `windows-msi`, `windows-exe` | Authenticode certificate, timestamp server | `pnpm build`, `pnpm verify:prod-bundle`, release channel manifest verification, signed-package preflight contract verification |
+
+The package format decision must account for installer UX, updater integration, rollback support, and enterprise policy compatibility. Whichever format is chosen, signed artifact checksum/signature references must flow into the release update manifest.
+
+## Credential/secret separation
+
+Secret values must not appear in docs, PR bodies, support bundles, release manifests, or logs. Docs and manifests may contain only key identifiers, public certificate metadata, signature refs, checksums, and redacted evidence.
+
+| Credential group | Required env names | Used for |
+| --- | --- | --- |
+| `macos-developer-id` | `APPLE_DEVELOPER_ID_CERTIFICATE_P12_BASE64`, `APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD`, `APPLE_NOTARYTOOL_APPLE_ID`, `APPLE_NOTARYTOOL_TEAM_ID`, `APPLE_NOTARYTOOL_PASSWORD` | macOS DMG/PKG signing, notarization, stapling |
+| `windows-authenticode` | `WINDOWS_CODESIGN_CERTIFICATE_PFX_BASE64`, `WINDOWS_CODESIGN_CERTIFICATE_PASSWORD`, `WINDOWS_CODESIGN_TIMESTAMP_URL` | Windows MSI/EXE Authenticode signing and timestamping |
+| `release-manifest-signing` | `SOLO_RELEASE_MANIFEST_PRIVATE_KEY_REF`, `SOLO_RELEASE_MANIFEST_PUBLIC_KEY_ID` | Release update manifest signing after signed artifact checksum/signature refs are final |
+
+## Verification commands
+
+The default preflight passes without credentials and reports the actual signing blocker through `credentialGateStatus` and `missingCredentialGroups`.
+
+```sh
+pnpm verify:signed-package-preflight
+```
+
+In a real signing environment, run the credential-required gate separately. This mode must fail if required env values are missing.
+
+```sh
+pnpm verify:signed-package-preflight -- --require-credentials
+```
+
+`pnpm verify` includes the credential-free default preflight so local contributors can catch release planning contract drift without signing secrets.
+
+## Real release gate
+
+A real signed package PR or release job must carry all of this evidence:
+
+1. macOS artifacts pass `codesign`, `pkgutil`/`spctl`, notarization status, and stapling evidence.
+2. Windows artifacts pass Authenticode signature and timestamp verification.
+3. The release update manifest contains final artifact SHA-256, package size, and signature refs, then passes manifest signature verification.
+4. macOS/Windows devices verify install, update deferral, retry, rollback, and launch behavior.
+5. Rollback changes only packaged app binaries and release metadata; it does not touch local DBs, generated workspaces, support bundles, or credentials.
+
+Without those gates, the project must not claim broad-release signed packages or packaged automatic updates are complete.
