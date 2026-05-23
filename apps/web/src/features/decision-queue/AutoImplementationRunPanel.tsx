@@ -551,7 +551,7 @@ export function AutoImplementationRunPanel({
         <ul>
           {run.issueDocs.map((issue) => (
             <li key={issue.issueId}>
-              {issue.issueId}: {issue.title} ({issue.relativePath})
+              {issue.issueId}: {issue.title} — stage {issue.stage} / status {issue.status} ({issue.relativePath})
             </li>
           ))}
         </ul>
