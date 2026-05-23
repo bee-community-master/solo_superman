@@ -93,6 +93,8 @@ Live Codex app-server preview turn은 기본 비활성입니다. Maintainer는 `
 
 `pnpm verify:auto-implementation-pipeline`은 preview-turn, worker-job, generated PR mutation smoke를 한 번에 묶는 credential-free aggregate smoke입니다. 이 명령은 live Codex flag를 강제로 요구하지 않고 fixture mode에서 `codex_runtime_preview_effect` 생성/실행, bounded worker job의 ledger import 및 stage advance, generated PR open/body-update/merge guard를 순차 검증하며, 하위 smoke 중 하나라도 `blocked`이면 aggregate 결과도 `blocked`로 보고합니다. 실제 GitHub write와 production/external final-submit action은 계속 범위 밖입니다.
 
+`pnpm verify:research-pipeline`은 credential-free research pipeline smoke입니다. 임시 app data와 local sidecar를 만들고 public-web allowlist를 생성한 뒤 read-only research run을 시작하며, source trace가 있는 result import와 pending `research_evidence_effect` drain 또는 이미 생성된 synthesis를 확인합니다. 통과하려면 Research projection에 evidence matrix/evidence pack/review card가 보이고 Decision Queue에 research-generated follow-up question debt가 노출되어야 합니다. `pnpm verify`는 이 smoke와 auto-implementation aggregate smoke를 함께 실행해 기본 로컬 검증에서 research 및 implementation critical path를 모두 확인합니다.
+
 ## 로컬 토큰과 sidecar URL
 
 Local service는 per-run local capability token을 사용합니다. 일반 `pnpm start:local` 또는 installer run에서 launcher는 fresh token 하나를 만들어 browser build와 sidecar 모두에 전달합니다. Browser build는 `VITE_SOLO_LOCAL_CAPABILITY_TOKEN`과 `VITE_SOLO_SIDECAR_BASE_URL`을 받습니다. Sidecar는 `SOLO_LOCAL_CAPABILITY_TOKEN`을 사용합니다. token mismatch fails visibly with `401`.
