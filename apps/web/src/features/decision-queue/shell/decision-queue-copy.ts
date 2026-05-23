@@ -528,6 +528,62 @@ const EN_COPY = {
     runWorkerJob: "Run worker job",
     advanceWorkerStage: "Advance worker stage",
     refresh: "Refresh workspace run",
+    actionErrors: {
+      activeSessionRequiredCreateWorkspace:
+        "An active session is required before creating an auto implementation workspace.",
+      planningHandoffMustBeReady:
+        "Planning handoff must be planning_ready before creating or reprovisioning an auto implementation workspace.",
+      planningHandoffRequired:
+        "Run the planning handoff gate and reach planning_ready before creating an auto implementation workspace.",
+      workspaceCreationFailed: (error: string) => `Auto implementation workspace creation failed: ${error}`,
+      activeRunRequiredPlanWorker:
+        "An active auto implementation workspace run is required before planning a local worker job.",
+      currentStageWorkerMustContinue:
+        "Continue the latest current-stage worker with run, import, complete, or advance before planning another local worker job.",
+      activeRunRequiredStageTick:
+        "An active auto implementation workspace run is required before recording a stage tick.",
+      activeRunRequiredStartStage:
+        "An active auto implementation workspace run is required before starting a stage.",
+      activeRunRequiredPauseStage:
+        "An active auto implementation workspace run is required before pausing a stage.",
+      activeRunRequiredBlockStage:
+        "An active auto implementation workspace run is required before blocking a stage.",
+      activeRunRequiredCompleteWorker:
+        "An active auto implementation workspace run is required before completing a worker from ledger evidence.",
+      completedLedgerRequiredCompleteWorker:
+        "A planned or ledger-blocked current-stage worker and a completed ImplementationStepLedger step are required before completing the worker.",
+      plannedWorkerRequiredRunWorker: "A planned local Codex worker job is required before running the worker.",
+      activeRunRequiredImportWorkerLedger:
+        "An active auto implementation workspace run is required before importing worker ledger evidence.",
+      workerLedgerImportPrepareFailed: "Worker ledger import request could not be prepared.",
+      completedWorkerRequiredAdvanceStage: "A completed local Codex worker job is required before advancing the worker stage.",
+      githubIssueMutationUnavailable:
+        "This auto implementation GitHub issue mutation is not available for the current run state.",
+      activeRunRequiredRecordGitHubIssueDryRun:
+        "An active auto implementation workspace run is required before recording a GitHub issue dry-run.",
+      activeRunRequiredApplyGitHubIssueCreation:
+        "An active auto implementation workspace run is required before applying approved GitHub issue creation.",
+      githubIssueAlreadyRecorded:
+        "GitHub issue URLs are already recorded; continue with the existing generated issues instead of creating duplicates.",
+      pullRequestMutationUnavailable:
+        "This auto implementation PR mutation is not available for the current run state.",
+      activeRunRequiredRecordPullRequestOpenDryRun:
+        "An active auto implementation workspace run is required before recording a PR open dry-run.",
+      activeRunRequiredApplyPullRequestOpen:
+        "An active auto implementation workspace run is required before applying an approved PR open.",
+      pullRequestAlreadyRecorded:
+        "A pull request URL is already recorded; update or merge the existing PR instead of opening another one.",
+      activeRunRequiredRecordPullRequestDryRun:
+        "An active auto implementation workspace run is required before recording a PR body dry-run.",
+      activeRunRequiredRecordPullRequestMergeDryRun:
+        "An active auto implementation workspace run is required before recording a PR merge dry-run.",
+      activeRunRequiredApplyPullRequestBodyUpdate:
+        "An active auto implementation workspace run is required before applying an approved PR body update.",
+      activeRunRequiredApplyPullRequestMerge:
+        "An active auto implementation workspace run is required before applying an approved PR merge.",
+      pullRequestMergeAlreadyRecorded:
+        "A pull request merge is already recorded; do not merge the same auto implementation PR again."
+    },
     workerPlan: "Local worker bounded plan",
     workerRuntimeReadiness: "Worker runtime readiness",
     workerRuntimeStatus: "Runtime status",
@@ -1382,6 +1438,53 @@ const JA_COPY: typeof EN_COPY = {
     runWorkerJob: "Worker jobを実行",
     advanceWorkerStage: "Worker stageを進める",
     refresh: "ワークスペース実行を更新",
+    actionErrors: {
+      activeSessionRequiredCreateWorkspace: "自動実装ワークスペースを作成するにはアクティブなセッションが必要です。",
+      planningHandoffMustBeReady:
+        "自動実装ワークスペースを作成または再準備する前に、計画引き継ぎが planning_ready である必要があります。",
+      planningHandoffRequired:
+        "自動実装ワークスペースを作成する前に、計画引き継ぎゲートを実行して planning_ready にしてください。",
+      workspaceCreationFailed: (error: string) => `自動実装ワークスペースの作成に失敗しました: ${error}`,
+      activeRunRequiredPlanWorker: "ローカルworker jobを計画するにはアクティブな自動実装ワークスペース実行が必要です。",
+      currentStageWorkerMustContinue:
+        "別のローカルworker jobを計画する前に、最新の現在stage workerを実行、import、完了、またはadvanceしてください。",
+      activeRunRequiredStageTick: "stage tickを記録するにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredStartStage: "stageを開始するにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredPauseStage: "stageを一時停止するにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredBlockStage: "stageをブロックするにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredCompleteWorker:
+        "ledger evidenceからworkerを完了するにはアクティブな自動実装ワークスペース実行が必要です。",
+      completedLedgerRequiredCompleteWorker:
+        "workerを完了するには、計画済みまたはledger-blockedの現在stage workerと完了済みImplementationStepLedger stepが必要です。",
+      plannedWorkerRequiredRunWorker: "workerを実行するには計画済みローカルCodex worker jobが必要です。",
+      activeRunRequiredImportWorkerLedger:
+        "worker ledger evidenceをimportするにはアクティブな自動実装ワークスペース実行が必要です。",
+      workerLedgerImportPrepareFailed: "Worker ledger import requestを準備できませんでした。",
+      completedWorkerRequiredAdvanceStage: "worker stageを進めるには完了済みローカルCodex worker jobが必要です。",
+      githubIssueMutationUnavailable:
+        "現在のrun状態では、この自動実装GitHub issue mutationは利用できません。",
+      activeRunRequiredRecordGitHubIssueDryRun:
+        "GitHub issue dry-runを記録するにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredApplyGitHubIssueCreation:
+        "承認済みGitHub issue作成を適用するにはアクティブな自動実装ワークスペース実行が必要です。",
+      githubIssueAlreadyRecorded:
+        "GitHub issue URLはすでに記録されています。重複作成せず、既存の生成済みissueを続行してください。",
+      pullRequestMutationUnavailable: "現在のrun状態では、この自動実装PR mutationは利用できません。",
+      activeRunRequiredRecordPullRequestOpenDryRun:
+        "PR作成dry-runを記録するにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredApplyPullRequestOpen:
+        "承認済みPR作成を適用するにはアクティブな自動実装ワークスペース実行が必要です。",
+      pullRequestAlreadyRecorded: "PR URLはすでに記録されています。新しく開かず、既存PRを更新またはmergeしてください。",
+      activeRunRequiredRecordPullRequestDryRun:
+        "PR本文dry-runを記録するにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredRecordPullRequestMergeDryRun:
+        "PR merge dry-runを記録するにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredApplyPullRequestBodyUpdate:
+        "承認済みPR本文更新を適用するにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredApplyPullRequestMerge:
+        "承認済みPR mergeを適用するにはアクティブな自動実装ワークスペース実行が必要です。",
+      pullRequestMergeAlreadyRecorded: "PR mergeはすでに記録されています。同じ自動実装PRを再mergeしないでください。"
+    },
     workerPlan: "ローカルworkerの境界付き計画",
     workerRuntimeReadiness: "Worker実行環境の準備状態",
     workerRuntimeStatus: "Runtime状態",
@@ -2234,6 +2337,53 @@ const KO_COPY: typeof EN_COPY = {
     runWorkerJob: "Worker job 실행",
     advanceWorkerStage: "Worker stage 진행",
     refresh: "작업공간 실행 새로고침",
+    actionErrors: {
+      activeSessionRequiredCreateWorkspace: "자동 구현 작업공간을 만들려면 활성 세션이 필요합니다.",
+      planningHandoffMustBeReady:
+        "자동 구현 작업공간을 만들거나 다시 준비하기 전에 계획 인계가 planning_ready여야 합니다.",
+      planningHandoffRequired:
+        "자동 구현 작업공간을 만들기 전에 계획 인계 게이트를 실행하고 planning_ready에 도달해야 합니다.",
+      workspaceCreationFailed: (error: string) => `자동 구현 작업공간 생성에 실패했습니다: ${error}`,
+      activeRunRequiredPlanWorker: "로컬 worker job을 계획하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      currentStageWorkerMustContinue:
+        "다른 로컬 worker job을 계획하기 전에 최신 현재 단계 worker를 실행, 가져오기, 완료 또는 진행하세요.",
+      activeRunRequiredStageTick: "단계 tick을 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      activeRunRequiredStartStage: "단계를 시작하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      activeRunRequiredPauseStage: "단계를 일시정지하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      activeRunRequiredBlockStage: "단계를 차단하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      activeRunRequiredCompleteWorker:
+        "ledger evidence에서 worker를 완료하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      completedLedgerRequiredCompleteWorker:
+        "worker를 완료하려면 계획됨 또는 ledger-blocked 상태의 현재 단계 worker와 완료된 ImplementationStepLedger step이 필요합니다.",
+      plannedWorkerRequiredRunWorker: "worker를 실행하려면 계획된 로컬 Codex worker job이 필요합니다.",
+      activeRunRequiredImportWorkerLedger:
+        "worker ledger evidence를 가져오려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      workerLedgerImportPrepareFailed: "Worker ledger import request를 준비할 수 없습니다.",
+      completedWorkerRequiredAdvanceStage: "worker stage를 진행하려면 완료된 로컬 Codex worker job이 필요합니다.",
+      githubIssueMutationUnavailable:
+        "현재 run 상태에서는 이 자동 구현 GitHub issue mutation을 사용할 수 없습니다.",
+      activeRunRequiredRecordGitHubIssueDryRun:
+        "GitHub issue dry-run을 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      activeRunRequiredApplyGitHubIssueCreation:
+        "승인된 GitHub issue 생성을 적용하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      githubIssueAlreadyRecorded:
+        "GitHub issue URL이 이미 기록되어 있습니다. 중복 생성하지 말고 기존 생성된 issue를 이어가세요.",
+      pullRequestMutationUnavailable: "현재 run 상태에서는 이 자동 구현 PR mutation을 사용할 수 없습니다.",
+      activeRunRequiredRecordPullRequestOpenDryRun:
+        "PR 생성 dry-run을 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      activeRunRequiredApplyPullRequestOpen:
+        "승인된 PR 생성을 적용하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      pullRequestAlreadyRecorded: "PR URL이 이미 기록되어 있습니다. 새로 열지 말고 기존 PR을 업데이트하거나 merge하세요.",
+      activeRunRequiredRecordPullRequestDryRun:
+        "PR 본문 dry-run을 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      activeRunRequiredRecordPullRequestMergeDryRun:
+        "PR merge dry-run을 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      activeRunRequiredApplyPullRequestBodyUpdate:
+        "승인된 PR 본문 업데이트를 적용하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      activeRunRequiredApplyPullRequestMerge:
+        "승인된 PR merge를 적용하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      pullRequestMergeAlreadyRecorded: "PR merge가 이미 기록되어 있습니다. 같은 자동 구현 PR을 다시 merge하지 마세요."
+    },
     workerPlan: "로컬 worker 경계 계획",
     workerRuntimeReadiness: "Worker runtime 준비 상태",
     workerRuntimeStatus: "Runtime 상태",

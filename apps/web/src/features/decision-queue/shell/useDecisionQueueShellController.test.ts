@@ -8,14 +8,19 @@ import {
   autoImplementationWorkspaceCreateBlocker,
   autoImplementationWorkspaceCreateFailureMessage
 } from "./useDecisionQueueShellController";
+import { DECISION_QUEUE_COPY } from "./decision-queue-copy";
+
+const ACTION_ERRORS = DECISION_QUEUE_COPY.en.autoImplementation.actionErrors;
 
 describe("autoImplementationWorkspaceCreateBlocker", () => {
   it("blocks workspace creation until a planning-ready handoff exists", () => {
-    expect(autoImplementationWorkspaceCreateBlocker(null)).toContain("Run the planning handoff gate");
-    expect(autoImplementationWorkspaceCreateBlocker(PLANNING_HANDOFF_BLOCKER_PROJECTION_FIXTURE)).toContain(
+    expect(autoImplementationWorkspaceCreateBlocker(null, ACTION_ERRORS)).toContain("Run the planning handoff gate");
+    expect(
+      autoImplementationWorkspaceCreateBlocker(PLANNING_HANDOFF_BLOCKER_PROJECTION_FIXTURE, ACTION_ERRORS)
+    ).toContain(
       "planning_ready"
     );
-    expect(autoImplementationWorkspaceCreateBlocker(PLANNING_HANDOFF_FINAL_PROJECTION_FIXTURE)).toBeNull();
+    expect(autoImplementationWorkspaceCreateBlocker(PLANNING_HANDOFF_FINAL_PROJECTION_FIXTURE, ACTION_ERRORS)).toBeNull();
   });
 });
 
@@ -29,13 +34,13 @@ describe("autoImplementationWorkspaceCreateFailureMessage", () => {
       409
     );
 
-    expect(autoImplementationWorkspaceCreateFailureMessage(error)).toBe(
+    expect(autoImplementationWorkspaceCreateFailureMessage(error, ACTION_ERRORS)).toBe(
       "Auto implementation workspace creation failed: COMMAND_PRECONDITION_FAILED: Planning handoff is not ready for implementation."
     );
   });
 
   it("uses the unknown local service fallback when workspace creation throws a non-Error value", () => {
-    expect(autoImplementationWorkspaceCreateFailureMessage(undefined)).toBe(
+    expect(autoImplementationWorkspaceCreateFailureMessage(undefined, ACTION_ERRORS)).toBe(
       "Auto implementation workspace creation failed: Unknown local service error."
     );
   });
