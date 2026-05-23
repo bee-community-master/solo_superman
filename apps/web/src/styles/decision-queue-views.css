@@ -683,10 +683,24 @@
   gap: 5px;
 }
 
+.confidence-next-actions {
+  border-left: 3px solid #b2dad7;
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding-left: 10px;
+}
+
 .confidence-gate-failures span {
   color: var(--solo-muted);
   font-size: 0.76rem;
   font-weight: 700;
+}
+
+.confidence-next-actions strong {
+  color: var(--solo-text);
+  font-size: 0.76rem;
+  font-weight: 800;
 }
 
 .top-risk-card-list {

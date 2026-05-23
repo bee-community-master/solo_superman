@@ -57,7 +57,7 @@ Business mode also requires an explicit `businessCriticIntensity`; it has no def
 - Research review cards must show retained source traces when public evidence, runs, or source questions produced the card, so source provenance is visible before the user resolves research-generated follow-up questions.
 - Research tab evidence matrices must show pro evidence, con evidence, uncertainties, missing counter-evidence reasons, known risks, and matrix-generated follow-up questions together so skeptical-search gaps stay visible before Planning-ready.
 - The Research tab can still start currently ready planned public-web research tasks as a bounded batch, respecting the active allowlist and concurrency budget while keeping each run on the existing per-task read-only research path.
-- Risk UI should show Confidence Map, five-axis radar, and Top 3 Risk Cards when the data supports them; per-question risk entry stays collapsed under an optional add-comment/risk disclosure.
+- Risk UI should show Confidence Map, next-best validation/build-readiness actions, five-axis radar, and Top 3 Risk Cards when the data supports them; per-question risk entry stays collapsed under an optional add-comment/risk disclosure.
 
 ## Current release
 
