@@ -36,7 +36,8 @@
       "unblockCriteria": [
         "Run pnpm verify:signed-package-preflight -- --require-credentials in a release environment with signing credential refs",
         "Attach redacted signing, notarization, and timestamp verification evidence to the release PR"
-      ]
+      ],
+      "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/266"
     },
     {
       "id": "packaged-update-rollback",
@@ -56,7 +57,8 @@
       "unblockCriteria": [
         "Record device evidence for install, update, retry, rollback, and launch verification",
         "Keep pnpm verify:release-channel passing with final signed artifact metadata"
-      ]
+      ],
+      "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/267"
     },
     {
       "id": "windows-real-device",

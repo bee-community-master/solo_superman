@@ -32,6 +32,7 @@ function blockedContract(overrides = {}) {
         status: "blocked",
         requiredFor: "general-release",
         blocker: "Signing credentials and notarization evidence are not present.",
+        blockerIssue: "https://github.com/bee-community-master/solo_superman/issues/266",
         evidenceRefs: ["docs/signed-packages_KO.md", "docs/signed-package-preflight.example.json"],
         requiredEvidence: ["macOS Developer ID signing", "Windows Authenticode timestamp verification"],
         unblockCriteria: ["Run credential-required signed package preflight in release environment"]
@@ -41,6 +42,7 @@ function blockedContract(overrides = {}) {
         status: "blocked",
         requiredFor: "general-release",
         blocker: "Packaged updater and rollback device verification are not implemented yet.",
+        blockerIssue: "https://github.com/bee-community-master/solo_superman/issues/267",
         evidenceRefs: ["docs/release-channel_KO.md", "docs/release-update-channel.example.json"],
         requiredEvidence: ["Device install/update/defer/retry/rollback verification"],
         unblockCriteria: ["Record macOS and Windows rollback evidence"]
@@ -85,18 +87,28 @@ describe("release readiness verification", () => {
     ]);
   });
 
-  it("requires the tracked Windows real-device issue for the Windows gate", () => {
+  it("requires the tracked GitHub issue for every blocked broad-release gate", () => {
     const contract = blockedContract({
-      releaseGates: blockedContract().releaseGates.map((gate) =>
-        gate.id === "windows-real-device" ? { ...gate, blockerIssue: "https://example.com/missing" } : gate
-      )
+      releaseGates: blockedContract().releaseGates.map((gate) => {
+        if (gate.id === "signed-packages") {
+          const withoutIssue = { ...gate };
+          delete withoutIssue.blockerIssue;
+          return withoutIssue;
+        }
+        if (gate.id === "packaged-update-rollback") {
+          return { ...gate, blockerIssue: "https://example.com/missing" };
+        }
+        return { ...gate, blockerIssue: "https://example.com/missing" };
+      })
     });
     const result = validateReleaseReadinessContract(contract);
 
     expect(result.ok).toBe(false);
-    expect(result.issues).toContain(
+    expect(result.issues).toEqual(expect.arrayContaining([
+      "$.releaseGates[0].blockerIssue: must link a GitHub issue while this gate is blocked",
+      "$.releaseGates[1].blockerIssue: must link the tracked packaged updater rollback verification issue #267",
       "$.releaseGates[2].blockerIssue: must link the tracked Windows real-device verification issue #259"
-    );
+    ]));
   });
 
   it("rejects a ready broad-release claim when a required gate is still blocked", () => {

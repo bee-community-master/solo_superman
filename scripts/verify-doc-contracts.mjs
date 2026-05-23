@@ -712,6 +712,8 @@ function checkContributorDocsSnippets() {
     "signed-packages",
     "packaged-update-rollback",
     "windows-real-device",
+    "#266",
+    "#267",
     "#259",
     "secret"
   ]);
