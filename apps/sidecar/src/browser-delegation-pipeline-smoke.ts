@@ -1,12 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
-import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { BrowserActionPreviewDto } from "@solo-superman/contracts";
 import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
 import { sessionEventCount } from "./auto-implementation-smoke-fixtures";
+import {
+  createLocalBrowserTargetServer,
+  safeBrowserActionPreview,
+  stringArrayAt
+} from "./browser-smoke-helpers";
 import { hashBrowserActionPreview } from "./product-engine/browser-action-adapter";
 import { createSidecarApp } from "./server";
 import {
@@ -41,11 +45,6 @@ type SmokeStorage = Awaited<ReturnType<typeof createSoloStorage>>;
 interface BrowserDelegationScenario {
   readonly storage: SmokeStorage;
   readonly app: SmokeRequestApp;
-}
-
-interface LocalBrowserTarget {
-  readonly targetUrl: string;
-  readonly close: () => Promise<void>;
 }
 
 interface ProjectContext {
@@ -99,14 +98,6 @@ export interface BrowserDelegationPipelineSmokeOptions {
   readonly localCapabilityToken?: string;
 }
 
-function asStringArray(value: unknown, label: string) {
-  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
-    throw new Error(`${label} must be an array of strings.`);
-  }
-
-  return value as readonly string[];
-}
-
 function firstRecordAt(value: unknown, label: string) {
   const first = recordArray(value, label)[0];
 
@@ -156,54 +147,6 @@ async function planResearchTask(input: {
   const projection = objectAt(data.immediateProjection, "research task immediateProjection");
 
   return stringAt(firstRecordAt(projection.tasks, "research tasks").researchTaskId, "researchTaskId");
-}
-
-async function createLocalBrowserTargetServer(
-  html = MOCK_CHATGPT_READY_PAGE,
-  path = "/mock-chatgpt/ready"
-): Promise<LocalBrowserTarget> {
-  const server = createServer((_request, response) => {
-    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    response.end(html);
-  });
-
-  await new Promise<void>((resolveListen, rejectListen) => {
-    server.once("error", rejectListen);
-    server.listen(0, "127.0.0.1", () => {
-      server.off("error", rejectListen);
-      resolveListen();
-    });
-  });
-
-  const address = server.address();
-
-  if (!address || typeof address === "string") {
-    throw new Error("Local browser target server did not expose a TCP address.");
-  }
-
-  return {
-    targetUrl: `http://127.0.0.1:${address.port}${path}`,
-    close: () =>
-      new Promise<void>((resolveClose, rejectClose) => {
-        server.close((error) => {
-          if (error) {
-            rejectClose(error);
-            return;
-          }
-
-          resolveClose();
-        });
-      })
-  };
-}
-
-function browserActionPreview(): BrowserActionPreviewDto {
-  return {
-    kind: "navigate_and_capture",
-    visibleAction: true,
-    credentialMode: "none",
-    externalMutation: "blocked"
-  };
 }
 
 async function createBrowserAuthority(input: {
@@ -349,11 +292,11 @@ async function createReadyDelegation(input: {
       },
       approvalDecision: "approved",
       browserActionAuthorityRef: input.authorityRecordId,
-      screenshotRefs: asStringArray(input.browserResult.screenshotRefs, "browser screenshotRefs"),
-      logRefs: asStringArray(input.browserResult.logRefs, "browser logRefs"),
+      screenshotRefs: stringArrayAt(input.browserResult.screenshotRefs, "browser screenshotRefs"),
+      logRefs: stringArrayAt(input.browserResult.logRefs, "browser logRefs"),
       auditRefs: [
         "audit:chatgpt-browser-delegation:browser-delegation-smoke-ready",
-        ...asStringArray(input.browserResult.auditRefs, "browser auditRefs")
+        ...stringArrayAt(input.browserResult.auditRefs, "browser auditRefs")
       ],
       activityFeedRefs: ["activity:chatgpt-browser-delegation:browser-delegation-smoke-ready"]
     }
@@ -394,10 +337,14 @@ async function executeBrowserDelegationFlow(
     localCapabilityToken,
     sessionId: project.sessionId
   });
-  const browserTarget = await createLocalBrowserTargetServer();
+  const browserTarget = await createLocalBrowserTargetServer({
+    html: MOCK_CHATGPT_READY_PAGE,
+    path: "/mock-chatgpt/ready",
+    failureMessage: "Local browser target server did not expose a TCP address."
+  });
 
   try {
-    const action = browserActionPreview();
+    const action = safeBrowserActionPreview();
     const previewArtifactHash = hashBrowserActionPreview({ targetUrl: browserTarget.targetUrl, action });
     const authorityRecordId = await createBrowserAuthority({
       scenario,
@@ -455,9 +402,9 @@ async function executeBrowserDelegationFlow(
 function flowBlockers(result: BrowserDelegationFlowResult) {
   const blockers: string[] = [];
   const browserTarget = objectAt(result.browserResult.target, "browser target");
-  const screenshotRefs = asStringArray(result.browserResult.screenshotRefs, "browser screenshotRefs");
-  const logRefs = asStringArray(result.browserResult.logRefs, "browser logRefs");
-  const auditRefs = asStringArray(result.browserResult.auditRefs, "browser auditRefs");
+  const screenshotRefs = stringArrayAt(result.browserResult.screenshotRefs, "browser screenshotRefs");
+  const logRefs = stringArrayAt(result.browserResult.logRefs, "browser logRefs");
+  const auditRefs = stringArrayAt(result.browserResult.auditRefs, "browser auditRefs");
   const readyProjection = objectAt(result.readyDelegation.immediateProjection, "ready delegation projection");
   const readyRun = latestRunFromProjection(readyProjection, "ready delegation");
   const readyBlockReasons = recordArray(readyRun.blockReasons, "ready delegation blockReasons");
@@ -515,9 +462,9 @@ function flowBlockers(result: BrowserDelegationFlowResult) {
 
 function passedEvidence(result: BrowserDelegationFlowResult): BrowserDelegationPipelineSmokeEvidence {
   const browserTarget = objectAt(result.browserResult.target, "browser target");
-  const screenshotRefs = asStringArray(result.browserResult.screenshotRefs, "browser screenshotRefs");
-  const logRefs = asStringArray(result.browserResult.logRefs, "browser logRefs");
-  const auditRefs = asStringArray(result.browserResult.auditRefs, "browser auditRefs");
+  const screenshotRefs = stringArrayAt(result.browserResult.screenshotRefs, "browser screenshotRefs");
+  const logRefs = stringArrayAt(result.browserResult.logRefs, "browser logRefs");
+  const auditRefs = stringArrayAt(result.browserResult.auditRefs, "browser auditRefs");
   const readyProjection = objectAt(result.readyDelegation.immediateProjection, "ready delegation projection");
   const readyRun = latestRunFromProjection(readyProjection, "ready delegation");
   const readyBlockReasons = recordArray(readyRun.blockReasons, "ready delegation blockReasons");
