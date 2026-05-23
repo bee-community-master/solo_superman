@@ -1,0 +1,161 @@
+{
+  "schemaVersion": "solo-superman-product-capability-readiness.v1",
+  "appId": "solo-superman",
+  "publicPosture": "technical-preview",
+  "coreProductStatus": "code_backed",
+  "summary": "The technical-preview core product loop is code-backed by credential-free verification: idea intake, deep clarification, research evidence, readiness gates, browser/service boundaries, and staged auto-implementation review loops all have local smoke coverage. Broad/general release remains governed separately by release-readiness gates.",
+  "releaseReadinessRef": "docs/release-readiness_KO.md",
+  "requiredVerificationCommands": {
+    "defaultSuite": [
+      "pnpm verify:prod-bundle",
+      "pnpm verify:clarification-pipeline",
+      "pnpm verify:clarification-volume",
+      "pnpm verify:research-pipeline",
+      "pnpm verify:browser-delegation-pipeline",
+      "pnpm verify:service-page-pipeline",
+      "pnpm verify:auto-implementation-pipeline",
+      "pnpm verify:product-capability-readiness",
+      "pnpm verify"
+    ],
+    "supporting": [
+      "pnpm verify:runtime-preview-turn",
+      "pnpm verify:worker-job",
+      "pnpm verify:pr-mutation",
+      "pnpm verify:auto-implementation-review-loop",
+      "pnpm verify:release-readiness"
+    ]
+  },
+  "capabilities": [
+    {
+      "id": "idea-clarification-loop",
+      "status": "code_backed",
+      "requiredFor": "technical-preview-core-loop",
+      "evidenceRefs": [
+        "docs/product_KO.md#세션-모델",
+        "apps/sidecar/src/clarification-pipeline-smoke.ts",
+        "apps/sidecar/src/clarification-volume-smoke.ts",
+        "packages/core/test/product-engine.test.ts"
+      ],
+      "verificationCommands": [
+        "pnpm verify:clarification-pipeline",
+        "pnpm verify:clarification-volume"
+      ],
+      "checkedBehaviors": [
+        "Idea intake creates a user-confirmed business or personal project purpose before analysis.",
+        "Active question batches stay bounded while long sessions can process 200+ question/answer loops.",
+        "Answers produce follow-up debt and research-task debt instead of hidden notes.",
+        "Question-debt completion and Planning Handoff blockers remain visible before Planning-ready."
+      ]
+    },
+    {
+      "id": "research-evidence-loop",
+      "status": "code_backed",
+      "requiredFor": "technical-preview-core-loop",
+      "evidenceRefs": [
+        "docs/product_KO.md#세션-모델",
+        "apps/sidecar/src/research-pipeline-smoke.ts",
+        "packages/core/src/research-engine/background-research-runtime.ts",
+        "apps/web/src/features/decision-queue/shell/ResearchView.tsx"
+      ],
+      "verificationCommands": [
+        "pnpm verify:research-pipeline"
+      ],
+      "checkedBehaviors": [
+        "Read-only public-web research runs require an active allowlist and bounded concurrency.",
+        "Imported source-traced results synthesize evidence matrices and evidence packs.",
+        "Research review cards retain source traces and expose pro/con/uncertainty quality gates.",
+        "Research-generated follow-up questions return to the Decision Queue as answerable debt."
+      ]
+    },
+    {
+      "id": "planning-readiness-gates",
+      "status": "code_backed",
+      "requiredFor": "technical-preview-core-loop",
+      "evidenceRefs": [
+        "docs/product_KO.md#ux-원칙",
+        "apps/sidecar/src/clarification-pipeline-smoke.ts",
+        "apps/sidecar/src/research-pipeline-smoke.ts",
+        "packages/contracts/src/projections/planning-handoff.ts",
+        "apps/web/src/features/decision-queue/shell/PlanningView.tsx"
+      ],
+      "verificationCommands": [
+        "pnpm verify:clarification-pipeline",
+        "pnpm verify:research-pipeline"
+      ],
+      "checkedBehaviors": [
+        "Completeness keeps question debt and source-trace gaps from being labelled Planning-ready.",
+        "Confidence and if-stop-now risk/action artifacts remain visible for readiness decisions.",
+        "Planning Handoff carries research follow-up provenance into build-slice evidence.",
+        "Blocker artifacts use explicit source-trace incomplete states when evidence is insufficient."
+      ]
+    },
+    {
+      "id": "browser-service-boundary",
+      "status": "code_backed",
+      "requiredFor": "technical-preview-core-loop",
+      "evidenceRefs": [
+        "docs/safety-and-permissions_KO.md",
+        "apps/sidecar/src/browser-delegation-pipeline-smoke.ts",
+        "apps/sidecar/src/service-page-pipeline-smoke.ts",
+        "packages/contracts/src/projections/service-page-use-permission.ts"
+      ],
+      "verificationCommands": [
+        "pnpm verify:browser-delegation-pipeline",
+        "pnpm verify:service-page-pipeline"
+      ],
+      "checkedBehaviors": [
+        "ChatGPT/browser delegation keeps disclosure preview, approval, evidence refs, and revoke controls visible.",
+        "Service-page permissions require user-present login, action echo, artifact cleanup, and revoke checks.",
+        "Loopback-only browser smokes prove boundaries without ChatGPT credentials or external network access.",
+        "Final submit remains blocked until a future production-mutation contract exists."
+      ]
+    },
+    {
+      "id": "auto-implementation-review-loop",
+      "status": "code_backed",
+      "requiredFor": "technical-preview-core-loop",
+      "evidenceRefs": [
+        "docs/roadmap_KO.md#auto-implementation-workspace--자동-구현-작업공간",
+        "apps/sidecar/src/runtime-preview-smoke.ts",
+        "apps/sidecar/src/auto-implementation-worker-smoke.ts",
+        "apps/sidecar/src/auto-implementation-pr-mutation-smoke.ts",
+        "apps/sidecar/src/auto-implementation-review-loop-smoke.ts",
+        "apps/sidecar/src/auto-implementation-pipeline-smoke.ts"
+      ],
+      "verificationCommands": [
+        "pnpm verify:runtime-preview-turn",
+        "pnpm verify:worker-job",
+        "pnpm verify:pr-mutation",
+        "pnpm verify:auto-implementation-review-loop",
+        "pnpm verify:auto-implementation-pipeline"
+      ],
+      "checkedBehaviors": [
+        "Runtime preview requests produce bounded preview artifacts without applying file, shell, browser, or network actions.",
+        "Worker jobs keep planned ledger docs, authority refs, sandbox boundaries, and manual recovery evidence visible.",
+        "Generated PR open/body-update/merge mutations are guarded by stage evidence and duplicate-mutation checks.",
+        "Every canonical auto-implementation stage can carry code-review, clean-code, missing-test audit, and test evidence before completion."
+      ]
+    },
+    {
+      "id": "technical-preview-release-guardrails",
+      "status": "code_backed",
+      "requiredFor": "technical-preview-core-loop",
+      "evidenceRefs": [
+        "README.md#release-scope",
+        "docs/release-readiness_KO.md",
+        "docs/release-readiness.example.json",
+        "scripts/verify-release-readiness.mjs"
+      ],
+      "verificationCommands": [
+        "pnpm verify:prod-bundle",
+        "pnpm verify:release-readiness"
+      ],
+      "checkedBehaviors": [
+        "The local technical-preview bundle can still be built and smoke-tested without credentials.",
+        "Broad/general release remains separately blocked until signed package, updater rollback, and Windows device gates pass.",
+        "Credential-free product/release diagnostics expose blocker issues without collecting secret values.",
+        "Product capability readiness does not reinterpret release blockers as ready distribution evidence."
+      ]
+    }
+  ]
+}

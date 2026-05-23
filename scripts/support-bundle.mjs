@@ -17,6 +17,7 @@ const PACKAGE_METADATA_SCRIPT = [
   "startLocal:scripts['start:local'],",
   "verify:scripts.verify,",
   "verifyProdBundle:scripts['verify:prod-bundle'],",
+  "verifyProductCapabilityReadiness:scripts['verify:product-capability-readiness'],",
   "verifyReleaseChannel:scripts['verify:release-channel'],",
   "verifyWindowsRealDevice:scripts['verify:windows-real-device'],",
   "verifyPackagedUpdateRollback:scripts['verify:packaged-update-rollback'],",
@@ -26,7 +27,11 @@ const PACKAGE_METADATA_SCRIPT = [
   "supportBundle:scripts['support:bundle']",
   "}}))"
 ].join("");
-const RELEASE_DIAGNOSTIC_COMMANDS = {
+const SUPPORT_DIAGNOSTIC_COMMANDS = {
+  productCapabilityReadiness: {
+    command: "pnpm verify:product-capability-readiness",
+    args: ["scripts/verify-product-capability-readiness.mjs"]
+  },
   releaseChannel: {
     command: "pnpm verify:release-channel",
     args: ["scripts/verify-release-channel.mjs"]
@@ -203,8 +208,8 @@ function compactMissingCredentialGroups(value) {
   }));
 }
 
-function compactReleaseDiagnostic(name, result) {
-  const diagnostic = RELEASE_DIAGNOSTIC_COMMANDS[name];
+function compactSupportDiagnostic(name, result) {
+  const diagnostic = SUPPORT_DIAGNOSTIC_COMMANDS[name];
   const parsed = parseJsonObject(result.stdout);
   const base = {
     command: diagnostic?.command ?? name,
@@ -226,6 +231,16 @@ function compactReleaseDiagnostic(name, result) {
   };
 
   switch (name) {
+    case "productCapabilityReadiness":
+      return {
+        ...summary,
+        schemaVersion: typeof parsed.schemaVersion === "string" ? parsed.schemaVersion : null,
+        mode: typeof parsed.mode === "string" ? parsed.mode : null,
+        coreProductStatus: typeof parsed.coreProductStatus === "string" ? parsed.coreProductStatus : "unknown",
+        coreProductCodeBacked: parsed.coreProductCodeBacked === true,
+        blockedCapabilities: stringList(parsed.blockedCapabilities),
+        blockers: stringList(parsed.blockers)
+      };
     case "releaseChannel":
       return {
         ...summary,
@@ -288,11 +303,11 @@ function compactReleaseDiagnostic(name, result) {
   }
 }
 
-async function readReleaseDiagnostics(commandRunner, options) {
-  const entries = Object.entries(RELEASE_DIAGNOSTIC_COMMANDS);
+async function readSupportDiagnostics(commandRunner, options) {
+  const entries = Object.entries(SUPPORT_DIAGNOSTIC_COMMANDS);
   const diagnostics = await Promise.all(entries.map(async ([name, diagnostic]) => {
     const result = await runCapture(commandRunner, process.execPath, diagnostic.args, options);
-    return [name, compactReleaseDiagnostic(name, result)];
+    return [name, compactSupportDiagnostic(name, result)];
   }));
 
   return Object.fromEntries(diagnostics);
@@ -329,7 +344,7 @@ export async function createSupportBundle(options = {}) {
     runCapture(commandRunner, "pnpm", ["--version"], commandOptions),
     runCapture(commandRunner, "codex", ["--version"], commandOptions),
     readPackageMetadata(commandRunner, commandOptions),
-    readReleaseDiagnostics(commandRunner, commandOptions)
+    readSupportDiagnostics(commandRunner, commandOptions)
   ]);
 
   return {
@@ -371,6 +386,7 @@ export async function createSupportBundle(options = {}) {
     env: safeEnvSnapshot(env),
     recommendedChecks: [
       "pnpm verify:prod-bundle",
+      "pnpm verify:product-capability-readiness",
       "pnpm verify:release-channel",
       "pnpm verify:windows-real-device",
       "pnpm verify:packaged-update-rollback",
@@ -436,7 +452,7 @@ export async function runSupportBundleCli(argv = process.argv.slice(2), options 
       "collected credential-free runtime and repository diagnostics",
       "captured only allowlisted environment values",
       "redacted token/secret-shaped values",
-      "captured credential-free release diagnostics",
+      "captured credential-free product and release diagnostics",
       "wrote JSON support bundle"
     ]
   };

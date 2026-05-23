@@ -19,6 +19,7 @@ export const CONTRIBUTOR_DOC_PATHS = [
   "docs/windows-real-device_KO.md",
   "docs/signed-packages_KO.md",
   "docs/signed-package-release_KO.md",
+  "docs/product-capability-readiness_KO.md",
   "docs/release-readiness_KO.md",
   "docs/troubleshooting_KO.md"
 ];
@@ -39,6 +40,7 @@ const CONTRIBUTOR_DOC_SLUGS = [
   "windows-real-device",
   "signed-packages",
   "signed-package-release",
+  "product-capability-readiness",
   "release-readiness",
   "troubleshooting"
 ];
@@ -741,6 +743,21 @@ function checkContributorDocsSnippets() {
     "windows_authenticode_verify",
     "release_manifest_signature_verify",
     "#266",
+    "secret"
+  ]);
+
+
+  requireSnippets("product capability readiness doc missing core product gates", docs["docs/product-capability-readiness_KO.md"], [
+    "solo-superman-product-capability-readiness.v1",
+    "pnpm verify:product-capability-readiness",
+    "--require-code-backed",
+    "idea-clarification-loop",
+    "research-evidence-loop",
+    "planning-readiness-gates",
+    "browser-service-boundary",
+    "auto-implementation-review-loop",
+    "technical-preview-release-guardrails",
+    "release-readiness",
     "secret"
   ]);
 
