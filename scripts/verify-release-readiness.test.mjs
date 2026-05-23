@@ -23,6 +23,7 @@ function blockedContract(overrides = {}) {
         "pnpm verify:packaged-update-rollback:dry-run",
         "pnpm verify:signed-package-preflight",
         "pnpm verify:signed-package-release",
+        "pnpm verify:signed-package-release:dry-run",
         "pnpm verify:release-readiness",
         "pnpm verify"
       ],
@@ -169,6 +170,7 @@ describe("release readiness verification", () => {
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:windows-real-device",
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:packaged-update-rollback",
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:signed-package-release",
+      "$.requiredVerificationCommands.credentialFree: must include pnpm verify:signed-package-release:dry-run",
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:release-readiness",
       "$.requiredVerificationCommands.readyRelease: must be a string list with at least 1 item(s)",
       "$.requiredVerificationCommands.readyRelease: must include pnpm verify:signed-package-release -- --require-release-evidence",

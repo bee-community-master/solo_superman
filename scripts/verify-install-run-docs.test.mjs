@@ -88,6 +88,7 @@ describe("#105 local install/run verification docs", () => {
     expect(readme).toContain("`pnpm verify:signed-package-preflight`");
     expect(readme).toContain("서명된 패키지 release evidence 계약");
     expect(readme).toContain("`pnpm verify:signed-package-release`");
+    expect(readme).toContain("`pnpm verify:signed-package-release:dry-run`");
     expect(releaseChannelDoc).toContain("Git checkout technical preview");
     expect(releaseChannelDoc).toContain("Packaged app release");
     expect(releaseChannelDoc).toContain("서명된 manifest, artifact checksum, artifact signature");
@@ -104,8 +105,11 @@ describe("#105 local install/run verification docs", () => {
     expect(signedPackagesDoc).toContain("windows-msi");
     expect(signedPackagesDoc).toContain("credential-free default preflight");
     expect(signedPackagePreflightExample).toContain('"schemaVersion": "solo-superman-signed-package-preflight.v1"');
+    expect(signedPackagePreflightExample).toContain('"pnpm verify:signed-package-release:dry-run"');
     expect(signedPackageReleaseDoc).toContain("release_manifest_signature_verify");
+    expect(signedPackageReleaseDoc).toContain("pnpm verify:signed-package-release:dry-run");
     expect(signedPackageReleaseExample).toContain('"schemaVersion": "solo-superman-signed-package-release.v1"');
+    expect(signedPackageReleaseExample).toContain('"pnpm verify:signed-package-release:dry-run"');
     expect(englishReadme).toContain("Language: [한국어](README.md) | English");
     expect(englishReadme).toContain(`irm ${publicRawBase}/scripts/win.ps1 | iex`);
     expect(englishReadme).toContain("tiny Windows launcher");
@@ -125,6 +129,7 @@ describe("#105 local install/run verification docs", () => {
     expect(englishReadme).toContain("`pnpm verify:signed-package-preflight`");
     expect(englishReadme).toContain("Signed package release evidence contract");
     expect(englishReadme).toContain("`pnpm verify:signed-package-release`");
+    expect(englishReadme).toContain("`pnpm verify:signed-package-release:dry-run`");
     expect(windowsLauncher).toContain(`${publicRawBase}/scripts/bootstrap-windows.ps1`);
     expect(windowsLauncher).toContain("[Console]::OutputEncoding");
     expect(windowsLauncher).toContain("[Net.ServicePointManager]::SecurityProtocol");

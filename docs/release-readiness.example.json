@@ -14,6 +14,7 @@
       "pnpm verify:packaged-update-rollback:dry-run",
       "pnpm verify:signed-package-preflight",
       "pnpm verify:signed-package-release",
+      "pnpm verify:signed-package-release:dry-run",
       "pnpm verify:release-readiness",
       "pnpm verify"
     ],
@@ -37,7 +38,8 @@
         "docs/signed-package-preflight.example.json",
         "docs/signed-package-release_KO.md",
         "docs/signed-package-release_EN.md",
-        "docs/signed-package-release.example.json"
+        "docs/signed-package-release.example.json",
+        "scripts/verify-signed-package-release-dry-run.mjs"
       ],
       "requiredEvidence": [
         "macOS DMG/PKG codesign verification, notarization status, and stapling evidence",

@@ -25,6 +25,7 @@ const PACKAGE_METADATA_SCRIPT = [
   "verifyPackagedUpdateRollbackDryRun:scripts['verify:packaged-update-rollback:dry-run'],",
   "verifySignedPackagePreflight:scripts['verify:signed-package-preflight'],",
   "verifySignedPackageRelease:scripts['verify:signed-package-release'],",
+  "verifySignedPackageReleaseDryRun:scripts['verify:signed-package-release:dry-run'],",
   "verifyReleaseReadiness:scripts['verify:release-readiness'],",
   "supportBundle:scripts['support:bundle'],",
   "releaseEvidenceChecklist:scripts['release:evidence-checklist']",
@@ -62,6 +63,10 @@ const SUPPORT_DIAGNOSTIC_COMMANDS = {
   signedPackageRelease: {
     command: "pnpm verify:signed-package-release",
     args: ["scripts/verify-signed-package-release.mjs"]
+  },
+  signedPackageReleaseDryRun: {
+    command: "pnpm verify:signed-package-release:dry-run",
+    args: ["scripts/verify-signed-package-release-dry-run.mjs"]
   },
   releaseReadiness: {
     command: "pnpm verify:release-readiness",
@@ -317,6 +322,26 @@ function compactSupportDiagnostic(name, result) {
         blockedEvidenceRuns: stringList(parsed.blockedEvidenceRuns),
         blockers: stringList(parsed.blockers)
       };
+    case "signedPackageReleaseDryRun":
+      return {
+        ...summary,
+        schemaVersion: typeof parsed.schemaVersion === "string" ? parsed.schemaVersion : null,
+        mode: typeof parsed.mode === "string" ? parsed.mode : null,
+        upstreamReleaseEvidenceIssue: typeof parsed.upstreamReleaseEvidenceIssue === "string"
+          ? parsed.upstreamReleaseEvidenceIssue
+          : null,
+        manifestSummary: isRecord(parsed.manifestSummary)
+          ? {
+              artifactCount: typeof parsed.manifestSummary.artifactCount === "number"
+                ? parsed.manifestSummary.artifactCount
+                : null,
+              publicKeyId: typeof parsed.manifestSummary.publicKeyId === "string"
+                ? parsed.manifestSummary.publicKeyId
+                : null
+            }
+          : null,
+        issues: stringList(parsed.issues)
+      };
     case "releaseReadiness":
       return {
         ...summary,
@@ -426,6 +451,7 @@ export async function createSupportBundle(options = {}) {
       "pnpm verify:packaged-update-rollback:dry-run",
       "pnpm verify:signed-package-preflight",
       "pnpm verify:signed-package-release",
+      "pnpm verify:signed-package-release:dry-run",
       "pnpm verify:release-readiness",
       "pnpm release:evidence-checklist",
       "pnpm verify",

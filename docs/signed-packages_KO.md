@@ -2,7 +2,7 @@
 
 언어: 한국어 | [English](signed-packages_EN.md)
 
-이 문서는 one-line installer 이후의 broad release를 위한 signed package 계획입니다. 현재 repo/local 환경에는 Apple Developer ID, notarization 계정, Windows code-signing certificate가 없으므로 실제 signing은 수행하지 않습니다. 대신 `pnpm verify:signed-package-preflight`로 credential-free dry-run 계약과 missing credential 이유를 명확히 검증합니다.
+이 문서는 one-line installer 이후의 broad release를 위한 signed package 계획입니다. 현재 repo/local 환경에는 Apple Developer ID, notarization 계정, Windows code-signing certificate가 없으므로 실제 signing은 수행하지 않습니다. 대신 `pnpm verify:signed-package-preflight`와 `pnpm verify:signed-package-release:dry-run`으로 credential-free dry-run 계약, release evidence shape, missing credential 이유를 명확히 검증합니다.
 
 ## 현재 상태
 
@@ -10,15 +10,15 @@
 - Release channel contract: [`release-channel_KO.md`](release-channel_KO.md)와 `pnpm verify:release-channel`이 manifest/signature/checksum/retry/rollback/user-data/credential preservation을 검증합니다.
 - Packaged update rollback evidence: [`packaged-update-rollback_KO.md`](packaged-update-rollback_KO.md)와 `pnpm verify:packaged-update-rollback`이 device rollback evidence gate를 검증합니다.
 - Signed package preflight: [`signed-package-preflight.example.json`](signed-package-preflight.example.json)와 `pnpm verify:signed-package-preflight`가 macOS/Windows signing 후보와 credential gate를 검증합니다.
-- Signed package release evidence: [`signed-package-release_KO.md`](signed-package-release_KO.md)와 `pnpm verify:signed-package-release`가 macOS signing/notarization, Windows Authenticode/timestamp, release manifest signature evidence gate를 #266에 묶어 둡니다.
+- Signed package release evidence: [`signed-package-release_KO.md`](signed-package-release_KO.md), `pnpm verify:signed-package-release`, `pnpm verify:signed-package-release:dry-run`이 macOS signing/notarization, Windows Authenticode/timestamp, release manifest signature evidence gate와 credential-free evidence shape를 #266/#293에 묶어 둡니다.
 - Actual signing/notarization: 필요한 certificate/account/secret이 준비될 때까지 blocked입니다.
 
 ## 패키징 후보
 
 | Platform | 후보 package | 필요한 signing/notarization | 로컬 dry-run에서 가능한 것 |
 | --- | --- | --- | --- |
-| macOS | `macos-dmg`, `macos-pkg` | Developer ID Application/Installer certificate, Apple notarization, stapling | `pnpm build`, `pnpm verify:prod-bundle`, release channel manifest 검증, signed-package preflight contract 검증 |
-| Windows | `windows-msi`, `windows-exe` | Authenticode certificate, timestamp server | `pnpm build`, `pnpm verify:prod-bundle`, release channel manifest 검증, signed-package preflight contract 검증 |
+| macOS | `macos-dmg`, `macos-pkg` | Developer ID Application/Installer certificate, Apple notarization, stapling | `pnpm build`, `pnpm verify:prod-bundle`, release channel manifest 검증, signed-package preflight contract 검증, signed-package release dry-run evidence shape 검증 |
+| Windows | `windows-msi`, `windows-exe` | Authenticode certificate, timestamp server | `pnpm build`, `pnpm verify:prod-bundle`, release channel manifest 검증, signed-package preflight contract 검증, signed-package release dry-run evidence shape 검증 |
 
 Package format 결정은 installer UX, updater integration, rollback support, enterprise policy compatibility를 함께 고려해야 합니다. 어떤 형식을 선택하든 signed artifact의 checksum/signature reference는 release update manifest에 들어가야 합니다.
 
@@ -46,7 +46,7 @@ pnpm verify:signed-package-preflight
 pnpm verify:signed-package-preflight -- --require-credentials
 ```
 
-`pnpm verify`는 credential-free default preflight, `pnpm verify:signed-package-release`, `pnpm verify:windows-real-device`, `pnpm verify:packaged-update-rollback`, `pnpm verify:release-readiness`를 포함하므로 local 개발자는 signing secret 없이도 release planning contract drift와 general release blocker drift를 잡을 수 있습니다.
+`pnpm verify`는 credential-free default preflight, `pnpm verify:signed-package-release`, `pnpm verify:signed-package-release:dry-run`, `pnpm verify:windows-real-device`, `pnpm verify:packaged-update-rollback`, `pnpm verify:release-readiness`를 포함하므로 local 개발자는 signing secret 없이도 release planning contract drift와 general release blocker drift를 잡을 수 있습니다.
 
 ## 실제 release gate
 
@@ -59,4 +59,4 @@ pnpm verify:signed-package-preflight -- --require-credentials
 5. Rollback은 packaged app binary와 release metadata만 바꾸며 local DB, generated workspace, support bundle, credential을 건드리지 않습니다.
 6. `pnpm verify:signed-package-release -- --require-release-evidence`, `pnpm verify:windows-real-device -- --require-device-evidence`, `pnpm verify:packaged-update-rollback -- --require-device-evidence`, `pnpm verify:release-readiness -- --require-ready`가 signed package, packaged updater rollback, Windows 실기기 gate를 모두 passed로 확인합니다.
 
-위 gate가 없으면 넓은 공개용 signed package나 packaged automatic update를 완료로 주장하지 않습니다.
+`pnpm verify:signed-package-release:dry-run`은 fixture artifact checksum/size/signature ref/manifest evidence shape만 검증하며, 위 gate가 없으면 넓은 공개용 signed package나 packaged automatic update를 완료로 주장하지 않습니다.

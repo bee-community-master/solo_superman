@@ -43,6 +43,7 @@ const REQUIRED_CREDENTIAL_FREE_COMMANDS = new Set([
   "pnpm verify:packaged-update-rollback:dry-run",
   "pnpm verify:signed-package-preflight",
   "pnpm verify:signed-package-release",
+  "pnpm verify:signed-package-release:dry-run",
   "pnpm verify:release-readiness",
   "pnpm verify"
 ]);

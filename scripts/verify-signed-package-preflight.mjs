@@ -18,7 +18,8 @@ const REQUIRED_DRY_RUN_COMMANDS = new Set([
   "pnpm build",
   "pnpm verify:prod-bundle",
   "pnpm verify:release-channel",
-  "pnpm verify:signed-package-preflight"
+  "pnpm verify:signed-package-preflight",
+  "pnpm verify:signed-package-release:dry-run"
 ]);
 const REQUIRED_HARD_GATES = new Set([
   "macos-developer-id-signing",

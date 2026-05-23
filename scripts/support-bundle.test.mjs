@@ -87,6 +87,15 @@ function fakeCommandRunner(command, args) {
       blockers: [],
       checked: ["blocked signed package release posture is allowed only with explicit blockers"]
     })],
+    [`${process.execPath} scripts/verify-signed-package-release-dry-run.mjs`, JSON.stringify({
+      schemaVersion: "solo-superman-signed-package-release-dry-run.v1",
+      status: "passed",
+      mode: "credential-free-fixture",
+      upstreamReleaseEvidenceIssue: "https://github.com/bee-community-master/solo_superman/issues/266",
+      manifestSummary: { artifactCount: 2, publicKeyId: "solo-superman-fixture-release-manifest-public-key" },
+      issues: [],
+      checked: ["dry-run remains credential-free and does not replace signing/notarization/Authenticode/manifest evidence for #266"]
+    })],
     [`${process.execPath} scripts/verify-release-readiness.mjs`, JSON.stringify({
       status: "passed",
       schemaVersion: "solo-superman-release-readiness.v1",
@@ -119,6 +128,7 @@ function fakeCommandRunner(command, args) {
           verifyPackagedUpdateRollbackDryRun: "node scripts/verify-packaged-update-rollback-dry-run.mjs",
           verifySignedPackagePreflight: "node scripts/verify-signed-package-preflight.mjs",
           verifySignedPackageRelease: "node scripts/verify-signed-package-release.mjs",
+          verifySignedPackageReleaseDryRun: "node scripts/verify-signed-package-release-dry-run.mjs",
           verifyReleaseReadiness: "node scripts/verify-release-readiness.mjs",
           supportBundle: "node scripts/support-bundle.mjs",
           releaseEvidenceChecklist: "node scripts/release-evidence-checklist.mjs"
@@ -165,6 +175,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.package.scripts.verifyProductCapabilityReadiness).toBe("node scripts/verify-product-capability-readiness.mjs");
     expect(bundle.package.scripts.verifyWindowsInstallerDryRun).toBe("node scripts/verify-windows-installer-dry-run.mjs");
     expect(bundle.package.scripts.verifyPackagedUpdateRollbackDryRun).toBe("node scripts/verify-packaged-update-rollback-dry-run.mjs");
+    expect(bundle.package.scripts.verifySignedPackageReleaseDryRun).toBe("node scripts/verify-signed-package-release-dry-run.mjs");
     expect(bundle.package.scripts.releaseEvidenceChecklist).toBe("node scripts/release-evidence-checklist.mjs");
     expect(bundle.recommendedChecks).toContain("pnpm verify:product-capability-readiness");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-channel");
@@ -174,6 +185,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.recommendedChecks).toContain("pnpm verify:packaged-update-rollback:dry-run");
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-preflight");
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-release");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-release:dry-run");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-readiness");
     expect(bundle.recommendedChecks).toContain("pnpm release:evidence-checklist");
     expect(bundle.releaseDiagnostics.productCapabilityReadiness).toMatchObject({
@@ -240,6 +252,15 @@ describe("support diagnostics bundle", () => {
       releaseEvidenceStatus: "blocked",
       signedPackageReleaseReady: false,
       blockedEvidenceRuns: ["macos-signed-package-release", "windows-signed-package-release", "release-manifest-signing"]
+    });
+    expect(bundle.releaseDiagnostics.signedPackageReleaseDryRun).toMatchObject({
+      command: "pnpm verify:signed-package-release:dry-run",
+      captureStatus: "ok",
+      evidenceStatus: "passed",
+      mode: "credential-free-fixture",
+      upstreamReleaseEvidenceIssue: "https://github.com/bee-community-master/solo_superman/issues/266",
+      manifestSummary: { artifactCount: 2, publicKeyId: "solo-superman-fixture-release-manifest-public-key" },
+      issues: []
     });
     expect(bundle.releaseDiagnostics.releaseReadiness).toMatchObject({
       command: "pnpm verify:release-readiness",
