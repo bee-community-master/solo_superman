@@ -42,7 +42,8 @@
     "verify:service-page-pipeline": "tsx apps/sidecar/src/service-page-pipeline-smoke.ts",
     "verify:clarification-volume": "tsx apps/sidecar/src/clarification-volume-smoke.ts",
     "support:bundle": "node scripts/support-bundle.mjs",
-    "verify:product-capability-readiness": "node scripts/verify-product-capability-readiness.mjs"
+    "verify:product-capability-readiness": "node scripts/verify-product-capability-readiness.mjs",
+    "release:evidence-checklist": "node scripts/release-evidence-checklist.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

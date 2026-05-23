@@ -20,6 +20,16 @@ The command validates [`release-readiness.example.json`](release-readiness.examp
 - URL evidence refs use HTTPS and do not include userinfo credentials or secret-like query parameters.
 - token-shaped strings (`ghp_`, `github_pat_`, `sk-`, `npm_`, bearer tokens, and similar values) never appear in release readiness evidence.
 
+## Release evidence checklist
+
+When an external device/signing lab is collecting #259/#266/#267 evidence, generate the credential-free checklist first instead of manually reconciling the distributed contracts:
+
+```sh
+pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json
+```
+
+The checklist combines blocked gates/runs, required checks, required evidence, unblock criteria, and ready-release commands from the release-readiness, Windows real-device, signed package release, packaged update rollback, and signed package preflight contracts. It reads only public contract files and does not capture credential values, browser cookies, tokens, file contents, or full environment dumps.
+
 ## General release mode
 
 Immediately before a real general release, run the stricter mode separately:

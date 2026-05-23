@@ -167,6 +167,14 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("OpenAI/GitHub token, ChatGPT web credential은 수집하지 않으며");
   });
 
+  it("documents the release evidence checklist for external release gates", () => {
+    expect(packageJson).toContain('"release:evidence-checklist": "node scripts/release-evidence-checklist.mjs"');
+    expect(readme).toContain("`pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json`");
+    expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json`");
+    expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("## Release evidence checklist");
+    expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("## Release evidence checklist");
+  });
+
   it("installs Codex CLI on Windows and prompts for the optional Codex desktop app", () => {
     expect(readme).toContain("Corepack/pnpm, Windows native runtime, Codex CLI");
     expect(readme).toContain("Codex CLI는 안정성을 위해 WSL(Ubuntu) 안에 설치");
