@@ -106,6 +106,46 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpAnswerOptions(input)).toEqual([]);
   });
 
+  it("keeps subjective insight prompts open text even when evidence and choice source data exist", () => {
+    const input = {
+      question:
+        "리서치에서 찬성 근거와 한계가 함께 나왔습니다.\n\n사용자의 실제 경험, 생각, 배운 점을 바탕으로 이 아이디어가 어떤 맥락에서 도움이 되는지 주관식으로 적어주세요.",
+      researchTask: task("사용자 경험과 주관적 인사이트 정리"),
+      sourceQuestion: sourceQuestion({
+        topicKey: "primary_customer_narrowing",
+        expectedAnswerType: "choice"
+      }),
+      evidenceMatrix: evidenceMatrix({
+        proEvidence: [
+          {
+            evidenceItemId: "evidence_pro_subjective_open_answer_shape" as EvidenceItemId,
+            kind: "pro",
+            summary: "반복적인 수동 정리 피로"
+          }
+        ],
+        conEvidence: [
+          {
+            evidenceItemId: "evidence_con_subjective_open_answer_shape" as EvidenceItemId,
+            kind: "con",
+            summary: "기존 도구도 일부 해결 가능"
+          }
+        ],
+        uncertainties: [
+          {
+            evidenceItemId: "evidence_uncertainty_subjective_open_answer_shape" as EvidenceItemId,
+            kind: "uncertainty",
+            summary: "주관적 맥락은 아직 확인 필요"
+          }
+        ]
+      })
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("open_text");
+    expect(researchFollowUpExpectedAnswerType(input)).toBe("text");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBeUndefined();
+    expect(researchFollowUpAnswerOptions(input)).toEqual([]);
+  });
+
   it("keeps evidence-balance questions as a single evidence judgment", () => {
     const input = {
       question:

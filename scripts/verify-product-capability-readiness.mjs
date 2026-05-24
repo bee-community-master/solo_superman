@@ -39,8 +39,11 @@ const REQUIRED_CAPABILITY_BEHAVIOR_SNIPPETS = new Map([
     "idea-clarification-loop",
     [
       "open text",
+      "subjective/narrative",
       "binary stance",
+      "one-of-many",
       "single choice",
+      "one-or-more",
       "multi-select",
       "ranked",
       "evidence",
@@ -61,7 +64,10 @@ const REQUIRED_CAPABILITY_BEHAVIOR_SNIPPETS = new Map([
       "markdown memory",
       "wider follow-up research",
       "Research-generated follow-up questions",
-      "answer-form variety"
+      "answer-form variety",
+      "open_text narrative answers",
+      "single_choice one-of-many choices",
+      "multi_select one-or-more selections"
     ]
   ],
   [
@@ -95,7 +101,11 @@ const REQUIRED_CAPABILITY_BEHAVIOR_SNIPPETS = new Map([
       "feature and repository code-review",
       "changed-code and repository clean-code",
       "zero-gap missing-test audit",
-      "passing test evidence before completion"
+      "passing test evidence before completion",
+      "Final merge_main",
+      "final_verify_pr_update",
+      "current PR body evidence",
+      "full verification commands"
     ]
   ],
   [

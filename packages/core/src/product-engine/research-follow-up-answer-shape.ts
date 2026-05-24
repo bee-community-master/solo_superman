@@ -257,7 +257,7 @@ function hasEvidenceJudgmentCue(input: ResearchFollowUpAnswerInput) {
 }
 
 function hasOpenTextCue(question: string) {
-  return /(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|서술|설명|적어\s*주|작성|말로\s*(?:풀어|설명)|본인\s*말|자유롭게|구체적으로\s*(?:말|설명)|왜|어떻게|어떤\s*(?:상황|맥락|이유|제약)|describe|explain|write|free[-\s]?form|open[-\s]?(?:ended|question)|subjective)/iu.test(
+  return /(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|서술|설명|적어\s*주|작성|말로\s*(?:풀어|설명)|본인\s*말|자유롭게|구체적으로\s*(?:말|설명)|의견|생각|경험|이야기|인사이트|배운\s*점|느낀\s*점|왜|어떻게|어떤\s*(?:상황|맥락|이유|제약)|describe|explain|write|free[-\s]?form|open[-\s]?(?:ended|question)|subjective|narrative|descriptive)/iu.test(
     question
   );
 }
