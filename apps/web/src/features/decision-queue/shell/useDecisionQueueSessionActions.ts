@@ -103,6 +103,10 @@ export function nextQuestionBatchIdsForActivation(queue: DecisionQueueProjection
   return queueItemIds.length ? queueItemIds : undefined;
 }
 
+export function queueHasActiveQuestionDebt(queue: DecisionQueueProjection | null | undefined) {
+  return queue?.active.some(queueItemIsQuestionDebt) ?? false;
+}
+
 export function useDecisionQueueSessionActions({
   answerDrafts,
   appendCommand,
@@ -607,7 +611,7 @@ export function useDecisionQueueSessionActions({
       return;
     }
 
-    if (projections.queue?.active.length) {
+    if (queueHasActiveQuestionDebt(projections.queue)) {
       setWorkflowError(sessionActionErrors.answerCurrentBeforeLoadNextQuestions);
       return;
     }
