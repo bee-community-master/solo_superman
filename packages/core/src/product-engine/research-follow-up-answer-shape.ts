@@ -41,33 +41,37 @@ function researchFollowUpAnswerOption(
   };
 }
 
-function boundedResearchFollowUpAnswerOptions(options: readonly AmbiguityAnswerOption[]) {
-  const bounded = [...options];
-  const fallbackOptions = [
-    researchFollowUpAnswerOption(
-      "need_more_research",
-      "추가 리서치 필요",
-      "지금 답하기에는 근거가 부족하므로 더 넓은 자료를 모은다.",
-      "성급한 결정을 줄입니다.",
-      "결정 완료와 구현 시작이 늦어집니다."
-    ),
-    researchFollowUpAnswerOption(
-      "write_custom_answer",
-      "직접 서술",
-      "위 선택지보다 더 정확한 판단 기준이나 후보를 직접 적는다.",
-      "실제 상황에 맞는 세밀한 답을 남길 수 있습니다.",
-      "답변을 스펙으로 옮길 때 한 번 더 정리가 필요할 수 있습니다."
-    ),
-    researchFollowUpAnswerOption(
-      "defer_as_known_risk",
-      "리스크로 보류",
-      "지금 확정하지 않고 알려진 리스크와 다음 검증 작업으로 남긴다.",
-      "불확실성을 숨기지 않고 추적할 수 있습니다.",
-      "이번 답변만으로는 결정이 닫히지 않습니다."
-    )
-  ];
+const RESEARCH_FOLLOW_UP_FALLBACK_OPTIONS = [
+  researchFollowUpAnswerOption(
+    "need_more_research",
+    "추가 리서치 필요",
+    "지금 답하기에는 근거가 부족하므로 더 넓은 자료를 모은다.",
+    "성급한 결정을 줄입니다.",
+    "결정 완료와 구현 시작이 늦어집니다."
+  ),
+  researchFollowUpAnswerOption(
+    "write_custom_answer",
+    "직접 서술",
+    "위 선택지보다 더 정확한 판단 기준이나 후보를 직접 적는다.",
+    "실제 상황에 맞는 세밀한 답을 남길 수 있습니다.",
+    "답변을 스펙으로 옮길 때 한 번 더 정리가 필요할 수 있습니다."
+  ),
+  researchFollowUpAnswerOption(
+    "defer_as_known_risk",
+    "리스크로 보류",
+    "지금 확정하지 않고 알려진 리스크와 다음 검증 작업으로 남긴다.",
+    "불확실성을 숨기지 않고 추적할 수 있습니다.",
+    "이번 답변만으로는 결정이 닫히지 않습니다."
+  )
+] as const;
 
-  for (const fallbackOption of fallbackOptions) {
+function boundedResearchFollowUpAnswerOptions(options: readonly AmbiguityAnswerOption[]) {
+  const primaryFallbackOption = RESEARCH_FOLLOW_UP_FALLBACK_OPTIONS[0];
+  const bounded = options.some((option) => option.id === primaryFallbackOption.id)
+    ? [...options]
+    : [...options.slice(0, 9), primaryFallbackOption];
+
+  for (const fallbackOption of RESEARCH_FOLLOW_UP_FALLBACK_OPTIONS.slice(1)) {
     if (bounded.length >= 3) {
       break;
     }

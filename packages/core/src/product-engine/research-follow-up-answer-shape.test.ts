@@ -164,6 +164,14 @@ describe("research follow-up answer shape", () => {
         expect.objectContaining({ id: "question_candidate_3", label: "팀 리더" })
       ])
     );
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "need_more_research",
+          value: expect.stringContaining("더 넓은 자료를 모은다")
+        })
+      ])
+    );
   });
 
   it("uses concrete follow-up candidates before older source choices", () => {
@@ -549,6 +557,9 @@ describe("research follow-up answer shape", () => {
       ])
     );
     expect(researchFollowUpAnswerOptions(manyCandidateInput)).toHaveLength(10);
+    expect(researchFollowUpAnswerOptions(manyCandidateInput)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "need_more_research" })])
+    );
   });
 
   it("classifies subjective, agree-disagree, single-choice, and multi-select wording from plain user language", () => {

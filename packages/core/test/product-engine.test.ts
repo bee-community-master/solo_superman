@@ -1735,6 +1735,13 @@ describe("PR-04 ProductEngine reducer", () => {
       }, 7),
       state
     );
+    const broaderCounterEvidenceOptionValueAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: answeredQueueItemId,
+        answer: "찬성/반대를 정하기 전에 더 넓은 근거와 반례를 먼저 확인한다."
+      }, 7),
+      state
+    );
     const noMoreResearchAnswer = reduceProductEngineCommand(
       command("SubmitAnswer", 5, {
         queueItemId: answeredQueueItemId,
@@ -1787,6 +1794,13 @@ describe("PR-04 ProductEngine reducer", () => {
       "Broaden research beyond existing notes"
     );
     expect(broaderResearchOptionValueAnswer.nextState.researchState.tasks[0]?.objective).toContain(
+      "collect wider sources and counter-evidence"
+    );
+    expect(broaderCounterEvidenceOptionValueAnswer.accepted).toBe(true);
+    expect(broaderCounterEvidenceOptionValueAnswer.nextState.researchState.tasks[0]?.objective).toContain(
+      "Broaden research beyond existing notes"
+    );
+    expect(broaderCounterEvidenceOptionValueAnswer.nextState.researchState.tasks[0]?.objective).toContain(
       "collect wider sources and counter-evidence"
     );
     expect(noMoreResearchAnswer.accepted).toBe(true);
