@@ -230,12 +230,144 @@ function koreanObjectParticleFor(value: string) {
   return (lastCodePoint - 0xac00) % 28 === 0 ? "를" : "을";
 }
 
-function promptSentenceForAnswerIntent(intent: AdditionalQuestionAnswerIntent, evidenceJudgmentPrompt: string) {
+function joinedEvidenceContext(input: {
+  readonly topic: string;
+  readonly proSummary: string;
+  readonly conSummary: string | null;
+  readonly uncertaintySummary: string;
+}) {
+  return [input.topic, input.proSummary, input.conSummary, input.uncertaintySummary].filter(Boolean).join(" ");
+}
+
+function bulletedQuestionCandidates(candidates: readonly string[]) {
+  return candidates.map((candidate) => `- ${candidate}`).join("\n");
+}
+
+const DEFAULT_CUSTOMER_CANDIDATES = [
+  "혼자 만드는 초기 창업자",
+  "도메인 전문 1인 빌더",
+  "팀 리더/운영 담당자"
+] as const;
+
+const CUSTOMER_CANDIDATE_LABEL_RULES = [
+  {
+    label: "혼자 만드는 초기 창업자",
+    pattern: /(?:solo\s*founder|founder|창업자|혼자|개인|1인|one[-\s]?person)/iu
+  },
+  {
+    label: "도메인 전문 1인 빌더",
+    pattern: /(?:domain|전문|업계|빌더|builder|expert)/iu
+  },
+  {
+    label: "팀 리더/운영 담당자",
+    pattern: /(?:team|팀|리더|운영|담당자|organization|organisation|buyer|조직|관리자)/iu
+  },
+  {
+    label: "소상공인/자영업 운영자",
+    pattern: /(?:소상공|자영업|small\s*business|smb|merchant|store\s*owner)/iu
+  },
+  {
+    label: "크리에이터/마케터형 실무자",
+    pattern: /(?:creator|크리에이터|marketer|마케터|designer|디자이너|content)/iu
+  },
+  {
+    label: "컨설턴트/에이전시 실무자",
+    pattern: /(?:consultant|컨설턴트|agency|에이전시|freelance|프리랜서)/iu
+  }
+] as const;
+
+function customerCandidateLabelsFromEvidence(input: {
+  readonly topic: string;
+  readonly proSummary: string;
+  readonly conSummary: string | null;
+  readonly uncertaintySummary: string;
+}) {
+  const text = joinedEvidenceContext(input);
+  const candidates = CUSTOMER_CANDIDATE_LABEL_RULES
+    .filter((candidate) => candidate.pattern.test(text))
+    .map((candidate) => candidate.label);
+
+  return uniqueValues(candidates);
+}
+
+const DEFAULT_CUSTOMER_SIGNAL_CANDIDATES = [
+  "반복되는 수동 고통",
+  "예산/지불 의향",
+  "기존 대안 불만",
+  "직접 만든 임시 해결책",
+  "반복 사용/공유 신호"
+] as const;
+
+const CUSTOMER_SIGNAL_LABEL_RULES = [
+  {
+    label: "반복되는 수동 고통",
+    pattern: /(?:manual|수동|반복|repeated|coordination|정리|고통|pain|귀찮|오래\s*걸)/iu
+  },
+  {
+    label: "예산/지불 의향",
+    pattern: /(?:budget|예산|pay|paid|willingness|지불|결제|돈|구매)/iu
+  },
+  {
+    label: "기존 대안 불만",
+    pattern: /(?:alternative|대안|competitor|경쟁|불만|dissatisfaction|현재\s*방법|replacement)/iu
+  },
+  {
+    label: "직접 만든 임시 해결책",
+    pattern: /(?:workaround|임시|스프레드시트|spreadsheet|script|스크립트|직접\s*만|self[-\s]?built)/iu
+  },
+  {
+    label: "반복 사용/공유 신호",
+    pattern: /(?:repeat[-\s]?use|retention|재사용|반복\s*사용|공유|share|sharing|referral)/iu
+  },
+  {
+    label: "긴급한 시간/스트레스 압박",
+    pattern: /(?:urgent|urgency|긴급|급하|stress|스트레스|deadline|마감|시간\s*압박)/iu
+  }
+] as const;
+
+function customerSignalLabelsFromEvidence(input: {
+  readonly topic: string;
+  readonly proSummary: string;
+  readonly conSummary: string | null;
+  readonly uncertaintySummary: string;
+}) {
+  const text = joinedEvidenceContext(input);
+  const signals = CUSTOMER_SIGNAL_LABEL_RULES
+    .filter((signal) => signal.pattern.test(text))
+    .map((signal) => signal.label);
+
+  return uniqueValues(signals);
+}
+
+function promptSentenceForAnswerIntent(
+  intent: AdditionalQuestionAnswerIntent,
+  evidenceJudgmentPrompt: string,
+  context: {
+    readonly topic: string;
+    readonly proSummary: string;
+    readonly conSummary: string | null;
+    readonly uncertaintySummary: string;
+  }
+) {
   switch (intent) {
-    case "single_customer_choice":
-      return "이 정보를 바탕으로 지금 아이디어에 가장 알맞은 후보는 ‘혼자 만드는 초기 창업자’, ‘도메인 전문 1인 빌더’, ‘팀 리더/운영 담당자’ 정도로 추려졌습니다. 어느 성향의 고객에 집중하시겠습니까?";
-    case "multi_signal_choice":
-      return "다음 리서치나 인터뷰에서 함께 확인해야 할 신호를 여러 개 선택해주세요. 예: 반복되는 수동 고통, 예산/지불 의향, 기존 대안 불만, 직접 만든 임시 해결책, 반복 사용/공유 신호.";
+    case "single_customer_choice": {
+      const evidenceCandidates = customerCandidateLabelsFromEvidence(context);
+      const candidates = evidenceCandidates.length ? evidenceCandidates : DEFAULT_CUSTOMER_CANDIDATES;
+      const lead = evidenceCandidates.length
+        ? "리서치 단서에서 우선 비교할 고객 후보는 다음과 같습니다:"
+        : "이 정보를 바탕으로 우선 비교할 고객 후보는 다음과 같습니다:";
+
+      return `${lead}\n${bulletedQuestionCandidates(candidates)}\n\n어느 성향의 고객에 집중하시겠습니까?`;
+    }
+    case "multi_signal_choice": {
+      const evidenceSignals = customerSignalLabelsFromEvidence(context);
+      const signals = evidenceSignals.length ? evidenceSignals : DEFAULT_CUSTOMER_SIGNAL_CANDIDATES;
+      const lead = evidenceSignals.length
+        ? "리서치 단서에서 다음에 함께 확인할 고객 신호는 다음과 같습니다:"
+        : "다음 리서치나 인터뷰에서 함께 확인할 신호 후보는 다음과 같습니다:";
+
+      return `${lead}\n${bulletedQuestionCandidates(signals)}\n\n해당되는 신호를 여러 개 선택해주세요.`;
+    }
     case "multi_choice":
       return "위 정보를 기준으로 해당되는 선택지를 하나 이상 선택해주세요. 필요하면 선택지 조합이나 빠진 후보를 직접 적어도 됩니다.";
     case "single_choice":
@@ -320,14 +452,17 @@ function additionalQuestionForEvidenceGap(input: {
     ? `그중 지금 선택할 수 있는 방향은 ‘찬성 근거가 더 강하다’, ‘반대 근거가 더 강하다’, ‘아직 근거가 부족하다’ 정도로 추려졌습니다. 어느 방향으로 판단하시겠습니까?`
     : `그중 지금 선택할 수 있는 방향은 ‘찬성 근거가 충분하다고 보고 진행’, ‘반대 근거를 더 찾아본 뒤 판단’, ‘아직 근거가 부족해 추가 리서치’ 정도로 추려졌습니다. 어느 방향으로 판단하시겠습니까?`;
   const answerIntent = additionalQuestionAnswerIntentForObjective(input.objective);
-  const promptSentence = promptSentenceForAnswerIntent(answerIntent, choiceSentence);
-  const unlockSentence = unlockSentenceForAnswerIntent(answerIntent, topic);
-  const questionLeadLines = questionLeadLinesForAnswerIntent({
-    intent: answerIntent,
+  const promptContext = {
     topic,
     proSummary,
     conSummary,
     uncertaintySummary
+  };
+  const promptSentence = promptSentenceForAnswerIntent(answerIntent, choiceSentence, promptContext);
+  const unlockSentence = unlockSentenceForAnswerIntent(answerIntent, topic);
+  const questionLeadLines = questionLeadLinesForAnswerIntent({
+    intent: answerIntent,
+    ...promptContext
   });
 
   return [

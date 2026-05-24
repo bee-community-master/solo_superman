@@ -147,6 +147,24 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("어느 방향으로 판단");
   });
 
+  it("uses evidence-derived customer candidates in listed follow-up prompts", () => {
+    const researchTask = task({
+      objective: "초기 고객 세그먼트와 사용자 성향 좁히기"
+    });
+    const researchResult = result({
+      result:
+        "Pro: solo founders repeatedly organize product decisions manually.",
+      limitationNotes: "Domain expert builder and team leader samples remain narrow."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("리서치 단서에서 우선 비교할 고객 후보");
+    expect(matrix.additionalQuestions[0]).toContain("- 혼자 만드는 초기 창업자");
+    expect(matrix.additionalQuestions[0]).toContain("- 도메인 전문 1인 빌더");
+    expect(matrix.additionalQuestions[0]).toContain("- 팀 리더/운영 담당자");
+    expect(matrix.additionalQuestions[0]).toContain("어느 성향의 고객에 집중");
+  });
+
   it("turns problem-context evidence gaps into open narrative prompts", () => {
     const researchTask = task({
       objective: "사용자가 어떤 상황에서 문제를 겪는지 맥락 설명"
@@ -250,6 +268,26 @@ describe("Decision-linked research quality gate", () => {
       balanceStatus: "missing_con_evidence",
       additionalQuestions: [expect.stringContaining("여러 개 선택")]
     });
+  });
+
+  it("uses evidence-derived signal candidates in listed multi-select prompts", () => {
+    const researchTask = task({
+      objective: "다음 인터뷰에서 확인할 고객 신호와 조건 여러 개 선택"
+    });
+    const researchResult = result({
+      result:
+        "Pro: customers mention manual workarounds, budget timing, and repeat-use cues around the workflow.",
+      limitationNotes: "Alternative dissatisfaction is still based on a small import."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("리서치 단서에서 다음에 함께 확인할 고객 신호");
+    expect(matrix.additionalQuestions[0]).toContain("- 반복되는 수동 고통");
+    expect(matrix.additionalQuestions[0]).toContain("- 예산/지불 의향");
+    expect(matrix.additionalQuestions[0]).toContain("- 기존 대안 불만");
+    expect(matrix.additionalQuestions[0]).toContain("- 직접 만든 임시 해결책");
+    expect(matrix.additionalQuestions[0]).toContain("- 반복 사용/공유 신호");
+    expect(matrix.additionalQuestions[0]).toContain("해당되는 신호를 여러 개 선택");
   });
 
   it("does not collapse signal or criteria objectives with incidental 여부 wording into pro/con prompts", () => {
