@@ -146,6 +146,7 @@ type AdditionalQuestionAnswerIntent =
   | "binary_choice"
   | "single_choice"
   | "multi_choice"
+  | "ranked_choice"
   | "single_customer_choice"
   | "multi_signal_choice"
   | "evidence_judgment";
@@ -168,6 +169,8 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
     /(?:(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|어느|선택|고르|판단)|양자\s*택일|양자택일|여부|진행|채택|반영|동의하시|찬성하시|반대하시|해야\s*(?:할까|하나|할지)|yes\s*[/ ]?no|whether|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(topic);
   const asksForSingleChoice =
     /(?:객관식|선택형|단일\s*선택|하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|종류\s*중\s*하나|후보\s*중\s*하나|옵션\s*중\s*하나|(?:후보|선택지|옵션|고객\s*후보|고객\s*세그먼트)(?:를|을)?\s*(?:선택|고르)|which\s+(?:one|option)|single[-\s]?choice)/iu.test(topic);
+  const asksForRanking =
+    /(?:우선순위|우선\s*순위|순위|순서|랭킹|중요도순|먼저\s*(?:볼|검증|구현|확인)할\s*순서|rank(?:ed|ing)?|priorit(?:y|ize|ise)|order\s+(?:of|the))/iu.test(topic);
 
   if (/(?:복수|모두|해당|다중|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)\s*(?:선택|고르)|둘\s*이상|multi[-\s]?select|one\s+or\s+more|select\s+all)/iu.test(topic)) {
     return /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic) ? "multi_signal_choice" : "multi_choice";
@@ -183,6 +186,10 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
 
   if (asksForBinaryChoice && !asksForNamedCandidateChoice) {
     return "binary_choice";
+  }
+
+  if (asksForRanking) {
+    return "ranked_choice";
   }
 
   if (asksForSingleChoice) {
@@ -220,6 +227,8 @@ function promptSentenceForAnswerIntent(intent: AdditionalQuestionAnswerIntent, e
       return "위 정보를 기준으로 해당되는 선택지를 하나 이상 선택해주세요. 필요하면 선택지 조합이나 빠진 후보를 직접 적어도 됩니다.";
     case "single_choice":
       return "위 정보를 기준으로 지금 가장 먼저 확정할 하나의 선택지를 골라주세요. 선택지에 없는 후보가 더 맞다면 직접 적어도 됩니다.";
+    case "ranked_choice":
+      return "위 정보를 기준으로 후보들의 우선순위를 1순위부터 정해주세요. 같은 수준이면 묶어서 적고, 빠진 후보가 있으면 직접 추가해도 됩니다.";
     case "open_text":
       return "이 근거를 참고해 실제 사용자가 어떤 상황에서 이 문제를 겪고, 어떤 제약 때문에 지금 해결하려는지 본인 말로 3~5문장으로 서술해주세요.";
     case "binary_choice":
@@ -239,6 +248,8 @@ function unlockSentenceForAnswerIntent(intent: AdditionalQuestionAnswerIntent, t
       return "이 답으로 정해지는 내용은 동시에 유지할 후보와 다음 리서치/검증 체크리스트입니다.";
     case "single_choice":
       return "이 답으로 정해지는 내용은 다음 스펙과 구현 범위가 우선 따라갈 하나의 선택 기준입니다.";
+    case "ranked_choice":
+      return "이 답으로 정해지는 내용은 먼저 검증하거나 구현할 순서와 뒤로 미룰 후보입니다.";
     case "open_text":
       return "이 답으로 정해지는 내용은 문제 맥락, 예외 조건, 스펙에 남길 실제 사용자 상황입니다.";
     case "binary_choice":

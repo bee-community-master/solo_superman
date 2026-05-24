@@ -287,6 +287,23 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
   });
 
+  it("turns priority-order objective wording into a ranked prompt", () => {
+    const researchTask = task({
+      objective: "검증 후보들의 우선순위를 정해야 하는 결정"
+    });
+    const researchResult = result({
+      result: "Pro: imported notes mention several validation candidates.",
+      limitationNotes: "The right order still needs a user decision."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("우선순위를 1순위부터")]
+    });
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+  });
+
   it("turns proceed-or-hold evidence gaps into explicit agree/disagree prompts", () => {
     const researchTask = task({
       objective: "이 방향을 스펙에 반영할지 여부 결정"

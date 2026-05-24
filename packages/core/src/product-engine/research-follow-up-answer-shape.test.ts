@@ -341,6 +341,46 @@ describe("research follow-up answer shape", () => {
     );
   });
 
+  it("parses choices listed before one-or-more wording", () => {
+    const input = {
+      question: "개인 창업자, 팀 리더, 운영 담당자 중 하나 혹은 여러 개를 선택해주세요.",
+      researchTask: task("여러 종류 중 하나 혹은 여러 개를 선택해야 하는 후보 결정"),
+      sourceQuestion: sourceQuestion(),
+      evidenceMatrix: evidenceMatrix()
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("multi_select");
+    expect(researchFollowUpExpectedAnswerType(input)).toBe("choice");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBe("multiple");
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "question_candidate_1", label: "개인 창업자" }),
+        expect.objectContaining({ id: "question_candidate_2", label: "팀 리더" }),
+        expect.objectContaining({ id: "question_candidate_3", label: "운영 담당자" })
+      ])
+    );
+  });
+
+  it("keeps priority-order questions as ranked answers instead of open text", () => {
+    const input = {
+      question: "검증 빠르기, 고객 문제 강도, 구현 난이도 중 먼저 확인할 순서를 정해주세요.",
+      researchTask: task("후보들의 우선순위를 정해야 하는 결정"),
+      sourceQuestion: sourceQuestion(),
+      evidenceMatrix: evidenceMatrix()
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("ranked_choice");
+    expect(researchFollowUpExpectedAnswerType(input)).toBe("rank");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBe("single");
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "question_candidate_1", label: "검증 빠르기" }),
+        expect.objectContaining({ id: "question_candidate_2", label: "고객 문제 강도" }),
+        expect.objectContaining({ id: "question_candidate_3", label: "구현 난이도" })
+      ])
+    );
+  });
+
   it("returns signal-specific options for multi-select signal questions", () => {
     const input = {
       question:

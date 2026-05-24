@@ -13,6 +13,7 @@ export type ResearchFollowUpAnswerShape =
   | "binary_choice"
   | "single_choice"
   | "multi_select"
+  | "ranked_choice"
   | "evidence_judgment";
 
 interface ResearchFollowUpAnswerInput {
@@ -101,7 +102,8 @@ function candidatePhrasesFromQuestion(question: string) {
   const phrases: string[] = [];
   const patterns = [
     /(?:후보|선택지|옵션|종류|유형|타입|성향)(?:는|은|로는|로|:)\s*(?<candidates>.+?)(?:입니다|입니다만|정도로|정도(?:로)?\s*추려|중에서|중\s*하나|가\s*있|이\s*있|를\s*고르|을\s*고르|를\s*선택|을\s*선택|\.|\?|$)/giu,
-    /(?<candidates>[^.?\n]{2,180}?)(?:\s*정도로\s*추려졌|(?:이|가)\s*후보(?:입니다|로\s*남았))/giu
+    /(?<candidates>[^.?\n]{2,180}?)(?:\s*정도로\s*추려졌|(?:이|가)\s*후보(?:입니다|로\s*남았))/giu,
+    /(?<candidates>[^.?\n]{2,180}(?:[,·/]|(?:와|과)\s+|(?:및|또는|혹은)\s+)[^.?\n]{2,180}?)(?:\s*(?:중|가운데)\s*(?:하나(?:만)?|한\s*가지|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)|복수|다중)(?:를|을)?\s*(?:선택|고르|골라|정|택)|\s*(?:중|가운데)\s*어느\s*(?:것|후보|항목|종류|유형)|\s*(?:중|가운데)\s*먼저\s*(?:볼|확인|검증|구현)할\s*순서)/giu
   ];
 
   for (const pattern of patterns) {
@@ -206,6 +208,12 @@ function hasBinaryChoiceCue(question: string) {
   );
 }
 
+function hasRankedChoiceCue(question: string) {
+  return /(?:우선순위|우선\s*순위|순위|순서|랭킹|중요도순|먼저\s*(?:볼|검증|구현|확인)할\s*순서|rank(?:ed|ing)?|priorit(?:y|ize|ise)|order\s+(?:of|the))/iu.test(
+    question
+  );
+}
+
 function hasForcedChoiceCue(question: string) {
   return /(?:객관식|선택형|선택|고르|골라|중\s*(?:하나|한\s*가지)|하나(?:를|만)?\s*(?:선택|고르)|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|복수|다중|(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|선택|고르|판단)|양자\s*택일|양자택일|choose|pick|select|single[-\s]?choice|multi[-\s]?select|one\s+or\s+more|select\s+all|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(
     question
@@ -259,6 +267,10 @@ export function classifyResearchFollowUpAnswerShape(input: ResearchFollowUpAnswe
     return "binary_choice";
   }
 
+  if (hasRankedChoiceCue(input.question)) {
+    return "ranked_choice";
+  }
+
   if (hasConcreteSingleChoiceCue(input.question)) {
     return "single_choice";
   }
@@ -291,6 +303,10 @@ export function researchFollowUpExpectedAnswerType(input: ResearchFollowUpAnswer
 
   if (answerShape === "open_text") {
     return asksForValidationPlan(input.question) ? "experiment" : "text";
+  }
+
+  if (answerShape === "ranked_choice") {
+    return "rank";
   }
 
   if (/(?:순위|우선순위|rank|priorit)/iu.test(input.question)) {
@@ -481,7 +497,7 @@ export function researchFollowUpAnswerOptions(input: ResearchFollowUpAnswerInput
     return binaryChoiceAnswerOptions();
   }
 
-  if (answerShape === "single_choice" || answerShape === "multi_select") {
+  if (answerShape === "single_choice" || answerShape === "multi_select" || answerShape === "ranked_choice") {
     return choiceAnswerOptions(input);
   }
 
