@@ -289,11 +289,13 @@ describe("Decision Queue view model phase15a", () => {
     expect(operations.allowlistPolicyLabel).not.toContain("public_search");
     expect(operations.allowlistPolicyLabel).not.toContain("public_safe_summary");
     expect(operations.allowlistPolicyLabel).toContain("2 동시 / 세션당 12");
-    expect(operations.disclosureActivityLabel).toContain("automatic_payload_ready");
+    expect(operations.disclosureActivityLabel).toContain("안전한 자동 리서치 준비됨");
+    expect(operations.disclosureActivityLabel).not.toContain("automatic_payload_ready");
     expect(operations.runRecoveryLabel).toContain("/api/v1/projects/proj_phase15a_ui/research-runs");
-    expect(operations.qualityGateLabel).toContain("needs_review");
+    expect(operations.qualityGateLabel).toContain("검토 필요");
+    expect(operations.qualityGateLabel).not.toContain("needs_review");
     expect(operations.staleOrFailureReasons).toEqual([
-      expect.stringContaining("Source reliability is insufficient")
+      expect.stringMatching(/검토 필요[\s\S]*Source reliability is insufficient/u)
     ]);
     expect(operations.exitGate).toMatchObject({
       status: "blocked_for_1_5b",
@@ -352,7 +354,8 @@ describe("Decision Queue view model phase15a", () => {
     });
 
     expect(operations.qualityGateLabel).toContain("Review public onboarding evidence");
-    expect(operations.qualityGateLabel).toContain("needs_review");
+    expect(operations.qualityGateLabel).toContain("검토 필요");
+    expect(operations.qualityGateLabel).not.toContain("needs_review");
   });
 
   it("keeps the Phase 1.5A exit gate blocked when allowlist refetch recovery is missing", () => {

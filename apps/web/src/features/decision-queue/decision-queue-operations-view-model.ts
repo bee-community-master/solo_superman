@@ -14,8 +14,14 @@ import {
   phase15aAllowlistStatusLabel,
   phase15aConnectorLabels,
   phase15aContextModeLabel,
+  phase15aDisclosureStatusLabel,
+  phase15aEvidenceGateStatusLabel,
   type Phase15aOperationLabelCopy,
-  phase15aSourceCategoryLabels
+  phase15aQualityGateStatusLabel,
+  phase15aReviewCardStateLabel,
+  phase15aRunStatusLabel,
+  phase15aSourceCategoryLabels,
+  phase15aTerminalReasonLabel
 } from "./phase15a-operation-labels";
 
 export interface Phase15aOperationsCopy extends Phase15aOperationLabelCopy {
@@ -102,21 +108,27 @@ function planningBlockingCards(research: ResearchEvidenceProjection | null) {
   return research?.reviewCards.filter((card) => card.blocksPlanning) ?? [];
 }
 
-function researchQualityGateLabels(input: Phase15aOperationsInput) {
+function researchQualityGateLabels(input: Phase15aOperationsInput, copy: Phase15aOperationsCopy) {
   return [
-    ...(input.research?.evidencePacks.map((pack) => `${pack.claim}: ${pack.gateStatus}`) ?? []),
+    ...(input.research?.evidencePacks.map((pack) =>
+      `${pack.claim}: ${phase15aEvidenceGateStatusLabel(copy, pack.gateStatus)}`
+    ) ?? []),
     ...(input.research?.reviewCards
       .filter((card) => Boolean(card.gateStatus || card.reviewReason))
       .map((card) =>
         [
           card.title,
-          card.gateStatus ?? card.state,
+          card.gateStatus
+            ? phase15aEvidenceGateStatusLabel(copy, card.gateStatus)
+            : phase15aReviewCardStateLabel(copy, card.state),
           card.reviewReason
         ]
           .filter((part): part is string => Boolean(part))
           .join(": ")
       ) ?? []),
-    ...(input.runs?.runs.map((run) => `${run.researchRunId}: ${run.qualityGateStatus}`) ?? [])
+    ...(input.runs?.runs.map((run) =>
+      `${run.researchRunId}: ${phase15aQualityGateStatusLabel(copy, run.qualityGateStatus)}`
+    ) ?? [])
   ];
 }
 
@@ -163,16 +175,24 @@ export function phase15aOperationsViewModel(
     activeAllowlistCount: activeAllowlists.length,
     allowlistPolicyLabel,
     disclosureActivityLabel: latestDisclosure
-      ? copy.disclosureActivityLoaded(input.disclosures?.disclosureLogs.length ?? 0, latestDisclosure.status)
+      ? copy.disclosureActivityLoaded(
+          input.disclosures?.disclosureLogs.length ?? 0,
+          phase15aDisclosureStatusLabel(copy, latestDisclosure.status)
+        )
       : copy.noDisclosureActivity,
     runRecoveryLabel: input.runs
       ? copy.runRecoveryLoaded(runs.length, attentionRuns.length, input.runs.recovery.refetchUrl)
       : copy.noRunStatus,
     qualityGateLabel: qualityGateVisible
-      ? researchQualityGateLabels(input).slice(0, 3).join(" · ")
+      ? researchQualityGateLabels(input, copy).slice(0, 3).join(" · ")
       : copy.qualityGatePending,
     staleOrFailureReasons: attentionRuns.map((run) =>
-      [run.researchRunId, run.status, run.terminalReason, run.qualityGateReviewReason]
+      [
+        run.researchRunId,
+        phase15aRunStatusLabel(copy, run.status),
+        run.terminalReason ? phase15aTerminalReasonLabel(copy, run.terminalReason) : null,
+        run.qualityGateReviewReason
+      ]
         .filter((part): part is string => Boolean(part))
         .join(" · ")
     ),
