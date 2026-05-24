@@ -44,6 +44,10 @@ const CONTRIBUTOR_DOC_SLUGS = [
   "release-readiness",
   "troubleshooting"
 ];
+export const REFERENCE_DOC_PATHS = [
+  "docs/reference_KO.md",
+  "docs/reference_EN.md"
+];
 
 const DEFAULT_KO_DOC_PATH = "docs/README.md";
 
@@ -128,6 +132,15 @@ export function sectionBetween(text, start, end, label) {
   return text.slice(contentStart, endIndex);
 }
 
+function sectionBetweenAnyStart(text, starts, end, label) {
+  const start = starts.find((candidate) => text.includes(candidate));
+  if (!start) {
+    throw new Error(`Could not find ${label} start`);
+  }
+
+  return sectionBetween(text, start, end, label);
+}
+
 function markdownFirstColumnValues(section) {
   return [...section.matchAll(/^\| `([^`]+)` \|/gm)].map((match) => match[1]);
 }
@@ -210,12 +223,10 @@ export function parseDocs25DeterministicOutputTypes(reference) {
 
 function parseReferenceCodexTurnPurposes(reference) {
   return markdownFirstColumnValues(
-    sectionBetween(
-      reference,
+    sectionBetweenAnyStart(reference, [
       "Phase 1에서 허용되는 Codex turnPurpose는 다음 6개뿐이다.",
-      "## Input contract overview",
-      "reference CodexTurnPurpose section"
-    )
+      "Phase 1 allows only the following six Codex turnPurpose values."
+    ], "## Input contract overview", "reference CodexTurnPurpose section")
   );
 }
 
@@ -845,7 +856,7 @@ function checkContributorDocsSnippets() {
   ]);
 }
 
-function compareContractTaxonomies(reference) {
+function compareContractTaxonomies(reference, referencePath = "reference") {
   const commands = readText("packages/contracts/src/product-engine/commands.ts");
   const events = readText("packages/contracts/src/product-engine/events.ts");
   const effects = readText("packages/contracts/src/effects/tasks.ts");
@@ -854,34 +865,34 @@ function compareContractTaxonomies(reference) {
   const projections = readText("packages/contracts/src/projections/index.ts");
   const reduction = readText("packages/contracts/src/product-engine/reduction.ts");
 
-  compareSets("reference CommandType", parseReferenceCommandTypes(reference), parseConstArray(commands, "COMMAND_TYPES"));
-  compareSets("reference CommandActor", parseReferenceCommandActors(reference), parseConstArray(commands, "COMMAND_ACTORS"));
-  compareSets("reference ProductEngineEventType", parseReferenceEventTypes(reference), parseConstArray(events, "PRODUCT_ENGINE_EVENT_TYPES"));
-  compareSets("reference EffectType", parseReferenceEffectTypes(reference), parseConstArray(effects, "EFFECT_TYPES"));
-  compareSets("reference EffectStatus", parseReferenceEffectStatuses(reference), parseConstArray(effects, "EFFECT_STATUSES"));
+  compareSets(`${referencePath} CommandType`, parseReferenceCommandTypes(reference), parseConstArray(commands, "COMMAND_TYPES"));
+  compareSets(`${referencePath} CommandActor`, parseReferenceCommandActors(reference), parseConstArray(commands, "COMMAND_ACTORS"));
+  compareSets(`${referencePath} ProductEngineEventType`, parseReferenceEventTypes(reference), parseConstArray(events, "PRODUCT_ENGINE_EVENT_TYPES"));
+  compareSets(`${referencePath} EffectType`, parseReferenceEffectTypes(reference), parseConstArray(effects, "EFFECT_TYPES"));
+  compareSets(`${referencePath} EffectStatus`, parseReferenceEffectStatuses(reference), parseConstArray(effects, "EFFECT_STATUSES"));
   compareSets(
-    "reference ProductEngineDeterministicOutputType",
+    `${referencePath} ProductEngineDeterministicOutputType`,
     parseDocs25DeterministicOutputTypes(reference),
     parseStringUnion(reduction, "ProductEngineDeterministicOutputType")
   );
-  compareSets("reference CodexTurnPurpose", parseReferenceCodexTurnPurposes(reference), parseConstArray(codex, "CODEX_TURN_PURPOSES"));
-  compareSets("reference CodexArtifactKind", parseReferenceArtifactKinds(reference), parseConstArray(codex, "CODEX_ARTIFACT_KINDS"));
-  compareSets("reference CodexApplyPolicy", parseReferenceApplyPolicies(reference), parseConstArray(codex, "CODEX_APPLY_POLICIES"));
-  compareSets("reference BlockedActionType", parseReferenceBlockedActionTypes(reference), parseConstArray(codex, "BLOCKED_ACTION_TYPES"));
-  compareSets("reference SseEventName", parseReferenceSseEvents(reference), parseStringUnion(sse, "SseEventName"));
-  compareSets("reference ProjectionKind", parseReferenceProjectionKinds(reference), parseStringUnion(projections, "ProjectionKind"));
+  compareSets(`${referencePath} CodexTurnPurpose`, parseReferenceCodexTurnPurposes(reference), parseConstArray(codex, "CODEX_TURN_PURPOSES"));
+  compareSets(`${referencePath} CodexArtifactKind`, parseReferenceArtifactKinds(reference), parseConstArray(codex, "CODEX_ARTIFACT_KINDS"));
+  compareSets(`${referencePath} CodexApplyPolicy`, parseReferenceApplyPolicies(reference), parseConstArray(codex, "CODEX_APPLY_POLICIES"));
+  compareSets(`${referencePath} BlockedActionType`, parseReferenceBlockedActionTypes(reference), parseConstArray(codex, "BLOCKED_ACTION_TYPES"));
+  compareSets(`${referencePath} SseEventName`, parseReferenceSseEvents(reference), parseStringUnion(sse, "SseEventName"));
+  compareSets(`${referencePath} ProjectionKind`, parseReferenceProjectionKinds(reference), parseStringUnion(projections, "ProjectionKind"));
 }
 
-function compareRoutes(reference) {
+function compareRoutes(reference, referencePath = "reference") {
   const docsRoutes = parseDocs26RoutesFromText(reference);
   const codeRoutes = parseRouteCatalogFromSource(readText("packages/contracts/src/api/routes.ts"));
 
-  compareSets("reference route catalog", [...docsRoutes.keys()], [...codeRoutes.keys()]);
+  compareSets(`${referencePath} route catalog`, [...docsRoutes.keys()], [...codeRoutes.keys()]);
 
   const queryMismatches = findRouteQueryMismatches(docsRoutes, codeRoutes);
 
   if (queryMismatches.length) {
-    fail("reference route query mismatch", queryMismatches);
+    fail(`${referencePath} route query mismatch`, queryMismatches);
   }
 }
 
@@ -944,10 +955,12 @@ export function runDocContractChecks() {
   checkContributorDocsShape();
   checkContributorDocsSnippets();
 
-  const reference = readText("docs/reference_KO.md");
-  checkReferenceSnippets(reference);
-  compareContractTaxonomies(reference);
-  compareRoutes(reference);
+  for (const referencePath of REFERENCE_DOC_PATHS) {
+    const reference = readText(referencePath);
+    checkReferenceSnippets(reference);
+    compareContractTaxonomies(reference, referencePath);
+    compareRoutes(reference, referencePath);
+  }
   scanPackageBoundaries();
   checkNoExecutionPermissionClaims();
   checkWebLocalRealignment();

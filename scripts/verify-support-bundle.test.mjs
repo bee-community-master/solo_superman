@@ -42,6 +42,7 @@ function validBundle(overrides = {}) {
     package: {
       scripts: {
         supportBundle: "node scripts/support-bundle.mjs",
+        verifyReadyRelease: "node scripts/verify-ready-release.mjs",
         verifyReleaseEvidenceBundle: "node scripts/verify-release-evidence-bundle.mjs",
         verifySupportBundle: "node scripts/verify-support-bundle.mjs"
       }
@@ -59,6 +60,7 @@ function validBundle(overrides = {}) {
     recommendedChecks: [
       "pnpm verify:product-capability-readiness",
       "pnpm verify:release-readiness",
+      "pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>",
       "pnpm verify:release-evidence-template",
       "pnpm verify:release-evidence-bundle",
       "pnpm verify:support-bundle",
@@ -135,7 +137,9 @@ describe("support bundle verification", () => {
     expect(validation.ok).toBe(false);
     expect(validation.issues).toEqual(expect.arrayContaining([
       "$.package.scripts.verifySupportBundle: must point to verify-support-bundle.mjs",
+      "$.package.scripts.verifyReadyRelease: must point to verify-ready-release.mjs",
       "$.recommendedChecks: must include pnpm verify:support-bundle",
+      "$.recommendedChecks: must include pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>",
       "$.recommendedChecks: must include pnpm verify"
     ]));
   });

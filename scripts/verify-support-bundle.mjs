@@ -37,6 +37,7 @@ const REQUIRED_DIAGNOSTICS = new Set([
 const REQUIRED_RECOMMENDED_CHECKS = new Set([
   "pnpm verify:product-capability-readiness",
   "pnpm verify:release-readiness",
+  "pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>",
   "pnpm verify:release-evidence-template",
   "pnpm verify:release-evidence-bundle",
   "pnpm verify:support-bundle",
@@ -121,6 +122,9 @@ function validatePackageScripts(pkg, issues) {
   }
   if (scripts.verifySupportBundle !== "node scripts/verify-support-bundle.mjs") {
     addIssue(issues, "$.package.scripts.verifySupportBundle", "must point to verify-support-bundle.mjs");
+  }
+  if (scripts.verifyReadyRelease !== "node scripts/verify-ready-release.mjs") {
+    addIssue(issues, "$.package.scripts.verifyReadyRelease", "must point to verify-ready-release.mjs");
   }
 }
 

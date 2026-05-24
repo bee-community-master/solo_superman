@@ -285,6 +285,7 @@ Projection hints identify a projection kind and refetch URL.
 | `ChatGptBrowserDelegationProjection` | `packages/contracts/src/projections` | projection refetch |
 | `ServicePageUsePermissionProjection` | `packages/contracts/src/projections` | projection refetch |
 | `ImplementationStepLedgerProjection` | `packages/contracts/src/projections` | projection refetch |
+| `AutoImplementationRunProjection` | `packages/contracts/src/projections` | workspace implementation run / markdown issue fallback |
 
 ### Projection minimum fields
 

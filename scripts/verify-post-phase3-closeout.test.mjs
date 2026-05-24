@@ -43,6 +43,7 @@ describe("simplified contributor docs preserve Post-Phase3 decisions", () => {
   it("wires the simplified docs into the doc-contract verifier", () => {
     expect(docVerifier).toContain("CONTRIBUTOR_DOC_PATHS");
     expect(docVerifier).toContain("docs/reference_KO.md");
+    expect(docVerifier).toContain("docs/reference_EN.md");
     expect(docVerifier).toContain("docs/troubleshooting_KO.md");
     expect(readdirSync("docs").filter((entry) => /^\d{2}-.+\.md$/u.test(entry))).toEqual([]);
   });
