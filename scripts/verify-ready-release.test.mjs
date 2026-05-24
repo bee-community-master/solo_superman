@@ -5,8 +5,13 @@ import {
   extractReadyReleaseCommandBlockers,
   parseReadyReleaseArgs,
   readyReleaseSteps,
+  releaseEvidenceIssuePreparation,
   runReadyReleaseVerification
 } from "./verify-ready-release.mjs";
+import {
+  buildReleaseEvidenceChecklist,
+  loadReleaseEvidenceContracts
+} from "./release-evidence-checklist.mjs";
 
 describe("ready release aggregate verification", () => {
   it("plans the required ready-release command sequence", () => {
@@ -182,7 +187,10 @@ describe("ready release aggregate verification", () => {
   });
 
   it("lists planned commands without reporting blockers in plan-only mode", async () => {
-    const evidence = await runReadyReleaseVerification({ planOnly: true });
+    const evidence = await runReadyReleaseVerification({
+      planOnly: true,
+      now: new Date("2026-05-24T00:00:00.000Z")
+    });
 
     expect(evidence).toMatchObject({
       status: "planned",
@@ -196,9 +204,57 @@ describe("ready release aggregate verification", () => {
       blockers: [],
       commandBlockers: []
     });
+    expect(evidence.releaseEvidenceIssuePreparation).toEqual([
+      expect.objectContaining({
+        issueNumber: 259,
+        templatePath: "./solo-superman-release-evidence-bundle/issue-259-template.json",
+        commentPath: "./solo-superman-release-evidence-bundle/issue-259-comment.md",
+        validateTemplateCommand:
+          "pnpm verify:release-evidence-template -- --input ./solo-superman-release-evidence-bundle/issue-259-template.json --issue 259",
+        postIssueCommentCommand:
+          "gh issue comment 259 --body-file ./solo-superman-release-evidence-bundle/issue-259-comment.md"
+      }),
+      expect.objectContaining({
+        issueNumber: 266,
+        templatePath: "./solo-superman-release-evidence-bundle/issue-266-template.json",
+        commentPath: "./solo-superman-release-evidence-bundle/issue-266-comment.md"
+      }),
+      expect.objectContaining({
+        issueNumber: 267,
+        templatePath: "./solo-superman-release-evidence-bundle/issue-267-template.json",
+        commentPath: "./solo-superman-release-evidence-bundle/issue-267-comment.md"
+      })
+    ]);
     expect(evidence.commands).toHaveLength(readyReleaseSteps().length);
     expect(evidence.commands.every((command) => command.status === "planned")).toBe(true);
     expect(evidence.commands.every((command) => command.blockers.length === 0)).toBe(true);
+    expect(evidence.checked).toContain(
+      "issue-specific release evidence templates, comments, and validation commands are surfaced before release-lab handoff"
+    );
+  });
+
+  it("builds issue-specific release evidence preparation records for the selected bundle directory", async () => {
+    const checklist = buildReleaseEvidenceChecklist(await loadReleaseEvidenceContracts(), {
+      now: new Date("2026-05-24T00:00:00.000Z")
+    });
+    const issuePrep = releaseEvidenceIssuePreparation(checklist, {
+      releaseEvidenceBundleDir: "./filled-release-bundle"
+    });
+
+    expect(issuePrep.map((entry) => entry.issueNumber)).toEqual([259, 266, 267]);
+    expect(issuePrep[0]).toMatchObject({
+      issueUrl: "https://github.com/bee-community-master/solo_superman/issues/259",
+      itemCount: 2,
+      blockedItems: 2,
+      checklistPath: "./filled-release-bundle/issue-259-checklist.md",
+      templatePath: "./filled-release-bundle/issue-259-template.json",
+      commentPath: "./filled-release-bundle/issue-259-comment.md",
+      fillTemplateAction: "Fill ./filled-release-bundle/issue-259-template.json with redacted release lab evidence only.",
+      validateTemplateCommand:
+        "pnpm verify:release-evidence-template -- --input ./filled-release-bundle/issue-259-template.json --issue 259",
+      postIssueCommentCommand: "gh issue comment 259 --body-file ./filled-release-bundle/issue-259-comment.md"
+    });
+    expect(JSON.stringify(issuePrep)).not.toContain("ghp_");
   });
 
   it("passes a custom release evidence bundle directory through the ready-release sequence", async () => {
