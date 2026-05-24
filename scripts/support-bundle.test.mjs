@@ -248,12 +248,20 @@ describe("support diagnostics bundle", () => {
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-release");
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-release:dry-run");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-readiness");
-    expect(bundle.recommendedChecks).toContain("pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>");
-    expect(bundle.recommendedChecks).toContain("pnpm verify:release-evidence-template");
-    expect(bundle.recommendedChecks).toContain("pnpm verify:release-evidence-bundle");
-    expect(bundle.recommendedChecks).toContain("pnpm verify:support-bundle");
     expect(bundle.recommendedChecks).toContain("pnpm release:evidence-checklist");
     expect(bundle.recommendedChecks).toContain("pnpm release:evidence-bundle -- <bundle-dir>");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:release-evidence-template");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:release-evidence-bundle");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:release-evidence-template -- --input <filled-template.json>");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> --require-ready");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:support-bundle");
+    expect(bundle.recommendedChecks.indexOf("pnpm release:evidence-bundle -- <bundle-dir>")).toBeLessThan(
+      bundle.recommendedChecks.indexOf("pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> --require-ready")
+    );
+    expect(bundle.recommendedChecks.indexOf("pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> --require-ready")).toBeLessThan(
+      bundle.recommendedChecks.indexOf("pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>")
+    );
     expect(bundle.releaseDiagnostics.productCapabilityReadiness).toMatchObject({
       command: "pnpm verify:product-capability-readiness",
       captureStatus: "ok",
