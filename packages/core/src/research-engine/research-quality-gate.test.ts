@@ -200,6 +200,24 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
   });
 
+  it("keeps which-customer narrative wording open when it explicitly asks for a written answer", () => {
+    const researchTask = task({
+      objective: "어느 고객 상황에서 문제가 커지는지 open question으로 주관식 서술"
+    });
+    const researchResult = result({
+      result: "Pro: different customer contexts show different urgency levels.",
+      limitationNotes: "The exact context still needs a written user decision."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("본인 말로 3~5문장으로 서술")]
+    });
+    expect(matrix.additionalQuestions[0]).not.toContain("어느 성향의 고객에 집중");
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+  });
+
   it("turns signal evidence gaps into multi-select prompts", () => {
     const researchTask = task({
       objective: "다음 인터뷰에서 확인할 고객 신호와 조건 여러 개 선택"

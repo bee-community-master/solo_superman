@@ -200,14 +200,14 @@ function hasBinaryChoiceCue(question: string) {
   );
 }
 
-function hasConcreteSingleChoiceCue(question: string) {
-  return /(?:객관식|선택형|단일\s*선택|단일선택|하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|종류\s*중\s*하나|(?:후보|선택지|옵션|고객\s*후보|고객\s*세그먼트)(?:를|을)?\s*(?:선택|고르)|어느\s*(?:후보|성향|고객|세그먼트|종류|선택지)|(?:무엇|어디|누구)에\s*집중|선택하시겠|집중하시겠|고르시겠|choose|pick|which\s+(?:one|customer|segment|option)|single[-\s]?choice)/iu.test(
+function hasForcedChoiceCue(question: string) {
+  return /(?:객관식|선택형|선택|고르|골라|중\s*(?:하나|한\s*가지)|하나(?:를|만)?\s*(?:선택|고르)|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|복수|다중|(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|선택|고르|판단)|양자\s*택일|양자택일|choose|pick|select|single[-\s]?choice|multi[-\s]?select|one\s+or\s+more|select\s+all|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(
     question
   );
 }
 
-function hasExplicitChoiceRequest(question: string) {
-  return /(?:객관식|선택형|선택|고르|골라|중\s*(?:하나|한\s*가지)|어느\s*(?:쪽|방향|후보|성향|고객|세그먼트|종류|선택지)|찬성하시|반대하시|동의하시|진행할까요|해야\s*할까요|반영할까요|여부|choose|pick|select|which\s+(?:one|customer|segment|option|side|direction)|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(
+function hasConcreteSingleChoiceCue(question: string) {
+  return /(?:객관식|선택형|단일\s*선택|단일선택|하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|종류\s*중\s*하나|(?:후보|선택지|옵션|고객\s*후보|고객\s*세그먼트)(?:를|을)?\s*(?:선택|고르)|어느\s*(?:후보|성향|고객|세그먼트|종류|선택지)|(?:무엇|어디|누구)에\s*집중|선택하시겠|집중하시겠|고르시겠|choose|pick|which\s+(?:one|customer|segment|option)|single[-\s]?choice)/iu.test(
     question
   );
 }
@@ -245,7 +245,7 @@ export function classifyResearchFollowUpAnswerShape(input: ResearchFollowUpAnswe
     return "multi_select";
   }
 
-  if (hasOpenTextCue(input.question) && !hasExplicitChoiceRequest(input.question)) {
+  if (hasOpenTextCue(input.question) && !hasForcedChoiceCue(input.question)) {
     return "open_text";
   }
 

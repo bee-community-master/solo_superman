@@ -183,6 +183,71 @@ describe("QuestionsView", () => {
     expect(markup).toContain(">Answer</span>");
   });
 
+  it("keeps candidate choices as one-of-many even when the question mentions pro/con evidence context", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 1 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_candidate_with_evidence_context" as QueueItemId,
+          title:
+            "찬성/반대 근거는 참고용입니다. 후보는 개인 창업자, 팀 리더, 운영 담당자입니다. 고객 후보를 선택해주세요.",
+          state: "active",
+          expectedAnswerType: "choice",
+          answerOptions: [
+            {
+              id: "solo_founder",
+              label: "Solo founder",
+              value: "Focus on solo founders.",
+              pro: "Narrows the first customer segment.",
+              con: "Team buyer needs may be deferred."
+            },
+            {
+              id: "team_leader",
+              label: "Team leader",
+              value: "Focus on team leaders.",
+              pro: "Keeps budget ownership visible.",
+              con: "Sales cycle may be slower."
+            },
+            {
+              id: "ops_owner",
+              label: "Operations owner",
+              value: "Focus on operations owners.",
+              pro: "Matches repeated coordination pain.",
+              con: "Role boundaries may vary."
+            }
+          ]
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+
+    const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        queue
+      },
+      sections: [
+        {
+          id: "active",
+          title: "Current questions",
+          emptyLabel: "No current questions.",
+          items: queue.active
+        }
+      ]
+    });
+
+    expect(markup).toContain("Choose one");
+    expect(markup).toContain("Answer choices");
+    expect(markup).toContain("Decision made: Narrows the first customer segment.");
+    expect(markup).toContain("Check next: Team buyer needs may be deferred.");
+    expect(markup).not.toContain("Agree/disagree choice");
+    expect(markup).not.toContain("Stance choices");
+    expect(markup).not.toContain("Condition or uncertainty: Team buyer needs may be deferred.");
+  });
+
   it("preserves non-choice answer format labels even when no suggested choices are available", () => {
     const queue: DecisionQueueProjection = {
       kind: "DecisionQueueProjection",

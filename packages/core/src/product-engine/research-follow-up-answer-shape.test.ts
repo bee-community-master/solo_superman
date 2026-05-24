@@ -449,6 +449,15 @@ describe("research follow-up answer shape", () => {
 
     expect(classifyResearchFollowUpAnswerShape({
       ...base,
+      question: "어느 고객 상황에서 문제가 커지는지 open question으로 주관식 서술형 답변을 적어주세요."
+    })).toBe("open_text");
+    expect(researchFollowUpAnswerOptions({
+      ...base,
+      question: "어느 고객 상황에서 문제가 커지는지 open question으로 주관식 서술형 답변을 적어주세요."
+    })).toEqual([]);
+
+    expect(classifyResearchFollowUpAnswerShape({
+      ...base,
       question: "이 방향은 객관식으로 찬성/반대 중 하나를 선택해야 합니다."
     })).toBe("binary_choice");
 

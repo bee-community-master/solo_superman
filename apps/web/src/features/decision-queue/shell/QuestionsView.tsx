@@ -64,14 +64,14 @@ type AnswerFormatKind =
   | "experiment_plan";
 
 function answerLooksLikeBinaryChoice(item: QueueItemProjection) {
-  const text = [
-    item.title,
-    ...(item.answerOptions ?? []).flatMap((option) => [option.label, option.value])
-  ]
-    .join(" ")
-    .toLowerCase();
+  const answerOptions = item.answerOptions ?? [];
+  const binaryOptionCount = answerOptions.filter((option) =>
+    /(?:찬성|반대|동의|비동의|예\s*[/·또는과]*\s*아니오|\b(?:yes|no|agree|disagree|support|oppose)\b)/iu.test(
+      [option.id, option.label, option.value].join(" ")
+    )
+  ).length;
 
-  return /(?:찬성|반대|동의|비동의|예\s*[/·또는과]*\s*아니오|\b(?:yes|no|agree|disagree|support|oppose)\b)/iu.test(text);
+  return binaryOptionCount >= 2;
 }
 
 function answerFormatKindForItem(item: QueueItemProjection): AnswerFormatKind {
