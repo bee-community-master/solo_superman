@@ -150,6 +150,7 @@ function fakeCommandRunner(command, args) {
           verifySignedPackageRelease: "node scripts/verify-signed-package-release.mjs",
           verifySignedPackageReleaseDryRun: "node scripts/verify-signed-package-release-dry-run.mjs",
           verifyReleaseReadiness: "node scripts/verify-release-readiness.mjs",
+          verifyReadyRelease: "node scripts/verify-ready-release.mjs",
           verifyReleaseEvidenceTemplate: "node scripts/verify-release-evidence-template.mjs",
           verifyReleaseEvidenceBundle: "node scripts/verify-release-evidence-bundle.mjs",
           verifySupportBundle: "node scripts/verify-support-bundle.mjs",
@@ -232,6 +233,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.package.scripts.verifyPackagedUpdateRollbackDryRun).toBe("node scripts/verify-packaged-update-rollback-dry-run.mjs");
     expect(bundle.package.scripts.verifySignedPackageReleaseDryRun).toBe("node scripts/verify-signed-package-release-dry-run.mjs");
     expect(bundle.package.scripts.verifyReleaseEvidenceTemplate).toBe("node scripts/verify-release-evidence-template.mjs");
+    expect(bundle.package.scripts.verifyReadyRelease).toBe("node scripts/verify-ready-release.mjs");
     expect(bundle.package.scripts.verifyReleaseEvidenceBundle).toBe("node scripts/verify-release-evidence-bundle.mjs");
     expect(bundle.package.scripts.verifySupportBundle).toBe("node scripts/verify-support-bundle.mjs");
     expect(bundle.package.scripts.releaseEvidenceChecklist).toBe("node scripts/release-evidence-checklist.mjs");
@@ -246,6 +248,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-release");
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-release:dry-run");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-readiness");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-evidence-template");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-evidence-bundle");
     expect(bundle.recommendedChecks).toContain("pnpm verify:support-bundle");

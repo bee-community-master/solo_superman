@@ -16,6 +16,7 @@ import {
   parseDocs25DeterministicOutputTypes,
   parseDocs26RoutesFromText,
   parseRouteCatalogFromSource,
+  REFERENCE_DOC_PATHS,
   sectionBetween
 } from "./verify-doc-contracts.mjs";
 
@@ -27,6 +28,10 @@ describe("doc contract verification helpers", () => {
     expect(() => sectionBetween("START but no close", "START", "END", "fixture section")).toThrow(
       "Could not find fixture section end"
     );
+  });
+
+  it("checks both Korean and English reference contracts", () => {
+    expect(REFERENCE_DOC_PATHS).toEqual(["docs/reference_KO.md", "docs/reference_EN.md"]);
   });
 
   it("parses docs/26 routes with required query params", () => {
