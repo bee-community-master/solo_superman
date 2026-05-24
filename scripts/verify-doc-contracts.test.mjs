@@ -18,6 +18,7 @@ import {
   parseDocs26RoutesFromText,
   parseRouteCatalogFromSource,
   PROJECT_WIKI_DOC_PATHS,
+  RESEARCH_PROVIDER_POLLING_DOC_SNIPPETS,
   REFERENCE_DOC_PATHS,
   sectionBetween
 } from "./verify-doc-contracts.mjs";
@@ -51,6 +52,16 @@ describe("doc contract verification helpers", () => {
       "docs/README.md",
       "docs/README_KO.md",
       "docs/README_EN.md"
+    ]);
+  });
+
+  it("locks mounted research provider polling docs evidence snippets", () => {
+    expect(RESEARCH_PROVIDER_POLLING_DOC_SNIPPETS).toEqual([
+      "web_search_readonly",
+      "provider polling",
+      "source-traced",
+      "quality gate",
+      "follow-up question debt"
     ]);
   });
 

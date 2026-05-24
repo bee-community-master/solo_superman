@@ -4,7 +4,7 @@ Solo Superman turns a vague idea into implementation-ready software through a lo
 
 1. **Idea intake** creates a local project/session and initial Living Product Spec.
 2. **Clarification loop** generates active question batches, accepts answers, creates follow-up debt, and supports long bounded sessions with hundreds of answers.
-3. **Research evidence loop** plans background/public research, imports source-traced evidence, and keeps missing source traces visible as follow-up debt.
+3. **Research evidence loop** plans background/public research, proves mounted `web_search_readonly` provider polling, imports source-traced evidence, and keeps insufficient quality gate results visible as follow-up question debt.
 4. **Planning readiness gates** combine completeness, confidence, founder brief, and Planning Handoff blockers before execution.
 5. **Browser/service boundary** allows approved loopback or public-read browser/service actions while final-submit and credential-bearing actions stay blocked without explicit contracts.
 6. **Auto implementation loop** bootstraps local workspace artifacts, issue docs, tracker state, worker plans, review evidence, missing-test audits, PR mutation records, and merge evidence.

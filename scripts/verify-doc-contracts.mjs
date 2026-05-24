@@ -62,6 +62,17 @@ export const DOCS_HUB_WIKI_LINK_PATHS = [
 ];
 
 const DEFAULT_KO_DOC_PATH = "docs/README.md";
+export const RESEARCH_PROVIDER_POLLING_DOC_SNIPPETS = [
+  "web_search_readonly",
+  "provider polling",
+  "source-traced",
+  "quality gate",
+  "follow-up question debt"
+];
+export const STALE_RESEARCH_PROVIDER_POLLING_DOC_SNIPPETS = [
+  "pending `research_evidence_effect` drain",
+  "manual/provider-style research result imported"
+];
 
 function readText(path) {
   return readFileSync(new URL(path, ROOT), "utf8");
@@ -749,6 +760,21 @@ function checkContributorDocsSnippets() {
     "credential-gated live readiness"
   ]);
 
+  const researchEvidenceDocs = {
+    "docs/product_KO.md": docs["docs/product_KO.md"],
+    "docs/product_EN.md": readText("docs/product_EN.md"),
+    "docs/troubleshooting_KO.md": docs["docs/troubleshooting_KO.md"],
+    "docs/troubleshooting_EN.md": readText("docs/troubleshooting_EN.md")
+  };
+  for (const [path, text] of Object.entries(researchEvidenceDocs)) {
+    requireSnippets(`${path} missing mounted research provider polling evidence`, text, RESEARCH_PROVIDER_POLLING_DOC_SNIPPETS);
+  }
+  rejectSnippets(
+    "research docs contain stale provider-polling wording",
+    researchEvidenceDocs,
+    STALE_RESEARCH_PROVIDER_POLLING_DOC_SNIPPETS
+  );
+
   requireSnippets("contributing guide missing contributor commands", docs["docs/contributing_KO.md"], [
     "pnpm start:local",
     "pnpm verify:docs",
@@ -946,6 +972,8 @@ function checkProjectWikiDocsSnippets() {
     "Idea intake",
     "Clarification loop",
     "Research evidence loop",
+    "mounted `web_search_readonly` provider polling",
+    "follow-up question debt",
     "Planning readiness gates",
     "Browser/service boundary",
     "Auto implementation loop",
@@ -957,6 +985,7 @@ function checkProjectWikiDocsSnippets() {
   requireSnippets("project wiki verification map missing gates", docs["omx_wiki/verification-map.md"], [
     "pnpm verify:clarification-volume",
     "pnpm verify:research-pipeline",
+    "Research mounted provider polling/import/synthesis stays connected",
     "pnpm verify:browser-delegation-pipeline",
     "pnpm verify:auto-implementation-pipeline",
     "pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>",
