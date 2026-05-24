@@ -278,7 +278,7 @@ describe("AutoImplementationRunPanel view model", () => {
     const markup = renderPanelMarkup(view);
 
     expect(markup).toContain(
-      "local-001: Workspace repo bootstrap and initial implementation PR — stage initial_pr / status open (implementation-issues/001-initial_pr.md)"
+      "local-001: Workspace repo bootstrap and initial implementation PR — stage: Initial implementation and PR creation / status: open (implementation-issues/001-initial_pr.md)"
     );
     expect(markup).toContain("stage gate: Create the smallest behavior-complete implementation for this issue slice.");
     expect(markup).toContain("Record the first targeted test evidence before requesting review.");
@@ -292,6 +292,12 @@ describe("AutoImplementationRunPanel view model", () => {
     );
     const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
     expect(koreanMarkup).toContain("제작 진행 상황");
+    expect(koreanMarkup).toContain("이슈 상태 요약: 완료 0개 / 차단 0개 / 열림 7개 / 전체 7개");
+    expect(koreanMarkup).toContain("로컬 Codex worker: 아직 계획되지 않음");
+    expect(koreanMarkup).toContain("단계: 초기 구현 및 PR 생성 / 상태: open");
+    expect(koreanMarkup).toContain("최신 worker 없음");
+    expect(koreanMarkup).not.toContain("Issue status summary");
+    expect(koreanMarkup).not.toContain("Local Codex worker: not planned");
     expect(koreanMarkup).toContain("0/7 단계 완료 · 현재 단계: 초기 구현 및 PR 생성 (준비됨)");
     expect(koreanMarkup).toContain("0/4 리뷰/클린코드 루프 완료 · 다음: 기능 PR 코드 리뷰 및 수정 루프");
     expect(koreanMarkup).toContain("이 이슈 범위에서 가장 작고 동작이 완성된 구현을 만듭니다.");
@@ -555,13 +561,13 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("Issue status summary: 1 completed / 2 blocked / 4 open / 7 total");
     expect(markup).toContain("1/7 stages completed · current stage: Initial implementation and PR creation (completed)");
     expect(markup).toContain(
-      "local-001: Workspace repo bootstrap and initial implementation PR — stage initial_pr / status completed (implementation-issues/001-initial_pr.md)"
+      "local-001: Workspace repo bootstrap and initial implementation PR — stage: Initial implementation and PR creation / status: completed (implementation-issues/001-initial_pr.md)"
     );
     expect(markup).toContain(
-      "local-002: Feature PR code review and fix loop — stage code_review_fix_1 / status blocked (implementation-issues/002-code_review_fix_1.md)"
+      "local-002: Feature PR code review and fix loop — stage: Feature PR code review and fix loop / status: blocked (implementation-issues/002-code_review_fix_1.md)"
     );
     expect(markup).toContain(
-      "local-003: Repository-wide code review and fix loop — stage code_review_fix_2 / status blocked (implementation-issues/003-code_review_fix_2.md)"
+      "local-003: Repository-wide code review and fix loop — stage: Repository-wide code review and fix loop / status: blocked (implementation-issues/003-code_review_fix_2.md)"
     );
     expect(markup).toContain("latest worker auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (blocked)");
     expect(markup).toContain("next: Create a bounded ExecutionAuthorityRecord before local worker execution.");

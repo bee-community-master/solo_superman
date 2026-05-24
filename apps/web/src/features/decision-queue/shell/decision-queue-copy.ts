@@ -1,4 +1,5 @@
 import type {
+  AutoImplementationIssueStatusSummary,
   AutoImplementationStage,
   AutoImplementationStageStatus,
   BusinessCriticalQuestionCategory,
@@ -770,7 +771,25 @@ const EN_COPY = {
     reviewProtocol: "Review and merge protocol",
     planningIssueFiles: "Planning-derived PR/issue files",
     issueDocs: "Issue documents",
+    issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null): string => summary
+      ? `Issue status summary: ${summary.completed} completed / ${summary.blocked} blocked / ${summary.open} open / ${summary.total} total`
+      : "Issue status summary: no issue documents",
+    latestWorkerJobLabel: (status: string | null, stageLabel: string | null, issueId: string | null): string => status
+      ? `Local Codex worker: ${status} for ${stageLabel ?? "current stage"}${issueId ? ` (${issueId})` : ""}`
+      : "Local Codex worker: not planned",
+    latestWorkerJobNextActionNotPlanned: (hasRun: boolean): string => hasRun
+      ? "Create a bounded local worker job after the current stage issue document is ready."
+      : "Create a workspace run before planning a local Codex worker.",
+    issueRowStage: "stage",
+    issueRowStatus: "status",
+    issueRowGithubIssue: "GitHub issue",
+    issueRowLatestWorkerJob: (jobId: string | null, status: string): string => jobId
+      ? `latest worker ${jobId} (${status})`
+      : "latest worker none",
+    issueRowNextAction: "next",
     issueRowStageGate: "stage gate",
+    issueRowMissingEvidence: "missing",
+    issueRowEvidenceRefs: "evidence",
     githubIssueMutation: "GitHub issue mutation contract",
     githubPullRequestMutation: "GitHub PR mutation evidence",
     pullRequestMutationHistory: (count: number) => `${count} PR mutation record(s) captured.`,
@@ -1898,7 +1917,25 @@ const JA_COPY: typeof EN_COPY = {
     reviewProtocol: "レビューとマージの手順",
     planningIssueFiles: "計画由来のPR/Issueファイル",
     issueDocs: "Issue文書",
+    issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null) => summary
+      ? `Issue状態の要約: 完了 ${summary.completed}件 / ブロック ${summary.blocked}件 / 未完了 ${summary.open}件 / 合計 ${summary.total}件`
+      : "Issue状態の要約: Issue文書はまだありません",
+    latestWorkerJobLabel: (status: string | null, stageLabel: string | null, issueId: string | null) => status
+      ? `Local Codex worker: ${stageLabel ?? "現在のstage"} ${issueId ? `(${issueId}) ` : ""}${status}`
+      : "Local Codex worker: 未計画",
+    latestWorkerJobNextActionNotPlanned: (hasRun: boolean) => hasRun
+      ? "現在stageのIssue文書が準備できたら、境界付きlocal worker jobを作成します。"
+      : "local Codex workerを計画する前にworkspace runを作成します。",
+    issueRowStage: "stage",
+    issueRowStatus: "状態",
+    issueRowGithubIssue: "GitHub issue",
+    issueRowLatestWorkerJob: (jobId: string | null, status: string) => jobId
+      ? `最新worker ${jobId} (${status})`
+      : "最新workerなし",
+    issueRowNextAction: "次アクション",
     issueRowStageGate: "stage gate",
+    issueRowMissingEvidence: "不足根拠",
+    issueRowEvidenceRefs: "根拠",
     githubIssueMutation: "GitHub issue mutation contract",
     githubPullRequestMutation: "GitHub PR mutation evidence",
     pullRequestMutationHistory: (count: number) => `${count} 件のPR mutation記録があります。`,
@@ -3024,7 +3061,25 @@ const KO_COPY: typeof EN_COPY = {
     reviewProtocol: "리뷰와 머지 프로토콜",
     planningIssueFiles: "계획에서 나온 PR/이슈 파일",
     issueDocs: "이슈 문서",
+    issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null) => summary
+      ? `이슈 상태 요약: 완료 ${summary.completed}개 / 차단 ${summary.blocked}개 / 열림 ${summary.open}개 / 전체 ${summary.total}개`
+      : "이슈 상태 요약: 아직 이슈 문서가 없습니다",
+    latestWorkerJobLabel: (status: string | null, stageLabel: string | null, issueId: string | null) => status
+      ? `로컬 Codex worker: ${stageLabel ?? "현재 단계"} ${issueId ? `(${issueId}) ` : ""}${status}`
+      : "로컬 Codex worker: 아직 계획되지 않음",
+    latestWorkerJobNextActionNotPlanned: (hasRun: boolean) => hasRun
+      ? "현재 단계 이슈 문서가 준비되면 경계가 정해진 로컬 worker job을 만드세요."
+      : "로컬 Codex worker를 계획하기 전에 먼저 작업공간 실행을 만드세요.",
+    issueRowStage: "단계",
+    issueRowStatus: "상태",
+    issueRowGithubIssue: "GitHub 이슈",
+    issueRowLatestWorkerJob: (jobId: string | null, status: string) => jobId
+      ? `최신 worker ${jobId} (${status})`
+      : "최신 worker 없음",
+    issueRowNextAction: "다음 작업",
     issueRowStageGate: "단계 gate",
+    issueRowMissingEvidence: "누락 근거",
+    issueRowEvidenceRefs: "근거",
     githubIssueMutation: "GitHub issue mutation contract",
     githubPullRequestMutation: "GitHub PR mutation evidence",
     pullRequestMutationHistory: (count: number) => `PR mutation 기록 ${count}개가 캡처됐습니다.`,

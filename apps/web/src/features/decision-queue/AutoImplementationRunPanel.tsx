@@ -85,6 +85,8 @@ export interface AutoImplementationIssueRowView {
   readonly issue: AutoImplementationIssueDocument;
   readonly githubIssueUrlLabel: string;
   readonly latestWorkerJobLabel: string;
+  readonly latestWorkerJobId: string | null;
+  readonly latestWorkerJobStatus: AutoImplementationWorkerJob["status"] | "none";
   readonly blockerLabel: string | null;
   readonly nextActionLabel: string;
   readonly stageGateLabel: string;
@@ -100,6 +102,7 @@ export interface AutoImplementationRunViewModel {
   readonly nextTickLabel: string;
   readonly issueModeLabel: string;
   readonly issueStatusSummaryLabel: string;
+  readonly issueStatusSummary: AutoImplementationIssueStatusSummary | null;
   readonly remoteWarning: string | null;
   readonly remoteCommands: readonly string[];
   readonly remoteNextAction: string;
@@ -120,6 +123,8 @@ export interface AutoImplementationRunViewModel {
   readonly latestWorkerJobNextAction: string;
   readonly latestWorkerJobId: string | null;
   readonly latestWorkerJobStatus: AutoImplementationWorkerJob["status"] | "not_planned";
+  readonly latestWorkerJobStage: AutoImplementationStage | null;
+  readonly latestWorkerJobIssueId: string | null;
   readonly stageProgress: AutoImplementationStageProgressView;
   readonly reviewLoopProgress: AutoImplementationReviewLoopProgressView;
   readonly currentStageGates: readonly string[];
@@ -388,6 +393,8 @@ function autoImplementationIssueRowView(
     issue,
     githubIssueUrlLabel: autoImplementationGitHubIssueUrlForIssue(run, issue) ?? "none",
     latestWorkerJobLabel: latestIssueWorkerJobLabel(latestWorkerJob),
+    latestWorkerJobId: latestWorkerJob?.jobId ?? null,
+    latestWorkerJobStatus: latestWorkerJob?.status ?? "none",
     blockerLabel: issueRowBlockerLabel({ stage, latestWorkerJob }),
     nextActionLabel: issueRowNextAction({ stage, latestWorkerJob }),
     stageGateLabel: inlineList(issueRowStageGates(run, issue), "none"),
@@ -412,6 +419,7 @@ export function autoImplementationRunViewModel(
       nextTickLabel: "Next 5-minute tick: not scheduled",
       issueModeLabel: "Issue mode: not selected",
       issueStatusSummaryLabel: formatIssueStatusSummaryLabel(null),
+      issueStatusSummary: null,
       remoteWarning: "Start a run to create a local git repo, markdown fallback issues, and remote connection guidance.",
       remoteCommands: [],
       remoteNextAction: "Create the workspace run after the planning handoff is detailed enough.",
@@ -432,6 +440,8 @@ export function autoImplementationRunViewModel(
       latestWorkerJobNextAction: "Create a workspace run before planning a local Codex worker.",
       latestWorkerJobId: null,
       latestWorkerJobStatus: "not_planned",
+      latestWorkerJobStage: null,
+      latestWorkerJobIssueId: null,
       stageProgress: {
         completedStageCount: 0,
         totalStageCount: 0,
@@ -532,6 +542,7 @@ export function autoImplementationRunViewModel(
     nextTickLabel: `Next 5-minute tick: ${run.nextTickAt}`,
     issueModeLabel: `Issue mode: ${run.issueManagement.mode}`,
     issueStatusSummaryLabel: formatIssueStatusSummaryLabel(run.issueManagement.issueStatusSummary),
+    issueStatusSummary: run.issueManagement.issueStatusSummary,
     remoteWarning: run.remoteGuide.warning,
     remoteCommands: run.remoteGuide.commands,
     remoteNextAction: run.remoteGuide.nextAction,
@@ -557,6 +568,8 @@ export function autoImplementationRunViewModel(
       "Create a bounded local worker job after the current stage issue document is ready.",
     latestWorkerJobId: latestWorkerJob?.jobId ?? null,
     latestWorkerJobStatus: latestWorkerJob?.status ?? "not_planned",
+    latestWorkerJobStage: latestWorkerJob?.stage ?? null,
+    latestWorkerJobIssueId: latestWorkerJob?.issueId ?? null,
     stageProgress: autoImplementationStageProgress(run),
     reviewLoopProgress: autoImplementationReviewLoopProgress(run),
     currentStageGates: autoImplementationCurrentStageGates(run),
@@ -695,6 +708,17 @@ export function AutoImplementationRunPanel({
   const currentStageGateLabels = run.stageProgress.currentStage
     ? copy.autoImplementation.stageGateLabels[run.stageProgress.currentStage]
     : run.currentStageGates;
+  const latestWorkerJobStageLabel = run.latestWorkerJobStage
+    ? copy.autoImplementation.stageLabels[run.latestWorkerJobStage]
+    : null;
+  const latestWorkerJobLabel = copy.autoImplementation.latestWorkerJobLabel(
+    run.latestWorkerJobStatus === "not_planned" ? null : run.latestWorkerJobStatus,
+    latestWorkerJobStageLabel,
+    run.latestWorkerJobIssueId
+  );
+  const latestWorkerJobNextAction = run.latestWorkerJobId
+    ? run.latestWorkerJobNextAction
+    : copy.autoImplementation.latestWorkerJobNextActionNotPlanned(run.hasRun);
 
   return (
     <section className="panel auto-implementation-run-panel">
@@ -705,10 +729,10 @@ export function AutoImplementationRunPanel({
       <p>{run.summary}</p>
       <p className="research-recovery">{run.workspaceLabel}</p>
       <p className="mode-summary">{run.remoteLabel} · {run.issueModeLabel}</p>
-      <p className="mode-summary">{run.issueStatusSummaryLabel}</p>
+      <p className="mode-summary">{copy.autoImplementation.issueStatusSummary(run.issueStatusSummary)}</p>
       <p className="mode-summary">{run.nextTickLabel}</p>
-      <p className="mode-summary">{run.latestWorkerJobLabel}</p>
-      <p className="research-recovery">{run.latestWorkerJobNextAction}</p>
+      <p className="mode-summary">{latestWorkerJobLabel}</p>
+      <p className="research-recovery">{latestWorkerJobNextAction}</p>
       <article className="operations-card" aria-label={copy.autoImplementation.deliveryProgress}>
         <h3>{copy.autoImplementation.deliveryProgress}</h3>
         <dl className="readiness-grid">
@@ -1049,22 +1073,22 @@ export function AutoImplementationRunPanel({
         <ul>
           {run.issueRows.map((row) => (
             <li key={row.issue.issueId}>
-              {row.issue.issueId}: {row.issue.title} — stage {row.issue.stage} / status {row.issue.status} ({row.issue.relativePath})
+              {row.issue.issueId}: {row.issue.title} — {copy.autoImplementation.issueRowStage}: {copy.autoImplementation.stageLabels[row.issue.stage]} / {copy.autoImplementation.issueRowStatus}: {row.issue.status} ({row.issue.relativePath})
               {" · "}
-              GitHub issue: {row.githubIssueUrlLabel}
+              {copy.autoImplementation.issueRowGithubIssue}: {row.githubIssueUrlLabel}
               {" · "}
-              {row.latestWorkerJobLabel}
+              {copy.autoImplementation.issueRowLatestWorkerJob(row.latestWorkerJobId, row.latestWorkerJobStatus)}
               {" · "}
-              next: {row.nextActionLabel}
+              {copy.autoImplementation.issueRowNextAction}: {row.nextActionLabel}
               {" · "}
               {copy.autoImplementation.issueRowStageGate}: {inlineList(
                 copy.autoImplementation.stageGateLabels[row.issue.stage],
                 row.stageGateLabel
               )}
               {" · "}
-              missing: {row.missingEvidenceLabel}
+              {copy.autoImplementation.issueRowMissingEvidence}: {row.missingEvidenceLabel}
               {" · "}
-              evidence: {row.evidenceRefsLabel}
+              {copy.autoImplementation.issueRowEvidenceRefs}: {row.evidenceRefsLabel}
               {row.blockerLabel ? ` · ${row.blockerLabel}` : ""}
             </li>
           ))}
