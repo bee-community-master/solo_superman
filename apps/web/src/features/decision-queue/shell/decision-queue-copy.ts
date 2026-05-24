@@ -1,4 +1,6 @@
 import type {
+  AutoImplementationStage,
+  AutoImplementationStageStatus,
   BusinessCriticalQuestionCategory,
   BusinessCriticIntensity,
   BusinessCriticPressureKind,
@@ -799,6 +801,40 @@ const EN_COPY = {
     stageProgress: "Stage progress",
     reviewLoopProgress: "Review loop progress",
     currentStageGate: "Current stage gate",
+    stageLabels: {
+      initial_pr: "Initial implementation and PR creation",
+      code_review_fix_1: "Feature PR code review and fix loop",
+      code_review_fix_2: "Repository-wide code review and fix loop",
+      clean_code_fix_1: "Changed-code clean-code review and fix loop",
+      clean_code_fix_2: "Repository-wide clean-code review and fix loop",
+      final_verify_pr_update: "PR description update and final test pass",
+      merge_main: "Merge to main"
+    } satisfies Record<AutoImplementationStage, string>,
+    stageStatusLabels: {
+      pending: "pending",
+      ready: "ready",
+      running: "running",
+      paused: "paused",
+      completed: "completed",
+      blocked: "blocked",
+      failed: "failed",
+      not_started: "not started"
+    } satisfies Record<AutoImplementationStageStatus | "not_started", string>,
+    stageProgressSummary: (
+      completed: number,
+      total: number,
+      currentStageLabel: string,
+      currentStageStatusLabel: string
+    ) =>
+      total > 0
+        ? `${completed}/${total} stages completed · current stage: ${currentStageLabel} (${currentStageStatusLabel})`
+        : "No implementation stages have started yet.",
+    reviewLoopProgressSummary: (completed: number, total: number, nextLoopLabel: string | null) =>
+      nextLoopLabel
+        ? `${completed}/${total} review/clean-code loops completed · next: ${nextLoopLabel}`
+        : completed >= total && total > 0
+          ? `${completed}/${total} review/clean-code loops completed · next: final verification or merge evidence`
+          : "No review or clean-code loops have started yet.",
     noStages: "No implementation stages scheduled yet.",
     noReviewGates: "No review gates recorded yet.",
     noPlanningIssueFiles: "No Planning Handoff PR/issue files have been generated yet.",
@@ -1856,6 +1892,40 @@ const JA_COPY: typeof EN_COPY = {
     stageProgress: "ステージ進捗",
     reviewLoopProgress: "レビュー/クリーンコード進捗",
     currentStageGate: "現在のstage gate",
+    stageLabels: {
+      initial_pr: "初期実装とPR作成",
+      code_review_fix_1: "機能PRコードレビューと修正ループ",
+      code_review_fix_2: "リポジトリ全体コードレビューと修正ループ",
+      clean_code_fix_1: "変更コードのクリーンコードレビューと修正ループ",
+      clean_code_fix_2: "リポジトリ全体クリーンコードレビューと修正ループ",
+      final_verify_pr_update: "PR説明更新と最終テスト",
+      merge_main: "mainへマージ"
+    },
+    stageStatusLabels: {
+      pending: "待機中",
+      ready: "準備完了",
+      running: "進行中",
+      paused: "一時停止",
+      completed: "完了",
+      blocked: "ブロック中",
+      failed: "失敗",
+      not_started: "未開始"
+    },
+    stageProgressSummary: (
+      completed: number,
+      total: number,
+      currentStageLabel: string,
+      currentStageStatusLabel: string
+    ) =>
+      total > 0
+        ? `${completed}/${total}ステージ完了 · 現在: ${currentStageLabel}（${currentStageStatusLabel}）`
+        : "実装ステージはまだ開始されていません。",
+    reviewLoopProgressSummary: (completed: number, total: number, nextLoopLabel: string | null) =>
+      nextLoopLabel
+        ? `${completed}/${total}レビュー/クリーンコードループ完了 · 次: ${nextLoopLabel}`
+        : completed >= total && total > 0
+          ? `${completed}/${total}レビュー/クリーンコードループ完了 · 次: 最終検証またはマージ根拠`
+          : "レビュー/クリーンコードループはまだ開始されていません。",
     noStages: "実装ステージはまだ予定されていません。",
     noReviewGates: "レビューゲートはまだ記録されていません。",
     noPlanningIssueFiles: "Planning Handoff由来のPR/Issueファイルはまだ生成されていません。",
@@ -2911,6 +2981,40 @@ const KO_COPY: typeof EN_COPY = {
     stageProgress: "단계 진행",
     reviewLoopProgress: "리뷰/클린코드 진행",
     currentStageGate: "현재 단계 gate",
+    stageLabels: {
+      initial_pr: "초기 구현 및 PR 생성",
+      code_review_fix_1: "기능 PR 코드 리뷰 및 수정 루프",
+      code_review_fix_2: "레포 전체 코드 리뷰 및 수정 루프",
+      clean_code_fix_1: "변경 코드 클린코드 리뷰 및 수정 루프",
+      clean_code_fix_2: "레포 전체 클린코드 리뷰 및 수정 루프",
+      final_verify_pr_update: "PR 설명 업데이트 및 최종 전체 검증",
+      merge_main: "main 머지"
+    },
+    stageStatusLabels: {
+      pending: "대기",
+      ready: "준비됨",
+      running: "진행 중",
+      paused: "일시정지",
+      completed: "완료",
+      blocked: "차단됨",
+      failed: "실패",
+      not_started: "시작 전"
+    },
+    stageProgressSummary: (
+      completed: number,
+      total: number,
+      currentStageLabel: string,
+      currentStageStatusLabel: string
+    ) =>
+      total > 0
+        ? `${completed}/${total} 단계 완료 · 현재 단계: ${currentStageLabel} (${currentStageStatusLabel})`
+        : "아직 구현 단계가 시작되지 않았습니다.",
+    reviewLoopProgressSummary: (completed: number, total: number, nextLoopLabel: string | null) =>
+      nextLoopLabel
+        ? `${completed}/${total} 리뷰/클린코드 루프 완료 · 다음: ${nextLoopLabel}`
+        : completed >= total && total > 0
+          ? `${completed}/${total} 리뷰/클린코드 루프 완료 · 다음: 최종 검증 또는 머지 근거`
+          : "아직 리뷰/클린코드 루프가 시작되지 않았습니다.",
     noStages: "아직 예약된 구현 단계가 없습니다.",
     noReviewGates: "아직 리뷰 게이트가 기록되지 않았습니다.",
     noPlanningIssueFiles: "아직 Planning Handoff에서 나온 PR/이슈 파일이 생성되지 않았습니다.",

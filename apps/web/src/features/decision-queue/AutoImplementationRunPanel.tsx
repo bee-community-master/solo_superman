@@ -22,6 +22,7 @@ import {
   type AutoImplementationStage,
   type AutoImplementationStageReviewGate,
   type AutoImplementationStageRecord,
+  type AutoImplementationStageStatus,
   type AutoImplementationWorkerExecutionPlan,
   type AutoImplementationWorkerJob,
   type CodexRuntimeStatusDto,
@@ -67,6 +68,19 @@ interface AutoImplementationWorkerPlanView {
   readonly evidenceRefs: readonly string[];
 }
 
+interface AutoImplementationStageProgressView {
+  readonly completedStageCount: number;
+  readonly totalStageCount: number;
+  readonly currentStage: AutoImplementationStage | null;
+  readonly currentStageStatus: AutoImplementationStageStatus | "not_started";
+}
+
+interface AutoImplementationReviewLoopProgressView {
+  readonly completedReviewLoopCount: number;
+  readonly totalReviewLoopCount: number;
+  readonly nextReviewLoopStage: AutoImplementationStage | null;
+}
+
 export interface AutoImplementationIssueRowView {
   readonly issue: AutoImplementationIssueDocument;
   readonly githubIssueUrlLabel: string;
@@ -106,9 +120,9 @@ export interface AutoImplementationRunViewModel {
   readonly latestWorkerJobNextAction: string;
   readonly latestWorkerJobId: string | null;
   readonly latestWorkerJobStatus: AutoImplementationWorkerJob["status"] | "not_planned";
-  readonly stageProgressSummary: string;
-  readonly reviewLoopProgressSummary: string;
-  readonly currentStageGateLabel: string;
+  readonly stageProgress: AutoImplementationStageProgressView;
+  readonly reviewLoopProgress: AutoImplementationReviewLoopProgressView;
+  readonly currentStageGates: readonly string[];
   readonly workerStageAdvanceBlockerLabel: string | null;
   readonly workerRuntimeReadiness: AutoImplementationWorkerRuntimeView | null;
   readonly latestWorkerPlan: AutoImplementationWorkerPlanView | null;
@@ -191,39 +205,31 @@ function autoImplementationStageRecordForIssue(
   return run.stagePlan.find((stage) => stage.stage === issue.stage) ?? null;
 }
 
-function autoImplementationStageProgressSummary(run: AutoImplementationRun) {
-  const completedStageCount = run.stagePlan.filter((stage) => stage.status === "completed").length;
+function autoImplementationStageProgress(run: AutoImplementationRun): AutoImplementationStageProgressView {
   const currentStage = run.stagePlan.find((stage) => stage.stage === run.currentStage);
-  const currentStageLabel = currentStage?.label ?? AUTO_IMPLEMENTATION_STAGE_LABELS[run.currentStage];
-  const currentStageStatus = currentStage?.status ?? "pending";
 
-  return `${completedStageCount}/${run.stagePlan.length} stages completed; current stage ${currentStageLabel} is ${currentStageStatus}.`;
+  return {
+    completedStageCount: run.stagePlan.filter((stage) => stage.status === "completed").length,
+    totalStageCount: run.stagePlan.length,
+    currentStage: run.currentStage,
+    currentStageStatus: currentStage?.status ?? "pending"
+  };
 }
 
-function autoImplementationReviewLoopProgressSummary(run: AutoImplementationRun) {
-  const completedReviewLoopCount = REVIEW_LOOP_STAGES.filter((stage) =>
-    run.stagePlan.find((record) => record.stage === stage)?.status === "completed"
-  ).length;
-  const nextReviewLoopStage = REVIEW_LOOP_STAGES.find((stage) =>
-    run.stagePlan.find((record) => record.stage === stage)?.status !== "completed"
-  );
-
-  if (!nextReviewLoopStage) {
-    return `${completedReviewLoopCount}/${REVIEW_LOOP_STAGES.length} review and clean-code loops completed; proceed to final verification or merge evidence.`;
-  }
-
-  const nextReviewLoopLabel =
-    run.stagePlan.find((record) => record.stage === nextReviewLoopStage)?.label ??
-    AUTO_IMPLEMENTATION_STAGE_LABELS[nextReviewLoopStage];
-
-  return `${completedReviewLoopCount}/${REVIEW_LOOP_STAGES.length} review and clean-code loops completed; next loop ${nextReviewLoopLabel}.`;
+function autoImplementationReviewLoopProgress(run: AutoImplementationRun): AutoImplementationReviewLoopProgressView {
+  return {
+    completedReviewLoopCount: REVIEW_LOOP_STAGES.filter((stage) =>
+      run.stagePlan.find((record) => record.stage === stage)?.status === "completed"
+    ).length,
+    totalReviewLoopCount: REVIEW_LOOP_STAGES.length,
+    nextReviewLoopStage: REVIEW_LOOP_STAGES.find((stage) =>
+      run.stagePlan.find((record) => record.stage === stage)?.status !== "completed"
+    ) ?? null
+  };
 }
 
-function autoImplementationCurrentStageGateLabel(run: AutoImplementationRun) {
-  return inlineList(
-    run.reviewProtocol.stageGates.find((stageGate) => stageGate.stage === run.currentStage)?.gates ?? [],
-    "none"
-  );
+function autoImplementationCurrentStageGates(run: AutoImplementationRun) {
+  return run.reviewProtocol.stageGates.find((stageGate) => stageGate.stage === run.currentStage)?.gates ?? [];
 }
 
 function issueRowNextAction(input: {
@@ -426,9 +432,18 @@ export function autoImplementationRunViewModel(
       latestWorkerJobNextAction: "Create a workspace run before planning a local Codex worker.",
       latestWorkerJobId: null,
       latestWorkerJobStatus: "not_planned",
-      stageProgressSummary: "No implementation stages have started yet.",
-      reviewLoopProgressSummary: "No review or clean-code loops have started yet.",
-      currentStageGateLabel: "none",
+      stageProgress: {
+        completedStageCount: 0,
+        totalStageCount: 0,
+        currentStage: null,
+        currentStageStatus: "not_started"
+      },
+      reviewLoopProgress: {
+        completedReviewLoopCount: 0,
+        totalReviewLoopCount: REVIEW_LOOP_STAGES.length,
+        nextReviewLoopStage: null
+      },
+      currentStageGates: [],
       workerStageAdvanceBlockerLabel: null,
       workerRuntimeReadiness: null,
       latestWorkerPlan: null,
@@ -542,9 +557,9 @@ export function autoImplementationRunViewModel(
       "Create a bounded local worker job after the current stage issue document is ready.",
     latestWorkerJobId: latestWorkerJob?.jobId ?? null,
     latestWorkerJobStatus: latestWorkerJob?.status ?? "not_planned",
-    stageProgressSummary: autoImplementationStageProgressSummary(run),
-    reviewLoopProgressSummary: autoImplementationReviewLoopProgressSummary(run),
-    currentStageGateLabel: autoImplementationCurrentStageGateLabel(run),
+    stageProgress: autoImplementationStageProgress(run),
+    reviewLoopProgress: autoImplementationReviewLoopProgress(run),
+    currentStageGates: autoImplementationCurrentStageGates(run),
     workerStageAdvanceBlockerLabel: workerStageAdvanceBlocker,
     workerRuntimeReadiness: autoImplementationWorkerRuntimeView(runtimeStatus),
     latestWorkerPlan,
@@ -670,6 +685,13 @@ export function AutoImplementationRunPanel({
   const workerRuntimeManualHandoff = run.workerRuntimeReadiness
     ? copy.autoImplementation.workerRuntimeManualHandoffStates[run.workerRuntimeReadiness.manualHandoffState]
     : null;
+  const currentStageLabel = run.stageProgress.currentStage
+    ? copy.autoImplementation.stageLabels[run.stageProgress.currentStage]
+    : copy.autoImplementation.none;
+  const currentStageStatusLabel = copy.autoImplementation.stageStatusLabels[run.stageProgress.currentStageStatus];
+  const nextReviewLoopLabel = run.reviewLoopProgress.nextReviewLoopStage
+    ? copy.autoImplementation.stageLabels[run.reviewLoopProgress.nextReviewLoopStage]
+    : null;
 
   return (
     <section className="panel auto-implementation-run-panel">
@@ -689,15 +711,24 @@ export function AutoImplementationRunPanel({
         <dl className="readiness-grid">
           <div>
             <dt>{copy.autoImplementation.stageProgress}</dt>
-            <dd>{run.stageProgressSummary}</dd>
+            <dd>{copy.autoImplementation.stageProgressSummary(
+              run.stageProgress.completedStageCount,
+              run.stageProgress.totalStageCount,
+              currentStageLabel,
+              currentStageStatusLabel
+            )}</dd>
           </div>
           <div>
             <dt>{copy.autoImplementation.reviewLoopProgress}</dt>
-            <dd>{run.reviewLoopProgressSummary}</dd>
+            <dd>{copy.autoImplementation.reviewLoopProgressSummary(
+              run.reviewLoopProgress.completedReviewLoopCount,
+              run.reviewLoopProgress.totalReviewLoopCount,
+              nextReviewLoopLabel
+            )}</dd>
           </div>
           <div>
             <dt>{copy.autoImplementation.currentStageGate}</dt>
-            <dd>{run.currentStageGateLabel}</dd>
+            <dd>{inlineList(run.currentStageGates, copy.autoImplementation.none)}</dd>
           </div>
         </dl>
       </article>
