@@ -141,6 +141,22 @@ function evidenceSummaryOrFallback(
   return compactSummary(evidenceItems[0]?.summary ?? "", fallback);
 }
 
+function neutralizeEvidenceStancePrefix(value: string) {
+  return value
+    .replace(/^(?:pro|con|risk|risks|support|supports|caution)\s*[:：-]\s*/iu, "")
+    .replace(/^(?:찬성|반대|우려|긍정|부정)\s*(?:쪽\s*)?(?:근거|단서)?\s*[:：-]\s*/u, "")
+    .trim();
+}
+
+function neutralEvidenceSummaryOrFallback(
+  evidenceItems: readonly { readonly summary: string }[],
+  fallback: string
+) {
+  const neutralSummary = neutralizeEvidenceStancePrefix(evidenceItems[0]?.summary ?? "");
+
+  return compactSummary(neutralSummary, fallback);
+}
+
 type AdditionalQuestionAnswerIntent =
   | "open_text"
   | "binary_choice"
@@ -502,22 +518,29 @@ function additionalQuestionForEvidenceGap(input: {
   readonly uncertainties: readonly { readonly summary: string }[];
 }) {
   const topic = userFacingQuestionText(input.objective) || "이번 주장";
-  const proSummary = evidenceSummaryOrFallback(input.proEvidence, "아직 찬성 근거가 충분히 정리되지 않았습니다");
+  const answerIntent = additionalQuestionAnswerIntentForObjective(input.objective);
+  const usesStanceFraming = answerIntent === "evidence_judgment" || answerIntent === "binary_choice";
+  const proSummary = usesStanceFraming
+    ? evidenceSummaryOrFallback(input.proEvidence, "아직 찬성 근거가 충분히 정리되지 않았습니다")
+    : neutralEvidenceSummaryOrFallback(input.proEvidence, "아직 참고할 리서치 단서가 충분히 정리되지 않았습니다");
   const conSummary = input.conEvidence.length
-    ? evidenceSummaryOrFallback(input.conEvidence, "반대 근거가 아직 충분히 정리되지 않았습니다")
+    ? usesStanceFraming
+      ? evidenceSummaryOrFallback(input.conEvidence, "반대 근거가 아직 충분히 정리되지 않았습니다")
+      : neutralEvidenceSummaryOrFallback(input.conEvidence, "다른 관점이나 반례가 아직 충분히 정리되지 않았습니다")
     : null;
   const uncertaintySummary =
     (input.uncertainties.length
       ? evidenceSummaryOrFallback(input.uncertainties, "출처 폭과 실제 적용 가능성은 추가 확인이 필요합니다")
       : null) ??
     (input.balanceStatus === "missing_con_evidence" || input.balanceStatus === "needs_con_evidence"
-      ? "반대 근거가 부족해 과신 가능성이 남아 있습니다"
+      ? usesStanceFraming
+        ? "반대 근거가 부족해 과신 가능성이 남아 있습니다"
+        : "다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다"
       : "출처 폭과 실제 적용 가능성은 추가 확인이 필요합니다");
 
   const choiceSentence = conSummary
     ? `그중 지금 선택할 수 있는 방향은 ‘찬성 근거가 더 강하다’, ‘반대 근거가 더 강하다’, ‘아직 근거가 부족하다’ 정도로 추려졌습니다. 어느 방향으로 판단하시겠습니까?`
     : `그중 지금 선택할 수 있는 방향은 ‘찬성 근거가 충분하다고 보고 진행’, ‘반대 근거를 더 찾아본 뒤 판단’, ‘아직 근거가 부족해 추가 리서치’ 정도로 추려졌습니다. 어느 방향으로 판단하시겠습니까?`;
-  const answerIntent = additionalQuestionAnswerIntentForObjective(input.objective);
   const promptContext = {
     topic,
     proSummary,

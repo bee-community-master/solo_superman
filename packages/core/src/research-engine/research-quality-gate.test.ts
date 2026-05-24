@@ -180,6 +180,8 @@ describe("Decision-linked research quality gate", () => {
       additionalQuestions: [expect.stringContaining("본인 말로 3~5문장으로 서술")]
     });
     expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
+    expect(matrix.additionalQuestions[0]).not.toContain("Pro:");
+    expect(matrix.additionalQuestions[0]).toContain("users repeatedly describe manual coordination pain");
   });
 
   it("keeps open-question objectives narrative even when they mention pro/con evidence", () => {
@@ -358,6 +360,8 @@ describe("Decision-linked research quality gate", () => {
       additionalQuestions: [expect.stringContaining("하나 이상 선택")]
     });
     expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
+    expect(matrix.additionalQuestions[0]).not.toContain("Pro:");
+    expect(matrix.additionalQuestions[0]).toContain("multiple categories may apply to the first validation batch");
   });
 
   it("keeps named generic multi-choice candidates visible in the follow-up prompt", () => {
@@ -461,6 +465,8 @@ describe("Decision-linked research quality gate", () => {
       additionalQuestions: [expect.stringContaining("어느 성향의 고객에 집중")]
     });
     expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+    expect(matrix.additionalQuestions[0]).not.toContain("Pro:");
+    expect(matrix.additionalQuestions[0]).toContain("individual founders mention repeated planning pain");
   });
 
   it("lets explicit objective wording ask for a binary agree/disagree answer even when an explanation is needed", () => {
