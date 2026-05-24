@@ -165,8 +165,9 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
     /(?:세그먼트|성향|persona|segment|어느\s*(?:고객|사용자|성향|후보)|고객\s*(?:후보|유형|타입)|customer\s*(?:segment|persona|type)|which\s+customer)/iu.test(topic);
   const asksForNamedCandidateChoice =
     /(?:후보|선택지|옵션|종류|유형|타입|성향|세그먼트|persona|segment|customer\s*(?:segment|persona|type)|which\s+(?:customer|segment|option))/iu.test(topic);
+  const asksForSignalOrCriteriaChoice = /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic);
   const asksForBinaryChoice =
-    /(?:(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|어느|선택|고르|판단)|양자\s*택일|양자택일|여부|진행|채택|반영|동의하시|찬성하시|반대하시|해야\s*(?:할까|하나|할지)|yes\s*[/ ]?no|whether|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(topic);
+    /(?:(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|찬반|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|어느|선택|고르|판단)|(?:진행|채택|반영|동의|찬성|반대)\s*여부|(?:할지|갈지|진행할지|반영할지|채택할지)\s*(?:여부|말지)|양자\s*택일|양자택일|동의하시|찬성하시|반대하시|해야\s*(?:할까|하나|할지)|yes\s*[/ ]?no|whether\s+to|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(topic);
   const asksForSingleChoice =
     /(?:객관식|선택형|단일\s*선택|하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|종류\s*중\s*하나|후보\s*중\s*하나|옵션\s*중\s*하나|(?:후보|선택지|옵션|고객\s*후보|고객\s*세그먼트)(?:를|을)?\s*(?:선택|고르)|which\s+(?:one|option)|single[-\s]?choice)/iu.test(topic);
   const asksForRanking =
@@ -184,7 +185,7 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
     return "single_customer_choice";
   }
 
-  if (asksForBinaryChoice && !asksForNamedCandidateChoice) {
+  if (asksForBinaryChoice && !asksForNamedCandidateChoice && !asksForSignalOrCriteriaChoice) {
     return "binary_choice";
   }
 
@@ -196,12 +197,12 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
     return "single_choice";
   }
 
-  if (asksForBinaryChoice) {
-    return "binary_choice";
+  if (asksForSignalOrCriteriaChoice) {
+    return "multi_signal_choice";
   }
 
-  if (/(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic)) {
-    return "multi_signal_choice";
+  if (asksForBinaryChoice) {
+    return "binary_choice";
   }
 
   return "evidence_judgment";

@@ -252,6 +252,24 @@ describe("Decision-linked research quality gate", () => {
     });
   });
 
+  it("does not collapse signal or criteria objectives with incidental 여부 wording into pro/con prompts", () => {
+    const researchTask = task({
+      objective: "구매 여부를 판단할 고객 신호와 조건 확인"
+    });
+    const researchResult = result({
+      result: "Pro: customers mention budget timing, manual workaround, and repeat-use cues.",
+      limitationNotes: "The best signal combination still needs user selection."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("여러 개 선택")]
+    });
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
+  });
+
   it("turns generic one-of-many objective wording into a single-choice prompt", () => {
     const researchTask = task({
       objective: "여러 종류 중 하나만 선택해야 하는 객관식 기준 결정"

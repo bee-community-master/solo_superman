@@ -330,6 +330,40 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpAnswerOptions(input).length).toBeGreaterThanOrEqual(3);
   });
 
+  it("keeps purchase-decision signal questions as multi-select instead of yes/no stance", () => {
+    const input = {
+      question: "구매 여부를 판단할 고객 신호와 조건을 하나 이상 선택해주세요.",
+      researchTask: task("구매 여부 판단에 필요한 고객 신호 선택"),
+      sourceQuestion: sourceQuestion(),
+      evidenceMatrix: evidenceMatrix({
+        proEvidence: [
+          {
+            evidenceItemId: "evidence_pro_signal_answer_shape" as EvidenceItemId,
+            kind: "pro",
+            summary: "예산 시점과 반복 사용 신호가 함께 나타남"
+          }
+        ],
+        uncertainties: [
+          {
+            evidenceItemId: "evidence_uncertain_signal_answer_shape" as EvidenceItemId,
+            kind: "uncertainty",
+            summary: "어떤 신호 조합이 충분한지는 사용자 결정 필요"
+          }
+        ]
+      })
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("multi_select");
+    expect(researchFollowUpExpectedAnswerType(input)).toBe("choice");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBe("multiple");
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "repeat_manual_pain" }),
+        expect.objectContaining({ id: "budget_or_paid_intent" })
+      ])
+    );
+  });
+
   it("uses named candidates for one-or-more follow-up questions without collapsing them into pro/con", () => {
     const input = {
       question:
