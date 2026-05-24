@@ -73,7 +73,7 @@ type AnswerFormatKind =
 function answerLooksLikeBinaryChoice(item: QueueItemProjection) {
   const answerOptions = item.answerOptions ?? [];
   const binaryOptionCount = answerOptions.filter((option) =>
-    /(?:찬성|반대|동의|비동의|예\s*[/·또는과]*\s*아니오|\b(?:yes|no|agree|disagree|support|oppose)\b)/iu.test(
+    /(?:찬성|반대|찬반|동의|비동의|예\s*[/·또는과]*\s*아니오|\b(?:yes|no|agree|disagree|support|oppose)\b)/iu.test(
       [option.id, option.label, option.value].join(" ")
     )
   ).length;

@@ -166,9 +166,35 @@ describe("research follow-up answer shape", () => {
     );
   });
 
-  it("preserves explicitly provided source choices over parsed question candidates", () => {
+  it("uses concrete follow-up candidates before older source choices", () => {
     const input = {
       question: "후보는 개인 창업자, 팀 리더입니다. 어느 후보를 선택하시겠습니까?",
+      researchTask: task("초기 고객 성향 후보 선택"),
+      sourceQuestion: sourceQuestion({
+        expectedAnswerType: "choice",
+        answerOptions: [
+          {
+            id: "explicit_source_choice",
+            label: "기존 명시 선택지",
+            value: "기존 명시 선택지를 선택한다.",
+            pro: "이전 질문에서 의도적으로 지정한 선택지를 보존합니다.",
+            con: "새 질문 후보와 다르면 사용자가 직접 보완해야 합니다."
+          }
+        ]
+      }),
+      evidenceMatrix: evidenceMatrix()
+    };
+
+    expect(researchFollowUpAnswerOptions(input)).toEqual([
+      expect.objectContaining({ id: "question_candidate_1", label: "개인 창업자" }),
+      expect.objectContaining({ id: "question_candidate_2", label: "팀 리더" }),
+      expect.objectContaining({ id: "need_more_research" })
+    ]);
+  });
+
+  it("falls back to source choices when the follow-up question has no concrete candidates", () => {
+    const input = {
+      question: "이전 질문의 선택지 중 지금 아이디어에 가장 맞는 방향을 하나 골라주세요.",
       researchTask: task("초기 고객 성향 후보 선택"),
       sourceQuestion: sourceQuestion({
         expectedAnswerType: "choice",
@@ -513,6 +539,11 @@ describe("research follow-up answer shape", () => {
     expect(classifyResearchFollowUpAnswerShape({
       ...base,
       question: "찬성/반대 중 하나를 선택하고 조건이 있다면 이유를 적어주세요."
+    })).toBe("binary_choice");
+
+    expect(classifyResearchFollowUpAnswerShape({
+      ...base,
+      question: "이 방향을 채택할지 말지 객관식으로 찬반을 골라주세요."
     })).toBe("binary_choice");
 
     const candidateChoiceInput = {

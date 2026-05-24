@@ -217,7 +217,7 @@ function hasMultiSelectCue(question: string) {
 }
 
 function hasBinaryChoiceCue(question: string) {
-  return /(?:(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|어느|선택|고르|판단)|양자\s*택일|양자택일|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose|찬성인지\s*반대|동의하시|찬성하시|반대하시|진행할까요|해야\s*할까요|반영할까요)/iu.test(
+  return /(?:(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|찬반|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|어느|선택|고르|판단|객관식)|(?:찬성|동의|진행|반영|채택)\s*여부|(?:할지|갈지|진행할지|반영할지)\s*말지|양자\s*택일|양자택일|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose|찬성인지\s*반대|동의하시|찬성하시|반대하시|진행할까요|해야\s*할까요|반영할까요)/iu.test(
     question
   );
 }
@@ -229,7 +229,7 @@ function hasRankedChoiceCue(question: string) {
 }
 
 function hasForcedChoiceCue(question: string) {
-  return /(?:객관식|선택형|선택|고르|골라|중\s*(?:하나|한\s*가지)|하나(?:를|만)?\s*(?:선택|고르)|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|복수|다중|(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|선택|고르|판단)|양자\s*택일|양자택일|choose|pick|select|single[-\s]?choice|multi[-\s]?select|one\s+or\s+more|select\s+all|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(
+  return /(?:객관식|선택형|선택|고르|골라|중\s*(?:하나|한\s*가지)|하나(?:를|만)?\s*(?:선택|고르)|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|복수|다중|(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|찬반|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|선택|고르|판단|객관식)|(?:찬성|동의|진행|반영|채택)\s*여부|(?:할지|갈지|진행할지|반영할지)\s*말지|양자\s*택일|양자택일|choose|pick|select|single[-\s]?choice|multi[-\s]?select|one\s+or\s+more|select\s+all|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(
     question
   );
 }
@@ -383,12 +383,12 @@ function choiceAnswerOptions(input: ResearchFollowUpAnswerInput) {
   const sourceTopicOptions = answerOptionsForQuestion(input.sourceQuestion?.topicKey, input.sourceQuestion?.expectedAnswerType);
   const questionCandidateOptions = candidateAnswerOptionsFromQuestion(input.question);
 
-  if (explicitSourceOptions?.length) {
-    return boundedResearchFollowUpAnswerOptions(explicitSourceOptions);
-  }
-
   if (questionCandidateOptions.length) {
     return boundedResearchFollowUpAnswerOptions(questionCandidateOptions);
+  }
+
+  if (explicitSourceOptions?.length) {
+    return boundedResearchFollowUpAnswerOptions(explicitSourceOptions);
   }
 
   if (sourceTopicOptions?.length) {
