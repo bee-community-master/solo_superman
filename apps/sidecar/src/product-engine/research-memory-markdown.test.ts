@@ -14,7 +14,13 @@ import type {
   ResearchTaskId,
   SessionId
 } from "@solo-superman/contracts";
-import { buildResearchMemoryMarkdown, writeResearchMemoryMarkdown } from "./research-memory-markdown";
+import {
+  buildResearchMemoryMarkdown,
+  isResearchMemoryMarkdownSourceRef,
+  listResearchMemoryMarkdownSourceRefs,
+  researchMemoryMarkdownSourceRef,
+  writeResearchMemoryMarkdown
+} from "./research-memory-markdown";
 import { removeTemporaryDirectory } from "../test-cleanup";
 
 const tempDirs: string[] = [];
@@ -207,5 +213,37 @@ describe("research memory markdown", () => {
     expect(index).toContain(`[${first.relativePath}](${first.relativePath})`);
     expect(index).toContain(`[${second.relativePath}](${second.relativePath})`);
     expect(index.split(/\r?\n/u).filter((line) => line.includes(first.relativePath))).toHaveLength(1);
+  });
+
+  it("lists scoped research-memory source refs for future wider research runs", async () => {
+    const root = await tempRoot();
+    const first = await writeResearchMemoryMarkdown({
+      root,
+      projectId: "proj_research_memory" as ProjectId,
+      sessionId: task.sessionId,
+      task,
+      result,
+      matrix,
+      pack
+    });
+    await writeResearchMemoryMarkdown({
+      root,
+      projectId: "proj_other_research_memory" as ProjectId,
+      sessionId: task.sessionId,
+      task,
+      result,
+      matrix,
+      pack
+    });
+
+    await expect(
+      listResearchMemoryMarkdownSourceRefs({
+        root,
+        projectId: "proj_research_memory" as ProjectId,
+        sessionId: task.sessionId
+      })
+    ).resolves.toEqual([researchMemoryMarkdownSourceRef(first.relativePath)]);
+    expect(isResearchMemoryMarkdownSourceRef(researchMemoryMarkdownSourceRef(first.relativePath))).toBe(true);
+    expect(isResearchMemoryMarkdownSourceRef("research-memory:founder@example.com")).toBe(false);
   });
 });
