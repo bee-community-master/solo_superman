@@ -9360,9 +9360,15 @@ describe("PR-02 sidecar health shell", () => {
       expect(firstIssue).toContain("## ImplementationStepLedger evidence template");
       expect(firstIssue).toContain("CleanCodeReviewRecord.reviewScope");
       expect(firstIssue).toContain("Create the smallest behavior-complete implementation for this issue slice.");
+      expect(firstIssue).toContain("## Stage-specific evidence requirements");
+      expect(firstIssue).toContain("initial implementation PR evidence links the PR-sized issue");
       expect(firstIssue).toContain("Review streak evidence is recorded before the next stage is marked complete.");
       expect(finalVerifyIssue).toContain("Audit missing tests against the issue acceptance criteria");
       expect(finalVerifyIssue).toContain("Update the PR description with scope, review streaks, exact verification commands");
+      expect(finalVerifyIssue).toContain("final missing-test audit records zero uncovered targeted-test gaps");
+      expect(finalVerifyIssue).toContain("final PR body evidence refs are ready to prove scope");
+      expect(mergeIssue).toContain("applied GitHub PR merge mutation record is present before merge_main completion");
+      expect(mergeIssue).toContain("post-merge-verify:<stage>:<command>");
       expect(mergeIssue).toContain(
         "Sync main after merge and rerun the full verification command on main with post-merge verification evidence."
       );
