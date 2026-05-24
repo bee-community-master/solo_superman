@@ -77,6 +77,72 @@ function boundedResearchFollowUpAnswerOptions(options: readonly AmbiguityAnswerO
   return bounded.slice(0, 10);
 }
 
+function candidateOptionId(index: number) {
+  return `question_candidate_${index + 1}`;
+}
+
+function normalizeQuestionCandidateLabel(value: string) {
+  return value
+    .replace(/^[\s"'‘’“”([{<]+|[\s"'‘’“”)\]}>.。]+$/gu, "")
+    .replace(/\s+(?:정도|후보|옵션|선택지)$/u, "")
+    .trim();
+}
+
+function splitCandidatePhrase(value: string) {
+  return value
+    .replace(/([^\s,·/]+)(?:와|과)\s+/gu, "$1, ")
+    .replace(/\s+(?:및|또는|혹은)\s+/gu, ", ")
+    .split(/[,·/]+/u)
+    .map(normalizeQuestionCandidateLabel)
+    .filter((candidate) => candidate.length >= 2 && candidate.length <= 64);
+}
+
+function candidatePhrasesFromQuestion(question: string) {
+  const phrases: string[] = [];
+  const patterns = [
+    /(?:후보|선택지|옵션|종류|유형|타입|성향)(?:는|은|로는|로|:)\s*(?<candidates>.+?)(?:입니다|입니다만|정도로|정도(?:로)?\s*추려|중에서|중\s*하나|가\s*있|이\s*있|를\s*고르|을\s*고르|를\s*선택|을\s*선택|\.|\?|$)/giu,
+    /(?<candidates>[^.?\n]{2,180}?)(?:\s*정도로\s*추려졌|(?:이|가)\s*후보(?:입니다|로\s*남았))/giu
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of question.matchAll(pattern)) {
+      const phrase = match.groups?.candidates?.trim();
+
+      if (phrase) {
+        phrases.push(phrase);
+      }
+    }
+  }
+
+  return phrases;
+}
+
+function candidateAnswerOptionsFromQuestion(question: string): readonly AmbiguityAnswerOption[] {
+  const seen = new Set<string>();
+  const candidates = candidatePhrasesFromQuestion(question)
+    .flatMap(splitCandidatePhrase)
+    .filter((candidate) => {
+      const key = candidate.toLocaleLowerCase("ko-KR");
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+
+  return candidates.slice(0, 10).map((candidate, index) =>
+    researchFollowUpAnswerOption(
+      candidateOptionId(index),
+      candidate,
+      `${candidate} 후보를 선택한다.`,
+      "질문에 제시된 후보라 다음 리서치, 스펙, 구현 범위에 바로 연결할 수 있습니다.",
+      "후보 이름만으로 조건이나 제외 범위가 모호하면 아래 입력칸에 보완 설명이 필요합니다."
+    )
+  );
+}
+
 function isCustomerSegmentResearchFollowUp(input: Pick<ResearchFollowUpAnswerInput, "question" | "researchTask" | "sourceQuestion">) {
   return /(?:고객|세그먼트|segment|customer|persona|성향|후보)/iu.test(
     [
@@ -258,9 +324,14 @@ function choiceAnswerOptions(input: ResearchFollowUpAnswerInput) {
   const sourceOptions =
     input.sourceQuestion?.answerOptions ??
     answerOptionsForQuestion(input.sourceQuestion?.topicKey, input.sourceQuestion?.expectedAnswerType);
+  const questionCandidateOptions = candidateAnswerOptionsFromQuestion(input.question);
 
   if (sourceOptions?.length) {
     return boundedResearchFollowUpAnswerOptions(sourceOptions);
+  }
+
+  if (questionCandidateOptions.length) {
+    return boundedResearchFollowUpAnswerOptions(questionCandidateOptions);
   }
 
   return boundedResearchFollowUpAnswerOptions(

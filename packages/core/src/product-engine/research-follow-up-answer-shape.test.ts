@@ -160,6 +160,27 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpAnswerOptions(input).length).toBeGreaterThanOrEqual(3);
   });
 
+  it("uses the concrete candidates named in a generic single-choice follow-up question", () => {
+    const input = {
+      question:
+        "리서치 결과 후보는 저가형 개인 사용자, 전문가형 1인 팀, 교육용 팀 리더입니다. 여러 종류 중 하나만 선택해야 한다면 어느 후보에 집중하시겠습니까?",
+      researchTask: task("여러 종류 중 하나만 선택해야 하는 후보 결정"),
+      sourceQuestion: sourceQuestion(),
+      evidenceMatrix: evidenceMatrix()
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("single_choice");
+    expect(researchFollowUpExpectedAnswerType(input)).toBe("choice");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBe("single");
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "question_candidate_1", label: "저가형 개인 사용자" }),
+        expect.objectContaining({ id: "question_candidate_2", label: "전문가형 1인 팀" }),
+        expect.objectContaining({ id: "question_candidate_3", label: "교육용 팀 리더" })
+      ])
+    );
+  });
+
   it("keeps evidence-backed customer segment questions as one-of-many choices", () => {
     const input = {
       question:
@@ -248,6 +269,43 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpExpectedAnswerType(input)).toBe("choice");
     expect(researchFollowUpAnswerSelectionMode(input)).toBe("multiple");
     expect(researchFollowUpAnswerOptions(input).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("uses named candidates for one-or-more follow-up questions without collapsing them into pro/con", () => {
+    const input = {
+      question:
+        "선택지는 빠른 온보딩, 수동 검증, 가격 테스트, 기존 대안 비교입니다. 여러 종류 중 하나 혹은 여러 개를 선택할 수 있습니다.",
+      researchTask: task("여러 종류 중 하나 혹은 여러 개를 선택해야 하는 후보 결정"),
+      sourceQuestion: sourceQuestion(),
+      evidenceMatrix: evidenceMatrix({
+        proEvidence: [
+          {
+            evidenceItemId: "evidence_pro_named_multi_answer_shape" as EvidenceItemId,
+            kind: "pro",
+            summary: "복수 후보가 동시에 적용될 수 있음"
+          }
+        ],
+        uncertainties: [
+          {
+            evidenceItemId: "evidence_uncertain_named_multi_answer_shape" as EvidenceItemId,
+            kind: "uncertainty",
+            summary: "정확한 조합은 사용자 결정 필요"
+          }
+        ]
+      })
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("multi_select");
+    expect(researchFollowUpExpectedAnswerType(input)).toBe("choice");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBe("multiple");
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "question_candidate_1", label: "빠른 온보딩" }),
+        expect.objectContaining({ id: "question_candidate_2", label: "수동 검증" }),
+        expect.objectContaining({ id: "question_candidate_3", label: "가격 테스트" }),
+        expect.objectContaining({ id: "question_candidate_4", label: "기존 대안 비교" })
+      ])
+    );
   });
 
   it("returns signal-specific options for multi-select signal questions", () => {
