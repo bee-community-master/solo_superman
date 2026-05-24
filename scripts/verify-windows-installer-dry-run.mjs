@@ -103,6 +103,8 @@ const REQUIRED_MARKERS = [
     markers: [
       "function Update-ExistingCheckoutSafely",
       "\"status\", \"--porcelain\"",
+      "function Test-GeneratedRunnerStatusLine",
+      "solo_superman.cmd",
       "merge-base",
       "--ff-only",
       "diverged",

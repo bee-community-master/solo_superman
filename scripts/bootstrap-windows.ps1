@@ -986,6 +986,25 @@ function Get-GitFirstLine($Path, [string[]]$Arguments) {
   }
 }
 
+function Get-GitOutputLines($Path, [string[]]$Arguments) {
+  try {
+    $git = Get-ToolPath "git"
+    $gitArguments = @("-C", $Path) + $Arguments
+    $output = & $git @gitArguments 2>$null
+    if ($LASTEXITCODE -ne 0) {
+      return $null
+    }
+
+    return @($output | ForEach-Object { [string]$_ })
+  } catch {
+    return $null
+  }
+}
+
+function Test-GeneratedRunnerStatusLine($Line) {
+  return ([string]$Line).Trim() -eq "?? solo_superman.cmd"
+}
+
 function Test-GitCommand($Path, [string[]]$Arguments) {
   try {
     $git = Get-ToolPath "git"
@@ -1007,8 +1026,14 @@ function Get-CheckoutDefaultBranch($Path) {
 }
 
 function Update-ExistingCheckoutSafely($Path) {
-  $status = Get-GitFirstLine $Path @("status", "--porcelain")
-  if ($status) {
+  $statusLines = Get-GitOutputLines $Path @("status", "--porcelain")
+  if ($null -eq $statusLines) {
+    Write-Warn "기존 checkout 상태를 확인하지 못해 자동 업데이트를 건너뜁니다."
+    return
+  }
+
+  $blockingStatusLines = @($statusLines | Where-Object { -not (Test-GeneratedRunnerStatusLine $_) })
+  if ($blockingStatusLines.Count -gt 0) {
     Write-Warn "기존 checkout에 local 변경/untracked 파일이 있어 자동 업데이트를 건너뜁니다. 사용자 파일을 덮어쓰지 않고 계속 진행합니다."
     return
   }
