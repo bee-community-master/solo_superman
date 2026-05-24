@@ -17,6 +17,7 @@ import {
 import {
   commandResponseVersion,
   optionalCommandProjection,
+  optionalCommandQueueProjection,
   requiredCommandProjection
 } from "../../../shared/api/command-response-helpers";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
@@ -833,25 +834,47 @@ export function useDecisionQueueSessionActions({
           })
         );
         const research = optionalCommandProjection<ResearchEvidenceProjection>(response, "ResearchEvidenceProjection");
+        const queue = optionalCommandQueueProjection<DecisionQueueProjection>(response, "DecisionQueueProjection");
 
         setResearchDrafts((current) => ({
           ...current,
           [researchTaskId]: ""
         }));
-        if (research) {
+        if (research || queue) {
           setProjections((current) => ({
             ...current,
-            research
+            ...(research ? { research } : {}),
+            ...(queue ? { queue } : {})
           }));
         }
-        await refreshProjections(projections.session.projectId, projections.session.sessionId);
+        if (queue) {
+          continueQuestionLoopAfterQueueUpdate(
+            projections.session.projectId,
+            projections.session.sessionId,
+            commandResponseVersion(response),
+            queue
+          );
+        } else {
+          await refreshProjections(projections.session.projectId, projections.session.sessionId);
+          void startReadyReadOnlyResearchRunsAfterAnswer?.();
+        }
       } catch (error) {
         setWorkflowError(displayError(error));
       } finally {
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections, refreshProjections, researchDrafts, sessionActionErrors, sessionActionReasons]
+    [
+      appendCommand,
+      client,
+      continueQuestionLoopAfterQueueUpdate,
+      projections,
+      refreshProjections,
+      researchDrafts,
+      sessionActionErrors,
+      sessionActionReasons,
+      startReadyReadOnlyResearchRunsAfterAnswer
+    ]
   );
 
   const resolveResearchCard = useCallback(

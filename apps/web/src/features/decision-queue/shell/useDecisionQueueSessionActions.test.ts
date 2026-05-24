@@ -1202,4 +1202,162 @@ describe("useDecisionQueueSessionActions", () => {
     );
     expect(backgroundResearchStarted).toHaveBeenCalledTimes(1);
   });
+
+  it("automatically continues when a manual research import returns follow-up queue items", async () => {
+    const projectId = "proj_manual_research_import_auto_next" as ProjectId;
+    const sessionId = "sess_manual_research_import_auto_next" as SessionId;
+    const researchTaskId = "research_task_manual_import" as ResearchTaskId;
+    const nextQuestionId = "queue_manual_research_follow_up" as QueueItemId;
+    const queueAfterImport: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 2 as ProjectionVersion,
+      active: [],
+      next: [
+        {
+          queueItemId: nextQuestionId,
+          title: "Manual research follow-up question",
+          state: "next",
+          cardType: "follow_up_question"
+        }
+      ],
+      blocked: [],
+      deferred: []
+    };
+    const queueAfterActivation: DecisionQueueProjection = {
+      ...queueAfterImport,
+      version: 3 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: nextQuestionId,
+          title: "Manual research follow-up question",
+          state: "active",
+          cardType: "follow_up_question"
+        }
+      ],
+      next: []
+    };
+    const importResponse: CommandResponse<unknown> = {
+      category: "accepted_with_projection",
+      commandId: "cmd_manual_research_import" as CommandId,
+      correlationId: "corr_manual_research_import" as CorrelationId,
+      stateVersionBefore: 1 as StateVersion,
+      stateVersionAfter: 2 as StateVersion,
+      immediateProjection: {
+        kind: "ResearchEvidenceProjection",
+        version: 2
+      },
+      queueProjection: queueAfterImport
+    };
+    const activateResponse: CommandResponse<DecisionQueueProjection> = {
+      category: "accepted_with_projection",
+      commandId: "cmd_manual_research_import_activate" as CommandId,
+      correlationId: "corr_manual_research_import_activate" as CorrelationId,
+      stateVersionBefore: 2 as StateVersion,
+      stateVersionAfter: 3 as StateVersion,
+      immediateProjection: queueAfterActivation
+    };
+    const appendCommand: Parameters<typeof useDecisionQueueSessionActions>[0]["appendCommand"] = async (
+      _label,
+      commandResponse
+    ) => commandResponse;
+    const importResearchResult = vi.fn(async () => importResponse);
+    const activateQuestionBatch = vi.fn(async () => activateResponse);
+    const backgroundResearchStarted = vi.fn(async () => undefined);
+    let actions: ReturnType<typeof useDecisionQueueSessionActions> | undefined;
+
+    function Harness() {
+      actions = useDecisionQueueSessionActions({
+        answerDrafts: {},
+        appendCommand,
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityChangeReason: "",
+        chatGptLoginAcknowledged: true,
+        codexLoginAuthenticated: true,
+        client: {
+          importResearchResult,
+          activateQuestionBatch
+        } as unknown as SidecarClient,
+        connectionStatus: "connected",
+        copy: DECISION_QUEUE_COPY.en,
+        idea: "Manual research should feed the question loop",
+        initialResearchPermission: "allow_public_web",
+        initialBusinessCriticIntensityReason: "",
+        intake: "Manual evidence can also generate follow-up questions.",
+        isBusy: false,
+        knownRiskDrafts: {},
+        projectPurposeMode: "business",
+        projections: {
+          ...emptyProjectionState(),
+          session: {
+            kind: "SessionShellProjection",
+            projectId,
+            sessionId,
+            version: 1 as ProjectionVersion,
+            phase: "validation",
+            projectPurposeMode: "business",
+            projectPurposeModeSelectionStatus: "confirmed",
+            projectPurposeModeLabel: "Business validation",
+            projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+          },
+          queue: {
+            kind: "DecisionQueueProjection",
+            version: 1 as ProjectionVersion,
+            active: [],
+            next: [],
+            blocked: [],
+            deferred: []
+          }
+        },
+        purposeModeChangeReason: "",
+        questionBatchSize: 3,
+        refetchQueueAfterSseNotification: vi.fn(async () => undefined),
+        refreshProjections: vi.fn(async () => undefined),
+        researchDrafts: {
+          [researchTaskId]: "Manual research says the segment has a sharper workflow pain."
+        },
+        setAnswerDrafts: vi.fn(),
+        setBusinessCriticIntensity: vi.fn(),
+        setBusinessCriticIntensityChangeReason: vi.fn(),
+        setCommandLog: vi.fn(),
+        setIsBusy: vi.fn(),
+        setKnownRiskDrafts: vi.fn(),
+        setPhase15bReadiness: vi.fn(),
+        setProjectPurposeMode: vi.fn(),
+        setProjections: vi.fn(),
+        setPurposeModeChangeReason: vi.fn(),
+        setResearchDrafts: vi.fn(),
+        setResearchOperations: vi.fn(),
+        setStatuses: vi.fn(),
+        setWorkflowError: vi.fn(),
+        startReadyReadOnlyResearchRunsAfterAnswer: backgroundResearchStarted
+      });
+
+      return null;
+    }
+
+    renderToStaticMarkup(createElement(Harness));
+
+    if (!actions) {
+      throw new Error("Session actions were not captured.");
+    }
+
+    await actions.importResearchResult(researchTaskId);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(importResearchResult).toHaveBeenCalledWith(expect.objectContaining({
+      researchTaskId,
+      result: "Manual research says the segment has a sharper workflow pain."
+    }));
+    expect(activateQuestionBatch).toHaveBeenCalledWith(
+      sessionId,
+      2,
+      [nextQuestionId]
+    );
+    expect(backgroundResearchStarted).toHaveBeenCalledTimes(1);
+  });
 });

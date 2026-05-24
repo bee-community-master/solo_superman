@@ -41,3 +41,17 @@ export function optionalCommandProjection<TProjection>(response: CommandResponse
 
   return projection as TProjection;
 }
+
+export function optionalCommandQueueProjection<TProjection>(response: CommandResponse<unknown>, kind: string) {
+  const projection = response.queueProjection;
+
+  if (!projection) {
+    return null;
+  }
+
+  if (!hasProjectionKind(projection, kind)) {
+    throw new Error(`${kind} was not returned by the sidecar command queue projection.`);
+  }
+
+  return projection as TProjection;
+}
