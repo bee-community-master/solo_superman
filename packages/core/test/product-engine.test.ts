@@ -2181,6 +2181,110 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(resynthesized.events[0]?.payload).not.toHaveProperty("researchFollowUpQueueItemIds");
   });
 
+  it("carries evidence-derived listed candidates into active research follow-up answer options", () => {
+    const initialState = withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId));
+    const planned = reduceProductEngineCommand(
+      command("PlanResearch", 0, {
+        objective: "초기 고객 세그먼트와 사용자 성향 좁히기",
+        routeOutcome: "missing_con_evidence",
+        impact: "high"
+      }, 1),
+      initialState
+    );
+
+    expect(planned.accepted).toBe(true);
+
+    const plannedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_research_plan_candidates",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:00.000Z"
+      }
+    ]);
+    const researchTaskId = plannedState.researchState.taskIds[0];
+
+    if (!researchTaskId) {
+      throw new Error("Expected PlanResearch to create a research task id.");
+    }
+
+    const imported = reduceProductEngineCommand(
+      command("ImportResearchResult", 1, {
+        researchTaskId,
+        sourceTitle: "Customer segment evidence notes",
+        result: "Pro: solo founders repeatedly organize product decisions manually.",
+        limitationNotes: "Domain expert builder and team leader samples remain narrow."
+      }, 2),
+      plannedState
+    );
+
+    expect(imported.accepted).toBe(true);
+
+    const importedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_research_plan_candidates_replay",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:00.000Z"
+      },
+      {
+        ...imported.events[0],
+        eventId: "evt_research_import_candidates_replay",
+        sequence: 2,
+        occurredAt: "2026-05-05T00:00:01.000Z"
+      }
+    ]);
+    const researchResultId = importedState.researchState.results[0]?.researchResultId;
+    const synthesized = reduceProductEngineCommand(
+      effectExecutorCommand("SynthesizeEvidence", 2, {
+        researchResultId
+      }, 3),
+      importedState
+    );
+
+    expect(synthesized.accepted).toBe(true);
+    expect(synthesized.nextState.researchState.evidenceMatrices[0]?.additionalQuestions[0]).toContain(
+      "- 혼자 만드는 초기 창업자"
+    );
+    expect(synthesized.nextState.researchState.evidenceMatrices[0]?.additionalQuestions[0]).toContain(
+      "- 도메인 전문 1인 빌더"
+    );
+    expect(synthesized.nextState.researchState.evidenceMatrices[0]?.additionalQuestions[0]).toContain(
+      "- 팀 리더/운영 담당자"
+    );
+
+    const researchFollowUpIssue = synthesized.nextState.openIssues.find((issue) =>
+      issue.queueItemId.startsWith("queue_research_followup_")
+    );
+
+    expect(researchFollowUpIssue).toMatchObject({
+      expectedAnswerType: "choice",
+      answerSelectionMode: "single",
+      questionText: expect.stringContaining("어느 성향의 고객에 집중")
+    });
+    expect(researchFollowUpIssue?.answerOptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "question_candidate_1", label: "혼자 만드는 초기 창업자" }),
+        expect.objectContaining({ id: "question_candidate_2", label: "도메인 전문 1인 빌더" }),
+        expect.objectContaining({ id: "question_candidate_3", label: "팀 리더/운영 담당자" })
+      ])
+    );
+    expect(synthesized.nextState.queueProjection.active).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          cardType: "follow_up_question",
+          title: expect.stringContaining("어느 성향의 고객에 집중"),
+          answerSelectionMode: "single",
+          answerOptions: expect.arrayContaining([
+            expect.objectContaining({ label: "혼자 만드는 초기 창업자" }),
+            expect.objectContaining({ label: "도메인 전문 1인 빌더" }),
+            expect.objectContaining({ label: "팀 리더/운영 담당자" })
+          ])
+        })
+      ])
+    );
+  });
+
   it("persists a decision-linked Evidence Pack and keeps unknown quality gates in review", () => {
     const initialState = withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId));
     const planned = reduceProductEngineCommand(
