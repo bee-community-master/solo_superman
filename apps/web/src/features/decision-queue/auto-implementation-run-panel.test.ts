@@ -1335,9 +1335,9 @@ describe("AutoImplementationRunPanel view model", () => {
     } as AutoImplementationRunProjection);
     const markup = renderPanelMarkup(view);
 
-    expect(markup).toContain("GitHub PR mutation evidence");
+    expect(markup).toContain("GitHub PR action evidence");
     expect(markup).toContain("GitHub PR mutation: update_pr_body applied");
-    expect(markup).toContain("1 PR mutation record(s) captured.");
+    expect(markup).toContain("1 PR action record(s) captured.");
     expect(markup).toContain("https://github.com/bee-community-master/demo/pull/1");
     expect(markup).toContain("Update the generated PR body with current review and verification evidence.");
     expect(markup).toContain("code-review:feature:clean-1");
@@ -1363,11 +1363,18 @@ describe("AutoImplementationRunPanel view model", () => {
     );
     expect(markup).toContain("implementation-issues/001-initial_pr.md");
     expect(markup).toContain("GitHub issue: none");
-    expect(markup).toContain("GitHub issue mutation contract");
+    expect(markup).toContain("GitHub issue creation plan");
     expect(markup).toContain("GitHub issue mutation: not_requested");
-    expect(markup).toContain("GitHub PR mutation evidence");
+    expect(markup).toContain("GitHub PR action evidence");
     expect(markup).toContain("GitHub PR mutation: no records");
-    expect(markup).toContain("No GitHub PR mutation records yet");
+    expect(markup).toContain("No GitHub PR action records yet");
+    const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
+    expect(koreanMarkup).toContain("GitHub 이슈 생성 계획");
+    expect(koreanMarkup).toContain("GitHub PR 작업 근거");
+    expect(koreanMarkup).toContain("아직 GitHub PR 작업 기록이 없습니다.");
+    expect(koreanMarkup).not.toContain("mutation contract");
+    expect(koreanMarkup).not.toContain("mutation evidence");
+    expect(koreanMarkup).not.toContain("PR mutation 기록");
     expect(markup).toContain("Local Codex worker: not planned");
     expect(markup).toContain("Approve worker authority + plan job");
     expect(markup).toContain("Record current stage tick");
