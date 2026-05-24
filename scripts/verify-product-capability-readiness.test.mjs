@@ -25,7 +25,8 @@ function autoImplementationCheckedBehaviors() {
     "Opt-in live runtime readiness verification reports skipped, blocked, or passed evidence without forcing opt-in live execution into the default suite.",
     "Worker jobs keep planned ledger docs, authority refs, sandbox boundaries, and manual recovery evidence visible.",
     "Generated PR body includes issue document status summary, stage status summary, review/evidence gate summary, and missing-test audit summary coverage.",
-    "Every canonical auto-implementation stage requires two consecutive no-finding feature and repository code-review passes, two consecutive no-finding changed-code and repository clean-code passes, a zero-gap missing-test audit, and passing test evidence before completion."
+    "Every canonical auto-implementation stage requires two consecutive no-finding feature and repository code-review passes, two consecutive no-finding changed-code and repository clean-code passes, a zero-gap missing-test audit, and passing test evidence before completion.",
+    "Final merge_main stays blocked until final_verify_pr_update records current PR body evidence with full verification commands plus missing-test audit and test evidence."
   ];
 }
 
@@ -37,7 +38,7 @@ function researchEvidenceCheckedBehaviors() {
     "Provider-polled research writes markdown memory so duplicate research can cite existing evidence while wider follow-up research still starts a new run with the memory as baseline context.",
     "Research review cards retain source traces and expose pro/con/uncertainty quality gates.",
     "Research-generated follow-up questions return to the Decision Queue as answerable debt.",
-    "Research-generated follow-up questions preserve answer-form variety instead of forcing every answer into pro/con stance."
+    "Research-generated follow-up questions preserve answer-form variety: open_text narrative answers, binary_choice pro/con decisions, single_choice one-of-many choices, multi_select one-or-more selections, ranked_choice, and evidence_judgment are selected from the concrete question intent instead of forcing every answer into pro/con stance."
   ];
 }
 
@@ -45,7 +46,7 @@ function ideaClarificationCheckedBehaviors() {
   return [
     "Idea intake creates a user-confirmed business or personal project purpose before analysis.",
     "Active question batches stay bounded while long sessions can process 200+ question/answer loops.",
-    "Clarification question cards and generated follow-ups support open text, binary stance, single choice, multi-select, ranked, evidence, and experiment answer formats instead of reusing one pro/con shape.",
+    "Clarification question cards and generated follow-ups support open text subjective/narrative prompts, binary stance, one-of-many single choice, one-or-more multi-select, ranked, evidence, and experiment answer formats instead of reusing one pro/con shape.",
     "Answer submission stays non-blocking while background research starts and automatic queue refill continue after the answer is persisted.",
     "Answers produce follow-up debt and research-task debt instead of hidden notes.",
     "Question-debt completion and Planning Handoff blockers remain visible before Planning-ready."
@@ -247,8 +248,11 @@ describe("product capability readiness verification", () => {
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
       "$.capabilities[0].checkedBehaviors: must mention open text",
+      "$.capabilities[0].checkedBehaviors: must mention subjective/narrative",
       "$.capabilities[0].checkedBehaviors: must mention binary stance",
+      "$.capabilities[0].checkedBehaviors: must mention one-of-many",
       "$.capabilities[0].checkedBehaviors: must mention single choice",
+      "$.capabilities[0].checkedBehaviors: must mention one-or-more",
       "$.capabilities[0].checkedBehaviors: must mention multi-select",
       "$.capabilities[0].checkedBehaviors: must mention ranked",
       "$.capabilities[0].checkedBehaviors: must mention evidence",
@@ -285,7 +289,10 @@ describe("product capability readiness verification", () => {
       "$.capabilities[1].checkedBehaviors: must mention Max research runs per session",
       "$.capabilities[1].checkedBehaviors: must mention markdown memory",
       "$.capabilities[1].checkedBehaviors: must mention wider follow-up research",
-      "$.capabilities[1].checkedBehaviors: must mention Research-generated follow-up questions"
+      "$.capabilities[1].checkedBehaviors: must mention Research-generated follow-up questions",
+      "$.capabilities[1].checkedBehaviors: must mention open_text narrative answers",
+      "$.capabilities[1].checkedBehaviors: must mention single_choice one-of-many choices",
+      "$.capabilities[1].checkedBehaviors: must mention multi_select one-or-more selections"
     ]));
   });
 
@@ -346,7 +353,7 @@ describe("product capability readiness verification", () => {
           ? {
               ...capability,
               checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
-                !behavior.includes("two consecutive no-finding")
+                !behavior.includes("two consecutive no-finding") && !behavior.includes("Final merge_main")
               )
             }
           : capability
@@ -360,7 +367,11 @@ describe("product capability readiness verification", () => {
       "$.capabilities[4].checkedBehaviors: must mention feature and repository code-review",
       "$.capabilities[4].checkedBehaviors: must mention changed-code and repository clean-code",
       "$.capabilities[4].checkedBehaviors: must mention zero-gap missing-test audit",
-      "$.capabilities[4].checkedBehaviors: must mention passing test evidence before completion"
+      "$.capabilities[4].checkedBehaviors: must mention passing test evidence before completion",
+      "$.capabilities[4].checkedBehaviors: must mention Final merge_main",
+      "$.capabilities[4].checkedBehaviors: must mention final_verify_pr_update",
+      "$.capabilities[4].checkedBehaviors: must mention current PR body evidence",
+      "$.capabilities[4].checkedBehaviors: must mention full verification commands"
     ]));
   });
 
