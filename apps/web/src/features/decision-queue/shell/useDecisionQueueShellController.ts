@@ -15,6 +15,7 @@ import {
   type Phase15bUpgradeHintProjection,
   type ProjectPurposeMode,
   type RecordAutoImplementationPullRequestMutationRequest,
+  type ResearchRunControlProjection,
   type SessionId,
   type StatusEndpointDto
 } from "@solo-superman/contracts";
@@ -72,10 +73,10 @@ import {
   DEFAULT_IDEA,
   DEFAULT_INTAKE,
   COMMAND_LOG_LIMIT,
-  canStartInitialQueueFlow,
   displayError,
   emptyProjectionState,
   emptyResearchOperationsState,
+  initialQueueStartBlockerList,
   latestCommandBackedProjectionVersion,
   type CommandLogEntry,
   type ConnectionState,
@@ -91,6 +92,8 @@ import { useDecisionQueuePlanningPermissionActions } from "./useDecisionQueuePla
 import { useDecisionQueueRefreshers } from "./useDecisionQueueRefreshers";
 import { useDecisionQueueResearchActions } from "./useDecisionQueueResearchActions";
 import { useDecisionQueueSessionActions } from "./useDecisionQueueSessionActions";
+
+export const RESEARCH_RUN_BACKGROUND_POLL_INTERVAL_MS = 10_000;
 
 function unavailableCodexLoginStart(message: string): CodexRuntimeLoginStartDto {
   return {
@@ -152,6 +155,10 @@ function planningHandoffIsReady(
   return planningHandoff?.currentStatus === "planning_ready";
 }
 
+export function researchRunControlHasPollableRuns(runs: ResearchRunControlProjection | null | undefined) {
+  return runs?.runs.some((run) => run.status === "queued" || run.status === "running") ?? false;
+}
+
 type AutoImplementationActionErrors = DecisionQueueCopy["autoImplementation"]["actionErrors"];
 
 export function autoImplementationWorkspaceCreateBlocker(
@@ -186,6 +193,7 @@ export function useDecisionQueueShellController() {
   const [initialBusinessCriticIntensityReason, setInitialBusinessCriticIntensityReason] = useState("");
   const [businessCriticIntensityChangeReason, setBusinessCriticIntensityChangeReason] = useState("");
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
+  const [questionBatchSize, setQuestionBatchSize] = useState(5);
   const [knownRiskDrafts, setKnownRiskDrafts] = useState<Record<string, string>>({});
   const [researchDrafts, setResearchDrafts] = useState<Record<string, string>>({});
   const [workerLedgerImportDraft, setWorkerLedgerImportDraft] = useState("");
@@ -341,6 +349,7 @@ export function useDecisionQueueShellController() {
     pauseAllowlist,
     revokeAllowlist,
     updateAllowlistMaxConcurrentRuns,
+    updateAllowlistMaxRunsPerSession,
     planPhase15aResearchTask,
     startReadOnlyResearchRun,
     startReadyReadOnlyResearchRunsAfterAnswer,
@@ -392,6 +401,7 @@ export function useDecisionQueueShellController() {
     projectPurposeMode,
     projections,
     purposeModeChangeReason,
+    questionBatchSize,
     refetchQueueAfterSseNotification,
     refreshProjections,
     researchDrafts,
@@ -1240,7 +1250,7 @@ export function useDecisionQueueShellController() {
   const planningRadarPolygonPoints = planningRadarAxesView.map((axis) => axis.point).join(" ");
   const planningCompletenessScore = confidence?.compositeScore ?? 0;
   const planningReadinessLabel = confidence?.readinessLabel ?? copy.rightRail.pending;
-  const canStart = canStartInitialQueueFlow({
+  const initialQueueStartReadinessInput = {
     chatGptLoginAcknowledged,
     codexLoginAuthenticated: runtimeStatus?.account?.status === "authenticated",
     connectionStatus: connectionState.status,
@@ -1250,7 +1260,10 @@ export function useDecisionQueueShellController() {
     idea,
     intake,
     isBusy
-  });
+  };
+  const initialQueueStartBlockers = initialQueueStartBlockerList(initialQueueStartReadinessInput);
+  const initialQueueStartBlockerMessages = initialQueueStartBlockers.map((blocker) => copy.questions.initialQueueStartBlockers[blocker]);
+  const canStart = initialQueueStartBlockers.length === 0;
   const activeResearchAllowlist = activeWebPublicResearchAllowlist(researchOperations.allowlists);
   const hasActiveResearchAllowlist = Boolean(activeResearchAllowlist);
   const readyReadOnlyResearchStartPlan = readyReadOnlyResearchRunStartPlan({
@@ -1271,6 +1284,21 @@ export function useDecisionQueueShellController() {
   const activeResearchRunCount =
     researchOperations.runs?.runs.filter((run) => run.status === "queued" || run.status === "running" || run.status === "paused")
       .length ?? 0;
+  const shouldPollResearchRuns = researchRunControlHasPollableRuns(researchOperations.runs);
+
+  useEffect(() => {
+    if (!shouldPollResearchRuns || !projections.session) {
+      return undefined;
+    }
+
+    const { projectId, sessionId } = projections.session;
+    const intervalId = window.setInterval(() => {
+      void refreshProjections(projectId, sessionId);
+    }, RESEARCH_RUN_BACKGROUND_POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [projections.session, refreshProjections, shouldPollResearchRuns]);
+
   const activePageMeta = copy.pageMeta[activePage];
   const connectionLabel = connectionState.status === "connected" ? connectionState.connection.mode : connectionState.status;
   const connectionTone = connectionState.status === "connected" ? "connected" : connectionState.status;
@@ -1351,6 +1379,8 @@ export function useDecisionQueueShellController() {
     setBusinessCriticIntensityChangeReason,
     answerDrafts,
     setAnswerDrafts,
+    questionBatchSize,
+    setQuestionBatchSize,
     knownRiskDrafts,
     setKnownRiskDrafts,
     researchDrafts,
@@ -1395,6 +1425,7 @@ export function useDecisionQueueShellController() {
     pauseAllowlist,
     revokeAllowlist,
     updateAllowlistMaxConcurrentRuns,
+    updateAllowlistMaxRunsPerSession,
     planPhase15aResearchTask,
     startReadOnlyResearchRun,
     startReadyReadOnlyResearchRuns,
@@ -1445,6 +1476,7 @@ export function useDecisionQueueShellController() {
     planningCompletenessScore,
     planningReadinessLabel,
     canStart,
+    initialQueueStartBlockerMessages,
     hasActiveResearchAllowlist,
     readyReadOnlyResearchStartPlan,
     readyReadOnlyResearchTaskIds,

@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import {
   AUTO_IMPLEMENTATION_STAGES,
   IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK,
+  autoImplementationFinalPrBodyEvidenceRefs,
   type AutoImplementationStage,
   type ImplementationStepDoc,
   type RecordImplementationStepLedgerPayload,
@@ -418,7 +419,7 @@ async function recordAppliedMergeMutation(input: {
       knownGaps: [],
       rollbackNotes: "Reopen or revert the fixture merge if post-merge verification evidence fails.",
       mergeEvidenceRefs: ["merge-ready:review-loop-fixture"],
-      bodyEvidenceRefs: ["pr-body:review-loop-current-evidence"],
+      bodyEvidenceRefs: autoImplementationFinalPrBodyEvidenceRefs(input.preparedRun.runId),
       approval: {
         approvalId: "approval_review_loop_fixture_merge",
         approvedBy: "fixture_operator",

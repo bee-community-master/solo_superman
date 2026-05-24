@@ -67,6 +67,7 @@ import {
   validatePhase25ResearchComparisonReport,
   type ActiveBatchSafeProjection,
   type AmbiguityAnswerOption,
+  type AmbiguityAnswerSelectionMode,
   type AmbiguityExpectedAnswerType,
   type AmbiguityIssueSnapshot,
   type BusinessCriticalQuestionCategory,
@@ -218,6 +219,11 @@ import {
   answerOptionsForQuestion,
   answerOptionsForSeed
 } from "./answer-options";
+import {
+  researchFollowUpAnswerOptions,
+  researchFollowUpAnswerSelectionMode,
+  researchFollowUpExpectedAnswerType
+} from "./research-follow-up-answer-shape";
 import { plainUserFacingDecisionQueueText } from "./user-facing-text";
 import {
   acceptedReduction,
@@ -295,16 +301,103 @@ const ANSWER_EXCERPT_SENSITIVE_VALUE_PATTERNS = [
   /https?:\/\/\S*(?:api[_-]?key|password|secret|token|credential)=\S*/giu
 ] as const;
 
+interface FollowUpQuestionTemplate {
+  readonly text: string;
+  readonly expectedAnswerType: AmbiguityExpectedAnswerType;
+  readonly answerSelectionMode?: AmbiguityAnswerSelectionMode;
+  readonly answerOptions?: readonly AmbiguityAnswerOption[];
+  readonly optionTopicKey?: string;
+}
+
+function followUpAnswerOption(
+  id: string,
+  label: string,
+  value: string,
+  primaryDetail: string,
+  secondaryDetail: string
+): AmbiguityAnswerOption {
+  return {
+    id,
+    label,
+    value,
+    primaryDetail,
+    secondaryDetail,
+    pro: primaryDetail,
+    con: secondaryDetail
+  };
+}
+
+const FOLLOW_UP_BINARY_ANSWER_OPTIONS = [
+  followUpAnswerOption(
+    "agree_with_condition",
+    "찬성 / 조건부 진행",
+    "이 답을 현재 스펙이나 다음 검증 단계에 반영한다. 조건이 있으면 함께 적는다.",
+    "결정을 닫고 다음 단계로 빠르게 이어갈 수 있습니다.",
+    "조건이나 예외를 적지 않으면 너무 빨리 확정될 수 있습니다."
+  ),
+  followUpAnswerOption(
+    "disagree_or_hold",
+    "반대 / 보류",
+    "이 답을 아직 반영하지 않고 범위 축소, 방향 전환, 추가 확인을 먼저 진행한다.",
+    "잘못된 가정에 계속 투자하는 일을 줄입니다.",
+    "유효한 기회를 너무 일찍 보류할 수 있습니다."
+  ),
+  followUpAnswerOption(
+    "needs_more_context",
+    "더 설명한 뒤 판단",
+    "찬성/반대를 바로 고르기보다 부족한 맥락, 조건, 예외를 먼저 답변에 남긴다.",
+    "단순 찬반으로 사라질 수 있는 실제 제약을 보존합니다.",
+    "이번 답변만으로는 결정이 바로 닫히지 않을 수 있습니다."
+  )
+] as const satisfies readonly AmbiguityAnswerOption[];
+
+const MISSING_CON_EVIDENCE_FOLLOW_UP_QUESTION_TEMPLATE = {
+  text: "방금 답한 “{answer}”를 더 안전하게 판단하려면, 반대 사례나 한계를 더 찾아야 할까요? 아니면 현재 근거로 조건부 진행해도 될까요?",
+  expectedAnswerType: "evidence",
+  answerSelectionMode: "single"
+} as const satisfies FollowUpQuestionTemplate;
+
 const FOLLOW_UP_QUESTION_TEMPLATES = [
-  "방금 답한 “{answer}”를 실제 판단 기준으로 바꾸려면, 누가 어떤 상황에서 이 답이 맞다고 확인할 수 있나요?",
-  "“{answer}”라는 답에서 가장 약한 가정은 무엇이고, 반대 사례가 나오면 무엇을 바꿀 건가요?",
-  "이 답을 첫 구현 범위에 반영하면 반드시 넣을 것과 의도적으로 뺄 것은 무엇인가요?",
-  "이 답이 맞는지 공개 정보나 사용자 행동으로 확인하려면 어떤 근거를 찾아야 하나요?",
-  "이 답을 기준으로 다음 결정을 내리기 전에 아직 애매한 단어, 숫자, 대상은 무엇인가요?",
-  "이 답이 틀렸을 때 가장 빨리 드러나는 실패 신호는 무엇이고, 그때의 다음 행동은 무엇인가요?",
-  "이 답을 한 문장 제품 약속으로 바꾸면 무엇이며, 사용자가 그 약속을 믿지 않을 이유는 무엇인가요?",
-  "이 답을 실제 제작 순서로 옮기면 첫 1주일 안에 끝내야 할 가장 작은 검증/구현 조각은 무엇인가요?"
-] as const;
+  {
+    text: "방금 답한 “{answer}”를 실제 판단 기준으로 바꾸려면, 누가 어떤 상황에서 이 답이 맞다고 확인할 수 있나요?",
+    expectedAnswerType: "text"
+  },
+  {
+    text: "방금 답한 “{answer}”를 지금 스펙이나 다음 검증 단계에 반영하는 데 찬성/반대 중 어느 쪽인가요? 조건부라면 조건을 함께 적어주세요.",
+    expectedAnswerType: "choice",
+    answerSelectionMode: "single",
+    answerOptions: FOLLOW_UP_BINARY_ANSWER_OPTIONS
+  },
+  {
+    text: "이 답을 첫 구현 범위에 반영하면 반드시 넣을 것과 의도적으로 뺄 후보를 하나 이상 선택하거나 적어주세요.",
+    expectedAnswerType: "choice",
+    answerSelectionMode: "multiple",
+    optionTopicKey: "mvp_validation_scope"
+  },
+  {
+    text: "이 답이 맞는지 공개 정보나 사용자 행동으로 확인하려면 어떤 검증 방법을 먼저 쓸까요?",
+    expectedAnswerType: "experiment",
+    answerSelectionMode: "single"
+  },
+  {
+    text: "이 답을 기준으로 다음 결정을 내리기 전에 아직 애매한 단어, 숫자, 대상은 무엇인가요?",
+    expectedAnswerType: "text"
+  },
+  {
+    text: "이 답이 틀렸을 때 가장 빨리 드러나는 실패 신호는 무엇이고, 그때의 다음 행동은 무엇인가요?",
+    expectedAnswerType: "experiment",
+    answerSelectionMode: "single"
+  },
+  {
+    text: "이 답을 실제 제작 순서로 옮기면 첫 1주일 안에 끝낼 검증/구현 조각의 우선순위는 무엇인가요?",
+    expectedAnswerType: "rank",
+    answerSelectionMode: "ranked"
+  },
+  {
+    text: "이 답을 한 문장 제품 약속으로 바꾸면 무엇이며, 사용자가 그 약속을 믿지 않을 이유는 무엇인가요?",
+    expectedAnswerType: "text"
+  }
+] as const satisfies readonly FollowUpQuestionTemplate[];
 
 const AMBIGUITY_SEVERITY_PRIORITY = {
   high: 0,
@@ -864,6 +957,7 @@ type AmbiguityIssueSeed = {
   readonly whyItMatters: string;
   readonly question: string;
   readonly expectedAnswerType: NonNullable<AmbiguityIssueSnapshot["expectedAnswerType"]>;
+  readonly answerSelectionMode?: AmbiguityAnswerSelectionMode;
   readonly answerOptions?: readonly AmbiguityAnswerOption[];
   readonly decisionItUnlocks: string;
   readonly routes: NonNullable<AmbiguityIssueSnapshot["possibleRoutes"]>;
@@ -1066,6 +1160,7 @@ const BUSINESS_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
     whyItMatters: "MVP scope가 흐리면 Build Slice가 커지고 Planning Handoff가 blocker 상태로 남습니다.",
     question: "첫 Build Slice에서 반드시 검증해야 할 기능과 제외할 기능은 무엇인가?",
     expectedAnswerType: "choice",
+    answerSelectionMode: "multiple",
     decisionItUnlocks: "mvp_scope decision과 Build Slice readiness를 잠급니다.",
     routes: ["question", "decision_candidate", "deferred"]
   },
@@ -1115,6 +1210,7 @@ const BUSINESS_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
     whyItMatters: "non-goal이 명시되지 않으면 scope creep과 downstream rework가 생깁니다.",
     question: "이번 MVP에서 의도적으로 제외해야 하는 범위는 무엇인가?",
     expectedAnswerType: "choice",
+    answerSelectionMode: "multiple",
     decisionItUnlocks: "Non-goals section과 Planning Handoff blocker 여부를 잠급니다.",
     routes: ["question", "deferred", "decision_candidate"]
   },
@@ -1411,6 +1507,7 @@ const PERSONAL_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
     whyItMatters: "개인용 도구는 편해지려다 관리 부담이 더 커질 수 있습니다.",
     question: "이번 개인용 도구에서 의도적으로 만들지 않을 기능과 유지보수 한계는 무엇인가?",
     expectedAnswerType: "choice",
+    answerSelectionMode: "multiple",
     decisionItUnlocks: "Non-goals section과 maintainability residual risk를 잠급니다.",
     routes: ["question", "deferred", "decision_candidate"]
   },
@@ -1490,6 +1587,7 @@ function createAmbiguityIssues(
   return ambiguityIssueSeedsForMode(mode, intensity).map((seed, index) => {
     const businessCriticCategory = categoryForBusinessSeed(seed);
     const suggestedResearchTask = contextualSuggestedResearchTask(seed, context);
+    const answerSelectionMode = seed.answerSelectionMode ?? (seed.expectedAnswerType === "rank" ? "ranked" : undefined);
 
     return {
       queueItemId: `queue_${token}_${index + 1}` as QueueItemId,
@@ -1515,6 +1613,7 @@ function createAmbiguityIssues(
       status: "open",
       questionText: contextualQuestionText(seed, context),
       expectedAnswerType: seed.expectedAnswerType,
+      ...(answerSelectionMode ? { answerSelectionMode } : {}),
       answerOptions: answerOptionsForSeed(seed),
       decisionItUnlocks: seed.decisionItUnlocks,
       ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
@@ -1679,6 +1778,7 @@ function queueItemProjectionFromIssue(
   state: QueueItemProjection["state"] = "active"
 ): QueueItemProjection {
   const answerOptions = issue.answerOptions ?? answerOptionsForQuestion(issue.topicKey, issue.expectedAnswerType);
+  const answerSelectionMode = issue.answerSelectionMode ?? (issue.expectedAnswerType === "rank" ? "ranked" : undefined);
 
   return {
     queueItemId: issue.queueItemId,
@@ -1704,6 +1804,7 @@ function queueItemProjectionFromIssue(
       ? { decisionItUnlocks: plainUserFacingDecisionQueueText(issue.decisionItUnlocks) }
       : {}),
     ...(issue.expectedAnswerType ? { expectedAnswerType: issue.expectedAnswerType } : {}),
+    ...(answerSelectionMode ? { answerSelectionMode } : {}),
     ...(answerOptions ? { answerOptions } : {}),
     ...(issue.possibleRoutes ? { possibleRoutes: issue.possibleRoutes } : {}),
     ...(issue.sourceRef ? { sourceRef: issue.sourceRef } : {})
@@ -1919,19 +2020,68 @@ function compactAnswerExcerpt(answer: string) {
     : compacted;
 }
 
+function readableEvidenceContextExcerpt(value: string) {
+  const compacted = ANSWER_EXCERPT_SENSITIVE_VALUE_PATTERNS.reduce(
+    (current, pattern) => current.replace(pattern, ANSWER_EXCERPT_REDACTED_VALUE),
+    value.replace(/\s+/gu, " ").trim()
+  );
+
+  return compacted.length > 220 ? compacted.slice(0, 220).trimEnd() : compacted;
+}
+
+function researchFollowUpEvidenceContext(input: {
+  readonly proSummary: string | undefined;
+  readonly conSummary: string | undefined;
+  readonly uncertaintySummary: string | undefined;
+  readonly sourceLabel: string;
+}) {
+  return [
+    "리서치 근거 요약:",
+    input.proSummary ? `- 찬성 근거: ${readableEvidenceContextExcerpt(input.proSummary)}` : null,
+    input.conSummary ? `- 반대 근거: ${readableEvidenceContextExcerpt(input.conSummary)}` : null,
+    input.uncertaintySummary
+      ? `- 한계/불확실성: ${readableEvidenceContextExcerpt(input.uncertaintySummary)}`
+      : null,
+    `- 출처 단서: ${readableEvidenceContextExcerpt(input.sourceLabel)}`
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
+}
+
 const BROADER_RESEARCH_REQUEST_PATTERN = new RegExp(
   [
     "(?:more|broader|wider|additional|deeper)\\s+research",
     "(?:추가|더|넓은|깊은)\\s*리서치",
     "리서치(?:가|는)?\\s*(?:더|추가로|넓게|깊게)\\s*필요",
-    "자료(?:가|는)?\\s*(?:더|추가로|넓게|깊게)\\s*필요",
-    "더\\s*넓은\\s*자료\\s*수집"
+    "(?:자료|근거|출처)(?:가|는)?\\s*(?:더|추가로|넓게|깊게)\\s*필요",
+    "(?:need|needs|needed|require|requires|required)\\s+(?:more|additional|further|broader|wider|deeper)\\s+(?:research|sources?|evidence|references?)",
+    "(?:more|additional|further|broader|wider|deeper)\\s+(?:research|sources?|evidence|references?)[^.\\n]{0,40}(?:needed|required|necessary)",
+    "(?:자료|근거|출처|source|sources?|evidence)(?:를|을)?\\s*(?:더|추가로|넓게|깊게|많이)?\\s*(?:찾|모(?:으|아|은)|수집|확인|검토)",
+    "(?:조사|리서치)(?:를|을)?\\s*(?:더|추가로|넓게|깊게|많이)?\\s*(?:하|해|진행|돌려)",
+    "(?:find|collect|gather|check|review)\\s+(?:more|additional|broader|wider|deeper)\\s+(?:sources?|evidence|references?|research)",
+    "더\\s*넓은\\s*자료(?:를|을)?\\s*(?:수집|모(?:은|으|아)|찾|확인)",
+    "근거(?:가|는)?\\s*부족(?:하므로|해서|해)?[^.\\n]{0,40}(?:자료|리서치|근거)(?:를|을)?\\s*(?:더|추가로|넓게|깊게|모(?:은|으|아)|수집|찾|확인)",
+    "더\\s*넓은\\s*근거(?:와|과|/)?\\s*반례(?:를|을)?[^.\\n]{0,40}(?:확인|찾|조사|수집)",
+    "반례(?:와|과|/)\\s*한계(?:를|을)?\\s*더\\s*(?:조사|찾|확인|수집)"
+  ].join("|"),
+  "iu"
+);
+
+const BROADER_RESEARCH_REJECTION_PATTERN = new RegExp(
+  [
+    "(?:리서치|조사|자료|근거|출처)[^.\\n]{0,40}(?:필요\\s*없|불필요|그만|멈추|하지\\s*마|하지\\s*않|안\\s*(?:해|하|찾|모|수집))",
+    "(?:리서치|조사|자료|근거|출처)[^.\\n]{0,40}(?:찾|모(?:으|아)|수집|확인|검토|하|해|진행|돌려)\\s*지\\s*않",
+    "(?:더|추가로|넓게|깊게)[^.\\n]{0,40}(?:찾|모(?:으|아)|수집|조사|리서치)[^.\\n]{0,40}(?:필요\\s*없|불필요|하지\\s*마|하지\\s*않|안\\s*(?:해|하|찾|모|수집))",
+    "(?:no|not|without)\\s+(?:more|additional|further|broader|wider|deeper)\\s+(?:research|sources?|evidence|references?)",
+    "(?:do\\s+not|don't|dont|no\\s+need\\s+to|need\\s+not)\\s+(?:need\\s+)?(?:more|additional|further|broader|wider|deeper)\\s+(?:research|sources?|evidence|references?)",
+    "(?:more|additional|further|broader|wider|deeper)\\s+(?:research|sources?|evidence|references?)[^.\\n]{0,40}(?:not\\s+needed|unnecessary|not\\s+necessary)",
+    "(?:do\\s+not|don't|dont|stop)\\s+(?:find|collect|gather|research|search|look\\s+up)"
   ].join("|"),
   "iu"
 );
 
 function answerRequestsBroaderResearch(answer: string) {
-  return BROADER_RESEARCH_REQUEST_PATTERN.test(answer);
+  return BROADER_RESEARCH_REQUEST_PATTERN.test(answer) && !BROADER_RESEARCH_REJECTION_PATTERN.test(answer);
 }
 
 function researchObjectiveForAnswer(input: {
@@ -1952,25 +2102,41 @@ function researchObjectiveForAnswer(input: {
   ].join(" ");
 }
 
-function followUpExpectedAnswerType(
+function followUpQuestionTemplate(
   routeOutcome: ResearchRouteOutcome,
   nextRepeatCount: number
-): AmbiguityExpectedAnswerType {
+): FollowUpQuestionTemplate {
   if (routeOutcome === "missing_con_evidence") {
-    return "evidence";
+    return MISSING_CON_EVIDENCE_FOLLOW_UP_QUESTION_TEMPLATE;
   }
 
-  const sequence: readonly AmbiguityExpectedAnswerType[] = ["text", "evidence", "experiment", "rank"];
-
-  return sequence[(nextRepeatCount - 1) % sequence.length] ?? "text";
+  return FOLLOW_UP_QUESTION_TEMPLATES[(nextRepeatCount - 1) % FOLLOW_UP_QUESTION_TEMPLATES.length] ?? FOLLOW_UP_QUESTION_TEMPLATES[0];
 }
 
-function followUpQuestionText(answer: string, nextRepeatCount: number) {
-  const template =
-    FOLLOW_UP_QUESTION_TEMPLATES[(nextRepeatCount - 1) % FOLLOW_UP_QUESTION_TEMPLATES.length] ??
-    "방금 답한 “{answer}”를 더 구체화하려면 어떤 기준과 반례를 확인해야 하나요?";
+function followUpAnswerSelectionMode(
+  template: FollowUpQuestionTemplate
+): AmbiguityAnswerSelectionMode | undefined {
+  if (template.answerSelectionMode) {
+    return template.answerSelectionMode;
+  }
 
-  return template.replace("{answer}", compactAnswerExcerpt(answer));
+  if (template.expectedAnswerType === "text") {
+    return undefined;
+  }
+
+  return template.expectedAnswerType === "rank" ? "ranked" : "single";
+}
+
+function followUpAnswerOptions(template: FollowUpQuestionTemplate) {
+  if (template.expectedAnswerType === "text") {
+    return [];
+  }
+
+  return template.answerOptions ?? answerOptionsForQuestion(template.optionTopicKey, template.expectedAnswerType) ?? [];
+}
+
+function followUpQuestionText(answer: string, template: FollowUpQuestionTemplate) {
+  return template.text.replace("{answer}", compactAnswerExcerpt(answer));
 }
 
 function followUpSuggestedResearchTask(
@@ -2015,6 +2181,10 @@ function createFollowUpIssueForAnswer(input: {
   const followUpTopicKey = `${sourceTopicKey}_follow_up_${nextRepeatCount}`;
   const followUpId = `queue_followup_${stableToken(`${sessionId}:${sourceQuestion.queueItemId}:${answerRef}:${nextRepeatCount}`)}` as QueueItemId;
   const suggestedResearchTask = followUpSuggestedResearchTask(sourceQuestion, answer, routeOutcome);
+  const followUpTemplate = followUpQuestionTemplate(routeOutcome, nextRepeatCount);
+  const expectedAnswerType = followUpTemplate.expectedAnswerType;
+  const answerSelectionMode = followUpAnswerSelectionMode(followUpTemplate);
+  const answerOptions = followUpAnswerOptions(followUpTemplate);
   const severity =
     sourceQuestion.severity === "high" || impact === "high"
       ? "high"
@@ -2040,8 +2210,10 @@ function createFollowUpIssueForAnswer(input: {
     whyItMatters:
       "답변이 다음 질문, 리서치, 구현 범위로 이어지려면 판단 기준과 반례를 더 좁혀야 합니다.",
     status: "open",
-    questionText: followUpQuestionText(answer, nextRepeatCount),
-    expectedAnswerType: followUpExpectedAnswerType(routeOutcome, nextRepeatCount),
+    questionText: followUpQuestionText(answer, followUpTemplate),
+    expectedAnswerType,
+    ...(answerSelectionMode ? { answerSelectionMode } : {}),
+    answerOptions,
     decisionItUnlocks:
       sourceQuestion.decisionItUnlocks ??
       "이전 답변을 스펙, 근거, 첫 구현 범위 판단으로 연결합니다.",
@@ -2099,12 +2271,21 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
   const conSummary = evidenceMatrix.conEvidence[0]?.summary;
   const uncertaintySummary = evidenceMatrix.uncertainties[0]?.summary;
   const sourceLabel = researchResult.sourceTitle ?? researchResult.sourceUrl ?? researchResult.researchResultId;
-  const evidenceContext = [
-    proSummary ? `찬성 근거: ${compactAnswerExcerpt(proSummary)}` : null,
-    conSummary ? `반대 근거: ${compactAnswerExcerpt(conSummary)}` : null,
-    uncertaintySummary ? `한계/불확실성: ${compactAnswerExcerpt(uncertaintySummary)}` : null,
-    `출처 단서: ${compactAnswerExcerpt(sourceLabel)}`
-  ].filter((part): part is string => Boolean(part)).join(" · ");
+  const evidenceContext = researchFollowUpEvidenceContext({
+    proSummary,
+    conSummary,
+    uncertaintySummary,
+    sourceLabel
+  });
+  const answerInput = {
+    question,
+    researchTask,
+    sourceQuestion,
+    evidenceMatrix
+  };
+  const expectedAnswerType = researchFollowUpExpectedAnswerType(answerInput);
+  const answerSelectionMode = researchFollowUpAnswerSelectionMode(answerInput);
+  const answerOptions = researchFollowUpAnswerOptions(answerInput);
 
   return {
     queueItemId: `queue_research_followup_${questionToken}` as QueueItemId,
@@ -2132,15 +2313,17 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
     severity: researchTask.impact,
     summary: `리서치가 생성한 후속 질문: ${compactAnswerExcerpt(question)}`,
     whyItMatters:
-      `백그라운드/브라우저 리서치가 발견한 근거 공백을 사용자가 답변 가능한 질문으로 되돌려야 아이디어 구체화 루프가 계속됩니다. ${evidenceContext}`,
+      `백그라운드/브라우저 리서치가 발견한 근거 공백을 사용자가 답변 가능한 질문으로 되돌려야 아이디어 구체화 루프가 계속됩니다.\n\n${evidenceContext}`,
     status: "open",
     questionText: question,
-    expectedAnswerType: "evidence",
+    expectedAnswerType,
+    ...(answerSelectionMode ? { answerSelectionMode } : {}),
+    answerOptions,
     decisionItUnlocks:
-      `리서치 결과 “${compactAnswerExcerpt(researchTask.objective)}”와 ${compactAnswerExcerpt(sourceLabel)} 근거를 스펙, 근거, 구현 범위 판단으로 연결합니다.`,
+      `리서치 결과 “${readableEvidenceContextExcerpt(researchTask.objective)}”와 ${readableEvidenceContextExcerpt(sourceLabel)} 근거를 스펙, 근거, 구현 범위 판단으로 연결합니다.`,
     suggestedResearchTask: isConEvidenceGap
-      ? `추가 질문 “${compactAnswerExcerpt(question)}”에 답할 반대근거와 한계를 우선 확인합니다.`
-      : `추가 질문 “${compactAnswerExcerpt(question)}”에 답할 공개 근거와 사용자 신호를 확인합니다.`,
+      ? `추가 질문 “${readableEvidenceContextExcerpt(question)}”에 답할 반대근거와 한계를 우선 확인합니다.`
+      : `추가 질문 “${readableEvidenceContextExcerpt(question)}”에 답할 공개 근거와 사용자 신호를 확인합니다.`,
     repeatCount,
     repeatLimit,
     possibleRoutes: isConEvidenceGap
@@ -5109,6 +5292,7 @@ function planningHandoffSourceExists(
     case "founder_brief":
       return Boolean(
         state.founderBrief &&
+          state.founderBrief.exportReady &&
           [
             `founder_brief:${state.session.sessionId}:${state.founderBrief.version}`,
             `founder_brief:${state.session.sessionId}`

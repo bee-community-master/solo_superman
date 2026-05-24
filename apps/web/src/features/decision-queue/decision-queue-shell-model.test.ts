@@ -7,6 +7,7 @@ import {
   displayError,
   emptyProjectionState,
   initialQueueStartBlocker,
+  initialQueueStartBlockerList,
   latestCommandBackedProjectionVersion,
   latestProjectionVersion,
   researchRunProjectionFromResponse,
@@ -156,6 +157,40 @@ describe("decision queue shell model", () => {
     expectStartBlocker({ idea: "   " }, "idea");
     expectStartBlocker({ intake: "   " }, "intake");
     expect(canStartInitialQueueFlow(readyStartInput({ intake: "   " }))).toBe(false);
+  });
+
+  it("lists every visible onboarding blocker so disabled starts explain the next steps", () => {
+    expect(initialQueueStartBlockerList(READY_INITIAL_QUEUE_START_INPUT)).toEqual([]);
+    expect(
+      initialQueueStartBlockerList(
+        readyStartInput({
+          chatGptLoginAcknowledged: false,
+          codexLoginAuthenticated: false,
+          connectionStatus: "unavailable",
+          projectPurposeMode: null,
+          idea: " ",
+          intake: " "
+        })
+      )
+    ).toEqual([
+      "chatgpt_login",
+      "sidecar_connection",
+      "codex_login",
+      "project_purpose",
+      "idea",
+      "intake"
+    ]);
+  });
+
+  it("shows the temporary busy state as the only onboarding blocker while work is running", () => {
+    expect(
+      initialQueueStartBlockerList(
+        readyStartInput({
+          chatGptLoginAcknowledged: false,
+          isBusy: true
+        })
+      )
+    ).toEqual(["busy"]);
   });
 
 });

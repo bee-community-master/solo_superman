@@ -7,6 +7,7 @@ import {
   type DecisionId,
   type DecisionEvidencePackId,
   type EvidenceItemId,
+  type FounderBriefProjection,
   type ProjectionVersion,
   type ProductEngineCommand,
   type ProductEngineStateSnapshot,
@@ -35,6 +36,38 @@ const RESEARCH_RESULT_ID = "research_result_ready" as ResearchResultId;
 const EVIDENCE_PACK_ID = "evidence_pack_ready" as DecisionEvidencePackId;
 const FOLLOW_UP_SOURCE_REF = `research:${RESEARCH_TASK_ID}:evidence_matrix_ready:additional_question:1`;
 const PHASE15B_HINT_ARTIFACT_ID = "runtime_artifact_phase15b_handoff" as RuntimeArtifactId;
+
+function founderBriefFixture(overrides: Partial<FounderBriefProjection> = {}): FounderBriefProjection {
+  return {
+    kind: "FounderBriefProjection",
+    sessionId: SESSION_ID,
+    version: READY_PROJECTION_VERSION,
+    projectPurposeMode: "business",
+    projectPurposeModeLabel: "사업화 검증 중심",
+    projectPurposeModeNarrative: "사업화 검증 중심: 고객/문제/유료 의향/채널 리스크를 검증합니다.",
+    skippedCommercializationAxes: [],
+    exportReady: true,
+    problemCustomerValue: "Planning Handoff customer/problem/value summary",
+    topDecisions: ["Proceed with the next build slice."],
+    knownRisks: ["founder brief risk remains visible"],
+    nextValidationActions: ["Review residual risks before implementation."],
+    briefSections: [],
+    ifStopNowArtifact: {
+      title: "If stop now",
+      summary: "Risks remain visible in the handoff.",
+      knownRisks: ["founder brief risk remains visible"],
+      nextValidationActions: ["Review residual risks before implementation."]
+    },
+    exportMetadata: {
+      format: "markdown",
+      filename: "founder-brief.md",
+      preparedAt: "2026-05-06T00:04:00.000Z",
+      writePolicy: "metadata_only_no_file_write",
+      blockedSideEffects: ["file_write"]
+    },
+    ...overrides
+  };
+}
 
 function readySourceRefs(
   overrides: Partial<Record<"spec" | "completion" | "evidence" | "queue", Partial<PlanningHandoffSourceRefDto>>> = {}
@@ -876,6 +909,44 @@ describe("Phase 2 Planning Handoff ProductEngine gate", () => {
     });
   });
 
+  it("blocks Founder Brief source refs until the brief is export-ready from completed confidence gates", () => {
+    const founderBriefSourceRef: PlanningHandoffSourceRefDto = {
+      sourceType: "founder_brief",
+      sourceId: `founder_brief:${SESSION_ID}:${READY_PROJECTION_VERSION}`,
+      sourceLabel: "Founder Brief draft",
+      required: true,
+      stale: false
+    };
+    const reduction = reduceProductEngineCommand(
+      planningHandoffCommand({
+        sourceRefs: readySourceRefs({
+          completion: founderBriefSourceRef
+        })
+      }),
+      {
+        ...baseReadyState(),
+        founderBrief: founderBriefFixture({
+          exportReady: false
+        })
+      }
+    );
+
+    expect(reduction.accepted).toBe(true);
+    expect(reduction.immediateProjection).toMatchObject({
+      currentStatus: "source_trace_incomplete",
+      blockerArtifact: {
+        blockers: expect.arrayContaining([
+          expect.objectContaining({
+            blockerClass: "source_trace",
+            whyFatal:
+              "Planning Handoff cannot use required source refs that are not present, accepted, and current in the loaded ProductEngine state.",
+            sourceRefs: [founderBriefSourceRef]
+          })
+        ])
+      }
+    });
+  });
+
   it.each([
     ["decision-linked Evidence Pack", "decision_linked_evidence_pack"],
     ["research-updated Queue", "research_updated_queue_item"]
@@ -1536,34 +1607,7 @@ describe("Phase 2 Planning Handoff ProductEngine gate", () => {
           ...state.researchState,
           knownRisks: ["research risk remains visible"]
         },
-        founderBrief: {
-          kind: "FounderBriefProjection",
-          sessionId: SESSION_ID,
-          version: READY_PROJECTION_VERSION,
-          projectPurposeMode: "business",
-          projectPurposeModeLabel: "사업화 검증 중심",
-          projectPurposeModeNarrative: "사업화 검증 중심: 고객/문제/유료 의향/채널 리스크를 검증합니다.",
-          skippedCommercializationAxes: [],
-          exportReady: true,
-          problemCustomerValue: "Planning Handoff customer/problem/value summary",
-          topDecisions: ["Proceed with the next build slice."],
-          knownRisks: ["founder brief risk remains visible"],
-          nextValidationActions: ["Review residual risks before implementation."],
-          briefSections: [],
-          ifStopNowArtifact: {
-            title: "If stop now",
-            summary: "Risks remain visible in the handoff.",
-            knownRisks: ["founder brief risk remains visible"],
-            nextValidationActions: ["Review residual risks before implementation."]
-          },
-          exportMetadata: {
-            format: "markdown",
-            filename: "founder-brief.md",
-            preparedAt: "2026-05-06T00:04:00.000Z",
-            writePolicy: "metadata_only_no_file_write",
-            blockedSideEffects: ["file_write"]
-          }
-        }
+        founderBrief: founderBriefFixture()
       }
     );
 

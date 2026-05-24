@@ -96,7 +96,7 @@ export type InitialQueueStartBlocker =
   | "idea"
   | "intake";
 
-export function initialQueueStartBlocker({
+export function initialQueueStartBlockerList({
   chatGptLoginAcknowledged,
   codexLoginAuthenticated,
   connectionStatus,
@@ -106,40 +106,46 @@ export function initialQueueStartBlocker({
   idea,
   intake,
   isBusy
-}: InitialQueueStartReadinessInput): InitialQueueStartBlocker | null {
+}: InitialQueueStartReadinessInput): readonly InitialQueueStartBlocker[] {
   if (isBusy) {
-    return "busy";
+    return ["busy"];
   }
 
+  const blockers: InitialQueueStartBlocker[] = [];
+
   if (!chatGptLoginAcknowledged) {
-    return "chatgpt_login";
+    blockers.push("chatgpt_login");
   }
 
   if (connectionStatus !== "connected" || !hasClient) {
-    return "sidecar_connection";
+    blockers.push("sidecar_connection");
   }
 
   if (!codexLoginAuthenticated) {
-    return "codex_login";
+    blockers.push("codex_login");
   }
 
   if (!projectPurposeMode) {
-    return "project_purpose";
+    blockers.push("project_purpose");
   }
 
   if (projectPurposeMode === "business" && !businessCriticIntensity) {
-    return "business_critic_intensity";
+    blockers.push("business_critic_intensity");
   }
 
   if (!idea.trim()) {
-    return "idea";
+    blockers.push("idea");
   }
 
   if (!intake.trim()) {
-    return "intake";
+    blockers.push("intake");
   }
 
-  return null;
+  return blockers;
+}
+
+export function initialQueueStartBlocker(input: InitialQueueStartReadinessInput): InitialQueueStartBlocker | null {
+  return initialQueueStartBlockerList(input)[0] ?? null;
 }
 
 export function canStartInitialQueueFlow(input: InitialQueueStartReadinessInput): boolean {

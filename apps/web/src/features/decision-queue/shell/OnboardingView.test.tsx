@@ -44,6 +44,8 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
     },
     idea: "",
     initialBusinessCriticIntensityReason: "",
+    initialQueueStartBlockerMessages: [],
+    initialResearchPermission: "not_now",
     intake: "",
     isBusy: false,
     projectPurposeMode: null,
@@ -54,6 +56,7 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
     setChatGptLoginAcknowledged: vi.fn(),
     setIdea: vi.fn(),
     setInitialBusinessCriticIntensityReason: vi.fn(),
+    setInitialResearchPermission: vi.fn(),
     setIntake: vi.fn(),
     setProjectPurposeMode: vi.fn(),
     startCodexLogin: vi.fn(),
@@ -120,6 +123,35 @@ describe("OnboardingView", () => {
 
     expect(markup).toContain('<button type="button" disabled="">Open Codex login</button>');
     expect(markup).toContain('<button type="button" disabled="">Refresh Codex login status</button>');
+  });
+
+  it("explains every missing item before the first-question button can be enabled", () => {
+    const markup = renderOnboardingView({
+      initialQueueStartBlockerMessages: [
+        "Confirm that you signed in to ChatGPT directly before starting.",
+        "Choose either business validation or personal workflow build before starting.",
+        "Enter an idea summary before starting."
+      ]
+    });
+
+    expect(markup).toContain("First-question readiness checklist");
+    expect(markup).toContain("Before you can start");
+    expect(markup).toContain("Complete these items, then the Create first questions button will turn on.");
+    expect(markup).toContain("Confirm that you signed in to ChatGPT directly before starting.");
+    expect(markup).toContain("Choose either business validation or personal workflow build before starting.");
+    expect(markup).toContain("Enter an idea summary before starting.");
+    expect(markup).toContain('<button type="submit" disabled="">Create first questions</button>');
+  });
+
+  it("shows a ready state once all first-question prerequisites are complete", () => {
+    const markup = renderOnboardingView({
+      canStart: true,
+      initialQueueStartBlockerMessages: []
+    });
+
+    expect(markup).toContain("Ready to create first questions");
+    expect(markup).toContain("Everything needed for the first question batch is in place.");
+    expect(markup).toContain("<button type=\"submit\">Create first questions</button>");
   });
 
   it("keeps Codex login feedback visible when runtime status is still unknown", () => {

@@ -261,6 +261,69 @@ export function useDecisionQueueResearchActions({
     ]
   );
 
+  const updateAllowlistMaxRunsPerSession = useCallback(
+    async (allowlistId: ResearchAllowlistId, maxRunsPerSession: number) => {
+      if (!client || !projections.session) {
+        setWorkflowError(researchActionErrors.activeProjectRequiredAllowlistChange);
+        return;
+      }
+
+      const allowlist = researchOperations.allowlists?.allowlists.find((item) => item.allowlistId === allowlistId);
+
+      if (!allowlist) {
+        setWorkflowError(researchActionErrors.activeAllowlistRequiredStartRun);
+        return;
+      }
+
+      if (
+        !Number.isInteger(maxRunsPerSession) ||
+        maxRunsPerSession < allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject
+      ) {
+        setWorkflowError(researchActionErrors.maxSessionRunsInvalid);
+        return;
+      }
+
+      setIsBusy(true);
+      setWorkflowError(null);
+
+      try {
+        const response = await appendCommand(
+          researchActionLabels.updateMaxSessionRuns,
+          await client.updateResearchAllowlist(projections.session.projectId, allowlist.allowlistId, {
+            rateBudgetPolicy: {
+              ...allowlist.rateBudgetPolicy,
+              maxRunsPerSession
+            }
+          })
+        );
+        const allowlists = requiredCommandProjection<ResearchAllowlistGovernanceProjection>(
+          response,
+          "ResearchAllowlistGovernanceProjection"
+        );
+
+        setResearchOperations((current) => ({
+          ...current,
+          allowlists
+        }));
+        await refreshResearchOperations(projections.session.projectId);
+      } catch (error) {
+        setWorkflowError(displayError(error));
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [
+      appendCommand,
+      client,
+      projections.session,
+      refreshResearchOperations,
+      researchActionErrors,
+      researchActionLabels,
+      researchOperations.allowlists,
+      setResearchOperations
+    ]
+  );
+
   const planPhase15aResearchTask = useCallback(async () => {
     if (!client || !projections.session) {
       setWorkflowError(researchActionErrors.activeSessionRequiredPlanResearch);
@@ -648,6 +711,7 @@ export function useDecisionQueueResearchActions({
     pauseAllowlist,
     revokeAllowlist,
     updateAllowlistMaxConcurrentRuns,
+    updateAllowlistMaxRunsPerSession,
     planPhase15aResearchTask,
     startReadOnlyResearchRun,
     startReadyReadOnlyResearchRunsAfterAnswer,

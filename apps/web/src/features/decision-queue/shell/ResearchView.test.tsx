@@ -219,6 +219,7 @@ function renderResearchView(controllerOverrides: Partial<DecisionQueueShellContr
     startReadOnlyResearchRun: vi.fn(),
     startReadyReadOnlyResearchRuns: vi.fn(),
     updateAllowlistMaxConcurrentRuns: vi.fn(),
+    updateAllowlistMaxRunsPerSession: vi.fn(),
     ...controllerOverrides
   } satisfies Partial<DecisionQueueShellController>;
 

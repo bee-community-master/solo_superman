@@ -1,0 +1,605 @@
+import type {
+  AmbiguityAnswerOption,
+  AmbiguityAnswerSelectionMode,
+  AmbiguityExpectedAnswerType,
+  AmbiguityIssueSnapshot,
+  EvidenceMatrixProjection,
+  ResearchTaskProjection
+} from "@solo-superman/contracts";
+import { answerOptionsForQuestion } from "./answer-options";
+
+export type ResearchFollowUpAnswerShape =
+  | "open_text"
+  | "binary_choice"
+  | "single_choice"
+  | "multi_select"
+  | "ranked_choice"
+  | "evidence_judgment";
+
+interface ResearchFollowUpAnswerInput {
+  readonly question: string;
+  readonly researchTask: ResearchTaskProjection;
+  readonly sourceQuestion: AmbiguityIssueSnapshot | undefined;
+  readonly evidenceMatrix: EvidenceMatrixProjection;
+}
+
+function researchFollowUpAnswerOption(
+  id: string,
+  label: string,
+  value: string,
+  primaryDetail: string,
+  secondaryDetail: string
+): AmbiguityAnswerOption {
+  return {
+    id,
+    label,
+    value,
+    primaryDetail,
+    secondaryDetail,
+    pro: primaryDetail,
+    con: secondaryDetail
+  };
+}
+
+const RESEARCH_FOLLOW_UP_FALLBACK_OPTIONS = [
+  researchFollowUpAnswerOption(
+    "need_more_research",
+    "추가 리서치 필요",
+    "지금 답하기에는 근거가 부족하므로 더 넓은 자료를 모은다.",
+    "성급한 결정을 줄입니다.",
+    "결정 완료와 구현 시작이 늦어집니다."
+  ),
+  researchFollowUpAnswerOption(
+    "decide_after_validation",
+    "검증 후 결정",
+    "지금 확정하지 않고 다음 검증에서 확인할 조건을 답변에 남긴다.",
+    "보류 이유와 다음 확인 조건을 답변 흐름 안에 남길 수 있습니다.",
+    "Known Risk로 공식 이관하려면 카드의 Known Risk 전용 동작을 사용해야 합니다."
+  ),
+  researchFollowUpAnswerOption(
+    "narrow_scope_before_answer",
+    "범위 좁힌 뒤 답변",
+    "먼저 고객/기능/검증 범위를 더 좁힌 뒤 그 좁은 기준으로 답한다.",
+    "성급한 넓은 결정을 줄이고 다음 질문을 더 작게 만들 수 있습니다.",
+    "이번 답변만으로는 넓은 원래 질문이 바로 닫히지 않을 수 있습니다."
+  )
+] as const;
+
+function boundedResearchFollowUpAnswerOptions(
+  options: readonly AmbiguityAnswerOption[],
+  input: { readonly reservePrimaryFallback?: boolean; readonly fillMinimumOptions?: boolean } = {}
+) {
+  const reservePrimaryFallback = input.reservePrimaryFallback ?? true;
+  const fillMinimumOptions = input.fillMinimumOptions ?? true;
+  const primaryFallbackOption = RESEARCH_FOLLOW_UP_FALLBACK_OPTIONS[0];
+  const bounded = !reservePrimaryFallback || options.some((option) => option.id === primaryFallbackOption.id)
+    ? [...options]
+    : [...options.slice(0, 9), primaryFallbackOption];
+
+  if (!fillMinimumOptions) {
+    return bounded.slice(0, 10);
+  }
+
+  for (const fallbackOption of RESEARCH_FOLLOW_UP_FALLBACK_OPTIONS.slice(1)) {
+    if (bounded.length >= 3) {
+      break;
+    }
+
+    if (!bounded.some((option) => option.id === fallbackOption.id)) {
+      bounded.push(fallbackOption);
+    }
+  }
+
+  return bounded.slice(0, 10);
+}
+
+function boundedChoiceAnswerOptions(
+  options: readonly AmbiguityAnswerOption[],
+  answerShape: ResearchFollowUpAnswerShape
+) {
+  return boundedResearchFollowUpAnswerOptions(options, {
+    reservePrimaryFallback: answerShape !== "ranked_choice",
+    fillMinimumOptions: answerShape !== "ranked_choice"
+  });
+}
+
+function candidateOptionId(index: number) {
+  return `question_candidate_${index + 1}`;
+}
+
+function normalizeQuestionCandidateLabel(value: string) {
+  return value
+    .replace(/^[\s"'‘’“”([{<]+|[\s"'‘’“”)\]}>.。]+$/gu, "")
+    .replace(/\s+(?:정도|후보|옵션|선택지)$/u, "")
+    .trim();
+}
+
+function splitCandidatePhrase(value: string) {
+  return value
+    .replace(/([^\s,·/]+)(?:와|과)\s+/gu, "$1, ")
+    .replace(/\s+(?:및|또는|혹은)\s+/gu, ", ")
+    .split(/[,·/]+/u)
+    .map(normalizeQuestionCandidateLabel)
+    .filter((candidate) => candidate.length >= 2 && candidate.length <= 64);
+}
+
+function normalizeBulletCandidateLabel(value: string) {
+  return normalizeQuestionCandidateLabel(
+    value
+      .replace(/\s*(?:[-–—]|:|：)\s+.+$/u, "")
+      .replace(/\s*\([^)]{8,}\)\s*$/u, "")
+      .replace(/\s*（[^）]{8,}）\s*$/u, "")
+  );
+}
+
+function candidateBulletLabelsFromQuestion(question: string) {
+  const candidates: string[] = [];
+  let isCandidateListOpen = false;
+
+  for (const line of question.split(/\r?\n/u)) {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      isCandidateListOpen = false;
+      continue;
+    }
+
+    if (/(?:후보|선택지|옵션|종류|유형|타입|성향|세그먼트|persona|segment|options?|candidates?)/iu.test(trimmed)) {
+      isCandidateListOpen = true;
+    }
+
+    const match = trimmed.match(/^(?:[-*•]|[0-9]+[.)]|[①②③④⑤⑥⑦⑧⑨⑩])\s*(?<candidate>.+)$/u);
+
+    if (!match?.groups?.candidate || !isCandidateListOpen) {
+      continue;
+    }
+
+    const candidate = normalizeBulletCandidateLabel(match.groups.candidate);
+
+    if (candidate.length >= 2 && candidate.length <= 64) {
+      candidates.push(candidate);
+    }
+  }
+
+  return candidates;
+}
+
+function candidatePhrasesFromQuestion(question: string) {
+  const phrases: string[] = [];
+  const patterns = [
+    /(?:후보|선택지|옵션|종류|유형|타입|성향)(?:는|은|로는|로|:)\s*(?<candidates>.+?)(?:입니다|입니다만|정도로|정도(?:로)?\s*추려|중에서|중\s*하나|가\s*있|이\s*있|를\s*고르|을\s*고르|를\s*선택|을\s*선택|\.|\?|$)/giu,
+    /(?<candidates>[^.?\n]{2,180}?)(?:\s*정도로\s*추려졌|(?:이|가)\s*후보(?:입니다|로\s*남았))/giu,
+    /(?<candidates>[^.?\n]{2,180}(?:[,·/]|(?:와|과)\s+|(?:및|또는|혹은)\s+)[^.?\n]{2,180}?)(?:\s*(?:중|가운데)\s*(?:하나(?:만)?|한\s*가지|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)|복수|다중)(?:를|을)?\s*(?:선택|고르|골라|정|택)|\s*(?:중|가운데)\s*어느\s*(?:것|후보|항목|종류|유형)|\s*(?:중|가운데)\s*먼저\s*(?:볼|확인|검증|구현)할\s*순서)/giu
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of question.matchAll(pattern)) {
+      const phrase = match.groups?.candidates?.trim();
+
+      if (phrase) {
+        phrases.push(phrase);
+      }
+    }
+  }
+
+  return phrases;
+}
+
+function candidateAnswerOptionsFromQuestion(question: string): readonly AmbiguityAnswerOption[] {
+  const seen = new Set<string>();
+  const candidates = [
+    ...candidatePhrasesFromQuestion(question).flatMap(splitCandidatePhrase),
+    ...candidateBulletLabelsFromQuestion(question)
+  ]
+    .filter((candidate) => {
+      const key = candidate.toLocaleLowerCase("ko-KR");
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+
+  return candidates.slice(0, 10).map((candidate, index) =>
+    researchFollowUpAnswerOption(
+      candidateOptionId(index),
+      candidate,
+      `${candidate} 후보를 선택한다.`,
+      "질문에 제시된 후보라 다음 리서치, 스펙, 구현 범위에 바로 연결할 수 있습니다.",
+      "후보 이름만으로 조건이나 제외 범위가 모호하면 아래 입력칸에 보완 설명이 필요합니다."
+    )
+  );
+}
+
+function isCustomerSegmentResearchFollowUp(input: Pick<ResearchFollowUpAnswerInput, "question" | "researchTask" | "sourceQuestion">) {
+  return /(?:고객|세그먼트|segment|customer|persona|성향|후보)/iu.test(
+    [
+      input.question,
+      input.researchTask.objective,
+      input.sourceQuestion?.summary,
+      input.sourceQuestion?.questionText,
+      input.sourceQuestion?.topicKey
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+}
+
+function normalizedQuestionContext(input: ResearchFollowUpAnswerInput) {
+  return [
+    input.question,
+    input.researchTask.objective,
+    input.sourceQuestion?.summary,
+    input.sourceQuestion?.questionText,
+    input.evidenceMatrix.knownRisk
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function hasEvidenceJudgmentCue(input: ResearchFollowUpAnswerInput) {
+  const text = normalizedQuestionContext(input);
+
+  return (
+    /(?:찬성|반대|근거|한계|불확실성|반례|과신|추가\s*리서치|counter[-\s]?evidence|pro\s*evidence|con\s*evidence|skeptical\s*evidence|evidence\s*gap)/iu.test(
+      text
+    ) ||
+    (input.evidenceMatrix.proEvidence.length > 0 &&
+      (input.evidenceMatrix.conEvidence.length > 0 || input.evidenceMatrix.uncertainties.length > 0))
+  );
+}
+
+function hasOpenTextCue(question: string) {
+  return /(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|서술|설명|적어\s*주|작성|말로\s*(?:풀어|설명)|본인\s*말|자유롭게|구체적으로\s*(?:말|설명)|왜|어떻게|어떤\s*(?:상황|맥락|이유|제약)|describe|explain|write|free[-\s]?form|open[-\s]?(?:ended|question)|subjective)/iu.test(
+    question
+  );
+}
+
+const explicitNarrativeAnswerInstructionPattern = new RegExp(
+  [
+    "(?:이번(?:에는| 질문은)?|지금(?:은)?|여기서는|이\\s*질문은|답변은)[^.\\n?]{0,80}(?:주관식|서술형|자유\\s*(?:답변|서술|입력)|직접\\s*(?:입력|작성)|open[-\\s]?question|open[-\\s]?ended)",
+    "(?:주관식|서술형|자유\\s*(?:답변|서술|입력)|open[-\\s]?question|open[-\\s]?ended)[^.\\n?]{0,80}(?:답변을?\\s*(?:요구|작성|적어|남겨)|로\\s*(?:답변|작성|서술))"
+  ].join("|"),
+  "iu"
+);
+
+function hasExplicitNarrativeAnswerInstruction(question: string) {
+  return explicitNarrativeAnswerInstructionPattern.test(question);
+}
+
+function rejectsChoiceOptions(question: string) {
+  return /(?:선택지\s*없이|선택지(?:가|는)?\s*아니라|객관식(?:이|은)?\s*아니라|선택형(?:이|은)?\s*아니라|고르지\s*말고|선택하지\s*말고|without\s+choices?|no\s+choices?|not\s+(?:a\s+)?(?:choice|multiple[-\s]?choice|single[-\s]?choice))/iu.test(
+    question
+  );
+}
+
+function hasMultiSelectCue(question: string) {
+  return (
+    /(?:복수|다중|모두|해당|중복|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)|둘\s*이상|복수\s*선택|다중\s*선택|복수선택|다중선택|multi[-\s]?select|one\s+or\s+more|select\s+all|which\s+.+\s+together)/iu.test(
+      question
+    ) ||
+    /\b(?:select|choose|pick)\s+multiple\b/iu.test(question) ||
+    /\bmultiple\s+(?:answers?|selections?)\b/iu.test(question) ||
+    /\bmultiple\s+(?:options?|choices?|items?)\s+(?:can|may)\s+(?:apply|fit|be\s+true)\b/iu.test(question)
+  );
+}
+
+function hasBinaryChoiceCue(question: string) {
+  return /(?:(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|찬반|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|어느|선택|고르|판단|객관식|(?:의견|답변|방향)?(?:을|를)?\s*(?:하|할|선택|고르|골라|판단|정|답))|(?:찬성|동의|진행|반영|채택)\s*여부|(?:할지|갈지|진행할지|반영할지)\s*말지|양자\s*택일|양자택일|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose|찬성인지\s*반대|동의하시|찬성하시|반대하시|진행할까요|해야\s*할까요|반영할까요)/iu.test(
+    question
+  );
+}
+
+function hasRankedChoiceCue(question: string) {
+  return /(?:우선순위|우선\s*순위|순위|순서|랭킹|중요도순|먼저\s*(?:볼|검증|구현|확인)할\s*순서|rank(?:ed|ing)?|priorit(?:y|ize|ise)|order\s+(?:of|the))/iu.test(
+    question
+  );
+}
+
+function hasForcedChoiceCue(question: string) {
+  return /(?:객관식|선택형|선택|고르|골라|중\s*(?:하나|한\s*가지)|하나(?:를|만)?\s*(?:선택|고르)|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|복수|다중|(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|찬반|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|선택|고르|판단|객관식)|(?:찬성|동의|진행|반영|채택)\s*여부|(?:할지|갈지|진행할지|반영할지)\s*말지|양자\s*택일|양자택일|choose|pick|select|single[-\s]?choice|multi[-\s]?select|one\s+or\s+more|select\s+all|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(
+    question
+  );
+}
+
+function hasConcreteSingleChoiceCue(question: string) {
+  return /(?:객관식|선택형|단일\s*선택|단일선택|하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|종류\s*중\s*하나|(?:후보|선택지|옵션|고객\s*후보|고객\s*세그먼트)(?:를|을)?\s*(?:선택|고르)|어느\s*(?:후보|성향|고객|세그먼트|종류|선택지)|(?:무엇|어디|누구)에\s*집중|선택하시겠|집중하시겠|고르시겠|choose|pick|which\s+(?:one|customer|segment|option)|single[-\s]?choice)/iu.test(
+    question
+  );
+}
+
+function hasSingleChoiceCue(question: string) {
+  return /(?:어느\s*방향|which\s+direction)/iu.test(question) || hasConcreteSingleChoiceCue(question);
+}
+
+function asksForValidationPlan(question: string) {
+  return /(?:(?:실험|검증|테스트|확인)\s*(?:방법|방식|계획|후보|절차|전략|먼저|우선)|(?:방법|방식|계획|후보)\s*(?:중|가운데)?\s*(?:어느|어떤)?\s*(?:실험|검증|테스트|확인)|validation\s+plan|validate\s+(?:first|with|by)|which\s+(?:experiment|test|validation)|experiment\s+(?:plan|first|candidate)|test\s+(?:plan|first|candidate))/iu.test(
+    question
+  );
+}
+
+function isSignalOrCriteriaResearchFollowUp(input: Pick<ResearchFollowUpAnswerInput, "question" | "researchTask" | "sourceQuestion">) {
+  return /(?:신호|조건|요인|기준|signal|criteria|factor|indicator)/iu.test(
+    [
+      input.question,
+      input.researchTask.objective,
+      input.sourceQuestion?.summary,
+      input.sourceQuestion?.questionText,
+      input.sourceQuestion?.topicKey
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+}
+
+function sourceQuestionImpliesChoice(sourceQuestion: AmbiguityIssueSnapshot | undefined) {
+  return sourceQuestion?.expectedAnswerType === "choice" || sourceQuestion?.expectedAnswerType === "rank";
+}
+
+export function classifyResearchFollowUpAnswerShape(input: ResearchFollowUpAnswerInput): ResearchFollowUpAnswerShape {
+  if (hasExplicitNarrativeAnswerInstruction(input.question)) {
+    return "open_text";
+  }
+
+  if (hasMultiSelectCue(input.question)) {
+    return "multi_select";
+  }
+
+  if (hasOpenTextCue(input.question) && (rejectsChoiceOptions(input.question) || !hasForcedChoiceCue(input.question))) {
+    return "open_text";
+  }
+
+  if (hasBinaryChoiceCue(input.question)) {
+    return "binary_choice";
+  }
+
+  if (hasRankedChoiceCue(input.question)) {
+    return "ranked_choice";
+  }
+
+  if (hasConcreteSingleChoiceCue(input.question)) {
+    return "single_choice";
+  }
+
+  if (hasOpenTextCue(input.question)) {
+    return "open_text";
+  }
+
+  if (hasEvidenceJudgmentCue(input)) {
+    return "evidence_judgment";
+  }
+
+  if (hasSingleChoiceCue(input.question) || sourceQuestionImpliesChoice(input.sourceQuestion)) {
+    return "single_choice";
+  }
+
+  return "open_text";
+}
+
+export function researchFollowUpExpectedAnswerType(input: ResearchFollowUpAnswerInput): AmbiguityExpectedAnswerType {
+  const answerShape = classifyResearchFollowUpAnswerShape(input);
+
+  if (answerShape === "binary_choice") {
+    return "choice";
+  }
+
+  if (answerShape === "evidence_judgment") {
+    return "evidence";
+  }
+
+  if (answerShape === "open_text") {
+    return asksForValidationPlan(input.question) ? "experiment" : "text";
+  }
+
+  if (answerShape === "ranked_choice") {
+    return "rank";
+  }
+
+  if (/(?:순위|우선순위|rank|priorit)/iu.test(input.question)) {
+    return "rank";
+  }
+
+  if (asksForValidationPlan(input.question)) {
+    return "experiment";
+  }
+
+  return "choice";
+}
+
+export function researchFollowUpAnswerSelectionMode(input: ResearchFollowUpAnswerInput): AmbiguityAnswerSelectionMode | undefined {
+  const answerShape = classifyResearchFollowUpAnswerShape(input);
+
+  if (answerShape === "open_text") {
+    return undefined;
+  }
+
+  if (answerShape === "multi_select") {
+    return "multiple";
+  }
+
+  return answerShape === "ranked_choice" ? "ranked" : "single";
+}
+
+function choiceTopicKeyForQuestion(input: ResearchFollowUpAnswerInput) {
+  const text = normalizedQuestionContext(input);
+
+  if (isSignalOrCriteriaResearchFollowUp(input)) {
+    return "customer_signal_selection";
+  }
+
+  if (isCustomerSegmentResearchFollowUp(input)) {
+    return "primary_customer_narrowing";
+  }
+
+  if (/(?:구매자|구매|결제자|사용자와|buyer)/iu.test(text)) {
+    return "buyer_user_split";
+  }
+
+  if (/(?:범위|기능|첫\s*버전|mvp|scope)/iu.test(text)) {
+    return "mvp_validation_scope";
+  }
+
+  if (/(?:제외|하지\s*않을|non-?goal|boundary)/iu.test(text)) {
+    return "non_goal_boundaries";
+  }
+
+  return undefined;
+}
+
+function choiceAnswerOptions(input: ResearchFollowUpAnswerInput, answerShape: ResearchFollowUpAnswerShape) {
+  const explicitSourceOptions = input.sourceQuestion?.answerOptions;
+  const sourceTopicOptions = answerOptionsForQuestion(input.sourceQuestion?.topicKey, input.sourceQuestion?.expectedAnswerType);
+  const questionCandidateOptions = candidateAnswerOptionsFromQuestion(input.question);
+
+  if (questionCandidateOptions.length) {
+    return boundedChoiceAnswerOptions(questionCandidateOptions, answerShape);
+  }
+
+  if (explicitSourceOptions?.length) {
+    return boundedChoiceAnswerOptions(explicitSourceOptions, answerShape);
+  }
+
+  if (sourceTopicOptions?.length) {
+    return boundedChoiceAnswerOptions(sourceTopicOptions, answerShape);
+  }
+
+  return boundedChoiceAnswerOptions(
+    answerOptionsForQuestion(choiceTopicKeyForQuestion(input), researchFollowUpExpectedAnswerType(input)) ?? [],
+    answerShape
+  );
+}
+
+function binaryChoiceAnswerOptions() {
+  return boundedResearchFollowUpAnswerOptions([
+    researchFollowUpAnswerOption(
+      "agree_or_continue",
+      "찬성 / 진행",
+      "현재 근거로는 이 방향에 찬성하고 다음 스펙 또는 검증 단계로 진행한다.",
+      "결정이 닫혀 다음 작업으로 넘어가기 쉽습니다.",
+      "숨은 반례가 있으면 너무 빠른 확정이 될 수 있습니다."
+    ),
+    researchFollowUpAnswerOption(
+      "disagree_or_stop",
+      "반대 / 보류",
+      "현재 근거로는 이 방향에 반대하거나 보류하고 범위 축소 또는 방향 전환을 검토한다.",
+      "잘못된 가정에 계속 투자하는 일을 줄입니다.",
+      "실제로는 유효한 기회를 너무 일찍 버릴 수 있습니다."
+    ),
+    researchFollowUpAnswerOption(
+      "conditional_yes",
+      "조건부 찬성",
+      "특정 조건이나 추가 확인이 충족되면 진행하고, 그 조건을 답변에 함께 적는다.",
+      "찬반을 단순화하지 않고 실행 조건까지 남길 수 있습니다.",
+      "조건이 흐리면 다음 질문이나 리서치가 한 번 더 필요합니다."
+    ),
+    researchFollowUpAnswerOption(
+      "need_more_research",
+      "추가 근거 필요",
+      "찬성/반대를 정하기 전에 더 넓은 근거와 반례를 먼저 확인한다.",
+      "중요한 결정을 더 안전하게 만들 수 있습니다.",
+      "결정 완료와 구현 시작이 늦어집니다."
+    )
+  ]);
+}
+
+function evidenceJudgmentAnswerOptions(input: ResearchFollowUpAnswerInput) {
+  const hasProEvidence = input.evidenceMatrix.proEvidence.length > 0;
+  const hasConEvidence = input.evidenceMatrix.conEvidence.length > 0;
+  const hasUncertainty = input.evidenceMatrix.uncertainties.length > 0;
+  const options: AmbiguityAnswerOption[] = [];
+
+  if (hasProEvidence) {
+    options.push(
+      researchFollowUpAnswerOption(
+        "pro_evidence_stronger",
+        "찬성 근거가 더 강함",
+        "현재 리서치에서는 찬성 근거가 더 강하므로 이 방향을 결정 후보로 둔다.",
+        "다음 스펙/구현 판단으로 빠르게 연결할 수 있습니다.",
+        "반대 근거가 부족하면 중요한 결정에서는 과신이 될 수 있습니다."
+      )
+    );
+  }
+
+  if (hasConEvidence) {
+    options.push(
+      researchFollowUpAnswerOption(
+        "con_evidence_stronger",
+        "반대 근거가 더 강함",
+        "현재 리서치에서는 반대 근거가 더 강하므로 범위 축소나 방향 전환 후보로 본다.",
+        "실패 가능성을 일찍 드러내고 낭비를 줄입니다.",
+        "너무 이른 축소로 좋은 기회를 놓칠 수 있습니다."
+      )
+    );
+  }
+
+  if (!hasConEvidence) {
+    options.push(
+      researchFollowUpAnswerOption(
+        "find_counter_evidence",
+        "반대 근거를 더 찾기",
+        "아직 반대 근거가 부족하므로 결론을 미루고 반례와 한계를 더 조사한다.",
+        "중요한 결정을 더 안전하게 만들 수 있습니다.",
+        "질문/리서치 루프가 한 번 더 길어집니다."
+      )
+    );
+  }
+
+  if (hasUncertainty) {
+    options.push(
+      researchFollowUpAnswerOption(
+        "resolve_uncertainty_first",
+        "불확실성부터 줄이기",
+        "한계와 불확실성이 큰 부분을 먼저 확인한 뒤 판단한다.",
+        "근거의 빈틈을 숨기지 않고 다음 행동으로 바꿉니다.",
+        "즉시 스펙을 확정하기는 어렵습니다."
+      )
+    );
+  }
+
+  options.push(
+    researchFollowUpAnswerOption(
+      "narrow_scope",
+      "범위를 좁혀 진행",
+      "전체 결론을 확정하지 않고 더 작은 고객/기능/검증 범위로 좁혀 진행한다.",
+      "다음 실험과 구현 범위가 작아집니다.",
+      "큰 시장 또는 넓은 사용 사례 검증은 뒤로 밀릴 수 있습니다."
+    ),
+    researchFollowUpAnswerOption(
+      "need_more_research",
+      "추가 리서치 필요",
+      "지금 답하기에는 근거가 부족하므로 더 넓은 자료를 모은다.",
+      "성급한 결정을 줄입니다.",
+      "결정 완료와 구현 시작이 늦어집니다."
+    ),
+    researchFollowUpAnswerOption(
+      "decide_after_validation",
+      "검증 후 결정",
+      "지금 확정하지 않고 다음 검증에서 확인할 조건을 답변에 남긴다.",
+      "보류 이유와 다음 확인 조건을 답변 흐름 안에 남길 수 있습니다.",
+      "Known Risk로 공식 이관하려면 카드의 Known Risk 전용 동작을 사용해야 합니다."
+    )
+  );
+
+  return boundedResearchFollowUpAnswerOptions(options);
+}
+
+export function researchFollowUpAnswerOptions(input: ResearchFollowUpAnswerInput): readonly AmbiguityAnswerOption[] {
+  const answerShape = classifyResearchFollowUpAnswerShape(input);
+
+  if (answerShape === "open_text") {
+    return [];
+  }
+
+  if (answerShape === "binary_choice") {
+    return binaryChoiceAnswerOptions();
+  }
+
+  if (answerShape === "single_choice" || answerShape === "multi_select" || answerShape === "ranked_choice") {
+    return choiceAnswerOptions(input, answerShape);
+  }
+
+  return evidenceJudgmentAnswerOptions(input);
+}

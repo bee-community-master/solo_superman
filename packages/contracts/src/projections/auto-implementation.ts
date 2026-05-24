@@ -1,5 +1,9 @@
 import type { ProjectionVersion, SchemaVersion, SessionId } from "../ids";
 import {
+  IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES,
+  IMPLEMENTATION_CODE_REVIEW_SCOPES,
+  AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX,
+  IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK,
   isImplementationStepLedgerStepDoc,
   isImplementationStepLedgerTrackerDoc,
   type ImplementationStepDoc,
@@ -23,10 +27,10 @@ export const AUTO_IMPLEMENTATION_STAGES = [
 
 export const AUTO_IMPLEMENTATION_STAGE_LABELS = {
   initial_pr: "Initial implementation and PR creation",
-  code_review_fix_1: "PR code review and fix pass 1",
-  code_review_fix_2: "PR code review and fix pass 2",
-  clean_code_fix_1: "Clean-code review and fix pass 1",
-  clean_code_fix_2: "Broader clean-code review and fix pass 2",
+  code_review_fix_1: "Feature PR code review and fix loop",
+  code_review_fix_2: "Repository-wide code review and fix loop",
+  clean_code_fix_1: "Changed-code clean-code review and fix loop",
+  clean_code_fix_2: "Repository-wide clean-code review and fix loop",
   final_verify_pr_update: "PR description update and final test pass",
   merge_main: "Merge to main"
 } as const satisfies Record<AutoImplementationStage, string>;
@@ -102,13 +106,21 @@ export const AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_STATUSES = [
 ] as const;
 export const AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS = "github_pr_mutation" as const;
 export const AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY = "per_action" as const;
+export const AUTO_IMPLEMENTATION_PLANNING_PR_ISSUE_EVIDENCE_PREFIX = "planning-handoff-pr-issue:" as const;
+
+export function autoImplementationFinalPrBodyEvidenceRefs(runId: string) {
+  return [
+    `pr-body:dry-run:${runId}:final_verify_pr_update`,
+    `pr-body:final-verify:${runId}`
+  ];
+}
 
 export const DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES = [
   "Workspace repo bootstrap and initial implementation PR",
-  "PR code review and fix pass 1",
-  "PR code review and fix pass 2",
-  "Clean-code review and fix pass 1",
-  "Broader clean-code review and fix pass 2",
+  "Feature PR code review and fix loop",
+  "Repository-wide code review and fix loop",
+  "Changed-code clean-code review and fix loop",
+  "Repository-wide clean-code review and fix loop",
   "Final PR description update and full verification",
   "Merge verified PR to main"
 ] as const;
@@ -120,6 +132,7 @@ export const AUTO_IMPLEMENTATION_DELIVERY_PROTOCOL = [
   "Do not merge until the broader repo-level code review reaches two consecutive no-finding passes.",
   "Do not merge until the changed-code clean-code review reaches two consecutive no-finding passes.",
   "Do not merge until the repo-level clean-code review reaches two consecutive no-finding passes.",
+  "Any actionable review or clean-code finding resets that scope's two-pass no-finding streak after the fix is applied.",
   "Audit missing targeted tests, then run the full verification command before updating the PR body.",
   "Update the PR body with scope, review streak evidence, missing-test audit evidence, test evidence, remaining gaps, and merge readiness before merging."
 ] as const;
@@ -141,6 +154,53 @@ export const AUTO_IMPLEMENTATION_REVIEW_EVIDENCE_CHECKLIST = [
   "Changed-code clean-code review: record two consecutive no-finding passes for naming, boundaries, duplication, dead paths, and test shape.",
   "Repository clean-code review: record two consecutive no-finding passes for adjacent slop, stale abstractions, and consistency drift."
 ] as const;
+
+export const AUTO_IMPLEMENTATION_WORKER_BASE_REQUIRED_EVIDENCE = [
+  "ImplementationStepLedger trackerDoc and stepDoc",
+  "Planning Handoff PR-sized issue refs reviewed before edits",
+  "commit or no-code evidence",
+  "two no-finding feature and repository code-review passes",
+  "separate CodeReviewRecord ids for feature and repository review streaks",
+  "two no-finding changed-code and repository clean-code passes",
+  "separate CleanCodeReviewRecord ids for changed-code and repository clean-code streaks",
+  "MissingTestAuditRecord with uncovered required acceptance criteria recorded as zero or an explicit blocker",
+  "passing targeted and full test evidence",
+  "ledger evidence refs imported into the stage gate",
+  "visible blocker evidence when the worker cannot complete"
+] as const;
+
+export const AUTO_IMPLEMENTATION_STAGE_WORKER_REQUIRED_EVIDENCE = {
+  initial_pr: [
+    "initial implementation PR evidence links the PR-sized issue, acceptance criteria, rollback notes, and targeted test plan"
+  ],
+  code_review_fix_1: [
+    "feature-scope CodeReviewRecord ids prove two consecutive no-finding passes after any fixes"
+  ],
+  code_review_fix_2: [
+    "repository-scope CodeReviewRecord ids prove two consecutive no-finding passes beyond the touched feature"
+  ],
+  clean_code_fix_1: [
+    "changed-code CleanCodeReviewRecord ids prove two consecutive no-finding passes for naming, boundaries, duplication, dead paths, and test shape"
+  ],
+  clean_code_fix_2: [
+    "repository CleanCodeReviewRecord ids prove two consecutive no-finding passes for adjacent slop, stale abstractions, and consistency drift"
+  ],
+  final_verify_pr_update: [
+    "final missing-test audit records zero uncovered targeted-test gaps before PR body update",
+    "final PR body evidence refs are ready to prove scope, review streaks, exact verification commands, known gaps, and merge readiness"
+  ],
+  merge_main: [
+    "applied GitHub PR merge mutation record is present before merge_main completion",
+    `${AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX}<stage>:<command> evidence refs prove main was synced and verified after merge`
+  ]
+} as const satisfies Record<AutoImplementationStage, readonly string[]>;
+
+export function autoImplementationWorkerRequiredEvidence(stage: AutoImplementationStage) {
+  return [
+    ...AUTO_IMPLEMENTATION_WORKER_BASE_REQUIRED_EVIDENCE,
+    ...AUTO_IMPLEMENTATION_STAGE_WORKER_REQUIRED_EVIDENCE[stage]
+  ];
+}
 
 export const AUTO_IMPLEMENTATION_STAGE_REVIEW_GATES = {
   initial_pr: [
@@ -381,6 +441,16 @@ export function canCreateAutoImplementationGitHubIssues(run: AutoImplementationR
   return run.issueManagement.githubIssueUrls.length === 0 &&
     run.issueManagement.githubIssueMutation.createdIssueUrls.length === 0 &&
     run.issueManagement.githubIssueMutation.status !== "applied";
+}
+
+export function autoImplementationPlanningIssueFiles(run: Pick<AutoImplementationRun, "evidenceRefs">): readonly string[] {
+  return run.evidenceRefs
+    .filter((ref) => ref.startsWith(AUTO_IMPLEMENTATION_PLANNING_PR_ISSUE_EVIDENCE_PREFIX))
+    .map((ref) => ref.slice(AUTO_IMPLEMENTATION_PLANNING_PR_ISSUE_EVIDENCE_PREFIX.length));
+}
+
+export function autoImplementationPlanningIssueEvidenceRefs(run: Pick<AutoImplementationRun, "evidenceRefs">): readonly string[] {
+  return run.evidenceRefs.filter((ref) => ref.startsWith(AUTO_IMPLEMENTATION_PLANNING_PR_ISSUE_EVIDENCE_PREFIX));
 }
 
 export function hasAppliedAutoImplementationPullRequestMerge(run: AutoImplementationRun): boolean {
@@ -826,6 +896,17 @@ function isStageBlocker(value: unknown): value is AutoImplementationStageBlocker
     value.evidenceRefs.length > 0;
 }
 
+function reviewStreakRefsCoverScopes(
+  refs: readonly string[],
+  prefix: string,
+  scopes: readonly string[]
+) {
+  return scopes.every((scope) =>
+    refs.filter((ref) => ref.startsWith(`${prefix}:${scope}:`)).length >=
+      IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK
+  );
+}
+
 function isStageLedgerEvidence(value: unknown): value is AutoImplementationStageLedgerEvidence {
   return isRecord(value) &&
     isNonEmptyString(value.implementationStepId) &&
@@ -834,9 +915,13 @@ function isStageLedgerEvidence(value: unknown): value is AutoImplementationStage
     isStringArray(value.implementationEvidenceRefs) &&
     value.implementationEvidenceRefs.length > 0 &&
     isStringArray(value.codeReviewStreakRefs) &&
-    value.codeReviewStreakRefs.length >= 2 &&
+    reviewStreakRefsCoverScopes(value.codeReviewStreakRefs, "code-review", IMPLEMENTATION_CODE_REVIEW_SCOPES) &&
     isStringArray(value.cleanCodeReviewStreakRefs) &&
-    value.cleanCodeReviewStreakRefs.length >= 2 &&
+    reviewStreakRefsCoverScopes(
+      value.cleanCodeReviewStreakRefs,
+      "clean-code-review",
+      IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES
+    ) &&
     isStringArray(value.missingTestAuditRefs) &&
     value.missingTestAuditRefs.length > 0 &&
     isStringArray(value.testEvidenceRefs) &&

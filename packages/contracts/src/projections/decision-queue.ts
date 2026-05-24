@@ -2,6 +2,7 @@ import type { DecisionEvidencePackId, ProjectionVersion, QueueItemId, ResearchTa
 import type {
   AmbiguityExpectedAnswerType,
   AmbiguityAnswerOption,
+  AmbiguityAnswerSelectionMode,
   AmbiguityIssueSeverity,
   AmbiguityPossibleRoute,
   BusinessCriticalQuestionCategory,
@@ -87,6 +88,7 @@ export interface QueueItemProjection {
   readonly whyItMatters?: string;
   readonly decisionItUnlocks?: string;
   readonly expectedAnswerType?: AmbiguityExpectedAnswerType;
+  readonly answerSelectionMode?: AmbiguityAnswerSelectionMode;
   readonly answerOptions?: readonly AmbiguityAnswerOption[];
   readonly possibleRoutes?: readonly AmbiguityPossibleRoute[];
   readonly sourceRef?: string;

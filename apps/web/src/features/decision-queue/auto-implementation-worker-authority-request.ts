@@ -1,3 +1,4 @@
+import { autoImplementationPlanningIssueEvidenceRefs } from "@solo-superman/contracts";
 import type {
   AutoImplementationRun,
   CreateAutoImplementationWorkerJobRequest,
@@ -34,6 +35,7 @@ export function buildAutoImplementationWorkerAuthorityRequest(input: {
   const authorityRef = `auto-worker-authority:${run.runId}:${run.currentStage}:${issue?.issueId ?? "issue"}`;
   const boundedOutputId = `bounded_output_auto_worker_${runRef}_${stageRef}_${issueRef}`;
   const issueSourceRef = issue ? `issue-doc:${issue.relativePath}` : `auto-implementation-stage:${run.currentStage}`;
+  const planningIssueEvidenceRefs = autoImplementationPlanningIssueEvidenceRefs(run);
 
   return {
     sessionId,
@@ -45,7 +47,8 @@ export function buildAutoImplementationWorkerAuthorityRequest(input: {
       sourceRefs: [
         `auto-implementation-run:${run.runId}`,
         `auto-implementation-stage:${run.currentStage}`,
-        issueSourceRef
+        issueSourceRef,
+        ...planningIssueEvidenceRefs
       ],
       intendedDecisionImpact:
         "Approve only the generated workspace file-diff boundary required to plan the next local Codex worker job.",
@@ -54,7 +57,8 @@ export function buildAutoImplementationWorkerAuthorityRequest(input: {
       evidenceRefs: [
         authorityRef,
         `workspace:${run.generatedRepoPath}`,
-        issueSourceRef
+        issueSourceRef,
+        ...planningIssueEvidenceRefs
       ],
       failureMode: "ready_for_preview",
       noExecutionPolicy: "controlled_execution_required"
@@ -87,7 +91,8 @@ export function buildAutoImplementationWorkerAuthorityRequest(input: {
       authorityRef,
       `auto-implementation-run:${run.runId}`,
       `workspace:${run.generatedRepoPath}`,
-      issueSourceRef
+      issueSourceRef,
+      ...planningIssueEvidenceRefs
     ],
     auditRefs: [`audit:auto-worker-authority:${run.runId}:${run.currentStage}`],
     preconditionChecks: {

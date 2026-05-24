@@ -8,6 +8,8 @@ interface ImplementationViewProps {
   readonly controller: DecisionQueueShellController;
 }
 
+const IMPLEMENTATION_READINESS_METRIC_THRESHOLD = 75;
+
 export function ImplementationView({ controller }: ImplementationViewProps) {
   const copy = useDecisionQueueCopy();
   const {
@@ -18,11 +20,14 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     canCreateAutoImplementationRun,
     completeAutoImplementationWorkerJobFromLedger,
     createAutoImplementationRun,
+    confidence,
     implementationStepLedgerView,
     importAutoImplementationWorkerLedgerFromDraft,
     isBusy,
     pendingSummary,
     pauseAutoImplementationStage,
+    planningHandoffView,
+    prepareFounderBrief,
     planAutoImplementationWorkerJob,
     recordAutoImplementationStageTick,
     startAutoImplementationStage,
@@ -39,22 +44,35 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     refreshRuntimeStatus,
     refreshAutoImplementationRuns,
     refreshImplementationStepLedger,
+    runPlanningHandoffGate,
     runAutoImplementationWorkerJob,
     runtimeActivity,
     runtimeStatus,
+    scoreCompleteness,
     statuses,
     workerLedgerImportDraft,
     setWorkerLedgerImportDraft
   } = controller;
   const runtimeEvidence = codexRuntimeEvidenceView(runtimeStatus);
+  const runtimeStatusLabel = copy.implementation.runtimeStatusLabels[runtimeEvidence.status];
+  const runtimeExecutionModeLabel =
+    copy.implementation.runtimeExecutionModeLabels[runtimeEvidence.executionMode];
+  const runtimeAccountTypeLabel = runtimeEvidence.accountType
+    ? copy.implementation.runtimeAccountTypeLabels[runtimeEvidence.accountType]
+    : null;
+  const runtimeAccountLabel = copy.implementation.runtimeAccountLabel(
+    copy.implementation.runtimeAccountStatusLabels[runtimeEvidence.accountStatus],
+    runtimeAccountTypeLabel,
+    runtimeEvidence.accountPlanType
+  );
   const runtimeEvidenceItems = runtimeStatus
     ? [
         [copy.implementation.runtimeCheckedAt, runtimeEvidence.checkedAtLabel],
         [copy.implementation.runtimeAdapterVersion, runtimeEvidence.adapterVersionLabel],
         [copy.implementation.runtimeGeneratedSchemaVersion, runtimeEvidence.generatedSchemaVersionLabel],
         [copy.implementation.runtimeTransport, runtimeEvidence.transportLabel],
-        [copy.implementation.runtimeExecutionMode, runtimeEvidence.executionModeLabel],
-        [copy.implementation.runtimeAccount, runtimeEvidence.accountLabel],
+        [copy.implementation.runtimeExecutionMode, runtimeExecutionModeLabel],
+        [copy.implementation.runtimeAccount, runtimeAccountLabel],
         [
           copy.implementation.runtimeLiveTurns,
           copy.implementation.runtimeLiveTurnStates[runtimeEvidence.liveTurnsState]
@@ -65,9 +83,145 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         ]
       ]
     : [];
+  const hasActiveSession = Boolean(projections.session);
+  const hasCompletionSource =
+    confidence?.completionCandidate.status === "candidate" || projections.founderBrief?.exportReady === true;
+  const implementationStartSteps = [
+    {
+      label: copy.implementation.startGuideSession,
+      state: hasActiveSession ? copy.implementation.startGuideDone : copy.implementation.startGuideBlocked,
+      ready: hasActiveSession,
+      detail: hasActiveSession ? copy.implementation.startGuideSessionReady : copy.implementation.startGuideSessionBlocked
+    },
+    {
+      label: copy.implementation.startGuideReadiness,
+      state: hasCompletionSource ? copy.implementation.startGuideDone : copy.implementation.startGuideBlocked,
+      ready: hasCompletionSource,
+      detail: hasCompletionSource
+        ? copy.implementation.startGuideReadinessReady
+        : confidence
+          ? copy.implementation.startGuideReadinessBlocked(confidence.completionCandidate.gateFailures.length)
+          : copy.implementation.startGuideReadinessMissing
+    },
+    {
+      label: copy.implementation.startGuideHandoff,
+      state: planningHandoffView.status === "final" ? copy.implementation.startGuideDone : copy.implementation.startGuideBlocked,
+      ready: planningHandoffView.status === "final",
+      detail: planningHandoffView.status === "final"
+        ? copy.implementation.startGuideHandoffReady
+        : planningHandoffView.status === "blocked"
+          ? planningHandoffView.summary
+          : copy.implementation.startGuideHandoffMissing
+    },
+    {
+      label: copy.implementation.startGuideWorkspace,
+      state: autoImplementationRunView.hasRun ? copy.implementation.startGuideDone : copy.implementation.startGuideBlocked,
+      ready: autoImplementationRunView.hasRun,
+      detail: autoImplementationRunView.hasRun
+        ? copy.implementation.startGuideWorkspaceReady
+        : canCreateAutoImplementationRun
+          ? copy.implementation.startGuideWorkspaceReadyToCreate
+          : copy.implementation.startGuideWorkspaceBlocked
+    }
+  ];
+  const implementationStartNextAction = !hasActiveSession
+    ? copy.implementation.startGuideNextSession
+    : !confidence
+      ? copy.implementation.startGuideNextScore
+      : !hasCompletionSource
+        ? copy.implementation.startGuideNextBrief
+        : planningHandoffView.status !== "final"
+          ? copy.implementation.startGuideNextHandoff
+          : !autoImplementationRunView.hasRun
+            ? copy.implementation.startGuideNextWorkspace
+            : copy.implementation.startGuideNextWorker;
+  const implementationReadinessMetricItems = confidence
+    ? [
+        [copy.planning.scoreBreakdownLabels.sectionCompleteness, confidence.scoreBreakdown.sectionCompleteness],
+        [copy.planning.scoreBreakdownLabels.questionDebtResolution, confidence.scoreBreakdown.questionDebtResolution],
+        [copy.planning.scoreBreakdownLabels.evidenceQuality, confidence.scoreBreakdown.evidenceQuality],
+        [copy.planning.scoreBreakdownLabels.decisionApproval, confidence.scoreBreakdown.decisionApproval],
+        [copy.planning.scoreBreakdownLabels.consistencyAndConflict, confidence.scoreBreakdown.consistencyAndConflict]
+      ] as const
+    : [];
+  const readyImplementationMetricCount = implementationReadinessMetricItems.filter(
+    ([, value]) => value >= IMPLEMENTATION_READINESS_METRIC_THRESHOLD
+  ).length;
 
   return (
     <div className="view-grid implementation-view">
+      <section className="panel implementation-start-guide">
+        <div className="panel-heading">
+          <h2>{copy.implementation.startGuideTitle}</h2>
+          <span>{autoImplementationRunView.hasRun ? copy.implementation.startGuideDone : copy.implementation.pending}</span>
+        </div>
+        <p className="operations-summary">{copy.implementation.startGuideSummary}</p>
+        <p className="research-recovery">{copy.implementation.startGuideNextAction}: {implementationStartNextAction}</p>
+        <ol className="implementation-start-steps">
+          {implementationStartSteps.map((step) => (
+            <li className={step.ready ? "ready" : "blocked"} key={step.label}>
+              <strong>{step.label}</strong>
+              <span>{step.state}</span>
+              <small>{step.detail}</small>
+            </li>
+          ))}
+        </ol>
+        {confidence ? (
+          <section className="operations-card" aria-label={copy.implementation.startGuideMetricsTitle}>
+            <h3>{copy.implementation.startGuideMetricsTitle}</h3>
+            <dl className="readiness-grid">
+              <div>
+                <dt>{copy.implementation.startGuideCompositeScore}</dt>
+                <dd>{confidence.compositeScore}% · {confidence.readinessLabel}</dd>
+              </div>
+              <div>
+                <dt>{copy.implementation.startGuideGateFailures}</dt>
+                <dd>{confidence.completionCandidate.gateFailures.length}</dd>
+              </div>
+              <div>
+                <dt>{copy.implementation.startGuideMetricsReady}</dt>
+                <dd>
+                  {copy.implementation.startGuideMetricsReadyCount(
+                    readyImplementationMetricCount,
+                    implementationReadinessMetricItems.length,
+                    IMPLEMENTATION_READINESS_METRIC_THRESHOLD
+                  )}
+                </dd>
+              </div>
+              {implementationReadinessMetricItems.map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}%</dd>
+                </div>
+              ))}
+            </dl>
+            {confidence.completionCandidate.gateFailures.length ? (
+              <ul className="effect-list" aria-label={copy.implementation.startGuideGateFailureList}>
+                {confidence.completionCandidate.gateFailures.map((failure) => (
+                  <li key={failure}>{failure}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>{copy.implementation.startGuideNoGateFailures}</p>
+            )}
+          </section>
+        ) : null}
+        <div className="card-actions panel-actions">
+          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void scoreCompleteness()}>
+            {copy.planning.scoreCompleteness}
+          </button>
+          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareFounderBrief()}>
+            {copy.handoff.planningActionLabels.prepareFounderBrief}
+          </button>
+          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void runPlanningHandoffGate()}>
+            {copy.handoff.runGate}
+          </button>
+          <button type="button" disabled={isBusy || !canCreateAutoImplementationRun} onClick={() => void createAutoImplementationRun()}>
+            {autoImplementationRunView.hasRun ? copy.autoImplementation.reprepare : copy.autoImplementation.create}
+          </button>
+        </div>
+      </section>
+
       <AutoImplementationRunPanel
         run={autoImplementationRunView}
         isBusy={isBusy}
@@ -155,7 +309,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             {copy.implementation.refreshRuntimeStatus}
           </button>
         </div>
-        <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatus.status}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
+        <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatusLabel}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
         {runtimeStatus ? (
           <dl className="readiness-grid" aria-label={copy.implementation.runtimeEvidenceDetails}>
             {runtimeEvidenceItems.map(([label, value]) => (

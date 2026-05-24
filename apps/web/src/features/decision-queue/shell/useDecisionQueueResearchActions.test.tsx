@@ -53,7 +53,7 @@ function researchRunProjection(): ResearchRunControlProjection {
   };
 }
 
-function allowlistProjection(maxConcurrentRunsPerProject = 2): ResearchAllowlistGovernanceProjection {
+function allowlistProjection(maxConcurrentRunsPerProject = 2, maxRunsPerSession = 3): ResearchAllowlistGovernanceProjection {
   return {
     kind: "ResearchAllowlistGovernanceProjection",
     projectionKind: "ResearchAllowlistProjection",
@@ -79,7 +79,7 @@ function allowlistProjection(maxConcurrentRunsPerProject = 2): ResearchAllowlist
         contextMode: "public_safe_summary",
         rateBudgetPolicy: {
           maxConcurrentRunsPerProject,
-          maxRunsPerSession: 3,
+          maxRunsPerSession,
           maxAutomaticRetriesPerRun: 2,
           runTimeoutSeconds: 600,
           retryBackoffSeconds: [30, 120]
@@ -222,6 +222,44 @@ describe("useDecisionQueueResearchActions", () => {
     expect(props.setWorkflowError).toHaveBeenCalledWith(null);
   });
 
+  it("updates the per-session research run limit without changing the simultaneous run limit", async () => {
+    const updatedProjection = allowlistProjection(2, 8);
+    const updateResearchAllowlist = vi.fn(async () => allowlistCommandResponse(updatedProjection));
+    const appendCommandCalls = vi.fn();
+    const appendCommand: Parameters<typeof useDecisionQueueResearchActions>[0]["appendCommand"] = async (
+      label,
+      response
+    ) => {
+      appendCommandCalls(label, response);
+
+      return response;
+    };
+    const { actions, props } = captureResearchActions({
+      appendCommand,
+      client: {
+        updateResearchAllowlist,
+        getResearchRunStatus: vi.fn(async () => researchRunProjection())
+      } as unknown as SidecarClient,
+      researchOperations: {
+        ...emptyResearchOperationsState(),
+        allowlists: allowlistProjection(2, 3)
+      }
+    });
+
+    await actions.updateAllowlistMaxRunsPerSession(allowlistId, 8);
+
+    expect(updateResearchAllowlist).toHaveBeenCalledWith(projectId, allowlistId, {
+      rateBudgetPolicy: expect.objectContaining({
+        maxConcurrentRunsPerProject: 2,
+        maxRunsPerSession: 8
+      })
+    });
+    expect(appendCommandCalls).toHaveBeenCalledWith("Update session research limit", expect.any(Object));
+    expect(props.setResearchOperations).toHaveBeenCalledWith(expect.any(Function));
+    expect(props.refreshResearchOperations).toHaveBeenCalledWith(projectId);
+    expect(props.setWorkflowError).toHaveBeenCalledWith(null);
+  });
+
   it("rejects fractional allowlist concurrency values before mutating the allowlist", async () => {
     const updateResearchAllowlist = vi.fn();
     const { actions, props } = captureResearchActions({
@@ -240,6 +278,27 @@ describe("useDecisionQueueResearchActions", () => {
     expect(updateResearchAllowlist).not.toHaveBeenCalled();
     expect(props.setWorkflowError).toHaveBeenCalledWith(
       "Max simultaneous research runs must be a positive whole number."
+    );
+  });
+
+  it("rejects per-session research run limits below the simultaneous run limit", async () => {
+    const updateResearchAllowlist = vi.fn();
+    const { actions, props } = captureResearchActions({
+      client: {
+        updateResearchAllowlist,
+        getResearchRunStatus: vi.fn(async () => researchRunProjection())
+      } as unknown as SidecarClient,
+      researchOperations: {
+        ...emptyResearchOperationsState(),
+        allowlists: allowlistProjection(3, 6)
+      }
+    });
+
+    await actions.updateAllowlistMaxRunsPerSession(allowlistId, 2);
+
+    expect(updateResearchAllowlist).not.toHaveBeenCalled();
+    expect(props.setWorkflowError).toHaveBeenCalledWith(
+      "Max research runs per session must be a whole number greater than or equal to the simultaneous run limit."
     );
   });
 });

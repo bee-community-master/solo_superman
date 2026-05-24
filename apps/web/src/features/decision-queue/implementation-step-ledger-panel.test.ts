@@ -28,6 +28,13 @@ describe("ImplementationStepLedgerPanel view model", () => {
 
   it("uses a visible not-started state before any ledger projection exists", () => {
     const view = implementationStepLedgerViewModel(null);
+    const markup = renderEnglishMarkup(
+      createElement(ImplementationStepLedgerPanel, {
+        ledger: view,
+        isBusy: false,
+        onRefreshLedger: () => undefined
+      })
+    );
 
     expect(view.status).toBe("not_started");
     expect(view.commitLabel).toContain("not recorded");
@@ -37,6 +44,14 @@ describe("ImplementationStepLedgerPanel view model", () => {
     expect(view.testEvidenceLabel).toContain("not recorded");
     expect(view.missingEvidenceItems).toContain("StepCommitRecord");
     expect(view.blockerLabel).toContain("Cannot complete");
+    expect(markup).toContain("implementation commit record");
+    expect(markup).toContain("code-review evidence");
+    expect(markup).toContain("clean-code review evidence");
+    expect(markup).toContain("missing-test audit evidence");
+    expect(markup).toContain("test evidence");
+    expect(markup).not.toContain("StepCommitRecord");
+    expect(markup).not.toContain("CodeReviewRecord");
+    expect(markup).not.toContain("CleanCodeReviewRecord");
   });
 
   it("keeps failed or missing evidence visible when the step is blocked", () => {

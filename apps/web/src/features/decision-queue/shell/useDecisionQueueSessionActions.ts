@@ -11,11 +11,13 @@ import {
   type ResearchQueueTerminalOutcome,
   type ResearchTaskId,
   type SessionShellProjection,
+  type StateVersion,
   type StatusEndpointDto
 } from "@solo-superman/contracts";
 import {
   commandResponseVersion,
   optionalCommandProjection,
+  optionalCommandQueueProjection,
   requiredCommandProjection
 } from "../../../shared/api/command-response-helpers";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
@@ -56,6 +58,7 @@ interface DecisionQueueSessionActionsProps {
   readonly projectPurposeMode: ProjectPurposeMode | null;
   readonly projections: ProjectionState;
   readonly purposeModeChangeReason: string;
+  readonly questionBatchSize: number;
   readonly refetchQueueAfterSseNotification: (
     projectId: ProjectId,
     sessionId: SessionShellProjection["sessionId"],
@@ -81,7 +84,17 @@ interface DecisionQueueSessionActionsProps {
   readonly onInitialQueueCreated?: () => void;
 }
 
-const NEXT_QUESTION_BATCH_LIMIT = 5;
+export const MIN_QUESTION_BATCH_SIZE = 3;
+export const MAX_QUESTION_BATCH_SIZE = 5;
+export const DEFAULT_NEXT_QUESTION_BATCH_SIZE = MAX_QUESTION_BATCH_SIZE;
+
+export function boundedQuestionBatchSize(value: number) {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_NEXT_QUESTION_BATCH_SIZE;
+  }
+
+  return Math.min(MAX_QUESTION_BATCH_SIZE, Math.max(MIN_QUESTION_BATCH_SIZE, Math.trunc(value)));
+}
 
 function answerDraftsWithClearedItems(
   current: Record<string, string>,
@@ -93,14 +106,49 @@ function answerDraftsWithClearedItems(
   };
 }
 
-export function nextQuestionBatchIdsForActivation(queue: DecisionQueueProjection | null | undefined) {
+export function nextQuestionBatchIdsForActivation(
+  queue: DecisionQueueProjection | null | undefined,
+  requestedBatchSize = DEFAULT_NEXT_QUESTION_BATCH_SIZE
+) {
+  const batchSize = boundedQuestionBatchSize(requestedBatchSize);
   const queueItemIds =
     queue?.next
       .filter(queueItemIsQuestionDebt)
-      .slice(0, NEXT_QUESTION_BATCH_LIMIT)
+      .slice(0, batchSize)
       .map((item) => item.queueItemId) ?? [];
+  const openQuestionCount = queue?.progress?.openQuestionCount ?? queueItemIds.length;
+
+  if (queueItemIds.length > 0 && queueItemIds.length < Math.min(MIN_QUESTION_BATCH_SIZE, openQuestionCount)) {
+    return undefined;
+  }
 
   return queueItemIds.length ? queueItemIds : undefined;
+}
+
+export function queueHasActiveQuestionDebt(queue: DecisionQueueProjection | null | undefined) {
+  return queue?.active.some(queueItemIsQuestionDebt) ?? false;
+}
+
+function queueHasRemainingOpenQuestionDebt(queue: DecisionQueueProjection | null | undefined) {
+  if (!queue) {
+    return false;
+  }
+
+  if (queue.progress) {
+    return queue.progress.openQuestionCount > queue.progress.activeQuestionCount;
+  }
+
+  return queue.next.some(queueItemIsQuestionDebt);
+}
+
+export function queueShouldAutoActivateNextQuestionBatch(
+  queue: DecisionQueueProjection | null | undefined,
+  requestedBatchSize = DEFAULT_NEXT_QUESTION_BATCH_SIZE
+) {
+  return !queueHasActiveQuestionDebt(queue) && (
+    Boolean(nextQuestionBatchIdsForActivation(queue, requestedBatchSize)?.length) ||
+    queueHasRemainingOpenQuestionDebt(queue)
+  );
 }
 
 export function useDecisionQueueSessionActions({
@@ -122,6 +170,7 @@ export function useDecisionQueueSessionActions({
   projectPurposeMode,
   projections,
   purposeModeChangeReason,
+  questionBatchSize,
   refetchQueueAfterSseNotification,
   refreshProjections,
   researchDrafts,
@@ -419,14 +468,41 @@ export function useDecisionQueueSessionActions({
     ]
   );
 
-  const continueAnswerPostSubmitWork = useCallback(
-    (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"], queue: DecisionQueueProjection | null) => {
+  const continueQuestionLoopAfterQueueUpdate = useCallback(
+    (
+      projectId: ProjectId,
+      sessionId: SessionShellProjection["sessionId"],
+      expectedStateVersion: StateVersion,
+      queue: DecisionQueueProjection | null
+    ) => {
       void (async () => {
         try {
           await refreshProjections(projectId, sessionId);
 
           if (queue) {
             await refetchQueueAfterSseNotification(projectId, sessionId, queue);
+          }
+
+          if (client && queueShouldAutoActivateNextQuestionBatch(queue, questionBatchSize)) {
+            const activateResponse = await appendCommand(
+              sessionActionLabels.loadNextQuestions,
+              await client.activateQuestionBatch(
+                sessionId,
+                expectedStateVersion,
+                nextQuestionBatchIdsForActivation(queue, questionBatchSize)
+              )
+            );
+            const activatedQueue = requiredCommandProjection<DecisionQueueProjection>(
+              activateResponse,
+              "DecisionQueueProjection"
+            );
+
+            setProjections((current) => ({
+              ...current,
+              queue: activatedQueue
+            }));
+            await refreshProjections(projectId, sessionId);
+            await refetchQueueAfterSseNotification(projectId, sessionId, activatedQueue);
           }
 
           await startReadyReadOnlyResearchRunsAfterAnswer?.();
@@ -436,8 +512,13 @@ export function useDecisionQueueSessionActions({
       })();
     },
     [
+      appendCommand,
+      client,
       refetchQueueAfterSseNotification,
       refreshProjections,
+      questionBatchSize,
+      sessionActionLabels.loadNextQuestions,
+      setProjections,
       setWorkflowError,
       startReadyReadOnlyResearchRunsAfterAnswer
     ]
@@ -480,7 +561,12 @@ export function useDecisionQueueSessionActions({
           ...current,
           queue
         }));
-        continueAnswerPostSubmitWork(projections.session.projectId, projections.session.sessionId, queue);
+        continueQuestionLoopAfterQueueUpdate(
+          projections.session.projectId,
+          projections.session.sessionId,
+          commandResponseVersion(response),
+          queue
+        );
       } catch (error) {
         setWorkflowError(displayError(error));
       } finally {
@@ -491,7 +577,7 @@ export function useDecisionQueueSessionActions({
       answerDrafts,
       appendCommand,
       client,
-      continueAnswerPostSubmitWork,
+      continueQuestionLoopAfterQueueUpdate,
       projections,
       sessionActionErrors,
     ]
@@ -550,7 +636,12 @@ export function useDecisionQueueSessionActions({
         }));
       }
 
-      continueAnswerPostSubmitWork(projections.session.projectId, projections.session.sessionId, latestQueue);
+      continueQuestionLoopAfterQueueUpdate(
+        projections.session.projectId,
+        projections.session.sessionId,
+        expectedStateVersion,
+        latestQueue
+      );
     } catch (error) {
       let refreshedAfterPartialFailure = false;
 
@@ -577,7 +668,7 @@ export function useDecisionQueueSessionActions({
     answerDrafts,
     appendCommand,
     client,
-    continueAnswerPostSubmitWork,
+    continueQuestionLoopAfterQueueUpdate,
     projections,
     sessionActionErrors,
     refreshProjections
@@ -607,7 +698,7 @@ export function useDecisionQueueSessionActions({
       return;
     }
 
-    if (projections.queue?.active.length) {
+    if (queueHasActiveQuestionDebt(projections.queue)) {
       setWorkflowError(sessionActionErrors.answerCurrentBeforeLoadNextQuestions);
       return;
     }
@@ -621,7 +712,7 @@ export function useDecisionQueueSessionActions({
         await client.activateQuestionBatch(
           projections.session.sessionId,
           latestCommandBackedProjectionVersion(projections),
-          nextQuestionBatchIdsForActivation(projections.queue)
+          nextQuestionBatchIdsForActivation(projections.queue, questionBatchSize)
         )
       );
       const queue = requiredCommandProjection<DecisionQueueProjection>(response, "DecisionQueueProjection");
@@ -637,7 +728,19 @@ export function useDecisionQueueSessionActions({
     } finally {
       setIsBusy(false);
     }
-  }, [appendCommand, client, projections, refetchQueueAfterSseNotification, refreshProjections, sessionActionErrors]);
+  }, [
+    appendCommand,
+    client,
+    projections,
+    questionBatchSize,
+    refetchQueueAfterSseNotification,
+    refreshProjections,
+    sessionActionErrors,
+    sessionActionLabels.loadNextQuestions,
+    setIsBusy,
+    setProjections,
+    setWorkflowError
+  ]);
 
   const carryQueueItemAsKnownRisk = useCallback(
     async (queueItemId: QueueItemId) => {
@@ -678,8 +781,12 @@ export function useDecisionQueueSessionActions({
           ...current,
           queue
         }));
-        await refreshProjections(projections.session.projectId, projections.session.sessionId);
-        await refetchQueueAfterSseNotification(projections.session.projectId, projections.session.sessionId, queue);
+        continueQuestionLoopAfterQueueUpdate(
+          projections.session.projectId,
+          projections.session.sessionId,
+          commandResponseVersion(response),
+          queue
+        );
       } catch (error) {
         setWorkflowError(displayError(error));
       } finally {
@@ -689,10 +796,9 @@ export function useDecisionQueueSessionActions({
     [
       appendCommand,
       client,
+      continueQuestionLoopAfterQueueUpdate,
       knownRiskDrafts,
       projections,
-      refetchQueueAfterSseNotification,
-      refreshProjections,
       sessionActionErrors,
       sessionActionReasons
     ]
@@ -728,25 +834,47 @@ export function useDecisionQueueSessionActions({
           })
         );
         const research = optionalCommandProjection<ResearchEvidenceProjection>(response, "ResearchEvidenceProjection");
+        const queue = optionalCommandQueueProjection<DecisionQueueProjection>(response, "DecisionQueueProjection");
 
         setResearchDrafts((current) => ({
           ...current,
           [researchTaskId]: ""
         }));
-        if (research) {
+        if (research || queue) {
           setProjections((current) => ({
             ...current,
-            research
+            ...(research ? { research } : {}),
+            ...(queue ? { queue } : {})
           }));
         }
-        await refreshProjections(projections.session.projectId, projections.session.sessionId);
+        if (queue) {
+          continueQuestionLoopAfterQueueUpdate(
+            projections.session.projectId,
+            projections.session.sessionId,
+            commandResponseVersion(response),
+            queue
+          );
+        } else {
+          await refreshProjections(projections.session.projectId, projections.session.sessionId);
+          void startReadyReadOnlyResearchRunsAfterAnswer?.();
+        }
       } catch (error) {
         setWorkflowError(displayError(error));
       } finally {
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections, refreshProjections, researchDrafts, sessionActionErrors, sessionActionReasons]
+    [
+      appendCommand,
+      client,
+      continueQuestionLoopAfterQueueUpdate,
+      projections,
+      refreshProjections,
+      researchDrafts,
+      sessionActionErrors,
+      sessionActionReasons,
+      startReadyReadOnlyResearchRunsAfterAnswer
+    ]
   );
 
   const resolveResearchCard = useCallback(
@@ -783,14 +911,26 @@ export function useDecisionQueueSessionActions({
           ...current,
           queue
         }));
-        await refreshProjections(projections.session.projectId, projections.session.sessionId);
+        continueQuestionLoopAfterQueueUpdate(
+          projections.session.projectId,
+          projections.session.sessionId,
+          commandResponseVersion(response),
+          queue
+        );
       } catch (error) {
         setWorkflowError(displayError(error));
       } finally {
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections, refreshProjections, sessionActionErrors, sessionActionReasons]
+    [
+      appendCommand,
+      client,
+      continueQuestionLoopAfterQueueUpdate,
+      projections,
+      sessionActionErrors,
+      sessionActionReasons
+    ]
   );
 
 

@@ -11,6 +11,7 @@ import {
   AUTO_IMPLEMENTATION_GITHUB_ISSUE_APPROVAL_GRANULARITY,
   AUTO_IMPLEMENTATION_STAGE_LABELS,
   AUTO_IMPLEMENTATION_STAGE_REVIEW_GATES,
+  AUTO_IMPLEMENTATION_STAGE_WORKER_REQUIRED_EVIDENCE,
   AUTO_IMPLEMENTATION_REVIEW_EVIDENCE_CHECKLIST,
   AUTO_IMPLEMENTATION_STAGES,
   AUTO_IMPLEMENTATION_TICK_INTERVAL_MS,
@@ -40,6 +41,7 @@ const COMMAND_TIMEOUT_MS = 10_000;
 export const DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME = "solo-superman-project";
 const DEFAULT_PROJECT_FOLDER_NAME = DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME;
 const PLANNING_HANDOFF_IMPLEMENTATION_PLAN_RELATIVE_PATH = "planning-handoff-implementation-plan.md";
+const PLANNING_HANDOFF_PR_ISSUE_PLAN_DIR = "planning-handoff-pr-issues";
 const AUTO_IMPLEMENTATION_RUN_MANIFEST_RELATIVE_PATH = ".solo-superman/auto-implementation-run.json";
 const AUTO_IMPLEMENTATION_TRACKER_RUN_STATE_START = "<!-- solo-superman:auto-implementation-run-state:start -->";
 const AUTO_IMPLEMENTATION_TRACKER_RUN_STATE_END = "<!-- solo-superman:auto-implementation-run-state:end -->";
@@ -573,6 +575,21 @@ function markdownFileName(index: number, stage: AutoImplementationStage) {
   return `${String(index + 1).padStart(3, "0")}-${stage}.md`;
 }
 
+function planningHandoffPrIssuePlanFileName(
+  index: number,
+  plan: PlanningHandoffArtifactDto["prIssuePlan"][number]
+) {
+  const slug = sanitizeProjectFolderName(plan.sequenceId || plan.summary);
+
+  return `${String(index + 1).padStart(3, "0")}-${slug}.md`;
+}
+
+function planningHandoffPrIssuePlanRelativePaths(artifact: PlanningHandoffArtifactDto) {
+  return artifact.prIssuePlan.map((plan, index) =>
+    `${PLANNING_HANDOFF_PR_ISSUE_PLAN_DIR}/${planningHandoffPrIssuePlanFileName(index, plan)}`
+  );
+}
+
 function githubIssuePlansForIssueDocs(
   issueDocs: readonly AutoImplementationIssueDocument[]
 ): readonly AutoImplementationGitHubIssuePlan[] {
@@ -885,7 +902,77 @@ function planningSourceRefLabel(sourceRef: PlanningHandoffArtifactDto["sourceRef
   return `${sourceRef.sourceType}:${sourceRef.sourceId} (${requiredLabel}, ${staleLabel})${label}`;
 }
 
+function planningHandoffPrIssueMarkdown(input: {
+  readonly artifact: PlanningHandoffArtifactDto;
+  readonly plan: PlanningHandoffArtifactDto["prIssuePlan"][number];
+  readonly relativePath: string;
+  readonly index: number;
+}) {
+  const includedTasks = input.artifact.taskBreakdown.filter((task) =>
+    input.plan.includedTaskIds.includes(task.taskId)
+  );
+
+  return [
+    `# PR/issue ${input.index + 1}: ${input.plan.summary}`,
+    "",
+    `- Planning artifact: ${input.artifact.artifactId}`,
+    `- Markdown path: ${input.relativePath}`,
+    `- Sequence id: ${input.plan.sequenceId}`,
+    `- Included task ids: ${input.plan.includedTaskIds.join(", ")}`,
+    `- Blocked by: ${input.plan.blockedBy.length ? input.plan.blockedBy.join(", ") : "none"}`,
+    `- Phase boundary: ${input.plan.phaseBoundary}`,
+    "",
+    "## Entry prerequisites",
+    "",
+    ...markdownList(input.plan.entryPrerequisites),
+    "",
+    "## Product tasks in this PR-sized slice",
+    "",
+    ...includedTasks.flatMap((task, taskIndex) => [
+      `### ${taskIndex + 1}. ${task.title}`,
+      "",
+      `- Task id: ${task.taskId}`,
+      `- Owner role: ${task.ownerRole}`,
+      `- Intent: ${task.intent}`,
+      `- Depends on: ${task.dependsOn.length ? task.dependsOn.join(", ") : "none"}`,
+      `- Risk refs: ${task.riskRefs.length ? task.riskRefs.join(", ") : "none"}`,
+      "",
+      "#### Source refs",
+      "",
+      ...task.sourceRefs.map((sourceRef) => `- ${planningSourceRefLabel(sourceRef)}`),
+      "",
+      "#### Acceptance evidence",
+      "",
+      ...markdownList(task.acceptanceEvidence),
+      "",
+      "#### Non-goals",
+      "",
+      ...markdownList(task.nonGoals),
+      ""
+    ]),
+    includedTasks.length ? "" : "- No task details were available for the included task ids.",
+    "## Exit evidence",
+    "",
+    ...markdownList(input.plan.exitEvidence),
+    "",
+    "## Review and verification contract",
+    "",
+    ...AUTO_IMPLEMENTATION_DELIVERY_PROTOCOL.map((gate) => `- [ ] ${gate}`),
+    "",
+    "## Scope-specific review evidence slots",
+    "",
+    ...AUTO_IMPLEMENTATION_REVIEW_EVIDENCE_CHECKLIST.map((item) => `- [ ] ${item}`),
+    "",
+    "## Stop condition",
+    "",
+    "Stop and split a follow-up issue when this PR-sized slice grows beyond the included task ids, acceptance evidence, or safe sandbox boundary.",
+    ""
+  ].join("\n");
+}
+
 function planningHandoffImplementationPlanMarkdown(artifact: PlanningHandoffArtifactDto) {
+  const prIssueRelativePaths = planningHandoffPrIssuePlanRelativePaths(artifact);
+
   return [
     "# Planning Handoff implementation plan",
     "",
@@ -954,6 +1041,7 @@ function planningHandoffImplementationPlanMarkdown(artifact: PlanningHandoffArti
       `### ${index + 1}. ${plan.summary}`,
       "",
       `- Sequence id: ${plan.sequenceId}`,
+      `- Markdown issue: ${prIssueRelativePaths[index]}`,
       `- Included task ids: ${plan.includedTaskIds.join(", ")}`,
       `- Blocked by: ${plan.blockedBy.length ? plan.blockedBy.join(", ") : "none"}`,
       `- Phase boundary: ${plan.phaseBoundary}`,
@@ -992,6 +1080,7 @@ function trackerMarkdown(input: {
   readonly goal: string;
   readonly sourcePlanningRef: string;
   readonly planningPlanRelativePath: string | null;
+  readonly planningIssuePlanRelativePaths: readonly string[];
   readonly issueDocs: readonly AutoImplementationIssueDocument[];
   readonly remoteGuide: AutoImplementationRemoteGuide;
   readonly githubIssueMutation: AutoImplementationGitHubIssueMutationContract;
@@ -1015,6 +1104,12 @@ function trackerMarkdown(input: {
       ? `- Source-driven plan: [${input.planningPlanRelativePath}](${input.planningPlanRelativePath})`
       : "- Source-driven plan: not available for this run-derived follow-up request.",
     "- The Planning Handoff plan defines the product tasks and PR/issue breakdown; the local issue sequence below records the delivery, review, verification, and merge gates for the selected slice.",
+    "",
+    "## Planning-derived PR/issue files",
+    "",
+    ...(input.planningIssuePlanRelativePaths.length
+      ? input.planningIssuePlanRelativePaths.map((relativePath) => `- [ ] [${relativePath}](${relativePath})`)
+      : ["- No Planning Handoff PR/issue files are available for this run-derived follow-up request."]),
     "",
     "## Local issue sequence",
     "",
@@ -1067,6 +1162,7 @@ function issueMarkdown(input: {
   readonly goal: string;
   readonly sourcePlanningRef: string;
   readonly planningPlanRelativePath: string | null;
+  readonly planningIssuePlanRelativePaths: readonly string[];
 }) {
   return [
     `# ${input.issue.title}`,
@@ -1086,6 +1182,12 @@ function issueMarkdown(input: {
       ? `Use \`${input.planningPlanRelativePath}\` as the source-driven task/PR issue plan for this implementation slice.`
       : "Use the existing auto implementation run and tracker state as the source for this follow-up operation.",
     "This local issue is the delivery/review gate for the slice, not a replacement for the planning-derived task list.",
+    "",
+    "### Planning-derived PR/issue markdown files",
+    "",
+    ...(input.planningIssuePlanRelativePaths.length
+      ? input.planningIssuePlanRelativePaths.map((relativePath) => `- [ ] ${relativePath}`)
+      : ["- None available for this run-derived follow-up request."]),
     "",
     "## Acceptance",
     "",
@@ -1109,6 +1211,10 @@ function issueMarkdown(input: {
     "## Stage-specific checklist",
     "",
     ...AUTO_IMPLEMENTATION_STAGE_REVIEW_GATES[input.issue.stage].map((gate) => `- [ ] ${gate}`),
+    "",
+    "## Stage-specific evidence requirements",
+    "",
+    ...AUTO_IMPLEMENTATION_STAGE_WORKER_REQUIRED_EVIDENCE[input.issue.stage].map((item) => `- [ ] ${item}`),
     "",
     "## Verification",
     "",
@@ -1219,6 +1325,9 @@ export async function prepareAutoImplementationWorkspaceRun(
   const planningPlanRelativePath = input.planningHandoffArtifact || existingPlanningPlanStat?.isFile()
     ? PLANNING_HANDOFF_IMPLEMENTATION_PLAN_RELATIVE_PATH
     : null;
+  const planningIssuePlanRelativePaths = input.planningHandoffArtifact
+    ? planningHandoffPrIssuePlanRelativePaths(input.planningHandoffArtifact)
+    : [];
   const issueDocs = AUTO_IMPLEMENTATION_STAGES.map((stage, index) => ({
     issueId: `local-${String(index + 1).padStart(3, "0")}`,
     title: issueTitles[index] ?? DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES[index]!,
@@ -1238,7 +1347,14 @@ export async function prepareAutoImplementationWorkspaceRun(
     writeIfChanged(
       workspaceRoot,
       resolve(generatedRepoPath, issue.relativePath.split("/").join(sep)),
-      issueMarkdown({ issue, trackerTitle, goal: trackerGoal, sourcePlanningRef, planningPlanRelativePath })
+      issueMarkdown({
+        issue,
+        trackerTitle,
+        goal: trackerGoal,
+        sourcePlanningRef,
+        planningPlanRelativePath,
+        planningIssuePlanRelativePaths
+      })
     )
   ));
 
@@ -1248,6 +1364,20 @@ export async function prepareAutoImplementationWorkspaceRun(
       resolve(generatedRepoPath, planningPlanRelativePath.split("/").join(sep)),
       planningHandoffImplementationPlanMarkdown(input.planningHandoffArtifact)
     );
+  }
+  if (input.planningHandoffArtifact) {
+    await Promise.all(input.planningHandoffArtifact.prIssuePlan.map((plan, index) =>
+      writeIfChanged(
+        workspaceRoot,
+        resolve(generatedRepoPath, planningIssuePlanRelativePaths[index]!.split("/").join(sep)),
+        planningHandoffPrIssueMarkdown({
+          artifact: input.planningHandoffArtifact!,
+          plan,
+          relativePath: planningIssuePlanRelativePaths[index]!,
+          index
+        })
+      )
+    ));
   }
 
   if (githubIssueMutation.status === "approved_ready" && githubIssueMutation.approval) {
@@ -1304,6 +1434,7 @@ export async function prepareAutoImplementationWorkspaceRun(
       gitEvidence,
       `issues:${issueMode}`,
       ...(planningPlanRelativePath ? [`planning-handoff-plan:${planningPlanRelativePath}`] : []),
+      ...planningIssuePlanRelativePaths.map((relativePath) => `planning-handoff-pr-issue:${relativePath}`),
       `manifest:${manifestRelativePath}`,
       `git:workspace-bootstrap-ref:${workspaceBootstrapRef}`,
       `schema:${AUTO_IMPLEMENTATION_SCHEMA_VERSION}`
@@ -1319,6 +1450,7 @@ export async function prepareAutoImplementationWorkspaceRun(
       goal: trackerGoal,
       sourcePlanningRef,
       planningPlanRelativePath,
+      planningIssuePlanRelativePaths,
       issueDocs,
       remoteGuide: guide,
       githubIssueMutation,
@@ -1329,6 +1461,7 @@ export async function prepareAutoImplementationWorkspaceRun(
 
   const generatedWorkspaceRelativePaths = [
     ...(planningPlanRelativePath ? [planningPlanRelativePath] : []),
+    ...planningIssuePlanRelativePaths,
     trackerRelativePath,
     ...issueDocs.map((issue) => issue.relativePath),
     manifestRelativePath

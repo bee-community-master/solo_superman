@@ -512,6 +512,7 @@ describe("Decision Queue view model readiness-panels", () => {
         onPauseAllowlist: noop,
         onRevokeAllowlist: noop,
         onUpdateAllowlistMaxConcurrentRuns: noop,
+        onUpdateAllowlistMaxRunsPerSession: noop,
         onRefreshResearchRunStatus: noop,
         onCancelResearchRun: noop,
         onRetryResearchRun: noop
@@ -527,6 +528,9 @@ describe("Decision Queue view model readiness-panels", () => {
     expect(markup).toContain("Max simultaneous research runs");
     expect(markup).toContain("Applies to both manual and answer-triggered public web research starts.");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Apply limit</button>");
+    expect(markup).toContain("Max research runs per session");
+    expect(markup).toContain("Caps how many total public web research runs this session can start from answers or manual batches.");
+    expect(markup).toContain("<button type=\"button\" disabled=\"\">Apply session limit</button>");
     expect(markup).toContain("quality check: pending_review");
   });
 
@@ -555,6 +559,7 @@ describe("Decision Queue view model readiness-panels", () => {
         onPauseAllowlist: noop,
         onRevokeAllowlist: noop,
         onUpdateAllowlistMaxConcurrentRuns: noop,
+        onUpdateAllowlistMaxRunsPerSession: noop,
         onRefreshResearchRunStatus: noop,
         onCancelResearchRun: noop,
         onRetryResearchRun: noop

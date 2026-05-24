@@ -106,7 +106,463 @@ function itemId(prefix: string, token: string, index: number) {
 function compactSummary(value: string, fallback: string) {
   const trimmed = value.trim().replace(/\s+/g, " ");
 
-  return trimmed.length > 180 ? `${trimmed.slice(0, 177)}...` : trimmed || fallback;
+  if (!trimmed) {
+    return fallback;
+  }
+
+  if (trimmed.length <= 280) {
+    return trimmed;
+  }
+
+  const sentences = trimmed.match(/[^.!?。！？]+[.!?。！？]?/gu) ?? [];
+  const summary = sentences.reduce((current, sentence) => {
+    const next = `${current}${sentence}`.trim();
+
+    return next.length <= 280 ? next : current;
+  }, "");
+
+  return summary || trimmed.slice(0, 280).trimEnd();
+}
+
+function userFacingQuestionText(value: string) {
+  return value
+    .replace(/^Validate evidence for:\s*/iu, "")
+    .replace(/^Broaden research beyond existing notes for:\s*/iu, "")
+    .replace(/\bValidate\s+/giu, "")
+    .replace(/\bevidence\b/giu, "근거")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function evidenceSummaryOrFallback(
+  evidenceItems: readonly { readonly summary: string }[],
+  fallback: string
+) {
+  return compactSummary(evidenceItems[0]?.summary ?? "", fallback);
+}
+
+function neutralizeEvidenceStancePrefix(value: string) {
+  return value
+    .replace(/^(?:pro|con|risk|risks|support|supports|caution)\s*[:：-]\s*/iu, "")
+    .replace(/^(?:찬성|반대|우려|긍정|부정)\s*(?:쪽\s*)?(?:근거|단서)?\s*[:：-]\s*/u, "")
+    .trim();
+}
+
+function neutralEvidenceSummaryOrFallback(
+  evidenceItems: readonly { readonly summary: string }[],
+  fallback: string
+) {
+  const neutralSummary = neutralizeEvidenceStancePrefix(evidenceItems[0]?.summary ?? "");
+
+  return compactSummary(neutralSummary, fallback);
+}
+
+type AdditionalQuestionAnswerIntent =
+  | "open_text"
+  | "binary_choice"
+  | "single_choice"
+  | "multi_choice"
+  | "ranked_choice"
+  | "single_customer_choice"
+  | "multi_signal_choice"
+  | "evidence_judgment";
+
+const explicitAdditionalQuestionNarrativeInstructionPattern = new RegExp(
+  [
+    String.raw`(?:이번(?:에는| 질문은)?|지금(?:은)?|여기서는|이\s*질문은|답변은)[^.\n?]{0,100}(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|open[-\s]?question|open[-\s]?ended)`,
+    String.raw`(?:주관식|서술형|자유\s*(?:답변|서술|입력)|open[-\s]?question|open[-\s]?ended)[^.\n?]{0,100}(?:답변을?\s*(?:요구|작성|적어|남겨)|로\s*(?:답변|작성|서술)|(?:실제|본인|사용자|고객)[^.\n?]{0,60}(?:맥락|상황|이유|제약)\s*(?:서술|설명))`
+  ].join("|"),
+  "iu"
+);
+
+function additionalQuestionAnswerIntentForObjective(objective: string): AdditionalQuestionAnswerIntent {
+  const topic = userFacingQuestionText(objective).toLowerCase();
+  const asksForNarrative =
+    /(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|서술|설명|자유롭게|상황|맥락|이유|제약|왜|어떻게|workflow|흐름|사용\s*방식|describe|explain|free[-\s]?form|open[-\s]?(?:ended|question)|context)/iu.test(topic);
+  const rejectsChoiceOptions =
+    /(?:선택지\s*없이|선택지(?:가|는)?\s*아니라|객관식(?:이|은)?\s*아니라|선택형(?:이|은)?\s*아니라|고르지\s*말고|선택하지\s*말고|without\s+choices?|no\s+choices?|not\s+(?:a\s+)?(?:choice|multiple[-\s]?choice|single[-\s]?choice))/iu.test(topic);
+  const asksForForcedChoice =
+    /(?:객관식|선택형|선택|고르|골라|중\s*(?:하나|한\s*가지)|하나(?:를|만)?\s*(?:선택|고르)|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|복수|다중|(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|선택|고르|판단)|양자\s*택일|양자택일|choose|pick|select|single[-\s]?choice|multi[-\s]?select|one\s+or\s+more|select\s+all|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(topic);
+  const asksForExplicitChoice =
+    /(?:객관식|선택형|선택|고르|골라|중\s*(?:하나|한\s*가지)|어느\s*(?:쪽|방향|후보|성향|고객|세그먼트|종류|선택지)|choose|pick|select|which\s+(?:one|customer|segment|option|side|direction))/iu.test(topic);
+  const asksForCustomerChoice =
+    /(?:세그먼트|성향|persona|segment|어느\s*(?:고객|사용자|성향|후보)|고객\s*(?:후보|유형|타입)|customer\s*(?:segment|persona|type)|which\s+customer)/iu.test(topic);
+  const asksForNamedCandidateChoice =
+    /(?:후보|선택지|옵션|종류|유형|타입|성향|세그먼트|persona|segment|customer\s*(?:segment|persona|type)|which\s+(?:customer|segment|option))/iu.test(topic);
+  const asksForSignalOrCriteriaChoice = /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic);
+  const asksForBinaryChoice =
+    /(?:(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|찬반|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|어느|선택|고르|판단|(?:의견|답변|방향)?(?:을|를)?\s*(?:하|할|선택|고르|골라|판단|정|답))|(?:진행|채택|반영|동의|찬성|반대)\s*여부|(?:할지|갈지|진행할지|반영할지|채택할지)\s*(?:여부|말지)|양자\s*택일|양자택일|동의하시|찬성하시|반대하시|해야\s*(?:할까|하나|할지)|yes\s*[/ ]?no|whether\s+to|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(topic);
+  const asksForSingleChoice =
+    /(?:객관식|선택형|단일\s*선택|하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|종류\s*중\s*하나|후보\s*중\s*하나|옵션\s*중\s*하나|(?:후보|선택지|옵션|고객\s*후보|고객\s*세그먼트)(?:를|을)?\s*(?:선택|고르)|which\s+(?:one|option)|single[-\s]?choice)/iu.test(topic);
+  const asksForRanking =
+    /(?:우선순위|우선\s*순위|순위|순서|랭킹|중요도순|먼저\s*(?:볼|검증|구현|확인)할\s*순서|rank(?:ed|ing)?|priorit(?:y|ize|ise)|order\s+(?:of|the))/iu.test(topic);
+
+  if (explicitAdditionalQuestionNarrativeInstructionPattern.test(topic)) {
+    return "open_text";
+  }
+
+  if (asksForNarrative && (rejectsChoiceOptions || !asksForForcedChoice)) {
+    return "open_text";
+  }
+
+  if (/(?:복수|모두|해당|다중|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)\s*(?:선택|고르)|둘\s*이상|multi[-\s]?select|one\s+or\s+more|select\s+all)/iu.test(topic)) {
+    return /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic) ? "multi_signal_choice" : "multi_choice";
+  }
+
+  if (asksForCustomerChoice && (!asksForNarrative || asksForForcedChoice || asksForExplicitChoice)) {
+    return "single_customer_choice";
+  }
+
+  if (asksForBinaryChoice && !asksForNamedCandidateChoice && !asksForSignalOrCriteriaChoice) {
+    return "binary_choice";
+  }
+
+  if (asksForRanking) {
+    return "ranked_choice";
+  }
+
+  if (asksForSingleChoice) {
+    return "single_choice";
+  }
+
+  if (asksForSignalOrCriteriaChoice) {
+    return "multi_signal_choice";
+  }
+
+  if (asksForBinaryChoice) {
+    return "binary_choice";
+  }
+
+  return "evidence_judgment";
+}
+
+function koreanObjectParticleFor(value: string) {
+  const lastCodePoint = Array.from(value.trim()).at(-1)?.codePointAt(0);
+
+  if (lastCodePoint === undefined || lastCodePoint < 0xac00 || lastCodePoint > 0xd7a3) {
+    return "를";
+  }
+
+  return (lastCodePoint - 0xac00) % 28 === 0 ? "를" : "을";
+}
+
+function joinedEvidenceContext(input: {
+  readonly topic: string;
+  readonly proSummary: string;
+  readonly conSummary: string | null;
+  readonly uncertaintySummary: string;
+}) {
+  return [input.topic, input.proSummary, input.conSummary, input.uncertaintySummary].filter(Boolean).join(" ");
+}
+
+function bulletedQuestionCandidates(candidates: readonly string[]) {
+  return candidates.map((candidate) => `- ${candidate}`).join("\n");
+}
+
+function normalizeGenericChoiceCandidateLabel(value: string) {
+  return value
+    .replace(/^[\s"'‘’“”([{<]+|[\s"'‘’“”)\]}>.。]+$/gu, "")
+    .replace(/\s+(?:정도|후보|옵션|선택지)$/u, "")
+    .trim();
+}
+
+function splitGenericChoiceCandidatePhrase(value: string) {
+  return value
+    .replace(/([^\s,·/]+)(?:와|과)\s+/gu, "$1, ")
+    .replace(/\s+(?:및|또는|혹은)\s+/gu, ", ")
+    .split(/[,·/]+/u)
+    .map(normalizeGenericChoiceCandidateLabel)
+    .filter((candidate) => candidate.length >= 2 && candidate.length <= 64);
+}
+
+function genericChoiceCandidateLabelsFromTopic(topic: string) {
+  const phrases: string[] = [];
+  const patterns = [
+    /(?:후보|선택지|옵션|종류|유형|타입|기능|검증\s*방법|검증\s*후보)(?:는|은|로는|로|:)\s*(?<candidates>.+?)(?:입니다|입니다만|정도로|정도(?:로)?\s*추려|중에서|중\s*(?:하나|한\s*가지|하나\s*이상|여러\s*개)|를\s*고르|을\s*고르|를\s*선택|을\s*선택|\.|\?|$)/giu,
+    /(?<candidates>[^.?\n]{2,180}(?:[,·/]|(?:와|과)\s+|(?:및|또는|혹은)\s+)[^.?\n]{2,180}?)(?:\s*(?:중|가운데)\s*(?:하나(?:만)?|한\s*가지|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)|복수|다중)(?:를|을)?\s*(?:선택|고르|골라|정|택)|\s*(?:중|가운데)\s*먼저\s*(?:볼|확인|검증|구현)할\s*순서)/giu
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of topic.matchAll(pattern)) {
+      const phrase = match.groups?.candidates?.trim();
+
+      if (phrase) {
+        phrases.push(phrase);
+      }
+    }
+  }
+
+  return uniqueValues(phrases.flatMap(splitGenericChoiceCandidatePhrase)).slice(0, 10);
+}
+
+function promptWithGenericCandidates(input: {
+  readonly topic: string;
+  readonly lead: string;
+  readonly action: string;
+  readonly fallback: string;
+}) {
+  const candidates = genericChoiceCandidateLabelsFromTopic(input.topic);
+
+  if (!candidates.length) {
+    return input.fallback;
+  }
+
+  return `${input.lead}\n${bulletedQuestionCandidates(candidates)}\n\n${input.action}`;
+}
+
+const DEFAULT_CUSTOMER_CANDIDATES = [
+  "혼자 만드는 초기 창업자",
+  "도메인 전문 1인 빌더",
+  "팀 리더/운영 담당자"
+] as const;
+
+const CUSTOMER_CANDIDATE_LABEL_RULES = [
+  {
+    label: "혼자 만드는 초기 창업자",
+    pattern: /(?:solo\s*founder|founder|창업자|혼자|개인|1인|one[-\s]?person)/iu
+  },
+  {
+    label: "도메인 전문 1인 빌더",
+    pattern: /(?:domain|전문|업계|빌더|builder|expert)/iu
+  },
+  {
+    label: "팀 리더/운영 담당자",
+    pattern: /(?:team|팀|리더|운영|담당자|organization|organisation|buyer|조직|관리자)/iu
+  },
+  {
+    label: "소상공인/자영업 운영자",
+    pattern: /(?:소상공|자영업|small\s*business|smb|merchant|store\s*owner)/iu
+  },
+  {
+    label: "크리에이터/마케터형 실무자",
+    pattern: /(?:creator|크리에이터|marketer|마케터|designer|디자이너|content)/iu
+  },
+  {
+    label: "컨설턴트/에이전시 실무자",
+    pattern: /(?:consultant|컨설턴트|agency|에이전시|freelance|프리랜서)/iu
+  }
+] as const;
+
+function customerCandidateLabelsFromEvidence(input: {
+  readonly topic: string;
+  readonly proSummary: string;
+  readonly conSummary: string | null;
+  readonly uncertaintySummary: string;
+}) {
+  const text = joinedEvidenceContext(input);
+  const candidates = CUSTOMER_CANDIDATE_LABEL_RULES
+    .filter((candidate) => candidate.pattern.test(text))
+    .map((candidate) => candidate.label);
+
+  return uniqueValues(candidates);
+}
+
+const DEFAULT_CUSTOMER_SIGNAL_CANDIDATES = [
+  "반복되는 수동 고통",
+  "예산/지불 의향",
+  "기존 대안 불만",
+  "직접 만든 임시 해결책",
+  "반복 사용/공유 신호"
+] as const;
+
+const CUSTOMER_SIGNAL_LABEL_RULES = [
+  {
+    label: "반복되는 수동 고통",
+    pattern: /(?:manual|수동|반복|repeated|coordination|정리|고통|pain|귀찮|오래\s*걸)/iu
+  },
+  {
+    label: "예산/지불 의향",
+    pattern: /(?:budget|예산|pay|paid|willingness|지불|결제|돈|구매)/iu
+  },
+  {
+    label: "기존 대안 불만",
+    pattern: /(?:alternative|대안|competitor|경쟁|불만|dissatisfaction|현재\s*방법|replacement)/iu
+  },
+  {
+    label: "직접 만든 임시 해결책",
+    pattern: /(?:workaround|임시|스프레드시트|spreadsheet|script|스크립트|직접\s*만|self[-\s]?built)/iu
+  },
+  {
+    label: "반복 사용/공유 신호",
+    pattern: /(?:repeat[-\s]?use|retention|재사용|반복\s*사용|공유|share|sharing|referral)/iu
+  },
+  {
+    label: "긴급한 시간/스트레스 압박",
+    pattern: /(?:urgent|urgency|긴급|급하|stress|스트레스|deadline|마감|시간\s*압박)/iu
+  }
+] as const;
+
+function customerSignalLabelsFromEvidence(input: {
+  readonly topic: string;
+  readonly proSummary: string;
+  readonly conSummary: string | null;
+  readonly uncertaintySummary: string;
+}) {
+  const text = joinedEvidenceContext(input);
+  const signals = CUSTOMER_SIGNAL_LABEL_RULES
+    .filter((signal) => signal.pattern.test(text))
+    .map((signal) => signal.label);
+
+  return uniqueValues(signals);
+}
+
+function promptSentenceForAnswerIntent(
+  intent: AdditionalQuestionAnswerIntent,
+  evidenceJudgmentPrompt: string,
+  context: {
+    readonly topic: string;
+    readonly proSummary: string;
+    readonly conSummary: string | null;
+    readonly uncertaintySummary: string;
+  }
+) {
+  switch (intent) {
+    case "single_customer_choice": {
+      const evidenceCandidates = customerCandidateLabelsFromEvidence(context);
+      const candidates = evidenceCandidates.length ? evidenceCandidates : DEFAULT_CUSTOMER_CANDIDATES;
+      const lead = evidenceCandidates.length
+        ? "리서치 단서에서 우선 비교할 고객 후보는 다음과 같습니다:"
+        : "이 정보를 바탕으로 우선 비교할 고객 후보는 다음과 같습니다:";
+
+      return `${lead}\n${bulletedQuestionCandidates(candidates)}\n\n어느 성향의 고객에 집중하시겠습니까?`;
+    }
+    case "multi_signal_choice": {
+      const evidenceSignals = customerSignalLabelsFromEvidence(context);
+      const signals = evidenceSignals.length ? evidenceSignals : DEFAULT_CUSTOMER_SIGNAL_CANDIDATES;
+      const lead = evidenceSignals.length
+        ? "리서치 단서에서 다음에 함께 확인할 고객 신호는 다음과 같습니다:"
+        : "다음 리서치나 인터뷰에서 함께 확인할 신호 후보는 다음과 같습니다:";
+
+      return `${lead}\n${bulletedQuestionCandidates(signals)}\n\n해당되는 신호를 여러 개 선택해주세요.`;
+    }
+    case "multi_choice":
+      return promptWithGenericCandidates({
+        topic: context.topic,
+        lead: "질문에서 함께 비교할 후보는 다음과 같습니다:",
+        action: "위 후보 중 해당되는 선택지를 하나 이상 선택해주세요. 필요하면 선택지 조합이나 빠진 후보를 직접 적어도 됩니다.",
+        fallback: "위 정보를 기준으로 해당되는 선택지를 하나 이상 선택해주세요. 필요하면 선택지 조합이나 빠진 후보를 직접 적어도 됩니다."
+      });
+    case "single_choice":
+      return promptWithGenericCandidates({
+        topic: context.topic,
+        lead: "질문에서 비교할 후보는 다음과 같습니다:",
+        action: "위 후보 중 지금 가장 먼저 확정할 하나의 선택지를 골라주세요. 선택지에 없는 후보가 더 맞다면 직접 적어도 됩니다.",
+        fallback: "위 정보를 기준으로 지금 가장 먼저 확정할 하나의 선택지를 골라주세요. 선택지에 없는 후보가 더 맞다면 직접 적어도 됩니다."
+      });
+    case "ranked_choice":
+      return promptWithGenericCandidates({
+        topic: context.topic,
+        lead: "질문에서 순서를 비교할 후보는 다음과 같습니다:",
+        action: "위 후보들의 우선순위를 1순위부터 정해주세요. 같은 수준이면 묶어서 적고, 빠진 후보가 있으면 직접 추가해도 됩니다.",
+        fallback: "위 정보를 기준으로 후보들의 우선순위를 1순위부터 정해주세요. 같은 수준이면 묶어서 적고, 빠진 후보가 있으면 직접 추가해도 됩니다."
+      });
+    case "open_text":
+      return "이 근거를 참고해 실제 사용자가 어떤 상황에서 이 문제를 겪고, 어떤 제약 때문에 지금 해결하려는지 본인 말로 3~5문장으로 서술해주세요.";
+    case "binary_choice":
+      return "이 방향을 지금 스펙이나 다음 검증 단계에 반영하는 데 찬성/반대 중 어느 쪽인가요?";
+    case "evidence_judgment":
+      return evidenceJudgmentPrompt;
+  }
+}
+
+function unlockSentenceForAnswerIntent(intent: AdditionalQuestionAnswerIntent, topic: string) {
+  switch (intent) {
+    case "single_customer_choice":
+      return "이 답으로 정해지는 내용은 첫 인터뷰 대상, 리서치 초점, MVP 범위를 어느 고객 성향에 맞출지입니다.";
+    case "multi_signal_choice":
+      return "이 답으로 정해지는 내용은 다음 리서치/인터뷰에서 동시에 확인할 고객 신호와 검증 체크리스트입니다.";
+    case "multi_choice":
+      return "이 답으로 정해지는 내용은 동시에 유지할 후보와 다음 리서치/검증 체크리스트입니다.";
+    case "single_choice":
+      return "이 답으로 정해지는 내용은 다음 스펙과 구현 범위가 우선 따라갈 하나의 선택 기준입니다.";
+    case "ranked_choice":
+      return "이 답으로 정해지는 내용은 먼저 검증하거나 구현할 순서와 뒤로 미룰 후보입니다.";
+    case "open_text":
+      return "이 답으로 정해지는 내용은 문제 맥락, 예외 조건, 스펙에 남길 실제 사용자 상황입니다.";
+    case "binary_choice":
+      return "이 답으로 정해지는 내용은 이 방향을 결정 후보로 진행할지, 보류할지, 조건부로 추가 검증할지입니다.";
+    case "evidence_judgment":
+      return `이 답으로 정해지는 내용은 ${topic}을 스펙에 반영할지, 알려진 리스크로 남길지, 추가 리서치를 더 진행할지입니다.`;
+  }
+}
+
+function questionLeadLinesForAnswerIntent(input: {
+  readonly intent: AdditionalQuestionAnswerIntent;
+  readonly topic: string;
+  readonly proSummary: string;
+  readonly conSummary: string | null;
+  readonly uncertaintySummary: string;
+}) {
+  if (input.intent === "evidence_judgment" || input.intent === "binary_choice") {
+    return [
+      `${input.topic}${koreanObjectParticleFor(input.topic)} 조금 더 구체화하기 위해 리서치 결과를 모아보니 찬성쪽 근거는 ${input.proSummary}입니다.`,
+      "",
+      input.conSummary ? `반대쪽 근거는 ${input.conSummary}입니다.` : null,
+      `한계와 불확실성은 ${input.uncertaintySummary}입니다.`
+    ];
+  }
+
+  return [
+    `${input.topic}${koreanObjectParticleFor(input.topic)} 조금 더 구체화하기 위해 리서치 결과를 모아보니 ${input.proSummary} 같은 단서가 나타났습니다.`,
+    "",
+    input.conSummary ? `다른 관점이나 반례로는 ${input.conSummary}도 확인되었습니다.` : null,
+    `한계와 불확실성은 ${input.uncertaintySummary}입니다.`
+  ];
+}
+
+function additionalQuestionForEvidenceGap(input: {
+  readonly objective: string;
+  readonly balanceStatus: EvidenceMatrixProjection["balanceStatus"];
+  readonly proEvidence: readonly { readonly summary: string }[];
+  readonly conEvidence: readonly { readonly summary: string }[];
+  readonly uncertainties: readonly { readonly summary: string }[];
+}) {
+  const topic = userFacingQuestionText(input.objective) || "이번 주장";
+  const answerIntent = additionalQuestionAnswerIntentForObjective(input.objective);
+  const usesStanceFraming = answerIntent === "evidence_judgment" || answerIntent === "binary_choice";
+  const proSummary = usesStanceFraming
+    ? evidenceSummaryOrFallback(input.proEvidence, "아직 찬성 근거가 충분히 정리되지 않았습니다")
+    : neutralEvidenceSummaryOrFallback(input.proEvidence, "아직 참고할 리서치 단서가 충분히 정리되지 않았습니다");
+  const conSummary = input.conEvidence.length
+    ? usesStanceFraming
+      ? evidenceSummaryOrFallback(input.conEvidence, "반대 근거가 아직 충분히 정리되지 않았습니다")
+      : neutralEvidenceSummaryOrFallback(input.conEvidence, "다른 관점이나 반례가 아직 충분히 정리되지 않았습니다")
+    : null;
+  const uncertaintySummary =
+    (input.uncertainties.length
+      ? evidenceSummaryOrFallback(input.uncertainties, "출처 폭과 실제 적용 가능성은 추가 확인이 필요합니다")
+      : null) ??
+    (input.balanceStatus === "missing_con_evidence" || input.balanceStatus === "needs_con_evidence"
+      ? usesStanceFraming
+        ? "반대 근거가 부족해 과신 가능성이 남아 있습니다"
+        : "다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다"
+      : "출처 폭과 실제 적용 가능성은 추가 확인이 필요합니다");
+
+  const choiceSentence = conSummary
+    ? `그중 지금 선택할 수 있는 방향은 ‘찬성 근거가 더 강하다’, ‘반대 근거가 더 강하다’, ‘아직 근거가 부족하다’ 정도로 추려졌습니다. 어느 방향으로 판단하시겠습니까?`
+    : `그중 지금 선택할 수 있는 방향은 ‘찬성 근거가 충분하다고 보고 진행’, ‘반대 근거를 더 찾아본 뒤 판단’, ‘아직 근거가 부족해 추가 리서치’ 정도로 추려졌습니다. 어느 방향으로 판단하시겠습니까?`;
+  const promptContext = {
+    topic,
+    proSummary,
+    conSummary,
+    uncertaintySummary
+  };
+  const promptSentence = promptSentenceForAnswerIntent(answerIntent, choiceSentence, promptContext);
+  const unlockSentence = unlockSentenceForAnswerIntent(answerIntent, topic);
+  const questionLeadLines = questionLeadLinesForAnswerIntent({
+    intent: answerIntent,
+    ...promptContext
+  });
+
+  return [
+    ...questionLeadLines,
+    "",
+    promptSentence,
+    "",
+    unlockSentence
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
 }
 
 function normalizeResultText(value: string, fallback: string) {
@@ -132,9 +588,9 @@ function evidenceSnippet(value: string, markers: readonly string[], fallback: st
   }
 
   const start = Math.max(0, markerIndex - 40);
-  const excerpt = normalized.slice(start, start + 180).trim();
+  const excerpt = normalized.slice(start, start + 280).trim();
 
-  return `${start > 0 ? "..." : ""}${excerpt}${start + 180 < normalized.length ? "..." : ""}`;
+  return compactSummary(excerpt, fallback);
 }
 
 function includesAny(value: string, needles: readonly string[]) {
@@ -458,7 +914,15 @@ export function synthesizeEvidenceMatrix(input: SynthesizeEvidenceInput): Eviden
     additionalQuestions:
       balanceStatus === "balanced"
         ? []
-        : [`What evidence would resolve ${input.researchTask.objective}?`],
+        : [
+            additionalQuestionForEvidenceGap({
+              objective: input.researchTask.objective,
+              balanceStatus,
+              proEvidence,
+              conEvidence,
+              uncertainties
+            })
+          ],
     balanceStatus,
     decisionBlocked: input.researchTask.impact === "high" && balanceStatus !== "balanced",
     ...(missingConEvidenceReason ? { missingConEvidenceReason } : {}),

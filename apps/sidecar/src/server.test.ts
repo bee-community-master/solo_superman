@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   API_ROUTE_CATALOG,
   CANONICAL_INITIAL_SPEC_SECTIONS,
+  autoImplementationFinalPrBodyEvidenceRefs,
   CONTRACT_SCHEMA_VERSION,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
   IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
@@ -9255,6 +9256,17 @@ describe("PR-02 sidecar health shell", () => {
       const firstIssue = getIssueMarkdown("implementation-issues/001-initial_pr.md");
       const finalVerifyIssue = getIssueMarkdown("implementation-issues/006-final_verify_pr_update.md");
       const mergeIssue = getIssueMarkdown("implementation-issues/007-merge_main.md");
+      const planningIssueEvidenceRefs = (latestRun.evidenceRefs as readonly string[]).filter((ref) =>
+        ref.startsWith("planning-handoff-pr-issue:")
+      );
+      const firstPlanningIssueRelativePath = planningIssueEvidenceRefs[0]?.replace(
+        "planning-handoff-pr-issue:",
+        ""
+      );
+
+      expect(firstPlanningIssueRelativePath).toBeDefined();
+
+      const firstPlanningIssue = await readFile(join(projectDir, firstPlanningIssueRelativePath!), "utf8");
       const expectedReviewEvidenceSlots = [
         "Feature code review: record two consecutive no-finding passes",
         "Repository code review: record two consecutive no-finding passes",
@@ -9310,6 +9322,8 @@ describe("PR-02 sidecar health shell", () => {
       expect(tracker).toContain("Remote status: no_remote");
       expect(tracker).toContain("Planning Handoff implementation plan");
       expect(tracker).toContain("[planning-handoff-implementation-plan.md](planning-handoff-implementation-plan.md)");
+      expect(tracker).toContain("## Planning-derived PR/issue files");
+      expect(tracker).toContain(`[${firstPlanningIssueRelativePath}](${firstPlanningIssueRelativePath})`);
       expect(tracker).toContain("git remote add origin <github-repo-url>");
       expect(tracker).toContain("GitHub issue mutation contract");
       expect(tracker).toContain("Status: not_requested");
@@ -9324,22 +9338,37 @@ describe("PR-02 sidecar health shell", () => {
       expect(planningPlan).toContain("## Build slice plan");
       expect(planningPlan).toContain("## Source-driven task breakdown");
       expect(planningPlan).toContain("## PR/issue plan");
+      expect(planningPlan).toContain(`- Markdown issue: ${firstPlanningIssueRelativePath}`);
       expect(planningPlan).toContain("API ready SpecVersion");
       expect(planningPlan).toContain("Research-updated queue queue_api_ready terminal outcome is approved.");
       expect(planningPlan).toContain("Spec/Evidence/Queue sources drive task");
+      expect(firstPlanningIssue).toContain("# PR/issue 1");
+      expect(firstPlanningIssue).toContain("## Product tasks in this PR-sized slice");
+      expect(firstPlanningIssue).toContain("API ready SpecVersion");
+      expect(firstPlanningIssue).toContain("Living Product Spec source trace is current.");
+      expect(firstPlanningIssue).toContain("## Review and verification contract");
+      expectScopeSpecificReviewEvidenceSlots(firstPlanningIssue);
       for (const issueMarkdown of issueMarkdownByPath.values()) {
         expectScopeSpecificReviewEvidenceSlots(issueMarkdown);
       }
       expect(firstIssue).toContain("## Acceptance");
       expect(firstIssue).toContain("Planning Handoff implementation plan: planning-handoff-implementation-plan.md");
       expect(firstIssue).toContain("## Planning source");
+      expect(firstIssue).toContain("### Planning-derived PR/issue markdown files");
+      expect(firstIssue).toContain(firstPlanningIssueRelativePath!);
       expect(firstIssue).toContain("## Required review gates");
       expect(firstIssue).toContain("## ImplementationStepLedger evidence template");
       expect(firstIssue).toContain("CleanCodeReviewRecord.reviewScope");
       expect(firstIssue).toContain("Create the smallest behavior-complete implementation for this issue slice.");
+      expect(firstIssue).toContain("## Stage-specific evidence requirements");
+      expect(firstIssue).toContain("initial implementation PR evidence links the PR-sized issue");
       expect(firstIssue).toContain("Review streak evidence is recorded before the next stage is marked complete.");
       expect(finalVerifyIssue).toContain("Audit missing tests against the issue acceptance criteria");
       expect(finalVerifyIssue).toContain("Update the PR description with scope, review streaks, exact verification commands");
+      expect(finalVerifyIssue).toContain("final missing-test audit records zero uncovered targeted-test gaps");
+      expect(finalVerifyIssue).toContain("final PR body evidence refs are ready to prove scope");
+      expect(mergeIssue).toContain("applied GitHub PR merge mutation record is present before merge_main completion");
+      expect(mergeIssue).toContain("post-merge-verify:<stage>:<command>");
       expect(mergeIssue).toContain(
         "Sync main after merge and rerun the full verification command on main with post-merge verification evidence."
       );
@@ -9349,7 +9378,8 @@ describe("PR-02 sidecar health shell", () => {
         remoteStatus: "no_remote",
         evidenceRefs: expect.arrayContaining([
           bootstrapEvidenceRef,
-          "planning-handoff-plan:planning-handoff-implementation-plan.md"
+          "planning-handoff-plan:planning-handoff-implementation-plan.md",
+          expect.stringMatching(/^planning-handoff-pr-issue:planning-handoff-pr-issues\//u)
         ]),
         issueManagement: {
           githubIssueMutation: {
@@ -9418,7 +9448,13 @@ describe("PR-02 sidecar health shell", () => {
         idempotencyKey: "auto-implementation-route:worker-job",
         projectName: "Worker Job Demo"
       });
-      const runId = String(latestAutoImplementationRunFromBody(await jsonBody(created)).runId);
+      const createdRun = latestAutoImplementationRunFromBody(await jsonBody(created));
+      const runId = String(createdRun.runId);
+      const planningIssueEvidenceRefs = (createdRun.evidenceRefs as readonly string[]).filter((ref) =>
+        ref.startsWith("planning-handoff-pr-issue:")
+      );
+      expect(planningIssueEvidenceRefs.length).toBeGreaterThan(0);
+      const firstPlanningIssueEvidenceRef = planningIssueEvidenceRefs[0]!;
       const blockedJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
         idempotencyKey: "worker-job:missing-authority"
       });
@@ -9461,10 +9497,17 @@ describe("PR-02 sidecar health shell", () => {
           ]),
           requiredEvidence: expect.arrayContaining([
             expect.stringContaining("ImplementationStepLedger"),
-            expect.stringContaining("evidence refs")
-          ])
+            expect.stringContaining("Planning Handoff PR-sized issue refs"),
+            expect.stringContaining("separate CodeReviewRecord ids"),
+            expect.stringContaining("separate CleanCodeReviewRecord ids"),
+            expect.stringContaining("MissingTestAuditRecord"),
+            expect.stringContaining("evidence refs"),
+            expect.stringContaining("initial implementation PR evidence")
+          ]),
+          sourceRefs: expect.arrayContaining([firstPlanningIssueEvidenceRef])
         }
       });
+      expect(blockedJobs[0]!.evidenceRefs).toEqual(expect.arrayContaining([firstPlanningIssueEvidenceRef]));
       expect(blockedIssueDocs[0]).toMatchObject({
         issueId: "local-001",
         status: "blocked"
@@ -9664,6 +9707,9 @@ describe("PR-02 sidecar health shell", () => {
         nextRequiredAction: expect.stringContaining("ImplementationStepLedger evidence"),
         executionPlan: {
           executionAuthorityRef: authorityRecordId,
+          sourceRefs: expect.arrayContaining([
+            firstPlanningIssueEvidenceRef
+          ]),
           ledgerTrackerDoc: {
             trackerId: `auto-implementation-tracker:${runId}`,
             sourceRefs: expect.arrayContaining([
@@ -9676,11 +9722,13 @@ describe("PR-02 sidecar health shell", () => {
             sourceRefs: expect.arrayContaining([
               `auto-implementation-worker-job:${String(plannedJobs[5]!.jobId)}`,
               "issue-doc:implementation-issues/001-initial_pr.md",
-              "planning-handoff-plan:planning-handoff-implementation-plan.md"
+              "planning-handoff-plan:planning-handoff-implementation-plan.md",
+              firstPlanningIssueEvidenceRef
             ])
           }
         },
         evidenceRefs: expect.arrayContaining([
+          firstPlanningIssueEvidenceRef,
           `execution-authority:${authorityRecordId}`
         ])
       });
@@ -11564,8 +11612,18 @@ describe("PR-02 sidecar health shell", () => {
         trackerDocRef: "implementation-step-ledger:tracker:tracker_demo",
         stepDocRef: `implementation-step-ledger:step:step_${stage}`,
         implementationEvidenceRefs: [`commit:${stage}:abcdef1`],
-        codeReviewStreakRefs: [`code-review:${stage}:1`, `code-review:${stage}:2`],
-        cleanCodeReviewStreakRefs: [`clean-code-review:${stage}:1`, `clean-code-review:${stage}:2`],
+        codeReviewStreakRefs: [
+          `code-review:feature:${stage}:1`,
+          `code-review:feature:${stage}:2`,
+          `code-review:repository:${stage}:1`,
+          `code-review:repository:${stage}:2`
+        ],
+        cleanCodeReviewStreakRefs: [
+          `clean-code-review:changed_code:${stage}:1`,
+          `clean-code-review:changed_code:${stage}:2`,
+          `clean-code-review:repository:${stage}:1`,
+          `clean-code-review:repository:${stage}:2`
+        ],
         missingTestAuditRefs: [`missing-test-audit:${stage}:coverage`],
         testEvidenceRefs: [`test:${stage}:verify`],
         blockerEvidenceRefs: [],
@@ -11585,6 +11643,7 @@ describe("PR-02 sidecar health shell", () => {
       });
       const createdRun = latestAutoImplementationRunFromBody(await jsonBody(created));
       const runId = String(createdRun.runId);
+      const finalPrBodyEvidenceRefs = autoImplementationFinalPrBodyEvidenceRefs(runId);
       const blockedBeforeFinalVerify = await postAutoImplementationPullRequestMutationForTest(
         storageApp,
         sessionId,
@@ -11659,6 +11718,24 @@ describe("PR-02 sidecar health shell", () => {
         updatedAt: "2026-05-20T00:44:00.000Z"
       });
 
+      const blockedStaleBodyUpdate = await postAutoImplementationPullRequestMutationForTest(storageApp, sessionId, runId, {
+        action: "update_pr_body",
+        requestMode: "approved",
+        idempotencyKey: "pr-mutation:update-body:blocked-stale-final",
+        pullRequestTitle: "Merge-ready implementation PR",
+        pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/125",
+        issueLinks: ["https://github.com/bee-community-master/generated-demo/issues/101"],
+        implementationScope: "Attempt to refresh the PR body with evidence that predates final verification.",
+        reviewStreakRefs: ["code-review:feature:clean-1", "clean-code-review:repository:clean-2"],
+        verificationCommands: ["pnpm verify"],
+        rollbackNotes: "Reapply the final verification PR body if this stale update is attempted.",
+        bodyEvidenceRefs: ["pr-body:current-evidence"],
+        approval: approval("pr_mutation_update_body_blocked_stale_final"),
+        verifierEvidenceRefs: ["verifier:pr-mutation:update-body:blocked-stale-final"]
+      });
+      const blockedStaleBodyUpdateRun = latestAutoImplementationRunFromBody(await jsonBody(blockedStaleBodyUpdate));
+      const blockedStaleBodyUpdateRecord = (blockedStaleBodyUpdateRun.pullRequestMutations as
+        Readonly<Record<string, unknown>>).latestRecord as Readonly<Record<string, unknown>>;
       const blockedMissingBody = await postAutoImplementationPullRequestMutationForTest(
         storageApp,
         sessionId,
@@ -11669,6 +11746,17 @@ describe("PR-02 sidecar health shell", () => {
       );
       const blockedMissingBodyRun = latestAutoImplementationRunFromBody(await jsonBody(blockedMissingBody));
       const blockedMissingBodyRecord = (blockedMissingBodyRun.pullRequestMutations as
+        Readonly<Record<string, unknown>>).latestRecord as Readonly<Record<string, unknown>>;
+      const blockedStaleBody = await postAutoImplementationPullRequestMutationForTest(
+        storageApp,
+        sessionId,
+        runId,
+        mergeRequest("pr-mutation:merge:blocked-stale-body", {
+          bodyEvidenceRefs: ["pr-body:current-evidence"]
+        })
+      );
+      const blockedStaleBodyRun = latestAutoImplementationRunFromBody(await jsonBody(blockedStaleBody));
+      const blockedStaleBodyRecord = (blockedStaleBodyRun.pullRequestMutations as
         Readonly<Record<string, unknown>>).latestRecord as Readonly<Record<string, unknown>>;
       const blockedMergeMainComplete = await postAutoImplementationStageForTest(storageApp, sessionId, runId, "merge_main", {
         idempotencyKey: "auto-stage:complete:merge-main-before-applied-merge",
@@ -11681,7 +11769,7 @@ describe("PR-02 sidecar health shell", () => {
       const applied = await postAutoImplementationPullRequestMutationForTest(storageApp, sessionId, runId, mergeRequest(
         "pr-mutation:merge:applied",
         {
-          bodyEvidenceRefs: ["pr-body:current-evidence"]
+          bodyEvidenceRefs: finalPrBodyEvidenceRefs
         }
       ));
       const appliedRun = latestAutoImplementationRunFromBody(await jsonBody(applied));
@@ -11750,7 +11838,7 @@ describe("PR-02 sidecar health shell", () => {
       const duplicateMerge = await postAutoImplementationPullRequestMutationForTest(storageApp, sessionId, runId, mergeRequest(
         "pr-mutation:merge:duplicate-applied",
         {
-          bodyEvidenceRefs: ["pr-body:current-evidence"],
+          bodyEvidenceRefs: finalPrBodyEvidenceRefs,
           mergeEvidenceRefs: ["merge-ready:duplicate-checks-green"]
         }
       ));
@@ -11765,12 +11853,26 @@ describe("PR-02 sidecar health shell", () => {
         mutatesGitHub: false,
         blockedReason: "GitHub PR merge is blocked until final_verify_pr_update has completed validated final verification evidence."
       });
+      expect(blockedStaleBodyUpdate.status).toBe(200);
+      expect(blockedStaleBodyUpdateRecord).toMatchObject({
+        action: "update_pr_body",
+        status: "blocked",
+        mutatesGitHub: false,
+        blockedReason: "GitHub PR body update is blocked until the PR body evidence references final_verify_pr_update."
+      });
       expect(blockedMissingBody.status).toBe(200);
       expect(blockedMissingBodyRecord).toMatchObject({
         action: "merge_pr",
         status: "blocked",
         mutatesGitHub: false,
         blockedReason: "GitHub PR merge is blocked until the PR body contains current evidence."
+      });
+      expect(blockedStaleBody.status).toBe(200);
+      expect(blockedStaleBodyRecord).toMatchObject({
+        action: "merge_pr",
+        status: "blocked",
+        mutatesGitHub: false,
+        blockedReason: "GitHub PR merge is blocked until the PR body is refreshed after final_verify_pr_update evidence."
       });
       expect(blockedMergeMainComplete.status).toBe(400);
       expect(blockedMergeMainCompleteBody.error).toMatchObject({
@@ -11785,7 +11887,7 @@ describe("PR-02 sidecar health shell", () => {
         status: "applied",
         mutatesGitHub: true,
         pullRequestUrl: "https://github.com/bee-community-master/generated-demo/pull/125",
-        bodyEvidenceRefs: ["pr-body:current-evidence"],
+        bodyEvidenceRefs: finalPrBodyEvidenceRefs,
         mergeEvidenceRefs: expect.arrayContaining([
           "merge-ready:checks-green",
           "github-pr-mutation:mock-adapter:merge-completed"

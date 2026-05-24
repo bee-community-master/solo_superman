@@ -1,9 +1,14 @@
 import { useState } from "react";
-import type { QueueItemProjection } from "@solo-superman/contracts";
-import { draftedActiveQuestionAnswerIds, questionFatigueViewModel } from "../decision-queue-view-model";
+import type { AmbiguityAnswerSelectionMode, QueueItemProjection } from "@solo-superman/contracts";
+import {
+  draftedActiveQuestionAnswerIds,
+  questionFatigueViewModel,
+  queueItemIsQuestionDebt
+} from "../decision-queue-view-model";
 import { isBusinessCriticQueueItem } from "./decision-queue-shell-model";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
+import { boundedQuestionBatchSize, MIN_QUESTION_BATCH_SIZE, MAX_QUESTION_BATCH_SIZE } from "./useDecisionQueueSessionActions";
 
 interface QuestionsViewProps {
   readonly controller: DecisionQueueShellController;
@@ -39,6 +44,131 @@ function researchFollowUpSourceTrace(item: QueueItemProjection) {
     : null;
 }
 
+export function answerDraftFromSelectedOptions(
+  answerOptions: NonNullable<QueueItemProjection["answerOptions"]>,
+  selectedOptionIds: readonly string[],
+  answerSelectionMode: AmbiguityAnswerSelectionMode
+) {
+  const optionValueById = new Map(answerOptions.map((option) => [option.id, option.value]));
+  const selectedOptionValues = selectedOptionIds
+    .map((optionId) => optionValueById.get(optionId))
+    .filter((value): value is string => value !== undefined);
+
+  if (answerSelectionMode === "ranked") {
+    return selectedOptionValues.map((value, index) => `${index + 1}. ${value}`).join("\n");
+  }
+
+  return selectedOptionValues.join("\n");
+}
+
+export function answerDraftFromSelectionAndNote(
+  answerOptions: NonNullable<QueueItemProjection["answerOptions"]>,
+  selectedOptionIds: readonly string[],
+  answerSelectionMode: AmbiguityAnswerSelectionMode,
+  note: string
+) {
+  return [
+    answerDraftFromSelectedOptions(answerOptions, selectedOptionIds, answerSelectionMode),
+    note.trim()
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+type AnswerFormatKind =
+  | "open_text"
+  | "binary_choice"
+  | "single_choice"
+  | "multi_select"
+  | "ranked_choice"
+  | "evidence_judgment"
+  | "experiment_plan";
+
+function answerLooksLikeBinaryChoice(item: QueueItemProjection) {
+  const answerOptions = item.answerOptions ?? [];
+  const binaryOptionCount = answerOptions.filter((option) =>
+    /(?:찬성|반대|찬반|동의|비동의|예\s*[/·또는과]*\s*아니오|\b(?:yes|no|agree|disagree|support|oppose)\b)/iu.test(
+      [option.id, option.label, option.value].join(" ")
+    )
+  ).length;
+
+  return binaryOptionCount >= 2;
+}
+
+function answerFormatKindForItem(item: QueueItemProjection): AnswerFormatKind {
+  if (item.answerSelectionMode === "multiple") {
+    return "multi_select";
+  }
+
+  if (item.answerSelectionMode === "ranked") {
+    return "ranked_choice";
+  }
+
+  if (item.expectedAnswerType === "text") {
+    return "open_text";
+  }
+
+  if (item.expectedAnswerType === "rank") {
+    return "ranked_choice";
+  }
+
+  if (item.expectedAnswerType === "experiment") {
+    return "experiment_plan";
+  }
+
+  if (item.expectedAnswerType === "evidence") {
+    return "evidence_judgment";
+  }
+
+  if (!item.answerOptions?.length) {
+    return "open_text";
+  }
+
+  return answerLooksLikeBinaryChoice(item) ? "binary_choice" : "single_choice";
+}
+
+function answerSelectionModeForItem(item: QueueItemProjection): AmbiguityAnswerSelectionMode {
+  return item.answerSelectionMode ?? (item.expectedAnswerType === "rank" ? "ranked" : "single");
+}
+
+function answerOptionInputType(answerSelectionMode: AmbiguityAnswerSelectionMode) {
+  return answerSelectionMode === "single" ? "radio" : "checkbox";
+}
+
+function questionLoopNextAction(copy: DecisionQueueCopy, input: {
+  readonly activeQuestionCount: number;
+  readonly blockedQuestionCount: number;
+  readonly draftedActiveAnswerCount: number;
+  readonly hasActiveSession: boolean;
+  readonly openQuestionCount: number;
+  readonly questionBatchSize: number;
+  readonly upcomingQuestionCount: number;
+}) {
+  if (!input.hasActiveSession) {
+    return copy.questions.questionLoopNextActionStart;
+  }
+
+  if (input.draftedActiveAnswerCount > 0) {
+    return copy.questions.questionLoopNextActionDrafted(input.draftedActiveAnswerCount);
+  }
+
+  if (input.activeQuestionCount > 0) {
+    return copy.questions.questionLoopNextActionActive(input.activeQuestionCount);
+  }
+
+  if (input.openQuestionCount > 0) {
+    return copy.questions.questionLoopNextActionLoadNext(
+      Math.min(input.questionBatchSize, Math.max(input.upcomingQuestionCount, 1))
+    );
+  }
+
+  if (input.blockedQuestionCount > 0) {
+    return copy.questions.questionLoopNextActionBlocked(input.blockedQuestionCount);
+  }
+
+  return copy.questions.questionLoopNextActionComplete;
+}
+
 function ResearchFollowUpSourceTrace({
   copy,
   item
@@ -57,7 +187,8 @@ function ResearchFollowUpSourceTrace({
 
 export function QuestionsView({ controller }: QuestionsViewProps) {
   const copy = useDecisionQueueCopy();
-  const [selectedAnswerOptionIds, setSelectedAnswerOptionIds] = useState<Record<string, string>>({});
+  const [selectedAnswerOptionIds, setSelectedAnswerOptionIds] = useState<Record<string, readonly string[]>>({});
+  const [answerOptionNotes, setAnswerOptionNotes] = useState<Record<string, string>>({});
   const {
     answerDrafts,
     carryQueueItemAsKnownRisk,
@@ -65,11 +196,13 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     knownRiskDrafts,
     loadNextQuestionBatch,
     projections,
+    questionBatchSize,
     questionProgress,
     queueRecovery,
     refreshQuestionList,
     sections,
     setAnswerDrafts,
+    setQuestionBatchSize,
     setKnownRiskDrafts,
     submitAnswer,
     submitDraftedActiveAnswers
@@ -77,6 +210,15 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
   const completionPercent = boundedPercent(questionProgress.completionPercent);
   const questionFatigue = questionFatigueViewModel(questionProgress);
   const draftedActiveAnswerCount = draftedActiveQuestionAnswerIds(projections.queue, answerDrafts).length;
+  const nextQuestionLoopAction = questionLoopNextAction(copy, {
+    activeQuestionCount: questionProgress.activeQuestionCount,
+    blockedQuestionCount: questionProgress.blockedQuestionCount,
+    draftedActiveAnswerCount,
+    hasActiveSession: Boolean(projections.session),
+    openQuestionCount: questionProgress.openQuestionCount,
+    questionBatchSize: boundedQuestionBatchSize(questionBatchSize),
+    upcomingQuestionCount: questionProgress.upcomingQuestionCount
+  });
 
   return (
     <div className="view-grid questions-view">
@@ -96,6 +238,24 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
           >
             {copy.questions.loadNextQuestions}
           </button>
+          <label className="inline-control">
+            <span>{copy.questions.questionBatchSizeLabel}</span>
+            <select
+              aria-label={copy.questions.questionBatchSizeLabel}
+              disabled={isBusy}
+              onChange={(event) => setQuestionBatchSize(boundedQuestionBatchSize(Number(event.target.value)))}
+              value={boundedQuestionBatchSize(questionBatchSize)}
+            >
+              {Array.from(
+                { length: MAX_QUESTION_BATCH_SIZE - MIN_QUESTION_BATCH_SIZE + 1 },
+                (_, index) => MIN_QUESTION_BATCH_SIZE + index
+              ).map((size) => (
+                <option key={size} value={size}>
+                  {copy.questions.questionBatchSizeOption(size)}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             type="button"
             disabled={isBusy || !projections.session || draftedActiveAnswerCount === 0}
@@ -104,6 +264,11 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
             {copy.questions.submitDraftedAnswers(draftedActiveAnswerCount)}
           </button>
         </div>
+        <p className="mode-help">{copy.questions.questionBatchSizeHelp}</p>
+        <section className="question-loop-next-action" aria-label={copy.questions.questionLoopNextActionTitle}>
+          <strong>{copy.questions.questionLoopNextActionTitle}</strong>
+          <p>{nextQuestionLoopAction}</p>
+        </section>
         <div className="queue-recovery">
           <p>{queueRecovery.label}</p>
           <small>{queueRecovery.activeBatchLabel}</small>
@@ -173,6 +338,10 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
               <dt>{copy.questions.questionProgressBlocked}</dt>
               <dd>{questionProgress.blockedQuestionCount}</dd>
             </div>
+            <div>
+              <dt>{copy.questions.questionProgressBacklog}</dt>
+              <dd>{questionProgress.backlogQuestionCount}</dd>
+            </div>
           </dl>
         </section>
         {questionFatigue.shouldShow ? (
@@ -203,7 +372,24 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
               </div>
               {section.items.length ? (
                 <div className="queue-list">
-                  {section.items.map((item) => (
+                  {section.items.map((item) => {
+                    const answerSelectionMode = answerSelectionModeForItem(item);
+                    const answerFormatKind = answerFormatKindForItem(item);
+                    const answerOptions = item.answerOptions ?? [];
+                    const selectedOptionIds = selectedAnswerOptionIds[item.queueItemId] ?? [];
+                    const hasAnswerOptions = answerOptions.length > 0;
+                    const answerOptionNote = answerOptionNotes[item.queueItemId] ?? "";
+                    const composedAnswerPreview = hasAnswerOptions ? answerDrafts[item.queueItemId]?.trim() ?? "" : "";
+                    const suggestedAnswersHelp =
+                      answerSelectionMode === "ranked"
+                        ? copy.questions.suggestedAnswersRankedHelp
+                        : answerSelectionMode === "multiple"
+                        ? copy.questions.suggestedAnswersMultipleHelp
+                        : copy.questions.suggestedAnswersSingleHelp;
+                    const answerOptionDetailLabels = copy.questions.answerOptionDetailLabels[answerFormatKind];
+                    const canCarryAsKnownRisk = queueItemIsQuestionDebt(item) && item.state !== "deferred";
+
+                    return (
                     <article className={`queue-card ${item.state}`} key={item.queueItemId}>
                       <div>
                         <span>{copy.questions.queueItemStateLabels[item.state]}</span>
@@ -246,32 +432,49 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                       </div>
                       {section.id === "active" && item.state === "active" ? (
                         <div className="answer-box">
-                          {item.answerOptions?.length ? (
+                          <p className="answer-format-help">
+                            <strong>{copy.questions.answerFormatLabels[answerFormatKind]}</strong>
+                            <span>{copy.questions.answerFormatDescriptions[answerFormatKind]}</span>
+                          </p>
+                          {hasAnswerOptions ? (
                             <fieldset className="answer-choice-fieldset">
-                              <legend>{copy.questions.suggestedAnswers}</legend>
+                              <legend>{copy.questions.answerChoiceLabels[answerFormatKind]}</legend>
+                              <p className="answer-choice-help">{suggestedAnswersHelp}</p>
                               <div className="answer-choice-list">
-                                {item.answerOptions.map((option) => (
+                                {answerOptions.map((option) => (
                                   <label className="answer-choice-option" key={option.id}>
                                     <input
-                                      checked={selectedAnswerOptionIds[item.queueItemId] === option.id}
+                                      checked={selectedOptionIds.includes(option.id)}
                                       name={`answer-option-${item.queueItemId}`}
                                       onChange={() => {
+                                        const nextSelectedOptionIds =
+                                          answerSelectionMode === "multiple" || answerSelectionMode === "ranked"
+                                            ? selectedOptionIds.includes(option.id)
+                                              ? selectedOptionIds.filter((selectedOptionId) => selectedOptionId !== option.id)
+                                              : [...selectedOptionIds, option.id]
+                                            : [option.id];
                                         setSelectedAnswerOptionIds((current) => ({
                                           ...current,
-                                          [item.queueItemId]: option.id
+                                          [item.queueItemId]: nextSelectedOptionIds
                                         }));
                                         setAnswerDrafts((current) => ({
                                           ...current,
-                                          [item.queueItemId]: option.value
+                                          [item.queueItemId]: answerDraftFromSelectionAndNote(
+                                            answerOptions,
+                                            nextSelectedOptionIds,
+                                            answerSelectionMode,
+                                            answerOptionNote
+                                          )
                                         }));
                                       }}
-                                      type="radio"
+                                      type={answerOptionInputType(answerSelectionMode)}
                                       value={option.id}
                                     />
                                     <span>
                                       <strong>{option.label}</strong>
-                                      <small>
-                                        {copy.questions.optionPro}: {option.pro} · {copy.questions.optionCon}: {option.con}
+                                      <small className="answer-choice-option-details">
+                                        <span>{answerOptionDetailLabels.primary}: {option.primaryDetail ?? option.pro}</span>
+                                        <span>{answerOptionDetailLabels.secondary}: {option.secondaryDetail ?? option.con}</span>
                                       </small>
                                     </span>
                                   </label>
@@ -281,33 +484,56 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                           ) : null}
                           <label className="custom-answer-field">
                             <span>
-                              {item.answerOptions?.length ? copy.questions.customAnswer : copy.questions.answerAriaPrefix}
+                              {hasAnswerOptions ? copy.questions.customAnswer : copy.questions.answerAriaPrefix}
                             </span>
                             <textarea
                               aria-label={`${copy.questions.answerAriaPrefix} ${item.title}`}
                               placeholder={
-                                item.answerOptions?.length ? copy.questions.customAnswerPlaceholder : undefined
+                                hasAnswerOptions ? copy.questions.customAnswerPlaceholder : undefined
                               }
-                              value={answerDrafts[item.queueItemId] ?? ""}
+                              value={hasAnswerOptions ? answerOptionNote : answerDrafts[item.queueItemId] ?? ""}
                               onChange={(event) => {
-                                setSelectedAnswerOptionIds((current) => ({
-                                  ...current,
-                                  [item.queueItemId]: ""
-                                }));
+                                const nextNote = event.target.value;
+
+                                if (hasAnswerOptions) {
+                                  setAnswerOptionNotes((current) => ({
+                                    ...current,
+                                    [item.queueItemId]: nextNote
+                                  }));
+                                  setAnswerDrafts((current) => ({
+                                    ...current,
+                                    [item.queueItemId]: answerDraftFromSelectionAndNote(
+                                      answerOptions,
+                                      selectedOptionIds,
+                                      answerSelectionMode,
+                                      nextNote
+                                    )
+                                  }));
+
+                                  return;
+                                }
+
                                 setAnswerDrafts((current) => ({
                                   ...current,
-                                  [item.queueItemId]: event.target.value
+                                  [item.queueItemId]: nextNote
                                 }));
                               }}
                               rows={3}
                             />
                           </label>
+                          {composedAnswerPreview ? (
+                            <div className="composed-answer-preview">
+                              <strong>{copy.questions.composedAnswerPreview}</strong>
+                              <p>{copy.questions.composedAnswerPreviewHelp}</p>
+                              <pre>{composedAnswerPreview}</pre>
+                            </div>
+                          ) : null}
                           <button type="button" disabled={isBusy} onClick={() => void submitAnswer(item.queueItemId)}>
                             {copy.questions.submitAnswer}
                           </button>
                         </div>
                       ) : null}
-                      {isBusinessCriticQueueItem(item) && item.state !== "deferred" ? (
+                      {canCarryAsKnownRisk ? (
                         <details className="answer-box risk-details">
                           <summary>{copy.questions.additionalRiskDetails}</summary>
                           <p className="mode-help">{copy.questions.additionalRiskHelp}</p>
@@ -333,7 +559,8 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                         </details>
                       ) : null}
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="empty-state">{section.emptyLabel}</p>

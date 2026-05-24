@@ -53,6 +53,7 @@ export interface QuestionProgressViewModel {
   readonly activeQuestionCount: number;
   readonly upcomingQuestionCount: number;
   readonly blockedQuestionCount: number;
+  readonly backlogQuestionCount: number;
   readonly completionPercent: number;
 }
 
@@ -334,13 +335,29 @@ function countFollowUpQuestionItems(items: readonly QueueSectionItem[]) {
   return items.filter((item) => item.cardType === "follow_up_question").length;
 }
 
+function questionBacklogCount(input: {
+  readonly openQuestionCount: number;
+  readonly activeQuestionCount: number;
+  readonly upcomingQuestionCount: number;
+  readonly blockedQuestionCount: number;
+}) {
+  return Math.max(
+    0,
+    input.openQuestionCount - input.activeQuestionCount - input.upcomingQuestionCount - input.blockedQuestionCount
+  );
+}
+
 export function questionProgressViewModel(queue: DecisionQueueProjection | null): QuestionProgressViewModel {
   const allQueueItems = queue ? queueSectionItems(queue) : [];
   const fallbackVisibleQuestionDebtCount = countQuestionDebtItems(allQueueItems);
+  const openQuestionCount = queue?.progress?.openQuestionCount ?? fallbackVisibleQuestionDebtCount;
+  const activeQuestionCount = queue?.progress?.activeQuestionCount ?? (queue ? countQuestionDebtItems(queue.active) : 0);
+  const upcomingQuestionCount = queue?.progress?.upcomingQuestionCount ?? (queue ? countQuestionDebtItems(queue.next) : 0);
+  const blockedQuestionCount = queue?.progress?.blockedQuestionCount ?? (queue ? countQuestionDebtItems(queue.blocked) : 0);
 
   return {
     generatedQuestionCount: queue?.progress?.generatedQuestionCount ?? fallbackVisibleQuestionDebtCount,
-    openQuestionCount: queue?.progress?.openQuestionCount ?? fallbackVisibleQuestionDebtCount,
+    openQuestionCount,
     answeredQuestionCount: queue?.progress?.answeredQuestionCount ?? 0,
     terminalQuestionCount: queue?.progress?.terminalQuestionCount ?? 0,
     followUpQuestionCount: queue?.progress?.followUpQuestionCount ?? countFollowUpQuestionItems(allQueueItems),
@@ -349,9 +366,15 @@ export function questionProgressViewModel(queue: DecisionQueueProjection | null)
     openTopicCoverageCount: queue?.progress?.openTopicCoverageCount ?? fallbackVisibleQuestionDebtCount,
     followUpBudgetRemainingCount: queue?.progress?.followUpBudgetRemainingCount ?? 0,
     visibleQuestionDebtCount: queue?.progress?.visibleQuestionDebtCount ?? fallbackVisibleQuestionDebtCount,
-    activeQuestionCount: queue?.progress?.activeQuestionCount ?? (queue ? countQuestionDebtItems(queue.active) : 0),
-    upcomingQuestionCount: queue?.progress?.upcomingQuestionCount ?? (queue ? countQuestionDebtItems(queue.next) : 0),
-    blockedQuestionCount: queue?.progress?.blockedQuestionCount ?? (queue ? countQuestionDebtItems(queue.blocked) : 0),
+    activeQuestionCount,
+    upcomingQuestionCount,
+    blockedQuestionCount,
+    backlogQuestionCount: questionBacklogCount({
+      openQuestionCount,
+      activeQuestionCount,
+      upcomingQuestionCount,
+      blockedQuestionCount
+    }),
     completionPercent: queue?.progress?.completionPercent ?? 0
   };
 }

@@ -8,6 +8,7 @@ import {
   type ImplementationStepRecord
 } from "@solo-superman/contracts";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
+import type { DecisionQueueCopy } from "./shell/decision-queue-copy";
 
 export interface ImplementationStepLedgerViewModel {
   readonly status: string;
@@ -114,6 +115,18 @@ function cleanCodeReviewStreakLabel(streak: CleanCodeReviewStreakRecord) {
   );
 }
 
+function userFacingMissingEvidenceItem(
+  item: string,
+  labels: DecisionQueueCopy["ledger"]["missingEvidenceItemLabels"]
+) {
+  return item
+    .replace(/\bStepCommitRecord\b/gu, labels.StepCommitRecord)
+    .replace(/\bCleanCodeReviewRecord\b/gu, labels.CleanCodeReviewRecord)
+    .replace(/\bCodeReviewRecord\b/gu, labels.CodeReviewRecord)
+    .replace(/\bMissingTestAuditRecord\b/gu, labels.MissingTestAuditRecord)
+    .replace(/\bTestEvidenceRecord\b/gu, labels.TestEvidenceRecord);
+}
+
 export function implementationStepLedgerViewModel(
   projection: ImplementationStepLedgerProjection | null
 ): ImplementationStepLedgerViewModel {
@@ -139,7 +152,7 @@ export function implementationStepLedgerViewModel(
       testEvidenceLabel: "Tests: not recorded",
       missingEvidenceItems: ["StepCommitRecord", "CodeReviewRecord", "CleanCodeReviewRecord", "MissingTestAuditRecord", "TestEvidenceRecord"],
       blockerLabel: "Cannot complete until implementation, review, clean-code review, missing-test audit, and test evidence are recorded.",
-      nextAction: "Record the implementation step ledger after the local step commit and evidence gates are available.",
+      nextAction: "Record the implementation result after commit, review, clean-code, missing-test, and test evidence are ready.",
       evidenceRefs: [],
       noCodeEvidenceLabel: null
     };
@@ -171,7 +184,7 @@ export function implementationStepLedgerViewModel(
     nextAction: blocker?.nextRequiredAction ?? (
       projection.currentStatus === "completed"
         ? "Step can be reported as completed with local commit, reviews, and tests."
-        : "Continue the linear ledger sequence until commit, reviews, and tests are present."
+        : "Continue the implementation record sequence until commit, reviews, and tests are present."
     ),
     evidenceRefs: step.evidenceRefs,
     noCodeEvidenceLabel: noCode
@@ -237,7 +250,7 @@ export function ImplementationStepLedgerPanel({
           <h3>{copy.ledger.missingEvidence}</h3>
           <ul>
             {ledger.missingEvidenceItems.map((item) => (
-              <li key={item}>{item}</li>
+              <li key={item}>{userFacingMissingEvidenceItem(item, copy.ledger.missingEvidenceItemLabels)}</li>
             ))}
           </ul>
         </>

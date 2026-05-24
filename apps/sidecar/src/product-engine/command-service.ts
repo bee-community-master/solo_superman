@@ -33,10 +33,13 @@ import {
   canPlanCurrentStageAutoImplementationWorkerJob,
   canRunAutoImplementationWorkerJob,
   hasAppliedAutoImplementationPullRequestMerge,
+  autoImplementationFinalPrBodyEvidenceRefs,
+  autoImplementationPlanningIssueEvidenceRefs,
   autoImplementationGitHubIssueUrlForIssue,
   autoImplementationRunWithSynchronizedIssueDocs,
   autoImplementationWorkerExpectedChangeScope,
   autoImplementationWorkerLedgerStepDescription,
+  autoImplementationWorkerRequiredEvidence,
   validateAutoImplementationRunProjection,
   ImplementationStepLedgerValidationError,
   validateImplementationStepLedgerProjection,
@@ -907,6 +910,12 @@ function finalVerifyStageCompleted(run: AutoImplementationRun) {
   );
 }
 
+function hasFinalVerificationPrBodyEvidence(run: AutoImplementationRun, bodyEvidenceRefs: readonly string[]) {
+  const acceptedRefs = autoImplementationFinalPrBodyEvidenceRefs(run.runId);
+
+  return acceptedRefs.some((ref) => bodyEvidenceRefs.includes(ref));
+}
+
 function initialImplementationStageCompleted(run: AutoImplementationRun) {
   return run.stagePlan.some((stage) =>
     stage.stage === "initial_pr" &&
@@ -972,6 +981,14 @@ function pullRequestMutationBlockedReason(input: {
   }
 
   if (
+    input.request.action === "update_pr_body" &&
+    finalVerifyStageCompleted(input.run) &&
+    !hasFinalVerificationPrBodyEvidence(input.run, input.request.bodyEvidenceRefs ?? [])
+  ) {
+    return "GitHub PR body update is blocked until the PR body evidence references final_verify_pr_update.";
+  }
+
+  if (
     input.request.action === "merge_pr" &&
     input.request.requestMode === "approved" &&
     !canMergeAutoImplementationPullRequest(input.run)
@@ -985,6 +1002,13 @@ function pullRequestMutationBlockedReason(input: {
 
   if (input.request.action === "merge_pr" && !(input.request.bodyEvidenceRefs ?? []).length) {
     return "GitHub PR merge is blocked until the PR body contains current evidence.";
+  }
+
+  if (
+    input.request.action === "merge_pr" &&
+    !hasFinalVerificationPrBodyEvidence(input.run, input.request.bodyEvidenceRefs ?? [])
+  ) {
+    return "GitHub PR merge is blocked until the PR body is refreshed after final_verify_pr_update evidence.";
   }
 
   if (input.request.action === "merge_pr" && !(input.request.mergeEvidenceRefs ?? []).length) {
@@ -1637,12 +1661,14 @@ function autoImplementationWorkerPlan(input: {
   readonly jobId: string;
 }) {
   const planningPlanEvidenceRef = input.run.evidenceRefs.find((ref) => ref.startsWith("planning-handoff-plan:"));
+  const planningIssueEvidenceRefs = autoImplementationPlanningIssueEvidenceRefs(input.run);
   const sourceRefs = [
     `auto-implementation-run:${input.run.runId}`,
     `auto-implementation-stage:${input.issue.stage}`,
     `auto-implementation-issue:${input.issue.issueId}`,
     `issue-doc:${input.issue.relativePath}`,
-    ...(planningPlanEvidenceRef ? [planningPlanEvidenceRef] : [])
+    ...(planningPlanEvidenceRef ? [planningPlanEvidenceRef] : []),
+    ...planningIssueEvidenceRefs
   ];
 
   return {
@@ -1666,15 +1692,7 @@ function autoImplementationWorkerPlan(input: {
       ".solo-superman/auto-implementation-run.json",
       "implementation-tracker.md"
     ],
-    requiredEvidence: [
-      "ImplementationStepLedger trackerDoc and stepDoc",
-      "commit or no-code evidence",
-      "two no-finding feature and repository code-review passes",
-      "two no-finding changed-code and repository clean-code passes",
-      "passing targeted and full test evidence",
-      "ledger evidence refs imported into the stage gate",
-      "visible blocker evidence when the worker cannot complete"
-    ],
+    requiredEvidence: autoImplementationWorkerRequiredEvidence(input.issue.stage),
     forbiddenActions: [
       "credential, token, session cookie, or secret storage",
       "network writes outside an explicit future contract",
@@ -1744,6 +1762,7 @@ function autoImplementationWorkerJob(input: {
   const status = missingEvidence.length ? "blocked" as const : "planned" as const;
   const jobId = autoImplementationWorkerJobId(input.request, input.issue.stage);
   const blockedReason = autoImplementationWorkerBlockedReason(missingEvidence);
+  const planningIssueEvidenceRefs = autoImplementationPlanningIssueEvidenceRefs(input.run);
 
   return {
     jobId,
@@ -1768,6 +1787,7 @@ function autoImplementationWorkerJob(input: {
       jobId,
       `worker-plan:${input.run.runId}:${input.issue.stage}`,
       `issue-doc:${input.issue.relativePath}`,
+      ...planningIssueEvidenceRefs,
       ...(executionAuthorityRef ? [`execution-authority:${executionAuthorityRef}`] : []),
       ...(missingEvidence.length ? [`worker-blocked:${missingEvidence.join("+")}`] : [])
     ])

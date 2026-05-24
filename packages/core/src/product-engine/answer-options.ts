@@ -11,10 +11,15 @@ export type AnswerOptionSeed = {
 };
 
 function plainUserFacingAnswerOption(option: AmbiguityAnswerOption): AmbiguityAnswerOption {
+  const primaryDetail = option.primaryDetail ?? option.pro;
+  const secondaryDetail = option.secondaryDetail ?? option.con;
+
   return {
     ...option,
     label: plainUserFacingDecisionQueueText(option.label),
     value: plainUserFacingDecisionQueueText(option.value),
+    primaryDetail: plainUserFacingDecisionQueueText(primaryDetail),
+    secondaryDetail: plainUserFacingDecisionQueueText(secondaryDetail),
     pro: plainUserFacingDecisionQueueText(option.pro),
     con: plainUserFacingDecisionQueueText(option.con)
   };
@@ -24,15 +29,17 @@ function answerOption(
   id: string,
   label: string,
   value: string,
-  pro: string,
-  con: string
+  primaryDetail: string,
+  secondaryDetail: string
 ): AmbiguityAnswerOption {
   return plainUserFacingAnswerOption({
     id,
     label,
     value,
-    pro,
-    con
+    primaryDetail,
+    secondaryDetail,
+    pro: primaryDetail,
+    con: secondaryDetail
   });
 }
 
@@ -181,6 +188,43 @@ const TOPIC_ANSWER_OPTIONS: Readonly<Partial<Record<string, readonly AmbiguityAn
       "첫 배치의 실험 범위가 넓어집니다."
     )
   ],
+  customer_signal_selection: [
+    answerOption(
+      "repeat_manual_pain",
+      "반복되는 수동 고통",
+      "사용자가 같은 문제를 반복해서 수동으로 해결하고 있는지 확인한다.",
+      "문제 강도와 사용 빈도를 빠르게 가늠할 수 있습니다.",
+      "반복 빈도만으로는 지불 의향까지 증명되지 않습니다."
+    ),
+    answerOption(
+      "budget_or_paid_intent",
+      "예산/지불 의향",
+      "해결책에 돈이나 시간을 실제로 낼 의향이 있는지 확인한다.",
+      "사업화 가능성과 우선순위 판단에 직접 연결됩니다.",
+      "초기 인터뷰에서는 긍정 답변이 실제 결제로 이어지지 않을 수 있습니다."
+    ),
+    answerOption(
+      "alternative_dissatisfaction",
+      "기존 대안 불만",
+      "현재 쓰는 대안이 무엇이고 어디에서 불만이 큰지 확인한다.",
+      "차별화와 MVP 범위를 좁히는 데 도움이 됩니다.",
+      "기존 대안이 충분하면 새 제품 전환이 어려울 수 있습니다."
+    ),
+    answerOption(
+      "self_built_workaround",
+      "직접 만든 임시 해결책",
+      "사용자가 이미 스프레드시트, 스크립트, 수동 절차 같은 임시 해결책을 만들었는지 확인한다.",
+      "고통이 충분히 커서 직접 해결을 시도했는지 볼 수 있습니다.",
+      "기술 친화적인 일부 사용자에게만 강하게 나타날 수 있습니다."
+    ),
+    answerOption(
+      "repeat_use_or_sharing",
+      "반복 사용/공유 신호",
+      "한 번 쓰고 끝나는지, 반복 사용하거나 다른 사람에게 공유하려는 신호가 있는지 확인한다.",
+      "retention과 확산 가능성의 초기 단서가 됩니다.",
+      "관찰 시간이 필요해 즉시 확인하기 어려울 수 있습니다."
+    )
+  ],
   buyer_user_split: [
     answerOption(
       "same_person",
@@ -310,6 +354,10 @@ export function answerOptionsForQuestion(
   topicKey: string | undefined,
   expectedAnswerType: AmbiguityExpectedAnswerType | undefined
 ) {
+  if (expectedAnswerType === "text") {
+    return [];
+  }
+
   return (
     (topicKey ? TOPIC_ANSWER_OPTIONS[topicKey] : undefined) ??
     (expectedAnswerType ? GENERIC_ANSWER_OPTIONS_BY_TYPE[expectedAnswerType] : undefined)

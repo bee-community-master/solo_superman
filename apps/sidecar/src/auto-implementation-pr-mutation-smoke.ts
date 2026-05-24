@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import {
   AUTO_IMPLEMENTATION_STAGES,
   CONTRACT_SCHEMA_VERSION,
+  autoImplementationFinalPrBodyEvidenceRefs,
   type AutoImplementationPullRequestMutationAction,
   type AutoImplementationPullRequestMutationRecord,
   type AutoImplementationRun,
@@ -238,7 +239,7 @@ function updateBodyRequest(idempotencyKey: string) {
   };
 }
 
-function mergePrRequest(idempotencyKey: string, bodyEvidenceRefs: readonly string[] = ["pr-body:current-evidence"]) {
+function mergePrRequest(idempotencyKey: string, bodyEvidenceRefs: readonly string[]) {
   return {
     ...basePrMutationRequest("merge_pr", idempotencyKey),
     pullRequestUrl: FIXTURE_PR_URL,
@@ -253,8 +254,18 @@ function completedStageLedgerEvidence(stage: AutoImplementationStage): AutoImple
     trackerDocRef: "implementation-step-ledger:tracker:pr-mutation-smoke",
     stepDocRef: `implementation-step-ledger:step:${stage}`,
     implementationEvidenceRefs: [`commit:${stage}:abcdef1`],
-    codeReviewStreakRefs: [`code-review:${stage}:1`, `code-review:${stage}:2`],
-    cleanCodeReviewStreakRefs: [`clean-code-review:${stage}:1`, `clean-code-review:${stage}:2`],
+    codeReviewStreakRefs: [
+      `code-review:feature:${stage}:1`,
+      `code-review:feature:${stage}:2`,
+      `code-review:repository:${stage}:1`,
+      `code-review:repository:${stage}:2`
+    ],
+    cleanCodeReviewStreakRefs: [
+      `clean-code-review:changed_code:${stage}:1`,
+      `clean-code-review:changed_code:${stage}:2`,
+      `clean-code-review:repository:${stage}:1`,
+      `clean-code-review:repository:${stage}:2`
+    ],
     missingTestAuditRefs: [`missing-test-audit:${stage}:coverage`],
     testEvidenceRefs: [`test:${stage}:verify`],
     blockerEvidenceRefs: [],
@@ -479,7 +490,7 @@ async function exerciseMergeLifecycle(input: {
     localCapabilityToken: input.localCapabilityToken,
     sessionId: input.prepared.sessionId,
     runId: input.prepared.runId,
-    body: mergePrRequest("pr-mutation-smoke:merge-before-final")
+    body: mergePrRequest("pr-mutation-smoke:merge-before-final", ["pr-body:current-evidence"])
   });
 
   await persistRunStageState({
@@ -504,14 +515,14 @@ async function exerciseMergeLifecycle(input: {
     localCapabilityToken: input.localCapabilityToken,
     sessionId: input.prepared.sessionId,
     runId: input.prepared.runId,
-    body: mergePrRequest("pr-mutation-smoke:merge")
+    body: mergePrRequest("pr-mutation-smoke:merge", autoImplementationFinalPrBodyEvidenceRefs(input.prepared.runId))
   });
   const duplicateMerge = await recordPrMutation({
     scenario: input.scenario,
     localCapabilityToken: input.localCapabilityToken,
     sessionId: input.prepared.sessionId,
     runId: input.prepared.runId,
-    body: mergePrRequest("pr-mutation-smoke:merge-duplicate", ["pr-body:current-evidence"])
+    body: mergePrRequest("pr-mutation-smoke:merge-duplicate", autoImplementationFinalPrBodyEvidenceRefs(input.prepared.runId))
   });
 
   return { blockedBeforeFinalVerify, blockedMissingBody, merged, duplicateMerge };

@@ -1,5 +1,8 @@
 import {
   AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX,
+  AUTO_IMPLEMENTATION_STAGE_LABELS,
+  AUTO_IMPLEMENTATION_STAGE_WORKER_REQUIRED_EVIDENCE,
+  autoImplementationPlanningIssueFiles,
   canCreateAutoImplementationGitHubIssues,
   canImportAutoImplementationWorkerLedger,
   canMergeAutoImplementationPullRequest,
@@ -10,14 +13,20 @@ import {
   autoImplementationGitHubIssueUrlForIssue,
   latestAutoImplementationWorkerJobForIssue,
   latestCurrentStageAutoImplementationWorkerJob,
+  type AutoImplementationGitHubIssueMutationStatus,
   type AutoImplementationGitHubIssuePlan,
   type AutoImplementationIssueDocument,
+  type AutoImplementationIssueMode,
   type AutoImplementationIssueStatusSummary,
   type AutoImplementationPullRequestMutationRecord,
+  type AutoImplementationRemoteStatus,
   type AutoImplementationRun,
   type AutoImplementationRunProjection,
+  type AutoImplementationRunStatus,
+  type AutoImplementationStage,
   type AutoImplementationStageReviewGate,
   type AutoImplementationStageRecord,
+  type AutoImplementationStageStatus,
   type AutoImplementationWorkerExecutionPlan,
   type AutoImplementationWorkerJob,
   type CodexRuntimeStatusDto,
@@ -44,6 +53,8 @@ interface AutoImplementationWorkerRuntimeView extends CodexRuntimeEvidenceView {
 }
 
 interface AutoImplementationWorkerPlanView {
+  readonly stage: AutoImplementationStage;
+  readonly stageLabel: string;
   readonly executionMode: AutoImplementationWorkerExecutionPlan["executionMode"];
   readonly workingDirectory: string;
   readonly issueDocumentPath: string;
@@ -52,6 +63,8 @@ interface AutoImplementationWorkerPlanView {
   readonly ledgerStepDoc: AutoImplementationWorkerExecutionPlan["ledgerStepDoc"];
   readonly allowedWriteScope: readonly string[];
   readonly requiredEvidence: readonly string[];
+  readonly baseRequiredEvidence: readonly string[];
+  readonly stageRequiredEvidence: readonly string[];
   readonly forbiddenActions: readonly string[];
   readonly sourceRefs: readonly string[];
   readonly blockedReason: string | null;
@@ -59,28 +72,51 @@ interface AutoImplementationWorkerPlanView {
   readonly evidenceRefs: readonly string[];
 }
 
+interface AutoImplementationStageProgressView {
+  readonly completedStageCount: number;
+  readonly totalStageCount: number;
+  readonly currentStage: AutoImplementationStage | null;
+  readonly currentStageStatus: AutoImplementationStageStatus | "not_started";
+}
+
+interface AutoImplementationReviewLoopProgressView {
+  readonly completedReviewLoopCount: number;
+  readonly totalReviewLoopCount: number;
+  readonly nextReviewLoopStage: AutoImplementationStage | null;
+}
+
 export interface AutoImplementationIssueRowView {
   readonly issue: AutoImplementationIssueDocument;
   readonly githubIssueUrlLabel: string;
   readonly latestWorkerJobLabel: string;
+  readonly latestWorkerJobId: string | null;
+  readonly latestWorkerJobStatus: AutoImplementationWorkerJob["status"] | "none";
   readonly blockerLabel: string | null;
   readonly nextActionLabel: string;
+  readonly stageGateLabel: string;
   readonly missingEvidenceLabel: string;
   readonly evidenceRefsLabel: string;
 }
 
 export interface AutoImplementationRunViewModel {
-  readonly status: string;
+  readonly status: AutoImplementationRunStatus | "not_started";
   readonly summary: string;
   readonly workspaceLabel: string;
+  readonly workspacePath: string | null;
   readonly remoteLabel: string;
+  readonly remoteStatus: AutoImplementationRemoteStatus | null;
   readonly nextTickLabel: string;
+  readonly nextTickAt: string | null;
   readonly issueModeLabel: string;
+  readonly issueMode: AutoImplementationIssueMode | null;
   readonly issueStatusSummaryLabel: string;
+  readonly issueStatusSummary: AutoImplementationIssueStatusSummary | null;
   readonly remoteWarning: string | null;
   readonly remoteCommands: readonly string[];
   readonly remoteNextAction: string;
   readonly githubIssueMutationLabel: string;
+  readonly githubIssueMutationStatus: AutoImplementationGitHubIssueMutationStatus;
+  readonly githubIssueMutationBlockedReason: string | null;
   readonly githubIssuePlans: readonly AutoImplementationGitHubIssuePlan[];
   readonly githubCreatedIssueUrls: readonly string[];
   readonly pullRequestMutationLabel: string;
@@ -89,6 +125,7 @@ export interface AutoImplementationRunViewModel {
   readonly stages: readonly AutoImplementationStageRecord[];
   readonly issueDocs: readonly AutoImplementationIssueDocument[];
   readonly issueRows: readonly AutoImplementationIssueRowView[];
+  readonly planningIssueFiles: readonly string[];
   readonly deliveryGates: readonly string[];
   readonly stageReviewGates: readonly AutoImplementationStageReviewGate[];
   readonly evidenceRefs: readonly string[];
@@ -96,6 +133,12 @@ export interface AutoImplementationRunViewModel {
   readonly latestWorkerJobNextAction: string;
   readonly latestWorkerJobId: string | null;
   readonly latestWorkerJobStatus: AutoImplementationWorkerJob["status"] | "not_planned";
+  readonly latestWorkerJobStage: AutoImplementationStage | null;
+  readonly latestWorkerJobIssueId: string | null;
+  readonly stageProgress: AutoImplementationStageProgressView;
+  readonly reviewLoopProgress: AutoImplementationReviewLoopProgressView;
+  readonly currentStageGates: readonly string[];
+  readonly workerStageAdvanceBlockerLabel: string | null;
   readonly workerRuntimeReadiness: AutoImplementationWorkerRuntimeView | null;
   readonly latestWorkerPlan: AutoImplementationWorkerPlanView | null;
   readonly canPlanWorkerJob: boolean;
@@ -115,6 +158,51 @@ export interface AutoImplementationRunViewModel {
   readonly canAdvanceWorkerStage: boolean;
   readonly hasRun: boolean;
 }
+
+const REVIEW_LOOP_STAGES = [
+  "code_review_fix_1",
+  "code_review_fix_2",
+  "clean_code_fix_1",
+  "clean_code_fix_2"
+] as const satisfies readonly AutoImplementationStage[];
+
+const ISSUE_ROW_COMPLETED_NEXT_ACTION = "Use the completed stage implementation record before advancing the next PR slice.";
+const ISSUE_ROW_DEFAULT_NEXT_ACTION = "Work this issue through the delivery protocol, review streaks, and test evidence checklist.";
+
+function userFacingAutoImplementationTaskText(value: string) {
+  return value
+    .replace(/\blocal\s+Codex\s+worker\s+job\b/giu, "local Codex task")
+    .replace(/\bLocal\s+Codex\s+worker\s+job\b/gu, "Local Codex task")
+    .replace(/\blocal\s+Codex\s+worker\b/giu, "local Codex task")
+    .replace(/\bLocal\s+Codex\s+worker\b/gu, "Local Codex task")
+    .replace(/\blocal\s+worker\s+job\b/giu, "local Codex task")
+    .replace(/\blocal\s+worker\b/giu, "local Codex task")
+    .replace(/\bworker\s+job\b/giu, "local Codex task")
+    .replace(/\bworker\s+ledger\s+envelope\b/giu, "task-result JSON")
+    .replace(/\bworker\s+ledger\s+evidence\b/giu, "local Codex task result evidence")
+    .replace(/\bledger\s+evidence\b/giu, "implementation record evidence")
+    .replace(/\bledger\s+import\b/giu, "result import")
+    .replace(/\bImplementationStepLedger\b/gu, "implementation record")
+    .replace(/\btrackerDoc\b/gu, "tracker document")
+    .replace(/\bstepDoc\b/gu, "step document")
+    .replace(/\bmanual\s+handoff\s+fallback\b/giu, "manual result-import fallback")
+    .replace(/\bbounded\s+ExecutionAuthorityRecord\b/gu, "scoped execution authority record")
+    .replace(/\bExecutionAuthorityRecord\b/gu, "execution authority record");
+}
+
+const AUTO_IMPLEMENTATION_REMOTE_STATUS_VIEW_LABELS = {
+  connected: "connected",
+  not_authenticated: "not authenticated",
+  no_remote: "no remote connected",
+  permission_denied: "permission denied",
+  offline: "offline",
+  unsupported_remote: "unsupported remote"
+} satisfies Record<AutoImplementationRemoteStatus, string>;
+
+const AUTO_IMPLEMENTATION_ISSUE_MODE_VIEW_LABELS = {
+  github_ready: "GitHub issues ready",
+  markdown_fallback: "local markdown issues"
+} satisfies Record<AutoImplementationIssueMode, string>;
 
 function latestRun(projection: AutoImplementationRunProjection | null) {
   return projection?.latestRun ?? null;
@@ -170,23 +258,50 @@ function autoImplementationStageRecordForIssue(
   return run.stagePlan.find((stage) => stage.stage === issue.stage) ?? null;
 }
 
+function autoImplementationStageProgress(run: AutoImplementationRun): AutoImplementationStageProgressView {
+  const currentStage = run.stagePlan.find((stage) => stage.stage === run.currentStage);
+
+  return {
+    completedStageCount: run.stagePlan.filter((stage) => stage.status === "completed").length,
+    totalStageCount: run.stagePlan.length,
+    currentStage: run.currentStage,
+    currentStageStatus: currentStage?.status ?? "pending"
+  };
+}
+
+function autoImplementationReviewLoopProgress(run: AutoImplementationRun): AutoImplementationReviewLoopProgressView {
+  return {
+    completedReviewLoopCount: REVIEW_LOOP_STAGES.filter((stage) =>
+      run.stagePlan.find((record) => record.stage === stage)?.status === "completed"
+    ).length,
+    totalReviewLoopCount: REVIEW_LOOP_STAGES.length,
+    nextReviewLoopStage: REVIEW_LOOP_STAGES.find((stage) =>
+      run.stagePlan.find((record) => record.stage === stage)?.status !== "completed"
+    ) ?? null
+  };
+}
+
+function autoImplementationCurrentStageGates(run: AutoImplementationRun) {
+  return run.reviewProtocol.stageGates.find((stageGate) => stageGate.stage === run.currentStage)?.gates ?? [];
+}
+
 function issueRowNextAction(input: {
   readonly stage: AutoImplementationStageRecord | null;
   readonly latestWorkerJob: AutoImplementationWorkerJob | null;
 }) {
   if (input.latestWorkerJob?.nextRequiredAction) {
-    return input.latestWorkerJob.nextRequiredAction;
+    return userFacingAutoImplementationTaskText(input.latestWorkerJob.nextRequiredAction);
   }
 
   if (input.stage?.blocker?.nextRequiredAction) {
-    return input.stage.blocker.nextRequiredAction;
+    return userFacingAutoImplementationTaskText(input.stage.blocker.nextRequiredAction);
   }
 
   if (input.stage?.status === "completed") {
-    return "Use the completed stage ledger evidence before advancing the next PR slice.";
+    return ISSUE_ROW_COMPLETED_NEXT_ACTION;
   }
 
-  return "Work this issue through the delivery protocol, review streaks, and test evidence checklist.";
+  return ISSUE_ROW_DEFAULT_NEXT_ACTION;
 }
 
 function issueRowBlockerLabel(input: {
@@ -194,18 +309,18 @@ function issueRowBlockerLabel(input: {
   readonly latestWorkerJob: AutoImplementationWorkerJob | null;
 }) {
   if (input.latestWorkerJob?.blockedReason) {
-    return `worker blocker: ${input.latestWorkerJob.blockedReason}`;
+    return `local Codex task blocker: ${userFacingAutoImplementationTaskText(input.latestWorkerJob.blockedReason)}`;
   }
 
   if (input.stage?.blocker?.reason) {
-    return `stage blocker: ${input.stage.blocker.reason}`;
+    return `stage blocker: ${userFacingAutoImplementationTaskText(input.stage.blocker.reason)}`;
   }
 
   return null;
 }
 
 function latestIssueWorkerJobLabel(latestWorkerJob: AutoImplementationWorkerJob | null) {
-  return latestWorkerJob ? `latest worker ${latestWorkerJob.jobId} (${latestWorkerJob.status})` : "latest worker none";
+  return latestWorkerJob ? `latest local Codex task ${latestWorkerJob.jobId} (${latestWorkerJob.status})` : "latest local Codex task none";
 }
 
 function issueRowMissingEvidence(
@@ -213,10 +328,10 @@ function issueRowMissingEvidence(
   latestWorkerJob: AutoImplementationWorkerJob | null
 ) {
   if (latestWorkerJob?.missingEvidence.length) {
-    return latestWorkerJob.missingEvidence;
+    return latestWorkerJob.missingEvidence.map(userFacingAutoImplementationTaskText);
   }
 
-  return stage?.blocker?.missingEvidence ?? [];
+  return stage?.blocker?.missingEvidence.map(userFacingAutoImplementationTaskText) ?? [];
 }
 
 function issueRowEvidenceRefs(
@@ -232,6 +347,23 @@ function issueRowEvidenceRefs(
   }
 
   return stage?.evidenceRefs ?? [];
+}
+
+function issueRowStageGates(run: AutoImplementationRun, issue: AutoImplementationIssueDocument) {
+  return run.reviewProtocol.stageGates.find((stageGate) => stageGate.stage === issue.stage)?.gates ?? [];
+}
+
+function splitWorkerRequiredEvidence(
+  stage: AutoImplementationStage,
+  requiredEvidence: readonly string[]
+) {
+  const stageEvidence = AUTO_IMPLEMENTATION_STAGE_WORKER_REQUIRED_EVIDENCE[stage];
+  const stageEvidenceSet = new Set<string>(stageEvidence);
+
+  return {
+    baseRequiredEvidence: requiredEvidence.filter((evidence) => !stageEvidenceSet.has(evidence)),
+    stageRequiredEvidence: requiredEvidence.filter((evidence) => stageEvidenceSet.has(evidence))
+  };
 }
 
 function completedLedgerStepMatchesCurrentStage(
@@ -268,6 +400,36 @@ function hasRequiredWorkerAdvanceLedgerEvidence(input: {
   );
 }
 
+function workerStageAdvanceBlockerLabel(input: {
+  readonly run: AutoImplementationRun;
+  readonly ledger: ImplementationStepLedgerProjection | null;
+  readonly workerJob: AutoImplementationWorkerJob | null;
+}) {
+  const { ledger, run, workerJob } = input;
+
+  if (!workerJob) {
+    return "Plan and complete a current-stage local Codex task before advancing the stage.";
+  }
+
+  if (workerJob.status !== "completed") {
+    return "Complete the current-stage local Codex task and import its result evidence before advancing the stage.";
+  }
+
+  if (run.currentStage !== "merge_main") {
+    return null;
+  }
+
+  if (!hasAppliedAutoImplementationPullRequestMerge(run)) {
+    return "Record the applied GitHub PR merge mutation before advancing merge_main.";
+  }
+
+  if (!hasRequiredWorkerAdvanceLedgerEvidence({ run, ledger, workerJob })) {
+    return `Import completed ledger test evidence containing ${AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX}merge_main:<command> before advancing merge_main.`;
+  }
+
+  return null;
+}
+
 function autoImplementationIssueRowView(
   run: AutoImplementationRun,
   issue: AutoImplementationIssueDocument
@@ -279,8 +441,11 @@ function autoImplementationIssueRowView(
     issue,
     githubIssueUrlLabel: autoImplementationGitHubIssueUrlForIssue(run, issue) ?? "none",
     latestWorkerJobLabel: latestIssueWorkerJobLabel(latestWorkerJob),
+    latestWorkerJobId: latestWorkerJob?.jobId ?? null,
+    latestWorkerJobStatus: latestWorkerJob?.status ?? "none",
     blockerLabel: issueRowBlockerLabel({ stage, latestWorkerJob }),
     nextActionLabel: issueRowNextAction({ stage, latestWorkerJob }),
+    stageGateLabel: inlineList(issueRowStageGates(run, issue), "none"),
     missingEvidenceLabel: inlineList(issueRowMissingEvidence(stage, latestWorkerJob), "none"),
     evidenceRefsLabel: inlineList(issueRowEvidenceRefs(stage, latestWorkerJob), "none")
   };
@@ -298,29 +463,52 @@ export function autoImplementationRunViewModel(
       status: "not_started",
       summary: "No auto implementation workspace has been prepared yet.",
       workspaceLabel: "workspace/<project> is not prepared",
+      workspacePath: null,
       remoteLabel: "Remote: not checked",
+      remoteStatus: null,
       nextTickLabel: "Next 5-minute tick: not scheduled",
+      nextTickAt: null,
       issueModeLabel: "Issue mode: not selected",
+      issueMode: null,
       issueStatusSummaryLabel: formatIssueStatusSummaryLabel(null),
+      issueStatusSummary: null,
       remoteWarning: "Start a run to create a local git repo, markdown fallback issues, and remote connection guidance.",
       remoteCommands: [],
       remoteNextAction: "Create the workspace run after the planning handoff is detailed enough.",
-      githubIssueMutationLabel: "GitHub issue mutation: not requested",
+      githubIssueMutationLabel: "GitHub issue action: not requested",
+      githubIssueMutationStatus: "not_requested",
+      githubIssueMutationBlockedReason: null,
       githubIssuePlans: [],
       githubCreatedIssueUrls: [],
-      pullRequestMutationLabel: "GitHub PR mutation: no records",
+      pullRequestMutationLabel: "GitHub PR action: no records",
       pullRequestMutationHistoryCount: 0,
       latestPullRequestMutation: null,
       stages: [],
       issueDocs: [],
       issueRows: [],
+      planningIssueFiles: [],
       deliveryGates: [],
       stageReviewGates: [],
       evidenceRefs: [],
-      latestWorkerJobLabel: "Local Codex worker: not planned",
-      latestWorkerJobNextAction: "Create a workspace run before planning a local Codex worker.",
+      latestWorkerJobLabel: "Local Codex task: not planned",
+      latestWorkerJobNextAction: "Create a workspace run before planning a local Codex task.",
       latestWorkerJobId: null,
       latestWorkerJobStatus: "not_planned",
+      latestWorkerJobStage: null,
+      latestWorkerJobIssueId: null,
+      stageProgress: {
+        completedStageCount: 0,
+        totalStageCount: 0,
+        currentStage: null,
+        currentStageStatus: "not_started"
+      },
+      reviewLoopProgress: {
+        completedReviewLoopCount: 0,
+        totalReviewLoopCount: REVIEW_LOOP_STAGES.length,
+        nextReviewLoopStage: null
+      },
+      currentStageGates: [],
+      workerStageAdvanceBlockerLabel: null,
       workerRuntimeReadiness: null,
       latestWorkerPlan: null,
       canPlanWorkerJob: false,
@@ -358,22 +546,36 @@ export function autoImplementationRunViewModel(
   const latestWorkerJob = latestCurrentStageAutoImplementationWorkerJob(run);
   const currentStageRecord = run.stagePlan.find((stage) => stage.stage === run.currentStage) ?? null;
   const latestWorkerPlan = latestWorkerJob
-    ? {
-        executionMode: latestWorkerJob.executionPlan.executionMode,
-        workingDirectory: latestWorkerJob.executionPlan.workingDirectory,
-        issueDocumentPath: latestWorkerJob.executionPlan.issueDocumentPath,
-        executionAuthorityRef: latestWorkerJob.executionPlan.executionAuthorityRef,
-        ledgerTrackerDoc: latestWorkerJob.executionPlan.ledgerTrackerDoc,
-        ledgerStepDoc: latestWorkerJob.executionPlan.ledgerStepDoc,
-        allowedWriteScope: latestWorkerJob.executionPlan.allowedWriteScope,
-        requiredEvidence: latestWorkerJob.executionPlan.requiredEvidence,
-        forbiddenActions: latestWorkerJob.executionPlan.forbiddenActions,
-        sourceRefs: latestWorkerJob.executionPlan.sourceRefs,
-        blockedReason: latestWorkerJob.blockedReason,
-        missingEvidence: latestWorkerJob.missingEvidence,
-        evidenceRefs: latestWorkerJob.evidenceRefs
-      }
+    ? (() => {
+        const requiredEvidence = splitWorkerRequiredEvidence(
+          latestWorkerJob.stage,
+          latestWorkerJob.executionPlan.requiredEvidence
+        );
+
+        return {
+          stage: latestWorkerJob.stage,
+          stageLabel: AUTO_IMPLEMENTATION_STAGE_LABELS[latestWorkerJob.stage],
+          executionMode: latestWorkerJob.executionPlan.executionMode,
+          workingDirectory: latestWorkerJob.executionPlan.workingDirectory,
+          issueDocumentPath: latestWorkerJob.executionPlan.issueDocumentPath,
+          executionAuthorityRef: latestWorkerJob.executionPlan.executionAuthorityRef,
+          ledgerTrackerDoc: latestWorkerJob.executionPlan.ledgerTrackerDoc,
+          ledgerStepDoc: latestWorkerJob.executionPlan.ledgerStepDoc,
+          allowedWriteScope: latestWorkerJob.executionPlan.allowedWriteScope,
+          requiredEvidence: latestWorkerJob.executionPlan.requiredEvidence.map(userFacingAutoImplementationTaskText),
+          baseRequiredEvidence: requiredEvidence.baseRequiredEvidence.map(userFacingAutoImplementationTaskText),
+          stageRequiredEvidence: requiredEvidence.stageRequiredEvidence.map(userFacingAutoImplementationTaskText),
+          forbiddenActions: latestWorkerJob.executionPlan.forbiddenActions,
+          sourceRefs: latestWorkerJob.executionPlan.sourceRefs,
+          blockedReason: latestWorkerJob.blockedReason
+            ? userFacingAutoImplementationTaskText(latestWorkerJob.blockedReason)
+            : null,
+          missingEvidence: latestWorkerJob.missingEvidence.map(userFacingAutoImplementationTaskText),
+          evidenceRefs: latestWorkerJob.evidenceRefs
+        };
+      })()
     : null;
+  const planningIssueFiles = autoImplementationPlanningIssueFiles(run);
   const canRunWorkerJob = canRunAutoImplementationWorkerJob(latestWorkerJob);
   const canAdvanceWorkerStage = latestWorkerJob?.status === "completed" &&
     hasRequiredWorkerAdvanceLedgerEvidence({
@@ -382,6 +584,13 @@ export function autoImplementationRunViewModel(
       workerJob: latestWorkerJob
     }) &&
     (run.currentStage !== "merge_main" || hasAppliedAutoImplementationPullRequestMerge(run));
+  const workerStageAdvanceBlocker = canAdvanceWorkerStage
+    ? null
+    : workerStageAdvanceBlockerLabel({
+        run,
+        ledger: implementationStepLedger,
+        workerJob: latestWorkerJob
+      });
   const hasReadyPullRequestDryRun = (action: AutoImplementationPullRequestMutationRecord["action"]) =>
     pullRequestMutationRecords.some((record) =>
       record.action === action &&
@@ -393,34 +602,49 @@ export function autoImplementationRunViewModel(
     status: run.status,
     summary: projection.summary,
     workspaceLabel: `Workspace: ${run.generatedRepoPath}`,
-    remoteLabel: `Remote: ${run.remoteStatus}`,
+    workspacePath: run.generatedRepoPath,
+    remoteLabel: `Remote: ${AUTO_IMPLEMENTATION_REMOTE_STATUS_VIEW_LABELS[run.remoteStatus]}`,
+    remoteStatus: run.remoteStatus,
     nextTickLabel: `Next 5-minute tick: ${run.nextTickAt}`,
-    issueModeLabel: `Issue mode: ${run.issueManagement.mode}`,
+    nextTickAt: run.nextTickAt,
+    issueModeLabel: `Issue mode: ${AUTO_IMPLEMENTATION_ISSUE_MODE_VIEW_LABELS[run.issueManagement.mode]}`,
+    issueMode: run.issueManagement.mode,
     issueStatusSummaryLabel: formatIssueStatusSummaryLabel(run.issueManagement.issueStatusSummary),
+    issueStatusSummary: run.issueManagement.issueStatusSummary,
     remoteWarning: run.remoteGuide.warning,
     remoteCommands: run.remoteGuide.commands,
     remoteNextAction: run.remoteGuide.nextAction,
-    githubIssueMutationLabel: `GitHub issue mutation: ${githubIssueMutation.status}${githubIssueBlockedReason}`,
+    githubIssueMutationLabel: `GitHub issue action: ${githubIssueMutation.status}${githubIssueBlockedReason}`,
+    githubIssueMutationStatus: githubIssueMutation.status,
+    githubIssueMutationBlockedReason: githubIssueMutation.blockedReason,
     githubIssuePlans: githubIssueMutation.plannedIssues,
     githubCreatedIssueUrls: run.issueManagement.githubIssueUrls,
     pullRequestMutationLabel: latestPullRequestMutation
-      ? `GitHub PR mutation: ${latestPullRequestMutation.action} ${latestPullRequestMutation.status}`
-      : "GitHub PR mutation: no records",
+      ? `GitHub PR action: ${latestPullRequestMutation.action} ${latestPullRequestMutation.status}`
+      : "GitHub PR action: no records",
     pullRequestMutationHistoryCount: pullRequestMutationRecords.length,
     latestPullRequestMutation,
     stages: run.stagePlan,
     issueDocs: run.issueManagement.issueDocs,
     issueRows: run.issueManagement.issueDocs.map((issue) => autoImplementationIssueRowView(run, issue)),
+    planningIssueFiles,
     deliveryGates: run.reviewProtocol.deliveryGates,
     stageReviewGates: run.reviewProtocol.stageGates,
     evidenceRefs: run.evidenceRefs,
     latestWorkerJobLabel: latestWorkerJob
-      ? `Local Codex worker: ${latestWorkerJob.status} for ${latestWorkerJob.stage} (${latestWorkerJob.issueId})`
-      : "Local Codex worker: not planned",
-    latestWorkerJobNextAction: latestWorkerJob?.nextRequiredAction ??
-      "Create a bounded local worker job after the current stage issue document is ready.",
+      ? `Local Codex task: ${latestWorkerJob.status} for ${latestWorkerJob.stage} (${latestWorkerJob.issueId})`
+      : "Local Codex task: not planned",
+    latestWorkerJobNextAction: latestWorkerJob?.nextRequiredAction
+      ? userFacingAutoImplementationTaskText(latestWorkerJob.nextRequiredAction)
+      : "Plan a scoped local Codex task after the current stage issue document is ready.",
     latestWorkerJobId: latestWorkerJob?.jobId ?? null,
     latestWorkerJobStatus: latestWorkerJob?.status ?? "not_planned",
+    latestWorkerJobStage: latestWorkerJob?.stage ?? null,
+    latestWorkerJobIssueId: latestWorkerJob?.issueId ?? null,
+    stageProgress: autoImplementationStageProgress(run),
+    reviewLoopProgress: autoImplementationReviewLoopProgress(run),
+    currentStageGates: autoImplementationCurrentStageGates(run),
+    workerStageAdvanceBlockerLabel: workerStageAdvanceBlocker,
     workerRuntimeReadiness: autoImplementationWorkerRuntimeView(runtimeStatus),
     latestWorkerPlan,
     canPlanWorkerJob: canPlanCurrentStageAutoImplementationWorkerJob(run),
@@ -461,6 +685,24 @@ export function autoImplementationRunViewModel(
 
 function inlineList(items: readonly string[], fallback: string) {
   return items.length ? items.join(", ") : fallback;
+}
+
+function RequiredEvidenceList({
+  fallback,
+  items
+}: {
+  readonly fallback: string;
+  readonly items: readonly string[];
+}) {
+  return items.length ? (
+    <ul>
+      {items.map((item) => (
+        <li key={item}>{item}</li>
+      ))}
+    </ul>
+  ) : (
+    <span>{fallback}</span>
+  );
 }
 
 interface AutoImplementationRunPanelProps {
@@ -521,41 +763,131 @@ export function AutoImplementationRunPanel({
   const workerRuntimeNextAction = run.workerRuntimeReadiness
     ? copy.autoImplementation.workerRuntimeNextActions[run.workerRuntimeReadiness.nextActionKey]
     : null;
+  const workerRuntimeStatus = run.workerRuntimeReadiness
+    ? copy.autoImplementation.workerRuntimeStatusLabels[run.workerRuntimeReadiness.status]
+    : null;
+  const workerRuntimeExecutionMode = run.workerRuntimeReadiness
+    ? copy.autoImplementation.workerRuntimeExecutionModeLabels[run.workerRuntimeReadiness.executionMode]
+    : null;
+  const workerRuntimeAccountType = run.workerRuntimeReadiness?.accountType
+    ? copy.autoImplementation.workerRuntimeAccountTypeLabels[run.workerRuntimeReadiness.accountType]
+    : null;
+  const workerRuntimeAccount = run.workerRuntimeReadiness
+    ? copy.autoImplementation.workerRuntimeAccountLabel(
+        copy.autoImplementation.workerRuntimeAccountStatusLabels[run.workerRuntimeReadiness.accountStatus],
+        workerRuntimeAccountType,
+        run.workerRuntimeReadiness.accountPlanType
+      )
+    : null;
   const workerRuntimeLiveTurns = run.workerRuntimeReadiness
     ? copy.autoImplementation.workerRuntimeLiveTurnStates[run.workerRuntimeReadiness.liveTurnsState]
     : null;
   const workerRuntimeManualHandoff = run.workerRuntimeReadiness
     ? copy.autoImplementation.workerRuntimeManualHandoffStates[run.workerRuntimeReadiness.manualHandoffState]
     : null;
+  const currentStageLabel = run.stageProgress.currentStage
+    ? copy.autoImplementation.stageLabels[run.stageProgress.currentStage]
+    : copy.autoImplementation.none;
+  const currentStageStatusLabel = copy.autoImplementation.stageStatusLabels[run.stageProgress.currentStageStatus];
+  const nextReviewLoopLabel = run.reviewLoopProgress.nextReviewLoopStage
+    ? copy.autoImplementation.stageLabels[run.reviewLoopProgress.nextReviewLoopStage]
+    : null;
+  const currentStageGateLabels = run.stageProgress.currentStage
+    ? copy.autoImplementation.stageGateLabels[run.stageProgress.currentStage]
+    : run.currentStageGates;
+  const latestWorkerJobStageLabel = run.latestWorkerJobStage
+    ? copy.autoImplementation.stageLabels[run.latestWorkerJobStage]
+    : null;
+  const latestWorkerPlanStageLabel = run.latestWorkerPlan
+    ? copy.autoImplementation.stageLabels[run.latestWorkerPlan.stage]
+    : null;
+  const issueRowNextActionLabel = (nextActionLabel: string) => {
+    if (nextActionLabel === ISSUE_ROW_DEFAULT_NEXT_ACTION) {
+      return copy.autoImplementation.issueRowDefaultNextAction;
+    }
+
+    if (nextActionLabel === ISSUE_ROW_COMPLETED_NEXT_ACTION) {
+      return copy.autoImplementation.issueRowCompletedNextAction;
+    }
+
+    return nextActionLabel;
+  };
+  const latestWorkerJobStatusLabel = run.latestWorkerJobStatus === "not_planned"
+    ? null
+    : copy.autoImplementation.workerJobStatusLabels[run.latestWorkerJobStatus];
+  const latestWorkerJobLabel = copy.autoImplementation.latestWorkerJobLabel(
+    latestWorkerJobStatusLabel,
+    latestWorkerJobStageLabel,
+    run.latestWorkerJobIssueId
+  );
+  const latestWorkerJobNextAction = run.latestWorkerJobId
+    ? run.latestWorkerJobNextAction
+    : copy.autoImplementation.latestWorkerJobNextActionNotPlanned(run.hasRun);
+  const runSummary = copy.autoImplementation.runSummary(run.hasRun, run.workspacePath, run.remoteStatus);
+  const remoteNextAction = copy.autoImplementation.remoteNextActionLabel(run.remoteNextAction);
+  const remoteWarning = run.remoteWarning
+    ? copy.autoImplementation.remoteWarningLabel(run.remoteWarning)
+    : null;
 
   return (
     <section className="panel auto-implementation-run-panel">
       <div className="panel-heading">
         <h2>{copy.autoImplementation.title}</h2>
-        <span>{run.status}</span>
+        <span>{copy.autoImplementation.runStatusLabels[run.status]}</span>
       </div>
-      <p>{run.summary}</p>
-      <p className="research-recovery">{run.workspaceLabel}</p>
-      <p className="mode-summary">{run.remoteLabel} · {run.issueModeLabel}</p>
-      <p className="mode-summary">{run.issueStatusSummaryLabel}</p>
-      <p className="mode-summary">{run.nextTickLabel}</p>
-      <p className="mode-summary">{run.latestWorkerJobLabel}</p>
-      <p className="research-recovery">{run.latestWorkerJobNextAction}</p>
+      <p>{runSummary}</p>
+      <p className="research-recovery">{copy.autoImplementation.workspaceLabel(run.workspacePath)}</p>
+      <p className="mode-summary">{copy.autoImplementation.remoteLabel(run.remoteStatus)} · {copy.autoImplementation.issueModeLabel(run.issueMode)}</p>
+      <p className="mode-summary">{copy.autoImplementation.issueStatusSummary(run.issueStatusSummary)}</p>
+      <p className="mode-summary">{copy.autoImplementation.nextTickLabel(run.nextTickAt)}</p>
+      <p className="mode-summary">{latestWorkerJobLabel}</p>
+      <p className="research-recovery">{latestWorkerJobNextAction}</p>
+      <article className="operations-card" aria-label={copy.autoImplementation.deliveryProgress}>
+        <h3>{copy.autoImplementation.deliveryProgress}</h3>
+        <dl className="readiness-grid">
+          <div>
+            <dt>{copy.autoImplementation.stageProgress}</dt>
+            <dd>{copy.autoImplementation.stageProgressSummary(
+              run.stageProgress.completedStageCount,
+              run.stageProgress.totalStageCount,
+              currentStageLabel,
+              currentStageStatusLabel
+            )}</dd>
+          </div>
+          <div>
+            <dt>{copy.autoImplementation.reviewLoopProgress}</dt>
+            <dd>{copy.autoImplementation.reviewLoopProgressSummary(
+              run.reviewLoopProgress.completedReviewLoopCount,
+              run.reviewLoopProgress.totalReviewLoopCount,
+              nextReviewLoopLabel
+            )}</dd>
+          </div>
+          <div>
+            <dt>{copy.autoImplementation.currentStageGate}</dt>
+            <dd>{inlineList(currentStageGateLabels, copy.autoImplementation.none)}</dd>
+          </div>
+        </dl>
+      </article>
+      {run.workerStageAdvanceBlockerLabel ? (
+        <p className="research-recovery">
+          {copy.autoImplementation.workerStageAdvanceBlocker}: {run.workerStageAdvanceBlockerLabel}
+        </p>
+      ) : null}
       {run.workerRuntimeReadiness ? (
         <article className="operations-card" aria-label={copy.autoImplementation.workerRuntimeReadiness}>
           <h3>{copy.autoImplementation.workerRuntimeReadiness}</h3>
           <dl className="readiness-grid">
             <div>
               <dt>{copy.autoImplementation.workerRuntimeStatus}</dt>
-              <dd>{run.workerRuntimeReadiness.statusLabel}</dd>
+              <dd>{workerRuntimeStatus}</dd>
             </div>
             <div>
               <dt>{copy.autoImplementation.workerRuntimeExecutionMode}</dt>
-              <dd>{run.workerRuntimeReadiness.executionModeLabel}</dd>
+              <dd>{workerRuntimeExecutionMode}</dd>
             </div>
             <div>
               <dt>{copy.autoImplementation.workerRuntimeAccount}</dt>
-              <dd>{run.workerRuntimeReadiness.accountLabel}</dd>
+              <dd>{workerRuntimeAccount}</dd>
             </div>
             {run.workerRuntimeReadiness.checkedAtLabel ? (
               <div>
@@ -712,7 +1044,7 @@ export function AutoImplementationRunPanel({
             <dl className="readiness-grid">
               <div>
                 <dt>{copy.autoImplementation.workerPlanExecutionMode}</dt>
-                <dd>{run.latestWorkerPlan.executionMode}</dd>
+                <dd>{copy.autoImplementation.workerExecutionModeLabels[run.latestWorkerPlan.executionMode]}</dd>
               </div>
               <div>
                 <dt>{copy.autoImplementation.workerPlanWorkingDirectory}</dt>
@@ -751,7 +1083,23 @@ export function AutoImplementationRunPanel({
               </div>
               <div>
                 <dt>{copy.autoImplementation.workerPlanRequiredEvidence}</dt>
-                <dd>{inlineList(run.latestWorkerPlan.requiredEvidence, copy.autoImplementation.none)}</dd>
+                <dd>
+                  <p className="mode-summary">
+                    {copy.autoImplementation.workerPlanRequiredEvidenceHelp(
+                      latestWorkerPlanStageLabel ?? run.latestWorkerPlan.stageLabel
+                    )}
+                  </p>
+                  <strong>{copy.autoImplementation.workerPlanBaseRequiredEvidence}</strong>
+                  <RequiredEvidenceList
+                    fallback={copy.autoImplementation.none}
+                    items={run.latestWorkerPlan.baseRequiredEvidence}
+                  />
+                  <strong>{copy.autoImplementation.workerPlanStageRequiredEvidence}</strong>
+                  <RequiredEvidenceList
+                    fallback={copy.autoImplementation.none}
+                    items={run.latestWorkerPlan.stageRequiredEvidence}
+                  />
+                </dd>
               </div>
               <div>
                 <dt>{copy.autoImplementation.workerPlanForbiddenActions}</dt>
@@ -783,11 +1131,11 @@ export function AutoImplementationRunPanel({
         <ol>
           {run.stages.map((stage) => (
             <li key={stage.stage}>
-              {stage.label}: {stage.status}
+              {copy.autoImplementation.stageLabels[stage.stage]}: {copy.autoImplementation.stageStatusLabels[stage.status]}
               {stage.nextScheduledAt ? ` · ${stage.nextScheduledAt}` : ""}
-              {stage.tickRecords.length ? ` · ticks ${stage.tickRecords.length}` : ""}
-              {stage.ledgerEvidence ? ` · ledger ${stage.ledgerEvidence.implementationStepId}` : ""}
-              {stage.blocker ? ` · blocked: ${stage.blocker.reason}` : ""}
+              {stage.tickRecords.length ? ` · ${copy.autoImplementation.stagePlanTicks} ${stage.tickRecords.length}` : ""}
+              {stage.ledgerEvidence ? ` · ${copy.autoImplementation.stagePlanLedger} ${stage.ledgerEvidence.implementationStepId}` : ""}
+              {stage.blocker ? ` · ${copy.autoImplementation.stagePlanBlocker}: ${stage.blocker.reason}` : ""}
             </li>
           ))}
         </ol>
@@ -798,7 +1146,7 @@ export function AutoImplementationRunPanel({
       <h3>{copy.autoImplementation.reviewProtocol}</h3>
       {run.deliveryGates.length ? (
         <ul>
-          {run.deliveryGates.map((gate) => (
+          {copy.autoImplementation.deliveryGateLabels.map((gate) => (
             <li key={gate}>{gate}</li>
           ))}
         </ul>
@@ -809,9 +1157,9 @@ export function AutoImplementationRunPanel({
         <div className="auto-implementation-stage-gates">
           {run.stageReviewGates.map((stageGate) => (
             <article className="operations-card" key={stageGate.stage}>
-              <strong>{stageGate.stage}</strong>
+              <strong>{copy.autoImplementation.stageLabels[stageGate.stage]}</strong>
               <ul>
-                {stageGate.gates.map((gate) => (
+                {copy.autoImplementation.stageGateLabels[stageGate.stage].map((gate) => (
                   <li key={gate}>{gate}</li>
                 ))}
               </ul>
@@ -820,22 +1168,41 @@ export function AutoImplementationRunPanel({
         </div>
       ) : null}
 
+      <h3>{copy.autoImplementation.planningIssueFiles}</h3>
+      {run.planningIssueFiles.length ? (
+        <ul>
+          {run.planningIssueFiles.map((path) => (
+            <li key={path}>{path}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="empty-state">{copy.autoImplementation.noPlanningIssueFiles}</p>
+      )}
+
       <h3>{copy.autoImplementation.issueDocs}</h3>
       {run.issueRows.length ? (
         <ul>
           {run.issueRows.map((row) => (
             <li key={row.issue.issueId}>
-              {row.issue.issueId}: {row.issue.title} — stage {row.issue.stage} / status {row.issue.status} ({row.issue.relativePath})
+              {row.issue.issueId}: {copy.autoImplementation.stageLabels[row.issue.stage]} — {copy.autoImplementation.issueRowStage}: {copy.autoImplementation.stageLabels[row.issue.stage]} / {copy.autoImplementation.issueRowStatus}: {copy.autoImplementation.issueDocumentStatusLabels[row.issue.status]} ({row.issue.relativePath})
               {" · "}
-              GitHub issue: {row.githubIssueUrlLabel}
+              {copy.autoImplementation.issueRowGithubIssue}: {row.githubIssueUrlLabel}
               {" · "}
-              {row.latestWorkerJobLabel}
+              {copy.autoImplementation.issueRowLatestWorkerJob(
+                row.latestWorkerJobId,
+                copy.autoImplementation.workerJobStatusLabels[row.latestWorkerJobStatus]
+              )}
               {" · "}
-              next: {row.nextActionLabel}
+              {copy.autoImplementation.issueRowNextAction}: {issueRowNextActionLabel(row.nextActionLabel)}
               {" · "}
-              missing: {row.missingEvidenceLabel}
+              {copy.autoImplementation.issueRowStageGate}: {inlineList(
+                copy.autoImplementation.stageGateLabels[row.issue.stage],
+                row.stageGateLabel
+              )}
               {" · "}
-              evidence: {row.evidenceRefsLabel}
+              {copy.autoImplementation.issueRowMissingEvidence}: {row.missingEvidenceLabel}
+              {" · "}
+              {copy.autoImplementation.issueRowEvidenceRefs}: {row.evidenceRefsLabel}
               {row.blockerLabel ? ` · ${row.blockerLabel}` : ""}
             </li>
           ))}
@@ -845,12 +1212,17 @@ export function AutoImplementationRunPanel({
       )}
 
       <h3>{copy.autoImplementation.githubIssueMutation}</h3>
-      <p>{run.githubIssueMutationLabel}</p>
+      <p>
+        {copy.autoImplementation.githubIssueMutationSummary(
+          copy.autoImplementation.githubIssueMutationStatusLabels[run.githubIssueMutationStatus],
+          run.githubIssueMutationBlockedReason
+        )}
+      </p>
       {run.githubIssuePlans.length ? (
         <ul>
           {run.githubIssuePlans.map((issue) => (
             <li key={issue.issueId}>
-              {issue.issueId}: {issue.title} ({issue.bodyMarkdownPath})
+              {issue.issueId}: {copy.autoImplementation.stageLabels[issue.sourceStage]} ({issue.bodyMarkdownPath})
             </li>
           ))}
         </ul>
@@ -868,14 +1240,21 @@ export function AutoImplementationRunPanel({
       )}
 
       <h3>{copy.autoImplementation.githubPullRequestMutation}</h3>
-      <p>{run.pullRequestMutationLabel}</p>
+      <p>
+        {latestPullRequestMutation
+          ? copy.autoImplementation.pullRequestMutationSummary(
+              copy.autoImplementation.prMutationActionLabels[latestPullRequestMutation.action],
+              copy.autoImplementation.prMutationStatusLabels[latestPullRequestMutation.status]
+            )
+          : copy.autoImplementation.noGithubPullRequestMutations}
+      </p>
       <p className="mode-summary">{copy.autoImplementation.pullRequestMutationHistory(run.pullRequestMutationHistoryCount)}</p>
       {latestPullRequestMutation ? (
         <article className="operations-card">
           <dl className="readiness-grid">
             <div>
               <dt>{copy.autoImplementation.prMutationRequestMode}</dt>
-              <dd>{latestPullRequestMutation.requestMode}</dd>
+              <dd>{copy.autoImplementation.prMutationRequestModeLabels[latestPullRequestMutation.requestMode]}</dd>
             </div>
             <div>
               <dt>{copy.autoImplementation.prMutationMutatesGitHub}</dt>
@@ -950,8 +1329,8 @@ export function AutoImplementationRunPanel({
       )}
 
       <h3>{copy.autoImplementation.remoteGuide}</h3>
-      <p>{run.remoteNextAction}</p>
-      {run.remoteWarning ? <p className="research-recovery">{run.remoteWarning}</p> : null}
+      <p>{remoteNextAction}</p>
+      {remoteWarning ? <p className="research-recovery">{remoteWarning}</p> : null}
       {run.remoteCommands.length ? (
         <ul>
           {run.remoteCommands.map((command) => (

@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type {
   DecisionEvidencePackProjection,
@@ -47,6 +47,10 @@ function markdownBlock(value: string | undefined) {
   const normalized = value?.trim();
 
   return normalized ? normalized : "n/a";
+}
+
+function markdownLinkLabel(value: string) {
+  return value.replaceAll("[", "\\[").replaceAll("]", "\\]");
 }
 
 function evidenceList(items: readonly EvidenceItemProjection[]) {
@@ -156,6 +160,78 @@ export function buildResearchMemoryMarkdown(input: ResearchMemoryMarkdownInput) 
   ].join("\n");
 }
 
+function researchMemoryIndexRow(input: ResearchMemoryMarkdownInput, relativePath: string) {
+  const cells = [
+    `[${markdownLinkLabel(relativePath)}](${relativePath})`,
+    markdownInline(input.task.researchTaskId),
+    markdownInline(input.task.sessionId),
+    markdownInline(input.task.objective),
+    markdownInline(input.matrix.balanceStatus),
+    markdownInline(input.pack?.gateStatus),
+    markdownInline(sourceReference(input.result, input.pack))
+  ];
+
+  return `| ${cells.join(" | ")} |`;
+}
+
+function researchMemoryIndexPath(root: string) {
+  return join(root, "index.md");
+}
+
+function existingResearchMemoryIndexRows(markdown: string) {
+  return markdown
+    .split(/\r?\n/u)
+    .filter((line) => /^\| \[[^\]]+\]\([^)]+\) \|/u.test(line));
+}
+
+function researchMemoryIndexRowPath(row: string) {
+  return row.match(/^\| \[[^\]]+\]\((?<path>[^)]+)\) \|/u)?.groups?.path ?? null;
+}
+
+async function updateResearchMemoryIndex(input: WriteResearchMemoryMarkdownInput, relativePath: string) {
+  const indexPath = researchMemoryIndexPath(input.root);
+  const nextRow = researchMemoryIndexRow(input, relativePath);
+  let existingRows: readonly string[] = [];
+
+  try {
+    existingRows = existingResearchMemoryIndexRows(await readFile(indexPath, "utf8"));
+  } catch (error: unknown) {
+    const code = typeof error === "object" && error !== null && "code" in error ? (error as { readonly code?: unknown }).code : null;
+
+    if (code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  const rowsByPath = new Map<string, string>();
+
+  for (const row of existingRows) {
+    const rowPath = researchMemoryIndexRowPath(row);
+
+    if (rowPath) {
+      rowsByPath.set(rowPath, row);
+    }
+  }
+
+  rowsByPath.set(relativePath, nextRow);
+
+  const rows = [...rowsByPath.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, row]) => row);
+  const markdown = [
+    "# Research memory index",
+    "",
+    "Saved markdown research memories are listed here so future runs can cite prior evidence instead of repeating the same research. If the user asks for broader research, use the listed memo as baseline context and collect wider sources/counter-evidence.",
+    "",
+    "| Memory | Research task | Session | Objective | Balance | Gate | Source |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
+    ...rows,
+    ""
+  ].join("\n");
+
+  await writeFile(indexPath, markdown, "utf8");
+}
+
 export async function writeResearchMemoryMarkdown(input: WriteResearchMemoryMarkdownInput): Promise<WriteResearchMemoryMarkdownResult> {
   const projectSegment = slugPart(input.projectId);
   const sessionSegment = slugPart(input.sessionId);
@@ -165,6 +241,7 @@ export async function writeResearchMemoryMarkdown(input: WriteResearchMemoryMark
 
   await mkdir(join(input.root, projectSegment, sessionSegment), { recursive: true });
   await writeFile(absolutePath, buildResearchMemoryMarkdown(input), "utf8");
+  await updateResearchMemoryIndex(input, relativePath);
 
   return {
     absolutePath,

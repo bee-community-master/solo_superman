@@ -101,6 +101,17 @@ function collectCommands(...commandGroups) {
   }));
 }
 
+function isSelfReferentialReadyReleaseCommand(command) {
+  return (
+    (/^pnpm\s+verify:ready-release\b/iu.test(command) && !/\s--plan-only\b/iu.test(command)) ||
+    (/^pnpm\s+verify:release-evidence-bundle\b/iu.test(command) && /\s--require-ready\b/iu.test(command))
+  );
+}
+
+export function readyReleaseCommandsRequiredBeforeAggregate(commands) {
+  return stringList(commands).filter((command) => !isSelfReferentialReadyReleaseCommand(command));
+}
+
 function blockerIssueNumber(blockerIssue) {
   const match = typeof blockerIssue === "string" ? blockerIssue.match(/\/issues\/(\d+)\b/u) : null;
   return match ? Number(match[1]) : null;
@@ -375,6 +386,7 @@ export function buildReleaseEvidenceTemplate(checklist) {
       prohibited: ["credential values", "tokens", "cookies", "URL userinfo", "secret-like query parameters", "full environment dumps"]
     },
     readyReleaseCommands: checklist.readyReleaseCommands,
+    readyReleaseCommandsRequiredBeforeAggregate: readyReleaseCommandsRequiredBeforeAggregate(checklist.readyReleaseCommands),
     credentialFreeCommands: checklist.credentialFreeCommands,
     items: checklist.checklistItems.map(templateItem),
     summary: {
@@ -582,7 +594,7 @@ export function validateReleaseEvidenceTemplate(template, options = {}) {
     if (typeof template.summary?.totalItems === "number" && template.summary.totalItems !== template.items.length) {
       issues.push("$.summary.totalItems must match the number of template items.");
     }
-    const requiredReadyReleaseCommands = stringList(template.readyReleaseCommands);
+    const requiredReadyReleaseCommands = readyReleaseCommandsRequiredBeforeAggregate(template.readyReleaseCommands);
     template.items.forEach((item, index) => validateTemplateItem(
       item,
       index,
@@ -642,7 +654,7 @@ export function buildFilledReleaseEvidenceTemplateFixture(template, options = {}
         verifiedAt,
         verifiedBy: ["solo-superman-fixture-release-lab"],
         redactionConfirmed: true,
-        readyReleaseCommandsRun: [...template.readyReleaseCommands],
+        readyReleaseCommandsRun: readyReleaseCommandsRequiredBeforeAggregate(template.readyReleaseCommands),
         readyReleaseResult: {
           status: "passed",
           commandBlockers: ["none"],
@@ -721,6 +733,7 @@ export function renderReleaseEvidenceIssueCommentMarkdown(checklist) {
     `- [ ] Run \`${verifyCommand}\` and paste the sanitized validation summary below.`,
     `- [ ] Run \`${readyReleaseCommand}\` after the full bundle passes, then paste status plus any aggregate \`commandBlockers\` below.`,
     "- [ ] Copy the same final ready-release values into `verification.readyReleaseResult.status`, `verification.readyReleaseResult.commandBlockers`, and `verification.readyReleaseResult.perCommandBlockers` in the filled JSON template.",
+    "- [ ] Keep `verification.readyReleaseCommandsRun` limited to nested verifier commands that run before the filled-bundle and aggregate ready-release gates; do not list those self-referential verifier commands there.",
     "- [ ] Confirm no credential values, tokens, cookies, URL userinfo, secret-like query parameters, raw file contents, or full environment dumps are included.",
     "",
     "## Validation summary",
@@ -818,6 +831,7 @@ function renderReleaseEvidenceBundleReadme(manifest) {
     "5. Validate each filled template with `pnpm verify:release-evidence-template -- --input <filled-template.json>` before attaching evidence to GitHub.",
     "6. After all real evidence is filled, run `pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> --require-ready` before the final ready-release gate.",
     "7. Run `pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>` and copy the final status plus aggregate/per-command blockers into each filled template's `verification.readyReleaseResult.status`, `verification.readyReleaseResult.commandBlockers`, and `verification.readyReleaseResult.perCommandBlockers` fields before posting the matching issue comment.",
+    "   Keep `verification.readyReleaseCommandsRun` to nested verifier commands only; the filled-bundle verifier and aggregate ready-release self-commands are represented by the bundle gate and `verification.readyReleaseResult`, not by pre-gate command-run entries.",
     "",
     "## Included issue files",
     "",
@@ -845,7 +859,7 @@ function renderReleaseEvidenceBundleReadme(manifest) {
     "",
     "Use the first command for generated or partially edited bundles. It fails if the bundle directory contains off-manifest files, so remove scratch notes or secret-bearing artifacts before sharing evidence. Use `--require-ready` only after release lab evidence has replaced placeholders. The aggregate `verify:ready-release` command also runs the filled-bundle gate before final `release-readiness --require-ready`.",
     "",
-    "When `verify:ready-release` is blocked, read its aggregate `commandBlockers` list first, then inspect the matching command entry's `blockers` array. These fields lift nested verifier `blockers`/`issues` out of redacted stdout so missing credentials, device evidence, or bundle files are visible without copying raw logs. The same values must be copied into each filled template's `readyReleaseResult` fields so the JSON evidence and issue comment agree.",
+    "When `verify:ready-release` is blocked, read its aggregate `commandBlockers` list first, then inspect the matching command entry's `blockers` array. These fields lift nested verifier `blockers`/`issues` out of redacted stdout so missing credentials, device evidence, or bundle files are visible without copying raw logs. The same values must be copied into each filled template's `readyReleaseResult` fields so the JSON evidence and issue comment agree. Do not add the `verify:release-evidence-bundle --require-ready` or aggregate `verify:ready-release` self-commands to `readyReleaseCommandsRun`; that field is reserved for verifier commands that already ran before those gates.",
     "",
     "## Ready-release verification commands",
     "",
@@ -915,6 +929,7 @@ export function buildReleaseEvidenceBundle(checklist) {
     summary: checklist.summary,
     openBlockerIssues: checklist.openBlockerIssues,
     readyReleaseCommands: checklist.readyReleaseCommands,
+    readyReleaseCommandsRequiredBeforeAggregate: readyReleaseCommandsRequiredBeforeAggregate(checklist.readyReleaseCommands),
     credentialFreeCommands: checklist.credentialFreeCommands,
     privacy: {
       credentialFree: true,

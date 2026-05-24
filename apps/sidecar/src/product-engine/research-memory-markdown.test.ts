@@ -3,12 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type {
+  DecisionEvidencePackId,
   DecisionEvidencePackProjection,
   EvidenceMatrixProjection,
   ProjectId,
   QueueItemId,
   ResearchResultProjection,
+  ResearchResultId,
   ResearchTaskProjection,
+  ResearchTaskId,
   SessionId
 } from "@solo-superman/contracts";
 import { buildResearchMemoryMarkdown, writeResearchMemoryMarkdown } from "./research-memory-markdown";
@@ -143,5 +146,66 @@ describe("research memory markdown", () => {
       /^proj_research_memory\/sess_research_memory\/research_task_more_sources-research_result_public_sources-v1\.md$/
     );
     await expect(readFile(written.absolutePath, "utf8")).resolves.toContain("## Reuse guidance");
+    await expect(readFile(join(root, "index.md"), "utf8")).resolves.toContain(
+      `[${written.relativePath}](${written.relativePath})`
+    );
+  });
+
+  it("keeps a deduplicated root index so future research can cite prior memories", async () => {
+    const root = await tempRoot();
+    const first = await writeResearchMemoryMarkdown({
+      root,
+      projectId: "proj_research_memory" as ProjectId,
+      sessionId: task.sessionId,
+      task,
+      result,
+      matrix,
+      pack
+    });
+    const second = await writeResearchMemoryMarkdown({
+      root,
+      projectId: "proj_research_memory" as ProjectId,
+      sessionId: task.sessionId,
+      task: {
+        ...task,
+        researchTaskId: "research_task_market_risk" as ResearchTaskId,
+        objective: "Validate market-risk counter evidence"
+      },
+      result: {
+        ...result,
+        researchResultId: "research_result_market_risk" as ResearchResultId,
+        resultSummary: "Counter-evidence shows teams may already solve this with docs."
+      },
+      matrix: {
+        ...matrix,
+        evidenceMatrixId: "evidence_matrix_market_risk",
+        researchTaskId: "research_task_market_risk" as ResearchTaskId,
+        researchResultId: "research_result_market_risk" as ResearchResultId
+      },
+      pack: {
+        ...pack,
+        evidencePackId: "evidence_pack_market_risk" as DecisionEvidencePackId,
+        researchTaskId: "research_task_market_risk" as ResearchTaskId,
+        researchResultId: "research_result_market_risk" as ResearchResultId
+      }
+    });
+
+    await writeResearchMemoryMarkdown({
+      root,
+      projectId: "proj_research_memory" as ProjectId,
+      sessionId: task.sessionId,
+      task,
+      result,
+      matrix,
+      pack
+    });
+
+    const index = await readFile(join(root, "index.md"), "utf8");
+
+    expect(index).toContain("Research memory index");
+    expect(index).toContain("collect wider sources/counter-evidence");
+    expect(index).toContain(`[${first.relativePath}](${first.relativePath})`);
+    expect(index).toContain(`[${second.relativePath}](${second.relativePath})`);
+    expect(index.split(/\r?\n/u).filter((line) => line.includes(first.relativePath))).toHaveLength(1);
   });
 });

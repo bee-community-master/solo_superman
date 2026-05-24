@@ -1,11 +1,19 @@
 import type { CodexRuntimeStatusDto } from "@solo-superman/contracts";
 
+export type CodexRuntimeStatusState = CodexRuntimeStatusDto["status"] | "unknown";
+export type CodexRuntimeExecutionModeState = CodexRuntimeStatusDto["executionMode"] | "unknown";
+export type CodexRuntimeAccountStatusState = CodexRuntimeStatusDto["account"]["status"] | "unknown";
 export type CodexRuntimeAvailabilityState = "available" | "unavailable" | "unknown";
 export type CodexRuntimeLiveTurnState = "enabled" | "disabled" | "unknown";
 
 export interface CodexRuntimeEvidenceView {
+  readonly status: CodexRuntimeStatusState;
   readonly statusLabel: string;
+  readonly executionMode: CodexRuntimeExecutionModeState;
   readonly executionModeLabel: string;
+  readonly accountStatus: CodexRuntimeAccountStatusState;
+  readonly accountType: CodexRuntimeStatusDto["account"]["accountType"] | null;
+  readonly accountPlanType: string | null;
   readonly accountLabel: string;
   readonly checkedAtLabel: string | null;
   readonly adapterVersionLabel: string | null;
@@ -28,9 +36,16 @@ export function codexRuntimeAccountLabel(runtimeStatus: CodexRuntimeStatusDto | 
 }
 
 export function codexRuntimeEvidenceView(runtimeStatus: CodexRuntimeStatusDto | null): CodexRuntimeEvidenceView {
+  const account = runtimeStatus?.account ?? null;
+
   return {
+    status: runtimeStatus?.status ?? "unknown",
     statusLabel: runtimeStatus?.status ?? "unknown",
+    executionMode: runtimeStatus?.executionMode ?? "unknown",
     executionModeLabel: runtimeStatus?.executionMode ?? "unknown",
+    accountStatus: account?.status ?? "unknown",
+    accountType: account?.accountType ?? null,
+    accountPlanType: account?.planType ?? null,
     accountLabel: codexRuntimeAccountLabel(runtimeStatus),
     checkedAtLabel: runtimeStatus?.checkedAt ?? null,
     adapterVersionLabel: runtimeStatus?.adapterVersion ?? null,
