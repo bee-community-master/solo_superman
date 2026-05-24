@@ -106,6 +106,7 @@ export interface AutoImplementationRunViewModel {
   readonly latestWorkerJobNextAction: string;
   readonly latestWorkerJobId: string | null;
   readonly latestWorkerJobStatus: AutoImplementationWorkerJob["status"] | "not_planned";
+  readonly workerStageAdvanceBlockerLabel: string | null;
   readonly workerRuntimeReadiness: AutoImplementationWorkerRuntimeView | null;
   readonly latestWorkerPlan: AutoImplementationWorkerPlanView | null;
   readonly canPlanWorkerJob: boolean;
@@ -295,6 +296,36 @@ function hasRequiredWorkerAdvanceLedgerEvidence(input: {
   );
 }
 
+function workerStageAdvanceBlockerLabel(input: {
+  readonly run: AutoImplementationRun;
+  readonly ledger: ImplementationStepLedgerProjection | null;
+  readonly workerJob: AutoImplementationWorkerJob | null;
+}) {
+  const { ledger, run, workerJob } = input;
+
+  if (!workerJob) {
+    return "Plan and complete a current-stage local worker before advancing the stage.";
+  }
+
+  if (workerJob.status !== "completed") {
+    return "Complete the current-stage local worker and import its ledger evidence before advancing the stage.";
+  }
+
+  if (run.currentStage !== "merge_main") {
+    return null;
+  }
+
+  if (!hasAppliedAutoImplementationPullRequestMerge(run)) {
+    return "Record the applied GitHub PR merge mutation before advancing merge_main.";
+  }
+
+  if (!hasRequiredWorkerAdvanceLedgerEvidence({ run, ledger, workerJob })) {
+    return `Import completed ledger test evidence containing ${AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX}merge_main:<command> before advancing merge_main.`;
+  }
+
+  return null;
+}
+
 function autoImplementationIssueRowView(
   run: AutoImplementationRun,
   issue: AutoImplementationIssueDocument
@@ -350,6 +381,7 @@ export function autoImplementationRunViewModel(
       latestWorkerJobNextAction: "Create a workspace run before planning a local Codex worker.",
       latestWorkerJobId: null,
       latestWorkerJobStatus: "not_planned",
+      workerStageAdvanceBlockerLabel: null,
       workerRuntimeReadiness: null,
       latestWorkerPlan: null,
       canPlanWorkerJob: false,
@@ -415,6 +447,13 @@ export function autoImplementationRunViewModel(
       workerJob: latestWorkerJob
     }) &&
     (run.currentStage !== "merge_main" || hasAppliedAutoImplementationPullRequestMerge(run));
+  const workerStageAdvanceBlocker = canAdvanceWorkerStage
+    ? null
+    : workerStageAdvanceBlockerLabel({
+        run,
+        ledger: implementationStepLedger,
+        workerJob: latestWorkerJob
+      });
   const hasReadyPullRequestDryRun = (action: AutoImplementationPullRequestMutationRecord["action"]) =>
     pullRequestMutationRecords.some((record) =>
       record.action === action &&
@@ -455,6 +494,7 @@ export function autoImplementationRunViewModel(
       "Create a bounded local worker job after the current stage issue document is ready.",
     latestWorkerJobId: latestWorkerJob?.jobId ?? null,
     latestWorkerJobStatus: latestWorkerJob?.status ?? "not_planned",
+    workerStageAdvanceBlockerLabel: workerStageAdvanceBlocker,
     workerRuntimeReadiness: autoImplementationWorkerRuntimeView(runtimeStatus),
     latestWorkerPlan,
     canPlanWorkerJob: canPlanCurrentStageAutoImplementationWorkerJob(run),
@@ -593,6 +633,11 @@ export function AutoImplementationRunPanel({
       <p className="mode-summary">{run.nextTickLabel}</p>
       <p className="mode-summary">{run.latestWorkerJobLabel}</p>
       <p className="research-recovery">{run.latestWorkerJobNextAction}</p>
+      {run.workerStageAdvanceBlockerLabel ? (
+        <p className="research-recovery">
+          {copy.autoImplementation.workerStageAdvanceBlocker}: {run.workerStageAdvanceBlockerLabel}
+        </p>
+      ) : null}
       {run.workerRuntimeReadiness ? (
         <article className="operations-card" aria-label={copy.autoImplementation.workerRuntimeReadiness}>
           <h3>{copy.autoImplementation.workerRuntimeReadiness}</h3>

@@ -695,6 +695,7 @@ const EN_COPY = {
         "A pull request merge is already recorded; do not merge the same auto implementation PR again."
     },
     workerPlan: "Local worker bounded plan",
+    workerStageAdvanceBlocker: "Stage advance blocker",
     workerRuntimeReadiness: "Worker runtime readiness",
     workerRuntimeStatus: "Runtime status",
     workerRuntimeExecutionMode: "Execution mode",
@@ -1728,6 +1729,7 @@ const JA_COPY: typeof EN_COPY = {
       pullRequestMergeAlreadyRecorded: "PR mergeはすでに記録されています。同じ自動実装PRを再mergeしないでください。"
     },
     workerPlan: "ローカルworkerの境界付き計画",
+    workerStageAdvanceBlocker: "Stage advance blocker",
     workerRuntimeReadiness: "Worker実行環境の準備状態",
     workerRuntimeStatus: "Runtime状態",
     workerRuntimeExecutionMode: "実行モード",
@@ -2759,6 +2761,7 @@ const KO_COPY: typeof EN_COPY = {
       pullRequestMergeAlreadyRecorded: "PR merge가 이미 기록되어 있습니다. 같은 자동 구현 PR을 다시 merge하지 마세요."
     },
     workerPlan: "로컬 worker 경계 계획",
+    workerStageAdvanceBlocker: "단계 진행 차단 사유",
     workerRuntimeReadiness: "Worker runtime 준비 상태",
     workerRuntimeStatus: "Runtime 상태",
     workerRuntimeExecutionMode: "실행 모드",

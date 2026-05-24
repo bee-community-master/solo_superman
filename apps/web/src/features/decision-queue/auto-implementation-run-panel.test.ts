@@ -973,12 +973,14 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(plannedView.canCompleteWorkerJob).toBe(false);
     expect(ledgerReadyView.canCompleteWorkerJob).toBe(true);
     expect(plannedView.canAdvanceWorkerStage).toBe(false);
+    expect(plannedView.workerStageAdvanceBlockerLabel).toContain("Complete the current-stage local worker");
     expect(plannedView.latestWorkerPlan?.executionAuthorityRef).toBe("exec_auth_auto_worker_initial_pr");
     expect(completedView.canPlanWorkerJob).toBe(false);
     expect(completedView.canRunWorkerJob).toBe(false);
     expect(completedView.canImportWorkerLedger).toBe(false);
     expect(completedView.canCompleteWorkerJob).toBe(false);
     expect(completedView.canAdvanceWorkerStage).toBe(true);
+    expect(completedView.workerStageAdvanceBlockerLabel).toBeNull();
   });
 
   it("keeps merge_main worker advance disabled until applied PR merge and post-merge verification evidence exist", () => {
@@ -1070,9 +1072,21 @@ describe("AutoImplementationRunPanel view model", () => {
     ]));
 
     expect(withoutMergeEvidenceView.canAdvanceWorkerStage).toBe(false);
+    expect(withoutMergeEvidenceView.workerStageAdvanceBlockerLabel).toBe(
+      "Record the applied GitHub PR merge mutation before advancing merge_main."
+    );
     expect(withMergeEvidenceButNoLedgerView.canAdvanceWorkerStage).toBe(false);
+    expect(withMergeEvidenceButNoLedgerView.workerStageAdvanceBlockerLabel).toContain(
+      "post-merge-verify:merge_main:<command>"
+    );
     expect(withMergeEvidenceButMissingPostMergeView.canAdvanceWorkerStage).toBe(false);
+    expect(withMergeEvidenceButMissingPostMergeView.workerStageAdvanceBlockerLabel).toContain(
+      "post-merge-verify:merge_main:<command>"
+    );
     expect(withPostMergeEvidenceView.canAdvanceWorkerStage).toBe(true);
+    expect(withPostMergeEvidenceView.workerStageAdvanceBlockerLabel).toBeNull();
+    expect(renderPanelMarkup(withMergeEvidenceButNoLedgerView)).toContain("Stage advance blocker");
+    expect(renderPanelMarkup(withMergeEvidenceButNoLedgerView)).toContain("post-merge-verify:merge_main:&lt;command&gt;");
   });
 
   it("keeps worker controls scoped to the current auto implementation stage", () => {
