@@ -171,6 +171,7 @@ function candidatePhrasesFromQuestion(question: string) {
   const patterns = [
     /(?:후보|선택지|옵션|종류|유형|타입|성향)(?:는|은|로는|로|:)\s*(?<candidates>.+?)(?:입니다|입니다만|정도로|정도(?:로)?\s*추려|중에서|중\s*하나|가\s*있|이\s*있|를\s*고르|을\s*고르|를\s*선택|을\s*선택|\.|\?|$)/giu,
     /(?:customer\s*)?(?:(?:candidates?|options?)\s*(?:include|includes|are|:)|(?:segments?|personas?|types?)\s*(?:include|includes|:))\s*(?<candidates>[^.?\n]{2,180})(?:\.|\?|$)/giu,
+    /(?:선택|고르|골라|정|순서|우선순위|rank|choose|select|pick)[^:：\n]{0,80}[:：]\s*(?<candidates>[^.?\n]{2,180})(?:\.|\?|$)/giu,
     /(?<candidates>[^.?\n]{2,180}?)(?:\s*정도로\s*추려졌|(?:이|가)\s*후보(?:입니다|로\s*남았))/giu,
     /(?<candidates>[^.?\n]{2,180}(?:[,·/]|(?:와|과)\s+|(?:및|또는|혹은)\s+)[^.?\n]{2,180}?)(?:\s*(?:중|가운데)\s*(?:하나(?:만)?|한\s*가지|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)|복수|다중)(?:를|을)?\s*(?:선택|고르|골라|정|택)|\s*(?:중|가운데)\s*어느\s*(?:것|후보|항목|종류|유형)|\s*(?:중|가운데)\s*먼저\s*(?:볼|확인|검증|구현)할\s*순서)/giu
   ];
@@ -351,10 +352,6 @@ export function classifyResearchFollowUpAnswerShape(input: ResearchFollowUpAnswe
     return "open_text";
   }
 
-  if (hasMultiSelectCue(input.question)) {
-    return "multi_select";
-  }
-
   if (hasOpenTextCue(input.question) && (rejectsChoiceOptions(input.question) || !hasForcedChoiceCue(input.question))) {
     return "open_text";
   }
@@ -365,6 +362,10 @@ export function classifyResearchFollowUpAnswerShape(input: ResearchFollowUpAnswe
 
   if (hasRankedChoiceCue(input.question)) {
     return "ranked_choice";
+  }
+
+  if (hasMultiSelectCue(input.question)) {
+    return "multi_select";
   }
 
   if (hasConcreteSingleChoiceCue(input.question)) {

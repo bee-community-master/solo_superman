@@ -211,10 +211,6 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
     return "open_text";
   }
 
-  if (/(?:복수|모두|해당|다중|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)\s*(?:선택|고르)|둘\s*이상|multi[-\s]?select|one\s+or\s+more|select\s+all)/iu.test(topic)) {
-    return /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic) ? "multi_signal_choice" : "multi_choice";
-  }
-
   if (asksForBinaryChoice) {
     return "binary_choice";
   }
@@ -229,6 +225,10 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
 
   if (asksForRanking) {
     return "ranked_choice";
+  }
+
+  if (/(?:복수|모두|해당|다중|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)\s*(?:선택|고르)|둘\s*이상|multi[-\s]?select|one\s+or\s+more|select\s+all)/iu.test(topic)) {
+    return /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic) ? "multi_signal_choice" : "multi_choice";
   }
 
   if (asksForSingleChoice) {
