@@ -10,6 +10,7 @@ import type {
   AutoImplementationRunStatus,
   AutoImplementationStage,
   AutoImplementationStageStatus,
+  AutoImplementationWorkerExecutionPlan,
   AutoImplementationWorkerJobStatus,
   BusinessCriticalQuestionCategory,
   BusinessCriticIntensity,
@@ -148,6 +149,18 @@ const KO_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
   approved_ready: "승인되어 생성 준비됨",
   applied: "GitHub 이슈 생성됨"
 } satisfies Record<AutoImplementationGitHubIssueMutationStatus, string>;
+
+const EN_AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE_LABELS = {
+  local_sandboxed_codex: "local sandboxed Codex"
+} satisfies Record<AutoImplementationWorkerExecutionPlan["executionMode"], string>;
+
+const JA_AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE_LABELS = {
+  local_sandboxed_codex: "ローカルサンドボックスCodex"
+} satisfies Record<AutoImplementationWorkerExecutionPlan["executionMode"], string>;
+
+const KO_AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE_LABELS = {
+  local_sandboxed_codex: "로컬 샌드박스 Codex"
+} satisfies Record<AutoImplementationWorkerExecutionPlan["executionMode"], string>;
 
 const EN_COPY = {
   pageMeta: {
@@ -906,6 +919,7 @@ const EN_COPY = {
       ? `Next 5-minute tick: ${nextTickAt}`
       : "Next 5-minute tick: not scheduled",
     issueModeLabels: EN_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS,
+    workerExecutionModeLabels: EN_AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE_LABELS,
     issueModeLabel: (issueMode: AutoImplementationIssueMode | null): string => issueMode
       ? `Issue mode: ${EN_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS[issueMode]}`
       : "Issue mode: not selected",
@@ -2098,6 +2112,7 @@ const JA_COPY: typeof EN_COPY = {
       ? `次の5分tick: ${nextTickAt}`
       : "次の5分tick: 未スケジュール",
     issueModeLabels: JA_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS,
+    workerExecutionModeLabels: JA_AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE_LABELS,
     issueModeLabel: (issueMode: AutoImplementationIssueMode | null): string => issueMode
       ? `Issueモード: ${JA_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS[issueMode]}`
       : "Issueモード: 未選択",
@@ -3288,6 +3303,7 @@ const KO_COPY: typeof EN_COPY = {
       ? `다음 5분 tick: ${nextTickAt}`
       : "다음 5분 tick: 아직 예약되지 않음",
     issueModeLabels: KO_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS,
+    workerExecutionModeLabels: KO_AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE_LABELS,
     issueModeLabel: (issueMode: AutoImplementationIssueMode | null): string => issueMode
       ? `이슈 모드: ${KO_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS[issueMode]}`
       : "이슈 모드: 아직 선택되지 않음",

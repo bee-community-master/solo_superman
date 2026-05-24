@@ -747,6 +747,9 @@ export function AutoImplementationRunPanel({
   const latestWorkerJobStageLabel = run.latestWorkerJobStage
     ? copy.autoImplementation.stageLabels[run.latestWorkerJobStage]
     : null;
+  const latestWorkerPlanStageLabel = run.latestWorkerPlan
+    ? copy.autoImplementation.stageLabels[run.latestWorkerPlan.stage]
+    : null;
   const latestWorkerJobStatusLabel = run.latestWorkerJobStatus === "not_planned"
     ? null
     : copy.autoImplementation.workerJobStatusLabels[run.latestWorkerJobStatus];
@@ -974,7 +977,7 @@ export function AutoImplementationRunPanel({
             <dl className="readiness-grid">
               <div>
                 <dt>{copy.autoImplementation.workerPlanExecutionMode}</dt>
-                <dd>{run.latestWorkerPlan.executionMode}</dd>
+                <dd>{copy.autoImplementation.workerExecutionModeLabels[run.latestWorkerPlan.executionMode]}</dd>
               </div>
               <div>
                 <dt>{copy.autoImplementation.workerPlanWorkingDirectory}</dt>
@@ -1015,7 +1018,9 @@ export function AutoImplementationRunPanel({
                 <dt>{copy.autoImplementation.workerPlanRequiredEvidence}</dt>
                 <dd>
                   <p className="mode-summary">
-                    {copy.autoImplementation.workerPlanRequiredEvidenceHelp(run.latestWorkerPlan.stageLabel)}
+                    {copy.autoImplementation.workerPlanRequiredEvidenceHelp(
+                      latestWorkerPlanStageLabel ?? run.latestWorkerPlan.stageLabel
+                    )}
                   </p>
                   <strong>{copy.autoImplementation.workerPlanBaseRequiredEvidence}</strong>
                   <RequiredEvidenceList

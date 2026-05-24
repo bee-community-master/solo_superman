@@ -128,6 +128,15 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.autoImplementation.workerPlan).toBe("Local worker bounded plan");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerPlanExecutionAuthority).toBe("実行権限");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerPlanAllowedWriteScope).toBe("허용된 쓰기 범위");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.workerExecutionModeLabels.local_sandboxed_codex).toBe(
+      "local sandboxed Codex"
+    );
+    expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerExecutionModeLabels.local_sandboxed_codex).toContain(
+      "ローカル"
+    );
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerExecutionModeLabels.local_sandboxed_codex).toContain(
+      "로컬"
+    );
     expect(DECISION_QUEUE_COPY.en.autoImplementation.actionErrors.activeRunRequiredPlanWorker).not.toMatch(
       /[가-힣]/u
     );

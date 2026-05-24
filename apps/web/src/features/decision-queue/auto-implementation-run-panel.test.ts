@@ -1018,6 +1018,12 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain(
       "feature-scope CodeReviewRecord ids prove two consecutive no-finding passes after any fixes"
     );
+
+    const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
+
+    expect(koreanMarkup).toContain("로컬 샌드박스 Codex");
+    expect(koreanMarkup).toContain("기능 PR 코드 리뷰 및 수정 루프 단계를 진행하려면");
+    expect(koreanMarkup).not.toContain("local_sandboxed_codex");
   });
 
   it("enables run, ledger completion, and advance controls from the latest local worker status", () => {
@@ -1288,7 +1294,8 @@ describe("AutoImplementationRunPanel view model", () => {
 
     expect(markup).toContain("Local worker bounded plan");
     expect(markup).toContain("Worker ledger import JSON");
-    expect(markup).toContain("local_sandboxed_codex");
+    expect(markup).toContain("local sandboxed Codex");
+    expect(markup).not.toContain("local_sandboxed_codex");
     expect(markup).toContain("/repo/workspace/demo-project");
     expect(markup).toContain("implementation-issues/001-initial_pr.md");
     expect(markup).toContain("exec_auth_auto_worker_initial_pr");
