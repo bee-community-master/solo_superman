@@ -27,15 +27,17 @@ function researchFollowUpAnswerOption(
   id: string,
   label: string,
   value: string,
-  pro: string,
-  con: string
+  primaryDetail: string,
+  secondaryDetail: string
 ): AmbiguityAnswerOption {
   return {
     id,
     label,
     value,
-    pro,
-    con
+    primaryDetail,
+    secondaryDetail,
+    pro: primaryDetail,
+    con: secondaryDetail
   };
 }
 
@@ -190,6 +192,18 @@ function hasOpenTextCue(question: string) {
   );
 }
 
+const explicitNarrativeAnswerInstructionPattern = new RegExp(
+  [
+    "(?:이번(?:에는| 질문은)?|지금(?:은)?|여기서는|이\\s*질문은|답변은)[^.\\n?]{0,80}(?:주관식|서술형|자유\\s*(?:답변|서술|입력)|직접\\s*(?:입력|작성)|open[-\\s]?question|open[-\\s]?ended)",
+    "(?:주관식|서술형|자유\\s*(?:답변|서술|입력)|open[-\\s]?question|open[-\\s]?ended)[^.\\n?]{0,80}(?:답변을?\\s*(?:요구|작성|적어|남겨)|로\\s*(?:답변|작성|서술))"
+  ].join("|"),
+  "iu"
+);
+
+function hasExplicitNarrativeAnswerInstruction(question: string) {
+  return explicitNarrativeAnswerInstructionPattern.test(question);
+}
+
 function rejectsChoiceOptions(question: string) {
   return /(?:선택지\s*없이|선택지(?:가|는)?\s*아니라|객관식(?:이|은)?\s*아니라|선택형(?:이|은)?\s*아니라|고르지\s*말고|선택하지\s*말고|without\s+choices?|no\s+choices?|not\s+(?:a\s+)?(?:choice|multiple[-\s]?choice|single[-\s]?choice))/iu.test(
     question
@@ -255,6 +269,10 @@ function sourceQuestionImpliesChoice(sourceQuestion: AmbiguityIssueSnapshot | un
 }
 
 export function classifyResearchFollowUpAnswerShape(input: ResearchFollowUpAnswerInput): ResearchFollowUpAnswerShape {
+  if (hasExplicitNarrativeAnswerInstruction(input.question)) {
+    return "open_text";
+  }
+
   if (hasMultiSelectCue(input.question)) {
     return "multi_select";
   }

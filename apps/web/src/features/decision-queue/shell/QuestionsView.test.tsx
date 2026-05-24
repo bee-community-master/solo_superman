@@ -209,6 +209,55 @@ describe("QuestionsView", () => {
     expect(markup).toContain(">Answer</span>");
   });
 
+  it("uses neutral option details instead of treating every option as pro/con evidence", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 1 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_neutral_option_details" as QueueItemId,
+          title: "Choose the customer segment that fits best.",
+          state: "active",
+          expectedAnswerType: "choice",
+          answerOptions: [
+            {
+              id: "solo_founder",
+              label: "Solo founder",
+              value: "Focus on solo founders.",
+              primaryDetail: "Locks the first interviews to solo founders.",
+              secondaryDetail: "Team workflows stay as a later comparison.",
+              pro: "Legacy pro wording should not be shown.",
+              con: "Legacy con wording should not be shown."
+            }
+          ]
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+
+    const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        queue
+      },
+      sections: [
+        {
+          id: "active",
+          title: "Current questions",
+          emptyLabel: "No current questions.",
+          items: queue.active
+        }
+      ]
+    });
+
+    expect(markup).toContain("Decision made: Locks the first interviews to solo founders.");
+    expect(markup).toContain("Check next: Team workflows stay as a later comparison.");
+    expect(markup).not.toContain("Legacy pro wording should not be shown.");
+    expect(markup).not.toContain("Legacy con wording should not be shown.");
+  });
+
   it("keeps candidate choices as one-of-many even when the question mentions pro/con evidence context", () => {
     const queue: DecisionQueueProjection = {
       kind: "DecisionQueueProjection",

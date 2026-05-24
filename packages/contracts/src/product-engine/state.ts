@@ -161,6 +161,8 @@ export interface AmbiguityAnswerOption {
   readonly id: string;
   readonly label: string;
   readonly value: string;
+  readonly primaryDetail?: string;
+  readonly secondaryDetail?: string;
   readonly pro: string;
   readonly con: string;
 }

@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+  type ConfidenceCompletionProjection,
   type CodexRuntimeStatusDto,
+  type ProjectionVersion,
+  type SessionId,
   type StatusEndpointDto
 } from "@solo-superman/contracts";
 import { autoImplementationRunViewModel } from "../AutoImplementationRunPanel";
@@ -84,6 +87,39 @@ function renderImplementationView(controllerOverrides: Partial<DecisionQueueShel
   return renderEnglishMarkup(<ImplementationView controller={controller as DecisionQueueShellController} />);
 }
 
+function confidenceFixture(): ConfidenceCompletionProjection {
+  return {
+    kind: "ConfidenceCompletionProjection",
+    sessionId: "sess_implementation_readiness" as SessionId,
+    version: 9 as ProjectionVersion,
+    compositeScore: 82,
+    readinessLabel: "spec_ready",
+    axes: [],
+    scoreBreakdown: {
+      sectionCompleteness: 90,
+      questionDebtResolution: 75,
+      evidenceQuality: 80,
+      decisionApproval: 85,
+      consistencyAndConflict: 78
+    },
+    gates: [],
+    topRisks: ["One gate still needs explicit owner."],
+    topRiskCards: [],
+    nextBestActions: ["Close the remaining gate before creating a workspace."],
+    completionCandidate: {
+      status: "not_ready",
+      summary: "One gate remains before implementation.",
+      gateFailures: ["Evidence owner missing."],
+      ifStopNowArtifact: {
+        title: "If stop now",
+        summary: "Carry the remaining gate as an explicit risk.",
+        knownRisks: ["Evidence owner missing."],
+        nextValidationActions: ["Assign evidence owner."]
+      }
+    }
+  };
+}
+
 describe("ImplementationView", () => {
   it("shows the implementation start path before workspace creation", () => {
     const markup = renderImplementationView();
@@ -98,6 +134,28 @@ describe("ImplementationView", () => {
     expect(markup).toContain('<button type="button" disabled="">Score completeness</button>');
     expect(markup).toContain('<button type="button" disabled="">Prepare Founder Brief</button>');
     expect(markup).toContain('<button type="button" disabled="">Run planning handoff check</button>');
+  });
+
+  it("shows implementation readiness metrics beside the start gate", () => {
+    const markup = renderImplementationView({
+      confidence: confidenceFixture()
+    });
+
+    expect(markup).toContain("Implementation readiness metrics");
+    expect(markup).toContain("Composite readiness");
+    expect(markup).toContain("82% · spec_ready");
+    expect(markup).toContain("Gate blockers");
+    expect(markup).toContain("<dd>1</dd>");
+    expect(markup).toContain("Spec sections");
+    expect(markup).toContain("90%");
+    expect(markup).toContain("Question debt");
+    expect(markup).toContain("75%");
+    expect(markup).toContain("Evidence quality");
+    expect(markup).toContain("80%");
+    expect(markup).toContain("Decision approval");
+    expect(markup).toContain("85%");
+    expect(markup).toContain("Consistency");
+    expect(markup).toContain("78%");
   });
 
   it("provides a dedicated runtime status refresh action in the implementation runtime panel", () => {

@@ -566,6 +566,9 @@ const EN_COPY = {
     startGuideSummary:
       "Move from a concrete idea to software only after readiness scoring, Founder Brief or completion evidence, planning handoff, and workspace creation are clear.",
     startGuideNextAction: "Next implementation action",
+    startGuideMetricsTitle: "Implementation readiness metrics",
+    startGuideCompositeScore: "Composite readiness",
+    startGuideGateFailures: "Gate blockers",
     startGuideSession: "Active session",
     startGuideReadiness: "Completion source",
     startGuideHandoff: "Planning handoff",
@@ -1609,6 +1612,9 @@ const JA_COPY: typeof EN_COPY = {
     startGuideSummary:
       "具体化したアイデアをソフトウェアへ進める前に、完成度採点、Founder Briefまたは完成候補、Planning handoff、workspace作成を確認します。",
     startGuideNextAction: "次の実装アクション",
+    startGuideMetricsTitle: "実装準備メトリクス",
+    startGuideCompositeScore: "総合準備度",
+    startGuideGateFailures: "ゲートブロッカー",
     startGuideSession: "アクティブセッション",
     startGuideReadiness: "完成ソース",
     startGuideHandoff: "Planning handoff",
@@ -2641,6 +2647,9 @@ const KO_COPY: typeof EN_COPY = {
     startGuideSummary:
       "구체화된 아이디어를 소프트웨어로 넘기기 전에 완성도 채점, Founder Brief 또는 완성 후보, Planning handoff, 작업공간 생성을 순서대로 확인합니다.",
     startGuideNextAction: "다음 구현 작업",
+    startGuideMetricsTitle: "구현 준비 지표",
+    startGuideCompositeScore: "종합 준비도",
+    startGuideGateFailures: "Gate 차단 항목",
     startGuideSession: "활성 세션",
     startGuideReadiness: "완성 근거",
     startGuideHandoff: "Planning handoff",

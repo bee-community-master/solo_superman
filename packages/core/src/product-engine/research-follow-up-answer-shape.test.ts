@@ -545,4 +545,36 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpAnswerSelectionMode(multiSelectInput)).toBe("multiple");
   });
 
+  it("lets explicit narrative instructions win over mentioned choice formats", () => {
+    const input = {
+      question:
+        "여러 종류 중 하나 혹은 여러 개를 선택할 수도 있지만, 이번 질문은 open question으로 주관식 서술형 답변을 요구합니다. 실제 고객 맥락을 설명해주세요.",
+      researchTask: task("답변 방식은 질문별로 달라져야 함"),
+      sourceQuestion: sourceQuestion({
+        expectedAnswerType: "choice"
+      }),
+      evidenceMatrix: evidenceMatrix({
+        proEvidence: [
+          {
+            evidenceItemId: "evidence_pro_open_wins_answer_shape" as EvidenceItemId,
+            kind: "pro",
+            summary: "후보 선택지가 일부 있음"
+          }
+        ],
+        uncertainties: [
+          {
+            evidenceItemId: "evidence_uncertain_open_wins_answer_shape" as EvidenceItemId,
+            kind: "uncertainty",
+            summary: "실제 맥락은 사용자 설명 필요"
+          }
+        ]
+      })
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("open_text");
+    expect(researchFollowUpExpectedAnswerType(input)).toBe("text");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBeUndefined();
+    expect(researchFollowUpAnswerOptions(input)).toEqual([]);
+  });
+
 });

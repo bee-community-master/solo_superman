@@ -122,6 +122,15 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
           : !autoImplementationRunView.hasRun
             ? copy.implementation.startGuideNextWorkspace
             : copy.implementation.startGuideNextWorker;
+  const implementationReadinessMetricItems = confidence
+    ? [
+        [copy.planning.scoreBreakdownLabels.sectionCompleteness, confidence.scoreBreakdown.sectionCompleteness],
+        [copy.planning.scoreBreakdownLabels.questionDebtResolution, confidence.scoreBreakdown.questionDebtResolution],
+        [copy.planning.scoreBreakdownLabels.evidenceQuality, confidence.scoreBreakdown.evidenceQuality],
+        [copy.planning.scoreBreakdownLabels.decisionApproval, confidence.scoreBreakdown.decisionApproval],
+        [copy.planning.scoreBreakdownLabels.consistencyAndConflict, confidence.scoreBreakdown.consistencyAndConflict]
+      ] as const
+    : [];
 
   return (
     <div className="view-grid implementation-view">
@@ -141,6 +150,27 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             </li>
           ))}
         </ol>
+        {confidence ? (
+          <section className="operations-card" aria-label={copy.implementation.startGuideMetricsTitle}>
+            <h3>{copy.implementation.startGuideMetricsTitle}</h3>
+            <dl className="readiness-grid">
+              <div>
+                <dt>{copy.implementation.startGuideCompositeScore}</dt>
+                <dd>{confidence.compositeScore}% · {confidence.readinessLabel}</dd>
+              </div>
+              <div>
+                <dt>{copy.implementation.startGuideGateFailures}</dt>
+                <dd>{confidence.completionCandidate.gateFailures.length}</dd>
+              </div>
+              {implementationReadinessMetricItems.map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}%</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : null}
         <div className="card-actions panel-actions">
           <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void scoreCompleteness()}>
             {copy.planning.scoreCompleteness}

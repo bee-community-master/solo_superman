@@ -11,10 +11,15 @@ export type AnswerOptionSeed = {
 };
 
 function plainUserFacingAnswerOption(option: AmbiguityAnswerOption): AmbiguityAnswerOption {
+  const primaryDetail = option.primaryDetail ?? option.pro;
+  const secondaryDetail = option.secondaryDetail ?? option.con;
+
   return {
     ...option,
     label: plainUserFacingDecisionQueueText(option.label),
     value: plainUserFacingDecisionQueueText(option.value),
+    primaryDetail: plainUserFacingDecisionQueueText(primaryDetail),
+    secondaryDetail: plainUserFacingDecisionQueueText(secondaryDetail),
     pro: plainUserFacingDecisionQueueText(option.pro),
     con: plainUserFacingDecisionQueueText(option.con)
   };
@@ -24,15 +29,17 @@ function answerOption(
   id: string,
   label: string,
   value: string,
-  pro: string,
-  con: string
+  primaryDetail: string,
+  secondaryDetail: string
 ): AmbiguityAnswerOption {
   return plainUserFacingAnswerOption({
     id,
     label,
     value,
-    pro,
-    con
+    primaryDetail,
+    secondaryDetail,
+    pro: primaryDetail,
+    con: secondaryDetail
   });
 }
 

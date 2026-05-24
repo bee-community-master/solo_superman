@@ -406,8 +406,8 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                                     <span>
                                       <strong>{option.label}</strong>
                                       <small className="answer-choice-option-details">
-                                        <span>{answerOptionDetailLabels.primary}: {option.pro}</span>
-                                        <span>{answerOptionDetailLabels.secondary}: {option.con}</span>
+                                        <span>{answerOptionDetailLabels.primary}: {option.primaryDetail ?? option.pro}</span>
+                                        <span>{answerOptionDetailLabels.secondary}: {option.secondaryDetail ?? option.con}</span>
                                       </small>
                                     </span>
                                   </label>
