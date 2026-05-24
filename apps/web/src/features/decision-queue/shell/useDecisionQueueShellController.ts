@@ -15,6 +15,7 @@ import {
   type Phase15bUpgradeHintProjection,
   type ProjectPurposeMode,
   type RecordAutoImplementationPullRequestMutationRequest,
+  type ResearchRunControlProjection,
   type SessionId,
   type StatusEndpointDto
 } from "@solo-superman/contracts";
@@ -92,6 +93,8 @@ import { useDecisionQueueRefreshers } from "./useDecisionQueueRefreshers";
 import { useDecisionQueueResearchActions } from "./useDecisionQueueResearchActions";
 import { useDecisionQueueSessionActions } from "./useDecisionQueueSessionActions";
 
+export const RESEARCH_RUN_BACKGROUND_POLL_INTERVAL_MS = 10_000;
+
 function unavailableCodexLoginStart(message: string): CodexRuntimeLoginStartDto {
   return {
     status: "unavailable",
@@ -150,6 +153,10 @@ function planningHandoffIsReady(
   planningHandoff: ProjectionState["planningHandoff"]
 ): planningHandoff is PlanningReadyHandoffProjection {
   return planningHandoff?.currentStatus === "planning_ready";
+}
+
+export function researchRunControlHasPollableRuns(runs: ResearchRunControlProjection | null | undefined) {
+  return runs?.runs.some((run) => run.status === "queued" || run.status === "running") ?? false;
 }
 
 type AutoImplementationActionErrors = DecisionQueueCopy["autoImplementation"]["actionErrors"];
@@ -1274,6 +1281,21 @@ export function useDecisionQueueShellController() {
   const activeResearchRunCount =
     researchOperations.runs?.runs.filter((run) => run.status === "queued" || run.status === "running" || run.status === "paused")
       .length ?? 0;
+  const shouldPollResearchRuns = researchRunControlHasPollableRuns(researchOperations.runs);
+
+  useEffect(() => {
+    if (!shouldPollResearchRuns || !projections.session) {
+      return undefined;
+    }
+
+    const { projectId, sessionId } = projections.session;
+    const intervalId = window.setInterval(() => {
+      void refreshProjections(projectId, sessionId);
+    }, RESEARCH_RUN_BACKGROUND_POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [projections.session, refreshProjections, shouldPollResearchRuns]);
+
   const activePageMeta = copy.pageMeta[activePage];
   const connectionLabel = connectionState.status === "connected" ? connectionState.connection.mode : connectionState.status;
   const connectionTone = connectionState.status === "connected" ? "connected" : connectionState.status;

@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   PLANNING_HANDOFF_BLOCKER_PROJECTION_FIXTURE,
-  PLANNING_HANDOFF_FINAL_PROJECTION_FIXTURE
+  PLANNING_HANDOFF_FINAL_PROJECTION_FIXTURE,
+  type ResearchRunControlProjection
 } from "@solo-superman/contracts";
 import { SidecarClientError } from "../../../shared/api/sidecar-client";
 import {
   autoImplementationWorkspaceCreateBlocker,
-  autoImplementationWorkspaceCreateFailureMessage
+  autoImplementationWorkspaceCreateFailureMessage,
+  researchRunControlHasPollableRuns
 } from "./useDecisionQueueShellController";
 import { DECISION_QUEUE_COPY } from "./decision-queue-copy";
 
@@ -43,5 +45,21 @@ describe("autoImplementationWorkspaceCreateFailureMessage", () => {
     expect(autoImplementationWorkspaceCreateFailureMessage(undefined, ACTION_ERRORS)).toBe(
       "Auto implementation workspace creation failed: Unknown local service error."
     );
+  });
+});
+
+describe("researchRunControlHasPollableRuns", () => {
+  it("polls only queued or running research runs so completed and paused runs do not spin the background loop", () => {
+    const runs = (statuses: readonly string[]) => ({
+      runs: statuses.map((status, index) => ({
+        researchRunId: `research_run_${index}`,
+        status
+      }))
+    }) as unknown as ResearchRunControlProjection;
+
+    expect(researchRunControlHasPollableRuns(null)).toBe(false);
+    expect(researchRunControlHasPollableRuns(runs(["completed", "failed", "paused"]))).toBe(false);
+    expect(researchRunControlHasPollableRuns(runs(["completed", "queued"]))).toBe(true);
+    expect(researchRunControlHasPollableRuns(runs(["running"]))).toBe(true);
   });
 });
