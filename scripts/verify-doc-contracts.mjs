@@ -48,6 +48,13 @@ export const REFERENCE_DOC_PATHS = [
   "docs/reference_KO.md",
   "docs/reference_EN.md"
 ];
+export const PROJECT_WIKI_DOC_PATHS = [
+  "omx_wiki/README.md",
+  "omx_wiki/product-capability-flow.md",
+  "omx_wiki/verification-map.md",
+  "omx_wiki/auto-implementation-gates.md",
+  "omx_wiki/release-handoff.md"
+];
 
 const DEFAULT_KO_DOC_PATH = "docs/README.md";
 
@@ -653,6 +660,30 @@ function checkContributorDocsShape() {
   }
 }
 
+function checkProjectWikiDocsShape() {
+  const missingDocs = PROJECT_WIKI_DOC_PATHS.filter((path) => !existsSync(new URL(path, ROOT)));
+
+  if (missingDocs.length) {
+    fail("project wiki docs missing", missingDocs);
+  }
+
+  const hub = readText("omx_wiki/README.md");
+  const missingWikiLinks = PROJECT_WIKI_DOC_PATHS
+    .filter((path) => path !== "omx_wiki/README.md")
+    .map((path) => path.replace("omx_wiki/", ""))
+    .filter((basename) => !hub.includes(`(${basename})`));
+
+  if (missingWikiLinks.length) {
+    fail("project wiki hub missing links", missingWikiLinks);
+  }
+
+  const docsHub = readText(DEFAULT_KO_DOC_PATH);
+  const docsHubEn = readText("docs/README_EN.md");
+  if (!docsHub.includes("../omx_wiki/README.md") || !docsHubEn.includes("../omx_wiki/README.md")) {
+    fail("docs hub missing project wiki link", ["docs/README.md and docs/README_EN.md must link ../omx_wiki/README.md"]);
+  }
+}
+
 function checkContributorDocsSnippets() {
   const docs = Object.fromEntries(CONTRIBUTOR_DOC_PATHS.map((path) => [path, readText(path)]));
 
@@ -856,6 +887,59 @@ function checkContributorDocsSnippets() {
   ]);
 }
 
+function checkProjectWikiDocsSnippets() {
+  const docs = Object.fromEntries(PROJECT_WIKI_DOC_PATHS.map((path) => [path, readText(path)]));
+
+  requireSnippets("project wiki hub missing implementation map", docs["omx_wiki/README.md"], [
+    "product-capability-flow.md",
+    "verification-map.md",
+    "auto-implementation-gates.md",
+    "release-handoff.md",
+    "Do not mark the product complete from docs alone"
+  ]);
+
+  requireSnippets("project wiki capability flow missing core product loop", docs["omx_wiki/product-capability-flow.md"], [
+    "Idea intake",
+    "Clarification loop",
+    "Research evidence loop",
+    "Planning readiness gates",
+    "Browser/service boundary",
+    "Auto implementation loop",
+    "Release guardrails",
+    "Local error reporting",
+    "pnpm verify:product-capability-readiness"
+  ]);
+
+  requireSnippets("project wiki verification map missing gates", docs["omx_wiki/verification-map.md"], [
+    "pnpm verify:clarification-volume",
+    "pnpm verify:research-pipeline",
+    "pnpm verify:browser-delegation-pipeline",
+    "pnpm verify:auto-implementation-pipeline",
+    "pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>",
+    "pnpm audit --audit-level high"
+  ]);
+
+  requireSnippets("project wiki auto implementation gates missing review contract", docs["omx_wiki/auto-implementation-gates.md"], [
+    "feature-scope code review",
+    "repository-scope code review",
+    "changed-code clean-code review",
+    "repository-scope clean-code review",
+    "missing-test audit with zero gaps",
+    "PR mutation records",
+    "pnpm verify:auto-implementation-review-loop"
+  ]);
+
+  requireSnippets("project wiki release handoff missing blockers", docs["omx_wiki/release-handoff.md"], [
+    "#259",
+    "#266",
+    "#267",
+    "pnpm release:evidence-bundle",
+    "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready",
+    "pnpm verify:ready-release -- --evidence-bundle-dir ./solo-superman-release-evidence-bundle",
+    "off-manifest scratch notes"
+  ]);
+}
+
 function compareContractTaxonomies(reference, referencePath = "reference") {
   const commands = readText("packages/contracts/src/product-engine/commands.ts");
   const events = readText("packages/contracts/src/product-engine/events.ts");
@@ -954,6 +1038,8 @@ function checkReferenceSnippets(reference) {
 export function runDocContractChecks() {
   checkContributorDocsShape();
   checkContributorDocsSnippets();
+  checkProjectWikiDocsShape();
+  checkProjectWikiDocsSnippets();
 
   for (const referencePath of REFERENCE_DOC_PATHS) {
     const reference = readText(referencePath);

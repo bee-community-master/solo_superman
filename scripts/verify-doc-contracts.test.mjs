@@ -16,6 +16,7 @@ import {
   parseDocs25DeterministicOutputTypes,
   parseDocs26RoutesFromText,
   parseRouteCatalogFromSource,
+  PROJECT_WIKI_DOC_PATHS,
   REFERENCE_DOC_PATHS,
   sectionBetween
 } from "./verify-doc-contracts.mjs";
@@ -32,6 +33,16 @@ describe("doc contract verification helpers", () => {
 
   it("checks both Korean and English reference contracts", () => {
     expect(REFERENCE_DOC_PATHS).toEqual(["docs/reference_KO.md", "docs/reference_EN.md"]);
+  });
+
+  it("checks the project wiki implementation map", () => {
+    expect(PROJECT_WIKI_DOC_PATHS).toEqual([
+      "omx_wiki/README.md",
+      "omx_wiki/product-capability-flow.md",
+      "omx_wiki/verification-map.md",
+      "omx_wiki/auto-implementation-gates.md",
+      "omx_wiki/release-handoff.md"
+    ]);
   });
 
   it("parses docs/26 routes with required query params", () => {

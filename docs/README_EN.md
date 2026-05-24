@@ -11,6 +11,7 @@ This `docs/` folder is optimized for contributor onboarding and code-backed cont
 | Need | Read |
 | --- | --- |
 | Understand the product | [`product_EN.md`](product_EN.md) |
+| Quickly map implementation flow and verification | [`../omx_wiki/README.md`](../omx_wiki/README.md) |
 | Run locally and contribute | [`contributing_EN.md`](contributing_EN.md) |
 | Understand architecture and package boundaries | [`architecture_EN.md`](architecture_EN.md) |
 | Understand file/shell/browser permission boundaries | [`safety-and-permissions_EN.md`](safety-and-permissions_EN.md) |
@@ -49,6 +50,7 @@ This `docs/` folder is optimized for contributor onboarding and code-backed cont
 3. Preserve local-first safety: loopback-only local service, per-run local capability token, CSRF/replay protection, and no credential custody.
 4. If product direction changes, record the decision in `docs/decisions_EN.md` and update `docs/roadmap_EN.md` if capability boundaries move.
 5. Run `pnpm verify:docs` before opening a PR that touches docs or contract surfaces.
+6. Update `omx_wiki/` whenever product capability flow, verification commands, auto-implementation gates, or release handoff changes.
 
 ## What changed from the old docs
 
