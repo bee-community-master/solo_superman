@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL, URL } from "node:url";
 import {
@@ -156,16 +156,56 @@ function validatePendingTemplateShape(template, expectedChecklist, path, issues)
   }
 }
 
+function isNotFoundError(error) {
+  return error && typeof error === "object" && "code" in error && error.code === "ENOENT";
+}
+
 async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
+async function readJsonOrIssue(path, issues, issuePath) {
+  try {
+    return { value: await readJson(path), failed: false };
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      addIssue(issues, issuePath, "must exist in the bundle directory");
+      return { value: {}, failed: true };
+    }
+    if (error instanceof SyntaxError) {
+      addIssue(issues, issuePath, "must contain valid JSON");
+      return { value: {}, failed: true };
+    }
+    throw error;
+  }
+}
+
 async function loadBundleDirectory(bundleDir) {
+  const loadIssues = [];
+  try {
+    const bundleDirStat = await stat(bundleDir);
+    if (!bundleDirStat.isDirectory()) {
+      addIssue(loadIssues, "$.bundleDir", "must be a directory");
+      return { manifest: {}, fileContents: new Map(), unsupportedEntries: [], loadIssues, manifestLoadFailed: true };
+    }
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      addIssue(loadIssues, "$.bundleDir", "must exist before verifying release evidence");
+      return { manifest: {}, fileContents: new Map(), unsupportedEntries: [], loadIssues, manifestLoadFailed: true };
+    }
+    throw error;
+  }
+
   const manifestPath = resolve(bundleDir, DEFAULT_MANIFEST_PATH);
-  const manifest = await readJson(manifestPath);
+  const manifestResult = await readJsonOrIssue(manifestPath, loadIssues, `file:${DEFAULT_MANIFEST_PATH}`);
   const loadedFiles = await loadBundleFiles(bundleDir);
 
-  return { manifest, ...loadedFiles };
+  return {
+    manifest: manifestResult.value,
+    ...loadedFiles,
+    loadIssues,
+    manifestLoadFailed: manifestResult.failed
+  };
 }
 
 async function loadBundleFiles(bundleDir) {
@@ -205,10 +245,24 @@ function generatedBundleContentMap(bundle) {
 }
 
 async function validateBundlePayload({ manifest, fileContents, unsupportedEntries = [] }, options = {}) {
-  const issues = [];
+  const issues = [...(options.loadIssues ?? [])];
   const contracts = options.contracts ?? await loadReleaseEvidenceContracts(options.contractPaths, options);
   const fullChecklist = buildReleaseEvidenceChecklist(contracts, options);
   const expectedBundle = buildReleaseEvidenceBundle(fullChecklist);
+
+  if (options.manifestLoadFailed) {
+    for (const [path, content] of fileContents.entries()) {
+      validateSecretFreeString(content, `file:${path}`, issues);
+    }
+    return {
+      ok: false,
+      issues: uniqueStrings(issues),
+      manifest,
+      fullChecklist,
+      expectedBundle
+    };
+  }
+
   const expectedFiles = expectedFilesByPath(expectedBundle);
   const manifestFiles = manifestFilesByPath(manifest, issues);
 
@@ -375,6 +429,8 @@ export async function runReleaseEvidenceBundleVerification(argv = process.argv.s
     : await generatedBundlePayload(options);
   const validation = await validateBundlePayload(payload, {
     ...options,
+    loadIssues: payload.loadIssues,
+    manifestLoadFailed: payload.manifestLoadFailed,
     requireReady: parsed.requireReady
   });
   const evidence = evidenceForBundleValidation(validation, {

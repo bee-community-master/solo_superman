@@ -59,6 +59,38 @@ describe("release evidence bundle verification", () => {
     }
   });
 
+  it("reports missing bundle directories as structured blockers", async () => {
+    const bundleDir = join(tmpdir(), `solo-release-evidence-bundle-missing-${process.pid}-${Date.now()}`);
+    await rm(bundleDir, { recursive: true, force: true });
+
+    const evidence = await runReleaseEvidenceBundleVerification(["--bundle-dir", bundleDir], {});
+
+    expect(evidence).toMatchObject({
+      status: "blocked",
+      mode: "bundle-dir",
+      bundleDir,
+      blockers: ["$.bundleDir: must exist before verifying release evidence"]
+    });
+  });
+
+  it("reports missing manifests without hiding secret-shaped bundle contents", async () => {
+    const bundleDir = await mkdtemp(join(tmpdir(), "solo-release-evidence-bundle-test-"));
+    try {
+      await writeFile(join(bundleDir, "scratch-note.txt"), "token=ghp_abcdefghijklmnopqrstuvwxyz1234567890\n", "utf8");
+
+      const evidence = await runReleaseEvidenceBundleVerification(["--bundle-dir", bundleDir], {});
+
+      expect(evidence.status).toBe("blocked");
+      expect(evidence.blockers).toEqual(expect.arrayContaining([
+        "file:manifest.json: must exist in the bundle directory",
+        "file:scratch-note.txt: must not contain token-shaped secret values"
+      ]));
+      expect(evidence.blockers.some((blocker) => blocker.includes("ENOENT"))).toBe(false);
+    } finally {
+      await rm(bundleDir, { recursive: true, force: true });
+    }
+  });
+
   it("rejects missing files, unexpected files, unlisted files, and secret-shaped content", async () => {
     const contracts = await loadReleaseEvidenceContracts();
     const checklist = buildReleaseEvidenceChecklist(contracts, { now: new Date("2026-05-24T00:00:00.000Z") });
