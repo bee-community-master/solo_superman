@@ -322,6 +322,44 @@ describe("QuestionsView", () => {
     expect(markup).not.toContain("core_assumption_challenge");
   });
 
+  it("lets ordinary question debt be carried as a known risk instead of forcing every answer immediately", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 1 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_generic_risk" as QueueItemId,
+          title: "Which customer detail can be checked later?",
+          state: "active",
+          expectedAnswerType: "text"
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+
+    const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        queue
+      },
+      sections: [
+        {
+          id: "active",
+          title: "Current questions",
+          emptyLabel: "No current questions.",
+          items: queue.active
+        }
+      ]
+    });
+
+    expect(markup).toContain("Which customer detail can be checked later?");
+    expect(markup).toContain("Add comment or risk");
+    expect(markup).toContain("Keep as a known risk");
+    expect(markup).not.toContain("Customer pain");
+  });
+
   it("renders question debt progress so long sessions show generated, active, upcoming, follow-up, and visible counts", () => {
     const markup = renderQuestionsView({
       questionProgress: {

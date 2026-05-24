@@ -1,6 +1,10 @@
 import { useState } from "react";
 import type { QueueItemProjection } from "@solo-superman/contracts";
-import { draftedActiveQuestionAnswerIds, questionFatigueViewModel } from "../decision-queue-view-model";
+import {
+  draftedActiveQuestionAnswerIds,
+  questionFatigueViewModel,
+  queueItemIsQuestionDebt
+} from "../decision-queue-view-model";
 import { isBusinessCriticQueueItem } from "./decision-queue-shell-model";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
@@ -220,6 +224,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                       answerSelectionMode === "multiple"
                         ? copy.questions.suggestedAnswersMultipleHelp
                         : copy.questions.suggestedAnswersSingleHelp;
+                    const canCarryAsKnownRisk = queueItemIsQuestionDebt(item) && item.state !== "deferred";
 
                     return (
                     <article className={`queue-card ${item.state}`} key={item.queueItemId}>
@@ -332,7 +337,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                           </button>
                         </div>
                       ) : null}
-                      {isBusinessCriticQueueItem(item) && item.state !== "deferred" ? (
+                      {canCarryAsKnownRisk ? (
                         <details className="answer-box risk-details">
                           <summary>{copy.questions.additionalRiskDetails}</summary>
                           <p className="mode-help">{copy.questions.additionalRiskHelp}</p>
