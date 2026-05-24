@@ -1763,6 +1763,20 @@ describe("PR-04 ProductEngine reducer", () => {
       }, 7),
       state
     );
+    const noMoreSourcesAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: answeredQueueItemId,
+        answer: "자료를 더 찾을 필요 없음. 지금 답변으로 결정하겠습니다."
+      }, 7),
+      state
+    );
+    const noMoreEnglishResearchAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: answeredQueueItemId,
+        answer: "No more research needed; do not find more sources."
+      }, 7),
+      state
+    );
 
     expect(blankAnswer).toMatchObject({
       accepted: false,
@@ -1834,6 +1848,16 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(noMoreResearchAnswer.accepted).toBe(true);
     expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
+      "Broaden research beyond existing notes"
+    );
+    expect(noMoreSourcesAnswer.accepted).toBe(true);
+    expect(noMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(noMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
+      "Broaden research beyond existing notes"
+    );
+    expect(noMoreEnglishResearchAnswer.accepted).toBe(true);
+    expect(noMoreEnglishResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(noMoreEnglishResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research beyond existing notes"
     );
     expect(answer.effectPlan).toMatchObject([

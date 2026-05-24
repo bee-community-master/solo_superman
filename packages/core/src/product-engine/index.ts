@@ -1978,8 +1978,18 @@ const BROADER_RESEARCH_REQUEST_PATTERN = new RegExp(
   "iu"
 );
 
+const BROADER_RESEARCH_REJECTION_PATTERN = new RegExp(
+  [
+    "(?:리서치|조사|자료|근거|출처)[^.\\n]{0,40}(?:필요\\s*없|불필요|그만|멈추|하지\\s*마|하지\\s*않|안\\s*(?:해|하|찾|모|수집))",
+    "(?:더|추가로|넓게|깊게)[^.\\n]{0,40}(?:찾|모(?:으|아)|수집|조사|리서치)[^.\\n]{0,40}(?:필요\\s*없|불필요|하지\\s*마|하지\\s*않|안\\s*(?:해|하|찾|모|수집))",
+    "(?:no|not|without)\\s+(?:more|additional|further|broader|wider|deeper)\\s+(?:research|sources?|evidence|references?)",
+    "(?:do\\s+not|don't|dont|stop)\\s+(?:find|collect|gather|research|search|look\\s+up)"
+  ].join("|"),
+  "iu"
+);
+
 function answerRequestsBroaderResearch(answer: string) {
-  return BROADER_RESEARCH_REQUEST_PATTERN.test(answer);
+  return BROADER_RESEARCH_REQUEST_PATTERN.test(answer) && !BROADER_RESEARCH_REJECTION_PATTERN.test(answer);
 }
 
 function researchObjectiveForAnswer(input: {
