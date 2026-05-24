@@ -188,6 +188,12 @@ function hasOpenTextCue(question: string) {
   );
 }
 
+function rejectsChoiceOptions(question: string) {
+  return /(?:선택지\s*없이|선택지(?:가|는)?\s*아니라|객관식(?:이|은)?\s*아니라|선택형(?:이|은)?\s*아니라|고르지\s*말고|선택하지\s*말고|without\s+choices?|no\s+choices?|not\s+(?:a\s+)?(?:choice|multiple[-\s]?choice|single[-\s]?choice))/iu.test(
+    question
+  );
+}
+
 function hasMultiSelectCue(question: string) {
   return /(?:복수|다중|모두|해당|중복|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)|둘\s*이상|복수\s*선택|다중\s*선택|복수선택|다중선택|multi[-\s]?select|one\s+or\s+more|select\s+all|multiple|which\s+.+\s+together)/iu.test(
     question
@@ -245,7 +251,7 @@ export function classifyResearchFollowUpAnswerShape(input: ResearchFollowUpAnswe
     return "multi_select";
   }
 
-  if (hasOpenTextCue(input.question) && !hasForcedChoiceCue(input.question)) {
+  if (hasOpenTextCue(input.question) && (rejectsChoiceOptions(input.question) || !hasForcedChoiceCue(input.question))) {
     return "open_text";
   }
 

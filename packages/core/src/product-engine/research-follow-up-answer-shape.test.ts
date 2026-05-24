@@ -458,6 +458,15 @@ describe("research follow-up answer shape", () => {
 
     expect(classifyResearchFollowUpAnswerShape({
       ...base,
+      question: "선택지 없이 실제 고객 제약을 자유롭게 설명해주세요."
+    })).toBe("open_text");
+    expect(researchFollowUpAnswerOptions({
+      ...base,
+      question: "선택지 없이 실제 고객 제약을 자유롭게 설명해주세요."
+    })).toEqual([]);
+
+    expect(classifyResearchFollowUpAnswerShape({
+      ...base,
       question: "이 방향은 객관식으로 찬성/반대 중 하나를 선택해야 합니다."
     })).toBe("binary_choice");
 

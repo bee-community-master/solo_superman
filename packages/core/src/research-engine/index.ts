@@ -153,7 +153,9 @@ type AdditionalQuestionAnswerIntent =
 function additionalQuestionAnswerIntentForObjective(objective: string): AdditionalQuestionAnswerIntent {
   const topic = userFacingQuestionText(objective).toLowerCase();
   const asksForNarrative =
-    /(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|상황|맥락|이유|왜|어떻게|workflow|흐름|사용\s*방식|describe|explain|free[-\s]?form|open[-\s]?(?:ended|question)|context)/iu.test(topic);
+    /(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|서술|설명|자유롭게|상황|맥락|이유|제약|왜|어떻게|workflow|흐름|사용\s*방식|describe|explain|free[-\s]?form|open[-\s]?(?:ended|question)|context)/iu.test(topic);
+  const rejectsChoiceOptions =
+    /(?:선택지\s*없이|선택지(?:가|는)?\s*아니라|객관식(?:이|은)?\s*아니라|선택형(?:이|은)?\s*아니라|고르지\s*말고|선택하지\s*말고|without\s+choices?|no\s+choices?|not\s+(?:a\s+)?(?:choice|multiple[-\s]?choice|single[-\s]?choice))/iu.test(topic);
   const asksForForcedChoice =
     /(?:객관식|선택형|선택|고르|골라|중\s*(?:하나|한\s*가지)|하나(?:를|만)?\s*(?:선택|고르)|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|복수|다중|(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|선택|고르|판단)|양자\s*택일|양자택일|choose|pick|select|single[-\s]?choice|multi[-\s]?select|one\s+or\s+more|select\s+all|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(topic);
   const asksForExplicitChoice =
@@ -171,7 +173,7 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
     return /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic) ? "multi_signal_choice" : "multi_choice";
   }
 
-  if (asksForNarrative && !asksForForcedChoice) {
+  if (asksForNarrative && (rejectsChoiceOptions || !asksForForcedChoice)) {
     return "open_text";
   }
 

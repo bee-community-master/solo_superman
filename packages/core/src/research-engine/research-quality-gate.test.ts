@@ -218,6 +218,24 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
   });
 
+  it("keeps no-choice narrative wording open even when it mentions choices", () => {
+    const researchTask = task({
+      objective: "선택지 없이 고객이 겪는 제약을 자유롭게 서술"
+    });
+    const researchResult = result({
+      result: "Pro: users describe different constraints around the same workflow.",
+      limitationNotes: "A fixed option list would hide the user's actual context."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("본인 말로 3~5문장으로 서술")]
+    });
+    expect(matrix.additionalQuestions[0]).not.toContain("하나의 선택지");
+    expect(matrix.additionalQuestions[0]).not.toContain("어느 성향의 고객에 집중");
+  });
+
   it("turns signal evidence gaps into multi-select prompts", () => {
     const researchTask = task({
       objective: "다음 인터뷰에서 확인할 고객 신호와 조건 여러 개 선택"
