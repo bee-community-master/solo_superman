@@ -22,6 +22,7 @@ function codeBackedCapability(id, verificationCommands, overrides = {}) {
 function autoImplementationCheckedBehaviors() {
   return [
     "Runtime preview requests produce bounded preview artifacts without applying file, shell, browser, or network actions.",
+    "Opt-in live runtime readiness verification reports skipped, blocked, or passed evidence without forcing credential-gated live execution into the default suite.",
     "Worker jobs keep planned ledger docs, authority refs, sandbox boundaries, and manual recovery evidence visible.",
     "Generated PR body includes issue document status summary, stage status summary, review/evidence gate summary, and missing-test audit summary coverage.",
     "Every canonical auto-implementation stage can carry code-review, clean-code, missing-test audit, and test evidence before completion."
@@ -52,6 +53,7 @@ function codeBackedContract(overrides = {}) {
       ],
       supporting: [
         "pnpm verify:runtime-preview-turn",
+        "pnpm verify:codex-live-runtime",
         "pnpm verify:worker-job",
         "pnpm verify:pr-mutation",
         "pnpm verify:auto-implementation-review-loop",
@@ -84,6 +86,7 @@ function codeBackedContract(overrides = {}) {
       }),
       codeBackedCapability("auto-implementation-review-loop", [
         "pnpm verify:runtime-preview-turn",
+        "pnpm verify:codex-live-runtime",
         "pnpm verify:worker-job",
         "pnpm verify:pr-mutation",
         "pnpm verify:auto-implementation-review-loop",
@@ -127,7 +130,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including approved public-read browser targets, final-submit production-mutation contract coverage, generated PR body summary coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
@@ -154,6 +157,7 @@ describe("product capability readiness verification", () => {
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
       "$.capabilities[4].verificationCommands: must include pnpm verify:runtime-preview-turn",
+      "$.capabilities[4].verificationCommands: must include pnpm verify:codex-live-runtime",
       "$.capabilities[4].verificationCommands: must include pnpm verify:worker-job",
       "$.capabilities[4].verificationCommands: must include pnpm verify:pr-mutation",
       "$.capabilities[4].verificationCommands: must include pnpm verify:auto-implementation-review-loop"
@@ -190,7 +194,7 @@ describe("product capability readiness verification", () => {
           ? {
               ...capability,
               checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
-                !behavior.startsWith("Generated PR body")
+                !behavior.includes("live runtime readiness") && !behavior.startsWith("Generated PR body")
               )
             }
           : capability
@@ -200,6 +204,8 @@ describe("product capability readiness verification", () => {
 
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
+      "$.capabilities[4].checkedBehaviors: must mention live runtime readiness",
+      "$.capabilities[4].checkedBehaviors: must mention skipped, blocked, or passed evidence",
       "$.capabilities[4].checkedBehaviors: must mention Generated PR body",
       "$.capabilities[4].checkedBehaviors: must mention issue document status summary",
       "$.capabilities[4].checkedBehaviors: must mention missing-test audit summary"
@@ -297,6 +303,7 @@ describe("product capability readiness verification", () => {
 
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
+      "$.requiredVerificationCommands.supporting: must include pnpm verify:codex-live-runtime",
       "$.requiredVerificationCommands.supporting: must include pnpm verify:ready-release -- --plan-only",
       "$.requiredVerificationCommands.supporting: must include pnpm support:bundle"
     ]));

@@ -71,6 +71,7 @@ function validBundle(overrides = {}) {
         supportBundle: "node scripts/support-bundle.mjs",
         verifyReadyRelease: "node scripts/verify-ready-release.mjs",
         verifyReleaseEvidenceBundle: "node scripts/verify-release-evidence-bundle.mjs",
+        verifyCodexLiveRuntime: "node scripts/verify-codex-live-runtime.mjs",
         verifySupportBundle: "node scripts/verify-support-bundle.mjs"
       }
     },
@@ -80,6 +81,7 @@ function validBundle(overrides = {}) {
       SHELL: "/bin/zsh"
     },
     recommendedChecks: [
+      "pnpm verify:codex-live-runtime",
       "pnpm verify:product-capability-readiness",
       "pnpm verify:release-readiness",
       "pnpm verify:ready-release -- --plan-only",
@@ -211,6 +213,8 @@ describe("support bundle verification", () => {
     expect(validation.issues).toEqual(expect.arrayContaining([
       "$.package.scripts.verifySupportBundle: must point to verify-support-bundle.mjs",
       "$.package.scripts.verifyReadyRelease: must point to verify-ready-release.mjs",
+      "$.package.scripts.verifyCodexLiveRuntime: must point to verify-codex-live-runtime.mjs",
+      "$.recommendedChecks: must include pnpm verify:codex-live-runtime",
       "$.recommendedChecks: must include pnpm verify:support-bundle",
       "$.recommendedChecks: must include pnpm verify:ready-release -- --plan-only",
       "$.recommendedChecks: must include pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>",

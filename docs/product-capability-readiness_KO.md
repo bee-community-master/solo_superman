@@ -25,7 +25,7 @@ pnpm verify:product-capability-readiness -- --require-code-backed
 | `research-evidence-loop` | `pnpm verify:research-pipeline` |
 | `planning-readiness-gates` | clarification/research evidence가 Planning-ready gate에 연결되는지 검증 |
 | `browser-service-boundary` | `pnpm verify:browser-delegation-pipeline`, `pnpm verify:service-page-pipeline`, `pnpm verify:production-mutation-contract` |
-| `auto-implementation-review-loop` | runtime preview, worker job, PR mutation body summary, review-loop, aggregate pipeline smoke |
+| `auto-implementation-review-loop` | runtime preview, opt-in `pnpm verify:codex-live-runtime` readiness evidence, worker job, PR mutation body summary, review-loop, aggregate pipeline smoke |
 | `technical-preview-release-guardrails` | `pnpm verify:prod-bundle`, `pnpm verify:release-readiness` |
 | `local-error-reporting` | `pnpm verify:support-bundle`이 credential-free support diagnostics bundle, redaction, compact product/release diagnostics, ready-release plan-only summary와 bundle preparation command를 검증 |
 
@@ -35,7 +35,7 @@ pnpm verify:product-capability-readiness -- --require-code-backed
 - capability가 `blocked`이면 `blocker`와 GitHub `blockerIssue`가 필요합니다.
 - URL evidence ref는 HTTPS만 허용하며 userinfo credential이나 secret-like query parameter를 담을 수 없습니다.
 - token/secret/password/API-key shaped 값은 어떤 string에도 남길 수 없습니다.
-- default verification suite에는 `pnpm verify:support-bundle`, `pnpm verify:product-capability-readiness`, `pnpm verify`가 포함되어야 하며, supporting command에는 safe `pnpm verify:ready-release -- --plan-only`와 `pnpm support:bundle`이 포함되어야 합니다.
+- default verification suite에는 `pnpm verify:support-bundle`, `pnpm verify:product-capability-readiness`, `pnpm verify`가 포함되어야 하며, supporting command에는 default suite에 live execution을 강제하지 않는 `pnpm verify:codex-live-runtime`, safe `pnpm verify:ready-release -- --plan-only`, `pnpm support:bundle`이 포함되어야 합니다.
 
 ## broad release와의 경계
 

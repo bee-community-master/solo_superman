@@ -23,6 +23,7 @@ const REQUIRED_CAPABILITY_COMMANDS = new Map([
     "auto-implementation-review-loop",
     [
       "pnpm verify:runtime-preview-turn",
+      "pnpm verify:codex-live-runtime",
       "pnpm verify:worker-job",
       "pnpm verify:pr-mutation",
       "pnpm verify:auto-implementation-review-loop",
@@ -45,6 +46,8 @@ const REQUIRED_CAPABILITY_BEHAVIOR_SNIPPETS = new Map([
   [
     "auto-implementation-review-loop",
     [
+      "live runtime readiness",
+      "skipped, blocked, or passed evidence",
       "Generated PR body",
       "issue document status summary",
       "stage status summary",
@@ -78,6 +81,7 @@ const REQUIRED_DEFAULT_COMMANDS = new Set([
   "pnpm verify"
 ]);
 const REQUIRED_SUPPORTING_COMMANDS = new Set([
+  "pnpm verify:codex-live-runtime",
   "pnpm verify:ready-release -- --plan-only",
   "pnpm support:bundle"
 ]);
@@ -418,7 +422,7 @@ export function evidenceForEvaluation(evaluation, options) {
       "product capability readiness contract schema",
       "required idea, clarification, research, browser/service, planning, auto-implementation, release-guardrail, and local-error-reporting capability ids",
       "required credential-free product verification commands",
-      "required capability behavior snippets, including approved public-read browser targets, final-submit production-mutation contract coverage, generated PR body summary coverage, redacted support diagnostics coverage, and ready-release plan-only coverage",
+      "required capability behavior snippets, including approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, redacted support diagnostics coverage, and ready-release plan-only coverage",
       "secret-free product capability evidence strings",
       options.requireCodeBacked
         ? "all technical-preview core capabilities must be code_backed"
