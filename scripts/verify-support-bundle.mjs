@@ -38,6 +38,7 @@ const REQUIRED_DIAGNOSTICS = new Set([
 const REQUIRED_DIAGNOSTIC_EVIDENCE_STATUS = {
   readyReleasePlan: "planned"
 };
+const REQUIRED_RELEASE_EVIDENCE_ISSUE_NUMBERS = [259, 266, 267];
 const REQUIRED_RECOMMENDED_CHECKS = new Set([
   "pnpm verify:codex-live-runtime",
   "pnpm verify:product-capability-readiness",
@@ -206,6 +207,60 @@ function validateReadyReleasePlanDiagnostic(diagnostic, issues) {
       "$.releaseDiagnostics.readyReleasePlan.plannedCommands",
       "must include pnpm verify:release-readiness -- --require-ready"
     );
+  }
+
+  validateReadyReleaseIssuePreparation(diagnostic.releaseEvidenceIssuePreparation, issues);
+}
+
+function validateReadyReleaseIssuePreparation(value, issues) {
+  if (!Array.isArray(value)) {
+    addIssue(
+      issues,
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation",
+      "must include issue-specific release evidence handoff entries for #259/#266/#267"
+    );
+    return;
+  }
+
+  const entriesByIssue = new Map(
+    value
+      .filter(isRecord)
+      .filter((entry) => Number.isInteger(entry.issueNumber))
+      .map((entry) => [entry.issueNumber, entry])
+  );
+
+  for (const issueNumber of REQUIRED_RELEASE_EVIDENCE_ISSUE_NUMBERS) {
+    const entry = entriesByIssue.get(issueNumber);
+    const path = `$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[${issueNumber}]`;
+    if (!entry) {
+      addIssue(
+        issues,
+        path,
+        `must include issue-specific release evidence handoff for #${issueNumber}`
+      );
+      continue;
+    }
+
+    if (typeof entry.status !== "string") {
+      addIssue(issues, `${path}.status`, "must include issue status");
+    }
+    if (typeof entry.blockedItems !== "number") {
+      addIssue(issues, `${path}.blockedItems`, "must include blocked item count");
+    }
+    if (typeof entry.templatePath !== "string" || !entry.templatePath.endsWith(`issue-${issueNumber}-template.json`)) {
+      addIssue(issues, `${path}.templatePath`, `must point to issue-${issueNumber}-template.json`);
+    }
+    if (typeof entry.commentPath !== "string" || !entry.commentPath.endsWith(`issue-${issueNumber}-comment.md`)) {
+      addIssue(issues, `${path}.commentPath`, `must point to issue-${issueNumber}-comment.md`);
+    }
+    if (typeof entry.validateTemplateCommand !== "string"
+      || !entry.validateTemplateCommand.includes(` --issue ${issueNumber}`)) {
+      addIssue(issues, `${path}.validateTemplateCommand`, `must validate issue ${issueNumber} template`);
+    }
+    if (typeof entry.postIssueCommentCommand !== "string"
+      || !entry.postIssueCommentCommand.startsWith(`gh issue comment ${issueNumber} `)) {
+      addIssue(issues, `${path}.postIssueCommentCommand`, `must post issue ${issueNumber} comment`);
+    }
   }
 }
 

@@ -10,6 +10,31 @@ import {
   writeSupportBundle
 } from "./support-bundle.mjs";
 
+const releaseEvidenceIssueItemCounts = new Map([
+  [259, 2],
+  [266, 4],
+  [267, 3]
+]);
+
+function fakeReadyReleaseIssuePreparation() {
+  return [...releaseEvidenceIssueItemCounts].map(([issueNumber, itemCount]) => ({
+    issueNumber,
+    issueUrl: `https://github.com/bee-community-master/solo_superman/issues/${issueNumber}`,
+    status: "blocked",
+    itemCount,
+    blockedItems: itemCount,
+    checklistPath: `./solo-superman-release-evidence-bundle/issue-${issueNumber}-checklist.md`,
+    templatePath: `./solo-superman-release-evidence-bundle/issue-${issueNumber}-template.json`,
+    commentPath: `./solo-superman-release-evidence-bundle/issue-${issueNumber}-comment.md`,
+    fillTemplateAction:
+      `Fill ./solo-superman-release-evidence-bundle/issue-${issueNumber}-template.json with redacted release lab evidence only.`,
+    validateTemplateCommand:
+      `pnpm verify:release-evidence-template -- --input ./solo-superman-release-evidence-bundle/issue-${issueNumber}-template.json --issue ${issueNumber}`,
+    postIssueCommentCommand:
+      `gh issue comment ${issueNumber} --body-file ./solo-superman-release-evidence-bundle/issue-${issueNumber}-comment.md`
+  }));
+}
+
 function fakeCommandRunner(command, args) {
   const key = [command, ...args].join(" ");
   const outputs = new Map([
@@ -117,6 +142,8 @@ function fakeCommandRunner(command, args) {
         bundleDir: "./solo-superman-release-evidence-bundle",
         requiredBefore: "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready"
       },
+      releaseEvidenceIssuePreparation: fakeReadyReleaseIssuePreparation(),
+      ignoredVerboseLog: `diagnostic-padding-${"x".repeat(5_000)}`,
       blockers: [],
       commandBlockers: [],
       commands: [
@@ -387,6 +414,17 @@ describe("support diagnostics bundle", () => {
         bundleDir: "./solo-superman-release-evidence-bundle",
         requiredBefore: "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready"
       },
+      releaseEvidenceIssuePreparation: fakeReadyReleaseIssuePreparation().map((entry) =>
+        expect.objectContaining({
+          issueNumber: entry.issueNumber,
+          status: "blocked",
+          blockedItems: entry.blockedItems,
+          templatePath: entry.templatePath,
+          commentPath: entry.commentPath,
+          validateTemplateCommand: entry.validateTemplateCommand,
+          postIssueCommentCommand: entry.postIssueCommentCommand
+        })
+      ),
       plannedCommands: [
         "pnpm verify:signed-package-preflight -- --require-credentials",
         "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready",
@@ -418,6 +456,7 @@ describe("support diagnostics bundle", () => {
     expect(serialized).not.toContain("secret-token");
     expect(serialized).not.toContain("sk-secret");
     expect(serialized).not.toContain("ghp_abcdefghijklmnopqrstuvwxyz");
+    expect(serialized).not.toContain("diagnostic-padding");
   });
 
   it("parses output path overrides and writes JSON bundles", async () => {

@@ -23,6 +23,31 @@ const requiredDiagnostics = [
   "releaseEvidenceBundle"
 ];
 
+const releaseEvidenceIssueItemCounts = new Map([
+  [259, 2],
+  [266, 4],
+  [267, 3]
+]);
+
+function validReleaseEvidenceIssuePreparation() {
+  return [...releaseEvidenceIssueItemCounts].map(([issueNumber, itemCount]) => ({
+    issueNumber,
+    issueUrl: `https://github.com/bee-community-master/solo_superman/issues/${issueNumber}`,
+    status: "blocked",
+    itemCount,
+    blockedItems: itemCount,
+    checklistPath: `./solo-superman-release-evidence-bundle/issue-${issueNumber}-checklist.md`,
+    templatePath: `./solo-superman-release-evidence-bundle/issue-${issueNumber}-template.json`,
+    commentPath: `./solo-superman-release-evidence-bundle/issue-${issueNumber}-comment.md`,
+    fillTemplateAction:
+      `Fill ./solo-superman-release-evidence-bundle/issue-${issueNumber}-template.json with redacted release lab evidence only.`,
+    validateTemplateCommand:
+      `pnpm verify:release-evidence-template -- --input ./solo-superman-release-evidence-bundle/issue-${issueNumber}-template.json --issue ${issueNumber}`,
+    postIssueCommentCommand:
+      `gh issue comment ${issueNumber} --body-file ./solo-superman-release-evidence-bundle/issue-${issueNumber}-comment.md`
+  }));
+}
+
 function validDiagnostic(name) {
   const base = {
     command: `pnpm ${name}`,
@@ -42,6 +67,7 @@ function validDiagnostic(name) {
       status: "planned",
       command: "pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle"
     },
+    releaseEvidenceIssuePreparation: validReleaseEvidenceIssuePreparation(),
     plannedCommands: [
       "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready",
       "pnpm verify:release-readiness -- --require-ready"
@@ -178,6 +204,41 @@ describe("support bundle verification", () => {
       "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceBundlePreparation.command: must include pnpm release:evidence-bundle preparation command",
       "$.releaseDiagnostics.readyReleasePlan.plannedCommands: must include release evidence bundle require-ready command",
       "$.releaseDiagnostics.readyReleasePlan.plannedCommands: must include pnpm verify:release-readiness -- --require-ready"
+    ]));
+  });
+
+  it("requires ready-release plan diagnostics to expose issue-specific handoff entries", () => {
+    const bundle = validBundle({
+      releaseDiagnostics: {
+        ...validBundle().releaseDiagnostics,
+        readyReleasePlan: {
+          ...validDiagnostic("readyReleasePlan"),
+          releaseEvidenceIssuePreparation: [
+            {
+              issueNumber: 259,
+              status: 404,
+              blockedItems: "3",
+              templatePath: "./solo-superman-release-evidence-bundle/issue-259.json",
+              commentPath: "./solo-superman-release-evidence-bundle/issue-259.md",
+              validateTemplateCommand: "pnpm verify:release-evidence-template",
+              postIssueCommentCommand: "gh issue comment"
+            },
+            ...validReleaseEvidenceIssuePreparation().filter((entry) => entry.issueNumber === 266)
+          ]
+        }
+      }
+    });
+    const validation = validateSupportBundle(bundle);
+
+    expect(validation.ok).toBe(false);
+    expect(validation.issues).toEqual(expect.arrayContaining([
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].status: must include issue status",
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].blockedItems: must include blocked item count",
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].templatePath: must point to issue-259-template.json",
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].commentPath: must point to issue-259-comment.md",
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].validateTemplateCommand: must validate issue 259 template",
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].postIssueCommentCommand: must post issue 259 comment",
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[267]: must include issue-specific release evidence handoff for #267"
     ]));
   });
 

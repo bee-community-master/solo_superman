@@ -182,6 +182,10 @@ describe("#105 local install/run verification docs", () => {
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("`verify:release-readiness`, `verify:ready-release -- --plan-only`, `verify:release-evidence-template`, and `verify:release-evidence-bundle` only");
     expect(runbook).toContain("ready-release plan-only summary에는 bundle preparation command와 planned command list만 담습니다");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("ready-release plan-only summary keeps only the bundle preparation command plus planned command list");
+    expect(runbook).toContain("releaseEvidenceIssuePreparation");
+    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("releaseEvidenceIssuePreparation");
+    expect(runbook).toContain("#259/#266/#267별 checklist/template/comment 경로");
+    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("#259/#266/#267 checklist/template/comment paths");
     expect(runbook).toContain("recommended checks의 `pnpm verify:codex-live-runtime`");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("recommended `pnpm verify:codex-live-runtime` check");
     expect(runbook).toContain("recommended checks의 `pnpm verify:ready-release -- --plan-only`");
