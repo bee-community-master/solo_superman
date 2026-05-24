@@ -243,6 +243,57 @@ function bulletedQuestionCandidates(candidates: readonly string[]) {
   return candidates.map((candidate) => `- ${candidate}`).join("\n");
 }
 
+function normalizeGenericChoiceCandidateLabel(value: string) {
+  return value
+    .replace(/^[\s"'‘’“”([{<]+|[\s"'‘’“”)\]}>.。]+$/gu, "")
+    .replace(/\s+(?:정도|후보|옵션|선택지)$/u, "")
+    .trim();
+}
+
+function splitGenericChoiceCandidatePhrase(value: string) {
+  return value
+    .replace(/([^\s,·/]+)(?:와|과)\s+/gu, "$1, ")
+    .replace(/\s+(?:및|또는|혹은)\s+/gu, ", ")
+    .split(/[,·/]+/u)
+    .map(normalizeGenericChoiceCandidateLabel)
+    .filter((candidate) => candidate.length >= 2 && candidate.length <= 64);
+}
+
+function genericChoiceCandidateLabelsFromTopic(topic: string) {
+  const phrases: string[] = [];
+  const patterns = [
+    /(?:후보|선택지|옵션|종류|유형|타입|기능|검증\s*방법|검증\s*후보)(?:는|은|로는|로|:)\s*(?<candidates>.+?)(?:입니다|입니다만|정도로|정도(?:로)?\s*추려|중에서|중\s*(?:하나|한\s*가지|하나\s*이상|여러\s*개)|를\s*고르|을\s*고르|를\s*선택|을\s*선택|\.|\?|$)/giu,
+    /(?<candidates>[^.?\n]{2,180}(?:[,·/]|(?:와|과)\s+|(?:및|또는|혹은)\s+)[^.?\n]{2,180}?)(?:\s*(?:중|가운데)\s*(?:하나(?:만)?|한\s*가지|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)|복수|다중)(?:를|을)?\s*(?:선택|고르|골라|정|택)|\s*(?:중|가운데)\s*먼저\s*(?:볼|확인|검증|구현)할\s*순서)/giu
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of topic.matchAll(pattern)) {
+      const phrase = match.groups?.candidates?.trim();
+
+      if (phrase) {
+        phrases.push(phrase);
+      }
+    }
+  }
+
+  return uniqueValues(phrases.flatMap(splitGenericChoiceCandidatePhrase)).slice(0, 10);
+}
+
+function promptWithGenericCandidates(input: {
+  readonly topic: string;
+  readonly lead: string;
+  readonly action: string;
+  readonly fallback: string;
+}) {
+  const candidates = genericChoiceCandidateLabelsFromTopic(input.topic);
+
+  if (!candidates.length) {
+    return input.fallback;
+  }
+
+  return `${input.lead}\n${bulletedQuestionCandidates(candidates)}\n\n${input.action}`;
+}
+
 const DEFAULT_CUSTOMER_CANDIDATES = [
   "혼자 만드는 초기 창업자",
   "도메인 전문 1인 빌더",
@@ -369,11 +420,26 @@ function promptSentenceForAnswerIntent(
       return `${lead}\n${bulletedQuestionCandidates(signals)}\n\n해당되는 신호를 여러 개 선택해주세요.`;
     }
     case "multi_choice":
-      return "위 정보를 기준으로 해당되는 선택지를 하나 이상 선택해주세요. 필요하면 선택지 조합이나 빠진 후보를 직접 적어도 됩니다.";
+      return promptWithGenericCandidates({
+        topic: context.topic,
+        lead: "질문에서 함께 비교할 후보는 다음과 같습니다:",
+        action: "위 후보 중 해당되는 선택지를 하나 이상 선택해주세요. 필요하면 선택지 조합이나 빠진 후보를 직접 적어도 됩니다.",
+        fallback: "위 정보를 기준으로 해당되는 선택지를 하나 이상 선택해주세요. 필요하면 선택지 조합이나 빠진 후보를 직접 적어도 됩니다."
+      });
     case "single_choice":
-      return "위 정보를 기준으로 지금 가장 먼저 확정할 하나의 선택지를 골라주세요. 선택지에 없는 후보가 더 맞다면 직접 적어도 됩니다.";
+      return promptWithGenericCandidates({
+        topic: context.topic,
+        lead: "질문에서 비교할 후보는 다음과 같습니다:",
+        action: "위 후보 중 지금 가장 먼저 확정할 하나의 선택지를 골라주세요. 선택지에 없는 후보가 더 맞다면 직접 적어도 됩니다.",
+        fallback: "위 정보를 기준으로 지금 가장 먼저 확정할 하나의 선택지를 골라주세요. 선택지에 없는 후보가 더 맞다면 직접 적어도 됩니다."
+      });
     case "ranked_choice":
-      return "위 정보를 기준으로 후보들의 우선순위를 1순위부터 정해주세요. 같은 수준이면 묶어서 적고, 빠진 후보가 있으면 직접 추가해도 됩니다.";
+      return promptWithGenericCandidates({
+        topic: context.topic,
+        lead: "질문에서 순서를 비교할 후보는 다음과 같습니다:",
+        action: "위 후보들의 우선순위를 1순위부터 정해주세요. 같은 수준이면 묶어서 적고, 빠진 후보가 있으면 직접 추가해도 됩니다.",
+        fallback: "위 정보를 기준으로 후보들의 우선순위를 1순위부터 정해주세요. 같은 수준이면 묶어서 적고, 빠진 후보가 있으면 직접 추가해도 됩니다."
+      });
     case "open_text":
       return "이 근거를 참고해 실제 사용자가 어떤 상황에서 이 문제를 겪고, 어떤 제약 때문에 지금 해결하려는지 본인 말로 3~5문장으로 서술해주세요.";
     case "binary_choice":

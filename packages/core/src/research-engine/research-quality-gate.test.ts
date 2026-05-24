@@ -326,6 +326,23 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
   });
 
+  it("keeps named generic single-choice candidates visible in the follow-up prompt", () => {
+    const researchTask = task({
+      objective: "검증 방법 후보는 고객 인터뷰, 랜딩페이지 신청, 수동 concierge 테스트입니다. 여러 종류 중 하나만 선택해야 하는 객관식 기준 결정"
+    });
+    const researchResult = result({
+      result: "Pro: imported notes narrow the viable validation methods.",
+      limitationNotes: "The best first validation method still needs a user decision."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("질문에서 비교할 후보");
+    expect(matrix.additionalQuestions[0]).toContain("- 고객 인터뷰");
+    expect(matrix.additionalQuestions[0]).toContain("- 랜딩페이지 신청");
+    expect(matrix.additionalQuestions[0]).toContain("- 수동 concierge 테스트");
+    expect(matrix.additionalQuestions[0]).toContain("하나의 선택지");
+  });
+
   it("turns one-or-more objective wording into a multi-choice prompt", () => {
     const researchTask = task({
       objective: "여러 종류 중 하나 혹은 여러 개를 선택해야 하는 후보 결정"
@@ -341,6 +358,23 @@ describe("Decision-linked research quality gate", () => {
       additionalQuestions: [expect.stringContaining("하나 이상 선택")]
     });
     expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
+  });
+
+  it("keeps named generic multi-choice candidates visible in the follow-up prompt", () => {
+    const researchTask = task({
+      objective: "기능 후보는 빠른 온보딩, 수동 검증, 가격 테스트입니다. 여러 종류 중 하나 혹은 여러 개를 선택해야 하는 후보 결정"
+    });
+    const researchResult = result({
+      result: "Pro: multiple product slices may apply to the first validation batch.",
+      limitationNotes: "The exact combination still needs a user decision."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("질문에서 함께 비교할 후보");
+    expect(matrix.additionalQuestions[0]).toContain("- 빠른 온보딩");
+    expect(matrix.additionalQuestions[0]).toContain("- 수동 검증");
+    expect(matrix.additionalQuestions[0]).toContain("- 가격 테스트");
+    expect(matrix.additionalQuestions[0]).toContain("하나 이상 선택");
   });
 
   it("lets explicit open-question wording override incidental one-or-many choice language", () => {
@@ -377,6 +411,23 @@ describe("Decision-linked research quality gate", () => {
       additionalQuestions: [expect.stringContaining("우선순위를 1순위부터")]
     });
     expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+  });
+
+  it("keeps named ranking candidates visible in the follow-up prompt", () => {
+    const researchTask = task({
+      objective: "검증 후보는 고객 인터뷰, 랜딩페이지 신청, 수동 테스트입니다. 검증 후보들의 우선순위를 정해야 하는 결정"
+    });
+    const researchResult = result({
+      result: "Pro: imported notes mention several validation candidates.",
+      limitationNotes: "The right order still needs a user decision."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("질문에서 순서를 비교할 후보");
+    expect(matrix.additionalQuestions[0]).toContain("- 고객 인터뷰");
+    expect(matrix.additionalQuestions[0]).toContain("- 랜딩페이지 신청");
+    expect(matrix.additionalQuestions[0]).toContain("- 수동 테스트");
+    expect(matrix.additionalQuestions[0]).toContain("우선순위를 1순위부터");
   });
 
   it("turns proceed-or-hold evidence gaps into explicit agree/disagree prompts", () => {

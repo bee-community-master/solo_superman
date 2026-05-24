@@ -2285,6 +2285,109 @@ describe("PR-04 ProductEngine reducer", () => {
     );
   });
 
+  it("carries generic multi-choice candidates from the research objective into queue answer options", () => {
+    const initialState = withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId));
+    const planned = reduceProductEngineCommand(
+      command("PlanResearch", 0, {
+        objective: "기능 후보는 빠른 온보딩, 수동 검증, 가격 테스트입니다. 여러 종류 중 하나 혹은 여러 개를 선택해야 하는 후보 결정",
+        routeOutcome: "missing_con_evidence",
+        impact: "high"
+      }, 1),
+      initialState
+    );
+
+    expect(planned.accepted).toBe(true);
+
+    const plannedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_research_plan_generic_candidates",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:00.000Z"
+      }
+    ]);
+    const researchTaskId = plannedState.researchState.taskIds[0];
+
+    if (!researchTaskId) {
+      throw new Error("Expected PlanResearch to create a research task id.");
+    }
+
+    const imported = reduceProductEngineCommand(
+      command("ImportResearchResult", 1, {
+        researchTaskId,
+        sourceTitle: "Feature candidate evidence notes",
+        result: "Pro: onboarding, manual validation, and pricing tests may all apply to the first validation batch.",
+        limitationNotes: "The exact combination still needs a user decision."
+      }, 2),
+      plannedState
+    );
+
+    expect(imported.accepted).toBe(true);
+
+    const importedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...planned.events[0],
+        eventId: "evt_research_plan_generic_candidates_replay",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:00.000Z"
+      },
+      {
+        ...imported.events[0],
+        eventId: "evt_research_import_generic_candidates_replay",
+        sequence: 2,
+        occurredAt: "2026-05-05T00:00:01.000Z"
+      }
+    ]);
+    const researchResultId = importedState.researchState.results[0]?.researchResultId;
+    const synthesized = reduceProductEngineCommand(
+      effectExecutorCommand("SynthesizeEvidence", 2, {
+        researchResultId
+      }, 3),
+      importedState
+    );
+
+    expect(synthesized.accepted).toBe(true);
+    expect(synthesized.nextState.researchState.evidenceMatrices[0]?.additionalQuestions[0]).toContain(
+      "- 빠른 온보딩"
+    );
+    expect(synthesized.nextState.researchState.evidenceMatrices[0]?.additionalQuestions[0]).toContain(
+      "- 수동 검증"
+    );
+    expect(synthesized.nextState.researchState.evidenceMatrices[0]?.additionalQuestions[0]).toContain(
+      "- 가격 테스트"
+    );
+
+    const researchFollowUpIssue = synthesized.nextState.openIssues.find((issue) =>
+      issue.queueItemId.startsWith("queue_research_followup_")
+    );
+
+    expect(researchFollowUpIssue).toMatchObject({
+      expectedAnswerType: "choice",
+      answerSelectionMode: "multiple",
+      questionText: expect.stringContaining("하나 이상 선택")
+    });
+    expect(researchFollowUpIssue?.answerOptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "question_candidate_1", label: "빠른 온보딩" }),
+        expect.objectContaining({ id: "question_candidate_2", label: "수동 검증" }),
+        expect.objectContaining({ id: "question_candidate_3", label: "가격 테스트" })
+      ])
+    );
+    expect(synthesized.nextState.queueProjection.active).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          cardType: "follow_up_question",
+          answerSelectionMode: "multiple",
+          answerOptions: expect.arrayContaining([
+            expect.objectContaining({ label: "빠른 온보딩" }),
+            expect.objectContaining({ label: "수동 검증" }),
+            expect.objectContaining({ label: "가격 테스트" })
+          ])
+        })
+      ])
+    );
+  });
+
   it("persists a decision-linked Evidence Pack and keeps unknown quality gates in review", () => {
     const initialState = withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId));
     const planned = reduceProductEngineCommand(
