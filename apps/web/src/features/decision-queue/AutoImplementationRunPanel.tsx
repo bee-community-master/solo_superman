@@ -13,6 +13,7 @@ import {
   autoImplementationGitHubIssueUrlForIssue,
   latestAutoImplementationWorkerJobForIssue,
   latestCurrentStageAutoImplementationWorkerJob,
+  type AutoImplementationGitHubIssueMutationStatus,
   type AutoImplementationGitHubIssuePlan,
   type AutoImplementationIssueDocument,
   type AutoImplementationIssueMode,
@@ -114,6 +115,8 @@ export interface AutoImplementationRunViewModel {
   readonly remoteCommands: readonly string[];
   readonly remoteNextAction: string;
   readonly githubIssueMutationLabel: string;
+  readonly githubIssueMutationStatus: AutoImplementationGitHubIssueMutationStatus;
+  readonly githubIssueMutationBlockedReason: string | null;
   readonly githubIssuePlans: readonly AutoImplementationGitHubIssuePlan[];
   readonly githubCreatedIssueUrls: readonly string[];
   readonly pullRequestMutationLabel: string;
@@ -449,6 +452,8 @@ export function autoImplementationRunViewModel(
       remoteCommands: [],
       remoteNextAction: "Create the workspace run after the planning handoff is detailed enough.",
       githubIssueMutationLabel: "GitHub issue mutation: not requested",
+      githubIssueMutationStatus: "not_requested",
+      githubIssueMutationBlockedReason: null,
       githubIssuePlans: [],
       githubCreatedIssueUrls: [],
       pullRequestMutationLabel: "GitHub PR mutation: no records",
@@ -576,6 +581,8 @@ export function autoImplementationRunViewModel(
     remoteCommands: run.remoteGuide.commands,
     remoteNextAction: run.remoteGuide.nextAction,
     githubIssueMutationLabel: `GitHub issue mutation: ${githubIssueMutation.status}${githubIssueBlockedReason}`,
+    githubIssueMutationStatus: githubIssueMutation.status,
+    githubIssueMutationBlockedReason: githubIssueMutation.blockedReason,
     githubIssuePlans: githubIssueMutation.plannedIssues,
     githubCreatedIssueUrls: run.issueManagement.githubIssueUrls,
     pullRequestMutationLabel: latestPullRequestMutation
@@ -1133,7 +1140,12 @@ export function AutoImplementationRunPanel({
       )}
 
       <h3>{copy.autoImplementation.githubIssueMutation}</h3>
-      <p>{run.githubIssueMutationLabel}</p>
+      <p>
+        {copy.autoImplementation.githubIssueMutationSummary(
+          copy.autoImplementation.githubIssueMutationStatusLabels[run.githubIssueMutationStatus],
+          run.githubIssueMutationBlockedReason
+        )}
+      </p>
       {run.githubIssuePlans.length ? (
         <ul>
           {run.githubIssuePlans.map((issue) => (

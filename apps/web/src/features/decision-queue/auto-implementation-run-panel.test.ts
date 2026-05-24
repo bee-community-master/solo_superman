@@ -229,6 +229,8 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.issueModeLabel).toContain("local markdown issues");
     expect(view.issueStatusSummaryLabel).toBe("Issue status summary: 0 completed / 0 blocked / 7 open / 7 total");
     expect(view.githubIssueMutationLabel).toContain("not_requested");
+    expect(view.githubIssueMutationStatus).toBe("not_requested");
+    expect(view.githubIssueMutationBlockedReason).toBeNull();
     expect(view.githubIssuePlans[0]!.bodyMarkdownPath).toContain("implementation-issues/001-initial_pr.md");
     expect(view.githubCreatedIssueUrls).toEqual([]);
     expect(view.pullRequestMutationLabel).toBe("GitHub PR mutation: no records");
@@ -363,6 +365,8 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.remoteNextAction).toContain("planning handoff");
     expect(view.issueStatusSummaryLabel).toBe("Issue status summary: no issue documents");
     expect(view.githubIssueMutationLabel).toContain("not requested");
+    expect(view.githubIssueMutationStatus).toBe("not_requested");
+    expect(view.githubIssueMutationBlockedReason).toBeNull();
     expect(view.pullRequestMutationLabel).toContain("no records");
     expect(view.latestPullRequestMutation).toBeNull();
     expect(view.latestWorkerJobLabel).toContain("not planned");
@@ -1382,12 +1386,15 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("implementation-issues/001-initial_pr.md");
     expect(markup).toContain("GitHub issue: none");
     expect(markup).toContain("GitHub issue creation plan");
-    expect(markup).toContain("GitHub issue mutation: not_requested");
+    expect(markup).toContain("GitHub issue creation: not requested yet");
+    expect(markup).not.toContain("GitHub issue mutation: not_requested");
     expect(markup).toContain("GitHub PR action evidence");
     expect(markup).toContain("No GitHub PR action records yet");
     expect(markup).toContain("No GitHub PR action records yet");
     const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
     expect(koreanMarkup).toContain("GitHub 이슈 생성 계획");
+    expect(koreanMarkup).toContain("GitHub 이슈 생성: 아직 요청되지 않음");
+    expect(koreanMarkup).not.toContain("GitHub issue mutation: not_requested");
     expect(koreanMarkup).toContain("GitHub PR 작업 근거");
     expect(koreanMarkup).toContain("아직 GitHub PR 작업 기록이 없습니다.");
     expect(koreanMarkup).not.toContain("mutation contract");

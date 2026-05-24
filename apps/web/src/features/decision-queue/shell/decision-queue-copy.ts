@@ -1,4 +1,5 @@
 import type {
+  AutoImplementationGitHubIssueMutationStatus,
   AutoImplementationIssueDocument,
   AutoImplementationIssueMode,
   AutoImplementationIssueStatusSummary,
@@ -123,6 +124,30 @@ const KO_AUTO_IMPLEMENTATION_PR_MUTATION_REQUEST_MODE_LABELS = {
   dry_run: "dry-run만 실행",
   approved: "승인된 실제 작업"
 } satisfies Record<AutoImplementationPullRequestMutationRequestMode, string>;
+
+const EN_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
+  not_requested: "not requested yet",
+  blocked: "blocked",
+  dry_run_ready: "dry-run ready",
+  approved_ready: "approved and ready",
+  applied: "GitHub issues created"
+} satisfies Record<AutoImplementationGitHubIssueMutationStatus, string>;
+
+const JA_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
+  not_requested: "未リクエスト",
+  blocked: "ブロック中",
+  dry_run_ready: "dry-run準備済み",
+  approved_ready: "承認済み・準備完了",
+  applied: "GitHub Issue作成済み"
+} satisfies Record<AutoImplementationGitHubIssueMutationStatus, string>;
+
+const KO_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
+  not_requested: "아직 요청되지 않음",
+  blocked: "차단됨",
+  dry_run_ready: "dry-run 준비됨",
+  approved_ready: "승인되어 생성 준비됨",
+  applied: "GitHub 이슈 생성됨"
+} satisfies Record<AutoImplementationGitHubIssueMutationStatus, string>;
 
 const EN_COPY = {
   pageMeta: {
@@ -922,6 +947,9 @@ const EN_COPY = {
     issueRowMissingEvidence: "missing",
     issueRowEvidenceRefs: "evidence",
     githubIssueMutation: "GitHub issue creation plan",
+    githubIssueMutationSummary: (status: string, blockedReason: string | null) =>
+      `GitHub issue creation: ${status}${blockedReason ? ` · ${blockedReason}` : ""}`,
+    githubIssueMutationStatusLabels: EN_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS,
     githubPullRequestMutation: "GitHub PR action evidence",
     pullRequestMutationSummary: (action: string, status: string) => `GitHub PR action: ${action} · ${status}`,
     prMutationActionLabels: EN_AUTO_IMPLEMENTATION_PR_MUTATION_ACTION_LABELS,
@@ -2111,6 +2139,9 @@ const JA_COPY: typeof EN_COPY = {
     issueRowMissingEvidence: "不足根拠",
     issueRowEvidenceRefs: "根拠",
     githubIssueMutation: "GitHub issue作成計画",
+    githubIssueMutationSummary: (status: string, blockedReason: string | null) =>
+      `GitHub issue作成: ${status}${blockedReason ? ` · ${blockedReason}` : ""}`,
+    githubIssueMutationStatusLabels: JA_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS,
     githubPullRequestMutation: "GitHub PR操作の根拠",
     pullRequestMutationSummary: (action: string, status: string) => `GitHub PR操作: ${action} · ${status}`,
     prMutationActionLabels: JA_AUTO_IMPLEMENTATION_PR_MUTATION_ACTION_LABELS,
@@ -3298,6 +3329,9 @@ const KO_COPY: typeof EN_COPY = {
     issueRowMissingEvidence: "누락 근거",
     issueRowEvidenceRefs: "근거",
     githubIssueMutation: "GitHub 이슈 생성 계획",
+    githubIssueMutationSummary: (status: string, blockedReason: string | null) =>
+      `GitHub 이슈 생성: ${status}${blockedReason ? ` · ${blockedReason}` : ""}`,
+    githubIssueMutationStatusLabels: KO_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS,
     githubPullRequestMutation: "GitHub PR 작업 근거",
     pullRequestMutationSummary: (action: string, status: string) => `GitHub PR 작업: ${action} · ${status}`,
     prMutationActionLabels: KO_AUTO_IMPLEMENTATION_PR_MUTATION_ACTION_LABELS,

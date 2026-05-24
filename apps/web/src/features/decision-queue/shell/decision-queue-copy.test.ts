@@ -215,6 +215,11 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.completeWorkerJob).toContain("worker 완료");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.recordGitHubIssueDryRun).toBe("Record GitHub issue dry-run");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.applyGitHubIssueCreation).toContain("승인된 GitHub issue");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.githubIssueMutationStatusLabels.not_requested).toBe("not requested yet");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.githubIssueMutationStatusLabels.approved_ready).toBe("승인되어 생성 준비됨");
+    expect(DECISION_QUEUE_COPY.ja.autoImplementation.githubIssueMutationSummary("ブロック中", "権限なし")).toBe(
+      "GitHub issue作成: ブロック中 · 権限なし"
+    );
     expect(DECISION_QUEUE_COPY.en.autoImplementation.applyPullRequestOpen).toBe("Apply approved PR open");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.applyPullRequestOpen).toContain("승인된 PR 생성");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.recordPullRequestMergeDryRun).toBe("Record PR merge dry-run");
