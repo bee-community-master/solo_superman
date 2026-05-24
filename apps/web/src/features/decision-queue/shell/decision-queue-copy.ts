@@ -1344,6 +1344,25 @@ const EN_COPY = {
     enableResearchSources: "Enable research sources",
     refreshStatus: "Refresh status",
     allowlistScreen: "Research source setup",
+    allowlistStatusLabels: {
+      active: "Active",
+      paused: "Paused",
+      revoked: "Revoked"
+    },
+    connectorLabels: {
+      public_search: "Public web search",
+      official_docs: "Official documentation search"
+    },
+    sourceCategoryLabels: {
+      public_web: "Public websites",
+      official_docs: "Official docs",
+      public_dataset: "Public datasets",
+      academic_source: "Academic sources",
+      user_provided_public_url: "User-provided public URLs"
+    },
+    contextModeLabels: {
+      public_safe_summary: "Public-safe summary only"
+    },
     limits: "limits",
     concurrent: "concurrent",
     session: "session",
@@ -2682,6 +2701,25 @@ const JA_COPY: typeof EN_COPY = {
     enableResearchSources: "リサーチソースを有効化",
     refreshStatus: "状態更新",
     allowlistScreen: "リサーチソース設定",
+    allowlistStatusLabels: {
+      active: "有効",
+      paused: "一時停止中",
+      revoked: "取り消し済み"
+    },
+    connectorLabels: {
+      public_search: "公開Web検索",
+      official_docs: "公式ドキュメント検索"
+    },
+    sourceCategoryLabels: {
+      public_web: "公開Webサイト",
+      official_docs: "公式ドキュメント",
+      public_dataset: "公開データセット",
+      academic_source: "学術情報",
+      user_provided_public_url: "ユーザー指定の公開URL"
+    },
+    contextModeLabels: {
+      public_safe_summary: "公開してよい要約のみ"
+    },
     limits: "制限",
     concurrent: "同時",
     session: "セッション",
@@ -4018,6 +4056,25 @@ const KO_COPY: typeof EN_COPY = {
     enableResearchSources: "리서치 소스 활성화",
     refreshStatus: "상태 새로고침",
     allowlistScreen: "리서치 소스 설정",
+    allowlistStatusLabels: {
+      active: "활성화됨",
+      paused: "일시정지됨",
+      revoked: "취소됨"
+    },
+    connectorLabels: {
+      public_search: "공개 웹 검색",
+      official_docs: "공식 문서 검색"
+    },
+    sourceCategoryLabels: {
+      public_web: "공개 웹사이트",
+      official_docs: "공식 문서",
+      public_dataset: "공개 데이터셋",
+      academic_source: "학술 자료",
+      user_provided_public_url: "사용자가 제공한 공개 URL"
+    },
+    contextModeLabels: {
+      public_safe_summary: "공개 가능한 요약만 사용"
+    },
     limits: "제한",
     concurrent: "동시",
     session: "세션",

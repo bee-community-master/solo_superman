@@ -21,7 +21,7 @@ import type { DecisionQueueShellController } from "./useDecisionQueueShellContro
 
 const DEFAULT_PHASE15A_OPERATIONS = {
   activeAllowlistCount: 1,
-  allowlistPolicyLabel: "active · public_search · public_web · public_safe_summary · 2 concurrent / 12 per session",
+  allowlistPolicyLabel: "Active · Public web search · Public websites · Public-safe summary only · 2 concurrent / 12 per session",
   disclosureActivityLabel: "No disclosure activity loaded.",
   runRecoveryLabel: "No research run status loaded.",
   qualityGateLabel: "Quality check has not produced a visible result.",
@@ -254,6 +254,12 @@ describe("ResearchView", () => {
 
     expect(markup).toContain("Max simultaneous research runs");
     expect(markup).toContain("Applies to both manual and answer-triggered public web research starts.");
+    expect(markup).toContain("Public web search");
+    expect(markup).toContain("Public-safe summary only");
+    expect(markup).not.toContain("public_search");
+    expect(markup).not.toContain("public_web");
+    expect(markup).not.toContain("public_safe_summary");
+    expect(markup).not.toContain("research_allowlist_public_web");
     expect(markup).toContain("Apply limit");
     expect(markup).toContain("value=\"3\"");
   });
