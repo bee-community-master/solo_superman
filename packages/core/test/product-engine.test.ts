@@ -1742,6 +1742,20 @@ describe("PR-04 ProductEngine reducer", () => {
       }, 7),
       state
     );
+    const broaderNaturalLanguageAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: answeredQueueItemId,
+        answer: "아직 판단이 애매하니 자료를 더 찾아보고 조사를 더 해주세요."
+      }, 7),
+      state
+    );
+    const broaderEnglishSourceAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: answeredQueueItemId,
+        answer: "Please find more sources and gather additional evidence before deciding."
+      }, 7),
+      state
+    );
     const noMoreResearchAnswer = reduceProductEngineCommand(
       command("SubmitAnswer", 5, {
         queueItemId: answeredQueueItemId,
@@ -1801,6 +1815,20 @@ describe("PR-04 ProductEngine reducer", () => {
       "Broaden research beyond existing notes"
     );
     expect(broaderCounterEvidenceOptionValueAnswer.nextState.researchState.tasks[0]?.objective).toContain(
+      "collect wider sources and counter-evidence"
+    );
+    expect(broaderNaturalLanguageAnswer.accepted).toBe(true);
+    expect(broaderNaturalLanguageAnswer.nextState.researchState.tasks[0]?.objective).toContain(
+      "Broaden research beyond existing notes"
+    );
+    expect(broaderNaturalLanguageAnswer.nextState.researchState.tasks[0]?.objective).toContain(
+      "collect wider sources and counter-evidence"
+    );
+    expect(broaderEnglishSourceAnswer.accepted).toBe(true);
+    expect(broaderEnglishSourceAnswer.nextState.researchState.tasks[0]?.objective).toContain(
+      "Broaden research beyond existing notes"
+    );
+    expect(broaderEnglishSourceAnswer.nextState.researchState.tasks[0]?.objective).toContain(
       "collect wider sources and counter-evidence"
     );
     expect(noMoreResearchAnswer.accepted).toBe(true);
