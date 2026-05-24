@@ -769,6 +769,24 @@ function checkContributorDocsSnippets() {
   for (const [path, text] of Object.entries(researchEvidenceDocs)) {
     requireSnippets(`${path} missing mounted research provider polling evidence`, text, RESEARCH_PROVIDER_POLLING_DOC_SNIPPETS);
   }
+  requireSnippets("docs/product_KO.md missing research follow-up answer-form variety contract", docs["docs/product_KO.md"], [
+    "주관식/서술형",
+    "찬성·반대",
+    "하나 선택",
+    "하나 이상 선택",
+    "우선순위",
+    "evidence 판단",
+    "pro/con stance"
+  ]);
+  requireSnippets("docs/product_EN.md missing research follow-up answer-form variety contract", readText("docs/product_EN.md"), [
+    "open_text",
+    "binary_choice",
+    "single_choice",
+    "multi_select",
+    "ranked_choice",
+    "evidence_judgment",
+    "pro/con stance"
+  ]);
   rejectSnippets(
     "research docs contain stale provider-polling wording",
     researchEvidenceDocs,
@@ -865,6 +883,7 @@ function checkContributorDocsSnippets() {
     "--require-code-backed",
     "idea-clarification-loop",
     "research-evidence-loop",
+    "answer-form variety",
     "planning-readiness-gates",
     "browser-service-boundary",
     "auto-implementation-review-loop",
