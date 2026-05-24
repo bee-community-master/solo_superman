@@ -160,8 +160,8 @@ export async function writeResearchMemoryMarkdown(input: WriteResearchMemoryMark
   const projectSegment = slugPart(input.projectId);
   const sessionSegment = slugPart(input.sessionId);
   const fileName = researchMemoryMarkdownFileName(input);
-  const relativePath = join(projectSegment, sessionSegment, fileName);
-  const absolutePath = join(input.root, relativePath);
+  const relativePath = [projectSegment, sessionSegment, fileName].join("/");
+  const absolutePath = join(input.root, projectSegment, sessionSegment, fileName);
 
   await mkdir(join(input.root, projectSegment, sessionSegment), { recursive: true });
   await writeFile(absolutePath, buildResearchMemoryMarkdown(input), "utf8");
