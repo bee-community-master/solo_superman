@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -12,6 +12,7 @@ import type {
   SessionId
 } from "@solo-superman/contracts";
 import { buildResearchMemoryMarkdown, writeResearchMemoryMarkdown } from "./research-memory-markdown";
+import { removeTemporaryDirectory } from "../test-cleanup";
 
 const tempDirs: string[] = [];
 
@@ -24,7 +25,7 @@ async function tempRoot() {
 }
 
 afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  await Promise.all(tempDirs.splice(0).map(removeTemporaryDirectory));
 });
 
 const task = {
