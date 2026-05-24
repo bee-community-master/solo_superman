@@ -65,11 +65,20 @@ const RESEARCH_FOLLOW_UP_FALLBACK_OPTIONS = [
   )
 ] as const;
 
-function boundedResearchFollowUpAnswerOptions(options: readonly AmbiguityAnswerOption[]) {
+function boundedResearchFollowUpAnswerOptions(
+  options: readonly AmbiguityAnswerOption[],
+  input: { readonly reservePrimaryFallback?: boolean; readonly fillMinimumOptions?: boolean } = {}
+) {
+  const reservePrimaryFallback = input.reservePrimaryFallback ?? true;
+  const fillMinimumOptions = input.fillMinimumOptions ?? true;
   const primaryFallbackOption = RESEARCH_FOLLOW_UP_FALLBACK_OPTIONS[0];
-  const bounded = options.some((option) => option.id === primaryFallbackOption.id)
+  const bounded = !reservePrimaryFallback || options.some((option) => option.id === primaryFallbackOption.id)
     ? [...options]
     : [...options.slice(0, 9), primaryFallbackOption];
+
+  if (!fillMinimumOptions) {
+    return bounded.slice(0, 10);
+  }
 
   for (const fallbackOption of RESEARCH_FOLLOW_UP_FALLBACK_OPTIONS.slice(1)) {
     if (bounded.length >= 3) {
@@ -82,6 +91,16 @@ function boundedResearchFollowUpAnswerOptions(options: readonly AmbiguityAnswerO
   }
 
   return bounded.slice(0, 10);
+}
+
+function boundedChoiceAnswerOptions(
+  options: readonly AmbiguityAnswerOption[],
+  answerShape: ResearchFollowUpAnswerShape
+) {
+  return boundedResearchFollowUpAnswerOptions(options, {
+    reservePrimaryFallback: answerShape !== "ranked_choice",
+    fillMinimumOptions: answerShape !== "ranked_choice"
+  });
 }
 
 function candidateOptionId(index: number) {
@@ -425,25 +444,26 @@ function choiceTopicKeyForQuestion(input: ResearchFollowUpAnswerInput) {
   return undefined;
 }
 
-function choiceAnswerOptions(input: ResearchFollowUpAnswerInput) {
+function choiceAnswerOptions(input: ResearchFollowUpAnswerInput, answerShape: ResearchFollowUpAnswerShape) {
   const explicitSourceOptions = input.sourceQuestion?.answerOptions;
   const sourceTopicOptions = answerOptionsForQuestion(input.sourceQuestion?.topicKey, input.sourceQuestion?.expectedAnswerType);
   const questionCandidateOptions = candidateAnswerOptionsFromQuestion(input.question);
 
   if (questionCandidateOptions.length) {
-    return boundedResearchFollowUpAnswerOptions(questionCandidateOptions);
+    return boundedChoiceAnswerOptions(questionCandidateOptions, answerShape);
   }
 
   if (explicitSourceOptions?.length) {
-    return boundedResearchFollowUpAnswerOptions(explicitSourceOptions);
+    return boundedChoiceAnswerOptions(explicitSourceOptions, answerShape);
   }
 
   if (sourceTopicOptions?.length) {
-    return boundedResearchFollowUpAnswerOptions(sourceTopicOptions);
+    return boundedChoiceAnswerOptions(sourceTopicOptions, answerShape);
   }
 
-  return boundedResearchFollowUpAnswerOptions(
-    answerOptionsForQuestion(choiceTopicKeyForQuestion(input), researchFollowUpExpectedAnswerType(input)) ?? []
+  return boundedChoiceAnswerOptions(
+    answerOptionsForQuestion(choiceTopicKeyForQuestion(input), researchFollowUpExpectedAnswerType(input)) ?? [],
+    answerShape
   );
 }
 
@@ -573,7 +593,7 @@ export function researchFollowUpAnswerOptions(input: ResearchFollowUpAnswerInput
   }
 
   if (answerShape === "single_choice" || answerShape === "multi_select" || answerShape === "ranked_choice") {
-    return choiceAnswerOptions(input);
+    return choiceAnswerOptions(input, answerShape);
   }
 
   return evidenceJudgmentAnswerOptions(input);

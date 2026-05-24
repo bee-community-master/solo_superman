@@ -491,6 +491,9 @@ describe("research follow-up answer shape", () => {
         expect.objectContaining({ id: "question_candidate_3", label: "구현 난이도" })
       ])
     );
+    expect(researchFollowUpAnswerOptions(input)).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "need_more_research" })])
+    );
   });
 
   it("returns signal-specific options for multi-select signal questions", () => {
