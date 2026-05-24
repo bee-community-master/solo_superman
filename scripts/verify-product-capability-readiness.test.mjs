@@ -46,6 +46,7 @@ function codeBackedContract(overrides = {}) {
         "pnpm verify:service-page-pipeline",
         "pnpm verify:production-mutation-contract",
         "pnpm verify:auto-implementation-pipeline",
+        "pnpm verify:support-bundle",
         "pnpm verify:product-capability-readiness",
         "pnpm verify"
       ],
@@ -53,7 +54,8 @@ function codeBackedContract(overrides = {}) {
         "pnpm verify:runtime-preview-turn",
         "pnpm verify:worker-job",
         "pnpm verify:pr-mutation",
-        "pnpm verify:auto-implementation-review-loop"
+        "pnpm verify:auto-implementation-review-loop",
+        "pnpm support:bundle"
       ]
     },
     capabilities: [
@@ -91,7 +93,14 @@ function codeBackedContract(overrides = {}) {
       codeBackedCapability("technical-preview-release-guardrails", [
         "pnpm verify:prod-bundle",
         "pnpm verify:release-readiness"
-      ])
+      ]),
+      codeBackedCapability("local-error-reporting", ["pnpm verify:support-bundle"], {
+        checkedBehaviors: [
+          "support diagnostics bundle generation is credential-free and writes a local JSON evidence file for error reports.",
+          "Support bundle validation captures compact product/release diagnostics while excluding full environment dumps, file contents, browser cookies, OpenAI/GitHub tokens, and ChatGPT web credentials.",
+          "URL credentials, secret-like query values, and token-shaped strings are redacted before support evidence is reported."
+        ]
+      })
     ],
     ...overrides
   };
@@ -116,7 +125,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including approved public-read browser targets, final-submit production-mutation contract coverage, and generated PR body summary coverage"
+      "required capability behavior snippets, including approved public-read browser targets, final-submit production-mutation contract coverage, generated PR body summary coverage, and redacted support diagnostics coverage"
     );
   });
 
@@ -195,6 +204,26 @@ describe("product capability readiness verification", () => {
     ]));
   });
 
+  it("requires local error reporting to name redacted credential-free support diagnostics", () => {
+    const contract = codeBackedContract({
+      capabilities: codeBackedContract().capabilities.map((capability) =>
+        capability.id === "local-error-reporting"
+          ? {
+              ...capability,
+              checkedBehaviors: ["Support bundle can be generated.", "Credential-free evidence is captured."]
+            }
+          : capability
+      )
+    });
+    const result = validateProductCapabilityReadinessContract(contract);
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual(expect.arrayContaining([
+      "$.capabilities[6].checkedBehaviors: must mention support diagnostics bundle",
+      "$.capabilities[6].checkedBehaviors: must mention redacted"
+    ]));
+  });
+
   it("keeps require-code-backed mode blocked when a capability is blocked", () => {
     const contract = codeBackedContract({
       coreProductStatus: "blocked",
@@ -247,6 +276,7 @@ describe("product capability readiness verification", () => {
       "$.requiredVerificationCommands.defaultSuite: must include pnpm verify:research-pipeline",
       "$.requiredVerificationCommands.defaultSuite: must include pnpm verify:auto-implementation-pipeline",
       "$.requiredVerificationCommands.defaultSuite: must include pnpm verify:production-mutation-contract",
+      "$.requiredVerificationCommands.defaultSuite: must include pnpm verify:support-bundle",
       "$.requiredVerificationCommands.defaultSuite: must include pnpm verify:product-capability-readiness"
     ]));
   });
