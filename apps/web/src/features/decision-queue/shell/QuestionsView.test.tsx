@@ -6,7 +6,7 @@ import type {
   QueueItemId,
   SessionId
 } from "@solo-superman/contracts";
-import { renderEnglishMarkup } from "../test-rendering";
+import { renderMarkup } from "../test-rendering";
 import { QuestionsView, answerDraftFromSelectedOptions, answerDraftFromSelectionAndNote } from "./QuestionsView";
 import { emptyProjectionState } from "./decision-queue-shell-model";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
@@ -51,7 +51,10 @@ function activeSessionProjection() {
   } as const;
 }
 
-function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellController> = {}) {
+function renderQuestionsView(
+  controllerOverrides: Partial<DecisionQueueShellController> = {},
+  initialLanguage: Parameters<typeof renderMarkup>[1] = "en"
+) {
   const controller = {
     answerDrafts: {},
     businessCriticIntensity: null,
@@ -89,7 +92,7 @@ function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellCont
     ...controllerOverrides
   } satisfies Partial<DecisionQueueShellController>;
 
-  return renderEnglishMarkup(<QuestionsView controller={controller as DecisionQueueShellController} />);
+  return renderMarkup(<QuestionsView controller={controller as DecisionQueueShellController} />, initialLanguage);
 }
 
 describe("QuestionsView", () => {
@@ -394,6 +397,85 @@ describe("QuestionsView", () => {
     expect(markup).not.toContain("Agree/disagree choice");
     expect(markup).not.toContain("Stance choices");
     expect(markup).not.toContain("Condition or uncertainty: Team buyer needs may be deferred.");
+  });
+
+  it("renders research-named customer candidates with Korean answer-form chrome", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 1 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_korean_research_candidates" as QueueItemId,
+          title:
+            "첫 고객 세그먼트 후보를 조금 더 구체화하기 위해 리서치 결과를 모아보니 독립 컨설턴트, 부트캠프 강사, 소규모 에이전시 운영자 같은 단서가 나타났습니다.\n\n리서치 단서에서 우선 비교할 고객 후보는 다음과 같습니다:\n- 독립 컨설턴트\n- 부트캠프 강사\n- 소규모 에이전시 운영자\n\n어느 성향의 고객에 집중하시겠습니까?",
+          state: "active",
+          cardType: "follow_up_question",
+          expectedAnswerType: "choice",
+          answerSelectionMode: "single",
+          answerOptions: [
+            {
+              id: "question_candidate_1",
+              label: "독립 컨설턴트",
+              value: "독립 컨설턴트 후보를 선택한다.",
+              primaryDetail: "리서치에서 이름으로 나온 고객 후보입니다.",
+              secondaryDetail: "조건이나 제외 범위가 모호하면 아래 입력칸에 보완 설명이 필요합니다.",
+              pro: "리서치에서 이름으로 나온 고객 후보입니다.",
+              con: "조건이나 제외 범위가 모호하면 아래 입력칸에 보완 설명이 필요합니다."
+            },
+            {
+              id: "question_candidate_2",
+              label: "부트캠프 강사",
+              value: "부트캠프 강사 후보를 선택한다.",
+              primaryDetail: "리서치에서 이름으로 나온 고객 후보입니다.",
+              secondaryDetail: "교육 시장 표본을 추가 확인해야 합니다.",
+              pro: "리서치에서 이름으로 나온 고객 후보입니다.",
+              con: "교육 시장 표본을 추가 확인해야 합니다."
+            },
+            {
+              id: "question_candidate_3",
+              label: "소규모 에이전시 운영자",
+              value: "소규모 에이전시 운영자 후보를 선택한다.",
+              primaryDetail: "리서치에서 이름으로 나온 고객 후보입니다.",
+              secondaryDetail: "팀 규모와 구매 권한이 다를 수 있습니다.",
+              pro: "리서치에서 이름으로 나온 고객 후보입니다.",
+              con: "팀 규모와 구매 권한이 다를 수 있습니다."
+            }
+          ]
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+
+    const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        queue
+      },
+      sections: [
+        {
+          id: "active",
+          title: "현재 질문",
+          emptyLabel: "현재 질문이 없습니다.",
+          items: queue.active
+        }
+      ]
+    }, "ko");
+
+    expect(markup).toContain("하나 선택");
+    expect(markup).toContain("답변 선택지");
+    expect(markup).toContain("정해지는 후보: 리서치에서 이름으로 나온 고객 후보입니다.");
+    expect(markup).toContain("추가 확인할 점: 교육 시장 표본을 추가 확인해야 합니다.");
+    expect(markup).toContain("선택 이유를 덧붙이거나 다른 답변 작성");
+    expect(markup).toContain("독립 컨설턴트");
+    expect(markup).toContain("부트캠프 강사");
+    expect(markup).toContain("소규모 에이전시 운영자");
+    expect(markup).toContain('type="radio"');
+    expect(markup).not.toContain("Choose one");
+    expect(markup).not.toContain("Answer choices");
+    expect(markup).not.toContain("Add a reason or write a different answer");
+    expect(markup).not.toContain("Decision made:");
   });
 
   it("preserves non-choice answer format labels even when no suggested choices are available", () => {
