@@ -7,7 +7,7 @@ import type {
   SessionId
 } from "@solo-superman/contracts";
 import { renderEnglishMarkup } from "../test-rendering";
-import { QuestionsView, answerDraftFromSelectedOptions } from "./QuestionsView";
+import { QuestionsView, answerDraftFromSelectedOptions, answerDraftFromSelectionAndNote } from "./QuestionsView";
 import { emptyProjectionState } from "./decision-queue-shell-model";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
@@ -117,6 +117,15 @@ describe("QuestionsView", () => {
     expect(answerDraftFromSelectedOptions(answerOptions, ["speed", "pain"], "multiple")).toBe(
       "Rank validation speed first.\nRank pain strength first."
     );
+    expect(answerDraftFromSelectionAndNote(answerOptions, ["speed", "pain"], "multiple", "Pick both, but start with speed.")).toBe(
+      "Rank validation speed first.\nRank pain strength first.\n\nPick both, but start with speed."
+    );
+    expect(answerDraftFromSelectionAndNote(answerOptions, ["speed", "pain"], "ranked", "Re-check after first interviews.")).toBe(
+      "1. Rank validation speed first.\n2. Rank pain strength first.\n\nRe-check after first interviews."
+    );
+    expect(answerDraftFromSelectionAndNote(answerOptions, [], "single", "Use a different customer segment.")).toBe(
+      "Use a different customer segment."
+    );
   });
 
   it("renders one-of-many answer choices with neutral decision labels above the free-form answer box", () => {
@@ -176,9 +185,9 @@ describe("QuestionsView", () => {
     expect(markup).not.toContain("Watch out: May miss team buyer needs.");
     expect(markup).not.toContain("Pro: Fast interviews with a narrow segment.");
     expect(markup).not.toContain("Con: May miss team buyer needs.");
-    expect(markup).toContain("Write a different answer if none fit");
+    expect(markup).toContain("Add a reason or write a different answer");
     expect(markup.indexOf("Answer choices")).toBeLessThan(
-      markup.indexOf("Write a different answer if none fit")
+      markup.indexOf("Add a reason or write a different answer")
     );
   });
 
@@ -219,7 +228,7 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Open-ended answer");
     expect(markup).toContain("No suggested choice is required.");
     expect(markup).not.toContain("Answer choices");
-    expect(markup).not.toContain("Write a different answer if none fit");
+    expect(markup).not.toContain("Add a reason or write a different answer");
     expect(markup).toContain(">Answer</span>");
   });
 
@@ -769,7 +778,7 @@ describe("QuestionsView", () => {
 
     expect(markup).toContain("Choose one or more");
     expect(markup).toContain("Selectable answers");
-    expect(markup).toContain("Select one or more options, or write your own answer below.");
+    expect(markup).toContain("Select one or more options, then add a combined reason below if needed.");
     expect(markup).toContain("Keeps in scope: Shows urgency.");
     expect(markup).toContain("Check next: May be narrow.");
     expect(markup).toContain('type="checkbox"');
@@ -827,7 +836,7 @@ describe("QuestionsView", () => {
 
     expect(markup).toContain("Priority/ranking answer");
     expect(markup).toContain("Priority choices");
-    expect(markup).toContain("Select candidates in priority order, or write the full ranking below.");
+    expect(markup).toContain("Select candidates in priority order, then add ranking notes below if needed.");
     expect(markup).toContain("Priority effect: Shows urgency.");
     expect(markup).toContain("Trade-off: May overfocus on interviews.");
     expect(markup).toContain('type="checkbox"');

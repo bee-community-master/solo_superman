@@ -61,6 +61,20 @@ export function answerDraftFromSelectedOptions(
   return selectedOptionValues.join("\n");
 }
 
+export function answerDraftFromSelectionAndNote(
+  answerOptions: NonNullable<QueueItemProjection["answerOptions"]>,
+  selectedOptionIds: readonly string[],
+  answerSelectionMode: AmbiguityAnswerSelectionMode,
+  note: string
+) {
+  return [
+    answerDraftFromSelectedOptions(answerOptions, selectedOptionIds, answerSelectionMode),
+    note.trim()
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 type AnswerFormatKind =
   | "open_text"
   | "binary_choice"
@@ -174,6 +188,7 @@ function ResearchFollowUpSourceTrace({
 export function QuestionsView({ controller }: QuestionsViewProps) {
   const copy = useDecisionQueueCopy();
   const [selectedAnswerOptionIds, setSelectedAnswerOptionIds] = useState<Record<string, readonly string[]>>({});
+  const [answerOptionNotes, setAnswerOptionNotes] = useState<Record<string, string>>({});
   const {
     answerDrafts,
     carryQueueItemAsKnownRisk,
@@ -360,7 +375,10 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                   {section.items.map((item) => {
                     const answerSelectionMode = answerSelectionModeForItem(item);
                     const answerFormatKind = answerFormatKindForItem(item);
+                    const answerOptions = item.answerOptions ?? [];
                     const selectedOptionIds = selectedAnswerOptionIds[item.queueItemId] ?? [];
+                    const hasAnswerOptions = answerOptions.length > 0;
+                    const answerOptionNote = answerOptionNotes[item.queueItemId] ?? "";
                     const suggestedAnswersHelp =
                       answerSelectionMode === "ranked"
                         ? copy.questions.suggestedAnswersRankedHelp
@@ -417,12 +435,12 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                             <strong>{copy.questions.answerFormatLabels[answerFormatKind]}</strong>
                             <span>{copy.questions.answerFormatDescriptions[answerFormatKind]}</span>
                           </p>
-                          {item.answerOptions?.length ? (
+                          {hasAnswerOptions ? (
                             <fieldset className="answer-choice-fieldset">
                               <legend>{copy.questions.answerChoiceLabels[answerFormatKind]}</legend>
                               <p className="answer-choice-help">{suggestedAnswersHelp}</p>
                               <div className="answer-choice-list">
-                                {item.answerOptions.map((option) => (
+                                {answerOptions.map((option) => (
                                   <label className="answer-choice-option" key={option.id}>
                                     <input
                                       checked={selectedOptionIds.includes(option.id)}
@@ -440,10 +458,11 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                                         }));
                                         setAnswerDrafts((current) => ({
                                           ...current,
-                                          [item.queueItemId]: answerDraftFromSelectedOptions(
-                                            item.answerOptions ?? [],
+                                          [item.queueItemId]: answerDraftFromSelectionAndNote(
+                                            answerOptions,
                                             nextSelectedOptionIds,
-                                            answerSelectionMode
+                                            answerSelectionMode,
+                                            answerOptionNote
                                           )
                                         }));
                                       }}
@@ -464,22 +483,38 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                           ) : null}
                           <label className="custom-answer-field">
                             <span>
-                              {item.answerOptions?.length ? copy.questions.customAnswer : copy.questions.answerAriaPrefix}
+                              {hasAnswerOptions ? copy.questions.customAnswer : copy.questions.answerAriaPrefix}
                             </span>
                             <textarea
                               aria-label={`${copy.questions.answerAriaPrefix} ${item.title}`}
                               placeholder={
-                                item.answerOptions?.length ? copy.questions.customAnswerPlaceholder : undefined
+                                hasAnswerOptions ? copy.questions.customAnswerPlaceholder : undefined
                               }
-                              value={answerDrafts[item.queueItemId] ?? ""}
+                              value={hasAnswerOptions ? answerOptionNote : answerDrafts[item.queueItemId] ?? ""}
                               onChange={(event) => {
-                                setSelectedAnswerOptionIds((current) => ({
-                                  ...current,
-                                  [item.queueItemId]: []
-                                }));
+                                const nextNote = event.target.value;
+
+                                if (hasAnswerOptions) {
+                                  setAnswerOptionNotes((current) => ({
+                                    ...current,
+                                    [item.queueItemId]: nextNote
+                                  }));
+                                  setAnswerDrafts((current) => ({
+                                    ...current,
+                                    [item.queueItemId]: answerDraftFromSelectionAndNote(
+                                      answerOptions,
+                                      selectedOptionIds,
+                                      answerSelectionMode,
+                                      nextNote
+                                    )
+                                  }));
+
+                                  return;
+                                }
+
                                 setAnswerDrafts((current) => ({
                                   ...current,
-                                  [item.queueItemId]: event.target.value
+                                  [item.queueItemId]: nextNote
                                 }));
                               }}
                               rows={3}

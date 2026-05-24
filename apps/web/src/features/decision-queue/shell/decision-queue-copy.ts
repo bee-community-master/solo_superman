@@ -339,9 +339,9 @@ const EN_COPY = {
     decisionItUnlocks: "Decision this unlocks",
     nextValidation: "Next validation",
     suggestedAnswers: "Suggested answer choices",
-    suggestedAnswersSingleHelp: "Select one option, or write your own answer below.",
-    suggestedAnswersMultipleHelp: "Select one or more options, or write your own answer below.",
-    suggestedAnswersRankedHelp: "Select candidates in priority order, or write the full ranking below.",
+    suggestedAnswersSingleHelp: "Select one option, then add a reason below if needed.",
+    suggestedAnswersMultipleHelp: "Select one or more options, then add a combined reason below if needed.",
+    suggestedAnswersRankedHelp: "Select candidates in priority order, then add ranking notes below if needed.",
     answerOptionDetailLabels: {
       open_text: { primary: "What to write", secondary: "Still unclear" },
       binary_choice: { primary: "If selected", secondary: "Condition or uncertainty" },
@@ -351,8 +351,8 @@ const EN_COPY = {
       evidence_judgment: { primary: "Evidence effect", secondary: "Uncertainty" },
       experiment_plan: { primary: "Validation target", secondary: "Limit" }
     },
-    customAnswer: "Write a different answer if none fit",
-    customAnswerPlaceholder: "If the choices do not match your situation, write your own answer here.",
+    customAnswer: "Add a reason or write a different answer",
+    customAnswerPlaceholder: "Optional: explain the selected choice, add conditions, or write a custom answer.",
     answerAriaPrefix: "Answer",
     submitAnswer: "Submit answer",
     submitDraftedAnswers: (count: number) =>
@@ -1522,9 +1522,9 @@ const JA_COPY: typeof EN_COPY = {
     decisionItUnlocks: "この回答で決まる判断",
     nextValidation: "次の検証",
     suggestedAnswers: "回答候補",
-    suggestedAnswersSingleHelp: "候補を1つ選ぶか、下に自分の回答を書いてください。",
-    suggestedAnswersMultipleHelp: "候補を1つ以上選ぶか、下に自分の回答を書いてください。",
-    suggestedAnswersRankedHelp: "優先順位の順に候補を選ぶか、下に完全な順番を書いてください。",
+    suggestedAnswersSingleHelp: "候補を1つ選び、必要なら下に理由を追加してください。",
+    suggestedAnswersMultipleHelp: "候補を1つ以上選び、必要なら下に組み合わせの理由を追加してください。",
+    suggestedAnswersRankedHelp: "優先順位の順に候補を選び、必要なら下に順位メモを追加してください。",
     answerOptionDetailLabels: {
       open_text: { primary: "書く内容", secondary: "まだ曖昧な点" },
       binary_choice: { primary: "選ぶと決まること", secondary: "条件・不確実性" },
@@ -1534,8 +1534,8 @@ const JA_COPY: typeof EN_COPY = {
       evidence_judgment: { primary: "根拠判断", secondary: "限界・不確実性" },
       experiment_plan: { primary: "検証する内容", secondary: "検証の限界" }
     },
-    customAnswer: "合う選択肢がなければ直接入力",
-    customAnswerPlaceholder: "候補が状況に合わない場合は、ここに自分の回答を書いてください。",
+    customAnswer: "理由を追加、または別の回答を入力",
+    customAnswerPlaceholder: "任意: 選んだ候補の理由、条件、または別の回答を書いてください。",
     answerAriaPrefix: "回答",
     submitAnswer: "回答を送信",
     submitDraftedAnswers: (count: number) =>
@@ -2692,9 +2692,9 @@ const KO_COPY: typeof EN_COPY = {
     decisionItUnlocks: "이 답으로 정해지는 판단",
     nextValidation: "다음 검증",
     suggestedAnswers: "추천 답변 선택지",
-    suggestedAnswersSingleHelp: "하나를 선택하거나 아래에 직접 답변하세요.",
-    suggestedAnswersMultipleHelp: "하나 이상을 선택하거나 아래에 직접 답변하세요.",
-    suggestedAnswersRankedHelp: "우선순위 순서대로 후보를 선택하거나 아래에 전체 순위를 직접 적어주세요.",
+    suggestedAnswersSingleHelp: "하나를 선택하고 필요하면 아래에 이유를 덧붙이세요.",
+    suggestedAnswersMultipleHelp: "하나 이상을 선택하고 필요하면 아래에 조합 이유를 덧붙이세요.",
+    suggestedAnswersRankedHelp: "우선순위 순서대로 후보를 선택하고 필요하면 아래에 순위 메모를 덧붙이세요.",
     answerOptionDetailLabels: {
       open_text: { primary: "작성할 내용", secondary: "아직 모호한 점" },
       binary_choice: { primary: "선택하면 정해지는 내용", secondary: "조건·불확실성" },
@@ -2704,8 +2704,8 @@ const KO_COPY: typeof EN_COPY = {
       evidence_judgment: { primary: "근거 판단", secondary: "한계·불확실성" },
       experiment_plan: { primary: "검증할 내용", secondary: "검증 한계" }
     },
-    customAnswer: "맞는 선택지가 없으면 다른 답변 작성",
-    customAnswerPlaceholder: "선택지가 상황에 맞지 않으면 여기에 직접 답변을 작성하세요.",
+    customAnswer: "선택 이유를 덧붙이거나 다른 답변 작성",
+    customAnswerPlaceholder: "선택한 답변의 이유/조건을 적거나, 맞는 선택지가 없으면 직접 답변하세요.",
     answerAriaPrefix: "답변",
     submitAnswer: "답변 제출",
     submitDraftedAnswers: (count: number) =>
