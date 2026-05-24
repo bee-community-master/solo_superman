@@ -66,7 +66,10 @@ Immediately before a real general release, run the stricter mode separately:
 
 ```sh
 pnpm verify:release-readiness -- --require-ready
+pnpm verify:ready-release
 ```
+
+`pnpm verify:ready-release` runs the credential-required ready-release sequence in one place: signed-package credential preflight, signed-package release evidence, Windows real-device evidence, packaged updater rollback device evidence, and the final release-readiness `--require-ready` gate. It redacts command output before printing JSON evidence, and it is intentionally excluded from the default credential-free `pnpm verify`.
 
 The current example contract is expected to fail in this mode because broad release is not ready and these required gates are still blocked.
 

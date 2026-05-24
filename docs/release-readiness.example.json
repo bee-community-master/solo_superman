@@ -23,7 +23,8 @@
       "pnpm verify:signed-package-release -- --require-release-evidence",
       "pnpm verify:windows-real-device -- --require-device-evidence",
       "pnpm verify:packaged-update-rollback -- --require-device-evidence",
-      "pnpm verify:release-readiness -- --require-ready"
+      "pnpm verify:release-readiness -- --require-ready",
+      "pnpm verify:ready-release"
     ]
   },
   "releaseGates": [

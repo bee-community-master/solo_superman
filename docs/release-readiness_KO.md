@@ -66,7 +66,10 @@ Checklist는 `release-readiness`, Windows 실기기, signed package release, pac
 
 ```sh
 pnpm verify:release-readiness -- --require-ready
+pnpm verify:ready-release
 ```
+
+`pnpm verify:ready-release`는 credential이 필요한 ready-release sequence를 한 번에 실행합니다. 여기에는 signed-package credential preflight, signed-package release evidence, Windows real-device evidence, packaged updater rollback device evidence, 마지막 release-readiness `--require-ready` gate가 포함됩니다. 명령 출력은 JSON evidence로 출력하기 전에 redaction되며, 기본 credential-free `pnpm verify`에는 의도적으로 포함하지 않습니다.
 
 현재 예시 계약은 이 모드에서 실패해야 합니다. 실패 이유는 broad release가 아직 ready가 아니고, 아래 필수 gate가 blocked이기 때문입니다.
 
