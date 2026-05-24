@@ -358,8 +358,8 @@ const EN_COPY = {
     submitDraftedAnswers: (count: number) =>
       count > 0 ? `Submit ${count} drafted answers` : "Submit drafted answers",
     nextValidationActionAriaPrefix: "Next validation action for",
-    additionalRiskDetails: "Add comment or risk",
-    additionalRiskHelp: "Optional: use this only when you want to keep the card as a known risk instead of answering it now.",
+    additionalRiskDetails: "Keep as Known Risk instead of answering",
+    additionalRiskHelp: "Use this separate action only when you want to stop answering this card now and carry it with a next validation step.",
     knownRiskPlaceholder: "If you keep this as a known risk, write the next validation step.",
     carryAsKnownRisk: "Keep as a known risk",
     queueRecoveryFresh: "Questions are up to date. New local-service updates will refresh this list.",
@@ -1541,8 +1541,8 @@ const JA_COPY: typeof EN_COPY = {
     submitDraftedAnswers: (count: number) =>
       count > 0 ? `下書き回答 ${count}件を送信` : "下書き回答を送信",
     nextValidationActionAriaPrefix: "次の検証アクション",
-    additionalRiskDetails: "追加コメントまたはリスクを入力",
-    additionalRiskHelp: "任意: 今すぐ回答せず、既知リスクとして残す場合だけ使います。",
+    additionalRiskDetails: "回答せずKnown Riskとして残す",
+    additionalRiskHelp: "この別アクションは、今このカードに回答せず、次の検証ステップ付きで既知リスクとして残す場合だけ使います。",
     knownRiskPlaceholder: "既知のリスクとして残す場合、次の検証ステップを書いてください。",
     carryAsKnownRisk: "既知のリスクとして残す",
     queueRecoveryFresh: "質問は最新です。ローカルサービスの更新が届くと、この一覧を更新します。",
@@ -2711,8 +2711,8 @@ const KO_COPY: typeof EN_COPY = {
     submitDraftedAnswers: (count: number) =>
       count > 0 ? `작성한 답변 ${count}개 제출` : "작성한 답변 제출",
     nextValidationActionAriaPrefix: "다음 검증 작업",
-    additionalRiskDetails: "추가 의견 또는 리스크 입력",
-    additionalRiskHelp: "선택 사항입니다. 지금 답하지 않고 알려진 리스크로 남길 때만 사용하세요.",
+    additionalRiskDetails: "답하지 않고 Known Risk로 남기기",
+    additionalRiskHelp: "이 전용 동작은 지금 이 카드에 답하지 않고 다음 검증 작업과 함께 알려진 리스크로 남길 때만 사용하세요.",
     knownRiskPlaceholder: "알려진 리스크로 남길 경우 다음 검증 작업을 적어주세요.",
     carryAsKnownRisk: "알려진 리스크로 남기기",
     queueRecoveryFresh: "질문 목록은 최신입니다. 로컬 서비스 업데이트가 오면 이 목록을 새로고침합니다.",

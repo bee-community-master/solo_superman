@@ -536,7 +536,8 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain("<details");
-    expect(markup).toContain("Add comment or risk");
+    expect(markup).toContain("Keep as Known Risk instead of answering");
+    expect(markup).toContain("Use this separate action only when you want to stop answering this card now");
     expect(markup).toContain("Keep as a known risk");
     expect(markup).toContain("Legal, operations, and security");
     expect(markup).toContain("Core assumption check");
@@ -577,7 +578,8 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain("Which customer detail can be checked later?");
-    expect(markup).toContain("Add comment or risk");
+    expect(markup).toContain("Keep as Known Risk instead of answering");
+    expect(markup).toContain("Use this separate action only when you want to stop answering this card now");
     expect(markup).toContain("Keep as a known risk");
     expect(markup).not.toContain("Customer pain");
   });
