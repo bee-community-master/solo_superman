@@ -198,41 +198,41 @@ const KO_AUTO_IMPLEMENTATION_PR_MUTATION_ACTION_LABELS = {
 
 const EN_AUTO_IMPLEMENTATION_PR_MUTATION_STATUS_LABELS = {
   blocked: "blocked",
-  dry_run_ready: "dry-run ready",
+  dry_run_ready: "preview ready",
   applied: "applied"
 } satisfies Record<AutoImplementationPullRequestMutationStatus, string>;
 
 const JA_AUTO_IMPLEMENTATION_PR_MUTATION_STATUS_LABELS = {
   blocked: "ブロック中",
-  dry_run_ready: "dry-run準備済み",
+  dry_run_ready: "プレビュー準備済み",
   applied: "適用済み"
 } satisfies Record<AutoImplementationPullRequestMutationStatus, string>;
 
 const KO_AUTO_IMPLEMENTATION_PR_MUTATION_STATUS_LABELS = {
   blocked: "차단됨",
-  dry_run_ready: "dry-run 준비됨",
+  dry_run_ready: "미리보기 준비됨",
   applied: "적용됨"
 } satisfies Record<AutoImplementationPullRequestMutationStatus, string>;
 
 const EN_AUTO_IMPLEMENTATION_PR_MUTATION_REQUEST_MODE_LABELS = {
-  dry_run: "dry run only",
+  dry_run: "preview only",
   approved: "approved live action"
 } satisfies Record<AutoImplementationPullRequestMutationRequestMode, string>;
 
 const JA_AUTO_IMPLEMENTATION_PR_MUTATION_REQUEST_MODE_LABELS = {
-  dry_run: "dry-runのみ",
+  dry_run: "プレビューのみ",
   approved: "承認済みlive操作"
 } satisfies Record<AutoImplementationPullRequestMutationRequestMode, string>;
 
 const KO_AUTO_IMPLEMENTATION_PR_MUTATION_REQUEST_MODE_LABELS = {
-  dry_run: "dry-run만 실행",
+  dry_run: "미리보기만 실행",
   approved: "승인된 실제 작업"
 } satisfies Record<AutoImplementationPullRequestMutationRequestMode, string>;
 
 const EN_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
   not_requested: "not requested yet",
   blocked: "blocked",
-  dry_run_ready: "dry-run ready",
+  dry_run_ready: "preview ready",
   approved_ready: "approved and ready",
   applied: "GitHub issues created"
 } satisfies Record<AutoImplementationGitHubIssueMutationStatus, string>;
@@ -240,7 +240,7 @@ const EN_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
 const JA_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
   not_requested: "未リクエスト",
   blocked: "ブロック中",
-  dry_run_ready: "dry-run準備済み",
+  dry_run_ready: "プレビュー準備済み",
   approved_ready: "承認済み・準備完了",
   applied: "GitHub Issue作成済み"
 } satisfies Record<AutoImplementationGitHubIssueMutationStatus, string>;
@@ -248,7 +248,7 @@ const JA_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
 const KO_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
   not_requested: "아직 요청되지 않음",
   blocked: "차단됨",
-  dry_run_ready: "dry-run 준비됨",
+  dry_run_ready: "미리보기 준비됨",
   approved_ready: "승인되어 생성 준비됨",
   applied: "GitHub 이슈 생성됨"
 } satisfies Record<AutoImplementationGitHubIssueMutationStatus, string>;
@@ -896,14 +896,14 @@ const EN_COPY = {
     create: "Create workspace run",
     reprepare: "Ensure workspace run",
     planWorkerJob: "Plan approved local Codex task",
-    recordStageTick: "Record current stage tick",
+    recordStageTick: "Record current stage check-in",
     startStage: "Start current stage",
     pauseStage: "Pause current stage",
     blockStage: "Block current stage",
     completeWorkerJob: "Mark task complete from result",
     importWorkerLedger: "Import task result",
     workerLedgerImport: "Local Codex task result JSON",
-    workerLedgerImportPlaceholder: "Paste the local Codex task result JSON, such as { \"ledgerTransitions\": [...] }, from the completed task output.",
+    workerLedgerImportPlaceholder: "Paste the completed task-result JSON. If you use the raw format, keep the { \"ledgerTransitions\": [...] } result list exactly as exported.",
     recordGitHubIssueDryRun: "Preview GitHub issue creation",
     applyGitHubIssueCreation: "Apply approved GitHub issues",
     recordPullRequestOpenDryRun: "Preview PR creation",
@@ -929,7 +929,7 @@ const EN_COPY = {
       currentStageWorkerMustContinue:
         "Continue the latest current-stage local Codex task with run, result import, completion, or stage advance before planning another task.",
       activeRunRequiredStageTick:
-        "An active auto implementation workspace run is required before recording a stage tick.",
+        "An active auto implementation workspace run is required before recording a stage check-in.",
       activeRunRequiredStartStage:
         "An active auto implementation workspace run is required before starting a stage.",
       activeRunRequiredPauseStage:
@@ -946,25 +946,25 @@ const EN_COPY = {
       workerLedgerImportPrepareFailed: "Local Codex task result import could not be prepared.",
       completedWorkerRequiredAdvanceStage: "A completed local Codex task is required before advancing the implementation stage.",
       githubIssueMutationUnavailable:
-        "This auto implementation GitHub issue mutation is not available for the current run state.",
+        "This auto implementation GitHub issue creation action is not available for the current run state.",
       activeRunRequiredRecordGitHubIssueDryRun:
-        "An active auto implementation workspace run is required before recording a GitHub issue dry-run.",
+        "An active auto implementation workspace run is required before recording a GitHub issue creation preview.",
       activeRunRequiredApplyGitHubIssueCreation:
         "An active auto implementation workspace run is required before applying approved GitHub issue creation.",
       githubIssueAlreadyRecorded:
         "GitHub issue URLs are already recorded; continue with the existing generated issues instead of creating duplicates.",
       pullRequestMutationUnavailable:
-        "This auto implementation PR mutation is not available for the current run state.",
+        "This auto implementation PR action is not available for the current run state.",
       activeRunRequiredRecordPullRequestOpenDryRun:
-        "An active auto implementation workspace run is required before recording a PR open dry-run.",
+        "An active auto implementation workspace run is required before recording a PR creation preview.",
       activeRunRequiredApplyPullRequestOpen:
         "An active auto implementation workspace run is required before applying an approved PR open.",
       pullRequestAlreadyRecorded:
         "A pull request URL is already recorded; update or merge the existing PR instead of opening another one.",
       activeRunRequiredRecordPullRequestDryRun:
-        "An active auto implementation workspace run is required before recording a PR body dry-run.",
+        "An active auto implementation workspace run is required before recording a PR description update preview.",
       activeRunRequiredRecordPullRequestMergeDryRun:
-        "An active auto implementation workspace run is required before recording a PR merge dry-run.",
+        "An active auto implementation workspace run is required before recording a PR merge preview.",
       activeRunRequiredApplyPullRequestBodyUpdate:
         "An active auto implementation workspace run is required before applying an approved PR body update.",
       activeRunRequiredApplyPullRequestMerge:
@@ -1013,13 +1013,13 @@ const EN_COPY = {
     workerPlanWorkingDirectory: "Working directory",
     workerPlanIssueDocument: "Issue document",
     workerPlanExecutionAuthority: "Execution authority",
-    workerPlanLedgerTrackerDoc: "Implementation tracker doc",
-    workerPlanLedgerStepDoc: "Implementation step doc",
+    workerPlanLedgerTrackerDoc: "Implementation plan tracker",
+    workerPlanLedgerStepDoc: "Current implementation step",
     workerPlanLedgerDocSourceRefs: "Implementation record source refs",
     workerPlanAllowedWriteScope: "Allowed write scope",
     workerPlanRequiredEvidence: "Required evidence",
     workerPlanRequiredEvidenceHelp: (stageLabel: string) =>
-      `The local Codex task must prove both the base delivery contract and the current stage gate before ${stageLabel} can advance.`,
+      `The local Codex task must prove both the base delivery contract and the current stage requirement before ${stageLabel} can advance.`,
     workerPlanBaseRequiredEvidence: "Base delivery evidence",
     workerPlanStageRequiredEvidence: "Current stage evidence",
     workerPlanForbiddenActions: "Forbidden actions",
@@ -1036,21 +1036,21 @@ const EN_COPY = {
       ? `Remote: ${EN_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS[remoteStatus]}`
       : "Remote: not checked",
     nextTickLabel: (nextTickAt: string | null): string => nextTickAt
-      ? `Next 5-minute tick: ${nextTickAt}`
-      : "Next 5-minute tick: not scheduled",
+      ? `Next 5-minute check-in: ${nextTickAt}`
+      : "Next 5-minute check-in: not scheduled",
     issueModeLabels: EN_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS,
     workerExecutionModeLabels: EN_AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE_LABELS,
     issueModeLabel: (issueMode: AutoImplementationIssueMode | null): string => issueMode
       ? `Issue mode: ${EN_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS[issueMode]}`
       : "Issue mode: not selected",
     stagePlan: "5-minute stage plan",
-    stagePlanTicks: "ticks",
-    stagePlanLedger: "ledger",
+    stagePlanTicks: "check-ins",
+    stagePlanLedger: "implementation record",
     stagePlanBlocker: "blocked",
     reviewProtocol: "Review and merge protocol",
     deliveryGateLabels: [
       "Keep each implementation slice tied to one local markdown issue or GitHub issue before opening the PR.",
-      "Record ImplementationStepLedger trackerDoc, stepDoc, commit/no-code, review, clean-code, test, blocker, and evidence refs before marking a stage complete.",
+      "Record the implementation result with commit or no-code evidence, review evidence, clean-code evidence, missing-test audit, test results, blockers, and evidence references before marking a stage complete.",
       "Do not merge until the feature PR code review reaches two consecutive no-finding passes after any fixes.",
       "Do not merge until the broader repo-level code review reaches two consecutive no-finding passes.",
       "Do not merge until the changed-code clean-code review reaches two consecutive no-finding passes.",
@@ -1090,7 +1090,7 @@ const EN_COPY = {
     issueRowNextAction: "next",
     issueRowDefaultNextAction: "Work this issue through the delivery protocol, review streaks, and test evidence checklist.",
     issueRowCompletedNextAction: "Use the completed stage implementation record before advancing the next PR slice.",
-    issueRowStageGate: "stage gate",
+    issueRowStageGate: "current requirement",
     issueRowMissingEvidence: "missing",
     issueRowEvidenceRefs: "evidence",
     githubIssueMutation: "GitHub issue creation plan",
@@ -1129,7 +1129,7 @@ const EN_COPY = {
     deliveryProgress: "Delivery progress",
     stageProgress: "Stage progress",
     reviewLoopProgress: "Review loop progress",
-    currentStageGate: "Current stage gate",
+    currentStageGate: "Current stage requirement",
     runStatusLabels: {
       pending: "pending",
       running: "running",
@@ -1181,7 +1181,7 @@ const EN_COPY = {
       ],
       merge_main: [
         "Verify the PR is mergeable and its body contains final review/test evidence.",
-        "Merge only after the final verification evidence is fresh and record the applied PR merge mutation.",
+        "Merge only after the final verification evidence is fresh and record the applied PR merge result.",
         "Sync main after merge and rerun the full verification command on main with post-merge verification evidence."
       ]
     } satisfies Record<AutoImplementationStage, readonly string[]>,
@@ -1214,7 +1214,7 @@ const EN_COPY = {
     noReviewGates: "No review gates recorded yet.",
     noPlanningIssueFiles: "No Planning Handoff PR/issue files have been generated yet.",
     noIssueDocs: "No markdown issue documents created yet.",
-    noGithubIssuePlans: "No GitHub issue mutation plan has been prepared yet.",
+    noGithubIssuePlans: "No GitHub issue creation plan has been prepared yet.",
     noGithubIssueUrls: "No GitHub issues have been created; local markdown issue paths remain the source of truth.",
     remoteNextActionLabel: identityRemoteGuideText,
     remoteWarningLabel: identityRemoteGuideText,
@@ -1504,6 +1504,13 @@ const EN_COPY = {
     scope: "Scope",
     progressReport: "Progress report",
     missingEvidence: "Missing or blocked evidence",
+    missingEvidenceItemLabels: {
+      StepCommitRecord: "implementation commit record",
+      CodeReviewRecord: "code-review evidence",
+      CleanCodeReviewRecord: "clean-code review evidence",
+      MissingTestAuditRecord: "missing-test audit evidence",
+      TestEvidenceRecord: "test evidence"
+    },
     evidenceRefs: "Evidence references",
     noEvidenceRefs: "No implementation evidence references recorded."
   }
@@ -2130,14 +2137,14 @@ const JA_COPY: typeof EN_COPY = {
     create: "ワークスペース実行を作成",
     reprepare: "ワークスペース実行を確認",
     planWorkerJob: "承認済みローカルCodex作業を計画",
-    recordStageTick: "現在のstage tickを記録",
-    startStage: "現在のstageを開始",
-    pauseStage: "現在のstageを一時停止",
-    blockStage: "現在のstageをブロック",
+    recordStageTick: "現在段階の進捗確認を記録",
+    startStage: "現在段階を開始",
+    pauseStage: "現在段階を一時停止",
+    blockStage: "現在段階をブロック",
     completeWorkerJob: "作業結果から完了扱いにする",
     importWorkerLedger: "作業結果を取り込む",
     workerLedgerImport: "ローカルCodex作業結果JSON",
-    workerLedgerImportPlaceholder: "完了したローカルCodex作業の出力から { \"ledgerTransitions\": [...] } 形式の結果JSONを貼り付けてください。",
+    workerLedgerImportPlaceholder: "完了した作業結果JSONを貼り付けてください。raw形式を使う場合は { \"ledgerTransitions\": [...] } の結果リストをエクスポート通りに残してください。",
     recordGitHubIssueDryRun: "GitHub Issue作成をプレビュー",
     applyGitHubIssueCreation: "承認済みGitHub issue作成を適用",
     recordPullRequestOpenDryRun: "PR作成をプレビュー",
@@ -2160,10 +2167,10 @@ const JA_COPY: typeof EN_COPY = {
       activeRunRequiredPlanWorker: "ローカルCodex作業を計画するには、アクティブな自動実装ワークスペース実行が必要です。",
       currentStageWorkerMustContinue:
         "別のローカルCodex作業を計画する前に、現在段階の最新作業を実行、結果取り込み、完了、または次段階へ進めてください。",
-      activeRunRequiredStageTick: "stage tickを記録するにはアクティブな自動実装ワークスペース実行が必要です。",
-      activeRunRequiredStartStage: "stageを開始するにはアクティブな自動実装ワークスペース実行が必要です。",
-      activeRunRequiredPauseStage: "stageを一時停止するにはアクティブな自動実装ワークスペース実行が必要です。",
-      activeRunRequiredBlockStage: "stageをブロックするにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredStageTick: "段階の進捗確認を記録するにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredStartStage: "段階を開始するにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredPauseStage: "段階を一時停止するにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredBlockStage: "段階をブロックするにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredCompleteWorker:
         "作業結果の根拠からローカルCodex作業を完了するには、アクティブな自動実装ワークスペース実行が必要です。",
       completedLedgerRequiredCompleteWorker:
@@ -2174,23 +2181,23 @@ const JA_COPY: typeof EN_COPY = {
       workerLedgerImportPrepareFailed: "ローカルCodex作業結果の取り込みリクエストを準備できませんでした。",
       completedWorkerRequiredAdvanceStage: "実装段階を進めるには、完了済みローカルCodex作業が必要です。",
       githubIssueMutationUnavailable:
-        "現在のrun状態では、この自動実装GitHub issue mutationは利用できません。",
+        "現在のrun状態では、この自動実装GitHub Issue作成アクションは利用できません。",
       activeRunRequiredRecordGitHubIssueDryRun:
-        "GitHub issue dry-runを記録するにはアクティブな自動実装ワークスペース実行が必要です。",
+        "GitHub Issue作成プレビューを記録するにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredApplyGitHubIssueCreation:
         "承認済みGitHub issue作成を適用するにはアクティブな自動実装ワークスペース実行が必要です。",
       githubIssueAlreadyRecorded:
         "GitHub issue URLはすでに記録されています。重複作成せず、既存の生成済みissueを続行してください。",
-      pullRequestMutationUnavailable: "現在のrun状態では、この自動実装PR mutationは利用できません。",
+      pullRequestMutationUnavailable: "現在のrun状態では、この自動実装PR操作は利用できません。",
       activeRunRequiredRecordPullRequestOpenDryRun:
-        "PR作成dry-runを記録するにはアクティブな自動実装ワークスペース実行が必要です。",
+        "PR作成プレビューを記録するにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredApplyPullRequestOpen:
         "承認済みPR作成を適用するにはアクティブな自動実装ワークスペース実行が必要です。",
       pullRequestAlreadyRecorded: "PR URLはすでに記録されています。新しく開かず、既存PRを更新またはmergeしてください。",
       activeRunRequiredRecordPullRequestDryRun:
-        "PR本文dry-runを記録するにはアクティブな自動実装ワークスペース実行が必要です。",
+        "PR本文更新プレビューを記録するにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredRecordPullRequestMergeDryRun:
-        "PR merge dry-runを記録するにはアクティブな自動実装ワークスペース実行が必要です。",
+        "PR mergeプレビューを記録するにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredApplyPullRequestBodyUpdate:
         "承認済みPR本文更新を適用するにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredApplyPullRequestMerge:
@@ -2238,8 +2245,8 @@ const JA_COPY: typeof EN_COPY = {
     workerPlanWorkingDirectory: "作業ディレクトリ",
     workerPlanIssueDocument: "Issue文書",
     workerPlanExecutionAuthority: "実行権限",
-    workerPlanLedgerTrackerDoc: "実装追跡文書",
-    workerPlanLedgerStepDoc: "実装ステップ文書",
+    workerPlanLedgerTrackerDoc: "実装計画トラッカー",
+    workerPlanLedgerStepDoc: "現在の実装ステップ",
     workerPlanLedgerDocSourceRefs: "実装記録の参照元",
     workerPlanAllowedWriteScope: "許可された書き込み範囲",
     workerPlanRequiredEvidence: "必須根拠",
@@ -2261,21 +2268,21 @@ const JA_COPY: typeof EN_COPY = {
       ? `リモート: ${JA_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS[remoteStatus]}`
       : "リモート: 未確認",
     nextTickLabel: (nextTickAt: string | null): string => nextTickAt
-      ? `次の5分tick: ${nextTickAt}`
-      : "次の5分tick: 未スケジュール",
+      ? `次の5分進捗確認: ${nextTickAt}`
+      : "次の5分進捗確認: 未スケジュール",
     issueModeLabels: JA_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS,
     workerExecutionModeLabels: JA_AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE_LABELS,
     issueModeLabel: (issueMode: AutoImplementationIssueMode | null): string => issueMode
       ? `Issueモード: ${JA_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS[issueMode]}`
       : "Issueモード: 未選択",
     stagePlan: "5分間隔のステージ計画",
-    stagePlanTicks: "tick",
-    stagePlanLedger: "ledger",
+    stagePlanTicks: "進捗確認",
+    stagePlanLedger: "実装記録",
     stagePlanBlocker: "ブロック",
     reviewProtocol: "レビューとマージの手順",
     deliveryGateLabels: [
       "各実装単位は、PRを開く前にローカルMarkdown IssueまたはGitHub Issueへ紐づけます。",
-      "段階を完了扱いにする前に、実装台帳のtracker/step、commitまたはno-code、レビュー、クリーンコード、テスト、ブロッカー、根拠参照を記録します。",
+      "段階を完了扱いにする前に、実装結果、commitまたはno-code根拠、レビュー根拠、クリーンコード根拠、不足テスト確認、テスト結果、ブロッカー、根拠参照を記録します。",
       "機能PRレビューで修正事項なしが2回連続になるまでmergeしません。",
       "今回の機能を超えたリポジトリ全体レビューで修正事項なしが2回連続になるまでmergeしません。",
       "変更コードのクリーンコードレビューで修正事項なしが2回連続になるまでmergeしません。",
@@ -2301,7 +2308,7 @@ const JA_COPY: typeof EN_COPY = {
       none: "なし"
     } satisfies Record<AutoImplementationWorkerJobStatus | "none", string>,
     latestWorkerJobLabel: (status: string | null, stageLabel: string | null, issueId: string | null) => status
-      ? `ローカルCodex作業: ${stageLabel ?? "現在のstage"} ${issueId ? `(${issueId}) ` : ""}${status}`
+      ? `ローカルCodex作業: ${stageLabel ?? "現在段階"} ${issueId ? `(${issueId}) ` : ""}${status}`
       : "ローカルCodex作業: 未計画",
     latestWorkerJobNextActionNotPlanned: (hasRun: boolean) => hasRun
       ? "現在段階のIssue文書が準備できたら、範囲を決めたローカルCodex作業を計画します。"
@@ -2315,7 +2322,7 @@ const JA_COPY: typeof EN_COPY = {
     issueRowNextAction: "次アクション",
     issueRowDefaultNextAction: "このイシューをレビュー連続通過、クリーンコード確認、テスト根拠のチェックリストに沿って進めます。",
     issueRowCompletedNextAction: "完了済み段階の台帳根拠を使って、次の小さなPR単位へ進みます。",
-    issueRowStageGate: "stage gate",
+    issueRowStageGate: "現在段階の条件",
     issueRowMissingEvidence: "不足根拠",
     issueRowEvidenceRefs: "根拠",
     githubIssueMutation: "GitHub issue作成計画",
@@ -2354,7 +2361,7 @@ const JA_COPY: typeof EN_COPY = {
     deliveryProgress: "デリバリー進捗",
     stageProgress: "ステージ進捗",
     reviewLoopProgress: "レビュー/クリーンコード進捗",
-    currentStageGate: "現在のstage gate",
+    currentStageGate: "現在段階の条件",
     runStatusLabels: {
       pending: "未開始",
       running: "進行中",
@@ -2406,7 +2413,7 @@ const JA_COPY: typeof EN_COPY = {
       ],
       merge_main: [
         "PRがmerge可能で、本文に最終レビュー/テスト根拠があることを確認します。",
-        "最終検証根拠が新しい場合だけmergeし、適用済みPR merge mutationを記録します。",
+        "最終検証根拠が新しい場合だけmergeし、適用済みPR merge結果を記録します。",
         "merge後にmainを同期し、post-merge検証根拠付きで全体検証コマンドを再実行します。"
       ]
     },
@@ -2749,6 +2756,13 @@ const JA_COPY: typeof EN_COPY = {
     scope: "範囲",
     progressReport: "進捗レポート",
     missingEvidence: "不足またはブロック中の証跡",
+    missingEvidenceItemLabels: {
+      StepCommitRecord: "実装コミット記録",
+      CodeReviewRecord: "コードレビュー根拠",
+      CleanCodeReviewRecord: "クリーンコードレビュー根拠",
+      MissingTestAuditRecord: "不足テスト点検根拠",
+      TestEvidenceRecord: "テスト根拠"
+    },
     evidenceRefs: "確認資料",
     noEvidenceRefs: "実装の確認資料はまだ記録されていません。"
   }
@@ -3373,14 +3387,14 @@ const KO_COPY: typeof EN_COPY = {
     create: "작업공간 실행 만들기",
     reprepare: "작업공간 실행 확인",
     planWorkerJob: "승인된 로컬 Codex 작업 계획",
-    recordStageTick: "현재 단계 tick 기록",
+    recordStageTick: "현재 단계 진행 확인 기록",
     startStage: "현재 단계 시작",
     pauseStage: "현재 단계 일시정지",
     blockStage: "현재 단계 차단",
     completeWorkerJob: "작업 결과로 완료 처리",
     importWorkerLedger: "작업 결과 가져오기",
     workerLedgerImport: "로컬 Codex 작업 결과 JSON",
-    workerLedgerImportPlaceholder: "완료된 로컬 Codex 작업 출력에서 { \"ledgerTransitions\": [...] } 형태의 결과 JSON을 붙여넣으세요.",
+    workerLedgerImportPlaceholder: "완료된 작업 결과 JSON을 붙여넣으세요. raw 형식을 사용할 때는 { \"ledgerTransitions\": [...] } 결과 목록을 내보낸 그대로 유지하세요.",
     recordGitHubIssueDryRun: "GitHub 이슈 생성 미리보기",
     applyGitHubIssueCreation: "승인된 GitHub issue 생성 적용",
     recordPullRequestOpenDryRun: "PR 생성 미리보기",
@@ -3403,7 +3417,7 @@ const KO_COPY: typeof EN_COPY = {
       activeRunRequiredPlanWorker: "로컬 Codex 작업을 계획하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       currentStageWorkerMustContinue:
         "다른 로컬 Codex 작업을 계획하기 전에 현재 단계의 최신 작업을 실행, 결과 가져오기, 완료 또는 다음 단계로 진행하세요.",
-      activeRunRequiredStageTick: "단계 tick을 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      activeRunRequiredStageTick: "단계 진행 확인을 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredStartStage: "단계를 시작하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredPauseStage: "단계를 일시정지하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredBlockStage: "단계를 차단하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
@@ -3417,23 +3431,23 @@ const KO_COPY: typeof EN_COPY = {
       workerLedgerImportPrepareFailed: "로컬 Codex 작업 결과 가져오기 요청을 준비할 수 없습니다.",
       completedWorkerRequiredAdvanceStage: "구현 단계를 진행하려면 완료된 로컬 Codex 작업이 필요합니다.",
       githubIssueMutationUnavailable:
-        "현재 run 상태에서는 이 자동 구현 GitHub issue mutation을 사용할 수 없습니다.",
+        "현재 run 상태에서는 이 자동 구현 GitHub 이슈 생성 작업을 사용할 수 없습니다.",
       activeRunRequiredRecordGitHubIssueDryRun:
-        "GitHub issue dry-run을 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+        "GitHub 이슈 생성 미리보기를 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredApplyGitHubIssueCreation:
         "승인된 GitHub issue 생성을 적용하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       githubIssueAlreadyRecorded:
         "GitHub issue URL이 이미 기록되어 있습니다. 중복 생성하지 말고 기존 생성된 issue를 이어가세요.",
-      pullRequestMutationUnavailable: "현재 run 상태에서는 이 자동 구현 PR mutation을 사용할 수 없습니다.",
+      pullRequestMutationUnavailable: "현재 run 상태에서는 이 자동 구현 PR 작업을 사용할 수 없습니다.",
       activeRunRequiredRecordPullRequestOpenDryRun:
-        "PR 생성 dry-run을 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+        "PR 생성 미리보기를 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredApplyPullRequestOpen:
         "승인된 PR 생성을 적용하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       pullRequestAlreadyRecorded: "PR URL이 이미 기록되어 있습니다. 새로 열지 말고 기존 PR을 업데이트하거나 merge하세요.",
       activeRunRequiredRecordPullRequestDryRun:
-        "PR 본문 dry-run을 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+        "PR 본문 업데이트 미리보기를 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredRecordPullRequestMergeDryRun:
-        "PR merge dry-run을 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+        "PR merge 미리보기를 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredApplyPullRequestBodyUpdate:
         "승인된 PR 본문 업데이트를 적용하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredApplyPullRequestMerge:
@@ -3481,8 +3495,8 @@ const KO_COPY: typeof EN_COPY = {
     workerPlanWorkingDirectory: "작업 디렉터리",
     workerPlanIssueDocument: "이슈 문서",
     workerPlanExecutionAuthority: "실행 권한",
-    workerPlanLedgerTrackerDoc: "구현 추적 문서",
-    workerPlanLedgerStepDoc: "구현 단계 문서",
+    workerPlanLedgerTrackerDoc: "구현 계획 추적",
+    workerPlanLedgerStepDoc: "현재 구현 단계",
     workerPlanLedgerDocSourceRefs: "구현 기록 참조 출처",
     workerPlanAllowedWriteScope: "허용된 쓰기 범위",
     workerPlanRequiredEvidence: "필수 근거",
@@ -3504,21 +3518,21 @@ const KO_COPY: typeof EN_COPY = {
       ? `원격 저장소: ${KO_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS[remoteStatus]}`
       : "원격 저장소: 아직 확인되지 않음",
     nextTickLabel: (nextTickAt: string | null): string => nextTickAt
-      ? `다음 5분 tick: ${nextTickAt}`
-      : "다음 5분 tick: 아직 예약되지 않음",
+      ? `다음 5분 진행 확인: ${nextTickAt}`
+      : "다음 5분 진행 확인: 아직 예약되지 않음",
     issueModeLabels: KO_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS,
     workerExecutionModeLabels: KO_AUTO_IMPLEMENTATION_WORKER_EXECUTION_MODE_LABELS,
     issueModeLabel: (issueMode: AutoImplementationIssueMode | null): string => issueMode
       ? `이슈 모드: ${KO_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS[issueMode]}`
       : "이슈 모드: 아직 선택되지 않음",
     stagePlan: "5분 단위 단계 계획",
-    stagePlanTicks: "tick",
-    stagePlanLedger: "ledger",
+    stagePlanTicks: "진행 확인",
+    stagePlanLedger: "구현 기록",
     stagePlanBlocker: "차단",
     reviewProtocol: "리뷰와 머지 프로토콜",
     deliveryGateLabels: [
       "각 구현 단위는 PR을 열기 전에 로컬 markdown 이슈 또는 GitHub 이슈에 연결합니다.",
-      "단계를 완료 처리하기 전에 구현 기록의 tracker/step, commit 또는 no-code, 리뷰, 클린코드, 테스트, 차단 사유, 근거 참조를 기록합니다.",
+      "단계를 완료 처리하기 전에 구현 결과, 커밋 또는 no-code 근거, 리뷰 근거, 클린코드 근거, 부족한 테스트 점검, 테스트 결과, 차단 사유, 근거 참조를 기록합니다.",
       "기능 PR 코드 리뷰에서 수정할 내용 없음이 2회 연속 확인되기 전에는 merge하지 않습니다.",
       "이번 기능을 넘어선 레포 전체 코드 리뷰에서 수정할 내용 없음이 2회 연속 확인되기 전에는 merge하지 않습니다.",
       "변경 코드 클린코드 리뷰에서 수정할 내용 없음이 2회 연속 확인되기 전에는 merge하지 않습니다.",
@@ -3558,7 +3572,7 @@ const KO_COPY: typeof EN_COPY = {
     issueRowNextAction: "다음 작업",
     issueRowDefaultNextAction: "이 이슈를 리뷰 연속 통과, 클린코드 확인, 테스트 근거 체크리스트에 맞춰 진행하세요.",
     issueRowCompletedNextAction: "완료된 단계의 구현 기록 근거를 사용해 다음 작은 PR 단위로 넘어가세요.",
-    issueRowStageGate: "단계 gate",
+    issueRowStageGate: "현재 단계 조건",
     issueRowMissingEvidence: "누락 근거",
     issueRowEvidenceRefs: "근거",
     githubIssueMutation: "GitHub 이슈 생성 계획",
@@ -3597,7 +3611,7 @@ const KO_COPY: typeof EN_COPY = {
     deliveryProgress: "제작 진행 상황",
     stageProgress: "단계 진행",
     reviewLoopProgress: "리뷰/클린코드 진행",
-    currentStageGate: "현재 단계 gate",
+    currentStageGate: "현재 단계 조건",
     runStatusLabels: {
       pending: "대기",
       running: "진행 중",
@@ -3649,7 +3663,7 @@ const KO_COPY: typeof EN_COPY = {
       ],
       merge_main: [
         "PR이 merge 가능하고 본문에 최종 리뷰/테스트 근거가 포함되어 있는지 확인합니다.",
-        "최종 검증 근거가 최신일 때만 merge하고 적용된 PR merge mutation을 기록합니다.",
+        "최종 검증 근거가 최신일 때만 merge하고 적용된 PR merge 결과를 기록합니다.",
         "merge 후 main을 동기화하고 post-merge 검증 근거와 함께 전체 검증 명령을 다시 실행합니다."
       ]
     },
@@ -3986,6 +4000,13 @@ const KO_COPY: typeof EN_COPY = {
     scope: "범위",
     progressReport: "진행 보고",
     missingEvidence: "누락 또는 차단된 근거",
+    missingEvidenceItemLabels: {
+      StepCommitRecord: "구현 커밋 기록",
+      CodeReviewRecord: "코드 리뷰 근거",
+      CleanCodeReviewRecord: "클린코드 리뷰 근거",
+      MissingTestAuditRecord: "부족한 테스트 점검 근거",
+      TestEvidenceRecord: "테스트 근거"
+    },
     evidenceRefs: "근거 참조",
     noEvidenceRefs: "아직 구현 근거 참조가 기록되지 않았습니다."
   }

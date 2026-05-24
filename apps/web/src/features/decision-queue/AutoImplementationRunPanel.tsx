@@ -182,6 +182,9 @@ function userFacingAutoImplementationTaskText(value: string) {
     .replace(/\bworker\s+ledger\s+evidence\b/giu, "local Codex task result evidence")
     .replace(/\bledger\s+evidence\b/giu, "implementation record evidence")
     .replace(/\bledger\s+import\b/giu, "result import")
+    .replace(/\bImplementationStepLedger\b/gu, "implementation record")
+    .replace(/\btrackerDoc\b/gu, "tracker document")
+    .replace(/\bstepDoc\b/gu, "step document")
     .replace(/\bmanual\s+handoff\s+fallback\b/giu, "manual result-import fallback")
     .replace(/\bbounded\s+ExecutionAuthorityRecord\b/gu, "scoped execution authority record")
     .replace(/\bExecutionAuthorityRecord\b/gu, "execution authority record");
@@ -472,12 +475,12 @@ export function autoImplementationRunViewModel(
       remoteWarning: "Start a run to create a local git repo, markdown fallback issues, and remote connection guidance.",
       remoteCommands: [],
       remoteNextAction: "Create the workspace run after the planning handoff is detailed enough.",
-      githubIssueMutationLabel: "GitHub issue mutation: not requested",
+      githubIssueMutationLabel: "GitHub issue action: not requested",
       githubIssueMutationStatus: "not_requested",
       githubIssueMutationBlockedReason: null,
       githubIssuePlans: [],
       githubCreatedIssueUrls: [],
-      pullRequestMutationLabel: "GitHub PR mutation: no records",
+      pullRequestMutationLabel: "GitHub PR action: no records",
       pullRequestMutationHistoryCount: 0,
       latestPullRequestMutation: null,
       stages: [],
@@ -543,26 +546,34 @@ export function autoImplementationRunViewModel(
   const latestWorkerJob = latestCurrentStageAutoImplementationWorkerJob(run);
   const currentStageRecord = run.stagePlan.find((stage) => stage.stage === run.currentStage) ?? null;
   const latestWorkerPlan = latestWorkerJob
-    ? {
-        stage: latestWorkerJob.stage,
-        stageLabel: AUTO_IMPLEMENTATION_STAGE_LABELS[latestWorkerJob.stage],
-        executionMode: latestWorkerJob.executionPlan.executionMode,
-        workingDirectory: latestWorkerJob.executionPlan.workingDirectory,
-        issueDocumentPath: latestWorkerJob.executionPlan.issueDocumentPath,
-        executionAuthorityRef: latestWorkerJob.executionPlan.executionAuthorityRef,
-        ledgerTrackerDoc: latestWorkerJob.executionPlan.ledgerTrackerDoc,
-        ledgerStepDoc: latestWorkerJob.executionPlan.ledgerStepDoc,
-        allowedWriteScope: latestWorkerJob.executionPlan.allowedWriteScope,
-        requiredEvidence: latestWorkerJob.executionPlan.requiredEvidence,
-        ...splitWorkerRequiredEvidence(latestWorkerJob.stage, latestWorkerJob.executionPlan.requiredEvidence),
-        forbiddenActions: latestWorkerJob.executionPlan.forbiddenActions,
-        sourceRefs: latestWorkerJob.executionPlan.sourceRefs,
-        blockedReason: latestWorkerJob.blockedReason
-          ? userFacingAutoImplementationTaskText(latestWorkerJob.blockedReason)
-          : null,
-        missingEvidence: latestWorkerJob.missingEvidence.map(userFacingAutoImplementationTaskText),
-        evidenceRefs: latestWorkerJob.evidenceRefs
-      }
+    ? (() => {
+        const requiredEvidence = splitWorkerRequiredEvidence(
+          latestWorkerJob.stage,
+          latestWorkerJob.executionPlan.requiredEvidence
+        );
+
+        return {
+          stage: latestWorkerJob.stage,
+          stageLabel: AUTO_IMPLEMENTATION_STAGE_LABELS[latestWorkerJob.stage],
+          executionMode: latestWorkerJob.executionPlan.executionMode,
+          workingDirectory: latestWorkerJob.executionPlan.workingDirectory,
+          issueDocumentPath: latestWorkerJob.executionPlan.issueDocumentPath,
+          executionAuthorityRef: latestWorkerJob.executionPlan.executionAuthorityRef,
+          ledgerTrackerDoc: latestWorkerJob.executionPlan.ledgerTrackerDoc,
+          ledgerStepDoc: latestWorkerJob.executionPlan.ledgerStepDoc,
+          allowedWriteScope: latestWorkerJob.executionPlan.allowedWriteScope,
+          requiredEvidence: latestWorkerJob.executionPlan.requiredEvidence.map(userFacingAutoImplementationTaskText),
+          baseRequiredEvidence: requiredEvidence.baseRequiredEvidence.map(userFacingAutoImplementationTaskText),
+          stageRequiredEvidence: requiredEvidence.stageRequiredEvidence.map(userFacingAutoImplementationTaskText),
+          forbiddenActions: latestWorkerJob.executionPlan.forbiddenActions,
+          sourceRefs: latestWorkerJob.executionPlan.sourceRefs,
+          blockedReason: latestWorkerJob.blockedReason
+            ? userFacingAutoImplementationTaskText(latestWorkerJob.blockedReason)
+            : null,
+          missingEvidence: latestWorkerJob.missingEvidence.map(userFacingAutoImplementationTaskText),
+          evidenceRefs: latestWorkerJob.evidenceRefs
+        };
+      })()
     : null;
   const planningIssueFiles = autoImplementationPlanningIssueFiles(run);
   const canRunWorkerJob = canRunAutoImplementationWorkerJob(latestWorkerJob);
@@ -603,14 +614,14 @@ export function autoImplementationRunViewModel(
     remoteWarning: run.remoteGuide.warning,
     remoteCommands: run.remoteGuide.commands,
     remoteNextAction: run.remoteGuide.nextAction,
-    githubIssueMutationLabel: `GitHub issue mutation: ${githubIssueMutation.status}${githubIssueBlockedReason}`,
+    githubIssueMutationLabel: `GitHub issue action: ${githubIssueMutation.status}${githubIssueBlockedReason}`,
     githubIssueMutationStatus: githubIssueMutation.status,
     githubIssueMutationBlockedReason: githubIssueMutation.blockedReason,
     githubIssuePlans: githubIssueMutation.plannedIssues,
     githubCreatedIssueUrls: run.issueManagement.githubIssueUrls,
     pullRequestMutationLabel: latestPullRequestMutation
-      ? `GitHub PR mutation: ${latestPullRequestMutation.action} ${latestPullRequestMutation.status}`
-      : "GitHub PR mutation: no records",
+      ? `GitHub PR action: ${latestPullRequestMutation.action} ${latestPullRequestMutation.status}`
+      : "GitHub PR action: no records",
     pullRequestMutationHistoryCount: pullRequestMutationRecords.length,
     latestPullRequestMutation,
     stages: run.stagePlan,

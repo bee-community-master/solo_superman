@@ -238,7 +238,7 @@ describe("decision queue language copy", () => {
     );
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.approveLocalWorkerAuthority).toContain("작업 승인");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.missingExecutionAuthority).toContain("ExecutionAuthorityRecord");
-    expect(DECISION_QUEUE_COPY.en.autoImplementation.recordStageTick).toBe("Record current stage tick");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.recordStageTick).toBe("Record current stage check-in");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.startStage).toBe("Start current stage");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.pauseStage).toBe("Pause current stage");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.blockStage).toBe("Block current stage");
@@ -254,6 +254,7 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.autoImplementation.recordGitHubIssueDryRun).toBe("Preview GitHub issue creation");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.applyGitHubIssueCreation).toContain("승인된 GitHub issue");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.githubIssueMutationStatusLabels.not_requested).toBe("not requested yet");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.githubIssueMutationStatusLabels.dry_run_ready).toBe("preview ready");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.githubIssueMutationStatusLabels.approved_ready).toBe("승인되어 생성 준비됨");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.githubIssueMutationSummary("ブロック中", "権限なし")).toBe(
       "GitHub issue作成: ブロック中 · 権限なし"
@@ -277,6 +278,7 @@ describe("decision queue language copy", () => {
     )).toContain("ローカルMarkdown Issue");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.prMutationActionLabels.update_pr_body).toBe("update PR description");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.prMutationStatusLabels.applied).toBe("적용됨");
+    expect(DECISION_QUEUE_COPY.ja.autoImplementation.prMutationRequestModeLabels.dry_run).toBe("プレビューのみ");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.prMutationRequestModeLabels.approved).toBe("承認済みlive操作");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.pullRequestMutationSummary("PR 설명 업데이트", "적용됨")).toBe(
       "GitHub PR 작업: PR 설명 업데이트 · 적용됨"

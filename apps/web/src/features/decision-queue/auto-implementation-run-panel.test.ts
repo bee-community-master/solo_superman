@@ -233,7 +233,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.githubIssueMutationBlockedReason).toBeNull();
     expect(view.githubIssuePlans[0]!.bodyMarkdownPath).toContain("implementation-issues/001-initial_pr.md");
     expect(view.githubCreatedIssueUrls).toEqual([]);
-    expect(view.pullRequestMutationLabel).toBe("GitHub PR mutation: no records");
+    expect(view.pullRequestMutationLabel).toBe("GitHub PR action: no records");
     expect(view.pullRequestMutationHistoryCount).toBe(0);
     expect(view.latestPullRequestMutation).toBeNull();
     expect(view.latestWorkerJobLabel).toBe("Local Codex task: not planned");
@@ -282,12 +282,12 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain(
       "local-001: Initial implementation and PR creation — stage: Initial implementation and PR creation / status: open (implementation-issues/001-initial_pr.md)"
     );
-    expect(markup).toContain("stage gate: Create the smallest behavior-complete implementation for this issue slice.");
+    expect(markup).toContain("current requirement: Create the smallest behavior-complete implementation for this issue slice.");
     expect(markup).toContain("Record the first targeted test evidence before requesting review.");
     expect(markup).toContain("Delivery progress");
     expect(markup).toContain("Stage progress");
     expect(markup).toContain("Review loop progress");
-    expect(markup).toContain("Current stage gate");
+    expect(markup).toContain("Current stage requirement");
     expect(markup).toContain("0/7 stages completed · current stage: Initial implementation and PR creation (ready)");
     expect(markup).toContain(
       "0/4 review/clean-code loops completed · next: Feature PR code review and fix loop"
@@ -303,7 +303,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(koreanMarkup).toContain("원격 저장소: 원격 저장소 없음 · 이슈 모드: 로컬 markdown 이슈");
     expect(koreanMarkup).not.toContain("원격 저장소: no_remote");
     expect(koreanMarkup).not.toContain("이슈 모드: markdown_fallback");
-    expect(koreanMarkup).toContain("다음 5분 tick: 2026-05-19T00:05:00.000Z");
+    expect(koreanMarkup).toContain("다음 5분 진행 확인: 2026-05-19T00:05:00.000Z");
     expect(koreanMarkup).toContain("이슈 상태 요약: 완료 0개 / 차단 0개 / 열림 7개 / 전체 7개");
     expect(koreanMarkup).toContain("로컬 Codex 작업: 아직 계획되지 않음");
     expect(koreanMarkup).toContain("최신 로컬 Codex 작업 없음");
@@ -618,7 +618,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(koreanMarkup).not.toContain("상태: blocked");
   });
 
-  it("shows the latest GitHub PR mutation evidence and history count", () => {
+  it("shows the latest GitHub PR action evidence and history count", () => {
     const record = prMutationRecord();
     const projection = {
       ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
@@ -645,7 +645,7 @@ describe("AutoImplementationRunPanel view model", () => {
     } as AutoImplementationRunProjection;
     const view = autoImplementationRunViewModel(projection);
 
-    expect(view.pullRequestMutationLabel).toBe("GitHub PR mutation: update_pr_body applied");
+    expect(view.pullRequestMutationLabel).toBe("GitHub PR action: update_pr_body applied");
     expect(view.pullRequestMutationHistoryCount).toBe(2);
     expect(view.latestPullRequestMutation).toMatchObject({
       action: "update_pr_body",
@@ -950,7 +950,7 @@ describe("AutoImplementationRunPanel view model", () => {
       }
     } as AutoImplementationRunProjection);
 
-    expect(view.pullRequestMutationLabel).toBe("GitHub PR mutation: update_pr_body applied");
+    expect(view.pullRequestMutationLabel).toBe("GitHub PR action: update_pr_body applied");
     expect(view.latestPullRequestMutation).toMatchObject({
       mutationId: "auto-pr-mutation:auto_run_demo:update_pr_body:update_1"
     });
@@ -1025,7 +1025,7 @@ describe("AutoImplementationRunPanel view model", () => {
         "feature-scope CodeReviewRecord ids prove two consecutive no-finding passes after any fixes"
       ]
     });
-    expect(view.latestWorkerPlan?.baseRequiredEvidence).toContain("ImplementationStepLedger trackerDoc and stepDoc");
+    expect(view.latestWorkerPlan?.baseRequiredEvidence).toContain("implementation record tracker document and step document");
     expect(markup).toContain("Base delivery evidence");
     expect(markup).toContain("Current stage evidence");
     expect(markup).toContain(
@@ -1289,7 +1289,7 @@ describe("AutoImplementationRunPanel view model", () => {
     const view = autoImplementationRunViewModel(projection);
 
     expect(view.latestWorkerJobLabel).toBe("Local Codex task: not planned");
-    expect(view.pullRequestMutationLabel).toBe("GitHub PR mutation: no records");
+    expect(view.pullRequestMutationLabel).toBe("GitHub PR action: no records");
     expect(view.latestPullRequestMutation).toBeNull();
     expect(view.latestWorkerPlan).toBeNull();
     expect(view.latestWorkerJobNextAction).toContain("scoped local Codex task");
@@ -1314,13 +1314,13 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("/repo/workspace/demo-project");
     expect(markup).toContain("implementation-issues/001-initial_pr.md");
     expect(markup).toContain("exec_auth_auto_worker_initial_pr");
-    expect(markup).toContain("Implementation tracker doc");
+    expect(markup).toContain("Implementation plan tracker");
     expect(markup).toContain("auto-implementation-tracker:auto_run_demo");
-    expect(markup).toContain("Implementation step doc");
+    expect(markup).toContain("Current implementation step");
     expect(markup).toContain("auto-implementation-step:auto_run_demo:initial_pr:local-001");
     expect(markup).toContain("tracked_code_docs_config");
     expect(markup).toContain("Allowed write scope");
-    expect(markup).toContain("ImplementationStepLedger trackerDoc and stepDoc");
+    expect(markup).toContain("implementation record tracker document and step document");
     expect(markup).toContain("credential storage");
     expect(markup).toContain("auto-implementation-run:auto_run_demo");
     expect(markup).toContain("auto-worker-job:auto_run_demo:initial_pr:job_planned");
@@ -1357,7 +1357,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).not.toContain("Local Codex task plan");
   });
 
-  it("renders the latest GitHub PR mutation evidence", () => {
+  it("renders the latest GitHub PR action evidence", () => {
     const record = prMutationRecord();
     const view = autoImplementationRunViewModel({
       ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
@@ -1374,7 +1374,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("GitHub PR action evidence");
     expect(markup).toContain("GitHub PR action: update PR description · applied");
     expect(markup).toContain("approved live action");
-    expect(markup).not.toContain("GitHub PR mutation: update_pr_body applied");
+    expect(markup).not.toContain("GitHub PR action: update_pr_body applied");
     expect(markup).toContain("1 PR action record(s) captured.");
     expect(markup).toContain("https://github.com/bee-community-master/demo/pull/1");
     expect(markup).toContain("Update the generated PR body with current review and verification evidence.");
@@ -1391,7 +1391,7 @@ describe("AutoImplementationRunPanel view model", () => {
 
     expect(koreanMarkup).toContain("GitHub PR 작업: PR 설명 업데이트 · 적용됨");
     expect(koreanMarkup).toContain("승인된 실제 작업");
-    expect(koreanMarkup).not.toContain("GitHub PR mutation: update_pr_body applied");
+    expect(koreanMarkup).not.toContain("GitHub PR action: update_pr_body applied");
   });
 
   it("renders the remote warning and local issue documents", () => {
@@ -1409,26 +1409,26 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("GitHub issue: none");
     expect(markup).toContain("GitHub issue creation plan");
     expect(markup).toContain("GitHub issue creation: not requested yet");
-    expect(markup).not.toContain("GitHub issue mutation: not_requested");
+    expect(markup).not.toContain("GitHub issue action: not_requested");
     expect(markup).toContain("GitHub PR action evidence");
     expect(markup).toContain("No GitHub PR action records yet");
     expect(markup).toContain("No GitHub PR action records yet");
     const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
     expect(koreanMarkup).toContain("GitHub 이슈 생성 계획");
     expect(koreanMarkup).toContain("GitHub 이슈 생성: 아직 요청되지 않음");
-    expect(koreanMarkup).not.toContain("GitHub issue mutation: not_requested");
+    expect(koreanMarkup).not.toContain("GitHub issue action: not_requested");
     expect(koreanMarkup).toContain("GitHub PR 작업 근거");
     expect(koreanMarkup).toContain("아직 GitHub PR 작업 기록이 없습니다.");
     expect(koreanMarkup).not.toContain("mutation contract");
     expect(koreanMarkup).not.toContain("mutation evidence");
-    expect(koreanMarkup).not.toContain("PR mutation 기록");
+    expect(koreanMarkup).not.toContain("PR action 기록");
     expect(koreanMarkup).toContain("기능 PR 코드 리뷰에서 수정할 내용 없음이 2회 연속 확인되기 전에는 merge하지 않습니다.");
     expect(koreanMarkup).toContain("이 이슈를 리뷰 연속 통과, 클린코드 확인, 테스트 근거 체크리스트에 맞춰 진행하세요.");
     expect(koreanMarkup).not.toContain("Work this issue through the delivery protocol");
     expect(koreanMarkup).not.toContain("Do not merge until the feature PR code review reaches");
     expect(markup).toContain("Local Codex task: not planned");
     expect(markup).toContain("Plan approved local Codex task");
-    expect(markup).toContain("Record current stage tick");
+    expect(markup).toContain("Record current stage check-in");
     expect(markup).toContain("Start current stage");
     expect(markup).toContain("Pause current stage");
     expect(markup).toContain("Block current stage");
