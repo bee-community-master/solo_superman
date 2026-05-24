@@ -152,16 +152,20 @@ type AdditionalQuestionAnswerIntent =
 
 function additionalQuestionAnswerIntentForObjective(objective: string): AdditionalQuestionAnswerIntent {
   const topic = userFacingQuestionText(objective).toLowerCase();
+  const asksForNarrative =
+    /(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|상황|맥락|이유|왜|어떻게|workflow|흐름|사용\s*방식|describe|explain|free[-\s]?form|open[-\s]?ended|context)/iu.test(topic);
+  const asksForCustomerChoice =
+    /(?:세그먼트|성향|persona|segment|어느\s*(?:고객|사용자|성향|후보)|고객\s*(?:후보|유형|타입)|customer\s*(?:segment|persona|type)|which\s+customer)/iu.test(topic);
 
   if (/(?:복수|모두|해당|다중|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)\s*(?:선택|고르)|둘\s*이상|multi[-\s]?select|one\s+or\s+more|select\s+all)/iu.test(topic)) {
     return /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic) ? "multi_signal_choice" : "multi_choice";
   }
 
-  if (/(?:고객|세그먼트|성향|persona|customer|segment)/iu.test(topic)) {
+  if (asksForCustomerChoice && !asksForNarrative) {
     return "single_customer_choice";
   }
 
-  if (/(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|상황|맥락|이유|왜|어떻게|workflow|흐름|사용\s*방식|describe|explain|free[-\s]?form|open[-\s]?ended|context)/iu.test(topic)) {
+  if (asksForNarrative) {
     return "open_text";
   }
 
