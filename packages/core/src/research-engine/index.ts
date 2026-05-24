@@ -209,6 +209,10 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
     return /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic) ? "multi_signal_choice" : "multi_choice";
   }
 
+  if (asksForBinaryChoice) {
+    return "binary_choice";
+  }
+
   if (asksForCustomerChoice && (!asksForNarrative || asksForForcedChoice || asksForExplicitChoice)) {
     return "single_customer_choice";
   }

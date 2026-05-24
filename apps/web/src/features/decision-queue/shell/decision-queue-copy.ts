@@ -1363,6 +1363,60 @@ const EN_COPY = {
     contextModeLabels: {
       public_safe_summary: "Public-safe summary only"
     },
+    disclosureStatusLabels: {
+      automatic_payload_ready: "Ready for safe automatic research",
+      blocked_manual_handoff: "Manual handoff needed"
+    },
+    runStatusLabels: {
+      queued: "Queued",
+      running: "Running",
+      paused: "Paused",
+      cancel_requested: "Cancel requested",
+      cancelled: "Cancelled",
+      needs_review: "Needs review",
+      accepted: "Accepted",
+      research_insufficient: "Needs more research",
+      failed: "Failed",
+      stale: "Out of date"
+    },
+    adapterKindLabels: {
+      codex_official: "Codex official research",
+      openclaw_candidate: "OpenClaw candidate research",
+      web_search_readonly: "Read-only web search",
+      local_fake_readonly: "Local test research",
+      adapter_unavailable: "Research provider unavailable"
+    },
+    qualityGateStatusLabels: {
+      not_evaluated: "Not checked yet",
+      pending_review: "Review needed",
+      passed: "Passed",
+      insufficient: "Insufficient evidence",
+      stale: "Out of date"
+    },
+    evidenceGateStatusLabels: {
+      accepted: "Accepted",
+      needs_review: "Needs review",
+      research_insufficient: "Needs more research",
+      stale: "Out of date"
+    },
+    reviewCardStateLabels: {
+      pending_manual_result: "Waiting for imported result",
+      quality_gate_review: "Quality check review",
+      ready_for_review: "Ready for review",
+      research_insufficient: "Needs more research",
+      stale: "Out of date",
+      terminal_failure: "Research failed",
+      resolved: "Resolved"
+    },
+    terminalReasonLabels: {
+      cancelled_by_user: "Cancelled by user",
+      provider_failed: "Provider failed",
+      provider_cancelled: "Provider cancelled",
+      timeout: "Timed out",
+      quality_gate_accepted: "Quality check accepted",
+      quality_gate_insufficient: "Quality check needs more evidence",
+      staleness_policy_failed: "Freshness check failed"
+    },
     limits: "limits",
     concurrent: "concurrent",
     session: "session",
@@ -2720,6 +2774,60 @@ const JA_COPY: typeof EN_COPY = {
     contextModeLabels: {
       public_safe_summary: "公開してよい要約のみ"
     },
+    disclosureStatusLabels: {
+      automatic_payload_ready: "安全な自動リサーチの準備完了",
+      blocked_manual_handoff: "手動引き渡しが必要"
+    },
+    runStatusLabels: {
+      queued: "待機中",
+      running: "実行中",
+      paused: "一時停止中",
+      cancel_requested: "キャンセル要求中",
+      cancelled: "キャンセル済み",
+      needs_review: "確認が必要",
+      accepted: "承認済み",
+      research_insufficient: "追加リサーチが必要",
+      failed: "失敗",
+      stale: "古くなっています"
+    },
+    adapterKindLabels: {
+      codex_official: "Codex公式リサーチ",
+      openclaw_candidate: "OpenClaw候補リサーチ",
+      web_search_readonly: "読み取り専用Web検索",
+      local_fake_readonly: "ローカルテストリサーチ",
+      adapter_unavailable: "リサーチプロバイダ未接続"
+    },
+    qualityGateStatusLabels: {
+      not_evaluated: "未確認",
+      pending_review: "確認が必要",
+      passed: "通過",
+      insufficient: "根拠不足",
+      stale: "古くなっています"
+    },
+    evidenceGateStatusLabels: {
+      accepted: "承認済み",
+      needs_review: "確認が必要",
+      research_insufficient: "追加リサーチが必要",
+      stale: "古くなっています"
+    },
+    reviewCardStateLabels: {
+      pending_manual_result: "取り込み結果待ち",
+      quality_gate_review: "品質確認レビュー",
+      ready_for_review: "レビュー準備完了",
+      research_insufficient: "追加リサーチが必要",
+      stale: "古くなっています",
+      terminal_failure: "リサーチ失敗",
+      resolved: "解決済み"
+    },
+    terminalReasonLabels: {
+      cancelled_by_user: "ユーザーがキャンセル",
+      provider_failed: "プロバイダ失敗",
+      provider_cancelled: "プロバイダがキャンセル",
+      timeout: "タイムアウト",
+      quality_gate_accepted: "品質確認で承認",
+      quality_gate_insufficient: "品質確認で根拠不足",
+      staleness_policy_failed: "鮮度確認に失敗"
+    },
     limits: "制限",
     concurrent: "同時",
     session: "セッション",
@@ -4074,6 +4182,60 @@ const KO_COPY: typeof EN_COPY = {
     },
     contextModeLabels: {
       public_safe_summary: "공개 가능한 요약만 사용"
+    },
+    disclosureStatusLabels: {
+      automatic_payload_ready: "안전한 자동 리서치 준비됨",
+      blocked_manual_handoff: "수동 확인 필요"
+    },
+    runStatusLabels: {
+      queued: "대기 중",
+      running: "실행 중",
+      paused: "일시정지됨",
+      cancel_requested: "취소 요청됨",
+      cancelled: "취소됨",
+      needs_review: "검토 필요",
+      accepted: "승인됨",
+      research_insufficient: "추가 리서치 필요",
+      failed: "실패",
+      stale: "오래됨"
+    },
+    adapterKindLabels: {
+      codex_official: "Codex 공식 리서치",
+      openclaw_candidate: "OpenClaw 후보 리서치",
+      web_search_readonly: "읽기 전용 웹 검색",
+      local_fake_readonly: "로컬 테스트 리서치",
+      adapter_unavailable: "리서치 제공자 미연결"
+    },
+    qualityGateStatusLabels: {
+      not_evaluated: "아직 확인 전",
+      pending_review: "검토 필요",
+      passed: "통과",
+      insufficient: "근거 부족",
+      stale: "오래됨"
+    },
+    evidenceGateStatusLabels: {
+      accepted: "승인됨",
+      needs_review: "검토 필요",
+      research_insufficient: "추가 리서치 필요",
+      stale: "오래됨"
+    },
+    reviewCardStateLabels: {
+      pending_manual_result: "가져온 결과 대기",
+      quality_gate_review: "품질 확인 검토",
+      ready_for_review: "검토 준비됨",
+      research_insufficient: "추가 리서치 필요",
+      stale: "오래됨",
+      terminal_failure: "리서치 실패",
+      resolved: "해결됨"
+    },
+    terminalReasonLabels: {
+      cancelled_by_user: "사용자가 취소",
+      provider_failed: "제공자 실패",
+      provider_cancelled: "제공자가 취소",
+      timeout: "시간 초과",
+      quality_gate_accepted: "품질 확인에서 승인",
+      quality_gate_insufficient: "품질 확인에서 근거 부족",
+      staleness_policy_failed: "최신성 확인 실패"
     },
     limits: "제한",
     concurrent: "동시",

@@ -9,10 +9,14 @@ import { useState } from "react";
 import type { Phase15aOperationsViewModel } from "./decision-queue-view-model";
 import {
   joinPhase15aResearchLabels,
+  phase15aAdapterKindLabel,
   phase15aAllowlistStatusLabel,
   phase15aConnectorLabels,
   phase15aContextModeLabel,
-  phase15aSourceCategoryLabels
+  phase15aQualityGateStatusLabel,
+  phase15aRunStatusLabel,
+  phase15aSourceCategoryLabels,
+  phase15aTerminalReasonLabel
 } from "./phase15a-operation-labels";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
@@ -51,8 +55,9 @@ function isRetryableResearchRun(status: ResearchRunStatus) {
 function researchRunProviderLabel(run: ResearchRunControlProjection["runs"][number], copy: ReturnType<typeof useDecisionQueueCopy>) {
   const adapterKind = run.provider?.adapterKind ?? "adapter_unavailable";
   const attempt = run.provider?.attempt ?? "?";
+  const adapterLabel = phase15aAdapterKindLabel(copy.phase15a, adapterKind);
 
-  return `${copy.phase15a.run} ${run.researchRunId} · ${adapterKind} · ${copy.phase15a.attempt} ${attempt}`;
+  return `${copy.phase15a.run} ${run.researchRunId} · ${adapterLabel} · ${copy.phase15a.attempt} ${attempt}`;
 }
 
 function exitGateStatusLabel(status: Phase15aOperationsViewModel["exitGate"]["status"], copy: ReturnType<typeof useDecisionQueueCopy>) {
@@ -257,12 +262,18 @@ export function Phase15aOperationsPanel({
               {researchOperations.runs.runs.map((run) => (
                 <article className="operations-card" key={run.researchRunId}>
                   <strong>{run.researchTaskId}</strong>
-                  <span>{run.status}</span>
+                  <span>{phase15aRunStatusLabel(copy.phase15a, run.status)}</span>
                   <small>{researchRunProviderLabel(run, copy)}</small>
                   <small>{copy.phase15a.sourceRefs}: {run.sourceRefs?.length ?? 0}</small>
-                  <small>{copy.phase15a.qualityGate}: {run.qualityGateStatus}</small>
+                  <small>
+                    {copy.phase15a.qualityGate}: {phase15aQualityGateStatusLabel(copy.phase15a, run.qualityGateStatus)}
+                  </small>
                   {run.qualityGateReviewReason ? <small>{run.qualityGateReviewReason}</small> : null}
-                  {run.terminalReason ? <small>{copy.phase15a.terminal}: {run.terminalReason}</small> : null}
+                  {run.terminalReason ? (
+                    <small>
+                      {copy.phase15a.terminal}: {phase15aTerminalReasonLabel(copy.phase15a, run.terminalReason)}
+                    </small>
+                  ) : null}
                   <small>{copy.phase15a.recovery}: {researchOperations.runs?.recovery.refetchUrl ?? copy.phase15a.refetchUnavailable}</small>
                   <div className="card-actions">
                     <button

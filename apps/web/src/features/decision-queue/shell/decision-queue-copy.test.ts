@@ -119,6 +119,9 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.phase15a.connectorLabels.public_search).toBe("Public web search");
     expect(DECISION_QUEUE_COPY.ja.phase15a.contextModeLabels.public_safe_summary).toBe("公開してよい要約のみ");
     expect(DECISION_QUEUE_COPY.ko.phase15a.sourceCategoryLabels.public_web).toBe("공개 웹사이트");
+    expect(DECISION_QUEUE_COPY.en.phase15a.qualityGateStatusLabels.pending_review).toBe("Review needed");
+    expect(DECISION_QUEUE_COPY.ja.phase15a.disclosureStatusLabels.automatic_payload_ready).toContain("自動リサーチ");
+    expect(DECISION_QUEUE_COPY.ko.phase15a.runStatusLabels.needs_review).toBe("검토 필요");
     expect(DECISION_QUEUE_COPY.en.questions.questionProgressActive).toBe("Active now");
     expect(DECISION_QUEUE_COPY.ja.questions.questionProgressActive).toBe("回答中");
     expect(DECISION_QUEUE_COPY.ko.questions.questionProgressActive).toBe("지금 답할 질문");

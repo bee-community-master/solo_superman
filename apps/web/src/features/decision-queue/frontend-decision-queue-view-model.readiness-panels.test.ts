@@ -531,7 +531,8 @@ describe("Decision Queue view model readiness-panels", () => {
     expect(markup).toContain("Max research runs per session");
     expect(markup).toContain("Caps how many total public web research runs this session can start from answers or manual batches.");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Apply session limit</button>");
-    expect(markup).toContain("quality check: pending_review");
+    expect(markup).toContain("quality check: Review needed");
+    expect(markup).not.toContain("pending_review");
   });
 
   it("renders research run cards without a blank screen when provider metadata is malformed", () => {
@@ -566,7 +567,8 @@ describe("Decision Queue view model readiness-panels", () => {
       })
     );
 
-    expect(markup).toContain("adapter_unavailable");
+    expect(markup).toContain("Research provider unavailable");
+    expect(markup).not.toContain("adapter_unavailable");
     expect(markup).toContain("source refs: 0");
   });
 
