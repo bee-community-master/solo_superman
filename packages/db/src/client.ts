@@ -37,6 +37,7 @@ export interface MigrationStatus {
 
 export const DEFAULT_DATABASE_FILENAME = "solo-superman.db";
 export const defaultMigrationsFolder = fileURLToPath(new URL("../drizzle", import.meta.url));
+const WINDOWS_LOCAL_DB_CLOSE_SETTLE_MS = 100;
 
 export function defaultDevAppDataDir() {
   if (process.platform === "darwin") {
@@ -107,7 +108,7 @@ export async function createSoloStorage(options: CreateSoloStorageOptions): Prom
     close: async () => {
       await Promise.resolve(client.close());
       if (process.platform === "win32" && localFilePath) {
-        await sleep(100);
+        await sleep(WINDOWS_LOCAL_DB_CLOSE_SETTLE_MS);
       }
     }
   };
