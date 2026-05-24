@@ -197,6 +197,68 @@ describe("research follow-up answer flow", () => {
     });
   });
 
+  it("turns one-of-many customer objectives into single-choice follow-up cards", () => {
+    const { activeQueueItem, followUpIssue } = synthesizeResearchFollowUp({
+      objective: "리서치로 나온 고객 성향 후보 중 하나를 선택",
+      result: "Pro: customer candidates include solo founder, team lead, consultant.",
+      limitationNotes: "The best first segment still needs direct founder validation."
+    });
+
+    expect(followUpIssue).toMatchObject({
+      expectedAnswerType: "choice",
+      answerSelectionMode: "single",
+      questionText: expect.stringContaining("어느 성향의 고객에 집중")
+    });
+    expect(followUpIssue?.questionText).not.toContain("찬성/반대 중 어느 쪽");
+    expect(followUpIssue?.answerOptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "solo founder" }),
+        expect.objectContaining({ label: "team lead" }),
+        expect.objectContaining({ label: "consultant" })
+      ])
+    );
+    expect(activeQueueItem).toMatchObject({
+      expectedAnswerType: "choice",
+      answerSelectionMode: "single",
+      answerOptions: expect.arrayContaining([
+        expect.objectContaining({ label: "solo founder" }),
+        expect.objectContaining({ label: "team lead" }),
+        expect.objectContaining({ label: "consultant" })
+      ])
+    });
+  });
+
+  it("turns one-or-more signal objectives into multi-select follow-up cards", () => {
+    const { activeQueueItem, followUpIssue } = synthesizeResearchFollowUp({
+      objective: "다음 인터뷰에서 확인할 고객 신호를 하나 혹은 여러 개 선택",
+      result: "Pro: customer signals include repeated manual pain, budget intent, dissatisfaction with alternatives.",
+      limitationNotes: "The exact signal combination depends on the next interview target."
+    });
+
+    expect(followUpIssue).toMatchObject({
+      expectedAnswerType: "choice",
+      answerSelectionMode: "multiple",
+      questionText: expect.stringContaining("여러 개 선택")
+    });
+    expect(followUpIssue?.questionText).not.toContain("찬성/반대 중 어느 쪽");
+    expect(followUpIssue?.answerOptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "repeat_manual_pain", label: "반복되는 수동 고통" }),
+        expect.objectContaining({ id: "budget_or_paid_intent", label: "예산/지불 의향" }),
+        expect.objectContaining({ id: "alternative_dissatisfaction", label: "기존 대안 불만" })
+      ])
+    );
+    expect(activeQueueItem).toMatchObject({
+      expectedAnswerType: "choice",
+      answerSelectionMode: "multiple",
+      answerOptions: expect.arrayContaining([
+        expect.objectContaining({ id: "repeat_manual_pain", label: "반복되는 수동 고통" }),
+        expect.objectContaining({ id: "budget_or_paid_intent", label: "예산/지불 의향" }),
+        expect.objectContaining({ id: "alternative_dissatisfaction", label: "기존 대안 불만" })
+      ])
+    });
+  });
+
   it("keeps answer-form policy follow-ups open instead of generating bogus choices", () => {
     const { activeQueueItem, followUpIssue } = synthesizeResearchFollowUp({
       objective:

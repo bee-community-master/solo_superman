@@ -66,8 +66,11 @@ const REQUIRED_CAPABILITY_BEHAVIOR_SNIPPETS = new Map([
       "Research-generated follow-up questions",
       "answer-form variety",
       "open_text narrative answers",
+      "binary_choice pro/con decisions",
       "single_choice one-of-many choices",
-      "multi_select one-or-more selections"
+      "multi_select one-or-more selections",
+      "ranked_choice",
+      "evidence_judgment"
     ]
   ],
   [
