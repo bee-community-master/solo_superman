@@ -51,6 +51,10 @@ function identityRemoteGuideText(value: string) {
   return value;
 }
 
+function projectNameFromWorkspacePath(workspacePath: string | null) {
+  return workspacePath?.split("/").filter(Boolean).at(-1) ?? "project";
+}
+
 const EN_CODEX_RUNTIME_STATUS_LABELS = {
   available: "available",
   unavailable: "unavailable",
@@ -882,6 +886,13 @@ const EN_COPY = {
   },
   autoImplementation: {
     title: "Auto implementation workspace",
+    runSummary: (
+      hasRun: boolean,
+      workspacePath: string | null,
+      remoteStatus: AutoImplementationRemoteStatus | null
+    ): string => hasRun
+      ? `Auto implementation workspace is ready for ${projectNameFromWorkspacePath(workspacePath)}; remote status is ${remoteStatus ? EN_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS[remoteStatus] : "not checked"}.`
+      : "No auto implementation workspace has been prepared yet.",
     create: "Create workspace run",
     reprepare: "Ensure workspace run",
     planWorkerJob: "Plan approved local Codex task",
@@ -2109,6 +2120,13 @@ const JA_COPY: typeof EN_COPY = {
   },
   autoImplementation: {
     title: "自動実装ワークスペース",
+    runSummary: (
+      hasRun: boolean,
+      workspacePath: string | null,
+      remoteStatus: AutoImplementationRemoteStatus | null
+    ) => hasRun
+      ? `${projectNameFromWorkspacePath(workspacePath)} の自動実装ワークスペースが準備できています。リモート状態: ${remoteStatus ? JA_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS[remoteStatus] : "未確認"}。`
+      : "自動実装ワークスペースはまだ準備されていません。",
     create: "ワークスペース実行を作成",
     reprepare: "ワークスペース実行を確認",
     planWorkerJob: "承認済みローカルCodex作業を計画",
@@ -3345,6 +3363,13 @@ const KO_COPY: typeof EN_COPY = {
   },
   autoImplementation: {
     title: "자동 구현 작업공간",
+    runSummary: (
+      hasRun: boolean,
+      workspacePath: string | null,
+      remoteStatus: AutoImplementationRemoteStatus | null
+    ) => hasRun
+      ? `${projectNameFromWorkspacePath(workspacePath)} 프로젝트의 자동 구현 작업공간이 준비되었습니다. 원격 저장소 상태: ${remoteStatus ? KO_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS[remoteStatus] : "아직 확인되지 않음"}.`
+      : "아직 자동 구현 작업공간이 준비되지 않았습니다.",
     create: "작업공간 실행 만들기",
     reprepare: "작업공간 실행 확인",
     planWorkerJob: "승인된 로컬 Codex 작업 계획",

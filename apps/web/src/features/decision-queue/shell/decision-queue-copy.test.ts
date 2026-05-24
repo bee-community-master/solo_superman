@@ -150,6 +150,11 @@ describe("decision queue language copy", () => {
       "다시 merge하지"
     );
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.remoteStatusLabels.no_remote).toBe("원격 저장소 없음");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.runSummary(
+      true,
+      "/repo/workspace/demo-project",
+      "no_remote"
+    )).toContain("demo-project 프로젝트의 자동 구현 작업공간이 준비되었습니다");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.issueModeLabels.markdown_fallback).toBe("로컬 markdown 이슈");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.remoteStatusLabels.no_remote).toBe("リモート未接続");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.issueModeLabels.github_ready).toBe("GitHub issues ready");

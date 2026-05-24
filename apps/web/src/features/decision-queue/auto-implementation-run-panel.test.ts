@@ -295,6 +295,7 @@ describe("AutoImplementationRunPanel view model", () => {
     const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
     expect(koreanMarkup).toContain("제작 진행 상황");
     expect(koreanMarkup).toContain("<span>대기</span>");
+    expect(koreanMarkup).toContain("demo-project 프로젝트의 자동 구현 작업공간이 준비되었습니다. 원격 저장소 상태: 원격 저장소 없음.");
     expect(koreanMarkup).toContain("초기 구현 및 PR 생성: 준비됨");
     expect(koreanMarkup).toContain("기능 PR 코드 리뷰 및 수정 루프: 대기");
     expect(koreanMarkup).not.toContain("Initial implementation and PR creation: ready");
@@ -313,6 +314,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(koreanMarkup).not.toContain("Next 5-minute tick:");
     expect(koreanMarkup).not.toContain("Issue mode:");
     expect(koreanMarkup).not.toContain("Issue status summary");
+    expect(koreanMarkup).not.toContain("remote status is no_remote");
     expect(koreanMarkup).not.toContain("Local Codex worker: not planned");
     expect(koreanMarkup).toContain("0/7 단계 완료 · 현재 단계: 초기 구현 및 PR 생성 (준비됨)");
     expect(koreanMarkup).toContain("0/4 리뷰/클린코드 루프 완료 · 다음: 기능 PR 코드 리뷰 및 수정 루프");

@@ -791,6 +791,7 @@ export function AutoImplementationRunPanel({
   const latestWorkerJobNextAction = run.latestWorkerJobId
     ? run.latestWorkerJobNextAction
     : copy.autoImplementation.latestWorkerJobNextActionNotPlanned(run.hasRun);
+  const runSummary = copy.autoImplementation.runSummary(run.hasRun, run.workspacePath, run.remoteStatus);
   const remoteNextAction = copy.autoImplementation.remoteNextActionLabel(run.remoteNextAction);
   const remoteWarning = run.remoteWarning
     ? copy.autoImplementation.remoteWarningLabel(run.remoteWarning)
@@ -802,7 +803,7 @@ export function AutoImplementationRunPanel({
         <h2>{copy.autoImplementation.title}</h2>
         <span>{copy.autoImplementation.runStatusLabels[run.status]}</span>
       </div>
-      <p>{run.summary}</p>
+      <p>{runSummary}</p>
       <p className="research-recovery">{copy.autoImplementation.workspaceLabel(run.workspacePath)}</p>
       <p className="mode-summary">{copy.autoImplementation.remoteLabel(run.remoteStatus)} · {copy.autoImplementation.issueModeLabel(run.issueMode)}</p>
       <p className="mode-summary">{copy.autoImplementation.issueStatusSummary(run.issueStatusSummary)}</p>
