@@ -353,6 +353,8 @@ const EN_COPY = {
     },
     customAnswer: "Add a reason or write a different answer",
     customAnswerPlaceholder: "Optional: explain the selected choice, add conditions, or write a custom answer.",
+    composedAnswerPreview: "Answer that will be submitted",
+    composedAnswerPreviewHelp: "This combines selected options with your written reason.",
     answerAriaPrefix: "Answer",
     submitAnswer: "Submit answer",
     submitDraftedAnswers: (count: number) =>
@@ -1536,6 +1538,8 @@ const JA_COPY: typeof EN_COPY = {
     },
     customAnswer: "理由を追加、または別の回答を入力",
     customAnswerPlaceholder: "任意: 選んだ候補の理由、条件、または別の回答を書いてください。",
+    composedAnswerPreview: "送信される回答",
+    composedAnswerPreviewHelp: "選択した候補と入力した理由をまとめた内容です。",
     answerAriaPrefix: "回答",
     submitAnswer: "回答を送信",
     submitDraftedAnswers: (count: number) =>
@@ -2706,6 +2710,8 @@ const KO_COPY: typeof EN_COPY = {
     },
     customAnswer: "선택 이유를 덧붙이거나 다른 답변 작성",
     customAnswerPlaceholder: "선택한 답변의 이유/조건을 적거나, 맞는 선택지가 없으면 직접 답변하세요.",
+    composedAnswerPreview: "제출될 답변",
+    composedAnswerPreviewHelp: "선택한 항목과 직접 적은 이유를 합친 내용입니다.",
     answerAriaPrefix: "답변",
     submitAnswer: "답변 제출",
     submitDraftedAnswers: (count: number) =>

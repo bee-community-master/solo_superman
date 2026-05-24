@@ -379,6 +379,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                     const selectedOptionIds = selectedAnswerOptionIds[item.queueItemId] ?? [];
                     const hasAnswerOptions = answerOptions.length > 0;
                     const answerOptionNote = answerOptionNotes[item.queueItemId] ?? "";
+                    const composedAnswerPreview = hasAnswerOptions ? answerDrafts[item.queueItemId]?.trim() ?? "" : "";
                     const suggestedAnswersHelp =
                       answerSelectionMode === "ranked"
                         ? copy.questions.suggestedAnswersRankedHelp
@@ -520,6 +521,13 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                               rows={3}
                             />
                           </label>
+                          {composedAnswerPreview ? (
+                            <div className="composed-answer-preview">
+                              <strong>{copy.questions.composedAnswerPreview}</strong>
+                              <p>{copy.questions.composedAnswerPreviewHelp}</p>
+                              <pre>{composedAnswerPreview}</pre>
+                            </div>
+                          ) : null}
                           <button type="button" disabled={isBusy} onClick={() => void submitAnswer(item.queueItemId)}>
                             {copy.questions.submitAnswer}
                           </button>

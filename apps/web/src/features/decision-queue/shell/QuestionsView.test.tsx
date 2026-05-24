@@ -191,6 +191,56 @@ describe("QuestionsView", () => {
     );
   });
 
+  it("shows the composed selected answer preview before submitting mixed choice and written reasons", () => {
+    const queueItemId = "queue_choice_preview" as QueueItemId;
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 1 as ProjectionVersion,
+      active: [
+        {
+          queueItemId,
+          title: "Which first customer should be validated?",
+          state: "active",
+          answerOptions: [
+            {
+              id: "solo_founders",
+              label: "Solo founders",
+              value: "Validate solo founders first.",
+              pro: "Fast interviews with a narrow segment.",
+              con: "May miss team buyer needs."
+            }
+          ]
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+
+    const markup = renderQuestionsView({
+      answerDrafts: {
+        [queueItemId]: "Validate solo founders first.\n\nOnly if they already have a manual workaround."
+      },
+      projections: {
+        ...emptyProjectionState(),
+        queue
+      },
+      sections: [
+        {
+          id: "active",
+          title: "Current questions",
+          emptyLabel: "No current questions.",
+          items: queue.active
+        }
+      ]
+    });
+
+    expect(markup).toContain("Answer that will be submitted");
+    expect(markup).toContain("This combines selected options with your written reason.");
+    expect(markup).toContain("Validate solo founders first.");
+    expect(markup).toContain("Only if they already have a manual workaround.");
+  });
+
   it("renders open-ended questions without forcing suggested choices", () => {
     const queue: DecisionQueueProjection = {
       kind: "DecisionQueueProjection",
