@@ -25,4 +25,4 @@ pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evid
 pnpm verify:ready-release -- --evidence-bundle-dir ./solo-superman-release-evidence-bundle
 ```
 
-The bundle verifier fails off-manifest scratch notes, logs, or secret-bearing artifacts. Paste generated issue comments only after the filled template and full bundle pass validation.
+The bundle verifier fails off-manifest scratch notes, logs, or secret-bearing artifacts. If the final `verify:ready-release` gate is blocked, use the aggregate `commandBlockers` and each command entry's `blockers` array before inspecting redacted stdout. Paste generated issue comments only after the filled template and full bundle pass validation.
