@@ -849,6 +849,22 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       type: "text",
       text: expect.stringContaining("Every ledgerTransitions item MUST copy ledgerTrackerDoc as trackerDoc")
     });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining(
+        "Completion requires separate CodeReviewRecord transitions for two consecutive no-finding passes in both feature and repository reviewScope."
+      )
+    });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining(
+        "Completion requires separate CleanCodeReviewRecord transitions for two consecutive no-finding passes in both changed_code and repository reviewScope"
+      )
+    });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("Completion requires MissingTestAuditRecord and TestEvidenceRecord evidence")
+    });
     expect(turnStartRequest.params.outputSchema).toMatchObject({
       type: "object",
       required: expect.arrayContaining(["schemaVersion", "jobId", "status", "ledgerTransitions", "evidenceRefs"]),
@@ -886,6 +902,23 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     });
     expect(output.ledgerTransitions.at(-1)?.stepCommitRecord).toMatchObject({
       stepId: input.ledgerStepDoc.stepId
+    });
+    const codeReviewScopes = output.ledgerTransitions
+      .flatMap((transition) => transition.codeReviewRecord ? [transition.codeReviewRecord.reviewScope] : []);
+    const cleanCodeReviewScopes = output.ledgerTransitions
+      .flatMap((transition) => transition.cleanCodeReviewRecord ? [transition.cleanCodeReviewRecord.reviewScope] : []);
+
+    expect(codeReviewScopes.filter((scope) => scope === "feature")).toHaveLength(2);
+    expect(codeReviewScopes.filter((scope) => scope === "repository")).toHaveLength(2);
+    expect(cleanCodeReviewScopes.filter((scope) => scope === "changed_code")).toHaveLength(2);
+    expect(cleanCodeReviewScopes.filter((scope) => scope === "repository")).toHaveLength(2);
+    expect(output.ledgerTransitions.at(-1)?.missingTestAuditRecord).toMatchObject({
+      stepId: input.ledgerStepDoc.stepId
+    });
+    expect(output.ledgerTransitions.at(-1)?.testEvidenceRecord).toMatchObject({
+      stepId: input.ledgerStepDoc.stepId,
+      failedTestCount: 0,
+      notTestedGaps: []
     });
     expect(() => assertCodexWorkerExecutionOutputMatchesInput(input, output)).not.toThrow();
     expect(parseCodexWorkerExecutionOutput(`\`\`\`json\n${JSON.stringify(output)}\n\`\`\``)).toMatchObject({

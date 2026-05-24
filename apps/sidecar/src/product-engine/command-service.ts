@@ -1674,7 +1674,10 @@ function autoImplementationWorkerPlan(input: {
       "Planning Handoff PR-sized issue refs reviewed before edits",
       "commit or no-code evidence",
       "two no-finding feature and repository code-review passes",
+      "separate CodeReviewRecord ids for feature and repository review streaks",
       "two no-finding changed-code and repository clean-code passes",
+      "separate CleanCodeReviewRecord ids for changed-code and repository clean-code streaks",
+      "MissingTestAuditRecord with uncovered required acceptance criteria recorded as zero or an explicit blocker",
       "passing targeted and full test evidence",
       "ledger evidence refs imported into the stage gate",
       "visible blocker evidence when the worker cannot complete"

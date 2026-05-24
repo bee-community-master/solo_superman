@@ -9491,6 +9491,9 @@ describe("PR-02 sidecar health shell", () => {
           requiredEvidence: expect.arrayContaining([
             expect.stringContaining("ImplementationStepLedger"),
             expect.stringContaining("Planning Handoff PR-sized issue refs"),
+            expect.stringContaining("separate CodeReviewRecord ids"),
+            expect.stringContaining("separate CleanCodeReviewRecord ids"),
+            expect.stringContaining("MissingTestAuditRecord"),
             expect.stringContaining("evidence refs")
           ]),
           sourceRefs: expect.arrayContaining([firstPlanningIssueEvidenceRef])
