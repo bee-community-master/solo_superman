@@ -811,6 +811,35 @@ function releaseEvidenceBlockerSummary(checklist, issueNumbers = bundleIssueNumb
   };
 }
 
+function releaseEvidenceBundleChecklistItemSummary(item) {
+  return {
+    itemId: typeof item.itemId === "string" ? item.itemId : "unknown-release-evidence-item",
+    gateId: typeof item.gateId === "string" ? item.gateId : "unknown-release-gate",
+    status: typeof item.status === "string" ? item.status : "unknown",
+    scope: typeof item.scope === "string" ? item.scope : null,
+    requiredCheckCount: stringList(item.requiredChecks).length,
+    requiredEvidenceCount: stringList(item.requiredEvidence).length,
+    unblockCriteriaCount: stringList(item.unblockCriteria).length
+  };
+}
+
+function releaseEvidenceBundleIssueSummary(checklist, issueNumber) {
+  const issueChecklist = filterReleaseEvidenceChecklistByIssue(checklist, issueNumber);
+
+  return {
+    issueNumber,
+    issueUrl: issueChecklist.openBlockerIssues[0] ?? null,
+    status: issueChecklist.status,
+    itemCount: issueChecklist.summary.totalItems,
+    blockedItems: issueChecklist.summary.blockedItems,
+    checklistItems: issueChecklist.checklistItems.map(releaseEvidenceBundleChecklistItemSummary)
+  };
+}
+
+function releaseEvidenceBundleIssueSummaries(checklist, issueNumbers = bundleIssueNumbers(checklist)) {
+  return issueNumbers.map((issueNumber) => releaseEvidenceBundleIssueSummary(checklist, issueNumber));
+}
+
 function bundleFileEntry(kind, relativePath, payload, metadata = {}) {
   return {
     kind,
@@ -842,6 +871,24 @@ function renderReleaseEvidenceBundleReadme(manifest) {
   const blockerIssueList = Array.isArray(blockerSummary.blockedIssueNumbers) && blockerSummary.blockedIssueNumbers.length
     ? blockerSummary.blockedIssueNumbers.map((issueNumber) => `#${issueNumber}`).join(", ")
     : "_none_";
+  const issueSummaries = Array.isArray(manifest.releaseEvidenceIssueSummaries)
+    ? manifest.releaseEvidenceIssueSummaries.filter(isRecord)
+    : [];
+  const issueSummaryLines = issueSummaries.length
+    ? issueSummaries.flatMap((summary) => {
+      const checklistItems = Array.isArray(summary.checklistItems)
+        ? summary.checklistItems.filter(isRecord)
+        : [];
+
+      return [
+        `- #${summary.issueNumber}: \`${summary.blockedItems ?? 0} / ${summary.itemCount ?? 0}\` blocked evidence items`,
+        ...checklistItems.map((item) => (
+          `  - \`${item.itemId}\` (${item.gateId}, ${item.status}; checks ${item.requiredCheckCount}, evidence ${item.requiredEvidenceCount}, unblock ${item.unblockCriteriaCount})`
+        ))
+      ];
+    })
+    : ["- _No issue evidence item summaries were generated._"];
+
   const issueLines = manifest.issueNumbers.length
     ? manifest.issueNumbers.map((issueNumber) => {
       const issueFiles = manifest.files
@@ -865,6 +912,10 @@ function renderReleaseEvidenceBundleReadme(manifest) {
     `- Blocked issues: \`${blockerSummary.blockedIssueCount ?? 0} / ${blockerSummary.issueCount ?? manifest.issueNumbers.length}\` (${blockerIssueList})`,
     `- Blocked evidence items: \`${blockerSummary.blockedItemCount ?? 0} / ${blockerSummary.totalItemCount ?? manifest.summary?.totalItems ?? 0}\``,
     `- Next action: ${blockerSummary.nextAction ?? "Fill blocked issue templates with redacted release-lab evidence before ready-release."}`,
+    "",
+    "## Issue evidence item summary",
+    "",
+    ...issueSummaryLines,
     "",
     "## How to use",
     "",
@@ -971,6 +1022,7 @@ export function buildReleaseEvidenceBundle(checklist) {
     checklistStatus: checklist.status,
     issueNumbers,
     releaseEvidenceBlockerSummary: releaseEvidenceBlockerSummary(checklist, issueNumbers),
+    releaseEvidenceIssueSummaries: releaseEvidenceBundleIssueSummaries(checklist, issueNumbers),
     summary: checklist.summary,
     openBlockerIssues: checklist.openBlockerIssues,
     readyReleaseCommands: checklist.readyReleaseCommands,

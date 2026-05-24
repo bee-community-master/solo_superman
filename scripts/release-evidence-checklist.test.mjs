@@ -743,7 +743,55 @@ describe("release evidence checklist", () => {
           totalItemCount: 9,
           blockedItemCount: 9,
           nextAction: expect.stringContaining("Fill each blocked issue template")
-        }
+        },
+        releaseEvidenceIssueSummaries: expect.arrayContaining([
+          expect.objectContaining({
+            issueNumber: 259,
+            itemCount: 2,
+            blockedItems: 2,
+            checklistItems: expect.arrayContaining([
+              expect.objectContaining({
+                itemId: "windows-real-device",
+                gateId: "release-readiness",
+                requiredEvidenceCount: 4,
+                unblockCriteriaCount: 3
+              }),
+              expect.objectContaining({
+                itemId: "windows-one-line-install-first-screen",
+                gateId: "windows-real-device",
+                requiredCheckCount: 11,
+                requiredEvidenceCount: 4
+              })
+            ])
+          }),
+          expect.objectContaining({
+            issueNumber: 266,
+            itemCount: 4,
+            blockedItems: 4,
+            checklistItems: expect.arrayContaining([
+              expect.objectContaining({
+                itemId: "release-manifest-signing",
+                gateId: "signed-packages",
+                requiredCheckCount: 4,
+                requiredEvidenceCount: 4,
+                unblockCriteriaCount: 3
+              })
+            ])
+          }),
+          expect.objectContaining({
+            issueNumber: 267,
+            itemCount: 3,
+            blockedItems: 3,
+            checklistItems: expect.arrayContaining([
+              expect.objectContaining({
+                itemId: "macos-packaged-update-rollback",
+                gateId: "packaged-update-rollback",
+                requiredCheckCount: 8,
+                requiredEvidenceCount: 7
+              })
+            ])
+          })
+        ])
       });
       const fullTemplate = JSON.parse(await readFile(join(bundleDir, "release-evidence-template.json"), "utf8"));
       expect(fullTemplate.filterIssueNumber).toBeUndefined();
@@ -770,6 +818,10 @@ describe("release evidence checklist", () => {
       expect(readme).toContain("Blocked issues: `3 / 3` (#259, #266, #267)");
       expect(readme).toContain("Blocked evidence items: `9 / 9`");
       expect(readme).toContain("Fill each blocked issue template with redacted release-lab evidence");
+      expect(readme).toContain("## Issue evidence item summary");
+      expect(readme).toContain("#259: `2 / 2` blocked evidence items");
+      expect(readme).toContain("`windows-real-device` (release-readiness, blocked; checks 0, evidence 4, unblock 3)");
+      expect(readme).toContain("`release-manifest-signing` (signed-packages, blocked; checks 4, evidence 4, unblock 3)");
       expect(readme).toContain("issue-259-comment.md");
       expect(readme).toContain("pnpm verify:release-evidence-template -- --input <filled-template.json>");
       expect(readme).toContain("pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir>");
