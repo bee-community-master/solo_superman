@@ -9,6 +9,8 @@ import {
   autoImplementationGitHubIssueUrlForIssue,
   autoImplementationIssueDocumentStatus,
   autoImplementationIssueStatusSummary,
+  autoImplementationPlanningIssueEvidenceRefs,
+  autoImplementationPlanningIssueFiles,
   autoImplementationRunWithSynchronizedIssueDocs,
   autoImplementationWorkerExpectedChangeScope,
   autoImplementationWorkerLedgerStepDescription,
@@ -244,6 +246,23 @@ describe("AutoImplementationRunProjection contract", () => {
       records: [],
       latestRecord: null
     });
+  });
+
+  it("extracts Planning Handoff PR-sized issue evidence refs and markdown files", () => {
+    const planningIssueRef = "planning-handoff-pr-issue:planning-handoff-pr-issues/001-phase2-api-ready.md";
+    const run = {
+      ...readyRun,
+      evidenceRefs: [
+        "planning-handoff-plan:planning-handoff-implementation-plan.md",
+        planningIssueRef,
+        "issue-doc:implementation-issues/001-initial_pr.md"
+      ]
+    };
+
+    expect(autoImplementationPlanningIssueEvidenceRefs(run)).toEqual([planningIssueRef]);
+    expect(autoImplementationPlanningIssueFiles(run)).toEqual([
+      "planning-handoff-pr-issues/001-phase2-api-ready.md"
+    ]);
   });
 
   it("accepts current-stage worker jobs that carry a bounded local Codex execution plan", () => {

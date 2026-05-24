@@ -12,7 +12,15 @@ import {
 
 describe("auto implementation worker authority request builder", () => {
   it("builds an approved file-diff authority scoped to the generated workspace", () => {
-    const run = AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!;
+    const planningIssueEvidenceRef =
+      "planning-handoff-pr-issue:planning-handoff-pr-issues/001-phase2-api-ready.md";
+    const run = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+      evidenceRefs: [
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.evidenceRefs,
+        planningIssueEvidenceRef
+      ]
+    };
     const request = buildAutoImplementationWorkerAuthorityRequest({
       sessionId: "sess_auto_worker" as SessionId,
       expectedStateVersion: 7 as StateVersion,
@@ -56,9 +64,12 @@ describe("auto implementation worker authority request builder", () => {
       expect.arrayContaining([
         "auto-implementation-run:auto_run_demo",
         "auto-implementation-stage:initial_pr",
-        "issue-doc:implementation-issues/001-initial_pr.md"
+        "issue-doc:implementation-issues/001-initial_pr.md",
+        planningIssueEvidenceRef
       ])
     );
+    expect(request.boundedAgentOutput.evidenceRefs).toEqual(expect.arrayContaining([planningIssueEvidenceRef]));
+    expect(request.evidenceRefs).toEqual(expect.arrayContaining([planningIssueEvidenceRef]));
     expect(request.boundedAgentOutput.requiredApprovals).toEqual([
       "local-operator-click:auto-worker-authority"
     ]);

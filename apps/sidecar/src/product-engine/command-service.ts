@@ -33,6 +33,7 @@ import {
   canPlanCurrentStageAutoImplementationWorkerJob,
   canRunAutoImplementationWorkerJob,
   hasAppliedAutoImplementationPullRequestMerge,
+  autoImplementationPlanningIssueEvidenceRefs,
   autoImplementationGitHubIssueUrlForIssue,
   autoImplementationRunWithSynchronizedIssueDocs,
   autoImplementationWorkerExpectedChangeScope,
@@ -1637,12 +1638,14 @@ function autoImplementationWorkerPlan(input: {
   readonly jobId: string;
 }) {
   const planningPlanEvidenceRef = input.run.evidenceRefs.find((ref) => ref.startsWith("planning-handoff-plan:"));
+  const planningIssueEvidenceRefs = autoImplementationPlanningIssueEvidenceRefs(input.run);
   const sourceRefs = [
     `auto-implementation-run:${input.run.runId}`,
     `auto-implementation-stage:${input.issue.stage}`,
     `auto-implementation-issue:${input.issue.issueId}`,
     `issue-doc:${input.issue.relativePath}`,
-    ...(planningPlanEvidenceRef ? [planningPlanEvidenceRef] : [])
+    ...(planningPlanEvidenceRef ? [planningPlanEvidenceRef] : []),
+    ...planningIssueEvidenceRefs
   ];
 
   return {
@@ -1668,6 +1671,7 @@ function autoImplementationWorkerPlan(input: {
     ],
     requiredEvidence: [
       "ImplementationStepLedger trackerDoc and stepDoc",
+      "Planning Handoff PR-sized issue refs reviewed before edits",
       "commit or no-code evidence",
       "two no-finding feature and repository code-review passes",
       "two no-finding changed-code and repository clean-code passes",
@@ -1744,6 +1748,7 @@ function autoImplementationWorkerJob(input: {
   const status = missingEvidence.length ? "blocked" as const : "planned" as const;
   const jobId = autoImplementationWorkerJobId(input.request, input.issue.stage);
   const blockedReason = autoImplementationWorkerBlockedReason(missingEvidence);
+  const planningIssueEvidenceRefs = autoImplementationPlanningIssueEvidenceRefs(input.run);
 
   return {
     jobId,
@@ -1768,6 +1773,7 @@ function autoImplementationWorkerJob(input: {
       jobId,
       `worker-plan:${input.run.runId}:${input.issue.stage}`,
       `issue-doc:${input.issue.relativePath}`,
+      ...planningIssueEvidenceRefs,
       ...(executionAuthorityRef ? [`execution-authority:${executionAuthorityRef}`] : []),
       ...(missingEvidence.length ? [`worker-blocked:${missingEvidence.join("+")}`] : [])
     ])

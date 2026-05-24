@@ -105,6 +105,7 @@ export const AUTO_IMPLEMENTATION_PULL_REQUEST_MUTATION_STATUSES = [
 ] as const;
 export const AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS = "github_pr_mutation" as const;
 export const AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY = "per_action" as const;
+export const AUTO_IMPLEMENTATION_PLANNING_PR_ISSUE_EVIDENCE_PREFIX = "planning-handoff-pr-issue:" as const;
 
 export const DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES = [
   "Workspace repo bootstrap and initial implementation PR",
@@ -384,6 +385,16 @@ export function canCreateAutoImplementationGitHubIssues(run: AutoImplementationR
   return run.issueManagement.githubIssueUrls.length === 0 &&
     run.issueManagement.githubIssueMutation.createdIssueUrls.length === 0 &&
     run.issueManagement.githubIssueMutation.status !== "applied";
+}
+
+export function autoImplementationPlanningIssueFiles(run: Pick<AutoImplementationRun, "evidenceRefs">): readonly string[] {
+  return run.evidenceRefs
+    .filter((ref) => ref.startsWith(AUTO_IMPLEMENTATION_PLANNING_PR_ISSUE_EVIDENCE_PREFIX))
+    .map((ref) => ref.slice(AUTO_IMPLEMENTATION_PLANNING_PR_ISSUE_EVIDENCE_PREFIX.length));
+}
+
+export function autoImplementationPlanningIssueEvidenceRefs(run: Pick<AutoImplementationRun, "evidenceRefs">): readonly string[] {
+  return run.evidenceRefs.filter((ref) => ref.startsWith(AUTO_IMPLEMENTATION_PLANNING_PR_ISSUE_EVIDENCE_PREFIX));
 }
 
 export function hasAppliedAutoImplementationPullRequestMerge(run: AutoImplementationRun): boolean {

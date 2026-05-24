@@ -161,6 +161,7 @@ describe("Decision-linked research quality gate", () => {
       balanceStatus: "missing_con_evidence",
       additionalQuestions: [expect.stringContaining("본인 말로 3~5문장으로 서술")]
     });
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
   });
 
   it("turns signal evidence gaps into multi-select prompts", () => {
@@ -177,6 +178,41 @@ describe("Decision-linked research quality gate", () => {
       balanceStatus: "missing_con_evidence",
       additionalQuestions: [expect.stringContaining("여러 개 선택")]
     });
+  });
+
+  it("turns generic one-of-many objective wording into a single-choice prompt", () => {
+    const researchTask = task({
+      objective: "여러 종류 중 하나만 선택해야 하는 객관식 기준 결정"
+    });
+    const researchResult = result({
+      result: "Pro: imported notes narrow the viable categories.",
+      limitationNotes: "The category list is still based on a small sample."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("하나의 선택지")]
+    });
+    expect(matrix.additionalQuestions[0]).not.toContain("여러 개 선택");
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
+  });
+
+  it("turns one-or-more objective wording into a multi-choice prompt", () => {
+    const researchTask = task({
+      objective: "여러 종류 중 하나 혹은 여러 개를 선택해야 하는 후보 결정"
+    });
+    const researchResult = result({
+      result: "Pro: multiple categories may apply to the first validation batch.",
+      limitationNotes: "The exact combination still needs a user decision."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("하나 이상 선택")]
+    });
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
   });
 
   it("turns proceed-or-hold evidence gaps into explicit agree/disagree prompts", () => {

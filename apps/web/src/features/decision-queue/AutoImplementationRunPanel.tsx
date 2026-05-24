@@ -1,5 +1,6 @@
 import {
   AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX,
+  autoImplementationPlanningIssueFiles,
   canCreateAutoImplementationGitHubIssues,
   canImportAutoImplementationWorkerLedger,
   canMergeAutoImplementationPullRequest,
@@ -42,8 +43,6 @@ type AutoImplementationWorkerRuntimeNextAction =
 interface AutoImplementationWorkerRuntimeView extends CodexRuntimeEvidenceView {
   readonly nextActionKey: AutoImplementationWorkerRuntimeNextAction;
 }
-
-const PLANNING_HANDOFF_PR_ISSUE_EVIDENCE_PREFIX = "planning-handoff-pr-issue:";
 
 interface AutoImplementationWorkerPlanView {
   readonly executionMode: AutoImplementationWorkerExecutionPlan["executionMode"];
@@ -378,9 +377,7 @@ export function autoImplementationRunViewModel(
         evidenceRefs: latestWorkerJob.evidenceRefs
       }
     : null;
-  const planningIssueFiles = run.evidenceRefs
-    .filter((ref) => ref.startsWith(PLANNING_HANDOFF_PR_ISSUE_EVIDENCE_PREFIX))
-    .map((ref) => ref.slice(PLANNING_HANDOFF_PR_ISSUE_EVIDENCE_PREFIX.length));
+  const planningIssueFiles = autoImplementationPlanningIssueFiles(run);
   const canRunWorkerJob = canRunAutoImplementationWorkerJob(latestWorkerJob);
   const canAdvanceWorkerStage = latestWorkerJob?.status === "completed" &&
     hasRequiredWorkerAdvanceLedgerEvidence({

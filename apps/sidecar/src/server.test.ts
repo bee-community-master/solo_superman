@@ -9441,7 +9441,13 @@ describe("PR-02 sidecar health shell", () => {
         idempotencyKey: "auto-implementation-route:worker-job",
         projectName: "Worker Job Demo"
       });
-      const runId = String(latestAutoImplementationRunFromBody(await jsonBody(created)).runId);
+      const createdRun = latestAutoImplementationRunFromBody(await jsonBody(created));
+      const runId = String(createdRun.runId);
+      const planningIssueEvidenceRefs = (createdRun.evidenceRefs as readonly string[]).filter((ref) =>
+        ref.startsWith("planning-handoff-pr-issue:")
+      );
+      expect(planningIssueEvidenceRefs.length).toBeGreaterThan(0);
+      const firstPlanningIssueEvidenceRef = planningIssueEvidenceRefs[0]!;
       const blockedJobResponse = await postAutoImplementationWorkerJobForTest(storageApp, sessionId, runId, {
         idempotencyKey: "worker-job:missing-authority"
       });
@@ -9484,10 +9490,13 @@ describe("PR-02 sidecar health shell", () => {
           ]),
           requiredEvidence: expect.arrayContaining([
             expect.stringContaining("ImplementationStepLedger"),
+            expect.stringContaining("Planning Handoff PR-sized issue refs"),
             expect.stringContaining("evidence refs")
-          ])
+          ]),
+          sourceRefs: expect.arrayContaining([firstPlanningIssueEvidenceRef])
         }
       });
+      expect(blockedJobs[0]!.evidenceRefs).toEqual(expect.arrayContaining([firstPlanningIssueEvidenceRef]));
       expect(blockedIssueDocs[0]).toMatchObject({
         issueId: "local-001",
         status: "blocked"
@@ -9687,6 +9696,9 @@ describe("PR-02 sidecar health shell", () => {
         nextRequiredAction: expect.stringContaining("ImplementationStepLedger evidence"),
         executionPlan: {
           executionAuthorityRef: authorityRecordId,
+          sourceRefs: expect.arrayContaining([
+            firstPlanningIssueEvidenceRef
+          ]),
           ledgerTrackerDoc: {
             trackerId: `auto-implementation-tracker:${runId}`,
             sourceRefs: expect.arrayContaining([
@@ -9699,11 +9711,13 @@ describe("PR-02 sidecar health shell", () => {
             sourceRefs: expect.arrayContaining([
               `auto-implementation-worker-job:${String(plannedJobs[5]!.jobId)}`,
               "issue-doc:implementation-issues/001-initial_pr.md",
-              "planning-handoff-plan:planning-handoff-implementation-plan.md"
+              "planning-handoff-plan:planning-handoff-implementation-plan.md",
+              firstPlanningIssueEvidenceRef
             ])
           }
         },
         evidenceRefs: expect.arrayContaining([
+          firstPlanningIssueEvidenceRef,
           `execution-authority:${authorityRecordId}`
         ])
       });

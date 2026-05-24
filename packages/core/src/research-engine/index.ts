@@ -144,6 +144,8 @@ function evidenceSummaryOrFallback(
 type AdditionalQuestionAnswerIntent =
   | "open_text"
   | "binary_choice"
+  | "single_choice"
+  | "multi_choice"
   | "single_customer_choice"
   | "multi_signal_choice"
   | "evidence_judgment";
@@ -151,20 +153,28 @@ type AdditionalQuestionAnswerIntent =
 function additionalQuestionAnswerIntentForObjective(objective: string): AdditionalQuestionAnswerIntent {
   const topic = userFacingQuestionText(objective).toLowerCase();
 
-  if (/(?:여러|복수|모두|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic)) {
-    return "multi_signal_choice";
+  if (/(?:복수|모두|해당|다중|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)\s*(?:선택|고르)|둘\s*이상|multi[-\s]?select|one\s+or\s+more|select\s+all)/iu.test(topic)) {
+    return /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic) ? "multi_signal_choice" : "multi_choice";
   }
 
   if (/(?:고객|세그먼트|성향|persona|customer|segment)/iu.test(topic)) {
     return "single_customer_choice";
   }
 
-  if (/(?:상황|맥락|이유|왜|어떻게|workflow|흐름|사용\s*방식|describe|explain|context)/iu.test(topic)) {
+  if (/(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|상황|맥락|이유|왜|어떻게|workflow|흐름|사용\s*방식|describe|explain|free[-\s]?form|open[-\s]?ended|context)/iu.test(topic)) {
     return "open_text";
   }
 
-  if (/(?:여부|진행|채택|반영|동의|찬성|반대|해야|should|whether|agree|disagree)/iu.test(topic)) {
+  if (/(?:여부|진행|채택|반영|동의|찬성|반대|해야\s*(?:할까|하나|할지)|should|whether|agree|disagree)/iu.test(topic)) {
     return "binary_choice";
+  }
+
+  if (/(?:객관식|선택형|단일\s*선택|하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|종류\s*중\s*하나|후보\s*중\s*하나|옵션\s*중\s*하나|which\s+(?:one|option)|single[-\s]?choice)/iu.test(topic)) {
+    return "single_choice";
+  }
+
+  if (/(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic)) {
+    return "multi_signal_choice";
   }
 
   return "evidence_judgment";
@@ -178,6 +188,68 @@ function koreanObjectParticleFor(value: string) {
   }
 
   return (lastCodePoint - 0xac00) % 28 === 0 ? "를" : "을";
+}
+
+function promptSentenceForAnswerIntent(intent: AdditionalQuestionAnswerIntent, evidenceJudgmentPrompt: string) {
+  switch (intent) {
+    case "single_customer_choice":
+      return "이 정보를 바탕으로 지금 아이디어에 가장 알맞은 후보는 ‘혼자 만드는 초기 창업자’, ‘도메인 전문 1인 빌더’, ‘팀 리더/운영 담당자’ 정도로 추려졌습니다. 어느 성향의 고객에 집중하시겠습니까?";
+    case "multi_signal_choice":
+      return "다음 리서치나 인터뷰에서 함께 확인해야 할 신호를 여러 개 선택해주세요. 예: 반복되는 수동 고통, 예산/지불 의향, 기존 대안 불만, 직접 만든 임시 해결책, 반복 사용/공유 신호.";
+    case "multi_choice":
+      return "위 정보를 기준으로 해당되는 선택지를 하나 이상 선택해주세요. 필요하면 선택지 조합이나 빠진 후보를 직접 적어도 됩니다.";
+    case "single_choice":
+      return "위 정보를 기준으로 지금 가장 먼저 확정할 하나의 선택지를 골라주세요. 선택지에 없는 후보가 더 맞다면 직접 적어도 됩니다.";
+    case "open_text":
+      return "이 근거를 참고해 실제 사용자가 어떤 상황에서 이 문제를 겪고, 어떤 제약 때문에 지금 해결하려는지 본인 말로 3~5문장으로 서술해주세요.";
+    case "binary_choice":
+      return "이 방향을 지금 스펙이나 다음 검증 단계에 반영하는 데 찬성/반대 중 어느 쪽인가요?";
+    case "evidence_judgment":
+      return evidenceJudgmentPrompt;
+  }
+}
+
+function unlockSentenceForAnswerIntent(intent: AdditionalQuestionAnswerIntent, topic: string) {
+  switch (intent) {
+    case "single_customer_choice":
+      return "이 답으로 정해지는 내용은 첫 인터뷰 대상, 리서치 초점, MVP 범위를 어느 고객 성향에 맞출지입니다.";
+    case "multi_signal_choice":
+      return "이 답으로 정해지는 내용은 다음 리서치/인터뷰에서 동시에 확인할 고객 신호와 검증 체크리스트입니다.";
+    case "multi_choice":
+      return "이 답으로 정해지는 내용은 동시에 유지할 후보와 다음 리서치/검증 체크리스트입니다.";
+    case "single_choice":
+      return "이 답으로 정해지는 내용은 다음 스펙과 구현 범위가 우선 따라갈 하나의 선택 기준입니다.";
+    case "open_text":
+      return "이 답으로 정해지는 내용은 문제 맥락, 예외 조건, 스펙에 남길 실제 사용자 상황입니다.";
+    case "binary_choice":
+      return "이 답으로 정해지는 내용은 이 방향을 결정 후보로 진행할지, 보류할지, 조건부로 추가 검증할지입니다.";
+    case "evidence_judgment":
+      return `이 답으로 정해지는 내용은 ${topic}을 스펙에 반영할지, 알려진 리스크로 남길지, 추가 리서치를 더 진행할지입니다.`;
+  }
+}
+
+function questionLeadLinesForAnswerIntent(input: {
+  readonly intent: AdditionalQuestionAnswerIntent;
+  readonly topic: string;
+  readonly proSummary: string;
+  readonly conSummary: string | null;
+  readonly uncertaintySummary: string;
+}) {
+  if (input.intent === "evidence_judgment" || input.intent === "binary_choice") {
+    return [
+      `${input.topic}${koreanObjectParticleFor(input.topic)} 조금 더 구체화하기 위해 리서치 결과를 모아보니 찬성쪽 근거는 ${input.proSummary}입니다.`,
+      "",
+      input.conSummary ? `반대쪽 근거는 ${input.conSummary}입니다.` : null,
+      `한계와 불확실성은 ${input.uncertaintySummary}입니다.`
+    ];
+  }
+
+  return [
+    `${input.topic}${koreanObjectParticleFor(input.topic)} 조금 더 구체화하기 위해 리서치 결과를 모아보니 ${input.proSummary} 같은 단서가 나타났습니다.`,
+    "",
+    input.conSummary ? `다른 관점이나 반례로는 ${input.conSummary}도 확인되었습니다.` : null,
+    `한계와 불확실성은 ${input.uncertaintySummary}입니다.`
+  ];
 }
 
 function additionalQuestionForEvidenceGap(input: {
@@ -204,32 +276,18 @@ function additionalQuestionForEvidenceGap(input: {
     ? `그중 지금 선택할 수 있는 방향은 ‘찬성 근거가 더 강하다’, ‘반대 근거가 더 강하다’, ‘아직 근거가 부족하다’ 정도로 추려졌습니다. 어느 방향으로 판단하시겠습니까?`
     : `그중 지금 선택할 수 있는 방향은 ‘찬성 근거가 충분하다고 보고 진행’, ‘반대 근거를 더 찾아본 뒤 판단’, ‘아직 근거가 부족해 추가 리서치’ 정도로 추려졌습니다. 어느 방향으로 판단하시겠습니까?`;
   const answerIntent = additionalQuestionAnswerIntentForObjective(input.objective);
-  const promptSentence =
-    answerIntent === "single_customer_choice"
-      ? `이 정보를 바탕으로 지금 아이디어에 가장 알맞은 후보는 ‘혼자 만드는 초기 창업자’, ‘도메인 전문 1인 빌더’, ‘팀 리더/운영 담당자’ 정도로 추려졌습니다. 어느 성향의 고객에 집중하시겠습니까?`
-      : answerIntent === "multi_signal_choice"
-        ? `다음 리서치나 인터뷰에서 함께 확인해야 할 신호를 여러 개 선택해주세요. 예: 반복되는 수동 고통, 예산/지불 의향, 기존 대안 불만, 직접 만든 임시 해결책, 반복 사용/공유 신호.`
-        : answerIntent === "open_text"
-          ? `이 근거를 참고해 실제 사용자가 어떤 상황에서 이 문제를 겪고, 어떤 제약 때문에 지금 해결하려는지 본인 말로 3~5문장으로 서술해주세요.`
-          : answerIntent === "binary_choice"
-            ? `이 방향을 지금 스펙이나 다음 검증 단계에 반영하는 데 찬성/반대 중 어느 쪽인가요?`
-            : choiceSentence;
-  const unlockSentence =
-    answerIntent === "single_customer_choice"
-      ? `이 답으로 정해지는 내용은 첫 인터뷰 대상, 리서치 초점, MVP 범위를 어느 고객 성향에 맞출지입니다.`
-      : answerIntent === "multi_signal_choice"
-        ? `이 답으로 정해지는 내용은 다음 리서치/인터뷰에서 동시에 확인할 고객 신호와 검증 체크리스트입니다.`
-        : answerIntent === "open_text"
-          ? `이 답으로 정해지는 내용은 문제 맥락, 예외 조건, 스펙에 남길 실제 사용자 상황입니다.`
-          : answerIntent === "binary_choice"
-            ? `이 답으로 정해지는 내용은 이 방향을 결정 후보로 진행할지, 보류할지, 조건부로 추가 검증할지입니다.`
-            : `이 답으로 정해지는 내용은 ${topic}을 스펙에 반영할지, 알려진 리스크로 남길지, 추가 리서치를 더 진행할지입니다.`;
+  const promptSentence = promptSentenceForAnswerIntent(answerIntent, choiceSentence);
+  const unlockSentence = unlockSentenceForAnswerIntent(answerIntent, topic);
+  const questionLeadLines = questionLeadLinesForAnswerIntent({
+    intent: answerIntent,
+    topic,
+    proSummary,
+    conSummary,
+    uncertaintySummary
+  });
 
   return [
-    `${topic}${koreanObjectParticleFor(topic)} 조금 더 구체화하기 위해 리서치 결과를 모아보니 찬성쪽 근거는 ${proSummary}입니다.`,
-    "",
-    conSummary ? `반대쪽 근거는 ${conSummary}입니다.` : null,
-    `한계와 불확실성은 ${uncertaintySummary}입니다.`,
+    ...questionLeadLines,
     "",
     promptSentence,
     "",
