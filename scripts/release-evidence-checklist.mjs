@@ -812,7 +812,7 @@ function renderReleaseEvidenceBundleReadme(manifest) {
     "pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>",
     "```",
     "",
-    "Use the first command for generated or partially edited bundles. Use `--require-ready` only after release lab evidence has replaced placeholders. The aggregate `verify:ready-release` command also runs the filled-bundle gate before final `release-readiness --require-ready`.",
+    "Use the first command for generated or partially edited bundles. It fails if the bundle directory contains off-manifest files, so remove scratch notes or secret-bearing artifacts before sharing evidence. Use `--require-ready` only after release lab evidence has replaced placeholders. The aggregate `verify:ready-release` command also runs the filled-bundle gate before final `release-readiness --require-ready`.",
     "",
     "## Ready-release verification commands",
     "",

@@ -61,9 +61,9 @@ pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evid
 pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready
 ```
 
-`pnpm verify:release-evidence-bundle` validates the generated bundle or a release-lab bundle directory in one pass: manifest, README, issue-specific templates/comments, ready-release commands, and secret-free boundaries. Use `--require-ready` when the release lab has filled templates and every template must be `ready`/`passed`.
+`pnpm verify:release-evidence-bundle` validates the generated bundle or a release-lab bundle directory in one pass: manifest, the actual on-disk file listing, README, issue-specific templates/comments, ready-release commands, and secret-free boundaries. It fails when off-manifest scratch notes, logs, or secret-bearing artifacts are mixed into the bundle directory, so remove them before sharing evidence. Use `--require-ready` when the release lab has filled templates and every template must be `ready`/`passed`.
 
-The checklist combines blocked gates/runs, required checks, required evidence, unblock criteria, and ready-release commands from the release-readiness, Windows real-device, signed package release, packaged update rollback, and signed package preflight contracts. It reads only public contract files and does not capture credential values, browser cookies, tokens, file contents, or full environment dumps.
+The checklist combines blocked gates/runs, required checks, required evidence, unblock criteria, and ready-release commands from the release-readiness, Windows real-device, signed package release, packaged update rollback, and signed package preflight contracts. Checklist generation reads only public contract files, and bundle verification reads only the selected bundle directory to emit blockers instead of collecting file bodies as evidence. Neither command captures credential values, browser cookies, tokens, unrelated file contents, or full environment dumps.
 
 ## General release mode
 
