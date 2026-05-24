@@ -274,6 +274,30 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.remoteCommands).toContain("git remote add origin <github-repo-url>");
   });
 
+  it("surfaces Planning Handoff PR-sized markdown files before stage issue docs", () => {
+    const projection = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        evidenceRefs: [
+          ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.evidenceRefs,
+          "planning-handoff-pr-issue:planning-handoff-pr-issues/001-phase2-api-ready.md",
+          "planning-handoff-pr-issue:planning-handoff-pr-issues/002-phase2-review-ready.md"
+        ]
+      }
+    } as AutoImplementationRunProjection;
+    const view = autoImplementationRunViewModel(projection);
+    const markup = renderPanelMarkup(view);
+
+    expect(view.planningIssueFiles).toEqual([
+      "planning-handoff-pr-issues/001-phase2-api-ready.md",
+      "planning-handoff-pr-issues/002-phase2-review-ready.md"
+    ]);
+    expect(markup).toContain("Planning-derived PR/issue files");
+    expect(markup).toContain("planning-handoff-pr-issues/001-phase2-api-ready.md");
+    expect(markup.indexOf("Planning-derived PR/issue files")).toBeLessThan(markup.indexOf("Issue documents"));
+  });
+
   it("uses a visible not-started state before the workspace run exists", () => {
     const view = autoImplementationRunViewModel(null);
 
@@ -289,6 +313,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerPlan).toBeNull();
     expect(view.workerRuntimeReadiness).toBeNull();
     expect(view.issueRows).toEqual([]);
+    expect(view.planningIssueFiles).toEqual([]);
     expect(view.canPlanWorkerJob).toBe(false);
     expect(view.canRecordStageTick).toBe(false);
     expect(view.canStartStage).toBe(false);

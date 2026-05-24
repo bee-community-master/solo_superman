@@ -43,6 +43,8 @@ interface AutoImplementationWorkerRuntimeView extends CodexRuntimeEvidenceView {
   readonly nextActionKey: AutoImplementationWorkerRuntimeNextAction;
 }
 
+const PLANNING_HANDOFF_PR_ISSUE_EVIDENCE_PREFIX = "planning-handoff-pr-issue:";
+
 interface AutoImplementationWorkerPlanView {
   readonly executionMode: AutoImplementationWorkerExecutionPlan["executionMode"];
   readonly workingDirectory: string;
@@ -89,6 +91,7 @@ export interface AutoImplementationRunViewModel {
   readonly stages: readonly AutoImplementationStageRecord[];
   readonly issueDocs: readonly AutoImplementationIssueDocument[];
   readonly issueRows: readonly AutoImplementationIssueRowView[];
+  readonly planningIssueFiles: readonly string[];
   readonly deliveryGates: readonly string[];
   readonly stageReviewGates: readonly AutoImplementationStageReviewGate[];
   readonly evidenceRefs: readonly string[];
@@ -314,6 +317,7 @@ export function autoImplementationRunViewModel(
       stages: [],
       issueDocs: [],
       issueRows: [],
+      planningIssueFiles: [],
       deliveryGates: [],
       stageReviewGates: [],
       evidenceRefs: [],
@@ -374,6 +378,9 @@ export function autoImplementationRunViewModel(
         evidenceRefs: latestWorkerJob.evidenceRefs
       }
     : null;
+  const planningIssueFiles = run.evidenceRefs
+    .filter((ref) => ref.startsWith(PLANNING_HANDOFF_PR_ISSUE_EVIDENCE_PREFIX))
+    .map((ref) => ref.slice(PLANNING_HANDOFF_PR_ISSUE_EVIDENCE_PREFIX.length));
   const canRunWorkerJob = canRunAutoImplementationWorkerJob(latestWorkerJob);
   const canAdvanceWorkerStage = latestWorkerJob?.status === "completed" &&
     hasRequiredWorkerAdvanceLedgerEvidence({
@@ -411,6 +418,7 @@ export function autoImplementationRunViewModel(
     stages: run.stagePlan,
     issueDocs: run.issueManagement.issueDocs,
     issueRows: run.issueManagement.issueDocs.map((issue) => autoImplementationIssueRowView(run, issue)),
+    planningIssueFiles,
     deliveryGates: run.reviewProtocol.deliveryGates,
     stageReviewGates: run.reviewProtocol.stageGates,
     evidenceRefs: run.evidenceRefs,
@@ -819,6 +827,17 @@ export function AutoImplementationRunPanel({
           ))}
         </div>
       ) : null}
+
+      <h3>{copy.autoImplementation.planningIssueFiles}</h3>
+      {run.planningIssueFiles.length ? (
+        <ul>
+          {run.planningIssueFiles.map((path) => (
+            <li key={path}>{path}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="empty-state">{copy.autoImplementation.noPlanningIssueFiles}</p>
+      )}
 
       <h3>{copy.autoImplementation.issueDocs}</h3>
       {run.issueRows.length ? (
