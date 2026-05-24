@@ -16,6 +16,8 @@
       "pnpm verify:signed-package-release",
       "pnpm verify:signed-package-release:dry-run",
       "pnpm verify:release-readiness",
+      "pnpm verify:release-evidence-template",
+      "pnpm verify:release-evidence-bundle",
       "pnpm verify"
     ],
     "readyRelease": [

@@ -25,6 +25,8 @@ function blockedContract(overrides = {}) {
         "pnpm verify:signed-package-release",
         "pnpm verify:signed-package-release:dry-run",
         "pnpm verify:release-readiness",
+        "pnpm verify:release-evidence-template",
+        "pnpm verify:release-evidence-bundle",
         "pnpm verify"
       ],
       readyRelease: [
@@ -173,6 +175,8 @@ describe("release readiness verification", () => {
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:signed-package-release",
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:signed-package-release:dry-run",
       "$.requiredVerificationCommands.credentialFree: must include pnpm verify:release-readiness",
+      "$.requiredVerificationCommands.credentialFree: must include pnpm verify:release-evidence-template",
+      "$.requiredVerificationCommands.credentialFree: must include pnpm verify:release-evidence-bundle",
       "$.requiredVerificationCommands.readyRelease: must be a string list with at least 1 item(s)",
       "$.requiredVerificationCommands.readyRelease: must include pnpm verify:signed-package-release -- --require-release-evidence",
       "$.requiredVerificationCommands.readyRelease: must include pnpm verify:windows-real-device -- --require-device-evidence",

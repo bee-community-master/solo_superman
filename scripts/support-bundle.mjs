@@ -29,6 +29,7 @@ const PACKAGE_METADATA_SCRIPT = [
   "verifySignedPackageReleaseDryRun:scripts['verify:signed-package-release:dry-run'],",
   "verifyReleaseReadiness:scripts['verify:release-readiness'],",
   "verifyReleaseEvidenceTemplate:scripts['verify:release-evidence-template'],",
+  "verifyReleaseEvidenceBundle:scripts['verify:release-evidence-bundle'],",
   "verifySupportBundle:scripts['verify:support-bundle'],",
   "supportBundle:scripts['support:bundle'],",
   "releaseEvidenceChecklist:scripts['release:evidence-checklist'],",
@@ -79,6 +80,10 @@ const SUPPORT_DIAGNOSTIC_COMMANDS = {
   releaseEvidenceTemplate: {
     command: "pnpm verify:release-evidence-template",
     args: ["scripts/verify-release-evidence-template.mjs"]
+  },
+  releaseEvidenceBundle: {
+    command: "pnpm verify:release-evidence-bundle",
+    args: ["scripts/verify-release-evidence-bundle.mjs"]
   }
 };
 const SUPPORT_ENV_ALLOWLIST = [
@@ -374,6 +379,18 @@ function compactSupportDiagnostic(name, result) {
         itemCount: typeof parsed.itemCount === "number" ? parsed.itemCount : null,
         issues: stringList(parsed.issues)
       };
+    case "releaseEvidenceBundle":
+      return {
+        ...summary,
+        schemaVersion: typeof parsed.schemaVersion === "string" ? parsed.schemaVersion : null,
+        mode: typeof parsed.mode === "string" ? parsed.mode : null,
+        checklistStatus: typeof parsed.checklistStatus === "string" ? parsed.checklistStatus : "unknown",
+        issueNumbers: Array.isArray(parsed.issueNumbers)
+          ? parsed.issueNumbers.map((issueNumber) => String(issueNumber))
+          : [],
+        fileCount: typeof parsed.fileCount === "number" ? parsed.fileCount : null,
+        blockers: stringList(parsed.blockers)
+      };
     default:
       return {
         ...summary,
@@ -476,6 +493,7 @@ export async function createSupportBundle(options = {}) {
       "pnpm verify:signed-package-release:dry-run",
       "pnpm verify:release-readiness",
       "pnpm verify:release-evidence-template",
+      "pnpm verify:release-evidence-bundle",
       "pnpm verify:support-bundle",
       "pnpm release:evidence-checklist",
       "pnpm release:evidence-bundle -- <bundle-dir>",

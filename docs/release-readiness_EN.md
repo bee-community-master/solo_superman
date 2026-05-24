@@ -56,7 +56,12 @@ The template preserves each required check/evidence/unblock criterion as a `pend
 
 ```sh
 pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json
+pnpm verify:release-evidence-bundle
+pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle
+pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready
 ```
+
+`pnpm verify:release-evidence-bundle` validates the generated bundle or a release-lab bundle directory in one pass: manifest, README, issue-specific templates/comments, ready-release commands, and secret-free boundaries. Use `--require-ready` when the release lab has filled templates and every template must be `ready`/`passed`.
 
 The checklist combines blocked gates/runs, required checks, required evidence, unblock criteria, and ready-release commands from the release-readiness, Windows real-device, signed package release, packaged update rollback, and signed package preflight contracts. It reads only public contract files and does not capture credential values, browser cookies, tokens, file contents, or full environment dumps.
 

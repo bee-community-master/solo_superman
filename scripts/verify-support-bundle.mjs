@@ -31,12 +31,14 @@ const REQUIRED_DIAGNOSTICS = new Set([
   "signedPackageRelease",
   "signedPackageReleaseDryRun",
   "releaseReadiness",
-  "releaseEvidenceTemplate"
+  "releaseEvidenceTemplate",
+  "releaseEvidenceBundle"
 ]);
 const REQUIRED_RECOMMENDED_CHECKS = new Set([
   "pnpm verify:product-capability-readiness",
   "pnpm verify:release-readiness",
   "pnpm verify:release-evidence-template",
+  "pnpm verify:release-evidence-bundle",
   "pnpm verify:support-bundle",
   "pnpm support:bundle",
   "pnpm verify"
