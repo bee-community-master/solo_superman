@@ -669,6 +669,16 @@ describe("research follow-up answer shape", () => {
       ...base,
       question: "This is a multiple-choice question, but choose one customer segment: solo founder, team lead, or consultant."
     })).toBe("single");
+    expect(researchFollowUpAnswerOptions({
+      ...base,
+      question: "This is a multiple-choice question, but choose one customer segment: solo founder, team lead, or consultant."
+    })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "solo founder" }),
+        expect.objectContaining({ label: "team lead" }),
+        expect.objectContaining({ label: "consultant" })
+      ])
+    );
 
     const candidateChoiceInput = {
       ...base,
@@ -717,6 +727,17 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpExpectedAnswerType(answerFormPolicyInput)).toBe("text");
     expect(researchFollowUpAnswerSelectionMode(answerFormPolicyInput)).toBeUndefined();
     expect(researchFollowUpAnswerOptions(answerFormPolicyInput)).toEqual([]);
+
+    const exactPolicyWordingInput = {
+      ...base,
+      question:
+        "모든 내용이 찬성과 반대가 되는 게 아니라 open question으로 주관식이나 서술형 답변을 요구할 수도 있고 객관식으로 찬성/반대를 할 수도 있고, 여러 종류중 하나 혹은 여러개를 선택해야할 수도 있습니다. 답변을 다양하게 필요에 맞게 구성할 수 있어야 합니다."
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(exactPolicyWordingInput)).toBe("open_text");
+    expect(researchFollowUpExpectedAnswerType(exactPolicyWordingInput)).toBe("text");
+    expect(researchFollowUpAnswerSelectionMode(exactPolicyWordingInput)).toBeUndefined();
+    expect(researchFollowUpAnswerOptions(exactPolicyWordingInput)).toEqual([]);
   });
 
   it("lets explicit narrative instructions win over mentioned choice formats", () => {

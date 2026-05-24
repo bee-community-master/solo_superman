@@ -280,15 +280,52 @@ function splitGenericChoiceCandidatePhrase(value: string) {
   return value
     .replace(/([^\s,·/]+)(?:와|과)\s+/gu, "$1, ")
     .replace(/\s+(?:및|또는|혹은)\s+/gu, ", ")
+    .replace(/\s+(?:and|or)\s+/giu, ", ")
     .split(/[,·/]+/u)
     .map(normalizeGenericChoiceCandidateLabel)
     .filter((candidate) => candidate.length >= 2 && candidate.length <= 64);
+}
+
+function labelsFromEvidenceCandidatePhrases(input: {
+  readonly text: string;
+  readonly patterns: readonly RegExp[];
+}) {
+  const phrases: string[] = [];
+
+  for (const pattern of input.patterns) {
+    for (const match of input.text.matchAll(pattern)) {
+      const phrase = match.groups?.candidates?.trim();
+
+      if (phrase) {
+        phrases.push(phrase);
+      }
+    }
+  }
+
+  return uniqueValues(phrases.flatMap(splitGenericChoiceCandidatePhrase)).slice(0, 10);
+}
+
+function withCandidateFallbackFloor(
+  candidates: readonly string[],
+  fallbackCandidates: readonly string[],
+  minimumCount = 3
+) {
+  if (!candidates.length) {
+    return [];
+  }
+
+  if (candidates.length >= minimumCount) {
+    return candidates.slice(0, 10);
+  }
+
+  return uniqueValues([...candidates, ...fallbackCandidates]).slice(0, 10);
 }
 
 function genericChoiceCandidateLabelsFromTopic(topic: string) {
   const phrases: string[] = [];
   const patterns = [
     /(?:후보|선택지|옵션|종류|유형|타입|기능|검증\s*방법|검증\s*후보)(?:는|은|로는|로|:)\s*(?<candidates>.+?)(?:입니다|입니다만|정도로|정도(?:로)?\s*추려|중에서|중\s*(?:하나|한\s*가지|하나\s*이상|여러\s*개)|를\s*고르|을\s*고르|를\s*선택|을\s*선택|\.|\?|$)/giu,
+    /(?:customer\s*)?(?:(?:candidates?|options?|validation\s*(?:methods?|candidates?)|feature\s*candidates?)\s*(?:include|includes|are|:)|(?:segments?|personas?|types?)\s*(?:include|includes|:))\s*(?<candidates>[^.?\n]{2,180})(?:\.|\?|$)/giu,
     /(?<candidates>[^.?\n]{2,180}(?:[,·/]|(?:와|과)\s+|(?:및|또는|혹은)\s+)[^.?\n]{2,180}?)(?:\s*(?:중|가운데)\s*(?:하나(?:만)?|한\s*가지|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)|복수|다중)(?:를|을)?\s*(?:선택|고르|골라|정|택)|\s*(?:중|가운데)\s*먼저\s*(?:볼|확인|검증|구현)할\s*순서)/giu
   ];
 
@@ -360,11 +397,18 @@ function customerCandidateLabelsFromEvidence(input: {
   readonly uncertaintySummary: string;
 }) {
   const text = joinedEvidenceContext(input);
+  const explicitCandidates = labelsFromEvidenceCandidatePhrases({
+    text,
+    patterns: [
+      /(?:고객\s*)?(?:후보|세그먼트|유형|타입|성향)(?:는|은|로는|로|:|：)\s*(?<candidates>[^.?!\n。！？]{2,220})(?:입니다|입니다만|정도로|정도(?:로)?\s*추려|중에서|중\s*(?:하나|한\s*가지|하나\s*이상|여러\s*개)|를\s*고르|을\s*고르|를\s*선택|을\s*선택|$)/giu,
+      /(?:customer\s*)?(?:(?:candidates?)\s*(?:include|includes|are|:)|(?:segments?|personas?|types?)\s*(?:include|includes|:))\s*(?<candidates>[^.?!\n]{2,220})/giu
+    ]
+  });
   const candidates = CUSTOMER_CANDIDATE_LABEL_RULES
     .filter((candidate) => candidate.pattern.test(text))
     .map((candidate) => candidate.label);
 
-  return uniqueValues(candidates);
+  return withCandidateFallbackFloor(uniqueValues([...explicitCandidates, ...candidates]), DEFAULT_CUSTOMER_CANDIDATES);
 }
 
 const DEFAULT_CUSTOMER_SIGNAL_CANDIDATES = [
@@ -409,11 +453,18 @@ function customerSignalLabelsFromEvidence(input: {
   readonly uncertaintySummary: string;
 }) {
   const text = joinedEvidenceContext(input);
+  const explicitSignals = labelsFromEvidenceCandidatePhrases({
+    text,
+    patterns: [
+      /(?:고객\s*)?(?:신호|조건|요인|기준)(?:는|은|로는|로|:|：)\s*(?<candidates>[^.?!\n。！？]{2,220})(?:입니다|입니다만|정도로|정도(?:로)?\s*추려|중에서|해당|여러\s*(?:개|항목)|를\s*확인|을\s*확인|를\s*선택|을\s*선택|$)/giu,
+      /(?:customer\s*)?(?:signals?|criteria|factors?|conditions?)\s*(?:include|includes|:)\s*(?<candidates>[^.?!\n]{2,220})/giu
+    ]
+  });
   const signals = CUSTOMER_SIGNAL_LABEL_RULES
     .filter((signal) => signal.pattern.test(text))
     .map((signal) => signal.label);
 
-  return uniqueValues(signals);
+  return withCandidateFallbackFloor(uniqueValues([...explicitSignals, ...signals]), DEFAULT_CUSTOMER_SIGNAL_CANDIDATES);
 }
 
 function promptSentenceForAnswerIntent(

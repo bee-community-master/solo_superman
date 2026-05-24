@@ -292,6 +292,42 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).toContain("해당되는 신호를 여러 개 선택");
   });
 
+  it("uses exact customer candidates named by research evidence before falling back to defaults", () => {
+    const researchTask = task({
+      objective: "첫 고객 세그먼트 후보 중 하나 선택"
+    });
+    const researchResult = result({
+      result:
+        "Pro: customer segments include independent consultants, bootcamp instructors, and small agency operators.",
+      limitationNotes: "The exact first segment still needs founder selection."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("리서치 단서에서 우선 비교할 고객 후보");
+    expect(matrix.additionalQuestions[0]).toContain("- independent consultants");
+    expect(matrix.additionalQuestions[0]).toContain("- bootcamp instructors");
+    expect(matrix.additionalQuestions[0]).toContain("- small agency operators");
+    expect(matrix.additionalQuestions[0]).toContain("어느 성향의 고객에 집중");
+  });
+
+  it("uses exact signal candidates named by research evidence in multi-select prompts", () => {
+    const researchTask = task({
+      objective: "다음 인터뷰에서 확인할 고객 신호와 조건 여러 개 선택"
+    });
+    const researchResult = result({
+      result:
+        "Pro: customer signals include repeated spreadsheet work, budget-owner pressure, and referral requests.",
+      limitationNotes: "The exact signal combination still needs direct interview confirmation."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("리서치 단서에서 다음에 함께 확인할 고객 신호");
+    expect(matrix.additionalQuestions[0]).toContain("- repeated spreadsheet work");
+    expect(matrix.additionalQuestions[0]).toContain("- budget-owner pressure");
+    expect(matrix.additionalQuestions[0]).toContain("- referral requests");
+    expect(matrix.additionalQuestions[0]).toContain("해당되는 신호를 여러 개 선택");
+  });
+
   it("does not collapse signal or criteria objectives with incidental 여부 wording into pro/con prompts", () => {
     const researchTask = task({
       objective: "구매 여부를 판단할 고객 신호와 조건 확인"
@@ -383,6 +419,24 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
     expect(matrix.additionalQuestions[0]).not.toContain("하나 이상 선택");
     expect(matrix.additionalQuestions[0]).not.toContain("- 객관식으로 찬성");
+  });
+
+  it("keeps explicit open-text and choice families as answer-form policy when they are described together", () => {
+    const researchTask = task({
+      objective:
+        "모든 내용이 찬성과 반대가 되는 게 아니라 open question으로 주관식이나 서술형 답변을 요구할 수도 있고 객관식으로 찬성/반대를 할 수도 있고, 여러 종류중 하나 혹은 여러개를 선택해야 할 수도 있습니다. 답변을 다양하게 필요에 맞게 구성할 수 있어야 합니다."
+    });
+    const researchResult = result({
+      result: "Pro: follow-up cards need to match the user's decision intent.",
+      limitationNotes: "The concrete answer form should be selected per question."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("질문마다 답변 형식을 달리");
+    expect(matrix.additionalQuestions[0]).toContain("주관식/서술형, 찬성·반대, 하나 선택, 여러 개 선택, 우선순위");
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+    expect(matrix.additionalQuestions[0]).not.toContain("하나 이상 선택");
   });
 
   it("keeps named generic multi-choice candidates visible in the follow-up prompt", () => {
