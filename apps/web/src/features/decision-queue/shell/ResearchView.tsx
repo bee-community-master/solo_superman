@@ -143,7 +143,7 @@ function EvidencePackGateChecks({
           <ul>
             {pack.gateChecks.map((check) => (
               <li key={`${check.code}:${check.status}:${check.reason}`}>
-                {check.code}: {check.status} — {check.reason}
+                {copy.research.gateCheckCodeLabels[check.code]}: {copy.research.gateCheckStatusLabels[check.status]} — {check.reason}
               </li>
             ))}
           </ul>
@@ -166,8 +166,8 @@ function EvidencePackCard({
     <article className="research-evidence-pack">
       <div className="research-evidence-matrix-heading">
         <strong>{pack.claim}</strong>
-        <span>{copy.research.gateStatus}: {pack.gateStatus}</span>
-        <span>{copy.research.sourceReliability}: {pack.sourceReliability}</span>
+        <span>{copy.research.gateStatus}: {copy.research.gateStatusLabels[pack.gateStatus]}</span>
+        <span>{copy.research.sourceReliability}: {copy.research.sourceReliabilityLabels[pack.sourceReliability]}</span>
       </div>
       <dl className="research-evidence-grid">
         <div>
@@ -274,7 +274,7 @@ function EvidenceMatrixCard({
       <div className="research-evidence-matrix-heading">
         <strong>{matrix.evidenceMatrixId}</strong>
         <span>
-          {copy.research.balanceStatus}: {matrix.balanceStatus}
+          {copy.research.balanceStatus}: {copy.research.balanceStatusLabels[matrix.balanceStatus]}
         </span>
         <span>{matrix.decisionBlocked ? copy.research.decisionBlocked : copy.research.decisionReady}</span>
       </div>
@@ -343,13 +343,16 @@ export function ResearchView({ controller }: ResearchViewProps) {
   const knownRisks = research?.knownRisks ?? [];
   const nextValidationActions = research?.nextValidationActions ?? [];
   const readyReadOnlyResearchTaskIdSet = new Set(readyReadOnlyResearchTaskIds);
+  const balanceStatusLabel = research?.proConBalanceStatus
+    ? copy.research.balanceStatusLabels[research.proConBalanceStatus]
+    : copy.research.unknown;
 
   return (
     <div className="view-grid research-view">
       <section className="panel research-main-panel">
         <div className="panel-heading">
           <h2>{copy.research.research}</h2>
-          <span>{research?.proConBalanceStatus ?? copy.research.unknown}</span>
+          <span>{balanceStatusLabel}</span>
         </div>
         <div className="card-actions panel-actions">
           <button type="button" disabled={isBusy || !projections.session} onClick={() => void planPhase15aResearchTask()}>
@@ -371,22 +374,31 @@ export function ResearchView({ controller }: ResearchViewProps) {
               const canImportResearch = task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true;
               const canStartReadOnlyRun = readyReadOnlyResearchTaskIdSet.has(task.researchTaskId);
               const retainedSourceRefs = card ? retainedSourceRefsForResearchCard(card) : [];
+              const statusLabel = card
+                ? copy.research.reviewCardStateLabels[card.state]
+                : copy.research.taskStatusLabels[task.status];
+              const summaryLabel = card ? copy.research.reviewCardTypeLabels[card.cardType] : copy.research.routeOutcomeLabels[task.routeOutcome];
+              const impactLabel = copy.research.researchImpactLabels[card?.impact ?? task.impact];
+              const terminalOutcomeLabel = card?.terminalOutcome
+                ? copy.research.terminalOutcomeLabels[card.terminalOutcome]
+                : null;
+              const recoveryActionLabels = card?.recoveryActions.map((action) => copy.research.recoveryActionLabels[action]) ?? [];
 
               return (
                 <article className="research-card" key={task.researchTaskId}>
                   <div>
-                    <span>{card?.state ?? task.status}</span>
+                    <span>{statusLabel}</span>
                     <h3>{task.objective}</h3>
-                    <p>{card?.title ?? task.routeOutcome}</p>
+                    <p>{card?.title ?? summaryLabel}</p>
                     {card?.cardType ? (
                       <p className="research-recovery">
-                        {card.cardType}
-                        {card.blocksPlanning ? " · blocks Planning-ready" : ""}
-                        {card.terminalOutcome ? ` · ${card.terminalOutcome}` : ""}
+                        {summaryLabel} · {impactLabel}
+                        {card.blocksPlanning ? ` · ${copy.research.planningBlockedSuffix}` : ""}
+                        {terminalOutcomeLabel ? ` · ${terminalOutcomeLabel}` : ""}
                       </p>
                     ) : null}
                     {card?.terminalRationale ? <p className="research-recovery">{copy.research.rationale}: {card.terminalRationale}</p> : null}
-                    {card?.recoveryActions.length ? <p className="research-recovery">{card.recoveryActions.join(" / ")}</p> : null}
+                    {recoveryActionLabels.length ? <p className="research-recovery">{recoveryActionLabels.join(" / ")}</p> : null}
                     {card?.additionalQuestions?.length ? (
                       <div className="research-additional-questions">
                         <p>{copy.research.additionalQuestions}</p>
@@ -444,7 +456,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
                           key={outcome}
                           onClick={() => void resolveResearchCard(card.cardId, outcome, card.title)}
                         >
-                          {outcome}
+                          {copy.research.terminalOutcomeLabels[outcome]}
                         </button>
                       ))}
                     </div>
