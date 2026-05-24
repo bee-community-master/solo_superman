@@ -2,7 +2,7 @@
   "schemaVersion": "solo-superman-packaged-update-rollback.v1",
   "appId": "solo-superman",
   "rollbackStatus": "blocked",
-  "summary": "Packaged automatic updates remain blocked until signed macOS and Windows packages have device install, update, retry, rollback, launch, and preservation evidence.",
+  "summary": "Packaged automatic updates have a credential-free updater runtime dry-run, but general release remains blocked until signed macOS and Windows packages have device install, update, retry, rollback, launch, and preservation evidence.",
   "releaseChannelContract": "docs/release-channel_KO.md",
   "releaseUpdateManifest": "docs/release-update-channel.example.json",
   "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/267",
@@ -24,7 +24,8 @@
     "Rollback must preserve local databases.",
     "Rollback must preserve generated workspaces and operator files.",
     "Rollback must preserve support bundles.",
-    "Rollback must not read, rewrite, or delete Codex/OpenAI/GitHub credentials, browser cookies, local capability tokens, or environment secrets."
+    "Rollback must not read, rewrite, or delete Codex/OpenAI/GitHub credentials, browser cookies, local capability tokens, or environment secrets.",
+    "Credential preservation checks must use metadata-only no-read snapshots for credential paths."
   ],
   "deviceRuns": [
     {
@@ -36,7 +37,8 @@
       "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/267",
       "evidenceRefs": [
         "docs/release-channel_KO.md",
-        "docs/release-update-channel.example.json"
+        "docs/release-update-channel.example.json",
+        "scripts/packaged-update-runtime.mjs"
       ],
       "requiredChecks": [
         "install_signed_package",
@@ -53,7 +55,8 @@
         "update prompt supports user consent and deferral",
         "failed update can retry without deleting the existing installation",
         "rollback after failed launch restores previous app binary/release metadata",
-        "local DB, generated workspace, support bundle, operator files, and credentials are preserved"
+        "local DB, generated workspace, support bundle, operator files, and credentials are preserved",
+        "updater runtime touches only app binary, release metadata, and update state"
       ],
       "unblockCriteria": [
         "Attach redacted macOS install/update/retry/rollback/launch evidence to #267",
@@ -70,7 +73,8 @@
       "evidenceRefs": [
         "docs/release-channel_KO.md",
         "docs/release-update-channel.example.json",
-        "https://github.com/bee-community-master/solo_superman/issues/259"
+        "https://github.com/bee-community-master/solo_superman/issues/259",
+        "scripts/packaged-update-runtime.mjs"
       ],
       "requiredChecks": [
         "install_signed_package",
@@ -87,7 +91,8 @@
         "update prompt supports user consent and deferral",
         "failed update can retry without deleting the existing installation",
         "rollback after failed launch restores previous app binary/release metadata",
-        "local DB, generated workspace, support bundle, operator files, and credentials are preserved"
+        "local DB, generated workspace, support bundle, operator files, and credentials are preserved",
+        "updater runtime touches only app binary, release metadata, and update state"
       ],
       "unblockCriteria": [
         "Attach redacted Windows install/update/retry/rollback/launch evidence to #267",

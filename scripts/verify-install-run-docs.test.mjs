@@ -80,7 +80,7 @@ describe("#105 local install/run verification docs", () => {
     expect(readme).toContain("clean checkout이면 같은 한 줄 설치 명령을 다시 실행할 때");
     expect(readme).toContain("패키지 앱 업데이트 채널");
     expect(readme).toContain("`pnpm verify:release-channel`");
-    expect(readme).toContain("패키지 업데이트 rollback evidence 계약");
+    expect(readme).toContain("패키지 업데이트 rollback runtime/evidence 계약");
     expect(readme).toContain("`pnpm verify:packaged-update-rollback`");
     expect(readme).toContain("`pnpm verify:packaged-update-rollback:dry-run`");
     expect(readme).toContain("Windows 실기기 설치 evidence 계약");
@@ -121,7 +121,7 @@ describe("#105 local install/run verification docs", () => {
     expect(englishReadme).toContain("existing install folder is a clean checkout");
     expect(englishReadme).toContain("Packaged app update channel contract");
     expect(englishReadme).toContain("`pnpm verify:release-channel`");
-    expect(englishReadme).toContain("Packaged update rollback evidence contract");
+    expect(englishReadme).toContain("Packaged update rollback runtime/evidence contract");
     expect(englishReadme).toContain("`pnpm verify:packaged-update-rollback`");
     expect(englishReadme).toContain("`pnpm verify:packaged-update-rollback:dry-run`");
     expect(englishReadme).toContain("Windows real-device install evidence contract");
