@@ -100,6 +100,8 @@ const REQUIRED_DECISION_REFS: readonly RequiredDecisionRef[] = [
   "validation_plan",
   "success_criteria"
 ] as const;
+const CONFIDENCE_AXIS_READY_THRESHOLD = 75;
+const MIN_READY_CONFIDENCE_AXIS_COUNT = 4;
 
 const RISK_SEVERITY_RANK = {
   high: 0,
@@ -563,6 +565,8 @@ function gateStatuses(
   axes: readonly ConfidenceAxisScore[],
   decisionScore: number
 ): readonly CompletionGateStatus[] {
+  const readyAxisCount = axes.filter((axis) => axis.score >= CONFIDENCE_AXIS_READY_THRESHOLD).length;
+  const confidenceAxesPassed = readyAxisCount >= Math.min(MIN_READY_CONFIDENCE_AXIS_COUNT, axes.length);
   const unresolvedOpenQuestions = state.openIssues.filter((issue) => issue.status === "open").length;
   const blockingEvidence = state.researchState.evidenceMatrices.filter((matrix) =>
     evidenceMatrixBlocksCompletion(state, matrix)
@@ -586,15 +590,15 @@ function gateStatuses(
     },
     {
       gateId: "confidence_axes",
-      label: "All confidence axes are 75 or higher",
-      passed: axes.every((axis) => axis.score >= 75),
-      ...(axes.every((axis) => axis.score >= 75)
+      label: `Most confidence axes are ${CONFIDENCE_AXIS_READY_THRESHOLD} or higher`,
+      passed: confidenceAxesPassed,
+      ...(confidenceAxesPassed
         ? {}
         : {
-            blockingReason: axes
-              .filter((axis) => axis.score < 75)
+            blockingReason: `${readyAxisCount}/${axes.length} confidence axes are ${CONFIDENCE_AXIS_READY_THRESHOLD} or higher; below threshold: ${axes
+              .filter((axis) => axis.score < CONFIDENCE_AXIS_READY_THRESHOLD)
               .map((axis) => `${axis.label} ${axis.score}`)
-              .join(", ")
+              .join(", ")}`
           })
     },
     {

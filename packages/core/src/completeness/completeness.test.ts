@@ -217,6 +217,35 @@ describe("PR-08 completeness scoring", () => {
     expect(projection.topRiskCards).toEqual([]);
   });
 
+  it("allows completion when most readiness metrics are concrete even if one section metric is weak", () => {
+    const mostlyConcreteState = {
+      ...completeState(),
+      currentSpec: {
+        ...completeState().currentSpec,
+        sections: [
+          "Problem Statement",
+          "Target Customer",
+          "Value Proposition",
+          "Validation Plan"
+        ]
+      }
+    };
+    const projection = buildConfidenceCompletionProjection(mostlyConcreteState, 13 as ProjectionVersion);
+    const confidenceAxesGate = projection.gates.find((gate) => gate.gateId === "confidence_axes");
+    const readyScoreMetricCount = Object.values(projection.scoreBreakdown).filter((score) => score >= 75).length;
+    const readyAxisCount = projection.axes.filter((axis) => axis.score >= 75).length;
+
+    expect(projection.scoreBreakdown.sectionCompleteness).toBeLessThan(75);
+    expect(readyScoreMetricCount).toBe(4);
+    expect(readyAxisCount).toBe(4);
+    expect(projection.compositeScore).toBeGreaterThanOrEqual(85);
+    expect(confidenceAxesGate).toMatchObject({
+      label: "Most confidence axes are 75 or higher",
+      passed: true
+    });
+    expect(projection.completionCandidate.status).toBe("candidate");
+  });
+
   it("blocks strong and investor-grade completion pressure until carried as Known Risk", () => {
     const strongOpenProjection = buildConfidenceCompletionProjection(
       {
