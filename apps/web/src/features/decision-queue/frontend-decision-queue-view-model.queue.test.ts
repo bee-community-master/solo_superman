@@ -275,6 +275,7 @@ describe("Decision Queue view model queue", () => {
       activeQuestionCount: 5,
       upcomingQuestionCount: 1,
       blockedQuestionCount: 0,
+      backlogQuestionCount: 12,
       completionPercent: 22
     });
     expect(questionFatigueViewModel(progress)).toMatchObject({
@@ -285,6 +286,37 @@ describe("Decision Queue view model queue", () => {
       completionPercent: 22,
       followUpBudgetRemainingCount: 40
     });
+  });
+
+  it("summarizes hidden backlog for hundred-question sessions without double-counting the active batch", () => {
+    const progress = questionProgressViewModel({
+      kind: "DecisionQueueProjection",
+      version: 10 as ProjectionVersion,
+      progress: {
+        generatedQuestionCount: 180,
+        openQuestionCount: 121,
+        answeredQuestionCount: 54,
+        deferredQuestionCount: 5,
+        resolvedQuestionCount: 0,
+        terminalQuestionCount: 59,
+        followUpQuestionCount: 40,
+        followUpOpenQuestionCount: 30,
+        topicCoverageCount: 32,
+        openTopicCoverageCount: 20,
+        followUpBudgetRemainingCount: 120,
+        visibleQuestionDebtCount: 11,
+        activeQuestionCount: 5,
+        upcomingQuestionCount: 4,
+        blockedQuestionCount: 2,
+        completionPercent: 33
+      },
+      active: [],
+      next: [],
+      blocked: [],
+      deferred: []
+    });
+
+    expect(progress.backlogQuestionCount).toBe(110);
   });
 
   it("keeps the fatigue checkpoint hidden for short or mostly handled sessions", () => {
@@ -303,6 +335,7 @@ describe("Decision Queue view model queue", () => {
         activeQuestionCount: 3,
         upcomingQuestionCount: 0,
         blockedQuestionCount: 0,
+        backlogQuestionCount: 0,
         completionPercent: 62
       })
     ).toMatchObject({
@@ -327,6 +360,7 @@ describe("Decision Queue view model queue", () => {
         activeQuestionCount: 5,
         upcomingQuestionCount: 3,
         blockedQuestionCount: 1,
+        backlogQuestionCount: 25,
         completionPercent: 22
       })
     ).toMatchObject({

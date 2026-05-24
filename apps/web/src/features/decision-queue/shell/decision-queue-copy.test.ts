@@ -92,6 +92,8 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.questions.questionProgressActive).toBe("Active now");
     expect(DECISION_QUEUE_COPY.ja.questions.questionProgressActive).toBe("回答中");
     expect(DECISION_QUEUE_COPY.ko.questions.questionProgressActive).toBe("지금 답할 질문");
+    expect(DECISION_QUEUE_COPY.ko.questions.questionProgressBacklog).toBe("나중에 볼 질문");
+    expect(DECISION_QUEUE_COPY.en.questions.questionProgressBacklog).toBe("Later backlog");
     expect(DECISION_QUEUE_COPY.en.questions.questionProgressUpcoming).toBe("Upcoming next");
     expect(DECISION_QUEUE_COPY.ja.questions.questionProgressUpcoming).toBe("次の質問");
     expect(DECISION_QUEUE_COPY.ko.questions.questionProgressUpcoming).toBe("다음 질문");

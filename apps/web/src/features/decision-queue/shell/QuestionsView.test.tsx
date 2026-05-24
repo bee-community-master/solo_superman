@@ -33,6 +33,7 @@ const DEFAULT_QUESTION_PROGRESS = {
   activeQuestionCount: 0,
   upcomingQuestionCount: 0,
   blockedQuestionCount: 0,
+  backlogQuestionCount: 0,
   completionPercent: 0
 } as const;
 
@@ -379,6 +380,7 @@ describe("QuestionsView", () => {
         activeQuestionCount: 5,
         upcomingQuestionCount: 1,
         blockedQuestionCount: 0,
+        backlogQuestionCount: 12,
         completionPercent: 22
       }
     });
@@ -396,6 +398,7 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Open topics");
     expect(markup).toContain("Follow-up budget");
     expect(markup).toContain("Blocked");
+    expect(markup).toContain("Later backlog");
     expect(markup).toContain("Fatigue checkpoint");
     expect(markup).toContain("18 open questions remain after 22% handled across 23 generated questions.");
     expect(markup).toContain("Answer only the current batch");
@@ -410,6 +413,7 @@ describe("QuestionsView", () => {
     expect(markup).toContain("<dd>12</dd>");
     expect(markup).toContain("<dd>9</dd>");
     expect(markup).toContain("<dd>40</dd>");
+    expect(markup).toContain("<dd>12</dd>");
   });
 
   it("clamps displayed question progress percentages to the visible 0 to 100 range", () => {

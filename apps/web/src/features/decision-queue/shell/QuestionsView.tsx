@@ -231,6 +231,10 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
               <dt>{copy.questions.questionProgressBlocked}</dt>
               <dd>{questionProgress.blockedQuestionCount}</dd>
             </div>
+            <div>
+              <dt>{copy.questions.questionProgressBacklog}</dt>
+              <dd>{questionProgress.backlogQuestionCount}</dd>
+            </div>
           </dl>
         </section>
         {questionFatigue.shouldShow ? (

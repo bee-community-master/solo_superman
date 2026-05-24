@@ -260,6 +260,7 @@ const EN_COPY = {
     questionProgressOpenTopics: "Open topics",
     questionProgressFollowUpBudget: "Follow-up budget",
     questionProgressBlocked: "Blocked",
+    questionProgressBacklog: "Later backlog",
     questionFatigueStatusLabels: {
       checkpoint: "Fatigue checkpoint",
       break_recommended: "Break recommended"
@@ -1283,6 +1284,7 @@ const JA_COPY: typeof EN_COPY = {
     questionProgressOpenTopics: "未解決トピック",
     questionProgressFollowUpBudget: "追加質問枠",
     questionProgressBlocked: "ブロック中",
+    questionProgressBacklog: "後続の未表示",
     questionFatigueStatusLabels: {
       checkpoint: "疲労チェックポイント",
       break_recommended: "休憩を推奨"
@@ -2293,6 +2295,7 @@ const KO_COPY: typeof EN_COPY = {
     questionProgressOpenTopics: "남은 주제",
     questionProgressFollowUpBudget: "후속 질문 여유",
     questionProgressBlocked: "막힘",
+    questionProgressBacklog: "나중에 볼 질문",
     questionFatigueStatusLabels: {
       checkpoint: "피로 체크포인트",
       break_recommended: "잠시 쉬기 권장"
