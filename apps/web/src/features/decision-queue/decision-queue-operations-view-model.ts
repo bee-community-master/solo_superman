@@ -9,8 +9,16 @@ import type {
   StatusEndpointDto
 } from "@solo-superman/contracts";
 import type { Phase15aOperationsInput, Phase15aOperationsViewModel } from "./decision-queue-view-model";
+import {
+  joinPhase15aResearchLabels,
+  phase15aAllowlistStatusLabel,
+  phase15aConnectorLabels,
+  phase15aContextModeLabel,
+  type Phase15aOperationLabelCopy,
+  phase15aSourceCategoryLabels
+} from "./phase15a-operation-labels";
 
-export interface Phase15aOperationsCopy {
+export interface Phase15aOperationsCopy extends Phase15aOperationLabelCopy {
   readonly blockers: {
     readonly noActiveAllowlist: string;
     readonly noAllowlistRefetch: string;
@@ -141,10 +149,10 @@ export function phase15aOperationsViewModel(
   ];
   const allowlistPolicyLabel = selectedAllowlist
     ? copy.allowlistPolicyLoaded(
-        selectedAllowlist.status,
-        selectedAllowlist.connectorIds.join(", "),
-        selectedAllowlist.sourceCategories.join(", "),
-        selectedAllowlist.contextMode,
+        phase15aAllowlistStatusLabel(copy, selectedAllowlist.status),
+        joinPhase15aResearchLabels(phase15aConnectorLabels(copy, selectedAllowlist.connectorIds)),
+        joinPhase15aResearchLabels(phase15aSourceCategoryLabels(copy, selectedAllowlist.sourceCategories)),
+        phase15aContextModeLabel(copy, selectedAllowlist.contextMode),
         selectedAllowlist.rateBudgetPolicy.maxConcurrentRunsPerProject,
         selectedAllowlist.rateBudgetPolicy.maxRunsPerSession,
         selectedAllowlist.disclosureLogPolicy.logEveryAutomaticRun

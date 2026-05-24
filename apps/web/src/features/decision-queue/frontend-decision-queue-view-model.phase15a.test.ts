@@ -283,7 +283,11 @@ describe("Decision Queue view model phase15a", () => {
   it("summarizes Phase 1.5A operations recovery and keeps blocking research cards explicit", () => {
     const operations = phase15aOperations();
 
-    expect(operations.allowlistPolicyLabel).toContain("public_search");
+    expect(operations.allowlistPolicyLabel).toContain("공개 웹 검색");
+    expect(operations.allowlistPolicyLabel).toContain("공개 웹사이트");
+    expect(operations.allowlistPolicyLabel).toContain("공개 가능한 요약만 사용");
+    expect(operations.allowlistPolicyLabel).not.toContain("public_search");
+    expect(operations.allowlistPolicyLabel).not.toContain("public_safe_summary");
     expect(operations.allowlistPolicyLabel).toContain("2 동시 / 세션당 12");
     expect(operations.disclosureActivityLabel).toContain("automatic_payload_ready");
     expect(operations.runRecoveryLabel).toContain("/api/v1/projects/proj_phase15a_ui/research-runs");
@@ -602,6 +606,8 @@ describe("Decision Queue view model phase15a", () => {
       DECISION_QUEUE_COPY.ja.phase15a
     );
 
+    expect(operations.allowlistPolicyLabel).toContain("公開Web検索");
+    expect(operations.allowlistPolicyLabel).toContain("公開してよい要約のみ");
     expect(operations.allowlistPolicyLabel).toContain("セッションあたり 12");
     expect(operations.disclosureActivityLabel).toContain("リサーチ利用ログ");
     expect(operations.runRecoveryLabel).toContain("再読み込み");

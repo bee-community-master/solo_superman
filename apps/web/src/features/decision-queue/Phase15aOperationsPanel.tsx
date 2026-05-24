@@ -7,6 +7,13 @@ import type {
 } from "@solo-superman/contracts";
 import { useState } from "react";
 import type { Phase15aOperationsViewModel } from "./decision-queue-view-model";
+import {
+  joinPhase15aResearchLabels,
+  phase15aAllowlistStatusLabel,
+  phase15aConnectorLabels,
+  phase15aContextModeLabel,
+  phase15aSourceCategoryLabels
+} from "./phase15a-operation-labels";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
 export interface ResearchOperationsState {
@@ -112,6 +119,11 @@ export function Phase15aOperationsPanel({
                 const maxSessionDraft = maxSessionDraftFor(allowlist);
                 const parsedMaxConcurrentDraft = Number(maxConcurrentDraft);
                 const parsedMaxSessionDraft = Number(maxSessionDraft);
+                const connectorLabels = phase15aConnectorLabels(copy.phase15a, allowlist.connectorIds);
+                const connectorLabel = joinPhase15aResearchLabels(connectorLabels);
+                const sourceCategoryLabels = phase15aSourceCategoryLabels(copy.phase15a, allowlist.sourceCategories);
+                const sourceCategoryLabel = joinPhase15aResearchLabels(sourceCategoryLabels);
+                const contextModeLabel = phase15aContextModeLabel(copy.phase15a, allowlist.contextMode);
                 const canApplyMaxConcurrentDraft =
                   !isBusy &&
                   hasActiveSession &&
@@ -129,11 +141,10 @@ export function Phase15aOperationsPanel({
 
                 return (
                   <article className="operations-card" key={allowlist.allowlistId}>
-                    <strong>{allowlist.allowlistId}</strong>
-                    <span>{allowlist.status}</span>
+                    <strong>{connectorLabel}</strong>
+                    <span>{phase15aAllowlistStatusLabel(copy.phase15a, allowlist.status)}</span>
                     <small>
-                      {allowlist.connectorIds.join(", ")} · {allowlist.sourceCategories.join(", ")} ·{" "}
-                      {allowlist.contextMode}
+                      {sourceCategoryLabel} · {contextModeLabel}
                     </small>
                     <small>
                       {copy.phase15a.limits}: {allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject} {copy.phase15a.concurrent} /{" "}
@@ -144,7 +155,7 @@ export function Phase15aOperationsPanel({
                       <label>
                         <span>{copy.phase15a.maxConcurrentRuns}</span>
                         <input
-                          aria-label={`${copy.phase15a.maxConcurrentRuns} ${allowlist.allowlistId}`}
+                          aria-label={`${copy.phase15a.maxConcurrentRuns} ${connectorLabel}`}
                           min={1}
                           type="number"
                           value={maxConcurrentDraft}
@@ -172,7 +183,7 @@ export function Phase15aOperationsPanel({
                       <label>
                         <span>{copy.phase15a.maxSessionRuns}</span>
                         <input
-                          aria-label={`${copy.phase15a.maxSessionRuns} ${allowlist.allowlistId}`}
+                          aria-label={`${copy.phase15a.maxSessionRuns} ${connectorLabel}`}
                           min={allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject}
                           type="number"
                           value={maxSessionDraft}
