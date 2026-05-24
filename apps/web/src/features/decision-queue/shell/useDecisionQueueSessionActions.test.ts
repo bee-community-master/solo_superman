@@ -19,6 +19,7 @@ import { emptyProjectionState } from "./decision-queue-shell-model";
 import {
   nextQuestionBatchIdsForActivation,
   queueHasActiveQuestionDebt,
+  queueShouldAutoActivateNextQuestionBatch,
   useDecisionQueueSessionActions
 } from "./useDecisionQueueSessionActions";
 
@@ -150,6 +151,60 @@ describe("queueHasActiveQuestionDebt", () => {
   });
 });
 
+describe("queueShouldAutoActivateNextQuestionBatch", () => {
+  it("auto-continues only when no active question debt remains and queued questions exist", () => {
+    expect(
+      queueShouldAutoActivateNextQuestionBatch({
+        kind: "DecisionQueueProjection",
+        version: 1 as ProjectionVersion,
+        active: [
+          {
+            queueItemId: "queue_active_research_review" as QueueItemId,
+            title: "Review research",
+            state: "active",
+            cardType: "research_review"
+          }
+        ],
+        next: [
+          {
+            queueItemId: "queue_next_question" as QueueItemId,
+            title: "Next answerable question",
+            state: "next",
+            cardType: "question"
+          }
+        ],
+        blocked: [],
+        deferred: []
+      })
+    ).toBe(true);
+
+    expect(
+      queueShouldAutoActivateNextQuestionBatch({
+        kind: "DecisionQueueProjection",
+        version: 1 as ProjectionVersion,
+        active: [
+          {
+            queueItemId: "queue_active_question" as QueueItemId,
+            title: "Answer this first",
+            state: "active",
+            cardType: "question"
+          }
+        ],
+        next: [
+          {
+            queueItemId: "queue_next_question" as QueueItemId,
+            title: "Next answerable question",
+            state: "next",
+            cardType: "question"
+          }
+        ],
+        blocked: [],
+        deferred: []
+      })
+    ).toBe(false);
+  });
+});
+
 describe("useDecisionQueueSessionActions", () => {
   it("submits an answer without waiting for background research starts to finish", async () => {
     const projectId = "proj_answer_nonblocking" as ProjectId;
@@ -263,6 +318,173 @@ describe("useDecisionQueueSessionActions", () => {
     expect(backgroundResearchStarted).toHaveBeenCalledTimes(1);
     expect(setIsBusy).toHaveBeenNthCalledWith(1, true);
     expect(setIsBusy).toHaveBeenLastCalledWith(false);
+  });
+
+  it("automatically activates the next question batch after the current active question debt is answered", async () => {
+    const projectId = "proj_answer_auto_next_batch" as ProjectId;
+    const sessionId = "sess_answer_auto_next_batch" as SessionId;
+    const answeredQueueItemId = "queue_answered_last_active" as QueueItemId;
+    const nextQuestionId = "queue_auto_next_question" as QueueItemId;
+    const queueAfterAnswer: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 2 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_research_review_after_answer" as QueueItemId,
+          title: "Review research while continuing questions",
+          state: "active",
+          cardType: "research_review"
+        }
+      ],
+      next: [
+        {
+          queueItemId: nextQuestionId,
+          title: "Next automatic question",
+          state: "next",
+          cardType: "question"
+        }
+      ],
+      blocked: [],
+      deferred: []
+    };
+    const queueAfterActivation: DecisionQueueProjection = {
+      ...queueAfterAnswer,
+      version: 3 as ProjectionVersion,
+      active: [
+        ...queueAfterAnswer.active,
+        {
+          queueItemId: nextQuestionId,
+          title: "Next automatic question",
+          state: "active",
+          cardType: "question"
+        }
+      ],
+      next: []
+    };
+    const answerResponse: CommandResponse<DecisionQueueProjection> = {
+      category: "accepted_with_projection",
+      commandId: "cmd_answer_auto_next_batch" as CommandId,
+      correlationId: "corr_answer_auto_next_batch" as CorrelationId,
+      stateVersionBefore: 1 as StateVersion,
+      stateVersionAfter: 2 as StateVersion,
+      immediateProjection: queueAfterAnswer
+    };
+    const activateResponse: CommandResponse<DecisionQueueProjection> = {
+      category: "accepted_with_projection",
+      commandId: "cmd_activate_auto_next_batch" as CommandId,
+      correlationId: "corr_activate_auto_next_batch" as CorrelationId,
+      stateVersionBefore: 2 as StateVersion,
+      stateVersionAfter: 3 as StateVersion,
+      immediateProjection: queueAfterActivation
+    };
+    const appendCommand: Parameters<typeof useDecisionQueueSessionActions>[0]["appendCommand"] = async (
+      _label,
+      commandResponse
+    ) => commandResponse;
+    const submitAnswer = vi.fn(async () => answerResponse);
+    const activateQuestionBatch = vi.fn(async () => activateResponse);
+    const setProjections = vi.fn();
+    let actions: ReturnType<typeof useDecisionQueueSessionActions> | undefined;
+
+    function Harness() {
+      actions = useDecisionQueueSessionActions({
+        answerDrafts: {
+          [answeredQueueItemId]: "Answer the final active question and keep going."
+        },
+        appendCommand,
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityChangeReason: "",
+        chatGptLoginAcknowledged: true,
+        codexLoginAuthenticated: true,
+        client: {
+          submitAnswer,
+          activateQuestionBatch
+        } as unknown as SidecarClient,
+        connectionStatus: "connected",
+        copy: DECISION_QUEUE_COPY.en,
+        idea: "Auto-continue questions",
+        initialResearchPermission: "allow_public_web",
+        initialBusinessCriticIntensityReason: "",
+        intake: "The next batch should appear automatically.",
+        isBusy: false,
+        knownRiskDrafts: {},
+        projectPurposeMode: "business",
+        projections: {
+          ...emptyProjectionState(),
+          session: {
+            kind: "SessionShellProjection",
+            projectId,
+            sessionId,
+            version: 1 as ProjectionVersion,
+            phase: "spec",
+            projectPurposeMode: "business",
+            projectPurposeModeSelectionStatus: "confirmed",
+            projectPurposeModeLabel: "Business validation",
+            projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+          },
+          queue: {
+            kind: "DecisionQueueProjection",
+            version: 1 as ProjectionVersion,
+            active: [
+              {
+                queueItemId: answeredQueueItemId,
+                title: "Last active question",
+                state: "active",
+                cardType: "question"
+              }
+            ],
+            next: [
+              {
+                queueItemId: nextQuestionId,
+                title: "Next automatic question",
+                state: "next",
+                cardType: "question"
+              }
+            ],
+            blocked: [],
+            deferred: []
+          }
+        },
+        purposeModeChangeReason: "",
+        refetchQueueAfterSseNotification: vi.fn(async () => undefined),
+        refreshProjections: vi.fn(async () => undefined),
+        researchDrafts: {},
+        setAnswerDrafts: vi.fn(),
+        setBusinessCriticIntensity: vi.fn(),
+        setBusinessCriticIntensityChangeReason: vi.fn(),
+        setCommandLog: vi.fn(),
+        setIsBusy: vi.fn(),
+        setKnownRiskDrafts: vi.fn(),
+        setPhase15bReadiness: vi.fn(),
+        setProjectPurposeMode: vi.fn(),
+        setProjections,
+        setPurposeModeChangeReason: vi.fn(),
+        setResearchDrafts: vi.fn(),
+        setResearchOperations: vi.fn(),
+        setStatuses: vi.fn(),
+        setWorkflowError: vi.fn()
+      });
+
+      return null;
+    }
+
+    renderToStaticMarkup(createElement(Harness));
+
+    if (!actions) {
+      throw new Error("Session actions were not captured.");
+    }
+
+    await actions.submitAnswer(answeredQueueItemId);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(activateQuestionBatch).toHaveBeenCalledWith(
+      sessionId,
+      2,
+      [nextQuestionId]
+    );
+    expect(setProjections).toHaveBeenCalledWith(expect.any(Function));
   });
 
   it("loads the next question batch while non-question active cards remain visible", async () => {

@@ -11,6 +11,7 @@ import {
   type ResearchQueueTerminalOutcome,
   type ResearchTaskId,
   type SessionShellProjection,
+  type StateVersion,
   type StatusEndpointDto
 } from "@solo-superman/contracts";
 import {
@@ -105,6 +106,10 @@ export function nextQuestionBatchIdsForActivation(queue: DecisionQueueProjection
 
 export function queueHasActiveQuestionDebt(queue: DecisionQueueProjection | null | undefined) {
   return queue?.active.some(queueItemIsQuestionDebt) ?? false;
+}
+
+export function queueShouldAutoActivateNextQuestionBatch(queue: DecisionQueueProjection | null | undefined) {
+  return !queueHasActiveQuestionDebt(queue) && Boolean(nextQuestionBatchIdsForActivation(queue)?.length);
 }
 
 export function useDecisionQueueSessionActions({
@@ -424,13 +429,40 @@ export function useDecisionQueueSessionActions({
   );
 
   const continueAnswerPostSubmitWork = useCallback(
-    (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"], queue: DecisionQueueProjection | null) => {
+    (
+      projectId: ProjectId,
+      sessionId: SessionShellProjection["sessionId"],
+      expectedStateVersion: StateVersion,
+      queue: DecisionQueueProjection | null
+    ) => {
       void (async () => {
         try {
           await refreshProjections(projectId, sessionId);
 
           if (queue) {
             await refetchQueueAfterSseNotification(projectId, sessionId, queue);
+          }
+
+          if (client && queueShouldAutoActivateNextQuestionBatch(queue)) {
+            const activateResponse = await appendCommand(
+              sessionActionLabels.loadNextQuestions,
+              await client.activateQuestionBatch(
+                sessionId,
+                expectedStateVersion,
+                nextQuestionBatchIdsForActivation(queue)
+              )
+            );
+            const activatedQueue = requiredCommandProjection<DecisionQueueProjection>(
+              activateResponse,
+              "DecisionQueueProjection"
+            );
+
+            setProjections((current) => ({
+              ...current,
+              queue: activatedQueue
+            }));
+            await refreshProjections(projectId, sessionId);
+            await refetchQueueAfterSseNotification(projectId, sessionId, activatedQueue);
           }
 
           await startReadyReadOnlyResearchRunsAfterAnswer?.();
@@ -440,8 +472,12 @@ export function useDecisionQueueSessionActions({
       })();
     },
     [
+      appendCommand,
+      client,
       refetchQueueAfterSseNotification,
       refreshProjections,
+      sessionActionLabels.loadNextQuestions,
+      setProjections,
       setWorkflowError,
       startReadyReadOnlyResearchRunsAfterAnswer
     ]
@@ -484,7 +520,12 @@ export function useDecisionQueueSessionActions({
           ...current,
           queue
         }));
-        continueAnswerPostSubmitWork(projections.session.projectId, projections.session.sessionId, queue);
+        continueAnswerPostSubmitWork(
+          projections.session.projectId,
+          projections.session.sessionId,
+          commandResponseVersion(response),
+          queue
+        );
       } catch (error) {
         setWorkflowError(displayError(error));
       } finally {
@@ -554,7 +595,12 @@ export function useDecisionQueueSessionActions({
         }));
       }
 
-      continueAnswerPostSubmitWork(projections.session.projectId, projections.session.sessionId, latestQueue);
+      continueAnswerPostSubmitWork(
+        projections.session.projectId,
+        projections.session.sessionId,
+        expectedStateVersion,
+        latestQueue
+      );
     } catch (error) {
       let refreshedAfterPartialFailure = false;
 
