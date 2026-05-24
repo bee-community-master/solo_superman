@@ -41,6 +41,16 @@ function researchEvidenceCheckedBehaviors() {
   ];
 }
 
+function ideaClarificationCheckedBehaviors() {
+  return [
+    "Idea intake creates a user-confirmed business or personal project purpose before analysis.",
+    "Active question batches stay bounded while long sessions can process 200+ question/answer loops.",
+    "Clarification question cards and generated follow-ups support open text, binary stance, single choice, multi-select, ranked, evidence, and experiment answer formats instead of reusing one pro/con shape.",
+    "Answers produce follow-up debt and research-task debt instead of hidden notes.",
+    "Question-debt completion and Planning Handoff blockers remain visible before Planning-ready."
+  ];
+}
+
 function planningReadinessCheckedBehaviors() {
   return [
     "Completeness keeps question debt and source-trace gaps from being labelled Planning-ready.",
@@ -87,7 +97,9 @@ function codeBackedContract(overrides = {}) {
       codeBackedCapability("idea-clarification-loop", [
         "pnpm verify:clarification-pipeline",
         "pnpm verify:clarification-volume"
-      ]),
+      ], {
+        checkedBehaviors: ideaClarificationCheckedBehaviors()
+      }),
       codeBackedCapability("research-evidence-loop", ["pnpm verify:research-pipeline"], {
         checkedBehaviors: researchEvidenceCheckedBehaviors()
       }),
@@ -156,7 +168,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including mounted research provider polling, research run limit UX, research markdown memory, answer-form variety for research follow-up questions, planning readiness score/axis gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including clarification answer-form variety, mounted research provider polling, research run limit UX, research markdown memory, answer-form variety for research follow-up questions, planning readiness score/axis gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
@@ -210,6 +222,35 @@ describe("product capability readiness verification", () => {
       "$.capabilities[3].checkedBehaviors: must mention approved public-read",
       "$.capabilities[3].checkedBehaviors: must mention production-mutation contract",
       "$.capabilities[3].checkedBehaviors: must mention final submit"
+    ]));
+  });
+
+  it("requires clarification readiness to name answer-form variety coverage", () => {
+    const contract = codeBackedContract({
+      capabilities: codeBackedContract().capabilities.map((capability) =>
+        capability.id === "idea-clarification-loop"
+          ? {
+              ...capability,
+              checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
+                !behavior.includes("open text") &&
+                !behavior.includes("single choice") &&
+                !behavior.includes("experiment answer formats")
+              )
+            }
+          : capability
+      )
+    });
+    const result = validateProductCapabilityReadinessContract(contract);
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual(expect.arrayContaining([
+      "$.capabilities[0].checkedBehaviors: must mention open text",
+      "$.capabilities[0].checkedBehaviors: must mention binary stance",
+      "$.capabilities[0].checkedBehaviors: must mention single choice",
+      "$.capabilities[0].checkedBehaviors: must mention multi-select",
+      "$.capabilities[0].checkedBehaviors: must mention ranked",
+      "$.capabilities[0].checkedBehaviors: must mention evidence",
+      "$.capabilities[0].checkedBehaviors: must mention experiment answer formats"
     ]));
   });
 

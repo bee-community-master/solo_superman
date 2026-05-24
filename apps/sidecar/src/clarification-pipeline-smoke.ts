@@ -46,6 +46,8 @@ export interface ClarificationPipelineSmokeEvidence {
     readonly researchTaskCount: number;
     readonly firstQuestionId: string;
     readonly firstQuestionTopicKey: string;
+    readonly answerFormatKinds: readonly string[];
+    readonly answerSelectionModes: readonly string[];
     readonly completenessStatus: string;
     readonly questionDebtGatePassed: boolean;
     readonly planningHandoffStatus: string;
@@ -260,11 +262,107 @@ function ambiguityIssueCount(analyze: JsonRecord) {
   return numberAt(payload.issueCount, "ambiguity issueCount");
 }
 
+function optionalString(value: unknown) {
+  return typeof value === "string" ? value : undefined;
+}
+
+function answerOptionsForQueueItem(item: JsonRecord) {
+  return Array.isArray(item.answerOptions) ? item.answerOptions : [];
+}
+
+function queueItemLooksLikeBinaryChoice(item: JsonRecord) {
+  const answerOptions = answerOptionsForQueueItem(item);
+  const binaryOptionCount = answerOptions.filter((option) => {
+    if (!option || typeof option !== "object") {
+      return false;
+    }
+
+    const optionRecord = option as Record<string, unknown>;
+
+    return /(?:찬성|반대|찬반|동의|비동의|예\s*[/·또는과]*\s*아니오|\b(?:yes|no|agree|disagree|support|oppose)\b)/iu.test(
+      [optionRecord.id, optionRecord.label, optionRecord.value].filter(Boolean).join(" ")
+    );
+  }).length;
+
+  return binaryOptionCount >= 2;
+}
+
+function answerFormatKindForQueueItem(item: JsonRecord) {
+  const answerSelectionMode = optionalString(item.answerSelectionMode);
+  const expectedAnswerType = optionalString(item.expectedAnswerType);
+  const answerOptions = answerOptionsForQueueItem(item);
+
+  if (answerSelectionMode === "multiple") {
+    return "multi_select";
+  }
+
+  if (answerSelectionMode === "ranked") {
+    return "ranked_choice";
+  }
+
+  if (expectedAnswerType === "text") {
+    return "open_text";
+  }
+
+  if (expectedAnswerType === "rank") {
+    return "ranked_choice";
+  }
+
+  if (expectedAnswerType === "experiment") {
+    return "experiment_plan";
+  }
+
+  if (expectedAnswerType === "evidence") {
+    return "evidence_judgment";
+  }
+
+  if (!answerOptions.length) {
+    return "open_text";
+  }
+
+  return queueItemLooksLikeBinaryChoice(item) ? "binary_choice" : "single_choice";
+}
+
+function answerSelectionModeForQueueItem(item: JsonRecord) {
+  const answerSelectionMode = optionalString(item.answerSelectionMode);
+
+  if (answerSelectionMode) {
+    return answerSelectionMode;
+  }
+
+  if (optionalString(item.expectedAnswerType) === "rank") {
+    return "ranked";
+  }
+
+  return answerOptionsForQueueItem(item).length ? "single" : undefined;
+}
+
+function uniqueStrings(values: readonly string[]) {
+  return [...new Set(values)].sort();
+}
+
+function activeQueueItems(...queues: readonly JsonRecord[]) {
+  return queues.flatMap((queue, index) => recordArray(queue.active, `queue ${index + 1} active questions`));
+}
+
+function activeAnswerFormatKinds(...queues: readonly JsonRecord[]) {
+  return uniqueStrings(activeQueueItems(...queues).map(answerFormatKindForQueueItem));
+}
+
+function activeAnswerSelectionModes(...queues: readonly JsonRecord[]) {
+  return uniqueStrings(
+    activeQueueItems(...queues)
+      .map(answerSelectionModeForQueueItem)
+      .filter((mode): mode is string => Boolean(mode))
+  );
+}
+
 function flowBlockers(result: ClarificationFlowResult) {
   const blockers: string[] = [];
   const activatedProgress = queueProgress(result.activatedQueue);
   const answeredProgress = queueProgress(result.answeredQueue);
   const activeQuestions = recordArray(result.activatedQueue.active, "activated active questions");
+  const answerFormatKinds = activeAnswerFormatKinds(result.activatedQueue, result.answeredQueue);
   const researchTasks = recordArray(result.researchProjection.tasks, "research tasks");
   const firstQuestionId = stringAt(result.firstQuestion.queueItemId, "first question id");
   const questionDebtGate = gateById(result.completenessProjection, "question_debt");
@@ -282,6 +380,12 @@ function flowBlockers(result: ClarificationFlowResult) {
 
   if (numberAt(activatedProgress.generatedQuestionCount, "activated generatedQuestionCount") < 10) {
     blockers.push("activated queue must expose generated question count for a long clarification session");
+  }
+
+  for (const requiredFormat of ["open_text", "single_choice", "multi_select", "ranked_choice", "experiment_plan"]) {
+    if (!answerFormatKinds.includes(requiredFormat)) {
+      blockers.push(`clarification queue must expose ${requiredFormat} answer format cards; received ${answerFormatKinds.join(", ")}`);
+    }
   }
 
   if (stringAt(result.firstQuestion.cardType, "first question cardType") !== "question") {
@@ -331,6 +435,8 @@ function passedEvidence(result: ClarificationFlowResult): ClarificationPipelineS
   const researchTasks = recordArray(result.researchProjection.tasks, "research tasks");
   const questionDebtGate = objectAt(gateById(result.completenessProjection, "question_debt"), "question debt gate");
   const completionCandidate = objectAt(result.completenessProjection.completionCandidate, "completion candidate");
+  const answerFormatKinds = activeAnswerFormatKinds(result.activatedQueue, result.answeredQueue);
+  const answerSelectionModes = activeAnswerSelectionModes(result.activatedQueue, result.answeredQueue);
 
   return {
     status: "passed",
@@ -346,6 +452,8 @@ function passedEvidence(result: ClarificationFlowResult): ClarificationPipelineS
       researchTaskCount: researchTasks.length,
       firstQuestionId: stringAt(result.firstQuestion.queueItemId, "first question id"),
       firstQuestionTopicKey: stringAt(result.firstQuestion.topicKey, "first question topicKey"),
+      answerFormatKinds,
+      answerSelectionModes,
       completenessStatus: stringAt(completionCandidate.status, "completion candidate status"),
       questionDebtGatePassed: booleanAt(questionDebtGate.passed, "question debt gate passed"),
       planningHandoffStatus: stringAt(result.planningHandoffProjection.currentStatus, "planning handoff status")
@@ -355,6 +463,7 @@ function passedEvidence(result: ClarificationFlowResult): ClarificationPipelineS
       "intake answer accepted for a business-mode founder idea",
       "initial Living Product Spec drafted and analyzed",
       "active question batch generated with progress metrics",
+      "active/refilled question cards expose open-text, one-of-many, one-or-more, ranked, and experiment answer formats",
       "answer submission moved one active question and created follow-up debt",
       "research-needed answer produced a source-linked planned research task",
       "completeness projection keeps question debt blocking planning readiness",
