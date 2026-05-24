@@ -1,0 +1,202 @@
+import { describe, expect, it } from "vitest";
+import {
+  CONTRACT_SCHEMA_VERSION,
+  type AmbiguityIssueSnapshot,
+  type CommandId,
+  type CorrelationId,
+  type ProductEngineCommand,
+  type ProductEngineCommandType,
+  type ProductEngineStateSnapshot,
+  type ProjectId,
+  type ProjectionVersion,
+  type QueueItemId,
+  type QueueItemProjection,
+  type SessionId,
+  type StateVersion
+} from "@solo-superman/contracts";
+import { createInitialProductEngineState, reduceProductEngineCommand } from "./index";
+
+const projectId = "proj_follow_up_answer_variety" as ProjectId;
+const sessionId = "sess_follow_up_answer_variety" as SessionId;
+const issuedAt = "2026-05-25T00:00:00.000Z";
+
+function sourceQueueItemId(repeatCount: number) {
+  return `queue_follow_up_variety_source_${repeatCount}` as QueueItemId;
+}
+
+function command(
+  commandType: ProductEngineCommandType,
+  payload: ProductEngineCommand["payload"],
+  expectedStateVersion: StateVersion = 5 as StateVersion
+): ProductEngineCommand {
+  return {
+    commandId: `cmd_follow_up_answer_variety_${commandType}_${expectedStateVersion}` as CommandId,
+    commandType,
+    projectId,
+    sessionId,
+    actor: "user",
+    issuedAt,
+    idempotencyKey: `${commandType}:${expectedStateVersion}`,
+    expectedStateVersion,
+    causationId: null,
+    correlationId: "corr_follow_up_answer_variety" as CorrelationId,
+    schemaVersion: CONTRACT_SCHEMA_VERSION,
+    payload
+  };
+}
+
+function activeQuestionState(repeatCount: number): ProductEngineStateSnapshot {
+  const base = createInitialProductEngineState(projectId, sessionId);
+  const queueItemId = sourceQueueItemId(repeatCount);
+  const issue: AmbiguityIssueSnapshot = {
+    queueItemId,
+    sectionRef: "Target Customer",
+    topicKey: "primary_customer_narrowing",
+    uncertaintyType: "decision_required",
+    severity: "medium",
+    summary: "답변 형태 다양화 확인",
+    whyItMatters: "후속 질문은 질문 의도에 맞는 답변 방식으로 이어져야 합니다.",
+    status: "open",
+    questionText: "이전 답변을 더 구체화해주세요.",
+    expectedAnswerType: "text",
+    answerOptions: [],
+    decisionItUnlocks: "다음 질문의 답변 형식을 잠급니다.",
+    repeatCount,
+    repeatLimit: 16,
+    possibleRoutes: ["question", "research_needed"],
+    sourceRef: "follow_up_answer_variety"
+  };
+  const activeItem: QueueItemProjection = {
+    queueItemId,
+    title: issue.questionText ?? issue.summary,
+    state: "active",
+    cardType: repeatCount > 0 ? "follow_up_question" : "question",
+    sectionRef: "Target Customer",
+    topicKey: "primary_customer_narrowing",
+    severity: "medium",
+    whyItMatters: "후속 질문은 질문 의도에 맞는 답변 방식으로 이어져야 합니다.",
+    decisionItUnlocks: "다음 질문의 답변 형식을 잠급니다.",
+    expectedAnswerType: "text",
+    answerOptions: [],
+    possibleRoutes: ["question", "research_needed"],
+    sourceRef: "follow_up_answer_variety"
+  };
+
+  return {
+    ...base,
+    stateVersion: 5 as StateVersion,
+    project: {
+      ...base.project,
+      projectPurposeMode: "business",
+      projectPurposeModeSelectionStatus: "confirmed",
+      projectPurposeModeLabel: "사업 검증",
+      projectPurposeModeReason: "테스트에서 사용자 확인된 사업 목적입니다.",
+      businessCriticIntensity: "balanced",
+      businessCriticIntensitySelectionStatus: "confirmed",
+      businessCriticIntensityLabel: "균형 검증",
+      businessCriticIntensityEffect: "핵심 가정과 반례를 함께 확인합니다.",
+      rawIdeaText: "답변 형태가 다양한 질문 UX"
+    },
+    session: {
+      sessionId,
+      phase: "question_loop"
+    },
+    openIssues: [issue],
+    queueProjection: {
+      ...base.queueProjection,
+      version: 5 as ProjectionVersion,
+      generatedAt: issuedAt,
+      projectPurposeMode: "business",
+      projectPurposeModeSelectionStatus: "confirmed",
+      businessCriticIntensity: "balanced",
+      businessCriticIntensitySelectionStatus: "confirmed",
+      active: [activeItem],
+      next: [],
+      blocked: [],
+      deferred: [],
+      progress: {
+        ...base.queueProjection.progress!,
+        generatedQuestionCount: 1,
+        openQuestionCount: 1,
+        followUpQuestionCount: repeatCount > 0 ? 1 : 0,
+        followUpOpenQuestionCount: repeatCount > 0 ? 1 : 0,
+        followUpBudgetRemainingCount: 16 - repeatCount,
+        topicCoverageCount: 1,
+        openTopicCoverageCount: 1,
+        visibleQuestionDebtCount: 1,
+        activeQuestionCount: 1
+      }
+    }
+  };
+}
+
+function submitAnswerAndReadFollowUp(repeatCount: number, researchRouteHint: "research_needed" | "missing_con_evidence" = "research_needed") {
+  const reduction = reduceProductEngineCommand(
+    command("SubmitAnswer", {
+      queueItemId: sourceQueueItemId(repeatCount),
+      answer: "첫 고객은 혼자 만드는 창업자입니다.",
+      researchRouteHint,
+      claimImpact: "medium"
+    }),
+    activeQuestionState(repeatCount)
+  );
+
+  expect(reduction.accepted).toBe(true);
+  return reduction.events[0]?.payload.followUpIssue as AmbiguityIssueSnapshot;
+}
+
+describe("answer follow-up variety", () => {
+  it("keeps open narrative follow-ups as text without suggested choices", () => {
+    const followUp = submitAnswerAndReadFollowUp(0);
+
+    expect(followUp.questionText).toContain("누가 어떤 상황");
+    expect(followUp.expectedAnswerType).toBe("text");
+    expect(followUp.answerSelectionMode).toBeUndefined();
+    expect(followUp.answerOptions).toEqual([]);
+  });
+
+  it("uses explicit agree/disagree choices only when the follow-up asks for a stance", () => {
+    const followUp = submitAnswerAndReadFollowUp(1);
+
+    expect(followUp.questionText).toContain("찬성/반대 중 어느 쪽");
+    expect(followUp.expectedAnswerType).toBe("choice");
+    expect(followUp.answerSelectionMode).toBe("single");
+    expect(followUp.answerOptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "찬성 / 조건부 진행" }),
+        expect.objectContaining({ label: "반대 / 보류" }),
+        expect.objectContaining({ label: "더 설명한 뒤 판단" })
+      ])
+    );
+  });
+
+  it("uses multi-select choices when several implementation-scope options can stay together", () => {
+    const followUp = submitAnswerAndReadFollowUp(2);
+
+    expect(followUp.questionText).toContain("하나 이상 선택");
+    expect(followUp.expectedAnswerType).toBe("choice");
+    expect(followUp.answerSelectionMode).toBe("multiple");
+    expect(followUp.answerOptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "핵심 흐름 하나만 포함" }),
+        expect.objectContaining({ label: "수동 운영 + 얇은 UI" }),
+        expect.objectContaining({ label: "포함보다 제외 먼저 결정" })
+      ])
+    );
+  });
+
+  it("keeps missing-counter-evidence follow-ups in evidence judgment form instead of applying every mode", () => {
+    const followUp = submitAnswerAndReadFollowUp(0, "missing_con_evidence");
+
+    expect(followUp.questionText).toContain("반대 사례나 한계");
+    expect(followUp.expectedAnswerType).toBe("evidence");
+    expect(followUp.answerSelectionMode).toBe("single");
+    expect(followUp.answerOptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "찬성 근거 우세" }),
+        expect.objectContaining({ label: "반대 근거 우세" }),
+        expect.objectContaining({ label: "근거 불충분" })
+      ])
+    );
+  });
+});

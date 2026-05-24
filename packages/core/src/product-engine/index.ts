@@ -301,16 +301,103 @@ const ANSWER_EXCERPT_SENSITIVE_VALUE_PATTERNS = [
   /https?:\/\/\S*(?:api[_-]?key|password|secret|token|credential)=\S*/giu
 ] as const;
 
+interface FollowUpQuestionTemplate {
+  readonly text: string;
+  readonly expectedAnswerType: AmbiguityExpectedAnswerType;
+  readonly answerSelectionMode?: AmbiguityAnswerSelectionMode;
+  readonly answerOptions?: readonly AmbiguityAnswerOption[];
+  readonly optionTopicKey?: string;
+}
+
+function followUpAnswerOption(
+  id: string,
+  label: string,
+  value: string,
+  primaryDetail: string,
+  secondaryDetail: string
+): AmbiguityAnswerOption {
+  return {
+    id,
+    label,
+    value,
+    primaryDetail,
+    secondaryDetail,
+    pro: primaryDetail,
+    con: secondaryDetail
+  };
+}
+
+const FOLLOW_UP_BINARY_ANSWER_OPTIONS = [
+  followUpAnswerOption(
+    "agree_with_condition",
+    "찬성 / 조건부 진행",
+    "이 답을 현재 스펙이나 다음 검증 단계에 반영한다. 조건이 있으면 함께 적는다.",
+    "결정을 닫고 다음 단계로 빠르게 이어갈 수 있습니다.",
+    "조건이나 예외를 적지 않으면 너무 빨리 확정될 수 있습니다."
+  ),
+  followUpAnswerOption(
+    "disagree_or_hold",
+    "반대 / 보류",
+    "이 답을 아직 반영하지 않고 범위 축소, 방향 전환, 추가 확인을 먼저 진행한다.",
+    "잘못된 가정에 계속 투자하는 일을 줄입니다.",
+    "유효한 기회를 너무 일찍 보류할 수 있습니다."
+  ),
+  followUpAnswerOption(
+    "needs_more_context",
+    "더 설명한 뒤 판단",
+    "찬성/반대를 바로 고르기보다 부족한 맥락, 조건, 예외를 먼저 답변에 남긴다.",
+    "단순 찬반으로 사라질 수 있는 실제 제약을 보존합니다.",
+    "이번 답변만으로는 결정이 바로 닫히지 않을 수 있습니다."
+  )
+] as const satisfies readonly AmbiguityAnswerOption[];
+
+const MISSING_CON_EVIDENCE_FOLLOW_UP_QUESTION_TEMPLATE = {
+  text: "방금 답한 “{answer}”를 더 안전하게 판단하려면, 반대 사례나 한계를 더 찾아야 할까요? 아니면 현재 근거로 조건부 진행해도 될까요?",
+  expectedAnswerType: "evidence",
+  answerSelectionMode: "single"
+} as const satisfies FollowUpQuestionTemplate;
+
 const FOLLOW_UP_QUESTION_TEMPLATES = [
-  "방금 답한 “{answer}”를 실제 판단 기준으로 바꾸려면, 누가 어떤 상황에서 이 답이 맞다고 확인할 수 있나요?",
-  "“{answer}”라는 답에서 가장 약한 가정은 무엇이고, 반대 사례가 나오면 무엇을 바꿀 건가요?",
-  "이 답을 첫 구현 범위에 반영하면 반드시 넣을 것과 의도적으로 뺄 것은 무엇인가요?",
-  "이 답이 맞는지 공개 정보나 사용자 행동으로 확인하려면 어떤 근거를 찾아야 하나요?",
-  "이 답을 기준으로 다음 결정을 내리기 전에 아직 애매한 단어, 숫자, 대상은 무엇인가요?",
-  "이 답이 틀렸을 때 가장 빨리 드러나는 실패 신호는 무엇이고, 그때의 다음 행동은 무엇인가요?",
-  "이 답을 한 문장 제품 약속으로 바꾸면 무엇이며, 사용자가 그 약속을 믿지 않을 이유는 무엇인가요?",
-  "이 답을 실제 제작 순서로 옮기면 첫 1주일 안에 끝내야 할 가장 작은 검증/구현 조각은 무엇인가요?"
-] as const;
+  {
+    text: "방금 답한 “{answer}”를 실제 판단 기준으로 바꾸려면, 누가 어떤 상황에서 이 답이 맞다고 확인할 수 있나요?",
+    expectedAnswerType: "text"
+  },
+  {
+    text: "방금 답한 “{answer}”를 지금 스펙이나 다음 검증 단계에 반영하는 데 찬성/반대 중 어느 쪽인가요? 조건부라면 조건을 함께 적어주세요.",
+    expectedAnswerType: "choice",
+    answerSelectionMode: "single",
+    answerOptions: FOLLOW_UP_BINARY_ANSWER_OPTIONS
+  },
+  {
+    text: "이 답을 첫 구현 범위에 반영하면 반드시 넣을 것과 의도적으로 뺄 후보를 하나 이상 선택하거나 적어주세요.",
+    expectedAnswerType: "choice",
+    answerSelectionMode: "multiple",
+    optionTopicKey: "mvp_validation_scope"
+  },
+  {
+    text: "이 답이 맞는지 공개 정보나 사용자 행동으로 확인하려면 어떤 검증 방법을 먼저 쓸까요?",
+    expectedAnswerType: "experiment",
+    answerSelectionMode: "single"
+  },
+  {
+    text: "이 답을 기준으로 다음 결정을 내리기 전에 아직 애매한 단어, 숫자, 대상은 무엇인가요?",
+    expectedAnswerType: "text"
+  },
+  {
+    text: "이 답이 틀렸을 때 가장 빨리 드러나는 실패 신호는 무엇이고, 그때의 다음 행동은 무엇인가요?",
+    expectedAnswerType: "experiment",
+    answerSelectionMode: "single"
+  },
+  {
+    text: "이 답을 실제 제작 순서로 옮기면 첫 1주일 안에 끝낼 검증/구현 조각의 우선순위는 무엇인가요?",
+    expectedAnswerType: "rank",
+    answerSelectionMode: "ranked"
+  },
+  {
+    text: "이 답을 한 문장 제품 약속으로 바꾸면 무엇이며, 사용자가 그 약속을 믿지 않을 이유는 무엇인가요?",
+    expectedAnswerType: "text"
+  }
+] as const satisfies readonly FollowUpQuestionTemplate[];
 
 const AMBIGUITY_SEVERITY_PRIORITY = {
   high: 0,
@@ -2015,25 +2102,41 @@ function researchObjectiveForAnswer(input: {
   ].join(" ");
 }
 
-function followUpExpectedAnswerType(
+function followUpQuestionTemplate(
   routeOutcome: ResearchRouteOutcome,
   nextRepeatCount: number
-): AmbiguityExpectedAnswerType {
+): FollowUpQuestionTemplate {
   if (routeOutcome === "missing_con_evidence") {
-    return "evidence";
+    return MISSING_CON_EVIDENCE_FOLLOW_UP_QUESTION_TEMPLATE;
   }
 
-  const sequence: readonly AmbiguityExpectedAnswerType[] = ["text", "evidence", "experiment", "rank"];
-
-  return sequence[(nextRepeatCount - 1) % sequence.length] ?? "text";
+  return FOLLOW_UP_QUESTION_TEMPLATES[(nextRepeatCount - 1) % FOLLOW_UP_QUESTION_TEMPLATES.length] ?? FOLLOW_UP_QUESTION_TEMPLATES[0];
 }
 
-function followUpQuestionText(answer: string, nextRepeatCount: number) {
-  const template =
-    FOLLOW_UP_QUESTION_TEMPLATES[(nextRepeatCount - 1) % FOLLOW_UP_QUESTION_TEMPLATES.length] ??
-    "방금 답한 “{answer}”를 더 구체화하려면 어떤 기준과 반례를 확인해야 하나요?";
+function followUpAnswerSelectionMode(
+  template: FollowUpQuestionTemplate
+): AmbiguityAnswerSelectionMode | undefined {
+  if (template.answerSelectionMode) {
+    return template.answerSelectionMode;
+  }
 
-  return template.replace("{answer}", compactAnswerExcerpt(answer));
+  if (template.expectedAnswerType === "text") {
+    return undefined;
+  }
+
+  return template.expectedAnswerType === "rank" ? "ranked" : "single";
+}
+
+function followUpAnswerOptions(template: FollowUpQuestionTemplate) {
+  if (template.expectedAnswerType === "text") {
+    return [];
+  }
+
+  return template.answerOptions ?? answerOptionsForQuestion(template.optionTopicKey, template.expectedAnswerType) ?? [];
+}
+
+function followUpQuestionText(answer: string, template: FollowUpQuestionTemplate) {
+  return template.text.replace("{answer}", compactAnswerExcerpt(answer));
 }
 
 function followUpSuggestedResearchTask(
@@ -2078,7 +2181,10 @@ function createFollowUpIssueForAnswer(input: {
   const followUpTopicKey = `${sourceTopicKey}_follow_up_${nextRepeatCount}`;
   const followUpId = `queue_followup_${stableToken(`${sessionId}:${sourceQuestion.queueItemId}:${answerRef}:${nextRepeatCount}`)}` as QueueItemId;
   const suggestedResearchTask = followUpSuggestedResearchTask(sourceQuestion, answer, routeOutcome);
-  const expectedAnswerType = followUpExpectedAnswerType(routeOutcome, nextRepeatCount);
+  const followUpTemplate = followUpQuestionTemplate(routeOutcome, nextRepeatCount);
+  const expectedAnswerType = followUpTemplate.expectedAnswerType;
+  const answerSelectionMode = followUpAnswerSelectionMode(followUpTemplate);
+  const answerOptions = followUpAnswerOptions(followUpTemplate);
   const severity =
     sourceQuestion.severity === "high" || impact === "high"
       ? "high"
@@ -2104,9 +2210,10 @@ function createFollowUpIssueForAnswer(input: {
     whyItMatters:
       "답변이 다음 질문, 리서치, 구현 범위로 이어지려면 판단 기준과 반례를 더 좁혀야 합니다.",
     status: "open",
-    questionText: followUpQuestionText(answer, nextRepeatCount),
+    questionText: followUpQuestionText(answer, followUpTemplate),
     expectedAnswerType,
-    ...(expectedAnswerType === "text" ? { answerOptions: [] } : {}),
+    ...(answerSelectionMode ? { answerSelectionMode } : {}),
+    answerOptions,
     decisionItUnlocks:
       sourceQuestion.decisionItUnlocks ??
       "이전 답변을 스펙, 근거, 첫 구현 범위 판단으로 연결합니다.",
