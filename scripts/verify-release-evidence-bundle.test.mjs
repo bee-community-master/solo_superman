@@ -45,8 +45,21 @@ describe("release evidence bundle verification", () => {
       totalItemCount: 9,
       blockedItemCount: 9
     });
+    expect(evidence.releaseEvidenceIssueSummaries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          issueNumber: 259,
+          itemCount: 2,
+          blockedItems: 2,
+          checklistItems: expect.arrayContaining([
+            expect.objectContaining({ itemId: "windows-real-device", requiredEvidenceCount: 4 })
+          ])
+        })
+      ])
+    );
     expect(evidence.fileCount).toBeGreaterThan(0);
     expect(evidence.checked).toContain("release evidence blocker summary is carried through the bundle");
+    expect(evidence.checked).toContain("issue-specific evidence item summaries are carried through the bundle");
   });
 
   it("validates an on-disk generated bundle directory", async () => {
@@ -97,6 +110,41 @@ describe("release evidence bundle verification", () => {
       expect(evidence.status).toBe("blocked");
       expect(evidence.blockers).toContain(
         "$.releaseEvidenceBlockerSummary.blockedItemCount: must match the generated release evidence blocker summary"
+      );
+    } finally {
+      await rm(bundleDir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects bundle manifests that drift from the issue-specific evidence item summaries", async () => {
+    const contracts = await loadReleaseEvidenceContracts();
+    const checklist = buildReleaseEvidenceChecklist(contracts, { now: new Date("2026-05-24T00:00:00.000Z") });
+    const bundle = buildReleaseEvidenceBundle(checklist);
+    const bundleDir = await mkdtemp(join(tmpdir(), "solo-release-evidence-bundle-test-"));
+    try {
+      await writeBundle(bundleDir, bundle, {
+        "manifest.json": `${JSON.stringify({
+          ...bundle.manifest,
+          releaseEvidenceIssueSummaries: bundle.manifest.releaseEvidenceIssueSummaries.map((summary, index) =>
+            index === 0
+              ? {
+                ...summary,
+                checklistItems: summary.checklistItems.map((item, itemIndex) =>
+                  itemIndex === 0 ? { ...item, requiredEvidenceCount: 999 } : item
+                )
+              }
+              : summary
+          )
+        }, null, 2)}\n`
+      });
+
+      const evidence = await runReleaseEvidenceBundleVerification(["--bundle-dir", bundleDir], {
+        now: new Date("2026-05-24T00:00:00.000Z")
+      });
+
+      expect(evidence.status).toBe("blocked");
+      expect(evidence.blockers).toContain(
+        "$.releaseEvidenceIssueSummaries: must match the generated issue-specific release evidence item summaries"
       );
     } finally {
       await rm(bundleDir, { recursive: true, force: true });
