@@ -1,6 +1,8 @@
 import type {
   AutoImplementationIssueDocument,
+  AutoImplementationIssueMode,
   AutoImplementationIssueStatusSummary,
+  AutoImplementationRemoteStatus,
   AutoImplementationRunStatus,
   AutoImplementationStage,
   AutoImplementationStageStatus,
@@ -25,6 +27,48 @@ function joinVisibleParts(parts: readonly (string | null)[]) {
 function commercializationAxisLabel(axis: string, labels: Readonly<Record<string, string>>) {
   return labels[axis] ?? axis.replaceAll("_", " ");
 }
+
+const EN_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS = {
+  connected: "connected",
+  not_authenticated: "not authenticated",
+  no_remote: "no remote connected",
+  permission_denied: "permission denied",
+  offline: "offline",
+  unsupported_remote: "unsupported remote"
+} satisfies Record<AutoImplementationRemoteStatus, string>;
+
+const JA_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS = {
+  connected: "接続済み",
+  not_authenticated: "未認証",
+  no_remote: "リモート未接続",
+  permission_denied: "権限なし",
+  offline: "オフライン",
+  unsupported_remote: "未対応のリモート"
+} satisfies Record<AutoImplementationRemoteStatus, string>;
+
+const KO_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS = {
+  connected: "연결됨",
+  not_authenticated: "인증 필요",
+  no_remote: "원격 저장소 없음",
+  permission_denied: "권한 없음",
+  offline: "오프라인",
+  unsupported_remote: "지원하지 않는 원격"
+} satisfies Record<AutoImplementationRemoteStatus, string>;
+
+const EN_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS = {
+  github_ready: "GitHub issues ready",
+  markdown_fallback: "local markdown issues"
+} satisfies Record<AutoImplementationIssueMode, string>;
+
+const JA_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS = {
+  github_ready: "GitHub Issue準備済み",
+  markdown_fallback: "ローカルMarkdown Issue"
+} satisfies Record<AutoImplementationIssueMode, string>;
+
+const KO_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS = {
+  github_ready: "GitHub 이슈 준비됨",
+  markdown_fallback: "로컬 markdown 이슈"
+} satisfies Record<AutoImplementationIssueMode, string>;
 
 const EN_COPY = {
   pageMeta: {
@@ -775,14 +819,16 @@ const EN_COPY = {
     workspaceLabel: (workspacePath: string | null): string => workspacePath
       ? `Workspace: ${workspacePath}`
       : "workspace/<project> is not prepared",
-    remoteLabel: (remoteStatus: string | null): string => remoteStatus
-      ? `Remote: ${remoteStatus}`
+    remoteStatusLabels: EN_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS,
+    remoteLabel: (remoteStatus: AutoImplementationRemoteStatus | null): string => remoteStatus
+      ? `Remote: ${EN_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS[remoteStatus]}`
       : "Remote: not checked",
     nextTickLabel: (nextTickAt: string | null): string => nextTickAt
       ? `Next 5-minute tick: ${nextTickAt}`
       : "Next 5-minute tick: not scheduled",
-    issueModeLabel: (issueMode: string | null): string => issueMode
-      ? `Issue mode: ${issueMode}`
+    issueModeLabels: EN_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS,
+    issueModeLabel: (issueMode: AutoImplementationIssueMode | null): string => issueMode
+      ? `Issue mode: ${EN_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS[issueMode]}`
       : "Issue mode: not selected",
     stagePlan: "5-minute stage plan",
     stagePlanTicks: "ticks",
@@ -1958,14 +2004,16 @@ const JA_COPY: typeof EN_COPY = {
     workspaceLabel: (workspacePath: string | null): string => workspacePath
       ? `Workspace: ${workspacePath}`
       : "workspace/<project>はまだ準備されていません",
-    remoteLabel: (remoteStatus: string | null): string => remoteStatus
-      ? `リモート: ${remoteStatus}`
+    remoteStatusLabels: JA_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS,
+    remoteLabel: (remoteStatus: AutoImplementationRemoteStatus | null): string => remoteStatus
+      ? `リモート: ${JA_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS[remoteStatus]}`
       : "リモート: 未確認",
     nextTickLabel: (nextTickAt: string | null): string => nextTickAt
       ? `次の5分tick: ${nextTickAt}`
       : "次の5分tick: 未スケジュール",
-    issueModeLabel: (issueMode: string | null): string => issueMode
-      ? `Issueモード: ${issueMode}`
+    issueModeLabels: JA_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS,
+    issueModeLabel: (issueMode: AutoImplementationIssueMode | null): string => issueMode
+      ? `Issueモード: ${JA_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS[issueMode]}`
       : "Issueモード: 未選択",
     stagePlan: "5分間隔のステージ計画",
     stagePlanTicks: "tick",
@@ -3139,14 +3187,16 @@ const KO_COPY: typeof EN_COPY = {
     workspaceLabel: (workspacePath: string | null): string => workspacePath
       ? `작업공간: ${workspacePath}`
       : "workspace/<project>가 아직 준비되지 않았습니다",
-    remoteLabel: (remoteStatus: string | null): string => remoteStatus
-      ? `원격 저장소: ${remoteStatus}`
+    remoteStatusLabels: KO_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS,
+    remoteLabel: (remoteStatus: AutoImplementationRemoteStatus | null): string => remoteStatus
+      ? `원격 저장소: ${KO_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS[remoteStatus]}`
       : "원격 저장소: 아직 확인되지 않음",
     nextTickLabel: (nextTickAt: string | null): string => nextTickAt
       ? `다음 5분 tick: ${nextTickAt}`
       : "다음 5분 tick: 아직 예약되지 않음",
-    issueModeLabel: (issueMode: string | null): string => issueMode
-      ? `이슈 모드: ${issueMode}`
+    issueModeLabels: KO_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS,
+    issueModeLabel: (issueMode: AutoImplementationIssueMode | null): string => issueMode
+      ? `이슈 모드: ${KO_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS[issueMode]}`
       : "이슈 모드: 아직 선택되지 않음",
     stagePlan: "5분 단위 단계 계획",
     stagePlanTicks: "tick",

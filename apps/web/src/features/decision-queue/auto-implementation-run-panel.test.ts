@@ -226,7 +226,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.status).toBe("pending");
     expect(view.workspaceLabel).toContain("/repo/workspace/demo-project");
     expect(view.nextTickLabel).toContain("2026-05-19T00:05:00.000Z");
-    expect(view.issueModeLabel).toContain("markdown_fallback");
+    expect(view.issueModeLabel).toContain("local markdown issues");
     expect(view.issueStatusSummaryLabel).toBe("Issue status summary: 0 completed / 0 blocked / 7 open / 7 total");
     expect(view.githubIssueMutationLabel).toContain("not_requested");
     expect(view.githubIssuePlans[0]!.bodyMarkdownPath).toContain("implementation-issues/001-initial_pr.md");
@@ -297,7 +297,9 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(koreanMarkup).toContain("기능 PR 코드 리뷰 및 수정 루프: 대기");
     expect(koreanMarkup).not.toContain("Initial implementation and PR creation: ready");
     expect(koreanMarkup).toContain("작업공간: /repo/workspace/demo-project");
-    expect(koreanMarkup).toContain("원격 저장소: no_remote · 이슈 모드: markdown_fallback");
+    expect(koreanMarkup).toContain("원격 저장소: 원격 저장소 없음 · 이슈 모드: 로컬 markdown 이슈");
+    expect(koreanMarkup).not.toContain("원격 저장소: no_remote");
+    expect(koreanMarkup).not.toContain("이슈 모드: markdown_fallback");
     expect(koreanMarkup).toContain("다음 5분 tick: 2026-05-19T00:05:00.000Z");
     expect(koreanMarkup).toContain("이슈 상태 요약: 완료 0개 / 차단 0개 / 열림 7개 / 전체 7개");
     expect(koreanMarkup).toContain("로컬 Codex worker: 아직 계획되지 않음");

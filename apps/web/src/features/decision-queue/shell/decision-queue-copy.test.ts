@@ -140,6 +140,10 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.actionErrors.pullRequestMergeAlreadyRecorded).toContain(
       "다시 merge하지"
     );
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.remoteStatusLabels.no_remote).toBe("원격 저장소 없음");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.issueModeLabels.markdown_fallback).toBe("로컬 markdown 이슈");
+    expect(DECISION_QUEUE_COPY.ja.autoImplementation.remoteStatusLabels.no_remote).toBe("リモート未接続");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.issueModeLabels.github_ready).toBe("GitHub issues ready");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.issueDocumentStatusLabels.open).toBe("열림");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.issueDocumentStatusLabels.blocked).toBe("차단됨");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerJobStatusLabels.planned).toBe("계획됨");

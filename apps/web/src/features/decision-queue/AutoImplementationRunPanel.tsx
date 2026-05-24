@@ -15,8 +15,10 @@ import {
   latestCurrentStageAutoImplementationWorkerJob,
   type AutoImplementationGitHubIssuePlan,
   type AutoImplementationIssueDocument,
+  type AutoImplementationIssueMode,
   type AutoImplementationIssueStatusSummary,
   type AutoImplementationPullRequestMutationRecord,
+  type AutoImplementationRemoteStatus,
   type AutoImplementationRun,
   type AutoImplementationRunProjection,
   type AutoImplementationRunStatus,
@@ -101,11 +103,11 @@ export interface AutoImplementationRunViewModel {
   readonly workspaceLabel: string;
   readonly workspacePath: string | null;
   readonly remoteLabel: string;
-  readonly remoteStatus: string | null;
+  readonly remoteStatus: AutoImplementationRemoteStatus | null;
   readonly nextTickLabel: string;
   readonly nextTickAt: string | null;
   readonly issueModeLabel: string;
-  readonly issueMode: string | null;
+  readonly issueMode: AutoImplementationIssueMode | null;
   readonly issueStatusSummaryLabel: string;
   readonly issueStatusSummary: AutoImplementationIssueStatusSummary | null;
   readonly remoteWarning: string | null;
@@ -160,6 +162,20 @@ const REVIEW_LOOP_STAGES = [
   "clean_code_fix_1",
   "clean_code_fix_2"
 ] as const satisfies readonly AutoImplementationStage[];
+
+const AUTO_IMPLEMENTATION_REMOTE_STATUS_VIEW_LABELS = {
+  connected: "connected",
+  not_authenticated: "not authenticated",
+  no_remote: "no remote connected",
+  permission_denied: "permission denied",
+  offline: "offline",
+  unsupported_remote: "unsupported remote"
+} satisfies Record<AutoImplementationRemoteStatus, string>;
+
+const AUTO_IMPLEMENTATION_ISSUE_MODE_VIEW_LABELS = {
+  github_ready: "GitHub issues ready",
+  markdown_fallback: "local markdown issues"
+} satisfies Record<AutoImplementationIssueMode, string>;
 
 function latestRun(projection: AutoImplementationRunProjection | null) {
   return projection?.latestRun ?? null;
@@ -548,11 +564,11 @@ export function autoImplementationRunViewModel(
     summary: projection.summary,
     workspaceLabel: `Workspace: ${run.generatedRepoPath}`,
     workspacePath: run.generatedRepoPath,
-    remoteLabel: `Remote: ${run.remoteStatus}`,
+    remoteLabel: `Remote: ${AUTO_IMPLEMENTATION_REMOTE_STATUS_VIEW_LABELS[run.remoteStatus]}`,
     remoteStatus: run.remoteStatus,
     nextTickLabel: `Next 5-minute tick: ${run.nextTickAt}`,
     nextTickAt: run.nextTickAt,
-    issueModeLabel: `Issue mode: ${run.issueManagement.mode}`,
+    issueModeLabel: `Issue mode: ${AUTO_IMPLEMENTATION_ISSUE_MODE_VIEW_LABELS[run.issueManagement.mode]}`,
     issueMode: run.issueManagement.mode,
     issueStatusSummaryLabel: formatIssueStatusSummaryLabel(run.issueManagement.issueStatusSummary),
     issueStatusSummary: run.issueManagement.issueStatusSummary,
