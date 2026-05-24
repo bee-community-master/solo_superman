@@ -50,6 +50,51 @@ function redactedOutput(value) {
   return redactSupportText(value ?? "");
 }
 
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function stringList(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+
+function uniqueStrings(values) {
+  return [...new Set(values.filter((value) => typeof value === "string" && value.trim().length > 0))];
+}
+
+function parseJsonObjectFromOutput(value) {
+  const text = value ?? "";
+  const start = text.indexOf("{");
+  if (start < 0) {
+    return null;
+  }
+
+  for (let end = text.lastIndexOf("}"); end > start; end = text.lastIndexOf("}", end - 1)) {
+    try {
+      const parsed = JSON.parse(text.slice(start, end + 1));
+      if (isRecord(parsed)) {
+        return parsed;
+      }
+    } catch {
+      // pnpm may append lifecycle text after the JSON payload; retry with an earlier closing brace.
+    }
+  }
+
+  return null;
+}
+
+export function extractReadyReleaseCommandBlockers(result) {
+  const parsed = parseJsonObjectFromOutput(result?.stdout);
+  if (!parsed) {
+    return [];
+  }
+
+  return uniqueStrings([
+    ...stringList(parsed.blockers),
+    ...stringList(parsed.issues)
+  ].map(redactedOutput));
+}
+
 export function readyReleaseSteps(options = {}) {
   const releaseEvidenceBundleDir = options.releaseEvidenceBundleDir ?? DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR;
   return BASE_READY_RELEASE_STEPS.map((step) => {
@@ -147,6 +192,12 @@ export function evidenceForReadyReleaseResults(results, options = {}) {
       }
       return `${result.display} exited with code ${result.exitCode}`;
     });
+  const commandBlockers = options.planOnly ? [] : uniqueStrings(results.flatMap((result) => {
+    if (commandStatus(result) === "passed") {
+      return [];
+    }
+    return extractReadyReleaseCommandBlockers(result).map((blocker) => `${result.id}: ${blocker}`);
+  }));
 
   return {
     status: options.planOnly ? "planned" : blockers.length === 0 ? "passed" : "blocked",
@@ -156,12 +207,14 @@ export function evidenceForReadyReleaseResults(results, options = {}) {
     timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     releaseEvidenceBundleDir: options.releaseEvidenceBundleDir ?? DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR,
     blockers,
+    commandBlockers,
     commands: results.map((result) => ({
       id: result.id,
       command: result.display,
       status: options.planOnly ? "planned" : commandStatus(result),
       exitCode: result.exitCode ?? null,
       timedOut: result.timedOut === true,
+      blockers: options.planOnly || commandStatus(result) === "passed" ? [] : extractReadyReleaseCommandBlockers(result),
       stdout: redactedOutput(result.stdout),
       stderr: redactedOutput(result.stderr)
     })),
@@ -173,6 +226,7 @@ export function evidenceForReadyReleaseResults(results, options = {}) {
       "packaged update rollback device evidence gate",
       "release evidence bundle require-ready gate",
       "release readiness require-ready gate",
+      "nested verifier blockers and issues are surfaced per command",
       "ready-release command output is redacted before reporting"
     ]
   };
