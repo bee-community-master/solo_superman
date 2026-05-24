@@ -126,8 +126,10 @@ describe("QuestionsView", () => {
     expect(markup).not.toContain("Goal description");
     expect(markup).toContain("Choose one");
     expect(markup).toContain("Answer choices");
-    expect(markup).toContain("Helps with: Fast interviews with a narrow segment.");
-    expect(markup).toContain("Watch out: May miss team buyer needs.");
+    expect(markup).toContain("Decision made: Fast interviews with a narrow segment.");
+    expect(markup).toContain("Check next: May miss team buyer needs.");
+    expect(markup).not.toContain("Helps with: Fast interviews with a narrow segment.");
+    expect(markup).not.toContain("Watch out: May miss team buyer needs.");
     expect(markup).not.toContain("Pro: Fast interviews with a narrow segment.");
     expect(markup).not.toContain("Con: May miss team buyer needs.");
     expect(markup).toContain("Write a different answer if none fit");
@@ -522,6 +524,8 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Choose one or more");
     expect(markup).toContain("Selectable answers");
     expect(markup).toContain("Select one or more options, or write your own answer below.");
+    expect(markup).toContain("Keeps in scope: Shows urgency.");
+    expect(markup).toContain("Check next: May be narrow.");
     expect(markup).toContain('type="checkbox"');
     expect(markup).not.toContain('type="radio"');
   });
@@ -576,6 +580,8 @@ describe("QuestionsView", () => {
 
     expect(markup).toContain("Agree/disagree choice");
     expect(markup).toContain("Stance choices");
+    expect(markup).toContain("If selected: Locks the first customer direction.");
+    expect(markup).toContain("Condition or uncertainty: May move too quickly if evidence is thin.");
     expect(markup).toContain('type="radio"');
     expect(markup).not.toContain("Evidence judgment choices");
   });

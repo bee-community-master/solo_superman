@@ -273,6 +273,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                       answerSelectionMode === "multiple"
                         ? copy.questions.suggestedAnswersMultipleHelp
                         : copy.questions.suggestedAnswersSingleHelp;
+                    const answerOptionDetailLabels = copy.questions.answerOptionDetailLabels[answerFormatKind];
                     const canCarryAsKnownRisk = queueItemIsQuestionDebt(item) && item.state !== "deferred";
 
                     return (
@@ -354,8 +355,8 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                                     <span>
                                       <strong>{option.label}</strong>
                                       <small className="answer-choice-option-details">
-                                        <span>{copy.questions.optionPro}: {option.pro}</span>
-                                        <span>{copy.questions.optionCon}: {option.con}</span>
+                                        <span>{answerOptionDetailLabels.primary}: {option.pro}</span>
+                                        <span>{answerOptionDetailLabels.secondary}: {option.con}</span>
                                       </small>
                                     </span>
                                   </label>

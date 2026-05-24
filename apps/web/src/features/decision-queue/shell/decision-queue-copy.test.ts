@@ -89,6 +89,14 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.questions.answerFormatLabels.binary_choice).toBe("찬성/반대 선택");
     expect(DECISION_QUEUE_COPY.ko.questions.answerFormatLabels.multi_select).toBe("하나 이상 선택");
     expect(DECISION_QUEUE_COPY.en.questions.answerChoiceLabels.binary_choice).toBe("Stance choices");
+    expect(DECISION_QUEUE_COPY.ko.questions.answerOptionDetailLabels.single_choice).toEqual({
+      primary: "정해지는 후보",
+      secondary: "추가 확인할 점"
+    });
+    expect(DECISION_QUEUE_COPY.en.questions.answerOptionDetailLabels.multi_select).toEqual({
+      primary: "Keeps in scope",
+      secondary: "Check next"
+    });
     expect(DECISION_QUEUE_COPY.en.questions.questionProgressActive).toBe("Active now");
     expect(DECISION_QUEUE_COPY.ja.questions.questionProgressActive).toBe("回答中");
     expect(DECISION_QUEUE_COPY.ko.questions.questionProgressActive).toBe("지금 답할 질문");
