@@ -222,8 +222,11 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpAnswerOptions(input)).toEqual([
       expect.objectContaining({ id: "explicit_source_choice", label: "기존 명시 선택지" }),
       expect.objectContaining({ id: "need_more_research" }),
-      expect.objectContaining({ id: "write_custom_answer" })
+      expect.objectContaining({ id: "decide_after_validation" })
     ]);
+    expect(researchFollowUpAnswerOptions(input)).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "write_custom_answer" })])
+    );
   });
 
   it("uses the concrete candidates named in a generic single-choice follow-up question", () => {
@@ -561,6 +564,9 @@ describe("research follow-up answer shape", () => {
     );
     expect(researchFollowUpAnswerOptions(twoCandidateInput)).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ id: "defer_as_known_risk" })])
+    );
+    expect(researchFollowUpAnswerOptions(twoCandidateInput)).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "write_custom_answer" })])
     );
     expect(researchFollowUpAnswerOptions(manyCandidateInput)).toHaveLength(10);
     expect(researchFollowUpAnswerOptions(manyCandidateInput)).toEqual(

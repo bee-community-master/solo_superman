@@ -50,18 +50,18 @@ const RESEARCH_FOLLOW_UP_FALLBACK_OPTIONS = [
     "결정 완료와 구현 시작이 늦어집니다."
   ),
   researchFollowUpAnswerOption(
-    "write_custom_answer",
-    "직접 서술",
-    "위 선택지보다 더 정확한 판단 기준이나 후보를 직접 적는다.",
-    "실제 상황에 맞는 세밀한 답을 남길 수 있습니다.",
-    "답변을 스펙으로 옮길 때 한 번 더 정리가 필요할 수 있습니다."
-  ),
-  researchFollowUpAnswerOption(
     "decide_after_validation",
     "검증 후 결정",
     "지금 확정하지 않고 다음 검증에서 확인할 조건을 답변에 남긴다.",
     "보류 이유와 다음 확인 조건을 답변 흐름 안에 남길 수 있습니다.",
     "Known Risk로 공식 이관하려면 카드의 Known Risk 전용 동작을 사용해야 합니다."
+  ),
+  researchFollowUpAnswerOption(
+    "narrow_scope_before_answer",
+    "범위 좁힌 뒤 답변",
+    "먼저 고객/기능/검증 범위를 더 좁힌 뒤 그 좁은 기준으로 답한다.",
+    "성급한 넓은 결정을 줄이고 다음 질문을 더 작게 만들 수 있습니다.",
+    "이번 답변만으로는 넓은 원래 질문이 바로 닫히지 않을 수 있습니다."
   )
 ] as const;
 
@@ -570,11 +570,11 @@ function evidenceJudgmentAnswerOptions(input: ResearchFollowUpAnswerInput) {
       "결정 완료와 구현 시작이 늦어집니다."
     ),
     researchFollowUpAnswerOption(
-      "write_custom_answer",
-      "직접 서술",
-      "위 선택지보다 더 정확한 판단 기준이나 후보를 직접 적는다.",
-      "실제 상황에 맞는 세밀한 답을 남길 수 있습니다.",
-      "답변을 스펙으로 옮길 때 한 번 더 정리가 필요할 수 있습니다."
+      "decide_after_validation",
+      "검증 후 결정",
+      "지금 확정하지 않고 다음 검증에서 확인할 조건을 답변에 남긴다.",
+      "보류 이유와 다음 확인 조건을 답변 흐름 안에 남길 수 있습니다.",
+      "Known Risk로 공식 이관하려면 카드의 Known Risk 전용 동작을 사용해야 합니다."
     )
   );
 
