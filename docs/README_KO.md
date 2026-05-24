@@ -11,6 +11,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 질문, 리서치
 | 필요 | 읽을 문서 |
 | --- | --- |
 | 제품이 무엇인지 이해 | [`product_KO.md`](product_KO.md) |
+| 구현 흐름과 검증 map 빠르게 파악 | [`../omx_wiki/README.md`](../omx_wiki/README.md) |
 | 로컬 실행과 기여 절차 | [`contributing_KO.md`](contributing_KO.md) |
 | 시스템 구조와 패키지 경계 | [`architecture_KO.md`](architecture_KO.md) |
 | 파일/셸/브라우저 권한 경계 | [`safety-and-permissions_KO.md`](safety-and-permissions_KO.md) |
@@ -49,6 +50,7 @@ Solo Superman은 솔로 창업자가 막연한 아이디어를 질문, 리서치
 3. local-first safety를 보존합니다: loopback-only local service, per-run local capability token, CSRF/replay protection, no credential custody.
 4. 제품 방향을 바꾸면 `docs/decisions_KO.md`에 결정을 기록하고 capability boundary가 이동한 경우 `docs/roadmap_KO.md`도 갱신합니다.
 5. docs 또는 contract surface를 건드린 PR은 열기 전에 `pnpm verify:docs`를 실행합니다.
+6. 제품 capability flow, verification command, auto-implementation gate, release handoff가 바뀌면 `omx_wiki/`도 함께 갱신합니다.
 
 ## 이전 문서에서 바뀐 점
 
