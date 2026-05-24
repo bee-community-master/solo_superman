@@ -235,6 +235,13 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
     expect(view.latestWorkerJobNextAction).toContain("current stage issue document");
     expect(view.latestWorkerPlan).toBeNull();
+    expect(view.stageProgressSummary).toBe(
+      "0/7 stages completed; current stage Initial implementation and PR creation is ready."
+    );
+    expect(view.reviewLoopProgressSummary).toBe(
+      "0/4 review and clean-code loops completed; next loop Feature PR code review and fix loop."
+    );
+    expect(view.currentStageGateLabel).toContain("Create the smallest behavior-complete implementation");
     expect(view.canPlanWorkerJob).toBe(true);
     expect(view.canRecordStageTick).toBe(true);
     expect(view.canStartStage).toBe(true);
@@ -266,6 +273,14 @@ describe("AutoImplementationRunPanel view model", () => {
     );
     expect(markup).toContain("stage gate: Create the smallest behavior-complete implementation for this issue slice.");
     expect(markup).toContain("Record the first targeted test evidence before requesting review.");
+    expect(markup).toContain("Delivery progress");
+    expect(markup).toContain("Stage progress");
+    expect(markup).toContain("Review loop progress");
+    expect(markup).toContain("Current stage gate");
+    expect(markup).toContain("0/7 stages completed; current stage Initial implementation and PR creation is ready.");
+    expect(markup).toContain(
+      "0/4 review and clean-code loops completed; next loop Feature PR code review and fix loop."
+    );
     expect(view.deliveryGates).toEqual(
       expect.arrayContaining([
         expect.stringContaining("two consecutive no-finding passes")
@@ -318,6 +333,9 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.latestWorkerJobLabel).toContain("not planned");
     expect(view.latestWorkerPlan).toBeNull();
     expect(view.workerRuntimeReadiness).toBeNull();
+    expect(view.stageProgressSummary).toBe("No implementation stages have started yet.");
+    expect(view.reviewLoopProgressSummary).toBe("No review or clean-code loops have started yet.");
+    expect(view.currentStageGateLabel).toBe("none");
     expect(view.issueRows).toEqual([]);
     expect(view.planningIssueFiles).toEqual([]);
     expect(view.canPlanWorkerJob).toBe(false);
@@ -479,6 +497,12 @@ describe("AutoImplementationRunPanel view model", () => {
     const markup = renderPanelMarkup(view);
 
     expect(view.issueStatusSummaryLabel).toBe("Issue status summary: 1 completed / 2 blocked / 4 open / 7 total");
+    expect(view.stageProgressSummary).toBe(
+      "1/7 stages completed; current stage Initial implementation and PR creation is completed."
+    );
+    expect(view.reviewLoopProgressSummary).toBe(
+      "0/4 review and clean-code loops completed; next loop Feature PR code review and fix loop."
+    );
     expect(view.issueRows[0]).toMatchObject({
       latestWorkerJobLabel: "latest worker none",
       nextActionLabel: "Use the completed stage ledger evidence before advancing the next PR slice.",
@@ -500,6 +524,7 @@ describe("AutoImplementationRunPanel view model", () => {
       evidenceRefsLabel: "stage-blocker:repository-review"
     });
     expect(markup).toContain("Issue status summary: 1 completed / 2 blocked / 4 open / 7 total");
+    expect(markup).toContain("1/7 stages completed; current stage Initial implementation and PR creation is completed.");
     expect(markup).toContain(
       "local-001: Workspace repo bootstrap and initial implementation PR — stage initial_pr / status completed (implementation-issues/001-initial_pr.md)"
     );

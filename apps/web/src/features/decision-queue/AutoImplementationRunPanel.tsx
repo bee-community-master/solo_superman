@@ -106,6 +106,9 @@ export interface AutoImplementationRunViewModel {
   readonly latestWorkerJobNextAction: string;
   readonly latestWorkerJobId: string | null;
   readonly latestWorkerJobStatus: AutoImplementationWorkerJob["status"] | "not_planned";
+  readonly stageProgressSummary: string;
+  readonly reviewLoopProgressSummary: string;
+  readonly currentStageGateLabel: string;
   readonly workerStageAdvanceBlockerLabel: string | null;
   readonly workerRuntimeReadiness: AutoImplementationWorkerRuntimeView | null;
   readonly latestWorkerPlan: AutoImplementationWorkerPlanView | null;
@@ -126,6 +129,13 @@ export interface AutoImplementationRunViewModel {
   readonly canAdvanceWorkerStage: boolean;
   readonly hasRun: boolean;
 }
+
+const REVIEW_LOOP_STAGES = [
+  "code_review_fix_1",
+  "code_review_fix_2",
+  "clean_code_fix_1",
+  "clean_code_fix_2"
+] as const satisfies readonly AutoImplementationStage[];
 
 function latestRun(projection: AutoImplementationRunProjection | null) {
   return projection?.latestRun ?? null;
@@ -179,6 +189,41 @@ function autoImplementationStageRecordForIssue(
   issue: AutoImplementationIssueDocument
 ) {
   return run.stagePlan.find((stage) => stage.stage === issue.stage) ?? null;
+}
+
+function autoImplementationStageProgressSummary(run: AutoImplementationRun) {
+  const completedStageCount = run.stagePlan.filter((stage) => stage.status === "completed").length;
+  const currentStage = run.stagePlan.find((stage) => stage.stage === run.currentStage);
+  const currentStageLabel = currentStage?.label ?? AUTO_IMPLEMENTATION_STAGE_LABELS[run.currentStage];
+  const currentStageStatus = currentStage?.status ?? "pending";
+
+  return `${completedStageCount}/${run.stagePlan.length} stages completed; current stage ${currentStageLabel} is ${currentStageStatus}.`;
+}
+
+function autoImplementationReviewLoopProgressSummary(run: AutoImplementationRun) {
+  const completedReviewLoopCount = REVIEW_LOOP_STAGES.filter((stage) =>
+    run.stagePlan.find((record) => record.stage === stage)?.status === "completed"
+  ).length;
+  const nextReviewLoopStage = REVIEW_LOOP_STAGES.find((stage) =>
+    run.stagePlan.find((record) => record.stage === stage)?.status !== "completed"
+  );
+
+  if (!nextReviewLoopStage) {
+    return `${completedReviewLoopCount}/${REVIEW_LOOP_STAGES.length} review and clean-code loops completed; proceed to final verification or merge evidence.`;
+  }
+
+  const nextReviewLoopLabel =
+    run.stagePlan.find((record) => record.stage === nextReviewLoopStage)?.label ??
+    AUTO_IMPLEMENTATION_STAGE_LABELS[nextReviewLoopStage];
+
+  return `${completedReviewLoopCount}/${REVIEW_LOOP_STAGES.length} review and clean-code loops completed; next loop ${nextReviewLoopLabel}.`;
+}
+
+function autoImplementationCurrentStageGateLabel(run: AutoImplementationRun) {
+  return inlineList(
+    run.reviewProtocol.stageGates.find((stageGate) => stageGate.stage === run.currentStage)?.gates ?? [],
+    "none"
+  );
 }
 
 function issueRowNextAction(input: {
@@ -381,6 +426,9 @@ export function autoImplementationRunViewModel(
       latestWorkerJobNextAction: "Create a workspace run before planning a local Codex worker.",
       latestWorkerJobId: null,
       latestWorkerJobStatus: "not_planned",
+      stageProgressSummary: "No implementation stages have started yet.",
+      reviewLoopProgressSummary: "No review or clean-code loops have started yet.",
+      currentStageGateLabel: "none",
       workerStageAdvanceBlockerLabel: null,
       workerRuntimeReadiness: null,
       latestWorkerPlan: null,
@@ -494,6 +542,9 @@ export function autoImplementationRunViewModel(
       "Create a bounded local worker job after the current stage issue document is ready.",
     latestWorkerJobId: latestWorkerJob?.jobId ?? null,
     latestWorkerJobStatus: latestWorkerJob?.status ?? "not_planned",
+    stageProgressSummary: autoImplementationStageProgressSummary(run),
+    reviewLoopProgressSummary: autoImplementationReviewLoopProgressSummary(run),
+    currentStageGateLabel: autoImplementationCurrentStageGateLabel(run),
     workerStageAdvanceBlockerLabel: workerStageAdvanceBlocker,
     workerRuntimeReadiness: autoImplementationWorkerRuntimeView(runtimeStatus),
     latestWorkerPlan,
@@ -633,6 +684,23 @@ export function AutoImplementationRunPanel({
       <p className="mode-summary">{run.nextTickLabel}</p>
       <p className="mode-summary">{run.latestWorkerJobLabel}</p>
       <p className="research-recovery">{run.latestWorkerJobNextAction}</p>
+      <article className="operations-card" aria-label={copy.autoImplementation.deliveryProgress}>
+        <h3>{copy.autoImplementation.deliveryProgress}</h3>
+        <dl className="readiness-grid">
+          <div>
+            <dt>{copy.autoImplementation.stageProgress}</dt>
+            <dd>{run.stageProgressSummary}</dd>
+          </div>
+          <div>
+            <dt>{copy.autoImplementation.reviewLoopProgress}</dt>
+            <dd>{run.reviewLoopProgressSummary}</dd>
+          </div>
+          <div>
+            <dt>{copy.autoImplementation.currentStageGate}</dt>
+            <dd>{run.currentStageGateLabel}</dd>
+          </div>
+        </dl>
+      </article>
       {run.workerStageAdvanceBlockerLabel ? (
         <p className="research-recovery">
           {copy.autoImplementation.workerStageAdvanceBlocker}: {run.workerStageAdvanceBlockerLabel}
