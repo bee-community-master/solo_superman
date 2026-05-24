@@ -16,7 +16,7 @@ pnpm verify:release-readiness
 - `publicPosture`는 `technical-preview`, `limited-beta`, `general-release` 중 하나입니다.
 - `broadReleaseStatus`가 `blocked`이면 반드시 blocked release gate가 있어야 합니다.
 - `broadReleaseStatus`가 `ready`이면 public posture가 `general-release`여야 하고 모든 필수 gate가 `passed`여야 합니다.
-- credential-free 검증 명령과 ready-release 검증 명령이 모두 문서화되어야 하며, signed package release, Windows real-device, packaged update rollback evidence 검증도 포함해야 합니다.
+- credential-free 검증 명령과 ready-release 검증 명령이 모두 문서화되어야 하며, signed package release, Windows real-device, packaged update rollback evidence, release evidence bundle 검증도 포함해야 합니다.
 - URL evidence ref는 HTTPS여야 하며 userinfo credential이나 secret-like query parameter를 포함하면 안 됩니다.
 - token-shaped 문자열(`ghp_`, `github_pat_`, `sk-`, `npm_`, bearer token 등)은 release readiness evidence 어디에도 들어갈 수 없습니다.
 
@@ -71,10 +71,11 @@ Checklist는 `release-readiness`, Windows 실기기, signed package release, pac
 
 ```sh
 pnpm verify:release-readiness -- --require-ready
-pnpm verify:ready-release
+pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready
+pnpm verify:ready-release -- --evidence-bundle-dir ./solo-superman-release-evidence-bundle
 ```
 
-`pnpm verify:ready-release`는 credential이 필요한 ready-release sequence를 한 번에 실행합니다. 여기에는 signed-package credential preflight, signed-package release evidence, Windows real-device evidence, packaged updater rollback device evidence, 마지막 release-readiness `--require-ready` gate가 포함됩니다. 명령 출력은 JSON evidence로 출력하기 전에 redaction되며, 기본 credential-free `pnpm verify`에는 의도적으로 포함하지 않습니다.
+`pnpm verify:ready-release -- --evidence-bundle-dir ./solo-superman-release-evidence-bundle`는 credential이 필요한 ready-release sequence를 한 번에 실행합니다. 여기에는 signed-package credential preflight, signed-package release evidence, Windows real-device evidence, packaged updater rollback device evidence, release evidence bundle `--require-ready` 검증, 마지막 release-readiness `--require-ready` gate가 포함됩니다. 명령 출력은 JSON evidence로 출력하기 전에 redaction되며, 기본 credential-free `pnpm verify`에는 의도적으로 포함하지 않습니다.
 
 현재 예시 계약은 이 모드에서 실패해야 합니다. 실패 이유는 broad release가 아직 ready가 아니고, 아래 필수 gate가 blocked이기 때문입니다.
 

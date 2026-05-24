@@ -14,6 +14,7 @@ describe("ready release aggregate verification", () => {
       "pnpm verify:signed-package-release -- --require-release-evidence",
       "pnpm verify:windows-real-device -- --require-device-evidence",
       "pnpm verify:packaged-update-rollback -- --require-device-evidence",
+      "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready",
       "pnpm verify:release-readiness -- --require-ready"
     ]);
   });
@@ -27,6 +28,7 @@ describe("ready release aggregate verification", () => {
       schemaVersion: READY_RELEASE_VERIFICATION_SCHEMA_VERSION,
       mode: "ready-release-gate",
       timeoutMs: 1234,
+      releaseEvidenceBundleDir: "./solo-superman-release-evidence-bundle",
       blockers: []
     });
     expect(evidence.commands.every((command) => command.status === "passed")).toBe(true);
@@ -81,19 +83,37 @@ describe("ready release aggregate verification", () => {
     expect(evidence).toMatchObject({
       status: "planned",
       mode: "plan-only",
+      releaseEvidenceBundleDir: "./solo-superman-release-evidence-bundle",
       blockers: []
     });
     expect(evidence.commands).toHaveLength(readyReleaseSteps().length);
     expect(evidence.commands.every((command) => command.status === "planned")).toBe(true);
   });
 
+  it("passes a custom release evidence bundle directory through the ready-release sequence", async () => {
+    const steps = readyReleaseSteps({ releaseEvidenceBundleDir: "./filled-bundle" });
+
+    expect(steps.find((step) => step.id === "release-evidence-bundle-ready")).toMatchObject({
+      args: ["verify:release-evidence-bundle", "--", "--bundle-dir", "./filled-bundle", "--require-ready"],
+      display: "pnpm verify:release-evidence-bundle -- --bundle-dir ./filled-bundle --require-ready"
+    });
+  });
+
   it("parses timeout, fail-fast, and plan-only flags", () => {
-    expect(parseReadyReleaseArgs(["--timeout-ms", "2000", "--fail-fast", "--plan-only"], {})).toEqual({
+    expect(parseReadyReleaseArgs(["--timeout-ms", "2000", "--fail-fast", "--plan-only", "--evidence-bundle-dir", "./bundle"], {})).toEqual({
       timeoutMs: 2000,
+      releaseEvidenceBundleDir: "./bundle",
       failFast: true,
       planOnly: true
     });
-    expect(parseReadyReleaseArgs([], { SOLO_READY_RELEASE_TIMEOUT_MS: "3000" }).timeoutMs).toBe(3000);
+    expect(parseReadyReleaseArgs([], {
+      SOLO_READY_RELEASE_TIMEOUT_MS: "3000",
+      SOLO_RELEASE_EVIDENCE_BUNDLE_DIR: "./env-bundle"
+    })).toMatchObject({ timeoutMs: 3000, releaseEvidenceBundleDir: "./env-bundle" });
+    expect(parseReadyReleaseArgs(["--evidence-bundle-dir=./equals-bundle"], {})).toMatchObject({ releaseEvidenceBundleDir: "./equals-bundle" });
+    expect(() => parseReadyReleaseArgs(["--evidence-bundle-dir"], {})).toThrow("--evidence-bundle-dir requires a path value");
+    expect(() => parseReadyReleaseArgs(["--evidence-bundle-dir", ""], {})).toThrow("--evidence-bundle-dir requires a path value");
+    expect(() => parseReadyReleaseArgs([], { SOLO_RELEASE_EVIDENCE_BUNDLE_DIR: "" })).toThrow("SOLO_RELEASE_EVIDENCE_BUNDLE_DIR must be a non-empty path when set");
     expect(() => parseReadyReleaseArgs(["--timeout-ms", "0"], {})).toThrow("--timeout-ms requires a positive integer value");
   });
 });

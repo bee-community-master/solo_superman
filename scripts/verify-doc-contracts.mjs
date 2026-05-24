@@ -771,7 +771,7 @@ function checkContributorDocsSnippets() {
     "pnpm verify:release-readiness",
     "pnpm verify:release-evidence-template",
     "pnpm verify:release-evidence-bundle",
-    "pnpm verify:ready-release",
+    "pnpm verify:ready-release -- --evidence-bundle-dir ./solo-superman-release-evidence-bundle",
     "--require-ready",
     "signed-packages",
     "packaged-update-rollback",

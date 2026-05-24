@@ -55,8 +55,9 @@ const REQUIRED_READY_COMMANDS = new Set([
   "pnpm verify:signed-package-release -- --require-release-evidence",
   "pnpm verify:windows-real-device -- --require-device-evidence",
   "pnpm verify:packaged-update-rollback -- --require-device-evidence",
+  "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready",
   "pnpm verify:release-readiness -- --require-ready",
-  "pnpm verify:ready-release"
+  "pnpm verify:ready-release -- --evidence-bundle-dir ./solo-superman-release-evidence-bundle"
 ]);
 const ALLOWED_PUBLIC_POSTURES = new Set(["technical-preview", "limited-beta", "general-release"]);
 const ALLOWED_READINESS_STATUSES = new Set(["blocked", "ready"]);
