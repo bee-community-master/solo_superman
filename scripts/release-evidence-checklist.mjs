@@ -685,6 +685,7 @@ export function renderReleaseEvidenceIssueCommentMarkdown(checklist) {
   const verifyCommand = issueNumber
     ? `pnpm verify:release-evidence-template -- --input <filled-template.json> --issue ${issueNumber}`
     : "pnpm verify:release-evidence-template -- --input <filled-template.json>";
+  const readyReleaseCommand = "pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>";
   const lines = [
     `# Release evidence update for ${issueLabel}`,
     "",
@@ -694,11 +695,14 @@ export function renderReleaseEvidenceIssueCommentMarkdown(checklist) {
     "",
     `- [ ] Fill \`${templatePath}\` with redacted evidence refs, public metadata, checksums, sizes, signature refs, and sanitized log summaries only.`,
     `- [ ] Run \`${verifyCommand}\` and paste the sanitized validation summary below.`,
+    `- [ ] Run \`${readyReleaseCommand}\` after the full bundle passes, then paste status plus any aggregate \`commandBlockers\` below.`,
     "- [ ] Confirm no credential values, tokens, cookies, URL userinfo, secret-like query parameters, raw file contents, or full environment dumps are included.",
     "",
     "## Validation summary",
     "",
     "- Template validation command: _paste sanitized command output summary here_",
+    "- Ready-release command: _paste final status and aggregate commandBlockers here_",
+    "- Per-command blockers: _paste matching command `blockers` entries here, or `none` if passed_",
     "- Release lab operator / CI run: _redacted operator or run id_",
     "- Verified at: _UTC timestamp_",
     "",

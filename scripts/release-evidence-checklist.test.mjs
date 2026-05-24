@@ -166,6 +166,9 @@ describe("release evidence checklist", () => {
     expect(comment).toContain(
       "`pnpm verify:release-evidence-template -- --input <filled-template.json> --issue 267`"
     );
+    expect(comment).toContain("`pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>`");
+    expect(comment).toContain("aggregate `commandBlockers`");
+    expect(comment).toContain("Per-command blockers");
     expect(comment).toContain("### macos-packaged-update-rollback");
     expect(comment).toContain("### windows-packaged-update-rollback");
     expect(comment).not.toContain("macos-signed-package-release");
@@ -690,6 +693,8 @@ describe("release evidence checklist", () => {
       const issue266Comment = await readFile(join(bundleDir, "issue-266-comment.md"), "utf8");
       expect(issue266Comment).toContain("# Release evidence update for #266");
       expect(issue266Comment).toContain("pnpm verify:release-evidence-template -- --input <filled-template.json> --issue 266");
+      expect(issue266Comment).toContain("pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>");
+      expect(issue266Comment).toContain("aggregate `commandBlockers`");
       const readme = await readFile(join(bundleDir, "README.md"), "utf8");
       expect(readme).toContain("#259");
       expect(readme).toContain("issue-259-comment.md");
