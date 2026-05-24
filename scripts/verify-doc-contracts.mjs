@@ -603,6 +603,22 @@ function requireSnippets(message, text, snippets) {
   }
 }
 
+function rejectSnippets(message, textByPath, snippets) {
+  const matches = [];
+
+  for (const [path, text] of Object.entries(textByPath)) {
+    for (const snippet of snippets) {
+      if (text.includes(snippet)) {
+        matches.push(`${path}: ${snippet}`);
+      }
+    }
+  }
+
+  if (matches.length) {
+    fail(message, matches);
+  }
+}
+
 function checkContributorDocsShape() {
   const expectedDocs = [
     DEFAULT_KO_DOC_PATH,
@@ -712,6 +728,25 @@ function checkContributorDocsSnippets() {
     "businessCriticIntensity",
     "2~5 hour",
     "no default value"
+  ]);
+
+  const productOverviewRuntimeDocs = {
+    "docs/product_KO.md": docs["docs/product_KO.md"],
+    "docs/product_EN.md": readText("docs/product_EN.md")
+  };
+  const productOverviewRuntimeSnippetsByPath = {
+    "docs/product_KO.md": ["skipped, blocked, passed"],
+    "docs/product_EN.md": ["skipped, blocked, and passed"]
+  };
+  for (const [path, text] of Object.entries(productOverviewRuntimeDocs)) {
+    requireSnippets(`${path} missing opt-in live runtime readiness boundary`, text, [
+      "pnpm verify:codex-live-runtime",
+      "opt-in runtime verification",
+      ...productOverviewRuntimeSnippetsByPath[path]
+    ]);
+  }
+  rejectSnippets("product overview contains stale live runtime wording", productOverviewRuntimeDocs, [
+    "credential-gated live readiness"
   ]);
 
   requireSnippets("contributing guide missing contributor commands", docs["docs/contributing_KO.md"], [
