@@ -36,6 +36,22 @@ const SECRET_QUERY_NAME_PATTERN = /(?:token|secret|password|pass|api[_-]?key|cre
 const TOKEN_LIKE_PATTERN = tokenLikePattern("iu");
 const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 const URL_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//u;
+const GENERIC_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:/u;
+const REPO_RELATIVE_EVIDENCE_REF_PATTERN =
+  /^(?!(?:\/|\.{1,2}\/|.*(?:^|\/)\.\.(?:\/|$)))(?:README(?:\.en)?\.md(?:#[^\s\\?&=]+)?|(?:docs|release|artifacts|support|evidence|scripts)\/[^\s\\?&=]+)$/u;
+const SAFE_URN_EVIDENCE_REF_PATTERN = /^urn:solo-superman-[A-Za-z0-9:._-]+$/u;
+const ALLOWED_DEVICE_ENVIRONMENT_KINDS = new Set(["physical-device", "vm"]);
+const PACKAGE_KINDS_BY_PLATFORM = new Map([
+  ["macos", new Set(["macos-dmg", "macos-pkg"])],
+  ["windows", new Set(["windows-msi", "windows-exe"])]
+]);
+const REQUIRED_PROTECTED_PATH_EVIDENCE = new Set([
+  "localDatabase",
+  "generatedWorkspace",
+  "supportBundle",
+  "operatorFiles",
+  "credentials"
+]);
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -99,6 +115,25 @@ function validateHttpsUrlIfPresent(value, path, issues) {
   }
 }
 
+function validateEvidenceRef(value, path, issues) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    addIssue(issues, path, "must be a non-empty evidence ref");
+    return;
+  }
+  if (URL_SCHEME_PATTERN.test(value)) {
+    validateHttpsUrlIfPresent(value, path, issues);
+    return;
+  }
+  if (SAFE_URN_EVIDENCE_REF_PATTERN.test(value) || REPO_RELATIVE_EVIDENCE_REF_PATTERN.test(value)) {
+    return;
+  }
+  if (GENERIC_SCHEME_PATTERN.test(value)) {
+    addIssue(issues, path, "must use https, a solo-superman URN, or a repo-relative evidence path");
+    return;
+  }
+  addIssue(issues, path, "must be an HTTPS URL, solo-superman URN, or repo-relative evidence path");
+}
+
 function validateStringList(value, path, issues, options = {}) {
   const { minItems = 1 } = options;
   if (!Array.isArray(value) || value.length < minItems) {
@@ -116,6 +151,115 @@ function validateStringList(value, path, issues, options = {}) {
     validateHttpsUrlIfPresent(item, `${path}[${index}]`, issues);
   }
   return strings;
+}
+
+function validateEvidenceRefList(value, path, issues, options = {}) {
+  const { minItems = 1 } = options;
+  if (!Array.isArray(value) || value.length < minItems) {
+    addIssue(issues, path, `must be a string list with at least ${minItems} item(s)`);
+    return new Set();
+  }
+
+  const refs = new Set();
+  for (const [index, item] of value.entries()) {
+    if (typeof item !== "string" || item.trim().length === 0) {
+      addIssue(issues, `${path}[${index}]`, "must be a non-empty string");
+      continue;
+    }
+    refs.add(item);
+    validateEvidenceRef(item, `${path}[${index}]`, issues);
+  }
+  return refs;
+}
+
+function validateNonEmptyString(value, path, issues, message = "must be a non-empty string") {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    addIssue(issues, path, message);
+  }
+}
+
+function validateDeviceProfile(value, path, platform, issues) {
+  if (!isRecord(value)) {
+    addIssue(issues, path, "must describe the rollback device profile");
+    return;
+  }
+
+  if (value.platform !== platform) {
+    addIssue(issues, `${path}.platform`, `must be ${platform}`);
+  }
+  for (const field of ["osName", "osVersion", "architecture"]) {
+    validateNonEmptyString(value[field], `${path}.${field}`, issues, "must be a non-empty device metadata string");
+  }
+  if (!ALLOWED_DEVICE_ENVIRONMENT_KINDS.has(value.environmentKind)) {
+    addIssue(issues, `${path}.environmentKind`, "must be physical-device or vm");
+  }
+}
+
+function validatePassedChecks(bundle, path, issues) {
+  const passedChecks = validateStringList(bundle?.passedChecks, `${path}.passedChecks`, issues);
+  for (const requiredCheck of REQUIRED_DEVICE_CHECKS) {
+    if (!passedChecks.has(requiredCheck)) {
+      addIssue(issues, `${path}.passedChecks`, `must include ${requiredCheck}`);
+    }
+  }
+}
+
+function validateEvidenceRefMap(value, path, requiredKeys, issues, message) {
+  if (!isRecord(value)) {
+    addIssue(issues, path, message);
+    return;
+  }
+
+  for (const requiredKey of requiredKeys) {
+    validateEvidenceRef(value[requiredKey], `${path}.${requiredKey}`, issues);
+  }
+}
+
+function validatePassedEvidenceBundle(run, path, issues) {
+  const bundle = run.evidenceBundle;
+  const bundlePath = `${path}.evidenceBundle`;
+  if (!isRecord(bundle)) {
+    addIssue(issues, bundlePath, "must include structured rollback evidence when the device run passed");
+    return;
+  }
+
+  validateDeviceProfile(bundle.deviceProfile, `${bundlePath}.deviceProfile`, run.platform, issues);
+  const packageKinds = PACKAGE_KINDS_BY_PLATFORM.get(run.platform);
+  if (!packageKinds?.has(bundle.packageKind)) {
+    addIssue(issues, `${bundlePath}.packageKind`, `must be a signed ${run.platform} package kind`);
+  }
+  for (const field of ["initialVersion", "candidateVersion", "finalVersion"]) {
+    validateNonEmptyString(bundle[field], `${bundlePath}.${field}`, issues);
+  }
+  if (bundle.credentialSnapshotMode !== "metadata_only_no_read") {
+    addIssue(issues, `${bundlePath}.credentialSnapshotMode`, "must be metadata_only_no_read");
+  }
+  for (const field of [
+    "packageArtifactRef",
+    "manifestRef",
+    "updateLogRef",
+    "rollbackLogRef",
+    "launchAfterRollbackRef",
+    "preservationReportRef"
+  ]) {
+    validateEvidenceRef(bundle[field], `${bundlePath}.${field}`, issues);
+  }
+  validateEvidenceRefList(bundle.redactedEvidenceRefs, `${bundlePath}.redactedEvidenceRefs`, issues);
+  validatePassedChecks(bundle, bundlePath, issues);
+  validateEvidenceRefMap(
+    bundle.checkEvidenceRefs,
+    `${bundlePath}.checkEvidenceRefs`,
+    REQUIRED_DEVICE_CHECKS,
+    issues,
+    "must map every rollback check to redacted evidence"
+  );
+  validateEvidenceRefMap(
+    bundle.protectedPathEvidenceRefs,
+    `${bundlePath}.protectedPathEvidenceRefs`,
+    REQUIRED_PROTECTED_PATH_EVIDENCE,
+    issues,
+    "must map every protected path class to redacted preservation evidence"
+  );
 }
 
 function validateRequiredCommandList(value, path, requiredCommands, issues) {
@@ -166,7 +310,7 @@ function validateDeviceRun(run, path, issues) {
     addIssue(issues, `${path}.requiredFor`, "must be general-release");
   }
 
-  validateStringList(run.evidenceRefs, `${path}.evidenceRefs`, issues);
+  validateEvidenceRefList(run.evidenceRefs, `${path}.evidenceRefs`, issues);
   validateStringList(run.requiredEvidence, `${path}.requiredEvidence`, issues);
   validateStringList(run.unblockCriteria, `${path}.unblockCriteria`, issues);
   const checks = validateStringList(run.requiredChecks, `${path}.requiredChecks`, issues);
@@ -194,6 +338,7 @@ function validateDeviceRun(run, path, issues) {
     if (typeof run.verifiedAt !== "string" || !ISO_TIMESTAMP_PATTERN.test(run.verifiedAt)) {
       addIssue(issues, `${path}.verifiedAt`, "must be an ISO timestamp in UTC when the device run passed");
     }
+    validatePassedEvidenceBundle(run, path, issues);
   }
 
   return typeof run.platform === "string" ? { id: run.id, platform: run.platform, status: run.status } : null;

@@ -73,7 +73,7 @@ The current example contract is expected to fail in this mode because broad rele
 | Gate | Current status | Required evidence |
 | --- | --- | --- |
 | `signed-packages` | blocked | [#266](https://github.com/bee-community-master/solo_superman/issues/266) macOS Developer ID/notarization, Windows Authenticode signing/timestamp, and release manifest signing evidence strong enough for `pnpm verify:signed-package-release -- --require-release-evidence` |
-| `packaged-update-rollback` | blocked | [#267](https://github.com/bee-community-master/solo_superman/issues/267) signed package install/update/defer/retry/rollback device evidence and launch verification strong enough for `pnpm verify:packaged-update-rollback -- --require-device-evidence` |
+| `packaged-update-rollback` | blocked | [#267](https://github.com/bee-community-master/solo_superman/issues/267) signed package install/update/defer/retry/rollback device evidence, launch verification, and structured `evidenceBundle` strong enough for `pnpm verify:packaged-update-rollback -- --require-device-evidence` |
 | `windows-real-device` | blocked | [#259](https://github.com/bee-community-master/solo_superman/issues/259) evidence plus a structured `evidenceBundle` from a clean Windows 11 one-line install through first-screen arrival on a real device or VM strong enough for `pnpm verify:windows-real-device -- --require-device-evidence` |
 
 ## Operating rules

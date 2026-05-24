@@ -26,6 +26,8 @@ After real release/device evidence exists, run the required evidence mode. This 
 pnpm verify:packaged-update-rollback -- --require-device-evidence
 ```
 
+Changing a run to `passed` requires `verifiedAt` and `verifiedBy`, plus a structured `evidenceBundle`. The bundle must include device profile metadata, the platform-specific signed package kind, initial/candidate/final version, package/manifest/update/rollback/launch/preservation evidence refs, metadata-only no-read credential snapshot mode, redaction refs, every required check in `passedChecks`, a redacted evidence ref for each check, and preservation evidence refs for each protected path class.
+
 ## Device run evidence
 
 Each platform must leave evidence for every check below.
@@ -43,4 +45,5 @@ Each platform must leave evidence for every check below.
 
 - Closing #267 requires redacted evidence strong enough for both `pnpm verify:packaged-update-rollback -- --require-device-evidence` and `pnpm verify:release-readiness -- --require-ready` to pass.
 - The rollback runtime may change only packaged app binaries, release metadata, and update state; local user data and credentials are not rollback or cleanup targets.
+- Evidence refs must be HTTPS URLs, `urn:solo-superman-*` values, or repo-relative evidence paths; unsafe schemes and query-like paths are not allowed.
 - Support bundles, PR bodies, release manifests, and device logs must contain only redacted evidence refs, not secret values. Credential path preservation checks use metadata-only no-read snapshots rather than content hashes.

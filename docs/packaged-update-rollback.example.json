@@ -56,7 +56,8 @@
         "failed update can retry without deleting the existing installation",
         "rollback after failed launch restores previous app binary/release metadata",
         "local DB, generated workspace, support bundle, operator files, and credentials are preserved",
-        "updater runtime touches only app binary, release metadata, and update state"
+        "updater runtime touches only app binary, release metadata, and update state",
+        "when this run is passed, evidenceBundle includes device profile metadata, package kind, version transition, package/manifest/update/rollback/launch/preservation evidence refs, metadata-only credential snapshot mode, per-check evidence refs, protected-path evidence refs, redaction refs, and passed checks"
       ],
       "unblockCriteria": [
         "Attach redacted macOS install/update/retry/rollback/launch evidence to #267",
@@ -92,7 +93,8 @@
         "failed update can retry without deleting the existing installation",
         "rollback after failed launch restores previous app binary/release metadata",
         "local DB, generated workspace, support bundle, operator files, and credentials are preserved",
-        "updater runtime touches only app binary, release metadata, and update state"
+        "updater runtime touches only app binary, release metadata, and update state",
+        "when this run is passed, evidenceBundle includes device profile metadata, package kind, version transition, package/manifest/update/rollback/launch/preservation evidence refs, metadata-only credential snapshot mode, per-check evidence refs, protected-path evidence refs, redaction refs, and passed checks"
       ],
       "unblockCriteria": [
         "Attach redacted Windows install/update/retry/rollback/launch evidence to #267",
