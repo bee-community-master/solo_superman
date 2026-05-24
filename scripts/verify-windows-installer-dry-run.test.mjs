@@ -67,6 +67,7 @@ describe("Windows installer dry-run", () => {
       expect(evidence.issues).toEqual(expect.arrayContaining([
         expect.stringContaining("one_line_launcher_downloads_bootstrap"),
         expect.stringContaining("node_git_corepack_pnpm_path"),
+        expect.stringContaining("generated_runner_does_not_block_safe_checkout_update"),
         expect.stringContaining("docs_keep_support_bundle_and_manual_checklist")
       ]));
     } finally {

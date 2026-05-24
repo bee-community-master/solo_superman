@@ -5997,7 +5997,8 @@ describe("PR-02 sidecar health shell", () => {
         status: "completed",
         command: {
           workingDirectory: "nested"
-        }
+        },
+        stdoutSummary: expect.stringContaining("?? ./")
       });
 
       const cwdEscapeCommand = safeGitStatusCommand;
