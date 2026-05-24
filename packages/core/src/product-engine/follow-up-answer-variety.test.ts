@@ -156,7 +156,7 @@ describe("answer follow-up variety", () => {
   });
 
   it("uses explicit agree/disagree choices only when the follow-up asks for a stance", () => {
-    const followUp = submitAnswerAndReadFollowUp(1);
+    const followUp = submitAnswerAndReadFollowUp(2);
 
     expect(followUp.questionText).toContain("찬성/반대 중 어느 쪽");
     expect(followUp.expectedAnswerType).toBe("choice");
@@ -171,7 +171,7 @@ describe("answer follow-up variety", () => {
   });
 
   it("uses multi-select choices when several implementation-scope options can stay together", () => {
-    const followUp = submitAnswerAndReadFollowUp(2);
+    const followUp = submitAnswerAndReadFollowUp(3);
 
     expect(followUp.questionText).toContain("하나 이상 선택");
     expect(followUp.expectedAnswerType).toBe("choice");
@@ -186,7 +186,7 @@ describe("answer follow-up variety", () => {
   });
 
   it("rotates in one-of-many follow-ups instead of only text, stance, or multi-select prompts", () => {
-    const followUp = submitAnswerAndReadFollowUp(8);
+    const followUp = submitAnswerAndReadFollowUp(1);
 
     expect(followUp.questionText).toContain("하나만 먼저 확정");
     expect(followUp.expectedAnswerType).toBe("choice");

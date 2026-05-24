@@ -394,6 +394,12 @@ const FOLLOW_UP_QUESTION_TEMPLATES = [
     expectedAnswerType: "text"
   },
   {
+    text: "방금 답한 “{answer}”를 다음 단계로 옮길 때 지금 하나만 먼저 확정해야 한다면 어떤 기준을 고르시겠습니까?",
+    expectedAnswerType: "choice",
+    answerSelectionMode: "single",
+    answerOptions: FOLLOW_UP_SINGLE_DECISION_ANSWER_OPTIONS
+  },
+  {
     text: "방금 답한 “{answer}”를 지금 스펙이나 다음 검증 단계에 반영하는 데 찬성/반대 중 어느 쪽인가요? 조건부라면 조건을 함께 적어주세요.",
     expectedAnswerType: "choice",
     answerSelectionMode: "single",
@@ -427,12 +433,6 @@ const FOLLOW_UP_QUESTION_TEMPLATES = [
   {
     text: "이 답을 한 문장 제품 약속으로 바꾸면 무엇이며, 사용자가 그 약속을 믿지 않을 이유는 무엇인가요?",
     expectedAnswerType: "text"
-  },
-  {
-    text: "방금 답한 “{answer}”를 다음 단계로 옮길 때 지금 하나만 먼저 확정해야 한다면 어떤 기준을 고르시겠습니까?",
-    expectedAnswerType: "choice",
-    answerSelectionMode: "single",
-    answerOptions: FOLLOW_UP_SINGLE_DECISION_ANSWER_OPTIONS
   }
 ] as const satisfies readonly FollowUpQuestionTemplate[];
 
