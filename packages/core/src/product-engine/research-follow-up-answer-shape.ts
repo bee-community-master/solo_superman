@@ -6,6 +6,7 @@ import type {
   EvidenceMatrixProjection,
   ResearchTaskProjection
 } from "@solo-superman/contracts";
+import { describesAnswerFormPolicy } from "../answer-form-policy";
 import { answerOptionsForQuestion } from "./answer-options";
 
 export type ResearchFollowUpAnswerShape =
@@ -340,6 +341,10 @@ function sourceQuestionImpliesChoice(sourceQuestion: AmbiguityIssueSnapshot | un
 }
 
 export function classifyResearchFollowUpAnswerShape(input: ResearchFollowUpAnswerInput): ResearchFollowUpAnswerShape {
+  if (describesAnswerFormPolicy(input.question)) {
+    return "open_text";
+  }
+
   if (hasExplicitNarrativeAnswerInstruction(input.question)) {
     return "open_text";
   }
