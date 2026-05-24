@@ -103,6 +103,7 @@ const REQUIRED_MARKERS = [
     markers: [
       "function Update-ExistingCheckoutSafely",
       "\"status\", \"--porcelain\"",
+      "Success = $true",
       "function Test-GeneratedRunnerStatusLine",
       "solo_superman.cmd",
       "merge-base",

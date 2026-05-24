@@ -407,6 +407,7 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain("Restart-AsAdministrator");
     expect(windowsBootstrap).toContain("function Normalize-RepoRemotePath");
     expect(windowsBootstrap).toContain("function Update-ExistingCheckoutSafely");
+    expect(windowsBootstrap).toContain("Success = $true");
     expect(windowsBootstrap).toContain("function Test-GeneratedRunnerStatusLine");
     expect(windowsBootstrap).toContain('Test-GeneratedRunnerStatusLine $_');
     expect(windowsBootstrap).toContain('fetch", "--prune", "origin');

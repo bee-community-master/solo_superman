@@ -992,12 +992,21 @@ function Get-GitOutputLines($Path, [string[]]$Arguments) {
     $gitArguments = @("-C", $Path) + $Arguments
     $output = & $git @gitArguments 2>$null
     if ($LASTEXITCODE -ne 0) {
-      return $null
+      return @{
+        Success = $false
+        Lines = @()
+      }
     }
 
-    return @($output | ForEach-Object { [string]$_ })
+    return @{
+      Success = $true
+      Lines = @($output | ForEach-Object { [string]$_ })
+    }
   } catch {
-    return $null
+    return @{
+      Success = $false
+      Lines = @()
+    }
   }
 }
 
@@ -1026,12 +1035,13 @@ function Get-CheckoutDefaultBranch($Path) {
 }
 
 function Update-ExistingCheckoutSafely($Path) {
-  $statusLines = Get-GitOutputLines $Path @("status", "--porcelain")
-  if ($null -eq $statusLines) {
+  $statusResult = Get-GitOutputLines $Path @("status", "--porcelain")
+  if (-not $statusResult.Success) {
     Write-Warn "기존 checkout 상태를 확인하지 못해 자동 업데이트를 건너뜁니다."
     return
   }
 
+  $statusLines = @($statusResult.Lines)
   $blockingStatusLines = @($statusLines | Where-Object { -not (Test-GeneratedRunnerStatusLine $_) })
   if ($blockingStatusLines.Count -gt 0) {
     Write-Warn "기존 checkout에 local 변경/untracked 파일이 있어 자동 업데이트를 건너뜁니다. 사용자 파일을 덮어쓰지 않고 계속 진행합니다."
