@@ -125,13 +125,13 @@ function truncate(value, limit = OUTPUT_LIMIT) {
   return text.length > limit ? `${text.slice(0, limit)}…<truncated>` : text;
 }
 
-export function redactSupportText(value) {
+export function redactSupportText(value, options = {}) {
   const redacted = String(value ?? "")
     .replace(BASIC_AUTH_URL_PATTERN, "$1<redacted>@")
     .replace(QUERY_SECRET_PATTERN, "$1<redacted>")
     .replace(TOKEN_LIKE_PATTERN, "<redacted>");
 
-  return truncate(redacted);
+  return truncate(redacted, options.limit ?? OUTPUT_LIMIT);
 }
 
 function homeRelativePath(value, home = homedir()) {
@@ -172,7 +172,11 @@ async function spawnCommand(command, args, options = {}) {
       }
       settled = true;
       child.kill("SIGTERM");
-      resolveCommand(commandResult("timeout", { stdout: redactSupportText(stdout), stderr: redactSupportText(stderr), timeoutMs }));
+      resolveCommand(commandResult("timeout", {
+        stdout: redactSupportText(stdout, { limit: options.stdoutLimit }),
+        stderr: redactSupportText(stderr),
+        timeoutMs
+      }));
     }, timeoutMs);
 
     child.stdout?.on("data", (chunk) => {
@@ -198,7 +202,7 @@ async function spawnCommand(command, args, options = {}) {
       resolveCommand(commandResult(code === 0 ? "ok" : "failed", {
         code,
         signal,
-        stdout: redactSupportText(stdout.trim()),
+        stdout: redactSupportText(stdout.trim(), { limit: options.stdoutLimit }),
         stderr: redactSupportText(stderr.trim())
       }));
     });
@@ -209,7 +213,9 @@ async function runCapture(commandRunner, command, args, options) {
   const result = await commandRunner(command, args, options);
   return {
     ...result,
-    stdout: result.stdout === undefined ? undefined : redactSupportText(result.stdout),
+    stdout: result.stdout === undefined
+      ? undefined
+      : redactSupportText(result.stdout, { limit: options.stdoutLimit }),
     stderr: result.stderr === undefined ? undefined : redactSupportText(result.stderr),
     error: result.error === undefined ? undefined : redactSupportText(result.error)
   };
@@ -245,6 +251,30 @@ function compactMissingCredentialGroups(value) {
     id: typeof group.id === "string" ? group.id : null,
     status: typeof group.status === "string" ? group.status : null,
     missingEnv: stringList(group.missingEnv)
+  }));
+}
+
+function compactReadyReleaseIssuePreparation(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(isRecord).map((entry) => ({
+    issueNumber: Number.isInteger(entry.issueNumber) ? entry.issueNumber : null,
+    issueUrl: typeof entry.issueUrl === "string" ? entry.issueUrl : null,
+    status: typeof entry.status === "string" ? entry.status : "unknown",
+    itemCount: typeof entry.itemCount === "number" ? entry.itemCount : null,
+    blockedItems: typeof entry.blockedItems === "number" ? entry.blockedItems : null,
+    checklistPath: typeof entry.checklistPath === "string" ? entry.checklistPath : null,
+    templatePath: typeof entry.templatePath === "string" ? entry.templatePath : null,
+    commentPath: typeof entry.commentPath === "string" ? entry.commentPath : null,
+    fillTemplateAction: typeof entry.fillTemplateAction === "string" ? entry.fillTemplateAction : null,
+    validateTemplateCommand: typeof entry.validateTemplateCommand === "string"
+      ? entry.validateTemplateCommand
+      : null,
+    postIssueCommentCommand: typeof entry.postIssueCommentCommand === "string"
+      ? entry.postIssueCommentCommand
+      : null
   }));
 }
 
@@ -400,6 +430,9 @@ function compactSupportDiagnostic(name, result) {
                 : null
             }
           : null,
+        releaseEvidenceIssuePreparation: compactReadyReleaseIssuePreparation(
+          parsed.releaseEvidenceIssuePreparation
+        ),
         plannedCommands: Array.isArray(parsed.commands)
           ? parsed.commands
             .filter(isRecord)
@@ -444,7 +477,12 @@ function compactSupportDiagnostic(name, result) {
 async function readSupportDiagnostics(commandRunner, options) {
   const entries = Object.entries(SUPPORT_DIAGNOSTIC_COMMANDS);
   const diagnostics = await Promise.all(entries.map(async ([name, diagnostic]) => {
-    const result = await runCapture(commandRunner, process.execPath, diagnostic.args, options);
+    const result = await runCapture(
+      commandRunner,
+      process.execPath,
+      diagnostic.args,
+      { ...options, stdoutLimit: Number.POSITIVE_INFINITY }
+    );
     return [name, compactSupportDiagnostic(name, result)];
   }));
 

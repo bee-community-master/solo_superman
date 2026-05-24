@@ -27,7 +27,7 @@ Default mode validates [`product-capability-readiness.example.json`](product-cap
 | `browser-service-boundary` | `pnpm verify:browser-delegation-pipeline`, `pnpm verify:service-page-pipeline`, `pnpm verify:production-mutation-contract` |
 | `auto-implementation-review-loop` | runtime preview, opt-in `pnpm verify:codex-live-runtime` readiness evidence, worker jobs, PR mutation body summaries, two consecutive no-finding feature/repository code-review and changed-code/repository clean-code gates, zero-gap missing-test audit, and aggregate pipeline smokes |
 | `technical-preview-release-guardrails` | `pnpm verify:prod-bundle`, `pnpm verify:release-readiness` |
-| `local-error-reporting` | `pnpm verify:support-bundle` validates the credential-free support diagnostics bundle, redaction, compact product/release diagnostics, ready-release plan-only summary, and bundle preparation command |
+| `local-error-reporting` | `pnpm verify:support-bundle` validates the credential-free support diagnostics bundle, redaction, compact product/release diagnostics, ready-release plan-only summary, bundle preparation command, planned command list, and issue-specific handoff entries |
 
 ## Contract rules
 
