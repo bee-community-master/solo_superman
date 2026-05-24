@@ -239,6 +239,29 @@ describe("research follow-up answer shape", () => {
     );
   });
 
+  it("turns bullet-listed customer candidates into single-choice answer options", () => {
+    const input = {
+      question:
+        "고객 후보는 다음과 같습니다:\n- 혼자 만드는 초기 창업자: 빠른 검증이 가능합니다.\n- 도메인 전문 1인 빌더: 문제 맥락이 뚜렷합니다.\n- 팀 리더/운영 담당자: 예산과 승인권을 확인해야 합니다.\n\n어느 후보에 집중하시겠습니까?",
+      researchTask: task("첫 고객 후보 중 하나 선택"),
+      sourceQuestion: sourceQuestion({
+        topicKey: "primary_customer_narrowing",
+        expectedAnswerType: "choice"
+      }),
+      evidenceMatrix: evidenceMatrix()
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("single_choice");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBe("single");
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "question_candidate_1", label: "혼자 만드는 초기 창업자" }),
+        expect.objectContaining({ id: "question_candidate_2", label: "도메인 전문 1인 빌더" }),
+        expect.objectContaining({ id: "question_candidate_3", label: "팀 리더/운영 담당자" })
+      ])
+    );
+  });
+
   it("keeps evidence-backed customer segment questions as one-of-many choices", () => {
     const input = {
       question:
@@ -417,6 +440,27 @@ describe("research follow-up answer shape", () => {
         expect.objectContaining({ id: "question_candidate_1", label: "개인 창업자" }),
         expect.objectContaining({ id: "question_candidate_2", label: "팀 리더" }),
         expect.objectContaining({ id: "question_candidate_3", label: "운영 담당자" })
+      ])
+    );
+  });
+
+  it("turns numbered signal lists into multi-select answer options", () => {
+    const input = {
+      question:
+        "확인할 고객 신호 선택지는 다음과 같습니다:\n1. 반복되는 수동 고통\n2. 예산/지불 의향\n3. 기존 대안 불만\n4. 직접 만든 임시 해결책\n\n해당되는 신호를 하나 이상 선택해주세요.",
+      researchTask: task("고객 신호와 조건을 하나 이상 선택"),
+      sourceQuestion: sourceQuestion(),
+      evidenceMatrix: evidenceMatrix()
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("multi_select");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBe("multiple");
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "question_candidate_1", label: "반복되는 수동 고통" }),
+        expect.objectContaining({ id: "question_candidate_2", label: "예산/지불 의향" }),
+        expect.objectContaining({ id: "question_candidate_3", label: "기존 대안 불만" }),
+        expect.objectContaining({ id: "question_candidate_4", label: "직접 만든 임시 해결책" })
       ])
     );
   });

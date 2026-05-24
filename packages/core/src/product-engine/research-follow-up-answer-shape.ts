@@ -100,6 +100,47 @@ function splitCandidatePhrase(value: string) {
     .filter((candidate) => candidate.length >= 2 && candidate.length <= 64);
 }
 
+function normalizeBulletCandidateLabel(value: string) {
+  return normalizeQuestionCandidateLabel(
+    value
+      .replace(/\s*(?:[-–—]|:|：)\s+.+$/u, "")
+      .replace(/\s*\([^)]{8,}\)\s*$/u, "")
+      .replace(/\s*（[^）]{8,}）\s*$/u, "")
+  );
+}
+
+function candidateBulletLabelsFromQuestion(question: string) {
+  const candidates: string[] = [];
+  let isCandidateListOpen = false;
+
+  for (const line of question.split(/\r?\n/u)) {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      isCandidateListOpen = false;
+      continue;
+    }
+
+    if (/(?:후보|선택지|옵션|종류|유형|타입|성향|세그먼트|persona|segment|options?|candidates?)/iu.test(trimmed)) {
+      isCandidateListOpen = true;
+    }
+
+    const match = trimmed.match(/^(?:[-*•]|[0-9]+[.)]|[①②③④⑤⑥⑦⑧⑨⑩])\s*(?<candidate>.+)$/u);
+
+    if (!match?.groups?.candidate || !isCandidateListOpen) {
+      continue;
+    }
+
+    const candidate = normalizeBulletCandidateLabel(match.groups.candidate);
+
+    if (candidate.length >= 2 && candidate.length <= 64) {
+      candidates.push(candidate);
+    }
+  }
+
+  return candidates;
+}
+
 function candidatePhrasesFromQuestion(question: string) {
   const phrases: string[] = [];
   const patterns = [
@@ -123,8 +164,10 @@ function candidatePhrasesFromQuestion(question: string) {
 
 function candidateAnswerOptionsFromQuestion(question: string): readonly AmbiguityAnswerOption[] {
   const seen = new Set<string>();
-  const candidates = candidatePhrasesFromQuestion(question)
-    .flatMap(splitCandidatePhrase)
+  const candidates = [
+    ...candidatePhrasesFromQuestion(question).flatMap(splitCandidatePhrase),
+    ...candidateBulletLabelsFromQuestion(question)
+  ]
     .filter((candidate) => {
       const key = candidate.toLocaleLowerCase("ko-KR");
 
