@@ -64,6 +64,7 @@
 
 .start-panel,
 .start-guide,
+.start-readiness,
 .session-login-column,
 .session-goal-column,
 .answer-box,
@@ -134,6 +135,7 @@
 
 .mode-option small,
 .start-guide,
+.start-readiness,
 .mode-help,
 .mode-summary,
 .research-recovery,
@@ -179,6 +181,33 @@
 
 .goal-setup-guide {
   background: var(--solo-bg);
+}
+
+.start-readiness {
+  border: 1px solid #d8ece8;
+  border-radius: 10px;
+  background: #fffaf0;
+  padding: 12px;
+}
+
+.start-readiness strong {
+  color: var(--solo-text);
+}
+
+.start-readiness p {
+  margin: 0;
+}
+
+.start-readiness ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.start-readiness-ready {
+  border-color: #b2dad7;
+  background: #f6fbf9;
 }
 
 .session-idea-field textarea {
@@ -259,6 +288,7 @@
   color: var(--solo-muted);
   font-size: 0.76rem;
   line-height: 1.5;
+  white-space: pre-line;
 }
 
 .research-additional-questions {
@@ -323,6 +353,22 @@
   color: var(--solo-text);
   font-size: 0.72rem;
   font-weight: 800;
+}
+
+.research-additional-questions ul,
+.research-card-source-trace ul {
+  white-space: pre-line;
+}
+
+.research-additional-questions li {
+  margin-bottom: 8px;
+}
+
+.answer-choice-help {
+  margin: 0;
+  color: var(--solo-muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
 }
 
 .research-additional-questions ul,
@@ -576,6 +622,10 @@
 .queue-card {
   display: grid;
   gap: 12px;
+}
+
+.queue-card h4 {
+  white-space: pre-line;
 }
 
 .queue-card.active {

@@ -72,10 +72,10 @@ import {
   DEFAULT_IDEA,
   DEFAULT_INTAKE,
   COMMAND_LOG_LIMIT,
-  canStartInitialQueueFlow,
   displayError,
   emptyProjectionState,
   emptyResearchOperationsState,
+  initialQueueStartBlockerList,
   latestCommandBackedProjectionVersion,
   type CommandLogEntry,
   type ConnectionState,
@@ -1240,7 +1240,7 @@ export function useDecisionQueueShellController() {
   const planningRadarPolygonPoints = planningRadarAxesView.map((axis) => axis.point).join(" ");
   const planningCompletenessScore = confidence?.compositeScore ?? 0;
   const planningReadinessLabel = confidence?.readinessLabel ?? copy.rightRail.pending;
-  const canStart = canStartInitialQueueFlow({
+  const initialQueueStartReadinessInput = {
     chatGptLoginAcknowledged,
     codexLoginAuthenticated: runtimeStatus?.account?.status === "authenticated",
     connectionStatus: connectionState.status,
@@ -1250,7 +1250,10 @@ export function useDecisionQueueShellController() {
     idea,
     intake,
     isBusy
-  });
+  };
+  const initialQueueStartBlockers = initialQueueStartBlockerList(initialQueueStartReadinessInput);
+  const initialQueueStartBlockerMessages = initialQueueStartBlockers.map((blocker) => copy.questions.initialQueueStartBlockers[blocker]);
+  const canStart = initialQueueStartBlockers.length === 0;
   const activeResearchAllowlist = activeWebPublicResearchAllowlist(researchOperations.allowlists);
   const hasActiveResearchAllowlist = Boolean(activeResearchAllowlist);
   const readyReadOnlyResearchStartPlan = readyReadOnlyResearchRunStartPlan({
@@ -1445,6 +1448,7 @@ export function useDecisionQueueShellController() {
     planningCompletenessScore,
     planningReadinessLabel,
     canStart,
+    initialQueueStartBlockerMessages,
     hasActiveResearchAllowlist,
     readyReadOnlyResearchStartPlan,
     readyReadOnlyResearchTaskIds,

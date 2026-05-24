@@ -106,7 +106,77 @@ function itemId(prefix: string, token: string, index: number) {
 function compactSummary(value: string, fallback: string) {
   const trimmed = value.trim().replace(/\s+/g, " ");
 
-  return trimmed.length > 180 ? `${trimmed.slice(0, 177)}...` : trimmed || fallback;
+  if (!trimmed) {
+    return fallback;
+  }
+
+  if (trimmed.length <= 280) {
+    return trimmed;
+  }
+
+  const sentences = trimmed.match(/[^.!?。！？]+[.!?。！？]?/gu) ?? [];
+  const summary = sentences.reduce((current, sentence) => {
+    const next = `${current}${sentence}`.trim();
+
+    return next.length <= 280 ? next : current;
+  }, "");
+
+  return summary || trimmed.slice(0, 280).trimEnd();
+}
+
+function userFacingQuestionText(value: string) {
+  return value
+    .replace(/^Validate evidence for:\s*/iu, "")
+    .replace(/^Broaden research beyond existing notes for:\s*/iu, "")
+    .replace(/\bValidate\s+/giu, "")
+    .replace(/\bevidence\b/giu, "근거")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function evidenceSummaryOrFallback(
+  evidenceItems: readonly { readonly summary: string }[],
+  fallback: string
+) {
+  return compactSummary(evidenceItems[0]?.summary ?? "", fallback);
+}
+
+function additionalQuestionForEvidenceGap(input: {
+  readonly objective: string;
+  readonly balanceStatus: EvidenceMatrixProjection["balanceStatus"];
+  readonly proEvidence: readonly { readonly summary: string }[];
+  readonly conEvidence: readonly { readonly summary: string }[];
+  readonly uncertainties: readonly { readonly summary: string }[];
+}) {
+  const topic = userFacingQuestionText(input.objective) || "이번 주장";
+  const proSummary = evidenceSummaryOrFallback(input.proEvidence, "아직 찬성 근거가 충분히 정리되지 않았습니다");
+  const conSummary = input.conEvidence.length
+    ? evidenceSummaryOrFallback(input.conEvidence, "반대 근거가 아직 충분히 정리되지 않았습니다")
+    : null;
+  const uncertaintySummary =
+    (input.uncertainties.length
+      ? evidenceSummaryOrFallback(input.uncertainties, "출처 폭과 실제 적용 가능성은 추가 확인이 필요합니다")
+      : null) ??
+    (input.balanceStatus === "missing_con_evidence" || input.balanceStatus === "needs_con_evidence"
+      ? "반대 근거가 부족해 과신 가능성이 남아 있습니다"
+      : "출처 폭과 실제 적용 가능성은 추가 확인이 필요합니다");
+
+  const choiceSentence = conSummary
+    ? `그중 지금 선택할 수 있는 방향은 ‘찬성 근거가 더 강하다’, ‘반대 근거가 더 강하다’, ‘아직 근거가 부족하다’ 정도로 추려졌습니다. 어느 방향으로 판단하시겠습니까?`
+    : `그중 지금 선택할 수 있는 방향은 ‘찬성 근거가 충분하다고 보고 진행’, ‘반대 근거를 더 찾아본 뒤 판단’, ‘아직 근거가 부족해 추가 리서치’ 정도로 추려졌습니다. 어느 방향으로 판단하시겠습니까?`;
+
+  return [
+    `${topic}를 조금 더 구체화하기 위해 리서치 결과를 모아보니 찬성쪽 근거는 ${proSummary}입니다.`,
+    "",
+    conSummary ? `반대쪽 근거는 ${conSummary}입니다.` : null,
+    `한계와 불확실성은 ${uncertaintySummary}입니다.`,
+    "",
+    choiceSentence,
+    "",
+    `이 답으로 정해지는 내용은 ${topic}을 스펙에 반영할지, 알려진 리스크로 남길지, 추가 리서치를 더 진행할지입니다.`
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
 }
 
 function normalizeResultText(value: string, fallback: string) {
@@ -132,9 +202,9 @@ function evidenceSnippet(value: string, markers: readonly string[], fallback: st
   }
 
   const start = Math.max(0, markerIndex - 40);
-  const excerpt = normalized.slice(start, start + 180).trim();
+  const excerpt = normalized.slice(start, start + 280).trim();
 
-  return `${start > 0 ? "..." : ""}${excerpt}${start + 180 < normalized.length ? "..." : ""}`;
+  return compactSummary(excerpt, fallback);
 }
 
 function includesAny(value: string, needles: readonly string[]) {
@@ -458,7 +528,15 @@ export function synthesizeEvidenceMatrix(input: SynthesizeEvidenceInput): Eviden
     additionalQuestions:
       balanceStatus === "balanced"
         ? []
-        : [`What evidence would resolve ${input.researchTask.objective}?`],
+        : [
+            additionalQuestionForEvidenceGap({
+              objective: input.researchTask.objective,
+              balanceStatus,
+              proEvidence,
+              conEvidence,
+              uncertainties
+            })
+          ],
     balanceStatus,
     decisionBlocked: input.researchTask.impact === "high" && balanceStatus !== "balanced",
     ...(missingConEvidenceReason ? { missingConEvidenceReason } : {}),

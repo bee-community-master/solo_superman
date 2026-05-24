@@ -115,8 +115,14 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix).toMatchObject({
       balanceStatus: "missing_con_evidence",
       decisionBlocked: true,
-      missingConEvidenceReason: expect.stringContaining("No counter-evidence")
+      missingConEvidenceReason: expect.stringContaining("No counter-evidence"),
+      additionalQuestions: [
+        expect.stringContaining("paid founder urgency를 조금 더 구체화")
+      ]
     });
+    expect(matrix.additionalQuestions[0]).toContain("찬성쪽 근거");
+    expect(matrix.additionalQuestions[0]).toContain("한계와 불확실성");
+    expect(matrix.additionalQuestions[0]).not.toContain("What evidence would resolve");
     expect(pack).toMatchObject({
       gateStatus: "research_insufficient",
       knownRisk: expect.stringContaining("missing_con_evidence"),

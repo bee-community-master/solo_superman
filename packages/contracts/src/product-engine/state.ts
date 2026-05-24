@@ -145,6 +145,7 @@ export type AmbiguityIssueUncertaintyType =
 export type AmbiguityIssueSeverity = "high" | "medium" | "low";
 
 export type AmbiguityExpectedAnswerType = "choice" | "text" | "rank" | "evidence" | "experiment";
+export type AmbiguityAnswerSelectionMode = "single" | "multiple";
 
 export type AmbiguityPossibleRoute =
   | "question"
@@ -183,6 +184,7 @@ export interface AmbiguityIssueSnapshot {
   readonly status: "open" | "answered" | "deferred" | "resolved";
   readonly questionText?: string;
   readonly expectedAnswerType?: AmbiguityExpectedAnswerType;
+  readonly answerSelectionMode?: AmbiguityAnswerSelectionMode;
   readonly answerOptions?: readonly AmbiguityAnswerOption[];
   readonly decisionItUnlocks?: string;
   readonly suggestedResearchTask?: string;

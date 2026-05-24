@@ -14,6 +14,7 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
     chatGptLoginAcknowledged,
     codexLoginStart,
     idea,
+    initialQueueStartBlockerMessages,
     initialResearchPermission,
     initialBusinessCriticIntensityReason,
     intake,
@@ -30,6 +31,7 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
     setProjectPurposeMode,
     startCodexLogin
   } = controller;
+  const readinessClassName = canStart ? "start-readiness start-readiness-ready" : "start-readiness start-readiness-blocked";
   const codexAccount = controller.runtimeStatus?.account ?? null;
   const codexStatusReason =
     codexAccount?.reason ??
@@ -202,6 +204,17 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
                 </p>
               </fieldset>
             ) : null}
+            <section className={readinessClassName} aria-label={copy.questions.startReadinessAria} aria-live="polite">
+              <strong>{canStart ? copy.questions.startReadinessReadyTitle : copy.questions.startReadinessBlockedTitle}</strong>
+              <p>{canStart ? copy.questions.startReadinessReadyHelp : copy.questions.startReadinessBlockedHelp}</p>
+              {initialQueueStartBlockerMessages.length ? (
+                <ul>
+                  {initialQueueStartBlockerMessages.map((message) => (
+                    <li key={message}>{message}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
             <button type="submit" disabled={!canStart}>
               {isBusy ? copy.questions.running : copy.questions.createFirstBatch}
             </button>

@@ -1736,7 +1736,8 @@ describe("PR-04 ProductEngine reducer", () => {
         expect.objectContaining({
           cardType: "follow_up_question",
           state: "active",
-          title: expect.stringContaining("founder teams with repeated manual planning pain")
+          title: expect.stringContaining("founder teams with repeated manual planning pain"),
+          answerOptions: []
         })
       ],
       next: [
@@ -1985,14 +1986,14 @@ describe("PR-04 ProductEngine reducer", () => {
             balanceStatus: "missing_con_evidence",
             decisionBlocked: true,
             additionalQuestions: [
-              expect.stringContaining("What evidence would resolve Validate paid founder urgency?")
+              expect.stringContaining("paid founder urgency를 조금 더 구체화")
             ]
           })
         ],
         reviewCards: [
           expect.objectContaining({
             additionalQuestions: [
-              expect.stringContaining("What evidence would resolve Validate paid founder urgency?")
+              expect.stringContaining("paid founder urgency를 조금 더 구체화")
             ]
           })
         ],
@@ -2006,9 +2007,13 @@ describe("PR-04 ProductEngine reducer", () => {
           status: "open",
           uncertaintyType: "missing_con_evidence",
           expectedAnswerType: "evidence",
+          answerSelectionMode: "single",
+          answerOptions: expect.arrayContaining([
+            expect.objectContaining({ label: expect.stringContaining("근거") })
+          ]),
           repeatCount: 1,
           repeatLimit: 16,
-          questionText: expect.stringContaining("What evidence would resolve Validate paid founder urgency?"),
+          questionText: expect.stringContaining("paid founder urgency를 조금 더 구체화"),
           whyItMatters: expect.stringContaining("찬성 근거:"),
           decisionItUnlocks: expect.stringContaining("Founder urgency evidence notes"),
           possibleRoutes: expect.arrayContaining(["question", "missing_con_evidence", "research_needed"]),
@@ -2019,16 +2024,16 @@ describe("PR-04 ProductEngine reducer", () => {
         active: [
           expect.objectContaining({
             cardType: "follow_up_question",
-            title: expect.stringContaining("What evidence would resolve Validate paid founder urgency?"),
+            title: expect.stringContaining("paid founder urgency를 조금 더 구체화"),
             state: "active",
-            whyItMatters: expect.stringContaining("Counter-evidence still needs"),
+            whyItMatters: expect.stringContaining("반대 근거"),
             sourceRef: expect.stringContaining(`research:${researchTaskId}:`)
           })
         ],
         blocked: [
           expect.objectContaining({
             additionalQuestions: [
-              expect.stringContaining("What evidence would resolve Validate paid founder urgency?")
+              expect.stringContaining("paid founder urgency를 조금 더 구체화")
             ]
           })
         ],
@@ -2052,6 +2057,12 @@ describe("PR-04 ProductEngine reducer", () => {
         ])
       }
     });
+    const researchFollowUpIssue = synthesized.nextState.openIssues.find(
+      (issue) => issue.queueItemId.startsWith("queue_research_followup_")
+    );
+
+    expect(researchFollowUpIssue?.answerOptions?.length).toBeGreaterThanOrEqual(3);
+    expect(researchFollowUpIssue?.answerOptions?.length).toBeLessThanOrEqual(10);
     expect(synthesized.events[0]?.payload).toMatchObject({
       researchFollowUpQueueItemIds: [expect.stringMatching(/^queue_research_followup_/)]
     });
@@ -2082,7 +2093,7 @@ describe("PR-04 ProductEngine reducer", () => {
         expect.objectContaining({
           queueItemId: expect.stringMatching(/^queue_research_followup_/),
           status: "open",
-          questionText: expect.stringContaining("What evidence would resolve Validate paid founder urgency?")
+          questionText: expect.stringContaining("paid founder urgency를 조금 더 구체화")
         })
       ])
     );
@@ -2090,7 +2101,7 @@ describe("PR-04 ProductEngine reducer", () => {
       expect.arrayContaining([
         expect.objectContaining({
           cardType: "follow_up_question",
-          title: expect.stringContaining("What evidence would resolve Validate paid founder urgency?"),
+          title: expect.stringContaining("paid founder urgency를 조금 더 구체화"),
           sourceRef: expect.stringContaining(`research:${researchTaskId}:`)
         })
       ])

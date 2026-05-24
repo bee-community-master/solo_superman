@@ -39,6 +39,16 @@ function researchFollowUpSourceTrace(item: QueueItemProjection) {
     : null;
 }
 
+function answerDraftFromSelectedOptions(
+  answerOptions: NonNullable<QueueItemProjection["answerOptions"]>,
+  selectedOptionIds: readonly string[]
+) {
+  return answerOptions
+    .filter((option) => selectedOptionIds.includes(option.id))
+    .map((option) => option.value)
+    .join("\n");
+}
+
 function ResearchFollowUpSourceTrace({
   copy,
   item
@@ -57,7 +67,7 @@ function ResearchFollowUpSourceTrace({
 
 export function QuestionsView({ controller }: QuestionsViewProps) {
   const copy = useDecisionQueueCopy();
-  const [selectedAnswerOptionIds, setSelectedAnswerOptionIds] = useState<Record<string, string>>({});
+  const [selectedAnswerOptionIds, setSelectedAnswerOptionIds] = useState<Record<string, readonly string[]>>({});
   const {
     answerDrafts,
     carryQueueItemAsKnownRisk,
@@ -203,7 +213,15 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
               </div>
               {section.items.length ? (
                 <div className="queue-list">
-                  {section.items.map((item) => (
+                  {section.items.map((item) => {
+                    const answerSelectionMode = item.answerSelectionMode ?? "single";
+                    const selectedOptionIds = selectedAnswerOptionIds[item.queueItemId] ?? [];
+                    const suggestedAnswersHelp =
+                      answerSelectionMode === "multiple"
+                        ? copy.questions.suggestedAnswersMultipleHelp
+                        : copy.questions.suggestedAnswersSingleHelp;
+
+                    return (
                     <article className={`queue-card ${item.state}`} key={item.queueItemId}>
                       <div>
                         <span>{copy.questions.queueItemStateLabels[item.state]}</span>
@@ -249,23 +267,30 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                           {item.answerOptions?.length ? (
                             <fieldset className="answer-choice-fieldset">
                               <legend>{copy.questions.suggestedAnswers}</legend>
+                              <p className="answer-choice-help">{suggestedAnswersHelp}</p>
                               <div className="answer-choice-list">
                                 {item.answerOptions.map((option) => (
                                   <label className="answer-choice-option" key={option.id}>
                                     <input
-                                      checked={selectedAnswerOptionIds[item.queueItemId] === option.id}
+                                      checked={selectedOptionIds.includes(option.id)}
                                       name={`answer-option-${item.queueItemId}`}
                                       onChange={() => {
+                                        const nextSelectedOptionIds =
+                                          answerSelectionMode === "multiple"
+                                            ? selectedOptionIds.includes(option.id)
+                                              ? selectedOptionIds.filter((selectedOptionId) => selectedOptionId !== option.id)
+                                              : [...selectedOptionIds, option.id]
+                                            : [option.id];
                                         setSelectedAnswerOptionIds((current) => ({
                                           ...current,
-                                          [item.queueItemId]: option.id
+                                          [item.queueItemId]: nextSelectedOptionIds
                                         }));
                                         setAnswerDrafts((current) => ({
                                           ...current,
-                                          [item.queueItemId]: option.value
+                                          [item.queueItemId]: answerDraftFromSelectedOptions(item.answerOptions ?? [], nextSelectedOptionIds)
                                         }));
                                       }}
-                                      type="radio"
+                                      type={answerSelectionMode === "multiple" ? "checkbox" : "radio"}
                                       value={option.id}
                                     />
                                     <span>
@@ -292,7 +317,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                               onChange={(event) => {
                                 setSelectedAnswerOptionIds((current) => ({
                                   ...current,
-                                  [item.queueItemId]: ""
+                                  [item.queueItemId]: []
                                 }));
                                 setAnswerDrafts((current) => ({
                                   ...current,
@@ -333,7 +358,8 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                         </details>
                       ) : null}
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="empty-state">{section.emptyLabel}</p>

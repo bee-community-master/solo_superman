@@ -355,12 +355,12 @@ describe("QuestionsView", () => {
           items: [
             {
               queueItemId: "research_review_follow_up" as QueueItemId,
-              title: "Evidence still insufficient: Validate paid founder urgency",
+              title: "paid founder urgency를 조금 더 구체화하기 위해 리서치 결과를 모아보니 찬성쪽 근거는 founders report urgency입니다.\n\n한계와 불확실성은 반대 근거가 부족해 과신 가능성이 남아 있습니다.\n\n어느 방향으로 판단하시겠습니까?",
               state: "blocked",
               cardType: "follow_up_question",
               sourceRef: "research:research_task_demo:evidence_matrix_demo:additional_question:1",
               additionalQuestions: [
-                "What evidence would resolve Validate paid founder urgency?"
+                "paid founder urgency를 조금 더 구체화하기 위해 리서치 결과를 모아보니 찬성쪽 근거는 founders report urgency입니다.\n\n한계와 불확실성은 반대 근거가 부족해 과신 가능성이 남아 있습니다.\n\n어느 방향으로 판단하시겠습니까?"
               ]
             }
           ]
@@ -369,11 +369,73 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain("Research-generated questions");
-    expect(markup).toContain("What evidence would resolve Validate paid founder urgency?");
+    expect(markup).toContain("찬성쪽 근거는 founders report urgency입니다.");
+    expect(markup).toContain("한계와 불확실성은 반대 근거가 부족해 과신 가능성이 남아 있습니다.");
+    expect(markup).not.toContain("What evidence would resolve");
     expect(markup).toContain("Source trace");
     expect(markup).toContain("research:research_task_demo:evidence_matrix_demo:additional_question:1");
     expect(markup).toContain("Blocked");
     expect(markup).not.toContain(">blocked<");
+  });
+
+  it("renders multiple-select answer choices when a question accepts more than one option", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 1 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_multi_choice" as QueueItemId,
+          title: "Which customer signals should be investigated together?",
+          state: "active",
+          answerSelectionMode: "multiple",
+          answerOptions: [
+            {
+              id: "manual_pain",
+              label: "Manual pain",
+              value: "Investigate manual pain.",
+              pro: "Shows urgency.",
+              con: "May be narrow."
+            },
+            {
+              id: "budget_owner",
+              label: "Budget owner",
+              value: "Investigate budget owner.",
+              pro: "Clarifies buyer.",
+              con: "May slow interviews."
+            },
+            {
+              id: "repeat_use",
+              label: "Repeat use",
+              value: "Investigate repeat use.",
+              pro: "Clarifies retention.",
+              con: "Needs time."
+            }
+          ]
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+
+    const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        queue
+      },
+      sections: [
+        {
+          id: "active",
+          title: "Current questions",
+          emptyLabel: "No current questions.",
+          items: queue.active
+        }
+      ]
+    });
+
+    expect(markup).toContain("Select one or more options, or write your own answer below.");
+    expect(markup).toContain('type="checkbox"');
+    expect(markup).not.toContain('type="radio"');
   });
 
 

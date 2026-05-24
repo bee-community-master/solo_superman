@@ -133,6 +133,11 @@ const EN_COPY = {
       idea: "Enter an idea summary before starting.",
       intake: "Enter the goal description before starting."
     } satisfies Record<InitialQueueStartBlocker, string>,
+    startReadinessAria: "First-question readiness checklist",
+    startReadinessBlockedTitle: "Before you can start",
+    startReadinessBlockedHelp: "Complete these items, then the Create first questions button will turn on.",
+    startReadinessReadyTitle: "Ready to create first questions",
+    startReadinessReadyHelp: "Everything needed for the first question batch is in place.",
     sessionActionErrors: {
       activeSessionRequiredProjectPurpose: "An active session is required before changing the project purpose mode.",
       projectPurposeAlreadySelected: "Project purpose mode is already set to the selected value.",
@@ -286,6 +291,8 @@ const EN_COPY = {
     decisionItUnlocks: "Decision this unlocks",
     nextValidation: "Next validation",
     suggestedAnswers: "Suggested answer choices",
+    suggestedAnswersSingleHelp: "Select one option, or write your own answer below.",
+    suggestedAnswersMultipleHelp: "Select one or more options, or write your own answer below.",
     optionPro: "Pro",
     optionCon: "Con",
     customAnswer: "Write a different answer if none fit",
@@ -1094,6 +1101,11 @@ const JA_COPY: typeof EN_COPY = {
       idea: "開始前にアイデア概要を入力してください。",
       intake: "開始前に目標の説明を入力してください。"
     },
+    startReadinessAria: "最初の質問準備チェックリスト",
+    startReadinessBlockedTitle: "開始前に必要なこと",
+    startReadinessBlockedHelp: "これらを完了すると、「最初の質問を作成」ボタンが押せるようになります。",
+    startReadinessReadyTitle: "最初の質問を作成できます",
+    startReadinessReadyHelp: "最初の質問セットに必要な準備がそろっています。",
     sessionActionErrors: {
       activeSessionRequiredProjectPurpose: "プロジェクト目的を変更するにはアクティブなセッションが必要です。",
       projectPurposeAlreadySelected: "プロジェクト目的はすでに選択した値に設定されています。",
@@ -1244,6 +1256,8 @@ const JA_COPY: typeof EN_COPY = {
     decisionItUnlocks: "この回答で決まる判断",
     nextValidation: "次の検証",
     suggestedAnswers: "回答候補",
+    suggestedAnswersSingleHelp: "候補を1つ選ぶか、下に自分の回答を書いてください。",
+    suggestedAnswersMultipleHelp: "候補を1つ以上選ぶか、下に自分の回答を書いてください。",
     optionPro: "長所",
     optionCon: "短所",
     customAnswer: "合う選択肢がなければ直接入力",
@@ -2040,6 +2054,11 @@ const KO_COPY: typeof EN_COPY = {
       idea: "시작 전에 아이디어 요약을 입력해야 합니다.",
       intake: "시작 전에 목표에 대한 서술을 입력해야 합니다."
     },
+    startReadinessAria: "첫 질문 준비 체크리스트",
+    startReadinessBlockedTitle: "시작 전에 필요한 것",
+    startReadinessBlockedHelp: "아래 항목을 완료하면 ‘첫 질문 만들기’ 버튼을 누를 수 있습니다.",
+    startReadinessReadyTitle: "첫 질문을 만들 준비가 됐습니다",
+    startReadinessReadyHelp: "첫 질문 묶음에 필요한 준비가 모두 끝났습니다.",
     sessionActionErrors: {
       activeSessionRequiredProjectPurpose: "프로젝트 목적을 변경하려면 활성 세션이 필요합니다.",
       projectPurposeAlreadySelected: "프로젝트 목적이 이미 선택한 값으로 설정되어 있습니다.",
@@ -2189,6 +2208,8 @@ const KO_COPY: typeof EN_COPY = {
     decisionItUnlocks: "이 답으로 정해지는 판단",
     nextValidation: "다음 검증",
     suggestedAnswers: "추천 답변 선택지",
+    suggestedAnswersSingleHelp: "하나를 선택하거나 아래에 직접 답변하세요.",
+    suggestedAnswersMultipleHelp: "하나 이상을 선택하거나 아래에 직접 답변하세요.",
     optionPro: "찬성",
     optionCon: "반대",
     customAnswer: "맞는 선택지가 없으면 다른 답변 작성",
