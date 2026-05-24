@@ -255,12 +255,17 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.issueRows[0]).toMatchObject({
       latestWorkerJobLabel: "latest worker none",
       nextActionLabel: "Work this issue through the delivery protocol, review streaks, and test evidence checklist.",
+      stageGateLabel: expect.stringContaining("Record the first targeted test evidence"),
       missingEvidenceLabel: "none",
       evidenceRefsLabel: "none"
     });
-    expect(renderPanelMarkup(view)).toContain(
+    const markup = renderPanelMarkup(view);
+
+    expect(markup).toContain(
       "local-001: Workspace repo bootstrap and initial implementation PR — stage initial_pr / status open (implementation-issues/001-initial_pr.md)"
     );
+    expect(markup).toContain("stage gate: Create the smallest behavior-complete implementation for this issue slice.");
+    expect(markup).toContain("Record the first targeted test evidence before requesting review.");
     expect(view.deliveryGates).toEqual(
       expect.arrayContaining([
         expect.stringContaining("two consecutive no-finding passes")

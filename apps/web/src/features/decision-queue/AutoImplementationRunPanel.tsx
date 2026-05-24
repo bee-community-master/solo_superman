@@ -73,6 +73,7 @@ export interface AutoImplementationIssueRowView {
   readonly latestWorkerJobLabel: string;
   readonly blockerLabel: string | null;
   readonly nextActionLabel: string;
+  readonly stageGateLabel: string;
   readonly missingEvidenceLabel: string;
   readonly evidenceRefsLabel: string;
 }
@@ -243,6 +244,10 @@ function issueRowEvidenceRefs(
   return stage?.evidenceRefs ?? [];
 }
 
+function issueRowStageGates(run: AutoImplementationRun, issue: AutoImplementationIssueDocument) {
+  return run.reviewProtocol.stageGates.find((stageGate) => stageGate.stage === issue.stage)?.gates ?? [];
+}
+
 function splitWorkerRequiredEvidence(
   stage: AutoImplementationStage,
   requiredEvidence: readonly string[]
@@ -303,6 +308,7 @@ function autoImplementationIssueRowView(
     latestWorkerJobLabel: latestIssueWorkerJobLabel(latestWorkerJob),
     blockerLabel: issueRowBlockerLabel({ stage, latestWorkerJob }),
     nextActionLabel: issueRowNextAction({ stage, latestWorkerJob }),
+    stageGateLabel: inlineList(issueRowStageGates(run, issue), "none"),
     missingEvidenceLabel: inlineList(issueRowMissingEvidence(stage, latestWorkerJob), "none"),
     evidenceRefsLabel: inlineList(issueRowEvidenceRefs(stage, latestWorkerJob), "none")
   };
@@ -903,6 +909,8 @@ export function AutoImplementationRunPanel({
               {row.latestWorkerJobLabel}
               {" · "}
               next: {row.nextActionLabel}
+              {" · "}
+              {copy.autoImplementation.issueRowStageGate}: {row.stageGateLabel}
               {" · "}
               missing: {row.missingEvidenceLabel}
               {" · "}
