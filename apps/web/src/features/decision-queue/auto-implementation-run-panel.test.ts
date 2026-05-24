@@ -1444,7 +1444,12 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(koreanMarkup).toContain("승인된 로컬 Codex 작업 계획");
     expect(koreanMarkup).toContain("작업 결과 가져오기");
     expect(koreanMarkup).toContain("GitHub 이슈 생성 미리보기");
+    expect(koreanMarkup).toContain("아직 구현 계획에서 쪼개진 PR/이슈 파일이 생성되지 않았습니다.");
+    expect(koreanMarkup).toContain("지금은 로컬 markdown 이슈를 기준으로 진행합니다.");
+    expect(koreanMarkup).toContain("원격 이슈/PR 자동화를 사용하려면 GitHub 원격 저장소를 연결하세요.");
     expect(koreanMarkup).not.toContain("Worker ledger import JSON");
     expect(koreanMarkup).not.toContain("Worker job 실행");
+    expect(koreanMarkup).not.toContain("local markdown issue path가 source of truth");
+    expect(koreanMarkup).not.toContain("Connect a GitHub remote");
   });
 });

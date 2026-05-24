@@ -259,6 +259,17 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.recordPullRequestMergeDryRun).toContain("PR merge");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.applyPullRequestBodyUpdate).toBe("Apply approved PR body update");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.applyPullRequestMerge).toContain("승인된 PR merge");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.noPlanningIssueFiles).toContain("구현 계획");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.noGithubIssueUrls).toContain("로컬 markdown 이슈");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.remoteNextActionLabel(
+      "Connect a GitHub remote when remote issue/PR automation is desired."
+    )).toContain("GitHub 원격 저장소");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.remoteWarningLabel(
+      "Remote is not connected; local markdown issues are the source of truth."
+    )).toContain("원격 저장소가 연결되지 않아");
+    expect(DECISION_QUEUE_COPY.ja.autoImplementation.remoteWarningLabel(
+      "Remote is not connected; local markdown issues are the source of truth."
+    )).toContain("ローカルMarkdown Issue");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.prMutationActionLabels.update_pr_body).toBe("update PR description");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.prMutationStatusLabels.applied).toBe("적용됨");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.prMutationRequestModeLabels.approved).toBe("承認済みlive操作");

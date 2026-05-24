@@ -791,6 +791,10 @@ export function AutoImplementationRunPanel({
   const latestWorkerJobNextAction = run.latestWorkerJobId
     ? run.latestWorkerJobNextAction
     : copy.autoImplementation.latestWorkerJobNextActionNotPlanned(run.hasRun);
+  const remoteNextAction = copy.autoImplementation.remoteNextActionLabel(run.remoteNextAction);
+  const remoteWarning = run.remoteWarning
+    ? copy.autoImplementation.remoteWarningLabel(run.remoteWarning)
+    : null;
 
   return (
     <section className="panel auto-implementation-run-panel">
@@ -1292,8 +1296,8 @@ export function AutoImplementationRunPanel({
       )}
 
       <h3>{copy.autoImplementation.remoteGuide}</h3>
-      <p>{run.remoteNextAction}</p>
-      {run.remoteWarning ? <p className="research-recovery">{run.remoteWarning}</p> : null}
+      <p>{remoteNextAction}</p>
+      {remoteWarning ? <p className="research-recovery">{remoteWarning}</p> : null}
       {run.remoteCommands.length ? (
         <ul>
           {run.remoteCommands.map((command) => (

@@ -47,6 +47,10 @@ function localizedCodexRuntimeAccountLabel(
   return details ? `${statusLabel} (${details})` : statusLabel;
 }
 
+function identityRemoteGuideText(value: string) {
+  return value;
+}
+
 const EN_CODEX_RUNTIME_STATUS_LABELS = {
   available: "available",
   unavailable: "unavailable",
@@ -1201,6 +1205,8 @@ const EN_COPY = {
     noIssueDocs: "No markdown issue documents created yet.",
     noGithubIssuePlans: "No GitHub issue mutation plan has been prepared yet.",
     noGithubIssueUrls: "No GitHub issues have been created; local markdown issue paths remain the source of truth.",
+    remoteNextActionLabel: identityRemoteGuideText,
+    remoteWarningLabel: identityRemoteGuideText,
     noRemoteCommands: "Remote is connected or no connection command is needed.",
     noEvidenceRefs: "No workspace evidence references recorded."
   },
@@ -2413,10 +2419,32 @@ const JA_COPY: typeof EN_COPY = {
           : "レビュー/クリーンコードループはまだ開始されていません。",
     noStages: "実装ステージはまだ予定されていません。",
     noReviewGates: "レビューゲートはまだ記録されていません。",
-    noPlanningIssueFiles: "Planning Handoff由来のPR/Issueファイルはまだ生成されていません。",
+    noPlanningIssueFiles: "実装計画から分割されたPR/Issueファイルはまだ生成されていません。",
     noIssueDocs: "Markdown issue文書はまだ作成されていません。",
-    noGithubIssuePlans: "GitHub issue mutation planはまだ準備されていません。",
-    noGithubIssueUrls: "GitHub issueはまだ作成されていません。local markdown issue pathがsource of truthです。",
+    noGithubIssuePlans: "GitHub Issue作成計画はまだ準備されていません。",
+    noGithubIssueUrls: "GitHub Issueはまだ作成されていません。今はローカルMarkdown Issueを基準に進めます。",
+    remoteNextActionLabel: (value: string) => {
+      if (value === "Connect a GitHub remote when remote issue/PR automation is desired.") {
+        return "リモートIssue/PR自動化を使う場合は、GitHubリモートリポジトリを接続してください。";
+      }
+
+      if (value === "Create the workspace run after the planning handoff is detailed enough.") {
+        return "実装計画の引き渡しが十分に具体化したら、自動実装ワークスペースを作成してください。";
+      }
+
+      return value;
+    },
+    remoteWarningLabel: (value: string) => {
+      if (value === "Remote is not connected; local markdown issues are the source of truth.") {
+        return "リモートリポジトリが未接続のため、今はローカルMarkdown Issueを基準に進めます。";
+      }
+
+      if (value === "Start a run to create a local git repo, markdown fallback issues, and remote connection guidance.") {
+        return "ワークスペース実行を作成すると、ローカルGitリポジトリ、代替Markdown Issue、リモート接続ガイドが準備されます。";
+      }
+
+      return value;
+    },
     noRemoteCommands: "Remoteは接続済み、または接続コマンドは不要です。",
     noEvidenceRefs: "ワークスペース確認資料はまだ記録されていません。"
   },
@@ -3627,10 +3655,32 @@ const KO_COPY: typeof EN_COPY = {
           : "아직 리뷰/클린코드 루프가 시작되지 않았습니다.",
     noStages: "아직 예약된 구현 단계가 없습니다.",
     noReviewGates: "아직 리뷰 게이트가 기록되지 않았습니다.",
-    noPlanningIssueFiles: "아직 Planning Handoff에서 나온 PR/이슈 파일이 생성되지 않았습니다.",
+    noPlanningIssueFiles: "아직 구현 계획에서 쪼개진 PR/이슈 파일이 생성되지 않았습니다.",
     noIssueDocs: "아직 markdown 이슈 문서가 생성되지 않았습니다.",
-    noGithubIssuePlans: "아직 GitHub issue mutation plan이 준비되지 않았습니다.",
-    noGithubIssueUrls: "아직 GitHub issue가 생성되지 않았습니다. local markdown issue path가 source of truth입니다.",
+    noGithubIssuePlans: "아직 GitHub 이슈 생성 계획이 준비되지 않았습니다.",
+    noGithubIssueUrls: "아직 GitHub 이슈가 생성되지 않았습니다. 지금은 로컬 markdown 이슈를 기준으로 진행합니다.",
+    remoteNextActionLabel: (value: string) => {
+      if (value === "Connect a GitHub remote when remote issue/PR automation is desired.") {
+        return "원격 이슈/PR 자동화를 사용하려면 GitHub 원격 저장소를 연결하세요.";
+      }
+
+      if (value === "Create the workspace run after the planning handoff is detailed enough.") {
+        return "구현 계획 전달이 충분히 구체화되면 자동 구현 작업공간 실행을 만드세요.";
+      }
+
+      return value;
+    },
+    remoteWarningLabel: (value: string) => {
+      if (value === "Remote is not connected; local markdown issues are the source of truth.") {
+        return "원격 저장소가 연결되지 않아 지금은 로컬 markdown 이슈를 기준으로 진행합니다.";
+      }
+
+      if (value === "Start a run to create a local git repo, markdown fallback issues, and remote connection guidance.") {
+        return "작업공간 실행을 만들면 로컬 git 저장소, 대체 markdown 이슈, 원격 연결 안내가 준비됩니다.";
+      }
+
+      return value;
+    },
     noRemoteCommands: "Remote가 연결되어 있거나 필요한 연결 명령이 없습니다.",
     noEvidenceRefs: "아직 작업공간 근거 참조가 기록되지 않았습니다."
   },
