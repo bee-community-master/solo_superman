@@ -22,7 +22,7 @@ function codeBackedCapability(id, verificationCommands, overrides = {}) {
 function autoImplementationCheckedBehaviors() {
   return [
     "Runtime preview requests produce bounded preview artifacts without applying file, shell, browser, or network actions.",
-    "Opt-in live runtime readiness verification reports skipped, blocked, or passed evidence without forcing credential-gated live execution into the default suite.",
+    "Opt-in live runtime readiness verification reports skipped, blocked, or passed evidence without forcing opt-in live execution into the default suite.",
     "Worker jobs keep planned ledger docs, authority refs, sandbox boundaries, and manual recovery evidence visible.",
     "Generated PR body includes issue document status summary, stage status summary, review/evidence gate summary, and missing-test audit summary coverage.",
     "Every canonical auto-implementation stage can carry code-review, clean-code, missing-test audit, and test evidence before completion."
