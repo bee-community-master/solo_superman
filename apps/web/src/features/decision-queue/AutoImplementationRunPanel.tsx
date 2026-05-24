@@ -1152,7 +1152,7 @@ export function AutoImplementationRunPanel({
         <ul>
           {run.issueRows.map((row) => (
             <li key={row.issue.issueId}>
-              {row.issue.issueId}: {row.issue.title} — {copy.autoImplementation.issueRowStage}: {copy.autoImplementation.stageLabels[row.issue.stage]} / {copy.autoImplementation.issueRowStatus}: {copy.autoImplementation.issueDocumentStatusLabels[row.issue.status]} ({row.issue.relativePath})
+              {row.issue.issueId}: {copy.autoImplementation.stageLabels[row.issue.stage]} — {copy.autoImplementation.issueRowStage}: {copy.autoImplementation.stageLabels[row.issue.stage]} / {copy.autoImplementation.issueRowStatus}: {copy.autoImplementation.issueDocumentStatusLabels[row.issue.status]} ({row.issue.relativePath})
               {" · "}
               {copy.autoImplementation.issueRowGithubIssue}: {row.githubIssueUrlLabel}
               {" · "}
@@ -1190,7 +1190,7 @@ export function AutoImplementationRunPanel({
         <ul>
           {run.githubIssuePlans.map((issue) => (
             <li key={issue.issueId}>
-              {issue.issueId}: {issue.title} ({issue.bodyMarkdownPath})
+              {issue.issueId}: {copy.autoImplementation.stageLabels[issue.sourceStage]} ({issue.bodyMarkdownPath})
             </li>
           ))}
         </ul>

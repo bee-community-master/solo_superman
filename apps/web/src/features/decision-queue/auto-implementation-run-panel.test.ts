@@ -280,7 +280,7 @@ describe("AutoImplementationRunPanel view model", () => {
     const markup = renderPanelMarkup(view);
 
     expect(markup).toContain(
-      "local-001: Workspace repo bootstrap and initial implementation PR — stage: Initial implementation and PR creation / status: open (implementation-issues/001-initial_pr.md)"
+      "local-001: Initial implementation and PR creation — stage: Initial implementation and PR creation / status: open (implementation-issues/001-initial_pr.md)"
     );
     expect(markup).toContain("stage gate: Create the smallest behavior-complete implementation for this issue slice.");
     expect(markup).toContain("Record the first targeted test evidence before requesting review.");
@@ -307,7 +307,11 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(koreanMarkup).toContain("이슈 상태 요약: 완료 0개 / 차단 0개 / 열림 7개 / 전체 7개");
     expect(koreanMarkup).toContain("로컬 Codex worker: 아직 계획되지 않음");
     expect(koreanMarkup).toContain("최신 worker 없음");
+    expect(koreanMarkup).toContain(
+      "local-001: 초기 구현 및 PR 생성 — 단계: 초기 구현 및 PR 생성 / 상태: 열림"
+    );
     expect(koreanMarkup).toContain("단계: 초기 구현 및 PR 생성 / 상태: 열림");
+    expect(koreanMarkup).not.toContain("Workspace repo bootstrap and initial implementation PR");
     expect(koreanMarkup).not.toContain("상태: open");
     expect(koreanMarkup).not.toContain("Workspace:");
     expect(koreanMarkup).not.toContain("Remote:");
@@ -588,7 +592,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("Issue status summary: 1 completed / 2 blocked / 4 open / 7 total");
     expect(markup).toContain("1/7 stages completed · current stage: Initial implementation and PR creation (completed)");
     expect(markup).toContain(
-      "local-001: Workspace repo bootstrap and initial implementation PR — stage: Initial implementation and PR creation / status: completed (implementation-issues/001-initial_pr.md)"
+      "local-001: Initial implementation and PR creation — stage: Initial implementation and PR creation / status: completed (implementation-issues/001-initial_pr.md)"
     );
     expect(markup).toContain(
       "local-002: Feature PR code review and fix loop — stage: Feature PR code review and fix loop / status: blocked (implementation-issues/002-code_review_fix_1.md)"
