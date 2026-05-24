@@ -769,6 +769,8 @@ function checkContributorDocsSnippets() {
     "pnpm verify:packaged-update-rollback",
     "pnpm verify:signed-package-release",
     "pnpm verify:release-readiness",
+    "pnpm verify:release-evidence-template",
+    "pnpm verify:release-evidence-bundle",
     "pnpm verify:ready-release",
     "--require-ready",
     "signed-packages",

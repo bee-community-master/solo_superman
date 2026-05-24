@@ -115,6 +115,16 @@ function fakeCommandRunner(command, args) {
       itemCount: 9,
       issues: [],
       checked: ["filled release evidence templates for every blocked release issue"]
+    })],
+    [`${process.execPath} scripts/verify-release-evidence-bundle.mjs`, JSON.stringify({
+      status: "passed",
+      schemaVersion: "solo-superman-release-evidence-bundle-validation.v1",
+      mode: "generated-bundle",
+      checklistStatus: "blocked",
+      issueNumbers: [259, 266, 267],
+      fileCount: 14,
+      blockers: [],
+      checked: ["release evidence bundle manifest schema"]
     })]
   ]);
 
@@ -141,6 +151,7 @@ function fakeCommandRunner(command, args) {
           verifySignedPackageReleaseDryRun: "node scripts/verify-signed-package-release-dry-run.mjs",
           verifyReleaseReadiness: "node scripts/verify-release-readiness.mjs",
           verifyReleaseEvidenceTemplate: "node scripts/verify-release-evidence-template.mjs",
+          verifyReleaseEvidenceBundle: "node scripts/verify-release-evidence-bundle.mjs",
           verifySupportBundle: "node scripts/verify-support-bundle.mjs",
           supportBundle: "node scripts/support-bundle.mjs",
           releaseEvidenceChecklist: "node scripts/release-evidence-checklist.mjs",
@@ -221,6 +232,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.package.scripts.verifyPackagedUpdateRollbackDryRun).toBe("node scripts/verify-packaged-update-rollback-dry-run.mjs");
     expect(bundle.package.scripts.verifySignedPackageReleaseDryRun).toBe("node scripts/verify-signed-package-release-dry-run.mjs");
     expect(bundle.package.scripts.verifyReleaseEvidenceTemplate).toBe("node scripts/verify-release-evidence-template.mjs");
+    expect(bundle.package.scripts.verifyReleaseEvidenceBundle).toBe("node scripts/verify-release-evidence-bundle.mjs");
     expect(bundle.package.scripts.verifySupportBundle).toBe("node scripts/verify-support-bundle.mjs");
     expect(bundle.package.scripts.releaseEvidenceChecklist).toBe("node scripts/release-evidence-checklist.mjs");
     expect(bundle.package.scripts.releaseEvidenceBundle).toBe("node scripts/release-evidence-checklist.mjs --bundle-dir");
@@ -235,6 +247,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-release:dry-run");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-readiness");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-evidence-template");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:release-evidence-bundle");
     expect(bundle.recommendedChecks).toContain("pnpm verify:support-bundle");
     expect(bundle.recommendedChecks).toContain("pnpm release:evidence-checklist");
     expect(bundle.recommendedChecks).toContain("pnpm release:evidence-bundle -- <bundle-dir>");
@@ -329,6 +342,16 @@ describe("support diagnostics bundle", () => {
       issueNumbers: ["259", "266", "267"],
       itemCount: 9,
       issues: []
+    });
+    expect(bundle.releaseDiagnostics.releaseEvidenceBundle).toMatchObject({
+      command: "pnpm verify:release-evidence-bundle",
+      captureStatus: "ok",
+      evidenceStatus: "passed",
+      mode: "generated-bundle",
+      checklistStatus: "blocked",
+      issueNumbers: ["259", "266", "267"],
+      fileCount: 14,
+      blockers: []
     });
     expect(serialized).not.toContain("secret-token");
     expect(serialized).not.toContain("sk-secret");

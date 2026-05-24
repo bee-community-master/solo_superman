@@ -18,7 +18,8 @@ const requiredDiagnostics = [
   "signedPackageRelease",
   "signedPackageReleaseDryRun",
   "releaseReadiness",
-  "releaseEvidenceTemplate"
+  "releaseEvidenceTemplate",
+  "releaseEvidenceBundle"
 ];
 
 function validBundle(overrides = {}) {
@@ -41,6 +42,7 @@ function validBundle(overrides = {}) {
     package: {
       scripts: {
         supportBundle: "node scripts/support-bundle.mjs",
+        verifyReleaseEvidenceBundle: "node scripts/verify-release-evidence-bundle.mjs",
         verifySupportBundle: "node scripts/verify-support-bundle.mjs"
       }
     },
@@ -58,6 +60,7 @@ function validBundle(overrides = {}) {
       "pnpm verify:product-capability-readiness",
       "pnpm verify:release-readiness",
       "pnpm verify:release-evidence-template",
+      "pnpm verify:release-evidence-bundle",
       "pnpm verify:support-bundle",
       "pnpm support:bundle",
       "pnpm verify"

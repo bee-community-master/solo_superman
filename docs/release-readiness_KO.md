@@ -56,7 +56,12 @@ Template은 각 required check/evidence/unblock criterion을 `pending` placehold
 
 ```sh
 pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json
+pnpm verify:release-evidence-bundle
+pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle
+pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready
 ```
+
+`pnpm verify:release-evidence-bundle`은 generated bundle 또는 release lab bundle directory의 manifest, README, issue별 template/comment, ready-release command 목록, secret-free boundary를 한 번에 검증합니다. `--require-ready`는 release lab이 채운 template들이 모두 `ready`/`passed`인지 확인할 때 사용합니다.
 
 Checklist는 `release-readiness`, Windows 실기기, signed package release, packaged update rollback, signed package preflight 계약에서 blocked gate/run, required checks, required evidence, unblock criteria, ready-release command를 묶습니다. 이 명령은 계약 파일만 읽고 credential 값, browser cookie, token, file contents, full environment dump를 수집하지 않습니다.
 
