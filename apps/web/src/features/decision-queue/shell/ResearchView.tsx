@@ -143,7 +143,8 @@ function EvidencePackGateChecks({
           <ul>
             {pack.gateChecks.map((check) => (
               <li key={`${check.code}:${check.status}:${check.reason}`}>
-                {copy.research.gateCheckCodeLabels[check.code]}: {copy.research.gateCheckStatusLabels[check.status]} — {check.reason}
+                {copy.research.gateCheckCodeLabels[check.code]}:{" "}
+                {copy.research.gateCheckStatusLabels[check.status]} — {check.reason}
               </li>
             ))}
           </ul>
@@ -167,7 +168,9 @@ function EvidencePackCard({
       <div className="research-evidence-matrix-heading">
         <strong>{pack.claim}</strong>
         <span>{copy.research.gateStatus}: {copy.research.gateStatusLabels[pack.gateStatus]}</span>
-        <span>{copy.research.sourceReliability}: {copy.research.sourceReliabilityLabels[pack.sourceReliability]}</span>
+        <span>
+          {copy.research.sourceReliability}: {copy.research.sourceReliabilityLabels[pack.sourceReliability]}
+        </span>
       </div>
       <dl className="research-evidence-grid">
         <div>
@@ -371,18 +374,22 @@ export function ResearchView({ controller }: ResearchViewProps) {
           <div className="research-list">
             {research.tasks.map((task) => {
               const card = research.reviewCards.find((item) => item.researchTaskId === task.researchTaskId);
-              const canImportResearch = task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true;
+              const canImportResearch =
+                task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true;
               const canStartReadOnlyRun = readyReadOnlyResearchTaskIdSet.has(task.researchTaskId);
               const retainedSourceRefs = card ? retainedSourceRefsForResearchCard(card) : [];
               const statusLabel = card
                 ? copy.research.reviewCardStateLabels[card.state]
                 : copy.research.taskStatusLabels[task.status];
-              const summaryLabel = card ? copy.research.reviewCardTypeLabels[card.cardType] : copy.research.routeOutcomeLabels[task.routeOutcome];
+              const summaryLabel = card
+                ? copy.research.reviewCardTypeLabels[card.cardType]
+                : copy.research.routeOutcomeLabels[task.routeOutcome];
               const impactLabel = copy.research.researchImpactLabels[card?.impact ?? task.impact];
               const terminalOutcomeLabel = card?.terminalOutcome
                 ? copy.research.terminalOutcomeLabels[card.terminalOutcome]
                 : null;
-              const recoveryActionLabels = card?.recoveryActions.map((action) => copy.research.recoveryActionLabels[action]) ?? [];
+              const recoveryActionLabels =
+                card?.recoveryActions.map((action) => copy.research.recoveryActionLabels[action]) ?? [];
 
               return (
                 <article className="research-card" key={task.researchTaskId}>
