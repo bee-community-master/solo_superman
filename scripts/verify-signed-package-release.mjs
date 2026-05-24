@@ -59,6 +59,10 @@ const SECRET_QUERY_NAME_PATTERN = /(?:token|secret|password|pass|api[_-]?key|cre
 const TOKEN_LIKE_PATTERN = tokenLikePattern("iu");
 const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 const URL_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//u;
+const GENERIC_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:/u;
+const REPO_RELATIVE_EVIDENCE_REF_PATTERN = /^(?:docs|release|artifacts|support|evidence)\/[A-Za-z0-9._~/#:-]+$/u;
+const SAFE_URN_EVIDENCE_REF_PATTERN = /^urn:solo-superman-[A-Za-z0-9:._-]+$/u;
+const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -141,6 +145,151 @@ function validateStringList(value, path, issues, options = {}) {
   return strings;
 }
 
+function validatePositiveInteger(value, path, issues) {
+  if (!Number.isInteger(value) || value <= 0) {
+    addIssue(issues, path, "must be a positive integer");
+  }
+}
+
+function validateSha256(value, path, issues) {
+  if (typeof value !== "string" || !SHA256_PATTERN.test(value)) {
+    addIssue(issues, path, "must be a lowercase 64-character SHA-256 hex digest");
+  }
+}
+
+function validateEvidenceRef(value, path, issues) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    addIssue(issues, path, "must be a non-empty evidence ref");
+    return;
+  }
+  if (URL_SCHEME_PATTERN.test(value)) {
+    validateHttpsUrlIfPresent(value, path, issues);
+    return;
+  }
+  if (SAFE_URN_EVIDENCE_REF_PATTERN.test(value) || REPO_RELATIVE_EVIDENCE_REF_PATTERN.test(value)) {
+    return;
+  }
+  if (GENERIC_SCHEME_PATTERN.test(value)) {
+    addIssue(issues, path, "must use https, a solo-superman URN, or a repo-relative evidence path");
+    return;
+  }
+  addIssue(issues, path, "must be an HTTPS URL, solo-superman URN, or repo-relative evidence path");
+}
+
+function validatePublicCertificateMetadata(value, path, issues) {
+  if (!isRecord(value)) {
+    addIssue(issues, path, "must be public certificate metadata");
+    return;
+  }
+
+  for (const field of ["kind", "subject", "issuer", "serialNumber"]) {
+    if (typeof value[field] !== "string" || value[field].trim().length === 0) {
+      addIssue(issues, `${path}.${field}`, "must be a non-empty public metadata string");
+    }
+  }
+  validateSha256(value.fingerprintSha256, `${path}.fingerprintSha256`, issues);
+}
+
+function validatePassedChecks(bundle, path, scope, issues) {
+  const passedChecks = validateStringList(bundle?.passedChecks, `${path}.passedChecks`, issues);
+  const requiredChecks = REQUIRED_CHECKS_BY_SCOPE.get(scope) ?? new Set();
+  for (const requiredCheck of requiredChecks) {
+    if (!passedChecks.has(requiredCheck)) {
+      addIssue(issues, `${path}.passedChecks`, `must include ${requiredCheck}`);
+    }
+  }
+}
+
+function validatePackageEvidenceBundle(bundle, path, scope, issues) {
+  if (!isRecord(bundle)) {
+    addIssue(issues, path, "must include structured artifact evidence when the evidence run passed");
+    return;
+  }
+
+  validateEvidenceRef(bundle.artifactRef, `${path}.artifactRef`, issues);
+  if (scope === "macos" && !["macos-dmg", "macos-pkg"].includes(bundle.packageKind)) {
+    addIssue(issues, `${path}.packageKind`, "must be macos-dmg or macos-pkg for macOS release evidence");
+  }
+  if (scope === "windows" && !["windows-msi", "windows-exe"].includes(bundle.packageKind)) {
+    addIssue(issues, `${path}.packageKind`, "must be windows-msi or windows-exe for Windows release evidence");
+  }
+  validateSha256(bundle.sha256, `${path}.sha256`, issues);
+  validatePositiveInteger(bundle.sizeBytes, `${path}.sizeBytes`, issues);
+  validateEvidenceRef(bundle.signatureRef, `${path}.signatureRef`, issues);
+  validatePublicCertificateMetadata(bundle.publicCertificate, `${path}.publicCertificate`, issues);
+  validateStringList(bundle.redactedEvidenceRefs, `${path}.redactedEvidenceRefs`, issues);
+  validatePassedChecks(bundle, path, scope, issues);
+
+  if (scope === "macos") {
+    for (const field of ["notarizationRef", "staplingRef", "gatekeeperAssessmentRef"]) {
+      validateEvidenceRef(bundle[field], `${path}.${field}`, issues);
+    }
+  } else {
+    for (const field of ["authenticodeRef", "timestampRef"]) {
+      validateEvidenceRef(bundle[field], `${path}.${field}`, issues);
+    }
+  }
+}
+
+function validateManifestArtifactRef(value, path, issues) {
+  if (!isRecord(value)) {
+    addIssue(issues, path, "must be an artifact ref object");
+    return null;
+  }
+  if (!new Set(["macos", "windows"]).has(value.scope)) {
+    addIssue(issues, `${path}.scope`, "must be macos or windows");
+  }
+  validateSha256(value.sha256, `${path}.sha256`, issues);
+  validatePositiveInteger(value.sizeBytes, `${path}.sizeBytes`, issues);
+  validateEvidenceRef(value.signatureRef, `${path}.signatureRef`, issues);
+  return typeof value.scope === "string" ? value.scope : null;
+}
+
+function validateManifestEvidenceBundle(bundle, path, issues) {
+  if (!isRecord(bundle)) {
+    addIssue(issues, path, "must include structured manifest evidence when the evidence run passed");
+    return;
+  }
+
+  validateEvidenceRef(bundle.manifestRef, `${path}.manifestRef`, issues);
+  validateSha256(bundle.manifestSha256, `${path}.manifestSha256`, issues);
+  validatePositiveInteger(bundle.manifestSizeBytes, `${path}.manifestSizeBytes`, issues);
+  validateEvidenceRef(bundle.manifestSignatureRef, `${path}.manifestSignatureRef`, issues);
+  if (typeof bundle.publicKeyId !== "string" || bundle.publicKeyId.trim().length === 0) {
+    addIssue(issues, `${path}.publicKeyId`, "must identify the release manifest verification key");
+  }
+  validateStringList(bundle.redactedEvidenceRefs, `${path}.redactedEvidenceRefs`, issues);
+  validatePassedChecks(bundle, path, "release-manifest", issues);
+
+  if (!Array.isArray(bundle.artifactRefs) || bundle.artifactRefs.length === 0) {
+    addIssue(issues, `${path}.artifactRefs`, "must include macOS and Windows artifact refs");
+    return;
+  }
+
+  const scopes = new Set();
+  for (const [index, artifactRef] of bundle.artifactRefs.entries()) {
+    const scope = validateManifestArtifactRef(artifactRef, `${path}.artifactRefs[${index}]`, issues);
+    if (scope) {
+      scopes.add(scope);
+    }
+  }
+  for (const requiredScope of ["macos", "windows"]) {
+    if (!scopes.has(requiredScope)) {
+      addIssue(issues, `${path}.artifactRefs`, `must include ${requiredScope}`);
+    }
+  }
+}
+
+function validatePassedEvidenceBundle(run, path, issues) {
+  if (run.scope === "macos" || run.scope === "windows") {
+    validatePackageEvidenceBundle(run.evidenceBundle, `${path}.evidenceBundle`, run.scope, issues);
+    return;
+  }
+  if (run.scope === "release-manifest") {
+    validateManifestEvidenceBundle(run.evidenceBundle, `${path}.evidenceBundle`, issues);
+  }
+}
+
 function validateRequiredCommandList(value, path, requiredCommands, issues) {
   const commands = validateStringList(value, path, issues);
   for (const required of requiredCommands) {
@@ -218,6 +367,7 @@ function validateEvidenceRun(run, path, issues) {
     if (typeof run.verifiedAt !== "string" || !ISO_TIMESTAMP_PATTERN.test(run.verifiedAt)) {
       addIssue(issues, `${path}.verifiedAt`, "must be an ISO timestamp in UTC when the evidence run passed");
     }
+    validatePassedEvidenceBundle(run, path, issues);
   }
 
   return typeof run.scope === "string" ? { id: run.id, scope: run.scope, status: run.status } : null;

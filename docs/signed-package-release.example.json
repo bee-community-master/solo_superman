@@ -49,7 +49,8 @@
       "requiredEvidence": [
         "Signed macOS DMG/PKG artifact verifies with codesign/pkgutil/spctl.",
         "Apple notarytool submission succeeds and notarization ticket is stapled before release.",
-        "Artifact SHA-256 digest, size, signature ref, public certificate metadata, and redacted evidence ref are attached."
+        "Artifact SHA-256 digest, size, signature ref, public certificate metadata, and redacted evidence ref are attached.",
+        "When this run is passed, include a structured evidenceBundle with artifact or manifest checksum, size, signature refs, public verification metadata, passed checks, and redacted evidence refs."
       ],
       "unblockCriteria": [
         "Run pnpm verify:signed-package-preflight -- --require-credentials in a release environment with Apple credential refs.",
@@ -78,7 +79,8 @@
       "requiredEvidence": [
         "Signed Windows MSI/EXE Authenticode signature verifies before upload.",
         "Timestamp verification succeeds against the configured timestamp server.",
-        "Artifact SHA-256 digest, size, signature ref, public certificate metadata, and redacted evidence ref are attached."
+        "Artifact SHA-256 digest, size, signature ref, public certificate metadata, and redacted evidence ref are attached.",
+        "When this run is passed, include a structured evidenceBundle with artifact or manifest checksum, size, signature refs, public verification metadata, passed checks, and redacted evidence refs."
       ],
       "unblockCriteria": [
         "Run pnpm verify:signed-package-preflight -- --require-credentials in a release environment with Windows signing credential refs.",
@@ -106,7 +108,8 @@
       "requiredEvidence": [
         "Release update manifest contains final artifact SHA-256 digests, sizes, and signature refs after macOS/Windows packages are signed.",
         "Release manifest signature verifies with the public key id documented for the release.",
-        "Manifest evidence includes only public key ids, checksums, signatures, sizes, and redacted evidence refs."
+        "Manifest evidence includes only public key ids, checksums, signatures, sizes, and redacted evidence refs.",
+        "When this run is passed, include a structured evidenceBundle with artifact or manifest checksum, size, signature refs, public verification metadata, passed checks, and redacted evidence refs."
       ],
       "unblockCriteria": [
         "Sign the final release update manifest after artifact checksums/signature refs are final.",

@@ -57,6 +57,6 @@ A real signed package PR or release job must carry all of this evidence:
 3. The release update manifest contains final artifact SHA-256, package size, and signature refs, then passes manifest signature verification.
 4. macOS/Windows devices verify install, update deferral, retry, rollback, and launch behavior.
 5. Rollback changes only packaged app binaries and release metadata; it does not touch local DBs, generated workspaces, support bundles, or credentials.
-6. `pnpm verify:signed-package-release -- --require-release-evidence`, `pnpm verify:windows-real-device -- --require-device-evidence`, `pnpm verify:packaged-update-rollback -- --require-device-evidence`, and `pnpm verify:release-readiness -- --require-ready` confirm that signed package, packaged updater rollback, and Windows real-device gates are all passed.
+6. `pnpm verify:signed-package-release -- --require-release-evidence` verifies structured `evidenceBundle` data for macOS/Windows artifacts and the release manifest, while `pnpm verify:windows-real-device -- --require-device-evidence`, `pnpm verify:packaged-update-rollback -- --require-device-evidence`, and `pnpm verify:release-readiness -- --require-ready` confirm that signed package, packaged updater rollback, and Windows real-device gates are all passed.
 
 `pnpm verify:signed-package-release:dry-run` verifies only fixture artifact checksum/size/signature ref/manifest evidence shape; without those gates, the project must not claim broad-release signed packages or packaged automatic updates are complete.

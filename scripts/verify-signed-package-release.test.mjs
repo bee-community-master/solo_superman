@@ -83,6 +83,65 @@ function blockedContract(overrides = {}) {
   };
 }
 
+const CHECK_DIGEST = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const WINDOWS_DIGEST = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+const MANIFEST_DIGEST = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+const CERT_DIGEST = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+
+function publicCertificate(scope) {
+  return {
+    kind: `${scope}-public-certificate-metadata`,
+    subject: `Solo Superman ${scope} release certificate`,
+    issuer: "Solo Superman Release CA",
+    fingerprintSha256: CERT_DIGEST,
+    serialNumber: `RELEASE-${scope.toUpperCase()}-001`
+  };
+}
+
+function packageEvidenceBundle(scope) {
+  const isMacos = scope === "macos";
+  return {
+    artifactRef: `https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/solo-superman-0.1.0-${scope}.${isMacos ? "dmg" : "msi"}`,
+    packageKind: isMacos ? "macos-dmg" : "windows-msi",
+    sha256: isMacos ? CHECK_DIGEST : WINDOWS_DIGEST,
+    sizeBytes: isMacos ? 125829120 : 146800640,
+    signatureRef: `https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/${scope}-signature.json`,
+    publicCertificate: publicCertificate(scope),
+    redactedEvidenceRefs: [`https://github.com/bee-community-master/solo_superman/issues/266#${scope}-evidence`],
+    passedChecks: requiredChecksByScope(scope),
+    ...(isMacos
+      ? {
+          notarizationRef: "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/macos-notarization.json",
+          staplingRef: "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/macos-stapling.json",
+          gatekeeperAssessmentRef: "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/macos-spctl.json"
+        }
+      : {
+          authenticodeRef: "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/windows-authenticode.json",
+          timestampRef: "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/windows-timestamp.json"
+        })
+  };
+}
+
+function manifestEvidenceBundle() {
+  return {
+    manifestRef: "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/release-update-manifest.json",
+    manifestSha256: MANIFEST_DIGEST,
+    manifestSizeBytes: 4096,
+    manifestSignatureRef: "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/release-update-manifest.sig",
+    publicKeyId: "solo-superman-release-key-2026-05",
+    redactedEvidenceRefs: ["https://github.com/bee-community-master/solo_superman/issues/266#release-manifest-evidence"],
+    passedChecks: requiredChecksByScope("release-manifest"),
+    artifactRefs: [
+      { scope: "macos", sha256: CHECK_DIGEST, sizeBytes: 125829120, signatureRef: "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/macos-signature.json" },
+      { scope: "windows", sha256: WINDOWS_DIGEST, sizeBytes: 146800640, signatureRef: "https://github.com/bee-community-master/solo_superman/releases/download/v0.1.0/windows-signature.json" }
+    ]
+  };
+}
+
+function evidenceBundleFor(scope) {
+  return scope === "release-manifest" ? manifestEvidenceBundle() : packageEvidenceBundle(scope);
+}
+
 function passedRun(run) {
   const rest = { ...run };
   delete rest.blocker;
@@ -91,7 +150,8 @@ function passedRun(run) {
     ...rest,
     status: "passed",
     verifiedAt: "2026-05-24T00:00:00Z",
-    verifiedBy: [`release-lab:${run.scope}`]
+    verifiedBy: [`release-lab:${run.scope}`],
+    evidenceBundle: evidenceBundleFor(run.scope)
   };
 }
 
@@ -135,6 +195,84 @@ describe("signed package release verification", () => {
       signedPackageReleaseReady: true,
       blockedEvidenceRuns: []
     });
+  });
+
+
+  it("requires structured artifact evidence details for passed release runs", () => {
+    const base = blockedContract();
+    const [macos, ...rest] = base.evidenceRuns;
+    const contract = blockedContract({
+      releaseEvidenceStatus: "ready",
+      evidenceRuns: [
+        {
+          ...passedRun(macos),
+          evidenceBundle: {
+            ...packageEvidenceBundle("macos"),
+            passedChecks: ["macos_codesign_verify"],
+            sha256: "not-a-digest"
+          }
+        },
+        ...rest.map((run) => passedRun(run))
+      ]
+    });
+    const result = validateSignedPackageReleaseContract(contract);
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual(expect.arrayContaining([
+      "$.evidenceRuns[0].evidenceBundle.sha256: must be a lowercase 64-character SHA-256 hex digest",
+      "$.evidenceRuns[0].evidenceBundle.passedChecks: must include macos_pkgutil_verify",
+      "$.evidenceRuns[0].evidenceBundle.passedChecks: must include macos_notarization_status"
+    ]));
+  });
+
+
+  it("rejects unsafe non-HTTPS evidence bundle refs", () => {
+    const base = blockedContract();
+    const [macos, ...rest] = base.evidenceRuns;
+    const contract = blockedContract({
+      releaseEvidenceStatus: "ready",
+      evidenceRuns: [
+        {
+          ...passedRun(macos),
+          evidenceBundle: {
+            ...packageEvidenceBundle("macos"),
+            signatureRef: "javascript:alert(1)",
+            redactedEvidenceRefs: ["release/evidence/macos-signing.json"]
+          }
+        },
+        ...rest.map((run) => passedRun(run))
+      ]
+    });
+    const result = validateSignedPackageReleaseContract(contract);
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual(expect.arrayContaining([
+      "$.evidenceRuns[0].evidenceBundle.signatureRef: must use https, a solo-superman URN, or a repo-relative evidence path"
+    ]));
+  });
+
+  it("requires release manifest evidence to reference both macOS and Windows artifacts", () => {
+    const base = blockedContract();
+    const contract = blockedContract({
+      releaseEvidenceStatus: "ready",
+      evidenceRuns: base.evidenceRuns.map((run) =>
+        run.scope === "release-manifest"
+          ? {
+              ...passedRun(run),
+              evidenceBundle: {
+                ...manifestEvidenceBundle(),
+                artifactRefs: [manifestEvidenceBundle().artifactRefs[0]]
+              }
+            }
+          : passedRun(run)
+      )
+    });
+    const result = validateSignedPackageReleaseContract(contract);
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual(expect.arrayContaining([
+      "$.evidenceRuns[2].evidenceBundle.artifactRefs: must include windows"
+    ]));
   });
 
   it("requires #266 for blocked top-level and evidence-run blocker issues", () => {
