@@ -1,8 +1,8 @@
 const ANSWER_FORM_FAMILY_PATTERNS = [
-  /(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|open[-\s]?(?:ended|question)|free[-\s]?form|subjective|descriptive)/iu,
+  /(?:주관식|주관형|서술형|서술식|논술형|자유\s*(?:답변|서술|입력|문항)|직접\s*(?:입력|작성)|open[-\s]?(?:ended|question)|open\s+question|free[-\s]?form|subjective|descriptive)/iu,
   /(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|찬반|동의\s*[/·또는과]*\s*비동의|예\s*[/ ]?아니오|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu,
-  /(?:하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|단일\s*선택|single[-\s]?choice|choose\s+one|pick\s+one)/iu,
-  /(?:하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|복수|다중|여러\s*(?:개|항목)|multi[-\s]?select|one\s+or\s+more|select\s+all|choose\s+multiple)/iu,
+  /(?:하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|여러\s*(?:종류|유형|가지)\s*중\s*하나|단일\s*선택|선다형|single[-\s]?choice|one[-\s]?of[-\s]?many|choose\s+one|pick\s+one)/iu,
+  /(?:하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|복수(?:\s*답변|\s*선택)?|다중|여러\s*(?:개|항목|가지)|multi[-\s]?select|multiple[-\s]?choice|one\s+or\s+more|choose\s+one\s+or\s+more|select\s+all|choose\s+multiple)/iu,
   /(?:우선순위|우선\s*순위|순위|랭킹|rank(?:ed|ing)?|priorit(?:y|ize|ise))/iu
 ] as const;
 
