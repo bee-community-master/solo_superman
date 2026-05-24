@@ -37,6 +37,20 @@ const DEFAULT_QUESTION_PROGRESS = {
   completionPercent: 0
 } as const;
 
+function activeSessionProjection() {
+  return {
+    kind: "SessionShellProjection",
+    projectId: "proj_questions" as ProjectId,
+    sessionId: "sess_questions" as SessionId,
+    version: 1 as ProjectionVersion,
+    phase: "spec",
+    projectPurposeMode: "business",
+    projectPurposeModeSelectionStatus: "confirmed",
+    projectPurposeModeLabel: "Business validation",
+    projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+  } as const;
+}
+
 function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellController> = {}) {
   const controller = {
     answerDrafts: {},
@@ -570,6 +584,10 @@ describe("QuestionsView", () => {
 
   it("renders question debt progress so long sessions show generated, active, upcoming, follow-up, and visible counts", () => {
     const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        session: activeSessionProjection()
+      },
       questionProgress: {
         generatedQuestionCount: 23,
         openQuestionCount: 18,
@@ -589,6 +607,8 @@ describe("QuestionsView", () => {
       }
     });
 
+    expect(markup).toContain("Question loop next action");
+    expect(markup).toContain("Answer the 5 active questions; the loop can continue automatically after the current batch is cleared.");
     expect(markup).toContain("5/23 generated questions handled · 22%");
     expect(markup).toContain("Generated");
     expect(markup).toContain("Open debt");
@@ -618,6 +638,28 @@ describe("QuestionsView", () => {
     expect(markup).toContain("<dd>9</dd>");
     expect(markup).toContain("<dd>40</dd>");
     expect(markup).toContain("<dd>12</dd>");
+  });
+
+  it("points users to the next question batch when the active batch is clear but debt remains", () => {
+    const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        session: activeSessionProjection()
+      },
+      questionBatchSize: 4,
+      questionProgress: {
+        ...DEFAULT_QUESTION_PROGRESS,
+        generatedQuestionCount: 12,
+        openQuestionCount: 7,
+        terminalQuestionCount: 5,
+        upcomingQuestionCount: 3,
+        backlogQuestionCount: 4,
+        completionPercent: 42
+      }
+    });
+
+    expect(markup).toContain("Question loop next action");
+    expect(markup).toContain("Load the next 3 questions to keep reducing the remaining question debt.");
   });
 
   it("clamps displayed question progress percentages to the visible 0 to 100 range", () => {

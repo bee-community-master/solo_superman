@@ -121,6 +121,40 @@ function answerOptionInputType(answerSelectionMode: AmbiguityAnswerSelectionMode
   return answerSelectionMode === "single" ? "radio" : "checkbox";
 }
 
+function questionLoopNextAction(copy: DecisionQueueCopy, input: {
+  readonly activeQuestionCount: number;
+  readonly blockedQuestionCount: number;
+  readonly draftedActiveAnswerCount: number;
+  readonly hasActiveSession: boolean;
+  readonly openQuestionCount: number;
+  readonly questionBatchSize: number;
+  readonly upcomingQuestionCount: number;
+}) {
+  if (!input.hasActiveSession) {
+    return copy.questions.questionLoopNextActionStart;
+  }
+
+  if (input.draftedActiveAnswerCount > 0) {
+    return copy.questions.questionLoopNextActionDrafted(input.draftedActiveAnswerCount);
+  }
+
+  if (input.activeQuestionCount > 0) {
+    return copy.questions.questionLoopNextActionActive(input.activeQuestionCount);
+  }
+
+  if (input.openQuestionCount > 0) {
+    return copy.questions.questionLoopNextActionLoadNext(
+      Math.min(input.questionBatchSize, Math.max(input.upcomingQuestionCount, 1))
+    );
+  }
+
+  if (input.blockedQuestionCount > 0) {
+    return copy.questions.questionLoopNextActionBlocked(input.blockedQuestionCount);
+  }
+
+  return copy.questions.questionLoopNextActionComplete;
+}
+
 function ResearchFollowUpSourceTrace({
   copy,
   item
@@ -161,6 +195,15 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
   const completionPercent = boundedPercent(questionProgress.completionPercent);
   const questionFatigue = questionFatigueViewModel(questionProgress);
   const draftedActiveAnswerCount = draftedActiveQuestionAnswerIds(projections.queue, answerDrafts).length;
+  const nextQuestionLoopAction = questionLoopNextAction(copy, {
+    activeQuestionCount: questionProgress.activeQuestionCount,
+    blockedQuestionCount: questionProgress.blockedQuestionCount,
+    draftedActiveAnswerCount,
+    hasActiveSession: Boolean(projections.session),
+    openQuestionCount: questionProgress.openQuestionCount,
+    questionBatchSize: boundedQuestionBatchSize(questionBatchSize),
+    upcomingQuestionCount: questionProgress.upcomingQuestionCount
+  });
 
   return (
     <div className="view-grid questions-view">
@@ -207,6 +250,10 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
           </button>
         </div>
         <p className="mode-help">{copy.questions.questionBatchSizeHelp}</p>
+        <section className="question-loop-next-action" aria-label={copy.questions.questionLoopNextActionTitle}>
+          <strong>{copy.questions.questionLoopNextActionTitle}</strong>
+          <p>{nextQuestionLoopAction}</p>
+        </section>
         <div className="queue-recovery">
           <p>{queueRecovery.label}</p>
           <small>{queueRecovery.activeBatchLabel}</small>

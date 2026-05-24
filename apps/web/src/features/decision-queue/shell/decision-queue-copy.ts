@@ -265,6 +265,17 @@ const EN_COPY = {
     questionProgressFollowUpBudget: "Follow-up budget",
     questionProgressBlocked: "Blocked",
     questionProgressBacklog: "Later backlog",
+    questionLoopNextActionTitle: "Question loop next action",
+    questionLoopNextActionStart: "Start or refresh the idea session before loading question batches.",
+    questionLoopNextActionDrafted: (count: number) =>
+      `Submit ${count} drafted answer${count === 1 ? "" : "s"} so research and follow-up questions can continue in the background.`,
+    questionLoopNextActionActive: (count: number) =>
+      `Answer the ${count} active question${count === 1 ? "" : "s"}; the loop can continue automatically after the current batch is cleared.`,
+    questionLoopNextActionLoadNext: (count: number) =>
+      `Load the next ${count} question${count === 1 ? "" : "s"} to keep reducing the remaining question debt.`,
+    questionLoopNextActionBlocked: (count: number) =>
+      `Resolve ${count} blocked research or risk card${count === 1 ? "" : "s"} before scoring completion.`,
+    questionLoopNextActionComplete: "Question debt is clear; move to Planning readiness and score completion.",
     questionFatigueStatusLabels: {
       checkpoint: "Fatigue checkpoint",
       break_recommended: "Break recommended"
@@ -1321,6 +1332,17 @@ const JA_COPY: typeof EN_COPY = {
     questionProgressFollowUpBudget: "追加質問枠",
     questionProgressBlocked: "ブロック中",
     questionProgressBacklog: "後続の未表示",
+    questionLoopNextActionTitle: "質問ループの次のアクション",
+    questionLoopNextActionStart: "質問バッチを読み込む前に、アイデアセッションを開始または更新してください。",
+    questionLoopNextActionDrafted: (count: number) =>
+      `下書き回答 ${count}件を送信すると、リサーチと追加質問のループを続けられます。`,
+    questionLoopNextActionActive: (count: number) =>
+      `表示中の質問 ${count}件に回答してください。現在のバッチが片付くとループは自動で続けられます。`,
+    questionLoopNextActionLoadNext: (count: number) =>
+      `残りの質問負債を減らすため、次の質問 ${count}件を読み込んでください。`,
+    questionLoopNextActionBlocked: (count: number) =>
+      `completion採点前に、ブロック中のリサーチまたはリスクカード ${count}件を解決してください。`,
+    questionLoopNextActionComplete: "質問負債は解消されています。Planning readinessへ進み、completionを採点してください。",
     questionFatigueStatusLabels: {
       checkpoint: "疲労チェックポイント",
       break_recommended: "休憩を推奨"
@@ -2363,6 +2385,17 @@ const KO_COPY: typeof EN_COPY = {
     questionProgressFollowUpBudget: "후속 질문 여유",
     questionProgressBlocked: "막힘",
     questionProgressBacklog: "나중에 볼 질문",
+    questionLoopNextActionTitle: "질문 루프 다음 행동",
+    questionLoopNextActionStart: "질문 묶음을 불러오기 전에 아이디어 세션을 시작하거나 새로고침하세요.",
+    questionLoopNextActionDrafted: (count: number) =>
+      `작성한 답변 ${count}개를 제출하면 리서치와 후속 질문 루프가 계속 이어집니다.`,
+    questionLoopNextActionActive: (count: number) =>
+      `지금 보이는 질문 ${count}개에 답하세요. 현재 묶음이 정리되면 루프가 자동으로 이어질 수 있습니다.`,
+    questionLoopNextActionLoadNext: (count: number) =>
+      `남은 질문 부채를 줄이기 위해 다음 질문 ${count}개를 불러오세요.`,
+    questionLoopNextActionBlocked: (count: number) =>
+      `completion 채점 전에 막힌 리서치 또는 리스크 카드 ${count}개를 해결하세요.`,
+    questionLoopNextActionComplete: "질문 부채가 정리되었습니다. Planning readiness로 이동해 completion을 채점하세요.",
     questionFatigueStatusLabels: {
       checkpoint: "피로 체크포인트",
       break_recommended: "잠시 쉬기 권장"
