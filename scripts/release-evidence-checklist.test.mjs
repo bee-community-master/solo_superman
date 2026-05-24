@@ -203,7 +203,12 @@ describe("release evidence checklist", () => {
         verification: expect.objectContaining({
           verifiedAt: "<UTC ISO timestamp>",
           redactionConfirmed: false,
-          readyReleaseCommandsRun: []
+          readyReleaseCommandsRun: [],
+          readyReleaseResult: {
+            status: "pending",
+            commandBlockers: ["<aggregate commandBlockers or none>"],
+            perCommandBlockers: ["<matching command blockers or none>"]
+          }
         })
       }),
       expect.objectContaining({ itemId: "release-manifest-signing" })
@@ -243,6 +248,11 @@ describe("release evidence checklist", () => {
       summary: { totalItems: 4, pendingItems: 0, filterIssueNumber: "266" }
     });
     expect(filledTemplate.items[0].verification.readyReleaseCommandsRun).toEqual(template.readyReleaseCommands);
+    expect(filledTemplate.items[0].verification.readyReleaseResult).toEqual({
+      status: "passed",
+      commandBlockers: ["none"],
+      perCommandBlockers: ["none"]
+    });
     expect(validation).toMatchObject({
       schemaVersion: RELEASE_EVIDENCE_TEMPLATE_VALIDATION_SCHEMA_VERSION,
       status: "passed",
@@ -258,6 +268,22 @@ describe("release evidence checklist", () => {
       status: "blocked",
       issues: expect.arrayContaining([
         expect.stringContaining("verification.readyReleaseCommandsRun must include required ready-release command")
+      ])
+    });
+
+    const missingReadyReleaseResultTemplate = cloneJson(filledTemplate);
+    missingReadyReleaseResultTemplate.items[0].verification.readyReleaseResult = {
+      status: "pending",
+      commandBlockers: [],
+      perCommandBlockers: []
+    };
+
+    expect(validateReleaseEvidenceTemplate(missingReadyReleaseResultTemplate, { expectedChecklist: issue266Checklist })).toMatchObject({
+      status: "blocked",
+      issues: expect.arrayContaining([
+        expect.stringContaining('verification.readyReleaseResult.status must be "passed" or "blocked"'),
+        expect.stringContaining("verification.readyReleaseResult.commandBlockers must be a non-empty array"),
+        expect.stringContaining("verification.readyReleaseResult.perCommandBlockers must be a non-empty array")
       ])
     });
 
