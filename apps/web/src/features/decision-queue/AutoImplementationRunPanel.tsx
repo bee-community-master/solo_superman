@@ -692,6 +692,9 @@ export function AutoImplementationRunPanel({
   const nextReviewLoopLabel = run.reviewLoopProgress.nextReviewLoopStage
     ? copy.autoImplementation.stageLabels[run.reviewLoopProgress.nextReviewLoopStage]
     : null;
+  const currentStageGateLabels = run.stageProgress.currentStage
+    ? copy.autoImplementation.stageGateLabels[run.stageProgress.currentStage]
+    : run.currentStageGates;
 
   return (
     <section className="panel auto-implementation-run-panel">
@@ -728,7 +731,7 @@ export function AutoImplementationRunPanel({
           </div>
           <div>
             <dt>{copy.autoImplementation.currentStageGate}</dt>
-            <dd>{inlineList(run.currentStageGates, copy.autoImplementation.none)}</dd>
+            <dd>{inlineList(currentStageGateLabels, copy.autoImplementation.none)}</dd>
           </div>
         </dl>
       </article>
@@ -1019,9 +1022,9 @@ export function AutoImplementationRunPanel({
         <div className="auto-implementation-stage-gates">
           {run.stageReviewGates.map((stageGate) => (
             <article className="operations-card" key={stageGate.stage}>
-              <strong>{stageGate.stage}</strong>
+              <strong>{copy.autoImplementation.stageLabels[stageGate.stage]}</strong>
               <ul>
-                {stageGate.gates.map((gate) => (
+                {copy.autoImplementation.stageGateLabels[stageGate.stage].map((gate) => (
                   <li key={gate}>{gate}</li>
                 ))}
               </ul>
@@ -1054,7 +1057,10 @@ export function AutoImplementationRunPanel({
               {" · "}
               next: {row.nextActionLabel}
               {" · "}
-              {copy.autoImplementation.issueRowStageGate}: {row.stageGateLabel}
+              {copy.autoImplementation.issueRowStageGate}: {inlineList(
+                copy.autoImplementation.stageGateLabels[row.issue.stage],
+                row.stageGateLabel
+              )}
               {" · "}
               missing: {row.missingEvidenceLabel}
               {" · "}

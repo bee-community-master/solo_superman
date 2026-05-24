@@ -294,6 +294,8 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(koreanMarkup).toContain("제작 진행 상황");
     expect(koreanMarkup).toContain("0/7 단계 완료 · 현재 단계: 초기 구현 및 PR 생성 (준비됨)");
     expect(koreanMarkup).toContain("0/4 리뷰/클린코드 루프 완료 · 다음: 기능 PR 코드 리뷰 및 수정 루프");
+    expect(koreanMarkup).toContain("이 이슈 범위에서 가장 작고 동작이 완성된 구현을 만듭니다.");
+    expect(koreanMarkup).not.toContain("Create the smallest behavior-complete implementation");
     expect(view.deliveryGates).toEqual(
       expect.arrayContaining([
         expect.stringContaining("two consecutive no-finding passes")

@@ -810,6 +810,43 @@ const EN_COPY = {
       final_verify_pr_update: "PR description update and final test pass",
       merge_main: "Merge to main"
     } satisfies Record<AutoImplementationStage, string>,
+    stageGateLabels: {
+      initial_pr: [
+        "Create the smallest behavior-complete implementation for this issue slice.",
+        "Open or prepare the PR with the issue link, acceptance criteria, rollback notes, and targeted test plan.",
+        "Record the first targeted test evidence before requesting review."
+      ],
+      code_review_fix_1: [
+        "Run feature-scope code review and fix every actionable finding.",
+        "Repeat review until two consecutive feature-scope passes report no findings.",
+        "Record both clean pass timestamps or reviewer refs in the PR body."
+      ],
+      code_review_fix_2: [
+        "Run repo-wide code review beyond the touched feature.",
+        "Fix any cross-repo consistency, architecture, or safety findings.",
+        "Repeat repo-wide review until two consecutive passes report no findings."
+      ],
+      clean_code_fix_1: [
+        "Run changed-code clean-code review for naming, boundaries, duplication, dead paths, and test shape.",
+        "Prefer deletion, existing utilities, and simpler boundaries over new abstractions.",
+        "Repeat clean-code review until two consecutive changed-code passes report no findings."
+      ],
+      clean_code_fix_2: [
+        "Run repo-level clean-code review for adjacent slop, stale abstractions, and consistency drift.",
+        "Fix only findings that are necessary for this implementation slice or split follow-up issues.",
+        "Repeat repo-level clean-code review until two consecutive passes report no findings."
+      ],
+      final_verify_pr_update: [
+        "Audit missing tests against the issue acceptance criteria and add targeted coverage where gaps remain.",
+        "Run targeted tests first, then the full final verification command.",
+        "Update the PR description with scope, review streaks, exact verification commands, and known gaps."
+      ],
+      merge_main: [
+        "Verify the PR is mergeable and its body contains final review/test evidence.",
+        "Merge only after the final verification evidence is fresh and record the applied PR merge mutation.",
+        "Sync main after merge and rerun the full verification command on main with post-merge verification evidence."
+      ]
+    } satisfies Record<AutoImplementationStage, readonly string[]>,
     stageStatusLabels: {
       pending: "pending",
       ready: "ready",
@@ -1901,6 +1938,43 @@ const JA_COPY: typeof EN_COPY = {
       final_verify_pr_update: "PR説明更新と最終テスト",
       merge_main: "mainへマージ"
     },
+    stageGateLabels: {
+      initial_pr: [
+        "このissue範囲で最小の動作完了実装を作ります。",
+        "issueリンク、受け入れ条件、ロールバックメモ、対象テスト計画を含めてPRを開くか準備します。",
+        "レビュー依頼前に最初の対象テスト根拠を記録します。"
+      ],
+      code_review_fix_1: [
+        "機能範囲のコードレビューを行い、対応可能な指摘をすべて修正します。",
+        "機能範囲で指摘なしが2回連続になるまでレビューを繰り返します。",
+        "2回のクリーンパス時刻またはレビュアー参照をPR本文に記録します。"
+      ],
+      code_review_fix_2: [
+        "変更機能を越えてリポジトリ全体のコードレビューを行います。",
+        "リポジトリ横断の一貫性、設計、安全性の指摘を修正します。",
+        "リポジトリ全体で指摘なしが2回連続になるまでレビューを繰り返します。"
+      ],
+      clean_code_fix_1: [
+        "変更コードについて命名、境界、重複、不要経路、テスト形状をレビューします。",
+        "新しい抽象化より削除、既存ユーティリティ、より単純な境界を優先します。",
+        "変更コードで指摘なしが2回連続になるまでクリーンコードレビューを繰り返します。"
+      ],
+      clean_code_fix_2: [
+        "隣接する粗さ、古い抽象化、一貫性のズレをリポジトリ全体でレビューします。",
+        "この実装範囲に必要な指摘だけ修正し、それ以外はフォローアップissueに分けます。",
+        "リポジトリ全体で指摘なしが2回連続になるまでクリーンコードレビューを繰り返します。"
+      ],
+      final_verify_pr_update: [
+        "issueの受け入れ条件に対して不足テストを監査し、残るgapには対象カバレッジを追加します。",
+        "対象テストを先に実行し、その後で最終の全体検証コマンドを実行します。",
+        "PR説明に範囲、レビュー連続通過、正確な検証コマンド、既知のgapを反映します。"
+      ],
+      merge_main: [
+        "PRがmerge可能で、本文に最終レビュー/テスト根拠があることを確認します。",
+        "最終検証根拠が新しい場合だけmergeし、適用済みPR merge mutationを記録します。",
+        "merge後にmainを同期し、post-merge検証根拠付きで全体検証コマンドを再実行します。"
+      ]
+    },
     stageStatusLabels: {
       pending: "待機中",
       ready: "準備完了",
@@ -2989,6 +3063,43 @@ const KO_COPY: typeof EN_COPY = {
       clean_code_fix_2: "레포 전체 클린코드 리뷰 및 수정 루프",
       final_verify_pr_update: "PR 설명 업데이트 및 최종 전체 검증",
       merge_main: "main 머지"
+    },
+    stageGateLabels: {
+      initial_pr: [
+        "이 이슈 범위에서 가장 작고 동작이 완성된 구현을 만듭니다.",
+        "이슈 링크, 수용 기준, 롤백 메모, 대상 테스트 계획을 포함해 PR을 열거나 준비합니다.",
+        "리뷰를 요청하기 전에 첫 대상 테스트 근거를 기록합니다."
+      ],
+      code_review_fix_1: [
+        "기능 범위 코드 리뷰를 수행하고 실행 가능한 지적 사항을 모두 수정합니다.",
+        "기능 범위에서 수정할 내용 없음이 2회 연속 나올 때까지 리뷰를 반복합니다.",
+        "두 번의 클린 패스 시각 또는 리뷰어 참조를 PR 본문에 기록합니다."
+      ],
+      code_review_fix_2: [
+        "변경 기능을 넘어 레포 전체 코드 리뷰를 수행합니다.",
+        "레포 전반의 일관성, 구조, 안전성 지적 사항을 수정합니다.",
+        "레포 전체에서 수정할 내용 없음이 2회 연속 나올 때까지 리뷰를 반복합니다."
+      ],
+      clean_code_fix_1: [
+        "변경 코드의 이름, 경계, 중복, 죽은 경로, 테스트 형태를 클린코드 관점으로 리뷰합니다.",
+        "새 추상화보다 삭제, 기존 유틸리티, 더 단순한 경계를 우선합니다.",
+        "변경 코드에서 수정할 내용 없음이 2회 연속 나올 때까지 클린코드 리뷰를 반복합니다."
+      ],
+      clean_code_fix_2: [
+        "인접한 지저분함, 낡은 추상화, 일관성 drift를 레포 전체에서 리뷰합니다.",
+        "이번 구현 범위에 필요한 지적 사항만 수정하고 나머지는 후속 이슈로 분리합니다.",
+        "레포 전체에서 수정할 내용 없음이 2회 연속 나올 때까지 클린코드 리뷰를 반복합니다."
+      ],
+      final_verify_pr_update: [
+        "이슈 수용 기준 대비 부족한 테스트를 감사하고 남은 gap에는 대상 커버리지를 추가합니다.",
+        "대상 테스트를 먼저 실행한 뒤 최종 전체 검증 명령을 실행합니다.",
+        "PR 설명에 범위, 리뷰 연속 통과, 정확한 검증 명령, 알려진 gap을 업데이트합니다."
+      ],
+      merge_main: [
+        "PR이 merge 가능하고 본문에 최종 리뷰/테스트 근거가 포함되어 있는지 확인합니다.",
+        "최종 검증 근거가 최신일 때만 merge하고 적용된 PR merge mutation을 기록합니다.",
+        "merge 후 main을 동기화하고 post-merge 검증 근거와 함께 전체 검증 명령을 다시 실행합니다."
+      ]
     },
     stageStatusLabels: {
       pending: "대기",
