@@ -156,7 +156,7 @@ describe("answer follow-up variety", () => {
   });
 
   it("uses explicit agree/disagree choices only when the follow-up asks for a stance", () => {
-    const followUp = submitAnswerAndReadFollowUp(1);
+    const followUp = submitAnswerAndReadFollowUp(2);
 
     expect(followUp.questionText).toContain("찬성/반대 중 어느 쪽");
     expect(followUp.expectedAnswerType).toBe("choice");
@@ -171,7 +171,7 @@ describe("answer follow-up variety", () => {
   });
 
   it("uses multi-select choices when several implementation-scope options can stay together", () => {
-    const followUp = submitAnswerAndReadFollowUp(2);
+    const followUp = submitAnswerAndReadFollowUp(3);
 
     expect(followUp.questionText).toContain("하나 이상 선택");
     expect(followUp.expectedAnswerType).toBe("choice");
@@ -182,6 +182,25 @@ describe("answer follow-up variety", () => {
         expect.objectContaining({ label: "수동 운영 + 얇은 UI" }),
         expect.objectContaining({ label: "포함보다 제외 먼저 결정" })
       ])
+    );
+  });
+
+  it("rotates in one-of-many follow-ups instead of only text, stance, or multi-select prompts", () => {
+    const followUp = submitAnswerAndReadFollowUp(1);
+
+    expect(followUp.questionText).toContain("하나만 먼저 확정");
+    expect(followUp.expectedAnswerType).toBe("choice");
+    expect(followUp.answerSelectionMode).toBe("single");
+    expect(followUp.answerOptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "고객 기준 먼저 확정" }),
+        expect.objectContaining({ label: "문제/가치 기준 먼저 확정" }),
+        expect.objectContaining({ label: "검증 방법 먼저 확정" }),
+        expect.objectContaining({ label: "구현 범위 먼저 확정" })
+      ])
+    );
+    expect(followUp.answerOptions).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: expect.stringContaining("찬성") })])
     );
   });
 
