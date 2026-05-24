@@ -162,6 +162,7 @@ import {
   type ResearchImpact,
   type ResearchEvidenceProjection,
   type ResearchQueueTerminalOutcome,
+  type ResearchResultProjection,
   type ResearchResultId,
   type ResearchRunId,
   type ResearchRouteOutcome,
@@ -898,7 +899,63 @@ function onboardingQuestionContextFromState(state: ProductEngineStateSnapshot): 
   };
 }
 
+function ideaContextLabel(context: OnboardingQuestionContext) {
+  return context.idea ? `“${context.idea}”` : "이 아이디어";
+}
+
+function goalContextLabel(context: OnboardingQuestionContext) {
+  return context.goal ? `“${context.goal}”` : "이번 목표";
+}
+
+const BUSINESS_ONBOARDING_QUESTION_TEXT_BY_TOPIC: Readonly<Record<string, (context: OnboardingQuestionContext) => string>> = {
+  primary_customer_narrowing: (context) =>
+    `${ideaContextLabel(context)}를 가장 먼저 써볼 사람은 누구이고, 그 사람은 지금 어떤 상황에 있나요?`,
+  buyer_user_split: () =>
+    "그 사람이 직접 돈을 내거나 승인할 수 있나요? 아니라면 누가 결정하고 누가 실제로 쓰나요?",
+  problem_pain_intensity: () =>
+    "그 사람이 겪는 불편은 언제 생기고, 시간·돈·스트레스 중 무엇을 가장 크게 쓰게 하나요?",
+  value_prop_switching_reason: (context) =>
+    `그 사람이 지금 쓰는 방법을 두고 ${ideaContextLabel(context)}를 선택하게 만들 쉬운 이유 하나는 무엇인가요?`,
+  alternative_dissatisfaction_gap: () =>
+    "지금은 어떤 방법으로 버티고 있고, 그 방법이 괜찮을 때와 답답할 때는 각각 언제인가요?",
+  mvp_validation_scope: (context) =>
+    `${goalContextLabel(context)}에 가장 도움이 되는 첫 버전 기능 하나와 이번에 만들지 않을 기능 하나는 무엇인가요?`,
+  first_validation_experiment: () =>
+    "제품을 만들기 전에 “이게 필요하다”는 실제 반응을 어떻게 작게 확인할 수 있나요?"
+};
+
+const PERSONAL_ONBOARDING_QUESTION_TEXT_BY_TOPIC: Readonly<Record<string, (context: OnboardingQuestionContext) => string>> = {
+  personal_workflow_context: (context) =>
+    `${ideaContextLabel(context)}를 쓰기 바로 전과 후에 사용자는 실제로 어떤 일을 하나요?`,
+  personal_usage_frequency: () =>
+    "그 일이 얼마나 자주 반복되고, 매번 무엇이 가장 귀찮거나 오래 걸리나요?",
+  personal_gui_fit: () =>
+    "첫 버전에서 꼭 화면으로 보고 눌러야 하는 순간은 어디인가요?",
+  personal_implementation_feasibility: (context) =>
+    `${goalContextLabel(context)}에 맞춰 가장 작게 만든다면 어떤 입력을 받아 어떤 결과 하나만 내면 충분한가요?`,
+  personal_local_data_security: () =>
+    "어떤 파일, 계정, 개인정보, 비밀값은 읽거나 저장하면 안 되나요?",
+  personal_maintainability_boundary: () =>
+    "이번 버전에서 일부러 만들지 않을 기능과 나중에도 관리하고 싶지 않은 일은 무엇인가요?",
+  personal_success_criteria: (context) =>
+    `${goalContextLabel(context)}에 비춰, 첫 버전이 성공했다고 느낄 쉬운 기준은 무엇인가요?`
+};
+
+function contextualOnboardingQuestionText(seed: AmbiguityIssueSeed, context: OnboardingQuestionContext) {
+  const topicQuestion =
+    BUSINESS_ONBOARDING_QUESTION_TEXT_BY_TOPIC[seed.topicKey] ??
+    PERSONAL_ONBOARDING_QUESTION_TEXT_BY_TOPIC[seed.topicKey];
+
+  return topicQuestion ? topicQuestion(context) : undefined;
+}
+
 function contextualQuestionText(seed: AmbiguityIssueSeed, context: OnboardingQuestionContext) {
+  const onboardingQuestion = contextualOnboardingQuestionText(seed, context);
+
+  if (onboardingQuestion) {
+    return onboardingQuestion;
+  }
+
   const question = plainUserFacingDecisionQueueText(seed.question);
 
   if (context.idea && context.goal) {
@@ -1862,6 +1919,39 @@ function compactAnswerExcerpt(answer: string) {
     : compacted;
 }
 
+const BROADER_RESEARCH_REQUEST_PATTERN = new RegExp(
+  [
+    "(?:more|broader|wider|additional|deeper)\\s+research",
+    "(?:추가|더|넓은|깊은)\\s*리서치",
+    "리서치(?:가|는)?\\s*(?:더|추가로|넓게|깊게)\\s*필요",
+    "자료(?:가|는)?\\s*(?:더|추가로|넓게|깊게)\\s*필요",
+    "더\\s*넓은\\s*자료\\s*수집"
+  ].join("|"),
+  "iu"
+);
+
+function answerRequestsBroaderResearch(answer: string) {
+  return BROADER_RESEARCH_REQUEST_PATTERN.test(answer);
+}
+
+function researchObjectiveForAnswer(input: {
+  readonly activeItem: QueueItemProjection;
+  readonly answer: string;
+  readonly sourceQuestion: AmbiguityIssueSnapshot | undefined;
+}) {
+  const baseObjective = `Validate evidence for: ${input.sourceQuestion?.summary ?? input.activeItem.title}`;
+
+  if (!answerRequestsBroaderResearch(input.answer)) {
+    return baseObjective;
+  }
+
+  return [
+    `Broaden research beyond existing notes for: ${input.sourceQuestion?.summary ?? input.activeItem.title}`,
+    `User asked for additional or wider research after answering: “${compactAnswerExcerpt(input.answer)}”.`,
+    "Use any existing research memory as baseline context, but collect wider sources and counter-evidence instead of treating the previous memo as complete."
+  ].join(" ");
+}
+
 function followUpExpectedAnswerType(
   routeOutcome: ResearchRouteOutcome,
   nextRepeatCount: number
@@ -1970,6 +2060,7 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
   readonly sessionId: SessionId;
   readonly sourceQuestion: AmbiguityIssueSnapshot | undefined;
   readonly researchTask: ResearchTaskProjection;
+  readonly researchResult: ResearchResultProjection;
   readonly evidenceMatrix: EvidenceMatrixProjection;
   readonly question: string;
   readonly index: number;
@@ -1980,6 +2071,7 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
     existingResearchFollowUpCount,
     index,
     question,
+    researchResult,
     researchTask,
     sessionId,
     sourceQuestion
@@ -2003,6 +2095,16 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
     evidenceMatrix.balanceStatus === "missing_con_evidence" ||
     evidenceMatrix.balanceStatus === "needs_con_evidence" ||
     evidenceMatrix.balanceStatus === "blocked_by_con_evidence";
+  const proSummary = evidenceMatrix.proEvidence[0]?.summary;
+  const conSummary = evidenceMatrix.conEvidence[0]?.summary;
+  const uncertaintySummary = evidenceMatrix.uncertainties[0]?.summary;
+  const sourceLabel = researchResult.sourceTitle ?? researchResult.sourceUrl ?? researchResult.researchResultId;
+  const evidenceContext = [
+    proSummary ? `찬성 근거: ${compactAnswerExcerpt(proSummary)}` : null,
+    conSummary ? `반대 근거: ${compactAnswerExcerpt(conSummary)}` : null,
+    uncertaintySummary ? `한계/불확실성: ${compactAnswerExcerpt(uncertaintySummary)}` : null,
+    `출처 단서: ${compactAnswerExcerpt(sourceLabel)}`
+  ].filter((part): part is string => Boolean(part)).join(" · ");
 
   return {
     queueItemId: `queue_research_followup_${questionToken}` as QueueItemId,
@@ -2030,11 +2132,12 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
     severity: researchTask.impact,
     summary: `리서치가 생성한 후속 질문: ${compactAnswerExcerpt(question)}`,
     whyItMatters:
-      "백그라운드/브라우저 리서치가 발견한 근거 공백을 사용자가 답변 가능한 질문으로 되돌려야 아이디어 구체화 루프가 계속됩니다.",
+      `백그라운드/브라우저 리서치가 발견한 근거 공백을 사용자가 답변 가능한 질문으로 되돌려야 아이디어 구체화 루프가 계속됩니다. ${evidenceContext}`,
     status: "open",
     questionText: question,
     expectedAnswerType: "evidence",
-    decisionItUnlocks: `리서치 결과 “${compactAnswerExcerpt(researchTask.objective)}”를 스펙, 근거, 구현 범위 판단으로 연결합니다.`,
+    decisionItUnlocks:
+      `리서치 결과 “${compactAnswerExcerpt(researchTask.objective)}”와 ${compactAnswerExcerpt(sourceLabel)} 근거를 스펙, 근거, 구현 범위 판단으로 연결합니다.`,
     suggestedResearchTask: isConEvidenceGap
       ? `추가 질문 “${compactAnswerExcerpt(question)}”에 답할 반대근거와 한계를 우선 확인합니다.`
       : `추가 질문 “${compactAnswerExcerpt(question)}”에 답할 공개 근거와 사용자 신호를 확인합니다.`,
@@ -2051,6 +2154,7 @@ function createResearchFollowUpIssuesForAdditionalQuestions(input: {
   readonly sessionId: SessionId;
   readonly openIssues: readonly AmbiguityIssueSnapshot[];
   readonly researchTask: ResearchTaskProjection;
+  readonly researchResult: ResearchResultProjection;
   readonly evidenceMatrix: EvidenceMatrixProjection;
 }): readonly AmbiguityIssueSnapshot[] {
   const sourceQuestion = input.researchTask.sourceQueueItemId
@@ -2089,6 +2193,7 @@ function createResearchFollowUpIssuesForAdditionalQuestions(input: {
         sessionId: input.sessionId,
         sourceQuestion,
         researchTask: input.researchTask,
+        researchResult: input.researchResult,
         evidenceMatrix: input.evidenceMatrix,
         question,
         index,
@@ -3588,7 +3693,11 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
   const sourceQuestion = state.openIssues.find((issue) => issue.queueItemId === queueItemId);
   const objective =
     requiredString(command.payload.researchObjective) ??
-    `Validate evidence for: ${sourceQuestion?.summary ?? activeItem.title}`;
+    researchObjectiveForAnswer({
+      activeItem,
+      answer,
+      sourceQuestion
+    });
   const researchTaskId = `research_task_${stableToken(`${command.sessionId}:${queueItemId}:${answer}:${routeOutcome}`)}` as ResearchTaskId;
   const researchTask = planResearchTask({
     researchTaskId,
@@ -4028,6 +4137,7 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
     sessionId: command.sessionId,
     openIssues: state.openIssues,
     researchTask,
+    researchResult,
     evidenceMatrix
   });
   const newResearchFollowUpIssues = researchFollowUpIssues.filter((issue) =>

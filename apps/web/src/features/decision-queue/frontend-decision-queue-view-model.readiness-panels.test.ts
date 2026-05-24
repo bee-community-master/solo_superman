@@ -511,6 +511,7 @@ describe("Decision Queue view model readiness-panels", () => {
         onRefreshOperations: noop,
         onPauseAllowlist: noop,
         onRevokeAllowlist: noop,
+        onUpdateAllowlistMaxConcurrentRuns: noop,
         onRefreshResearchRunStatus: noop,
         onCancelResearchRun: noop,
         onRetryResearchRun: noop
@@ -523,6 +524,9 @@ describe("Decision Queue view model readiness-panels", () => {
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Pause</button>");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Revoke</button>");
     expect(markup).toContain("<button type=\"button\" disabled=\"\">Refresh status</button>");
+    expect(markup).toContain("Max simultaneous research runs");
+    expect(markup).toContain("Applies to both manual and answer-triggered public web research starts.");
+    expect(markup).toContain("<button type=\"button\" disabled=\"\">Apply limit</button>");
     expect(markup).toContain("quality check: pending_review");
   });
 
@@ -550,6 +554,7 @@ describe("Decision Queue view model readiness-panels", () => {
         onRefreshOperations: noop,
         onPauseAllowlist: noop,
         onRevokeAllowlist: noop,
+        onUpdateAllowlistMaxConcurrentRuns: noop,
         onRefreshResearchRunStatus: noop,
         onCancelResearchRun: noop,
         onRetryResearchRun: noop
