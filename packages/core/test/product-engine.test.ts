@@ -1756,6 +1756,27 @@ describe("PR-04 ProductEngine reducer", () => {
       }, 7),
       state
     );
+    const broaderKoreanEvidenceNeededAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: answeredQueueItemId,
+        answer: "아직 근거가 더 필요합니다. 출처가 더 필요하니 넓게 확인해주세요."
+      }, 7),
+      state
+    );
+    const broaderEnglishEvidenceNeededAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: answeredQueueItemId,
+        answer: "I need more evidence and additional sources before deciding."
+      }, 7),
+      state
+    );
+    const broaderEnglishPassiveEvidenceNeededAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: answeredQueueItemId,
+        answer: "More evidence is needed before we choose this direction."
+      }, 7),
+      state
+    );
     const noMoreResearchAnswer = reduceProductEngineCommand(
       command("SubmitAnswer", 5, {
         queueItemId: answeredQueueItemId,
@@ -1795,6 +1816,13 @@ describe("PR-04 ProductEngine reducer", () => {
       command("SubmitAnswer", 5, {
         queueItemId: answeredQueueItemId,
         answer: "I do not need more research; this is enough to decide."
+      }, 7),
+      state
+    );
+    const doNotNeedMoreEvidenceAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: answeredQueueItemId,
+        answer: "I do not need more evidence; move forward."
       }, 7),
       state
     );
@@ -1873,6 +1901,27 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(broaderEnglishSourceAnswer.nextState.researchState.tasks[0]?.objective).toContain(
       "collect wider sources and counter-evidence"
     );
+    expect(broaderKoreanEvidenceNeededAnswer.accepted).toBe(true);
+    expect(broaderKoreanEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
+      "Broaden research beyond existing notes"
+    );
+    expect(broaderKoreanEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
+      "collect wider sources and counter-evidence"
+    );
+    expect(broaderEnglishEvidenceNeededAnswer.accepted).toBe(true);
+    expect(broaderEnglishEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
+      "Broaden research beyond existing notes"
+    );
+    expect(broaderEnglishEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
+      "collect wider sources and counter-evidence"
+    );
+    expect(broaderEnglishPassiveEvidenceNeededAnswer.accepted).toBe(true);
+    expect(broaderEnglishPassiveEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
+      "Broaden research beyond existing notes"
+    );
+    expect(broaderEnglishPassiveEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
+      "collect wider sources and counter-evidence"
+    );
     expect(noMoreResearchAnswer.accepted).toBe(true);
     expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
@@ -1901,6 +1950,11 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(doNotNeedMoreResearchAnswer.accepted).toBe(true);
     expect(doNotNeedMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(doNotNeedMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
+      "Broaden research beyond existing notes"
+    );
+    expect(doNotNeedMoreEvidenceAnswer.accepted).toBe(true);
+    expect(doNotNeedMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(doNotNeedMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research beyond existing notes"
     );
     expect(moreResearchNotNeededAnswer.accepted).toBe(true);

@@ -480,6 +480,24 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("본인 말로 3~5문장으로 서술");
   });
 
+  it("recognizes agree/disagree object wording as a binary answer form", () => {
+    const researchTask = task({
+      objective: "객관식으로 찬성/반대를 할 수도 있고 이유는 직접 설명"
+    });
+    const researchResult = result({
+      result: "Pro: imported notes support adding the direction to the spec.",
+      limitationNotes: "Counter-evidence has not been reviewed broadly."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("찬성/반대 중 어느 쪽")]
+    });
+    expect(matrix.additionalQuestions[0]).not.toContain("하나의 선택지");
+    expect(matrix.additionalQuestions[0]).not.toContain("본인 말로 3~5문장으로 서술");
+  });
+
   it("prioritizes failed high-impact evidence over secondary unknown checks", () => {
     const researchTask = task();
     const researchResult = result({

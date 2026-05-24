@@ -647,6 +647,11 @@ describe("research follow-up answer shape", () => {
       question: "이 방향을 채택할지 말지 객관식으로 찬반을 골라주세요."
     })).toBe("binary_choice");
 
+    expect(classifyResearchFollowUpAnswerShape({
+      ...base,
+      question: "객관식으로 찬성/반대를 할 수도 있고 조건은 직접 설명해주세요."
+    })).toBe("binary_choice");
+
     const candidateChoiceInput = {
       ...base,
       question:
