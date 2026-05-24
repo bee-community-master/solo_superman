@@ -417,7 +417,7 @@ describe("AutoImplementationRunPanel view model", () => {
       jobId: "auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked",
       stage: "code_review_fix_1",
       issueId: "local-002",
-      issueTitle: "PR code review and fix pass 1",
+      issueTitle: "Feature PR code review and fix loop",
       issueRelativePath: "implementation-issues/002-code_review_fix_1.md",
       status: "blocked",
       blockedReason: "ExecutionAuthorityRecord is missing.",
@@ -498,10 +498,10 @@ describe("AutoImplementationRunPanel view model", () => {
       "local-001: Workspace repo bootstrap and initial implementation PR — stage initial_pr / status completed (implementation-issues/001-initial_pr.md)"
     );
     expect(markup).toContain(
-      "local-002: PR code review and fix pass 1 — stage code_review_fix_1 / status blocked (implementation-issues/002-code_review_fix_1.md)"
+      "local-002: Feature PR code review and fix loop — stage code_review_fix_1 / status blocked (implementation-issues/002-code_review_fix_1.md)"
     );
     expect(markup).toContain(
-      "local-003: PR code review and fix pass 2 — stage code_review_fix_2 / status blocked (implementation-issues/003-code_review_fix_2.md)"
+      "local-003: Repository-wide code review and fix loop — stage code_review_fix_2 / status blocked (implementation-issues/003-code_review_fix_2.md)"
     );
     expect(markup).toContain("latest worker auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (blocked)");
     expect(markup).toContain("next: Create a bounded ExecutionAuthorityRecord before local worker execution.");

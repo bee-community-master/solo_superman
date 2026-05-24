@@ -26,10 +26,10 @@ export const AUTO_IMPLEMENTATION_STAGES = [
 
 export const AUTO_IMPLEMENTATION_STAGE_LABELS = {
   initial_pr: "Initial implementation and PR creation",
-  code_review_fix_1: "PR code review and fix pass 1",
-  code_review_fix_2: "PR code review and fix pass 2",
-  clean_code_fix_1: "Clean-code review and fix pass 1",
-  clean_code_fix_2: "Broader clean-code review and fix pass 2",
+  code_review_fix_1: "Feature PR code review and fix loop",
+  code_review_fix_2: "Repository-wide code review and fix loop",
+  clean_code_fix_1: "Changed-code clean-code review and fix loop",
+  clean_code_fix_2: "Repository-wide clean-code review and fix loop",
   final_verify_pr_update: "PR description update and final test pass",
   merge_main: "Merge to main"
 } as const satisfies Record<AutoImplementationStage, string>;
@@ -116,10 +116,10 @@ export function autoImplementationFinalPrBodyEvidenceRefs(runId: string) {
 
 export const DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES = [
   "Workspace repo bootstrap and initial implementation PR",
-  "PR code review and fix pass 1",
-  "PR code review and fix pass 2",
-  "Clean-code review and fix pass 1",
-  "Broader clean-code review and fix pass 2",
+  "Feature PR code review and fix loop",
+  "Repository-wide code review and fix loop",
+  "Changed-code clean-code review and fix loop",
+  "Repository-wide clean-code review and fix loop",
   "Final PR description update and full verification",
   "Merge verified PR to main"
 ] as const;

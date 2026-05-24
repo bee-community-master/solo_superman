@@ -231,6 +231,15 @@ describe("AutoImplementationRunProjection contract", () => {
       bodyMarkdownPath: "implementation-issues/001-initial_pr.md",
       sourceStage: "initial_pr"
     });
+    expect(readyRun.issueManagement.issueDocs.map((issue) => issue.title)).toEqual([
+      "Workspace repo bootstrap and initial implementation PR",
+      "Feature PR code review and fix loop",
+      "Repository-wide code review and fix loop",
+      "Changed-code clean-code review and fix loop",
+      "Repository-wide clean-code review and fix loop",
+      "Final PR description update and full verification",
+      "Merge verified PR to main"
+    ]);
     expect(readyRun.reviewProtocol.deliveryGates).toEqual(
       expect.arrayContaining([
         expect.stringContaining("two consecutive no-finding passes")
