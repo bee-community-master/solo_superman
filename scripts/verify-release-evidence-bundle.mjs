@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFile, stat } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL, URL } from "node:url";
 import {
@@ -156,15 +156,6 @@ function validatePendingTemplateShape(template, expectedChecklist, path, issues)
   }
 }
 
-async function fileExists(path) {
-  try {
-    const stats = await stat(path);
-    return stats.isFile();
-  } catch {
-    return false;
-  }
-}
-
 async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
@@ -172,27 +163,48 @@ async function readJson(path) {
 async function loadBundleDirectory(bundleDir) {
   const manifestPath = resolve(bundleDir, DEFAULT_MANIFEST_PATH);
   const manifest = await readJson(manifestPath);
+  const loadedFiles = await loadBundleFiles(bundleDir);
+
+  return { manifest, ...loadedFiles };
+}
+
+async function loadBundleFiles(bundleDir) {
   const fileContents = new Map();
-  if (Array.isArray(manifest.files)) {
-    await Promise.all(manifest.files.map(async (file) => {
-      if (!isRecord(file) || typeof file.path !== "string" || !SAFE_RELATIVE_PATH_PATTERN.test(file.path)) {
+  const unsupportedEntries = [];
+
+  async function walk(directory, relativePrefix = "") {
+    const entries = await readdir(directory, { withFileTypes: true });
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+
+    await Promise.all(entries.map(async (entry) => {
+      const relativePath = relativePrefix ? `${relativePrefix}/${entry.name}` : entry.name;
+      const absolutePath = resolve(directory, entry.name);
+      if (!SAFE_RELATIVE_PATH_PATTERN.test(relativePath)) {
+        unsupportedEntries.push(relativePath);
         return;
       }
-      const absolutePath = resolve(bundleDir, file.path);
-      if (await fileExists(absolutePath)) {
-        fileContents.set(file.path, await readFile(absolutePath, "utf8"));
+      if (entry.isDirectory()) {
+        await walk(absolutePath, relativePath);
+        return;
       }
+      if (entry.isFile()) {
+        fileContents.set(relativePath, await readFile(absolutePath, "utf8"));
+        return;
+      }
+      unsupportedEntries.push(relativePath);
     }));
   }
 
-  return { manifest, fileContents };
+  await walk(bundleDir);
+
+  return { fileContents, unsupportedEntries };
 }
 
 function generatedBundleContentMap(bundle) {
   return new Map(bundle.files.map((file) => [file.path, file.content]));
 }
 
-async function validateBundlePayload({ manifest, fileContents }, options = {}) {
+async function validateBundlePayload({ manifest, fileContents, unsupportedEntries = [] }, options = {}) {
   const issues = [];
   const contracts = options.contracts ?? await loadReleaseEvidenceContracts(options.contractPaths, options);
   const fullChecklist = buildReleaseEvidenceChecklist(contracts, options);
@@ -229,6 +241,14 @@ async function validateBundlePayload({ manifest, fileContents }, options = {}) {
   for (const actualPath of manifestFiles.keys()) {
     if (!expectedFiles.has(actualPath)) {
       addIssue(issues, "$.files", `must not include unexpected bundle file ${actualPath}`);
+    }
+  }
+  for (const unsupportedEntry of unsupportedEntries) {
+    addIssue(issues, `bundle-entry:${unsupportedEntry}`, "must be a regular file or directory inside the bundle directory");
+  }
+  for (const actualPath of fileContents.keys()) {
+    if (!manifestFiles.has(actualPath)) {
+      addIssue(issues, `file:${actualPath}`, "must be listed in the release evidence bundle manifest");
     }
   }
 
@@ -282,6 +302,7 @@ function evidenceForBundleValidation(validation, options = {}) {
     checked: [
       "release evidence bundle manifest schema",
       "bundle file list matches current release evidence contracts",
+      "on-disk bundle files are listed in the manifest",
       "bundle README, manifest, checklist, templates, and issue comments are present",
       "ready-release commands are carried through the bundle",
       options.requireReady ? "filled release evidence templates pass ready validation" : "pending release evidence templates preserve expected checklist items",

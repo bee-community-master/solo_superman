@@ -59,7 +59,7 @@ describe("release evidence bundle verification", () => {
     }
   });
 
-  it("rejects missing files, unexpected files, and secret-shaped content", async () => {
+  it("rejects missing files, unexpected files, unlisted files, and secret-shaped content", async () => {
     const contracts = await loadReleaseEvidenceContracts();
     const checklist = buildReleaseEvidenceChecklist(contracts, { now: new Date("2026-05-24T00:00:00.000Z") });
     const bundle = buildReleaseEvidenceBundle(checklist);
@@ -77,6 +77,7 @@ describe("release evidence bundle verification", () => {
         "README.md": "Evidence URL: https://example.com/release?token=ghp_abcdefghijklmnopqrstuvwxyz1234567890\n"
       });
       await writeFile(join(bundleDir, "unexpected.json"), "{}\n", "utf8");
+      await writeFile(join(bundleDir, "unlisted-secret.txt"), "ghp_abcdefghijklmnopqrstuvwxyz1234567890\n", "utf8");
       const evidence = await runReleaseEvidenceBundleVerification(["--bundle-dir", bundleDir], {
         now: new Date("2026-05-24T00:00:00.000Z")
       });
@@ -85,6 +86,8 @@ describe("release evidence bundle verification", () => {
       expect(evidence.blockers).toEqual(expect.arrayContaining([
         "file:issue-259-comment.md: must exist in the bundle directory",
         "$.files: must not include unexpected bundle file unexpected.json",
+        "file:unlisted-secret.txt: must be listed in the release evidence bundle manifest",
+        "file:unlisted-secret.txt: must not contain token-shaped secret values",
         "file:README.md: must not contain token-shaped secret values",
         "file:README.md: must not include secret-like query parameter \"token\""
       ]));

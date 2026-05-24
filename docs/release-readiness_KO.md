@@ -61,9 +61,9 @@ pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evid
 pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready
 ```
 
-`pnpm verify:release-evidence-bundle`은 generated bundle 또는 release lab bundle directory의 manifest, README, issue별 template/comment, ready-release command 목록, secret-free boundary를 한 번에 검증합니다. `--require-ready`는 release lab이 채운 template들이 모두 `ready`/`passed`인지 확인할 때 사용합니다.
+`pnpm verify:release-evidence-bundle`은 generated bundle 또는 release lab bundle directory의 manifest, 실제 디스크 file listing, README, issue별 template/comment, ready-release command 목록, secret-free boundary를 한 번에 검증합니다. Manifest에 없는 scratch note, log, secret-bearing artifact가 bundle directory에 섞이면 실패하므로 공유 전 제거해야 합니다. `--require-ready`는 release lab이 채운 template들이 모두 `ready`/`passed`인지 확인할 때 사용합니다.
 
-Checklist는 `release-readiness`, Windows 실기기, signed package release, packaged update rollback, signed package preflight 계약에서 blocked gate/run, required checks, required evidence, unblock criteria, ready-release command를 묶습니다. 이 명령은 계약 파일만 읽고 credential 값, browser cookie, token, file contents, full environment dump를 수집하지 않습니다.
+Checklist는 `release-readiness`, Windows 실기기, signed package release, packaged update rollback, signed package preflight 계약에서 blocked gate/run, required checks, required evidence, unblock criteria, ready-release command를 묶습니다. Checklist 생성은 public 계약 파일만 읽고, bundle verifier는 지정한 bundle directory만 검증해 blocker를 출력하며 파일 본문을 evidence로 수집하지 않습니다. 두 명령 모두 credential 값, browser cookie, token, 관련 없는 file contents, full environment dump를 수집하지 않습니다.
 
 ## 일반 공개 준비 모드
 
