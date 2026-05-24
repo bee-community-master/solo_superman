@@ -334,7 +334,8 @@ export function ResearchView({ controller }: ResearchViewProps) {
     setResearchDrafts,
     startReadOnlyResearchRun,
     readyReadOnlyResearchStartPlan,
-    startReadyReadOnlyResearchRuns
+    startReadyReadOnlyResearchRuns,
+    updateAllowlistMaxConcurrentRuns
   } = controller;
   const research = projections.research;
   const evidencePacks = research?.evidencePacks ?? [];
@@ -481,6 +482,9 @@ export function ResearchView({ controller }: ResearchViewProps) {
         }}
         onPauseAllowlist={(allowlistId) => void pauseAllowlist(allowlistId)}
         onRevokeAllowlist={(allowlistId) => void revokeAllowlist(allowlistId)}
+        onUpdateAllowlistMaxConcurrentRuns={(allowlistId, maxConcurrentRuns) =>
+          void updateAllowlistMaxConcurrentRuns(allowlistId, maxConcurrentRuns)
+        }
         onRefreshResearchRunStatus={(researchRunId) => void refreshResearchRunStatus(researchRunId)}
         onCancelResearchRun={(researchRunId) => void cancelResearchRun(researchRunId)}
         onRetryResearchRun={(researchRunId) => void retryResearchRun(researchRunId)}

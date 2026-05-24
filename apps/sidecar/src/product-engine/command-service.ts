@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { resolve } from "node:path";
 import {
   automaticRunStartPolicyForResearchAllowlist,
   BACKGROUND_RESEARCH_ADAPTER_KINDS,
@@ -203,6 +204,7 @@ import {
 import { applyFileDiff } from "./file-diff-adapter";
 import { buildPhase15bHintExport, buildPhase15bHintProjection } from "./phase15b-hint-projection";
 import { runShellCommand } from "./shell-command-adapter";
+import { writeResearchMemoryMarkdown } from "./research-memory-markdown";
 import {
   createWebSearchReadOnlyResearchAdapter,
   webSearchReadOnlyResearchAdapterOptionsFromEnv,
@@ -2762,6 +2764,7 @@ function decisionQueueProjectionFromEvents(events: readonly ProductEngineEvent[]
 
 export interface ProductEngineCommandServiceOptions {
   readonly autoImplementationWorkspaceRoot?: string;
+  readonly researchMemoryMarkdownRoot?: string;
   readonly autoImplementationRemoteStatusProvider?: AutoImplementationRemoteStatusProvider;
   readonly autoImplementationGitHubIssueMutationAdapter?: AutoImplementationGitHubIssueMutationAdapter;
   readonly autoImplementationPullRequestMutationAdapter?: AutoImplementationPullRequestMutationAdapter;
@@ -2775,6 +2778,8 @@ export function createProductEngineCommandService(
 ) {
   const sessionCommandQueues = new Map<SessionId, Promise<void>>();
   const autoImplementationWorkspaceRoot = options.autoImplementationWorkspaceRoot ?? defaultAutoImplementationWorkspaceRoot();
+  const researchMemoryMarkdownRoot =
+    options.researchMemoryMarkdownRoot ?? resolve(autoImplementationWorkspaceRoot, "research-memory");
   const autoImplementationRemoteStatusProvider = options.autoImplementationRemoteStatusProvider;
   const autoImplementationGitHubIssueMutationAdapter = options.autoImplementationGitHubIssueMutationAdapter;
   const autoImplementationPullRequestMutationAdapter =
@@ -3383,6 +3388,35 @@ export function createProductEngineCommandService(
     );
   }
 
+  async function writeResearchMemoryForMatrix(input: {
+    readonly state: ProductEngineStateSnapshot;
+    readonly matrix: ProductEngineStateSnapshot["researchState"]["evidenceMatrices"][number];
+  }) {
+    const { matrix, state } = input;
+    const task = state.researchState.tasks.find((candidate) => candidate.researchTaskId === matrix.researchTaskId);
+    const result = state.researchState.results.find((candidate) => candidate.researchResultId === matrix.researchResultId);
+
+    if (!task || !result) {
+      throw new Error("Research memory markdown requires the synthesized task and result.");
+    }
+
+    const pack = state.researchState.evidencePacks.find(
+      (candidate) =>
+        candidate.researchTaskId === matrix.researchTaskId &&
+        candidate.researchResultId === matrix.researchResultId
+    );
+
+    return writeResearchMemoryMarkdown({
+      root: researchMemoryMarkdownRoot,
+      projectId: state.project.projectId,
+      sessionId: state.session.sessionId,
+      task,
+      result,
+      matrix,
+      pack
+    });
+  }
+
   async function runResearchEvidenceEffect(effect: EffectTaskRecord) {
     const effectRepository = createEffectTaskRepository(storage.db);
     const input = await effectRepository.getInput(effect.effectTaskId);
@@ -3445,20 +3479,26 @@ export function createProductEngineCommandService(
           alreadySynthesized.researchTaskId,
           new Date().toISOString()
         );
+        const memoryMarkdown = await writeResearchMemoryForMatrix({
+          state: currentState,
+          matrix: alreadySynthesized
+        });
         await effectRepository.updateStatus({
           effectTaskId: effect.effectTaskId,
           status: "succeeded",
           attemptCount,
           output: {
             evidenceMatrixId: alreadySynthesized.evidenceMatrixId,
-            balanceStatus: alreadySynthesized.balanceStatus
+            balanceStatus: alreadySynthesized.balanceStatus,
+            researchMemoryMarkdownPath: memoryMarkdown.relativePath
           }
         });
 
         return {
           effectTaskId: effect.effectTaskId,
           status: "succeeded" as const,
-          balanceStatus: alreadySynthesized.balanceStatus
+          balanceStatus: alreadySynthesized.balanceStatus,
+          researchMemoryMarkdownPath: memoryMarkdown.relativePath
         };
       }
 
@@ -3525,20 +3565,26 @@ export function createProductEngineCommandService(
         matrix.researchTaskId,
         new Date().toISOString()
       );
+      const memoryMarkdown = await writeResearchMemoryForMatrix({
+        state: stateAfter,
+        matrix
+      });
       await effectRepository.updateStatus({
         effectTaskId: effect.effectTaskId,
         status: "succeeded",
         attemptCount,
         output: {
           evidenceMatrixId: matrix.evidenceMatrixId,
-          balanceStatus: matrix.balanceStatus
+          balanceStatus: matrix.balanceStatus,
+          researchMemoryMarkdownPath: memoryMarkdown.relativePath
         }
       });
 
       return {
         effectTaskId: effect.effectTaskId,
         status: "succeeded" as const,
-        balanceStatus: matrix.balanceStatus
+        balanceStatus: matrix.balanceStatus,
+        researchMemoryMarkdownPath: memoryMarkdown.relativePath
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Research evidence effect failed.";

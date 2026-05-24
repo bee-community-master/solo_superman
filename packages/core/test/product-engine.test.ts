@@ -293,8 +293,19 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(state.openIssues.map((issue) => issue.topicKey)).toEqual(
       expect.arrayContaining([...docsRequiredAmbiguityTopicKeys])
     );
+    const firstSevenQuestionTexts = state.openIssues.slice(0, 7).map((issue) => issue.questionText);
+
+    expect(firstSevenQuestionTexts).toEqual([
+      "“A focused founder brief generator”를 가장 먼저 써볼 사람은 누구이고, 그 사람은 지금 어떤 상황에 있나요?",
+      "그 사람이 직접 돈을 내거나 승인할 수 있나요? 아니라면 누가 결정하고 누가 실제로 쓰나요?",
+      "그 사람이 겪는 불편은 언제 생기고, 시간·돈·스트레스 중 무엇을 가장 크게 쓰게 하나요?",
+      "그 사람이 지금 쓰는 방법을 두고 “A focused founder brief generator”를 선택하게 만들 쉬운 이유 하나는 무엇인가요?",
+      "지금은 어떤 방법으로 버티고 있고, 그 방법이 괜찮을 때와 답답할 때는 각각 언제인가요?",
+      "“Help solo founders turn a rough idea into a traceable product spec.”에 가장 도움이 되는 첫 버전 기능 하나와 이번에 만들지 않을 기능 하나는 무엇인가요?",
+      "제품을 만들기 전에 “이게 필요하다”는 실제 반응을 어떻게 작게 확인할 수 있나요?"
+    ]);
     expect(state.openIssues[0]?.questionText).toContain("A focused founder brief generator");
-    expect(state.openIssues[0]?.questionText).toContain("Help solo founders turn a rough idea");
+    expect(state.openIssues[5]?.questionText).toContain("Help solo founders turn a rough idea");
     expect(state.openIssues[0]?.questionText).not.toContain("primary customer");
     expect(state.openIssues.map((issue) => issue.questionText).join("\n")).not.toMatch(/가장 먼저 검증할 가장|첫 첫/gu);
     const visibleAnswerOptionCopy = state.openIssues
@@ -357,6 +368,10 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(activeTitles).toContain("A focused personal workflow helper");
     expect(activeTitles).toContain("Help one user automate a repeated local workflow.");
+    expect(activeTitles).toContain("를 쓰기 바로 전과 후에 사용자는 실제로 어떤 일을 하나요?");
+    expect(activeTitles).toContain("얼마나 자주 반복되고");
+    expect(activeTitles).toContain("꼭 화면으로 보고 눌러야 하는 순간");
+    expect(activeTitles).toContain("에 맞춰 가장 작게 만든다면 어떤 입력을 받아 어떤 결과 하나만 내면 충분한가요?");
     expect(activeTitles).not.toContain("A focused personal 일 처리 흐름 helper");
     expect(activeTitles).not.toContain("Help one user automate a repeated local 일 처리 흐름.");
     expect(activeTitles).not.toMatch(/(?:작업 흐름|일 처리 흐름)[는가를와]/u);
@@ -1687,6 +1702,20 @@ describe("PR-04 ProductEngine reducer", () => {
       }, 7),
       state
     );
+    const broaderResearchAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: answeredQueueItemId,
+        answer: "기존 리서치가 있어도 리서치가 더 필요하니 더 넓은 자료 수집과 반대 근거를 찾아주세요."
+      }, 7),
+      state
+    );
+    const noMoreResearchAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: answeredQueueItemId,
+        answer: "리서치 필요 없음. 지금 답변으로 충분합니다."
+      }, 7),
+      state
+    );
 
     expect(blankAnswer).toMatchObject({
       accepted: false,
@@ -1719,6 +1748,18 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(JSON.stringify(sensitiveFollowUpAnswer.immediateProjection)).toContain("[민감한 값 숨김]");
     expect(JSON.stringify(sensitiveFollowUpAnswer.immediateProjection)).not.toContain("sk-secret-answer-value");
     expect(answer.accepted).toBe(true);
+    expect(broaderResearchAnswer.accepted).toBe(true);
+    expect(broaderResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain(
+      "Broaden research beyond existing notes"
+    );
+    expect(broaderResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain(
+      "collect wider sources and counter-evidence"
+    );
+    expect(noMoreResearchAnswer.accepted).toBe(true);
+    expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
+      "Broaden research beyond existing notes"
+    );
     expect(answer.effectPlan).toMatchObject([
       {
         effectType: "research_evidence_effect",
@@ -1884,6 +1925,7 @@ describe("PR-04 ProductEngine reducer", () => {
     const imported = reduceProductEngineCommand(
       command("ImportResearchResult", 1, {
         researchTaskId,
+        sourceTitle: "Founder urgency evidence notes",
         result: "Pro: founders report urgency, but no skeptical con evidence was found.",
         limitationNotes: "Counter-evidence still needs a narrower skeptical search."
       }, 2),
@@ -1967,6 +2009,8 @@ describe("PR-04 ProductEngine reducer", () => {
           repeatCount: 1,
           repeatLimit: 16,
           questionText: expect.stringContaining("What evidence would resolve Validate paid founder urgency?"),
+          whyItMatters: expect.stringContaining("찬성 근거:"),
+          decisionItUnlocks: expect.stringContaining("Founder urgency evidence notes"),
           possibleRoutes: expect.arrayContaining(["question", "missing_con_evidence", "research_needed"]),
           sourceRef: expect.stringContaining(`research:${researchTaskId}:`)
         })
@@ -1977,6 +2021,7 @@ describe("PR-04 ProductEngine reducer", () => {
             cardType: "follow_up_question",
             title: expect.stringContaining("What evidence would resolve Validate paid founder urgency?"),
             state: "active",
+            whyItMatters: expect.stringContaining("Counter-evidence still needs"),
             sourceRef: expect.stringContaining(`research:${researchTaskId}:`)
           })
         ],

@@ -6,6 +6,9 @@ import type {
   ProjectId,
   ProjectionVersion,
   QueueItemId,
+  ResearchAllowlistGovernanceProjection,
+  ResearchAllowlistId,
+  ResearchConnectorId,
   ResearchEvidenceProjection,
   ResearchResultId,
   ResearchTaskId,
@@ -113,6 +116,62 @@ function evidencePackProjection(overrides: EvidencePackOverrides = {}): Decision
   };
 }
 
+function allowlistProjection(maxConcurrentRunsPerProject = 2): ResearchAllowlistGovernanceProjection {
+  return {
+    kind: "ResearchAllowlistGovernanceProjection",
+    projectionKind: "ResearchAllowlistProjection",
+    version: 1 as ProjectionVersion,
+    projectId: "proj_research_batch" as ProjectId,
+    generatedAt: "2026-05-22T00:00:00.000Z",
+    stale: false,
+    refetchUrl: "/api/v1/projects/proj_research_batch/research-allowlists",
+    pendingEffectSummary: {
+      totalPending: 0,
+      byType: {},
+      visibleLabel: "No pending effects."
+    },
+    allowlists: [
+      {
+        kind: "ResearchAllowlistProjection",
+        version: 1 as ProjectionVersion,
+        allowlistId: "research_allowlist_public_web" as ResearchAllowlistId,
+        projectId: "proj_research_batch" as ProjectId,
+        status: "active",
+        connectorIds: ["public_search" as ResearchConnectorId],
+        sourceCategories: ["public_web"],
+        contextMode: "public_safe_summary",
+        rateBudgetPolicy: {
+          maxConcurrentRunsPerProject,
+          maxRunsPerSession: 12,
+          maxAutomaticRetriesPerRun: 2,
+          runTimeoutSeconds: 600,
+          retryBackoffSeconds: [30, 120]
+        },
+        stalenessPolicy: {
+          staleWhenRunExceedsTaskFreshnessWindow: true,
+          staleWhenSourcePredatesTaskRequirement: true
+        },
+        disclosureLogPolicy: {
+          logEveryAutomaticRun: true,
+          publicSafeSummaryRequired: true
+        },
+        approvedBy: "web_ui_founder",
+        approvedAt: "2026-05-22T00:00:00.000Z",
+        createdAt: "2026-05-22T00:00:00.000Z",
+        updatedAt: "2026-05-22T00:00:00.000Z"
+      }
+    ],
+    automaticRunStartPolicies: [
+      {
+        allowed: true,
+        allowlistId: "research_allowlist_public_web" as ResearchAllowlistId,
+        allowlistVersion: 1 as ProjectionVersion,
+        reason: "active_public_safe_allowlist"
+      }
+    ]
+  };
+}
+
 function renderResearchView(controllerOverrides: Partial<DecisionQueueShellController> = {}) {
   const controller = {
     cancelResearchRun: vi.fn(),
@@ -159,6 +218,7 @@ function renderResearchView(controllerOverrides: Partial<DecisionQueueShellContr
     setResearchDrafts: vi.fn(),
     startReadOnlyResearchRun: vi.fn(),
     startReadyReadOnlyResearchRuns: vi.fn(),
+    updateAllowlistMaxConcurrentRuns: vi.fn(),
     ...controllerOverrides
   } satisfies Partial<DecisionQueueShellController>;
 
@@ -181,6 +241,20 @@ describe("ResearchView", () => {
     expect(markup).toContain("Validate public evidence path 1.");
     expect(markup).toContain("Validate public evidence path 2.");
     expect(markup).toContain("Review already returned evidence.");
+  });
+
+  it("renders allowlist concurrency controls for manual and answer-triggered research starts", () => {
+    const markup = renderResearchView({
+      researchOperations: {
+        ...emptyResearchOperationsState(),
+        allowlists: allowlistProjection(3)
+      }
+    });
+
+    expect(markup).toContain("Max simultaneous research runs");
+    expect(markup).toContain("Applies to both manual and answer-triggered public web research starts.");
+    expect(markup).toContain("Apply limit");
+    expect(markup).toContain("value=\"3\"");
   });
 
   it("renders the blocked ready-batch reason when the active allowlist is missing", () => {

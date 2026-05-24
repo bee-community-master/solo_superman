@@ -448,6 +448,7 @@ const EN_COPY = {
       readyRunsMissingAllowlist:
         "Create or reactivate an active public web allowlist before starting research runs.",
       readyRunsNoReadyTasks: "No planned public web research tasks are ready within the active allowlist concurrency budget.",
+      maxConcurrentRunsInvalid: "Max simultaneous research runs must be a positive whole number.",
       backgroundStartAfterAnswerFailed: (error: string) =>
         `Answer submitted, but automatic public web research start failed: ${error}`,
       activeProjectRequiredRefreshRunStatus: "An active project is required before refreshing research run status.",
@@ -460,6 +461,7 @@ const EN_COPY = {
       pauseAllowlist: "Pause research allowlist",
       revokeAllowlist: "Revoke research allowlist",
       planPublicSafeResearchTask: "Plan public-safe research task",
+      updateMaxConcurrentRuns: "Update research run limit",
       startPublicWebResearchRun: "Start public web research run",
       startBackgroundPublicWebResearchRun: "Start background public web research run",
       cancelRun: "Cancel research run",
@@ -725,6 +727,9 @@ const EN_COPY = {
     concurrent: "concurrent",
     session: "session",
     retries: "retries",
+    maxConcurrentRuns: "Max simultaneous research runs",
+    maxConcurrentRunsHelp: "Applies to both manual and answer-triggered public web research starts.",
+    applyMaxConcurrentRuns: "Apply limit",
     disclosure: "disclosure",
     publicSafeSummaryRequired: "safe public summary required",
     policyMissing: "policy not set",
@@ -1398,6 +1403,7 @@ const JA_COPY: typeof EN_COPY = {
         "リサーチ実行を始める前に active public web allowlist を作成または再有効化してください。",
       readyRunsNoReadyTasks:
         "active allowlist の concurrency budget 内で開始できる planned public web research task はありません。",
+      maxConcurrentRunsInvalid: "同時に動かす最大リサーチ数は1以上の整数にしてください。",
       backgroundStartAfterAnswerFailed: (error: string) =>
         `回答は送信されましたが、自動public webリサーチ開始に失敗しました: ${error}`,
       activeProjectRequiredRefreshRunStatus: "リサーチ実行状態を更新するにはアクティブなプロジェクトが必要です。",
@@ -1410,6 +1416,7 @@ const JA_COPY: typeof EN_COPY = {
       pauseAllowlist: "リサーチallowlistを一時停止",
       revokeAllowlist: "リサーチallowlistを取り消し",
       planPublicSafeResearchTask: "公開安全リサーチtaskを計画",
+      updateMaxConcurrentRuns: "リサーチ実行上限を更新",
       startPublicWebResearchRun: "公開Webリサーチrunを開始",
       startBackgroundPublicWebResearchRun: "バックグラウンド公開Webリサーチrunを開始",
       cancelRun: "リサーチrunをキャンセル",
@@ -1665,6 +1672,9 @@ const JA_COPY: typeof EN_COPY = {
     concurrent: "同時",
     session: "セッション",
     retries: "再試行",
+    maxConcurrentRuns: "同時に動かす最大リサーチ数",
+    maxConcurrentRunsHelp: "手動開始と回答後の自動公開Webリサーチ開始の両方に適用されます。",
+    applyMaxConcurrentRuns: "上限を適用",
     disclosure: "開示",
     publicSafeSummaryRequired: "公開してよい要約が必要",
     policyMissing: "ポリシー未設定",
@@ -2336,6 +2346,7 @@ const KO_COPY: typeof EN_COPY = {
         "리서치 실행을 시작하기 전에 active public web allowlist를 만들거나 다시 활성화하세요.",
       readyRunsNoReadyTasks:
         "active allowlist concurrency budget 안에서 시작할 수 있는 planned public web research task가 없습니다.",
+      maxConcurrentRunsInvalid: "동시에 실행할 최대 리서치 수는 1 이상의 정수여야 합니다.",
       backgroundStartAfterAnswerFailed: (error: string) =>
         `답변은 제출되었지만 자동 공개 웹 리서치 시작에 실패했습니다: ${error}`,
       activeProjectRequiredRefreshRunStatus: "리서치 실행 상태를 새로고침하려면 활성 프로젝트가 필요합니다.",
@@ -2348,6 +2359,7 @@ const KO_COPY: typeof EN_COPY = {
       pauseAllowlist: "리서치 allowlist 일시정지",
       revokeAllowlist: "리서치 allowlist 취소",
       planPublicSafeResearchTask: "공개 안전 리서치 task 계획",
+      updateMaxConcurrentRuns: "리서치 실행 제한 업데이트",
       startPublicWebResearchRun: "공개 웹 리서치 run 시작",
       startBackgroundPublicWebResearchRun: "백그라운드 공개 웹 리서치 run 시작",
       cancelRun: "리서치 run 취소",
@@ -2603,6 +2615,9 @@ const KO_COPY: typeof EN_COPY = {
     concurrent: "동시",
     session: "세션",
     retries: "재시도",
+    maxConcurrentRuns: "동시에 실행할 최대 리서치 수",
+    maxConcurrentRunsHelp: "수동 시작과 답변 후 자동 공개 웹 리서치 시작에 모두 적용됩니다.",
+    applyMaxConcurrentRuns: "제한 적용",
     disclosure: "공개 고지",
     publicSafeSummaryRequired: "공개 가능한 요약 필요",
     policyMissing: "정책 누락",

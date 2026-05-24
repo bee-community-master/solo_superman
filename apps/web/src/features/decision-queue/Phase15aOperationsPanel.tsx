@@ -5,6 +5,7 @@ import type {
   ResearchRunControlProjection,
   ResearchRunId
 } from "@solo-superman/contracts";
+import { useState } from "react";
 import type { Phase15aOperationsViewModel } from "./decision-queue-view-model";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
@@ -23,6 +24,7 @@ interface Phase15aOperationsPanelProps {
   readonly onRefreshOperations: () => void;
   readonly onPauseAllowlist: (allowlistId: ResearchAllowlistId) => void;
   readonly onRevokeAllowlist: (allowlistId: ResearchAllowlistId) => void;
+  readonly onUpdateAllowlistMaxConcurrentRuns: (allowlistId: ResearchAllowlistId, maxConcurrentRuns: number) => void;
   readonly onRefreshResearchRunStatus: (researchRunId: ResearchRunId) => void;
   readonly onCancelResearchRun: (researchRunId: ResearchRunId) => void;
   readonly onRetryResearchRun: (researchRunId: ResearchRunId) => void;
@@ -58,11 +60,17 @@ export function Phase15aOperationsPanel({
   onRefreshOperations,
   onPauseAllowlist,
   onRevokeAllowlist,
+  onUpdateAllowlistMaxConcurrentRuns,
   onRefreshResearchRunStatus,
   onCancelResearchRun,
   onRetryResearchRun
 }: Phase15aOperationsPanelProps) {
   const copy = useDecisionQueueCopy();
+  const [maxConcurrentDrafts, setMaxConcurrentDrafts] = useState<Record<string, string>>({});
+
+  function maxConcurrentDraftFor(allowlist: ResearchAllowlistGovernanceProjection["allowlists"][number]) {
+    return maxConcurrentDrafts[allowlist.allowlistId] ?? String(allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject);
+  }
 
   return (
     <section className="panel">
@@ -92,45 +100,87 @@ export function Phase15aOperationsPanel({
           <p className="operations-summary">{operations.allowlistPolicyLabel}</p>
           {researchOperations.allowlists?.allowlists.length ? (
             <div className="operations-cards">
-              {researchOperations.allowlists.allowlists.map((allowlist) => (
-                <article className="operations-card" key={allowlist.allowlistId}>
-                  <strong>{allowlist.allowlistId}</strong>
-                  <span>{allowlist.status}</span>
-                  <small>
-                    {allowlist.connectorIds.join(", ")} · {allowlist.sourceCategories.join(", ")} ·{" "}
-                    {allowlist.contextMode}
-                  </small>
-                  <small>
-                    {copy.phase15a.limits}: {allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject} {copy.phase15a.concurrent} /{" "}
-                    {allowlist.rateBudgetPolicy.maxRunsPerSession} {copy.phase15a.session} /{" "}
-                    {allowlist.rateBudgetPolicy.maxAutomaticRetriesPerRun} {copy.phase15a.retries}
-                  </small>
-                  <small>
-                    {copy.phase15a.disclosure}:{" "}
-                    {allowlist.disclosureLogPolicy.publicSafeSummaryRequired
-                      ? copy.phase15a.publicSafeSummaryRequired
-                      : copy.phase15a.policyMissing}
-                  </small>
-                  {allowlist.status !== "revoked" ? (
-                    <div className="card-actions">
+              {researchOperations.allowlists.allowlists.map((allowlist) => {
+                const maxConcurrentDraft = maxConcurrentDraftFor(allowlist);
+                const parsedMaxConcurrentDraft = Number(maxConcurrentDraft);
+                const canApplyMaxConcurrentDraft =
+                  !isBusy &&
+                  hasActiveSession &&
+                  allowlist.status !== "revoked" &&
+                  Number.isInteger(parsedMaxConcurrentDraft) &&
+                  parsedMaxConcurrentDraft >= 1 &&
+                  parsedMaxConcurrentDraft !== allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject;
+
+                return (
+                  <article className="operations-card" key={allowlist.allowlistId}>
+                    <strong>{allowlist.allowlistId}</strong>
+                    <span>{allowlist.status}</span>
+                    <small>
+                      {allowlist.connectorIds.join(", ")} · {allowlist.sourceCategories.join(", ")} ·{" "}
+                      {allowlist.contextMode}
+                    </small>
+                    <small>
+                      {copy.phase15a.limits}: {allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject} {copy.phase15a.concurrent} /{" "}
+                      {allowlist.rateBudgetPolicy.maxRunsPerSession} {copy.phase15a.session} /{" "}
+                      {allowlist.rateBudgetPolicy.maxAutomaticRetriesPerRun} {copy.phase15a.retries}
+                    </small>
+                    <div className="research-limit-control">
+                      <label>
+                        <span>{copy.phase15a.maxConcurrentRuns}</span>
+                        <input
+                          aria-label={`${copy.phase15a.maxConcurrentRuns} ${allowlist.allowlistId}`}
+                          min={1}
+                          type="number"
+                          value={maxConcurrentDraft}
+                          onChange={(event) =>
+                            setMaxConcurrentDrafts((current) => ({
+                              ...current,
+                              [allowlist.allowlistId]: event.target.value
+                            }))
+                          }
+                        />
+                      </label>
+                      <small>{copy.phase15a.maxConcurrentRunsHelp}</small>
                       <button
                         type="button"
-                        disabled={isBusy || !hasActiveSession || allowlist.status === "paused"}
-                        onClick={() => onPauseAllowlist(allowlist.allowlistId)}
+                        disabled={!canApplyMaxConcurrentDraft}
+                        onClick={() =>
+                          onUpdateAllowlistMaxConcurrentRuns(
+                            allowlist.allowlistId,
+                            parsedMaxConcurrentDraft
+                          )
+                        }
                       >
-                        {copy.phase15a.pause}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isBusy || !hasActiveSession}
-                        onClick={() => onRevokeAllowlist(allowlist.allowlistId)}
-                      >
-                        {copy.phase15a.revoke}
+                        {copy.phase15a.applyMaxConcurrentRuns}
                       </button>
                     </div>
-                  ) : null}
-                </article>
-              ))}
+                    <small>
+                      {copy.phase15a.disclosure}:{" "}
+                      {allowlist.disclosureLogPolicy.publicSafeSummaryRequired
+                        ? copy.phase15a.publicSafeSummaryRequired
+                        : copy.phase15a.policyMissing}
+                    </small>
+                    {allowlist.status !== "revoked" ? (
+                      <div className="card-actions">
+                        <button
+                          type="button"
+                          disabled={isBusy || !hasActiveSession || allowlist.status === "paused"}
+                          onClick={() => onPauseAllowlist(allowlist.allowlistId)}
+                        >
+                          {copy.phase15a.pause}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isBusy || !hasActiveSession}
+                          onClick={() => onRevokeAllowlist(allowlist.allowlistId)}
+                        >
+                          {copy.phase15a.revoke}
+                        </button>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
           ) : (
             <p className="empty-state">{copy.phase15a.noAllowlist}</p>

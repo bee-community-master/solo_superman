@@ -419,6 +419,30 @@ export function useDecisionQueueSessionActions({
     ]
   );
 
+  const continueAnswerPostSubmitWork = useCallback(
+    (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"], queue: DecisionQueueProjection | null) => {
+      void (async () => {
+        try {
+          await refreshProjections(projectId, sessionId);
+
+          if (queue) {
+            await refetchQueueAfterSseNotification(projectId, sessionId, queue);
+          }
+
+          await startReadyReadOnlyResearchRunsAfterAnswer?.();
+        } catch (error) {
+          setWorkflowError(displayError(error));
+        }
+      })();
+    },
+    [
+      refetchQueueAfterSseNotification,
+      refreshProjections,
+      setWorkflowError,
+      startReadyReadOnlyResearchRunsAfterAnswer
+    ]
+  );
+
   const submitAnswer = useCallback(
     async (queueItemId: QueueItemId) => {
       if (!client || !projections.session) {
@@ -456,9 +480,7 @@ export function useDecisionQueueSessionActions({
           ...current,
           queue
         }));
-        await refreshProjections(projections.session.projectId, projections.session.sessionId);
-        await refetchQueueAfterSseNotification(projections.session.projectId, projections.session.sessionId, queue);
-        await startReadyReadOnlyResearchRunsAfterAnswer?.();
+        continueAnswerPostSubmitWork(projections.session.projectId, projections.session.sessionId, queue);
       } catch (error) {
         setWorkflowError(displayError(error));
       } finally {
@@ -469,11 +491,9 @@ export function useDecisionQueueSessionActions({
       answerDrafts,
       appendCommand,
       client,
+      continueAnswerPostSubmitWork,
       projections,
-      refetchQueueAfterSseNotification,
-      refreshProjections,
       sessionActionErrors,
-      startReadyReadOnlyResearchRunsAfterAnswer
     ]
   );
 
@@ -530,13 +550,7 @@ export function useDecisionQueueSessionActions({
         }));
       }
 
-      await refreshProjections(projections.session.projectId, projections.session.sessionId);
-
-      if (latestQueue) {
-        await refetchQueueAfterSseNotification(projections.session.projectId, projections.session.sessionId, latestQueue);
-      }
-
-      await startReadyReadOnlyResearchRunsAfterAnswer?.();
+      continueAnswerPostSubmitWork(projections.session.projectId, projections.session.sessionId, latestQueue);
     } catch (error) {
       let refreshedAfterPartialFailure = false;
 
@@ -563,11 +577,10 @@ export function useDecisionQueueSessionActions({
     answerDrafts,
     appendCommand,
     client,
+    continueAnswerPostSubmitWork,
     projections,
-    refetchQueueAfterSseNotification,
-    refreshProjections,
     sessionActionErrors,
-    startReadyReadOnlyResearchRunsAfterAnswer
+    refreshProjections
   ]);
 
   const refreshQuestionList = useCallback(async () => {
