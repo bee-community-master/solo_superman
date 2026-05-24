@@ -120,7 +120,9 @@ export function Phase15aOperationsPanel({
                 const parsedMaxConcurrentDraft = Number(maxConcurrentDraft);
                 const parsedMaxSessionDraft = Number(maxSessionDraft);
                 const connectorLabels = phase15aConnectorLabels(copy.phase15a, allowlist.connectorIds);
+                const connectorLabel = joinPhase15aResearchLabels(connectorLabels);
                 const sourceCategoryLabels = phase15aSourceCategoryLabels(copy.phase15a, allowlist.sourceCategories);
+                const sourceCategoryLabel = joinPhase15aResearchLabels(sourceCategoryLabels);
                 const contextModeLabel = phase15aContextModeLabel(copy.phase15a, allowlist.contextMode);
                 const canApplyMaxConcurrentDraft =
                   !isBusy &&
@@ -139,10 +141,10 @@ export function Phase15aOperationsPanel({
 
                 return (
                   <article className="operations-card" key={allowlist.allowlistId}>
-                    <strong>{joinPhase15aResearchLabels(connectorLabels)}</strong>
+                    <strong>{connectorLabel}</strong>
                     <span>{phase15aAllowlistStatusLabel(copy.phase15a, allowlist.status)}</span>
                     <small>
-                      {joinPhase15aResearchLabels(sourceCategoryLabels)} · {contextModeLabel}
+                      {sourceCategoryLabel} · {contextModeLabel}
                     </small>
                     <small>
                       {copy.phase15a.limits}: {allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject} {copy.phase15a.concurrent} /{" "}
@@ -153,7 +155,7 @@ export function Phase15aOperationsPanel({
                       <label>
                         <span>{copy.phase15a.maxConcurrentRuns}</span>
                         <input
-                          aria-label={`${copy.phase15a.maxConcurrentRuns} ${joinPhase15aResearchLabels(connectorLabels)}`}
+                          aria-label={`${copy.phase15a.maxConcurrentRuns} ${connectorLabel}`}
                           min={1}
                           type="number"
                           value={maxConcurrentDraft}
@@ -181,7 +183,7 @@ export function Phase15aOperationsPanel({
                       <label>
                         <span>{copy.phase15a.maxSessionRuns}</span>
                         <input
-                          aria-label={`${copy.phase15a.maxSessionRuns} ${joinPhase15aResearchLabels(connectorLabels)}`}
+                          aria-label={`${copy.phase15a.maxSessionRuns} ${connectorLabel}`}
                           min={allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject}
                           type="number"
                           value={maxSessionDraft}
