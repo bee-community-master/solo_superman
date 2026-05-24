@@ -57,6 +57,7 @@ interface DecisionQueueSessionActionsProps {
   readonly projectPurposeMode: ProjectPurposeMode | null;
   readonly projections: ProjectionState;
   readonly purposeModeChangeReason: string;
+  readonly questionBatchSize: number;
   readonly refetchQueueAfterSseNotification: (
     projectId: ProjectId,
     sessionId: SessionShellProjection["sessionId"],
@@ -82,7 +83,17 @@ interface DecisionQueueSessionActionsProps {
   readonly onInitialQueueCreated?: () => void;
 }
 
-const NEXT_QUESTION_BATCH_LIMIT = 5;
+export const MIN_QUESTION_BATCH_SIZE = 3;
+export const MAX_QUESTION_BATCH_SIZE = 5;
+export const DEFAULT_NEXT_QUESTION_BATCH_SIZE = MAX_QUESTION_BATCH_SIZE;
+
+export function boundedQuestionBatchSize(value: number) {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_NEXT_QUESTION_BATCH_SIZE;
+  }
+
+  return Math.min(MAX_QUESTION_BATCH_SIZE, Math.max(MIN_QUESTION_BATCH_SIZE, Math.trunc(value)));
+}
 
 function answerDraftsWithClearedItems(
   current: Record<string, string>,
@@ -94,12 +105,21 @@ function answerDraftsWithClearedItems(
   };
 }
 
-export function nextQuestionBatchIdsForActivation(queue: DecisionQueueProjection | null | undefined) {
+export function nextQuestionBatchIdsForActivation(
+  queue: DecisionQueueProjection | null | undefined,
+  requestedBatchSize = DEFAULT_NEXT_QUESTION_BATCH_SIZE
+) {
+  const batchSize = boundedQuestionBatchSize(requestedBatchSize);
   const queueItemIds =
     queue?.next
       .filter(queueItemIsQuestionDebt)
-      .slice(0, NEXT_QUESTION_BATCH_LIMIT)
+      .slice(0, batchSize)
       .map((item) => item.queueItemId) ?? [];
+  const openQuestionCount = queue?.progress?.openQuestionCount ?? queueItemIds.length;
+
+  if (queueItemIds.length > 0 && queueItemIds.length < Math.min(MIN_QUESTION_BATCH_SIZE, openQuestionCount)) {
+    return undefined;
+  }
 
   return queueItemIds.length ? queueItemIds : undefined;
 }
@@ -108,8 +128,11 @@ export function queueHasActiveQuestionDebt(queue: DecisionQueueProjection | null
   return queue?.active.some(queueItemIsQuestionDebt) ?? false;
 }
 
-export function queueShouldAutoActivateNextQuestionBatch(queue: DecisionQueueProjection | null | undefined) {
-  return !queueHasActiveQuestionDebt(queue) && Boolean(nextQuestionBatchIdsForActivation(queue)?.length);
+export function queueShouldAutoActivateNextQuestionBatch(
+  queue: DecisionQueueProjection | null | undefined,
+  requestedBatchSize = DEFAULT_NEXT_QUESTION_BATCH_SIZE
+) {
+  return !queueHasActiveQuestionDebt(queue) && Boolean(nextQuestionBatchIdsForActivation(queue, requestedBatchSize)?.length);
 }
 
 export function useDecisionQueueSessionActions({
@@ -131,6 +154,7 @@ export function useDecisionQueueSessionActions({
   projectPurposeMode,
   projections,
   purposeModeChangeReason,
+  questionBatchSize,
   refetchQueueAfterSseNotification,
   refreshProjections,
   researchDrafts,
@@ -443,13 +467,13 @@ export function useDecisionQueueSessionActions({
             await refetchQueueAfterSseNotification(projectId, sessionId, queue);
           }
 
-          if (client && queueShouldAutoActivateNextQuestionBatch(queue)) {
+          if (client && queueShouldAutoActivateNextQuestionBatch(queue, questionBatchSize)) {
             const activateResponse = await appendCommand(
               sessionActionLabels.loadNextQuestions,
               await client.activateQuestionBatch(
                 sessionId,
                 expectedStateVersion,
-                nextQuestionBatchIdsForActivation(queue)
+                nextQuestionBatchIdsForActivation(queue, questionBatchSize)
               )
             );
             const activatedQueue = requiredCommandProjection<DecisionQueueProjection>(
@@ -476,6 +500,7 @@ export function useDecisionQueueSessionActions({
       client,
       refetchQueueAfterSseNotification,
       refreshProjections,
+      questionBatchSize,
       sessionActionLabels.loadNextQuestions,
       setProjections,
       setWorkflowError,
@@ -671,7 +696,7 @@ export function useDecisionQueueSessionActions({
         await client.activateQuestionBatch(
           projections.session.sessionId,
           latestCommandBackedProjectionVersion(projections),
-          nextQuestionBatchIdsForActivation(projections.queue)
+          nextQuestionBatchIdsForActivation(projections.queue, questionBatchSize)
         )
       );
       const queue = requiredCommandProjection<DecisionQueueProjection>(response, "DecisionQueueProjection");
@@ -687,7 +712,19 @@ export function useDecisionQueueSessionActions({
     } finally {
       setIsBusy(false);
     }
-  }, [appendCommand, client, projections, refetchQueueAfterSseNotification, refreshProjections, sessionActionErrors]);
+  }, [
+    appendCommand,
+    client,
+    projections,
+    questionBatchSize,
+    refetchQueueAfterSseNotification,
+    refreshProjections,
+    sessionActionErrors,
+    sessionActionLabels.loadNextQuestions,
+    setIsBusy,
+    setProjections,
+    setWorkflowError
+  ]);
 
   const carryQueueItemAsKnownRisk = useCallback(
     async (queueItemId: QueueItemId) => {

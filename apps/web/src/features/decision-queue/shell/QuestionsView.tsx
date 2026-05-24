@@ -8,6 +8,7 @@ import {
 import { isBusinessCriticQueueItem } from "./decision-queue-shell-model";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
+import { boundedQuestionBatchSize, MIN_QUESTION_BATCH_SIZE, MAX_QUESTION_BATCH_SIZE } from "./useDecisionQueueSessionActions";
 
 interface QuestionsViewProps {
   readonly controller: DecisionQueueShellController;
@@ -127,11 +128,13 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     knownRiskDrafts,
     loadNextQuestionBatch,
     projections,
+    questionBatchSize,
     questionProgress,
     queueRecovery,
     refreshQuestionList,
     sections,
     setAnswerDrafts,
+    setQuestionBatchSize,
     setKnownRiskDrafts,
     submitAnswer,
     submitDraftedActiveAnswers
@@ -158,6 +161,24 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
           >
             {copy.questions.loadNextQuestions}
           </button>
+          <label className="inline-control">
+            <span>{copy.questions.questionBatchSizeLabel}</span>
+            <select
+              aria-label={copy.questions.questionBatchSizeLabel}
+              disabled={isBusy}
+              onChange={(event) => setQuestionBatchSize(boundedQuestionBatchSize(Number(event.target.value)))}
+              value={boundedQuestionBatchSize(questionBatchSize)}
+            >
+              {Array.from(
+                { length: MAX_QUESTION_BATCH_SIZE - MIN_QUESTION_BATCH_SIZE + 1 },
+                (_, index) => MIN_QUESTION_BATCH_SIZE + index
+              ).map((size) => (
+                <option key={size} value={size}>
+                  {copy.questions.questionBatchSizeOption(size)}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             type="button"
             disabled={isBusy || !projections.session || draftedActiveAnswerCount === 0}
@@ -166,6 +187,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
             {copy.questions.submitDraftedAnswers(draftedActiveAnswerCount)}
           </button>
         </div>
+        <p className="mode-help">{copy.questions.questionBatchSizeHelp}</p>
         <div className="queue-recovery">
           <p>{queueRecovery.label}</p>
           <small>{queueRecovery.activeBatchLabel}</small>

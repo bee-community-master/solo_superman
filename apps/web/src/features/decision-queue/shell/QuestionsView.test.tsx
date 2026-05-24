@@ -53,6 +53,7 @@ function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellCont
     loadNextQuestionBatch: vi.fn(),
     projectPurposeMode: null,
     projections: emptyProjectionState(),
+    questionBatchSize: 5,
     questionProgress: DEFAULT_QUESTION_PROGRESS,
     queueRecovery: DEFAULT_QUEUE_RECOVERY,
     refreshQuestionList: vi.fn(),
@@ -65,6 +66,7 @@ function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellCont
     setIdea: vi.fn(),
     setInitialBusinessCriticIntensityReason: vi.fn(),
     setIntake: vi.fn(),
+    setQuestionBatchSize: vi.fn(),
     setKnownRiskDrafts: vi.fn(),
     setProjectPurposeMode: vi.fn(),
     startCodexLogin: vi.fn(),
@@ -122,6 +124,8 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Question progress");
     expect(markup).toContain("Refresh question list");
     expect(markup).toContain("Load next questions");
+    expect(markup).toContain("Questions per batch");
+    expect(markup).toContain("Choose a smaller batch when the session feels heavy");
     expect(markup).not.toContain("Idea summary");
     expect(markup).not.toContain("Goal description");
     expect(markup).toContain("Choose one");

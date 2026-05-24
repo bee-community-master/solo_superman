@@ -245,6 +245,10 @@ const EN_COPY = {
     queue: "Queue",
     refreshQuestionList: "Refresh question list",
     loadNextQuestions: "Load next questions",
+    questionBatchSizeLabel: "Questions per batch",
+    questionBatchSizeOption: (count: number) => `${count} questions`,
+    questionBatchSizeHelp:
+      "Choose a smaller batch when the session feels heavy, or 5 when you want to move through many questions faster.",
     questionProgressTitle: "Question progress",
     questionProgressSummary: (handled: number, generated: number, percent: number) =>
       `${handled}/${generated} generated questions handled · ${percent}%`,
@@ -1283,6 +1287,9 @@ const JA_COPY: typeof EN_COPY = {
     queue: "キュー",
     refreshQuestionList: "質問リストを更新",
     loadNextQuestions: "次の質問を読み込む",
+    questionBatchSizeLabel: "1回に表示する質問数",
+    questionBatchSizeOption: (count: number) => `${count}件`,
+    questionBatchSizeHelp: "負担が大きいときは少ない件数、たくさん進めたいときは5件を選べます。",
     questionProgressTitle: "質問の進捗",
     questionProgressSummary: (handled: number, generated: number, percent: number) =>
       `生成済み質問 ${generated}件中 ${handled}件処理 · ${percent}%`,
@@ -2307,6 +2314,9 @@ const KO_COPY: typeof EN_COPY = {
     queue: "큐",
     refreshQuestionList: "질문 목록 새로고침",
     loadNextQuestions: "다음 질문 불러오기",
+    questionBatchSizeLabel: "한 번에 볼 질문 수",
+    questionBatchSizeOption: (count: number) => `${count}개`,
+    questionBatchSizeHelp: "답변 세션이 부담되면 적게, 많은 질문을 빠르게 처리하려면 5개로 조절하세요.",
     questionProgressTitle: "질문 진행률",
     questionProgressSummary: (handled: number, generated: number, percent: number) =>
       `생성된 질문 ${generated}개 중 ${handled}개 처리 · ${percent}%`,

@@ -193,6 +193,7 @@ export function useDecisionQueueShellController() {
   const [initialBusinessCriticIntensityReason, setInitialBusinessCriticIntensityReason] = useState("");
   const [businessCriticIntensityChangeReason, setBusinessCriticIntensityChangeReason] = useState("");
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
+  const [questionBatchSize, setQuestionBatchSize] = useState(5);
   const [knownRiskDrafts, setKnownRiskDrafts] = useState<Record<string, string>>({});
   const [researchDrafts, setResearchDrafts] = useState<Record<string, string>>({});
   const [workerLedgerImportDraft, setWorkerLedgerImportDraft] = useState("");
@@ -400,6 +401,7 @@ export function useDecisionQueueShellController() {
     projectPurposeMode,
     projections,
     purposeModeChangeReason,
+    questionBatchSize,
     refetchQueueAfterSseNotification,
     refreshProjections,
     researchDrafts,
@@ -1377,6 +1379,8 @@ export function useDecisionQueueShellController() {
     setBusinessCriticIntensityChangeReason,
     answerDrafts,
     setAnswerDrafts,
+    questionBatchSize,
+    setQuestionBatchSize,
     knownRiskDrafts,
     setKnownRiskDrafts,
     researchDrafts,

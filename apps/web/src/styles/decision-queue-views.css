@@ -273,6 +273,16 @@
   padding-left: 10px;
 }
 
+.inline-control {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.inline-control select {
+  min-height: 32px;
+}
+
 .question-coaching-context div {
   display: grid;
   gap: 3px;

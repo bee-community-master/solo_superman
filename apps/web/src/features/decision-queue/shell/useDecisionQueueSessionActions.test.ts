@@ -17,6 +17,7 @@ import type { SidecarClient } from "../../../shared/api/sidecar-client";
 import { DECISION_QUEUE_COPY } from "./decision-queue-copy";
 import { emptyProjectionState } from "./decision-queue-shell-model";
 import {
+  boundedQuestionBatchSize,
   nextQuestionBatchIdsForActivation,
   queueHasActiveQuestionDebt,
   queueShouldAutoActivateNextQuestionBatch,
@@ -88,6 +89,65 @@ describe("nextQuestionBatchIdsForActivation", () => {
       "queue_question_4",
       "queue_question_5"
     ]);
+    expect(nextQuestionBatchIdsForActivation(queue, 3)).toEqual([
+      "queue_question_1",
+      "queue_question_2",
+      "queue_question_3"
+    ]);
+  });
+
+  it("bounds requested next question batch size to the supported active batch range", () => {
+    expect(boundedQuestionBatchSize(2)).toBe(3);
+    expect(boundedQuestionBatchSize(4)).toBe(4);
+    expect(boundedQuestionBatchSize(9)).toBe(5);
+    expect(boundedQuestionBatchSize(Number.NaN)).toBe(5);
+  });
+
+  it("falls back to default activation when too few queued ids would violate the server batch minimum", () => {
+    expect(
+      nextQuestionBatchIdsForActivation(
+        {
+          kind: "DecisionQueueProjection",
+          version: 5 as ProjectionVersion,
+          progress: {
+            generatedQuestionCount: 12,
+            openQuestionCount: 6,
+            answeredQuestionCount: 6,
+            deferredQuestionCount: 0,
+            resolvedQuestionCount: 0,
+            terminalQuestionCount: 6,
+            followUpQuestionCount: 2,
+            followUpOpenQuestionCount: 2,
+            topicCoverageCount: 8,
+            openTopicCoverageCount: 3,
+            followUpBudgetRemainingCount: 20,
+            visibleQuestionDebtCount: 2,
+            activeQuestionCount: 0,
+            upcomingQuestionCount: 2,
+            blockedQuestionCount: 0,
+            completionPercent: 50
+          },
+          active: [],
+          next: [
+            {
+              queueItemId: "queue_question_1" as QueueItemId,
+              title: "Queued question 1",
+              state: "next",
+              cardType: "question"
+            },
+            {
+              queueItemId: "queue_question_2" as QueueItemId,
+              title: "Queued question 2",
+              state: "next",
+              cardType: "question"
+            }
+          ],
+          blocked: [],
+          deferred: []
+        },
+        3
+      )
+    ).toBeUndefined();
   });
 
   it("falls back to default activation when no queued next questions exist", () => {
@@ -282,6 +342,7 @@ describe("useDecisionQueueSessionActions", () => {
           queue
         },
         purposeModeChangeReason: "",
+        questionBatchSize: 5,
         refetchQueueAfterSseNotification: vi.fn(async () => undefined),
         refreshProjections: vi.fn(async () => undefined),
         researchDrafts: {},
@@ -446,6 +507,7 @@ describe("useDecisionQueueSessionActions", () => {
           }
         },
         purposeModeChangeReason: "",
+        questionBatchSize: 3,
         refetchQueueAfterSseNotification: vi.fn(async () => undefined),
         refreshProjections: vi.fn(async () => undefined),
         researchDrafts: {},
@@ -579,6 +641,7 @@ describe("useDecisionQueueSessionActions", () => {
           queue
         },
         purposeModeChangeReason: "",
+        questionBatchSize: 3,
         refetchQueueAfterSseNotification: vi.fn(async () => undefined),
         refreshProjections: vi.fn(async () => undefined),
         researchDrafts: {},
