@@ -25,7 +25,7 @@ function autoImplementationCheckedBehaviors() {
     "Opt-in live runtime readiness verification reports skipped, blocked, or passed evidence without forcing opt-in live execution into the default suite.",
     "Worker jobs keep planned ledger docs, authority refs, sandbox boundaries, and manual recovery evidence visible.",
     "Generated PR body includes issue document status summary, stage status summary, review/evidence gate summary, and missing-test audit summary coverage.",
-    "Every canonical auto-implementation stage can carry code-review, clean-code, missing-test audit, and test evidence before completion."
+    "Every canonical auto-implementation stage requires two consecutive no-finding feature and repository code-review passes, two consecutive no-finding changed-code and repository clean-code passes, a zero-gap missing-test audit, and passing test evidence before completion."
   ];
 }
 
@@ -130,7 +130,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
@@ -209,6 +209,31 @@ describe("product capability readiness verification", () => {
       "$.capabilities[4].checkedBehaviors: must mention Generated PR body",
       "$.capabilities[4].checkedBehaviors: must mention issue document status summary",
       "$.capabilities[4].checkedBehaviors: must mention missing-test audit summary"
+    ]));
+  });
+
+  it("requires auto-implementation readiness to name two-pass review, missing-test, and final test gates", () => {
+    const contract = codeBackedContract({
+      capabilities: codeBackedContract().capabilities.map((capability) =>
+        capability.id === "auto-implementation-review-loop"
+          ? {
+              ...capability,
+              checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
+                !behavior.includes("two consecutive no-finding")
+              )
+            }
+          : capability
+      )
+    });
+    const result = validateProductCapabilityReadinessContract(contract);
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual(expect.arrayContaining([
+      "$.capabilities[4].checkedBehaviors: must mention two consecutive no-finding",
+      "$.capabilities[4].checkedBehaviors: must mention feature and repository code-review",
+      "$.capabilities[4].checkedBehaviors: must mention changed-code and repository clean-code",
+      "$.capabilities[4].checkedBehaviors: must mention zero-gap missing-test audit",
+      "$.capabilities[4].checkedBehaviors: must mention passing test evidence before completion"
     ]));
   });
 
