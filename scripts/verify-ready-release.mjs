@@ -7,6 +7,7 @@ export const READY_RELEASE_VERIFICATION_SCHEMA_VERSION = "solo-superman-ready-re
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR = "./solo-superman-release-evidence-bundle";
+const MAX_REPORTED_COMMAND_OUTPUT_CHARS = 4_000;
 const BASE_READY_RELEASE_STEPS = [
   {
     id: "signed-package-preflight-credentials",
@@ -50,6 +51,16 @@ function redactedOutput(value) {
   return redactSupportText(value ?? "");
 }
 
+function reportedCommandOutput(value) {
+  const redacted = redactedOutput(value);
+  if (redacted.length <= MAX_REPORTED_COMMAND_OUTPUT_CHARS) {
+    return redacted;
+  }
+
+  const omittedCharCount = redacted.length - MAX_REPORTED_COMMAND_OUTPUT_CHARS;
+  return `${redacted.slice(0, MAX_REPORTED_COMMAND_OUTPUT_CHARS)}\n...<${omittedCharCount} redacted chars omitted; rerun the nested verifier command for full output>`;
+}
+
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -60,6 +71,32 @@ function stringList(value) {
 
 function uniqueStrings(values) {
   return [...new Set(values.filter((value) => typeof value === "string" && value.trim().length > 0))];
+}
+
+const TEMPLATE_FIELD_BLOCKER_PATTERN = /^file:([^:]+): (\$\..+)$/;
+
+function summarizeTemplateFieldBlockers(blockers) {
+  const summarized = [];
+  const omittedFieldCounts = new Map();
+
+  for (const blocker of blockers) {
+    const templateFieldMatch = blocker.match(TEMPLATE_FIELD_BLOCKER_PATTERN);
+    if (templateFieldMatch) {
+      const templateFile = templateFieldMatch[1];
+      omittedFieldCounts.set(templateFile, (omittedFieldCounts.get(templateFile) ?? 0) + 1);
+      continue;
+    }
+
+    summarized.push(blocker);
+  }
+
+  for (const [templateFile, count] of omittedFieldCounts) {
+    summarized.push(
+      `file:${templateFile}: ${count} template field blocker(s) omitted; fill release evidence placeholders and inspect command stdout for exact fields.`
+    );
+  }
+
+  return summarized;
 }
 
 function parseJsonObjectFromOutput(value) {
@@ -89,10 +126,10 @@ export function extractReadyReleaseCommandBlockers(result) {
     return [];
   }
 
-  return uniqueStrings([
+  return summarizeTemplateFieldBlockers(uniqueStrings([
     ...stringList(parsed.blockers),
     ...stringList(parsed.issues)
-  ].map(redactedOutput));
+  ].map(redactedOutput)));
 }
 
 export function readyReleaseSteps(options = {}) {
@@ -215,8 +252,8 @@ export function evidenceForReadyReleaseResults(results, options = {}) {
       exitCode: result.exitCode ?? null,
       timedOut: result.timedOut === true,
       blockers: options.planOnly || commandStatus(result) === "passed" ? [] : extractReadyReleaseCommandBlockers(result),
-      stdout: redactedOutput(result.stdout),
-      stderr: redactedOutput(result.stderr)
+      stdout: reportedCommandOutput(result.stdout),
+      stderr: reportedCommandOutput(result.stderr)
     })),
     checked: [
       "ready-release credential-required command sequence",
@@ -227,7 +264,8 @@ export function evidenceForReadyReleaseResults(results, options = {}) {
       "release evidence bundle require-ready gate",
       "release readiness require-ready gate",
       "nested verifier blockers and issues are surfaced per command",
-      "ready-release command output is redacted before reporting"
+      "verbose release-template field blockers are summarized while redacted stdout keeps a bounded diagnostic preview",
+      "ready-release command output is redacted and bounded before reporting"
     ]
   };
 }

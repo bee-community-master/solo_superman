@@ -53,6 +53,30 @@ describe("ready release aggregate verification", () => {
     ]);
   });
 
+  it("summarizes verbose template field blockers while keeping file-level blockers", () => {
+    const stdout = [
+      "{",
+      "  \"status\": \"blocked\",",
+      "  \"blockers\": [",
+      "    \"file:issue-259-template.json: ready template validation must pass\",",
+      "    \"file:issue-259-template.json: $.templateStatus must be \\\"ready\\\" after evidence is collected.\",",
+      "    \"file:issue-259-template.json: $.items[0].verification.verifiedAt must replace template placeholder \\\"<UTC ISO timestamp>\\\".\",",
+      "    \"file:issue-266-template.json: ready template validation must pass\",",
+      "    \"file:issue-266-template.json: $.summary.pendingItems must be 0 after evidence is collected.\"",
+      "  ],",
+      "  \"issues\": []",
+      "}",
+      " ELIFECYCLE  Command failed with exit code 1."
+    ].join("\n");
+
+    expect(extractReadyReleaseCommandBlockers({ stdout })).toEqual([
+      "file:issue-259-template.json: ready template validation must pass",
+      "file:issue-266-template.json: ready template validation must pass",
+      "file:issue-259-template.json: 2 template field blocker(s) omitted; fill release evidence placeholders and inspect command stdout for exact fields.",
+      "file:issue-266-template.json: 1 template field blocker(s) omitted; fill release evidence placeholders and inspect command stdout for exact fields."
+    ]);
+  });
+
   it("runs every gate by default and redacts blocked command output", async () => {
     const calls = [];
     const evidence = await runReadyReleaseVerification({
@@ -79,6 +103,24 @@ describe("ready release aggregate verification", () => {
     const blockedCommand = evidence.commands.find((command) => command.id === "windows-real-device-evidence");
     expect(blockedCommand?.stdout).toContain("<redacted>");
     expect(blockedCommand?.stdout).not.toContain("ghp_");
+  });
+
+  it("bounds reported command output so aggregate ready-release evidence stays readable", async () => {
+    const evidence = await runReadyReleaseVerification({
+      runner: async (step) => ({
+        ...step,
+        exitCode: step.id === "signed-package-release-evidence" ? 1 : 0,
+        stdout: step.id === "signed-package-release-evidence"
+          ? `${"x".repeat(4_500)} token=ghp_abcdefghijklmnopqrstuvwxyz1234567890`
+          : "{\"status\":\"passed\",\"blockers\":[]}",
+        stderr: ""
+      })
+    });
+
+    const blockedCommand = evidence.commands.find((command) => command.id === "signed-package-release-evidence");
+    expect(blockedCommand?.stdout).toContain("redacted chars omitted");
+    expect(blockedCommand?.stdout).not.toContain("ghp_");
+    expect(blockedCommand?.stdout.length).toBeLessThan(4_200);
   });
 
   it("surfaces nested command blockers in aggregate evidence", async () => {
