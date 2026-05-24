@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+  autoImplementationFinalPrBodyEvidenceRefs,
   type AutoImplementationRun,
   type SessionId
 } from "@solo-superman/contracts";
@@ -87,7 +88,10 @@ function withInitialPrStageCompleted(run: AutoImplementationRun): AutoImplementa
   };
 }
 
-function withPrBodyAndFinalVerification(run: AutoImplementationRun): AutoImplementationRun {
+function withPrBodyAndFinalVerification(
+  run: AutoImplementationRun,
+  bodyEvidenceRefs: readonly string[] = autoImplementationFinalPrBodyEvidenceRefs(run.runId)
+): AutoImplementationRun {
   const bodyRecord = {
     mutationId: "auto-pr-mutation:auto_run_demo:update_pr_body:body_1",
     action: "update_pr_body",
@@ -103,7 +107,7 @@ function withPrBodyAndFinalVerification(run: AutoImplementationRun): AutoImpleme
     knownGaps: [],
     rollbackNotes: "Dry-run only.",
     mergeEvidenceRefs: [],
-    bodyEvidenceRefs: ["pr-body:current-evidence"],
+    bodyEvidenceRefs,
     approval: null,
     blockedReason: null,
     auditEvidenceRefs: ["auto-pr-mutation:update_pr_body:body_1", "github-pr-mutation:dry_run_ready"],
@@ -298,7 +302,7 @@ describe("buildAutoImplementationPullRequestDryRunRequest", () => {
     });
 
     expect(request.pullRequestUrl).toBe("https://github.com/bee-community-master/demo/pull/1");
-    expect(request.bodyEvidenceRefs).toEqual(["pr-body:current-evidence"]);
+    expect(request.bodyEvidenceRefs).toEqual(autoImplementationFinalPrBodyEvidenceRefs(run.runId));
     expect(request.mergeEvidenceRefs).toEqual([
       "implementation-step-ledger:step_final_verify",
       "missing-test-audit:final",
@@ -308,6 +312,24 @@ describe("buildAutoImplementationPullRequestDryRunRequest", () => {
     expect(request.knownGaps).not.toContain(
       "final_verify_pr_update has not recorded completed merge-readiness ledger evidence yet."
     );
+    expect(request.knownGaps).not.toContain("PR body has not been refreshed after final_verify_pr_update evidence.");
+  });
+
+  it("keeps merge gaps visible when PR body evidence predates final verification", () => {
+    const run = withPrBodyAndFinalVerification(readyRun(), ["pr-body:current-evidence"]);
+    const request = buildAutoImplementationPullRequestMergeDryRunRequest({
+      sessionId: "demo-session" as SessionId,
+      run
+    });
+
+    expect(request.bodyEvidenceRefs).toEqual(["pr-body:current-evidence"]);
+    expect(request.mergeEvidenceRefs).toEqual([
+      "implementation-step-ledger:step_final_verify",
+      "missing-test-audit:final",
+      "test:pnpm-verify"
+    ]);
+    expect(request.knownGaps).toContain("PR body has not been refreshed after final_verify_pr_update evidence.");
+    expect(request.knownGaps).not.toContain("No current PR body evidence has been recorded yet.");
   });
 
   it("builds an approved PR body update request with explicit approval and verifier evidence", () => {
@@ -324,7 +346,7 @@ describe("buildAutoImplementationPullRequestDryRunRequest", () => {
       action: "update_pr_body",
       requestMode: "approved",
       pullRequestUrl: "https://github.com/bee-community-master/demo/pull/1",
-      bodyEvidenceRefs: ["pr-body:current-evidence"],
+      bodyEvidenceRefs: autoImplementationFinalPrBodyEvidenceRefs(run.runId),
       approval: {
         approvedBy: "local_operator",
         approvedAt: "2026-05-22T00:00:00.000Z",
@@ -341,6 +363,18 @@ describe("buildAutoImplementationPullRequestDryRunRequest", () => {
     expect(request.rollbackNotes).toContain("may mutate GitHub");
   });
 
+  it("keeps approved body update gaps visible when PR body evidence predates final verification", () => {
+    const run = withPrBodyAndFinalVerification(readyRun(), ["pr-body:current-evidence"]);
+    const request = buildAutoImplementationPullRequestBodyApprovedRequest({
+      sessionId: "demo-session" as SessionId,
+      run,
+      approvedAt: "2026-05-22T00:03:00.000Z"
+    });
+
+    expect(request.bodyEvidenceRefs).toEqual(["pr-body:current-evidence"]);
+    expect(request.knownGaps).toContain("PR body has not been refreshed after final_verify_pr_update evidence.");
+  });
+
   it("builds an approved PR merge request with final verification and current body evidence", () => {
     const run = withPrBodyAndFinalVerification(readyRun());
     const request = buildAutoImplementationPullRequestMergeApprovedRequest({
@@ -355,7 +389,7 @@ describe("buildAutoImplementationPullRequestDryRunRequest", () => {
       action: "merge_pr",
       requestMode: "approved",
       pullRequestUrl: "https://github.com/bee-community-master/demo/pull/1",
-      bodyEvidenceRefs: ["pr-body:current-evidence"],
+      bodyEvidenceRefs: autoImplementationFinalPrBodyEvidenceRefs(run.runId),
       mergeEvidenceRefs: [
         "implementation-step-ledger:step_final_verify",
         "missing-test-audit:final",
@@ -424,6 +458,19 @@ describe("buildAutoImplementationPullRequestDryRunRequest", () => {
         expect.stringContaining("dry-run readiness only")
       ])
     );
+  });
+
+  it("marks final verification PR body dry-runs with merge-gate evidence", () => {
+    const run = {
+      ...withPrUrl(readyRun()),
+      currentStage: "final_verify_pr_update" as const
+    };
+    const request = buildAutoImplementationPullRequestDryRunRequest({
+      sessionId: "demo-session" as SessionId,
+      run
+    });
+
+    expect(request.bodyEvidenceRefs).toEqual(autoImplementationFinalPrBodyEvidenceRefs(run.runId));
   });
 
   it("reuses the latest PR URL when a previous mutation recorded one", () => {

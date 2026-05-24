@@ -107,6 +107,13 @@ export const AUTO_IMPLEMENTATION_PULL_REQUEST_ACTION_CLASS = "github_pr_mutation
 export const AUTO_IMPLEMENTATION_PULL_REQUEST_APPROVAL_GRANULARITY = "per_action" as const;
 export const AUTO_IMPLEMENTATION_PLANNING_PR_ISSUE_EVIDENCE_PREFIX = "planning-handoff-pr-issue:" as const;
 
+export function autoImplementationFinalPrBodyEvidenceRefs(runId: string) {
+  return [
+    `pr-body:dry-run:${runId}:final_verify_pr_update`,
+    `pr-body:final-verify:${runId}`
+  ];
+}
+
 export const DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES = [
   "Workspace repo bootstrap and initial implementation PR",
   "PR code review and fix pass 1",

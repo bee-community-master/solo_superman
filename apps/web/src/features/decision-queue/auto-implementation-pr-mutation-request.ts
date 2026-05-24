@@ -1,4 +1,5 @@
 import {
+  autoImplementationFinalPrBodyEvidenceRefs,
   latestAutoImplementationPullRequestUrl,
   type AutoImplementationRun,
   type RecordAutoImplementationPullRequestMutationRequest,
@@ -16,9 +17,29 @@ function latestPullRequestBodyEvidenceRefs(run: AutoImplementationRun) {
     ?.bodyEvidenceRefs ?? [];
 }
 
+function finalVerificationStageCompleted(run: AutoImplementationRun) {
+  return run.stagePlan.some((stage) =>
+    stage.stage === "final_verify_pr_update" &&
+    stage.status === "completed" &&
+    stage.ledgerEvidence !== null
+  );
+}
+
 function finalVerificationMergeEvidenceRefs(run: AutoImplementationRun) {
   return run.stagePlan.find((stage) => stage.stage === "final_verify_pr_update" && stage.status === "completed")
     ?.ledgerEvidence?.evidenceRefs ?? [];
+}
+
+function hasFinalVerificationBodyEvidence(run: AutoImplementationRun, bodyEvidenceRefs: readonly string[]) {
+  const acceptedRefs = autoImplementationFinalPrBodyEvidenceRefs(run.runId);
+
+  return acceptedRefs.some((ref) => bodyEvidenceRefs.includes(ref));
+}
+
+function finalVerificationBodyEvidenceGap(run: AutoImplementationRun, bodyEvidenceRefs: readonly string[]) {
+  return finalVerificationStageCompleted(run) && !hasFinalVerificationBodyEvidence(run, bodyEvidenceRefs)
+    ? "PR body has not been refreshed after final_verify_pr_update evidence."
+    : null;
 }
 
 function initialImplementationStageCompleted(run: AutoImplementationRun) {
@@ -88,6 +109,7 @@ function knownGapsForMergeDryRun(
       ? null
       : "final_verify_pr_update has not recorded completed merge-readiness ledger evidence yet.",
     bodyEvidenceRefs.length ? null : "No current PR body evidence has been recorded yet.",
+    bodyEvidenceRefs.length ? finalVerificationBodyEvidenceGap(run, bodyEvidenceRefs) : null,
     "This UI action records merge dry-run readiness only; approved GitHub mutation still requires explicit approval evidence."
   ].filter((gap): gap is string => gap !== null);
 }
@@ -100,7 +122,8 @@ function knownGapsForApprovedBodyUpdate(
   return [
     run.remoteStatus === "connected" ? null : `Remote status is ${run.remoteStatus}; mutation stays blocked until connected.`,
     pullRequestUrl ? null : "No GitHub PR URL has been recorded yet.",
-    bodyEvidenceRefs.length ? null : "No current PR body evidence has been recorded yet."
+    bodyEvidenceRefs.length ? null : "No current PR body evidence has been recorded yet.",
+    bodyEvidenceRefs.length ? finalVerificationBodyEvidenceGap(run, bodyEvidenceRefs) : null
   ].filter((gap): gap is string => gap !== null);
 }
 
@@ -116,7 +139,8 @@ function knownGapsForApprovedMerge(
     mergeEvidenceRefs.length
       ? null
       : "final_verify_pr_update has not recorded completed merge-readiness ledger evidence yet.",
-    bodyEvidenceRefs.length ? null : "No current PR body evidence has been recorded yet."
+    bodyEvidenceRefs.length ? null : "No current PR body evidence has been recorded yet.",
+    bodyEvidenceRefs.length ? finalVerificationBodyEvidenceGap(run, bodyEvidenceRefs) : null
   ].filter((gap): gap is string => gap !== null);
 }
 
@@ -124,8 +148,12 @@ function pullRequestTitle(run: AutoImplementationRun) {
   return `Auto implementation ${run.projectFolderName}`;
 }
 
-function currentStageBodyEvidenceRef(run: AutoImplementationRun) {
-  return `pr-body:dry-run:${run.runId}:${run.currentStage}`;
+function currentStageBodyEvidenceRefs(run: AutoImplementationRun) {
+  const refs = [`pr-body:dry-run:${run.runId}:${run.currentStage}`];
+
+  return run.currentStage === "final_verify_pr_update" || finalVerificationStageCompleted(run)
+    ? [...refs, `pr-body:final-verify:${run.runId}`]
+    : refs;
 }
 
 function approvedPullRequestMutationApproval(input: {
@@ -299,7 +327,7 @@ export function buildAutoImplementationPullRequestDryRunRequest(input: {
 }): RecordAutoImplementationPullRequestMutationRequest {
   const { run, sessionId } = input;
   const pullRequestUrl = optionalLatestPullRequestUrl(run);
-  const bodyEvidenceRef = currentStageBodyEvidenceRef(run);
+  const bodyEvidenceRefs = currentStageBodyEvidenceRefs(run);
 
   return {
     sessionId,
@@ -315,7 +343,7 @@ export function buildAutoImplementationPullRequestDryRunRequest(input: {
     verificationCommands: ["pnpm verify"],
     knownGaps: knownGapsForDryRun(run, pullRequestUrl),
     rollbackNotes: "Dry-run only; no GitHub mutation is attempted. Supersede this record after approved PR body evidence is captured.",
-    bodyEvidenceRefs: [bodyEvidenceRef],
+    bodyEvidenceRefs,
     verifierEvidenceRefs: [`verifier:pr-body-dry-run:${run.runId}:${run.currentStage}`]
   };
 }

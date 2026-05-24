@@ -33,6 +33,7 @@ import {
   canPlanCurrentStageAutoImplementationWorkerJob,
   canRunAutoImplementationWorkerJob,
   hasAppliedAutoImplementationPullRequestMerge,
+  autoImplementationFinalPrBodyEvidenceRefs,
   autoImplementationPlanningIssueEvidenceRefs,
   autoImplementationGitHubIssueUrlForIssue,
   autoImplementationRunWithSynchronizedIssueDocs,
@@ -908,6 +909,12 @@ function finalVerifyStageCompleted(run: AutoImplementationRun) {
   );
 }
 
+function hasFinalVerificationPrBodyEvidence(run: AutoImplementationRun, bodyEvidenceRefs: readonly string[]) {
+  const acceptedRefs = autoImplementationFinalPrBodyEvidenceRefs(run.runId);
+
+  return acceptedRefs.some((ref) => bodyEvidenceRefs.includes(ref));
+}
+
 function initialImplementationStageCompleted(run: AutoImplementationRun) {
   return run.stagePlan.some((stage) =>
     stage.stage === "initial_pr" &&
@@ -973,6 +980,14 @@ function pullRequestMutationBlockedReason(input: {
   }
 
   if (
+    input.request.action === "update_pr_body" &&
+    finalVerifyStageCompleted(input.run) &&
+    !hasFinalVerificationPrBodyEvidence(input.run, input.request.bodyEvidenceRefs ?? [])
+  ) {
+    return "GitHub PR body update is blocked until the PR body evidence references final_verify_pr_update.";
+  }
+
+  if (
     input.request.action === "merge_pr" &&
     input.request.requestMode === "approved" &&
     !canMergeAutoImplementationPullRequest(input.run)
@@ -986,6 +1001,13 @@ function pullRequestMutationBlockedReason(input: {
 
   if (input.request.action === "merge_pr" && !(input.request.bodyEvidenceRefs ?? []).length) {
     return "GitHub PR merge is blocked until the PR body contains current evidence.";
+  }
+
+  if (
+    input.request.action === "merge_pr" &&
+    !hasFinalVerificationPrBodyEvidence(input.run, input.request.bodyEvidenceRefs ?? [])
+  ) {
+    return "GitHub PR merge is blocked until the PR body is refreshed after final_verify_pr_update evidence.";
   }
 
   if (input.request.action === "merge_pr" && !(input.request.mergeEvidenceRefs ?? []).length) {
