@@ -222,19 +222,22 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeExecutionModeLabels.manual_handoff).toBe(
       "手動引き継ぎ"
     );
-    expect(DECISION_QUEUE_COPY.ko.autoImplementation.approveLocalWorkerAuthority).toContain("권한 승인");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.approveLocalWorkerAuthority).toContain("작업 승인");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.missingExecutionAuthority).toContain("ExecutionAuthorityRecord");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.recordStageTick).toBe("Record current stage tick");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.startStage).toBe("Start current stage");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.pauseStage).toBe("Pause current stage");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.blockStage).toBe("Block current stage");
-    expect(DECISION_QUEUE_COPY.en.autoImplementation.completeWorkerJob).toBe("Complete worker from ledger");
-    expect(DECISION_QUEUE_COPY.en.autoImplementation.recordPullRequestOpenDryRun).toBe("Record PR open dry-run");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.completeWorkerJob).toBe("Mark task complete from result");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.importWorkerLedger).toBe("Import task result");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.recordPullRequestOpenDryRun).toBe("Preview PR creation");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.recordPullRequestOpenDryRun).toContain("PR 생성");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.recordStageTick).toContain("현재 단계");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.blockStage).toContain("차단");
-    expect(DECISION_QUEUE_COPY.ko.autoImplementation.completeWorkerJob).toContain("worker 완료");
-    expect(DECISION_QUEUE_COPY.en.autoImplementation.recordGitHubIssueDryRun).toBe("Record GitHub issue dry-run");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.completeWorkerJob).toContain("작업 결과");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerLedgerImport).toBe("로컬 Codex 작업 결과 JSON");
+    expect(DECISION_QUEUE_COPY.ja.autoImplementation.runWorkerJob).toBe("ローカルCodex作業を実行");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.recordGitHubIssueDryRun).toBe("Preview GitHub issue creation");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.applyGitHubIssueCreation).toContain("승인된 GitHub issue");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.githubIssueMutationStatusLabels.not_requested).toBe("not requested yet");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.githubIssueMutationStatusLabels.approved_ready).toBe("승인되어 생성 준비됨");
@@ -243,7 +246,7 @@ describe("decision queue language copy", () => {
     );
     expect(DECISION_QUEUE_COPY.en.autoImplementation.applyPullRequestOpen).toBe("Apply approved PR open");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.applyPullRequestOpen).toContain("승인된 PR 생성");
-    expect(DECISION_QUEUE_COPY.en.autoImplementation.recordPullRequestMergeDryRun).toBe("Record PR merge dry-run");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.recordPullRequestMergeDryRun).toBe("Preview PR merge");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.recordPullRequestMergeDryRun).toContain("PR merge");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.applyPullRequestBodyUpdate).toBe("Apply approved PR body update");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.applyPullRequestMerge).toContain("승인된 PR merge");

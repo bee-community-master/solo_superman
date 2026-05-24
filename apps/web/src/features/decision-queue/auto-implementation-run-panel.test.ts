@@ -1298,9 +1298,11 @@ describe("AutoImplementationRunPanel view model", () => {
       }
     } as AutoImplementationRunProjection);
     const markup = renderPanelMarkup(view);
+    const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
 
     expect(markup).toContain("Local worker bounded plan");
-    expect(markup).toContain("Worker ledger import JSON");
+    expect(markup).toContain("Local Codex task result JSON");
+    expect(koreanMarkup).toContain("로컬 Codex 작업 결과 JSON");
     expect(markup).toContain("local sandboxed Codex");
     expect(markup).not.toContain("local_sandboxed_codex");
     expect(markup).toContain("/repo/workspace/demo-project");
@@ -1415,24 +1417,30 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(koreanMarkup).not.toContain("mutation evidence");
     expect(koreanMarkup).not.toContain("PR mutation 기록");
     expect(markup).toContain("Local Codex worker: not planned");
-    expect(markup).toContain("Approve worker authority + plan job");
+    expect(markup).toContain("Plan approved local Codex task");
     expect(markup).toContain("Record current stage tick");
     expect(markup).toContain("Start current stage");
     expect(markup).toContain("Pause current stage");
     expect(markup).toContain("Block current stage");
-    expect(markup).toContain("Complete worker from ledger");
-    expect(markup).toContain("Import worker ledger");
-    expect(markup).toContain("Record GitHub issue dry-run");
+    expect(markup).toContain("Mark task complete from result");
+    expect(markup).toContain("Import task result");
+    expect(markup).toContain("Preview GitHub issue creation");
     expect(markup).toContain("Apply approved GitHub issues");
-    expect(markup).toContain("Record PR open dry-run");
+    expect(markup).toContain("Preview PR creation");
     expect(markup).toContain("Apply approved PR open");
-    expect(markup).toContain("Record PR body dry-run");
-    expect(markup).toContain("Record PR merge dry-run");
+    expect(markup).toContain("Preview PR description update");
+    expect(markup).toContain("Preview PR merge");
     expect(markup).toContain("Apply approved PR body update");
     expect(markup).toContain("Apply approved PR merge");
-    expect(markup).toContain("Run worker job");
-    expect(markup).toContain("Advance worker stage");
+    expect(markup).toContain("Run local Codex task");
+    expect(markup).toContain("Advance implementation stage");
     expect(markup).toContain("local markdown issue paths remain the source of truth");
     expect(markup).toContain("git remote add origin");
+
+    expect(koreanMarkup).toContain("승인된 로컬 Codex 작업 계획");
+    expect(koreanMarkup).toContain("작업 결과 가져오기");
+    expect(koreanMarkup).toContain("GitHub 이슈 생성 미리보기");
+    expect(koreanMarkup).not.toContain("Worker ledger import JSON");
+    expect(koreanMarkup).not.toContain("Worker job 실행");
   });
 });
