@@ -7,6 +7,7 @@ import {
   IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
   autoImplementationWorkerExpectedChangeScope,
   autoImplementationWorkerLedgerStepDescription,
+  autoImplementationWorkerRequiredEvidence,
   type AutoImplementationRun,
   type AutoImplementationRunProjection,
   type CodexRuntimeStatusDto,
@@ -889,6 +890,44 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.canPlanWorkerJob).toBe(true);
     expect(view.canRunWorkerJob).toBe(false);
     expect(view.canImportWorkerLedger).toBe(false);
+  });
+
+  it("splits worker required evidence into base and current-stage gate lists", () => {
+    const currentStageWorkerJob = workerJob({
+      jobId: "auto-worker-job:auto_run_demo:code_review_fix_1:job_planned",
+      stage: "code_review_fix_1",
+      issueId: "local-002",
+      issueTitle: "Feature PR code review and fix loop",
+      issueRelativePath: "implementation-issues/002-code_review_fix_1.md",
+      executionPlan: {
+        issueDocumentPath: "implementation-issues/002-code_review_fix_1.md",
+        requiredEvidence: autoImplementationWorkerRequiredEvidence("code_review_fix_1")
+      }
+    });
+    const projection = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        currentStage: "code_review_fix_1" as const,
+        workerJobs: [currentStageWorkerJob]
+      }
+    } as AutoImplementationRunProjection;
+    const view = autoImplementationRunViewModel(projection);
+    const markup = renderPanelMarkup(view);
+
+    expect(view.latestWorkerPlan).toMatchObject({
+      stage: "code_review_fix_1",
+      stageLabel: "Feature PR code review and fix loop",
+      stageRequiredEvidence: [
+        "feature-scope CodeReviewRecord ids prove two consecutive no-finding passes after any fixes"
+      ]
+    });
+    expect(view.latestWorkerPlan?.baseRequiredEvidence).toContain("ImplementationStepLedger trackerDoc and stepDoc");
+    expect(markup).toContain("Base delivery evidence");
+    expect(markup).toContain("Current stage evidence");
+    expect(markup).toContain(
+      "feature-scope CodeReviewRecord ids prove two consecutive no-finding passes after any fixes"
+    );
   });
 
   it("enables run, ledger completion, and advance controls from the latest local worker status", () => {

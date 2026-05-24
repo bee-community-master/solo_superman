@@ -1,5 +1,7 @@
 import {
   AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX,
+  AUTO_IMPLEMENTATION_STAGE_LABELS,
+  AUTO_IMPLEMENTATION_STAGE_WORKER_REQUIRED_EVIDENCE,
   autoImplementationPlanningIssueFiles,
   canCreateAutoImplementationGitHubIssues,
   canImportAutoImplementationWorkerLedger,
@@ -17,6 +19,7 @@ import {
   type AutoImplementationPullRequestMutationRecord,
   type AutoImplementationRun,
   type AutoImplementationRunProjection,
+  type AutoImplementationStage,
   type AutoImplementationStageReviewGate,
   type AutoImplementationStageRecord,
   type AutoImplementationWorkerExecutionPlan,
@@ -45,6 +48,8 @@ interface AutoImplementationWorkerRuntimeView extends CodexRuntimeEvidenceView {
 }
 
 interface AutoImplementationWorkerPlanView {
+  readonly stage: AutoImplementationStage;
+  readonly stageLabel: string;
   readonly executionMode: AutoImplementationWorkerExecutionPlan["executionMode"];
   readonly workingDirectory: string;
   readonly issueDocumentPath: string;
@@ -53,6 +58,8 @@ interface AutoImplementationWorkerPlanView {
   readonly ledgerStepDoc: AutoImplementationWorkerExecutionPlan["ledgerStepDoc"];
   readonly allowedWriteScope: readonly string[];
   readonly requiredEvidence: readonly string[];
+  readonly baseRequiredEvidence: readonly string[];
+  readonly stageRequiredEvidence: readonly string[];
   readonly forbiddenActions: readonly string[];
   readonly sourceRefs: readonly string[];
   readonly blockedReason: string | null;
@@ -236,6 +243,19 @@ function issueRowEvidenceRefs(
   return stage?.evidenceRefs ?? [];
 }
 
+function splitWorkerRequiredEvidence(
+  stage: AutoImplementationStage,
+  requiredEvidence: readonly string[]
+) {
+  const stageEvidence = AUTO_IMPLEMENTATION_STAGE_WORKER_REQUIRED_EVIDENCE[stage];
+  const stageEvidenceSet = new Set<string>(stageEvidence);
+
+  return {
+    baseRequiredEvidence: requiredEvidence.filter((evidence) => !stageEvidenceSet.has(evidence)),
+    stageRequiredEvidence: requiredEvidence.filter((evidence) => stageEvidenceSet.has(evidence))
+  };
+}
+
 function completedLedgerStepMatchesCurrentStage(
   step: ImplementationStepRecord,
   run: AutoImplementationRun,
@@ -362,6 +382,8 @@ export function autoImplementationRunViewModel(
   const currentStageRecord = run.stagePlan.find((stage) => stage.stage === run.currentStage) ?? null;
   const latestWorkerPlan = latestWorkerJob
     ? {
+        stage: latestWorkerJob.stage,
+        stageLabel: AUTO_IMPLEMENTATION_STAGE_LABELS[latestWorkerJob.stage],
         executionMode: latestWorkerJob.executionPlan.executionMode,
         workingDirectory: latestWorkerJob.executionPlan.workingDirectory,
         issueDocumentPath: latestWorkerJob.executionPlan.issueDocumentPath,
@@ -370,6 +392,7 @@ export function autoImplementationRunViewModel(
         ledgerStepDoc: latestWorkerJob.executionPlan.ledgerStepDoc,
         allowedWriteScope: latestWorkerJob.executionPlan.allowedWriteScope,
         requiredEvidence: latestWorkerJob.executionPlan.requiredEvidence,
+        ...splitWorkerRequiredEvidence(latestWorkerJob.stage, latestWorkerJob.executionPlan.requiredEvidence),
         forbiddenActions: latestWorkerJob.executionPlan.forbiddenActions,
         sourceRefs: latestWorkerJob.executionPlan.sourceRefs,
         blockedReason: latestWorkerJob.blockedReason,
@@ -466,6 +489,24 @@ export function autoImplementationRunViewModel(
 
 function inlineList(items: readonly string[], fallback: string) {
   return items.length ? items.join(", ") : fallback;
+}
+
+function RequiredEvidenceList({
+  fallback,
+  items
+}: {
+  readonly fallback: string;
+  readonly items: readonly string[];
+}) {
+  return items.length ? (
+    <ul>
+      {items.map((item) => (
+        <li key={item}>{item}</li>
+      ))}
+    </ul>
+  ) : (
+    <span>{fallback}</span>
+  );
 }
 
 interface AutoImplementationRunPanelProps {
@@ -756,7 +797,21 @@ export function AutoImplementationRunPanel({
               </div>
               <div>
                 <dt>{copy.autoImplementation.workerPlanRequiredEvidence}</dt>
-                <dd>{inlineList(run.latestWorkerPlan.requiredEvidence, copy.autoImplementation.none)}</dd>
+                <dd>
+                  <p className="mode-summary">
+                    {copy.autoImplementation.workerPlanRequiredEvidenceHelp(run.latestWorkerPlan.stageLabel)}
+                  </p>
+                  <strong>{copy.autoImplementation.workerPlanBaseRequiredEvidence}</strong>
+                  <RequiredEvidenceList
+                    fallback={copy.autoImplementation.none}
+                    items={run.latestWorkerPlan.baseRequiredEvidence}
+                  />
+                  <strong>{copy.autoImplementation.workerPlanStageRequiredEvidence}</strong>
+                  <RequiredEvidenceList
+                    fallback={copy.autoImplementation.none}
+                    items={run.latestWorkerPlan.stageRequiredEvidence}
+                  />
+                </dd>
               </div>
               <div>
                 <dt>{copy.autoImplementation.workerPlanForbiddenActions}</dt>

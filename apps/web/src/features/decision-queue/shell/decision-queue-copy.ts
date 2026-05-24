@@ -734,6 +734,10 @@ const EN_COPY = {
     workerPlanLedgerDocSourceRefs: "Ledger doc source refs",
     workerPlanAllowedWriteScope: "Allowed write scope",
     workerPlanRequiredEvidence: "Required evidence",
+    workerPlanRequiredEvidenceHelp: (stageLabel: string) =>
+      `The worker must prove both the base delivery contract and the current stage gate before ${stageLabel} can advance.`,
+    workerPlanBaseRequiredEvidence: "Base delivery evidence",
+    workerPlanStageRequiredEvidence: "Current stage evidence",
     workerPlanForbiddenActions: "Forbidden actions",
     workerPlanSourceRefs: "Source refs",
     workerPlanBlocker: "Blocker",
@@ -1762,6 +1766,10 @@ const JA_COPY: typeof EN_COPY = {
     workerPlanLedgerDocSourceRefs: "Ledger doc参照元",
     workerPlanAllowedWriteScope: "許可された書き込み範囲",
     workerPlanRequiredEvidence: "必須根拠",
+    workerPlanRequiredEvidenceHelp: (stageLabel: string) =>
+      `${stageLabel}を進める前に、workerは共通delivery contractと現在stage gateの両方を証明する必要があります。`,
+    workerPlanBaseRequiredEvidence: "共通delivery根拠",
+    workerPlanStageRequiredEvidence: "現在stageの根拠",
     workerPlanForbiddenActions: "禁止アクション",
     workerPlanSourceRefs: "参照元",
     workerPlanBlocker: "ブロッカー",
@@ -2788,6 +2796,10 @@ const KO_COPY: typeof EN_COPY = {
     workerPlanLedgerDocSourceRefs: "Ledger doc 참조 출처",
     workerPlanAllowedWriteScope: "허용된 쓰기 범위",
     workerPlanRequiredEvidence: "필수 근거",
+    workerPlanRequiredEvidenceHelp: (stageLabel: string) =>
+      `${stageLabel} 단계를 진행하려면 worker가 공통 delivery contract와 현재 단계 gate를 모두 증명해야 합니다.`,
+    workerPlanBaseRequiredEvidence: "공통 delivery 근거",
+    workerPlanStageRequiredEvidence: "현재 단계 근거",
     workerPlanForbiddenActions: "금지된 작업",
     workerPlanSourceRefs: "참조 출처",
     workerPlanBlocker: "차단 항목",
