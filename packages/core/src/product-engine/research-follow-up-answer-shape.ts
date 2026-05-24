@@ -57,11 +57,11 @@ const RESEARCH_FOLLOW_UP_FALLBACK_OPTIONS = [
     "답변을 스펙으로 옮길 때 한 번 더 정리가 필요할 수 있습니다."
   ),
   researchFollowUpAnswerOption(
-    "defer_as_known_risk",
-    "리스크로 보류",
-    "지금 확정하지 않고 알려진 리스크와 다음 검증 작업으로 남긴다.",
-    "불확실성을 숨기지 않고 추적할 수 있습니다.",
-    "이번 답변만으로는 결정이 닫히지 않습니다."
+    "decide_after_validation",
+    "검증 후 결정",
+    "지금 확정하지 않고 다음 검증에서 확인할 조건을 답변에 남긴다.",
+    "보류 이유와 다음 확인 조건을 답변 흐름 안에 남길 수 있습니다.",
+    "Known Risk로 공식 이관하려면 카드의 Known Risk 전용 동작을 사용해야 합니다."
   )
 ] as const;
 

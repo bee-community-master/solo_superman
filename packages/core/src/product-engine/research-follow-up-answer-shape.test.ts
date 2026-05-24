@@ -559,6 +559,9 @@ describe("research follow-up answer shape", () => {
         expect.objectContaining({ id: "need_more_research" })
       ])
     );
+    expect(researchFollowUpAnswerOptions(twoCandidateInput)).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "defer_as_known_risk" })])
+    );
     expect(researchFollowUpAnswerOptions(manyCandidateInput)).toHaveLength(10);
     expect(researchFollowUpAnswerOptions(manyCandidateInput)).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: "need_more_research" })])
