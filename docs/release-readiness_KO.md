@@ -52,7 +52,7 @@ Release lab operator가 실제 redacted evidence ref를 채울 JSON template은 
 pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json
 ```
 
-Template은 각 required check/evidence/unblock criterion을 `pending` placeholder로 보존하지만, 실제 #259/#266/#267 evidence를 대체하지 않습니다. Release lab이 placeholder를 redacted evidence refs와 sanitized notes로 채운 뒤에는 아래 verifier로 `ready`/`passed`/secret-free 상태와 모든 ready-release command 실행 기록과 `readyReleaseResult.status`/`commandBlockers`/`perCommandBlockers`를 확인합니다. 입력 없이 verifier를 실행하면 #259/#266/#267 blocker issue fixture template을 모두 검증해 기본 `pnpm verify`가 특정 issue template drift만 놓치지 않도록 합니다. `filterIssueNumber`가 없는 전체 input template은 source checklist 전체 9개 item과 대조됩니다.
+Template은 각 required check/evidence/unblock criterion을 `pending` placeholder로 보존하지만, 실제 #259/#266/#267 evidence를 대체하지 않습니다. Release lab이 placeholder를 redacted evidence refs와 sanitized notes로 채운 뒤에는 아래 verifier로 `ready`/`passed`/secret-free 상태와 filled-bundle/aggregate self-command을 제외한 pre-gate ready-release command 실행 기록, 그리고 `readyReleaseResult.status`/`commandBlockers`/`perCommandBlockers`를 확인합니다. 입력 없이 verifier를 실행하면 #259/#266/#267 blocker issue fixture template을 모두 검증해 기본 `pnpm verify`가 특정 issue template drift만 놓치지 않도록 합니다. `filterIssueNumber`가 없는 전체 input template은 source checklist 전체 9개 item과 대조됩니다.
 
 ```sh
 pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json
@@ -61,7 +61,7 @@ pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evid
 pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready
 ```
 
-`pnpm verify:release-evidence-bundle`은 generated bundle 또는 release lab bundle directory의 manifest, 실제 디스크 file listing, README, issue별 template/comment, ready-release command 목록, secret-free boundary를 한 번에 검증합니다. Manifest에 없는 scratch note, log, secret-bearing artifact가 bundle directory에 섞이면 실패하므로 공유 전 제거해야 합니다. `--require-ready`는 release lab이 채운 template들이 모두 `ready`/`passed`인지 확인할 때 사용합니다.
+`pnpm verify:release-evidence-bundle`은 generated bundle 또는 release lab bundle directory의 manifest, 실제 디스크 file listing, README, issue별 template/comment, ready-release command 목록, secret-free boundary를 한 번에 검증합니다. `--require-ready`에서 template의 `readyReleaseCommandsRun`은 bundle-ready/aggregate self-command가 아니라 이미 실행한 nested verifier command만 요구합니다. Manifest에 없는 scratch note, log, secret-bearing artifact가 bundle directory에 섞이면 실패하므로 공유 전 제거해야 합니다. `--require-ready`는 release lab이 채운 template들이 모두 `ready`/`passed`인지 확인할 때 사용합니다.
 
 Checklist는 `release-readiness`, Windows 실기기, signed package release, packaged update rollback, signed package preflight 계약에서 blocked gate/run, required checks, required evidence, unblock criteria, ready-release command를 묶습니다. Checklist 생성은 public 계약 파일만 읽고, bundle verifier는 지정한 bundle directory만 검증해 blocker를 출력하며 파일 본문을 evidence로 수집하지 않습니다. 두 명령 모두 credential 값, browser cookie, token, 관련 없는 file contents, full environment dump를 수집하지 않습니다.
 

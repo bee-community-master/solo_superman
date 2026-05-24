@@ -204,7 +204,8 @@ describe("#105 local install/run verification docs", () => {
     expect(readme).toContain("`--require-ready`");
     expect(readme).toContain("`pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
     expect(readme).toContain("`pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json`");
-    expect(readme).toContain("required ready-release command 실행 기록");
+    expect(readme).toContain("pre-gate ready-release command 실행 기록");
+    expect(readme).toContain("filled-bundle/aggregate self-command");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json`");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md`");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format comment --issue 267 --output ./issue-267-release-evidence-comment.md`");
@@ -214,7 +215,8 @@ describe("#105 local install/run verification docs", () => {
     expect(englishReadme).toContain("`--require-ready`");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
     expect(englishReadme).toContain("`pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json`");
-    expect(englishReadme).toContain("required ready-release command records");
+    expect(englishReadme).toContain("pre-gate ready-release command records");
+    expect(englishReadme).toContain("filled-bundle and aggregate self-commands");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("## Release evidence checklist");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("release:evidence-bundle");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("--format comment --issue 267");
@@ -222,7 +224,8 @@ describe("#105 local install/run verification docs", () => {
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("--format template --issue 266");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("verify:release-evidence-template -- --input");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("verify:release-evidence-bundle -- --bundle-dir");
-    expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("모든 ready-release command 실행 기록");
+    expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("pre-gate ready-release command 실행 기록");
+    expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("filled-bundle/aggregate self-command");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("## Release evidence checklist");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("release:evidence-bundle");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("--format comment --issue 267");
@@ -230,12 +233,15 @@ describe("#105 local install/run verification docs", () => {
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("--format template --issue 266");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("verify:release-evidence-template -- --input");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("verify:release-evidence-bundle -- --bundle-dir");
-    expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("records every ready-release command");
-    expect(runbook).toContain("모든 ready-release command 실행 기록");
+    expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("records pre-gate ready-release commands");
+    expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("filled-bundle or aggregate self-command");
+    expect(runbook).toContain("pre-gate ready-release command 실행 기록");
+    expect(runbook).toContain("filled-bundle/aggregate self-command");
     expect(runbook).toContain("pnpm release:evidence-bundle");
     expect(runbook).toContain("pnpm verify:release-evidence-bundle -- --bundle-dir");
     expect(runbook).toContain("--format comment --issue 267");
-    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("every ready-release command is recorded");
+    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("pre-gate ready-release commands are recorded");
+    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("filled-bundle or aggregate self-command");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("pnpm release:evidence-bundle");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("pnpm verify:release-evidence-bundle -- --bundle-dir");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("--format comment --issue 267");
