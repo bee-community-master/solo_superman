@@ -10,6 +10,7 @@ import { answerOptionsForQuestion } from "./answer-options";
 
 export type ResearchFollowUpAnswerShape =
   | "open_text"
+  | "binary_choice"
   | "single_choice"
   | "multi_select"
   | "evidence_judgment";
@@ -77,7 +78,7 @@ function boundedResearchFollowUpAnswerOptions(options: readonly AmbiguityAnswerO
 }
 
 function isCustomerSegmentResearchFollowUp(input: Pick<ResearchFollowUpAnswerInput, "question" | "researchTask" | "sourceQuestion">) {
-  return /(?:고객|사용자|세그먼트|segment|customer|persona|성향|후보)/iu.test(
+  return /(?:고객|세그먼트|segment|customer|persona|성향|후보)/iu.test(
     [
       input.question,
       input.researchTask.objective,
@@ -115,15 +116,45 @@ function hasEvidenceJudgmentCue(input: ResearchFollowUpAnswerInput) {
   );
 }
 
+function hasOpenTextCue(question: string) {
+  return /(?:서술|설명|적어\s*주|작성|말로\s*(?:풀어|설명)|본인\s*말|자유롭게|구체적으로\s*(?:말|설명)|왜|어떻게|어떤\s*(?:상황|맥락|이유|제약)|describe|explain|write|free[-\s]?form|open[-\s]?ended)/iu.test(
+    question
+  );
+}
+
 function hasMultiSelectCue(question: string) {
-  return /(?:여러|복수|모두|해당|중복|하나\s*이상|여러\s*개|둘\s*이상|복수\s*선택|one\s+or\s+more|select\s+all|multiple|which\s+.+\s+together)/iu.test(
+  return /(?:여러|복수|모두|해당|중복|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*개|둘\s*이상|복수\s*선택|one\s+or\s+more|select\s+all|multiple|which\s+.+\s+together)/iu.test(
+    question
+  );
+}
+
+function hasBinaryChoiceCue(question: string) {
+  return /(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose|찬성인지\s*반대|동의하시|찬성하시|반대하시|진행할까요|해야\s*할까요|반영할까요)/iu.test(
+    question
+  );
+}
+
+function hasConcreteSingleChoiceCue(question: string) {
+  return /(?:하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|어느\s*(?:후보|성향|고객|세그먼트|종류|선택지)|(?:무엇|어디|누구)에\s*집중|선택하시겠|집중하시겠|고르시겠|choose|pick|which\s+(?:one|customer|segment|option))/iu.test(
     question
   );
 }
 
 function hasSingleChoiceCue(question: string) {
-  return /(?:하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|어느\s*(?:방향|후보|성향|고객|세그먼트|종류)|(?:무엇|어디|누구)에\s*집중|선택하시겠|집중하시겠|고르시겠|choose|pick|which\s+(?:one|customer|segment|option|direction))/iu.test(
-    question
+  return /(?:어느\s*방향|which\s+direction)/iu.test(question) || hasConcreteSingleChoiceCue(question);
+}
+
+function isSignalOrCriteriaResearchFollowUp(input: Pick<ResearchFollowUpAnswerInput, "question" | "researchTask" | "sourceQuestion">) {
+  return /(?:신호|조건|요인|기준|signal|criteria|factor|indicator)/iu.test(
+    [
+      input.question,
+      input.researchTask.objective,
+      input.sourceQuestion?.summary,
+      input.sourceQuestion?.questionText,
+      input.sourceQuestion?.topicKey
+    ]
+      .filter(Boolean)
+      .join(" ")
   );
 }
 
@@ -134,6 +165,18 @@ function sourceQuestionImpliesChoice(sourceQuestion: AmbiguityIssueSnapshot | un
 export function classifyResearchFollowUpAnswerShape(input: ResearchFollowUpAnswerInput): ResearchFollowUpAnswerShape {
   if (hasMultiSelectCue(input.question)) {
     return "multi_select";
+  }
+
+  if (hasBinaryChoiceCue(input.question)) {
+    return "binary_choice";
+  }
+
+  if (hasConcreteSingleChoiceCue(input.question)) {
+    return "single_choice";
+  }
+
+  if (hasOpenTextCue(input.question)) {
+    return "open_text";
   }
 
   if (hasEvidenceJudgmentCue(input)) {
@@ -149,6 +192,10 @@ export function classifyResearchFollowUpAnswerShape(input: ResearchFollowUpAnswe
 
 export function researchFollowUpExpectedAnswerType(input: ResearchFollowUpAnswerInput): AmbiguityExpectedAnswerType {
   const answerShape = classifyResearchFollowUpAnswerShape(input);
+
+  if (answerShape === "binary_choice") {
+    return "choice";
+  }
 
   if (answerShape === "evidence_judgment") {
     return "evidence";
@@ -173,6 +220,10 @@ export function researchFollowUpAnswerSelectionMode(input: ResearchFollowUpAnswe
 
 function choiceTopicKeyForQuestion(input: ResearchFollowUpAnswerInput) {
   const text = normalizedQuestionContext(input);
+
+  if (isSignalOrCriteriaResearchFollowUp(input)) {
+    return "customer_signal_selection";
+  }
 
   if (isCustomerSegmentResearchFollowUp(input)) {
     return "primary_customer_narrowing";
@@ -205,6 +256,39 @@ function choiceAnswerOptions(input: ResearchFollowUpAnswerInput) {
   return boundedResearchFollowUpAnswerOptions(
     answerOptionsForQuestion(choiceTopicKeyForQuestion(input), researchFollowUpExpectedAnswerType(input)) ?? []
   );
+}
+
+function binaryChoiceAnswerOptions() {
+  return boundedResearchFollowUpAnswerOptions([
+    researchFollowUpAnswerOption(
+      "agree_or_continue",
+      "찬성 / 진행",
+      "현재 근거로는 이 방향에 찬성하고 다음 스펙 또는 검증 단계로 진행한다.",
+      "결정이 닫혀 다음 작업으로 넘어가기 쉽습니다.",
+      "숨은 반례가 있으면 너무 빠른 확정이 될 수 있습니다."
+    ),
+    researchFollowUpAnswerOption(
+      "disagree_or_stop",
+      "반대 / 보류",
+      "현재 근거로는 이 방향에 반대하거나 보류하고 범위 축소 또는 방향 전환을 검토한다.",
+      "잘못된 가정에 계속 투자하는 일을 줄입니다.",
+      "실제로는 유효한 기회를 너무 일찍 버릴 수 있습니다."
+    ),
+    researchFollowUpAnswerOption(
+      "conditional_yes",
+      "조건부 찬성",
+      "특정 조건이나 추가 확인이 충족되면 진행하고, 그 조건을 답변에 함께 적는다.",
+      "찬반을 단순화하지 않고 실행 조건까지 남길 수 있습니다.",
+      "조건이 흐리면 다음 질문이나 리서치가 한 번 더 필요합니다."
+    ),
+    researchFollowUpAnswerOption(
+      "need_more_research",
+      "추가 근거 필요",
+      "찬성/반대를 정하기 전에 더 넓은 근거와 반례를 먼저 확인한다.",
+      "중요한 결정을 더 안전하게 만들 수 있습니다.",
+      "결정 완료와 구현 시작이 늦어집니다."
+    )
+  ]);
 }
 
 function evidenceJudgmentAnswerOptions(input: ResearchFollowUpAnswerInput) {
@@ -293,6 +377,10 @@ export function researchFollowUpAnswerOptions(input: ResearchFollowUpAnswerInput
 
   if (answerShape === "open_text") {
     return [];
+  }
+
+  if (answerShape === "binary_choice") {
+    return binaryChoiceAnswerOptions();
   }
 
   if (answerShape === "single_choice" || answerShape === "multi_select") {

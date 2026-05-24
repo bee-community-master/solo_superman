@@ -130,6 +130,71 @@ describe("Decision-linked research quality gate", () => {
     });
   });
 
+  it("turns customer-segment evidence gaps into one-of-many customer choice prompts", () => {
+    const researchTask = task({
+      objective: "초기 고객 세그먼트와 사용자 성향 좁히기"
+    });
+    const researchResult = result({
+      result: "Pro: solo founders repeatedly organize product decisions manually.",
+      limitationNotes: "Organization buyer samples were not broad enough."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("어느 성향의 고객에 집중")]
+    });
+    expect(matrix.additionalQuestions[0]).not.toContain("어느 방향으로 판단");
+  });
+
+  it("turns problem-context evidence gaps into open narrative prompts", () => {
+    const researchTask = task({
+      objective: "사용자가 어떤 상황에서 문제를 겪는지 맥락 설명"
+    });
+    const researchResult = result({
+      result: "Pro: users repeatedly describe manual coordination pain.",
+      limitationNotes: "The import still needs wider interview coverage."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("본인 말로 3~5문장으로 서술")]
+    });
+  });
+
+  it("turns signal evidence gaps into multi-select prompts", () => {
+    const researchTask = task({
+      objective: "다음 인터뷰에서 확인할 고객 신호와 조건 여러 개 선택"
+    });
+    const researchResult = result({
+      result: "Pro: several signals appear relevant across imported notes.",
+      limitationNotes: "The signal list still needs direct customer confirmation."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("여러 개 선택")]
+    });
+  });
+
+  it("turns proceed-or-hold evidence gaps into explicit agree/disagree prompts", () => {
+    const researchTask = task({
+      objective: "이 방향을 스펙에 반영할지 여부 결정"
+    });
+    const researchResult = result({
+      result: "Pro: imported notes support adding the direction to the spec.",
+      limitationNotes: "Counter-evidence has not been reviewed broadly."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("찬성/반대 중 어느 쪽")]
+    });
+  });
+
   it("prioritizes failed high-impact evidence over secondary unknown checks", () => {
     const researchTask = task();
     const researchResult = result({

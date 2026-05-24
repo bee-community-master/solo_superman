@@ -75,6 +75,37 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpAnswerOptions(input)).toEqual([]);
   });
 
+  it("keeps evidence-backed descriptive prompts open text when they ask for a narrative answer", () => {
+    const input = {
+      question:
+        "리서치 근거는 반복적인 수동 정리 피로이고 한계와 불확실성은 표본이 좁다는 점입니다.\n\n이 근거를 참고해 실제 사용자가 어떤 상황에서 이 문제를 겪는지 본인 말로 3~5문장으로 서술해주세요.",
+      researchTask: task("사용자 문제 상황과 맥락 설명"),
+      sourceQuestion: sourceQuestion({
+        expectedAnswerType: "choice"
+      }),
+      evidenceMatrix: evidenceMatrix({
+        proEvidence: [
+          {
+            evidenceItemId: "evidence_pro_open_answer_shape" as EvidenceItemId,
+            kind: "pro",
+            summary: "반복적인 수동 정리 피로"
+          }
+        ],
+        uncertainties: [
+          {
+            evidenceItemId: "evidence_uncertainty_open_answer_shape" as EvidenceItemId,
+            kind: "uncertainty",
+            summary: "표본이 좁음"
+          }
+        ]
+      })
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("open_text");
+    expect(researchFollowUpExpectedAnswerType(input)).toBe("text");
+    expect(researchFollowUpAnswerOptions(input)).toEqual([]);
+  });
+
   it("keeps evidence-balance questions as a single evidence judgment", () => {
     const input = {
       question:
@@ -129,6 +160,79 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpAnswerOptions(input).length).toBeGreaterThanOrEqual(3);
   });
 
+  it("keeps evidence-backed customer segment questions as one-of-many choices", () => {
+    const input = {
+      question:
+        "고객 세그먼트가 너무 넓어 리서치 결과를 모아보니 찬성쪽 근거는 반복적인 수동 정리 피로입니다.\n\n한계와 불확실성은 조직형 고객 표본이 좁다는 점입니다.\n\n후보는 혼자 만드는 창업자, 도메인 전문 1인 빌더, 팀 리더입니다. 어느 성향의 고객에 집중하시겠습니까?",
+      researchTask: task("첫 고객 세그먼트 후보 선택"),
+      sourceQuestion: sourceQuestion({
+        topicKey: "primary_customer_narrowing",
+        expectedAnswerType: "choice"
+      }),
+      evidenceMatrix: evidenceMatrix({
+        proEvidence: [
+          {
+            evidenceItemId: "evidence_pro_segment_answer_shape" as EvidenceItemId,
+            kind: "pro",
+            summary: "반복적인 수동 정리 피로"
+          }
+        ],
+        uncertainties: [
+          {
+            evidenceItemId: "evidence_uncertainty_segment_answer_shape" as EvidenceItemId,
+            kind: "uncertainty",
+            summary: "조직형 고객 표본이 좁음"
+          }
+        ]
+      })
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("single_choice");
+    expect(researchFollowUpExpectedAnswerType(input)).toBe("choice");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBe("single");
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "solo_founders" }),
+        expect.objectContaining({ id: "domain_expert_builders" })
+      ])
+    );
+  });
+
+  it("supports explicit agree/disagree questions without forcing every answer into evidence balance", () => {
+    const input = {
+      question:
+        "리서치 근거를 보면 개인 창업자부터 시작하는 방향에 찬성/반대 중 어느 쪽인가요?",
+      researchTask: task("초기 고객 선택 방향 찬반 결정"),
+      sourceQuestion: sourceQuestion(),
+      evidenceMatrix: evidenceMatrix({
+        proEvidence: [
+          {
+            evidenceItemId: "evidence_pro_binary_answer_shape" as EvidenceItemId,
+            kind: "pro",
+            summary: "개인 창업자의 반복 업무 고통"
+          }
+        ],
+        conEvidence: [
+          {
+            evidenceItemId: "evidence_con_binary_answer_shape" as EvidenceItemId,
+            kind: "con",
+            summary: "팀 리더의 예산 권한이 더 큼"
+          }
+        ]
+      })
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("binary_choice");
+    expect(researchFollowUpExpectedAnswerType(input)).toBe("choice");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBe("single");
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "agree_or_continue", label: expect.stringContaining("찬성") }),
+        expect.objectContaining({ id: "disagree_or_stop", label: expect.stringContaining("반대") })
+      ])
+    );
+  });
+
   it("supports multi-select follow-up questions when several options can be true together", () => {
     const input = {
       question: "이번 아이디어에 해당되는 고객 신호를 여러 개 선택해주세요.",
@@ -144,5 +248,24 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpExpectedAnswerType(input)).toBe("choice");
     expect(researchFollowUpAnswerSelectionMode(input)).toBe("multiple");
     expect(researchFollowUpAnswerOptions(input).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("returns signal-specific options for multi-select signal questions", () => {
+    const input = {
+      question:
+        "리서치 근거와 한계가 섞여 있으니 다음 인터뷰에서 확인할 고객 신호를 하나 혹은 여러 개 선택해주세요.",
+      researchTask: task("고객 신호와 검증 기준 선택"),
+      sourceQuestion: sourceQuestion(),
+      evidenceMatrix: evidenceMatrix()
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("multi_select");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBe("multiple");
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "repeat_manual_pain" }),
+        expect.objectContaining({ id: "budget_or_paid_intent" })
+      ])
+    );
   });
 });
