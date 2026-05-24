@@ -410,6 +410,22 @@ describe("research follow-up answer shape", () => {
       question: "찬성/반대 중 하나를 선택하고 조건이 있다면 이유를 적어주세요."
     })).toBe("binary_choice");
 
+    const candidateChoiceInput = {
+      ...base,
+      question:
+        "찬성/반대 근거는 참고용입니다. 후보는 개인 창업자, 팀 리더, 운영 담당자입니다. 고객 후보를 선택해주세요."
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(candidateChoiceInput)).toBe("single_choice");
+    expect(researchFollowUpAnswerSelectionMode(candidateChoiceInput)).toBe("single");
+    expect(researchFollowUpAnswerOptions(candidateChoiceInput)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "개인 창업자" }),
+        expect.objectContaining({ label: "팀 리더" }),
+        expect.objectContaining({ label: "운영 담당자" })
+      ])
+    );
+
     expect(classifyResearchFollowUpAnswerShape({
       ...base,
       question: "여러 종류 중 하나만 선택해야 한다면 어느 고객 유형에 집중하시겠습니까?"

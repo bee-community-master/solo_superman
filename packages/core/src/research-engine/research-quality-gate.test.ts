@@ -267,6 +267,40 @@ describe("Decision-linked research quality gate", () => {
     });
   });
 
+  it("keeps objective answer form over incidental pro/con evidence wording", () => {
+    const researchTask = task({
+      objective: "찬성/반대 근거를 참고해 고객 후보를 객관식으로 선택"
+    });
+    const researchResult = result({
+      result: "Pro: individual founders mention repeated planning pain.",
+      limitationNotes: "The team-leader sample is still narrow."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("어느 성향의 고객에 집중")]
+    });
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+  });
+
+  it("lets explicit objective wording ask for a binary agree/disagree answer even when an explanation is needed", () => {
+    const researchTask = task({
+      objective: "객관식으로 찬성/반대 중 하나를 선택하고 이유는 직접 설명"
+    });
+    const researchResult = result({
+      result: "Pro: imported notes support adding the direction to the spec.",
+      limitationNotes: "Counter-evidence has not been reviewed broadly."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("찬성/반대 중 어느 쪽")]
+    });
+    expect(matrix.additionalQuestions[0]).not.toContain("본인 말로 3~5문장으로 서술");
+  });
+
   it("prioritizes failed high-impact evidence over secondary unknown checks", () => {
     const researchTask = task();
     const researchResult = result({

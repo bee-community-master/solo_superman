@@ -195,13 +195,13 @@ function hasMultiSelectCue(question: string) {
 }
 
 function hasBinaryChoiceCue(question: string) {
-  return /(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오|양자\s*택일|양자택일|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose|찬성인지\s*반대|동의하시|찬성하시|반대하시|진행할까요|해야\s*할까요|반영할까요)/iu.test(
+  return /(?:(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|어느|선택|고르|판단)|양자\s*택일|양자택일|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose|찬성인지\s*반대|동의하시|찬성하시|반대하시|진행할까요|해야\s*할까요|반영할까요)/iu.test(
     question
   );
 }
 
 function hasConcreteSingleChoiceCue(question: string) {
-  return /(?:객관식|선택형|단일\s*선택|단일선택|하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|종류\s*중\s*하나|어느\s*(?:후보|성향|고객|세그먼트|종류|선택지)|(?:무엇|어디|누구)에\s*집중|선택하시겠|집중하시겠|고르시겠|choose|pick|which\s+(?:one|customer|segment|option)|single[-\s]?choice)/iu.test(
+  return /(?:객관식|선택형|단일\s*선택|단일선택|하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|종류\s*중\s*하나|(?:후보|선택지|옵션|고객\s*후보|고객\s*세그먼트)(?:를|을)?\s*(?:선택|고르)|어느\s*(?:후보|성향|고객|세그먼트|종류|선택지)|(?:무엇|어디|누구)에\s*집중|선택하시겠|집중하시겠|고르시겠|choose|pick|which\s+(?:one|customer|segment|option)|single[-\s]?choice)/iu.test(
     question
   );
 }

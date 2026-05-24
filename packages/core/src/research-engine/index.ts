@@ -154,27 +154,39 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
   const topic = userFacingQuestionText(objective).toLowerCase();
   const asksForNarrative =
     /(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|상황|맥락|이유|왜|어떻게|workflow|흐름|사용\s*방식|describe|explain|free[-\s]?form|open[-\s]?(?:ended|question)|context)/iu.test(topic);
+  const asksForExplicitChoice =
+    /(?:객관식|선택형|선택|고르|골라|중\s*(?:하나|한\s*가지)|어느\s*(?:쪽|방향|후보|성향|고객|세그먼트|종류|선택지)|choose|pick|select|which\s+(?:one|customer|segment|option|side|direction))/iu.test(topic);
   const asksForCustomerChoice =
     /(?:세그먼트|성향|persona|segment|어느\s*(?:고객|사용자|성향|후보)|고객\s*(?:후보|유형|타입)|customer\s*(?:segment|persona|type)|which\s+customer)/iu.test(topic);
+  const asksForNamedCandidateChoice =
+    /(?:후보|선택지|옵션|종류|유형|타입|성향|세그먼트|persona|segment|customer\s*(?:segment|persona|type)|which\s+(?:customer|segment|option))/iu.test(topic);
+  const asksForBinaryChoice =
+    /(?:(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|어느|선택|고르|판단)|양자\s*택일|양자택일|여부|진행|채택|반영|동의하시|찬성하시|반대하시|해야\s*(?:할까|하나|할지)|yes\s*[/ ]?no|whether|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(topic);
+  const asksForSingleChoice =
+    /(?:객관식|선택형|단일\s*선택|하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|종류\s*중\s*하나|후보\s*중\s*하나|옵션\s*중\s*하나|(?:후보|선택지|옵션|고객\s*후보|고객\s*세그먼트)(?:를|을)?\s*(?:선택|고르)|which\s+(?:one|option)|single[-\s]?choice)/iu.test(topic);
 
   if (/(?:복수|모두|해당|다중|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)\s*(?:선택|고르)|둘\s*이상|multi[-\s]?select|one\s+or\s+more|select\s+all)/iu.test(topic)) {
     return /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic) ? "multi_signal_choice" : "multi_choice";
   }
 
-  if (asksForCustomerChoice && !asksForNarrative) {
+  if (asksForCustomerChoice && (!asksForNarrative || asksForExplicitChoice)) {
     return "single_customer_choice";
   }
 
-  if (asksForNarrative) {
+  if (asksForNarrative && !asksForExplicitChoice) {
     return "open_text";
   }
 
-  if (/(?:여부|진행|채택|반영|동의|찬성|반대|해야\s*(?:할까|하나|할지)|should|whether|agree|disagree)/iu.test(topic)) {
+  if (asksForBinaryChoice && !asksForNamedCandidateChoice) {
     return "binary_choice";
   }
 
-  if (/(?:객관식|선택형|단일\s*선택|하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|종류\s*중\s*하나|후보\s*중\s*하나|옵션\s*중\s*하나|which\s+(?:one|option)|single[-\s]?choice)/iu.test(topic)) {
+  if (asksForSingleChoice) {
     return "single_choice";
+  }
+
+  if (asksForBinaryChoice) {
+    return "binary_choice";
   }
 
   if (/(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic)) {

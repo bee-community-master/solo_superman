@@ -25,6 +25,7 @@ interface Phase15aOperationsPanelProps {
   readonly onPauseAllowlist: (allowlistId: ResearchAllowlistId) => void;
   readonly onRevokeAllowlist: (allowlistId: ResearchAllowlistId) => void;
   readonly onUpdateAllowlistMaxConcurrentRuns: (allowlistId: ResearchAllowlistId, maxConcurrentRuns: number) => void;
+  readonly onUpdateAllowlistMaxRunsPerSession: (allowlistId: ResearchAllowlistId, maxRunsPerSession: number) => void;
   readonly onRefreshResearchRunStatus: (researchRunId: ResearchRunId) => void;
   readonly onCancelResearchRun: (researchRunId: ResearchRunId) => void;
   readonly onRetryResearchRun: (researchRunId: ResearchRunId) => void;
@@ -61,15 +62,21 @@ export function Phase15aOperationsPanel({
   onPauseAllowlist,
   onRevokeAllowlist,
   onUpdateAllowlistMaxConcurrentRuns,
+  onUpdateAllowlistMaxRunsPerSession,
   onRefreshResearchRunStatus,
   onCancelResearchRun,
   onRetryResearchRun
 }: Phase15aOperationsPanelProps) {
   const copy = useDecisionQueueCopy();
   const [maxConcurrentDrafts, setMaxConcurrentDrafts] = useState<Record<string, string>>({});
+  const [maxSessionDrafts, setMaxSessionDrafts] = useState<Record<string, string>>({});
 
   function maxConcurrentDraftFor(allowlist: ResearchAllowlistGovernanceProjection["allowlists"][number]) {
     return maxConcurrentDrafts[allowlist.allowlistId] ?? String(allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject);
+  }
+
+  function maxSessionDraftFor(allowlist: ResearchAllowlistGovernanceProjection["allowlists"][number]) {
+    return maxSessionDrafts[allowlist.allowlistId] ?? String(allowlist.rateBudgetPolicy.maxRunsPerSession);
   }
 
   return (
@@ -102,7 +109,9 @@ export function Phase15aOperationsPanel({
             <div className="operations-cards">
               {researchOperations.allowlists.allowlists.map((allowlist) => {
                 const maxConcurrentDraft = maxConcurrentDraftFor(allowlist);
+                const maxSessionDraft = maxSessionDraftFor(allowlist);
                 const parsedMaxConcurrentDraft = Number(maxConcurrentDraft);
+                const parsedMaxSessionDraft = Number(maxSessionDraft);
                 const canApplyMaxConcurrentDraft =
                   !isBusy &&
                   hasActiveSession &&
@@ -110,6 +119,13 @@ export function Phase15aOperationsPanel({
                   Number.isInteger(parsedMaxConcurrentDraft) &&
                   parsedMaxConcurrentDraft >= 1 &&
                   parsedMaxConcurrentDraft !== allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject;
+                const canApplyMaxSessionDraft =
+                  !isBusy &&
+                  hasActiveSession &&
+                  allowlist.status !== "revoked" &&
+                  Number.isInteger(parsedMaxSessionDraft) &&
+                  parsedMaxSessionDraft >= allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject &&
+                  parsedMaxSessionDraft !== allowlist.rateBudgetPolicy.maxRunsPerSession;
 
                 return (
                   <article className="operations-card" key={allowlist.allowlistId}>
@@ -152,6 +168,34 @@ export function Phase15aOperationsPanel({
                         }
                       >
                         {copy.phase15a.applyMaxConcurrentRuns}
+                      </button>
+                      <label>
+                        <span>{copy.phase15a.maxSessionRuns}</span>
+                        <input
+                          aria-label={`${copy.phase15a.maxSessionRuns} ${allowlist.allowlistId}`}
+                          min={allowlist.rateBudgetPolicy.maxConcurrentRunsPerProject}
+                          type="number"
+                          value={maxSessionDraft}
+                          onChange={(event) =>
+                            setMaxSessionDrafts((current) => ({
+                              ...current,
+                              [allowlist.allowlistId]: event.target.value
+                            }))
+                          }
+                        />
+                      </label>
+                      <small>{copy.phase15a.maxSessionRunsHelp}</small>
+                      <button
+                        type="button"
+                        disabled={!canApplyMaxSessionDraft}
+                        onClick={() =>
+                          onUpdateAllowlistMaxRunsPerSession(
+                            allowlist.allowlistId,
+                            parsedMaxSessionDraft
+                          )
+                        }
+                      >
+                        {copy.phase15a.applyMaxSessionRuns}
                       </button>
                     </div>
                     <small>

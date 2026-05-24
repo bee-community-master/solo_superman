@@ -82,6 +82,10 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.research.researchActionLabels.startPublicWebResearchRun).not.toMatch(/[가-힣]/u);
     expect(DECISION_QUEUE_COPY.ja.research.researchActionLabels.cancelRun).toContain("リサーチ");
     expect(DECISION_QUEUE_COPY.ko.research.researchActionLabels.retryRun).toContain("재시도");
+    expect(DECISION_QUEUE_COPY.ko.research.researchActionLabels.updateMaxSessionRuns).toContain("세션");
+    expect(DECISION_QUEUE_COPY.ko.research.researchActionErrors.maxSessionRunsInvalid).toContain(
+      "세션당 최대 리서치 실행 수"
+    );
     expect(DECISION_QUEUE_COPY.ko.research.researchActionReasons.cancelRun).toContain("취소");
     expect(DECISION_QUEUE_COPY.ko.questions.refreshQuestionList).toBe("질문 목록 새로고침");
     expect(DECISION_QUEUE_COPY.ko.questions.loadNextQuestions).toBe("다음 질문 불러오기");
@@ -97,6 +101,7 @@ describe("decision queue language copy", () => {
       primary: "Keeps in scope",
       secondary: "Check next"
     });
+    expect(DECISION_QUEUE_COPY.en.phase15a.maxSessionRuns).toBe("Max research runs per session");
     expect(DECISION_QUEUE_COPY.en.questions.questionProgressActive).toBe("Active now");
     expect(DECISION_QUEUE_COPY.ja.questions.questionProgressActive).toBe("回答中");
     expect(DECISION_QUEUE_COPY.ko.questions.questionProgressActive).toBe("지금 답할 질문");
