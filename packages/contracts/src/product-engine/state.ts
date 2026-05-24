@@ -145,7 +145,7 @@ export type AmbiguityIssueUncertaintyType =
 export type AmbiguityIssueSeverity = "high" | "medium" | "low";
 
 export type AmbiguityExpectedAnswerType = "choice" | "text" | "rank" | "evidence" | "experiment";
-export type AmbiguityAnswerSelectionMode = "single" | "multiple";
+export type AmbiguityAnswerSelectionMode = "single" | "multiple" | "ranked";
 
 export type AmbiguityPossibleRoute =
   | "question"

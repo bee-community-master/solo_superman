@@ -1500,6 +1500,7 @@ function createAmbiguityIssues(
   return ambiguityIssueSeedsForMode(mode, intensity).map((seed, index) => {
     const businessCriticCategory = categoryForBusinessSeed(seed);
     const suggestedResearchTask = contextualSuggestedResearchTask(seed, context);
+    const answerSelectionMode = seed.answerSelectionMode ?? (seed.expectedAnswerType === "rank" ? "ranked" : undefined);
 
     return {
       queueItemId: `queue_${token}_${index + 1}` as QueueItemId,
@@ -1525,7 +1526,7 @@ function createAmbiguityIssues(
       status: "open",
       questionText: contextualQuestionText(seed, context),
       expectedAnswerType: seed.expectedAnswerType,
-      ...(seed.answerSelectionMode ? { answerSelectionMode: seed.answerSelectionMode } : {}),
+      ...(answerSelectionMode ? { answerSelectionMode } : {}),
       answerOptions: answerOptionsForSeed(seed),
       decisionItUnlocks: seed.decisionItUnlocks,
       ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
@@ -1690,6 +1691,7 @@ function queueItemProjectionFromIssue(
   state: QueueItemProjection["state"] = "active"
 ): QueueItemProjection {
   const answerOptions = issue.answerOptions ?? answerOptionsForQuestion(issue.topicKey, issue.expectedAnswerType);
+  const answerSelectionMode = issue.answerSelectionMode ?? (issue.expectedAnswerType === "rank" ? "ranked" : undefined);
 
   return {
     queueItemId: issue.queueItemId,
@@ -1715,7 +1717,7 @@ function queueItemProjectionFromIssue(
       ? { decisionItUnlocks: plainUserFacingDecisionQueueText(issue.decisionItUnlocks) }
       : {}),
     ...(issue.expectedAnswerType ? { expectedAnswerType: issue.expectedAnswerType } : {}),
-    ...(issue.answerSelectionMode ? { answerSelectionMode: issue.answerSelectionMode } : {}),
+    ...(answerSelectionMode ? { answerSelectionMode } : {}),
     ...(answerOptions ? { answerOptions } : {}),
     ...(issue.possibleRoutes ? { possibleRoutes: issue.possibleRoutes } : {}),
     ...(issue.sourceRef ? { sourceRef: issue.sourceRef } : {})

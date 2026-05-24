@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { QueueItemProjection } from "@solo-superman/contracts";
+import type { AmbiguityAnswerSelectionMode, QueueItemProjection } from "@solo-superman/contracts";
 import {
   draftedActiveQuestionAnswerIds,
   questionFatigueViewModel,
@@ -44,14 +44,21 @@ function researchFollowUpSourceTrace(item: QueueItemProjection) {
     : null;
 }
 
-function answerDraftFromSelectedOptions(
+export function answerDraftFromSelectedOptions(
   answerOptions: NonNullable<QueueItemProjection["answerOptions"]>,
-  selectedOptionIds: readonly string[]
+  selectedOptionIds: readonly string[],
+  answerSelectionMode: AmbiguityAnswerSelectionMode
 ) {
-  return answerOptions
-    .filter((option) => selectedOptionIds.includes(option.id))
-    .map((option) => option.value)
-    .join("\n");
+  const optionValueById = new Map(answerOptions.map((option) => [option.id, option.value]));
+  const selectedOptionValues = selectedOptionIds
+    .map((optionId) => optionValueById.get(optionId))
+    .filter((value): value is string => value !== undefined);
+
+  if (answerSelectionMode === "ranked") {
+    return selectedOptionValues.map((value, index) => `${index + 1}. ${value}`).join("\n");
+  }
+
+  return selectedOptionValues.join("\n");
 }
 
 type AnswerFormatKind =
@@ -79,6 +86,10 @@ function answerFormatKindForItem(item: QueueItemProjection): AnswerFormatKind {
     return "multi_select";
   }
 
+  if (item.answerSelectionMode === "ranked") {
+    return "ranked_choice";
+  }
+
   if (item.expectedAnswerType === "text") {
     return "open_text";
   }
@@ -100,6 +111,14 @@ function answerFormatKindForItem(item: QueueItemProjection): AnswerFormatKind {
   }
 
   return answerLooksLikeBinaryChoice(item) ? "binary_choice" : "single_choice";
+}
+
+function answerSelectionModeForItem(item: QueueItemProjection): AmbiguityAnswerSelectionMode {
+  return item.answerSelectionMode ?? (item.expectedAnswerType === "rank" ? "ranked" : "single");
+}
+
+function answerOptionInputType(answerSelectionMode: AmbiguityAnswerSelectionMode) {
+  return answerSelectionMode === "single" ? "radio" : "checkbox";
 }
 
 function ResearchFollowUpSourceTrace({
@@ -292,11 +311,13 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
               {section.items.length ? (
                 <div className="queue-list">
                   {section.items.map((item) => {
-                    const answerSelectionMode = item.answerSelectionMode ?? "single";
+                    const answerSelectionMode = answerSelectionModeForItem(item);
                     const answerFormatKind = answerFormatKindForItem(item);
                     const selectedOptionIds = selectedAnswerOptionIds[item.queueItemId] ?? [];
                     const suggestedAnswersHelp =
-                      answerSelectionMode === "multiple"
+                      answerSelectionMode === "ranked"
+                        ? copy.questions.suggestedAnswersRankedHelp
+                        : answerSelectionMode === "multiple"
                         ? copy.questions.suggestedAnswersMultipleHelp
                         : copy.questions.suggestedAnswersSingleHelp;
                     const answerOptionDetailLabels = copy.questions.answerOptionDetailLabels[answerFormatKind];
@@ -361,7 +382,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                                       name={`answer-option-${item.queueItemId}`}
                                       onChange={() => {
                                         const nextSelectedOptionIds =
-                                          answerSelectionMode === "multiple"
+                                          answerSelectionMode === "multiple" || answerSelectionMode === "ranked"
                                             ? selectedOptionIds.includes(option.id)
                                               ? selectedOptionIds.filter((selectedOptionId) => selectedOptionId !== option.id)
                                               : [...selectedOptionIds, option.id]
@@ -372,10 +393,14 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                                         }));
                                         setAnswerDrafts((current) => ({
                                           ...current,
-                                          [item.queueItemId]: answerDraftFromSelectedOptions(item.answerOptions ?? [], nextSelectedOptionIds)
+                                          [item.queueItemId]: answerDraftFromSelectedOptions(
+                                            item.answerOptions ?? [],
+                                            nextSelectedOptionIds,
+                                            answerSelectionMode
+                                          )
                                         }));
                                       }}
-                                      type={answerSelectionMode === "multiple" ? "checkbox" : "radio"}
+                                      type={answerOptionInputType(answerSelectionMode)}
                                       value={option.id}
                                     />
                                     <span>

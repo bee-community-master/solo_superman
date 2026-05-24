@@ -331,6 +331,19 @@ describe("PR-04 ProductEngine reducer", () => {
     );
     const activeIssueIds = new Set(state.queueProjection.active.map((item) => item.queueItemId));
     const activeIssues = state.openIssues.filter((issue) => activeIssueIds.has(issue.queueItemId));
+    const rankedValueIssue = state.openIssues.find((issue) => issue.topicKey === "value_prop_switching_reason");
+    const rankedValueQueueItem = state.queueProjection.active.find(
+      (item) => item.topicKey === "value_prop_switching_reason"
+    );
+
+    expect(rankedValueIssue).toMatchObject({
+      expectedAnswerType: "rank",
+      answerSelectionMode: "ranked"
+    });
+    expect(rankedValueQueueItem).toMatchObject({
+      expectedAnswerType: "rank",
+      answerSelectionMode: "ranked"
+    });
     expect(activeIssues.every((issue) => issue.severity === "high")).toBe(true);
     expect(state.queueProjection.active.every((item) => item.state === "active")).toBe(true);
     expect(state.queueProjection.active.every((item) => item.cardType === "question")).toBe(true);

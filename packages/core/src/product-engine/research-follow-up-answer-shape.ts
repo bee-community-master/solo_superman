@@ -321,7 +321,13 @@ export function researchFollowUpExpectedAnswerType(input: ResearchFollowUpAnswer
 }
 
 export function researchFollowUpAnswerSelectionMode(input: ResearchFollowUpAnswerInput): AmbiguityAnswerSelectionMode {
-  return classifyResearchFollowUpAnswerShape(input) === "multi_select" ? "multiple" : "single";
+  const answerShape = classifyResearchFollowUpAnswerShape(input);
+
+  if (answerShape === "multi_select") {
+    return "multiple";
+  }
+
+  return answerShape === "ranked_choice" ? "ranked" : "single";
 }
 
 function choiceTopicKeyForQuestion(input: ResearchFollowUpAnswerInput) {

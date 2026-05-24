@@ -371,7 +371,7 @@ describe("research follow-up answer shape", () => {
 
     expect(classifyResearchFollowUpAnswerShape(input)).toBe("ranked_choice");
     expect(researchFollowUpExpectedAnswerType(input)).toBe("rank");
-    expect(researchFollowUpAnswerSelectionMode(input)).toBe("single");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBe("ranked");
     expect(researchFollowUpAnswerOptions(input)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "question_candidate_1", label: "검증 빠르기" }),

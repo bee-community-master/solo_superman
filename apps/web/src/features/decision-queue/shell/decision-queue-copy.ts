@@ -326,6 +326,7 @@ const EN_COPY = {
     suggestedAnswers: "Suggested answer choices",
     suggestedAnswersSingleHelp: "Select one option, or write your own answer below.",
     suggestedAnswersMultipleHelp: "Select one or more options, or write your own answer below.",
+    suggestedAnswersRankedHelp: "Select candidates in priority order, or write the full ranking below.",
     answerOptionDetailLabels: {
       open_text: { primary: "What to write", secondary: "Still unclear" },
       binary_choice: { primary: "If selected", secondary: "Condition or uncertainty" },
@@ -1366,6 +1367,7 @@ const JA_COPY: typeof EN_COPY = {
     suggestedAnswers: "回答候補",
     suggestedAnswersSingleHelp: "候補を1つ選ぶか、下に自分の回答を書いてください。",
     suggestedAnswersMultipleHelp: "候補を1つ以上選ぶか、下に自分の回答を書いてください。",
+    suggestedAnswersRankedHelp: "優先順位の順に候補を選ぶか、下に完全な順番を書いてください。",
     answerOptionDetailLabels: {
       open_text: { primary: "書く内容", secondary: "まだ曖昧な点" },
       binary_choice: { primary: "選ぶと決まること", secondary: "条件・不確実性" },
@@ -2393,6 +2395,7 @@ const KO_COPY: typeof EN_COPY = {
     suggestedAnswers: "추천 답변 선택지",
     suggestedAnswersSingleHelp: "하나를 선택하거나 아래에 직접 답변하세요.",
     suggestedAnswersMultipleHelp: "하나 이상을 선택하거나 아래에 직접 답변하세요.",
+    suggestedAnswersRankedHelp: "우선순위 순서대로 후보를 선택하거나 아래에 전체 순위를 직접 적어주세요.",
     answerOptionDetailLabels: {
       open_text: { primary: "작성할 내용", secondary: "아직 모호한 점" },
       binary_choice: { primary: "선택하면 정해지는 내용", secondary: "조건·불확실성" },

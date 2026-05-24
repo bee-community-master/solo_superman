@@ -7,7 +7,7 @@ import type {
   SessionId
 } from "@solo-superman/contracts";
 import { renderEnglishMarkup } from "../test-rendering";
-import { QuestionsView } from "./QuestionsView";
+import { QuestionsView, answerDraftFromSelectedOptions } from "./QuestionsView";
 import { emptyProjectionState } from "./decision-queue-shell-model";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
@@ -79,6 +79,32 @@ function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellCont
 }
 
 describe("QuestionsView", () => {
+  it("drafts ranked choices in the order the user selected them", () => {
+    const answerOptions = [
+      {
+        id: "pain",
+        label: "Pain strength",
+        value: "Rank pain strength first.",
+        pro: "Shows urgency.",
+        con: "May overfocus on interviews."
+      },
+      {
+        id: "speed",
+        label: "Validation speed",
+        value: "Rank validation speed first.",
+        pro: "Gets faster signal.",
+        con: "May miss depth."
+      }
+    ];
+
+    expect(answerDraftFromSelectedOptions(answerOptions, ["speed", "pain"], "ranked")).toBe(
+      "1. Rank validation speed first.\n2. Rank pain strength first."
+    );
+    expect(answerDraftFromSelectedOptions(answerOptions, ["speed", "pain"], "multiple")).toBe(
+      "Rank validation speed first.\nRank pain strength first."
+    );
+  });
+
   it("renders one-of-many answer choices with neutral decision labels above the free-form answer box", () => {
     const queue: DecisionQueueProjection = {
       kind: "DecisionQueueProjection",
@@ -653,6 +679,64 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Select one or more options, or write your own answer below.");
     expect(markup).toContain("Keeps in scope: Shows urgency.");
     expect(markup).toContain("Check next: May be narrow.");
+    expect(markup).toContain('type="checkbox"');
+    expect(markup).not.toContain('type="radio"');
+  });
+
+  it("renders ranked answer choices as ordered checkbox input instead of a single radio choice", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 1 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_ranked_choice" as QueueItemId,
+          title: "Rank the validation candidates.",
+          state: "active",
+          expectedAnswerType: "rank",
+          answerSelectionMode: "ranked",
+          answerOptions: [
+            {
+              id: "pain",
+              label: "Pain strength",
+              value: "Rank pain strength first.",
+              pro: "Shows urgency.",
+              con: "May overfocus on interviews."
+            },
+            {
+              id: "speed",
+              label: "Validation speed",
+              value: "Rank validation speed first.",
+              pro: "Gets faster signal.",
+              con: "May miss depth."
+            }
+          ]
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+
+    const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        queue
+      },
+      sections: [
+        {
+          id: "active",
+          title: "Current questions",
+          emptyLabel: "No current questions.",
+          items: queue.active
+        }
+      ]
+    });
+
+    expect(markup).toContain("Priority/ranking answer");
+    expect(markup).toContain("Priority choices");
+    expect(markup).toContain("Select candidates in priority order, or write the full ranking below.");
+    expect(markup).toContain("Priority effect: Shows urgency.");
+    expect(markup).toContain("Trade-off: May overfocus on interviews.");
     expect(markup).toContain('type="checkbox"');
     expect(markup).not.toContain('type="radio"');
   });
