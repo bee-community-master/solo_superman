@@ -29,6 +29,18 @@ const releaseEvidenceIssueItemCounts = new Map([
   [267, 3]
 ]);
 
+function releaseEvidenceChecklistItemSummaries(issueNumber, itemCount) {
+  return Array.from({ length: itemCount }, (_, index) => ({
+    itemId: `issue-${issueNumber}-evidence-item-${index + 1}`,
+    gateId: issueNumber === 259 ? "windows-real-device" : issueNumber === 266 ? "signed-packages" : "packaged-update-rollback",
+    status: "blocked",
+    scope: issueNumber === 259 ? "windows" : null,
+    requiredCheckCount: index === 0 ? 0 : 2,
+    requiredEvidenceCount: 2,
+    unblockCriteriaCount: 1
+  }));
+}
+
 function validReleaseEvidenceIssuePreparation() {
   return [...releaseEvidenceIssueItemCounts].map(([issueNumber, itemCount]) => ({
     issueNumber,
@@ -36,6 +48,7 @@ function validReleaseEvidenceIssuePreparation() {
     status: "blocked",
     itemCount,
     blockedItems: itemCount,
+    checklistItems: releaseEvidenceChecklistItemSummaries(issueNumber, itemCount),
     checklistPath: `./solo-superman-release-evidence-bundle/issue-${issueNumber}-checklist.md`,
     templatePath: `./solo-superman-release-evidence-bundle/issue-${issueNumber}-template.json`,
     commentPath: `./solo-superman-release-evidence-bundle/issue-${issueNumber}-comment.md`,
@@ -243,7 +256,9 @@ describe("support bundle verification", () => {
     expect(validation.ok).toBe(false);
     expect(validation.issues).toEqual(expect.arrayContaining([
       "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].status: must include issue status",
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].itemCount: must include issue evidence item count",
       "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].blockedItems: must include blocked item count",
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].checklistItems: must summarize every issue-specific release evidence item",
       "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].templatePath: must point to issue-259-template.json",
       "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].commentPath: must point to issue-259-comment.md",
       "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].validateTemplateCommand: must validate issue 259 template",

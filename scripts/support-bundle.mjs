@@ -254,6 +254,22 @@ function compactMissingCredentialGroups(value) {
   }));
 }
 
+function compactReadyReleaseChecklistItems(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(isRecord).map((item) => ({
+    itemId: typeof item.itemId === "string" ? item.itemId : null,
+    gateId: typeof item.gateId === "string" ? item.gateId : null,
+    status: typeof item.status === "string" ? item.status : "unknown",
+    scope: typeof item.scope === "string" ? item.scope : null,
+    requiredCheckCount: stringList(item.requiredChecks).length,
+    requiredEvidenceCount: stringList(item.requiredEvidence).length,
+    unblockCriteriaCount: stringList(item.unblockCriteria).length
+  }));
+}
+
 function compactReadyReleaseIssuePreparation(value) {
   if (!Array.isArray(value)) {
     return [];
@@ -265,6 +281,7 @@ function compactReadyReleaseIssuePreparation(value) {
     status: typeof entry.status === "string" ? entry.status : "unknown",
     itemCount: typeof entry.itemCount === "number" ? entry.itemCount : null,
     blockedItems: typeof entry.blockedItems === "number" ? entry.blockedItems : null,
+    checklistItems: compactReadyReleaseChecklistItems(entry.checklistItems),
     checklistPath: typeof entry.checklistPath === "string" ? entry.checklistPath : null,
     templatePath: typeof entry.templatePath === "string" ? entry.templatePath : null,
     commentPath: typeof entry.commentPath === "string" ? entry.commentPath : null,
