@@ -185,6 +185,25 @@ describe("answer follow-up variety", () => {
     );
   });
 
+  it("rotates in one-of-many follow-ups instead of only text, stance, or multi-select prompts", () => {
+    const followUp = submitAnswerAndReadFollowUp(8);
+
+    expect(followUp.questionText).toContain("하나만 먼저 확정");
+    expect(followUp.expectedAnswerType).toBe("choice");
+    expect(followUp.answerSelectionMode).toBe("single");
+    expect(followUp.answerOptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "고객 기준 먼저 확정" }),
+        expect.objectContaining({ label: "문제/가치 기준 먼저 확정" }),
+        expect.objectContaining({ label: "검증 방법 먼저 확정" }),
+        expect.objectContaining({ label: "구현 범위 먼저 확정" })
+      ])
+    );
+    expect(followUp.answerOptions).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: expect.stringContaining("찬성") })])
+    );
+  });
+
   it("keeps missing-counter-evidence follow-ups in evidence judgment form instead of applying every mode", () => {
     const followUp = submitAnswerAndReadFollowUp(0, "missing_con_evidence");
 

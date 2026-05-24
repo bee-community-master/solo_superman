@@ -351,6 +351,37 @@ const FOLLOW_UP_BINARY_ANSWER_OPTIONS = [
   )
 ] as const satisfies readonly AmbiguityAnswerOption[];
 
+const FOLLOW_UP_SINGLE_DECISION_ANSWER_OPTIONS = [
+  followUpAnswerOption(
+    "focus_customer_first",
+    "고객 기준 먼저 확정",
+    "이 답을 가장 먼저 어떤 고객에게 맞출지 결정하는 기준으로 쓴다.",
+    "다음 질문과 리서치가 실제 고객 후보로 좁혀집니다.",
+    "기능이나 검증 방식 결정은 한 번 더 필요할 수 있습니다."
+  ),
+  followUpAnswerOption(
+    "focus_problem_value_first",
+    "문제/가치 기준 먼저 확정",
+    "이 답을 사용자가 겪는 문제와 선택 이유를 더 선명하게 만드는 기준으로 쓴다.",
+    "스펙의 문제 정의와 가치 제안이 흔들리지 않습니다.",
+    "고객 후보가 넓으면 같은 문제라도 해석이 달라질 수 있습니다."
+  ),
+  followUpAnswerOption(
+    "focus_validation_first",
+    "검증 방법 먼저 확정",
+    "이 답을 다음에 어떤 자료, 인터뷰, 행동 신호로 확인할지 정하는 기준으로 쓴다.",
+    "답변이 바로 실행 가능한 검증 행동으로 이어집니다.",
+    "제품 범위나 구현 순서는 아직 별도 결정이 필요합니다."
+  ),
+  followUpAnswerOption(
+    "focus_build_scope_first",
+    "구현 범위 먼저 확정",
+    "이 답을 첫 구현 조각에 넣을 것과 뺄 것을 고르는 기준으로 쓴다.",
+    "Build Slice가 작아지고 다음 작업으로 옮기기 쉽습니다.",
+    "근거가 약한 상태에서 구현 범위를 먼저 잠글 수 있습니다."
+  )
+] as const satisfies readonly AmbiguityAnswerOption[];
+
 const MISSING_CON_EVIDENCE_FOLLOW_UP_QUESTION_TEMPLATE = {
   text: "방금 답한 “{answer}”를 더 안전하게 판단하려면, 반대 사례나 한계를 더 찾아야 할까요? 아니면 현재 근거로 조건부 진행해도 될까요?",
   expectedAnswerType: "evidence",
@@ -396,6 +427,12 @@ const FOLLOW_UP_QUESTION_TEMPLATES = [
   {
     text: "이 답을 한 문장 제품 약속으로 바꾸면 무엇이며, 사용자가 그 약속을 믿지 않을 이유는 무엇인가요?",
     expectedAnswerType: "text"
+  },
+  {
+    text: "방금 답한 “{answer}”를 다음 단계로 옮길 때 지금 하나만 먼저 확정해야 한다면 어떤 기준을 고르시겠습니까?",
+    expectedAnswerType: "choice",
+    answerSelectionMode: "single",
+    answerOptions: FOLLOW_UP_SINGLE_DECISION_ANSWER_OPTIONS
   }
 ] as const satisfies readonly FollowUpQuestionTemplate[];
 
