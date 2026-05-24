@@ -33,6 +33,7 @@ The local app opens a browser screen through the local web frontend and local No
 | General release readiness gate | `pnpm verify:release-readiness` |
 | Release evidence checklist/comment/template | `pnpm release:evidence-checklist -- --format markdown --issue <number>` / `pnpm release:evidence-checklist -- --format comment --issue <number>` / `pnpm release:evidence-checklist -- --format template --issue <number>` |
 | Release evidence lab bundle | `pnpm release:evidence-bundle -- <bundle-dir>` |
+| Release evidence bundle verifier | `pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> [--require-ready]` |
 | Filled release evidence template verifier | `pnpm verify:release-evidence-template -- --input <filled-template.json>` |
 | Full gate (typecheck, lint, tests, docs/release/readiness/package contracts, production bundle smoke) | `pnpm verify` |
 
@@ -68,5 +69,5 @@ The local app opens a browser screen through the local web frontend and local No
 - Windows real-device evidence changes update `docs/windows-real-device_KO.md`, `docs/windows-real-device_EN.md`, `docs/windows-real-device.example.json`, `pnpm verify:windows-real-device`, and `pnpm verify:windows-installer:dry-run` together.
 - Signed package planning changes update `docs/signed-packages_KO.md`, `docs/signed-packages_EN.md`, `docs/signed-package-preflight.example.json`, and `pnpm verify:signed-package-preflight` together.
 - Signed package release evidence changes update `docs/signed-package-release_KO.md`, `docs/signed-package-release_EN.md`, `docs/signed-package-release.example.json`, `pnpm verify:signed-package-release`, and `pnpm verify:signed-package-release:dry-run` together.
-- General release readiness changes update `docs/release-readiness_KO.md`, `docs/release-readiness_EN.md`, `docs/release-readiness.example.json`, `pnpm verify:release-readiness`, `pnpm release:evidence-checklist`, and `pnpm release:evidence-bundle` together.
+- General release readiness changes update `docs/release-readiness_KO.md`, `docs/release-readiness_EN.md`, `docs/release-readiness.example.json`, `pnpm verify:release-readiness`, `pnpm release:evidence-checklist`, `pnpm release:evidence-bundle`, and `pnpm verify:release-evidence-bundle` together.
 - README remains end-user short; detailed contributor or troubleshooting content lives under `docs/`.

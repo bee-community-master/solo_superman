@@ -177,8 +177,8 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("## 오류 리포트용 support bundle");
     expect(runbook).toContain("pnpm support:bundle -- --output ./solo-superman-support-bundle.json");
     expect(runbook).toContain("pnpm.cmd support:bundle");
-    expect(runbook).toContain("verify:release-readiness`/`verify:release-evidence-template`의 credential-free product/release diagnostics summary");
-    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("`verify:release-readiness`, and `verify:release-evidence-template` only");
+    expect(runbook).toContain("verify:release-readiness`/`verify:release-evidence-template`/`verify:release-evidence-bundle`의 credential-free product/release diagnostics summary");
+    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("`verify:release-readiness`, `verify:release-evidence-template`, and `verify:release-evidence-bundle` only");
     expect(runbook).toContain("Full environment dump, file contents, browser cookies");
     expect(runbook).toContain("OpenAI/GitHub token, ChatGPT web credential은 수집하지 않으며");
   });
@@ -187,11 +187,14 @@ describe("#105 local install/run verification docs", () => {
     expect(packageJson).toContain('"release:evidence-checklist": "node scripts/release-evidence-checklist.mjs"');
     expect(packageJson).toContain('"release:evidence-bundle": "node scripts/release-evidence-checklist.mjs --bundle-dir"');
     expect(packageJson).toContain('"verify:release-evidence-template": "node scripts/verify-release-evidence-template.mjs"');
+    expect(packageJson).toContain('"verify:release-evidence-bundle": "node scripts/verify-release-evidence-bundle.mjs"');
     expect(readme).toContain("`pnpm release:evidence-checklist -- --output ./solo-superman-release-evidence-checklist.json`");
     expect(readme).toContain("`pnpm release:evidence-checklist -- --format markdown --issue 259 --output ./issue-259-release-evidence.md`");
     expect(readme).toContain("`pnpm release:evidence-checklist -- --format comment --issue 267 --output ./issue-267-release-evidence-comment.md`");
     expect(readme).toContain("`comment` 형식은 evidence item이 없는 잘못된 이슈 번호에서 실패합니다");
     expect(readme).toContain("`pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle`");
+    expect(readme).toContain("`pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle`");
+    expect(readme).toContain("`--require-ready`");
     expect(readme).toContain("`pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
     expect(readme).toContain("`pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json`");
     expect(readme).toContain("required ready-release command 실행 기록");
@@ -200,6 +203,8 @@ describe("#105 local install/run verification docs", () => {
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format comment --issue 267 --output ./issue-267-release-evidence-comment.md`");
     expect(englishReadme).toContain("The `comment` format fails for mistyped issue numbers that have no evidence items");
     expect(englishReadme).toContain("`pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle`");
+    expect(englishReadme).toContain("`pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle`");
+    expect(englishReadme).toContain("`--require-ready`");
     expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
     expect(englishReadme).toContain("`pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json`");
     expect(englishReadme).toContain("required ready-release command records");
@@ -209,6 +214,7 @@ describe("#105 local install/run verification docs", () => {
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("빈 comment를 만들기 전에 실패합니다");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("--format template --issue 266");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("verify:release-evidence-template -- --input");
+    expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("verify:release-evidence-bundle -- --bundle-dir");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("모든 ready-release command 실행 기록");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("## Release evidence checklist");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("release:evidence-bundle");
@@ -216,22 +222,29 @@ describe("#105 local install/run verification docs", () => {
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("fails before an empty comment is written");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("--format template --issue 266");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("verify:release-evidence-template -- --input");
+    expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("verify:release-evidence-bundle -- --bundle-dir");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("records every ready-release command");
     expect(runbook).toContain("모든 ready-release command 실행 기록");
     expect(runbook).toContain("pnpm release:evidence-bundle");
+    expect(runbook).toContain("pnpm verify:release-evidence-bundle -- --bundle-dir");
     expect(runbook).toContain("--format comment --issue 267");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("every ready-release command is recorded");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("pnpm release:evidence-bundle");
+    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("pnpm verify:release-evidence-bundle -- --bundle-dir");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("--format comment --issue 267");
     expect(contributingDoc).toContain("`pnpm release:evidence-checklist -- --format markdown --issue <number>` / `pnpm release:evidence-checklist -- --format comment --issue <number>` / `pnpm release:evidence-checklist -- --format template --issue <number>`");
     expect(englishContributingDoc).toContain("`pnpm release:evidence-checklist -- --format markdown --issue <number>` / `pnpm release:evidence-checklist -- --format comment --issue <number>` / `pnpm release:evidence-checklist -- --format template --issue <number>`");
     expect(contributingDoc).toContain("`pnpm release:evidence-bundle -- <bundle-dir>`");
     expect(englishContributingDoc).toContain("`pnpm release:evidence-bundle -- <bundle-dir>`");
+    expect(contributingDoc).toContain("`pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> [--require-ready]`");
+    expect(englishContributingDoc).toContain("`pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> [--require-ready]`");
     expect(contributingDoc).toContain("`pnpm verify:release-evidence-template -- --input <filled-template.json>`");
     expect(englishContributingDoc).toContain("`pnpm verify:release-evidence-template -- --input <filled-template.json>`");
     expect(runbook).toContain("pnpm verify:release-evidence-template -- --input");
+    expect(runbook).toContain("pnpm.cmd verify:release-evidence-bundle");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("pnpm verify:release-evidence-template -- --input");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("pnpm.cmd verify:release-evidence-template");
+    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("pnpm.cmd verify:release-evidence-bundle");
   });
 
   it("installs Codex CLI on Windows and prompts for the optional Codex desktop app", () => {
