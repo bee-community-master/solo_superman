@@ -54,7 +54,8 @@
       "requiredEvidence": [
         "Clean Windows 11 one-line installer command reaches the local first screen.",
         "UAC elevation, Node/Git/Corepack/pnpm, WSL/Ubuntu, Codex CLI, Visual C++ runtime, desktop shortcut, rerun, and safe update paths match README and troubleshooting docs.",
-        "Failure path includes redacted support bundle and bootstrap/prod-smoke logs when any prerequisite blocks first-screen arrival."
+        "Failure path includes redacted support bundle and bootstrap/prod-smoke logs when any prerequisite blocks first-screen arrival.",
+        "When this run is passed, evidenceBundle must include device profile metadata, per-check evidence refs, first-screen evidence, support bundle summary, bootstrap log, prod-smoke log, redaction report, and passed checks."
       ],
       "unblockCriteria": [
         "Attach redacted Windows device or VM evidence to #259.",

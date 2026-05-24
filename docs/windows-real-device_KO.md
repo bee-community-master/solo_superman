@@ -27,6 +27,8 @@ pnpm verify:windows-real-device -- --require-device-evidence
 
 이 모드는 실제 general release 직전 또는 Windows lab evidence가 준비된 PR에서만 통과해야 합니다. 현재 예시 계약은 Windows device run이 `blocked`이므로 실패해야 합니다.
 
+실제 run을 `passed`로 바꾸려면 `verifiedAt`, `verifiedBy`뿐 아니라 구조화된 `evidenceBundle`도 필요합니다. `evidenceBundle`에는 Windows device profile metadata, installer command evidence ref, first-screen evidence ref, support bundle summary ref, bootstrap/prod-smoke log refs, redaction report refs, 모든 필수 check의 `passedChecks`, 그리고 각 check별 redacted evidence ref가 포함되어야 합니다.
+
 ## 필수 Windows check
 
 `deviceRuns[].requiredChecks`에는 아래 값이 모두 있어야 합니다.
@@ -47,5 +49,5 @@ pnpm verify:windows-real-device -- --require-device-evidence
 
 - #259를 닫으려면 `pnpm verify:windows-real-device -- --require-device-evidence`와 `pnpm verify:release-readiness -- --require-ready`를 통과할 수 있는 redacted Windows evidence가 필요합니다.
 - Windows 검증 중 새 blocker가 나오면 #259에 묻어두지 않고 별도 fix issue/PR로 분리합니다.
-- evidence ref는 HTTPS URL 또는 repo-relative 문서 anchor여야 하며 secret, token, cookie, credential 값을 포함하면 안 됩니다.
+- evidence ref는 HTTPS URL, `urn:solo-superman-*`, 또는 repo-relative evidence path여야 하며 unsafe scheme이나 secret, token, cookie, credential 값을 포함하면 안 됩니다.
 - Support bundle은 summary와 allowlisted environment만 첨부하고 파일 내용, 브라우저 세션, OpenAI/GitHub token, ChatGPT credential은 첨부하지 않습니다.

@@ -27,6 +27,8 @@ pnpm verify:windows-real-device -- --require-device-evidence
 
 This mode should pass only immediately before a real general release, or in a PR that has Windows lab evidence attached. The current example contract must fail because the Windows device run is still `blocked`.
 
+Changing a run to `passed` requires `verifiedAt` and `verifiedBy`, plus a structured `evidenceBundle`. The bundle must include Windows device profile metadata, installer-command evidence ref, first-screen evidence ref, support-bundle summary ref, bootstrap/prod-smoke log refs, redaction report refs, every required check in `passedChecks`, and a redacted evidence ref for each required check.
+
 ## Required Windows checks
 
 `deviceRuns[].requiredChecks` must include all of these values:
@@ -47,5 +49,5 @@ This mode should pass only immediately before a real general release, or in a PR
 
 - Closing #259 requires redacted Windows evidence strong enough for both `pnpm verify:windows-real-device -- --require-device-evidence` and `pnpm verify:release-readiness -- --require-ready` to pass.
 - Any new blocker found during Windows verification should become a separate fix issue/PR instead of being buried inside #259.
-- Evidence refs must be HTTPS URLs or repo-relative documentation anchors, and they must not include secret, token, cookie, or credential values.
+- Evidence refs must be HTTPS URLs, `urn:solo-superman-*` values, or repo-relative evidence paths, and they must not include unsafe schemes or secret, token, cookie, or credential values.
 - Support bundles may include summaries and allowlisted environment values only; do not attach file contents, browser sessions, OpenAI/GitHub tokens, or ChatGPT credentials.
