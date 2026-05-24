@@ -8,6 +8,8 @@ interface ImplementationViewProps {
   readonly controller: DecisionQueueShellController;
 }
 
+const IMPLEMENTATION_READINESS_METRIC_THRESHOLD = 75;
+
 export function ImplementationView({ controller }: ImplementationViewProps) {
   const copy = useDecisionQueueCopy();
   const {
@@ -131,6 +133,9 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         [copy.planning.scoreBreakdownLabels.consistencyAndConflict, confidence.scoreBreakdown.consistencyAndConflict]
       ] as const
     : [];
+  const readyImplementationMetricCount = implementationReadinessMetricItems.filter(
+    ([, value]) => value >= IMPLEMENTATION_READINESS_METRIC_THRESHOLD
+  ).length;
 
   return (
     <div className="view-grid implementation-view">
@@ -162,6 +167,16 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
                 <dt>{copy.implementation.startGuideGateFailures}</dt>
                 <dd>{confidence.completionCandidate.gateFailures.length}</dd>
               </div>
+              <div>
+                <dt>{copy.implementation.startGuideMetricsReady}</dt>
+                <dd>
+                  {copy.implementation.startGuideMetricsReadyCount(
+                    readyImplementationMetricCount,
+                    implementationReadinessMetricItems.length,
+                    IMPLEMENTATION_READINESS_METRIC_THRESHOLD
+                  )}
+                </dd>
+              </div>
               {implementationReadinessMetricItems.map(([label, value]) => (
                 <div key={label}>
                   <dt>{label}</dt>
@@ -169,6 +184,15 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
                 </div>
               ))}
             </dl>
+            {confidence.completionCandidate.gateFailures.length ? (
+              <ul className="effect-list" aria-label={copy.implementation.startGuideGateFailureList}>
+                {confidence.completionCandidate.gateFailures.map((failure) => (
+                  <li key={failure}>{failure}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>{copy.implementation.startGuideNoGateFailures}</p>
+            )}
           </section>
         ) : null}
         <div className="card-actions panel-actions">

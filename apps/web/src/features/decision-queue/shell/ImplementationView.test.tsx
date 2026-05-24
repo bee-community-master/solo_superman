@@ -146,6 +146,10 @@ describe("ImplementationView", () => {
     expect(markup).toContain("82% · spec_ready");
     expect(markup).toContain("Gate blockers");
     expect(markup).toContain("<dd>1</dd>");
+    expect(markup).toContain("Concrete metrics");
+    expect(markup).toContain("5/5 metric(s) at 75% or higher");
+    expect(markup).toContain("Remaining implementation gate blockers");
+    expect(markup).toContain("Evidence owner missing.");
     expect(markup).toContain("Spec sections");
     expect(markup).toContain("90%");
     expect(markup).toContain("Question debt");
