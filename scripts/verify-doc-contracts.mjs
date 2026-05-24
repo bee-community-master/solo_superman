@@ -55,6 +55,11 @@ export const PROJECT_WIKI_DOC_PATHS = [
   "omx_wiki/auto-implementation-gates.md",
   "omx_wiki/release-handoff.md"
 ];
+export const DOCS_HUB_WIKI_LINK_PATHS = [
+  "docs/README.md",
+  "docs/README_KO.md",
+  "docs/README_EN.md"
+];
 
 const DEFAULT_KO_DOC_PATH = "docs/README.md";
 
@@ -677,10 +682,14 @@ function checkProjectWikiDocsShape() {
     fail("project wiki hub missing links", missingWikiLinks);
   }
 
-  const docsHub = readText(DEFAULT_KO_DOC_PATH);
-  const docsHubEn = readText("docs/README_EN.md");
-  if (!docsHub.includes("../omx_wiki/README.md") || !docsHubEn.includes("../omx_wiki/README.md")) {
-    fail("docs hub missing project wiki link", ["docs/README.md and docs/README_EN.md must link ../omx_wiki/README.md"]);
+  const missingDocsHubWikiLinks = DOCS_HUB_WIKI_LINK_PATHS.filter(
+    (path) => !readText(path).includes("../omx_wiki/README.md")
+  );
+  if (missingDocsHubWikiLinks.length) {
+    fail(
+      "docs hub missing project wiki link",
+      missingDocsHubWikiLinks.map((path) => `${path} must link ../omx_wiki/README.md`)
+    );
   }
 }
 
