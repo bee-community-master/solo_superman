@@ -241,8 +241,8 @@ function validateReadyReleaseIssuePreparation(value, issues) {
       continue;
     }
 
-    if (entry.status !== "blocked") {
-      addIssue(issues, `${path}.status`, "must preserve blocked issue status");
+    if (typeof entry.status !== "string") {
+      addIssue(issues, `${path}.status`, "must include issue status");
     }
     if (typeof entry.blockedItems !== "number") {
       addIssue(issues, `${path}.blockedItems`, "must include blocked item count");

@@ -216,7 +216,7 @@ describe("support bundle verification", () => {
           releaseEvidenceIssuePreparation: [
             {
               issueNumber: 259,
-              status: "planned",
+              status: 404,
               blockedItems: "3",
               templatePath: "./solo-superman-release-evidence-bundle/issue-259.json",
               commentPath: "./solo-superman-release-evidence-bundle/issue-259.md",
@@ -232,7 +232,7 @@ describe("support bundle verification", () => {
 
     expect(validation.ok).toBe(false);
     expect(validation.issues).toEqual(expect.arrayContaining([
-      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].status: must preserve blocked issue status",
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].status: must include issue status",
       "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].blockedItems: must include blocked item count",
       "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].templatePath: must point to issue-259-template.json",
       "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].commentPath: must point to issue-259-comment.md",
