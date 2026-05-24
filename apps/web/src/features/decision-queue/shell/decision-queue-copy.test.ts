@@ -213,6 +213,11 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.implementation.runtimeStatusLabels.unavailable).toBe("사용 불가");
     expect(DECISION_QUEUE_COPY.ko.implementation.runtimeExecutionModeLabels.manual_handoff).toBe("수동 인계");
     expect(DECISION_QUEUE_COPY.ko.implementation.runtimeAccountStatusLabels.authenticated).toBe("로그인됨");
+    expect(DECISION_QUEUE_COPY.ko.implementation.startGuideHandoff).toBe("구현 계획 전달");
+    expect(DECISION_QUEUE_COPY.ko.implementation.startGuideNextWorker).toContain("작은 PR 단위 작업");
+    expect(DECISION_QUEUE_COPY.ko.implementation.runtimeEvidenceDetails).toBe("실행 환경 세부 정보");
+    expect(DECISION_QUEUE_COPY.ja.implementation.startGuideHandoff).toBe("実装計画の引き渡し");
+    expect(DECISION_QUEUE_COPY.ja.implementation.runtimeEvidenceDetails).toBe("実行環境の詳細");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeStatusLabels.available).toBe("利用可能");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeExecutionModeLabels.manual_handoff).toBe(
       "手動引き継ぎ"

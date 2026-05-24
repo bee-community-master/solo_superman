@@ -14,9 +14,10 @@ import {
   planningHandoffViewModel,
   runtimeActivityProjectionFromStatuses
 } from "../decision-queue-view-model";
-import { renderEnglishMarkup } from "../test-rendering";
+import { renderMarkup } from "../test-rendering";
 import { ImplementationView } from "./ImplementationView";
 import { emptyProjectionState } from "./decision-queue-shell-model";
+import type { AppLanguage } from "../../../shared/i18n/app-language";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 function codexRuntimeStatus(overrides: Partial<CodexRuntimeStatusDto> = {}): CodexRuntimeStatusDto {
@@ -40,7 +41,10 @@ function codexRuntimeStatus(overrides: Partial<CodexRuntimeStatusDto> = {}): Cod
   };
 }
 
-function renderImplementationView(controllerOverrides: Partial<DecisionQueueShellController> = {}) {
+function renderImplementationView(
+  controllerOverrides: Partial<DecisionQueueShellController> = {},
+  language: AppLanguage = "en"
+) {
   const statuses: readonly StatusEndpointDto[] = [];
   const controller = {
     commandLog: [],
@@ -84,7 +88,7 @@ function renderImplementationView(controllerOverrides: Partial<DecisionQueueShel
     ...controllerOverrides
   } satisfies Partial<DecisionQueueShellController>;
 
-  return renderEnglishMarkup(<ImplementationView controller={controller as DecisionQueueShellController} />);
+  return renderMarkup(<ImplementationView controller={controller as DecisionQueueShellController} />, language);
 }
 
 function confidenceFixture(): ConfidenceCompletionProjection {
@@ -134,6 +138,17 @@ describe("ImplementationView", () => {
     expect(markup).toContain('<button type="button" disabled="">Score completeness</button>');
     expect(markup).toContain('<button type="button" disabled="">Prepare Founder Brief</button>');
     expect(markup).toContain('<button type="button" disabled="">Run planning handoff check</button>');
+  });
+
+  it("localizes implementation handoff labels for Korean users", () => {
+    const markup = renderImplementationView({}, "ko");
+
+    expect(markup).toContain("구현 시작 경로");
+    expect(markup).toContain("구현 계획 전달");
+    expect(markup).toContain("자동 구현 작업공간 생성");
+    expect(markup).not.toContain("Planning handoff");
+    expect(markup).not.toContain("PR-sized");
+    expect(markup).not.toContain("bounded worker job");
   });
 
   it("shows implementation readiness metrics beside the start gate", () => {
