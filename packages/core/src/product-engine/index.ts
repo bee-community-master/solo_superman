@@ -1937,6 +1937,25 @@ function readableEvidenceContextExcerpt(value: string) {
   return compacted.length > 220 ? compacted.slice(0, 220).trimEnd() : compacted;
 }
 
+function researchFollowUpEvidenceContext(input: {
+  readonly proSummary: string | undefined;
+  readonly conSummary: string | undefined;
+  readonly uncertaintySummary: string | undefined;
+  readonly sourceLabel: string;
+}) {
+  return [
+    "리서치 근거 요약:",
+    input.proSummary ? `- 찬성 근거: ${readableEvidenceContextExcerpt(input.proSummary)}` : null,
+    input.conSummary ? `- 반대 근거: ${readableEvidenceContextExcerpt(input.conSummary)}` : null,
+    input.uncertaintySummary
+      ? `- 한계/불확실성: ${readableEvidenceContextExcerpt(input.uncertaintySummary)}`
+      : null,
+    `- 출처 단서: ${readableEvidenceContextExcerpt(input.sourceLabel)}`
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
+}
+
 const BROADER_RESEARCH_REQUEST_PATTERN = new RegExp(
   [
     "(?:more|broader|wider|additional|deeper)\\s+research",
@@ -2119,12 +2138,12 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
   const conSummary = evidenceMatrix.conEvidence[0]?.summary;
   const uncertaintySummary = evidenceMatrix.uncertainties[0]?.summary;
   const sourceLabel = researchResult.sourceTitle ?? researchResult.sourceUrl ?? researchResult.researchResultId;
-  const evidenceContext = [
-    proSummary ? `찬성 근거: ${readableEvidenceContextExcerpt(proSummary)}` : null,
-    conSummary ? `반대 근거: ${readableEvidenceContextExcerpt(conSummary)}` : null,
-    uncertaintySummary ? `한계/불확실성: ${readableEvidenceContextExcerpt(uncertaintySummary)}` : null,
-    `출처 단서: ${readableEvidenceContextExcerpt(sourceLabel)}`
-  ].filter((part): part is string => Boolean(part)).join(" · ");
+  const evidenceContext = researchFollowUpEvidenceContext({
+    proSummary,
+    conSummary,
+    uncertaintySummary,
+    sourceLabel
+  });
   const answerInput = {
     question,
     researchTask,
@@ -2160,7 +2179,7 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
     severity: researchTask.impact,
     summary: `리서치가 생성한 후속 질문: ${compactAnswerExcerpt(question)}`,
     whyItMatters:
-      `백그라운드/브라우저 리서치가 발견한 근거 공백을 사용자가 답변 가능한 질문으로 되돌려야 아이디어 구체화 루프가 계속됩니다. ${evidenceContext}`,
+      `백그라운드/브라우저 리서치가 발견한 근거 공백을 사용자가 답변 가능한 질문으로 되돌려야 아이디어 구체화 루프가 계속됩니다.\n\n${evidenceContext}`,
     status: "open",
     questionText: question,
     expectedAnswerType,
