@@ -1,10 +1,15 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
 import { PHASE25_QUALITY_LIFT_PROJECTION_FIXTURE, PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE } from "@solo-superman/contracts";
-import type { PlanningHandoffSourceRefDto, SessionId, StateVersion } from "@solo-superman/contracts";
+import type {
+  PlanningHandoffSourceRefDto,
+  ResearchEvidenceProjection,
+  SessionId,
+  StateVersion
+} from "@solo-superman/contracts";
 import { createProductEngineCommandService } from "./command-service";
 
 const tempDirs: string[] = [];
@@ -64,6 +69,75 @@ const missingRequiredSourceRefs = [
     stale: false
   }
 ] as const satisfies readonly PlanningHandoffSourceRefDto[];
+
+describe("ProductEngine command service research memory persistence", () => {
+  it("writes markdown research memory after evidence synthesis so later duplicate research can cite it", async () => {
+    const storage = await createMigratedStorage();
+    const researchMemoryMarkdownRoot = await makeTempAppDataDir();
+
+    try {
+      const service = createProductEngineCommandService(storage, undefined, {
+        researchMemoryMarkdownRoot
+      });
+      const start = await service.startProject({
+        rawIdea: "A command-service research memory fixture",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
+      });
+      const startProjection = start.immediateProjection as { readonly sessionId: SessionId };
+      const planned = await service.runSessionCommand({
+        sessionId: startProjection.sessionId,
+        commandType: "PlanResearch",
+        expectedStateVersion: start.stateVersionAfter as StateVersion,
+        payload: {
+          objective: "Validate broader founder urgency evidence",
+          routeOutcome: "research_needed",
+          impact: "high"
+        }
+      });
+      const research = planned.immediateProjection as ResearchEvidenceProjection;
+      const researchTaskId = research.tasks[0]?.researchTaskId;
+
+      expect(researchTaskId).toBeDefined();
+
+      const imported = await service.runSessionCommand({
+        sessionId: startProjection.sessionId,
+        commandType: "ImportResearchResult",
+        expectedStateVersion: planned.stateVersionAfter as StateVersion,
+        payload: {
+          researchTaskId,
+          result:
+            "Pro: founders report repeated planning pain. Con: some founders already use docs successfully.",
+          sourceTitle: "Founder urgency public notes",
+          sourceUrl: "https://example.com/founder-urgency",
+          sourceReliability: "medium",
+          limitationNotes: "Needs wider counter-evidence before planning-ready."
+        }
+      });
+
+      expect(imported.effectTaskIds).toHaveLength(1);
+
+      const effectResults = await service.runPendingResearchEvidenceEffects();
+      const succeededEffect = effectResults.find((result) => result.status === "succeeded");
+      const memoryPath = succeededEffect?.status === "succeeded"
+        ? succeededEffect.researchMemoryMarkdownPath
+        : undefined;
+
+      expect(memoryPath).toMatch(/^proj_[^/]+\/sess_[^/]+\/research_task_.*\.md$/);
+
+      const markdown = await readFile(join(researchMemoryMarkdownRoot, memoryPath ?? ""), "utf8");
+
+      expect(markdown).toContain("# Research memory: Validate broader founder urgency evidence");
+      expect(markdown).toContain("Founder urgency public notes");
+      expect(markdown).toContain("If the user explicitly asks for more, broader, wider, or deeper research");
+    } finally {
+      await storage.close();
+    }
+  });
+});
 
 describe("ProductEngine command service Planning Handoff persistence", () => {
   it("accepts CreatePlanningHandoff and persists blocker rows in the command transaction", async () => {
