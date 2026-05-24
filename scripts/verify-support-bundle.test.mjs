@@ -18,9 +18,36 @@ const requiredDiagnostics = [
   "signedPackageRelease",
   "signedPackageReleaseDryRun",
   "releaseReadiness",
+  "readyReleasePlan",
   "releaseEvidenceTemplate",
   "releaseEvidenceBundle"
 ];
+
+function validDiagnostic(name) {
+  const base = {
+    command: `pnpm ${name}`,
+    captureStatus: "ok",
+    evidenceStatus: name === "readyReleasePlan" ? "planned" : "passed",
+    checked: []
+  };
+  if (name !== "readyReleasePlan") {
+    return base;
+  }
+
+  return {
+    ...base,
+    command: "pnpm verify:ready-release -- --plan-only",
+    mode: "plan-only",
+    releaseEvidenceBundlePreparation: {
+      status: "planned",
+      command: "pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle"
+    },
+    plannedCommands: [
+      "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready",
+      "pnpm verify:release-readiness -- --require-ready"
+    ]
+  };
+}
 
 function validBundle(overrides = {}) {
   return {
@@ -47,12 +74,7 @@ function validBundle(overrides = {}) {
         verifySupportBundle: "node scripts/verify-support-bundle.mjs"
       }
     },
-    releaseDiagnostics: Object.fromEntries(requiredDiagnostics.map((name) => [name, {
-      command: `pnpm ${name}`,
-      captureStatus: "ok",
-      evidenceStatus: "passed",
-      checked: []
-    }])),
+    releaseDiagnostics: Object.fromEntries(requiredDiagnostics.map((name) => [name, validDiagnostic(name)])),
     env: {
       CI: "true",
       SHELL: "/bin/zsh"
@@ -60,6 +82,7 @@ function validBundle(overrides = {}) {
     recommendedChecks: [
       "pnpm verify:product-capability-readiness",
       "pnpm verify:release-readiness",
+      "pnpm verify:ready-release -- --plan-only",
       "pnpm release:evidence-checklist",
       "pnpm release:evidence-bundle -- <bundle-dir>",
       "pnpm verify:release-evidence-template",
@@ -110,6 +133,52 @@ describe("support bundle verification", () => {
     ]));
   });
 
+  it("requires ready-release plan diagnostics to stay plan-only", () => {
+    const bundle = validBundle({
+      releaseDiagnostics: {
+        ...validBundle().releaseDiagnostics,
+        readyReleasePlan: {
+          ...validDiagnostic("readyReleasePlan"),
+          captureStatus: "ok",
+          evidenceStatus: "passed"
+        }
+      }
+    });
+    const validation = validateSupportBundle(bundle);
+
+    expect(validation.ok).toBe(false);
+    expect(validation.issues).toEqual(expect.arrayContaining([
+      "$.releaseDiagnostics.readyReleasePlan.evidenceStatus: must be planned"
+    ]));
+  });
+
+  it("requires ready-release plan diagnostics to expose preparation and require-ready commands", () => {
+    const bundle = validBundle({
+      releaseDiagnostics: {
+        ...validBundle().releaseDiagnostics,
+        readyReleasePlan: {
+          ...validDiagnostic("readyReleasePlan"),
+          mode: "ready-release-gate",
+          releaseEvidenceBundlePreparation: {
+            status: "missing",
+            command: "pnpm verify:release-evidence-bundle"
+          },
+          plannedCommands: ["pnpm verify:release-readiness"]
+        }
+      }
+    });
+    const validation = validateSupportBundle(bundle);
+
+    expect(validation.ok).toBe(false);
+    expect(validation.issues).toEqual(expect.arrayContaining([
+      "$.releaseDiagnostics.readyReleasePlan.mode: must be plan-only",
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceBundlePreparation.status: must be planned",
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceBundlePreparation.command: must include pnpm release:evidence-bundle preparation command",
+      "$.releaseDiagnostics.readyReleasePlan.plannedCommands: must include release evidence bundle require-ready command",
+      "$.releaseDiagnostics.readyReleasePlan.plannedCommands: must include pnpm verify:release-readiness -- --require-ready"
+    ]));
+  });
+
   it("rejects secret-shaped bundle strings and sensitive environment names", () => {
     const bundle = validBundle({
       repo: {
@@ -143,6 +212,7 @@ describe("support bundle verification", () => {
       "$.package.scripts.verifySupportBundle: must point to verify-support-bundle.mjs",
       "$.package.scripts.verifyReadyRelease: must point to verify-ready-release.mjs",
       "$.recommendedChecks: must include pnpm verify:support-bundle",
+      "$.recommendedChecks: must include pnpm verify:ready-release -- --plan-only",
       "$.recommendedChecks: must include pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>",
       "$.recommendedChecks: must include pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> --require-ready",
       "$.recommendedChecks: must include pnpm release:evidence-bundle -- <bundle-dir>",

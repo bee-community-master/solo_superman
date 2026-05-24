@@ -31,12 +31,17 @@ const REQUIRED_DIAGNOSTICS = new Set([
   "signedPackageRelease",
   "signedPackageReleaseDryRun",
   "releaseReadiness",
+  "readyReleasePlan",
   "releaseEvidenceTemplate",
   "releaseEvidenceBundle"
 ]);
+const REQUIRED_DIAGNOSTIC_EVIDENCE_STATUS = {
+  readyReleasePlan: "planned"
+};
 const REQUIRED_RECOMMENDED_CHECKS = new Set([
   "pnpm verify:product-capability-readiness",
   "pnpm verify:release-readiness",
+  "pnpm verify:ready-release -- --plan-only",
   "pnpm release:evidence-checklist",
   "pnpm release:evidence-bundle -- <bundle-dir>",
   "pnpm verify:release-evidence-template",
@@ -146,9 +151,57 @@ function validateReleaseDiagnostics(diagnostics, issues) {
     if (diagnostic.captureStatus !== "ok") {
       addIssue(issues, `$.releaseDiagnostics.${name}.captureStatus`, "must be ok");
     }
-    if (diagnostic.evidenceStatus !== "passed") {
-      addIssue(issues, `$.releaseDiagnostics.${name}.evidenceStatus`, "must be passed");
+    const expectedEvidenceStatus = REQUIRED_DIAGNOSTIC_EVIDENCE_STATUS[name] ?? "passed";
+    if (diagnostic.evidenceStatus !== expectedEvidenceStatus) {
+      addIssue(issues, `$.releaseDiagnostics.${name}.evidenceStatus`, `must be ${expectedEvidenceStatus}`);
     }
+    if (name === "readyReleasePlan") {
+      validateReadyReleasePlanDiagnostic(diagnostic, issues);
+    }
+  }
+}
+
+function validateReadyReleasePlanDiagnostic(diagnostic, issues) {
+  if (diagnostic.mode !== "plan-only") {
+    addIssue(issues, "$.releaseDiagnostics.readyReleasePlan.mode", "must be plan-only");
+  }
+  if (!isRecord(diagnostic.releaseEvidenceBundlePreparation)) {
+    addIssue(
+      issues,
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceBundlePreparation",
+      "must include bundle preparation summary"
+    );
+  } else if (diagnostic.releaseEvidenceBundlePreparation.status !== "planned") {
+    addIssue(
+      issues,
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceBundlePreparation.status",
+      "must be planned"
+    );
+  }
+  if (typeof diagnostic.releaseEvidenceBundlePreparation?.command !== "string"
+    || !diagnostic.releaseEvidenceBundlePreparation.command.startsWith("pnpm release:evidence-bundle -- ")) {
+    addIssue(
+      issues,
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceBundlePreparation.command",
+      "must include pnpm release:evidence-bundle preparation command"
+    );
+  }
+
+  const plannedCommands = new Set(stringList(diagnostic.plannedCommands));
+  if (![...plannedCommands].some((command) => command.startsWith("pnpm verify:release-evidence-bundle -- --bundle-dir ")
+    && command.endsWith(" --require-ready"))) {
+    addIssue(
+      issues,
+      "$.releaseDiagnostics.readyReleasePlan.plannedCommands",
+      "must include release evidence bundle require-ready command"
+    );
+  }
+  if (!plannedCommands.has("pnpm verify:release-readiness -- --require-ready")) {
+    addIssue(
+      issues,
+      "$.releaseDiagnostics.readyReleasePlan.plannedCommands",
+      "must include pnpm verify:release-readiness -- --require-ready"
+    );
   }
 }
 

@@ -78,6 +78,10 @@ const SUPPORT_DIAGNOSTIC_COMMANDS = {
     command: "pnpm verify:release-readiness",
     args: ["scripts/verify-release-readiness.mjs"]
   },
+  readyReleasePlan: {
+    command: "pnpm verify:ready-release -- --plan-only",
+    args: ["scripts/verify-ready-release.mjs", "--plan-only"]
+  },
   releaseEvidenceTemplate: {
     command: "pnpm verify:release-evidence-template",
     args: ["scripts/verify-release-evidence-template.mjs"]
@@ -368,6 +372,39 @@ function compactSupportDiagnostic(name, result) {
         blockedGates: stringList(parsed.blockedGates),
         blockers: stringList(parsed.blockers)
       };
+    case "readyReleasePlan":
+      return {
+        ...summary,
+        schemaVersion: typeof parsed.schemaVersion === "string" ? parsed.schemaVersion : null,
+        mode: typeof parsed.mode === "string" ? parsed.mode : null,
+        releaseEvidenceBundleDir: typeof parsed.releaseEvidenceBundleDir === "string"
+          ? parsed.releaseEvidenceBundleDir
+          : null,
+        releaseEvidenceBundlePreparation: isRecord(parsed.releaseEvidenceBundlePreparation)
+          ? {
+              status: typeof parsed.releaseEvidenceBundlePreparation.status === "string"
+                ? parsed.releaseEvidenceBundlePreparation.status
+                : "unknown",
+              command: typeof parsed.releaseEvidenceBundlePreparation.command === "string"
+                ? parsed.releaseEvidenceBundlePreparation.command
+                : null,
+              bundleDir: typeof parsed.releaseEvidenceBundlePreparation.bundleDir === "string"
+                ? parsed.releaseEvidenceBundlePreparation.bundleDir
+                : null,
+              requiredBefore: typeof parsed.releaseEvidenceBundlePreparation.requiredBefore === "string"
+                ? parsed.releaseEvidenceBundlePreparation.requiredBefore
+                : null
+            }
+          : null,
+        plannedCommands: Array.isArray(parsed.commands)
+          ? parsed.commands
+            .filter(isRecord)
+            .map((command) => (typeof command.command === "string" ? command.command : null))
+            .filter((command) => typeof command === "string")
+          : [],
+        blockers: stringList(parsed.blockers),
+        commandBlockers: stringList(parsed.commandBlockers)
+      };
     case "releaseEvidenceTemplate":
       return {
         ...summary,
@@ -493,6 +530,7 @@ export async function createSupportBundle(options = {}) {
       "pnpm verify:signed-package-release",
       "pnpm verify:signed-package-release:dry-run",
       "pnpm verify:release-readiness",
+      "pnpm verify:ready-release -- --plan-only",
       "pnpm release:evidence-checklist",
       "pnpm release:evidence-bundle -- <bundle-dir>",
       "pnpm verify:release-evidence-template",
