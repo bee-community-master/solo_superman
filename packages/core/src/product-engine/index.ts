@@ -219,6 +219,11 @@ import {
   answerOptionsForQuestion,
   answerOptionsForSeed
 } from "./answer-options";
+import {
+  researchFollowUpAnswerOptions,
+  researchFollowUpAnswerSelectionMode,
+  researchFollowUpExpectedAnswerType
+} from "./research-follow-up-answer-shape";
 import { plainUserFacingDecisionQueueText } from "./user-facing-text";
 import {
   acceptedReduction,
@@ -2071,179 +2076,6 @@ function createFollowUpIssueForAnswer(input: {
   };
 }
 
-function researchFollowUpAnswerOption(
-  id: string,
-  label: string,
-  value: string,
-  pro: string,
-  con: string
-): AmbiguityAnswerOption {
-  return {
-    id,
-    label,
-    value,
-    pro,
-    con
-  };
-}
-
-function boundedResearchFollowUpAnswerOptions(options: readonly AmbiguityAnswerOption[]) {
-  const bounded = [...options];
-  const fallbackOptions = [
-    researchFollowUpAnswerOption(
-      "need_more_research",
-      "추가 리서치 필요",
-      "지금 답하기에는 근거가 부족하므로 더 넓은 자료를 모은다.",
-      "성급한 결정을 줄입니다.",
-      "결정 완료와 구현 시작이 늦어집니다."
-    ),
-    researchFollowUpAnswerOption(
-      "write_custom_answer",
-      "직접 서술",
-      "위 선택지보다 더 정확한 판단 기준이나 후보를 직접 적는다.",
-      "실제 상황에 맞는 세밀한 답을 남길 수 있습니다.",
-      "답변을 스펙으로 옮길 때 한 번 더 정리가 필요할 수 있습니다."
-    ),
-    researchFollowUpAnswerOption(
-      "defer_as_known_risk",
-      "리스크로 보류",
-      "지금 확정하지 않고 알려진 리스크와 다음 검증 작업으로 남긴다.",
-      "불확실성을 숨기지 않고 추적할 수 있습니다.",
-      "이번 답변만으로는 결정이 닫히지 않습니다."
-    )
-  ];
-
-  for (const fallbackOption of fallbackOptions) {
-    if (bounded.length >= 3) {
-      break;
-    }
-
-    if (!bounded.some((option) => option.id === fallbackOption.id)) {
-      bounded.push(fallbackOption);
-    }
-  }
-
-  return bounded.slice(0, 10);
-}
-
-function researchFollowUpAnswerSelectionMode(question: string): AmbiguityAnswerSelectionMode {
-  return /(?:여러|복수|모두|해당|중복|하나\s*이상|여러\s*개|둘\s*이상)/u.test(question)
-    ? "multiple"
-    : "single";
-}
-
-function isCustomerSegmentResearchFollowUp(input: {
-  readonly question: string;
-  readonly researchTask: ResearchTaskProjection;
-  readonly sourceQuestion: AmbiguityIssueSnapshot | undefined;
-}) {
-  return /(?:고객|사용자|세그먼트|segment|customer|persona|성향|후보)/iu.test(
-    [
-      input.question,
-      input.researchTask.objective,
-      input.sourceQuestion?.summary,
-      input.sourceQuestion?.questionText,
-      input.sourceQuestion?.topicKey
-    ]
-      .filter(Boolean)
-      .join(" ")
-  );
-}
-
-function researchFollowUpAnswerOptions(input: {
-  readonly question: string;
-  readonly researchTask: ResearchTaskProjection;
-  readonly sourceQuestion: AmbiguityIssueSnapshot | undefined;
-  readonly evidenceMatrix: EvidenceMatrixProjection;
-}): readonly AmbiguityAnswerOption[] {
-  const sourceOptions =
-    input.sourceQuestion?.answerOptions ??
-    answerOptionsForQuestion(input.sourceQuestion?.topicKey, input.sourceQuestion?.expectedAnswerType);
-
-  if (sourceOptions?.length && isCustomerSegmentResearchFollowUp(input)) {
-    return boundedResearchFollowUpAnswerOptions(sourceOptions);
-  }
-
-  const hasProEvidence = input.evidenceMatrix.proEvidence.length > 0;
-  const hasConEvidence = input.evidenceMatrix.conEvidence.length > 0;
-  const hasUncertainty = input.evidenceMatrix.uncertainties.length > 0;
-  const options: AmbiguityAnswerOption[] = [];
-
-  if (hasProEvidence) {
-    options.push(
-      researchFollowUpAnswerOption(
-        "pro_evidence_stronger",
-        "찬성 근거가 더 강함",
-        "현재 리서치에서는 찬성 근거가 더 강하므로 이 방향을 결정 후보로 둔다.",
-        "다음 스펙/구현 판단으로 빠르게 연결할 수 있습니다.",
-        "반대 근거가 부족하면 중요한 결정에서는 과신이 될 수 있습니다."
-      )
-    );
-  }
-
-  if (hasConEvidence) {
-    options.push(
-      researchFollowUpAnswerOption(
-        "con_evidence_stronger",
-        "반대 근거가 더 강함",
-        "현재 리서치에서는 반대 근거가 더 강하므로 범위 축소나 방향 전환 후보로 본다.",
-        "실패 가능성을 일찍 드러내고 낭비를 줄입니다.",
-        "너무 이른 축소로 좋은 기회를 놓칠 수 있습니다."
-      )
-    );
-  }
-
-  if (!hasConEvidence) {
-    options.push(
-      researchFollowUpAnswerOption(
-        "find_counter_evidence",
-        "반대 근거를 더 찾기",
-        "아직 반대 근거가 부족하므로 결론을 미루고 반례와 한계를 더 조사한다.",
-        "중요한 결정을 더 안전하게 만들 수 있습니다.",
-        "질문/리서치 루프가 한 번 더 길어집니다."
-      )
-    );
-  }
-
-  if (hasUncertainty) {
-    options.push(
-      researchFollowUpAnswerOption(
-        "resolve_uncertainty_first",
-        "불확실성부터 줄이기",
-        "한계와 불확실성이 큰 부분을 먼저 확인한 뒤 판단한다.",
-        "근거의 빈틈을 숨기지 않고 다음 행동으로 바꿉니다.",
-        "즉시 스펙을 확정하기는 어렵습니다."
-      )
-    );
-  }
-
-  options.push(
-    researchFollowUpAnswerOption(
-      "narrow_scope",
-      "범위를 좁혀 진행",
-      "전체 결론을 확정하지 않고 더 작은 고객/기능/검증 범위로 좁혀 진행한다.",
-      "다음 실험과 구현 범위가 작아집니다.",
-      "큰 시장 또는 넓은 사용 사례 검증은 뒤로 밀릴 수 있습니다."
-    ),
-    researchFollowUpAnswerOption(
-      "need_more_research",
-      "추가 리서치 필요",
-      "지금 답하기에는 근거가 부족하므로 더 넓은 자료를 모은다.",
-      "성급한 결정을 줄입니다.",
-      "결정 완료와 구현 시작이 늦어집니다."
-    ),
-    researchFollowUpAnswerOption(
-      "write_custom_answer",
-      "직접 서술",
-      "위 선택지보다 더 정확한 판단 기준이나 후보를 직접 적는다.",
-      "실제 상황에 맞는 세밀한 답을 남길 수 있습니다.",
-      "답변을 스펙으로 옮길 때 한 번 더 정리가 필요할 수 있습니다."
-    )
-  );
-
-  return boundedResearchFollowUpAnswerOptions(options);
-}
-
 function createResearchFollowUpIssueForAdditionalQuestion(input: {
   readonly sessionId: SessionId;
   readonly sourceQuestion: AmbiguityIssueSnapshot | undefined;
@@ -2293,12 +2125,14 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
     uncertaintySummary ? `한계/불확실성: ${readableEvidenceContextExcerpt(uncertaintySummary)}` : null,
     `출처 단서: ${readableEvidenceContextExcerpt(sourceLabel)}`
   ].filter((part): part is string => Boolean(part)).join(" · ");
-  const answerOptions = researchFollowUpAnswerOptions({
+  const answerInput = {
     question,
     researchTask,
     sourceQuestion,
     evidenceMatrix
-  });
+  };
+  const expectedAnswerType = researchFollowUpExpectedAnswerType(answerInput);
+  const answerOptions = researchFollowUpAnswerOptions(answerInput);
 
   return {
     queueItemId: `queue_research_followup_${questionToken}` as QueueItemId,
@@ -2329,8 +2163,8 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
       `백그라운드/브라우저 리서치가 발견한 근거 공백을 사용자가 답변 가능한 질문으로 되돌려야 아이디어 구체화 루프가 계속됩니다. ${evidenceContext}`,
     status: "open",
     questionText: question,
-    expectedAnswerType: "evidence",
-    answerSelectionMode: researchFollowUpAnswerSelectionMode(question),
+    expectedAnswerType,
+    answerSelectionMode: researchFollowUpAnswerSelectionMode(answerInput),
     answerOptions,
     decisionItUnlocks:
       `리서치 결과 “${readableEvidenceContextExcerpt(researchTask.objective)}”와 ${readableEvidenceContextExcerpt(sourceLabel)} 근거를 스펙, 근거, 구현 범위 판단으로 연결합니다.`,

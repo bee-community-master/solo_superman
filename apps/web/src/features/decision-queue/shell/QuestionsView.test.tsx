@@ -76,7 +76,7 @@ function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellCont
 }
 
 describe("QuestionsView", () => {
-  it("renders suggested answer choices with pros and cons above the free-form answer box", () => {
+  it("renders suggested answer choices with neutral decision labels above the free-form answer box", () => {
     const queue: DecisionQueueProjection = {
       kind: "DecisionQueueProjection",
       version: 1 as ProjectionVersion,
@@ -124,12 +124,53 @@ describe("QuestionsView", () => {
     expect(markup).not.toContain("Idea summary");
     expect(markup).not.toContain("Goal description");
     expect(markup).toContain("Suggested answer choices");
-    expect(markup).toContain("Pro: Fast interviews with a narrow segment.");
-    expect(markup).toContain("Con: May miss team buyer needs.");
+    expect(markup).toContain("Helps with: Fast interviews with a narrow segment.");
+    expect(markup).toContain("Watch out: May miss team buyer needs.");
+    expect(markup).not.toContain("Pro: Fast interviews with a narrow segment.");
+    expect(markup).not.toContain("Con: May miss team buyer needs.");
     expect(markup).toContain("Write a different answer if none fit");
     expect(markup.indexOf("Suggested answer choices")).toBeLessThan(
       markup.indexOf("Write a different answer if none fit")
     );
+  });
+
+  it("renders open-ended questions without forcing suggested choices", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 1 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_open_text" as QueueItemId,
+          title: "Describe the customer situation in your own words.",
+          state: "active",
+          expectedAnswerType: "text",
+          answerOptions: []
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+
+    const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        queue
+      },
+      sections: [
+        {
+          id: "active",
+          title: "Current questions",
+          emptyLabel: "No current questions.",
+          items: queue.active
+        }
+      ]
+    });
+
+    expect(markup).toContain("Describe the customer situation in your own words.");
+    expect(markup).not.toContain("Suggested answer choices");
+    expect(markup).not.toContain("Write a different answer if none fit");
+    expect(markup).toContain(">Answer</span>");
   });
 
   it("renders a bounded current-batch submit action for drafted active answers", () => {

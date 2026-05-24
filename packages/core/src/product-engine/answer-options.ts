@@ -310,6 +310,10 @@ export function answerOptionsForQuestion(
   topicKey: string | undefined,
   expectedAnswerType: AmbiguityExpectedAnswerType | undefined
 ) {
+  if (expectedAnswerType === "text") {
+    return topicKey ? TOPIC_ANSWER_OPTIONS[topicKey] ?? [] : [];
+  }
+
   return (
     (topicKey ? TOPIC_ANSWER_OPTIONS[topicKey] : undefined) ??
     (expectedAnswerType ? GENERIC_ANSWER_OPTIONS_BY_TYPE[expectedAnswerType] : undefined)

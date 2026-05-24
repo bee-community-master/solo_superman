@@ -267,6 +267,12 @@ describe("PR-04 ProductEngine reducer", () => {
           expectedAnswerType: "choice"
         }),
         expect.objectContaining({
+          sectionRef: "Problem",
+          topicKey: "problem_pain_intensity",
+          expectedAnswerType: "text",
+          answerOptions: []
+        }),
+        expect.objectContaining({
           sectionRef: "Validation Plan",
           topicKey: "acquisition_channel_realism",
           expectedAnswerType: "evidence",
