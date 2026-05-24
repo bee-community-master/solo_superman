@@ -728,6 +728,22 @@ export function AutoImplementationRunPanel({
   const workerRuntimeNextAction = run.workerRuntimeReadiness
     ? copy.autoImplementation.workerRuntimeNextActions[run.workerRuntimeReadiness.nextActionKey]
     : null;
+  const workerRuntimeStatus = run.workerRuntimeReadiness
+    ? copy.autoImplementation.workerRuntimeStatusLabels[run.workerRuntimeReadiness.status]
+    : null;
+  const workerRuntimeExecutionMode = run.workerRuntimeReadiness
+    ? copy.autoImplementation.workerRuntimeExecutionModeLabels[run.workerRuntimeReadiness.executionMode]
+    : null;
+  const workerRuntimeAccountType = run.workerRuntimeReadiness?.accountType
+    ? copy.autoImplementation.workerRuntimeAccountTypeLabels[run.workerRuntimeReadiness.accountType]
+    : null;
+  const workerRuntimeAccount = run.workerRuntimeReadiness
+    ? copy.autoImplementation.workerRuntimeAccountLabel(
+        copy.autoImplementation.workerRuntimeAccountStatusLabels[run.workerRuntimeReadiness.accountStatus],
+        workerRuntimeAccountType,
+        run.workerRuntimeReadiness.accountPlanType
+      )
+    : null;
   const workerRuntimeLiveTurns = run.workerRuntimeReadiness
     ? copy.autoImplementation.workerRuntimeLiveTurnStates[run.workerRuntimeReadiness.liveTurnsState]
     : null;
@@ -812,15 +828,15 @@ export function AutoImplementationRunPanel({
           <dl className="readiness-grid">
             <div>
               <dt>{copy.autoImplementation.workerRuntimeStatus}</dt>
-              <dd>{run.workerRuntimeReadiness.statusLabel}</dd>
+              <dd>{workerRuntimeStatus}</dd>
             </div>
             <div>
               <dt>{copy.autoImplementation.workerRuntimeExecutionMode}</dt>
-              <dd>{run.workerRuntimeReadiness.executionModeLabel}</dd>
+              <dd>{workerRuntimeExecutionMode}</dd>
             </div>
             <div>
               <dt>{copy.autoImplementation.workerRuntimeAccount}</dt>
-              <dd>{run.workerRuntimeReadiness.accountLabel}</dd>
+              <dd>{workerRuntimeAccount}</dd>
             </div>
             {run.workerRuntimeReadiness.checkedAtLabel ? (
               <div>

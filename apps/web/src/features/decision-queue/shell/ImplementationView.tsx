@@ -54,14 +54,25 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     setWorkerLedgerImportDraft
   } = controller;
   const runtimeEvidence = codexRuntimeEvidenceView(runtimeStatus);
+  const runtimeStatusLabel = copy.implementation.runtimeStatusLabels[runtimeEvidence.status];
+  const runtimeExecutionModeLabel =
+    copy.implementation.runtimeExecutionModeLabels[runtimeEvidence.executionMode];
+  const runtimeAccountTypeLabel = runtimeEvidence.accountType
+    ? copy.implementation.runtimeAccountTypeLabels[runtimeEvidence.accountType]
+    : null;
+  const runtimeAccountLabel = copy.implementation.runtimeAccountLabel(
+    copy.implementation.runtimeAccountStatusLabels[runtimeEvidence.accountStatus],
+    runtimeAccountTypeLabel,
+    runtimeEvidence.accountPlanType
+  );
   const runtimeEvidenceItems = runtimeStatus
     ? [
         [copy.implementation.runtimeCheckedAt, runtimeEvidence.checkedAtLabel],
         [copy.implementation.runtimeAdapterVersion, runtimeEvidence.adapterVersionLabel],
         [copy.implementation.runtimeGeneratedSchemaVersion, runtimeEvidence.generatedSchemaVersionLabel],
         [copy.implementation.runtimeTransport, runtimeEvidence.transportLabel],
-        [copy.implementation.runtimeExecutionMode, runtimeEvidence.executionModeLabel],
-        [copy.implementation.runtimeAccount, runtimeEvidence.accountLabel],
+        [copy.implementation.runtimeExecutionMode, runtimeExecutionModeLabel],
+        [copy.implementation.runtimeAccount, runtimeAccountLabel],
         [
           copy.implementation.runtimeLiveTurns,
           copy.implementation.runtimeLiveTurnStates[runtimeEvidence.liveTurnsState]
@@ -298,7 +309,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             {copy.implementation.refreshRuntimeStatus}
           </button>
         </div>
-        <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatus.status}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
+        <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatusLabel}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
         {runtimeStatus ? (
           <dl className="readiness-grid" aria-label={copy.implementation.runtimeEvidenceDetails}>
             {runtimeEvidenceItems.map(([label, value]) => (

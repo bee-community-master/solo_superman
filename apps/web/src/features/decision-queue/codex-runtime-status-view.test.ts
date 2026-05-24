@@ -26,8 +26,13 @@ function codexRuntimeStatus(overrides: Partial<CodexRuntimeStatusDto> = {}): Cod
 describe("codexRuntimeEvidenceView", () => {
   it("keeps unknown runtime evidence explicit before status is loaded", () => {
     expect(codexRuntimeEvidenceView(null)).toMatchObject({
+      status: "unknown",
       statusLabel: "unknown",
+      executionMode: "unknown",
       executionModeLabel: "unknown",
+      accountStatus: "unknown",
+      accountType: null,
+      accountPlanType: null,
       accountLabel: "unknown",
       checkedAtLabel: null,
       adapterVersionLabel: null,
@@ -41,8 +46,13 @@ describe("codexRuntimeEvidenceView", () => {
 
   it("formats manual handoff account and runtime fallback evidence", () => {
     expect(codexRuntimeEvidenceView(codexRuntimeStatus())).toMatchObject({
+      status: "unavailable",
       statusLabel: "unavailable",
+      executionMode: "manual_handoff",
       executionModeLabel: "manual_handoff",
+      accountStatus: "authenticated",
+      accountType: "chatgpt",
+      accountPlanType: "plus",
       accountLabel: "authenticated (chatgpt / plus)",
       checkedAtLabel: "2026-05-23T00:00:00.000Z",
       adapterVersionLabel: "codex-app-server-preview-v1",

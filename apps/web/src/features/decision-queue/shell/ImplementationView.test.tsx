@@ -180,9 +180,10 @@ describe("ImplementationView", () => {
     expect(markup).toContain("Transport");
     expect(markup).toContain("stdio");
     expect(markup).toContain("Execution mode");
-    expect(markup).toContain("manual_handoff");
+    expect(markup).toContain("manual handoff");
+    expect(markup).not.toContain("manual_handoff");
     expect(markup).toContain("Codex account");
-    expect(markup).toContain("authenticated (chatgpt / plus)");
+    expect(markup).toContain("authenticated (ChatGPT / plus)");
     expect(markup).toContain("Live turns");
     expect(markup).toContain("disabled");
     expect(markup).toContain("Manual handoff");
@@ -226,9 +227,9 @@ describe("ImplementationView", () => {
     expect(markup).toContain("Transport");
     expect(markup).toContain("stdio");
     expect(markup).toContain("Execution mode");
-    expect(markup).toContain("live");
+    expect(markup).toContain("live Codex execution");
     expect(markup).toContain("Codex account");
-    expect(markup).toContain("authenticated (chatgpt / plus)");
+    expect(markup).toContain("authenticated (ChatGPT / plus)");
     expect(markup).toContain("Live turns");
     expect(markup).toContain("enabled");
     expect(markup).toContain("Manual handoff");

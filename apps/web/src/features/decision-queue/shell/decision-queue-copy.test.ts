@@ -210,6 +210,13 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.autoImplementation.workerRuntimeAdapterVersion).toBe("Runtime adapter");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeGeneratedSchemaVersion).toBe("生成schema version");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerRuntimeTransport).toBe("Transport");
+    expect(DECISION_QUEUE_COPY.ko.implementation.runtimeStatusLabels.unavailable).toBe("사용 불가");
+    expect(DECISION_QUEUE_COPY.ko.implementation.runtimeExecutionModeLabels.manual_handoff).toBe("수동 인계");
+    expect(DECISION_QUEUE_COPY.ko.implementation.runtimeAccountStatusLabels.authenticated).toBe("로그인됨");
+    expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeStatusLabels.available).toBe("利用可能");
+    expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeExecutionModeLabels.manual_handoff).toBe(
+      "手動引き継ぎ"
+    );
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.approveLocalWorkerAuthority).toContain("권한 승인");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.missingExecutionAuthority).toContain("ExecutionAuthorityRecord");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.recordStageTick).toBe("Record current stage tick");

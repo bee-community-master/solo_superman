@@ -15,6 +15,10 @@ import type {
   BusinessCriticalQuestionCategory,
   BusinessCriticIntensity,
   BusinessCriticPressureKind,
+  CodexAccountAuthStatus,
+  CodexAccountType,
+  CodexRuntimeExecutionMode,
+  CodexRuntimeStatus,
   ProjectPurposeMode,
   ResearchQueueTerminalOutcome
 } from "@solo-superman/contracts";
@@ -32,6 +36,97 @@ function joinVisibleParts(parts: readonly (string | null)[]) {
 function commercializationAxisLabel(axis: string, labels: Readonly<Record<string, string>>) {
   return labels[axis] ?? axis.replaceAll("_", " ");
 }
+
+function localizedCodexRuntimeAccountLabel(
+  statusLabel: string,
+  accountTypeLabel: string | null,
+  planType: string | null
+) {
+  const details = [accountTypeLabel, planType].filter(Boolean).join(" / ");
+
+  return details ? `${statusLabel} (${details})` : statusLabel;
+}
+
+const EN_CODEX_RUNTIME_STATUS_LABELS = {
+  available: "available",
+  unavailable: "unavailable",
+  blocked: "blocked",
+  unknown: "unknown"
+} satisfies Record<CodexRuntimeStatus | "unknown", string>;
+
+const JA_CODEX_RUNTIME_STATUS_LABELS = {
+  available: "利用可能",
+  unavailable: "利用不可",
+  blocked: "ブロック中",
+  unknown: "不明"
+} satisfies Record<CodexRuntimeStatus | "unknown", string>;
+
+const KO_CODEX_RUNTIME_STATUS_LABELS = {
+  available: "사용 가능",
+  unavailable: "사용 불가",
+  blocked: "차단됨",
+  unknown: "알 수 없음"
+} satisfies Record<CodexRuntimeStatus | "unknown", string>;
+
+const EN_CODEX_RUNTIME_EXECUTION_MODE_LABELS = {
+  fixture: "fixture simulation",
+  live: "live Codex execution",
+  manual_handoff: "manual handoff",
+  unknown: "unknown"
+} satisfies Record<CodexRuntimeExecutionMode | "unknown", string>;
+
+const JA_CODEX_RUNTIME_EXECUTION_MODE_LABELS = {
+  fixture: "fixtureシミュレーション",
+  live: "live Codex実行",
+  manual_handoff: "手動引き継ぎ",
+  unknown: "不明"
+} satisfies Record<CodexRuntimeExecutionMode | "unknown", string>;
+
+const KO_CODEX_RUNTIME_EXECUTION_MODE_LABELS = {
+  fixture: "fixture 시뮬레이션",
+  live: "실시간 Codex 실행",
+  manual_handoff: "수동 인계",
+  unknown: "알 수 없음"
+} satisfies Record<CodexRuntimeExecutionMode | "unknown", string>;
+
+const EN_CODEX_ACCOUNT_STATUS_LABELS = {
+  authenticated: "authenticated",
+  missing: "login required",
+  unknown: "unknown",
+  blocked: "blocked"
+} satisfies Record<CodexAccountAuthStatus, string>;
+
+const JA_CODEX_ACCOUNT_STATUS_LABELS = {
+  authenticated: "ログイン済み",
+  missing: "ログインが必要",
+  unknown: "不明",
+  blocked: "ブロック中"
+} satisfies Record<CodexAccountAuthStatus, string>;
+
+const KO_CODEX_ACCOUNT_STATUS_LABELS = {
+  authenticated: "로그인됨",
+  missing: "로그인 필요",
+  unknown: "알 수 없음",
+  blocked: "차단됨"
+} satisfies Record<CodexAccountAuthStatus, string>;
+
+const EN_CODEX_ACCOUNT_TYPE_LABELS = {
+  apiKey: "API key",
+  chatgpt: "ChatGPT",
+  amazonBedrock: "Amazon Bedrock"
+} satisfies Record<CodexAccountType, string>;
+
+const JA_CODEX_ACCOUNT_TYPE_LABELS = {
+  apiKey: "API key",
+  chatgpt: "ChatGPT",
+  amazonBedrock: "Amazon Bedrock"
+} satisfies Record<CodexAccountType, string>;
+
+const KO_CODEX_ACCOUNT_TYPE_LABELS = {
+  apiKey: "API key",
+  chatgpt: "ChatGPT",
+  amazonBedrock: "Amazon Bedrock"
+} satisfies Record<CodexAccountType, string>;
 
 const EN_AUTO_IMPLEMENTATION_REMOTE_STATUS_LABELS = {
   connected: "connected",
@@ -763,6 +858,11 @@ const EN_COPY = {
     runtimeAccount: "Codex account",
     runtimeLiveTurns: "Live turns",
     runtimeManualHandoff: "Manual handoff",
+    runtimeStatusLabels: EN_CODEX_RUNTIME_STATUS_LABELS,
+    runtimeExecutionModeLabels: EN_CODEX_RUNTIME_EXECUTION_MODE_LABELS,
+    runtimeAccountStatusLabels: EN_CODEX_ACCOUNT_STATUS_LABELS,
+    runtimeAccountTypeLabels: EN_CODEX_ACCOUNT_TYPE_LABELS,
+    runtimeAccountLabel: localizedCodexRuntimeAccountLabel,
     runtimeLiveTurnStates: {
       enabled: "enabled",
       disabled: "disabled",
@@ -869,6 +969,11 @@ const EN_COPY = {
     workerRuntimeTransport: "Transport",
     workerRuntimeLiveTurns: "Live turns",
     workerRuntimeManualHandoff: "Manual handoff",
+    workerRuntimeStatusLabels: EN_CODEX_RUNTIME_STATUS_LABELS,
+    workerRuntimeExecutionModeLabels: EN_CODEX_RUNTIME_EXECUTION_MODE_LABELS,
+    workerRuntimeAccountStatusLabels: EN_CODEX_ACCOUNT_STATUS_LABELS,
+    workerRuntimeAccountTypeLabels: EN_CODEX_ACCOUNT_TYPE_LABELS,
+    workerRuntimeAccountLabel: localizedCodexRuntimeAccountLabel,
     workerRuntimeLiveTurnStates: {
       enabled: "enabled",
       disabled: "disabled",
@@ -1965,6 +2070,11 @@ const JA_COPY: typeof EN_COPY = {
     runtimeAccount: "Codexアカウント",
     runtimeLiveTurns: "Live turns",
     runtimeManualHandoff: "手動引き継ぎ",
+    runtimeStatusLabels: JA_CODEX_RUNTIME_STATUS_LABELS,
+    runtimeExecutionModeLabels: JA_CODEX_RUNTIME_EXECUTION_MODE_LABELS,
+    runtimeAccountStatusLabels: JA_CODEX_ACCOUNT_STATUS_LABELS,
+    runtimeAccountTypeLabels: JA_CODEX_ACCOUNT_TYPE_LABELS,
+    runtimeAccountLabel: localizedCodexRuntimeAccountLabel,
     runtimeLiveTurnStates: {
       enabled: "有効",
       disabled: "無効",
@@ -2062,6 +2172,11 @@ const JA_COPY: typeof EN_COPY = {
     workerRuntimeTransport: "Transport",
     workerRuntimeLiveTurns: "Live turns",
     workerRuntimeManualHandoff: "手動引き継ぎ",
+    workerRuntimeStatusLabels: JA_CODEX_RUNTIME_STATUS_LABELS,
+    workerRuntimeExecutionModeLabels: JA_CODEX_RUNTIME_EXECUTION_MODE_LABELS,
+    workerRuntimeAccountStatusLabels: JA_CODEX_ACCOUNT_STATUS_LABELS,
+    workerRuntimeAccountTypeLabels: JA_CODEX_ACCOUNT_TYPE_LABELS,
+    workerRuntimeAccountLabel: localizedCodexRuntimeAccountLabel,
     workerRuntimeLiveTurnStates: {
       enabled: "有効",
       disabled: "無効",
@@ -3156,6 +3271,11 @@ const KO_COPY: typeof EN_COPY = {
     runtimeAccount: "Codex 계정",
     runtimeLiveTurns: "Live turns",
     runtimeManualHandoff: "수동 인계",
+    runtimeStatusLabels: KO_CODEX_RUNTIME_STATUS_LABELS,
+    runtimeExecutionModeLabels: KO_CODEX_RUNTIME_EXECUTION_MODE_LABELS,
+    runtimeAccountStatusLabels: KO_CODEX_ACCOUNT_STATUS_LABELS,
+    runtimeAccountTypeLabels: KO_CODEX_ACCOUNT_TYPE_LABELS,
+    runtimeAccountLabel: localizedCodexRuntimeAccountLabel,
     runtimeLiveTurnStates: {
       enabled: "활성",
       disabled: "비활성",
@@ -3253,6 +3373,11 @@ const KO_COPY: typeof EN_COPY = {
     workerRuntimeTransport: "Transport",
     workerRuntimeLiveTurns: "Live turns",
     workerRuntimeManualHandoff: "수동 인계",
+    workerRuntimeStatusLabels: KO_CODEX_RUNTIME_STATUS_LABELS,
+    workerRuntimeExecutionModeLabels: KO_CODEX_RUNTIME_EXECUTION_MODE_LABELS,
+    workerRuntimeAccountStatusLabels: KO_CODEX_ACCOUNT_STATUS_LABELS,
+    workerRuntimeAccountTypeLabels: KO_CODEX_ACCOUNT_TYPE_LABELS,
+    workerRuntimeAccountLabel: localizedCodexRuntimeAccountLabel,
     workerRuntimeLiveTurnStates: {
       enabled: "활성",
       disabled: "비활성",

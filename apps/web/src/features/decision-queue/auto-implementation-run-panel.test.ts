@@ -440,9 +440,10 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("Runtime status");
     expect(markup).toContain("unavailable");
     expect(markup).toContain("Execution mode");
-    expect(markup).toContain("manual_handoff");
+    expect(markup).toContain("manual handoff");
+    expect(markup).not.toContain("manual_handoff");
     expect(markup).toContain("Codex account");
-    expect(markup).toContain("authenticated (chatgpt / plus)");
+    expect(markup).toContain("authenticated (ChatGPT / plus)");
     expect(markup).toContain("Checked at");
     expect(markup).toContain("2026-05-23T00:00:00.000Z");
     expect(markup).toContain("Runtime adapter");
@@ -457,6 +458,12 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("available");
     expect(markup).toContain("SOLO_CODEX_APP_SERVER_LIVE_TURNS=1");
     expect(markup).toContain("import its ledger evidence");
+
+    const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
+
+    expect(koreanMarkup).toContain("사용 불가");
+    expect(koreanMarkup).toContain("로그인됨 (ChatGPT / plus)");
+    expect(koreanMarkup).not.toContain("manual_handoff");
   });
 
   it("shows live worker execution readiness when Codex runtime is enabled", () => {
