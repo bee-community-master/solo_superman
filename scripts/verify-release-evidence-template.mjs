@@ -111,7 +111,7 @@ function aggregateFixtureValidations(validations) {
       "filled release evidence templates for every blocked release issue",
       "all required checks, evidence, and unblock criteria are passed per issue",
       "placeholder fields are replaced with redacted evidence refs and notes per issue",
-      "operator verification metadata, redaction confirmation, and ready-release command coverage are present per issue",
+      "operator verification metadata, redaction confirmation, ready-release command coverage, and ready-release result blockers are present per issue",
       "filled templates are secret-free"
     ]
   };

@@ -351,7 +351,12 @@ function templateItem(item) {
       verifiedAt: "<UTC ISO timestamp>",
       verifiedBy: ["<release lab operator or CI run id>"],
       redactionConfirmed: false,
-      readyReleaseCommandsRun: []
+      readyReleaseCommandsRun: [],
+      readyReleaseResult: {
+        status: "pending",
+        commandBlockers: ["<aggregate commandBlockers or none>"],
+        perCommandBlockers: ["<matching command blockers or none>"]
+      }
     }
   };
 }
@@ -458,6 +463,19 @@ function checklistItemsById(checklist) {
   return new Map((checklist?.checklistItems ?? []).map((item) => [item.itemId, item]));
 }
 
+function validateReadyReleaseResult(value, path, issues) {
+  if (!isRecord(value)) {
+    issues.push(`${path} must be an object.`);
+    return;
+  }
+
+  if (value.status !== "passed" && value.status !== "blocked") {
+    issues.push(`${path}.status must be "passed" or "blocked".`);
+  }
+  requireFilledStringList(value.commandBlockers, `${path}.commandBlockers`, issues);
+  requireFilledStringList(value.perCommandBlockers, `${path}.perCommandBlockers`, issues);
+}
+
 function validateTemplateItem(item, index, issues, expectedItem, requiredReadyReleaseCommands) {
   const path = `$.items[${index}]`;
   if (!isRecord(item)) {
@@ -498,6 +516,7 @@ function validateTemplateItem(item, index, issues, expectedItem, requiredReadyRe
     requiredReadyReleaseCommands,
     "ready-release command"
   );
+  validateReadyReleaseResult(item.verification.readyReleaseResult, `${path}.verification.readyReleaseResult`, issues);
 }
 
 export function validateReleaseEvidenceTemplate(template, options = {}) {
@@ -586,7 +605,7 @@ export function validateReleaseEvidenceTemplate(template, options = {}) {
       "filled release evidence template schema",
       "all required checks, evidence, and unblock criteria are passed",
       "placeholder fields are replaced with redacted evidence refs and notes",
-      "operator verification metadata, redaction confirmation, and ready-release command coverage are present",
+      "operator verification metadata, redaction confirmation, ready-release command coverage, and ready-release result blockers are present",
       "filled template is secret-free"
     ]
   };
@@ -623,7 +642,12 @@ export function buildFilledReleaseEvidenceTemplateFixture(template, options = {}
         verifiedAt,
         verifiedBy: ["solo-superman-fixture-release-lab"],
         redactionConfirmed: true,
-        readyReleaseCommandsRun: [...template.readyReleaseCommands]
+        readyReleaseCommandsRun: [...template.readyReleaseCommands],
+        readyReleaseResult: {
+          status: "passed",
+          commandBlockers: ["none"],
+          perCommandBlockers: ["none"]
+        }
       }
     })),
     summary: {
