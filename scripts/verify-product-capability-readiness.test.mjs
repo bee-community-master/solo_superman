@@ -187,7 +187,7 @@ describe("product capability readiness verification", () => {
     ]));
   });
 
-  it("requires auto-implementation readiness to name generated PR body summary coverage", () => {
+  it("requires auto-implementation readiness to name live runtime and generated PR body coverage", () => {
     const contract = codeBackedContract({
       capabilities: codeBackedContract().capabilities.map((capability) =>
         capability.id === "auto-implementation-review-loop"
@@ -292,7 +292,7 @@ describe("product capability readiness verification", () => {
     ]));
   });
 
-  it("requires supporting commands to include safe support and ready-release plan checks", () => {
+  it("requires supporting commands to include live runtime, safe support, and ready-release plan checks", () => {
     const contract = codeBackedContract({
       requiredVerificationCommands: {
         defaultSuite: codeBackedContract().requiredVerificationCommands.defaultSuite,
