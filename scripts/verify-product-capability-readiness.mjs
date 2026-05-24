@@ -117,6 +117,7 @@ const REQUIRED_CAPABILITY_BEHAVIOR_SNIPPETS = new Map([
       "ready-release plan-only",
       "bundle preparation command",
       "planned command list",
+      "release evidence blocker summary",
       "issue-specific handoff"
     ]
   ]

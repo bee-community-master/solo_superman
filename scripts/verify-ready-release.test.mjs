@@ -5,6 +5,7 @@ import {
   extractReadyReleaseCommandBlockers,
   parseReadyReleaseArgs,
   readyReleaseSteps,
+  releaseEvidenceBlockerSummary,
   releaseEvidenceIssuePreparation,
   runReadyReleaseVerification
 } from "./verify-ready-release.mjs";
@@ -39,6 +40,13 @@ describe("ready release aggregate verification", () => {
         id: "release-evidence-bundle-preparation",
         status: "unchecked",
         command: "pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle"
+      },
+      releaseEvidenceBlockerSummary: {
+        status: "unknown",
+        issueCount: 0,
+        blockedIssueCount: 0,
+        totalItemCount: 0,
+        blockedItemCount: 0
       },
       blockers: [],
       commandBlockers: []
@@ -201,6 +209,15 @@ describe("ready release aggregate verification", () => {
         command: "pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle",
         requiredBefore: "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready"
       },
+      releaseEvidenceBlockerSummary: {
+        status: "blocked",
+        issueNumbers: [259, 266, 267],
+        blockedIssueNumbers: [259, 266, 267],
+        issueCount: 3,
+        blockedIssueCount: 3,
+        totalItemCount: 9,
+        blockedItemCount: 9
+      },
       blockers: [],
       commandBlockers: []
     });
@@ -229,8 +246,31 @@ describe("ready release aggregate verification", () => {
     expect(evidence.commands.every((command) => command.status === "planned")).toBe(true);
     expect(evidence.commands.every((command) => command.blockers.length === 0)).toBe(true);
     expect(evidence.checked).toContain(
+      "plan-only release evidence blocker summary reports blocker issue and blocked item counts before release-lab handoff"
+    );
+    expect(evidence.checked).toContain(
       "issue-specific release evidence templates, comments, and validation commands are surfaced before release-lab handoff"
     );
+  });
+
+  it("summarizes release evidence blocker issues and item counts for operator handoff", async () => {
+    const checklist = buildReleaseEvidenceChecklist(await loadReleaseEvidenceContracts(), {
+      now: new Date("2026-05-24T00:00:00.000Z")
+    });
+    const issuePrep = releaseEvidenceIssuePreparation(checklist, {
+      releaseEvidenceBundleDir: "./filled-release-bundle"
+    });
+
+    expect(releaseEvidenceBlockerSummary(issuePrep)).toMatchObject({
+      status: "blocked",
+      issueNumbers: [259, 266, 267],
+      blockedIssueNumbers: [259, 266, 267],
+      issueCount: 3,
+      blockedIssueCount: 3,
+      totalItemCount: 9,
+      blockedItemCount: 9,
+      nextAction: expect.stringContaining("release evidence bundle")
+    });
   });
 
   it("builds issue-specific release evidence preparation records for the selected bundle directory", async () => {

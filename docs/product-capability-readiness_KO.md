@@ -27,7 +27,7 @@ pnpm verify:product-capability-readiness -- --require-code-backed
 | `browser-service-boundary` | `pnpm verify:browser-delegation-pipeline`, `pnpm verify:service-page-pipeline`, `pnpm verify:production-mutation-contract` |
 | `auto-implementation-review-loop` | runtime preview, opt-in `pnpm verify:codex-live-runtime` readiness evidence, worker job, PR mutation body summary, feature/repository code-review와 changed-code/repository clean-code의 2회 연속 no-finding gate, zero-gap missing-test audit, `merge_main` 전 전체 검증 명령이 담긴 최종 PR body 갱신, aggregate pipeline smoke |
 | `technical-preview-release-guardrails` | `pnpm verify:prod-bundle`, `pnpm verify:release-readiness` |
-| `local-error-reporting` | `pnpm verify:support-bundle`이 credential-free support diagnostics bundle, redaction, compact product/release diagnostics, ready-release plan-only summary, bundle preparation command, planned command list, issue-specific handoff를 검증 |
+| `local-error-reporting` | `pnpm verify:support-bundle`이 credential-free support diagnostics bundle, redaction, compact product/release diagnostics, ready-release plan-only summary, bundle preparation command, planned command list, release evidence blocker summary count, issue-specific handoff를 검증 |
 
 ## 계약 규칙
 

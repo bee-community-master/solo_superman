@@ -142,6 +142,16 @@ function fakeCommandRunner(command, args) {
         bundleDir: "./solo-superman-release-evidence-bundle",
         requiredBefore: "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready"
       },
+      releaseEvidenceBlockerSummary: {
+        status: "blocked",
+        issueNumbers: [259, 266, 267],
+        blockedIssueNumbers: [259, 266, 267],
+        issueCount: 3,
+        blockedIssueCount: 3,
+        totalItemCount: 9,
+        blockedItemCount: 9,
+        nextAction: "Prepare the release evidence bundle, fill each blocked issue template with redacted release-lab evidence, validate templates, then run ready-release with the filled bundle."
+      },
       releaseEvidenceIssuePreparation: fakeReadyReleaseIssuePreparation(),
       ignoredVerboseLog: `diagnostic-padding-${"x".repeat(5_000)}`,
       blockers: [],
@@ -413,6 +423,16 @@ describe("support diagnostics bundle", () => {
         command: "pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle",
         bundleDir: "./solo-superman-release-evidence-bundle",
         requiredBefore: "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready"
+      },
+      releaseEvidenceBlockerSummary: {
+        status: "blocked",
+        issueNumbers: ["259", "266", "267"],
+        blockedIssueNumbers: ["259", "266", "267"],
+        issueCount: 3,
+        blockedIssueCount: 3,
+        totalItemCount: 9,
+        blockedItemCount: 9,
+        nextAction: expect.stringContaining("release evidence bundle")
       },
       releaseEvidenceIssuePreparation: fakeReadyReleaseIssuePreparation().map((entry) =>
         expect.objectContaining({
