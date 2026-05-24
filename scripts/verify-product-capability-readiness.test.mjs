@@ -39,6 +39,16 @@ function researchEvidenceCheckedBehaviors() {
   ];
 }
 
+function planningReadinessCheckedBehaviors() {
+  return [
+    "Completeness keeps question debt and source-trace gaps from being labelled Planning-ready.",
+    "Completion requires Composite score is 85 or higher before software implementation starts.",
+    "Completion requires Most confidence axes are 75 or higher so most readiness metrics are concrete.",
+    "Confidence and if-stop-now risk/action artifacts remain visible for readiness decisions.",
+    "Planning Handoff carries research follow-up provenance into build-slice evidence."
+  ];
+}
+
 function codeBackedContract(overrides = {}) {
   return {
     schemaVersion: PRODUCT_CAPABILITY_READINESS_SCHEMA_VERSION,
@@ -82,7 +92,9 @@ function codeBackedContract(overrides = {}) {
       codeBackedCapability("planning-readiness-gates", [
         "pnpm verify:clarification-pipeline",
         "pnpm verify:research-pipeline"
-      ]),
+      ], {
+        checkedBehaviors: planningReadinessCheckedBehaviors()
+      }),
       codeBackedCapability("browser-service-boundary", [
         "pnpm verify:browser-delegation-pipeline",
         "pnpm verify:service-page-pipeline",
@@ -142,7 +154,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including mounted research provider polling, answer-form variety for research follow-up questions, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including mounted research provider polling, answer-form variety for research follow-up questions, planning readiness score/axis gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
@@ -220,6 +232,31 @@ describe("product capability readiness verification", () => {
       "$.capabilities[1].checkedBehaviors: must mention Mounted web_search_readonly provider polling",
       "$.capabilities[1].checkedBehaviors: must mention source-traced result import",
       "$.capabilities[1].checkedBehaviors: must mention Research-generated follow-up questions"
+    ]));
+  });
+
+  it("requires planning readiness to name score and confidence-axis gates", () => {
+    const contract = codeBackedContract({
+      capabilities: codeBackedContract().capabilities.map((capability) =>
+        capability.id === "planning-readiness-gates"
+          ? {
+              ...capability,
+              checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
+                !behavior.includes("Composite score") &&
+                !behavior.includes("Most confidence axes") &&
+                !behavior.includes("question debt")
+              )
+            }
+          : capability
+      )
+    });
+    const result = validateProductCapabilityReadinessContract(contract);
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual(expect.arrayContaining([
+      "$.capabilities[2].checkedBehaviors: must mention Composite score is 85 or higher",
+      "$.capabilities[2].checkedBehaviors: must mention Most confidence axes are 75 or higher",
+      "$.capabilities[2].checkedBehaviors: must mention question debt"
     ]));
   });
 

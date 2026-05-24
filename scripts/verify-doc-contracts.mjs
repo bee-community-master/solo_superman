@@ -885,6 +885,8 @@ function checkContributorDocsSnippets() {
     "research-evidence-loop",
     "answer-form variety",
     "planning-readiness-gates",
+    "Composite score is 85 or higher",
+    "Most confidence axes are 75 or higher",
     "browser-service-boundary",
     "auto-implementation-review-loop",
     "technical-preview-release-guardrails",

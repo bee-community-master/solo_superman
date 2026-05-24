@@ -83,6 +83,7 @@
         "docs/product_KO.md#ux-원칙",
         "apps/sidecar/src/clarification-pipeline-smoke.ts",
         "apps/sidecar/src/research-pipeline-smoke.ts",
+        "packages/core/src/completeness/completeness.test.ts",
         "packages/contracts/src/projections/planning-handoff.ts",
         "apps/web/src/features/decision-queue/shell/PlanningView.tsx"
       ],
@@ -92,6 +93,8 @@
       ],
       "checkedBehaviors": [
         "Completeness keeps question debt and source-trace gaps from being labelled Planning-ready.",
+        "Completeness requires Composite score is 85 or higher before a completion candidate can become implementation-ready.",
+        "Completeness requires Most confidence axes are 75 or higher so most readiness metrics are concrete before software implementation starts.",
         "Confidence and if-stop-now risk/action artifacts remain visible for readiness decisions.",
         "Planning Handoff carries research follow-up provenance into build-slice evidence.",
         "Blocker artifacts use explicit source-trace incomplete states when evidence is insufficient."
