@@ -253,8 +253,18 @@ function completedStageLedgerEvidence(stage: AutoImplementationStage): AutoImple
     trackerDocRef: "implementation-step-ledger:tracker:pr-mutation-smoke",
     stepDocRef: `implementation-step-ledger:step:${stage}`,
     implementationEvidenceRefs: [`commit:${stage}:abcdef1`],
-    codeReviewStreakRefs: [`code-review:${stage}:1`, `code-review:${stage}:2`],
-    cleanCodeReviewStreakRefs: [`clean-code-review:${stage}:1`, `clean-code-review:${stage}:2`],
+    codeReviewStreakRefs: [
+      `code-review:feature:${stage}:1`,
+      `code-review:feature:${stage}:2`,
+      `code-review:repository:${stage}:1`,
+      `code-review:repository:${stage}:2`
+    ],
+    cleanCodeReviewStreakRefs: [
+      `clean-code-review:changed_code:${stage}:1`,
+      `clean-code-review:changed_code:${stage}:2`,
+      `clean-code-review:repository:${stage}:1`,
+      `clean-code-review:repository:${stage}:2`
+    ],
     missingTestAuditRefs: [`missing-test-audit:${stage}:coverage`],
     testEvidenceRefs: [`test:${stage}:verify`],
     blockerEvidenceRefs: [],

@@ -1,5 +1,8 @@
 import type { ProjectionVersion, SchemaVersion, SessionId } from "../ids";
 import {
+  IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES,
+  IMPLEMENTATION_CODE_REVIEW_SCOPES,
+  IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK,
   isImplementationStepLedgerStepDoc,
   isImplementationStepLedgerTrackerDoc,
   type ImplementationStepDoc,
@@ -826,6 +829,17 @@ function isStageBlocker(value: unknown): value is AutoImplementationStageBlocker
     value.evidenceRefs.length > 0;
 }
 
+function reviewStreakRefsCoverScopes(
+  refs: readonly string[],
+  prefix: string,
+  scopes: readonly string[]
+) {
+  return scopes.every((scope) =>
+    refs.filter((ref) => ref.startsWith(`${prefix}:${scope}:`)).length >=
+      IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK
+  );
+}
+
 function isStageLedgerEvidence(value: unknown): value is AutoImplementationStageLedgerEvidence {
   return isRecord(value) &&
     isNonEmptyString(value.implementationStepId) &&
@@ -834,9 +848,13 @@ function isStageLedgerEvidence(value: unknown): value is AutoImplementationStage
     isStringArray(value.implementationEvidenceRefs) &&
     value.implementationEvidenceRefs.length > 0 &&
     isStringArray(value.codeReviewStreakRefs) &&
-    value.codeReviewStreakRefs.length >= 2 &&
+    reviewStreakRefsCoverScopes(value.codeReviewStreakRefs, "code-review", IMPLEMENTATION_CODE_REVIEW_SCOPES) &&
     isStringArray(value.cleanCodeReviewStreakRefs) &&
-    value.cleanCodeReviewStreakRefs.length >= 2 &&
+    reviewStreakRefsCoverScopes(
+      value.cleanCodeReviewStreakRefs,
+      "clean-code-review",
+      IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES
+    ) &&
     isStringArray(value.missingTestAuditRefs) &&
     value.missingTestAuditRefs.length > 0 &&
     isStringArray(value.testEvidenceRefs) &&

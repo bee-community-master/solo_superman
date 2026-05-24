@@ -324,8 +324,18 @@ describe("AutoImplementationRunProjection contract", () => {
               trackerDocRef: "implementation-step-ledger:tracker:tracker_demo",
               stepDocRef: "implementation-step-ledger:step:step_demo",
               implementationEvidenceRefs: ["commit:abcdef1"],
-              codeReviewStreakRefs: ["code-review:feature:clean-1", "code-review:feature:clean-2"],
-              cleanCodeReviewStreakRefs: ["clean-code:changed:clean-1", "clean-code:changed:clean-2"],
+              codeReviewStreakRefs: [
+                "code-review:feature:clean-1",
+                "code-review:feature:clean-2",
+                "code-review:repository:clean-1",
+                "code-review:repository:clean-2"
+              ],
+              cleanCodeReviewStreakRefs: [
+                "clean-code-review:changed_code:clean-1",
+                "clean-code-review:changed_code:clean-2",
+                "clean-code-review:repository:clean-1",
+                "clean-code-review:repository:clean-2"
+              ],
               missingTestAuditRefs: ["missing-test-audit:verify"],
               testEvidenceRefs: ["test:verify"],
               blockerEvidenceRefs: [],
@@ -580,6 +590,36 @@ describe("AutoImplementationRunProjection contract", () => {
           status: "completed",
           evidenceRefs: ["stage:complete:initial_pr"]
         }
+        : stage)
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects completed stages when review streak refs do not cover every required review scope twice", () => {
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      stagePlan: readyRun.stagePlan.map((stage, index) => index === 0
+        ? {
+            ...stage,
+            status: "completed",
+            evidenceRefs: ["stage:complete:initial_pr"],
+            ledgerEvidence: {
+              implementationStepId: "step_demo",
+              trackerDocRef: "implementation-step-ledger:tracker:tracker_demo",
+              stepDocRef: "implementation-step-ledger:step:step_demo",
+              implementationEvidenceRefs: ["commit:abcdef1"],
+              codeReviewStreakRefs: ["code-review:feature:clean-1", "code-review:feature:clean-2"],
+              cleanCodeReviewStreakRefs: [
+                "clean-code-review:changed_code:clean-1",
+                "clean-code-review:changed_code:clean-2"
+              ],
+              missingTestAuditRefs: ["missing-test-audit:verify"],
+              testEvidenceRefs: ["test:verify"],
+              blockerEvidenceRefs: [],
+              evidenceRefs: ["implementation-step-ledger:step_demo"]
+            }
+          }
         : stage)
     });
 
