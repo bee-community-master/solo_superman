@@ -200,7 +200,7 @@ describe("research follow-up answer flow", () => {
   it("keeps answer-form policy follow-ups open instead of generating bogus choices", () => {
     const { activeQueueItem, followUpIssue } = synthesizeResearchFollowUp({
       objective:
-        "모든 내용이 찬성과 반대가 되는 게 아니라 객관식으로 찬성/반대를 할 수도 있고, 여러 종류 중 하나 혹은 여러 개를 선택해야 할 수도 있습니다. 답변을 다양하게 필요에 맞게 구성",
+        "모든 내용이 찬성과 반대가 되는 게 아니라 open question으로 주관식이나 서술형 답변을 요구할 수도 있고 객관식으로 찬성/반대를 할 수도 있고, 여러 종류중 하나 혹은 여러개를 선택해야할 수도 있습니다. 답변을 다양하게 필요에 맞게 구성할 수 있어야 합니다.",
       result: "Pro: different question types need different input formats.",
       limitationNotes: "The exact answer form should follow the concrete question intent."
     });

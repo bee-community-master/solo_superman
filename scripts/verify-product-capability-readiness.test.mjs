@@ -34,7 +34,8 @@ function researchEvidenceCheckedBehaviors() {
     "Read-only public-web research runs require an active allowlist and bounded concurrency.",
     "Mounted web_search_readonly provider polling proves source-traced result import before evidence matrices and evidence packs are synthesized.",
     "Research review cards retain source traces and expose pro/con/uncertainty quality gates.",
-    "Research-generated follow-up questions return to the Decision Queue as answerable debt."
+    "Research-generated follow-up questions return to the Decision Queue as answerable debt.",
+    "Research-generated follow-up questions preserve answer-form variety instead of forcing every answer into pro/con stance."
   ];
 }
 
@@ -141,7 +142,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including mounted research provider polling, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including mounted research provider polling, answer-form variety for research follow-up questions, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
