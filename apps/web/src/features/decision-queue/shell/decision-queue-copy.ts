@@ -767,6 +767,18 @@ const EN_COPY = {
     workerPlanMissingEvidence: "Missing evidence",
     workerPlanEvidenceRefs: "Job evidence refs",
     missingExecutionAuthority: "Missing ExecutionAuthorityRecord",
+    workspaceLabel: (workspacePath: string | null): string => workspacePath
+      ? `Workspace: ${workspacePath}`
+      : "workspace/<project> is not prepared",
+    remoteLabel: (remoteStatus: string | null): string => remoteStatus
+      ? `Remote: ${remoteStatus}`
+      : "Remote: not checked",
+    nextTickLabel: (nextTickAt: string | null): string => nextTickAt
+      ? `Next 5-minute tick: ${nextTickAt}`
+      : "Next 5-minute tick: not scheduled",
+    issueModeLabel: (issueMode: string | null): string => issueMode
+      ? `Issue mode: ${issueMode}`
+      : "Issue mode: not selected",
     stagePlan: "5-minute stage plan",
     reviewProtocol: "Review and merge protocol",
     planningIssueFiles: "Planning-derived PR/issue files",
@@ -1913,6 +1925,18 @@ const JA_COPY: typeof EN_COPY = {
     workerPlanMissingEvidence: "不足している根拠",
     workerPlanEvidenceRefs: "Job確認資料",
     missingExecutionAuthority: "ExecutionAuthorityRecord未作成",
+    workspaceLabel: (workspacePath: string | null): string => workspacePath
+      ? `Workspace: ${workspacePath}`
+      : "workspace/<project>はまだ準備されていません",
+    remoteLabel: (remoteStatus: string | null): string => remoteStatus
+      ? `リモート: ${remoteStatus}`
+      : "リモート: 未確認",
+    nextTickLabel: (nextTickAt: string | null): string => nextTickAt
+      ? `次の5分tick: ${nextTickAt}`
+      : "次の5分tick: 未スケジュール",
+    issueModeLabel: (issueMode: string | null): string => issueMode
+      ? `Issueモード: ${issueMode}`
+      : "Issueモード: 未選択",
     stagePlan: "5分間隔のステージ計画",
     reviewProtocol: "レビューとマージの手順",
     planningIssueFiles: "計画由来のPR/Issueファイル",
@@ -3057,6 +3081,18 @@ const KO_COPY: typeof EN_COPY = {
     workerPlanMissingEvidence: "누락된 근거",
     workerPlanEvidenceRefs: "Job 근거 참조",
     missingExecutionAuthority: "ExecutionAuthorityRecord 누락",
+    workspaceLabel: (workspacePath: string | null): string => workspacePath
+      ? `작업공간: ${workspacePath}`
+      : "workspace/<project>가 아직 준비되지 않았습니다",
+    remoteLabel: (remoteStatus: string | null): string => remoteStatus
+      ? `원격 저장소: ${remoteStatus}`
+      : "원격 저장소: 아직 확인되지 않음",
+    nextTickLabel: (nextTickAt: string | null): string => nextTickAt
+      ? `다음 5분 tick: ${nextTickAt}`
+      : "다음 5분 tick: 아직 예약되지 않음",
+    issueModeLabel: (issueMode: string | null): string => issueMode
+      ? `이슈 모드: ${issueMode}`
+      : "이슈 모드: 아직 선택되지 않음",
     stagePlan: "5분 단위 단계 계획",
     reviewProtocol: "리뷰와 머지 프로토콜",
     planningIssueFiles: "계획에서 나온 PR/이슈 파일",

@@ -98,9 +98,13 @@ export interface AutoImplementationRunViewModel {
   readonly status: string;
   readonly summary: string;
   readonly workspaceLabel: string;
+  readonly workspacePath: string | null;
   readonly remoteLabel: string;
+  readonly remoteStatus: string | null;
   readonly nextTickLabel: string;
+  readonly nextTickAt: string | null;
   readonly issueModeLabel: string;
+  readonly issueMode: string | null;
   readonly issueStatusSummaryLabel: string;
   readonly issueStatusSummary: AutoImplementationIssueStatusSummary | null;
   readonly remoteWarning: string | null;
@@ -415,9 +419,13 @@ export function autoImplementationRunViewModel(
       status: "not_started",
       summary: "No auto implementation workspace has been prepared yet.",
       workspaceLabel: "workspace/<project> is not prepared",
+      workspacePath: null,
       remoteLabel: "Remote: not checked",
+      remoteStatus: null,
       nextTickLabel: "Next 5-minute tick: not scheduled",
+      nextTickAt: null,
       issueModeLabel: "Issue mode: not selected",
+      issueMode: null,
       issueStatusSummaryLabel: formatIssueStatusSummaryLabel(null),
       issueStatusSummary: null,
       remoteWarning: "Start a run to create a local git repo, markdown fallback issues, and remote connection guidance.",
@@ -538,9 +546,13 @@ export function autoImplementationRunViewModel(
     status: run.status,
     summary: projection.summary,
     workspaceLabel: `Workspace: ${run.generatedRepoPath}`,
+    workspacePath: run.generatedRepoPath,
     remoteLabel: `Remote: ${run.remoteStatus}`,
+    remoteStatus: run.remoteStatus,
     nextTickLabel: `Next 5-minute tick: ${run.nextTickAt}`,
+    nextTickAt: run.nextTickAt,
     issueModeLabel: `Issue mode: ${run.issueManagement.mode}`,
+    issueMode: run.issueManagement.mode,
     issueStatusSummaryLabel: formatIssueStatusSummaryLabel(run.issueManagement.issueStatusSummary),
     issueStatusSummary: run.issueManagement.issueStatusSummary,
     remoteWarning: run.remoteGuide.warning,
@@ -727,10 +739,10 @@ export function AutoImplementationRunPanel({
         <span>{run.status}</span>
       </div>
       <p>{run.summary}</p>
-      <p className="research-recovery">{run.workspaceLabel}</p>
-      <p className="mode-summary">{run.remoteLabel} · {run.issueModeLabel}</p>
+      <p className="research-recovery">{copy.autoImplementation.workspaceLabel(run.workspacePath)}</p>
+      <p className="mode-summary">{copy.autoImplementation.remoteLabel(run.remoteStatus)} · {copy.autoImplementation.issueModeLabel(run.issueMode)}</p>
       <p className="mode-summary">{copy.autoImplementation.issueStatusSummary(run.issueStatusSummary)}</p>
-      <p className="mode-summary">{run.nextTickLabel}</p>
+      <p className="mode-summary">{copy.autoImplementation.nextTickLabel(run.nextTickAt)}</p>
       <p className="mode-summary">{latestWorkerJobLabel}</p>
       <p className="research-recovery">{latestWorkerJobNextAction}</p>
       <article className="operations-card" aria-label={copy.autoImplementation.deliveryProgress}>

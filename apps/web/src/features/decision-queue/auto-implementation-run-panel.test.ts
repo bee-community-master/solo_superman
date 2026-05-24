@@ -292,10 +292,17 @@ describe("AutoImplementationRunPanel view model", () => {
     );
     const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
     expect(koreanMarkup).toContain("제작 진행 상황");
+    expect(koreanMarkup).toContain("작업공간: /repo/workspace/demo-project");
+    expect(koreanMarkup).toContain("원격 저장소: no_remote · 이슈 모드: markdown_fallback");
+    expect(koreanMarkup).toContain("다음 5분 tick: 2026-05-19T00:05:00.000Z");
     expect(koreanMarkup).toContain("이슈 상태 요약: 완료 0개 / 차단 0개 / 열림 7개 / 전체 7개");
     expect(koreanMarkup).toContain("로컬 Codex worker: 아직 계획되지 않음");
     expect(koreanMarkup).toContain("단계: 초기 구현 및 PR 생성 / 상태: open");
     expect(koreanMarkup).toContain("최신 worker 없음");
+    expect(koreanMarkup).not.toContain("Workspace:");
+    expect(koreanMarkup).not.toContain("Remote:");
+    expect(koreanMarkup).not.toContain("Next 5-minute tick:");
+    expect(koreanMarkup).not.toContain("Issue mode:");
     expect(koreanMarkup).not.toContain("Issue status summary");
     expect(koreanMarkup).not.toContain("Local Codex worker: not planned");
     expect(koreanMarkup).toContain("0/7 단계 완료 · 현재 단계: 초기 구현 및 PR 생성 (준비됨)");
