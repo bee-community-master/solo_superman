@@ -70,7 +70,8 @@
       "requiredEvidence": [
         "macOS and Windows install/update/defer/retry/rollback runs on signed packages",
         "launch verification after update and after rollback",
-        "proof that rollback changes only app binary/release metadata and preserves local data, generated workspaces, support bundles, and credentials"
+        "proof that rollback changes only app binary/release metadata and preserves local data, generated workspaces, support bundles, and credentials",
+        "passed rollback runs include structured evidenceBundle data with version transition, per-check evidence refs, protected-path preservation refs, metadata-only credential snapshot mode, redaction refs, and passed checks"
       ],
       "unblockCriteria": [
         "Record device evidence for install, update, retry, rollback, and launch verification",

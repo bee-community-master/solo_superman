@@ -26,6 +26,8 @@ pnpm verify:packaged-update-rollback:dry-run
 pnpm verify:packaged-update-rollback -- --require-device-evidence
 ```
 
+실제 run을 `passed`로 바꾸려면 `verifiedAt`, `verifiedBy`뿐 아니라 구조화된 `evidenceBundle`도 필요합니다. `evidenceBundle`에는 device profile metadata, platform별 signed package kind, initial/candidate/final version, package/manifest/update/rollback/launch/preservation evidence refs, metadata-only no-read credential snapshot mode, redaction refs, 모든 필수 check의 `passedChecks`, check별 redacted evidence refs, 그리고 protected path class별 preservation evidence refs가 포함되어야 합니다.
+
 ## Device run evidence
 
 각 platform은 아래 check를 모두 evidence로 남겨야 합니다.
@@ -43,4 +45,5 @@ pnpm verify:packaged-update-rollback -- --require-device-evidence
 
 - #267을 닫으려면 `pnpm verify:packaged-update-rollback -- --require-device-evidence`와 `pnpm verify:release-readiness -- --require-ready`를 통과할 수 있는 redacted evidence가 필요합니다.
 - Rollback runtime은 packaged app binary, release metadata, update state만 바꿀 수 있으며 local user data와 credential은 rollback/cleanup 대상이 아닙니다.
+- Evidence ref는 HTTPS URL, `urn:solo-superman-*`, 또는 repo-relative evidence path여야 하며 unsafe scheme이나 query-like path를 허용하지 않습니다.
 - Support bundle, PR body, release manifest, device log에는 secret 값을 넣지 않고 redacted evidence ref만 남깁니다. Credential path 보존 확인은 content hash 대신 metadata-only no-read snapshot으로 수행합니다.

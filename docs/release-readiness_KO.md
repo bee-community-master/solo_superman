@@ -73,7 +73,7 @@ pnpm verify:release-readiness -- --require-ready
 | Gate | 현재 상태 | 필요 evidence |
 | --- | --- | --- |
 | `signed-packages` | blocked | [#266](https://github.com/bee-community-master/solo_superman/issues/266) `pnpm verify:signed-package-release -- --require-release-evidence`가 통과할 macOS Developer ID/notarization, Windows Authenticode signing/timestamp, release manifest signing evidence |
-| `packaged-update-rollback` | blocked | [#267](https://github.com/bee-community-master/solo_superman/issues/267) `pnpm verify:packaged-update-rollback -- --require-device-evidence`가 통과할 signed package install/update/defer/retry/rollback device evidence and launch verification |
+| `packaged-update-rollback` | blocked | [#267](https://github.com/bee-community-master/solo_superman/issues/267) `pnpm verify:packaged-update-rollback -- --require-device-evidence`가 통과할 signed package install/update/defer/retry/rollback device evidence, launch verification, structured `evidenceBundle` |
 | `windows-real-device` | blocked | [#259](https://github.com/bee-community-master/solo_superman/issues/259) `pnpm verify:windows-real-device -- --require-device-evidence`가 통과할 clean Windows 11 one-line install부터 first-screen arrival까지의 실기기/VM evidence와 structured `evidenceBundle` |
 
 ## 운영 규칙
