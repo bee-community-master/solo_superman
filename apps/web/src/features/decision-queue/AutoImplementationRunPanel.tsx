@@ -1156,14 +1156,21 @@ export function AutoImplementationRunPanel({
       )}
 
       <h3>{copy.autoImplementation.githubPullRequestMutation}</h3>
-      <p>{run.pullRequestMutationLabel}</p>
+      <p>
+        {latestPullRequestMutation
+          ? copy.autoImplementation.pullRequestMutationSummary(
+              copy.autoImplementation.prMutationActionLabels[latestPullRequestMutation.action],
+              copy.autoImplementation.prMutationStatusLabels[latestPullRequestMutation.status]
+            )
+          : copy.autoImplementation.noGithubPullRequestMutations}
+      </p>
       <p className="mode-summary">{copy.autoImplementation.pullRequestMutationHistory(run.pullRequestMutationHistoryCount)}</p>
       {latestPullRequestMutation ? (
         <article className="operations-card">
           <dl className="readiness-grid">
             <div>
               <dt>{copy.autoImplementation.prMutationRequestMode}</dt>
-              <dd>{latestPullRequestMutation.requestMode}</dd>
+              <dd>{copy.autoImplementation.prMutationRequestModeLabels[latestPullRequestMutation.requestMode]}</dd>
             </div>
             <div>
               <dt>{copy.autoImplementation.prMutationMutatesGitHub}</dt>

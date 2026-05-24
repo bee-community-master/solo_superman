@@ -221,5 +221,11 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.recordPullRequestMergeDryRun).toContain("PR merge");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.applyPullRequestBodyUpdate).toBe("Apply approved PR body update");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.applyPullRequestMerge).toContain("승인된 PR merge");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.prMutationActionLabels.update_pr_body).toBe("update PR description");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.prMutationStatusLabels.applied).toBe("적용됨");
+    expect(DECISION_QUEUE_COPY.ja.autoImplementation.prMutationRequestModeLabels.approved).toBe("承認済みlive操作");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.pullRequestMutationSummary("PR 설명 업데이트", "적용됨")).toBe(
+      "GitHub PR 작업: PR 설명 업데이트 · 적용됨"
+    );
   });
 });

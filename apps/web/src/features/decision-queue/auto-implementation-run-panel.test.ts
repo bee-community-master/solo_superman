@@ -1346,7 +1346,9 @@ describe("AutoImplementationRunPanel view model", () => {
     const markup = renderPanelMarkup(view);
 
     expect(markup).toContain("GitHub PR action evidence");
-    expect(markup).toContain("GitHub PR mutation: update_pr_body applied");
+    expect(markup).toContain("GitHub PR action: update PR description · applied");
+    expect(markup).toContain("approved live action");
+    expect(markup).not.toContain("GitHub PR mutation: update_pr_body applied");
     expect(markup).toContain("1 PR action record(s) captured.");
     expect(markup).toContain("https://github.com/bee-community-master/demo/pull/1");
     expect(markup).toContain("Update the generated PR body with current review and verification evidence.");
@@ -1358,6 +1360,12 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("github-pr-mutation:merge:completed");
     expect(markup).toContain("verifier:github_pr_mutation:ready");
     expect(markup).toContain("Use gh pr edit to restore the previous PR body.");
+
+    const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
+
+    expect(koreanMarkup).toContain("GitHub PR 작업: PR 설명 업데이트 · 적용됨");
+    expect(koreanMarkup).toContain("승인된 실제 작업");
+    expect(koreanMarkup).not.toContain("GitHub PR mutation: update_pr_body applied");
   });
 
   it("renders the remote warning and local issue documents", () => {
@@ -1376,7 +1384,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("GitHub issue creation plan");
     expect(markup).toContain("GitHub issue mutation: not_requested");
     expect(markup).toContain("GitHub PR action evidence");
-    expect(markup).toContain("GitHub PR mutation: no records");
+    expect(markup).toContain("No GitHub PR action records yet");
     expect(markup).toContain("No GitHub PR action records yet");
     const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
     expect(koreanMarkup).toContain("GitHub 이슈 생성 계획");

@@ -2,6 +2,9 @@ import type {
   AutoImplementationIssueDocument,
   AutoImplementationIssueMode,
   AutoImplementationIssueStatusSummary,
+  AutoImplementationPullRequestMutationAction,
+  AutoImplementationPullRequestMutationRequestMode,
+  AutoImplementationPullRequestMutationStatus,
   AutoImplementationRemoteStatus,
   AutoImplementationRunStatus,
   AutoImplementationStage,
@@ -69,6 +72,57 @@ const KO_AUTO_IMPLEMENTATION_ISSUE_MODE_LABELS = {
   github_ready: "GitHub 이슈 준비됨",
   markdown_fallback: "로컬 markdown 이슈"
 } satisfies Record<AutoImplementationIssueMode, string>;
+
+const EN_AUTO_IMPLEMENTATION_PR_MUTATION_ACTION_LABELS = {
+  open_pr: "open PR",
+  update_pr_body: "update PR description",
+  merge_pr: "merge PR"
+} satisfies Record<AutoImplementationPullRequestMutationAction, string>;
+
+const JA_AUTO_IMPLEMENTATION_PR_MUTATION_ACTION_LABELS = {
+  open_pr: "PR作成",
+  update_pr_body: "PR本文更新",
+  merge_pr: "PRマージ"
+} satisfies Record<AutoImplementationPullRequestMutationAction, string>;
+
+const KO_AUTO_IMPLEMENTATION_PR_MUTATION_ACTION_LABELS = {
+  open_pr: "PR 생성",
+  update_pr_body: "PR 설명 업데이트",
+  merge_pr: "PR merge"
+} satisfies Record<AutoImplementationPullRequestMutationAction, string>;
+
+const EN_AUTO_IMPLEMENTATION_PR_MUTATION_STATUS_LABELS = {
+  blocked: "blocked",
+  dry_run_ready: "dry-run ready",
+  applied: "applied"
+} satisfies Record<AutoImplementationPullRequestMutationStatus, string>;
+
+const JA_AUTO_IMPLEMENTATION_PR_MUTATION_STATUS_LABELS = {
+  blocked: "ブロック中",
+  dry_run_ready: "dry-run準備済み",
+  applied: "適用済み"
+} satisfies Record<AutoImplementationPullRequestMutationStatus, string>;
+
+const KO_AUTO_IMPLEMENTATION_PR_MUTATION_STATUS_LABELS = {
+  blocked: "차단됨",
+  dry_run_ready: "dry-run 준비됨",
+  applied: "적용됨"
+} satisfies Record<AutoImplementationPullRequestMutationStatus, string>;
+
+const EN_AUTO_IMPLEMENTATION_PR_MUTATION_REQUEST_MODE_LABELS = {
+  dry_run: "dry run only",
+  approved: "approved live action"
+} satisfies Record<AutoImplementationPullRequestMutationRequestMode, string>;
+
+const JA_AUTO_IMPLEMENTATION_PR_MUTATION_REQUEST_MODE_LABELS = {
+  dry_run: "dry-runのみ",
+  approved: "承認済みlive操作"
+} satisfies Record<AutoImplementationPullRequestMutationRequestMode, string>;
+
+const KO_AUTO_IMPLEMENTATION_PR_MUTATION_REQUEST_MODE_LABELS = {
+  dry_run: "dry-run만 실행",
+  approved: "승인된 실제 작업"
+} satisfies Record<AutoImplementationPullRequestMutationRequestMode, string>;
 
 const EN_COPY = {
   pageMeta: {
@@ -869,6 +923,10 @@ const EN_COPY = {
     issueRowEvidenceRefs: "evidence",
     githubIssueMutation: "GitHub issue creation plan",
     githubPullRequestMutation: "GitHub PR action evidence",
+    pullRequestMutationSummary: (action: string, status: string) => `GitHub PR action: ${action} · ${status}`,
+    prMutationActionLabels: EN_AUTO_IMPLEMENTATION_PR_MUTATION_ACTION_LABELS,
+    prMutationStatusLabels: EN_AUTO_IMPLEMENTATION_PR_MUTATION_STATUS_LABELS,
+    prMutationRequestModeLabels: EN_AUTO_IMPLEMENTATION_PR_MUTATION_REQUEST_MODE_LABELS,
     pullRequestMutationHistory: (count: number) => `${count} PR action record(s) captured.`,
     prMutationRequestMode: "Request mode",
     prMutationMutatesGitHub: "Mutates GitHub",
@@ -2054,6 +2112,10 @@ const JA_COPY: typeof EN_COPY = {
     issueRowEvidenceRefs: "根拠",
     githubIssueMutation: "GitHub issue作成計画",
     githubPullRequestMutation: "GitHub PR操作の根拠",
+    pullRequestMutationSummary: (action: string, status: string) => `GitHub PR操作: ${action} · ${status}`,
+    prMutationActionLabels: JA_AUTO_IMPLEMENTATION_PR_MUTATION_ACTION_LABELS,
+    prMutationStatusLabels: JA_AUTO_IMPLEMENTATION_PR_MUTATION_STATUS_LABELS,
+    prMutationRequestModeLabels: JA_AUTO_IMPLEMENTATION_PR_MUTATION_REQUEST_MODE_LABELS,
     pullRequestMutationHistory: (count: number) => `PR操作記録が${count}件あります。`,
     prMutationRequestMode: "リクエストモード",
     prMutationMutatesGitHub: "GitHubを変更",
@@ -3237,6 +3299,10 @@ const KO_COPY: typeof EN_COPY = {
     issueRowEvidenceRefs: "근거",
     githubIssueMutation: "GitHub 이슈 생성 계획",
     githubPullRequestMutation: "GitHub PR 작업 근거",
+    pullRequestMutationSummary: (action: string, status: string) => `GitHub PR 작업: ${action} · ${status}`,
+    prMutationActionLabels: KO_AUTO_IMPLEMENTATION_PR_MUTATION_ACTION_LABELS,
+    prMutationStatusLabels: KO_AUTO_IMPLEMENTATION_PR_MUTATION_STATUS_LABELS,
+    prMutationRequestModeLabels: KO_AUTO_IMPLEMENTATION_PR_MUTATION_REQUEST_MODE_LABELS,
     pullRequestMutationHistory: (count: number) => `PR 작업 기록 ${count}개가 캡처됐습니다.`,
     prMutationRequestMode: "요청 모드",
     prMutationMutatesGitHub: "GitHub 변경 여부",
