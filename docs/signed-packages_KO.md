@@ -57,6 +57,6 @@ pnpm verify:signed-package-preflight -- --require-credentials
 3. Release update manifest가 artifact SHA-256, package size, signature ref를 최종값으로 담고 manifest signature를 통과합니다.
 4. macOS/Windows device에서 install, update defer, retry, rollback, launch verification을 수행합니다.
 5. Rollback은 packaged app binary와 release metadata만 바꾸며 local DB, generated workspace, support bundle, credential을 건드리지 않습니다.
-6. `pnpm verify:signed-package-release -- --require-release-evidence`, `pnpm verify:windows-real-device -- --require-device-evidence`, `pnpm verify:packaged-update-rollback -- --require-device-evidence`, `pnpm verify:release-readiness -- --require-ready`가 signed package, packaged updater rollback, Windows 실기기 gate를 모두 passed로 확인합니다.
+6. `pnpm verify:signed-package-release -- --require-release-evidence`가 macOS/Windows artifact와 release manifest의 구조화된 `evidenceBundle`을 검증하고, `pnpm verify:windows-real-device -- --require-device-evidence`, `pnpm verify:packaged-update-rollback -- --require-device-evidence`, `pnpm verify:release-readiness -- --require-ready`가 signed package, packaged updater rollback, Windows 실기기 gate를 모두 passed로 확인합니다.
 
 `pnpm verify:signed-package-release:dry-run`은 fixture artifact checksum/size/signature ref/manifest evidence shape만 검증하며, 위 gate가 없으면 넓은 공개용 signed package나 packaged automatic update를 완료로 주장하지 않습니다.
