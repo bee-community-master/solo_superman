@@ -285,9 +285,10 @@ const EN_COPY = {
       binary_choice: "Pick the closest stance, then use the text box if your answer is conditional.",
       single_choice: "Pick the one option that best matches the idea right now, or write a better answer.",
       multi_select: "Select every option that should stay in scope. You can also write a custom combined answer.",
-      ranked_choice: "Use the choices as priority strategies, or write the actual order yourself.",
-      evidence_judgment: "Choose how the evidence should affect the decision, or write what is still uncertain.",
-      experiment_plan: "Choose the smallest validation approach, or write a different experiment plan."
+      ranked_choice: "Use the choices if shown as priority strategies, or write the actual order yourself.",
+      evidence_judgment:
+        "Choose an evidence decision if choices are shown, or write what is still uncertain.",
+      experiment_plan: "Choose a validation approach if choices are shown, or write a different experiment plan."
     },
     answerChoiceLabels: {
       open_text: "Answer",
@@ -1322,9 +1323,9 @@ const JA_COPY: typeof EN_COPY = {
       binary_choice: "近い立場を選び、条件付きなら下の入力欄に補足してください。",
       single_choice: "今のアイデアに最も近い候補を1つ選ぶか、より良い答えを書いてください。",
       multi_select: "残すべき候補をすべて選べます。組み合わせた答えを直接書くこともできます。",
-      ranked_choice: "候補は優先順位の考え方です。実際の順番を直接書いてもかまいません。",
-      evidence_judgment: "根拠をどう判断に反映するか選ぶか、まだ不確かな点を書いてください。",
-      experiment_plan: "最小の検証方法を選ぶか、別の実験案を書いてください。"
+      ranked_choice: "候補が表示されていれば優先順位の考え方として使えます。実際の順番を直接書いてもかまいません。",
+      evidence_judgment: "候補が表示されていれば根拠判断を選べます。まだ不確かな点を直接書いてもかまいません。",
+      experiment_plan: "候補が表示されていれば検証方法を選べます。別の実験案を直接書いてもかまいません。"
     },
     answerChoiceLabels: {
       open_text: "回答",
@@ -2346,9 +2347,9 @@ const KO_COPY: typeof EN_COPY = {
       binary_choice: "가장 가까운 입장을 고르고, 조건부라면 아래 입력칸에 조건을 함께 적어주세요.",
       single_choice: "지금 아이디어에 가장 맞는 후보 하나를 고르거나 더 맞는 답을 직접 적어주세요.",
       multi_select: "계속 가져갈 후보를 모두 선택할 수 있습니다. 여러 선택을 묶은 답을 직접 적어도 됩니다.",
-      ranked_choice: "선택지는 우선순위를 정하는 방식입니다. 실제 순서를 직접 적어도 됩니다.",
-      evidence_judgment: "근거를 판단에 어떻게 반영할지 고르거나 아직 불확실한 점을 적어주세요.",
-      experiment_plan: "가장 작은 검증 방법을 고르거나 다른 실험 계획을 직접 적어주세요."
+      ranked_choice: "선택지가 보이면 우선순위를 정하는 방식으로 쓰고, 실제 순서를 직접 적어도 됩니다.",
+      evidence_judgment: "선택지가 보이면 근거 판단을 고르고, 아직 불확실한 점을 직접 적어도 됩니다.",
+      experiment_plan: "선택지가 보이면 검증 방법을 고르고, 다른 실험 계획을 직접 적어도 됩니다."
     },
     answerChoiceLabels: {
       open_text: "답변",

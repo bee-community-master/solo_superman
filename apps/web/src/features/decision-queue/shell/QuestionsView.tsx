@@ -78,7 +78,7 @@ function answerFormatKindForItem(item: QueueItemProjection): AnswerFormatKind {
     return "multi_select";
   }
 
-  if (!item.answerOptions?.length || item.expectedAnswerType === "text") {
+  if (item.expectedAnswerType === "text") {
     return "open_text";
   }
 
@@ -92,6 +92,10 @@ function answerFormatKindForItem(item: QueueItemProjection): AnswerFormatKind {
 
   if (item.expectedAnswerType === "evidence") {
     return "evidence_judgment";
+  }
+
+  if (!item.answerOptions?.length) {
+    return "open_text";
   }
 
   return answerLooksLikeBinaryChoice(item) ? "binary_choice" : "single_choice";

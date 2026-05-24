@@ -179,6 +179,64 @@ describe("QuestionsView", () => {
     expect(markup).toContain(">Answer</span>");
   });
 
+  it("preserves non-choice answer format labels even when no suggested choices are available", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 1 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_rank_text" as QueueItemId,
+          title: "Rank the first validation risks in your own words.",
+          state: "active",
+          expectedAnswerType: "rank",
+          answerOptions: []
+        },
+        {
+          queueItemId: "queue_evidence_text" as QueueItemId,
+          title: "Explain what evidence would change the decision.",
+          state: "active",
+          expectedAnswerType: "evidence",
+          answerOptions: []
+        },
+        {
+          queueItemId: "queue_experiment_text" as QueueItemId,
+          title: "Describe the smallest validation experiment.",
+          state: "active",
+          expectedAnswerType: "experiment",
+          answerOptions: []
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+
+    const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        queue
+      },
+      sections: [
+        {
+          id: "active",
+          title: "Current questions",
+          emptyLabel: "No current questions.",
+          items: queue.active
+        }
+      ]
+    });
+
+    expect(markup).toContain("Priority/ranking answer");
+    expect(markup).toContain("Use the choices if shown as priority strategies, or write the actual order yourself.");
+    expect(markup).toContain("Evidence judgment");
+    expect(markup).toContain("Choose an evidence decision if choices are shown, or write what is still uncertain.");
+    expect(markup).toContain("Validation plan answer");
+    expect(markup).toContain("Choose a validation approach if choices are shown, or write a different experiment plan.");
+    expect(markup).not.toContain("Priority choices");
+    expect(markup).not.toContain("Evidence judgment choices");
+    expect(markup).not.toContain("Validation choices");
+  });
+
   it("renders a bounded current-batch submit action for drafted active answers", () => {
     const queue: DecisionQueueProjection = {
       kind: "DecisionQueueProjection",
