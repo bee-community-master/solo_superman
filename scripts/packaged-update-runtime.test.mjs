@@ -5,8 +5,6 @@ import { describe, expect, it } from "vitest";
 import {
   APP_PATHS,
   buildPackagedUpdatePlan,
-  createFixtureInstall,
-  createFixtureReleaseManifest,
   deferPackagedUpdate,
   applyPackagedUpdate,
   launchInstalledRelease,
@@ -14,6 +12,7 @@ import {
   resolveInsideRoot,
   snapshotUpdateProtectedPaths
 } from "./packaged-update-runtime.mjs";
+import { createFixtureInstall, createFixtureReleaseManifest } from "./packaged-update-fixtures.mjs";
 
 async function withFixtureRoot(testFn) {
   const root = await mkdtemp(join(tmpdir(), "solo-packaged-runtime-test-"));

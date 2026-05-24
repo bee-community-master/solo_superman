@@ -8,12 +8,11 @@ import {
   DEFAULT_UPDATE_PROTECTED_PATH_POLICIES,
   applyPackagedUpdate,
   buildPackagedUpdatePlan,
-  createFixtureInstall,
-  createFixtureReleaseManifest,
   deferPackagedUpdate,
   launchInstalledRelease,
   readInstalledRelease
 } from "./packaged-update-runtime.mjs";
+import { createFixtureInstall, createFixtureReleaseManifest } from "./packaged-update-fixtures.mjs";
 
 export const PACKAGED_UPDATE_ROLLBACK_DRY_RUN_SCHEMA_VERSION = "solo-superman-packaged-update-rollback-dry-run.v1";
 
