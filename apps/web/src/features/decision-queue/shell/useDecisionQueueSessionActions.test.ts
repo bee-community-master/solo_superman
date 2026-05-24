@@ -1043,4 +1043,163 @@ describe("useDecisionQueueSessionActions", () => {
     );
     expect(backgroundResearchStarted).toHaveBeenCalledTimes(1);
   });
+
+  it("automatically continues after resolving research cards that generated follow-up questions", async () => {
+    const projectId = "proj_research_resolve_auto_next_batch" as ProjectId;
+    const sessionId = "sess_research_resolve_auto_next_batch" as SessionId;
+    const researchCardId = "queue_research_review_card" as QueueItemId;
+    const nextQuestionId = "queue_research_follow_up_next" as QueueItemId;
+    const queueAfterResolve: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 2 as ProjectionVersion,
+      active: [],
+      next: [
+        {
+          queueItemId: nextQuestionId,
+          title: "Research-generated follow-up question",
+          state: "next",
+          cardType: "follow_up_question"
+        }
+      ],
+      blocked: [],
+      deferred: []
+    };
+    const queueAfterActivation: DecisionQueueProjection = {
+      ...queueAfterResolve,
+      version: 3 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: nextQuestionId,
+          title: "Research-generated follow-up question",
+          state: "active",
+          cardType: "follow_up_question"
+        }
+      ],
+      next: []
+    };
+    const resolveResponse: CommandResponse<DecisionQueueProjection> = {
+      category: "accepted_with_projection",
+      commandId: "cmd_research_resolve_auto_next" as CommandId,
+      correlationId: "corr_research_resolve_auto_next" as CorrelationId,
+      stateVersionBefore: 1 as StateVersion,
+      stateVersionAfter: 2 as StateVersion,
+      immediateProjection: queueAfterResolve
+    };
+    const activateResponse: CommandResponse<DecisionQueueProjection> = {
+      category: "accepted_with_projection",
+      commandId: "cmd_research_resolve_activate" as CommandId,
+      correlationId: "corr_research_resolve_activate" as CorrelationId,
+      stateVersionBefore: 2 as StateVersion,
+      stateVersionAfter: 3 as StateVersion,
+      immediateProjection: queueAfterActivation
+    };
+    const appendCommand: Parameters<typeof useDecisionQueueSessionActions>[0]["appendCommand"] = async (
+      _label,
+      commandResponse
+    ) => commandResponse;
+    const resolveResearchQueueCard = vi.fn(async () => resolveResponse);
+    const activateQuestionBatch = vi.fn(async () => activateResponse);
+    const backgroundResearchStarted = vi.fn(async () => undefined);
+    let actions: ReturnType<typeof useDecisionQueueSessionActions> | undefined;
+
+    function Harness() {
+      actions = useDecisionQueueSessionActions({
+        answerDrafts: {},
+        appendCommand,
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityChangeReason: "",
+        chatGptLoginAcknowledged: true,
+        codexLoginAuthenticated: true,
+        client: {
+          resolveResearchQueueCard,
+          activateQuestionBatch
+        } as unknown as SidecarClient,
+        connectionStatus: "connected",
+        copy: DECISION_QUEUE_COPY.en,
+        idea: "Research cards should feed the next questions",
+        initialResearchPermission: "allow_public_web",
+        initialBusinessCriticIntensityReason: "",
+        intake: "Follow-up questions should appear after research review resolution.",
+        isBusy: false,
+        knownRiskDrafts: {},
+        projectPurposeMode: "business",
+        projections: {
+          ...emptyProjectionState(),
+          session: {
+            kind: "SessionShellProjection",
+            projectId,
+            sessionId,
+            version: 1 as ProjectionVersion,
+            phase: "spec",
+            projectPurposeMode: "business",
+            projectPurposeModeSelectionStatus: "confirmed",
+            projectPurposeModeLabel: "Business validation",
+            projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+          },
+          queue: {
+            kind: "DecisionQueueProjection",
+            version: 1 as ProjectionVersion,
+            active: [
+              {
+                queueItemId: researchCardId,
+                title: "Review this research result",
+                state: "active",
+                cardType: "research_review"
+              }
+            ],
+            next: [],
+            blocked: [],
+            deferred: []
+          }
+        },
+        purposeModeChangeReason: "",
+        questionBatchSize: 3,
+        refetchQueueAfterSseNotification: vi.fn(async () => undefined),
+        refreshProjections: vi.fn(async () => undefined),
+        researchDrafts: {},
+        setAnswerDrafts: vi.fn(),
+        setBusinessCriticIntensity: vi.fn(),
+        setBusinessCriticIntensityChangeReason: vi.fn(),
+        setCommandLog: vi.fn(),
+        setIsBusy: vi.fn(),
+        setKnownRiskDrafts: vi.fn(),
+        setPhase15bReadiness: vi.fn(),
+        setProjectPurposeMode: vi.fn(),
+        setProjections: vi.fn(),
+        setPurposeModeChangeReason: vi.fn(),
+        setResearchDrafts: vi.fn(),
+        setResearchOperations: vi.fn(),
+        setStatuses: vi.fn(),
+        setWorkflowError: vi.fn(),
+        startReadyReadOnlyResearchRunsAfterAnswer: backgroundResearchStarted
+      });
+
+      return null;
+    }
+
+    renderToStaticMarkup(createElement(Harness));
+
+    if (!actions) {
+      throw new Error("Session actions were not captured.");
+    }
+
+    await actions.resolveResearchCard(researchCardId, "approved", "Review this research result");
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(resolveResearchQueueCard).toHaveBeenCalledWith(expect.objectContaining({
+      cardId: researchCardId,
+      outcome: "approved"
+    }));
+    expect(activateQuestionBatch).toHaveBeenCalledWith(
+      sessionId,
+      2,
+      [nextQuestionId]
+    );
+    expect(backgroundResearchStarted).toHaveBeenCalledTimes(1);
+  });
 });

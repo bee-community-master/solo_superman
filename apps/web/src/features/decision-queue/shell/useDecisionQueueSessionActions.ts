@@ -467,7 +467,7 @@ export function useDecisionQueueSessionActions({
     ]
   );
 
-  const continueAnswerPostSubmitWork = useCallback(
+  const continueQuestionLoopAfterQueueUpdate = useCallback(
     (
       projectId: ProjectId,
       sessionId: SessionShellProjection["sessionId"],
@@ -560,7 +560,7 @@ export function useDecisionQueueSessionActions({
           ...current,
           queue
         }));
-        continueAnswerPostSubmitWork(
+        continueQuestionLoopAfterQueueUpdate(
           projections.session.projectId,
           projections.session.sessionId,
           commandResponseVersion(response),
@@ -576,7 +576,7 @@ export function useDecisionQueueSessionActions({
       answerDrafts,
       appendCommand,
       client,
-      continueAnswerPostSubmitWork,
+      continueQuestionLoopAfterQueueUpdate,
       projections,
       sessionActionErrors,
     ]
@@ -635,7 +635,7 @@ export function useDecisionQueueSessionActions({
         }));
       }
 
-      continueAnswerPostSubmitWork(
+      continueQuestionLoopAfterQueueUpdate(
         projections.session.projectId,
         projections.session.sessionId,
         expectedStateVersion,
@@ -667,7 +667,7 @@ export function useDecisionQueueSessionActions({
     answerDrafts,
     appendCommand,
     client,
-    continueAnswerPostSubmitWork,
+    continueQuestionLoopAfterQueueUpdate,
     projections,
     sessionActionErrors,
     refreshProjections
@@ -780,7 +780,7 @@ export function useDecisionQueueSessionActions({
           ...current,
           queue
         }));
-        continueAnswerPostSubmitWork(
+        continueQuestionLoopAfterQueueUpdate(
           projections.session.projectId,
           projections.session.sessionId,
           commandResponseVersion(response),
@@ -795,7 +795,7 @@ export function useDecisionQueueSessionActions({
     [
       appendCommand,
       client,
-      continueAnswerPostSubmitWork,
+      continueQuestionLoopAfterQueueUpdate,
       knownRiskDrafts,
       projections,
       sessionActionErrors,
@@ -888,14 +888,26 @@ export function useDecisionQueueSessionActions({
           ...current,
           queue
         }));
-        await refreshProjections(projections.session.projectId, projections.session.sessionId);
+        continueQuestionLoopAfterQueueUpdate(
+          projections.session.projectId,
+          projections.session.sessionId,
+          commandResponseVersion(response),
+          queue
+        );
       } catch (error) {
         setWorkflowError(displayError(error));
       } finally {
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections, refreshProjections, sessionActionErrors, sessionActionReasons]
+    [
+      appendCommand,
+      client,
+      continueQuestionLoopAfterQueueUpdate,
+      projections,
+      sessionActionErrors,
+      sessionActionReasons
+    ]
   );
 
 
