@@ -32,7 +32,8 @@ function blockedContract(overrides = {}) {
         "pnpm verify:signed-package-release -- --require-release-evidence",
         "pnpm verify:windows-real-device -- --require-device-evidence",
         "pnpm verify:packaged-update-rollback -- --require-device-evidence",
-        "pnpm verify:release-readiness -- --require-ready"
+        "pnpm verify:release-readiness -- --require-ready",
+        "pnpm verify:ready-release"
       ]
     },
     releaseGates: [
@@ -176,7 +177,8 @@ describe("release readiness verification", () => {
       "$.requiredVerificationCommands.readyRelease: must include pnpm verify:signed-package-release -- --require-release-evidence",
       "$.requiredVerificationCommands.readyRelease: must include pnpm verify:windows-real-device -- --require-device-evidence",
       "$.requiredVerificationCommands.readyRelease: must include pnpm verify:packaged-update-rollback -- --require-device-evidence",
-      "$.requiredVerificationCommands.readyRelease: must include pnpm verify:release-readiness -- --require-ready"
+      "$.requiredVerificationCommands.readyRelease: must include pnpm verify:release-readiness -- --require-ready",
+      "$.requiredVerificationCommands.readyRelease: must include pnpm verify:ready-release"
     ]));
   });
 

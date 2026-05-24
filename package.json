@@ -50,7 +50,8 @@
     "verify:packaged-update-rollback:dry-run": "node scripts/verify-packaged-update-rollback-dry-run.mjs",
     "verify:windows-installer:dry-run": "node scripts/verify-windows-installer-dry-run.mjs",
     "verify:signed-package-release:dry-run": "node scripts/verify-signed-package-release-dry-run.mjs",
-    "verify:production-mutation-contract": "node scripts/verify-production-mutation-contract.mjs"
+    "verify:production-mutation-contract": "node scripts/verify-production-mutation-contract.mjs",
+    "verify:ready-release": "node scripts/verify-ready-release.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
