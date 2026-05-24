@@ -277,8 +277,13 @@ function rejectsChoiceOptions(question: string) {
 }
 
 function hasMultiSelectCue(question: string) {
-  return /(?:복수|다중|모두|해당|중복|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)|둘\s*이상|복수\s*선택|다중\s*선택|복수선택|다중선택|multi[-\s]?select|one\s+or\s+more|select\s+all|multiple|which\s+.+\s+together)/iu.test(
-    question
+  return (
+    /(?:복수|다중|모두|해당|중복|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)|둘\s*이상|복수\s*선택|다중\s*선택|복수선택|다중선택|multi[-\s]?select|one\s+or\s+more|select\s+all|which\s+.+\s+together)/iu.test(
+      question
+    ) ||
+    /\b(?:select|choose|pick)\s+multiple\b/iu.test(question) ||
+    /\bmultiple\s+(?:answers?|selections?)\b/iu.test(question) ||
+    /\bmultiple\s+(?:options?|choices?|items?)\s+(?:can|may)\s+(?:apply|fit|be\s+true)\b/iu.test(question)
   );
 }
 

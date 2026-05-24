@@ -652,6 +652,24 @@ describe("research follow-up answer shape", () => {
       question: "객관식으로 찬성/반대를 할 수도 있고 조건은 직접 설명해주세요."
     })).toBe("binary_choice");
 
+    expect(classifyResearchFollowUpAnswerShape({
+      ...base,
+      question: "This is a multiple-choice agree/disagree question: choose agree or disagree and explain the condition."
+    })).toBe("binary_choice");
+    expect(researchFollowUpAnswerSelectionMode({
+      ...base,
+      question: "This is a multiple-choice agree/disagree question: choose agree or disagree and explain the condition."
+    })).toBe("single");
+
+    expect(classifyResearchFollowUpAnswerShape({
+      ...base,
+      question: "This is a multiple-choice question, but choose one customer segment: solo founder, team lead, or consultant."
+    })).toBe("single_choice");
+    expect(researchFollowUpAnswerSelectionMode({
+      ...base,
+      question: "This is a multiple-choice question, but choose one customer segment: solo founder, team lead, or consultant."
+    })).toBe("single");
+
     const candidateChoiceInput = {
       ...base,
       question:
@@ -680,6 +698,14 @@ describe("research follow-up answer shape", () => {
 
     expect(classifyResearchFollowUpAnswerShape(multiSelectInput)).toBe("multi_select");
     expect(researchFollowUpAnswerSelectionMode(multiSelectInput)).toBe("multiple");
+
+    const englishMultiSelectInput = {
+      ...base,
+      question: "Choose multiple customer signals that can apply together before the next interview."
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(englishMultiSelectInput)).toBe("multi_select");
+    expect(researchFollowUpAnswerSelectionMode(englishMultiSelectInput)).toBe("multiple");
   });
 
   it("lets explicit narrative instructions win over mentioned choice formats", () => {
