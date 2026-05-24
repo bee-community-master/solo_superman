@@ -778,6 +778,39 @@ function bundleIssueNumbers(checklist) {
     .sort((left, right) => left - right);
 }
 
+function numericIssueNumbers(values) {
+  return uniqueStrings(values.map(String))
+    .map(Number)
+    .filter((issueNumber) => Number.isInteger(issueNumber) && issueNumber > 0)
+    .sort((left, right) => left - right);
+}
+
+function releaseEvidenceBlockerSummary(checklist, issueNumbers = bundleIssueNumbers(checklist)) {
+  const blockedItems = checklist.checklistItems.filter((item) => item.status === "blocked");
+  const blockedIssueNumbers = numericIssueNumbers(blockedItems
+    .map((item) => item.blockerIssueNumber)
+    .filter((issueNumber) => issueNumber !== null && issueNumber !== undefined));
+  const totalItemCount = typeof checklist.summary?.totalItems === "number"
+    ? checklist.summary.totalItems
+    : checklist.checklistItems.length;
+  const blockedItemCount = typeof checklist.summary?.blockedItems === "number"
+    ? checklist.summary.blockedItems
+    : blockedItems.length;
+
+  return {
+    status: blockedItemCount > 0 ? "blocked" : "ready",
+    issueNumbers,
+    blockedIssueNumbers,
+    issueCount: issueNumbers.length,
+    blockedIssueCount: blockedIssueNumbers.length,
+    totalItemCount,
+    blockedItemCount,
+    nextAction: blockedItemCount > 0
+      ? "Fill each blocked issue template with redacted release-lab evidence, validate templates, then run ready-release with the filled bundle."
+      : "All release evidence items are ready; run the filled-bundle and ready-release gates before broad release."
+  };
+}
+
 function bundleFileEntry(kind, relativePath, payload, metadata = {}) {
   return {
     kind,
@@ -805,6 +838,10 @@ function bundleManifestFileEntry(file) {
 }
 
 function renderReleaseEvidenceBundleReadme(manifest) {
+  const blockerSummary = manifest.releaseEvidenceBlockerSummary ?? {};
+  const blockerIssueList = Array.isArray(blockerSummary.blockedIssueNumbers) && blockerSummary.blockedIssueNumbers.length
+    ? blockerSummary.blockedIssueNumbers.map((issueNumber) => `#${issueNumber}`).join(", ")
+    : "_none_";
   const issueLines = manifest.issueNumbers.length
     ? manifest.issueNumbers.map((issueNumber) => {
       const issueFiles = manifest.files
@@ -821,6 +858,13 @@ function renderReleaseEvidenceBundleReadme(manifest) {
     `Generated at: \`${manifest.generatedAt}\``,
     `Bundle status: \`${manifest.status}\``,
     `Checklist status: \`${manifest.checklistStatus}\``,
+    "",
+    "## Release blocker summary",
+    "",
+    `- Status: \`${blockerSummary.status ?? manifest.checklistStatus}\``,
+    `- Blocked issues: \`${blockerSummary.blockedIssueCount ?? 0} / ${blockerSummary.issueCount ?? manifest.issueNumbers.length}\` (${blockerIssueList})`,
+    `- Blocked evidence items: \`${blockerSummary.blockedItemCount ?? 0} / ${blockerSummary.totalItemCount ?? manifest.summary?.totalItems ?? 0}\``,
+    `- Next action: ${blockerSummary.nextAction ?? "Fill blocked issue templates with redacted release-lab evidence before ready-release."}`,
     "",
     "## How to use",
     "",
@@ -926,6 +970,7 @@ export function buildReleaseEvidenceBundle(checklist) {
     status: "passed",
     checklistStatus: checklist.status,
     issueNumbers,
+    releaseEvidenceBlockerSummary: releaseEvidenceBlockerSummary(checklist, issueNumbers),
     summary: checklist.summary,
     openBlockerIssues: checklist.openBlockerIssues,
     readyReleaseCommands: checklist.readyReleaseCommands,

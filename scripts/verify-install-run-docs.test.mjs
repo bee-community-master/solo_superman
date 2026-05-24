@@ -228,6 +228,8 @@ describe("#105 local install/run verification docs", () => {
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("--format template --issue 266");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("verify:release-evidence-template -- --input");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("verify:release-evidence-bundle -- --bundle-dir");
+    expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("release evidence blocker summary");
+    expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("3개 이슈/9개 항목");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("pre-gate ready-release command 실행 기록");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("filled-bundle/aggregate self-command");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("## Release evidence checklist");
@@ -237,6 +239,8 @@ describe("#105 local install/run verification docs", () => {
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("--format template --issue 266");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("verify:release-evidence-template -- --input");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("verify:release-evidence-bundle -- --bundle-dir");
+    expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("release evidence blocker summary");
+    expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("three issues and nine evidence items");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("records pre-gate ready-release commands");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("filled-bundle or aggregate self-command");
     expect(runbook).toContain("pre-gate ready-release command 실행 기록");

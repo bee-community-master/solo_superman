@@ -131,6 +131,36 @@ function expectedChecklistForTemplate(fullChecklist, file) {
   return issueNumber ? filterReleaseEvidenceChecklistByIssue(fullChecklist, issueNumber) : fullChecklist;
 }
 
+function validateReleaseEvidenceBlockerSummary(manifest, expectedManifest, issues) {
+  const actual = manifest.releaseEvidenceBlockerSummary;
+  const expected = expectedManifest.releaseEvidenceBlockerSummary;
+
+  if (!isRecord(actual)) {
+    addIssue(issues, "$.releaseEvidenceBlockerSummary", "must describe blocked release issues and evidence item counts");
+    return;
+  }
+
+  const scalarFields = [
+    "status",
+    "issueCount",
+    "blockedIssueCount",
+    "totalItemCount",
+    "blockedItemCount",
+    "nextAction"
+  ];
+  for (const field of scalarFields) {
+    if (actual[field] !== expected[field]) {
+      addIssue(issues, `$.releaseEvidenceBlockerSummary.${field}`, "must match the generated release evidence blocker summary");
+    }
+  }
+
+  for (const field of ["issueNumbers", "blockedIssueNumbers"]) {
+    if (JSON.stringify(actual[field]) !== JSON.stringify(expected[field])) {
+      addIssue(issues, `$.releaseEvidenceBlockerSummary.${field}`, "must match the generated release evidence blocker summary");
+    }
+  }
+}
+
 function validatePendingTemplateShape(template, expectedChecklist, path, issues) {
   if (!isRecord(template)) {
     addIssue(issues, path, "must be a release evidence template object");
@@ -275,6 +305,7 @@ async function validateBundlePayload({ manifest, fileContents, unsupportedEntrie
   if (manifest.checklistStatus !== fullChecklist.status) {
     addIssue(issues, "$.checklistStatus", "must match the current release evidence checklist status");
   }
+  validateReleaseEvidenceBlockerSummary(manifest, expectedBundle.manifest, issues);
   for (const command of stringList(fullChecklist.readyReleaseCommands)) {
     if (!stringList(manifest.readyReleaseCommands).includes(command)) {
       addIssue(issues, "$.readyReleaseCommands", `must include ${command}`);
@@ -351,6 +382,7 @@ function evidenceForBundleValidation(validation, options = {}) {
     bundleDir: options.bundleDir ?? null,
     checklistStatus: manifest.checklistStatus ?? validation.fullChecklist?.status ?? null,
     issueNumbers: manifest.issueNumbers ?? [],
+    releaseEvidenceBlockerSummary: manifest.releaseEvidenceBlockerSummary ?? null,
     fileCount: Array.isArray(manifest.files) ? manifest.files.length : 0,
     blockers: validation.issues,
     checked: [
@@ -358,6 +390,7 @@ function evidenceForBundleValidation(validation, options = {}) {
       "bundle file list matches current release evidence contracts",
       "on-disk bundle files are listed in the manifest",
       "bundle README, manifest, checklist, templates, and issue comments are present",
+      "release evidence blocker summary is carried through the bundle",
       "ready-release commands are carried through the bundle",
       options.requireReady ? "filled release evidence templates pass ready validation" : "pending release evidence templates preserve expected checklist items",
       "release evidence bundle strings are secret-free"

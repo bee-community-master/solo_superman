@@ -36,7 +36,17 @@ describe("release evidence bundle verification", () => {
       blockers: []
     });
     expect(evidence.issueNumbers).toEqual([259, 266, 267]);
+    expect(evidence.releaseEvidenceBlockerSummary).toMatchObject({
+      status: "blocked",
+      issueNumbers: [259, 266, 267],
+      blockedIssueNumbers: [259, 266, 267],
+      issueCount: 3,
+      blockedIssueCount: 3,
+      totalItemCount: 9,
+      blockedItemCount: 9
+    });
     expect(evidence.fileCount).toBeGreaterThan(0);
+    expect(evidence.checked).toContain("release evidence blocker summary is carried through the bundle");
   });
 
   it("validates an on-disk generated bundle directory", async () => {
@@ -54,6 +64,40 @@ describe("release evidence bundle verification", () => {
       expect(evidence.status).toBe("passed");
       expect(evidence.mode).toBe("bundle-dir");
       expect(evidence.blockers).toEqual([]);
+      expect(evidence.releaseEvidenceBlockerSummary).toMatchObject({
+        status: "blocked",
+        blockedIssueNumbers: [259, 266, 267],
+        blockedItemCount: 9
+      });
+    } finally {
+      await rm(bundleDir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects bundle manifests that omit or drift the blocker summary", async () => {
+    const contracts = await loadReleaseEvidenceContracts();
+    const checklist = buildReleaseEvidenceChecklist(contracts, { now: new Date("2026-05-24T00:00:00.000Z") });
+    const bundle = buildReleaseEvidenceBundle(checklist);
+    const bundleDir = await mkdtemp(join(tmpdir(), "solo-release-evidence-bundle-test-"));
+    try {
+      await writeBundle(bundleDir, bundle, {
+        "manifest.json": `${JSON.stringify({
+          ...bundle.manifest,
+          releaseEvidenceBlockerSummary: {
+            ...bundle.manifest.releaseEvidenceBlockerSummary,
+            blockedItemCount: 0
+          }
+        }, null, 2)}\n`
+      });
+
+      const evidence = await runReleaseEvidenceBundleVerification(["--bundle-dir", bundleDir], {
+        now: new Date("2026-05-24T00:00:00.000Z")
+      });
+
+      expect(evidence.status).toBe("blocked");
+      expect(evidence.blockers).toContain(
+        "$.releaseEvidenceBlockerSummary.blockedItemCount: must match the generated release evidence blocker summary"
+      );
     } finally {
       await rm(bundleDir, { recursive: true, force: true });
     }

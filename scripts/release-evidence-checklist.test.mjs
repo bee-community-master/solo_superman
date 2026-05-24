@@ -733,7 +733,17 @@ describe("release evidence checklist", () => {
         schemaVersion: RELEASE_EVIDENCE_BUNDLE_SCHEMA_VERSION,
         issueNumbers: [259, 266, 267],
         checklistStatus: "blocked",
-        summary: { totalItems: 9 }
+        summary: { totalItems: 9 },
+        releaseEvidenceBlockerSummary: {
+          status: "blocked",
+          issueNumbers: [259, 266, 267],
+          blockedIssueNumbers: [259, 266, 267],
+          issueCount: 3,
+          blockedIssueCount: 3,
+          totalItemCount: 9,
+          blockedItemCount: 9,
+          nextAction: expect.stringContaining("Fill each blocked issue template")
+        }
       });
       const fullTemplate = JSON.parse(await readFile(join(bundleDir, "release-evidence-template.json"), "utf8"));
       expect(fullTemplate.filterIssueNumber).toBeUndefined();
@@ -756,6 +766,10 @@ describe("release evidence checklist", () => {
       expect(issue266Comment).toContain("Template readyReleaseResult");
       const readme = await readFile(join(bundleDir, "README.md"), "utf8");
       expect(readme).toContain("#259");
+      expect(readme).toContain("## Release blocker summary");
+      expect(readme).toContain("Blocked issues: `3 / 3` (#259, #266, #267)");
+      expect(readme).toContain("Blocked evidence items: `9 / 9`");
+      expect(readme).toContain("Fill each blocked issue template with redacted release-lab evidence");
       expect(readme).toContain("issue-259-comment.md");
       expect(readme).toContain("pnpm verify:release-evidence-template -- --input <filled-template.json>");
       expect(readme).toContain("pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir>");
