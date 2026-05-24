@@ -53,6 +53,7 @@ const BUILD_OR_FULL_VERIFY_TIMEOUT_MS = 1_200_000;
 const RAW_OUTPUT_CAPTURE_MAX_CHARS = 64_000;
 const OUTPUT_SUMMARY_MAX_CHARS = 4_000;
 const OUTPUT_SUMMARY_MAX_LINES = 40;
+const DEFAULT_WINDOWS_PATHEXT = ".COM;.EXE;.BAT;.CMD";
 
 const READ_ONLY_DIAGNOSTIC_EXECUTABLES = new Set(["ls", "cat", "rg", "git"]);
 const SAFE_GIT_STATUS_ARGS = new Set(["status", "--short", "--porcelain", "--branch"]);
@@ -856,7 +857,8 @@ function executableCandidateNames(executable: string): readonly string[] {
     return [executable];
   }
 
-  const extensions = (process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD")
+  const pathExt = process.env.PATHEXT?.trim() ? process.env.PATHEXT : DEFAULT_WINDOWS_PATHEXT;
+  const extensions = pathExt
     .split(";")
     .map((extension) => extension.trim())
     .filter((extension) => extension.length > 0)
