@@ -73,9 +73,11 @@ function boundedResearchFollowUpAnswerOptions(
   const reservePrimaryFallback = input.reservePrimaryFallback ?? true;
   const fillMinimumOptions = input.fillMinimumOptions ?? true;
   const primaryFallbackOption = RESEARCH_FOLLOW_UP_FALLBACK_OPTIONS[0];
-  const bounded = !reservePrimaryFallback || options.some((option) => option.id === primaryFallbackOption.id)
-    ? [...options]
-    : [...options.slice(0, 9), primaryFallbackOption];
+  const shouldReservePrimaryFallback =
+    reservePrimaryFallback &&
+    options.length < 10 &&
+    !options.some((option) => option.id === primaryFallbackOption.id);
+  const bounded = shouldReservePrimaryFallback ? [...options, primaryFallbackOption] : [...options];
 
   if (!fillMinimumOptions) {
     return bounded.slice(0, 10);
@@ -110,6 +112,10 @@ function candidateOptionId(index: number) {
 
 function normalizeQuestionCandidateLabel(value: string) {
   return value
+    .replace(
+      /^[^,·/\n]{0,96}(?:후보|선택지|옵션|종류|유형|타입|성향|세그먼트)(?:는|은|로는|로|:|：)\s*/iu,
+      ""
+    )
     .replace(/^[\s"'‘’“”([{<]+|[\s"'‘’“”)\]}>.。]+$/gu, "")
     .replace(/\s+(?:정도|후보|옵션|선택지)$/u, "")
     .trim();

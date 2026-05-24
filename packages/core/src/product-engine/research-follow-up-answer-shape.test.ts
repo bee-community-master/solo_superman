@@ -352,6 +352,30 @@ describe("research follow-up answer shape", () => {
     );
   });
 
+  it("extracts prose-described customer candidates without keeping the introductory sentence as an option", () => {
+    const input = {
+      question:
+        "고객 세그먼트가 너무 넓어 조금 더 구체화시켜보기 위해 실제 고객들의 정보들을 모아보니 빠른 검증을 원하는 성향과 전문 맥락을 가진 성향, 팀 운영을 맡는 성향 등 다양한 성향이 나타났습니다. 그중 저희의 아이디어에 가장 알맞는 후보는 혼자 만드는 창업자와 도메인 전문 1인 빌더, 팀 리더, 운영 담당자 정도로 추려졌습니다. 어느 성향의 고객에 집중하시겠습니까?",
+      researchTask: task("첫 고객 세그먼트 후보 선택"),
+      sourceQuestion: sourceQuestion({
+        topicKey: "primary_customer_narrowing",
+        expectedAnswerType: "choice"
+      }),
+      evidenceMatrix: evidenceMatrix()
+    };
+
+    const labels = researchFollowUpAnswerOptions(input).map((option) => option.label);
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("single_choice");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBe("single");
+    expect(labels).toEqual(
+      expect.arrayContaining(["혼자 만드는 창업자", "도메인 전문 1인 빌더", "팀 리더", "운영 담당자"])
+    );
+    expect(labels).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("그중 저희의 아이디어에 가장 알맞는 후보는")])
+    );
+  });
+
   it("supports explicit agree/disagree questions without forcing every answer into evidence balance", () => {
     const input = {
       question:
@@ -630,7 +654,13 @@ describe("research follow-up answer shape", () => {
     );
     expect(researchFollowUpAnswerOptions(manyCandidateInput)).toHaveLength(10);
     expect(researchFollowUpAnswerOptions(manyCandidateInput)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: "크리에이터" })])
+    );
+    expect(researchFollowUpAnswerOptions(manyCandidateInput)).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ id: "need_more_research" })])
+    );
+    expect(researchFollowUpAnswerOptions(manyCandidateInput)).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: "연구자" })])
     );
   });
 
