@@ -15,6 +15,7 @@
       "pnpm verify:service-page-pipeline",
       "pnpm verify:production-mutation-contract",
       "pnpm verify:auto-implementation-pipeline",
+      "pnpm verify:support-bundle",
       "pnpm verify:product-capability-readiness",
       "pnpm verify"
     ],
@@ -24,7 +25,8 @@
       "pnpm verify:pr-mutation",
       "pnpm verify:auto-implementation-review-loop",
       "pnpm verify:release-readiness",
-      "pnpm verify:production-mutation-contract -- --require-ready"
+      "pnpm verify:production-mutation-contract -- --require-ready",
+      "pnpm support:bundle"
     ]
   },
   "capabilities": [
@@ -161,6 +163,25 @@
         "Broad/general release remains separately blocked until signed package, updater rollback, and Windows device gates pass.",
         "Credential-free product/release diagnostics expose blocker issues without collecting secret values.",
         "Product capability readiness does not reinterpret release blockers as ready distribution evidence."
+      ]
+    },
+    {
+      "id": "local-error-reporting",
+      "status": "code_backed",
+      "requiredFor": "technical-preview-core-loop",
+      "evidenceRefs": [
+        "README.md#release-scope",
+        "docs/troubleshooting_KO.md#오류-리포트용-support-bundle",
+        "scripts/support-bundle.mjs",
+        "scripts/verify-support-bundle.mjs"
+      ],
+      "verificationCommands": [
+        "pnpm verify:support-bundle"
+      ],
+      "checkedBehaviors": [
+        "support diagnostics bundle generation is credential-free and writes a local JSON evidence file for error reports.",
+        "Support bundle validation captures compact product/release diagnostics while excluding full environment dumps, file contents, browser cookies, OpenAI/GitHub tokens, and ChatGPT web credentials.",
+        "URL credentials, secret-like query values, and token-shaped strings are redacted before support evidence is reported."
       ]
     }
   ]

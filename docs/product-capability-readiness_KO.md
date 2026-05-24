@@ -27,6 +27,7 @@ pnpm verify:product-capability-readiness -- --require-code-backed
 | `browser-service-boundary` | `pnpm verify:browser-delegation-pipeline`, `pnpm verify:service-page-pipeline`, `pnpm verify:production-mutation-contract` |
 | `auto-implementation-review-loop` | runtime preview, worker job, PR mutation body summary, review-loop, aggregate pipeline smoke |
 | `technical-preview-release-guardrails` | `pnpm verify:prod-bundle`, `pnpm verify:release-readiness` |
+| `local-error-reporting` | `pnpm verify:support-bundle`이 credential-free support diagnostics bundle, redaction, compact product/release diagnostics를 검증 |
 
 ## 계약 규칙
 
@@ -34,7 +35,7 @@ pnpm verify:product-capability-readiness -- --require-code-backed
 - capability가 `blocked`이면 `blocker`와 GitHub `blockerIssue`가 필요합니다.
 - URL evidence ref는 HTTPS만 허용하며 userinfo credential이나 secret-like query parameter를 담을 수 없습니다.
 - token/secret/password/API-key shaped 값은 어떤 string에도 남길 수 없습니다.
-- default verification suite에는 `pnpm verify:product-capability-readiness`와 `pnpm verify`가 포함되어야 합니다.
+- default verification suite에는 `pnpm verify:support-bundle`, `pnpm verify:product-capability-readiness`, `pnpm verify`가 포함되어야 합니다.
 
 ## broad release와의 경계
 

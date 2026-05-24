@@ -757,6 +757,8 @@ function checkContributorDocsSnippets() {
     "browser-service-boundary",
     "auto-implementation-review-loop",
     "technical-preview-release-guardrails",
+    "local-error-reporting",
+    "pnpm verify:support-bundle",
     "release-readiness",
     "secret"
   ]);
@@ -785,6 +787,7 @@ function checkContributorDocsSnippets() {
     "pnpm verify:prod-bundle",
     "pnpm verify",
     "pnpm support:bundle",
+    "pnpm verify:support-bundle",
     "오류 리포트용 support bundle",
     "Full environment dump, file contents, browser cookies",
     "VITE_SOLO_LOCAL_CAPABILITY_TOKEN",

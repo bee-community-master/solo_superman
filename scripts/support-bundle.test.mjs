@@ -141,6 +141,7 @@ function fakeCommandRunner(command, args) {
           verifySignedPackageReleaseDryRun: "node scripts/verify-signed-package-release-dry-run.mjs",
           verifyReleaseReadiness: "node scripts/verify-release-readiness.mjs",
           verifyReleaseEvidenceTemplate: "node scripts/verify-release-evidence-template.mjs",
+          verifySupportBundle: "node scripts/verify-support-bundle.mjs",
           supportBundle: "node scripts/support-bundle.mjs",
           releaseEvidenceChecklist: "node scripts/release-evidence-checklist.mjs",
           releaseEvidenceBundle: "node scripts/release-evidence-checklist.mjs --bundle-dir"
@@ -220,6 +221,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.package.scripts.verifyPackagedUpdateRollbackDryRun).toBe("node scripts/verify-packaged-update-rollback-dry-run.mjs");
     expect(bundle.package.scripts.verifySignedPackageReleaseDryRun).toBe("node scripts/verify-signed-package-release-dry-run.mjs");
     expect(bundle.package.scripts.verifyReleaseEvidenceTemplate).toBe("node scripts/verify-release-evidence-template.mjs");
+    expect(bundle.package.scripts.verifySupportBundle).toBe("node scripts/verify-support-bundle.mjs");
     expect(bundle.package.scripts.releaseEvidenceChecklist).toBe("node scripts/release-evidence-checklist.mjs");
     expect(bundle.package.scripts.releaseEvidenceBundle).toBe("node scripts/release-evidence-checklist.mjs --bundle-dir");
     expect(bundle.recommendedChecks).toContain("pnpm verify:product-capability-readiness");
@@ -233,6 +235,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-release:dry-run");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-readiness");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-evidence-template");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:support-bundle");
     expect(bundle.recommendedChecks).toContain("pnpm release:evidence-checklist");
     expect(bundle.recommendedChecks).toContain("pnpm release:evidence-bundle -- <bundle-dir>");
     expect(bundle.releaseDiagnostics.productCapabilityReadiness).toMatchObject({
