@@ -132,6 +132,7 @@ export const AUTO_IMPLEMENTATION_DELIVERY_PROTOCOL = [
   "Do not merge until the broader repo-level code review reaches two consecutive no-finding passes.",
   "Do not merge until the changed-code clean-code review reaches two consecutive no-finding passes.",
   "Do not merge until the repo-level clean-code review reaches two consecutive no-finding passes.",
+  "Any actionable review or clean-code finding resets that scope's two-pass no-finding streak after the fix is applied.",
   "Audit missing targeted tests, then run the full verification command before updating the PR body.",
   "Update the PR body with scope, review streak evidence, missing-test audit evidence, test evidence, remaining gaps, and merge readiness before merging."
 ] as const;

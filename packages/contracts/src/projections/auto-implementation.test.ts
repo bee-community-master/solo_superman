@@ -243,7 +243,8 @@ describe("AutoImplementationRunProjection contract", () => {
     ]);
     expect(readyRun.reviewProtocol.deliveryGates).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("two consecutive no-finding passes")
+        expect.stringContaining("two consecutive no-finding passes"),
+        expect.stringContaining("resets that scope's two-pass no-finding streak")
       ])
     );
     expect(readyRun.reviewProtocol.stageGates.find((gate) => gate.stage === "merge_main")?.gates).toEqual(

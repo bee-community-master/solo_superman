@@ -863,6 +863,10 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     });
     expect(turnStartRequest.params.input[0]).toMatchObject({
       type: "text",
+      text: expect.stringContaining("restart that scope's two-pass no-finding streak after the fix")
+    });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
       text: expect.stringContaining("Completion requires MissingTestAuditRecord and TestEvidenceRecord evidence")
     });
     expect(turnStartRequest.params.outputSchema).toMatchObject({
