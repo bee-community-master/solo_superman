@@ -142,7 +142,7 @@ function codeBackedContract(overrides = {}) {
         checkedBehaviors: [
           "support diagnostics bundle generation is credential-free and writes a local JSON evidence file for error reports.",
           "Support bundle validation captures compact product/release diagnostics while excluding full environment dumps, file contents, browser cookies, OpenAI/GitHub tokens, and ChatGPT web credentials.",
-          "ready-release plan-only support diagnostics expose the release evidence bundle preparation command, planned command list, and issue-specific handoff entries without running credential-required gates.",
+          "ready-release plan-only support diagnostics expose the release evidence bundle preparation command, planned command list, release evidence blocker summary counts, and issue-specific handoff entries without running credential-required gates.",
           "URL credentials, secret-like query values, and token-shaped strings are redacted before support evidence is reported."
         ]
       })
@@ -395,6 +395,7 @@ describe("product capability readiness verification", () => {
       "$.capabilities[6].checkedBehaviors: must mention ready-release plan-only",
       "$.capabilities[6].checkedBehaviors: must mention bundle preparation command",
       "$.capabilities[6].checkedBehaviors: must mention planned command list",
+      "$.capabilities[6].checkedBehaviors: must mention release evidence blocker summary",
       "$.capabilities[6].checkedBehaviors: must mention issue-specific handoff"
     ]));
   });

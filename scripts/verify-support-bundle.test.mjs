@@ -67,6 +67,16 @@ function validDiagnostic(name) {
       status: "planned",
       command: "pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle"
     },
+    releaseEvidenceBlockerSummary: {
+      status: "blocked",
+      issueNumbers: ["259", "266", "267"],
+      blockedIssueNumbers: ["259", "266", "267"],
+      issueCount: 3,
+      blockedIssueCount: 3,
+      totalItemCount: 9,
+      blockedItemCount: 9,
+      nextAction: "Prepare the release evidence bundle, fill each blocked issue template with redacted release-lab evidence, validate templates, then run ready-release with the filled bundle."
+    },
     releaseEvidenceIssuePreparation: validReleaseEvidenceIssuePreparation(),
     plannedCommands: [
       "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready",

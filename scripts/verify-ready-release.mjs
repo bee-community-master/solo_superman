@@ -300,6 +300,34 @@ export function releaseEvidenceIssuePreparation(checklist, options = {}) {
   });
 }
 
+export function releaseEvidenceBlockerSummary(issuePreparation = []) {
+  const entries = Array.isArray(issuePreparation) ? issuePreparation.filter(isRecord) : [];
+  const issueNumbers = entries
+    .map((entry) => entry.issueNumber)
+    .filter((issueNumber) => Number.isInteger(issueNumber) && issueNumber > 0)
+    .sort((left, right) => left - right);
+  const blockedIssueNumbers = entries
+    .filter((entry) => entry.status !== "ready" || Number(entry.blockedItems ?? 0) > 0)
+    .map((entry) => entry.issueNumber)
+    .filter((issueNumber) => Number.isInteger(issueNumber) && issueNumber > 0)
+    .sort((left, right) => left - right);
+  const totalItemCount = entries.reduce((total, entry) => total + (Number.isInteger(entry.itemCount) ? entry.itemCount : 0), 0);
+  const blockedItemCount = entries.reduce((total, entry) => total + (Number.isInteger(entry.blockedItems) ? entry.blockedItems : 0), 0);
+
+  return {
+    status: entries.length === 0 ? "unknown" : blockedIssueNumbers.length > 0 || blockedItemCount > 0 ? "blocked" : "ready",
+    issueNumbers,
+    blockedIssueNumbers,
+    issueCount: issueNumbers.length,
+    blockedIssueCount: blockedIssueNumbers.length,
+    totalItemCount,
+    blockedItemCount,
+    nextAction: blockedIssueNumbers.length > 0
+      ? "Prepare the release evidence bundle, fill each blocked issue template with redacted release-lab evidence, validate templates, then run ready-release with the filled bundle."
+      : "Run the ready-release gate with the filled release evidence bundle."
+  };
+}
+
 async function releaseEvidenceIssuePreparationForOptions(options = {}) {
   if (Array.isArray(options.releaseEvidenceIssuePreparation)) {
     return options.releaseEvidenceIssuePreparation;
@@ -326,6 +354,7 @@ async function releaseEvidenceBundleDirStatus(bundleDir, options = {}) {
 export function evidenceForReadyReleaseResults(results, options = {}) {
   const preparation = releaseEvidenceBundlePreparation(options);
   const preparationBlockers = options.planOnly ? [] : releaseEvidenceBundlePreparationBlockers(preparation);
+  const issuePreparation = options.releaseEvidenceIssuePreparation ?? [];
   const blockers = options.planOnly ? [] : [
     ...preparationBlockers,
     ...results
@@ -359,9 +388,10 @@ export function evidenceForReadyReleaseResults(results, options = {}) {
     timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     releaseEvidenceBundleDir: options.releaseEvidenceBundleDir ?? DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR,
     releaseEvidenceBundlePreparation: preparation,
+    releaseEvidenceBlockerSummary: releaseEvidenceBlockerSummary(issuePreparation),
     blockers,
     commandBlockers,
-    releaseEvidenceIssuePreparation: options.releaseEvidenceIssuePreparation ?? [],
+    releaseEvidenceIssuePreparation: issuePreparation,
     commands: results.map((result) => ({
       id: result.id,
       command: result.display,
@@ -380,6 +410,7 @@ export function evidenceForReadyReleaseResults(results, options = {}) {
       "packaged update rollback device evidence gate",
       "release evidence bundle require-ready gate",
       "release evidence bundle preparation prerequisite is surfaced before require-ready verification",
+      "plan-only release evidence blocker summary reports blocker issue and blocked item counts before release-lab handoff",
       "issue-specific release evidence templates, comments, and validation commands are surfaced before release-lab handoff",
       "release readiness require-ready gate",
       "nested verifier blockers and issues are surfaced per command",

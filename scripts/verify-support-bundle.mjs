@@ -192,6 +192,8 @@ function validateReadyReleasePlanDiagnostic(diagnostic, issues) {
     );
   }
 
+  validateReadyReleaseBlockerSummary(diagnostic.releaseEvidenceBlockerSummary, issues);
+
   const plannedCommands = new Set(stringList(diagnostic.plannedCommands));
   if (![...plannedCommands].some((command) => command.startsWith("pnpm verify:release-evidence-bundle -- --bundle-dir ")
     && command.endsWith(" --require-ready"))) {
@@ -210,6 +212,56 @@ function validateReadyReleasePlanDiagnostic(diagnostic, issues) {
   }
 
   validateReadyReleaseIssuePreparation(diagnostic.releaseEvidenceIssuePreparation, issues);
+}
+
+function validateReadyReleaseBlockerSummary(value, issues) {
+  if (!isRecord(value)) {
+    addIssue(
+      issues,
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceBlockerSummary",
+      "must include issue and blocked item counts before release-lab handoff"
+    );
+    return;
+  }
+
+  if (value.status !== "blocked") {
+    addIssue(
+      issues,
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceBlockerSummary.status",
+      "must be blocked while #259/#266/#267 remain open"
+    );
+  }
+  const blockedIssueNumbers = stringList(value.blockedIssueNumbers);
+  for (const issueNumber of REQUIRED_RELEASE_EVIDENCE_ISSUE_NUMBERS) {
+    if (!blockedIssueNumbers.includes(String(issueNumber))) {
+      addIssue(
+        issues,
+        "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceBlockerSummary.blockedIssueNumbers",
+        `must include #${issueNumber}`
+      );
+    }
+  }
+  if (value.blockedIssueCount !== REQUIRED_RELEASE_EVIDENCE_ISSUE_NUMBERS.length) {
+    addIssue(
+      issues,
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceBlockerSummary.blockedIssueCount",
+      `must be ${REQUIRED_RELEASE_EVIDENCE_ISSUE_NUMBERS.length}`
+    );
+  }
+  if (typeof value.blockedItemCount !== "number" || value.blockedItemCount < REQUIRED_RELEASE_EVIDENCE_ISSUE_NUMBERS.length) {
+    addIssue(
+      issues,
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceBlockerSummary.blockedItemCount",
+      "must include blocked release evidence item count"
+    );
+  }
+  if (typeof value.nextAction !== "string" || !value.nextAction.includes("release evidence bundle")) {
+    addIssue(
+      issues,
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceBlockerSummary.nextAction",
+      "must point operators back to the release evidence bundle workflow"
+    );
+  }
 }
 
 function validateReadyReleaseIssuePreparation(value, issues) {

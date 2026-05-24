@@ -430,6 +430,34 @@ function compactSupportDiagnostic(name, result) {
                 : null
             }
           : null,
+        releaseEvidenceBlockerSummary: isRecord(parsed.releaseEvidenceBlockerSummary)
+          ? {
+              status: typeof parsed.releaseEvidenceBlockerSummary.status === "string"
+                ? parsed.releaseEvidenceBlockerSummary.status
+                : "unknown",
+              issueNumbers: Array.isArray(parsed.releaseEvidenceBlockerSummary.issueNumbers)
+                ? parsed.releaseEvidenceBlockerSummary.issueNumbers.map((issueNumber) => String(issueNumber))
+                : [],
+              blockedIssueNumbers: Array.isArray(parsed.releaseEvidenceBlockerSummary.blockedIssueNumbers)
+                ? parsed.releaseEvidenceBlockerSummary.blockedIssueNumbers.map((issueNumber) => String(issueNumber))
+                : [],
+              issueCount: typeof parsed.releaseEvidenceBlockerSummary.issueCount === "number"
+                ? parsed.releaseEvidenceBlockerSummary.issueCount
+                : 0,
+              blockedIssueCount: typeof parsed.releaseEvidenceBlockerSummary.blockedIssueCount === "number"
+                ? parsed.releaseEvidenceBlockerSummary.blockedIssueCount
+                : 0,
+              totalItemCount: typeof parsed.releaseEvidenceBlockerSummary.totalItemCount === "number"
+                ? parsed.releaseEvidenceBlockerSummary.totalItemCount
+                : 0,
+              blockedItemCount: typeof parsed.releaseEvidenceBlockerSummary.blockedItemCount === "number"
+                ? parsed.releaseEvidenceBlockerSummary.blockedItemCount
+                : 0,
+              nextAction: typeof parsed.releaseEvidenceBlockerSummary.nextAction === "string"
+                ? parsed.releaseEvidenceBlockerSummary.nextAction
+                : null
+            }
+          : null,
         releaseEvidenceIssuePreparation: compactReadyReleaseIssuePreparation(
           parsed.releaseEvidenceIssuePreparation
         ),
