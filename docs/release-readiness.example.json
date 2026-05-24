@@ -97,7 +97,8 @@
       "requiredEvidence": [
         "Clean Windows 11 one-line install reaches the local first screen",
         "UAC, Node/Git/Corepack/pnpm, WSL/Ubuntu/Codex CLI, Visual C++ runtime, desktop shortcut, rerun, and safe update paths match the docs",
-        "support bundle and bootstrap/prod-smoke log evidence are attached for any failure path"
+        "support bundle and bootstrap/prod-smoke log evidence are attached for any failure path",
+        "passed Windows real-device runs include a structured evidenceBundle with device profile metadata, per-check evidence refs, first-screen evidence, support bundle summary, bootstrap log, prod-smoke log, redaction report, and passed checks"
       ],
       "unblockCriteria": [
         "Complete issue #259 with real Windows device or VM evidence",

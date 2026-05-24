@@ -39,6 +39,11 @@ const SECRET_QUERY_NAME_PATTERN = /(?:token|secret|password|pass|api[_-]?key|cre
 const TOKEN_LIKE_PATTERN = tokenLikePattern("iu");
 const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 const URL_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//u;
+const GENERIC_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:/u;
+const REPO_RELATIVE_EVIDENCE_REF_PATTERN =
+  /^(?!(?:\/|\.{1,2}\/|.*(?:^|\/)\.\.(?:\/|$)))(?:(?:README(?:\.en)?\.md)(?:#[^\s\\?&=]+)?|(?:docs|release|artifacts|support|evidence)\/[^\s\\?&=]+)$/u;
+const SAFE_URN_EVIDENCE_REF_PATTERN = /^urn:solo-superman-[A-Za-z0-9:._-]+$/u;
+const ALLOWED_DEVICE_ENVIRONMENT_KINDS = new Set(["physical-device", "vm"]);
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -102,6 +107,25 @@ function validateHttpsUrlIfPresent(value, path, issues) {
   }
 }
 
+function validateEvidenceRef(value, path, issues) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    addIssue(issues, path, "must be a non-empty evidence ref");
+    return;
+  }
+  if (URL_SCHEME_PATTERN.test(value)) {
+    validateHttpsUrlIfPresent(value, path, issues);
+    return;
+  }
+  if (SAFE_URN_EVIDENCE_REF_PATTERN.test(value) || REPO_RELATIVE_EVIDENCE_REF_PATTERN.test(value)) {
+    return;
+  }
+  if (GENERIC_SCHEME_PATTERN.test(value)) {
+    addIssue(issues, path, "must use https, a solo-superman URN, or a repo-relative evidence path");
+    return;
+  }
+  addIssue(issues, path, "must be an HTTPS URL, solo-superman URN, or repo-relative evidence path");
+}
+
 function validateStringList(value, path, issues, options = {}) {
   const { minItems = 1 } = options;
   if (!Array.isArray(value) || value.length < minItems) {
@@ -119,6 +143,84 @@ function validateStringList(value, path, issues, options = {}) {
     validateHttpsUrlIfPresent(item, `${path}[${index}]`, issues);
   }
   return strings;
+}
+
+function validateEvidenceRefList(value, path, issues, options = {}) {
+  const { minItems = 1 } = options;
+  if (!Array.isArray(value) || value.length < minItems) {
+    addIssue(issues, path, `must be a string list with at least ${minItems} item(s)`);
+    return new Set();
+  }
+
+  const refs = new Set();
+  for (const [index, item] of value.entries()) {
+    if (typeof item !== "string" || item.trim().length === 0) {
+      addIssue(issues, `${path}[${index}]`, "must be a non-empty string");
+      continue;
+    }
+    refs.add(item);
+    validateEvidenceRef(item, `${path}[${index}]`, issues);
+  }
+  return refs;
+}
+
+function validateDeviceProfile(value, path, issues) {
+  if (!isRecord(value)) {
+    addIssue(issues, path, "must describe the Windows device profile");
+    return;
+  }
+
+  for (const field of ["osName", "osVersion", "architecture"]) {
+    if (typeof value[field] !== "string" || value[field].trim().length === 0) {
+      addIssue(issues, `${path}.${field}`, "must be a non-empty device metadata string");
+    }
+  }
+  if (!ALLOWED_DEVICE_ENVIRONMENT_KINDS.has(value.environmentKind)) {
+    addIssue(issues, `${path}.environmentKind`, "must be physical-device or vm");
+  }
+}
+
+function validatePassedChecks(bundle, path, issues) {
+  const passedChecks = validateStringList(bundle?.passedChecks, `${path}.passedChecks`, issues);
+  for (const requiredCheck of REQUIRED_DEVICE_CHECKS) {
+    if (!passedChecks.has(requiredCheck)) {
+      addIssue(issues, `${path}.passedChecks`, `must include ${requiredCheck}`);
+    }
+  }
+}
+
+function validateCheckEvidenceRefs(value, path, issues) {
+  if (!isRecord(value)) {
+    addIssue(issues, path, "must map every required Windows check to redacted evidence");
+    return;
+  }
+
+  for (const requiredCheck of REQUIRED_DEVICE_CHECKS) {
+    validateEvidenceRef(value[requiredCheck], `${path}.${requiredCheck}`, issues);
+  }
+}
+
+function validatePassedEvidenceBundle(run, path, issues) {
+  const bundle = run.evidenceBundle;
+  const bundlePath = `${path}.evidenceBundle`;
+  if (!isRecord(bundle)) {
+    addIssue(issues, bundlePath, "must include structured device evidence when the Windows run passed");
+    return;
+  }
+
+  validateDeviceProfile(bundle.deviceProfile, `${bundlePath}.deviceProfile`, issues);
+  for (const field of [
+    "installerCommandRef",
+    "firstScreenEvidenceRef",
+    "supportBundleRef",
+    "bootstrapLogRef",
+    "prodSmokeLogRef"
+  ]) {
+    validateEvidenceRef(bundle[field], `${bundlePath}.${field}`, issues);
+  }
+  validateEvidenceRefList(bundle.redactedEvidenceRefs, `${bundlePath}.redactedEvidenceRefs`, issues);
+  validatePassedChecks(bundle, bundlePath, issues);
+  validateCheckEvidenceRefs(bundle.checkEvidenceRefs, `${bundlePath}.checkEvidenceRefs`, issues);
 }
 
 function validateRequiredCommandList(value, path, requiredCommands, issues) {
@@ -169,7 +271,7 @@ function validateDeviceRun(run, path, issues) {
     addIssue(issues, `${path}.requiredFor`, "must be general-release");
   }
 
-  validateStringList(run.evidenceRefs, `${path}.evidenceRefs`, issues);
+  validateEvidenceRefList(run.evidenceRefs, `${path}.evidenceRefs`, issues);
   validateStringList(run.requiredEvidence, `${path}.requiredEvidence`, issues);
   validateStringList(run.unblockCriteria, `${path}.unblockCriteria`, issues);
   const checks = validateStringList(run.requiredChecks, `${path}.requiredChecks`, issues);
@@ -197,6 +299,7 @@ function validateDeviceRun(run, path, issues) {
     if (typeof run.verifiedAt !== "string" || !ISO_TIMESTAMP_PATTERN.test(run.verifiedAt)) {
       addIssue(issues, `${path}.verifiedAt`, "must be an ISO timestamp in UTC when the device run passed");
     }
+    validatePassedEvidenceBundle(run, path, issues);
   }
 
   return typeof run.id === "string" ? { id: run.id, platform: run.platform, status: run.status } : null;
