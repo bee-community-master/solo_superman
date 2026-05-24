@@ -694,6 +694,10 @@ describe("release evidence checklist", () => {
       expect(readme).toContain("#259");
       expect(readme).toContain("issue-259-comment.md");
       expect(readme).toContain("pnpm verify:release-evidence-template -- --input <filled-template.json>");
+      expect(readme).toContain("pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir>");
+      expect(readme).toContain("pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> --require-ready");
+      expect(readme).toContain("pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>");
+      expect(readme).toContain("filled template and full bundle pass validation");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
