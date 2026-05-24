@@ -1073,6 +1073,7 @@ const BUSINESS_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
     whyItMatters: "MVP scope가 흐리면 Build Slice가 커지고 Planning Handoff가 blocker 상태로 남습니다.",
     question: "첫 Build Slice에서 반드시 검증해야 할 기능과 제외할 기능은 무엇인가?",
     expectedAnswerType: "choice",
+    answerSelectionMode: "multiple",
     decisionItUnlocks: "mvp_scope decision과 Build Slice readiness를 잠급니다.",
     routes: ["question", "decision_candidate", "deferred"]
   },
@@ -1122,6 +1123,7 @@ const BUSINESS_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
     whyItMatters: "non-goal이 명시되지 않으면 scope creep과 downstream rework가 생깁니다.",
     question: "이번 MVP에서 의도적으로 제외해야 하는 범위는 무엇인가?",
     expectedAnswerType: "choice",
+    answerSelectionMode: "multiple",
     decisionItUnlocks: "Non-goals section과 Planning Handoff blocker 여부를 잠급니다.",
     routes: ["question", "deferred", "decision_candidate"]
   },
@@ -1418,6 +1420,7 @@ const PERSONAL_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
     whyItMatters: "개인용 도구는 편해지려다 관리 부담이 더 커질 수 있습니다.",
     question: "이번 개인용 도구에서 의도적으로 만들지 않을 기능과 유지보수 한계는 무엇인가?",
     expectedAnswerType: "choice",
+    answerSelectionMode: "multiple",
     decisionItUnlocks: "Non-goals section과 maintainability residual risk를 잠급니다.",
     routes: ["question", "deferred", "decision_candidate"]
   },

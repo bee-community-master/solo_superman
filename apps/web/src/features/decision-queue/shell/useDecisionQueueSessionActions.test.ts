@@ -104,50 +104,48 @@ describe("nextQuestionBatchIdsForActivation", () => {
   });
 
   it("falls back to default activation when too few queued ids would violate the server batch minimum", () => {
-    expect(
-      nextQuestionBatchIdsForActivation(
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 5 as ProjectionVersion,
+      progress: {
+        generatedQuestionCount: 12,
+        openQuestionCount: 6,
+        answeredQuestionCount: 6,
+        deferredQuestionCount: 0,
+        resolvedQuestionCount: 0,
+        terminalQuestionCount: 6,
+        followUpQuestionCount: 2,
+        followUpOpenQuestionCount: 2,
+        topicCoverageCount: 8,
+        openTopicCoverageCount: 3,
+        followUpBudgetRemainingCount: 20,
+        visibleQuestionDebtCount: 2,
+        activeQuestionCount: 0,
+        upcomingQuestionCount: 2,
+        blockedQuestionCount: 0,
+        completionPercent: 50
+      },
+      active: [],
+      next: [
         {
-          kind: "DecisionQueueProjection",
-          version: 5 as ProjectionVersion,
-          progress: {
-            generatedQuestionCount: 12,
-            openQuestionCount: 6,
-            answeredQuestionCount: 6,
-            deferredQuestionCount: 0,
-            resolvedQuestionCount: 0,
-            terminalQuestionCount: 6,
-            followUpQuestionCount: 2,
-            followUpOpenQuestionCount: 2,
-            topicCoverageCount: 8,
-            openTopicCoverageCount: 3,
-            followUpBudgetRemainingCount: 20,
-            visibleQuestionDebtCount: 2,
-            activeQuestionCount: 0,
-            upcomingQuestionCount: 2,
-            blockedQuestionCount: 0,
-            completionPercent: 50
-          },
-          active: [],
-          next: [
-            {
-              queueItemId: "queue_question_1" as QueueItemId,
-              title: "Queued question 1",
-              state: "next",
-              cardType: "question"
-            },
-            {
-              queueItemId: "queue_question_2" as QueueItemId,
-              title: "Queued question 2",
-              state: "next",
-              cardType: "question"
-            }
-          ],
-          blocked: [],
-          deferred: []
+          queueItemId: "queue_question_1" as QueueItemId,
+          title: "Queued question 1",
+          state: "next",
+          cardType: "question"
         },
-        3
-      )
-    ).toBeUndefined();
+        {
+          queueItemId: "queue_question_2" as QueueItemId,
+          title: "Queued question 2",
+          state: "next",
+          cardType: "question"
+        }
+      ],
+      blocked: [],
+      deferred: []
+    };
+
+    expect(nextQuestionBatchIdsForActivation(queue, 3)).toBeUndefined();
+    expect(queueShouldAutoActivateNextQuestionBatch(queue, 3)).toBe(true);
   });
 
   it("falls back to default activation when no queued next questions exist", () => {
@@ -547,6 +545,194 @@ describe("useDecisionQueueSessionActions", () => {
       [nextQuestionId]
     );
     expect(setProjections).toHaveBeenCalledWith(expect.any(Function));
+  });
+
+  it("uses server-selected activation after an answer when visible next ids are below the batch minimum", async () => {
+    const projectId = "proj_answer_auto_default_batch" as ProjectId;
+    const sessionId = "sess_answer_auto_default_batch" as SessionId;
+    const answeredQueueItemId = "queue_answered_default_batch" as QueueItemId;
+    const queueAfterAnswer: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 2 as ProjectionVersion,
+      progress: {
+        generatedQuestionCount: 12,
+        openQuestionCount: 6,
+        answeredQuestionCount: 6,
+        deferredQuestionCount: 0,
+        resolvedQuestionCount: 0,
+        terminalQuestionCount: 6,
+        followUpQuestionCount: 2,
+        followUpOpenQuestionCount: 2,
+        topicCoverageCount: 8,
+        openTopicCoverageCount: 3,
+        followUpBudgetRemainingCount: 20,
+        visibleQuestionDebtCount: 2,
+        activeQuestionCount: 0,
+        upcomingQuestionCount: 2,
+        blockedQuestionCount: 0,
+        completionPercent: 50
+      },
+      active: [
+        {
+          queueItemId: "queue_research_review_after_default_answer" as QueueItemId,
+          title: "Review research while questions remain",
+          state: "active",
+          cardType: "research_review"
+        }
+      ],
+      next: [
+        {
+          queueItemId: "queue_visible_next_1" as QueueItemId,
+          title: "Visible next question 1",
+          state: "next",
+          cardType: "question"
+        },
+        {
+          queueItemId: "queue_visible_next_2" as QueueItemId,
+          title: "Visible next question 2",
+          state: "next",
+          cardType: "question"
+        }
+      ],
+      blocked: [],
+      deferred: []
+    };
+    const queueAfterActivation: DecisionQueueProjection = {
+      ...queueAfterAnswer,
+      version: 3 as ProjectionVersion,
+      progress: {
+        ...queueAfterAnswer.progress!,
+        activeQuestionCount: 3,
+        upcomingQuestionCount: 0,
+        visibleQuestionDebtCount: 3
+      },
+      active: [
+        ...queueAfterAnswer.active,
+        {
+          queueItemId: "queue_server_selected_1" as QueueItemId,
+          title: "Server-selected question",
+          state: "active",
+          cardType: "question"
+        }
+      ],
+      next: []
+    };
+    const answerResponse: CommandResponse<DecisionQueueProjection> = {
+      category: "accepted_with_projection",
+      commandId: "cmd_answer_auto_default_batch" as CommandId,
+      correlationId: "corr_answer_auto_default_batch" as CorrelationId,
+      stateVersionBefore: 1 as StateVersion,
+      stateVersionAfter: 2 as StateVersion,
+      immediateProjection: queueAfterAnswer
+    };
+    const activateResponse: CommandResponse<DecisionQueueProjection> = {
+      category: "accepted_with_projection",
+      commandId: "cmd_activate_auto_default_batch" as CommandId,
+      correlationId: "corr_activate_auto_default_batch" as CorrelationId,
+      stateVersionBefore: 2 as StateVersion,
+      stateVersionAfter: 3 as StateVersion,
+      immediateProjection: queueAfterActivation
+    };
+    const appendCommand: Parameters<typeof useDecisionQueueSessionActions>[0]["appendCommand"] = async (
+      _label,
+      commandResponse
+    ) => commandResponse;
+    const submitAnswer = vi.fn(async () => answerResponse);
+    const activateQuestionBatch = vi.fn(async () => activateResponse);
+    let actions: ReturnType<typeof useDecisionQueueSessionActions> | undefined;
+
+    function Harness() {
+      actions = useDecisionQueueSessionActions({
+        answerDrafts: {
+          [answeredQueueItemId]: "Answer and let the server choose the next valid batch."
+        },
+        appendCommand,
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityChangeReason: "",
+        chatGptLoginAcknowledged: true,
+        codexLoginAuthenticated: true,
+        client: {
+          submitAnswer,
+          activateQuestionBatch
+        } as unknown as SidecarClient,
+        connectionStatus: "connected",
+        copy: DECISION_QUEUE_COPY.en,
+        idea: "Auto-continue with server fallback",
+        initialResearchPermission: "allow_public_web",
+        initialBusinessCriticIntensityReason: "",
+        intake: "Question debt remains even when the visible next list is short.",
+        isBusy: false,
+        knownRiskDrafts: {},
+        projectPurposeMode: "business",
+        projections: {
+          ...emptyProjectionState(),
+          session: {
+            kind: "SessionShellProjection",
+            projectId,
+            sessionId,
+            version: 1 as ProjectionVersion,
+            phase: "spec",
+            projectPurposeMode: "business",
+            projectPurposeModeSelectionStatus: "confirmed",
+            projectPurposeModeLabel: "Business validation",
+            projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+          },
+          queue: {
+            kind: "DecisionQueueProjection",
+            version: 1 as ProjectionVersion,
+            active: [
+              {
+                queueItemId: answeredQueueItemId,
+                title: "Last active question",
+                state: "active",
+                cardType: "question"
+              }
+            ],
+            next: [],
+            blocked: [],
+            deferred: []
+          }
+        },
+        purposeModeChangeReason: "",
+        questionBatchSize: 3,
+        refetchQueueAfterSseNotification: vi.fn(async () => undefined),
+        refreshProjections: vi.fn(async () => undefined),
+        researchDrafts: {},
+        setAnswerDrafts: vi.fn(),
+        setBusinessCriticIntensity: vi.fn(),
+        setBusinessCriticIntensityChangeReason: vi.fn(),
+        setCommandLog: vi.fn(),
+        setIsBusy: vi.fn(),
+        setKnownRiskDrafts: vi.fn(),
+        setPhase15bReadiness: vi.fn(),
+        setProjectPurposeMode: vi.fn(),
+        setProjections: vi.fn(),
+        setPurposeModeChangeReason: vi.fn(),
+        setResearchDrafts: vi.fn(),
+        setResearchOperations: vi.fn(),
+        setStatuses: vi.fn(),
+        setWorkflowError: vi.fn()
+      });
+
+      return null;
+    }
+
+    renderToStaticMarkup(createElement(Harness));
+
+    if (!actions) {
+      throw new Error("Session actions were not captured.");
+    }
+
+    await actions.submitAnswer(answeredQueueItemId);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(activateQuestionBatch).toHaveBeenCalledWith(
+      sessionId,
+      2,
+      undefined
+    );
   });
 
   it("loads the next question batch while non-question active cards remain visible", async () => {

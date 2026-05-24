@@ -128,11 +128,26 @@ export function queueHasActiveQuestionDebt(queue: DecisionQueueProjection | null
   return queue?.active.some(queueItemIsQuestionDebt) ?? false;
 }
 
+function queueHasRemainingOpenQuestionDebt(queue: DecisionQueueProjection | null | undefined) {
+  if (!queue) {
+    return false;
+  }
+
+  if (queue.progress) {
+    return queue.progress.openQuestionCount > queue.progress.activeQuestionCount;
+  }
+
+  return queue.next.some(queueItemIsQuestionDebt);
+}
+
 export function queueShouldAutoActivateNextQuestionBatch(
   queue: DecisionQueueProjection | null | undefined,
   requestedBatchSize = DEFAULT_NEXT_QUESTION_BATCH_SIZE
 ) {
-  return !queueHasActiveQuestionDebt(queue) && Boolean(nextQuestionBatchIdsForActivation(queue, requestedBatchSize)?.length);
+  return !queueHasActiveQuestionDebt(queue) && (
+    Boolean(nextQuestionBatchIdsForActivation(queue, requestedBatchSize)?.length) ||
+    queueHasRemainingOpenQuestionDebt(queue)
+  );
 }
 
 export function useDecisionQueueSessionActions({

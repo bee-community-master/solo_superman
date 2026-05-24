@@ -216,6 +216,12 @@ function hasSingleChoiceCue(question: string) {
   return /(?:어느\s*방향|which\s+direction)/iu.test(question) || hasConcreteSingleChoiceCue(question);
 }
 
+function asksForValidationPlan(question: string) {
+  return /(?:(?:실험|검증|테스트|확인)\s*(?:방법|방식|계획|후보|절차|전략|먼저|우선)|(?:방법|방식|계획|후보)\s*(?:중|가운데)?\s*(?:어느|어떤)?\s*(?:실험|검증|테스트|확인)|validation\s+plan|validate\s+(?:first|with|by)|which\s+(?:experiment|test|validation)|experiment\s+(?:plan|first|candidate)|test\s+(?:plan|first|candidate))/iu.test(
+    question
+  );
+}
+
 function isSignalOrCriteriaResearchFollowUp(input: Pick<ResearchFollowUpAnswerInput, "question" | "researchTask" | "sourceQuestion">) {
   return /(?:신호|조건|요인|기준|signal|criteria|factor|indicator)/iu.test(
     [
@@ -278,13 +284,15 @@ export function researchFollowUpExpectedAnswerType(input: ResearchFollowUpAnswer
   }
 
   if (answerShape === "open_text") {
-    return /(?:실험|검증|테스트|확인|experiment|test|validate|validation)/iu.test(input.question)
-      ? "experiment"
-      : "text";
+    return asksForValidationPlan(input.question) ? "experiment" : "text";
   }
 
   if (/(?:순위|우선순위|rank|priorit)/iu.test(input.question)) {
     return "rank";
+  }
+
+  if (asksForValidationPlan(input.question)) {
+    return "experiment";
   }
 
   return "choice";

@@ -360,6 +360,53 @@ describe("research follow-up answer shape", () => {
     );
   });
 
+  it("uses validation-plan answer labels and bounded choices when the question asks which experiment to run", () => {
+    const input = {
+      question:
+        "검증 방법 후보는 고객 인터뷰, 랜딩페이지 신청, 수동 concierge 테스트입니다. 어느 검증 방법을 먼저 선택하시겠습니까?",
+      researchTask: task("첫 검증 방법 선택"),
+      sourceQuestion: sourceQuestion(),
+      evidenceMatrix: evidenceMatrix()
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("single_choice");
+    expect(researchFollowUpExpectedAnswerType(input)).toBe("experiment");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBe("single");
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "question_candidate_1", label: "고객 인터뷰" }),
+        expect.objectContaining({ id: "question_candidate_2", label: "랜딩페이지 신청" }),
+        expect.objectContaining({ id: "question_candidate_3", label: "수동 concierge 테스트" })
+      ])
+    );
+  });
+
+  it("keeps generated choice lists flexible between three and ten options", () => {
+    const twoCandidateInput = {
+      question: "후보는 개인 창업자, 팀 리더입니다. 어느 후보를 선택하시겠습니까?",
+      researchTask: task("후보 선택 최소 선택지 보강"),
+      sourceQuestion: sourceQuestion(),
+      evidenceMatrix: evidenceMatrix()
+    };
+    const manyCandidateInput = {
+      question:
+        "후보는 개인 창업자, 팀 리더, 운영 담당자, 마케터, 디자이너, 개발자, 교육자, 컨설턴트, 소상공인, 크리에이터, 연구자입니다. 어느 후보를 선택하시겠습니까?",
+      researchTask: task("후보 선택 최대 선택지 제한"),
+      sourceQuestion: sourceQuestion(),
+      evidenceMatrix: evidenceMatrix()
+    };
+
+    expect(researchFollowUpAnswerOptions(twoCandidateInput)).toHaveLength(3);
+    expect(researchFollowUpAnswerOptions(twoCandidateInput)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "개인 창업자" }),
+        expect.objectContaining({ label: "팀 리더" }),
+        expect.objectContaining({ id: "need_more_research" })
+      ])
+    );
+    expect(researchFollowUpAnswerOptions(manyCandidateInput)).toHaveLength(10);
+  });
+
   it("classifies subjective, agree-disagree, single-choice, and multi-select wording from plain user language", () => {
     const base = {
       researchTask: task("답변 방식 다양화 확인"),
