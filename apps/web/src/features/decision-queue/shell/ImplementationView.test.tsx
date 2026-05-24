@@ -8,6 +8,7 @@ import { autoImplementationRunViewModel } from "../AutoImplementationRunPanel";
 import { implementationStepLedgerViewModel } from "../ImplementationStepLedgerPanel";
 import {
   pendingEffectSummary,
+  planningHandoffViewModel,
   runtimeActivityProjectionFromStatuses
 } from "../decision-queue-view-model";
 import { renderEnglishMarkup } from "../test-rendering";
@@ -51,6 +52,8 @@ function renderImplementationView(controllerOverrides: Partial<DecisionQueueShel
     isBusy: false,
     pendingSummary: pendingEffectSummary(statuses),
     pauseAutoImplementationStage: vi.fn(),
+    planningHandoffView: planningHandoffViewModel(null),
+    prepareFounderBrief: vi.fn(),
     planAutoImplementationWorkerJob: vi.fn(),
     recordAutoImplementationStageTick: vi.fn(),
     startAutoImplementationStage: vi.fn(),
@@ -67,9 +70,11 @@ function renderImplementationView(controllerOverrides: Partial<DecisionQueueShel
     refreshRuntimeStatus: vi.fn(),
     refreshAutoImplementationRuns: vi.fn(),
     refreshImplementationStepLedger: vi.fn(),
+    runPlanningHandoffGate: vi.fn(),
     runAutoImplementationWorkerJob: vi.fn(),
     runtimeActivity: runtimeActivityProjectionFromStatuses(statuses),
     runtimeStatus: null,
+    scoreCompleteness: vi.fn(),
     statuses,
     workerLedgerImportDraft: "",
     setWorkerLedgerImportDraft: vi.fn(),
@@ -80,6 +85,21 @@ function renderImplementationView(controllerOverrides: Partial<DecisionQueueShel
 }
 
 describe("ImplementationView", () => {
+  it("shows the implementation start path before workspace creation", () => {
+    const markup = renderImplementationView();
+
+    expect(markup).toContain("Implementation start path");
+    expect(markup).toContain("Next implementation action");
+    expect(markup).toContain("Start a session from the idea intake.");
+    expect(markup).toContain("Active session");
+    expect(markup).toContain("Completion source");
+    expect(markup).toContain("Planning handoff");
+    expect(markup).toContain("Workspace run");
+    expect(markup).toContain('<button type="button" disabled="">Score completeness</button>');
+    expect(markup).toContain('<button type="button" disabled="">Prepare Founder Brief</button>');
+    expect(markup).toContain('<button type="button" disabled="">Run planning handoff check</button>');
+  });
+
   it("provides a dedicated runtime status refresh action in the implementation runtime panel", () => {
     const markup = renderImplementationView({
       runtimeStatus: codexRuntimeStatus()

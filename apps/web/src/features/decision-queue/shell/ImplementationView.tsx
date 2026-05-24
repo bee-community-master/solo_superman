@@ -18,11 +18,14 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     canCreateAutoImplementationRun,
     completeAutoImplementationWorkerJobFromLedger,
     createAutoImplementationRun,
+    confidence,
     implementationStepLedgerView,
     importAutoImplementationWorkerLedgerFromDraft,
     isBusy,
     pendingSummary,
     pauseAutoImplementationStage,
+    planningHandoffView,
+    prepareFounderBrief,
     planAutoImplementationWorkerJob,
     recordAutoImplementationStageTick,
     startAutoImplementationStage,
@@ -39,9 +42,11 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     refreshRuntimeStatus,
     refreshAutoImplementationRuns,
     refreshImplementationStepLedger,
+    runPlanningHandoffGate,
     runAutoImplementationWorkerJob,
     runtimeActivity,
     runtimeStatus,
+    scoreCompleteness,
     statuses,
     workerLedgerImportDraft,
     setWorkerLedgerImportDraft
@@ -65,9 +70,93 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         ]
       ]
     : [];
+  const hasActiveSession = Boolean(projections.session);
+  const hasCompletionSource =
+    confidence?.completionCandidate.status === "candidate" || projections.founderBrief?.exportReady === true;
+  const implementationStartSteps = [
+    {
+      label: copy.implementation.startGuideSession,
+      state: hasActiveSession ? copy.implementation.startGuideDone : copy.implementation.startGuideBlocked,
+      ready: hasActiveSession,
+      detail: hasActiveSession ? copy.implementation.startGuideSessionReady : copy.implementation.startGuideSessionBlocked
+    },
+    {
+      label: copy.implementation.startGuideReadiness,
+      state: hasCompletionSource ? copy.implementation.startGuideDone : copy.implementation.startGuideBlocked,
+      ready: hasCompletionSource,
+      detail: hasCompletionSource
+        ? copy.implementation.startGuideReadinessReady
+        : confidence
+          ? copy.implementation.startGuideReadinessBlocked(confidence.completionCandidate.gateFailures.length)
+          : copy.implementation.startGuideReadinessMissing
+    },
+    {
+      label: copy.implementation.startGuideHandoff,
+      state: planningHandoffView.status === "final" ? copy.implementation.startGuideDone : copy.implementation.startGuideBlocked,
+      ready: planningHandoffView.status === "final",
+      detail: planningHandoffView.status === "final"
+        ? copy.implementation.startGuideHandoffReady
+        : planningHandoffView.status === "blocked"
+          ? planningHandoffView.summary
+          : copy.implementation.startGuideHandoffMissing
+    },
+    {
+      label: copy.implementation.startGuideWorkspace,
+      state: autoImplementationRunView.hasRun ? copy.implementation.startGuideDone : copy.implementation.startGuideBlocked,
+      ready: autoImplementationRunView.hasRun,
+      detail: autoImplementationRunView.hasRun
+        ? copy.implementation.startGuideWorkspaceReady
+        : canCreateAutoImplementationRun
+          ? copy.implementation.startGuideWorkspaceReadyToCreate
+          : copy.implementation.startGuideWorkspaceBlocked
+    }
+  ];
+  const implementationStartNextAction = !hasActiveSession
+    ? copy.implementation.startGuideNextSession
+    : !confidence
+      ? copy.implementation.startGuideNextScore
+      : !hasCompletionSource
+        ? copy.implementation.startGuideNextBrief
+        : planningHandoffView.status !== "final"
+          ? copy.implementation.startGuideNextHandoff
+          : !autoImplementationRunView.hasRun
+            ? copy.implementation.startGuideNextWorkspace
+            : copy.implementation.startGuideNextWorker;
 
   return (
     <div className="view-grid implementation-view">
+      <section className="panel implementation-start-guide">
+        <div className="panel-heading">
+          <h2>{copy.implementation.startGuideTitle}</h2>
+          <span>{autoImplementationRunView.hasRun ? copy.implementation.startGuideDone : copy.implementation.pending}</span>
+        </div>
+        <p className="operations-summary">{copy.implementation.startGuideSummary}</p>
+        <p className="research-recovery">{copy.implementation.startGuideNextAction}: {implementationStartNextAction}</p>
+        <ol className="implementation-start-steps">
+          {implementationStartSteps.map((step) => (
+            <li className={step.ready ? "ready" : "blocked"} key={step.label}>
+              <strong>{step.label}</strong>
+              <span>{step.state}</span>
+              <small>{step.detail}</small>
+            </li>
+          ))}
+        </ol>
+        <div className="card-actions panel-actions">
+          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void scoreCompleteness()}>
+            {copy.planning.scoreCompleteness}
+          </button>
+          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareFounderBrief()}>
+            {copy.handoff.planningActionLabels.prepareFounderBrief}
+          </button>
+          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void runPlanningHandoffGate()}>
+            {copy.handoff.runGate}
+          </button>
+          <button type="button" disabled={isBusy || !canCreateAutoImplementationRun} onClick={() => void createAutoImplementationRun()}>
+            {autoImplementationRunView.hasRun ? copy.autoImplementation.reprepare : copy.autoImplementation.create}
+          </button>
+        </div>
+      </section>
+
       <AutoImplementationRunPanel
         run={autoImplementationRunView}
         isBusy={isBusy}

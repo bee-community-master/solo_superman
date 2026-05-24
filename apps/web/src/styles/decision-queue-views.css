@@ -20,6 +20,7 @@
 
 .planning-view .spec-panel,
 .planning-view .founder-brief-panel,
+.implementation-view .implementation-start-guide,
 .implementation-view .auto-implementation-run-panel,
 .implementation-view .implementation-step-ledger-panel,
 .implementation-view .activity-panel {
@@ -787,6 +788,57 @@
 .confidence-breakdown dt {
   color: var(--solo-muted);
   font-size: 0.72rem;
+}
+
+.implementation-start-steps {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.implementation-start-steps li {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.6fr) auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  border: 1px solid var(--solo-border);
+  border-radius: 10px;
+  background: #fbfbf9;
+  padding: 10px;
+}
+
+.implementation-start-steps li.ready {
+  border-color: #bfe5cb;
+  background: #f5fff7;
+}
+
+.implementation-start-steps li.blocked {
+  border-color: #eadcc5;
+  background: #fffaf2;
+}
+
+.implementation-start-steps span {
+  border-radius: 999px;
+  background: #e7eef8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.implementation-start-steps li.ready span {
+  background: #dff3e4;
+}
+
+.implementation-start-steps li.blocked span {
+  background: #f7e9cd;
+}
+
+.implementation-start-steps small {
+  color: var(--solo-muted);
+  line-height: 1.45;
 }
 
 .confidence-breakdown dd {
