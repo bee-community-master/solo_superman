@@ -71,7 +71,7 @@ describe("research follow-up answer shape", () => {
 
     expect(classifyResearchFollowUpAnswerShape(input)).toBe("open_text");
     expect(researchFollowUpExpectedAnswerType(input)).toBe("text");
-    expect(researchFollowUpAnswerSelectionMode(input)).toBe("single");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBeUndefined();
     expect(researchFollowUpAnswerOptions(input)).toEqual([]);
   });
 

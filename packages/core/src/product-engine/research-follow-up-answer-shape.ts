@@ -320,8 +320,12 @@ export function researchFollowUpExpectedAnswerType(input: ResearchFollowUpAnswer
   return "choice";
 }
 
-export function researchFollowUpAnswerSelectionMode(input: ResearchFollowUpAnswerInput): AmbiguityAnswerSelectionMode {
+export function researchFollowUpAnswerSelectionMode(input: ResearchFollowUpAnswerInput): AmbiguityAnswerSelectionMode | undefined {
   const answerShape = classifyResearchFollowUpAnswerShape(input);
+
+  if (answerShape === "open_text") {
+    return undefined;
+  }
 
   if (answerShape === "multi_select") {
     return "multiple";

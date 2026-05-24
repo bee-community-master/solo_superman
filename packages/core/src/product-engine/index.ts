@@ -2156,6 +2156,7 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
     evidenceMatrix
   };
   const expectedAnswerType = researchFollowUpExpectedAnswerType(answerInput);
+  const answerSelectionMode = researchFollowUpAnswerSelectionMode(answerInput);
   const answerOptions = researchFollowUpAnswerOptions(answerInput);
 
   return {
@@ -2188,7 +2189,7 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
     status: "open",
     questionText: question,
     expectedAnswerType,
-    answerSelectionMode: researchFollowUpAnswerSelectionMode(answerInput),
+    ...(answerSelectionMode ? { answerSelectionMode } : {}),
     answerOptions,
     decisionItUnlocks:
       `리서치 결과 “${readableEvidenceContextExcerpt(researchTask.objective)}”와 ${readableEvidenceContextExcerpt(sourceLabel)} 근거를 스펙, 근거, 구현 범위 판단으로 연결합니다.`,
