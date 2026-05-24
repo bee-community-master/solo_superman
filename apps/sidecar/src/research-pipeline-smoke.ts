@@ -1,11 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
-import type { ProjectId } from "@solo-superman/contracts";
+import type { ProjectId, SessionId } from "@solo-superman/contracts";
 import { createProductEngineCommandService } from "./product-engine/command-service";
+import {
+  listResearchMemoryMarkdownSourceRefs,
+  RESEARCH_MEMORY_SOURCE_REF_PREFIX
+} from "./product-engine/research-memory-markdown";
 import { createWebSearchReadOnlyResearchAdapter } from "./product-engine/web-search-readonly-adapter";
 import { createSidecarApp } from "./server";
 import { removeTemporaryDirectory } from "./test-cleanup";
@@ -25,7 +29,11 @@ export const RESEARCH_PIPELINE_SMOKE = "research_pipeline" as const;
 const PROJECT_IDEA = "A research pipeline smoke idea for founder validation.";
 const ALLOWLIST_ID = "research_allowlist_pipeline_smoke";
 const RESEARCH_RUN_ID = "research_run_pipeline_smoke";
+const WIDER_RESEARCH_RUN_ID = "research_run_pipeline_memory_smoke";
 const SOURCE_QUEUE_ITEM_ID = "queue_item_pipeline_smoke";
+const WIDER_SOURCE_QUEUE_ITEM_ID = "queue_item_pipeline_memory_smoke";
+const BASE_RESEARCH_OBJECTIVE = "Find public validation evidence for the founder workflow assistant.";
+const WIDER_RESEARCH_OBJECTIVE = "Broaden research beyond existing notes for the founder workflow assistant.";
 
 type SmokeStatus = "blocked" | "passed";
 
@@ -52,6 +60,8 @@ export interface ResearchPipelineSmokeEvidence {
     readonly reviewCardState: string;
     readonly followUpQuestionCount: number;
     readonly queueBlockedCount: number;
+    readonly researchMemorySourceRefCount: number;
+    readonly widerResearchSourceRefCount: number;
   };
   readonly reason?: string;
   readonly blockers?: readonly string[];
@@ -67,6 +77,8 @@ export interface ResearchPipelineSmokeOptions {
 interface ResearchScenario {
   readonly storage: SmokeStorage;
   readonly app: SmokeRequestApp;
+  readonly autoImplementationWorkspaceRoot: string;
+  readonly researchMemoryMarkdownRoot: string;
 }
 
 interface ProjectContext {
@@ -77,9 +89,12 @@ interface ProjectContext {
 interface ResearchFlowResult {
   readonly project: ProjectContext;
   readonly startRun: JsonRecord;
+  readonly widerResearchStartRun: JsonRecord;
   readonly providerProjection: JsonRecord;
   readonly researchProjection: JsonRecord;
   readonly queueProjection: JsonRecord;
+  readonly researchMemorySourceRefs: readonly string[];
+  readonly researchMemoryMarkdown: string;
 }
 
 function firstRecordAt(value: unknown, label: string) {
@@ -102,6 +117,14 @@ function arrayLength(value: unknown, label: string) {
   }
 
   return value.length;
+}
+
+function stringArrayAt(value: unknown, label: string) {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new Error(`${label} must be an array of strings.`);
+  }
+
+  return value as readonly string[];
 }
 
 function createResearchPipelineRuntimeAdapter(adapterKind: string) {
@@ -164,12 +187,14 @@ async function planResearchTask(input: {
   readonly storage: SmokeStorage;
   readonly localCapabilityToken: string;
   readonly sessionId: string;
+  readonly objective?: string;
+  readonly sourceQueueItemId?: string;
 }) {
   const expectedStateVersion = await sessionEventCount(input.storage, input.sessionId);
   const data = await postJson(input.app, `/api/v1/sessions/${input.sessionId}/research-tasks`, input.localCapabilityToken, {
     expectedStateVersion,
-    objective: "Find public validation evidence for the founder workflow assistant.",
-    sourceQueueItemId: SOURCE_QUEUE_ITEM_ID,
+    objective: input.objective ?? BASE_RESEARCH_OBJECTIVE,
+    sourceQueueItemId: input.sourceQueueItemId ?? SOURCE_QUEUE_ITEM_ID,
     routeOutcome: "research_needed",
     impact: "high"
   });
@@ -183,32 +208,63 @@ async function startResearchRun(
   app: SmokeRequestApp,
   localCapabilityToken: string,
   projectId: string,
-  researchTaskId: string
+  researchTaskId: string,
+  options: {
+    readonly researchRunId?: string;
+    readonly researchObjective?: string;
+    readonly sourceRefs?: readonly string[];
+  } = {}
 ) {
   return postJson(app, `/api/v1/projects/${projectId}/research-runs`, localCapabilityToken, {
-    researchRunId: RESEARCH_RUN_ID,
+    researchRunId: options.researchRunId ?? RESEARCH_RUN_ID,
     researchTaskId,
     allowlistId: ALLOWLIST_ID,
     connectorId: "public_search",
     sourceCategory: "public_web",
     adapterKind: "web_search_readonly",
-    researchObjective: "Find public validation evidence for the founder workflow assistant.",
+    researchObjective: options.researchObjective ?? BASE_RESEARCH_OBJECTIVE,
     productCategory: "Founder workflow assistant",
     customerProblemHypothesis: "Early founders need safer validation research before implementation.",
     contextHash: "ctx_research_pipeline_smoke",
-    sourceRefs: [SOURCE_QUEUE_ITEM_ID]
+    sourceRefs: options.sourceRefs ?? [SOURCE_QUEUE_ITEM_ID]
   });
 }
 
 async function pollResearchProviderResult(input: {
   readonly storage: SmokeStorage;
   readonly projectId: string;
+  readonly autoImplementationWorkspaceRoot: string;
 }) {
   const commandService = createProductEngineCommandService(input.storage, undefined, {
+    autoImplementationWorkspaceRoot: input.autoImplementationWorkspaceRoot,
     researchRuntimeAdapterFactory: createResearchPipelineRuntimeAdapter
   });
 
   return commandService.listResearchRuns(input.projectId as ProjectId);
+}
+
+async function listScenarioResearchMemory(input: {
+  readonly researchMemoryMarkdownRoot: string;
+  readonly projectId: string;
+  readonly sessionId: string;
+}) {
+  const sourceRefs = await listResearchMemoryMarkdownSourceRefs({
+    root: input.researchMemoryMarkdownRoot,
+    projectId: input.projectId as ProjectId,
+    sessionId: input.sessionId as SessionId
+  });
+  const firstSourceRef = sourceRefs[0];
+  const firstRelativePath = firstSourceRef?.startsWith(RESEARCH_MEMORY_SOURCE_REF_PREFIX)
+    ? firstSourceRef.slice(RESEARCH_MEMORY_SOURCE_REF_PREFIX.length)
+    : null;
+  const markdown = firstRelativePath
+    ? await readFile(join(input.researchMemoryMarkdownRoot, firstRelativePath), "utf8")
+    : "";
+
+  return {
+    sourceRefs,
+    markdown
+  };
 }
 
 async function executeResearchFlow(scenario: ResearchScenario, localCapabilityToken: string): Promise<ResearchFlowResult> {
@@ -219,22 +275,52 @@ async function executeResearchFlow(scenario: ResearchScenario, localCapabilityTo
     app: scenario.app,
     storage: scenario.storage,
     localCapabilityToken,
-    sessionId: project.sessionId
+    sessionId: project.sessionId,
+    objective: BASE_RESEARCH_OBJECTIVE,
+    sourceQueueItemId: SOURCE_QUEUE_ITEM_ID
   });
   const startRun = await startResearchRun(scenario.app, localCapabilityToken, project.projectId, researchTaskId);
   const providerProjection = await pollResearchProviderResult({
     storage: scenario.storage,
-    projectId: project.projectId
+    projectId: project.projectId,
+    autoImplementationWorkspaceRoot: scenario.autoImplementationWorkspaceRoot
   });
+  const researchMemory = await listScenarioResearchMemory({
+    researchMemoryMarkdownRoot: scenario.researchMemoryMarkdownRoot,
+    projectId: project.projectId,
+    sessionId: project.sessionId
+  });
+  const widerResearchTaskId = await planResearchTask({
+    app: scenario.app,
+    storage: scenario.storage,
+    localCapabilityToken,
+    sessionId: project.sessionId,
+    objective: WIDER_RESEARCH_OBJECTIVE,
+    sourceQueueItemId: WIDER_SOURCE_QUEUE_ITEM_ID
+  });
+  const widerResearchStartRun = await startResearchRun(
+    scenario.app,
+    localCapabilityToken,
+    project.projectId,
+    widerResearchTaskId,
+    {
+      researchRunId: WIDER_RESEARCH_RUN_ID,
+      researchObjective: WIDER_RESEARCH_OBJECTIVE,
+      sourceRefs: [WIDER_SOURCE_QUEUE_ITEM_ID]
+    }
+  );
   const researchProjection = await getJson(scenario.app, `/api/v1/sessions/${project.sessionId}/research`, localCapabilityToken);
   const queueProjection = await getJson(scenario.app, `/api/v1/sessions/${project.sessionId}/queue`, localCapabilityToken);
 
   return {
     project,
     startRun,
+    widerResearchStartRun,
     providerProjection: providerProjection as unknown as JsonRecord,
     researchProjection,
-    queueProjection
+    queueProjection,
+    researchMemorySourceRefs: researchMemory.sourceRefs,
+    researchMemoryMarkdown: researchMemory.markdown
   };
 }
 
@@ -253,6 +339,8 @@ function flowBlockers(result: ResearchFlowResult) {
   const matrix = firstRecordAt(matrices, "research evidenceMatrices");
   const pack = firstRecordAt(packs, "research evidencePacks");
   const reviewCard = firstRecordAt(reviewCards, "research reviewCards");
+  const widerStartProjection = objectAt(result.widerResearchStartRun.immediateProjection, "wider research immediateProjection");
+  const widerStartedRun = objectAt(widerStartProjection.researchRun, "wider started researchRun");
   const followUps = [...activeQueue, ...nextQueue, ...blockedQueue, ...deferredQueue].filter(
     (item) => item.cardType === "follow_up_question"
   );
@@ -294,6 +382,27 @@ function flowBlockers(result: ResearchFlowResult) {
     blockers.push("Decision Queue must expose at least one research follow-up question");
   }
 
+  if (result.researchMemorySourceRefs.length < 1) {
+    blockers.push("provider-polled research must write at least one markdown research memory source ref");
+  }
+
+  if (!result.researchMemoryMarkdown.includes("## Reuse guidance")) {
+    blockers.push("research memory markdown must include reuse guidance");
+  }
+
+  if (!result.researchMemoryMarkdown.includes("collect wider sources")) {
+    blockers.push("research memory markdown must tell wider follow-up research to collect wider sources");
+  }
+
+  if (widerStartProjection.status !== "started") {
+    blockers.push(`wider research run start status must be started; received ${JSON.stringify(widerStartProjection.status)}`);
+  }
+
+  const widerSourceRefs = stringArrayAt(widerStartedRun.sourceRefs, "wider research sourceRefs");
+  if (!result.researchMemorySourceRefs.some((sourceRef) => widerSourceRefs.includes(sourceRef))) {
+    blockers.push("wider follow-up research must carry existing markdown memory refs as baseline source refs");
+  }
+
   return blockers;
 }
 
@@ -305,6 +414,8 @@ function passedEvidence(result: ResearchFlowResult): ResearchPipelineSmokeEviden
   const matrix = firstRecordAt(result.researchProjection.evidenceMatrices, "research evidenceMatrices");
   const pack = firstRecordAt(result.researchProjection.evidencePacks, "research evidencePacks");
   const reviewCard = firstRecordAt(result.researchProjection.reviewCards, "research reviewCards");
+  const widerStartProjection = objectAt(result.widerResearchStartRun.immediateProjection, "wider research immediateProjection");
+  const widerStartedRun = objectAt(widerStartProjection.researchRun, "wider started researchRun");
   const activeQueue = recordArray(result.queueProjection.active, "queue active");
   const nextQueue = recordArray(result.queueProjection.next, "queue next");
   const blockedQueue = recordArray(result.queueProjection.blocked, "queue blocked");
@@ -330,13 +441,17 @@ function passedEvidence(result: ResearchFlowResult): ResearchPipelineSmokeEviden
       evidencePackGateStatus: stringAt(pack.gateStatus, "pack gateStatus"),
       reviewCardState: maybeString(reviewCard.state) ?? "unknown",
       followUpQuestionCount: followUps.length,
-      queueBlockedCount: blockedQueue.length
+      queueBlockedCount: blockedQueue.length,
+      researchMemorySourceRefCount: result.researchMemorySourceRefs.length,
+      widerResearchSourceRefCount: stringArrayAt(widerStartedRun.sourceRefs, "wider started run sourceRefs").length
     },
     checked: [
       "temporary local sidecar and app data created",
       "public-web allowlist created without credentials",
       "read-only research run started",
       "mounted web_search_readonly provider result polled and imported with source trace",
+      "provider-polled research writes markdown memory for future duplicate or broader research decisions",
+      "wider follow-up research carries existing markdown memory refs as baseline context while still starting a new run",
       "provider quality gate marked insufficient evidence for review",
       "Research projection exposes evidence matrix, evidence pack, and review card",
       "Decision Queue exposes source-traceable follow-up question debt"
@@ -369,6 +484,7 @@ function errorEvidence(error: unknown): ResearchPipelineSmokeEvidence {
 async function createScenario(appDataDir: string, localCapabilityToken: string): Promise<ResearchScenario> {
   const storage = await createSoloStorage({ url: localDatabaseUrlFromAppDataDir(appDataDir) });
   const migrationStatus = await applyMigrations(storage);
+  const autoImplementationWorkspaceRoot = join(appDataDir, "workspace");
 
   if (migrationStatus.state === "failed") {
     await storage.close();
@@ -380,8 +496,11 @@ async function createScenario(appDataDir: string, localCapabilityToken: string):
     app: createSidecarApp({
       localCapabilityToken,
       migrationStatus,
-      storage
-    })
+      storage,
+      autoImplementationWorkspaceRoot
+    }),
+    autoImplementationWorkspaceRoot,
+    researchMemoryMarkdownRoot: join(autoImplementationWorkspaceRoot, "research-memory")
   };
 }
 
