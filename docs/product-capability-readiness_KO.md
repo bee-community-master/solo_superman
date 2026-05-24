@@ -22,7 +22,7 @@ pnpm verify:product-capability-readiness -- --require-code-backed
 | capability id | 통과해야 하는 핵심 evidence |
 | --- | --- |
 | `idea-clarification-loop` | `pnpm verify:clarification-pipeline`, `pnpm verify:clarification-volume` |
-| `research-evidence-loop` | `pnpm verify:research-pipeline` |
+| `research-evidence-loop` | `pnpm verify:research-pipeline`이 mounted `web_search_readonly` provider polling, source-traced result import, evidence matrix/pack, follow-up question debt를 검증 |
 | `planning-readiness-gates` | clarification/research evidence가 Planning-ready gate에 연결되는지 검증 |
 | `browser-service-boundary` | `pnpm verify:browser-delegation-pipeline`, `pnpm verify:service-page-pipeline`, `pnpm verify:production-mutation-contract` |
 | `auto-implementation-review-loop` | runtime preview, opt-in `pnpm verify:codex-live-runtime` readiness evidence, worker job, PR mutation body summary, feature/repository code-review와 changed-code/repository clean-code의 2회 연속 no-finding gate, zero-gap missing-test audit, aggregate pipeline smoke |

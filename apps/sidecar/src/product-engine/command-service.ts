@@ -2765,6 +2765,7 @@ export interface ProductEngineCommandServiceOptions {
   readonly autoImplementationRemoteStatusProvider?: AutoImplementationRemoteStatusProvider;
   readonly autoImplementationGitHubIssueMutationAdapter?: AutoImplementationGitHubIssueMutationAdapter;
   readonly autoImplementationPullRequestMutationAdapter?: AutoImplementationPullRequestMutationAdapter;
+  readonly researchRuntimeAdapterFactory?: (adapterKind: MountedResearchAdapterKind) => BackgroundResearchRuntimeAdapter;
 }
 
 export function createProductEngineCommandService(
@@ -2778,6 +2779,7 @@ export function createProductEngineCommandService(
   const autoImplementationGitHubIssueMutationAdapter = options.autoImplementationGitHubIssueMutationAdapter;
   const autoImplementationPullRequestMutationAdapter =
     options.autoImplementationPullRequestMutationAdapter ?? ghAutoImplementationPullRequestMutationAdapter;
+  const researchRuntimeAdapterFactory = options.researchRuntimeAdapterFactory;
 
   async function synchronizeAutoImplementationRunWorkspaceState(run: AutoImplementationRun) {
     try {
@@ -4224,6 +4226,10 @@ export function createProductEngineCommandService(
   }
 
   function createMountedResearchAdapter(adapterKind: MountedResearchAdapterKind): BackgroundResearchRuntimeAdapter {
+    if (researchRuntimeAdapterFactory) {
+      return researchRuntimeAdapterFactory(adapterKind);
+    }
+
     return adapterKind === "web_search_readonly"
       ? createWebSearchReadOnlyResearchAdapter(webSearchReadOnlyResearchAdapterOptionsFromEnv())
       : createFakeReadOnlyResearchAdapter();

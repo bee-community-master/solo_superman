@@ -29,6 +29,15 @@ function autoImplementationCheckedBehaviors() {
   ];
 }
 
+function researchEvidenceCheckedBehaviors() {
+  return [
+    "Read-only public-web research runs require an active allowlist and bounded concurrency.",
+    "Mounted web_search_readonly provider polling proves source-traced result import before evidence matrices and evidence packs are synthesized.",
+    "Research review cards retain source traces and expose pro/con/uncertainty quality gates.",
+    "Research-generated follow-up questions return to the Decision Queue as answerable debt."
+  ];
+}
+
 function codeBackedContract(overrides = {}) {
   return {
     schemaVersion: PRODUCT_CAPABILITY_READINESS_SCHEMA_VERSION,
@@ -66,7 +75,9 @@ function codeBackedContract(overrides = {}) {
         "pnpm verify:clarification-pipeline",
         "pnpm verify:clarification-volume"
       ]),
-      codeBackedCapability("research-evidence-loop", ["pnpm verify:research-pipeline"]),
+      codeBackedCapability("research-evidence-loop", ["pnpm verify:research-pipeline"], {
+        checkedBehaviors: researchEvidenceCheckedBehaviors()
+      }),
       codeBackedCapability("planning-readiness-gates", [
         "pnpm verify:clarification-pipeline",
         "pnpm verify:research-pipeline"
@@ -130,7 +141,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including mounted research provider polling, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
@@ -184,6 +195,30 @@ describe("product capability readiness verification", () => {
       "$.capabilities[3].checkedBehaviors: must mention approved public-read",
       "$.capabilities[3].checkedBehaviors: must mention production-mutation contract",
       "$.capabilities[3].checkedBehaviors: must mention final submit"
+    ]));
+  });
+
+  it("requires research readiness to name mounted provider polling and follow-up debt coverage", () => {
+    const contract = codeBackedContract({
+      capabilities: codeBackedContract().capabilities.map((capability) =>
+        capability.id === "research-evidence-loop"
+          ? {
+              ...capability,
+              checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
+                !behavior.includes("Mounted web_search_readonly provider polling") &&
+                !behavior.includes("Research-generated follow-up questions")
+              )
+            }
+          : capability
+      )
+    });
+    const result = validateProductCapabilityReadinessContract(contract);
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual(expect.arrayContaining([
+      "$.capabilities[1].checkedBehaviors: must mention Mounted web_search_readonly provider polling",
+      "$.capabilities[1].checkedBehaviors: must mention source-traced result import",
+      "$.capabilities[1].checkedBehaviors: must mention Research-generated follow-up questions"
     ]));
   });
 
