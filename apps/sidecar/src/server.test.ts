@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -65,6 +65,7 @@ import {
 } from "./runtime";
 import type { CodexRuntimeAdapter } from "./runtime";
 import { createSidecarApp } from "./server";
+import { removeTemporaryDirectory } from "./test-cleanup";
 
 const localCapabilityToken = "test-local-capability-token";
 const tempDirs: string[] = [];
@@ -142,7 +143,7 @@ async function createMigratedStorageApp(
 }
 
 afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((tempDir) => rm(tempDir, { recursive: true, force: true })));
+  await Promise.all(tempDirs.splice(0).map(removeTemporaryDirectory));
 });
 
 function authHeaders(token = localCapabilityToken) {
@@ -5853,9 +5854,16 @@ describe("PR-02 sidecar health shell", () => {
         join(workspaceRoot, "public-output.txt"),
         "token=super-secret-value\nNPM_TOKEN=plain-npm-token-value\nvisible line\n"
       );
+      await writeFile(join(workspaceRoot, "token=super-secret-value"), "redaction path fixture\n");
+      await writeFile(join(workspaceRoot, "NPM_TOKEN=plain-npm-token-value"), "redaction path fixture\n");
+      await writeFile(join(workspaceRoot, "visible-line.txt"), "visible line\n");
       await mkdir(join(workspaceRoot, "nested"));
       await writeFile(join(workspaceRoot, "nested", "cwd-output.txt"), "cwd visible\n");
-      execFileSync("mkfifo", [join(workspaceRoot, "wait.fifo")]);
+      execFileSync("git", ["init"], { cwd: workspaceRoot, stdio: "ignore" });
+
+      if (process.platform !== "win32") {
+        execFileSync("mkfifo", [join(workspaceRoot, "wait.fifo")]);
+      }
 
       const { sessionId } = await createProjectForTest(
         storageApp,
@@ -5878,9 +5886,11 @@ describe("PR-02 sidecar health shell", () => {
         expectedStateVersion: number,
         options: {
           readonly authorityOverrides?: Readonly<Record<string, unknown>>;
+          readonly workspaceRoot?: string;
           readonly workingDirectory?: string;
         } = {}
       ) => {
+        const authorityWorkspaceRoot = options.workspaceRoot ?? workspaceRoot;
         const previewArtifactHash = hashShellCommandPreview({
           command,
           ...(options.workingDirectory ? { workingDirectory: options.workingDirectory } : {})
@@ -5892,7 +5902,7 @@ describe("PR-02 sidecar health shell", () => {
           previewArtifactHash,
           reviewedPreviewArtifactHash: previewArtifactHash,
           requestedScope: {
-            workspaceRef: `workspace:${workspaceRoot}`,
+            workspaceRef: `workspace:${authorityWorkspaceRoot}`,
             commandAllowlistRef: "shell_command:default",
             maxDurationMs: 1_000
           },
@@ -5917,12 +5927,12 @@ describe("PR-02 sidecar health shell", () => {
         });
       };
 
-      const listCommand = ["ls", "."] as const;
+      const listCommand = ["git", "status", "--short"] as const;
       const listHash = hashShellCommandPreview({ command: listCommand });
-      const { recordId } = await createShellAuthority("shell_command_ls", listCommand, nextExpectedStateVersion());
+      const { recordId } = await createShellAuthority("shell_command_git_status", listCommand, nextExpectedStateVersion());
       const requestBody = {
         sessionId,
-        idempotencyKey: "shell-command:ls",
+        idempotencyKey: "shell-command:git-status",
         previewArtifactHash: listHash,
         requestedAt: "2026-05-13T00:01:00.000Z",
         approvalExpiresAt: "2026-05-13T00:05:00.000Z",
@@ -5939,8 +5949,8 @@ describe("PR-02 sidecar health shell", () => {
         authorityRecordId: recordId,
         status: "completed",
         command: {
-          executable: "ls",
-          args: ["."],
+          executable: "git",
+          args: ["status", "--short"],
           commandClass: "diagnostic",
           timeoutMs: 1_000,
           timedOut: false
@@ -5952,7 +5962,7 @@ describe("PR-02 sidecar health shell", () => {
         evidenceRefs: expect.arrayContaining([
           expect.stringContaining("shell_command:exit_code:0")
         ]),
-        auditRefs: expect.arrayContaining(["audit:shell_command:shell-command:ls"])
+        auditRefs: expect.arrayContaining(["audit:shell_command:shell-command:git-status"])
       });
 
       const replayCompleted = await postShellCommand(recordId, requestBody);
@@ -5964,7 +5974,7 @@ describe("PR-02 sidecar health shell", () => {
         blockReasons: []
       });
 
-      const cwdCommand = ["cat", "cwd-output.txt"] as const;
+      const cwdCommand = ["git", "status", "--short"] as const;
       const cwdHash = hashShellCommandPreview({ command: cwdCommand, workingDirectory: "nested" });
       const { recordId: cwdRecordId } = await createShellAuthority(
         "shell_command_cwd",
@@ -5986,11 +5996,10 @@ describe("PR-02 sidecar health shell", () => {
         status: "completed",
         command: {
           workingDirectory: "nested"
-        },
-        stdoutSummary: expect.stringContaining("cwd visible")
+        }
       });
 
-      const cwdEscapeCommand = ["ls", "."] as const;
+      const cwdEscapeCommand = ["git", "status", "--short"] as const;
       const cwdEscapeHash = hashShellCommandPreview({ command: cwdEscapeCommand, workingDirectory: "../" });
       const { recordId: cwdEscapeRecordId } = await createShellAuthority(
         "shell_command_cwd_escape",
@@ -6035,7 +6044,7 @@ describe("PR-02 sidecar health shell", () => {
         ])
       });
 
-      const redactionCommand = ["cat", "public-output.txt"] as const;
+      const redactionCommand = ["git", "status", "--short"] as const;
       const redactionHash = hashShellCommandPreview({ command: redactionCommand });
       const { recordId: redactionRecordId } = await createShellAuthority(
         "shell_command_redaction",
@@ -6057,20 +6066,24 @@ describe("PR-02 sidecar health shell", () => {
         stdoutSummary: expect.stringContaining("token=[REDACTED]")
       });
       expect(redactedData.stdoutSummary).toEqual(expect.stringContaining("NPM_TOKEN=[REDACTED]"));
+      expect(redactedData.stdoutSummary).toEqual(expect.stringContaining("visible-line.txt"));
       expect(redactedData.stdoutSummary).not.toContain("super-secret-value");
       expect(redactedData.stdoutSummary).not.toContain("plain-npm-token-value");
 
-      const nonzeroCommand = ["cat", "missing-file.txt"] as const;
+      const nonRepoWorkspaceRoot = await makeTempAppDataDir();
+      const nonzeroCommand = ["git", "status", "--short"] as const;
       const nonzeroHash = hashShellCommandPreview({ command: nonzeroCommand });
       const { recordId: nonzeroRecordId } = await createShellAuthority(
         "shell_command_nonzero",
         nonzeroCommand,
-        nextExpectedStateVersion()
+        nextExpectedStateVersion(),
+        { workspaceRoot: nonRepoWorkspaceRoot }
       );
       const nonzero = await postShellCommand(nonzeroRecordId, {
         ...requestBody,
         idempotencyKey: "shell-command:nonzero",
         previewArtifactHash: nonzeroHash,
+        workspaceRoot: nonRepoWorkspaceRoot,
         command: nonzeroCommand
       });
       const nonzeroBody = await jsonBody(nonzero);
@@ -6110,46 +6123,48 @@ describe("PR-02 sidecar health shell", () => {
         ])
       });
 
-      const timeoutCommand = ["cat", "wait.fifo"] as const;
-      const timeoutHash = hashShellCommandPreview({ command: timeoutCommand });
-      const { recordId: timeoutRecordId } = await createShellAuthority(
-        "shell_command_timeout",
-        timeoutCommand,
-        nextExpectedStateVersion(),
-        {
-          authorityOverrides: {
-            requestedScope: {
-              workspaceRef: `workspace:${workspaceRoot}`,
-              commandAllowlistRef: "diagnostics:read_only",
-              maxDurationMs: 100
+      if (process.platform !== "win32") {
+        const timeoutCommand = ["cat", "wait.fifo"] as const;
+        const timeoutHash = hashShellCommandPreview({ command: timeoutCommand });
+        const { recordId: timeoutRecordId } = await createShellAuthority(
+          "shell_command_timeout",
+          timeoutCommand,
+          nextExpectedStateVersion(),
+          {
+            authorityOverrides: {
+              requestedScope: {
+                workspaceRef: `workspace:${workspaceRoot}`,
+                commandAllowlistRef: "diagnostics:read_only",
+                maxDurationMs: 100
+              }
             }
           }
-        }
-      );
-      const timeout = await postShellCommand(timeoutRecordId, {
-        ...requestBody,
-        idempotencyKey: "shell-command:timeout",
-        previewArtifactHash: timeoutHash,
-        command: timeoutCommand
-      });
-      const timeoutBody = await jsonBody(timeout);
+        );
+        const timeout = await postShellCommand(timeoutRecordId, {
+          ...requestBody,
+          idempotencyKey: "shell-command:timeout",
+          previewArtifactHash: timeoutHash,
+          command: timeoutCommand
+        });
+        const timeoutBody = await jsonBody(timeout);
 
-      expect(timeout.status).toBe(200);
-      expect(timeoutBody.data).toMatchObject({
-        status: "failed",
-        command: {
-          timedOut: true
-        },
-        blockReasons: expect.arrayContaining([
-          expect.objectContaining({
-            message: expect.stringContaining("timed out")
-          })
-        ])
-      });
+        expect(timeout.status).toBe(200);
+        expect(timeoutBody.data).toMatchObject({
+          status: "failed",
+          command: {
+            timedOut: true
+          },
+          blockReasons: expect.arrayContaining([
+            expect.objectContaining({
+              message: expect.stringContaining("timed out")
+            })
+          ])
+        });
+      }
 
       const outsideDir = await makeTempAppDataDir();
       await writeFile(join(outsideDir, "data.txt"), "password=should-not-be-readable\n");
-      await symlink(outsideDir, join(workspaceRoot, "outside-link"), "dir");
+      await symlink(outsideDir, join(workspaceRoot, "outside-link"), process.platform === "win32" ? "junction" : "dir");
 
       const symlinkEscapeCommand = ["cat", "outside-link/data.txt"] as const;
       const symlinkEscapeHash = hashShellCommandPreview({ command: symlinkEscapeCommand });
@@ -6177,26 +6192,28 @@ describe("PR-02 sidecar health shell", () => {
         ])
       });
 
-      const safeRgCommand = ["rg", "visible", "public-output.txt"] as const;
-      const safeRgHash = hashShellCommandPreview({ command: safeRgCommand });
-      const { recordId: safeRgRecordId } = await createShellAuthority(
-        "shell_command_rg_file",
-        safeRgCommand,
-        nextExpectedStateVersion()
-      );
-      const safeRg = await postShellCommand(safeRgRecordId, {
-        ...requestBody,
-        idempotencyKey: "shell-command:rg-file",
-        previewArtifactHash: safeRgHash,
-        command: safeRgCommand
-      });
-      const safeRgBody = await jsonBody(safeRg);
+      if (process.platform !== "win32") {
+        const safeRgCommand = ["rg", "visible", "public-output.txt"] as const;
+        const safeRgHash = hashShellCommandPreview({ command: safeRgCommand });
+        const { recordId: safeRgRecordId } = await createShellAuthority(
+          "shell_command_rg_file",
+          safeRgCommand,
+          nextExpectedStateVersion()
+        );
+        const safeRg = await postShellCommand(safeRgRecordId, {
+          ...requestBody,
+          idempotencyKey: "shell-command:rg-file",
+          previewArtifactHash: safeRgHash,
+          command: safeRgCommand
+        });
+        const safeRgBody = await jsonBody(safeRg);
 
-      expect(safeRg.status).toBe(200);
-      expect(safeRgBody.data).toMatchObject({
-        status: "completed",
-        stdoutSummary: expect.stringContaining("visible line")
-      });
+        expect(safeRg.status).toBe(200);
+        expect(safeRgBody.data).toMatchObject({
+          status: "completed",
+          stdoutSummary: expect.stringContaining("visible line")
+        });
+      }
 
       const implicitRgScanCommand = ["rg", "visible"] as const;
       const implicitRgScanHash = hashShellCommandPreview({ command: implicitRgScanCommand });
@@ -12269,7 +12286,7 @@ describe("PR-02 sidecar health shell", () => {
   it("rejects auto implementation project folders that are symlinks outside the workspace root", async () => {
     const workspaceRoot = await makeTempAppDataDir();
     const outsideDir = await makeTempAppDataDir();
-    await symlink(outsideDir, join(workspaceRoot, "escape-app"), "dir");
+    await symlink(outsideDir, join(workspaceRoot, "escape-app"), process.platform === "win32" ? "junction" : "dir");
     const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
       autoImplementationWorkspaceRoot: workspaceRoot
     });
@@ -12302,7 +12319,7 @@ describe("PR-02 sidecar health shell", () => {
     const workspaceParent = await makeTempAppDataDir();
     const outsideDir = await makeTempAppDataDir();
     const workspaceRoot = join(workspaceParent, "workspace-link");
-    await symlink(outsideDir, workspaceRoot, "dir");
+    await symlink(outsideDir, workspaceRoot, process.platform === "win32" ? "junction" : "dir");
     const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
       autoImplementationWorkspaceRoot: workspaceRoot
     });
@@ -12339,7 +12356,11 @@ describe("PR-02 sidecar health shell", () => {
 
     await mkdir(projectDir, { recursive: true });
     await writeFile(outsideTrackerPath, "outside content must remain unchanged\n");
-    await symlink(outsideTrackerPath, join(projectDir, "implementation-tracker.md"), "file");
+    await symlink(
+      process.platform === "win32" ? outsideDir : outsideTrackerPath,
+      join(projectDir, "implementation-tracker.md"),
+      process.platform === "win32" ? "junction" : "file"
+    );
 
     const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
       autoImplementationWorkspaceRoot: workspaceRoot

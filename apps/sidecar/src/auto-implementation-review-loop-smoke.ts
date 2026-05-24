@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -27,6 +27,7 @@ import {
 } from "./auto-implementation-smoke-fixtures";
 import type { AutoImplementationPullRequestMutationAdapter } from "./product-engine/auto-implementation-workspace";
 import { createSidecarApp } from "./server";
+import { removeTemporaryDirectory } from "./test-cleanup";
 
 export const AUTO_IMPLEMENTATION_REVIEW_LOOP_SMOKE = "auto_implementation_review_loop" as const;
 
@@ -706,7 +707,7 @@ export async function runAutoImplementationReviewLoopSmoke(
     return errorEvidence(error);
   } finally {
     if (shouldCleanup) {
-      await rm(appDataDir, { recursive: true, force: true });
+      await removeTemporaryDirectory(appDataDir);
     }
   }
 }

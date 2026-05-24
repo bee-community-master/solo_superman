@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -6,6 +6,7 @@ import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } fr
 import { PHASE25_QUALITY_LIFT_PROJECTION_FIXTURE, PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE } from "@solo-superman/contracts";
 import type { PlanningHandoffSourceRefDto, SessionId, StateVersion } from "@solo-superman/contracts";
 import { createProductEngineCommandService } from "./command-service";
+import { removeTemporaryDirectory } from "../test-cleanup";
 
 const tempDirs: string[] = [];
 
@@ -31,7 +32,7 @@ async function createMigratedStorage() {
 }
 
 afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((tempDir) => rm(tempDir, { recursive: true, force: true })));
+  await Promise.all(tempDirs.splice(0).map(removeTemporaryDirectory));
 });
 
 const missingRequiredSourceRefs = [

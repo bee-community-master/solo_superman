@@ -1,6 +1,7 @@
 import { chmod, mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createClient, type Client } from "@libsql/client";
 import { sql } from "drizzle-orm";
@@ -97,13 +98,17 @@ export async function createSoloStorage(options: CreateSoloStorageOptions): Prom
 
   const client = createClient({ url: options.url });
   const db = drizzle(client, { schema });
+  const localFilePath = localFilePathFromUrl(options.url);
 
   return {
     url: options.url,
     client,
     db,
     close: async () => {
-      client.close();
+      await Promise.resolve(client.close());
+      if (process.platform === "win32" && localFilePath) {
+        await sleep(100);
+      }
     }
   };
 }

@@ -9,6 +9,7 @@ export const WINDOWS_INSTALLER_DRY_RUN_SCHEMA_VERSION = "solo-superman-windows-i
 export const DEFAULT_WINDOWS_INSTALLER_DRY_RUN_PATHS = {
   launcher: "scripts/win.ps1",
   bootstrap: "scripts/bootstrap-windows.ps1",
+  gitignore: ".gitignore",
   readme: "README.md",
   englishReadme: "README.en.md",
   troubleshooting: "docs/troubleshooting_KO.md",
@@ -106,6 +107,13 @@ const REQUIRED_MARKERS = [
       "--ff-only",
       "diverged",
       "사용자 변경을 덮어쓰지 않습니다"
+    ]
+  },
+  {
+    id: "generated_runner_does_not_block_safe_checkout_update",
+    file: "gitignore",
+    markers: [
+      "/solo_superman.cmd"
     ]
   },
   {
@@ -238,6 +246,7 @@ function buildWindowsInstallerDryRunEvidence(files, paths) {
       "administrator/UAC restart path preserves configured installer options",
       "Node, Git, Corepack/pnpm, Visual C++ runtime, WSL/Ubuntu, and Codex CLI paths remain represented",
       "safe rerun updates only clean expected checkouts by fast-forward",
+      "generated install-folder runner is ignored so it does not make a clean checkout look dirty",
       "desktop shortcut and start:local path remain represented",
       "production smoke logs and port-conflict retry remain represented",
       "support bundle and manual Windows checklist docs remain represented",

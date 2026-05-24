@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { spawn } from "node:child_process";
+import { pathToFileURL } from "node:url";
 import { tokenLikePattern } from "./secret-patterns.mjs";
 
 export const SUPPORT_BUNDLE_SCHEMA_VERSION = "solo-superman-support-bundle.v1";
@@ -610,7 +611,7 @@ export async function runSupportBundleCli(argv = process.argv.slice(2), options 
   return envelope;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   runSupportBundleCli().catch((error) => {
     console.error(`support-bundle failed: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;

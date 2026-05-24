@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const runbook = readFileSync("docs/troubleshooting_KO.md", "utf8");
+const gitignore = readFileSync(".gitignore", "utf8");
 const readme = readFileSync("README.md", "utf8");
 const englishReadme = readFileSync("README.en.md", "utf8");
 const packageJson = readFileSync("package.json", "utf8");
@@ -409,6 +410,7 @@ describe("#105 local install/run verification docs", () => {
     expect(windowsBootstrap).toContain('fetch", "--prune", "origin');
     expect(windowsBootstrap).toContain("safe fast-forward update");
     expect(windowsBootstrap).toContain("local 변경/untracked 파일");
+    expect(gitignore).toContain("/solo_superman.cmd");
     expect(macosBootstrap).toContain("safe_update_existing_checkout");
     expect(macosBootstrap).toContain("fetch --prune origin");
     expect(macosBootstrap).toContain("safe fast-forward update");

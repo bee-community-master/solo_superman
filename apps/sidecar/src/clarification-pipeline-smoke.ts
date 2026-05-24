@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
 import { createSidecarApp } from "./server";
+import { removeTemporaryDirectory } from "./test-cleanup";
 import {
   firstRecord,
   getJson,
@@ -426,7 +427,7 @@ export async function runClarificationPipelineSmoke(
     await scenario?.storage.close();
 
     if (shouldCleanup) {
-      await rm(appDataDir, { recursive: true, force: true });
+      await removeTemporaryDirectory(appDataDir);
     }
   }
 }

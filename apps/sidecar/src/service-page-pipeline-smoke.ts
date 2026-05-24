@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -18,6 +18,7 @@ import {
 } from "./browser-smoke-helpers";
 import { hashBrowserActionPreview } from "./product-engine/browser-action-adapter";
 import { createSidecarApp } from "./server";
+import { removeTemporaryDirectory } from "./test-cleanup";
 import {
   getJson,
   objectAt,
@@ -775,7 +776,7 @@ export async function runServicePagePipelineSmoke(
     await scenario?.storage.close();
 
     if (shouldCleanup) {
-      await rm(appDataDir, { recursive: true, force: true });
+      await removeTemporaryDirectory(appDataDir);
     }
   }
 }

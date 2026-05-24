@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
@@ -11,6 +11,7 @@ import {
   type ResearchDisclosureLogId
 } from "@solo-superman/contracts";
 import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "../client";
+import { removeTemporaryDirectory } from "../test-cleanup";
 import { createResearchDisclosureLogRepository } from "./research-disclosure-log-repository";
 
 const tempDirs: string[] = [];
@@ -24,7 +25,7 @@ async function makeTempAppDataDir() {
 }
 
 afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((tempDir) => rm(tempDir, { recursive: true, force: true })));
+  await Promise.all(tempDirs.splice(0).map(removeTemporaryDirectory));
 });
 
 type DisclosureLogFixtureOverrides = Partial<Omit<ResearchDisclosureLogEntry, "allowlistId">> & {

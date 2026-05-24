@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { eq } from "drizzle-orm";
@@ -23,6 +23,7 @@ import {
   type SessionId
 } from "@solo-superman/contracts";
 import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "../client";
+import { removeTemporaryDirectory } from "../test-cleanup";
 import { createConfigRepository } from "./config-repository";
 import { createEffectTaskRepository } from "./effect-task-repository";
 import { createEventRepository, persistDerivedStateAfterEvent } from "./event-repository";
@@ -43,7 +44,7 @@ async function makeTempAppDataDir() {
 }
 
 afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((tempDir) => rm(tempDir, { recursive: true, force: true })));
+  await Promise.all(tempDirs.splice(0).map(removeTemporaryDirectory));
 });
 
 async function createMigratedStorage() {

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -8,6 +8,7 @@ import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } fr
 import { createProductEngineCommandService } from "./product-engine/command-service";
 import { createCodexRuntimeAdapter, type CodexRuntimeAdapter } from "./runtime";
 import { createSidecarApp } from "./server";
+import { removeTemporaryDirectory } from "./test-cleanup";
 import {
   firstRecord,
   getJson,
@@ -463,7 +464,7 @@ export async function runRuntimePreviewTurnSmoke(
     });
   } finally {
     if (shouldCleanup) {
-      await rm(appDataDir, { recursive: true, force: true });
+      await removeTemporaryDirectory(appDataDir);
     }
   }
 }

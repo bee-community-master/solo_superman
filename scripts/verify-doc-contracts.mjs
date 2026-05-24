@@ -79,7 +79,7 @@ function readText(path) {
 }
 
 function relativeUrlPath(root, url) {
-  return relative(fileURLToPath(root), fileURLToPath(url));
+  return relative(fileURLToPath(root), fileURLToPath(url)).replaceAll("\\", "/");
 }
 
 function fail(message, details = []) {
