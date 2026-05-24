@@ -291,8 +291,11 @@ describe("product capability readiness verification", () => {
       "$.capabilities[1].checkedBehaviors: must mention wider follow-up research",
       "$.capabilities[1].checkedBehaviors: must mention Research-generated follow-up questions",
       "$.capabilities[1].checkedBehaviors: must mention open_text narrative answers",
+      "$.capabilities[1].checkedBehaviors: must mention binary_choice pro/con decisions",
       "$.capabilities[1].checkedBehaviors: must mention single_choice one-of-many choices",
-      "$.capabilities[1].checkedBehaviors: must mention multi_select one-or-more selections"
+      "$.capabilities[1].checkedBehaviors: must mention multi_select one-or-more selections",
+      "$.capabilities[1].checkedBehaviors: must mention ranked_choice",
+      "$.capabilities[1].checkedBehaviors: must mention evidence_judgment"
     ]));
   });
 
