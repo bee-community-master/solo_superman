@@ -793,11 +793,25 @@ function checkContributorDocsSnippets() {
     "수동 시작",
     "답변 후 자동 public-web 리서치"
   ]);
+  requireSnippets("docs/product_KO.md missing research markdown memory contract", docs["docs/product_KO.md"], [
+    "markdown memory",
+    "기존 근거를 인용",
+    "더 넓은 follow-up research",
+    "baseline context",
+    "새로운 run"
+  ]);
   requireSnippets("docs/product_EN.md missing research run limit UX contract", readText("docs/product_EN.md"), [
     "Max simultaneous research runs",
     "Max research runs per session",
     "manual starts",
     "answer-triggered automatic public-web research starts"
+  ]);
+  requireSnippets("docs/product_EN.md missing research markdown memory contract", readText("docs/product_EN.md"), [
+    "markdown memory",
+    "duplicate research can cite existing evidence",
+    "wider follow-up research",
+    "baseline context",
+    "new run still starts"
   ]);
   rejectSnippets(
     "research docs contain stale provider-polling wording",
@@ -898,6 +912,7 @@ function checkContributorDocsSnippets() {
     "answer-form variety",
     "Max simultaneous research runs",
     "Max research runs per session",
+    "markdown memory",
     "planning-readiness-gates",
     "Composite score is 85 or higher",
     "Most confidence axes are 75 or higher",

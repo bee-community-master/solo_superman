@@ -17,15 +17,21 @@ describe("research pipeline smoke", () => {
         qualityGateStatus: "insufficient",
         matrixBalanceStatus: "missing_con_evidence",
         evidencePackGateStatus: "research_insufficient",
-        reviewCardState: "research_insufficient"
+        reviewCardState: "research_insufficient",
+        researchMemorySourceRefCount: expect.any(Number),
+        widerResearchSourceRefCount: expect.any(Number)
       })
     });
     expect(evidence.research?.followUpQuestionCount).toBeGreaterThanOrEqual(1);
+    expect(evidence.research?.researchMemorySourceRefCount).toBeGreaterThanOrEqual(1);
+    expect(evidence.research?.widerResearchSourceRefCount).toBeGreaterThanOrEqual(2);
     expect(evidence.checked).toEqual(
       expect.arrayContaining([
         "public-web allowlist created without credentials",
         "read-only research run started",
         "mounted web_search_readonly provider result polled and imported with source trace",
+        "provider-polled research writes markdown memory for future duplicate or broader research decisions",
+        "wider follow-up research carries existing markdown memory refs as baseline context while still starting a new run",
         "provider quality gate marked insufficient evidence for review",
         "Research projection exposes evidence matrix, evidence pack, and review card",
         "Decision Queue exposes source-traceable follow-up question debt"
