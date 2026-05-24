@@ -780,8 +780,12 @@ export function useDecisionQueueSessionActions({
           ...current,
           queue
         }));
-        await refreshProjections(projections.session.projectId, projections.session.sessionId);
-        await refetchQueueAfterSseNotification(projections.session.projectId, projections.session.sessionId, queue);
+        continueAnswerPostSubmitWork(
+          projections.session.projectId,
+          projections.session.sessionId,
+          commandResponseVersion(response),
+          queue
+        );
       } catch (error) {
         setWorkflowError(displayError(error));
       } finally {
@@ -791,10 +795,9 @@ export function useDecisionQueueSessionActions({
     [
       appendCommand,
       client,
+      continueAnswerPostSubmitWork,
       knownRiskDrafts,
       projections,
-      refetchQueueAfterSseNotification,
-      refreshProjections,
       sessionActionErrors,
       sessionActionReasons
     ]

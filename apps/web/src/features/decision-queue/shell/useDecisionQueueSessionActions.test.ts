@@ -867,4 +867,180 @@ describe("useDecisionQueueSessionActions", () => {
       [nextQuestionId]
     );
   });
+
+  it("automatically continues after carrying active question debt as a known risk", async () => {
+    const projectId = "proj_known_risk_auto_next_batch" as ProjectId;
+    const sessionId = "sess_known_risk_auto_next_batch" as SessionId;
+    const riskQueueItemId = "queue_known_risk_question" as QueueItemId;
+    const nextQuestionId = "queue_known_risk_next_question" as QueueItemId;
+    const queueAfterRisk: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 2 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_known_risk_research_review" as QueueItemId,
+          title: "Review research while questions continue",
+          state: "active",
+          cardType: "research_review"
+        }
+      ],
+      next: [
+        {
+          queueItemId: nextQuestionId,
+          title: "Next question after known risk",
+          state: "next",
+          cardType: "question"
+        }
+      ],
+      blocked: [],
+      deferred: []
+    };
+    const queueAfterActivation: DecisionQueueProjection = {
+      ...queueAfterRisk,
+      version: 3 as ProjectionVersion,
+      active: [
+        ...queueAfterRisk.active,
+        {
+          queueItemId: nextQuestionId,
+          title: "Next question after known risk",
+          state: "active",
+          cardType: "question"
+        }
+      ],
+      next: []
+    };
+    const deferResponse: CommandResponse<DecisionQueueProjection> = {
+      category: "accepted_with_projection",
+      commandId: "cmd_known_risk_defer" as CommandId,
+      correlationId: "corr_known_risk_defer" as CorrelationId,
+      stateVersionBefore: 1 as StateVersion,
+      stateVersionAfter: 2 as StateVersion,
+      immediateProjection: queueAfterRisk
+    };
+    const activateResponse: CommandResponse<DecisionQueueProjection> = {
+      category: "accepted_with_projection",
+      commandId: "cmd_known_risk_activate" as CommandId,
+      correlationId: "corr_known_risk_activate" as CorrelationId,
+      stateVersionBefore: 2 as StateVersion,
+      stateVersionAfter: 3 as StateVersion,
+      immediateProjection: queueAfterActivation
+    };
+    const appendCommand: Parameters<typeof useDecisionQueueSessionActions>[0]["appendCommand"] = async (
+      _label,
+      commandResponse
+    ) => commandResponse;
+    const deferQueueItem = vi.fn(async () => deferResponse);
+    const activateQuestionBatch = vi.fn(async () => activateResponse);
+    const backgroundResearchStarted = vi.fn(async () => undefined);
+    let actions: ReturnType<typeof useDecisionQueueSessionActions> | undefined;
+
+    function Harness() {
+      actions = useDecisionQueueSessionActions({
+        answerDrafts: {},
+        appendCommand,
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityChangeReason: "",
+        chatGptLoginAcknowledged: true,
+        codexLoginAuthenticated: true,
+        client: {
+          deferQueueItem,
+          activateQuestionBatch
+        } as unknown as SidecarClient,
+        connectionStatus: "connected",
+        copy: DECISION_QUEUE_COPY.en,
+        idea: "Known risk should not stop the question loop",
+        initialResearchPermission: "allow_public_web",
+        initialBusinessCriticIntensityReason: "",
+        intake: "When a question is carried as risk, the next one should keep flowing.",
+        isBusy: false,
+        knownRiskDrafts: {
+          [riskQueueItemId]: "Accept this as a tracked risk and validate it in the next interview."
+        },
+        projectPurposeMode: "business",
+        projections: {
+          ...emptyProjectionState(),
+          session: {
+            kind: "SessionShellProjection",
+            projectId,
+            sessionId,
+            version: 1 as ProjectionVersion,
+            phase: "spec",
+            projectPurposeMode: "business",
+            projectPurposeModeSelectionStatus: "confirmed",
+            projectPurposeModeLabel: "Business validation",
+            projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+          },
+          queue: {
+            kind: "DecisionQueueProjection",
+            version: 1 as ProjectionVersion,
+            active: [
+              {
+                queueItemId: riskQueueItemId,
+                title: "Carry this question as a known risk",
+                state: "active",
+                cardType: "question"
+              }
+            ],
+            next: [
+              {
+                queueItemId: nextQuestionId,
+                title: "Next question after known risk",
+                state: "next",
+                cardType: "question"
+              }
+            ],
+            blocked: [],
+            deferred: []
+          }
+        },
+        purposeModeChangeReason: "",
+        questionBatchSize: 3,
+        refetchQueueAfterSseNotification: vi.fn(async () => undefined),
+        refreshProjections: vi.fn(async () => undefined),
+        researchDrafts: {},
+        setAnswerDrafts: vi.fn(),
+        setBusinessCriticIntensity: vi.fn(),
+        setBusinessCriticIntensityChangeReason: vi.fn(),
+        setCommandLog: vi.fn(),
+        setIsBusy: vi.fn(),
+        setKnownRiskDrafts: vi.fn(),
+        setPhase15bReadiness: vi.fn(),
+        setProjectPurposeMode: vi.fn(),
+        setProjections: vi.fn(),
+        setPurposeModeChangeReason: vi.fn(),
+        setResearchDrafts: vi.fn(),
+        setResearchOperations: vi.fn(),
+        setStatuses: vi.fn(),
+        setWorkflowError: vi.fn(),
+        startReadyReadOnlyResearchRunsAfterAnswer: backgroundResearchStarted
+      });
+
+      return null;
+    }
+
+    renderToStaticMarkup(createElement(Harness));
+
+    if (!actions) {
+      throw new Error("Session actions were not captured.");
+    }
+
+    await actions.carryQueueItemAsKnownRisk(riskQueueItemId);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(deferQueueItem).toHaveBeenCalledWith(expect.objectContaining({
+      queueItemId: riskQueueItemId,
+      nextValidationAction: "Accept this as a tracked risk and validate it in the next interview."
+    }));
+    expect(activateQuestionBatch).toHaveBeenCalledWith(
+      sessionId,
+      2,
+      [nextQuestionId]
+    );
+    expect(backgroundResearchStarted).toHaveBeenCalledTimes(1);
+  });
 });
