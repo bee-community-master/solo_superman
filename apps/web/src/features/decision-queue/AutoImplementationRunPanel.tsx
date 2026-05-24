@@ -166,6 +166,9 @@ const REVIEW_LOOP_STAGES = [
   "clean_code_fix_2"
 ] as const satisfies readonly AutoImplementationStage[];
 
+const ISSUE_ROW_COMPLETED_NEXT_ACTION = "Use the completed stage ledger evidence before advancing the next PR slice.";
+const ISSUE_ROW_DEFAULT_NEXT_ACTION = "Work this issue through the delivery protocol, review streaks, and test evidence checklist.";
+
 const AUTO_IMPLEMENTATION_REMOTE_STATUS_VIEW_LABELS = {
   connected: "connected",
   not_authenticated: "not authenticated",
@@ -274,10 +277,10 @@ function issueRowNextAction(input: {
   }
 
   if (input.stage?.status === "completed") {
-    return "Use the completed stage ledger evidence before advancing the next PR slice.";
+    return ISSUE_ROW_COMPLETED_NEXT_ACTION;
   }
 
-  return "Work this issue through the delivery protocol, review streaks, and test evidence checklist.";
+  return ISSUE_ROW_DEFAULT_NEXT_ACTION;
 }
 
 function issueRowBlockerLabel(input: {
@@ -766,6 +769,17 @@ export function AutoImplementationRunPanel({
   const latestWorkerPlanStageLabel = run.latestWorkerPlan
     ? copy.autoImplementation.stageLabels[run.latestWorkerPlan.stage]
     : null;
+  const issueRowNextActionLabel = (nextActionLabel: string) => {
+    if (nextActionLabel === ISSUE_ROW_DEFAULT_NEXT_ACTION) {
+      return copy.autoImplementation.issueRowDefaultNextAction;
+    }
+
+    if (nextActionLabel === ISSUE_ROW_COMPLETED_NEXT_ACTION) {
+      return copy.autoImplementation.issueRowCompletedNextAction;
+    }
+
+    return nextActionLabel;
+  };
   const latestWorkerJobStatusLabel = run.latestWorkerJobStatus === "not_planned"
     ? null
     : copy.autoImplementation.workerJobStatusLabels[run.latestWorkerJobStatus];
@@ -1095,7 +1109,7 @@ export function AutoImplementationRunPanel({
       <h3>{copy.autoImplementation.reviewProtocol}</h3>
       {run.deliveryGates.length ? (
         <ul>
-          {run.deliveryGates.map((gate) => (
+          {copy.autoImplementation.deliveryGateLabels.map((gate) => (
             <li key={gate}>{gate}</li>
           ))}
         </ul>
@@ -1142,7 +1156,7 @@ export function AutoImplementationRunPanel({
                 copy.autoImplementation.workerJobStatusLabels[row.latestWorkerJobStatus]
               )}
               {" · "}
-              {copy.autoImplementation.issueRowNextAction}: {row.nextActionLabel}
+              {copy.autoImplementation.issueRowNextAction}: {issueRowNextActionLabel(row.nextActionLabel)}
               {" · "}
               {copy.autoImplementation.issueRowStageGate}: {inlineList(
                 copy.autoImplementation.stageGateLabels[row.issue.stage],

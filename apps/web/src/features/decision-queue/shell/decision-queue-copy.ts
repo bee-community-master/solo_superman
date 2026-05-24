@@ -1033,6 +1033,17 @@ const EN_COPY = {
     stagePlanLedger: "ledger",
     stagePlanBlocker: "blocked",
     reviewProtocol: "Review and merge protocol",
+    deliveryGateLabels: [
+      "Keep each implementation slice tied to one local markdown issue or GitHub issue before opening the PR.",
+      "Record ImplementationStepLedger trackerDoc, stepDoc, commit/no-code, review, clean-code, test, blocker, and evidence refs before marking a stage complete.",
+      "Do not merge until the feature PR code review reaches two consecutive no-finding passes after any fixes.",
+      "Do not merge until the broader repo-level code review reaches two consecutive no-finding passes.",
+      "Do not merge until the changed-code clean-code review reaches two consecutive no-finding passes.",
+      "Do not merge until the repo-level clean-code review reaches two consecutive no-finding passes.",
+      "Any actionable review or clean-code finding resets that scope's two-pass no-finding streak after the fix is applied.",
+      "Audit missing targeted tests, then run the full verification command before updating the PR body.",
+      "Update the PR body with scope, review streak evidence, missing-test audit evidence, test evidence, remaining gaps, and merge readiness before merging."
+    ],
     planningIssueFiles: "Planning-derived PR/issue files",
     issueDocs: "Issue documents",
     issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null): string => summary
@@ -1062,6 +1073,8 @@ const EN_COPY = {
       ? `latest worker ${jobId} (${status})`
       : "latest worker none",
     issueRowNextAction: "next",
+    issueRowDefaultNextAction: "Work this issue through the delivery protocol, review streaks, and test evidence checklist.",
+    issueRowCompletedNextAction: "Use the completed stage ledger evidence before advancing the next PR slice.",
     issueRowStageGate: "stage gate",
     issueRowMissingEvidence: "missing",
     issueRowEvidenceRefs: "evidence",
@@ -2236,6 +2249,17 @@ const JA_COPY: typeof EN_COPY = {
     stagePlanLedger: "ledger",
     stagePlanBlocker: "ブロック",
     reviewProtocol: "レビューとマージの手順",
+    deliveryGateLabels: [
+      "各実装単位は、PRを開く前にローカルMarkdown IssueまたはGitHub Issueへ紐づけます。",
+      "段階を完了扱いにする前に、実装台帳のtracker/step、commitまたはno-code、レビュー、クリーンコード、テスト、ブロッカー、根拠参照を記録します。",
+      "機能PRレビューで修正事項なしが2回連続になるまでmergeしません。",
+      "今回の機能を超えたリポジトリ全体レビューで修正事項なしが2回連続になるまでmergeしません。",
+      "変更コードのクリーンコードレビューで修正事項なしが2回連続になるまでmergeしません。",
+      "リポジトリ全体のクリーンコードレビューで修正事項なしが2回連続になるまでmergeしません。",
+      "実行可能なレビュー/クリーンコード指摘が出た場合は、修正後にその範囲の2回連続クリアを最初から数え直します。",
+      "不足テストを確認し、PR本文更新前に最終の全体検証コマンドを実行します。",
+      "merge前に、範囲、レビュー連続通過、テスト不足確認、テスト結果、残りgap、merge準備状態をPR本文へ反映します。"
+    ],
     planningIssueFiles: "計画由来のPR/Issueファイル",
     issueDocs: "Issue文書",
     issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null) => summary
@@ -2265,6 +2289,8 @@ const JA_COPY: typeof EN_COPY = {
       ? `最新worker ${jobId} (${status})`
       : "最新workerなし",
     issueRowNextAction: "次アクション",
+    issueRowDefaultNextAction: "このイシューをレビュー連続通過、クリーンコード確認、テスト根拠のチェックリストに沿って進めます。",
+    issueRowCompletedNextAction: "完了済み段階の台帳根拠を使って、次の小さなPR単位へ進みます。",
     issueRowStageGate: "stage gate",
     issueRowMissingEvidence: "不足根拠",
     issueRowEvidenceRefs: "根拠",
@@ -3437,6 +3463,17 @@ const KO_COPY: typeof EN_COPY = {
     stagePlanLedger: "ledger",
     stagePlanBlocker: "차단",
     reviewProtocol: "리뷰와 머지 프로토콜",
+    deliveryGateLabels: [
+      "각 구현 단위는 PR을 열기 전에 로컬 markdown 이슈 또는 GitHub 이슈에 연결합니다.",
+      "단계를 완료 처리하기 전에 구현 기록의 tracker/step, commit 또는 no-code, 리뷰, 클린코드, 테스트, 차단 사유, 근거 참조를 기록합니다.",
+      "기능 PR 코드 리뷰에서 수정할 내용 없음이 2회 연속 확인되기 전에는 merge하지 않습니다.",
+      "이번 기능을 넘어선 레포 전체 코드 리뷰에서 수정할 내용 없음이 2회 연속 확인되기 전에는 merge하지 않습니다.",
+      "변경 코드 클린코드 리뷰에서 수정할 내용 없음이 2회 연속 확인되기 전에는 merge하지 않습니다.",
+      "레포 전체 클린코드 리뷰에서 수정할 내용 없음이 2회 연속 확인되기 전에는 merge하지 않습니다.",
+      "실행 가능한 리뷰/클린코드 지적이 나오면 수정 후 해당 범위의 2회 연속 통과를 다시 셉니다.",
+      "부족한 테스트를 확인하고 PR 본문을 업데이트하기 전에 최종 전체 검증 명령을 실행합니다.",
+      "merge 전에 범위, 리뷰 연속 통과, 부족 테스트 확인, 테스트 결과, 남은 gap, merge 준비 상태를 PR 본문에 반영합니다."
+    ],
     planningIssueFiles: "계획에서 나온 PR/이슈 파일",
     issueDocs: "이슈 문서",
     issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null) => summary
@@ -3466,6 +3503,8 @@ const KO_COPY: typeof EN_COPY = {
       ? `최신 worker ${jobId} (${status})`
       : "최신 worker 없음",
     issueRowNextAction: "다음 작업",
+    issueRowDefaultNextAction: "이 이슈를 리뷰 연속 통과, 클린코드 확인, 테스트 근거 체크리스트에 맞춰 진행하세요.",
+    issueRowCompletedNextAction: "완료된 단계의 구현 기록 근거를 사용해 다음 작은 PR 단위로 넘어가세요.",
     issueRowStageGate: "단계 gate",
     issueRowMissingEvidence: "누락 근거",
     issueRowEvidenceRefs: "근거",

@@ -157,6 +157,15 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.issueDocumentStatusLabels.blocked).toBe("차단됨");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerJobStatusLabels.planned).toBe("계획됨");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerJobStatusLabels.blocked).toBe("ブロック中");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.deliveryGateLabels).toContain(
+      "기능 PR 코드 리뷰에서 수정할 내용 없음이 2회 연속 확인되기 전에는 merge하지 않습니다."
+    );
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.issueRowDefaultNextAction).toContain(
+      "리뷰 연속 통과"
+    );
+    expect(DECISION_QUEUE_COPY.ja.autoImplementation.issueRowCompletedNextAction).toContain(
+      "次の小さなPR単位"
+    );
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeAdapterVersion).toBe("Runtime adapter");
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeEvidenceDetails).toBe("Runtime evidence details");
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeExecutionMode).toBe("Execution mode");

@@ -1416,6 +1416,10 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(koreanMarkup).not.toContain("mutation contract");
     expect(koreanMarkup).not.toContain("mutation evidence");
     expect(koreanMarkup).not.toContain("PR mutation 기록");
+    expect(koreanMarkup).toContain("기능 PR 코드 리뷰에서 수정할 내용 없음이 2회 연속 확인되기 전에는 merge하지 않습니다.");
+    expect(koreanMarkup).toContain("이 이슈를 리뷰 연속 통과, 클린코드 확인, 테스트 근거 체크리스트에 맞춰 진행하세요.");
+    expect(koreanMarkup).not.toContain("Work this issue through the delivery protocol");
+    expect(koreanMarkup).not.toContain("Do not merge until the feature PR code review reaches");
     expect(markup).toContain("Local Codex worker: not planned");
     expect(markup).toContain("Plan approved local Codex task");
     expect(markup).toContain("Record current stage tick");
