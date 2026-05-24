@@ -55,6 +55,7 @@ function codeBackedContract(overrides = {}) {
         "pnpm verify:worker-job",
         "pnpm verify:pr-mutation",
         "pnpm verify:auto-implementation-review-loop",
+        "pnpm verify:ready-release -- --plan-only",
         "pnpm support:bundle"
       ]
     },
@@ -98,6 +99,7 @@ function codeBackedContract(overrides = {}) {
         checkedBehaviors: [
           "support diagnostics bundle generation is credential-free and writes a local JSON evidence file for error reports.",
           "Support bundle validation captures compact product/release diagnostics while excluding full environment dumps, file contents, browser cookies, OpenAI/GitHub tokens, and ChatGPT web credentials.",
+          "ready-release plan-only support diagnostics expose the release evidence bundle preparation command and planned command list without running credential-required gates.",
           "URL credentials, secret-like query values, and token-shaped strings are redacted before support evidence is reported."
         ]
       })
@@ -125,7 +127,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including approved public-read browser targets, final-submit production-mutation contract coverage, generated PR body summary coverage, and redacted support diagnostics coverage"
+      "required capability behavior snippets, including approved public-read browser targets, final-submit production-mutation contract coverage, generated PR body summary coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
@@ -220,7 +222,10 @@ describe("product capability readiness verification", () => {
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
       "$.capabilities[6].checkedBehaviors: must mention support diagnostics bundle",
-      "$.capabilities[6].checkedBehaviors: must mention redacted"
+      "$.capabilities[6].checkedBehaviors: must mention redacted",
+      "$.capabilities[6].checkedBehaviors: must mention ready-release plan-only",
+      "$.capabilities[6].checkedBehaviors: must mention bundle preparation command",
+      "$.capabilities[6].checkedBehaviors: must mention planned command list"
     ]));
   });
 
@@ -278,6 +283,22 @@ describe("product capability readiness verification", () => {
       "$.requiredVerificationCommands.defaultSuite: must include pnpm verify:production-mutation-contract",
       "$.requiredVerificationCommands.defaultSuite: must include pnpm verify:support-bundle",
       "$.requiredVerificationCommands.defaultSuite: must include pnpm verify:product-capability-readiness"
+    ]));
+  });
+
+  it("requires supporting commands to include safe support and ready-release plan checks", () => {
+    const contract = codeBackedContract({
+      requiredVerificationCommands: {
+        defaultSuite: codeBackedContract().requiredVerificationCommands.defaultSuite,
+        supporting: ["pnpm verify:runtime-preview-turn"]
+      }
+    });
+    const result = validateProductCapabilityReadinessContract(contract);
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual(expect.arrayContaining([
+      "$.requiredVerificationCommands.supporting: must include pnpm verify:ready-release -- --plan-only",
+      "$.requiredVerificationCommands.supporting: must include pnpm support:bundle"
     ]));
   });
 

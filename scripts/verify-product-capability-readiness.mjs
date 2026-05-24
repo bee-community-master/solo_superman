@@ -57,7 +57,10 @@ const REQUIRED_CAPABILITY_BEHAVIOR_SNIPPETS = new Map([
     [
       "support diagnostics bundle",
       "credential-free",
-      "redacted"
+      "redacted",
+      "ready-release plan-only",
+      "bundle preparation command",
+      "planned command list"
     ]
   ]
 ]);
@@ -73,6 +76,10 @@ const REQUIRED_DEFAULT_COMMANDS = new Set([
   "pnpm verify:support-bundle",
   "pnpm verify:product-capability-readiness",
   "pnpm verify"
+]);
+const REQUIRED_SUPPORTING_COMMANDS = new Set([
+  "pnpm verify:ready-release -- --plan-only",
+  "pnpm support:bundle"
 ]);
 const ALLOWED_PRODUCT_POSTURES = new Set(["technical-preview", "limited-beta", "general-release"]);
 const ALLOWED_READINESS_STATUSES = new Set(["code_backed", "blocked"]);
@@ -197,7 +204,12 @@ function validateRequiredVerificationCommands(commands, issues) {
     REQUIRED_DEFAULT_COMMANDS,
     issues
   );
-  validateStringList(commands.supporting, "$.requiredVerificationCommands.supporting", issues);
+  validateRequiredCommands(
+    commands.supporting,
+    "$.requiredVerificationCommands.supporting",
+    REQUIRED_SUPPORTING_COMMANDS,
+    issues
+  );
 }
 
 function validateCapability(capability, path, issues) {
@@ -406,7 +418,7 @@ export function evidenceForEvaluation(evaluation, options) {
       "product capability readiness contract schema",
       "required idea, clarification, research, browser/service, planning, auto-implementation, release-guardrail, and local-error-reporting capability ids",
       "required credential-free product verification commands",
-      "required capability behavior snippets, including approved public-read browser targets, final-submit production-mutation contract coverage, generated PR body summary coverage, and redacted support diagnostics coverage",
+      "required capability behavior snippets, including approved public-read browser targets, final-submit production-mutation contract coverage, generated PR body summary coverage, redacted support diagnostics coverage, and ready-release plan-only coverage",
       "secret-free product capability evidence strings",
       options.requireCodeBacked
         ? "all technical-preview core capabilities must be code_backed"
