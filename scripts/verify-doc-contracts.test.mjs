@@ -10,6 +10,7 @@ import {
   findRouteQueryMismatches,
   findWebLocalActiveResidue,
   findWebRealignmentFutureDefaultClaims,
+  DOCS_HUB_WIKI_LINK_PATHS,
   WEB_REALIGNMENT_SCAN_PATHS,
   moduleSpecifiers,
   parseConstArray,
@@ -42,6 +43,14 @@ describe("doc contract verification helpers", () => {
       "omx_wiki/verification-map.md",
       "omx_wiki/auto-implementation-gates.md",
       "omx_wiki/release-handoff.md"
+    ]);
+  });
+
+  it("checks every docs hub entrypoint for the project wiki link", () => {
+    expect(DOCS_HUB_WIKI_LINK_PATHS).toEqual([
+      "docs/README.md",
+      "docs/README_KO.md",
+      "docs/README_EN.md"
     ]);
   });
 
