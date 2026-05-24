@@ -146,7 +146,7 @@
         "Opt-in live runtime readiness verification reports skipped, blocked, or passed evidence without forcing opt-in live execution into the default suite.",
         "Worker jobs keep planned ledger docs, authority refs, sandbox boundaries, and manual recovery evidence visible.",
         "Generated PR body includes issue document status summary, stage status summary, review/evidence gate summary, and missing-test audit summary coverage.",
-        "Every canonical auto-implementation stage can carry code-review, clean-code, missing-test audit, and test evidence before completion."
+        "Every canonical auto-implementation stage requires two consecutive no-finding feature and repository code-review passes, two consecutive no-finding changed-code and repository clean-code passes, a zero-gap missing-test audit, and passing test evidence before completion."
       ]
     },
     {
