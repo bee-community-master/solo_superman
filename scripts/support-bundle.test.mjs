@@ -16,6 +16,18 @@ const releaseEvidenceIssueItemCounts = new Map([
   [267, 3]
 ]);
 
+function fakeReadyReleaseChecklistItems(issueNumber, itemCount) {
+  return Array.from({ length: itemCount }, (_, index) => ({
+    itemId: `issue-${issueNumber}-evidence-item-${index + 1}`,
+    gateId: issueNumber === 259 ? "windows-real-device" : issueNumber === 266 ? "signed-packages" : "packaged-update-rollback",
+    status: "blocked",
+    scope: issueNumber === 259 ? "windows" : null,
+    requiredChecks: index === 0 ? [] : [`check-${index}-a`, `check-${index}-b`],
+    requiredEvidence: [`evidence-${index + 1}-a`, `evidence-${index + 1}-b`],
+    unblockCriteria: [`unblock-${index + 1}`]
+  }));
+}
+
 function fakeReadyReleaseIssuePreparation() {
   return [...releaseEvidenceIssueItemCounts].map(([issueNumber, itemCount]) => ({
     issueNumber,
@@ -23,6 +35,7 @@ function fakeReadyReleaseIssuePreparation() {
     status: "blocked",
     itemCount,
     blockedItems: itemCount,
+    checklistItems: fakeReadyReleaseChecklistItems(issueNumber, itemCount),
     checklistPath: `./solo-superman-release-evidence-bundle/issue-${issueNumber}-checklist.md`,
     templatePath: `./solo-superman-release-evidence-bundle/issue-${issueNumber}-template.json`,
     commentPath: `./solo-superman-release-evidence-bundle/issue-${issueNumber}-comment.md`,
@@ -439,6 +452,16 @@ describe("support diagnostics bundle", () => {
           issueNumber: entry.issueNumber,
           status: "blocked",
           blockedItems: entry.blockedItems,
+          checklistItems: entry.checklistItems.map((item) =>
+            expect.objectContaining({
+              itemId: item.itemId,
+              gateId: item.gateId,
+              status: item.status,
+              requiredCheckCount: item.requiredChecks.length,
+              requiredEvidenceCount: item.requiredEvidence.length,
+              unblockCriteriaCount: item.unblockCriteria.length
+            })
+          ),
           templatePath: entry.templatePath,
           commentPath: entry.commentPath,
           validateTemplateCommand: entry.validateTemplateCommand,

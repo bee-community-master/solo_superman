@@ -224,6 +224,22 @@ describe("ready release aggregate verification", () => {
     expect(evidence.releaseEvidenceIssuePreparation).toEqual([
       expect.objectContaining({
         issueNumber: 259,
+        checklistItems: expect.arrayContaining([
+          expect.objectContaining({
+            itemId: "windows-real-device",
+            gateId: "release-readiness",
+            status: "blocked",
+            requiredEvidence: expect.arrayContaining([
+              expect.stringContaining("Clean Windows 11 one-line install")
+            ])
+          }),
+          expect.objectContaining({
+            itemId: "windows-one-line-install-first-screen",
+            gateId: "windows-real-device",
+            scope: "windows",
+            requiredChecks: expect.arrayContaining(["run_administrator_powershell_one_line_installer"])
+          })
+        ]),
         templatePath: "./solo-superman-release-evidence-bundle/issue-259-template.json",
         commentPath: "./solo-superman-release-evidence-bundle/issue-259-comment.md",
         validateTemplateCommand:
@@ -249,7 +265,7 @@ describe("ready release aggregate verification", () => {
       "plan-only release evidence blocker summary reports blocker issue and blocked item counts before release-lab handoff"
     );
     expect(evidence.checked).toContain(
-      "issue-specific release evidence templates, comments, and validation commands are surfaced before release-lab handoff"
+      "issue-specific release evidence item summaries, templates, comments, and validation commands are surfaced before release-lab handoff"
     );
   });
 
@@ -294,6 +310,22 @@ describe("ready release aggregate verification", () => {
         "pnpm verify:release-evidence-template -- --input ./filled-release-bundle/issue-259-template.json --issue 259",
       postIssueCommentCommand: "gh issue comment 259 --body-file ./filled-release-bundle/issue-259-comment.md"
     });
+    expect(issuePrep[0].checklistItems).toEqual([
+      expect.objectContaining({
+        itemId: "windows-real-device",
+        gateId: "release-readiness",
+        status: "blocked",
+        requiredEvidence: expect.arrayContaining([
+          expect.stringContaining("Clean Windows 11 one-line install")
+        ])
+      }),
+      expect.objectContaining({
+        itemId: "windows-one-line-install-first-screen",
+        gateId: "windows-real-device",
+        scope: "windows",
+        requiredChecks: expect.arrayContaining(["run_administrator_powershell_one_line_installer"])
+      })
+    ]);
     expect(JSON.stringify(issuePrep)).not.toContain("ghp_");
   });
 

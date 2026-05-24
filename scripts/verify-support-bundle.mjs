@@ -296,8 +296,40 @@ function validateReadyReleaseIssuePreparation(value, issues) {
     if (typeof entry.status !== "string") {
       addIssue(issues, `${path}.status`, "must include issue status");
     }
+    if (typeof entry.itemCount !== "number") {
+      addIssue(issues, `${path}.itemCount`, "must include issue evidence item count");
+    }
     if (typeof entry.blockedItems !== "number") {
       addIssue(issues, `${path}.blockedItems`, "must include blocked item count");
+    }
+    if (!Array.isArray(entry.checklistItems) || entry.checklistItems.length !== entry.itemCount) {
+      addIssue(issues, `${path}.checklistItems`, "must summarize every issue-specific release evidence item");
+    } else {
+      for (const [index, item] of entry.checklistItems.entries()) {
+        const itemPath = `${path}.checklistItems[${index}]`;
+        if (!isRecord(item)) {
+          addIssue(issues, itemPath, "must be a release evidence item summary");
+          continue;
+        }
+        if (typeof item.itemId !== "string") {
+          addIssue(issues, `${itemPath}.itemId`, "must include release evidence item id");
+        }
+        if (typeof item.gateId !== "string") {
+          addIssue(issues, `${itemPath}.gateId`, "must include release evidence gate id");
+        }
+        if (typeof item.status !== "string") {
+          addIssue(issues, `${itemPath}.status`, "must include release evidence item status");
+        }
+        if (typeof item.requiredCheckCount !== "number") {
+          addIssue(issues, `${itemPath}.requiredCheckCount`, "must include required check count");
+        }
+        if (typeof item.requiredEvidenceCount !== "number") {
+          addIssue(issues, `${itemPath}.requiredEvidenceCount`, "must include required evidence count");
+        }
+        if (typeof item.unblockCriteriaCount !== "number") {
+          addIssue(issues, `${itemPath}.unblockCriteriaCount`, "must include unblock criteria count");
+        }
+      }
     }
     if (typeof entry.templatePath !== "string" || !entry.templatePath.endsWith(`issue-${issueNumber}-template.json`)) {
       addIssue(issues, `${path}.templatePath`, `must point to issue-${issueNumber}-template.json`);

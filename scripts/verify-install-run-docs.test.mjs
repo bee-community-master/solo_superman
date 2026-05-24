@@ -180,12 +180,14 @@ describe("#105 local install/run verification docs", () => {
     expect(runbook).toContain("pnpm.cmd support:bundle");
     expect(runbook).toContain("verify:release-readiness`/`verify:ready-release -- --plan-only`/`verify:release-evidence-template`/`verify:release-evidence-bundle`의 credential-free product/release diagnostics summary");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("`verify:release-readiness`, `verify:ready-release -- --plan-only`, `verify:release-evidence-template`, and `verify:release-evidence-bundle` only");
-    expect(runbook).toContain("ready-release plan-only summary에는 bundle preparation command와 planned command list만 담습니다");
-    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("ready-release plan-only summary keeps only the bundle preparation command plus planned command list");
+    expect(runbook).toContain("ready-release plan-only summary에는 plan-safe bundle preparation command, planned command list, blocker summary, issue-specific handoff summary만 담습니다");
+    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("ready-release plan-only summary keeps only plan-safe bundle preparation, planned command list, blocker summary, and issue-specific handoff summary fields");
     expect(runbook).toContain("releaseEvidenceIssuePreparation");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("releaseEvidenceIssuePreparation");
-    expect(runbook).toContain("#259/#266/#267별 checklist/template/comment 경로");
-    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("#259/#266/#267 checklist/template/comment paths");
+    expect(runbook).toContain("#259/#266/#267별 evidence item 요약");
+    expect(runbook).toContain("필수 check/evidence/unblock count");
+    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("#259/#266/#267 evidence item summaries");
+    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("required check/evidence/unblock counts");
     expect(runbook).toContain("recommended checks의 `pnpm verify:codex-live-runtime`");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("recommended `pnpm verify:codex-live-runtime` check");
     expect(runbook).toContain("recommended checks의 `pnpm verify:ready-release -- --plan-only`");
