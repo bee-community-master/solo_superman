@@ -21,7 +21,7 @@ pnpm verify:product-capability-readiness -- --require-code-backed
 
 | capability id | 통과해야 하는 핵심 evidence |
 | --- | --- |
-| `idea-clarification-loop` | `pnpm verify:clarification-pipeline`, `pnpm verify:clarification-volume`; product capability contract가 질문 카드와 생성 후속 질문을 open text, 찬반, 하나 선택, 다중 선택, 순위, 근거 판단, 실험 답변 형식으로 구성할 수 있도록 clarification answer-form variety를 필수 행동으로 고정 |
+| `idea-clarification-loop` | `pnpm verify:clarification-pipeline`, `pnpm verify:clarification-volume`; product capability contract가 질문 카드와 생성 후속 질문의 answer-form variety와 비차단 답변 제출을 필수 행동으로 고정해, 답변 저장 후 백그라운드 리서치 시작/queue refill이 이어져도 사용자를 멈추지 않도록 검증 |
 | `research-evidence-loop` | `pnpm verify:research-pipeline`이 mounted `web_search_readonly` provider polling, source-traced result import, evidence matrix/pack, follow-up question debt, markdown memory 저장/재사용을 검증하고, product capability contract가 research follow-up의 answer-form variety와 Research tab의 `Max simultaneous research runs`/`Max research runs per session` 한도 조절 UX를 필수 행동으로 고정 |
 | `planning-readiness-gates` | clarification/research evidence가 Planning-ready gate에 연결되는지, `Composite score is 85 or higher`와 `Most confidence axes are 75 or higher`로 대부분의 readiness metric이 구체화된 뒤에만 implementation-ready가 되는지 검증 |
 | `browser-service-boundary` | `pnpm verify:browser-delegation-pipeline`, `pnpm verify:service-page-pipeline`, `pnpm verify:production-mutation-contract` |

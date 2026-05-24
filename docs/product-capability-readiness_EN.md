@@ -21,7 +21,7 @@ Default mode validates [`product-capability-readiness.example.json`](product-cap
 
 | capability id | Required core evidence |
 | --- | --- |
-| `idea-clarification-loop` | `pnpm verify:clarification-pipeline`, `pnpm verify:clarification-volume`; the product capability contract also fixes clarification answer-form variety so question cards and generated follow-ups can be open text, binary stance, single choice, multi-select, ranked, evidence, or experiment answers instead of one pro/con shape |
+| `idea-clarification-loop` | `pnpm verify:clarification-pipeline`, `pnpm verify:clarification-volume`; the product capability contract also fixes clarification answer-form variety and non-blocking answer submission so background research starts/queue refill continue after the answer is persisted instead of pausing the user |
 | `research-evidence-loop` | `pnpm verify:research-pipeline` validates mounted `web_search_readonly` provider polling, source-traced result import, evidence matrices/packs, follow-up question debt, and markdown memory persistence/reuse; the product capability contract also fixes research follow-up answer-form variety plus the Research tab `Max simultaneous research runs`/`Max research runs per session` limit controls as required behavior |
 | `planning-readiness-gates` | clarification/research evidence connected to the Planning-ready gate, plus `Composite score is 85 or higher` and `Most confidence axes are 75 or higher` so implementation-ready status requires most readiness metrics to be concrete |
 | `browser-service-boundary` | `pnpm verify:browser-delegation-pipeline`, `pnpm verify:service-page-pipeline`, `pnpm verify:production-mutation-contract` |

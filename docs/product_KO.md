@@ -53,6 +53,7 @@ Business mode는 명시적인 `businessCriticIntensity`가 필요하며 no defau
 - 질문 카드와 생성된 후속 질문은 질문 의도에 맞춰 주관식/서술형, 찬성·반대 객관식, 하나 선택, 하나 이상 선택, 우선순위, 근거 판단, 실험 답변 형식 중 알맞은 답변 방식을 써야 하며 모든 답변을 찬반/pro-con 형태로 강제하면 안 됩니다.
 - 긴 clarification session에서는 생성됨, 지금 답할 질문, 다음 질문, 막힘, 답변됨, 전체 후속 질문, 남은 후속 질문, topic coverage, 남은 follow-up budget count를 질문 진행률에 보여야 합니다. Maintainer는 credential-free clarification pipeline 및 clarification volume smoke로 아이디어 intake부터 초기 스펙 분석, 활성 질문 묶음, 답변 제출, follow-up/research debt, Planning Handoff blocker까지 이어지는 질문 루프와 200개 이상의 bounded question/answer loop, 100% question-debt completion을 검증할 수 있어야 합니다.
 - 질문 새로고침과 다음 질문 불러오기 control은 화면에서 보이게 두고, 답변 또는 보류 후에는 다음 관련 질문이 자동 보충될 수 있어야 합니다.
+- 답변 제출은 백그라운드 리서치 시작이나 다음 질문 자동 보충이 끝날 때까지 사용자를 멈춰 세우면 안 됩니다. 답변 저장이 끝나면 입력 흐름은 먼저 풀리고, public-web 리서치 시작/실패와 queue refill은 조용한 후속 작업 또는 별도 오류로 처리되어야 합니다.
 - 긴 session에서는 현재 활성 질문 묶음에 작성된 답변들을 한 번에 제출할 수 있지만, 이 action은 보이는 질문/후속 질문 card로만 제한되고 기존 답변별 research loop를 그대로 사용해야 합니다.
 - 리서치가 생성한 추가 질문은 evidence card note에만 숨기지 말고 답변 가능하고 source trace가 남는 후속 질문 debt로 Decision Queue에 다시 들어와야 하며, Planning Handoff의 build-slice evidence도 같은 research follow-up provenance를 이어받아야 합니다. 이 후속 질문의 답변 형식은 질문 의도에 따라 주관식/서술형, 찬성·반대, 하나 선택, 하나 이상 선택, 우선순위, evidence 판단을 고를 수 있어야 하며 모든 질문을 pro/con stance로 강제하면 안 됩니다.
 - Research review card는 공개 근거, run, source question이 card를 만든 경우 retained source trace를 보여줘야 하며, 사용자가 리서치 생성 후속 질문을 처리하기 전에 provenance를 확인할 수 있어야 합니다.

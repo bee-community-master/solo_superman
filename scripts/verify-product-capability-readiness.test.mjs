@@ -46,6 +46,7 @@ function ideaClarificationCheckedBehaviors() {
     "Idea intake creates a user-confirmed business or personal project purpose before analysis.",
     "Active question batches stay bounded while long sessions can process 200+ question/answer loops.",
     "Clarification question cards and generated follow-ups support open text, binary stance, single choice, multi-select, ranked, evidence, and experiment answer formats instead of reusing one pro/con shape.",
+    "Answer submission stays non-blocking while background research starts and automatic queue refill continue after the answer is persisted.",
     "Answers produce follow-up debt and research-task debt instead of hidden notes.",
     "Question-debt completion and Planning Handoff blockers remain visible before Planning-ready."
   ];
@@ -168,7 +169,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including clarification answer-form variety, mounted research provider polling, research run limit UX, research markdown memory, answer-form variety for research follow-up questions, planning readiness score/axis gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including clarification answer-form variety, non-blocking answer submission, mounted research provider polling, research run limit UX, research markdown memory, answer-form variety for research follow-up questions, planning readiness score/axis gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
@@ -234,7 +235,8 @@ describe("product capability readiness verification", () => {
               checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
                 !behavior.includes("open text") &&
                 !behavior.includes("single choice") &&
-                !behavior.includes("experiment answer formats")
+                !behavior.includes("experiment answer formats") &&
+                !behavior.includes("non-blocking")
               )
             }
           : capability
@@ -250,7 +252,10 @@ describe("product capability readiness verification", () => {
       "$.capabilities[0].checkedBehaviors: must mention multi-select",
       "$.capabilities[0].checkedBehaviors: must mention ranked",
       "$.capabilities[0].checkedBehaviors: must mention evidence",
-      "$.capabilities[0].checkedBehaviors: must mention experiment answer formats"
+      "$.capabilities[0].checkedBehaviors: must mention experiment answer formats",
+      "$.capabilities[0].checkedBehaviors: must mention non-blocking",
+      "$.capabilities[0].checkedBehaviors: must mention background research starts",
+      "$.capabilities[0].checkedBehaviors: must mention automatic queue refill"
     ]));
   });
 
