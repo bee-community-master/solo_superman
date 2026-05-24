@@ -499,6 +499,26 @@ describe("research follow-up answer shape", () => {
     );
   });
 
+  it("keeps several-candidate priority questions ranked instead of treating them as multi-select", () => {
+    const input = {
+      question: "여러 개 검증 후보의 우선순위를 정해주세요: 고객 인터뷰, 랜딩페이지 신청, 수동 테스트.",
+      researchTask: task("여러 개 후보의 우선순위를 정해야 하는 결정"),
+      sourceQuestion: sourceQuestion(),
+      evidenceMatrix: evidenceMatrix()
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("ranked_choice");
+    expect(researchFollowUpExpectedAnswerType(input)).toBe("rank");
+    expect(researchFollowUpAnswerSelectionMode(input)).toBe("ranked");
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "question_candidate_1", label: "고객 인터뷰" }),
+        expect.objectContaining({ id: "question_candidate_2", label: "랜딩페이지 신청" }),
+        expect.objectContaining({ id: "question_candidate_3", label: "수동 테스트" })
+      ])
+    );
+  });
+
   it("returns signal-specific options for multi-select signal questions", () => {
     const input = {
       question:

@@ -509,6 +509,22 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).toContain("우선순위를 1순위부터");
   });
 
+  it("lets explicit priority wording win over incidental several-options wording", () => {
+    const researchTask = task({
+      objective: "검증 후보는 고객 인터뷰, 랜딩페이지 신청, 수동 테스트입니다. 여러 개 후보의 우선순위를 정해야 하는 결정"
+    });
+    const researchResult = result({
+      result: "Pro: imported notes mention several validation candidates.",
+      limitationNotes: "The right order still needs a user decision."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("질문에서 순서를 비교할 후보");
+    expect(matrix.additionalQuestions[0]).toContain("우선순위를 1순위부터");
+    expect(matrix.additionalQuestions[0]).not.toContain("하나 이상 선택");
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+  });
+
   it("turns proceed-or-hold evidence gaps into explicit agree/disagree prompts", () => {
     const researchTask = task({
       objective: "이 방향을 스펙에 반영할지 여부 결정"
