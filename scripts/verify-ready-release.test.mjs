@@ -30,6 +30,11 @@ describe("ready release aggregate verification", () => {
       mode: "ready-release-gate",
       timeoutMs: 1234,
       releaseEvidenceBundleDir: "./solo-superman-release-evidence-bundle",
+      releaseEvidenceBundlePreparation: {
+        id: "release-evidence-bundle-preparation",
+        status: "unchecked",
+        command: "pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle"
+      },
       blockers: [],
       commandBlockers: []
     });
@@ -81,6 +86,7 @@ describe("ready release aggregate verification", () => {
     const calls = [];
     const evidence = await runReadyReleaseVerification({
       timeoutMs: 5000,
+      releaseEvidenceBundleDirStatus: "present",
       runner: async (step, options) => {
         calls.push({ step, options });
         return {
@@ -107,6 +113,7 @@ describe("ready release aggregate verification", () => {
 
   it("bounds reported command output so aggregate ready-release evidence stays readable", async () => {
     const evidence = await runReadyReleaseVerification({
+      releaseEvidenceBundleDirStatus: "present",
       runner: async (step) => ({
         ...step,
         exitCode: step.id === "signed-package-release-evidence" ? 1 : 0,
@@ -125,6 +132,7 @@ describe("ready release aggregate verification", () => {
 
   it("surfaces nested command blockers in aggregate evidence", async () => {
     const evidence = await runReadyReleaseVerification({
+      releaseEvidenceBundleDirStatus: "present",
       runner: async (step) => {
         if (step.id !== "release-evidence-bundle-ready") {
           return { ...step, exitCode: 0, stdout: "{\"status\":\"passed\",\"blockers\":[]}", stderr: "" };
@@ -161,6 +169,7 @@ describe("ready release aggregate verification", () => {
     const calls = [];
     const evidence = await runReadyReleaseVerification({
       failFast: true,
+      releaseEvidenceBundleDirStatus: "present",
       runner: async (step) => {
         calls.push(step.id);
         return { ...step, exitCode: 1, stdout: "blocked", stderr: "" };
@@ -179,6 +188,11 @@ describe("ready release aggregate verification", () => {
       status: "planned",
       mode: "plan-only",
       releaseEvidenceBundleDir: "./solo-superman-release-evidence-bundle",
+      releaseEvidenceBundlePreparation: {
+        status: "planned",
+        command: "pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle",
+        requiredBefore: "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready"
+      },
       blockers: [],
       commandBlockers: []
     });
@@ -194,6 +208,25 @@ describe("ready release aggregate verification", () => {
       args: ["verify:release-evidence-bundle", "--", "--bundle-dir", "./filled-bundle", "--require-ready"],
       display: "pnpm verify:release-evidence-bundle -- --bundle-dir ./filled-bundle --require-ready"
     });
+  });
+
+  it("surfaces the release evidence bundle preparation command when the bundle directory is missing", async () => {
+    const evidence = await runReadyReleaseVerification({
+      releaseEvidenceBundleDirStatus: "missing",
+      runner: async (step) => ({ ...step, exitCode: 0, stdout: "{\"status\":\"passed\",\"blockers\":[]}", stderr: "" })
+    });
+
+    expect(evidence.status).toBe("blocked");
+    expect(evidence.releaseEvidenceBundlePreparation).toMatchObject({
+      id: "release-evidence-bundle-preparation",
+      status: "missing",
+      command: "pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle",
+      bundleDir: "./solo-superman-release-evidence-bundle"
+    });
+    expect(evidence.blockers).toEqual([
+      "release-evidence-bundle-preparation: ./solo-superman-release-evidence-bundle is missing; run pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle before filling real evidence and running final ready-release."
+    ]);
+    expect(evidence.commandBlockers).toEqual(evidence.blockers);
   });
 
   it("parses timeout, fail-fast, and plan-only flags", () => {

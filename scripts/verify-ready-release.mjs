@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
+import { stat } from "node:fs/promises";
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { redactSupportText } from "./support-bundle.mjs";
 
@@ -8,6 +10,7 @@ export const READY_RELEASE_VERIFICATION_SCHEMA_VERSION = "solo-superman-ready-re
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR = "./solo-superman-release-evidence-bundle";
 const MAX_REPORTED_COMMAND_OUTPUT_CHARS = 4_000;
+const RELEASE_EVIDENCE_BUNDLE_PREPARATION_ID = "release-evidence-bundle-preparation";
 const BASE_READY_RELEASE_STEPS = [
   {
     id: "signed-package-preflight-credentials",
@@ -216,25 +219,80 @@ function commandStatus(result) {
   return result.exitCode === 0 ? "passed" : "blocked";
 }
 
-export function evidenceForReadyReleaseResults(results, options = {}) {
-  const blockers = options.planOnly ? [] : results
-    .filter((result) => commandStatus(result) !== "passed")
-    .map((result) => {
-      const status = commandStatus(result);
-      if (status === "timeout") {
-        return `${result.display} timed out after ${result.timeoutMs}ms`;
-      }
-      if (status === "error") {
-        return `${result.display} failed to start: ${result.error}`;
-      }
-      return `${result.display} exited with code ${result.exitCode}`;
-    });
-  const commandBlockers = options.planOnly ? [] : uniqueStrings(results.flatMap((result) => {
-    if (commandStatus(result) === "passed") {
-      return [];
+function releaseEvidenceBundlePreparation(options = {}) {
+  const bundleDir = options.releaseEvidenceBundleDir ?? DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR;
+  const command = `pnpm release:evidence-bundle -- ${bundleDir}`;
+  const status = options.planOnly
+    ? "planned"
+    : options.releaseEvidenceBundleDirStatus ?? "unchecked";
+
+  return {
+    id: RELEASE_EVIDENCE_BUNDLE_PREPARATION_ID,
+    status,
+    command,
+    bundleDir,
+    requiredBefore: `pnpm verify:release-evidence-bundle -- --bundle-dir ${bundleDir} --require-ready`,
+    checked: [
+      "release evidence bundle directory exists before final ready-release",
+      "operator-visible command for preparing a fresh release evidence bundle is present",
+      "prepared bundle must still be filled with real redacted evidence before require-ready verification"
+    ]
+  };
+}
+
+function releaseEvidenceBundlePreparationBlockers(preparation) {
+  if (preparation.status === "missing") {
+    return [
+      `${preparation.id}: ${preparation.bundleDir} is missing; run ${preparation.command} before filling real evidence and running final ready-release.`
+    ];
+  }
+  if (preparation.status === "not_directory") {
+    return [
+      `${preparation.id}: ${preparation.bundleDir} exists but is not a directory; choose a clean bundle directory or move the file before running final ready-release.`
+    ];
+  }
+  return [];
+}
+
+async function releaseEvidenceBundleDirStatus(bundleDir, options = {}) {
+  try {
+    const entry = await stat(resolve(options.cwd ?? process.cwd(), bundleDir));
+    return entry.isDirectory() ? "present" : "not_directory";
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      return "missing";
     }
-    return extractReadyReleaseCommandBlockers(result).map((blocker) => `${result.id}: ${blocker}`);
-  }));
+    throw error;
+  }
+}
+
+export function evidenceForReadyReleaseResults(results, options = {}) {
+  const preparation = releaseEvidenceBundlePreparation(options);
+  const preparationBlockers = options.planOnly ? [] : releaseEvidenceBundlePreparationBlockers(preparation);
+  const blockers = options.planOnly ? [] : [
+    ...preparationBlockers,
+    ...results
+      .filter((result) => commandStatus(result) !== "passed")
+      .map((result) => {
+        const status = commandStatus(result);
+        if (status === "timeout") {
+          return `${result.display} timed out after ${result.timeoutMs}ms`;
+        }
+        if (status === "error") {
+          return `${result.display} failed to start: ${result.error}`;
+        }
+        return `${result.display} exited with code ${result.exitCode}`;
+      })
+  ];
+  const commandBlockers = options.planOnly ? [] : uniqueStrings([
+    ...preparationBlockers,
+    ...results.flatMap((result) => {
+      if (commandStatus(result) === "passed") {
+        return [];
+      }
+      return extractReadyReleaseCommandBlockers(result).map((blocker) => `${result.id}: ${blocker}`);
+    })
+  ]);
 
   return {
     status: options.planOnly ? "planned" : blockers.length === 0 ? "passed" : "blocked",
@@ -243,6 +301,7 @@ export function evidenceForReadyReleaseResults(results, options = {}) {
     failFast: options.failFast === true,
     timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     releaseEvidenceBundleDir: options.releaseEvidenceBundleDir ?? DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR,
+    releaseEvidenceBundlePreparation: preparation,
     blockers,
     commandBlockers,
     commands: results.map((result) => ({
@@ -262,6 +321,7 @@ export function evidenceForReadyReleaseResults(results, options = {}) {
       "Windows real-device evidence gate",
       "packaged update rollback device evidence gate",
       "release evidence bundle require-ready gate",
+      "release evidence bundle preparation prerequisite is surfaced before require-ready verification",
       "release readiness require-ready gate",
       "nested verifier blockers and issues are surfaced per command",
       "verbose release-template field blockers are summarized while redacted stdout keeps a bounded diagnostic preview",
@@ -318,8 +378,21 @@ function runCommand(step, options = {}) {
 
 export async function runReadyReleaseVerification(options = {}) {
   const steps = readyReleaseSteps({ releaseEvidenceBundleDir: options.releaseEvidenceBundleDir });
+  const releaseEvidenceBundleDirStatusValue = options.planOnly
+    ? undefined
+    : options.releaseEvidenceBundleDirStatus ?? (await releaseEvidenceBundleDirStatus(
+      options.releaseEvidenceBundleDir ?? DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR,
+      options
+    ));
+  const evidenceOptions = {
+    ...options,
+    releaseEvidenceBundleDirStatus: releaseEvidenceBundleDirStatusValue
+  };
   if (options.planOnly) {
-    return evidenceForReadyReleaseResults(steps.map((step) => ({ ...step, exitCode: null, timeoutMs: options.timeoutMs })), options);
+    return evidenceForReadyReleaseResults(
+      steps.map((step) => ({ ...step, exitCode: null, timeoutMs: options.timeoutMs })),
+      evidenceOptions
+    );
   }
 
   const results = [];
@@ -332,7 +405,7 @@ export async function runReadyReleaseVerification(options = {}) {
     }
   }
 
-  return evidenceForReadyReleaseResults(results, options);
+  return evidenceForReadyReleaseResults(results, evidenceOptions);
 }
 
 async function main() {
