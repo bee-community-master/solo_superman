@@ -13,6 +13,7 @@ import {
   filterReleaseEvidenceChecklistByIssue,
   loadReleaseEvidenceContracts,
   parseReleaseEvidenceChecklistArgs,
+  requiredTemplateReadyReleaseCommands,
   renderReleaseEvidenceChecklistMarkdown,
   renderReleaseEvidenceIssueCommentMarkdown,
   runReleaseEvidenceChecklistCli,
@@ -120,6 +121,19 @@ describe("release evidence checklist", () => {
       expect.objectContaining({ itemId: "windows-packaged-update-rollback", gateId: "packaged-update-rollback" })
     ]));
     expect(checklist.issues).toEqual([]);
+  });
+
+  it("keeps aggregate ready-release commands out of template command-run requirements", () => {
+    const commands = [
+      "pnpm verify:signed-package-preflight -- --require-credentials",
+      "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready",
+      "pnpm verify:ready-release -- --evidence-bundle-dir ./solo-superman-release-evidence-bundle"
+    ];
+
+    expect(requiredTemplateReadyReleaseCommands(commands)).toEqual([
+      "pnpm verify:signed-package-preflight -- --require-credentials",
+      "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready"
+    ]);
   });
 
   it("renders issue-filtered markdown checklists for release blocker issues", async () => {
@@ -251,7 +265,11 @@ describe("release evidence checklist", () => {
       templateStatus: "ready",
       summary: { totalItems: 4, pendingItems: 0, filterIssueNumber: "266" }
     });
-    expect(filledTemplate.items[0].verification.readyReleaseCommandsRun).toEqual(template.readyReleaseCommands);
+    const nestedReadyReleaseCommands = requiredTemplateReadyReleaseCommands(template.readyReleaseCommands);
+    expect(filledTemplate.items[0].verification.readyReleaseCommandsRun).toEqual(nestedReadyReleaseCommands);
+    expect(filledTemplate.items[0].verification.readyReleaseCommandsRun).not.toContain(
+      "pnpm verify:ready-release -- --evidence-bundle-dir ./solo-superman-release-evidence-bundle"
+    );
     expect(filledTemplate.items[0].verification.readyReleaseResult).toEqual({
       status: "passed",
       commandBlockers: ["none"],
@@ -266,13 +284,20 @@ describe("release evidence checklist", () => {
     });
 
     const missingCommandTemplate = cloneJson(filledTemplate);
-    missingCommandTemplate.items[0].verification.readyReleaseCommandsRun = template.readyReleaseCommands.slice(0, -1);
+    missingCommandTemplate.items[0].verification.readyReleaseCommandsRun = nestedReadyReleaseCommands.slice(1);
 
     expect(validateReleaseEvidenceTemplate(missingCommandTemplate, { expectedChecklist: issue266Checklist })).toMatchObject({
       status: "blocked",
       issues: expect.arrayContaining([
         expect.stringContaining("verification.readyReleaseCommandsRun must include required ready-release command")
       ])
+    });
+
+    const missingAggregateSelfCommandTemplate = cloneJson(filledTemplate);
+    missingAggregateSelfCommandTemplate.items[0].verification.readyReleaseCommandsRun = nestedReadyReleaseCommands;
+    expect(validateReleaseEvidenceTemplate(missingAggregateSelfCommandTemplate, { expectedChecklist: issue266Checklist })).toMatchObject({
+      status: "passed",
+      issues: []
     });
 
     const missingReadyReleaseResultTemplate = cloneJson(filledTemplate);
@@ -725,6 +750,7 @@ describe("release evidence checklist", () => {
       expect(issue266Comment).toContain("pnpm verify:release-evidence-template -- --input <filled-template.json> --issue 266");
       expect(issue266Comment).toContain("pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>");
       expect(issue266Comment).toContain("aggregate `commandBlockers`");
+      expect(issue266Comment).toContain("Record the nested verifier commands");
       expect(issue266Comment).toContain("`verification.readyReleaseResult.status`");
       expect(issue266Comment).toContain("Template readyReleaseResult");
       const readme = await readFile(join(bundleDir, "README.md"), "utf8");
@@ -739,6 +765,8 @@ describe("release evidence checklist", () => {
       expect(readme).toContain("`verification.readyReleaseResult.status`");
       expect(readme).toContain("`verification.readyReleaseResult.commandBlockers`");
       expect(readme).toContain("`verification.readyReleaseResult.perCommandBlockers`");
+      expect(readme).toContain("Do not add the aggregate ready-release command to `verification.readyReleaseCommandsRun`");
+      expect(readme).toContain("intentionally excludes the aggregate `verify:ready-release` self-command");
       expect(readme).toContain("JSON evidence and issue comment agree");
       expect(readme).toContain("filled template and full bundle pass validation");
     } finally {

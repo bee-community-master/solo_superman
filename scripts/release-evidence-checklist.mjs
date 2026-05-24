@@ -25,6 +25,7 @@ const BUNDLE_FULL_CHECKLIST_MARKDOWN_PATH = "release-evidence-checklist.md";
 const BUNDLE_FULL_TEMPLATE_PATH = "release-evidence-template.json";
 const BUNDLE_MANIFEST_PATH = "manifest.json";
 const BUNDLE_README_PATH = "README.md";
+const AGGREGATE_READY_RELEASE_COMMAND_PATTERN = /^pnpm\s+verify:ready-release(?:\s|$)/u;
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -36,6 +37,10 @@ function stringList(value) {
 
 function uniqueStrings(values) {
   return [...new Set(values.filter((value) => typeof value === "string" && value.trim().length > 0))];
+}
+
+export function requiredTemplateReadyReleaseCommands(commands) {
+  return stringList(commands).filter((command) => !AGGREGATE_READY_RELEASE_COMMAND_PATTERN.test(command));
 }
 
 function urlIssuesForRef(ref, path) {
@@ -582,7 +587,7 @@ export function validateReleaseEvidenceTemplate(template, options = {}) {
     if (typeof template.summary?.totalItems === "number" && template.summary.totalItems !== template.items.length) {
       issues.push("$.summary.totalItems must match the number of template items.");
     }
-    const requiredReadyReleaseCommands = stringList(template.readyReleaseCommands);
+    const requiredReadyReleaseCommands = requiredTemplateReadyReleaseCommands(template.readyReleaseCommands);
     template.items.forEach((item, index) => validateTemplateItem(
       item,
       index,
@@ -642,7 +647,7 @@ export function buildFilledReleaseEvidenceTemplateFixture(template, options = {}
         verifiedAt,
         verifiedBy: ["solo-superman-fixture-release-lab"],
         redactionConfirmed: true,
-        readyReleaseCommandsRun: [...template.readyReleaseCommands],
+        readyReleaseCommandsRun: requiredTemplateReadyReleaseCommands(template.readyReleaseCommands),
         readyReleaseResult: {
           status: "passed",
           commandBlockers: ["none"],
@@ -720,6 +725,7 @@ export function renderReleaseEvidenceIssueCommentMarkdown(checklist) {
     `- [ ] Fill \`${templatePath}\` with redacted evidence refs, public metadata, checksums, sizes, signature refs, and sanitized log summaries only.`,
     `- [ ] Run \`${verifyCommand}\` and paste the sanitized validation summary below.`,
     `- [ ] Run \`${readyReleaseCommand}\` after the full bundle passes, then paste status plus any aggregate \`commandBlockers\` below.`,
+    "- [ ] Record the nested verifier commands in `verification.readyReleaseCommandsRun`; the aggregate ready-release command itself is represented by `verification.readyReleaseResult`, not by a self-referential command-run entry.",
     "- [ ] Copy the same final ready-release values into `verification.readyReleaseResult.status`, `verification.readyReleaseResult.commandBlockers`, and `verification.readyReleaseResult.perCommandBlockers` in the filled JSON template.",
     "- [ ] Confirm no credential values, tokens, cookies, URL userinfo, secret-like query parameters, raw file contents, or full environment dumps are included.",
     "",
@@ -817,7 +823,7 @@ function renderReleaseEvidenceBundleReadme(manifest) {
     "4. Validate the generated or edited bundle structure with `pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir>` before distributing it.",
     "5. Validate each filled template with `pnpm verify:release-evidence-template -- --input <filled-template.json>` before attaching evidence to GitHub.",
     "6. After all real evidence is filled, run `pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> --require-ready` before the final ready-release gate.",
-    "7. Run `pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>` and copy the final status plus aggregate/per-command blockers into each filled template's `verification.readyReleaseResult.status`, `verification.readyReleaseResult.commandBlockers`, and `verification.readyReleaseResult.perCommandBlockers` fields before posting the matching issue comment.",
+    "7. Run `pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>` and copy the final status plus aggregate/per-command blockers into each filled template's `verification.readyReleaseResult.status`, `verification.readyReleaseResult.commandBlockers`, and `verification.readyReleaseResult.perCommandBlockers` fields before posting the matching issue comment. Do not add the aggregate ready-release command to `verification.readyReleaseCommandsRun`; that list records only the nested verifier commands, while `readyReleaseResult` records the aggregate command outcome.",
     "",
     "## Included issue files",
     "",
@@ -845,7 +851,7 @@ function renderReleaseEvidenceBundleReadme(manifest) {
     "",
     "Use the first command for generated or partially edited bundles. It fails if the bundle directory contains off-manifest files, so remove scratch notes or secret-bearing artifacts before sharing evidence. Use `--require-ready` only after release lab evidence has replaced placeholders. The aggregate `verify:ready-release` command also runs the filled-bundle gate before final `release-readiness --require-ready`.",
     "",
-    "When `verify:ready-release` is blocked, read its aggregate `commandBlockers` list first, then inspect the matching command entry's `blockers` array. These fields lift nested verifier `blockers`/`issues` out of redacted stdout so missing credentials, device evidence, or bundle files are visible without copying raw logs. The same values must be copied into each filled template's `readyReleaseResult` fields so the JSON evidence and issue comment agree.",
+    "When `verify:ready-release` is blocked, read its aggregate `commandBlockers` list first, then inspect the matching command entry's `blockers` array. These fields lift nested verifier `blockers`/`issues` out of redacted stdout so missing credentials, device evidence, or bundle files are visible without copying raw logs. The same values must be copied into each filled template's `readyReleaseResult` fields so the JSON evidence and issue comment agree. `readyReleaseCommandsRun` intentionally excludes the aggregate `verify:ready-release` self-command to avoid requiring the command to have completed before its own bundle-ready gate runs.",
     "",
     "## Ready-release verification commands",
     "",
