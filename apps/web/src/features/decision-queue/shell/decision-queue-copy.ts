@@ -1,5 +1,6 @@
 import type {
   AutoImplementationIssueStatusSummary,
+  AutoImplementationRunStatus,
   AutoImplementationStage,
   AutoImplementationStageStatus,
   BusinessCriticalQuestionCategory,
@@ -780,6 +781,9 @@ const EN_COPY = {
       ? `Issue mode: ${issueMode}`
       : "Issue mode: not selected",
     stagePlan: "5-minute stage plan",
+    stagePlanTicks: "ticks",
+    stagePlanLedger: "ledger",
+    stagePlanBlocker: "blocked",
     reviewProtocol: "Review and merge protocol",
     planningIssueFiles: "Planning-derived PR/issue files",
     issueDocs: "Issue documents",
@@ -832,6 +836,15 @@ const EN_COPY = {
     stageProgress: "Stage progress",
     reviewLoopProgress: "Review loop progress",
     currentStageGate: "Current stage gate",
+    runStatusLabels: {
+      pending: "pending",
+      running: "running",
+      paused: "paused",
+      blocked: "blocked",
+      completed: "completed",
+      failed: "failed",
+      not_started: "not started"
+    } satisfies Record<AutoImplementationRunStatus | "not_started", string>,
     stageLabels: {
       initial_pr: "Initial implementation and PR creation",
       code_review_fix_1: "Feature PR code review and fix loop",
@@ -1938,6 +1951,9 @@ const JA_COPY: typeof EN_COPY = {
       ? `Issueモード: ${issueMode}`
       : "Issueモード: 未選択",
     stagePlan: "5分間隔のステージ計画",
+    stagePlanTicks: "tick",
+    stagePlanLedger: "ledger",
+    stagePlanBlocker: "ブロック",
     reviewProtocol: "レビューとマージの手順",
     planningIssueFiles: "計画由来のPR/Issueファイル",
     issueDocs: "Issue文書",
@@ -1990,6 +2006,15 @@ const JA_COPY: typeof EN_COPY = {
     stageProgress: "ステージ進捗",
     reviewLoopProgress: "レビュー/クリーンコード進捗",
     currentStageGate: "現在のstage gate",
+    runStatusLabels: {
+      pending: "未開始",
+      running: "進行中",
+      paused: "一時停止",
+      blocked: "ブロック中",
+      completed: "完了",
+      failed: "失敗",
+      not_started: "未開始"
+    } satisfies Record<AutoImplementationRunStatus | "not_started", string>,
     stageLabels: {
       initial_pr: "初期実装とPR作成",
       code_review_fix_1: "機能PRコードレビューと修正ループ",
@@ -3094,6 +3119,9 @@ const KO_COPY: typeof EN_COPY = {
       ? `이슈 모드: ${issueMode}`
       : "이슈 모드: 아직 선택되지 않음",
     stagePlan: "5분 단위 단계 계획",
+    stagePlanTicks: "tick",
+    stagePlanLedger: "ledger",
+    stagePlanBlocker: "차단",
     reviewProtocol: "리뷰와 머지 프로토콜",
     planningIssueFiles: "계획에서 나온 PR/이슈 파일",
     issueDocs: "이슈 문서",
@@ -3146,6 +3174,15 @@ const KO_COPY: typeof EN_COPY = {
     stageProgress: "단계 진행",
     reviewLoopProgress: "리뷰/클린코드 진행",
     currentStageGate: "현재 단계 gate",
+    runStatusLabels: {
+      pending: "대기",
+      running: "진행 중",
+      paused: "일시정지",
+      blocked: "차단됨",
+      completed: "완료",
+      failed: "실패",
+      not_started: "시작 전"
+    } satisfies Record<AutoImplementationRunStatus | "not_started", string>,
     stageLabels: {
       initial_pr: "초기 구현 및 PR 생성",
       code_review_fix_1: "기능 PR 코드 리뷰 및 수정 루프",

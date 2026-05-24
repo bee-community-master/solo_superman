@@ -19,6 +19,7 @@ import {
   type AutoImplementationPullRequestMutationRecord,
   type AutoImplementationRun,
   type AutoImplementationRunProjection,
+  type AutoImplementationRunStatus,
   type AutoImplementationStage,
   type AutoImplementationStageReviewGate,
   type AutoImplementationStageRecord,
@@ -95,7 +96,7 @@ export interface AutoImplementationIssueRowView {
 }
 
 export interface AutoImplementationRunViewModel {
-  readonly status: string;
+  readonly status: AutoImplementationRunStatus | "not_started";
   readonly summary: string;
   readonly workspaceLabel: string;
   readonly workspacePath: string | null;
@@ -736,7 +737,7 @@ export function AutoImplementationRunPanel({
     <section className="panel auto-implementation-run-panel">
       <div className="panel-heading">
         <h2>{copy.autoImplementation.title}</h2>
-        <span>{run.status}</span>
+        <span>{copy.autoImplementation.runStatusLabels[run.status]}</span>
       </div>
       <p>{run.summary}</p>
       <p className="research-recovery">{copy.autoImplementation.workspaceLabel(run.workspacePath)}</p>
@@ -1032,11 +1033,11 @@ export function AutoImplementationRunPanel({
         <ol>
           {run.stages.map((stage) => (
             <li key={stage.stage}>
-              {stage.label}: {stage.status}
+              {copy.autoImplementation.stageLabels[stage.stage]}: {copy.autoImplementation.stageStatusLabels[stage.status]}
               {stage.nextScheduledAt ? ` · ${stage.nextScheduledAt}` : ""}
-              {stage.tickRecords.length ? ` · ticks ${stage.tickRecords.length}` : ""}
-              {stage.ledgerEvidence ? ` · ledger ${stage.ledgerEvidence.implementationStepId}` : ""}
-              {stage.blocker ? ` · blocked: ${stage.blocker.reason}` : ""}
+              {stage.tickRecords.length ? ` · ${copy.autoImplementation.stagePlanTicks} ${stage.tickRecords.length}` : ""}
+              {stage.ledgerEvidence ? ` · ${copy.autoImplementation.stagePlanLedger} ${stage.ledgerEvidence.implementationStepId}` : ""}
+              {stage.blocker ? ` · ${copy.autoImplementation.stagePlanBlocker}: ${stage.blocker.reason}` : ""}
             </li>
           ))}
         </ol>

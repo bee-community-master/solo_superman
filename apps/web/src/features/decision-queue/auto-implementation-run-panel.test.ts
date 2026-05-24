@@ -292,6 +292,10 @@ describe("AutoImplementationRunPanel view model", () => {
     );
     const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
     expect(koreanMarkup).toContain("제작 진행 상황");
+    expect(koreanMarkup).toContain("<span>대기</span>");
+    expect(koreanMarkup).toContain("초기 구현 및 PR 생성: 준비됨");
+    expect(koreanMarkup).toContain("기능 PR 코드 리뷰 및 수정 루프: 대기");
+    expect(koreanMarkup).not.toContain("Initial implementation and PR creation: ready");
     expect(koreanMarkup).toContain("작업공간: /repo/workspace/demo-project");
     expect(koreanMarkup).toContain("원격 저장소: no_remote · 이슈 모드: markdown_fallback");
     expect(koreanMarkup).toContain("다음 5분 tick: 2026-05-19T00:05:00.000Z");
