@@ -25,7 +25,7 @@ Default mode validates [`product-capability-readiness.example.json`](product-cap
 | `research-evidence-loop` | `pnpm verify:research-pipeline` |
 | `planning-readiness-gates` | clarification/research evidence connected to the Planning-ready gate |
 | `browser-service-boundary` | `pnpm verify:browser-delegation-pipeline`, `pnpm verify:service-page-pipeline`, `pnpm verify:production-mutation-contract` |
-| `auto-implementation-review-loop` | runtime preview, worker job, PR mutation body summaries, review-loop, and aggregate pipeline smokes |
+| `auto-implementation-review-loop` | runtime preview, opt-in `pnpm verify:codex-live-runtime` readiness evidence, worker jobs, PR mutation body summaries, review-loop, and aggregate pipeline smokes |
 | `technical-preview-release-guardrails` | `pnpm verify:prod-bundle`, `pnpm verify:release-readiness` |
 | `local-error-reporting` | `pnpm verify:support-bundle` validates the credential-free support diagnostics bundle, redaction, compact product/release diagnostics, ready-release plan-only summary, and bundle preparation command |
 
@@ -35,7 +35,7 @@ Default mode validates [`product-capability-readiness.example.json`](product-cap
 - Blocked capabilities must include `blocker` and a GitHub `blockerIssue`.
 - URL evidence refs must use HTTPS and cannot contain userinfo credentials or secret-like query parameters.
 - Token/secret/password/API-key-shaped values must not appear in any string.
-- The default verification suite must include `pnpm verify:support-bundle`, `pnpm verify:product-capability-readiness`, and `pnpm verify`; supporting commands must include the safe `pnpm verify:ready-release -- --plan-only` and `pnpm support:bundle`.
+- The default verification suite must include `pnpm verify:support-bundle`, `pnpm verify:product-capability-readiness`, and `pnpm verify`; supporting commands must include `pnpm verify:codex-live-runtime` without forcing live execution into the default suite, plus the safe `pnpm verify:ready-release -- --plan-only` and `pnpm support:bundle`.
 
 ## Boundary with broad release
 

@@ -39,6 +39,7 @@ const REQUIRED_DIAGNOSTIC_EVIDENCE_STATUS = {
   readyReleasePlan: "planned"
 };
 const REQUIRED_RECOMMENDED_CHECKS = new Set([
+  "pnpm verify:codex-live-runtime",
   "pnpm verify:product-capability-readiness",
   "pnpm verify:release-readiness",
   "pnpm verify:ready-release -- --plan-only",
@@ -134,6 +135,9 @@ function validatePackageScripts(pkg, issues) {
   }
   if (scripts.verifyReadyRelease !== "node scripts/verify-ready-release.mjs") {
     addIssue(issues, "$.package.scripts.verifyReadyRelease", "must point to verify-ready-release.mjs");
+  }
+  if (scripts.verifyCodexLiveRuntime !== "node scripts/verify-codex-live-runtime.mjs") {
+    addIssue(issues, "$.package.scripts.verifyCodexLiveRuntime", "must point to verify-codex-live-runtime.mjs");
   }
 }
 

@@ -160,6 +160,7 @@ function fakeCommandRunner(command, args) {
           startLocal: "node scripts/start-local-web.mjs",
           verify: "pnpm typecheck && pnpm lint",
           verifyProdBundle: "node scripts/verify-prod-bundle.mjs",
+          verifyCodexLiveRuntime: "node scripts/verify-codex-live-runtime.mjs",
           verifyProductCapabilityReadiness: "node scripts/verify-product-capability-readiness.mjs",
           verifyReleaseChannel: "node scripts/verify-release-channel.mjs",
           verifyWindowsRealDevice: "node scripts/verify-windows-real-device.mjs",
@@ -234,6 +235,8 @@ describe("support diagnostics bundle", () => {
       env: {
         CI: "true",
         SOLO_CODEX_WINDOWS_MODE: "wsl",
+        SOLO_CODEX_APP_SERVER_LIVE_TURNS: "1",
+        SOLO_VERIFY_CODEX_LIVE_RUNTIME: "1",
         SOLO_LOCAL_CAPABILITY_TOKEN: "secret-token",
         OPENAI_API_KEY: "sk-secret"
       },
@@ -245,8 +248,14 @@ describe("support diagnostics bundle", () => {
     expect(bundle.repo.cwd).toBe("~/solo_superman");
     expect(bundle.repo.branch).toBe("main");
     expect(bundle.repo.remoteOrigin).toBe("https://<redacted>@github.com/bee-community-master/solo_superman.git?token=<redacted>");
-    expect(bundle.env).toEqual({ CI: "true", SOLO_CODEX_WINDOWS_MODE: "wsl" });
+    expect(bundle.env).toEqual({
+      CI: "true",
+      SOLO_CODEX_WINDOWS_MODE: "wsl",
+      SOLO_CODEX_APP_SERVER_LIVE_TURNS: "1",
+      SOLO_VERIFY_CODEX_LIVE_RUNTIME: "1"
+    });
     expect(bundle.package.scripts.supportBundle).toBe("node scripts/support-bundle.mjs");
+    expect(bundle.package.scripts.verifyCodexLiveRuntime).toBe("node scripts/verify-codex-live-runtime.mjs");
     expect(bundle.package.scripts.verifyReleaseReadiness).toBe("node scripts/verify-release-readiness.mjs");
     expect(bundle.package.scripts.verifyProductCapabilityReadiness).toBe("node scripts/verify-product-capability-readiness.mjs");
     expect(bundle.package.scripts.verifyWindowsInstallerDryRun).toBe("node scripts/verify-windows-installer-dry-run.mjs");
@@ -258,6 +267,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.package.scripts.verifySupportBundle).toBe("node scripts/verify-support-bundle.mjs");
     expect(bundle.package.scripts.releaseEvidenceChecklist).toBe("node scripts/release-evidence-checklist.mjs");
     expect(bundle.package.scripts.releaseEvidenceBundle).toBe("node scripts/release-evidence-checklist.mjs --bundle-dir");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:codex-live-runtime");
     expect(bundle.recommendedChecks).toContain("pnpm verify:product-capability-readiness");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-channel");
     expect(bundle.recommendedChecks).toContain("pnpm verify:windows-real-device");
