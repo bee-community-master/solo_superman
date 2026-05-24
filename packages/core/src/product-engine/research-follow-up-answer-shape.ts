@@ -321,17 +321,20 @@ function choiceTopicKeyForQuestion(input: ResearchFollowUpAnswerInput) {
 }
 
 function choiceAnswerOptions(input: ResearchFollowUpAnswerInput) {
-  const sourceOptions =
-    input.sourceQuestion?.answerOptions ??
-    answerOptionsForQuestion(input.sourceQuestion?.topicKey, input.sourceQuestion?.expectedAnswerType);
+  const explicitSourceOptions = input.sourceQuestion?.answerOptions;
+  const sourceTopicOptions = answerOptionsForQuestion(input.sourceQuestion?.topicKey, input.sourceQuestion?.expectedAnswerType);
   const questionCandidateOptions = candidateAnswerOptionsFromQuestion(input.question);
 
-  if (sourceOptions?.length) {
-    return boundedResearchFollowUpAnswerOptions(sourceOptions);
+  if (explicitSourceOptions?.length) {
+    return boundedResearchFollowUpAnswerOptions(explicitSourceOptions);
   }
 
   if (questionCandidateOptions.length) {
     return boundedResearchFollowUpAnswerOptions(questionCandidateOptions);
+  }
+
+  if (sourceTopicOptions?.length) {
+    return boundedResearchFollowUpAnswerOptions(sourceTopicOptions);
   }
 
   return boundedResearchFollowUpAnswerOptions(

@@ -157,7 +157,39 @@ describe("research follow-up answer shape", () => {
     expect(classifyResearchFollowUpAnswerShape(input)).toBe("single_choice");
     expect(researchFollowUpExpectedAnswerType(input)).toBe("choice");
     expect(researchFollowUpAnswerSelectionMode(input)).toBe("single");
-    expect(researchFollowUpAnswerOptions(input).length).toBeGreaterThanOrEqual(3);
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "question_candidate_1", label: "혼자 만드는 창업자" }),
+        expect.objectContaining({ id: "question_candidate_2", label: "도메인 전문 1인 빌더" }),
+        expect.objectContaining({ id: "question_candidate_3", label: "팀 리더" })
+      ])
+    );
+  });
+
+  it("preserves explicitly provided source choices over parsed question candidates", () => {
+    const input = {
+      question: "후보는 개인 창업자, 팀 리더입니다. 어느 후보를 선택하시겠습니까?",
+      researchTask: task("초기 고객 성향 후보 선택"),
+      sourceQuestion: sourceQuestion({
+        expectedAnswerType: "choice",
+        answerOptions: [
+          {
+            id: "explicit_source_choice",
+            label: "기존 명시 선택지",
+            value: "기존 명시 선택지를 선택한다.",
+            pro: "이전 질문에서 의도적으로 지정한 선택지를 보존합니다.",
+            con: "새 질문 후보와 다르면 사용자가 직접 보완해야 합니다."
+          }
+        ]
+      }),
+      evidenceMatrix: evidenceMatrix()
+    };
+
+    expect(researchFollowUpAnswerOptions(input)).toEqual([
+      expect.objectContaining({ id: "explicit_source_choice", label: "기존 명시 선택지" }),
+      expect.objectContaining({ id: "need_more_research" }),
+      expect.objectContaining({ id: "write_custom_answer" })
+    ]);
   });
 
   it("uses the concrete candidates named in a generic single-choice follow-up question", () => {
@@ -213,8 +245,9 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpAnswerSelectionMode(input)).toBe("single");
     expect(researchFollowUpAnswerOptions(input)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "solo_founders" }),
-        expect.objectContaining({ id: "domain_expert_builders" })
+        expect.objectContaining({ id: "question_candidate_1", label: "혼자 만드는 창업자" }),
+        expect.objectContaining({ id: "question_candidate_2", label: "도메인 전문 1인 빌더" }),
+        expect.objectContaining({ id: "question_candidate_3", label: "팀 리더" })
       ])
     );
   });
