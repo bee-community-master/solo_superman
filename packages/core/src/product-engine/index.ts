@@ -5139,6 +5139,7 @@ function planningHandoffSourceExists(
     case "founder_brief":
       return Boolean(
         state.founderBrief &&
+          state.founderBrief.exportReady &&
           [
             `founder_brief:${state.session.sessionId}:${state.founderBrief.version}`,
             `founder_brief:${state.session.sessionId}`

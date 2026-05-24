@@ -3672,6 +3672,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         category: "accepted_with_projection",
         immediateProjection: {
           kind: "FounderBriefProjection",
+          exportReady: false,
           exportMetadata: {
             writePolicy: "metadata_only_no_file_write"
           },
@@ -3720,14 +3721,21 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       expect(planningHandoffData.statusUrl).toBeUndefined();
       expect(planningHandoffProjection).toMatchObject({
         kind: "PlanningHandoffProjection",
-        currentStatus: "needs_risk_acceptance",
+        currentStatus: "source_trace_incomplete",
         blockerArtifact: {
           kind: "PlanningHandoffBlockerArtifact",
-          status: "needs_risk_acceptance",
+          status: "source_trace_incomplete",
           noFinalLabelRule: "must_not_use_planning_ready_label",
           blockers: expect.arrayContaining([
             expect.objectContaining({
-              requiredNextAction: "risk_accept"
+              blockerClass: "source_trace",
+              requiredNextAction: "revise",
+              sourceRefs: expect.arrayContaining([
+                expect.objectContaining({
+                  sourceType: "founder_brief",
+                  sourceId: `founder_brief:${sessionId}:${String(founderBriefProjection.version)}`
+                })
+              ])
             })
           ])
         },
@@ -3737,7 +3745,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       const fetchedPlanningHandoff = await getJson(app, `/api/v1/sessions/${sessionId}/planning-handoff`);
 
       expect(responseData(fetchedPlanningHandoff.body)).toMatchObject({
-        currentStatus: "needs_risk_acceptance",
+        currentStatus: "source_trace_incomplete",
         blockerArtifact: {
           noFinalLabelRule: "must_not_use_planning_ready_label"
         }
