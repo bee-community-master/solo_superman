@@ -504,6 +504,24 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("본인 말로 3~5문장으로 서술");
   });
 
+  it("keeps explicit agree/disagree customer-topic objectives as binary instead of candidate choice", () => {
+    const researchTask = task({
+      objective: "초기 고객 세그먼트 방향을 유지할지 말지 객관식으로 찬성/반대 중 하나를 선택"
+    });
+    const researchResult = result({
+      result: "Pro: individual founders mention repeated planning pain.",
+      limitationNotes: "Counter-evidence for broader teams has not been reviewed broadly."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("찬성/반대 중 어느 쪽")]
+    });
+    expect(matrix.additionalQuestions[0]).not.toContain("어느 성향의 고객에 집중");
+    expect(matrix.additionalQuestions[0]).not.toContain("하나의 선택지");
+  });
+
   it("prioritizes failed high-impact evidence over secondary unknown checks", () => {
     const researchTask = task();
     const researchResult = result({
