@@ -140,6 +140,10 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.actionErrors.pullRequestMergeAlreadyRecorded).toContain(
       "다시 merge하지"
     );
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.issueDocumentStatusLabels.open).toBe("열림");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.issueDocumentStatusLabels.blocked).toBe("차단됨");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerJobStatusLabels.planned).toBe("계획됨");
+    expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerJobStatusLabels.blocked).toBe("ブロック中");
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeAdapterVersion).toBe("Runtime adapter");
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeEvidenceDetails).toBe("Runtime evidence details");
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeExecutionMode).toBe("Execution mode");

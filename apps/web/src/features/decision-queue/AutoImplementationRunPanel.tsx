@@ -724,8 +724,11 @@ export function AutoImplementationRunPanel({
   const latestWorkerJobStageLabel = run.latestWorkerJobStage
     ? copy.autoImplementation.stageLabels[run.latestWorkerJobStage]
     : null;
+  const latestWorkerJobStatusLabel = run.latestWorkerJobStatus === "not_planned"
+    ? null
+    : copy.autoImplementation.workerJobStatusLabels[run.latestWorkerJobStatus];
   const latestWorkerJobLabel = copy.autoImplementation.latestWorkerJobLabel(
-    run.latestWorkerJobStatus === "not_planned" ? null : run.latestWorkerJobStatus,
+    latestWorkerJobStatusLabel,
     latestWorkerJobStageLabel,
     run.latestWorkerJobIssueId
   );
@@ -1086,11 +1089,14 @@ export function AutoImplementationRunPanel({
         <ul>
           {run.issueRows.map((row) => (
             <li key={row.issue.issueId}>
-              {row.issue.issueId}: {row.issue.title} — {copy.autoImplementation.issueRowStage}: {copy.autoImplementation.stageLabels[row.issue.stage]} / {copy.autoImplementation.issueRowStatus}: {row.issue.status} ({row.issue.relativePath})
+              {row.issue.issueId}: {row.issue.title} — {copy.autoImplementation.issueRowStage}: {copy.autoImplementation.stageLabels[row.issue.stage]} / {copy.autoImplementation.issueRowStatus}: {copy.autoImplementation.issueDocumentStatusLabels[row.issue.status]} ({row.issue.relativePath})
               {" · "}
               {copy.autoImplementation.issueRowGithubIssue}: {row.githubIssueUrlLabel}
               {" · "}
-              {copy.autoImplementation.issueRowLatestWorkerJob(row.latestWorkerJobId, row.latestWorkerJobStatus)}
+              {copy.autoImplementation.issueRowLatestWorkerJob(
+                row.latestWorkerJobId,
+                copy.autoImplementation.workerJobStatusLabels[row.latestWorkerJobStatus]
+              )}
               {" · "}
               {copy.autoImplementation.issueRowNextAction}: {row.nextActionLabel}
               {" · "}

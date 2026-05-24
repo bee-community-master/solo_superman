@@ -301,8 +301,9 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(koreanMarkup).toContain("다음 5분 tick: 2026-05-19T00:05:00.000Z");
     expect(koreanMarkup).toContain("이슈 상태 요약: 완료 0개 / 차단 0개 / 열림 7개 / 전체 7개");
     expect(koreanMarkup).toContain("로컬 Codex worker: 아직 계획되지 않음");
-    expect(koreanMarkup).toContain("단계: 초기 구현 및 PR 생성 / 상태: open");
     expect(koreanMarkup).toContain("최신 worker 없음");
+    expect(koreanMarkup).toContain("단계: 초기 구현 및 PR 생성 / 상태: 열림");
+    expect(koreanMarkup).not.toContain("상태: open");
     expect(koreanMarkup).not.toContain("Workspace:");
     expect(koreanMarkup).not.toContain("Remote:");
     expect(koreanMarkup).not.toContain("Next 5-minute tick:");
@@ -589,6 +590,13 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("missing: Repository code-review pass 2");
     expect(markup).toContain("evidence: stage-blocker:repository-review");
     expect(markup).toContain("stage blocker: Repository review evidence is missing.");
+
+    const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
+    expect(koreanMarkup).toContain("단계: 초기 구현 및 PR 생성 / 상태: 완료");
+    expect(koreanMarkup).toContain("단계: 기능 PR 코드 리뷰 및 수정 루프 / 상태: 차단됨");
+    expect(koreanMarkup).toContain("최신 worker auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (차단됨)");
+    expect(koreanMarkup).not.toContain("상태: completed");
+    expect(koreanMarkup).not.toContain("상태: blocked");
   });
 
   it("shows the latest GitHub PR mutation evidence and history count", () => {

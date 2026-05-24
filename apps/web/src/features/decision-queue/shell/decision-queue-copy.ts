@@ -1,8 +1,10 @@
 import type {
+  AutoImplementationIssueDocument,
   AutoImplementationIssueStatusSummary,
   AutoImplementationRunStatus,
   AutoImplementationStage,
   AutoImplementationStageStatus,
+  AutoImplementationWorkerJobStatus,
   BusinessCriticalQuestionCategory,
   BusinessCriticIntensity,
   BusinessCriticPressureKind,
@@ -792,6 +794,17 @@ const EN_COPY = {
     issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null): string => summary
       ? `Issue status summary: ${summary.completed} completed / ${summary.blocked} blocked / ${summary.open} open / ${summary.total} total`
       : "Issue status summary: no issue documents",
+    issueDocumentStatusLabels: {
+      open: "open",
+      completed: "completed",
+      blocked: "blocked"
+    } satisfies Record<AutoImplementationIssueDocument["status"], string>,
+    workerJobStatusLabels: {
+      planned: "planned",
+      blocked: "blocked",
+      completed: "completed",
+      none: "none"
+    } satisfies Record<AutoImplementationWorkerJobStatus | "none", string>,
     latestWorkerJobLabel: (status: string | null, stageLabel: string | null, issueId: string | null): string => status
       ? `Local Codex worker: ${status} for ${stageLabel ?? "current stage"}${issueId ? ` (${issueId})` : ""}`
       : "Local Codex worker: not planned",
@@ -1964,6 +1977,17 @@ const JA_COPY: typeof EN_COPY = {
     issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null) => summary
       ? `Issue状態の要約: 完了 ${summary.completed}件 / ブロック ${summary.blocked}件 / 未完了 ${summary.open}件 / 合計 ${summary.total}件`
       : "Issue状態の要約: Issue文書はまだありません",
+    issueDocumentStatusLabels: {
+      open: "未完了",
+      completed: "完了",
+      blocked: "ブロック中"
+    } satisfies Record<AutoImplementationIssueDocument["status"], string>,
+    workerJobStatusLabels: {
+      planned: "計画済み",
+      blocked: "ブロック中",
+      completed: "完了",
+      none: "なし"
+    } satisfies Record<AutoImplementationWorkerJobStatus | "none", string>,
     latestWorkerJobLabel: (status: string | null, stageLabel: string | null, issueId: string | null) => status
       ? `Local Codex worker: ${stageLabel ?? "現在のstage"} ${issueId ? `(${issueId}) ` : ""}${status}`
       : "Local Codex worker: 未計画",
@@ -3134,6 +3158,17 @@ const KO_COPY: typeof EN_COPY = {
     issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null) => summary
       ? `이슈 상태 요약: 완료 ${summary.completed}개 / 차단 ${summary.blocked}개 / 열림 ${summary.open}개 / 전체 ${summary.total}개`
       : "이슈 상태 요약: 아직 이슈 문서가 없습니다",
+    issueDocumentStatusLabels: {
+      open: "열림",
+      completed: "완료",
+      blocked: "차단됨"
+    } satisfies Record<AutoImplementationIssueDocument["status"], string>,
+    workerJobStatusLabels: {
+      planned: "계획됨",
+      blocked: "차단됨",
+      completed: "완료",
+      none: "없음"
+    } satisfies Record<AutoImplementationWorkerJobStatus | "none", string>,
     latestWorkerJobLabel: (status: string | null, stageLabel: string | null, issueId: string | null) => status
       ? `로컬 Codex worker: ${stageLabel ?? "현재 단계"} ${issueId ? `(${issueId}) ` : ""}${status}`
       : "로컬 Codex worker: 아직 계획되지 않음",
