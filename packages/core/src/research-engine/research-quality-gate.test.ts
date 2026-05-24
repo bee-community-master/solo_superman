@@ -305,6 +305,25 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
   });
 
+  it("lets explicit open-question wording override incidental one-or-many choice language", () => {
+    const researchTask = task({
+      objective:
+        "여러 종류 중 하나 혹은 여러 개를 선택할 수도 있지만 이번 질문은 open question으로 주관식/서술형 답변을 요구"
+    });
+    const researchResult = result({
+      result: "Pro: imported notes mention several possible customer situations.",
+      limitationNotes: "The exact user context still needs the founder's own explanation."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("본인 말로 3~5문장으로 서술")]
+    });
+    expect(matrix.additionalQuestions[0]).not.toContain("하나 이상 선택");
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+  });
+
   it("turns priority-order objective wording into a ranked prompt", () => {
     const researchTask = task({
       objective: "검증 후보들의 우선순위를 정해야 하는 결정"

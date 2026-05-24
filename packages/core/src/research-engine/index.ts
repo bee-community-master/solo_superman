@@ -151,6 +151,14 @@ type AdditionalQuestionAnswerIntent =
   | "multi_signal_choice"
   | "evidence_judgment";
 
+const explicitAdditionalQuestionNarrativeInstructionPattern = new RegExp(
+  [
+    String.raw`(?:이번(?:에는| 질문은)?|지금(?:은)?|여기서는|이\s*질문은|답변은)[^.\n?]{0,100}(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|open[-\s]?question|open[-\s]?ended)`,
+    String.raw`(?:주관식|서술형|자유\s*(?:답변|서술|입력)|open[-\s]?question|open[-\s]?ended)[^.\n?]{0,100}(?:답변을?\s*(?:요구|작성|적어|남겨)|로\s*(?:답변|작성|서술)|(?:실제|본인|사용자|고객)[^.\n?]{0,60}(?:맥락|상황|이유|제약)\s*(?:서술|설명))`
+  ].join("|"),
+  "iu"
+);
+
 function additionalQuestionAnswerIntentForObjective(objective: string): AdditionalQuestionAnswerIntent {
   const topic = userFacingQuestionText(objective).toLowerCase();
   const asksForNarrative =
@@ -173,12 +181,16 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
   const asksForRanking =
     /(?:우선순위|우선\s*순위|순위|순서|랭킹|중요도순|먼저\s*(?:볼|검증|구현|확인)할\s*순서|rank(?:ed|ing)?|priorit(?:y|ize|ise)|order\s+(?:of|the))/iu.test(topic);
 
-  if (/(?:복수|모두|해당|다중|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)\s*(?:선택|고르)|둘\s*이상|multi[-\s]?select|one\s+or\s+more|select\s+all)/iu.test(topic)) {
-    return /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic) ? "multi_signal_choice" : "multi_choice";
+  if (explicitAdditionalQuestionNarrativeInstructionPattern.test(topic)) {
+    return "open_text";
   }
 
   if (asksForNarrative && (rejectsChoiceOptions || !asksForForcedChoice)) {
     return "open_text";
+  }
+
+  if (/(?:복수|모두|해당|다중|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)\s*(?:선택|고르)|둘\s*이상|multi[-\s]?select|one\s+or\s+more|select\s+all)/iu.test(topic)) {
+    return /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic) ? "multi_signal_choice" : "multi_choice";
   }
 
   if (asksForCustomerChoice && (!asksForNarrative || asksForForcedChoice || asksForExplicitChoice)) {
