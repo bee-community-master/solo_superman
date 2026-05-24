@@ -669,6 +669,16 @@ describe("research follow-up answer shape", () => {
       ...base,
       question: "This is a multiple-choice question, but choose one customer segment: solo founder, team lead, or consultant."
     })).toBe("single");
+    expect(researchFollowUpAnswerOptions({
+      ...base,
+      question: "This is a multiple-choice question, but choose one customer segment: solo founder, team lead, or consultant."
+    })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "solo founder" }),
+        expect.objectContaining({ label: "team lead" }),
+        expect.objectContaining({ label: "consultant" })
+      ])
+    );
 
     const candidateChoiceInput = {
       ...base,

@@ -292,6 +292,42 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).toContain("해당되는 신호를 여러 개 선택");
   });
 
+  it("uses exact customer candidates named by research evidence before falling back to defaults", () => {
+    const researchTask = task({
+      objective: "첫 고객 세그먼트 후보 중 하나 선택"
+    });
+    const researchResult = result({
+      result:
+        "Pro: customer segments include independent consultants, bootcamp instructors, and small agency operators.",
+      limitationNotes: "The exact first segment still needs founder selection."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("리서치 단서에서 우선 비교할 고객 후보");
+    expect(matrix.additionalQuestions[0]).toContain("- independent consultants");
+    expect(matrix.additionalQuestions[0]).toContain("- bootcamp instructors");
+    expect(matrix.additionalQuestions[0]).toContain("- small agency operators");
+    expect(matrix.additionalQuestions[0]).toContain("어느 성향의 고객에 집중");
+  });
+
+  it("uses exact signal candidates named by research evidence in multi-select prompts", () => {
+    const researchTask = task({
+      objective: "다음 인터뷰에서 확인할 고객 신호와 조건 여러 개 선택"
+    });
+    const researchResult = result({
+      result:
+        "Pro: customer signals include repeated spreadsheet work, budget-owner pressure, and referral requests.",
+      limitationNotes: "The exact signal combination still needs direct interview confirmation."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("리서치 단서에서 다음에 함께 확인할 고객 신호");
+    expect(matrix.additionalQuestions[0]).toContain("- repeated spreadsheet work");
+    expect(matrix.additionalQuestions[0]).toContain("- budget-owner pressure");
+    expect(matrix.additionalQuestions[0]).toContain("- referral requests");
+    expect(matrix.additionalQuestions[0]).toContain("해당되는 신호를 여러 개 선택");
+  });
+
   it("does not collapse signal or criteria objectives with incidental 여부 wording into pro/con prompts", () => {
     const researchTask = task({
       objective: "구매 여부를 판단할 고객 신호와 조건 확인"
