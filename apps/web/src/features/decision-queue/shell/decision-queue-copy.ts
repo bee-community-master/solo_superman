@@ -19,8 +19,19 @@ import type {
   CodexAccountType,
   CodexRuntimeExecutionMode,
   CodexRuntimeStatus,
+  DecisionEvidencePackGateStatus,
+  EvidenceBalanceStatus,
   ProjectPurposeMode,
-  ResearchQueueTerminalOutcome
+  ResearchImpact,
+  ResearchQualityGateCheckCode,
+  ResearchQualityGateCheckStatus,
+  ResearchReviewCardProjection,
+  ResearchReviewCardState,
+  ResearchQueueTerminalOutcome,
+  ResearchRouteOutcome,
+  ResearchSourceReliability,
+  ResearchTaskStatus,
+  ResearchUpdatedQueueCardType
 } from "@solo-superman/contracts";
 import { useAppLanguage } from "../../../shared/i18n/app-language";
 import type { ChatGptDelegationViewModelCopy } from "../ChatGptDelegationPanel";
@@ -809,7 +820,93 @@ const EN_COPY = {
     noEvidenceItems: "No evidence items",
     additionalQuestions: "Research-generated follow-up questions",
     sourceTrace: "Source trace",
-    noResearchTasks: "No research tasks yet."
+    noResearchTasks: "No research tasks yet.",
+    planningBlockedSuffix: "blocks Planning-ready",
+    routeOutcomeLabels: {
+      research_needed: "Research needed",
+      missing_con_evidence: "Counter-evidence needed"
+    } satisfies Record<ResearchRouteOutcome, string>,
+    taskStatusLabels: {
+      planned: "Planned",
+      handoff_ready: "Ready for handoff",
+      evidence_ready: "Evidence ready",
+      needs_review: "Needs review",
+      research_insufficient: "Needs more research",
+      stale: "Out of date",
+      failed: "Failed"
+    } satisfies Record<ResearchTaskStatus, string>,
+    researchImpactLabels: {
+      low: "Low impact",
+      medium: "Medium impact",
+      high: "High impact"
+    } satisfies Record<ResearchImpact, string>,
+    reviewCardStateLabels: {
+      pending_manual_result: "Waiting for imported result",
+      quality_gate_review: "Quality check review",
+      ready_for_review: "Ready for review",
+      research_insufficient: "Needs more research",
+      stale: "Out of date",
+      terminal_failure: "Research failed",
+      resolved: "Resolved"
+    } satisfies Record<ResearchReviewCardState, string>,
+    reviewCardTypeLabels: {
+      research_review: "Research review",
+      decision_approval: "Decision approval",
+      risk_acceptance: "Risk acceptance",
+      conflict_resolution: "Conflict resolution",
+      follow_up_question: "Follow-up question"
+    } satisfies Record<ResearchUpdatedQueueCardType, string>,
+    terminalOutcomeLabels: {
+      approved: "Approve evidence",
+      revised: "Revise decision",
+      rejected: "Reject decision",
+      deferred: "Defer decision",
+      risk_accepted: "Accept risk",
+      research_insufficient: "Need more research"
+    } satisfies Record<ResearchQueueTerminalOutcome, string>,
+    recoveryActionLabels: {
+      import_manual_result: "Import a research result",
+      retry_synthesis: "Retry synthesis",
+      defer_as_known_risk: "Keep as Known Risk",
+      approve_evidence: "Approve evidence",
+      revise_decision: "Revise decision",
+      reject_decision: "Reject decision",
+      accept_risk: "Accept risk",
+      mark_research_insufficient: "Mark research insufficient"
+    } satisfies Record<ResearchReviewCardProjection["recoveryActions"][number], string>,
+    balanceStatusLabels: {
+      unknown: "Unknown balance",
+      balanced: "Balanced evidence",
+      needs_con_evidence: "Needs counter-evidence",
+      missing_con_evidence: "Missing counter-evidence",
+      source_quality_insufficient: "Source quality insufficient",
+      blocked_by_con_evidence: "Blocked by counter-evidence"
+    } satisfies Record<EvidenceBalanceStatus, string>,
+    sourceReliabilityLabels: {
+      high: "High reliability",
+      medium: "Medium reliability",
+      low: "Low reliability",
+      unknown: "Unknown reliability"
+    } satisfies Record<ResearchSourceReliability, string>,
+    gateStatusLabels: {
+      accepted: "Accepted",
+      needs_review: "Needs review",
+      research_insufficient: "Needs more research",
+      stale: "Out of date"
+    } satisfies Record<DecisionEvidencePackGateStatus, string>,
+    gateCheckCodeLabels: {
+      source_metadata: "Source metadata",
+      source_reliability: "Source reliability",
+      pro_con_balance: "Evidence balance",
+      limitations_linked: "Limitations linked",
+      staleness: "Freshness",
+      implication_scope: "Decision impact"
+    } satisfies Record<ResearchQualityGateCheckCode, string>,
+    gateCheckStatusLabels: {
+      passed: "Passed",
+      failed: "Failed",
+      unknown: "Unknown"
+    } satisfies Record<ResearchQualityGateCheckStatus, string>
   },
   implementation: {
     runtimeEvidence: "Execution records",
@@ -2050,7 +2147,93 @@ const JA_COPY: typeof EN_COPY = {
     noEvidenceItems: "エビデンス項目なし",
     additionalQuestions: "リサーチが生成した追加質問",
     sourceTrace: "参照元トレース",
-    noResearchTasks: "リサーチタスクはまだありません。"
+    noResearchTasks: "リサーチタスクはまだありません。",
+    planningBlockedSuffix: "Planning-readyをブロック",
+    routeOutcomeLabels: {
+      research_needed: "リサーチが必要",
+      missing_con_evidence: "反対根拠が必要"
+    } satisfies Record<ResearchRouteOutcome, string>,
+    taskStatusLabels: {
+      planned: "計画済み",
+      handoff_ready: "引き継ぎ準備済み",
+      evidence_ready: "根拠準備済み",
+      needs_review: "レビューが必要",
+      research_insufficient: "追加リサーチが必要",
+      stale: "古くなっています",
+      failed: "失敗"
+    } satisfies Record<ResearchTaskStatus, string>,
+    researchImpactLabels: {
+      low: "低い影響",
+      medium: "中程度の影響",
+      high: "高い影響"
+    } satisfies Record<ResearchImpact, string>,
+    reviewCardStateLabels: {
+      pending_manual_result: "結果取り込み待ち",
+      quality_gate_review: "品質確認レビュー",
+      ready_for_review: "レビュー準備済み",
+      research_insufficient: "追加リサーチが必要",
+      stale: "古くなっています",
+      terminal_failure: "リサーチ失敗",
+      resolved: "解決済み"
+    } satisfies Record<ResearchReviewCardState, string>,
+    reviewCardTypeLabels: {
+      research_review: "リサーチレビュー",
+      decision_approval: "判断承認",
+      risk_acceptance: "リスク受け入れ",
+      conflict_resolution: "矛盾解消",
+      follow_up_question: "追加質問"
+    } satisfies Record<ResearchUpdatedQueueCardType, string>,
+    terminalOutcomeLabels: {
+      approved: "根拠を承認",
+      revised: "判断を修正",
+      rejected: "判断を却下",
+      deferred: "判断を保留",
+      risk_accepted: "リスクを受け入れ",
+      research_insufficient: "追加リサーチが必要"
+    } satisfies Record<ResearchQueueTerminalOutcome, string>,
+    recoveryActionLabels: {
+      import_manual_result: "リサーチ結果を取り込む",
+      retry_synthesis: "統合を再試行",
+      defer_as_known_risk: "Known Riskとして残す",
+      approve_evidence: "根拠を承認",
+      revise_decision: "判断を修正",
+      reject_decision: "判断を却下",
+      accept_risk: "リスクを受け入れ",
+      mark_research_insufficient: "リサーチ不足として記録"
+    } satisfies Record<ResearchReviewCardProjection["recoveryActions"][number], string>,
+    balanceStatusLabels: {
+      unknown: "根拠バランス不明",
+      balanced: "根拠バランス良好",
+      needs_con_evidence: "反対根拠が必要",
+      missing_con_evidence: "反対根拠が不足",
+      source_quality_insufficient: "出典品質が不足",
+      blocked_by_con_evidence: "反対根拠でブロック"
+    } satisfies Record<EvidenceBalanceStatus, string>,
+    sourceReliabilityLabels: {
+      high: "高い信頼度",
+      medium: "中程度の信頼度",
+      low: "低い信頼度",
+      unknown: "信頼度不明"
+    } satisfies Record<ResearchSourceReliability, string>,
+    gateStatusLabels: {
+      accepted: "承認済み",
+      needs_review: "レビューが必要",
+      research_insufficient: "追加リサーチが必要",
+      stale: "古くなっています"
+    } satisfies Record<DecisionEvidencePackGateStatus, string>,
+    gateCheckCodeLabels: {
+      source_metadata: "出典メタデータ",
+      source_reliability: "出典信頼度",
+      pro_con_balance: "根拠バランス",
+      limitations_linked: "制約の紐づけ",
+      staleness: "鮮度",
+      implication_scope: "判断への影響"
+    } satisfies Record<ResearchQualityGateCheckCode, string>,
+    gateCheckStatusLabels: {
+      passed: "通過",
+      failed: "失敗",
+      unknown: "不明"
+    } satisfies Record<ResearchQualityGateCheckStatus, string>
   },
   implementation: {
     runtimeEvidence: "実行記録",
@@ -3300,7 +3483,93 @@ const KO_COPY: typeof EN_COPY = {
     noEvidenceItems: "근거 항목 없음",
     additionalQuestions: "리서치가 생성한 후속 질문",
     sourceTrace: "출처 추적",
-    noResearchTasks: "아직 리서치 작업이 없습니다."
+    noResearchTasks: "아직 리서치 작업이 없습니다.",
+    planningBlockedSuffix: "Planning-ready 차단",
+    routeOutcomeLabels: {
+      research_needed: "리서치 필요",
+      missing_con_evidence: "반대 근거 필요"
+    } satisfies Record<ResearchRouteOutcome, string>,
+    taskStatusLabels: {
+      planned: "계획됨",
+      handoff_ready: "인계 준비됨",
+      evidence_ready: "근거 준비됨",
+      needs_review: "검토 필요",
+      research_insufficient: "추가 리서치 필요",
+      stale: "오래됨",
+      failed: "실패"
+    } satisfies Record<ResearchTaskStatus, string>,
+    researchImpactLabels: {
+      low: "낮은 영향",
+      medium: "중간 영향",
+      high: "높은 영향"
+    } satisfies Record<ResearchImpact, string>,
+    reviewCardStateLabels: {
+      pending_manual_result: "결과 가져오기 대기",
+      quality_gate_review: "품질 확인 검토",
+      ready_for_review: "검토 준비됨",
+      research_insufficient: "추가 리서치 필요",
+      stale: "오래됨",
+      terminal_failure: "리서치 실패",
+      resolved: "해결됨"
+    } satisfies Record<ResearchReviewCardState, string>,
+    reviewCardTypeLabels: {
+      research_review: "리서치 검토",
+      decision_approval: "판단 승인",
+      risk_acceptance: "리스크 수용",
+      conflict_resolution: "충돌 해결",
+      follow_up_question: "후속 질문"
+    } satisfies Record<ResearchUpdatedQueueCardType, string>,
+    terminalOutcomeLabels: {
+      approved: "근거 승인",
+      revised: "판단 수정",
+      rejected: "판단 거절",
+      deferred: "판단 보류",
+      risk_accepted: "리스크 수용",
+      research_insufficient: "추가 리서치 필요"
+    } satisfies Record<ResearchQueueTerminalOutcome, string>,
+    recoveryActionLabels: {
+      import_manual_result: "리서치 결과 가져오기",
+      retry_synthesis: "종합 다시 시도",
+      defer_as_known_risk: "Known Risk로 남기기",
+      approve_evidence: "근거 승인",
+      revise_decision: "판단 수정",
+      reject_decision: "판단 거절",
+      accept_risk: "리스크 수용",
+      mark_research_insufficient: "리서치 부족으로 표시"
+    } satisfies Record<ResearchReviewCardProjection["recoveryActions"][number], string>,
+    balanceStatusLabels: {
+      unknown: "근거 균형 알 수 없음",
+      balanced: "근거 균형 충분",
+      needs_con_evidence: "반대 근거 필요",
+      missing_con_evidence: "반대 근거 부족",
+      source_quality_insufficient: "출처 품질 부족",
+      blocked_by_con_evidence: "반대 근거로 차단"
+    } satisfies Record<EvidenceBalanceStatus, string>,
+    sourceReliabilityLabels: {
+      high: "높은 신뢰도",
+      medium: "중간 신뢰도",
+      low: "낮은 신뢰도",
+      unknown: "신뢰도 알 수 없음"
+    } satisfies Record<ResearchSourceReliability, string>,
+    gateStatusLabels: {
+      accepted: "승인됨",
+      needs_review: "검토 필요",
+      research_insufficient: "추가 리서치 필요",
+      stale: "오래됨"
+    } satisfies Record<DecisionEvidencePackGateStatus, string>,
+    gateCheckCodeLabels: {
+      source_metadata: "출처 정보",
+      source_reliability: "출처 신뢰도",
+      pro_con_balance: "근거 균형",
+      limitations_linked: "제약 연결",
+      staleness: "최신성",
+      implication_scope: "판단 영향"
+    } satisfies Record<ResearchQualityGateCheckCode, string>,
+    gateCheckStatusLabels: {
+      passed: "통과",
+      failed: "실패",
+      unknown: "알 수 없음"
+    } satisfies Record<ResearchQualityGateCheckStatus, string>
   },
   implementation: {
     runtimeEvidence: "실행 기록",

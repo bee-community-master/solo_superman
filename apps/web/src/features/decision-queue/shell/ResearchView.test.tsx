@@ -334,6 +334,14 @@ describe("ResearchView", () => {
 
     expect(markup).toContain("Research-generated follow-up questions");
     expect(markup).toContain("Which proof narrows the pricing risk?");
+    expect(markup).toContain("Ready for review");
+    expect(markup).toContain("Follow-up question · Medium impact");
+    expect(markup).toContain("Approve evidence");
+    expect(markup).toContain("Accept risk");
+    expect(markup).not.toContain("ready_for_review");
+    expect(markup).not.toContain("follow_up_question");
+    expect(markup).not.toContain(">approved<");
+    expect(markup).not.toContain(">risk_accepted<");
     expect(markup).toContain("Source trace");
     expect(markup).toContain("research_run_public_web_1");
     expect(markup).toContain("question:pricing-evidence");
@@ -382,7 +390,8 @@ describe("ResearchView", () => {
     expect(markup).toContain("Evidence matrix");
     expect(markup).toContain("matrix_pricing_counter_evidence");
     expect(markup).toContain("Balance status");
-    expect(markup).toContain("missing_con_evidence");
+    expect(markup).toContain("Missing counter-evidence");
+    expect(markup).not.toContain(">missing_con_evidence<");
     expect(markup).toContain("Planning blocked");
     expect(markup).toContain("Pro evidence");
     expect(markup).toContain("Founders report willingness to pay");
@@ -419,17 +428,20 @@ describe("ResearchView", () => {
     expect(markup).toContain("Evidence packs");
     expect(markup).toContain("Pricing willingness has source-backed support.");
     expect(markup).toContain("Gate status");
-    expect(markup).toContain("accepted");
+    expect(markup).toContain("Accepted");
     expect(markup).toContain("Source reliability");
-    expect(markup).toContain("high");
+    expect(markup).toContain("High reliability");
+    expect(markup).not.toContain(">accepted<");
+    expect(markup).not.toContain(">high<");
     expect(markup).toContain("Decision context");
     expect(markup).toContain("Decide whether to continue the paid founder interview workflow.");
     expect(markup).toContain("Founder interview pricing notes");
     expect(markup).toContain('href="https://example.com/pricing-notes"');
     expect(markup).toContain("https://example.com/pricing-notes");
     expect(markup).toContain("Gate checks");
-    expect(markup).toContain("source_reliability");
+    expect(markup).toContain("Source reliability: Passed");
     expect(markup).toContain("The retained source is specific to the target founder workflow.");
+    expect(markup).not.toContain("source_reliability:");
     expect(markup).toContain("Counter-evidence has not been gathered yet.");
     expect(markup).toContain("Search for founder tools with low conversion despite interview demand.");
     expect(markup).toContain("Limitations");

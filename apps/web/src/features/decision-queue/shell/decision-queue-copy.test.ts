@@ -87,6 +87,16 @@ describe("decision queue language copy", () => {
       "세션당 최대 리서치 실행 수"
     );
     expect(DECISION_QUEUE_COPY.ko.research.researchActionReasons.cancelRun).toContain("취소");
+    expect(DECISION_QUEUE_COPY.en.research.taskStatusLabels.needs_review).toBe("Needs review");
+    expect(DECISION_QUEUE_COPY.ko.research.taskStatusLabels.needs_review).toBe("검토 필요");
+    expect(DECISION_QUEUE_COPY.en.research.reviewCardTypeLabels.follow_up_question).toBe("Follow-up question");
+    expect(DECISION_QUEUE_COPY.ko.research.reviewCardTypeLabels.follow_up_question).toBe("후속 질문");
+    expect(DECISION_QUEUE_COPY.en.research.terminalOutcomeLabels.risk_accepted).toBe("Accept risk");
+    expect(DECISION_QUEUE_COPY.ko.research.terminalOutcomeLabels.risk_accepted).toBe("리스크 수용");
+    expect(DECISION_QUEUE_COPY.en.research.balanceStatusLabels.missing_con_evidence).toBe("Missing counter-evidence");
+    expect(DECISION_QUEUE_COPY.ko.research.balanceStatusLabels.missing_con_evidence).toBe("반대 근거 부족");
+    expect(DECISION_QUEUE_COPY.en.research.gateCheckCodeLabels.source_reliability).toBe("Source reliability");
+    expect(DECISION_QUEUE_COPY.ko.research.gateCheckStatusLabels.passed).toBe("통과");
     expect(DECISION_QUEUE_COPY.ko.questions.refreshQuestionList).toBe("질문 목록 새로고침");
     expect(DECISION_QUEUE_COPY.ko.questions.loadNextQuestions).toBe("다음 질문 불러오기");
     expect(DECISION_QUEUE_COPY.ko.questions.questionBatchSizeLabel).toBe("한 번에 볼 질문 수");
