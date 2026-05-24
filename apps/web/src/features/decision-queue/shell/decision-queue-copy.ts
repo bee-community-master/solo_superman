@@ -270,6 +270,33 @@ const EN_COPY = {
     questionFatigueFollowUpBudget: (count: number) => `${count} follow-up slots remain; use them deliberately.`,
     researchAdditionalQuestions: "Research-generated questions",
     researchFollowUpSourceTrace: "Source trace",
+    answerFormatLabels: {
+      open_text: "Open-ended answer",
+      binary_choice: "Agree/disagree choice",
+      single_choice: "Choose one",
+      multi_select: "Choose one or more",
+      ranked_choice: "Priority/ranking answer",
+      evidence_judgment: "Evidence judgment",
+      experiment_plan: "Validation plan answer"
+    },
+    answerFormatDescriptions: {
+      open_text: "Write the situation, reason, or constraint in your own words. No suggested choice is required.",
+      binary_choice: "Pick the closest stance, then use the text box if your answer is conditional.",
+      single_choice: "Pick the one option that best matches the idea right now, or write a better answer.",
+      multi_select: "Select every option that should stay in scope. You can also write a custom combined answer.",
+      ranked_choice: "Use the choices as priority strategies, or write the actual order yourself.",
+      evidence_judgment: "Choose how the evidence should affect the decision, or write what is still uncertain.",
+      experiment_plan: "Choose the smallest validation approach, or write a different experiment plan."
+    },
+    answerChoiceLabels: {
+      open_text: "Answer",
+      binary_choice: "Stance choices",
+      single_choice: "Answer choices",
+      multi_select: "Selectable answers",
+      ranked_choice: "Priority choices",
+      evidence_judgment: "Evidence judgment choices",
+      experiment_plan: "Validation choices"
+    },
     businessCriticCategoryLabels: {
       customer_pain: "Customer pain",
       paid_intent: "Willingness to pay",
@@ -1264,6 +1291,33 @@ const JA_COPY: typeof EN_COPY = {
     questionFatigueFollowUpBudget: (count: number) => `追加質問枠は${count}件残っています。意図的に使ってください。`,
     researchAdditionalQuestions: "リサーチ生成の質問",
     researchFollowUpSourceTrace: "ソーストレース",
+    answerFormatLabels: {
+      open_text: "自由記述",
+      binary_choice: "賛成/反対の選択",
+      single_choice: "1つ選択",
+      multi_select: "1つ以上選択",
+      ranked_choice: "優先順位/ランキング回答",
+      evidence_judgment: "根拠の判断",
+      experiment_plan: "検証方法の回答"
+    },
+    answerFormatDescriptions: {
+      open_text: "状況、理由、制約を自分の言葉で書く質問です。候補を選ぶ必要はありません。",
+      binary_choice: "近い立場を選び、条件付きなら下の入力欄に補足してください。",
+      single_choice: "今のアイデアに最も近い候補を1つ選ぶか、より良い答えを書いてください。",
+      multi_select: "残すべき候補をすべて選べます。組み合わせた答えを直接書くこともできます。",
+      ranked_choice: "候補は優先順位の考え方です。実際の順番を直接書いてもかまいません。",
+      evidence_judgment: "根拠をどう判断に反映するか選ぶか、まだ不確かな点を書いてください。",
+      experiment_plan: "最小の検証方法を選ぶか、別の実験案を書いてください。"
+    },
+    answerChoiceLabels: {
+      open_text: "回答",
+      binary_choice: "賛否の選択肢",
+      single_choice: "回答候補",
+      multi_select: "選択できる回答",
+      ranked_choice: "優先順位候補",
+      evidence_judgment: "根拠判断の候補",
+      experiment_plan: "検証候補"
+    },
     businessCriticCategoryLabels: {
       customer_pain: "顧客の痛み",
       paid_intent: "支払い意向",
@@ -2245,6 +2299,33 @@ const KO_COPY: typeof EN_COPY = {
     questionFatigueFollowUpBudget: (count: number) => `후속 질문 여유가 ${count}개 남았습니다. 의도적으로 사용하세요.`,
     researchAdditionalQuestions: "리서치가 생성한 질문",
     researchFollowUpSourceTrace: "소스 추적",
+    answerFormatLabels: {
+      open_text: "주관식/서술형 답변",
+      binary_choice: "찬성/반대 선택",
+      single_choice: "하나 선택",
+      multi_select: "하나 이상 선택",
+      ranked_choice: "우선순위/순위 답변",
+      evidence_judgment: "근거 판단",
+      experiment_plan: "검증 방법 답변"
+    },
+    answerFormatDescriptions: {
+      open_text: "선택지 없이 상황, 이유, 제약을 본인 말로 적는 질문입니다.",
+      binary_choice: "가장 가까운 입장을 고르고, 조건부라면 아래 입력칸에 조건을 함께 적어주세요.",
+      single_choice: "지금 아이디어에 가장 맞는 후보 하나를 고르거나 더 맞는 답을 직접 적어주세요.",
+      multi_select: "계속 가져갈 후보를 모두 선택할 수 있습니다. 여러 선택을 묶은 답을 직접 적어도 됩니다.",
+      ranked_choice: "선택지는 우선순위를 정하는 방식입니다. 실제 순서를 직접 적어도 됩니다.",
+      evidence_judgment: "근거를 판단에 어떻게 반영할지 고르거나 아직 불확실한 점을 적어주세요.",
+      experiment_plan: "가장 작은 검증 방법을 고르거나 다른 실험 계획을 직접 적어주세요."
+    },
+    answerChoiceLabels: {
+      open_text: "답변",
+      binary_choice: "찬반 선택지",
+      single_choice: "답변 선택지",
+      multi_select: "선택 가능한 답변",
+      ranked_choice: "우선순위 선택지",
+      evidence_judgment: "근거 판단 선택지",
+      experiment_plan: "검증 선택지"
+    },
     businessCriticCategoryLabels: {
       customer_pain: "고객 문제",
       paid_intent: "유료 의향",

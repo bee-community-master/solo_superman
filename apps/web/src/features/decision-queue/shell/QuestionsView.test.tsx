@@ -76,7 +76,7 @@ function renderQuestionsView(controllerOverrides: Partial<DecisionQueueShellCont
 }
 
 describe("QuestionsView", () => {
-  it("renders suggested answer choices with neutral decision labels above the free-form answer box", () => {
+  it("renders one-of-many answer choices with neutral decision labels above the free-form answer box", () => {
     const queue: DecisionQueueProjection = {
       kind: "DecisionQueueProjection",
       version: 1 as ProjectionVersion,
@@ -123,13 +123,14 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Load next questions");
     expect(markup).not.toContain("Idea summary");
     expect(markup).not.toContain("Goal description");
-    expect(markup).toContain("Suggested answer choices");
+    expect(markup).toContain("Choose one");
+    expect(markup).toContain("Answer choices");
     expect(markup).toContain("Helps with: Fast interviews with a narrow segment.");
     expect(markup).toContain("Watch out: May miss team buyer needs.");
     expect(markup).not.toContain("Pro: Fast interviews with a narrow segment.");
     expect(markup).not.toContain("Con: May miss team buyer needs.");
     expect(markup).toContain("Write a different answer if none fit");
-    expect(markup.indexOf("Suggested answer choices")).toBeLessThan(
+    expect(markup.indexOf("Answer choices")).toBeLessThan(
       markup.indexOf("Write a different answer if none fit")
     );
   });
@@ -168,7 +169,9 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain("Describe the customer situation in your own words.");
-    expect(markup).not.toContain("Suggested answer choices");
+    expect(markup).toContain("Open-ended answer");
+    expect(markup).toContain("No suggested choice is required.");
+    expect(markup).not.toContain("Answer choices");
     expect(markup).not.toContain("Write a different answer if none fit");
     expect(markup).toContain(">Answer</span>");
   });
@@ -512,9 +515,65 @@ describe("QuestionsView", () => {
       ]
     });
 
+    expect(markup).toContain("Choose one or more");
+    expect(markup).toContain("Selectable answers");
     expect(markup).toContain("Select one or more options, or write your own answer below.");
     expect(markup).toContain('type="checkbox"');
     expect(markup).not.toContain('type="radio"');
+  });
+
+  it("labels explicit agree/disagree questions as stance choices instead of generic pro-con review", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 1 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_binary_choice" as QueueItemId,
+          title: "Do you agree or disagree with narrowing to solo founders first?",
+          state: "active",
+          expectedAnswerType: "choice",
+          answerOptions: [
+            {
+              id: "agree",
+              label: "Agree",
+              value: "Agree and continue with solo founders first.",
+              pro: "Locks the first customer direction.",
+              con: "May move too quickly if evidence is thin."
+            },
+            {
+              id: "disagree",
+              label: "Disagree",
+              value: "Disagree and keep the segment open.",
+              pro: "Keeps alternatives visible.",
+              con: "Delays the next implementation slice."
+            }
+          ]
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+
+    const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        queue
+      },
+      sections: [
+        {
+          id: "active",
+          title: "Current questions",
+          emptyLabel: "No current questions.",
+          items: queue.active
+        }
+      ]
+    });
+
+    expect(markup).toContain("Agree/disagree choice");
+    expect(markup).toContain("Stance choices");
+    expect(markup).toContain('type="radio"');
+    expect(markup).not.toContain("Evidence judgment choices");
   });
 
 

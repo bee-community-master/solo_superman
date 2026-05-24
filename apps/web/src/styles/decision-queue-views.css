@@ -372,6 +372,27 @@
   line-height: 1.5;
 }
 
+.answer-format-help {
+  background: #f7fbfa;
+  border: 1px solid #d8ece8;
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 10px;
+}
+
+.answer-format-help strong {
+  color: var(--solo-text);
+  font-size: 0.78rem;
+}
+
+.answer-format-help span {
+  color: var(--solo-muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
 .research-additional-questions ul,
 .research-card-source-trace ul {
   display: grid;
@@ -704,6 +725,8 @@
 
 .answer-choice-option small {
   color: var(--solo-muted);
+  display: grid;
+  gap: 4px;
   font-size: 0.72rem;
   line-height: 1.45;
 }

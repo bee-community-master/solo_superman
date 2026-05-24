@@ -268,4 +268,55 @@ describe("research follow-up answer shape", () => {
       ])
     );
   });
+
+  it("classifies subjective, agree-disagree, single-choice, and multi-select wording from plain user language", () => {
+    const base = {
+      researchTask: task("답변 방식 다양화 확인"),
+      sourceQuestion: sourceQuestion(),
+      evidenceMatrix: evidenceMatrix({
+        proEvidence: [
+          {
+            evidenceItemId: "evidence_pro_user_language_shape" as EvidenceItemId,
+            kind: "pro",
+            summary: "리서치 근거가 일부 있음"
+          }
+        ],
+        uncertainties: [
+          {
+            evidenceItemId: "evidence_uncertain_user_language_shape" as EvidenceItemId,
+            kind: "uncertainty",
+            summary: "사용자 맥락은 직접 확인 필요"
+          }
+        ]
+      })
+    };
+
+    expect(classifyResearchFollowUpAnswerShape({
+      ...base,
+      question: "이 내용은 주관식으로 실제 이유를 서술형 답변으로 적어주세요."
+    })).toBe("open_text");
+    expect(researchFollowUpAnswerOptions({
+      ...base,
+      question: "이 내용은 주관식으로 실제 이유를 서술형 답변으로 적어주세요."
+    })).toEqual([]);
+
+    expect(classifyResearchFollowUpAnswerShape({
+      ...base,
+      question: "이 방향은 객관식으로 찬성/반대 중 하나를 선택해야 합니다."
+    })).toBe("binary_choice");
+
+    expect(classifyResearchFollowUpAnswerShape({
+      ...base,
+      question: "여러 종류 중 하나만 선택해야 한다면 어느 고객 유형에 집중하시겠습니까?"
+    })).toBe("single_choice");
+
+    const multiSelectInput = {
+      ...base,
+      question: "여러 종류 중 하나 혹은 여러 개를 선택할 수 있습니다. 해당되는 항목을 복수 선택해주세요."
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(multiSelectInput)).toBe("multi_select");
+    expect(researchFollowUpAnswerSelectionMode(multiSelectInput)).toBe("multiple");
+  });
+
 });

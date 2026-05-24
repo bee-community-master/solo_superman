@@ -85,6 +85,10 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.research.researchActionReasons.cancelRun).toContain("취소");
     expect(DECISION_QUEUE_COPY.ko.questions.refreshQuestionList).toBe("질문 목록 새로고침");
     expect(DECISION_QUEUE_COPY.ko.questions.loadNextQuestions).toBe("다음 질문 불러오기");
+    expect(DECISION_QUEUE_COPY.ko.questions.answerFormatLabels.open_text).toBe("주관식/서술형 답변");
+    expect(DECISION_QUEUE_COPY.ko.questions.answerFormatLabels.binary_choice).toBe("찬성/반대 선택");
+    expect(DECISION_QUEUE_COPY.ko.questions.answerFormatLabels.multi_select).toBe("하나 이상 선택");
+    expect(DECISION_QUEUE_COPY.en.questions.answerChoiceLabels.binary_choice).toBe("Stance choices");
     expect(DECISION_QUEUE_COPY.en.questions.questionProgressActive).toBe("Active now");
     expect(DECISION_QUEUE_COPY.ja.questions.questionProgressActive).toBe("回答中");
     expect(DECISION_QUEUE_COPY.ko.questions.questionProgressActive).toBe("지금 답할 질문");

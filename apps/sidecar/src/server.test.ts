@@ -9255,6 +9255,17 @@ describe("PR-02 sidecar health shell", () => {
       const firstIssue = getIssueMarkdown("implementation-issues/001-initial_pr.md");
       const finalVerifyIssue = getIssueMarkdown("implementation-issues/006-final_verify_pr_update.md");
       const mergeIssue = getIssueMarkdown("implementation-issues/007-merge_main.md");
+      const planningIssueEvidenceRefs = (latestRun.evidenceRefs as readonly string[]).filter((ref) =>
+        ref.startsWith("planning-handoff-pr-issue:")
+      );
+      const firstPlanningIssueRelativePath = planningIssueEvidenceRefs[0]?.replace(
+        "planning-handoff-pr-issue:",
+        ""
+      );
+
+      expect(firstPlanningIssueRelativePath).toBeDefined();
+
+      const firstPlanningIssue = await readFile(join(projectDir, firstPlanningIssueRelativePath!), "utf8");
       const expectedReviewEvidenceSlots = [
         "Feature code review: record two consecutive no-finding passes",
         "Repository code review: record two consecutive no-finding passes",
@@ -9310,6 +9321,8 @@ describe("PR-02 sidecar health shell", () => {
       expect(tracker).toContain("Remote status: no_remote");
       expect(tracker).toContain("Planning Handoff implementation plan");
       expect(tracker).toContain("[planning-handoff-implementation-plan.md](planning-handoff-implementation-plan.md)");
+      expect(tracker).toContain("## Planning-derived PR/issue files");
+      expect(tracker).toContain(`[${firstPlanningIssueRelativePath}](${firstPlanningIssueRelativePath})`);
       expect(tracker).toContain("git remote add origin <github-repo-url>");
       expect(tracker).toContain("GitHub issue mutation contract");
       expect(tracker).toContain("Status: not_requested");
@@ -9324,15 +9337,24 @@ describe("PR-02 sidecar health shell", () => {
       expect(planningPlan).toContain("## Build slice plan");
       expect(planningPlan).toContain("## Source-driven task breakdown");
       expect(planningPlan).toContain("## PR/issue plan");
+      expect(planningPlan).toContain(`- Markdown issue: ${firstPlanningIssueRelativePath}`);
       expect(planningPlan).toContain("API ready SpecVersion");
       expect(planningPlan).toContain("Research-updated queue queue_api_ready terminal outcome is approved.");
       expect(planningPlan).toContain("Spec/Evidence/Queue sources drive task");
+      expect(firstPlanningIssue).toContain("# PR/issue 1");
+      expect(firstPlanningIssue).toContain("## Product tasks in this PR-sized slice");
+      expect(firstPlanningIssue).toContain("API ready SpecVersion");
+      expect(firstPlanningIssue).toContain("Living Product Spec source trace is current.");
+      expect(firstPlanningIssue).toContain("## Review and verification contract");
+      expectScopeSpecificReviewEvidenceSlots(firstPlanningIssue);
       for (const issueMarkdown of issueMarkdownByPath.values()) {
         expectScopeSpecificReviewEvidenceSlots(issueMarkdown);
       }
       expect(firstIssue).toContain("## Acceptance");
       expect(firstIssue).toContain("Planning Handoff implementation plan: planning-handoff-implementation-plan.md");
       expect(firstIssue).toContain("## Planning source");
+      expect(firstIssue).toContain("### Planning-derived PR/issue markdown files");
+      expect(firstIssue).toContain(firstPlanningIssueRelativePath!);
       expect(firstIssue).toContain("## Required review gates");
       expect(firstIssue).toContain("## ImplementationStepLedger evidence template");
       expect(firstIssue).toContain("CleanCodeReviewRecord.reviewScope");
@@ -9349,7 +9371,8 @@ describe("PR-02 sidecar health shell", () => {
         remoteStatus: "no_remote",
         evidenceRefs: expect.arrayContaining([
           bootstrapEvidenceRef,
-          "planning-handoff-plan:planning-handoff-implementation-plan.md"
+          "planning-handoff-plan:planning-handoff-implementation-plan.md",
+          expect.stringMatching(/^planning-handoff-pr-issue:planning-handoff-pr-issues\//u)
         ]),
         issueManagement: {
           githubIssueMutation: {

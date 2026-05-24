@@ -53,6 +53,50 @@ function answerDraftFromSelectedOptions(
     .join("\n");
 }
 
+type AnswerFormatKind =
+  | "open_text"
+  | "binary_choice"
+  | "single_choice"
+  | "multi_select"
+  | "ranked_choice"
+  | "evidence_judgment"
+  | "experiment_plan";
+
+function answerLooksLikeBinaryChoice(item: QueueItemProjection) {
+  const text = [
+    item.title,
+    ...(item.answerOptions ?? []).flatMap((option) => [option.label, option.value])
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return /(?:찬성|반대|동의|비동의|예\s*[/·또는과]*\s*아니오|\b(?:yes|no|agree|disagree|support|oppose)\b)/iu.test(text);
+}
+
+function answerFormatKindForItem(item: QueueItemProjection): AnswerFormatKind {
+  if (item.answerSelectionMode === "multiple") {
+    return "multi_select";
+  }
+
+  if (!item.answerOptions?.length || item.expectedAnswerType === "text") {
+    return "open_text";
+  }
+
+  if (item.expectedAnswerType === "rank") {
+    return "ranked_choice";
+  }
+
+  if (item.expectedAnswerType === "experiment") {
+    return "experiment_plan";
+  }
+
+  if (item.expectedAnswerType === "evidence") {
+    return "evidence_judgment";
+  }
+
+  return answerLooksLikeBinaryChoice(item) ? "binary_choice" : "single_choice";
+}
+
 function ResearchFollowUpSourceTrace({
   copy,
   item
@@ -219,6 +263,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                 <div className="queue-list">
                   {section.items.map((item) => {
                     const answerSelectionMode = item.answerSelectionMode ?? "single";
+                    const answerFormatKind = answerFormatKindForItem(item);
                     const selectedOptionIds = selectedAnswerOptionIds[item.queueItemId] ?? [];
                     const suggestedAnswersHelp =
                       answerSelectionMode === "multiple"
@@ -269,9 +314,13 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                       </div>
                       {section.id === "active" && item.state === "active" ? (
                         <div className="answer-box">
+                          <p className="answer-format-help">
+                            <strong>{copy.questions.answerFormatLabels[answerFormatKind]}</strong>
+                            <span>{copy.questions.answerFormatDescriptions[answerFormatKind]}</span>
+                          </p>
                           {item.answerOptions?.length ? (
                             <fieldset className="answer-choice-fieldset">
-                              <legend>{copy.questions.suggestedAnswers}</legend>
+                              <legend>{copy.questions.answerChoiceLabels[answerFormatKind]}</legend>
                               <p className="answer-choice-help">{suggestedAnswersHelp}</p>
                               <div className="answer-choice-list">
                                 {item.answerOptions.map((option) => (
@@ -300,8 +349,9 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                                     />
                                     <span>
                                       <strong>{option.label}</strong>
-                                      <small>
-                                        {copy.questions.optionPro}: {option.pro} · {copy.questions.optionCon}: {option.con}
+                                      <small className="answer-choice-option-details">
+                                        <span>{copy.questions.optionPro}: {option.pro}</span>
+                                        <span>{copy.questions.optionCon}: {option.con}</span>
                                       </small>
                                     </span>
                                   </label>
