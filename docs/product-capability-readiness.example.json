@@ -68,7 +68,7 @@
       ],
       "checkedBehaviors": [
         "Read-only public-web research runs require an active allowlist and bounded concurrency.",
-        "Imported source-traced results synthesize evidence matrices and evidence packs.",
+        "Mounted web_search_readonly provider polling proves source-traced result import before evidence matrices and evidence packs are synthesized.",
         "Research review cards retain source traces and expose pro/con/uncertainty quality gates.",
         "Research-generated follow-up questions return to the Decision Queue as answerable debt."
       ]

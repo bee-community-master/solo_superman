@@ -22,7 +22,7 @@ Default mode validates [`product-capability-readiness.example.json`](product-cap
 | capability id | Required core evidence |
 | --- | --- |
 | `idea-clarification-loop` | `pnpm verify:clarification-pipeline`, `pnpm verify:clarification-volume` |
-| `research-evidence-loop` | `pnpm verify:research-pipeline` |
+| `research-evidence-loop` | `pnpm verify:research-pipeline` validates mounted `web_search_readonly` provider polling, source-traced result import, evidence matrices/packs, and follow-up question debt |
 | `planning-readiness-gates` | clarification/research evidence connected to the Planning-ready gate |
 | `browser-service-boundary` | `pnpm verify:browser-delegation-pipeline`, `pnpm verify:service-page-pipeline`, `pnpm verify:production-mutation-contract` |
 | `auto-implementation-review-loop` | runtime preview, opt-in `pnpm verify:codex-live-runtime` readiness evidence, worker jobs, PR mutation body summaries, two consecutive no-finding feature/repository code-review and changed-code/repository clean-code gates, zero-gap missing-test audit, and aggregate pipeline smokes |

@@ -248,7 +248,7 @@ function summaryForSources(
     `Sources reviewed: ${sources.length}`,
     ...sourceLines,
     "Pro: At least one public source was reachable through a read-only browser search.",
-    "Con: Browser search snippets can be incomplete; quality-gate review must verify claims before acceptance."
+    "Limitation: Browser search snippets can be incomplete; quality-gate review must verify claims before acceptance."
   ].join("\n");
 
   return truncateText(summary, MAX_SUMMARY_CHARS);

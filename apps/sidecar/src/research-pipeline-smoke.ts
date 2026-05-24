@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "@solo-superman/db";
+import type { ProjectId } from "@solo-superman/contracts";
 import { createProductEngineCommandService } from "./product-engine/command-service";
+import { createWebSearchReadOnlyResearchAdapter } from "./product-engine/web-search-readonly-adapter";
 import { createSidecarApp } from "./server";
 import {
   objectAt,
@@ -41,7 +43,9 @@ export interface ResearchPipelineSmokeEvidence {
     readonly researchRunId: string;
     readonly researchTaskId: string;
     readonly runStatus: string;
-    readonly effectStatus: string;
+    readonly providerAdapterKind: string;
+    readonly qualityGateStatus: string;
+    readonly sourceRefCount: number;
     readonly matrixBalanceStatus: string;
     readonly evidencePackGateStatus: string;
     readonly reviewCardState: string;
@@ -72,7 +76,7 @@ interface ProjectContext {
 interface ResearchFlowResult {
   readonly project: ProjectContext;
   readonly startRun: JsonRecord;
-  readonly effectResult: JsonRecord;
+  readonly providerProjection: JsonRecord;
   readonly researchProjection: JsonRecord;
   readonly queueProjection: JsonRecord;
 }
@@ -89,6 +93,42 @@ function firstRecordAt(value: unknown, label: string) {
 
 function maybeString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function arrayLength(value: unknown, label: string) {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array.`);
+  }
+
+  return value.length;
+}
+
+function createResearchPipelineRuntimeAdapter(adapterKind: string) {
+  if (adapterKind !== "web_search_readonly") {
+    throw new Error(`research pipeline smoke only mounts web_search_readonly; received ${adapterKind}`);
+  }
+
+  return createWebSearchReadOnlyResearchAdapter({
+    maxResults: 2,
+    maxFetchedPages: 2,
+    timeoutMillis: 1_000,
+    search: async ({ now }) => [
+      {
+        title: "Public founder validation workflow evidence",
+        url: "https://example.com/research-pipeline-smoke",
+        snippet:
+          "Public evidence supports asking sharper founder-validation questions before software implementation.",
+        retrievedAt: now()
+      },
+      {
+        title: "Skeptical product validation evidence",
+        url: "https://example.org/research-pipeline-counterpoint",
+        snippet:
+          "Public evidence also highlights the need for counter-evidence and quality-gate review before planning-ready.",
+        retrievedAt: now()
+      }
+    ]
+  });
 }
 
 function createProject(app: SmokeRequestApp, localCapabilityToken: string): Promise<ProjectContext> {
@@ -150,6 +190,7 @@ async function startResearchRun(
     allowlistId: ALLOWLIST_ID,
     connectorId: "public_search",
     sourceCategory: "public_web",
+    adapterKind: "web_search_readonly",
     researchObjective: "Find public validation evidence for the founder workflow assistant.",
     productCategory: "Founder workflow assistant",
     customerProblemHypothesis: "Early founders need safer validation research before implementation.",
@@ -158,33 +199,15 @@ async function startResearchRun(
   });
 }
 
-async function importResearchResult(input: {
-  readonly app: SmokeRequestApp;
+async function pollResearchProviderResult(input: {
   readonly storage: SmokeStorage;
-  readonly localCapabilityToken: string;
-  readonly sessionId: string;
-  readonly researchTaskId: string;
+  readonly projectId: string;
 }) {
-  const expectedStateVersion = await sessionEventCount(input.storage, input.sessionId);
-
-  return postJson(input.app, `/api/v1/research-tasks/${input.researchTaskId}/results`, input.localCapabilityToken, {
-    sessionId: input.sessionId,
-    researchTaskId: input.researchTaskId,
-    researchRunId: RESEARCH_RUN_ID,
-    expectedStateVersion,
-    result: "Pro: public onboarding evidence supports a sharper founder validation loop.",
-    sourceTitle: "Research pipeline smoke source",
-    sourceUrl: "https://example.com/research-pipeline-smoke",
-    sourceReliability: "medium",
-    sourceRetrievedAt: "2026-05-23T00:00:00.000Z",
-    limitationNotes: "No counter-evidence source was imported, so skeptical follow-up is still required.",
-    claim: "The founder validation loop has enough support to continue, but skeptical evidence is missing.",
-    decisionContext: "planning_readiness",
-    specSectionRef: "spec:research-pipeline-smoke",
-    questionRef: SOURCE_QUEUE_ITEM_ID,
-    implicationScope: "Smoke evidence only; no external write or automatic spec update is performed.",
-    synthesisVersion: 1
+  const commandService = createProductEngineCommandService(input.storage, undefined, {
+    researchRuntimeAdapterFactory: createResearchPipelineRuntimeAdapter
   });
+
+  return commandService.listResearchRuns(input.projectId as ProjectId);
 }
 
 async function executeResearchFlow(scenario: ResearchScenario, localCapabilityToken: string): Promise<ResearchFlowResult> {
@@ -198,25 +221,17 @@ async function executeResearchFlow(scenario: ResearchScenario, localCapabilityTo
     sessionId: project.sessionId
   });
   const startRun = await startResearchRun(scenario.app, localCapabilityToken, project.projectId, researchTaskId);
-
-  await importResearchResult({
-    app: scenario.app,
+  const providerProjection = await pollResearchProviderResult({
     storage: scenario.storage,
-    localCapabilityToken,
-    sessionId: project.sessionId,
-    researchTaskId
+    projectId: project.projectId
   });
-  const effectResult = firstRecordAt(
-    await createProductEngineCommandService(scenario.storage).runPendingResearchEvidenceEffects(),
-    "research evidence effect results"
-  );
   const researchProjection = await getJson(scenario.app, `/api/v1/sessions/${project.sessionId}/research`, localCapabilityToken);
   const queueProjection = await getJson(scenario.app, `/api/v1/sessions/${project.sessionId}/queue`, localCapabilityToken);
 
   return {
     project,
     startRun,
-    effectResult,
+    providerProjection: providerProjection as unknown as JsonRecord,
     researchProjection,
     queueProjection
   };
@@ -226,6 +241,7 @@ function flowBlockers(result: ResearchFlowResult) {
   const blockers: string[] = [];
   const startProjection = objectAt(result.startRun.immediateProjection, "start research immediateProjection");
   const startedRun = objectAt(startProjection.researchRun, "started researchRun");
+  const providerRun = firstRecordAt(result.providerProjection.runs, "provider-polled research runs");
   const matrices = recordArray(result.researchProjection.evidenceMatrices, "research evidenceMatrices");
   const packs = recordArray(result.researchProjection.evidencePacks, "research evidencePacks");
   const reviewCards = recordArray(result.researchProjection.reviewCards, "research reviewCards");
@@ -248,8 +264,17 @@ function flowBlockers(result: ResearchFlowResult) {
     blockers.push(`research run must start running; received ${JSON.stringify(startedRun.status)}`);
   }
 
-  if (result.effectResult.status !== "succeeded" && result.effectResult.status !== "skipped") {
-    blockers.push(`research evidence effect must drain or succeed; received ${JSON.stringify(result.effectResult.status)}`);
+  if (providerRun.status !== "research_insufficient") {
+    blockers.push(`provider-polled research run must finish as research_insufficient; received ${JSON.stringify(providerRun.status)}`);
+  }
+
+  const provider = objectAt(providerRun.provider, "provider-polled research run provider");
+  if (provider.adapterKind !== "web_search_readonly") {
+    blockers.push(`provider-polled research run must use web_search_readonly; received ${JSON.stringify(provider.adapterKind)}`);
+  }
+
+  if (providerRun.qualityGateStatus !== "insufficient") {
+    blockers.push(`provider-polled research run must carry insufficient quality gate; received ${JSON.stringify(providerRun.qualityGateStatus)}`);
   }
 
   if (matrix.balanceStatus !== "missing_con_evidence") {
@@ -274,6 +299,8 @@ function flowBlockers(result: ResearchFlowResult) {
 function passedEvidence(result: ResearchFlowResult): ResearchPipelineSmokeEvidence {
   const startProjection = objectAt(result.startRun.immediateProjection, "start research immediateProjection");
   const startedRun = objectAt(startProjection.researchRun, "started researchRun");
+  const providerRun = firstRecordAt(result.providerProjection.runs, "provider-polled research runs");
+  const provider = objectAt(providerRun.provider, "provider-polled research run provider");
   const matrix = firstRecordAt(result.researchProjection.evidenceMatrices, "research evidenceMatrices");
   const pack = firstRecordAt(result.researchProjection.evidencePacks, "research evidencePacks");
   const reviewCard = firstRecordAt(result.researchProjection.reviewCards, "research reviewCards");
@@ -294,8 +321,10 @@ function passedEvidence(result: ResearchFlowResult): ResearchPipelineSmokeEviden
       allowlistId: ALLOWLIST_ID,
       researchRunId: stringAt(startedRun.researchRunId, "started researchRunId"),
       researchTaskId: stringAt(startedRun.researchTaskId, "started researchTaskId"),
-      runStatus: stringAt(startedRun.status, "started run status"),
-      effectStatus: stringAt(result.effectResult.status, "research effect status"),
+      runStatus: stringAt(providerRun.status, "provider-polled run status"),
+      providerAdapterKind: stringAt(provider.adapterKind, "provider adapterKind"),
+      qualityGateStatus: stringAt(providerRun.qualityGateStatus, "provider-polled run qualityGateStatus"),
+      sourceRefCount: arrayLength(providerRun.sourceRefs, "provider-polled run sourceRefs"),
       matrixBalanceStatus: stringAt(matrix.balanceStatus, "matrix balanceStatus"),
       evidencePackGateStatus: stringAt(pack.gateStatus, "pack gateStatus"),
       reviewCardState: maybeString(reviewCard.state) ?? "unknown",
@@ -306,8 +335,8 @@ function passedEvidence(result: ResearchFlowResult): ResearchPipelineSmokeEviden
       "temporary local sidecar and app data created",
       "public-web allowlist created without credentials",
       "read-only research run started",
-      "manual/provider-style research result imported with source trace",
-      "pending research_evidence_effect drained or evidence synthesis already present",
+      "mounted web_search_readonly provider result polled and imported with source trace",
+      "provider quality gate marked insufficient evidence for review",
       "Research projection exposes evidence matrix, evidence pack, and review card",
       "Decision Queue exposes source-traceable follow-up question debt"
     ]

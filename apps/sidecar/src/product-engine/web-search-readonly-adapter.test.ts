@@ -141,7 +141,9 @@ describe("web_search_readonly background research adapter", () => {
       updatedAt: "2026-05-05T00:01:00.000Z"
     });
 
-    await expect(adapter.pollResult({ researchRun: runningRun, disclosurePayload })).resolves.toMatchObject({
+    const result = await adapter.pollResult({ researchRun: runningRun, disclosurePayload });
+
+    expect(result).toMatchObject({
       status: "needs_review",
       providerRunId: "web_search_readonly_research_run_web",
       completedAt: "2026-05-05T00:03:00.000Z",
@@ -152,6 +154,8 @@ describe("web_search_readonly background research adapter", () => {
         expect.stringContaining("no login, CAPTCHA, anti-bot bypass, paid-service access, or external search API")
       ])
     });
+    expect(result.summary).toContain("Limitation: Browser search snippets can be incomplete");
+    expect(result.summary).not.toContain("Con: Browser search snippets can be incomplete");
   });
 
   it("fails safely when the browser search is blocked", async () => {
