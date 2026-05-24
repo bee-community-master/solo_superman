@@ -153,7 +153,7 @@ type AdditionalQuestionAnswerIntent =
 function additionalQuestionAnswerIntentForObjective(objective: string): AdditionalQuestionAnswerIntent {
   const topic = userFacingQuestionText(objective).toLowerCase();
   const asksForNarrative =
-    /(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|상황|맥락|이유|왜|어떻게|workflow|흐름|사용\s*방식|describe|explain|free[-\s]?form|open[-\s]?ended|context)/iu.test(topic);
+    /(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|상황|맥락|이유|왜|어떻게|workflow|흐름|사용\s*방식|describe|explain|free[-\s]?form|open[-\s]?(?:ended|question)|context)/iu.test(topic);
   const asksForCustomerChoice =
     /(?:세그먼트|성향|persona|segment|어느\s*(?:고객|사용자|성향|후보)|고객\s*(?:후보|유형|타입)|customer\s*(?:segment|persona|type)|which\s+customer)/iu.test(topic);
 

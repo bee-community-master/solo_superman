@@ -302,7 +302,21 @@ describe("research follow-up answer shape", () => {
 
     expect(classifyResearchFollowUpAnswerShape({
       ...base,
+      question: "찬성/반대 근거를 참고하되 open question으로 실제 판단 이유를 서술형 답변으로 적어주세요."
+    })).toBe("open_text");
+    expect(researchFollowUpAnswerOptions({
+      ...base,
+      question: "찬성/반대 근거를 참고하되 open question으로 실제 판단 이유를 서술형 답변으로 적어주세요."
+    })).toEqual([]);
+
+    expect(classifyResearchFollowUpAnswerShape({
+      ...base,
       question: "이 방향은 객관식으로 찬성/반대 중 하나를 선택해야 합니다."
+    })).toBe("binary_choice");
+
+    expect(classifyResearchFollowUpAnswerShape({
+      ...base,
+      question: "찬성/반대 중 하나를 선택하고 조건이 있다면 이유를 적어주세요."
     })).toBe("binary_choice");
 
     expect(classifyResearchFollowUpAnswerShape({

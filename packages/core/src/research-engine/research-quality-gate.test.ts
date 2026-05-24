@@ -164,6 +164,24 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
   });
 
+  it("keeps open-question objectives narrative even when they mention pro/con evidence", () => {
+    const researchTask = task({
+      objective: "찬성/반대 근거를 참고하되 open question으로 실제 고객 맥락 서술"
+    });
+    const researchResult = result({
+      result: "Pro: users repeatedly describe manual coordination pain.",
+      limitationNotes: "Counter-evidence coverage is still narrow."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("본인 말로 3~5문장으로 서술")]
+    });
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+  });
+
   it("keeps customer-context narrative questions open instead of turning every customer mention into segment choice", () => {
     const researchTask = task({
       objective: "고객이 어떤 상황에서 문제를 겪는지 주관식으로 맥락 설명"
