@@ -6,7 +6,8 @@ import { redactSupportText } from "./support-bundle.mjs";
 export const READY_RELEASE_VERIFICATION_SCHEMA_VERSION = "solo-superman-ready-release-verification.v1";
 
 const DEFAULT_TIMEOUT_MS = 60_000;
-const READY_RELEASE_STEPS = [
+const DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR = "./solo-superman-release-evidence-bundle";
+const BASE_READY_RELEASE_STEPS = [
   {
     id: "signed-package-preflight-credentials",
     command: "pnpm",
@@ -32,6 +33,12 @@ const READY_RELEASE_STEPS = [
     display: "pnpm verify:packaged-update-rollback -- --require-device-evidence"
   },
   {
+    id: "release-evidence-bundle-ready",
+    command: "pnpm",
+    args: ["verify:release-evidence-bundle", "--", "--bundle-dir", DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR, "--require-ready"],
+    display: `pnpm verify:release-evidence-bundle -- --bundle-dir ${DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR} --require-ready`
+  },
+  {
     id: "release-readiness-ready",
     command: "pnpm",
     args: ["verify:release-readiness", "--", "--require-ready"],
@@ -43,19 +50,33 @@ function redactedOutput(value) {
   return redactSupportText(value ?? "");
 }
 
-export function readyReleaseSteps() {
-  return READY_RELEASE_STEPS.map((step) => ({ ...step, args: [...step.args] }));
+export function readyReleaseSteps(options = {}) {
+  const releaseEvidenceBundleDir = options.releaseEvidenceBundleDir ?? DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR;
+  return BASE_READY_RELEASE_STEPS.map((step) => {
+    if (step.id !== "release-evidence-bundle-ready") {
+      return { ...step, args: [...step.args] };
+    }
+    return {
+      ...step,
+      args: ["verify:release-evidence-bundle", "--", "--bundle-dir", releaseEvidenceBundleDir, "--require-ready"],
+      display: `pnpm verify:release-evidence-bundle -- --bundle-dir ${releaseEvidenceBundleDir} --require-ready`
+    };
+  });
 }
 
 export function parseReadyReleaseArgs(argv = process.argv.slice(2), env = process.env) {
   const options = {
     timeoutMs: Number(env.SOLO_READY_RELEASE_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS),
+    releaseEvidenceBundleDir: env.SOLO_RELEASE_EVIDENCE_BUNDLE_DIR ?? DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR,
     failFast: false,
     planOnly: false
   };
 
   if (!Number.isInteger(options.timeoutMs) || options.timeoutMs <= 0) {
     throw new Error("SOLO_READY_RELEASE_TIMEOUT_MS must be a positive integer when set");
+  }
+  if (typeof options.releaseEvidenceBundleDir !== "string" || options.releaseEvidenceBundleDir.trim().length === 0) {
+    throw new Error("SOLO_RELEASE_EVIDENCE_BUNDLE_DIR must be a non-empty path when set");
   }
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -69,6 +90,23 @@ export function parseReadyReleaseArgs(argv = process.argv.slice(2), env = proces
     }
     if (arg === "--plan-only") {
       options.planOnly = true;
+      continue;
+    }
+    if (arg === "--evidence-bundle-dir") {
+      const next = argv[index + 1];
+      if (!next || next.trim().length === 0) {
+        throw new Error("--evidence-bundle-dir requires a path value");
+      }
+      options.releaseEvidenceBundleDir = next;
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith("--evidence-bundle-dir=")) {
+      const next = arg.slice("--evidence-bundle-dir=".length);
+      if (!next || next.trim().length === 0) {
+        throw new Error("--evidence-bundle-dir requires a path value");
+      }
+      options.releaseEvidenceBundleDir = next;
       continue;
     }
     if (arg === "--timeout-ms") {
@@ -116,6 +154,7 @@ export function evidenceForReadyReleaseResults(results, options = {}) {
     mode: options.planOnly ? "plan-only" : "ready-release-gate",
     failFast: options.failFast === true,
     timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    releaseEvidenceBundleDir: options.releaseEvidenceBundleDir ?? DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR,
     blockers,
     commands: results.map((result) => ({
       id: result.id,
@@ -132,6 +171,7 @@ export function evidenceForReadyReleaseResults(results, options = {}) {
       "signed package release evidence gate",
       "Windows real-device evidence gate",
       "packaged update rollback device evidence gate",
+      "release evidence bundle require-ready gate",
       "release readiness require-ready gate",
       "ready-release command output is redacted before reporting"
     ]
@@ -185,7 +225,7 @@ function runCommand(step, options = {}) {
 }
 
 export async function runReadyReleaseVerification(options = {}) {
-  const steps = readyReleaseSteps();
+  const steps = readyReleaseSteps({ releaseEvidenceBundleDir: options.releaseEvidenceBundleDir });
   if (options.planOnly) {
     return evidenceForReadyReleaseResults(steps.map((step) => ({ ...step, exitCode: null, timeoutMs: options.timeoutMs })), options);
   }

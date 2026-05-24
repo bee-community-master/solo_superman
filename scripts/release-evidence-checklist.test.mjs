@@ -101,7 +101,9 @@ describe("release evidence checklist", () => {
       "pnpm verify:signed-package-release -- --require-release-evidence",
       "pnpm verify:windows-real-device -- --require-device-evidence",
       "pnpm verify:packaged-update-rollback -- --require-device-evidence",
-      "pnpm verify:release-readiness -- --require-ready"
+      "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready",
+      "pnpm verify:release-readiness -- --require-ready",
+      "pnpm verify:ready-release -- --evidence-bundle-dir ./solo-superman-release-evidence-bundle"
     ]));
     expect(checklist.credentialFreeCommands).toContain("pnpm verify");
     expect(checklist.credentialGroups.map((group) => group.id)).toEqual([

@@ -16,7 +16,7 @@ The command validates [`release-readiness.example.json`](release-readiness.examp
 - `publicPosture` is one of `technical-preview`, `limited-beta`, or `general-release`.
 - `broadReleaseStatus=blocked` names at least one blocked release gate.
 - `broadReleaseStatus=ready` uses `publicPosture=general-release` and all required gates are `passed`.
-- both credential-free and ready-release verification commands are documented, including signed package release, Windows real-device, and packaged update rollback evidence checks.
+- both credential-free and ready-release verification commands are documented, including signed package release, Windows real-device, packaged update rollback, and release evidence bundle checks.
 - URL evidence refs use HTTPS and do not include userinfo credentials or secret-like query parameters.
 - token-shaped strings (`ghp_`, `github_pat_`, `sk-`, `npm_`, bearer tokens, and similar values) never appear in release readiness evidence.
 
@@ -71,10 +71,11 @@ Immediately before a real general release, run the stricter mode separately:
 
 ```sh
 pnpm verify:release-readiness -- --require-ready
-pnpm verify:ready-release
+pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready
+pnpm verify:ready-release -- --evidence-bundle-dir ./solo-superman-release-evidence-bundle
 ```
 
-`pnpm verify:ready-release` runs the credential-required ready-release sequence in one place: signed-package credential preflight, signed-package release evidence, Windows real-device evidence, packaged updater rollback device evidence, and the final release-readiness `--require-ready` gate. It redacts command output before printing JSON evidence, and it is intentionally excluded from the default credential-free `pnpm verify`.
+`pnpm verify:ready-release -- --evidence-bundle-dir ./solo-superman-release-evidence-bundle` runs the credential-required ready-release sequence in one place: signed-package credential preflight, signed-package release evidence, Windows real-device evidence, packaged updater rollback device evidence, release evidence bundle `--require-ready` verification, and the final release-readiness `--require-ready` gate. It redacts command output before printing JSON evidence, and it is intentionally excluded from the default credential-free `pnpm verify`.
 
 The current example contract is expected to fail in this mode because broad release is not ready and these required gates are still blocked.
 
