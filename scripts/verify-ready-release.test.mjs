@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   READY_RELEASE_VERIFICATION_SCHEMA_VERSION,
   evidenceForReadyReleaseResults,
+  extractReadyReleaseCommandBlockers,
   parseReadyReleaseArgs,
   readyReleaseSteps,
   runReadyReleaseVerification
@@ -29,9 +30,27 @@ describe("ready release aggregate verification", () => {
       mode: "ready-release-gate",
       timeoutMs: 1234,
       releaseEvidenceBundleDir: "./solo-superman-release-evidence-bundle",
-      blockers: []
+      blockers: [],
+      commandBlockers: []
     });
     expect(evidence.commands.every((command) => command.status === "passed")).toBe(true);
+    expect(evidence.commands.every((command) => command.blockers.length === 0)).toBe(true);
+  });
+
+  it("extracts nested verifier blockers from pnpm JSON output", () => {
+    const stdout = [
+      "{",
+      "  \"status\": \"blocked\",",
+      "  \"blockers\": [\"Windows evidence is not ready\"],",
+      "  \"issues\": [\"release-manifest-signing: token=ghp_abcdefghijklmnopqrstuvwxyz1234567890\"]",
+      "}",
+      " ELIFECYCLE  Command failed with exit code 1."
+    ].join("\n");
+
+    expect(extractReadyReleaseCommandBlockers({ stdout })).toEqual([
+      "Windows evidence is not ready",
+      "release-manifest-signing: token=<redacted>"
+    ]);
   });
 
   it("runs every gate by default and redacts blocked command output", async () => {
@@ -62,6 +81,40 @@ describe("ready release aggregate verification", () => {
     expect(blockedCommand?.stdout).not.toContain("ghp_");
   });
 
+  it("surfaces nested command blockers in aggregate evidence", async () => {
+    const evidence = await runReadyReleaseVerification({
+      runner: async (step) => {
+        if (step.id !== "release-evidence-bundle-ready") {
+          return { ...step, exitCode: 0, stdout: "{\"status\":\"passed\",\"blockers\":[]}", stderr: "" };
+        }
+
+        return {
+          ...step,
+          exitCode: 1,
+          stdout: [
+            "{",
+            "  \"status\": \"blocked\",",
+            "  \"blockers\": [\"$.bundleDir: must exist before verifying release evidence\"],",
+            "  \"issues\": []",
+            "}",
+            " ELIFECYCLE  Command failed with exit code 1."
+          ].join("\n"),
+          stderr: ""
+        };
+      }
+    });
+
+    expect(evidence.blockers).toEqual([
+      "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready exited with code 1"
+    ]);
+    expect(evidence.commandBlockers).toEqual([
+      "release-evidence-bundle-ready: $.bundleDir: must exist before verifying release evidence"
+    ]);
+    expect(evidence.commands.find((command) => command.id === "release-evidence-bundle-ready")?.blockers).toEqual([
+      "$.bundleDir: must exist before verifying release evidence"
+    ]);
+  });
+
   it("supports fail-fast for release lab reruns", async () => {
     const calls = [];
     const evidence = await runReadyReleaseVerification({
@@ -84,10 +137,12 @@ describe("ready release aggregate verification", () => {
       status: "planned",
       mode: "plan-only",
       releaseEvidenceBundleDir: "./solo-superman-release-evidence-bundle",
-      blockers: []
+      blockers: [],
+      commandBlockers: []
     });
     expect(evidence.commands).toHaveLength(readyReleaseSteps().length);
     expect(evidence.commands.every((command) => command.status === "planned")).toBe(true);
+    expect(evidence.commands.every((command) => command.blockers.length === 0)).toBe(true);
   });
 
   it("passes a custom release evidence bundle directory through the ready-release sequence", async () => {
