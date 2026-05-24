@@ -42,6 +42,7 @@
         "apps/sidecar/src/clarification-volume-smoke.ts",
         "packages/core/src/product-engine/follow-up-answer-variety.test.ts",
         "apps/web/src/features/decision-queue/shell/QuestionsView.tsx",
+        "apps/web/src/features/decision-queue/shell/useDecisionQueueSessionActions.test.ts",
         "packages/core/test/product-engine.test.ts"
       ],
       "verificationCommands": [
@@ -52,6 +53,7 @@
         "Idea intake creates a user-confirmed business or personal project purpose before analysis.",
         "Active question batches stay bounded while long sessions can process 200+ question/answer loops.",
         "Clarification question cards and generated follow-ups support open text, binary stance, single choice, multi-select, ranked, evidence, and experiment answer formats instead of reusing one pro/con shape.",
+        "Answer submission stays non-blocking while background research starts and automatic queue refill continue after the answer is persisted.",
         "Answers produce follow-up debt and research-task debt instead of hidden notes.",
         "Question-debt completion and Planning Handoff blockers remain visible before Planning-ready."
       ]
