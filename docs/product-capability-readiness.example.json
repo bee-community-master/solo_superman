@@ -26,6 +26,7 @@
       "pnpm verify:auto-implementation-review-loop",
       "pnpm verify:release-readiness",
       "pnpm verify:production-mutation-contract -- --require-ready",
+      "pnpm verify:ready-release -- --plan-only",
       "pnpm support:bundle"
     ]
   },
@@ -181,6 +182,7 @@
       "checkedBehaviors": [
         "support diagnostics bundle generation is credential-free and writes a local JSON evidence file for error reports.",
         "Support bundle validation captures compact product/release diagnostics while excluding full environment dumps, file contents, browser cookies, OpenAI/GitHub tokens, and ChatGPT web credentials.",
+        "ready-release plan-only support diagnostics expose the release evidence bundle preparation command and planned command list without running credential-required gates.",
         "URL credentials, secret-like query values, and token-shaped strings are redacted before support evidence is reported."
       ]
     }
