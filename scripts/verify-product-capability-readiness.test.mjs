@@ -33,6 +33,7 @@ function researchEvidenceCheckedBehaviors() {
   return [
     "Read-only public-web research runs require an active allowlist and bounded concurrency.",
     "Mounted web_search_readonly provider polling proves source-traced result import before evidence matrices and evidence packs are synthesized.",
+    "Research operations expose Max simultaneous research runs and Max research runs per session controls so users can tune manual and answer-triggered public-web research limits.",
     "Research review cards retain source traces and expose pro/con/uncertainty quality gates.",
     "Research-generated follow-up questions return to the Decision Queue as answerable debt.",
     "Research-generated follow-up questions preserve answer-form variety instead of forcing every answer into pro/con stance."
@@ -154,7 +155,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including mounted research provider polling, answer-form variety for research follow-up questions, planning readiness score/axis gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including mounted research provider polling, research run limit UX, answer-form variety for research follow-up questions, planning readiness score/axis gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
@@ -219,6 +220,7 @@ describe("product capability readiness verification", () => {
               ...capability,
               checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
                 !behavior.includes("Mounted web_search_readonly provider polling") &&
+                !behavior.includes("Max simultaneous research runs") &&
                 !behavior.includes("Research-generated follow-up questions")
               )
             }
@@ -231,6 +233,8 @@ describe("product capability readiness verification", () => {
     expect(result.issues).toEqual(expect.arrayContaining([
       "$.capabilities[1].checkedBehaviors: must mention Mounted web_search_readonly provider polling",
       "$.capabilities[1].checkedBehaviors: must mention source-traced result import",
+      "$.capabilities[1].checkedBehaviors: must mention Max simultaneous research runs",
+      "$.capabilities[1].checkedBehaviors: must mention Max research runs per session",
       "$.capabilities[1].checkedBehaviors: must mention Research-generated follow-up questions"
     ]));
   });
