@@ -5927,7 +5927,8 @@ describe("PR-02 sidecar health shell", () => {
         });
       };
 
-      const listCommand = ["git", "status", "--short"] as const;
+      const safeGitStatusCommand = ["git", "status", "--short"] as const;
+      const listCommand = safeGitStatusCommand;
       const listHash = hashShellCommandPreview({ command: listCommand });
       const { recordId } = await createShellAuthority("shell_command_git_status", listCommand, nextExpectedStateVersion());
       const requestBody = {
@@ -5974,7 +5975,7 @@ describe("PR-02 sidecar health shell", () => {
         blockReasons: []
       });
 
-      const cwdCommand = ["git", "status", "--short"] as const;
+      const cwdCommand = safeGitStatusCommand;
       const cwdHash = hashShellCommandPreview({ command: cwdCommand, workingDirectory: "nested" });
       const { recordId: cwdRecordId } = await createShellAuthority(
         "shell_command_cwd",
@@ -5999,7 +6000,7 @@ describe("PR-02 sidecar health shell", () => {
         }
       });
 
-      const cwdEscapeCommand = ["git", "status", "--short"] as const;
+      const cwdEscapeCommand = safeGitStatusCommand;
       const cwdEscapeHash = hashShellCommandPreview({ command: cwdEscapeCommand, workingDirectory: "../" });
       const { recordId: cwdEscapeRecordId } = await createShellAuthority(
         "shell_command_cwd_escape",
@@ -6044,7 +6045,7 @@ describe("PR-02 sidecar health shell", () => {
         ])
       });
 
-      const redactionCommand = ["git", "status", "--short"] as const;
+      const redactionCommand = safeGitStatusCommand;
       const redactionHash = hashShellCommandPreview({ command: redactionCommand });
       const { recordId: redactionRecordId } = await createShellAuthority(
         "shell_command_redaction",
@@ -6071,7 +6072,7 @@ describe("PR-02 sidecar health shell", () => {
       expect(redactedData.stdoutSummary).not.toContain("plain-npm-token-value");
 
       const nonRepoWorkspaceRoot = await makeTempAppDataDir();
-      const nonzeroCommand = ["git", "status", "--short"] as const;
+      const nonzeroCommand = safeGitStatusCommand;
       const nonzeroHash = hashShellCommandPreview({ command: nonzeroCommand });
       const { recordId: nonzeroRecordId } = await createShellAuthority(
         "shell_command_nonzero",
