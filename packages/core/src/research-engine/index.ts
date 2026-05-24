@@ -24,6 +24,7 @@ import type {
   ResearchTaskProjection,
   SessionId
 } from "@solo-superman/contracts";
+import { describesAnswerFormPolicy } from "../answer-form-policy";
 
 export * from "./public-safe-summary";
 export * from "./background-research-runtime";
@@ -165,6 +166,7 @@ type AdditionalQuestionAnswerIntent =
   | "ranked_choice"
   | "single_customer_choice"
   | "multi_signal_choice"
+  | "answer_form_policy"
   | "evidence_judgment";
 
 const explicitAdditionalQuestionNarrativeInstructionPattern = new RegExp(
@@ -196,6 +198,10 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
     /(?:객관식|선택형|단일\s*선택|하나(?:를|만)?\s*(?:선택|고르)|중\s*(?:하나|한\s*가지)|종류\s*중\s*하나|후보\s*중\s*하나|옵션\s*중\s*하나|(?:후보|선택지|옵션|고객\s*후보|고객\s*세그먼트)(?:를|을)?\s*(?:선택|고르)|which\s+(?:one|option)|single[-\s]?choice)/iu.test(topic);
   const asksForRanking =
     /(?:우선순위|우선\s*순위|순위|순서|랭킹|중요도순|먼저\s*(?:볼|검증|구현|확인)할\s*순서|rank(?:ed|ing)?|priorit(?:y|ize|ise)|order\s+(?:of|the))/iu.test(topic);
+
+  if (describesAnswerFormPolicy(topic)) {
+    return "answer_form_policy";
+  }
 
   if (explicitAdditionalQuestionNarrativeInstructionPattern.test(topic)) {
     return "open_text";
@@ -439,6 +445,8 @@ function promptSentenceForAnswerIntent(
 
       return `${lead}\n${bulletedQuestionCandidates(signals)}\n\n해당되는 신호를 여러 개 선택해주세요.`;
     }
+    case "answer_form_policy":
+      return "이 요구사항은 질문마다 답변 형식을 달리 정해야 하는 설계 기준입니다. 실제로 어떤 질문에서 주관식/서술형, 찬성·반대, 하나 선택, 여러 개 선택, 우선순위 답변이 필요한지 3~5문장으로 서술해주세요.";
     case "multi_choice":
       return promptWithGenericCandidates({
         topic: context.topic,
@@ -475,6 +483,8 @@ function unlockSentenceForAnswerIntent(intent: AdditionalQuestionAnswerIntent, t
       return "이 답으로 정해지는 내용은 첫 인터뷰 대상, 리서치 초점, MVP 범위를 어느 고객 성향에 맞출지입니다.";
     case "multi_signal_choice":
       return "이 답으로 정해지는 내용은 다음 리서치/인터뷰에서 동시에 확인할 고객 신호와 검증 체크리스트입니다.";
+    case "answer_form_policy":
+      return "이 답으로 정해지는 내용은 질문 카드마다 주관식, 찬반, 단일 선택, 복수 선택, 순위형 중 어떤 입력 방식과 저장 형식을 써야 하는지입니다.";
     case "multi_choice":
       return "이 답으로 정해지는 내용은 동시에 유지할 후보와 다음 리서치/검증 체크리스트입니다.";
     case "single_choice":
@@ -502,6 +512,16 @@ function questionLeadLinesForAnswerIntent(input: {
       `${input.topic}${koreanObjectParticleFor(input.topic)} 조금 더 구체화하기 위해 리서치 결과를 모아보니 찬성쪽 근거는 ${input.proSummary}입니다.`,
       "",
       input.conSummary ? `반대쪽 근거는 ${input.conSummary}입니다.` : null,
+      `한계와 불확실성은 ${input.uncertaintySummary}입니다.`
+    ];
+  }
+
+  if (input.intent === "answer_form_policy") {
+    return [
+      "답변 형식 요구사항을 살펴보면 질문마다 필요한 입력 방식이 달라져야 합니다.",
+      "",
+      `리서치 단서로는 ${input.proSummary} 같은 내용이 확인되었습니다.`,
+      input.conSummary ? `다른 관점이나 반례로는 ${input.conSummary}도 확인되었습니다.` : null,
       `한계와 불확실성은 ${input.uncertaintySummary}입니다.`
     ];
   }

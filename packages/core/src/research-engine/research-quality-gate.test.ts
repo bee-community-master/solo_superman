@@ -364,6 +364,27 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).toContain("multiple categories may apply to the first validation batch");
   });
 
+  it("does not treat answer-form policy wording as candidate choices or pro-con stance", () => {
+    const researchTask = task({
+      objective:
+        "모든 내용이 찬성과 반대가 되는 게 아니라 객관식으로 찬성/반대를 할 수도 있고, 여러 종류 중 하나 혹은 여러 개를 선택해야 할 수도 있습니다. 답변을 다양하게 필요에 맞게 구성"
+    });
+    const researchResult = result({
+      result: "Pro: different question types need different input formats.",
+      limitationNotes: "The exact answer form should follow the concrete question intent."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("질문마다 답변 형식을 달리")]
+    });
+    expect(matrix.additionalQuestions[0]).toContain("주관식/서술형, 찬성·반대, 하나 선택, 여러 개 선택, 우선순위");
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+    expect(matrix.additionalQuestions[0]).not.toContain("하나 이상 선택");
+    expect(matrix.additionalQuestions[0]).not.toContain("- 객관식으로 찬성");
+  });
+
   it("keeps named generic multi-choice candidates visible in the follow-up prompt", () => {
     const researchTask = task({
       objective: "기능 후보는 빠른 온보딩, 수동 검증, 가격 테스트입니다. 여러 종류 중 하나 혹은 여러 개를 선택해야 하는 후보 결정"

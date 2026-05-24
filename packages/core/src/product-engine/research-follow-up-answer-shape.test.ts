@@ -706,6 +706,17 @@ describe("research follow-up answer shape", () => {
 
     expect(classifyResearchFollowUpAnswerShape(englishMultiSelectInput)).toBe("multi_select");
     expect(researchFollowUpAnswerSelectionMode(englishMultiSelectInput)).toBe("multiple");
+
+    const answerFormPolicyInput = {
+      ...base,
+      question:
+        "모든 내용이 찬성과 반대가 되는 게 아니라 객관식으로 찬성/반대를 할 수도 있고, 여러 종류 중 하나 혹은 여러 개를 선택해야 할 수도 있습니다. 답변을 다양하게 필요에 맞게 구성해야 합니다."
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(answerFormPolicyInput)).toBe("open_text");
+    expect(researchFollowUpExpectedAnswerType(answerFormPolicyInput)).toBe("text");
+    expect(researchFollowUpAnswerSelectionMode(answerFormPolicyInput)).toBeUndefined();
+    expect(researchFollowUpAnswerOptions(answerFormPolicyInput)).toEqual([]);
   });
 
   it("lets explicit narrative instructions win over mentioned choice formats", () => {
