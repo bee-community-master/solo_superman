@@ -125,7 +125,7 @@ describe("decision queue language copy", () => {
       "business",
       "personal"
     ]);
-    expect(DECISION_QUEUE_COPY.en.autoImplementation.workerPlan).toBe("Local worker bounded plan");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.workerPlan).toBe("Local Codex task plan");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerPlanExecutionAuthority).toBe("実行権限");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerPlanAllowedWriteScope).toBe("허용된 쓰기 범위");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.workerExecutionModeLabels.local_sandboxed_codex).toBe(
@@ -175,10 +175,10 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeEvidenceDetails).toBe("Runtime evidence details");
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeExecutionMode).toBe("Execution mode");
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeLiveTurnStates.disabled).toBe("disabled");
-    expect(DECISION_QUEUE_COPY.ja.implementation.runtimeGeneratedSchemaVersion).toBe("生成schema version");
+    expect(DECISION_QUEUE_COPY.ja.implementation.runtimeGeneratedSchemaVersion).toBe("生成スキーマバージョン");
     expect(DECISION_QUEUE_COPY.ja.implementation.runtimeManualHandoffStates.available).toBe("利用可能");
-    expect(DECISION_QUEUE_COPY.ko.implementation.runtimeTransport).toBe("Transport");
-    expect(DECISION_QUEUE_COPY.ko.implementation.runtimeManualHandoff).toBe("수동 인계");
+    expect(DECISION_QUEUE_COPY.ko.implementation.runtimeTransport).toBe("연결 방식");
+    expect(DECISION_QUEUE_COPY.ko.implementation.runtimeManualHandoff).toBe("수동 대체 경로");
     expect(DECISION_QUEUE_COPY.en.handoff.title).toBe("Planning Handoff");
     expect(DECISION_QUEUE_COPY.en.handoff.planningActionErrors.activeSessionRequiredScoreCompleteness).not.toMatch(
       /[가-힣]/u
@@ -221,11 +221,11 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.permissions.artifactControlTitle).toContain("artifact control surface");
     expect(DECISION_QUEUE_COPY.ja.permissions.artifactControlTitle).toContain("資料コントロール");
     expect(DECISION_QUEUE_COPY.ko.permissions.artifactControlTitle).toContain("자료 제어");
-    expect(DECISION_QUEUE_COPY.en.autoImplementation.workerRuntimeAdapterVersion).toBe("Runtime adapter");
-    expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeGeneratedSchemaVersion).toBe("生成schema version");
-    expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerRuntimeTransport).toBe("Transport");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.workerRuntimeAdapterVersion).toBe("Codex runtime adapter");
+    expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeGeneratedSchemaVersion).toBe("生成スキーマバージョン");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerRuntimeTransport).toBe("연결 방식");
     expect(DECISION_QUEUE_COPY.ko.implementation.runtimeStatusLabels.unavailable).toBe("사용 불가");
-    expect(DECISION_QUEUE_COPY.ko.implementation.runtimeExecutionModeLabels.manual_handoff).toBe("수동 인계");
+    expect(DECISION_QUEUE_COPY.ko.implementation.runtimeExecutionModeLabels.manual_handoff).toBe("수동 대체 경로");
     expect(DECISION_QUEUE_COPY.ko.implementation.runtimeAccountStatusLabels.authenticated).toBe("로그인됨");
     expect(DECISION_QUEUE_COPY.ko.implementation.startGuideHandoff).toBe("구현 계획 전달");
     expect(DECISION_QUEUE_COPY.ko.implementation.startGuideNextWorker).toContain("작은 PR 단위 작업");
@@ -234,7 +234,7 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ja.implementation.runtimeEvidenceDetails).toBe("実行環境の詳細");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeStatusLabels.available).toBe("利用可能");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeExecutionModeLabels.manual_handoff).toBe(
-      "手動引き継ぎ"
+      "手動の代替経路"
     );
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.approveLocalWorkerAuthority).toContain("작업 승인");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.missingExecutionAuthority).toContain("ExecutionAuthorityRecord");

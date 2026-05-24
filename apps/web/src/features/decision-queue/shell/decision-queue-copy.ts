@@ -86,14 +86,14 @@ const EN_CODEX_RUNTIME_EXECUTION_MODE_LABELS = {
 const JA_CODEX_RUNTIME_EXECUTION_MODE_LABELS = {
   fixture: "fixtureシミュレーション",
   live: "live Codex実行",
-  manual_handoff: "手動引き継ぎ",
+  manual_handoff: "手動の代替経路",
   unknown: "不明"
 } satisfies Record<CodexRuntimeExecutionMode | "unknown", string>;
 
 const KO_CODEX_RUNTIME_EXECUTION_MODE_LABELS = {
   fixture: "fixture 시뮬레이션",
   live: "실시간 Codex 실행",
-  manual_handoff: "수동 인계",
+  manual_handoff: "수동 대체 경로",
   unknown: "알 수 없음"
 } satisfies Record<CodexRuntimeExecutionMode | "unknown", string>;
 
@@ -856,7 +856,7 @@ const EN_COPY = {
     startGuideNextBrief: "Prepare a Founder Brief or resolve completion gate blockers.",
     startGuideNextHandoff: "Run the planning handoff gate.",
     startGuideNextWorkspace: "Create the auto implementation workspace run.",
-    startGuideNextWorker: "Plan the first bounded worker job for the current PR-sized slice.",
+    startGuideNextWorker: "Plan the first scoped local Codex task for the current small PR slice.",
     runtimeEvidenceDetails: "Runtime evidence details",
     runtimeCheckedAt: "Runtime checked at",
     runtimeAdapterVersion: "Runtime adapter",
@@ -865,7 +865,7 @@ const EN_COPY = {
     runtimeExecutionMode: "Execution mode",
     runtimeAccount: "Codex account",
     runtimeLiveTurns: "Live turns",
-    runtimeManualHandoff: "Manual handoff",
+    runtimeManualHandoff: "Manual fallback path",
     runtimeStatusLabels: EN_CODEX_RUNTIME_STATUS_LABELS,
     runtimeExecutionModeLabels: EN_CODEX_RUNTIME_EXECUTION_MODE_LABELS,
     runtimeAccountStatusLabels: EN_CODEX_ACCOUNT_STATUS_LABELS,
@@ -915,7 +915,7 @@ const EN_COPY = {
     runWorkerJob: "Run local Codex task",
     advanceWorkerStage: "Advance implementation stage",
     refresh: "Refresh workspace run",
-    approveLocalWorkerAuthority: "Approve local worker authority",
+    approveLocalWorkerAuthority: "Approve local Codex task authority",
     actionErrors: {
       activeSessionRequiredCreateWorkspace:
         "An active session is required before creating an auto implementation workspace.",
@@ -925,9 +925,9 @@ const EN_COPY = {
         "Run the planning handoff gate and reach planning_ready before creating an auto implementation workspace.",
       workspaceCreationFailed: (error: string) => `Auto implementation workspace creation failed: ${error}`,
       activeRunRequiredPlanWorker:
-        "An active auto implementation workspace run is required before planning a local worker job.",
+        "An active auto implementation workspace run is required before planning a local Codex task.",
       currentStageWorkerMustContinue:
-        "Continue the latest current-stage worker with run, import, complete, or advance before planning another local worker job.",
+        "Continue the latest current-stage local Codex task with run, result import, completion, or stage advance before planning another task.",
       activeRunRequiredStageTick:
         "An active auto implementation workspace run is required before recording a stage tick.",
       activeRunRequiredStartStage:
@@ -937,14 +937,14 @@ const EN_COPY = {
       activeRunRequiredBlockStage:
         "An active auto implementation workspace run is required before blocking a stage.",
       activeRunRequiredCompleteWorker:
-        "An active auto implementation workspace run is required before completing a worker from ledger evidence.",
+        "An active auto implementation workspace run is required before completing a local Codex task from recorded task evidence.",
       completedLedgerRequiredCompleteWorker:
-        "A planned or ledger-blocked current-stage worker and a completed ImplementationStepLedger step are required before completing the worker.",
-      plannedWorkerRequiredRunWorker: "A planned local Codex worker job is required before running the worker.",
+        "A planned or evidence-blocked current-stage local Codex task and a completed implementation step record are required before completing the task.",
+      plannedWorkerRequiredRunWorker: "A planned local Codex task is required before running it.",
       activeRunRequiredImportWorkerLedger:
-        "An active auto implementation workspace run is required before importing worker ledger evidence.",
-      workerLedgerImportPrepareFailed: "Worker ledger import request could not be prepared.",
-      completedWorkerRequiredAdvanceStage: "A completed local Codex worker job is required before advancing the worker stage.",
+        "An active auto implementation workspace run is required before importing local Codex task evidence.",
+      workerLedgerImportPrepareFailed: "Local Codex task result import could not be prepared.",
+      completedWorkerRequiredAdvanceStage: "A completed local Codex task is required before advancing the implementation stage.",
       githubIssueMutationUnavailable:
         "This auto implementation GitHub issue mutation is not available for the current run state.",
       activeRunRequiredRecordGitHubIssueDryRun:
@@ -972,18 +972,18 @@ const EN_COPY = {
       pullRequestMergeAlreadyRecorded:
         "A pull request merge is already recorded; do not merge the same auto implementation PR again."
     },
-    workerPlan: "Local worker bounded plan",
+    workerPlan: "Local Codex task plan",
     workerStageAdvanceBlocker: "Stage advance blocker",
-    workerRuntimeReadiness: "Worker runtime readiness",
-    workerRuntimeStatus: "Runtime status",
+    workerRuntimeReadiness: "Local Codex runtime readiness",
+    workerRuntimeStatus: "Codex runtime status",
     workerRuntimeExecutionMode: "Execution mode",
     workerRuntimeAccount: "Codex account",
     workerRuntimeCheckedAt: "Checked at",
-    workerRuntimeAdapterVersion: "Runtime adapter",
+    workerRuntimeAdapterVersion: "Codex runtime adapter",
     workerRuntimeGeneratedSchemaVersion: "Generated schema version",
-    workerRuntimeTransport: "Transport",
-    workerRuntimeLiveTurns: "Live turns",
-    workerRuntimeManualHandoff: "Manual handoff",
+    workerRuntimeTransport: "Connection transport",
+    workerRuntimeLiveTurns: "Automatic runs",
+    workerRuntimeManualHandoff: "Manual fallback path",
     workerRuntimeStatusLabels: EN_CODEX_RUNTIME_STATUS_LABELS,
     workerRuntimeExecutionModeLabels: EN_CODEX_RUNTIME_EXECUTION_MODE_LABELS,
     workerRuntimeAccountStatusLabels: EN_CODEX_ACCOUNT_STATUS_LABELS,
@@ -1000,33 +1000,33 @@ const EN_COPY = {
       unknown: "unknown"
     },
     workerRuntimeReason: "Runtime reason",
-    workerRuntimeNextAction: "Worker runtime next action",
+    workerRuntimeNextAction: "Local Codex next action",
     workerRuntimeNextActions: {
-      refreshRuntime: "Refresh Codex runtime status before running a local worker; manual worker ledger import remains the fallback once a worker job exists.",
-      liveReady: "Live local Codex worker execution is available; run only after the bounded authority and worker job are planned, then keep ledger import available for blocked output.",
-      fixture: "Fixture runtime can simulate worker execution; production work still needs live local execution or manual ledger import evidence.",
-      codexLogin: "Run Codex login, refresh runtime status, or complete the bounded worker manually and import its ledger evidence.",
-      enableLiveTurns: "Set SOLO_CODEX_APP_SERVER_LIVE_TURNS=1 and restart the local sidecar to attempt live worker execution, or complete the bounded worker manually and import its ledger evidence.",
-      resolveBlocker: "Resolve the Codex runtime blocker, then rerun the worker or import a completed worker ledger envelope."
+      refreshRuntime: "Refresh Codex runtime status before running a local Codex task; completed task result import remains available after a task exists.",
+      liveReady: "Live local Codex execution is available; run only after the task scope and authority are planned, then use result import if the output is blocked.",
+      fixture: "Fixture runtime can simulate local Codex execution; production work still needs live local execution or imported task-result evidence.",
+      codexLogin: "Run Codex login, refresh runtime status, or complete the scoped task manually and import its result evidence.",
+      enableLiveTurns: "Set SOLO_CODEX_APP_SERVER_LIVE_TURNS=1 and restart the local sidecar to attempt live local Codex execution, or complete the scoped task manually and import its result evidence.",
+      resolveBlocker: "Resolve the Codex runtime blocker, then rerun the local Codex task or import completed task-result JSON."
     },
     workerPlanExecutionMode: "Execution mode",
     workerPlanWorkingDirectory: "Working directory",
     workerPlanIssueDocument: "Issue document",
     workerPlanExecutionAuthority: "Execution authority",
-    workerPlanLedgerTrackerDoc: "Ledger tracker doc",
-    workerPlanLedgerStepDoc: "Ledger step doc",
-    workerPlanLedgerDocSourceRefs: "Ledger doc source refs",
+    workerPlanLedgerTrackerDoc: "Implementation tracker doc",
+    workerPlanLedgerStepDoc: "Implementation step doc",
+    workerPlanLedgerDocSourceRefs: "Implementation record source refs",
     workerPlanAllowedWriteScope: "Allowed write scope",
     workerPlanRequiredEvidence: "Required evidence",
     workerPlanRequiredEvidenceHelp: (stageLabel: string) =>
-      `The worker must prove both the base delivery contract and the current stage gate before ${stageLabel} can advance.`,
+      `The local Codex task must prove both the base delivery contract and the current stage gate before ${stageLabel} can advance.`,
     workerPlanBaseRequiredEvidence: "Base delivery evidence",
     workerPlanStageRequiredEvidence: "Current stage evidence",
     workerPlanForbiddenActions: "Forbidden actions",
     workerPlanSourceRefs: "Source refs",
     workerPlanBlocker: "Blocker",
     workerPlanMissingEvidence: "Missing evidence",
-    workerPlanEvidenceRefs: "Job evidence refs",
+    workerPlanEvidenceRefs: "Task evidence refs",
     missingExecutionAuthority: "Missing ExecutionAuthorityRecord",
     workspaceLabel: (workspacePath: string | null): string => workspacePath
       ? `Workspace: ${workspacePath}`
@@ -1076,20 +1076,20 @@ const EN_COPY = {
       none: "none"
     } satisfies Record<AutoImplementationWorkerJobStatus | "none", string>,
     latestWorkerJobLabel: (status: string | null, stageLabel: string | null, issueId: string | null): string => status
-      ? `Local Codex worker: ${status} for ${stageLabel ?? "current stage"}${issueId ? ` (${issueId})` : ""}`
-      : "Local Codex worker: not planned",
+      ? `Local Codex task: ${status} for ${stageLabel ?? "current stage"}${issueId ? ` (${issueId})` : ""}`
+      : "Local Codex task: not planned",
     latestWorkerJobNextActionNotPlanned: (hasRun: boolean): string => hasRun
-      ? "Create a bounded local worker job after the current stage issue document is ready."
-      : "Create a workspace run before planning a local Codex worker.",
+      ? "Plan a scoped local Codex task after the current stage issue document is ready."
+      : "Create a workspace run before planning a local Codex task.",
     issueRowStage: "stage",
     issueRowStatus: "status",
     issueRowGithubIssue: "GitHub issue",
     issueRowLatestWorkerJob: (jobId: string | null, status: string): string => jobId
-      ? `latest worker ${jobId} (${status})`
-      : "latest worker none",
+      ? `latest local Codex task ${jobId} (${status})`
+      : "latest local Codex task none",
     issueRowNextAction: "next",
     issueRowDefaultNextAction: "Work this issue through the delivery protocol, review streaks, and test evidence checklist.",
-    issueRowCompletedNextAction: "Use the completed stage ledger evidence before advancing the next PR slice.",
+    issueRowCompletedNextAction: "Use the completed stage implementation record before advancing the next PR slice.",
     issueRowStageGate: "stage gate",
     issueRowMissingEvidence: "missing",
     issueRowEvidenceRefs: "evidence",
@@ -2053,7 +2053,7 @@ const JA_COPY: typeof EN_COPY = {
     activity: "活動",
     pending: "保留中",
     refreshStatus: "ステータス更新",
-    refreshRuntimeStatus: "Runtime状態を更新",
+    refreshRuntimeStatus: "実行環境の状態を更新",
     startGuideTitle: "実装開始パス",
     startGuideSummary:
       "具体化したアイデアをソフトウェアへ進める前に、完成度採点、Founder Briefまたは完成候補、実装計画の引き渡し、自動実装ワークスペース作成を確認します。",
@@ -2093,13 +2093,13 @@ const JA_COPY: typeof EN_COPY = {
     startGuideNextWorker: "現在の小さなPR単位の作業に対して、最初のローカルCodex作業を計画してください。",
     runtimeEvidenceDetails: "実行環境の詳細",
     runtimeCheckedAt: "Runtime確認時刻",
-    runtimeAdapterVersion: "Runtime adapter",
-    runtimeGeneratedSchemaVersion: "生成schema version",
-    runtimeTransport: "Transport",
+    runtimeAdapterVersion: "実行アダプター",
+    runtimeGeneratedSchemaVersion: "生成スキーマバージョン",
+    runtimeTransport: "接続方式",
     runtimeExecutionMode: "実行モード",
     runtimeAccount: "Codexアカウント",
-    runtimeLiveTurns: "Live turns",
-    runtimeManualHandoff: "手動引き継ぎ",
+    runtimeLiveTurns: "自動実行",
+    runtimeManualHandoff: "手動の代替経路",
     runtimeStatusLabels: JA_CODEX_RUNTIME_STATUS_LABELS,
     runtimeExecutionModeLabels: JA_CODEX_RUNTIME_EXECUTION_MODE_LABELS,
     runtimeAccountStatusLabels: JA_CODEX_ACCOUNT_STATUS_LABELS,
@@ -2157,22 +2157,22 @@ const JA_COPY: typeof EN_COPY = {
       planningHandoffRequired:
         "自動実装ワークスペースを作成する前に、計画引き継ぎゲートを実行して planning_ready にしてください。",
       workspaceCreationFailed: (error: string) => `自動実装ワークスペースの作成に失敗しました: ${error}`,
-      activeRunRequiredPlanWorker: "ローカルworker jobを計画するにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredPlanWorker: "ローカルCodex作業を計画するには、アクティブな自動実装ワークスペース実行が必要です。",
       currentStageWorkerMustContinue:
-        "別のローカルworker jobを計画する前に、最新の現在stage workerを実行、import、完了、またはadvanceしてください。",
+        "別のローカルCodex作業を計画する前に、現在段階の最新作業を実行、結果取り込み、完了、または次段階へ進めてください。",
       activeRunRequiredStageTick: "stage tickを記録するにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredStartStage: "stageを開始するにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredPauseStage: "stageを一時停止するにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredBlockStage: "stageをブロックするにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredCompleteWorker:
-        "ledger evidenceからworkerを完了するにはアクティブな自動実装ワークスペース実行が必要です。",
+        "作業結果の根拠からローカルCodex作業を完了するには、アクティブな自動実装ワークスペース実行が必要です。",
       completedLedgerRequiredCompleteWorker:
-        "workerを完了するには、計画済みまたはledger-blockedの現在stage workerと完了済みImplementationStepLedger stepが必要です。",
-      plannedWorkerRequiredRunWorker: "workerを実行するには計画済みローカルCodex worker jobが必要です。",
+        "作業を完了するには、計画済みまたは結果待ちの現在段階ローカルCodex作業と、完了済み実装ステップ記録が必要です。",
+      plannedWorkerRequiredRunWorker: "実行するには、計画済みローカルCodex作業が必要です。",
       activeRunRequiredImportWorkerLedger:
-        "worker ledger evidenceをimportするにはアクティブな自動実装ワークスペース実行が必要です。",
-      workerLedgerImportPrepareFailed: "Worker ledger import requestを準備できませんでした。",
-      completedWorkerRequiredAdvanceStage: "worker stageを進めるには完了済みローカルCodex worker jobが必要です。",
+        "ローカルCodex作業結果を取り込むには、アクティブな自動実装ワークスペース実行が必要です。",
+      workerLedgerImportPrepareFailed: "ローカルCodex作業結果の取り込みリクエストを準備できませんでした。",
+      completedWorkerRequiredAdvanceStage: "実装段階を進めるには、完了済みローカルCodex作業が必要です。",
       githubIssueMutationUnavailable:
         "現在のrun状態では、この自動実装GitHub issue mutationは利用できません。",
       activeRunRequiredRecordGitHubIssueDryRun:
@@ -2197,18 +2197,18 @@ const JA_COPY: typeof EN_COPY = {
         "承認済みPR mergeを適用するにはアクティブな自動実装ワークスペース実行が必要です。",
       pullRequestMergeAlreadyRecorded: "PR mergeはすでに記録されています。同じ自動実装PRを再mergeしないでください。"
     },
-    workerPlan: "ローカルworkerの境界付き計画",
-    workerStageAdvanceBlocker: "Stage advance blocker",
-    workerRuntimeReadiness: "Worker実行環境の準備状態",
-    workerRuntimeStatus: "Runtime状態",
+    workerPlan: "ローカルCodex作業計画",
+    workerStageAdvanceBlocker: "段階進行のブロック理由",
+    workerRuntimeReadiness: "ローカルCodex実行環境の準備状態",
+    workerRuntimeStatus: "実行環境の状態",
     workerRuntimeExecutionMode: "実行モード",
     workerRuntimeAccount: "Codexアカウント",
     workerRuntimeCheckedAt: "確認時刻",
-    workerRuntimeAdapterVersion: "Runtime adapter",
-    workerRuntimeGeneratedSchemaVersion: "生成schema version",
-    workerRuntimeTransport: "Transport",
-    workerRuntimeLiveTurns: "Live turns",
-    workerRuntimeManualHandoff: "手動引き継ぎ",
+    workerRuntimeAdapterVersion: "実行アダプター",
+    workerRuntimeGeneratedSchemaVersion: "生成スキーマバージョン",
+    workerRuntimeTransport: "接続方式",
+    workerRuntimeLiveTurns: "自動実行",
+    workerRuntimeManualHandoff: "手動の代替経路",
     workerRuntimeStatusLabels: JA_CODEX_RUNTIME_STATUS_LABELS,
     workerRuntimeExecutionModeLabels: JA_CODEX_RUNTIME_EXECUTION_MODE_LABELS,
     workerRuntimeAccountStatusLabels: JA_CODEX_ACCOUNT_STATUS_LABELS,
@@ -2224,34 +2224,34 @@ const JA_COPY: typeof EN_COPY = {
       unavailable: "利用不可",
       unknown: "不明"
     },
-    workerRuntimeReason: "Runtime理由",
-    workerRuntimeNextAction: "Worker runtimeの次アクション",
+    workerRuntimeReason: "実行環境の理由",
+    workerRuntimeNextAction: "ローカルCodexの次アクション",
     workerRuntimeNextActions: {
-      refreshRuntime: "ローカルworker実行前にCodex runtime状態を更新します。worker job作成後は手動worker ledger importがfallbackです。",
-      liveReady: "Live local Codex worker executionを利用できます。境界付き権限とworker jobを計画してから実行し、出力がblockedの場合はledger importを残します。",
-      fixture: "Fixture runtimeはworker実行をシミュレートできます。本番作業にはlive local実行またはmanual ledger import evidenceが必要です。",
-      codexLogin: "Codex loginを実行し、runtime状態を更新するか、境界付きworkerを手動で完了してledger evidenceをimportします。",
-      enableLiveTurns: "SOLO_CODEX_APP_SERVER_LIVE_TURNS=1を設定してlocal sidecarを再起動するか、境界付きworkerを手動で完了してledger evidenceをimportします。",
-      resolveBlocker: "Codex runtime blockerを解消してworkerを再実行するか、完了済みworker ledger envelopeをimportします。"
+      refreshRuntime: "ローカルCodex作業を実行する前に実行環境の状態を更新してください。作業作成後は完了結果の取り込みも使えます。",
+      liveReady: "ライブのローカルCodex実行を利用できます。作業範囲と権限を確認してから実行し、出力が止まった場合は結果取り込みで補完してください。",
+      fixture: "Fixture実行環境はローカルCodex作業をシミュレートできます。実作業にはライブ実行または取り込んだ作業結果の根拠が必要です。",
+      codexLogin: "Codexログインを完了して実行環境を更新するか、範囲を決めた作業を手動で完了して結果を取り込んでください。",
+      enableLiveTurns: "SOLO_CODEX_APP_SERVER_LIVE_TURNS=1を設定してlocal sidecarを再起動するか、範囲を決めた作業を手動で完了して結果を取り込んでください。",
+      resolveBlocker: "Codex実行環境の問題を解消してローカルCodex作業を再実行するか、完了済み作業結果JSONを取り込んでください。"
     },
     workerPlanExecutionMode: "実行モード",
     workerPlanWorkingDirectory: "作業ディレクトリ",
     workerPlanIssueDocument: "Issue文書",
     workerPlanExecutionAuthority: "実行権限",
-    workerPlanLedgerTrackerDoc: "Ledger tracker doc",
-    workerPlanLedgerStepDoc: "Ledger step doc",
-    workerPlanLedgerDocSourceRefs: "Ledger doc参照元",
+    workerPlanLedgerTrackerDoc: "実装追跡文書",
+    workerPlanLedgerStepDoc: "実装ステップ文書",
+    workerPlanLedgerDocSourceRefs: "実装記録の参照元",
     workerPlanAllowedWriteScope: "許可された書き込み範囲",
     workerPlanRequiredEvidence: "必須根拠",
     workerPlanRequiredEvidenceHelp: (stageLabel: string) =>
-      `${stageLabel}を進める前に、workerは共通delivery contractと現在stage gateの両方を証明する必要があります。`,
-    workerPlanBaseRequiredEvidence: "共通delivery根拠",
-    workerPlanStageRequiredEvidence: "現在stageの根拠",
+      `${stageLabel}を進める前に、ローカルCodex作業が共通の完了条件と現在段階の条件を両方証明する必要があります。`,
+    workerPlanBaseRequiredEvidence: "共通の完了根拠",
+    workerPlanStageRequiredEvidence: "現在段階の根拠",
     workerPlanForbiddenActions: "禁止アクション",
     workerPlanSourceRefs: "参照元",
     workerPlanBlocker: "ブロッカー",
     workerPlanMissingEvidence: "不足している根拠",
-    workerPlanEvidenceRefs: "Job確認資料",
+    workerPlanEvidenceRefs: "作業確認資料",
     missingExecutionAuthority: "ExecutionAuthorityRecord未作成",
     workspaceLabel: (workspacePath: string | null): string => workspacePath
       ? `Workspace: ${workspacePath}`
@@ -2301,17 +2301,17 @@ const JA_COPY: typeof EN_COPY = {
       none: "なし"
     } satisfies Record<AutoImplementationWorkerJobStatus | "none", string>,
     latestWorkerJobLabel: (status: string | null, stageLabel: string | null, issueId: string | null) => status
-      ? `Local Codex worker: ${stageLabel ?? "現在のstage"} ${issueId ? `(${issueId}) ` : ""}${status}`
-      : "Local Codex worker: 未計画",
+      ? `ローカルCodex作業: ${stageLabel ?? "現在のstage"} ${issueId ? `(${issueId}) ` : ""}${status}`
+      : "ローカルCodex作業: 未計画",
     latestWorkerJobNextActionNotPlanned: (hasRun: boolean) => hasRun
-      ? "現在stageのIssue文書が準備できたら、境界付きlocal worker jobを作成します。"
-      : "local Codex workerを計画する前にworkspace runを作成します。",
+      ? "現在段階のIssue文書が準備できたら、範囲を決めたローカルCodex作業を計画します。"
+      : "ローカルCodex作業を計画する前にworkspace runを作成します。",
     issueRowStage: "stage",
     issueRowStatus: "状態",
     issueRowGithubIssue: "GitHub issue",
     issueRowLatestWorkerJob: (jobId: string | null, status: string) => jobId
-      ? `最新worker ${jobId} (${status})`
-      : "最新workerなし",
+      ? `最新ローカルCodex作業 ${jobId} (${status})`
+      : "最新ローカルCodex作業なし",
     issueRowNextAction: "次アクション",
     issueRowDefaultNextAction: "このイシューをレビュー連続通過、クリーンコード確認、テスト根拠のチェックリストに沿って進めます。",
     issueRowCompletedNextAction: "完了済み段階の台帳根拠を使って、次の小さなPR単位へ進みます。",
@@ -3296,7 +3296,7 @@ const KO_COPY: typeof EN_COPY = {
     activity: "활동",
     pending: "대기 중",
     refreshStatus: "상태 새로고침",
-    refreshRuntimeStatus: "Runtime 상태 새로고침",
+    refreshRuntimeStatus: "실행 환경 상태 새로고침",
     startGuideTitle: "구현 시작 경로",
     startGuideSummary:
       "구체화된 아이디어를 소프트웨어로 넘기기 전에 완성도 채점, Founder Brief 또는 완성 후보, 구현 계획 전달, 자동 구현 작업공간 생성을 순서대로 확인합니다.",
@@ -3336,13 +3336,13 @@ const KO_COPY: typeof EN_COPY = {
     startGuideNextWorker: "현재 작은 PR 단위 작업의 첫 로컬 Codex 작업을 계획하세요.",
     runtimeEvidenceDetails: "실행 환경 세부 정보",
     runtimeCheckedAt: "Runtime 확인 시각",
-    runtimeAdapterVersion: "Runtime adapter",
-    runtimeGeneratedSchemaVersion: "생성 schema version",
-    runtimeTransport: "Transport",
+    runtimeAdapterVersion: "실행 어댑터",
+    runtimeGeneratedSchemaVersion: "생성 스키마 버전",
+    runtimeTransport: "연결 방식",
     runtimeExecutionMode: "실행 모드",
     runtimeAccount: "Codex 계정",
-    runtimeLiveTurns: "Live turns",
-    runtimeManualHandoff: "수동 인계",
+    runtimeLiveTurns: "자동 실행",
+    runtimeManualHandoff: "수동 대체 경로",
     runtimeStatusLabels: KO_CODEX_RUNTIME_STATUS_LABELS,
     runtimeExecutionModeLabels: KO_CODEX_RUNTIME_EXECUTION_MODE_LABELS,
     runtimeAccountStatusLabels: KO_CODEX_ACCOUNT_STATUS_LABELS,
@@ -3400,22 +3400,22 @@ const KO_COPY: typeof EN_COPY = {
       planningHandoffRequired:
         "자동 구현 작업공간을 만들기 전에 계획 인계 게이트를 실행하고 planning_ready에 도달해야 합니다.",
       workspaceCreationFailed: (error: string) => `자동 구현 작업공간 생성에 실패했습니다: ${error}`,
-      activeRunRequiredPlanWorker: "로컬 worker job을 계획하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      activeRunRequiredPlanWorker: "로컬 Codex 작업을 계획하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       currentStageWorkerMustContinue:
-        "다른 로컬 worker job을 계획하기 전에 최신 현재 단계 worker를 실행, 가져오기, 완료 또는 진행하세요.",
+        "다른 로컬 Codex 작업을 계획하기 전에 현재 단계의 최신 작업을 실행, 결과 가져오기, 완료 또는 다음 단계로 진행하세요.",
       activeRunRequiredStageTick: "단계 tick을 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredStartStage: "단계를 시작하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredPauseStage: "단계를 일시정지하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredBlockStage: "단계를 차단하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredCompleteWorker:
-        "ledger evidence에서 worker를 완료하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+        "작업 결과 근거로 로컬 Codex 작업을 완료하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       completedLedgerRequiredCompleteWorker:
-        "worker를 완료하려면 계획됨 또는 ledger-blocked 상태의 현재 단계 worker와 완료된 ImplementationStepLedger step이 필요합니다.",
-      plannedWorkerRequiredRunWorker: "worker를 실행하려면 계획된 로컬 Codex worker job이 필요합니다.",
+        "작업을 완료하려면 계획됨 또는 결과 대기 상태의 현재 단계 로컬 Codex 작업과 완료된 구현 단계 기록이 필요합니다.",
+      plannedWorkerRequiredRunWorker: "실행하려면 계획된 로컬 Codex 작업이 필요합니다.",
       activeRunRequiredImportWorkerLedger:
-        "worker ledger evidence를 가져오려면 활성 자동 구현 작업공간 실행이 필요합니다.",
-      workerLedgerImportPrepareFailed: "Worker ledger import request를 준비할 수 없습니다.",
-      completedWorkerRequiredAdvanceStage: "worker stage를 진행하려면 완료된 로컬 Codex worker job이 필요합니다.",
+        "로컬 Codex 작업 결과를 가져오려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      workerLedgerImportPrepareFailed: "로컬 Codex 작업 결과 가져오기 요청을 준비할 수 없습니다.",
+      completedWorkerRequiredAdvanceStage: "구현 단계를 진행하려면 완료된 로컬 Codex 작업이 필요합니다.",
       githubIssueMutationUnavailable:
         "현재 run 상태에서는 이 자동 구현 GitHub issue mutation을 사용할 수 없습니다.",
       activeRunRequiredRecordGitHubIssueDryRun:
@@ -3440,18 +3440,18 @@ const KO_COPY: typeof EN_COPY = {
         "승인된 PR merge를 적용하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       pullRequestMergeAlreadyRecorded: "PR merge가 이미 기록되어 있습니다. 같은 자동 구현 PR을 다시 merge하지 마세요."
     },
-    workerPlan: "로컬 worker 경계 계획",
+    workerPlan: "로컬 Codex 작업 계획",
     workerStageAdvanceBlocker: "단계 진행 차단 사유",
-    workerRuntimeReadiness: "Worker runtime 준비 상태",
-    workerRuntimeStatus: "Runtime 상태",
+    workerRuntimeReadiness: "로컬 Codex 실행 환경 준비 상태",
+    workerRuntimeStatus: "실행 환경 상태",
     workerRuntimeExecutionMode: "실행 모드",
     workerRuntimeAccount: "Codex 계정",
     workerRuntimeCheckedAt: "확인 시각",
-    workerRuntimeAdapterVersion: "Runtime adapter",
-    workerRuntimeGeneratedSchemaVersion: "생성 schema version",
-    workerRuntimeTransport: "Transport",
-    workerRuntimeLiveTurns: "Live turns",
-    workerRuntimeManualHandoff: "수동 인계",
+    workerRuntimeAdapterVersion: "실행 어댑터",
+    workerRuntimeGeneratedSchemaVersion: "생성 스키마 버전",
+    workerRuntimeTransport: "연결 방식",
+    workerRuntimeLiveTurns: "자동 실행",
+    workerRuntimeManualHandoff: "수동 대체 경로",
     workerRuntimeStatusLabels: KO_CODEX_RUNTIME_STATUS_LABELS,
     workerRuntimeExecutionModeLabels: KO_CODEX_RUNTIME_EXECUTION_MODE_LABELS,
     workerRuntimeAccountStatusLabels: KO_CODEX_ACCOUNT_STATUS_LABELS,
@@ -3467,34 +3467,34 @@ const KO_COPY: typeof EN_COPY = {
       unavailable: "불가",
       unknown: "알 수 없음"
     },
-    workerRuntimeReason: "Runtime 사유",
-    workerRuntimeNextAction: "Worker runtime 다음 작업",
+    workerRuntimeReason: "실행 환경 사유",
+    workerRuntimeNextAction: "로컬 Codex 다음 작업",
     workerRuntimeNextActions: {
-      refreshRuntime: "local worker 실행 전에 Codex runtime 상태를 새로고침하세요. worker job이 있으면 수동 worker ledger import가 fallback입니다.",
-      liveReady: "Live local Codex worker 실행을 사용할 수 있습니다. 경계 권한과 worker job을 계획한 뒤 실행하고, 출력이 blocked이면 ledger import를 유지하세요.",
-      fixture: "Fixture runtime은 worker 실행을 시뮬레이션할 수 있습니다. 실제 작업에는 live local 실행 또는 manual ledger import evidence가 필요합니다.",
-      codexLogin: "Codex login을 실행하고 runtime 상태를 새로고침하거나, 경계가 정해진 worker를 수동 완료한 뒤 ledger evidence를 가져오세요.",
-      enableLiveTurns: "SOLO_CODEX_APP_SERVER_LIVE_TURNS=1을 설정하고 local sidecar를 재시작하거나, 경계가 정해진 worker를 수동 완료한 뒤 ledger evidence를 가져오세요.",
-      resolveBlocker: "Codex runtime blocker를 해소한 뒤 worker를 다시 실행하거나 완료된 worker ledger envelope을 가져오세요."
+      refreshRuntime: "로컬 Codex 작업을 실행하기 전에 실행 환경 상태를 새로고침하세요. 작업이 만들어진 뒤에는 완료 결과 가져오기도 사용할 수 있습니다.",
+      liveReady: "실시간 로컬 Codex 실행을 사용할 수 있습니다. 작업 범위와 권한을 확인한 뒤 실행하고, 출력이 멈추면 결과 가져오기로 보완하세요.",
+      fixture: "시뮬레이션 실행 환경은 로컬 Codex 작업을 흉내낼 수 있습니다. 실제 작업에는 실시간 로컬 실행 또는 가져온 작업 결과 근거가 필요합니다.",
+      codexLogin: "Codex 로그인을 완료하고 실행 환경 상태를 새로고침하거나, 범위가 정해진 작업을 수동으로 완료한 뒤 결과를 가져오세요.",
+      enableLiveTurns: "SOLO_CODEX_APP_SERVER_LIVE_TURNS=1을 설정하고 local sidecar를 재시작하거나, 범위가 정해진 작업을 수동으로 완료한 뒤 결과를 가져오세요.",
+      resolveBlocker: "Codex 실행 환경 문제를 해소한 뒤 로컬 Codex 작업을 다시 실행하거나 완료된 작업 결과 JSON을 가져오세요."
     },
     workerPlanExecutionMode: "실행 모드",
     workerPlanWorkingDirectory: "작업 디렉터리",
     workerPlanIssueDocument: "이슈 문서",
     workerPlanExecutionAuthority: "실행 권한",
-    workerPlanLedgerTrackerDoc: "Ledger tracker doc",
-    workerPlanLedgerStepDoc: "Ledger step doc",
-    workerPlanLedgerDocSourceRefs: "Ledger doc 참조 출처",
+    workerPlanLedgerTrackerDoc: "구현 추적 문서",
+    workerPlanLedgerStepDoc: "구현 단계 문서",
+    workerPlanLedgerDocSourceRefs: "구현 기록 참조 출처",
     workerPlanAllowedWriteScope: "허용된 쓰기 범위",
     workerPlanRequiredEvidence: "필수 근거",
     workerPlanRequiredEvidenceHelp: (stageLabel: string) =>
-      `${stageLabel} 단계를 진행하려면 worker가 공통 delivery contract와 현재 단계 gate를 모두 증명해야 합니다.`,
-    workerPlanBaseRequiredEvidence: "공통 delivery 근거",
+      `${stageLabel} 단계를 진행하려면 로컬 Codex 작업이 공통 완료 조건과 현재 단계 조건을 모두 증명해야 합니다.`,
+    workerPlanBaseRequiredEvidence: "공통 완료 근거",
     workerPlanStageRequiredEvidence: "현재 단계 근거",
     workerPlanForbiddenActions: "금지된 작업",
     workerPlanSourceRefs: "참조 출처",
     workerPlanBlocker: "차단 항목",
     workerPlanMissingEvidence: "누락된 근거",
-    workerPlanEvidenceRefs: "Job 근거 참조",
+    workerPlanEvidenceRefs: "작업 근거 참조",
     missingExecutionAuthority: "ExecutionAuthorityRecord 누락",
     workspaceLabel: (workspacePath: string | null): string => workspacePath
       ? `작업공간: ${workspacePath}`
@@ -3544,17 +3544,17 @@ const KO_COPY: typeof EN_COPY = {
       none: "없음"
     } satisfies Record<AutoImplementationWorkerJobStatus | "none", string>,
     latestWorkerJobLabel: (status: string | null, stageLabel: string | null, issueId: string | null) => status
-      ? `로컬 Codex worker: ${stageLabel ?? "현재 단계"} ${issueId ? `(${issueId}) ` : ""}${status}`
-      : "로컬 Codex worker: 아직 계획되지 않음",
+      ? `로컬 Codex 작업: ${stageLabel ?? "현재 단계"} ${issueId ? `(${issueId}) ` : ""}${status}`
+      : "로컬 Codex 작업: 아직 계획되지 않음",
     latestWorkerJobNextActionNotPlanned: (hasRun: boolean) => hasRun
-      ? "현재 단계 이슈 문서가 준비되면 경계가 정해진 로컬 worker job을 만드세요."
-      : "로컬 Codex worker를 계획하기 전에 먼저 작업공간 실행을 만드세요.",
+      ? "현재 단계 이슈 문서가 준비되면 범위가 정해진 로컬 Codex 작업을 계획하세요."
+      : "로컬 Codex 작업을 계획하기 전에 먼저 작업공간 실행을 만드세요.",
     issueRowStage: "단계",
     issueRowStatus: "상태",
     issueRowGithubIssue: "GitHub 이슈",
     issueRowLatestWorkerJob: (jobId: string | null, status: string) => jobId
-      ? `최신 worker ${jobId} (${status})`
-      : "최신 worker 없음",
+      ? `최신 로컬 Codex 작업 ${jobId} (${status})`
+      : "최신 로컬 Codex 작업 없음",
     issueRowNextAction: "다음 작업",
     issueRowDefaultNextAction: "이 이슈를 리뷰 연속 통과, 클린코드 확인, 테스트 근거 체크리스트에 맞춰 진행하세요.",
     issueRowCompletedNextAction: "완료된 단계의 구현 기록 근거를 사용해 다음 작은 PR 단위로 넘어가세요.",

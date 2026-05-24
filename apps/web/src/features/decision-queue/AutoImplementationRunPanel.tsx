@@ -166,8 +166,26 @@ const REVIEW_LOOP_STAGES = [
   "clean_code_fix_2"
 ] as const satisfies readonly AutoImplementationStage[];
 
-const ISSUE_ROW_COMPLETED_NEXT_ACTION = "Use the completed stage ledger evidence before advancing the next PR slice.";
+const ISSUE_ROW_COMPLETED_NEXT_ACTION = "Use the completed stage implementation record before advancing the next PR slice.";
 const ISSUE_ROW_DEFAULT_NEXT_ACTION = "Work this issue through the delivery protocol, review streaks, and test evidence checklist.";
+
+function userFacingAutoImplementationTaskText(value: string) {
+  return value
+    .replace(/\blocal\s+Codex\s+worker\s+job\b/giu, "local Codex task")
+    .replace(/\bLocal\s+Codex\s+worker\s+job\b/gu, "Local Codex task")
+    .replace(/\blocal\s+Codex\s+worker\b/giu, "local Codex task")
+    .replace(/\bLocal\s+Codex\s+worker\b/gu, "Local Codex task")
+    .replace(/\blocal\s+worker\s+job\b/giu, "local Codex task")
+    .replace(/\blocal\s+worker\b/giu, "local Codex task")
+    .replace(/\bworker\s+job\b/giu, "local Codex task")
+    .replace(/\bworker\s+ledger\s+envelope\b/giu, "task-result JSON")
+    .replace(/\bworker\s+ledger\s+evidence\b/giu, "local Codex task result evidence")
+    .replace(/\bledger\s+evidence\b/giu, "implementation record evidence")
+    .replace(/\bledger\s+import\b/giu, "result import")
+    .replace(/\bmanual\s+handoff\s+fallback\b/giu, "manual result-import fallback")
+    .replace(/\bbounded\s+ExecutionAuthorityRecord\b/gu, "scoped execution authority record")
+    .replace(/\bExecutionAuthorityRecord\b/gu, "execution authority record");
+}
 
 const AUTO_IMPLEMENTATION_REMOTE_STATUS_VIEW_LABELS = {
   connected: "connected",
@@ -269,11 +287,11 @@ function issueRowNextAction(input: {
   readonly latestWorkerJob: AutoImplementationWorkerJob | null;
 }) {
   if (input.latestWorkerJob?.nextRequiredAction) {
-    return input.latestWorkerJob.nextRequiredAction;
+    return userFacingAutoImplementationTaskText(input.latestWorkerJob.nextRequiredAction);
   }
 
   if (input.stage?.blocker?.nextRequiredAction) {
-    return input.stage.blocker.nextRequiredAction;
+    return userFacingAutoImplementationTaskText(input.stage.blocker.nextRequiredAction);
   }
 
   if (input.stage?.status === "completed") {
@@ -288,18 +306,18 @@ function issueRowBlockerLabel(input: {
   readonly latestWorkerJob: AutoImplementationWorkerJob | null;
 }) {
   if (input.latestWorkerJob?.blockedReason) {
-    return `worker blocker: ${input.latestWorkerJob.blockedReason}`;
+    return `local Codex task blocker: ${userFacingAutoImplementationTaskText(input.latestWorkerJob.blockedReason)}`;
   }
 
   if (input.stage?.blocker?.reason) {
-    return `stage blocker: ${input.stage.blocker.reason}`;
+    return `stage blocker: ${userFacingAutoImplementationTaskText(input.stage.blocker.reason)}`;
   }
 
   return null;
 }
 
 function latestIssueWorkerJobLabel(latestWorkerJob: AutoImplementationWorkerJob | null) {
-  return latestWorkerJob ? `latest worker ${latestWorkerJob.jobId} (${latestWorkerJob.status})` : "latest worker none";
+  return latestWorkerJob ? `latest local Codex task ${latestWorkerJob.jobId} (${latestWorkerJob.status})` : "latest local Codex task none";
 }
 
 function issueRowMissingEvidence(
@@ -307,10 +325,10 @@ function issueRowMissingEvidence(
   latestWorkerJob: AutoImplementationWorkerJob | null
 ) {
   if (latestWorkerJob?.missingEvidence.length) {
-    return latestWorkerJob.missingEvidence;
+    return latestWorkerJob.missingEvidence.map(userFacingAutoImplementationTaskText);
   }
 
-  return stage?.blocker?.missingEvidence ?? [];
+  return stage?.blocker?.missingEvidence.map(userFacingAutoImplementationTaskText) ?? [];
 }
 
 function issueRowEvidenceRefs(
@@ -387,11 +405,11 @@ function workerStageAdvanceBlockerLabel(input: {
   const { ledger, run, workerJob } = input;
 
   if (!workerJob) {
-    return "Plan and complete a current-stage local worker before advancing the stage.";
+    return "Plan and complete a current-stage local Codex task before advancing the stage.";
   }
 
   if (workerJob.status !== "completed") {
-    return "Complete the current-stage local worker and import its ledger evidence before advancing the stage.";
+    return "Complete the current-stage local Codex task and import its result evidence before advancing the stage.";
   }
 
   if (run.currentStage !== "merge_main") {
@@ -469,8 +487,8 @@ export function autoImplementationRunViewModel(
       deliveryGates: [],
       stageReviewGates: [],
       evidenceRefs: [],
-      latestWorkerJobLabel: "Local Codex worker: not planned",
-      latestWorkerJobNextAction: "Create a workspace run before planning a local Codex worker.",
+      latestWorkerJobLabel: "Local Codex task: not planned",
+      latestWorkerJobNextAction: "Create a workspace run before planning a local Codex task.",
       latestWorkerJobId: null,
       latestWorkerJobStatus: "not_planned",
       latestWorkerJobStage: null,
@@ -539,8 +557,10 @@ export function autoImplementationRunViewModel(
         ...splitWorkerRequiredEvidence(latestWorkerJob.stage, latestWorkerJob.executionPlan.requiredEvidence),
         forbiddenActions: latestWorkerJob.executionPlan.forbiddenActions,
         sourceRefs: latestWorkerJob.executionPlan.sourceRefs,
-        blockedReason: latestWorkerJob.blockedReason,
-        missingEvidence: latestWorkerJob.missingEvidence,
+        blockedReason: latestWorkerJob.blockedReason
+          ? userFacingAutoImplementationTaskText(latestWorkerJob.blockedReason)
+          : null,
+        missingEvidence: latestWorkerJob.missingEvidence.map(userFacingAutoImplementationTaskText),
         evidenceRefs: latestWorkerJob.evidenceRefs
       }
     : null;
@@ -601,10 +621,11 @@ export function autoImplementationRunViewModel(
     stageReviewGates: run.reviewProtocol.stageGates,
     evidenceRefs: run.evidenceRefs,
     latestWorkerJobLabel: latestWorkerJob
-      ? `Local Codex worker: ${latestWorkerJob.status} for ${latestWorkerJob.stage} (${latestWorkerJob.issueId})`
-      : "Local Codex worker: not planned",
-    latestWorkerJobNextAction: latestWorkerJob?.nextRequiredAction ??
-      "Create a bounded local worker job after the current stage issue document is ready.",
+      ? `Local Codex task: ${latestWorkerJob.status} for ${latestWorkerJob.stage} (${latestWorkerJob.issueId})`
+      : "Local Codex task: not planned",
+    latestWorkerJobNextAction: latestWorkerJob?.nextRequiredAction
+      ? userFacingAutoImplementationTaskText(latestWorkerJob.nextRequiredAction)
+      : "Plan a scoped local Codex task after the current stage issue document is ready.",
     latestWorkerJobId: latestWorkerJob?.jobId ?? null,
     latestWorkerJobStatus: latestWorkerJob?.status ?? "not_planned",
     latestWorkerJobStage: latestWorkerJob?.stage ?? null,

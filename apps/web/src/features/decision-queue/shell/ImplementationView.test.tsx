@@ -201,7 +201,7 @@ describe("ImplementationView", () => {
     expect(markup).toContain("authenticated (ChatGPT / plus)");
     expect(markup).toContain("Live turns");
     expect(markup).toContain("disabled");
-    expect(markup).toContain("Manual handoff");
+    expect(markup).toContain("Manual fallback path");
     expect(markup).toContain("available");
   });
 
@@ -230,24 +230,24 @@ describe("ImplementationView", () => {
       runtimeStatus
     });
 
-    expect(markup).toContain("Worker runtime readiness");
-    expect(markup).toContain("Runtime status");
+    expect(markup).toContain("Local Codex runtime readiness");
+    expect(markup).toContain("Codex runtime status");
     expect(markup).toContain("available");
     expect(markup).toContain("Checked at");
     expect(markup).toContain("2026-05-23T00:00:00.000Z");
-    expect(markup).toContain("Runtime adapter");
+    expect(markup).toContain("Codex runtime adapter");
     expect(markup).toContain("codex-app-server-preview-v1");
     expect(markup).toContain("Generated schema version");
     expect(markup).toContain("codex-cli-0.128.0");
-    expect(markup).toContain("Transport");
+    expect(markup).toContain("Connection transport");
     expect(markup).toContain("stdio");
     expect(markup).toContain("Execution mode");
     expect(markup).toContain("live Codex execution");
     expect(markup).toContain("Codex account");
     expect(markup).toContain("authenticated (ChatGPT / plus)");
-    expect(markup).toContain("Live turns");
+    expect(markup).toContain("Automatic runs");
     expect(markup).toContain("enabled");
-    expect(markup).toContain("Manual handoff");
+    expect(markup).toContain("Manual fallback path");
     expect(markup).toContain("available");
     expect(markup).toContain("Tool available. No background tasks are pending.");
   });

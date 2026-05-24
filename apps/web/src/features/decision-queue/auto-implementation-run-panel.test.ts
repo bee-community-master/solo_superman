@@ -136,7 +136,7 @@ function workerJob(overrides: WorkerJobOverrides = {}): AutoImplementationRun["w
     },
     blockedReason: null,
     missingEvidence: [],
-    nextRequiredAction: "Run the local Codex worker.",
+    nextRequiredAction: "Run the local Codex task.",
     createdAt: "2026-05-19T00:01:00.000Z",
     updatedAt: "2026-05-19T00:01:00.000Z",
     evidenceRefs: ["auto-worker-job:auto_run_demo:initial_pr:job_planned"]
@@ -236,7 +236,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.pullRequestMutationLabel).toBe("GitHub PR mutation: no records");
     expect(view.pullRequestMutationHistoryCount).toBe(0);
     expect(view.latestPullRequestMutation).toBeNull();
-    expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
+    expect(view.latestWorkerJobLabel).toBe("Local Codex task: not planned");
     expect(view.latestWorkerJobNextAction).toContain("current stage issue document");
     expect(view.latestWorkerPlan).toBeNull();
     expect(view.stageProgress).toEqual({
@@ -271,7 +271,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.stages[0]!.status).toBe("ready");
     expect(view.issueDocs[0]!.relativePath).toContain("implementation-issues/001-initial_pr.md");
     expect(view.issueRows[0]).toMatchObject({
-      latestWorkerJobLabel: "latest worker none",
+      latestWorkerJobLabel: "latest local Codex task none",
       nextActionLabel: "Work this issue through the delivery protocol, review streaks, and test evidence checklist.",
       stageGateLabel: expect.stringContaining("Record the first targeted test evidence"),
       missingEvidenceLabel: "none",
@@ -305,8 +305,8 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(koreanMarkup).not.toContain("이슈 모드: markdown_fallback");
     expect(koreanMarkup).toContain("다음 5분 tick: 2026-05-19T00:05:00.000Z");
     expect(koreanMarkup).toContain("이슈 상태 요약: 완료 0개 / 차단 0개 / 열림 7개 / 전체 7개");
-    expect(koreanMarkup).toContain("로컬 Codex worker: 아직 계획되지 않음");
-    expect(koreanMarkup).toContain("최신 worker 없음");
+    expect(koreanMarkup).toContain("로컬 Codex 작업: 아직 계획되지 않음");
+    expect(koreanMarkup).toContain("최신 로컬 Codex 작업 없음");
     expect(koreanMarkup).toContain(
       "local-001: 초기 구현 및 PR 생성 — 단계: 초기 구현 및 PR 생성 / 상태: 열림"
     );
@@ -319,7 +319,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(koreanMarkup).not.toContain("Issue mode:");
     expect(koreanMarkup).not.toContain("Issue status summary");
     expect(koreanMarkup).not.toContain("remote status is no_remote");
-    expect(koreanMarkup).not.toContain("Local Codex worker: not planned");
+    expect(koreanMarkup).not.toContain("Local Codex task: not planned");
     expect(koreanMarkup).toContain("0/7 단계 완료 · 현재 단계: 초기 구현 및 PR 생성 (준비됨)");
     expect(koreanMarkup).toContain("0/4 리뷰/클린코드 루프 완료 · 다음: 기능 PR 코드 리뷰 및 수정 루프");
     expect(koreanMarkup).toContain("이 이슈 범위에서 가장 작고 동작이 완성된 구현을 만듭니다.");
@@ -413,7 +413,7 @@ describe("AutoImplementationRunPanel view model", () => {
 
     expect(blockedMarkup).toContain('<button type="button" disabled="">Create workspace run</button>');
     expect(readyMarkup).toContain('<button type="button">Create workspace run</button>');
-    expect(blockedMarkup).not.toContain("Worker runtime readiness");
+    expect(blockedMarkup).not.toContain("Local Codex runtime readiness");
   });
 
   it("surfaces manual handoff runtime readiness beside worker controls", () => {
@@ -442,8 +442,8 @@ describe("AutoImplementationRunPanel view model", () => {
       manualHandoffState: "available"
     });
     expect(view.workerRuntimeReadiness?.nextActionKey).toBe("enableLiveTurns");
-    expect(markup).toContain("Worker runtime readiness");
-    expect(markup).toContain("Runtime status");
+    expect(markup).toContain("Local Codex runtime readiness");
+    expect(markup).toContain("Codex runtime status");
     expect(markup).toContain("unavailable");
     expect(markup).toContain("Execution mode");
     expect(markup).toContain("manual handoff");
@@ -452,18 +452,18 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("authenticated (ChatGPT / plus)");
     expect(markup).toContain("Checked at");
     expect(markup).toContain("2026-05-23T00:00:00.000Z");
-    expect(markup).toContain("Runtime adapter");
+    expect(markup).toContain("Codex runtime adapter");
     expect(markup).toContain("codex-app-server-preview-v1");
     expect(markup).toContain("Generated schema version");
     expect(markup).toContain("codex-cli-0.128.0");
-    expect(markup).toContain("Transport");
+    expect(markup).toContain("Connection transport");
     expect(markup).toContain("stdio");
-    expect(markup).toContain("Live turns");
+    expect(markup).toContain("Automatic runs");
     expect(markup).toContain("disabled");
-    expect(markup).toContain("Manual handoff");
+    expect(markup).toContain("Manual fallback path");
     expect(markup).toContain("available");
     expect(markup).toContain("SOLO_CODEX_APP_SERVER_LIVE_TURNS=1");
-    expect(markup).toContain("import its ledger evidence");
+    expect(markup).toContain("import its result evidence");
 
     const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
 
@@ -505,9 +505,9 @@ describe("AutoImplementationRunPanel view model", () => {
       issueTitle: "Feature PR code review and fix loop",
       issueRelativePath: "implementation-issues/002-code_review_fix_1.md",
       status: "blocked",
-      blockedReason: "ExecutionAuthorityRecord is missing.",
-      missingEvidence: ["ExecutionAuthorityRecord"],
-      nextRequiredAction: "Create a bounded ExecutionAuthorityRecord before local worker execution.",
+      blockedReason: "execution authority record is missing.",
+      missingEvidence: ["execution authority record"],
+      nextRequiredAction: "Create a scoped execution authority record before local Codex task execution.",
       evidenceRefs: ["auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked"],
       executionPlan: {
         issueDocumentPath: "implementation-issues/002-code_review_fix_1.md"
@@ -570,20 +570,20 @@ describe("AutoImplementationRunPanel view model", () => {
       nextReviewLoopStage: "code_review_fix_1"
     });
     expect(view.issueRows[0]).toMatchObject({
-      latestWorkerJobLabel: "latest worker none",
-      nextActionLabel: "Use the completed stage ledger evidence before advancing the next PR slice.",
+      latestWorkerJobLabel: "latest local Codex task none",
+      nextActionLabel: "Use the completed stage implementation record before advancing the next PR slice.",
       missingEvidenceLabel: "none",
       evidenceRefsLabel: "none"
     });
     expect(view.issueRows[1]).toMatchObject({
-      latestWorkerJobLabel: "latest worker auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (blocked)",
-      blockerLabel: "worker blocker: ExecutionAuthorityRecord is missing.",
-      nextActionLabel: "Create a bounded ExecutionAuthorityRecord before local worker execution.",
-      missingEvidenceLabel: "ExecutionAuthorityRecord",
+      latestWorkerJobLabel: "latest local Codex task auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (blocked)",
+      blockerLabel: "local Codex task blocker: execution authority record is missing.",
+      nextActionLabel: "Create a scoped execution authority record before local Codex task execution.",
+      missingEvidenceLabel: "execution authority record",
       evidenceRefsLabel: "auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked"
     });
     expect(view.issueRows[2]).toMatchObject({
-      latestWorkerJobLabel: "latest worker none",
+      latestWorkerJobLabel: "latest local Codex task none",
       blockerLabel: "stage blocker: Repository review evidence is missing.",
       nextActionLabel: "Record the second repository code-review clean pass.",
       missingEvidenceLabel: "Repository code-review pass 2",
@@ -600,11 +600,11 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain(
       "local-003: Repository-wide code review and fix loop — stage: Repository-wide code review and fix loop / status: blocked (implementation-issues/003-code_review_fix_2.md)"
     );
-    expect(markup).toContain("latest worker auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (blocked)");
-    expect(markup).toContain("next: Create a bounded ExecutionAuthorityRecord before local worker execution.");
-    expect(markup).toContain("missing: ExecutionAuthorityRecord");
+    expect(markup).toContain("latest local Codex task auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (blocked)");
+    expect(markup).toContain("next: Create a scoped execution authority record before local Codex task execution.");
+    expect(markup).toContain("missing: execution authority record");
     expect(markup).toContain("evidence: auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked");
-    expect(markup).toContain("worker blocker: ExecutionAuthorityRecord is missing.");
+    expect(markup).toContain("local Codex task blocker: execution authority record is missing.");
     expect(markup).toContain("next: Record the second repository code-review clean pass.");
     expect(markup).toContain("missing: Repository code-review pass 2");
     expect(markup).toContain("evidence: stage-blocker:repository-review");
@@ -613,7 +613,7 @@ describe("AutoImplementationRunPanel view model", () => {
     const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
     expect(koreanMarkup).toContain("단계: 초기 구현 및 PR 생성 / 상태: 완료");
     expect(koreanMarkup).toContain("단계: 기능 PR 코드 리뷰 및 수정 루프 / 상태: 차단됨");
-    expect(koreanMarkup).toContain("최신 worker auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (차단됨)");
+    expect(koreanMarkup).toContain("최신 로컬 Codex 작업 auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (차단됨)");
     expect(koreanMarkup).not.toContain("상태: completed");
     expect(koreanMarkup).not.toContain("상태: blocked");
   });
@@ -871,9 +871,9 @@ describe("AutoImplementationRunPanel view model", () => {
                 status: "blocked" as const,
                 blocker: {
                   stage: "initial_pr" as const,
-                  reason: "Worker ledger evidence is missing.",
+                  reason: "Local Codex task result evidence is missing.",
                   missingEvidence: ["ImplementationStepLedger import"],
-                  nextRequiredAction: "Retry the worker ledger import.",
+                  nextRequiredAction: "Retry the local Codex task result import.",
                   evidenceRefs: ["worker-blocked:ledger-import"]
                 }
               }
@@ -971,7 +971,7 @@ describe("AutoImplementationRunPanel view model", () => {
             },
             blockedReason: "ExecutionAuthorityRecord is missing.",
             missingEvidence: ["ExecutionAuthorityRecord"],
-            nextRequiredAction: "Create a bounded ExecutionAuthorityRecord before local worker execution.",
+            nextRequiredAction: "Create a scoped execution authority record before local Codex task execution.",
             evidenceRefs: ["auto-worker-job:auto_run_demo:initial_pr:job_1"]
           })
         ]
@@ -980,14 +980,14 @@ describe("AutoImplementationRunPanel view model", () => {
     const view = autoImplementationRunViewModel(projection);
 
     expect(view.latestWorkerJobLabel).toContain("blocked for initial_pr (local-001)");
-    expect(view.latestWorkerJobNextAction).toContain("ExecutionAuthorityRecord");
+    expect(view.latestWorkerJobNextAction).toContain("execution authority record");
     expect(view.latestWorkerJobId).toBe("auto-worker-job:auto_run_demo:initial_pr:job_1");
     expect(view.latestWorkerPlan).toMatchObject({
       workingDirectory: "/repo/workspace/demo-project",
       issueDocumentPath: "implementation-issues/001-initial_pr.md",
       executionAuthorityRef: null,
-      blockedReason: "ExecutionAuthorityRecord is missing.",
-      missingEvidence: ["ExecutionAuthorityRecord"],
+      blockedReason: "execution authority record is missing.",
+      missingEvidence: ["execution authority record"],
       evidenceRefs: ["auto-worker-job:auto_run_demo:initial_pr:job_1"]
     });
     expect(view.canPlanWorkerJob).toBe(true);
@@ -1077,7 +1077,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(plannedView.canCompleteWorkerJob).toBe(false);
     expect(ledgerReadyView.canCompleteWorkerJob).toBe(true);
     expect(plannedView.canAdvanceWorkerStage).toBe(false);
-    expect(plannedView.workerStageAdvanceBlockerLabel).toContain("Complete the current-stage local worker");
+    expect(plannedView.workerStageAdvanceBlockerLabel).toContain("Complete the current-stage local Codex task");
     expect(plannedView.latestWorkerPlan?.executionAuthorityRef).toBe("exec_auth_auto_worker_initial_pr");
     expect(completedView.canPlanWorkerJob).toBe(false);
     expect(completedView.canRunWorkerJob).toBe(false);
@@ -1246,7 +1246,7 @@ describe("AutoImplementationRunPanel view model", () => {
     const view = autoImplementationRunViewModel(projection);
 
     expect(view.latestWorkerJobId).toBeNull();
-    expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
+    expect(view.latestWorkerJobLabel).toBe("Local Codex task: not planned");
     expect(view.latestWorkerPlan).toBeNull();
     expect(view.canPlanWorkerJob).toBe(true);
     expect(view.canRunWorkerJob).toBe(false);
@@ -1264,7 +1264,7 @@ describe("AutoImplementationRunPanel view model", () => {
             status: "blocked",
             missingEvidence: ["Local Codex worker execution"],
             blockedReason: "Live Codex worker output was unavailable.",
-            nextRequiredAction: "Import a completed worker ledger envelope."
+            nextRequiredAction: "Import completed task-result JSON."
           })
         ]
       }
@@ -1288,11 +1288,11 @@ describe("AutoImplementationRunPanel view model", () => {
     } as unknown as AutoImplementationRunProjection;
     const view = autoImplementationRunViewModel(projection);
 
-    expect(view.latestWorkerJobLabel).toBe("Local Codex worker: not planned");
+    expect(view.latestWorkerJobLabel).toBe("Local Codex task: not planned");
     expect(view.pullRequestMutationLabel).toBe("GitHub PR mutation: no records");
     expect(view.latestPullRequestMutation).toBeNull();
     expect(view.latestWorkerPlan).toBeNull();
-    expect(view.latestWorkerJobNextAction).toContain("bounded local worker job");
+    expect(view.latestWorkerJobNextAction).toContain("scoped local Codex task");
   });
 
   it("renders the latest local worker bounded plan details", () => {
@@ -1306,7 +1306,7 @@ describe("AutoImplementationRunPanel view model", () => {
     const markup = renderPanelMarkup(view);
     const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
 
-    expect(markup).toContain("Local worker bounded plan");
+    expect(markup).toContain("Local Codex task plan");
     expect(markup).toContain("Local Codex task result JSON");
     expect(koreanMarkup).toContain("로컬 Codex 작업 결과 JSON");
     expect(markup).toContain("local sandboxed Codex");
@@ -1314,9 +1314,9 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("/repo/workspace/demo-project");
     expect(markup).toContain("implementation-issues/001-initial_pr.md");
     expect(markup).toContain("exec_auth_auto_worker_initial_pr");
-    expect(markup).toContain("Ledger tracker doc");
+    expect(markup).toContain("Implementation tracker doc");
     expect(markup).toContain("auto-implementation-tracker:auto_run_demo");
-    expect(markup).toContain("Ledger step doc");
+    expect(markup).toContain("Implementation step doc");
     expect(markup).toContain("auto-implementation-step:auto_run_demo:initial_pr:local-001");
     expect(markup).toContain("tracked_code_docs_config");
     expect(markup).toContain("Allowed write scope");
@@ -1337,7 +1337,7 @@ describe("AutoImplementationRunPanel view model", () => {
             executionPlan: { executionAuthorityRef: null },
             blockedReason: "ExecutionAuthorityRecord is missing.",
             missingEvidence: ["ExecutionAuthorityRecord"],
-            nextRequiredAction: "Create a bounded ExecutionAuthorityRecord before local worker execution."
+            nextRequiredAction: "Create a scoped execution authority record before local Codex task execution."
           })
         ]
       }
@@ -1345,7 +1345,7 @@ describe("AutoImplementationRunPanel view model", () => {
     const markup = renderPanelMarkup(view);
 
     expect(markup).toContain("Missing ExecutionAuthorityRecord");
-    expect(markup).toContain("ExecutionAuthorityRecord is missing.");
+    expect(markup).toContain("execution authority record is missing.");
     expect(markup).toContain("Missing evidence");
     expect(markup).toContain("ExecutionAuthorityRecord");
   });
@@ -1354,7 +1354,7 @@ describe("AutoImplementationRunPanel view model", () => {
     const view = autoImplementationRunViewModel(AUTO_IMPLEMENTATION_RUN_READY_FIXTURE);
     const markup = renderPanelMarkup(view);
 
-    expect(markup).not.toContain("Local worker bounded plan");
+    expect(markup).not.toContain("Local Codex task plan");
   });
 
   it("renders the latest GitHub PR mutation evidence", () => {
@@ -1426,7 +1426,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(koreanMarkup).toContain("이 이슈를 리뷰 연속 통과, 클린코드 확인, 테스트 근거 체크리스트에 맞춰 진행하세요.");
     expect(koreanMarkup).not.toContain("Work this issue through the delivery protocol");
     expect(koreanMarkup).not.toContain("Do not merge until the feature PR code review reaches");
-    expect(markup).toContain("Local Codex worker: not planned");
+    expect(markup).toContain("Local Codex task: not planned");
     expect(markup).toContain("Plan approved local Codex task");
     expect(markup).toContain("Record current stage tick");
     expect(markup).toContain("Start current stage");
