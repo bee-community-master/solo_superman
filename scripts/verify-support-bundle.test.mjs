@@ -60,9 +60,13 @@ function validBundle(overrides = {}) {
     recommendedChecks: [
       "pnpm verify:product-capability-readiness",
       "pnpm verify:release-readiness",
-      "pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>",
+      "pnpm release:evidence-checklist",
+      "pnpm release:evidence-bundle -- <bundle-dir>",
       "pnpm verify:release-evidence-template",
       "pnpm verify:release-evidence-bundle",
+      "pnpm verify:release-evidence-template -- --input <filled-template.json>",
+      "pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> --require-ready",
+      "pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>",
       "pnpm verify:support-bundle",
       "pnpm support:bundle",
       "pnpm verify"
@@ -140,6 +144,8 @@ describe("support bundle verification", () => {
       "$.package.scripts.verifyReadyRelease: must point to verify-ready-release.mjs",
       "$.recommendedChecks: must include pnpm verify:support-bundle",
       "$.recommendedChecks: must include pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>",
+      "$.recommendedChecks: must include pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> --require-ready",
+      "$.recommendedChecks: must include pnpm release:evidence-bundle -- <bundle-dir>",
       "$.recommendedChecks: must include pnpm verify"
     ]));
   });

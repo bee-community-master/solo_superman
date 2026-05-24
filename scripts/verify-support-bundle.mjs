@@ -37,9 +37,13 @@ const REQUIRED_DIAGNOSTICS = new Set([
 const REQUIRED_RECOMMENDED_CHECKS = new Set([
   "pnpm verify:product-capability-readiness",
   "pnpm verify:release-readiness",
-  "pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>",
+  "pnpm release:evidence-checklist",
+  "pnpm release:evidence-bundle -- <bundle-dir>",
   "pnpm verify:release-evidence-template",
   "pnpm verify:release-evidence-bundle",
+  "pnpm verify:release-evidence-template -- --input <filled-template.json>",
+  "pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> --require-ready",
+  "pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>",
   "pnpm verify:support-bundle",
   "pnpm support:bundle",
   "pnpm verify"
