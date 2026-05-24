@@ -814,6 +814,8 @@ function renderReleaseEvidenceBundleReadme(manifest) {
     "",
     "Use the first command for generated or partially edited bundles. It fails if the bundle directory contains off-manifest files, so remove scratch notes or secret-bearing artifacts before sharing evidence. Use `--require-ready` only after release lab evidence has replaced placeholders. The aggregate `verify:ready-release` command also runs the filled-bundle gate before final `release-readiness --require-ready`.",
     "",
+    "When `verify:ready-release` is blocked, read its aggregate `commandBlockers` list first, then inspect the matching command entry's `blockers` array. These fields lift nested verifier `blockers`/`issues` out of redacted stdout so missing credentials, device evidence, or bundle files are visible without copying raw logs.",
+    "",
     "## Ready-release verification commands",
     "",
     ...checkboxList(manifest.readyReleaseCommands, (command) => `\`${command}\``),
