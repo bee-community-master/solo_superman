@@ -736,6 +736,10 @@ describe("release evidence checklist", () => {
       expect(readme).toContain("pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>");
       expect(readme).toContain("aggregate `commandBlockers` list");
       expect(readme).toContain("matching command entry's `blockers` array");
+      expect(readme).toContain("`verification.readyReleaseResult.status`");
+      expect(readme).toContain("`verification.readyReleaseResult.commandBlockers`");
+      expect(readme).toContain("`verification.readyReleaseResult.perCommandBlockers`");
+      expect(readme).toContain("JSON evidence and issue comment agree");
       expect(readme).toContain("filled template and full bundle pass validation");
     } finally {
       await rm(dir, { recursive: true, force: true });
