@@ -14,6 +14,7 @@ import {
   autoImplementationRunWithSynchronizedIssueDocs,
   autoImplementationWorkerExpectedChangeScope,
   autoImplementationWorkerLedgerStepDescription,
+  autoImplementationWorkerRequiredEvidence,
   canCreateAutoImplementationGitHubIssues,
   canMergeAutoImplementationPullRequest,
   canOpenNewAutoImplementationPullRequest,
@@ -272,6 +273,27 @@ describe("AutoImplementationRunProjection contract", () => {
     expect(autoImplementationPlanningIssueFiles(run)).toEqual([
       "planning-handoff-pr-issues/001-phase2-api-ready.md"
     ]);
+  });
+
+  it("adds stage-specific required evidence to local Codex worker plans", () => {
+    expect(autoImplementationWorkerRequiredEvidence("initial_pr")).toEqual(
+      expect.arrayContaining([
+        "ImplementationStepLedger trackerDoc and stepDoc",
+        expect.stringContaining("initial implementation PR evidence")
+      ])
+    );
+    expect(autoImplementationWorkerRequiredEvidence("final_verify_pr_update")).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("final missing-test audit records zero"),
+        expect.stringContaining("final PR body evidence refs")
+      ])
+    );
+    expect(autoImplementationWorkerRequiredEvidence("merge_main")).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("applied GitHub PR merge mutation record"),
+        expect.stringContaining("post-merge-verify:<stage>:<command>")
+      ])
+    );
   });
 
   it("accepts current-stage worker jobs that carry a bounded local Codex execution plan", () => {

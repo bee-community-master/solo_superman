@@ -2,6 +2,7 @@ import type { ProjectionVersion, SchemaVersion, SessionId } from "../ids";
 import {
   IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES,
   IMPLEMENTATION_CODE_REVIEW_SCOPES,
+  AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX,
   IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK,
   isImplementationStepLedgerStepDoc,
   isImplementationStepLedgerTrackerDoc,
@@ -152,6 +153,53 @@ export const AUTO_IMPLEMENTATION_REVIEW_EVIDENCE_CHECKLIST = [
   "Changed-code clean-code review: record two consecutive no-finding passes for naming, boundaries, duplication, dead paths, and test shape.",
   "Repository clean-code review: record two consecutive no-finding passes for adjacent slop, stale abstractions, and consistency drift."
 ] as const;
+
+export const AUTO_IMPLEMENTATION_WORKER_BASE_REQUIRED_EVIDENCE = [
+  "ImplementationStepLedger trackerDoc and stepDoc",
+  "Planning Handoff PR-sized issue refs reviewed before edits",
+  "commit or no-code evidence",
+  "two no-finding feature and repository code-review passes",
+  "separate CodeReviewRecord ids for feature and repository review streaks",
+  "two no-finding changed-code and repository clean-code passes",
+  "separate CleanCodeReviewRecord ids for changed-code and repository clean-code streaks",
+  "MissingTestAuditRecord with uncovered required acceptance criteria recorded as zero or an explicit blocker",
+  "passing targeted and full test evidence",
+  "ledger evidence refs imported into the stage gate",
+  "visible blocker evidence when the worker cannot complete"
+] as const;
+
+export const AUTO_IMPLEMENTATION_STAGE_WORKER_REQUIRED_EVIDENCE = {
+  initial_pr: [
+    "initial implementation PR evidence links the PR-sized issue, acceptance criteria, rollback notes, and targeted test plan"
+  ],
+  code_review_fix_1: [
+    "feature-scope CodeReviewRecord ids prove two consecutive no-finding passes after any fixes"
+  ],
+  code_review_fix_2: [
+    "repository-scope CodeReviewRecord ids prove two consecutive no-finding passes beyond the touched feature"
+  ],
+  clean_code_fix_1: [
+    "changed-code CleanCodeReviewRecord ids prove two consecutive no-finding passes for naming, boundaries, duplication, dead paths, and test shape"
+  ],
+  clean_code_fix_2: [
+    "repository CleanCodeReviewRecord ids prove two consecutive no-finding passes for adjacent slop, stale abstractions, and consistency drift"
+  ],
+  final_verify_pr_update: [
+    "final missing-test audit records zero uncovered targeted-test gaps before PR body update",
+    "final PR body evidence refs are ready to prove scope, review streaks, exact verification commands, known gaps, and merge readiness"
+  ],
+  merge_main: [
+    "applied GitHub PR merge mutation record is present before merge_main completion",
+    `${AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX}<stage>:<command> evidence refs prove main was synced and verified after merge`
+  ]
+} as const satisfies Record<AutoImplementationStage, readonly string[]>;
+
+export function autoImplementationWorkerRequiredEvidence(stage: AutoImplementationStage) {
+  return [
+    ...AUTO_IMPLEMENTATION_WORKER_BASE_REQUIRED_EVIDENCE,
+    ...AUTO_IMPLEMENTATION_STAGE_WORKER_REQUIRED_EVIDENCE[stage]
+  ];
+}
 
 export const AUTO_IMPLEMENTATION_STAGE_REVIEW_GATES = {
   initial_pr: [
