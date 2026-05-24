@@ -106,6 +106,26 @@ function fakeCommandRunner(command, args) {
       blockers: [],
       checked: ["blocked broad-release posture is allowed only with explicit blockers"]
     })],
+    [`${process.execPath} scripts/verify-ready-release.mjs --plan-only`, JSON.stringify({
+      status: "planned",
+      schemaVersion: "solo-superman-ready-release-verification.v1",
+      mode: "plan-only",
+      releaseEvidenceBundleDir: "./solo-superman-release-evidence-bundle",
+      releaseEvidenceBundlePreparation: {
+        status: "planned",
+        command: "pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle",
+        bundleDir: "./solo-superman-release-evidence-bundle",
+        requiredBefore: "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready"
+      },
+      blockers: [],
+      commandBlockers: [],
+      commands: [
+        { command: "pnpm verify:signed-package-preflight -- --require-credentials" },
+        { command: "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready" },
+        { command: "pnpm verify:release-readiness -- --require-ready" }
+      ],
+      checked: ["release evidence bundle preparation prerequisite is surfaced before require-ready verification"]
+    })],
     [`${process.execPath} scripts/verify-release-evidence-template.mjs`, JSON.stringify({
       status: "passed",
       schemaVersion: "solo-superman-release-evidence-template-validation.v1",
@@ -248,6 +268,7 @@ describe("support diagnostics bundle", () => {
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-release");
     expect(bundle.recommendedChecks).toContain("pnpm verify:signed-package-release:dry-run");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-readiness");
+    expect(bundle.recommendedChecks).toContain("pnpm verify:ready-release -- --plan-only");
     expect(bundle.recommendedChecks).toContain("pnpm release:evidence-checklist");
     expect(bundle.recommendedChecks).toContain("pnpm release:evidence-bundle -- <bundle-dir>");
     expect(bundle.recommendedChecks).toContain("pnpm verify:release-evidence-template");
@@ -343,6 +364,26 @@ describe("support diagnostics bundle", () => {
       readinessStatus: "blocked",
       broadReleaseReady: false,
       blockedGates: ["signed-packages", "packaged-update-rollback", "windows-real-device"]
+    });
+    expect(bundle.releaseDiagnostics.readyReleasePlan).toMatchObject({
+      command: "pnpm verify:ready-release -- --plan-only",
+      captureStatus: "ok",
+      evidenceStatus: "planned",
+      mode: "plan-only",
+      releaseEvidenceBundleDir: "./solo-superman-release-evidence-bundle",
+      releaseEvidenceBundlePreparation: {
+        status: "planned",
+        command: "pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle",
+        bundleDir: "./solo-superman-release-evidence-bundle",
+        requiredBefore: "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready"
+      },
+      plannedCommands: [
+        "pnpm verify:signed-package-preflight -- --require-credentials",
+        "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready",
+        "pnpm verify:release-readiness -- --require-ready"
+      ],
+      blockers: [],
+      commandBlockers: []
     });
     expect(bundle.releaseDiagnostics.releaseEvidenceTemplate).toMatchObject({
       command: "pnpm verify:release-evidence-template",
