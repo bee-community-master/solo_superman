@@ -1,10 +1,11 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { initializeStorageReadiness } from "./storage-readiness";
+import { removeTemporaryDirectory } from "../test-cleanup";
 
 const tempDirs: string[] = [];
 
@@ -17,7 +18,7 @@ async function makeTempAppDataDir() {
 }
 
 afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((tempDir) => rm(tempDir, { recursive: true, force: true })));
+  await Promise.all(tempDirs.splice(0).map(removeTemporaryDirectory));
 });
 
 describe("PR-03 sidecar storage readiness", () => {

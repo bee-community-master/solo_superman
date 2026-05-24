@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   buildFilledReleaseEvidenceTemplateFixture,
   buildReleaseEvidenceChecklist,
@@ -164,7 +165,7 @@ export async function runReleaseEvidenceTemplateVerifierCli(argv = process.argv.
   return validation;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   runReleaseEvidenceTemplateVerifierCli().then((validation) => {
     if (Array.isArray(validation.issues) && validation.issues.length > 0) {
       process.exitCode = 1;

@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -45,6 +46,7 @@ import {
 import { hashBrowserActionPreview } from "./product-engine/browser-action-adapter";
 import { hashFileDiffPreview } from "./product-engine/file-diff-adapter";
 import { hashShellCommandPreview } from "./product-engine/shell-command-adapter";
+import { removeTemporaryDirectory } from "./test-cleanup";
 
 const localCapabilityToken = "test-local-capability-token";
 const tempDirs: string[] = [];
@@ -101,7 +103,7 @@ async function createMigratedStorageApp(options: { readonly autoImplementationWo
 }
 
 afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((tempDir) => rm(tempDir, { recursive: true, force: true })));
+  await Promise.all(tempDirs.splice(0).map(removeTemporaryDirectory));
 });
 
 function authHeaders() {
@@ -1033,6 +1035,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       await mkdir(join(workspaceRoot, "packages/contracts/src"), { recursive: true });
       await writeFile(join(workspaceRoot, "packages/contracts/src/phase3-closeout-target.ts"), "export const value = 1;\n");
       await writeFile(join(workspaceRoot, "README.md"), "phase 3 closeout workspace\n");
+      execFileSync("git", ["init"], { cwd: workspaceRoot, stdio: "ignore" });
       localTarget = await createLocalBrowserTargetServer();
 
       const start = await postJson(app, "/api/v1/projects", {
@@ -1161,7 +1164,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         }
       );
 
-      const shellCommand = ["ls", "."] as const;
+      const shellCommand = ["git", "status", "--short"] as const;
       const shellHash = hashShellCommandPreview({ command: shellCommand });
       const { recordId: shellRecordId } = await createExecutionAuthorityForE2e(
         app,
@@ -1206,7 +1209,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           authorityRecordId: shellRecordId,
           status: "completed",
           command: {
-            executable: "ls",
+            executable: "git",
             commandClass: "diagnostic",
             timedOut: false
           },

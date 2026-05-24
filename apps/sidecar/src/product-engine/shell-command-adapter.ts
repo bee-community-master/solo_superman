@@ -53,6 +53,7 @@ const BUILD_OR_FULL_VERIFY_TIMEOUT_MS = 1_200_000;
 const RAW_OUTPUT_CAPTURE_MAX_CHARS = 64_000;
 const OUTPUT_SUMMARY_MAX_CHARS = 4_000;
 const OUTPUT_SUMMARY_MAX_LINES = 40;
+const DEFAULT_WINDOWS_PATHEXT = ".COM;.EXE;.BAT;.CMD";
 
 const READ_ONLY_DIAGNOSTIC_EXECUTABLES = new Set(["ls", "cat", "rg", "git"]);
 const SAFE_GIT_STATUS_ARGS = new Set(["status", "--short", "--porcelain", "--branch"]);
@@ -851,36 +852,55 @@ function runCommand(input: {
   });
 }
 
+function executableCandidateNames(executable: string): readonly string[] {
+  if (process.platform !== "win32" || /\.[^\\/]+$/u.test(executable)) {
+    return [executable];
+  }
+
+  const pathExt = process.env.PATHEXT?.trim() ? process.env.PATHEXT : DEFAULT_WINDOWS_PATHEXT;
+  const extensions = pathExt
+    .split(";")
+    .map((extension) => extension.trim())
+    .filter((extension) => extension.length > 0)
+    .map((extension) => extension.startsWith(".") ? extension : `.${extension}`);
+  const extensionCandidates = extensions.map((extension) => `${executable}${extension}`);
+
+  return Array.from(new Set([...extensionCandidates, executable]));
+}
+
 async function resolveExecutablePath(input: {
   readonly executable: string;
   readonly realWorkspaceRoot: string;
 }): Promise<string | ExecutionAuthorityBlockReasonDto> {
   const pathEntries = (process.env.PATH ?? "").split(delimiter).filter((entry) => entry.trim().length > 0);
+  const executableNames = executableCandidateNames(input.executable);
 
   for (const pathEntry of pathEntries) {
-    const candidate = resolve(pathEntry, input.executable);
+    for (const executableName of executableNames) {
+      const candidate = resolve(pathEntry, executableName);
 
-    try {
-      const candidateStats = await stat(candidate);
+      try {
+        const candidateStats = await stat(candidate);
 
-      if (!candidateStats.isFile()) {
-        continue;
+        if (!candidateStats.isFile()) {
+          continue;
+        }
+
+        await access(candidate, fsConstants.X_OK);
+
+        const realExecutablePath = await realpath(candidate);
+
+        if (isInsideDirectory(input.realWorkspaceRoot, realExecutablePath)) {
+          return blockReason(
+            "sandbox_failure",
+            "Shell command executable resolves inside the approved workspace; PATH-local executables are not allowed."
+          );
+        }
+
+        return realExecutablePath;
+      } catch {
+        // Keep scanning PATH entries until a concrete executable is found.
       }
-
-      await access(candidate, fsConstants.X_OK);
-
-      const realExecutablePath = await realpath(candidate);
-
-      if (isInsideDirectory(input.realWorkspaceRoot, realExecutablePath)) {
-        return blockReason(
-          "sandbox_failure",
-          "Shell command executable resolves inside the approved workspace; PATH-local executables are not allowed."
-        );
-      }
-
-      return realExecutablePath;
-    } catch {
-      // Keep scanning PATH entries until a concrete executable is found.
     }
   }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { URL } from "node:url";
+import { URL, pathToFileURL } from "node:url";
 import { tokenLikePattern } from "./secret-patterns.mjs";
 
 export const RELEASE_EVIDENCE_CHECKLIST_SCHEMA_VERSION = "solo-superman-release-evidence-checklist.v1";
@@ -1148,7 +1148,7 @@ export async function runReleaseEvidenceChecklistCli(argv = process.argv.slice(2
   return payload;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   runReleaseEvidenceChecklistCli().then((payload) => {
     if (Array.isArray(payload.issues) && payload.issues.length > 0) {
       process.exitCode = 1;

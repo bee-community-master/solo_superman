@@ -31,6 +31,7 @@ describe("Windows installer dry-run", () => {
       node_git_corepack_pnpm_path: true,
       wsl_codex_default_path: true,
       safe_existing_checkout_update: true,
+      generated_runner_does_not_block_safe_checkout_update: true,
       desktop_shortcut_start_local_path: true,
       prod_smoke_logs_and_port_retry: true,
       docs_keep_support_bundle_and_manual_checklist: true,
@@ -43,6 +44,7 @@ describe("Windows installer dry-run", () => {
     try {
       await writeFixture(root, "launcher.ps1", "iex $script\n");
       await writeFixture(root, "bootstrap.ps1", "function Restart-AsAdministrator {}\n");
+      await writeFixture(root, ".gitignore", "");
       await writeFixture(root, "README.md", "support:bundle\n");
       await writeFixture(root, "README.en.md", "support:bundle\n");
       await writeFixture(root, "troubleshooting.md", "pnpm support:bundle\n");
@@ -53,6 +55,7 @@ describe("Windows installer dry-run", () => {
         paths: {
           launcher: "launcher.ps1",
           bootstrap: "bootstrap.ps1",
+          gitignore: ".gitignore",
           readme: "README.md",
           englishReadme: "README.en.md",
           troubleshooting: "troubleshooting.md",
@@ -64,6 +67,7 @@ describe("Windows installer dry-run", () => {
       expect(evidence.issues).toEqual(expect.arrayContaining([
         expect.stringContaining("one_line_launcher_downloads_bootstrap"),
         expect.stringContaining("node_git_corepack_pnpm_path"),
+        expect.stringContaining("generated_runner_does_not_block_safe_checkout_update"),
         expect.stringContaining("docs_keep_support_bundle_and_manual_checklist")
       ]));
     } finally {

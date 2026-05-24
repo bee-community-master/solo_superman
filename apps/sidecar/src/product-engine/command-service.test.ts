@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -11,6 +11,7 @@ import type {
   StateVersion
 } from "@solo-superman/contracts";
 import { createProductEngineCommandService } from "./command-service";
+import { removeTemporaryDirectory } from "../test-cleanup";
 
 const tempDirs: string[] = [];
 
@@ -36,7 +37,7 @@ async function createMigratedStorage() {
 }
 
 afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((tempDir) => rm(tempDir, { recursive: true, force: true })));
+  await Promise.all(tempDirs.splice(0).map(removeTemporaryDirectory));
 });
 
 const missingRequiredSourceRefs = [

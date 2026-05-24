@@ -7,3 +7,4 @@ coverage/
 workspace/
 .DS_Store
 *.log
+/solo_superman.cmd

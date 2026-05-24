@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -23,6 +23,7 @@ import {
 } from "./auto-implementation-smoke-fixtures";
 import { createCodexRuntimeAdapter, type CodexRuntimeAdapter } from "./runtime";
 import { createSidecarApp } from "./server";
+import { removeTemporaryDirectory } from "./test-cleanup";
 
 export const LIVE_WORKER_JOB_VERIFY_ENV = "SOLO_VERIFY_CODEX_LIVE_WORKER_JOB" as const;
 export const LIVE_TURNS_ENV = "SOLO_CODEX_APP_SERVER_LIVE_TURNS" as const;
@@ -694,7 +695,7 @@ export async function runAutoImplementationWorkerSmoke(
     });
   } finally {
     if (shouldCleanup) {
-      await rm(appDataDir, { recursive: true, force: true });
+      await removeTemporaryDirectory(appDataDir);
     }
   }
 }

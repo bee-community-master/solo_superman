@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
@@ -15,6 +15,7 @@ import {
   type ResearchTaskId
 } from "@solo-superman/contracts";
 import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } from "../client";
+import { removeTemporaryDirectory } from "../test-cleanup";
 import { createResearchRunRepository } from "./research-run-repository";
 
 const tempDirs: string[] = [];
@@ -28,7 +29,7 @@ async function makeTempAppDataDir() {
 }
 
 afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((tempDir) => rm(tempDir, { recursive: true, force: true })));
+  await Promise.all(tempDirs.splice(0).map(removeTemporaryDirectory));
 });
 
 async function createMigratedStorage() {

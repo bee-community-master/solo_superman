@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -39,6 +39,7 @@ import type {
 } from "./product-engine/auto-implementation-workspace";
 import { createCodexRuntimeAdapter } from "./runtime";
 import { createSidecarApp } from "./server";
+import { removeTemporaryDirectory } from "./test-cleanup";
 
 export const AUTO_IMPLEMENTATION_PR_MUTATION_SMOKE = "auto_implementation_pr_mutation" as const;
 
@@ -760,7 +761,7 @@ export async function runAutoImplementationPrMutationSmoke(
     });
   } finally {
     if (shouldCleanup) {
-      await rm(appDataDir, { recursive: true, force: true });
+      await removeTemporaryDirectory(appDataDir);
     }
   }
 }

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -8,6 +8,7 @@ import type { ProjectId } from "@solo-superman/contracts";
 import { createProductEngineCommandService } from "./product-engine/command-service";
 import { createWebSearchReadOnlyResearchAdapter } from "./product-engine/web-search-readonly-adapter";
 import { createSidecarApp } from "./server";
+import { removeTemporaryDirectory } from "./test-cleanup";
 import {
   objectAt,
   postJson,
@@ -404,7 +405,7 @@ export async function runResearchPipelineSmoke(
     await scenario?.storage.close();
 
     if (shouldCleanup) {
-      await rm(appDataDir, { recursive: true, force: true });
+      await removeTemporaryDirectory(appDataDir);
     }
   }
 }
