@@ -61,6 +61,7 @@
         "docs/product_KO.md#세션-모델",
         "apps/sidecar/src/research-pipeline-smoke.ts",
         "packages/core/src/research-engine/background-research-runtime.ts",
+        "packages/core/src/product-engine/research-follow-up-answer-shape.test.ts",
         "apps/web/src/features/decision-queue/shell/ResearchView.tsx"
       ],
       "verificationCommands": [
@@ -70,7 +71,8 @@
         "Read-only public-web research runs require an active allowlist and bounded concurrency.",
         "Mounted web_search_readonly provider polling proves source-traced result import before evidence matrices and evidence packs are synthesized.",
         "Research review cards retain source traces and expose pro/con/uncertainty quality gates.",
-        "Research-generated follow-up questions return to the Decision Queue as answerable debt."
+        "Research-generated follow-up questions return to the Decision Queue as answerable debt.",
+        "Research-generated follow-up questions preserve answer-form variety: open_text, binary_choice, single_choice, multi_select, ranked_choice, and evidence_judgment are selected from the concrete question intent instead of forcing every answer into pro/con stance."
       ]
     },
     {
