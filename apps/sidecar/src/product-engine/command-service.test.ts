@@ -6,7 +6,13 @@ import { applyMigrations, createSoloStorage, localDatabaseUrlFromAppDataDir } fr
 import { PHASE25_QUALITY_LIFT_PROJECTION_FIXTURE, PHASE3_EXECUTION_AUTHORITY_READY_PROJECTION_FIXTURE } from "@solo-superman/contracts";
 import type {
   PlanningHandoffSourceRefDto,
+  ProjectId,
+  ResearchAllowlistId,
+  ResearchConnectorId,
   ResearchEvidenceProjection,
+  ResearchRunId,
+  ResearchRunProjection,
+  ResearchTaskId,
   SessionId,
   StateVersion
 } from "@solo-superman/contracts";
@@ -128,12 +134,136 @@ describe("ProductEngine command service research memory persistence", () => {
         : undefined;
 
       expect(memoryPath).toMatch(/^proj_[^/]+\/sess_[^/]+\/research_task_.*\.md$/);
+      if (!memoryPath) {
+        throw new Error("Expected research memory markdown path.");
+      }
 
-      const markdown = await readFile(join(researchMemoryMarkdownRoot, memoryPath ?? ""), "utf8");
+      const markdown = await readFile(join(researchMemoryMarkdownRoot, memoryPath), "utf8");
 
       expect(markdown).toContain("# Research memory: Validate broader founder urgency evidence");
       expect(markdown).toContain("Founder urgency public notes");
       expect(markdown).toContain("If the user explicitly asks for more, broader, wider, or deeper research");
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("attaches prior markdown memory refs when a user asks for broader follow-up research", async () => {
+    const storage = await createMigratedStorage();
+    const researchMemoryMarkdownRoot = await makeTempAppDataDir();
+
+    try {
+      const service = createProductEngineCommandService(storage, undefined, {
+        researchMemoryMarkdownRoot
+      });
+      const start = await service.startProject({
+        rawIdea: "A command-service wider research memory fixture",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
+      });
+      const startProjection = start.immediateProjection as { readonly projectId: ProjectId; readonly sessionId: SessionId };
+      const planned = await service.runSessionCommand({
+        sessionId: startProjection.sessionId,
+        commandType: "PlanResearch",
+        expectedStateVersion: start.stateVersionAfter as StateVersion,
+        payload: {
+          objective: "Validate broader founder urgency evidence",
+          routeOutcome: "research_needed",
+          impact: "high"
+        }
+      });
+      const research = planned.immediateProjection as ResearchEvidenceProjection;
+      const researchTaskId = research.tasks[0]?.researchTaskId;
+
+      expect(researchTaskId).toBeDefined();
+
+      const imported = await service.runSessionCommand({
+        sessionId: startProjection.sessionId,
+        commandType: "ImportResearchResult",
+        expectedStateVersion: planned.stateVersionAfter as StateVersion,
+        payload: {
+          researchTaskId,
+          result:
+            "Pro: founders report repeated planning pain. Con: some founders already use docs successfully.",
+          sourceTitle: "Founder urgency public notes",
+          sourceUrl: "https://example.com/founder-urgency",
+          sourceReliability: "medium",
+          limitationNotes: "Needs wider counter-evidence before planning-ready."
+        }
+      });
+
+      expect(imported.effectTaskIds).toHaveLength(1);
+
+      const effectResults = await service.runPendingResearchEvidenceEffects();
+      const succeededEffect = effectResults.find((result) => result.status === "succeeded");
+      const memoryPath = succeededEffect?.status === "succeeded"
+        ? succeededEffect.researchMemoryMarkdownPath
+        : undefined;
+
+      expect(memoryPath).toMatch(/^proj_[^/]+\/sess_[^/]+\/research_task_.*\.md$/);
+      if (!memoryPath) {
+        throw new Error("Expected research memory markdown path.");
+      }
+
+      const currentSession = await service.getSession(startProjection.projectId, startProjection.sessionId);
+      const broaderPlanned = await service.runSessionCommand({
+        sessionId: startProjection.sessionId,
+        commandType: "PlanResearch",
+        expectedStateVersion: currentSession.version as unknown as StateVersion,
+        payload: {
+          objective: "Broaden research beyond existing notes for founder urgency",
+          routeOutcome: "research_needed",
+          impact: "high"
+        }
+      });
+      const broaderResearch = broaderPlanned.immediateProjection as ResearchEvidenceProjection;
+      const broaderResearchTaskId = broaderResearch.tasks.at(-1)?.researchTaskId as ResearchTaskId | undefined;
+      const allowlistId = "research_allowlist_memory_reuse" as ResearchAllowlistId;
+
+      expect(broaderResearchTaskId).toBeDefined();
+      if (!broaderResearchTaskId) {
+        throw new Error("Expected broader follow-up research task.");
+      }
+
+      await service.createResearchAllowlist({
+        projectId: startProjection.projectId,
+        request: {
+          allowlistId,
+          connectorIds: ["public_search" as ResearchConnectorId],
+          sourceCategories: ["public_web"],
+          approvedBy: "owner_research_memory_reuse"
+        }
+      });
+
+      const started = await service.startResearchRun({
+        projectId: startProjection.projectId,
+        request: {
+          researchRunId: "research_run_memory_reuse" as ResearchRunId,
+          researchTaskId: broaderResearchTaskId,
+          allowlistId,
+          connectorId: "public_search" as ResearchConnectorId,
+          sourceCategory: "public_web",
+          researchObjective: "Broaden research beyond existing notes for founder urgency",
+          productCategory: "Founder workflow assistant",
+          customerProblemHypothesis: "Early founders need safer validation research.",
+          sourceRefs: ["queue_item_memory_reuse"]
+        }
+      });
+      const startResult = started.immediateProjection as {
+        readonly researchRun: ResearchRunProjection;
+        readonly disclosureLog: { readonly sourceRefs: readonly string[] };
+      };
+      const memorySourceRef = `research-memory:${memoryPath}`;
+
+      expect(startResult.researchRun.sourceRefs).toEqual(
+        expect.arrayContaining(["queue_item_memory_reuse", memorySourceRef])
+      );
+      expect(startResult.disclosureLog.sourceRefs).toEqual(
+        expect.arrayContaining(["queue_item_memory_reuse", memorySourceRef])
+      );
     } finally {
       await storage.close();
     }

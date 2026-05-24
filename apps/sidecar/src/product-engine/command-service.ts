@@ -207,7 +207,11 @@ import {
 import { applyFileDiff } from "./file-diff-adapter";
 import { buildPhase15bHintExport, buildPhase15bHintProjection } from "./phase15b-hint-projection";
 import { runShellCommand } from "./shell-command-adapter";
-import { writeResearchMemoryMarkdown } from "./research-memory-markdown";
+import {
+  isResearchMemoryMarkdownSourceRef,
+  listResearchMemoryMarkdownSourceRefs,
+  writeResearchMemoryMarkdown
+} from "./research-memory-markdown";
 import {
   createWebSearchReadOnlyResearchAdapter,
   webSearchReadOnlyResearchAdapterOptionsFromEnv,
@@ -390,6 +394,17 @@ function sessionId() {
 function researchAllowlistId() {
   return prefixedId<ResearchAllowlistId>("research_allowlist");
 }
+
+const RESEARCH_MEMORY_BASELINE_OBJECTIVE_PATTERN = new RegExp(
+  [
+    "Broaden research beyond existing notes",
+    "existing research memory",
+    "existing notes",
+    String.raw`기존\s*(?:리서치|자료|메모|근거)`,
+    String.raw`더\s*(?:넓은|깊은|추가)\s*(?:리서치|자료|근거|출처)`
+  ].join("|"),
+  "iu"
+);
 
 function researchDisclosureLogId() {
   return prefixedId<ResearchDisclosureLogId>("research_disclosure");
@@ -4194,7 +4209,11 @@ export function createProductEngineCommandService(
     return [
       ...new Set(
         (request.sourceRefs ?? [])
-          .map((sourceRef) => redactPublicSafeResearchText(sourceRef, request))
+          .map((sourceRef) =>
+            isResearchMemoryMarkdownSourceRef(sourceRef)
+              ? sourceRef
+              : redactPublicSafeResearchText(sourceRef, request)
+          )
           .filter(Boolean)
       )
     ];
@@ -4370,6 +4389,35 @@ export function createProductEngineCommandService(
       .update((request.sourceRefs ?? []).join("\0"))
       .digest("hex")
       .slice(0, 32)}`;
+  }
+
+  function researchObjectiveRequestsExistingMemoryBaseline(request: Pick<StartResearchRunRequest, "researchObjective">) {
+    return RESEARCH_MEMORY_BASELINE_OBJECTIVE_PATTERN.test(request.researchObjective);
+  }
+
+  async function requestWithResearchMemorySourceRefs(
+    projectIdValue: ProjectId,
+    request: StartResearchRunRequest
+  ): Promise<StartResearchRunRequest> {
+    if (!researchObjectiveRequestsExistingMemoryBaseline(request)) {
+      return request;
+    }
+
+    const task = await createResearchRepository(storage.db).getTask(request.researchTaskId);
+    const memorySourceRefs = await listResearchMemoryMarkdownSourceRefs({
+      root: researchMemoryMarkdownRoot,
+      projectId: projectIdValue,
+      ...(task?.sessionId ? { sessionId: task.sessionId } : {})
+    });
+
+    if (!memorySourceRefs.length) {
+      return request;
+    }
+
+    return {
+      ...request,
+      sourceRefs: [...new Set([...(request.sourceRefs ?? []), ...memorySourceRefs])]
+    };
   }
 
   function decodedIdempotencyKeyPart(idempotencyKey: string, fieldName: string) {
@@ -6157,16 +6205,17 @@ export function createProductEngineCommandService(
           throw new ProductEngineServiceError("VALIDATION_FAILED", "adapterKind must be a provider-neutral adapter kind.");
         }
 
+        const request = await requestWithResearchMemorySourceRefs(input.projectId, input.request);
         const stateVersionBefore = await researchRunCollectionStateVersion(input.projectId);
         const now = new Date().toISOString();
-        const publicSafePayload = buildPublicSafeResearchSummary(input.request);
-        const allowlist = await matchingAllowlistForDisclosure(input.projectId, input.request);
-        const blockReason = blockReasonForDisclosure(input.request, allowlist);
+        const publicSafePayload = buildPublicSafeResearchSummary(request);
+        const allowlist = await matchingAllowlistForDisclosure(input.projectId, request);
+        const blockReason = blockReasonForDisclosure(request, allowlist);
 
         if (blockReason || !allowlist) {
           const disclosureLog = await persistResearchRunDisclosureLog(
             input.projectId,
-            input.request,
+            request,
             publicSafePayload,
             allowlist,
             blockReason,
@@ -6191,14 +6240,14 @@ export function createProductEngineCommandService(
           return researchRunCommandResponse("StartResearchRun", stateVersionBefore, result);
         }
 
-        const staleBlocker = stalePolicyBlocker(input.request, now);
-        const adapterBlocker = mountedResearchAdapterBlocker(input.request);
+        const staleBlocker = stalePolicyBlocker(request, now);
+        const adapterBlocker = mountedResearchAdapterBlocker(request);
         const preconditionBlocker = staleBlocker ?? adapterBlocker;
 
         if (preconditionBlocker) {
           const disclosureLog = await persistResearchRunDisclosureLog(
             input.projectId,
-            input.request,
+            request,
             publicSafePayload,
             allowlist,
             blockReason,
@@ -6219,7 +6268,7 @@ export function createProductEngineCommandService(
         const repository = createResearchRunRepository(storage.db);
         const existingRun = await repository.getByProjectIdAndIdempotencyKey(
           input.projectId,
-          researchRunStartIdempotencyKey(input.request, allowlist, publicSafePayload)
+          researchRunStartIdempotencyKey(request, allowlist, publicSafePayload)
         );
 
         if (existingRun) {
@@ -6247,12 +6296,12 @@ export function createProductEngineCommandService(
           return researchRunCommandResponse("StartResearchRun", stateVersionBefore, result);
         }
 
-        const budgetBlocker = await rateBudgetBlocker(input.projectId, allowlist, input.request.researchTaskId);
+        const budgetBlocker = await rateBudgetBlocker(input.projectId, allowlist, request.researchTaskId);
 
         if (budgetBlocker) {
           const disclosureLog = await persistResearchRunDisclosureLog(
             input.projectId,
-            input.request,
+            request,
             publicSafePayload,
             allowlist,
             blockReason,
@@ -6272,14 +6321,14 @@ export function createProductEngineCommandService(
 
         const disclosureLog = await persistResearchRunDisclosureLog(
           input.projectId,
-          input.request,
+          request,
           publicSafePayload,
           allowlist,
           blockReason,
           now
         );
         const created = await repository.create({
-          run: researchRunFromStartRequest(input.projectId, input.request, allowlist, disclosureLog, publicSafePayload, now),
+          run: researchRunFromStartRequest(input.projectId, request, allowlist, disclosureLog, publicSafePayload, now),
           schemaVersion: CONTRACT_SCHEMA_VERSION
         });
 
@@ -6289,7 +6338,7 @@ export function createProductEngineCommandService(
             "Research run id conflicts with a different idempotency key.",
             {
               projectId: input.projectId,
-              researchRunId: input.request.researchRunId
+              researchRunId: request.researchRunId
             }
           );
         }

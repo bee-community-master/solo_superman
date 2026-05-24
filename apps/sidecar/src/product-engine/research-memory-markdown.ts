@@ -28,6 +28,16 @@ export interface WriteResearchMemoryMarkdownResult {
   readonly relativePath: string;
 }
 
+export interface ListResearchMemoryMarkdownSourceRefsInput {
+  readonly root: string;
+  readonly projectId: ProjectId;
+  readonly sessionId?: SessionId;
+  readonly maxRefs?: number;
+}
+
+export const RESEARCH_MEMORY_SOURCE_REF_PREFIX = "research-memory:";
+const RESEARCH_MEMORY_MARKDOWN_SOURCE_REF_PATTERN = /^research-memory:[\p{Letter}\p{Number}_/-]+\.md$/u;
+
 function slugPart(value: string) {
   const normalized = value
     .trim()
@@ -186,6 +196,40 @@ function existingResearchMemoryIndexRows(markdown: string) {
 
 function researchMemoryIndexRowPath(row: string) {
   return row.match(/^\| \[[^\]]+\]\((?<path>[^)]+)\) \|/u)?.groups?.path ?? null;
+}
+
+export function researchMemoryMarkdownSourceRef(relativePath: string) {
+  return `${RESEARCH_MEMORY_SOURCE_REF_PREFIX}${relativePath}`;
+}
+
+export function isResearchMemoryMarkdownSourceRef(value: string) {
+  return RESEARCH_MEMORY_MARKDOWN_SOURCE_REF_PATTERN.test(value);
+}
+
+export async function listResearchMemoryMarkdownSourceRefs(
+  input: ListResearchMemoryMarkdownSourceRefsInput
+): Promise<readonly string[]> {
+  let existingRows: readonly string[] = [];
+
+  try {
+    existingRows = existingResearchMemoryIndexRows(await readFile(researchMemoryIndexPath(input.root), "utf8"));
+  } catch (error: unknown) {
+    const code = typeof error === "object" && error !== null && "code" in error ? (error as { readonly code?: unknown }).code : null;
+
+    if (code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  const projectPrefix = `${slugPart(input.projectId)}/`;
+  const sessionPrefix = input.sessionId ? `${projectPrefix}${slugPart(input.sessionId)}/` : projectPrefix;
+  const maxRefs = Math.max(1, Math.min(input.maxRefs ?? 5, 20));
+  const relativePaths = existingRows
+    .map(researchMemoryIndexRowPath)
+    .filter((relativePath): relativePath is string => Boolean(relativePath))
+    .filter((relativePath) => relativePath.startsWith(sessionPrefix));
+
+  return relativePaths.slice(-maxRefs).map(researchMemoryMarkdownSourceRef);
 }
 
 async function updateResearchMemoryIndex(input: WriteResearchMemoryMarkdownInput, relativePath: string) {
