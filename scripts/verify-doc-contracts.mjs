@@ -787,6 +787,18 @@ function checkContributorDocsSnippets() {
     "evidence_judgment",
     "pro/con stance"
   ]);
+  requireSnippets("docs/product_KO.md missing research run limit UX contract", docs["docs/product_KO.md"], [
+    "동시에 실행할 최대 리서치 수",
+    "세션당 최대 리서치 실행 수",
+    "수동 시작",
+    "답변 후 자동 public-web 리서치"
+  ]);
+  requireSnippets("docs/product_EN.md missing research run limit UX contract", readText("docs/product_EN.md"), [
+    "Max simultaneous research runs",
+    "Max research runs per session",
+    "manual starts",
+    "answer-triggered automatic public-web research starts"
+  ]);
   rejectSnippets(
     "research docs contain stale provider-polling wording",
     researchEvidenceDocs,
@@ -884,6 +896,8 @@ function checkContributorDocsSnippets() {
     "idea-clarification-loop",
     "research-evidence-loop",
     "answer-form variety",
+    "Max simultaneous research runs",
+    "Max research runs per session",
     "planning-readiness-gates",
     "Composite score is 85 or higher",
     "Most confidence axes are 75 or higher",

@@ -41,6 +41,8 @@ const REQUIRED_CAPABILITY_BEHAVIOR_SNIPPETS = new Map([
       "Mounted web_search_readonly provider polling",
       "source-traced result import",
       "evidence matrices and evidence packs",
+      "Max simultaneous research runs",
+      "Max research runs per session",
       "Research-generated follow-up questions",
       "answer-form variety"
     ]
@@ -447,7 +449,7 @@ export function evidenceForEvaluation(evaluation, options) {
       "product capability readiness contract schema",
       "required idea, clarification, research, browser/service, planning, auto-implementation, release-guardrail, and local-error-reporting capability ids",
       "required credential-free product verification commands",
-      "required capability behavior snippets, including mounted research provider polling, answer-form variety for research follow-up questions, planning readiness score/axis gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage",
+      "required capability behavior snippets, including mounted research provider polling, research run limit UX, answer-form variety for research follow-up questions, planning readiness score/axis gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage",
       "secret-free product capability evidence strings",
       options.requireCodeBacked
         ? "all technical-preview core capabilities must be code_backed"
