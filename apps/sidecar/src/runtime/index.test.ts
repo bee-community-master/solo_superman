@@ -871,6 +871,14 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     });
     expect(turnStartRequest.params.input[0]).toMatchObject({
       type: "text",
+      text: expect.stringContaining("passedTestCount of at least 1")
+    });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining('"passedTestCount": 1')
+    });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
       text: expect.stringContaining("ledgerTransitionTemplate:")
     });
     expect(turnStartRequest.params.input[0]).toMatchObject({
@@ -950,7 +958,11 @@ describe("PR-07 Codex runtime adapter contracts", () => {
 
     const prompt = inputItem.text;
 
-    expect(adapter.buildWorkerTurnRequests(smokeInput).threadStartRequest.params.sandbox).toBe("read-only");
+    expect(adapter.buildWorkerTurnRequests(smokeInput).threadStartRequest.params).toMatchObject({
+      sandbox: "read-only",
+      baseInstructions: expect.stringContaining("do not perform implementation work or create ledger evidence"),
+      developerInstructions: expect.stringContaining("Return only the acknowledgement JSON object")
+    });
     expect(request.params).toMatchObject({
       effort: "low",
       sandboxPolicy: {

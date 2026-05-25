@@ -1622,7 +1622,7 @@ function codexWorkerLedgerTransitionTemplate(input: CodexWorkerExecutionInput): 
         commands: ["__REPLACE_WITH_EXACT_COMMAND_RUN__"],
         outcome: "passed",
         verifiedCommitSha: commitSha,
-        passedTestCount: 0,
+        passedTestCount: 1,
         failedTestCount: 0,
         notTestedGaps: [],
         evidenceRefs: ["__REPLACE_WITH_TEST_OUTPUT_EVIDENCE_REF__"]
@@ -1749,6 +1749,7 @@ function codexWorkerPrompt(input: CodexWorkerExecutionInput) {
     "Completion requires separate CleanCodeReviewRecord transitions for two consecutive no-finding passes in both changed_code and repository reviewScope; do not reuse code review records as clean-code records.",
     "If any review or clean-code pass finds actionable work, apply the fix first and restart that scope's two-pass no-finding streak after the fix.",
     "Completion requires MissingTestAuditRecord and TestEvidenceRecord evidence for the issue acceptance criteria, targeted checks, and the full verification gate when required by the issue slice.",
+    "For completed output, TestEvidenceRecord must have outcome passed, passedTestCount of at least 1, failedTestCount 0, and no notTestedGaps; if that cannot be proven, return blocked instead.",
     "For a tracked code/docs/config slice, create a local git commit for the safe workspace changes. If git identity is missing, use one-shot git -c user.name=solo-superman-worker -c user.email=solo-superman-worker@example.invalid commit so the evidence can name a real commit.",
     "Bounded smoke/bootstrap fast path: if the issue slice is a workspace bootstrap/evidence gate and no concrete product behavior files exist yet, create a small tracked markdown evidence file under .solo-superman/worker-job-evidence/ for this job, commit it, and use that real commit as the StepCommitRecord. Do not use this shortcut when the issue document demands behavior code.",
     "Suggested local evidence commands: read the issue file, inspect git status, create the smallest safe tracked change, git add it, commit with one-shot git identity, capture git rev-parse HEAD and HEAD^, capture git diff --name-only HEAD^..HEAD, and run the smallest available local verification command. If no package test command exists, record file-existence and git-status checks as verification evidence with explicit notTestedGaps.",
@@ -1811,10 +1812,12 @@ export function buildCodexWorkerTurnRequests(
         sandbox: protocolSmoke ? "read-only" : "workspace-write",
         config: null,
         serviceName: "solo-superman-auto-worker",
-        baseInstructions:
-          "You are a local sandboxed Codex worker for Solo Superman auto implementation. You may edit only the generated workspace and must return ledger evidence.",
-        developerInstructions:
-          "Never request or store secrets. Never perform external writes, production deploys, account actions, or destructive operations. Return JSON only.",
+        baseInstructions: protocolSmoke
+          ? "You are acknowledging a Solo Superman live worker protocol smoke. You do not perform implementation work or create ledger evidence."
+          : "You are a local sandboxed Codex worker for Solo Superman auto implementation. You may edit only the generated workspace and must return ledger evidence.",
+        developerInstructions: protocolSmoke
+          ? "Return only the acknowledgement JSON object. Do not call tools, edit files, run shell commands, browse, or claim production/release evidence."
+          : "Never request or store secrets. Never perform external writes, production deploys, account actions, or destructive operations. Return JSON only.",
         ephemeral: true,
         sessionStartSource: "clear"
       }
