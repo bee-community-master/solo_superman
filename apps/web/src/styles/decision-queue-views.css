@@ -21,6 +21,7 @@
 .planning-view .spec-panel,
 .planning-view .founder-brief-panel,
 .implementation-view .implementation-start-guide,
+.implementation-view .release-readiness-panel,
 .implementation-view .auto-implementation-run-panel,
 .implementation-view .implementation-step-ledger-panel,
 .implementation-view .activity-panel {
@@ -1043,4 +1044,38 @@
 
 .disclosure-activity {
   margin-bottom: 12px;
+}
+
+.release-readiness-panel,
+.release-blocker-list {
+  display: grid;
+  gap: 12px;
+}
+
+.release-blocker-list {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.release-blocker-card,
+.release-bundle-card {
+  display: grid;
+  gap: 10px;
+}
+
+.release-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.release-card-heading h3 {
+  margin: 0;
+}
+
+.release-card-heading a {
+  color: var(--solo-accent);
+  font-size: 0.75rem;
+  font-weight: 850;
+  white-space: nowrap;
 }

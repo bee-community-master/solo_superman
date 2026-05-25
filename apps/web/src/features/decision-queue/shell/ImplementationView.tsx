@@ -1,4 +1,5 @@
 import { AutoImplementationRunPanel } from "../AutoImplementationRunPanel";
+import { ReleaseReadinessPanel } from "../ReleaseReadinessPanel";
 import { ImplementationStepLedgerPanel } from "../ImplementationStepLedgerPanel";
 import { codexRuntimeEvidenceView } from "../codex-runtime-status-view";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
@@ -221,6 +222,8 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
           </button>
         </div>
       </section>
+
+      <ReleaseReadinessPanel />
 
       <AutoImplementationRunPanel
         run={autoImplementationRunView}
