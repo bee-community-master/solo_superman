@@ -33,7 +33,7 @@
     "verify:signed-package-preflight": "node scripts/verify-signed-package-preflight.mjs",
     "verify:signed-package-release": "node scripts/verify-signed-package-release.mjs",
     "verify:release-readiness": "node scripts/verify-release-readiness.mjs",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs && pnpm verify:product-capability-readiness && pnpm verify:release-channel && pnpm verify:windows-real-device && pnpm verify:windows-installer:dry-run && pnpm verify:packaged-update-rollback && pnpm verify:packaged-update-rollback:dry-run && pnpm verify:signed-package-preflight && pnpm verify:signed-package-release && pnpm verify:signed-package-release:dry-run && pnpm verify:release-readiness && pnpm verify:release-evidence-template && pnpm verify:release-evidence-bundle && pnpm verify:support-bundle && pnpm verify:prod-bundle && pnpm verify:clarification-pipeline && pnpm verify:clarification-volume && pnpm verify:research-pipeline && pnpm verify:browser-delegation-pipeline && pnpm verify:service-page-pipeline && pnpm verify:production-mutation-contract && pnpm verify:single-session-product-loop && pnpm verify:readiness-to-implementation && pnpm verify:auto-implementation-pipeline && pnpm verify:core-product-loop",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs && pnpm verify:product-capability-readiness && pnpm verify:release-channel && pnpm verify:windows-real-device && pnpm verify:windows-installer:dry-run && pnpm verify:packaged-update-rollback && pnpm verify:packaged-update-rollback:dry-run && pnpm verify:signed-package-preflight && pnpm verify:signed-package-release && pnpm verify:signed-package-release:dry-run && pnpm verify:release-readiness && pnpm verify:release-evidence-template && pnpm verify:release-evidence-bundle && pnpm verify:support-bundle && pnpm verify:prod-bundle && pnpm verify:clarification-pipeline && pnpm verify:clarification-volume && pnpm verify:research-pipeline && pnpm verify:browser-delegation-pipeline && pnpm verify:service-page-pipeline && pnpm verify:production-mutation-contract && pnpm verify:single-session-product-loop && pnpm verify:single-session-product-loop:worker && pnpm verify:readiness-to-implementation && pnpm verify:auto-implementation-pipeline && pnpm verify:core-product-loop",
     "dev:web": "pnpm --filter @solo-superman/web dev",
     "start:local": "node scripts/start-local-web.mjs",
     "verify:research-pipeline": "tsx apps/sidecar/src/research-pipeline-smoke.ts",
@@ -58,7 +58,9 @@
     "verify:core-product-loop": "tsx apps/sidecar/src/core-product-loop-smoke.ts",
     "verify:readiness-to-implementation": "tsx apps/sidecar/src/readiness-to-implementation-smoke.ts",
     "verify:single-session-product-loop": "tsx apps/sidecar/src/single-session-product-loop-smoke.ts",
-    "verify:single-session-product-loop:live-web": "tsx apps/sidecar/src/single-session-product-loop-smoke.ts --live-web"
+    "verify:single-session-product-loop:live-web": "tsx apps/sidecar/src/single-session-product-loop-smoke.ts --live-web",
+    "verify:single-session-product-loop:worker": "tsx apps/sidecar/src/single-session-live-implementation-smoke.ts",
+    "verify:single-session-product-loop:live-implementation": "tsx apps/sidecar/src/single-session-live-implementation-smoke.ts --live"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

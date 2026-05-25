@@ -4,6 +4,7 @@ import type { ClarificationPipelineSmokeEvidence } from "./clarification-pipelin
 import { CORE_PRODUCT_LOOP_SMOKE, runCoreProductLoopSmoke } from "./core-product-loop-smoke";
 import type { ReadinessToImplementationSmokeEvidence } from "./readiness-to-implementation-smoke";
 import type { ResearchPipelineSmokeEvidence } from "./research-pipeline-smoke";
+import type { SingleSessionLiveImplementationSmokeEvidence } from "./single-session-live-implementation-smoke";
 import type { SingleSessionProductLoopSmokeEvidence } from "./single-session-product-loop-smoke";
 
 function clarificationEvidence(overrides: Partial<ClarificationPipelineSmokeEvidence> = {}) {
@@ -239,10 +240,43 @@ function singleSessionEvidence(overrides: Partial<SingleSessionProductLoopSmokeE
   } satisfies SingleSessionProductLoopSmokeEvidence;
 }
 
+function singleSessionImplementationEvidence(overrides: Partial<SingleSessionLiveImplementationSmokeEvidence> = {}) {
+  return {
+    status: "passed",
+    smoke: "single_session_live_implementation",
+    mode: "fixture",
+    singleSession: singleSessionEvidence(),
+    project: {
+      projectId: "proj_core_loop_single_session",
+      sessionId: "sess_core_loop_single_session"
+    },
+    runtime: {
+      status: "available",
+      executionMode: "fixture",
+      liveTurnExecutionEnabled: false,
+      accountStatus: "authenticated"
+    },
+    worker: {
+      runId: "auto_run_core_loop_pet",
+      jobId: "auto-worker-job:core-loop-same-session",
+      sameSessionRunId: "auto_run_core_loop_pet",
+      jobStatus: "completed",
+      stageBefore: "initial_pr",
+      stageAfter: "code_review_fix_1",
+      ledgerStatus: "completed",
+      implementationStepId: "auto-implementation-step:core-loop-same-session",
+      issueRelativePath: "implementation-issues/001-initial_pr.md"
+    },
+    checked: ["single-session implementation worker checked"],
+    ...overrides
+  } satisfies SingleSessionLiveImplementationSmokeEvidence;
+}
+
 describe("core product loop smoke", () => {
   it("passes only when single-session, clarification, research, readiness, and auto implementation evidence form one complete product loop", async () => {
     const evidence = await runCoreProductLoopSmoke({
       runSingleSession: async () => singleSessionEvidence(),
+      runSingleSessionImplementation: async () => singleSessionImplementationEvidence(),
       runClarification: async () => clarificationEvidence(),
       runResearch: async () => researchEvidence(),
       runReadinessToImplementation: async () => readinessToImplementationEvidence(),
@@ -264,6 +298,8 @@ describe("core product loop smoke", () => {
         singleSessionFollowUpQuestionCount: 1,
         singleSessionPlanningHandoffStatus: "planning_ready",
         singleSessionAutoImplementationCurrentStage: "initial_pr",
+        sameSessionWorkerStageAfter: "code_review_fix_1",
+        sameSessionWorkerLedgerStatus: "completed",
         readinessCompositeScore: 92,
         readinessLabel: "spec_ready",
         completionCandidateStatus: "candidate",
@@ -279,6 +315,7 @@ describe("core product loop smoke", () => {
     expect(evidence.checked).toEqual(expect.arrayContaining([
       "idea intake reached a broad generated question backlog before implementation",
       "single-session pet-lifecycle idea reached domain-fit questions, answer-linked research, follow-up questions, planning_ready, and initial_pr",
+      "same-session worker proof reused the Planning Handoff run and advanced beyond initial_pr with completed ledger evidence",
       "positive readiness handoff proved spec_ready candidate, planning_ready artifact, and initial_pr auto implementation start",
       "auto implementation pipeline reached runtime preview, worker ledger import, PR mutation, review-loop, and merge_main fixture evidence"
     ]));
@@ -287,6 +324,7 @@ describe("core product loop smoke", () => {
   it("blocks when research does not create generated follow-up research debt", async () => {
     const evidence = await runCoreProductLoopSmoke({
       runSingleSession: async () => singleSessionEvidence(),
+      runSingleSessionImplementation: async () => singleSessionImplementationEvidence(),
       runClarification: async () => clarificationEvidence(),
       runResearch: async () => researchEvidence({
         research: {
@@ -311,6 +349,7 @@ describe("core product loop smoke", () => {
   it("blocks when readiness does not produce a planning-ready implementation handoff", async () => {
     const evidence = await runCoreProductLoopSmoke({
       runSingleSession: async () => singleSessionEvidence(),
+      runSingleSessionImplementation: async () => singleSessionImplementationEvidence(),
       runClarification: async () => clarificationEvidence(),
       runResearch: async () => researchEvidence(),
       runReadinessToImplementation: async () => readinessToImplementationEvidence({
@@ -352,6 +391,7 @@ describe("core product loop smoke", () => {
           autoImplementationCurrentStage: "planning_handoff"
         }
       }),
+      runSingleSessionImplementation: async () => singleSessionImplementationEvidence(),
       runClarification: async () => clarificationEvidence(),
       runResearch: async () => researchEvidence(),
       runReadinessToImplementation: async () => readinessToImplementationEvidence(),
@@ -364,6 +404,30 @@ describe("core product loop smoke", () => {
       "single-session core loop must generate research follow-up questions in the same session.",
       "single-session core loop must reach planning_ready; received source_trace_incomplete",
       "single-session core loop must start auto implementation at initial_pr; received planning_handoff"
+    ]));
+  });
+
+  it("blocks when the same-session worker proof does not complete ledger evidence", async () => {
+    const evidence = await runCoreProductLoopSmoke({
+      runSingleSession: async () => singleSessionEvidence(),
+      runSingleSessionImplementation: async () => singleSessionImplementationEvidence({
+        worker: {
+          ...singleSessionImplementationEvidence().worker!,
+          jobStatus: "blocked",
+          stageAfter: "initial_pr",
+          ledgerStatus: "missing"
+        }
+      }),
+      runClarification: async () => clarificationEvidence(),
+      runResearch: async () => researchEvidence(),
+      runReadinessToImplementation: async () => readinessToImplementationEvidence(),
+      runAutoImplementation: async () => autoImplementationEvidence()
+    });
+
+    expect(evidence.status).toBe("blocked");
+    expect(evidence.blockers).toEqual(expect.arrayContaining([
+      "single-session worker proof must complete an implementation ledger; received missing",
+      "single-session worker proof must advance beyond initial_pr; received initial_pr"
     ]));
   });
 });

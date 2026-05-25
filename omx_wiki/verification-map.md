@@ -7,7 +7,9 @@ Use this matrix to choose the smallest proof that matches the product claim.
 | Docs/contracts stay synchronized | `pnpm verify:docs` | `pnpm verify` |
 | Core product capabilities are code-backed | `pnpm verify:product-capability-readiness` | `pnpm verify` |
 | One pet-lifecycle idea stays connected through domain-fit questions, answer-linked research, follow-up questions, Planning Handoff, and first implementation stage | `pnpm verify:single-session-product-loop` | `pnpm verify` |
+| Same-session pet-lifecycle idea can complete a worker job from the same Planning Handoff run | `pnpm verify:single-session-product-loop:worker` | `pnpm verify` |
 | One pet-lifecycle idea can use live public-web source import in that same path | `pnpm verify:single-session-product-loop:live-web` | opt-in network check |
+| One pet-lifecycle idea can combine live public-web source import and live Codex worker execution | `pnpm verify:single-session-product-loop:live-implementation` | opt-in network + live Codex check |
 | Idea -> questions -> research follow-up -> auto implementation evidence stays connected | `pnpm verify:core-product-loop` | `pnpm verify` |
 | Idea -> clarification -> first answer -> planning blocker works | `pnpm verify:clarification-pipeline` | `pnpm verify` |
 | Hundreds of question/answer loops remain bounded | `pnpm verify:clarification-volume` | `pnpm verify` |
