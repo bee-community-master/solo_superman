@@ -259,15 +259,22 @@ function compactReadyReleaseChecklistItems(value) {
     return [];
   }
 
-  return value.filter(isRecord).map((item) => ({
-    itemId: typeof item.itemId === "string" ? item.itemId : null,
-    gateId: typeof item.gateId === "string" ? item.gateId : null,
-    status: typeof item.status === "string" ? item.status : "unknown",
-    scope: typeof item.scope === "string" ? item.scope : null,
-    requiredCheckCount: stringList(item.requiredChecks).length,
-    requiredEvidenceCount: stringList(item.requiredEvidence).length,
-    unblockCriteriaCount: stringList(item.unblockCriteria).length
-  }));
+  return value.filter(isRecord).map((item) => {
+    const evidenceBundleShape = isRecord(item.evidenceBundleShape) ? item.evidenceBundleShape : null;
+
+    return {
+      itemId: typeof item.itemId === "string" ? item.itemId : null,
+      gateId: typeof item.gateId === "string" ? item.gateId : null,
+      status: typeof item.status === "string" ? item.status : "unknown",
+      scope: typeof item.scope === "string" ? item.scope : null,
+      requiredCheckCount: stringList(item.requiredChecks).length,
+      requiredEvidenceCount: stringList(item.requiredEvidence).length,
+      unblockCriteriaCount: stringList(item.unblockCriteria).length,
+      evidenceBundleShapeKind: typeof evidenceBundleShape?.kind === "string" ? evidenceBundleShape.kind : null,
+      evidenceBundleRequiredFieldCount: stringList(evidenceBundleShape?.requiredFields).length,
+      evidenceBundleRequiredPassedCheckCount: stringList(evidenceBundleShape?.requiredPassedChecks).length
+    };
+  });
 }
 
 function compactReadyReleaseIssuePreparation(value) {

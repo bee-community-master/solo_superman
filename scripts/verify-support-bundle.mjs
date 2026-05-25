@@ -329,6 +329,19 @@ function validateReadyReleaseIssuePreparation(value, issues) {
         if (typeof item.unblockCriteriaCount !== "number") {
           addIssue(issues, `${itemPath}.unblockCriteriaCount`, "must include unblock criteria count");
         }
+        if (typeof item.evidenceBundleShapeKind !== "string" && item.evidenceBundleShapeKind !== null) {
+          addIssue(issues, `${itemPath}.evidenceBundleShapeKind`, "must include evidence bundle shape kind or null");
+        }
+        if (typeof item.evidenceBundleRequiredFieldCount !== "number") {
+          addIssue(issues, `${itemPath}.evidenceBundleRequiredFieldCount`, "must include evidence bundle required field count");
+        }
+        if (typeof item.evidenceBundleRequiredPassedCheckCount !== "number") {
+          addIssue(
+            issues,
+            `${itemPath}.evidenceBundleRequiredPassedCheckCount`,
+            "must include evidence bundle required passed-check count"
+          );
+        }
       }
     }
     if (typeof entry.templatePath !== "string" || !entry.templatePath.endsWith(`issue-${issueNumber}-template.json`)) {

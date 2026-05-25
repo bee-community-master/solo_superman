@@ -29,6 +29,22 @@ const releaseEvidenceIssueItemCounts = new Map([
   [267, 3]
 ]);
 
+function releaseEvidenceBundleShapeKind(issueNumber, index) {
+  if (index === 0) {
+    return null;
+  }
+
+  if (issueNumber === 259) {
+    return "windows-real-device";
+  }
+
+  if (issueNumber === 266) {
+    return ["macos-signed-package", "windows-signed-package", "release-manifest-signing"][index - 1] ?? null;
+  }
+
+  return ["macos-packaged-update-rollback", "windows-packaged-update-rollback"][index - 1] ?? null;
+}
+
 function releaseEvidenceChecklistItemSummaries(issueNumber, itemCount) {
   return Array.from({ length: itemCount }, (_, index) => ({
     itemId: `issue-${issueNumber}-evidence-item-${index + 1}`,
@@ -37,7 +53,10 @@ function releaseEvidenceChecklistItemSummaries(issueNumber, itemCount) {
     scope: issueNumber === 259 ? "windows" : null,
     requiredCheckCount: index === 0 ? 0 : 2,
     requiredEvidenceCount: 2,
-    unblockCriteriaCount: 1
+    unblockCriteriaCount: 1,
+    evidenceBundleShapeKind: releaseEvidenceBundleShapeKind(issueNumber, index),
+    evidenceBundleRequiredFieldCount: index === 0 ? 0 : 10,
+    evidenceBundleRequiredPassedCheckCount: index === 0 ? 0 : 2
   }));
 }
 
@@ -264,6 +283,35 @@ describe("support bundle verification", () => {
       "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].validateTemplateCommand: must validate issue 259 template",
       "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].postIssueCommentCommand: must post issue 259 comment",
       "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[267]: must include issue-specific release evidence handoff for #267"
+    ]));
+  });
+
+  it("requires ready-release item summaries to expose compact evidence bundle shape metadata", () => {
+    const releaseEvidenceIssuePreparation = validReleaseEvidenceIssuePreparation();
+    const issue259 = releaseEvidenceIssuePreparation.find((entry) => entry.issueNumber === 259);
+    issue259.checklistItems[1] = {
+      ...issue259.checklistItems[1],
+      evidenceBundleShapeKind: 404,
+      evidenceBundleRequiredFieldCount: "22"
+    };
+    delete issue259.checklistItems[1].evidenceBundleRequiredPassedCheckCount;
+
+    const bundle = validBundle({
+      releaseDiagnostics: {
+        ...validBundle().releaseDiagnostics,
+        readyReleasePlan: {
+          ...validDiagnostic("readyReleasePlan"),
+          releaseEvidenceIssuePreparation
+        }
+      }
+    });
+    const validation = validateSupportBundle(bundle);
+
+    expect(validation.ok).toBe(false);
+    expect(validation.issues).toEqual(expect.arrayContaining([
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].checklistItems[1].evidenceBundleShapeKind: must include evidence bundle shape kind or null",
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].checklistItems[1].evidenceBundleRequiredFieldCount: must include evidence bundle required field count",
+      "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation[259].checklistItems[1].evidenceBundleRequiredPassedCheckCount: must include evidence bundle required passed-check count"
     ]));
   });
 

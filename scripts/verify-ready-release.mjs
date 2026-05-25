@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   buildReleaseEvidenceChecklist,
+  buildReleaseEvidenceTemplate,
   filterReleaseEvidenceChecklistByIssue,
   loadReleaseEvidenceContracts
 } from "./release-evidence-checklist.mjs";
@@ -272,7 +273,26 @@ function issueNumbersForReleaseEvidenceChecklist(checklist) {
     .sort((left, right) => left - right);
 }
 
-function releaseEvidenceChecklistItemSummary(item) {
+function evidenceBundleShapeSummary(templateItem) {
+  const shape = templateItem?.evidenceBundleShape;
+
+  if (!isRecord(shape)) {
+    return null;
+  }
+
+  return {
+    kind: typeof shape.kind === "string" ? shape.kind : "unknown-evidence-bundle",
+    requiredFields: stringList(shape.requiredFields),
+    requiredFieldCount: stringList(shape.requiredFields).length,
+    requiredPassedChecks: stringList(shape.requiredPassedChecks),
+    requiredArtifactScopes: stringList(shape.requiredArtifactScopes),
+    requiredProtectedPathEvidenceRefs: stringList(shape.requiredProtectedPathEvidenceRefs)
+  };
+}
+
+function releaseEvidenceChecklistItemSummary(item, templateItem) {
+  const evidenceBundleShape = evidenceBundleShapeSummary(templateItem);
+
   return {
     itemId: typeof item.itemId === "string" ? item.itemId : "unknown-release-evidence-item",
     gateId: typeof item.gateId === "string" ? item.gateId : "unknown-release-gate",
@@ -280,7 +300,8 @@ function releaseEvidenceChecklistItemSummary(item) {
     scope: typeof item.scope === "string" ? item.scope : null,
     requiredChecks: stringList(item.requiredChecks),
     requiredEvidence: stringList(item.requiredEvidence),
-    unblockCriteria: stringList(item.unblockCriteria)
+    unblockCriteria: stringList(item.unblockCriteria),
+    ...(evidenceBundleShape ? { evidenceBundleShape } : {})
   };
 }
 
@@ -289,6 +310,9 @@ export function releaseEvidenceIssuePreparation(checklist, options = {}) {
 
   return issueNumbersForReleaseEvidenceChecklist(checklist).map((issueNumber) => {
     const issueChecklist = filterReleaseEvidenceChecklistByIssue(checklist, issueNumber);
+    const templateItems = new Map(
+      buildReleaseEvidenceTemplate(issueChecklist).items.map((item) => [item.itemId, item])
+    );
     const issuePrefix = `issue-${issueNumber}`;
 
     return {
@@ -297,7 +321,9 @@ export function releaseEvidenceIssuePreparation(checklist, options = {}) {
       status: issueChecklist.status,
       itemCount: issueChecklist.summary.totalItems,
       blockedItems: issueChecklist.summary.blockedItems,
-      checklistItems: issueChecklist.checklistItems.map(releaseEvidenceChecklistItemSummary),
+      checklistItems: issueChecklist.checklistItems.map((item) =>
+        releaseEvidenceChecklistItemSummary(item, templateItems.get(item.itemId))
+      ),
       checklistPath: `${bundleDir}/${issuePrefix}-checklist.md`,
       templatePath: `${bundleDir}/${issuePrefix}-template.json`,
       commentPath: `${bundleDir}/${issuePrefix}-comment.md`,
