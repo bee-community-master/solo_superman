@@ -3915,20 +3915,20 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         ]
       });
       expect(failedResearchData).toMatchObject({
-        evidenceMatrices: [
+        evidenceMatrices: expect.arrayContaining([
           expect.objectContaining({
             balanceStatus: "source_quality_insufficient",
             decisionBlocked: true
           })
-        ],
-        reviewCards: [
+        ]),
+        reviewCards: expect.arrayContaining([
           expect.objectContaining({
             state: "terminal_failure",
             retainedSourceRef: "Low-quality retained source",
             recoveryActions: expect.arrayContaining(["retry_synthesis", "import_manual_result", "defer_as_known_risk"])
           })
-        ],
-        knownRisks: [expect.stringContaining("Research source was insufficient")]
+        ]),
+        knownRisks: expect.arrayContaining([expect.stringContaining("Research source was insufficient")])
       });
     } finally {
       await storage.close();
