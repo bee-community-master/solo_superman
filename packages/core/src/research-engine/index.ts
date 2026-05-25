@@ -186,12 +186,12 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
     /(?:선택지\s*없이|선택지(?:가|는)?\s*아니라|객관식(?:이|은)?\s*아니라|선택형(?:이|은)?\s*아니라|고르지\s*말고|선택하지\s*말고|without\s+choices?|no\s+choices?|not\s+(?:a\s+)?(?:choice|multiple[-\s]?choice|single[-\s]?choice))/iu.test(topic);
   const asksForForcedChoice =
     /(?:객관식|선택형|선택|고르|골라|중\s*(?:하나|한\s*가지)|하나(?:를|만)?\s*(?:선택|고르)|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|복수|다중|(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|선택|고르|판단)|양자\s*택일|양자택일|choose|pick|select|single[-\s]?choice|multi[-\s]?select|one\s+or\s+more|select\s+all|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(topic);
+  const rejectsBinaryChoice =
+    /(?:(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|찬반|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:선택|답변|판단|질문)?(?:이|가|은|는)?\s*(?:아니라|아닌|말고|대신|보다)|(?:not|instead\s+of|rather\s+than|not\s+an?\s+)[^.\n?]{0,60}(?:yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose|pro\s*[/ ]?con|binary\s+choice)|(?:yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose|pro\s*[/ ]?con|binary\s+choice)[^.\n?]{0,60}(?:not|instead|rather\s+than))/iu.test(topic);
   const asksForExplicitChoice =
     /(?:객관식|선택형|선택|고르|골라|중\s*(?:하나|한\s*가지)|어느\s*(?:쪽|방향|후보|성향|고객|세그먼트|종류|선택지)|choose|pick|select|which\s+(?:one|customer|segment|option|side|direction))/iu.test(topic);
   const asksForCustomerChoice =
     /(?:세그먼트|성향|persona|segment|어느\s*(?:고객|사용자|성향|후보)|고객\s*(?:후보|유형|타입)|customer\s*(?:segment|persona|type)|which\s+customer)/iu.test(topic);
-  const asksForNamedCandidateChoice =
-    /(?:후보|선택지|옵션|종류|유형|타입|성향|세그먼트|persona|segment|customer\s*(?:segment|persona|type)|which\s+(?:customer|segment|option))/iu.test(topic);
   const asksForSignalOrCriteriaChoice = /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic);
   const asksForMultiChoice =
     /(?:복수|모두|해당|다중|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)\s*(?:선택|고르)|둘\s*이상|multi[-\s]?select|one\s+or\s+more|select\s+all)/iu.test(
@@ -216,7 +216,7 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
     return "open_text";
   }
 
-  if (asksForBinaryChoice) {
+  if (asksForBinaryChoice && !rejectsBinaryChoice) {
     return "binary_choice";
   }
 
@@ -236,20 +236,12 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
     return "single_customer_choice";
   }
 
-  if (asksForBinaryChoice && !asksForNamedCandidateChoice && !asksForSignalOrCriteriaChoice) {
-    return "binary_choice";
-  }
-
   if (asksForSingleChoice) {
     return "single_choice";
   }
 
   if (asksForSignalOrCriteriaChoice) {
     return "multi_signal_choice";
-  }
-
-  if (asksForBinaryChoice) {
-    return "binary_choice";
   }
 
   return "evidence_judgment";
