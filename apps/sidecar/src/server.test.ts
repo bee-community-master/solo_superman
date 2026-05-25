@@ -9490,6 +9490,9 @@ describe("PR-02 sidecar health shell", () => {
       const generatedProductPackage = JSON.parse(
         await readFile(join(projectDir, "generated-product", "package.json"), "utf8")
       ) as Readonly<Record<string, unknown>>;
+      const generatedProductData = JSON.parse(
+        await readFile(join(projectDir, "generated-product", "product-slice.json"), "utf8")
+      ) as Readonly<Record<string, unknown>>;
       const generatedProductHtml = await readFile(join(projectDir, "generated-product", "index.html"), "utf8");
       const generatedProductModule = await readFile(join(projectDir, "generated-product", "src", "product-slice.mjs"), "utf8");
       const generatedProductTest = await readFile(
@@ -9625,6 +9628,8 @@ describe("PR-02 sidecar health shell", () => {
       expect(generatedProductReadme).toContain("Source Planning Handoff artifact:");
       expect(generatedProductReadme).toContain("## Included capabilities");
       expect(generatedProductReadme).toContain("## Acceptance criteria");
+      expect(generatedProductReadme).toContain("## Evidence source trace");
+      expect(generatedProductReadme).toContain("## Residual risks");
       expect(generatedProductPackage).toMatchObject({
         name: "demo-workspace-app-generated-product",
         private: true,
@@ -9633,14 +9638,33 @@ describe("PR-02 sidecar health shell", () => {
           test: "node --test src/product-slice.test.mjs"
         }
       });
+      expect(generatedProductData).toMatchObject({
+        source: {
+          artifactId: expect.any(String),
+          status: "planning_ready"
+        },
+        evidence: {
+          sourceRefs: expect.arrayContaining([
+            expect.objectContaining({
+              required: true,
+              stale: false
+            })
+          ]),
+          readiness: {
+            expectedEvidence: expect.arrayContaining([expect.any(String)])
+          },
+          residualRisks: expect.any(Array)
+        }
+      });
       expect(generatedProductHtml).toContain('data-product-slice-root');
       expect(generatedProductHtml).toContain('./src/product-slice.mjs');
       expect(generatedProductModule).toContain("export const productSlice");
       expect(generatedProductModule).toContain("renderProductSlice");
       expect(generatedProductTest).toContain("generated product slice keeps the Planning Handoff source trace");
-      expect(generatedProductTestOutput).toContain("pass 2");
+      expect(generatedProductTestOutput).toContain("pass 3");
       expect(bootstrapTreePaths).toContain("generated-product/README.md");
       expect(bootstrapTreePaths).toContain("generated-product/package.json");
+      expect(bootstrapTreePaths).toContain("generated-product/product-slice.json");
       expect(bootstrapTreePaths).toContain("generated-product/index.html");
       expect(bootstrapTreePaths).toContain("generated-product/src/product-slice.mjs");
       expect(bootstrapTreePaths).toContain("generated-product/src/product-slice.test.mjs");
@@ -9684,6 +9708,7 @@ describe("PR-02 sidecar health shell", () => {
           bootstrapEvidenceRef,
           "planning-handoff-plan:planning-handoff-implementation-plan.md",
           "generated-software-artifact:generated-product/README.md",
+          "generated-software-artifact:generated-product/product-slice.json",
           "generated-software-artifact:generated-product/src/product-slice.test.mjs",
           expect.stringMatching(/^planning-handoff-pr-issue:planning-handoff-pr-issues\//u)
         ]),

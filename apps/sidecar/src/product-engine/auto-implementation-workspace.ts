@@ -47,12 +47,14 @@ const PLANNING_HANDOFF_PR_ISSUE_PLAN_DIR = "planning-handoff-pr-issues";
 const GENERATED_PRODUCT_DIR = "generated-product";
 const GENERATED_PRODUCT_README_RELATIVE_PATH = `${GENERATED_PRODUCT_DIR}/README.md`;
 const GENERATED_PRODUCT_PACKAGE_RELATIVE_PATH = `${GENERATED_PRODUCT_DIR}/package.json`;
+const GENERATED_PRODUCT_DATA_RELATIVE_PATH = `${GENERATED_PRODUCT_DIR}/product-slice.json`;
 const GENERATED_PRODUCT_INDEX_RELATIVE_PATH = `${GENERATED_PRODUCT_DIR}/index.html`;
 const GENERATED_PRODUCT_SLICE_RELATIVE_PATH = `${GENERATED_PRODUCT_DIR}/src/product-slice.mjs`;
 const GENERATED_PRODUCT_TEST_RELATIVE_PATH = `${GENERATED_PRODUCT_DIR}/src/product-slice.test.mjs`;
 const GENERATED_SOFTWARE_ARTIFACT_RELATIVE_PATHS = [
   GENERATED_PRODUCT_README_RELATIVE_PATH,
   GENERATED_PRODUCT_PACKAGE_RELATIVE_PATH,
+  GENERATED_PRODUCT_DATA_RELATIVE_PATH,
   GENERATED_PRODUCT_INDEX_RELATIVE_PATH,
   GENERATED_PRODUCT_SLICE_RELATIVE_PATH,
   GENERATED_PRODUCT_TEST_RELATIVE_PATH
@@ -876,7 +878,32 @@ function generatedProductModel(input: {
       slice: input.artifact.scopeSnapshot.productSlice,
       journey: input.artifact.scopeSnapshot.userFacingJourneyLabel,
       trackerGoal: input.trackerGoal,
-      handoffSummary: input.artifact.handoffSummary
+      handoffSummary: input.artifact.handoffSummary,
+      assumptions: input.artifact.scopeSnapshot.assumptions,
+      nonGoals: input.artifact.scopeSnapshot.nonGoals
+    },
+    evidence: {
+      sourceRefs: input.artifact.sourceRefs.map((sourceRef) => ({
+        sourceType: sourceRef.sourceType,
+        sourceId: sourceRef.sourceId,
+        sourceLabel: sourceRef.sourceLabel ?? null,
+        required: sourceRef.required,
+        stale: sourceRef.stale
+      })),
+      readiness: {
+        requiredApprovals: input.artifact.readinessChecklist.requiredApprovals,
+        expectedEvidence: input.artifact.readinessChecklist.expectedEvidence,
+        sandboxBoundary: input.artifact.readinessChecklist.sandboxBoundary,
+        rollbackReference: input.artifact.readinessChecklist.rollbackReference
+      },
+      residualRisks: input.artifact.residualRiskRegister.map((risk) => ({
+        riskId: risk.riskId,
+        riskClass: risk.riskClass,
+        title: risk.title,
+        severity: risk.severity,
+        ownerRole: risk.ownerRole,
+        followUpTrigger: risk.followUpTrigger
+      }))
     },
     implementation: {
       sliceGoal: input.artifact.buildSlicePlan.sliceGoal,
@@ -935,6 +962,18 @@ function generatedProductReadmeMarkdown(input: {
     "",
     ...markdownList(model.implementation.smokeTests),
     "",
+    "## Evidence source trace",
+    "",
+    ...model.evidence.sourceRefs.map((sourceRef) =>
+      `- ${sourceRef.sourceType}:${sourceRef.sourceId} (${sourceRef.required ? "required" : "optional"}, ${sourceRef.stale ? "stale" : "current"})${sourceRef.sourceLabel ? ` — ${sourceRef.sourceLabel}` : ""}`
+    ),
+    "",
+    "## Residual risks",
+    "",
+    ...model.evidence.residualRisks.map((risk) =>
+      `- ${risk.riskId}: ${risk.title} (${risk.severity}; owner: ${risk.ownerRole}; trigger: ${risk.followUpTrigger})`
+    ),
+    "",
     "## First implementation tasks",
     "",
     ...model.implementation.firstPrIssue.tasks.flatMap((task) => [
@@ -969,6 +1008,14 @@ function generatedProductPackageJson(projectFolderName: string) {
       preview: "python3 -m http.server 4173 -d ."
     }
   }, null, 2)}\n`;
+}
+
+function generatedProductDataJson(input: {
+  readonly artifact: PlanningHandoffArtifactDto;
+  readonly projectFolderName: string;
+  readonly trackerGoal: string;
+}) {
+  return `${JSON.stringify(generatedProductModel(input), null, 2)}\n`;
 }
 
 function escapeHtml(value: string) {
@@ -1051,6 +1098,8 @@ function generatedProductSliceModule(input: {
     "  root.append(list('Included capabilities', productSlice.implementation.capabilities));",
     "  root.append(list('Acceptance criteria', productSlice.implementation.acceptanceCriteria));",
     "  root.append(list('Smoke tests', productSlice.implementation.smokeTests));",
+    "  root.append(list('Evidence source trace', productSlice.evidence.sourceRefs.map((sourceRef) => `${sourceRef.sourceType}:${sourceRef.sourceId}${sourceRef.sourceLabel ? ` — ${sourceRef.sourceLabel}` : ''}`)));",
+    "  root.append(list('Residual risks', productSlice.evidence.residualRisks.map((risk) => `${risk.riskId}: ${risk.title}`)));",
     "  container.replaceChildren(root);",
     "  return root;",
     "}",
@@ -1074,6 +1123,7 @@ function generatedProductSliceTest(input: {
 
   return [
     'import assert from "node:assert/strict";',
+    'import { readFile } from "node:fs/promises";',
     'import test from "node:test";',
     'import { productSlice } from "./product-slice.mjs";',
     "",
@@ -1087,6 +1137,14 @@ function generatedProductSliceTest(input: {
     "  assert.ok(productSlice.implementation.acceptanceCriteria.length > 0);",
     "  assert.ok(productSlice.implementation.smokeTests.length > 0);",
     "  assert.ok(productSlice.implementation.firstPrIssue.includedTaskIds.length > 0);",
+    "});",
+    "",
+    'test("generated product slice carries source-traced evidence into its data model", async () => {',
+    "  const dataModel = JSON.parse(await readFile(new URL('../product-slice.json', import.meta.url), 'utf8'));",
+    "  assert.deepEqual(dataModel.source, productSlice.source);",
+    "  assert.ok(productSlice.evidence.sourceRefs.length > 0);",
+    "  assert.ok(productSlice.evidence.sourceRefs.some((sourceRef) => sourceRef.required === true));",
+    "  assert.ok(productSlice.evidence.readiness.expectedEvidence.length > 0);",
     "});",
     ""
   ].join("\n");
@@ -1107,6 +1165,10 @@ async function writeGeneratedSoftwareScaffold(input: {
     {
       relativePath: GENERATED_PRODUCT_PACKAGE_RELATIVE_PATH,
       content: generatedProductPackageJson(input.projectFolderName)
+    },
+    {
+      relativePath: GENERATED_PRODUCT_DATA_RELATIVE_PATH,
+      content: generatedProductDataJson(input)
     },
     {
       relativePath: GENERATED_PRODUCT_INDEX_RELATIVE_PATH,

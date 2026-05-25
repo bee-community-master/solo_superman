@@ -33,20 +33,26 @@ describe("single-session product loop smoke", () => {
         autoImplementationStatus: "pending",
         autoImplementationCurrentStage: "initial_pr",
         autoImplementationStageCount: 7,
-        autoImplementationGeneratedSoftwareArtifactCount: 5,
-        autoImplementationGeneratedSoftwareHasRunnableTest: true
+        autoImplementationGeneratedSoftwareArtifactCount: 6,
+        autoImplementationGeneratedSoftwareHasRunnableTest: true,
+        generatedProductSourceRefCount: expect.any(Number),
+        generatedProductResidualRiskCount: expect.any(Number),
+        generatedProductFirstIssueTaskCount: expect.any(Number)
       }
     });
     expect(evidence.loop?.generatedQuestionCount).toBeGreaterThanOrEqual(10);
     expect(evidence.loop?.petDomainQuestionSignalCount).toBeGreaterThanOrEqual(3);
     expect(evidence.loop?.providerSourceRefCount).toBeGreaterThanOrEqual(1);
+    expect(evidence.loop?.generatedProductSourceRefCount).toBeGreaterThanOrEqual(1);
+    expect(evidence.loop?.generatedProductFirstIssueTaskCount).toBeGreaterThanOrEqual(1);
     expect(evidence.checked).toEqual(expect.arrayContaining([
       "one pet-lifecycle idea stayed on one project/session through every product-loop checkpoint",
       "domain-fit question generation avoided stale founder/operator customer options",
       "answer submission created source-linked research task debt in the same session",
       "same-session research synthesis generated follow-up question debt",
       "same-session auto implementation run started at initial_pr with canonical stages",
-      "same-session auto implementation generated a runnable local software scaffold with source-traced smoke test"
+      "same-session auto implementation generated a runnable local software scaffold with source-traced smoke test",
+      "same-session generated product data carried Planning Handoff source refs, residual risk register, and first-slice tasks"
     ]));
   });
 
