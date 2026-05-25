@@ -285,6 +285,116 @@ function bulletList(items, formatter = (item) => item) {
   return items.length ? items.map((item) => `- ${formatter(item)}`) : ["- _None specified._"];
 }
 
+const RELEASE_LAB_COMMAND_PLAN_DEFINITIONS = [
+  {
+    issueNumber: 259,
+    title: "Windows real-device installer evidence",
+    objective: "Run the one-line Windows install path on a clean Windows 11 device or VM and collect first-screen/support/log evidence.",
+    credentialFreeCommandPatterns: [/verify:windows-installer:dry-run\b/u, /verify:windows-real-device$/u],
+    evidenceCommandPatterns: [/verify:windows-real-device\b.*--require-device-evidence/u]
+  },
+  {
+    issueNumber: 266,
+    title: "Signed package release evidence",
+    objective: "Collect macOS Developer ID/notarization, Windows Authenticode/timestamp, and release manifest signing evidence without exposing credentials.",
+    credentialFreeCommandPatterns: [
+      /verify:signed-package-preflight$/u,
+      /verify:signed-package-release$/u,
+      /verify:signed-package-release:dry-run\b/u
+    ],
+    evidenceCommandPatterns: [
+      /verify:signed-package-preflight\b.*--require-credentials/u,
+      /verify:signed-package-release\b.*--require-release-evidence/u
+    ]
+  },
+  {
+    issueNumber: 267,
+    title: "Packaged updater rollback evidence",
+    objective: "Run signed-package update/defer/retry/rollback/launch checks on macOS and Windows devices while proving user data and credential refs are preserved.",
+    credentialFreeCommandPatterns: [
+      /verify:release-channel$/u,
+      /verify:packaged-update-rollback$/u,
+      /verify:packaged-update-rollback:dry-run\b/u
+    ],
+    evidenceCommandPatterns: [/verify:packaged-update-rollback\b.*--require-device-evidence/u]
+  }
+];
+
+function commandsMatching(commands, patterns) {
+  return uniqueStrings(stringList(commands).filter((command) => patterns.some((pattern) => pattern.test(command))));
+}
+
+function checklistIssueNumbers(checklist) {
+  const issueNumbers = checklist.summary?.filterIssueNumber
+    ? [checklist.summary.filterIssueNumber]
+    : checklist.checklistItems
+      .map((item) => item.blockerIssueNumber)
+      .filter((issueNumber) => issueNumber !== null && issueNumber !== undefined);
+
+  return numericIssueNumbers(issueNumbers);
+}
+
+export function releaseLabCommandPlansForChecklist(checklist) {
+  const issueNumbers = new Set(checklistIssueNumbers(checklist));
+
+  return RELEASE_LAB_COMMAND_PLAN_DEFINITIONS
+    .filter((definition) => issueNumbers.has(definition.issueNumber))
+    .map((definition) => ({
+      issueNumber: definition.issueNumber,
+      title: definition.title,
+      objective: definition.objective,
+      issueFiles: [
+        `issue-${definition.issueNumber}-checklist.md`,
+        `issue-${definition.issueNumber}-template.json`,
+        `issue-${definition.issueNumber}-comment.md`
+      ],
+      credentialFreeCommands: commandsMatching(checklist.credentialFreeCommands, definition.credentialFreeCommandPatterns),
+      evidenceCommands: commandsMatching(checklist.readyReleaseCommands, definition.evidenceCommandPatterns),
+      bundleCommands: [
+        `pnpm verify:release-evidence-template -- --input issue-${definition.issueNumber}-template.json --issue ${definition.issueNumber}`,
+        "pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir>",
+        "pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> --require-ready",
+        "pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>"
+      ]
+    }));
+}
+
+function renderReleaseLabCommandPlanMarkdown(checklist, heading = "## Issue-focused release-lab command plan") {
+  const plans = releaseLabCommandPlansForChecklist(checklist);
+  const lines = [heading, ""];
+
+  if (plans.length === 0) {
+    return [...lines, "- _No issue-focused release-lab command plan matched this checklist._", ""];
+  }
+
+  for (const plan of plans) {
+    lines.push(
+      `### #${plan.issueNumber} ${plan.title}`,
+      "",
+      plan.objective,
+      "",
+      "**Issue files**",
+      "",
+      ...bulletList(plan.issueFiles, (file) => `\`${file}\``),
+      "",
+      "**Credential-free local checks**",
+      "",
+      ...checkboxList(plan.credentialFreeCommands, (command) => `\`${command}\``),
+      "",
+      "**Release-lab evidence gates**",
+      "",
+      ...checkboxList(plan.evidenceCommands, (command) => `\`${command}\``),
+      "",
+      "**Filled-bundle and ready-release gates**",
+      "",
+      ...checkboxList(plan.bundleCommands, (command) => `\`${command}\``),
+      ""
+    );
+  }
+
+  return lines;
+}
+
 function markdownValue(value) {
   return value === undefined || value === null || value === "" ? "_not specified_" : String(value);
 }
@@ -908,6 +1018,7 @@ export function renderReleaseEvidenceChecklistMarkdown(checklist) {
     "",
     ...bulletList(checklist.issues),
     "",
+    ...renderReleaseLabCommandPlanMarkdown(checklist),
     "## Ready-release verification commands",
     "",
     ...checkboxList(checklist.readyReleaseCommands, (command) => `\`${command}\``),
@@ -955,6 +1066,7 @@ export function renderReleaseEvidenceIssueCommentMarkdown(checklist) {
     "- [ ] Keep `verification.readyReleaseCommandsRun` limited to nested verifier commands that run before the filled-bundle and aggregate ready-release gates; do not list those self-referential verifier commands there.",
     "- [ ] Confirm no credential values, tokens, cookies, URL userinfo, secret-like query parameters, raw file contents, or full environment dumps are included.",
     "",
+    ...renderReleaseLabCommandPlanMarkdown(checklist),
     "## Validation summary",
     "",
     "- Template validation command: _paste sanitized command output summary here_",
@@ -1125,6 +1237,30 @@ function renderReleaseEvidenceBundleReadme(manifest) {
       ];
     })
     : ["- _No issue evidence item summaries were generated._"];
+  const releaseLabCommandPlanLines = Array.isArray(manifest.releaseLabCommandPlans) && manifest.releaseLabCommandPlans.length
+    ? manifest.releaseLabCommandPlans.flatMap((plan) => [
+      `### #${plan.issueNumber} ${plan.title}`,
+      "",
+      plan.objective,
+      "",
+      "**Issue files**",
+      "",
+      ...bulletList(stringList(plan.issueFiles), (file) => `\`${file}\``),
+      "",
+      "**Credential-free local checks**",
+      "",
+      ...checkboxList(stringList(plan.credentialFreeCommands), (command) => `\`${command}\``),
+      "",
+      "**Release-lab evidence gates**",
+      "",
+      ...checkboxList(stringList(plan.evidenceCommands), (command) => `\`${command}\``),
+      "",
+      "**Filled-bundle and ready-release gates**",
+      "",
+      ...checkboxList(stringList(plan.bundleCommands), (command) => `\`${command}\``),
+      ""
+    ])
+    : ["- _No issue-focused release-lab command plans were generated._", ""];
 
   const issueLines = manifest.issueNumbers.length
     ? manifest.issueNumbers.map((issueNumber) => {
@@ -1154,6 +1290,9 @@ function renderReleaseEvidenceBundleReadme(manifest) {
     "",
     ...issueSummaryLines,
     "",
+    "## Release-lab command plan by issue",
+    "",
+    ...releaseLabCommandPlanLines,
     "## How to use",
     "",
     "1. Pick the issue-specific template for the release lab run you are executing.",
@@ -1261,6 +1400,7 @@ export function buildReleaseEvidenceBundle(checklist) {
     issueNumbers,
     releaseEvidenceBlockerSummary: releaseEvidenceBlockerSummary(checklist, issueNumbers),
     releaseEvidenceIssueSummaries: releaseEvidenceBundleIssueSummaries(checklist, issueNumbers),
+    releaseLabCommandPlans: releaseLabCommandPlansForChecklist(checklist),
     summary: checklist.summary,
     openBlockerIssues: checklist.openBlockerIssues,
     readyReleaseCommands: checklist.readyReleaseCommands,

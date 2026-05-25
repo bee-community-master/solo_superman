@@ -176,6 +176,20 @@ function validateReleaseEvidenceIssueSummaries(manifest, expectedManifest, issue
   }
 }
 
+function validateReleaseLabCommandPlans(manifest, expectedManifest, issues) {
+  const actual = manifest.releaseLabCommandPlans;
+  const expected = expectedManifest.releaseLabCommandPlans;
+
+  if (!Array.isArray(actual)) {
+    addIssue(issues, "$.releaseLabCommandPlans", "must list issue-specific release-lab command plans");
+    return;
+  }
+
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    addIssue(issues, "$.releaseLabCommandPlans", "must match the generated issue-specific release-lab command plans");
+  }
+}
+
 function validatePendingTemplateShape(template, expectedChecklist, path, issues) {
   if (!isRecord(template)) {
     addIssue(issues, path, "must be a release evidence template object");
@@ -340,6 +354,7 @@ async function validateBundlePayload({ manifest, fileContents, unsupportedEntrie
   }
   validateReleaseEvidenceBlockerSummary(manifest, expectedBundle.manifest, issues);
   validateReleaseEvidenceIssueSummaries(manifest, expectedBundle.manifest, issues);
+  validateReleaseLabCommandPlans(manifest, expectedBundle.manifest, issues);
   for (const command of stringList(fullChecklist.readyReleaseCommands)) {
     if (!stringList(manifest.readyReleaseCommands).includes(command)) {
       addIssue(issues, "$.readyReleaseCommands", `must include ${command}`);
@@ -420,6 +435,9 @@ function evidenceForBundleValidation(validation, options = {}) {
     releaseEvidenceIssueSummaries: Array.isArray(manifest.releaseEvidenceIssueSummaries)
       ? manifest.releaseEvidenceIssueSummaries
       : [],
+    releaseLabCommandPlans: Array.isArray(manifest.releaseLabCommandPlans)
+      ? manifest.releaseLabCommandPlans
+      : [],
     fileCount: Array.isArray(manifest.files) ? manifest.files.length : 0,
     blockers: validation.issues,
     checked: [
@@ -429,6 +447,7 @@ function evidenceForBundleValidation(validation, options = {}) {
       "bundle README, manifest, checklist, templates, and issue comments are present",
       "release evidence blocker summary is carried through the bundle",
       "issue-specific evidence item summaries and compact evidenceBundle shape metadata are carried through the bundle",
+      "issue-specific release-lab command plans are carried through the bundle",
       "ready-release commands are carried through the bundle",
       options.requireReady ? "filled release evidence templates pass ready validation" : "pending release evidence templates preserve expected checklist items",
       "release evidence bundle strings are secret-free"
