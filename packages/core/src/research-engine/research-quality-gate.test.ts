@@ -459,6 +459,23 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("하나 이상 선택");
   });
 
+  it("treats mixed subjective and objective wording as an answer-form policy", () => {
+    const researchTask = task({
+      objective:
+        "어떤 질문은 주관식으로 직접 설명하고 어떤 질문은 객관식으로 후보를 고르게 하면서 답변 형식을 질문 의도에 맞게 다양하게 구성"
+    });
+    const researchResult = result({
+      result: "Pro: non-technical users answer better when the input shape matches the decision being made.",
+      limitationNotes: "The exact split between text and choice questions still needs product judgment."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("질문마다 답변 형식을 달리");
+    expect(matrix.additionalQuestions[0]).toContain("주관식/서술형, 찬성·반대, 하나 선택, 여러 개 선택, 우선순위");
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+    expect(matrix.additionalQuestions[0]).not.toContain("하나의 선택지");
+  });
+
   it("keeps named generic multi-choice candidates visible in the follow-up prompt", () => {
     const researchTask = task({
       objective: "기능 후보는 빠른 온보딩, 수동 검증, 가격 테스트입니다. 여러 종류 중 하나 혹은 여러 개를 선택해야 하는 후보 결정"
