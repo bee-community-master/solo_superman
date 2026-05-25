@@ -753,6 +753,8 @@ function checkContributorDocsSnippets() {
     requireSnippets(`${path} missing opt-in live runtime readiness boundary`, text, [
       "pnpm verify:codex-live-runtime",
       "pnpm verify:worker-job:live",
+      "pnpm verify:single-session-product-loop:worker",
+      "pnpm verify:single-session-product-loop:live-implementation",
       "opt-in runtime verification",
       ...productOverviewRuntimeSnippetsByPath[path]
     ]);
@@ -937,7 +939,9 @@ function checkContributorDocsSnippets() {
     "Core ambiguity dimensions are 75 or higher",
     "pnpm verify:worker-job:live",
     "pnpm verify:single-session-product-loop",
+    "pnpm verify:single-session-product-loop:worker",
     "pnpm verify:single-session-product-loop:live-web",
+    "pnpm verify:single-session-product-loop:live-implementation",
     "pnpm verify:readiness-to-implementation",
     "browser-service-boundary",
     "auto-implementation-review-loop",
@@ -1064,7 +1068,9 @@ function checkProjectWikiDocsSnippets() {
     "pnpm verify:research-pipeline",
     "pnpm verify:research-pipeline:live-web",
     "pnpm verify:single-session-product-loop",
+    "pnpm verify:single-session-product-loop:worker",
     "pnpm verify:single-session-product-loop:live-web",
+    "pnpm verify:single-session-product-loop:live-implementation",
     "pnpm verify:readiness-to-implementation",
     "pnpm verify:worker-job:live",
     "Research mounted provider polling/import/synthesis stays connected",

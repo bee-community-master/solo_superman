@@ -24,6 +24,11 @@ import {
   runSingleSessionProductLoopSmoke,
   type SingleSessionProductLoopSmokeEvidence
 } from "./single-session-product-loop-smoke";
+import {
+  SINGLE_SESSION_LIVE_IMPLEMENTATION_SMOKE,
+  runSingleSessionLiveImplementationSmoke,
+  type SingleSessionLiveImplementationSmokeEvidence
+} from "./single-session-live-implementation-smoke";
 
 export const CORE_PRODUCT_LOOP_SMOKE = "core_product_loop" as const;
 
@@ -37,6 +42,7 @@ export interface CoreProductLoopSmokeEvidence {
   readonly mode: "fixture";
   readonly stages: {
     readonly singleSession: SingleSessionProductLoopSmokeEvidence;
+    readonly singleSessionImplementation: SingleSessionLiveImplementationSmokeEvidence;
     readonly clarification: ClarificationPipelineSmokeEvidence;
     readonly research: ResearchPipelineSmokeEvidence;
     readonly readinessToImplementation: ReadinessToImplementationSmokeEvidence;
@@ -54,6 +60,8 @@ export interface CoreProductLoopSmokeEvidence {
     readonly singleSessionFollowUpQuestionCount: number;
     readonly singleSessionPlanningHandoffStatus: string;
     readonly singleSessionAutoImplementationCurrentStage: string;
+    readonly sameSessionWorkerStageAfter: string;
+    readonly sameSessionWorkerLedgerStatus: string;
     readonly readinessCompositeScore: number;
     readonly readinessLabel: string;
     readonly completionCandidateStatus: string;
@@ -72,6 +80,7 @@ export interface CoreProductLoopSmokeEvidence {
 
 export interface CoreProductLoopSmokeOptions {
   readonly runSingleSession?: SmokeRunner<SingleSessionProductLoopSmokeEvidence>;
+  readonly runSingleSessionImplementation?: SmokeRunner<SingleSessionLiveImplementationSmokeEvidence>;
   readonly runClarification?: SmokeRunner<ClarificationPipelineSmokeEvidence>;
   readonly runResearch?: SmokeRunner<ResearchPipelineSmokeEvidence>;
   readonly runReadinessToImplementation?: SmokeRunner<ReadinessToImplementationSmokeEvidence>;
@@ -105,6 +114,8 @@ function loopSummary(stages: CoreProductLoopSmokeEvidence["stages"]): CoreProduc
     singleSessionFollowUpQuestionCount: stages.singleSession.loop?.followUpQuestionCount ?? 0,
     singleSessionPlanningHandoffStatus: stages.singleSession.loop?.planningHandoffStatus ?? "unknown",
     singleSessionAutoImplementationCurrentStage: stages.singleSession.loop?.autoImplementationCurrentStage ?? "unknown",
+    sameSessionWorkerStageAfter: stages.singleSessionImplementation.worker?.stageAfter ?? "unknown",
+    sameSessionWorkerLedgerStatus: stages.singleSessionImplementation.worker?.ledgerStatus ?? "unknown",
     readinessCompositeScore: stages.readinessToImplementation.readiness?.compositeScore ?? 0,
     readinessLabel: stages.readinessToImplementation.readiness?.readinessLabel ?? "unknown",
     completionCandidateStatus: stages.readinessToImplementation.readiness?.completionCandidateStatus ?? "unknown",
@@ -121,6 +132,7 @@ function loopSummary(stages: CoreProductLoopSmokeEvidence["stages"]): CoreProduc
 function loopBlockers(stages: CoreProductLoopSmokeEvidence["stages"]) {
   const blockers = [
     ...stageStatusBlocker(SINGLE_SESSION_PRODUCT_LOOP_SMOKE, stages.singleSession),
+    ...stageStatusBlocker(SINGLE_SESSION_LIVE_IMPLEMENTATION_SMOKE, stages.singleSessionImplementation),
     ...stageStatusBlocker(CLARIFICATION_PIPELINE_SMOKE, stages.clarification),
     ...stageStatusBlocker(RESEARCH_PIPELINE_SMOKE, stages.research),
     ...stageStatusBlocker(READINESS_TO_IMPLEMENTATION_SMOKE, stages.readinessToImplementation),
@@ -165,6 +177,12 @@ function loopBlockers(stages: CoreProductLoopSmokeEvidence["stages"]) {
       `single-session core loop must start auto implementation at initial_pr; received ${loop.singleSessionAutoImplementationCurrentStage}`
     );
   }
+  if (loop.sameSessionWorkerLedgerStatus !== "completed") {
+    blockers.push(`single-session worker proof must complete an implementation ledger; received ${loop.sameSessionWorkerLedgerStatus}`);
+  }
+  if (loop.sameSessionWorkerStageAfter === "initial_pr" || loop.sameSessionWorkerStageAfter === "unknown") {
+    blockers.push(`single-session worker proof must advance beyond initial_pr; received ${loop.sameSessionWorkerStageAfter}`);
+  }
   if (loop.readinessCompositeScore < 85) {
     blockers.push(`core loop readiness score must reach 85 before implementation; received ${loop.readinessCompositeScore}`);
   }
@@ -203,12 +221,14 @@ function checkedEvidence(stages: CoreProductLoopSmokeEvidence["stages"]) {
   return [
     "idea intake reached a broad generated question backlog before implementation",
     "single-session pet-lifecycle idea reached domain-fit questions, answer-linked research, follow-up questions, planning_ready, and initial_pr",
+    "same-session worker proof reused the Planning Handoff run and advanced beyond initial_pr with completed ledger evidence",
     "clarification answer submission created visible follow-up and research task debt",
     "public-web research provider polling imported source-traced evidence and generated follow-up questions",
     "generated follow-up research starts with prior source refs or markdown memory as baseline context",
     "positive readiness handoff proved spec_ready candidate, planning_ready artifact, and initial_pr auto implementation start",
     "auto implementation pipeline reached runtime preview, worker ledger import, PR mutation, review-loop, and merge_main fixture evidence",
     `single-session checked: ${stages.singleSession.checked.length}`,
+    `same-session worker checked: ${stages.singleSessionImplementation.checked.length}`,
     `clarification checked: ${stages.clarification.checked.length}`,
     `research checked: ${stages.research.checked.length}`,
     `readiness-to-implementation checked: ${stages.readinessToImplementation.checked.length}`,
@@ -234,6 +254,10 @@ export async function runCoreProductLoopSmoke(
       SINGLE_SESSION_PRODUCT_LOOP_SMOKE,
       options.runSingleSession ?? (() => runSingleSessionProductLoopSmoke())
     );
+    const singleSessionImplementation = await runStage(
+      SINGLE_SESSION_LIVE_IMPLEMENTATION_SMOKE,
+      options.runSingleSessionImplementation ?? (() => runSingleSessionLiveImplementationSmoke())
+    );
     const clarification = await runStage(
       CLARIFICATION_PIPELINE_SMOKE,
       options.runClarification ?? (() => runClarificationPipelineSmoke())
@@ -252,6 +276,7 @@ export async function runCoreProductLoopSmoke(
     );
     const stages = {
       singleSession,
+      singleSessionImplementation,
       clarification,
       research,
       readinessToImplementation,
@@ -300,6 +325,14 @@ export async function runCoreProductLoopSmoke(
         blockers: [errorMessage(error)],
         checked: []
       } satisfies SingleSessionProductLoopSmokeEvidence,
+      singleSessionImplementation: {
+        status: "blocked",
+        smoke: SINGLE_SESSION_LIVE_IMPLEMENTATION_SMOKE,
+        mode: "fixture",
+        reason: "Same-session implementation worker stage did not return evidence.",
+        blockers: [errorMessage(error)],
+        checked: []
+      } satisfies SingleSessionLiveImplementationSmokeEvidence,
       research: {
         status: "blocked",
         smoke: RESEARCH_PIPELINE_SMOKE,
