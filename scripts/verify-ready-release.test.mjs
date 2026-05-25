@@ -237,7 +237,16 @@ describe("ready release aggregate verification", () => {
             itemId: "windows-one-line-install-first-screen",
             gateId: "windows-real-device",
             scope: "windows",
-            requiredChecks: expect.arrayContaining(["run_administrator_powershell_one_line_installer"])
+            requiredChecks: expect.arrayContaining(["run_administrator_powershell_one_line_installer"]),
+            evidenceBundleShape: expect.objectContaining({
+              kind: "windows-real-device",
+              requiredFields: expect.arrayContaining([
+                "firstScreenEvidenceRef",
+                "checkEvidenceRefs.reach_first_screen"
+              ]),
+              requiredFieldCount: 22,
+              requiredPassedChecks: expect.arrayContaining(["reach_first_screen"])
+            })
           })
         ]),
         templatePath: "./solo-superman-release-evidence-bundle/issue-259-template.json",
@@ -323,9 +332,31 @@ describe("ready release aggregate verification", () => {
         itemId: "windows-one-line-install-first-screen",
         gateId: "windows-real-device",
         scope: "windows",
-        requiredChecks: expect.arrayContaining(["run_administrator_powershell_one_line_installer"])
+        requiredChecks: expect.arrayContaining(["run_administrator_powershell_one_line_installer"]),
+        evidenceBundleShape: expect.objectContaining({
+          kind: "windows-real-device",
+          requiredFields: expect.arrayContaining([
+            "firstScreenEvidenceRef",
+            "checkEvidenceRefs.reach_first_screen"
+          ]),
+          requiredFieldCount: 22,
+          requiredPassedChecks: expect.arrayContaining(["reach_first_screen"])
+        })
       })
     ]);
+    expect(issuePrep[2].checklistItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          itemId: "windows-packaged-update-rollback",
+          evidenceBundleShape: expect.objectContaining({
+            kind: "windows-packaged-update-rollback",
+            requiredFields: expect.arrayContaining(["protectedPathEvidenceRefs.credentials"]),
+            requiredFieldCount: 31,
+            requiredProtectedPathEvidenceRefs: expect.arrayContaining(["credentials"])
+          })
+        })
+      ])
+    );
     expect(JSON.stringify(issuePrep)).not.toContain("ghp_");
   });
 
