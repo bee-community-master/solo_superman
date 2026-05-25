@@ -428,7 +428,7 @@ function evidenceForBundleValidation(validation, options = {}) {
       "on-disk bundle files are listed in the manifest",
       "bundle README, manifest, checklist, templates, and issue comments are present",
       "release evidence blocker summary is carried through the bundle",
-      "issue-specific evidence item summaries are carried through the bundle",
+      "issue-specific evidence item summaries and compact evidenceBundle shape metadata are carried through the bundle",
       "ready-release commands are carried through the bundle",
       options.requireReady ? "filled release evidence templates pass ready validation" : "pending release evidence templates preserve expected checklist items",
       "release evidence bundle strings are secret-free"

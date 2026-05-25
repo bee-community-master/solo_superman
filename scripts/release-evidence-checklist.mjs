@@ -972,6 +972,8 @@ function releaseEvidenceBlockerSummary(checklist, issueNumbers = bundleIssueNumb
 }
 
 function releaseEvidenceBundleChecklistItemSummary(item) {
+  const evidenceBundleShape = releaseEvidenceBundleShapeForItem(item);
+
   return {
     itemId: typeof item.itemId === "string" ? item.itemId : "unknown-release-evidence-item",
     gateId: typeof item.gateId === "string" ? item.gateId : "unknown-release-gate",
@@ -979,7 +981,10 @@ function releaseEvidenceBundleChecklistItemSummary(item) {
     scope: typeof item.scope === "string" ? item.scope : null,
     requiredCheckCount: stringList(item.requiredChecks).length,
     requiredEvidenceCount: stringList(item.requiredEvidence).length,
-    unblockCriteriaCount: stringList(item.unblockCriteria).length
+    unblockCriteriaCount: stringList(item.unblockCriteria).length,
+    evidenceBundleShapeKind: typeof evidenceBundleShape?.kind === "string" ? evidenceBundleShape.kind : null,
+    evidenceBundleRequiredFieldCount: stringList(evidenceBundleShape?.requiredFields).length,
+    evidenceBundleRequiredPassedCheckCount: stringList(evidenceBundleShape?.requiredPassedChecks).length
   };
 }
 
@@ -998,6 +1003,21 @@ function releaseEvidenceBundleIssueSummary(checklist, issueNumber) {
 
 function releaseEvidenceBundleIssueSummaries(checklist, issueNumbers = bundleIssueNumbers(checklist)) {
   return issueNumbers.map((issueNumber) => releaseEvidenceBundleIssueSummary(checklist, issueNumber));
+}
+
+function releaseEvidenceBundleChecklistItemReadmeLine(item) {
+  const shapeKind = item.evidenceBundleShapeKind ?? "none";
+  const shapeFieldCount = item.evidenceBundleRequiredFieldCount ?? 0;
+  const shapePassedCheckCount = item.evidenceBundleRequiredPassedCheckCount ?? 0;
+
+  return [
+    `  - \`${item.itemId}\` (${item.gateId}, ${item.status};`,
+    `checks ${item.requiredCheckCount},`,
+    `evidence ${item.requiredEvidenceCount},`,
+    `unblock ${item.unblockCriteriaCount},`,
+    `shape ${shapeKind} fields ${shapeFieldCount},`,
+    `passed-checks ${shapePassedCheckCount})`
+  ].join(" ");
 }
 
 function bundleFileEntry(kind, relativePath, payload, metadata = {}) {
@@ -1042,9 +1062,7 @@ function renderReleaseEvidenceBundleReadme(manifest) {
 
       return [
         `- #${summary.issueNumber}: \`${summary.blockedItems ?? 0} / ${summary.itemCount ?? 0}\` blocked evidence items`,
-        ...checklistItems.map((item) => (
-          `  - \`${item.itemId}\` (${item.gateId}, ${item.status}; checks ${item.requiredCheckCount}, evidence ${item.requiredEvidenceCount}, unblock ${item.unblockCriteriaCount})`
-        ))
+        ...checklistItems.map(releaseEvidenceBundleChecklistItemReadmeLine)
       ];
     })
     : ["- _No issue evidence item summaries were generated._"];

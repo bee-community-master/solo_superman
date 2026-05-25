@@ -52,14 +52,22 @@ describe("release evidence bundle verification", () => {
           itemCount: 2,
           blockedItems: 2,
           checklistItems: expect.arrayContaining([
-            expect.objectContaining({ itemId: "windows-real-device", requiredEvidenceCount: 4 })
+            expect.objectContaining({ itemId: "windows-real-device", requiredEvidenceCount: 4 }),
+            expect.objectContaining({
+              itemId: "windows-one-line-install-first-screen",
+              evidenceBundleShapeKind: "windows-real-device",
+              evidenceBundleRequiredFieldCount: 22,
+              evidenceBundleRequiredPassedCheckCount: 11
+            })
           ])
         })
       ])
     );
     expect(evidence.fileCount).toBeGreaterThan(0);
     expect(evidence.checked).toContain("release evidence blocker summary is carried through the bundle");
-    expect(evidence.checked).toContain("issue-specific evidence item summaries are carried through the bundle");
+    expect(evidence.checked).toContain(
+      "issue-specific evidence item summaries and compact evidenceBundle shape metadata are carried through the bundle"
+    );
   });
 
   it("validates an on-disk generated bundle directory", async () => {
