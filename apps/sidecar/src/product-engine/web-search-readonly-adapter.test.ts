@@ -12,6 +12,7 @@ import {
 } from "@solo-superman/contracts";
 import {
   createWebSearchReadOnlyResearchAdapter,
+  rankedSearchCandidates,
   WebSearchReadOnlyAdapterError,
   webSearchReadOnlyResearchAdapterOptionsFromEnv
 } from "./web-search-readonly-adapter";
@@ -234,6 +235,79 @@ describe("web_search_readonly background research adapter", () => {
     expect(seenQuery).toContain("반려동물 보호자 유형");
     expect(seenQuery).not.toContain("Product category:");
     expect(seenQuery).not.toContain("첫 고객 세그먼트가 너무 넓음");
+  });
+
+  it("drops unrelated search-engine noise when relevant public-web candidates are available", () => {
+    const ranked = rankedSearchCandidates(
+      [
+        {
+          title: "ChatGPT Translate launch discussion",
+          url: "https://tinhte.vn/thread/chatgpt-translate-launch",
+          snippet: "A forum discussion about translation features and AI product news."
+        },
+        {
+          title: "반려동물 보호자 유형과 의료비 보험 시장 조사",
+          url: "https://www.nias.go.kr/companion/new_petBoard.do?cmCode=M210524110205412",
+          snippet: "반려동물 보호자 유형, 의료비 부담, 보험과 돌봄 니즈를 다룬 공개 통계 자료."
+        }
+      ],
+      "반려동물 전생애주기 통합 관리 앱 의료 기록 보험 청구 반려동물 보호자 유형 의료비 보험 돌봄 시장 조사 통계 니즈",
+      5
+    );
+
+    expect(ranked.map((candidate) => candidate.url)).toEqual([
+      "https://www.nias.go.kr/companion/new_petBoard.do?cmCode=M210524110205412"
+    ]);
+  });
+
+  it("prefers institutional market evidence over broad wiki or forum matches", () => {
+    const ranked = rankedSearchCandidates(
+      [
+        {
+          title: "반려 - 나무위키",
+          url: "https://namu.wiki/w/%EB%B0%98%EB%A0%A4",
+          snippet: "반려동물과 관련된 일반적인 wiki 설명."
+        },
+        {
+          title: "ChatGPT Translate launch discussion",
+          url: "https://tinhte.vn/thread/chatgpt-translate-launch",
+          snippet: "A forum thread about translation features and AI product news."
+        },
+        {
+          title: "반려동물 보호자 유형과 의료비 보험 시장 조사",
+          url: "https://www.nias.go.kr/companion/new_petBoard.do?cmCode=M210524110205412",
+          snippet: "반려동물 보호자 유형, 의료비 부담, 보험과 돌봄 니즈를 다룬 공개 통계 자료."
+        }
+      ],
+      "반려동물 전생애주기 통합 관리 앱 의료 기록 보험 청구 반려동물 보호자 유형 의료비 보험 돌봄 시장 조사 통계 니즈",
+      5
+    );
+
+    expect(ranked.map((candidate) => candidate.url)).toEqual([
+      "https://www.nias.go.kr/companion/new_petBoard.do?cmCode=M210524110205412"
+    ]);
+  });
+
+  it("keeps fallback candidates when public search exposes no relevance signal", () => {
+    const ranked = rankedSearchCandidates(
+      [
+        {
+          title: "Untitled result",
+          url: "https://example.com/a",
+          snippet: "No overlap with the requested idea."
+        },
+        {
+          title: "Another generic page",
+          url: "https://example.com/b",
+          snippet: "Still no overlap with the requested idea."
+        }
+      ],
+      "반려동물 전생애주기 의료 보험 돌봄",
+      1
+    );
+
+    expect(ranked).toHaveLength(1);
+    expect(ranked[0]?.url).toBe("https://example.com/a");
   });
 
   it("fails safely when the browser search is blocked", async () => {
