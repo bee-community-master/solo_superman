@@ -942,4 +942,75 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpAnswerSelectionMode(englishMultiSelectInput)).toBe("multiple");
   });
 
+  it("classifies each concrete question format independently under the flexible answer policy", () => {
+    const base = {
+      researchTask: task("질문 의도별 답변 형식 다양화"),
+      sourceQuestion: sourceQuestion({
+        expectedAnswerType: "choice",
+        topicKey: "primary_customer_narrowing"
+      }),
+      evidenceMatrix: evidenceMatrix({
+        proEvidence: [
+          {
+            evidenceItemId: "evidence_pro_flexible_answer_policy_shapes" as EvidenceItemId,
+            kind: "pro",
+            summary: "질문마다 필요한 답변 방식이 다름"
+          }
+        ]
+      })
+    };
+
+    const openTextInput = {
+      ...base,
+      question: "이번 질문은 open question입니다. 주관형/서술식 답변으로 실제 고객 맥락을 설명해주세요."
+    };
+    const binaryChoiceInput = {
+      ...base,
+      question: "객관식으로 찬성/반대 중 하나를 선택하고, 조건이 있다면 아래에 이유를 직접 설명해주세요."
+    };
+    const singleChoiceInput = {
+      ...base,
+      question: "고객 후보는 개인 창업자, 팀 리더, 운영 담당자입니다. 여러 종류 중 하나를 선택해주세요."
+    };
+    const multiSelectInput = {
+      ...base,
+      question:
+        "고객 신호는 반복되는 수동 고통, 예산/지불 의향, 기존 대안 불만입니다. 하나 혹은 여러개를 선택해야 합니다."
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(openTextInput)).toBe("open_text");
+    expect(researchFollowUpExpectedAnswerType(openTextInput)).toBe("text");
+    expect(researchFollowUpAnswerSelectionMode(openTextInput)).toBeUndefined();
+    expect(researchFollowUpAnswerOptions(openTextInput)).toEqual([]);
+
+    expect(classifyResearchFollowUpAnswerShape(binaryChoiceInput)).toBe("binary_choice");
+    expect(researchFollowUpExpectedAnswerType(binaryChoiceInput)).toBe("choice");
+    expect(researchFollowUpAnswerSelectionMode(binaryChoiceInput)).toBe("single");
+    expect(researchFollowUpAnswerOptions(binaryChoiceInput)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "찬성 / 진행" }),
+        expect.objectContaining({ label: "반대 / 보류" })
+      ])
+    );
+
+    expect(classifyResearchFollowUpAnswerShape(singleChoiceInput)).toBe("single_choice");
+    expect(researchFollowUpAnswerSelectionMode(singleChoiceInput)).toBe("single");
+    expect(researchFollowUpAnswerOptions(singleChoiceInput)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "개인 창업자" }),
+        expect.objectContaining({ label: "팀 리더" }),
+        expect.objectContaining({ label: "운영 담당자" })
+      ])
+    );
+
+    expect(classifyResearchFollowUpAnswerShape(multiSelectInput)).toBe("multi_select");
+    expect(researchFollowUpAnswerSelectionMode(multiSelectInput)).toBe("multiple");
+    expect(researchFollowUpAnswerOptions(multiSelectInput)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "반복되는 수동 고통" }),
+        expect.objectContaining({ label: expect.stringContaining("예산") })
+      ])
+    );
+  });
+
 });

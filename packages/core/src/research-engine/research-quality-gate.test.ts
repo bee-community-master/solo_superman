@@ -512,6 +512,24 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
   });
 
+  it("keeps subjective descriptive wording open even when evidence mentions options", () => {
+    const researchTask = task({
+      objective: "여러 선택 후보가 있지만 이번 질문은 주관형/서술식 답변으로 실제 고객 맥락을 설명해야 합니다."
+    });
+    const researchResult = result({
+      result: "Pro: imported notes mention solo founders, team leads, and operators as possible customer candidates.",
+      limitationNotes: "The actual user context still needs a narrative explanation."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("본인 말로 3~5문장으로 서술")]
+    });
+    expect(matrix.additionalQuestions[0]).not.toContain("하나 이상 선택");
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+  });
+
   it("turns priority-order objective wording into a ranked prompt", () => {
     const researchTask = task({
       objective: "검증 후보들의 우선순위를 정해야 하는 결정"
@@ -595,6 +613,42 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
     expect(matrix.additionalQuestions[0]).not.toContain("Pro:");
     expect(matrix.additionalQuestions[0]).toContain("individual founders mention repeated planning pain");
+  });
+
+  it("honors negated pro-con wording when the objective asks for one candidate choice", () => {
+    const researchTask = task({
+      objective: "찬성/반대 선택이 아니라 고객 후보를 하나 선택해야 합니다. 후보는 개인 창업자, 팀 리더, 운영 담당자입니다."
+    });
+    const researchResult = result({
+      result: "Pro: individual founders, team leads, and operators all show possible need.",
+      limitationNotes: "The best first segment still needs a user decision."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("리서치 단서에서 우선 비교할 고객 후보");
+    expect(matrix.additionalQuestions[0]).toContain("- 개인 창업자");
+    expect(matrix.additionalQuestions[0]).toContain("- 팀 리더");
+    expect(matrix.additionalQuestions[0]).toContain("- 운영 담당자");
+    expect(matrix.additionalQuestions[0]).toContain("어느 성향의 고객에 집중");
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+  });
+
+  it("honors negated pro-con wording when the objective asks for several applicable choices", () => {
+    const researchTask = task({
+      objective: "찬성/반대가 아니라 여러 고객 신호를 하나 이상 선택해야 합니다. 신호는 반복되는 수동 고통, 예산/지불 의향, 기존 대안 불만입니다."
+    });
+    const researchResult = result({
+      result: "Pro: repeated manual work, budget-owner pressure, and dissatisfaction with alternatives appear together.",
+      limitationNotes: "The next interview should choose which signals apply."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("리서치 단서에서 다음에 함께 확인할 고객 신호");
+    expect(matrix.additionalQuestions[0]).toContain("반복되는 수동 고통");
+    expect(matrix.additionalQuestions[0]).toContain("예산/지불 의향");
+    expect(matrix.additionalQuestions[0]).toContain("기존 대안 불만");
+    expect(matrix.additionalQuestions[0]).toContain("여러 개 선택");
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
   });
 
   it("lets explicit objective wording ask for a binary agree/disagree answer even when an explanation is needed", () => {

@@ -834,7 +834,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
           excludeTmpdirEnvVar: true,
           excludeSlashTmp: true
         },
-        effort: "high"
+        effort: "medium"
       }
     });
     expect(turnStartRequest.params.input[0]).toMatchObject({
@@ -869,15 +869,116 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       type: "text",
       text: expect.stringContaining("Completion requires MissingTestAuditRecord and TestEvidenceRecord evidence")
     });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("passedTestCount of at least 1")
+    });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining('"passedTestCount": 1')
+    });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("ledgerTransitionTemplate:")
+    });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("__REPLACE_WITH_COMMIT_SHA__")
+    });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("git -c user.name=solo-superman-worker")
+    });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("Bounded smoke/bootstrap fast path")
+    });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("__COPY_LEDGER_TRACKER_DOC_EXACTLY__")
+    });
     expect(turnStartRequest.params.outputSchema).toMatchObject({
       type: "object",
-      required: expect.arrayContaining(["schemaVersion", "jobId", "status", "ledgerTransitions", "evidenceRefs"]),
+      required: expect.arrayContaining([
+        "schemaVersion",
+        "jobId",
+        "status",
+        "ledgerTransitions",
+        "evidenceRefs",
+        "blockedReason",
+        "missingEvidence",
+        "nextRequiredAction"
+      ]),
       properties: {
         status: {
           enum: ["completed", "blocked"]
+        },
+        blockedReason: {
+          anyOf: [{ type: "string", minLength: 1 }, { type: "null" }]
+        },
+        ledgerTransitions: {
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: expect.arrayContaining([
+              "trackerDoc",
+              "stepDoc",
+              "targetStatus",
+              "stepCommitRecord",
+              "codeReviewRecord",
+              "cleanCodeReviewRecord",
+              "missingTestAuditRecord",
+              "testEvidenceRecord",
+              "blocker",
+              "evidenceRefs"
+            ])
+          }
         }
       }
     });
+  });
+
+  it("keeps worker-job smoke prompts bounded to a live protocol ledger envelope", () => {
+    const adapter = createCodexRuntimeAdapter({
+      fixtureMode: true,
+      env: {}
+    });
+    const smokeInput: CodexWorkerExecutionInput = {
+      ...codexWorkerInputFixture(),
+      jobId: "auto-worker-job:auto_run_demo:initial_pr:worker-job-smoke:plan-worker",
+      workingDirectory: "/tmp/solo-superman/worker-job-smoke-demo",
+      sourceRefs: ["worker-job-smoke-planning-handoff"]
+    };
+    const request = adapter.buildWorkerTurnRequests(smokeInput).buildTurnStartRequest("thread_worker_smoke");
+    const inputItem = request.params.input[0];
+
+    if (!inputItem || inputItem.type !== "text") {
+      throw new Error("Expected worker smoke turn input to be text.");
+    }
+
+    const prompt = inputItem.text;
+
+    expect(adapter.buildWorkerTurnRequests(smokeInput).threadStartRequest.params).toMatchObject({
+      sandbox: "read-only",
+      baseInstructions: expect.stringContaining("do not perform implementation work or create ledger evidence"),
+      developerInstructions: expect.stringContaining("Return only the acknowledgement JSON object")
+    });
+    expect(request.params).toMatchObject({
+      effort: "low",
+      sandboxPolicy: {
+        type: "readOnly",
+        networkAccess: false
+      }
+    });
+    expect(request.params.outputSchema).toMatchObject({
+      required: ["schemaVersion", "jobId", "status", "summary"],
+      properties: {
+        status: { type: "string", const: "acknowledged" }
+      }
+    });
+    expect(prompt).toContain("Acknowledge one Solo Superman live worker-job protocol smoke");
+    expect(prompt).toContain("status: acknowledged");
+    expect(prompt).toContain("Do not call tools, do not edit files, do not run shell commands");
   });
 
   it("validates worker execution fixture output with completed ledger evidence", async () => {
@@ -928,6 +1029,40 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     expect(parseCodexWorkerExecutionOutput(`\`\`\`json\n${JSON.stringify(output)}\n\`\`\``)).toMatchObject({
       jobId: input.jobId,
       status: "completed"
+    });
+    expect(validateCodexWorkerExecutionOutput({
+      ...output,
+      blockedReason: null,
+      missingEvidence: null,
+      nextRequiredAction: null,
+      ledgerTransitions: output.ledgerTransitions.map((transition) => {
+        const schemaTransition = { ...transition } as Record<string, unknown>;
+
+        for (const key of [
+          "trackerDoc",
+          "stepDoc",
+          "targetStatus",
+          "startedEvidenceRefs",
+          "stepCommitRecord",
+          "noCodeStepEvidence",
+          "codeReviewRecord",
+          "cleanCodeReviewRecord",
+          "missingTestAuditRecord",
+          "testEvidenceRecord",
+          "blocker",
+          "evidenceRefs"
+        ]) {
+          if (!(key in schemaTransition)) {
+            schemaTransition[key] = null;
+          }
+        }
+
+        return schemaTransition;
+      })
+    })).toMatchObject({
+      jobId: input.jobId,
+      status: "completed",
+      ledgerTransitions: output.ledgerTransitions
     });
     expect(() =>
       validateCodexWorkerExecutionOutput({
@@ -990,6 +1125,23 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         evidenceRefs: ["deploy:production"]
       })
     ).toThrow("must not claim external, production, final-submit, account, or destructive mutations");
+    expect(() =>
+      validateCodexWorkerExecutionOutput({
+        ...safeOutput,
+        evidenceRefs: ["codex-worker:completed"],
+        ledgerTransitions: safeOutput.ledgerTransitions.map((transition, index) => index === safeOutput.ledgerTransitions.length - 1
+          ? {
+              ...transition,
+              stepCommitRecord: {
+                ...transition.stepCommitRecord!,
+                commitSha: "__REPLACE_WITH_COMMIT_SHA__",
+                previousCommitSha: "__REPLACE_WITH_PREVIOUS_COMMIT_SHA__",
+                diffRange: "__REPLACE_WITH_PREVIOUS_COMMIT_SHA__..__REPLACE_WITH_COMMIT_SHA__"
+              }
+            }
+          : transition)
+      })
+    ).toThrow("must replace all ledger template placeholders");
     expect(() =>
       validateCodexWorkerExecutionOutput({
         ...safeOutput,

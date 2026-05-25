@@ -162,6 +162,8 @@ describe("auto implementation worker job smoke", () => {
       mode: "live",
       worker: {
         jobStatus: "blocked",
+        blockedReason: "Injected live worker failure.",
+        missingEvidence: ["Local Codex worker execution"],
         stageBefore: "initial_pr",
         stageAfter: "initial_pr"
       }
@@ -169,7 +171,9 @@ describe("auto implementation worker job smoke", () => {
     expect(evidence.blockers).toEqual(
       expect.arrayContaining([
         "worker job must be completed; received \"blocked\"",
-        "worker stage was not advanced because completed worker evidence was unavailable"
+        "worker stage was not advanced because completed worker evidence was unavailable",
+        "worker job blocked reason: Injected live worker failure.",
+        "worker job still reports missing evidence: Local Codex worker execution"
       ])
     );
   });

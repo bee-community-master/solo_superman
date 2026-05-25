@@ -70,6 +70,9 @@ export interface AutoImplementationWorkerSmokeEvidence {
     readonly runId: string;
     readonly jobId: string;
     readonly jobStatus: string;
+    readonly blockedReason?: string;
+    readonly missingEvidence?: readonly string[];
+    readonly nextRequiredAction?: string;
     readonly stageBefore: string;
     readonly stageAfter: string;
     readonly ledgerStatus: string;
@@ -499,11 +502,24 @@ async function executeWorkerFlow(scenario: WorkerScenario, localCapabilityToken:
 
 function workerEvidence(result: WorkerExecutionResult) {
   const advancedRun = result.advancedRun ?? result.runAfterWorker;
+  const jobStatus = stringAt(result.workerJobAfterRun.status, "worker job status");
+  const blockedReason = typeof result.workerJobAfterRun.blockedReason === "string"
+    ? result.workerJobAfterRun.blockedReason
+    : null;
+  const nextRequiredAction = typeof result.workerJobAfterRun.nextRequiredAction === "string"
+    ? result.workerJobAfterRun.nextRequiredAction
+    : null;
+  const missingEvidence = Array.isArray(result.workerJobAfterRun.missingEvidence)
+    ? result.workerJobAfterRun.missingEvidence.filter((item): item is string => typeof item === "string")
+    : [];
 
   return {
     runId: result.runId,
     jobId: result.jobId,
-    jobStatus: stringAt(result.workerJobAfterRun.status, "worker job status"),
+    jobStatus,
+    ...(jobStatus !== "completed" && blockedReason ? { blockedReason } : {}),
+    ...(jobStatus !== "completed" && missingEvidence.length ? { missingEvidence } : {}),
+    ...(jobStatus !== "completed" && nextRequiredAction ? { nextRequiredAction } : {}),
     stageBefore: result.stageBefore,
     stageAfter: stringAt(advancedRun.currentStage, "advanced currentStage"),
     ledgerStatus: stringAt(result.ledger.currentStatus, "implementation ledger currentStatus"),
@@ -534,6 +550,22 @@ function workerResultBlockers(result: WorkerExecutionResult) {
 
   if (Array.isArray(missingEvidence) && missingEvidence.length > 0) {
     blockers.push(`worker job still reports missing evidence: ${missingEvidence.join(", ")}`);
+  }
+
+  if (
+    result.workerJobAfterRun.status !== "completed" &&
+    typeof result.workerJobAfterRun.blockedReason === "string" &&
+    result.workerJobAfterRun.blockedReason.trim().length > 0
+  ) {
+    blockers.push(`worker job blocked reason: ${result.workerJobAfterRun.blockedReason}`);
+  }
+
+  if (
+    result.workerJobAfterRun.status !== "completed" &&
+    typeof result.workerJobAfterRun.nextRequiredAction === "string" &&
+    result.workerJobAfterRun.nextRequiredAction.trim().length > 0
+  ) {
+    blockers.push(`worker job next required action: ${result.workerJobAfterRun.nextRequiredAction}`);
   }
 
   return blockers;
