@@ -828,6 +828,17 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpExpectedAnswerType(exactPolicyWordingInput)).toBe("text");
     expect(researchFollowUpAnswerSelectionMode(exactPolicyWordingInput)).toBeUndefined();
     expect(researchFollowUpAnswerOptions(exactPolicyWordingInput)).toEqual([]);
+
+    const subjectiveAndObjectivePolicyInput = {
+      ...base,
+      question:
+        "어떤 질문은 주관식으로 직접 설명하고 어떤 질문은 객관식으로 고르게 하면서 답변 형식을 질문 의도에 맞게 다양하게 구성해야 합니다."
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(subjectiveAndObjectivePolicyInput)).toBe("open_text");
+    expect(researchFollowUpExpectedAnswerType(subjectiveAndObjectivePolicyInput)).toBe("text");
+    expect(researchFollowUpAnswerSelectionMode(subjectiveAndObjectivePolicyInput)).toBeUndefined();
+    expect(researchFollowUpAnswerOptions(subjectiveAndObjectivePolicyInput)).toEqual([]);
   });
 
   it("lets explicit narrative instructions win over mentioned choice formats", () => {
