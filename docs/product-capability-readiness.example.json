@@ -133,6 +133,8 @@
       "requiredFor": "technical-preview-core-loop",
       "evidenceRefs": [
         "docs/safety-and-permissions_KO.md",
+        "apps/web/src/features/decision-queue/shell/OnboardingView.tsx",
+        "apps/web/src/features/decision-queue/shell/decision-queue-shell-model.ts",
         "apps/sidecar/src/browser-delegation-pipeline-smoke.ts",
         "apps/sidecar/src/service-page-pipeline-smoke.ts",
         "packages/contracts/src/projections/service-page-use-permission.ts",
@@ -145,6 +147,7 @@
       ],
       "checkedBehaviors": [
         "ChatGPT/browser delegation keeps disclosure preview, approval, evidence refs, revoke controls, visible ChatGPT handoff, and result import gate visibility.",
+        "onboarding automation setting exposes manual_only, allow_codex, and allow_codex_and_chatgpt_visible choices so users can opt into Codex plus visible ChatGPT Pro/Deep Research without granting headless paid-service access.",
         "Service-page permissions require user-present login, action echo, artifact cleanup, and revoke checks.",
         "approved public-read browser actions accept only HTTPS public DNS targets while loopback-only remains required for service-page/local preview flows.",
         "Loopback-only browser smokes prove boundaries without ChatGPT credentials or external network access.",
