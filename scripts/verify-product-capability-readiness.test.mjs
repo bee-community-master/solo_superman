@@ -36,6 +36,7 @@ function researchEvidenceCheckedBehaviors() {
   return [
     "Read-only public-web research runs require an active allowlist and bounded concurrency.",
     "Mounted web_search_readonly provider polling proves source-traced result import before evidence matrices and evidence packs are synthesized.",
+    "Opt-in live-web research verification can run the same public-web import path with Playwright and non-fixture source URLs when network access is available.",
     "Research operations expose Max simultaneous research runs and Max research runs per session controls so users can tune manual and answer-triggered public-web research limits.",
     "Provider-polled research writes markdown memory so duplicate research can cite existing evidence while wider follow-up research and generated follow-up research tasks still start new runs with the memory as baseline context.",
     "Research review cards retain source traces and expose pro/con/uncertainty quality gates.",
@@ -178,7 +179,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, pressure questions, generated source-seeking research targets, non-blocking answer submission, mounted research provider polling, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, end-to-end core product loop coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, pressure questions, generated source-seeking research targets, non-blocking answer submission, mounted research provider polling, opt-in live-web research import coverage, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, end-to-end core product loop coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
@@ -295,6 +296,7 @@ describe("product capability readiness verification", () => {
               ...capability,
               checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
                 !behavior.includes("Mounted web_search_readonly provider polling") &&
+                !behavior.includes("Opt-in live-web research verification") &&
                 !behavior.includes("Max simultaneous research runs") &&
                 !behavior.includes("markdown memory") &&
                 !behavior.includes("Research-generated follow-up questions")
@@ -308,6 +310,7 @@ describe("product capability readiness verification", () => {
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
       "$.capabilities[1].checkedBehaviors: must mention Mounted web_search_readonly provider polling",
+      "$.capabilities[1].checkedBehaviors: must mention Opt-in live-web research verification",
       "$.capabilities[1].checkedBehaviors: must mention source-traced result import",
       "$.capabilities[1].checkedBehaviors: must mention Max simultaneous research runs",
       "$.capabilities[1].checkedBehaviors: must mention Max research runs per session",

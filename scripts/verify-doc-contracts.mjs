@@ -825,6 +825,11 @@ function checkContributorDocsSnippets() {
     "baseline context",
     "new run still starts"
   ]);
+  requireSnippets("product docs missing opt-in live public web research verifier", Object.values(researchEvidenceDocs).join("\n"), [
+    "pnpm verify:research-pipeline:live-web",
+    "fixture URL",
+    "CAPTCHA"
+  ]);
   rejectSnippets(
     "research docs contain stale provider-polling wording",
     researchEvidenceDocs,
@@ -1052,6 +1057,7 @@ function checkProjectWikiDocsSnippets() {
     "pnpm verify:clarification-volume",
     "pnpm verify:core-product-loop",
     "pnpm verify:research-pipeline",
+    "pnpm verify:research-pipeline:live-web",
     "Research mounted provider polling/import/synthesis stays connected",
     "pnpm verify:browser-delegation-pipeline",
     "pnpm verify:auto-implementation-pipeline",
