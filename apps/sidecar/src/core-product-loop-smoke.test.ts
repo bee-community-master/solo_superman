@@ -218,6 +218,10 @@ function singleSessionEvidence(overrides: Partial<SingleSessionProductLoopSmokeE
       providerRunStatus: "research_insufficient",
       providerAdapterKind: "web_search_readonly",
       providerSourceRefCount: 3,
+      providerSourceUrls: [
+        "https://example.com/core-loop-pet-research",
+        "https://example.org/core-loop-pet-insurance"
+      ],
       followUpQuestionCount: 1,
       followUpResearchTaskCount: 0,
       readinessCompositeScore: 92,

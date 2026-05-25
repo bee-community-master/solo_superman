@@ -27,7 +27,10 @@ import {
   type SmokeStorage
 } from "./auto-implementation-smoke-fixtures";
 import { createProductEngineCommandService } from "./product-engine/command-service";
-import { createWebSearchReadOnlyResearchAdapter } from "./product-engine/web-search-readonly-adapter";
+import {
+  createWebSearchReadOnlyResearchAdapter,
+  type WebSearchReadOnlySearch
+} from "./product-engine/web-search-readonly-adapter";
 import { createSidecarApp } from "./server";
 import { removeTemporaryDirectory } from "./test-cleanup";
 
@@ -58,6 +61,7 @@ const DOMAIN_TERMS = ["반려동물", "보호자", "의료", "급여", "보험",
 const STALE_FOUNDER_TERMS = ["1인 창업자", "도메인 전문 1인 빌더", "팀 리더", "운영 담당자"] as const;
 
 type SmokeStatus = "blocked" | "passed";
+type SmokeMode = "fixture" | "live_web";
 
 interface SingleSessionScenario {
   readonly app: SmokeSidecarApp;
@@ -67,6 +71,7 @@ interface SingleSessionScenario {
 }
 
 interface SingleSessionFlowResult {
+  readonly mode: SmokeMode;
   readonly project: {
     readonly projectId: string;
     readonly sessionId: string;
@@ -87,7 +92,7 @@ interface SingleSessionFlowResult {
 export interface SingleSessionProductLoopSmokeEvidence {
   readonly status: SmokeStatus;
   readonly smoke: typeof SINGLE_SESSION_PRODUCT_LOOP_SMOKE;
-  readonly mode: "fixture";
+  readonly mode: SmokeMode;
   readonly project?: {
     readonly projectId: string;
     readonly sessionId: string;
@@ -104,6 +109,7 @@ export interface SingleSessionProductLoopSmokeEvidence {
     readonly providerRunStatus: string;
     readonly providerAdapterKind: string;
     readonly providerSourceRefCount: number;
+    readonly providerSourceUrls: readonly string[];
     readonly followUpQuestionCount: number;
     readonly followUpResearchTaskCount: number;
     readonly readinessCompositeScore: number;
@@ -125,6 +131,8 @@ export interface SingleSessionProductLoopSmokeOptions {
   readonly appDataDir?: string;
   readonly cleanupAppDataDir?: boolean;
   readonly localCapabilityToken?: string;
+  readonly mode?: SmokeMode;
+  readonly liveWebSearch?: WebSearchReadOnlySearch;
 }
 
 function numberAt(value: unknown, label: string) {
@@ -240,12 +248,25 @@ async function startResearchRun(input: {
 async function pollResearchProvider(input: {
   readonly scenario: SingleSessionScenario;
   readonly projectId: string;
+  readonly mode: SmokeMode;
+  readonly liveWebSearch?: WebSearchReadOnlySearch;
 }) {
   const commandService = createProductEngineCommandService(input.scenario.storage, undefined, {
     autoImplementationWorkspaceRoot: input.scenario.autoImplementationWorkspaceRoot,
     researchRuntimeAdapterFactory: (adapterKind) => {
       if (adapterKind !== "web_search_readonly") {
         throw new Error(`single-session smoke only mounts web_search_readonly; received ${adapterKind}`);
+      }
+
+      if (input.mode === "live_web") {
+        return createWebSearchReadOnlyResearchAdapter({
+          maxResults: 3,
+          maxFetchedPages: 1,
+          timeoutMillis: 10_000,
+          minDelayMillis: 1_000,
+          maxDelayMillis: 1_000,
+          ...(input.liveWebSearch ? { search: input.liveWebSearch } : {})
+        });
       }
 
       return createWebSearchReadOnlyResearchAdapter({
@@ -283,6 +304,28 @@ function firstRecordAt(value: unknown, label: string) {
   }
 
   return first;
+}
+
+function stringArrayAt(value: unknown, label: string) {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new Error(`${label} must be an array of strings.`);
+  }
+
+  return value as readonly string[];
+}
+
+function sourceUrlsFromRun(run: JsonRecord) {
+  return stringArrayAt(run.sourceRefs, "provider run sourceRefs").filter((sourceRef) => /^https?:\/\//iu.test(sourceRef));
+}
+
+function isExampleFixtureSourceUrl(sourceUrl: string) {
+  try {
+    const hostname = new URL(sourceUrl).hostname.replace(/^www\./iu, "");
+
+    return hostname === "example.com" || hostname === "example.org" || hostname === "example.net";
+  } catch {
+    return false;
+  }
 }
 
 function followUpQuestionItems(queueProjection: JsonRecord) {
@@ -417,7 +460,11 @@ async function persistPlanningReadyCompletenessProjection(input: {
 
 async function executeSingleSessionFlow(
   scenario: SingleSessionScenario,
-  localCapabilityToken: string
+  localCapabilityToken: string,
+  options: {
+    readonly mode: SmokeMode;
+    readonly liveWebSearch?: WebSearchReadOnlySearch;
+  }
 ): Promise<SingleSessionFlowResult> {
   const project = await createSmokeProject({
     app: scenario.app,
@@ -487,7 +534,12 @@ async function executeSingleSessionFlow(
     sourceQueueItemId: firstQuestionId
   });
   const providerProjection = objectAt(
-    await pollResearchProvider({ scenario, projectId: project.projectId }),
+    await pollResearchProvider({
+      scenario,
+      projectId: project.projectId,
+      mode: options.mode,
+      ...(options.liveWebSearch ? { liveWebSearch: options.liveWebSearch } : {})
+    }),
     "provider projection"
   );
   const researchProjection = await getJson(scenario.app, `/api/v1/sessions/${project.sessionId}/research`, localCapabilityToken);
@@ -515,6 +567,7 @@ async function executeSingleSessionFlow(
   });
 
   return {
+    mode: options.mode,
     project,
     analyze,
     activatedQueue,
@@ -535,6 +588,7 @@ function flowSummary(result: SingleSessionFlowResult): NonNullable<SingleSession
   const answeredProgress = objectAt(result.answeredQueue.progress, "answered queue progress");
   const providerRun = firstRecordAt(result.providerProjection.runs, "provider runs");
   const provider = objectAt(providerRun.provider, "provider");
+  const providerSourceUrls = sourceUrlsFromRun(providerRun);
   const firstQuestionId = stringAt(result.firstQuestion.queueItemId, "first question id");
   const answerLinkedResearchTask = firstRecordAt(
     recordArray(result.answerResearchProjection.tasks, "answer research tasks").filter(
@@ -563,6 +617,7 @@ function flowSummary(result: SingleSessionFlowResult): NonNullable<SingleSession
     providerRunStatus: stringAt(providerRun.status, "provider run status"),
     providerAdapterKind: stringAt(provider.adapterKind, "provider adapterKind"),
     providerSourceRefCount: Array.isArray(providerRun.sourceRefs) ? providerRun.sourceRefs.length : 0,
+    providerSourceUrls,
     followUpQuestionCount: followUpQuestions.length,
     followUpResearchTaskCount: followUpResearchTasks.length,
     readinessCompositeScore: numberAt(result.completeness.compositeScore, "completeness compositeScore"),
@@ -605,6 +660,12 @@ function flowBlockers(result: SingleSessionFlowResult) {
   if (summary.providerSourceRefCount < 1) {
     blockers.push("same session provider research must retain public source refs.");
   }
+  if (result.mode === "live_web" && summary.providerSourceUrls.length < 1) {
+    blockers.push("same-session live-web research must import at least one public source URL.");
+  }
+  if (result.mode === "live_web" && summary.providerSourceUrls.every(isExampleFixtureSourceUrl)) {
+    blockers.push("same-session live-web research must import non-fixture public source URLs from the real browser-search adapter path.");
+  }
   if (summary.followUpQuestionCount < 1) {
     blockers.push("same session research must generate follow-up question debt.");
   }
@@ -637,13 +698,16 @@ function passedEvidence(result: SingleSessionFlowResult): SingleSessionProductLo
   return {
     status: "passed",
     smoke: SINGLE_SESSION_PRODUCT_LOOP_SMOKE,
-    mode: "fixture",
+    mode: result.mode,
     project: result.project,
     loop: flowSummary(result),
     checked: [
       "one pet-lifecycle idea stayed on one project/session through every product-loop checkpoint",
       "domain-fit question generation avoided stale founder/operator customer options",
       "answer submission created source-linked research task debt in the same session",
+      ...(result.mode === "live_web"
+        ? ["same-session live public-web browser search imported non-fixture source URLs"]
+        : ["same-session fixture browser-search injection stayed isolated from the production adapter default"]),
       "same-session web_search_readonly provider polling imported source-traced research evidence",
       "same-session research synthesis generated follow-up question debt",
       "same-session readiness reached spec_ready candidate status before Planning Handoff",
@@ -665,13 +729,13 @@ function blockedEvidence(
   };
 }
 
-function errorEvidence(error: unknown): SingleSessionProductLoopSmokeEvidence {
+function errorEvidence(error: unknown, mode: SmokeMode): SingleSessionProductLoopSmokeEvidence {
   const message = error instanceof Error ? error.message : String(error);
 
   return {
     status: "blocked",
     smoke: SINGLE_SESSION_PRODUCT_LOOP_SMOKE,
-    mode: "fixture",
+    mode,
     reason: "Single-session product loop failed before full evidence could be collected.",
     blockers: [message],
     checked: ["single-session product loop smoke started"]
@@ -684,16 +748,20 @@ export async function runSingleSessionProductLoopSmoke(
   const appDataDir = options.appDataDir ?? (await mkdtemp(join(tmpdir(), "solo-superman-single-session-loop-smoke-")));
   const shouldCleanup = options.cleanupAppDataDir ?? !options.appDataDir;
   const localCapabilityToken = options.localCapabilityToken ?? `single-session-product-loop-${randomUUID()}`;
+  const mode = options.mode ?? "fixture";
   let scenario: SingleSessionScenario | null = null;
 
   try {
     scenario = await createScenario(appDataDir, localCapabilityToken);
-    const result = await executeSingleSessionFlow(scenario, localCapabilityToken);
+    const result = await executeSingleSessionFlow(scenario, localCapabilityToken, {
+      mode,
+      ...(options.liveWebSearch ? { liveWebSearch: options.liveWebSearch } : {})
+    });
     const blockers = flowBlockers(result);
 
     return blockers.length > 0 ? blockedEvidence(result, blockers) : passedEvidence(result);
   } catch (error: unknown) {
-    return errorEvidence(error);
+    return errorEvidence(error, mode);
   } finally {
     await scenario?.storage.close();
 
@@ -703,12 +771,18 @@ export async function runSingleSessionProductLoopSmoke(
   }
 }
 
+function smokeModeFromArgv(argv: readonly string[]) {
+  return argv.includes("--live-web") ? "live_web" : "fixture";
+}
+
 function exitCodeForEvidence(evidence: SingleSessionProductLoopSmokeEvidence) {
   return evidence.status === "passed" ? 0 : 1;
 }
 
 async function main() {
-  const evidence = await runSingleSessionProductLoopSmoke();
+  const evidence = await runSingleSessionProductLoopSmoke({
+    mode: smokeModeFromArgv(process.argv.slice(2))
+  });
 
   console.log(JSON.stringify(evidence, null, 2));
   process.exitCode = exitCodeForEvidence(evidence);
