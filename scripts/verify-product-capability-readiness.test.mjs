@@ -24,13 +24,13 @@ function autoImplementationCheckedBehaviors() {
     "Runtime preview requests produce bounded preview artifacts without applying file, shell, browser, or network actions.",
     "Opt-in live runtime readiness verification reports skipped, blocked, or passed evidence without forcing opt-in live execution into the default suite.",
     "Opt-in live worker-job verification can be invoked directly with pnpm verify:worker-job:live and reports passed or blocked evidence without entering the default suite.",
-    "Worker jobs keep planned ledger docs, authority refs, sandbox boundaries, and manual recovery evidence visible.",
+    "Worker jobs keep planned ledger docs, authority refs, sandbox boundaries, explicit generated-product target paths, generated-product changed-file ledger evidence, and manual recovery evidence visible.",
     "Planning-derived PR-sized issue docs are first-class in issueManagement.planningIssueDocs, a separate PR issue sequence tracker, generated tracker state, and the Implementation panel before stage delivery issues; each run can target a selected planningIssueId so prior slices show completed, the selected slice shows active, and later slices remain planned.",
     "Generated PR body includes issue document status summary, stage status summary, review/evidence gate summary, and missing-test audit summary coverage, and approved gh PR create/edit mutations pass the generated body through a temporary body-file handoff instead of an inline CLI argument.",
     "Every canonical auto-implementation stage requires two consecutive no-finding feature and repository code-review passes, two consecutive no-finding changed-code and repository clean-code passes, a zero-gap missing-test audit, and passing test evidence before completion.",
     "Final merge_main stays blocked until final_verify_pr_update records current PR body evidence with full verification commands plus missing-test audit and test evidence.",
     "The single-session product loop smoke proves one pet-lifecycle idea reaches domain-fit questions, answer-linked research, research follow-up questions, Planning Handoff, and initial_pr auto implementation evidence in the same session.",
-    "The same-session worker execution smoke proves that the same Planning Handoff run can plan and complete a Codex worker job with ImplementationStepLedger evidence and advance beyond initial_pr without creating a detached worker smoke run.",
+    "The same-session worker execution smoke proves that the same Planning Handoff run can plan generated-product targets, complete a Codex worker job with generated-product changed-file ImplementationStepLedger evidence, and advance beyond initial_pr without creating a detached worker smoke run.",
     "The opt-in single-session live-web product loop smoke proves that same pet-lifecycle path can import non-fixture public-web source URLs through the real browser-search adapter branch.",
     "The opt-in single-session live implementation smoke proves that one session can combine live public-web research with live Codex worker execution and report passed or blocked evidence without entering the default suite.",
     "The readiness-to-implementation verifier proves a spec_ready completion candidate becomes a planning_ready handoff before the first auto-implementation run starts.",
@@ -199,7 +199,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, pressure questions, generated source-seeking research targets, non-blocking answer submission, mounted research provider polling, opt-in live-web research import coverage, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, positive readiness handoff coverage, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, opt-in live worker-job verification coverage, generated PR body summary coverage, single-session product loop coverage, same-session worker execution coverage, single-session live-web product loop coverage, single-session live implementation coverage, readiness-to-implementation coverage, two-pass review streak gates, missing-test audit coverage, end-to-end core product loop coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, pressure questions, generated source-seeking research targets, non-blocking answer submission, mounted research provider polling, opt-in live-web research import coverage, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, positive readiness handoff coverage, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, opt-in live worker-job verification coverage, generated PR body summary coverage, single-session product loop coverage, same-session worker execution coverage, generated-product worker target coverage, generated-product changed-file evidence coverage, single-session live-web product loop coverage, single-session live implementation coverage, readiness-to-implementation coverage, two-pass review streak gates, missing-test audit coverage, end-to-end core product loop coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
@@ -391,6 +391,8 @@ describe("product capability readiness verification", () => {
               checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
                 !behavior.includes("live runtime readiness") &&
                 !behavior.includes("live worker-job verification") &&
+                !behavior.includes("generated-product target paths") &&
+                !behavior.includes("generated-product changed-file") &&
                 !behavior.includes("same-session worker execution") &&
                 !behavior.includes("single-session live implementation") &&
                 !behavior.startsWith("Generated PR body")
@@ -406,6 +408,8 @@ describe("product capability readiness verification", () => {
       "$.capabilities[4].checkedBehaviors: must mention live runtime readiness",
       "$.capabilities[4].checkedBehaviors: must mention live worker-job verification",
       "$.capabilities[4].checkedBehaviors: must mention skipped, blocked, or passed evidence",
+      "$.capabilities[4].checkedBehaviors: must mention generated-product target paths",
+      "$.capabilities[4].checkedBehaviors: must mention generated-product changed-file",
       "$.capabilities[4].checkedBehaviors: must mention same-session worker execution",
       "$.capabilities[4].checkedBehaviors: must mention single-session live implementation",
       "$.capabilities[4].checkedBehaviors: must mention Generated PR body",

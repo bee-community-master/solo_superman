@@ -60,10 +60,18 @@ describe("auto implementation worker job smoke", () => {
         stageAfter: "code_review_fix_1",
         ledgerStatus: "completed",
         projectFolderName: "worker-job-smoke-demo",
-        issueRelativePath: "implementation-issues/001-initial_pr.md"
+        issueRelativePath: "implementation-issues/001-initial_pr.md",
+        generatedProductChangedFiles: expect.arrayContaining([
+          "generated-product/product-slice.json"
+        ])
       }
     });
     expect(evidence.worker?.implementationStepId).toContain(":initial_pr:local-001");
+    expect(evidence.worker?.generatedProductChangedFileCount).toBeGreaterThanOrEqual(1);
+    expect(evidence.worker?.generatedProductAllowedScope).toEqual(expect.arrayContaining([
+      "generated-product/product-slice.json",
+      "generated-product/src/product-slice.mjs"
+    ]));
     expect(evidence.checked).toContain("worker stage advanced through the stage-advance route");
   });
 
@@ -147,9 +155,13 @@ describe("auto implementation worker job smoke", () => {
         jobStatus: "completed",
         ledgerStatus: "completed",
         stageBefore: "initial_pr",
-        stageAfter: "code_review_fix_1"
+        stageAfter: "code_review_fix_1",
+        generatedProductChangedFiles: expect.arrayContaining([
+          "generated-product/product-slice.json"
+        ])
       }
     });
+    expect(evidence.worker?.generatedProductChangedFileCount).toBeGreaterThanOrEqual(1);
   });
 
   it("reports blocked when a ready live runtime fails before importable ledger evidence", async () => {

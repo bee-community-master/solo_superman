@@ -398,6 +398,7 @@ async function postAutoImplementationWorkerStageAdvanceForTest(
 function implementationStepLedgerImportTransitionsForTest(input: {
   readonly trackerDoc?: TrackerDoc;
   readonly stepDoc?: ImplementationStepDoc;
+  readonly changedFiles?: readonly string[];
 } = {}) {
   const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
   const trackerDoc = input.trackerDoc ?? IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.trackerDoc;
@@ -405,7 +406,8 @@ function implementationStepLedgerImportTransitionsForTest(input: {
   const stepId = stepDoc.stepId;
   const stepCommitRecord = {
     ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.stepCommitRecords[0]!,
-    stepId
+    stepId,
+    ...(input.changedFiles ? { changedFiles: input.changedFiles } : {})
   };
   const testEvidenceRecord = {
     ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords[0]!,
@@ -457,10 +459,15 @@ function implementationStepLedgerImportTransitionsForTest(input: {
 
 function workerPlanLedgerDocsForTest(job: Readonly<Record<string, unknown>>) {
   const executionPlan = job.executionPlan as Readonly<Record<string, unknown>>;
+  const allowedWriteScope = Array.isArray(executionPlan.allowedWriteScope)
+    ? executionPlan.allowedWriteScope.filter((value): value is string => typeof value === "string")
+    : [];
+  const generatedProductChangedFiles = allowedWriteScope.filter((value) => value.startsWith("generated-product/"));
 
   return {
     trackerDoc: executionPlan.ledgerTrackerDoc as TrackerDoc,
-    stepDoc: executionPlan.ledgerStepDoc as ImplementationStepDoc
+    stepDoc: executionPlan.ledgerStepDoc as ImplementationStepDoc,
+    ...(generatedProductChangedFiles.length ? { changedFiles: generatedProductChangedFiles } : {})
   };
 }
 
@@ -469,12 +476,14 @@ function implementationStepLedgerProjectionForWorkerPlanForTest(input: {
   readonly sessionId: string;
   readonly refetchUrl: string;
 }): ImplementationStepLedgerProjection {
-  const { stepDoc, trackerDoc } = workerPlanLedgerDocsForTest(input.job);
+  const planDocs = workerPlanLedgerDocsForTest(input.job);
+  const { stepDoc, trackerDoc } = planDocs;
   const step = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.steps[0]!;
   const stepId = stepDoc.stepId;
   const stepCommitRecord = {
     ...IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.stepCommitRecords[0]!,
-    stepId
+    stepId,
+    ...(planDocs.changedFiles ? { changedFiles: planDocs.changedFiles } : {})
   };
   const codeReviewRecords = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.codeReviewRecords.map((record) => ({
     ...record,
@@ -9888,8 +9897,15 @@ describe("PR-02 sidecar health shell", () => {
             expect.stringContaining("separate CodeReviewRecord ids"),
             expect.stringContaining("separate CleanCodeReviewRecord ids"),
             expect.stringContaining("MissingTestAuditRecord"),
+            expect.stringContaining("generated-product product-slice JSON/module"),
+            expect.stringContaining("StepCommitRecord.changedFiles includes a generated-product path"),
             expect.stringContaining("evidence refs"),
             expect.stringContaining("initial implementation PR evidence")
+          ]),
+          allowedWriteScope: expect.arrayContaining([
+            "generated-product/product-slice.json",
+            "generated-product/src/product-slice.mjs",
+            "generated-product/src/product-slice.test.mjs"
           ]),
           sourceRefs: expect.arrayContaining([firstPlanningIssueEvidenceRef])
         }
@@ -10095,7 +10111,9 @@ describe("PR-02 sidecar health shell", () => {
         executionPlan: {
           executionAuthorityRef: authorityRecordId,
           sourceRefs: expect.arrayContaining([
-            firstPlanningIssueEvidenceRef
+            firstPlanningIssueEvidenceRef,
+            "generated-software-artifact:generated-product/product-slice.json",
+            "generated-software-artifact:generated-product/src/product-slice.mjs"
           ]),
           ledgerTrackerDoc: {
             trackerId: `auto-implementation-tracker:${runId}`,
@@ -10110,7 +10128,8 @@ describe("PR-02 sidecar health shell", () => {
               `auto-implementation-worker-job:${String(plannedJobs[5]!.jobId)}`,
               "issue-doc:implementation-issues/001-initial_pr.md",
               "planning-handoff-plan:planning-handoff-implementation-plan.md",
-              firstPlanningIssueEvidenceRef
+              firstPlanningIssueEvidenceRef,
+              "generated-software-artifact:generated-product/product-slice.json"
             ])
           }
         },
@@ -10575,7 +10594,14 @@ describe("PR-02 sidecar health shell", () => {
               stepId: expectedWorkerStepId,
               sourceRefs: expect.arrayContaining([
                 `auto-implementation-worker-job:${plannedJobId}`,
-                "issue-doc:implementation-issues/001-initial_pr.md"
+                "issue-doc:implementation-issues/001-initial_pr.md",
+                "generated-software-artifact:generated-product/product-slice.json"
+              ])
+            }),
+            stepCommitRecord: expect.objectContaining({
+              changedFiles: expect.arrayContaining([
+                "generated-product/product-slice.json",
+                "generated-product/src/product-slice.mjs"
               ])
             })
           })

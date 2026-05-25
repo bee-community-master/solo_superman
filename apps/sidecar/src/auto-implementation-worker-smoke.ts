@@ -14,6 +14,7 @@ import {
   lastRecord,
   objectAt,
   postJson,
+  recordArray,
   sessionEventCount,
   stringAt,
   type AutoImplementationSmokePlanningFixture,
@@ -79,6 +80,9 @@ export interface AutoImplementationWorkerSmokeEvidence {
     readonly implementationStepId: string;
     readonly projectFolderName: string;
     readonly issueRelativePath: string;
+    readonly generatedProductAllowedScope: readonly string[];
+    readonly generatedProductChangedFiles: readonly string[];
+    readonly generatedProductChangedFileCount: number;
   };
   readonly reason?: string;
   readonly blockers?: readonly string[];
@@ -115,6 +119,7 @@ interface WorkerExecutionResult {
   readonly stageBefore: string;
   readonly issueRelativePath: string;
   readonly implementationStepId: string;
+  readonly generatedProductAllowedScope: readonly string[];
   readonly runAfterWorker: JsonRecord;
   readonly workerJobAfterRun: JsonRecord;
   readonly ledger: JsonRecord;
@@ -132,6 +137,7 @@ interface PlannedWorkerJobContext {
   readonly stageBefore: string;
   readonly issueRelativePath: string;
   readonly implementationStepId: string;
+  readonly generatedProductAllowedScope: readonly string[];
 }
 
 function envFlagEnabled(env: Readonly<Record<string, string | undefined>>, key: string) {
@@ -239,6 +245,21 @@ function runtimeStatusBlockers(mode: SmokeMode, status: CodexRuntimeStatusDto) {
   }
 
   return blockers;
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function generatedProductPaths(values: readonly string[]) {
+  return values.filter((value) => value.startsWith("generated-product/"));
+}
+
+function ledgerGeneratedProductChangedFiles(ledger: JsonRecord) {
+  const changedFiles = recordArray(ledger.stepCommitRecords, "implementation ledger stepCommitRecords")
+    .flatMap((record) => stringArray(record.changedFiles));
+
+  return [...new Set(generatedProductPaths(changedFiles))];
 }
 
 async function createAutoImplementationRun(input: {
@@ -475,10 +496,11 @@ async function planWorkerJob(input: {
   const stageBefore = stringAt(planned.workerJob.stage, "worker job stage");
   const issueRelativePath = stringAt(planned.workerJob.issueRelativePath, "worker issueRelativePath");
   const executionPlan = objectAt(planned.workerJob.executionPlan, "worker executionPlan");
+  const generatedProductAllowedScope = generatedProductPaths(stringArray(executionPlan.allowedWriteScope));
   const ledgerStepDoc = objectAt(executionPlan.ledgerStepDoc, "worker executionPlan.ledgerStepDoc");
   const implementationStepId = stringAt(ledgerStepDoc.stepId, "worker ledgerStepDoc.stepId");
 
-  return { jobId, stageBefore, issueRelativePath, implementationStepId };
+  return { jobId, stageBefore, issueRelativePath, implementationStepId, generatedProductAllowedScope };
 }
 
 async function executeWorkerFlow(scenario: WorkerScenario, localCapabilityToken: string): Promise<WorkerExecutionResult> {
@@ -536,6 +558,9 @@ function workerEvidence(result: WorkerExecutionResult) {
   const missingEvidence = Array.isArray(result.workerJobAfterRun.missingEvidence)
     ? result.workerJobAfterRun.missingEvidence.filter((item): item is string => typeof item === "string")
     : [];
+  const generatedProductChangedFiles = result.ledger.currentStatus === "completed"
+    ? ledgerGeneratedProductChangedFiles(result.ledger)
+    : [];
 
   return {
     runId: result.runId,
@@ -549,7 +574,10 @@ function workerEvidence(result: WorkerExecutionResult) {
     ledgerStatus: stringAt(result.ledger.currentStatus, "implementation ledger currentStatus"),
     implementationStepId: result.implementationStepId,
     projectFolderName: PROJECT_FOLDER_NAME,
-    issueRelativePath: result.issueRelativePath
+    issueRelativePath: result.issueRelativePath,
+    generatedProductAllowedScope: result.generatedProductAllowedScope,
+    generatedProductChangedFiles,
+    generatedProductChangedFileCount: generatedProductChangedFiles.length
   };
 }
 
@@ -562,6 +590,14 @@ function workerResultBlockers(result: WorkerExecutionResult) {
 
   if (result.ledger.currentStatus !== "completed") {
     blockers.push(`implementation ledger must be completed; received ${JSON.stringify(result.ledger.currentStatus)}`);
+  }
+
+  if (result.generatedProductAllowedScope.length < 1) {
+    blockers.push("worker execution plan must explicitly include generated-product files in allowedWriteScope.");
+  }
+
+  if (result.ledger.currentStatus === "completed" && ledgerGeneratedProductChangedFiles(result.ledger).length < 1) {
+    blockers.push("worker ledger must record at least one generated-product changed file.");
   }
 
   if (!result.advancedRun) {
@@ -648,6 +684,7 @@ function passedWorkerEvidence(input: WorkerScenarioInput, status: CodexRuntimeSt
       "ready file-diff ExecutionAuthorityRecord attached",
       "worker job planned and run",
       "ImplementationStepLedger completed",
+      "worker plan targeted generated-product files and ledger changed-file evidence references generated-product",
       "worker stage advanced through the stage-advance route"
     ]
   };

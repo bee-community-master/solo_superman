@@ -10,6 +10,7 @@ import {
   lastRecord,
   objectAt,
   postJson,
+  recordArray,
   sessionEventCount,
   stringAt,
   type JsonRecord,
@@ -52,6 +53,7 @@ interface WorkerExecutionResult {
   readonly stageBefore: string;
   readonly issueRelativePath: string;
   readonly implementationStepId: string;
+  readonly generatedProductAllowedScope: readonly string[];
   readonly workerJobAfterRun: JsonRecord;
   readonly ledger: JsonRecord;
   readonly advancedRun?: JsonRecord;
@@ -95,6 +97,9 @@ export interface SingleSessionLiveImplementationSmokeEvidence {
     readonly ledgerStatus: string;
     readonly implementationStepId: string;
     readonly issueRelativePath: string;
+    readonly generatedProductAllowedScope: readonly string[];
+    readonly generatedProductChangedFiles: readonly string[];
+    readonly generatedProductChangedFileCount: number;
   };
   readonly reason?: string;
   readonly blockers?: readonly string[];
@@ -198,6 +203,21 @@ function runtimeStatusBlockers(mode: SmokeMode, status: CodexRuntimeStatusDto) {
   }
 
   return blockers;
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function generatedProductPaths(values: readonly string[]) {
+  return values.filter((value) => value.startsWith("generated-product/"));
+}
+
+function ledgerGeneratedProductChangedFiles(ledger: JsonRecord) {
+  const changedFiles = recordArray(ledger.stepCommitRecords, "same-session implementation ledger stepCommitRecords")
+    .flatMap((record) => stringArray(record.changedFiles));
+
+  return [...new Set(generatedProductPaths(changedFiles))];
 }
 
 async function createWorkerScenario(input: {
@@ -454,6 +474,7 @@ async function executeWorkerForSingleSessionRun(input: {
   const stageBefore = stringAt(planned.workerJob.stage, "same-session worker stage");
   const issueRelativePath = stringAt(planned.workerJob.issueRelativePath, "same-session worker issueRelativePath");
   const executionPlan = objectAt(planned.workerJob.executionPlan, "same-session worker executionPlan");
+  const generatedProductAllowedScope = generatedProductPaths(stringArray(executionPlan.allowedWriteScope));
   const ledgerStepDoc = objectAt(executionPlan.ledgerStepDoc, "same-session worker executionPlan.ledgerStepDoc");
   const implementationStepId = stringAt(ledgerStepDoc.stepId, "same-session worker ledgerStepDoc.stepId");
   const ran = await runWorkerJob({
@@ -471,6 +492,7 @@ async function executeWorkerForSingleSessionRun(input: {
       stageBefore,
       issueRelativePath,
       implementationStepId,
+      generatedProductAllowedScope,
       workerJobAfterRun: ran.workerJob,
       ledger: { currentStatus: "missing" }
     };
@@ -487,6 +509,7 @@ async function executeWorkerForSingleSessionRun(input: {
     stageBefore,
     issueRelativePath,
     implementationStepId,
+    generatedProductAllowedScope,
     workerJobAfterRun: ran.workerJob,
     ledger,
     advancedRun: await advanceWorkerStage({
@@ -511,6 +534,9 @@ function workerEvidence(result: WorkerExecutionResult) {
   const missingEvidence = Array.isArray(result.workerJobAfterRun.missingEvidence)
     ? result.workerJobAfterRun.missingEvidence.filter((item): item is string => typeof item === "string")
     : [];
+  const generatedProductChangedFiles = result.ledger.currentStatus === "completed"
+    ? ledgerGeneratedProductChangedFiles(result.ledger)
+    : [];
 
   return {
     runId: result.runId,
@@ -524,7 +550,10 @@ function workerEvidence(result: WorkerExecutionResult) {
     stageAfter: stringAt(advancedRun.currentStage, "same-session advanced currentStage"),
     ledgerStatus: stringAt(result.ledger.currentStatus, "same-session implementation ledger currentStatus"),
     implementationStepId: result.implementationStepId,
-    issueRelativePath: result.issueRelativePath
+    issueRelativePath: result.issueRelativePath,
+    generatedProductAllowedScope: result.generatedProductAllowedScope,
+    generatedProductChangedFiles,
+    generatedProductChangedFileCount: generatedProductChangedFiles.length
   };
 }
 
@@ -537,6 +566,14 @@ function workerResultBlockers(result: WorkerExecutionResult) {
 
   if (result.ledger.currentStatus !== "completed") {
     blockers.push(`same-session implementation ledger must be completed; received ${JSON.stringify(result.ledger.currentStatus)}`);
+  }
+
+  if (result.generatedProductAllowedScope.length < 1) {
+    blockers.push("same-session worker plan must explicitly include generated-product files in allowedWriteScope.");
+  }
+
+  if (result.ledger.currentStatus === "completed" && ledgerGeneratedProductChangedFiles(result.ledger).length < 1) {
+    blockers.push("same-session worker ledger must record at least one generated-product changed file.");
   }
 
   if (!result.advancedRun) {
@@ -622,6 +659,7 @@ function passedEvidence(input: {
       "runtime status was available before same-session worker execution",
       "same-session file-diff ExecutionAuthorityRecord was approved for the generated workspace",
       "same-session Codex worker job completed with ImplementationStepLedger evidence",
+      "same-session worker plan targeted generated-product files and the ledger recorded generated-product changed-file evidence",
       "same-session implementation stage advanced beyond initial_pr after worker evidence"
     ]
   };
