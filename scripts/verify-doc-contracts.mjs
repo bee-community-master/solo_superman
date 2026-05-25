@@ -931,6 +931,7 @@ function checkContributorDocsSnippets() {
     "Core ambiguity dimensions are 75 or higher",
     "browser-service-boundary",
     "auto-implementation-review-loop",
+    "pnpm verify:core-product-loop",
     "technical-preview-release-guardrails",
     "local-error-reporting",
     "pnpm verify:support-bundle",
@@ -1049,6 +1050,7 @@ function checkProjectWikiDocsSnippets() {
 
   requireSnippets("project wiki verification map missing gates", docs["omx_wiki/verification-map.md"], [
     "pnpm verify:clarification-volume",
+    "pnpm verify:core-product-loop",
     "pnpm verify:research-pipeline",
     "Research mounted provider polling/import/synthesis stays connected",
     "pnpm verify:browser-delegation-pipeline",

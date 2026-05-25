@@ -27,7 +27,8 @@ const REQUIRED_CAPABILITY_COMMANDS = new Map([
       "pnpm verify:worker-job",
       "pnpm verify:pr-mutation",
       "pnpm verify:auto-implementation-review-loop",
-      "pnpm verify:auto-implementation-pipeline"
+      "pnpm verify:auto-implementation-pipeline",
+      "pnpm verify:core-product-loop"
     ]
   ],
   ["technical-preview-release-guardrails", ["pnpm verify:prod-bundle", "pnpm verify:release-readiness"]],
@@ -129,7 +130,8 @@ const REQUIRED_CAPABILITY_BEHAVIOR_SNIPPETS = new Map([
       "Final merge_main",
       "final_verify_pr_update",
       "current PR body evidence",
-      "full verification commands"
+      "full verification commands",
+      "end-to-end core product loop"
     ]
   ],
   [
@@ -155,6 +157,7 @@ const REQUIRED_DEFAULT_COMMANDS = new Set([
   "pnpm verify:service-page-pipeline",
   "pnpm verify:production-mutation-contract",
   "pnpm verify:auto-implementation-pipeline",
+  "pnpm verify:core-product-loop",
   "pnpm verify:support-bundle",
   "pnpm verify:product-capability-readiness",
   "pnpm verify"
@@ -501,7 +504,7 @@ export function evidenceForEvaluation(evaluation, options) {
       "product capability readiness contract schema",
       "required idea, clarification, research, browser/service, planning, auto-implementation, release-guardrail, and local-error-reporting capability ids",
       "required credential-free product verification commands",
-      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, pressure questions, generated source-seeking research targets, non-blocking answer submission, mounted research provider polling, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage",
+      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, pressure questions, generated source-seeking research targets, non-blocking answer submission, mounted research provider polling, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, end-to-end core product loop coverage, redacted support diagnostics coverage, and ready-release plan-only coverage",
       "secret-free product capability evidence strings",
       options.requireCodeBacked
         ? "all technical-preview core capabilities must be code_backed"

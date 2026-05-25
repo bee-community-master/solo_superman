@@ -3,7 +3,7 @@
   "appId": "solo-superman",
   "publicPosture": "technical-preview",
   "coreProductStatus": "code_backed",
-  "summary": "The technical-preview core product loop is code-backed by credential-free verification: idea intake, deep clarification, research evidence, readiness gates, browser/service boundaries, and staged auto-implementation review loops all have local smoke coverage. Broad/general release remains governed separately by release-readiness gates.",
+  "summary": "The technical-preview core product loop is code-backed by credential-free verification: idea intake, deep clarification, research evidence, readiness gates, browser/service boundaries, staged auto-implementation review loops, and a single aggregate core-product-loop smoke all have local coverage. Broad/general release remains governed separately by release-readiness gates.",
   "releaseReadinessRef": "docs/release-readiness_KO.md",
   "requiredVerificationCommands": {
     "defaultSuite": [
@@ -15,6 +15,7 @@
       "pnpm verify:service-page-pipeline",
       "pnpm verify:production-mutation-contract",
       "pnpm verify:auto-implementation-pipeline",
+      "pnpm verify:core-product-loop",
       "pnpm verify:support-bundle",
       "pnpm verify:product-capability-readiness",
       "pnpm verify"
@@ -160,7 +161,8 @@
         "pnpm verify:worker-job",
         "pnpm verify:pr-mutation",
         "pnpm verify:auto-implementation-review-loop",
-        "pnpm verify:auto-implementation-pipeline"
+        "pnpm verify:auto-implementation-pipeline",
+        "pnpm verify:core-product-loop"
       ],
       "checkedBehaviors": [
         "Runtime preview requests produce bounded preview artifacts without applying file, shell, browser, or network actions.",
@@ -169,7 +171,8 @@
         "Planning-derived PR-sized issue docs are first-class in issueManagement.planningIssueDocs, a separate PR issue sequence tracker, generated tracker state, and the Implementation panel before stage delivery issues; each run can target a selected planningIssueId so prior slices show completed, the selected slice shows active, and later slices remain planned.",
         "Generated PR body includes issue document status summary, stage status summary, review/evidence gate summary, and missing-test audit summary coverage, and approved gh PR create/edit mutations pass the generated body through a temporary body-file handoff instead of an inline CLI argument.",
         "Every canonical auto-implementation stage requires two consecutive no-finding feature and repository code-review passes, two consecutive no-finding changed-code and repository clean-code passes, a zero-gap missing-test audit, and passing test evidence before completion.",
-        "Final merge_main stays blocked until final_verify_pr_update records current PR body evidence with full verification commands plus missing-test audit and test evidence."
+        "Final merge_main stays blocked until final_verify_pr_update records current PR body evidence with full verification commands plus missing-test audit and test evidence.",
+        "The end-to-end core product loop smoke proves idea intake, clarification, research follow-up debt, generated follow-up research, runtime preview, worker, PR mutation, review-loop, and merge_main fixture evidence are connected by one verifier command."
       ]
     },
     {
