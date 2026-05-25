@@ -14,6 +14,7 @@
       "pnpm verify:browser-delegation-pipeline",
       "pnpm verify:service-page-pipeline",
       "pnpm verify:production-mutation-contract",
+      "pnpm verify:single-session-product-loop",
       "pnpm verify:readiness-to-implementation",
       "pnpm verify:auto-implementation-pipeline",
       "pnpm verify:core-product-loop",
@@ -159,7 +160,8 @@
         "apps/sidecar/src/auto-implementation-pr-mutation-smoke.ts",
         "apps/sidecar/src/auto-implementation-review-loop-smoke.ts",
         "apps/sidecar/src/auto-implementation-pipeline-smoke.ts",
-        "apps/sidecar/src/readiness-to-implementation-smoke.ts"
+        "apps/sidecar/src/readiness-to-implementation-smoke.ts",
+        "apps/sidecar/src/single-session-product-loop-smoke.ts"
       ],
       "verificationCommands": [
         "pnpm verify:runtime-preview-turn",
@@ -167,6 +169,7 @@
         "pnpm verify:worker-job",
         "pnpm verify:pr-mutation",
         "pnpm verify:auto-implementation-review-loop",
+        "pnpm verify:single-session-product-loop",
         "pnpm verify:readiness-to-implementation",
         "pnpm verify:auto-implementation-pipeline",
         "pnpm verify:core-product-loop"
@@ -179,6 +182,7 @@
         "Generated PR body includes issue document status summary, stage status summary, review/evidence gate summary, and missing-test audit summary coverage, and approved gh PR create/edit mutations pass the generated body through a temporary body-file handoff instead of an inline CLI argument.",
         "Every canonical auto-implementation stage requires two consecutive no-finding feature and repository code-review passes, two consecutive no-finding changed-code and repository clean-code passes, a zero-gap missing-test audit, and passing test evidence before completion.",
         "Final merge_main stays blocked until final_verify_pr_update records current PR body evidence with full verification commands plus missing-test audit and test evidence.",
+        "The single-session product loop smoke proves one pet-lifecycle idea reaches domain-fit questions, answer-linked research, research follow-up questions, Planning Handoff, and initial_pr auto implementation evidence in the same session.",
         "The readiness-to-implementation verifier proves a spec_ready completion candidate becomes a planning_ready handoff before the first auto-implementation run starts.",
         "The end-to-end core product loop smoke proves idea intake, clarification, research follow-up debt, generated follow-up research, readiness-to-implementation handoff, runtime preview, worker, PR mutation, review-loop, and merge_main fixture evidence are connected by one verifier command."
       ]

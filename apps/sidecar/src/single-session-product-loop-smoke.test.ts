@@ -1,0 +1,45 @@
+import { describe, expect, it } from "vitest";
+import {
+  runSingleSessionProductLoopSmoke,
+  SINGLE_SESSION_PRODUCT_LOOP_SMOKE
+} from "./single-session-product-loop-smoke";
+
+describe("single-session product loop smoke", () => {
+  it("proves one pet-lifecycle idea can move through domain-fit questions, answer-linked research, planning, and implementation start", async () => {
+    const evidence = await runSingleSessionProductLoopSmoke();
+
+    expect(evidence).toMatchObject({
+      status: "passed",
+      smoke: SINGLE_SESSION_PRODUCT_LOOP_SMOKE,
+      mode: "fixture",
+      loop: {
+        generatedQuestionCount: expect.any(Number),
+        activeQuestionCount: 5,
+        firstQuestionTopicKey: "primary_customer_narrowing",
+        petDomainQuestionSignalCount: expect.any(Number),
+        staleFounderOptionCount: 0,
+        answeredQuestionCount: 1,
+        providerRunStatus: "research_insufficient",
+        providerAdapterKind: "web_search_readonly",
+        followUpQuestionCount: 1,
+        readinessCompositeScore: 92,
+        readinessLabel: "spec_ready",
+        completionCandidateStatus: "candidate",
+        planningHandoffStatus: "planning_ready",
+        autoImplementationStatus: "pending",
+        autoImplementationCurrentStage: "initial_pr",
+        autoImplementationStageCount: 7
+      }
+    });
+    expect(evidence.loop?.generatedQuestionCount).toBeGreaterThanOrEqual(10);
+    expect(evidence.loop?.petDomainQuestionSignalCount).toBeGreaterThanOrEqual(3);
+    expect(evidence.loop?.providerSourceRefCount).toBeGreaterThanOrEqual(1);
+    expect(evidence.checked).toEqual(expect.arrayContaining([
+      "one pet-lifecycle idea stayed on one project/session through every product-loop checkpoint",
+      "domain-fit question generation avoided stale founder/operator customer options",
+      "answer submission created source-linked research task debt in the same session",
+      "same-session research synthesis generated follow-up question debt",
+      "same-session auto implementation run started at initial_pr with canonical stages"
+    ]));
+  });
+});

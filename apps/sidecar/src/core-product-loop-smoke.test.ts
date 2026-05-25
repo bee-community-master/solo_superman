@@ -4,6 +4,7 @@ import type { ClarificationPipelineSmokeEvidence } from "./clarification-pipelin
 import { CORE_PRODUCT_LOOP_SMOKE, runCoreProductLoopSmoke } from "./core-product-loop-smoke";
 import type { ReadinessToImplementationSmokeEvidence } from "./readiness-to-implementation-smoke";
 import type { ResearchPipelineSmokeEvidence } from "./research-pipeline-smoke";
+import type { SingleSessionProductLoopSmokeEvidence } from "./single-session-product-loop-smoke";
 
 function clarificationEvidence(overrides: Partial<ClarificationPipelineSmokeEvidence> = {}) {
   return {
@@ -196,9 +197,48 @@ function readinessToImplementationEvidence(overrides: Partial<ReadinessToImpleme
   } satisfies ReadinessToImplementationSmokeEvidence;
 }
 
+function singleSessionEvidence(overrides: Partial<SingleSessionProductLoopSmokeEvidence> = {}) {
+  return {
+    status: "passed",
+    smoke: "single_session_product_loop",
+    mode: "fixture",
+    project: {
+      projectId: "proj_core_loop_single_session",
+      sessionId: "sess_core_loop_single_session"
+    },
+    loop: {
+      generatedQuestionCount: 15,
+      activeQuestionCount: 5,
+      firstQuestionId: "queue_core_loop_pet_first",
+      firstQuestionTopicKey: "primary_customer_narrowing",
+      petDomainQuestionSignalCount: 8,
+      staleFounderOptionCount: 0,
+      answeredQuestionCount: 1,
+      answerLinkedResearchTaskId: "research_task_core_loop_pet",
+      providerRunStatus: "research_insufficient",
+      providerAdapterKind: "web_search_readonly",
+      providerSourceRefCount: 3,
+      followUpQuestionCount: 1,
+      followUpResearchTaskCount: 0,
+      readinessCompositeScore: 92,
+      readinessLabel: "spec_ready",
+      completionCandidateStatus: "candidate",
+      planningHandoffStatus: "planning_ready",
+      planningArtifactId: "handoff_core_loop_pet",
+      autoImplementationRunId: "auto_run_core_loop_pet",
+      autoImplementationStatus: "pending",
+      autoImplementationCurrentStage: "initial_pr",
+      autoImplementationStageCount: 7
+    },
+    checked: ["single-session product loop checked"],
+    ...overrides
+  } satisfies SingleSessionProductLoopSmokeEvidence;
+}
+
 describe("core product loop smoke", () => {
-  it("passes only when clarification, research, readiness, and auto implementation evidence form one complete product loop", async () => {
+  it("passes only when single-session, clarification, research, readiness, and auto implementation evidence form one complete product loop", async () => {
     const evidence = await runCoreProductLoopSmoke({
+      runSingleSession: async () => singleSessionEvidence(),
       runClarification: async () => clarificationEvidence(),
       runResearch: async () => researchEvidence(),
       runReadinessToImplementation: async () => readinessToImplementationEvidence(),
@@ -215,6 +255,11 @@ describe("core product loop smoke", () => {
         researchFollowUpQuestionCount: 1,
         researchFollowUpTaskCount: 1,
         generatedFollowUpResearchSourceRefCount: 2,
+        singleSessionGeneratedQuestionCount: 15,
+        singleSessionPetDomainQuestionSignalCount: 8,
+        singleSessionFollowUpQuestionCount: 1,
+        singleSessionPlanningHandoffStatus: "planning_ready",
+        singleSessionAutoImplementationCurrentStage: "initial_pr",
         readinessCompositeScore: 92,
         readinessLabel: "spec_ready",
         completionCandidateStatus: "candidate",
@@ -229,6 +274,7 @@ describe("core product loop smoke", () => {
     });
     expect(evidence.checked).toEqual(expect.arrayContaining([
       "idea intake reached a broad generated question backlog before implementation",
+      "single-session pet-lifecycle idea reached domain-fit questions, answer-linked research, follow-up questions, planning_ready, and initial_pr",
       "positive readiness handoff proved spec_ready candidate, planning_ready artifact, and initial_pr auto implementation start",
       "auto implementation pipeline reached runtime preview, worker ledger import, PR mutation, review-loop, and merge_main fixture evidence"
     ]));
@@ -236,6 +282,7 @@ describe("core product loop smoke", () => {
 
   it("blocks when research does not create generated follow-up research debt", async () => {
     const evidence = await runCoreProductLoopSmoke({
+      runSingleSession: async () => singleSessionEvidence(),
       runClarification: async () => clarificationEvidence(),
       runResearch: async () => researchEvidence({
         research: {
@@ -259,6 +306,7 @@ describe("core product loop smoke", () => {
 
   it("blocks when readiness does not produce a planning-ready implementation handoff", async () => {
     const evidence = await runCoreProductLoopSmoke({
+      runSingleSession: async () => singleSessionEvidence(),
       runClarification: async () => clarificationEvidence(),
       runResearch: async () => researchEvidence(),
       runReadinessToImplementation: async () => readinessToImplementationEvidence({
@@ -286,6 +334,32 @@ describe("core product loop smoke", () => {
       "core loop must produce a planning_ready handoff before implementation; received source_trace_incomplete",
       "core loop readiness handoff must start an implementation run in pending state; received blocked",
       "core loop readiness handoff must start at initial_pr; received planning_handoff"
+    ]));
+  });
+
+  it("blocks when the single-session flow loses domain-fit questions or implementation handoff", async () => {
+    const evidence = await runCoreProductLoopSmoke({
+      runSingleSession: async () => singleSessionEvidence({
+        loop: {
+          ...singleSessionEvidence().loop!,
+          petDomainQuestionSignalCount: 1,
+          followUpQuestionCount: 0,
+          planningHandoffStatus: "source_trace_incomplete",
+          autoImplementationCurrentStage: "planning_handoff"
+        }
+      }),
+      runClarification: async () => clarificationEvidence(),
+      runResearch: async () => researchEvidence(),
+      runReadinessToImplementation: async () => readinessToImplementationEvidence(),
+      runAutoImplementation: async () => autoImplementationEvidence()
+    });
+
+    expect(evidence.status).toBe("blocked");
+    expect(evidence.blockers).toEqual(expect.arrayContaining([
+      "single-session core loop must keep generated questions fitted to the pet lifecycle idea; received 1",
+      "single-session core loop must generate research follow-up questions in the same session.",
+      "single-session core loop must reach planning_ready; received source_trace_incomplete",
+      "single-session core loop must start auto implementation at initial_pr; received planning_handoff"
     ]));
   });
 });
