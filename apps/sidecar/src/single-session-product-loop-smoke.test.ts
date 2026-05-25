@@ -32,7 +32,9 @@ describe("single-session product loop smoke", () => {
         planningHandoffStatus: "planning_ready",
         autoImplementationStatus: "pending",
         autoImplementationCurrentStage: "initial_pr",
-        autoImplementationStageCount: 7
+        autoImplementationStageCount: 7,
+        autoImplementationGeneratedSoftwareArtifactCount: 5,
+        autoImplementationGeneratedSoftwareHasRunnableTest: true
       }
     });
     expect(evidence.loop?.generatedQuestionCount).toBeGreaterThanOrEqual(10);
@@ -43,7 +45,8 @@ describe("single-session product loop smoke", () => {
       "domain-fit question generation avoided stale founder/operator customer options",
       "answer submission created source-linked research task debt in the same session",
       "same-session research synthesis generated follow-up question debt",
-      "same-session auto implementation run started at initial_pr with canonical stages"
+      "same-session auto implementation run started at initial_pr with canonical stages",
+      "same-session auto implementation generated a runnable local software scaffold with source-traced smoke test"
     ]));
   });
 

@@ -233,7 +233,9 @@ function singleSessionEvidence(overrides: Partial<SingleSessionProductLoopSmokeE
       autoImplementationRunId: "auto_run_core_loop_pet",
       autoImplementationStatus: "pending",
       autoImplementationCurrentStage: "initial_pr",
-      autoImplementationStageCount: 7
+      autoImplementationStageCount: 7,
+      autoImplementationGeneratedSoftwareArtifactCount: 5,
+      autoImplementationGeneratedSoftwareHasRunnableTest: true
     },
     checked: ["single-session product loop checked"],
     ...overrides
@@ -298,6 +300,8 @@ describe("core product loop smoke", () => {
         singleSessionFollowUpQuestionCount: 1,
         singleSessionPlanningHandoffStatus: "planning_ready",
         singleSessionAutoImplementationCurrentStage: "initial_pr",
+        singleSessionGeneratedSoftwareArtifactCount: 5,
+        singleSessionGeneratedSoftwareHasRunnableTest: true,
         sameSessionWorkerStageAfter: "code_review_fix_1",
         sameSessionWorkerLedgerStatus: "completed",
         readinessCompositeScore: 92,
@@ -314,7 +318,7 @@ describe("core product loop smoke", () => {
     });
     expect(evidence.checked).toEqual(expect.arrayContaining([
       "idea intake reached a broad generated question backlog before implementation",
-      "single-session pet-lifecycle idea reached domain-fit questions, answer-linked research, follow-up questions, planning_ready, and initial_pr",
+      "single-session pet-lifecycle idea reached domain-fit questions, answer-linked research, follow-up questions, planning_ready, initial_pr, and generated software scaffold",
       "same-session worker proof reused the Planning Handoff run and advanced beyond initial_pr with completed ledger evidence",
       "positive readiness handoff proved spec_ready candidate, planning_ready artifact, and initial_pr auto implementation start",
       "auto implementation pipeline reached runtime preview, worker ledger import, PR mutation, review-loop, and merge_main fixture evidence"

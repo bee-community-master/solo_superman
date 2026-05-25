@@ -121,6 +121,8 @@ export interface SingleSessionProductLoopSmokeEvidence {
     readonly autoImplementationStatus: string;
     readonly autoImplementationCurrentStage: string;
     readonly autoImplementationStageCount: number;
+    readonly autoImplementationGeneratedSoftwareArtifactCount: number;
+    readonly autoImplementationGeneratedSoftwareHasRunnableTest: boolean;
   };
   readonly reason?: string;
   readonly blockers?: readonly string[];
@@ -604,6 +606,13 @@ function flowSummary(result: SingleSessionFlowResult): NonNullable<SingleSession
   const completionCandidate = objectAt(result.completeness.completionCandidate, "completion candidate");
   const planningFinalArtifact = objectAt(result.planningHandoff.finalArtifact, "planning finalArtifact");
   const stagePlan = recordArray(result.autoImplementationRun.stagePlan, "auto implementation stagePlan");
+  const autoImplementationEvidenceRefs = stringArrayAt(
+    result.autoImplementationRun.evidenceRefs,
+    "auto implementation evidenceRefs"
+  );
+  const generatedSoftwareArtifactRefs = autoImplementationEvidenceRefs.filter((ref) =>
+    ref.startsWith("generated-software-artifact:")
+  );
 
   return {
     generatedQuestionCount: numberAt(activatedProgress.generatedQuestionCount, "generatedQuestionCount"),
@@ -628,7 +637,11 @@ function flowSummary(result: SingleSessionFlowResult): NonNullable<SingleSession
     autoImplementationRunId: stringAt(result.autoImplementationRun.runId, "auto implementation runId"),
     autoImplementationStatus: stringAt(result.autoImplementationRun.status, "auto implementation status"),
     autoImplementationCurrentStage: stringAt(result.autoImplementationRun.currentStage, "auto implementation currentStage"),
-    autoImplementationStageCount: stagePlan.length
+    autoImplementationStageCount: stagePlan.length,
+    autoImplementationGeneratedSoftwareArtifactCount: generatedSoftwareArtifactRefs.length,
+    autoImplementationGeneratedSoftwareHasRunnableTest: generatedSoftwareArtifactRefs.includes(
+      "generated-software-artifact:generated-product/src/product-slice.test.mjs"
+    )
   };
 }
 
@@ -690,6 +703,14 @@ function flowBlockers(result: SingleSessionFlowResult) {
   if (summary.autoImplementationStageCount < 7) {
     blockers.push(`same session auto implementation must create canonical stages; received ${summary.autoImplementationStageCount}`);
   }
+  if (summary.autoImplementationGeneratedSoftwareArtifactCount < 5) {
+    blockers.push(
+      `same session auto implementation must create generated software scaffold artifacts; received ${summary.autoImplementationGeneratedSoftwareArtifactCount}`
+    );
+  }
+  if (!summary.autoImplementationGeneratedSoftwareHasRunnableTest) {
+    blockers.push("same session auto implementation must include a runnable generated software smoke test artifact.");
+  }
 
   return blockers;
 }
@@ -712,7 +733,8 @@ function passedEvidence(result: SingleSessionFlowResult): SingleSessionProductLo
       "same-session research synthesis generated follow-up question debt",
       "same-session readiness reached spec_ready candidate status before Planning Handoff",
       "same-session Planning Handoff produced a planning_ready artifact",
-      "same-session auto implementation run started at initial_pr with canonical stages"
+      "same-session auto implementation run started at initial_pr with canonical stages",
+      "same-session auto implementation generated a runnable local software scaffold with source-traced smoke test"
     ]
   };
 }

@@ -44,6 +44,19 @@ const DEFAULT_PROJECT_FOLDER_NAME = DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_N
 const PLANNING_HANDOFF_IMPLEMENTATION_PLAN_RELATIVE_PATH = "planning-handoff-implementation-plan.md";
 const PLANNING_HANDOFF_PR_ISSUE_SEQUENCE_TRACKER_RELATIVE_PATH = "planning-handoff-pr-issue-sequence.md";
 const PLANNING_HANDOFF_PR_ISSUE_PLAN_DIR = "planning-handoff-pr-issues";
+const GENERATED_PRODUCT_DIR = "generated-product";
+const GENERATED_PRODUCT_README_RELATIVE_PATH = `${GENERATED_PRODUCT_DIR}/README.md`;
+const GENERATED_PRODUCT_PACKAGE_RELATIVE_PATH = `${GENERATED_PRODUCT_DIR}/package.json`;
+const GENERATED_PRODUCT_INDEX_RELATIVE_PATH = `${GENERATED_PRODUCT_DIR}/index.html`;
+const GENERATED_PRODUCT_SLICE_RELATIVE_PATH = `${GENERATED_PRODUCT_DIR}/src/product-slice.mjs`;
+const GENERATED_PRODUCT_TEST_RELATIVE_PATH = `${GENERATED_PRODUCT_DIR}/src/product-slice.test.mjs`;
+const GENERATED_SOFTWARE_ARTIFACT_RELATIVE_PATHS = [
+  GENERATED_PRODUCT_README_RELATIVE_PATH,
+  GENERATED_PRODUCT_PACKAGE_RELATIVE_PATH,
+  GENERATED_PRODUCT_INDEX_RELATIVE_PATH,
+  GENERATED_PRODUCT_SLICE_RELATIVE_PATH,
+  GENERATED_PRODUCT_TEST_RELATIVE_PATH
+] as const;
 const AUTO_IMPLEMENTATION_RUN_MANIFEST_RELATIVE_PATH = ".solo-superman/auto-implementation-run.json";
 const AUTO_IMPLEMENTATION_TRACKER_RUN_STATE_START = "<!-- solo-superman:auto-implementation-run-state:start -->";
 const AUTO_IMPLEMENTATION_TRACKER_RUN_STATE_END = "<!-- solo-superman:auto-implementation-run-state:end -->";
@@ -830,6 +843,296 @@ function inlineMarkdownList(values: readonly string[], emptyLabel = "none") {
   return values.length ? values.map((value) => markdownLineValue(value)).join(", ") : emptyLabel;
 }
 
+function firstPlanningIssueForGeneratedProduct(artifact: PlanningHandoffArtifactDto) {
+  const firstPlan = artifact.prIssuePlan[0] ?? null;
+  const includedTaskIds = new Set(firstPlan?.includedTaskIds ?? []);
+  const tasks = firstPlan
+    ? artifact.taskBreakdown.filter((task) => includedTaskIds.has(task.taskId))
+    : artifact.taskBreakdown.slice(0, 3);
+
+  return {
+    summary: firstPlan?.summary ?? artifact.buildSlicePlan.sliceGoal,
+    sequenceId: firstPlan?.sequenceId ?? "initial-generated-product-slice",
+    includedTaskIds: firstPlan?.includedTaskIds ?? tasks.map((task) => task.taskId),
+    tasks
+  };
+}
+
+function generatedProductModel(input: {
+  readonly artifact: PlanningHandoffArtifactDto;
+  readonly projectFolderName: string;
+  readonly trackerGoal: string;
+}) {
+  const firstIssue = firstPlanningIssueForGeneratedProduct(input.artifact);
+
+  return {
+    source: {
+      artifactId: input.artifact.artifactId,
+      status: input.artifact.status,
+      createdAt: input.artifact.createdAt,
+      projectFolderName: input.projectFolderName
+    },
+    product: {
+      slice: input.artifact.scopeSnapshot.productSlice,
+      journey: input.artifact.scopeSnapshot.userFacingJourneyLabel,
+      trackerGoal: input.trackerGoal,
+      handoffSummary: input.artifact.handoffSummary
+    },
+    implementation: {
+      sliceGoal: input.artifact.buildSlicePlan.sliceGoal,
+      validationMetric: input.artifact.buildSlicePlan.validationMetric,
+      capabilities: input.artifact.buildSlicePlan.includedCapabilities,
+      acceptanceCriteria: input.artifact.buildSlicePlan.acceptanceCriteria,
+      smokeTests: input.artifact.buildSlicePlan.smokeTests,
+      residualRisks: input.artifact.buildSlicePlan.residualRisks,
+      firstPrIssue: {
+        sequenceId: firstIssue.sequenceId,
+        summary: firstIssue.summary,
+        includedTaskIds: firstIssue.includedTaskIds,
+        tasks: firstIssue.tasks.map((task) => ({
+          taskId: task.taskId,
+          title: task.title,
+          ownerRole: task.ownerRole,
+          intent: task.intent,
+          acceptanceEvidence: task.acceptanceEvidence,
+          nonGoals: task.nonGoals
+        }))
+      }
+    }
+  };
+}
+
+function generatedProductReadmeMarkdown(input: {
+  readonly artifact: PlanningHandoffArtifactDto;
+  readonly projectFolderName: string;
+  readonly trackerGoal: string;
+}) {
+  const model = generatedProductModel(input);
+
+  return [
+    "# Generated product slice",
+    "",
+    `- Source Planning Handoff artifact: ${model.source.artifactId}`,
+    `- Project folder: ${model.source.projectFolderName}`,
+    `- Product slice: ${model.product.slice}`,
+    `- User journey: ${model.product.journey}`,
+    `- Tracker goal: ${model.product.trackerGoal}`,
+    `- First PR-sized issue: ${model.implementation.firstPrIssue.summary}`,
+    "",
+    "## What this scaffold implements first",
+    "",
+    model.implementation.sliceGoal,
+    "",
+    "## Included capabilities",
+    "",
+    ...markdownList(model.implementation.capabilities),
+    "",
+    "## Acceptance criteria",
+    "",
+    ...markdownList(model.implementation.acceptanceCriteria),
+    "",
+    "## Smoke tests",
+    "",
+    ...markdownList(model.implementation.smokeTests),
+    "",
+    "## First implementation tasks",
+    "",
+    ...model.implementation.firstPrIssue.tasks.flatMap((task) => [
+      `### ${task.taskId}: ${task.title}`,
+      "",
+      `- Owner role: ${task.ownerRole}`,
+      `- Intent: ${task.intent}`,
+      `- Acceptance evidence: ${inlineMarkdownList(task.acceptanceEvidence)}`,
+      `- Non-goals: ${inlineMarkdownList(task.nonGoals)}`,
+      ""
+    ]),
+    model.implementation.firstPrIssue.tasks.length ? "" : "- No first-slice tasks were available.",
+    "## Local verification",
+    "",
+    "- `npm test` runs the generated Node smoke test without installing third-party dependencies.",
+    "- `npm run preview` serves the static browser prototype locally when Python 3 is available.",
+    "",
+    "## Safety boundary",
+    "",
+    "This generated product scaffold is a local workspace artifact. It does not deploy, call external services, store credentials, or mutate GitHub.",
+    ""
+  ].join("\n");
+}
+
+function generatedProductPackageJson(projectFolderName: string) {
+  return `${JSON.stringify({
+    name: `${projectFolderName}-generated-product`,
+    private: true,
+    type: "module",
+    scripts: {
+      test: "node --test src/product-slice.test.mjs",
+      preview: "python3 -m http.server 4173 -d ."
+    }
+  }, null, 2)}\n`;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/gu, "&amp;")
+    .replace(/</gu, "&lt;")
+    .replace(/>/gu, "&gt;")
+    .replace(/"/gu, "&quot;");
+}
+
+function generatedProductIndexHtml(input: {
+  readonly artifact: PlanningHandoffArtifactDto;
+  readonly projectFolderName: string;
+  readonly trackerGoal: string;
+}) {
+  const model = generatedProductModel(input);
+  const title = `${input.projectFolderName} generated product slice`;
+
+  return [
+    "<!doctype html>",
+    '<html lang="en">',
+    "<head>",
+    '  <meta charset="utf-8">',
+    '  <meta name="viewport" content="width=device-width, initial-scale=1">',
+    `  <title>${escapeHtml(title)}</title>`,
+    "  <style>",
+    "    body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.5; }",
+    "    main { max-width: 920px; margin: 0 auto; }",
+    "    .card { border: 1px solid #d0d7de; border-radius: 12px; padding: 1rem; margin: 1rem 0; }",
+    "    .pill { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px; background: #eef6ff; margin: 0.2rem; }",
+    "  </style>",
+    "</head>",
+    "<body>",
+    "  <main>",
+    `    <p class="pill">Planning artifact: ${escapeHtml(model.source.artifactId)}</p>`,
+    '    <div data-product-slice-root></div>',
+    "  </main>",
+    '  <script type="module" src="./src/product-slice.mjs"></script>',
+    "</body>",
+    "</html>",
+    ""
+  ].join("\n");
+}
+
+function generatedProductSliceModule(input: {
+  readonly artifact: PlanningHandoffArtifactDto;
+  readonly projectFolderName: string;
+  readonly trackerGoal: string;
+}) {
+  const model = generatedProductModel(input);
+
+  return [
+    `export const productSlice = ${JSON.stringify(model, null, 2)};`,
+    "",
+    "function list(title, values) {",
+    "  const section = document.createElement('section');",
+    "  section.className = 'card';",
+    "  const heading = document.createElement('h2');",
+    "  heading.textContent = title;",
+    "  section.append(heading);",
+    "  const listElement = document.createElement('ul');",
+    "  for (const value of values.length ? values : ['None recorded']) {",
+    "    const item = document.createElement('li');",
+    "    item.textContent = value;",
+    "    listElement.append(item);",
+    "  }",
+    "  section.append(listElement);",
+    "  return section;",
+    "}",
+    "",
+    "export function renderProductSlice(container) {",
+    "  const root = document.createElement('article');",
+    "  const title = document.createElement('h1');",
+    "  title.textContent = productSlice.product.slice;",
+    "  const summary = document.createElement('p');",
+    "  summary.textContent = productSlice.implementation.sliceGoal;",
+    "  const metric = document.createElement('p');",
+    "  metric.textContent = `Validation metric: ${productSlice.implementation.validationMetric}`;",
+    "  root.append(title, summary, metric);",
+    "  root.append(list('Included capabilities', productSlice.implementation.capabilities));",
+    "  root.append(list('Acceptance criteria', productSlice.implementation.acceptanceCriteria));",
+    "  root.append(list('Smoke tests', productSlice.implementation.smokeTests));",
+    "  container.replaceChildren(root);",
+    "  return root;",
+    "}",
+    "",
+    "if (typeof document !== 'undefined') {",
+    "  const container = document.querySelector('[data-product-slice-root]');",
+    "  if (container) {",
+    "    renderProductSlice(container);",
+    "  }",
+    "}",
+    ""
+  ].join("\n");
+}
+
+function generatedProductSliceTest(input: {
+  readonly artifact: PlanningHandoffArtifactDto;
+  readonly projectFolderName: string;
+  readonly trackerGoal: string;
+}) {
+  const model = generatedProductModel(input);
+
+  return [
+    'import assert from "node:assert/strict";',
+    'import test from "node:test";',
+    'import { productSlice } from "./product-slice.mjs";',
+    "",
+    'test("generated product slice keeps the Planning Handoff source trace", () => {',
+    `  assert.equal(productSlice.source.artifactId, ${JSON.stringify(model.source.artifactId)});`,
+    "  assert.equal(productSlice.source.status, 'planning_ready');",
+    "});",
+    "",
+    'test("generated product slice is specific enough to start implementation", () => {',
+    "  assert.ok(productSlice.implementation.capabilities.length > 0);",
+    "  assert.ok(productSlice.implementation.acceptanceCriteria.length > 0);",
+    "  assert.ok(productSlice.implementation.smokeTests.length > 0);",
+    "  assert.ok(productSlice.implementation.firstPrIssue.includedTaskIds.length > 0);",
+    "});",
+    ""
+  ].join("\n");
+}
+
+async function writeGeneratedSoftwareScaffold(input: {
+  readonly workspaceRoot: string;
+  readonly generatedRepoPath: string;
+  readonly artifact: PlanningHandoffArtifactDto;
+  readonly projectFolderName: string;
+  readonly trackerGoal: string;
+}) {
+  const files = [
+    {
+      relativePath: GENERATED_PRODUCT_README_RELATIVE_PATH,
+      content: generatedProductReadmeMarkdown(input)
+    },
+    {
+      relativePath: GENERATED_PRODUCT_PACKAGE_RELATIVE_PATH,
+      content: generatedProductPackageJson(input.projectFolderName)
+    },
+    {
+      relativePath: GENERATED_PRODUCT_INDEX_RELATIVE_PATH,
+      content: generatedProductIndexHtml(input)
+    },
+    {
+      relativePath: GENERATED_PRODUCT_SLICE_RELATIVE_PATH,
+      content: generatedProductSliceModule(input)
+    },
+    {
+      relativePath: GENERATED_PRODUCT_TEST_RELATIVE_PATH,
+      content: generatedProductSliceTest(input)
+    }
+  ] as const;
+
+  await Promise.all(files.map((file) =>
+    writeIfChanged(
+      input.workspaceRoot,
+      resolve(input.generatedRepoPath, file.relativePath.split("/").join(sep)),
+      file.content
+    )
+  ));
+
+  return files.map((file) => file.relativePath);
+}
+
 function autoImplementationReviewStreakSummaryMarkdown(
   values:
     | NonNullable<AutoImplementationRun["stagePlan"][number]["ledgerEvidence"]>["codeReviewStreaks"]
@@ -1280,6 +1583,7 @@ function trackerMarkdown(input: {
   readonly planningPlanRelativePath: string | null;
   readonly planningIssuePlanRelativePaths: readonly string[];
   readonly planningIssueSequenceTrackerRelativePath: string | null;
+  readonly generatedSoftwareArtifactRelativePaths: readonly string[];
   readonly issueDocs: readonly AutoImplementationIssueDocument[];
   readonly remoteGuide: AutoImplementationRemoteGuide;
   readonly githubIssueMutation: AutoImplementationGitHubIssueMutationContract;
@@ -1306,6 +1610,13 @@ function trackerMarkdown(input: {
       ? `- PR issue sequence tracker: [${input.planningIssueSequenceTrackerRelativePath}](${input.planningIssueSequenceTrackerRelativePath})`
       : "- PR issue sequence tracker: not available for this run-derived follow-up request.",
     "- The Planning Handoff plan defines the product tasks and PR/issue breakdown; the sequence tracker owns cross-slice order; the local issue sequence below records the delivery, review, verification, and merge gates for the selected slice.",
+    "",
+    "## Generated software scaffold",
+    "",
+    ...input.generatedSoftwareArtifactRelativePaths.map((relativePath) => `- [${relativePath}](${relativePath})`),
+    "",
+    "- The scaffold is a runnable local product slice derived from the Planning Handoff build-slice plan.",
+    "- `generated-product/package.json` contains a dependency-free `npm test` smoke command for the generated software slice.",
     "",
     "## Planning-derived PR/issue files",
     "",
@@ -1367,6 +1678,7 @@ function issueMarkdown(input: {
   readonly sourcePlanningRef: string;
   readonly planningPlanRelativePath: string | null;
   readonly planningIssuePlanRelativePaths: readonly string[];
+  readonly generatedSoftwareArtifactRelativePaths: readonly string[];
 }) {
   return [
     `# ${input.issue.title}`,
@@ -1392,6 +1704,14 @@ function issueMarkdown(input: {
     ...(input.planningIssuePlanRelativePaths.length
       ? input.planningIssuePlanRelativePaths.map((relativePath) => `- [ ] ${relativePath}`)
       : ["- None available for this run-derived follow-up request."]),
+    "",
+    "## Generated software scaffold",
+    "",
+    ...(input.generatedSoftwareArtifactRelativePaths.length
+      ? input.generatedSoftwareArtifactRelativePaths.map((relativePath) => `- [ ] ${relativePath}`)
+      : ["- None available for this run-derived follow-up request."]),
+    "",
+    "Use these generated files as the first local product artifact and evolve them through the PR-sized task slice instead of stopping at tracker-only documentation.",
     "",
     "## Acceptance",
     "",
@@ -1567,7 +1887,10 @@ export async function prepareAutoImplementationWorkspaceRun(
         goal: trackerGoal,
         sourcePlanningRef,
         planningPlanRelativePath,
-        planningIssuePlanRelativePaths
+        planningIssuePlanRelativePaths,
+        generatedSoftwareArtifactRelativePaths: input.planningHandoffArtifact
+          ? GENERATED_SOFTWARE_ARTIFACT_RELATIVE_PATHS
+          : []
       })
     )
   ));
@@ -1593,6 +1916,15 @@ export async function prepareAutoImplementationWorkspaceRun(
       )
     ));
   }
+  const generatedSoftwareArtifactRelativePaths = input.planningHandoffArtifact
+    ? await writeGeneratedSoftwareScaffold({
+        workspaceRoot,
+        generatedRepoPath,
+        artifact: input.planningHandoffArtifact,
+        projectFolderName,
+        trackerGoal
+      })
+    : [];
 
   if (githubIssueMutation.status === "approved_ready" && githubIssueMutation.approval) {
     const issueMutationResult = await githubIssueAdapter.createIssues({
@@ -1651,6 +1983,9 @@ export async function prepareAutoImplementationWorkspaceRun(
       `issues:${issueMode}`,
       ...(planningPlanRelativePath ? [`planning-handoff-plan:${planningPlanRelativePath}`] : []),
       ...planningIssuePlanRelativePaths.map((relativePath) => `planning-handoff-pr-issue:${relativePath}`),
+      ...generatedSoftwareArtifactRelativePaths.map((relativePath) =>
+        `generated-software-artifact:${relativePath}`
+      ),
       ...planningIssueDocs
         .filter((issue) => issue.status === "active")
         .map((issue) => `planning-handoff-active-pr-issue:${issue.relativePath}`),
@@ -1681,6 +2016,7 @@ export async function prepareAutoImplementationWorkspaceRun(
       planningPlanRelativePath,
       planningIssuePlanRelativePaths,
       planningIssueSequenceTrackerRelativePath,
+      generatedSoftwareArtifactRelativePaths,
       issueDocs,
       remoteGuide: guide,
       githubIssueMutation,
@@ -1693,6 +2029,7 @@ export async function prepareAutoImplementationWorkspaceRun(
     ...(planningPlanRelativePath ? [planningPlanRelativePath] : []),
     ...(planningIssueSequenceTrackerRelativePath ? [planningIssueSequenceTrackerRelativePath] : []),
     ...planningIssuePlanRelativePaths,
+    ...generatedSoftwareArtifactRelativePaths,
     trackerRelativePath,
     ...issueDocs.map((issue) => issue.relativePath),
     manifestRelativePath

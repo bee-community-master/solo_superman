@@ -9486,6 +9486,16 @@ describe("PR-02 sidecar health shell", () => {
       const tracker = await readFile(join(projectDir, "implementation-tracker.md"), "utf8");
       const sequenceTracker = await readFile(join(projectDir, "planning-handoff-pr-issue-sequence.md"), "utf8");
       const planningPlan = await readFile(join(projectDir, "planning-handoff-implementation-plan.md"), "utf8");
+      const generatedProductReadme = await readFile(join(projectDir, "generated-product", "README.md"), "utf8");
+      const generatedProductPackage = JSON.parse(
+        await readFile(join(projectDir, "generated-product", "package.json"), "utf8")
+      ) as Readonly<Record<string, unknown>>;
+      const generatedProductHtml = await readFile(join(projectDir, "generated-product", "index.html"), "utf8");
+      const generatedProductModule = await readFile(join(projectDir, "generated-product", "src", "product-slice.mjs"), "utf8");
+      const generatedProductTest = await readFile(
+        join(projectDir, "generated-product", "src", "product-slice.test.mjs"),
+        "utf8"
+      );
       const issueMarkdownByPath = new Map(
         await Promise.all(
           issueDocs.map(async (issueDoc) => {
@@ -9566,6 +9576,14 @@ describe("PR-02 sidecar health shell", () => {
         encoding: "utf8"
       }).trim();
       const headCommitSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: projectDir, encoding: "utf8" }).trim();
+      const bootstrapTreePaths = execFileSync("git", ["ls-tree", "-r", "--name-only", "HEAD"], {
+        cwd: projectDir,
+        encoding: "utf8"
+      });
+      const generatedProductTestOutput = execFileSync("node", ["--test", "src/product-slice.test.mjs"], {
+        cwd: join(projectDir, "generated-product"),
+        encoding: "utf8"
+      });
       const commitCountBeforeReplay = execFileSync("git", ["rev-list", "--count", "HEAD"], {
         cwd: projectDir,
         encoding: "utf8"
@@ -9574,6 +9592,9 @@ describe("PR-02 sidecar health shell", () => {
       expect(tracker).toContain("Remote status: no_remote");
       expect(tracker).toContain("Planning Handoff implementation plan");
       expect(tracker).toContain("[planning-handoff-implementation-plan.md](planning-handoff-implementation-plan.md)");
+      expect(tracker).toContain("## Generated software scaffold");
+      expect(tracker).toContain("[generated-product/README.md](generated-product/README.md)");
+      expect(tracker).toContain("`generated-product/package.json` contains a dependency-free `npm test` smoke command");
       expect(tracker).toContain("## Planning-derived PR/issue files");
       expect(tracker).toContain("PR issue sequence tracker: [planning-handoff-pr-issue-sequence.md]");
       expect(tracker).toContain(firstPlanningIssueRelativePath!);
@@ -9600,6 +9621,29 @@ describe("PR-02 sidecar health shell", () => {
       expect(planningPlan).toContain("API ready SpecVersion");
       expect(planningPlan).toContain("Research-updated queue queue_api_ready terminal outcome is approved.");
       expect(planningPlan).toContain("Spec/Evidence/Queue sources drive task");
+      expect(generatedProductReadme).toContain("# Generated product slice");
+      expect(generatedProductReadme).toContain("Source Planning Handoff artifact:");
+      expect(generatedProductReadme).toContain("## Included capabilities");
+      expect(generatedProductReadme).toContain("## Acceptance criteria");
+      expect(generatedProductPackage).toMatchObject({
+        name: "demo-workspace-app-generated-product",
+        private: true,
+        type: "module",
+        scripts: {
+          test: "node --test src/product-slice.test.mjs"
+        }
+      });
+      expect(generatedProductHtml).toContain('data-product-slice-root');
+      expect(generatedProductHtml).toContain('./src/product-slice.mjs');
+      expect(generatedProductModule).toContain("export const productSlice");
+      expect(generatedProductModule).toContain("renderProductSlice");
+      expect(generatedProductTest).toContain("generated product slice keeps the Planning Handoff source trace");
+      expect(generatedProductTestOutput).toContain("pass 2");
+      expect(bootstrapTreePaths).toContain("generated-product/README.md");
+      expect(bootstrapTreePaths).toContain("generated-product/package.json");
+      expect(bootstrapTreePaths).toContain("generated-product/index.html");
+      expect(bootstrapTreePaths).toContain("generated-product/src/product-slice.mjs");
+      expect(bootstrapTreePaths).toContain("generated-product/src/product-slice.test.mjs");
       expect(firstPlanningIssue).toContain("# PR/issue 1");
       expect(firstPlanningIssue).toContain("## Product tasks in this PR-sized slice");
       expect(firstPlanningIssue).toContain("API ready SpecVersion");
@@ -9614,6 +9658,8 @@ describe("PR-02 sidecar health shell", () => {
       expect(firstIssue).toContain("## Planning source");
       expect(firstIssue).toContain("### Planning-derived PR/issue markdown files");
       expect(firstIssue).toContain(firstPlanningIssueRelativePath!);
+      expect(firstIssue).toContain("## Generated software scaffold");
+      expect(firstIssue).toContain("generated-product/src/product-slice.mjs");
       expect(firstIssue).toContain("## Required review gates");
       expect(firstIssue).toContain("## ImplementationStepLedger evidence template");
       expect(firstIssue).toContain("CleanCodeReviewRecord.reviewScope");
@@ -9637,6 +9683,8 @@ describe("PR-02 sidecar health shell", () => {
         evidenceRefs: expect.arrayContaining([
           bootstrapEvidenceRef,
           "planning-handoff-plan:planning-handoff-implementation-plan.md",
+          "generated-software-artifact:generated-product/README.md",
+          "generated-software-artifact:generated-product/src/product-slice.test.mjs",
           expect.stringMatching(/^planning-handoff-pr-issue:planning-handoff-pr-issues\//u)
         ]),
         issueManagement: {

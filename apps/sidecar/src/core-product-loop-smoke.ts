@@ -60,6 +60,8 @@ export interface CoreProductLoopSmokeEvidence {
     readonly singleSessionFollowUpQuestionCount: number;
     readonly singleSessionPlanningHandoffStatus: string;
     readonly singleSessionAutoImplementationCurrentStage: string;
+    readonly singleSessionGeneratedSoftwareArtifactCount: number;
+    readonly singleSessionGeneratedSoftwareHasRunnableTest: boolean;
     readonly sameSessionWorkerStageAfter: string;
     readonly sameSessionWorkerLedgerStatus: string;
     readonly readinessCompositeScore: number;
@@ -114,6 +116,10 @@ function loopSummary(stages: CoreProductLoopSmokeEvidence["stages"]): CoreProduc
     singleSessionFollowUpQuestionCount: stages.singleSession.loop?.followUpQuestionCount ?? 0,
     singleSessionPlanningHandoffStatus: stages.singleSession.loop?.planningHandoffStatus ?? "unknown",
     singleSessionAutoImplementationCurrentStage: stages.singleSession.loop?.autoImplementationCurrentStage ?? "unknown",
+    singleSessionGeneratedSoftwareArtifactCount:
+      stages.singleSession.loop?.autoImplementationGeneratedSoftwareArtifactCount ?? 0,
+    singleSessionGeneratedSoftwareHasRunnableTest:
+      stages.singleSession.loop?.autoImplementationGeneratedSoftwareHasRunnableTest ?? false,
     sameSessionWorkerStageAfter: stages.singleSessionImplementation.worker?.stageAfter ?? "unknown",
     sameSessionWorkerLedgerStatus: stages.singleSessionImplementation.worker?.ledgerStatus ?? "unknown",
     readinessCompositeScore: stages.readinessToImplementation.readiness?.compositeScore ?? 0,
@@ -177,6 +183,14 @@ function loopBlockers(stages: CoreProductLoopSmokeEvidence["stages"]) {
       `single-session core loop must start auto implementation at initial_pr; received ${loop.singleSessionAutoImplementationCurrentStage}`
     );
   }
+  if (loop.singleSessionGeneratedSoftwareArtifactCount < 5) {
+    blockers.push(
+      `single-session core loop must generate a runnable software scaffold; received ${loop.singleSessionGeneratedSoftwareArtifactCount} artifacts`
+    );
+  }
+  if (!loop.singleSessionGeneratedSoftwareHasRunnableTest) {
+    blockers.push("single-session core loop must include the generated software smoke test artifact.");
+  }
   if (loop.sameSessionWorkerLedgerStatus !== "completed") {
     blockers.push(`single-session worker proof must complete an implementation ledger; received ${loop.sameSessionWorkerLedgerStatus}`);
   }
@@ -220,7 +234,7 @@ function loopBlockers(stages: CoreProductLoopSmokeEvidence["stages"]) {
 function checkedEvidence(stages: CoreProductLoopSmokeEvidence["stages"]) {
   return [
     "idea intake reached a broad generated question backlog before implementation",
-    "single-session pet-lifecycle idea reached domain-fit questions, answer-linked research, follow-up questions, planning_ready, and initial_pr",
+    "single-session pet-lifecycle idea reached domain-fit questions, answer-linked research, follow-up questions, planning_ready, initial_pr, and generated software scaffold",
     "same-session worker proof reused the Planning Handoff run and advanced beyond initial_pr with completed ledger evidence",
     "clarification answer submission created visible follow-up and research task debt",
     "public-web research provider polling imported source-traced evidence and generated follow-up questions",
