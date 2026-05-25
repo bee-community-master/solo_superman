@@ -43,6 +43,7 @@ function researchEvidenceCheckedBehaviors() {
     "Read-only public-web research runs require an active allowlist and bounded concurrency.",
     "Mounted web_search_readonly provider polling proves source-traced result import before evidence matrices and evidence packs are synthesized.",
     "Opt-in live-web research verification can run the same public-web import path with Playwright and non-fixture source URLs when network access is available.",
+    "Browser-search live-web candidates must pass source-quality ranking: when idea-relevant institutional/statistical public evidence is available, the adapter drops unrelated search-engine noise and broad wiki/forum/community matches before import; when no relevance signal exists, fallback candidates may be retained only as review-gated evidence.",
     "Research operations expose Max simultaneous research runs and Max research runs per session controls so users can tune manual and answer-triggered public-web research limits.",
     "Provider-polled research writes markdown memory so duplicate research can cite existing evidence while wider follow-up research and generated follow-up research tasks still start new runs with the memory as baseline context.",
     "Research review cards retain source traces and expose pro/con/uncertainty quality gates.",
@@ -201,7 +202,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, pressure questions, generated source-seeking research targets, non-blocking answer submission, mounted research provider polling, opt-in live-web research import coverage, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety and candidate-grounding for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, positive readiness handoff coverage, onboarding automation setting coverage for Codex and visible ChatGPT Pro/Deep Research, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, opt-in live worker-job verification coverage, generated PR body summary coverage, single-session product loop coverage, same-session worker execution coverage, generated-product worker target coverage, generated-product changed-file evidence coverage, single-session live-web product loop coverage, single-session live implementation coverage, readiness-to-implementation coverage, two-pass review streak gates, missing-test audit coverage, end-to-end core product loop coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, pressure questions, generated source-seeking research targets, non-blocking answer submission, mounted research provider polling, opt-in live-web research import coverage, live-web source-quality ranking, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety and candidate-grounding for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, positive readiness handoff coverage, onboarding automation setting coverage for Codex and visible ChatGPT Pro/Deep Research, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, opt-in live worker-job verification coverage, generated PR body summary coverage, single-session product loop coverage, same-session worker execution coverage, generated-product worker target coverage, generated-product changed-file evidence coverage, single-session live-web product loop coverage, single-session live implementation coverage, readiness-to-implementation coverage, two-pass review streak gates, missing-test audit coverage, end-to-end core product loop coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
@@ -335,6 +336,10 @@ describe("product capability readiness verification", () => {
               checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
                 !behavior.includes("Mounted web_search_readonly provider polling") &&
                 !behavior.includes("Opt-in live-web research verification") &&
+                !behavior.includes("source-quality ranking") &&
+                !behavior.includes("idea-relevant institutional/statistical public evidence") &&
+                !behavior.includes("drops unrelated search-engine noise") &&
+                !behavior.includes("fallback candidates may be retained only as review-gated evidence") &&
                 !behavior.includes("Max simultaneous research runs") &&
                 !behavior.includes("markdown memory") &&
                 !behavior.includes("Research-generated follow-up questions")
@@ -350,6 +355,10 @@ describe("product capability readiness verification", () => {
       "$.capabilities[1].checkedBehaviors: must mention Mounted web_search_readonly provider polling",
       "$.capabilities[1].checkedBehaviors: must mention Opt-in live-web research verification",
       "$.capabilities[1].checkedBehaviors: must mention source-traced result import",
+      "$.capabilities[1].checkedBehaviors: must mention source-quality ranking",
+      "$.capabilities[1].checkedBehaviors: must mention idea-relevant institutional/statistical public evidence",
+      "$.capabilities[1].checkedBehaviors: must mention drops unrelated search-engine noise",
+      "$.capabilities[1].checkedBehaviors: must mention fallback candidates may be retained only as review-gated evidence",
       "$.capabilities[1].checkedBehaviors: must mention Max simultaneous research runs",
       "$.capabilities[1].checkedBehaviors: must mention Max research runs per session",
       "$.capabilities[1].checkedBehaviors: must mention markdown memory",

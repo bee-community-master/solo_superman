@@ -76,6 +76,7 @@
       "evidenceRefs": [
         "docs/product_KO.md#세션-모델",
         "apps/sidecar/src/research-pipeline-smoke.ts",
+        "apps/sidecar/src/product-engine/web-search-readonly-adapter.test.ts",
         "apps/sidecar/src/product-engine/research-memory-markdown.ts",
         "packages/core/src/research-engine/background-research-runtime.ts",
         "packages/core/test/product-engine.test.ts",
@@ -92,6 +93,7 @@
         "Read-only public-web research runs require an active allowlist and bounded concurrency.",
         "Mounted web_search_readonly provider polling proves source-traced result import before evidence matrices and evidence packs are synthesized.",
         "Opt-in live-web research verification can run the same public-web import path with Playwright and non-fixture source URLs when network access is available.",
+        "Browser-search live-web candidates must pass source-quality ranking: when idea-relevant institutional/statistical public evidence is available, the adapter drops unrelated search-engine noise and broad wiki/forum/community matches before import; when no relevance signal exists, fallback candidates may be retained only as review-gated evidence.",
         "Research operations expose Max simultaneous research runs and Max research runs per session controls so users can tune manual and answer-triggered public-web research limits.",
         "Provider-polled research writes markdown memory so duplicate research can cite existing evidence while wider follow-up research and generated follow-up research tasks still start new runs with the memory as baseline context.",
         "Research review cards retain source traces and expose pro/con/uncertainty quality gates.",
