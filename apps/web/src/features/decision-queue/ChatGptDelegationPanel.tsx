@@ -117,8 +117,8 @@ const DEFAULT_CHATGPT_DELEGATION_VIEW_MODEL_COPY: ChatGptDelegationViewModelCopy
     noSourceRefs: "no source refs",
     uncertainty: (status: string, refs: string) => `Uncertainty: ${status} (${refs})`,
     noUncertaintyRefs: "no uncertainty refs",
-    conEvidence: (status: string, refs: string) => `Con evidence: ${status} (${refs})`,
-    noConEvidenceRefs: "no con evidence refs",
+    conEvidence: (status: string, refs: string) => `Counterpoints / risks: ${status} (${refs})`,
+    noConEvidenceRefs: "no counterpoint refs",
     staleRisk: (status: string, refs: string) => `Stale risk: ${status} (${refs})`,
     noStaleRiskRefs: "no stale risk refs",
     importRationale: (rationale: string) => `Import rationale: ${rationale}`

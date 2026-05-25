@@ -774,7 +774,7 @@ function checkContributorDocsSnippets() {
   }
   requireSnippets("docs/product_KO.md missing research follow-up answer-form variety contract", docs["docs/product_KO.md"], [
     "주관식/서술형",
-    "찬성·반대",
+    "동의/비동의",
     "하나 선택",
     "하나 이상 선택",
     "우선순위",

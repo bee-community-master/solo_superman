@@ -382,12 +382,8 @@ describe("research follow-up answer shape", () => {
         expect.objectContaining({ label: "지금은 스펙을 확정하기 어렵다" })
       ])
     );
-    expect(researchFollowUpAnswerOptions(input)).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ label: "찬성 근거가 더 강함" }),
-        expect.objectContaining({ label: "반대 근거를 더 찾기" }),
-        expect.objectContaining({ label: "검증 후 결정" })
-      ])
+    expect(researchFollowUpAnswerOptions(input).map((option) => option.label).join(" ")).not.toMatch(
+      /찬성\s*근거가\s*더\s*강함|반대\s*근거를\s*더\s*찾기|검증\s*후\s*결정/u
     );
   });
 

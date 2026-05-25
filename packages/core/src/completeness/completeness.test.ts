@@ -65,7 +65,7 @@ function matrix(
       {
         evidenceItemId: `evidence_pro_${id}` as EvidenceItemId,
         kind: "pro",
-        summary: "Pro evidence supports the claim."
+        summary: "Supporting signal backs the claim."
       }
     ],
     conEvidence:
@@ -74,7 +74,7 @@ function matrix(
             {
               evidenceItemId: `evidence_con_${id}` as EvidenceItemId,
               kind: "con",
-              summary: "Con evidence identifies the counter-risk."
+              summary: "Counterpoint identifies the risk."
             }
           ]
         : [],

@@ -1604,7 +1604,7 @@ const STRONG_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
     expectedAnswerType: "experiment",
     decisionItUnlocks: "paid intent core-assumption risk를 Known Risk 또는 validation action으로 닫습니다.",
     routes: ["question", "missing_con_evidence", "deferred", "repeat_limit_reached"],
-    suggestedResearchTask: "유료 의향 반대근거와 willingness-to-pay proxy를 확인합니다."
+    suggestedResearchTask: "유료 의향을 약하게 만드는 다른 관점과 willingness-to-pay proxy를 확인합니다."
   },
   {
     sectionRef: "Validation Plan",
@@ -1678,7 +1678,7 @@ const INVESTOR_GRADE_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
     expectedAnswerType: "evidence",
     decisionItUnlocks: "market timing pressure pass를 evidence 또는 Known Risk로 닫습니다.",
     routes: ["question", "research_needed", "deferred", "repeat_limit_reached"],
-    suggestedResearchTask: "market timing 근거와 반대근거를 수집합니다."
+    suggestedResearchTask: "market timing을 뒷받침하는 단서와 약하게 만드는 사례를 수집합니다."
   },
   {
     sectionRef: "Known Risks / Open Questions",
@@ -1713,7 +1713,7 @@ const INVESTOR_GRADE_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
     expectedAnswerType: "evidence",
     decisionItUnlocks: "founder advantage pressure pass를 evidence 또는 Known Risk로 닫습니다.",
     routes: ["question", "research_needed", "deferred", "repeat_limit_reached"],
-    suggestedResearchTask: "founder advantage 주장과 반대근거를 수집합니다."
+    suggestedResearchTask: "founder advantage 주장과 그 주장을 약하게 만드는 사례를 수집합니다."
   }
 ] satisfies readonly AmbiguityIssueSeed[];
 
@@ -2841,7 +2841,7 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
     decisionItUnlocks:
       `리서치 결과 “${readableEvidenceContextExcerpt(researchTask.objective)}”와 ${readableEvidenceContextExcerpt(sourceLabel)} 근거를 스펙, 근거, 구현 범위 판단으로 연결합니다.`,
     suggestedResearchTask: isConEvidenceGap
-      ? `추가 질문 “${readableEvidenceContextExcerpt(question)}”에 답할 반대근거와 한계를 우선 확인합니다.`
+      ? `추가 질문 “${readableEvidenceContextExcerpt(question)}”에 답할 다른 관점과 한계를 우선 확인합니다.`
       : `추가 질문 “${readableEvidenceContextExcerpt(question)}”에 답할 공개 근거와 사용자 신호를 확인합니다.`,
     repeatCount,
     repeatLimit,
@@ -3316,7 +3316,7 @@ function routeOutcomeForAnswer(command: ProductEngineCommand): ResearchRouteOutc
 
   const answer = typeof command.payload.answer === "string" ? command.payload.answer.toLowerCase() : "";
 
-  return answer.includes("pro-only") || answer.includes("찬성만") || answer.includes("반대근거")
+  return answer.includes("pro-only") || answer.includes("찬성만") || /(?:반대\s*근거|다른\s*관점|반례)/u.test(answer)
     ? "missing_con_evidence"
     : "research_needed";
 }
@@ -4561,7 +4561,7 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
       projection,
       researchTask.researchTaskId,
       routeOutcome === "missing_con_evidence"
-        ? `반대근거 탐색 필요${researchTasks.length > 1 ? ` ${index + 1}/${researchTasks.length}` : ""}: ${activeItem.title}`
+        ? `다른 관점 확인 필요${researchTasks.length > 1 ? ` ${index + 1}/${researchTasks.length}` : ""}: ${activeItem.title}`
         : `Research review${researchTasks.length > 1 ? ` ${index + 1}/${researchTasks.length}` : ""}: ${activeItem.title}`,
       routeOutcome === "missing_con_evidence" ? "blocked" : "next",
       projectionAfterAnsweredItem.version,
