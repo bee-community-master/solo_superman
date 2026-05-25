@@ -29,11 +29,9 @@ export const RESEARCH_PIPELINE_SMOKE = "research_pipeline" as const;
 const PROJECT_IDEA = "A research pipeline smoke idea for founder validation.";
 const ALLOWLIST_ID = "research_allowlist_pipeline_smoke";
 const RESEARCH_RUN_ID = "research_run_pipeline_smoke";
-const WIDER_RESEARCH_RUN_ID = "research_run_pipeline_memory_smoke";
+const FOLLOW_UP_RESEARCH_RUN_ID = "research_run_pipeline_followup_memory_smoke";
 const SOURCE_QUEUE_ITEM_ID = "queue_item_pipeline_smoke";
-const WIDER_SOURCE_QUEUE_ITEM_ID = "queue_item_pipeline_memory_smoke";
 const BASE_RESEARCH_OBJECTIVE = "Find public validation evidence for the founder workflow assistant.";
-const WIDER_RESEARCH_OBJECTIVE = "Broaden research beyond existing notes for the founder workflow assistant.";
 
 type SmokeStatus = "blocked" | "passed";
 
@@ -62,7 +60,7 @@ export interface ResearchPipelineSmokeEvidence {
     readonly followUpResearchTaskCount: number;
     readonly queueBlockedCount: number;
     readonly researchMemorySourceRefCount: number;
-    readonly widerResearchSourceRefCount: number;
+    readonly followUpResearchSourceRefCount: number;
   };
   readonly reason?: string;
   readonly blockers?: readonly string[];
@@ -90,7 +88,7 @@ interface ProjectContext {
 interface ResearchFlowResult {
   readonly project: ProjectContext;
   readonly startRun: JsonRecord;
-  readonly widerResearchStartRun: JsonRecord;
+  readonly followUpResearchStartRun: JsonRecord;
   readonly providerProjection: JsonRecord;
   readonly researchProjection: JsonRecord;
   readonly queueProjection: JsonRecord;
@@ -213,6 +211,7 @@ async function startResearchRun(
   options: {
     readonly researchRunId?: string;
     readonly researchObjective?: string;
+    readonly contextHash?: string;
     readonly sourceRefs?: readonly string[];
   } = {}
 ) {
@@ -226,7 +225,7 @@ async function startResearchRun(
     researchObjective: options.researchObjective ?? BASE_RESEARCH_OBJECTIVE,
     productCategory: "Founder workflow assistant",
     customerProblemHypothesis: "Early founders need safer validation research before implementation.",
-    contextHash: "ctx_research_pipeline_smoke",
+    contextHash: options.contextHash ?? "ctx_research_pipeline_smoke",
     sourceRefs: options.sourceRefs ?? [SOURCE_QUEUE_ITEM_ID]
   });
 }
@@ -268,6 +267,29 @@ async function listScenarioResearchMemory(input: {
   };
 }
 
+function followUpQueueItemIds(queueProjection: JsonRecord) {
+  return new Set(
+    ["active", "next", "blocked", "deferred"].flatMap((section) =>
+      recordArray(queueProjection[section], `queue ${section}`).flatMap((item) =>
+        item.cardType === "follow_up_question" && typeof item.queueItemId === "string"
+          ? [item.queueItemId]
+          : []
+      )
+    )
+  );
+}
+
+function generatedFollowUpResearchTask(input: {
+  readonly researchProjection: JsonRecord;
+  readonly queueProjection: JsonRecord;
+}) {
+  const followUpIds = followUpQueueItemIds(input.queueProjection);
+
+  return recordArray(input.researchProjection.tasks, "research tasks").find((task) =>
+    typeof task.sourceQueueItemId === "string" && followUpIds.has(task.sourceQueueItemId)
+  );
+}
+
 async function executeResearchFlow(scenario: ResearchScenario, localCapabilityToken: string): Promise<ResearchFlowResult> {
   const project = await createProject(scenario.app, localCapabilityToken);
 
@@ -291,32 +313,37 @@ async function executeResearchFlow(scenario: ResearchScenario, localCapabilityTo
     projectId: project.projectId,
     sessionId: project.sessionId
   });
-  const widerResearchTaskId = await planResearchTask({
-    app: scenario.app,
-    storage: scenario.storage,
-    localCapabilityToken,
-    sessionId: project.sessionId,
-    objective: WIDER_RESEARCH_OBJECTIVE,
-    sourceQueueItemId: WIDER_SOURCE_QUEUE_ITEM_ID
+  const researchProjection = await getJson(scenario.app, `/api/v1/sessions/${project.sessionId}/research`, localCapabilityToken);
+  const queueProjection = await getJson(scenario.app, `/api/v1/sessions/${project.sessionId}/queue`, localCapabilityToken);
+  const followUpTask = generatedFollowUpResearchTask({
+    researchProjection,
+    queueProjection
   });
-  const widerResearchStartRun = await startResearchRun(
+
+  if (!followUpTask) {
+    throw new Error("Research pipeline smoke expected a source-linked follow-up research task.");
+  }
+
+  const followUpResearchTaskId = stringAt(followUpTask.researchTaskId, "follow-up researchTaskId");
+  const followUpSourceRef = stringAt(followUpTask.sourceQueueItemId, "follow-up sourceQueueItemId");
+  const followUpObjective = stringAt(followUpTask.objective, "follow-up research objective");
+  const followUpResearchStartRun = await startResearchRun(
     scenario.app,
     localCapabilityToken,
     project.projectId,
-    widerResearchTaskId,
+    followUpResearchTaskId,
     {
-      researchRunId: WIDER_RESEARCH_RUN_ID,
-      researchObjective: WIDER_RESEARCH_OBJECTIVE,
-      sourceRefs: [WIDER_SOURCE_QUEUE_ITEM_ID]
+      researchRunId: FOLLOW_UP_RESEARCH_RUN_ID,
+      researchObjective: followUpObjective,
+      contextHash: "ctx_research_pipeline_followup_memory_smoke",
+      sourceRefs: [followUpSourceRef]
     }
   );
-  const researchProjection = await getJson(scenario.app, `/api/v1/sessions/${project.sessionId}/research`, localCapabilityToken);
-  const queueProjection = await getJson(scenario.app, `/api/v1/sessions/${project.sessionId}/queue`, localCapabilityToken);
 
   return {
     project,
     startRun,
-    widerResearchStartRun,
+    followUpResearchStartRun,
     providerProjection: providerProjection as unknown as JsonRecord,
     researchProjection,
     queueProjection,
@@ -340,8 +367,11 @@ function flowBlockers(result: ResearchFlowResult) {
   const matrix = firstRecordAt(matrices, "research evidenceMatrices");
   const pack = firstRecordAt(packs, "research evidencePacks");
   const reviewCard = firstRecordAt(reviewCards, "research reviewCards");
-  const widerStartProjection = objectAt(result.widerResearchStartRun.immediateProjection, "wider research immediateProjection");
-  const widerStartedRun = objectAt(widerStartProjection.researchRun, "wider started researchRun");
+  const followUpStartProjection = objectAt(
+    result.followUpResearchStartRun.immediateProjection,
+    "follow-up research immediateProjection"
+  );
+  const followUpStartedRun = objectAt(followUpStartProjection.researchRun, "follow-up started researchRun");
   const followUps = [...activeQueue, ...nextQueue, ...blockedQueue, ...deferredQueue].filter(
     (item) => item.cardType === "follow_up_question"
   );
@@ -405,13 +435,15 @@ function flowBlockers(result: ResearchFlowResult) {
     blockers.push("research memory markdown must tell wider follow-up research to collect wider sources");
   }
 
-  if (widerStartProjection.status !== "started") {
-    blockers.push(`wider research run start status must be started; received ${JSON.stringify(widerStartProjection.status)}`);
+  if (followUpStartProjection.status !== "started") {
+    blockers.push(
+      `generated follow-up research run start status must be started; received ${JSON.stringify(followUpStartProjection.status)}`
+    );
   }
 
-  const widerSourceRefs = stringArrayAt(widerStartedRun.sourceRefs, "wider research sourceRefs");
-  if (!result.researchMemorySourceRefs.some((sourceRef) => widerSourceRefs.includes(sourceRef))) {
-    blockers.push("wider follow-up research must carry existing markdown memory refs as baseline source refs");
+  const followUpSourceRefs = stringArrayAt(followUpStartedRun.sourceRefs, "follow-up research sourceRefs");
+  if (!result.researchMemorySourceRefs.some((sourceRef) => followUpSourceRefs.includes(sourceRef))) {
+    blockers.push("generated follow-up research must carry existing markdown memory refs as baseline source refs");
   }
 
   return blockers;
@@ -425,8 +457,11 @@ function passedEvidence(result: ResearchFlowResult): ResearchPipelineSmokeEviden
   const matrix = firstRecordAt(result.researchProjection.evidenceMatrices, "research evidenceMatrices");
   const pack = firstRecordAt(result.researchProjection.evidencePacks, "research evidencePacks");
   const reviewCard = firstRecordAt(result.researchProjection.reviewCards, "research reviewCards");
-  const widerStartProjection = objectAt(result.widerResearchStartRun.immediateProjection, "wider research immediateProjection");
-  const widerStartedRun = objectAt(widerStartProjection.researchRun, "wider started researchRun");
+  const followUpStartProjection = objectAt(
+    result.followUpResearchStartRun.immediateProjection,
+    "follow-up research immediateProjection"
+  );
+  const followUpStartedRun = objectAt(followUpStartProjection.researchRun, "follow-up started researchRun");
   const activeQueue = recordArray(result.queueProjection.active, "queue active");
   const nextQueue = recordArray(result.queueProjection.next, "queue next");
   const blockedQueue = recordArray(result.queueProjection.blocked, "queue blocked");
@@ -461,7 +496,10 @@ function passedEvidence(result: ResearchFlowResult): ResearchPipelineSmokeEviden
       followUpResearchTaskCount: followUpResearchTasks.length,
       queueBlockedCount: blockedQueue.length,
       researchMemorySourceRefCount: result.researchMemorySourceRefs.length,
-      widerResearchSourceRefCount: stringArrayAt(widerStartedRun.sourceRefs, "wider started run sourceRefs").length
+      followUpResearchSourceRefCount: stringArrayAt(
+        followUpStartedRun.sourceRefs,
+        "follow-up started run sourceRefs"
+      ).length
     },
     checked: [
       "temporary local sidecar and app data created",
@@ -469,7 +507,7 @@ function passedEvidence(result: ResearchFlowResult): ResearchPipelineSmokeEviden
       "read-only research run started",
       "mounted web_search_readonly provider result polled and imported with source trace",
       "provider-polled research writes markdown memory for future duplicate or broader research decisions",
-      "wider follow-up research carries existing markdown memory refs as baseline context while still starting a new run",
+      "generated follow-up research carries existing markdown memory refs as baseline context while still starting a new run",
       "provider quality gate marked insufficient evidence for review",
       "Research projection exposes evidence matrix, evidence pack, and review card",
       "Decision Queue exposes source-traceable follow-up question debt",

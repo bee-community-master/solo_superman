@@ -2898,7 +2898,7 @@ describe("PR-04 ProductEngine reducer", () => {
       routeOutcome: "missing_con_evidence",
       impact: "high",
       status: "planned",
-      objective: expect.stringContaining("추가 질문")
+      objective: expect.stringMatching(/기존 리서치 메모[\s\S]*추가 질문/u)
     });
     expect(synthesized.effectPlan).toEqual(
       expect.arrayContaining([
