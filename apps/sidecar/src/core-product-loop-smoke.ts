@@ -58,6 +58,7 @@ export interface CoreProductLoopSmokeEvidence {
     readonly singleSessionGeneratedQuestionCount: number;
     readonly singleSessionPetDomainQuestionSignalCount: number;
     readonly singleSessionFollowUpQuestionCount: number;
+    readonly singleSessionFollowUpResearchTaskCount: number;
     readonly singleSessionPlanningHandoffStatus: string;
     readonly singleSessionAutoImplementationCurrentStage: string;
     readonly singleSessionGeneratedSoftwareArtifactCount: number;
@@ -118,6 +119,7 @@ function loopSummary(stages: CoreProductLoopSmokeEvidence["stages"]): CoreProduc
     singleSessionGeneratedQuestionCount: stages.singleSession.loop?.generatedQuestionCount ?? 0,
     singleSessionPetDomainQuestionSignalCount: stages.singleSession.loop?.petDomainQuestionSignalCount ?? 0,
     singleSessionFollowUpQuestionCount: stages.singleSession.loop?.followUpQuestionCount ?? 0,
+    singleSessionFollowUpResearchTaskCount: stages.singleSession.loop?.followUpResearchTaskCount ?? 0,
     singleSessionPlanningHandoffStatus: stages.singleSession.loop?.planningHandoffStatus ?? "unknown",
     singleSessionAutoImplementationCurrentStage: stages.singleSession.loop?.autoImplementationCurrentStage ?? "unknown",
     singleSessionGeneratedSoftwareArtifactCount:
@@ -186,6 +188,9 @@ function loopBlockers(stages: CoreProductLoopSmokeEvidence["stages"]) {
   }
   if (loop.singleSessionFollowUpQuestionCount < 1) {
     blockers.push("single-session core loop must generate research follow-up questions in the same session.");
+  }
+  if (loop.singleSessionFollowUpResearchTaskCount < 1) {
+    blockers.push("single-session core loop must create source-linked research task debt from research follow-up questions.");
   }
   if (loop.singleSessionPlanningHandoffStatus !== "planning_ready") {
     blockers.push(`single-session core loop must reach planning_ready; received ${loop.singleSessionPlanningHandoffStatus}`);

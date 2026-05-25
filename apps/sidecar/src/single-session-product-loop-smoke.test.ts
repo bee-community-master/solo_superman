@@ -26,6 +26,7 @@ describe("single-session product loop smoke", () => {
           "https://example.org/pet-insurance-claim-documents"
         ]),
         followUpQuestionCount: 1,
+        followUpResearchTaskCount: 1,
         readinessCompositeScore: 92,
         readinessLabel: "spec_ready",
         completionCandidateStatus: "candidate",
@@ -50,6 +51,7 @@ describe("single-session product loop smoke", () => {
       "domain-fit question generation avoided stale founder/operator customer options",
       "answer submission created source-linked research task debt in the same session",
       "same-session research synthesis generated follow-up question debt",
+      "same-session research-generated follow-up questions created source-linked planned research task debt",
       "same-session auto implementation run started at initial_pr with canonical stages",
       "same-session auto implementation generated a runnable local software scaffold with source-traced smoke test",
       "same-session generated product data carried Planning Handoff source refs, residual risk register, and first-slice tasks"

@@ -3806,27 +3806,27 @@ describe("PR-02 sidecar health shell", () => {
 
       expect(research.status).toBe(200);
       expect(researchBody.data).toMatchObject({
-        results: [
+        results: expect.arrayContaining([
           expect.objectContaining({
             researchRunId: "research_run_provider_ingest",
             sourceRetrievedAt: expect.any(String)
           })
-        ],
-        evidencePacks: [
+        ]),
+        evidencePacks: expect.arrayContaining([
           expect.objectContaining({
             researchRunId: "research_run_provider_ingest",
             gateStatus: "research_insufficient",
             claim: "Validate provider result ingest traceability"
           })
-        ],
-        reviewCards: [
+        ]),
+        reviewCards: expect.arrayContaining([
           expect.objectContaining({
             state: "terminal_failure",
             gateStatus: "research_insufficient",
             blocksPlanning: true,
             retainedSourceRefs: expect.arrayContaining(["research_run_provider_ingest"])
           })
-        ]
+        ])
       });
 
       const queue = await storageApp.request(`/api/v1/sessions/${sessionId}/queue`, {

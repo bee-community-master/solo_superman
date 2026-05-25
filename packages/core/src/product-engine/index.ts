@@ -5005,15 +5005,13 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
   const newResearchFollowUpIssues = researchFollowUpIssues.filter((issue) =>
     !state.openIssues.some((existingIssue) => existingIssue.queueItemId === issue.queueItemId)
   );
-  const researchFollowUpTasks = evidenceMatrix.balanceStatus === "source_quality_insufficient"
-    ? []
-    : createResearchTasksForResearchFollowUpIssues({
-        sessionId: command.sessionId,
-        sourceResearchTask: researchTask,
-        researchFollowUpIssues: newResearchFollowUpIssues,
-        existingResearchTasks: researchProjection.tasks,
-        createdAt: command.issuedAt
-      });
+  const researchFollowUpTasks = createResearchTasksForResearchFollowUpIssues({
+    sessionId: command.sessionId,
+    sourceResearchTask: researchTask,
+    researchFollowUpIssues: newResearchFollowUpIssues,
+    existingResearchTasks: researchProjection.tasks,
+    createdAt: command.issuedAt
+  });
   const researchProjectionWithFollowUpTasks = researchFollowUpTasks.reduce(
     (projection, task) => addResearchTaskToProjection(projection, task, researchProjection.version),
     researchProjection

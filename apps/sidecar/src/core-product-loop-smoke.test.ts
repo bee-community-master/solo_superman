@@ -232,7 +232,7 @@ function singleSessionEvidence(overrides: Partial<SingleSessionProductLoopSmokeE
         "https://example.org/core-loop-pet-insurance"
       ],
       followUpQuestionCount: 1,
-      followUpResearchTaskCount: 0,
+      followUpResearchTaskCount: 1,
       readinessCompositeScore: 92,
       readinessLabel: "spec_ready",
       completionCandidateStatus: "candidate",
@@ -317,6 +317,7 @@ describe("core product loop smoke", () => {
         singleSessionGeneratedQuestionCount: 15,
         singleSessionPetDomainQuestionSignalCount: 8,
         singleSessionFollowUpQuestionCount: 1,
+        singleSessionFollowUpResearchTaskCount: 1,
         singleSessionPlanningHandoffStatus: "planning_ready",
         singleSessionAutoImplementationCurrentStage: "initial_pr",
         singleSessionGeneratedSoftwareArtifactCount: 6,

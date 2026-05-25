@@ -712,6 +712,9 @@ function flowBlockers(result: SingleSessionFlowResult) {
   if (summary.followUpQuestionCount < 1) {
     blockers.push("same session research must generate follow-up question debt.");
   }
+  if (summary.followUpResearchTaskCount < 1) {
+    blockers.push("same session research-generated follow-up questions must create source-linked planned research task debt.");
+  }
   if (summary.readinessCompositeScore < 85) {
     blockers.push(`same session readiness score must reach 85; received ${summary.readinessCompositeScore}`);
   }
@@ -767,6 +770,7 @@ function passedEvidence(result: SingleSessionFlowResult): SingleSessionProductLo
         : ["same-session fixture browser-search injection stayed isolated from the production adapter default"]),
       "same-session web_search_readonly provider polling imported source-traced research evidence",
       "same-session research synthesis generated follow-up question debt",
+      "same-session research-generated follow-up questions created source-linked planned research task debt",
       "same-session readiness reached spec_ready candidate status before Planning Handoff",
       "same-session Planning Handoff produced a planning_ready artifact",
       "same-session auto implementation run started at initial_pr with canonical stages",
