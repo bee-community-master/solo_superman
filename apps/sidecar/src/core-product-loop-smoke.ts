@@ -19,6 +19,11 @@ import {
   runReadinessToImplementationSmoke,
   type ReadinessToImplementationSmokeEvidence
 } from "./readiness-to-implementation-smoke";
+import {
+  SINGLE_SESSION_PRODUCT_LOOP_SMOKE,
+  runSingleSessionProductLoopSmoke,
+  type SingleSessionProductLoopSmokeEvidence
+} from "./single-session-product-loop-smoke";
 
 export const CORE_PRODUCT_LOOP_SMOKE = "core_product_loop" as const;
 
@@ -31,6 +36,7 @@ export interface CoreProductLoopSmokeEvidence {
   readonly smoke: typeof CORE_PRODUCT_LOOP_SMOKE;
   readonly mode: "fixture";
   readonly stages: {
+    readonly singleSession: SingleSessionProductLoopSmokeEvidence;
     readonly clarification: ClarificationPipelineSmokeEvidence;
     readonly research: ResearchPipelineSmokeEvidence;
     readonly readinessToImplementation: ReadinessToImplementationSmokeEvidence;
@@ -43,6 +49,11 @@ export interface CoreProductLoopSmokeEvidence {
     readonly researchFollowUpQuestionCount: number;
     readonly researchFollowUpTaskCount: number;
     readonly generatedFollowUpResearchSourceRefCount: number;
+    readonly singleSessionGeneratedQuestionCount: number;
+    readonly singleSessionPetDomainQuestionSignalCount: number;
+    readonly singleSessionFollowUpQuestionCount: number;
+    readonly singleSessionPlanningHandoffStatus: string;
+    readonly singleSessionAutoImplementationCurrentStage: string;
     readonly readinessCompositeScore: number;
     readonly readinessLabel: string;
     readonly completionCandidateStatus: string;
@@ -60,6 +71,7 @@ export interface CoreProductLoopSmokeEvidence {
 }
 
 export interface CoreProductLoopSmokeOptions {
+  readonly runSingleSession?: SmokeRunner<SingleSessionProductLoopSmokeEvidence>;
   readonly runClarification?: SmokeRunner<ClarificationPipelineSmokeEvidence>;
   readonly runResearch?: SmokeRunner<ResearchPipelineSmokeEvidence>;
   readonly runReadinessToImplementation?: SmokeRunner<ReadinessToImplementationSmokeEvidence>;
@@ -88,6 +100,11 @@ function loopSummary(stages: CoreProductLoopSmokeEvidence["stages"]): CoreProduc
     researchFollowUpQuestionCount: stages.research.research?.followUpQuestionCount ?? 0,
     researchFollowUpTaskCount: stages.research.research?.followUpResearchTaskCount ?? 0,
     generatedFollowUpResearchSourceRefCount: stages.research.research?.followUpResearchSourceRefCount ?? 0,
+    singleSessionGeneratedQuestionCount: stages.singleSession.loop?.generatedQuestionCount ?? 0,
+    singleSessionPetDomainQuestionSignalCount: stages.singleSession.loop?.petDomainQuestionSignalCount ?? 0,
+    singleSessionFollowUpQuestionCount: stages.singleSession.loop?.followUpQuestionCount ?? 0,
+    singleSessionPlanningHandoffStatus: stages.singleSession.loop?.planningHandoffStatus ?? "unknown",
+    singleSessionAutoImplementationCurrentStage: stages.singleSession.loop?.autoImplementationCurrentStage ?? "unknown",
     readinessCompositeScore: stages.readinessToImplementation.readiness?.compositeScore ?? 0,
     readinessLabel: stages.readinessToImplementation.readiness?.readinessLabel ?? "unknown",
     completionCandidateStatus: stages.readinessToImplementation.readiness?.completionCandidateStatus ?? "unknown",
@@ -103,6 +120,7 @@ function loopSummary(stages: CoreProductLoopSmokeEvidence["stages"]): CoreProduc
 
 function loopBlockers(stages: CoreProductLoopSmokeEvidence["stages"]) {
   const blockers = [
+    ...stageStatusBlocker(SINGLE_SESSION_PRODUCT_LOOP_SMOKE, stages.singleSession),
     ...stageStatusBlocker(CLARIFICATION_PIPELINE_SMOKE, stages.clarification),
     ...stageStatusBlocker(RESEARCH_PIPELINE_SMOKE, stages.research),
     ...stageStatusBlocker(READINESS_TO_IMPLEMENTATION_SMOKE, stages.readinessToImplementation),
@@ -127,6 +145,25 @@ function loopBlockers(stages: CoreProductLoopSmokeEvidence["stages"]) {
   }
   if (loop.generatedFollowUpResearchSourceRefCount < 1) {
     blockers.push("core loop must attach prior source refs/memory to generated follow-up research runs.");
+  }
+  if (loop.singleSessionGeneratedQuestionCount < 10) {
+    blockers.push(`single-session core loop must generate many idea-fit questions; received ${loop.singleSessionGeneratedQuestionCount}`);
+  }
+  if (loop.singleSessionPetDomainQuestionSignalCount < 3) {
+    blockers.push(
+      `single-session core loop must keep generated questions fitted to the pet lifecycle idea; received ${loop.singleSessionPetDomainQuestionSignalCount}`
+    );
+  }
+  if (loop.singleSessionFollowUpQuestionCount < 1) {
+    blockers.push("single-session core loop must generate research follow-up questions in the same session.");
+  }
+  if (loop.singleSessionPlanningHandoffStatus !== "planning_ready") {
+    blockers.push(`single-session core loop must reach planning_ready; received ${loop.singleSessionPlanningHandoffStatus}`);
+  }
+  if (loop.singleSessionAutoImplementationCurrentStage !== "initial_pr") {
+    blockers.push(
+      `single-session core loop must start auto implementation at initial_pr; received ${loop.singleSessionAutoImplementationCurrentStage}`
+    );
   }
   if (loop.readinessCompositeScore < 85) {
     blockers.push(`core loop readiness score must reach 85 before implementation; received ${loop.readinessCompositeScore}`);
@@ -165,11 +202,13 @@ function loopBlockers(stages: CoreProductLoopSmokeEvidence["stages"]) {
 function checkedEvidence(stages: CoreProductLoopSmokeEvidence["stages"]) {
   return [
     "idea intake reached a broad generated question backlog before implementation",
+    "single-session pet-lifecycle idea reached domain-fit questions, answer-linked research, follow-up questions, planning_ready, and initial_pr",
     "clarification answer submission created visible follow-up and research task debt",
     "public-web research provider polling imported source-traced evidence and generated follow-up questions",
     "generated follow-up research starts with prior source refs or markdown memory as baseline context",
     "positive readiness handoff proved spec_ready candidate, planning_ready artifact, and initial_pr auto implementation start",
     "auto implementation pipeline reached runtime preview, worker ledger import, PR mutation, review-loop, and merge_main fixture evidence",
+    `single-session checked: ${stages.singleSession.checked.length}`,
     `clarification checked: ${stages.clarification.checked.length}`,
     `research checked: ${stages.research.checked.length}`,
     `readiness-to-implementation checked: ${stages.readinessToImplementation.checked.length}`,
@@ -191,6 +230,10 @@ export async function runCoreProductLoopSmoke(
   options: CoreProductLoopSmokeOptions = {}
 ): Promise<CoreProductLoopSmokeEvidence> {
   try {
+    const singleSession = await runStage(
+      SINGLE_SESSION_PRODUCT_LOOP_SMOKE,
+      options.runSingleSession ?? (() => runSingleSessionProductLoopSmoke())
+    );
     const clarification = await runStage(
       CLARIFICATION_PIPELINE_SMOKE,
       options.runClarification ?? (() => runClarificationPipelineSmoke())
@@ -208,6 +251,7 @@ export async function runCoreProductLoopSmoke(
       options.runAutoImplementation ?? (() => runAutoImplementationPipelineSmoke())
     );
     const stages = {
+      singleSession,
       clarification,
       research,
       readinessToImplementation,
@@ -248,6 +292,14 @@ export async function runCoreProductLoopSmoke(
         blockers: [errorMessage(error)],
         checked: []
       } satisfies ClarificationPipelineSmokeEvidence,
+      singleSession: {
+        status: "blocked",
+        smoke: SINGLE_SESSION_PRODUCT_LOOP_SMOKE,
+        mode: "fixture",
+        reason: "Single-session stage did not return evidence.",
+        blockers: [errorMessage(error)],
+        checked: []
+      } satisfies SingleSessionProductLoopSmokeEvidence,
       research: {
         status: "blocked",
         smoke: RESEARCH_PIPELINE_SMOKE,
