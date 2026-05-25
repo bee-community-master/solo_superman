@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AutoImplementationPipelineSmokeEvidence } from "./auto-implementation-pipeline-smoke";
 import type { ClarificationPipelineSmokeEvidence } from "./clarification-pipeline-smoke";
 import { CORE_PRODUCT_LOOP_SMOKE, runCoreProductLoopSmoke } from "./core-product-loop-smoke";
+import type { ReadinessToImplementationSmokeEvidence } from "./readiness-to-implementation-smoke";
 import type { ResearchPipelineSmokeEvidence } from "./research-pipeline-smoke";
 
 function clarificationEvidence(overrides: Partial<ClarificationPipelineSmokeEvidence> = {}) {
@@ -158,11 +159,49 @@ function autoImplementationEvidence(overrides: Partial<AutoImplementationPipelin
   } satisfies AutoImplementationPipelineSmokeEvidence;
 }
 
+function readinessToImplementationEvidence(overrides: Partial<ReadinessToImplementationSmokeEvidence> = {}) {
+  return {
+    status: "passed",
+    smoke: "readiness_to_implementation",
+    mode: "fixture",
+    project: {
+      projectId: "proj_core_loop_readiness",
+      sessionId: "sess_core_loop_readiness"
+    },
+    readiness: {
+      compositeScore: 92,
+      readinessLabel: "spec_ready",
+      completionCandidateStatus: "candidate",
+      passedGateCount: 1,
+      planningHandoffStatus: "planning_ready",
+      planningArtifactId: "handoff_core_loop_readiness",
+      planningSourceRefTypes: [
+        "spec_version",
+        "completion_candidate",
+        "decision_linked_evidence_pack",
+        "research_updated_queue_item"
+      ]
+    },
+    implementation: {
+      runId: "auto_run_core_loop_readiness",
+      status: "pending",
+      currentStage: "initial_pr",
+      initialStageStatus: "ready",
+      stageCount: 7,
+      projectFolderName: "core-loop-readiness-demo",
+      remoteStatus: "no_remote"
+    },
+    checked: ["readiness-to-implementation checked"],
+    ...overrides
+  } satisfies ReadinessToImplementationSmokeEvidence;
+}
+
 describe("core product loop smoke", () => {
-  it("passes only when clarification, research, and auto implementation evidence form one complete product loop", async () => {
+  it("passes only when clarification, research, readiness, and auto implementation evidence form one complete product loop", async () => {
     const evidence = await runCoreProductLoopSmoke({
       runClarification: async () => clarificationEvidence(),
       runResearch: async () => researchEvidence(),
+      runReadinessToImplementation: async () => readinessToImplementationEvidence(),
       runAutoImplementation: async () => autoImplementationEvidence()
     });
 
@@ -176,6 +215,13 @@ describe("core product loop smoke", () => {
         researchFollowUpQuestionCount: 1,
         researchFollowUpTaskCount: 1,
         generatedFollowUpResearchSourceRefCount: 2,
+        readinessCompositeScore: 92,
+        readinessLabel: "spec_ready",
+        completionCandidateStatus: "candidate",
+        planningHandoffStatus: "planning_ready",
+        readinessImplementationStatus: "pending",
+        readinessImplementationCurrentStage: "initial_pr",
+        readinessImplementationStageCount: 7,
         autoImplementationCompletedStageCount: 7,
         autoImplementationFinalStatus: "completed",
         prMutationMergeStatus: "applied"
@@ -183,6 +229,7 @@ describe("core product loop smoke", () => {
     });
     expect(evidence.checked).toEqual(expect.arrayContaining([
       "idea intake reached a broad generated question backlog before implementation",
+      "positive readiness handoff proved spec_ready candidate, planning_ready artifact, and initial_pr auto implementation start",
       "auto implementation pipeline reached runtime preview, worker ledger import, PR mutation, review-loop, and merge_main fixture evidence"
     ]));
   });
@@ -198,6 +245,7 @@ describe("core product loop smoke", () => {
           followUpResearchSourceRefCount: 0
         }
       }),
+      runReadinessToImplementation: async () => readinessToImplementationEvidence(),
       runAutoImplementation: async () => autoImplementationEvidence()
     });
 
@@ -206,6 +254,38 @@ describe("core product loop smoke", () => {
       "core loop must turn research evidence into follow-up question debt.",
       "core loop must create generated follow-up research tasks after evidence synthesis.",
       "core loop must attach prior source refs/memory to generated follow-up research runs."
+    ]));
+  });
+
+  it("blocks when readiness does not produce a planning-ready implementation handoff", async () => {
+    const evidence = await runCoreProductLoopSmoke({
+      runClarification: async () => clarificationEvidence(),
+      runResearch: async () => researchEvidence(),
+      runReadinessToImplementation: async () => readinessToImplementationEvidence({
+        readiness: {
+          ...readinessToImplementationEvidence().readiness!,
+          compositeScore: 72,
+          readinessLabel: "needs_validation",
+          completionCandidateStatus: "not_ready",
+          planningHandoffStatus: "source_trace_incomplete"
+        },
+        implementation: {
+          ...readinessToImplementationEvidence().implementation!,
+          status: "blocked",
+          currentStage: "planning_handoff"
+        }
+      }),
+      runAutoImplementation: async () => autoImplementationEvidence()
+    });
+
+    expect(evidence.status).toBe("blocked");
+    expect(evidence.blockers).toEqual(expect.arrayContaining([
+      "core loop readiness score must reach 85 before implementation; received 72",
+      "core loop readiness label must be spec_ready; received needs_validation",
+      "core loop completion candidate must be candidate before Planning Handoff; received not_ready",
+      "core loop must produce a planning_ready handoff before implementation; received source_trace_incomplete",
+      "core loop readiness handoff must start an implementation run in pending state; received blocked",
+      "core loop readiness handoff must start at initial_pr; received planning_handoff"
     ]));
   });
 });

@@ -180,7 +180,7 @@
         "Every canonical auto-implementation stage requires two consecutive no-finding feature and repository code-review passes, two consecutive no-finding changed-code and repository clean-code passes, a zero-gap missing-test audit, and passing test evidence before completion.",
         "Final merge_main stays blocked until final_verify_pr_update records current PR body evidence with full verification commands plus missing-test audit and test evidence.",
         "The readiness-to-implementation verifier proves a spec_ready completion candidate becomes a planning_ready handoff before the first auto-implementation run starts.",
-        "The end-to-end core product loop smoke proves idea intake, clarification, research follow-up debt, generated follow-up research, runtime preview, worker, PR mutation, review-loop, and merge_main fixture evidence are connected by one verifier command."
+        "The end-to-end core product loop smoke proves idea intake, clarification, research follow-up debt, generated follow-up research, readiness-to-implementation handoff, runtime preview, worker, PR mutation, review-loop, and merge_main fixture evidence are connected by one verifier command."
       ]
     },
     {
