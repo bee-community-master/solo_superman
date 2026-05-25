@@ -76,4 +76,37 @@ describe("research pipeline smoke", () => {
     expect(evidence.checked).toContain("live public-web adapter path imported non-fixture public source URLs");
     expect(evidence.research?.sourceUrls.some((sourceUrl) => sourceUrl.includes("example."))).toBe(false);
   });
+
+  it("keeps live-web follow-up research executable when source quality is insufficient before markdown memory exists", async () => {
+    const evidence = await runResearchPipelineSmoke({
+      mode: "live_web",
+      liveWebSearch: async ({ now }) => [
+        {
+          title: "반려동물 생활 기록 공개 글",
+          url: "https://www.nias.go.kr/companion/new_petBoard.do?cmCode=M210524110205412",
+          snippet: "반려동물 보호자 생활 기록을 언급하지만 고객 세그먼트와 결제 신호를 확정하기에는 부족한 공개 자료입니다.",
+          retrievedAt: now()
+        }
+      ]
+    });
+
+    expect(evidence).toMatchObject({
+      status: "passed",
+      smoke: RESEARCH_PIPELINE_SMOKE,
+      mode: "live_web",
+      research: expect.objectContaining({
+        matrixBalanceStatus: "source_quality_insufficient",
+        researchMemorySourceRefCount: 0,
+        followUpQuestionCount: expect.any(Number),
+        followUpResearchTaskCount: expect.any(Number),
+        followUpResearchSourceRefCount: expect.any(Number)
+      })
+    });
+    expect(evidence.research?.followUpQuestionCount).toBeGreaterThanOrEqual(1);
+    expect(evidence.research?.followUpResearchTaskCount).toBeGreaterThanOrEqual(1);
+    expect(evidence.research?.followUpResearchSourceRefCount).toBeGreaterThanOrEqual(1);
+    expect(evidence.checked).toContain(
+      "generated follow-up research carries the source-traced follow-up queue ref when markdown memory is not available"
+    );
+  });
 });

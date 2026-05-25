@@ -535,8 +535,19 @@ function flowBlockers(result: ResearchFlowResult) {
   const followUpSourceRefs = followUpStartedRun
     ? stringArrayAt(followUpStartedRun.sourceRefs, "follow-up research sourceRefs")
     : [];
-  if (followUpStartedRun && !result.researchMemorySourceRefs.some((sourceRef) => followUpSourceRefs.includes(sourceRef))) {
+  const followUpTaskSourceRefs = followUpResearchTasks.flatMap((task) =>
+    typeof task.sourceQueueItemId === "string" ? [task.sourceQueueItemId] : []
+  );
+  const hasFollowUpQueueSourceRef = followUpTaskSourceRefs.some((sourceRef) => followUpSourceRefs.includes(sourceRef));
+  const hasResearchMemoryBaselineSourceRef = result.researchMemorySourceRefs.some((sourceRef) =>
+    followUpSourceRefs.includes(sourceRef)
+  );
+
+  if (followUpStartedRun && result.researchMemorySourceRefs.length > 0 && !hasResearchMemoryBaselineSourceRef) {
     blockers.push("generated follow-up research must carry existing markdown memory refs as baseline source refs");
+  }
+  if (followUpStartedRun && result.researchMemorySourceRefs.length === 0 && !hasFollowUpQueueSourceRef) {
+    blockers.push("generated follow-up research must carry the source-traced follow-up queue ref when markdown memory is not available");
   }
 
   return blockers;
@@ -608,7 +619,9 @@ function passedEvidence(result: ResearchFlowResult): ResearchPipelineSmokeEviden
         ? ["provider-polled research writes markdown memory for future duplicate or broader research decisions"]
         : ["live public-web import verification tolerates source_quality_insufficient runs without markdown memory"]),
       ...(followUpStartedRun
-        ? ["generated follow-up research carries existing markdown memory refs as baseline context while still starting a new run"]
+        ? result.researchMemorySourceRefs.length > 0
+          ? ["generated follow-up research carries existing markdown memory refs as baseline context while still starting a new run"]
+          : ["generated follow-up research carries the source-traced follow-up queue ref when markdown memory is not available"]
         : ["live public-web import verification stops after source import when evidence synthesis does not generate follow-up debt"]),
       "provider quality gate marked insufficient evidence for review",
       "Research projection exposes evidence matrix, evidence pack, and review card",
