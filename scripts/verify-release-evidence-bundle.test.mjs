@@ -87,6 +87,36 @@ describe("release evidence bundle verification", () => {
     }
   });
 
+  it("rejects generated bundle templates when structured evidenceBundle shapes drift", async () => {
+    const contracts = await loadReleaseEvidenceContracts();
+    const checklist = buildReleaseEvidenceChecklist(contracts, { now: new Date("2026-05-24T00:00:00.000Z") });
+    const bundle = buildReleaseEvidenceBundle(checklist);
+    const issue267TemplateFile = bundle.files.find((file) => file.path === "issue-267-template.json");
+    const issue267Template = JSON.parse(issue267TemplateFile.content);
+    const windowsRollbackItem = issue267Template.items.find((item) => item.itemId === "windows-packaged-update-rollback");
+    windowsRollbackItem.evidenceBundleShape.requiredFields = windowsRollbackItem.evidenceBundleShape.requiredFields.filter(
+      (field) => field !== "protectedPathEvidenceRefs.credentials"
+    );
+    const bundleDir = await mkdtemp(join(tmpdir(), "solo-release-evidence-bundle-test-"));
+    try {
+      await writeBundle(bundleDir, bundle, {
+        "issue-267-template.json": `${JSON.stringify(issue267Template, null, 2)}\n`
+      });
+
+      const evidence = await runReleaseEvidenceBundleVerification(["--bundle-dir", bundleDir], {
+        now: new Date("2026-05-24T00:00:00.000Z")
+      });
+
+      expect(evidence.status).toBe("blocked");
+      expect(evidence.blockers.some((blocker) =>
+        blocker.includes("issue-267-template.json.items") &&
+        blocker.includes("evidenceBundleShape: must match the expected structured evidence bundle shape")
+      )).toBe(true);
+    } finally {
+      await rm(bundleDir, { recursive: true, force: true });
+    }
+  });
+
   it("rejects bundle manifests that omit or drift the blocker summary", async () => {
     const contracts = await loadReleaseEvidenceContracts();
     const checklist = buildReleaseEvidenceChecklist(contracts, { now: new Date("2026-05-24T00:00:00.000Z") });

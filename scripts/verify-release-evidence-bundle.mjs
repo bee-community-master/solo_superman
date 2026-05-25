@@ -5,6 +5,7 @@ import { pathToFileURL, URL } from "node:url";
 import {
   buildReleaseEvidenceBundle,
   buildReleaseEvidenceChecklist,
+  buildReleaseEvidenceTemplate,
   filterReleaseEvidenceChecklistByIssue,
   loadReleaseEvidenceContracts,
   RELEASE_EVIDENCE_BUNDLE_SCHEMA_VERSION,
@@ -188,10 +189,28 @@ function validatePendingTemplateShape(template, expectedChecklist, path, issues)
     .filter(isRecord)
     .map((item) => item.itemId)
     .filter((itemId) => typeof itemId === "string"));
+  const expectedTemplateItems = new Map(buildReleaseEvidenceTemplate(expectedChecklist).items.map((item) => [item.itemId, item]));
   for (const expectedItemId of expectedItemIds) {
     if (!actualItemIds.has(expectedItemId)) {
       addIssue(issues, `${path}.items`, `must include source checklist item ${JSON.stringify(expectedItemId)}`);
     }
+  }
+  if (Array.isArray(template.items)) {
+    template.items.filter(isRecord).forEach((item, index) => {
+      const expectedItem = expectedTemplateItems.get(item.itemId);
+
+      if (!expectedItem) {
+        return;
+      }
+
+      if (JSON.stringify(item.evidenceBundleShape ?? null) !== JSON.stringify(expectedItem.evidenceBundleShape ?? null)) {
+        addIssue(
+          issues,
+          `${path}.items[${index}].evidenceBundleShape`,
+          "must match the expected structured evidence bundle shape"
+        );
+      }
+    });
   }
   for (const command of stringList(expectedChecklist.readyReleaseCommands)) {
     if (!stringList(template.readyReleaseCommands).includes(command)) {

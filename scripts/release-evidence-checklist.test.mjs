@@ -222,6 +222,17 @@ describe("release evidence checklist", () => {
         requiredChecks: expect.arrayContaining([
           expect.objectContaining({ id: "macos_codesign_verify", status: "pending" })
         ]),
+        evidenceBundleShape: expect.objectContaining({
+          kind: "macos-signed-package",
+          requiredFields: expect.arrayContaining([
+            "artifactRef",
+            "publicCertificate.fingerprintSha256",
+            "notarizationRef",
+            "passedChecks[]"
+          ]),
+          allowedPackageKinds: ["macos-dmg", "macos-pkg"],
+          requiredPassedChecks: expect.arrayContaining(["macos_codesign_verify"])
+        }),
         verification: expect.objectContaining({
           verifiedAt: "<UTC ISO timestamp>",
           redactionConfirmed: false,
@@ -237,6 +248,55 @@ describe("release evidence checklist", () => {
     ]));
     expect(JSON.stringify(template)).toContain("<redacted evidence ref>");
     expect(JSON.stringify(template)).not.toContain("ghp_");
+  });
+
+  it("adds structured evidenceBundle shape hints for device and release-lab runs", async () => {
+    const checklist = buildReleaseEvidenceChecklist(await loadReleaseEvidenceContracts(), {
+      now: new Date("2026-05-24T00:00:00.000Z")
+    });
+
+    const issue259Template = buildReleaseEvidenceTemplate(filterReleaseEvidenceChecklistByIssue(checklist, 259));
+    const windowsRun = issue259Template.items.find((item) => item.itemId === "windows-one-line-install-first-screen");
+    expect(windowsRun?.evidenceBundleShape).toMatchObject({
+      kind: "windows-real-device",
+      requiredFields: expect.arrayContaining([
+        "deviceProfile.environmentKind",
+        "installerCommandRef",
+        "firstScreenEvidenceRef",
+        "checkEvidenceRefs.run_administrator_powershell_one_line_installer"
+      ]),
+      allowedDeviceEnvironmentKinds: ["physical-device", "vm"],
+      requiredPassedChecks: expect.arrayContaining(["reach_first_screen"])
+    });
+
+    const issue266Template = buildReleaseEvidenceTemplate(filterReleaseEvidenceChecklistByIssue(checklist, 266));
+    const manifestRun = issue266Template.items.find((item) => item.itemId === "release-manifest-signing");
+    expect(manifestRun?.evidenceBundleShape).toMatchObject({
+      kind: "release-manifest-signing",
+      requiredFields: expect.arrayContaining([
+        "manifestRef",
+        "manifestSignatureRef",
+        "artifactRefs[].scope",
+        "artifactRefs[].signatureRef"
+      ]),
+      requiredArtifactScopes: ["macos", "windows"],
+      requiredPassedChecks: expect.arrayContaining(["release_manifest_signature_verify"])
+    });
+
+    const issue267Template = buildReleaseEvidenceTemplate(filterReleaseEvidenceChecklistByIssue(checklist, 267));
+    const rollbackRun = issue267Template.items.find((item) => item.itemId === "windows-packaged-update-rollback");
+    expect(rollbackRun?.evidenceBundleShape).toMatchObject({
+      kind: "windows-packaged-update-rollback",
+      requiredFields: expect.arrayContaining([
+        "credentialSnapshotMode",
+        "rollbackLogRef",
+        "checkEvidenceRefs.rollback_after_failed_launch",
+        "protectedPathEvidenceRefs.credentials"
+      ]),
+      allowedPackageKinds: ["windows-msi", "windows-exe"],
+      requiredCredentialSnapshotMode: "metadata_only_no_read",
+      requiredProtectedPathEvidenceRefs: expect.arrayContaining(["localDatabase", "credentials"])
+    });
   });
 
   it("validates filled release evidence templates without accepting placeholders", async () => {
@@ -289,6 +349,23 @@ describe("release evidence checklist", () => {
       filterIssueNumber: "266",
       itemCount: 4,
       issues: []
+    });
+
+    expect(validation.checked).toContain("structured evidenceBundle shape hints match the source release contracts");
+
+    const driftedEvidenceBundleShapeTemplate = cloneJson(filledTemplate);
+    const macosShapeItem = driftedEvidenceBundleShapeTemplate.items.find(
+      (item) => item.itemId === "macos-signed-package-release"
+    );
+    macosShapeItem.evidenceBundleShape.requiredFields = macosShapeItem.evidenceBundleShape.requiredFields.filter(
+      (field) => field !== "notarizationRef"
+    );
+
+    expect(validateReleaseEvidenceTemplate(driftedEvidenceBundleShapeTemplate, { expectedChecklist: issue266Checklist })).toMatchObject({
+      status: "blocked",
+      issues: expect.arrayContaining([
+        expect.stringContaining("evidenceBundleShape must match the expected structured evidence bundle shape")
+      ])
     });
 
     const missingCommandTemplate = cloneJson(filledTemplate);
@@ -818,6 +895,8 @@ describe("release evidence checklist", () => {
       expect(readme).toContain("Blocked issues: `3 / 3` (#259, #266, #267)");
       expect(readme).toContain("Blocked evidence items: `9 / 9`");
       expect(readme).toContain("Fill each blocked issue template with redacted release-lab evidence");
+      expect(readme).toContain("Use each item's `evidenceBundleShape`");
+      expect(readme).toContain("structured `evidenceBundle` fields");
       expect(readme).toContain("## Issue evidence item summary");
       expect(readme).toContain("#259: `2 / 2` blocked evidence items");
       expect(readme).toContain("`windows-real-device` (release-readiness, blocked; checks 0, evidence 4, unblock 3)");

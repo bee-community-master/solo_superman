@@ -343,7 +343,144 @@ function templateCheckResults(items) {
   }));
 }
 
+const ROLLBACK_PROTECTED_PATH_EVIDENCE_FIELDS = [
+  "localDatabase",
+  "generatedWorkspace",
+  "supportBundle",
+  "operatorFiles",
+  "credentials"
+];
+
+function evidenceBundleShape(kind, requiredFields, extra = {}) {
+  return {
+    kind,
+    appliesWhen: "Set the matching release contract run to passed only after filling this structured evidenceBundle with redacted refs.",
+    requiredFields,
+    allowedEvidenceRefs: ["https URL without credentials", "repo-relative evidence path", "urn:solo-superman-*"],
+    ...extra
+  };
+}
+
+function checkEvidenceRefFields(requiredChecks) {
+  return stringList(requiredChecks).map((check) => `checkEvidenceRefs.${check}`);
+}
+
+function releaseEvidenceBundleShapeForItem(item) {
+  if (item.gateId === "windows-real-device") {
+    return evidenceBundleShape(
+      "windows-real-device",
+      [
+        "deviceProfile.osName",
+        "deviceProfile.osVersion",
+        "deviceProfile.architecture",
+        "deviceProfile.environmentKind",
+        "installerCommandRef",
+        "firstScreenEvidenceRef",
+        "supportBundleRef",
+        "bootstrapLogRef",
+        "prodSmokeLogRef",
+        "redactedEvidenceRefs[]",
+        "passedChecks[]",
+        ...checkEvidenceRefFields(item.requiredChecks)
+      ],
+      {
+        allowedDeviceEnvironmentKinds: ["physical-device", "vm"],
+        requiredPassedChecks: stringList(item.requiredChecks)
+      }
+    );
+  }
+
+  if (item.gateId === "signed-packages" && (item.scope === "macos" || item.scope === "windows")) {
+    return evidenceBundleShape(
+      `${item.scope}-signed-package`,
+      [
+        "artifactRef",
+        "packageKind",
+        "sha256",
+        "sizeBytes",
+        "signatureRef",
+        "publicCertificate.kind",
+        "publicCertificate.subject",
+        "publicCertificate.issuer",
+        "publicCertificate.serialNumber",
+        "publicCertificate.fingerprintSha256",
+        "redactedEvidenceRefs[]",
+        "passedChecks[]",
+        ...(item.scope === "macos"
+          ? ["notarizationRef", "staplingRef", "gatekeeperAssessmentRef"]
+          : ["authenticodeRef", "timestampRef"])
+      ],
+      {
+        allowedPackageKinds: item.scope === "macos" ? ["macos-dmg", "macos-pkg"] : ["windows-msi", "windows-exe"],
+        requiredPassedChecks: stringList(item.requiredChecks)
+      }
+    );
+  }
+
+  if (item.gateId === "signed-packages" && item.scope === "release-manifest") {
+    return evidenceBundleShape(
+      "release-manifest-signing",
+      [
+        "manifestRef",
+        "manifestSha256",
+        "manifestSizeBytes",
+        "manifestSignatureRef",
+        "publicKeyId",
+        "redactedEvidenceRefs[]",
+        "passedChecks[]",
+        "artifactRefs[].scope",
+        "artifactRefs[].sha256",
+        "artifactRefs[].sizeBytes",
+        "artifactRefs[].signatureRef"
+      ],
+      {
+        requiredArtifactScopes: ["macos", "windows"],
+        requiredPassedChecks: stringList(item.requiredChecks)
+      }
+    );
+  }
+
+  if (item.gateId === "packaged-update-rollback" && (item.scope === "macos" || item.scope === "windows")) {
+    return evidenceBundleShape(
+      `${item.scope}-packaged-update-rollback`,
+      [
+        "deviceProfile.platform",
+        "deviceProfile.osName",
+        "deviceProfile.osVersion",
+        "deviceProfile.architecture",
+        "deviceProfile.environmentKind",
+        "packageKind",
+        "initialVersion",
+        "candidateVersion",
+        "finalVersion",
+        "credentialSnapshotMode",
+        "packageArtifactRef",
+        "manifestRef",
+        "updateLogRef",
+        "rollbackLogRef",
+        "launchAfterRollbackRef",
+        "preservationReportRef",
+        "redactedEvidenceRefs[]",
+        "passedChecks[]",
+        ...checkEvidenceRefFields(item.requiredChecks),
+        ...ROLLBACK_PROTECTED_PATH_EVIDENCE_FIELDS.map((field) => `protectedPathEvidenceRefs.${field}`)
+      ],
+      {
+        allowedDeviceEnvironmentKinds: ["physical-device", "vm"],
+        allowedPackageKinds: item.scope === "macos" ? ["macos-dmg", "macos-pkg"] : ["windows-msi", "windows-exe"],
+        requiredCredentialSnapshotMode: "metadata_only_no_read",
+        requiredPassedChecks: stringList(item.requiredChecks),
+        requiredProtectedPathEvidenceRefs: ROLLBACK_PROTECTED_PATH_EVIDENCE_FIELDS
+      }
+    );
+  }
+
+  return null;
+}
+
 function templateItem(item) {
+  const bundleShape = releaseEvidenceBundleShapeForItem(item);
+
   return {
     sourceContract: item.sourceContract,
     gateId: item.gateId,
@@ -358,6 +495,7 @@ function templateItem(item) {
     requiredEvidence: templateEvidenceFields(item.requiredEvidence, "evidence"),
     unblockCriteria: templateEvidenceFields(item.unblockCriteria, "unblock"),
     existingEvidenceRefs: item.evidenceRefs,
+    ...(bundleShape ? { evidenceBundleShape: bundleShape } : {}),
     verification: {
       verifiedAt: "<UTC ISO timestamp>",
       verifiedBy: ["<release lab operator or CI run id>"],
@@ -488,6 +626,26 @@ function validateReadyReleaseResult(value, path, issues) {
   requireFilledStringList(value.perCommandBlockers, `${path}.perCommandBlockers`, issues);
 }
 
+function validateTemplateEvidenceBundleShape(item, path, issues, expectedItem) {
+  const expectedShape = expectedItem ? releaseEvidenceBundleShapeForItem(expectedItem) : null;
+
+  if (!expectedShape) {
+    if (item.evidenceBundleShape !== undefined) {
+      issues.push(`${path}.evidenceBundleShape must not be present for checklist items without a structured evidence bundle shape.`);
+    }
+    return;
+  }
+
+  if (!isRecord(item.evidenceBundleShape)) {
+    issues.push(`${path}.evidenceBundleShape must include the expected structured evidence bundle shape.`);
+    return;
+  }
+
+  if (JSON.stringify(item.evidenceBundleShape) !== JSON.stringify(expectedShape)) {
+    issues.push(`${path}.evidenceBundleShape must match the expected structured evidence bundle shape.`);
+  }
+}
+
 function validateTemplateItem(item, index, issues, expectedItem, requiredReadyReleaseCommands) {
   const path = `$.items[${index}]`;
   if (!isRecord(item)) {
@@ -506,6 +664,7 @@ function validateTemplateItem(item, index, issues, expectedItem, requiredReadyRe
   validateTemplateResultEntries(item.requiredChecks, `${path}.requiredChecks`, issues, expectedItem?.requiredChecks ?? [], "id");
   validateTemplateResultEntries(item.requiredEvidence, `${path}.requiredEvidence`, issues, expectedItem?.requiredEvidence ?? [], "requirement");
   validateTemplateResultEntries(item.unblockCriteria, `${path}.unblockCriteria`, issues, expectedItem?.unblockCriteria ?? [], "requirement");
+  validateTemplateEvidenceBundleShape(item, path, issues, expectedItem);
 
   if (!isRecord(item.verification)) {
     issues.push(`${path}.verification must be an object.`);
@@ -616,6 +775,7 @@ export function validateReleaseEvidenceTemplate(template, options = {}) {
     checked: [
       "filled release evidence template schema",
       "all required checks, evidence, and unblock criteria are passed",
+      "structured evidenceBundle shape hints match the source release contracts",
       "placeholder fields are replaced with redacted evidence refs and notes",
       "operator verification metadata, redaction confirmation, ready-release command coverage, and ready-release result blockers are present",
       "filled template is secret-free"
@@ -920,12 +1080,13 @@ function renderReleaseEvidenceBundleReadme(manifest) {
     "## How to use",
     "",
     "1. Pick the issue-specific template for the release lab run you are executing.",
-    "2. Replace placeholders only with redacted evidence refs, public metadata, checksums, sizes, signature refs, and sanitized log summaries.",
-    "3. Keep credential values, tokens, cookies, URL userinfo, secret-like query parameters, and full environment dumps out of every file.",
-    "4. Validate the generated or edited bundle structure with `pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir>` before distributing it.",
-    "5. Validate each filled template with `pnpm verify:release-evidence-template -- --input <filled-template.json>` before attaching evidence to GitHub.",
-    "6. After all real evidence is filled, run `pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> --require-ready` before the final ready-release gate.",
-    "7. Run `pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>` and copy the final status plus aggregate/per-command blockers into each filled template's `verification.readyReleaseResult.status`, `verification.readyReleaseResult.commandBlockers`, and `verification.readyReleaseResult.perCommandBlockers` fields before posting the matching issue comment.",
+    "2. Use each item's `evidenceBundleShape` to fill the matching release contract run's structured `evidenceBundle` fields before marking that run passed.",
+    "3. Replace placeholders only with redacted evidence refs, public metadata, checksums, sizes, signature refs, and sanitized log summaries.",
+    "4. Keep credential values, tokens, cookies, URL userinfo, secret-like query parameters, and full environment dumps out of every file.",
+    "5. Validate the generated or edited bundle structure with `pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir>` before distributing it.",
+    "6. Validate each filled template with `pnpm verify:release-evidence-template -- --input <filled-template.json>` before attaching evidence to GitHub.",
+    "7. After all real evidence is filled, run `pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> --require-ready` before the final ready-release gate.",
+    "8. Run `pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>` and copy the final status plus aggregate/per-command blockers into each filled template's `verification.readyReleaseResult.status`, `verification.readyReleaseResult.commandBlockers`, and `verification.readyReleaseResult.perCommandBlockers` fields before posting the matching issue comment.",
     "   Keep `verification.readyReleaseCommandsRun` to nested verifier commands only; the filled-bundle verifier and aggregate ready-release self-commands are represented by the bundle gate and `verification.readyReleaseResult`, not by pre-gate command-run entries.",
     "",
     "## Included issue files",
