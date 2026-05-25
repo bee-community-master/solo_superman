@@ -543,13 +543,13 @@ describe("ResearchView", () => {
     expect(markup).toContain("Missing counter-evidence");
     expect(markup).not.toContain(">missing_con_evidence<");
     expect(markup).toContain("Planning blocked");
-    expect(markup).toContain("Pro evidence");
+    expect(markup).toContain("Supporting signals");
     expect(markup).toContain("Founders report willingness to pay");
-    expect(markup).toContain("Con evidence");
+    expect(markup).toContain("Counterpoints / risks");
     expect(markup).toContain("No evidence items");
     expect(markup).toContain("Uncertainties");
     expect(markup).toContain("Counter-evidence still needs");
-    expect(markup).toContain("Missing con-evidence reason");
+    expect(markup).toContain("Missing counterpoints reason");
     expect(markup).toContain("No credible counter-evidence source was retained.");
     expect(markup).toContain("Known risk");
     expect(markup).toContain("Pricing evidence remains one-sided.");

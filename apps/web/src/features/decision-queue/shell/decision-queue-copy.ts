@@ -846,10 +846,10 @@ const EN_COPY = {
     balanceStatus: "Balance status",
     decisionBlocked: "Planning blocked",
     decisionReady: "Planning not blocked",
-    proEvidence: "Pro evidence",
-    conEvidence: "Con evidence",
+    proEvidence: "Supporting signals",
+    conEvidence: "Counterpoints / risks",
     uncertainties: "Uncertainties",
-    missingConEvidenceReason: "Missing con-evidence reason",
+    missingConEvidenceReason: "Missing counterpoints reason",
     knownRisk: "Known risk",
     noEvidenceItems: "No evidence items",
     additionalQuestions: "Research-generated follow-up questions",
@@ -1680,8 +1680,8 @@ const EN_COPY = {
         noSourceRefs: "no source refs",
         uncertainty: (status: string, refs: string) => `Uncertainty: ${status} (${refs})`,
         noUncertaintyRefs: "no uncertainty refs",
-        conEvidence: (status: string, refs: string) => `Con evidence: ${status} (${refs})`,
-        noConEvidenceRefs: "no con evidence refs",
+        conEvidence: (status: string, refs: string) => `Counterpoints / risks: ${status} (${refs})`,
+        noConEvidenceRefs: "no counterpoint refs",
         staleRisk: (status: string, refs: string) => `Stale risk: ${status} (${refs})`,
         noStaleRiskRefs: "no stale risk refs",
         importRationale: (rationale: string) => `Import rationale: ${rationale}`
@@ -2312,8 +2312,8 @@ const JA_COPY: typeof EN_COPY = {
     balanceStatus: "バランス状態",
     decisionBlocked: "Planningブロック中",
     decisionReady: "Planningブロックなし",
-    proEvidence: "賛成エビデンス",
-    conEvidence: "反証エビデンス",
+    proEvidence: "確認できた手がかり",
+    conEvidence: "別視点/反例",
     uncertainties: "不確実性",
     missingConEvidenceReason: "反証不足の理由",
     knownRisk: "既知のリスク",
@@ -2331,7 +2331,7 @@ const JA_COPY: typeof EN_COPY = {
     planningBlockedSuffix: "Planning-readyをブロック",
     routeOutcomeLabels: {
       research_needed: "リサーチが必要",
-      missing_con_evidence: "反対根拠が必要"
+      missing_con_evidence: "別視点の確認が必要"
     } satisfies Record<ResearchRouteOutcome, string>,
     taskStatusLabels: {
       planned: "計画済み",
@@ -2384,10 +2384,10 @@ const JA_COPY: typeof EN_COPY = {
     balanceStatusLabels: {
       unknown: "根拠バランス不明",
       balanced: "根拠バランス良好",
-      needs_con_evidence: "反対根拠が必要",
-      missing_con_evidence: "反対根拠が不足",
+      needs_con_evidence: "別視点の確認が必要",
+      missing_con_evidence: "別視点が不足",
       source_quality_insufficient: "出典品質が不足",
-      blocked_by_con_evidence: "反対根拠でブロック"
+      blocked_by_con_evidence: "別視点でブロック"
     } satisfies Record<EvidenceBalanceStatus, string>,
     sourceReliabilityLabels: {
       high: "高い信頼度",
@@ -3157,8 +3157,8 @@ const JA_COPY: typeof EN_COPY = {
         noSourceRefs: "出典参照なし",
         uncertainty: (status: string, refs: string) => `不確実性: ${status} (${refs})`,
         noUncertaintyRefs: "不確実性参照なし",
-        conEvidence: (status: string, refs: string) => `反証: ${status} (${refs})`,
-        noConEvidenceRefs: "反証参照なし",
+        conEvidence: (status: string, refs: string) => `別視点/反例: ${status} (${refs})`,
+        noConEvidenceRefs: "別視点/反例参照なし",
         staleRisk: (status: string, refs: string) => `鮮度リスク: ${status} (${refs})`,
         noStaleRiskRefs: "鮮度リスク参照なし",
         importRationale: (rationale: string) => `取り込み理由: ${rationale}`
@@ -3555,7 +3555,7 @@ const KO_COPY: typeof EN_COPY = {
       founder_advantage: "만드는 사람/팀 강점"
     },
     businessCriticPressureKindLabels: {
-      balanced_con: "균형형 반대 질문",
+      balanced_con: "다른 관점 점검 질문",
       core_assumption_challenge: "핵심 가설 점검",
       investor_pressure_pass: "투자심사식 검증"
     },
@@ -4594,7 +4594,7 @@ const KO_COPY: typeof EN_COPY = {
         waiting_for_approval: "사용자 승인 전에는 ChatGPT 브라우저 작업을 시작하지 않습니다.",
         running: "사용자가 볼 수 있는 로컬 브라우저 작업만 허용되며 계정/쿠키/2FA는 저장하지 않습니다.",
         waiting_for_user: "로그인, CAPTCHA, 사용량 제한, UI 변경은 사용자 직접 조치가 필요합니다.",
-        importing_result: "가져온 결과는 출처/불확실성/반대근거/신선도 게이트를 통과해야 합니다.",
+        importing_result: "가져온 결과는 출처/불확실성/다른 관점/신선도 게이트를 통과해야 합니다.",
         completed: "결과 가져오기가 끝났지만 저장 자료는 사용자가 내보내거나 삭제할 수 있어야 합니다.",
         blocked: "완전 headless ChatGPT Pro 자동화 대신 수동 프롬프트 전달 또는 공식 경로로 대체합니다.",
         failed: "완전 headless ChatGPT Pro 자동화 대신 수동 프롬프트 전달 또는 공식 경로로 대체합니다.",

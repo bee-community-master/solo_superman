@@ -2822,7 +2822,7 @@ describe("PR-04 ProductEngine reducer", () => {
             cardType: "research_review",
             retainedSourceRef: expect.stringMatching(/^queue_research_followup_/),
             state: "pending_manual_result",
-            title: expect.stringContaining("반대근거 탐색 필요")
+            title: expect.stringContaining("다른 관점 확인 필요")
           })
         ]),
         knownRisks: [

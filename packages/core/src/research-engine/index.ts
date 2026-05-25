@@ -806,7 +806,7 @@ function reviewCardForTask(task: ResearchTaskProjection): ResearchReviewCardProj
     cardType: outcomeMetadata.cardType,
     title:
       task.routeOutcome === "missing_con_evidence"
-        ? `반대근거 탐색 필요: ${task.objective}`
+        ? `다른 관점 확인 필요: ${task.objective}`
         : `Research review: ${task.objective}`,
     state: "pending_manual_result",
     impact: task.impact,
@@ -1233,7 +1233,7 @@ export function buildDecisionEvidencePack(
         : matrix.missingConEvidenceReason || matrix.balanceStatus === "needs_con_evidence"
           ? researchTask.impact === "high"
             ? "High-impact claim records missing_con_evidence and remains blocked from decision-ready."
-            : "Missing con evidence is explicit and connected to Known Risks/validation actions."
+            : "Missing counterpoint evidence is explicit and connected to Known Risks/validation actions."
           : "Evidence lacks an explicit pro/con or missing_con_evidence outcome."
     ),
     check(

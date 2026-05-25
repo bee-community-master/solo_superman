@@ -191,7 +191,7 @@ function pendingReviewCardForTask(task: ResearchTaskProjection): ResearchReviewC
     cardType: outcomeMetadata.cardType,
     title:
       task.routeOutcome === "missing_con_evidence"
-        ? `반대근거 탐색 필요: ${task.objective}`
+        ? `다른 관점 확인 필요: ${task.objective}`
         : `Research review: ${task.objective}`,
     state: "pending_manual_result",
     impact: task.impact,
