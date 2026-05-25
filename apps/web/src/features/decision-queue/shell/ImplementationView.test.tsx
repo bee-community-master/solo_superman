@@ -177,6 +177,36 @@ describe("ImplementationView", () => {
     expect(markup).toContain("78%");
   });
 
+
+  it("shows general release blockers and release-lab bundle commands", () => {
+    const markup = renderImplementationView();
+
+    expect(markup).toContain("General release evidence blockers");
+    expect(markup).toContain("blocked by external evidence");
+    expect(markup).toContain("GitHub issue #259");
+    expect(markup).toContain("Windows real-device installer proof");
+    expect(markup).toContain("GitHub issue #266");
+    expect(markup).toContain("Signed package release proof");
+    expect(markup).toContain("GitHub issue #267");
+    expect(markup).toContain("Packaged updater rollback proof");
+    expect(markup).toContain("pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle");
+    expect(markup).toContain("pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready");
+    expect(markup).toContain("pnpm verify:ready-release -- --evidence-bundle-dir ./solo-superman-release-evidence-bundle");
+    expect(markup).toContain("Do not mark broad/general release ready from local dry-runs alone.");
+  });
+
+  it("localizes general release blockers for Korean users", () => {
+    const markup = renderImplementationView({}, "ko");
+
+    expect(markup).toContain("일반 공개 증거 차단 항목");
+    expect(markup).toContain("외부 증거 대기");
+    expect(markup).toContain("Windows 실기기 설치 증거");
+    expect(markup).toContain("서명된 패키지 릴리스 증거");
+    expect(markup).toContain("패키지 업데이트 rollback 증거");
+    expect(markup).toContain("로컬 dry-run만으로 broad/general release를 ready로 표시하지 않습니다.");
+    expect(markup).not.toContain("General release evidence blockers");
+  });
+
   it("provides a dedicated runtime status refresh action in the implementation runtime panel", () => {
     const markup = renderImplementationView({
       runtimeStatus: codexRuntimeStatus()
