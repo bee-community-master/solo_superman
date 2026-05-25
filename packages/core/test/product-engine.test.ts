@@ -247,6 +247,8 @@ describe("PR-04 ProductEngine reducer", () => {
           severity: "high",
           uncertaintyType: "vague",
           topicKey: "primary_customer_narrowing",
+          ambiguityDimension: "scope",
+          ambiguityRoutingPath: "human_judgment",
           whyItMatters: expect.any(String),
           decisionItUnlocks: expect.any(String),
           expectedAnswerType: "choice",
@@ -266,6 +268,8 @@ describe("PR-04 ProductEngine reducer", () => {
           sectionRef: "Target Customer",
           topicKey: "buyer_user_split",
           severity: "high",
+          ambiguityDimension: "decision_authority",
+          ambiguityRoutingPath: "human_judgment",
           expectedAnswerType: "choice"
         }),
         expect.objectContaining({
@@ -289,6 +293,8 @@ describe("PR-04 ProductEngine reducer", () => {
           sectionRef: "Evidence Status",
           severity: "medium",
           uncertaintyType: "unsupported",
+          ambiguityDimension: "assumption_pressure",
+          ambiguityRoutingPath: "current_research",
           expectedAnswerType: "evidence",
           suggestedResearchTask: expect.any(String),
           possibleRoutes: expect.arrayContaining(["research_needed", "missing_con_evidence"])
@@ -298,6 +304,7 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(state.openIssues.every((issue) => canonicalInitialSpecSectionSet.has(issue.sectionRef ?? ""))).toBe(
       true
     );
+    expect(state.openIssues.every((issue) => issue.ambiguityDimension && issue.ambiguityRoutingPath)).toBe(true);
     expect(state.openIssues.map((issue) => issue.topicKey)).toEqual(
       expect.arrayContaining([...docsRequiredAmbiguityTopicKeys])
     );
@@ -454,7 +461,8 @@ describe("PR-04 ProductEngine reducer", () => {
           researchQuestion:
             "보호자들이 병원 기록, 급여 정보, 보험 서류, 일상 메모를 따로 찾는 반복 불편을 보여주는 공개 사례와 부족한 반례는 무엇인가?",
           possibleRoutes: ["question", "research_needed"],
-          suggestedResearchTask: "반려동물 기록 관리 앱과 보호자 커뮤니티에서 반복 불편 사례를 모읍니다."
+          suggestedResearchTask:
+            "반려동물 기록 관리 앱 후기와 보호자 커뮤니티에서 반복 불편 사례, 부족한 반례, 남는 불확실성을 찾습니다."
         },
         {
           sectionRef: "Value Proposition",
@@ -491,7 +499,7 @@ describe("PR-04 ProductEngine reducer", () => {
             }
           ],
           decisionItUnlocks: "첫 가치 제안과 홈 화면에서 가장 앞에 둘 기록 범위를 정합니다.",
-          ambiguityDimension: "success_criteria",
+          ambiguityDimension: "assumption_pressure",
           ambiguityRoutingPath: "human_judgment",
           researchQuestion:
             "보호자가 기존 메모, 사진첩, 병원 앱을 충분하다고 느끼는 순간과 부족하다고 느끼는 순간은 무엇인가?",

@@ -59,9 +59,10 @@ Rules:
 - Ask exactly one execution-changing judgment per question. Do not combine customer, scope, and success criteria into one compound question.
 - Treat non-goals, decision authority, constraints, and success criteria as floor gates: if any of these would change implementation, ask that before softer context questions.
 - Use assumption_pressure when a question tests what would make the idea weaker, what tradeoff the user accepts, or what must be given up.
+- Include at least one pressure question in the set. It should ask what assumption could fail, what counterexample would change the plan, or what the user is willing to give up.
 - Mark human_judgment when the founder must choose a value, priority, excluded scope, or success threshold. Mark existing_fact_check when existing docs/data can answer it. Mark current_research when market, policy, price, competitor, or user evidence may have changed.
 - For current_research questions, possibleRoutes must include "research_needed".
-- researchQuestion and suggestedResearchTask must state exactly what to look for, what source area to check, what would weaken the current assumption, and what uncertainty should remain for the user. Do not emit generic tasks like "do more research" or "additional research needed".
+- researchQuestion and suggestedResearchTask must state exactly what to look for, what source area or public evidence to check, what would weaken the current assumption, and what uncertainty should remain for the user. Do not emit generic tasks like "do more research" or "additional research needed".
 - Include 3-10 answerOptions only for choice, rank, evidence, or experiment questions.
 - For text/open narrative questions, omit answerOptions or return an empty array.
 - Options must match the idea's domain. For a pet lifecycle app, ask about guardians, senior or chronic-care pets, medical records, insurance, food/care routines, or end-of-life planning; do not use generic founder, builder, or team-lead personas.

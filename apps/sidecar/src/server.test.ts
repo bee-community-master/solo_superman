@@ -2259,7 +2259,7 @@ describe("PR-02 sidecar health shell", () => {
           ambiguityRoutingPath: "current_research",
           researchQuestion: "Check which pet records guardians repeatedly mention losing, re-requesting, or failing to keep current.",
           possibleRoutes: ["question", "research_needed"],
-          suggestedResearchTask: "Look for pet clinic reviews, insurance claim guides, and guardian community posts that mention fragmented medical, food, daily-care, insurance, or end-of-life records."
+          suggestedResearchTask: "Look for pet clinic reviews, insurance claim guides, and guardian community posts that mention fragmented medical, food, daily-care, insurance, or end-of-life records plus counterexamples or remaining uncertainty."
         },
         {
           sectionRef: "Value Proposition",
@@ -2295,7 +2295,7 @@ describe("PR-02 sidecar health shell", () => {
             }
           ],
           decisionItUnlocks: "First value proposition.",
-          ambiguityDimension: "success_criteria",
+          ambiguityDimension: "assumption_pressure",
           ambiguityRoutingPath: "human_judgment",
           researchQuestion: "Check public guardian complaints for moments when notes, photos, or clinic apps stop being enough.",
           possibleRoutes: ["question", "decision_candidate"]

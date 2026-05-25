@@ -99,7 +99,7 @@ function generatedQuestionSetWithFirstOptions(answerOptions: readonly Readonly<R
           }
         ],
         decisionItUnlocks: "첫 가치 제안과 온보딩 문구를 정합니다.",
-        ambiguityDimension: "success_criteria",
+        ambiguityDimension: "assumption_pressure",
         ambiguityRoutingPath: "human_judgment",
         researchQuestion: "보호자가 기존 기록 방법에서 불편을 느끼는 순간을 공개 자료로 확인합니다.",
         possibleRoutes: ["question", "decision_candidate"],
@@ -303,6 +303,54 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
     expect(parsed.issues.join("\n")).toContain("must state what current evidence should be checked");
     expect(parsed.issues.join("\n")).toContain("must be a concrete source-seeking task");
     expect(parsed.issues.join("\n")).toContain("must include research_needed");
+  });
+
+  it("rejects current research tasks that do not say where to look and what could weaken the assumption", () => {
+    const generatedSet = validGeneratedQuestionSet();
+    const parsed = parseGeneratedAmbiguityQuestionSet(
+      {
+        ...generatedSet,
+        questions: [
+          generatedSet.questions[0]!,
+          {
+            ...generatedSet.questions[1]!,
+            ambiguityRoutingPath: "current_research",
+            researchQuestion: "노령·만성질환 반려동물 보호자의 기록 관리 불편을 확인합니다.",
+            suggestedResearchTask: "반려동물 기록 관리 니즈를 비교합니다.",
+            possibleRoutes: ["question", "research_needed"]
+          },
+          generatedSet.questions[2]!
+        ]
+      },
+      {
+        contextText: "반려동물 전생애주기 의료, 급여, 일상, 보험, 장례 정보를 한 곳에 모으는 앱"
+      }
+    );
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.issues.join("\n")).toContain("must name the source area or public evidence to inspect");
+    expect(parsed.issues.join("\n")).toContain("must name what would weaken the assumption");
+  });
+
+  it("requires at least one pressure question in every generated ambiguity set", () => {
+    const generatedSet = validGeneratedQuestionSet();
+    const parsed = parseGeneratedAmbiguityQuestionSet(
+      {
+        ...generatedSet,
+        questions: generatedSet.questions.map((question) => ({
+          ...question,
+          uncertaintyType: question.uncertaintyType === "missing_con_evidence" ? "decision_required" : question.uncertaintyType,
+          ambiguityDimension: question.ambiguityDimension === "assumption_pressure" ? "success_criteria" : question.ambiguityDimension,
+          possibleRoutes: question.possibleRoutes.filter((route) => route !== "missing_con_evidence")
+        }))
+      },
+      {
+        contextText: "반려동물 전생애주기 의료, 급여, 일상, 보험, 장례 정보를 한 곳에 모으는 앱"
+      }
+    );
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.issues.join("\n")).toContain("must include at least one pressure question");
   });
 
   it("accepts current research questions when they name concrete evidence targets", () => {

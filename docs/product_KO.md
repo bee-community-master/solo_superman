@@ -49,6 +49,7 @@ Business mode는 명시적인 `businessCriticIntensity`가 필요하며 no defau
 - User-facing language는 Spec-ready, Research in progress, Planning-ready, Waiting for safe execution 같은 journey term을 사용합니다.
 - Phase 1, Phase 2.5, tracker, PR number 같은 내부 용어는 일반 user UI에서 제외합니다.
 - Question AI는 날카로운 product coach처럼 질문 이유를 설명하고, assumption을 challenge하며, fatigue를 감지합니다.
+- Codex generated JSON 초기 질문과 deterministic fallback 질문은 모두 ambiguity-reduction algorithm metadata를 가져야 합니다. 각 질문은 목표·범위·제약·성공 기준·맥락·결정권·assumption pressure 중 가장 약한 차원을 표시하고, fact-checking/current research/human judgment route를 분리해야 하며, 질문 묶음에는 최소 하나의 pressure question과 source-seeking research task가 포함되어야 합니다.
 - 반복 질문은 topic key와 repeat limit로 수렴해야 하며, 앱은 사용자를 infinite question loop에 가두면 안 됩니다.
 - 질문 카드와 생성된 후속 질문은 질문 의도에 맞춰 주관식/서술형 open question, 찬성·반대 객관식, 여러 종류 중 하나 선택, 하나 이상 선택, 우선순위, 근거 판단, 실험 답변 형식 중 알맞은 답변 방식을 써야 하며 모든 답변을 찬반/pro-con 형태로 강제하면 안 됩니다.
 - 긴 clarification session에서는 생성됨, 지금 답할 질문, 다음 질문, 막힘, 답변됨, 전체 후속 질문, 남은 후속 질문, topic coverage, 남은 follow-up budget count를 질문 진행률에 보여야 합니다. Maintainer는 credential-free clarification pipeline 및 clarification volume smoke로 아이디어 intake부터 초기 스펙 분석, 활성 질문 묶음, 답변 제출, follow-up/research debt, Planning Handoff blocker까지 이어지는 질문 루프와 200개 이상의 bounded question/answer loop, 100% question-debt completion을 검증할 수 있어야 합니다.
