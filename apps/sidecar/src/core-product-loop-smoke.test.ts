@@ -117,7 +117,15 @@ function autoImplementationEvidence(overrides: Partial<AutoImplementationPipelin
           ledgerStatus: "completed",
           implementationStepId: "auto-implementation-step:core-loop",
           projectFolderName: "core-loop-demo",
-          issueRelativePath: "implementation-issues/001-initial_pr.md"
+          issueRelativePath: "implementation-issues/001-initial_pr.md",
+          generatedProductAllowedScope: [
+            "generated-product/product-slice.json",
+            "generated-product/src/product-slice.mjs"
+          ],
+          generatedProductChangedFiles: [
+            "generated-product/product-slice.json"
+          ],
+          generatedProductChangedFileCount: 1
         },
         checked: ["worker job checked"]
       },
@@ -270,7 +278,15 @@ function singleSessionImplementationEvidence(overrides: Partial<SingleSessionLiv
       stageAfter: "code_review_fix_1",
       ledgerStatus: "completed",
       implementationStepId: "auto-implementation-step:core-loop-same-session",
-      issueRelativePath: "implementation-issues/001-initial_pr.md"
+      issueRelativePath: "implementation-issues/001-initial_pr.md",
+      generatedProductAllowedScope: [
+        "generated-product/product-slice.json",
+        "generated-product/src/product-slice.mjs"
+      ],
+      generatedProductChangedFiles: [
+        "generated-product/product-slice.json"
+      ],
+      generatedProductChangedFileCount: 1
     },
     checked: ["single-session implementation worker checked"],
     ...overrides
@@ -310,6 +326,7 @@ describe("core product loop smoke", () => {
         singleSessionGeneratedProductFirstIssueTaskCount: 1,
         sameSessionWorkerStageAfter: "code_review_fix_1",
         sameSessionWorkerLedgerStatus: "completed",
+        sameSessionWorkerGeneratedProductChangedFileCount: 1,
         readinessCompositeScore: 92,
         readinessLabel: "spec_ready",
         completionCandidateStatus: "candidate",
@@ -325,7 +342,7 @@ describe("core product loop smoke", () => {
     expect(evidence.checked).toEqual(expect.arrayContaining([
       "idea intake reached a broad generated question backlog before implementation",
       "single-session pet-lifecycle idea reached domain-fit questions, answer-linked research, follow-up questions, planning_ready, initial_pr, and generated software scaffold",
-      "same-session worker proof reused the Planning Handoff run and advanced beyond initial_pr with completed ledger evidence",
+      "same-session worker proof reused the Planning Handoff run, targeted generated-product files, and advanced beyond initial_pr with completed ledger evidence",
       "positive readiness handoff proved spec_ready candidate, planning_ready artifact, and initial_pr auto implementation start",
       "auto implementation pipeline reached runtime preview, worker ledger import, PR mutation, review-loop, and merge_main fixture evidence"
     ]));

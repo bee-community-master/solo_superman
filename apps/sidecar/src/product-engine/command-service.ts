@@ -1515,6 +1515,34 @@ function sameAutoImplementationWorkerLedgerStepDoc(left: unknown, right: Impleme
     sameAutoImplementationWorkerLedgerStringArray(left.sourceRefs, right.sourceRefs);
 }
 
+function autoImplementationWorkerGeneratedProductTargets(workerJob: AutoImplementationWorkerJob) {
+  return workerJob.executionPlan.allowedWriteScope.filter((path) => path.startsWith("generated-product/"));
+}
+
+function assertAutoImplementationWorkerGeneratedProductLedgerMatchesPlan(input: {
+  readonly ledgerStep: ImplementationStepRecord;
+  readonly workerJob: AutoImplementationWorkerJob;
+}) {
+  const generatedProductTargets = autoImplementationWorkerGeneratedProductTargets(input.workerJob);
+
+  if (generatedProductTargets.length === 0) {
+    return;
+  }
+
+  const changedFiles = input.ledgerStep.stepCommitRecord?.changedFiles ?? [];
+
+  if (!changedFiles.some((file) => file.startsWith("generated-product/"))) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      "Auto implementation worker completion requires generated-product changed-file evidence for generated product targets.",
+      {
+        implementationStepId: input.ledgerStep.stepDoc.stepId,
+        generatedProductTargets
+      }
+    );
+  }
+}
+
 function autoImplementationWorkerLedgerImportMismatch(
   workerJob: AutoImplementationWorkerJob,
   transitions: readonly RecordImplementationStepLedgerPayload[]
@@ -1564,6 +1592,8 @@ function assertAutoImplementationWorkerCompletionLedgerMatchesPlan(input: {
       }
     );
   }
+
+  assertAutoImplementationWorkerGeneratedProductLedgerMatchesPlan({ ledgerStep, workerJob });
 }
 
 function normalizeLegacyAutoImplementationWorkerJob(
@@ -1757,6 +1787,18 @@ function autoImplementationWorkerNextRequiredAction(missingEvidence: readonly st
   return "Run the local Codex worker inside the bounded plan, then import ImplementationStepLedger evidence before advancing the stage.";
 }
 
+const AUTO_IMPLEMENTATION_GENERATED_PRODUCT_WORKER_TARGET_PATHS = [
+  "generated-product/product-slice.json",
+  "generated-product/src/product-slice.mjs",
+  "generated-product/src/product-slice.test.mjs"
+] as const;
+
+const AUTO_IMPLEMENTATION_GENERATED_PRODUCT_WORKER_REQUIRED_EVIDENCE = [
+  "generated-product product-slice JSON/module inspected as the implementation source artifact",
+  "StepCommitRecord.changedFiles includes a generated-product path when the scaffold exists",
+  "generated-product smoke test evidence is recorded or a blocker explains why product behavior could not be verified"
+] as const;
+
 function autoImplementationWorkerPlan(input: {
   readonly run: AutoImplementationRun;
   readonly issue: AutoImplementationRun["issueManagement"]["issueDocs"][number];
@@ -1765,9 +1807,15 @@ function autoImplementationWorkerPlan(input: {
 }) {
   const planningPlanEvidenceRef = input.run.evidenceRefs.find((ref) => ref.startsWith("planning-handoff-plan:"));
   const planningIssueEvidenceRefs = autoImplementationPlanningIssueEvidenceRefs(input.run);
+  const generatedProductArtifactRefs = input.run.evidenceRefs.filter((ref) =>
+    ref.startsWith("generated-software-artifact:generated-product/")
+  );
   const activePlanningIssueDocRefs = input.run.issueManagement.planningIssueDocs
     .filter((issue) => issue.status === "active")
     .map((issue) => `planning-issue-doc:${issue.relativePath}`);
+  const generatedProductTargetPaths = generatedProductArtifactRefs.length
+    ? AUTO_IMPLEMENTATION_GENERATED_PRODUCT_WORKER_TARGET_PATHS
+    : [];
   const sourceRefs = [
     `auto-implementation-run:${input.run.runId}`,
     `auto-implementation-stage:${input.issue.stage}`,
@@ -1775,6 +1823,7 @@ function autoImplementationWorkerPlan(input: {
     `issue-doc:${input.issue.relativePath}`,
     ...(planningPlanEvidenceRef ? [planningPlanEvidenceRef] : []),
     ...planningIssueEvidenceRefs,
+    ...generatedProductArtifactRefs,
     ...activePlanningIssueDocRefs
   ];
 
@@ -1796,10 +1845,18 @@ function autoImplementationWorkerPlan(input: {
     allowedWriteScope: [
       ".",
       input.issue.relativePath,
+      ...generatedProductTargetPaths,
       ".solo-superman/auto-implementation-run.json",
       "implementation-tracker.md"
     ],
-    requiredEvidence: autoImplementationWorkerRequiredEvidence(input.issue.stage),
+    requiredEvidence: [
+      ...autoImplementationWorkerRequiredEvidence(input.issue.stage),
+      ...(
+        generatedProductTargetPaths.length
+          ? AUTO_IMPLEMENTATION_GENERATED_PRODUCT_WORKER_REQUIRED_EVIDENCE
+          : []
+      )
+    ],
     forbiddenActions: [
       "credential, token, session cookie, or secret storage",
       "network writes outside an explicit future contract",
@@ -5694,6 +5751,7 @@ export function createProductEngineCommandService(
         completedTransition.stepDoc.stepId,
         workerJob.stage
       );
+      assertAutoImplementationWorkerGeneratedProductLedgerMatchesPlan({ ledgerStep, workerJob });
       const ledgerEvidence = autoImplementationStageLedgerEvidence(ledger, ledgerStep);
 
       importedJob = {

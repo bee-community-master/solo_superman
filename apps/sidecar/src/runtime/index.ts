@@ -93,6 +93,12 @@ export interface CodexRuntimePreviewFixtureOptions {
   readonly createdAt?: string;
 }
 
+const GENERATED_PRODUCT_WORKER_CHANGED_FILE_CANDIDATES = [
+  "generated-product/product-slice.json",
+  "generated-product/src/product-slice.mjs",
+  "generated-product/src/product-slice.test.mjs"
+] as const;
+
 type CodexClientRequestFor<Method extends CodexAppServerClientRequest["method"]> = Extract<
   CodexAppServerClientRequest,
   { method: Method }
@@ -1534,6 +1540,9 @@ function codexWorkerLedgerTransitionTemplate(input: CodexWorkerExecutionInput): 
   const stepId = input.ledgerStepDoc.stepId;
   const previousCommitSha = "__REPLACE_WITH_PREVIOUS_COMMIT_SHA__";
   const commitSha = "__REPLACE_WITH_COMMIT_SHA__";
+  const changedFilePlaceholders = workerChangedFileTargets(input).length
+    ? workerChangedFileTargets(input)
+    : ["__REPLACE_WITH_CHANGED_FILE_PATH__"];
   const baseTransition = {
     trackerDoc: "__COPY_LEDGER_TRACKER_DOC_EXACTLY__",
     stepDoc: "__COPY_LEDGER_STEP_DOC_EXACTLY__"
@@ -1543,7 +1552,7 @@ function codexWorkerLedgerTransitionTemplate(input: CodexWorkerExecutionInput): 
     commitSha,
     previousCommitSha,
     diffRange: `${previousCommitSha}..${commitSha}`,
-    changedFiles: ["__REPLACE_WITH_CHANGED_FILE_PATH__"],
+    changedFiles: changedFilePlaceholders,
     rollbackRef: `rollback:git-revert:${commitSha}`,
     evidenceRefs: [`commit:${commitSha}`]
   };
@@ -1642,6 +1651,18 @@ function isCodexWorkerProtocolSmoke(input: CodexWorkerExecutionInput) {
   ].join(" ");
 
   return /worker[-_]job[-_]smoke|worker-job-smoke-demo/iu.test(protocolText);
+}
+
+function workerChangedFileTargets(input: CodexWorkerExecutionInput) {
+  const generatedProductTargets = GENERATED_PRODUCT_WORKER_CHANGED_FILE_CANDIDATES.filter((candidate) =>
+    input.allowedWriteScope.includes(candidate)
+  );
+
+  if (generatedProductTargets.length > 0) {
+    return generatedProductTargets;
+  }
+
+  return input.issueDocumentPath ? [input.issueDocumentPath] : [];
 }
 
 function codexWorkerProtocolSmokeOutputTemplate(input: CodexWorkerExecutionInput): Readonly<Record<string, unknown>> {
@@ -1745,6 +1766,7 @@ function codexWorkerPrompt(input: CodexWorkerExecutionInput) {
     "Execute one Solo Superman auto-implementation worker job in the local generated workspace.",
     "Stay inside the allowed workspace write scope. Do not request credentials, read secret values, perform network writes, deploy, submit to production, or mutate external accounts.",
     "Implement the issue slice if it is safe, run local verification, perform the required code-review and clean-code review loops, and return ImplementationStepLedger transitions as JSON.",
+    "When allowedWriteScope includes generated-product paths, treat generated-product/product-slice.json as the authoritative product data model and generated-product/src/product-slice.mjs as the runnable product behavior; completed StepCommitRecord.changedFiles must include at least one generated-product path or the output must be blocked with a concrete reason.",
     "Completion requires separate CodeReviewRecord transitions for two consecutive no-finding passes in both feature and repository reviewScope.",
     "Completion requires separate CleanCodeReviewRecord transitions for two consecutive no-finding passes in both changed_code and repository reviewScope; do not reuse code review records as clean-code records.",
     "If any review or clean-code pass finds actionable work, apply the fix first and restart that scope's two-pass no-finding streak after the fix.",
@@ -2479,6 +2501,25 @@ export function assertCodexWorkerExecutionOutputMatchesInput(
       throw new Error(`Codex worker ledger transition ${index + 1} must use the planned ImplementationStepLedger stepDoc.`);
     }
   }
+
+  const generatedProductTargets = workerChangedFileTargets(input).filter((target) => target.startsWith("generated-product/"));
+
+  if (generatedProductTargets.length > 0) {
+    const changedFiles = output.ledgerTransitions.flatMap((transition, index) => {
+      if (!transition.stepCommitRecord) {
+        return [];
+      }
+
+      return stringArray(
+        transition.stepCommitRecord.changedFiles,
+        `ledgerTransitions[${index}].stepCommitRecord.changedFiles`
+      );
+    });
+
+    if (!changedFiles.some((file) => file.startsWith("generated-product/"))) {
+      throw new Error("Codex worker completed output must record a generated-product changed file when generated product targets are in scope.");
+    }
+  }
 }
 
 function stripNullWorkerLedgerTransitionFields(
@@ -2592,7 +2633,8 @@ function fixtureCodexWorkerExecutionTransitions(input: CodexWorkerExecutionInput
   const fixtureTestEvidenceRecord = IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE.testEvidenceRecords[0]!;
   const stepCommitRecord = {
     ...fixtureStepCommitRecord,
-    stepId: input.ledgerStepDoc.stepId
+    stepId: input.ledgerStepDoc.stepId,
+    changedFiles: workerChangedFileTargets(input)
   };
   const testEvidenceRecord = {
     ...fixtureTestEvidenceRecord,

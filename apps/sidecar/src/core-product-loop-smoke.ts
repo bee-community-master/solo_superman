@@ -67,6 +67,7 @@ export interface CoreProductLoopSmokeEvidence {
     readonly singleSessionGeneratedProductFirstIssueTaskCount: number;
     readonly sameSessionWorkerStageAfter: string;
     readonly sameSessionWorkerLedgerStatus: string;
+    readonly sameSessionWorkerGeneratedProductChangedFileCount: number;
     readonly readinessCompositeScore: number;
     readonly readinessLabel: string;
     readonly completionCandidateStatus: string;
@@ -131,6 +132,8 @@ function loopSummary(stages: CoreProductLoopSmokeEvidence["stages"]): CoreProduc
       stages.singleSession.loop?.generatedProductFirstIssueTaskCount ?? 0,
     sameSessionWorkerStageAfter: stages.singleSessionImplementation.worker?.stageAfter ?? "unknown",
     sameSessionWorkerLedgerStatus: stages.singleSessionImplementation.worker?.ledgerStatus ?? "unknown",
+    sameSessionWorkerGeneratedProductChangedFileCount:
+      stages.singleSessionImplementation.worker?.generatedProductChangedFileCount ?? 0,
     readinessCompositeScore: stages.readinessToImplementation.readiness?.compositeScore ?? 0,
     readinessLabel: stages.readinessToImplementation.readiness?.readinessLabel ?? "unknown",
     completionCandidateStatus: stages.readinessToImplementation.readiness?.completionCandidateStatus ?? "unknown",
@@ -212,6 +215,9 @@ function loopBlockers(stages: CoreProductLoopSmokeEvidence["stages"]) {
   if (loop.sameSessionWorkerStageAfter === "initial_pr" || loop.sameSessionWorkerStageAfter === "unknown") {
     blockers.push(`single-session worker proof must advance beyond initial_pr; received ${loop.sameSessionWorkerStageAfter}`);
   }
+  if (loop.sameSessionWorkerGeneratedProductChangedFileCount < 1) {
+    blockers.push("single-session worker proof must record generated-product changed-file evidence.");
+  }
   if (loop.readinessCompositeScore < 85) {
     blockers.push(`core loop readiness score must reach 85 before implementation; received ${loop.readinessCompositeScore}`);
   }
@@ -250,7 +256,7 @@ function checkedEvidence(stages: CoreProductLoopSmokeEvidence["stages"]) {
   return [
     "idea intake reached a broad generated question backlog before implementation",
     "single-session pet-lifecycle idea reached domain-fit questions, answer-linked research, follow-up questions, planning_ready, initial_pr, and generated software scaffold",
-    "same-session worker proof reused the Planning Handoff run and advanced beyond initial_pr with completed ledger evidence",
+    "same-session worker proof reused the Planning Handoff run, targeted generated-product files, and advanced beyond initial_pr with completed ledger evidence",
     "clarification answer submission created visible follow-up and research task debt",
     "public-web research provider polling imported source-traced evidence and generated follow-up questions",
     "generated follow-up research starts with prior source refs or markdown memory as baseline context",

@@ -102,7 +102,13 @@ function codexWorkerInputFixture(): CodexWorkerExecutionInput {
     workingDirectory: "/tmp/solo-superman/worker-job-demo",
     issueDocumentPath: "implementation-issues/001-initial_pr.md",
     executionAuthorityRef: "exec_auth_auto_worker_initial_pr",
-    allowedWriteScope: ["/tmp/solo-superman/worker-job-demo"],
+    allowedWriteScope: [
+      ".",
+      "implementation-issues/001-initial_pr.md",
+      "generated-product/product-slice.json",
+      "generated-product/src/product-slice.mjs",
+      "generated-product/src/product-slice.test.mjs"
+    ],
     requiredEvidence: ["ImplementationStepLedger completed step"],
     forbiddenActions: ["No network writes", "No credential reads"],
     sourceRefs: ["auto-implementation-run:auto_run_demo", "execution-authority:exec_auth_auto_worker_initial_pr"],
@@ -895,6 +901,14 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     });
     expect(turnStartRequest.params.input[0]).toMatchObject({
       type: "text",
+      text: expect.stringContaining("generated-product/product-slice.json as the authoritative product data model")
+    });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("generated-product/src/product-slice.mjs")
+    });
+    expect(turnStartRequest.params.input[0]).toMatchObject({
+      type: "text",
       text: expect.stringContaining("__COPY_LEDGER_TRACKER_DOC_EXACTLY__")
     });
     expect(turnStartRequest.params.outputSchema).toMatchObject({
@@ -1006,7 +1020,11 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       evidenceRefs: ["codex-worker:fixture:completed"]
     });
     expect(output.ledgerTransitions.at(-1)?.stepCommitRecord).toMatchObject({
-      stepId: input.ledgerStepDoc.stepId
+      stepId: input.ledgerStepDoc.stepId,
+      changedFiles: expect.arrayContaining([
+        "generated-product/product-slice.json",
+        "generated-product/src/product-slice.mjs"
+      ])
     });
     const codeReviewScopes = output.ledgerTransitions
       .flatMap((transition) => transition.codeReviewRecord ? [transition.codeReviewRecord.reviewScope] : []);
@@ -1107,6 +1125,23 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         }))
       })
     ).toThrow("must use the planned ImplementationStepLedger stepDoc");
+
+    expect(() =>
+      assertCodexWorkerExecutionOutputMatchesInput(input, {
+        ...output,
+        ledgerTransitions: output.ledgerTransitions.map((transition) => ({
+          ...transition,
+          ...(transition.stepCommitRecord
+            ? {
+                stepCommitRecord: {
+                  ...transition.stepCommitRecord,
+                  changedFiles: [input.issueDocumentPath]
+                }
+              }
+            : {})
+        }))
+      })
+    ).toThrow("must record a generated-product changed file");
   });
 
   it("rejects worker output that leaks secret-like text or claims external production mutation", () => {

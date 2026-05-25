@@ -38,8 +38,16 @@ describe("single-session live implementation smoke", () => {
       jobStatus: "completed",
       stageBefore: "initial_pr",
       stageAfter: "code_review_fix_1",
-      ledgerStatus: "completed"
+      ledgerStatus: "completed",
+      generatedProductChangedFiles: expect.arrayContaining([
+        "generated-product/product-slice.json"
+      ])
     });
+    expect(evidence.worker?.generatedProductChangedFileCount).toBeGreaterThanOrEqual(1);
+    expect(evidence.worker?.generatedProductAllowedScope).toEqual(expect.arrayContaining([
+      "generated-product/product-slice.json",
+      "generated-product/src/product-slice.mjs"
+    ]));
     expect(evidence.checked).toContain(
       "same-session auto implementation run reused the Planning Handoff run instead of creating a detached worker smoke run"
     );
