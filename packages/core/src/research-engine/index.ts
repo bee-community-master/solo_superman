@@ -165,6 +165,7 @@ type AdditionalQuestionAnswerIntent =
   | "multi_choice"
   | "ranked_choice"
   | "single_customer_choice"
+  | "multi_customer_choice"
   | "multi_signal_choice"
   | "answer_form_policy"
   | "evidence_judgment";
@@ -192,6 +193,10 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
   const asksForNamedCandidateChoice =
     /(?:후보|선택지|옵션|종류|유형|타입|성향|세그먼트|persona|segment|customer\s*(?:segment|persona|type)|which\s+(?:customer|segment|option))/iu.test(topic);
   const asksForSignalOrCriteriaChoice = /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic);
+  const asksForMultiChoice =
+    /(?:복수|모두|해당|다중|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)\s*(?:선택|고르)|둘\s*이상|multi[-\s]?select|one\s+or\s+more|select\s+all)/iu.test(
+      topic
+    );
   const asksForBinaryChoice =
     /(?:(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|찬반|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|어느|선택|고르|판단|(?:의견|답변|방향)?(?:을|를)?\s*(?:하|할|선택|고르|골라|판단|정|답))|(?:진행|채택|반영|동의|찬성|반대)\s*여부|(?:할지|갈지|진행할지|반영할지|채택할지)\s*(?:여부|말지)|양자\s*택일|양자택일|동의하시|찬성하시|반대하시|해야\s*(?:할까|하나|할지)|yes\s*[/ ]?no|whether\s+to|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(topic);
   const asksForSingleChoice =
@@ -215,20 +220,24 @@ function additionalQuestionAnswerIntentForObjective(objective: string): Addition
     return "binary_choice";
   }
 
+  if (asksForRanking) {
+    return "ranked_choice";
+  }
+
+  if (asksForMultiChoice) {
+    if (asksForCustomerChoice) {
+      return "multi_customer_choice";
+    }
+
+    return asksForSignalOrCriteriaChoice ? "multi_signal_choice" : "multi_choice";
+  }
+
   if (asksForCustomerChoice && (!asksForNarrative || asksForForcedChoice || asksForExplicitChoice)) {
     return "single_customer_choice";
   }
 
   if (asksForBinaryChoice && !asksForNamedCandidateChoice && !asksForSignalOrCriteriaChoice) {
     return "binary_choice";
-  }
-
-  if (asksForRanking) {
-    return "ranked_choice";
-  }
-
-  if (/(?:복수|모두|해당|다중|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|여러\s*(?:개|항목)\s*(?:선택|고르)|둘\s*이상|multi[-\s]?select|one\s+or\s+more|select\s+all)/iu.test(topic)) {
-    return /(?:신호|조건|요인|기준|signals?|criteria|factors?)/iu.test(topic) ? "multi_signal_choice" : "multi_choice";
   }
 
   if (asksForSingleChoice) {
@@ -487,6 +496,15 @@ function promptSentenceForAnswerIntent(
 
       return `${lead}\n${bulletedQuestionCandidates(candidates)}\n\n어느 성향의 고객에 집중하시겠습니까?`;
     }
+    case "multi_customer_choice": {
+      const evidenceCandidates = customerCandidateLabelsFromEvidence(context);
+      const candidates = evidenceCandidates.length ? evidenceCandidates : DEFAULT_CUSTOMER_CANDIDATES;
+      const lead = evidenceCandidates.length
+        ? "리서치 단서에서 함께 비교할 고객 후보는 다음과 같습니다:"
+        : "이 정보를 바탕으로 함께 비교할 고객 후보는 다음과 같습니다:";
+
+      return `${lead}\n${bulletedQuestionCandidates(candidates)}\n\n해당되는 고객 후보를 하나 이상 선택해주세요. 필요하면 선택지 조합이나 빠진 후보를 직접 적어도 됩니다.`;
+    }
     case "multi_signal_choice": {
       const evidenceSignals = customerSignalLabelsFromEvidence(context);
       const signals = evidenceSignals.length ? evidenceSignals : DEFAULT_CUSTOMER_SIGNAL_CANDIDATES;
@@ -532,6 +550,8 @@ function unlockSentenceForAnswerIntent(intent: AdditionalQuestionAnswerIntent, t
   switch (intent) {
     case "single_customer_choice":
       return "이 답으로 정해지는 내용은 첫 인터뷰 대상, 리서치 초점, MVP 범위를 어느 고객 성향에 맞출지입니다.";
+    case "multi_customer_choice":
+      return "이 답으로 정해지는 내용은 첫 검증 배치에서 동시에 비교하거나 유지할 고객 후보와 제외할 고객 후보입니다.";
     case "multi_signal_choice":
       return "이 답으로 정해지는 내용은 다음 리서치/인터뷰에서 동시에 확인할 고객 신호와 검증 체크리스트입니다.";
     case "answer_form_policy":

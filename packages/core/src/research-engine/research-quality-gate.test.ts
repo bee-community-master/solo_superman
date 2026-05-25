@@ -310,6 +310,26 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).toContain("어느 성향의 고객에 집중");
   });
 
+  it("keeps customer segment one-or-more objectives as multi-select prompts", () => {
+    const researchTask = task({
+      objective:
+        "고객 세그먼트 후보는 독립 컨설턴트, 부트캠프 강사, 소규모 에이전시 운영자입니다. 여러 종류 중 하나 혹은 여러 개를 선택해야 합니다."
+    });
+    const researchResult = result({
+      result: "Pro: multiple customer segments may fit the first validation batch.",
+      limitationNotes: "The exact customer combination still needs direct founder selection."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("함께 비교할 고객 후보");
+    expect(matrix.additionalQuestions[0]).toContain("- 독립 컨설턴트");
+    expect(matrix.additionalQuestions[0]).toContain("- 부트캠프 강사");
+    expect(matrix.additionalQuestions[0]).toContain("- 소규모 에이전시 운영자");
+    expect(matrix.additionalQuestions[0]).toContain("고객 후보를 하나 이상 선택");
+    expect(matrix.additionalQuestions[0]).not.toContain("어느 성향의 고객에 집중");
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+  });
+
   it("uses exact signal candidates named by research evidence in multi-select prompts", () => {
     const researchTask = task({
       objective: "다음 인터뷰에서 확인할 고객 신호와 조건 여러 개 선택"
