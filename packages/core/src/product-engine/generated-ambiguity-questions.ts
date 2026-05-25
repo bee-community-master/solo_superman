@@ -92,6 +92,10 @@ const USER_FACING_GENERATED_QUESTION_JARGON_PATTERN =
   /\b(?:primary\s+customer|planning-ready|high-impact\s+gate|quality-gate|pro\/con|MVP)\b/iu;
 const GENERIC_RESEARCH_TASK_PATTERN =
   /^(?:추가\s*리서치(?:가)?\s*(?:필요|하기|진행)?|자료\s*더\s*찾기|근거\s*더\s*찾기|리서치\s*필요|do\s+more\s+research|additional\s+research\s+needed|research\s+needed)$/iu;
+const RESEARCH_SOURCE_SEEKING_CUE_PATTERN =
+  /(?:공개|출처|자료|후기|커뮤니티|리포트|보고서|통계|가이드|가격|정책|규정|경쟁|대체재|사례|리뷰|forum|community|review|report|source|public|statistic|guide|policy|pricing|competitor|alternative|case)/iu;
+const RESEARCH_SKEPTICAL_CUE_PATTERN =
+  /(?:반례|반대|부족|약하|흔들|불확실|한계|위험|실패|다른|여전히|남는|counter|contrary|weaken|missing|gap|uncertain|uncertainty|limit|risk|fail|skeptical)/iu;
 const DECISION_AXIS_PATTERNS = [
   /(?:누구|어떤\s*(?:고객|사용자|보호자|사람|조직|세그먼트)|who|customer|user|segment)/iu,
   /(?:기능|어디까지|범위|무엇을\s*(?:만들|제공|포함)|feature|scope)/iu,
@@ -132,6 +136,14 @@ function isGenericResearchTask(value: string | undefined) {
   const normalized = normalizedResearchTaskText(value);
 
   return GENERIC_RESEARCH_TASK_PATTERN.test(normalized);
+}
+
+function researchTaskHasSourceSeekingCue(value: string | undefined) {
+  return Boolean(value && RESEARCH_SOURCE_SEEKING_CUE_PATTERN.test(value));
+}
+
+function researchTaskHasSkepticalCue(value: string | undefined) {
+  return Boolean(value && RESEARCH_SKEPTICAL_CUE_PATTERN.test(value));
 }
 
 function questionHasMultipleDecisionAxes(question: string) {
@@ -373,6 +385,13 @@ function parseGeneratedQuestion(
       issue(issues, `${path}.suggestedResearchTask`, "must state a concrete source-seeking task for current research");
     } else if (isGenericResearchTask(suggestedResearchTask)) {
       issue(issues, `${path}.suggestedResearchTask`, "must be a concrete source-seeking task, not a generic request for more research");
+    } else {
+      if (!researchTaskHasSourceSeekingCue(suggestedResearchTask)) {
+        issue(issues, `${path}.suggestedResearchTask`, "must name the source area or public evidence to inspect");
+      }
+      if (!researchTaskHasSkepticalCue(suggestedResearchTask)) {
+        issue(issues, `${path}.suggestedResearchTask`, "must name what would weaken the assumption or what uncertainty should remain");
+      }
     }
     if (!routes.includes("research_needed")) {
       issue(issues, `${path}.routes`, "must include research_needed when ambiguityRoutingPath is current_research");
@@ -418,7 +437,13 @@ function parseGeneratedQuestion(
     questionHasMultipleDecisionAxes(question) ||
     !routes.length ||
     routes.some((route) => !ALLOWED_ROUTES.has(route)) ||
-    (ambiguityRoutingPath === "current_research" && (!researchQuestion || !suggestedResearchTask || isGenericResearchTask(suggestedResearchTask) || !routes.includes("research_needed"))) ||
+    (ambiguityRoutingPath === "current_research" &&
+      (!researchQuestion ||
+        !suggestedResearchTask ||
+        isGenericResearchTask(suggestedResearchTask) ||
+        !researchTaskHasSourceSeekingCue(suggestedResearchTask) ||
+        !researchTaskHasSkepticalCue(suggestedResearchTask) ||
+        !routes.includes("research_needed"))) ||
     (ambiguityRoutingPath !== "current_research" && isGenericResearchTask(suggestedResearchTask)) ||
     (requiresOptions && answerOptions.length < 3) ||
     (!requiresOptions && rawOptions.length > 0)
@@ -445,6 +470,26 @@ function parseGeneratedQuestion(
     ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
     sourceRef
   } satisfies GeneratedAmbiguityQuestionSeed;
+}
+
+function generatedQuestionSetIssues(questions: readonly GeneratedAmbiguityQuestionSeed[]) {
+  const issues: string[] = [];
+  const hasPressureQuestion = questions.some(
+    (question) =>
+      question.ambiguityDimension === "assumption_pressure" ||
+      question.uncertaintyType === "missing_con_evidence" ||
+      question.routes.includes("missing_con_evidence")
+  );
+
+  if (!hasPressureQuestion) {
+    issue(
+      issues,
+      "$.questions",
+      "must include at least one pressure question that challenges an assumption, tradeoff, counterexample, or missing counter-evidence"
+    );
+  }
+
+  return issues;
 }
 
 export function parseGeneratedAmbiguityQuestionSet(
@@ -487,11 +532,14 @@ export function parseGeneratedAmbiguityQuestionSet(
       return parsed;
     })
     .filter((question): question is GeneratedAmbiguityQuestionSeed => question !== null);
-  const contextualIssues = issues.length === 0
+  const setIssues = issues.length === 0
+    ? generatedQuestionSetIssues(questions)
+    : [];
+  const contextualIssues = issues.length === 0 && setIssues.length === 0
     ? contextualGeneratedQuestionIssues(questions, context.contextText)
     : [];
 
-  issues.push(...contextualIssues);
+  issues.push(...setIssues, ...contextualIssues);
 
   return {
     ok: issues.length === 0,

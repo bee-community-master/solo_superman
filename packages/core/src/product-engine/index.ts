@@ -1040,6 +1040,65 @@ type AmbiguityIssueSeed = {
   readonly sourceRef?: string;
 };
 
+function inferredAmbiguityDimensionForSeed(
+  seed: AmbiguityIssueSeed
+): NonNullable<AmbiguityIssueSnapshot["ambiguityDimension"]> {
+  if (seed.ambiguityDimension) {
+    return seed.ambiguityDimension;
+  }
+
+  const key = `${seed.sectionRef} ${seed.topicKey}`.toLowerCase();
+
+  if (
+    seed.businessCriticPressureKind ||
+    seed.uncertaintyType === "missing_con_evidence" ||
+    seed.routes.includes("missing_con_evidence")
+  ) {
+    return "assumption_pressure";
+  }
+
+  if (/(?:buyer_user|decision|decider|approval|payer|purchase|구매자|결정권|승인)/u.test(key)) {
+    return "decision_authority";
+  }
+
+  if (/(?:target customer|customer|segment|mvp scope|non-goals|scope|boundary|범위|비목표|고객|세그먼트)/u.test(key)) {
+    return "scope";
+  }
+
+  if (/(?:success|validation|metric|experiment|retention|criteria|성공|검증|실험|지표)/u.test(key)) {
+    return "success_criteria";
+  }
+
+  if (/(?:constraint|risk|legal|ops|security|resource|policy|제약|위험|법무|운영|보안|리소스)/u.test(key)) {
+    return "constraints";
+  }
+
+  if (/(?:problem|goal|value proposition|job|jtbd|문제|목표|가치)/u.test(key)) {
+    return "goal";
+  }
+
+  return "context";
+}
+
+function inferredAmbiguityRoutingPathForSeed(
+  seed: AmbiguityIssueSeed
+): NonNullable<AmbiguityIssueSnapshot["ambiguityRoutingPath"]> {
+  if (seed.ambiguityRoutingPath) {
+    return seed.ambiguityRoutingPath;
+  }
+
+  if (
+    seed.routes.includes("research_needed") ||
+    seed.expectedAnswerType === "evidence" ||
+    seed.uncertaintyType === "unsupported" ||
+    seed.uncertaintyType === "missing_con_evidence"
+  ) {
+    return "current_research";
+  }
+
+  return "human_judgment";
+}
+
 interface OnboardingQuestionContext {
   readonly idea?: string;
   readonly goal?: string;
@@ -1702,6 +1761,8 @@ function createAmbiguityIssuesFromSeeds(input: {
     const businessCriticCategory = categoryForBusinessSeed(seed);
     const suggestedResearchTask = suggestedResearchTaskForSeed(seed, context, input.source);
     const answerSelectionMode = seed.answerSelectionMode ?? (seed.expectedAnswerType === "rank" ? "ranked" : undefined);
+    const ambiguityDimension = inferredAmbiguityDimensionForSeed(seed);
+    const ambiguityRoutingPath = inferredAmbiguityRoutingPathForSeed(seed);
 
     return {
       queueItemId: `queue_${token}_${index + 1}` as QueueItemId,
@@ -1733,8 +1794,8 @@ function createAmbiguityIssuesFromSeeds(input: {
         contextText: generatedQuestionSetContextText(context)
       }),
       decisionItUnlocks: seed.decisionItUnlocks,
-      ...(seed.ambiguityDimension ? { ambiguityDimension: seed.ambiguityDimension } : {}),
-      ...(seed.ambiguityRoutingPath ? { ambiguityRoutingPath: seed.ambiguityRoutingPath } : {}),
+      ambiguityDimension,
+      ambiguityRoutingPath,
       ...(seed.researchQuestion ? { researchQuestion: seed.researchQuestion } : {}),
       ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
       repeatCount: 0,

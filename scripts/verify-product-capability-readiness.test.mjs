@@ -50,7 +50,7 @@ function ideaClarificationCheckedBehaviors() {
     "Active question batches stay bounded while long sessions can process 200+ question/answer loops.",
     "Clarification question cards and generated follow-ups support open text subjective/narrative prompts, binary stance, one-of-many single choice, one-or-more multi-select, ranked, evidence, and experiment answer formats instead of reusing one pro/con shape.",
     "Initial ambiguity questions can come from a prompt artifact that asks Codex for generated JSON with domain-fit questions before deterministic fallback.",
-    "Generated questions apply the ambiguity-reduction algorithm by tagging the weakest dimension, separating fact-checking/current research/human judgment, and carrying a concrete researchQuestion into the answer-triggered research objective.",
+    "Generated questions apply the ambiguity-reduction algorithm by tagging the weakest dimension, separating fact-checking/current research/human judgment, requiring at least one pressure question, and carrying a concrete researchQuestion plus source-seeking research task into the answer-triggered research objective.",
     "Answer submission stays non-blocking while background research starts and automatic queue refill continue after the answer is persisted.",
     "Answers produce follow-up debt and research-task debt instead of hidden notes.",
     "Question-debt completion and Planning Handoff blockers remain visible before Planning-ready."
@@ -175,7 +175,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, generated research targets, non-blocking answer submission, mounted research provider polling, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, pressure questions, generated source-seeking research targets, non-blocking answer submission, mounted research provider polling, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
@@ -250,6 +250,8 @@ describe("product capability readiness verification", () => {
                 !behavior.includes("prompt artifact") &&
                 !behavior.includes("generated JSON") &&
                 !behavior.includes("domain-fit") &&
+                !behavior.includes("pressure question") &&
+                !behavior.includes("source-seeking research task") &&
                 !behavior.includes("non-blocking")
               )
             }
@@ -273,6 +275,8 @@ describe("product capability readiness verification", () => {
       "$.capabilities[0].checkedBehaviors: must mention prompt artifact",
       "$.capabilities[0].checkedBehaviors: must mention generated JSON",
       "$.capabilities[0].checkedBehaviors: must mention domain-fit",
+      "$.capabilities[0].checkedBehaviors: must mention pressure question",
+      "$.capabilities[0].checkedBehaviors: must mention source-seeking research task",
       "$.capabilities[0].checkedBehaviors: must mention non-blocking",
       "$.capabilities[0].checkedBehaviors: must mention background research starts",
       "$.capabilities[0].checkedBehaviors: must mention automatic queue refill"
