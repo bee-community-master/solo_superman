@@ -16,6 +16,7 @@ import {
   codexAccountStatusFromAccountReadResponse,
   codexWslShellCommand,
   createCodexRuntimeAdapter,
+  codexWorkerProtocolSmokeOutputTemplate,
   fixtureCodexWorkerExecutionOutput,
   fixtureCodexPreviewOutput,
   parseCodexWorkerExecutionOutput,
@@ -993,6 +994,15 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     expect(prompt).toContain("Acknowledge one Solo Superman live worker-job protocol smoke");
     expect(prompt).toContain("status: acknowledged");
     expect(prompt).toContain("Do not call tools, do not edit files, do not run shell commands");
+
+    const protocolOutput = validateCodexWorkerExecutionOutput(codexWorkerProtocolSmokeOutputTemplate(smokeInput));
+
+    expect(() => assertCodexWorkerExecutionOutputMatchesInput(smokeInput, protocolOutput)).not.toThrow();
+    expect(protocolOutput.ledgerTransitions.at(-1)?.stepCommitRecord).toMatchObject({
+      changedFiles: expect.arrayContaining([
+        "generated-product/product-slice.json"
+      ])
+    });
   });
 
   it("validates worker execution fixture output with completed ledger evidence", async () => {
