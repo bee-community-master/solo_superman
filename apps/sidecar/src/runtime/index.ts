@@ -1665,13 +1665,14 @@ function workerChangedFileTargets(input: CodexWorkerExecutionInput) {
   return input.issueDocumentPath ? [input.issueDocumentPath] : [];
 }
 
-function codexWorkerProtocolSmokeOutputTemplate(input: CodexWorkerExecutionInput): Readonly<Record<string, unknown>> {
+export function codexWorkerProtocolSmokeOutputTemplate(input: CodexWorkerExecutionInput): Readonly<Record<string, unknown>> {
+  const changedFiles = workerChangedFileTargets(input);
   const protocolStepCommitRecord = {
     stepId: input.ledgerStepDoc.stepId,
     commitSha: "abc1234",
     previousCommitSha: "def5678",
     diffRange: "def5678..abc1234",
-    changedFiles: [input.issueDocumentPath],
+    changedFiles,
     rollbackRef: "rollback:protocol-smoke:no-production-change",
     evidenceRefs: ["commit:live-protocol-smoke"]
   };
