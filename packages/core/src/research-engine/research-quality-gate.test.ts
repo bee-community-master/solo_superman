@@ -165,6 +165,25 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).toContain("어느 성향의 고객에 집중");
   });
 
+  it("asks for direct customer candidates instead of inventing generic founder options", () => {
+    const researchTask = task({
+      objective: "첫 고객 세그먼트 후보 중 하나 선택"
+    });
+    const researchResult = result({
+      result: "Pro: public sources confirm scattered records and repeated manual comparison pain.",
+      limitationNotes: "The actual first customer segment split remains unclear."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+    const question = matrix.additionalQuestions[0] ?? "";
+
+    expect(question).toContain("선택지 없이");
+    expect(question).toContain("첫 고객 후보를 2~4개로 직접 적고");
+    expect(question).not.toContain("혼자 만드는 초기 창업자");
+    expect(question).not.toContain("도메인 전문 1인 빌더");
+    expect(question).not.toContain("팀 리더/운영 담당자");
+    expect(question).not.toContain("어느 성향의 고객에 집중");
+  });
+
   it("uses pet-lifecycle customer candidates instead of generic builder segments for pet app ideas", () => {
     const researchTask = task({
       objective:

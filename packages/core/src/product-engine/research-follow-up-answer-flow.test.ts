@@ -228,6 +228,29 @@ describe("research follow-up answer flow", () => {
     });
   });
 
+  it("keeps customer follow-ups open text when research does not name comparable candidates", () => {
+    const { activeQueueItem, followUpIssue } = synthesizeResearchFollowUp({
+      objective: "리서치로 나온 고객 성향 후보 중 하나를 선택",
+      result: "Pro: public sources confirm scattered records and repeated manual comparison pain.",
+      limitationNotes: "The actual first customer segment split remains unclear."
+    });
+
+    expect(followUpIssue).toMatchObject({
+      expectedAnswerType: "text",
+      questionText: expect.stringContaining("선택지 없이")
+    });
+    expect(followUpIssue?.questionText).toContain("첫 고객 후보를 2~4개로 직접 적고");
+    expect(followUpIssue?.questionText).not.toContain("혼자 만드는 초기 창업자");
+    expect(followUpIssue?.questionText).not.toContain("도메인 전문 1인 빌더");
+    expect(followUpIssue?.questionText).not.toContain("팀 리더/운영 담당자");
+    expect(followUpIssue?.answerSelectionMode).toBeUndefined();
+    expect(followUpIssue?.answerOptions).toEqual([]);
+    expect(activeQueueItem).toMatchObject({
+      expectedAnswerType: "text",
+      answerOptions: []
+    });
+  });
+
   it("sanitizes browser-search adapter meta text and keeps pet lifecycle customer choices", () => {
     const { activeQueueItem, followUpIssue } = synthesizeResearchFollowUp({
       objective: "첫 고객 세그먼트가 너무 넓음",
