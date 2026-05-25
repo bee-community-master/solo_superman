@@ -21,6 +21,10 @@ describe("single-session product loop smoke", () => {
         answeredQuestionCount: 1,
         providerRunStatus: "research_insufficient",
         providerAdapterKind: "web_search_readonly",
+        providerSourceUrls: expect.arrayContaining([
+          "https://example.com/senior-pet-care-records",
+          "https://example.org/pet-insurance-claim-documents"
+        ]),
         followUpQuestionCount: 1,
         readinessCompositeScore: 92,
         readinessLabel: "spec_ready",
@@ -40,6 +44,39 @@ describe("single-session product loop smoke", () => {
       "answer submission created source-linked research task debt in the same session",
       "same-session research synthesis generated follow-up question debt",
       "same-session auto implementation run started at initial_pr with canonical stages"
+    ]));
+  });
+
+  it("can run the same single-session loop through the live-web adapter branch with non-fixture public source URLs", async () => {
+    const evidence = await runSingleSessionProductLoopSmoke({
+      mode: "live_web",
+      liveWebSearch: async ({ now }) => [
+        {
+          title: "Public senior pet care evidence",
+          url: "https://www.nias.go.kr/companion/new_petBoard.do?cmCode=M210524110205412",
+          snippet:
+            "Public companion animal material discusses recurring pet care needs that can support senior pet medical record research.",
+          retrievedAt: now()
+        }
+      ]
+    });
+
+    expect(evidence).toMatchObject({
+      status: "passed",
+      smoke: SINGLE_SESSION_PRODUCT_LOOP_SMOKE,
+      mode: "live_web",
+      loop: {
+        providerAdapterKind: "web_search_readonly",
+        providerSourceUrls: [
+          "https://www.nias.go.kr/companion/new_petBoard.do?cmCode=M210524110205412"
+        ],
+        planningHandoffStatus: "planning_ready",
+        autoImplementationCurrentStage: "initial_pr"
+      }
+    });
+    expect(evidence.checked).toEqual(expect.arrayContaining([
+      "same-session live public-web browser search imported non-fixture source URLs",
+      "same-session web_search_readonly provider polling imported source-traced research evidence"
     ]));
   });
 });

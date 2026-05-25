@@ -28,6 +28,7 @@
       "pnpm verify:worker-job",
       "pnpm verify:pr-mutation",
       "pnpm verify:auto-implementation-review-loop",
+      "pnpm verify:single-session-product-loop:live-web",
       "pnpm verify:release-readiness",
       "pnpm verify:production-mutation-contract -- --require-ready",
       "pnpm verify:ready-release -- --plan-only",
@@ -170,6 +171,7 @@
         "pnpm verify:pr-mutation",
         "pnpm verify:auto-implementation-review-loop",
         "pnpm verify:single-session-product-loop",
+        "pnpm verify:single-session-product-loop:live-web",
         "pnpm verify:readiness-to-implementation",
         "pnpm verify:auto-implementation-pipeline",
         "pnpm verify:core-product-loop"
@@ -183,6 +185,7 @@
         "Every canonical auto-implementation stage requires two consecutive no-finding feature and repository code-review passes, two consecutive no-finding changed-code and repository clean-code passes, a zero-gap missing-test audit, and passing test evidence before completion.",
         "Final merge_main stays blocked until final_verify_pr_update records current PR body evidence with full verification commands plus missing-test audit and test evidence.",
         "The single-session product loop smoke proves one pet-lifecycle idea reaches domain-fit questions, answer-linked research, research follow-up questions, Planning Handoff, and initial_pr auto implementation evidence in the same session.",
+        "The opt-in single-session live-web product loop smoke proves that same pet-lifecycle path can import non-fixture public-web source URLs through the real browser-search adapter branch.",
         "The readiness-to-implementation verifier proves a spec_ready completion candidate becomes a planning_ready handoff before the first auto-implementation run starts.",
         "The end-to-end core product loop smoke proves idea intake, clarification, research follow-up debt, generated follow-up research, readiness-to-implementation handoff, runtime preview, worker, PR mutation, review-loop, and merge_main fixture evidence are connected by one verifier command."
       ]

@@ -56,7 +56,8 @@
     "verify:release-evidence-bundle": "node scripts/verify-release-evidence-bundle.mjs",
     "verify:core-product-loop": "tsx apps/sidecar/src/core-product-loop-smoke.ts",
     "verify:readiness-to-implementation": "tsx apps/sidecar/src/readiness-to-implementation-smoke.ts",
-    "verify:single-session-product-loop": "tsx apps/sidecar/src/single-session-product-loop-smoke.ts"
+    "verify:single-session-product-loop": "tsx apps/sidecar/src/single-session-product-loop-smoke.ts",
+    "verify:single-session-product-loop:live-web": "tsx apps/sidecar/src/single-session-product-loop-smoke.ts --live-web"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
