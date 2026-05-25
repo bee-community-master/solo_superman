@@ -359,40 +359,44 @@ export function releaseLabCommandPlansForChecklist(checklist) {
     }));
 }
 
-function renderReleaseLabCommandPlanMarkdown(checklist, heading = "## Issue-focused release-lab command plan") {
-  const plans = releaseLabCommandPlansForChecklist(checklist);
-  const lines = [heading, ""];
-
+function renderReleaseLabCommandPlanEntries(plans, emptyMessage) {
   if (plans.length === 0) {
-    return [...lines, "- _No issue-focused release-lab command plan matched this checklist._", ""];
+    return [emptyMessage, ""];
   }
 
-  for (const plan of plans) {
-    lines.push(
-      `### #${plan.issueNumber} ${plan.title}`,
-      "",
-      plan.objective,
-      "",
-      "**Issue files**",
-      "",
-      ...bulletList(plan.issueFiles, (file) => `\`${file}\``),
-      "",
-      "**Credential-free local checks**",
-      "",
-      ...checkboxList(plan.credentialFreeCommands, (command) => `\`${command}\``),
-      "",
-      "**Release-lab evidence gates**",
-      "",
-      ...checkboxList(plan.evidenceCommands, (command) => `\`${command}\``),
-      "",
-      "**Filled-bundle and ready-release gates**",
-      "",
-      ...checkboxList(plan.bundleCommands, (command) => `\`${command}\``),
-      ""
-    );
-  }
+  return plans.flatMap((plan) => [
+    `### #${plan.issueNumber} ${plan.title}`,
+    "",
+    plan.objective,
+    "",
+    "**Issue files**",
+    "",
+    ...bulletList(stringList(plan.issueFiles), (file) => `\`${file}\``),
+    "",
+    "**Credential-free local checks**",
+    "",
+    ...checkboxList(stringList(plan.credentialFreeCommands), (command) => `\`${command}\``),
+    "",
+    "**Release-lab evidence gates**",
+    "",
+    ...checkboxList(stringList(plan.evidenceCommands), (command) => `\`${command}\``),
+    "",
+    "**Filled-bundle and ready-release gates**",
+    "",
+    ...checkboxList(stringList(plan.bundleCommands), (command) => `\`${command}\``),
+    ""
+  ]);
+}
 
-  return lines;
+function renderReleaseLabCommandPlanMarkdown(checklist, heading = "## Issue-focused release-lab command plan") {
+  return [
+    heading,
+    "",
+    ...renderReleaseLabCommandPlanEntries(
+      releaseLabCommandPlansForChecklist(checklist),
+      "- _No issue-focused release-lab command plan matched this checklist._"
+    )
+  ];
 }
 
 function markdownValue(value) {
@@ -1237,30 +1241,10 @@ function renderReleaseEvidenceBundleReadme(manifest) {
       ];
     })
     : ["- _No issue evidence item summaries were generated._"];
-  const releaseLabCommandPlanLines = Array.isArray(manifest.releaseLabCommandPlans) && manifest.releaseLabCommandPlans.length
-    ? manifest.releaseLabCommandPlans.flatMap((plan) => [
-      `### #${plan.issueNumber} ${plan.title}`,
-      "",
-      plan.objective,
-      "",
-      "**Issue files**",
-      "",
-      ...bulletList(stringList(plan.issueFiles), (file) => `\`${file}\``),
-      "",
-      "**Credential-free local checks**",
-      "",
-      ...checkboxList(stringList(plan.credentialFreeCommands), (command) => `\`${command}\``),
-      "",
-      "**Release-lab evidence gates**",
-      "",
-      ...checkboxList(stringList(plan.evidenceCommands), (command) => `\`${command}\``),
-      "",
-      "**Filled-bundle and ready-release gates**",
-      "",
-      ...checkboxList(stringList(plan.bundleCommands), (command) => `\`${command}\``),
-      ""
-    ])
-    : ["- _No issue-focused release-lab command plans were generated._", ""];
+  const releaseLabCommandPlanLines = renderReleaseLabCommandPlanEntries(
+    Array.isArray(manifest.releaseLabCommandPlans) ? manifest.releaseLabCommandPlans : [],
+    "- _No issue-focused release-lab command plans were generated._"
+  );
 
   const issueLines = manifest.issueNumbers.length
     ? manifest.issueNumbers.map((issueNumber) => {
