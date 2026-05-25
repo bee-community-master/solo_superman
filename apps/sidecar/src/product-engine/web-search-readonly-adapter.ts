@@ -90,11 +90,13 @@ export const WEB_SEARCH_READONLY_ENV = {
   maxDelayMillis: "SOLO_RESEARCH_WEB_MAX_DELAY_MS"
 } as const;
 
-interface SearchCandidate {
+export interface WebSearchReadOnlySearchCandidate {
   readonly title: string;
   readonly url: string;
   readonly snippet: string;
 }
+
+type SearchCandidate = WebSearchReadOnlySearchCandidate;
 
 function defaultNow() {
   return new Date().toISOString();
@@ -674,14 +676,80 @@ function searchCandidateRelevanceScore(candidate: SearchCandidate, query: string
   }, 0);
 }
 
-function rankedSearchCandidates(
-  candidates: readonly SearchCandidate[],
+function searchCandidateSourceQualityScore(candidate: SearchCandidate) {
+  const haystack = `${candidate.title} ${candidate.snippet}`.toLowerCase();
+  const hostname = (() => {
+    try {
+      return new URL(candidate.url).hostname.toLowerCase();
+    } catch {
+      return "";
+    }
+  })();
+  let score = 0;
+
+  if (/(^|\.)go\.kr$/u.test(hostname) || /(^|\.)gov$/u.test(hostname) || /(^|\.)gov\./u.test(hostname)) {
+    score += 12;
+  }
+
+  if (/(^|\.)(ac\.kr|edu)$/u.test(hostname) || /(^|\.)edu\./u.test(hostname)) {
+    score += 8;
+  }
+
+  if (/(^|\.)(or\.kr|org)$/u.test(hostname) || /(^|\.)org\./u.test(hostname)) {
+    score += 4;
+  }
+
+  if (/(통계|실태|현황|조사|보고서|리포트|연구|market\s*research|statistics|survey|report|study)/iu.test(haystack)) {
+    score += 6;
+  }
+
+  if (/(보호자|의료비|보험|돌봄|니즈|segment|persona|need|care|insurance|veterinary)/iu.test(haystack)) {
+    score += 3;
+  }
+
+  if (
+    /(^|\.)namu\.wiki$/u.test(hostname) ||
+    /(^|\.)wikipedia\.org$/u.test(hostname) ||
+    /(^|\.)zhihu\.com$/u.test(hostname) ||
+    /(^|\.)tinhte\.vn$/u.test(hostname) ||
+    /(^|\.)(reddit|quora)\.com$/u.test(hostname) ||
+    /(^|\.)(blog|cafe)\.naver\.com$/u.test(hostname)
+  ) {
+    score -= 12;
+  }
+
+  if (/(wiki|forum|thread|translate|번역)/iu.test(haystack)) {
+    score -= 4;
+  }
+
+  return score;
+}
+
+export function rankedSearchCandidates(
+  candidates: readonly WebSearchReadOnlySearchCandidate[],
   query: string,
   maxResults: number
 ) {
-  return [...candidates]
-    .sort((left, right) => searchCandidateRelevanceScore(right, query) - searchCandidateRelevanceScore(left, query))
-    .slice(0, maxResults);
+  const scoredCandidates = candidates.map((candidate) => ({
+    candidate,
+    relevanceScore: searchCandidateRelevanceScore(candidate, query),
+    sourceQualityScore: searchCandidateSourceQualityScore(candidate)
+  }));
+  const hasRelevantCandidate = scoredCandidates.some(({ relevanceScore }) => relevanceScore > 0);
+  const hasPositiveQualityCandidate = scoredCandidates.some(({ sourceQualityScore }) => sourceQualityScore > 0);
+
+  return scoredCandidates
+    .filter(
+      ({ relevanceScore, sourceQualityScore }) =>
+        (!hasRelevantCandidate || relevanceScore > 0) &&
+        (!hasPositiveQualityCandidate || sourceQualityScore >= 0)
+    )
+    .sort(
+      (left, right) =>
+        right.relevanceScore + right.sourceQualityScore - (left.relevanceScore + left.sourceQualityScore)
+    )
+    .slice(0, maxResults)
+    .map(({ candidate }) => candidate);
 }
 
 async function pageText(page: Page) {
