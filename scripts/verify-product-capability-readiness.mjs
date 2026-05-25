@@ -109,8 +109,13 @@ const REQUIRED_CAPABILITY_BEHAVIOR_SNIPPETS = new Map([
   [
     "browser-service-boundary",
     [
+      "onboarding automation setting",
+      "manual_only",
+      "allow_codex",
+      "allow_codex_and_chatgpt_visible",
       "approved public-read",
       "visible ChatGPT",
+      "ChatGPT Pro/Deep Research",
       "result import gate",
       "production-mutation contract",
       "final submit"
@@ -529,7 +534,7 @@ export function evidenceForEvaluation(evaluation, options) {
       "product capability readiness contract schema",
       "required idea, clarification, research, browser/service, planning, auto-implementation, release-guardrail, and local-error-reporting capability ids",
       "required credential-free product verification commands",
-      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, pressure questions, generated source-seeking research targets, non-blocking answer submission, mounted research provider polling, opt-in live-web research import coverage, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, positive readiness handoff coverage, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, opt-in live worker-job verification coverage, generated PR body summary coverage, single-session product loop coverage, same-session worker execution coverage, generated-product worker target coverage, generated-product changed-file evidence coverage, single-session live-web product loop coverage, single-session live implementation coverage, readiness-to-implementation coverage, two-pass review streak gates, missing-test audit coverage, end-to-end core product loop coverage, redacted support diagnostics coverage, and ready-release plan-only coverage",
+      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, pressure questions, generated source-seeking research targets, non-blocking answer submission, mounted research provider polling, opt-in live-web research import coverage, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, positive readiness handoff coverage, onboarding automation setting coverage for Codex and visible ChatGPT Pro/Deep Research, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, opt-in live worker-job verification coverage, generated PR body summary coverage, single-session product loop coverage, same-session worker execution coverage, generated-product worker target coverage, generated-product changed-file evidence coverage, single-session live-web product loop coverage, single-session live implementation coverage, readiness-to-implementation coverage, two-pass review streak gates, missing-test audit coverage, end-to-end core product loop coverage, redacted support diagnostics coverage, and ready-release plan-only coverage",
       "secret-free product capability evidence strings",
       options.requireCodeBacked
         ? "all technical-preview core capabilities must be code_backed"

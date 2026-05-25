@@ -140,6 +140,7 @@ function codeBackedContract(overrides = {}) {
       ], {
         checkedBehaviors: [
           "ChatGPT/browser delegation keeps disclosure preview, approval, evidence refs, revoke controls, visible ChatGPT handoff, and result import gate visibility.",
+          "onboarding automation setting exposes manual_only, allow_codex, and allow_codex_and_chatgpt_visible choices so users can opt into Codex plus visible ChatGPT Pro/Deep Research without granting headless paid-service access.",
           "Service-page permissions require user-present login, action echo, artifact cleanup, and revoke checks.",
           "approved public-read browser actions accept only HTTPS public DNS targets while loopback-only remains required for service-page/local preview flows.",
           "Final submit remains blocked until production-mutation contract evidence passes.",
@@ -199,7 +200,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, pressure questions, generated source-seeking research targets, non-blocking answer submission, mounted research provider polling, opt-in live-web research import coverage, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, positive readiness handoff coverage, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, opt-in live worker-job verification coverage, generated PR body summary coverage, single-session product loop coverage, same-session worker execution coverage, generated-product worker target coverage, generated-product changed-file evidence coverage, single-session live-web product loop coverage, single-session live implementation coverage, readiness-to-implementation coverage, two-pass review streak gates, missing-test audit coverage, end-to-end core product loop coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, pressure questions, generated source-seeking research targets, non-blocking answer submission, mounted research provider polling, opt-in live-web research import coverage, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, positive readiness handoff coverage, onboarding automation setting coverage for Codex and visible ChatGPT Pro/Deep Research, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, opt-in live worker-job verification coverage, generated PR body summary coverage, single-session product loop coverage, same-session worker execution coverage, generated-product worker target coverage, generated-product changed-file evidence coverage, single-session live-web product loop coverage, single-session live implementation coverage, readiness-to-implementation coverage, two-pass review streak gates, missing-test audit coverage, end-to-end core product loop coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
@@ -249,6 +250,11 @@ describe("product capability readiness verification", () => {
               checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
                 !behavior.includes("production-mutation contract") &&
                 !behavior.includes("approved public-read") &&
+                !behavior.includes("onboarding automation setting") &&
+                !behavior.includes("manual_only") &&
+                !behavior.includes("allow_codex") &&
+                !behavior.includes("allow_codex_and_chatgpt_visible") &&
+                !behavior.includes("ChatGPT Pro/Deep Research") &&
                 !behavior.includes("visible ChatGPT") &&
                 !behavior.includes("result import gate")
               )
@@ -261,7 +267,12 @@ describe("product capability readiness verification", () => {
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
       "$.capabilities[3].checkedBehaviors: must mention approved public-read",
+      "$.capabilities[3].checkedBehaviors: must mention onboarding automation setting",
+      "$.capabilities[3].checkedBehaviors: must mention manual_only",
+      "$.capabilities[3].checkedBehaviors: must mention allow_codex",
+      "$.capabilities[3].checkedBehaviors: must mention allow_codex_and_chatgpt_visible",
       "$.capabilities[3].checkedBehaviors: must mention visible ChatGPT",
+      "$.capabilities[3].checkedBehaviors: must mention ChatGPT Pro/Deep Research",
       "$.capabilities[3].checkedBehaviors: must mention result import gate",
       "$.capabilities[3].checkedBehaviors: must mention production-mutation contract",
       "$.capabilities[3].checkedBehaviors: must mention final submit"
