@@ -289,7 +289,65 @@ function markdownValue(value) {
   return value === undefined || value === null || value === "" ? "_not specified_" : String(value);
 }
 
+function renderEvidenceBundleShapeMarkdown(item) {
+  const shape = releaseEvidenceBundleShapeForItem(item);
+
+  if (!shape) {
+    return [];
+  }
+
+  const lines = [
+    "**Structured evidenceBundle shape**",
+    "",
+    `- Kind: \`${shape.kind}\``,
+    `- Required field count: ${stringList(shape.requiredFields).length}`,
+    `- Required passed-check count: ${stringList(shape.requiredPassedChecks).length}`,
+    `- Applies when: ${shape.appliesWhen}`,
+    "",
+    "Required fields:",
+    "",
+    ...checkboxList(stringList(shape.requiredFields), (field) => `\`${field}\``),
+    "",
+    "Required passed checks:",
+    "",
+    ...checkboxList(stringList(shape.requiredPassedChecks), (check) => `\`${check}\``)
+  ];
+
+  const allowedEvidenceRefs = stringList(shape.allowedEvidenceRefs);
+  if (allowedEvidenceRefs.length) {
+    lines.push(
+      "",
+      "Allowed evidence refs:",
+      "",
+      ...bulletList(allowedEvidenceRefs, (ref) => `\`${ref}\``)
+    );
+  }
+
+  const artifactScopes = stringList(shape.requiredArtifactScopes);
+  if (artifactScopes.length) {
+    lines.push(
+      "",
+      "Required artifact scopes:",
+      "",
+      ...checkboxList(artifactScopes, (scope) => `\`${scope}\``)
+    );
+  }
+
+  const protectedPathEvidenceRefs = stringList(shape.requiredProtectedPathEvidenceRefs);
+  if (protectedPathEvidenceRefs.length) {
+    lines.push(
+      "",
+      "Required protected-path evidence refs:",
+      "",
+      ...checkboxList(protectedPathEvidenceRefs, (field) => `\`${field}\``)
+    );
+  }
+
+  return lines;
+}
+
 function renderChecklistItemMarkdown(item) {
+  const evidenceBundleShapeLines = renderEvidenceBundleShapeMarkdown(item);
   const lines = [
     `### ${item.itemId}`,
     "",
@@ -316,6 +374,7 @@ function renderChecklistItemMarkdown(item) {
     "",
     ...checkboxList(item.unblockCriteria),
     "",
+    ...(evidenceBundleShapeLines.length ? [...evidenceBundleShapeLines, ""] : []),
     "**Evidence references**",
     "",
     ...bulletList(item.evidenceRefs)

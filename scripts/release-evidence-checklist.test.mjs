@@ -891,6 +891,16 @@ describe("release evidence checklist", () => {
         filterIssueNumber: "266",
         summary: { totalItems: 4, pendingItems: 4 }
       });
+      const issue259Comment = await readFile(join(bundleDir, "issue-259-comment.md"), "utf8");
+      expect(issue259Comment).toContain("**Structured evidenceBundle shape**");
+      expect(issue259Comment).toContain("Kind: `windows-real-device`");
+      expect(issue259Comment).toContain("Required field count: 22");
+      expect(issue259Comment).toContain("`deviceProfile.osName`");
+      expect(issue259Comment).toContain("`checkEvidenceRefs.reach_first_screen`");
+      expect(issue259Comment).toContain("Required passed checks:");
+      expect(issue259Comment).toContain("`reach_first_screen`");
+      expect(issue259Comment).toContain("Allowed evidence refs:");
+      expect(issue259Comment).toContain("`urn:solo-superman-*`");
       const issue266Comment = await readFile(join(bundleDir, "issue-266-comment.md"), "utf8");
       expect(issue266Comment).toContain("# Release evidence update for #266");
       expect(issue266Comment).toContain("pnpm verify:release-evidence-template -- --input <filled-template.json> --issue 266");
@@ -898,6 +908,13 @@ describe("release evidence checklist", () => {
       expect(issue266Comment).toContain("aggregate `commandBlockers`");
       expect(issue266Comment).toContain("`verification.readyReleaseResult.status`");
       expect(issue266Comment).toContain("Template readyReleaseResult");
+      expect(issue266Comment).toContain("Kind: `release-manifest-signing`");
+      expect(issue266Comment).toContain("Required artifact scopes:");
+      expect(issue266Comment).toContain("`artifactRefs[].signatureRef`");
+      const issue267Comment = await readFile(join(bundleDir, "issue-267-comment.md"), "utf8");
+      expect(issue267Comment).toContain("Kind: `macos-packaged-update-rollback`");
+      expect(issue267Comment).toContain("Required protected-path evidence refs:");
+      expect(issue267Comment).toContain("`credentials`");
       const readme = await readFile(join(bundleDir, "README.md"), "utf8");
       expect(readme).toContain("#259");
       expect(readme).toContain("## Release blocker summary");
