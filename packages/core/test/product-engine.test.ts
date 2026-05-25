@@ -2804,13 +2804,19 @@ describe("PR-04 ProductEngine reducer", () => {
             ]
           })
         ],
-        reviewCards: [
+        reviewCards: expect.arrayContaining([
           expect.objectContaining({
             additionalQuestions: [
               expect.stringContaining("paid founder urgency를 조금 더 구체화")
             ]
+          }),
+          expect.objectContaining({
+            cardType: "research_review",
+            retainedSourceRef: expect.stringMatching(/^queue_research_followup_/),
+            state: "pending_manual_result",
+            title: expect.stringContaining("반대근거 탐색 필요")
           })
-        ],
+        ]),
         knownRisks: [
           expect.stringContaining("missing_con_evidence")
         ]
@@ -2846,13 +2852,18 @@ describe("PR-04 ProductEngine reducer", () => {
             sourceRef: expect.stringContaining(`research:${researchTaskId}:`)
           })
         ],
-        blocked: [
+        blocked: expect.arrayContaining([
           expect.objectContaining({
             additionalQuestions: [
               expect.stringContaining("paid founder urgency를 조금 더 구체화")
             ]
+          }),
+          expect.objectContaining({
+            cardType: "research_review",
+            state: "blocked",
+            title: expect.stringContaining("후속 반례 리서치 대기")
           })
-        ],
+        ]),
         progress: expect.objectContaining({
           generatedQuestionCount: 1,
           openQuestionCount: 1,
@@ -2876,11 +2887,37 @@ describe("PR-04 ProductEngine reducer", () => {
     const researchFollowUpIssue = synthesized.nextState.openIssues.find(
       (issue) => issue.queueItemId.startsWith("queue_research_followup_")
     );
+    const researchFollowUpResearchTask = synthesized.nextState.researchState.tasks.find(
+      (task) => task.sourceQueueItemId === researchFollowUpIssue?.queueItemId
+    );
 
     expect(researchFollowUpIssue?.answerOptions?.length).toBeGreaterThanOrEqual(3);
     expect(researchFollowUpIssue?.answerOptions?.length).toBeLessThanOrEqual(10);
+    expect(researchFollowUpResearchTask).toMatchObject({
+      sourceQueueItemId: researchFollowUpIssue?.queueItemId,
+      routeOutcome: "missing_con_evidence",
+      impact: "high",
+      status: "planned",
+      objective: expect.stringContaining("추가 질문")
+    });
+    expect(synthesized.effectPlan).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          effectType: "research_evidence_effect",
+          sourceEventTypes: ["EvidenceSynthesized"],
+          inputRef: {
+            refType: "ResearchTask",
+            refId: researchFollowUpResearchTask?.researchTaskId
+          },
+          idempotencyKey: researchFollowUpResearchTask
+            ? `research:${researchFollowUpResearchTask.researchTaskId}`
+            : expect.stringMatching(/^research:/)
+        })
+      ])
+    );
     expect(synthesized.events[0]?.payload).toMatchObject({
-      researchFollowUpQueueItemIds: [expect.stringMatching(/^queue_research_followup_/)]
+      researchFollowUpQueueItemIds: [expect.stringMatching(/^queue_research_followup_/)],
+      researchFollowUpResearchTaskIds: [researchFollowUpResearchTask?.researchTaskId]
     });
 
     const replayedSynthesized = replayProductEngineEvents(projectId, sessionId, [
@@ -2910,6 +2947,16 @@ describe("PR-04 ProductEngine reducer", () => {
           queueItemId: expect.stringMatching(/^queue_research_followup_/),
           status: "open",
           questionText: expect.stringContaining("paid founder urgency를 조금 더 구체화")
+        })
+      ])
+    );
+    expect(replayedSynthesized.researchState.tasks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          researchTaskId: researchFollowUpResearchTask?.researchTaskId,
+          sourceQueueItemId: researchFollowUpIssue?.queueItemId,
+          routeOutcome: "missing_con_evidence",
+          status: "planned"
         })
       ])
     );
@@ -3709,13 +3756,13 @@ describe("PR-04 ProductEngine reducer", () => {
         knownRisks: expect.arrayContaining([
           expect.stringContaining("Founder accepts the missing counter-evidence risk")
         ]),
-        reviewCards: [
+        reviewCards: expect.arrayContaining([
           expect.objectContaining({
             terminalOutcome: "risk_accepted",
             terminalRationale: "Founder accepts the missing counter-evidence risk before a later validation sprint.",
             blocksPlanning: false
           })
-        ]
+        ])
       },
       queueProjection: {
         blocked: expect.not.arrayContaining([
@@ -3732,7 +3779,7 @@ describe("PR-04 ProductEngine reducer", () => {
           }),
           expect.objectContaining({
             gateId: "research_queue_cards",
-            passed: true
+            passed: false
           })
         ]),
         topRisks: expect.arrayContaining([
@@ -3836,21 +3883,21 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(resolved.accepted).toBe(true);
     expect(resolved.nextState).toMatchObject({
       researchState: {
-        reviewCards: [
+        reviewCards: expect.arrayContaining([
           expect.objectContaining({
             terminalOutcome: "research_insufficient",
             blocksPlanning: false
           })
-        ]
+        ])
       },
       queueProjection: {
-        blocked: [
+        blocked: expect.arrayContaining([
           expect.objectContaining({
             queueItemId: card?.cardId,
             terminalOutcome: "research_insufficient",
             blocksPlanning: false
           })
-        ]
+        ])
       },
       completeness: {
         gates: expect.arrayContaining([
@@ -3928,7 +3975,7 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(synthesized.accepted).toBe(true);
     expect(synthesized.nextState).toMatchObject({
       queueProjection: {
-        blocked: [
+        blocked: expect.arrayContaining([
           expect.objectContaining({
             queueItemId: reviewQueueItemId,
             state: "blocked",
@@ -3937,7 +3984,7 @@ describe("PR-04 ProductEngine reducer", () => {
             blocksPlanning: true,
             availableOutcomes: expect.arrayContaining(["risk_accepted", "research_insufficient"])
           })
-        ]
+        ])
       },
       researchState: {
         evidenceMatrices: [

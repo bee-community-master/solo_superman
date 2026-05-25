@@ -787,6 +787,16 @@ function checkContributorDocsSnippets() {
     "evidence_judgment",
     "pro/con stance"
   ]);
+  requireSnippets("docs/product_KO.md missing research follow-up task debt contract", docs["docs/product_KO.md"], [
+    "sourceQueueItemId",
+    "planned research task",
+    "research_evidence_effect"
+  ]);
+  requireSnippets("docs/product_EN.md missing research follow-up task debt contract", readText("docs/product_EN.md"), [
+    "sourceQueueItemId",
+    "planned research task",
+    "research_evidence_effect"
+  ]);
   requireSnippets("docs/product_KO.md missing research run limit UX contract", docs["docs/product_KO.md"], [
     "동시에 실행할 최대 리서치 수",
     "세션당 최대 리서치 실행 수",
