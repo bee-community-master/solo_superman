@@ -5540,9 +5540,12 @@ export function createProductEngineCommandService(
         const response = await runCommand(command, events);
 
         if (response.category === "rejected" || response.category === "blocked") {
+          const responseMessage = response.error?.message;
           importFailure = new ProductEngineServiceError(
             "VALIDATION_FAILED",
-            "Auto implementation worker ledger import was rejected by ImplementationStepLedger validation.",
+            responseMessage
+              ? `Auto implementation worker ledger import was rejected by ImplementationStepLedger validation: ${responseMessage}`
+              : "Auto implementation worker ledger import was rejected by ImplementationStepLedger validation.",
             {
               category: response.category,
               code: response.error?.code,
