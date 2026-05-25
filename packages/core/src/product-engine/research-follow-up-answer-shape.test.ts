@@ -862,4 +862,73 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpAnswerOptions(input)).toEqual([]);
   });
 
+  it("does not let negated agree-disagree wording override the requested answer form", () => {
+    const base = {
+      researchTask: task("찬반이 아닌 질문별 답변 방식 선택"),
+      sourceQuestion: sourceQuestion({
+        expectedAnswerType: "choice",
+        topicKey: "primary_customer_narrowing"
+      }),
+      evidenceMatrix: evidenceMatrix({
+        proEvidence: [
+          {
+            evidenceItemId: "evidence_pro_negated_binary_answer_shape" as EvidenceItemId,
+            kind: "pro",
+            summary: "일부 찬성 근거가 있지만 실제 질문은 찬반형이 아님"
+          }
+        ]
+      })
+    };
+
+    const singleChoiceInput = {
+      ...base,
+      question: "찬성/반대 선택이 아니라 고객 후보를 하나 선택해주세요."
+    };
+    const multiSelectInput = {
+      ...base,
+      question: "찬성/반대가 아니라 여러 고객 신호를 하나 이상 선택해주세요."
+    };
+    const openTextInput = {
+      ...base,
+      question: "찬성/반대 선택이 아니라 실제 고객 제약을 직접 설명해주세요."
+    };
+    const englishSingleChoiceInput = {
+      ...base,
+      question: "Not agree/disagree; choose one customer segment: solo founder, team lead, or consultant."
+    };
+    const englishMultiSelectInput = {
+      ...base,
+      question: "Instead of agree/disagree, select all customer signals that apply."
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(singleChoiceInput)).toBe("single_choice");
+    expect(researchFollowUpAnswerSelectionMode(singleChoiceInput)).toBe("single");
+    expect(researchFollowUpAnswerOptions(singleChoiceInput)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "solo_founders" }),
+        expect.objectContaining({ id: "domain_expert_builders" })
+      ])
+    );
+
+    expect(classifyResearchFollowUpAnswerShape(multiSelectInput)).toBe("multi_select");
+    expect(researchFollowUpAnswerSelectionMode(multiSelectInput)).toBe("multiple");
+
+    expect(classifyResearchFollowUpAnswerShape(openTextInput)).toBe("open_text");
+    expect(researchFollowUpAnswerSelectionMode(openTextInput)).toBeUndefined();
+    expect(researchFollowUpAnswerOptions(openTextInput)).toEqual([]);
+
+    expect(classifyResearchFollowUpAnswerShape(englishSingleChoiceInput)).toBe("single_choice");
+    expect(researchFollowUpAnswerSelectionMode(englishSingleChoiceInput)).toBe("single");
+    expect(researchFollowUpAnswerOptions(englishSingleChoiceInput)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "solo founder" }),
+        expect.objectContaining({ label: "team lead" }),
+        expect.objectContaining({ label: "consultant" })
+      ])
+    );
+
+    expect(classifyResearchFollowUpAnswerShape(englishMultiSelectInput)).toBe("multi_select");
+    expect(researchFollowUpAnswerSelectionMode(englishMultiSelectInput)).toBe("multiple");
+  });
+
 });
