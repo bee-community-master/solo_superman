@@ -2703,12 +2703,17 @@ function researchRouteOutcomeForFollowUpIssue(issue: AmbiguityIssueSnapshot): Re
 }
 
 function researchObjectiveForFollowUpIssue(issue: AmbiguityIssueSnapshot) {
-  return (
+  const objective =
     issue.suggestedResearchTask ??
     issue.researchQuestion ??
     (issue.questionText
       ? `추가 질문 “${compactAnswerExcerpt(issue.questionText)}”에 답할 공개 근거, 반례, 한계를 확인합니다.`
-      : `리서치 후속 질문 ${issue.queueItemId}에 필요한 공개 근거, 반례, 한계를 확인합니다.`)
+      : `리서치 후속 질문 ${issue.queueItemId}에 필요한 공개 근거, 반례, 한계를 확인합니다.`);
+
+  return (
+    issue.sourceRef?.startsWith("research:")
+      ? `기존 리서치 메모와 source trace를 기준으로 ${objective}`
+      : objective
   );
 }
 

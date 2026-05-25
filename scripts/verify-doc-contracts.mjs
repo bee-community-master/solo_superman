@@ -807,6 +807,7 @@ function checkContributorDocsSnippets() {
     "markdown memory",
     "기존 근거를 인용",
     "더 넓은 follow-up research",
+    "generated follow-up research task",
     "baseline context",
     "새로운 run"
   ]);
@@ -820,6 +821,7 @@ function checkContributorDocsSnippets() {
     "markdown memory",
     "duplicate research can cite existing evidence",
     "wider follow-up research",
+    "generated follow-up research task",
     "baseline context",
     "new run still starts"
   ]);
