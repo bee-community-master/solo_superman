@@ -16,6 +16,8 @@ import {
   type StateVersion
 } from "@solo-superman/contracts";
 import {
+  GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+  GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
   createInitialProductEngineState,
   decisionQueueProjectionWithRecovery,
   reduceProductEngineCommand,
@@ -381,6 +383,485 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(state.session.phase).toBe("question_loop");
   });
 
+  it("uses prompt-template generated JSON questions instead of fixed onboarding questions when provided", () => {
+    const generatedQuestionSet = {
+      schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+      sourceSummary: "반려동물 전생애 관리 앱",
+      questions: [
+        {
+          sectionRef: "Target Customer",
+          topicKey: "pet_lifecycle_first_guardian_focus",
+          uncertaintyType: "vague",
+          severity: "high",
+          summary: "첫 검증 보호자 유형이 아직 넓음",
+          whyItMatters:
+            "반려동물의 의료, 급여, 일상, 보험, 장례 정보 중 어떤 문제가 가장 먼저 강한지 보호자 유형별로 달라집니다.",
+          questionText:
+            "반려동물의 전생애 정보를 한 곳에서 관리하는 앱을 가장 먼저 테스트할 보호자 유형은 누구로 좁히겠습니까?",
+          expectedAnswerType: "choice",
+          answerSelectionMode: "single",
+          answerOptions: [
+            {
+              id: "first_pet_guardian",
+              label: "첫 반려동물을 키우는 보호자",
+              value: "첫 반려동물을 키우는 보호자를 첫 테스트 대상으로 둔다.",
+              primaryDetail: "초보 보호자의 의료·급여·일상 기록 흐름을 먼저 검증합니다.",
+              secondaryDetail: "노령·보험·장례처럼 복잡한 생애 후반 문제는 약하게 보일 수 있습니다."
+            },
+            {
+              id: "senior_chronic_pet_guardian",
+              label: "노령·만성질환 반려동물 보호자",
+              value: "노령·만성질환 반려동물 보호자를 첫 테스트 대상으로 둔다.",
+              primaryDetail: "병원 기록, 약, 보험, 비용 관리의 강한 문제를 먼저 검증합니다.",
+              secondaryDetail: "일상 관리 중심의 대중적 사용성은 별도 확인이 필요합니다."
+            },
+            {
+              id: "multi_pet_household",
+              label: "여러 마리를 함께 키우는 가구",
+              value: "여러 마리를 함께 키우는 가구를 첫 테스트 대상으로 둔다.",
+              primaryDetail: "동물별 의료·급여·보험 기록을 구분 관리하는 문제를 확인합니다.",
+              secondaryDetail: "한 마리 보호자에게는 기능이 과하게 느껴질 수 있습니다."
+            },
+            {
+              id: "insurance_cost_sensitive_guardian",
+              label: "보험·의료비 관리가 필요한 보호자",
+              value: "보험·의료비 관리가 필요한 보호자를 첫 테스트 대상으로 둔다.",
+              primaryDetail: "지불 의향과 반복 사용 신호를 비용 관리 문제에서 확인합니다.",
+              secondaryDetail: "보험이 없거나 의료비 부담이 낮은 보호자에게는 가치가 약할 수 있습니다."
+            }
+          ],
+          decisionItUnlocks: "첫 고객 인터뷰 대상과 초기 화면의 기록 범위를 정합니다.",
+          ambiguityDimension: "scope",
+          ambiguityRoutingPath: "human_judgment",
+          researchQuestion:
+            "보호자 유형별로 의료·보험·일상 기록 관리 니즈가 실제로 어떻게 다른지 확인할 공개 단서와 반례는 무엇인가?",
+          possibleRoutes: ["question", "decision_candidate"],
+          suggestedResearchTask: "반려동물 보호자 유형별 의료·보험·일상 기록 관리 니즈를 비교합니다."
+        },
+        {
+          sectionRef: "Problem",
+          topicKey: "pet_lifecycle_information_fragmentation",
+          uncertaintyType: "missing",
+          severity: "high",
+          summary: "보호자가 실제로 흩어진 정보를 얼마나 자주 찾는지 확인되지 않음",
+          whyItMatters: "흩어진 정보 문제가 자주 발생하지 않으면 통합 관리 앱의 반복 사용 이유가 약해집니다.",
+          questionText:
+            "보호자가 병원 기록, 급여 정보, 보험 서류, 일상 메모를 따로 찾느라 가장 자주 겪는 불편은 무엇인가요?",
+          expectedAnswerType: "text",
+          decisionItUnlocks: "첫 문제 서술과 성공 기준에 들어갈 반복 불편을 정합니다.",
+          ambiguityDimension: "success_criteria",
+          ambiguityRoutingPath: "current_research",
+          researchQuestion:
+            "보호자들이 병원 기록, 급여 정보, 보험 서류, 일상 메모를 따로 찾는 반복 불편을 보여주는 공개 사례와 부족한 반례는 무엇인가?",
+          possibleRoutes: ["question", "research_needed"],
+          suggestedResearchTask: "반려동물 기록 관리 앱과 보호자 커뮤니티에서 반복 불편 사례를 모읍니다."
+        },
+        {
+          sectionRef: "Value Proposition",
+          topicKey: "pet_lifecycle_switching_reason",
+          uncertaintyType: "decision_required",
+          severity: "high",
+          summary: "기존 메모·앨범·병원 앱 대신 바꿀 이유가 정해지지 않음",
+          whyItMatters: "전환 이유가 약하면 여러 정보를 모아도 보호자가 기존 방식을 계속 쓸 수 있습니다.",
+          questionText:
+            "보호자가 기존 메모, 사진첩, 병원 앱을 두고 이 앱으로 옮겨올 가장 설득력 있는 이유는 무엇인가요?",
+          expectedAnswerType: "rank",
+          answerSelectionMode: "ranked",
+          answerOptions: [
+            {
+              id: "medical_timeline",
+              label: "진료·투약 이력 한눈에 보기",
+              value: "진료와 투약 이력을 한눈에 보는 전환 이유를 우선한다.",
+              primaryDetail: "병원 방문 전후의 반복 사용 장면을 먼저 설계합니다.",
+              secondaryDetail: "일상 기록과 장례 준비 가치는 뒤로 밀릴 수 있습니다."
+            },
+            {
+              id: "insurance_documents",
+              label: "보험 청구 서류 정리",
+              value: "보험 청구 서류 정리를 전환 이유로 우선한다.",
+              primaryDetail: "비용과 청구 업무의 불편을 가치 제안으로 세웁니다.",
+              secondaryDetail: "보험 미가입 보호자에게는 매력이 약할 수 있습니다."
+            },
+            {
+              id: "daily_care_context",
+              label: "급여·일상 변화 기록",
+              value: "급여와 일상 변화 기록을 전환 이유로 우선한다.",
+              primaryDetail: "매일 쓰는 기록 습관을 중심으로 첫 화면을 설계합니다.",
+              secondaryDetail: "의료·보험처럼 강한 비용 문제보다 지불 의향이 약할 수 있습니다."
+            }
+          ],
+          decisionItUnlocks: "첫 가치 제안과 홈 화면에서 가장 앞에 둘 기록 범위를 정합니다.",
+          ambiguityDimension: "success_criteria",
+          ambiguityRoutingPath: "human_judgment",
+          researchQuestion:
+            "보호자가 기존 메모, 사진첩, 병원 앱을 충분하다고 느끼는 순간과 부족하다고 느끼는 순간은 무엇인가?",
+          possibleRoutes: ["question", "decision_candidate"]
+        }
+      ]
+    };
+    let state = createInitialProductEngineState(projectId, sessionId);
+    const eventDrafts = [];
+
+    for (const nextCommand of [
+      command("StartProject", 0, {
+        rawIdea:
+          "반려동물 전생애주기의 의료, 급여, 일상, 보험, 장례 정보를 한 곳에 모아서 관리하는 앱",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
+      }, 1),
+      command("CaptureIntake", 1, {
+        answer: "일반 보호자가 실제로 답하기 쉬운 질문으로 아이디어를 구체화한다."
+      }, 2),
+      command("DraftInitialSpec", 2, {}, 3)
+    ]) {
+      const reduction = reduceProductEngineCommand(nextCommand, state);
+
+      expect(reduction.accepted).toBe(true);
+      eventDrafts.push(reduction.events[0]);
+      state = replayProductEngineEvents(
+        projectId,
+        sessionId,
+        eventDrafts.map((eventDraft, index) => ({
+          ...eventDraft,
+          eventId: `evt_generated_question_json_${index + 1}` as EventId,
+          sequence: index + 1,
+          occurredAt: `2026-05-05T00:01:${index + 1}0.000Z`
+        }))
+      );
+    }
+
+    const analyze = reduceProductEngineCommand(
+      command("AnalyzeAmbiguity", 3, {
+        targetRef: "current_spec",
+        generatedQuestionSet
+      }, 4),
+      state
+    );
+
+    expect(analyze.accepted).toBe(true);
+    expect(analyze.events[0]?.payload).toMatchObject({
+      questionGeneration: {
+        mode: "generated_json",
+        schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+        promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+        questionCount: 3
+      }
+    });
+    eventDrafts.push(analyze.events[0]);
+    state = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      eventDrafts.map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_generated_question_json_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:01:${index + 1}0.000Z`
+      }))
+    );
+
+    expect(state.openIssues).toHaveLength(3);
+    expect(state.openIssues.map((issue) => issue.topicKey)).toEqual([
+      "pet_lifecycle_first_guardian_focus",
+      "pet_lifecycle_information_fragmentation",
+      "pet_lifecycle_switching_reason"
+    ]);
+    expect(state.openIssues[0]?.questionText).toContain("반려동물");
+    expect(state.openIssues[0]?.questionText).not.toContain("primary customer");
+    expect(state.openIssues[0]?.sourceRef).toBe("generated_question:pet_lifecycle_first_guardian_focus");
+    expect(state.openIssues[0]).toMatchObject({
+      ambiguityDimension: "scope",
+      ambiguityRoutingPath: "human_judgment",
+      researchQuestion:
+        "보호자 유형별로 의료·보험·일상 기록 관리 니즈가 실제로 어떻게 다른지 확인할 공개 단서와 반례는 무엇인가?"
+    });
+    expect(state.openIssues[0]?.answerOptions?.map((option) => option.label)).toEqual([
+      "첫 반려동물을 키우는 보호자",
+      "노령·만성질환 반려동물 보호자",
+      "여러 마리를 함께 키우는 가구",
+      "보험·의료비 관리가 필요한 보호자"
+    ]);
+    expect(
+      state.openIssues
+        .flatMap((issue) => issue.answerOptions ?? [])
+        .map((option) => option.label)
+        .join("\n")
+    ).not.toMatch(/(?:1인\s*창업자|도메인\s*전문|팀리더|운영담당자)/u);
+
+    const activate = reduceProductEngineCommand(command("ActivateQuestionBatch", 4, {}, 5), state);
+
+    expect(activate.accepted).toBe(true);
+    expect(activate.nextState.queueProjection.active.map((item) => item.title)).toEqual([
+      "반려동물의 전생애 정보를 한 곳에서 관리하는 앱을 가장 먼저 테스트할 보호자 유형은 누구로 좁히겠습니까?",
+      "보호자가 병원 기록, 급여 정보, 보험 서류, 일상 메모를 따로 찾느라 가장 자주 겪는 불편은 무엇인가요?",
+      "보호자가 기존 메모, 사진첩, 병원 앱을 두고 이 앱으로 옮겨올 가장 설득력 있는 이유는 무엇인가요?"
+    ]);
+    eventDrafts.push(activate.events[0]);
+    state = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      eventDrafts.map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_generated_question_json_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:01:${index + 1}0.000Z`
+      }))
+    );
+    const answer = reduceProductEngineCommand(
+      command("SubmitAnswer", 5, {
+        queueItemId: state.queueProjection.active[0]?.queueItemId,
+        answer: "노령·만성질환 반려동물 보호자를 먼저 테스트한다."
+      }, 6),
+      state
+    );
+    const researchTask = answer.events.find((event) => event.eventType === "ResearchPlanned")?.payload.researchTask;
+
+    expect(answer.accepted).toBe(true);
+    expect(researchTask).toMatchObject({
+      objective: expect.stringContaining("보호자 유형별로 의료·보험·일상 기록 관리 니즈가 실제로 어떻게 다른지")
+    });
+    expect(String(researchTask?.objective)).toContain("Ambiguity dimension: scope");
+    expect(String(researchTask?.objective)).toContain("Do not replace the user's choice with research");
+  });
+
+  it("uses idea-specific first-customer options for pet lifecycle ideas when generated questions are unavailable", () => {
+    let state = createInitialProductEngineState(projectId, sessionId);
+    const eventDrafts = [];
+
+    for (const nextCommand of [
+      command("StartProject", 0, {
+        rawIdea:
+          "반려동물 전생애주기의 의료, 급여, 일상, 보험, 장례 정보를 한 곳에 모아서 관리하는 앱",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
+      }, 1),
+      command("CaptureIntake", 1, {
+        answer: "일반 보호자가 실제로 답하기 쉬운 질문으로 아이디어를 구체화한다."
+      }, 2),
+      command("DraftInitialSpec", 2, {}, 3)
+    ]) {
+      const reduction = reduceProductEngineCommand(nextCommand, state);
+
+      expect(reduction.accepted).toBe(true);
+      eventDrafts.push(reduction.events[0]);
+      state = replayProductEngineEvents(
+        projectId,
+        sessionId,
+        eventDrafts.map((eventDraft, index) => ({
+          ...eventDraft,
+          eventId: `evt_pet_question_fallback_${index + 1}` as EventId,
+          sequence: index + 1,
+          occurredAt: `2026-05-05T00:03:${index + 1}0.000Z`
+        }))
+      );
+    }
+
+    const analyze = reduceProductEngineCommand(
+      command("AnalyzeAmbiguity", 3, {
+        targetRef: "current_spec"
+      }, 4),
+      state
+    );
+
+    expect(analyze.accepted).toBe(true);
+    eventDrafts.push(analyze.events[0]);
+    state = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      eventDrafts.map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_pet_question_fallback_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:03:${index + 1}0.000Z`
+      }))
+    );
+
+    const firstCustomerIssue = state.openIssues.find((issue) => issue.topicKey === "primary_customer_narrowing");
+    const firstCustomerOptionLabels = firstCustomerIssue?.answerOptions?.map((option) => option.label) ?? [];
+
+    expect(firstCustomerIssue?.questionText).toContain("반려동물");
+    expect(firstCustomerIssue?.questionText).toContain("보호자");
+    expect(firstCustomerOptionLabels).toEqual([
+      "첫 반려동물을 키우는 보호자",
+      "노령·만성질환 반려동물 보호자",
+      "여러 마리를 함께 키우는 가구",
+      "보험·의료비 관리가 필요한 보호자"
+    ]);
+    expect(firstCustomerOptionLabels.join("\n")).not.toMatch(
+      /(?:1인\s*창업자|도메인\s*전문|팀리더|운영담당자|초기\s*창업자)/u
+    );
+  });
+
+  it.each([
+    {
+      caseKey: "education",
+      rawIdea: "AI가 학생의 시험 일정과 부족한 단원을 보고 매일 공부 계획을 짜주는 학습 코치 앱",
+      intakeAnswer: "시험을 준비하는 학생과 직무 전환 학습자 중 첫 대상을 좁히고 싶다.",
+      questionSubject: "학습자/교육 사용자 유형",
+      expectedLabels: [
+        "시험을 준비하는 학습자",
+        "직무 전환·업스킬 학습자",
+        "학부모가 함께 관리하는 학생",
+        "소규모 교육 운영자"
+      ]
+    },
+    {
+      caseKey: "local_commerce",
+      rawIdea: "동네 식당과 카페의 예약, 픽업 주문, 단골 혜택을 한 번에 관리하는 앱",
+      intakeAnswer: "소규모 매장 운영자와 반복 방문 고객 중 누구를 먼저 검증할지 정한다.",
+      questionSubject: "고객/운영자 유형",
+      expectedLabels: [
+        "소규모 매장 운영자",
+        "반복 방문하는 단골 고객",
+        "픽업·배달을 자주 쓰는 고객",
+        "여러 지점을 관리하는 운영자"
+      ]
+    }
+  ])(
+    "uses idea-specific first-customer options for $caseKey ideas when generated questions are unavailable",
+    ({ caseKey, rawIdea, intakeAnswer, questionSubject, expectedLabels }) => {
+      let state = createInitialProductEngineState(projectId, sessionId);
+      const eventDrafts = [];
+
+      for (const nextCommand of [
+        command("StartProject", 0, {
+          rawIdea,
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "business",
+          projectPurposeModeConfirmation: "user_confirmed",
+          businessCriticIntensity: "balanced",
+          businessCriticIntensityConfirmation: "user_confirmed"
+        }, 1),
+        command("CaptureIntake", 1, {
+          answer: intakeAnswer
+        }, 2),
+        command("DraftInitialSpec", 2, {}, 3)
+      ]) {
+        const reduction = reduceProductEngineCommand(nextCommand, state);
+
+        expect(reduction.accepted).toBe(true);
+        eventDrafts.push(reduction.events[0]);
+        state = replayProductEngineEvents(
+          projectId,
+          sessionId,
+          eventDrafts.map((eventDraft, index) => ({
+            ...eventDraft,
+            eventId: `evt_contextual_question_fallback_${caseKey}_${index + 1}` as EventId,
+            sequence: index + 1,
+            occurredAt: `2026-05-05T00:04:${index + 1}0.000Z`
+          }))
+        );
+      }
+
+      const analyze = reduceProductEngineCommand(
+        command("AnalyzeAmbiguity", 3, {
+          targetRef: "current_spec"
+        }, 4),
+        state
+      );
+
+      expect(analyze.accepted).toBe(true);
+      eventDrafts.push(analyze.events[0]);
+      state = replayProductEngineEvents(
+        projectId,
+        sessionId,
+        eventDrafts.map((eventDraft, index) => ({
+          ...eventDraft,
+          eventId: `evt_contextual_question_fallback_${caseKey}_${index + 1}` as EventId,
+          sequence: index + 1,
+          occurredAt: `2026-05-05T00:04:${index + 1}0.000Z`
+        }))
+      );
+
+      const firstCustomerIssue = state.openIssues.find((issue) => issue.topicKey === "primary_customer_narrowing");
+      const firstCustomerOptionLabels = firstCustomerIssue?.answerOptions?.map((option) => option.label) ?? [];
+
+      expect(firstCustomerIssue?.questionText).toContain(questionSubject);
+      expect(firstCustomerOptionLabels).toEqual(expectedLabels);
+      expect(firstCustomerOptionLabels.join("\n")).not.toMatch(
+        /(?:1인\s*창업자|도메인\s*전문|팀리더|운영담당자|초기\s*창업자)/u
+      );
+    }
+  );
+
+  it("falls back to deterministic ambiguity questions when generated JSON is invalid", () => {
+    let state = createInitialProductEngineState(projectId, sessionId);
+    const eventDrafts = [];
+
+    for (const nextCommand of [
+      command("StartProject", 0, {
+        rawIdea: "A focused founder brief generator",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
+      }, 1),
+      command("CaptureIntake", 1, {
+        answer: "Help solo founders turn a rough idea into a traceable product spec."
+      }, 2),
+      command("DraftInitialSpec", 2, {}, 3)
+    ]) {
+      const reduction = reduceProductEngineCommand(nextCommand, state);
+
+      expect(reduction.accepted).toBe(true);
+      eventDrafts.push(reduction.events[0]);
+      state = replayProductEngineEvents(
+        projectId,
+        sessionId,
+        eventDrafts.map((eventDraft, index) => ({
+          ...eventDraft,
+          eventId: `evt_generated_question_fallback_${index + 1}` as EventId,
+          sequence: index + 1,
+          occurredAt: `2026-05-05T00:02:${index + 1}0.000Z`
+        }))
+      );
+    }
+
+    const analyze = reduceProductEngineCommand(
+      command("AnalyzeAmbiguity", 3, {
+        targetRef: "current_spec",
+        generatedQuestionSet: {
+          schemaVersion: "wrong",
+          questions: []
+        }
+      }, 4),
+      state
+    );
+
+    expect(analyze.accepted).toBe(true);
+    expect(analyze.events[0]?.payload).toMatchObject({
+      questionGeneration: {
+        mode: "deterministic_fallback",
+        reason: "generated_question_set_invalid"
+      }
+    });
+    expect(analyze.events[0]?.payload.questionGeneration).toMatchObject({
+      validationIssues: expect.arrayContaining([
+        expect.stringContaining("$.schemaVersion"),
+        expect.stringContaining("$.questions")
+      ])
+    });
+    eventDrafts.push(analyze.events[0]);
+    state = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      eventDrafts.map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_generated_question_fallback_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:02:${index + 1}0.000Z`
+      }))
+    );
+    expect(state.openIssues).toHaveLength(15);
+    expect(state.openIssues[0]?.topicKey).toBe("primary_customer_narrowing");
+  });
+
   it("preserves onboarding wording while simplifying generated prompt language", () => {
     const { state } = stateWithPersonalActiveQuestionBatch();
     const activeTitles = state.queueProjection.active.map((item) => item.title).join("\n");
@@ -402,7 +883,8 @@ describe("PR-04 ProductEngine reducer", () => {
       localPrivacyMode: "local_only",
       projectPurposeMode: "personal",
       projectPurposeModeConfirmation: "user_confirmed",
-      projectPurposeModeReason: "Personal workflow tool confirmed by the user."
+      projectPurposeModeReason: "Personal workflow tool confirmed by the user.",
+      initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible"
     }, 1);
     const reduction = reduceProductEngineCommand(startProject, createInitialProductEngineState(projectId, sessionId));
 
@@ -424,8 +906,10 @@ describe("PR-04 ProductEngine reducer", () => {
       version: 1,
       phase: "intake",
       projectPurposeMode: "personal",
-      projectPurposeModeLabel: "개인 workflow 구현 중심"
+      projectPurposeModeLabel: "개인 workflow 구현 중심",
+      initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible"
     });
+    expect(state.project.initialResearchAutomationPermission).toBe("allow_codex_and_chatgpt_visible");
     expect(state.project.projectPurposeModeAudit).toMatchObject([
       {
         newMode: "personal",
@@ -495,6 +979,28 @@ describe("PR-04 ProductEngine reducer", () => {
       projectPurposeModeLabel: "프로젝트 목적 선택 필요"
     });
     expect(replayedLegacyState.project.projectPurposeMode).toBeUndefined();
+  });
+
+  it("rejects unsupported onboarding research automation permissions", () => {
+    const reduction = reduceProductEngineCommand(
+      command("StartProject", 0, {
+        rawIdea: "A project with an invalid research automation preference",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "personal",
+        projectPurposeModeConfirmation: "user_confirmed",
+        initialResearchAutomationPermission: "auto_chatgpt_headless"
+      }, 1),
+      createInitialProductEngineState(projectId, sessionId)
+    );
+
+    expect(reduction).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "VALIDATION_FAILED",
+        message:
+          "StartProject initialResearchAutomationPermission must be manual_only, allow_codex, or allow_codex_and_chatgpt_visible."
+      }
+    });
   });
 
   it("requires explicit business critic intensity before business ambiguity analysis", () => {
@@ -2103,6 +2609,113 @@ describe("PR-04 ProductEngine reducer", () => {
     });
   });
 
+  it("splits multi-line answers into multiple immediate follow-up ambiguity branches", () => {
+    const { state, eventDrafts } = stateWithActiveQuestionBatch();
+    const activeItem = state.queueProjection.active[0];
+
+    if (!activeItem) {
+      throw new Error("Expected an active question card.");
+    }
+
+    const answer = reduceProductEngineCommand(
+      command("SubmitAnswer", Number(state.stateVersion), {
+        queueItemId: activeItem.queueItemId,
+        answer: [
+          "- 첫 검증은 노령·만성질환 반려동물 보호자로 좁힌다.",
+          "- 보험·의료비 지불의향은 추가 리서치가 필요하다.",
+          "- 장례와 생애 후반 정보는 첫 버전 범위에서 제외할지 따로 판단해야 한다."
+        ].join("\n")
+      }, 6),
+      state
+    );
+
+    expect(answer.accepted).toBe(true);
+    expect(answer.events[0]?.payload).toMatchObject({
+      researchTaskIds: [
+        expect.stringMatching(/^research_task_/),
+        expect.stringMatching(/^research_task_/),
+        expect.stringMatching(/^research_task_/)
+      ],
+      followUpQueueItemIds: [
+        expect.stringMatching(/^queue_followup_/),
+        expect.stringMatching(/^queue_followup_/),
+        expect.stringMatching(/^queue_followup_/)
+      ],
+      followUpRepeatCounts: [1, 2, 3]
+    });
+    expect(answer.events[1]?.payload).toMatchObject({
+      researchTasks: [
+        expect.objectContaining({
+          sourceAnswerRef: expect.stringContaining("branch:1"),
+          objective: expect.stringContaining("노령·만성질환 반려동물 보호자")
+        }),
+        expect.objectContaining({
+          sourceAnswerRef: expect.stringContaining("branch:2"),
+          objective: expect.stringContaining("보험·의료비 지불의향")
+        }),
+        expect.objectContaining({
+          sourceAnswerRef: expect.stringContaining("branch:3"),
+          objective: expect.stringContaining("장례와 생애 후반 정보")
+        })
+      ]
+    });
+    expect(answer.effectPlan.map((effect) => effect.inputRef.refId)).toEqual(answer.events[0]?.payload.researchTaskIds);
+    expect(answer.nextState.researchState.tasks).toHaveLength(3);
+    expect(answer.nextState.queueProjection.next.filter((item) => item.cardType === "research_review")).toHaveLength(3);
+
+    const followUpIssues = answer.nextState.openIssues.filter((issue) =>
+      issue.queueItemId.startsWith("queue_followup_")
+    );
+
+    expect(followUpIssues).toHaveLength(3);
+    expect(followUpIssues.map((issue) => issue.repeatCount)).toEqual([1, 2, 3]);
+    expect(followUpIssues.map((issue) => issue.sourceRef)).toEqual([
+      expect.stringContaining("branch:1"),
+      expect.stringContaining("branch:2"),
+      expect.stringContaining("branch:3")
+    ]);
+    expect(followUpIssues[0]?.questionText).toContain("노령·만성질환 반려동물 보호자");
+    expect(followUpIssues[1]?.questionText).toContain("보험·의료비 지불의향");
+    expect(followUpIssues[2]?.questionText).toContain("장례와 생애 후반 정보");
+    expect((answer.immediateProjection as DecisionQueueProjection).progress).toMatchObject({
+      followUpQuestionCount: 3,
+      followUpOpenQuestionCount: 3
+    });
+
+    const replayed = replayProductEngineEvents(projectId, sessionId, [
+      ...eventDrafts.map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_multi_follow_up_setup_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:00:${index + 1}0.000Z`
+      })),
+      {
+        ...answer.events[0],
+        eventId: "evt_multi_follow_up_answer" as EventId,
+        sequence: 6,
+        occurredAt: "2026-05-05T00:01:00.000Z"
+      },
+      {
+        ...answer.events[1],
+        eventId: "evt_multi_follow_up_research" as EventId,
+        sequence: 7,
+        occurredAt: "2026-05-05T00:01:01.000Z"
+      }
+    ]);
+
+    expect(replayed.openIssues.filter((issue) => issue.queueItemId.startsWith("queue_followup_"))).toHaveLength(3);
+    expect(replayed.researchState.tasks).toHaveLength(3);
+    expect(replayed.researchState.tasks.map((task) => task.sourceAnswerRef)).toEqual([
+      expect.stringContaining("branch:1"),
+      expect.stringContaining("branch:2"),
+      expect.stringContaining("branch:3")
+    ]);
+    expect(replayed.queueProjection.progress).toMatchObject({
+      followUpQuestionCount: 3,
+      followUpOpenQuestionCount: 3
+    });
+  });
+
   it("imports manual research and blocks high-impact pro-only evidence as known risk", () => {
     const taskId = "research_task_high_impact" as const;
     const initialState = withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId));
@@ -2216,7 +2829,7 @@ describe("PR-04 ProductEngine reducer", () => {
           repeatLimit: 16,
           questionText: expect.stringContaining("paid founder urgency를 조금 더 구체화"),
           whyItMatters: expect.stringMatching(
-            /리서치 근거 요약:\n- 찬성 근거: Pro: founders report urgency, but no skeptical con evidence was found\.[\s\S]*\n- 한계\/불확실성: Counter-evidence still needs a narrower skeptical search\.[\s\S]*\n- 출처 단서: Founder urgency evidence notes/u
+            /리서치 근거 요약:\n- 확인된 단서: Pro: founders report urgency, but no skeptical con evidence was found\.[\s\S]*\n- 한계\/불확실성: Counter-evidence still needs a narrower skeptical search\.[\s\S]*\n- 출처 단서: Founder urgency evidence notes/u
           ),
           decisionItUnlocks: expect.stringContaining("Founder urgency evidence notes"),
           possibleRoutes: expect.arrayContaining(["question", "missing_con_evidence", "research_needed"]),
@@ -2229,7 +2842,7 @@ describe("PR-04 ProductEngine reducer", () => {
             cardType: "follow_up_question",
             title: expect.stringContaining("paid founder urgency를 조금 더 구체화"),
             state: "active",
-            whyItMatters: expect.stringContaining("반대 근거"),
+            whyItMatters: expect.stringContaining("반례"),
             sourceRef: expect.stringContaining(`research:${researchTaskId}:`)
           })
         ],
@@ -2361,6 +2974,97 @@ describe("PR-04 ProductEngine reducer", () => {
       ])
     );
     expect(resynthesized.events[0]?.payload).not.toHaveProperty("researchFollowUpQueueItemIds");
+  });
+
+  it("keeps ambiguity routing metadata on research-generated follow-up questions", () => {
+    const sourceIssue = {
+      queueItemId: "queue_pet_scope_source" as QueueItemId,
+      sectionRef: "Target Customer",
+      topicKey: "pet_lifecycle_first_guardian_focus",
+      uncertaintyType: "vague",
+      severity: "high",
+      summary: "첫 검증 보호자 유형이 아직 넓음",
+      whyItMatters:
+        "보호자 유형별로 의료, 보험, 일상 기록 문제가 달라지므로 첫 구현 범위가 달라집니다.",
+      status: "open",
+      questionText: "반려동물 전생애 관리 앱을 가장 먼저 테스트할 보호자 유형은 누구인가요?",
+      expectedAnswerType: "choice",
+      decisionItUnlocks: "첫 고객 인터뷰 대상과 초기 화면의 기록 범위를 정합니다.",
+      ambiguityDimension: "scope",
+      ambiguityRoutingPath: "current_research",
+      researchQuestion:
+        "보호자 유형별로 의료·보험·일상 기록 관리 니즈가 실제로 어떻게 다른지 확인할 공개 단서와 반례는 무엇인가?",
+      suggestedResearchTask: "반려동물 보호자 유형별 의료·보험·일상 기록 관리 니즈를 비교합니다.",
+      possibleRoutes: ["question", "research_needed"]
+    } satisfies ProductEngineStateSnapshot["openIssues"][number];
+    const initialState = {
+      ...withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId)),
+      openIssues: [sourceIssue]
+    } as ProductEngineStateSnapshot;
+    const planned = reduceProductEngineCommand(
+      command("PlanResearch", 0, {
+        sourceQueueItemId: sourceIssue.queueItemId,
+        objective: "Validate pet guardian segment evidence",
+        routeOutcome: "missing_con_evidence",
+        impact: "high"
+      }, 1),
+      initialState
+    );
+
+    expect(planned.accepted).toBe(true);
+
+    const plannedState = {
+      ...initialState,
+      ...planned.nextState
+    } as ProductEngineStateSnapshot;
+    const researchTaskId = plannedState.researchState.taskIds[0];
+
+    if (!researchTaskId) {
+      throw new Error("Expected PlanResearch to create a research task id.");
+    }
+
+    const imported = reduceProductEngineCommand(
+      command("ImportResearchResult", Number(plannedState.stateVersion), {
+        researchTaskId,
+        sourceTitle: "Pet guardian record-management notes",
+        result: "Pro: senior chronic pet guardians report fragmented medical and insurance records.",
+        limitationNotes: "Counter-evidence for first-pet guardians still needs a narrower search."
+      }, 2),
+      plannedState
+    );
+
+    expect(imported.accepted).toBe(true);
+
+    const importedState = {
+      ...plannedState,
+      ...imported.nextState
+    } as ProductEngineStateSnapshot;
+    const synthesized = reduceProductEngineCommand(
+      effectExecutorCommand("SynthesizeEvidence", Number(importedState.stateVersion), { researchResultId: importedState.researchState.results[0]?.researchResultId }, 3),
+      importedState
+    );
+
+    expect(synthesized.accepted).toBe(true);
+
+    const researchFollowUpIssue = synthesized.nextState.openIssues.find((issue) =>
+      issue.queueItemId.startsWith("queue_research_followup_")
+    );
+    const researchFollowUpCard = synthesized.nextState.queueProjection.active.find((item) =>
+      item.queueItemId === researchFollowUpIssue?.queueItemId
+    );
+
+    expect(researchFollowUpIssue).toMatchObject({
+      ambiguityDimension: "scope",
+      ambiguityRoutingPath: "current_research",
+      researchQuestion: sourceIssue.researchQuestion,
+      sourceRef: expect.stringContaining(`research:${researchTaskId}:`)
+    });
+    expect(researchFollowUpCard).toMatchObject({
+      ambiguityDimension: "scope",
+      ambiguityRoutingPath: "current_research",
+      researchQuestion: sourceIssue.researchQuestion,
+      suggestedResearchTask: expect.stringContaining("추가 질문")
+    });
   });
 
   it("carries evidence-derived listed candidates into active research follow-up answer options", () => {

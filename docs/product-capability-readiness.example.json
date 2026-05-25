@@ -41,6 +41,8 @@
         "apps/sidecar/src/clarification-pipeline-smoke.ts",
         "apps/sidecar/src/clarification-volume-smoke.ts",
         "packages/core/src/product-engine/follow-up-answer-variety.test.ts",
+        "packages/core/prompts/generated-ambiguity-questions.v1.md",
+        "apps/sidecar/src/product-engine/generated-ambiguity-question-prompt.ts",
         "apps/web/src/features/decision-queue/shell/QuestionsView.tsx",
         "apps/web/src/features/decision-queue/shell/useDecisionQueueSessionActions.test.ts",
         "packages/core/test/product-engine.test.ts"
@@ -53,6 +55,8 @@
         "Idea intake creates a user-confirmed business or personal project purpose before analysis.",
         "Active question batches stay bounded while long sessions can process 200+ question/answer loops.",
         "Clarification question cards and generated follow-ups support open text subjective/narrative prompts, binary stance, one-of-many single choice, one-or-more multi-select, ranked, evidence, and experiment answer formats instead of reusing one pro/con shape.",
+        "Initial ambiguity questions can come from a prompt artifact that asks Codex for generated JSON with domain-fit questions before deterministic fallback.",
+        "Generated questions apply the ambiguity-reduction algorithm by tagging the weakest dimension, separating fact-checking/current research/human judgment, and carrying a concrete researchQuestion into the answer-triggered research objective.",
         "Answer submission stays non-blocking while background research starts and automatic queue refill continue after the answer is persisted.",
         "Answers produce follow-up debt and research-task debt instead of hidden notes.",
         "Question-debt completion and Planning Handoff blockers remain visible before Planning-ready."
@@ -104,6 +108,7 @@
         "Completeness keeps question debt and source-trace gaps from being labelled Planning-ready.",
         "Completeness requires Composite score is 85 or higher before a completion candidate can become implementation-ready.",
         "Completeness requires Most confidence axes are 75 or higher so most readiness metrics are concrete before software implementation starts.",
+        "Completeness requires Core ambiguity dimensions are 75 or higher so goal, scope/non-goal, success criteria, and decision authority cannot be hidden by a high average score before implementation starts.",
         "Confidence and if-stop-now risk/action artifacts remain visible for readiness decisions.",
         "Planning Handoff carries research follow-up provenance into build-slice evidence.",
         "Blocker artifacts use explicit source-trace incomplete states when evidence is insufficient."
@@ -126,7 +131,7 @@
         "pnpm verify:production-mutation-contract"
       ],
       "checkedBehaviors": [
-        "ChatGPT/browser delegation keeps disclosure preview, approval, evidence refs, and revoke controls visible.",
+        "ChatGPT/browser delegation keeps disclosure preview, approval, evidence refs, revoke controls, visible ChatGPT handoff, and result import gate visibility.",
         "Service-page permissions require user-present login, action echo, artifact cleanup, and revoke checks.",
         "approved public-read browser actions accept only HTTPS public DNS targets while loopback-only remains required for service-page/local preview flows.",
         "Loopback-only browser smokes prove boundaries without ChatGPT credentials or external network access.",
@@ -159,6 +164,7 @@
         "Runtime preview requests produce bounded preview artifacts without applying file, shell, browser, or network actions.",
         "Opt-in live runtime readiness verification reports skipped, blocked, or passed evidence without forcing opt-in live execution into the default suite.",
         "Worker jobs keep planned ledger docs, authority refs, sandbox boundaries, and manual recovery evidence visible.",
+        "Planning-derived PR-sized issue docs are first-class in issueManagement.planningIssueDocs, a separate PR issue sequence tracker, generated tracker state, and the Implementation panel before stage delivery issues; each run can target a selected planningIssueId so prior slices show completed, the selected slice shows active, and later slices remain planned.",
         "Generated PR body includes issue document status summary, stage status summary, review/evidence gate summary, and missing-test audit summary coverage.",
         "Every canonical auto-implementation stage requires two consecutive no-finding feature and repository code-review passes, two consecutive no-finding changed-code and repository clean-code passes, a zero-gap missing-test audit, and passing test evidence before completion.",
         "Final merge_main stays blocked until final_verify_pr_update records current PR body evidence with full verification commands plus missing-test audit and test evidence."
@@ -180,7 +186,7 @@
       ],
       "checkedBehaviors": [
         "The local technical-preview bundle can still be built and smoke-tested without credentials.",
-        "Broad/general release remains separately blocked until signed package, updater rollback, and Windows device gates pass.",
+        "Broad/general release remains separately blocked until updater rollback and Windows device gates pass; signed package evidence is optional hardening for non-store/direct distribution.",
         "Credential-free product/release diagnostics expose blocker issues without collecting secret values.",
         "Product capability readiness does not reinterpret release blockers as ready distribution evidence."
       ]

@@ -35,15 +35,15 @@ describe("release evidence bundle verification", () => {
       checklistStatus: "blocked",
       blockers: []
     });
-    expect(evidence.issueNumbers).toEqual([259, 266, 267]);
+    expect(evidence.issueNumbers).toEqual([259, 267]);
     expect(evidence.releaseEvidenceBlockerSummary).toMatchObject({
       status: "blocked",
-      issueNumbers: [259, 266, 267],
-      blockedIssueNumbers: [259, 266, 267],
-      issueCount: 3,
-      blockedIssueCount: 3,
-      totalItemCount: 9,
-      blockedItemCount: 9
+      issueNumbers: [259, 267],
+      blockedIssueNumbers: [259, 267],
+      issueCount: 2,
+      blockedIssueCount: 2,
+      totalItemCount: 5,
+      blockedItemCount: 5
     });
     expect(evidence.releaseEvidenceIssueSummaries).toEqual(
       expect.arrayContaining([
@@ -81,13 +81,6 @@ describe("release evidence bundle verification", () => {
         ])
       }),
       expect.objectContaining({
-        issueNumber: 266,
-        evidenceCommands: expect.arrayContaining([
-          "pnpm verify:signed-package-preflight -- --require-credentials",
-          "pnpm verify:signed-package-release -- --require-release-evidence"
-        ])
-      }),
-      expect.objectContaining({
         issueNumber: 267,
         credentialFreeCommands: expect.arrayContaining(["pnpm verify:packaged-update-rollback:dry-run"]),
         evidenceCommands: expect.arrayContaining(["pnpm verify:packaged-update-rollback -- --require-device-evidence"])
@@ -122,8 +115,8 @@ describe("release evidence bundle verification", () => {
       expect(evidence.blockers).toEqual([]);
       expect(evidence.releaseEvidenceBlockerSummary).toMatchObject({
         status: "blocked",
-        blockedIssueNumbers: [259, 266, 267],
-        blockedItemCount: 9
+        blockedIssueNumbers: [259, 267],
+        blockedItemCount: 5
       });
     } finally {
       await rm(bundleDir, { recursive: true, force: true });

@@ -1,6 +1,7 @@
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback } from "react";
 import {
   type BusinessCriticIntensity,
+  type ChatGptBrowserDelegationProjection,
   type DecisionQueueProjection,
   type ProjectId,
   type Phase15bUpgradeHintProjection,
@@ -25,10 +26,18 @@ import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
 import { draftedActiveQuestionAnswerIds, queueItemIsQuestionDebt } from "../decision-queue-view-model";
 import { webPublicResearchAllowlistPolicy } from "../phase15a-research-run-request";
 import {
+  buildChatGptVisibleResultImportDelegationRequest,
+  chatGptDelegationRunForResearchTask,
+  importedResearchResultRefFromResponse,
+  researchImportMetadataForTask
+} from "../chatgpt-visible-research-import";
+import {
   displayError,
   emptyProjectionState,
   emptyResearchOperationsState,
+  initialResearchAutomationAllowsCodex,
   WEB_PUBLIC_SAFE_ALLOWLIST_ID,
+  type InitialResearchAutomationPermission,
   type InitialResearchPermission,
   initialQueueStartBlocker,
   latestCommandBackedProjectionVersion,
@@ -51,6 +60,7 @@ interface DecisionQueueSessionActionsProps {
   readonly copy: DecisionQueueCopy;
   readonly idea: string;
   readonly initialResearchPermission: InitialResearchPermission;
+  readonly initialResearchAutomationPermission: InitialResearchAutomationPermission;
   readonly initialBusinessCriticIntensityReason: string;
   readonly intake: string;
   readonly isBusy: boolean;
@@ -80,8 +90,18 @@ interface DecisionQueueSessionActionsProps {
   readonly setResearchOperations: Dispatch<SetStateAction<ResearchOperationsState>>;
   readonly setStatuses: Dispatch<SetStateAction<readonly StatusEndpointDto[]>>;
   readonly setWorkflowError: Dispatch<SetStateAction<string | null>>;
+  readonly generateInitialQuestionSet?: (input: GeneratedInitialQuestionSetInput) => Promise<unknown | undefined>;
   readonly startReadyReadOnlyResearchRunsAfterAnswer?: () => Promise<void>;
   readonly onInitialQueueCreated?: () => void;
+}
+
+export interface GeneratedInitialQuestionSetInput {
+  readonly sessionId: SessionShellProjection["sessionId"];
+  readonly expectedStateVersion: StateVersion;
+  readonly idea: string;
+  readonly intake: string;
+  readonly projectPurposeMode: ProjectPurposeMode;
+  readonly businessCriticIntensity: BusinessCriticIntensity | null;
 }
 
 export const MIN_QUESTION_BATCH_SIZE = 3;
@@ -104,6 +124,31 @@ function answerDraftsWithClearedItems(
     ...current,
     ...Object.fromEntries(queueItemIds.map((queueItemId) => [queueItemId, ""]))
   };
+}
+
+async function generateInitialQuestionSetForAnalysis(
+  client: SidecarClient,
+  input: GeneratedInitialQuestionSetInput,
+  override?: (input: GeneratedInitialQuestionSetInput) => Promise<unknown | undefined>
+) {
+  try {
+    if (override) {
+      return await override(input);
+    }
+
+    const response = await client.generateInitialQuestionSet({
+      sessionId: input.sessionId,
+      expectedStateVersion: input.expectedStateVersion,
+      rawIdea: input.idea,
+      intakeGoal: input.intake,
+      projectPurposeMode: input.projectPurposeMode,
+      businessCriticIntensity: input.businessCriticIntensity
+    });
+
+    return response.status === "generated" ? response.generatedQuestionSet : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function nextQuestionBatchIdsForActivation(
@@ -163,6 +208,7 @@ export function useDecisionQueueSessionActions({
   copy,
   idea,
   initialResearchPermission,
+  initialResearchAutomationPermission,
   initialBusinessCriticIntensityReason,
   intake,
   isBusy,
@@ -188,6 +234,7 @@ export function useDecisionQueueSessionActions({
   setResearchOperations,
   setStatuses,
   setWorkflowError,
+  generateInitialQuestionSet,
   startReadyReadOnlyResearchRunsAfterAnswer,
   onInitialQueueCreated
 }: DecisionQueueSessionActionsProps) {
@@ -224,6 +271,7 @@ export function useDecisionQueueSessionActions({
         codexLoginAuthenticated,
         connectionStatus,
         hasClient: Boolean(client),
+        initialResearchAutomationPermission,
         projectPurposeMode,
         businessCriticIntensity,
         idea,
@@ -275,6 +323,7 @@ export function useDecisionQueueSessionActions({
             projectPurposeMode,
             projectPurposeModeConfirmation: "user_confirmed",
             projectPurposeModeReason: sessionActionReasons.projectPurposeConfirmed(projectPurposeLabel),
+            initialResearchAutomationPermission,
             ...(projectPurposeMode === "business" && businessCriticIntensity
               ? {
                   businessCriticIntensity,
@@ -305,9 +354,24 @@ export function useDecisionQueueSessionActions({
           sessionActionLabels.draftInitialSpec,
           await client.draftInitialSpec(session.sessionId, commandResponseVersion(intakeResponse))
         );
+        const generatedQuestionSet = initialResearchAutomationAllowsCodex(initialResearchAutomationPermission)
+          ? await generateInitialQuestionSetForAnalysis(client, {
+              sessionId: session.sessionId,
+              expectedStateVersion: commandResponseVersion(draftResponse),
+              idea,
+              intake,
+              projectPurposeMode,
+              businessCriticIntensity: projectPurposeMode === "business" ? businessCriticIntensity : null
+            }, generateInitialQuestionSet)
+          : undefined;
         const analyzeResponse = await appendCommand(
           sessionActionLabels.analyzeAmbiguity,
-          await client.analyzeAmbiguity(session.sessionId, commandResponseVersion(draftResponse), "current_spec")
+          await client.analyzeAmbiguity(
+            session.sessionId,
+            commandResponseVersion(draftResponse),
+            "current_spec",
+            generatedQuestionSet
+          )
         );
         const activateResponse = await appendCommand(
           sessionActionLabels.activateQuestionBatch,
@@ -339,8 +403,10 @@ export function useDecisionQueueSessionActions({
       initialQueueStartBlockers,
       initialBusinessCriticIntensityReason,
       initialResearchPermission,
+      initialResearchAutomationPermission,
       client,
       enableInitialResearchSources,
+      generateInitialQuestionSet,
       idea,
       intake,
       isBusy,
@@ -829,29 +895,68 @@ export function useDecisionQueueSessionActions({
             researchTaskId,
             expectedStateVersion: latestCommandBackedProjectionVersion(projections),
             result,
-            sourceTitle: sessionActionReasons.manualResearchSourceTitle,
-            limitationNotes: sessionActionReasons.manualResearchLimitationNotes
+            ...researchImportMetadataForTask({
+              delegation: projections.chatGptDelegation,
+              researchTaskId,
+              visibleChatGptHandoffAvailable:
+                projections.session.initialResearchAutomationPermission === "allow_codex_and_chatgpt_visible",
+              copy: {
+                manualResearchSourceTitle: sessionActionReasons.manualResearchSourceTitle,
+                manualResearchLimitationNotes: sessionActionReasons.manualResearchLimitationNotes,
+                chatGptResearchSourceTitle: sessionActionReasons.chatGptResearchSourceTitle,
+                chatGptResearchLimitationNotes: sessionActionReasons.chatGptResearchLimitationNotes
+              }
+            })
           })
         );
         const research = optionalCommandProjection<ResearchEvidenceProjection>(response, "ResearchEvidenceProjection");
         const queue = optionalCommandQueueProjection<DecisionQueueProjection>(response, "DecisionQueueProjection");
+        let nextStateVersion = commandResponseVersion(response);
+        const delegatedRun = chatGptDelegationRunForResearchTask({
+          delegation: projections.chatGptDelegation,
+          researchTaskId
+        });
+        const resultImportRef = importedResearchResultRefFromResponse(response, researchTaskId);
+        const chatGptResultImportRequest = delegatedRun && resultImportRef
+          ? buildChatGptVisibleResultImportDelegationRequest({
+              expectedStateVersion: nextStateVersion,
+              sessionId: projections.session.sessionId,
+              run: delegatedRun,
+              resultImportRef
+            })
+          : null;
+        let chatGptDelegation: ChatGptBrowserDelegationProjection | null = null;
+
+        if (chatGptResultImportRequest) {
+          const delegationResponse = await appendCommand(
+            sessionActionLabels.recordVisibleChatGptResearchResultImport,
+            await client.createChatGptBrowserDelegationRun(chatGptResultImportRequest)
+          );
+
+          chatGptDelegation = optionalCommandProjection<ChatGptBrowserDelegationProjection>(
+            delegationResponse,
+            "ChatGptBrowserDelegationProjection"
+          );
+          nextStateVersion = commandResponseVersion(delegationResponse);
+        }
 
         setResearchDrafts((current) => ({
           ...current,
           [researchTaskId]: ""
         }));
-        if (research || queue) {
+        if (research || queue || chatGptDelegation) {
           setProjections((current) => ({
             ...current,
             ...(research ? { research } : {}),
-            ...(queue ? { queue } : {})
+            ...(queue ? { queue } : {}),
+            ...(chatGptDelegation ? { chatGptDelegation } : {})
           }));
         }
         if (queue) {
           continueQuestionLoopAfterQueueUpdate(
             projections.session.projectId,
             projections.session.sessionId,
-            commandResponseVersion(response),
+            nextStateVersion,
             queue
           );
         } else {
@@ -871,6 +976,7 @@ export function useDecisionQueueSessionActions({
       projections,
       refreshProjections,
       researchDrafts,
+      sessionActionLabels,
       sessionActionErrors,
       sessionActionReasons,
       startReadyReadOnlyResearchRunsAfterAnswer

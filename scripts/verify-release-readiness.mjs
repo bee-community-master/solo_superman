@@ -7,10 +7,16 @@ import { tokenLikePattern } from "./secret-patterns.mjs";
 export const RELEASE_READINESS_SCHEMA_VERSION = "solo-superman-release-readiness.v1";
 export const DEFAULT_RELEASE_READINESS_PATH = "docs/release-readiness.example.json";
 
-const REQUIRED_RELEASE_GATES = new Set([
-  "signed-packages",
+const REQUIRED_GENERAL_RELEASE_GATES = new Set([
   "packaged-update-rollback",
   "windows-real-device"
+]);
+const OPTIONAL_RELEASE_GATES = new Set([
+  "signed-packages"
+]);
+const REQUIRED_RELEASE_GATES = new Set([
+  ...REQUIRED_GENERAL_RELEASE_GATES,
+  ...OPTIONAL_RELEASE_GATES
 ]);
 const REQUIRED_BLOCKER_ISSUES_BY_GATE = new Map([
   [
@@ -42,17 +48,12 @@ const REQUIRED_CREDENTIAL_FREE_COMMANDS = new Set([
   "pnpm verify:windows-installer:dry-run",
   "pnpm verify:packaged-update-rollback",
   "pnpm verify:packaged-update-rollback:dry-run",
-  "pnpm verify:signed-package-preflight",
-  "pnpm verify:signed-package-release",
-  "pnpm verify:signed-package-release:dry-run",
   "pnpm verify:release-readiness",
   "pnpm verify:release-evidence-template",
   "pnpm verify:release-evidence-bundle",
   "pnpm verify"
 ]);
 const REQUIRED_READY_COMMANDS = new Set([
-  "pnpm verify:signed-package-preflight -- --require-credentials",
-  "pnpm verify:signed-package-release -- --require-release-evidence",
   "pnpm verify:windows-real-device -- --require-device-evidence",
   "pnpm verify:packaged-update-rollback -- --require-device-evidence",
   "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready",
@@ -62,6 +63,7 @@ const REQUIRED_READY_COMMANDS = new Set([
 const ALLOWED_PUBLIC_POSTURES = new Set(["technical-preview", "limited-beta", "general-release"]);
 const ALLOWED_READINESS_STATUSES = new Set(["blocked", "ready"]);
 const ALLOWED_GATE_STATUSES = new Set(["blocked", "passed"]);
+const ALLOWED_GATE_REQUIRED_FOR = new Set(["general-release", "optional-hardening"]);
 const SECRET_QUERY_NAME_PATTERN = /(?:token|secret|password|pass|api[_-]?key|credential|auth|session)/iu;
 const TOKEN_LIKE_PATTERN = tokenLikePattern("iu");
 const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
@@ -189,8 +191,14 @@ function validateReleaseGate(gate, path, issues) {
   if (!ALLOWED_GATE_STATUSES.has(gate.status)) {
     addIssue(issues, `${path}.status`, "must be blocked or passed");
   }
-  if (gate.requiredFor !== "general-release") {
-    addIssue(issues, `${path}.requiredFor`, "must be general-release");
+  if (!ALLOWED_GATE_REQUIRED_FOR.has(gate.requiredFor)) {
+    addIssue(issues, `${path}.requiredFor`, "must be general-release or optional-hardening");
+  }
+  if (gate.id === "signed-packages" && gate.requiredFor !== "optional-hardening") {
+    addIssue(issues, `${path}.requiredFor`, "signed-packages must be optional-hardening for non-store/direct distribution");
+  }
+  if (gate.id !== "signed-packages" && gate.requiredFor !== "general-release") {
+    addIssue(issues, `${path}.requiredFor`, `${gate.id} must be required for general-release`);
   }
 
   validateStringList(gate.evidenceRefs, `${path}.evidenceRefs`, issues);
@@ -221,12 +229,12 @@ function validateReleaseGate(gate, path, issues) {
     }
   }
 
-  return typeof gate.id === "string" ? { id: gate.id, status: gate.status } : null;
+  return typeof gate.id === "string" ? { id: gate.id, status: gate.status, requiredFor: gate.requiredFor } : null;
 }
 
 function validateReleaseGates(gates, issues) {
   if (!Array.isArray(gates) || gates.length === 0) {
-    addIssue(issues, "$.releaseGates", "must list signed package, updater rollback, and Windows real-device gates");
+    addIssue(issues, "$.releaseGates", "must list updater rollback, Windows real-device, and optional signed package gates");
     return [];
   }
 
@@ -255,8 +263,9 @@ function validateReleaseGates(gates, issues) {
 
 function consistencyIssues(contract, gateSummaries) {
   const issues = [];
-  const blockedGates = gateSummaries.filter((gate) => gate.status === "blocked");
-  const passedGates = gateSummaries.filter((gate) => gate.status === "passed");
+  const requiredGateSummaries = gateSummaries.filter((gate) => gate.requiredFor === "general-release");
+  const blockedGates = requiredGateSummaries.filter((gate) => gate.status === "blocked");
+  const passedGates = requiredGateSummaries.filter((gate) => gate.status === "passed");
 
   if (contract.broadReleaseStatus === "blocked" && blockedGates.length === 0) {
     addIssue(issues, "$.broadReleaseStatus", "blocked status must name at least one blocked release gate");
@@ -267,9 +276,9 @@ function consistencyIssues(contract, gateSummaries) {
       addIssue(issues, "$.publicPosture", "ready broad release must use general-release posture");
     }
     if (blockedGates.length > 0) {
-      addIssue(issues, "$.releaseGates", "ready broad release cannot include blocked gates");
+      addIssue(issues, "$.releaseGates", "ready broad release cannot include blocked required gates");
     }
-    for (const requiredGate of REQUIRED_RELEASE_GATES) {
+    for (const requiredGate of REQUIRED_GENERAL_RELEASE_GATES) {
       if (!passedGates.some((gate) => gate.id === requiredGate)) {
         addIssue(issues, "$.releaseGates", `ready broad release must pass ${requiredGate}`);
       }
@@ -318,7 +327,12 @@ export function evaluateReleaseReadiness(contract, options = {}) {
     blockers.push(...validation.issues);
   }
 
-  const blockedGates = validation.gateSummaries.filter((gate) => gate.status === "blocked").map((gate) => gate.id);
+  const blockedGates = validation.gateSummaries
+    .filter((gate) => gate.requiredFor === "general-release" && gate.status === "blocked")
+    .map((gate) => gate.id);
+  const optionalBlockedGates = validation.gateSummaries
+    .filter((gate) => gate.requiredFor === "optional-hardening" && gate.status === "blocked")
+    .map((gate) => gate.id);
   if (options.requireReady) {
     if (contract?.broadReleaseStatus !== "ready") {
       blockers.push("broad release is not ready");
@@ -333,6 +347,7 @@ export function evaluateReleaseReadiness(contract, options = {}) {
     readinessStatus: contract?.broadReleaseStatus ?? "invalid",
     broadReleaseReady: validation.ok && contract?.broadReleaseStatus === "ready" && blockedGates.length === 0,
     blockedGates,
+    optionalBlockedGates,
     blockers,
     validationIssues: validation.issues
   };
@@ -378,10 +393,12 @@ function evidenceForEvaluation(evaluation, options) {
     readinessStatus: evaluation.readinessStatus,
     broadReleaseReady: evaluation.broadReleaseReady,
     blockedGates: evaluation.blockedGates,
+    optionalBlockedGates: evaluation.optionalBlockedGates,
     blockers: evaluation.blockers,
     checked: [
       "release readiness contract schema",
-      "required signed package, updater rollback, and Windows real-device gates",
+      "required updater rollback and Windows real-device gates",
+      "signed package evidence remains optional hardening for non-store/direct distribution",
       "credential-free and ready-release verification command lists",
       "secret-free release readiness evidence strings",
       options.requireReady ? "all broad-release gates must be passed" : "blocked broad-release posture is allowed only with explicit blockers"

@@ -223,6 +223,14 @@ export const API_ROUTE_CATALOG = [
     implementedInPr01: false
   },
   {
+    routeId: "generateInitialQuestionSet",
+    clientName: "generateInitialQuestionSet",
+    method: "POST",
+    path: "/api/v1/sessions/:sessionId/questions/generate",
+    commandType: "none",
+    implementedInPr01: false
+  },
+  {
     routeId: "analyzeAmbiguity",
     clientName: "analyzeAmbiguity",
     method: "POST",
@@ -922,4 +930,13 @@ export const POST_PHASE3_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   ...POST_PHASE3_PR07_AUTO_IMPLEMENTATION_ROUTE_IDS
 ] as const satisfies readonly ApiRouteId[];
 
-export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = POST_PHASE3_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS;
+export const GENERATED_QUESTION_JSON_ROUTE_IDS = [
+  "generateInitialQuestionSet"
+] as const satisfies readonly ApiRouteId[];
+
+export const GENERATED_QUESTION_JSON_MOUNTED_PRODUCT_API_ROUTE_IDS = [
+  ...POST_PHASE3_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  ...GENERATED_QUESTION_JSON_ROUTE_IDS
+] as const satisfies readonly ApiRouteId[];
+
+export const CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS = GENERATED_QUESTION_JSON_MOUNTED_PRODUCT_API_ROUTE_IDS;

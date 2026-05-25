@@ -57,7 +57,12 @@ import type {
 import type { PlanningHandoffRequestedScopeDto, PlanningHandoffSourceRefDto } from "../projections/planning-handoff";
 import type { ResearchQueueTerminalOutcome } from "../projections/research-evidence";
 import type { BlockedActionType, CodexTurnPurpose } from "../codex";
-import type { BusinessCriticIntensity, ProjectPurposeMode, RequiredDecisionRef } from "../product-engine";
+import type {
+  BusinessCriticIntensity,
+  ProjectPurposeMode,
+  RequiredDecisionRef,
+  ResearchAutomationPermission
+} from "../product-engine";
 
 export interface ScaffoldRequestPlaceholder {
   readonly scaffoldOnly?: true;
@@ -73,6 +78,7 @@ export interface StartProjectRequest extends ScaffoldRequestPlaceholder {
   readonly businessCriticIntensity?: BusinessCriticIntensity;
   readonly businessCriticIntensityConfirmation?: "user_confirmed";
   readonly businessCriticIntensityReason?: string;
+  readonly initialResearchAutomationPermission?: ResearchAutomationPermission;
   readonly sourceNote?: string;
 }
 
@@ -107,10 +113,33 @@ export interface DraftInitialSpecRequest extends ScaffoldRequestPlaceholder {
   readonly expectedStateVersion: StateVersion;
 }
 
+export interface GenerateInitialQuestionSetRequest extends ScaffoldRequestPlaceholder {
+  readonly sessionId: SessionId;
+  readonly expectedStateVersion: StateVersion;
+  readonly rawIdea: string;
+  readonly intakeGoal: string;
+  readonly projectPurposeMode: ProjectPurposeMode;
+  readonly businessCriticIntensity?: BusinessCriticIntensity | null;
+  readonly reviewAxes?: readonly string[];
+}
+
+export type GenerateInitialQuestionSetStatus = "generated" | "unavailable" | "invalid";
+
+export interface GenerateInitialQuestionSetResponse {
+  readonly status: GenerateInitialQuestionSetStatus;
+  readonly promptTemplateRef: string;
+  readonly schemaVersion: string;
+  readonly source: "codex_runtime_preview" | "codex_runtime_unavailable" | "codex_runtime_invalid_json";
+  readonly generatedQuestionSet?: unknown;
+  readonly validationIssues?: readonly string[];
+  readonly reason?: string;
+}
+
 export interface AnalyzeAmbiguityRequest extends ScaffoldRequestPlaceholder {
   readonly sessionId: SessionId;
   readonly expectedStateVersion: StateVersion;
   readonly targetRef: string;
+  readonly generatedQuestionSet?: unknown;
 }
 
 export interface ActivateQuestionBatchRequest extends ScaffoldRequestPlaceholder {

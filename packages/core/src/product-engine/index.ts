@@ -32,6 +32,7 @@ import {
   PROJECT_PURPOSE_MODE_LABELS,
   PROJECT_PURPOSE_MODE_REQUIRED_LABEL,
   PROJECT_PURPOSE_MODE_SKIPPED_COMMERCIALIZATION_AXES,
+  RESEARCH_AUTOMATION_PERMISSIONS,
   PHASE25_CANDIDATE_LANES,
   PHASE25_DELEGATION_RISK_GATE_CHECKS,
   PHASE25_DELEGATION_RISK_GATE_VERDICTS,
@@ -155,6 +156,7 @@ import {
   type ProjectPurposeMode,
   type ProjectPurposeModeAuditActor,
   type ProjectPurposeModeAuditSnapshot,
+  type ResearchAutomationPermission,
   type ProjectId,
   type ProjectionVersion,
   type QueueItemId,
@@ -208,6 +210,7 @@ import {
   importResearchResult,
   planResearchTask,
   resolveResearchReviewCardInProjection,
+  stripInternalResearchMetaText,
   synthesizeEvidenceMatrix
 } from "../research-engine";
 import {
@@ -217,8 +220,14 @@ import {
 import { sha256Hex } from "./deterministic-hash";
 import {
   answerOptionsForQuestion,
-  answerOptionsForSeed
+  answerOptionsForSeed,
+  primaryCustomerContextProfileForText
 } from "./answer-options";
+import {
+  GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+  GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+  parseGeneratedAmbiguityQuestionSet
+} from "./generated-ambiguity-questions";
 import {
   researchFollowUpAnswerOptions,
   researchFollowUpAnswerSelectionMode,
@@ -246,6 +255,12 @@ import {
 } from "./value-helpers";
 
 export const PACKAGE_SLICE_STATUS = "product-engine-e2e-dry-run-pr-09" as const;
+export {
+  GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+  GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+  parseGeneratedAmbiguityQuestionSet,
+  parseGeneratedAmbiguityQuestionSetText
+} from "./generated-ambiguity-questions";
 
 type PrivacyMode = "local_only" | "local_with_manual_export";
 const PROJECT_PURPOSE_MODE_REQUIRED_EFFECT =
@@ -330,14 +345,14 @@ function followUpAnswerOption(
 const FOLLOW_UP_BINARY_ANSWER_OPTIONS = [
   followUpAnswerOption(
     "agree_with_condition",
-    "찬성 / 조건부 진행",
+    "진행 후보로 둔다",
     "이 답을 현재 스펙이나 다음 검증 단계에 반영한다. 조건이 있으면 함께 적는다.",
     "결정을 닫고 다음 단계로 빠르게 이어갈 수 있습니다.",
     "조건이나 예외를 적지 않으면 너무 빨리 확정될 수 있습니다."
   ),
   followUpAnswerOption(
     "disagree_or_hold",
-    "반대 / 보류",
+    "보류하거나 좁힌다",
     "이 답을 아직 반영하지 않고 범위 축소, 방향 전환, 추가 확인을 먼저 진행한다.",
     "잘못된 가정에 계속 투자하는 일을 줄입니다.",
     "유효한 기회를 너무 일찍 보류할 수 있습니다."
@@ -345,8 +360,8 @@ const FOLLOW_UP_BINARY_ANSWER_OPTIONS = [
   followUpAnswerOption(
     "needs_more_context",
     "더 설명한 뒤 판단",
-    "찬성/반대를 바로 고르기보다 부족한 맥락, 조건, 예외를 먼저 답변에 남긴다.",
-    "단순 찬반으로 사라질 수 있는 실제 제약을 보존합니다.",
+    "바로 고르기보다 부족한 맥락, 조건, 예외를 먼저 답변에 남긴다.",
+    "단순 선택으로 사라질 수 있는 실제 제약을 보존합니다.",
     "이번 답변만으로는 결정이 바로 닫히지 않을 수 있습니다."
   )
 ] as const satisfies readonly AmbiguityAnswerOption[];
@@ -383,7 +398,7 @@ const FOLLOW_UP_SINGLE_DECISION_ANSWER_OPTIONS = [
 ] as const satisfies readonly AmbiguityAnswerOption[];
 
 const MISSING_CON_EVIDENCE_FOLLOW_UP_QUESTION_TEMPLATE = {
-  text: "방금 답한 “{answer}”를 더 안전하게 판단하려면, 반대 사례나 한계를 더 찾아야 할까요? 아니면 현재 근거로 조건부 진행해도 될까요?",
+  text: "방금 답한 “{answer}”를 더 안전하게 판단하려면, 반례나 한계를 더 찾아야 할까요? 아니면 현재 단서로 조건부 진행해도 될까요?",
   expectedAnswerType: "evidence",
   answerSelectionMode: "single"
 } as const satisfies FollowUpQuestionTemplate;
@@ -400,7 +415,7 @@ const FOLLOW_UP_QUESTION_TEMPLATES = [
     answerOptions: FOLLOW_UP_SINGLE_DECISION_ANSWER_OPTIONS
   },
   {
-    text: "방금 답한 “{answer}”를 지금 스펙이나 다음 검증 단계에 반영하는 데 찬성/반대 중 어느 쪽인가요? 조건부라면 조건을 함께 적어주세요.",
+    text: "방금 답한 “{answer}”를 지금 스펙이나 다음 검증 단계에 진행 후보로 둘지, 보류하거나 좁힐지, 조건을 붙여 진행할지 골라주세요.",
     expectedAnswerType: "choice",
     answerSelectionMode: "single",
     answerOptions: FOLLOW_UP_BINARY_ANSWER_OPTIONS
@@ -453,6 +468,7 @@ function emptyConfidenceCompletionProjection(
     compositeScore: 0,
     readinessLabel: "draft",
     axes: [],
+    ambiguityDimensionCoverage: [],
     scoreBreakdown: {
       sectionCompleteness: 0,
       questionDebtResolution: 0,
@@ -515,6 +531,23 @@ function businessCriticIntensityFromPayload(value: unknown): BusinessCriticInten
   }
 
   return isBusinessCriticIntensity(value) ? value : "invalid";
+}
+
+function isResearchAutomationPermission(value: unknown): value is ResearchAutomationPermission {
+  return (
+    typeof value === "string" &&
+    RESEARCH_AUTOMATION_PERMISSIONS.includes(value as ResearchAutomationPermission)
+  );
+}
+
+function researchAutomationPermissionFromPayload(
+  value: unknown
+): ResearchAutomationPermission | "invalid" | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return isResearchAutomationPermission(value) ? value : "invalid";
 }
 
 export function businessCriticIntensityLabel(intensity: BusinessCriticIntensity | null | undefined) {
@@ -944,7 +977,8 @@ function createSessionShellProjection(
   version: ProjectionVersion,
   mode: ProjectPurposeMode | null | undefined,
   phase: SessionShellProjection["phase"] = "intake",
-  intensity?: BusinessCriticIntensity | null
+  intensity?: BusinessCriticIntensity | null,
+  initialResearchAutomationPermission?: ResearchAutomationPermission
 ) {
   return {
     kind: "SessionShellProjection",
@@ -956,7 +990,8 @@ function createSessionShellProjection(
     projectPurposeModeSelectionStatus: projectPurposeModeSelectionStatus(mode),
     projectPurposeModeLabel: projectPurposeModeLabel(mode),
     projectPurposeModeEffect: projectPurposeModeEffect(mode),
-    ...businessCriticProjectFields(mode, intensity)
+    ...businessCriticProjectFields(mode, intensity),
+    ...(initialResearchAutomationPermission ? { initialResearchAutomationPermission } : {})
   } as const;
 }
 
@@ -997,8 +1032,12 @@ type AmbiguityIssueSeed = {
   readonly answerSelectionMode?: AmbiguityAnswerSelectionMode;
   readonly answerOptions?: readonly AmbiguityAnswerOption[];
   readonly decisionItUnlocks: string;
+  readonly ambiguityDimension?: NonNullable<AmbiguityIssueSnapshot["ambiguityDimension"]>;
+  readonly ambiguityRoutingPath?: NonNullable<AmbiguityIssueSnapshot["ambiguityRoutingPath"]>;
+  readonly researchQuestion?: string;
   readonly routes: NonNullable<AmbiguityIssueSnapshot["possibleRoutes"]>;
   readonly suggestedResearchTask?: string;
+  readonly sourceRef?: string;
 };
 
 interface OnboardingQuestionContext {
@@ -1030,6 +1069,10 @@ function onboardingQuestionContextFromState(state: ProductEngineStateSnapshot): 
   };
 }
 
+function generatedQuestionSetContextText(context: OnboardingQuestionContext) {
+  return [context.idea, context.goal].filter(Boolean).join("\n");
+}
+
 function ideaContextLabel(context: OnboardingQuestionContext) {
   return context.idea ? `“${context.idea}”` : "이 아이디어";
 }
@@ -1039,8 +1082,13 @@ function goalContextLabel(context: OnboardingQuestionContext) {
 }
 
 const BUSINESS_ONBOARDING_QUESTION_TEXT_BY_TOPIC: Readonly<Record<string, (context: OnboardingQuestionContext) => string>> = {
-  primary_customer_narrowing: (context) =>
-    `${ideaContextLabel(context)}를 가장 먼저 써볼 사람은 누구이고, 그 사람은 지금 어떤 상황에 있나요?`,
+  primary_customer_narrowing: (context) => {
+    const profile = primaryCustomerContextProfileForText(generatedQuestionSetContextText(context));
+
+    return profile
+      ? `${ideaContextLabel(context)}를 가장 먼저 테스트할 ${profile.questionSubject}은 누구이고, ${profile.personReference}은 지금 어떤 상황에 있나요?`
+      : `${ideaContextLabel(context)}를 가장 먼저 써볼 사람은 누구이고, 그 사람은 지금 어떤 상황에 있나요?`;
+  },
   buyer_user_split: () =>
     "그 사람이 직접 돈을 내거나 승인할 수 있나요? 아니라면 누가 결정하고 누가 실제로 쓰나요?",
   problem_pain_intensity: () =>
@@ -1230,13 +1278,13 @@ const BUSINESS_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
     topicKey: "evidence_balance",
     uncertaintyType: "unsupported",
     severity: "medium",
-    summary: "핵심 claim의 찬반 근거 균형이 부족함",
-    whyItMatters: "찬성 근거만 있으면 high-impact claim을 완료 상태로 승격할 수 없습니다.",
-    question: "핵심 claim을 지지하거나 반박하는 근거는 무엇이며 어느 쪽이 비어 있는가?",
+    summary: "핵심 claim의 리서치 단서와 반례 균형이 부족함",
+    whyItMatters: "한쪽 단서만 있으면 중요한 claim을 완료 상태로 승격할 수 없습니다.",
+    question: "핵심 claim을 뒷받침하는 단서와 흔들 수 있는 반례는 무엇이며 어느 쪽이 비어 있는가?",
     expectedAnswerType: "evidence",
-    decisionItUnlocks: "Evidence Matrix와 pro/con gate의 다음 research route를 결정합니다.",
+    decisionItUnlocks: "Evidence Matrix와 반례 확인 route를 결정합니다.",
     routes: ["research_needed", "missing_con_evidence"],
-    suggestedResearchTask: "핵심 claim별 pro/con evidence coverage를 점검합니다."
+    suggestedResearchTask: "핵심 claim별 지지 단서와 반례 coverage를 점검합니다."
   },
   {
     sectionRef: "Non-goals",
@@ -1612,18 +1660,47 @@ function categoryForBusinessSeed(seed: AmbiguityIssueSeed): BusinessCriticalQues
   return seed.businessCriticCategory ?? BUSINESS_CRITIC_CATEGORY_BY_TOPIC_KEY[seed.topicKey];
 }
 
-function createAmbiguityIssues(
-  sessionId: SessionId,
-  specRef: string,
-  mode: ProjectPurposeMode,
-  intensity?: BusinessCriticIntensity | null,
-  context: OnboardingQuestionContext = {}
-): readonly AmbiguityIssueSnapshot[] {
-  const token = stableToken(`${sessionId}:${specRef}:${mode}:${intensity ?? "none"}`);
+type AmbiguityIssueSeedSource = "deterministic" | "generated_json";
 
-  return ambiguityIssueSeedsForMode(mode, intensity).map((seed, index) => {
+function questionTextForSeed(
+  seed: AmbiguityIssueSeed,
+  context: OnboardingQuestionContext,
+  source: AmbiguityIssueSeedSource
+) {
+  return source === "generated_json" ? plainUserFacingDecisionQueueText(seed.question) : contextualQuestionText(seed, context);
+}
+
+function suggestedResearchTaskForSeed(
+  seed: AmbiguityIssueSeed,
+  context: OnboardingQuestionContext,
+  source: AmbiguityIssueSeedSource
+) {
+  if (!seed.suggestedResearchTask) {
+    return undefined;
+  }
+
+  return source === "generated_json"
+    ? plainUserFacingDecisionQueueText(seed.suggestedResearchTask)
+    : contextualSuggestedResearchTask(seed, context);
+}
+
+function createAmbiguityIssuesFromSeeds(input: {
+  readonly sessionId: SessionId;
+  readonly specRef: string;
+  readonly mode: ProjectPurposeMode;
+  readonly intensity?: BusinessCriticIntensity | null | undefined;
+  readonly context?: OnboardingQuestionContext;
+  readonly seeds: readonly AmbiguityIssueSeed[];
+  readonly source: AmbiguityIssueSeedSource;
+}): readonly AmbiguityIssueSnapshot[] {
+  const context = input.context ?? {};
+  const token = stableToken(
+    `${input.sessionId}:${input.specRef}:${input.mode}:${input.intensity ?? "none"}:${input.source}`
+  );
+
+  return input.seeds.map((seed, index) => {
     const businessCriticCategory = categoryForBusinessSeed(seed);
-    const suggestedResearchTask = contextualSuggestedResearchTask(seed, context);
+    const suggestedResearchTask = suggestedResearchTaskForSeed(seed, context, input.source);
     const answerSelectionMode = seed.answerSelectionMode ?? (seed.expectedAnswerType === "rank" ? "ranked" : undefined);
 
     return {
@@ -1632,13 +1709,13 @@ function createAmbiguityIssues(
       topicKey: seed.topicKey,
       ...(seed.purposeModeAxis ? { purposeModeAxis: seed.purposeModeAxis } : {}),
       ...(seed.purposeModeEffect ? { purposeModeEffect: seed.purposeModeEffect } : {}),
-      ...(mode === "business" && businessCriticCategory ? { businessCriticCategory } : {}),
-      ...(mode === "business"
+      ...(input.mode === "business" && businessCriticCategory ? { businessCriticCategory } : {}),
+      ...(input.mode === "business"
         ? { businessCriticIntensityMinimum: seed.businessCriticIntensityMinimum ?? "balanced" }
         : {}),
       ...(seed.businessCriticPressureKind
         ? { businessCriticPressureKind: seed.businessCriticPressureKind }
-        : mode === "business"
+        : input.mode === "business"
           ? { businessCriticPressureKind: "balanced_con" as const }
           : {}),
       ...(seed.businessCriticRepeatGroup ? { businessCriticRepeatGroup: seed.businessCriticRepeatGroup } : {}),
@@ -1648,19 +1725,43 @@ function createAmbiguityIssues(
       summary: seed.summary,
       whyItMatters: seed.whyItMatters,
       status: "open",
-      questionText: contextualQuestionText(seed, context),
+      questionText: questionTextForSeed(seed, context, input.source),
       expectedAnswerType: seed.expectedAnswerType,
       ...(answerSelectionMode ? { answerSelectionMode } : {}),
-      answerOptions: answerOptionsForSeed(seed),
+      answerOptions: seed.answerOptions ?? answerOptionsForSeed({
+        ...seed,
+        contextText: generatedQuestionSetContextText(context)
+      }),
       decisionItUnlocks: seed.decisionItUnlocks,
+      ...(seed.ambiguityDimension ? { ambiguityDimension: seed.ambiguityDimension } : {}),
+      ...(seed.ambiguityRoutingPath ? { ambiguityRoutingPath: seed.ambiguityRoutingPath } : {}),
+      ...(seed.researchQuestion ? { researchQuestion: seed.researchQuestion } : {}),
       ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
       repeatCount: 0,
       repeatLimit: seed.businessCriticPressureKind
         ? BUSINESS_CRITIC_FOLLOW_UP_QUESTION_LIMIT
         : DEFAULT_FOLLOW_UP_QUESTION_LIMIT,
       possibleRoutes: seed.routes,
-      sourceRef: seed.topicKey
+      sourceRef: seed.sourceRef ?? (input.source === "generated_json" ? `generated_question:${seed.topicKey}` : seed.topicKey)
     };
+  });
+}
+
+function createAmbiguityIssues(
+  sessionId: SessionId,
+  specRef: string,
+  mode: ProjectPurposeMode,
+  intensity?: BusinessCriticIntensity | null,
+  context: OnboardingQuestionContext = {}
+): readonly AmbiguityIssueSnapshot[] {
+  return createAmbiguityIssuesFromSeeds({
+    sessionId,
+    specRef,
+    mode,
+    intensity,
+    context,
+    seeds: ambiguityIssueSeedsForMode(mode, intensity),
+    source: "deterministic"
   });
 }
 
@@ -1839,6 +1940,12 @@ function queueItemProjectionFromIssue(
     ...(issue.whyItMatters ? { whyItMatters: plainUserFacingDecisionQueueText(issue.whyItMatters) } : {}),
     ...(issue.decisionItUnlocks
       ? { decisionItUnlocks: plainUserFacingDecisionQueueText(issue.decisionItUnlocks) }
+      : {}),
+    ...(issue.ambiguityDimension ? { ambiguityDimension: issue.ambiguityDimension } : {}),
+    ...(issue.ambiguityRoutingPath ? { ambiguityRoutingPath: issue.ambiguityRoutingPath } : {}),
+    ...(issue.researchQuestion ? { researchQuestion: plainUserFacingDecisionQueueText(issue.researchQuestion) } : {}),
+    ...(issue.suggestedResearchTask
+      ? { suggestedResearchTask: plainUserFacingDecisionQueueText(issue.suggestedResearchTask) }
       : {}),
     ...(issue.expectedAnswerType ? { expectedAnswerType: issue.expectedAnswerType } : {}),
     ...(answerSelectionMode ? { answerSelectionMode } : {}),
@@ -2058,12 +2165,52 @@ function compactAnswerExcerpt(answer: string) {
 }
 
 function readableEvidenceContextExcerpt(value: string) {
+  const userFacingValue = stripInternalResearchMetaText(value);
   const compacted = ANSWER_EXCERPT_SENSITIVE_VALUE_PATTERNS.reduce(
     (current, pattern) => current.replace(pattern, ANSWER_EXCERPT_REDACTED_VALUE),
-    value.replace(/\s+/gu, " ").trim()
+    userFacingValue.replace(/\s+/gu, " ").trim()
   );
 
   return compacted.length > 220 ? compacted.slice(0, 220).trimEnd() : compacted;
+}
+
+function researchSourceLabel(researchResult: ResearchResultProjection) {
+  const sourceTitle = stripInternalResearchMetaText(researchResult.sourceTitle ?? "");
+  const sourceUrl = stripInternalResearchMetaText(researchResult.sourceUrl ?? "");
+  const titleLooksLikeCollapsedUrl =
+    /https?:\/\//iu.test(sourceTitle) ||
+    (sourceUrl.length > 0 &&
+      sourceTitle.replace(/\s+/gu, "").toLowerCase().includes(sourceUrl.replace(/\s+/gu, "").toLowerCase().slice(0, 24)));
+
+  if (sourceTitle && !titleLooksLikeCollapsedUrl) {
+    return sourceTitle;
+  }
+
+  return sourceUrl || sourceTitle || researchResult.researchResultId;
+}
+
+function researchSynthesisContextText(
+  researchTask: ResearchTaskProjection,
+  sourceQuestion: AmbiguityIssueSnapshot | undefined
+) {
+  return [
+    researchTask.objective,
+    sourceQuestion?.summary,
+    sourceQuestion?.questionText,
+    sourceQuestion?.researchQuestion,
+    sourceQuestion?.decisionItUnlocks,
+    sourceQuestion?.suggestedResearchTask,
+    ...(sourceQuestion?.answerOptions ?? []).flatMap((option) => [
+      option.label,
+      option.value,
+      option.primaryDetail,
+      option.secondaryDetail,
+      option.pro,
+      option.con
+    ])
+  ]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ");
 }
 
 function researchFollowUpEvidenceContext(input: {
@@ -2074,8 +2221,8 @@ function researchFollowUpEvidenceContext(input: {
 }) {
   return [
     "리서치 근거 요약:",
-    input.proSummary ? `- 찬성 근거: ${readableEvidenceContextExcerpt(input.proSummary)}` : null,
-    input.conSummary ? `- 반대 근거: ${readableEvidenceContextExcerpt(input.conSummary)}` : null,
+    input.proSummary ? `- 확인된 단서: ${readableEvidenceContextExcerpt(input.proSummary)}` : null,
+    input.conSummary ? `- 다른 관점/반례: ${readableEvidenceContextExcerpt(input.conSummary)}` : null,
     input.uncertaintySummary
       ? `- 한계/불확실성: ${readableEvidenceContextExcerpt(input.uncertaintySummary)}`
       : null,
@@ -2121,22 +2268,60 @@ function answerRequestsBroaderResearch(answer: string) {
   return BROADER_RESEARCH_REQUEST_PATTERN.test(answer) && !BROADER_RESEARCH_REJECTION_PATTERN.test(answer);
 }
 
+function ambiguityRoutingPathInstruction(path: AmbiguityIssueSnapshot["ambiguityRoutingPath"] | undefined) {
+  if (path === "existing_fact_check") {
+    return "First verify facts that can be checked from existing public records or known documents, then separate the user's remaining judgment.";
+  }
+
+  if (path === "current_research") {
+    return "Collect current public evidence with source freshness, limitations, and counterexamples before treating the answer as implementation-ready.";
+  }
+
+  if (path === "human_judgment") {
+    return "Do not replace the user's choice with research; use research only to clarify consequences, risks, and observable validation signals.";
+  }
+
+  return "Separate checkable facts, current research, and remaining user judgment before recommending the next question or spec update.";
+}
+
 function researchObjectiveForAnswer(input: {
   readonly activeItem: QueueItemProjection;
   readonly answer: string;
   readonly sourceQuestion: AmbiguityIssueSnapshot | undefined;
 }) {
-  const baseObjective = `Validate evidence for: ${input.sourceQuestion?.summary ?? input.activeItem.title}`;
+  const subject = input.sourceQuestion?.summary ?? input.activeItem.title;
+  const researchTarget = input.sourceQuestion?.researchQuestion ?? input.sourceQuestion?.suggestedResearchTask;
+  const broaden = answerRequestsBroaderResearch(input.answer);
 
-  if (!answerRequestsBroaderResearch(input.answer)) {
-    return baseObjective;
+  if (!researchTarget) {
+    const baseObjective = `Validate evidence for: ${subject}`;
+
+    if (!broaden) {
+      return baseObjective;
+    }
+
+    return [
+      `Broaden research beyond existing notes for: ${subject}`,
+      `User asked for additional or wider research after answering: “${compactAnswerExcerpt(input.answer)}”.`,
+      "Use any existing research memory as baseline context, but collect wider sources and counter-evidence instead of treating the previous memo as complete."
+    ].join(" ");
   }
 
   return [
-    `Broaden research beyond existing notes for: ${input.sourceQuestion?.summary ?? input.activeItem.title}`,
-    `User asked for additional or wider research after answering: “${compactAnswerExcerpt(input.answer)}”.`,
-    "Use any existing research memory as baseline context, but collect wider sources and counter-evidence instead of treating the previous memo as complete."
-  ].join(" ");
+    broaden ? `Broaden research for: ${plainUserFacingDecisionQueueText(researchTarget)}` : `Find decision evidence for: ${plainUserFacingDecisionQueueText(researchTarget)}`,
+    `Original ambiguity: ${plainUserFacingDecisionQueueText(subject)}`,
+    `User answer to account for: “${compactAnswerExcerpt(input.answer)}”.`,
+    input.sourceQuestion?.decisionItUnlocks
+      ? `Decision this should inform: ${plainUserFacingDecisionQueueText(input.sourceQuestion.decisionItUnlocks)}`
+      : null,
+    input.sourceQuestion?.ambiguityDimension
+      ? `Ambiguity dimension: ${input.sourceQuestion.ambiguityDimension}`
+      : null,
+    ambiguityRoutingPathInstruction(input.sourceQuestion?.ambiguityRoutingPath),
+    broaden
+      ? "Use existing research memory only as baseline context; look for wider sources, counterexamples, and stale assumptions."
+      : "Return source-linked findings, limitations, other perspectives, and what still needs a human decision."
+  ].filter(Boolean).join(" ");
 }
 
 function followUpQuestionTemplate(
@@ -2185,43 +2370,98 @@ function followUpSuggestedResearchTask(
     return `답변 “${compactAnswerExcerpt(answer)}”를 반박하거나 약하게 만드는 공개 근거를 우선 찾습니다.`;
   }
 
-  if (!sourceQuestion.suggestedResearchTask) {
+  const researchTarget = sourceQuestion.researchQuestion ?? sourceQuestion.suggestedResearchTask;
+
+  if (!researchTarget) {
     return undefined;
   }
 
-  return `답변 “${compactAnswerExcerpt(answer)}” 기준으로 ${plainUserFacingDecisionQueueText(sourceQuestion.suggestedResearchTask)}`;
+  return `답변 “${compactAnswerExcerpt(answer)}” 기준으로 ${plainUserFacingDecisionQueueText(researchTarget)}`;
 }
 
-function createFollowUpIssueForAnswer(input: {
+const MAX_IMMEDIATE_FOLLOW_UP_BRANCHES = 3;
+
+function normalizedFollowUpBranchText(value: string) {
+  return value
+    .replace(/^\s*(?:[-*•]|\d+[.)]|[가-힣a-z]\))\s*/iu, "")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function answerFollowUpBranches(answer: string): readonly string[] {
+  const lineBranches = answer
+    .split(/\r?\n/gu)
+    .map(normalizedFollowUpBranchText)
+    .filter((line) => line.length >= 8);
+  const semicolonBranches = answer
+    .split(/[;；]/gu)
+    .map(normalizedFollowUpBranchText)
+    .filter((line) => line.length >= 8);
+  const candidates = lineBranches.length >= 2 ? lineBranches : semicolonBranches.length >= 3 ? semicolonBranches : [answer];
+  const uniqueBranches: string[] = [];
+  const seen = new Set<string>();
+
+  for (const candidate of candidates) {
+    const normalized = candidate.toLowerCase();
+
+    if (seen.has(normalized)) {
+      continue;
+    }
+
+    seen.add(normalized);
+    uniqueBranches.push(candidate);
+  }
+
+  return uniqueBranches.slice(0, MAX_IMMEDIATE_FOLLOW_UP_BRANCHES);
+}
+
+function branchAnswerRef(answerRef: string, branchCount: number, branchIndex: number) {
+  return branchCount === 1 ? answerRef : `${answerRef}:branch:${branchIndex + 1}`;
+}
+
+function researchObjectiveForAnswerBranch(input: {
+  readonly explicitObjective: string | undefined;
+  readonly activeItem: QueueItemProjection;
+  readonly branchAnswer: string;
+  readonly branchCount: number;
+  readonly branchIndex: number;
+  readonly sourceQuestion: AmbiguityIssueSnapshot | undefined;
+}) {
+  const { activeItem, branchAnswer, branchCount, branchIndex, explicitObjective, sourceQuestion } = input;
+  const objective =
+    explicitObjective ??
+    researchObjectiveForAnswer({
+      activeItem,
+      answer: branchAnswer,
+      sourceQuestion
+    });
+
+  if (branchCount === 1) {
+    return objective;
+  }
+
+  return `답변의 ${branchIndex + 1}번째 판단 가지 “${compactAnswerExcerpt(branchAnswer)}” 기준으로 ${plainUserFacingDecisionQueueText(objective)}`;
+}
+
+function createFollowUpIssuesForAnswer(input: {
   readonly sessionId: SessionId;
   readonly sourceQuestion: AmbiguityIssueSnapshot | undefined;
   readonly answer: string;
   readonly answerRef: string;
   readonly routeOutcome: ResearchRouteOutcome;
   readonly impact: ResearchImpact;
-}): AmbiguityIssueSnapshot | null {
+}): readonly AmbiguityIssueSnapshot[] {
   const { answer, answerRef, impact, routeOutcome, sessionId, sourceQuestion } = input;
 
   if (!sourceQuestion || sourceQuestion.status !== "open") {
-    return null;
+    return [];
   }
 
   const currentRepeatCount = sourceQuestion.repeatCount ?? 0;
   const repeatLimit = sourceQuestion.repeatLimit ?? DEFAULT_FOLLOW_UP_QUESTION_LIMIT;
-  const nextRepeatCount = currentRepeatCount + 1;
-
-  if (nextRepeatCount > repeatLimit) {
-    return null;
-  }
+  const branches = answerFollowUpBranches(answer);
 
   const sourceTopicKey = sourceQuestion.businessCriticRepeatGroup ?? sourceQuestion.topicKey ?? sourceQuestion.queueItemId;
-  const followUpTopicKey = `${sourceTopicKey}_follow_up_${nextRepeatCount}`;
-  const followUpId = `queue_followup_${stableToken(`${sessionId}:${sourceQuestion.queueItemId}:${answerRef}:${nextRepeatCount}`)}` as QueueItemId;
-  const suggestedResearchTask = followUpSuggestedResearchTask(sourceQuestion, answer, routeOutcome);
-  const followUpTemplate = followUpQuestionTemplate(routeOutcome, nextRepeatCount);
-  const expectedAnswerType = followUpTemplate.expectedAnswerType;
-  const answerSelectionMode = followUpAnswerSelectionMode(followUpTemplate);
-  const answerOptions = followUpAnswerOptions(followUpTemplate);
   const severity =
     sourceQuestion.severity === "high" || impact === "high"
       ? "high"
@@ -2229,40 +2469,67 @@ function createFollowUpIssueForAnswer(input: {
         ? "medium"
         : "low";
 
-  return {
-    queueItemId: followUpId,
-    ...(sourceQuestion.sectionRef ? { sectionRef: sourceQuestion.sectionRef } : {}),
-    topicKey: followUpTopicKey,
-    ...(sourceQuestion.purposeModeAxis ? { purposeModeAxis: sourceQuestion.purposeModeAxis } : {}),
-    ...(sourceQuestion.purposeModeEffect ? { purposeModeEffect: sourceQuestion.purposeModeEffect } : {}),
-    ...(sourceQuestion.businessCriticCategory ? { businessCriticCategory: sourceQuestion.businessCriticCategory } : {}),
-    ...(sourceQuestion.businessCriticIntensityMinimum
-      ? { businessCriticIntensityMinimum: sourceQuestion.businessCriticIntensityMinimum }
-      : {}),
-    ...(sourceQuestion.businessCriticPressureKind ? { businessCriticPressureKind: sourceQuestion.businessCriticPressureKind } : {}),
-    ...(sourceQuestion.businessCriticRepeatGroup ? { businessCriticRepeatGroup: sourceQuestion.businessCriticRepeatGroup } : {}),
-    uncertaintyType: routeOutcome === "missing_con_evidence" ? "missing_con_evidence" : "decision_required",
-    severity,
-    summary: `이전 답변을 더 구체화해야 함: ${sourceQuestion.summary}`,
-    whyItMatters:
-      "답변이 다음 질문, 리서치, 구현 범위로 이어지려면 판단 기준과 반례를 더 좁혀야 합니다.",
-    status: "open",
-    questionText: followUpQuestionText(answer, followUpTemplate),
-    expectedAnswerType,
-    ...(answerSelectionMode ? { answerSelectionMode } : {}),
-    answerOptions,
-    decisionItUnlocks:
-      sourceQuestion.decisionItUnlocks ??
-      "이전 답변을 스펙, 근거, 첫 구현 범위 판단으로 연결합니다.",
-    ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
-    repeatCount: nextRepeatCount,
-    repeatLimit,
-    possibleRoutes:
-      routeOutcome === "missing_con_evidence"
-        ? ["question", "missing_con_evidence", "research_needed"]
-        : ["question", "research_needed", "spec_update_candidate"],
-    sourceRef: `${sourceQuestion.sourceRef ?? sourceTopicKey}:follow_up:${nextRepeatCount}`
-  };
+  return branches.flatMap((branchAnswer, branchIndex) => {
+    const nextRepeatCount = currentRepeatCount + branchIndex + 1;
+
+    if (nextRepeatCount > repeatLimit) {
+      return [];
+    }
+
+    const followUpTopicKey = `${sourceTopicKey}_follow_up_${nextRepeatCount}`;
+    const followUpId = `queue_followup_${stableToken(
+      branches.length === 1
+        ? `${sessionId}:${sourceQuestion.queueItemId}:${answerRef}:${nextRepeatCount}`
+        : `${sessionId}:${sourceQuestion.queueItemId}:${answerRef}:${nextRepeatCount}:${branchIndex}:${branchAnswer}`
+    )}` as QueueItemId;
+    const suggestedResearchTask = followUpSuggestedResearchTask(sourceQuestion, branchAnswer, routeOutcome);
+    const followUpTemplate = followUpQuestionTemplate(routeOutcome, nextRepeatCount);
+    const expectedAnswerType = followUpTemplate.expectedAnswerType;
+    const answerSelectionMode = followUpAnswerSelectionMode(followUpTemplate);
+    const answerOptions = followUpAnswerOptions(followUpTemplate);
+
+    return [{
+      queueItemId: followUpId,
+      ...(sourceQuestion.sectionRef ? { sectionRef: sourceQuestion.sectionRef } : {}),
+      topicKey: followUpTopicKey,
+      ...(sourceQuestion.purposeModeAxis ? { purposeModeAxis: sourceQuestion.purposeModeAxis } : {}),
+      ...(sourceQuestion.purposeModeEffect ? { purposeModeEffect: sourceQuestion.purposeModeEffect } : {}),
+      ...(sourceQuestion.businessCriticCategory ? { businessCriticCategory: sourceQuestion.businessCriticCategory } : {}),
+      ...(sourceQuestion.businessCriticIntensityMinimum
+        ? { businessCriticIntensityMinimum: sourceQuestion.businessCriticIntensityMinimum }
+        : {}),
+      ...(sourceQuestion.businessCriticPressureKind ? { businessCriticPressureKind: sourceQuestion.businessCriticPressureKind } : {}),
+      ...(sourceQuestion.businessCriticRepeatGroup ? { businessCriticRepeatGroup: sourceQuestion.businessCriticRepeatGroup } : {}),
+      ...(sourceQuestion.ambiguityDimension ? { ambiguityDimension: sourceQuestion.ambiguityDimension } : {}),
+      ...(sourceQuestion.ambiguityRoutingPath ? { ambiguityRoutingPath: sourceQuestion.ambiguityRoutingPath } : {}),
+      ...(sourceQuestion.researchQuestion ? { researchQuestion: sourceQuestion.researchQuestion } : {}),
+      uncertaintyType: routeOutcome === "missing_con_evidence" ? "missing_con_evidence" : "decision_required",
+      severity,
+      summary: branches.length === 1
+        ? `이전 답변을 더 구체화해야 함: ${sourceQuestion.summary}`
+        : `이전 답변의 ${branchIndex + 1}번째 판단 가지를 더 구체화해야 함: ${sourceQuestion.summary}`,
+      whyItMatters:
+        "답변이 다음 질문, 리서치, 구현 범위로 이어지려면 판단 기준과 반례를 더 좁혀야 합니다.",
+      status: "open" as const,
+      questionText: followUpQuestionText(branchAnswer, followUpTemplate),
+      expectedAnswerType,
+      ...(answerSelectionMode ? { answerSelectionMode } : {}),
+      answerOptions,
+      decisionItUnlocks:
+        sourceQuestion.decisionItUnlocks ??
+        "이전 답변을 스펙, 근거, 첫 구현 범위 판단으로 연결합니다.",
+      ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
+      repeatCount: nextRepeatCount,
+      repeatLimit,
+      possibleRoutes:
+        routeOutcome === "missing_con_evidence"
+          ? ["question", "missing_con_evidence", "research_needed"]
+          : ["question", "research_needed", "spec_update_candidate"],
+      sourceRef: branches.length === 1
+        ? `${sourceQuestion.sourceRef ?? sourceTopicKey}:follow_up:${nextRepeatCount}`
+        : `${sourceQuestion.sourceRef ?? sourceTopicKey}:follow_up:${nextRepeatCount}:branch:${branchIndex + 1}`
+    }];
+  });
 }
 
 function createResearchFollowUpIssueForAdditionalQuestion(input: {
@@ -2307,7 +2574,7 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
   const proSummary = evidenceMatrix.proEvidence[0]?.summary;
   const conSummary = evidenceMatrix.conEvidence[0]?.summary;
   const uncertaintySummary = evidenceMatrix.uncertainties[0]?.summary;
-  const sourceLabel = researchResult.sourceTitle ?? researchResult.sourceUrl ?? researchResult.researchResultId;
+  const sourceLabel = researchSourceLabel(researchResult);
   const evidenceContext = researchFollowUpEvidenceContext({
     proSummary,
     conSummary,
@@ -2346,6 +2613,11 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
     ...(sourceQuestion?.businessCriticRepeatGroup
       ? { businessCriticRepeatGroup: sourceQuestion.businessCriticRepeatGroup }
       : {}),
+    ...(sourceQuestion?.ambiguityDimension ? { ambiguityDimension: sourceQuestion.ambiguityDimension } : {}),
+    ambiguityRoutingPath: sourceQuestion?.ambiguityRoutingPath ?? "current_research",
+    ...(sourceQuestion?.researchQuestion
+      ? { researchQuestion: sourceQuestion.researchQuestion }
+      : { researchQuestion: researchTask.objective }),
     uncertaintyType: isConEvidenceGap ? "missing_con_evidence" : "unsupported",
     severity: researchTask.impact,
     summary: `리서치가 생성한 후속 질문: ${compactAnswerExcerpt(question)}`,
@@ -3011,6 +3283,9 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
   const requestedMode = projectPurposeModeFromPayload(command.payload.projectPurposeMode);
   const suggestedMode = projectPurposeModeFromPayload(command.payload.suggestedProjectPurposeMode);
   const requestedIntensity = businessCriticIntensityFromPayload(command.payload.businessCriticIntensity);
+  const requestedResearchAutomationPermission = researchAutomationPermissionFromPayload(
+    command.payload.initialResearchAutomationPermission
+  );
 
   if (!rawIdea || !isPrivacyMode(localPrivacyMode)) {
     return reject("StartProject requires rawIdea and a valid local privacy mode.", "VALIDATION_FAILED");
@@ -3022,6 +3297,13 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
 
   if (requestedIntensity === "invalid") {
     return reject("StartProject businessCriticIntensity must be balanced, strong, or investor_grade.", "VALIDATION_FAILED");
+  }
+
+  if (requestedResearchAutomationPermission === "invalid") {
+    return reject(
+      "StartProject initialResearchAutomationPermission must be manual_only, allow_codex, or allow_codex_and_chatgpt_visible.",
+      "VALIDATION_FAILED"
+    );
   }
 
   if (requestedMode === "personal" && requestedIntensity) {
@@ -3048,6 +3330,7 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
 
   const projectPurposeMode = requestedMode;
   const businessCriticIntensity = requestedMode === "business" ? requestedIntensity : null;
+  const initialResearchAutomationPermission = requestedResearchAutomationPermission ?? "manual_only";
   const projectPurposeModeExplicitReason = requiredString(command.payload.projectPurposeModeReason) ?? undefined;
   const businessCriticIntensityExplicitReason =
     requiredString(command.payload.businessCriticIntensityReason) ??
@@ -3077,7 +3360,8 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
     projectionVersionFor(state),
     projectPurposeMode,
     "intake",
-    businessCriticIntensity
+    businessCriticIntensity,
+    initialResearchAutomationPermission
   );
   const event = eventDraft(command, "ProjectStarted", {
     rawIdea,
@@ -3097,6 +3381,7 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
           businessCriticIntensityAudit
         }
       : { businessCriticIntensityAudit }),
+    initialResearchAutomationPermission,
     sourceNote: typeof command.payload.sourceNote === "string" ? command.payload.sourceNote : undefined,
     sessionPhase: "intake",
     projection
@@ -3120,6 +3405,7 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
           ? { businessCriticIntensityReason: businessCriticIntensityExplicitReason }
           : {}),
         businessCriticIntensityAudit,
+        initialResearchAutomationPermission,
         rawIdeaText: rawIdea
       },
       session: {
@@ -3138,7 +3424,8 @@ function reduceStartProject(command: ProductEngineCommand, state: ProductEngineS
           projectPurposeMode,
           projectPurposeModeLabel: projectPurposeModeLabel(projectPurposeMode),
           businessCriticIntensitySelectionStatus: businessCriticIntensitySelectionStatus(projectPurposeMode, businessCriticIntensity),
-          ...(businessCriticIntensity ? { businessCriticIntensity } : {})
+          ...(businessCriticIntensity ? { businessCriticIntensity } : {}),
+          initialResearchAutomationPermission
         }
       }
     ],
@@ -3184,7 +3471,8 @@ function reduceChangeProjectPurposeMode(
     projectionVersionFor(state),
     requestedMode,
     sessionShellPhaseForProductEnginePhase(state.session.phase),
-    retainedBusinessCriticIntensity
+    retainedBusinessCriticIntensity,
+    state.project.initialResearchAutomationPermission
   );
   const queueProjection = queueProjectionWithPurposeMetadata(
     state.queueProjection,
@@ -3307,7 +3595,8 @@ function reduceChangeBusinessCriticIntensity(
     version,
     "business",
     sessionShellPhaseForProductEnginePhase(state.session.phase),
-    requestedIntensity
+    requestedIntensity,
+    state.project.initialResearchAutomationPermission
   );
   const hasAnalyzedAmbiguityIssueSet = state.openIssues.length > 0;
   const generatedPressureIssues = state.currentSpec.draftRef && hasAnalyzedAmbiguityIssueSet
@@ -3542,17 +3831,51 @@ function reduceAnalyzeAmbiguity(command: ProductEngineCommand, state: ProductEng
     );
   }
 
-  const issues = createAmbiguityIssues(
-    command.sessionId,
-    state.currentSpec.draftRef,
-    confirmedMode,
-    state.project.businessCriticIntensity,
-    onboardingQuestionContextFromState(state)
-  );
+  const context = onboardingQuestionContextFromState(state);
+  const hasGeneratedQuestionSetPayload = hasOwnRecordKey(command.payload, "generatedQuestionSet");
+  const generatedQuestionSet = hasGeneratedQuestionSetPayload
+    ? parseGeneratedAmbiguityQuestionSet(command.payload.generatedQuestionSet, {
+        contextText: generatedQuestionSetContextText(context)
+      })
+    : null;
+  const usesGeneratedQuestionSet = generatedQuestionSet?.ok === true;
+  const issues = usesGeneratedQuestionSet
+    ? createAmbiguityIssuesFromSeeds({
+        sessionId: command.sessionId,
+        specRef: state.currentSpec.draftRef,
+        mode: confirmedMode,
+        intensity: state.project.businessCriticIntensity,
+        context,
+        seeds: generatedQuestionSet.questions,
+        source: "generated_json"
+      })
+    : createAmbiguityIssues(
+        command.sessionId,
+        state.currentSpec.draftRef,
+        confirmedMode,
+        state.project.businessCriticIntensity,
+        context
+      );
+  const questionGeneration = usesGeneratedQuestionSet
+    ? {
+        mode: "generated_json" as const,
+        schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+        promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+        questionCount: issues.length
+      }
+    : {
+        mode: "deterministic_fallback" as const,
+        promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+        reason: hasGeneratedQuestionSetPayload ? "generated_question_set_invalid" : "generated_question_set_missing",
+        ...(generatedQuestionSet && generatedQuestionSet.issues.length
+          ? { validationIssues: generatedQuestionSet.issues }
+          : {})
+      };
   const event = eventDraft(command, "AmbiguityAnalyzed", {
     targetRef: typeof command.payload.targetRef === "string" ? command.payload.targetRef : state.currentSpec.draftRef,
     issueCount: issues.length,
-    issues
+    issues,
+    questionGeneration
   });
 
   return acceptedReduction(
@@ -3568,7 +3891,8 @@ function reduceAnalyzeAmbiguity(command: ProductEngineCommand, state: ProductEng
         outputRef: `ambiguity_${stableToken(`${command.sessionId}:${state.currentSpec.draftRef}`)}`,
         payload: {
           issueCount: issues.length,
-          issues
+          issues,
+          questionGeneration
         }
       }
     ],
@@ -3911,42 +4235,62 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
   const routeOutcome = routeOutcomeForAnswer(command);
   const impact = validResearchImpact(command.payload.claimImpact);
   const sourceQuestion = state.openIssues.find((issue) => issue.queueItemId === queueItemId);
-  const objective =
-    requiredString(command.payload.researchObjective) ??
-    researchObjectiveForAnswer({
+  const answerBranches = answerFollowUpBranches(answer);
+  const explicitResearchObjective = requiredString(command.payload.researchObjective) ?? undefined;
+  const researchTasks = answerBranches.map((branchAnswer, branchIndex) => {
+    const branchCount = answerBranches.length;
+    const branchSourceAnswerRef = branchAnswerRef(answerRef, branchCount, branchIndex);
+    const objective = researchObjectiveForAnswerBranch({
+      explicitObjective: explicitResearchObjective,
       activeItem,
-      answer,
+      branchAnswer,
+      branchCount,
+      branchIndex,
       sourceQuestion
     });
-  const researchTaskId = `research_task_${stableToken(`${command.sessionId}:${queueItemId}:${answer}:${routeOutcome}`)}` as ResearchTaskId;
-  const researchTask = planResearchTask({
-    researchTaskId,
-    sessionId: command.sessionId,
-    sourceQueueItemId: queueItemId as QueueItemId,
-    sourceAnswerRef: answerRef,
-    objective,
-    projectPurposeMode: confirmedMode,
-    projectPurposeModeLabel: projectPurposeModeLabel(confirmedMode),
-    projectPurposeModeEffect: projectPurposeModeEffect(confirmedMode),
-    skippedCommercializationAxes: skippedCommercializationAxes(confirmedMode),
-    ...(state.project.businessCriticIntensity
-      ? { businessCriticIntensity: state.project.businessCriticIntensity }
-      : {}),
-    ...(activeItem.businessCriticCategory ? { businessCriticCategory: activeItem.businessCriticCategory } : {}),
-    routeOutcome,
-    impact,
-    createdAt: command.issuedAt
+    const researchTaskId = `research_task_${stableToken(
+      branchCount === 1
+        ? `${command.sessionId}:${queueItemId}:${answer}:${routeOutcome}`
+        : `${command.sessionId}:${queueItemId}:${branchAnswer}:${routeOutcome}:${branchIndex}`
+    )}` as ResearchTaskId;
+
+    return planResearchTask({
+      researchTaskId,
+      sessionId: command.sessionId,
+      sourceQueueItemId: queueItemId as QueueItemId,
+      sourceAnswerRef: branchSourceAnswerRef,
+      objective,
+      projectPurposeMode: confirmedMode,
+      projectPurposeModeLabel: projectPurposeModeLabel(confirmedMode),
+      projectPurposeModeEffect: projectPurposeModeEffect(confirmedMode),
+      skippedCommercializationAxes: skippedCommercializationAxes(confirmedMode),
+      ...(state.project.businessCriticIntensity
+        ? { businessCriticIntensity: state.project.businessCriticIntensity }
+        : {}),
+      ...(activeItem.businessCriticCategory ? { businessCriticCategory: activeItem.businessCriticCategory } : {}),
+      routeOutcome,
+      impact,
+      createdAt: command.issuedAt
+    });
   });
-  const queueProjectionWithReview = queueProjectionWithResearchReviewItem(
-    projectionAfterAnsweredItem,
-    researchTaskId,
-    routeOutcome === "missing_con_evidence"
-      ? `반대근거 탐색 필요: ${activeItem.title}`
-      : `Research review: ${activeItem.title}`,
-    routeOutcome === "missing_con_evidence" ? "blocked" : "next",
-    projectionAfterAnsweredItem.version,
-    command.issuedAt
-  );
+  const firstResearchTask = researchTasks[0];
+
+  if (!firstResearchTask) {
+    return reject("SubmitAnswer could not derive a research task from the answer.", "VALIDATION_FAILED");
+  }
+
+  const researchTaskId = firstResearchTask.researchTaskId;
+  const queueProjectionWithReview = researchTasks.reduce((projection, researchTask, index) =>
+    queueProjectionWithResearchReviewItem(
+      projection,
+      researchTask.researchTaskId,
+      routeOutcome === "missing_con_evidence"
+        ? `반대근거 탐색 필요${researchTasks.length > 1 ? ` ${index + 1}/${researchTasks.length}` : ""}: ${activeItem.title}`
+        : `Research review${researchTasks.length > 1 ? ` ${index + 1}/${researchTasks.length}` : ""}: ${activeItem.title}`,
+      routeOutcome === "missing_con_evidence" ? "blocked" : "next",
+      projectionAfterAnsweredItem.version,
+      command.issuedAt
+    ), projectionAfterAnsweredItem);
   const nextOpenIssues = state.openIssues.map((issue) =>
     issue.queueItemId === queueItemId
       ? {
@@ -3955,7 +4299,7 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
         }
       : issue
   );
-  const followUpIssue = createFollowUpIssueForAnswer({
+  const followUpIssues = createFollowUpIssuesForAnswer({
     sessionId: command.sessionId,
     sourceQuestion,
     answer,
@@ -3963,17 +4307,17 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
     routeOutcome,
     impact
   });
-  const nextIssues = followUpIssue ? [...nextOpenIssues, followUpIssue] : nextOpenIssues;
+  const firstFollowUpIssue = followUpIssues[0] ?? null;
+  const nextIssues = appendUniqueOpenIssues(nextOpenIssues, followUpIssues);
   const queueProjection = queueProjectionWithRefilledActiveQuestions(
     queueProjectionWithReview,
     nextIssues,
     queueProjectionWithReview.version,
     command.issuedAt
   );
-  const researchProjection = addResearchTaskToProjection(
-    state.researchState,
-    researchTask,
-    queueProjection.version
+  const researchProjection = researchTasks.reduce(
+    (projection, researchTask) => addResearchTaskToProjection(projection, researchTask, queueProjection.version),
+    state.researchState
   );
   const event = eventDraft(command, "AnswerSubmitted", {
     answerRef,
@@ -3981,19 +4325,29 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
     answer,
     answerRouteOutcome: routeOutcome,
     researchTaskId,
-    ...(followUpIssue
+    ...(researchTasks.length > 1
+      ? { researchTaskIds: researchTasks.map((task) => task.researchTaskId) }
+      : {}),
+    ...(firstFollowUpIssue
       ? {
-          followUpIssue,
-          followUpQueueItemId: followUpIssue.queueItemId,
-          followUpRepeatCount: followUpIssue.repeatCount,
-          followUpRepeatLimit: followUpIssue.repeatLimit
+          followUpIssue: firstFollowUpIssue,
+          followUpIssues,
+          followUpQueueItemId: firstFollowUpIssue.queueItemId,
+          followUpQueueItemIds: followUpIssues.map((issue) => issue.queueItemId),
+          followUpRepeatCount: firstFollowUpIssue.repeatCount,
+          followUpRepeatCounts: followUpIssues.map((issue) => issue.repeatCount),
+          followUpRepeatLimit: firstFollowUpIssue.repeatLimit
         }
       : {}),
     projection: queueProjection
   });
   const researchEvent = eventDraft(command, "ResearchPlanned", {
-    researchTask,
+    researchTask: firstResearchTask,
+    ...(researchTasks.length > 1 ? { researchTasks } : {}),
     sourceAnswerRef: answerRef,
+    ...(researchTasks.length > 1
+      ? { sourceAnswerRefs: researchTasks.map((task) => task.sourceAnswerRef).filter(Boolean) }
+      : {}),
     projection: researchProjection
   });
   const nextSession = {
@@ -4038,23 +4392,31 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
           answer,
           answerRouteOutcome: routeOutcome,
           researchTaskId,
-          ...(followUpIssue ? { followUpQueueItemId: followUpIssue.queueItemId } : {})
+          ...(researchTasks.length > 1
+            ? { researchTaskIds: researchTasks.map((task) => task.researchTaskId) }
+            : {}),
+          ...(firstFollowUpIssue
+            ? {
+                followUpQueueItemId: firstFollowUpIssue.queueItemId,
+                followUpQueueItemIds: followUpIssues.map((issue) => issue.queueItemId)
+              }
+            : {})
         }
       },
       ...completenessDeterministicOutputs(command, confidenceProjection)
     ],
-    [
+    researchTasks.map((researchTask) =>
       researchEvidenceEffect(
         command,
         ["ResearchPlanned"],
         {
           refType: "ResearchTask",
-          refId: researchTaskId
+          refId: researchTask.researchTaskId
         },
         "normal",
-        `research:${researchTaskId}`
+        `research:${researchTask.researchTaskId}`
       )
-    ],
+    ),
     queueProjection
   );
 }
@@ -4317,10 +4679,14 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
     );
   }
 
+  const sourceQuestionForSynthesis = researchTask.sourceQueueItemId
+    ? state.openIssues.find((issue) => issue.queueItemId === researchTask.sourceQueueItemId)
+    : undefined;
   const evidenceMatrix = synthesizeEvidenceMatrix({
     researchTask,
     researchResult,
-    synthesisVersion
+    synthesisVersion,
+    contextText: researchSynthesisContextText(researchTask, sourceQuestionForSynthesis)
   });
   const evidencePack = buildDecisionEvidencePack({
     researchTask,
@@ -10195,6 +10561,11 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
       const businessCriticIntensity = isBusinessCriticIntensity(event.payload.businessCriticIntensity)
         ? event.payload.businessCriticIntensity
         : undefined;
+      const initialResearchAutomationPermission = isResearchAutomationPermission(
+        event.payload.initialResearchAutomationPermission
+      )
+        ? event.payload.initialResearchAutomationPermission
+        : undefined;
       const businessCriticIntensityAudit = Array.isArray(event.payload.businessCriticIntensityAudit)
         ? (event.payload.businessCriticIntensityAudit as ProductEngineStateSnapshot["project"]["businessCriticIntensityAudit"])
         : [];
@@ -10215,6 +10586,7 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
             ? { businessCriticIntensityReason: event.payload.businessCriticIntensityReason }
             : {}),
           businessCriticIntensityAudit,
+          ...(initialResearchAutomationPermission ? { initialResearchAutomationPermission } : {}),
           ...(rawIdeaText ? { rawIdeaText } : {})
         },
         session: {
@@ -10393,6 +10765,13 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
       const projection = projectionPayload(event.payload, state.queueProjection);
       const queueItemId = typeof event.payload.queueItemId === "string" ? event.payload.queueItemId : null;
       const followUpIssue = objectPayload<AmbiguityIssueSnapshot>(event.payload, "followUpIssue");
+      const followUpIssues = Array.isArray(event.payload.followUpIssues)
+        ? (event.payload.followUpIssues.filter((issue) =>
+            typeof issue === "object" && issue !== null
+          ) as AmbiguityIssueSnapshot[])
+        : followUpIssue
+          ? [followUpIssue]
+          : [];
       const openIssues = queueItemId
         ? state.openIssues.map((issue) =>
             issue.queueItemId === queueItemId
@@ -10403,10 +10782,7 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
               : issue
           )
         : state.openIssues;
-      const openIssuesWithFollowUp =
-        followUpIssue && !openIssues.some((issue) => issue.queueItemId === followUpIssue.queueItemId)
-          ? [...openIssues, followUpIssue]
-          : openIssues;
+      const openIssuesWithFollowUp = appendUniqueOpenIssues(openIssues, followUpIssues);
 
       return {
         ...state,

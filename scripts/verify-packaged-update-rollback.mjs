@@ -226,7 +226,7 @@ function validatePassedEvidenceBundle(run, path, issues) {
   validateDeviceProfile(bundle.deviceProfile, `${bundlePath}.deviceProfile`, run.platform, issues);
   const packageKinds = PACKAGE_KINDS_BY_PLATFORM.get(run.platform);
   if (!packageKinds?.has(bundle.packageKind)) {
-    addIssue(issues, `${bundlePath}.packageKind`, `must be a signed ${run.platform} package kind`);
+    addIssue(issues, `${bundlePath}.packageKind`, `must be a ${run.platform} packaged artifact kind`);
   }
   for (const field of ["initialVersion", "candidateVersion", "finalVersion"]) {
     validateNonEmptyString(bundle[field], `${bundlePath}.${field}`, issues);

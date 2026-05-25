@@ -42,6 +42,10 @@ export function planningHandoffPath(sessionId: SessionId) {
   return `/api/v1/sessions/${encodeURIComponent(sessionId)}/planning-handoff`;
 }
 
+export function generatedInitialQuestionSetPath(sessionId: SessionId) {
+  return `/api/v1/sessions/${encodeURIComponent(sessionId)}/questions/generate`;
+}
+
 export function chatGptBrowserDelegationPath(sessionId: SessionId) {
   return `/api/v1/sessions/${encodeURIComponent(sessionId)}/chatgpt-browser-delegations`;
 }

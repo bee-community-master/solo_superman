@@ -2,8 +2,11 @@ import type {
   DecisionEvidencePackProjection,
   EvidenceItemProjection,
   EvidenceMatrixProjection,
+  ResearchResultProjection,
   ResearchReviewCardProjection
 } from "@solo-superman/contracts";
+import { chatGptVisibleResearchImportHint } from "../chatgpt-visible-research-import";
+import { visibleChatGptResearchHandoffForTask } from "../chatgpt-browser-delegation-request";
 import { Phase15aOperationsPanel } from "../Phase15aOperationsPanel";
 import type { ReadyReadOnlyResearchRunStartPlan } from "../ready-readonly-research-start-plan";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
@@ -17,6 +20,21 @@ function retainedSourceRefsForResearchCard(card: ResearchReviewCardProjection) {
   const sourceRefs = [card.retainedSourceRef, ...(card.retainedSourceRefs ?? [])];
 
   return [...new Set(sourceRefs.filter((ref): ref is string => Boolean(ref)))];
+}
+
+function latestResearchResultForTask(
+  results: readonly ResearchResultProjection[],
+  researchTaskId: ResearchResultProjection["researchTaskId"]
+) {
+  for (let index = results.length - 1; index >= 0; index -= 1) {
+    const result = results[index];
+
+    if (result?.researchTaskId === researchTaskId) {
+      return result;
+    }
+  }
+
+  return undefined;
 }
 
 type DecisionQueueCopy = ReturnType<typeof useDecisionQueueCopy>;
@@ -314,6 +332,97 @@ function EvidenceMatrixCard({
   );
 }
 
+function VisibleChatGptResearchHandoff({
+  copy,
+  task
+}: {
+  readonly copy: DecisionQueueCopy;
+  readonly task: Parameters<typeof visibleChatGptResearchHandoffForTask>[0];
+}) {
+  const handoff = visibleChatGptResearchHandoffForTask(task);
+
+  return (
+    <aside className="chatgpt-visible-research-handoff">
+      <div className="research-evidence-matrix-heading">
+        <strong>{copy.research.visibleChatGptHandoffTitle}</strong>
+        <a href={handoff.openUrl} rel="noopener noreferrer" target="_blank">
+          {copy.research.visibleChatGptOpen}
+        </a>
+      </div>
+      <p className="mode-summary">{copy.research.visibleChatGptHandoffBoundary}</p>
+      <label>
+        {copy.research.visibleChatGptPromptLabel}
+        <textarea readOnly rows={8} value={handoff.prompt} />
+      </label>
+      <p>{copy.research.visibleChatGptChecklistLabel}</p>
+      <ul>
+        {handoff.checklist.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </aside>
+  );
+}
+
+function ImportedResearchResultPending({
+  copy,
+  result
+}: {
+  readonly copy: DecisionQueueCopy;
+  readonly result: ResearchResultProjection;
+}) {
+  const sourceLabel = result.sourceTitle ?? result.sourceUrl ?? copy.research.unknown;
+  const sourceUrl = safeExternalUrl(result.sourceUrl);
+  const sourceReliability = result.sourceReliability ?? "unknown";
+
+  return (
+    <aside className="research-card-source-trace research-imported-result-pending" aria-label={copy.research.importedResultPendingTitle}>
+      <p>{copy.research.importedResultPendingTitle}</p>
+      <p>{copy.research.importedResultPendingDescription}</p>
+      <dl className="research-evidence-grid">
+        <div>
+          <dt>{copy.research.evidencePackSource}</dt>
+          <dd>
+            {sourceUrl ? (
+              <a href={sourceUrl} rel="noreferrer" target="_blank">
+                {sourceLabel}
+              </a>
+            ) : (
+              sourceLabel
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>{copy.research.sourceReliability}</dt>
+          <dd>{copy.research.sourceReliabilityLabels[sourceReliability]}</dd>
+        </div>
+        <div>
+          <dt>{copy.research.importedResultSummary}</dt>
+          <dd>{result.resultSummary}</dd>
+        </div>
+        {result.limitationNotes ? (
+          <div>
+            <dt>{copy.research.importedResultLimitations}</dt>
+            <dd>{result.limitationNotes}</dd>
+          </div>
+        ) : null}
+        {result.questionRef ? (
+          <div>
+            <dt>{copy.research.importedResultQuestionRef}</dt>
+            <dd>{result.questionRef}</dd>
+          </div>
+        ) : null}
+        {result.implicationScope ? (
+          <div>
+            <dt>{copy.research.importedResultImplicationScope}</dt>
+            <dd>{result.implicationScope}</dd>
+          </div>
+        ) : null}
+      </dl>
+    </aside>
+  );
+}
+
 export function ResearchView({ controller }: ResearchViewProps) {
   const copy = useDecisionQueueCopy();
   const {
@@ -374,6 +483,10 @@ export function ResearchView({ controller }: ResearchViewProps) {
           <div className="research-list">
             {research.tasks.map((task) => {
               const card = research.reviewCards.find((item) => item.researchTaskId === task.researchTaskId);
+              const pendingImportedResult =
+                task.status === "handoff_ready"
+                  ? latestResearchResultForTask(research.results, task.researchTaskId)
+                  : undefined;
               const canImportResearch =
                 task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true;
               const canStartReadOnlyRun = readyReadOnlyResearchTaskIdSet.has(task.researchTaskId);
@@ -390,6 +503,14 @@ export function ResearchView({ controller }: ResearchViewProps) {
                 : null;
               const recoveryActionLabels =
                 card?.recoveryActions.map((action) => copy.research.recoveryActionLabels[action]) ?? [];
+              const visibleChatGptImportHint = chatGptVisibleResearchImportHint({
+                delegation: projections.chatGptDelegation,
+                researchTaskId: task.researchTaskId,
+                hint: copy.research.visibleChatGptImportHint
+              });
+              const canUseVisibleChatGptHandoff =
+                projections.session?.initialResearchAutomationPermission === "allow_codex_and_chatgpt_visible" ||
+                Boolean(visibleChatGptImportHint);
 
               return (
                 <article className="research-card" key={task.researchTaskId}>
@@ -426,9 +547,18 @@ export function ResearchView({ controller }: ResearchViewProps) {
                         </ul>
                       </div>
                     ) : null}
+                    {pendingImportedResult ? (
+                      <ImportedResearchResultPending copy={copy} result={pendingImportedResult} />
+                    ) : null}
                   </div>
                   {canImportResearch ? (
                     <div className="answer-box">
+                      {visibleChatGptImportHint ? (
+                        <p className="research-recovery">{visibleChatGptImportHint}</p>
+                      ) : null}
+                      {canUseVisibleChatGptHandoff ? (
+                        <VisibleChatGptResearchHandoff copy={copy} task={task} />
+                      ) : null}
                       <textarea
                         aria-label={`${copy.research.importResearchAriaPrefix} ${task.objective}`}
                         value={researchDrafts[task.researchTaskId] ?? ""}

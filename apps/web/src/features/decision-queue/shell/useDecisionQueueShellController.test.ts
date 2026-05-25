@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   PLANNING_HANDOFF_BLOCKER_PROJECTION_FIXTURE,
   PLANNING_HANDOFF_FINAL_PROJECTION_FIXTURE,
+  type LivingSpecProjection,
+  type ProjectId,
+  type ProjectionVersion,
   type ResearchRunControlProjection
 } from "@solo-superman/contracts";
 import { SidecarClientError } from "../../../shared/api/sidecar-client";
 import {
   autoImplementationWorkspaceCreateBlocker,
   autoImplementationWorkspaceCreateFailureMessage,
+  buildAutoImplementationRunCreateRequest,
   researchRunControlHasPollableRuns
 } from "./useDecisionQueueShellController";
 import { DECISION_QUEUE_COPY } from "./decision-queue-copy";
@@ -45,6 +49,38 @@ describe("autoImplementationWorkspaceCreateFailureMessage", () => {
     expect(autoImplementationWorkspaceCreateFailureMessage(undefined, ACTION_ERRORS)).toBe(
       "Auto implementation workspace creation failed: Unknown local service error."
     );
+  });
+});
+
+describe("buildAutoImplementationRunCreateRequest", () => {
+  it("turns a planning-ready handoff into the next PR-sized auto implementation workspace request", () => {
+    const session = {
+      projectId: "proj_build_auto_run_request" as ProjectId,
+      sessionId: "sess_build_auto_run_request",
+      projectPurposeModeLabel: "Business validation",
+      projectPurposeModeEffect: "Business validation remains active."
+    } as Parameters<typeof buildAutoImplementationRunCreateRequest>[0]["session"];
+    const spec = {
+      kind: "LivingSpecProjection",
+      sessionId: session.sessionId,
+      version: 2 as ProjectionVersion,
+      title: "Pet lifecycle assistant",
+      sections: []
+    } as unknown as LivingSpecProjection;
+
+    expect(buildAutoImplementationRunCreateRequest({
+      session,
+      spec,
+      planningHandoff: PLANNING_HANDOFF_FINAL_PROJECTION_FIXTURE,
+      autoImplementationRuns: null
+    })).toEqual(expect.objectContaining({
+      sessionId: "sess_build_auto_run_request",
+      projectName: "Pet lifecycle assistant",
+      sourcePlanningRef: PLANNING_HANDOFF_FINAL_PROJECTION_FIXTURE.finalArtifact.artifactId,
+      planningIssueId: "phase2_pr01",
+      trackerTitle: "Pet lifecycle assistant implementation tracker",
+      trackerGoal: PLANNING_HANDOFF_FINAL_PROJECTION_FIXTURE.summary
+    }));
   });
 });
 

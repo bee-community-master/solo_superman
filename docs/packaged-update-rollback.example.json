@@ -2,7 +2,7 @@
   "schemaVersion": "solo-superman-packaged-update-rollback.v1",
   "appId": "solo-superman",
   "rollbackStatus": "blocked",
-  "summary": "Packaged automatic updates have a credential-free updater runtime dry-run, but general release remains blocked until signed macOS and Windows packages have device install, update, retry, rollback, launch, and preservation evidence.",
+  "summary": "Packaged automatic updates have a credential-free updater runtime dry-run, but general release remains blocked until macOS and Windows packaged artifacts have device install, update, retry, rollback, launch, and preservation evidence.",
   "releaseChannelContract": "docs/release-channel_KO.md",
   "releaseUpdateManifest": "docs/release-update-channel.example.json",
   "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/267",
@@ -51,7 +51,7 @@
         "preserve_credentials"
       ],
       "requiredEvidence": [
-        "macOS signed package install reaches local first screen",
+        "macOS packaged artifact install reaches local first screen",
         "update prompt supports user consent and deferral",
         "failed update can retry without deleting the existing installation",
         "rollback after failed launch restores previous app binary/release metadata",
@@ -61,7 +61,7 @@
       ],
       "unblockCriteria": [
         "Attach redacted macOS install/update/retry/rollback/launch evidence to #267",
-        "Keep pnpm verify:release-channel passing with final signed macOS artifact metadata"
+        "Keep pnpm verify:release-channel passing with final macOS packaged artifact metadata"
       ]
     },
     {
@@ -88,7 +88,7 @@
         "preserve_credentials"
       ],
       "requiredEvidence": [
-        "Windows signed package install reaches local first screen",
+        "Windows packaged artifact install reaches local first screen",
         "update prompt supports user consent and deferral",
         "failed update can retry without deleting the existing installation",
         "rollback after failed launch restores previous app binary/release metadata",
@@ -98,7 +98,7 @@
       ],
       "unblockCriteria": [
         "Attach redacted Windows install/update/retry/rollback/launch evidence to #267",
-        "Keep pnpm verify:release-channel passing with final signed Windows artifact metadata"
+        "Keep pnpm verify:release-channel passing with final Windows packaged artifact metadata"
       ]
     }
   ]

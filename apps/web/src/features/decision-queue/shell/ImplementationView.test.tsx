@@ -61,6 +61,8 @@ function renderImplementationView(
     pauseAutoImplementationStage: vi.fn(),
     planningHandoffView: planningHandoffViewModel(null),
     prepareFounderBrief: vi.fn(),
+    prepareImplementationContext: vi.fn(),
+    prepareImplementationContextAndCreateRun: vi.fn(),
     planAutoImplementationWorkerJob: vi.fn(),
     recordAutoImplementationStageTick: vi.fn(),
     startAutoImplementationStage: vi.fn(),
@@ -138,6 +140,8 @@ describe("ImplementationView", () => {
     expect(markup).toContain('<button type="button" disabled="">Score completeness</button>');
     expect(markup).toContain('<button type="button" disabled="">Prepare Founder Brief</button>');
     expect(markup).toContain('<button type="button" disabled="">Run planning handoff check</button>');
+    expect(markup).toContain('<button type="button" disabled="">Prepare implementation context</button>');
+    expect(markup).toContain('<button type="button" disabled="">Prepare context and create run</button>');
   });
 
   it("localizes implementation handoff labels for Korean users", () => {
@@ -146,6 +150,7 @@ describe("ImplementationView", () => {
     expect(markup).toContain("구현 시작 경로");
     expect(markup).toContain("구현 계획 전달");
     expect(markup).toContain("자동 구현 작업공간 생성");
+    expect(markup).toContain("컨텍스트 준비 후 실행 만들기");
     expect(markup).not.toContain("Planning handoff");
     expect(markup).not.toContain("PR-sized");
     expect(markup).not.toContain("bounded worker job");

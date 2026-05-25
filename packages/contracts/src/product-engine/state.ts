@@ -23,6 +23,13 @@ export const BUSINESS_CRITIC_INTENSITIES = ["balanced", "strong", "investor_grad
 export type BusinessCriticIntensity = (typeof BUSINESS_CRITIC_INTENSITIES)[number];
 export type BusinessCriticIntensitySelectionStatus = "not_applicable" | "intensity_required" | "confirmed";
 
+export const RESEARCH_AUTOMATION_PERMISSIONS = [
+  "manual_only",
+  "allow_codex",
+  "allow_codex_and_chatgpt_visible"
+] as const;
+export type ResearchAutomationPermission = (typeof RESEARCH_AUTOMATION_PERMISSIONS)[number];
+
 export const BUSINESS_CRITIC_INTENSITY_LABELS = {
   balanced: "균형형 사업 검증",
   strong: "강한 사업 검증",
@@ -104,6 +111,7 @@ export interface ProjectSnapshot {
   readonly businessCriticIntensityEffect?: string | undefined;
   readonly businessCriticIntensityReason?: string | undefined;
   readonly businessCriticIntensityAudit?: readonly BusinessCriticIntensityAuditSnapshot[] | undefined;
+  readonly initialResearchAutomationPermission?: ResearchAutomationPermission | undefined;
   readonly rawIdeaText?: string;
 }
 
@@ -157,6 +165,24 @@ export type AmbiguityPossibleRoute =
   | "deferred"
   | "repeat_limit_reached";
 
+export const AMBIGUITY_REDUCTION_DIMENSIONS = [
+  "goal",
+  "scope",
+  "constraints",
+  "success_criteria",
+  "context",
+  "decision_authority",
+  "assumption_pressure"
+] as const;
+export type AmbiguityReductionDimension = (typeof AMBIGUITY_REDUCTION_DIMENSIONS)[number];
+
+export const AMBIGUITY_ROUTING_PATHS = [
+  "human_judgment",
+  "existing_fact_check",
+  "current_research"
+] as const;
+export type AmbiguityRoutingPath = (typeof AMBIGUITY_ROUTING_PATHS)[number];
+
 export interface AmbiguityAnswerOption {
   readonly id: string;
   readonly label: string;
@@ -189,6 +215,9 @@ export interface AmbiguityIssueSnapshot {
   readonly answerSelectionMode?: AmbiguityAnswerSelectionMode;
   readonly answerOptions?: readonly AmbiguityAnswerOption[];
   readonly decisionItUnlocks?: string;
+  readonly ambiguityDimension?: AmbiguityReductionDimension;
+  readonly ambiguityRoutingPath?: AmbiguityRoutingPath;
+  readonly researchQuestion?: string;
   readonly suggestedResearchTask?: string;
   readonly repeatCount?: number;
   readonly repeatLimit?: number;

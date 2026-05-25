@@ -1,17 +1,24 @@
 import { type Dispatch, type SetStateAction, useCallback } from "react";
-import type {
-  ProjectId,
-  QueueItemId,
-  ResearchAllowlistGovernanceProjection,
-  ResearchAllowlistId,
-  ResearchEvidenceProjection,
-  ResearchRunId,
-  ResearchTaskId,
-  SessionShellProjection
+import {
+  isTerminalResearchRunStatus,
+  type ChatGptBrowserDelegationProjection,
+  type ProjectId,
+  type QueueItemId,
+  type ResearchAllowlistGovernanceProjection,
+  type ResearchAllowlistId,
+  type ResearchEvidenceProjection,
+  type ResearchRunId,
+  type ResearchTaskId,
+  type SessionShellProjection,
+  type StateVersion
 } from "@solo-superman/contracts";
-import { requiredCommandProjection } from "../../../shared/api/command-response-helpers";
+import { commandResponseVersion, requiredCommandProjection } from "../../../shared/api/command-response-helpers";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
+import {
+  buildVisibleChatGptResearchDelegationRequest,
+  visibleChatGptResearchDelegationTaskIds
+} from "../chatgpt-browser-delegation-request";
 import {
   activeWebPublicResearchAllowlist,
   buildWebResearchRunRequest,
@@ -67,6 +74,69 @@ export function useDecisionQueueResearchActions({
     [refreshProjections]
   );
 
+  const prepareVisibleChatGptResearchDelegations = useCallback(
+    async ({
+      expectedStateVersion,
+      research,
+      sessionId
+    }: {
+      readonly expectedStateVersion: StateVersion;
+      readonly research: ResearchEvidenceProjection;
+      readonly sessionId: SessionShellProjection["sessionId"];
+    }) => {
+      if (
+        !client ||
+        projections.session?.initialResearchAutomationPermission !== "allow_codex_and_chatgpt_visible"
+      ) {
+        return expectedStateVersion;
+      }
+
+      const existingDelegation = await client.getChatGptBrowserDelegation(sessionId);
+      const taskIds = visibleChatGptResearchDelegationTaskIds({
+        research,
+        delegation: existingDelegation
+      });
+
+      let nextExpectedStateVersion = expectedStateVersion;
+      let latestDelegation: ChatGptBrowserDelegationProjection | null = existingDelegation;
+
+      for (const researchTaskId of taskIds) {
+        const task = research.tasks.find((item) => item.researchTaskId === researchTaskId);
+
+        if (!task) {
+          continue;
+        }
+
+        const response = await appendCommand(
+          researchActionLabels.prepareVisibleChatGptResearchDelegation,
+          await client.createChatGptBrowserDelegationRun(
+            buildVisibleChatGptResearchDelegationRequest({
+              expectedStateVersion: nextExpectedStateVersion,
+              sessionId,
+              task
+            })
+          )
+        );
+
+        latestDelegation = requiredCommandProjection<ChatGptBrowserDelegationProjection>(
+          response,
+          "ChatGptBrowserDelegationProjection"
+        );
+        nextExpectedStateVersion = commandResponseVersion(response);
+      }
+
+      if (latestDelegation) {
+        setProjections((current) => ({
+          ...current,
+          chatGptDelegation: latestDelegation
+        }));
+      }
+
+      return nextExpectedStateVersion;
+    },
+    [appendCommand, client, projections.session, researchActionLabels.prepareVisibleChatGptResearchDelegation, setProjections]
+  );
+
   const createOrReactivateAllowlist = useCallback(async () => {
     if (!client || !projections.session) {
       setWorkflowError(researchActionErrors.activeProjectRequiredAllowlistChange);
@@ -107,6 +177,65 @@ export function useDecisionQueueResearchActions({
         ...current,
         allowlists
       }));
+      const activatedAllowlist = activeWebPublicResearchAllowlist(allowlists);
+
+      if (activatedAllowlist && projections.research) {
+        const latestRuns = await client.listResearchRuns(projectId);
+        const plan = readyReadOnlyResearchRunStartPlan({
+          research: projections.research,
+          runs: latestRuns,
+          allowlist: activatedAllowlist,
+          missingAllowlistMessage: researchActionErrors.readyRunsMissingAllowlist,
+          noReadyTasksMessage: researchActionErrors.readyRunsNoReadyTasks,
+          quietNoop: true
+        });
+
+        setResearchOperations((current) => ({
+          ...current,
+          runs: latestRuns
+        }));
+
+        if (plan.status === "start") {
+          for (const [index, researchTaskId] of plan.taskIds.entries()) {
+            const task = projections.research.tasks.find((item) => item.researchTaskId === researchTaskId);
+
+            if (!task) {
+              continue;
+            }
+
+            const runResponse = await appendCommand(
+              `${researchActionLabels.startBackgroundPublicWebResearchRun} ${index + 1}/${plan.taskIds.length}`,
+              await client.startResearchRun(
+                projectId,
+                buildWebResearchRunRequest({
+                  allowlist: activatedAllowlist,
+                  spec: projections.spec,
+                  task
+                })
+              )
+            );
+            const runs = researchRunProjectionFromResponse(runResponse);
+            const selectedRun =
+              runs.selectedRun ?? runs.runs.find((run) => run.status === "running" || run.status === "queued");
+
+            setResearchOperations((current) => ({
+              ...current,
+              runs
+            }));
+
+            if (selectedRun && (selectedRun.status === "running" || selectedRun.status === "queued")) {
+              const refreshedRuns = await client.getResearchRunStatus(projectId, selectedRun.researchRunId);
+
+              setResearchOperations((current) => ({
+                ...current,
+                runs: refreshedRuns
+              }));
+            }
+          }
+
+          await refreshResearchEvidenceSurfaces(projectId, projections.session.sessionId);
+        }
+      }
       await refreshResearchOperations(projectId);
     } catch (error) {
       setWorkflowError(displayError(error));
@@ -116,9 +245,13 @@ export function useDecisionQueueResearchActions({
   }, [
     appendCommand,
     client,
+    projections.research,
     projections.session,
+    projections.spec?.title,
+    refreshResearchEvidenceSurfaces,
     refreshResearchOperations,
     researchActionErrors,
+    researchActionLabels,
     researchOperations.allowlists
   ]);
 
@@ -351,13 +484,26 @@ export function useDecisionQueueResearchActions({
         ...current,
         research
       }));
+      await prepareVisibleChatGptResearchDelegations({
+        expectedStateVersion: commandResponseVersion(response),
+        research,
+        sessionId: projections.session.sessionId
+      });
       await refreshProjections(projections.session.projectId, projections.session.sessionId);
     } catch (error) {
       setWorkflowError(displayError(error));
     } finally {
       setIsBusy(false);
     }
-  }, [appendCommand, client, projections, refreshProjections, researchActionErrors, researchActionReasons]);
+  }, [
+    appendCommand,
+    client,
+    prepareVisibleChatGptResearchDelegations,
+    projections,
+    refreshProjections,
+    researchActionErrors,
+    researchActionReasons
+  ]);
 
   const startReadOnlyResearchRunForTask = useCallback(
     async ({
@@ -381,7 +527,7 @@ export function useDecisionQueueResearchActions({
           projectId,
           buildWebResearchRunRequest({
             allowlist,
-            specTitle: projections.spec?.title,
+            spec: projections.spec,
             task
           })
         )
@@ -585,6 +731,11 @@ export function useDecisionQueueResearchActions({
         allowlists,
         runs: latestRuns
       }));
+      await prepareVisibleChatGptResearchDelegations({
+        expectedStateVersion: latestResearch.version as unknown as StateVersion,
+        research: latestResearch,
+        sessionId
+      });
 
       if (plan.status !== "start") {
         return;
@@ -607,6 +758,7 @@ export function useDecisionQueueResearchActions({
     }
   }, [
     client,
+    prepareVisibleChatGptResearchDelegations,
     projections.session,
     refreshResearchEvidenceSurfaces,
     researchActionErrors,
@@ -633,11 +785,15 @@ export function useDecisionQueueResearchActions({
           runs
         }));
         await refreshProjections(projections.session.projectId, projections.session.sessionId);
+
+        if (runs.selectedRun && isTerminalResearchRunStatus(runs.selectedRun.status)) {
+          await startReadyReadOnlyResearchRunsAfterAnswer();
+        }
       } catch (error) {
         setWorkflowError(displayError(error));
       }
     },
-    [client, projections.session, refreshProjections, researchActionErrors]
+    [client, projections.session, refreshProjections, researchActionErrors, startReadyReadOnlyResearchRunsAfterAnswer]
   );
 
   const cancelResearchRun = useCallback(

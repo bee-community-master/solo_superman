@@ -151,11 +151,89 @@ describe("web_search_readonly background research adapter", () => {
       sourceUrl: "https://example.com/public-founder-evidence",
       sourceRefs: expect.arrayContaining(["queue_item_web", "https://example.com/public-founder-evidence"]),
       limitations: expect.arrayContaining([
-        expect.stringContaining("no login, CAPTCHA, anti-bot bypass, paid-service access, or external search API")
+        expect.stringContaining("Only publicly reachable web pages were checked")
       ])
     });
-    expect(result.summary).toContain("Limitation: Browser search snippets can be incomplete");
+    expect(result.summary).toContain("Public source notes for");
+    expect(result.summary).toContain("Public evidence snippet about founder workflow research.");
+    expect(result.summary).not.toContain("quality-gate review");
+    expect(result.summary).not.toContain("snippet retained for review");
     expect(result.summary).not.toContain("Con: Browser search snippets can be incomplete");
+  });
+
+  it("cleans browser-search fallback titles and timeout notes before returning provider results", async () => {
+    const adapter = createWebSearchReadOnlyResearchAdapter({
+      now: () => "2026-05-05T00:03:00.000Z",
+      search: async (input) => [
+        {
+          title: "zhihu.comhttps://www.zhihu.com › question",
+          url: "https://www.zhihu.com/question/123",
+          snippet:
+            "반려동물 보호자가 의료 기록과 보험 정보를 함께 찾는다. Full page text was unavailable before timeout, so only the search-result summary is shown.",
+          retrievedAt: input.now()
+        }
+      ]
+    });
+    const runningRun = runFixture({
+      status: "running",
+      provider: {
+        ...runFixture().provider,
+        providerRunId: "web_search_readonly_research_run_web_clean",
+        startedAt: "2026-05-05T00:01:00.000Z"
+      },
+      updatedAt: "2026-05-05T00:01:00.000Z"
+    });
+
+    const result = await adapter.pollResult({ researchRun: runningRun, disclosurePayload });
+
+    expect(result.sourceTitle).toBe("zhihu.com — 123");
+    expect(result.summary).toContain("반려동물 보호자가 의료 기록과 보험 정보를 함께 찾는다.");
+    expect(result.summary).not.toContain("zhihu.comhttps://");
+    expect(result.summary).not.toContain("Full page text was unavailable");
+    expect(result.summary).not.toContain("search-result summary is shown");
+  });
+
+  it("builds public web queries from idea context instead of generic ambiguity wording", async () => {
+    let seenQuery = "";
+    const adapter = createWebSearchReadOnlyResearchAdapter({
+      now: () => "2026-05-05T00:03:00.000Z",
+      search: async (input) => {
+        seenQuery = input.query;
+
+        return [
+          {
+            title: "Public pet market report",
+            url: "https://example.com/pet-market-report",
+            snippet: "반려동물 보호자 유형과 의료비, 보험 니즈를 다룬 공개 리포트.",
+            retrievedAt: input.now()
+          }
+        ];
+      }
+    });
+    const runningRun = runFixture({
+      status: "running",
+      provider: {
+        ...runFixture().provider,
+        providerRunId: "web_search_readonly_research_run_web_query",
+        startedAt: "2026-05-05T00:01:00.000Z"
+      },
+      updatedAt: "2026-05-05T00:01:00.000Z"
+    });
+
+    await adapter.pollResult({
+      researchRun: runningRun,
+      disclosurePayload: {
+        researchObjective: "첫 고객 세그먼트가 너무 넓음을 구체화하기",
+        publicSafeSummary:
+          "Product category: 반려동물 전생애주기 통합 관리 앱. Customer/problem hypothesis: 의료 기록, 급여, 일상 돌봄, 보험 청구, 장례 준비 정보를 한 곳에서 관리한다. Research objective: 첫 고객 세그먼트가 너무 넓음을 구체화하기."
+      }
+    });
+
+    expect(seenQuery).toContain("반려동물 전생애주기 통합 관리 앱");
+    expect(seenQuery).toContain("보험 청구");
+    expect(seenQuery).toContain("반려동물 보호자 유형");
+    expect(seenQuery).not.toContain("Product category:");
+    expect(seenQuery).not.toContain("첫 고객 세그먼트가 너무 넓음");
   });
 
   it("fails safely when the browser search is blocked", async () => {

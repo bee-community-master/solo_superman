@@ -17,7 +17,7 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR = "./solo-superman-release-evidence-bundle";
 const MAX_REPORTED_COMMAND_OUTPUT_CHARS = 4_000;
 const RELEASE_EVIDENCE_BUNDLE_PREPARATION_ID = "release-evidence-bundle-preparation";
-const BASE_READY_RELEASE_STEPS = [
+const OPTIONAL_SIGNED_PACKAGE_READY_RELEASE_STEPS = [
   {
     id: "signed-package-preflight-credentials",
     command: "pnpm",
@@ -29,7 +29,9 @@ const BASE_READY_RELEASE_STEPS = [
     command: "pnpm",
     args: ["verify:signed-package-release", "--", "--require-release-evidence"],
     display: "pnpm verify:signed-package-release -- --require-release-evidence"
-  },
+  }
+];
+const BASE_READY_RELEASE_STEPS = [
   {
     id: "windows-real-device-evidence",
     command: "pnpm",
@@ -143,7 +145,11 @@ export function extractReadyReleaseCommandBlockers(result) {
 
 export function readyReleaseSteps(options = {}) {
   const releaseEvidenceBundleDir = options.releaseEvidenceBundleDir ?? DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR;
-  return BASE_READY_RELEASE_STEPS.map((step) => {
+  const steps = [
+    ...(options.includeSignedPackage ? OPTIONAL_SIGNED_PACKAGE_READY_RELEASE_STEPS : []),
+    ...BASE_READY_RELEASE_STEPS
+  ];
+  return steps.map((step) => {
     if (step.id !== "release-evidence-bundle-ready") {
       return { ...step, args: [...step.args] };
     }
@@ -160,7 +166,8 @@ export function parseReadyReleaseArgs(argv = process.argv.slice(2), env = proces
     timeoutMs: Number(env.SOLO_READY_RELEASE_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS),
     releaseEvidenceBundleDir: env.SOLO_RELEASE_EVIDENCE_BUNDLE_DIR ?? DEFAULT_RELEASE_EVIDENCE_BUNDLE_DIR,
     failFast: false,
-    planOnly: false
+    planOnly: false,
+    includeSignedPackage: env.SOLO_READY_RELEASE_INCLUDE_SIGNED_PACKAGE === "1"
   };
 
   if (!Number.isInteger(options.timeoutMs) || options.timeoutMs <= 0) {
@@ -181,6 +188,10 @@ export function parseReadyReleaseArgs(argv = process.argv.slice(2), env = proces
     }
     if (arg === "--plan-only") {
       options.planOnly = true;
+      continue;
+    }
+    if (arg === "--include-signed-package") {
+      options.includeSignedPackage = true;
       continue;
     }
     if (arg === "--evidence-bundle-dir") {
@@ -444,8 +455,9 @@ export function evidenceForReadyReleaseResults(results, options = {}) {
     })),
     checked: [
       "ready-release credential-required command sequence",
-      "signed package credential preflight gate",
-      "signed package release evidence gate",
+      options.includeSignedPackage
+        ? "signed package credential preflight and release evidence gates included by explicit opt-in"
+        : "signed package credential gates skipped by default because non-store/direct distribution does not require signing",
       "Windows real-device evidence gate",
       "packaged update rollback device evidence gate",
       "release evidence bundle require-ready gate",
@@ -507,7 +519,10 @@ function runCommand(step, options = {}) {
 }
 
 export async function runReadyReleaseVerification(options = {}) {
-  const steps = readyReleaseSteps({ releaseEvidenceBundleDir: options.releaseEvidenceBundleDir });
+  const steps = readyReleaseSteps({
+    releaseEvidenceBundleDir: options.releaseEvidenceBundleDir,
+    includeSignedPackage: options.includeSignedPackage
+  });
   const releaseEvidenceBundleDirStatusValue = options.planOnly
     ? undefined
     : options.releaseEvidenceBundleDirStatus ?? (await releaseEvidenceBundleDirStatus(

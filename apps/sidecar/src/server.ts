@@ -1,4 +1,4 @@
-import { randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import {
@@ -36,6 +36,7 @@ import {
   IMPLEMENTATION_STEP_STATUSES,
   BUSINESS_CRITIC_INTENSITIES,
   PROJECT_PURPOSE_MODES,
+  RESEARCH_AUTOMATION_PERMISSIONS,
   isAutoImplementationPullRequestIssueLink,
   isExecutionAuthorityIsoTimestamp,
   isChatGptBrowserDelegationApprovalDecision,
@@ -94,6 +95,7 @@ import {
   type PlanningHandoffSourceRefDto,
   type BusinessCriticIntensity,
   type ProjectPurposeMode,
+  type ResearchAutomationPermission,
   type ProjectId,
   type QueueItemId,
   type ResearchAllowlistId,
@@ -122,13 +124,19 @@ import {
   ProductEngineServiceError,
   type ProductEngineCommandServiceOptions
 } from "./product-engine/command-service";
+import {
+  GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+  GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+  parseGeneratedAmbiguityQuestionSetText
+} from "@solo-superman/core";
+import { buildGeneratedAmbiguityQuestionPrompt } from "./product-engine/generated-ambiguity-question-prompt";
 import type {
   AutoImplementationGitHubIssueMutationAdapter,
   AutoImplementationPullRequestMutationAdapter,
   AutoImplementationRemoteStatusProvider
 } from "./product-engine/auto-implementation-workspace";
 import { unmountedProductApiRoutePlaceholders } from "./routes/catalog";
-import { createCodexRuntimeAdapter, type CodexRuntimeAdapter } from "./runtime";
+import { CodexRuntimeUnavailableError, createCodexRuntimeAdapter, type CodexRuntimeAdapter } from "./runtime";
 
 export interface CreateSidecarAppOptions {
   readonly localCapabilityToken: string;
@@ -478,6 +486,50 @@ function optionalBusinessCriticIntensityFromBody(value: unknown, fieldName = "bu
   }
 
   return businessCriticIntensityFromBody(value, fieldName);
+}
+
+function researchAutomationPermissionFromBody(
+  value: unknown,
+  fieldName = "initialResearchAutomationPermission"
+): ResearchAutomationPermission {
+  const permission = stringFromBody(value, fieldName);
+
+  if (!RESEARCH_AUTOMATION_PERMISSIONS.includes(permission as ResearchAutomationPermission)) {
+    throw new ProductEngineServiceError(
+      "VALIDATION_FAILED",
+      `${fieldName} must be manual_only, allow_codex, or allow_codex_and_chatgpt_visible.`
+    );
+  }
+
+  return permission as ResearchAutomationPermission;
+}
+
+function optionalResearchAutomationPermissionFromBody(
+  value: unknown,
+  fieldName = "initialResearchAutomationPermission"
+) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  return researchAutomationPermissionFromBody(value, fieldName);
+}
+
+function generatedQuestionSetContextHash(input: Readonly<Record<string, unknown>>) {
+  return createHash("sha256")
+    .update(JSON.stringify(input))
+    .digest("hex")
+    .slice(0, 32);
+}
+
+function generatedQuestionSetUnavailableResponse(reason: string) {
+  return {
+    status: "unavailable",
+    promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+    schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+    source: "codex_runtime_unavailable",
+    reason
+  } as const;
 }
 
 function optionalPositiveIntegerFromBody(value: unknown, fieldName: string) {
@@ -2084,6 +2136,7 @@ const AUTO_IMPLEMENTATION_RUN_REQUEST_BODY_KEYS = [
   "trackerTitle",
   "trackerGoal",
   "issueTitles",
+  "planningIssueId",
   "githubIssueCreation"
 ] as const satisfies readonly (keyof CreateAutoImplementationRunRequest)[];
 
@@ -2442,6 +2495,7 @@ function createAutoImplementationRunRequestFromBody(
   const sourcePlanningRef = optionalStringFromBody(body.sourcePlanningRef, "sourcePlanningRef");
   const trackerTitle = optionalStringFromBody(body.trackerTitle, "trackerTitle");
   const trackerGoal = optionalStringFromBody(body.trackerGoal, "trackerGoal");
+  const planningIssueId = optionalStringFromBody(body.planningIssueId, "planningIssueId");
   const githubIssueCreation = optionalGithubIssueCreationFromBody(body.githubIssueCreation);
 
   return {
@@ -2453,6 +2507,7 @@ function createAutoImplementationRunRequestFromBody(
     ...(trackerTitle ? { trackerTitle } : {}),
     ...(trackerGoal ? { trackerGoal } : {}),
     ...(issueTitles ? { issueTitles } : {}),
+    ...(planningIssueId ? { planningIssueId } : {}),
     ...(githubIssueCreation ? { githubIssueCreation } : {})
   };
 }
@@ -3151,6 +3206,9 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         "suggestedProjectPurposeMode"
       );
       const businessCriticIntensity = optionalBusinessCriticIntensityFromBody(body.businessCriticIntensity);
+      const initialResearchAutomationPermission = optionalResearchAutomationPermissionFromBody(
+        body.initialResearchAutomationPermission
+      );
 
       if (localPrivacyMode !== "local_only" && localPrivacyMode !== "local_with_manual_export") {
         throw new ProductEngineServiceError("VALIDATION_FAILED", "localPrivacyMode must be a supported local privacy mode.");
@@ -3188,6 +3246,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
                 : {})
             }
           : {}),
+        ...(initialResearchAutomationPermission ? { initialResearchAutomationPermission } : {}),
         ...(typeof body.sourceNote === "string" ? { sourceNote: body.sourceNote } : {})
       });
     })
@@ -3412,6 +3471,91 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
     })
   );
 
+  app.post("/api/v1/sessions/:sessionId/questions/generate", async (context) =>
+    withProductEngine(context, async () => {
+      const body = await jsonBody(context);
+      const bodySessionId = stringFromBody(body.sessionId, "sessionId") as SessionId;
+      const pathSessionId = context.req.param("sessionId") as SessionId;
+
+      if (bodySessionId !== pathSessionId) {
+        throw new ProductEngineServiceError("VALIDATION_FAILED", "sessionId in the path and body must match.");
+      }
+
+      const request = {
+        sessionId: pathSessionId,
+        expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
+        rawIdea: stringContentFromBody(body.rawIdea, "rawIdea"),
+        intakeGoal: stringContentFromBody(body.intakeGoal, "intakeGoal"),
+        projectPurposeMode: projectPurposeModeFromBody(body.projectPurposeMode),
+        businessCriticIntensity: optionalBusinessCriticIntensityFromBody(body.businessCriticIntensity),
+        reviewAxes: optionalStringArrayFromBody(body.reviewAxes, "reviewAxes") ?? []
+      };
+      const prompt = buildGeneratedAmbiguityQuestionPrompt({
+        rawIdea: request.rawIdea,
+        intakeGoal: request.intakeGoal,
+        projectPurposeMode: request.projectPurposeMode,
+        reviewAxes: request.reviewAxes
+      });
+      const status = await codexRuntimeAdapter.getStatus();
+
+      if (status.executionMode !== "live" || status.status !== "available") {
+        return generatedQuestionSetUnavailableResponse(
+          status.reason ?? "Codex runtime is not available for live question generation."
+        );
+      }
+
+      try {
+        const preview = await codexRuntimeAdapter.createPreview({
+          turnPurpose: "question_generation",
+          contextHash: generatedQuestionSetContextHash({
+            sessionId: request.sessionId,
+            expectedStateVersion: request.expectedStateVersion,
+            rawIdea: request.rawIdea,
+            intakeGoal: request.intakeGoal,
+            projectPurposeMode: request.projectPurposeMode,
+            businessCriticIntensity: request.businessCriticIntensity ?? null,
+            reviewAxes: request.reviewAxes
+          }),
+          prompt,
+          sourceRefs: [
+            `session:${request.sessionId}`,
+            `state_version:${request.expectedStateVersion}`,
+            GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF
+          ],
+          targetObject: "generated_ambiguity_question_set"
+        });
+        const parsed = parseGeneratedAmbiguityQuestionSetText(preview.payload.body, {
+          contextText: [request.rawIdea, request.intakeGoal].filter(Boolean).join("\n")
+        });
+
+        if (!parsed.ok || !parsed.value) {
+          return {
+            status: "invalid",
+            promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+            schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+            source: "codex_runtime_invalid_json",
+            validationIssues: parsed.issues,
+            reason: "Codex returned a question-generation artifact, but its body did not match the generated question JSON schema."
+          } as const;
+        }
+
+        return {
+          status: "generated",
+          promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+          schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+          source: "codex_runtime_preview",
+          generatedQuestionSet: parsed.value
+        } as const;
+      } catch (error) {
+        if (error instanceof CodexRuntimeUnavailableError) {
+          return generatedQuestionSetUnavailableResponse(error.message);
+        }
+
+        throw error;
+      }
+    })
+  );
+
   app.post("/api/v1/sessions/:sessionId/spec/analyze", async (context) =>
     withCommandResponse(context, async (service) => {
       const body = await jsonBody(context);
@@ -3421,7 +3565,10 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         commandType: "AnalyzeAmbiguity",
         expectedStateVersion: stateVersionFromBody(body.expectedStateVersion),
         payload: {
-          targetRef: stringFromBody(body.targetRef, "targetRef")
+          targetRef: stringFromBody(body.targetRef, "targetRef"),
+          ...(Object.prototype.hasOwnProperty.call(body, "generatedQuestionSet")
+            ? { generatedQuestionSet: body.generatedQuestionSet }
+            : {})
         }
       });
     })

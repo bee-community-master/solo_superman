@@ -323,6 +323,7 @@ Route definitions are source-owned by `packages/contracts/src/api/routes.ts`. Th
 | `POST /api/v1/sessions/:sessionId/intake` | `captureIntake` | `CaptureIntake` | - |
 | `POST /api/v1/sessions/:sessionId/spec/initial` | `draftInitialSpec` | `DraftInitialSpec` | - |
 | `GET /api/v1/sessions/:sessionId/spec` | `getLivingSpec` | `none` | - |
+| `POST /api/v1/sessions/:sessionId/questions/generate` | `generateInitialQuestionSet` | `none` | - |
 | `POST /api/v1/sessions/:sessionId/spec/analyze` | `analyzeAmbiguity` | `AnalyzeAmbiguity` | - |
 | `GET /api/v1/sessions/:sessionId/spec/versions` | `listSpecVersions` | `none` | - |
 | `GET /api/v1/sessions/:sessionId/queue` | `getDecisionQueue` | `none` | - |

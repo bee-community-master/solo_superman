@@ -495,6 +495,40 @@ describe("Decision Queue view model readiness-panels", () => {
     });
   });
 
+  it("builds real web research queries from the current idea context instead of founder fixtures", () => {
+    const research = researchProjection(true);
+    const [task] = research.tasks;
+    const [allowlist] = allowlistProjection().allowlists;
+
+    if (!task || !allowlist) {
+      throw new Error("Phase 1.5A research request fixture is incomplete.");
+    }
+
+    const request = buildWebResearchRunRequest({
+      allowlist,
+      spec: {
+        title: "반려동물 전생애주기 통합 관리 앱",
+        sections: [
+          "의료 기록, 급여, 일상 돌봄, 보험 청구, 장례 준비 정보를 한 곳에서 관리한다.",
+          "첫 고객 후보는 보호자 유형별로 좁혀야 한다."
+        ]
+      },
+      task: {
+        ...task,
+        objective: "첫 고객 세그먼트가 너무 넓음을 구체화하기"
+      }
+    });
+
+    expect(request).toMatchObject({
+      adapterKind: "web_search_readonly",
+      productCategory: "반려동물 전생애주기 통합 관리 앱",
+      customerProblemHypothesis: expect.stringContaining("보험 청구"),
+      highLevelContext: expect.stringContaining("장례 준비")
+    });
+    expect(JSON.stringify(request)).not.toContain("Founder workflow assistant");
+    expect(JSON.stringify(request)).not.toContain("Founder needs public-safe evidence");
+  });
+
   it("renders the extracted Phase 1.5A operations panel controls and session gating", () => {
     const noop = () => undefined;
     const markup = renderEnglishMarkup(

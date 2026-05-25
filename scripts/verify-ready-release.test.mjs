@@ -17,6 +17,15 @@ import {
 describe("ready release aggregate verification", () => {
   it("plans the required ready-release command sequence", () => {
     expect(readyReleaseSteps().map((step) => step.display)).toEqual([
+      "pnpm verify:windows-real-device -- --require-device-evidence",
+      "pnpm verify:packaged-update-rollback -- --require-device-evidence",
+      "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready",
+      "pnpm verify:release-readiness -- --require-ready"
+    ]);
+  });
+
+  it("can opt into signed-package hardening commands for release labs that want them", () => {
+    expect(readyReleaseSteps({ includeSignedPackage: true }).map((step) => step.display)).toEqual([
       "pnpm verify:signed-package-preflight -- --require-credentials",
       "pnpm verify:signed-package-release -- --require-release-evidence",
       "pnpm verify:windows-real-device -- --require-device-evidence",
@@ -129,15 +138,15 @@ describe("ready release aggregate verification", () => {
       releaseEvidenceBundleDirStatus: "present",
       runner: async (step) => ({
         ...step,
-        exitCode: step.id === "signed-package-release-evidence" ? 1 : 0,
-        stdout: step.id === "signed-package-release-evidence"
+        exitCode: step.id === "windows-real-device-evidence" ? 1 : 0,
+        stdout: step.id === "windows-real-device-evidence"
           ? `${"x".repeat(4_500)} token=ghp_abcdefghijklmnopqrstuvwxyz1234567890`
           : "{\"status\":\"passed\",\"blockers\":[]}",
         stderr: ""
       })
     });
 
-    const blockedCommand = evidence.commands.find((command) => command.id === "signed-package-release-evidence");
+    const blockedCommand = evidence.commands.find((command) => command.id === "windows-real-device-evidence");
     expect(blockedCommand?.stdout).toContain("redacted chars omitted");
     expect(blockedCommand?.stdout).not.toContain("ghp_");
     expect(blockedCommand?.stdout.length).toBeLessThan(4_200);
@@ -189,7 +198,7 @@ describe("ready release aggregate verification", () => {
       }
     });
 
-    expect(calls).toEqual(["signed-package-preflight-credentials"]);
+    expect(calls).toEqual(["windows-real-device-evidence"]);
     expect(evidence.status).toBe("blocked");
     expect(evidence.failFast).toBe(true);
   });
@@ -211,12 +220,12 @@ describe("ready release aggregate verification", () => {
       },
       releaseEvidenceBlockerSummary: {
         status: "blocked",
-        issueNumbers: [259, 266, 267],
-        blockedIssueNumbers: [259, 266, 267],
-        issueCount: 3,
-        blockedIssueCount: 3,
-        totalItemCount: 9,
-        blockedItemCount: 9
+        issueNumbers: [259, 267],
+        blockedIssueNumbers: [259, 267],
+        issueCount: 2,
+        blockedIssueCount: 2,
+        totalItemCount: 5,
+        blockedItemCount: 5
       },
       blockers: [],
       commandBlockers: []
@@ -257,11 +266,6 @@ describe("ready release aggregate verification", () => {
           "gh issue comment 259 --body-file ./solo-superman-release-evidence-bundle/issue-259-comment.md"
       }),
       expect.objectContaining({
-        issueNumber: 266,
-        templatePath: "./solo-superman-release-evidence-bundle/issue-266-template.json",
-        commentPath: "./solo-superman-release-evidence-bundle/issue-266-comment.md"
-      }),
-      expect.objectContaining({
         issueNumber: 267,
         templatePath: "./solo-superman-release-evidence-bundle/issue-267-template.json",
         commentPath: "./solo-superman-release-evidence-bundle/issue-267-comment.md"
@@ -288,12 +292,12 @@ describe("ready release aggregate verification", () => {
 
     expect(releaseEvidenceBlockerSummary(issuePrep)).toMatchObject({
       status: "blocked",
-      issueNumbers: [259, 266, 267],
-      blockedIssueNumbers: [259, 266, 267],
-      issueCount: 3,
-      blockedIssueCount: 3,
-      totalItemCount: 9,
-      blockedItemCount: 9,
+      issueNumbers: [259, 267],
+      blockedIssueNumbers: [259, 267],
+      issueCount: 2,
+      blockedIssueCount: 2,
+      totalItemCount: 5,
+      blockedItemCount: 5,
       nextAction: expect.stringContaining("release evidence bundle")
     });
   });
@@ -306,7 +310,7 @@ describe("ready release aggregate verification", () => {
       releaseEvidenceBundleDir: "./filled-release-bundle"
     });
 
-    expect(issuePrep.map((entry) => entry.issueNumber)).toEqual([259, 266, 267]);
+    expect(issuePrep.map((entry) => entry.issueNumber)).toEqual([259, 267]);
     expect(issuePrep[0]).toMatchObject({
       issueUrl: "https://github.com/bee-community-master/solo_superman/issues/259",
       itemCount: 2,
@@ -344,7 +348,7 @@ describe("ready release aggregate verification", () => {
         })
       })
     ]);
-    expect(issuePrep[2].checklistItems).toEqual(
+    expect(issuePrep[1].checklistItems).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           itemId: "windows-packaged-update-rollback",
@@ -393,13 +397,15 @@ describe("ready release aggregate verification", () => {
       timeoutMs: 2000,
       releaseEvidenceBundleDir: "./bundle",
       failFast: true,
-      planOnly: true
+      planOnly: true,
+      includeSignedPackage: false
     });
     expect(parseReadyReleaseArgs([], {
       SOLO_READY_RELEASE_TIMEOUT_MS: "3000",
       SOLO_RELEASE_EVIDENCE_BUNDLE_DIR: "./env-bundle"
     })).toMatchObject({ timeoutMs: 3000, releaseEvidenceBundleDir: "./env-bundle" });
     expect(parseReadyReleaseArgs(["--evidence-bundle-dir=./equals-bundle"], {})).toMatchObject({ releaseEvidenceBundleDir: "./equals-bundle" });
+    expect(parseReadyReleaseArgs(["--include-signed-package"], {})).toMatchObject({ includeSignedPackage: true });
     expect(() => parseReadyReleaseArgs(["--evidence-bundle-dir"], {})).toThrow("--evidence-bundle-dir requires a path value");
     expect(() => parseReadyReleaseArgs(["--evidence-bundle-dir", ""], {})).toThrow("--evidence-bundle-dir requires a path value");
     expect(() => parseReadyReleaseArgs([], { SOLO_RELEASE_EVIDENCE_BUNDLE_DIR: "" })).toThrow("SOLO_RELEASE_EVIDENCE_BUNDLE_DIR must be a non-empty path when set");

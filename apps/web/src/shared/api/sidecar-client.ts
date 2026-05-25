@@ -30,6 +30,8 @@ import type {
   DismissQueueItemRequest,
   ExecutionAuthorityLedgerProjection,
   FounderBriefProjection,
+  GenerateInitialQuestionSetRequest,
+  GenerateInitialQuestionSetResponse,
   ImportResearchResultRequest,
   ImplementationStepLedgerProjection,
   LivingSpecProjection,
@@ -82,6 +84,7 @@ import {
   autoImplementationWorkerLedgerImportPath,
   autoImplementationWorkerStageAdvancePath,
   executionAuthorityPath,
+  generatedInitialQuestionSetPath,
   implementationStepLedgerPath,
   phase15bUpgradeHintCollectionPath,
   phase15bUpgradeHintExportPath,
@@ -153,6 +156,7 @@ export type CreateServicePageUsePermissionInput = CreateServicePageUsePermission
 export type RevokeServicePageUsePermissionInput = RevokeServicePageUsePermissionRequest;
 export type DeleteServicePageUsePermissionArtifactsInput = DeleteServicePageUsePermissionArtifactsRequest;
 export type RecordImplementationStepLedgerInput = RecordImplementationStepLedgerRequest;
+export type GenerateInitialQuestionSetInput = GenerateInitialQuestionSetRequest;
 
 function shouldLogSidecarClientDiagnostics() {
   return typeof window !== "undefined";
@@ -296,10 +300,23 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
       });
     },
 
-    analyzeAmbiguity(sessionId: SessionId, expectedStateVersion: StateVersion, targetRef: string) {
+    generateInitialQuestionSet(input: GenerateInitialQuestionSetInput) {
+      return postProjection<GenerateInitialQuestionSetResponse>(
+        generatedInitialQuestionSetPath(input.sessionId),
+        input
+      );
+    },
+
+    analyzeAmbiguity(
+      sessionId: SessionId,
+      expectedStateVersion: StateVersion,
+      targetRef: string,
+      generatedQuestionSet?: unknown
+    ) {
       return postCommand(`/api/v1/sessions/${encodeURIComponent(sessionId)}/spec/analyze`, {
         expectedStateVersion,
-        targetRef
+        targetRef,
+        ...(generatedQuestionSet === undefined ? {} : { generatedQuestionSet })
       });
     },
 
@@ -444,7 +461,12 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
     },
 
     startResearchRun(projectId: ProjectId, input: StartResearchRunInput) {
-      return postCommand<ResearchRunControlResult>(researchRunCollectionPath(projectId), input);
+      const normalizedInput: StartResearchRunInput =
+        input.sourceCategory === "public_web" && !input.adapterKind
+          ? { ...input, adapterKind: "web_search_readonly" }
+          : input;
+
+      return postCommand<ResearchRunControlResult>(researchRunCollectionPath(projectId), normalizedInput);
     },
 
     cancelResearchRun(projectId: ProjectId, researchRunId: ResearchRunId, input: CancelResearchRunInput = {}) {

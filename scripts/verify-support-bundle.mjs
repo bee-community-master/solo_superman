@@ -38,7 +38,7 @@ const REQUIRED_DIAGNOSTICS = new Set([
 const REQUIRED_DIAGNOSTIC_EVIDENCE_STATUS = {
   readyReleasePlan: "planned"
 };
-const REQUIRED_RELEASE_EVIDENCE_ISSUE_NUMBERS = [259, 266, 267];
+const REQUIRED_RELEASE_EVIDENCE_ISSUE_NUMBERS = [259, 267];
 const REQUIRED_RECOMMENDED_CHECKS = new Set([
   "pnpm verify:codex-live-runtime",
   "pnpm verify:product-capability-readiness",
@@ -228,7 +228,7 @@ function validateReadyReleaseBlockerSummary(value, issues) {
     addIssue(
       issues,
       "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceBlockerSummary.status",
-      "must be blocked while #259/#266/#267 remain open"
+      "must be blocked while #259/#267 remain open"
     );
   }
   const blockedIssueNumbers = stringList(value.blockedIssueNumbers);
@@ -269,7 +269,7 @@ function validateReadyReleaseIssuePreparation(value, issues) {
     addIssue(
       issues,
       "$.releaseDiagnostics.readyReleasePlan.releaseEvidenceIssuePreparation",
-      "must include issue-specific release evidence handoff entries for #259/#266/#267"
+      "must include issue-specific release evidence handoff entries for #259/#267"
     );
     return;
   }

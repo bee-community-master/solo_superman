@@ -58,7 +58,7 @@ function blockedContract(overrides = {}) {
         platform: "macos",
         status: "blocked",
         requiredFor: "general-release",
-        blocker: "macOS signed package device evidence is missing.",
+        blocker: "macOS packaged artifact device evidence is missing.",
         blockerIssue: "https://github.com/bee-community-master/solo_superman/issues/267",
         evidenceRefs: ["docs/release-channel_KO.md"],
         requiredChecks: REQUIRED_ROLLBACK_CHECKS,
@@ -70,7 +70,7 @@ function blockedContract(overrides = {}) {
         platform: "windows",
         status: "blocked",
         requiredFor: "general-release",
-        blocker: "Windows signed package device evidence is missing.",
+        blocker: "Windows packaged artifact device evidence is missing.",
         blockerIssue: "https://github.com/bee-community-master/solo_superman/issues/267",
         evidenceRefs: ["docs/release-channel_KO.md", "https://github.com/bee-community-master/solo_superman/issues/259"],
         requiredChecks: REQUIRED_ROLLBACK_CHECKS,
@@ -256,7 +256,7 @@ describe("packaged update rollback verification", () => {
       "$.deviceRuns[1].evidenceBundle.deviceProfile.platform: must be windows",
       "$.deviceRuns[1].evidenceBundle.deviceProfile.osName: must be a non-empty device metadata string",
       "$.deviceRuns[1].evidenceBundle.deviceProfile.environmentKind: must be physical-device or vm",
-      "$.deviceRuns[1].evidenceBundle.packageKind: must be a signed windows package kind",
+      "$.deviceRuns[1].evidenceBundle.packageKind: must be a windows packaged artifact kind",
       "$.deviceRuns[1].evidenceBundle.credentialSnapshotMode: must be metadata_only_no_read",
       "$.deviceRuns[1].evidenceBundle.updateLogRef: must use https when using URL evidence refs"
     ]));

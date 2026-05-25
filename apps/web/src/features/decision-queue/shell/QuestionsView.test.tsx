@@ -342,7 +342,7 @@ describe("QuestionsView", () => {
         {
           queueItemId: "queue_candidate_with_evidence_context" as QueueItemId,
           title:
-            "찬성/반대 근거는 참고용입니다. 후보는 개인 창업자, 팀 리더, 운영 담당자입니다. 고객 후보를 선택해주세요.",
+            "리서치 단서는 참고용입니다. 후보는 개인 창업자, 팀 리더, 운영 담당자입니다. 고객 후보를 선택해주세요.",
           state: "active",
           expectedAnswerType: "choice",
           answerOptions: [
@@ -830,12 +830,12 @@ describe("QuestionsView", () => {
           items: [
             {
               queueItemId: "research_review_follow_up" as QueueItemId,
-              title: "paid founder urgency를 조금 더 구체화하기 위해 리서치 결과를 모아보니 찬성쪽 근거는 founders report urgency입니다.\n\n한계와 불확실성은 반대 근거가 부족해 과신 가능성이 남아 있습니다.\n\n어느 방향으로 판단하시겠습니까?",
+              title: "paid founder urgency를 조금 더 구체화하기 위해 리서치 결과를 모아보니 founders report urgency 같은 단서가 확인되었습니다.\n\n한계와 불확실성은 다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다.\n\n어느 방향으로 판단하시겠습니까?",
               state: "blocked",
               cardType: "follow_up_question",
               sourceRef: "research:research_task_demo:evidence_matrix_demo:additional_question:1",
               additionalQuestions: [
-                "paid founder urgency를 조금 더 구체화하기 위해 리서치 결과를 모아보니 찬성쪽 근거는 founders report urgency입니다.\n\n한계와 불확실성은 반대 근거가 부족해 과신 가능성이 남아 있습니다.\n\n어느 방향으로 판단하시겠습니까?"
+                "paid founder urgency를 조금 더 구체화하기 위해 리서치 결과를 모아보니 founders report urgency 같은 단서가 확인되었습니다.\n\n한계와 불확실성은 다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다.\n\n어느 방향으로 판단하시겠습니까?"
               ]
             }
           ]
@@ -844,8 +844,8 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain("Research-generated questions");
-    expect(markup).toContain("찬성쪽 근거는 founders report urgency입니다.");
-    expect(markup).toContain("한계와 불확실성은 반대 근거가 부족해 과신 가능성이 남아 있습니다.");
+    expect(markup).toContain("founders report urgency 같은 단서가 확인되었습니다.");
+    expect(markup).toContain("한계와 불확실성은 다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다.");
     expect(markup).not.toContain("What evidence would resolve");
     expect(markup).toContain("Source trace");
     expect(markup).toContain("research:research_task_demo:evidence_matrix_demo:additional_question:1");

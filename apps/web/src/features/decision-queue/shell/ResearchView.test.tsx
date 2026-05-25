@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { CHATGPT_BROWSER_DELEGATION_READY_PROJECTION_FIXTURE } from "@solo-superman/contracts";
 import type {
   DecisionEvidencePackId,
   DecisionEvidencePackProjection,
@@ -242,6 +243,149 @@ describe("ResearchView", () => {
     expect(markup).toContain("Validate public evidence path 1.");
     expect(markup).toContain("Validate public evidence path 2.");
     expect(markup).toContain("Review already returned evidence.");
+  });
+
+  it("shows visible ChatGPT import guidance on matching research tasks", () => {
+    const markup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        session: {
+          kind: "SessionShellProjection",
+          projectId: "proj_research_batch" as ProjectId,
+          sessionId: "sess_research_batch" as SessionId,
+          version: 1 as ProjectionVersion,
+          phase: "spec",
+          projectPurposeMode: "business",
+          projectPurposeModeSelectionStatus: "confirmed",
+          projectPurposeModeLabel: "Business validation",
+          projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+        },
+        research: {
+          ...researchProjection(),
+          taskIds: ["research_task_chatgpt_ready" as ResearchTaskId],
+          tasks: [
+            {
+              researchTaskId: "research_task_chatgpt_ready" as ResearchTaskId,
+              sessionId: "sess_research_batch" as SessionId,
+              objective: "Use visible ChatGPT Deep Research for the buyer/user split.",
+              routeOutcome: "research_needed",
+              impact: "high",
+              status: "planned",
+              createdAt: "2026-05-22T00:00:00.000Z"
+            }
+          ]
+        },
+        chatGptDelegation: CHATGPT_BROWSER_DELEGATION_READY_PROJECTION_FIXTURE
+      }
+    });
+
+    expect(markup).toContain("A visible ChatGPT Pro/Deep Research handoff is prepared for this task.");
+    expect(markup).toContain("Visible ChatGPT research handoff");
+    expect(markup).toContain("Open ChatGPT");
+    expect(markup).toContain('href="https://chatgpt.com/"');
+    expect(markup).toContain("Prompt to paste into ChatGPT/Deep Research");
+    expect(markup).toContain("Research task: Use visible ChatGPT Deep Research for the buyer/user split.");
+    expect(markup).toContain("Do not include passwords, session cookies, API keys");
+    expect(markup).toContain("Before importing the result");
+    expect(markup).toContain("Paste the user-reviewed result here");
+  });
+
+  it("shows the user-owned ChatGPT handoff prompt when onboarding allowed visible ChatGPT research", () => {
+    const markup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        session: {
+          kind: "SessionShellProjection",
+          projectId: "proj_research_batch" as ProjectId,
+          sessionId: "sess_research_batch" as SessionId,
+          version: 1 as ProjectionVersion,
+          phase: "spec",
+          projectPurposeMode: "business",
+          projectPurposeModeSelectionStatus: "confirmed",
+          projectPurposeModeLabel: "Business validation",
+          projectPurposeModeEffect: "Business validation mode keeps commercialization gates active.",
+          initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible"
+        },
+        research: researchProjection()
+      }
+    });
+
+    expect(markup).toContain("Visible ChatGPT research handoff");
+    expect(markup).toContain("Research task: Validate public evidence path 1.");
+    expect(markup).toContain("This is a user-visible handoff, not account sharing or backend ChatGPT automation.");
+    expect(markup).not.toContain("A visible ChatGPT Pro/Deep Research handoff is prepared for this task.");
+  });
+
+  it("keeps imported handoff results visible while evidence synthesis is pending", () => {
+    const researchTaskId = "research_task_imported_handoff" as ResearchTaskId;
+    const markup = renderResearchView({
+      readyReadOnlyResearchTaskIds: [],
+      readyReadOnlyResearchStartPlan: {
+        status: "blocked",
+        reason: "no_ready_tasks",
+        message: "No planned public web research tasks are ready within the active allowlist concurrency budget."
+      },
+      projections: {
+        ...emptyProjectionState(),
+        session: {
+          kind: "SessionShellProjection",
+          projectId: "proj_research_batch" as ProjectId,
+          sessionId: "sess_research_batch" as SessionId,
+          version: 1 as ProjectionVersion,
+          phase: "spec",
+          projectPurposeMode: "business",
+          projectPurposeModeSelectionStatus: "confirmed",
+          projectPurposeModeLabel: "Business validation",
+          projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+        },
+        research: {
+          ...researchProjection(),
+          taskIds: [researchTaskId],
+          tasks: [
+            {
+              researchTaskId,
+              sessionId: "sess_research_batch" as SessionId,
+              objective: "Check whether pet lifecycle app buyers and daily users are the same people.",
+              routeOutcome: "research_needed",
+              impact: "high",
+              status: "handoff_ready",
+              createdAt: "2026-05-22T00:00:00.000Z"
+            }
+          ],
+          results: [
+            {
+              researchResultId: "research_result_imported_handoff" as ResearchResultId,
+              researchTaskId,
+              sourceTitle: "User-reviewed ChatGPT Deep Research notes",
+              sourceUrl: "https://example.com/pet-lifecycle-research",
+              sourceReliability: "unknown",
+              resultSummary:
+                "Pet care decisions may involve one household buyer while another family member handles daily care.",
+              limitationNotes: "Source citations and counterexamples still need quality-gate review.",
+              questionRef: "visible_chatgpt_handoff:research_task_imported_handoff",
+              implicationScope: "Decide whether the next question should separate payer, caregiver, and clinic-contact roles.",
+              importedAt: "2026-05-22T00:05:00.000Z"
+            }
+          ]
+        }
+      }
+    });
+
+    expect(markup).toContain("Ready for handoff");
+    expect(markup).toContain("Imported result is being turned into evidence");
+    expect(markup).toContain(
+      "The pasted research result is retained here while the evidence matrix, follow-up questions, and quality checks are prepared."
+    );
+    expect(markup).toContain("User-reviewed ChatGPT Deep Research notes");
+    expect(markup).toContain('href="https://example.com/pet-lifecycle-research"');
+    expect(markup).toContain("Unknown reliability");
+    expect(markup).toContain("Pet care decisions may involve one household buyer");
+    expect(markup).toContain("Source citations and counterexamples still need quality-gate review.");
+    expect(markup).toContain("visible_chatgpt_handoff:research_task_imported_handoff");
+    expect(markup).toContain("payer, caregiver, and clinic-contact roles");
+    expect(markup).not.toContain(
+      "Import research for Check whether pet lifecycle app buyers and daily users are the same people."
+    );
   });
 
   it("renders allowlist concurrency controls for manual and answer-triggered research starts", () => {

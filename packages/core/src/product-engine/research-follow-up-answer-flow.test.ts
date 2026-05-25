@@ -168,7 +168,7 @@ describe("research follow-up answer flow", () => {
     });
   });
 
-  it("keeps explicit agree-disagree customer-topic questions as binary choices", () => {
+  it("keeps explicit agree-disagree customer-topic questions as proceed-or-hold choices", () => {
     const { activeQueueItem, followUpIssue } = synthesizeResearchFollowUp({
       objective: "초기 고객 세그먼트 방향을 유지할지 말지 객관식으로 찬성/반대 중 하나를 선택",
       result: "Pro: individual founders mention repeated planning pain.",
@@ -178,21 +178,21 @@ describe("research follow-up answer flow", () => {
     expect(followUpIssue).toMatchObject({
       expectedAnswerType: "choice",
       answerSelectionMode: "single",
-      questionText: expect.stringContaining("찬성/반대 중 어느 쪽")
+      questionText: expect.stringContaining("진행 후보로 둘지")
     });
     expect(followUpIssue?.questionText).not.toContain("어느 성향의 고객에 집중");
     expect(followUpIssue?.answerOptions).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "agree_or_continue", label: "찬성 / 진행" }),
-        expect.objectContaining({ id: "disagree_or_stop", label: "반대 / 보류" })
+        expect.objectContaining({ id: "agree_or_continue", label: "진행 후보로 둔다" }),
+        expect.objectContaining({ id: "disagree_or_stop", label: "보류하거나 좁힌다" })
       ])
     );
     expect(activeQueueItem).toMatchObject({
       expectedAnswerType: "choice",
       answerSelectionMode: "single",
       answerOptions: expect.arrayContaining([
-        expect.objectContaining({ label: "찬성 / 진행" }),
-        expect.objectContaining({ label: "반대 / 보류" })
+        expect.objectContaining({ label: "진행 후보로 둔다" }),
+        expect.objectContaining({ label: "보류하거나 좁힌다" })
       ])
     });
   });
@@ -224,6 +224,45 @@ describe("research follow-up answer flow", () => {
         expect.objectContaining({ label: "solo founder" }),
         expect.objectContaining({ label: "team lead" }),
         expect.objectContaining({ label: "consultant" })
+      ])
+    });
+  });
+
+  it("sanitizes browser-search adapter meta text and keeps pet lifecycle customer choices", () => {
+    const { activeQueueItem, followUpIssue } = synthesizeResearchFollowUp({
+      objective: "첫 고객 세그먼트가 너무 넓음",
+      result: [
+        "Pro: 반려동물 전생애주기의 의료, 급여, 일상, 보험, 장례 정보를 한 곳에서 관리하려는 보호자 후보가 반복 기록 부담을 겪는다.",
+        "rch-result snippet retained for review. Pro: At least one public source was reachable through a read-only browser search. Limitation: Browser search snippets can be incomplete; quality-gate review must verify claims before acceptance."
+      ].join(" "),
+      limitationNotes:
+        "Browser-based public web search only; no login, CAPTCHA, anti-bot bypass, paid-service access, or external search API was used. Source snippets and fetched page text require quality-gate review before accepted 근거."
+    });
+
+    expect(followUpIssue).toMatchObject({
+      expectedAnswerType: "choice",
+      answerSelectionMode: "single",
+      questionText: expect.stringContaining("첫 반려동물을 키우는 보호자")
+    });
+    expect(followUpIssue?.questionText).toContain("노령·만성질환 반려동물 보호자");
+    expect(followUpIssue?.questionText).toContain("보험·의료비 관리가 필요한 보호자");
+    expect(followUpIssue?.questionText).not.toContain("도메인 전문 1인 빌더");
+    expect(followUpIssue?.questionText).not.toContain("팀 리더/운영 담당자");
+    expect(followUpIssue?.whyItMatters).not.toContain("rch-result");
+    expect(followUpIssue?.whyItMatters).not.toContain("quality-gate review");
+    expect(followUpIssue?.whyItMatters).not.toContain("Browser-based public web search");
+    expect(followUpIssue?.whyItMatters).not.toContain("accepted 근거");
+    expect(followUpIssue?.answerOptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "첫 반려동물을 키우는 보호자" }),
+        expect.objectContaining({ label: "노령·만성질환 반려동물 보호자" }),
+        expect.objectContaining({ label: "보험·의료비 관리가 필요한 보호자" })
+      ])
+    );
+    expect(activeQueueItem).toMatchObject({
+      answerOptions: expect.arrayContaining([
+        expect.objectContaining({ label: "첫 반려동물을 키우는 보호자" }),
+        expect.objectContaining({ label: "노령·만성질환 반려동물 보호자" })
       ])
     });
   });

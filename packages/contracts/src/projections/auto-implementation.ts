@@ -4,9 +4,13 @@ import {
   IMPLEMENTATION_CODE_REVIEW_SCOPES,
   AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX,
   IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK,
+  IMPLEMENTATION_TEST_OUTCOMES,
   isImplementationStepLedgerStepDoc,
   isImplementationStepLedgerTrackerDoc,
+  type ImplementationCleanCodeReviewScope,
+  type ImplementationCodeReviewScope,
   type ImplementationStepDoc,
+  type ImplementationTestOutcome,
   type RecordImplementationStepLedgerPayload,
   type TrackerDoc
 } from "./implementation-step-ledger";
@@ -53,6 +57,7 @@ export const AUTO_IMPLEMENTATION_STAGE_STATUSES = [
   "blocked",
   "failed"
 ] as const;
+export const AUTO_IMPLEMENTATION_PLANNING_ISSUE_STATUSES = ["planned", "active", "completed", "blocked"] as const;
 
 export const AUTO_IMPLEMENTATION_STAGE_ACTIONS = ["tick", "start", "pause", "block", "complete"] as const;
 export const AUTO_IMPLEMENTATION_WORKER_JOB_STATUSES = ["planned", "blocked", "completed"] as const;
@@ -268,6 +273,7 @@ export const AUTO_IMPLEMENTATION_RESERVED_PROJECT_FOLDER_NAMES = [
 export type AutoImplementationStage = (typeof AUTO_IMPLEMENTATION_STAGES)[number];
 export type AutoImplementationRunStatus = (typeof AUTO_IMPLEMENTATION_RUN_STATUSES)[number];
 export type AutoImplementationStageStatus = (typeof AUTO_IMPLEMENTATION_STAGE_STATUSES)[number];
+export type AutoImplementationPlanningIssueStatus = (typeof AUTO_IMPLEMENTATION_PLANNING_ISSUE_STATUSES)[number];
 export type AutoImplementationStageAction = (typeof AUTO_IMPLEMENTATION_STAGE_ACTIONS)[number];
 export type AutoImplementationWorkerJobStatus = (typeof AUTO_IMPLEMENTATION_WORKER_JOB_STATUSES)[number];
 export type AutoImplementationRemoteStatus = (typeof AUTO_IMPLEMENTATION_REMOTE_STATUSES)[number];
@@ -319,10 +325,48 @@ export interface AutoImplementationStageLedgerEvidence {
   readonly implementationEvidenceRefs: readonly string[];
   readonly codeReviewStreakRefs: readonly string[];
   readonly cleanCodeReviewStreakRefs: readonly string[];
+  readonly codeReviewStreaks?: readonly AutoImplementationCodeReviewStreakSummary[];
+  readonly cleanCodeReviewStreaks?: readonly AutoImplementationCleanCodeReviewStreakSummary[];
+  readonly missingTestAuditSummary?: AutoImplementationMissingTestAuditSummary;
+  readonly testEvidenceSummary?: AutoImplementationTestEvidenceSummary;
   readonly missingTestAuditRefs: readonly string[];
   readonly testEvidenceRefs: readonly string[];
   readonly blockerEvidenceRefs: readonly string[];
   readonly evidenceRefs: readonly string[];
+}
+
+export interface AutoImplementationCodeReviewStreakSummary {
+  readonly reviewScope: ImplementationCodeReviewScope;
+  readonly requiredNoFindingPasses: typeof IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK;
+  readonly currentNoFindingPasses: number;
+  readonly satisfied: boolean;
+  readonly latestReviewIds: readonly string[];
+  readonly missingEvidenceLabel: string;
+}
+
+export interface AutoImplementationCleanCodeReviewStreakSummary {
+  readonly reviewScope: ImplementationCleanCodeReviewScope;
+  readonly requiredNoFindingPasses: typeof IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK;
+  readonly currentNoFindingPasses: number;
+  readonly satisfied: boolean;
+  readonly latestReviewIds: readonly string[];
+  readonly missingEvidenceLabel: string;
+}
+
+export interface AutoImplementationMissingTestAuditSummary {
+  readonly auditId: string;
+  readonly missingTestGapCount: number;
+  readonly satisfied: boolean;
+}
+
+export interface AutoImplementationTestEvidenceSummary {
+  readonly testEvidenceId: string;
+  readonly outcome: ImplementationTestOutcome;
+  readonly passedTestCount: number;
+  readonly failedTestCount: number;
+  readonly notTestedGapCount: number;
+  readonly satisfied: boolean;
+  readonly commands: readonly string[];
 }
 
 export interface AutoImplementationRemoteGuide {
@@ -338,6 +382,14 @@ export interface AutoImplementationIssueDocument {
   readonly relativePath: string;
   readonly stage: AutoImplementationStage;
   readonly status: "open" | "completed" | "blocked";
+}
+
+export interface AutoImplementationPlanningIssueDocument {
+  readonly issueId: string;
+  readonly title: string;
+  readonly relativePath: string;
+  readonly includedTaskIds: readonly string[];
+  readonly status: AutoImplementationPlanningIssueStatus;
 }
 
 export interface AutoImplementationIssueStatusSummary {
@@ -443,7 +495,19 @@ export function canCreateAutoImplementationGitHubIssues(run: AutoImplementationR
     run.issueManagement.githubIssueMutation.status !== "applied";
 }
 
-export function autoImplementationPlanningIssueFiles(run: Pick<AutoImplementationRun, "evidenceRefs">): readonly string[] {
+export function autoImplementationPlanningIssueFiles(
+  run: Pick<AutoImplementationRun, "evidenceRefs"> & {
+    readonly issueManagement?: {
+      readonly planningIssueDocs?: readonly AutoImplementationPlanningIssueDocument[];
+    };
+  }
+): readonly string[] {
+  const planningIssueDocs = run.issueManagement?.planningIssueDocs;
+
+  if (planningIssueDocs?.length) {
+    return planningIssueDocs.map((issue) => issue.relativePath);
+  }
+
   return run.evidenceRefs
     .filter((ref) => ref.startsWith(AUTO_IMPLEMENTATION_PLANNING_PR_ISSUE_EVIDENCE_PREFIX))
     .map((ref) => ref.slice(AUTO_IMPLEMENTATION_PLANNING_PR_ISSUE_EVIDENCE_PREFIX.length));
@@ -475,6 +539,8 @@ export function canMergeAutoImplementationPullRequest(run: AutoImplementationRun
 export interface AutoImplementationIssueManagement {
   readonly mode: AutoImplementationIssueMode;
   readonly trackerRelativePath: string;
+  readonly planningIssueSequenceTrackerRelativePath: string | null;
+  readonly planningIssueDocs: readonly AutoImplementationPlanningIssueDocument[];
   readonly issueDocs: readonly AutoImplementationIssueDocument[];
   readonly issueStatusSummary: AutoImplementationIssueStatusSummary;
   readonly githubIssueUrls: readonly string[];
@@ -653,6 +719,29 @@ export function autoImplementationGitHubIssueUrlForIssue(
     null;
 }
 
+export function autoImplementationPlanningIssueDocumentStatus(
+  run: AutoImplementationRun,
+  issue: AutoImplementationPlanningIssueDocument
+): AutoImplementationPlanningIssueDocument["status"] {
+  if (issue.status === "completed" || issue.status === "blocked") {
+    return issue.status;
+  }
+
+  if (issue.status !== "active") {
+    return "planned";
+  }
+
+  if (run.status === "completed") {
+    return "completed";
+  }
+
+  if (run.status === "blocked" || run.status === "failed") {
+    return "blocked";
+  }
+
+  return "active";
+}
+
 export function autoImplementationIssueDocumentStatus(
   run: AutoImplementationRun,
   issue: AutoImplementationIssueDocument
@@ -702,6 +791,10 @@ function sameAutoImplementationIssueStatusSummary(
 }
 
 export function autoImplementationRunWithSynchronizedIssueDocs(run: AutoImplementationRun): AutoImplementationRun {
+  const planningIssueDocs = run.issueManagement.planningIssueDocs.map((issue) => ({
+    ...issue,
+    status: autoImplementationPlanningIssueDocumentStatus(run, issue)
+  }));
   const issueDocs = run.issueManagement.issueDocs.map((issue) => ({
     ...issue,
     status: autoImplementationIssueDocumentStatus(run, issue)
@@ -709,6 +802,7 @@ export function autoImplementationRunWithSynchronizedIssueDocs(run: AutoImplemen
   const issueStatusSummary = autoImplementationIssueStatusSummary(issueDocs);
 
   if (
+    planningIssueDocs.every((issue, index) => issue.status === run.issueManagement.planningIssueDocs[index]?.status) &&
     issueDocs.every((issue, index) => issue.status === run.issueManagement.issueDocs[index]?.status) &&
     sameAutoImplementationIssueStatusSummary(issueStatusSummary, run.issueManagement.issueStatusSummary)
   ) {
@@ -719,6 +813,7 @@ export function autoImplementationRunWithSynchronizedIssueDocs(run: AutoImplemen
     ...run,
     issueManagement: {
       ...run.issueManagement,
+      planningIssueDocs,
       issueDocs,
       issueStatusSummary
     }
@@ -734,6 +829,7 @@ export interface CreateAutoImplementationRunRequest {
   readonly trackerTitle?: string;
   readonly trackerGoal?: string;
   readonly issueTitles?: readonly string[];
+  readonly planningIssueId?: string;
   readonly githubIssueCreation?: {
     readonly mode: AutoImplementationGitHubIssueRequestMode;
     readonly approval?: AutoImplementationGitHubIssueApproval;
@@ -834,6 +930,10 @@ function isOneOf<TValue extends string>(value: unknown, values: readonly TValue[
   return typeof value === "string" && values.includes(value as TValue);
 }
 
+function isNonNegativeInteger(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
 export function isAutoImplementationReservedProjectFolderName(value: string) {
   const baseName = value.toLowerCase().split(".")[0] ?? "";
 
@@ -907,6 +1007,69 @@ function reviewStreakRefsCoverScopes(
   );
 }
 
+function stageReviewStreakSummariesCoverScopes(
+  values: readonly { readonly reviewScope: string }[],
+  scopes: readonly string[]
+) {
+  return values.length === scopes.length &&
+    scopes.every((scope) => values.some((summary) => summary.reviewScope === scope));
+}
+
+function isStageCodeReviewStreakSummary(value: unknown): value is AutoImplementationCodeReviewStreakSummary {
+  return isRecord(value) &&
+    isOneOf(value.reviewScope, IMPLEMENTATION_CODE_REVIEW_SCOPES) &&
+    value.requiredNoFindingPasses === IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK &&
+    isNonNegativeInteger(value.currentNoFindingPasses) &&
+    typeof value.satisfied === "boolean" &&
+    isStringArray(value.latestReviewIds) &&
+    value.latestReviewIds.length <= IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK &&
+    isNonEmptyString(value.missingEvidenceLabel);
+}
+
+function isStageCleanCodeReviewStreakSummary(
+  value: unknown
+): value is AutoImplementationCleanCodeReviewStreakSummary {
+  return isRecord(value) &&
+    isOneOf(value.reviewScope, IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES) &&
+    value.requiredNoFindingPasses === IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK &&
+    isNonNegativeInteger(value.currentNoFindingPasses) &&
+    typeof value.satisfied === "boolean" &&
+    isStringArray(value.latestReviewIds) &&
+    value.latestReviewIds.length <= IMPLEMENTATION_REQUIRED_NO_FINDING_REVIEW_STREAK &&
+    isNonEmptyString(value.missingEvidenceLabel);
+}
+
+function isStageCodeReviewStreakSummaries(value: unknown) {
+  return Array.isArray(value) &&
+    value.every(isStageCodeReviewStreakSummary) &&
+    stageReviewStreakSummariesCoverScopes(value, IMPLEMENTATION_CODE_REVIEW_SCOPES);
+}
+
+function isStageCleanCodeReviewStreakSummaries(value: unknown) {
+  return Array.isArray(value) &&
+    value.every(isStageCleanCodeReviewStreakSummary) &&
+    stageReviewStreakSummariesCoverScopes(value, IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES);
+}
+
+function isStageMissingTestAuditSummary(value: unknown): value is AutoImplementationMissingTestAuditSummary {
+  return isRecord(value) &&
+    isNonEmptyString(value.auditId) &&
+    isNonNegativeInteger(value.missingTestGapCount) &&
+    typeof value.satisfied === "boolean";
+}
+
+function isStageTestEvidenceSummary(value: unknown): value is AutoImplementationTestEvidenceSummary {
+  return isRecord(value) &&
+    isNonEmptyString(value.testEvidenceId) &&
+    isOneOf(value.outcome, IMPLEMENTATION_TEST_OUTCOMES) &&
+    isNonNegativeInteger(value.passedTestCount) &&
+    isNonNegativeInteger(value.failedTestCount) &&
+    isNonNegativeInteger(value.notTestedGapCount) &&
+    typeof value.satisfied === "boolean" &&
+    isStringArray(value.commands) &&
+    value.commands.length > 0;
+}
+
 function isStageLedgerEvidence(value: unknown): value is AutoImplementationStageLedgerEvidence {
   return isRecord(value) &&
     isNonEmptyString(value.implementationStepId) &&
@@ -922,6 +1085,16 @@ function isStageLedgerEvidence(value: unknown): value is AutoImplementationStage
       "clean-code-review",
       IMPLEMENTATION_CLEAN_CODE_REVIEW_SCOPES
     ) &&
+    (value.codeReviewStreaks === undefined || isStageCodeReviewStreakSummaries(value.codeReviewStreaks)) &&
+    (
+      value.cleanCodeReviewStreaks === undefined ||
+      isStageCleanCodeReviewStreakSummaries(value.cleanCodeReviewStreaks)
+    ) &&
+    (
+      value.missingTestAuditSummary === undefined ||
+      isStageMissingTestAuditSummary(value.missingTestAuditSummary)
+    ) &&
+    (value.testEvidenceSummary === undefined || isStageTestEvidenceSummary(value.testEvidenceSummary)) &&
     isStringArray(value.missingTestAuditRefs) &&
     value.missingTestAuditRefs.length > 0 &&
     isStringArray(value.testEvidenceRefs) &&
@@ -979,6 +1152,15 @@ function isIssueDoc(value: unknown): value is AutoImplementationIssueDocument {
     isNonEmptyString(value.relativePath) &&
     isOneOf(value.stage, AUTO_IMPLEMENTATION_STAGES) &&
     isOneOf(value.status, ["open", "completed", "blocked"] as const);
+}
+
+function isPlanningIssueDoc(value: unknown): value is AutoImplementationPlanningIssueDocument {
+  return isRecord(value) &&
+    isNonEmptyString(value.issueId) &&
+    isNonEmptyString(value.title) &&
+    isNonEmptyString(value.relativePath) &&
+    isStringArray(value.includedTaskIds) &&
+    isOneOf(value.status, AUTO_IMPLEMENTATION_PLANNING_ISSUE_STATUSES);
 }
 
 function isIssueStatusSummary(value: unknown): value is AutoImplementationIssueStatusSummary {
@@ -1160,6 +1342,10 @@ function isIssueManagement(value: unknown): value is AutoImplementationIssueMana
   return isRecord(value) &&
     isOneOf(value.mode, AUTO_IMPLEMENTATION_ISSUE_MODES) &&
     isNonEmptyString(value.trackerRelativePath) &&
+    (value.planningIssueSequenceTrackerRelativePath === null ||
+      isNonEmptyString(value.planningIssueSequenceTrackerRelativePath)) &&
+    Array.isArray(value.planningIssueDocs) &&
+    value.planningIssueDocs.every(isPlanningIssueDoc) &&
     Array.isArray(value.issueDocs) &&
     value.issueDocs.every(isIssueDoc) &&
     isIssueStatusSummary(value.issueStatusSummary) &&
@@ -1195,6 +1381,19 @@ function stageRecordStateConsistent(record: AutoImplementationStageRecord) {
 function hasCanonicalIssueDocs(issueDocs: readonly AutoImplementationIssueDocument[]) {
   return issueDocs.length === AUTO_IMPLEMENTATION_STAGES.length &&
     issueDocs.every((issue, index) => issue.stage === AUTO_IMPLEMENTATION_STAGES[index]);
+}
+
+function planningIssueDocsMatchEvidenceRefs(input: {
+  readonly planningIssueDocs: readonly AutoImplementationPlanningIssueDocument[];
+  readonly evidenceRefs: readonly string[];
+}) {
+  const evidencePaths = new Set(
+    input.evidenceRefs
+      .filter((ref) => ref.startsWith(AUTO_IMPLEMENTATION_PLANNING_PR_ISSUE_EVIDENCE_PREFIX))
+      .map((ref) => ref.slice(AUTO_IMPLEMENTATION_PLANNING_PR_ISSUE_EVIDENCE_PREFIX.length))
+  );
+
+  return input.planningIssueDocs.every((issue) => evidencePaths.has(issue.relativePath));
 }
 
 function arraysMatch(left: readonly string[], right: readonly string[]) {
@@ -1389,6 +1588,8 @@ function isRun(value: unknown): value is AutoImplementationRun {
     isOneOf(value.status, AUTO_IMPLEMENTATION_RUN_STATUSES) &&
     isOneOf(value.remoteStatus, AUTO_IMPLEMENTATION_REMOTE_STATUSES) &&
     isNonEmptyString(value.nextTickAt) &&
+    isStringArray(value.evidenceRefs) &&
+    value.evidenceRefs.length > 0 &&
     Array.isArray(value.stagePlan) &&
     value.stagePlan.length === AUTO_IMPLEMENTATION_STAGES.length &&
     value.stagePlan.every(isStageRecord) &&
@@ -1396,15 +1597,17 @@ function isRun(value: unknown): value is AutoImplementationRun {
     hasCanonicalStagePlan(value.stagePlan) &&
     isIssueManagement(value.issueManagement) &&
     hasCanonicalIssueDocs(value.issueManagement.issueDocs) &&
+    planningIssueDocsMatchEvidenceRefs({
+      planningIssueDocs: value.issueManagement.planningIssueDocs,
+      evidenceRefs: value.evidenceRefs
+    }) &&
     isRemoteGuide(value.remoteGuide) &&
     hasConsistentRemoteIssueState(value.remoteStatus, value.issueManagement, value.remoteGuide) &&
     isReviewProtocol(value.reviewProtocol) &&
     isPullRequestMutationState(value.pullRequestMutations) &&
     hasValidWorkerJobs(value) &&
     isNonEmptyString(value.createdAt) &&
-    isNonEmptyString(value.updatedAt) &&
-    isStringArray(value.evidenceRefs) &&
-    value.evidenceRefs.length > 0;
+    isNonEmptyString(value.updatedAt);
 }
 
 export function validateAutoImplementationRunProjection(
@@ -1492,6 +1695,8 @@ const AUTO_IMPLEMENTATION_RUN_READY_FIXTURE_RUN: AutoImplementationRun = {
   issueManagement: {
     mode: "markdown_fallback",
     trackerRelativePath: "implementation-tracker.md",
+    planningIssueSequenceTrackerRelativePath: null,
+    planningIssueDocs: [],
     issueDocs: AUTO_IMPLEMENTATION_RUN_READY_ISSUE_DOCS,
     issueStatusSummary: autoImplementationIssueStatusSummary(AUTO_IMPLEMENTATION_RUN_READY_ISSUE_DOCS),
     githubIssueUrls: [],

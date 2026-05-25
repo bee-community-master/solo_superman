@@ -10,6 +10,7 @@ import {
   type LivingSpecProjection,
   type PlanningHandoffProjection,
   type ProjectPurposeMode,
+  type ResearchAutomationPermission,
   type ResearchAllowlistId,
   type ResearchEvidenceProjection,
   type ResearchRunControlResult,
@@ -66,6 +67,7 @@ export const DEFAULT_INTAKE = "";
 export const WEB_PUBLIC_SAFE_ALLOWLIST_ID = "research_allowlist_web_public_safe" as ResearchAllowlistId;
 
 export type InitialResearchPermission = "allow_public_web" | "not_now";
+export type InitialResearchAutomationPermission = ResearchAutomationPermission;
 
 export type DecisionQueuePageId = "onboarding" | "questions" | "research" | "planning" | "implementation" | "permissions";
 export type PageHealth = "done" | "active" | "pending" | "blocked";
@@ -79,6 +81,7 @@ export interface InitialQueueStartReadinessInput {
   readonly codexLoginAuthenticated: boolean;
   readonly connectionStatus: ConnectionState["status"];
   readonly hasClient: boolean;
+  readonly initialResearchAutomationPermission: InitialResearchAutomationPermission;
   readonly projectPurposeMode: ProjectPurposeMode | null;
   readonly businessCriticIntensity: BusinessCriticIntensity | null;
   readonly idea: string;
@@ -101,6 +104,7 @@ export function initialQueueStartBlockerList({
   codexLoginAuthenticated,
   connectionStatus,
   hasClient,
+  initialResearchAutomationPermission,
   projectPurposeMode,
   businessCriticIntensity,
   idea,
@@ -113,7 +117,7 @@ export function initialQueueStartBlockerList({
 
   const blockers: InitialQueueStartBlocker[] = [];
 
-  if (!chatGptLoginAcknowledged) {
+  if (initialResearchAutomationAllowsVisibleChatGpt(initialResearchAutomationPermission) && !chatGptLoginAcknowledged) {
     blockers.push("chatgpt_login");
   }
 
@@ -121,7 +125,7 @@ export function initialQueueStartBlockerList({
     blockers.push("sidecar_connection");
   }
 
-  if (!codexLoginAuthenticated) {
+  if (initialResearchAutomationAllowsCodex(initialResearchAutomationPermission) && !codexLoginAuthenticated) {
     blockers.push("codex_login");
   }
 
@@ -142,6 +146,16 @@ export function initialQueueStartBlockerList({
   }
 
   return blockers;
+}
+
+export function initialResearchAutomationAllowsCodex(permission: InitialResearchAutomationPermission): boolean {
+  return permission === "allow_codex" || permission === "allow_codex_and_chatgpt_visible";
+}
+
+export function initialResearchAutomationAllowsVisibleChatGpt(
+  permission: InitialResearchAutomationPermission
+): boolean {
+  return permission === "allow_codex_and_chatgpt_visible";
 }
 
 export function initialQueueStartBlocker(input: InitialQueueStartReadinessInput): InitialQueueStartBlocker | null {

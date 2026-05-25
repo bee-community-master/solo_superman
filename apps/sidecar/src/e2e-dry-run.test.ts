@@ -2903,6 +2903,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         allowlistId: "research_allowlist_phase15a_closeout",
         connectorId: "public_search",
         sourceCategory: "public_web",
+        adapterKind: "local_fake_readonly",
         researchObjective: "Find public onboarding proof for the Phase 1.5A closeout dry-run.",
         productCategory: "Founder workflow assistant",
         customerProblemHypothesis: "Early founders need public-safe validation research before planning.",

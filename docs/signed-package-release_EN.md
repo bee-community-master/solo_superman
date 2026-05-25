@@ -2,13 +2,13 @@
 
 Language: [한국어](signed-package-release_KO.md) | English
 
-This document defines the `solo-superman-signed-package-release.v1` contract for macOS Developer ID/notarization, Windows Authenticode/timestamp, and release manifest signing evidence before a real general release. The current repo/local environment has no signing credentials or final signed artifacts, so it does not perform real signing. Instead, `pnpm verify:signed-package-release` validates the expected #266 release evidence structure and keeps the blocker explicit, while `pnpm verify:signed-package-release:dry-run` catches fixture artifact/manifest evidence shape drift without credentials.
+This document defines the `solo-superman-signed-package-release.v1` contract for macOS Developer ID/notarization, Windows Authenticode/timestamp, and release manifest signing evidence when signed artifacts are claimed. For direct/non-store distribution this is optional hardening, not a required broad-release gate. The current repo/local environment has no signing credentials or final signed artifacts, so it does not perform real signing. Instead, `pnpm verify:signed-package-release` validates the expected #266 release evidence structure and keeps the blocker explicit, while `pnpm verify:signed-package-release:dry-run` catches fixture artifact/manifest evidence shape drift without credentials.
 
 ## Contract file
 
 - Release evidence contract: [`signed-package-release.example.json`](signed-package-release.example.json), `pnpm verify:signed-package-release`, and `pnpm verify:signed-package-release:dry-run` verify the macOS/Windows signing and release manifest evidence gates plus fixture evidence shape.
 - Credential preflight: [`signed-packages_EN.md`](signed-packages_EN.md), [`signed-package-preflight.example.json`](signed-package-preflight.example.json), and `pnpm verify:signed-package-preflight` verify signing credential groups and the split between local dry-runs and actual signing gates.
-- Release readiness: [`release-readiness_EN.md`](release-readiness_EN.md) plus `pnpm verify:release-readiness` keeps signed package evidence grouped with the Windows real-device and packaged update rollback broad-release blockers.
+- Release readiness: [`release-readiness_EN.md`](release-readiness_EN.md) plus `pnpm verify:release-readiness` keeps signed package evidence as optional hardening rather than a required broad-release gate.
 
 ## Default verification
 
@@ -32,7 +32,7 @@ This dry-run does not perform real signing. It verifies fixture macOS/Windows ar
 pnpm verify:signed-package-release -- --require-release-evidence
 ```
 
-This mode should pass only immediately before a real general release, or in a PR that has signing lab evidence attached. The current example contract must fail because the macOS, Windows, and release manifest evidence runs are still `blocked`. When a release lab marks a run `passed`, it must include an `evidenceBundle` with artifact checksum/size/signature/public certificate metadata, passed checks, and redacted evidence refs.
+This mode should pass only when signed artifacts are part of the release claim, or in a PR that has signing lab evidence attached. The current example contract must fail because the macOS, Windows, and release manifest evidence runs are still `blocked`. When a release lab marks a run `passed`, it must include an `evidenceBundle` with artifact checksum/size/signature/public certificate metadata, passed checks, and redacted evidence refs.
 
 ## Required evidence checks
 
@@ -43,7 +43,7 @@ This mode should pass only immediately before a real general release, or in a PR
 ## Operating rules
 
 - `pnpm verify:signed-package-release:dry-run` is only a local guard for fixture evidence shape drift; it does not replace real #266 release evidence.
-- Closing #266 requires redacted release evidence and structured `evidenceBundle` data strong enough for `pnpm verify:signed-package-preflight -- --require-credentials`, `pnpm verify:signed-package-release -- --require-release-evidence`, and `pnpm verify:release-readiness -- --require-ready` to pass.
+- Closing #266 or claiming signed artifacts requires redacted release evidence and structured `evidenceBundle` data strong enough for `pnpm verify:signed-package-preflight -- --require-credentials`, `pnpm verify:signed-package-release -- --require-release-evidence`, and, when included in the release gate, `pnpm verify:ready-release -- --include-signed-package` to pass.
 - Signing certificates, private keys, Apple notarytool passwords, Windows certificate passwords, and manifest private keys must stay inside local secret stores or CI secret managers.
 - Evidence refs must be HTTPS URLs or repo-relative documentation anchors, and they must not include secret, token, cookie, or credential values.
 - Support bundles, PR bodies, and release manifests may contain only public certificate metadata, key ids, checksums, signatures, sizes, timestamps, and redacted evidence refs.

@@ -25,7 +25,6 @@ const requiredDiagnostics = [
 
 const releaseEvidenceIssueItemCounts = new Map([
   [259, 2],
-  [266, 4],
   [267, 3]
 ]);
 
@@ -38,17 +37,13 @@ function releaseEvidenceBundleShapeKind(issueNumber, index) {
     return "windows-real-device";
   }
 
-  if (issueNumber === 266) {
-    return ["macos-signed-package", "windows-signed-package", "release-manifest-signing"][index - 1] ?? null;
-  }
-
   return ["macos-packaged-update-rollback", "windows-packaged-update-rollback"][index - 1] ?? null;
 }
 
 function releaseEvidenceChecklistItemSummaries(issueNumber, itemCount) {
   return Array.from({ length: itemCount }, (_, index) => ({
     itemId: `issue-${issueNumber}-evidence-item-${index + 1}`,
-    gateId: issueNumber === 259 ? "windows-real-device" : issueNumber === 266 ? "signed-packages" : "packaged-update-rollback",
+    gateId: issueNumber === 259 ? "windows-real-device" : "packaged-update-rollback",
     status: "blocked",
     scope: issueNumber === 259 ? "windows" : null,
     requiredCheckCount: index === 0 ? 0 : 2,
@@ -101,12 +96,12 @@ function validDiagnostic(name) {
     },
     releaseEvidenceBlockerSummary: {
       status: "blocked",
-      issueNumbers: ["259", "266", "267"],
-      blockedIssueNumbers: ["259", "266", "267"],
-      issueCount: 3,
-      blockedIssueCount: 3,
-      totalItemCount: 9,
-      blockedItemCount: 9,
+      issueNumbers: ["259", "267"],
+      blockedIssueNumbers: ["259", "267"],
+      issueCount: 2,
+      blockedIssueCount: 2,
+      totalItemCount: 5,
+      blockedItemCount: 5,
       nextAction: "Prepare the release evidence bundle, fill each blocked issue template with redacted release-lab evidence, validate templates, then run ready-release with the filled bundle."
     },
     releaseEvidenceIssuePreparation: validReleaseEvidenceIssuePreparation(),

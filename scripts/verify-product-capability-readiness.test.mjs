@@ -24,6 +24,7 @@ function autoImplementationCheckedBehaviors() {
     "Runtime preview requests produce bounded preview artifacts without applying file, shell, browser, or network actions.",
     "Opt-in live runtime readiness verification reports skipped, blocked, or passed evidence without forcing opt-in live execution into the default suite.",
     "Worker jobs keep planned ledger docs, authority refs, sandbox boundaries, and manual recovery evidence visible.",
+    "Planning-derived PR-sized issue docs are first-class in issueManagement.planningIssueDocs, a separate PR issue sequence tracker, generated tracker state, and the Implementation panel before stage delivery issues; each run can target a selected planningIssueId so prior slices show completed, the selected slice shows active, and later slices remain planned.",
     "Generated PR body includes issue document status summary, stage status summary, review/evidence gate summary, and missing-test audit summary coverage.",
     "Every canonical auto-implementation stage requires two consecutive no-finding feature and repository code-review passes, two consecutive no-finding changed-code and repository clean-code passes, a zero-gap missing-test audit, and passing test evidence before completion.",
     "Final merge_main stays blocked until final_verify_pr_update records current PR body evidence with full verification commands plus missing-test audit and test evidence."
@@ -47,6 +48,8 @@ function ideaClarificationCheckedBehaviors() {
     "Idea intake creates a user-confirmed business or personal project purpose before analysis.",
     "Active question batches stay bounded while long sessions can process 200+ question/answer loops.",
     "Clarification question cards and generated follow-ups support open text subjective/narrative prompts, binary stance, one-of-many single choice, one-or-more multi-select, ranked, evidence, and experiment answer formats instead of reusing one pro/con shape.",
+    "Initial ambiguity questions can come from a prompt artifact that asks Codex for generated JSON with domain-fit questions before deterministic fallback.",
+    "Generated questions apply the ambiguity-reduction algorithm by tagging the weakest dimension, separating fact-checking/current research/human judgment, and carrying a concrete researchQuestion into the answer-triggered research objective.",
     "Answer submission stays non-blocking while background research starts and automatic queue refill continue after the answer is persisted.",
     "Answers produce follow-up debt and research-task debt instead of hidden notes.",
     "Question-debt completion and Planning Handoff blockers remain visible before Planning-ready."
@@ -58,6 +61,7 @@ function planningReadinessCheckedBehaviors() {
     "Completeness keeps question debt and source-trace gaps from being labelled Planning-ready.",
     "Completion requires Composite score is 85 or higher before software implementation starts.",
     "Completion requires Most confidence axes are 75 or higher so most readiness metrics are concrete.",
+    "Completion requires Core ambiguity dimensions are 75 or higher so goal, scope/non-goal, success criteria, and decision authority cannot be hidden by a high average score.",
     "Confidence and if-stop-now risk/action artifacts remain visible for readiness decisions.",
     "Planning Handoff carries research follow-up provenance into build-slice evidence."
   ];
@@ -117,7 +121,7 @@ function codeBackedContract(overrides = {}) {
         "pnpm verify:production-mutation-contract"
       ], {
         checkedBehaviors: [
-          "ChatGPT/browser delegation keeps disclosure preview, approval, evidence refs, and revoke controls visible.",
+          "ChatGPT/browser delegation keeps disclosure preview, approval, evidence refs, revoke controls, visible ChatGPT handoff, and result import gate visibility.",
           "Service-page permissions require user-present login, action echo, artifact cleanup, and revoke checks.",
           "approved public-read browser actions accept only HTTPS public DNS targets while loopback-only remains required for service-page/local preview flows.",
           "Final submit remains blocked until production-mutation contract evidence passes.",
@@ -170,7 +174,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including clarification answer-form variety, non-blocking answer submission, mounted research provider polling, research run limit UX, research markdown memory, answer-form variety for research follow-up questions, planning readiness score/axis gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, generated research targets, non-blocking answer submission, mounted research provider polling, research run limit UX, research markdown memory, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
@@ -211,7 +215,10 @@ describe("product capability readiness verification", () => {
           ? {
               ...capability,
               checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
-                !behavior.includes("production-mutation contract") && !behavior.includes("approved public-read")
+                !behavior.includes("production-mutation contract") &&
+                !behavior.includes("approved public-read") &&
+                !behavior.includes("visible ChatGPT") &&
+                !behavior.includes("result import gate")
               )
             }
           : capability
@@ -222,6 +229,8 @@ describe("product capability readiness verification", () => {
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
       "$.capabilities[3].checkedBehaviors: must mention approved public-read",
+      "$.capabilities[3].checkedBehaviors: must mention visible ChatGPT",
+      "$.capabilities[3].checkedBehaviors: must mention result import gate",
       "$.capabilities[3].checkedBehaviors: must mention production-mutation contract",
       "$.capabilities[3].checkedBehaviors: must mention final submit"
     ]));
@@ -237,6 +246,9 @@ describe("product capability readiness verification", () => {
                 !behavior.includes("open text") &&
                 !behavior.includes("single choice") &&
                 !behavior.includes("experiment answer formats") &&
+                !behavior.includes("prompt artifact") &&
+                !behavior.includes("generated JSON") &&
+                !behavior.includes("domain-fit") &&
                 !behavior.includes("non-blocking")
               )
             }
@@ -257,6 +269,9 @@ describe("product capability readiness verification", () => {
       "$.capabilities[0].checkedBehaviors: must mention ranked",
       "$.capabilities[0].checkedBehaviors: must mention evidence",
       "$.capabilities[0].checkedBehaviors: must mention experiment answer formats",
+      "$.capabilities[0].checkedBehaviors: must mention prompt artifact",
+      "$.capabilities[0].checkedBehaviors: must mention generated JSON",
+      "$.capabilities[0].checkedBehaviors: must mention domain-fit",
       "$.capabilities[0].checkedBehaviors: must mention non-blocking",
       "$.capabilities[0].checkedBehaviors: must mention background research starts",
       "$.capabilities[0].checkedBehaviors: must mention automatic queue refill"
@@ -308,6 +323,7 @@ describe("product capability readiness verification", () => {
               checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
                 !behavior.includes("Composite score") &&
                 !behavior.includes("Most confidence axes") &&
+                !behavior.includes("Core ambiguity dimensions") &&
                 !behavior.includes("question debt")
               )
             }
@@ -320,6 +336,7 @@ describe("product capability readiness verification", () => {
     expect(result.issues).toEqual(expect.arrayContaining([
       "$.capabilities[2].checkedBehaviors: must mention Composite score is 85 or higher",
       "$.capabilities[2].checkedBehaviors: must mention Most confidence axes are 75 or higher",
+      "$.capabilities[2].checkedBehaviors: must mention Core ambiguity dimensions are 75 or higher",
       "$.capabilities[2].checkedBehaviors: must mention question debt"
     ]));
   });

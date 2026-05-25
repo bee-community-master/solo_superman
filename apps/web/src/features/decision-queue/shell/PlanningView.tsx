@@ -90,6 +90,7 @@ export function PlanningView({ controller }: PlanningViewProps) {
     phase15bReadinessView,
     planningHandoffView,
     prepareFounderBrief,
+    prepareImplementationContext,
     projections,
     purposeModeChangeReason,
     refreshPhase15bReadiness,
@@ -265,6 +266,9 @@ export function PlanningView({ controller }: PlanningViewProps) {
         <div className="score">{confidence?.compositeScore ?? 0}</div>
         <button type="button" disabled={isBusy || !projections.session} onClick={() => void scoreCompleteness()}>
           {copy.planning.scoreCompleteness}
+        </button>
+        <button type="button" disabled={isBusy || !projections.session} onClick={() => void prepareImplementationContext()}>
+          {copy.handoff.planningActionLabels.prepareImplementationContext}
         </button>
         {confidence ? (
           <section className="confidence-map" aria-label={copy.planning.confidenceMap}>

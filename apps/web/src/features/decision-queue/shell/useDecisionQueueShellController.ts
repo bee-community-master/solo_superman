@@ -7,6 +7,7 @@ import {
   canMergeAutoImplementationPullRequest,
   canOpenNewAutoImplementationPullRequest,
   type AutoImplementationRun,
+  type AutoImplementationRunProjection,
   type BusinessCriticIntensity,
   type CodexRuntimeLoginStartDto,
   type CodexRuntimeStatusDto,
@@ -81,6 +82,7 @@ import {
   type CommandLogEntry,
   type ConnectionState,
   type DecisionQueuePageId,
+  type InitialResearchAutomationPermission,
   type InitialResearchPermission,
   type PageHealth,
   type ProjectionState
@@ -155,6 +157,48 @@ function planningHandoffIsReady(
   return planningHandoff?.currentStatus === "planning_ready";
 }
 
+function nextPlanningIssueIdForAutoImplementationRun(input: {
+  readonly planningHandoff: PlanningReadyHandoffProjection;
+  readonly autoImplementationRuns: ProjectionState["autoImplementationRuns"];
+}) {
+  const completedPlanningIssueIds = new Set(
+    (input.autoImplementationRuns?.runs ?? []).flatMap((run) =>
+      run.issueManagement.planningIssueDocs
+        .filter((issue) => issue.status === "completed")
+        .map((issue) => issue.issueId)
+    )
+  );
+  const nextPlan = input.planningHandoff.finalArtifact.prIssuePlan.find((plan) =>
+    !completedPlanningIssueIds.has(plan.sequenceId)
+  ) ?? input.planningHandoff.finalArtifact.prIssuePlan.at(-1) ?? null;
+
+  return nextPlan?.sequenceId ?? null;
+}
+
+export function buildAutoImplementationRunCreateRequest(input: {
+  readonly session: NonNullable<ProjectionState["session"]>;
+  readonly spec: ProjectionState["spec"];
+  readonly planningHandoff: PlanningReadyHandoffProjection;
+  readonly autoImplementationRuns: AutoImplementationRunProjection | null;
+}): CreateAutoImplementationRunRequest {
+  const sourcePlanningRef = input.planningHandoff.finalArtifact.artifactId;
+  const planningIssueId = nextPlanningIssueIdForAutoImplementationRun({
+    planningHandoff: input.planningHandoff,
+    autoImplementationRuns: input.autoImplementationRuns
+  });
+  const projectName = input.spec?.title ?? `solo-superman-${input.session.sessionId}`;
+
+  return {
+    sessionId: input.session.sessionId,
+    idempotencyKey: `auto-implementation:${input.session.sessionId}:${sourcePlanningRef}:${planningIssueId ?? "all"}`,
+    projectName,
+    sourcePlanningRef,
+    ...(planningIssueId ? { planningIssueId } : {}),
+    trackerTitle: `${projectName} implementation tracker`,
+    trackerGoal: input.planningHandoff.summary ?? "Move the planning handoff into a reviewed local program repo."
+  };
+}
+
 export function researchRunControlHasPollableRuns(runs: ResearchRunControlProjection | null | undefined) {
   return runs?.runs.some((run) => run.status === "queued" || run.status === "running") ?? false;
 }
@@ -187,6 +231,8 @@ export function useDecisionQueueShellController() {
   const [intake, setIntake] = useState(DEFAULT_INTAKE);
   const [chatGptLoginAcknowledged, setChatGptLoginAcknowledged] = useState(false);
   const [initialResearchPermission, setInitialResearchPermission] = useState<InitialResearchPermission>("not_now");
+  const [initialResearchAutomationPermission, setInitialResearchAutomationPermission] =
+    useState<InitialResearchAutomationPermission>("allow_codex");
   const [projectPurposeMode, setProjectPurposeMode] = useState<ProjectPurposeMode | null>(null);
   const [purposeModeChangeReason, setPurposeModeChangeReason] = useState("");
   const [businessCriticIntensity, setBusinessCriticIntensity] = useState<BusinessCriticIntensity | null>(null);
@@ -394,6 +440,7 @@ export function useDecisionQueueShellController() {
     copy,
     idea,
     initialResearchPermission,
+    initialResearchAutomationPermission,
     initialBusinessCriticIntensityReason,
     intake,
     isBusy,
@@ -427,6 +474,7 @@ export function useDecisionQueueShellController() {
     scoreCompleteness,
     prepareFounderBrief,
     runPlanningHandoffGate,
+    prepareImplementationContext,
     revokeChatGptDelegation,
     revokeServicePageUsePermission,
     exportServicePageArtifacts,
@@ -537,16 +585,9 @@ export function useDecisionQueueShellController() {
   const autoImplementationCopy = copy.autoImplementation;
   const autoImplementationActionErrors = autoImplementationCopy.actionErrors;
   const canCreateAutoImplementationRun = planningHandoffIsReady(projections.planningHandoff);
-  const createAutoImplementationRun = useCallback(async () => {
+  const createAutoImplementationRunFromHandoff = useCallback(async (planningHandoff: PlanningReadyHandoffProjection) => {
     if (!client || !projections.session) {
       setWorkflowError(autoImplementationActionErrors.activeSessionRequiredCreateWorkspace);
-      return;
-    }
-
-    const planningHandoff = projections.planningHandoff;
-
-    if (!planningHandoffIsReady(planningHandoff)) {
-      setWorkflowError(autoImplementationWorkspaceCreateBlocker(planningHandoff, autoImplementationActionErrors));
       return;
     }
 
@@ -554,16 +595,12 @@ export function useDecisionQueueShellController() {
     setWorkflowError(null);
 
     try {
-      const sourcePlanningRef = planningHandoff.finalArtifact.artifactId;
-      const projectName = projections.spec?.title ?? `solo-superman-${projections.session.sessionId}`;
-      const autoImplementationRuns = await client.createAutoImplementationRun({
-        sessionId: projections.session.sessionId,
-        idempotencyKey: `auto-implementation:${projections.session.sessionId}:${sourcePlanningRef}`,
-        projectName,
-        sourcePlanningRef,
-        trackerTitle: `${projectName} implementation tracker`,
-        trackerGoal: projections.planningHandoff?.summary ?? "Move the planning handoff into a reviewed local program repo."
-      });
+      const autoImplementationRuns = await client.createAutoImplementationRun(buildAutoImplementationRunCreateRequest({
+        session: projections.session,
+        spec: projections.spec,
+        planningHandoff,
+        autoImplementationRuns: projections.autoImplementationRuns
+      }));
 
       setProjections((current) => ({
         ...current,
@@ -584,6 +621,30 @@ export function useDecisionQueueShellController() {
       setIsBusy(false);
     }
   }, [autoImplementationActionErrors, autoImplementationCopy.create, client, projections]);
+  const createAutoImplementationRun = useCallback(async () => {
+    const planningHandoff = projections.planningHandoff;
+
+    if (!planningHandoffIsReady(planningHandoff)) {
+      setWorkflowError(autoImplementationWorkspaceCreateBlocker(planningHandoff, autoImplementationActionErrors));
+      return;
+    }
+
+    await createAutoImplementationRunFromHandoff(planningHandoff);
+  }, [autoImplementationActionErrors, createAutoImplementationRunFromHandoff, projections.planningHandoff]);
+  const prepareImplementationContextAndCreateRun = useCallback(async () => {
+    const planningHandoff = await prepareImplementationContext();
+
+    if (!planningHandoff) {
+      return;
+    }
+
+    if (!planningHandoffIsReady(planningHandoff)) {
+      setWorkflowError(autoImplementationWorkspaceCreateBlocker(planningHandoff, autoImplementationActionErrors));
+      return;
+    }
+
+    await createAutoImplementationRunFromHandoff(planningHandoff);
+  }, [autoImplementationActionErrors, createAutoImplementationRunFromHandoff, prepareImplementationContext]);
   const planAutoImplementationWorkerJob = useCallback(async () => {
     const sessionId = projections.session?.sessionId;
     const run = projections.autoImplementationRuns?.latestRun;
@@ -1255,6 +1316,7 @@ export function useDecisionQueueShellController() {
     codexLoginAuthenticated: runtimeStatus?.account?.status === "authenticated",
     connectionStatus: connectionState.status,
     hasClient: Boolean(client),
+    initialResearchAutomationPermission,
     projectPurposeMode,
     businessCriticIntensity,
     idea,
@@ -1367,6 +1429,8 @@ export function useDecisionQueueShellController() {
     setChatGptLoginAcknowledged,
     initialResearchPermission,
     setInitialResearchPermission,
+    initialResearchAutomationPermission,
+    setInitialResearchAutomationPermission,
     projectPurposeMode,
     setProjectPurposeMode,
     purposeModeChangeReason,
@@ -1435,11 +1499,13 @@ export function useDecisionQueueShellController() {
     scoreCompleteness,
     prepareFounderBrief,
     runPlanningHandoffGate,
+    prepareImplementationContext,
     revokeChatGptDelegation,
     revokeServicePageUsePermission,
     exportServicePageArtifacts,
     deleteServicePageArtifacts,
     createAutoImplementationRun,
+    prepareImplementationContextAndCreateRun,
     planAutoImplementationWorkerJob,
     recordAutoImplementationStageTick,
     startAutoImplementationStage,

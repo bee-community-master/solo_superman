@@ -146,6 +146,15 @@ function collectReleaseReadinessGateItems(contract, sourceContract) {
   return collectGateItems(contract, sourceContract, "release-readiness", "releaseGates");
 }
 
+function signedPackageGateIsRequiredForRelease(releaseReadinessContract) {
+  const gates = Array.isArray(releaseReadinessContract?.releaseGates)
+    ? releaseReadinessContract.releaseGates.filter(isRecord)
+    : [];
+  const signedPackageGate = gates.find((gate) => gate.id === "signed-packages");
+
+  return signedPackageGate?.requiredFor !== "optional-hardening";
+}
+
 function collectCredentialGroups(preflightContract) {
   return Array.isArray(preflightContract?.credentialGroups)
     ? preflightContract.credentialGroups.filter(isRecord).map((group) => ({
@@ -186,26 +195,32 @@ function collectSourceContracts(contracts) {
 
 export function buildReleaseEvidenceChecklist(contracts, options = {}) {
   const sourceContracts = collectSourceContracts(contracts);
-  const releaseGateItems = collectReleaseReadinessGateItems(contracts.releaseReadiness, "releaseReadiness");
+  const includeSignedPackageEvidence =
+    options.includeSignedPackage === true ||
+    signedPackageGateIsRequiredForRelease(contracts.releaseReadiness);
+  const releaseGateItems = collectReleaseReadinessGateItems(contracts.releaseReadiness, "releaseReadiness")
+    .filter((item) => includeSignedPackageEvidence || item.itemId !== "signed-packages");
   const checklistItems = [
     ...releaseGateItems,
     ...collectGateItems(contracts.windowsRealDevice, "windowsRealDevice", "windows-real-device", "deviceRuns"),
-    ...collectGateItems(contracts.signedPackageRelease, "signedPackageRelease", "signed-packages", "evidenceRuns"),
+    ...(includeSignedPackageEvidence
+      ? collectGateItems(contracts.signedPackageRelease, "signedPackageRelease", "signed-packages", "evidenceRuns")
+      : []),
     ...collectGateItems(contracts.packagedUpdateRollback, "packagedUpdateRollback", "packaged-update-rollback", "deviceRuns")
   ];
   const blockedItems = checklistItems.filter((item) => item.status === "blocked");
   const readyReleaseCommands = collectCommands(
     contracts.releaseReadiness?.requiredVerificationCommands?.readyRelease,
     contracts.windowsRealDevice?.requiredVerificationCommands?.deviceEvidence,
-    contracts.signedPackageRelease?.requiredVerificationCommands?.releaseEvidence,
+    includeSignedPackageEvidence ? contracts.signedPackageRelease?.requiredVerificationCommands?.releaseEvidence : [],
     contracts.packagedUpdateRollback?.requiredVerificationCommands?.deviceEvidence
   );
   const credentialFreeCommands = collectCommands(
     contracts.releaseReadiness?.requiredVerificationCommands?.credentialFree,
     contracts.windowsRealDevice?.requiredVerificationCommands?.credentialFree,
-    contracts.signedPackageRelease?.requiredVerificationCommands?.credentialFree,
+    includeSignedPackageEvidence ? contracts.signedPackageRelease?.requiredVerificationCommands?.credentialFree : [],
     contracts.packagedUpdateRollback?.requiredVerificationCommands?.credentialFree,
-    contracts.signedPackagePreflight?.localDryRunCommands
+    includeSignedPackageEvidence ? contracts.signedPackagePreflight?.localDryRunCommands : []
   );
   const openBlockerIssues = uniqueStrings(blockedItems.map((item) => item.blockerIssue));
   const checklist = {
@@ -310,7 +325,7 @@ const RELEASE_LAB_COMMAND_PLAN_DEFINITIONS = [
   {
     issueNumber: 267,
     title: "Packaged updater rollback evidence",
-    objective: "Run signed-package update/defer/retry/rollback/launch checks on macOS and Windows devices while proving user data and credential refs are preserved.",
+    objective: "Run packaged-artifact update/defer/retry/rollback/launch checks on macOS and Windows devices while proving user data and credential refs are preserved.",
     credentialFreeCommandPatterns: [
       /verify:release-channel$/u,
       /verify:packaged-update-rollback$/u,
@@ -1447,6 +1462,7 @@ export function parseReleaseEvidenceChecklistArgs(argv = process.argv.slice(2), 
   let issueNumber;
   let bundleDir = env.SOLO_RELEASE_EVIDENCE_BUNDLE_DIR;
   let explicitFormat = false;
+  let includeSignedPackage = env.SOLO_RELEASE_EVIDENCE_INCLUDE_SIGNED_PACKAGE === "1";
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -1487,6 +1503,8 @@ export function parseReleaseEvidenceChecklistArgs(argv = process.argv.slice(2), 
       index = valueIndex;
     } else if (arg.startsWith("--bundle-dir=")) {
       bundleDir = arg.slice("--bundle-dir=".length);
+    } else if (arg === "--include-signed-package") {
+      includeSignedPackage = true;
     } else if (arg === "--help" || arg === "-h") {
       return { help: true };
     } else {
@@ -1520,7 +1538,8 @@ export function parseReleaseEvidenceChecklistArgs(argv = process.argv.slice(2), 
     outputPath: outputPath ? resolve(outputPath) : undefined,
     format,
     issueNumber,
-    bundleDir: bundleDir ? resolve(bundleDir) : undefined
+    bundleDir: bundleDir ? resolve(bundleDir) : undefined,
+    includeSignedPackage
   };
 }
 
@@ -1578,12 +1597,15 @@ function assertCommentChecklistHasEvidenceItems(checklist, fullChecklist) {
 export async function runReleaseEvidenceChecklistCli(argv = process.argv.slice(2), options = {}) {
   const parsed = parseReleaseEvidenceChecklistArgs(argv, options.env ?? process.env);
   if (parsed.help) {
-    console.log("Usage: pnpm release:evidence-checklist [--format json|markdown|template|comment] [--issue <number>] [--output <path>] [--bundle-dir <path>]");
+    console.log("Usage: pnpm release:evidence-checklist [--format json|markdown|template|comment] [--issue <number>] [--output <path>] [--bundle-dir <path>] [--include-signed-package]");
     return { status: "help" };
   }
 
   const contracts = options.contracts ?? await loadReleaseEvidenceContracts(options.contractPaths, options);
-  const fullChecklist = buildReleaseEvidenceChecklist(contracts, options);
+  const fullChecklist = buildReleaseEvidenceChecklist(contracts, {
+    ...options,
+    includeSignedPackage: parsed.includeSignedPackage || options.includeSignedPackage === true
+  });
   if (parsed.bundleDir) {
     const bundle = buildReleaseEvidenceBundle(fullChecklist);
     await writeReleaseEvidenceBundle(parsed.bundleDir, bundle);

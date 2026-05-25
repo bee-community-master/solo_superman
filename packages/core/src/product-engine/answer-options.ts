@@ -8,6 +8,7 @@ export type AnswerOptionSeed = {
   readonly topicKey: string | undefined;
   readonly expectedAnswerType: AmbiguityExpectedAnswerType;
   readonly answerOptions?: readonly AmbiguityAnswerOption[];
+  readonly contextText?: string;
 };
 
 function plainUserFacingAnswerOption(option: AmbiguityAnswerOption): AmbiguityAnswerOption {
@@ -101,7 +102,7 @@ const GENERIC_ANSWER_OPTIONS_BY_TYPE = {
     answerOption(
       "rank_by_evidence",
       "근거 강도순 정렬",
-      "현재 확보된 pro/con 근거가 강한 순서로 우선순위를 매긴다.",
+      "현재 확보된 리서치 단서와 반례가 강한 순서로 우선순위를 매긴다.",
       "과신과 confirmation bias를 줄입니다.",
       "중요하지만 아직 근거가 없는 항목이 과소평가될 수 있습니다."
     ),
@@ -116,22 +117,22 @@ const GENERIC_ANSWER_OPTIONS_BY_TYPE = {
   evidence: [
     answerOption(
       "pro_evidence_stronger",
-      "찬성 근거 우세",
-      "현재는 찬성 근거가 더 강하지만 반대근거 탐색을 기록한다.",
+      "이 방향을 우선 후보로 둔다",
+      "현재 확인된 단서로는 이 방향을 다음 결정 후보에 올린다.",
       "결정 후보로 빠르게 이동할 수 있습니다.",
-      "반대근거가 약하면 high-impact gate를 통과하지 못할 수 있습니다."
+      "다른 관점의 사례가 부족하면 과신이 될 수 있습니다."
     ),
     answerOption(
       "con_evidence_stronger",
-      "반대 근거 우세",
-      "반대근거가 더 강하므로 범위 축소 또는 pivot 후보로 본다.",
+      "범위 축소나 방향 전환을 검토한다",
+      "현재 확인된 다른 관점 때문에 범위를 줄이거나 다른 방향을 함께 본다.",
       "실패 가능성을 빨리 드러냅니다.",
       "너무 이른 축소로 좋은 기회를 놓칠 수 있습니다."
     ),
     answerOption(
       "evidence_incomplete",
-      "근거 불충분",
-      "찬반 근거가 모두 부족해 research_needed로 남긴다.",
+      "추가 리서치로 근거자료를 더 보강한다",
+      "지금 답하기에는 자료가 부족하므로 더 넓은 자료를 모은다.",
       "불확실성을 정직하게 유지합니다.",
       "답변만으로는 다음 decision이 닫히지 않습니다."
     )
@@ -163,6 +164,261 @@ const GENERIC_ANSWER_OPTIONS_BY_TYPE = {
   AmbiguityExpectedAnswerType,
   readonly AmbiguityAnswerOption[]
 >;
+
+type PrimaryCustomerContextProfile = {
+  readonly id: string;
+  readonly pattern: RegExp;
+  readonly questionSubject: string;
+  readonly personReference: string;
+  readonly answerOptions: readonly AmbiguityAnswerOption[];
+};
+
+const PET_LIFECYCLE_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "first_pet_guardian",
+    "첫 반려동물을 키우는 보호자",
+    "첫 반려동물을 키우는 보호자를 가장 먼저 만나 문제와 사용 장면을 확인한다.",
+    "초보 보호자의 의료·급여·일상 기록 흐름을 먼저 검증합니다.",
+    "노령·보험·장례처럼 복잡한 생애 후반 문제는 약하게 보일 수 있습니다."
+  ),
+  answerOption(
+    "senior_chronic_pet_guardian",
+    "노령·만성질환 반려동물 보호자",
+    "노령·만성질환 반려동물 보호자를 가장 먼저 만나 기록·비용·돌봄 문제를 확인한다.",
+    "병원 기록, 투약, 보험, 비용 관리의 강한 문제를 먼저 검증합니다.",
+    "일상 관리 중심의 대중적 사용성은 별도 확인이 필요합니다."
+  ),
+  answerOption(
+    "multi_pet_household",
+    "여러 마리를 함께 키우는 가구",
+    "여러 마리를 함께 키우는 가구를 가장 먼저 만나 동물별 관리 문제를 확인한다.",
+    "동물별 의료·급여·보험 기록을 구분 관리하는 문제를 확인합니다.",
+    "한 마리 보호자에게는 기능이 과하게 느껴질 수 있습니다."
+  ),
+  answerOption(
+    "insurance_cost_sensitive_guardian",
+    "보험·의료비 관리가 필요한 보호자",
+    "보험·의료비 관리가 필요한 보호자를 가장 먼저 만나 비용 관리 문제를 확인한다.",
+    "지불 의향과 반복 사용 신호를 비용 관리 문제에서 확인합니다.",
+    "보험이 없거나 의료비 부담이 낮은 보호자에게는 가치가 약할 수 있습니다."
+  )
+];
+
+const HEALTHCARE_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "chronic_condition_patient",
+    "만성질환을 꾸준히 관리하는 환자",
+    "만성질환을 꾸준히 관리하는 환자를 가장 먼저 만나 반복 관리 문제를 확인한다.",
+    "복약, 기록, 병원 방문 전후처럼 반복되는 사용 장면을 검증합니다.",
+    "가벼운 건강관리 사용자에게는 기능이 무겁게 느껴질 수 있습니다."
+  ),
+  answerOption(
+    "caregiver_family_member",
+    "가족 건강을 함께 챙기는 보호자",
+    "가족 건강을 함께 챙기는 보호자를 가장 먼저 만나 대리 관리 문제를 확인한다.",
+    "구매자와 실제 사용자가 나뉘는지 일찍 확인할 수 있습니다.",
+    "본인이 직접 쓰는 건강관리 습관은 별도 검증이 필요합니다."
+  ),
+  answerOption(
+    "post_visit_record_keeper",
+    "진료 전후 기록이 많은 사용자",
+    "진료 전후 기록이 많은 사용자를 가장 먼저 만나 기록 정리 문제를 확인한다.",
+    "병원 방문이라는 명확한 순간에서 문제 강도를 확인합니다.",
+    "방문 빈도가 낮으면 반복 사용성이 약할 수 있습니다."
+  ),
+  answerOption(
+    "preventive_wellness_tracker",
+    "검진·복약·생활습관을 챙기는 사용자",
+    "검진, 복약, 생활습관을 챙기는 사용자를 가장 먼저 만나 예방 관리 문제를 확인한다.",
+    "넓은 건강관리 시장의 대중적 사용성을 탐색할 수 있습니다.",
+    "지불 의향과 급한 문제 강도는 약하게 나올 수 있습니다."
+  )
+];
+
+const EDUCATION_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "exam_prep_learner",
+    "시험을 준비하는 학습자",
+    "시험을 준비하는 학습자를 가장 먼저 만나 목표와 마감이 있는 학습 문제를 확인한다.",
+    "성과 기준과 사용 빈도가 비교적 선명합니다.",
+    "시험 외 학습이나 장기 역량 개발 문제는 뒤로 밀릴 수 있습니다."
+  ),
+  answerOption(
+    "career_switching_learner",
+    "직무 전환·업스킬 학습자",
+    "직무 전환이나 업스킬을 원하는 학습자를 가장 먼저 만나 실무형 학습 문제를 확인한다.",
+    "돈과 시간을 낼 이유가 비교적 뚜렷합니다.",
+    "학교나 어린 학생 중심의 사용성은 별도 확인이 필요합니다."
+  ),
+  answerOption(
+    "parent_supported_student",
+    "학부모가 함께 관리하는 학생",
+    "학부모가 함께 관리하는 학생을 가장 먼저 만나 구매자와 사용자가 나뉘는 문제를 확인한다.",
+    "의사결정자와 실제 사용자 분리를 일찍 검증합니다.",
+    "제품 경험이 학부모 중심으로 과하게 기울 수 있습니다."
+  ),
+  answerOption(
+    "small_education_operator",
+    "소규모 교육 운영자",
+    "소규모 교육 운영자를 가장 먼저 만나 학습 관리와 운영 문제를 확인한다.",
+    "반복 운영, 결제, 관리 니즈를 함께 볼 수 있습니다.",
+    "개별 학습자의 직접 사용 문제는 약하게 보일 수 있습니다."
+  )
+];
+
+const PERSONAL_FINANCE_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "paycheck_budgeter",
+    "월급과 고정지출을 관리하는 직장인",
+    "월급과 고정지출을 관리하는 직장인을 가장 먼저 만나 반복 예산 관리 문제를 확인한다.",
+    "월 단위 반복 사용성과 명확한 비용 문제를 검증합니다.",
+    "투자나 사업자 회계처럼 복잡한 사용 사례는 뒤로 밀릴 수 있습니다."
+  ),
+  answerOption(
+    "freelance_income_tracker",
+    "수입이 불규칙한 프리랜서",
+    "수입이 불규칙한 프리랜서를 가장 먼저 만나 현금흐름 관리 문제를 확인한다.",
+    "문제 강도와 지불 의향이 비교적 높게 나타날 수 있습니다.",
+    "일반 직장인에게는 기능이 과하게 느껴질 수 있습니다."
+  ),
+  answerOption(
+    "shared_household_budgeter",
+    "공동 생활비를 나누는 가구",
+    "공동 생활비를 나누는 가구를 가장 먼저 만나 함께 쓰는 돈 관리 문제를 확인한다.",
+    "구매자, 사용자, 공유 권한 문제를 함께 검증합니다.",
+    "개인 재무 목표 관리 니즈는 별도로 확인해야 합니다."
+  ),
+  answerOption(
+    "insurance_investment_tracker",
+    "보험·투자·대출을 함께 보는 사용자",
+    "보험, 투자, 대출을 함께 보는 사용자를 가장 먼저 만나 복합 금융 관리 문제를 확인한다.",
+    "복잡한 정보 통합과 장기 관리 가치를 검증합니다.",
+    "규제·신뢰·보안 요구가 빠르게 커질 수 있습니다."
+  )
+];
+
+const LOCAL_COMMERCE_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "small_store_owner",
+    "소규모 매장 운영자",
+    "소규모 매장 운영자를 가장 먼저 만나 주문, 예약, 고객 관리 문제를 확인한다.",
+    "예산과 운영 고통을 가진 구매자를 직접 검증할 수 있습니다.",
+    "최종 소비자의 사용 경험은 별도 검증이 필요합니다."
+  ),
+  answerOption(
+    "repeat_local_customer",
+    "반복 방문하는 단골 고객",
+    "반복 방문하는 단골 고객을 가장 먼저 만나 재방문과 편의 문제를 확인한다.",
+    "소비자 관점의 반복 사용 이유를 빠르게 확인합니다.",
+    "매장 운영자가 실제로 돈을 낼지는 아직 불확실합니다."
+  ),
+  answerOption(
+    "pickup_delivery_customer",
+    "픽업·배달을 자주 쓰는 고객",
+    "픽업이나 배달을 자주 쓰는 고객을 가장 먼저 만나 주문 전후 불편을 확인한다.",
+    "뚜렷한 사용 상황과 행동 신호를 볼 수 있습니다.",
+    "방문형 매장 경험과는 다른 문제로 좁혀질 수 있습니다."
+  ),
+  answerOption(
+    "multi_location_operator",
+    "여러 지점을 관리하는 운영자",
+    "여러 지점을 관리하는 운영자를 가장 먼저 만나 관리 복잡도 문제를 확인한다.",
+    "조직형 구매와 운영 효율 가치를 일찍 검증합니다.",
+    "초기 제품 범위가 커질 수 있습니다."
+  )
+];
+
+const CREATOR_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "solo_creator",
+    "혼자 콘텐츠를 만드는 크리에이터",
+    "혼자 콘텐츠를 만드는 크리에이터를 가장 먼저 만나 기획·제작·게시 반복 문제를 확인한다.",
+    "개인 생산성 문제와 반복 사용성을 빠르게 검증합니다.",
+    "팀 제작이나 브랜드 운영 니즈는 뒤로 밀릴 수 있습니다."
+  ),
+  answerOption(
+    "small_brand_marketer",
+    "소규모 브랜드 마케터",
+    "소규모 브랜드 마케터를 가장 먼저 만나 콘텐츠 성과와 운영 문제를 확인한다.",
+    "구매 예산과 성과 지표를 함께 확인할 수 있습니다.",
+    "개인 크리에이터에게는 제품이 업무용으로 느껴질 수 있습니다."
+  ),
+  answerOption(
+    "short_form_video_creator",
+    "숏폼 영상을 자주 올리는 창작자",
+    "숏폼 영상을 자주 올리는 창작자를 가장 먼저 만나 빠른 제작 주기 문제를 확인한다.",
+    "빈도 높은 사용 장면과 명확한 대체재를 검증합니다.",
+    "글, 뉴스레터, 이미지 중심 창작자는 약하게 반영될 수 있습니다."
+  ),
+  answerOption(
+    "agency_content_operator",
+    "여러 계정을 운영하는 에이전시 담당자",
+    "여러 계정을 운영하는 에이전시 담당자를 가장 먼저 만나 협업과 반복 운영 문제를 확인한다.",
+    "조직 구매와 반복 업무 자동화 가치를 확인할 수 있습니다.",
+    "권한, 승인, 협업 기능 요구가 빠르게 커질 수 있습니다."
+  )
+];
+
+const PRIMARY_CUSTOMER_CONTEXT_PROFILES: readonly PrimaryCustomerContextProfile[] = [
+  {
+    id: "pet_lifecycle",
+    pattern:
+      /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b|companion\s+animal|동물병원|수의|진료\s*기록|투약|의료비|사료|보험|장례|말기\s*케어|전생애|생애\s*주기)/iu,
+    questionSubject: "보호자 유형",
+    personReference: "그 보호자",
+    answerOptions: PET_LIFECYCLE_PRIMARY_CUSTOMER_OPTIONS
+  },
+  {
+    id: "healthcare",
+    pattern:
+      /(?:건강|헬스케어|의료|병원|환자|진료|복약|약\s*관리|만성\s*질환|혈당|혈압|검진|caregiver|health\s*care|healthcare|medical|patient|clinic)/iu,
+    questionSubject: "사용자 유형",
+    personReference: "그 사용자",
+    answerOptions: HEALTHCARE_PRIMARY_CUSTOMER_OPTIONS
+  },
+  {
+    id: "education",
+    pattern:
+      /(?:교육|학습|공부|시험|수업|과외|학생|학부모|강의|러닝|러너|edtech|learning|study|student|tutor|course|classroom)/iu,
+    questionSubject: "학습자/교육 사용자 유형",
+    personReference: "그 사용자",
+    answerOptions: EDUCATION_PRIMARY_CUSTOMER_OPTIONS
+  },
+  {
+    id: "personal_finance",
+    pattern:
+      /(?:가계부|예산|지출|소비|저축|보험|대출|투자|자산|월급|생활비|카드값|현금흐름|finance|budget|expense|saving|investment|loan|insurance)/iu,
+    questionSubject: "금융 관리 사용자 유형",
+    personReference: "그 사용자",
+    answerOptions: PERSONAL_FINANCE_PRIMARY_CUSTOMER_OPTIONS
+  },
+  {
+    id: "local_commerce",
+    pattern:
+      /(?:식당|카페|매장|소상공인|예약|주문|픽업|배달|단골|로컬\s*커머스|restaurant|cafe|store|merchant|reservation|order|pickup|delivery)/iu,
+    questionSubject: "고객/운영자 유형",
+    personReference: "그 사람",
+    answerOptions: LOCAL_COMMERCE_PRIMARY_CUSTOMER_OPTIONS
+  },
+  {
+    id: "creator",
+    pattern:
+      /(?:크리에이터|콘텐츠|창작|유튜브|유튜버|인스타|틱톡|숏폼|뉴스레터|블로그|creator|content|youtube|instagram|tiktok|shorts|newsletter|blog)/iu,
+    questionSubject: "창작자/운영자 유형",
+    personReference: "그 사람",
+    answerOptions: CREATOR_PRIMARY_CUSTOMER_OPTIONS
+  }
+];
+
+export function primaryCustomerContextProfileForText(contextText: string | undefined) {
+  const normalizedContext = contextText ?? "";
+
+  return PRIMARY_CUSTOMER_CONTEXT_PROFILES.find((profile) => profile.pattern.test(normalizedContext));
+}
+
+export function isPetLifecycleContextText(contextText: string | undefined) {
+  return primaryCustomerContextProfileForText(contextText)?.id === "pet_lifecycle";
+}
 
 const TOPIC_ANSWER_OPTIONS: Readonly<Partial<Record<string, readonly AmbiguityAnswerOption[]>>> = {
   primary_customer_narrowing: [
@@ -364,6 +620,23 @@ export function answerOptionsForQuestion(
   );
 }
 
+function contextualAnswerOptionsForQuestion(
+  topicKey: string | undefined,
+  expectedAnswerType: AmbiguityExpectedAnswerType,
+  contextText: string | undefined
+) {
+  const primaryCustomerProfile = primaryCustomerContextProfileForText(contextText);
+
+  if (topicKey === "primary_customer_narrowing" && primaryCustomerProfile) {
+    return primaryCustomerProfile.answerOptions;
+  }
+
+  return answerOptionsForQuestion(topicKey, expectedAnswerType);
+}
+
 export function answerOptionsForSeed(seed: AnswerOptionSeed) {
-  return seed.answerOptions?.map(plainUserFacingAnswerOption) ?? answerOptionsForQuestion(seed.topicKey, seed.expectedAnswerType);
+  return (
+    seed.answerOptions?.map(plainUserFacingAnswerOption) ??
+    contextualAnswerOptionsForQuestion(seed.topicKey, seed.expectedAnswerType, seed.contextText)
+  );
 }

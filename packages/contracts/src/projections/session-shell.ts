@@ -3,7 +3,8 @@ import type {
   BusinessCriticIntensity,
   BusinessCriticIntensitySelectionStatus,
   ProjectPurposeMode,
-  ProjectPurposeModeSelectionStatus
+  ProjectPurposeModeSelectionStatus,
+  ResearchAutomationPermission
 } from "../product-engine";
 
 export interface SessionShellProjection {
@@ -20,4 +21,5 @@ export interface SessionShellProjection {
   readonly businessCriticIntensitySelectionStatus?: BusinessCriticIntensitySelectionStatus;
   readonly businessCriticIntensityLabel?: string;
   readonly businessCriticIntensityEffect?: string;
+  readonly initialResearchAutomationPermission?: ResearchAutomationPermission;
 }

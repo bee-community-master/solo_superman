@@ -28,7 +28,9 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     pendingSummary,
     pauseAutoImplementationStage,
     planningHandoffView,
+    prepareImplementationContextAndCreateRun,
     prepareFounderBrief,
+    prepareImplementationContext,
     planAutoImplementationWorkerJob,
     recordAutoImplementationStageTick,
     startAutoImplementationStage,
@@ -142,7 +144,8 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         [copy.planning.scoreBreakdownLabels.questionDebtResolution, confidence.scoreBreakdown.questionDebtResolution],
         [copy.planning.scoreBreakdownLabels.evidenceQuality, confidence.scoreBreakdown.evidenceQuality],
         [copy.planning.scoreBreakdownLabels.decisionApproval, confidence.scoreBreakdown.decisionApproval],
-        [copy.planning.scoreBreakdownLabels.consistencyAndConflict, confidence.scoreBreakdown.consistencyAndConflict]
+        [copy.planning.scoreBreakdownLabels.consistencyAndConflict, confidence.scoreBreakdown.consistencyAndConflict],
+        ...(confidence.ambiguityDimensionCoverage?.map((dimension) => [dimension.label, dimension.score] as const) ?? [])
       ] as const
     : [];
   const readyImplementationMetricCount = implementationReadinessMetricItems.filter(
@@ -216,6 +219,12 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
           </button>
           <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void runPlanningHandoffGate()}>
             {copy.handoff.runGate}
+          </button>
+          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareImplementationContext()}>
+            {copy.handoff.planningActionLabels.prepareImplementationContext}
+          </button>
+          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareImplementationContextAndCreateRun()}>
+            {copy.autoImplementation.prepareContextAndCreate}
           </button>
           <button type="button" disabled={isBusy || !canCreateAutoImplementationRun} onClick={() => void createAutoImplementationRun()}>
             {autoImplementationRunView.hasRun ? copy.autoImplementation.reprepare : copy.autoImplementation.create}

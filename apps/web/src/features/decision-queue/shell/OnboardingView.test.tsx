@@ -46,6 +46,7 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
     initialBusinessCriticIntensityReason: "",
     initialQueueStartBlockerMessages: [],
     initialResearchPermission: "not_now",
+    initialResearchAutomationPermission: "allow_codex",
     intake: "",
     isBusy: false,
     projectPurposeMode: null,
@@ -56,6 +57,7 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
     setChatGptLoginAcknowledged: vi.fn(),
     setIdea: vi.fn(),
     setInitialBusinessCriticIntensityReason: vi.fn(),
+    setInitialResearchAutomationPermission: vi.fn(),
     setInitialResearchPermission: vi.fn(),
     setIntake: vi.fn(),
     setProjectPurposeMode: vi.fn(),
@@ -91,6 +93,9 @@ describe("OnboardingView", () => {
     expect(markup).toContain("Research permission");
     expect(markup).toContain("Set up research later");
     expect(markup).toContain("Allow read-only public web research");
+    expect(markup).toContain("Automated research assistance");
+    expect(markup).toContain("Allow Codex research preview");
+    expect(markup).toContain("Allow Codex + visible ChatGPT Pro/Deep Research");
     expect(markup.indexOf("Sign in to ChatGPT in your browser first")).toBeLessThan(
       markup.indexOf("Idea summary")
     );
@@ -128,7 +133,7 @@ describe("OnboardingView", () => {
   it("explains every missing item before the first-question button can be enabled", () => {
     const markup = renderOnboardingView({
       initialQueueStartBlockerMessages: [
-        "Confirm that you signed in to ChatGPT directly before starting.",
+        "Confirm direct ChatGPT login before allowing visible ChatGPT Pro/Deep Research handoff.",
         "Choose either business validation or personal workflow build before starting.",
         "Enter an idea summary before starting."
       ]
@@ -137,7 +142,7 @@ describe("OnboardingView", () => {
     expect(markup).toContain("First-question readiness checklist");
     expect(markup).toContain("Before you can start");
     expect(markup).toContain("Complete these items, then the Create first questions button will turn on.");
-    expect(markup).toContain("Confirm that you signed in to ChatGPT directly before starting.");
+    expect(markup).toContain("Confirm direct ChatGPT login before allowing visible ChatGPT Pro/Deep Research handoff.");
     expect(markup).toContain("Choose either business validation or personal workflow build before starting.");
     expect(markup).toContain("Enter an idea summary before starting.");
     expect(markup).toContain('<button type="submit" disabled="">Create first questions</button>');

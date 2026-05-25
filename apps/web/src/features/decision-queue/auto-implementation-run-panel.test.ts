@@ -338,11 +338,128 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.remoteCommands).toContain("git remote add origin <github-repo-url>");
   });
 
+  it("renders structured ledger gate summaries on completed stages", () => {
+    const ledgerEvidence = {
+      implementationStepId: "step_initial_pr",
+      trackerDocRef: "implementation-step-ledger:tracker:tracker_demo",
+      stepDocRef: "implementation-step-ledger:step:step_initial_pr",
+      implementationEvidenceRefs: ["commit:initial-pr"],
+      codeReviewStreakRefs: [
+        "code-review:feature:clean-1",
+        "code-review:feature:clean-2",
+        "code-review:repository:clean-1",
+        "code-review:repository:clean-2"
+      ],
+      cleanCodeReviewStreakRefs: [
+        "clean-code-review:changed_code:clean-1",
+        "clean-code-review:changed_code:clean-2",
+        "clean-code-review:repository:clean-1",
+        "clean-code-review:repository:clean-2"
+      ],
+      codeReviewStreaks: [
+        {
+          reviewScope: "feature",
+          requiredNoFindingPasses: 2,
+          currentNoFindingPasses: 2,
+          satisfied: true,
+          latestReviewIds: ["clean-1", "clean-2"],
+          missingEvidenceLabel: "feature code review requires 2 consecutive no-finding passes"
+        },
+        {
+          reviewScope: "repository",
+          requiredNoFindingPasses: 2,
+          currentNoFindingPasses: 2,
+          satisfied: true,
+          latestReviewIds: ["clean-1", "clean-2"],
+          missingEvidenceLabel: "repository code review requires 2 consecutive no-finding passes"
+        }
+      ],
+      cleanCodeReviewStreaks: [
+        {
+          reviewScope: "changed_code",
+          requiredNoFindingPasses: 2,
+          currentNoFindingPasses: 2,
+          satisfied: true,
+          latestReviewIds: ["clean-1", "clean-2"],
+          missingEvidenceLabel: "changed_code clean-code review requires 2 consecutive no-finding passes"
+        },
+        {
+          reviewScope: "repository",
+          requiredNoFindingPasses: 2,
+          currentNoFindingPasses: 2,
+          satisfied: true,
+          latestReviewIds: ["clean-1", "clean-2"],
+          missingEvidenceLabel: "repository clean-code review requires 2 consecutive no-finding passes"
+        }
+      ],
+      missingTestAuditSummary: {
+        auditId: "missing_test_audit_initial_pr",
+        missingTestGapCount: 0,
+        satisfied: true
+      },
+      testEvidenceSummary: {
+        testEvidenceId: "test_verify_initial_pr",
+        outcome: "passed",
+        passedTestCount: 1286,
+        failedTestCount: 0,
+        notTestedGapCount: 0,
+        satisfied: true,
+        commands: ["pnpm verify"]
+      },
+      missingTestAuditRefs: ["missing-test-audit:initial-pr"],
+      testEvidenceRefs: ["test:initial-pr"],
+      blockerEvidenceRefs: [],
+      evidenceRefs: ["implementation-step-ledger:step_initial_pr", "missing-test-audit:initial-pr", "test:initial-pr"]
+    } satisfies NonNullable<AutoImplementationRun["stagePlan"][number]["ledgerEvidence"]>;
+    const projection = {
+      ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+      latestRun: {
+        ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        stagePlan: AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.stagePlan.map((stage) =>
+          stage.stage === "initial_pr"
+            ? {
+                ...stage,
+                status: "completed" as const,
+                ledgerEvidence
+              }
+            : stage
+        )
+      }
+    } as AutoImplementationRunProjection;
+    const markup = renderPanelMarkup(autoImplementationRunViewModel(projection));
+
+    expect(markup).toContain("implementation record step_initial_pr");
+    expect(markup).toContain("feature code review: 2/2 no-finding passes satisfied");
+    expect(markup).toContain("changed_code clean-code review: 2/2 no-finding passes satisfied");
+    expect(markup).toContain("missing-test audit gaps: 0 (satisfied)");
+    expect(markup).toContain("tests passed: passed 1286 / failed 0; not-tested gaps 0");
+  });
+
   it("surfaces Planning Handoff PR-sized markdown files before stage issue docs", () => {
     const projection = {
       ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
       latestRun: {
         ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!,
+        issueManagement: {
+          ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.issueManagement,
+          planningIssueSequenceTrackerRelativePath: "planning-handoff-pr-issue-sequence.md",
+          planningIssueDocs: [
+            {
+              issueId: "phase2-api-ready",
+              title: "Phase 2 API-ready implementation slice",
+              relativePath: "planning-handoff-pr-issues/001-phase2-api-ready.md",
+              includedTaskIds: ["task_api_ready"],
+              status: "active"
+            },
+            {
+              issueId: "phase2-review-ready",
+              title: "Phase 2 review-ready implementation slice",
+              relativePath: "planning-handoff-pr-issues/002-phase2-review-ready.md",
+              includedTaskIds: ["task_review_ready"],
+              status: "planned"
+            }
+          ]
+        },
         evidenceRefs: [
           ...AUTO_IMPLEMENTATION_RUN_READY_FIXTURE.latestRun!.evidenceRefs,
           "planning-handoff-pr-issue:planning-handoff-pr-issues/001-phase2-api-ready.md",
@@ -352,14 +469,34 @@ describe("AutoImplementationRunPanel view model", () => {
     } as AutoImplementationRunProjection;
     const view = autoImplementationRunViewModel(projection);
     const markup = renderPanelMarkup(view);
+    const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
 
     expect(view.planningIssueFiles).toEqual([
       "planning-handoff-pr-issues/001-phase2-api-ready.md",
       "planning-handoff-pr-issues/002-phase2-review-ready.md"
     ]);
+    expect(view.planningIssueSequenceTrackerPath).toBe("planning-handoff-pr-issue-sequence.md");
+    expect(view.planningIssueRows[0]).toMatchObject({
+      statusLabel: "active",
+      taskIdsLabel: "task_api_ready"
+    });
     expect(markup).toContain("Planning-derived PR/issue files");
+    expect(markup).toContain("Sequence tracker: planning-handoff-pr-issue-sequence.md");
+    expect(markup).toContain(
+      "0/2 planning PR slice(s) completed · active slice: phase2-api-ready: Phase 2 API-ready implementation slice"
+    );
+    expect(markup).toContain("phase2-api-ready: Phase 2 API-ready implementation slice — slice status: active");
+    expect(markup).toContain("tasks: task_api_ready");
     expect(markup).toContain("planning-handoff-pr-issues/001-phase2-api-ready.md");
     expect(markup.indexOf("Planning-derived PR/issue files")).toBeLessThan(markup.indexOf("Issue documents"));
+    expect(koreanMarkup).toContain("계획에서 나온 PR/이슈 파일");
+    expect(koreanMarkup).toContain("순서 추적 파일: planning-handoff-pr-issue-sequence.md");
+    expect(koreanMarkup).toContain(
+      "계획 PR 단위 2개 중 0개 완료 · 현재 단위: phase2-api-ready: Phase 2 API-ready implementation slice"
+    );
+    expect(koreanMarkup).toContain("phase2-api-ready: Phase 2 API-ready implementation slice — 단위 상태: 진행 중");
+    expect(koreanMarkup).toContain("계획 작업: task_api_ready");
+    expect(koreanMarkup).not.toContain("— active");
   });
 
   it("uses a visible not-started state before the workspace run exists", () => {
@@ -1076,6 +1213,25 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(plannedView.canImportWorkerLedger).toBe(true);
     expect(plannedView.canCompleteWorkerJob).toBe(false);
     expect(ledgerReadyView.canCompleteWorkerJob).toBe(true);
+    expect(ledgerReadyView.latestWorkerLedgerEvidence).toMatchObject({
+      stepId: plannedWorkerJob.executionPlan.ledgerStepDoc.stepId,
+      status: "completed",
+      missingTestAuditLabel: expect.stringContaining("missing-test audit gaps: 0"),
+      testEvidenceLabel: expect.stringContaining("tests passed: pnpm verify"),
+      missingEvidenceLabel: "none"
+    });
+    expect(ledgerReadyView.latestWorkerLedgerEvidence?.codeReviewStreakLabels).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("feature code review: 2/2 no-finding passes satisfied"),
+        expect.stringContaining("repository code review: 2/2 no-finding passes satisfied")
+      ])
+    );
+    expect(ledgerReadyView.latestWorkerLedgerEvidence?.cleanCodeReviewStreakLabels).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("changed_code clean-code review: 2/2 no-finding passes satisfied"),
+        expect.stringContaining("repository clean-code review: 2/2 no-finding passes satisfied")
+      ])
+    );
     expect(plannedView.canAdvanceWorkerStage).toBe(false);
     expect(plannedView.workerStageAdvanceBlockerLabel).toContain("Complete the current-stage local Codex task");
     expect(plannedView.latestWorkerPlan?.executionAuthorityRef).toBe("exec_auth_auto_worker_initial_pr");
@@ -1085,6 +1241,12 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(completedView.canCompleteWorkerJob).toBe(false);
     expect(completedView.canAdvanceWorkerStage).toBe(true);
     expect(completedView.workerStageAdvanceBlockerLabel).toBeNull();
+
+    const markup = renderPanelMarkup(ledgerReadyView);
+
+    expect(markup).toContain("Imported implementation evidence");
+    expect(markup).toContain("feature code review: 2/2 no-finding passes satisfied");
+    expect(markup).toContain("missing-test audit gaps: 0");
   });
 
   it("keeps merge_main worker advance disabled until applied PR merge and post-merge verification evidence exist", () => {

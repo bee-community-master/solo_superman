@@ -55,6 +55,7 @@ const REQUIRED_RELEASE_EVIDENCE_COMMANDS = new Set([
 const REQUIRED_BLOCKER_ISSUE = "https://github.com/bee-community-master/solo_superman/issues/266";
 const ALLOWED_RELEASE_STATUSES = new Set(["blocked", "ready"]);
 const ALLOWED_EVIDENCE_RUN_STATUSES = new Set(["blocked", "passed"]);
+const ALLOWED_REQUIRED_FOR = new Set(["general-release", "optional-hardening"]);
 const SECRET_QUERY_NAME_PATTERN = /(?:token|secret|password|pass|api[_-]?key|credential|auth|session)/iu;
 const TOKEN_LIKE_PATTERN = tokenLikePattern("iu");
 const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
@@ -334,8 +335,8 @@ function validateEvidenceRun(run, path, issues) {
   if (!ALLOWED_EVIDENCE_RUN_STATUSES.has(run.status)) {
     addIssue(issues, `${path}.status`, "must be blocked or passed");
   }
-  if (run.requiredFor !== "general-release") {
-    addIssue(issues, `${path}.requiredFor`, "must be general-release");
+  if (!ALLOWED_REQUIRED_FOR.has(run.requiredFor)) {
+    addIssue(issues, `${path}.requiredFor`, "must be general-release or optional-hardening");
   }
 
   validateStringList(run.evidenceRefs, `${path}.evidenceRefs`, issues);

@@ -1806,6 +1806,68 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("persists the onboarding research automation permission through project creation", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const response = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A durable research automation permission route test idea",
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "personal",
+          projectPurposeModeConfirmation: "user_confirmed",
+          initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible"
+        })
+      });
+      const body = await jsonBody(response);
+      const data = body.data as Readonly<Record<string, unknown>>;
+
+      expect(response.status).toBe(200);
+      expect(data.immediateProjection).toMatchObject({
+        kind: "SessionShellProjection",
+        initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible"
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rejects unsupported onboarding research automation permissions at the route boundary", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const response = await storageApp.request("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rawIdea: "A rejected research automation permission route test idea",
+          localPrivacyMode: "local_only",
+          projectPurposeMode: "personal",
+          projectPurposeModeConfirmation: "user_confirmed",
+          initialResearchAutomationPermission: "auto_headless_chatgpt"
+        })
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(400);
+      expect(body.error).toMatchObject({
+        code: "VALIDATION_FAILED",
+        message:
+          "initialResearchAutomationPermission must be manual_only, allow_codex, or allow_codex_and_chatgpt_visible."
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("changes project purpose mode through a user-audited session command route", async () => {
     const { app: storageApp, storage } = await createMigratedStorageApp();
 
@@ -2133,6 +2195,176 @@ describe("PR-02 sidecar health shell", () => {
           })
         ])
       );
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("generates initial ambiguity questions through the Codex prompt template route", async () => {
+    const generatedQuestionSet = {
+      schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
+      sourceSummary: "Pet lifecycle app",
+      questions: [
+        {
+          sectionRef: "Target Customer",
+          topicKey: "pet_guardian_segment",
+          uncertaintyType: "vague",
+          severity: "high",
+          summary: "First pet guardian segment is too broad",
+          whyItMatters: "Different guardians need medical, insurance, daily care, or end-of-life support first.",
+          questionText: "Which pet guardian group should test the lifecycle app first?",
+          expectedAnswerType: "choice",
+          answerSelectionMode: "single",
+          answerOptions: [
+            {
+              id: "first_pet_guardian",
+              label: "First-time pet guardians",
+              value: "Test first-time pet guardians first.",
+              primaryDetail: "Focuses the first interview target.",
+              secondaryDetail: "Senior-care needs still need checking."
+            },
+            {
+              id: "senior_pet_guardian",
+              label: "Senior pet guardians",
+              value: "Test senior pet guardians first.",
+              primaryDetail: "Prioritizes medical and medication records.",
+              secondaryDetail: "Daily habit value still needs checking."
+            },
+            {
+              id: "multi_pet_household",
+              label: "Multi-pet households",
+              value: "Test multi-pet households first.",
+              primaryDetail: "Checks whether multiple records are painful.",
+              secondaryDetail: "Single-pet simplicity still needs checking."
+            }
+          ],
+          decisionItUnlocks: "First interview target and onboarding copy.",
+          ambiguityDimension: "scope",
+          ambiguityRoutingPath: "human_judgment",
+          researchQuestion: "Check whether public pet guardian discussions show stronger record-management pain by guardian group.",
+          possibleRoutes: ["question", "decision_candidate"]
+        },
+        {
+          sectionRef: "Problem",
+          topicKey: "record_fragmentation",
+          uncertaintyType: "missing",
+          severity: "high",
+          summary: "Record fragmentation is not concrete yet",
+          whyItMatters: "The first product slice depends on the most frequent record-finding pain.",
+          questionText: "Which pet record is most painful to find or keep updated today?",
+          expectedAnswerType: "text",
+          answerOptions: [],
+          decisionItUnlocks: "First problem statement and evidence plan.",
+          ambiguityDimension: "context",
+          ambiguityRoutingPath: "current_research",
+          researchQuestion: "Check which pet records guardians repeatedly mention losing, re-requesting, or failing to keep current.",
+          possibleRoutes: ["question", "research_needed"],
+          suggestedResearchTask: "Look for pet clinic reviews, insurance claim guides, and guardian community posts that mention fragmented medical, food, daily-care, insurance, or end-of-life records."
+        },
+        {
+          sectionRef: "Value Proposition",
+          topicKey: "switching_reason",
+          uncertaintyType: "decision_required",
+          severity: "high",
+          summary: "Switching reason is not chosen",
+          whyItMatters: "Guardians need a concrete reason to move away from notes, photos, and clinic apps.",
+          questionText: "What reason would make guardians switch from notes or clinic apps?",
+          expectedAnswerType: "choice",
+          answerSelectionMode: "single",
+          answerOptions: [
+            {
+              id: "medical_timeline",
+              label: "Medical timeline",
+              value: "Lead with medical timeline.",
+              primaryDetail: "Focuses first value on care history.",
+              secondaryDetail: "Insurance value still needs checking."
+            },
+            {
+              id: "insurance_docs",
+              label: "Insurance documents",
+              value: "Lead with insurance document organization.",
+              primaryDetail: "Focuses first value on reimbursement work.",
+              secondaryDetail: "Uninsured guardians still need checking."
+            },
+            {
+              id: "daily_care",
+              label: "Daily care log",
+              value: "Lead with daily care logging.",
+              primaryDetail: "Focuses first value on repeated use.",
+              secondaryDetail: "Willingness to pay still needs checking."
+            }
+          ],
+          decisionItUnlocks: "First value proposition.",
+          ambiguityDimension: "success_criteria",
+          ambiguityRoutingPath: "human_judgment",
+          researchQuestion: "Check public guardian complaints for moments when notes, photos, or clinic apps stop being enough.",
+          possibleRoutes: ["question", "decision_candidate"]
+        }
+      ]
+    };
+    let seenPrompt = "";
+    const codexRuntimeAdapter = createCodexRuntimeAdapter({
+      env: { SOLO_CODEX_APP_SERVER_LIVE_TURNS: "1" },
+      accountReader: async () => ({
+        status: "authenticated",
+        loginCommand: "codex auth login",
+        loginStatusCommand: "codex login status",
+        accountType: "chatgpt"
+      }),
+      livePreviewCreator: async (input) => {
+        seenPrompt = input.prompt;
+
+        return {
+          schemaVersion: CONTRACT_SCHEMA_VERSION,
+          turnPurpose: "question_generation",
+          artifactKind: "QuestionBatchArtifact",
+          applyPolicy: "auto_apply",
+          summary: "Generated question JSON ready",
+          payload: {
+            title: "Generated question JSON ready",
+            body: JSON.stringify(generatedQuestionSet),
+            targetObject: "generated_ambiguity_question_set",
+            sourceRefs: input.sourceRefs
+          }
+        };
+      }
+    });
+    const { app: storageApp, storage } = await createMigratedStorageApp(codexRuntimeAdapter);
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "A pet lifecycle management app for medical, food, daily, insurance, and funeral records"
+      );
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/questions/generate`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 3,
+          rawIdea: "A pet lifecycle management app for medical, food, daily, insurance, and funeral records",
+          intakeGoal: "Ask domain-fit questions instead of founder/team-lead defaults.",
+          projectPurposeMode: "business",
+          businessCriticIntensity: "balanced"
+        })
+      });
+      const body = await jsonBody(response);
+      const data = body.data as Readonly<Record<string, unknown>>;
+
+      expect(response.status).toBe(200);
+      expect(data).toMatchObject({
+        status: "generated",
+        promptTemplateRef: "prompt-template:generated-ambiguity-questions:v1",
+        schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
+        source: "codex_runtime_preview",
+        generatedQuestionSet
+      });
+      expect(seenPrompt).toContain("Prompt artifact: generated-ambiguity-questions.v1.md");
+      expect(seenPrompt).toContain("Do not use a fixed question template");
+      expect(seenPrompt).toContain("For a pet lifecycle app, ask about guardians");
     } finally {
       await storage.close();
     }
@@ -2873,6 +3105,7 @@ describe("PR-02 sidecar health shell", () => {
           allowlistId,
           connectorId: "public_search",
           sourceCategory: "public_web",
+          adapterKind: "local_fake_readonly",
           researchObjective: "Find public onboarding proof for founder validation tools.",
           productCategory: "Founder workflow assistant",
           customerProblemHypothesis: "Early founders need safer validation research.",
@@ -2986,6 +3219,7 @@ describe("PR-02 sidecar health shell", () => {
           allowlistId,
           connectorId: "public_search",
           sourceCategory: "public_web",
+          adapterKind: "local_fake_readonly",
           researchObjective: "Find public onboarding proof for retry behavior.",
           productCategory: "Founder workflow assistant",
           customerProblemHypothesis: "Early founders need safer validation research.",
@@ -3652,6 +3886,7 @@ describe("PR-02 sidecar health shell", () => {
           allowlistId,
           connectorId: "public_search",
           sourceCategory: "public_web",
+          adapterKind: "local_fake_readonly",
           researchObjective: "Validate implementation readiness source quality",
           productCategory: "Founder workflow assistant",
           customerProblemHypothesis: "Founders need reliable handoff evidence.",
@@ -3907,6 +4142,7 @@ describe("PR-02 sidecar health shell", () => {
         allowlistId,
         connectorId: "public_search",
         sourceCategory: "public_web",
+        adapterKind: "local_fake_readonly",
         researchObjective: "Find public onboarding proof for idempotent start behavior.",
         productCategory: "Founder workflow assistant",
         customerProblemHypothesis: "Early founders need safe duplicate retry recovery.",
@@ -4270,6 +4506,7 @@ describe("PR-02 sidecar health shell", () => {
         allowlistId,
         connectorId: "public_search",
         sourceCategory: "public_web",
+        adapterKind: "local_fake_readonly",
         researchObjective: "Find public onboarding proof for manual retry idempotency.",
         productCategory: "Founder workflow assistant",
         customerProblemHypothesis: "Early founders need safe retry recovery.",
@@ -9186,6 +9423,7 @@ describe("PR-02 sidecar health shell", () => {
       const projection = jsonDataRecord(body);
       const latestRun = latestAutoImplementationRunFromBody(body);
       const issueManagement = latestRun.issueManagement as Readonly<Record<string, unknown>>;
+      const planningIssueDocs = issueManagement.planningIssueDocs as readonly Readonly<Record<string, unknown>>[];
       const issueDocs = issueManagement.issueDocs as readonly Readonly<Record<string, unknown>>[];
       const stagePlan = latestRun.stagePlan as readonly Readonly<Record<string, unknown>>[];
       const projectDir = join(workspaceRoot, "demo-workspace-app");
@@ -9227,6 +9465,13 @@ describe("PR-02 sidecar health shell", () => {
         }
       });
       expect((issueManagement.githubIssueMutation as Readonly<Record<string, unknown>>).plannedIssues).toHaveLength(7);
+      expect(issueManagement.planningIssueSequenceTrackerRelativePath).toBe("planning-handoff-pr-issue-sequence.md");
+      expect(planningIssueDocs.length).toBeGreaterThan(0);
+      expect(planningIssueDocs[0]).toMatchObject({
+        relativePath: expect.stringMatching(/^planning-handoff-pr-issues\//u),
+        includedTaskIds: expect.arrayContaining([expect.any(String)]),
+        status: "active"
+      });
       expect(issueDocs).toHaveLength(7);
       expect(issueDocs[0]).toMatchObject({
         issueId: "local-001",
@@ -9235,6 +9480,7 @@ describe("PR-02 sidecar health shell", () => {
       });
 
       const tracker = await readFile(join(projectDir, "implementation-tracker.md"), "utf8");
+      const sequenceTracker = await readFile(join(projectDir, "planning-handoff-pr-issue-sequence.md"), "utf8");
       const planningPlan = await readFile(join(projectDir, "planning-handoff-implementation-plan.md"), "utf8");
       const issueMarkdownByPath = new Map(
         await Promise.all(
@@ -9281,6 +9527,8 @@ describe("PR-02 sidecar health shell", () => {
       };
       expect(tracker).toContain("<!-- solo-superman:auto-implementation-run-state:start -->");
       expect(tracker).toContain("## Auto implementation run state");
+      expect(tracker).toContain("### Planning PR-sized issue slices");
+      expect(tracker).toContain(`${planningIssueDocs[0]?.title ?? ""} (active;`);
       expect(tracker).toContain("- Run status: pending");
       expect(tracker).toContain("- Current stage: initial_pr");
       expect(tracker).toContain("- Issue status summary: 0 completed / 0 blocked / 7 open / 7 total");
@@ -9323,7 +9571,13 @@ describe("PR-02 sidecar health shell", () => {
       expect(tracker).toContain("Planning Handoff implementation plan");
       expect(tracker).toContain("[planning-handoff-implementation-plan.md](planning-handoff-implementation-plan.md)");
       expect(tracker).toContain("## Planning-derived PR/issue files");
-      expect(tracker).toContain(`[${firstPlanningIssueRelativePath}](${firstPlanningIssueRelativePath})`);
+      expect(tracker).toContain("PR issue sequence tracker: [planning-handoff-pr-issue-sequence.md]");
+      expect(tracker).toContain(firstPlanningIssueRelativePath!);
+      expect(sequenceTracker).toContain("# Planning Handoff PR issue sequence tracker");
+      expect(sequenceTracker).toContain("## Planning issue sequence state");
+      expect(sequenceTracker).toContain("## Sequence gates");
+      expect(sequenceTracker).toContain("Do not start a later PR-sized slice until the predecessor slice has merged");
+      expect(sequenceTracker).toContain("This sequence tracker owns cross-slice order");
       expect(tracker).toContain("git remote add origin <github-repo-url>");
       expect(tracker).toContain("GitHub issue mutation contract");
       expect(tracker).toContain("Status: not_requested");
@@ -9382,6 +9636,13 @@ describe("PR-02 sidecar health shell", () => {
           expect.stringMatching(/^planning-handoff-pr-issue:planning-handoff-pr-issues\//u)
         ]),
         issueManagement: {
+          planningIssueSequenceTrackerRelativePath: "planning-handoff-pr-issue-sequence.md",
+          planningIssueDocs: expect.arrayContaining([
+            expect.objectContaining({
+              relativePath: firstPlanningIssueRelativePath,
+              status: "active"
+            })
+          ]),
           githubIssueMutation: {
             status: "not_requested",
             mutatesGitHub: false,
@@ -9428,6 +9689,55 @@ describe("PR-02 sidecar health shell", () => {
       expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: projectDir, encoding: "utf8" }).trim())
         .toBe(commitCountBeforeReplay);
       expect(execFileSync("git", ["status", "--short"], { cwd: projectDir, encoding: "utf8" })).toBe("");
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("can prepare a run for a selected Planning Handoff PR-sized issue slice", async () => {
+    const workspaceRoot = await makeTempAppDataDir();
+    const { app: storageApp, storage } = await createMigratedStorageApp(fixtureCodexRuntimeAdapter, {
+      autoImplementationWorkspaceRoot: workspaceRoot
+    });
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "A selected PR-sized implementation slice test"
+      );
+      await ensurePlanningReadyForAutoImplementationTest(storageApp, sessionId);
+      const planningResponse = await storageApp.request(`/api/v1/sessions/${sessionId}/planning-handoff`, {
+        headers: authHeaders()
+      });
+      const planningProjection = jsonDataRecord(await jsonBody(planningResponse));
+      const finalArtifact = planningProjection.finalArtifact as Readonly<Record<string, unknown>>;
+      const prIssuePlan = finalArtifact.prIssuePlan as readonly Readonly<Record<string, unknown>>[];
+      const selectedPlanningIssueId = String(prIssuePlan[1]?.sequenceId);
+
+      const response = await postAutoImplementationRunForTest(storageApp, sessionId, {
+        idempotencyKey: `auto-implementation-route:selected:${selectedPlanningIssueId}`,
+        projectName: "Selected Planning Slice App",
+        planningIssueId: selectedPlanningIssueId
+      });
+      const body = await jsonBody(response);
+      const latestRun = latestAutoImplementationRunFromBody(body);
+      const issueManagement = latestRun.issueManagement as Readonly<Record<string, unknown>>;
+      const planningIssueDocs = issueManagement.planningIssueDocs as readonly Readonly<Record<string, unknown>>[];
+      const projectDir = join(workspaceRoot, "selected-planning-slice-app");
+      const tracker = await readFile(join(projectDir, "implementation-tracker.md"), "utf8");
+
+      expect(response.status).toBe(200);
+      expect(issueManagement.planningIssueSequenceTrackerRelativePath).toBe("planning-handoff-pr-issue-sequence.md");
+      expect(planningIssueDocs[0]).toMatchObject({ status: "completed" });
+      expect(planningIssueDocs[1]).toMatchObject({
+        issueId: selectedPlanningIssueId,
+        status: "active"
+      });
+      expect(latestRun.evidenceRefs as readonly string[]).toEqual(expect.arrayContaining([
+        expect.stringMatching(/^planning-handoff-active-pr-issue:planning-handoff-pr-issues\//u)
+      ]));
+      expect(tracker).toContain(`${selectedPlanningIssueId}:`);
+      expect(tracker).toContain("(active; planning-handoff-pr-issues/");
     } finally {
       await storage.close();
     }
@@ -12150,15 +12460,35 @@ describe("PR-02 sidecar health shell", () => {
       expect(syncedTracker).toContain("  - Status: completed");
       expect(syncedTracker).toContain("  - Ledger step: step_demo");
       expect(syncedTracker).toContain("  - Implementation evidence refs: commit:abcdef1");
+      expect(syncedTracker).toContain(
+        "  - Code review streak summary: feature 2/2 no-finding passes satisfied"
+      );
+      expect(syncedTracker).toContain(
+        "  - Clean-code review streak summary: changed_code 2/2 no-finding passes satisfied"
+      );
       expect(syncedTracker).toContain("  - Missing-test audit refs: missing-test-audit:demo, test:verify");
+      expect(syncedTracker).toContain(
+        "  - Missing-test audit summary: missing_test_audit_demo: 0 missing targeted-test gaps (satisfied)"
+      );
       expect(syncedTracker).toContain("  - Test evidence refs: test:verify");
+      expect(syncedTracker).toContain(
+        "  - Test evidence summary: test_verify_demo: passed; passed 10 / failed 0; not-tested gaps 0; commands pnpm verify"
+      );
       expect(syncedIssue).toContain("- Issue status: completed");
       expect(syncedIssue).toContain("- Stage status: completed");
       expect(syncedIssue).toContain("- Issue status summary: 1 completed / 0 blocked / 6 open / 7 total");
       expect(syncedIssue).toContain("- Ledger step: step_demo");
       expect(syncedIssue).toContain("- Implementation evidence refs: commit:abcdef1");
+      expect(syncedIssue).toContain("- Code review streak summary: feature 2/2 no-finding passes satisfied");
+      expect(syncedIssue).toContain("- Clean-code review streak summary: changed_code 2/2 no-finding passes satisfied");
       expect(syncedIssue).toContain("- Missing-test audit refs: missing-test-audit:demo, test:verify");
+      expect(syncedIssue).toContain(
+        "- Missing-test audit summary: missing_test_audit_demo: 0 missing targeted-test gaps (satisfied)"
+      );
       expect(syncedIssue).toContain("- Test evidence refs: test:verify");
+      expect(syncedIssue).toContain(
+        "- Test evidence summary: test_verify_demo: passed; passed 10 / failed 0; not-tested gaps 0; commands pnpm verify"
+      );
       expect(syncedIssue).toContain("- Stage evidence refs:");
       expect(syncedIssue).toContain("stage:initial_pr:start");
       expect(syncedIssue).toContain("stage:initial_pr:complete");
@@ -12170,6 +12500,52 @@ describe("PR-02 sidecar health shell", () => {
           trackerDocRef: "implementation-step-ledger:tracker:tracker_demo",
           stepDocRef: "implementation-step-ledger:step:step_demo",
           implementationEvidenceRefs: ["commit:abcdef1"],
+          codeReviewStreaks: [
+            expect.objectContaining({
+              reviewScope: "feature",
+              currentNoFindingPasses: 2,
+              requiredNoFindingPasses: 2,
+              satisfied: true,
+              latestReviewIds: ["review_code_feature_demo_1", "review_code_feature_demo_2"]
+            }),
+            expect.objectContaining({
+              reviewScope: "repository",
+              currentNoFindingPasses: 2,
+              requiredNoFindingPasses: 2,
+              satisfied: true,
+              latestReviewIds: ["review_code_repository_demo_1", "review_code_repository_demo_2"]
+            })
+          ],
+          cleanCodeReviewStreaks: [
+            expect.objectContaining({
+              reviewScope: "changed_code",
+              currentNoFindingPasses: 2,
+              requiredNoFindingPasses: 2,
+              satisfied: true,
+              latestReviewIds: ["review_clean_changed_demo_1", "review_clean_changed_demo_2"]
+            }),
+            expect.objectContaining({
+              reviewScope: "repository",
+              currentNoFindingPasses: 2,
+              requiredNoFindingPasses: 2,
+              satisfied: true,
+              latestReviewIds: ["review_clean_repository_demo_1", "review_clean_repository_demo_2"]
+            })
+          ],
+          missingTestAuditSummary: {
+            auditId: "missing_test_audit_demo",
+            missingTestGapCount: 0,
+            satisfied: true
+          },
+          testEvidenceSummary: {
+            testEvidenceId: "test_verify_demo",
+            outcome: "passed",
+            passedTestCount: 10,
+            failedTestCount: 0,
+            notTestedGapCount: 0,
+            satisfied: true,
+            commands: ["pnpm verify"]
+          },
           missingTestAuditRefs: ["missing-test-audit:demo", "test:verify"],
           testEvidenceRefs: ["test:verify"]
         }
