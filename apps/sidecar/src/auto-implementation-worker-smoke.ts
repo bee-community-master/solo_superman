@@ -182,6 +182,30 @@ export function autoImplementationWorkerGateEvidence(
   };
 }
 
+export function autoImplementationWorkerSmokeEnvFromArgv(
+  argv: readonly string[],
+  env: Readonly<Record<string, string | undefined>> = process.env
+): Readonly<Record<string, string | undefined>> {
+  const nextEnv = { ...env };
+
+  for (const arg of argv) {
+    if (arg === "--live") {
+      nextEnv[LIVE_WORKER_JOB_VERIFY_ENV] = "1";
+      nextEnv[LIVE_TURNS_ENV] = "1";
+      continue;
+    }
+    if (arg === "--fixture") {
+      delete nextEnv[LIVE_WORKER_JOB_VERIFY_ENV];
+      delete nextEnv[LIVE_TURNS_ENV];
+      continue;
+    }
+
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+
+  return nextEnv;
+}
+
 function runtimePublicStatus(status: CodexRuntimeStatusDto) {
   return {
     status: status.status,
@@ -737,7 +761,9 @@ function exitCodeForEvidence(evidence: AutoImplementationWorkerSmokeEvidence) {
 }
 
 async function main() {
-  const evidence = await runAutoImplementationWorkerSmoke();
+  const evidence = await runAutoImplementationWorkerSmoke({
+    env: autoImplementationWorkerSmokeEnvFromArgv(process.argv.slice(2))
+  });
 
   console.log(JSON.stringify(evidence, null, 2));
   process.exitCode = exitCodeForEvidence(evidence);

@@ -23,6 +23,7 @@
     "verify:codex-live-runtime": "node scripts/verify-codex-live-runtime.mjs",
     "verify:runtime-preview-turn": "tsx apps/sidecar/src/runtime-preview-smoke.ts",
     "verify:worker-job": "tsx apps/sidecar/src/auto-implementation-worker-smoke.ts",
+    "verify:worker-job:live": "tsx apps/sidecar/src/auto-implementation-worker-smoke.ts --live",
     "verify:pr-mutation": "tsx apps/sidecar/src/auto-implementation-pr-mutation-smoke.ts",
     "verify:auto-implementation-pipeline": "tsx apps/sidecar/src/auto-implementation-pipeline-smoke.ts",
     "verify:docs": "node scripts/verify-doc-contracts.mjs",

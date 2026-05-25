@@ -9,6 +9,7 @@ import {
   LIVE_TURNS_ENV,
   LIVE_WORKER_JOB_VERIFY_ENV,
   autoImplementationWorkerGateEvidence,
+  autoImplementationWorkerSmokeEnvFromArgv,
   runAutoImplementationWorkerSmoke
 } from "./auto-implementation-worker-smoke";
 import {
@@ -99,6 +100,19 @@ describe("auto implementation worker job smoke", () => {
       status: "ready",
       mode: "live"
     });
+  });
+
+  it("maps CLI live and fixture flags into the exact worker-job opt-in environment", () => {
+    expect(autoImplementationWorkerSmokeEnvFromArgv(["--live"], {})).toMatchObject({
+      [LIVE_WORKER_JOB_VERIFY_ENV]: "1",
+      [LIVE_TURNS_ENV]: "1"
+    });
+    expect(
+      autoImplementationWorkerSmokeEnvFromArgv(["--fixture"], {
+        [LIVE_WORKER_JOB_VERIFY_ENV]: "1",
+        [LIVE_TURNS_ENV]: "1"
+      })
+    ).not.toHaveProperty(LIVE_WORKER_JOB_VERIFY_ENV);
   });
 
   it("passes live mode only when the worker bridge returns completed ledger evidence", async () => {

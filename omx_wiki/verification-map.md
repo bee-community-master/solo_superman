@@ -17,6 +17,7 @@ Use this matrix to choose the smallest proof that matches the product claim.
 | Service page permission/final-submit boundary works | `pnpm verify:service-page-pipeline` | `pnpm verify` |
 | Production mutation stays gated | `pnpm verify:production-mutation-contract` | `pnpm verify` |
 | Readiness candidate -> Planning Handoff -> first auto implementation run stays connected | `pnpm verify:readiness-to-implementation` | `pnpm verify` |
+| Live Codex worker job can produce importable ledger evidence and advance a stage | `pnpm verify:worker-job:live` | opt-in live Codex check |
 | Auto implementation preview/worker/PR/review loop works | `pnpm verify:auto-implementation-pipeline` | `pnpm verify` |
 | Production bundle can run locally | `pnpm verify:prod-bundle` | `pnpm build && pnpm smoke:e2e` |
 | Release evidence bundle is complete and secret-free | `pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir>` | `pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>` |

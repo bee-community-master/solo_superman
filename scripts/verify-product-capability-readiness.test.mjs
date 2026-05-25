@@ -23,6 +23,7 @@ function autoImplementationCheckedBehaviors() {
   return [
     "Runtime preview requests produce bounded preview artifacts without applying file, shell, browser, or network actions.",
     "Opt-in live runtime readiness verification reports skipped, blocked, or passed evidence without forcing opt-in live execution into the default suite.",
+    "Opt-in live worker-job verification can be invoked directly with pnpm verify:worker-job:live and reports passed or blocked evidence without entering the default suite.",
     "Worker jobs keep planned ledger docs, authority refs, sandbox boundaries, and manual recovery evidence visible.",
     "Planning-derived PR-sized issue docs are first-class in issueManagement.planningIssueDocs, a separate PR issue sequence tracker, generated tracker state, and the Implementation panel before stage delivery issues; each run can target a selected planningIssueId so prior slices show completed, the selected slice shows active, and later slices remain planned.",
     "Generated PR body includes issue document status summary, stage status summary, review/evidence gate summary, and missing-test audit summary coverage, and approved gh PR create/edit mutations pass the generated body through a temporary body-file handoff instead of an inline CLI argument.",
@@ -103,6 +104,7 @@ function codeBackedContract(overrides = {}) {
         "pnpm verify:runtime-preview-turn",
         "pnpm verify:codex-live-runtime",
         "pnpm verify:worker-job",
+        "pnpm verify:worker-job:live",
         "pnpm verify:pr-mutation",
         "pnpm verify:auto-implementation-review-loop",
         "pnpm verify:single-session-product-loop:live-web",
@@ -143,14 +145,15 @@ function codeBackedContract(overrides = {}) {
       codeBackedCapability("auto-implementation-review-loop", [
         "pnpm verify:runtime-preview-turn",
         "pnpm verify:codex-live-runtime",
-      "pnpm verify:worker-job",
-      "pnpm verify:pr-mutation",
-      "pnpm verify:auto-implementation-review-loop",
-      "pnpm verify:single-session-product-loop",
-      "pnpm verify:single-session-product-loop:live-web",
-      "pnpm verify:readiness-to-implementation",
-      "pnpm verify:auto-implementation-pipeline",
-      "pnpm verify:core-product-loop"
+        "pnpm verify:worker-job",
+        "pnpm verify:worker-job:live",
+        "pnpm verify:pr-mutation",
+        "pnpm verify:auto-implementation-review-loop",
+        "pnpm verify:single-session-product-loop",
+        "pnpm verify:single-session-product-loop:live-web",
+        "pnpm verify:readiness-to-implementation",
+        "pnpm verify:auto-implementation-pipeline",
+        "pnpm verify:core-product-loop"
       ], {
         checkedBehaviors: autoImplementationCheckedBehaviors()
       }),
@@ -190,7 +193,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, pressure questions, generated source-seeking research targets, non-blocking answer submission, mounted research provider polling, opt-in live-web research import coverage, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, positive readiness handoff coverage, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, single-session product loop coverage, single-session live-web product loop coverage, readiness-to-implementation coverage, two-pass review streak gates, missing-test audit coverage, end-to-end core product loop coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, pressure questions, generated source-seeking research targets, non-blocking answer submission, mounted research provider polling, opt-in live-web research import coverage, research run limit UX, research markdown memory, generated follow-up research baseline memory, source-linked research follow-up task debt, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, positive readiness handoff coverage, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, opt-in live worker-job verification coverage, generated PR body summary coverage, single-session product loop coverage, single-session live-web product loop coverage, readiness-to-implementation coverage, two-pass review streak gates, missing-test audit coverage, end-to-end core product loop coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
@@ -219,6 +222,7 @@ describe("product capability readiness verification", () => {
       "$.capabilities[4].verificationCommands: must include pnpm verify:runtime-preview-turn",
       "$.capabilities[4].verificationCommands: must include pnpm verify:codex-live-runtime",
       "$.capabilities[4].verificationCommands: must include pnpm verify:worker-job",
+      "$.capabilities[4].verificationCommands: must include pnpm verify:worker-job:live",
       "$.capabilities[4].verificationCommands: must include pnpm verify:pr-mutation",
       "$.capabilities[4].verificationCommands: must include pnpm verify:auto-implementation-review-loop",
       "$.capabilities[4].verificationCommands: must include pnpm verify:single-session-product-loop",
@@ -377,7 +381,9 @@ describe("product capability readiness verification", () => {
           ? {
               ...capability,
               checkedBehaviors: capability.checkedBehaviors.filter((behavior) =>
-                !behavior.includes("live runtime readiness") && !behavior.startsWith("Generated PR body")
+                !behavior.includes("live runtime readiness") &&
+                !behavior.includes("live worker-job verification") &&
+                !behavior.startsWith("Generated PR body")
               )
             }
           : capability
@@ -388,6 +394,7 @@ describe("product capability readiness verification", () => {
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
       "$.capabilities[4].checkedBehaviors: must mention live runtime readiness",
+      "$.capabilities[4].checkedBehaviors: must mention live worker-job verification",
       "$.capabilities[4].checkedBehaviors: must mention skipped, blocked, or passed evidence",
       "$.capabilities[4].checkedBehaviors: must mention Generated PR body",
       "$.capabilities[4].checkedBehaviors: must mention issue document status summary",
@@ -530,6 +537,7 @@ describe("product capability readiness verification", () => {
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(expect.arrayContaining([
       "$.requiredVerificationCommands.supporting: must include pnpm verify:codex-live-runtime",
+      "$.requiredVerificationCommands.supporting: must include pnpm verify:worker-job:live",
       "$.requiredVerificationCommands.supporting: must include pnpm verify:single-session-product-loop:live-web",
       "$.requiredVerificationCommands.supporting: must include pnpm verify:ready-release -- --plan-only",
       "$.requiredVerificationCommands.supporting: must include pnpm support:bundle"
