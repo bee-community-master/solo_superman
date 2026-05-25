@@ -111,6 +111,7 @@ const REQUIRED_CAPABILITY_BEHAVIOR_SNIPPETS = new Map([
       "prior slices show completed",
       "selected slice shows active",
       "Generated PR body",
+      "body-file handoff",
       "issue document status summary",
       "stage status summary",
       "review/evidence gate summary",

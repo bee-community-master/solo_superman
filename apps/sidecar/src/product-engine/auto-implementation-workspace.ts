@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { lstat, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
@@ -102,6 +102,13 @@ export interface AutoImplementationPullRequestMutationAdapter {
   readonly mutate: (
     input: AutoImplementationPullRequestMutationInput
   ) => Promise<AutoImplementationPullRequestMutationResult>;
+}
+
+export interface AutoImplementationPullRequestGhArgsInput {
+  readonly action: AutoImplementationPullRequestMutationAction;
+  readonly pullRequestTitle: string;
+  readonly pullRequestUrl: string | null;
+  readonly bodyFilePath: string;
 }
 
 function shortHash(value: string) {
@@ -226,6 +233,54 @@ async function ensureRealDirectoryWithin(workspaceRoot: string, directoryPath: s
     if (!isRealDirectoryStat(segmentStat)) {
       throw new Error("Workspace output directories must not contain symbolic links.");
     }
+  }
+}
+
+export function autoImplementationPullRequestGhArgs(
+  input: AutoImplementationPullRequestGhArgsInput
+): readonly string[] {
+  if (input.action === "open_pr") {
+    return ["pr", "create", "--title", input.pullRequestTitle, "--body-file", input.bodyFilePath];
+  }
+
+  if (!input.pullRequestUrl) {
+    throw new Error("pullRequestUrl is required for this GitHub pull request mutation.");
+  }
+
+  if (input.action === "update_pr_body") {
+    return ["pr", "edit", input.pullRequestUrl, "--body-file", input.bodyFilePath];
+  }
+
+  return ["pr", "merge", input.pullRequestUrl, "--merge"];
+}
+
+async function withAutoImplementationPullRequestBodyFile<T>(
+  input: AutoImplementationPullRequestMutationInput,
+  run: (bodyFilePath: string) => Promise<T>
+) {
+  const metadataDir = resolve(input.projectDir, ".solo-superman");
+
+  await ensureRealDirectoryWithin(input.projectDir, metadataDir);
+
+  const bodyFilePath = resolve(metadataDir, `github-pr-body-${input.action}-${randomUUID()}.md`);
+
+  assertInsideDirectory(
+    input.projectDir,
+    bodyFilePath,
+    "GitHub PR body file must stay inside the generated project directory."
+  );
+  await writeFile(bodyFilePath, input.bodyMarkdown, "utf8");
+
+  try {
+    return await run(bodyFilePath);
+  } finally {
+    await unlink(bodyFilePath).catch((error: unknown) => {
+      const maybeError = error as { readonly code?: string };
+
+      if (maybeError.code !== "ENOENT") {
+        throw error;
+      }
+    });
   }
 }
 
@@ -502,15 +557,17 @@ export const ghAutoImplementationGitHubIssueMutationAdapter: AutoImplementationG
 export const ghAutoImplementationPullRequestMutationAdapter: AutoImplementationPullRequestMutationAdapter = {
   async mutate(input) {
     if (input.action === "open_pr") {
-      const { stdout } = await execFileAsync(
-        "gh",
-        ["pr", "create", "--title", input.pullRequestTitle, "--body", input.bodyMarkdown],
-        {
-          cwd: input.projectDir,
-          encoding: "utf8",
-          maxBuffer: 1024 * 1024,
-          timeout: COMMAND_TIMEOUT_MS
-        }
+      const { stdout } = await withAutoImplementationPullRequestBodyFile(input, async (bodyFilePath) =>
+        execFileAsync(
+          "gh",
+          autoImplementationPullRequestGhArgs({ ...input, bodyFilePath }),
+          {
+            cwd: input.projectDir,
+            encoding: "utf8",
+            maxBuffer: 1024 * 1024,
+            timeout: COMMAND_TIMEOUT_MS
+          }
+        )
       );
       const pullRequestUrl = stdout.trim().split(/\s+/u).find((part) =>
         /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/pull\/[1-9]\d*\/?$/iu.test(part)
@@ -522,7 +579,7 @@ export const ghAutoImplementationPullRequestMutationAdapter: AutoImplementationP
 
       return {
         pullRequestUrl,
-        auditEvidenceRefs: ["github-pr-mutation:gh:pr-create"],
+        auditEvidenceRefs: ["github-pr-mutation:gh:pr-create", "github-pr-mutation:gh:body-file"],
         mergeEvidenceRefs: []
       };
     }
@@ -532,21 +589,23 @@ export const ghAutoImplementationPullRequestMutationAdapter: AutoImplementationP
     }
 
     if (input.action === "update_pr_body") {
-      await execFileAsync("gh", ["pr", "edit", input.pullRequestUrl, "--body", input.bodyMarkdown], {
-        cwd: input.projectDir,
-        encoding: "utf8",
-        maxBuffer: 1024 * 1024,
-        timeout: COMMAND_TIMEOUT_MS
-      });
+      await withAutoImplementationPullRequestBodyFile(input, async (bodyFilePath) =>
+        execFileAsync("gh", autoImplementationPullRequestGhArgs({ ...input, bodyFilePath }), {
+          cwd: input.projectDir,
+          encoding: "utf8",
+          maxBuffer: 1024 * 1024,
+          timeout: COMMAND_TIMEOUT_MS
+        })
+      );
 
       return {
         pullRequestUrl: input.pullRequestUrl,
-        auditEvidenceRefs: ["github-pr-mutation:gh:pr-edit"],
+        auditEvidenceRefs: ["github-pr-mutation:gh:pr-edit", "github-pr-mutation:gh:body-file"],
         mergeEvidenceRefs: []
       };
     }
 
-    await execFileAsync("gh", ["pr", "merge", input.pullRequestUrl, "--merge"], {
+    await execFileAsync("gh", autoImplementationPullRequestGhArgs({ ...input, bodyFilePath: "" }), {
       cwd: input.projectDir,
       encoding: "utf8",
       maxBuffer: 1024 * 1024,
