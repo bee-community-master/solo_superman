@@ -303,6 +303,19 @@ function hasBinaryChoiceCue(question: string) {
   );
 }
 
+const NEGATED_BINARY_CHOICE_PATTERN = new RegExp(
+  [
+    "(?:찬성\\s*[/·또는과]*\\s*반대|반대\\s*[/·또는과]*\\s*찬성|찬반|동의\\s*[/·또는과]*\\s*비동의|예\\s*[/·또는과]*\\s*아니오)\\s*(?:선택|답변|판단|질문)?(?:이|가|은|는)?\\s*(?:아니라|아닌|말고|대신|보다)",
+    "(?:not|instead\\s+of|rather\\s+than|not\\s+an?\\s+)[^.\\n?]{0,40}(?:yes\\s*[/ ]?no|agree\\s*[/ ]?disagree|support\\s*[/ ]?oppose|pro\\s*[/ ]?con|binary\\s+choice)",
+    "(?:yes\\s*[/ ]?no|agree\\s*[/ ]?disagree|support\\s*[/ ]?oppose|pro\\s*[/ ]?con|binary\\s+choice)[^.\\n?]{0,40}(?:not|instead|rather\\s+than)"
+  ].join("|"),
+  "iu"
+);
+
+function rejectsBinaryChoiceCue(question: string) {
+  return NEGATED_BINARY_CHOICE_PATTERN.test(question);
+}
+
 function hasRankedChoiceCue(question: string) {
   return /(?:우선순위|우선\s*순위|순위|순서|랭킹|중요도순|먼저\s*(?:볼|검증|구현|확인)할\s*순서|rank(?:ed|ing)?|priorit(?:y|ize|ise)|order\s+(?:of|the))/iu.test(
     question
@@ -362,7 +375,7 @@ export function classifyResearchFollowUpAnswerShape(input: ResearchFollowUpAnswe
     return "open_text";
   }
 
-  if (hasBinaryChoiceCue(input.question)) {
+  if (hasBinaryChoiceCue(input.question) && !rejectsBinaryChoiceCue(input.question)) {
     return "binary_choice";
   }
 
