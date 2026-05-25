@@ -405,12 +405,6 @@ function promptWithGenericCandidates(input: {
   return `${input.lead}\n${bulletedQuestionCandidates(candidates)}\n\n${input.action}`;
 }
 
-const DEFAULT_CUSTOMER_CANDIDATES = [
-  "혼자 만드는 초기 창업자",
-  "도메인 전문 1인 빌더",
-  "팀 리더/운영 담당자"
-] as const;
-
 const PET_LIFECARE_CUSTOMER_CANDIDATES = [
   "첫 반려동물을 키우는 보호자",
   "노령·만성질환 반려동물 보호자",
@@ -430,7 +424,7 @@ function customerFallbackCandidatesForContext(text: string) {
     return PET_LIFECARE_CUSTOMER_CANDIDATES;
   }
 
-  return DEFAULT_CUSTOMER_CANDIDATES;
+  return [];
 }
 
 const CUSTOMER_CANDIDATE_LABEL_RULES = [
@@ -562,21 +556,19 @@ function promptSentenceForAnswerIntent(
   switch (intent) {
     case "single_customer_choice": {
       const evidenceCandidates = customerCandidateLabelsFromEvidence(context);
-      const candidates = evidenceCandidates.length ? evidenceCandidates : DEFAULT_CUSTOMER_CANDIDATES;
-      const lead = evidenceCandidates.length
-        ? "리서치 단서에서 우선 비교할 고객 후보는 다음과 같습니다:"
-        : "이 정보를 바탕으로 우선 비교할 고객 후보는 다음과 같습니다:";
+      if (evidenceCandidates.length < 2) {
+        return "리서치 단서만으로는 비교할 고객 후보가 충분히 분리되지 않았습니다. 선택지 없이, 이 아이디어에 맞는 첫 고객 후보를 2~4개로 직접 적고 그중 가장 먼저 검증할 후보와 이유를 1~2문장으로 설명해주세요.";
+      }
 
-      return `${lead}\n${bulletedQuestionCandidates(candidates)}\n\n어느 성향의 고객에 집중하시겠습니까?`;
+      return `리서치 단서에서 우선 비교할 고객 후보는 다음과 같습니다:\n${bulletedQuestionCandidates(evidenceCandidates)}\n\n어느 성향의 고객에 집중하시겠습니까?`;
     }
     case "multi_customer_choice": {
       const evidenceCandidates = customerCandidateLabelsFromEvidence(context);
-      const candidates = evidenceCandidates.length ? evidenceCandidates : DEFAULT_CUSTOMER_CANDIDATES;
-      const lead = evidenceCandidates.length
-        ? "리서치 단서에서 함께 비교할 고객 후보는 다음과 같습니다:"
-        : "이 정보를 바탕으로 함께 비교할 고객 후보는 다음과 같습니다:";
+      if (evidenceCandidates.length < 2) {
+        return "리서치 단서만으로는 함께 비교할 고객 후보가 충분히 분리되지 않았습니다. 선택지 없이, 첫 검증 배치에 남길 고객 후보와 제외할 후보를 직접 적고 각 이유를 간단히 설명해주세요.";
+      }
 
-      return `${lead}\n${bulletedQuestionCandidates(candidates)}\n\n해당되는 고객 후보를 하나 이상 선택해주세요. 필요하면 선택지 조합이나 빠진 후보를 직접 적어도 됩니다.`;
+      return `리서치 단서에서 함께 비교할 고객 후보는 다음과 같습니다:\n${bulletedQuestionCandidates(evidenceCandidates)}\n\n해당되는 고객 후보를 하나 이상 선택해주세요. 필요하면 선택지 조합이나 빠진 후보를 직접 적어도 됩니다.`;
     }
     case "multi_signal_choice": {
       const evidenceSignals = customerSignalLabelsFromEvidence(context);
