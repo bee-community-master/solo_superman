@@ -62,6 +62,9 @@ export interface CoreProductLoopSmokeEvidence {
     readonly singleSessionAutoImplementationCurrentStage: string;
     readonly singleSessionGeneratedSoftwareArtifactCount: number;
     readonly singleSessionGeneratedSoftwareHasRunnableTest: boolean;
+    readonly singleSessionGeneratedProductSourceRefCount: number;
+    readonly singleSessionGeneratedProductResidualRiskCount: number;
+    readonly singleSessionGeneratedProductFirstIssueTaskCount: number;
     readonly sameSessionWorkerStageAfter: string;
     readonly sameSessionWorkerLedgerStatus: string;
     readonly readinessCompositeScore: number;
@@ -120,6 +123,12 @@ function loopSummary(stages: CoreProductLoopSmokeEvidence["stages"]): CoreProduc
       stages.singleSession.loop?.autoImplementationGeneratedSoftwareArtifactCount ?? 0,
     singleSessionGeneratedSoftwareHasRunnableTest:
       stages.singleSession.loop?.autoImplementationGeneratedSoftwareHasRunnableTest ?? false,
+    singleSessionGeneratedProductSourceRefCount:
+      stages.singleSession.loop?.generatedProductSourceRefCount ?? 0,
+    singleSessionGeneratedProductResidualRiskCount:
+      stages.singleSession.loop?.generatedProductResidualRiskCount ?? 0,
+    singleSessionGeneratedProductFirstIssueTaskCount:
+      stages.singleSession.loop?.generatedProductFirstIssueTaskCount ?? 0,
     sameSessionWorkerStageAfter: stages.singleSessionImplementation.worker?.stageAfter ?? "unknown",
     sameSessionWorkerLedgerStatus: stages.singleSessionImplementation.worker?.ledgerStatus ?? "unknown",
     readinessCompositeScore: stages.readinessToImplementation.readiness?.compositeScore ?? 0,
@@ -183,13 +192,19 @@ function loopBlockers(stages: CoreProductLoopSmokeEvidence["stages"]) {
       `single-session core loop must start auto implementation at initial_pr; received ${loop.singleSessionAutoImplementationCurrentStage}`
     );
   }
-  if (loop.singleSessionGeneratedSoftwareArtifactCount < 5) {
+  if (loop.singleSessionGeneratedSoftwareArtifactCount < 6) {
     blockers.push(
       `single-session core loop must generate a runnable software scaffold; received ${loop.singleSessionGeneratedSoftwareArtifactCount} artifacts`
     );
   }
   if (!loop.singleSessionGeneratedSoftwareHasRunnableTest) {
     blockers.push("single-session core loop must include the generated software smoke test artifact.");
+  }
+  if (loop.singleSessionGeneratedProductSourceRefCount < 1) {
+    blockers.push("single-session core loop must carry Planning Handoff source refs into generated product data.");
+  }
+  if (loop.singleSessionGeneratedProductFirstIssueTaskCount < 1) {
+    blockers.push("single-session core loop must carry first PR-sized implementation tasks into generated product data.");
   }
   if (loop.sameSessionWorkerLedgerStatus !== "completed") {
     blockers.push(`single-session worker proof must complete an implementation ledger; received ${loop.sameSessionWorkerLedgerStatus}`);

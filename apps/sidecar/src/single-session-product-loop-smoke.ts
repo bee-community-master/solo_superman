@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -87,6 +87,7 @@ interface SingleSessionFlowResult {
   readonly completeness: JsonRecord;
   readonly planningHandoff: JsonRecord;
   readonly autoImplementationRun: JsonRecord;
+  readonly generatedProductData: JsonRecord;
 }
 
 export interface SingleSessionProductLoopSmokeEvidence {
@@ -123,6 +124,9 @@ export interface SingleSessionProductLoopSmokeEvidence {
     readonly autoImplementationStageCount: number;
     readonly autoImplementationGeneratedSoftwareArtifactCount: number;
     readonly autoImplementationGeneratedSoftwareHasRunnableTest: boolean;
+    readonly generatedProductSourceRefCount: number;
+    readonly generatedProductResidualRiskCount: number;
+    readonly generatedProductFirstIssueTaskCount: number;
   };
   readonly reason?: string;
   readonly blockers?: readonly string[];
@@ -567,6 +571,10 @@ async function executeSingleSessionFlow(
     sessionId: project.sessionId,
     planningArtifactId: stringAt(finalArtifact.artifactId, "planning artifactId")
   });
+  const generatedRepoPath = stringAt(autoImplementationRun.generatedRepoPath, "auto implementation generatedRepoPath");
+  const generatedProductData = JSON.parse(
+    await readFile(join(generatedRepoPath, "generated-product", "product-slice.json"), "utf8")
+  ) as JsonRecord;
 
   return {
     mode: options.mode,
@@ -581,7 +589,8 @@ async function executeSingleSessionFlow(
     queueAfterResearch,
     completeness,
     planningHandoff,
-    autoImplementationRun
+    autoImplementationRun,
+    generatedProductData
   };
 }
 
@@ -606,6 +615,15 @@ function flowSummary(result: SingleSessionFlowResult): NonNullable<SingleSession
   const completionCandidate = objectAt(result.completeness.completionCandidate, "completion candidate");
   const planningFinalArtifact = objectAt(result.planningHandoff.finalArtifact, "planning finalArtifact");
   const stagePlan = recordArray(result.autoImplementationRun.stagePlan, "auto implementation stagePlan");
+  const generatedProductEvidence = objectAt(result.generatedProductData.evidence, "generated product evidence");
+  const generatedProductImplementation = objectAt(
+    result.generatedProductData.implementation,
+    "generated product implementation"
+  );
+  const generatedProductFirstIssue = objectAt(
+    generatedProductImplementation.firstPrIssue,
+    "generated product firstPrIssue"
+  );
   const autoImplementationEvidenceRefs = stringArrayAt(
     result.autoImplementationRun.evidenceRefs,
     "auto implementation evidenceRefs"
@@ -641,7 +659,19 @@ function flowSummary(result: SingleSessionFlowResult): NonNullable<SingleSession
     autoImplementationGeneratedSoftwareArtifactCount: generatedSoftwareArtifactRefs.length,
     autoImplementationGeneratedSoftwareHasRunnableTest: generatedSoftwareArtifactRefs.includes(
       "generated-software-artifact:generated-product/src/product-slice.test.mjs"
-    )
+    ),
+    generatedProductSourceRefCount: recordArray(
+      generatedProductEvidence.sourceRefs,
+      "generated product evidence.sourceRefs"
+    ).length,
+    generatedProductResidualRiskCount: recordArray(
+      generatedProductEvidence.residualRisks,
+      "generated product evidence.residualRisks"
+    ).length,
+    generatedProductFirstIssueTaskCount: recordArray(
+      generatedProductFirstIssue.tasks,
+      "generated product firstPrIssue.tasks"
+    ).length
   };
 }
 
@@ -703,13 +733,19 @@ function flowBlockers(result: SingleSessionFlowResult) {
   if (summary.autoImplementationStageCount < 7) {
     blockers.push(`same session auto implementation must create canonical stages; received ${summary.autoImplementationStageCount}`);
   }
-  if (summary.autoImplementationGeneratedSoftwareArtifactCount < 5) {
+  if (summary.autoImplementationGeneratedSoftwareArtifactCount < 6) {
     blockers.push(
       `same session auto implementation must create generated software scaffold artifacts; received ${summary.autoImplementationGeneratedSoftwareArtifactCount}`
     );
   }
   if (!summary.autoImplementationGeneratedSoftwareHasRunnableTest) {
     blockers.push("same session auto implementation must include a runnable generated software smoke test artifact.");
+  }
+  if (summary.generatedProductSourceRefCount < 1) {
+    blockers.push("same session generated product data must carry Planning Handoff source refs into the software artifact.");
+  }
+  if (summary.generatedProductFirstIssueTaskCount < 1) {
+    blockers.push("same session generated product data must carry first PR-sized implementation tasks.");
   }
 
   return blockers;
@@ -734,7 +770,8 @@ function passedEvidence(result: SingleSessionFlowResult): SingleSessionProductLo
       "same-session readiness reached spec_ready candidate status before Planning Handoff",
       "same-session Planning Handoff produced a planning_ready artifact",
       "same-session auto implementation run started at initial_pr with canonical stages",
-      "same-session auto implementation generated a runnable local software scaffold with source-traced smoke test"
+      "same-session auto implementation generated a runnable local software scaffold with source-traced smoke test",
+      "same-session generated product data carried Planning Handoff source refs, residual risk register, and first-slice tasks"
     ]
   };
 }
