@@ -71,6 +71,7 @@
         "apps/sidecar/src/research-pipeline-smoke.ts",
         "apps/sidecar/src/product-engine/research-memory-markdown.ts",
         "packages/core/src/research-engine/background-research-runtime.ts",
+        "packages/core/test/product-engine.test.ts",
         "packages/core/src/product-engine/research-follow-up-answer-shape.test.ts",
         "apps/web/src/features/decision-queue/Phase15aOperationsPanel.tsx",
         "apps/web/src/features/decision-queue/shell/ResearchView.tsx"
@@ -85,6 +86,7 @@
         "Provider-polled research writes markdown memory so duplicate research can cite existing evidence while wider follow-up research still starts a new run with the memory as baseline context.",
         "Research review cards retain source traces and expose pro/con/uncertainty quality gates.",
         "Research-generated follow-up questions return to the Decision Queue as answerable debt.",
+        "Evidence synthesis creates sourceQueueItemId-linked planned research tasks and queued research_evidence_effect wait work for research-generated follow-up questions.",
         "Research-generated follow-up questions preserve answer-form variety: open_text narrative answers, binary_choice pro/con decisions, single_choice one-of-many choices, multi_select one-or-more selections, ranked_choice, and evidence_judgment are selected from the concrete question intent instead of forcing every answer into pro/con stance."
       ]
     },

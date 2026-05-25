@@ -59,6 +59,7 @@ export interface ResearchPipelineSmokeEvidence {
     readonly evidencePackGateStatus: string;
     readonly reviewCardState: string;
     readonly followUpQuestionCount: number;
+    readonly followUpResearchTaskCount: number;
     readonly queueBlockedCount: number;
     readonly researchMemorySourceRefCount: number;
     readonly widerResearchSourceRefCount: number;
@@ -344,6 +345,12 @@ function flowBlockers(result: ResearchFlowResult) {
   const followUps = [...activeQueue, ...nextQueue, ...blockedQueue, ...deferredQueue].filter(
     (item) => item.cardType === "follow_up_question"
   );
+  const followUpQueueItemIds = new Set(
+    followUps.flatMap((item) => (typeof item.queueItemId === "string" ? [item.queueItemId] : []))
+  );
+  const followUpResearchTasks = recordArray(result.researchProjection.tasks, "research tasks").filter((task) =>
+    typeof task.sourceQueueItemId === "string" && followUpQueueItemIds.has(task.sourceQueueItemId)
+  );
 
   if (startProjection.status !== "started") {
     blockers.push(`research run start status must be started; received ${JSON.stringify(startProjection.status)}`);
@@ -380,6 +387,10 @@ function flowBlockers(result: ResearchFlowResult) {
 
   if (followUps.length < 1) {
     blockers.push("Decision Queue must expose at least one research follow-up question");
+  }
+
+  if (followUpResearchTasks.length < 1) {
+    blockers.push("research-generated follow-up questions must create source-linked planned research task debt");
   }
 
   if (result.researchMemorySourceRefs.length < 1) {
@@ -423,6 +434,12 @@ function passedEvidence(result: ResearchFlowResult): ResearchPipelineSmokeEviden
   const followUps = [...activeQueue, ...nextQueue, ...blockedQueue, ...deferredQueue].filter(
     (item) => item.cardType === "follow_up_question"
   );
+  const followUpQueueItemIds = new Set(
+    followUps.flatMap((item) => (typeof item.queueItemId === "string" ? [item.queueItemId] : []))
+  );
+  const followUpResearchTasks = recordArray(result.researchProjection.tasks, "research tasks").filter((task) =>
+    typeof task.sourceQueueItemId === "string" && followUpQueueItemIds.has(task.sourceQueueItemId)
+  );
 
   return {
     status: "passed",
@@ -441,6 +458,7 @@ function passedEvidence(result: ResearchFlowResult): ResearchPipelineSmokeEviden
       evidencePackGateStatus: stringAt(pack.gateStatus, "pack gateStatus"),
       reviewCardState: maybeString(reviewCard.state) ?? "unknown",
       followUpQuestionCount: followUps.length,
+      followUpResearchTaskCount: followUpResearchTasks.length,
       queueBlockedCount: blockedQueue.length,
       researchMemorySourceRefCount: result.researchMemorySourceRefs.length,
       widerResearchSourceRefCount: stringArrayAt(widerStartedRun.sourceRefs, "wider started run sourceRefs").length
@@ -454,7 +472,8 @@ function passedEvidence(result: ResearchFlowResult): ResearchPipelineSmokeEviden
       "wider follow-up research carries existing markdown memory refs as baseline context while still starting a new run",
       "provider quality gate marked insufficient evidence for review",
       "Research projection exposes evidence matrix, evidence pack, and review card",
-      "Decision Queue exposes source-traceable follow-up question debt"
+      "Decision Queue exposes source-traceable follow-up question debt",
+      "Research projection exposes source-linked planned research task debt for research-generated follow-up questions"
     ]
   };
 }

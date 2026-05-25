@@ -4093,7 +4093,11 @@ describe("PR-02 sidecar health shell", () => {
       expect(resolvedBody.data).toMatchObject({
         category: "accepted_with_projection",
         queueProjection: {
-          blocked: []
+          blocked: expect.not.arrayContaining([
+            expect.objectContaining({
+              queueItemId: cardId
+            })
+          ])
         }
       });
 
@@ -4103,14 +4107,14 @@ describe("PR-02 sidecar health shell", () => {
       const afterResolveBody = await jsonBody(afterResolve);
 
       expect(afterResolveBody.data).toMatchObject({
-        reviewCards: [
+        reviewCards: expect.arrayContaining([
           expect.objectContaining({
             cardId,
             terminalOutcome: "risk_accepted",
             terminalRationale: "Founder accepts this missing counter-evidence risk for the next validation sprint.",
             blocksPlanning: false
           })
-        ],
+        ]),
         knownRisks: expect.arrayContaining([
           expect.stringContaining("Founder accepts this missing counter-evidence risk")
         ])

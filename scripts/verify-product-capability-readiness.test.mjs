@@ -39,6 +39,7 @@ function researchEvidenceCheckedBehaviors() {
     "Provider-polled research writes markdown memory so duplicate research can cite existing evidence while wider follow-up research still starts a new run with the memory as baseline context.",
     "Research review cards retain source traces and expose pro/con/uncertainty quality gates.",
     "Research-generated follow-up questions return to the Decision Queue as answerable debt.",
+    "Evidence synthesis creates sourceQueueItemId-linked planned research tasks and queued research_evidence_effect wait work for research-generated follow-up questions.",
     "Research-generated follow-up questions preserve answer-form variety: open_text narrative answers, binary_choice pro/con decisions, single_choice one-of-many choices, multi_select one-or-more selections, ranked_choice, and evidence_judgment are selected from the concrete question intent instead of forcing every answer into pro/con stance."
   ];
 }
@@ -174,7 +175,7 @@ describe("product capability readiness verification", () => {
     });
 
     expect(evidence.checked).toContain(
-      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, generated research targets, non-blocking answer submission, mounted research provider polling, research run limit UX, research markdown memory, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
+      "required capability behavior snippets, including clarification answer-form variety, ambiguity-reduction routing, generated research targets, non-blocking answer submission, mounted research provider polling, research run limit UX, research markdown memory, source-linked research follow-up task debt, answer-form variety for research follow-up questions, planning readiness score/axis/ambiguity-dimension floor gates, approved public-read browser targets, final-submit production-mutation contract coverage, opt-in live runtime coverage, generated PR body summary coverage, two-pass review streak gates, missing-test audit coverage, redacted support diagnostics coverage, and ready-release plan-only coverage"
     );
   });
 
