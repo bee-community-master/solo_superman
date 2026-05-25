@@ -837,7 +837,10 @@ describe("release evidence checklist", () => {
                 itemId: "windows-one-line-install-first-screen",
                 gateId: "windows-real-device",
                 requiredCheckCount: 11,
-                requiredEvidenceCount: 4
+                requiredEvidenceCount: 4,
+                evidenceBundleShapeKind: "windows-real-device",
+                evidenceBundleRequiredFieldCount: 22,
+                evidenceBundleRequiredPassedCheckCount: 11
               })
             ])
           }),
@@ -851,7 +854,10 @@ describe("release evidence checklist", () => {
                 gateId: "signed-packages",
                 requiredCheckCount: 4,
                 requiredEvidenceCount: 4,
-                unblockCriteriaCount: 3
+                unblockCriteriaCount: 3,
+                evidenceBundleShapeKind: "release-manifest-signing",
+                evidenceBundleRequiredFieldCount: 11,
+                evidenceBundleRequiredPassedCheckCount: 4
               })
             ])
           }),
@@ -864,7 +870,10 @@ describe("release evidence checklist", () => {
                 itemId: "macos-packaged-update-rollback",
                 gateId: "packaged-update-rollback",
                 requiredCheckCount: 8,
-                requiredEvidenceCount: 7
+                requiredEvidenceCount: 7,
+                evidenceBundleShapeKind: "macos-packaged-update-rollback",
+                evidenceBundleRequiredFieldCount: 31,
+                evidenceBundleRequiredPassedCheckCount: 8
               })
             ])
           })
@@ -899,8 +908,15 @@ describe("release evidence checklist", () => {
       expect(readme).toContain("structured `evidenceBundle` fields");
       expect(readme).toContain("## Issue evidence item summary");
       expect(readme).toContain("#259: `2 / 2` blocked evidence items");
-      expect(readme).toContain("`windows-real-device` (release-readiness, blocked; checks 0, evidence 4, unblock 3)");
-      expect(readme).toContain("`release-manifest-signing` (signed-packages, blocked; checks 4, evidence 4, unblock 3)");
+      expect(readme).toContain(
+        "`windows-real-device` (release-readiness, blocked; checks 0, evidence 4, unblock 3, shape none fields 0, passed-checks 0)"
+      );
+      expect(readme).toContain(
+        "`release-manifest-signing` (signed-packages, blocked; checks 4, evidence 4, unblock 3, shape release-manifest-signing fields 11, passed-checks 4)"
+      );
+      expect(readme).toContain(
+        "`windows-one-line-install-first-screen` (windows-real-device, blocked; checks 11, evidence 4, unblock 3, shape windows-real-device fields 22, passed-checks 11)"
+      );
       expect(readme).toContain("issue-259-comment.md");
       expect(readme).toContain("pnpm verify:release-evidence-template -- --input <filled-template.json>");
       expect(readme).toContain("pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir>");
