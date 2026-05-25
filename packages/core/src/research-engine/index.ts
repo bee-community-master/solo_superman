@@ -172,8 +172,8 @@ type AdditionalQuestionAnswerIntent =
 
 const explicitAdditionalQuestionNarrativeInstructionPattern = new RegExp(
   [
-    String.raw`(?:이번(?:에는| 질문은)?|지금(?:은)?|여기서는|이\s*질문은|답변은)[^.\n?]{0,100}(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|open[-\s]?question|open[-\s]?ended)`,
-    String.raw`(?:주관식|서술형|자유\s*(?:답변|서술|입력)|open[-\s]?question|open[-\s]?ended)[^.\n?]{0,100}(?:답변을?\s*(?:요구|작성|적어|남겨)|로\s*(?:답변|작성|서술)|(?:실제|본인|사용자|고객)[^.\n?]{0,60}(?:맥락|상황|이유|제약)\s*(?:서술|설명))`
+    String.raw`(?:이번(?:에는| 질문은)?|지금(?:은)?|여기서는|이\s*질문은|답변은)[^.\n?]{0,100}(?:주관식|주관형|서술형|서술식|논술형|자유\s*(?:답변|서술|입력|문항)|직접\s*(?:입력|작성)|open[-\s]?question|open[-\s]?ended)`,
+    String.raw`(?:주관식|주관형|서술형|서술식|논술형|자유\s*(?:답변|서술|입력|문항)|open[-\s]?question|open[-\s]?ended)[^.\n?]{0,100}(?:답변을?\s*(?:요구|작성|적어|남겨)|로\s*(?:답변|작성|서술)|(?:실제|본인|사용자|고객)[^.\n?]{0,60}(?:맥락|상황|이유|제약)\s*(?:서술|설명))`
   ].join("|"),
   "iu"
 );
@@ -181,7 +181,7 @@ const explicitAdditionalQuestionNarrativeInstructionPattern = new RegExp(
 function additionalQuestionAnswerIntentForObjective(objective: string): AdditionalQuestionAnswerIntent {
   const topic = userFacingQuestionText(objective).toLowerCase();
   const asksForNarrative =
-    /(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|서술|설명|자유롭게|상황|맥락|이유|제약|왜|어떻게|workflow|흐름|사용\s*방식|describe|explain|free[-\s]?form|open[-\s]?(?:ended|question)|context)/iu.test(topic);
+    /(?:주관식|주관형|서술형|서술식|논술형|자유\s*(?:답변|서술|입력|문항)|직접\s*(?:입력|작성)|서술|설명|자유롭게|상황|맥락|이유|제약|왜|어떻게|workflow|흐름|사용\s*방식|describe|explain|free[-\s]?form|open[-\s]?(?:ended|question)|context)/iu.test(topic);
   const rejectsChoiceOptions =
     /(?:선택지\s*없이|선택지(?:가|는)?\s*아니라|객관식(?:이|은)?\s*아니라|선택형(?:이|은)?\s*아니라|고르지\s*말고|선택하지\s*말고|without\s+choices?|no\s+choices?|not\s+(?:a\s+)?(?:choice|multiple[-\s]?choice|single[-\s]?choice))/iu.test(topic);
   const asksForForcedChoice =

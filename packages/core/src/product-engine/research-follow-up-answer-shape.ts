@@ -223,20 +223,6 @@ function candidateAnswerOptionsFromQuestion(question: string): readonly Ambiguit
   );
 }
 
-function isCustomerSegmentResearchFollowUp(input: Pick<ResearchFollowUpAnswerInput, "question" | "researchTask" | "sourceQuestion">) {
-  return /(?:고객|세그먼트|segment|customer|persona|성향|후보)/iu.test(
-    [
-      input.question,
-      input.researchTask.objective,
-      input.sourceQuestion?.summary,
-      input.sourceQuestion?.questionText,
-      input.sourceQuestion?.topicKey
-    ]
-      .filter(Boolean)
-      .join(" ")
-  );
-}
-
 function normalizedQuestionContext(input: ResearchFollowUpAnswerInput) {
   return [
     input.question,
@@ -263,15 +249,15 @@ function hasEvidenceJudgmentCue(input: ResearchFollowUpAnswerInput) {
 }
 
 function hasOpenTextCue(question: string) {
-  return /(?:주관식|서술형|자유\s*(?:답변|서술|입력)|직접\s*(?:입력|작성)|서술|설명|적어\s*주|작성|말로\s*(?:풀어|설명)|본인\s*말|자유롭게|구체적으로\s*(?:말|설명)|의견|생각|경험|이야기|인사이트|배운\s*점|느낀\s*점|왜|어떻게|어떤\s*(?:상황|맥락|이유|제약)|describe|explain|write|free[-\s]?form|open[-\s]?(?:ended|question)|subjective|narrative|descriptive)/iu.test(
+  return /(?:주관식|주관형|서술형|서술식|논술형|자유\s*(?:답변|서술|입력|문항)|직접\s*(?:입력|작성)|서술|설명|적어\s*주|작성|말로\s*(?:풀어|설명)|본인\s*말|자유롭게|구체적으로\s*(?:말|설명)|의견|생각|경험|이야기|인사이트|배운\s*점|느낀\s*점|왜|어떻게|어떤\s*(?:상황|맥락|이유|제약)|describe|explain|write|free[-\s]?form|open[-\s]?(?:ended|question)|subjective|narrative|descriptive)/iu.test(
     question
   );
 }
 
 const explicitNarrativeAnswerInstructionPattern = new RegExp(
   [
-    "(?:이번(?:에는| 질문은)?|지금(?:은)?|여기서는|이\\s*질문은|답변은)[^.\\n?]{0,80}(?:주관식|서술형|자유\\s*(?:답변|서술|입력)|직접\\s*(?:입력|작성)|open[-\\s]?question|open[-\\s]?ended)",
-    "(?:주관식|서술형|자유\\s*(?:답변|서술|입력)|open[-\\s]?question|open[-\\s]?ended)[^.\\n?]{0,80}(?:답변을?\\s*(?:요구|작성|적어|남겨)|로\\s*(?:답변|작성|서술))"
+    "(?:이번(?:에는| 질문은)?|지금(?:은)?|여기서는|이\\s*질문은|답변은)[^.\\n?]{0,80}(?:주관식|주관형|서술형|서술식|논술형|자유\\s*(?:답변|서술|입력|문항)|직접\\s*(?:입력|작성)|open[-\\s]?question|open[-\\s]?ended)",
+    "(?:주관식|주관형|서술형|서술식|논술형|자유\\s*(?:답변|서술|입력|문항)|open[-\\s]?question|open[-\\s]?ended)[^.\\n?]{0,80}(?:답변을?\\s*(?:요구|작성|적어|남겨)|로\\s*(?:답변|작성|서술))"
   ].join("|"),
   "iu"
 );
@@ -341,20 +327,6 @@ function hasSingleChoiceCue(question: string) {
 function asksForValidationPlan(question: string) {
   return /(?:(?:실험|검증|테스트|확인)\s*(?:방법|방식|계획|후보|절차|전략|먼저|우선)|(?:방법|방식|계획|후보)\s*(?:중|가운데)?\s*(?:어느|어떤)?\s*(?:실험|검증|테스트|확인)|validation\s+plan|validate\s+(?:first|with|by)|which\s+(?:experiment|test|validation)|experiment\s+(?:plan|first|candidate)|test\s+(?:plan|first|candidate))/iu.test(
     question
-  );
-}
-
-function isSignalOrCriteriaResearchFollowUp(input: Pick<ResearchFollowUpAnswerInput, "question" | "researchTask" | "sourceQuestion">) {
-  return /(?:신호|조건|요인|기준|signal|criteria|factor|indicator)/iu.test(
-    [
-      input.question,
-      input.researchTask.objective,
-      input.sourceQuestion?.summary,
-      input.sourceQuestion?.questionText,
-      input.sourceQuestion?.topicKey
-    ]
-      .filter(Boolean)
-      .join(" ")
   );
 }
 
@@ -450,14 +422,12 @@ export function researchFollowUpAnswerSelectionMode(input: ResearchFollowUpAnswe
   return answerShape === "ranked_choice" ? "ranked" : "single";
 }
 
-function choiceTopicKeyForQuestion(input: ResearchFollowUpAnswerInput) {
-  const text = normalizedQuestionContext(input);
-
-  if (isSignalOrCriteriaResearchFollowUp(input)) {
+function choiceTopicKeyForText(text: string) {
+  if (/(?:신호|조건|요인|기준|signal|criteria|factor|indicator)/iu.test(text)) {
     return "customer_signal_selection";
   }
 
-  if (isCustomerSegmentResearchFollowUp(input)) {
+  if (/(?:고객|세그먼트|segment|customer|persona|성향|후보)/iu.test(text)) {
     return "primary_customer_narrowing";
   }
 
@@ -476,13 +446,28 @@ function choiceTopicKeyForQuestion(input: ResearchFollowUpAnswerInput) {
   return undefined;
 }
 
+function choiceTopicKeyForQuestion(input: ResearchFollowUpAnswerInput) {
+  const text = normalizedQuestionContext(input);
+
+  return choiceTopicKeyForText(text);
+}
+
 function choiceAnswerOptions(input: ResearchFollowUpAnswerInput, answerShape: ResearchFollowUpAnswerShape) {
   const explicitSourceOptions = input.sourceQuestion?.answerOptions;
   const sourceTopicOptions = answerOptionsForQuestion(input.sourceQuestion?.topicKey, input.sourceQuestion?.expectedAnswerType);
   const questionCandidateOptions = candidateAnswerOptionsFromQuestion(input.question);
+  const questionTopicKey = choiceTopicKeyForText(input.question);
+  const contextualTopicKey = choiceTopicKeyForQuestion(input);
+  const questionTopicOptions = questionTopicKey
+    ? answerOptionsForQuestion(questionTopicKey, researchFollowUpExpectedAnswerType(input))
+    : undefined;
 
   if (questionCandidateOptions.length) {
     return boundedChoiceAnswerOptions(questionCandidateOptions, answerShape);
+  }
+
+  if (questionTopicOptions?.length) {
+    return boundedChoiceAnswerOptions(questionTopicOptions, answerShape);
   }
 
   if (explicitSourceOptions?.length) {
@@ -494,7 +479,7 @@ function choiceAnswerOptions(input: ResearchFollowUpAnswerInput, answerShape: Re
   }
 
   return boundedChoiceAnswerOptions(
-    answerOptionsForQuestion(choiceTopicKeyForQuestion(input), researchFollowUpExpectedAnswerType(input)) ?? [],
+    answerOptionsForQuestion(contextualTopicKey, researchFollowUpExpectedAnswerType(input)) ?? [],
     answerShape
   );
 }

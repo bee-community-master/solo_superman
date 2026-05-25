@@ -512,6 +512,24 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
   });
 
+  it("keeps subjective descriptive wording open even when evidence mentions options", () => {
+    const researchTask = task({
+      objective: "여러 선택 후보가 있지만 이번 질문은 주관형/서술식 답변으로 실제 고객 맥락을 설명해야 합니다."
+    });
+    const researchResult = result({
+      result: "Pro: imported notes mention solo founders, team leads, and operators as possible customer candidates.",
+      limitationNotes: "The actual user context still needs a narrative explanation."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      additionalQuestions: [expect.stringContaining("본인 말로 3~5문장으로 서술")]
+    });
+    expect(matrix.additionalQuestions[0]).not.toContain("하나 이상 선택");
+    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+  });
+
   it("turns priority-order objective wording into a ranked prompt", () => {
     const researchTask = task({
       objective: "검증 후보들의 우선순위를 정해야 하는 결정"
