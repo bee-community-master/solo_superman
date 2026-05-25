@@ -752,6 +752,7 @@ function checkContributorDocsSnippets() {
   for (const [path, text] of Object.entries(productOverviewRuntimeDocs)) {
     requireSnippets(`${path} missing opt-in live runtime readiness boundary`, text, [
       "pnpm verify:codex-live-runtime",
+      "pnpm verify:worker-job:live",
       "opt-in runtime verification",
       ...productOverviewRuntimeSnippetsByPath[path]
     ]);
@@ -934,6 +935,7 @@ function checkContributorDocsSnippets() {
     "Composite score is 85 or higher",
     "Most confidence axes are 75 or higher",
     "Core ambiguity dimensions are 75 or higher",
+    "pnpm verify:worker-job:live",
     "pnpm verify:single-session-product-loop",
     "pnpm verify:single-session-product-loop:live-web",
     "pnpm verify:readiness-to-implementation",
@@ -1064,6 +1066,7 @@ function checkProjectWikiDocsSnippets() {
     "pnpm verify:single-session-product-loop",
     "pnpm verify:single-session-product-loop:live-web",
     "pnpm verify:readiness-to-implementation",
+    "pnpm verify:worker-job:live",
     "Research mounted provider polling/import/synthesis stays connected",
     "pnpm verify:browser-delegation-pipeline",
     "pnpm verify:auto-implementation-pipeline",

@@ -26,6 +26,7 @@
       "pnpm verify:runtime-preview-turn",
       "pnpm verify:codex-live-runtime",
       "pnpm verify:worker-job",
+      "pnpm verify:worker-job:live",
       "pnpm verify:pr-mutation",
       "pnpm verify:auto-implementation-review-loop",
       "pnpm verify:single-session-product-loop:live-web",
@@ -168,6 +169,7 @@
         "pnpm verify:runtime-preview-turn",
         "pnpm verify:codex-live-runtime",
         "pnpm verify:worker-job",
+        "pnpm verify:worker-job:live",
         "pnpm verify:pr-mutation",
         "pnpm verify:auto-implementation-review-loop",
         "pnpm verify:single-session-product-loop",
@@ -179,6 +181,7 @@
       "checkedBehaviors": [
         "Runtime preview requests produce bounded preview artifacts without applying file, shell, browser, or network actions.",
         "Opt-in live runtime readiness verification reports skipped, blocked, or passed evidence without forcing opt-in live execution into the default suite.",
+        "Opt-in live worker-job verification can be invoked directly with pnpm verify:worker-job:live and reports passed or blocked evidence without entering the default suite.",
         "Worker jobs keep planned ledger docs, authority refs, sandbox boundaries, and manual recovery evidence visible.",
         "Planning-derived PR-sized issue docs are first-class in issueManagement.planningIssueDocs, a separate PR issue sequence tracker, generated tracker state, and the Implementation panel before stage delivery issues; each run can target a selected planningIssueId so prior slices show completed, the selected slice shows active, and later slices remain planned.",
         "Generated PR body includes issue document status summary, stage status summary, review/evidence gate summary, and missing-test audit summary coverage, and approved gh PR create/edit mutations pass the generated body through a temporary body-file handoff instead of an inline CLI argument.",
