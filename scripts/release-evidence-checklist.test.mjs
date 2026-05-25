@@ -13,6 +13,7 @@ import {
   filterReleaseEvidenceChecklistByIssue,
   loadReleaseEvidenceContracts,
   parseReleaseEvidenceChecklistArgs,
+  releaseLabCommandPlansForChecklist,
   readyReleaseCommandsRequiredBeforeAggregate,
   renderReleaseEvidenceChecklistMarkdown,
   renderReleaseEvidenceIssueCommentMarkdown,
@@ -124,6 +125,29 @@ describe("release evidence checklist", () => {
     expect(checklist.credentialFreeCommands).toContain("pnpm verify:packaged-update-rollback:dry-run");
     expect(checklist.credentialFreeCommands).toContain("pnpm verify:windows-installer:dry-run");
     expect(checklist.credentialFreeCommands).toContain("pnpm verify:signed-package-release:dry-run");
+    expect(releaseLabCommandPlansForChecklist(checklist)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        issueNumber: 259,
+        credentialFreeCommands: expect.arrayContaining(["pnpm verify:windows-installer:dry-run"]),
+        evidenceCommands: expect.arrayContaining(["pnpm verify:windows-real-device -- --require-device-evidence"]),
+        bundleCommands: expect.arrayContaining([
+          "pnpm verify:release-evidence-template -- --input <bundle-dir>/issue-259-template.json --issue 259"
+        ])
+      }),
+      expect.objectContaining({
+        issueNumber: 266,
+        credentialFreeCommands: expect.arrayContaining(["pnpm verify:signed-package-release:dry-run"]),
+        evidenceCommands: expect.arrayContaining([
+          "pnpm verify:signed-package-preflight -- --require-credentials",
+          "pnpm verify:signed-package-release -- --require-release-evidence"
+        ])
+      }),
+      expect.objectContaining({
+        issueNumber: 267,
+        credentialFreeCommands: expect.arrayContaining(["pnpm verify:packaged-update-rollback:dry-run"]),
+        evidenceCommands: expect.arrayContaining(["pnpm verify:packaged-update-rollback -- --require-device-evidence"])
+      })
+    ]));
     expect(checklist.checklistItems).toEqual(expect.arrayContaining([
       expect.objectContaining({ itemId: "windows-one-line-install-first-screen", gateId: "windows-real-device" }),
       expect.objectContaining({ itemId: "macos-signed-package-release", gateId: "signed-packages" }),
@@ -148,10 +172,16 @@ describe("release evidence checklist", () => {
     expect(markdown).toContain("- Filtered issue: #259");
     expect(markdown).toContain("### windows-real-device");
     expect(markdown).toContain("### windows-one-line-install-first-screen");
+    expect(markdown).toContain("## Issue-focused release-lab command plan");
+    expect(markdown).toContain("### #259 Windows real-device installer evidence");
+    expect(markdown).toContain("- [ ] `pnpm verify:windows-installer:dry-run`");
+    expect(markdown).toContain("- [ ] `pnpm verify:windows-real-device -- --require-device-evidence`");
+    expect(markdown).toContain("- [ ] `pnpm verify:release-evidence-template -- --input <bundle-dir>/issue-259-template.json --issue 259`");
     expect(markdown).toContain("- [ ] `run_administrator_powershell_one_line_installer`");
     expect(markdown).toContain("- [ ] `pnpm verify:windows-real-device -- --require-device-evidence`");
     expect(markdown).not.toContain("macos-signed-package-release");
     expect(markdown).not.toContain("windows-packaged-update-rollback");
+    expect(markdown).not.toContain("signed-package-release:dry-run");
 
     const unknownIssueChecklist = filterReleaseEvidenceChecklistByIssue(checklist, 999);
     expect(unknownIssueChecklist).toMatchObject({
@@ -185,9 +215,15 @@ describe("release evidence checklist", () => {
     expect(comment).toContain("`verification.readyReleaseResult.commandBlockers`");
     expect(comment).toContain("`verification.readyReleaseResult.perCommandBlockers`");
     expect(comment).toContain("Template readyReleaseResult");
+    expect(comment).toContain("## Issue-focused release-lab command plan");
+    expect(comment).toContain("### #267 Packaged updater rollback evidence");
+    expect(comment).toContain("`pnpm verify:packaged-update-rollback:dry-run`");
+    expect(comment).toContain("`pnpm verify:packaged-update-rollback -- --require-device-evidence`");
+    expect(comment).toContain("`pnpm verify:release-evidence-template -- --input <bundle-dir>/issue-267-template.json --issue 267`");
     expect(comment).toContain("### macos-packaged-update-rollback");
     expect(comment).toContain("### windows-packaged-update-rollback");
     expect(comment).not.toContain("macos-signed-package-release");
+    expect(comment).not.toContain("windows-installer:dry-run");
     expect(comment).not.toContain("ghp_");
   });
 

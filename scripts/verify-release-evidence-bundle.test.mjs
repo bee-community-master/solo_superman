@@ -63,11 +63,46 @@ describe("release evidence bundle verification", () => {
         })
       ])
     );
+    expect(evidence.releaseLabCommandPlans).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        issueNumber: 259,
+        credentialFreeCommands: expect.arrayContaining(["pnpm verify:windows-installer:dry-run"]),
+        evidenceCommands: expect.arrayContaining(["pnpm verify:windows-real-device -- --require-device-evidence"])
+      })
+    ]));
+    const generatedBundle = buildReleaseEvidenceBundle(buildReleaseEvidenceChecklist(await loadReleaseEvidenceContracts()));
+    expect(generatedBundle.manifest.releaseLabCommandPlans).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        issueNumber: 259,
+        credentialFreeCommands: expect.arrayContaining(["pnpm verify:windows-installer:dry-run"]),
+        evidenceCommands: expect.arrayContaining(["pnpm verify:windows-real-device -- --require-device-evidence"]),
+        bundleCommands: expect.arrayContaining([
+          "pnpm verify:release-evidence-template -- --input <bundle-dir>/issue-259-template.json --issue 259"
+        ])
+      }),
+      expect.objectContaining({
+        issueNumber: 266,
+        evidenceCommands: expect.arrayContaining([
+          "pnpm verify:signed-package-preflight -- --require-credentials",
+          "pnpm verify:signed-package-release -- --require-release-evidence"
+        ])
+      }),
+      expect.objectContaining({
+        issueNumber: 267,
+        credentialFreeCommands: expect.arrayContaining(["pnpm verify:packaged-update-rollback:dry-run"]),
+        evidenceCommands: expect.arrayContaining(["pnpm verify:packaged-update-rollback -- --require-device-evidence"])
+      })
+    ]));
+    const readme = generatedBundle.files.find((file) => file.path === "README.md")?.content ?? "";
+    expect(readme).toContain("## Release-lab command plan by issue");
+    expect(readme).toContain("### #259 Windows real-device installer evidence");
+    expect(readme).toContain("`pnpm verify:release-evidence-template -- --input <bundle-dir>/issue-259-template.json --issue 259`");
     expect(evidence.fileCount).toBeGreaterThan(0);
     expect(evidence.checked).toContain("release evidence blocker summary is carried through the bundle");
     expect(evidence.checked).toContain(
       "issue-specific evidence item summaries and compact evidenceBundle shape metadata are carried through the bundle"
     );
+    expect(evidence.checked).toContain("issue-specific release-lab command plans are carried through the bundle");
   });
 
   it("validates an on-disk generated bundle directory", async () => {
@@ -183,6 +218,32 @@ describe("release evidence bundle verification", () => {
       expect(evidence.status).toBe("blocked");
       expect(evidence.blockers).toContain(
         "$.releaseEvidenceIssueSummaries: must match the generated issue-specific release evidence item summaries"
+      );
+    } finally {
+      await rm(bundleDir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects bundle manifests that omit issue-specific release-lab command plans", async () => {
+    const contracts = await loadReleaseEvidenceContracts();
+    const checklist = buildReleaseEvidenceChecklist(contracts, { now: new Date("2026-05-24T00:00:00.000Z") });
+    const bundle = buildReleaseEvidenceBundle(checklist);
+    const bundleDir = await mkdtemp(join(tmpdir(), "solo-release-evidence-bundle-test-"));
+    try {
+      await writeBundle(bundleDir, bundle, {
+        "manifest.json": `${JSON.stringify({
+          ...bundle.manifest,
+          releaseLabCommandPlans: bundle.manifest.releaseLabCommandPlans.slice(1)
+        }, null, 2)}\n`
+      });
+
+      const evidence = await runReleaseEvidenceBundleVerification(["--bundle-dir", bundleDir], {
+        now: new Date("2026-05-24T00:00:00.000Z")
+      });
+
+      expect(evidence.status).toBe("blocked");
+      expect(evidence.blockers).toContain(
+        "$.releaseLabCommandPlans: must match the generated issue-specific release-lab command plans"
       );
     } finally {
       await rm(bundleDir, { recursive: true, force: true });
