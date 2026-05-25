@@ -351,7 +351,7 @@ export function releaseLabCommandPlansForChecklist(checklist) {
       credentialFreeCommands: commandsMatching(checklist.credentialFreeCommands, definition.credentialFreeCommandPatterns),
       evidenceCommands: commandsMatching(checklist.readyReleaseCommands, definition.evidenceCommandPatterns),
       bundleCommands: [
-        `pnpm verify:release-evidence-template -- --input issue-${definition.issueNumber}-template.json --issue ${definition.issueNumber}`,
+        `pnpm verify:release-evidence-template -- --input <bundle-dir>/issue-${definition.issueNumber}-template.json --issue ${definition.issueNumber}`,
         "pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir>",
         "pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> --require-ready",
         "pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>"

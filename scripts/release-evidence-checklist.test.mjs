@@ -131,7 +131,7 @@ describe("release evidence checklist", () => {
         credentialFreeCommands: expect.arrayContaining(["pnpm verify:windows-installer:dry-run"]),
         evidenceCommands: expect.arrayContaining(["pnpm verify:windows-real-device -- --require-device-evidence"]),
         bundleCommands: expect.arrayContaining([
-          "pnpm verify:release-evidence-template -- --input issue-259-template.json --issue 259"
+          "pnpm verify:release-evidence-template -- --input <bundle-dir>/issue-259-template.json --issue 259"
         ])
       }),
       expect.objectContaining({
@@ -176,7 +176,7 @@ describe("release evidence checklist", () => {
     expect(markdown).toContain("### #259 Windows real-device installer evidence");
     expect(markdown).toContain("- [ ] `pnpm verify:windows-installer:dry-run`");
     expect(markdown).toContain("- [ ] `pnpm verify:windows-real-device -- --require-device-evidence`");
-    expect(markdown).toContain("- [ ] `pnpm verify:release-evidence-template -- --input issue-259-template.json --issue 259`");
+    expect(markdown).toContain("- [ ] `pnpm verify:release-evidence-template -- --input <bundle-dir>/issue-259-template.json --issue 259`");
     expect(markdown).toContain("- [ ] `run_administrator_powershell_one_line_installer`");
     expect(markdown).toContain("- [ ] `pnpm verify:windows-real-device -- --require-device-evidence`");
     expect(markdown).not.toContain("macos-signed-package-release");
@@ -219,7 +219,7 @@ describe("release evidence checklist", () => {
     expect(comment).toContain("### #267 Packaged updater rollback evidence");
     expect(comment).toContain("`pnpm verify:packaged-update-rollback:dry-run`");
     expect(comment).toContain("`pnpm verify:packaged-update-rollback -- --require-device-evidence`");
-    expect(comment).toContain("`pnpm verify:release-evidence-template -- --input issue-267-template.json --issue 267`");
+    expect(comment).toContain("`pnpm verify:release-evidence-template -- --input <bundle-dir>/issue-267-template.json --issue 267`");
     expect(comment).toContain("### macos-packaged-update-rollback");
     expect(comment).toContain("### windows-packaged-update-rollback");
     expect(comment).not.toContain("macos-signed-package-release");

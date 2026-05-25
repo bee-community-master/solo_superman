@@ -77,7 +77,7 @@ describe("release evidence bundle verification", () => {
         credentialFreeCommands: expect.arrayContaining(["pnpm verify:windows-installer:dry-run"]),
         evidenceCommands: expect.arrayContaining(["pnpm verify:windows-real-device -- --require-device-evidence"]),
         bundleCommands: expect.arrayContaining([
-          "pnpm verify:release-evidence-template -- --input issue-259-template.json --issue 259"
+          "pnpm verify:release-evidence-template -- --input <bundle-dir>/issue-259-template.json --issue 259"
         ])
       }),
       expect.objectContaining({
@@ -96,7 +96,7 @@ describe("release evidence bundle verification", () => {
     const readme = generatedBundle.files.find((file) => file.path === "README.md")?.content ?? "";
     expect(readme).toContain("## Release-lab command plan by issue");
     expect(readme).toContain("### #259 Windows real-device installer evidence");
-    expect(readme).toContain("`pnpm verify:release-evidence-template -- --input issue-259-template.json --issue 259`");
+    expect(readme).toContain("`pnpm verify:release-evidence-template -- --input <bundle-dir>/issue-259-template.json --issue 259`");
     expect(evidence.fileCount).toBeGreaterThan(0);
     expect(evidence.checked).toContain("release evidence blocker summary is carried through the bundle");
     expect(evidence.checked).toContain(
