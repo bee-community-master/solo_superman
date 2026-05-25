@@ -79,6 +79,8 @@
         "apps/sidecar/src/product-engine/research-memory-markdown.ts",
         "packages/core/src/research-engine/background-research-runtime.ts",
         "packages/core/test/product-engine.test.ts",
+        "packages/core/src/research-engine/research-quality-gate.test.ts",
+        "packages/core/src/product-engine/research-follow-up-answer-flow.test.ts",
         "packages/core/src/product-engine/research-follow-up-answer-shape.test.ts",
         "apps/web/src/features/decision-queue/Phase15aOperationsPanel.tsx",
         "apps/web/src/features/decision-queue/shell/ResearchView.tsx"
@@ -95,7 +97,8 @@
         "Research review cards retain source traces and expose pro/con/uncertainty quality gates.",
         "Research-generated follow-up questions return to the Decision Queue as answerable debt.",
         "Evidence synthesis creates sourceQueueItemId-linked planned research tasks and queued research_evidence_effect wait work for research-generated follow-up questions.",
-        "Research-generated follow-up questions preserve answer-form variety: open_text narrative answers, binary_choice pro/con decisions, single_choice one-of-many choices, multi_select one-or-more selections, ranked_choice, and evidence_judgment are selected from the concrete question intent instead of forcing every answer into pro/con stance."
+        "Research-generated follow-up questions preserve answer-form variety: open_text narrative answers, binary_choice pro/con decisions, single_choice one-of-many choices, multi_select one-or-more selections, ranked_choice, and evidence_judgment are selected from the concrete question intent instead of forcing every answer into pro/con stance.",
+        "Research-generated customer follow-up questions must use evidence-derived or domain-specific candidate lists; when research has not separated enough comparable customer candidates, they ask for direct idea-fit first-customer input instead of inventing generic founder/operator choices."
       ]
     },
     {
