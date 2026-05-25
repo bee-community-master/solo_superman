@@ -1217,6 +1217,16 @@ function contextualSuggestedResearchTask(seed: AmbiguityIssueSeed, context: Onbo
   }
 
   const task = plainUserFacingDecisionQueueText(seed.suggestedResearchTask);
+  const contextText = generatedQuestionSetContextText(context);
+
+  if (seed.ambiguityRoutingPath === "current_research" || inferredAmbiguityRoutingPathForSeed(seed) === "current_research") {
+    return contextualSourceSeekingResearchText({
+      seed,
+      context,
+      target: task,
+      contextText
+    });
+  }
 
   if (context.idea && context.goal) {
     return `아이디어 “${context.idea}”와 목표 “${context.goal}” 기준으로 ${task}`;
@@ -1231,6 +1241,144 @@ function contextualSuggestedResearchTask(seed: AmbiguityIssueSeed, context: Onbo
   }
 
   return task;
+}
+
+const PET_LIFECYCLE_RESEARCH_CONTEXT_PATTERN =
+  /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b|companion\s+animal|동물병원|수의|진료\s*기록|투약|의료비|급여|사료|보험|장례|말기\s*케어|전생애|생애\s*주기)/iu;
+const HEALTHCARE_RESEARCH_CONTEXT_PATTERN =
+  /(?:건강|헬스케어|의료|병원|환자|진료|복약|약\s*관리|만성\s*질환|혈당|혈압|검진|caregiver|health\s*care|healthcare|medical|patient|clinic)/iu;
+const EDUCATION_RESEARCH_CONTEXT_PATTERN =
+  /(?:교육|학습|공부|시험|수업|과외|학생|학부모|강의|러닝|러너|edtech|learning|study|student|tutor|course|classroom)/iu;
+const FINANCE_RESEARCH_CONTEXT_PATTERN =
+  /(?:가계부|예산|지출|소비|저축|보험|대출|투자|자산|월급|생활비|카드값|현금흐름|finance|budget|expense|saving|investment|loan|insurance)/iu;
+
+function researchSourceAreaForContext(contextText: string) {
+  if (PET_LIFECYCLE_RESEARCH_CONTEXT_PATTERN.test(contextText)) {
+    return "동물병원 안내·후기, 펫보험 청구 가이드, 보호자 커뮤니티·리뷰, 장례·말기 케어 서비스 자료";
+  }
+
+  if (HEALTHCARE_RESEARCH_CONTEXT_PATTERN.test(contextText)) {
+    return "진료·복약 안내, 환자/보호자 커뮤니티, 보험·비용 자료, 기존 건강관리 앱 리뷰";
+  }
+
+  if (EDUCATION_RESEARCH_CONTEXT_PATTERN.test(contextText)) {
+    return "학습자/학부모 커뮤니티, 교육 서비스 리뷰, 시험·강의 자료, 기존 학습관리 도구 비교";
+  }
+
+  if (FINANCE_RESEARCH_CONTEXT_PATTERN.test(contextText)) {
+    return "금융 서비스 도움말·가격/수수료 자료, 사용자 리뷰, 규제/보안 안내, 대체 가계부·자산관리 앱 비교";
+  }
+
+  return "공개 사용자 후기, 커뮤니티 글, 경쟁·대체재 페이지, 가격/정책 자료, 관련 리포트";
+}
+
+function weakeningCueForSeed(seed: AmbiguityIssueSeed) {
+  switch (seed.topicKey) {
+    case "primary_customer_narrowing":
+      return "선택한 고객 후보보다 더 급한 후보가 있거나 해당 후보가 문제를 자주 겪지 않는 사례";
+    case "buyer_user_split":
+      return "돈을 내는 사람과 실제 사용자가 분리되어 인터뷰·가격·메시지가 달라지는 사례";
+    case "problem_pain_intensity":
+      return "문제가 드물거나 기존 방식으로 충분히 해결되어 시간·돈·스트레스 부담이 약한 사례";
+    case "value_prop_switching_reason":
+      return "현재 대체재를 계속 쓰는 편이 더 쉽거나 전환 비용이 큰 사례";
+    case "alternative_dissatisfaction_gap":
+      return "기존 대체재가 충분히 좋아서 새 제품 전환 이유가 약해지는 사례";
+    case "mvp_validation_scope":
+      return "첫 기능이 너무 넓거나 좁아 실제 검증 행동을 만들지 못하는 사례";
+    case "first_validation_experiment":
+      return "제품 없이 하는 실험이 실제 구매·반복 사용 신호를 만들지 못하는 사례";
+    case "success_metric_measurability":
+      return "성공 기준이 관찰 불가능하거나 좋은 반응처럼 보여도 행동 변화가 없는 사례";
+    case "evidence_balance":
+      return "핵심 주장을 반박하거나 아직 과신하면 안 된다는 다른 관점의 사례";
+    case "acquisition_channel_realism":
+      return "초기 채널 접근이 막히거나 응답률·비용 때문에 검증이 실패하는 사례";
+    case "implementation_resource_fit":
+      return "현재 시간·기술·운영 리소스로 첫 구현 범위가 감당되지 않는 사례";
+    case "founder_advantage":
+      return "창업자/팀의 유리함이 약하거나 경쟁자가 더 쉽게 풀 수 있는 사례";
+    default:
+      return "현재 가정을 약하게 만들거나 다른 범위·고객·검증 방식을 요구하는 반례";
+  }
+}
+
+function residualJudgmentCueForSeed(seed: AmbiguityIssueSeed) {
+  switch (inferredAmbiguityDimensionForSeed(seed)) {
+    case "goal":
+      return "최종 목표와 포기할 가치 판단";
+    case "scope":
+      return "이번 버전에 포함할 범위와 제외할 범위";
+    case "constraints":
+      return "시간·비용·정책·보안 제약 중 반드시 지킬 조건";
+    case "success_criteria":
+      return "완료를 판정할 관찰 가능한 성공 기준";
+    case "decision_authority":
+      return "사용자·구매자·승인자 중 누가 결정해야 하는지";
+    case "assumption_pressure":
+      return "가정이 틀렸을 때 보류하거나 방향을 바꿀 기준";
+    case "context":
+      return "기존 맥락에서 보존할 사실과 아직 추정인 부분";
+  }
+}
+
+function contextualResearchPrefix(context: OnboardingQuestionContext) {
+  if (context.idea && context.goal) {
+    return `아이디어 “${context.idea}”와 목표 “${context.goal}” 기준으로`;
+  }
+
+  if (context.idea) {
+    return `아이디어 “${context.idea}” 기준으로`;
+  }
+
+  if (context.goal) {
+    return `목표 “${context.goal}” 기준으로`;
+  }
+
+  return "현재 아이디어 기준으로";
+}
+
+function contextualSourceSeekingResearchText(input: {
+  readonly seed: AmbiguityIssueSeed;
+  readonly context: OnboardingQuestionContext;
+  readonly target: string;
+  readonly contextText: string;
+}) {
+  return [
+    `${contextualResearchPrefix(input.context)} ${researchSourceAreaForContext(input.contextText)}에서 ${input.target}에 관한 공개 단서를 찾습니다.`,
+    `${weakeningCueForSeed(input.seed)}도 함께 확인합니다.`,
+    `확인 가능한 사실과 사용자가 정해야 할 ${residualJudgmentCueForSeed(input.seed)}은 분리해서 남깁니다.`
+  ].join(" ");
+}
+
+function contextualResearchQuestionForSeed(
+  seed: AmbiguityIssueSeed,
+  context: OnboardingQuestionContext,
+  source: AmbiguityIssueSeedSource
+) {
+  if (seed.researchQuestion) {
+    return source === "generated_json"
+      ? plainUserFacingDecisionQueueText(seed.researchQuestion)
+      : contextualSourceSeekingResearchText({
+          seed,
+          context,
+          target: plainUserFacingDecisionQueueText(seed.researchQuestion),
+          contextText: generatedQuestionSetContextText(context)
+        });
+  }
+
+  if (source === "generated_json" || inferredAmbiguityRoutingPathForSeed(seed) !== "current_research") {
+    return undefined;
+  }
+
+  const target = plainUserFacingDecisionQueueText(seed.suggestedResearchTask ?? seed.summary);
+
+  return contextualSourceSeekingResearchText({
+    seed,
+    context,
+    target,
+    contextText: generatedQuestionSetContextText(context)
+  });
 }
 
 const BUSINESS_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
@@ -1760,6 +1908,7 @@ function createAmbiguityIssuesFromSeeds(input: {
   return input.seeds.map((seed, index) => {
     const businessCriticCategory = categoryForBusinessSeed(seed);
     const suggestedResearchTask = suggestedResearchTaskForSeed(seed, context, input.source);
+    const researchQuestion = contextualResearchQuestionForSeed(seed, context, input.source);
     const answerSelectionMode = seed.answerSelectionMode ?? (seed.expectedAnswerType === "rank" ? "ranked" : undefined);
     const ambiguityDimension = inferredAmbiguityDimensionForSeed(seed);
     const ambiguityRoutingPath = inferredAmbiguityRoutingPathForSeed(seed);
@@ -1796,7 +1945,7 @@ function createAmbiguityIssuesFromSeeds(input: {
       decisionItUnlocks: seed.decisionItUnlocks,
       ambiguityDimension,
       ambiguityRoutingPath,
-      ...(seed.researchQuestion ? { researchQuestion: seed.researchQuestion } : {}),
+      ...(researchQuestion ? { researchQuestion } : {}),
       ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
       repeatCount: 0,
       repeatLimit: seed.businessCriticPressureKind
