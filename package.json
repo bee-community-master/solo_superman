@@ -32,7 +32,7 @@
     "verify:signed-package-preflight": "node scripts/verify-signed-package-preflight.mjs",
     "verify:signed-package-release": "node scripts/verify-signed-package-release.mjs",
     "verify:release-readiness": "node scripts/verify-release-readiness.mjs",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs && pnpm verify:product-capability-readiness && pnpm verify:release-channel && pnpm verify:windows-real-device && pnpm verify:windows-installer:dry-run && pnpm verify:packaged-update-rollback && pnpm verify:packaged-update-rollback:dry-run && pnpm verify:signed-package-preflight && pnpm verify:signed-package-release && pnpm verify:signed-package-release:dry-run && pnpm verify:release-readiness && pnpm verify:release-evidence-template && pnpm verify:release-evidence-bundle && pnpm verify:support-bundle && pnpm verify:prod-bundle && pnpm verify:clarification-pipeline && pnpm verify:clarification-volume && pnpm verify:research-pipeline && pnpm verify:browser-delegation-pipeline && pnpm verify:service-page-pipeline && pnpm verify:production-mutation-contract && pnpm verify:auto-implementation-pipeline && pnpm verify:core-product-loop",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:docs && pnpm verify:product-capability-readiness && pnpm verify:release-channel && pnpm verify:windows-real-device && pnpm verify:windows-installer:dry-run && pnpm verify:packaged-update-rollback && pnpm verify:packaged-update-rollback:dry-run && pnpm verify:signed-package-preflight && pnpm verify:signed-package-release && pnpm verify:signed-package-release:dry-run && pnpm verify:release-readiness && pnpm verify:release-evidence-template && pnpm verify:release-evidence-bundle && pnpm verify:support-bundle && pnpm verify:prod-bundle && pnpm verify:clarification-pipeline && pnpm verify:clarification-volume && pnpm verify:research-pipeline && pnpm verify:browser-delegation-pipeline && pnpm verify:service-page-pipeline && pnpm verify:production-mutation-contract && pnpm verify:readiness-to-implementation && pnpm verify:auto-implementation-pipeline && pnpm verify:core-product-loop",
     "dev:web": "pnpm --filter @solo-superman/web dev",
     "start:local": "node scripts/start-local-web.mjs",
     "verify:research-pipeline": "tsx apps/sidecar/src/research-pipeline-smoke.ts",
@@ -54,7 +54,8 @@
     "verify:production-mutation-contract": "node scripts/verify-production-mutation-contract.mjs",
     "verify:ready-release": "node scripts/verify-ready-release.mjs",
     "verify:release-evidence-bundle": "node scripts/verify-release-evidence-bundle.mjs",
-    "verify:core-product-loop": "tsx apps/sidecar/src/core-product-loop-smoke.ts"
+    "verify:core-product-loop": "tsx apps/sidecar/src/core-product-loop-smoke.ts",
+    "verify:readiness-to-implementation": "tsx apps/sidecar/src/readiness-to-implementation-smoke.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
